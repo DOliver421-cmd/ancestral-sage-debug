@@ -1,0 +1,102 @@
+{
+  "theme": "light",
+  "archetype": "Archetype 4 (Swiss & High-Contrast) adapted for Industrial Trade School",
+  "colors": {
+    "background": "#F7F7F5",
+    "foreground": "#111827",
+    "primary": "#0B203F",
+    "primary_foreground": "#FFFFFF",
+    "secondary": "#C96A35",
+    "secondary_foreground": "#FFFFFF",
+    "accent": "#FFD100",
+    "accent_foreground": "#111827",
+    "muted": "#E5E7EB",
+    "muted_foreground": "#4B5563",
+    "border": "#D1D5DB",
+    "destructive": "#DC2626",
+    "destructive_foreground": "#FFFFFF",
+    "card": "#FFFFFF",
+    "card_foreground": "#111827"
+  },
+  "typography": {
+    "font_families": {
+      "headings": "'Cabinet Grotesk', sans-serif",
+      "body": "'IBM Plex Sans', sans-serif",
+      "mono": "'IBM Plex Mono', monospace"
+    },
+    "scale": {
+      "h1": "text-4xl sm:text-5xl lg:text-6xl tracking-tight font-extrabold",
+      "h2": "text-2xl sm:text-3xl lg:text-4xl tracking-tight font-bold",
+      "h3": "text-xl sm:text-2xl tracking-tight font-semibold",
+      "h4": "text-lg sm:text-xl font-semibold",
+      "body": "text-base leading-relaxed font-normal",
+      "small": "text-sm font-medium",
+      "overline": "text-xs uppercase tracking-[0.2em] font-bold"
+    },
+    "imports": [
+      "@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap');",
+      "@import url('https://api.fontshare.com/v2/css?f[]=cabinet-grotesk@800,500,700,400,900&display=swap');"
+    ]
+  },
+  "layout_and_spacing": {
+    "spacing_scale": "p-4, p-8, p-12 (use generous padding, min p-6 for bordered containers)",
+    "container_max_width": "max-w-7xl mx-auto",
+    "bento_grid": {
+      "marketing": "grid-cols-1 md:grid-cols-8 lg:grid-cols-12 gap-8 md:gap-12",
+      "dashboard": "grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-6"
+    },
+    "borders": "1px solid border-border (sharp edges or max rounded-sm for industrial feel)",
+    "shadows": "Hard shadows or pure flat 1px borders preferred over soft diffuse shadows to keep the 'industrial/built-to-last' feel. No glassy overlays for learning modules."
+  },
+  "components": {
+    "buttons": "Square or rounded-sm, bold uppercase text for CTAs, using 'data-testid' attributes.",
+    "cards": "Flat background, 1px subtle border, no soft shadow. On hover: slight lift (-translate-y-1) and darker border.",
+    "navigation": "Visible desktop navigation, solid background to ensure readability.",
+    "charts": "Recharts or Shadcn Charts using high-contrast, color-blind friendly palettes."
+  },
+  "motion_and_interaction": {
+    "hover_states": "Always explicit (e.g., hover:bg-primary/90 hover:text-white).",
+    "focus_states": "High contrast ring (focus:ring-2 focus:ring-accent focus:outline-none).",
+    "transitions": "transition-all duration-200 ease-in-out"
+  },
+  "media": {
+    "image_urls": [
+      {
+        "category": "hero_training",
+        "url": "https://static.prod-images.emergentagent.com/jobs/bb805589-57e1-4a69-a20a-634e662786be/images/d54fa6bbf1da1d71103863bd3913c37f5be9ce27915ab3d46073050a7ae47b90.png",
+        "description": "High quality photograph of diverse electrical apprentices working on a residential panel board, bright workshop lighting, warm and dignified tone, professional trade school"
+      },
+      {
+        "category": "lab_simulation_wiring",
+        "url": "https://static.prod-images.emergentagent.com/jobs/bb805589-57e1-4a69-a20a-634e662786be/images/400ae5d82048afd5dbdcd20dc360b9e2cb437b23f2460b0009bbb0a0f6875b7c.png",
+        "description": "Close up of hands wiring an electrical circuit board, copper wires, warm cinematic lighting, industrial trade focus"
+      },
+      {
+        "category": "certificate_preview",
+        "url": "https://static.prod-images.emergentagent.com/jobs/bb805589-57e1-4a69-a20a-634e662786be/images/8f50a2e59b62db70517e5b485f379d687b6390c27e13669862b460e3b59513a7.png",
+        "description": "Minimalist modern certificate of completion, electrical trade school, warm bone white background, copper and deep blue typography, elegant seal"
+      },
+      {
+        "category": "solar_installation",
+        "url": "https://images.pexels.com/photos/9875448/pexels-photo-9875448.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940",
+        "description": "Technician carrying solar panel on rooftop. Clean energy installation outdoors."
+      },
+      {
+        "category": "solar_training",
+        "url": "https://images.pexels.com/photos/8853504/pexels-photo-8853504.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940",
+        "description": "A technician in safety gear installs a solar panel on a rooftop"
+      }
+    ]
+  },
+  "icons_library": "lucide-react",
+  "instructions_to_main_agent": [
+    "Replace generic SaaS styles with the provided industrial 'built-to-last' theme using the provided colors in tailwind.config.js.",
+    "Implement Cabinet Grotesk for all headings and IBM Plex Sans for body text. Update index.css to import these.",
+    "Ensure ALL interactive elements (buttons, inputs, links, cards) have role-based data-testid attributes for E2E testing.",
+    "For the curriculum modules, present clear structural hierarchy. Include designated sections for scripture tie-ins, safety protocols, and video/image placeholders.",
+    "Apply 'Control Room' dense bento grid layouts for the Student, Instructor, and Admin dashboards.",
+    "Utilize the generated image assets for the landing page hero, lab module backgrounds, and certificate previews. Use `<img />` tags mapped to the categories provided in media.image_urls.",
+    "Strictly avoid 'Inter' font and overly rounded, soft UI components. Aim for slight roundness (rounded-sm) and flat colors to reinforce the trade/industrial aesthetic.",
+    "Do not use generic placeholder services like via.placeholder.com. Use the provided specific images from the media block."
+  ]
+}
