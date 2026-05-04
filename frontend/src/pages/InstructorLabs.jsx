@@ -14,7 +14,7 @@ export default function InstructorLabs() {
     api.get("/instructor/submissions").then((r) => setSubs(r.data));
     api.get("/instructor/lab-report").then((r) => setReport(r.data));
   };
-  useEffect(load, []);
+  useEffect(() => { load(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, []);
 
   const review = async (sub_id, status) => {
     try {

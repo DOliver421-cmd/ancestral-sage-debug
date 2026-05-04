@@ -16,7 +16,7 @@ export default function AdminDashboard() {
     api.get("/admin/stats").then((r) => setStats(r.data));
     api.get("/admin/users").then((r) => setUsers(r.data));
   };
-  useEffect(load, []);
+  useEffect(() => { load(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, []);
 
   const updateAssociate = async (user_id, associate) => {
     try {

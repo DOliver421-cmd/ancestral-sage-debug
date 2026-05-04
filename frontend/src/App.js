@@ -58,6 +58,8 @@ function App() {
           <Route path="/dashboard" element={<Protected><StudentDashboard /></Protected>} />
           <Route path="/instructor" element={<Protected roles={["instructor", "admin"]}><InstructorDashboard /></Protected>} />
           <Route path="/admin" element={<Protected roles={["admin"]}><AdminDashboard /></Protected>} />
+          <Route path="/admin/users" element={<Protected roles={["admin"]}><AdminDashboard /></Protected>} />
+          <Route path="/admin/associate" element={<Protected roles={["admin"]}><AdminDashboard /></Protected>} />
           <Route path="/modules" element={<Protected><ModulesList /></Protected>} />
           <Route path="/modules/:slug" element={<Protected><ModuleView /></Protected>} />
           <Route path="/lab" element={<Navigate to="/labs" replace />} />

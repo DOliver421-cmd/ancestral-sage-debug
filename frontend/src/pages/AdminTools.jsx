@@ -17,7 +17,7 @@ export default function AdminTools() {
     api.get("/admin/users").then((r) => setUsers(r.data.filter((u) => u.role === "student")));
     api.get("/admin/checkouts").then((r) => setCheckouts(r.data));
   };
-  useEffect(load, []);
+  useEffect(() => { load(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, []);
 
   return (
     <AppShell>

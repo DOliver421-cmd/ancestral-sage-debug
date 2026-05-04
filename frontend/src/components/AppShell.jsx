@@ -32,7 +32,8 @@ const instructorNav = [
 ];
 
 const adminNav = [
-  { to: "/admin", label: "Admin", icon: Settings, testid: "nav-admin" },
+  { to: "/admin", label: "Overview", icon: Settings, testid: "nav-admin" },
+  { to: "/admin/users", label: "Users", icon: Users, testid: "nav-admin-users" },
   { to: "/admin/analytics", label: "Analytics", icon: TrendingUp, testid: "nav-analytics" },
   { to: "/admin/audit", label: "Audit Log", icon: ScrollText, testid: "nav-audit" },
   { to: "/admin/tools", label: "Sites & Inventory", icon: Building2, testid: "nav-admin-tools" },
@@ -68,7 +69,9 @@ export default function AppShell({ children }) {
         </div>
         <nav className="flex-1 px-3 py-6 space-y-1">
           {items.map((i) => {
-            const active = loc.pathname.startsWith(i.to);
+            const active = i.to === "/admin"
+              ? loc.pathname === "/admin"
+              : loc.pathname === i.to || loc.pathname.startsWith(i.to + "/");
             const Icon = i.icon;
             return (
               <Link key={i.to} to={i.to} data-testid={i.testid}

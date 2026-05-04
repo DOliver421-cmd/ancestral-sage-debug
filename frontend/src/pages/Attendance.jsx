@@ -11,7 +11,7 @@ export default function Attendance() {
   const [saving, setSaving] = useState(false);
 
   const load = () => api.get("/attendance/roster").then((r) => setRoster(r.data));
-  useEffect(load, []);
+  useEffect(() => { load(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, []);
 
   const setStatus = (id, s) => setStatuses({ ...statuses, [id]: s });
 
