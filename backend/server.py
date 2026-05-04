@@ -42,10 +42,49 @@ JWT_EXPIRE_HOURS = int(os.environ.get('JWT_EXPIRE_HOURS', '168'))
 EMERGENT_LLM_KEY = os.environ.get('EMERGENT_LLM_KEY', '')
 
 pwd_ctx = CryptContext(schemes=["bcrypt"], deprecated="auto")
-app = FastAPI(title="LCE-WAI Training Platform")
+app = FastAPI(title="W.A.I. Training Platform")
 api_router = APIRouter(prefix="/api")
 logger = logging.getLogger("lcewai")
 logging.basicConfig(level=logging.INFO)
+APP_VERSION = "3.0.0"
+
+# Simple in-memory rate limit (per IP, per route) — replace with redis in true HA prod
+from collections import defaultdict as _dd
+_RATE = _dd(list)
+
+def check_rate(key: str, max_calls: int, window_sec: int):
+    now = datetime.now(timezone.utc).timestamp()
+    _RATE[key] = [t for t in _RATE[key] if now - t < window_sec]
+    if len(_RATE[key]) >= max_calls:
+        raise HTTPException(429, "Too many requests, slow down")
+    _RATE[key].append(now)
+
+
+async def audit(actor_id: Optional[str], action: str, target: Optional[str] = None, meta: Optional[dict] = None):
+    try:
+        await db.audit_log.insert_one({
+            "id": str(uuid.uuid4()),
+            "actor_id": actor_id,
+            "action": action,
+            "target": target,
+            "meta": meta or {},
+            "at": datetime.now(timezone.utc).isoformat(),
+        })
+    except Exception:
+        logger.exception("audit failed")
+
+
+async def notify(user_id: str, title: str, body: str, link: Optional[str] = None, kind: str = "info"):
+    await db.notifications.insert_one({
+        "id": str(uuid.uuid4()),
+        "user_id": user_id,
+        "title": title,
+        "body": body,
+        "link": link,
+        "kind": kind,
+        "read": False,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    })
 
 Role = Literal["student", "instructor", "admin"]
 
@@ -256,7 +295,21 @@ async def seed_sites_inventory():
 
 @api_router.get("/")
 async def root():
-    return {"app": "LCE-WAI Training Platform", "status": "ok"}
+    return {"app": "W.A.I. Training Platform", "status": "ok"}
+
+
+@api_router.get("/health")
+async def health():
+    try:
+        await client.admin.command("ping")
+        return {"status": "ok", "version": APP_VERSION, "db": "up"}
+    except Exception:
+        raise HTTPException(503, "db_down")
+
+
+@api_router.get("/version")
+async def version():
+    return {"version": APP_VERSION, "name": "W.A.I. Training Platform"}
 
 
 @api_router.post("/auth/register", response_model=TokenResp)
@@ -273,13 +326,16 @@ async def register(body: RegisterReq):
 
 @api_router.post("/auth/login", response_model=TokenResp)
 async def login(body: LoginReq):
+    check_rate(f"login:{body.email}", max_calls=10, window_sec=60)
     doc = await db.users.find_one({"email": body.email}, {"_id": 0})
     if not doc or not verify_pw(body.password, doc["password_hash"]):
+        await audit(None, "auth.login.failed", body.email)
         raise HTTPException(401, "Invalid credentials")
     if isinstance(doc.get("created_at"), str):
         doc["created_at"] = datetime.fromisoformat(doc["created_at"])
     doc.pop("password_hash", None)
     user = User(**doc)
+    await audit(user.id, "auth.login.success")
     return TokenResp(access_token=make_token(user.id, user.role), user=user)
 
 
@@ -809,6 +865,17 @@ async def review_submission(sub_id: str, body: LabReviewReq, user: User = Depend
     )
     if body.status == "approved":
         await award_credentials(sub["user_id"])
+        # notify the apprentice
+        lab = await db.labs.find_one({"slug": sub["lab_slug"]}, {"_id": 0})
+        await notify(sub["user_id"], "Lab approved",
+                     f"Your submission for '{lab['title'] if lab else sub['lab_slug']}' was approved.",
+                     link=f"/labs/{sub['lab_slug']}", kind="success")
+    elif body.status == "rejected":
+        lab = await db.labs.find_one({"slug": sub["lab_slug"]}, {"_id": 0})
+        await notify(sub["user_id"], "Lab needs revision",
+                     f"Instructor feedback on '{lab['title'] if lab else sub['lab_slug']}': {body.feedback or 'see lab page'}",
+                     link=f"/labs/{sub['lab_slug']}", kind="warning")
+    await audit(user.id, f"lab.{body.status}", target=sub_id, meta={"lab_slug": sub["lab_slug"], "student_id": sub["user_id"]})
     return {"ok": True}
 
 
@@ -911,7 +978,6 @@ async def award_credentials(user_id: str) -> list:
             {"user_id": user_id, "credential_key": cred["key"]}, {"_id": 0}
         )
         if existing:
-            # if expired, re-award (renewal); skip for MVP
             continue
         exp_months = cred.get("expires_months")
         expires_at = (now + timedelta(days=30 * exp_months)).isoformat() if exp_months else None
@@ -924,6 +990,10 @@ async def award_credentials(user_id: str) -> list:
             "status": "active",
         })
         awarded.append(cred["key"])
+        await notify(user_id, "Credential earned",
+                     f"You earned: {cred['name']}",
+                     link="/credentials", kind="success")
+        await audit(user_id, "credential.earned", target=cred["key"])
     return awarded
 
 
@@ -1500,6 +1570,258 @@ async def list_checkouts(status: Optional[str] = None, user: User = Depends(requ
         d["user"] = u_map.get(d["user_id"])
         d["item"] = i_map.get(d["sku"])
     return docs
+
+
+# -- NOTIFICATIONS --
+@api_router.get("/notifications/me")
+async def my_notifications(user: User = Depends(current_user)):
+    # Auto-create expiry warnings (30-day window) for credentials about to expire
+    now = datetime.now(timezone.utc)
+    soon = (now + timedelta(days=30)).isoformat()
+    creds = await db.user_credentials.find(
+        {"user_id": user.id, "expires_at": {"$lte": soon, "$gt": now.isoformat()}}, {"_id": 0}
+    ).to_list(50)
+    cred_map = {c["key"]: c for c in CREDENTIALS}
+    for c in creds:
+        # one warning per credential per expiry date
+        existing = await db.notifications.find_one(
+            {"user_id": user.id, "kind": "warning", "meta.credential_id": c["id"]}, {"_id": 0}
+        )
+        if not existing:
+            cred_def = cred_map.get(c["credential_key"])
+            await db.notifications.insert_one({
+                "id": str(uuid.uuid4()),
+                "user_id": user.id,
+                "title": "Credential expires soon",
+                "body": f"{cred_def['name'] if cred_def else c['credential_key']} expires {c['expires_at'][:10]}. Renew with the next compliance quiz.",
+                "link": "/credentials",
+                "kind": "warning",
+                "meta": {"credential_id": c["id"]},
+                "read": False,
+                "created_at": datetime.now(timezone.utc).isoformat(),
+            })
+    docs = await db.notifications.find({"user_id": user.id}, {"_id": 0}).sort("created_at", -1).to_list(50)
+    unread = sum(1 for d in docs if not d["read"])
+    return {"items": docs, "unread": unread}
+
+
+@api_router.post("/notifications/{nid}/read")
+async def mark_read(nid: str, user: User = Depends(current_user)):
+    await db.notifications.update_one({"id": nid, "user_id": user.id}, {"$set": {"read": True}})
+    return {"ok": True}
+
+
+@api_router.post("/notifications/read-all")
+async def mark_all_read(user: User = Depends(current_user)):
+    await db.notifications.update_many({"user_id": user.id, "read": False}, {"$set": {"read": True}})
+    return {"ok": True}
+
+
+# -- ATTENDANCE (instructor records, student views own) --
+@api_router.post("/attendance")
+async def record_attendance(payload: dict, user: User = Depends(require_role("instructor", "admin"))):
+    # payload: {date, site_slug, attendees: [{user_id, status: present|absent|tardy|excused}]}
+    if not payload.get("date") or not payload.get("attendees"):
+        raise HTTPException(400, "date and attendees required")
+    session_id = str(uuid.uuid4())
+    docs = []
+    for a in payload["attendees"]:
+        docs.append({
+            "id": str(uuid.uuid4()),
+            "session_id": session_id,
+            "user_id": a["user_id"],
+            "date": payload["date"],
+            "site_slug": payload.get("site_slug"),
+            "status": a.get("status", "present"),
+            "recorded_by": user.id,
+            "created_at": datetime.now(timezone.utc).isoformat(),
+        })
+    if docs:
+        await db.attendance.insert_many(docs)
+    await audit(user.id, "attendance.recorded", target=session_id, meta={"count": len(docs)})
+    return {"session_id": session_id, "count": len(docs)}
+
+
+@api_router.get("/attendance/me")
+async def my_attendance(user: User = Depends(current_user)):
+    docs = await db.attendance.find({"user_id": user.id}, {"_id": 0}).sort("date", -1).to_list(500)
+    summary = {"present": 0, "absent": 0, "tardy": 0, "excused": 0}
+    for d in docs:
+        if d["status"] in summary:
+            summary[d["status"]] += 1
+    total = sum(summary.values())
+    rate = round(summary["present"] / max(1, total) * 100, 1)
+    return {"records": docs, "summary": summary, "attendance_rate": rate}
+
+
+@api_router.get("/attendance/roster")
+async def attendance_roster(user: User = Depends(require_role("instructor", "admin"))):
+    q = {"role": "student"} if user.role == "admin" else {"role": "student", "associate": user.associate}
+    students = await db.users.find(q, {"_id": 0, "password_hash": 0}).to_list(1000)
+    user_ids = [s["id"] for s in students]
+    records = await db.attendance.find({"user_id": {"$in": user_ids}}, {"_id": 0}).to_list(50000)
+    by_user = {}
+    for r in records:
+        by_user.setdefault(r["user_id"], {"present": 0, "absent": 0, "tardy": 0, "excused": 0})
+        s = r["status"]
+        if s in by_user[r["user_id"]]:
+            by_user[r["user_id"]][s] += 1
+    out = []
+    for s in students:
+        stats = by_user.get(s["id"], {"present": 0, "absent": 0, "tardy": 0, "excused": 0})
+        total = sum(stats.values())
+        out.append({
+            "user_id": s["id"], "full_name": s["full_name"], "associate": s.get("associate"),
+            **stats, "total": total,
+            "rate": round(stats["present"] / max(1, total) * 100, 1),
+        })
+    return out
+
+
+# -- INCIDENT REPORTING (OSHA-style) --
+class IncidentReq(BaseModel):
+    type: Literal["near_miss", "first_aid", "injury", "property_damage", "safety_violation", "other"]
+    severity: Literal["low", "medium", "high", "critical"] = "low"
+    description: str
+    site_slug: Optional[str] = None
+    photo_url: Optional[str] = None
+    involved_user_ids: List[str] = []
+
+
+@api_router.post("/incidents")
+async def report_incident(body: IncidentReq, user: User = Depends(current_user)):
+    doc = {
+        "id": str(uuid.uuid4()),
+        "type": body.type,
+        "severity": body.severity,
+        "description": body.description,
+        "site_slug": body.site_slug,
+        "photo_url": body.photo_url,
+        "involved_user_ids": body.involved_user_ids,
+        "reported_by": user.id,
+        "status": "open",
+        "resolution": None,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+        "resolved_at": None,
+    }
+    await db.incidents.insert_one(doc)
+    await audit(user.id, "incident.reported", target=doc["id"], meta={"type": body.type, "severity": body.severity})
+    doc.pop("_id", None)
+    return doc
+
+
+@api_router.get("/incidents")
+async def list_incidents(status: Optional[str] = None, user: User = Depends(require_role("instructor", "admin"))):
+    q = {"status": status} if status else {}
+    docs = await db.incidents.find(q, {"_id": 0}).sort("created_at", -1).to_list(500)
+    user_ids = list({d["reported_by"] for d in docs} | {u for d in docs for u in d.get("involved_user_ids", [])})
+    users = await db.users.find({"id": {"$in": user_ids}}, {"_id": 0, "password_hash": 0}).to_list(1000)
+    umap = {u["id"]: u for u in users}
+    for d in docs:
+        d["reporter"] = umap.get(d["reported_by"])
+        d["involved"] = [umap.get(uid) for uid in d.get("involved_user_ids", []) if umap.get(uid)]
+    return docs
+
+
+@api_router.post("/incidents/{iid}/resolve")
+async def resolve_incident(iid: str, payload: dict, user: User = Depends(require_role("admin"))):
+    await db.incidents.update_one(
+        {"id": iid},
+        {"$set": {
+            "status": "resolved",
+            "resolution": payload.get("resolution", ""),
+            "resolved_at": datetime.now(timezone.utc).isoformat(),
+        }},
+    )
+    await audit(user.id, "incident.resolved", target=iid)
+    return {"ok": True}
+
+
+# -- AUDIT LOG (admin only) --
+@api_router.get("/admin/audit")
+async def view_audit(limit: int = 200, user: User = Depends(require_role("admin"))):
+    docs = await db.audit_log.find({}, {"_id": 0}).sort("at", -1).to_list(min(limit, 1000))
+    user_ids = list({d["actor_id"] for d in docs if d.get("actor_id")})
+    users = await db.users.find({"id": {"$in": user_ids}}, {"_id": 0, "password_hash": 0}).to_list(1000)
+    umap = {u["id"]: u for u in users}
+    for d in docs:
+        d["actor"] = umap.get(d.get("actor_id")) if d.get("actor_id") else None
+    return docs
+
+
+# -- PROGRAM ANALYTICS (admin) --
+@api_router.get("/analytics/program")
+async def program_analytics(user: User = Depends(require_role("admin"))):
+    students = await db.users.count_documents({"role": "student"})
+    instructors = await db.users.count_documents({"role": "instructor"})
+    completions = await db.progress.count_documents({"status": "completed"})
+    labs_passed = await db.lab_submissions.count_documents({"status": {"$in": ["passed", "approved"]}})
+    labs_pending = await db.lab_submissions.count_documents({"status": "pending"})
+    creds_issued = await db.user_credentials.count_documents({})
+    incidents_open = await db.incidents.count_documents({"status": "open"})
+
+    # Completions per associate group
+    pipeline_assoc = [
+        {"$match": {"role": "student"}},
+        {"$lookup": {"from": "progress", "localField": "id", "foreignField": "user_id", "as": "prog"}},
+        {"$project": {"associate": 1, "completed": {"$size": {"$filter": {"input": "$prog", "as": "p", "cond": {"$eq": ["$$p.status", "completed"]}}}}}},
+        {"$group": {"_id": "$associate", "students": {"$sum": 1}, "total_completions": {"$sum": "$completed"}}},
+    ]
+    by_associate = await db.users.aggregate(pipeline_assoc).to_list(50)
+    associates = [{"associate": d["_id"] or "Unassigned", "students": d["students"], "completions": d["total_completions"]} for d in by_associate]
+
+    # Expiring credentials (next 90 days)
+    now = datetime.now(timezone.utc)
+    soon = (now + timedelta(days=90)).isoformat()
+    expiring = await db.user_credentials.count_documents({
+        "expires_at": {"$lte": soon, "$gt": now.isoformat()}
+    })
+
+    # Top weak competencies cohort-wide
+    all_subs = await db.lab_submissions.find({"status": {"$in": ["passed", "approved"]}}, {"_id": 0}).to_list(50000)
+    all_labs = await db.labs.find({}, {"_id": 0}).to_list(200)
+    labs_by_slug = {lab["slug"]: lab for lab in all_labs}
+    cohort_comp = {c["key"]: 0 for c in COMPETENCIES}
+    for s in all_subs:
+        lab = labs_by_slug.get(s["lab_slug"])
+        if lab:
+            for k in lab.get("competencies", []):
+                if k in cohort_comp:
+                    cohort_comp[k] += lab.get("skill_points", 0)
+    weakest = sorted(cohort_comp.items(), key=lambda x: x[1])[:3]
+    weakest_named = [{"key": k, "name": next((c["name"] for c in COMPETENCIES if c["key"] == k), k), "points": v} for k, v in weakest]
+
+    # Module completion rates
+    mod_completions = []
+    for m in MODULES:
+        cnt = await db.progress.count_documents({"module_slug": m["slug"], "status": "completed"})
+        mod_completions.append({
+            "slug": m["slug"], "title": m["title"], "completions": cnt,
+            "rate": round(cnt / max(1, students) * 100, 1),
+        })
+
+    # Activity in last 30 days (audit volume as proxy)
+    thirty_ago = (now - timedelta(days=30)).isoformat()
+    active = len(set([
+        a["actor_id"] for a in await db.audit_log.find(
+            {"at": {"$gte": thirty_ago}, "action": "auth.login.success"}, {"_id": 0, "actor_id": 1}
+        ).to_list(50000) if a.get("actor_id")
+    ]))
+
+    return {
+        "totals": {
+            "students": students, "instructors": instructors,
+            "module_completions": completions, "labs_passed": labs_passed,
+            "labs_pending_review": labs_pending,
+            "credentials_issued": creds_issued,
+            "credentials_expiring_90d": expiring,
+            "open_incidents": incidents_open,
+            "active_30d": active,
+        },
+        "by_associate": associates,
+        "weakest_competencies": weakest_named,
+        "module_completion_rates": mod_completions,
+    }
 
 
 app.include_router(api_router)

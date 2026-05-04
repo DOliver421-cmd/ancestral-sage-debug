@@ -24,6 +24,10 @@ import Adaptive from "./pages/Adaptive";
 import ComplianceList from "./pages/ComplianceList";
 import ComplianceDetail from "./pages/ComplianceDetail";
 import AdminTools from "./pages/AdminTools";
+import Analytics from "./pages/Analytics";
+import AuditLog from "./pages/AuditLog";
+import Attendance from "./pages/Attendance";
+import Incidents from "./pages/Incidents";
 
 function Protected({ children, roles }) {
   const { user, loading } = useAuth();
@@ -70,6 +74,10 @@ function App() {
           <Route path="/compliance" element={<Protected><ComplianceList /></Protected>} />
           <Route path="/compliance/:slug" element={<Protected><ComplianceDetail /></Protected>} />
           <Route path="/admin/tools" element={<Protected roles={["admin"]}><AdminTools /></Protected>} />
+          <Route path="/admin/analytics" element={<Protected roles={["admin"]}><Analytics /></Protected>} />
+          <Route path="/admin/audit" element={<Protected roles={["admin"]}><AuditLog /></Protected>} />
+          <Route path="/attendance" element={<Protected roles={["instructor", "admin"]}><Attendance /></Protected>} />
+          <Route path="/incidents" element={<Protected><Incidents /></Protected>} />
         </Routes>
       </BrowserRouter>
     </AuthProvider>
