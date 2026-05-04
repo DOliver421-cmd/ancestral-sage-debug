@@ -3,8 +3,6 @@ import AppShell from "../components/AppShell";
 import { api, BACKEND_URL, getToken } from "../lib/api";
 import { Award, Download } from "lucide-react";
 
-const CERT_IMG = "https://static.prod-images.emergentagent.com/jobs/bb805589-57e1-4a69-a20a-634e662786be/images/8f50a2e59b62db70517e5b485f379d687b6390c27e13669862b460e3b59513a7.png";
-
 export default function Certificates() {
   const [certs, setCerts] = useState([]);
   useEffect(() => { api.get("/certificates/me").then((r) => setCerts(r.data)); }, []);
@@ -26,10 +24,13 @@ export default function Certificates() {
         ) : (
           <div className="grid md:grid-cols-2 gap-5 mt-10">
             {certs.map((c) => (
-              <div key={c.module_slug} className={`card-flat p-0 overflow-hidden ${c.module_slug === "program" ? "border-copper border-2" : ""}`} data-testid={`cert-${c.module_slug}`}>
-                <div className="relative h-40 bg-ink overflow-hidden">
-                  <img src={CERT_IMG} alt="" className="w-full h-full object-cover opacity-60" />
-                  <div className="absolute inset-0 bg-gradient-to-t from-ink/90 to-ink/20" />
+            <div key={c.module_slug} className={`card-flat p-0 overflow-hidden ${c.module_slug === "program" ? "border-copper border-2" : ""}`} data-testid={`cert-${c.module_slug}`}>
+                <div className="relative h-40 bg-ink overflow-hidden flex items-center justify-center">
+                  <div className="absolute inset-0 grid-paper opacity-20" />
+                  <div className="relative text-center">
+                    <Award className="w-12 h-12 text-signal mx-auto" strokeWidth={1.5} />
+                    <div className="overline text-signal mt-3">LCE-WAI · Certified</div>
+                  </div>
                   {c.module_slug === "program" && <span className="absolute top-3 left-3 badge-signal">Capstone</span>}
                 </div>
                 <div className="p-6">

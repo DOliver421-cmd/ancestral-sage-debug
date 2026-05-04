@@ -510,7 +510,7 @@ async def cert_pdf(slug: str, token: str):
 
 # -- LAB MODELS --
 class LabSubmitReq(BaseModel):
-    lab_slug: str
+    lab_slug: Optional[str] = None
     answers: Optional[dict] = None
     photo_url: Optional[str] = None
     notes: Optional[str] = None
