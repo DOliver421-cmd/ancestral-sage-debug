@@ -122,7 +122,19 @@ async def notify(user_id: str, title: str, body: str, link: Optional[str] = None
         "created_at": datetime.now(timezone.utc).isoformat(),
     })
 
-Role = Literal["student", "instructor", "admin"]
+Role = Literal["student", "instructor", "admin", "executive_admin"]
+
+# Role hierarchy (higher number = more authority).
+# executive_admin > admin > instructor > student.
+# Used by require_role() for permission checks and by admin endpoints to
+# enforce "you cannot modify a more privileged user".
+ROLE_RANK = {"student": 1, "instructor": 2, "admin": 3, "executive_admin": 4}
+
+# The single hardcoded executive admin email. Auto-promoted to executive_admin
+# on every backend startup; if the account does not exist it is created with
+# the seed password EXEC_DEFAULT_PASSWORD (rotate immediately on first login).
+EXEC_ADMIN_EMAIL = "youpickeddoliver@gmail.com"
+EXEC_DEFAULT_PASSWORD = "Executive@LCE2026"
 
 
 class User(BaseModel):
@@ -265,11 +277,28 @@ async def current_user(authorization: Optional[str] = Header(None)) -> User:
 
 
 def require_role(*roles):
+    """Authorize the current user against a hierarchy.
+
+    Pass if the user's role rank is >= the LOWEST rank among the requested
+    roles. This preserves backward compatibility (existing
+    `require_role("admin")` calls keep working exactly the same — admins still
+    pass) AND adds god-mode for executive_admin (passes every check).
+    """
+    needed_rank = min(ROLE_RANK[r] for r in roles)
     async def dep(user: User = Depends(current_user)) -> User:
-        if user.role not in roles:
+        if ROLE_RANK.get(user.role, 0) < needed_rank:
             raise HTTPException(403, f"Requires role: {roles}")
         return user
     return dep
+
+
+def can_modify(actor: User, target_role: str) -> bool:
+    """Returns True iff `actor` is allowed to modify a user whose role is
+    `target_role`. Admins cannot touch executive_admin accounts; only an
+    executive_admin can modify another executive_admin."""
+    actor_rank = ROLE_RANK.get(actor.role, 0)
+    target_rank = ROLE_RANK.get(target_role, 0)
+    return actor_rank >= target_rank
 
 
 async def seed_modules():
@@ -308,9 +337,37 @@ async def seed_users():
                 "full_name": name,
                 "role": role,
                 "associate": associate,
+                "is_active": True,
                 "created_at": datetime.now(timezone.utc).isoformat(),
                 "password_hash": hash_pw(pw),
             })
+
+    # ----- EXECUTIVE ADMIN bootstrap -----
+    # Hardcoded executive admin email. On every startup:
+    #   * if the account exists with any other role → upgrade to executive_admin
+    #   * if it does not exist → create it with the seed password (which the
+    #     admin should rotate immediately on first login)
+    # This guarantees the operator always has a way back into the system.
+    existing_exec = await db.users.find_one({"email": EXEC_ADMIN_EMAIL}, {"_id": 0})
+    if existing_exec:
+        if existing_exec.get("role") != "executive_admin" or existing_exec.get("is_active") is False:
+            await db.users.update_one(
+                {"email": EXEC_ADMIN_EMAIL},
+                {"$set": {"role": "executive_admin", "is_active": True}},
+            )
+            logger.info("Upgraded %s to executive_admin", EXEC_ADMIN_EMAIL)
+    else:
+        await db.users.insert_one({
+            "id": str(uuid.uuid4()),
+            "email": EXEC_ADMIN_EMAIL,
+            "full_name": "Executive Admin",
+            "role": "executive_admin",
+            "associate": None,
+            "is_active": True,
+            "created_at": datetime.now(timezone.utc).isoformat(),
+            "password_hash": hash_pw(EXEC_DEFAULT_PASSWORD),
+        })
+        logger.info("Created executive_admin account: %s", EXEC_ADMIN_EMAIL)
 
 
 async def seed_labs():
@@ -551,7 +608,10 @@ async def assign_associate(payload: dict, user: User = Depends(require_role("adm
 
 @api_router.post("/admin/users")
 async def admin_create_user(body: AdminCreateUserReq, user: User = Depends(require_role("admin"))):
-    """Admin-only: create a user with any role (including admin/instructor)."""
+    """Admin-only: create a user with any role (including admin/instructor).
+    Only executive_admins may create another executive_admin."""
+    if body.role == "executive_admin" and user.role != "executive_admin":
+        raise HTTPException(403, "Only executive_admin can create another executive_admin.")
     if await db.users.find_one({"email": body.email}):
         raise HTTPException(400, "Email already registered")
     new_user = User(email=body.email, full_name=body.full_name, role=body.role, associate=body.associate)
@@ -566,12 +626,18 @@ async def admin_create_user(body: AdminCreateUserReq, user: User = Depends(requi
 
 @api_router.patch("/admin/users/{uid}/role")
 async def admin_change_role(uid: str, body: AdminRoleReq, user: User = Depends(require_role("admin"))):
-    """Admin-only: promote/demote a user."""
-    if uid == user.id and body.role != "admin":
-        raise HTTPException(400, "Refusing to demote yourself — ask another admin.")
+    """Admin-only: promote/demote a user.
+    Hierarchy guard: an admin cannot promote anyone TO executive_admin and
+    cannot modify an existing executive_admin. Only executive_admin can."""
+    if uid == user.id and ROLE_RANK.get(body.role, 0) < ROLE_RANK.get(user.role, 0):
+        raise HTTPException(400, "Refusing to demote yourself — ask a higher-privileged admin.")
     target = await db.users.find_one({"id": uid}, {"_id": 0})
     if not target:
         raise HTTPException(404, "User not found")
+    if not can_modify(user, target.get("role", "")):
+        raise HTTPException(403, "You don't have permission to modify this user.")
+    if body.role == "executive_admin" and user.role != "executive_admin":
+        raise HTTPException(403, "Only executive_admin can grant the executive_admin role.")
     await db.users.update_one({"id": uid}, {"$set": {"role": body.role}})
     await audit(user.id, "admin.user.role_changed", target=uid,
                 meta={"from": target.get("role"), "to": body.role})
@@ -584,6 +650,8 @@ async def admin_edit_user(uid: str, body: AdminEditUserReq, user: User = Depends
     target = await db.users.find_one({"id": uid}, {"_id": 0})
     if not target:
         raise HTTPException(404, "User not found")
+    if not can_modify(user, target.get("role", "")):
+        raise HTTPException(403, "You don't have permission to modify this user.")
     update = {}
     if body.full_name is not None and body.full_name.strip():
         update["full_name"] = body.full_name.strip()
@@ -609,11 +677,21 @@ async def admin_set_active(uid: str, body: AdminActiveReq, user: User = Depends(
     target = await db.users.find_one({"id": uid}, {"_id": 0})
     if not target:
         raise HTTPException(404, "User not found")
-    # Last-active-admin guard
-    if target.get("role") == "admin" and not body.is_active:
-        active_admins = await db.users.count_documents({"role": "admin", "is_active": {"$ne": False}})
-        if active_admins <= 1:
-            raise HTTPException(400, "Cannot deactivate the last active admin.")
+    if not can_modify(user, target.get("role", "")):
+        raise HTTPException(403, "You don't have permission to modify this user.")
+    # Last-active-admin guard (admin OR executive_admin counts as "admin-class")
+    if target.get("role") in ("admin", "executive_admin") and not body.is_active:
+        active_admin_class = await db.users.count_documents({
+            "role": {"$in": ["admin", "executive_admin"]},
+            "is_active": {"$ne": False},
+        })
+        if active_admin_class <= 1:
+            raise HTTPException(400, "Cannot deactivate the last active admin-class user.")
+    # Last-executive guard
+    if target.get("role") == "executive_admin" and not body.is_active:
+        active_execs = await db.users.count_documents({"role": "executive_admin", "is_active": {"$ne": False}})
+        if active_execs <= 1:
+            raise HTTPException(400, "Cannot deactivate the last active executive_admin.")
     await db.users.update_one({"id": uid}, {"$set": {"is_active": body.is_active}})
     await audit(user.id, "admin.user.active_changed", target=uid,
                 meta={"is_active": body.is_active})
@@ -622,17 +700,23 @@ async def admin_set_active(uid: str, body: AdminActiveReq, user: User = Depends(
 
 @api_router.delete("/admin/users/{uid}")
 async def admin_delete_user(uid: str, user: User = Depends(require_role("admin"))):
-    """Admin-only: delete a user. Refuses self-delete."""
+    """Admin-only: delete a user. Refuses self-delete and last-admin/exec delete."""
     if uid == user.id:
         raise HTTPException(400, "Refusing to delete yourself.")
     target = await db.users.find_one({"id": uid}, {"_id": 0, "password_hash": 0})
     if not target:
         raise HTTPException(404, "User not found")
-    # Last-admin guard
-    if target.get("role") == "admin":
-        admin_count = await db.users.count_documents({"role": "admin"})
-        if admin_count <= 1:
-            raise HTTPException(400, "Cannot delete the last admin.")
+    if not can_modify(user, target.get("role", "")):
+        raise HTTPException(403, "You don't have permission to modify this user.")
+    # Last-admin-class guard
+    if target.get("role") in ("admin", "executive_admin"):
+        admin_class = await db.users.count_documents({"role": {"$in": ["admin", "executive_admin"]}})
+        if admin_class <= 1:
+            raise HTTPException(400, "Cannot delete the last admin-class user.")
+    if target.get("role") == "executive_admin":
+        execs = await db.users.count_documents({"role": "executive_admin"})
+        if execs <= 1:
+            raise HTTPException(400, "Cannot delete the last executive_admin.")
     await db.users.delete_one({"id": uid})
     await audit(user.id, "admin.user.deleted", target=uid,
                 meta={"email": target.get("email"), "role": target.get("role")})
@@ -642,15 +726,43 @@ async def admin_delete_user(uid: str, user: User = Depends(require_role("admin")
 @api_router.post("/admin/users/{uid}/password")
 async def admin_reset_password(uid: str, body: AdminResetPasswordReq,
                                user: User = Depends(require_role("admin"))):
-    """Admin-only: reset another user's password."""
+    """Admin-only: reset another user's password.
+    An admin cannot reset an executive_admin's password; only an
+    executive_admin can do that."""
     if len(body.new_password) < 6:
         raise HTTPException(400, "Password must be at least 6 characters")
     target = await db.users.find_one({"id": uid}, {"_id": 0})
     if not target:
         raise HTTPException(404, "User not found")
+    if not can_modify(user, target.get("role", "")):
+        raise HTTPException(403, "You don't have permission to reset this user's password.")
     await db.users.update_one({"id": uid}, {"$set": {"password_hash": hash_pw(body.new_password)}})
     await audit(user.id, "admin.user.password_reset", target=uid)
     return {"ok": True}
+
+
+@api_router.get("/exec/system")
+async def exec_system_info(user: User = Depends(require_role("executive_admin"))):
+    """Executive-only: high-level system info for system admins.
+    Distinct from admin /admin/stats — this exposes role-distribution and
+    recent privileged-action counts for governance review."""
+    role_counts = {}
+    cursor = db.users.aggregate([{"$group": {"_id": "$role", "n": {"$sum": 1}}}])
+    async for row in cursor:
+        role_counts[row["_id"] or "unknown"] = row["n"]
+    recent_audit = await db.audit_log.count_documents({})
+    db_collections = await db.list_collection_names()
+    return {
+        "version": APP_VERSION,
+        "role_counts": role_counts,
+        "audit_log_total": recent_audit,
+        "collections": sorted(db_collections),
+        "env": {
+            "db_name": os.environ.get("DB_NAME", ""),
+            "jwt_expire_hours": int(os.environ.get("JWT_EXPIRE_HOURS", 168)),
+            "cors_origins": os.environ.get("CORS_ORIGINS", "*"),
+        },
+    }
 
 
 @api_router.post("/auth/change-password")

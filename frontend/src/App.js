@@ -28,12 +28,22 @@ import AuditLog from "./pages/AuditLog";
 import Attendance from "./pages/Attendance";
 import Incidents from "./pages/Incidents";
 import Settings from "./pages/Settings";
+import ExecSystem from "./pages/ExecSystem";
+
+// Role hierarchy must mirror backend ROLE_RANK in /app/backend/server.py.
+// Higher rank = more authority; a higher-rank role passes any check meant
+// for a lower-rank role (executive_admin passes every check).
+const ROLE_RANK = { student: 1, instructor: 2, admin: 3, executive_admin: 4 };
 
 function Protected({ children, roles }) {
   const { user, loading } = useAuth();
   if (loading) return <div className="p-12 text-ink font-heading">Loading…</div>;
   if (!user) return <Navigate to="/login" replace />;
-  if (roles && !roles.includes(user.role)) return <Navigate to="/dashboard" replace />;
+  if (roles && roles.length > 0) {
+    const needed = Math.min(...roles.map((r) => ROLE_RANK[r] ?? 99));
+    const have = ROLE_RANK[user.role] ?? 0;
+    if (have < needed) return <Navigate to="/dashboard" replace />;
+  }
   return children;
 }
 
@@ -41,7 +51,8 @@ function Home() {
   const { user, loading } = useAuth();
   if (loading) return null;
   if (!user) return <Landing />;
-  if (user.role === "admin") return <Navigate to="/admin" replace />;
+  // executive_admin and admin both land on the admin overview
+  if (user.role === "admin" || user.role === "executive_admin") return <Navigate to="/admin" replace />;
   if (user.role === "instructor") return <Navigate to="/instructor" replace />;
   return <Navigate to="/dashboard" replace />;
 }
@@ -81,6 +92,7 @@ function App() {
           <Route path="/attendance" element={<Protected roles={["instructor", "admin"]}><Attendance /></Protected>} />
           <Route path="/incidents" element={<Protected><Incidents /></Protected>} />
           <Route path="/settings" element={<Protected><Settings /></Protected>} />
+          <Route path="/admin/system" element={<Protected roles={["executive_admin"]}><ExecSystem /></Protected>} />
         </Routes>
       </BrowserRouter>
     </AuthProvider>

@@ -4,7 +4,7 @@ import { api } from "../lib/api";
 import { toast } from "sonner";
 import { Users, GraduationCap, BookOpen, Award, Download, UserPlus, Trash2, KeyRound, ShieldCheck, Pencil, Lock, Unlock } from "lucide-react";
 
-const ROLES = ["student", "instructor", "admin"];
+const ROLES = ["student", "instructor", "admin", "executive_admin"];
 
 export default function AdminDashboard() {
   const [stats, setStats] = useState(null);
@@ -179,9 +179,9 @@ export default function AdminDashboard() {
                   </Td>
                   <Td>
                     <select value={u.role} onChange={(e) => changeRole(u.id, e.target.value)}
-                      className={`px-2 py-1 text-xs font-bold uppercase border ${u.role === "admin" ? "bg-ink text-white border-ink" : u.role === "instructor" ? "bg-copper text-white border-copper" : "bg-white text-ink border-ink/20"}`}
+                      className={`px-2 py-1 text-xs font-bold uppercase border ${u.role === "executive_admin" ? "bg-signal text-ink border-signal" : u.role === "admin" ? "bg-ink text-white border-ink" : u.role === "instructor" ? "bg-copper text-white border-copper" : "bg-white text-ink border-ink/20"}`}
                       data-testid={`role-select-${u.id}`}>
-                      {ROLES.map((r) => <option key={r} value={r}>{r}</option>)}
+                      {ROLES.map((r) => <option key={r} value={r}>{r.replace("_", " ")}</option>)}
                     </select>
                   </Td>
                   <Td>

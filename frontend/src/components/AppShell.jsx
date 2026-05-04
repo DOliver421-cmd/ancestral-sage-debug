@@ -1,7 +1,7 @@
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../lib/auth";
 import { WAI_LOGO, BRAND } from "../lib/brand";
-import { LayoutDashboard, BookOpen, Award, Users, Settings, Sparkles, LogOut, FlaskConical, Target, ClipboardCheck, Briefcase, BadgeCheck, Brain, ShieldCheck, Building2, TrendingUp, ScrollText, Calendar, ShieldAlert, KeyRound } from "lucide-react";
+import { LayoutDashboard, BookOpen, Award, Users, Settings, Sparkles, LogOut, FlaskConical, Target, ClipboardCheck, Briefcase, BadgeCheck, Brain, ShieldCheck, Building2, TrendingUp, ScrollText, Calendar, ShieldAlert, KeyRound, Crown } from "lucide-react";
 import NotificationBell from "./NotificationBell";
 
 const studentNav = [
@@ -47,12 +47,22 @@ const adminNav = [
   { to: "/settings", label: "Settings", icon: KeyRound, testid: "nav-settings" },
 ];
 
+// Executive admin = admin nav + a top-row "System" link to the exec-only page.
+const execAdminNav = [
+  { to: "/admin/system", label: "System", icon: Crown, testid: "nav-exec-system" },
+  ...adminNav,
+];
+
 export default function AppShell({ children }) {
   const { user, logout } = useAuth();
   const loc = useLocation();
   const nav = useNavigate();
 
-  const items = user?.role === "admin" ? adminNav : user?.role === "instructor" ? instructorNav : studentNav;
+  const items = user?.role === "executive_admin" ? execAdminNav
+    : user?.role === "admin" ? adminNav
+    : user?.role === "instructor" ? instructorNav
+    : studentNav;
+  const isExec = user?.role === "executive_admin";
 
   return (
     <div className="min-h-screen flex bg-bone">
@@ -84,8 +94,11 @@ export default function AppShell({ children }) {
         </nav>
         <div className="px-4 py-5 border-t border-white/10">
           <div className="text-xs text-white/50 uppercase tracking-widest">Signed in as</div>
-          <div className="font-heading text-white font-semibold mt-1 truncate">{user?.full_name}</div>
-          <div className="text-xs text-white/50 capitalize">{user?.role} {user?.associate ? `• ${user.associate}` : ""}</div>
+          <div className="font-heading text-white font-semibold mt-1 truncate flex items-center gap-2">
+            {user?.full_name}
+            {isExec && <span className="bg-signal text-ink text-[9px] font-black px-1.5 py-0.5" title="Executive Admin" data-testid="exec-badge">EXEC</span>}
+          </div>
+          <div className="text-xs text-white/50 capitalize">{(user?.role || "").replace("_", " ")} {user?.associate ? `• ${user.associate}` : ""}</div>
           <button onClick={() => { logout(); nav("/"); }} data-testid="btn-logout"
             className="mt-4 w-full flex items-center justify-center gap-2 border border-white/20 py-2 text-xs uppercase tracking-widest font-bold hover:bg-white hover:text-ink transition-colors">
             <LogOut className="w-3.5 h-3.5" /> Log Out
