@@ -20,6 +20,14 @@ User-added follow-up scope:
 - Seed on startup: 12 modules, 9 online labs, 12 in-person labs, 8 competencies, 3 demo users
 
 ## Implemented (Feb 2026)
+### Iteration 4 — Enterprise Hardening (May 2026)
+- **Audit Log** — `audit_log` collection + `/api/admin/audit` + `/admin/audit` page. Every privileged action (login success/failed, lab review, credential earned, attendance recorded, incident reported/resolved) is auto-logged.
+- **In-app Notifications** — `notifications` collection + bell icon in sidebar + auto-creation on lab approval, lab rejection, credential earned, and credential expiring within 30 days. `/api/notifications/me`, mark-read, mark-all-read.
+- **Program Analytics Dashboard** — `/api/analytics/program` + `/admin/analytics`. Cohort totals, by-associate breakdown, weakest competencies, module completion rates, expiring credentials, open incidents, 30-day actives.
+- **Attendance Tracking** — `/api/attendance` + `/attendance` instructor page. Date picker, present/absent/tardy/excused per student, validates user_ids against student roster.
+- **Incident Reporting** — `/api/incidents` + `/incidents` page. Type/severity/description/photo/site, audit-logged, admin can resolve.
+- **Health/Version + Login rate limit** — `/api/health` (db ping), `/api/version`, `check_rate()` per-email 10/60s on login.
+
 ### Iteration 3 — PWA + Adaptive + Compliance + Admin Tools + AI Modes (May 2026)
 - **PWA installable** — `/manifest.json` (W.A.I. icons, theme #0B203F, display:standalone), service worker at `/sw.js` (cache-first static, network-only API), index.html meta tags + apple-touch-icon, sw registered in index.js. Installable on Android (Chrome → Add to Home screen) and Desktop (install icon in URL bar).
 - **Adaptive Learning Engine** at `/adaptive` and `/api/adaptive/me`: skill heatmap across 8 competencies (hot/warm/cold), top 3 weak areas, 4 lab/module/AI recommendations, prerequisite-locked labs (battery-inverter requires solar-charge-controller; loto-real-equipment requires loto-scenario).

@@ -1620,12 +1620,16 @@ async def mark_all_read(user: User = Depends(current_user)):
 # -- ATTENDANCE (instructor records, student views own) --
 @api_router.post("/attendance")
 async def record_attendance(payload: dict, user: User = Depends(require_role("instructor", "admin"))):
-    # payload: {date, site_slug, attendees: [{user_id, status: present|absent|tardy|excused}]}
     if not payload.get("date") or not payload.get("attendees"):
         raise HTTPException(400, "date and attendees required")
+    incoming_ids = [a["user_id"] for a in payload["attendees"] if a.get("user_id")]
+    valid = await db.users.find({"id": {"$in": incoming_ids}, "role": "student"}, {"_id": 0, "id": 1}).to_list(1000)
+    valid_ids = {v["id"] for v in valid}
     session_id = str(uuid.uuid4())
     docs = []
     for a in payload["attendees"]:
+        if a.get("user_id") not in valid_ids:
+            continue
         docs.append({
             "id": str(uuid.uuid4()),
             "session_id": session_id,
@@ -1639,7 +1643,7 @@ async def record_attendance(payload: dict, user: User = Depends(require_role("in
     if docs:
         await db.attendance.insert_many(docs)
     await audit(user.id, "attendance.recorded", target=session_id, meta={"count": len(docs)})
-    return {"session_id": session_id, "count": len(docs)}
+    return {"session_id": session_id, "count": len(docs), "skipped": len(payload["attendees"]) - len(docs)}
 
 
 @api_router.get("/attendance/me")
@@ -1725,11 +1729,14 @@ async def list_incidents(status: Optional[str] = None, user: User = Depends(requ
 
 @api_router.post("/incidents/{iid}/resolve")
 async def resolve_incident(iid: str, payload: dict, user: User = Depends(require_role("admin"))):
+    resolution = (payload.get("resolution") or "").strip()
+    if not resolution:
+        raise HTTPException(400, "resolution required")
     await db.incidents.update_one(
         {"id": iid},
         {"$set": {
             "status": "resolved",
-            "resolution": payload.get("resolution", ""),
+            "resolution": resolution,
             "resolved_at": datetime.now(timezone.utc).isoformat(),
         }},
     )
