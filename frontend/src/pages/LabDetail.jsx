@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import AppShell from "../components/AppShell";
+import { LoadingState } from "../components/LoadingState";
 import { api } from "../lib/api";
 import { useParams, Link } from "react-router-dom";
 import { toast } from "sonner";
@@ -34,7 +35,7 @@ export default function LabDetail() {
     } catch { toast.error("Submission failed"); }
   };
 
-  if (!lab) return <AppShell><div className="p-10">Loading…</div></AppShell>;
+  if (!lab) return <LoadingState label="Lab" />;
   const sub = lab.my_submission;
   const SimComp = lab.track === "online" ? Simulators[lab.simulator_type] : null;
 

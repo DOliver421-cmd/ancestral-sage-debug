@@ -24,7 +24,11 @@ export default function PublicPortfolio() {
       </div>
     </div>
   );
-  if (!data) return <div className="min-h-screen bg-bone flex items-center justify-center">Loading…</div>;
+  if (!data) return (
+    <div className="min-h-screen bg-bone flex items-center justify-center" data-testid="loading-state" role="status">
+      <div className="overline text-copper animate-pulse">Loading portfolio…</div>
+    </div>
+  );
 
   return (
     <div className="min-h-screen bg-bone">

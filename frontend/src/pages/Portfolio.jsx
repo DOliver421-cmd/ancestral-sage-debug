@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import AppShell from "../components/AppShell";
+import { LoadingState } from "../components/LoadingState";
 import { api, BACKEND_URL, getToken } from "../lib/api";
 import { toast } from "sonner";
 import PortfolioBody from "../components/PortfolioBody";
@@ -24,7 +25,7 @@ export default function Portfolio() {
     setPublishing(false);
   };
 
-  if (!data) return <AppShell><div className="p-10">Loading…</div></AppShell>;
+  if (!data) return <LoadingState label="Portfolio" />;
   const shareUrl = data.share_slug ? `${window.location.origin}/p/${data.share_slug}` : null;
 
   return (

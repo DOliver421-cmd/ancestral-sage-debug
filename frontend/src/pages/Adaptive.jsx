@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import AppShell from "../components/AppShell";
+import { LoadingState } from "../components/LoadingState";
 import { api } from "../lib/api";
 import { Brain, ArrowRight, Lock, Sparkles, Flame, Snowflake, Sun } from "lucide-react";
 
@@ -10,7 +11,7 @@ const LEVEL_ICON = { hot: Flame, warm: Sun, cold: Snowflake };
 export default function Adaptive() {
   const [data, setData] = useState(null);
   useEffect(() => { api.get("/adaptive/me").then((r) => setData(r.data)); }, []);
-  if (!data) return <AppShell><div className="p-10">Loading…</div></AppShell>;
+  if (!data) return <LoadingState label="Personalized Path" />;
 
   const heatmapEntries = Object.entries(data.heatmap);
 

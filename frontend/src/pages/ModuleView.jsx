@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import AppShell from "../components/AppShell";
+import { LoadingState } from "../components/LoadingState";
 import { api } from "../lib/api";
 import { toast } from "sonner";
 import { BookOpen, ShieldAlert, Wrench, CheckSquare, FileImage, Sparkles, ArrowLeft } from "lucide-react";
@@ -34,7 +35,7 @@ export default function ModuleView() {
     }
   };
 
-  if (!mod) return <AppShell><div className="p-10">Loading…</div></AppShell>;
+  if (!mod) return <LoadingState label="Module" />;
 
   return (
     <AppShell>

@@ -1,6 +1,34 @@
-"""LCE-WAI training platform backend.
+"""LCE-WAI training platform — FastAPI backend.
 
-FastAPI + MongoDB + JWT auth + Claude Sonnet 4.5 AI tutor + PDF certificates.
+ROUTE MAP (see `api_router` definitions below; all paths are prefixed `/api`):
+
+  AUTH           /auth/{login,register,me,change-password}
+  ADMIN: USERS   /admin/users (GET/POST), /admin/users/{id} (PATCH/DELETE),
+                 /admin/users/{id}/role (PATCH), /admin/users/{id}/active (PATCH),
+                 /admin/users/{id}/password (POST), /admin/associate (POST)
+  ADMIN: CORE    /admin/{stats,sites,inventory,checkout,checkouts,audit}
+  CURRICULUM     /modules*, /progress*
+  LABS           /labs*, /competencies, /instructor/*
+  AI             /ai/{chat,history}
+  CREDENTIALS    /credentials*, /portfolio*
+  COMPLIANCE     /compliance*
+  ADAPTIVE       /adaptive/me
+  NOTIFICATIONS  /notifications*
+  ATTENDANCE     /attendance*
+  INCIDENTS      /incidents*
+  ANALYTICS      /analytics/program
+  SYSTEM         /, /health, /version, /docs, /openapi.json
+
+DESIGN DECISIONS:
+- Single uuid `id` field on every doc + Mongo `_id`. We always project `_id`
+  away from responses; new endpoints must `doc.pop("_id", None)` before
+  returning.
+- JWT auth (HS256). Tokens valid for JWT_EXPIRE_HOURS env hours.
+- `current_user` rejects deactivated accounts even with valid JWTs.
+- Public registration always creates `role=student`. Higher privileges are
+  created only by an authenticated admin via `POST /api/admin/users`.
+- Every privileged action emits an audit-log row via `audit(...)`.
+- Indexes are declared idempotently on startup in `ensure_indexes()`.
 """
 import io
 import logging
@@ -380,6 +408,9 @@ async def version():
 
 @api_router.post("/auth/register", response_model=TokenResp)
 async def register(body: RegisterReq):
+    # Anti-spam: max 5 registrations per email-prefix per minute (very generous,
+    # but stops the trivial "for i in range(10000): register" attack).
+    check_rate(f"register:{body.email}", max_calls=5, window_sec=60)
     if await db.users.find_one({"email": body.email}):
         raise HTTPException(400, "Email already registered")
     # Public self-registration is always a student. Higher-privilege accounts

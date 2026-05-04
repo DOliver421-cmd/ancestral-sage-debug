@@ -1,12 +1,13 @@
 import { useEffect, useState } from "react";
 import AppShell from "../components/AppShell";
+import { LoadingState } from "../components/LoadingState";
 import { api } from "../lib/api";
 import { Target } from "lucide-react";
 
 export default function Competencies() {
   const [data, setData] = useState(null);
   useEffect(() => { api.get("/competencies").then((r) => setData(r.data)); }, []);
-  if (!data) return <AppShell><div className="p-10">Loading…</div></AppShell>;
+  if (!data) return <LoadingState label="Competencies" />;
 
   const maxPoints = Math.max(100, ...Object.values(data.progress).map((p) => p.points));
 

@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import AppShell from "../components/AppShell";
+import { LoadingState } from "../components/LoadingState";
 import { api, BACKEND_URL } from "../lib/api";
 import { BadgeCheck, Shield, Award, Star, Download, ExternalLink, Clock } from "lucide-react";
 
@@ -16,7 +17,7 @@ export default function Credentials() {
   const [tab, setTab] = useState("earned");
   useEffect(() => { api.get("/credentials/me").then((r) => setData(r.data)); }, []);
 
-  if (!data) return <AppShell><div className="p-10">Loading…</div></AppShell>;
+  if (!data) return <LoadingState label="Credentials" />;
 
   return (
     <AppShell>

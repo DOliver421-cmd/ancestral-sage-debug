@@ -14,10 +14,10 @@ export default function AdminDashboard() {
   const [editing, setEditing] = useState(null); // {id, full_name, email, associate}
   const [filter, setFilter] = useState({ role: "", active: "", q: "" });
 
-  const load = () => {
-    api.get("/admin/stats").then((r) => setStats(r.data));
-    api.get("/admin/users").then((r) => setUsers(r.data));
-  };
+  const load = () => Promise.all([
+    api.get("/admin/stats").then((r) => setStats(r.data)),
+    api.get("/admin/users").then((r) => setUsers(r.data)),
+  ]);
   useEffect(() => { load(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, []);
 
   const updateAssociate = async (user_id, associate) => {

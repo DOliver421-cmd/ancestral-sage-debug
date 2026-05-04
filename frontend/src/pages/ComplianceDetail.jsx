@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import AppShell from "../components/AppShell";
+import { LoadingState } from "../components/LoadingState";
 import { api } from "../lib/api";
 import { toast } from "sonner";
 import { ArrowLeft, ShieldAlert, BookOpen, CheckSquare } from "lucide-react";
@@ -24,7 +25,7 @@ export default function ComplianceDetail() {
     } catch { toast.error("Submission failed"); }
   };
 
-  if (!mod) return <AppShell><div className="p-10">Loading…</div></AppShell>;
+  if (!mod) return <LoadingState label="Compliance" />;
 
   return (
     <AppShell>

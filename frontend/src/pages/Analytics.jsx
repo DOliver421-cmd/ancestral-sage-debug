@@ -1,12 +1,13 @@
 import { useEffect, useState } from "react";
 import AppShell from "../components/AppShell";
+import { LoadingState } from "../components/LoadingState";
 import { api } from "../lib/api";
 import { TrendingUp, AlertTriangle, Users, BookOpen, Award, Activity, ShieldAlert, Clock, Download } from "lucide-react";
 
 export default function Analytics() {
   const [data, setData] = useState(null);
   useEffect(() => { api.get("/analytics/program").then((r) => setData(r.data)); }, []);
-  if (!data) return <AppShell><div className="p-10">Loading…</div></AppShell>;
+  if (!data) return <LoadingState label="Program Analytics" />;
   const t = data.totals;
 
   const exportCSV = () => {
