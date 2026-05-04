@@ -20,6 +20,13 @@ User-added follow-up scope:
 - Seed on startup: 12 modules, 9 online labs, 12 in-person labs, 8 competencies, 3 demo users
 
 ## Implemented (Feb 2026)
+### Iteration 3 — PWA + Adaptive + Compliance + Admin Tools + AI Modes (May 2026)
+- **PWA installable** — `/manifest.json` (W.A.I. icons, theme #0B203F, display:standalone), service worker at `/sw.js` (cache-first static, network-only API), index.html meta tags + apple-touch-icon, sw registered in index.js. Installable on Android (Chrome → Add to Home screen) and Desktop (install icon in URL bar).
+- **Adaptive Learning Engine** at `/adaptive` and `/api/adaptive/me`: skill heatmap across 8 competencies (hot/warm/cold), top 3 weak areas, 4 lab/module/AI recommendations, prerequisite-locked labs (battery-inverter requires solar-charge-controller; loto-real-equipment requires loto-scenario).
+- **4 Compliance Modules** in separate `compliance_modules` collection: OSHA 10 Electrical (36mo expiry), NFPA 70E Awareness (12mo), PPE Selection & Fitting (12mo), LOTO Certification (6mo, 80% pass). Auto-issues credentials.
+- **Program-Level Admin Tools** at `/admin/tools`: 3 sites + 15 inventory items seeded. Admins can create sites, view inventory by site, instructors+admins can check out/return tools with quantity tracking.
+- **AI Tutor expanded** with 2 new modes — `nec_lookup` (NEC article + plain-English summary + jurisdiction reminder) and `blueprint` (structured Circuits/Panels/Concerns analysis from a plan description).
+
 ### Iteration 2 — W.A.I. Rebrand + Credentialing + Portfolio (May 2026)
 - Rebranded from "Lightning City Electric" to **W.A.I. — Workforce Apprentice Institute** (LCE-WAI partner program subtitle). New logo applied in Landing, Login, Register, sidebar, and footer. Color accent shifted from copper #C96A35 to W.A.I. blue #1E5BA8.
 - **14 Digital Credentials** (OpenBadges v2 compatible): 3 level badges, 1 capstone, 6 skill badges tied to competencies, 4 compliance badges (LOTO 6mo, OSHA 10 36mo, NFPA 70E 12mo, Safety/PPE 12mo) + Solar Installer L1. Public manifest + assertion JSON endpoints.
