@@ -42,7 +42,15 @@ JWT_EXPIRE_HOURS = int(os.environ.get('JWT_EXPIRE_HOURS', '168'))
 EMERGENT_LLM_KEY = os.environ.get('EMERGENT_LLM_KEY', '')
 
 pwd_ctx = CryptContext(schemes=["bcrypt"], deprecated="auto")
-app = FastAPI(title="W.A.I. Training Platform")
+app = FastAPI(
+    title="W.A.I. Training Platform",
+    version="3.0.0",
+    description="W.A.I. — Workforce Apprentice Institute API. Hands-on electrical apprenticeship training, labs, credentials, and portfolio.",
+    redirect_slashes=False,
+    docs_url="/api/docs",
+    redoc_url="/api/redoc",
+    openapi_url="/api/openapi.json",
+)
 api_router = APIRouter(prefix="/api")
 logger = logging.getLogger("lcewai")
 logging.basicConfig(level=logging.INFO)
