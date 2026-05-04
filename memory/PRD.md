@@ -20,6 +20,14 @@ User-added follow-up scope:
 - Seed on startup: 12 modules, 9 online labs, 12 in-person labs, 8 competencies, 3 demo users
 
 ## Implemented (Feb 2026)
+### Iteration 2 — W.A.I. Rebrand + Credentialing + Portfolio (May 2026)
+- Rebranded from "Lightning City Electric" to **W.A.I. — Workforce Apprentice Institute** (LCE-WAI partner program subtitle). New logo applied in Landing, Login, Register, sidebar, and footer. Color accent shifted from copper #C96A35 to W.A.I. blue #1E5BA8.
+- **14 Digital Credentials** (OpenBadges v2 compatible): 3 level badges, 1 capstone, 6 skill badges tied to competencies, 4 compliance badges (LOTO 6mo, OSHA 10 36mo, NFPA 70E 12mo, Safety/PPE 12mo) + Solar Installer L1. Public manifest + assertion JSON endpoints.
+- **Auto-award engine** — credentials issued automatically when triggers match (module completion, lab pass/approval, competency threshold, program complete). Runs on quiz submit, lab submit, lab review, and /credentials/me page load.
+- **Portfolio Builder** at `/portfolio`: aggregates user profile, modules, labs, evaluations, credentials, competency matrix. Publish toggle creates shareable `/p/{slug}` public route (no auth, no email leak). Multi-page PDF export via ReportLab.
+- **Frontend**: New pages Credentials.jsx, Portfolio.jsx, PublicPortfolio.jsx + shared PortfolioBody component. Student nav now includes Credentials + Portfolio items.
+
+### Iteration 1 — MVP (Feb 2026)
 ### Backend routes (all /api)
 - Auth: /auth/register, /auth/login, /auth/me
 - Curriculum: /modules, /modules/{slug}
