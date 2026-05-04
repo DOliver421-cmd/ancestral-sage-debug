@@ -172,6 +172,16 @@ async def seed_modules():
 
 
 async def seed_users():
+    # One-time migration: cohort → associate for any legacy users
+    await db.users.update_many(
+        {"cohort": {"$exists": True}, "associate": {"$in": [None, ""]}},
+        [{"$set": {"associate": "$cohort"}}, {"$unset": "cohort"}],
+    )
+    # Normalize legacy "Cohort-*" values to "Associate-*"
+    legacy_users = await db.users.find({"associate": {"$regex": "^Cohort-"}}, {"_id": 0}).to_list(1000)
+    for u in legacy_users:
+        new_val = u["associate"].replace("Cohort-", "Associate-", 1)
+        await db.users.update_one({"id": u["id"]}, {"$set": {"associate": new_val}})
     seeds = [
         ("admin@lcewai.org", "LCE-WAI Admin", "admin", None, "Admin@LCE2026"),
         ("instructor@lcewai.org", "Jordan Rivera", "instructor", "Associate-Alpha", "Teach@LCE2026"),
@@ -320,9 +330,14 @@ async def submit_quiz(body: QuizSubmit, user: User = Depends(current_user)):
 async def roster(user: User = Depends(require_role("instructor", "admin"))):
     q = {"role": "student"} if user.role == "admin" else {"role": "student", "associate": user.associate}
     students = await db.users.find(q, {"_id": 0, "password_hash": 0}).to_list(1000)
+    user_ids = [s["id"] for s in students]
+    all_progress = await db.progress.find({"user_id": {"$in": user_ids}}, {"_id": 0}).to_list(50000)
+    prog_by_user = {}
+    for p in all_progress:
+        prog_by_user.setdefault(p["user_id"], []).append(p)
     result = []
     for s in students:
-        prog = await db.progress.find({"user_id": s["id"]}, {"_id": 0}).to_list(100)
+        prog = prog_by_user.get(s["id"], [])
         completed = sum(1 for p in prog if p.get("status") == "completed")
         hours = sum(p.get("hours_logged", 0) for p in prog if p.get("status") == "completed")
         scored = [p.get("quiz_score") for p in prog if p.get("quiz_score") is not None]
@@ -771,15 +786,22 @@ async def review_submission(sub_id: str, body: LabReviewReq, user: User = Depend
 async def lab_report(user: User = Depends(require_role("instructor", "admin"))):
     q = {"role": "student"} if user.role == "admin" else {"role": "student", "associate": user.associate}
     students = await db.users.find(q, {"_id": 0, "password_hash": 0}).to_list(1000)
+    user_ids = [s["id"] for s in students]
+    all_subs = await db.lab_submissions.find({"user_id": {"$in": user_ids}}, {"_id": 0}).to_list(50000)
+    all_labs = await db.labs.find({}, {"_id": 0}).to_list(200)
+    labs_by_slug = {lab["slug"]: lab for lab in all_labs}
+    subs_by_user = {}
+    for s in all_subs:
+        subs_by_user.setdefault(s["user_id"], []).append(s)
     result = []
     for s in students:
-        subs = await db.lab_submissions.find({"user_id": s["id"]}, {"_id": 0}).to_list(500)
+        subs = subs_by_user.get(s["id"], [])
         passed = [x for x in subs if x.get("status") in ("passed", "approved")]
         pending = [x for x in subs if x.get("status") == "pending"]
         points = 0
         hours = 0
         for p in passed:
-            lab = await db.labs.find_one({"slug": p["lab_slug"]}, {"_id": 0})
+            lab = labs_by_slug.get(p["lab_slug"])
             if lab:
                 points += lab.get("skill_points", 0)
                 hours += lab.get("hours", 0)
