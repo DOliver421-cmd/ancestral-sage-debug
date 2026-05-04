@@ -104,6 +104,7 @@ class User(BaseModel):
     full_name: str
     role: Role = "student"
     associate: Optional[str] = None
+    is_active: bool = True
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 
@@ -127,6 +128,16 @@ class AdminCreateUserReq(BaseModel):
 
 class AdminRoleReq(BaseModel):
     role: Role
+
+
+class AdminEditUserReq(BaseModel):
+    full_name: Optional[str] = None
+    email: Optional[EmailStr] = None
+    associate: Optional[str] = None
+
+
+class AdminActiveReq(BaseModel):
+    is_active: bool
 
 
 class ChangePasswordReq(BaseModel):
@@ -220,6 +231,8 @@ async def current_user(authorization: Optional[str] = Header(None)) -> User:
     user_doc = await db.users.find_one({"id": payload["sub"]}, {"_id": 0, "password_hash": 0})
     if not user_doc:
         raise HTTPException(401, "User not found")
+    if user_doc.get("is_active") is False:
+        raise HTTPException(403, "Account deactivated")
     return User(**user_doc)
 
 
@@ -386,6 +399,9 @@ async def login(body: LoginReq):
     if not doc or not verify_pw(body.password, doc["password_hash"]):
         await audit(None, "auth.login.failed", body.email)
         raise HTTPException(401, "Invalid credentials")
+    if doc.get("is_active") is False:
+        await audit(doc.get("id"), "auth.login.blocked_inactive", body.email)
+        raise HTTPException(403, "Your account has been deactivated. Contact your administrator.")
     if isinstance(doc.get("created_at"), str):
         doc["created_at"] = datetime.fromisoformat(doc["created_at"])
     doc.pop("password_hash", None)
@@ -529,6 +545,48 @@ async def admin_change_role(uid: str, body: AdminRoleReq, user: User = Depends(r
     await audit(user.id, "admin.user.role_changed", target=uid,
                 meta={"from": target.get("role"), "to": body.role})
     return {"ok": True, "id": uid, "role": body.role}
+
+
+@api_router.patch("/admin/users/{uid}")
+async def admin_edit_user(uid: str, body: AdminEditUserReq, user: User = Depends(require_role("admin"))):
+    """Admin-only: edit name / email / associate."""
+    target = await db.users.find_one({"id": uid}, {"_id": 0})
+    if not target:
+        raise HTTPException(404, "User not found")
+    update = {}
+    if body.full_name is not None and body.full_name.strip():
+        update["full_name"] = body.full_name.strip()
+    if body.email is not None and body.email != target.get("email"):
+        if await db.users.find_one({"email": body.email, "id": {"$ne": uid}}):
+            raise HTTPException(400, "Email already in use")
+        update["email"] = body.email
+    if body.associate is not None:
+        update["associate"] = body.associate.strip() or None
+    if not update:
+        return {"ok": True, "noop": True}
+    await db.users.update_one({"id": uid}, {"$set": update})
+    await audit(user.id, "admin.user.edited", target=uid, meta=update)
+    return {"ok": True, "updated": list(update.keys())}
+
+
+@api_router.patch("/admin/users/{uid}/active")
+async def admin_set_active(uid: str, body: AdminActiveReq, user: User = Depends(require_role("admin"))):
+    """Admin-only: deactivate (lock) or reactivate (unlock) an account.
+    Deactivated users cannot log in and existing sessions are rejected on next call."""
+    if uid == user.id and not body.is_active:
+        raise HTTPException(400, "Refusing to deactivate yourself.")
+    target = await db.users.find_one({"id": uid}, {"_id": 0})
+    if not target:
+        raise HTTPException(404, "User not found")
+    # Last-active-admin guard
+    if target.get("role") == "admin" and not body.is_active:
+        active_admins = await db.users.count_documents({"role": "admin", "is_active": {"$ne": False}})
+        if active_admins <= 1:
+            raise HTTPException(400, "Cannot deactivate the last active admin.")
+    await db.users.update_one({"id": uid}, {"$set": {"is_active": body.is_active}})
+    await audit(user.id, "admin.user.active_changed", target=uid,
+                meta={"is_active": body.is_active})
+    return {"ok": True, "id": uid, "is_active": body.is_active}
 
 
 @api_router.delete("/admin/users/{uid}")

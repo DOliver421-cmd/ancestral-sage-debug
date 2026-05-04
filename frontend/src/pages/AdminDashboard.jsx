@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import AppShell from "../components/AppShell";
 import { api } from "../lib/api";
 import { toast } from "sonner";
-import { Users, GraduationCap, BookOpen, Award, Download, UserPlus, Trash2, KeyRound, ShieldCheck } from "lucide-react";
+import { Users, GraduationCap, BookOpen, Award, Download, UserPlus, Trash2, KeyRound, ShieldCheck, Pencil, Lock, Unlock } from "lucide-react";
 
 const ROLES = ["student", "instructor", "admin"];
 
@@ -11,6 +11,8 @@ export default function AdminDashboard() {
   const [users, setUsers] = useState([]);
   const [showCreate, setShowCreate] = useState(false);
   const [createForm, setCreateForm] = useState({ email: "", full_name: "", password: "", role: "student", associate: "Associate-Alpha" });
+  const [editing, setEditing] = useState(null); // {id, full_name, email, associate}
+  const [filter, setFilter] = useState({ role: "", active: "", q: "" });
 
   const load = () => {
     api.get("/admin/stats").then((r) => setStats(r.data));
@@ -19,37 +21,45 @@ export default function AdminDashboard() {
   useEffect(() => { load(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, []);
 
   const updateAssociate = async (user_id, associate) => {
-    try {
-      await api.post("/admin/associate", { user_id, associate });
-      toast.success("Associate updated");
-      load();
-    } catch { toast.error("Update failed"); }
+    try { await api.post("/admin/associate", { user_id, associate }); toast.success("Associate updated"); load(); }
+    catch { toast.error("Update failed"); }
   };
 
   const changeRole = async (uid, role) => {
-    try {
-      await api.patch(`/admin/users/${uid}/role`, { role });
-      toast.success(`Role set to ${role}`);
-      load();
-    } catch (e) { toast.error(e?.response?.data?.detail || "Role update failed"); }
+    try { await api.patch(`/admin/users/${uid}/role`, { role }); toast.success(`Role set to ${role}`); load(); }
+    catch (e) { toast.error(e?.response?.data?.detail || "Role update failed"); }
+  };
+
+  const setActive = async (uid, is_active, email) => {
+    const verb = is_active ? "reactivate" : "deactivate";
+    if (!window.confirm(`${verb.charAt(0).toUpperCase() + verb.slice(1)} ${email}?`)) return;
+    try { await api.patch(`/admin/users/${uid}/active`, { is_active }); toast.success(`Account ${is_active ? "reactivated" : "deactivated"}`); load(); }
+    catch (e) { toast.error(e?.response?.data?.detail || `${verb} failed`); }
   };
 
   const deleteUser = async (uid, email) => {
     if (!window.confirm(`Permanently delete ${email}? This cannot be undone.`)) return;
-    try {
-      await api.delete(`/admin/users/${uid}`);
-      toast.success("User deleted");
-      load();
-    } catch (e) { toast.error(e?.response?.data?.detail || "Delete failed"); }
+    try { await api.delete(`/admin/users/${uid}`); toast.success("User deleted"); load(); }
+    catch (e) { toast.error(e?.response?.data?.detail || "Delete failed"); }
   };
 
   const resetPassword = async (uid, email) => {
     const newPass = window.prompt(`New password for ${email}? (min 6 chars)`);
     if (!newPass || newPass.length < 6) { toast.error("Password too short"); return; }
+    try { await api.post(`/admin/users/${uid}/password`, { new_password: newPass }); toast.success(`Password reset for ${email}. Share it securely.`); }
+    catch (e) { toast.error(e?.response?.data?.detail || "Reset failed"); }
+  };
+
+  const saveEdit = async () => {
+    if (!editing) return;
     try {
-      await api.post(`/admin/users/${uid}/password`, { new_password: newPass });
-      toast.success(`Password reset for ${email}. Share it securely.`);
-    } catch (e) { toast.error(e?.response?.data?.detail || "Reset failed"); }
+      await api.patch(`/admin/users/${editing.id}`, {
+        full_name: editing.full_name, email: editing.email, associate: editing.associate,
+      });
+      toast.success("User updated");
+      setEditing(null);
+      load();
+    } catch (e) { toast.error(e?.response?.data?.detail || "Edit failed"); }
   };
 
   const createUser = async () => {
@@ -65,14 +75,20 @@ export default function AdminDashboard() {
     } catch (e) { toast.error(e?.response?.data?.detail || "Create failed"); }
   };
 
+  const filtered = users.filter((u) => {
+    if (filter.role && u.role !== filter.role) return false;
+    if (filter.active === "active" && u.is_active === false) return false;
+    if (filter.active === "inactive" && u.is_active !== false) return false;
+    if (filter.q) {
+      const q = filter.q.toLowerCase();
+      if (!(u.full_name || "").toLowerCase().includes(q) && !(u.email || "").toLowerCase().includes(q)) return false;
+    }
+    return true;
+  });
+
   const exportCSV = () => {
-    const rows = [["name", "email", "role", "associate", "created_at"], ...users.map((u) => [u.full_name, u.email, u.role, u.associate || "", u.created_at])];
-    const csv = rows.map((r) => r.map((c) => `"${(c ?? "").toString().replace(/"/g, '""')}"`).join(",")).join("\n");
-    const blob = new Blob([csv], { type: "text/csv" });
-    const a = document.createElement("a");
-    a.href = URL.createObjectURL(blob);
-    a.download = "lce-wai-users.csv";
-    a.click();
+    const rows = [["name", "email", "role", "associate", "is_active", "created_at"], ...filtered.map((u) => [u.full_name, u.email, u.role, u.associate || "", u.is_active === false ? "INACTIVE" : "active", u.created_at])];
+    downloadCSV(rows, "lce-wai-users.csv");
   };
 
   return (
@@ -120,19 +136,47 @@ export default function AdminDashboard() {
           <Stat icon={Award} label="Completions" value={stats?.completions ?? "—"} testid="stat-completions" />
         </div>
 
-        <h2 className="font-heading text-2xl font-bold mt-12 mb-4">Users</h2>
+        <h2 className="font-heading text-2xl font-bold mt-12 mb-3">Users <span className="text-ink/40 text-sm">({filtered.length} of {users.length})</span></h2>
+
+        {/* Filters */}
+        <div className="flex gap-2 flex-wrap mb-4" data-testid="user-filters">
+          <input placeholder="Search name or email…" value={filter.q} onChange={(e) => setFilter({ ...filter, q: e.target.value })}
+            className="px-3 py-2 border border-ink/20 text-sm w-64" data-testid="user-search" />
+          <select value={filter.role} onChange={(e) => setFilter({ ...filter, role: e.target.value })}
+            className="px-3 py-2 border border-ink/20 text-sm" data-testid="filter-role">
+            <option value="">All roles</option>
+            {ROLES.map((r) => <option key={r} value={r}>{r}</option>)}
+          </select>
+          <select value={filter.active} onChange={(e) => setFilter({ ...filter, active: e.target.value })}
+            className="px-3 py-2 border border-ink/20 text-sm" data-testid="filter-active">
+            <option value="">All accounts</option>
+            <option value="active">Active only</option>
+            <option value="inactive">Inactive only</option>
+          </select>
+        </div>
+
         <div className="card-flat overflow-x-auto" data-testid="users-table">
           <table className="w-full text-sm">
             <thead className="bg-ink text-white">
               <tr>
-                <Th>Name</Th><Th>Email</Th><Th>Role</Th><Th>Associate</Th><Th className="text-right">Actions</Th>
+                <Th>Name</Th><Th>Email</Th><Th>Role</Th><Th>Associate</Th><Th>Status</Th><Th className="text-right">Actions</Th>
               </tr>
             </thead>
             <tbody>
-              {users.map((u) => (
-                <tr key={u.id} className="border-b border-ink/10 hover:bg-bone" data-testid={`user-${u.id}`}>
-                  <Td><span className="font-heading font-bold">{u.full_name}</span></Td>
-                  <Td><span className="font-mono text-xs">{u.email}</span></Td>
+              {filtered.map((u) => (
+                <tr key={u.id} className={`border-b border-ink/10 hover:bg-bone ${u.is_active === false ? "opacity-50" : ""}`} data-testid={`user-${u.id}`}>
+                  <Td>
+                    {editing?.id === u.id ? (
+                      <input value={editing.full_name} onChange={(e) => setEditing({ ...editing, full_name: e.target.value })}
+                        className="px-2 py-1 border border-copper text-sm w-40" data-testid={`edit-name-${u.id}`} />
+                    ) : <span className="font-heading font-bold">{u.full_name}</span>}
+                  </Td>
+                  <Td>
+                    {editing?.id === u.id ? (
+                      <input value={editing.email} onChange={(e) => setEditing({ ...editing, email: e.target.value })}
+                        className="px-2 py-1 border border-copper text-xs w-48 font-mono" data-testid={`edit-email-${u.id}`} />
+                    ) : <span className="font-mono text-xs">{u.email}</span>}
+                  </Td>
                   <Td>
                     <select value={u.role} onChange={(e) => changeRole(u.id, e.target.value)}
                       className={`px-2 py-1 text-xs font-bold uppercase border ${u.role === "admin" ? "bg-ink text-white border-ink" : u.role === "instructor" ? "bg-copper text-white border-copper" : "bg-white text-ink border-ink/20"}`}
@@ -141,34 +185,75 @@ export default function AdminDashboard() {
                     </select>
                   </Td>
                   <Td>
-                    <input defaultValue={u.associate || ""} onBlur={(e) => { if (e.target.value !== (u.associate || "")) updateAssociate(u.id, e.target.value); }}
-                      className="px-2 py-1 border border-ink/20 text-sm w-32" data-testid={`associate-input-${u.id}`} />
+                    {editing?.id === u.id ? (
+                      <input value={editing.associate || ""} onChange={(e) => setEditing({ ...editing, associate: e.target.value })}
+                        className="px-2 py-1 border border-copper text-sm w-32" data-testid={`edit-associate-${u.id}`} />
+                    ) : (
+                      <input defaultValue={u.associate || ""} onBlur={(e) => { if (e.target.value !== (u.associate || "")) updateAssociate(u.id, e.target.value); }}
+                        className="px-2 py-1 border border-ink/20 text-sm w-32" data-testid={`associate-input-${u.id}`} />
+                    )}
                   </Td>
                   <Td>
-                    <div className="flex gap-1 justify-end">
-                      <button onClick={() => resetPassword(u.id, u.email)} title="Reset password"
-                        className="p-1.5 border border-ink/20 hover:bg-ink hover:text-white" data-testid={`btn-reset-${u.id}`}>
-                        <KeyRound className="w-3.5 h-3.5" />
-                      </button>
-                      <button onClick={() => deleteUser(u.id, u.email)} title="Delete user"
-                        className="p-1.5 border border-destructive/30 text-destructive hover:bg-destructive hover:text-white" data-testid={`btn-delete-${u.id}`}>
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
+                    {u.is_active === false
+                      ? <span className="badge-outline text-destructive border-destructive" data-testid={`status-${u.id}`}>INACTIVE</span>
+                      : <span className="badge-signal" data-testid={`status-${u.id}`}>ACTIVE</span>}
+                  </Td>
+                  <Td>
+                    <div className="flex gap-1 justify-end items-center">
+                      {editing?.id === u.id ? (
+                        <>
+                          <button onClick={saveEdit} className="px-2 py-1 text-xs font-bold bg-signal text-ink border border-ink" data-testid={`btn-save-${u.id}`}>Save</button>
+                          <button onClick={() => setEditing(null)} className="px-2 py-1 text-xs font-bold bg-white border border-ink/20" data-testid={`btn-cancel-${u.id}`}>Cancel</button>
+                        </>
+                      ) : (
+                        <>
+                          <button onClick={() => setEditing({ id: u.id, full_name: u.full_name, email: u.email, associate: u.associate || "" })} title="Edit name/email/associate"
+                            className="p-1.5 border border-ink/20 hover:bg-ink hover:text-white" data-testid={`btn-edit-${u.id}`}>
+                            <Pencil className="w-3.5 h-3.5" />
+                          </button>
+                          <button onClick={() => resetPassword(u.id, u.email)} title="Reset password"
+                            className="p-1.5 border border-ink/20 hover:bg-ink hover:text-white" data-testid={`btn-reset-${u.id}`}>
+                            <KeyRound className="w-3.5 h-3.5" />
+                          </button>
+                          <button onClick={() => setActive(u.id, u.is_active === false, u.email)}
+                            title={u.is_active === false ? "Reactivate account" : "Deactivate account"}
+                            className={`p-1.5 border ${u.is_active === false ? "border-signal/40 text-signal hover:bg-signal hover:text-ink" : "border-copper/40 text-copper hover:bg-copper hover:text-white"}`}
+                            data-testid={`btn-toggle-active-${u.id}`}>
+                            {u.is_active === false ? <Unlock className="w-3.5 h-3.5" /> : <Lock className="w-3.5 h-3.5" />}
+                          </button>
+                          <button onClick={() => deleteUser(u.id, u.email)} title="Delete user"
+                            className="p-1.5 border border-destructive/30 text-destructive hover:bg-destructive hover:text-white" data-testid={`btn-delete-${u.id}`}>
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </>
+                      )}
                     </div>
                   </Td>
                 </tr>
               ))}
+              {filtered.length === 0 && (
+                <tr><td colSpan={6} className="p-8 text-center text-ink/50">No users match the current filters.</td></tr>
+              )}
             </tbody>
           </table>
         </div>
 
         <div className="mt-6 text-xs text-ink/50 flex items-center gap-2">
           <ShieldCheck className="w-3.5 h-3.5" />
-          Role changes, password resets, and deletions are auto-logged in <a href="/admin/audit" className="underline hover:text-copper">Audit Log</a>.
+          All role changes, edits, password resets, deactivations, and deletions are auto-logged in <a href="/admin/audit" className="underline hover:text-copper">Audit Log</a>.
         </div>
       </div>
     </AppShell>
   );
+}
+
+function downloadCSV(rows, filename) {
+  const csv = rows.map((r) => r.map((c) => `"${(c ?? "").toString().replace(/"/g, '""')}"`).join(",")).join("\n");
+  const blob = new Blob([csv], { type: "text/csv" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = filename;
+  a.click();
 }
 
 function Field({ label, value, onChange, type = "text", testid }) {

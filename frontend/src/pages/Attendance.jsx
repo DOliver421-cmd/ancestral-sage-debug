@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import AppShell from "../components/AppShell";
 import { api } from "../lib/api";
 import { toast } from "sonner";
-import { Calendar, Save } from "lucide-react";
+import { Calendar, Save, Download } from "lucide-react";
 
 export default function Attendance() {
   const [roster, setRoster] = useState([]);
@@ -14,6 +14,16 @@ export default function Attendance() {
   useEffect(() => { load(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, []);
 
   const setStatus = (id, s) => setStatuses({ ...statuses, [id]: s });
+
+  const exportCSV = () => {
+    const rows = [["full_name", "associate", "present", "absent", "tardy", "excused", "total", "rate_%"], ...roster.map((r) => [r.full_name, r.associate || "", r.present, r.absent, r.tardy, r.excused, r.total, r.rate])];
+    const csv = rows.map((r) => r.map((c) => `"${(c ?? "").toString().replace(/"/g, '""')}"`).join(",")).join("\n");
+    const blob = new Blob([csv], { type: "text/csv" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = `wai-attendance-summary-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+  };
 
   const save = async () => {
     const attendees = roster.map((r) => ({ user_id: r.user_id, status: statuses[r.user_id] || "present" }));
@@ -30,9 +40,16 @@ export default function Attendance() {
   return (
     <AppShell>
       <div className="px-10 py-10 max-w-5xl">
-        <div className="overline text-copper">Instructor</div>
-        <h1 className="font-heading text-4xl font-bold mt-2 flex items-center gap-3"><Calendar className="w-8 h-8 text-copper" /> Attendance</h1>
-        <p className="text-ink/60 mt-2 max-w-2xl">Daily roll for grant reporting and incident traceability.</p>
+        <div className="flex items-start justify-between gap-4 flex-wrap">
+          <div>
+            <div className="overline text-copper">Instructor</div>
+            <h1 className="font-heading text-4xl font-bold mt-2 flex items-center gap-3"><Calendar className="w-8 h-8 text-copper" /> Attendance</h1>
+            <p className="text-ink/60 mt-2 max-w-2xl">Daily roll for grant reporting and incident traceability.</p>
+          </div>
+          <button onClick={exportCSV} disabled={roster.length === 0} className="btn-primary inline-flex items-center gap-2 disabled:opacity-50" data-testid="btn-attendance-export">
+            <Download className="w-4 h-4" /> Export Roster CSV
+          </button>
+        </div>
 
         <div className="card-flat p-6 mt-8" data-testid="attendance-form">
           <div className="flex items-center gap-4 flex-wrap">
