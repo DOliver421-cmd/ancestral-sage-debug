@@ -26,6 +26,8 @@ from starlette.middleware.cors import CORSMiddleware
 from seed import MODULES, quiz_for
 from seed_labs import ONLINE_LABS, IN_PERSON_LABS, COMPETENCIES
 from seed_credentials import CREDENTIALS
+from seed_compliance import COMPLIANCE_MODULES, COMPLIANCE_QUIZZES
+from seed_inventory import SITES, INVENTORY
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
@@ -121,7 +123,7 @@ class AIChatReq(BaseModel):
     session_id: str
     message: str
     module_slug: Optional[str] = None
-    mode: Literal["tutor", "scripture", "quiz_gen", "explain"] = "tutor"
+    mode: Literal["tutor", "scripture", "quiz_gen", "explain", "nec_lookup", "blueprint"] = "tutor"
 
 
 def hash_pw(p: str) -> str:
@@ -224,6 +226,32 @@ async def on_startup():
     await seed_modules()
     await seed_users()
     await seed_labs()
+    await seed_compliance()
+    await seed_sites_inventory()
+
+
+async def seed_compliance():
+    for spec in COMPLIANCE_MODULES:
+        doc = {**spec, "quiz": COMPLIANCE_QUIZZES.get(spec["slug"], [])}
+        existing = await db.compliance_modules.find_one({"slug": doc["slug"]})
+        if existing:
+            await db.compliance_modules.update_one({"slug": doc["slug"]}, {"$set": doc})
+        else:
+            doc["id"] = str(uuid.uuid4())
+            await db.compliance_modules.insert_one(doc)
+
+
+async def seed_sites_inventory():
+    for s in SITES:
+        if not await db.sites.find_one({"slug": s["slug"]}):
+            await db.sites.insert_one({**s, "id": str(uuid.uuid4())})
+    for it in INVENTORY:
+        if not await db.inventory.find_one({"sku": it["sku"]}):
+            await db.inventory.insert_one({
+                **it,
+                "id": str(uuid.uuid4()),
+                "quantity_available": it["quantity_total"],
+            })
 
 
 @api_router.get("/")
@@ -373,10 +401,12 @@ async def stats(user: User = Depends(require_role("admin"))):
 
 
 SYSTEM_PROMPTS = {
-    "tutor": "You are a patient master electrician and faith-forward mentor for the Lightning City Electric Workforce & Apprenticeship Institute (LCE-WAI). Answer apprentice questions clearly, reference NEC articles when relevant, emphasize safety, and use plain language. Keep replies under 250 words.",
-    "scripture": "You are a faith-based electrical trade mentor at LCE-WAI. For each question, give a short encouragement tying the apprentice's current work to a relevant scripture verse, then a one-paragraph teaching point. Keep the tone warm and dignified.",
+    "tutor": "You are a patient master electrician and faith-forward mentor for W.A.I. — Workforce Apprentice Institute (LCE-WAI partner program). Answer apprentice questions clearly, reference NEC articles when relevant, emphasize safety, and use plain language. Keep replies under 250 words.",
+    "scripture": "You are a faith-based electrical trade mentor at W.A.I. For each question, give a short encouragement tying the apprentice's current work to a relevant scripture verse, then a one-paragraph teaching point. Keep the tone warm and dignified.",
     "quiz_gen": "You generate short multiple-choice quiz questions (4 options, mark the correct answer index 0-3) on electrical topics. Output a clean numbered list with answer key at the end.",
     "explain": "You explain electrical concepts step-by-step to apprentices. Use analogies, list steps, and close with a 1-line 'Safety first' reminder.",
+    "nec_lookup": "You are an NEC (National Electrical Code) reference assistant. When the apprentice asks about a topic, identify the most likely NEC article and section (e.g., 'NEC 210.8(A)(1)'), summarize the rule in plain English, give one practical example, and note any common code-cycle changes. ALWAYS remind the apprentice to verify against the current adopted code edition for their jurisdiction.",
+    "blueprint": "You are an electrical blueprint reading assistant. The apprentice will describe (or paste a description of) a residential or light-commercial electrical plan. Identify likely circuits, panel sizing, branch counts, and any code concerns. Output a structured list: Circuits, Panels, Concerns. Keep it concise and tied to NEC articles where helpful.",
 }
 
 
@@ -1207,6 +1237,269 @@ async def portfolio_pdf(token: str):
         buf, media_type="application/pdf",
         headers={"Content-Disposition": f"inline; filename=portfolio-{user_doc['id'][:8]}.pdf"},
     )
+
+
+# -- COMPLIANCE MODULES --
+@api_router.get("/compliance")
+async def list_compliance(user: User = Depends(current_user)):
+    docs = await db.compliance_modules.find({}, {"_id": 0}).sort("order", 1).to_list(50)
+    progress = await db.compliance_progress.find({"user_id": user.id}, {"_id": 0}).to_list(50)
+    pmap = {p["module_slug"]: p for p in progress}
+    for d in docs:
+        d["my_progress"] = pmap.get(d["slug"])
+    return docs
+
+
+@api_router.get("/compliance/{slug}")
+async def get_compliance(slug: str, user: User = Depends(current_user)):
+    doc = await db.compliance_modules.find_one({"slug": slug}, {"_id": 0})
+    if not doc:
+        raise HTTPException(404, "Compliance module not found")
+    doc["my_progress"] = await db.compliance_progress.find_one(
+        {"user_id": user.id, "module_slug": slug}, {"_id": 0}
+    )
+    return doc
+
+
+@api_router.post("/compliance/{slug}/quiz")
+async def submit_compliance_quiz(slug: str, body: dict, user: User = Depends(current_user)):
+    mod = await db.compliance_modules.find_one({"slug": slug}, {"_id": 0})
+    if not mod:
+        raise HTTPException(404, "Module not found")
+    answers = body.get("answers", [])
+    quiz = mod.get("quiz", [])
+    if len(answers) != len(quiz):
+        raise HTTPException(400, "Answer count mismatch")
+    correct = sum(1 for i, q in enumerate(quiz) if q["answer"] == answers[i])
+    score = correct / len(quiz) * 100 if quiz else 0
+    pass_pct = 80 if slug == "loto-certification" else 70
+    status_val = "completed" if score >= pass_pct else "in_progress"
+    now = datetime.now(timezone.utc)
+    expires_at = None
+    if status_val == "completed" and mod.get("expires_months"):
+        expires_at = (now + timedelta(days=30 * mod["expires_months"])).isoformat()
+    update = {
+        "user_id": user.id,
+        "module_slug": slug,
+        "status": status_val,
+        "quiz_score": score,
+        "completed_at": now.isoformat() if status_val == "completed" else None,
+        "expires_at": expires_at,
+        "hours_logged": mod.get("hours", 0) if status_val == "completed" else 0,
+        "updated_at": now.isoformat(),
+    }
+    await db.compliance_progress.update_one(
+        {"user_id": user.id, "module_slug": slug},
+        {"$set": update, "$setOnInsert": {"id": str(uuid.uuid4())}},
+        upsert=True,
+    )
+    if status_val == "completed":
+        await award_credentials(user.id)
+    return {"score": score, "correct": correct, "total": len(quiz), "status": status_val, "pass_pct": pass_pct, "expires_at": expires_at}
+
+
+# -- ADAPTIVE LEARNING ENGINE --
+@api_router.get("/adaptive/me")
+async def adaptive_recommendations(user: User = Depends(current_user)):
+    """Analyze student state, identify weak areas, return personalized recommendations."""
+    # Load all relevant state
+    progress = await db.progress.find({"user_id": user.id}, {"_id": 0}).to_list(500)
+    lab_subs = await db.lab_submissions.find({"user_id": user.id}, {"_id": 0}).to_list(500)
+    all_labs = await db.labs.find({}, {"_id": 0}).to_list(200)
+    labs_by_slug = {lab["slug"]: lab for lab in all_labs}
+
+    # Heatmap: skill points per competency
+    heatmap = {c["key"]: {"name": c["name"], "points": 0, "labs_passed": 0, "level": "cold"} for c in COMPETENCIES}
+    for s in lab_subs:
+        if s.get("status") in ("passed", "approved"):
+            lab = labs_by_slug.get(s["lab_slug"])
+            if lab:
+                for k in lab.get("competencies", []):
+                    if k in heatmap:
+                        heatmap[k]["points"] += lab.get("skill_points", 0)
+                        heatmap[k]["labs_passed"] += 1
+    for h in heatmap.values():
+        h["level"] = "hot" if h["points"] >= 100 else ("warm" if h["points"] >= 40 else "cold")
+
+    # Identify weak areas (cold competencies)
+    weak = sorted(heatmap.values(), key=lambda x: x["points"])[:3]
+    weak_keys = [next(k for k, v in heatmap.items() if v["name"] == w["name"]) for w in weak]
+
+    # Quiz scores below 80% are signals for review
+    low_quizzes = [p for p in progress if p.get("quiz_score") is not None and p["quiz_score"] < 80]
+
+    # Recommendations: pick labs aligned with weak competencies that aren't passed yet
+    passed_labs = {s["lab_slug"] for s in lab_subs if s.get("status") in ("passed", "approved")}
+    recs = []
+    for lab in all_labs:
+        if lab["slug"] in passed_labs:
+            continue
+        overlap = set(lab.get("competencies", [])) & set(weak_keys)
+        if overlap:
+            recs.append({
+                "type": "lab",
+                "slug": lab["slug"],
+                "title": lab["title"],
+                "track": lab["track"],
+                "reason": f"Strengthens: {', '.join(sorted(overlap))}",
+                "skill_points": lab.get("skill_points", 0),
+            })
+    recs = sorted(recs, key=lambda r: -r["skill_points"])[:4]
+
+    # Module review for low quiz scores
+    for q in low_quizzes[:2]:
+        mod = await db.modules.find_one({"slug": q["module_slug"]}, {"_id": 0})
+        if mod:
+            recs.append({
+                "type": "module_review",
+                "slug": mod["slug"],
+                "title": f"Review: {mod['title']}",
+                "track": "core",
+                "reason": f"You scored {int(q['quiz_score'])}% — retake to lock it in",
+                "skill_points": 0,
+            })
+
+    # AI tutor topic suggestion for weakest area
+    ai_topic = None
+    if weak:
+        ai_topic = {
+            "type": "ai_topic",
+            "title": f"Ask the tutor about: {weak[0]['name']}",
+            "reason": f"Your coldest area — {weak[0]['points']} skill points",
+        }
+
+    # Prerequisite check on advanced labs
+    PREREQS = {
+        "battery-inverter-build": ["solar-charge-controller"],
+        "loto-real-equipment": ["loto-scenario"],
+    }
+    locked = []
+    for lab_slug, prereq_slugs in PREREQS.items():
+        if lab_slug in passed_labs:
+            continue
+        missing = [p for p in prereq_slugs if p not in passed_labs]
+        if missing:
+            lab = labs_by_slug.get(lab_slug)
+            if lab:
+                locked.append({"slug": lab_slug, "title": lab["title"], "missing_prereqs": missing})
+
+    return {
+        "heatmap": heatmap,
+        "weak_areas": weak,
+        "recommendations": recs,
+        "ai_topic": ai_topic,
+        "locked_labs": locked,
+    }
+
+
+# -- PROGRAM-LEVEL ADMIN: SITES, INVENTORY, TOOL CHECKOUT --
+@api_router.get("/admin/sites")
+async def list_sites(user: User = Depends(require_role("admin", "instructor"))):
+    docs = await db.sites.find({}, {"_id": 0}).to_list(100)
+    return docs
+
+
+@api_router.post("/admin/sites")
+async def create_site(payload: dict, user: User = Depends(require_role("admin"))):
+    if not payload.get("slug") or not payload.get("name"):
+        raise HTTPException(400, "slug and name required")
+    if await db.sites.find_one({"slug": payload["slug"]}):
+        raise HTTPException(400, "Site slug exists")
+    doc = {
+        "id": str(uuid.uuid4()),
+        "slug": payload["slug"],
+        "name": payload["name"],
+        "address": payload.get("address", ""),
+        "capacity": int(payload.get("capacity", 0)),
+    }
+    await db.sites.insert_one(doc)
+    doc.pop("_id", None)
+    return doc
+
+
+@api_router.get("/admin/inventory")
+async def list_inventory(site_slug: Optional[str] = None, user: User = Depends(require_role("admin", "instructor"))):
+    q = {"site_slug": site_slug} if site_slug else {}
+    items = await db.inventory.find(q, {"_id": 0}).to_list(500)
+    return items
+
+
+@api_router.post("/admin/inventory")
+async def add_inventory(payload: dict, user: User = Depends(require_role("admin"))):
+    required = ["sku", "name", "category", "quantity_total", "site_slug"]
+    if any(k not in payload for k in required):
+        raise HTTPException(400, f"Required: {required}")
+    if await db.inventory.find_one({"sku": payload["sku"]}):
+        raise HTTPException(400, "SKU exists")
+    doc = {
+        "id": str(uuid.uuid4()),
+        "sku": payload["sku"],
+        "name": payload["name"],
+        "category": payload["category"],
+        "site_slug": payload["site_slug"],
+        "quantity_total": int(payload["quantity_total"]),
+        "quantity_available": int(payload["quantity_total"]),
+    }
+    await db.inventory.insert_one(doc)
+    doc.pop("_id", None)
+    return doc
+
+
+@api_router.post("/admin/checkout")
+async def checkout_tool(payload: dict, user: User = Depends(require_role("instructor", "admin"))):
+    sku = payload.get("sku")
+    student_id = payload.get("user_id")
+    qty = int(payload.get("quantity", 1))
+    if not sku or not student_id:
+        raise HTTPException(400, "sku and user_id required")
+    item = await db.inventory.find_one({"sku": sku}, {"_id": 0})
+    if not item:
+        raise HTTPException(404, "Item not found")
+    if item["quantity_available"] < qty:
+        raise HTTPException(400, f"Only {item['quantity_available']} available")
+    co = {
+        "id": str(uuid.uuid4()),
+        "sku": sku,
+        "user_id": student_id,
+        "quantity": qty,
+        "checked_out_by": user.id,
+        "checked_out_at": datetime.now(timezone.utc).isoformat(),
+        "returned_at": None,
+        "status": "out",
+    }
+    await db.tool_checkouts.insert_one(co)
+    await db.inventory.update_one({"sku": sku}, {"$inc": {"quantity_available": -qty}})
+    co.pop("_id", None)
+    return co
+
+
+@api_router.post("/admin/checkout/{checkout_id}/return")
+async def return_tool(checkout_id: str, user: User = Depends(require_role("instructor", "admin"))):
+    co = await db.tool_checkouts.find_one({"id": checkout_id}, {"_id": 0})
+    if not co or co["status"] == "returned":
+        raise HTTPException(400, "Invalid or already returned")
+    await db.tool_checkouts.update_one(
+        {"id": checkout_id},
+        {"$set": {"status": "returned", "returned_at": datetime.now(timezone.utc).isoformat()}},
+    )
+    await db.inventory.update_one({"sku": co["sku"]}, {"$inc": {"quantity_available": co["quantity"]}})
+    return {"ok": True}
+
+
+@api_router.get("/admin/checkouts")
+async def list_checkouts(status: Optional[str] = None, user: User = Depends(require_role("instructor", "admin"))):
+    q = {"status": status} if status else {}
+    docs = await db.tool_checkouts.find(q, {"_id": 0}).sort("checked_out_at", -1).to_list(500)
+    user_ids = list({d["user_id"] for d in docs})
+    skus = list({d["sku"] for d in docs})
+    users = await db.users.find({"id": {"$in": user_ids}}, {"_id": 0, "password_hash": 0}).to_list(1000)
+    items = await db.inventory.find({"sku": {"$in": skus}}, {"_id": 0}).to_list(500)
+    u_map = {u["id"]: u for u in users}
+    i_map = {i["sku"]: i for i in items}
+    for d in docs:
+        d["user"] = u_map.get(d["user_id"])
+        d["item"] = i_map.get(d["sku"])
+    return docs
 
 
 app.include_router(api_router)

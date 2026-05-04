@@ -20,6 +20,10 @@ import LabSimulations from "./pages/LabSimulations";
 import Credentials from "./pages/Credentials";
 import Portfolio from "./pages/Portfolio";
 import PublicPortfolio from "./pages/PublicPortfolio";
+import Adaptive from "./pages/Adaptive";
+import ComplianceList from "./pages/ComplianceList";
+import ComplianceDetail from "./pages/ComplianceDetail";
+import AdminTools from "./pages/AdminTools";
 
 function Protected({ children, roles }) {
   const { user, loading } = useAuth();
@@ -62,6 +66,10 @@ function App() {
           <Route path="/credentials" element={<Protected><Credentials /></Protected>} />
           <Route path="/portfolio" element={<Protected><Portfolio /></Protected>} />
           <Route path="/p/:slug" element={<PublicPortfolio />} />
+          <Route path="/adaptive" element={<Protected><Adaptive /></Protected>} />
+          <Route path="/compliance" element={<Protected><ComplianceList /></Protected>} />
+          <Route path="/compliance/:slug" element={<Protected><ComplianceDetail /></Protected>} />
+          <Route path="/admin/tools" element={<Protected roles={["admin"]}><AdminTools /></Protected>} />
         </Routes>
       </BrowserRouter>
     </AuthProvider>

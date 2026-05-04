@@ -9,6 +9,8 @@ const MODES = [
   { key: "scripture", label: "Scripture Mentor" },
   { key: "explain", label: "Explain Like Apprentice" },
   { key: "quiz_gen", label: "Generate Quiz" },
+  { key: "nec_lookup", label: "NEC Lookup" },
+  { key: "blueprint", label: "Blueprint Reader" },
 ];
 
 export default function AITutor() {

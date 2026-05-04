@@ -1,12 +1,14 @@
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../lib/auth";
 import { WAI_LOGO, BRAND } from "../lib/brand";
-import { LayoutDashboard, BookOpen, Award, Users, Settings, Sparkles, LogOut, FlaskConical, Target, ClipboardCheck, Briefcase, BadgeCheck } from "lucide-react";
+import { LayoutDashboard, BookOpen, Award, Users, Settings, Sparkles, LogOut, FlaskConical, Target, ClipboardCheck, Briefcase, BadgeCheck, Brain, ShieldCheck, Building2 } from "lucide-react";
 
 const studentNav = [
   { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard, testid: "nav-dashboard" },
   { to: "/modules", label: "Curriculum", icon: BookOpen, testid: "nav-modules" },
   { to: "/labs", label: "Apprentice Labs", icon: FlaskConical, testid: "nav-labs" },
+  { to: "/compliance", label: "Compliance", icon: ShieldCheck, testid: "nav-compliance" },
+  { to: "/adaptive", label: "Learning Path", icon: Brain, testid: "nav-adaptive" },
   { to: "/competencies", label: "Competencies", icon: Target, testid: "nav-competencies" },
   { to: "/credentials", label: "Credentials", icon: BadgeCheck, testid: "nav-credentials" },
   { to: "/portfolio", label: "Portfolio", icon: Briefcase, testid: "nav-portfolio" },
@@ -18,12 +20,14 @@ const instructorNav = [
   { to: "/instructor", label: "Roster", icon: Users, testid: "nav-instructor" },
   { to: "/instructor/labs", label: "Lab Approvals", icon: ClipboardCheck, testid: "nav-lab-approvals" },
   { to: "/modules", label: "Curriculum", icon: BookOpen, testid: "nav-modules" },
+  { to: "/compliance", label: "Compliance", icon: ShieldCheck, testid: "nav-compliance" },
   { to: "/labs", label: "Apprentice Labs", icon: FlaskConical, testid: "nav-labs" },
   { to: "/ai", label: "AI Tutor", icon: Sparkles, testid: "nav-ai" },
 ];
 
 const adminNav = [
   { to: "/admin", label: "Admin", icon: Settings, testid: "nav-admin" },
+  { to: "/admin/tools", label: "Sites & Inventory", icon: Building2, testid: "nav-admin-tools" },
   { to: "/instructor", label: "Roster", icon: Users, testid: "nav-instructor" },
   { to: "/instructor/labs", label: "Lab Approvals", icon: ClipboardCheck, testid: "nav-lab-approvals" },
   { to: "/modules", label: "Curriculum", icon: BookOpen, testid: "nav-modules" },
