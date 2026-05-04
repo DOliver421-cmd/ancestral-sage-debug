@@ -980,11 +980,17 @@ async def build_portfolio(user_doc: dict) -> dict:
     user_id = user_doc["id"]
     await award_credentials(user_id)
 
+    # Batch-load modules and labs once to avoid N+1 queries
+    all_modules = await db.modules.find({}, {"_id": 0}).to_list(100)
+    modules_by_slug = {m["slug"]: m for m in all_modules}
+    all_labs = await db.labs.find({}, {"_id": 0}).to_list(200)
+    labs_by_slug = {lab["slug"]: lab for lab in all_labs}
+
     mod_progress = await db.progress.find({"user_id": user_id}, {"_id": 0}).to_list(500)
     completed_mods = []
     for p in mod_progress:
         if p.get("status") == "completed":
-            mod = await db.modules.find_one({"slug": p["module_slug"]}, {"_id": 0})
+            mod = modules_by_slug.get(p["module_slug"])
             if mod:
                 completed_mods.append({
                     "slug": mod["slug"],
@@ -999,7 +1005,7 @@ async def build_portfolio(user_doc: dict) -> dict:
     ).to_list(500)
     labs_detail = []
     for s in lab_subs:
-        lab = await db.labs.find_one({"slug": s["lab_slug"]}, {"_id": 0})
+        lab = labs_by_slug.get(s["lab_slug"])
         if lab:
             labs_detail.append({
                 "slug": lab["slug"],
@@ -1017,7 +1023,7 @@ async def build_portfolio(user_doc: dict) -> dict:
     # competencies
     comp_map = {c["key"]: {**c, "points": 0, "labs": 0, "badge_earned": False} for c in COMPETENCIES}
     for s in lab_subs:
-        lab = await db.labs.find_one({"slug": s["lab_slug"]}, {"_id": 0})
+        lab = labs_by_slug.get(s["lab_slug"])
         if lab:
             for k in lab.get("competencies", []):
                 if k in comp_map:
