@@ -14,7 +14,7 @@ export default function LabDetail() {
   const [notes, setNotes] = useState("");
 
   const load = () => api.get(`/labs/${slug}`).then((r) => { setLab(r.data); if (r.data.my_submission?.track === "inperson") { setPhotoUrl(r.data.my_submission.photo_url || ""); setNotes(r.data.my_submission.notes || ""); } });
-  useEffect(() => { load(); }, [slug]);
+  useEffect(() => { load(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [slug]);
 
   const submitOnline = async (answers) => {
     try {

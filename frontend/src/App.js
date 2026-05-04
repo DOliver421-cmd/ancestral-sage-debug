@@ -16,7 +16,6 @@ import LabsHub from "./pages/LabsHub";
 import LabDetail from "./pages/LabDetail";
 import Competencies from "./pages/Competencies";
 import InstructorLabs from "./pages/InstructorLabs";
-import LabSimulations from "./pages/LabSimulations";
 import Credentials from "./pages/Credentials";
 import Portfolio from "./pages/Portfolio";
 import PublicPortfolio from "./pages/PublicPortfolio";
@@ -28,6 +27,7 @@ import Analytics from "./pages/Analytics";
 import AuditLog from "./pages/AuditLog";
 import Attendance from "./pages/Attendance";
 import Incidents from "./pages/Incidents";
+import Settings from "./pages/Settings";
 
 function Protected({ children, roles }) {
   const { user, loading } = useAuth();
@@ -60,7 +60,7 @@ function App() {
           <Route path="/admin" element={<Protected roles={["admin"]}><AdminDashboard /></Protected>} />
           <Route path="/modules" element={<Protected><ModulesList /></Protected>} />
           <Route path="/modules/:slug" element={<Protected><ModuleView /></Protected>} />
-          <Route path="/lab" element={<Protected><LabSimulations /></Protected>} />
+          <Route path="/lab" element={<Navigate to="/labs" replace />} />
           <Route path="/labs" element={<Protected><LabsHub /></Protected>} />
           <Route path="/labs/:slug" element={<Protected><LabDetail /></Protected>} />
           <Route path="/competencies" element={<Protected><Competencies /></Protected>} />
@@ -78,6 +78,7 @@ function App() {
           <Route path="/admin/audit" element={<Protected roles={["admin"]}><AuditLog /></Protected>} />
           <Route path="/attendance" element={<Protected roles={["instructor", "admin"]}><Attendance /></Protected>} />
           <Route path="/incidents" element={<Protected><Incidents /></Protected>} />
+          <Route path="/settings" element={<Protected><Settings /></Protected>} />
         </Routes>
       </BrowserRouter>
     </AuthProvider>

@@ -7,7 +7,7 @@ import { toast } from "sonner";
 export default function Register() {
   const { register } = useAuth();
   const nav = useNavigate();
-  const [form, setForm] = useState({ full_name: "", email: "", password: "", role: "student", associate: "Associate-Alpha" });
+  const [form, setForm] = useState({ full_name: "", email: "", password: "", associate: "Associate-Alpha" });
   const [loading, setLoading] = useState(false);
 
   const submit = async (e) => {
@@ -16,7 +16,7 @@ export default function Register() {
     try {
       const u = await register(form);
       toast.success(`Welcome, ${u.full_name}`);
-      nav(u.role === "admin" ? "/admin" : u.role === "instructor" ? "/instructor" : "/dashboard");
+      nav("/dashboard");
     } catch (err) {
       toast.error(err?.response?.data?.detail || "Registration failed");
     } finally { setLoading(false); }
@@ -58,12 +58,9 @@ export default function Register() {
           </div>
           <div>
             <label className="overline text-ink/60">Track</label>
-            <select value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value })}
-              className="w-full mt-2 px-4 py-3 bg-white border border-ink/20 focus:border-ink focus:outline-none focus:ring-2 focus:ring-signal"
-              data-testid="select-role">
-              <option value="student">Student / Apprentice</option>
-              <option value="instructor">Instructor</option>
-            </select>
+            <div className="w-full mt-2 px-4 py-3 bg-bone border border-ink/20 text-sm text-ink/70" data-testid="register-track-info">
+              Apprentice / Student — instructors and admins are created by the program lead. Ask your administrator if you need elevated access.
+            </div>
           </div>
           <div>
             <label className="overline text-ink/60">Associate</label>

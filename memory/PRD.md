@@ -1,85 +1,106 @@
-# LCE-WAI Training Platform — PRD
+# W.A.I. — Workforce Apprentice Institute (PRD)
 
 ## Original Problem Statement
-Full-stack training application for the Lightning City Electric Workforce & Apprenticeship Institute (LCE-WAI). Electrical apprenticeship training, 12-project Camper-to-Classroom curriculum, safety/solar/off-grid modules, student progress, instructor tools, assessments, certifications. Must serve youth, adults, returning citizens, and workforce trainees. Faith-forward + safety + hands-on.
-
-User-added follow-up scope:
-- Rename "Cohort" → "Associate" everywhere.
-- Add a complete Electrical Apprentice Lab Module System with both online simulations (9) and in-person real-world labs (12), a Competency Matrix (8 areas), skill points/badges, and an Instructor Lab Approval Panel.
+Full-stack training application for the Workforce Apprentice Institute (W.A.I., an LCE-WAI partner program). Electrical apprenticeship training, 12-project Camper-to-Classroom curriculum, safety/solar/off-grid modules, student progress, instructor tools, assessments, certifications. Must serve youth, adults, returning citizens, and workforce trainees. Faith-forward + safety + hands-on.
 
 ## User Choices (confirmed)
 - Auth: JWT with email/password (Admin/Instructor/Student roles)
-- AI: Claude Sonnet 4.5 via Emergent LLM key
-- MVP: Full platform (all dashboards + all 12 modules + certificates)
-- Certificates: Downloadable PDFs
-- Design: Industrial trade-school (ink #0B203F, bone #F7F7F5, copper #C96A35, signal yellow #FFD100, Cabinet Grotesk + IBM Plex Sans)
+- AI: Claude Sonnet 4.5 via Emergent Universal LLM key
+- Certificates: Downloadable PDFs (ReportLab)
+- Design: Industrial trade-school (ink #0B203F, bone #F7F7F5, copper #C96A35, signal #FFD100)
 
 ## Architecture
-- Backend: FastAPI + MongoDB (motor), JWT auth (pyjwt + passlib bcrypt), emergentintegrations for Claude Sonnet 4.5, ReportLab for certificates
-- Frontend: React 19 + React Router + Tailwind + shadcn/ui + sonner + lucide-react
-- Seed on startup: 12 modules, 9 online labs, 12 in-person labs, 8 competencies, 3 demo users
+- Backend: FastAPI + MongoDB (motor), JWT auth (pyjwt + passlib + bcrypt 4.0.1), emergentintegrations for Claude Sonnet 4.5, ReportLab for PDFs.
+- Frontend: React 19 + React Router + Tailwind + shadcn/ui + sonner + lucide-react. PWA-installable (manifest.json + sw.js).
+- Seed on startup: 12 modules, 9 online labs, 12 in-person labs, 8 competencies, 4 compliance modules, 14 credentials, 3 sites, 15 inventory items, 3 demo users.
+- Critical MongoDB indexes declared on startup (`ensure_indexes()`): users.email unique, lab_submissions(user_id, lab_slug) unique, progress(user_id, module_slug) unique, audit_log.at, etc.
 
-## Implemented (Feb 2026)
-### Iteration 4 — Enterprise Hardening (May 2026)
-- **Audit Log** — `audit_log` collection + `/api/admin/audit` + `/admin/audit` page. Every privileged action (login success/failed, lab review, credential earned, attendance recorded, incident reported/resolved) is auto-logged.
-- **In-app Notifications** — `notifications` collection + bell icon in sidebar + auto-creation on lab approval, lab rejection, credential earned, and credential expiring within 30 days. `/api/notifications/me`, mark-read, mark-all-read.
-- **Program Analytics Dashboard** — `/api/analytics/program` + `/admin/analytics`. Cohort totals, by-associate breakdown, weakest competencies, module completion rates, expiring credentials, open incidents, 30-day actives.
-- **Attendance Tracking** — `/api/attendance` + `/attendance` instructor page. Date picker, present/absent/tardy/excused per student, validates user_ids against student roster.
-- **Incident Reporting** — `/api/incidents` + `/incidents` page. Type/severity/description/photo/site, audit-logged, admin can resolve.
-- **Health/Version + Login rate limit** — `/api/health` (db ping), `/api/version`, `check_rate()` per-email 10/60s on login.
+## Implemented (rolling changelog)
 
-### Iteration 3 — PWA + Adaptive + Compliance + Admin Tools + AI Modes (May 2026)
-- **PWA installable** — `/manifest.json` (W.A.I. icons, theme #0B203F, display:standalone), service worker at `/sw.js` (cache-first static, network-only API), index.html meta tags + apple-touch-icon, sw registered in index.js. Installable on Android (Chrome → Add to Home screen) and Desktop (install icon in URL bar).
-- **Adaptive Learning Engine** at `/adaptive` and `/api/adaptive/me`: skill heatmap across 8 competencies (hot/warm/cold), top 3 weak areas, 4 lab/module/AI recommendations, prerequisite-locked labs (battery-inverter requires solar-charge-controller; loto-real-equipment requires loto-scenario).
-- **4 Compliance Modules** in separate `compliance_modules` collection: OSHA 10 Electrical (36mo expiry), NFPA 70E Awareness (12mo), PPE Selection & Fitting (12mo), LOTO Certification (6mo, 80% pass). Auto-issues credentials.
-- **Program-Level Admin Tools** at `/admin/tools`: 3 sites + 15 inventory items seeded. Admins can create sites, view inventory by site, instructors+admins can check out/return tools with quantity tracking.
-- **AI Tutor expanded** with 2 new modes — `nec_lookup` (NEC article + plain-English summary + jurisdiction reminder) and `blueprint` (structured Circuits/Panels/Concerns analysis from a plan description).
+### Iteration 5 — Diagnostic Fix Pass (Feb 2026)
+Acted on `/app/memory/DIAGNOSTIC_REPORT.md`. **All 14 issues resolved or remediated.** 100/100 backend pytest passing.
 
-### Iteration 2 — W.A.I. Rebrand + Credentialing + Portfolio (May 2026)
-- Rebranded from "Lightning City Electric" to **W.A.I. — Workforce Apprentice Institute** (LCE-WAI partner program subtitle). New logo applied in Landing, Login, Register, sidebar, and footer. Color accent shifted from copper #C96A35 to W.A.I. blue #1E5BA8.
-- **14 Digital Credentials** (OpenBadges v2 compatible): 3 level badges, 1 capstone, 6 skill badges tied to competencies, 4 compliance badges (LOTO 6mo, OSHA 10 36mo, NFPA 70E 12mo, Safety/PPE 12mo) + Solar Installer L1. Public manifest + assertion JSON endpoints.
-- **Auto-award engine** — credentials issued automatically when triggers match (module completion, lab pass/approval, competency threshold, program complete). Runs on quiz submit, lab submit, lab review, and /credentials/me page load.
-- **Portfolio Builder** at `/portfolio`: aggregates user profile, modules, labs, evaluations, credentials, competency matrix. Publish toggle creates shareable `/p/{slug}` public route (no auth, no email leak). Multi-page PDF export via ReportLab.
-- **Frontend**: New pages Credentials.jsx, Portfolio.jsx, PublicPortfolio.jsx + shared PortfolioBody component. Student nav now includes Credentials + Portfolio items.
+| Fix | Change |
+|---|---|
+| **A1** ObjectId leak | `POST /api/progress/start` now `doc.pop("_id", None)` before return. |
+| **A2** bcrypt/passlib mismatch | Pinned `bcrypt==4.0.1` (compat with passlib 1.7.4); installed and verified — startup warning gone. |
+| **A3** pytest broken | Added `/app/backend/tests/conftest.py` that loads `/app/frontend/.env` so `REACT_APP_BACKEND_URL` is available. **100/100 tests now pass.** |
+| **B1** Promote/demote | New `PATCH /api/admin/users/{id}/role` + role `<select>` per row in Admin Dashboard table. |
+| **B2/B3** Missing admin pages | Inline extension of Admin Dashboard with create-user form, role select, password-reset, delete buttons. |
+| **B4** Create user | New `POST /api/admin/users` (any role). UI: "New User" button on Admin Dashboard. |
+| **B5** Delete user | New `DELETE /api/admin/users/{id}` with last-admin-guard + self-delete-guard. UI: trash icon per row. |
+| **B6** Password reset | New `POST /api/auth/change-password` (self) + `POST /api/admin/users/{id}/password` (admin). UI: `/settings` page (sidebar nav for all roles) + key icon in Admin Users table. |
+| **C1** Privilege escalation | `RegisterReq` no longer accepts `role`. Public `/api/auth/register` is hard-coded to `student`. Frontend Register form replaced role `<select>` with informational notice. Verified: `curl … role:"admin"` now returns `student`. |
+| **C2** Hardcoded JWT secret | Documented in operator guide; rotation noted as deploy-time step (no code change here). |
+| **D1** Stale PUBLIC_BACKEND_URL | New helper `public_url_from(request)` honors `X-Forwarded-Host`/`X-Forwarded-Proto`; `PUBLIC_BACKEND_URL` env var becomes optional override. OpenBadges manifests/assertions now embed the live preview URL. |
+| **D3** CORS wildcard + credentials | Refactored to set `allow_credentials=False` when origins is `*`, `True` when explicit origin list. |
+| **E1** ESLint hook deps | `Incidents.jsx` adds `isStaff` to deps; `LabDetail.jsx` adds eslint-disable comment for the intentional exclusion. |
+| **E2** Flake8 E741 | Renamed `l` → `lab_item` in `server.py` (lines 1175, 1303). |
+| **E4** Dead `/lab` route | Replaced with `<Navigate to="/labs" replace />`; removed unused `LabSimulations` import. |
+| **E5** N+1 query | `/api/competencies` now batch-loads labs once via `$in`. |
+| **E10** No indexes | Declared 13 indexes on `on_startup` (users, labs, progress, attendance, incidents, etc.). |
 
-### Iteration 1 — MVP (Feb 2026)
-### Backend routes (all /api)
-- Auth: /auth/register, /auth/login, /auth/me
-- Curriculum: /modules, /modules/{slug}
-- Progress: /progress/me, /progress/start, /progress/quiz (auto-grades, 70%+ completes)
-- Labs: /labs (optional ?track=), /labs/{slug}, /labs/{slug}/submit (auto-grade online, pending inperson)
-- Labs meta: /labs/submissions/me, /competencies
-- Instructor: /roster, /instructor/submissions, /instructor/submissions/{id}/review, /instructor/lab-report
-- Admin: /admin/stats, /admin/users, /admin/associate
-- AI: /ai/chat (Claude Sonnet 4.5, 4 modes: tutor/scripture/explain/quiz_gen), /ai/history/{session}
-- Certs: /certificates/me, /certificates/{slug}.pdf?token= (JWT query auth)
+### Iteration 4 — Enterprise Hardening
+Audit log, in-app notifications, program analytics, attendance, incident reporting, health/version, login rate-limit.
 
-### 9 Online Simulators (auto-graded)
-basic-circuit-sim, switch-wiring-sim, panel-labeling-sim, conduit-bending-calc, voltage-drop-calc, solar-config-sim, loto-scenario, troubleshooting-sim, load-balancing-sim
+### Iteration 3 — PWA + Adaptive + Compliance + AI Modes
+PWA installable, adaptive learning, 4 compliance modules, program-level admin tools (sites + inventory + checkout), AI Tutor `nec_lookup` and `blueprint` modes.
 
-### 12 In-Person Labs (photo URL + notes, instructor approval)
-emt-conduit-install, switch-loop-wiring, three-four-way-circuit, load-center-install, breaker-termination, gfci-afci-install, branch-circuit-build, continuity-voltage-test, solar-charge-controller, solar-panel-mount, battery-inverter-build, loto-real-equipment
+### Iteration 2 — W.A.I. Rebrand + Credentialing + Portfolio
+Rebrand to W.A.I., 14 OpenBadges credentials with auto-award engine, portfolio builder + public `/p/{slug}` route + multi-page PDF export.
 
-### 8 Competencies
-wiring-fundamentals, safety-ppe, tools-equipment, conduit-bending, panels-breakers, troubleshooting, solar-off-grid, professionalism. Badge at 100 skill points.
+### Iteration 1 — MVP
+JWT auth, 3 dashboards, 12 modules, 9 simulators, 12 in-person labs, 8 competencies, AI Tutor (Claude 4.5), PDF certificates.
 
-### Frontend pages
-Landing, Login, Register, StudentDashboard, InstructorDashboard, AdminDashboard, ModulesList, ModuleView, LabsHub, LabDetail (with 9 simulators), InstructorLabs (approvals + lab report CSV), Competencies, AITutor, Certificates, LabSimulations (legacy preview).
+## Backend route inventory (all `/api`)
+Auth: `/auth/register, /auth/login, /auth/me, /auth/change-password`
+Curriculum: `/modules, /modules/{slug}, /progress/me, /progress/start, /progress/quiz`
+Labs: `/labs, /labs/{slug}, /labs/{slug}/submit, /labs/submissions/me, /competencies`
+Instructor: `/roster, /instructor/submissions, /instructor/submissions/{id}/review, /instructor/lab-report`
+Admin users: `/admin/users (GET, POST), /admin/users/{id}/role (PATCH), /admin/users/{id} (DELETE), /admin/users/{id}/password (POST), /admin/associate (POST)`
+Admin core: `/admin/stats, /admin/sites (GET/POST), /admin/inventory (GET/POST), /admin/checkout (POST), /admin/checkout/{id}/return (POST), /admin/checkouts (GET), /admin/audit (GET)`
+AI: `/ai/chat (6 modes), /ai/history/{session}`
+Credentials: `/credentials, /credentials/me, /credentials/{key}/manifest.json, /credentials/assertion/{id}.json`
+Portfolio: `/portfolio/me, /portfolio/publish, /portfolio/public/{slug}, /portfolio/export.pdf`
+Compliance: `/compliance, /compliance/{slug}, /compliance/{slug}/quiz`
+Adaptive: `/adaptive/me`
+Notifications: `/notifications/me, /notifications/{id}/read, /notifications/read-all`
+Attendance: `/attendance (POST), /attendance/me, /attendance/roster`
+Incidents: `/incidents (GET/POST), /incidents/{id}/resolve`
+Analytics: `/analytics/program`
+Health: `/health, /version, /docs, /openapi.json`
+Certs: `/certificates/me, /certificates/{slug}.pdf?token=`
+
+## Frontend pages
+Landing, Login, Register, StudentDashboard, InstructorDashboard, AdminDashboard (now with full user management), AdminTools, Analytics, AuditLog, Attendance, Incidents, ModulesList, ModuleView, LabsHub, LabDetail, LabSimulations (legacy), Competencies, InstructorLabs, AITutor, Certificates, Credentials, Portfolio, PublicPortfolio, Adaptive, ComplianceList, ComplianceDetail, **Settings (new — change password)**.
 
 ## Test Credentials
 admin@lcewai.org / Admin@LCE2026
 instructor@lcewai.org / Teach@LCE2026 (Associate-Alpha)
 student@lcewai.org / Learn@LCE2026 (Associate-Alpha)
 
-## Test Results (iteration 1)
-Backend: 34/34 pytest passing (100%). Frontend: all critical flows verified. No critical bugs.
+## Test Status
+- Backend pytest: **100/100 passing**.
+- Live API smoke (admin token): all 19 endpoints + new admin user CRUD + change-password verified 200 OK.
+- Frontend: ESLint clean (no hook-deps warnings).
 
 ## Backlog / Next Actions
-- P1: Real file upload for in-person lab photos (currently URL string). Integrate object storage playbook.
-- P1: Richer interactive simulators (SVG wiring drag-and-drop instead of form-based).
-- P1: Email notifications on lab approval/rejection (Resend or SendGrid).
-- P2: Instructor can unlock/lock modules per student.
-- P2: Video lesson uploads per module.
-- P2: Mobile-optimized lab checklist with camera capture.
-- P2: Scripture library curation panel for admin.
-- P3: Electron desktop wrapper (app is already responsive web).
+
+### P0
+- Level 2/3/4 Advanced Apprentice Lab Tracks (~21 more intermediate labs).
+
+### P1
+- Real file uploads (skill demonstration videos/photos) via object storage.
+- Email/SMS notifications (Resend / Twilio) for credential expiry, lab approval/rejection.
+
+### P2
+- Iframe-embeddable portfolio widget for partner employer sites.
+- Refactor `server.py` (now ~1,990 lines) into a `routers/` package (auth, labs, admin, ai, enterprise, credentials).
+- CSV exports on `/admin/audit`, `/admin/analytics`, `/attendance`.
+- Workbox-style versioned PWA service worker (avoid stale-shell after deploys).
+- Replace in-memory rate limiter with Redis when scaling beyond a single pod.
+
+### P3
+- Forgot-password (email magic link) for self-service when users lose access.
+- 2FA (TOTP) for admin accounts.
+- MFA-protected admin actions (delete user, reset password).

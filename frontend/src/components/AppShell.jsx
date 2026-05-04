@@ -1,7 +1,7 @@
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../lib/auth";
 import { WAI_LOGO, BRAND } from "../lib/brand";
-import { LayoutDashboard, BookOpen, Award, Users, Settings, Sparkles, LogOut, FlaskConical, Target, ClipboardCheck, Briefcase, BadgeCheck, Brain, ShieldCheck, Building2, TrendingUp, ScrollText, Calendar, ShieldAlert } from "lucide-react";
+import { LayoutDashboard, BookOpen, Award, Users, Settings, Sparkles, LogOut, FlaskConical, Target, ClipboardCheck, Briefcase, BadgeCheck, Brain, ShieldCheck, Building2, TrendingUp, ScrollText, Calendar, ShieldAlert, KeyRound } from "lucide-react";
 import NotificationBell from "./NotificationBell";
 
 const studentNav = [
@@ -16,6 +16,7 @@ const studentNav = [
   { to: "/incidents", label: "Report Incident", icon: ShieldAlert, testid: "nav-incidents" },
   { to: "/ai", label: "AI Tutor", icon: Sparkles, testid: "nav-ai" },
   { to: "/certificates", label: "Certificates", icon: Award, testid: "nav-certs" },
+  { to: "/settings", label: "Settings", icon: KeyRound, testid: "nav-settings" },
 ];
 
 const instructorNav = [
@@ -27,6 +28,7 @@ const instructorNav = [
   { to: "/compliance", label: "Compliance", icon: ShieldCheck, testid: "nav-compliance" },
   { to: "/labs", label: "Apprentice Labs", icon: FlaskConical, testid: "nav-labs" },
   { to: "/ai", label: "AI Tutor", icon: Sparkles, testid: "nav-ai" },
+  { to: "/settings", label: "Settings", icon: KeyRound, testid: "nav-settings" },
 ];
 
 const adminNav = [
@@ -41,6 +43,7 @@ const adminNav = [
   { to: "/modules", label: "Curriculum", icon: BookOpen, testid: "nav-modules" },
   { to: "/labs", label: "Apprentice Labs", icon: FlaskConical, testid: "nav-labs" },
   { to: "/ai", label: "AI Tutor", icon: Sparkles, testid: "nav-ai" },
+  { to: "/settings", label: "Settings", icon: KeyRound, testid: "nav-settings" },
 ];
 
 export default function AppShell({ children }) {

@@ -12,7 +12,7 @@ from typing import List, Optional, Literal
 
 import jwt
 from dotenv import load_dotenv
-from fastapi import Depends, FastAPI, APIRouter, HTTPException, Header
+from fastapi import Depends, FastAPI, APIRouter, HTTPException, Header, Request
 from fastapi.responses import StreamingResponse
 from motor.motor_asyncio import AsyncIOMotorClient
 from passlib.context import CryptContext
@@ -108,11 +108,34 @@ class User(BaseModel):
 
 
 class RegisterReq(BaseModel):
+    """Public self-registration. SECURITY: role is NOT accepted from clients here.
+    Public sign-ups are always created as students. Instructors/admins must be
+    created by an existing admin via /api/admin/users."""
+    email: EmailStr
+    full_name: str
+    password: str
+    associate: Optional[str] = None
+
+
+class AdminCreateUserReq(BaseModel):
     email: EmailStr
     full_name: str
     password: str
     role: Role = "student"
     associate: Optional[str] = None
+
+
+class AdminRoleReq(BaseModel):
+    role: Role
+
+
+class ChangePasswordReq(BaseModel):
+    current_password: str
+    new_password: str
+
+
+class AdminResetPasswordReq(BaseModel):
+    new_password: str
 
 
 class LoginReq(BaseModel):
@@ -270,11 +293,33 @@ async def seed_labs():
 
 @app.on_event("startup")
 async def on_startup():
+    await ensure_indexes()
     await seed_modules()
     await seed_users()
     await seed_labs()
     await seed_compliance()
     await seed_sites_inventory()
+
+
+async def ensure_indexes():
+    """Declare critical indexes. Idempotent; safe to call on every startup."""
+    try:
+        await db.users.create_index("email", unique=True)
+        await db.users.create_index("id", unique=True)
+        await db.lab_submissions.create_index([("user_id", 1), ("lab_slug", 1)], unique=True)
+        await db.progress.create_index([("user_id", 1), ("module_slug", 1)], unique=True)
+        await db.compliance_progress.create_index([("user_id", 1), ("module_slug", 1)], unique=True)
+        await db.audit_log.create_index([("at", -1)])
+        await db.notifications.create_index([("user_id", 1), ("created_at", -1)])
+        await db.user_credentials.create_index([("user_id", 1), ("credential_key", 1)], unique=True)
+        await db.attendance.create_index([("user_id", 1), ("date", -1)])
+        await db.incidents.create_index([("status", 1), ("created_at", -1)])
+        await db.tool_checkouts.create_index([("user_id", 1), ("status", 1)])
+        await db.inventory.create_index("sku", unique=True)
+        await db.sites.create_index("slug", unique=True)
+        logger.info("Indexes ensured")
+    except Exception:
+        logger.exception("ensure_indexes failed (non-fatal)")
 
 
 async def seed_compliance():
@@ -324,7 +369,9 @@ async def version():
 async def register(body: RegisterReq):
     if await db.users.find_one({"email": body.email}):
         raise HTTPException(400, "Email already registered")
-    user = User(email=body.email, full_name=body.full_name, role=body.role, associate=body.associate)
+    # Public self-registration is always a student. Higher-privilege accounts
+    # must be created by an admin (POST /api/admin/users).
+    user = User(email=body.email, full_name=body.full_name, role="student", associate=body.associate)
     doc = user.model_dump()
     doc["created_at"] = doc["created_at"].isoformat()
     doc["password_hash"] = hash_pw(body.password)
@@ -384,6 +431,7 @@ async def start_module(payload: dict, user: User = Depends(current_user)):
     doc = entry.model_dump()
     doc["updated_at"] = doc["updated_at"].isoformat()
     await db.progress.insert_one(doc)
+    doc.pop("_id", None)
     return doc
 
 
@@ -450,6 +498,82 @@ async def assign_associate(payload: dict, user: User = Depends(require_role("adm
     if not uid:
         raise HTTPException(400, "user_id required")
     await db.users.update_one({"id": uid}, {"$set": {"associate": associate}})
+    await audit(user.id, "admin.user.associate_changed", target=uid, meta={"associate": associate})
+    return {"ok": True}
+
+
+@api_router.post("/admin/users")
+async def admin_create_user(body: AdminCreateUserReq, user: User = Depends(require_role("admin"))):
+    """Admin-only: create a user with any role (including admin/instructor)."""
+    if await db.users.find_one({"email": body.email}):
+        raise HTTPException(400, "Email already registered")
+    new_user = User(email=body.email, full_name=body.full_name, role=body.role, associate=body.associate)
+    doc = new_user.model_dump()
+    doc["created_at"] = doc["created_at"].isoformat()
+    doc["password_hash"] = hash_pw(body.password)
+    await db.users.insert_one(doc)
+    await audit(user.id, "admin.user.created", target=new_user.id,
+                meta={"email": body.email, "role": body.role})
+    return {"ok": True, "user": new_user.model_dump(mode="json")}
+
+
+@api_router.patch("/admin/users/{uid}/role")
+async def admin_change_role(uid: str, body: AdminRoleReq, user: User = Depends(require_role("admin"))):
+    """Admin-only: promote/demote a user."""
+    if uid == user.id and body.role != "admin":
+        raise HTTPException(400, "Refusing to demote yourself — ask another admin.")
+    target = await db.users.find_one({"id": uid}, {"_id": 0})
+    if not target:
+        raise HTTPException(404, "User not found")
+    await db.users.update_one({"id": uid}, {"$set": {"role": body.role}})
+    await audit(user.id, "admin.user.role_changed", target=uid,
+                meta={"from": target.get("role"), "to": body.role})
+    return {"ok": True, "id": uid, "role": body.role}
+
+
+@api_router.delete("/admin/users/{uid}")
+async def admin_delete_user(uid: str, user: User = Depends(require_role("admin"))):
+    """Admin-only: delete a user. Refuses self-delete."""
+    if uid == user.id:
+        raise HTTPException(400, "Refusing to delete yourself.")
+    target = await db.users.find_one({"id": uid}, {"_id": 0, "password_hash": 0})
+    if not target:
+        raise HTTPException(404, "User not found")
+    # Last-admin guard
+    if target.get("role") == "admin":
+        admin_count = await db.users.count_documents({"role": "admin"})
+        if admin_count <= 1:
+            raise HTTPException(400, "Cannot delete the last admin.")
+    await db.users.delete_one({"id": uid})
+    await audit(user.id, "admin.user.deleted", target=uid,
+                meta={"email": target.get("email"), "role": target.get("role")})
+    return {"ok": True}
+
+
+@api_router.post("/admin/users/{uid}/password")
+async def admin_reset_password(uid: str, body: AdminResetPasswordReq,
+                               user: User = Depends(require_role("admin"))):
+    """Admin-only: reset another user's password."""
+    if len(body.new_password) < 6:
+        raise HTTPException(400, "Password must be at least 6 characters")
+    target = await db.users.find_one({"id": uid}, {"_id": 0})
+    if not target:
+        raise HTTPException(404, "User not found")
+    await db.users.update_one({"id": uid}, {"$set": {"password_hash": hash_pw(body.new_password)}})
+    await audit(user.id, "admin.user.password_reset", target=uid)
+    return {"ok": True}
+
+
+@api_router.post("/auth/change-password")
+async def change_password(body: ChangePasswordReq, user: User = Depends(current_user)):
+    """Any authenticated user can change their own password."""
+    if len(body.new_password) < 6:
+        raise HTTPException(400, "Password must be at least 6 characters")
+    doc = await db.users.find_one({"id": user.id}, {"_id": 0})
+    if not doc or not verify_pw(body.current_password, doc["password_hash"]):
+        raise HTTPException(401, "Current password is incorrect")
+    await db.users.update_one({"id": user.id}, {"$set": {"password_hash": hash_pw(body.new_password)}})
+    await audit(user.id, "auth.password_changed")
     return {"ok": True}
 
 
@@ -746,9 +870,13 @@ async def list_competencies(user: User = Depends(current_user)):
     subs = await db.lab_submissions.find(
         {"user_id": user.id, "status": {"$in": ["approved", "passed"]}}, {"_id": 0}
     ).to_list(500)
+    # Batch-load labs once to avoid N+1 round-trips
+    slugs = list({s["lab_slug"] for s in subs})
+    labs = await db.labs.find({"slug": {"$in": slugs}}, {"_id": 0}).to_list(500) if slugs else []
+    labs_by_slug = {lab["slug"]: lab for lab in labs}
     score_by_comp = {c["key"]: {"points": 0, "labs": 0} for c in COMPETENCIES}
     for s in subs:
-        lab = await db.labs.find_one({"slug": s["lab_slug"]}, {"_id": 0})
+        lab = labs_by_slug.get(s["lab_slug"])
         if not lab:
             continue
         for cmp_key in lab.get("competencies", []):
@@ -1035,13 +1163,27 @@ async def my_credentials(user: User = Depends(current_user)):
     return {"earned": result, "available": unearned}
 
 
+def public_url_from(request: Request) -> str:
+    """Derive the public backend URL from the incoming request, with env override.
+    Avoids issuing OpenBadges manifests/assertions tied to a stale preview hostname.
+    Honors X-Forwarded-Host / X-Forwarded-Proto so the URL matches what the
+    browser sees (Kubernetes ingress doesn't rewrite the Host header)."""
+    override = os.environ.get('PUBLIC_BACKEND_URL', '').strip()
+    if override:
+        return override.rstrip('/')
+    fwd_host = request.headers.get('x-forwarded-host')
+    fwd_proto = request.headers.get('x-forwarded-proto', request.url.scheme)
+    host = fwd_host or request.url.netloc
+    return f"{fwd_proto}://{host}"
+
+
 @api_router.get("/credentials/{key}/manifest.json")
-async def credential_manifest(key: str):
+async def credential_manifest(key: str, request: Request):
     """OpenBadges v2 BadgeClass manifest (public)."""
     cred = next((c for c in CREDENTIALS if c["key"] == key), None)
     if not cred:
         raise HTTPException(404, "Credential not found")
-    backend_url = os.environ.get('PUBLIC_BACKEND_URL', '')
+    backend_url = public_url_from(request)
     return {
         "@context": "https://w3id.org/openbadges/v2",
         "type": "BadgeClass",
@@ -1062,7 +1204,7 @@ async def credential_manifest(key: str):
 
 
 @api_router.get("/credentials/assertion/{assertion_id}.json")
-async def credential_assertion(assertion_id: str):
+async def credential_assertion(assertion_id: str, request: Request):
     """OpenBadges v2 Assertion (public, for verifiers)."""
     uc = await db.user_credentials.find_one({"id": assertion_id}, {"_id": 0})
     if not uc:
@@ -1071,7 +1213,7 @@ async def credential_assertion(assertion_id: str):
     cred = next((c for c in CREDENTIALS if c["key"] == uc["credential_key"]), None)
     if not cred or not user_doc:
         raise HTTPException(404, "Not found")
-    backend_url = os.environ.get('PUBLIC_BACKEND_URL', '')
+    backend_url = public_url_from(request)
     return {
         "@context": "https://w3id.org/openbadges/v2",
         "type": "Assertion",
@@ -1172,7 +1314,7 @@ async def build_portfolio(user_doc: dict) -> dict:
 
     port = await db.portfolios.find_one({"user_id": user_id}, {"_id": 0})
 
-    hours = sum(m["hours"] for m in completed_mods) + sum(l["hours"] for l in labs_detail)
+    hours = sum(m["hours"] for m in completed_mods) + sum(lab_item["hours"] for lab_item in labs_detail)
     skill_points = sum(c["points"] for c in comp_map.values())
 
     return {
@@ -1300,8 +1442,8 @@ async def portfolio_pdf(token: str):
     y -= 0.15 * inch
     section(y, "Labs Passed")
     y -= 0.3 * inch
-    for l in data["labs"]:
-        text_line(f"• {l['title']}  [{l['track'].upper()}]  —  {l['skill_points']} pts")
+    for lab_item in data["labs"]:
+        text_line(f"• {lab_item['title']}  [{lab_item['track'].upper()}]  —  {lab_item['skill_points']} pts")
 
     # footer
     c.setFillColor(colors.HexColor("#4B5563"))
@@ -1840,10 +1982,15 @@ async def program_analytics(user: User = Depends(require_role("admin"))):
 
 
 app.include_router(api_router)
+# CORS: when origins is wildcard ("*") browsers reject credentials, so we
+# turn off allow_credentials in that case (auth uses Bearer token in Authorization
+# header anyway). If a specific origin list is supplied, credentials are allowed.
+_cors_origins = [o.strip() for o in os.environ.get('CORS_ORIGINS', '*').split(',') if o.strip()]
+_allow_creds = _cors_origins != ['*']
 app.add_middleware(
     CORSMiddleware,
-    allow_credentials=True,
-    allow_origins=os.environ.get('CORS_ORIGINS', '*').split(','),
+    allow_credentials=_allow_creds,
+    allow_origins=_cors_origins,
     allow_methods=["*"],
     allow_headers=["*"],
 )

@@ -18,7 +18,7 @@ export default function Incidents() {
   const [showForm, setShowForm] = useState(!isStaff);
 
   const load = () => isStaff && api.get(`/incidents${filter ? `?status=${filter}` : ""}`).then((r) => setList(r.data));
-  useEffect(load, [filter]);
+  useEffect(load, [filter, isStaff]);
 
   const submit = async () => {
     if (!form.description) { toast.error("Description required"); return; }
