@@ -322,3 +322,166 @@ class TestRolesAndAdmin:
                    json={"user_id": "x", "cohort": "y"},
                    headers=hdr(admin_token))
         assert r.status_code in (404, 405), f"legacy /admin/cohort should be gone, got {r.status_code}"
+
+
+
+# ---------- Credentials (Phase C) ----------
+class TestCredentials:
+    def test_list_credentials_14(self, s, student_token):
+        r = s.get(f"{API}/credentials", headers=hdr(student_token))
+        assert r.status_code == 200, r.text
+        creds = r.json()
+        assert isinstance(creds, list)
+        assert len(creds) == 14, f"expected 14 credentials, got {len(creds)}"
+        for c in creds:
+            assert "key" in c and "name" in c and "description" in c and "trigger" in c
+
+    def test_credentials_me_split(self, s, student_token):
+        r = s.get(f"{API}/credentials/me", headers=hdr(student_token))
+        assert r.status_code == 200, r.text
+        body = r.json()
+        assert "earned" in body and "available" in body
+        assert isinstance(body["earned"], list)
+        assert isinstance(body["available"], list)
+        # student already has prior labs passed → expect at least 1 earned
+        earned_keys = {e["credential_key"] for e in body["earned"]}
+        # confirm split is valid (no duplicates)
+        avail_keys = {c["key"] for c in body["available"]}
+        assert earned_keys.isdisjoint(avail_keys)
+
+    def test_quiz_completion_awards_osha_10(self, s, student_token):
+        # complete safety-loto quiz (module exists)
+        mods = s.get(f"{API}/modules", headers=hdr(student_token)).json()
+        m = next((x for x in mods if x["slug"] == "safety-loto"), None)
+        assert m, "safety-loto module not found"
+        answers = [int(q["answer"]) for q in m["quiz"]]
+        rq = s.post(f"{API}/progress/quiz",
+                    json={"module_slug": "safety-loto", "answers": answers},
+                    headers=hdr(student_token))
+        assert rq.status_code == 200, rq.text
+        # now /credentials/me should award osha-10-awareness
+        r = s.get(f"{API}/credentials/me", headers=hdr(student_token))
+        assert r.status_code == 200
+        body = r.json()
+        earned_keys = {e["credential_key"] for e in body["earned"]}
+        assert "osha-10-awareness" in earned_keys, f"earned: {earned_keys}"
+
+    def test_credential_manifest_openbadges(self, s):
+        # public, no auth needed
+        r = requests.get(f"{API}/credentials/osha-10-awareness/manifest.json", timeout=15)
+        assert r.status_code == 200, r.text
+        data = r.json()
+        assert data.get("@context") == "https://w3id.org/openbadges/v2"
+        assert data.get("type") == "BadgeClass"
+        assert "name" in data and data["name"]
+        assert "description" in data
+        assert "criteria" in data
+        assert "issuer" in data
+        assert "W.A.I." in data["issuer"]["name"] or "Workforce" in data["issuer"]["name"]
+
+    def test_credential_manifest_404(self, s):
+        r = requests.get(f"{API}/credentials/does-not-exist-xyz/manifest.json", timeout=15)
+        assert r.status_code == 404
+
+    def test_credential_assertion(self, s, student_token):
+        body = s.get(f"{API}/credentials/me", headers=hdr(student_token)).json()
+        if not body["earned"]:
+            pytest.skip("no earned credential to assert")
+        assertion_id = body["earned"][0]["id"]
+        r = requests.get(f"{API}/credentials/assertion/{assertion_id}.json", timeout=15)
+        assert r.status_code == 200, r.text
+        data = r.json()
+        assert data["@context"] == "https://w3id.org/openbadges/v2"
+        assert data["type"] == "Assertion"
+        assert "recipient" in data
+        assert "issuedOn" in data
+        assert "badge" in data
+
+
+# ---------- Portfolio ----------
+class TestPortfolio:
+    def test_portfolio_me(self, s, student_token):
+        r = s.get(f"{API}/portfolio/me", headers=hdr(student_token))
+        assert r.status_code == 200, r.text
+        data = r.json()
+        for k in ["user", "stats", "modules", "labs", "credentials", "competencies"]:
+            assert k in data, f"missing key {k}"
+        for k in ["hours", "skill_points", "credentials_earned", "modules_completed", "labs_passed"]:
+            assert k in data["stats"]
+            assert isinstance(data["stats"][k], int)
+        assert data["user"]["email"]  # private view has email
+
+    def test_portfolio_publish_creates_slug(self, s, student_token):
+        r = s.post(f"{API}/portfolio/publish",
+                   json={"bio": "Aspiring electrician.", "publish": True},
+                   headers=hdr(student_token))
+        assert r.status_code == 200, r.text
+        data = r.json()
+        assert data.get("published") is True
+        assert isinstance(data.get("slug"), str) and len(data["slug"]) > 0
+
+        # subsequent /portfolio/me returns share_slug
+        me = s.get(f"{API}/portfolio/me", headers=hdr(student_token)).json()
+        assert me.get("share_slug") == data["slug"]
+
+    def test_portfolio_public_no_auth_no_email(self, s, student_token):
+        # ensure published
+        pub = s.post(f"{API}/portfolio/publish",
+                     json={"bio": "Public bio.", "publish": True},
+                     headers=hdr(student_token)).json()
+        slug = pub["slug"]
+        # Use a fresh session WITHOUT any auth headers
+        clean = requests.Session()
+        r = clean.get(f"{API}/portfolio/public/{slug}", timeout=15)
+        assert r.status_code == 200, r.text
+        data = r.json()
+        assert "user" in data
+        assert "email" not in data["user"], f"public payload leaked email: {data['user']}"
+        assert data["user"].get("full_name")
+        assert "stats" in data and "credentials" in data
+
+    def test_portfolio_unpublish_returns_404(self, s, student_token):
+        pub = s.post(f"{API}/portfolio/publish",
+                     json={"bio": "Public bio.", "publish": True},
+                     headers=hdr(student_token)).json()
+        slug = pub["slug"]
+        # unpublish
+        un = s.post(f"{API}/portfolio/publish",
+                    json={"bio": "x", "publish": False},
+                    headers=hdr(student_token))
+        assert un.status_code == 200
+        clean = requests.Session()
+        r = clean.get(f"{API}/portfolio/public/{slug}", timeout=15)
+        assert r.status_code == 404
+        # republish for downstream tests
+        s.post(f"{API}/portfolio/publish",
+               json={"bio": "Aspiring electrician.", "publish": True},
+               headers=hdr(student_token))
+
+    def test_portfolio_export_pdf(self, s, student_token):
+        r = requests.get(f"{API}/portfolio/export.pdf",
+                         params={"token": student_token}, timeout=30)
+        assert r.status_code == 200, r.text[:200]
+        assert "application/pdf" in r.headers.get("content-type", "")
+        assert r.content[:4] == b"%PDF"
+        assert len(r.content) > 1000
+
+    def test_portfolio_export_pdf_invalid_token(self, s):
+        r = requests.get(f"{API}/portfolio/export.pdf",
+                         params={"token": "not-a-jwt"}, timeout=15)
+        assert r.status_code == 401
+
+
+# ---------- Rebrand ----------
+class TestRebrand:
+    def test_no_cohort_in_modules(self, s, student_token):
+        r = s.get(f"{API}/modules", headers=hdr(student_token))
+        assert "cohort" not in r.text.lower(), "Found legacy 'cohort' string in /modules"
+
+    def test_no_cohort_in_credentials(self, s, student_token):
+        r = s.get(f"{API}/credentials", headers=hdr(student_token))
+        assert "cohort" not in r.text.lower()
+
+    def test_no_cohort_in_portfolio(self, s, student_token):
+        r = s.get(f"{API}/portfolio/me", headers=hdr(student_token))
+        assert "cohort" not in r.text.lower()

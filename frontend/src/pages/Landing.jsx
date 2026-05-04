@@ -1,5 +1,6 @@
 import { Link } from "react-router-dom";
-import { Zap, ShieldCheck, BookOpen, Sun, Award, Wrench, ArrowRight } from "lucide-react";
+import { WAI_LOGO, BRAND } from "../lib/brand";
+import { ShieldCheck, BookOpen, Sun, Award, Wrench, ArrowRight } from "lucide-react";
 
 const HERO = "https://static.prod-images.emergentagent.com/jobs/bb805589-57e1-4a69-a20a-634e662786be/images/d54fa6bbf1da1d71103863bd3913c37f5be9ce27915ab3d46073050a7ae47b90.png";
 const LAB = "https://static.prod-images.emergentagent.com/jobs/bb805589-57e1-4a69-a20a-634e662786be/images/400ae5d82048afd5dbdcd20dc360b9e2cb437b23f2460b0009bbb0a0f6875b7c.png";
@@ -12,12 +13,10 @@ export default function Landing() {
       <header className="border-b border-ink/10 bg-bone">
         <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
           <Link to="/" className="flex items-center gap-3" data-testid="landing-logo">
-            <div className="w-10 h-10 bg-ink flex items-center justify-center">
-              <Zap className="w-5 h-5 text-signal" strokeWidth={3} />
-            </div>
+            <img src={WAI_LOGO} alt="W.A.I." className="w-12 h-12 object-contain bg-white border border-ink/10 p-1" />
             <div>
-              <div className="overline text-copper leading-none">LCE-WAI</div>
-              <div className="font-heading font-bold text-sm leading-tight">Lightning City Electric</div>
+              <div className="overline text-copper leading-none">{BRAND.short}</div>
+              <div className="font-heading font-bold text-sm leading-tight">{BRAND.name}</div>
             </div>
           </Link>
           <nav className="flex items-center gap-6">
@@ -45,7 +44,7 @@ export default function Landing() {
               Power Cities.
             </h1>
             <p className="mt-8 text-lg text-ink/70 max-w-xl leading-relaxed">
-              Lightning City Electric Workforce & Apprenticeship Institute prepares youth, adults, and returning citizens for careers in electrical work through hands-on curriculum, faith-forward mentorship, and the 12-project Camper-to-Classroom build.
+              W.A.I. — Workforce Apprentice Institute, in partnership with LCE-WAI — prepares youth, adults, and returning citizens for careers in electrical work through hands-on curriculum, faith-forward mentorship, and the 12-project Camper-to-Classroom build.
             </p>
             <div className="mt-10 flex flex-wrap items-center gap-4">
               <Link to="/register" className="btn-primary inline-flex items-center gap-2" data-testid="btn-cta-start">
@@ -169,10 +168,8 @@ export default function Landing() {
       <footer className="bg-bone border-t border-ink/10">
         <div className="max-w-7xl mx-auto px-6 py-10 flex flex-col md:flex-row justify-between items-center gap-4">
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 bg-ink flex items-center justify-center">
-              <Zap className="w-4 h-4 text-signal" strokeWidth={3} />
-            </div>
-            <span className="font-heading font-bold">Lightning City Electric Workforce & Apprenticeship Institute</span>
+            <img src={WAI_LOGO} alt="W.A.I." className="w-8 h-8 object-contain bg-white border border-ink/10 p-0.5" />
+            <span className="font-heading font-bold">W.A.I. — Workforce Apprentice Institute · LCE-WAI</span>
           </div>
           <div className="text-xs text-ink/60 italic">"Whatever you do, work at it with all your heart." — Colossians 3:23</div>
         </div>

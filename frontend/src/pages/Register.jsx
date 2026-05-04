@@ -1,8 +1,8 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../lib/auth";
+import { WAI_LOGO, BRAND } from "../lib/brand";
 import { toast } from "sonner";
-import { Zap } from "lucide-react";
 
 export default function Register() {
   const { register } = useAuth();
@@ -26,12 +26,10 @@ export default function Register() {
     <div className="min-h-screen bg-bone flex items-center justify-center p-8">
       <form onSubmit={submit} className="w-full max-w-md" data-testid="register-form">
         <Link to="/" className="flex items-center gap-3 mb-8" data-testid="register-brand">
-          <div className="w-10 h-10 bg-ink flex items-center justify-center">
-            <Zap className="w-5 h-5 text-signal" strokeWidth={3} />
-          </div>
+          <img src={WAI_LOGO} alt="W.A.I." className="w-12 h-12 object-contain bg-white border border-ink/10 p-1" />
           <div>
-            <div className="overline text-copper">LCE-WAI</div>
-            <div className="font-heading font-bold">Lightning City Electric</div>
+            <div className="overline text-copper">{BRAND.short}</div>
+            <div className="font-heading font-bold">{BRAND.name}</div>
           </div>
         </Link>
 

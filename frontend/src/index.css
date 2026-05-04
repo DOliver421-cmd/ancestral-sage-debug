@@ -64,7 +64,7 @@ code, pre { font-family: 'IBM Plex Mono', monospace; }
 }
 
 .hard-shadow-copper {
-  box-shadow: 6px 6px 0 0 #C96A35;
+  box-shadow: 6px 6px 0 0 #1E5BA8;
 }
 
 .card-flat {
@@ -87,19 +87,19 @@ code, pre { font-family: 'IBM Plex Mono', monospace; }
   border: 1px solid #0B203F;
   transition: all 0.15s ease;
 }
-.btn-primary:hover { background: #0F2B55; box-shadow: 4px 4px 0 #C96A35; transform: translate(-2px, -2px); }
+.btn-primary:hover { background: #0F2B55; box-shadow: 4px 4px 0 #1E5BA8; transform: translate(-2px, -2px); }
 
 .btn-copper {
-  background: #C96A35;
+  background: #1E5BA8;
   color: white;
   padding: 0.75rem 1.5rem;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  border: 1px solid #C96A35;
+  border: 1px solid #1E5BA8;
   transition: all 0.15s ease;
 }
-.btn-copper:hover { background: #B15D2D; box-shadow: 4px 4px 0 #0B203F; transform: translate(-2px, -2px); }
+.btn-copper:hover { background: #174B8F; box-shadow: 4px 4px 0 #0B203F; transform: translate(-2px, -2px); }
 
 .btn-ghost {
   background: transparent;
@@ -114,7 +114,7 @@ code, pre { font-family: 'IBM Plex Mono', monospace; }
 .btn-ghost:hover { background: #0B203F; color: white; }
 
 .badge-signal { background: #FFD100; color: #0B203F; padding: 0.2rem 0.55rem; font-weight: 700; font-size: 0.7rem; letter-spacing: 0.1em; text-transform: uppercase; }
-.badge-copper { background: #C96A35; color: white; padding: 0.2rem 0.55rem; font-weight: 700; font-size: 0.7rem; letter-spacing: 0.1em; text-transform: uppercase; }
+.badge-copper { background: #1E5BA8; color: white; padding: 0.2rem 0.55rem; font-weight: 700; font-size: 0.7rem; letter-spacing: 0.1em; text-transform: uppercase; }
 .badge-ink { background: #0B203F; color: white; padding: 0.2rem 0.55rem; font-weight: 700; font-size: 0.7rem; letter-spacing: 0.1em; text-transform: uppercase; }
 .badge-outline { background: transparent; color: #0B203F; padding: 0.2rem 0.55rem; font-weight: 700; font-size: 0.7rem; letter-spacing: 0.1em; text-transform: uppercase; border: 1px solid #0B203F; }
 

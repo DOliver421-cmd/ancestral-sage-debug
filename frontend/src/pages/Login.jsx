@@ -1,8 +1,8 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../lib/auth";
+import { WAI_LOGO, BRAND } from "../lib/brand";
 import { toast } from "sonner";
-import { Zap } from "lucide-react";
 
 export default function Login() {
   const { login } = useAuth();
@@ -31,12 +31,10 @@ export default function Login() {
         <div className="absolute inset-0 grid-paper opacity-10" />
         <div className="relative h-full flex flex-col justify-between p-12 text-white">
           <Link to="/" className="flex items-center gap-3" data-testid="login-brand">
-            <div className="w-10 h-10 bg-signal flex items-center justify-center">
-              <Zap className="w-5 h-5 text-ink" strokeWidth={3} />
-            </div>
+            <img src={WAI_LOGO} alt="W.A.I." className="w-12 h-12 object-contain bg-white p-1" />
             <div>
-              <div className="overline text-signal">LCE-WAI</div>
-              <div className="font-heading font-bold">Lightning City Electric</div>
+              <div className="overline text-signal">{BRAND.short}</div>
+              <div className="font-heading font-bold">{BRAND.name}</div>
             </div>
           </Link>
           <div>

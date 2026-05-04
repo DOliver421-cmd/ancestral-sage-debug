@@ -44,11 +44,12 @@ module.exports = {
           DEFAULT: "hsl(var(--card))",
           foreground: "hsl(var(--card-foreground))",
         },
-        // LCE-WAI brand
+        // W.A.I. brand
         ink: "#0B203F",
         bone: "#F7F7F5",
-        copper: "#C96A35",
+        copper: "#1E5BA8",
         signal: "#FFD100",
+        slate: "#7A8290",
       },
       borderRadius: {
         lg: "var(--radius)",

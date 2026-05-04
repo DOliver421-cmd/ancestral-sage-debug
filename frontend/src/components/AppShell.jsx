@@ -1,12 +1,15 @@
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../lib/auth";
-import { Zap, LayoutDashboard, BookOpen, Award, Users, Settings, Sparkles, LogOut, FlaskConical, Target, ClipboardCheck } from "lucide-react";
+import { WAI_LOGO, BRAND } from "../lib/brand";
+import { LayoutDashboard, BookOpen, Award, Users, Settings, Sparkles, LogOut, FlaskConical, Target, ClipboardCheck, Briefcase, BadgeCheck } from "lucide-react";
 
 const studentNav = [
   { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard, testid: "nav-dashboard" },
   { to: "/modules", label: "Curriculum", icon: BookOpen, testid: "nav-modules" },
   { to: "/labs", label: "Apprentice Labs", icon: FlaskConical, testid: "nav-labs" },
   { to: "/competencies", label: "Competencies", icon: Target, testid: "nav-competencies" },
+  { to: "/credentials", label: "Credentials", icon: BadgeCheck, testid: "nav-credentials" },
+  { to: "/portfolio", label: "Portfolio", icon: Briefcase, testid: "nav-portfolio" },
   { to: "/ai", label: "AI Tutor", icon: Sparkles, testid: "nav-ai" },
   { to: "/certificates", label: "Certificates", icon: Award, testid: "nav-certs" },
 ];
@@ -39,13 +42,11 @@ export default function AppShell({ children }) {
     <div className="min-h-screen flex bg-bone">
       <aside className="w-64 shrink-0 bg-ink text-white flex flex-col" data-testid="sidebar">
         <div className="px-6 py-7 border-b border-white/10">
-          <Link to="/dashboard" className="flex items-center gap-2">
-            <div className="w-9 h-9 bg-signal flex items-center justify-center">
-              <Zap className="w-5 h-5 text-ink" strokeWidth={3} />
-            </div>
+          <Link to="/dashboard" className="flex items-center gap-3" data-testid="sidebar-brand">
+            <img src={WAI_LOGO} alt="W.A.I." className="w-10 h-10 object-contain bg-white p-1 rounded-sm" />
             <div>
-              <div className="overline text-signal">LCE-WAI</div>
-              <div className="font-heading font-bold text-sm leading-tight">Lightning City</div>
+              <div className="overline text-signal">{BRAND.short}</div>
+              <div className="font-heading font-bold text-sm leading-tight">{BRAND.name}</div>
             </div>
           </Link>
         </div>

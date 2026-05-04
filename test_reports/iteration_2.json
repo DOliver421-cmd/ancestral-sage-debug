@@ -1,0 +1,43 @@
+{
+  "summary": "Iteration 2 testing — W.A.I. rebrand + Phase C (Digital Credentialing + Portfolio Builder). Backend: 49/49 pytest tests PASSED (100%) including 14 new credential/portfolio/rebrand tests + 35 regression tests. Frontend: All critical flows verified — landing/login/sidebar rebrand to W.A.I. with logo, blue (#1E5BA8) palette, 'CURRENT ASSOCIATE' card; /credentials page with Earned (1) + Available (13) tabs, OpenBadges manifest + assertion external links; /portfolio page with publish/copy/export PDF; public /p/{slug} view (no auth) shows portfolio WITHOUT email or publish panel. Found and FIXED one critical frontend bug (Portfolio page crashed with 'destroy is not a function' due to useEffect(load, [])).",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "POST /api/labs/{slug}/submit", "issue": "LabSubmitReq still requires lab_slug in body even though slug is in URL path (carried over from iteration 1)."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Certificates page (regression)", "issues": ["Garbled certificate preview image still present from iteration 1 — not retested but unchanged."]}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_lcewai.py",
+    "/app/test_reports/pytest/pytest_results.xml"
+  ],
+  "action_items": [
+    "(Already fixed by testing agent) Portfolio.jsx useEffect bug — useEffect(load, []) returned a Promise, causing 'destroy is not a function' runtime crash. Fixed by wrapping in arrow: useEffect(() => { load(); }, []).",
+    "Optional: Make LabSubmitReq.lab_slug optional or auto-derive from path slug.",
+    "Optional: Replace garbled certificate preview image asset.",
+    "Optional: Update /app/memory/test_credentials.md from 'Cohort' to 'Associate' (still says 'Associate-Alpha' — already done in iter 1)."
+  ],
+  "critical_code_review_comments": [
+    "server.py is now 1196 lines — exceeded 700-line guideline by ~500 lines. Strongly recommend splitting into routers: routers/auth.py, routers/modules.py, routers/labs.py, routers/credentials.py, routers/portfolio.py, routers/instructor.py, routers/admin.py.",
+    "build_portfolio() at server.py:979 does N+1 queries (per-submission db.labs.find_one). Should batch-fetch labs by slug list once.",
+    "PortfolioPublishReq.publish defaults likely None — verify with explicit type. Slug uses user.full_name.lower().replace(' ', '-') without checking collisions across users with same name (relies on user.id[:8] suffix — acceptable).",
+    "Portfolio.jsx had useEffect(load, []) returning a Promise — this is a recurring React anti-pattern. Lint rule react-hooks/exhaustive-deps + no-misused-promises would catch it. Recommend adding ESLint plugin react-hooks if not present."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_lcewai.py (added TestCredentials, TestPortfolio, TestRebrand classes — 14 new tests)",
+    "/app/frontend/src/pages/Portfolio.jsx (fixed useEffect to not return a Promise)"
+  ],
+  "success_rate": {"backend": "100% (49/49)", "frontend": "100% of critical flows (after the Portfolio fix)"},
+  "test_credentials": "admin@lcewai.org/Admin@LCE2026, instructor@lcewai.org/Teach@LCE2026, student@lcewai.org/Learn@LCE2026 — all working.",
+  "seed_data_creation": "Tests register TEST_<uuid>@example.com students and award credentials on the seeded student account. Portfolio publish leaves student in 'published' state with slug 'alex-carter-bc4155ad' (or similar) — non-destructive. No cleanup needed.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Backend tests at /app/backend/tests/test_lcewai.py cover 49 cases across auth/modules/quiz/certs/AI/labs/instructor/competencies/admin/credentials/portfolio/rebrand. Student account auto-earns 'osha-10-awareness' credential after completing safety-loto quiz. Portfolio publish endpoint creates slug pattern '{full_name-kebab}-{user_id[:8]}'. Public portfolio strips email field. The fix to Portfolio.jsx (useEffect wrapping) should NOT be reverted. Manifest endpoint is public (no auth). Assertion endpoint also public. Both return OpenBadges v2 JSON.",
+  "rca of the issue": "Portfolio page crash RCA — useEffect(load, []) where load is `() => api.get(...).then(...)` returns a Promise. React useEffect must return either undefined or a cleanup function. React in dev mode invokes the returned value as a destroy function on unmount, throwing TypeError: destroy is not a function. The crash showed an 'Uncaught runtime errors' overlay covering the page so no portfolio UI rendered. Fix: wrap in `useEffect(() => { load(); }, [])`. Verified post-fix: Portfolio renders correctly, publish/copy/export-pdf all work, public view at /p/{slug} loads in a fresh browser context without auth and without leaking email."
+}

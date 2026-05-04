@@ -25,6 +25,7 @@ from starlette.middleware.cors import CORSMiddleware
 
 from seed import MODULES, quiz_for
 from seed_labs import ONLINE_LABS, IN_PERSON_LABS, COMPETENCIES
+from seed_credentials import CREDENTIALS
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
@@ -310,6 +311,8 @@ async def submit_quiz(body: QuizSubmit, user: User = Depends(current_user)):
         {"$set": update, "$setOnInsert": {"id": str(uuid.uuid4())}},
         upsert=True,
     )
+    if status_val == "completed":
+        await award_credentials(user.id)
     return {"score": score, "correct": correct, "total": len(quiz), "status": status_val}
 
 
@@ -469,18 +472,18 @@ async def cert_pdf(slug: str, token: str):
     c.setStrokeColor(colors.HexColor("#0B203F"))
     c.setLineWidth(8)
     c.rect(0.35 * inch, 0.35 * inch, w - 0.7 * inch, h - 0.7 * inch, fill=0, stroke=1)
-    c.setFillColor(colors.HexColor("#C96A35"))
+    c.setFillColor(colors.HexColor("#1E5BA8"))
     c.rect(0.35 * inch, h - 1.1 * inch, w - 0.7 * inch, 0.12 * inch, fill=1, stroke=0)
     c.setFillColor(colors.HexColor("#0B203F"))
     c.setFont("Helvetica-Bold", 14)
-    c.drawCentredString(w / 2, h - 1.6 * inch, "LIGHTNING CITY ELECTRIC")
+    c.drawCentredString(w / 2, h - 1.6 * inch, "W.A.I. — WORKFORCE APPRENTICE INSTITUTE")
     c.setFont("Helvetica", 11)
-    c.drawCentredString(w / 2, h - 1.85 * inch, "WORKFORCE & APPRENTICESHIP INSTITUTE")
+    c.drawCentredString(w / 2, h - 1.85 * inch, "LCE-WAI Partner Program")
     c.setFont("Helvetica-Bold", 36)
     c.drawCentredString(w / 2, h - 2.7 * inch, "Certificate of Completion")
     c.setFont("Helvetica", 14)
     c.drawCentredString(w / 2, h - 3.2 * inch, "This certifies that")
-    c.setFillColor(colors.HexColor("#C96A35"))
+    c.setFillColor(colors.HexColor("#1E5BA8"))
     c.setFont("Helvetica-Bold", 28)
     c.drawCentredString(w / 2, h - 3.8 * inch, user_doc["full_name"])
     c.setFillColor(colors.HexColor("#0B203F"))
@@ -704,6 +707,8 @@ async def submit_lab(slug: str, body: LabSubmitReq, user: User = Depends(current
             {"$set": doc, "$setOnInsert": {"id": str(uuid.uuid4())}},
             upsert=True,
         )
+        if status_val == "passed":
+            await award_credentials(user.id)
         return {**result, "status": status_val}
     else:
         doc = {
@@ -757,6 +762,8 @@ async def review_submission(sub_id: str, body: LabReviewReq, user: User = Depend
             "reviewed_at": datetime.now(timezone.utc).isoformat(),
         }},
     )
+    if body.status == "approved":
+        await award_credentials(sub["user_id"])
     return {"ok": True}
 
 
@@ -787,6 +794,391 @@ async def lab_report(user: User = Depends(require_role("instructor", "admin"))):
             "lab_hours": hours,
         })
     return result
+
+
+# -- CREDENTIALING & PORTFOLIO --
+class PortfolioPublishReq(BaseModel):
+    bio: Optional[str] = None
+    publish: bool = True
+
+
+async def get_user_state(user_id: str) -> dict:
+    """Load modules, labs, competencies relevant for credential eligibility."""
+    mod_progress = await db.progress.find(
+        {"user_id": user_id, "status": "completed"}, {"_id": 0}
+    ).to_list(500)
+    completed_modules = {p["module_slug"] for p in mod_progress}
+    lab_subs = await db.lab_submissions.find(
+        {"user_id": user_id, "status": {"$in": ["passed", "approved"]}}, {"_id": 0}
+    ).to_list(500)
+    passed_labs = {s["lab_slug"] for s in lab_subs}
+    # competency points
+    comp = {c["key"]: 0 for c in COMPETENCIES}
+    for s in lab_subs:
+        lab = await db.labs.find_one({"slug": s["lab_slug"]}, {"_id": 0})
+        if lab:
+            for k in lab.get("competencies", []):
+                if k in comp:
+                    comp[k] += lab.get("skill_points", 0)
+    return {
+        "completed_modules": completed_modules,
+        "passed_labs": passed_labs,
+        "competencies": comp,
+        "module_count": len(completed_modules),
+        "lab_count": len(passed_labs),
+    }
+
+
+def credential_eligible(cred: dict, state: dict) -> bool:
+    trig = cred["trigger"]
+    t = trig["type"]
+    if t == "all_modules":
+        return state["module_count"] >= len(MODULES)
+    if t == "modules_all_of":
+        return all(s in state["completed_modules"] for s in trig["slugs"])
+    if t == "module_completed":
+        return trig["slug"] in state["completed_modules"]
+    if t == "labs_all_of":
+        return all(s in state["passed_labs"] for s in trig["slugs"])
+    if t == "lab_passed":
+        return trig["slug"] in state["passed_labs"]
+    if t == "competency_at_least":
+        return state["competencies"].get(trig["key"], 0) >= trig["points"]
+    return False
+
+
+async def award_credentials(user_id: str) -> list:
+    """Run all credential triggers and insert newly-earned credentials. Returns newly-awarded keys."""
+    state = await get_user_state(user_id)
+    awarded = []
+    now = datetime.now(timezone.utc)
+    for cred in CREDENTIALS:
+        if not credential_eligible(cred, state):
+            continue
+        existing = await db.user_credentials.find_one(
+            {"user_id": user_id, "credential_key": cred["key"]}, {"_id": 0}
+        )
+        if existing:
+            # if expired, re-award (renewal); skip for MVP
+            continue
+        exp_months = cred.get("expires_months")
+        expires_at = (now + timedelta(days=30 * exp_months)).isoformat() if exp_months else None
+        await db.user_credentials.insert_one({
+            "id": str(uuid.uuid4()),
+            "user_id": user_id,
+            "credential_key": cred["key"],
+            "earned_at": now.isoformat(),
+            "expires_at": expires_at,
+            "status": "active",
+        })
+        awarded.append(cred["key"])
+    return awarded
+
+
+@api_router.get("/credentials")
+async def list_credentials(user: User = Depends(current_user)):
+    return CREDENTIALS
+
+
+@api_router.get("/credentials/me")
+async def my_credentials(user: User = Depends(current_user)):
+    # re-run awards so fresh on page load
+    await award_credentials(user.id)
+    earned = await db.user_credentials.find({"user_id": user.id}, {"_id": 0}).to_list(200)
+    cred_map = {c["key"]: c for c in CREDENTIALS}
+    result = []
+    now = datetime.now(timezone.utc)
+    for e in earned:
+        cred = cred_map.get(e["credential_key"])
+        if not cred:
+            continue
+        expired = False
+        if e.get("expires_at"):
+            try:
+                expired = datetime.fromisoformat(e["expires_at"]) < now
+            except Exception:
+                expired = False
+        result.append({**cred, **e, "expired": expired})
+    # show unearned too for discovery
+    earned_keys = {e["credential_key"] for e in earned}
+    unearned = [c for c in CREDENTIALS if c["key"] not in earned_keys]
+    return {"earned": result, "available": unearned}
+
+
+@api_router.get("/credentials/{key}/manifest.json")
+async def credential_manifest(key: str):
+    """OpenBadges v2 BadgeClass manifest (public)."""
+    cred = next((c for c in CREDENTIALS if c["key"] == key), None)
+    if not cred:
+        raise HTTPException(404, "Credential not found")
+    backend_url = os.environ.get('PUBLIC_BACKEND_URL', '')
+    return {
+        "@context": "https://w3id.org/openbadges/v2",
+        "type": "BadgeClass",
+        "id": f"{backend_url}/api/credentials/{key}/manifest.json",
+        "name": cred["name"],
+        "description": cred["description"],
+        "image": cred.get("image") or "https://customer-assets.emergentagent.com/job_apprentice-academy/artifacts/zqurn9jd_WAI%20Logo.jpg",
+        "criteria": {"narrative": cred["evidence"]},
+        "issuer": {
+            "@context": "https://w3id.org/openbadges/v2",
+            "type": "Profile",
+            "id": f"{backend_url}/api/issuer.json",
+            "name": "W.A.I. — Workforce Apprentice Institute",
+            "url": "https://workforceapprenticeinstitute.org",
+        },
+        "tags": cred.get("tags", []),
+    }
+
+
+@api_router.get("/credentials/assertion/{assertion_id}.json")
+async def credential_assertion(assertion_id: str):
+    """OpenBadges v2 Assertion (public, for verifiers)."""
+    uc = await db.user_credentials.find_one({"id": assertion_id}, {"_id": 0})
+    if not uc:
+        raise HTTPException(404, "Assertion not found")
+    user_doc = await db.users.find_one({"id": uc["user_id"]}, {"_id": 0, "password_hash": 0})
+    cred = next((c for c in CREDENTIALS if c["key"] == uc["credential_key"]), None)
+    if not cred or not user_doc:
+        raise HTTPException(404, "Not found")
+    backend_url = os.environ.get('PUBLIC_BACKEND_URL', '')
+    return {
+        "@context": "https://w3id.org/openbadges/v2",
+        "type": "Assertion",
+        "id": f"{backend_url}/api/credentials/assertion/{assertion_id}.json",
+        "recipient": {"type": "email", "hashed": False, "identity": user_doc["email"]},
+        "issuedOn": uc["earned_at"],
+        "expires": uc.get("expires_at"),
+        "badge": f"{backend_url}/api/credentials/{cred['key']}/manifest.json",
+        "verification": {"type": "HostedBadge"},
+    }
+
+
+@api_router.post("/portfolio/publish")
+async def publish_portfolio(body: PortfolioPublishReq, user: User = Depends(current_user)):
+    existing = await db.portfolios.find_one({"user_id": user.id}, {"_id": 0})
+    slug = existing.get("slug") if existing else None
+    if not slug and body.publish:
+        slug = f"{user.full_name.lower().replace(' ', '-')}-{user.id[:8]}"
+        slug = "".join(c for c in slug if c.isalnum() or c == "-")
+    update = {
+        "user_id": user.id,
+        "slug": slug if body.publish else None,
+        "bio": body.bio,
+        "published": bool(body.publish),
+        "updated_at": datetime.now(timezone.utc).isoformat(),
+    }
+    await db.portfolios.update_one(
+        {"user_id": user.id},
+        {"$set": update, "$setOnInsert": {"id": str(uuid.uuid4())}},
+        upsert=True,
+    )
+    return {"slug": slug, "published": bool(body.publish)}
+
+
+async def build_portfolio(user_doc: dict) -> dict:
+    user_id = user_doc["id"]
+    await award_credentials(user_id)
+
+    mod_progress = await db.progress.find({"user_id": user_id}, {"_id": 0}).to_list(500)
+    completed_mods = []
+    for p in mod_progress:
+        if p.get("status") == "completed":
+            mod = await db.modules.find_one({"slug": p["module_slug"]}, {"_id": 0})
+            if mod:
+                completed_mods.append({
+                    "slug": mod["slug"],
+                    "title": mod["title"],
+                    "hours": mod["hours"],
+                    "score": p.get("quiz_score"),
+                    "completed_at": p.get("completed_at"),
+                })
+
+    lab_subs = await db.lab_submissions.find(
+        {"user_id": user_id, "status": {"$in": ["passed", "approved"]}}, {"_id": 0}
+    ).to_list(500)
+    labs_detail = []
+    for s in lab_subs:
+        lab = await db.labs.find_one({"slug": s["lab_slug"]}, {"_id": 0})
+        if lab:
+            labs_detail.append({
+                "slug": lab["slug"],
+                "title": lab["title"],
+                "track": lab["track"],
+                "skill_points": lab.get("skill_points", 0),
+                "hours": lab.get("hours", 0),
+                "photo_url": s.get("photo_url"),
+                "notes": s.get("notes"),
+                "feedback": s.get("feedback"),
+                "auto_score": s.get("auto_score"),
+                "completed_at": s.get("reviewed_at") or s.get("created_at"),
+            })
+
+    # competencies
+    comp_map = {c["key"]: {**c, "points": 0, "labs": 0, "badge_earned": False} for c in COMPETENCIES}
+    for s in lab_subs:
+        lab = await db.labs.find_one({"slug": s["lab_slug"]}, {"_id": 0})
+        if lab:
+            for k in lab.get("competencies", []):
+                if k in comp_map:
+                    comp_map[k]["points"] += lab.get("skill_points", 0)
+                    comp_map[k]["labs"] += 1
+    for c in comp_map.values():
+        c["badge_earned"] = c["points"] >= 100
+
+    creds = await db.user_credentials.find({"user_id": user_id}, {"_id": 0}).to_list(200)
+    cred_by_key = {c["key"]: c for c in CREDENTIALS}
+    creds_detail = []
+    for c in creds:
+        cred = cred_by_key.get(c["credential_key"])
+        if cred:
+            creds_detail.append({**cred, **c})
+
+    port = await db.portfolios.find_one({"user_id": user_id}, {"_id": 0})
+
+    hours = sum(m["hours"] for m in completed_mods) + sum(l["hours"] for l in labs_detail)
+    skill_points = sum(c["points"] for c in comp_map.values())
+
+    return {
+        "user": {
+            "id": user_doc["id"],
+            "full_name": user_doc["full_name"],
+            "email": user_doc["email"],
+            "associate": user_doc.get("associate"),
+        },
+        "bio": port.get("bio") if port else None,
+        "share_slug": port.get("slug") if port and port.get("published") else None,
+        "stats": {
+            "hours": hours,
+            "skill_points": skill_points,
+            "modules_completed": len(completed_mods),
+            "labs_passed": len(labs_detail),
+            "credentials_earned": len(creds_detail),
+            "badges_earned": sum(1 for c in comp_map.values() if c["badge_earned"]),
+        },
+        "modules": completed_mods,
+        "labs": labs_detail,
+        "credentials": creds_detail,
+        "competencies": list(comp_map.values()),
+    }
+
+
+@api_router.get("/portfolio/me")
+async def my_portfolio(user: User = Depends(current_user)):
+    user_doc = await db.users.find_one({"id": user.id}, {"_id": 0, "password_hash": 0})
+    return await build_portfolio(user_doc)
+
+
+@api_router.get("/portfolio/public/{slug}")
+async def public_portfolio(slug: str):
+    port = await db.portfolios.find_one({"slug": slug, "published": True}, {"_id": 0})
+    if not port:
+        raise HTTPException(404, "Portfolio not found or not public")
+    user_doc = await db.users.find_one({"id": port["user_id"]}, {"_id": 0, "password_hash": 0})
+    if not user_doc:
+        raise HTTPException(404, "User not found")
+    data = await build_portfolio(user_doc)
+    # strip email for public view
+    data["user"].pop("email", None)
+    return data
+
+
+@api_router.get("/portfolio/export.pdf")
+async def portfolio_pdf(token: str):
+    try:
+        payload = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGO])
+    except jwt.PyJWTError:
+        raise HTTPException(401, "Invalid token")
+    user_doc = await db.users.find_one({"id": payload["sub"]}, {"_id": 0, "password_hash": 0})
+    if not user_doc:
+        raise HTTPException(401, "User not found")
+
+    data = await build_portfolio(user_doc)
+    buf = io.BytesIO()
+    c = canvas.Canvas(buf, pagesize=letter)
+    w, h = letter
+
+    def header():
+        c.setFillColor(colors.HexColor("#0B203F"))
+        c.rect(0, h - 1.3 * inch, w, 1.3 * inch, fill=1, stroke=0)
+        c.setFillColor(colors.HexColor("#FFD100"))
+        c.rect(0, h - 1.38 * inch, w, 0.08 * inch, fill=1, stroke=0)
+        c.setFillColor(colors.white)
+        c.setFont("Helvetica-Bold", 16)
+        c.drawString(0.6 * inch, h - 0.55 * inch, "W.A.I. — WORKFORCE APPRENTICE INSTITUTE")
+        c.setFont("Helvetica", 9)
+        c.drawString(0.6 * inch, h - 0.8 * inch, "LCE-WAI Partner Program  ·  Apprentice Portfolio")
+        c.setFont("Helvetica-Bold", 18)
+        c.drawString(0.6 * inch, h - 1.1 * inch, data["user"]["full_name"])
+        c.setFont("Helvetica", 10)
+        right = f"Hours: {data['stats']['hours']}  ·  Points: {data['stats']['skill_points']}"
+        c.drawRightString(w - 0.6 * inch, h - 1.1 * inch, right)
+
+    def section(y, title):
+        c.setFillColor(colors.HexColor("#0B203F"))
+        c.setFont("Helvetica-Bold", 12)
+        c.drawString(0.6 * inch, y, title.upper())
+        c.setStrokeColor(colors.HexColor("#1E5BA8"))
+        c.setLineWidth(2)
+        c.line(0.6 * inch, y - 4, 0.6 * inch + 1.1 * inch, y - 4)
+
+    header()
+    y = h - 1.7 * inch
+    c.setFillColor(colors.HexColor("#111827"))
+    c.setFont("Helvetica", 10)
+    if data.get("bio"):
+        c.drawString(0.6 * inch, y, data["bio"][:120])
+        y -= 0.25 * inch
+
+    def text_line(txt, bold=False, size=10):
+        nonlocal y
+        if y < 1 * inch:
+            c.showPage()
+            header()
+            y = h - 1.7 * inch
+        c.setFont("Helvetica-Bold" if bold else "Helvetica", size)
+        c.drawString(0.7 * inch, y, txt[:95])
+        y -= 0.22 * inch
+
+    section(y, "Credentials & Badges")
+    y -= 0.3 * inch
+    for cr in data["credentials"]:
+        text_line(f"• {cr['name']}  [{cr['category'].upper()}]", bold=True)
+        text_line(f"   Earned {cr['earned_at'][:10]}" + (f"  ·  Expires {cr['expires_at'][:10]}" if cr.get("expires_at") else ""))
+    if not data["credentials"]:
+        text_line("  (none yet)")
+
+    y -= 0.15 * inch
+    section(y, "Competency Matrix")
+    y -= 0.3 * inch
+    for cmp in data["competencies"]:
+        mark = "✓" if cmp["badge_earned"] else " "
+        text_line(f" [{mark}] {cmp['name']}  —  {cmp['points']} pts  ({cmp['labs']} labs)")
+
+    y -= 0.15 * inch
+    section(y, "Modules Completed")
+    y -= 0.3 * inch
+    for m in data["modules"]:
+        text_line(f"• {m['title']}  —  {m['hours']}h  ({int(m['score']) if m.get('score') else 0}%)")
+
+    y -= 0.15 * inch
+    section(y, "Labs Passed")
+    y -= 0.3 * inch
+    for l in data["labs"]:
+        text_line(f"• {l['title']}  [{l['track'].upper()}]  —  {l['skill_points']} pts")
+
+    # footer
+    c.setFillColor(colors.HexColor("#4B5563"))
+    c.setFont("Helvetica-Oblique", 8)
+    c.drawCentredString(w / 2, 0.4 * inch, '"Whatever you do, work at it with all your heart." — Colossians 3:23')
+
+    c.showPage()
+    c.save()
+    buf.seek(0)
+    return StreamingResponse(
+        buf, media_type="application/pdf",
+        headers={"Content-Disposition": f"inline; filename=portfolio-{user_doc['id'][:8]}.pdf"},
+    )
 
 
 app.include_router(api_router)

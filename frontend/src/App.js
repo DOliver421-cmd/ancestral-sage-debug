@@ -17,6 +17,9 @@ import LabDetail from "./pages/LabDetail";
 import Competencies from "./pages/Competencies";
 import InstructorLabs from "./pages/InstructorLabs";
 import LabSimulations from "./pages/LabSimulations";
+import Credentials from "./pages/Credentials";
+import Portfolio from "./pages/Portfolio";
+import PublicPortfolio from "./pages/PublicPortfolio";
 
 function Protected({ children, roles }) {
   const { user, loading } = useAuth();
@@ -56,6 +59,9 @@ function App() {
           <Route path="/instructor/labs" element={<Protected roles={["instructor", "admin"]}><InstructorLabs /></Protected>} />
           <Route path="/ai" element={<Protected><AITutor /></Protected>} />
           <Route path="/certificates" element={<Protected><Certificates /></Protected>} />
+          <Route path="/credentials" element={<Protected><Credentials /></Protected>} />
+          <Route path="/portfolio" element={<Protected><Portfolio /></Protected>} />
+          <Route path="/p/:slug" element={<PublicPortfolio />} />
         </Routes>
       </BrowserRouter>
     </AuthProvider>
