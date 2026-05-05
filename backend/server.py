@@ -133,13 +133,13 @@ ROLE_RANK = {"student": 1, "instructor": 2, "admin": 3, "executive_admin": 4}
 # The single hardcoded executive admin email. Auto-promoted to executive_admin
 # on every backend startup; if the account does not exist it is created with
 # the seed password EXEC_DEFAULT_PASSWORD (rotate immediately on first login).
-EXEC_ADMIN_EMAIL = "delon.oliver@lightningcityelectric.com"
+EXEC_ADMIN_EMAIL = "youpickeddoliver@gmail.com"
 EXEC_DEFAULT_PASSWORD = "Executive@LCE2026"
 
 # One-time migration: any email that used to be the hardcoded EXEC_ADMIN_EMAIL
 # will be auto-demoted from executive_admin to admin on startup, so switching
 # the primary exec doesn't leave a dormant god-mode account behind.
-LEGACY_EXEC_EMAILS = {"youpickeddoliver@gmail.com"}
+LEGACY_EXEC_EMAILS = {"delon.oliver@lightningcityelectric.com"}
 
 
 class User(BaseModel):
