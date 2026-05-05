@@ -437,6 +437,9 @@ async def ensure_indexes():
         await db.users.create_index("id", unique=True)
         await db.lab_submissions.create_index([("user_id", 1), ("lab_slug", 1)], unique=True)
         await db.progress.create_index([("user_id", 1), ("module_slug", 1)], unique=True)
+        # Supports /admin/cohorts aggregation: status filter → user_id $lookup
+        await db.progress.create_index([("status", 1), ("user_id", 1)])
+        await db.users.create_index([("associate", 1), ("role", 1)])
         await db.compliance_progress.create_index([("user_id", 1), ("module_slug", 1)], unique=True)
         await db.audit_log.create_index([("at", -1)])
         await db.notifications.create_index([("user_id", 1), ("created_at", -1)])
@@ -913,12 +916,25 @@ async def cohort_summary(user: User = Depends(require_role("admin"))):
             c["instructors"] += r["n"]
         elif r["_id"]["role"] in ("admin", "executive_admin"):
             c["admins"] += r["n"]
-    # Add per-cohort completion counts
+    # Per-cohort completion counts.  Previously this issued 2 queries per
+    # cohort (find users → count progress) — a textbook N+1 that scaled with
+    # the number of associates.  Now collapsed to ONE aggregation that joins
+    # progress → users and groups by associate.
+    completion_pipeline = [
+        {"$match": {"status": "completed"}},
+        {"$lookup": {
+            "from": "users",
+            "localField": "user_id",
+            "foreignField": "id",
+            "as": "u",
+        }},
+        {"$unwind": {"path": "$u", "preserveNullAndEmptyArrays": False}},
+        {"$group": {"_id": "$u.associate", "completions": {"$sum": 1}}},
+    ]
+    comp_rows = await db.progress.aggregate(completion_pipeline).to_list(500)
+    comp_by_cohort = {((r["_id"]) if r["_id"] else "—"): r["completions"] for r in comp_rows}
     for cohort_name, c in cohorts.items():
-        member_ids = await db.users.find({"associate": None if cohort_name == "—" else cohort_name},
-                                         {"_id": 0, "id": 1}).to_list(2000)
-        ids = [m["id"] for m in member_ids]
-        c["completions"] = await db.progress.count_documents({"user_id": {"$in": ids}, "status": "completed"})
+        c["completions"] = comp_by_cohort.get(cohort_name, 0)
     return sorted(cohorts.values(), key=lambda x: -x["members"])
 
 

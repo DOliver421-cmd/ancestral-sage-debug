@@ -66,6 +66,13 @@ React 19 + react-router-dom + Tailwind + shadcn/ui + sonner + lucide-react. PWA.
 - 🟡 P2 — Refactor `server.py` (~2,030 lines) into modular routers. Pending.
 - 🟡 P2 — Workbox versioned PWA service worker. Pending.
 
+## Feb 2026 — P1 hotfix (N+1 elimination)
+- `/api/admin/cohorts` was issuing 2K+1 mongo round-trips (textbook N+1). Replaced the per-cohort loop with a single `progress.aggregate($lookup users)` pipeline. Wire commands now constant at **2 per request**, independent of cohort count.
+- Added supporting indexes `progress(status, user_id)` and `users(associate, role)` (declared in `ensure_indexes()` and as standalone migration `backend/migrations/2026_02_cohorts_n1_indexes.py`).
+- New tests in `backend/tests/test_cohorts_perf.py` — uses PyMongo `CommandListener` to assert O(1) query count.
+- Backend pytest: **161/161 passing**.
+- Deployer Agent N+1 warning: cleared.
+
 ## Test Credentials (current)
 admin@lcewai.org / Admin@LCE2026
 instructor@lcewai.org / Teach@LCE2026 (Associate-Alpha)
