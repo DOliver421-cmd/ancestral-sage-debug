@@ -2,13 +2,15 @@ import { useEffect, useState } from "react";
 import AppShell from "../components/AppShell";
 import { api } from "../lib/api";
 import { toast } from "sonner";
-import { Users, GraduationCap, BookOpen, Award, Download, UserPlus, Trash2, KeyRound, ShieldCheck, Pencil, Lock, Unlock } from "lucide-react";
+import { Users, GraduationCap, BookOpen, Award, Download, UserPlus, Trash2, KeyRound, ShieldCheck, Pencil, Lock, Unlock, Activity, Clock, AlertTriangle, BadgeCheck } from "lucide-react";
 
 const ROLES = ["student", "instructor", "admin", "executive_admin"];
 
 export default function AdminDashboard() {
   const [stats, setStats] = useState(null);
   const [users, setUsers] = useState([]);
+  const [activity, setActivity] = useState([]);
+  const [cohorts, setCohorts] = useState([]);
   const [showCreate, setShowCreate] = useState(false);
   const [createForm, setCreateForm] = useState({ email: "", full_name: "", password: "", role: "student", associate: "Associate-Alpha" });
   const [editing, setEditing] = useState(null); // {id, full_name, email, associate}
@@ -17,6 +19,8 @@ export default function AdminDashboard() {
   const load = () => Promise.all([
     api.get("/admin/stats").then((r) => setStats(r.data)),
     api.get("/admin/users").then((r) => setUsers(r.data)),
+    api.get("/admin/recent-activity?limit=10").then((r) => setActivity(r.data)).catch(() => {}),
+    api.get("/admin/cohorts").then((r) => setCohorts(r.data)).catch(() => {}),
   ]);
   useEffect(() => { load(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, []);
 
@@ -128,12 +132,57 @@ export default function AdminDashboard() {
           </div>
         )}
 
-        <div className="grid grid-cols-2 lg:grid-cols-5 gap-4 mt-8">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mt-8">
           <Stat icon={Users} label="Total Users" value={stats?.users ?? "—"} testid="stat-users" />
           <Stat icon={GraduationCap} label="Students" value={stats?.students ?? "—"} testid="stat-students" />
           <Stat icon={Users} label="Instructors" value={stats?.instructors ?? "—"} testid="stat-instructors" />
           <Stat icon={BookOpen} label="Modules" value={stats?.modules ?? "—"} testid="stat-modules" />
           <Stat icon={Award} label="Completions" value={stats?.completions ?? "—"} testid="stat-completions" />
+          <Stat icon={Clock} label="Labs Pending" value={stats?.labs_pending ?? "—"} alert={(stats?.labs_pending || 0) > 5} testid="stat-labs-pending" />
+          <Stat icon={AlertTriangle} label="Open Incidents" value={stats?.incidents_open ?? "—"} alert={(stats?.incidents_open || 0) > 0} testid="stat-incidents" />
+          <Stat icon={BadgeCheck} label="Credentials" value={stats?.credentials_issued ?? "—"} testid="stat-credentials" />
+        </div>
+
+        {/* Recent Activity + Cohort Summaries */}
+        <div className="grid lg:grid-cols-2 gap-6 mt-8">
+          <div className="card-flat p-6" data-testid="recent-activity">
+            <h3 className="font-heading text-xl font-bold flex items-center gap-2"><Activity className="w-5 h-5 text-copper" /> Recent Activity</h3>
+            <p className="text-xs text-ink/50 mt-1">Last {activity.length} privileged actions. Full log at <a href="/admin/audit" className="text-copper underline">Audit Log</a>.</p>
+            <ul className="mt-4 divide-y divide-ink/5">
+              {activity.length === 0 && <li className="py-3 text-sm text-ink/50">No activity yet.</li>}
+              {activity.map((a) => (
+                <li key={a.id} className="py-2 text-sm flex items-start gap-3" data-testid={`activity-${a.id}`}>
+                  <span className="font-mono text-[10px] text-ink/40 mt-1 whitespace-nowrap">{new Date(a.at).toLocaleString(undefined, { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}</span>
+                  <span className="flex-1 min-w-0">
+                    <span className="font-bold">{a.actor_name}</span>
+                    <span className="text-ink/60"> · </span>
+                    <span className="font-mono text-xs text-copper">{a.action}</span>
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </div>
+
+          <div className="card-flat p-6" data-testid="cohort-summary">
+            <h3 className="font-heading text-xl font-bold flex items-center gap-2"><GraduationCap className="w-5 h-5 text-copper" /> Cohort Summaries</h3>
+            <p className="text-xs text-ink/50 mt-1">Membership and completions per Associate.</p>
+            <table className="w-full text-sm mt-4">
+              <thead className="text-xs uppercase tracking-widest text-ink/50">
+                <tr><th className="text-left py-2">Associate</th><th className="text-right">Students</th><th className="text-right">Instr.</th><th className="text-right">Compl.</th></tr>
+              </thead>
+              <tbody>
+                {cohorts.length === 0 && <tr><td colSpan={4} className="py-3 text-ink/50">No cohorts.</td></tr>}
+                {cohorts.map((c) => (
+                  <tr key={c.associate} className="border-t border-ink/5" data-testid={`cohort-${c.associate}`}>
+                    <td className="py-2 font-heading font-bold">{c.associate}</td>
+                    <td className="py-2 text-right font-mono">{c.students}</td>
+                    <td className="py-2 text-right font-mono">{c.instructors}</td>
+                    <td className="py-2 text-right font-mono">{c.completions}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
 
         <h2 className="font-heading text-2xl font-bold mt-12 mb-3">Users <span className="text-ink/40 text-sm">({filtered.length} of {users.length})</span></h2>
@@ -266,10 +315,10 @@ function Field({ label, value, onChange, type = "text", testid }) {
     </label>
   );
 }
-function Stat({ icon: Icon, label, value, testid }) {
+function Stat({ icon: Icon, label, value, testid, alert }) {
   return (
-    <div className="card-flat p-5" data-testid={testid}>
-      <Icon className="w-5 h-5 text-copper" />
+    <div className={`card-flat p-5 ${alert ? "border-l-4 border-l-destructive" : ""}`} data-testid={testid}>
+      <Icon className={`w-5 h-5 ${alert ? "text-destructive" : "text-copper"}`} />
       <div className="font-heading text-3xl font-black mt-2">{value}</div>
       <div className="overline text-ink/60 mt-1">{label}</div>
     </div>

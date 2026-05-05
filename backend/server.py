@@ -607,8 +607,38 @@ async def roster(user: User = Depends(require_role("instructor", "admin"))):
 
 
 @api_router.get("/admin/users")
-async def all_users(user: User = Depends(require_role("admin"))):
-    return await db.users.find({}, {"_id": 0, "password_hash": 0}).to_list(5000)
+async def all_users(
+    role: Optional[Role] = None,
+    associate: Optional[str] = None,
+    active: Optional[bool] = None,
+    q: Optional[str] = None,
+    user: User = Depends(require_role("admin")),
+):
+    """List users with optional filters.
+
+    Query params (all optional, AND-combined):
+      * role=student|instructor|admin|executive_admin
+      * associate=Associate-Alpha
+      * active=true|false
+      * q=substring  (case-insensitive match on full_name OR email)
+    """
+    query: dict = {}
+    if role:
+        query["role"] = role
+    if associate is not None:
+        query["associate"] = associate
+    if active is not None:
+        # Treat unset is_active as True (legacy users seeded before the field).
+        query["is_active"] = {"$ne": False} if active else False
+    if q:
+        # Mongo regex search escaped for safety.
+        import re
+        rx = re.escape(q)
+        query["$or"] = [
+            {"full_name": {"$regex": rx, "$options": "i"}},
+            {"email": {"$regex": rx, "$options": "i"}},
+        ]
+    return await db.users.find(query, {"_id": 0, "password_hash": 0}).to_list(5000)
 
 
 @api_router.post("/admin/associate")
@@ -800,9 +830,70 @@ async def stats(user: User = Depends(require_role("admin"))):
         "users": await db.users.count_documents({}),
         "students": await db.users.count_documents({"role": "student"}),
         "instructors": await db.users.count_documents({"role": "instructor"}),
+        "admins": await db.users.count_documents({"role": "admin"}),
+        "executives": await db.users.count_documents({"role": "executive_admin"}),
         "modules": await db.modules.count_documents({}),
         "completions": await db.progress.count_documents({"status": "completed"}),
+        "labs_pending": await db.lab_submissions.count_documents({"status": "pending_review"}),
+        "incidents_open": await db.incidents.count_documents({"status": "open"}),
+        "credentials_issued": await db.user_credentials.count_documents({}),
     }
+
+
+@api_router.get("/admin/recent-activity")
+async def recent_activity(limit: int = 15, user: User = Depends(require_role("admin"))):
+    """Recent privileged actions joined with the actor's display name. Powers
+    the 'Recent Activity' tile on the admin dashboard."""
+    rows = await db.audit_log.find({}, {"_id": 0}).sort("at", -1).limit(min(limit, 50)).to_list(50)
+    actor_ids = list({r["actor_id"] for r in rows if r.get("actor_id")})
+    actors = {}
+    if actor_ids:
+        async for u in db.users.find({"id": {"$in": actor_ids}}, {"_id": 0, "id": 1, "full_name": 1, "role": 1}):
+            actors[u["id"]] = u
+    out = []
+    for r in rows:
+        a = actors.get(r.get("actor_id"))
+        out.append({
+            "id": r["id"],
+            "at": r["at"],
+            "action": r["action"],
+            "target": r.get("target"),
+            "actor_name": a["full_name"] if a else "system",
+            "actor_role": a["role"] if a else None,
+            "meta": r.get("meta") or {},
+        })
+    return out
+
+
+@api_router.get("/admin/cohorts")
+async def cohort_summary(user: User = Depends(require_role("admin"))):
+    """Per-cohort (associate) summary. Powers the 'Cohort Summaries' tile.
+    Aggregates: members, students, instructors, completions."""
+    pipeline = [
+        {"$group": {
+            "_id": {"associate": "$associate", "role": "$role"},
+            "n": {"$sum": 1},
+        }}
+    ]
+    rows = await db.users.aggregate(pipeline).to_list(500)
+    cohorts: dict = {}
+    for r in rows:
+        a = r["_id"].get("associate") or "—"
+        c = cohorts.setdefault(a, {"associate": a, "members": 0, "students": 0, "instructors": 0, "admins": 0})
+        c["members"] += r["n"]
+        if r["_id"]["role"] == "student":
+            c["students"] += r["n"]
+        elif r["_id"]["role"] == "instructor":
+            c["instructors"] += r["n"]
+        elif r["_id"]["role"] in ("admin", "executive_admin"):
+            c["admins"] += r["n"]
+    # Add per-cohort completion counts
+    for cohort_name, c in cohorts.items():
+        member_ids = await db.users.find({"associate": None if cohort_name == "—" else cohort_name},
+                                         {"_id": 0, "id": 1}).to_list(2000)
+        ids = [m["id"] for m in member_ids]
+        c["completions"] = await db.progress.count_documents({"user_id": {"$in": ids}, "status": "completed"})
+    return sorted(cohorts.values(), key=lambda x: -x["members"])
 
 
 SYSTEM_PROMPTS = {
