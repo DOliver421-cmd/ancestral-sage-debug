@@ -133,8 +133,13 @@ ROLE_RANK = {"student": 1, "instructor": 2, "admin": 3, "executive_admin": 4}
 # The single hardcoded executive admin email. Auto-promoted to executive_admin
 # on every backend startup; if the account does not exist it is created with
 # the seed password EXEC_DEFAULT_PASSWORD (rotate immediately on first login).
-EXEC_ADMIN_EMAIL = "youpickeddoliver@gmail.com"
+EXEC_ADMIN_EMAIL = "delon.oliver@lightningcityelectric.com"
 EXEC_DEFAULT_PASSWORD = "Executive@LCE2026"
+
+# One-time migration: any email that used to be the hardcoded EXEC_ADMIN_EMAIL
+# will be auto-demoted from executive_admin to admin on startup, so switching
+# the primary exec doesn't leave a dormant god-mode account behind.
+LEGACY_EXEC_EMAILS = {"youpickeddoliver@gmail.com"}
 
 
 class User(BaseModel):
@@ -348,6 +353,17 @@ async def seed_users():
     #   * if it does not exist → create it with the seed password (which the
     #     admin should rotate immediately on first login)
     # This guarantees the operator always has a way back into the system.
+
+    # First: demote any LEGACY hardcoded exec emails that are no longer the
+    # current EXEC_ADMIN_EMAIL. They become regular admins, not execs.
+    for legacy in LEGACY_EXEC_EMAILS:
+        if legacy == EXEC_ADMIN_EMAIL:
+            continue
+        legacy_doc = await db.users.find_one({"email": legacy}, {"_id": 0})
+        if legacy_doc and legacy_doc.get("role") == "executive_admin":
+            await db.users.update_one({"email": legacy}, {"$set": {"role": "admin"}})
+            logger.info("Demoted legacy hardcoded executive_admin: %s → admin", legacy)
+
     existing_exec = await db.users.find_one({"email": EXEC_ADMIN_EMAIL}, {"_id": 0})
     if existing_exec:
         if existing_exec.get("role") != "executive_admin" or existing_exec.get("is_active") is False:
