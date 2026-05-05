@@ -1311,11 +1311,16 @@ async def my_lab_submissions(user: User = Depends(current_user)):
 async def pending_submissions(user: User = Depends(require_role("instructor", "admin"))):
     q = {"track": "inperson", "status": "pending"}
     docs = await db.lab_submissions.find(q, {"_id": 0}).to_list(500)
+    # Batch-load users and labs once (N+1 → 2 queries).
+    user_ids = list({d["user_id"] for d in docs})
+    lab_slugs = list({d["lab_slug"] for d in docs})
+    users = await db.users.find({"id": {"$in": user_ids}}, {"_id": 0, "password_hash": 0}).to_list(500) if user_ids else []
+    labs = await db.labs.find({"slug": {"$in": lab_slugs}}, {"_id": 0}).to_list(500) if lab_slugs else []
+    users_by_id = {u["id"]: u for u in users}
+    labs_by_slug = {lab["slug"]: lab for lab in labs}
     for d in docs:
-        u = await db.users.find_one({"id": d["user_id"]}, {"_id": 0, "password_hash": 0})
-        lab = await db.labs.find_one({"slug": d["lab_slug"]}, {"_id": 0})
-        d["user"] = u
-        d["lab"] = lab
+        d["user"] = users_by_id.get(d["user_id"])
+        d["lab"] = labs_by_slug.get(d["lab_slug"])
     return docs
 
 
@@ -1401,10 +1406,13 @@ async def get_user_state(user_id: str) -> dict:
         {"user_id": user_id, "status": {"$in": ["passed", "approved"]}}, {"_id": 0}
     ).to_list(500)
     passed_labs = {s["lab_slug"] for s in lab_subs}
-    # competency points
+    # competency points — batch-load labs once instead of per-submission queries
     comp = {c["key"]: 0 for c in COMPETENCIES}
+    slugs = list({s["lab_slug"] for s in lab_subs})
+    labs = await db.labs.find({"slug": {"$in": slugs}}, {"_id": 0}).to_list(500) if slugs else []
+    labs_by_slug = {lab["slug"]: lab for lab in labs}
     for s in lab_subs:
-        lab = await db.labs.find_one({"slug": s["lab_slug"]}, {"_id": 0})
+        lab = labs_by_slug.get(s["lab_slug"])
         if lab:
             for k in lab.get("competencies", []):
                 if k in comp:
