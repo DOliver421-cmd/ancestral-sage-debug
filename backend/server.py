@@ -2290,14 +2290,19 @@ async def program_analytics(user: User = Depends(require_role("admin"))):
     weakest = sorted(cohort_comp.items(), key=lambda x: x[1])[:3]
     weakest_named = [{"key": k, "name": next((c["name"] for c in COMPETENCIES if c["key"] == k), k), "points": v} for k, v in weakest]
 
-    # Module completion rates
-    mod_completions = []
-    for m in MODULES:
-        cnt = await db.progress.count_documents({"module_slug": m["slug"], "status": "completed"})
-        mod_completions.append({
-            "slug": m["slug"], "title": m["title"], "completions": cnt,
-            "rate": round(cnt / max(1, students) * 100, 1),
-        })
+    # Module completion rates — single aggregation instead of N+1.
+    pipeline = [
+        {"$match": {"status": "completed"}},
+        {"$group": {"_id": "$module_slug", "count": {"$sum": 1}}},
+    ]
+    counts = {r["_id"]: r["count"] for r in await db.progress.aggregate(pipeline).to_list(200)}
+    mod_completions = [
+        {
+            "slug": m["slug"], "title": m["title"], "completions": counts.get(m["slug"], 0),
+            "rate": round(counts.get(m["slug"], 0) / max(1, students) * 100, 1),
+        }
+        for m in MODULES
+    ]
 
     # Activity in last 30 days (audit volume as proxy)
     thirty_ago = (now - timedelta(days=30)).isoformat()
