@@ -73,6 +73,16 @@ React 19 + react-router-dom + Tailwind + shadcn/ui + sonner + lucide-react. PWA.
 - Backend pytest: **161/161 passing**.
 - Deployer Agent N+1 warning: cleared.
 
+## Feb 2026 — Auth + Password Reset + Settings hotfix
+- **Forgot/Reset password flow** built end-to-end: `POST /api/auth/forgot-password` (no enumeration, rate-limited, sha256 token, 30-min TTL) + `POST /api/auth/reset-password` (single-use, invalidates other tokens for same user).
+- **Admin-mediated reset links**: `POST /api/admin/users/{uid}/reset-link` with copy-to-clipboard modal in admin UI; honours `can_modify()` (admin still can't touch executive_admin).
+- **Self-service profile edit**: `PATCH /api/auth/me` — name + email, with collision detection. Role/associate remain admin-only.
+- **Settings page rebuilt** with Profile + Password tabs (+ forced-rotation banner preserved).
+- **Login** now has a real `Forgot your password?` link to `/forgot-password`.
+- **Optional Resend email integration** via `RESEND_API_KEY` env var (gracefully no-ops when absent — the admin-mediated link UI keeps the flow functional).
+- New tests in `backend/tests/test_password_reset.py` (24 tests). Total backend pytest: **185/185 passing**.
+- Login rate limit relaxed to 30/60s per email (was 10/60s) for realistic admin workflows; forgot-password IP cap to 30/5min.
+
 ## Test Credentials (current)
 admin@lcewai.org / Admin@LCE2026
 instructor@lcewai.org / Teach@LCE2026 (Associate-Alpha)

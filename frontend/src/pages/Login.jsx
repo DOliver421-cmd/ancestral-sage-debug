@@ -99,8 +99,10 @@ export default function Login() {
           <div className="mt-6 text-sm">
             No account? <Link to="/register" className="text-copper font-semibold hover:underline" data-testid="link-register">Enroll as apprentice</Link>
           </div>
-          <div className="mt-2 text-xs text-ink/50" data-testid="login-help">
-            Forgot your password? Contact your program administrator to reset it.
+          <div className="mt-2 text-sm">
+            <Link to="/forgot-password" className="text-ink/60 hover:text-copper hover:underline" data-testid="link-forgot-password">
+              Forgot your password?
+            </Link>
           </div>
         </form>
       </div>

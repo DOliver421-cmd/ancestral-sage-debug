@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import AppShell from "../components/AppShell";
 import { api } from "../lib/api";
 import { toast } from "sonner";
-import { Users, GraduationCap, BookOpen, Award, Download, UserPlus, Trash2, KeyRound, ShieldCheck, Pencil, Lock, Unlock, Activity, Clock, AlertTriangle, BadgeCheck } from "lucide-react";
+import { Users, GraduationCap, BookOpen, Award, Download, UserPlus, Trash2, KeyRound, ShieldCheck, Pencil, Lock, Unlock, Activity, Clock, AlertTriangle, BadgeCheck, Link2, Copy, X } from "lucide-react";
 
 const ROLES = ["student", "instructor", "admin", "executive_admin"];
 
@@ -15,6 +15,7 @@ export default function AdminDashboard() {
   const [createForm, setCreateForm] = useState({ email: "", full_name: "", password: "", role: "student", associate: "Associate-Alpha" });
   const [editing, setEditing] = useState(null); // {id, full_name, email, associate}
   const [filter, setFilter] = useState({ role: "", active: "", q: "" });
+  const [resetLink, setResetLink] = useState(null); // {email, url, expires_at, email_sent}
 
   const load = () => Promise.all([
     api.get("/admin/stats").then((r) => setStats(r.data)),
@@ -52,6 +53,28 @@ export default function AdminDashboard() {
     if (!newPass || newPass.length < 6) { toast.error("Password too short"); return; }
     try { await api.post(`/admin/users/${uid}/password`, { new_password: newPass }); toast.success(`Password reset for ${email}. Share it securely.`); }
     catch (e) { toast.error(e?.response?.data?.detail || "Reset failed"); }
+  };
+
+  const sendResetLink = async (uid, email) => {
+    if (!window.confirm(`Mint a one-shot reset link for ${email}? It expires in 30 minutes.`)) return;
+    try {
+      const r = await api.post(`/admin/users/${uid}/reset-link`, {});
+      // Backend returns a path-only URL when PUBLIC_APP_URL isn't set;
+      // expand it to a fully-qualified URL using the current origin so the
+      // admin can copy/paste it directly to the user.
+      const path = r.data?.url || "";
+      const fullUrl = path.startsWith("http") ? path : `${window.location.origin}${path}`;
+      setResetLink({ ...r.data, url: fullUrl });
+      toast.success(r.data?.email_sent ? `Reset link emailed to ${email}` : `Reset link minted for ${email}`);
+    } catch (e) {
+      toast.error(e?.response?.data?.detail || "Could not mint reset link");
+    }
+  };
+
+  const copyResetLink = async () => {
+    if (!resetLink?.url) return;
+    try { await navigator.clipboard.writeText(resetLink.url); toast.success("Link copied"); }
+    catch { toast.error("Copy failed — long-press to select."); }
   };
 
   const saveEdit = async () => {
@@ -292,6 +315,47 @@ export default function AdminDashboard() {
           All role changes, edits, password resets, deactivations, and deletions are auto-logged in <a href="/admin/audit" className="underline hover:text-copper">Audit Log</a>.
         </div>
       </div>
+
+      {resetLink && (
+        <div
+          className="fixed inset-0 z-40 bg-ink/60 flex items-center justify-center p-4"
+          onClick={() => setResetLink(null)}
+          data-testid="reset-link-modal"
+        >
+          <div className="bg-bone w-full max-w-lg p-6 border-2 border-ink" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-start justify-between">
+              <div>
+                <div className="overline text-copper">One-shot reset link</div>
+                <h3 className="font-heading text-2xl font-bold mt-1 flex items-center gap-2">
+                  <Link2 className="w-5 h-5 text-copper" /> Share with {resetLink.email}
+                </h3>
+              </div>
+              <button onClick={() => setResetLink(null)} className="p-1 hover:bg-ink/10" data-testid="reset-link-close">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <p className="text-sm text-ink/60 mt-3">
+              {resetLink.email_sent
+                ? "An email with this link was sent to the user. You can also share it directly:"
+                : "No email provider configured — share this link with the user directly."}
+            </p>
+            <div className="mt-4 p-3 bg-white border border-ink/20 font-mono text-xs break-all" data-testid="reset-link-url">
+              {resetLink.url}
+            </div>
+            <div className="text-xs text-ink/50 mt-2">
+              Single-use. Expires {new Date(resetLink.expires_at).toLocaleString()}.
+            </div>
+            <div className="mt-5 flex gap-2">
+              <button onClick={copyResetLink} className="btn-primary inline-flex items-center gap-2" data-testid="reset-link-copy">
+                <Copy className="w-4 h-4" /> Copy link
+              </button>
+              <button onClick={() => setResetLink(null)} className="btn-secondary" data-testid="reset-link-done">
+                Done
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </AppShell>
   );
 }

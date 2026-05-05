@@ -199,6 +199,23 @@ class AdminResetPasswordReq(BaseModel):
     new_password: str
 
 
+class ForgotPasswordReq(BaseModel):
+    email: EmailStr
+
+
+class ResetPasswordReq(BaseModel):
+    token: str
+    new_password: str
+
+
+class SelfEditMeReq(BaseModel):
+    """Self-service profile edit. Users may change their display name and
+    email.  Role and associate are NOT editable here — those are admin-only
+    to prevent privilege/cohort drift."""
+    full_name: Optional[str] = None
+    email: Optional[EmailStr] = None
+
+
 class LoginReq(BaseModel):
     email: EmailStr
     password: str
@@ -263,6 +280,80 @@ def hash_pw(p: str) -> str:
 
 def verify_pw(p: str, h: str) -> bool:
     return pwd_ctx.verify(p, h)
+
+
+# --- Password reset helpers --------------------------------------------------
+import hashlib  # noqa: E402
+import secrets  # noqa: E402
+
+RESET_TOKEN_TTL_MIN = int(os.environ.get("PASSWORD_RESET_TTL_MIN", "30"))
+RESEND_API_KEY = os.environ.get("RESEND_API_KEY", "")
+RESEND_FROM = os.environ.get("RESEND_FROM", "W.A.I. <noreply@wai-institute.org>")
+
+
+def _hash_token(raw: str) -> str:
+    """Stable sha256 hash of the raw token. We never store the raw token
+    in MongoDB — only the hash. Lookups use the hash."""
+    return hashlib.sha256(raw.encode("utf-8")).hexdigest()
+
+
+def _make_reset_token() -> tuple[str, str]:
+    """Returns (raw_token, sha256_hex). The raw token is shown ONCE."""
+    raw = secrets.token_urlsafe(32)
+    return raw, _hash_token(raw)
+
+
+def _build_reset_url(raw_token: str, base: Optional[str] = None) -> str:
+    base = (base or os.environ.get("PUBLIC_APP_URL") or "").rstrip("/")
+    if not base:
+        # Caller will prepend its own origin client-side; provide a path-only
+        # form so the admin UI can expand it with window.location.origin.
+        return f"/reset-password?token={raw_token}"
+    return f"{base}/reset-password?token={raw_token}"
+
+
+async def _send_reset_email(to_email: str, raw_token: str, full_name: str = "there") -> bool:
+    """Best-effort email send via Resend. Returns True on send, False if no
+    key configured or on transient failure (caller decides whether to
+    surface an admin-mediated link instead)."""
+    if not RESEND_API_KEY:
+        return False
+    reset_url = _build_reset_url(raw_token)
+    if reset_url.startswith("/"):
+        # No PUBLIC_APP_URL configured — refuse to email a relative link.
+        logger.warning("RESEND_API_KEY set but PUBLIC_APP_URL missing; skipping email.")
+        return False
+    subject = "Reset your W.A.I. password"
+    html = f"""
+    <div style="font-family:system-ui,Segoe UI,Roboto,sans-serif;max-width:560px;margin:0 auto;padding:24px;color:#0a0e14">
+      <h2 style="margin:0 0 8px">Reset your password</h2>
+      <p>Hi {full_name},</p>
+      <p>We got a request to reset your W.A.I. password. The link below is single-use and expires in {RESET_TOKEN_TTL_MIN} minutes.</p>
+      <p style="margin:28px 0">
+        <a href="{reset_url}" style="background:#0a0e14;color:#fff;padding:12px 20px;text-decoration:none;font-weight:600">Reset Password</a>
+      </p>
+      <p style="font-size:12px;color:#666">If you didn't ask for this, you can safely ignore this message — your password won't change.</p>
+      <p style="font-size:12px;color:#666">Or paste this URL into your browser:<br><code style="word-break:break-all">{reset_url}</code></p>
+    </div>
+    """
+    try:
+        import httpx
+        async with httpx.AsyncClient(timeout=10.0) as cx:
+            r = await cx.post(
+                "https://api.resend.com/emails",
+                headers={"Authorization": f"Bearer {RESEND_API_KEY}",
+                         "Content-Type": "application/json"},
+                json={"from": RESEND_FROM, "to": [to_email],
+                      "subject": subject, "html": html},
+            )
+        if r.status_code >= 400:
+            logger.warning("Resend send failed %s: %s", r.status_code, r.text[:300])
+            return False
+        return True
+    except Exception:
+        logger.exception("Resend send raised")
+        return False
+# ----------------------------------------------------------------------------
 
 
 def make_token(user_id: str, role: str) -> str:
@@ -449,6 +540,11 @@ async def ensure_indexes():
         await db.tool_checkouts.create_index([("user_id", 1), ("status", 1)])
         await db.inventory.create_index("sku", unique=True)
         await db.sites.create_index("slug", unique=True)
+        # Password reset tokens — TTL on expires_at auto-removes expired docs;
+        # token_hash is the unique lookup key.
+        await db.password_reset_tokens.create_index("token_hash", unique=True)
+        await db.password_reset_tokens.create_index("expires_at", expireAfterSeconds=0)
+        await db.password_reset_tokens.create_index("user_id")
         logger.info("Indexes ensured")
     except Exception:
         logger.exception("ensure_indexes failed (non-fatal)")
@@ -516,7 +612,7 @@ async def register(body: RegisterReq):
 
 @api_router.post("/auth/login", response_model=TokenResp)
 async def login(body: LoginReq):
-    check_rate(f"login:{body.email}", max_calls=10, window_sec=60)
+    check_rate(f"login:{body.email}", max_calls=30, window_sec=60)
     doc = await db.users.find_one({"email": body.email}, {"_id": 0})
     if not doc or not verify_pw(body.password, doc["password_hash"]):
         await audit(None, "auth.login.failed", body.email)
@@ -851,6 +947,183 @@ async def change_password(body: ChangePasswordReq, user: User = Depends(current_
     }})
     await audit(user.id, "auth.password_changed")
     return {"ok": True}
+
+
+@api_router.patch("/auth/me", response_model=User)
+async def edit_self(body: SelfEditMeReq, user: User = Depends(current_user)):
+    """Self-service profile edit: name and/or email.  Role and associate
+    can ONLY be changed by an admin via /api/admin/users/{uid}.  This
+    endpoint guards against email collisions and emits an audit row."""
+    update = {}
+    if body.full_name is not None:
+        name = body.full_name.strip()
+        if not name:
+            raise HTTPException(400, "full_name cannot be empty")
+        if len(name) > 120:
+            raise HTTPException(400, "full_name too long")
+        update["full_name"] = name
+    if body.email is not None and body.email != user.email:
+        clash = await db.users.find_one({"email": body.email, "id": {"$ne": user.id}})
+        if clash:
+            raise HTTPException(400, "Email already in use")
+        update["email"] = body.email
+    if update:
+        await db.users.update_one({"id": user.id}, {"$set": update})
+        await audit(user.id, "auth.self_edit", target=user.id, meta=update)
+    fresh = await db.users.find_one({"id": user.id}, {"_id": 0, "password_hash": 0})
+    if isinstance(fresh.get("created_at"), str):
+        fresh["created_at"] = datetime.fromisoformat(fresh["created_at"])
+    return User(**fresh)
+
+
+# --- Public password-reset flow (no enumeration) ---------------------------
+@api_router.post("/auth/forgot-password")
+async def forgot_password(body: ForgotPasswordReq, request: Request):
+    """Request a password reset link.  ALWAYS returns 200 to avoid leaking
+    whether an email is registered.  Internally:
+      * rate-limited per IP and per email
+      * mints a one-shot token (raw + sha256 stored)
+      * audit-logged
+      * if RESEND_API_KEY is set, emails the link
+      * returns `email_sent: bool` so the UI can show the right copy
+    """
+    ip = (request.client.host if request.client else "anon")
+    check_rate(f"forgot:ip:{ip}", max_calls=30, window_sec=300)
+    check_rate(f"forgot:email:{body.email}", max_calls=5, window_sec=600)
+
+    user_doc = await db.users.find_one({"email": body.email}, {"_id": 0})
+    email_sent = False
+    if user_doc and user_doc.get("is_active") is not False:
+        raw, hashed = _make_reset_token()
+        now = datetime.now(timezone.utc)
+        expires_at = now + timedelta(minutes=RESET_TOKEN_TTL_MIN)
+        # Invalidate any prior unused tokens for this user (cleanliness).
+        await db.password_reset_tokens.update_many(
+            {"user_id": user_doc["id"], "used_at": None},
+            {"$set": {"used_at": now}},
+        )
+        await db.password_reset_tokens.insert_one({
+            "id": str(uuid.uuid4()),
+            "user_id": user_doc["id"],
+            "email": user_doc["email"],
+            "token_hash": hashed,
+            "created_at": now,
+            "expires_at": expires_at,  # TTL index acts on this
+            "used_at": None,
+            "ip": ip,
+        })
+        await audit(user_doc["id"], "auth.password_reset.requested",
+                    target=user_doc["id"], meta={"ip": ip})
+        email_sent = await _send_reset_email(
+            user_doc["email"], raw, user_doc.get("full_name", "there"),
+        )
+        # Dev/admin convenience: when explicitly enabled, return the raw
+        # token so the requester (or curl-based tests) can complete the
+        # flow without an email provider.  Defaults to OFF in production.
+        if os.environ.get("DEV_RETURN_RESET_TOKEN") == "1":
+            return {"ok": True, "email_sent": email_sent,
+                    "_dev_token": raw, "_dev_url": _build_reset_url(raw)}
+    return {"ok": True, "email_sent": email_sent}
+
+
+@api_router.post("/auth/reset-password")
+async def reset_password_endpoint(body: ResetPasswordReq, request: Request):
+    """Consume a reset token and set a new password.  Single-use:
+    token is marked `used_at` immediately on success.  All OTHER unused
+    tokens for the same user are also invalidated."""
+    ip = (request.client.host if request.client else "anon")
+    check_rate(f"reset:ip:{ip}", max_calls=60, window_sec=300)
+    if len(body.new_password) < 6:
+        raise HTTPException(400, "Password must be at least 6 characters")
+    if len(body.token) < 16:
+        raise HTTPException(400, "Invalid token")
+
+    hashed = _hash_token(body.token)
+    rec = await db.password_reset_tokens.find_one({"token_hash": hashed}, {"_id": 0})
+    if not rec or rec.get("used_at") is not None:
+        raise HTTPException(400, "Invalid or already-used reset link")
+    expires_at = rec.get("expires_at")
+    # Mongo returns datetime objects from PyMongo; normalise tz.
+    if isinstance(expires_at, str):
+        try:
+            expires_at = datetime.fromisoformat(expires_at)
+        except Exception:
+            expires_at = None
+    if expires_at is None or expires_at.tzinfo is None:
+        expires_at = (expires_at or datetime.now(timezone.utc)).replace(tzinfo=timezone.utc)
+    if expires_at < datetime.now(timezone.utc):
+        raise HTTPException(400, "Reset link has expired — request a new one")
+
+    target = await db.users.find_one({"id": rec["user_id"]}, {"_id": 0})
+    if not target:
+        raise HTTPException(400, "Invalid reset link")
+    if target.get("is_active") is False:
+        raise HTTPException(403, "Account is deactivated — contact an administrator")
+
+    now = datetime.now(timezone.utc)
+    await db.users.update_one({"id": target["id"]}, {"$set": {
+        "password_hash": hash_pw(body.new_password),
+        "must_change_password": False,
+    }})
+    await db.password_reset_tokens.update_one(
+        {"token_hash": hashed},
+        {"$set": {"used_at": now, "used_ip": ip}},
+    )
+    # Defensive: invalidate any other unused tokens for this user.
+    await db.password_reset_tokens.update_many(
+        {"user_id": target["id"], "used_at": None},
+        {"$set": {"used_at": now}},
+    )
+    await audit(target["id"], "auth.password_reset.completed",
+                target=target["id"], meta={"ip": ip})
+    return {"ok": True, "email": target["email"]}
+
+
+@api_router.post("/admin/users/{uid}/reset-link")
+async def admin_create_reset_link(uid: str, request: Request,
+                                  user: User = Depends(require_role("admin"))):
+    """Admin-mediated reset.  Mints a one-shot reset link the admin can
+    share verbally / via Slack / email.  Honours can_modify() — admins
+    cannot mint links for executive_admin accounts."""
+    target = await db.users.find_one({"id": uid}, {"_id": 0})
+    if not target:
+        raise HTTPException(404, "User not found")
+    if not can_modify(user, target.get("role", "")):
+        raise HTTPException(403, "You don't have permission to reset this user's password.")
+    raw, hashed = _make_reset_token()
+    now = datetime.now(timezone.utc)
+    expires_at = now + timedelta(minutes=RESET_TOKEN_TTL_MIN)
+    # Invalidate prior unused tokens to keep things tidy.
+    await db.password_reset_tokens.update_many(
+        {"user_id": target["id"], "used_at": None},
+        {"$set": {"used_at": now}},
+    )
+    await db.password_reset_tokens.insert_one({
+        "id": str(uuid.uuid4()),
+        "user_id": target["id"],
+        "email": target["email"],
+        "token_hash": hashed,
+        "created_at": now,
+        "expires_at": expires_at,
+        "used_at": None,
+        "ip": (request.client.host if request.client else "admin"),
+        "issued_by": user.id,
+    })
+    email_sent = await _send_reset_email(
+        target["email"], raw, target.get("full_name", "there"),
+    )
+    await audit(user.id, "admin.password_reset.link_issued", target=target["id"],
+                meta={"email": target["email"], "email_sent": email_sent})
+    return {
+        "ok": True,
+        "email": target["email"],
+        "email_sent": email_sent,
+        "token": raw,
+        "url": _build_reset_url(raw),
+        "expires_at": expires_at.isoformat(),
+        "ttl_minutes": RESET_TOKEN_TTL_MIN,
+    }
+# ----------------------------------------------------------------------------
 
 
 @api_router.get("/admin/stats")

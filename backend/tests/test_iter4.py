@@ -62,22 +62,22 @@ class TestHealthVersion:
         assert "name" in d
 
 
-# --------- RATE LIMITING (per-email, window=60s, max=10) ---------
+# --------- RATE LIMITING (per-email, window=60s, max=30) ---------
 class TestRateLimit:
-    def test_login_11th_returns_429(self):
+    def test_login_31st_returns_429(self):
         """Use a brand new email so we don't burn the admin/instructor/student budget."""
         unique_email = f"ratetest_{uuid.uuid4().hex[:8]}@example.com"
-        # 10 failing attempts should return 401 — the 11th must be 429.
+        # 30 failing attempts should return 401 — the 31st must be 429.
         codes = []
-        for i in range(11):
+        for i in range(31):
             r = requests.post(
                 f"{API}/auth/login",
                 json={"email": unique_email, "password": "bogus"},
                 timeout=15,
             )
             codes.append(r.status_code)
-        assert codes[:10].count(401) == 10, f"expected 10x401 then 429, got {codes}"
-        assert codes[10] == 429, f"expected 429 on 11th, got {codes[10]} (all: {codes})"
+        assert codes[:30].count(401) == 30, f"expected 30x401 then 429, got {codes}"
+        assert codes[30] == 429, f"expected 429 on 31st, got {codes[30]} (all: {codes})"
 
 
 # --------- NOTIFICATIONS ---------
