@@ -133,13 +133,13 @@ ROLE_RANK = {"student": 1, "instructor": 2, "admin": 3, "executive_admin": 4}
 # The single hardcoded executive admin email. Auto-promoted to executive_admin
 # on every backend startup; if the account does not exist it is created with
 # the seed password EXEC_DEFAULT_PASSWORD (rotate immediately on first login).
-EXEC_ADMIN_EMAIL = "youpickeddoliver@gmail.com"
+EXEC_ADMIN_EMAIL = "delon.oliver@lightningcityelectric.com"
 EXEC_DEFAULT_PASSWORD = "Executive@LCE2026"
 
 # One-time migration: any email that used to be the hardcoded EXEC_ADMIN_EMAIL
 # will be auto-demoted from executive_admin to admin on startup, so switching
 # the primary exec doesn't leave a dormant god-mode account behind.
-LEGACY_EXEC_EMAILS = {"delon.oliver@lightningcityelectric.com"}
+LEGACY_EXEC_EMAILS = {"youpickeddoliver@gmail.com"}
 
 
 class User(BaseModel):
@@ -150,6 +150,11 @@ class User(BaseModel):
     role: Role = "student"
     associate: Optional[str] = None
     is_active: bool = True
+    # When true, the user must change password on next login. Set on (a) the
+    # auto-created executive_admin, and (b) any account created via
+    # POST /api/admin/users — the admin shares a temp password and the user
+    # picks their own on first login.
+    must_change_password: bool = False
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 
@@ -366,12 +371,21 @@ async def seed_users():
 
     existing_exec = await db.users.find_one({"email": EXEC_ADMIN_EMAIL}, {"_id": 0})
     if existing_exec:
-        if existing_exec.get("role") != "executive_admin" or existing_exec.get("is_active") is False:
-            await db.users.update_one(
-                {"email": EXEC_ADMIN_EMAIL},
-                {"$set": {"role": "executive_admin", "is_active": True}},
-            )
-            logger.info("Upgraded %s to executive_admin", EXEC_ADMIN_EMAIL)
+        update = {}
+        if existing_exec.get("role") != "executive_admin":
+            update["role"] = "executive_admin"
+        if existing_exec.get("is_active") is False:
+            update["is_active"] = True
+        # If the password is still the seed default, require rotation on next
+        # login. Uses verify_pw because bcrypt hashes are non-deterministic.
+        try:
+            if verify_pw(EXEC_DEFAULT_PASSWORD, existing_exec.get("password_hash", "")):
+                update["must_change_password"] = True
+        except Exception:
+            pass
+        if update:
+            await db.users.update_one({"email": EXEC_ADMIN_EMAIL}, {"$set": update})
+            logger.info("Bootstrapped %s: %s", EXEC_ADMIN_EMAIL, update)
     else:
         await db.users.insert_one({
             "id": str(uuid.uuid4()),
@@ -380,6 +394,7 @@ async def seed_users():
             "role": "executive_admin",
             "associate": None,
             "is_active": True,
+            "must_change_password": True,  # force rotation on first login
             "created_at": datetime.now(timezone.utc).isoformat(),
             "password_hash": hash_pw(EXEC_DEFAULT_PASSWORD),
         })
@@ -655,12 +670,17 @@ async def assign_associate(payload: dict, user: User = Depends(require_role("adm
 @api_router.post("/admin/users")
 async def admin_create_user(body: AdminCreateUserReq, user: User = Depends(require_role("admin"))):
     """Admin-only: create a user with any role (including admin/instructor).
-    Only executive_admins may create another executive_admin."""
+    Only executive_admins may create another executive_admin.
+
+    Newly created accounts have `must_change_password=True` — the admin tells
+    the user the temp password verbally/email; on first login the frontend
+    routes them to /settings until they pick a new one."""
     if body.role == "executive_admin" and user.role != "executive_admin":
         raise HTTPException(403, "Only executive_admin can create another executive_admin.")
     if await db.users.find_one({"email": body.email}):
         raise HTTPException(400, "Email already registered")
-    new_user = User(email=body.email, full_name=body.full_name, role=body.role, associate=body.associate)
+    new_user = User(email=body.email, full_name=body.full_name, role=body.role,
+                    associate=body.associate, must_change_password=True)
     doc = new_user.model_dump()
     doc["created_at"] = doc["created_at"].isoformat()
     doc["password_hash"] = hash_pw(body.password)
@@ -782,7 +802,10 @@ async def admin_reset_password(uid: str, body: AdminResetPasswordReq,
         raise HTTPException(404, "User not found")
     if not can_modify(user, target.get("role", "")):
         raise HTTPException(403, "You don't have permission to reset this user's password.")
-    await db.users.update_one({"id": uid}, {"$set": {"password_hash": hash_pw(body.new_password)}})
+    await db.users.update_one({"id": uid}, {"$set": {
+        "password_hash": hash_pw(body.new_password),
+        "must_change_password": True,  # force rotation on next login
+    }})
     await audit(user.id, "admin.user.password_reset", target=uid)
     return {"ok": True}
 
@@ -819,7 +842,10 @@ async def change_password(body: ChangePasswordReq, user: User = Depends(current_
     doc = await db.users.find_one({"id": user.id}, {"_id": 0})
     if not doc or not verify_pw(body.current_password, doc["password_hash"]):
         raise HTTPException(401, "Current password is incorrect")
-    await db.users.update_one({"id": user.id}, {"$set": {"password_hash": hash_pw(body.new_password)}})
+    await db.users.update_one({"id": user.id}, {"$set": {
+        "password_hash": hash_pw(body.new_password),
+        "must_change_password": False,  # cleared on self-change
+    }})
     await audit(user.id, "auth.password_changed")
     return {"ok": True}
 

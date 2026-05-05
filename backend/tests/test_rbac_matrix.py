@@ -20,7 +20,7 @@ BASE = os.environ["REACT_APP_BACKEND_URL"].rstrip("/")
 API = f"{BASE}/api"
 
 SEED = {
-    "executive_admin": ("youpickeddoliver@gmail.com", "Executive@LCE2026"),
+    "executive_admin": ("delon.oliver@lightningcityelectric.com", "Executive@LCE2026"),
     "admin": ("admin@lcewai.org", "Admin@LCE2026"),
     "instructor": ("instructor@lcewai.org", "Teach@LCE2026"),
     "student": ("student@lcewai.org", "Learn@LCE2026"),
@@ -295,3 +295,52 @@ class TestCriticalGuards:
                            headers=_h(tokens["executive_admin"]["token"]),
                            json={"is_active": False})
         assert r.status_code == 400
+
+
+class TestForcedPasswordChange:
+    """Newly-created accounts and admin-reset accounts must be flagged
+    `must_change_password` so the frontend can route them to /settings."""
+
+    def test_admin_created_user_has_force_flag(self, tokens):
+        ex = tokens["executive_admin"]["token"]
+        email = f"rbac-force-{uuid.uuid4().hex[:8]}@example.com"
+        r = requests.post(f"{API}/admin/users", headers=_h(ex), json={
+            "email": email, "full_name": "Force Test", "password": "TempPw12345",
+            "role": "student",
+        })
+        assert r.status_code == 200
+        uid = r.json()["user"]["id"]
+        # Login as the new user — must_change_password should be true
+        r = requests.post(f"{API}/auth/login", json={"email": email, "password": "TempPw12345"})
+        assert r.status_code == 200
+        assert r.json()["user"].get("must_change_password") is True
+        new_token = r.json()["access_token"]
+        # After self change-password, flag should clear
+        r = requests.post(f"{API}/auth/change-password", headers=_h(new_token),
+                          json={"current_password": "TempPw12345", "new_password": "NewPw12345"})
+        assert r.status_code == 200
+        r = requests.post(f"{API}/auth/login", json={"email": email, "password": "NewPw12345"})
+        assert r.status_code == 200
+        assert r.json()["user"].get("must_change_password", False) is False
+        # cleanup
+        requests.delete(f"{API}/admin/users/{uid}", headers=_h(ex))
+
+    def test_admin_password_reset_re_arms_force_flag(self, tokens):
+        ex = tokens["executive_admin"]["token"]
+        email = f"rbac-reset-{uuid.uuid4().hex[:8]}@example.com"
+        r = requests.post(f"{API}/admin/users", headers=_h(ex), json={
+            "email": email, "full_name": "Reset Test", "password": "TempPw12345", "role": "student",
+        })
+        uid = r.json()["user"]["id"]
+        # User clears the flag by self-changing password
+        tok = requests.post(f"{API}/auth/login", json={"email": email, "password": "TempPw12345"}).json()["access_token"]
+        requests.post(f"{API}/auth/change-password", headers=_h(tok),
+                      json={"current_password": "TempPw12345", "new_password": "Mine12345"})
+        # Now admin resets the password — flag must come back
+        r = requests.post(f"{API}/admin/users/{uid}/password", headers=_h(ex),
+                          json={"new_password": "AdminReset123"})
+        assert r.status_code == 200
+        r = requests.post(f"{API}/auth/login", json={"email": email, "password": "AdminReset123"})
+        assert r.json()["user"].get("must_change_password") is True
+        # cleanup
+        requests.delete(f"{API}/admin/users/{uid}", headers=_h(ex))

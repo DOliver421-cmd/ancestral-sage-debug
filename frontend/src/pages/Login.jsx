@@ -17,6 +17,11 @@ export default function Login() {
     try {
       const u = await login(email, password);
       toast.success(`Welcome back, ${u.full_name}`);
+      if (u.must_change_password) {
+        toast.info("Please change your temporary password before continuing.");
+        nav("/settings?force=1");
+        return;
+      }
       nav(u.role === "executive_admin" || u.role === "admin" ? "/admin"
         : u.role === "instructor" ? "/instructor"
         : "/dashboard");
