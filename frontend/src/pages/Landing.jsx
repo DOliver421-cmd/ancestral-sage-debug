@@ -91,7 +91,7 @@ export default function Landing() {
             { icon: Sun, t: "Solar & Off-Grid", d: "Design and commission 48V solar systems on the mobile classroom itself." },
             { icon: Award, t: "Certifications", d: "Stackable, printable certificates aligned to apprenticeship competencies." },
           ].map((p, i) => (
-            <div key={i} className="card-flat p-8" data-testid={`pillar-${i}`}>
+            <div key={p.t} className="card-flat p-8" data-testid={`pillar-${i}`}>
               <div className="w-12 h-12 bg-ink text-signal flex items-center justify-center mb-5">
                 <p.icon className="w-6 h-6" strokeWidth={2.5} />
               </div>
@@ -133,7 +133,7 @@ export default function Landing() {
                 "11 — Battery & Inverter",
                 "12 — Commissioning Capstone",
               ].map((m, i) => (
-                <div key={i} className="card-flat p-5 flex items-center justify-between group" data-testid={`module-preview-${i}`}>
+                <div key={m} className="card-flat p-5 flex items-center justify-between group" data-testid={`module-preview-${i}`}>
                   <div className="font-heading font-semibold text-ink">{m}</div>
                   <ArrowRight className="w-4 h-4 text-copper opacity-0 group-hover:opacity-100 transition-opacity" />
                 </div>

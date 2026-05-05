@@ -78,20 +78,20 @@ export default function ModuleView() {
 
         {/* Content sections */}
         <Section icon={BookOpen} title="Learning Objectives" testid="section-objectives">
-          <ul className="space-y-2">{mod.objectives.map((o, i) => <li key={i} className="flex gap-3"><span className="text-copper font-bold font-mono">{(i + 1).toString().padStart(2, "0")}</span><span>{o}</span></li>)}</ul>
+          <ul className="space-y-2">{mod.objectives.map((o, i) => <li key={o} className="flex gap-3"><span className="text-copper font-bold font-mono">{(i + 1).toString().padStart(2, "0")}</span><span>{o}</span></li>)}</ul>
         </Section>
 
         <Section icon={ShieldAlert} title="Safety Requirements" testid="section-safety" warning>
-          <ul className="space-y-2">{mod.safety.map((s, i) => <li key={i} className="flex gap-3"><span className="text-destructive font-bold">!</span><span>{s}</span></li>)}</ul>
+          <ul className="space-y-2">{mod.safety.map((s) => <li key={s} className="flex gap-3"><span className="text-destructive font-bold">!</span><span>{s}</span></li>)}</ul>
         </Section>
 
         <Section icon={Wrench} title="Tools & Materials" testid="section-tools">
-          <ul className="grid sm:grid-cols-2 gap-2">{mod.tools.map((t, i) => <li key={i} className="font-mono text-sm">— {t}</li>)}</ul>
+          <ul className="grid sm:grid-cols-2 gap-2">{mod.tools.map((t) => <li key={t} className="font-mono text-sm">— {t}</li>)}</ul>
         </Section>
 
         <Section icon={CheckSquare} title="Skill Demonstration Tasks" testid="section-tasks">
           <ol className="space-y-3">{mod.tasks.map((t, i) => (
-            <li key={i} className="flex gap-4 p-3 border border-ink/10">
+            <li key={t} className="flex gap-4 p-3 border border-ink/10">
               <span className="font-heading font-black text-copper">T{i + 1}</span>
               <span>{t}</span>
             </li>
@@ -107,7 +107,7 @@ export default function ModuleView() {
           </div>
           <div className="space-y-5" data-testid="quiz-section">
             {mod.quiz.map((q, i) => (
-              <div key={i} className="card-flat p-5">
+              <div key={q.q} className="card-flat p-5">
                 <div className="font-heading font-semibold mb-3"><span className="text-copper mr-2">Q{i + 1}.</span>{q.q}</div>
                 <div className="space-y-2">
                   {q.options.map((opt, j) => {
@@ -115,7 +115,7 @@ export default function ModuleView() {
                     const isSelected = answers[i] === j;
                     const isWrong = result && isSelected && j !== q.answer;
                     return (
-                      <label key={j} className={`flex items-center gap-3 p-3 border cursor-pointer transition-colors ${isCorrect ? "border-signal bg-signal/20" : isWrong ? "border-destructive bg-destructive/5" : isSelected ? "border-ink bg-ink/5" : "border-ink/10 hover:border-ink/40"}`} data-testid={`q-${i}-opt-${j}`}>
+                      <label key={`${q.q}-${opt}`} className={`flex items-center gap-3 p-3 border cursor-pointer transition-colors ${isCorrect ? "border-signal bg-signal/20" : isWrong ? "border-destructive bg-destructive/5" : isSelected ? "border-ink bg-ink/5" : "border-ink/10 hover:border-ink/40"}`} data-testid={`q-${i}-opt-${j}`}>
                         <input type="radio" name={`q-${i}`} checked={isSelected || false} onChange={() => setAnswers({ ...answers, [i]: j })} className="accent-copper" />
                         <span className="text-sm">{opt}</span>
                       </label>

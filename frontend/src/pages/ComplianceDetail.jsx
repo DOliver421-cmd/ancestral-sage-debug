@@ -46,15 +46,15 @@ export default function ComplianceDetail() {
         </div>
 
         <Section icon={BookOpen} title="Learning Objectives">
-          <ul className="space-y-2">{mod.objectives.map((o, i) => <li key={i} className="flex gap-3"><span className="text-copper font-mono font-bold">{(i + 1).toString().padStart(2, "0")}</span><span>{o}</span></li>)}</ul>
+          <ul className="space-y-2">{mod.objectives.map((o, i) => <li key={o} className="flex gap-3"><span className="text-copper font-mono font-bold">{(i + 1).toString().padStart(2, "0")}</span><span>{o}</span></li>)}</ul>
         </Section>
 
         <Section icon={ShieldAlert} title="Safety Reminders" warning>
-          <ul className="space-y-1.5 text-sm">{mod.safety.map((s, i) => <li key={i}>— {s}</li>)}</ul>
+          <ul className="space-y-1.5 text-sm">{mod.safety.map((s) => <li key={s}>— {s}</li>)}</ul>
         </Section>
 
         <Section icon={CheckSquare} title="Tasks">
-          <ol className="space-y-2">{mod.tasks.map((t, i) => <li key={i} className="flex gap-3"><span className="font-mono font-bold text-copper">{i + 1}.</span><span>{t}</span></li>)}</ol>
+          <ol className="space-y-2">{mod.tasks.map((t, i) => <li key={t} className="flex gap-3"><span className="font-mono font-bold text-copper">{i + 1}.</span><span>{t}</span></li>)}</ol>
         </Section>
 
         <div className="mt-10 card-flat p-6" data-testid="quiz-section">
@@ -62,7 +62,7 @@ export default function ComplianceDetail() {
           <h2 className="font-heading text-2xl font-bold mt-2 mb-5">Test Your Knowledge</h2>
           <div className="space-y-4">
             {mod.quiz.map((q, i) => (
-              <div key={i} className="p-4 border border-ink/10">
+              <div key={q.q} className="p-4 border border-ink/10">
                 <div className="font-heading font-semibold mb-3"><span className="text-copper mr-2">Q{i + 1}.</span>{q.q}</div>
                 <div className="space-y-2">
                   {q.options.map((opt, j) => {
@@ -70,7 +70,7 @@ export default function ComplianceDetail() {
                     const isSel = answers[i] === j;
                     const isWrong = result && isSel && j !== q.answer;
                     return (
-                      <label key={j} className={`flex items-center gap-3 p-2 border cursor-pointer ${isCorrect ? "border-signal bg-signal/20" : isWrong ? "border-destructive bg-destructive/5" : isSel ? "border-ink bg-ink/5" : "border-ink/10 hover:border-ink/40"}`} data-testid={`cq-${i}-${j}`}>
+                      <label key={`${q.q}-${opt}`} className={`flex items-center gap-3 p-2 border cursor-pointer ${isCorrect ? "border-signal bg-signal/20" : isWrong ? "border-destructive bg-destructive/5" : isSel ? "border-ink bg-ink/5" : "border-ink/10 hover:border-ink/40"}`} data-testid={`cq-${i}-${j}`}>
                         <input type="radio" checked={isSel || false} onChange={() => setAnswers({ ...answers, [i]: j })} className="accent-copper" />
                         <span className="text-sm">{opt}</span>
                       </label>

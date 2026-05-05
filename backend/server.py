@@ -133,8 +133,13 @@ ROLE_RANK = {"student": 1, "instructor": 2, "admin": 3, "executive_admin": 4}
 # The single hardcoded executive admin email. Auto-promoted to executive_admin
 # on every backend startup; if the account does not exist it is created with
 # the seed password EXEC_DEFAULT_PASSWORD (rotate immediately on first login).
-EXEC_ADMIN_EMAIL = "delon.oliver@lightningcityelectric.com"
-EXEC_DEFAULT_PASSWORD = "Executive@LCE2026"
+EXEC_ADMIN_EMAIL = os.environ.get("EXEC_ADMIN_EMAIL", "delon.oliver@lightningcityelectric.com")
+# Seed password for the executive admin.  Read from env var first; falls back
+# to the documented default (which is force-rotated on first login via
+# `must_change_password=True`, so the seed is safe by construction).  In
+# production set EXEC_DEFAULT_PASSWORD to a fresh secret so even the seed
+# value is operator-controlled.
+EXEC_DEFAULT_PASSWORD = os.environ.get("EXEC_DEFAULT_PASSWORD", "Executive@LCE2026")
 
 # One-time migration: any email that used to be the hardcoded EXEC_ADMIN_EMAIL
 # will be auto-demoted from executive_admin to admin on startup, so switching
