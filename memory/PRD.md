@@ -87,3 +87,8 @@ React 19 + react-router-dom + Tailwind + shadcn/ui + sonner + lucide-react. PWA.
 admin@lcewai.org / Admin@LCE2026
 instructor@lcewai.org / Teach@LCE2026 (Associate-Alpha)
 student@lcewai.org / Learn@LCE2026 (Associate-Alpha)
+
+## Feb 2026 — Catch-all 404 route
+- Added `pages/NotFound.jsx` and `<Route path="*" />` in `App.js`.
+- Resolves the failure mode behind user's "blank page on `/admin/users`" report — production bundle was stale (preview already had the route); without a 404 fallback any unmatched URL silently white-screened.
+- 404 page is role-aware: signed-in users get a CTA back to their correct dashboard; signed-out users get a CTA back to landing.

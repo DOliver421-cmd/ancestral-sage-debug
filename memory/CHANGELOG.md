@@ -1,3 +1,9 @@
+## Feb 2026 — Catch-all 404 route (blank-page guardrail)
+- **NEW:** `pages/NotFound.jsx` — branded 404 page (blueprint hero left, "Wrong turn" copy right) that displays the unmatched pathname and a context-aware CTA (lands user back on their role-correct dashboard if signed in, or landing if not).
+- **App.js:** added `<Route path="*" element={<NotFound />} />` catch-all so any future stale bookmark, typo, or pre-route-deploy URL no longer silently white-screens.
+- **Diagnosis driver:** user reported `/admin/users` blank in production. Console showed `No routes matched location '/admin/users'` — production bundle was stale (current preview already defines the route at App.js:76). 404 fallback ensures the failure mode is now graceful instead of silent.
+- **Files added:** `pages/NotFound.jsx`. Files updated: `App.js`.
+
 ## Feb 2026 — Auth + Password Reset + Settings hotfix
 - **NEW:** Public password-reset flow.
   - `POST /api/auth/forgot-password` — no-enumeration response, per-IP + per-email rate limit, sha256-hashed single-use token with 30-min TTL.
