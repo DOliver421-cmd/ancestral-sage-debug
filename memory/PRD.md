@@ -97,4 +97,11 @@ student@lcewai.org / Learn@LCE2026 (Associate-Alpha)
 - Added 7th AI Tutor persona "Ancestral Sage" (Pan-African spiritual mentor / guide / pattern interpreter) per detailed product spec.
 - Backend: extended `AIChatReq` with `depth / intensity / cultural_focus / divination_mode / safety_level / consent_log_id / scope`. New `POST /api/ai/consent` endpoint validates verbatim YES + comprehension phrase, returns `consent_log_id` (TTL 120 min) recorded in `ai_consents` collection. `/ai/chat` gates deep/exploratory/extreme practices with 403 unless a valid consent id is presented; crisis-phrase short-circuit returns canonical safety template (no LLM cost). All five immutable rules, output format, and fringe-labeling rules are encoded in the system prompt; `scope=wai_training_only` confines persona to WAI curriculum.
 - Frontend: `AITutor.jsx` adds a Compass-icon mode pill (copper warm-gold), a parameter dropdown panel that appears when Sage is active, and a two-step consent modal posting to `/api/ai/consent`. Send button switches to a Lock icon + "Consent" label when blocking. Consent badge with revoke action displays after grant.
-- Tests: `backend/tests/test_ancestral_sage.py` — 14 tests, all green. Suite: 223/223 (was 209).
+- Tests: `backend/tests/test_ancestral_sage.py` — 14 tests, all green.
+
+## Feb 2026 — Exec-Admin Sage Sessions audit + safety caps
+- New Exec-only page `/admin/sage-audit` (Compass icon in exec sidebar) with **Sessions** tab (full chat/consent/refusal/crisis audit feed with kind & user filters and per-kind counts) and **Level Controls** tab (global cap dropdown + per-user override table).
+- New collection `safety_caps`. New endpoints `GET /api/admin/sage/cap`, `PUT /api/admin/sage/cap/global`, `PUT /api/admin/sage/cap/user/{uid}`, `GET /api/admin/sage/audit?kind&user_id&limit`. All exec-only; every cap change is mirrored to the global `audit_log`.
+- `/api/ai/chat` enforces the cap **before** the consent gate — capped users cannot escalate even with a valid `consent_log_id`. Refusals are recorded with `refusal_reason: safety_cap_exceeded`.
+- Tests: `backend/tests/test_sage_caps.py` — 17 tests (RBAC, CRUD, validation, enforcement, audit filters). All green.
+- Total backend pytest: **240/240 passing** (was 209 before this whole Sage feature set).

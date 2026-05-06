@@ -1,3 +1,18 @@
+## Feb 2026 — Exec-Admin Sage Sessions audit panel + safety caps
+- **NEW Exec Admin page** at `/admin/sage-audit` (Compass icon "Sage Sessions" in the exec sidebar). Two tabs:
+  - **Sessions** — chronological audit feed of every Ancestral Sage event: chats, consent grants, refusals (incl. `safety_cap_exceeded`), and crisis interventions. Counts per kind, kind/user filters, paginated up to 500 rows. Shows email + intensity + safety_level + refusal_reason + message preview per row.
+  - **Level Controls** — global `safety_level` ceiling + per-user override table. More restrictive of the two wins. "No override / No cap" both supported.
+- **NEW collection** `safety_caps` (single doc `_id="global"` for global cap, `_id="user:{uid}"` for per-user overrides). Stamped with `updated_at` + `updated_by`. Every change writes a row to `audit_log`.
+- **NEW endpoints** (Exec Admin only via `require_role("executive_admin")`):
+  - `GET /api/admin/sage/cap` — returns `{global_level, available_levels, overrides[]}` (overrides hydrated with email + full_name).
+  - `PUT /api/admin/sage/cap/global` — body `{level: <enum> | null}` (null clears).
+  - `PUT /api/admin/sage/cap/user/{uid}` — body `{level: <enum> | null}`. 404 if user missing.
+  - `GET /api/admin/sage/audit?kind={all|chat|refusal|crisis|consent}&user_id=&limit=` — most-recent-first feed merging `chat_history` + `ai_consents`, hydrated with email/full_name.
+- **Cap enforcement** in `ai_chat`: runs **before** the consent gate. A capped user cannot exceed the cap even with a valid `consent_log_id` — request is 403'd and a `safety_cap_exceeded` audit row is written. Cap resolution: `min_rank(global, per-user)`; default `extreme` (no cap).
+- **Frontend wiring**: `pages/SageAudit.jsx`, `App.js` route added (executive_admin gate), `AppShell.jsx` exec nav adds "Sage Sessions" link with Compass icon.
+- **Tests:** `backend/tests/test_sage_caps.py` — 17 tests covering RBAC (anon/student/admin all blocked), cap CRUD, invalid level validation, 404 on bad uid, cap-blocks-without-consent, **cap-blocks-even-with-valid-consent**, per-user-override-beats-global, override-clear-restores-global, audit feed kind filtering (consent/crisis), audit user filtering. All 17/17 green.
+- **Total backend pytest now: 240/240 passing** (was 223; +17 new). Lint clean.
+
 ## Feb 2026 — Ancestral Sage AI persona
 - **NEW persona** in AI Tutor: **Ancestral Sage** — Pan-African, pro-Black, spiritually-grounded mentor and guide, using the Compass icon in copper. Joins the existing 6 modes as a 7th option.
 - **Backend (`server.py`)**:

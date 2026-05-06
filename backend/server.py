@@ -1511,10 +1511,228 @@ async def ai_consent(body: AIConsentReq, user: User = Depends(current_user)):
     }
 
 
+# --- Safety cap (Exec Admin governance) -------------------------------------
+_SAFETY_RANK = {"conservative": 1, "standard": 2, "exploratory": 3, "extreme": 4}
+_SAFETY_LEVELS = list(_SAFETY_RANK.keys())
+
+
+class SafetyCapReq(BaseModel):
+    """Body for global cap or per-user cap. Pass `level=null` on per-user
+    PUT to clear the override."""
+    level: Optional[Literal["conservative", "standard", "exploratory", "extreme"]] = None
+
+
+async def _resolve_sage_safety_cap(user_id: str) -> str:
+    """Returns the effective safety_level cap for `user_id`. The cap is
+    the more restrictive of (per-user override, global cap). Defaults to
+    'extreme' (no cap) when neither is set."""
+    glob = await db.safety_caps.find_one({"_id": "global"}, {"_id": 0, "level": 1})
+    user_doc = await db.safety_caps.find_one({"_id": f"user:{user_id}"}, {"_id": 0, "level": 1})
+    levels = [d["level"] for d in (glob, user_doc) if d and d.get("level")]
+    if not levels:
+        return "extreme"
+    # Most restrictive = lowest rank.
+    return min(levels, key=lambda lv: _SAFETY_RANK.get(lv, 99))
+
+
+def _exceeds_cap(requested: Optional[str], cap: str) -> bool:
+    """True iff the requested safety_level outranks the cap. None or
+    unrecognized requested values are treated as conservative."""
+    r = _SAFETY_RANK.get(requested or "conservative", 1)
+    c = _SAFETY_RANK.get(cap, 4)
+    return r > c
+
+
+@api_router.get("/admin/sage/cap")
+async def admin_get_sage_cap(user: User = Depends(require_role("executive_admin"))):
+    """Read the global cap and every per-user override (with email)."""
+    glob = await db.safety_caps.find_one({"_id": "global"}, {"_id": 0, "level": 1})
+    overrides_raw = await db.safety_caps.find(
+        {"_id": {"$regex": "^user:"}}, {"_id": 1, "level": 1}
+    ).to_list(2000)
+    user_ids = [d["_id"].split("user:", 1)[1] for d in overrides_raw]
+    users = await db.users.find(
+        {"id": {"$in": user_ids}}, {"_id": 0, "id": 1, "email": 1, "full_name": 1}
+    ).to_list(2000) if user_ids else []
+    by_id = {u["id"]: u for u in users}
+    overrides = [
+        {
+            "user_id": d["_id"].split("user:", 1)[1],
+            "email": by_id.get(d["_id"].split("user:", 1)[1], {}).get("email"),
+            "full_name": by_id.get(d["_id"].split("user:", 1)[1], {}).get("full_name"),
+            "level": d["level"],
+        }
+        for d in overrides_raw
+    ]
+    return {
+        "global_level": glob["level"] if glob else None,
+        "available_levels": _SAFETY_LEVELS,
+        "overrides": overrides,
+    }
+
+
+@api_router.put("/admin/sage/cap/global")
+async def admin_set_sage_cap_global(
+    body: SafetyCapReq, user: User = Depends(require_role("executive_admin"))
+):
+    """Set or clear the site-wide cap. `level=null` clears it."""
+    if body.level is None:
+        await db.safety_caps.delete_one({"_id": "global"})
+    else:
+        await db.safety_caps.update_one(
+            {"_id": "global"},
+            {"$set": {"level": body.level, "updated_at": datetime.now(timezone.utc).isoformat(), "updated_by": user.id}},
+            upsert=True,
+        )
+    await db.audit_log.insert_one({
+        "id": str(uuid.uuid4()),
+        "actor_id": user.id,
+        "action": "sage_cap_global_set",
+        "details": {"level": body.level},
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    })
+    return {"ok": True, "global_level": body.level}
+
+
+@api_router.put("/admin/sage/cap/user/{uid}")
+async def admin_set_sage_cap_user(
+    uid: str,
+    body: SafetyCapReq,
+    user: User = Depends(require_role("executive_admin")),
+):
+    """Set or clear the per-user override. `level=null` clears it."""
+    target = await db.users.find_one({"id": uid}, {"_id": 0, "id": 1, "email": 1})
+    if not target:
+        raise HTTPException(404, "User not found")
+    key = f"user:{uid}"
+    if body.level is None:
+        await db.safety_caps.delete_one({"_id": key})
+    else:
+        await db.safety_caps.update_one(
+            {"_id": key},
+            {"$set": {"level": body.level, "updated_at": datetime.now(timezone.utc).isoformat(), "updated_by": user.id}},
+            upsert=True,
+        )
+    await db.audit_log.insert_one({
+        "id": str(uuid.uuid4()),
+        "actor_id": user.id,
+        "action": "sage_cap_user_set",
+        "target_id": uid,
+        "details": {"level": body.level, "email": target.get("email")},
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    })
+    return {"ok": True, "user_id": uid, "level": body.level}
+
+
+@api_router.get("/admin/sage/audit")
+async def admin_sage_audit(
+    user: User = Depends(require_role("executive_admin")),
+    user_id: Optional[str] = None,
+    kind: Optional[Literal["all", "chat", "refusal", "crisis", "consent"]] = "all",
+    limit: int = 100,
+):
+    """Audit feed for Ancestral Sage: chat history (with refusal_reason and
+    intensity / safety_level / consent_log_id) + consent events. Returns
+    most recent first. Caps `limit` to 500."""
+    limit = max(1, min(int(limit or 100), 500))
+
+    chat_q: dict = {"mode": "ancestral_sage"}
+    if user_id:
+        chat_q["user_id"] = user_id
+    if kind == "refusal":
+        chat_q["refusal_reason"] = {"$exists": True, "$ne": None}
+    elif kind == "crisis":
+        chat_q["refusal_reason"] = "crisis_safety_template"
+
+    rows = []
+    if kind != "consent":
+        chats = await db.chat_history.find(chat_q, {"_id": 0}).sort(
+            "created_at", -1
+        ).to_list(limit)
+        for c in chats:
+            rows.append({
+                "kind": (
+                    "crisis" if c.get("refusal_reason") == "crisis_safety_template"
+                    else "refusal" if c.get("refusal_reason")
+                    else "chat"
+                ),
+                "id": c.get("id"),
+                "user_id": c.get("user_id"),
+                "session_id": c.get("session_id"),
+                "intensity": c.get("intensity"),
+                "safety_level": c.get("safety_level"),
+                "consent_log_id": c.get("consent_log_id"),
+                "refusal_reason": c.get("refusal_reason"),
+                "user_msg": (c.get("user_msg") or "")[:300],
+                "assistant_preview": (c.get("assistant_msg") or "")[:300] if c.get("assistant_msg") else None,
+                "created_at": c.get("created_at"),
+            })
+
+    if kind in ("all", "consent"):
+        consent_q: dict = {}
+        if user_id:
+            consent_q["user_id"] = user_id
+        consents = await db.ai_consents.find(consent_q, {"_id": 0}).sort(
+            "created_at", -1
+        ).to_list(limit)
+        for cd in consents:
+            rows.append({
+                "kind": "consent",
+                "id": cd.get("id"),
+                "user_id": cd.get("user_id"),
+                "intensity": cd.get("intensity"),
+                "safety_level": cd.get("safety_level"),
+                "created_at": cd.get("created_at"),
+                "expires_at": cd.get("expires_at"),
+            })
+
+    rows.sort(key=lambda r: r.get("created_at") or "", reverse=True)
+    rows = rows[:limit]
+
+    user_ids = list({r["user_id"] for r in rows if r.get("user_id")})
+    users = await db.users.find(
+        {"id": {"$in": user_ids}}, {"_id": 0, "id": 1, "email": 1, "full_name": 1}
+    ).to_list(2000) if user_ids else []
+    by_id = {u["id"]: u for u in users}
+    for r in rows:
+        u = by_id.get(r.get("user_id") or "")
+        if u:
+            r["email"] = u.get("email")
+            r["full_name"] = u.get("full_name")
+
+    return {"rows": rows, "limit": limit, "kind": kind}
+
+
 @api_router.post("/ai/chat")
 async def ai_chat(body: AIChatReq, user: User = Depends(current_user)):
     # ---- Ancestral Sage gating (runs BEFORE any LLM cost) ---------------
     is_sage = body.mode == "ancestral_sage"
+
+    # 1. Exec-Admin safety cap. Runs even when consent is granted — a
+    # capped user cannot escalate above the cap regardless of consent.
+    if is_sage:
+        cap = await _resolve_sage_safety_cap(user.id)
+        if _exceeds_cap(body.safety_level, cap):
+            await db.chat_history.insert_one({
+                "id": str(uuid.uuid4()),
+                "user_id": user.id,
+                "session_id": body.session_id,
+                "mode": body.mode,
+                "user_msg": body.message,
+                "assistant_msg": None,
+                "refusal_reason": "safety_cap_exceeded",
+                "intensity": body.intensity,
+                "safety_level": body.safety_level,
+                "cap": cap,
+                "created_at": datetime.now(timezone.utc).isoformat(),
+            })
+            raise HTTPException(
+                403,
+                f"Your account is capped at safety_level='{cap}'. The "
+                f"requested level '{body.safety_level}' is not permitted. "
+                "Contact your program administrator to adjust this.",
+            )
+
     sage_consent_required = is_sage and _sage_needs_consent(
         body.intensity, body.safety_level
     )
