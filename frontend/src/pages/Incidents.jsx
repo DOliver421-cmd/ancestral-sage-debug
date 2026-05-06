@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import AppShell from "../components/AppShell";
 import { api } from "../lib/api";
 import { useAuth } from "../lib/auth";
@@ -17,8 +17,11 @@ export default function Incidents() {
   const [form, setForm] = useState({ type: "near_miss", severity: "low", description: "", site_slug: "", photo_url: "" });
   const [showForm, setShowForm] = useState(!isStaff);
 
-  const load = () => isStaff && api.get(`/incidents${filter ? `?status=${filter}` : ""}`).then((r) => setList(r.data));
-  useEffect(() => { load(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [filter, isStaff]);
+  const load = useCallback(() => {
+    if (!isStaff) return Promise.resolve();
+    return api.get(`/incidents${filter ? `?status=${filter}` : ""}`).then((r) => setList(r.data));
+  }, [filter, isStaff]);
+  useEffect(() => { load(); }, [load]);
 
   const submit = async () => {
     if (!form.description) { toast.error("Description required"); return; }

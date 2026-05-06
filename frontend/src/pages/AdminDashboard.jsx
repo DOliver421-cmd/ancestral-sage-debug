@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import AppShell from "../components/AppShell";
 import { api } from "../lib/api";
 import { toast } from "sonner";
@@ -17,13 +17,13 @@ export default function AdminDashboard() {
   const [filter, setFilter] = useState({ role: "", active: "", q: "" });
   const [resetLink, setResetLink] = useState(null); // {email, url, expires_at, email_sent}
 
-  const load = () => Promise.all([
+  const load = useCallback(() => Promise.all([
     api.get("/admin/stats").then((r) => setStats(r.data)),
     api.get("/admin/users").then((r) => setUsers(r.data)),
     api.get("/admin/recent-activity?limit=10").then((r) => setActivity(r.data)).catch(() => {}),
     api.get("/admin/cohorts").then((r) => setCohorts(r.data)).catch(() => {}),
-  ]);
-  useEffect(() => { load(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, []);
+  ]), []);
+  useEffect(() => { load(); }, [load]);
 
   const updateAssociate = async (user_id, associate) => {
     try { await api.post("/admin/associate", { user_id, associate }); toast.success("Associate updated"); load(); }

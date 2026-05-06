@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import AppShell from "../components/AppShell";
 import { api } from "../lib/api";
 import { toast } from "sonner";
@@ -10,11 +10,11 @@ export default function InstructorLabs() {
   const [tab, setTab] = useState("pending");
   const [feedback, setFeedback] = useState({});
 
-  const load = () => {
-    api.get("/instructor/submissions").then((r) => setSubs(r.data));
-    api.get("/instructor/lab-report").then((r) => setReport(r.data));
-  };
-  useEffect(() => { load(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, []);
+  const load = useCallback(() => Promise.all([
+    api.get("/instructor/submissions").then((r) => setSubs(r.data)),
+    api.get("/instructor/lab-report").then((r) => setReport(r.data)),
+  ]), []);
+  useEffect(() => { load(); }, [load]);
 
   const review = async (sub_id, status) => {
     try {

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import AppShell from "../components/AppShell";
 import { LoadingState } from "../components/LoadingState";
 import { api, BACKEND_URL, getToken } from "../lib/api";
@@ -12,8 +12,8 @@ export default function Portfolio() {
   const [publishing, setPublishing] = useState(false);
   const token = getToken();
 
-  const load = () => api.get("/portfolio/me").then((r) => { setData(r.data); setBio(r.data.bio || ""); });
-  useEffect(() => { load(); }, []);
+  const load = useCallback(() => api.get("/portfolio/me").then((r) => { setData(r.data); setBio(r.data.bio || ""); }), []);
+  useEffect(() => { load(); }, [load]);
 
   const publish = async (shouldPublish) => {
     setPublishing(true);

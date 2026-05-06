@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import AppShell from "../components/AppShell";
 import { api } from "../lib/api";
 import { toast } from "sonner";
@@ -10,8 +10,8 @@ export default function Attendance() {
   const [statuses, setStatuses] = useState({});
   const [saving, setSaving] = useState(false);
 
-  const load = () => api.get("/attendance/roster").then((r) => setRoster(r.data));
-  useEffect(() => { load(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, []);
+  const load = useCallback(() => api.get("/attendance/roster").then((r) => setRoster(r.data)), []);
+  useEffect(() => { load(); }, [load]);
 
   const setStatus = (id, s) => setStatuses({ ...statuses, [id]: s });
 

@@ -1040,56 +1040,103 @@ async def forgot_password(body: ForgotPasswordReq, request: Request):
     return {"ok": True, "email_sent": email_sent}
 
 
-@api_router.post("/auth/reset-password")
-async def reset_password_endpoint(body: ResetPasswordReq, request: Request):
-    """Consume a reset token and set a new password.  Single-use:
-    token is marked `used_at` immediately on success.  All OTHER unused
-    tokens for the same user are also invalidated."""
-    ip = (request.client.host if request.client else "anon")
-    check_rate(f"reset:ip:{ip}", max_calls=60, window_sec=300)
-    if len(body.new_password) < 6:
+def _validate_reset_request(token: str, new_password: str) -> None:
+    """Input validation for /auth/reset-password.  Raises HTTPException(400)
+    on failure; returns None on success."""
+    if len(new_password) < 6:
         raise HTTPException(400, "Password must be at least 6 characters")
-    if len(body.token) < 16:
+    if len(token) < 16:
         raise HTTPException(400, "Invalid token")
 
-    hashed = _hash_token(body.token)
-    rec = await db.password_reset_tokens.find_one({"token_hash": hashed}, {"_id": 0})
+
+def _normalize_expiry(value) -> datetime:
+    """Normalize a Mongo `expires_at` field to a tz-aware UTC datetime.
+    Returns datetime.min in UTC (already-expired) on any parse failure so
+    callers reject the token rather than honor a malformed record."""
+    if isinstance(value, str):
+        try:
+            value = datetime.fromisoformat(value)
+        except ValueError:
+            return datetime.min.replace(tzinfo=timezone.utc)
+    if not isinstance(value, datetime):
+        return datetime.min.replace(tzinfo=timezone.utc)
+    if value.tzinfo is None:
+        return value.replace(tzinfo=timezone.utc)
+    return value
+
+
+async def _load_reset_token(token_hash: str) -> dict:
+    """Fetch a reset-token record by its sha256 hash, asserting it exists,
+    is unused, and is not expired.  Raises HTTPException(400) on any
+    failure with a generic 'invalid or expired' message (no enumeration)."""
+    rec = await db.password_reset_tokens.find_one({"token_hash": token_hash}, {"_id": 0})
     if not rec or rec.get("used_at") is not None:
         raise HTTPException(400, "Invalid or already-used reset link")
-    expires_at = rec.get("expires_at")
-    # Mongo returns datetime objects from PyMongo; normalise tz.
-    if isinstance(expires_at, str):
-        try:
-            expires_at = datetime.fromisoformat(expires_at)
-        except Exception:
-            expires_at = None
-    if expires_at is None or expires_at.tzinfo is None:
-        expires_at = (expires_at or datetime.now(timezone.utc)).replace(tzinfo=timezone.utc)
+    expires_at = _normalize_expiry(rec.get("expires_at"))
     if expires_at < datetime.now(timezone.utc):
         raise HTTPException(400, "Reset link has expired — request a new one")
+    return rec
 
-    target = await db.users.find_one({"id": rec["user_id"]}, {"_id": 0})
+
+async def _load_target_user_for_reset(user_id: str) -> dict:
+    """Look up the user the token was minted for.  Refuses if the account
+    has since been deactivated or removed."""
+    target = await db.users.find_one({"id": user_id}, {"_id": 0})
     if not target:
         raise HTTPException(400, "Invalid reset link")
     if target.get("is_active") is False:
         raise HTTPException(403, "Account is deactivated — contact an administrator")
+    return target
 
+
+async def _apply_password_reset(target_id: str, new_password: str,
+                                token_hash: str, ip: str) -> None:
+    """Persist the new password, mark this token consumed, and invalidate
+    any other still-unused tokens for the same user.  Audit-logs the
+    completion.  Idempotent in the sense that a re-applied token is
+    rejected by `_load_reset_token`, so this helper assumes preconditions
+    have already been validated."""
     now = datetime.now(timezone.utc)
-    await db.users.update_one({"id": target["id"]}, {"$set": {
-        "password_hash": hash_pw(body.new_password),
+    await db.users.update_one({"id": target_id}, {"$set": {
+        "password_hash": hash_pw(new_password),
         "must_change_password": False,
     }})
     await db.password_reset_tokens.update_one(
-        {"token_hash": hashed},
+        {"token_hash": token_hash},
         {"$set": {"used_at": now, "used_ip": ip}},
     )
     # Defensive: invalidate any other unused tokens for this user.
     await db.password_reset_tokens.update_many(
-        {"user_id": target["id"], "used_at": None},
+        {"user_id": target_id, "used_at": None},
         {"$set": {"used_at": now}},
     )
-    await audit(target["id"], "auth.password_reset.completed",
-                target=target["id"], meta={"ip": ip})
+    await audit(target_id, "auth.password_reset.completed",
+                target=target_id, meta={"ip": ip})
+
+
+@api_router.post("/auth/reset-password")
+async def reset_password_endpoint(body: ResetPasswordReq, request: Request):
+    """Consume a reset token and set a new password.
+
+    Flow (each step is a small helper for clarity + testability):
+      1. validate request shape (token length, password length)
+      2. rate-limit per source IP
+      3. look up the token by its sha256 hash; reject if missing,
+         already-used, or expired
+      4. look up the target user; reject if missing or deactivated
+      5. persist the new password, mark this token consumed, invalidate
+         any other unused tokens for the same user, and audit-log
+
+    Returns: {"ok": true, "email": <target email>} on success.
+    """
+    _validate_reset_request(body.token, body.new_password)
+    ip = (request.client.host if request.client else "anon")
+    check_rate(f"reset:ip:{ip}", max_calls=60, window_sec=300)
+
+    token_hash = _hash_token(body.token)
+    rec = await _load_reset_token(token_hash)
+    target = await _load_target_user_for_reset(rec["user_id"])
+    await _apply_password_reset(target["id"], body.new_password, token_hash, ip)
     return {"ok": True, "email": target["email"]}
 
 

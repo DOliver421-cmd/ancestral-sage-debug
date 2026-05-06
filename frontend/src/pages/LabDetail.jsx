@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import AppShell from "../components/AppShell";
 import { LoadingState } from "../components/LoadingState";
 import { api } from "../lib/api";
@@ -14,8 +14,8 @@ export default function LabDetail() {
   const [photoUrl, setPhotoUrl] = useState("");
   const [notes, setNotes] = useState("");
 
-  const load = () => api.get(`/labs/${slug}`).then((r) => { setLab(r.data); if (r.data.my_submission?.track === "inperson") { setPhotoUrl(r.data.my_submission.photo_url || ""); setNotes(r.data.my_submission.notes || ""); } });
-  useEffect(() => { load(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [slug]);
+  const load = useCallback(() => api.get(`/labs/${slug}`).then((r) => { setLab(r.data); if (r.data.my_submission?.track === "inperson") { setPhotoUrl(r.data.my_submission.photo_url || ""); setNotes(r.data.my_submission.notes || ""); } }), [slug]);
+  useEffect(() => { load(); }, [load]);
 
   const submitOnline = async (answers) => {
     try {
