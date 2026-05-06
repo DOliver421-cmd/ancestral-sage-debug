@@ -1,0 +1,260 @@
+=== CI Run Output ===
+Timestamp (UTC): 2026-05-06T01:33:01Z
+Commit SHA: 217cedab70222fbe7d7299573557ee9e8c7c0d1b
+Working tree: 5 files modified since last commit
+Python: Python 3.11.15
+Mongo URL: (from .env)
+
+--- Full backend pytest suite ---
+plugins: anyio-4.13.0
+collecting ... collected 207 items
+
+tests/test_cohorts_perf.py::test_cohorts_endpoint_is_constant_query_count PASSED [  0%]
+tests/test_cohorts_perf.py::test_cohorts_returns_correct_completion_counts PASSED [  0%]
+tests/test_cross_account_update.py::TestExecAdminCrossAccount::test_exec_can_edit_student PASSED [  1%]
+tests/test_cross_account_update.py::TestExecAdminCrossAccount::test_exec_can_reset_anyones_password PASSED [  1%]
+tests/test_cross_account_update.py::TestExecAdminCrossAccount::test_exec_can_mint_reset_link_for_admin PASSED [  2%]
+tests/test_cross_account_update.py::TestExecAdminCrossAccount::test_exec_can_promote_student_to_instructor PASSED [  2%]
+tests/test_cross_account_update.py::TestAdminScope::test_admin_can_edit_student PASSED [  3%]
+tests/test_cross_account_update.py::TestAdminScope::test_admin_cannot_edit_executive PASSED [  3%]
+tests/test_cross_account_update.py::TestAdminScope::test_admin_cannot_reset_executive_password PASSED [  4%]
+tests/test_cross_account_update.py::TestSettingsIsSelfOnly::test_patch_me_does_not_accept_role_field PASSED [  4%]
+tests/test_cross_account_update.py::TestSettingsIsSelfOnly::test_patch_me_persists_name_and_email PASSED [  5%]
+tests/test_iter3.py::TestPWA::test_manifest PASSED                       [  5%]
+tests/test_iter3.py::TestPWA::test_sw_js PASSED                          [  6%]
+tests/test_iter3.py::TestPWA::test_index_html_pwa_tags PASSED            [  6%]
+tests/test_iter3.py::TestCompliance::test_list_4_modules PASSED          [  7%]
+tests/test_iter3.py::TestCompliance::test_loto_detail_with_my_progress PASSED [  7%]
+tests/test_iter3.py::TestCompliance::test_loto_quiz_completes_with_6mo_expiry PASSED [  8%]
+tests/test_iter3.py::TestCompliance::test_osha_quiz_completes_36mo_and_awards PASSED [  8%]
+tests/test_iter3.py::TestAdaptive::test_adaptive_me PASSED               [  9%]
+tests/test_iter3.py::TestAdminTools::test_sites_list_admin PASSED        [  9%]
+tests/test_iter3.py::TestAdminTools::test_sites_list_student_forbidden PASSED [ 10%]
+tests/test_iter3.py::TestAdminTools::test_create_site_admin PASSED       [ 10%]
+tests/test_iter3.py::TestAdminTools::test_create_site_student_forbidden PASSED [ 11%]
+tests/test_iter3.py::TestAdminTools::test_inventory_list_15 PASSED       [ 11%]
+tests/test_iter3.py::TestAdminTools::test_inventory_filter_by_site PASSED [ 12%]
+tests/test_iter3.py::TestAdminTools::test_checkout_flow PASSED           [ 12%]
+tests/test_iter3.py::TestAINewModes::test_ai_modes[nec_lookup] PASSED    [ 13%]
+tests/test_iter3.py::TestAINewModes::test_ai_modes[blueprint] PASSED     [ 13%]
+tests/test_iter3.py::TestRegression::test_modules_still_12 PASSED        [ 14%]
+tests/test_iter3.py::TestRegression::test_labs_still_21 PASSED           [ 14%]
+tests/test_iter3.py::TestRegression::test_credentials_list PASSED        [ 14%]
+tests/test_iter3.py::TestRegression::test_portfolio_me PASSED            [ 15%]
+tests/test_iter3.py::TestRegression::test_instructor_submissions PASSED  [ 15%]
+tests/test_iter4.py::TestHealthVersion::test_health PASSED               [ 16%]
+tests/test_iter4.py::TestHealthVersion::test_version PASSED              [ 16%]
+tests/test_iter4.py::TestRateLimit::test_login_31st_returns_429 PASSED   [ 17%]
+tests/test_iter4.py::TestNotifications::test_notifications_shape PASSED  [ 17%]
+tests/test_iter4.py::TestNotifications::test_mark_all_read PASSED        [ 18%]
+tests/test_iter4.py::TestNotifications::test_lab_approval_notification PASSED [ 18%]
+tests/test_iter4.py::TestNotifications::test_lab_rejection_notification PASSED [ 19%]
+tests/test_iter4.py::TestNotifications::test_mark_single_read PASSED     [ 19%]
+tests/test_iter4.py::TestAuditLog::test_audit_admin_only PASSED          [ 20%]
+tests/test_iter4.py::TestAuditLog::test_audit_contains_login_events PASSED [ 20%]
+tests/test_iter4.py::TestAttendance::test_instructor_can_record PASSED   [ 21%]
+tests/test_iter4.py::TestAttendance::test_student_sees_own_attendance PASSED [ 21%]
+tests/test_iter4.py::TestAttendance::test_roster_as_instructor PASSED    [ 22%]
+tests/test_iter4.py::TestIncidents::test_student_can_report PASSED       [ 22%]
+tests/test_iter4.py::TestIncidents::test_audit_has_incident_reported PASSED [ 23%]
+tests/test_iter4.py::TestIncidents::test_instructor_lists_incidents_with_reporter PASSED [ 23%]
+tests/test_iter4.py::TestIncidents::test_student_cannot_list PASSED      [ 24%]
+tests/test_iter4.py::TestIncidents::test_admin_can_resolve PASSED        [ 24%]
+tests/test_iter4.py::TestIncidents::test_instructor_cannot_resolve PASSED [ 25%]
+tests/test_iter4.py::TestAnalytics::test_non_admin_denied PASSED         [ 25%]
+tests/test_iter4.py::TestAnalytics::test_analytics_shape PASSED          [ 26%]
+tests/test_iter4.py::TestRegression::test_modules_list PASSED            [ 26%]
+tests/test_iter4.py::TestRegression::test_compliance_list PASSED         [ 27%]
+tests/test_iter4.py::TestRegression::test_adaptive_me PASSED             [ 27%]
+tests/test_iter4.py::TestRegression::test_credentials_me PASSED          [ 28%]
+tests/test_iter4.py::TestRegression::test_roster_instructor PASSED       [ 28%]
+tests/test_iter4.py::TestRegression::test_admin_users PASSED             [ 28%]
+tests/test_iter4.py::TestRegression::test_admin_sites PASSED             [ 29%]
+tests/test_iter4.py::TestRegression::test_labs_list PASSED               [ 29%]
+tests/test_lcewai.py::TestAuth::test_login_admin PASSED                  [ 30%]
+tests/test_lcewai.py::TestAuth::test_login_instructor PASSED             [ 30%]
+tests/test_lcewai.py::TestAuth::test_login_student PASSED                [ 31%]
+tests/test_lcewai.py::TestAuth::test_login_invalid PASSED                [ 31%]
+tests/test_lcewai.py::TestAuth::test_register_new_student PASSED         [ 32%]
+tests/test_lcewai.py::TestAuth::test_me_associate_field PASSED           [ 32%]
+tests/test_lcewai.py::TestModules::test_modules_list_12 PASSED           [ 33%]
+tests/test_lcewai.py::TestModules::test_module_detail PASSED             [ 33%]
+tests/test_lcewai.py::TestProgressAndCerts::test_complete_quiz PASSED    [ 34%]
+tests/test_lcewai.py::TestProgressAndCerts::test_certs_me PASSED         [ 34%]
+tests/test_lcewai.py::TestProgressAndCerts::test_cert_pdf_download PASSED [ 35%]
+tests/test_lcewai.py::TestAI::test_ai_chat_modes[tutor] PASSED           [ 35%]
+tests/test_lcewai.py::TestAI::test_ai_chat_modes[scripture] PASSED       [ 36%]
+tests/test_lcewai.py::TestAI::test_ai_chat_modes[explain] PASSED         [ 36%]
+tests/test_lcewai.py::TestLabs::test_labs_total_21 PASSED                [ 37%]
+tests/test_lcewai.py::TestLabs::test_labs_online_9 PASSED                [ 37%]
+tests/test_lcewai.py::TestLabs::test_labs_inperson_12 PASSED             [ 38%]
+tests/test_lcewai.py::TestLabs::test_lab_detail PASSED                   [ 38%]
+tests/test_lcewai.py::TestLabs::test_basic_circuit_sim_pass PASSED       [ 39%]
+tests/test_lcewai.py::TestLabs::test_voltage_drop_calc_grading PASSED    [ 39%]
+tests/test_lcewai.py::TestLabs::test_loto_scenario_pass PASSED           [ 40%]
+tests/test_lcewai.py::TestLabs::test_inperson_submission_pending PASSED  [ 40%]
+tests/test_lcewai.py::TestInstructor::test_pending_submissions PASSED    [ 41%]
+tests/test_lcewai.py::TestInstructor::test_review_submission PASSED      [ 41%]
+tests/test_lcewai.py::TestInstructor::test_lab_report PASSED             [ 42%]
+tests/test_lcewai.py::TestCompetencies::test_competencies_8 PASSED       [ 42%]
+tests/test_lcewai.py::TestRolesAndAdmin::test_roster_student_forbidden PASSED [ 42%]
+tests/test_lcewai.py::TestRolesAndAdmin::test_roster_instructor_ok PASSED [ 43%]
+tests/test_lcewai.py::TestRolesAndAdmin::test_admin_stats_forbidden_for_student PASSED [ 43%]
+tests/test_lcewai.py::TestRolesAndAdmin::test_admin_stats_ok PASSED      [ 44%]
+tests/test_lcewai.py::TestRolesAndAdmin::test_admin_users_forbidden_for_student PASSED [ 44%]
+tests/test_lcewai.py::TestRolesAndAdmin::test_admin_users_ok PASSED      [ 45%]
+tests/test_lcewai.py::TestRolesAndAdmin::test_admin_associate_endpoint PASSED [ 45%]
+tests/test_lcewai.py::TestRolesAndAdmin::test_legacy_cohort_endpoint_removed PASSED [ 46%]
+tests/test_lcewai.py::TestCredentials::test_list_credentials_14 PASSED   [ 46%]
+tests/test_lcewai.py::TestCredentials::test_credentials_me_split PASSED  [ 47%]
+tests/test_lcewai.py::TestCredentials::test_quiz_completion_awards_osha_10 PASSED [ 47%]
+tests/test_lcewai.py::TestCredentials::test_credential_manifest_openbadges PASSED [ 48%]
+tests/test_lcewai.py::TestCredentials::test_credential_manifest_404 PASSED [ 48%]
+tests/test_lcewai.py::TestCredentials::test_credential_assertion PASSED  [ 49%]
+tests/test_lcewai.py::TestPortfolio::test_portfolio_me PASSED            [ 49%]
+tests/test_lcewai.py::TestPortfolio::test_portfolio_publish_creates_slug PASSED [ 50%]
+tests/test_lcewai.py::TestPortfolio::test_portfolio_public_no_auth_no_email PASSED [ 50%]
+tests/test_lcewai.py::TestPortfolio::test_portfolio_unpublish_returns_404 PASSED [ 51%]
+tests/test_lcewai.py::TestPortfolio::test_portfolio_export_pdf PASSED    [ 51%]
+tests/test_lcewai.py::TestPortfolio::test_portfolio_export_pdf_invalid_token PASSED [ 52%]
+tests/test_lcewai.py::TestRebrand::test_no_cohort_in_modules PASSED      [ 52%]
+tests/test_lcewai.py::TestRebrand::test_no_cohort_in_credentials PASSED  [ 53%]
+tests/test_lcewai.py::TestRebrand::test_no_cohort_in_portfolio PASSED    [ 53%]
+tests/test_password_reset.py::TestForgotPassword::test_real_email_returns_200_with_dev_token PASSED [ 54%]
+tests/test_password_reset.py::TestForgotPassword::test_unknown_email_does_not_enumerate PASSED [ 54%]
+tests/test_password_reset.py::TestForgotPassword::test_invalid_email_format_400 PASSED [ 55%]
+tests/test_password_reset.py::TestForgotPassword::test_rate_limit_per_email PASSED [ 55%]
+tests/test_password_reset.py::TestResetPassword::test_happy_path_then_login PASSED [ 56%]
+tests/test_password_reset.py::TestResetPassword::test_token_is_single_use PASSED [ 56%]
+tests/test_password_reset.py::TestResetPassword::test_invalid_token_400 PASSED [ 57%]
+tests/test_password_reset.py::TestResetPassword::test_token_too_short_400 PASSED [ 57%]
+tests/test_password_reset.py::TestResetPassword::test_password_too_short_400 PASSED [ 57%]
+tests/test_password_reset.py::TestResetPassword::test_minting_new_token_invalidates_old PASSED [ 58%]
+tests/test_password_reset.py::TestAdminResetLink::test_admin_can_mint_reset_link PASSED [ 58%]
+tests/test_password_reset.py::TestAdminResetLink::test_admin_link_completes_reset_flow PASSED [ 59%]
+tests/test_password_reset.py::TestAdminResetLink::test_student_cannot_mint_reset_link PASSED [ 59%]
+tests/test_password_reset.py::TestAdminResetLink::test_admin_cannot_mint_link_for_executive PASSED [ 60%]
+tests/test_password_reset.py::TestAdminResetLink::test_executive_can_mint_link_for_admin PASSED [ 60%]
+tests/test_password_reset.py::TestAdminResetLink::test_unauthenticated_blocked PASSED [ 61%]
+tests/test_password_reset.py::TestSelfEdit::test_user_can_edit_own_name PASSED [ 61%]
+tests/test_password_reset.py::TestSelfEdit::test_user_can_edit_own_email PASSED [ 62%]
+tests/test_password_reset.py::TestSelfEdit::test_email_collision_400 PASSED [ 62%]
+tests/test_password_reset.py::TestSelfEdit::test_empty_name_400 PASSED   [ 63%]
+tests/test_password_reset.py::TestSelfEdit::test_unauthenticated_401 PASSED [ 63%]
+tests/test_password_reset.py::TestSelfEdit::test_role_and_associate_silently_ignored PASSED [ 64%]
+tests/test_password_reset.py::TestDomainParity::test_health_ok PASSED    [ 64%]
+tests/test_password_reset.py::TestDomainParity::test_login_returns_bearer_token PASSED [ 65%]
+tests/test_password_reset_unit.py::test_hash_token_is_stable_and_deterministic PASSED [ 65%]
+tests/test_password_reset_unit.py::test_make_reset_token_is_random_and_long PASSED [ 66%]
+tests/test_password_reset_unit.py::test_normalize_expiry_handles_all_input_shapes PASSED [ 66%]
+tests/test_password_reset_unit.py::test_password_hash_round_trip PASSED  [ 67%]
+tests/test_password_reset_unit.py::test_load_reset_token_rejects_missing PASSED [ 67%]
+tests/test_password_reset_unit.py::test_load_reset_token_rejects_expired PASSED [ 68%]
+tests/test_password_reset_unit.py::test_load_reset_token_rejects_used PASSED [ 68%]
+tests/test_password_reset_unit.py::test_load_reset_token_succeeds_when_valid PASSED [ 69%]
+tests/test_password_reset_unit.py::test_load_target_user_rejects_missing PASSED [ 69%]
+tests/test_password_reset_unit.py::test_load_target_user_rejects_deactivated PASSED [ 70%]
+tests/test_password_reset_unit.py::test_apply_password_reset_persists_and_invalidates_other_tokens PASSED [ 70%]
+tests/test_password_reset_unit.py::test_send_reset_email_returns_false_without_key PASSED [ 71%]
+tests/test_password_reset_unit.py::test_send_reset_email_returns_false_when_key_set_but_no_public_url PASSED [ 71%]
+tests/test_rbac_matrix.py::TestPositiveAccess::test_all_roles_can_get_me PASSED [ 71%]
+tests/test_rbac_matrix.py::TestPositiveAccess::test_student_protected_content[/modules] PASSED [ 72%]
+tests/test_rbac_matrix.py::TestPositiveAccess::test_student_protected_content[/labs] PASSED [ 72%]
+tests/test_rbac_matrix.py::TestPositiveAccess::test_student_protected_content[/competencies] PASSED [ 73%]
+tests/test_rbac_matrix.py::TestPositiveAccess::test_student_protected_content[/credentials] PASSED [ 73%]
+tests/test_rbac_matrix.py::TestPositiveAccess::test_student_protected_content[/credentials/me] PASSED [ 74%]
+tests/test_rbac_matrix.py::TestPositiveAccess::test_student_protected_content[/portfolio/me] PASSED [ 74%]
+tests/test_rbac_matrix.py::TestPositiveAccess::test_student_protected_content[/compliance] PASSED [ 75%]
+tests/test_rbac_matrix.py::TestPositiveAccess::test_student_protected_content[/adaptive/me] PASSED [ 75%]
+tests/test_rbac_matrix.py::TestPositiveAccess::test_student_protected_content[/notifications/me] PASSED [ 76%]
+tests/test_rbac_matrix.py::TestPositiveAccess::test_instructor_routes[/roster] PASSED [ 76%]
+tests/test_rbac_matrix.py::TestPositiveAccess::test_instructor_routes[/instructor/submissions] PASSED [ 77%]
+tests/test_rbac_matrix.py::TestPositiveAccess::test_instructor_routes[/instructor/lab-report] PASSED [ 77%]
+tests/test_rbac_matrix.py::TestPositiveAccess::test_admin_routes[/admin/stats] PASSED [ 78%]
+tests/test_rbac_matrix.py::TestPositiveAccess::test_admin_routes[/admin/users] PASSED [ 78%]
+tests/test_rbac_matrix.py::TestPositiveAccess::test_admin_routes[/admin/audit] PASSED [ 79%]
+tests/test_rbac_matrix.py::TestPositiveAccess::test_admin_routes[/admin/sites] PASSED [ 79%]
+tests/test_rbac_matrix.py::TestPositiveAccess::test_admin_routes[/admin/inventory] PASSED [ 80%]
+tests/test_rbac_matrix.py::TestPositiveAccess::test_admin_routes[/admin/checkouts] PASSED [ 80%]
+tests/test_rbac_matrix.py::TestPositiveAccess::test_admin_routes[/analytics/program] PASSED [ 81%]
+tests/test_rbac_matrix.py::TestPositiveAccess::test_exec_routes[/admin/stats] PASSED [ 81%]
+tests/test_rbac_matrix.py::TestPositiveAccess::test_exec_routes[/admin/users] PASSED [ 82%]
+tests/test_rbac_matrix.py::TestPositiveAccess::test_exec_routes[/admin/audit] PASSED [ 82%]
+tests/test_rbac_matrix.py::TestPositiveAccess::test_exec_routes[/admin/sites] PASSED [ 83%]
+tests/test_rbac_matrix.py::TestPositiveAccess::test_exec_routes[/admin/inventory] PASSED [ 83%]
+tests/test_rbac_matrix.py::TestPositiveAccess::test_exec_routes[/admin/checkouts] PASSED [ 84%]
+tests/test_rbac_matrix.py::TestPositiveAccess::test_exec_routes[/analytics/program] PASSED [ 84%]
+tests/test_rbac_matrix.py::TestPositiveAccess::test_exec_routes[/exec/system] PASSED [ 85%]
+tests/test_rbac_matrix.py::TestNegativeAccess::test_non_admin_cannot_read_admin[/admin/users-student] PASSED [ 85%]
+tests/test_rbac_matrix.py::TestNegativeAccess::test_non_admin_cannot_read_admin[/admin/users-instructor] PASSED [ 85%]
+tests/test_rbac_matrix.py::TestNegativeAccess::test_non_admin_cannot_read_admin[/admin/audit-student] PASSED [ 86%]
+tests/test_rbac_matrix.py::TestNegativeAccess::test_non_admin_cannot_read_admin[/admin/audit-instructor] PASSED [ 86%]
+tests/test_rbac_matrix.py::TestNegativeAccess::test_non_admin_cannot_read_admin[/admin/stats-student] PASSED [ 87%]
+tests/test_rbac_matrix.py::TestNegativeAccess::test_non_admin_cannot_read_admin[/admin/stats-instructor] PASSED [ 87%]
+tests/test_rbac_matrix.py::TestNegativeAccess::test_non_admin_cannot_read_admin[/analytics/program-student] PASSED [ 88%]
+tests/test_rbac_matrix.py::TestNegativeAccess::test_non_admin_cannot_read_admin[/analytics/program-instructor] PASSED [ 88%]
+tests/test_rbac_matrix.py::TestNegativeAccess::test_student_cannot_read_sites_or_inventory PASSED [ 89%]
+tests/test_rbac_matrix.py::TestNegativeAccess::test_non_exec_cannot_read_exec_system[student] PASSED [ 89%]
+tests/test_rbac_matrix.py::TestNegativeAccess::test_non_exec_cannot_read_exec_system[instructor] PASSED [ 90%]
+tests/test_rbac_matrix.py::TestNegativeAccess::test_non_exec_cannot_read_exec_system[admin] PASSED [ 90%]
+tests/test_rbac_matrix.py::TestNegativeAccess::test_student_cannot_see_roster PASSED [ 91%]
+tests/test_rbac_matrix.py::TestNegativeAccess::test_no_token_admin_users PASSED [ 91%]
+tests/test_rbac_matrix.py::TestHierarchyGuards::test_public_register_forces_student PASSED [ 92%]
+tests/test_rbac_matrix.py::TestHierarchyGuards::test_admin_cannot_grant_exec_role PASSED [ 92%]
+tests/test_rbac_matrix.py::TestHierarchyGuards::test_admin_cannot_create_exec_user PASSED [ 93%]
+tests/test_rbac_matrix.py::TestHierarchyGuards::test_admin_cannot_modify_exec PASSED [ 93%]
+tests/test_rbac_matrix.py::TestHierarchyGuards::test_admin_cannot_deactivate_exec PASSED [ 94%]
+tests/test_rbac_matrix.py::TestHierarchyGuards::test_admin_cannot_reset_exec_password PASSED [ 94%]
+tests/test_rbac_matrix.py::TestHierarchyGuards::test_admin_cannot_delete_exec PASSED [ 95%]
+tests/test_rbac_matrix.py::TestHierarchyGuards::test_admin_self_demote_refused PASSED [ 95%]
+tests/test_rbac_matrix.py::TestHierarchyGuards::test_admin_self_deactivate_refused PASSED [ 96%]
+tests/test_rbac_matrix.py::TestUserManagementHappyPath::test_full_user_lifecycle PASSED [ 96%]
+tests/test_rbac_matrix.py::TestUserListFilters::test_filter_by_role PASSED [ 97%]
+tests/test_rbac_matrix.py::TestUserListFilters::test_filter_active_only PASSED [ 97%]
+tests/test_rbac_matrix.py::TestUserListFilters::test_search_substring PASSED [ 98%]
+tests/test_rbac_matrix.py::TestCriticalGuards::test_exec_cannot_delete_self PASSED [ 98%]
+tests/test_rbac_matrix.py::TestCriticalGuards::test_exec_cannot_deactivate_self PASSED [ 99%]
+tests/test_rbac_matrix.py::TestForcedPasswordChange::test_admin_created_user_has_force_flag PASSED [ 99%]
+tests/test_rbac_matrix.py::TestForcedPasswordChange::test_admin_password_reset_re_arms_force_flag PASSED [100%]
+
+=============================== warnings summary ===============================
+../../root/.venv/lib/python3.11/site-packages/starlette/formparsers.py:12
+  /root/.venv/lib/python3.11/site-packages/starlette/formparsers.py:12: PendingDeprecationWarning: Please use `import python_multipart` instead.
+    import multipart
+
+../../root/.venv/lib/python3.11/site-packages/passlib/utils/__init__.py:854
+  /root/.venv/lib/python3.11/site-packages/passlib/utils/__init__.py:854: DeprecationWarning: 'crypt' is deprecated and slated for removal in Python 3.13
+    from crypt import crypt as _crypt
+
+server.py:519
+  /app/backend/server.py:519: DeprecationWarning: 
+          on_event is deprecated, use lifespan event handlers instead.
+  
+          Read more about it in the
+          [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).
+          
+    @app.on_event("startup")
+
+../../root/.venv/lib/python3.11/site-packages/fastapi/applications.py:4495
+../../root/.venv/lib/python3.11/site-packages/fastapi/applications.py:4495
+  /root/.venv/lib/python3.11/site-packages/fastapi/applications.py:4495: DeprecationWarning: 
+          on_event is deprecated, use lifespan event handlers instead.
+  
+          Read more about it in the
+          [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).
+          
+    return self.router.on_event(event_type)
+
+server.py:2703
+  /app/backend/server.py:2703: DeprecationWarning: 
+          on_event is deprecated, use lifespan event handlers instead.
+  
+          Read more about it in the
+          [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).
+          
+    @app.on_event("shutdown")
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+================= 207 passed, 6 warnings in 153.46s (0:02:33) ==================
+
+Test suite finished at: 2026-05-06T01:35:35Z

@@ -1,0 +1,141 @@
+diff --git a/frontend/src/pages/AdminDashboard.jsx b/frontend/src/pages/AdminDashboard.jsx
+index 70c2478..bdbce8a 100644
+--- a/frontend/src/pages/AdminDashboard.jsx
++++ b/frontend/src/pages/AdminDashboard.jsx
+@@ -1,4 +1,4 @@
+-import { useEffect, useState } from "react";
++import { useCallback, useEffect, useState } from "react";
+ import AppShell from "../components/AppShell";
+ import { api } from "../lib/api";
+ import { toast } from "sonner";
+@@ -17,13 +17,13 @@ export default function AdminDashboard() {
+   const [filter, setFilter] = useState({ role: "", active: "", q: "" });
+   const [resetLink, setResetLink] = useState(null); // {email, url, expires_at, email_sent}
+ 
+-  const load = () => Promise.all([
++  const load = useCallback(() => Promise.all([
+     api.get("/admin/stats").then((r) => setStats(r.data)),
+     api.get("/admin/users").then((r) => setUsers(r.data)),
+     api.get("/admin/recent-activity?limit=10").then((r) => setActivity(r.data)).catch(() => {}),
+     api.get("/admin/cohorts").then((r) => setCohorts(r.data)).catch(() => {}),
+-  ]);
+-  useEffect(() => { load(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, []);
++  ]), []);
++  useEffect(() => { load(); }, [load]);
+ 
+   const updateAssociate = async (user_id, associate) => {
+     try { await api.post("/admin/associate", { user_id, associate }); toast.success("Associate updated"); load(); }
+diff --git a/frontend/src/pages/Attendance.jsx b/frontend/src/pages/Attendance.jsx
+index 5591eb0..2aaf74f 100644
+--- a/frontend/src/pages/Attendance.jsx
++++ b/frontend/src/pages/Attendance.jsx
+@@ -1,4 +1,4 @@
+-import { useEffect, useState } from "react";
++import { useCallback, useEffect, useState } from "react";
+ import AppShell from "../components/AppShell";
+ import { api } from "../lib/api";
+ import { toast } from "sonner";
+@@ -10,8 +10,8 @@ export default function Attendance() {
+   const [statuses, setStatuses] = useState({});
+   const [saving, setSaving] = useState(false);
+ 
+-  const load = () => api.get("/attendance/roster").then((r) => setRoster(r.data));
+-  useEffect(() => { load(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, []);
++  const load = useCallback(() => api.get("/attendance/roster").then((r) => setRoster(r.data)), []);
++  useEffect(() => { load(); }, [load]);
+ 
+   const setStatus = (id, s) => setStatuses({ ...statuses, [id]: s });
+ 
+diff --git a/frontend/src/pages/Incidents.jsx b/frontend/src/pages/Incidents.jsx
+index e9b700c..2ce5514 100644
+--- a/frontend/src/pages/Incidents.jsx
++++ b/frontend/src/pages/Incidents.jsx
+@@ -1,4 +1,4 @@
+-import { useEffect, useState } from "react";
++import { useCallback, useEffect, useState } from "react";
+ import AppShell from "../components/AppShell";
+ import { api } from "../lib/api";
+ import { useAuth } from "../lib/auth";
+@@ -17,8 +17,11 @@ export default function Incidents() {
+   const [form, setForm] = useState({ type: "near_miss", severity: "low", description: "", site_slug: "", photo_url: "" });
+   const [showForm, setShowForm] = useState(!isStaff);
+ 
+-  const load = () => isStaff && api.get(`/incidents${filter ? `?status=${filter}` : ""}`).then((r) => setList(r.data));
+-  useEffect(() => { load(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [filter, isStaff]);
++  const load = useCallback(() => {
++    if (!isStaff) return Promise.resolve();
++    return api.get(`/incidents${filter ? `?status=${filter}` : ""}`).then((r) => setList(r.data));
++  }, [filter, isStaff]);
++  useEffect(() => { load(); }, [load]);
+ 
+   const submit = async () => {
+     if (!form.description) { toast.error("Description required"); return; }
+diff --git a/frontend/src/pages/InstructorLabs.jsx b/frontend/src/pages/InstructorLabs.jsx
+index f703713..2a66b53 100644
+--- a/frontend/src/pages/InstructorLabs.jsx
++++ b/frontend/src/pages/InstructorLabs.jsx
+@@ -1,4 +1,4 @@
+-import { useEffect, useState } from "react";
++import { useCallback, useEffect, useState } from "react";
+ import AppShell from "../components/AppShell";
+ import { api } from "../lib/api";
+ import { toast } from "sonner";
+@@ -10,11 +10,11 @@ export default function InstructorLabs() {
+   const [tab, setTab] = useState("pending");
+   const [feedback, setFeedback] = useState({});
+ 
+-  const load = () => {
+-    api.get("/instructor/submissions").then((r) => setSubs(r.data));
+-    api.get("/instructor/lab-report").then((r) => setReport(r.data));
+-  };
+-  useEffect(() => { load(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, []);
++  const load = useCallback(() => Promise.all([
++    api.get("/instructor/submissions").then((r) => setSubs(r.data)),
++    api.get("/instructor/lab-report").then((r) => setReport(r.data)),
++  ]), []);
++  useEffect(() => { load(); }, [load]);
+ 
+   const review = async (sub_id, status) => {
+     try {
+diff --git a/frontend/src/pages/LabDetail.jsx b/frontend/src/pages/LabDetail.jsx
+index 4ab4c91..7e20cb8 100644
+--- a/frontend/src/pages/LabDetail.jsx
++++ b/frontend/src/pages/LabDetail.jsx
+@@ -1,4 +1,4 @@
+-import { useEffect, useState } from "react";
++import { useCallback, useEffect, useState } from "react";
+ import AppShell from "../components/AppShell";
+ import { LoadingState } from "../components/LoadingState";
+ import { api } from "../lib/api";
+@@ -14,8 +14,8 @@ export default function LabDetail() {
+   const [photoUrl, setPhotoUrl] = useState("");
+   const [notes, setNotes] = useState("");
+ 
+-  const load = () => api.get(`/labs/${slug}`).then((r) => { setLab(r.data); if (r.data.my_submission?.track === "inperson") { setPhotoUrl(r.data.my_submission.photo_url || ""); setNotes(r.data.my_submission.notes || ""); } });
+-  useEffect(() => { load(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [slug]);
++  const load = useCallback(() => api.get(`/labs/${slug}`).then((r) => { setLab(r.data); if (r.data.my_submission?.track === "inperson") { setPhotoUrl(r.data.my_submission.photo_url || ""); setNotes(r.data.my_submission.notes || ""); } }), [slug]);
++  useEffect(() => { load(); }, [load]);
+ 
+   const submitOnline = async (answers) => {
+     try {
+diff --git a/frontend/src/pages/Portfolio.jsx b/frontend/src/pages/Portfolio.jsx
+index ae2ba5e..7f89158 100644
+--- a/frontend/src/pages/Portfolio.jsx
++++ b/frontend/src/pages/Portfolio.jsx
+@@ -1,4 +1,4 @@
+-import { useEffect, useState } from "react";
++import { useCallback, useEffect, useState } from "react";
+ import AppShell from "../components/AppShell";
+ import { LoadingState } from "../components/LoadingState";
+ import { api, BACKEND_URL, getToken } from "../lib/api";
+@@ -12,8 +12,8 @@ export default function Portfolio() {
+   const [publishing, setPublishing] = useState(false);
+   const token = getToken();
+ 
+-  const load = () => api.get("/portfolio/me").then((r) => { setData(r.data); setBio(r.data.bio || ""); });
+-  useEffect(() => { load(); }, []);
++  const load = useCallback(() => api.get("/portfolio/me").then((r) => { setData(r.data); setBio(r.data.bio || ""); }), []);
++  useEffect(() => { load(); }, [load]);
+ 
+   const publish = async (shouldPublish) => {
+     setPublishing(true);

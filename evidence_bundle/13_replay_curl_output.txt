@@ -1,0 +1,16 @@
+=== replay against https://apprentice-academy.preview.emergentagent.com ===
+test email: replay-1778031679@example.com
+user id: 03c89135-e1eb-4443-928e-e1323e83b4e5
+
+1. forgot-password
+   {"ok":true,"email_sent":false,"_dev_token":"JXQE11lboBzlFoNmSv2xasXHoSJ9mC4FKB2Ac1F1pN0","_dev_url":"/reset-password?token=JXQE11lboBzlFoNmSv2xasXHoSJ9mC4FKB2Ac1F1pN0"}
+2. reset-password (first use, must succeed)
+   HTTP 200
+3. login with new password
+   HTTP 200
+4. reset-password REUSE (must FAIL 400)
+   HTTP 400
+5. reset-password FAKE token (must FAIL 400)
+   HTTP 400
+6. cleanup
+=== done ===
