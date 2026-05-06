@@ -436,7 +436,8 @@ async def seed_users():
         ("student@lcewai.org", "Alex Carter", "student", "Associate-Alpha", "Learn@LCE2026"),
     ]
     for email, name, role, associate, pw in seeds:
-        if not await db.users.find_one({"email": email}):
+        existing = await db.users.find_one({"email": email}, {"_id": 0})
+        if not existing:
             await db.users.insert_one({
                 "id": str(uuid.uuid4()),
                 "email": email,
@@ -447,6 +448,19 @@ async def seed_users():
                 "created_at": datetime.now(timezone.utc).isoformat(),
                 "password_hash": hash_pw(pw),
             })
+        else:
+            # Auto-heal role / is_active drift on the seeded demo accounts.
+            # Without this, a manual demotion of e.g. admin@lcewai.org → instructor
+            # would persist forever (the original code only ran on first insert).
+            # Mirrors the executive_admin bootstrap pattern below.
+            update = {}
+            if existing.get("role") != role:
+                update["role"] = role
+            if existing.get("is_active") is False:
+                update["is_active"] = True
+            if update:
+                await db.users.update_one({"email": email}, {"$set": update})
+                logger.info("Healed seed-account drift for %s: %s", email, update)
 
     # ----- EXECUTIVE ADMIN bootstrap -----
     # Hardcoded executive admin email. On every startup:
