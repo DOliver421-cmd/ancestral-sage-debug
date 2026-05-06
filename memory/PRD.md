@@ -92,3 +92,9 @@ student@lcewai.org / Learn@LCE2026 (Associate-Alpha)
 - Added `pages/NotFound.jsx` and `<Route path="*" />` in `App.js`.
 - Resolves the failure mode behind user's "blank page on `/admin/users`" report — production bundle was stale (preview already had the route); without a 404 fallback any unmatched URL silently white-screened.
 - 404 page is role-aware: signed-in users get a CTA back to their correct dashboard; signed-out users get a CTA back to landing.
+
+## Feb 2026 — Ancestral Sage AI persona
+- Added 7th AI Tutor persona "Ancestral Sage" (Pan-African spiritual mentor / guide / pattern interpreter) per detailed product spec.
+- Backend: extended `AIChatReq` with `depth / intensity / cultural_focus / divination_mode / safety_level / consent_log_id / scope`. New `POST /api/ai/consent` endpoint validates verbatim YES + comprehension phrase, returns `consent_log_id` (TTL 120 min) recorded in `ai_consents` collection. `/ai/chat` gates deep/exploratory/extreme practices with 403 unless a valid consent id is presented; crisis-phrase short-circuit returns canonical safety template (no LLM cost). All five immutable rules, output format, and fringe-labeling rules are encoded in the system prompt; `scope=wai_training_only` confines persona to WAI curriculum.
+- Frontend: `AITutor.jsx` adds a Compass-icon mode pill (copper warm-gold), a parameter dropdown panel that appears when Sage is active, and a two-step consent modal posting to `/api/ai/consent`. Send button switches to a Lock icon + "Consent" label when blocking. Consent badge with revoke action displays after grant.
+- Tests: `backend/tests/test_ancestral_sage.py` — 14 tests, all green. Suite: 223/223 (was 209).

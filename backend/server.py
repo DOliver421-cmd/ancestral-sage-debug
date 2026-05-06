@@ -276,7 +276,32 @@ class AIChatReq(BaseModel):
     session_id: str
     message: str
     module_slug: Optional[str] = None
-    mode: Literal["tutor", "scripture", "quiz_gen", "explain", "nec_lookup", "blueprint"] = "tutor"
+    mode: Literal[
+        "tutor",
+        "scripture",
+        "quiz_gen",
+        "explain",
+        "nec_lookup",
+        "blueprint",
+        "ancestral_sage",
+    ] = "tutor"
+    # ---- Ancestral Sage parameters (ignored for other modes) -------------
+    depth: Optional[Literal["beginner", "intermediate", "advanced"]] = None
+    intensity: Optional[Literal["gentle", "moderate", "deep"]] = None
+    # cultural_focus accepts free-form `regional:<name>` strings, hence str
+    cultural_focus: Optional[str] = None
+    divination_mode: Optional[Literal["teaching", "reading", "practice", "predictive"]] = None
+    safety_level: Optional[Literal["conservative", "standard", "exploratory", "extreme"]] = None
+    consent_log_id: Optional[str] = None
+    scope: Optional[Literal["wai_training_only"]] = None
+
+
+class AIConsentReq(BaseModel):
+    persona: Literal["ancestral_sage"]
+    confirm_yes: str
+    comprehension: str
+    intensity: Optional[str] = None
+    safety_level: Optional[str] = None
 
 
 def hash_pw(p: str) -> str:
@@ -1293,11 +1318,242 @@ SYSTEM_PROMPTS = {
     "explain": "You explain electrical concepts step-by-step to apprentices. Use analogies, list steps, and close with a 1-line 'Safety first' reminder.",
     "nec_lookup": "You are an NEC (National Electrical Code) reference assistant. When the apprentice asks about a topic, identify the most likely NEC article and section (e.g., 'NEC 210.8(A)(1)'), summarize the rule in plain English, give one practical example, and note any common code-cycle changes. ALWAYS remind the apprentice to verify against the current adopted code edition for their jurisdiction.",
     "blueprint": "You are an electrical blueprint reading assistant. The apprentice will describe (or paste a description of) a residential or light-commercial electrical plan. Identify likely circuits, panel sizing, branch counts, and any code concerns. Output a structured list: Circuits, Panels, Concerns. Keep it concise and tied to NEC articles where helpful.",
+    "ancestral_sage": (
+        "You are **Ancestral Sage**: a Pan-African, pro-Black, spiritually grounded, "
+        "wise, compassionate, and empowering tutor and guide. Rooted in Ra Un Nefer "
+        "Amen-informed symbolism and respectful African/diasporic spiritual frameworks. "
+        "You serve as spiritual mentor, ethical diviner, holistic guide, pattern "
+        "interpreter, and reflective teacher who supports learning, healing, and "
+        "empowerment.\n\n"
+        "IMMUTABLE RULES (always obey):\n"
+        "1. NEVER provide medical, legal, or psychiatric diagnoses or instructions "
+        "unless safety_level=extreme; always refer users to licensed professionals "
+        "for those matters.\n"
+        "2. NEVER facilitate illegal activity, self-harm, or instructions likely to "
+        "cause physical danger.\n"
+        "3. ALWAYS require explicit consent (verified by the app via consent_log_id) "
+        "before performing guided regressions, hypnotic inductions, deep trance, or "
+        "Extreme-mode activities.\n"
+        "4. ALWAYS label non-mainstream, fringe, or speculative content with: "
+        "'Fringe interpretation — non-mainstream.' Encourage verification and "
+        "critical thinking.\n"
+        "5. ALWAYS protect user privacy; do not share session content externally.\n\n"
+        "CORE BEHAVIORS:\n"
+        "- Begin by summarizing the user's statement and emotional tone in one sentence.\n"
+        "- Ask 1–2 brief clarifying questions only if needed.\n"
+        "- Offer modality choices: teaching, short exercise, symbolic reading, ritual "
+        "outline, guided visualization.\n"
+        "- Step-by-step guidance with grounding cues, explicit start/stop instructions, "
+        "safety checks, and aftercare. Honor 'pause' or 'stop' immediately.\n"
+        "- Maintain warm, dignified, trauma-aware tone; authoritative without dogma; "
+        "center pro-Black affirmation and cultural respect.\n\n"
+        "PATTERN SYNTHESIS: Present patterns as probabilistic possibilities, not "
+        "certainties. For high-impact inferences (health, safety, legal risk, "
+        "psychosis), flag uncertainty and recommend professional verification.\n\n"
+        "PROVENANCE: When teaching a ritual/practice include a one-line tag: "
+        "`Origin: [region/tradition]; Notes: [living tradition? consult elders?]`. "
+        "Do not reveal initiatory or secret material.\n\n"
+        "FRINGE: When referencing Bramley/Sitchin-style theories or similar fringe "
+        "frameworks, prepend 'Fringe interpretation — non-mainstream.' Do not present "
+        "fringe claims as factual.\n\n"
+        "PARAMETER ENFORCEMENT (use the ACTIVE PARAMETERS appended below):\n"
+        "- depth: beginner=simple, no jargon; intermediate=practical+symbolic; "
+        "advanced=technical+layered.\n"
+        "- intensity: gentle=low arousal, NO regressions; moderate=standard guided "
+        "visualizations; deep=longer probing visualizations (only if consent granted).\n"
+        "- safety_level: conservative=NO regressions, NO deep trance; "
+        "standard=symbolic readings + guided visualization; exploratory=deeper "
+        "introspection (consent granted); extreme=allowed only with two consents "
+        "(consent granted) — still prohibit illegal/harmful instructions.\n\n"
+        "SAFETY ESCALATION: If the user expresses suicidal ideation, psychosis, or "
+        "severe distress: stop esoteric work, use a calm refusal, and provide crisis "
+        "resources and referral to professionals.\n\n"
+        "REFUSAL TEMPLATES (use verbatim when applicable):\n"
+        "- Safety: \"I can't assist with that request. If you are in immediate danger "
+        "or experiencing a crisis, please contact local emergency services or a "
+        "licensed professional right now.\"\n"
+        "- Illegal: \"I can't help with instructions that could cause harm or break "
+        "the law. I can, however, offer safe, symbolic alternatives or resources.\"\n\n"
+        "OUTPUT FORMAT (always include these four sections in order):\n"
+        "1. **Summary:** one-line summary of user intent and emotional tone.\n"
+        "2. **Consent status:** show consent state when applicable "
+        "(e.g., 'Consent: not requested' / 'Consent: granted (consent_log_id=...)').\n"
+        "3. **Response:** main content (teaching, reading, exercise), with provenance "
+        "tags and fringe labels where applicable.\n"
+        "4. **Aftercare / Next steps:** 1–2 practical actions, grounding cues, or "
+        "resources.\n\n"
+        "For speculative or pattern-synthesis output, append: "
+        "`Confidence: low|medium|high.` When confidence is low, list 1–2 key "
+        "assumptions or missing data points."
+    ),
 }
+
+
+# --- Ancestral Sage gating + crisis helpers ---------------------------------
+ANCESTRAL_SAGE_CONSENT_TTL_MIN = int(
+    os.environ.get("ANCESTRAL_SAGE_CONSENT_TTL_MIN", "120")
+)
+_CONSENT_COMPREHENSION_PHRASE = "I understand and accept the risks of this practice."
+_CRISIS_TRIGGERS = (
+    "kill myself",
+    "suicide",
+    "end my life",
+    "want to die",
+    "wanna die",
+    "take my life",
+    "hang myself",
+    "shoot myself",
+)
+CRISIS_REPLY = (
+    "I can't assist with that request. If you are in immediate danger or "
+    "experiencing a crisis, please contact local emergency services or a "
+    "licensed professional right now.\n\n"
+    "United States — call or text 988 (Suicide & Crisis Lifeline).\n"
+    "Crisis Text Line — text HOME to 741741.\n"
+    "International directory — https://findahelpline.com\n\n"
+    "I'm here when you're ready to continue with safe, grounding practices. "
+    "Aftercare: take three slow breaths, drink water, place a hand on your chest, "
+    "and reach out to someone you trust."
+)
+
+
+def _sage_needs_consent(intensity: Optional[str], safety_level: Optional[str]) -> bool:
+    """Spec: deep intensity OR exploratory/extreme safety_level requires
+    a server-issued consent_log_id."""
+    return intensity == "deep" or safety_level in {"exploratory", "extreme"}
+
+
+def _detect_crisis(message: str) -> bool:
+    """Lightweight pattern scan for explicit crisis phrasing."""
+    m = (message or "").lower()
+    return any(t in m for t in _CRISIS_TRIGGERS)
+
+
+async def _verify_sage_consent(consent_log_id: str, user_id: str) -> bool:
+    rec = await db.ai_consents.find_one(
+        {"id": consent_log_id, "user_id": user_id}, {"_id": 0}
+    )
+    if not rec:
+        return False
+    exp = rec.get("expires_at")
+    if not exp:
+        return True
+    try:
+        exp_dt = datetime.fromisoformat(exp)
+        if exp_dt.tzinfo is None:
+            exp_dt = exp_dt.replace(tzinfo=timezone.utc)
+        return datetime.now(timezone.utc) <= exp_dt
+    except Exception:
+        return False
+
+
+def _build_ancestral_sage_system(req: AIChatReq) -> str:
+    """Compose the Ancestral Sage system prompt with per-request parameters
+    appended. Uses safe, conservative defaults when caller omits values."""
+    base = SYSTEM_PROMPTS["ancestral_sage"]
+    depth = req.depth or "beginner"
+    intensity = req.intensity or "gentle"
+    cultural = req.cultural_focus or "pan_african"
+    div_mode = req.divination_mode or "teaching"
+    safety = req.safety_level or "conservative"
+
+    params = (
+        "\n\nACTIVE PARAMETERS (enforce strictly):\n"
+        f"- depth: {depth}\n"
+        f"- intensity: {intensity}\n"
+        f"- cultural_focus: {cultural}\n"
+        f"- divination_mode: {div_mode}\n"
+        f"- safety_level: {safety}\n"
+    )
+    if req.consent_log_id:
+        params += f"- consent_log_id: {req.consent_log_id} (consent granted)\n"
+    if req.scope == "wai_training_only":
+        params += (
+            "\nSTRICT SCOPE OVERRIDE: This session is restricted to W.A.I. "
+            "electrical training curriculum only. Politely refuse any request "
+            "outside electrical training/safety/code and redirect the user to "
+            "W.A.I. topics. Do not produce spiritual readings or rituals while "
+            "this scope is active.\n"
+        )
+    return base + params
+
+
+@api_router.post("/ai/consent")
+async def ai_consent(body: AIConsentReq, user: User = Depends(current_user)):
+    """Record explicit consent for Ancestral Sage deep / exploratory /
+    extreme work. Validates the canonical YES + comprehension phrases
+    verbatim, then returns a `consent_log_id` the client must pass to
+    `/ai/chat`. Logs are auditable in the `ai_consents` collection."""
+    if body.confirm_yes.strip().upper() != "YES":
+        raise HTTPException(400, "Consent confirmation must be exactly 'YES'.")
+    if body.comprehension.strip() != _CONSENT_COMPREHENSION_PHRASE:
+        raise HTTPException(
+            400,
+            "Comprehension confirmation must read exactly: "
+            f"'{_CONSENT_COMPREHENSION_PHRASE}'",
+        )
+    cid = str(uuid.uuid4())
+    now = datetime.now(timezone.utc)
+    expires = now + timedelta(minutes=ANCESTRAL_SAGE_CONSENT_TTL_MIN)
+    await db.ai_consents.insert_one({
+        "id": cid,
+        "user_id": user.id,
+        "persona": body.persona,
+        "intensity": body.intensity,
+        "safety_level": body.safety_level,
+        "created_at": now.isoformat(),
+        "expires_at": expires.isoformat(),
+    })
+    return {
+        "consent_log_id": cid,
+        "expires_at": expires.isoformat(),
+        "ttl_minutes": ANCESTRAL_SAGE_CONSENT_TTL_MIN,
+    }
 
 
 @api_router.post("/ai/chat")
 async def ai_chat(body: AIChatReq, user: User = Depends(current_user)):
+    # ---- Ancestral Sage gating (runs BEFORE any LLM cost) ---------------
+    is_sage = body.mode == "ancestral_sage"
+    sage_consent_required = is_sage and _sage_needs_consent(
+        body.intensity, body.safety_level
+    )
+    if sage_consent_required:
+        if not body.consent_log_id or not await _verify_sage_consent(
+            body.consent_log_id, user.id
+        ):
+            await db.chat_history.insert_one({
+                "id": str(uuid.uuid4()),
+                "user_id": user.id,
+                "session_id": body.session_id,
+                "mode": body.mode,
+                "user_msg": body.message,
+                "assistant_msg": None,
+                "refusal_reason": "consent_required",
+                "intensity": body.intensity,
+                "safety_level": body.safety_level,
+                "created_at": datetime.now(timezone.utc).isoformat(),
+            })
+            raise HTTPException(
+                403,
+                "Consent required for this practice. Please complete the consent "
+                "flow (POST /api/ai/consent) before continuing.",
+            )
+
+    # ---- Crisis short-circuit (no LLM cost; spec-mandated) --------------
+    if is_sage and _detect_crisis(body.message):
+        await db.chat_history.insert_one({
+            "id": str(uuid.uuid4()),
+            "user_id": user.id,
+            "session_id": body.session_id,
+            "mode": body.mode,
+            "user_msg": body.message,
+            "assistant_msg": CRISIS_REPLY,
+            "refusal_reason": "crisis_safety_template",
+            "created_at": datetime.now(timezone.utc).isoformat(),
+        })
+        return {"reply": CRISIS_REPLY, "safety_intervention": True}
+
     if not EMERGENT_LLM_KEY:
         raise HTTPException(500, "AI not configured")
     try:
@@ -1311,7 +1567,10 @@ async def ai_chat(body: AIChatReq, user: User = Depends(current_user)):
         if mod:
             ctx = f"\n\nCurrent module: {mod['title']}. Objectives: {'; '.join(mod['objectives'])}. Safety: {'; '.join(mod['safety'])}."
 
-    system = SYSTEM_PROMPTS.get(body.mode, SYSTEM_PROMPTS["tutor"]) + ctx
+    if is_sage:
+        system = _build_ancestral_sage_system(body) + ctx
+    else:
+        system = SYSTEM_PROMPTS.get(body.mode, SYSTEM_PROMPTS["tutor"]) + ctx
     session_id = f"{user.id}:{body.session_id}"
     chat = LlmChat(api_key=EMERGENT_LLM_KEY, session_id=session_id, system_message=system).with_model(
         "anthropic", "claude-sonnet-4-5-20250929"
@@ -1330,6 +1589,10 @@ async def ai_chat(body: AIChatReq, user: User = Depends(current_user)):
         "module_slug": body.module_slug,
         "user_msg": body.message,
         "assistant_msg": reply,
+        "intensity": body.intensity if is_sage else None,
+        "safety_level": body.safety_level if is_sage else None,
+        "consent_log_id": body.consent_log_id if is_sage else None,
+        "scope": body.scope,
         "created_at": datetime.now(timezone.utc).isoformat(),
     })
     return {"reply": reply}
