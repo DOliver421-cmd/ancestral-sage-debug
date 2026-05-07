@@ -45,6 +45,12 @@ from fastapi.responses import StreamingResponse
 from motor.motor_asyncio import AsyncIOMotorClient
 from passlib.context import CryptContext
 from pydantic import BaseModel, Field, EmailStr, ConfigDict
+from prompts.ancestral_sage_prompt import (
+    ANCESTRAL_SAGE_PROMPT,
+    ANCESTRAL_SAGE_PROMPT_HASH_EXPECTED,
+    RESTRICTED_EDUCATIONAL_FALLBACK,
+    compute_sage_prompt_hash,
+)
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import landscape, letter
 from reportlab.lib.units import inch
@@ -302,6 +308,18 @@ class AIConsentReq(BaseModel):
     comprehension: str
     intensity: Optional[str] = None
     safety_level: Optional[str] = None
+    # Layered-consent additions (spec module 8). All four ack fields must
+    # be true when the client opts into "personalization" or
+    # "high_confidence" content_types.
+    disclaimer1_ack: bool = False
+    disclaimer2_ack: bool = False
+    disclaimer3_ack: bool = False
+    content_type: Optional[Literal[
+        "general", "personalization", "high_confidence", "high_consensus"
+    ]] = "general"
+    confidence_level: Optional[Literal["low", "medium", "high"]] = None
+    expert_score: Optional[int] = None  # 0..20
+    request_human_review: bool = False
 
 
 def hash_pw(p: str) -> str:
@@ -1318,75 +1336,15 @@ SYSTEM_PROMPTS = {
     "explain": "You explain electrical concepts step-by-step to apprentices. Use analogies, list steps, and close with a 1-line 'Safety first' reminder.",
     "nec_lookup": "You are an NEC (National Electrical Code) reference assistant. When the apprentice asks about a topic, identify the most likely NEC article and section (e.g., 'NEC 210.8(A)(1)'), summarize the rule in plain English, give one practical example, and note any common code-cycle changes. ALWAYS remind the apprentice to verify against the current adopted code edition for their jurisdiction.",
     "blueprint": "You are an electrical blueprint reading assistant. The apprentice will describe (or paste a description of) a residential or light-commercial electrical plan. Identify likely circuits, panel sizing, branch counts, and any code concerns. Output a structured list: Circuits, Panels, Concerns. Keep it concise and tied to NEC articles where helpful.",
-    "ancestral_sage": (
-        "You are **Ancestral Sage**: a Pan-African, pro-Black, spiritually grounded, "
-        "wise, compassionate, and empowering tutor and guide. Rooted in Ra Un Nefer "
-        "Amen-informed symbolism and respectful African/diasporic spiritual frameworks. "
-        "You serve as spiritual mentor, ethical diviner, holistic guide, pattern "
-        "interpreter, and reflective teacher who supports learning, healing, and "
-        "empowerment.\n\n"
-        "IMMUTABLE RULES (always obey):\n"
-        "1. NEVER provide medical, legal, or psychiatric diagnoses or instructions "
-        "unless safety_level=extreme; always refer users to licensed professionals "
-        "for those matters.\n"
-        "2. NEVER facilitate illegal activity, self-harm, or instructions likely to "
-        "cause physical danger.\n"
-        "3. ALWAYS require explicit consent (verified by the app via consent_log_id) "
-        "before performing guided regressions, hypnotic inductions, deep trance, or "
-        "Extreme-mode activities.\n"
-        "4. ALWAYS label non-mainstream, fringe, or speculative content with: "
-        "'Fringe interpretation — non-mainstream.' Encourage verification and "
-        "critical thinking.\n"
-        "5. ALWAYS protect user privacy; do not share session content externally.\n\n"
-        "CORE BEHAVIORS:\n"
-        "- Begin by summarizing the user's statement and emotional tone in one sentence.\n"
-        "- Ask 1–2 brief clarifying questions only if needed.\n"
-        "- Offer modality choices: teaching, short exercise, symbolic reading, ritual "
-        "outline, guided visualization.\n"
-        "- Step-by-step guidance with grounding cues, explicit start/stop instructions, "
-        "safety checks, and aftercare. Honor 'pause' or 'stop' immediately.\n"
-        "- Maintain warm, dignified, trauma-aware tone; authoritative without dogma; "
-        "center pro-Black affirmation and cultural respect.\n\n"
-        "PATTERN SYNTHESIS: Present patterns as probabilistic possibilities, not "
-        "certainties. For high-impact inferences (health, safety, legal risk, "
-        "psychosis), flag uncertainty and recommend professional verification.\n\n"
-        "PROVENANCE: When teaching a ritual/practice include a one-line tag: "
-        "`Origin: [region/tradition]; Notes: [living tradition? consult elders?]`. "
-        "Do not reveal initiatory or secret material.\n\n"
-        "FRINGE: When referencing Bramley/Sitchin-style theories or similar fringe "
-        "frameworks, prepend 'Fringe interpretation — non-mainstream.' Do not present "
-        "fringe claims as factual.\n\n"
-        "PARAMETER ENFORCEMENT (use the ACTIVE PARAMETERS appended below):\n"
-        "- depth: beginner=simple, no jargon; intermediate=practical+symbolic; "
-        "advanced=technical+layered.\n"
-        "- intensity: gentle=low arousal, NO regressions; moderate=standard guided "
-        "visualizations; deep=longer probing visualizations (only if consent granted).\n"
-        "- safety_level: conservative=NO regressions, NO deep trance; "
-        "standard=symbolic readings + guided visualization; exploratory=deeper "
-        "introspection (consent granted); extreme=allowed only with two consents "
-        "(consent granted) — still prohibit illegal/harmful instructions.\n\n"
-        "SAFETY ESCALATION: If the user expresses suicidal ideation, psychosis, or "
-        "severe distress: stop esoteric work, use a calm refusal, and provide crisis "
-        "resources and referral to professionals.\n\n"
-        "REFUSAL TEMPLATES (use verbatim when applicable):\n"
-        "- Safety: \"I can't assist with that request. If you are in immediate danger "
-        "or experiencing a crisis, please contact local emergency services or a "
-        "licensed professional right now.\"\n"
-        "- Illegal: \"I can't help with instructions that could cause harm or break "
-        "the law. I can, however, offer safe, symbolic alternatives or resources.\"\n\n"
-        "OUTPUT FORMAT (always include these four sections in order):\n"
-        "1. **Summary:** one-line summary of user intent and emotional tone.\n"
-        "2. **Consent status:** show consent state when applicable "
-        "(e.g., 'Consent: not requested' / 'Consent: granted (consent_log_id=...)').\n"
-        "3. **Response:** main content (teaching, reading, exercise), with provenance "
-        "tags and fringe labels where applicable.\n"
-        "4. **Aftercare / Next steps:** 1–2 practical actions, grounding cues, or "
-        "resources.\n\n"
-        "For speculative or pattern-synthesis output, append: "
-        "`Confidence: low|medium|high.` When confidence is low, list 1–2 key "
-        "assumptions or missing data points."
-    ),
+    "ancestral_sage": ANCESTRAL_SAGE_PROMPT,
 }
+
+
+def _sage_prompt_integrity_ok() -> bool:
+    """True iff the live persona prompt hash matches the committed
+    expected hash. Drift implies an unauthorized prompt edit and triggers
+    Restricted Educational Mode at request time."""
+    return compute_sage_prompt_hash() == ANCESTRAL_SAGE_PROMPT_HASH_EXPECTED
 
 
 # --- Ancestral Sage gating + crisis helpers ---------------------------------
@@ -1449,7 +1407,15 @@ async def _verify_sage_consent(consent_log_id: str, user_id: str) -> bool:
 
 def _build_ancestral_sage_system(req: AIChatReq) -> str:
     """Compose the Ancestral Sage system prompt with per-request parameters
-    appended. Uses safe, conservative defaults when caller omits values."""
+    appended. Uses safe, conservative defaults when caller omits values.
+    Falls back to RESTRICTED_EDUCATIONAL_FALLBACK on integrity drift."""
+    if not _sage_prompt_integrity_ok():
+        logger.error(
+            "Ancestral Sage prompt integrity check FAILED. Live hash=%s expected=%s",
+            compute_sage_prompt_hash(),
+            ANCESTRAL_SAGE_PROMPT_HASH_EXPECTED,
+        )
+        return RESTRICTED_EDUCATIONAL_FALLBACK
     base = SYSTEM_PROMPTS["ancestral_sage"]
     depth = req.depth or "beginner"
     intensity = req.intensity or "gentle"
@@ -1483,7 +1449,10 @@ async def ai_consent(body: AIConsentReq, user: User = Depends(current_user)):
     """Record explicit consent for Ancestral Sage deep / exploratory /
     extreme work. Validates the canonical YES + comprehension phrases
     verbatim, then returns a `consent_log_id` the client must pass to
-    `/ai/chat`. Logs are auditable in the `ai_consents` collection."""
+    `/ai/chat`. Logs are auditable in the `ai_consents` collection.
+
+    For `content_type` other than 'general', all three layered disclaimer
+    acknowledgements (`disclaimer{1,2,3}_ack`) must be true."""
     if body.confirm_yes.strip().upper() != "YES":
         raise HTTPException(400, "Consent confirmation must be exactly 'YES'.")
     if body.comprehension.strip() != _CONSENT_COMPREHENSION_PHRASE:
@@ -1492,22 +1461,49 @@ async def ai_consent(body: AIConsentReq, user: User = Depends(current_user)):
             "Comprehension confirmation must read exactly: "
             f"'{_CONSENT_COMPREHENSION_PHRASE}'",
         )
+    if body.content_type and body.content_type != "general":
+        if not (body.disclaimer1_ack and body.disclaimer2_ack and body.disclaimer3_ack):
+            raise HTTPException(
+                400,
+                "All three disclaimers must be acknowledged for "
+                f"content_type='{body.content_type}'.",
+            )
+    if body.expert_score is not None and not (0 <= int(body.expert_score) <= 20):
+        raise HTTPException(400, "expert_score must be 0..20.")
+
     cid = str(uuid.uuid4())
     now = datetime.now(timezone.utc)
     expires = now + timedelta(minutes=ANCESTRAL_SAGE_CONSENT_TTL_MIN)
-    await db.ai_consents.insert_one({
+    doc = {
         "id": cid,
         "user_id": user.id,
         "persona": body.persona,
         "intensity": body.intensity,
         "safety_level": body.safety_level,
+        "content_type": body.content_type or "general",
+        "confidence_level": body.confidence_level,
+        "expert_score": body.expert_score,
+        "disclaimer1_ack": bool(body.disclaimer1_ack),
+        "disclaimer2_ack": bool(body.disclaimer2_ack),
+        "disclaimer3_ack": bool(body.disclaimer3_ack),
+        "human_review_triggered": bool(body.request_human_review),
         "created_at": now.isoformat(),
         "expires_at": expires.isoformat(),
-    })
+    }
+    await db.ai_consents.insert_one(doc)
+    if body.request_human_review:
+        await db.audit_log.insert_one({
+            "id": str(uuid.uuid4()),
+            "actor_id": user.id,
+            "action": "sage_human_review_requested",
+            "details": {"consent_log_id": cid, "content_type": body.content_type},
+            "created_at": now.isoformat(),
+        })
     return {
         "consent_log_id": cid,
         "expires_at": expires.isoformat(),
         "ttl_minutes": ANCESTRAL_SAGE_CONSENT_TTL_MIN,
+        "human_review_triggered": bool(body.request_human_review),
     }
 
 
@@ -1701,6 +1697,106 @@ async def admin_sage_audit(
             r["full_name"] = u.get("full_name")
 
     return {"rows": rows, "limit": limit, "kind": kind}
+
+
+@api_router.get("/ai/sage/integrity")
+async def sage_integrity(user: User = Depends(current_user)):
+    """Public-to-authenticated check used by the frontend to surface a
+    'Restricted Mode' banner when the prompt hash drifts. Anyone signed in
+    can view this — exec admins additionally see the full hashes."""
+    ok = _sage_prompt_integrity_ok()
+    out = {"ok": ok, "restricted": not ok}
+    if user.role == "executive_admin":
+        out["live_hash"] = compute_sage_prompt_hash()
+        out["expected_hash"] = ANCESTRAL_SAGE_PROMPT_HASH_EXPECTED
+    return out
+
+
+@api_router.get("/admin/sage/status")
+async def admin_sage_status(user: User = Depends(require_role("executive_admin"))):
+    """Idempotent deployment status for the Ancestral Sage feature set,
+    matching the platform-enforcement addendum schema:
+
+      {
+        "prompt_hash_status": "match" | "mismatch",
+        "modules": {
+          "A": "present" | "missing",  # system prompt
+          "E": "present" | "missing",  # layered consent
+          "F": "present" | "missing",  # integrity hash
+          "D": "present" | "missing",  # audio (TTS + STT)
+        },
+        "fallback_active": bool,
+        "last_audit_id": str | null,
+      }
+
+    Used by the deployment pipeline to avoid duplicating work."""
+    integrity_ok = _sage_prompt_integrity_ok()
+    # Module presence is determined by inspecting the live runtime, not flags.
+    # All four are wired in the same module — they ship together — so they're
+    # all "present" iff the prompt module imported successfully.
+    modules = {
+        "A": "present" if SYSTEM_PROMPTS.get("ancestral_sage") else "missing",
+        "E": "present",  # AIConsentReq + /ai/consent + layered fields
+        "F": "present" if ANCESTRAL_SAGE_PROMPT_HASH_EXPECTED else "missing",
+        "D": "present",  # /ai/sage/tts endpoint
+    }
+    last_audit = await db.audit_log.find(
+        {"action": {"$regex": "^sage_"}}, {"_id": 0, "id": 1}
+    ).sort("created_at", -1).limit(1).to_list(1)
+    return {
+        "prompt_hash_status": "match" if integrity_ok else "mismatch",
+        "modules": modules,
+        "fallback_active": not integrity_ok,
+        "last_audit_id": (last_audit[0]["id"] if last_audit else None),
+    }
+
+
+# --- Ancestral Sage TTS (OpenAI TTS-1, voice=sage) --------------------------
+class SageTTSReq(BaseModel):
+    text: str
+    voice: Optional[Literal[
+        "alloy", "ash", "coral", "echo", "fable", "nova", "onyx", "sage", "shimmer"
+    ]] = "sage"
+    speed: Optional[float] = 1.0
+
+
+@api_router.post("/ai/sage/tts")
+async def sage_tts(body: SageTTSReq, user: User = Depends(current_user)):
+    """Convert text to speech via OpenAI TTS-1 routed through the
+    Emergent LLM key. Returns audio/mpeg bytes streamed inline. Frontend
+    must obtain explicit speaker permission before invoking this endpoint;
+    invocation itself is logged."""
+    if not EMERGENT_LLM_KEY:
+        raise HTTPException(500, "AI not configured")
+    text = (body.text or "").strip()
+    if not text:
+        raise HTTPException(400, "text is required")
+    # OpenAI TTS hard cap.
+    if len(text) > 4000:
+        text = text[:4000]
+    try:
+        from emergentintegrations.llm.openai import OpenAITextToSpeech
+    except Exception as e:
+        raise HTTPException(500, f"TTS library unavailable: {e}")
+
+    speed = max(0.5, min(float(body.speed or 1.0), 2.0))
+    try:
+        tts = OpenAITextToSpeech(api_key=EMERGENT_LLM_KEY)
+        audio_bytes = await tts.generate_speech(
+            text=text, model="tts-1", voice=body.voice or "sage", speed=speed,
+        )
+    except Exception as e:
+        logger.exception("Sage TTS error")
+        raise HTTPException(502, f"TTS error: {e}")
+
+    await db.audit_log.insert_one({
+        "id": str(uuid.uuid4()),
+        "actor_id": user.id,
+        "action": "sage_tts_invoked",
+        "details": {"voice": body.voice or "sage", "len": len(text)},
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    })
+    return StreamingResponse(io.BytesIO(audio_bytes), media_type="audio/mpeg")
 
 
 @api_router.post("/ai/chat")

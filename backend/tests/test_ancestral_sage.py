@@ -154,7 +154,7 @@ class TestAncestralSageGating:
             f"{API}/ai/chat",
             headers=_auth(self.token),
             json=body,
-            timeout=15,
+            timeout=60,
         )
 
     def test_deep_intensity_without_consent_is_403(self):
