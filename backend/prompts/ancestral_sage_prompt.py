@@ -417,7 +417,7 @@ def compute_sage_prompt_hash(prompt: str = ANCESTRAL_SAGE_PROMPT) -> str:
 
 # Run `python -m backend.prompts.ancestral_sage_prompt` whenever
 # ANCESTRAL_SAGE_PROMPT is edited and paste the value below.
-ANCESTRAL_SAGE_PROMPT_HASH_EXPECTED = "f97cd8b467ca0c0c2882e0d71c16dad5429636a34425010a4fcad089929de9f2"
+ANCESTRAL_SAGE_PROMPT_HASH_EXPECTED = "42912ec2bcc215ebddc5cc82357fda79799f08709f2aa7b0d7491357ba6e03be"
 
 
 if __name__ == "__main__":  # pragma: no cover
