@@ -320,6 +320,15 @@ class AIConsentReq(BaseModel):
     confidence_level: Optional[Literal["low", "medium", "high"]] = None
     expert_score: Optional[int] = None  # 0..20
     request_human_review: bool = False
+    # Privacy: when False, sage chat_history rows for this session are
+    # auto-deleted via TTL after 24h.
+    store_audio: bool = False
+
+
+class ResolveModeReq(BaseModel):
+    session_id: str
+    user_intent: str
+    recent_topics: Optional[list[str]] = None
 
 
 def hash_pw(p: str) -> str:
@@ -621,6 +630,14 @@ async def ensure_indexes():
         await db.tts_cache.create_index("created_at", expireAfterSeconds=7 * 24 * 3600)
         await db.tts_usage.create_index([("user_id", 1), ("day", 1)], unique=True)
         await db.tts_usage.create_index("created_at", expireAfterSeconds=25 * 3600)
+        # Sage v4 grounding: mode_decisions + chat_history TTL (when store_audio=false).
+        await db.mode_decisions.create_index("audit_id", unique=True)
+        await db.mode_decisions.create_index("user_id")
+        await db.mode_decisions.create_index("created_at", expireAfterSeconds=90 * 24 * 3600)
+        await db.chat_history.create_index("expires_at", expireAfterSeconds=0,
+                                           partialFilterExpression={"expires_at": {"$exists": True}})
+        # Sage v4 stability: ai_consents lookup by latest record per user+persona.
+        await db.ai_consents.create_index([("user_id", 1), ("persona", 1), ("created_at", -1)])
         logger.info("Indexes ensured")
     except Exception:
         logger.exception("ensure_indexes failed (non-fatal)")
@@ -1477,6 +1494,7 @@ async def ai_consent(body: AIConsentReq, user: User = Depends(current_user)):
         raise HTTPException(400, "expert_score must be 0..20.")
 
     cid = str(uuid.uuid4())
+    correlation_id = str(uuid.uuid4())
     now = datetime.now(timezone.utc)
     expires = now + timedelta(minutes=ANCESTRAL_SAGE_CONSENT_TTL_MIN)
     doc = {
@@ -1492,6 +1510,8 @@ async def ai_consent(body: AIConsentReq, user: User = Depends(current_user)):
         "disclaimer2_ack": bool(body.disclaimer2_ack),
         "disclaimer3_ack": bool(body.disclaimer3_ack),
         "human_review_triggered": bool(body.request_human_review),
+        "store_audio": bool(body.store_audio),
+        "correlation_id": correlation_id,
         "created_at": now.isoformat(),
         "expires_at": expires.isoformat(),
     }
@@ -1505,10 +1525,97 @@ async def ai_consent(body: AIConsentReq, user: User = Depends(current_user)):
             "created_at": now.isoformat(),
         })
     return {
+        # Backward-compatible field — existing UI relies on this.
         "consent_log_id": cid,
+        # Senior-advisor canonical fields.
+        "status": "ok",
+        "audit_id": cid,
+        "correlation_id": correlation_id,
         "expires_at": expires.isoformat(),
         "ttl_minutes": ANCESTRAL_SAGE_CONSENT_TTL_MIN,
         "human_review_triggered": bool(body.request_human_review),
+        "store_audio": bool(body.store_audio),
+    }
+
+
+@api_router.get("/ai/consent/health")
+async def ai_consent_health():
+    """Lightweight liveness check for the consent subsystem. Public."""
+    return {"status": "ok"}
+
+
+# --- Grounding reconciliation (resolve_mode) --------------------------------
+_ELECTRICAL_KEYWORDS = (
+    "nec", "code", "circuit", "wire", "breaker", "panel", "ground",
+    "neutral", "bond", "voltage", "ampere", "amp", "ohm", "outlet",
+    "receptacle", "conduit", "gfci", "afci", "service", "feeder",
+    "branch", "junction", "load", "phase", "transformer",
+)
+_SAGE_KEYWORDS = (
+    "ancestor", "spirit", "meditation", "ritual", "prayer", "lineage",
+    "sage", "wisdom", "soul", "trauma", "healing", "guidance",
+    "oracle", "reflection", "blessing", "grounding practice",
+    "chakra", "shadow", "divination", "tarot",
+)
+
+
+def _grounding_score(text: str) -> dict[str, int]:
+    """Lightweight keyword-tally heuristic. Deterministic, free, instant."""
+    t = (text or "").lower()
+    elec = sum(1 for kw in _ELECTRICAL_KEYWORDS if kw in t)
+    sage = sum(1 for kw in _SAGE_KEYWORDS if kw in t)
+    return {"electrical": elec, "sage": sage}
+
+
+@api_router.post("/ai/sage/resolve_mode")
+async def resolve_mode(body: ResolveModeReq, user: User = Depends(current_user)):
+    """Deterministic mode resolver per the Senior Advisor spec.
+
+    Returns one of: 'sage', 'electrical', 'grounding_ritual'.
+
+    Rules (highest weight: explicit user intent text):
+      - electrical_score >= 2 AND > sage_score    → 'electrical'
+      - sage_score      >= 2 AND > electrical_score → 'sage'
+      - both >= 1                                  → 'grounding_ritual'
+      - electrical_score >= 1 only                 → 'electrical'
+      - sage_score      >= 1 only                  → 'sage'
+      - default                                    → 'sage'
+    """
+    scores = _grounding_score(body.user_intent)
+    elec, sage = scores["electrical"], scores["sage"]
+    if elec >= 2 and elec > sage:
+        mode, reason = "electrical", "electrical-keywords-dominant"
+    elif sage >= 2 and sage > elec:
+        mode, reason = "sage", "sage-keywords-dominant"
+    elif elec >= 1 and sage >= 1:
+        mode, reason = "grounding_ritual", "ambiguous-needs-disambiguation"
+    elif elec >= 1:
+        mode, reason = "electrical", "electrical-only"
+    elif sage >= 1:
+        mode, reason = "sage", "sage-only"
+    else:
+        mode, reason = "sage", "default"
+
+    audit_id = str(uuid.uuid4())
+    grounding_token = uuid.uuid4().hex
+    now_iso = datetime.now(timezone.utc).isoformat()
+    await db.mode_decisions.insert_one({
+        "audit_id": audit_id,
+        "user_id": user.id,
+        "session_id": body.session_id,
+        "mode": mode,
+        "reason": reason,
+        "grounding_token": grounding_token,
+        "scores": scores,
+        "intent_excerpt": (body.user_intent or "")[:200],
+        "created_at": now_iso,
+    })
+    return {
+        "mode": mode,
+        "reason": reason,
+        "grounding_token": grounding_token,
+        "audit_id": audit_id,
+        "scores": scores,
     }
 
 
@@ -1813,9 +1920,19 @@ async def admin_sage_audit(
 async def sage_integrity(user: User = Depends(current_user)):
     """Public-to-authenticated check used by the frontend to surface a
     'Restricted Mode' banner when the prompt hash drifts. Anyone signed in
-    can view this — exec admins additionally see the full hashes."""
+    can view this — exec admins additionally see the full hashes.
+
+    Also returns `needs_first_consent: true` if the user has no recorded
+    Ancestral Sage consent yet (used by the frontend to gate tutor UI)."""
     ok = _sage_prompt_integrity_ok()
-    out = {"ok": ok, "restricted": not ok}
+    has_consent = await db.ai_consents.find_one(
+        {"user_id": user.id, "persona": "ancestral_sage"}, {"_id": 0, "id": 1}
+    )
+    out = {
+        "ok": ok,
+        "restricted": not ok,
+        "needs_first_consent": not bool(has_consent),
+    }
     if user.role == "executive_admin":
         out["live_hash"] = compute_sage_prompt_hash()
         out["expected_hash"] = ANCESTRAL_SAGE_PROMPT_HASH_EXPECTED
@@ -2063,6 +2180,35 @@ async def ai_chat(body: AIChatReq, user: User = Depends(current_user)):
     sage_consent_required = is_sage and _sage_needs_consent(
         body.intensity, body.safety_level
     )
+
+    # Sage v4: first-time consent gate. Any sage chat requires the user to
+    # have at least one recorded consent (regardless of intensity).
+    sage_store_audio_off = False  # default: store transcripts (current behavior)
+    if is_sage:
+        latest_consent = await db.ai_consents.find_one(
+            {"user_id": user.id, "persona": "ancestral_sage"},
+            {"_id": 0, "store_audio": 1, "created_at": 1},
+            sort=[("created_at", -1)],
+        )
+        if not latest_consent:
+            await db.chat_history.insert_one({
+                "id": str(uuid.uuid4()),
+                "user_id": user.id,
+                "session_id": body.session_id,
+                "mode": body.mode,
+                "user_msg": body.message,
+                "assistant_msg": None,
+                "refusal_reason": "consent_required_first_time",
+                "created_at": datetime.now(timezone.utc).isoformat(),
+            })
+            raise HTTPException(
+                403,
+                "consent_required: Please accept the User Consent Agreement "
+                "before using Ancestral Sage tutors. (Layered consent must "
+                "be recorded at least once.)",
+            )
+        # store_audio=False on the latest consent → transcripts auto-expire 24h.
+        sage_store_audio_off = not bool(latest_consent.get("store_audio"))
     if sage_consent_required:
         if not body.consent_log_id or not await _verify_sage_consent(
             body.consent_log_id, user.id
@@ -2126,7 +2272,7 @@ async def ai_chat(body: AIChatReq, user: User = Depends(current_user)):
         logger.exception("AI error")
         raise HTTPException(502, f"AI error: {e}")
 
-    await db.chat_history.insert_one({
+    chat_doc = {
         "id": str(uuid.uuid4()),
         "user_id": user.id,
         "session_id": body.session_id,
@@ -2138,8 +2284,14 @@ async def ai_chat(body: AIChatReq, user: User = Depends(current_user)):
         "safety_level": body.safety_level if is_sage else None,
         "consent_log_id": body.consent_log_id if is_sage else None,
         "scope": body.scope,
+        "store_audio": (not sage_store_audio_off) if is_sage else None,
         "created_at": datetime.now(timezone.utc).isoformat(),
-    })
+    }
+    if is_sage and sage_store_audio_off:
+        # Privacy: when the user opted out of transcript storage, mark the row
+        # for TTL-based deletion (24h). Mongo TTL index is already in place.
+        chat_doc["expires_at"] = datetime.now(timezone.utc) + timedelta(hours=24)
+    await db.chat_history.insert_one(chat_doc)
     return {"reply": reply}
 
 

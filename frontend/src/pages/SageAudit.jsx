@@ -63,6 +63,7 @@ function SessionsTab() {
   const [userId, setUserId] = useState("");
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [metrics, setMetrics] = useState(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -79,6 +80,20 @@ function SessionsTab() {
   }, [kind, userId]);
 
   useEffect(() => { load(); }, [load]);
+
+  // Poll TTS telemetry every 10s.
+  useEffect(() => {
+    let alive = true;
+    const fetchMetrics = async () => {
+      try {
+        const r = await api.get("/admin/sage/metrics");
+        if (alive) setMetrics(r.data);
+      } catch { /* tolerate transient errors */ }
+    };
+    fetchMetrics();
+    const t = setInterval(fetchMetrics, 10000);
+    return () => { alive = false; clearInterval(t); };
+  }, []);
 
   const counts = useMemo(() => {
     const out = { chat: 0, refusal: 0, crisis: 0, consent: 0 };
@@ -136,6 +151,35 @@ function SessionsTab() {
           );
         })}
       </div>
+
+      {metrics && (
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-3" data-testid="telemetry-tile">
+          <div className="card-flat p-3 bg-white">
+            <div className="text-xs font-bold uppercase tracking-widest text-ink/60">TTS p95</div>
+            <div className="font-heading text-2xl font-bold mt-1">{Math.round(metrics.p95_latency_ms)}<span className="text-xs text-ink/40 ml-1">ms</span></div>
+          </div>
+          <div className="card-flat p-3 bg-white">
+            <div className="text-xs font-bold uppercase tracking-widest text-ink/60">Cache hit</div>
+            <div className="font-heading text-2xl font-bold mt-1">{Math.round((metrics.cache_hit_ratio || 0) * 100)}<span className="text-xs text-ink/40 ml-1">%</span></div>
+          </div>
+          <div className="card-flat p-3 bg-white">
+            <div className="text-xs font-bold uppercase tracking-widest text-ink/60">Error rate</div>
+            <div className={`font-heading text-2xl font-bold mt-1 ${(metrics.error_rate || 0) > 0.05 ? "text-red-700" : ""}`}>
+              {Math.round((metrics.error_rate || 0) * 100)}<span className="text-xs text-ink/40 ml-1">%</span>
+            </div>
+          </div>
+          <div className="card-flat p-3 bg-white">
+            <div className="text-xs font-bold uppercase tracking-widest text-ink/60">Breaker</div>
+            <div className="font-heading text-2xl font-bold mt-1 flex items-center gap-2">
+              <span className={`inline-block w-2.5 h-2.5 rounded-full ${
+                metrics.breaker === "closed" ? "bg-green-600" :
+                metrics.breaker === "half-open" ? "bg-yellow-500" : "bg-red-700"
+              }`} />
+              <span className="text-sm">{metrics.breaker}</span>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="card-flat mt-6 bg-white overflow-hidden">
         <table className="w-full text-sm" data-testid="audit-table">

@@ -59,13 +59,19 @@ export default function AITutor() {
   const audioElRef = useRef(null);
   const audioAbortRef = useRef(null);
 
-  // Restricted Mode (integrity drift)
+  // Restricted Mode (integrity drift) + first-time consent gate
   const [restricted, setRestricted] = useState(false);
+  const [resolvedMode, setResolvedMode] = useState(null); // {mode, reason}
 
   useEffect(() => { endRef.current?.scrollIntoView({ behavior: "smooth" }); }, [msgs]);
   useEffect(() => {
     if (mode !== "ancestral_sage") return;
-    api.get("/ai/sage/integrity").then((r) => setRestricted(!!r.data.restricted)).catch(() => {});
+    api.get("/ai/sage/integrity").then((r) => {
+      setRestricted(!!r.data.restricted);
+      if (r.data.needs_first_consent) {
+        setConsentOpen(true);
+      }
+    }).catch(() => {});
   }, [mode]);
 
   useEffect(() => {
@@ -143,6 +149,26 @@ export default function AITutor() {
     setInput("");
     setMsgs((m) => [...m, { role: "user", text: userMsg }]);
     setLoading(true);
+    // Sage v4: deterministic mode reconciliation BEFORE the LLM call.
+    if (mode === "ancestral_sage") {
+      try {
+        const rm = await api.post("/ai/sage/resolve_mode", {
+          session_id: sessionId, user_intent: userMsg,
+        });
+        setResolvedMode({ mode: rm.data.mode, reason: rm.data.reason });
+        if (rm.data.mode === "grounding_ritual") {
+          setMsgs((m) => [...m, {
+            role: "assistant",
+            text: "We can approach this as a practical electrical lesson or as a reflective Sage practice. Which would you like — type 'lesson' or 'sage'?",
+            ritual: true,
+          }]);
+          setLoading(false);
+          return;
+        }
+      } catch {
+        // Resolver failed — proceed silently, default sage behavior.
+      }
+    }
     try {
       const payload = { session_id: sessionId, message: userMsg, mode };
       if (mode === "ancestral_sage") {
@@ -160,7 +186,7 @@ export default function AITutor() {
     } catch (e) {
       const detail = e?.response?.data?.detail;
       if (e?.response?.status === 403 && typeof detail === "string" && detail.toLowerCase().includes("consent")) {
-        toast.error("Consent required for this practice.");
+        toast.error("Consent required. Please complete the User Consent Agreement.");
         setConsentLogId(null);
         setConsentOpen(true);
       } else if (e?.response?.status === 403 && typeof detail === "string" && detail.toLowerCase().includes("cap")) {
@@ -271,6 +297,13 @@ export default function AITutor() {
         )}
 
         <div className="card-flat mt-6 h-[500px] flex flex-col" data-testid="chat-window">
+          {sageActive && resolvedMode && (
+            <div className="px-4 py-2 border-b border-ink/10 text-xs text-ink/60 flex items-center gap-2" data-testid="resolved-mode-badge">
+              <span className="overline text-copper">Mode</span>
+              <span className="font-bold uppercase tracking-widest">{resolvedMode.mode}</span>
+              <span className="text-ink/40">— {resolvedMode.reason}</span>
+            </div>
+          )}
           <div className="flex-1 overflow-y-auto p-6 space-y-4">
             {msgs.length === 0 && (
               <div className="text-center text-ink/40 py-16">
@@ -505,6 +538,7 @@ function ConsentModal({ intensity, safety, onClose, onGranted }) {
   const [d3, setD3] = useState(false);
   const [contentType, setContentType] = useState("personalization");
   const [requestReview, setRequestReview] = useState(false);
+  const [storeAudio, setStoreAudio] = useState(false);
   const [busy, setBusy] = useState(false);
 
   const submit = async () => {
@@ -522,6 +556,7 @@ function ConsentModal({ intensity, safety, onClose, onGranted }) {
         disclaimer2_ack: d2,
         disclaimer3_ack: d3,
         request_human_review: requestReview,
+        store_audio: storeAudio,
       });
       onGranted(r.data.consent_log_id);
     } catch (e) {
@@ -593,6 +628,27 @@ function ConsentModal({ intensity, safety, onClose, onGranted }) {
             />
             <span className="text-ink/70 leading-snug pb-1">
               I'd like a human reviewer to follow up with me about this session.
+            </span>
+          </label>
+        </div>
+
+        <div className="mt-3">
+          <label className="text-xs flex items-start gap-2 cursor-pointer card-flat p-3 bg-white border-l-4 border-l-ink/20">
+            <input
+              type="checkbox"
+              checked={storeAudio}
+              onChange={(e) => setStoreAudio(e.target.checked)}
+              className="w-4 h-4 mt-0.5"
+              data-testid="consent-store-audio"
+            />
+            <span className="text-ink/70 leading-snug">
+              <strong className="text-ink">Allow my transcripts to be stored</strong>
+              <br />
+              <span className="text-ink/60">
+                When unchecked (recommended for privacy), your Ancestral Sage chat
+                history is automatically deleted after 24 hours. When checked, transcripts
+                persist for review and audit per the consent agreement.
+              </span>
             </span>
           </label>
         </div>
