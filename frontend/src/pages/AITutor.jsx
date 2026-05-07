@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import AppShell from "../components/AppShell";
 import { api, API } from "../lib/api";
-import { Sparkles, Send, Compass, ShieldAlert, Lock, Mic, MicOff, Volume2, VolumeX, Loader2 } from "lucide-react";
+import { Sparkles, Send, Compass, ShieldAlert, Lock, Mic, MicOff, Volume2, VolumeX, Loader2, Square, Download } from "lucide-react";
 import { toast } from "sonner";
 
 const MODES = [
@@ -51,9 +51,13 @@ export default function AITutor() {
 
   // Audio state
   const [audioOn, setAudioOn] = useState(false); // user opt-in for speaker
+  const [audioSpeed, setAudioSpeed] = useState(1.0);
+  const [audioVolume, setAudioVolume] = useState(1.0);
+  const [audioPlaying, setAudioPlaying] = useState(false);
   const [recording, setRecording] = useState(false);
   const recogRef = useRef(null);
   const audioElRef = useRef(null);
+  const audioAbortRef = useRef(null);
 
   // Restricted Mode (integrity drift)
   const [restricted, setRestricted] = useState(false);
@@ -70,27 +74,64 @@ export default function AITutor() {
 
   const speak = useCallback(async (text) => {
     if (!audioOn || !text) return;
+    // Cancel any in-flight request and stop any current audio
+    audioAbortRef.current?.abort();
+    if (audioElRef.current) {
+      audioElRef.current.pause();
+      audioElRef.current = null;
+    }
+    const controller = new AbortController();
+    audioAbortRef.current = controller;
     try {
       const token = localStorage.getItem("lce_token");
       const r = await fetch(`${API}/ai/sage/tts`, {
         method: "POST",
         headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
-        body: JSON.stringify({ text, voice: "sage" }),
+        body: JSON.stringify({ text, voice: "sage", speed: audioSpeed, session_id: sessionId }),
+        signal: controller.signal,
       });
+      if (r.status === 429) {
+        toast.error("Voice budget for today is reached. Text remains visible.");
+        return;
+      }
+      if (r.status === 503) {
+        toast.error("Voice provider is temporarily unavailable. Falling back to text only.");
+        return;
+      }
       if (!r.ok) throw new Error(`TTS ${r.status}`);
       const blob = await r.blob();
       const url = URL.createObjectURL(blob);
-      if (audioElRef.current) {
-        audioElRef.current.pause();
-      }
       const audio = new Audio(url);
+      audio.volume = audioVolume;
       audioElRef.current = audio;
-      audio.onended = () => URL.revokeObjectURL(url);
+      audio.onended = () => { URL.revokeObjectURL(url); setAudioPlaying(false); };
+      audio.onpause = () => setAudioPlaying(false);
+      audio.onplay = () => setAudioPlaying(true);
       await audio.play();
     } catch (e) {
-      toast.error("Couldn't play audio. Text remains visible.");
+      if (e?.name !== "AbortError") {
+        toast.error("Couldn't play audio. Text remains visible.");
+      }
     }
-  }, [audioOn]);
+  }, [audioOn, audioSpeed, audioVolume, sessionId]);
+
+  const cancelAudio = () => {
+    audioAbortRef.current?.abort();
+    audioElRef.current?.pause();
+    audioElRef.current = null;
+    setAudioPlaying(false);
+  };
+
+  const downloadTranscript = () => {
+    const lines = msgs.map((m) => `[${m.role}] ${m.text}`).join("\n\n");
+    const blob = new Blob([lines || "(no messages)"], { type: "text/plain;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `sage-transcript-${sessionId}.txt`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
 
   const send = async () => {
     if (!input.trim() || loading) return;
@@ -220,6 +261,10 @@ export default function AITutor() {
             consentLogId={consentLogId}
             consentRequired={consentRequired}
             audioOn={audioOn} setAudioOn={setAudioOn}
+            audioSpeed={audioSpeed} setAudioSpeed={setAudioSpeed}
+            audioVolume={audioVolume} setAudioVolume={setAudioVolume}
+            audioPlaying={audioPlaying} onCancelAudio={cancelAudio}
+            onDownloadTranscript={downloadTranscript}
             onClearConsent={() => setConsentLogId(null)}
             onOpenConsent={() => setConsentOpen(true)}
           />
@@ -326,6 +371,8 @@ function SageParamPanel({
   depth, setDepth, intensity, setIntensity, culture, setCulture,
   divMode, setDivMode, safety, setSafety,
   consentLogId, consentRequired, audioOn, setAudioOn,
+  audioSpeed, setAudioSpeed, audioVolume, setAudioVolume,
+  audioPlaying, onCancelAudio, onDownloadTranscript,
   onClearConsent, onOpenConsent,
 }) {
   const fields = [
@@ -394,6 +441,55 @@ function SageParamPanel({
           </label>
         ))}
       </div>
+
+      {audioOn && (
+        <div className="mt-4 pt-4 border-t border-ink/10 flex items-end gap-4 flex-wrap" data-testid="sage-audio-controls">
+          <label className="block text-xs flex-1 min-w-[140px]">
+            <span className="overline text-ink/60">
+              Voice speed <span className="text-ink/40">({audioSpeed.toFixed(1)}x)</span>
+            </span>
+            <input
+              type="range" min="0.5" max="2.0" step="0.1"
+              value={audioSpeed}
+              onChange={(e) => setAudioSpeed(parseFloat(e.target.value))}
+              className="mt-2 w-full accent-copper"
+              aria-label="Voice playback speed"
+              data-testid="sage-speed-slider"
+            />
+          </label>
+          <label className="block text-xs flex-1 min-w-[140px]">
+            <span className="overline text-ink/60">
+              Volume <span className="text-ink/40">({Math.round(audioVolume * 100)}%)</span>
+            </span>
+            <input
+              type="range" min="0" max="1" step="0.05"
+              value={audioVolume}
+              onChange={(e) => setAudioVolume(parseFloat(e.target.value))}
+              className="mt-2 w-full accent-copper"
+              aria-label="Voice playback volume"
+              data-testid="sage-volume-slider"
+            />
+          </label>
+          {audioPlaying && (
+            <button
+              onClick={onCancelAudio}
+              className="text-xs font-bold uppercase tracking-widest border border-red-700 text-red-700 px-3 py-2 hover:bg-red-50 inline-flex items-center gap-1.5"
+              aria-label="Stop audio playback"
+              data-testid="sage-cancel-audio"
+            >
+              <Square className="w-3.5 h-3.5 fill-red-700" /> Stop audio
+            </button>
+          )}
+          <button
+            onClick={onDownloadTranscript}
+            className="text-xs font-bold uppercase tracking-widest border border-ink/20 px-3 py-2 hover:border-ink inline-flex items-center gap-1.5"
+            aria-label="Download conversation transcript as a text file"
+            data-testid="sage-download-transcript"
+          >
+            <Download className="w-3.5 h-3.5" /> Transcript
+          </button>
+        </div>
+      )}
     </div>
   );
 }

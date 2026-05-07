@@ -616,6 +616,11 @@ async def ensure_indexes():
         await db.password_reset_tokens.create_index("token_hash", unique=True)
         await db.password_reset_tokens.create_index("expires_at", expireAfterSeconds=0)
         await db.password_reset_tokens.create_index("user_id")
+        # Sage v3 perf: TTS audio cache (TTL 7d) + per-user daily usage (TTL 25h).
+        await db.tts_cache.create_index("key", unique=True)
+        await db.tts_cache.create_index("created_at", expireAfterSeconds=7 * 24 * 3600)
+        await db.tts_usage.create_index([("user_id", 1), ("day", 1)], unique=True)
+        await db.tts_usage.create_index("created_at", expireAfterSeconds=25 * 3600)
         logger.info("Indexes ensured")
     except Exception:
         logger.exception("ensure_indexes failed (non-fatal)")
@@ -1507,6 +1512,111 @@ async def ai_consent(body: AIConsentReq, user: User = Depends(current_user)):
     }
 
 
+# --- Sage v3: perf state (cost caps, circuit breaker, metrics buffer) -------
+TTS_SESSION_CHAR_CAP = int(os.environ.get("TTS_SESSION_CHAR_CAP", "10000"))
+TTS_USER_DAILY_CHAR_CAP = int(os.environ.get("TTS_USER_DAILY_CHAR_CAP", "200000"))
+TTS_BUDGET_ALERT_RATIO = float(os.environ.get("TTS_BUDGET_ALERT_RATIO", "0.8"))
+TTS_BREAKER_FAIL_THRESHOLD = int(os.environ.get("TTS_BREAKER_FAIL_THRESHOLD", "5"))
+TTS_BREAKER_WINDOW_S = int(os.environ.get("TTS_BREAKER_WINDOW_S", "60"))
+TTS_BREAKER_COOLDOWN_S = int(os.environ.get("TTS_BREAKER_COOLDOWN_S", "60"))
+TTS_METRICS_WINDOW_S = int(os.environ.get("TTS_METRICS_WINDOW_S", "300"))
+
+
+# In-process state. For a single-pod deployment this is fine; if the
+# service ever runs multi-replica this should move to Redis.
+_tts_failures: list[float] = []   # unix timestamps of failures inside window
+_tts_breaker_opened_at: float = 0.0
+# Rolling buffer of recent TTS attempts: (ts, latency_ms, cache_hit, error)
+_tts_metrics: list[tuple[float, float, bool, bool]] = []
+_TTS_SESSION_USAGE: dict[str, int] = {}  # session_id -> chars served
+
+
+def _tts_breaker_state() -> str:
+    """Returns 'closed' | 'open' | 'half-open' for the TTS provider."""
+    import time as _t
+    now = _t.time()
+    # Drain old failures.
+    cutoff = now - TTS_BREAKER_WINDOW_S
+    _tts_failures[:] = [t for t in _tts_failures if t >= cutoff]
+    if _tts_breaker_opened_at:
+        if now - _tts_breaker_opened_at >= TTS_BREAKER_COOLDOWN_S:
+            return "half-open"
+        return "open"
+    return "closed"
+
+
+def _tts_record_success() -> None:
+    global _tts_breaker_opened_at
+    _tts_breaker_opened_at = 0.0
+    _tts_failures.clear()
+
+
+def _tts_record_failure() -> None:
+    import time as _t
+    global _tts_breaker_opened_at
+    _tts_failures.append(_t.time())
+    if len(_tts_failures) >= TTS_BREAKER_FAIL_THRESHOLD:
+        _tts_breaker_opened_at = _t.time()
+
+
+def _tts_record_metric(latency_ms: float, cache_hit: bool, error: bool) -> None:
+    import time as _t
+    now = _t.time()
+    _tts_metrics.append((now, latency_ms, cache_hit, error))
+    cutoff = now - TTS_METRICS_WINDOW_S
+    while _tts_metrics and _tts_metrics[0][0] < cutoff:
+        _tts_metrics.pop(0)
+
+
+async def _tts_check_cost_cap(user_id: str, session_id: str, chars: int) -> tuple[bool, str, dict]:
+    """Returns (ok, reason, telemetry). Increments counters when ok=True."""
+    # Session cap (in-memory, per-process — safe per-pod).
+    sess_key = f"{user_id}:{session_id}"
+    sess_used = _TTS_SESSION_USAGE.get(sess_key, 0)
+    if sess_used + chars > TTS_SESSION_CHAR_CAP:
+        return False, "session", {"session_used": sess_used, "session_cap": TTS_SESSION_CHAR_CAP}
+
+    # Daily user cap (durable).
+    today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    doc = await db.tts_usage.find_one({"user_id": user_id, "day": today}, {"_id": 0, "chars": 1})
+    used = (doc or {}).get("chars", 0)
+    if used + chars > TTS_USER_DAILY_CHAR_CAP:
+        return False, "daily", {"daily_used": used, "daily_cap": TTS_USER_DAILY_CHAR_CAP}
+
+    # Increment.
+    _TTS_SESSION_USAGE[sess_key] = sess_used + chars
+    new_total = used + chars
+    await db.tts_usage.update_one(
+        {"user_id": user_id, "day": today},
+        {"$set": {"user_id": user_id, "day": today,
+                  "created_at": datetime.now(timezone.utc).isoformat()},
+         "$inc": {"chars": chars}},
+        upsert=True,
+    )
+    # 80% alert (one-shot per day per user).
+    prev_ratio = used / TTS_USER_DAILY_CHAR_CAP if TTS_USER_DAILY_CHAR_CAP else 0
+    new_ratio = new_total / TTS_USER_DAILY_CHAR_CAP if TTS_USER_DAILY_CHAR_CAP else 0
+    if prev_ratio < TTS_BUDGET_ALERT_RATIO <= new_ratio:
+        await db.audit_log.insert_one({
+            "id": str(uuid.uuid4()),
+            "actor_id": user_id,
+            "action": "sage_tts_budget_alert",
+            "details": {"used": new_total, "cap": TTS_USER_DAILY_CHAR_CAP, "ratio": round(new_ratio, 3)},
+            "created_at": datetime.now(timezone.utc).isoformat(),
+        })
+    return True, "", {"session_used": sess_used + chars, "daily_used": new_total}
+
+
+def _tts_cache_key(text: str, voice: str, speed: float) -> str:
+    h = hashlib.sha256()
+    h.update(text.encode("utf-8"))
+    h.update(b"|")
+    h.update(voice.encode("utf-8"))
+    h.update(b"|")
+    h.update(f"{speed:.2f}".encode("utf-8"))
+    return h.hexdigest()
+
+
 # --- Safety cap (Exec Admin governance) -------------------------------------
 _SAFETY_RANK = {"conservative": 1, "standard": 2, "exploratory": 3, "extreme": 4}
 _SAFETY_LEVELS = list(_SAFETY_RANK.keys())
@@ -1758,45 +1868,166 @@ class SageTTSReq(BaseModel):
         "alloy", "ash", "coral", "echo", "fable", "nova", "onyx", "sage", "shimmer"
     ]] = "sage"
     speed: Optional[float] = 1.0
+    session_id: Optional[str] = None
 
 
 @api_router.post("/ai/sage/tts")
 async def sage_tts(body: SageTTSReq, user: User = Depends(current_user)):
     """Convert text to speech via OpenAI TTS-1 routed through the
     Emergent LLM key. Returns audio/mpeg bytes streamed inline. Frontend
-    must obtain explicit speaker permission before invoking this endpoint;
-    invocation itself is logged."""
+    must obtain explicit speaker permission before invoking this endpoint.
+
+    Sage v3 perf wraps the call in:
+      1. cost-cap check (per-session 10k chars, per-user 200k chars/day)
+      2. circuit breaker (open after 5 failures / 60s, half-open after 60s)
+      3. content-hash audio cache (TTL 7d in MongoDB)
+      4. latency / hit-ratio / error-rate metrics buffer (5 min)
+    """
+    import time as _t
     if not EMERGENT_LLM_KEY:
         raise HTTPException(500, "AI not configured")
     text = (body.text or "").strip()
     if not text:
         raise HTTPException(400, "text is required")
-    # OpenAI TTS hard cap.
     if len(text) > 4000:
         text = text[:4000]
+    voice = body.voice or "sage"
+    speed = max(0.5, min(float(body.speed or 1.0), 2.0))
+
+    # 1. Cost cap.
+    ok, reason, telem = await _tts_check_cost_cap(
+        user.id, body.session_id or "default", len(text)
+    )
+    if not ok:
+        return StreamingResponse(
+            io.BytesIO(b""),
+            status_code=429,
+            media_type="audio/mpeg",
+            headers={
+                "X-Cost-Cap": "true",
+                "X-Cost-Cap-Reason": reason,
+                "Retry-After": "3600" if reason == "daily" else "60",
+            },
+        )
+
+    # 2. Circuit breaker — fail fast when open.
+    breaker = _tts_breaker_state()
+    if breaker == "open":
+        return StreamingResponse(
+            io.BytesIO(b""),
+            status_code=503,
+            media_type="audio/mpeg",
+            headers={"X-Fallback": "text-only", "X-Breaker": "open", "Retry-After": "60"},
+        )
+
+    # 3. Cache lookup.
+    cache_key = _tts_cache_key(text, voice, speed)
+    cached = await db.tts_cache.find_one({"key": cache_key}, {"_id": 0, "audio_b64": 1})
+    if cached and cached.get("audio_b64"):
+        import base64
+        audio = base64.b64decode(cached["audio_b64"])
+        _tts_record_metric(0.0, cache_hit=True, error=False)
+        return StreamingResponse(
+            io.BytesIO(audio),
+            media_type="audio/mpeg",
+            headers={"X-Cache": "hit", "X-Audio-Len": str(len(audio))},
+        )
+
+    # 4. Provider call (with latency + breaker tracking).
     try:
         from emergentintegrations.llm.openai import OpenAITextToSpeech
-    except Exception as e:
-        raise HTTPException(500, f"TTS library unavailable: {e}")
+    except Exception as exc:
+        raise HTTPException(500, f"TTS library unavailable: {exc}") from exc
 
-    speed = max(0.5, min(float(body.speed or 1.0), 2.0))
+    t0 = _t.time()
     try:
         tts = OpenAITextToSpeech(api_key=EMERGENT_LLM_KEY)
         audio_bytes = await tts.generate_speech(
-            text=text, model="tts-1", voice=body.voice or "sage", speed=speed,
+            text=text, model="tts-1", voice=voice, speed=speed,
         )
-    except Exception as e:
-        logger.exception("Sage TTS error")
-        raise HTTPException(502, f"TTS error: {e}")
+        _tts_record_success()
+    except Exception:
+        _tts_record_failure()
+        _tts_record_metric((_t.time() - t0) * 1000, cache_hit=False, error=True)
+        logger.exception("Sage TTS provider error")
+        return StreamingResponse(
+            io.BytesIO(b""),
+            status_code=503,
+            media_type="audio/mpeg",
+            headers={"X-Fallback": "text-only", "X-Breaker": _tts_breaker_state()},
+        )
+
+    latency_ms = (_t.time() - t0) * 1000
+    _tts_record_metric(latency_ms, cache_hit=False, error=False)
+
+    # 5. Persist to cache (best-effort).
+    try:
+        import base64
+        await db.tts_cache.insert_one({
+            "key": cache_key,
+            "audio_b64": base64.b64encode(audio_bytes).decode("ascii"),
+            "voice": voice,
+            "speed": speed,
+            "len": len(audio_bytes),
+            "created_at": datetime.now(timezone.utc),
+        })
+    except Exception:
+        # Duplicate key on race is fine; ignore.
+        pass
 
     await db.audit_log.insert_one({
         "id": str(uuid.uuid4()),
         "actor_id": user.id,
         "action": "sage_tts_invoked",
-        "details": {"voice": body.voice or "sage", "len": len(text)},
+        "details": {"voice": voice, "len": len(text), "latency_ms": round(latency_ms, 1),
+                    "cache": "miss", **telem},
         "created_at": datetime.now(timezone.utc).isoformat(),
     })
-    return StreamingResponse(io.BytesIO(audio_bytes), media_type="audio/mpeg")
+    return StreamingResponse(
+        io.BytesIO(audio_bytes),
+        media_type="audio/mpeg",
+        headers={
+            "X-Cache": "miss",
+            "X-Audio-Len": str(len(audio_bytes)),
+            "X-Latency-Ms": str(round(latency_ms, 1)),
+        },
+    )
+
+
+@api_router.get("/admin/sage/metrics")
+async def admin_sage_metrics(user: User = Depends(require_role("executive_admin"))):
+    """Returns rolling 5-minute TTS metrics: p95 latency, cache-hit ratio,
+    error rate. Plus circuit-breaker state and current cost-cap caps."""
+    if not _tts_metrics:
+        return {
+            "p95_latency_ms": 0.0,
+            "cache_hit_ratio": 0.0,
+            "error_rate": 0.0,
+            "sample_count": 0,
+            "window_seconds": TTS_METRICS_WINDOW_S,
+            "breaker": _tts_breaker_state(),
+            "session_char_cap": TTS_SESSION_CHAR_CAP,
+            "user_daily_char_cap": TTS_USER_DAILY_CHAR_CAP,
+        }
+    latencies = sorted(m[1] for m in _tts_metrics if not m[2] and not m[3])
+    p95 = 0.0
+    if latencies:
+        idx = max(0, int(round(0.95 * (len(latencies) - 1))))
+        p95 = round(latencies[idx], 1)
+    hits = sum(1 for m in _tts_metrics if m[2])
+    errors = sum(1 for m in _tts_metrics if m[3])
+    n = len(_tts_metrics)
+    return {
+        "p95_latency_ms": p95,
+        "cache_hit_ratio": round(hits / n, 3),
+        "error_rate": round(errors / n, 3),
+        "sample_count": n,
+        "window_seconds": TTS_METRICS_WINDOW_S,
+        "breaker": _tts_breaker_state(),
+        "breaker_recent_failures": len(_tts_failures),
+        "session_char_cap": TTS_SESSION_CHAR_CAP,
+        "user_daily_char_cap": TTS_USER_DAILY_CHAR_CAP,
+    }
 
 
 @api_router.post("/ai/chat")
