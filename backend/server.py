@@ -38,7 +38,7 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import List, Optional, Literal
 
-import jwt
+from jose import jwt
 from dotenv import load_dotenv
 from fastapi import Depends, FastAPI, APIRouter, HTTPException, Header, Request
 from fastapi.responses import StreamingResponse
