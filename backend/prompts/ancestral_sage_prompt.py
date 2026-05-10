@@ -223,3 +223,4 @@ ANCESTRAL_SAGE_PROMPT_HASH_EXPECTED = "REPLACE_WITH_RECOMPUTED_SHA256"
 if __name__ == "__main__":
     sha = hashlib.sha256(ANCESTRAL_SAGE_PROMPT.encode("utf-8")).hexdigest()
     print("Computed ANCESTRAL_SAGE_PROMPT SHA-256:", sha)
+
