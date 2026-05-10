@@ -166,11 +166,10 @@ This file is the AUTHORITATIVE specification for the Ancestral Sage
 persona on the WAI-Institute / Emergent platform. ANY edit to
 `ANCESTRAL_SAGE_PROMPT` MUST be accompanied by recomputing
 # `ANCESTRAL_SAGE_PROMPT_HASH_EXPECTED` (run the included `__main__` block).
-
-The runtime integrity check in server.py compares the live SHA-256 of
-`ANCESTRAL_SAGE_PROMPT` against `ANCESTRAL_SAGE_PROMPT_HASH_EXPECTED`.
-On drift, the persona falls back to RESTRICTED_EDUCATIONAL_FALLBACK
-(see below) and an admin-visible audit row is written.
+#The runtime integrity check in server.py compares the live SHA-256 of
+#`ANCESTRAL_SAGE_PROMPT` against `ANCESTRAL_SAGE_PROMPT_HASH_EXPECTED`.
+#On drift, the persona falls back to RESTRICTED_EDUCATIONAL_FALLBACK
+#(see below) and an admin-visible audit row is written.
 
 import hashlib
 
