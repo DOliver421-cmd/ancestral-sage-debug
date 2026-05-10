@@ -224,8 +224,17 @@ This fallback provides a safe, educational-only explanation instead.
 
 # Expected hash for integrity checking. This value MUST be recomputed
 # any time ANCESTRAL_SAGE_PROMPT is changed.
-ANCESTRAL_SAGE_PROMPT_HASH_EXPECTED = "f8f0a4f9f0b8a4f2b4f7a4a0a5c7a9a4f0a4c4b9f0a4d4b7e4b9c4f0b7c4d9"
+
+ANCESTRAL_SAGE_PROMPT_HASH_EXPECTED = "97768f0773d8ed4a934d475e687dbf1fd35a275e13073fa6b4db8eb6068e2d82"
 
 if __name__ == "__main__":
     sha = hashlib.sha256(ANCESTRAL_SAGE_PROMPT.encode("utf-8")).hexdigest()
     print("Computed ANCESTRAL_SAGE_PROMPT SHA-256:", sha)
+
+
+
+
+def compute_sage_prompt_hash():
+    """Return the SHA-256 hash of the canonical Ancestral Sage prompt."""
+    return hashlib.sha256(ANCESTRAL_SAGE_PROMPT.encode("utf-8")).hexdigest()
+>>>>>>> f9e0179 (Backend Doctor v3: full auto-repair)
