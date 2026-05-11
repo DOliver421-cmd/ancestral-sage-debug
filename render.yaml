@@ -1,0 +1,5 @@
+static_sites:
+  - name: ancestral-sage-frontend
+    buildCommand: bash render_build_fix.sh
+    staticPublishPath: ./build
+    workingDirectory: frontend
