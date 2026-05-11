@@ -1,5 +1,7 @@
 static_sites:
   - name: ancestral-sage-frontend
-    buildCommand: bash render_build_fix.sh
-    staticPublishPath: ./build
-    workingDirectory: frontend
+    repo: https://github.com/DOliver421-cmd/ancestral-sage-debug
+    branch: main
+    rootDir: frontend
+    buildCommand: npm install --legacy-peer-deps && npm run build
+    staticPublishPath: build
