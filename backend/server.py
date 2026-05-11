@@ -1,4 +1,4 @@
-"""LCE-WAI training platform — FastAPI backend.
+﻿"""LCE-WAI training platform â€” FastAPI backend.
 
 ROUTE MAP (see `api_router` definitions below; all paths are prefixed `/api`):
 
@@ -45,7 +45,7 @@ from fastapi.responses import StreamingResponse
 from motor.motor_asyncio import AsyncIOMotorClient
 from passlib.context import CryptContext
 from pydantic import BaseModel, Field, EmailStr, ConfigDict
-from prompts.ancestral_sage_prompt import (
+from backend.prompts.ancestral_sage_prompt import (
     ANCESTRAL_SAGE_PROMPT,
     ANCESTRAL_SAGE_PROMPT_HASH_EXPECTED,
     RESTRICTED_EDUCATIONAL_FALLBACK,
@@ -79,7 +79,7 @@ pwd_ctx = CryptContext(schemes=["bcrypt"], deprecated="auto")
 app = FastAPI(
     title="W.A.I. Training Platform",
     version="3.0.0",
-    description="W.A.I. — Workforce Apprentice Institute API. Hands-on electrical apprenticeship training, labs, credentials, and portfolio.",
+    description="W.A.I. â€” Workforce Apprentice Institute API. Hands-on electrical apprenticeship training, labs, credentials, and portfolio.",
     redirect_slashes=False,
     docs_url="/api/docs",
     redoc_url="/api/redoc",
@@ -90,7 +90,7 @@ logger = logging.getLogger("lcewai")
 logging.basicConfig(level=logging.INFO)
 APP_VERSION = "3.0.0"
 
-# Simple in-memory rate limit (per IP, per route) — replace with redis in true HA prod
+# Simple in-memory rate limit (per IP, per route) â€” replace with redis in true HA prod
 from collections import defaultdict as _dd
 _RATE = _dd(list)
 
@@ -163,7 +163,7 @@ class User(BaseModel):
     is_active: bool = True
     # When true, the user must change password on next login. Set on (a) the
     # auto-created executive_admin, and (b) any account created via
-    # POST /api/admin/users — the admin shares a temp password and the user
+    # POST /api/admin/users â€” the admin shares a temp password and the user
     # picks their own on first login.
     must_change_password: bool = False
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
@@ -221,7 +221,7 @@ class ResetPasswordReq(BaseModel):
 
 class SelfEditMeReq(BaseModel):
     """Self-service profile edit. Users may change their display name and
-    email.  Role and associate are NOT editable here — those are admin-only
+    email.  Role and associate are NOT editable here â€” those are admin-only
     to prevent privilege/cohort drift."""
     full_name: Optional[str] = None
     email: Optional[EmailStr] = None
@@ -350,7 +350,7 @@ RESEND_FROM = os.environ.get("RESEND_FROM", "W.A.I. <noreply@wai-institute.org>"
 
 def _hash_token(raw: str) -> str:
     """Stable sha256 hash of the raw token. We never store the raw token
-    in MongoDB — only the hash. Lookups use the hash."""
+    in MongoDB â€” only the hash. Lookups use the hash."""
     return hashlib.sha256(raw.encode("utf-8")).hexdigest()
 
 
@@ -377,7 +377,7 @@ async def _send_reset_email(to_email: str, raw_token: str, full_name: str = "the
         return False
     reset_url = _build_reset_url(raw_token)
     if reset_url.startswith("/"):
-        # No PUBLIC_APP_URL configured — refuse to email a relative link.
+        # No PUBLIC_APP_URL configured â€” refuse to email a relative link.
         logger.warning("RESEND_API_KEY set but PUBLIC_APP_URL missing; skipping email.")
         return False
     subject = "Reset your W.A.I. password"
@@ -389,7 +389,7 @@ async def _send_reset_email(to_email: str, raw_token: str, full_name: str = "the
       <p style="margin:28px 0">
         <a href="{reset_url}" style="background:#0a0e14;color:#fff;padding:12px 20px;text-decoration:none;font-weight:600">Reset Password</a>
       </p>
-      <p style="font-size:12px;color:#666">If you didn't ask for this, you can safely ignore this message — your password won't change.</p>
+      <p style="font-size:12px;color:#666">If you didn't ask for this, you can safely ignore this message â€” your password won't change.</p>
       <p style="font-size:12px;color:#666">Or paste this URL into your browser:<br><code style="word-break:break-all">{reset_url}</code></p>
     </div>
     """
@@ -439,7 +439,7 @@ def require_role(*roles):
 
     Pass if the user's role rank is >= the LOWEST rank among the requested
     roles. This preserves backward compatibility (existing
-    `require_role("admin")` calls keep working exactly the same — admins still
+    `require_role("admin")` calls keep working exactly the same â€” admins still
     pass) AND adds god-mode for executive_admin (passes every check).
     """
     needed_rank = min(ROLE_RANK[r] for r in roles)
@@ -472,7 +472,7 @@ async def seed_modules():
 
 
 async def seed_users():
-    # One-time migration: cohort → associate for any legacy users
+    # One-time migration: cohort â†’ associate for any legacy users
     await db.users.update_many(
         {"cohort": {"$exists": True}, "associate": {"$in": [None, ""]}},
         [{"$set": {"associate": "$cohort"}}, {"$unset": "cohort"}],
@@ -502,7 +502,7 @@ async def seed_users():
             })
         else:
             # Auto-heal role / is_active drift on the seeded demo accounts.
-            # Without this, a manual demotion of e.g. admin@lcewai.org → instructor
+            # Without this, a manual demotion of e.g. admin@lcewai.org â†’ instructor
             # would persist forever (the original code only ran on first insert).
             # Mirrors the executive_admin bootstrap pattern below.
             update = {}
@@ -516,8 +516,8 @@ async def seed_users():
 
     # ----- EXECUTIVE ADMIN bootstrap -----
     # Hardcoded executive admin email. On every startup:
-    #   * if the account exists with any other role → upgrade to executive_admin
-    #   * if it does not exist → create it with the seed password (which the
+    #   * if the account exists with any other role â†’ upgrade to executive_admin
+    #   * if it does not exist â†’ create it with the seed password (which the
     #     admin should rotate immediately on first login)
     # This guarantees the operator always has a way back into the system.
 
@@ -529,7 +529,7 @@ async def seed_users():
         legacy_doc = await db.users.find_one({"email": legacy}, {"_id": 0})
         if legacy_doc and legacy_doc.get("role") == "executive_admin":
             await db.users.update_one({"email": legacy}, {"$set": {"role": "admin"}})
-            logger.info("Demoted legacy hardcoded executive_admin: %s → admin", legacy)
+            logger.info("Demoted legacy hardcoded executive_admin: %s â†’ admin", legacy)
 
     existing_exec = await db.users.find_one({"email": EXEC_ADMIN_EMAIL}, {"_id": 0})
     if existing_exec:
@@ -594,7 +594,7 @@ async def on_startup():
     # .env should NEVER set this; it exists only for the preview test suite.
     if os.environ.get("DEV_RETURN_RESET_TOKEN") == "1":
         logger.warning(
-            "DEV_RETURN_RESET_TOKEN=1 is set — /api/auth/forgot-password "
+            "DEV_RETURN_RESET_TOKEN=1 is set â€” /api/auth/forgot-password "
             "will return raw reset tokens in the response. THIS IS UNSAFE "
             "FOR PRODUCTION. Remove DEV_RETURN_RESET_TOKEN from .env "
             "before deploying to a public environment."
@@ -608,7 +608,7 @@ async def ensure_indexes():
         await db.users.create_index("id", unique=True)
         await db.lab_submissions.create_index([("user_id", 1), ("lab_slug", 1)], unique=True)
         await db.progress.create_index([("user_id", 1), ("module_slug", 1)], unique=True)
-        # Supports /admin/cohorts aggregation: status filter → user_id $lookup
+        # Supports /admin/cohorts aggregation: status filter â†’ user_id $lookup
         await db.progress.create_index([("status", 1), ("user_id", 1)])
         await db.users.create_index([("associate", 1), ("role", 1)])
         await db.compliance_progress.create_index([("user_id", 1), ("module_slug", 1)], unique=True)
@@ -620,7 +620,7 @@ async def ensure_indexes():
         await db.tool_checkouts.create_index([("user_id", 1), ("status", 1)])
         await db.inventory.create_index("sku", unique=True)
         await db.sites.create_index("slug", unique=True)
-        # Password reset tokens — TTL on expires_at auto-removes expired docs;
+        # Password reset tokens â€” TTL on expires_at auto-removes expired docs;
         # token_hash is the unique lookup key.
         await db.password_reset_tokens.create_index("token_hash", unique=True)
         await db.password_reset_tokens.create_index("expires_at", expireAfterSeconds=0)
@@ -864,7 +864,7 @@ async def admin_create_user(body: AdminCreateUserReq, user: User = Depends(requi
     """Admin-only: create a user with any role (including admin/instructor).
     Only executive_admins may create another executive_admin.
 
-    Newly created accounts have `must_change_password=True` — the admin tells
+    Newly created accounts have `must_change_password=True` â€” the admin tells
     the user the temp password verbally/email; on first login the frontend
     routes them to /settings until they pick a new one."""
     if body.role == "executive_admin" and user.role != "executive_admin":
@@ -888,7 +888,7 @@ async def admin_change_role(uid: str, body: AdminRoleReq, user: User = Depends(r
     Hierarchy guard: an admin cannot promote anyone TO executive_admin and
     cannot modify an existing executive_admin. Only executive_admin can."""
     if uid == user.id and ROLE_RANK.get(body.role, 0) < ROLE_RANK.get(user.role, 0):
-        raise HTTPException(400, "Refusing to demote yourself — ask a higher-privileged admin.")
+        raise HTTPException(400, "Refusing to demote yourself â€” ask a higher-privileged admin.")
     target = await db.users.find_one({"id": uid}, {"_id": 0})
     if not target:
         raise HTTPException(404, "User not found")
@@ -1005,7 +1005,7 @@ async def admin_reset_password(uid: str, body: AdminResetPasswordReq,
 @api_router.get("/exec/system")
 async def exec_system_info(user: User = Depends(require_role("executive_admin"))):
     """Executive-only: high-level system info for system admins.
-    Distinct from admin /admin/stats — this exposes role-distribution and
+    Distinct from admin /admin/stats â€” this exposes role-distribution and
     recent privileged-action counts for governance review."""
     role_counts = {}
     cursor = db.users.aggregate([{"$group": {"_id": "$role", "n": {"$sum": 1}}}])
@@ -1153,7 +1153,7 @@ async def _load_reset_token(token_hash: str) -> dict:
         raise HTTPException(400, "Invalid or already-used reset link")
     expires_at = _normalize_expiry(rec.get("expires_at"))
     if expires_at < datetime.now(timezone.utc):
-        raise HTTPException(400, "Reset link has expired — request a new one")
+        raise HTTPException(400, "Reset link has expired â€” request a new one")
     return rec
 
 
@@ -1164,7 +1164,7 @@ async def _load_target_user_for_reset(user_id: str) -> dict:
     if not target:
         raise HTTPException(400, "Invalid reset link")
     if target.get("is_active") is False:
-        raise HTTPException(403, "Account is deactivated — contact an administrator")
+        raise HTTPException(403, "Account is deactivated â€” contact an administrator")
     return target
 
 
@@ -1223,7 +1223,7 @@ async def reset_password_endpoint(body: ResetPasswordReq, request: Request):
 async def admin_create_reset_link(uid: str, request: Request,
                                   user: User = Depends(require_role("admin"))):
     """Admin-mediated reset.  Mints a one-shot reset link the admin can
-    share verbally / via Slack / email.  Honours can_modify() — admins
+    share verbally / via Slack / email.  Honours can_modify() â€” admins
     cannot mint links for executive_admin accounts."""
     target = await db.users.find_one({"id": uid}, {"_id": 0})
     if not target:
@@ -1320,7 +1320,7 @@ async def cohort_summary(user: User = Depends(require_role("admin"))):
     rows = await db.users.aggregate(pipeline).to_list(500)
     cohorts: dict = {}
     for r in rows:
-        a = r["_id"].get("associate") or "—"
+        a = r["_id"].get("associate") or "â€”"
         c = cohorts.setdefault(a, {"associate": a, "members": 0, "students": 0, "instructors": 0, "admins": 0})
         c["members"] += r["n"]
         if r["_id"]["role"] == "student":
@@ -1330,9 +1330,9 @@ async def cohort_summary(user: User = Depends(require_role("admin"))):
         elif r["_id"]["role"] in ("admin", "executive_admin"):
             c["admins"] += r["n"]
     # Per-cohort completion counts.  Previously this issued 2 queries per
-    # cohort (find users → count progress) — a textbook N+1 that scaled with
+    # cohort (find users â†’ count progress) â€” a textbook N+1 that scaled with
     # the number of associates.  Now collapsed to ONE aggregation that joins
-    # progress → users and groups by associate.
+    # progress â†’ users and groups by associate.
     completion_pipeline = [
         {"$match": {"status": "completed"}},
         {"$lookup": {
@@ -1345,14 +1345,14 @@ async def cohort_summary(user: User = Depends(require_role("admin"))):
         {"$group": {"_id": "$u.associate", "completions": {"$sum": 1}}},
     ]
     comp_rows = await db.progress.aggregate(completion_pipeline).to_list(500)
-    comp_by_cohort = {((r["_id"]) if r["_id"] else "—"): r["completions"] for r in comp_rows}
+    comp_by_cohort = {((r["_id"]) if r["_id"] else "â€”"): r["completions"] for r in comp_rows}
     for cohort_name, c in cohorts.items():
         c["completions"] = comp_by_cohort.get(cohort_name, 0)
     return sorted(cohorts.values(), key=lambda x: -x["members"])
 
 
 SYSTEM_PROMPTS = {
-    "tutor": "You are a patient master electrician and faith-forward mentor for W.A.I. — Workforce Apprentice Institute (LCE-WAI partner program). Answer apprentice questions clearly, reference NEC articles when relevant, emphasize safety, and use plain language. Keep replies under 250 words.",
+    "tutor": "You are a patient master electrician and faith-forward mentor for W.A.I. â€” Workforce Apprentice Institute (LCE-WAI partner program). Answer apprentice questions clearly, reference NEC articles when relevant, emphasize safety, and use plain language. Keep replies under 250 words.",
     "scripture": "You are a faith-based electrical trade mentor at W.A.I. For each question, give a short encouragement tying the apprentice's current work to a relevant scripture verse, then a one-paragraph teaching point. Keep the tone warm and dignified.",
     "quiz_gen": "You generate short multiple-choice quiz questions (4 options, mark the correct answer index 0-3) on electrical topics. Output a clean numbered list with answer key at the end.",
     "explain": "You explain electrical concepts step-by-step to apprentices. Use analogies, list steps, and close with a 1-line 'Safety first' reminder.",
@@ -1388,9 +1388,9 @@ CRISIS_REPLY = (
     "I can't assist with that request. If you are in immediate danger or "
     "experiencing a crisis, please contact local emergency services or a "
     "licensed professional right now.\n\n"
-    "United States — call or text 988 (Suicide & Crisis Lifeline).\n"
-    "Crisis Text Line — text HOME to 741741.\n"
-    "International directory — https://findahelpline.com\n\n"
+    "United States â€” call or text 988 (Suicide & Crisis Lifeline).\n"
+    "Crisis Text Line â€” text HOME to 741741.\n"
+    "International directory â€” https://findahelpline.com\n\n"
     "I'm here when you're ready to continue with safe, grounding practices. "
     "Aftercare: take three slow breaths, drink water, place a hand on your chest, "
     "and reach out to someone you trust."
@@ -1525,7 +1525,7 @@ async def ai_consent(body: AIConsentReq, user: User = Depends(current_user)):
             "created_at": now.isoformat(),
         })
     return {
-        # Backward-compatible field — existing UI relies on this.
+        # Backward-compatible field â€” existing UI relies on this.
         "consent_log_id": cid,
         # Senior-advisor canonical fields.
         "status": "ok",
@@ -1574,12 +1574,12 @@ async def resolve_mode(body: ResolveModeReq, user: User = Depends(current_user))
     Returns one of: 'sage', 'electrical', 'grounding_ritual'.
 
     Rules (highest weight: explicit user intent text):
-      - electrical_score >= 2 AND > sage_score    → 'electrical'
-      - sage_score      >= 2 AND > electrical_score → 'sage'
-      - both >= 1                                  → 'grounding_ritual'
-      - electrical_score >= 1 only                 → 'electrical'
-      - sage_score      >= 1 only                  → 'sage'
-      - default                                    → 'sage'
+      - electrical_score >= 2 AND > sage_score    â†’ 'electrical'
+      - sage_score      >= 2 AND > electrical_score â†’ 'sage'
+      - both >= 1                                  â†’ 'grounding_ritual'
+      - electrical_score >= 1 only                 â†’ 'electrical'
+      - sage_score      >= 1 only                  â†’ 'sage'
+      - default                                    â†’ 'sage'
     """
     scores = _grounding_score(body.user_intent)
     elec, sage = scores["electrical"], scores["sage"]
@@ -1677,7 +1677,7 @@ def _tts_record_metric(latency_ms: float, cache_hit: bool, error: bool) -> None:
 
 async def _tts_check_cost_cap(user_id: str, session_id: str, chars: int) -> tuple[bool, str, dict]:
     """Returns (ok, reason, telemetry). Increments counters when ok=True."""
-    # Session cap (in-memory, per-process — safe per-pod).
+    # Session cap (in-memory, per-process â€” safe per-pod).
     sess_key = f"{user_id}:{session_id}"
     sess_used = _TTS_SESSION_USAGE.get(sess_key, 0)
     if sess_used + chars > TTS_SESSION_CHAR_CAP:
@@ -1920,7 +1920,7 @@ async def admin_sage_audit(
 async def sage_integrity(user: User = Depends(current_user)):
     """Public-to-authenticated check used by the frontend to surface a
     'Restricted Mode' banner when the prompt hash drifts. Anyone signed in
-    can view this — exec admins additionally see the full hashes.
+    can view this â€” exec admins additionally see the full hashes.
 
     Also returns `needs_first_consent: true` if the user has no recorded
     Ancestral Sage consent yet (used by the frontend to gate tutor UI)."""
@@ -1959,7 +1959,7 @@ async def admin_sage_status(user: User = Depends(require_role("executive_admin")
     Used by the deployment pipeline to avoid duplicating work."""
     integrity_ok = _sage_prompt_integrity_ok()
     # Module presence is determined by inspecting the live runtime, not flags.
-    # All four are wired in the same module — they ship together — so they're
+    # All four are wired in the same module â€” they ship together â€” so they're
     # all "present" iff the prompt module imported successfully.
     modules = {
         "A": "present" if SYSTEM_PROMPTS.get("ancestral_sage") else "missing",
@@ -2027,7 +2027,7 @@ async def sage_tts(body: SageTTSReq, user: User = Depends(current_user)):
             },
         )
 
-    # 2. Circuit breaker — fail fast when open.
+    # 2. Circuit breaker â€” fail fast when open.
     breaker = _tts_breaker_state()
     if breaker == "open":
         return StreamingResponse(
@@ -2152,7 +2152,7 @@ async def ai_chat(body: AIChatReq, user: User = Depends(current_user)):
     # ---- Ancestral Sage gating (runs BEFORE any LLM cost) ---------------
     is_sage = body.mode == "ancestral_sage"
 
-    # 1. Exec-Admin safety cap. Runs even when consent is granted — a
+    # 1. Exec-Admin safety cap. Runs even when consent is granted â€” a
     # capped user cannot escalate above the cap regardless of consent.
     if is_sage:
         cap = await _resolve_sage_safety_cap(user.id)
@@ -2207,7 +2207,7 @@ async def ai_chat(body: AIChatReq, user: User = Depends(current_user)):
                 "before using Ancestral Sage tutors. (Layered consent must "
                 "be recorded at least once.)",
             )
-        # store_audio=False on the latest consent → transcripts auto-expire 24h.
+        # store_audio=False on the latest consent â†’ transcripts auto-expire 24h.
         sage_store_audio_off = not bool(latest_consent.get("store_audio"))
     if sage_consent_required:
         if not body.consent_log_id or not await _verify_sage_consent(
@@ -2374,7 +2374,7 @@ async def cert_pdf(slug: str, token: str):
     c.rect(0.35 * inch, h - 1.1 * inch, w - 0.7 * inch, 0.12 * inch, fill=1, stroke=0)
     c.setFillColor(colors.HexColor("#0B203F"))
     c.setFont("Helvetica-Bold", 14)
-    c.drawCentredString(w / 2, h - 1.6 * inch, "W.A.I. — WORKFORCE APPRENTICE INSTITUTE")
+    c.drawCentredString(w / 2, h - 1.6 * inch, "W.A.I. â€” WORKFORCE APPRENTICE INSTITUTE")
     c.setFont("Helvetica", 11)
     c.drawCentredString(w / 2, h - 1.85 * inch, "LCE-WAI Partner Program")
     c.setFont("Helvetica-Bold", 36)
@@ -2442,7 +2442,7 @@ def grade_online_lab(simulator_type: str, answers: dict) -> dict:
         it_ok = abs(user_i - it) < max(0.01, it * 0.02)
         correct = int(rt_ok) + int(it_ok)
         return {"score": correct / 2 * 100, "correct": correct, "total": 2,
-                "detail": f"Rt={rt:.2f}Ω, I={it:.3f}A (yours: Rt={user_rt}, I={user_i})"}
+                "detail": f"Rt={rt:.2f}Î©, I={it:.3f}A (yours: Rt={user_rt}, I={user_i})"}
 
     if simulator_type == "switch_wiring":
         # expects answers: {hot_to: "brass", neutral_to: "silver", ground_to: "green"}
@@ -2524,7 +2524,7 @@ def grade_online_lab(simulator_type: str, answers: dict) -> dict:
         diff_pct = abs(a - b) / max(1, (a + b) / 2) * 100 if (a + b) else 100
         ok = diff_pct <= 10
         return {"score": 100 if ok else max(0, 100 - diff_pct * 2), "correct": 1 if ok else 0, "total": 1,
-                "detail": f"Phase A={a}W Phase B={b}W Δ={diff_pct:.1f}%"}
+                "detail": f"Phase A={a}W Phase B={b}W Î”={diff_pct:.1f}%"}
 
     return {"score": 0, "correct": 0, "total": 1, "detail": "Unknown simulator"}
 
@@ -2642,7 +2642,7 @@ async def my_lab_submissions(user: User = Depends(current_user)):
 async def pending_submissions(user: User = Depends(require_role("instructor", "admin"))):
     q = {"track": "inperson", "status": "pending"}
     docs = await db.lab_submissions.find(q, {"_id": 0}).to_list(500)
-    # Batch-load users and labs once (N+1 → 2 queries).
+    # Batch-load users and labs once (N+1 â†’ 2 queries).
     user_ids = list({d["user_id"] for d in docs})
     lab_slugs = list({d["lab_slug"] for d in docs})
     users = await db.users.find({"id": {"$in": user_ids}}, {"_id": 0, "password_hash": 0}).to_list(500) if user_ids else []
@@ -2737,7 +2737,7 @@ async def get_user_state(user_id: str) -> dict:
         {"user_id": user_id, "status": {"$in": ["passed", "approved"]}}, {"_id": 0}
     ).to_list(500)
     passed_labs = {s["lab_slug"] for s in lab_subs}
-    # competency points — batch-load labs once instead of per-submission queries
+    # competency points â€” batch-load labs once instead of per-submission queries
     comp = {c["key"]: 0 for c in COMPETENCIES}
     slugs = list({s["lab_slug"] for s in lab_subs})
     labs = await db.labs.find({"slug": {"$in": slugs}}, {"_id": 0}).to_list(500) if slugs else []
@@ -2869,7 +2869,7 @@ async def credential_manifest(key: str, request: Request):
             "@context": "https://w3id.org/openbadges/v2",
             "type": "Profile",
             "id": f"{backend_url}/api/issuer.json",
-            "name": "W.A.I. — Workforce Apprentice Institute",
+            "name": "W.A.I. â€” Workforce Apprentice Institute",
             "url": "https://workforceapprenticeinstitute.org",
         },
         "tags": cred.get("tags", []),
@@ -3056,13 +3056,13 @@ async def portfolio_pdf(token: str):
         c.rect(0, h - 1.38 * inch, w, 0.08 * inch, fill=1, stroke=0)
         c.setFillColor(colors.white)
         c.setFont("Helvetica-Bold", 16)
-        c.drawString(0.6 * inch, h - 0.55 * inch, "W.A.I. — WORKFORCE APPRENTICE INSTITUTE")
+        c.drawString(0.6 * inch, h - 0.55 * inch, "W.A.I. â€” WORKFORCE APPRENTICE INSTITUTE")
         c.setFont("Helvetica", 9)
-        c.drawString(0.6 * inch, h - 0.8 * inch, "LCE-WAI Partner Program  ·  Apprentice Portfolio")
+        c.drawString(0.6 * inch, h - 0.8 * inch, "LCE-WAI Partner Program  Â·  Apprentice Portfolio")
         c.setFont("Helvetica-Bold", 18)
         c.drawString(0.6 * inch, h - 1.1 * inch, data["user"]["full_name"])
         c.setFont("Helvetica", 10)
-        right = f"Hours: {data['stats']['hours']}  ·  Points: {data['stats']['skill_points']}"
+        right = f"Hours: {data['stats']['hours']}  Â·  Points: {data['stats']['skill_points']}"
         c.drawRightString(w - 0.6 * inch, h - 1.1 * inch, right)
 
     def section(y, title):
@@ -3094,8 +3094,8 @@ async def portfolio_pdf(token: str):
     section(y, "Credentials & Badges")
     y -= 0.3 * inch
     for cr in data["credentials"]:
-        text_line(f"• {cr['name']}  [{cr['category'].upper()}]", bold=True)
-        text_line(f"   Earned {cr['earned_at'][:10]}" + (f"  ·  Expires {cr['expires_at'][:10]}" if cr.get("expires_at") else ""))
+        text_line(f"â€¢ {cr['name']}  [{cr['category'].upper()}]", bold=True)
+        text_line(f"   Earned {cr['earned_at'][:10]}" + (f"  Â·  Expires {cr['expires_at'][:10]}" if cr.get("expires_at") else ""))
     if not data["credentials"]:
         text_line("  (none yet)")
 
@@ -3103,25 +3103,25 @@ async def portfolio_pdf(token: str):
     section(y, "Competency Matrix")
     y -= 0.3 * inch
     for cmp in data["competencies"]:
-        mark = "✓" if cmp["badge_earned"] else " "
-        text_line(f" [{mark}] {cmp['name']}  —  {cmp['points']} pts  ({cmp['labs']} labs)")
+        mark = "âœ“" if cmp["badge_earned"] else " "
+        text_line(f" [{mark}] {cmp['name']}  â€”  {cmp['points']} pts  ({cmp['labs']} labs)")
 
     y -= 0.15 * inch
     section(y, "Modules Completed")
     y -= 0.3 * inch
     for m in data["modules"]:
-        text_line(f"• {m['title']}  —  {m['hours']}h  ({int(m['score']) if m.get('score') else 0}%)")
+        text_line(f"â€¢ {m['title']}  â€”  {m['hours']}h  ({int(m['score']) if m.get('score') else 0}%)")
 
     y -= 0.15 * inch
     section(y, "Labs Passed")
     y -= 0.3 * inch
     for lab_item in data["labs"]:
-        text_line(f"• {lab_item['title']}  [{lab_item['track'].upper()}]  —  {lab_item['skill_points']} pts")
+        text_line(f"â€¢ {lab_item['title']}  [{lab_item['track'].upper()}]  â€”  {lab_item['skill_points']} pts")
 
     # footer
     c.setFillColor(colors.HexColor("#4B5563"))
     c.setFont("Helvetica-Oblique", 8)
-    c.drawCentredString(w / 2, 0.4 * inch, '"Whatever you do, work at it with all your heart." — Colossians 3:23')
+    c.drawCentredString(w / 2, 0.4 * inch, '"Whatever you do, work at it with all your heart." â€” Colossians 3:23')
 
     c.showPage()
     c.save()
@@ -3248,7 +3248,7 @@ async def adaptive_recommendations(user: User = Depends(current_user)):
                 "slug": mod["slug"],
                 "title": f"Review: {mod['title']}",
                 "track": "core",
-                "reason": f"You scored {int(q['quiz_score'])}% — retake to lock it in",
+                "reason": f"You scored {int(q['quiz_score'])}% â€” retake to lock it in",
                 "skill_points": 0,
             })
 
@@ -3258,7 +3258,7 @@ async def adaptive_recommendations(user: User = Depends(current_user)):
         ai_topic = {
             "type": "ai_topic",
             "title": f"Ask the tutor about: {weak[0]['name']}",
-            "reason": f"Your coldest area — {weak[0]['points']} skill points",
+            "reason": f"Your coldest area â€” {weak[0]['points']} skill points",
         }
 
     # Prerequisite check on advanced labs
@@ -3621,7 +3621,7 @@ async def program_analytics(user: User = Depends(require_role("admin"))):
     weakest = sorted(cohort_comp.items(), key=lambda x: x[1])[:3]
     weakest_named = [{"key": k, "name": next((c["name"] for c in COMPETENCIES if c["key"] == k), k), "points": v} for k, v in weakest]
 
-    # Module completion rates — single aggregation instead of N+1.
+    # Module completion rates â€” single aggregation instead of N+1.
     pipeline = [
         {"$match": {"status": "completed"}},
         {"$group": {"_id": "$module_slug", "count": {"$sum": 1}}},
@@ -3677,3 +3677,4 @@ app.add_middleware(
 @app.on_event("shutdown")
 async def shutdown_db_client():
     client.close()
+
