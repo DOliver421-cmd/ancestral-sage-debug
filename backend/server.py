@@ -74,6 +74,8 @@ JWT_SECRET = os.environ['JWT_SECRET']
 JWT_ALGO = os.environ.get('JWT_ALGORITHM', 'HS256')
 JWT_EXPIRE_HOURS = int(os.environ.get('JWT_EXPIRE_HOURS', '168'))
 EMERGENT_LLM_KEY = os.environ.get('EMERGENT_LLM_KEY', '')
+ANTHROPIC_API_KEY = os.environ.get('ANTHROPIC_API_KEY', EMERGENT_LLM_KEY)
+ANTHROPIC_API_KEY = os.environ.get('ANTHROPIC_API_KEY', EMERGENT_LLM_KEY)
 
 pwd_ctx = CryptContext(schemes=["bcrypt"], deprecated="auto")
 app = FastAPI(
@@ -2052,16 +2054,15 @@ async def sage_tts(body: SageTTSReq, user: User = Depends(current_user)):
 
     # 4. Provider call (with latency + breaker tracking).
     try:
-        from emergentintegrations.llm.openai import OpenAITextToSpeech
+        from openai import AsyncOpenAI as OpenAITextToSpeech
     except Exception as exc:
         raise HTTPException(500, f"TTS library unavailable: {exc}") from exc
 
     t0 = _t.time()
     try:
-        tts = OpenAITextToSpeech(api_key=EMERGENT_LLM_KEY)
-        audio_bytes = await tts.generate_speech(
-            text=text, model="tts-1", voice=voice, speed=speed,
-        )
+        tts = OpenAITextToSpeech(api_key=os.environ.get('OPENAI_API_KEY', EMERGENT_LLM_KEY))
+        resp = await tts.audio.speech.create(model="tts-1", voice=voice, input=text, speed=speed)
+        audio_bytes = resp.content
         _tts_record_success()
     except Exception:
         _tts_record_failure()
@@ -2248,7 +2249,7 @@ async def ai_chat(body: AIChatReq, user: User = Depends(current_user)):
     if not EMERGENT_LLM_KEY:
         raise HTTPException(500, "AI not configured")
     try:
-        from emergentintegrations.llm.chat import LlmChat, UserMessage
+        import anthropic as _anthropic_module
     except Exception as e:
         raise HTTPException(500, f"AI library unavailable: {e}")
 
@@ -2263,11 +2264,10 @@ async def ai_chat(body: AIChatReq, user: User = Depends(current_user)):
     else:
         system = SYSTEM_PROMPTS.get(body.mode, SYSTEM_PROMPTS["tutor"]) + ctx
     session_id = f"{user.id}:{body.session_id}"
-    chat = LlmChat(api_key=EMERGENT_LLM_KEY, session_id=session_id, system_message=system).with_model(
-        "anthropic", "claude-sonnet-4-5-20250929"
-    )
+    _client = _anthropic_module.AsyncAnthropic(api_key=ANTHROPIC_API_KEY)
     try:
-        reply = await chat.send_message(UserMessage(text=body.message))
+        _msg = await _client.messages.create(model="claude-sonnet-4-5-20250514", max_tokens=2048, system=system, messages=[{"role": "user", "content": body.message}])
+        reply = _msg.content[0].text
     except Exception as e:
         logger.exception("AI error")
         raise HTTPException(502, f"AI error: {e}")
