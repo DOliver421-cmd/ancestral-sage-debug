@@ -2266,7 +2266,7 @@ async def ai_chat(body: AIChatReq, user: User = Depends(current_user)):
     session_id = f"{user.id}:{body.session_id}"
     _client = _anthropic_module.AsyncAnthropic(api_key=ANTHROPIC_API_KEY)
     try:
-        _msg = await _client.messages.create(model="claude-sonnet-4-5-20250514", max_tokens=2048, system=system, messages=[{"role": "user", "content": body.message}])
+        _msg = await _client.messages.create(model="claude-sonnet-4-5", max_tokens=2048, system=system, messages=[{"role": "user", "content": body.message}])
         reply = _msg.content[0].text
     except Exception as e:
         logger.exception("AI error")
