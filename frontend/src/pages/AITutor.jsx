@@ -113,11 +113,13 @@ export default function AITutor() {
       const url = URL.createObjectURL(blob);
       const audio = new Audio(url);
       audio.volume = audioVolume;
+      audio.preload = "auto";
       audioElRef.current = audio;
       audio.onended = () => { URL.revokeObjectURL(url); setAudioPlaying(false); };
       audio.onpause = () => setAudioPlaying(false);
       audio.onplay = () => setAudioPlaying(true);
-      await audio.play();
+      audio.oncanplaythrough = () => audio.play();
+      audio.load();
     } catch (e) {
       if (e?.name !== "AbortError") {
         toast.error("Couldn't play audio. Text remains visible.");
@@ -226,6 +228,9 @@ export default function AITutor() {
       setRecording(false);
     };
     rec.onend = () => setRecording(false);
+    rec.continuous = true;
+    rec.interimResults = false;
+    rec.maxAlternatives = 1;
     recogRef.current = rec;
     try {
       rec.start();
