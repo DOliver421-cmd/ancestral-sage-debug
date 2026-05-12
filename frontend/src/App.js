@@ -67,6 +67,7 @@ function App() {
     <AuthProvider>
       <BrowserRouter>
         <Toaster position="top-right" richColors />
+        <DirectorWidget />
         <Routes>
           <Route path="/" element={<Home />} />
           <Route path="/login" element={<Login />} />
@@ -103,7 +104,6 @@ function App() {
           <Route path="/admin/sage-audit" element={<Protected roles={["executive_admin"]}><SageAudit /></Protected>} />
           <Route path="*" element={<NotFound />} />
         </Routes>
-      <DirectorWidget />
       </BrowserRouter>
     </AuthProvider>
   );
