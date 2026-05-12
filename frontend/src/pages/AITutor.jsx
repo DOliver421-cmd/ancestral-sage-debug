@@ -1,3 +1,4 @@
+// v2.1 - expanded cultural focus
 import { useEffect, useRef, useState, useCallback } from "react";
 import AppShell from "../components/AppShell";
 import { api, API } from "../lib/api";
