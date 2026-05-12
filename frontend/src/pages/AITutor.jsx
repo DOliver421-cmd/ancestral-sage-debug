@@ -216,30 +216,41 @@ export default function AITutor() {
       setRecording(false);
       return;
     }
-    const rec = new SpeechRecognitionImpl();
-    rec.lang = "en-US";
-    rec.interimResults = false;
-    rec.continuous = false;
-    rec.onresult = (ev) => {
-      const txt = ev.results?.[0]?.[0]?.transcript?.trim();
-      if (txt) setInput((cur) => (cur ? `${cur} ${txt}` : txt));
+    const startRec = () => {
+      const rec = new SpeechRecognitionImpl();
+      rec.lang = "en-US";
+      rec.continuous = true;
+      rec.interimResults = true;
+      rec.maxAlternatives = 1;
+      rec.onresult = (ev) => {
+        let txt = "";
+        for (let i = ev.resultIndex; i < ev.results.length; i++) {
+          if (ev.results[i].isFinal) txt += ev.results[i][0].transcript;
+        }
+        if (txt.trim()) setInput((cur) => (cur ? `${cur} ${txt.trim()}` : txt.trim()));
+      };
+      rec.onerror = (ev) => {
+        if (ev.error === "no-speech") { rec.stop(); return; }
+        toast.error(`Mic error: ${ev.error || "unknown"}`);
+        setRecording(false);
+      };
+      rec.onend = () => {
+        if (recogRef.current && recording) {
+          try { rec.start(); } catch { setRecording(false); }
+        } else {
+          setRecording(false);
+        }
+      };
+      recogRef.current = rec;
+      try {
+        rec.start();
+        setRecording(true);
+        toast.info("Listening… click mic again to stop.");
+      } catch {
+        toast.error("Couldn't start microphone.");
+      }
     };
-    rec.onerror = (ev) => {
-      toast.error(`Mic error: ${ev.error || "unknown"}`);
-      setRecording(false);
-    };
-    rec.onend = () => setRecording(false);
-    rec.continuous = true;
-    rec.interimResults = false;
-    rec.maxAlternatives = 1;
-    recogRef.current = rec;
-    try {
-      rec.start();
-      setRecording(true);
-      toast.info("Listening… speak now.");
-    } catch {
-      toast.error("Couldn't start microphone.");
-    }
+    startRec();
   };
 
   const sageActive = mode === "ancestral_sage";
