@@ -2295,6 +2295,75 @@ async def ai_chat(body: AIChatReq, user: User = Depends(current_user)):
     return {"reply": reply}
 
 
+
+@api_router.post("/ai/director")
+async def ai_director(body: dict, user: User = Depends(current_user)):
+    """The Director / Assistant Director endpoint.
+    Role-based AI guide that activates on login.
+    Students/Instructors get Assistant Director.
+    Admin/Executive get The Director.
+    """
+    from backend.prompts.director_prompt import get_director_prompt
+    
+    message = body.get("message", "")
+    if not message:
+        raise HTTPException(400, "Message is required")
+    
+    # Get role-appropriate prompt
+    system = get_director_prompt(user.role)
+    
+    # Add user context
+    system += f"""
+
+CURRENT USER CONTEXT:
+- Name: {user.name}
+- Role: {user.role}
+- Email: {user.email}
+- You are speaking directly with this user. Address them appropriately by role.
+"""
+    
+    _client = _anthropic_module.AsyncAnthropic(api_key=ANTHROPIC_API_KEY)
+    try:
+        _msg = await _client.messages.create(
+            model="claude-sonnet-4-5",
+            max_tokens=1024,
+            system=system,
+            messages=[{"role": "user", "content": message}]
+        )
+        reply = _msg.content[0].text
+    except Exception as e:
+        logger.exception("Director AI error")
+        raise HTTPException(502, f"Director AI error: {e}")
+    
+    # Log the interaction
+    await db.chat_history.insert_one({
+        "id": str(__import__("uuid").uuid4()),
+        "user_id": user.id,
+        "session_id": body.get("session_id", "director"),
+        "mode": "director",
+        "user_msg": message,
+        "assistant_msg": reply,
+        "created_at": __import__("datetime").datetime.now(__import__("datetime").timezone.utc).isoformat(),
+    })
+    
+    return {"reply": reply, "persona": "director" if user.role in ["admin", "executive_admin"] else "assistant_director"}
+
+
+@api_router.get("/ai/director/greeting")
+async def director_greeting(user: User = Depends(current_user)):
+    """Returns a role-appropriate greeting when user logs in."""
+    from backend.prompts.director_prompt import get_director_prompt
+    
+    greetings = {
+        "student": f"Welcome back, {user.name}. I am the Assistant Director. I am here to guide your learning journey at WAI-Institute. What would you like to work on today?",
+        "instructor": f"Welcome back, {user.name}. I am the Assistant Director. I am ready to support your teaching and course management. How can I assist you today?",
+        "admin": f"Welcome back, {user.name}. I am The Director. All systems are active. I am monitoring institute operations and ready to assist with administrative matters. What requires your attention?",
+        "executive_admin": f"Welcome back, {user.name}. I am The Director. I have reviewed all active reports from Ancestral Sage and institute systems. Everything is under watch. What is our focus today?"
+    }
+    
+    greeting = greetings.get(user.role, greetings["student"])
+    return {"greeting": greeting, "role": user.role, "persona": "director" if user.role in ["admin", "executive_admin"] else "assistant_director"}
+
 @api_router.get("/ai/history/{session_id}")
 async def ai_history(session_id: str, user: User = Depends(current_user)):
     return await db.chat_history.find(
