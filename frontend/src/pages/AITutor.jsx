@@ -19,6 +19,10 @@ const SAGE_INTENSITY = ["gentle", "moderate", "deep"];
 const SAGE_CULTURE = [
   "pan_african", "ra_centered", "regional:west_african",
   "regional:east_african", "regional:diasporic",
+  "christian", "muslim", "jewish", "hindu",
+  "buddhist", "taoist", "yoruba_ifa", "kemetic",
+  "native_indigenous", "stoic", "western_rationalist",
+  "new_thought", "agnostic", "secular_humanist",
 ];
 const SAGE_DIVINATION = ["teaching", "reading", "practice", "predictive"];
 const SAGE_SAFETY = ["conservative", "standard", "exploratory", "extreme"];
