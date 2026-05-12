@@ -33,6 +33,7 @@ import ForgotPassword from "./pages/ForgotPassword";
 import ResetPassword from "./pages/ResetPassword";
 import NotFound from "./pages/NotFound";
 import SageAudit from "./pages/SageAudit";
+import DirectorWidget from "./components/DirectorWidget";
 
 // Role hierarchy must mirror backend ROLE_RANK in /app/backend/server.py.
 // Higher rank = more authority; a higher-rank role passes any check meant
@@ -102,6 +103,7 @@ function App() {
           <Route path="/admin/sage-audit" element={<Protected roles={["executive_admin"]}><SageAudit /></Protected>} />
           <Route path="*" element={<NotFound />} />
         </Routes>
+      <DirectorWidget />
       </BrowserRouter>
     </AuthProvider>
   );
