@@ -2322,6 +2322,7 @@ CURRENT USER CONTEXT:
 - You are speaking directly with this user. Address them appropriately by role.
 """
     
+    import anthropic as _anthropic_module
     _client = _anthropic_module.AsyncAnthropic(api_key=ANTHROPIC_API_KEY)
     try:
         _msg = await _client.messages.create(
