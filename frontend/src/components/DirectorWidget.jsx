@@ -33,8 +33,8 @@ export default function DirectorWidget() {
     const isExec = user.role === "admin" || user.role === "executive_admin";
     const defaultPersona = isExec ? "director" : "assistant_director";
     const defaultGreeting = isExec
-      ? `Welcome back, ${user.name}. I am The Director. All systems are active. What requires your attention?`
-      : `Welcome back, ${user.name}. I am the Assistant Director. How can I guide you today?`;
+      ? `Welcome back, ${user.full_name || user.email}. I am The Director. All systems are active. What requires your attention?`
+      : `Welcome back, ${user.full_name || user.email}. I am the Assistant Director. How can I guide you today?`;
     setPersona(defaultPersona);
     setMsgs([{ role: "assistant", text: defaultGreeting }]);
     setOpen(true);
