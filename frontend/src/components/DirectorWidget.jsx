@@ -30,15 +30,21 @@ export default function DirectorWidget() {
 
   useEffect(() => {
     if (!user) return;
+    const isExec = user.role === "admin" || user.role === "executive_admin";
+    const defaultPersona = isExec ? "director" : "assistant_director";
+    const defaultGreeting = isExec
+      ? `Welcome back, ${user.name}. I am The Director. All systems are active. What requires your attention?`
+      : `Welcome back, ${user.name}. I am the Assistant Director. How can I guide you today?`;
+    setPersona(defaultPersona);
+    setMsgs([{ role: "assistant", text: defaultGreeting }]);
+    setOpen(true);
     api.get("/ai/director/greeting")
       .then((r) => {
         setPersona(r.data.persona);
-        setGreeting(r.data.greeting);
         setMsgs([{ role: "assistant", text: r.data.greeting }]);
-        setOpen(true);
       })
       .catch(() => {});
-  }, []);
+  }, [user]);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
