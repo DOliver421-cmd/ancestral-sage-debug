@@ -2316,7 +2316,7 @@ async def ai_director(body: dict, user: User = Depends(current_user)):
     system += f"""
 
 CURRENT USER CONTEXT:
-- Name: {user.name}
+- Name: {user.full_name}
 - Role: {user.role}
 - Email: {user.email}
 - You are speaking directly with this user. Address them appropriately by role.
