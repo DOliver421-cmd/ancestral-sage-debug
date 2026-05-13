@@ -29,7 +29,10 @@ export default function DirectorWidget() {
   const bottomRef = useRef(null);
 
   useEffect(() => {
-    if (!user) return;
+      setOpen(false);
+      setMsgs([]);
+      return;
+    }
     const isExec = user.role === "admin" || user.role === "executive_admin";
     const defaultPersona = isExec ? "director" : "assistant_director";
     const defaultGreeting = isExec
@@ -50,6 +53,50 @@ export default function DirectorWidget() {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [msgs]);
 
+
+  const SpeechRecognitionImpl = typeof window !== "undefined"
+    ? (window.SpeechRecognition || window.webkitSpeechRecognition)
+    : null;
+
+  const speak = async (text) => {
+    if (!audioOn) return;
+    try {
+      const { API } = await import("../lib/api");
+      const token = localStorage.getItem("lce_token");
+      const r = await fetch(`${API}/ai/sage/tts`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
+        body: JSON.stringify({ text, voice: "onyx", speed: 1.0, session_id: "director" }),
+      });
+      if (!r.ok) return;
+      const blob = await r.blob();
+      const url = URL.createObjectURL(blob);
+      const audio = new Audio(url);
+      audio.onended = () => URL.revokeObjectURL(url);
+      audio.play();
+    } catch {}
+  };
+
+  const toggleMic = () => {
+    if (!SpeechRecognitionImpl) return;
+    if (recording) {
+      setRecording(false);
+      return;
+    }
+    const rec = new SpeechRecognitionImpl();
+    rec.lang = "en-US";
+    rec.continuous = false;
+    rec.interimResults = false;
+    rec.onresult = (ev) => {
+      const txt = ev.results?.[0]?.[0]?.transcript?.trim();
+      if (txt) setInput((cur) => cur ? `${cur} ${txt}` : txt);
+    };
+    rec.onerror = () => setRecording(false);
+    rec.onend = () => setRecording(false);
+    rec.start();
+    setRecording(true);
+  };
+
   const send = async () => {
     if (!input.trim() || loading) return;
     const userMsg = input.trim();
@@ -62,6 +109,7 @@ export default function DirectorWidget() {
         session_id: "director_session",
       });
       setMsgs((m) => [...m, { role: "assistant", text: r.data.reply }]);
+      speak(r.data.reply);
       setPersona(r.data.persona);
     } catch {
       setMsgs((m) => [...m, { role: "assistant", text: "I am temporarily unavailable. Please try again." }]);
@@ -144,8 +192,34 @@ export default function DirectorWidget() {
           {/* Input */}
           <div style={{
             background: "#111", borderTop: `1px solid ${style.color}30`,
-            padding: "8px", display: "flex", gap: "6px",
+            padding: "8px", display: "flex", gap: "6px", alignItems: "center",
           }}>
+            <button
+              onClick={toggleMic}
+              style={{
+                background: recording ? style.color : "#1A1A1A",
+                border: `1px solid ${style.color}30`,
+                color: recording ? "#000" : style.color,
+                padding: "6px 8px", fontSize: "14px",
+                cursor: "pointer", borderRadius: "2px",
+              }}
+              title={recording ? "Stop listening" : "Start listening"}
+            >
+              {recording ? "⏹" : "🎤"}
+            </button>
+            <button
+              onClick={() => setAudioOn(!audioOn)}
+              style={{
+                background: audioOn ? style.color : "#1A1A1A",
+                border: `1px solid ${style.color}30`,
+                color: audioOn ? "#000" : style.color,
+                padding: "6px 8px", fontSize: "14px",
+                cursor: "pointer", borderRadius: "2px",
+              }}
+              title={audioOn ? "Voice ON" : "Voice OFF"}
+            >
+              {audioOn ? "🔊" : "🔇"}
+            </button>
             <input
               value={input}
               onChange={(e) => setInput(e.target.value)}
