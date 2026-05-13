@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { api } from "../lib/api";
+import { useAuth } from "../lib/auth";
 
 const PERSONA_STYLES = {
   director: {
@@ -17,6 +18,7 @@ const PERSONA_STYLES = {
 };
 
 export default function DirectorWidget() {
+  const { user } = useAuth();
   const [open, setOpen] = useState(false);
   const [persona, setPersona] = useState("assistant_director");
   const [greeting, setGreeting] = useState("");
@@ -27,6 +29,7 @@ export default function DirectorWidget() {
   const bottomRef = useRef(null);
 
   useEffect(() => {
+    if (!user) return;
     api.get("/ai/director/greeting")
       .then((r) => {
         setPersona(r.data.persona);
