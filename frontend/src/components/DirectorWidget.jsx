@@ -101,6 +101,7 @@ export default function DirectorWidget() {
           </div>
         </div>
         <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+          <span onClick={(e) => { e.stopPropagation(); setAudioOn(!audioOn); }} style={{ fontSize: "12px", opacity: audioOn ? 1 : 0.4, cursor: "pointer" }} title={audioOn ? "Voice ON" : "Voice OFF"}>🔊</span>
           <span style={{ fontSize: "12px", opacity: 0.7 }}>{minimized ? "▲" : "▼"}</span>
           <span
             onClick={(e) => { e.stopPropagation(); setOpen(false); }}
