@@ -2,8 +2,8 @@ import { Link } from "react-router-dom";
 import { WAI_LOGO, BRAND } from "../lib/brand";
 import { ShieldCheck, BookOpen, Sun, Award, Wrench, ArrowRight } from "lucide-react";
 
-const HERO = "https://static.prod-images.emergentagent.com/jobs/bb805589-57e1-4a69-a20a-634e662786be/images/d54fa6bbf1da1d71103863bd3913c37f5be9ce27915ab3d46073050a7ae47b90.png";
-const LAB = "https://static.prod-images.emergentagent.com/jobs/bb805589-57e1-4a69-a20a-634e662786be/images/400ae5d82048afd5dbdcd20dc360b9e2cb437b23f2460b0009bbb0a0f6875b7c.png";
+const HERO = "https://placehold.co/1200x600/0A1628/C9A84C?text=WAI+Institute";
+const LAB = "https://placehold.co/800x500/0A1628/C9A84C?text=Apprentice+Labs";
 const SOLAR = "https://images.pexels.com/photos/9875448/pexels-photo-9875448.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940";
 
 export default function Landing() {
