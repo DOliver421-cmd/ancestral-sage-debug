@@ -21,6 +21,30 @@ const SpeechRecognitionImpl = typeof window !== "undefined"
   ? (window.SpeechRecognition || window.webkitSpeechRecognition)
   : null;
 
+const QUICK_ACTIONS = {
+  student: [
+    { label: "My Progress", msg: "Show me a summary of my learning progress and what I should focus on next." },
+    { label: "Help Me Study", msg: "I need help studying. What resources are available to me?" },
+    { label: "Find a Course", msg: "What courses are available and which should I take next?" },
+  ],
+  instructor: [
+    { label: "My Students", msg: "Give me a summary of my students and their progress." },
+    { label: "Lab Approvals", msg: "Are there any lab submissions pending my review?" },
+    { label: "Course Help", msg: "Help me with course and curriculum management." },
+  ],
+  admin: [
+    { label: "System Status", msg: "Give me a quick system status report for WAI-Institute." },
+    { label: "Recent Activity", msg: "What is the recent activity across the institute?" },
+    { label: "User Management", msg: "Give me a summary of current users and any issues." },
+  ],
+  executive_admin: [
+    { label: "System Status", msg: "Give me a full system status and security posture report." },
+    { label: "Threat Report", msg: "Are there any active threats or incidents I should know about?" },
+    { label: "Generate Brief", msg: "Generate an executive brief on current institute operations." },
+    { label: "Legal Strategy", msg: "What legal risks or considerations require my attention?" },
+  ],
+};
+
 export default function DirectorWidget() {
   const { user } = useAuth();
   const [open, setOpen] = useState(false);
@@ -118,6 +142,7 @@ export default function DirectorWidget() {
     }
   };
 
+  const quickActions = QUICK_ACTIONS[user?.role] || QUICK_ACTIONS.student;
   const style = PERSONA_STYLES[persona];
   if (!open) return null;
 
@@ -155,7 +180,7 @@ export default function DirectorWidget() {
       {!minimized && (
         <>
           <div style={{
-            background: "#0D0D0D", height: "240px",
+            background: "#0D0D0D", height: "200px",
             overflowY: "auto", padding: "12px",
             display: "flex", flexDirection: "column", gap: "8px",
           }}>
@@ -177,6 +202,27 @@ export default function DirectorWidget() {
               </div>
             )}
             <div ref={bottomRef} />
+          </div>
+
+          <div style={{
+            background: "#0D0D0D", borderTop: `1px solid ${style.color}20`,
+            padding: "6px 8px", display: "flex", gap: "4px", flexWrap: "wrap",
+          }}>
+            {quickActions.map((action) => (
+              <button
+                key={action.label}
+                onClick={() => setInput(action.msg)}
+                style={{
+                  background: "transparent",
+                  border: `1px solid ${style.color}40`,
+                  color: style.color, padding: "3px 8px",
+                  fontSize: "10px", cursor: "pointer",
+                  borderRadius: "2px", letterSpacing: "0.5px",
+                }}
+              >
+                {action.label}
+              </button>
+            ))}
           </div>
 
           <div style={{
