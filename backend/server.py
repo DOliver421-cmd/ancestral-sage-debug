@@ -2327,7 +2327,7 @@ CURRENT USER CONTEXT:
     try:
         _msg = await _client.messages.create(
             model="claude-sonnet-4-5",
-            max_tokens=1024,
+            max_tokens=512,
             system=system,
             messages=[{"role": "user", "content": message}]
         )
