@@ -2303,7 +2303,7 @@ async def ai_director(body: dict, user: User = Depends(current_user)):
     Students/Instructors get Assistant Director.
     Admin/Executive get The Director.
     """
-    from backend.prompts.director_prompt import get_director_prompt
+    from prompts.director_prompt import get_director_prompt
     
     message = body.get("message", "")
     if not message:
@@ -2352,7 +2352,7 @@ CURRENT USER CONTEXT:
 @api_router.get("/ai/director/greeting")
 async def director_greeting(user: User = Depends(current_user)):
     """Returns a role-appropriate greeting when user logs in."""
-    from backend.prompts.director_prompt import get_director_prompt
+    from prompts.director_prompt import get_director_prompt
     
     greetings = {
         "student": f"Welcome back, {user.name}. I am the Assistant Director. I am here to guide your learning journey at WAI-Institute. What would you like to work on today?",
