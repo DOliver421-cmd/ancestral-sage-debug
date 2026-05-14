@@ -34,6 +34,7 @@ import ResetPassword from "./pages/ResetPassword";
 import NotFound from "./pages/NotFound";
 import SageAudit from "./pages/SageAudit";
 import DirectorWidget from "./components/DirectorWidget";
+import Helper from "./pages/Helper";
 
 // Role hierarchy must mirror backend ROLE_RANK in /app/backend/server.py.
 // Higher rank = more authority; a higher-rank role passes any check meant
@@ -74,6 +75,9 @@ function App() {
           <Route path="/register" element={<Register />} />
           <Route path="/forgot-password" element={<ForgotPassword />} />
           <Route path="/reset-password" element={<ResetPassword />} />
+          {/* Helper routes — /helper is public, /app/helper requires auth */}
+          <Route path="/helper" element={<Helper requireAuth={false} />} />
+          <Route path="/app/helper" element={<Helper requireAuth={true} />} />
           <Route path="/dashboard" element={<Protected><StudentDashboard /></Protected>} />
           <Route path="/instructor" element={<Protected roles={["instructor", "admin"]}><InstructorDashboard /></Protected>} />
           <Route path="/admin" element={<Protected roles={["admin"]}><AdminDashboard /></Protected>} />
