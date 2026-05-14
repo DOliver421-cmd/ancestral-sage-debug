@@ -841,10 +841,17 @@
       addMessage("user", text);
       userInputEl.value = "";
 
-      const { short, full } = generateAnswer(text);
-      lastShortAnswer = short;
-      lastFullAnswer = full;
-      addMessage("helper", short);
+      const apiResult = await callPublicAPI('ask', { question: text, language: currentLanguage });
+      if (apiResult && apiResult.short) {
+        lastShortAnswer = apiResult.short;
+        lastFullAnswer = apiResult.full || apiResult.short;
+        addMessage("helper", apiResult.short);
+      } else {
+        const { short, full } = generateAnswer(text);
+        lastShortAnswer = short;
+        lastFullAnswer = full;
+        addMessage("helper", short);
+      }
     }
 
     sendBtn.addEventListener("click", handleSend);
