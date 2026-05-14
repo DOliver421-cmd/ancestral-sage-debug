@@ -53,7 +53,7 @@ export default function DirectorWidget() {
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [minimized, setMinimized] = useState(false);
-  const [audioOn, setAudioOn] = useState(false);
+  const [audioOn, setAudioOn] = useState(true);
   const [recording, setRecording] = useState(false);
   const bottomRef = useRef(null);
 
@@ -90,7 +90,7 @@ export default function DirectorWidget() {
       const r = await fetch(`${API}/ai/sage/tts`, {
         method: "POST",
         headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
-        body: JSON.stringify({ text, voice: "onyx", speed: 1.0, session_id: "director" }),
+        body: JSON.stringify({ text, voice: persona === "director" ? "onyx" : "nova", speed: 1.0, session_id: "director" }),
       });
       if (!r.ok) return;
       const blob = await r.blob();
