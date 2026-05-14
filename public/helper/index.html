@@ -1,0 +1,1046 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>I am here to be your HELPER</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <style>
+    :root {
+      --bg: #f5f7fb;
+      --header-gradient: linear-gradient(135deg, #4b7cff, #7b5cff);
+      --card-bg: #ffffff;
+      --text-main: #1f2933;
+      --text-soft: #4b5563;
+      --accent: #22c55e;
+      --accent-soft: #bbf7d0;
+      --danger: #ef4444;
+      --button-blue: #2563eb;
+      --button-blue-soft: #dbeafe;
+      --button-yellow: #facc15;
+      --button-purple: #7c3aed;
+      --button-red: #ef4444;
+      --radius-lg: 18px;
+      --radius-md: 14px;
+      --shadow-soft: 0 10px 30px rgba(15, 23, 42, 0.18);
+      --font-main: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      padding: 0;
+      font-family: var(--font-main);
+      background: var(--bg);
+      color: var(--text-main);
+    }
+
+    .app-shell {
+      max-width: 960px;
+      margin: 0 auto;
+      padding: 12px 10px 24px;
+    }
+
+    @media (min-width: 768px) {
+      .app-shell {
+        padding: 18px 12px 32px;
+      }
+    }
+
+    .header-card {
+      background: var(--header-gradient);
+      border-radius: var(--radius-lg);
+      padding: 18px 16px;
+      color: #ffffff;
+      box-shadow: var(--shadow-soft);
+    }
+
+    @media (min-width: 768px) {
+      .header-card {
+        padding: 22px 20px;
+      }
+    }
+
+    .header-top {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 10px;
+    }
+
+    .helper-avatar {
+      width: 64px;
+      height: 64px;
+      border-radius: 50%;
+      background: radial-gradient(circle at 30% 20%, #fde68a, #facc15 40%, #f97316 80%);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #1f2933;
+      font-weight: 800;
+      font-size: 28px;
+      box-shadow: 0 0 0 4px rgba(15, 23, 42, 0.35);
+      flex-shrink: 0;
+    }
+
+    .header-text-main {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .header-title {
+      font-size: 22px;
+      font-weight: 700;
+    }
+
+    .header-subtitle {
+      font-size: 14px;
+      max-width: 520px;
+      line-height: 1.4;
+    }
+
+    .header-steps {
+      margin-top: 10px;
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 6px;
+      font-size: 13px;
+    }
+
+    @media (min-width: 768px) {
+      .header-steps {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+    }
+
+    .step-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+    }
+
+    .step-number {
+      width: 22px;
+      height: 22px;
+      border-radius: 999px;
+      background: rgba(15, 23, 42, 0.18);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 13px;
+      font-weight: 700;
+      flex-shrink: 0;
+    }
+
+    .step-text {
+      font-size: 13px;
+      line-height: 1.4;
+    }
+
+    .header-actions {
+      margin-top: 12px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .btn-primary {
+      border-radius: 999px;
+      border: none;
+      padding: 10px 18px;
+      font-size: 15px;
+      font-weight: 600;
+      background: var(--accent);
+      color: #064e3b;
+      cursor: pointer;
+    }
+
+    .btn-ghost {
+      border-radius: 999px;
+      border: 1px solid rgba(255, 255, 255, 0.7);
+      padding: 9px 14px;
+      font-size: 13px;
+      background: transparent;
+      color: #e5e7eb;
+      cursor: pointer;
+    }
+
+    .main-card {
+      margin-top: 14px;
+      background: var(--card-bg);
+      border-radius: var(--radius-lg);
+      padding: 14px 12px 16px;
+      box-shadow: var(--shadow-soft);
+    }
+
+    @media (min-width: 768px) {
+      .main-card {
+        padding: 18px 16px 20px;
+      }
+    }
+
+    .hello-row {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 10px;
+    }
+
+    .hello-text {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .hello-title {
+      font-size: 18px;
+      font-weight: 700;
+    }
+
+    .hello-subtitle {
+      font-size: 14px;
+      color: var(--text-soft);
+    }
+
+    .name-input-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      align-items: center;
+      margin-top: 4px;
+    }
+
+    .name-input-row input {
+      padding: 7px 10px;
+      border-radius: 999px;
+      border: 1px solid #d1d5db;
+      font-size: 14px;
+      min-width: 160px;
+    }
+
+    .name-input-row button {
+      border-radius: 999px;
+      border: none;
+      padding: 7px 12px;
+      font-size: 13px;
+      background: var(--button-blue);
+      color: #eff6ff;
+      cursor: pointer;
+    }
+
+    .top-actions-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 10px;
+    }
+
+    .big-round-btn {
+      flex: 1;
+      min-width: 120px;
+      border-radius: 999px;
+      border: none;
+      padding: 10px 12px;
+      font-size: 14px;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      cursor: pointer;
+    }
+
+    .big-round-btn span.icon {
+      font-size: 18px;
+    }
+
+    .btn-mic {
+      background: var(--button-blue);
+      color: #eff6ff;
+    }
+
+    .btn-read {
+      background: var(--button-yellow);
+      color: #78350f;
+    }
+
+    .btn-scam {
+      background: var(--button-red);
+      color: #fee2e2;
+    }
+
+    .btn-language {
+      background: var(--button-purple);
+      color: #ede9fe;
+    }
+
+    .btn-print {
+      background: #e5e7eb;
+      color: #111827;
+    }
+
+    .conversation-box {
+      margin-top: 8px;
+      border-radius: var(--radius-md);
+      border: 1px solid #e5e7eb;
+      background: #f9fafb;
+      padding: 10px;
+      max-height: 260px;
+      overflow-y: auto;
+      font-size: 14px;
+    }
+
+    .message {
+      margin-bottom: 8px;
+    }
+
+    .message.helper .bubble {
+      background: #e0f2fe;
+      border-radius: 14px;
+      padding: 8px 10px;
+    }
+
+    .message.user .bubble {
+      background: #e5e7eb;
+      border-radius: 14px;
+      padding: 8px 10px;
+    }
+
+    .message-meta {
+      font-size: 11px;
+      color: #6b7280;
+      margin-top: 2px;
+    }
+
+    .input-area {
+      margin-top: 8px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .input-row {
+      display: flex;
+      gap: 6px;
+    }
+
+    .input-row textarea {
+      flex: 1;
+      min-height: 60px;
+      max-height: 120px;
+      resize: vertical;
+      border-radius: var(--radius-md);
+      border: 1px solid #d1d5db;
+      padding: 8px 10px;
+      font-size: 14px;
+      font-family: var(--font-main);
+    }
+
+    .input-row button {
+      border-radius: var(--radius-md);
+      border: none;
+      padding: 0 14px;
+      font-size: 14px;
+      font-weight: 600;
+      background: var(--button-blue);
+      color: #eff6ff;
+      cursor: pointer;
+    }
+
+    .bottom-actions-row {
+      margin-top: 6px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+
+    .small-pill-btn {
+      border-radius: 999px;
+      border: 1px solid #d1d5db;
+      padding: 6px 10px;
+      font-size: 12px;
+      background: #ffffff;
+      color: #111827;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+    }
+
+    .small-pill-btn.danger {
+      border-color: var(--danger);
+      color: #b91c1c;
+    }
+
+    .small-pill-btn.primary {
+      border-color: var(--button-blue);
+      color: #1d4ed8;
+    }
+
+    .small-pill-btn span.icon {
+      font-size: 14px;
+    }
+
+    .menu-grid {
+      margin-top: 12px;
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 8px;
+    }
+
+    @media (min-width: 640px) {
+      .menu-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+    }
+
+    @media (min-width: 900px) {
+      .menu-grid {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+      }
+    }
+
+    .menu-button {
+      border-radius: var(--radius-md);
+      border: 1px solid #e5e7eb;
+      background: #f9fafb;
+      padding: 10px 10px;
+      cursor: pointer;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      min-height: 80px;
+    }
+
+    .menu-button:hover {
+      background: #eef2ff;
+      border-color: #c7d2fe;
+    }
+
+    .menu-title-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 15px;
+      font-weight: 600;
+    }
+
+    .menu-title-row span.icon {
+      font-size: 20px;
+    }
+
+    .menu-desc {
+      font-size: 13px;
+      color: var(--text-soft);
+    }
+
+    .footer-note {
+      margin-top: 10px;
+      font-size: 11px;
+      color: var(--text-soft);
+      text-align: center;
+    }
+
+    .toast {
+      position: fixed;
+      bottom: 16px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: #111827;
+      color: #f9fafb;
+      padding: 8px 12px;
+      border-radius: 999px;
+      font-size: 12px;
+      border: 1px solid #4b5563;
+      display: none;
+      z-index: 9999;
+    }
+
+    .toast.show {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .toast span.icon {
+      font-size: 14px;
+    }
+  </style>
+</head>
+<body>
+  <div class="app-shell">
+    <!-- HEADER -->
+    <section class="header-card">
+      <div class="header-top">
+        <div class="helper-avatar">H</div>
+        <div class="header-text-main">
+          <div class="header-title">I am here to be your HELPER.</div>
+          <div class="header-subtitle">
+            I can help you read your mail, understand your bills, explain legal papers, remember appointments, and more — in plain, simple words.
+          </div>
+        </div>
+      </div>
+
+      <div class="header-steps">
+        <div class="step-item">
+          <div class="step-number">1</div>
+          <div class="step-text">Tell me your name so I can greet you properly.</div>
+        </div>
+        <div class="step-item">
+          <div class="step-number">2</div>
+          <div class="step-text">Pick what you need help with — tap any big button.</div>
+        </div>
+        <div class="step-item">
+          <div class="step-number">3</div>
+          <div class="step-text">I will explain everything in plain, simple words.</div>
+        </div>
+        <div class="step-item">
+          <div class="step-number">4</div>
+          <div class="step-text">Tap “Read It To Me” any time to hear the answer out loud.</div>
+        </div>
+      </div>
+
+      <div class="header-actions">
+        <button class="btn-primary" id="startBtn">Let’s Get Started</button>
+        <button class="btn-ghost" id="skipBtn">Skip setup — go straight to the menu</button>
+      </div>
+    </section>
+
+    <!-- MAIN CARD -->
+    <section class="main-card">
+      <div class="hello-row">
+        <div class="hello-text">
+          <div class="hello-title" id="helloTitle">Hello, Friend!</div>
+          <div class="hello-subtitle" id="helloSubtitle">
+            Good afternoon, Friend! Tap any button below to get help.
+          </div>
+          <div class="name-input-row">
+            <input type="text" id="nameInput" placeholder="Type your name here…" />
+            <button id="saveNameBtn">Save my name</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- TOP ACTIONS -->
+      <div class="top-actions-row">
+        <button class="big-round-btn btn-mic" id="micBtn">
+          <span class="icon">🎙️</span>
+          <span id="micLabel">Speak to me</span>
+        </button>
+        <button class="big-round-btn btn-read" id="readBtn">
+          <span class="icon">📷</span>
+          <span>Read this for me</span>
+        </button>
+        <button class="big-round-btn btn-scam" id="scamBtn">
+          <span class="icon">🛡️</span>
+          <span>Is this a scam?</span>
+        </button>
+      </div>
+
+      <div class="top-actions-row">
+        <button class="big-round-btn btn-language" id="languageBtn">
+          <span class="icon">🌎</span>
+          <span id="languageLabel">Language: English</span>
+        </button>
+        <button class="big-round-btn btn-print" id="printBtn">
+          <span class="icon">🖨️</span>
+          <span>Print this</span>
+        </button>
+      </div>
+
+      <!-- CONVERSATION -->
+      <div class="conversation-box" id="conversation">
+        <!-- Messages injected here -->
+      </div>
+
+      <!-- INPUT -->
+      <div class="input-area">
+        <div class="input-row">
+          <textarea id="userInput" placeholder="You can type here, or tap “Speak to me” and talk out loud…"></textarea>
+          <button id="sendBtn">Send</button>
+        </div>
+        <div class="bottom-actions-row">
+          <button class="small-pill-btn primary" id="tellMeMoreBtn">
+            <span class="icon">➕</span>
+            <span>Tell me more</span>
+          </button>
+          <button class="small-pill-btn danger" id="backHomeBtn">
+            <span class="icon">🏠</span>
+            <span>Back to main menu</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- MENU GRID -->
+      <div class="menu-grid" id="menuGrid">
+        <button class="menu-button" data-topic="mail">
+          <div class="menu-title-row">
+            <span class="icon">📬</span>
+            <span>Read My Mail</span>
+          </div>
+          <div class="menu-desc">Taxes & posts — I’ll read it and explain it.</div>
+        </button>
+
+        <button class="menu-button" data-topic="bills">
+          <div class="menu-title-row">
+            <span class="icon">💡</span>
+            <span>My Bills</span>
+          </div>
+          <div class="menu-desc">I’ll explain what you owe and why.</div>
+        </button>
+
+        <button class="menu-button" data-topic="credit">
+          <div class="menu-title-row">
+            <span class="icon">💳</span>
+            <span>Credit Score</span>
+          </div>
+          <div class="menu-desc">I’ll explain your credit in simple words.</div>
+        </button>
+
+        <button class="menu-button" data-topic="custody">
+          <div class="menu-title-row">
+            <span class="icon">👶</span>
+            <span>Custody Help</span>
+          </div>
+          <div class="menu-desc">I’ll help you understand custody papers.</div>
+        </button>
+
+        <button class="menu-button" data-topic="medicines">
+          <div class="menu-title-row">
+            <span class="icon">💊</span>
+            <span>My Medicines</span>
+          </div>
+          <div class="menu-desc">I’ll help you understand your medicines.</div>
+        </button>
+
+        <button class="menu-button" data-topic="food">
+          <div class="menu-title-row">
+            <span class="icon">🍽️</span>
+            <span>What Should I Eat?</span>
+          </div>
+          <div class="menu-desc">Simple food guidance, not medical advice.</div>
+        </button>
+
+        <button class="menu-button" data-topic="appointments">
+          <div class="menu-title-row">
+            <span class="icon">📅</span>
+            <span>My Appointments</span>
+          </div>
+          <div class="menu-desc">I’ll help you remember and prepare.</div>
+        </button>
+
+        <button class="menu-button" data-topic="legal">
+          <div class="menu-title-row">
+            <span class="icon">⚖️</span>
+            <span>Legal Help</span>
+          </div>
+          <div class="menu-desc">I’ll explain your legal letters and forms.</div>
+        </button>
+
+        <button class="menu-button" data-topic="employment">
+          <div class="menu-title-row">
+            <span class="icon">💼</span>
+            <span>Employment</span>
+          </div>
+          <div class="menu-desc">I’ll help you understand job papers.</div>
+        </button>
+
+        <button class="menu-button" data-topic="education">
+          <div class="menu-title-row">
+            <span class="icon">🎓</span>
+            <span>Education</span>
+          </div>
+          <div class="menu-desc">I’ll help you with school forms.</div>
+        </button>
+
+        <button class="menu-button" data-topic="housing">
+          <div class="menu-title-row">
+            <span class="icon">🏠</span>
+            <span>Housing</span>
+          </div>
+          <div class="menu-desc">I’ll explain rent, eviction, and housing letters.</div>
+        </button>
+
+        <button class="menu-button" data-topic="emergency">
+          <div class="menu-title-row">
+            <span class="icon">🚨</span>
+            <span>Emergency</span>
+          </div>
+          <div class="menu-desc">911, Poison Control, 988 — I’ll remind you who to call.</div>
+        </button>
+      </div>
+
+      <div class="footer-note">
+        This public helper does not save your data. For saved notes and advanced tools, use the student or staff version inside WAI‑Institute.
+      </div>
+    </section>
+  </div>
+
+  <div class="toast" id="toast">
+    <span class="icon" id="toastIcon">ℹ️</span>
+    <span id="toastText">Message</span>
+  </div>
+
+  <script>
+    let currentName = "Friend";
+    let currentLanguage = "en";
+    let lastFullAnswer = "";
+    let lastShortAnswer = "";
+    let isListening = false;
+
+    const helloTitle = document.getElementById("helloTitle");
+    const helloSubtitle = document.getElementById("helloSubtitle");
+    const nameInput = document.getElementById("nameInput");
+    const saveNameBtn = document.getElementById("saveNameBtn");
+    const startBtn = document.getElementById("startBtn");
+    const skipBtn = document.getElementById("skipBtn");
+    const micBtn = document.getElementById("micBtn");
+    const micLabel = document.getElementById("micLabel");
+    const readBtn = document.getElementById("readBtn");
+    const scamBtn = document.getElementById("scamBtn");
+    const languageBtn = document.getElementById("languageBtn");
+    const languageLabel = document.getElementById("languageLabel");
+    const printBtn = document.getElementById("printBtn");
+    const conversationEl = document.getElementById("conversation");
+    const userInputEl = document.getElementById("userInput");
+    const sendBtn = document.getElementById("sendBtn");
+    const tellMeMoreBtn = document.getElementById("tellMeMoreBtn");
+    const backHomeBtn = document.getElementById("backHomeBtn");
+    const menuGrid = document.getElementById("menuGrid");
+    const toastEl = document.getElementById("toast");
+    const toastText = document.getElementById("toastText");
+    const toastIcon = document.getElementById("toastIcon");
+
+    function showToast(message, icon = "ℹ️", duration = 2500) {
+      toastText.textContent = message;
+      toastIcon.textContent = icon;
+      toastEl.classList.add("show");
+      setTimeout(() => {
+        toastEl.classList.remove("show");
+      }, duration);
+    }
+
+    function updateGreeting() {
+      helloTitle.textContent = `Hello, ${currentName}!`;
+      helloSubtitle.textContent = `Good afternoon, ${currentName}! Tap any button below to get help.`;
+    }
+
+    saveNameBtn.addEventListener("click", () => {
+      const val = nameInput.value.trim();
+      if (!val) {
+        showToast("Please type a name first.", "ℹ️");
+        return;
+      }
+      currentName = val;
+      updateGreeting();
+      showToast(`Nice to meet you, ${currentName}.`, "😊");
+    });
+
+    startBtn.addEventListener("click", () => {
+      showToast("You can start by tapping any big button below.", "👉");
+      userInputEl.focus();
+    });
+
+    skipBtn.addEventListener("click", () => {
+      showToast("Okay, we’ll skip setup. You can still tell me your name later.", "✅");
+    });
+
+    // Conversation helpers
+    function addMessage(role, text) {
+      const msgEl = document.createElement("div");
+      msgEl.className = "message " + role;
+
+      const bubble = document.createElement("div");
+      bubble.className = "bubble";
+      bubble.textContent = text;
+
+      const meta = document.createElement("div");
+      meta.className = "message-meta";
+      const now = new Date();
+      meta.textContent =
+        (role === "helper" ? "Helper" : currentName) +
+        " • " +
+        now.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+
+      msgEl.appendChild(bubble);
+      msgEl.appendChild(meta);
+      conversationEl.appendChild(msgEl);
+      conversationEl.scrollTop = conversationEl.scrollHeight;
+    }
+
+    function initialGreeting() {
+      const text =
+        "Good to see you. I’ll keep my answers short and simple. You can always say or tap “Tell me more” if you want more detail.";
+      addMessage("helper", text);
+    }
+
+    // Simple “AI” stub
+    function generateAnswer(question) {
+      const lower = question.toLowerCase();
+      if (lower.includes("social security")) {
+        return {
+          short:
+            "Social Security letters explain your payments or changes. I can help you read and understand them.",
+          full:
+            "Social Security letters explain your payments, changes, or questions about your record. " +
+            "A real letter usually has your full name, part of your Social Security number, and a clear reason for writing. " +
+            "If someone calls and demands money or threatens you, that is usually a scam. " +
+            "You can hang up and call the real Social Security number from their official website."
+        };
+      }
+      if (lower.includes("medicare")) {
+        return {
+          short:
+            "Medicare letters explain your coverage or bills. I can help you understand what they mean.",
+          full:
+            "Medicare letters often explain coverage, bills, or changes to your plan. " +
+            "They should list your name, your Medicare number, and the service or bill they are talking about. " +
+            "If someone calls and asks for your Medicare number or bank information, do not give it. " +
+            "You can call the number on the back of your Medicare card to check if something is real."
+        };
+      }
+      if (lower.includes("bill") || lower.includes("utility") || lower.includes("power")) {
+        return {
+          short:
+            "Utility bills show what you used and what you owe. I can help you go line by line.",
+          full:
+            "Utility bills usually show your account number, the service address, the dates of service, and the amount due. " +
+            "If a bill suddenly jumps very high, it may be from past due amounts, fees, or a mistake. " +
+            "You can call the number on the bill and ask them to explain each charge. " +
+            "If someone calls and demands payment with gift cards or threatens to cut power right away, that is likely a scam."
+        };
+      }
+      if (lower.includes("eviction") || lower.includes("rent") || lower.includes("housing")) {
+        return {
+          short:
+            "Eviction papers are serious, but you still have rights. I can help you understand what they say.",
+          full:
+            "Rent and eviction papers can be scary, but you still have rights. " +
+            "An eviction notice should list your name, the address, the reason, and a date. " +
+            "You may have time to respond or get legal help. " +
+            "You can contact local legal aid or a tenant help group in your area to review the papers with you."
+        };
+      }
+      return {
+        short:
+          "I hear your question. I’ll give you a short, simple answer first. You can ask for more if you like.",
+        full:
+          "I hear your question and I want to give you a clear, calm answer. " +
+          "I will explain the main idea in simple words, and if you want more detail, you can tap “Tell me more” and I will go deeper."
+      };
+    }
+
+    function handleSend() {
+      const text = userInputEl.value.trim();
+      if (!text) return;
+      addMessage("user", text);
+      userInputEl.value = "";
+
+      const apiResult = await callPublicAPI('ask', { question: text, language: currentLanguage });
+      if (apiResult && apiResult.short) {
+        lastShortAnswer = apiResult.short;
+        lastFullAnswer = apiResult.full || apiResult.short;
+        addMessage("helper", apiResult.short);
+      } else {
+        const apiResult = await callPublicAPI('ask', { question: text, language: currentLanguage });
+      if (apiResult && apiResult.short) {
+        lastShortAnswer = apiResult.short;
+        lastFullAnswer = apiResult.full || apiResult.short;
+        addMessage("helper", apiResult.short);
+      } else {
+        const { short, full } = generateAnswer(text);
+        lastShortAnswer = short;
+        lastFullAnswer = full;
+        addMessage("helper", short);
+      }
+      }
+    }
+
+    sendBtn.addEventListener("click", handleSend);
+    userInputEl.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" && !e.shiftKey) {
+        e.preventDefault();
+        handleSend();
+      }
+    });
+
+    tellMeMoreBtn.addEventListener("click", () => {
+      if (!lastFullAnswer) {
+        showToast("Ask me something first, then I can tell you more.", "ℹ️");
+        return;
+      }
+      addMessage("helper", lastFullAnswer);
+    });
+
+    backHomeBtn.addEventListener("click", () => {
+      showToast("You are back at the main menu.", "🏠");
+      conversationEl.innerHTML = "";
+      initialGreeting();
+    });
+
+    // Menu buttons
+    menuGrid.addEventListener("click", (e) => {
+      const btn = e.target.closest(".menu-button");
+      if (!btn) return;
+      const topic = btn.getAttribute("data-topic");
+      let text = "";
+      switch (topic) {
+        case "mail":
+          text = "You chose “Read My Mail”. You can type what the letter says, and I will explain it.";
+          break;
+        case "bills":
+          text = "You chose “My Bills”. You can tell me what the bill says, and I will explain what you owe.";
+          break;
+        case "credit":
+          text = "You chose “Credit Score”. I can explain what a credit score is and what it means for you.";
+          break;
+        case "custody":
+          text = "You chose “Custody Help”. I can help you understand custody papers in simple words.";
+          break;
+        case "medicines":
+          text = "You chose “My Medicines”. I can help you read labels and instructions, but I am not a doctor.";
+          break;
+        case "food":
+          text = "You chose “What Should I Eat?”. I can give simple food ideas, but this is not medical advice.";
+          break;
+        case "appointments":
+          text = "You chose “My Appointments”. I can help you think through what to bring and what to ask.";
+          break;
+        case "legal":
+          text = "You chose “Legal Help”. I can explain letters and forms, but I am not your lawyer.";
+          break;
+        case "employment":
+          text = "You chose “Employment”. I can help you understand job offers and work papers.";
+          break;
+        case "education":
+          text = "You chose “Education”. I can help you understand school forms and letters.";
+          break;
+        case "housing":
+          text = "You chose “Housing”. I can help you read rent, lease, and housing letters.";
+          break;
+        case "emergency":
+          text =
+            "You chose “Emergency”. If you are in danger, call 911. For poison, call 1‑800‑222‑1222. For mental health, call 988.";
+          break;
+      }
+      if (text) {
+        addMessage("helper", text);
+      }
+    });
+
+    // Language cycle
+    const languageCycle = [
+      { code: "en", label: "English" },
+      { code: "es", label: "Español" },
+      { code: "ht", label: "Kreyòl Ayisyen" },
+      { code: "yo", label: "Yorùbá" },
+      { code: "so", label: "Af‑Soomaali" },
+      { code: "tl", label: "Tagalog" },
+      { code: "vi", label: "Tiếng Việt" }
+    ];
+
+    languageBtn.addEventListener("click", () => {
+      const idx = languageCycle.findIndex((l) => l.code === currentLanguage);
+      const next = languageCycle[(idx + 1) % languageCycle.length];
+      currentLanguage = next.code;
+      languageLabel.textContent = "Language: " + next.label;
+      showToast("I will try to speak in " + next.label + " as best I can.", "🌎", 3000);
+    });
+
+    // Print
+    printBtn.addEventListener("click", () => {
+      window.print();
+    });
+
+    // Voice input (simple stub)
+    let recognition = null;
+    if ("webkitSpeechRecognition" in window || "SpeechRecognition" in window) {
+      const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+      recognition = new SR();
+      recognition.continuous = false;
+      recognition.interimResults = false;
+      recognition.lang = "en-US";
+
+      recognition.onstart = () => {
+        isListening = true;
+        micLabel.textContent = "Listening…";
+        showToast("I am listening. Speak slowly and clearly.", "🎙️", 3000);
+      };
+
+      recognition.onend = () => {
+        isListening = false;
+        micLabel.textContent = "Speak to me";
+      };
+
+      recognition.onresult = (event) => {
+        const transcript = event.results[0][0].transcript;
+        userInputEl.value = transcript;
+        handleSend();
+      };
+
+      recognition.onerror = () => {
+        isListening = false;
+        micLabel.textContent = "Speak to me";
+        showToast("I could not hear you clearly. Please try again.", "🔇");
+      };
+    }
+
+    micBtn.addEventListener("click", () => {
+      if (!recognition) {
+        showToast("Voice is not supported on this device. You can still type.", "🔇", 3000);
+        return;
+      }
+      if (isListening) {
+        recognition.stop();
+      } else {
+        recognition.lang = currentLanguage === "en" ? "en-US" : "en-US";
+        recognition.start();
+      }
+    });
+
+    // Read button stub
+    readBtn.addEventListener("click", () => {
+      showToast("In this public version, I cannot use your camera yet. You can type what it says.", "📷", 3500);
+    });
+
+    // Scam button
+    scamBtn.addEventListener("click", () => {
+      const short =
+        "If someone asks for money right now, threatens you, or wants gift cards, it may be a scam.";
+      const full =
+        "If someone asks for money right now, threatens jail, police, or court, or demands gift cards or wire transfers, it may be a scam. " +
+        "Real agencies almost never demand gift cards, wire transfers, or secret payments. " +
+        "Do not send money, do not share personal numbers, and do not click strange links. " +
+        "If you are unsure, call the real number on the back of your card or on the official website.";
+      lastShortAnswer = short;
+      lastFullAnswer = full;
+      addMessage("helper", short);
+    });
+
+    // Initial
+    initialGreeting();
+  </script>
+</body>
+</html>
+
+    // API helper for public endpoints
+    async function callPublicAPI(endpoint, body) {
+      try {
+        const response = await fetch(\"/api/public/helper/\"+endpoint, {
+          method: \"POST\",
+          headers: {\"Content-Type\": \"application/json\"},
+          body: JSON.stringify(body)
+        });
+        if (!response.ok) throw new Error(\"API error\");
+        return await response.json();
+      } catch (err) {
+        showToast(\"Could not reach the helper service. Please try again.\", \"⚠️\", 3000);
+        return null;
+      }
+    }
+
