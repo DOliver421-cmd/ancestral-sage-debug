@@ -98,7 +98,15 @@ export default function AITutor() {
       const r = await fetch(`${API}/ai/sage/tts`, {
         method: "POST",
         headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
-        body: JSON.stringify({ text, voice: "sage", speed: audioSpeed, session_id: sessionId }),
+        body: JSON.stringify({ 
+          text, 
+          voice: mode === "ancestral_sage" ? "sage" : 
+                 mode === "tutor" ? "nova" :
+                 mode === "scripture" ? "fable" :
+                 mode === "electrician" ? "echo" : "alloy",
+          speed: audioSpeed, 
+          session_id: sessionId 
+        }),
         signal: controller.signal,
       });
       if (r.status === 429) {
@@ -222,12 +230,21 @@ export default function AITutor() {
       rec.continuous = true;
       rec.interimResults = true;
       rec.maxAlternatives = 1;
+      let silenceTimer = null;
       rec.onresult = (ev) => {
         let txt = "";
         for (let i = ev.resultIndex; i < ev.results.length; i++) {
           if (ev.results[i].isFinal) txt += ev.results[i][0].transcript;
         }
-        if (txt.trim()) setInput((cur) => (cur ? `${cur} ${txt.trim()}` : txt.trim()));
+        if (txt.trim()) {
+          setInput((cur) => (cur ? `${cur} ${txt.trim()}` : txt.trim()));
+          clearTimeout(silenceTimer);
+          silenceTimer = setTimeout(() => {
+            rec.stop();
+            setRecording(false);
+            setTimeout(() => document.querySelector("[data-testid=btn-send]")?.click(), 100);
+          }, 2000);
+        }
       };
       rec.onerror = (ev) => {
         if (ev.error === "no-speech") { rec.stop(); return; }

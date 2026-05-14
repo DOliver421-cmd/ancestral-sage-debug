@@ -2003,7 +2003,7 @@ async def sage_tts(body: SageTTSReq, user: User = Depends(current_user)):
       4. latency / hit-ratio / error-rate metrics buffer (5 min)
     """
     import time as _t
-    if not EMERGENT_LLM_KEY:
+    if not OPENAI_API_KEY and not EMERGENT_LLM_KEY:
         raise HTTPException(500, "AI not configured")
     text = (body.text or "").strip()
     if not text:
@@ -2246,7 +2246,7 @@ async def ai_chat(body: AIChatReq, user: User = Depends(current_user)):
         })
         return {"reply": CRISIS_REPLY, "safety_intervention": True}
 
-    if not EMERGENT_LLM_KEY:
+    if not OPENAI_API_KEY and not EMERGENT_LLM_KEY:
         raise HTTPException(500, "AI not configured")
     try:
         import anthropic as _anthropic_module
