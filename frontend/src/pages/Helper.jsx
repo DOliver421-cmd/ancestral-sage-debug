@@ -87,7 +87,7 @@ function PublicHelper() {
   };
 
   useEffect(() => {
-    addMsg("helper", "Good to see you. I'll keep my answers short and simple. Tap "Tell me more" if you want more detail.");
+    addMsg("helper", "Good to see you. I'll keep my answers short and simple. Tap \"Tell me more\" if you want more detail.");
   }, []);
 
   useEffect(() => { endRef.current?.scrollIntoView({ behavior:"smooth" }); }, [msgs]);
@@ -266,7 +266,7 @@ function AuthHelper({ user }) {
   };
 
   useEffect(() => {
-    addMsg("helper", "This is your private helper inside WAI‑Institute. I'll keep answers short and clear. Tap "Tell me more" for more detail.");
+    addMsg("helper", "This is your private helper inside WAI‑Institute. I'll keep answers short and clear. Tap \"Tell me more\" for more detail.");
   }, []);
 
   useEffect(() => { endRef.current?.scrollIntoView({ behavior:"smooth" }); }, [msgs]);
