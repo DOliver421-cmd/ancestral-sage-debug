@@ -1013,3 +1013,20 @@
   </script>
 </body>
 </html>
+
+    // API helper for public endpoints
+    async function callPublicAPI(endpoint, body) {
+      try {
+        const response = await fetch(\"/api/public/helper/\"+endpoint, {
+          method: \"POST\",
+          headers: {\"Content-Type\": \"application/json\"},
+          body: JSON.stringify(body)
+        });
+        if (!response.ok) throw new Error(\"API error\");
+        return await response.json();
+      } catch (err) {
+        showToast(\"Could not reach the helper service. Please try again.\", \"⚠️\", 3000);
+        return null;
+      }
+    }
+

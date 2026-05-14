@@ -999,3 +999,24 @@
         return {
           short:
             "You are drafting a letter. I can help you write it in plain, respectful
+
+    // API helper for authenticated endpoints
+    async function callAuthAPI(endpoint, body) {
+      try {
+        const response = await fetch(\"/api/helper/\"+endpoint, {
+          method: \"POST\",
+          headers: {\"Content-Type\": \"application/json\"},
+          credentials: \"include\",
+          body: JSON.stringify(body)
+        });
+        if (!response.ok) {
+          if (response.status === 401) { showToast(\"Session expired. Please log in again.\", \"🔒\", 3500); setTimeout(() => window.location.href = \"/login\", 2000); return null; }
+          throw new Error(\"API error\");
+        }
+        return await response.json();
+      } catch (err) {
+        showToast(\"Could not reach the helper service. Please try again.\", \"⚠️\", 3000);
+        return null;
+      }
+    }
+
