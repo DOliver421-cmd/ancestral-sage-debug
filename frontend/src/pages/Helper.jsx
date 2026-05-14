@@ -181,21 +181,89 @@ function useMic({ onResult, onError }) {
 }
 
 // ---------------------------------------------------------------------------
-// TTS hook
+// TTS hook - OpenAI nova voice via backend (warm woman), browser fallback
 // ---------------------------------------------------------------------------
 function useTTS() {
   const [speaking, setSpeaking] = useState(false);
-  const speak = useCallback((text) => {
+  const audioRef = useRef(null);
+  const abortRef = useRef(null);
+
+  const speakBrowser = useCallback((text) => {
     if (!window.speechSynthesis) return;
     window.speechSynthesis.cancel();
     const utt = new SpeechSynthesisUtterance(text);
-    utt.lang = "en-US"; utt.rate = 0.92;
+    utt.lang = "en-US"; utt.rate = 0.88; utt.pitch = 1.05;
+    const voices = window.speechSynthesis.getVoices();
+    const female = voices.find(v =>
+      v.lang.startsWith("en") && (v.name.toLowerCase().includes("female") ||
+      v.name.includes("Samantha") || v.name.includes("Karen") ||
+      v.name.includes("Victoria") || v.name.includes("Zira"))
+    );
+    if (female) utt.voice = female;
     utt.onstart = () => setSpeaking(true);
     utt.onend = () => setSpeaking(false);
     utt.onerror = () => setSpeaking(false);
     window.speechSynthesis.speak(utt);
   }, []);
-  const stop = useCallback(() => { window.speechSynthesis?.cancel(); setSpeaking(false); }, []);
+
+  const speak = useCallback(async (text) => {
+    if (!text) return;
+    abortRef.current?.abort();
+    if (audioRef.current) { audioRef.current.pause(); audioRef.current = null; }
+    window.speechSynthesis?.cancel();
+
+    const token = localStorage.getItem("lce_token");
+    if (!token) { speakBrowser(text); return; }
+
+    const controller = new AbortController();
+    abortRef.current = controller;
+    setSpeaking(true);
+
+    try {
+      const r = await fetch("/api/ai/sage/tts", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": "Bearer " + token,
+        },
+        body: JSON.stringify({
+          text: text.slice(0, 1000),
+          voice: "nova",
+          speed: 0.95,
+          session_id: "helper-tts",
+        }),
+        signal: controller.signal,
+      });
+
+      if (!r.ok) {
+        setSpeaking(false);
+        speakBrowser(text);
+        return;
+      }
+
+      const blob = await r.blob();
+      const url = URL.createObjectURL(blob);
+      const audio = new Audio(url);
+      audioRef.current = audio;
+      audio.onended = () => { URL.revokeObjectURL(url); setSpeaking(false); };
+      audio.onpause = () => setSpeaking(false);
+      audio.onerror = () => { setSpeaking(false); speakBrowser(text); };
+      audio.play();
+    } catch (e) {
+      if (e?.name !== "AbortError") {
+        setSpeaking(false);
+        speakBrowser(text);
+      }
+    }
+  }, [speakBrowser]);
+
+  const stop = useCallback(() => {
+    abortRef.current?.abort();
+    if (audioRef.current) { audioRef.current.pause(); audioRef.current = null; }
+    window.speechSynthesis?.cancel();
+    setSpeaking(false);
+  }, []);
+
   return { speaking, speak, stop };
 }
 
