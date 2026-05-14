@@ -1,0 +1,1001 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Helper – Authenticated Workspace</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <style>
+    :root {
+      --bg: #f5f7fb;
+      --header-gradient: linear-gradient(135deg, #4b7cff, #7b5cff);
+      --card-bg: #ffffff;
+      --text-main: #1f2933;
+      --text-soft: #4b5563;
+      --accent: #22c55e;
+      --accent-soft: #bbf7d0;
+      --danger: #ef4444;
+      --button-blue: #2563eb;
+      --button-blue-soft: #dbeafe;
+      --button-yellow: #facc15;
+      --button-purple: #7c3aed;
+      --button-red: #ef4444;
+      --radius-lg: 18px;
+      --radius-md: 14px;
+      --shadow-soft: 0 10px 30px rgba(15, 23, 42, 0.18);
+      --font-main: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      padding: 0;
+      font-family: var(--font-main);
+      background: var(--bg);
+      color: var(--text-main);
+    }
+
+    .app-shell {
+      max-width: 1120px;
+      margin: 0 auto;
+      padding: 10px 8px 24px;
+    }
+
+    @media (min-width: 768px) {
+      .app-shell {
+        padding: 16px 12px 32px;
+      }
+    }
+
+    /* TOP BAR */
+    .top-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      margin-bottom: 10px;
+    }
+
+    .top-left {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .helper-avatar {
+      width: 52px;
+      height: 52px;
+      border-radius: 50%;
+      background: radial-gradient(circle at 30% 20%, #fde68a, #facc15 40%, #f97316 80%);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #1f2933;
+      font-weight: 800;
+      font-size: 24px;
+      box-shadow: 0 0 0 3px rgba(15, 23, 42, 0.35);
+      flex-shrink: 0;
+    }
+
+    .top-title-block {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .top-title {
+      font-size: 18px;
+      font-weight: 700;
+    }
+
+    .top-subtitle {
+      font-size: 13px;
+      color: var(--text-soft);
+    }
+
+    .top-nav {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+
+    .nav-pill {
+      border-radius: 999px;
+      padding: 6px 12px;
+      font-size: 13px;
+      border: 1px solid #d1d5db;
+      background: #ffffff;
+      color: #111827;
+      cursor: pointer;
+    }
+
+    .nav-pill.active {
+      background: var(--button-blue);
+      color: #eff6ff;
+      border-color: var(--button-blue);
+      font-weight: 600;
+    }
+
+    .top-right {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .role-pill {
+      border-radius: 999px;
+      padding: 5px 10px;
+      font-size: 12px;
+      border: 1px solid #d1d5db;
+      background: #ffffff;
+      color: #111827;
+    }
+
+    .profile-pill {
+      border-radius: 999px;
+      padding: 6px 10px;
+      font-size: 13px;
+      border: 1px solid #d1d5db;
+      background: #ffffff;
+      color: #111827;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      cursor: pointer;
+    }
+
+    .profile-pill span.icon {
+      font-size: 16px;
+    }
+
+    /* HEADER CARD */
+    .header-card {
+      background: var(--header-gradient);
+      border-radius: var(--radius-lg);
+      padding: 16px 14px;
+      color: #ffffff;
+      box-shadow: var(--shadow-soft);
+      margin-bottom: 12px;
+    }
+
+    @media (min-width: 768px) {
+      .header-card {
+        padding: 20px 18px;
+      }
+    }
+
+    .header-row {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      gap: 10px;
+      align-items: center;
+    }
+
+    .header-text-main {
+      max-width: 520px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .header-title {
+      font-size: 20px;
+      font-weight: 700;
+    }
+
+    .header-subtitle {
+      font-size: 14px;
+      line-height: 1.4;
+    }
+
+    .header-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 8px;
+    }
+
+    .btn-primary {
+      border-radius: 999px;
+      border: none;
+      padding: 9px 16px;
+      font-size: 14px;
+      font-weight: 600;
+      background: var(--accent);
+      color: #064e3b;
+      cursor: pointer;
+    }
+
+    .btn-ghost {
+      border-radius: 999px;
+      border: 1px solid rgba(255, 255, 255, 0.7);
+      padding: 8px 12px;
+      font-size: 13px;
+      background: transparent;
+      color: #e5e7eb;
+      cursor: pointer;
+    }
+
+    .header-quick-row {
+      margin-top: 10px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .big-round-btn {
+      flex: 1;
+      min-width: 120px;
+      border-radius: 999px;
+      border: none;
+      padding: 9px 12px;
+      font-size: 14px;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      cursor: pointer;
+    }
+
+    .big-round-btn span.icon {
+      font-size: 18px;
+    }
+
+    .btn-mic {
+      background: var(--button-blue);
+      color: #eff6ff;
+    }
+
+    .btn-read {
+      background: var(--button-yellow);
+      color: #78350f;
+    }
+
+    .btn-scam {
+      background: var(--button-red);
+      color: #fee2e2;
+    }
+
+    .btn-language {
+      background: var(--button-purple);
+      color: #ede9fe;
+    }
+
+    .btn-print {
+      background: #e5e7eb;
+      color: #111827;
+    }
+
+    /* MAIN LAYOUT */
+    .main-layout {
+      display: grid;
+      grid-template-columns: 1.1fr 1.1fr;
+      gap: 12px;
+    }
+
+    @media (max-width: 900px) {
+      .main-layout {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .card {
+      background: var(--card-bg);
+      border-radius: var(--radius-lg);
+      padding: 12px 10px 14px;
+      box-shadow: var(--shadow-soft);
+    }
+
+    @media (min-width: 768px) {
+      .card {
+        padding: 14px 12px 16px;
+      }
+    }
+
+    .card-title-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      margin-bottom: 8px;
+    }
+
+    .card-title-main {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .card-title-main span.icon {
+      font-size: 18px;
+    }
+
+    .card-title {
+      font-size: 15px;
+      font-weight: 700;
+    }
+
+    .card-subtitle {
+      font-size: 12px;
+      color: var(--text-soft);
+    }
+
+    .card-tag {
+      border-radius: 999px;
+      padding: 4px 8px;
+      font-size: 11px;
+      border: 1px solid #d1d5db;
+      background: #f9fafb;
+      color: #111827;
+    }
+
+    /* TOOL GRID */
+    .tool-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 8px;
+    }
+
+    @media (min-width: 640px) {
+      .tool-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+    }
+
+    .tool-button {
+      border-radius: var(--radius-md);
+      border: 1px solid #e5e7eb;
+      background: #f9fafb;
+      padding: 9px 9px;
+      cursor: pointer;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      min-height: 70px;
+    }
+
+    .tool-button:hover {
+      background: #eef2ff;
+      border-color: #c7d2fe;
+    }
+
+    .tool-title-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 14px;
+      font-weight: 600;
+    }
+
+    .tool-title-row span.icon {
+      font-size: 18px;
+    }
+
+    .tool-desc {
+      font-size: 12px;
+      color: var(--text-soft);
+    }
+
+    /* CONVERSATION CARD */
+    .conversation-box {
+      border-radius: var(--radius-md);
+      border: 1px solid #e5e7eb;
+      background: #f9fafb;
+      padding: 9px;
+      max-height: 260px;
+      overflow-y: auto;
+      font-size: 14px;
+      margin-bottom: 8px;
+    }
+
+    .message {
+      margin-bottom: 8px;
+    }
+
+    .message.helper .bubble {
+      background: #e0f2fe;
+      border-radius: 14px;
+      padding: 7px 9px;
+    }
+
+    .message.user .bubble {
+      background: #e5e7eb;
+      border-radius: 14px;
+      padding: 7px 9px;
+    }
+
+    .message-meta {
+      font-size: 11px;
+      color: #6b7280;
+      margin-top: 2px;
+    }
+
+    .input-area {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .input-row {
+      display: flex;
+      gap: 6px;
+    }
+
+    .input-row textarea {
+      flex: 1;
+      min-height: 60px;
+      max-height: 120px;
+      resize: vertical;
+      border-radius: var(--radius-md);
+      border: 1px solid #d1d5db;
+      padding: 8px 10px;
+      font-size: 14px;
+      font-family: var(--font-main);
+    }
+
+    .input-row button {
+      border-radius: var(--radius-md);
+      border: none;
+      padding: 0 14px;
+      font-size: 14px;
+      font-weight: 600;
+      background: var(--button-blue);
+      color: #eff6ff;
+      cursor: pointer;
+    }
+
+    .bottom-actions-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+
+    .small-pill-btn {
+      border-radius: 999px;
+      border: 1px solid #d1d5db;
+      padding: 6px 10px;
+      font-size: 12px;
+      background: #ffffff;
+      color: #111827;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+    }
+
+    .small-pill-btn.danger {
+      border-color: var(--danger);
+      color: #b91c1c;
+    }
+
+    .small-pill-btn.primary {
+      border-color: var(--button-blue);
+      color: #1d4ed8;
+    }
+
+    .small-pill-btn span.icon {
+      font-size: 14px;
+    }
+
+    .footer-note {
+      margin-top: 10px;
+      font-size: 11px;
+      color: var(--text-soft);
+      text-align: center;
+    }
+
+    .toast {
+      position: fixed;
+      bottom: 16px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: #111827;
+      color: #f9fafb;
+      padding: 8px 12px;
+      border-radius: 999px;
+      font-size: 12px;
+      border: 1px solid #4b5563;
+      display: none;
+      z-index: 9999;
+    }
+
+    .toast.show {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .toast span.icon {
+      font-size: 14px;
+    }
+  </style>
+</head>
+<body>
+  <div class="app-shell">
+    <!-- TOP BAR -->
+    <header class="top-bar">
+      <div class="top-left">
+        <div class="helper-avatar">H</div>
+        <div class="top-title-block">
+          <div class="top-title" id="topTitle">Helper Workspace</div>
+          <div class="top-subtitle" id="topSubtitle">
+            Welcome back. I’ll keep things simple and help you handle today’s tasks.
+          </div>
+        </div>
+      </div>
+      <div class="top-right">
+        <span class="role-pill" id="rolePill">Role: Student</span>
+        <button class="profile-pill" id="profileBtn">
+          <span class="icon">👤</span>
+          <span id="profileName">Signed in</span>
+        </button>
+      </div>
+    </header>
+
+    <!-- NAV -->
+    <nav class="top-nav" aria-label="Main navigation">
+      <button class="nav-pill active" data-section="home">Home</button>
+      <button class="nav-pill" data-section="tasks">Tasks</button>
+      <button class="nav-pill" data-section="messages">Messages</button>
+      <button class="nav-pill" data-section="profile">Profile</button>
+    </nav>
+
+    <!-- HEADER CARD -->
+    <section class="header-card">
+      <div class="header-row">
+        <div class="header-text-main">
+          <div class="header-title">I am here to be your HELPER inside WAI‑Institute.</div>
+          <div class="header-subtitle">
+            This is your private workspace. I can help you read documents, draft letters, manage appointments,
+            keep notes, and stay safe from scams — all in plain, simple words.
+          </div>
+          <div class="header-actions">
+            <button class="btn-primary" id="focusTodayBtn">Focus on today’s tasks</button>
+            <button class="btn-ghost" id="quickScanBtn">Quick scan &amp; read</button>
+          </div>
+        </div>
+        <div>
+          <div class="header-quick-row">
+            <button class="big-round-btn btn-mic" id="micBtn">
+              <span class="icon">🎙️</span>
+              <span id="micLabel">Speak to me</span>
+            </button>
+            <button class="big-round-btn btn-read" id="readBtn">
+              <span class="icon">📷</span>
+              <span>Scan &amp; read</span>
+            </button>
+          </div>
+          <div class="header-quick-row">
+            <button class="big-round-btn btn-scam" id="scamBtn">
+              <span class="icon">🛡️</span>
+              <span>Scam check</span>
+            </button>
+            <button class="big-round-btn btn-language" id="languageBtn">
+              <span class="icon">🌎</span>
+              <span id="languageLabel">Language: English</span>
+            </button>
+            <button class="big-round-btn btn-print" id="printBtn">
+              <span class="icon">🖨️</span>
+              <span>Print</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- MAIN LAYOUT -->
+    <main class="main-layout">
+      <!-- LEFT: TOOLS -->
+      <section class="card" id="toolsCard">
+        <div class="card-title-row">
+          <div class="card-title-main">
+            <span class="icon">🧰</span>
+            <div>
+              <div class="card-title">Your tools</div>
+              <div class="card-subtitle">Tap any tool to start. I’ll guide you step by step.</div>
+            </div>
+          </div>
+          <span class="card-tag" id="roleTag">Student view</span>
+        </div>
+
+        <!-- DAILY TOOLS -->
+        <div class="card-title-main" style="margin-bottom:4px;">
+          <span class="icon">📅</span>
+          <span class="card-title" style="font-size:14px;">Daily tools</span>
+        </div>
+        <div class="tool-grid" style="margin-bottom:8px;">
+          <button class="tool-button" data-tool="read-mail">
+            <div class="tool-title-row">
+              <span class="icon">📬</span>
+              <span>Read my mail</span>
+            </div>
+            <div class="tool-desc">Upload or paste letters. I’ll read and explain them.</div>
+          </button>
+
+          <button class="tool-button" data-tool="scan-read">
+            <div class="tool-title-row">
+              <span class="icon">📷</span>
+              <span>Scan &amp; read (OCR)</span>
+            </div>
+            <div class="tool-desc">Use your camera or files. I’ll turn pictures into text.</div>
+          </button>
+
+          <button class="tool-button" data-tool="bills">
+            <div class="tool-title-row">
+              <span class="icon">💡</span>
+              <span>My bills</span>
+            </div>
+            <div class="tool-desc">I’ll help you understand what you owe and why.</div>
+          </button>
+
+          <button class="tool-button" data-tool="appointments">
+            <div class="tool-title-row">
+              <span class="icon">📅</span>
+              <span>Appointments</span>
+            </div>
+            <div class="tool-desc">Review, plan, and prepare for upcoming visits.</div>
+          </button>
+
+          <button class="tool-button" data-tool="notes">
+            <div class="tool-title-row">
+              <span class="icon">📝</span>
+              <span>Notes</span>
+            </div>
+            <div class="tool-desc">Keep simple notes I can help you read later.</div>
+          </button>
+
+          <button class="tool-button" data-tool="documents">
+            <div class="tool-title-row">
+              <span class="icon">🗂️</span>
+              <span>Saved documents</span>
+            </div>
+            <div class="tool-desc">See documents you or staff have saved for you.</div>
+          </button>
+        </div>
+
+        <!-- LEGAL TOOLS -->
+        <div class="card-title-main" style="margin-bottom:4px; margin-top:4px;">
+          <span class="icon">⚖️</span>
+          <span class="card-title" style="font-size:14px;">Legal tools</span>
+        </div>
+        <div class="tool-grid" style="margin-bottom:8px;">
+          <button class="tool-button" data-tool="legal-draft">
+            <div class="tool-title-row">
+              <span class="icon">📄</span>
+              <span>Draft legal form</span>
+            </div>
+            <div class="tool-desc">I’ll help you draft simple pleadings or forms. Staff must review before filing.</div>
+          </button>
+
+          <button class="tool-button" data-tool="letter-draft">
+            <div class="tool-title-row">
+              <span class="icon">✉️</span>
+              <span>Draft a letter</span>
+            </div>
+            <div class="tool-desc">I’ll help you write clear, respectful letters in plain language.</div>
+          </button>
+
+          <button class="tool-button" data-tool="upload-review">
+            <div class="tool-title-row">
+              <span class="icon">📎</span>
+              <span>Upload for review</span>
+            </div>
+            <div class="tool-desc">Upload a document so staff or instructors can review it with you.</div>
+          </button>
+
+          <button class="tool-button" data-tool="scam-check">
+            <div class="tool-title-row">
+              <span class="icon">🛡️</span>
+              <span>Scam check</span>
+            </div>
+            <div class="tool-desc">Paste messages or letters. I’ll flag common scam signs.</div>
+          </button>
+        </div>
+
+        <!-- HEALTH & LIFE TOOLS -->
+        <div class="card-title-main" style="margin-bottom:4px; margin-top:4px;">
+          <span class="icon">💊</span>
+          <span class="card-title" style="font-size:14px;">Health &amp; life</span>
+        </div>
+        <div class="tool-grid" style="margin-bottom:8px;">
+          <button class="tool-button" data-tool="medicines">
+            <div class="tool-title-row">
+              <span class="icon">💊</span>
+              <span>My medicines</span>
+            </div>
+            <div class="tool-desc">I’ll help you read labels and instructions. Not a doctor.</div>
+          </button>
+
+          <button class="tool-button" data-tool="food">
+            <div class="tool-title-row">
+              <span class="icon">🍽️</span>
+              <span>Food &amp; nutrition</span>
+            </div>
+            <div class="tool-desc">Simple food ideas and questions. Not medical advice.</div>
+          </button>
+
+          <button class="tool-button" data-tool="housing">
+            <div class="tool-title-row">
+              <span class="icon">🏠</span>
+              <span>Housing</span>
+            </div>
+            <div class="tool-desc">Help reading rent, lease, and housing letters.</div>
+          </button>
+
+          <button class="tool-button" data-tool="employment">
+            <div class="tool-title-row">
+              <span class="icon">💼</span>
+              <span>Employment &amp; school</span>
+            </div>
+            <div class="tool-desc">Help with job offers, school forms, and training papers.</div>
+          </button>
+        </div>
+
+        <!-- SUPPORT TOOLS -->
+        <div class="card-title-main" style="margin-bottom:4px; margin-top:4px;">
+          <span class="icon">🧑‍🤝‍🧑</span>
+          <span class="card-title" style="font-size:14px;">Support &amp; safety</span>
+        </div>
+        <div class="tool-grid">
+          <button class="tool-button" data-tool="trusted-contacts">
+            <div class="tool-title-row">
+              <span class="icon">📇</span>
+              <span>Trusted contacts</span>
+            </div>
+            <div class="tool-desc">See or update the people you trust to help you.</div>
+          </button>
+
+          <button class="tool-button" data-tool="caregiver-mode">
+            <div class="tool-title-row">
+              <span class="icon">❤️</span>
+              <span>Caregiver mode</span>
+            </div>
+            <div class="tool-desc">Let a caregiver or staff member work with you in this space.</div>
+          </button>
+
+          <button class="tool-button" data-tool="saved-conversations">
+            <div class="tool-title-row">
+              <span class="icon">💬</span>
+              <span>Saved conversations</span>
+            </div>
+            <div class="tool-desc">Review past helper chats saved for you.</div>
+          </button>
+
+          <button class="tool-button" data-tool="emergency">
+            <div class="tool-title-row">
+              <span class="icon">🚨</span>
+              <span>Emergency info</span>
+            </div>
+            <div class="tool-desc">Reminders for 911, 988, Poison Control, and local resources.</div>
+          </button>
+        </div>
+      </section>
+
+      <!-- RIGHT: CONVERSATION & TASK CONTEXT -->
+      <section class="card" id="conversationCard">
+        <div class="card-title-row">
+          <div class="card-title-main">
+            <span class="icon">💬</span>
+            <div>
+              <div class="card-title">Conversation &amp; guidance</div>
+              <div class="card-subtitle">Ask questions about the tool you chose. I’ll keep answers short and clear.</div>
+            </div>
+          </div>
+          <span class="card-tag" id="contextTag">Context: General</span>
+        </div>
+
+        <div class="conversation-box" id="conversation">
+          <!-- Messages injected here -->
+        </div>
+
+        <div class="input-area">
+          <div class="input-row">
+            <textarea id="userInput" placeholder="You can type here, or tap “Speak to me” and talk out loud…"></textarea>
+            <button id="sendBtn">Send</button>
+          </div>
+          <div class="bottom-actions-row">
+            <button class="small-pill-btn primary" id="tellMeMoreBtn">
+              <span class="icon">➕</span>
+              <span>Tell me more</span>
+            </button>
+            <button class="small-pill-btn" id="clearChatBtn">
+              <span class="icon">🧹</span>
+              <span>Clear this chat</span>
+            </button>
+            <button class="small-pill-btn" id="saveChatBtn">
+              <span class="icon">💾</span>
+              <span>Save this chat</span>
+            </button>
+            <button class="small-pill-btn danger" id="backHomeBtn">
+              <span class="icon">🏠</span>
+              <span>Back to home tools</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="footer-note">
+          This authenticated helper is part of WAI‑Institute. Actions may be logged for safety and training.
+          It does not replace a lawyer, doctor, or emergency services.
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <div class="toast" id="toast">
+    <span class="icon" id="toastIcon">ℹ️</span>
+    <span id="toastText">Message</span>
+  </div>
+
+  <script>
+    // Simple state
+    let currentLanguage = "en";
+    let lastShortAnswer = "";
+    let lastFullAnswer = "";
+    let isListening = false;
+    let currentContext = "general"; // maps to tools
+    let currentRole = "student"; // student | instructor | staff | admin
+
+    const toastEl = document.getElementById("toast");
+    const toastText = document.getElementById("toastText");
+    const toastIcon = document.getElementById("toastIcon");
+
+    const navButtons = document.querySelectorAll(".nav-pill");
+    const rolePill = document.getElementById("rolePill");
+    const roleTag = document.getElementById("roleTag");
+    const contextTag = document.getElementById("contextTag");
+    const topTitle = document.getElementById("topTitle");
+    const topSubtitle = document.getElementById("topSubtitle");
+    const profileBtn = document.getElementById("profileBtn");
+    const profileName = document.getElementById("profileName");
+
+    const micBtn = document.getElementById("micBtn");
+    const micLabel = document.getElementById("micLabel");
+    const readBtn = document.getElementById("readBtn");
+    const scamBtn = document.getElementById("scamBtn");
+    const languageBtn = document.getElementById("languageBtn");
+    const languageLabel = document.getElementById("languageLabel");
+    const printBtn = document.getElementById("printBtn");
+
+    const focusTodayBtn = document.getElementById("focusTodayBtn");
+    const quickScanBtn = document.getElementById("quickScanBtn");
+
+    const toolsCard = document.getElementById("toolsCard");
+    const conversationCard = document.getElementById("conversationCard");
+    const toolButtons = document.querySelectorAll(".tool-button");
+
+    const conversationEl = document.getElementById("conversation");
+    const userInputEl = document.getElementById("userInput");
+    const sendBtn = document.getElementById("sendBtn");
+    const tellMeMoreBtn = document.getElementById("tellMeMoreBtn");
+    const clearChatBtn = document.getElementById("clearChatBtn");
+    const saveChatBtn = document.getElementById("saveChatBtn");
+    const backHomeBtn = document.getElementById("backHomeBtn");
+
+    function showToast(message, icon = "ℹ️", duration = 2500) {
+      toastText.textContent = message;
+      toastIcon.textContent = icon;
+      toastEl.classList.add("show");
+      setTimeout(() => {
+        toastEl.classList.remove("show");
+      }, duration);
+    }
+
+    function setRole(role) {
+      currentRole = role;
+      let label = "Student";
+      if (role === "instructor") label = "Instructor";
+      if (role === "staff") label = "Staff";
+      if (role === "admin") label = "Admin";
+      rolePill.textContent = "Role: " + label;
+      roleTag.textContent = label + " view";
+    }
+
+    // For now, just default to student; you can wire this to real auth later.
+    setRole("student");
+
+    // Navigation
+    navButtons.forEach((btn) => {
+      btn.addEventListener("click", () => {
+        navButtons.forEach((b) => b.classList.remove("active"));
+        btn.classList.add("active");
+        const section = btn.getAttribute("data-section");
+        handleNav(section);
+      });
+    });
+
+    function handleNav(section) {
+      if (section === "home") {
+        topTitle.textContent = "Helper Workspace";
+        topSubtitle.textContent =
+          "Welcome back. I’ll keep things simple and help you handle today’s tasks.";
+        toolsCard.style.display = "";
+        conversationCard.style.display = "";
+      } else if (section === "tasks") {
+        topTitle.textContent = "Tasks & follow‑ups";
+        topSubtitle.textContent =
+          "Here we focus on what needs to be done next. I’ll help you break it into small steps.";
+        toolsCard.style.display = "";
+        conversationCard.style.display = "";
+      } else if (section === "messages") {
+        topTitle.textContent = "Messages & notes";
+        topSubtitle.textContent =
+          "You can talk about letters, notes, and saved chats here. I’ll help you keep track.";
+        toolsCard.style.display = "";
+        conversationCard.style.display = "";
+      } else if (section === "profile") {
+        topTitle.textContent = "Profile & settings";
+        topSubtitle.textContent =
+          "Here you can review your basic information, trusted contacts, and language preferences.";
+        toolsCard.style.display = "";
+        conversationCard.style.display = "";
+      }
+    }
+
+    profileBtn.addEventListener("click", () => {
+      showToast("Profile details are managed by WAI‑Institute. This is a preview only.", "👤", 3000);
+    });
+
+    // Conversation helpers
+    function addMessage(role, text) {
+      const msgEl = document.createElement("div");
+      msgEl.className = "message " + role;
+
+      const bubble = document.createElement("div");
+      bubble.className = "bubble";
+      bubble.textContent = text;
+
+      const meta = document.createElement("div");
+      meta.className = "message-meta";
+      const now = new Date();
+      meta.textContent =
+        (role === "helper" ? "Helper" : "You") +
+        " • " +
+        now.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+
+      msgEl.appendChild(bubble);
+      msgEl.appendChild(meta);
+      conversationEl.appendChild(msgEl);
+      conversationEl.scrollTop = conversationEl.scrollHeight;
+    }
+
+    function initialGreeting() {
+      const text =
+        "This is your private helper inside WAI‑Institute. I’ll keep answers short and clear. " +
+        "You can always tap “Tell me more” if you want more detail.";
+      addMessage("helper", text);
+    }
+
+    // Simple “AI” stub with context
+    function generateAnswer(question, context) {
+      const lower = question.toLowerCase();
+
+      if (context === "scan-read") {
+        return {
+          short:
+            "You chose Scan & read. I can help turn pictures of documents into text and explain them.",
+          full:
+            "You are using the Scan & read tool. In the full system, you or staff can upload a photo or PDF. " +
+            "I will extract the text and explain it in simple language. " +
+            "Right now, you can paste or type what the document says, and I will walk through it with you."
+        };
+      }
+
+      if (context === "legal-draft") {
+        return {
+          short:
+            "You are working on a legal form. I can help with wording, but I am not your lawyer.",
+          full:
+            "You are using the legal drafting tool. I can help you find calm, clear words for your form or pleading. " +
+            "I can suggest structure and language, but I cannot give legal advice or replace a lawyer. " +
+            "A staff member or attorney should review anything important before you sign or file it."
+        };
+      }
+
+      if (context === "letter-draft") {
+        return {
+          short:
+            "You are drafting a letter. I can help you write it in plain, respectful
