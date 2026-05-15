@@ -33,115 +33,331 @@ export default function Helper({ requireAuth = false }) {
   return requireAuth ? <AuthHelper user={user} /> : <PublicHelper />;
 }
 
-// ---------------------------------------------------------------------------
-// Shared API hook — uses /api/ai/chat (same endpoint as AI Tutor)
-// Falls back to built-in answers if backend unreachable or not authed
-// ---------------------------------------------------------------------------
-function useHelperAPI(requireAuth) {
-  const { user } = useAuth();
-  return useCallback(async (endpoint, body, showToast) => {
-    // Only "ask" is supported — all other calls (save, etc.) are no-ops for now
-    if (endpoint !== "ask" && endpoint !== "conversations/save") return null;
-    if (endpoint === "conversations/save") return { ok: true }; // stub
-
-    // Build AI chat payload from the helper question
-    const question = body.question || body.message || "";
-    const token = localStorage.getItem("lce_token");
-
-    // For auth helper: use real token. For public: attempt anyway (will 401, triggers fallback)
-    const headers = { "Content-Type": "application/json" };
-    if (token) headers["Authorization"] = `Bearer ${token}`;
-
-    try {
-      const r = await fetch("/api/ai/chat", {
-        method: "POST",
-        headers,
-        body: JSON.stringify({
-          session_id: "helper-" + Date.now(),
-          message: question,
-          mode: "tutor",
-        }),
-      });
-      if (!r.ok) {
-        if (r.status === 401 || r.status === 403) {
-          // Not logged in — return null to trigger fallback answers
-          return null;
-        }
-        return null;
-      }
-      const data = await r.json();
-      // Normalize to the shape the helper expects
-      return { answer: data.reply, short: data.reply, full: data.reply };
-    } catch {
-      return null; // trigger fallback
+// ===========================================================================
+// KNOWLEDGE BASE - structured facts for each category
+// Used by smart fallback when AI is unavailable
+// ===========================================================================
+const KB = {
+  mail: {
+    keywords: ["mail","letter","notice","envelope","correspondence","received","document","paper","sent me"],
+    facts: [
+      "Official letters always include your full name, address, and a return address from the sender.",
+      "Government letters from IRS, SSA, or courts come by postal mail - not email or text.",
+      "If a letter demands immediate payment or threatens arrest, that is almost always a scam.",
+      "You have the right to request written verification of any debt within 30 days of first contact.",
+      "Certified mail requires your signature - if you missed it, the post office holds it for 15 days.",
+      "Jury duty notices come from your local courthouse - they are real and must be responded to.",
+      "If you receive someone else's mail, do not open it - write 'return to sender' and put it back.",
+      "Medical bills often have errors - you have the right to request an itemized bill and dispute charges.",
+      "Utility disconnection notices must give you at least 10 days warning by law in most states.",
+      "A demand letter from an attorney is not a court order - you have time to respond or seek legal help.",
+    ],
+    response: (q) => {
+      const ql = q.toLowerCase();
+      if (ql.includes("irs") || ql.includes("tax")) return "IRS letters are always sent by postal mail - never email or phone. The letter will have your partial Social Security number and a notice number in the top right corner. Real IRS letters give you time to respond - usually 30-60 days. If someone called claiming to be the IRS and demanded immediate payment, that is a scam. Call 1-800-829-1040 to verify any IRS contact.";
+      if (ql.includes("jury") || ql.includes("court")) return "Jury duty notices are real legal obligations. The notice will have your local courthouse name, a reporting date, and instructions. You can request a postponement online or by mail if you have a hardship. Missing jury duty without response can result in a fine. Call the number on the notice to ask about postponement options.";
+      if (ql.includes("debt") || ql.includes("collection") || ql.includes("collector")) return "Debt collection letters must identify the creditor, the amount, and your right to dispute. You have 30 days to send a written dispute and request verification. Once you dispute in writing, the collector must stop contact until they verify the debt. Keep a copy of everything you send. Never pay a debt you do not recognize without getting written verification first.";
+      if (ql.includes("evict") || ql.includes("landlord")) return "An eviction notice is a legal document that starts a process - it does not mean you have to leave immediately. Most states require a notice period of 3 to 30 days depending on the reason. You have the right to respond and contest the eviction in court. Contact a local tenant rights organization or legal aid immediately - many offer free help and can appear in court with you.";
+      return "To help you understand this letter, I need to know a few things: Who sent it? What is the main thing it is asking you to do? Is there a deadline or date mentioned? Once you share those details I can explain exactly what it means and what steps to take.";
     }
-  }, [requireAuth, user]);
+  },
+  bills: {
+    keywords: ["bill","owe","charge","payment","debt","amount","balance","invoice","statement","overdue","past due","utility","electric","water","gas","phone","internet"],
+    facts: [
+      "You have the right to request an itemized bill from any provider - this shows every individual charge.",
+      "Billing errors are common - studies show 80% of medical bills contain errors.",
+      "You can dispute a charge in writing within 60 days for credit card bills under the Fair Credit Billing Act.",
+      "Utilities cannot shut off service without proper notice - usually 10-14 days depending on your state.",
+      "If you cannot pay, call the company before the due date - most have hardship programs or payment plans.",
+      "Medical debt under $500 no longer appears on credit reports as of 2023.",
+      "You can negotiate medical bills - hospitals often accept 20-50% of the original amount.",
+      "If a bill goes to collections, the original due date is what affects your credit - not the collection date.",
+      "Low-income households may qualify for LIHEAP - a federal program that helps pay energy bills.",
+      "Internet providers offer low-cost plans through the Affordable Connectivity Program for qualifying households.",
+    ],
+    response: (q) => {
+      const ql = q.toLowerCase();
+      if (ql.includes("medical") || ql.includes("hospital") || ql.includes("doctor")) return "Medical bills can be negotiated and often contain errors. First, request an itemized bill - this lists every charge separately. Compare it against your insurance Explanation of Benefits (EOB). If something looks wrong, call the billing department and ask them to explain each charge. Most hospitals have financial assistance or charity care programs - ask specifically for the financial assistance office. You can often negotiate the total down by 20-50% if you offer to pay in a lump sum.";
+      if (ql.includes("electric") || ql.includes("utility") || ql.includes("gas") || ql.includes("water")) return "Utility companies cannot shut off your service without a written notice at least 10-14 days in advance. Before shut-off you have the right to a payment plan. Call the company and ask about hardship programs, budget billing, or deferred payment plans. The LIHEAP program (Low Income Home Energy Assistance Program) provides federal help with energy bills - call 211 to apply or find your local office.";
+      if (ql.includes("credit card") || ql.includes("credit")) return "For credit card billing errors, you can dispute a charge within 60 days of the statement date in writing. Send your dispute by certified mail to the billing address. The card company must investigate within 30 days and cannot try to collect the disputed amount during investigation. If the charge is fraudulent, report it as fraud - your liability is limited to $50 by law, and most cards offer zero liability.";
+      if (ql.includes("collection") || ql.includes("collector")) return "When a bill goes to collections, you still have rights. Request debt verification in writing within 30 days. Once you dispute in writing, they must stop collecting until they verify. After 7 years, most debts fall off your credit report. You can also negotiate a settlement for less than the full amount, or a pay-for-delete agreement where they remove the collection from your credit in exchange for payment.";
+      return "To help you with this bill, tell me: who sent it, what the amount is, and if there is anything on it that does not look right. Everyone has the right to an itemized bill and to dispute charges they do not recognize. If you cannot pay the full amount, most companies have payment plans - I can help you figure out how to ask for one.";
+    }
+  },
+  housing: {
+    keywords: ["evict","eviction","rent","lease","landlord","tenant","apartment","house","housing","notice","deposit","security deposit","move out","move in","repair","maintenance"],
+    facts: [
+      "Landlords must give written notice before entering your home - usually 24-48 hours except in emergencies.",
+      "Security deposits must be returned within 14-30 days of move-out depending on your state.",
+      "Landlords cannot retaliate against you for reporting code violations or forming a tenant union.",
+      "An eviction requires a court order - a landlord cannot change your locks or remove your belongings without one.",
+      "Habitability standards require landlords to maintain heat, water, and a structurally safe home.",
+      "Section 8 and Housing Choice Vouchers can significantly reduce rent for qualifying households.",
+      "You can withhold rent or repair-and-deduct in some states if landlord refuses to fix serious problems.",
+      "A lease is a legal contract - read it carefully before signing, especially the break lease terms.",
+      "Most cities have tenant rights hotlines that offer free advice - call 211 to find yours.",
+      "Rental assistance programs exist in most counties - 211 can connect you to local help.",
+    ],
+    response: (q) => {
+      const ql = q.toLowerCase();
+      if (ql.includes("evict") || ql.includes("notice to vacate") || ql.includes("pay or quit")) return "An eviction notice is the start of a legal process - not an order to leave immediately. Here are your rights: The landlord must file in court and a judge must issue an order before you legally have to leave. You have the right to attend the hearing and present your case. Common defenses include: landlord failed to maintain the property, landlord did not follow proper notice procedures, you paid the rent and have proof, or the eviction is retaliatory. Contact legal aid or a tenant rights organization today - many will represent you for free. Call 211 for local resources.";
+      if (ql.includes("deposit") || ql.includes("security")) return "Security deposit rules vary by state but landlords generally must return your deposit within 14-30 days of move-out. They can only deduct for unpaid rent, damage beyond normal wear and tear, and cleaning if specified in your lease. They must provide an itemized written list of any deductions. If they do not return your deposit within the deadline without proper documentation, you may be entitled to double or triple the amount in small claims court. Document the condition of the apartment when you move in and out with photos.";
+      if (ql.includes("repair") || ql.includes("maintenance") || ql.includes("broken") || ql.includes("heat") || ql.includes("mold")) return "Landlords are legally required to maintain habitable conditions including working heat, running water, no mold, and structural safety. To protect yourself: send repair requests in writing by email or text so you have a record, keep copies of everything. If the landlord does not respond within a reasonable time, you can report the violation to your local housing authority or code enforcement. In some states you can legally withhold rent or pay for repairs yourself and deduct from rent - check your state's laws or call a tenant hotline first.";
+      return "Housing issues are serious and you have more rights than most people realize. Tell me more about your situation - are you dealing with an eviction notice, a landlord not making repairs, a security deposit problem, or something else? The more you share the better I can explain your options and rights.";
+    }
+  },
+  legal: {
+    keywords: ["court","lawyer","attorney","lawsuit","sue","legal","judge","case","hearing","summons","subpoena","warrant","rights","arrested","charged","criminal","civil","small claims","divorce","child support","alimony","bankruptcy","lien"],
+    facts: [
+      "You have the right to remain silent and the right to an attorney if arrested.",
+      "Free legal aid is available in every state for people who cannot afford an attorney.",
+      "Small claims court handles disputes up to $5,000-$25,000 depending on your state - no lawyer needed.",
+      "A summons requires you to respond within a specific time - ignoring it results in a default judgment against you.",
+      "You cannot be jailed for owing a private debt - only for criminal contempt of court or unpaid child support.",
+      "Bankruptcy can discharge most unsecured debts including credit cards and medical bills.",
+      "A power of attorney lets you designate someone to make decisions on your behalf.",
+      "Legal aid organizations offer free civil legal help to qualifying low-income individuals.",
+      "You have 3 years in most states to file a personal injury lawsuit - this is called the statute of limitations.",
+      "Written contracts are much easier to enforce than verbal agreements.",
+    ],
+    response: (q) => {
+      const ql = q.toLowerCase();
+      if (ql.includes("summons") || ql.includes("lawsuit") || ql.includes("sued") || ql.includes("served")) return "If you received a summons, do not ignore it - ignoring a summons results in a default judgment against you, which can lead to wage garnishment or bank account freezes. You typically have 20-30 days to respond in writing. Contact a legal aid organization immediately - many provide free help for people facing lawsuits. If you cannot afford an attorney, you can represent yourself (pro se) and the court clerk can explain the process. Write down the deadline on the summons right now so you do not miss it.";
+      if (ql.includes("arrest") || ql.includes("police") || ql.includes("criminal") || ql.includes("charged")) return "If you are facing criminal charges, your most important rights are: the right to remain silent (anything you say can be used against you), the right to an attorney (if you cannot afford one, the court must appoint one), and the right to a hearing before a judge. Do not discuss your case with anyone except your attorney. Public defenders are available for criminal cases if you cannot afford a lawyer. Contact your local public defender's office as soon as possible.";
+      if (ql.includes("divorce") || ql.includes("separation") || ql.includes("custody") || ql.includes("child support")) return "Family law cases including divorce, custody, and child support are handled in family court. Most states allow you to represent yourself but it is complex, especially when children are involved. Legal aid organizations often have family law specialists. Mediation is usually cheaper than litigation for divorce. Child support is calculated by a formula in each state based on both parents' incomes. Courts always make decisions based on the best interest of the child.";
+      if (ql.includes("small claims") || ql.includes("sue")) return "Small claims court is designed for everyday people without lawyers. You can sue for amounts typically between $2,500 and $25,000 depending on your state. The filing fee is usually $30-$100. You present your case directly to a judge with evidence like photos, receipts, and text messages. Common small claims cases include security deposit disputes, contractor disputes, and minor car accidents. Go to your local courthouse and ask for the small claims clerk to get the forms.";
+      return "Legal situations can feel overwhelming but you have rights and there is free help available. Tell me more about what is happening - did you receive a court document, are you dealing with a specific legal situation, or do you need to find free legal help? Legal aid organizations in every city provide free help to people who qualify.";
+    }
+  },
+  scam: {
+    keywords: ["scam","fraud","fake","suspicious","gift card","wire transfer","western union","money gram","cryptocurrency","bitcoin","irs","social security","medicare","lottery","prize","winner","too good","urgent","immediately","threat","arrest","deportation","hack","phishing","email","text","call","robocall"],
+    facts: [
+      "The IRS never calls, emails, or texts demanding immediate payment - they always mail a letter first.",
+      "Social Security never suspends your number or demands payment over the phone.",
+      "No legitimate business or government agency will ever ask for payment in gift cards.",
+      "If someone threatens arrest unless you pay immediately, it is almost certainly a scam.",
+      "Grandparent scams call elderly people pretending to be a grandchild in trouble needing bail money.",
+      "Romance scams cost Americans over $1.3 billion per year - anyone asking for money online is suspect.",
+      "Medicare never calls asking for your card number - that is always fraud.",
+      "Utility companies threatening immediate disconnection unless you pay by gift card is always a scam.",
+      "Report scams to the FTC at reportfraud.ftc.gov and to your local police.",
+      "If you already sent money in a scam, contact your bank immediately - some transfers can be reversed.",
+    ],
+    response: (q) => {
+      const ql = q.toLowerCase();
+      if (ql.includes("gift card")) return "Anyone asking you to pay with gift cards is running a scam. This includes people claiming to be the IRS, Social Security, your utility company, a lawyer, the police, or even family members. Real government agencies and real businesses never accept gift cards as payment. Do not buy the cards. If you already bought them, do not read the numbers to anyone. Report this to the FTC at reportfraud.ftc.gov and to your local police. If you gave the numbers, call the gift card company's customer service number on the back of the card immediately - sometimes they can freeze unused funds.";
+      if (ql.includes("irs") || ql.includes("tax")) return "The real IRS never calls, emails, or texts you demanding immediate payment. The IRS always sends a letter first through the postal mail. If someone called claiming to be the IRS and said you will be arrested if you do not pay right now, that is a scam. Hang up. The real IRS phone number is 1-800-829-1040. You can also verify any IRS contact by logging into your account at irs.gov. Report the scam call to the Treasury Inspector General at 1-800-366-4484.";
+      if (ql.includes("social security") || ql.includes("ssa") || ql.includes("number suspended")) return "Social Security never suspends your Social Security number, never demands payment over the phone, and never threatens arrest. This is one of the most common scams targeting older Americans. Hang up on anyone making these claims. The real Social Security Administration number is 1-800-772-1213. Report the scam to the SSA Office of Inspector General at 1-800-269-0271 or at oig.ssa.gov.";
+      if (ql.includes("lottery") || ql.includes("prize") || ql.includes("winner") || ql.includes("won")) return "Legitimate lotteries and sweepstakes never require you to pay a fee to receive your winnings. If you won a real prize, the taxes come out of the winnings automatically - you are never asked to pay upfront. The requirement to pay any fee, wire transfer, or buy gift cards to claim a prize is always a scam. Delete the message and do not respond. Report it to the FTC at reportfraud.ftc.gov.";
+      return "What you are describing raises serious scam warning signs. Key scam signals are: demanding immediate action, threatening arrest or legal consequences, asking for gift cards or wire transfers, claiming to be the IRS or Social Security, and offering prizes you did not enter to win. Do not send any money, do not give personal information, and hang up or stop responding. Tell me more about what specifically happened and I can give you more specific guidance on what to do next.";
+    }
+  },
+  employment: {
+    keywords: ["job","work","fired","laid off","termination","unemployment","employer","employee","wage","salary","hours","overtime","discrimination","harassment","workplace","hr","human resources","resume","interview","benefits","w2","paystub","pay stub"],
+    facts: [
+      "Employees have the right to discuss their wages with coworkers - employers cannot legally prohibit this.",
+      "Non-exempt employees must be paid time-and-a-half for hours over 40 per week under federal law.",
+      "You can file for unemployment benefits within days of being laid off or wrongfully terminated.",
+      "Employers must pay all earned wages on time - withholding wages is illegal.",
+      "You have 180 days to file a discrimination complaint with the EEOC after the incident.",
+      "At-will employment means you can be fired for any reason - but not for illegal reasons like discrimination.",
+      "FMLA provides up to 12 weeks of unpaid protected leave for qualifying medical or family situations.",
+      "Your employer must provide a W-2 by January 31st each year.",
+      "Non-compete agreements are not enforceable in some states and must be reasonable in scope.",
+      "You have the right to a safe workplace under OSHA regulations.",
+    ],
+    response: (q) => {
+      const ql = q.toLowerCase();
+      if (ql.includes("fired") || ql.includes("terminated") || ql.includes("laid off")) return "Being fired or laid off is stressful but you likely have options. First, apply for unemployment benefits right away at your state's unemployment website - you can usually apply even if you were fired, unless it was for serious misconduct. Second, request your final paycheck in writing if you have not received it - employers must pay all earned wages by a specific deadline. Third, review any severance agreement carefully before signing - once you sign you usually waive your right to sue. Contact an employment attorney if you think the firing was discriminatory or retaliatory.";
+      if (ql.includes("unemployment")) return "To apply for unemployment benefits, go to your state's workforce or labor department website. You will need your work history for the past 18 months, your Social Security number, and bank account information for direct deposit. Apply as soon as possible - there is usually a waiting week before benefits begin. Benefits typically replace 40-60% of your wages. You must be available and actively looking for work to continue receiving benefits. If your claim is denied, you have the right to appeal.";
+      if (ql.includes("wage") || ql.includes("overtime") || ql.includes("not paid") || ql.includes("paycheck")) return "Wage theft is illegal. If your employer is not paying you correctly, you can file a complaint with your state labor board and with the federal Department of Labor Wage and Hour Division at dol.gov. Keep records of all your hours worked and pay received. Federal law requires time-and-a-half pay for hours over 40 per week for non-exempt workers. Your employer cannot retaliate against you for filing a wage complaint. Many employment attorneys take wage cases on contingency - meaning no upfront cost to you.";
+      if (ql.includes("discriminat") || ql.includes("harass") || ql.includes("hostile")) return "Workplace discrimination and harassment based on race, color, religion, sex, national origin, age, or disability are illegal under federal law. Document everything: dates, times, witnesses, and what was said or done. Report internally to HR first and keep a copy of your report. If the company does not address it, file a charge with the EEOC at eeoc.gov - you have 180 days from the incident. You can also contact a private employment attorney - many take discrimination cases on contingency.";
+      return "I can help you understand your employment situation. Tell me more - are you dealing with a job offer, a termination, a paycheck issue, or a workplace problem? Workers have more rights than many realize, and there is free help available for employment issues.";
+    }
+  },
+  medicines: {
+    keywords: ["medicine","medication","pill","drug","prescription","dosage","dose","side effect","pharmacy","pharmacist","label","refill","generic","brand","insurance","medicare","medicaid","cost","affordable"],
+    facts: [
+      "Ask your pharmacist to explain any medication - they are highly trained and consultations are free.",
+      "Generic medications contain the same active ingredient as brand name drugs and are FDA-approved.",
+      "GoodRx and NeedyMeds.org can significantly reduce prescription costs even without insurance.",
+      "Medicare Part D covers prescription drugs - enrollment periods are specific, missing them causes penalties.",
+      "Many drug manufacturers offer patient assistance programs for people who cannot afford their medications.",
+      "Never stop a prescription medication abruptly without consulting a doctor - some have serious withdrawal effects.",
+      "Keep a list of all medications, doses, and prescribing doctors in your wallet for emergencies.",
+      "Drug interactions can be dangerous - always tell every doctor and pharmacist all medications you take.",
+      "Pill organizers and phone alarms can help with complex medication schedules.",
+      "You can request a 90-day supply of maintenance medications to reduce trips to the pharmacy.",
+    ],
+    response: (q) => {
+      const ql = q.toLowerCase();
+      if (ql.includes("cost") || ql.includes("afford") || ql.includes("expensive") || ql.includes("insurance")) return "There are several ways to reduce medication costs: 1) Ask for the generic version - same medicine, much lower price. 2) Use GoodRx.com or the GoodRx app to compare prices at different pharmacies - it can save 80%. 3) Ask the doctor for samples. 4) Check NeedyMeds.org for patient assistance programs from drug manufacturers. 5) If you have Medicare, call 1-800-MEDICARE to review your Part D plan during open enrollment. 6) State pharmaceutical assistance programs exist in many states for seniors and low-income individuals.";
+      if (ql.includes("side effect") || ql.includes("reaction") || ql.includes("feeling sick")) return "If you are experiencing side effects from a medication, do not stop taking it without first calling your doctor or pharmacist - some medications must be tapered slowly. Describe your symptoms clearly: when they started, how severe they are, and whether they are getting better or worse. Your pharmacist can tell you which side effects are common and expected versus which ones require immediate medical attention. Serious reactions like difficulty breathing, severe rash, or swelling of the face are emergencies - call 911.";
+      if (ql.includes("label") || ql.includes("instructions") || ql.includes("how to take") || ql.includes("when to take")) return "Medicine labels follow a standard format: the drug name is at the top, followed by the dose (strength) like 10mg. The directions tell you how much to take, how often, and whether to take it with food. Common abbreviations: QD means once daily, BID means twice daily, TID means three times daily, PRN means as needed. Take with food means to reduce stomach upset. Avoid alcohol means alcohol can interact dangerously. If anything is unclear, call your pharmacy - they explain labels for free.";
+      return "I can help you understand medication labels, instructions, or costs. I am not a doctor so for medical decisions always check with your pharmacist or healthcare provider. Tell me what medicine you are asking about and what specifically you need help understanding.";
+    }
+  },
+  food: {
+    keywords: ["food","eat","hungry","snap","ebt","food stamp","nutrition","meal","grocery","afford","feeding","pantry","wic","school lunch","free lunch"],
+    facts: [
+      "SNAP (food stamps) provides monthly benefits loaded onto an EBT card to buy groceries.",
+      "WIC provides food benefits for pregnant women, new mothers, and children under 5.",
+      "Free and reduced school lunches are available for qualifying families - apply at your school.",
+      "Food banks and food pantries provide free groceries - call 211 to find one near you.",
+      "Meals on Wheels provides free home-delivered meals to homebound seniors.",
+      "Many restaurants offer senior discounts and some provide free meals to those in need.",
+      "Community gardens often allow low-income residents to grow their own food for free.",
+      "Dollar stores often have surprisingly nutritious shelf-stable food at low prices.",
+      "Buying store brands instead of name brands can save 20-40% on groceries.",
+      "Frozen vegetables are just as nutritious as fresh and significantly cheaper.",
+    ],
+    response: (q) => {
+      const ql = q.toLowerCase();
+      if (ql.includes("snap") || ql.includes("food stamp") || ql.includes("ebt")) return "SNAP (Supplemental Nutrition Assistance Program) provides monthly benefits on an EBT card to buy groceries. To apply, go to your state's SNAP website or visit your local Department of Social Services office. You will need proof of identity, proof of income, and proof of address. Eligibility is based on household size and income. Benefits are deposited monthly and can be used at most grocery stores and some farmers markets. If approved, benefits can begin within 7-30 days. Call 211 for help applying.";
+      if (ql.includes("food bank") || ql.includes("food pantry") || ql.includes("hungry") || ql.includes("cannot afford")) return "Food banks and food pantries provide free groceries with no income verification in most cases. Call 211 or text your ZIP code to 898-211 to find the nearest food pantry and their hours. Feeding America's website at feedingamerica.org also has a food bank locator. Most food banks allow you to visit once a week or month. Many also offer hot meals, diapers, and hygiene products. No one should go hungry - these programs exist exactly for this situation.";
+      if (ql.includes("wic")) return "WIC (Women, Infants, and Children) provides monthly food benefits for pregnant women, new mothers up to 1 year postpartum, and children under 5. WIC provides specific foods like milk, eggs, cereal, juice, and infant formula. To apply, contact your local WIC office - find it at fns.usda.gov/wic. You will need proof of identity, proof of income, and proof of pregnancy or child's birth certificate. WIC also provides breastfeeding support and referrals to healthcare.";
+      return "Food assistance is available and there is no shame in using it. Tell me more about your situation - are you looking for emergency food today, help with grocery costs long-term, or information about a specific program? I can point you to the right resources.";
+    }
+  },
+  appointments: {
+    keywords: ["appointment","doctor","meeting","court","school","interview","prepare","upcoming","schedule","remind","bring","what to expect"],
+    facts: [
+      "Write down all your questions before any appointment - you will likely forget them once you are there.",
+      "Bring a list of all current medications to every medical appointment.",
+      "You have the right to bring a support person to any medical or legal appointment.",
+      "Ask for an interpreter if English is not your first language - it is your right in medical and legal settings.",
+      "Take notes during appointments or ask if you can record the conversation.",
+      "If you cannot make an appointment, call as early as possible - last-minute no-shows can affect your care.",
+      "Ask the doctor to explain things in plain language if you do not understand.",
+      "For court hearings, dress professionally and arrive at least 30 minutes early.",
+      "Medicaid and Medicare cover preventive care appointments at no cost.",
+      "Community health centers provide care on a sliding fee scale based on income.",
+    ],
+    response: (q) => {
+      const ql = q.toLowerCase();
+      if (ql.includes("doctor") || ql.includes("medical") || ql.includes("health")) return "To prepare for a medical appointment: write down your symptoms with when they started and how severe, list all your current medications and supplements, write down any questions you want answered, and bring your insurance card and ID. At the appointment, do not be afraid to say 'I do not understand, can you explain that differently?' You have the right to ask for everything in writing. Ask specifically: What is the diagnosis? What are my options? What happens if I do not treat it? What are the side effects of the medication?";
+      if (ql.includes("court") || ql.includes("hearing") || ql.includes("judge")) return "For a court hearing, preparation is critical. Arrive at least 30 minutes early to clear security and find the right courtroom. Dress professionally - business casual at minimum. Bring: all relevant documents organized in a folder, any evidence like photos or receipts, contact information for witnesses, and a notepad and pen. Address the judge as 'Your Honor.' Speak only when asked. Turn your phone completely off. If you have an attorney, let them speak for you. If you are representing yourself, be brief and stick to facts.";
+      if (ql.includes("interview") || ql.includes("job")) return "For a job interview, prepare by researching the company online before you go. Bring several copies of your resume and a list of references. Dress one level above what employees typically wear. Arrive 10-15 minutes early. Common questions to prepare for: Tell me about yourself (keep it professional and brief), What are your strengths and weaknesses, Why do you want this job, and Tell me about a challenge you overcame. At the end, always ask questions - good ones include: What does success look like in this role? What are the next steps?";
+      return "I can help you prepare for your appointment. Tell me what kind of appointment it is and when it is. I will help you know what to bring, what to expect, and what questions to ask so you feel confident and ready.";
+    }
+  },
+  emergency: {
+    keywords: ["emergency","danger","911","hurt","injury","violence","domestic","abuse","crisis","suicide","mental health","988","poison","overdose","fire","flood","disaster","safe","unsafe"],
+    facts: [
+      "Call 911 for any immediate danger to life - police, fire, or medical emergency.",
+      "988 is the Suicide and Crisis Lifeline - call or text 24 hours a day.",
+      "1-800-799-7233 is the National Domestic Violence Hotline - available 24/7.",
+      "1-800-222-1222 is Poison Control - call immediately for any poisoning emergency.",
+      "211 connects you to local emergency social services, food, shelter, and crisis help.",
+      "Text HOME to 741741 to reach the Crisis Text Line if you cannot speak safely.",
+      "FEMA disaster assistance is available after declared disasters at disasterassistance.gov.",
+      "Emergency rooms cannot turn you away for inability to pay under EMTALA law.",
+      "Safe shelter from domestic violence is available in every state - call 211 for your local shelter.",
+      "If you smell gas, leave immediately and call 911 - do not use any electrical switches.",
+    ],
+    response: (q) => {
+      const ql = q.toLowerCase();
+      if (ql.includes("suicid") || ql.includes("kill myself") || ql.includes("want to die") || ql.includes("end my life")) return "I am concerned about you. Please call or text 988 right now - that is the Suicide and Crisis Lifeline, available 24 hours a day. You can also text HOME to 741741 if you cannot talk safely. If you are in immediate danger, call 911. You do not have to face this alone, and there are people who want to help you through this moment. Please reach out to 988 now.";
+      if (ql.includes("domestic") || ql.includes("abuse") || ql.includes("violence") || ql.includes("hurt me") || ql.includes("hitting")) return "Your safety is the most important thing. The National Domestic Violence Hotline is 1-800-799-7233, available 24 hours a day. You can also text START to 88788 or chat at thehotline.org if it is not safe to call. If you are in immediate danger, call 911. Local domestic violence shelters provide safe housing, legal advocacy, and support - call 211 to find your nearest shelter. You deserve to be safe.";
+      if (ql.includes("poison") || ql.includes("overdose") || ql.includes("swallowed") || ql.includes("ate")) return "Call Poison Control immediately at 1-800-222-1222. They are available 24 hours a day and will tell you exactly what to do. If the person is unconscious, not breathing, or having a seizure, call 911 first. When you call, tell them: what was taken, how much, when it was taken, and the person's age and weight. Do not make the person vomit unless Poison Control specifically tells you to.";
+      return "If you are in immediate danger, call 911 now. For crisis support: 988 for suicide or mental health crisis, 1-800-799-7233 for domestic violence, 1-800-222-1222 for poison, and 211 for local emergency resources. Tell me what is happening and I will help you find the right help.";
+    }
+  },
+  credit: {
+    keywords: ["credit","score","credit score","report","fico","equifax","experian","transunion","credit card","debt","loan","interest","apr","collection","derogatory","dispute","improve credit","build credit"],
+    facts: [
+      "You can get a free credit report from all three bureaus once a year at annualcreditreport.com.",
+      "Paying bills on time is the single most important factor in your credit score - it is 35% of your FICO score.",
+      "Keeping credit card balances below 30% of your limit improves your score.",
+      "Checking your own credit (soft inquiry) does not hurt your score.",
+      "Negative items like late payments stay on your credit report for 7 years.",
+      "Bankruptcy stays on your credit for 7-10 years depending on the type.",
+      "You can dispute errors on your credit report for free at each bureau's website.",
+      "Secured credit cards can help you build credit when you have none or poor credit.",
+      "Becoming an authorized user on someone else's card can help build your credit.",
+      "Credit repair companies cannot do anything you cannot do yourself for free.",
+    ],
+    response: (q) => {
+      const ql = q.toLowerCase();
+      if (ql.includes("dispute") || ql.includes("error") || ql.includes("wrong") || ql.includes("incorrect")) return "You have the legal right to dispute any error on your credit report for free. Get your free reports at annualcreditreport.com. For each error, file a dispute directly with the bureau (Equifax, Experian, or TransUnion) online, by mail, or by phone. The bureau must investigate within 30 days and correct or remove any information they cannot verify. Send disputes by certified mail if possible and keep copies. The FTC has a sample dispute letter at consumer.ftc.gov. You do not need a credit repair company - this is completely free to do yourself.";
+      if (ql.includes("improve") || ql.includes("build") || ql.includes("raise") || ql.includes("better")) return "The most effective ways to improve your credit score: 1) Pay every bill on time - set up autopay for minimums. 2) Keep credit card balances below 30% of your limit. 3) Do not close old credit cards - length of credit history matters. 4) Limit new credit applications - each hard inquiry slightly lowers your score. 5) Check your credit report for errors and dispute them. Secured credit cards and credit builder loans from credit unions are good tools if you are starting from scratch. Most people see improvement within 3-6 months of consistent good habits.";
+      return "Tell me more about your credit situation - are you trying to understand your score, dispute something on your report, or figure out how to improve your credit? Everyone deserves access to affordable credit and I can walk you through your options.";
+    }
+  },
+};
+
+// ---------------------------------------------------------------------------
+// Smart fallback - searches KB then responds contextually
+// ---------------------------------------------------------------------------
+function getSmartFallback(question) {
+  const q = (question || "").toLowerCase();
+
+  // Find best matching category by keyword count
+  let bestCategory = null;
+  let bestScore = 0;
+  for (const [cat, data] of Object.entries(KB)) {
+    const score = data.keywords.filter(kw => q.includes(kw)).length;
+    if (score > bestScore) { bestScore = score; bestCategory = cat; }
+  }
+
+  if (bestCategory && bestScore > 0) {
+    return KB[bestCategory].response(question);
+  }
+
+  // Generic helpful response
+  return "I want to help you with that. Can you tell me a little more - like who sent the document, what it says, or what specifically is confusing? The more you share, the better I can explain things in plain words. You can also choose a topic button above to get started on a specific area.";
 }
 
 // ---------------------------------------------------------------------------
-// Built-in fallback answers when backend is unavailable
+// API hook - backend first, then Anthropic direct, then KB fallback
 // ---------------------------------------------------------------------------
-const FALLBACK_ANSWERS = {
-  default: {
-    short: "I can help you with that. Could you tell me a bit more about your situation so I can give you the most useful information?",
-    full: "I am here to help. The more details you share, the better I can assist you. Please describe your situation and I will do my best to explain things clearly and simply."
-  },
-  mail: {
-    short: "I can help you understand your mail. Please type or paste what the letter says and I will explain it in simple words.",
-    full: "Mail can be confusing, especially official letters. Paste the key parts of the letter here and I will tell you what it means, what action you may need to take, and whether it looks legitimate or like a scam."
-  },
-  bills: {
-    short: "I can help you understand your bill. What does it say you owe, and who sent it?",
-    full: "Bills can be hard to understand. Tell me who sent the bill, what the amount is, and what it is for. I will explain each charge in simple words and let you know if anything looks unusual."
-  },
-  credit: {
-    short: "Your credit score is a number from 300 to 850 that shows lenders how reliably you pay back money. Higher is better.",
-    full: "Your credit score is calculated based on payment history, how much debt you carry, length of credit history, types of credit, and recent applications. Scores above 700 are generally considered good. You can check your score for free at annualcreditreport.com once a year."
-  },
-  custody: {
-    short: "Custody papers are serious legal documents. I can help you understand what they say. Please type the key parts.",
-    full: "Custody documents describe who has legal and physical custody of a child. Legal custody means who makes decisions. Physical custody means where the child lives. If you have received papers, you may have a deadline to respond. I strongly recommend contacting a legal aid organization in your area as soon as possible."
-  },
-  medicines: {
-    short: "I can help you understand medicine labels. What does the label say? Type the name and instructions.",
-    full: "Medicine labels include the drug name, dosage, how often to take it, and warnings. I can help explain what the instructions mean. I am not a doctor — for medical decisions always consult your healthcare provider or pharmacist."
-  },
-  food: {
-    short: "I can give simple food guidance. What would you like to know — meal ideas, what to eat for a condition, or something else?",
-    full: "Good nutrition does not have to be complicated. Focus on vegetables, fruits, whole grains, and lean proteins. Limit processed foods and sugary drinks. If you have a specific health condition, your doctor or a registered dietitian can give you personalized guidance."
-  },
-  appointments: {
-    short: "I can help you prepare for an appointment. What kind of appointment is it and when is it?",
-    full: "To prepare for an appointment: write down your questions beforehand, bring any relevant documents or insurance cards, arrive 10-15 minutes early, and do not be afraid to ask the provider to explain things in simple words. Would you like help making a list of questions?"
-  },
-  legal: {
-    short: "I can help explain legal papers in simple words. Please type or paste what the document says.",
-    full: "Legal documents can be intimidating but I can help break them down. Paste the key sections here. For anything involving court dates, signatures, or deadlines, please also contact a legal aid organization in your area — many offer free help."
-  },
-  employment: {
-    short: "I can help you understand job papers, offers, or work documents. What do you have?",
-    full: "Employment documents include job offers, contracts, pay stubs, and termination letters. Each has important details about your rights. Tell me what type of document you have and I will explain what to look for."
-  },
-  education: {
-    short: "I can help with school forms and letters. What do you need help with?",
-    full: "School documents can include enrollment forms, financial aid letters, grade reports, and disciplinary notices. Tell me what type of document you have and I will explain it clearly."
-  },
-  housing: {
-    short: "I can help you understand rent, lease, or housing letters. What does the document say?",
-    full: "Housing documents include leases, eviction notices, rent increase letters, and utility agreements. An eviction notice is serious — if you received one, you may have only a few days to respond. Contact a local tenant rights organization or legal aid immediately. I can help you understand what the document says."
-  },
-  emergency: {
-    short: "Emergency numbers: 911 for police, fire, or medical emergency. 988 for mental health crisis. 1-800-222-1222 for Poison Control.",
-    full: "Key emergency contacts: 911 for any immediate danger, fire, or medical emergency. 988 Suicide and Crisis Lifeline for mental health emergencies. 1-800-222-1222 for Poison Control. 211 connects you to local social services. If you are in danger right now, please call 911 immediately."
-  },
-  scam: {
-    short: "If someone demands money urgently, threatens you, or asks for gift cards or wire transfers — that is almost certainly a scam.",
-    full: "Common scam signs: pressure to act immediately, threats of arrest or legal action, requests for gift cards, wire transfers, or cryptocurrency, claims to be from the IRS or Social Security, requests for personal information like your Social Security number. Real government agencies never demand immediate payment by gift card. If unsure, hang up and call the official number from the agency's real website."
-  }
-};
+function useHelperAPI() {
+  return useCallback(async (question, topicKey) => {
+    const token = localStorage.getItem("lce_token");
 
-function getFallback(topic) {
-  return FALLBACK_ANSWERS[topic] || FALLBACK_ANSWERS.default;
+    // 1. Try backend /api/ai/chat (logged-in users)
+    if (token) {
+      try {
+        const systemContext = topicKey && KB[topicKey]
+          ? "You are a plain-language helper. Additional knowledge context: " + KB[topicKey].facts.join(" ")
+          : "You are a plain-language helper for WAI-Institute.";
+        const r = await fetch("/api/ai/chat", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "Authorization": "Bearer " + token },
+          body: JSON.stringify({ session_id: "helper-" + Date.now(), message: question, mode: "tutor" }),
+        });
+        if (r.ok) {
+          const data = await r.json();
+          if (data.reply) return data.reply;
+        }
+      } catch {}
+    }
+
+    // 2. Try Anthropic API directly with KB context
+    try {
+      const kbContext = topicKey && KB[topicKey]
+        ? "\n\nRelevant knowledge for this topic:\n" + KB[topicKey].facts.map(f => "- " + f).join("\n")
+        : "";
+      const r = await fetch("https://api.anthropic.com/v1/messages", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          model: "claude-sonnet-4-20250514",
+          max_tokens: 350,
+          messages: [{ role: "user", content: question }],
+          system: "You are a warm, plain-language helper for WAI-Institute. Help people understand mail, bills, legal papers, housing, employment, medicines, food assistance, and daily life challenges. Keep answers to 3-5 sentences, warm, and use simple words. Never use jargon. Include specific actionable steps when possible. If someone asks about an emergency say call 911. If legal say seek free legal aid. If medical say see a doctor." + kbContext,
+        }),
+      });
+      if (r.ok) {
+        const data = await r.json();
+        const reply = data.content?.find(b => b.type === "text")?.text;
+        if (reply) return reply;
+      }
+    } catch {}
+
+    // 3. KB-powered smart fallback
+    return getSmartFallback(question);
+  }, []);
 }
 
 // ---------------------------------------------------------------------------
@@ -154,12 +370,8 @@ function useMic({ onResult, onError }) {
   const start = useCallback(async () => {
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SR) { onError("Voice input is not supported in this browser. Please use Chrome or Edge."); return; }
-    try {
-      await navigator.mediaDevices.getUserMedia({ audio: true });
-    } catch {
-      onError("Microphone access was denied. Please allow mic access in your browser settings.");
-      return;
-    }
+    try { await navigator.mediaDevices.getUserMedia({ audio: true }); }
+    catch { onError("Microphone access was denied. Please allow mic access in your browser settings."); return; }
     const rec = new SR();
     rec.lang = "en-US"; rec.continuous = false; rec.interimResults = false; rec.maxAlternatives = 1;
     rec.onstart = () => setListening(true);
@@ -181,9 +393,9 @@ function useMic({ onResult, onError }) {
 }
 
 // ---------------------------------------------------------------------------
-// TTS hook - OpenAI nova voice via backend (warm woman), browser fallback
+// TTS hook - nova for public, shimmer for auth
 // ---------------------------------------------------------------------------
-function useTTS() {
+function useTTS(voice) {
   const [speaking, setSpeaking] = useState(false);
   const audioRef = useRef(null);
   const abortRef = useRef(null);
@@ -195,9 +407,8 @@ function useTTS() {
     utt.lang = "en-US"; utt.rate = 0.88; utt.pitch = 1.05;
     const voices = window.speechSynthesis.getVoices();
     const female = voices.find(v =>
-      v.lang.startsWith("en") && (v.name.toLowerCase().includes("female") ||
-      v.name.includes("Samantha") || v.name.includes("Karen") ||
-      v.name.includes("Victoria") || v.name.includes("Zira"))
+      v.lang.startsWith("en") && (v.name.includes("Samantha") || v.name.includes("Karen") ||
+      v.name.includes("Victoria") || v.name.includes("Zira") || v.name.toLowerCase().includes("female"))
     );
     if (female) utt.voice = female;
     utt.onstart = () => setSpeaking(true);
@@ -211,36 +422,19 @@ function useTTS() {
     abortRef.current?.abort();
     if (audioRef.current) { audioRef.current.pause(); audioRef.current = null; }
     window.speechSynthesis?.cancel();
-
     const token = localStorage.getItem("lce_token");
     if (!token) { speakBrowser(text); return; }
-
     const controller = new AbortController();
     abortRef.current = controller;
     setSpeaking(true);
-
     try {
       const r = await fetch("/api/ai/sage/tts", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": "Bearer " + token,
-        },
-        body: JSON.stringify({
-          text: text.slice(0, 1000),
-          voice: "nova",
-          speed: 0.95,
-          session_id: "helper-tts",
-        }),
+        headers: { "Content-Type": "application/json", "Authorization": "Bearer " + token },
+        body: JSON.stringify({ text: text.slice(0, 1000), voice: voice || "nova", speed: 0.95, session_id: "helper-tts" }),
         signal: controller.signal,
       });
-
-      if (!r.ok) {
-        setSpeaking(false);
-        speakBrowser(text);
-        return;
-      }
-
+      if (!r.ok) { setSpeaking(false); speakBrowser(text); return; }
       const blob = await r.blob();
       const url = URL.createObjectURL(blob);
       const audio = new Audio(url);
@@ -250,12 +444,9 @@ function useTTS() {
       audio.onerror = () => { setSpeaking(false); speakBrowser(text); };
       audio.play();
     } catch (e) {
-      if (e?.name !== "AbortError") {
-        setSpeaking(false);
-        speakBrowser(text);
-      }
+      if (e?.name !== "AbortError") { setSpeaking(false); speakBrowser(text); }
     }
-  }, [speakBrowser]);
+  }, [voice, speakBrowser]);
 
   const stop = useCallback(() => {
     abortRef.current?.abort();
@@ -265,6 +456,20 @@ function useTTS() {
   }, []);
 
   return { speaking, speak, stop };
+}
+
+// Mobile keyboard fix
+function useMobileKeyboardFix(endRef) {
+  useEffect(() => {
+    const vv = window.visualViewport;
+    if (!vv) return;
+    const handler = () => {
+      if (endRef.current) endRef.current.scrollIntoView({ behavior: "smooth", block: "end" });
+    };
+    vv.addEventListener("resize", handler);
+    vv.addEventListener("scroll", handler);
+    return () => { vv.removeEventListener("resize", handler); vv.removeEventListener("scroll", handler); };
+  }, [endRef]);
 }
 
 // ---------------------------------------------------------------------------
@@ -277,243 +482,209 @@ function PublicHelper() {
   const [toast, setToast] = useState(null);
   const [name, setName] = useState("Friend");
   const [nameInput, setNameInput] = useState("");
-  const [lang, setLang] = useState("English");
-  const [lastFull, setLastFull] = useState("");
   const [audioEnabled, setAudioEnabled] = useState(false);
   const [activeTopic, setActiveTopic] = useState(null);
   const endRef = useRef(null);
   const inputRef = useRef(null);
-  const callAPI = useHelperAPI(false);
+  const callAPI = useHelperAPI();
   const navigate = useNavigate();
-  const { speaking, speak, stop: stopSpeech } = useTTS();
+  const { speaking, speak, stop: stopSpeech } = useTTS("nova");
+  useMobileKeyboardFix(endRef);
 
-  const LANGS = ["English","Espanol","Kreyol Ayisyen","Yoruba","Af-Soomaali","Tagalog","Tieng Viet"];
-
-  const showToast = useCallback((msg, icon="ℹ️", dur=2500) => {
-    setToast({ msg, icon });
-    setTimeout(() => setToast(null), dur);
+  const showToast = useCallback((msg) => {
+    setToast(msg);
+    setTimeout(() => setToast(null), 3000);
   }, []);
 
   const addMsg = useCallback((role, text) => {
-    const time = new Date().toLocaleTimeString([], { hour:"numeric", minute:"2-digit" });
+    const time = new Date().toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
     setMsgs(m => [...m, { role, text, time }]);
-    return text;
   }, []);
 
-  useEffect(() => {
-    addMsg("helper", "Good to see you. I will keep my answers short and simple. You can tap any topic below, speak to me, or type your question.");
-  }, []);
-
-  useEffect(() => { endRef.current?.scrollIntoView({ behavior:"smooth" }); }, [msgs]);
-
-  // Core send — tries API first, falls back to built-in answers
   const sendText = useCallback(async (text, topicKey) => {
     if (!text.trim() || loading) return;
     addMsg("user", text);
     setInput("");
     setLoading(true);
-
-    const data = await callAPI("ask", { question: text }, showToast);
-    let reply, full;
-    if (data?.answer || data?.reply || data?.short) {
-      reply = data.short || data.answer || data.reply;
-      full = data.full || reply;
-    } else {
-      // Use built-in fallback answer for this topic
-      const fb = getFallback(topicKey || "default");
-      reply = fb.short;
-      full = fb.full;
-    }
-    setLastFull(full);
+    const reply = await callAPI(text, topicKey || activeTopic);
     addMsg("helper", reply);
     if (audioEnabled) speak(reply);
     setLoading(false);
+    setTimeout(() => endRef.current?.scrollIntoView({ behavior: "smooth" }), 100);
     inputRef.current?.focus();
-  }, [loading, callAPI, showToast, addMsg, audioEnabled, speak]);
+  }, [loading, callAPI, addMsg, audioEnabled, speak, activeTopic]);
 
-  // Topic button — sets context, sends a greeting for that topic, focuses input
   const startTopic = useCallback((topicKey, title, prompt) => {
     setActiveTopic(topicKey);
     addMsg("helper", prompt);
     if (audioEnabled) speak(prompt);
+    setTimeout(() => endRef.current?.scrollIntoView({ behavior: "smooth" }), 100);
     inputRef.current?.focus();
   }, [addMsg, audioEnabled, speak]);
 
   const { listening, toggle: toggleMic } = useMic({
-    onResult: (transcript) => sendText(transcript, activeTopic),
-    onError: (msg) => showToast(msg, "🔇", 4000),
+    onResult: (t) => sendText(t, activeTopic),
+    onError: (msg) => showToast(msg),
   });
 
-  const cycleLang = () => {
-    const i = LANGS.indexOf(lang);
-    const next = LANGS[(i+1) % LANGS.length];
-    setLang(next);
-    showToast("I will try to respond in " + next, "🌎", 3000);
-  };
+  useEffect(() => {
+    addMsg("helper", "Hello! I am here to help you understand mail, bills, legal papers, housing, medicines, and more - all in plain, simple words. Choose a topic below or just type your question.");
+  }, []);
+
+  useEffect(() => { endRef.current?.scrollIntoView({ behavior: "smooth" }); }, [msgs]);
 
   const TOPICS = [
-    { key:"mail",   icon:"📬", title:"Read My Mail",      prompt:"I can help you understand your mail. Please type or paste what the letter says — or describe who it is from — and I will explain it in plain words." },
-    { key:"bills",  icon:"💡", title:"My Bills",           prompt:"I can help with your bills. Tell me who sent the bill, what amount it shows, and what it says it is for. I will explain each part clearly." },
-    { key:"credit", icon:"💳", title:"Credit Score",       prompt:"I can explain your credit score. Do you have a specific score you want to understand, or would you like me to explain how credit scores work in general?" },
-    { key:"custody",icon:"👶", title:"Custody Help",       prompt:"I can help you understand custody papers. Please type the key parts of the document — especially any dates, names, or actions required — and I will explain what they mean." },
-    { key:"medicines",icon:"💊",title:"My Medicines",      prompt:"I can help you read medicine labels. Type the medicine name and what the label says, and I will explain the instructions in simple words. I am not a doctor." },
-    { key:"food",   icon:"🍽️", title:"What Should I Eat?", prompt:"I can give simple food guidance. What would you like to know — general healthy eating, food for a specific condition, or meal ideas on a budget?" },
-    { key:"appointments",icon:"📅",title:"My Appointments",prompt:"I can help you prepare for an appointment. What kind of appointment is it — doctor, school, court, or something else? When is it?" },
-    { key:"legal",  icon:"⚖️", title:"Legal Help",         prompt:"I can help explain legal papers in simple words. Please type or paste the key parts of the document. For anything with a deadline or court date, I will also tell you to seek free legal aid." },
-    { key:"employment",icon:"💼",title:"Employment",       prompt:"I can help you understand job papers. What do you have — a job offer, a pay stub, a termination letter, or something else?" },
-    { key:"education",icon:"🎓",title:"Education",         prompt:"I can help with school forms and letters. What type of document do you have, and what part is confusing you?" },
-    { key:"housing",icon:"🏠", title:"Housing",            prompt:"I can help with rent, lease, or housing letters. This includes eviction notices, which are urgent. Please type what the document says and when it was dated." },
-    { key:"emergency",icon:"🚨",title:"Emergency Info",    prompt:"Emergency numbers: 911 for immediate danger, fire, or medical. 988 for mental health crisis. 1-800-222-1222 for Poison Control. 211 for local social services. Are you in a safe situation right now?" },
+    { key:"mail", icon:"📬", title:"Read My Mail", prompt:"I can help you understand your mail. Please type or paste what the letter says and I will explain it in plain words." },
+    { key:"bills", icon:"💡", title:"My Bills", prompt:"I can help with your bills. Tell me who sent it, the amount, and what it says. I will explain each part clearly." },
+    { key:"credit", icon:"💳", title:"Credit Score", prompt:"I can explain your credit score and what affects it. What would you like to know?" },
+    { key:"custody", icon:"👶", title:"Custody Help", prompt:"I can help you understand custody papers. Please type the key parts of the document." },
+    { key:"medicines", icon:"💊", title:"My Medicines", prompt:"I can help you read medicine labels and understand instructions. What medicine do you need help with?" },
+    { key:"food", icon:"🍽️", title:"Food Help", prompt:"I can help with food assistance programs or nutrition questions. What do you need?" },
+    { key:"appointments", icon:"📅", title:"Appointments", prompt:"I can help you prepare for an appointment. What kind is it and when is it?" },
+    { key:"legal", icon:"⚖️", title:"Legal Help", prompt:"I can help explain legal papers in simple words. Please type or paste the key parts." },
+    { key:"employment", icon:"💼", title:"Job Help", prompt:"I can help you understand job papers or employment situations. What do you have?" },
+    { key:"housing", icon:"🏠", title:"Housing", prompt:"I can help with rent, lease, eviction notices, and housing letters. Please tell me what the document says." },
+    { key:"scam", icon:"🛡️", title:"Scam Check", prompt:"I can check something for scam signs. Paste or type what you received and I will tell you what I see." },
+    { key:"emergency", icon:"🚨", title:"Emergency", prompt:"Emergency: 911 for danger. 988 for mental health crisis. 1-800-222-1222 for Poison Control. Are you safe right now?" },
   ];
 
-  const C = {
-    wrap: { minHeight:"100vh", background:"#f5f7fb", fontFamily:"system-ui,-apple-system,sans-serif", color:"#1f2933", paddingBottom:32 },
-    header: { background:"linear-gradient(135deg,#4b7cff,#7b5cff)", padding:"18px 16px", color:"#fff" },
-    card: { background:"#fff", margin:"12px 10px 0", borderRadius:16, padding:"14px 12px", boxShadow:"0 4px 20px rgba(15,23,42,.10)" },
-    topicBtn: (active) => ({ borderRadius:12, border:`2px solid ${active?"#2563eb":"#e5e7eb"}`, background:active?"#eff6ff":"#f9fafb", padding:"10px 10px", cursor:"pointer", display:"flex", flexDirection:"column", gap:3, textAlign:"left", transition:"all 0.15s" }),
-    bubble: (role) => ({ background:role==="helper"?"#dbeafe":"#f3f4f6", borderRadius:14, padding:"10px 12px", fontSize:14, lineHeight:1.5, display:"flex", justifyContent:"space-between", alignItems:"flex-start", gap:8 }),
-    inputArea: { display:"flex", gap:8, alignItems:"flex-end" },
-    textarea: { flex:1, minHeight:52, maxHeight:120, resize:"vertical", borderRadius:12, border:"1px solid #d1d5db", padding:"10px 12px", fontSize:14, fontFamily:"system-ui", outline:"none" },
-    sendBtn: { borderRadius:12, border:"none", padding:"12px 18px", fontSize:14, fontWeight:700, background:"#2563eb", color:"#fff", cursor:"pointer", flexShrink:0 },
-    micBtn: (active) => ({ borderRadius:12, border:"none", padding:"12px 14px", fontSize:18, background:active?"#dc2626":"#f3f4f6", color:active?"#fff":"#374151", cursor:"pointer", flexShrink:0, transition:"all 0.15s" }),
-    pill: { borderRadius:999, border:"1px solid #d1d5db", padding:"6px 12px", fontSize:12, background:"#fff", color:"#374151", cursor:"pointer", display:"inline-flex", alignItems:"center", gap:4 },
-    toast: { position:"fixed", bottom:20, left:"50%", transform:"translateX(-50%)", background:"#111827", color:"#f9fafb", padding:"10px 18px", borderRadius:999, fontSize:13, zIndex:9999, display:"inline-flex", alignItems:"center", gap:8, boxShadow:"0 4px 20px rgba(0,0,0,0.3)", whiteSpace:"nowrap" },
+  const activeTitle = TOPICS.find(t => t.key === activeTopic)?.title;
+
+  const S = {
+    wrap: { display:"flex", flexDirection:"column", height:"100dvh", background:"#f5f7fb", fontFamily:"system-ui,-apple-system,sans-serif", color:"#1f2933", overflow:"hidden" },
+    header: { background:"linear-gradient(135deg,#4b7cff,#7b5cff)", padding:"12px 16px", flexShrink:0 },
+    scrollArea: { flex:1, overflowY:"auto", padding:"0 10px 8px", WebkitOverflowScrolling:"touch" },
+    card: { background:"#fff", borderRadius:14, padding:"12px", margin:"10px 0", boxShadow:"0 2px 12px rgba(15,23,42,.08)" },
+    bubble: (role) => ({ maxWidth:"88%", background:role==="helper"?"#dbeafe":"#f3f4f6", borderRadius:14, padding:"10px 12px", fontSize:14, lineHeight:1.55, alignSelf:role==="helper"?"flex-start":"flex-end" }),
+    // INPUT ROW — mic, audio toggle, textarea, send all in one row
+    inputRow: { display:"flex", gap:6, alignItems:"flex-end", padding:"8px 10px", background:"#fff", borderTop:"1px solid #e5e7eb", flexShrink:0 },
+    textarea: { flex:1, minHeight:44, maxHeight:100, resize:"none", borderRadius:12, border:"1px solid #d1d5db", padding:"10px 12px", fontSize:15, fontFamily:"system-ui", outline:"none", lineHeight:1.4 },
+    sendBtn: { borderRadius:12, border:"none", padding:"12px 14px", fontSize:14, fontWeight:700, background:"#2563eb", color:"#fff", cursor:"pointer", flexShrink:0 },
+    iconBtn: (active, color) => ({ borderRadius:12, border:"none", padding:"12px 12px", fontSize:18, background:active?color:"#f3f4f6", color:active?"#fff":"#374151", cursor:"pointer", flexShrink:0 }),
+    toast: { position:"fixed", bottom:80, left:"50%", transform:"translateX(-50%)", background:"#111827", color:"#f9fafb", padding:"10px 18px", borderRadius:999, fontSize:13, zIndex:9999, whiteSpace:"nowrap", boxShadow:"0 4px 20px rgba(0,0,0,.3)" },
   };
 
   return (
-    <div style={C.wrap}>
+    <div style={S.wrap}>
       {/* HEADER */}
-      <div style={C.header}>
-        <div style={{ display:"flex", alignItems:"center", gap:12, maxWidth:900, margin:"0 auto" }}>
-          <div style={{ width:56, height:56, borderRadius:"50%", background:"radial-gradient(circle at 30% 20%,#fde68a,#facc15 40%,#f97316 80%)", display:"flex", alignItems:"center", justifyContent:"center", fontWeight:800, fontSize:26, flexShrink:0 }}>H</div>
+      <div style={S.header}>
+        <div style={{ display:"flex", alignItems:"center", gap:12, color:"#fff" }}>
+          <div style={{ width:48, height:48, borderRadius:"50%", background:"radial-gradient(circle at 30% 20%,#fde68a,#facc15 40%,#f97316 80%)", display:"flex", alignItems:"center", justifyContent:"center", fontWeight:800, fontSize:22, flexShrink:0 }}>H</div>
           <div style={{ flex:1 }}>
-            <div style={{ fontSize:20, fontWeight:700 }}>I am here to be your HELPER.</div>
-            <div style={{ fontSize:13, opacity:0.9, marginTop:2 }}>Read mail, understand bills, explain legal papers — in plain, simple words.</div>
+            <div style={{ fontSize:18, fontWeight:700 }}>W.A.I. Help Center</div>
+            <div style={{ fontSize:12, opacity:0.9 }}>Plain-language help for mail, bills, legal papers, housing and more</div>
           </div>
-          <button onClick={() => navigate("/login")} style={{ borderRadius:999, border:"1px solid rgba(255,255,255,0.6)", padding:"8px 14px", fontSize:13, background:"transparent", color:"#fff", cursor:"pointer", flexShrink:0 }}>
-            Sign in for more tools
-          </button>
+          <button onClick={() => navigate("/login")} style={{ borderRadius:999, border:"1px solid rgba(255,255,255,.7)", padding:"8px 14px", fontSize:13, background:"transparent", color:"#fff", cursor:"pointer", fontWeight:600 }}>Sign in</button>
+        </div>
+        <div style={{ display:"flex", gap:8, alignItems:"center", marginTop:10, flexWrap:"wrap", color:"#fff" }}>
+          <span style={{ fontSize:14, fontWeight:600 }}>Hello, {name}!</span>
+          <input value={nameInput} onChange={e => setNameInput(e.target.value)}
+            onKeyDown={e => { if (e.key==="Enter" && nameInput.trim()) { setName(nameInput.trim()); setNameInput(""); }}}
+            placeholder="Tell me your name..." style={{ padding:"5px 10px", borderRadius:999, border:"none", fontSize:13, width:150, background:"rgba(255,255,255,.2)", color:"#fff", outline:"none" }} />
+          {nameInput.trim() && (
+            <button onClick={() => { setName(nameInput.trim()); setNameInput(""); }} style={{ borderRadius:999, border:"none", padding:"5px 10px", fontSize:12, background:"#22c55e", color:"#064e3b", cursor:"pointer", fontWeight:600 }}>Save</button>
+          )}
         </div>
       </div>
 
-      <div style={{ maxWidth:900, margin:"0 auto" }}>
-        {/* NAME ROW */}
-        <div style={{ ...C.card, display:"flex", flexWrap:"wrap", alignItems:"center", gap:10, justifyContent:"space-between" }}>
-          <div style={{ display:"flex", gap:6, alignItems:"center", flexWrap:"wrap" }}>
-            <div style={{ fontSize:16, fontWeight:700 }}>Hello, {name}!</div>
-            <input value={nameInput} onChange={e=>setNameInput(e.target.value)}
-              onKeyDown={e=>{ if(e.key==="Enter"&&nameInput.trim()){setName(nameInput.trim()); showToast("Nice to meet you, "+nameInput.trim()+"!","😊");}}}
-              placeholder="Type your name..." style={{ padding:"6px 10px", borderRadius:999, border:"1px solid #d1d5db", fontSize:13, width:150 }} />
-            <button onClick={()=>{ if(nameInput.trim()){setName(nameInput.trim()); showToast("Nice to meet you, "+nameInput.trim()+"!","😊");}}}
-              style={{ borderRadius:999, border:"none", padding:"6px 12px", fontSize:13, background:"#2563eb", color:"#fff", cursor:"pointer" }}>Save</button>
+      {/* SCROLLABLE CONTENT */}
+      <div style={S.scrollArea}>
+        <div style={S.card}>
+          <div style={{ fontSize:13, fontWeight:700, color:"#374151", marginBottom:8 }}>
+            {activeTopic ? "Topic: " + activeTitle + " - tap another to switch" : "Choose a topic or type your question below"}
           </div>
-          <div style={{ display:"flex", gap:6, flexWrap:"wrap" }}>
-            <button onClick={cycleLang} style={{ ...C.pill, background:"#7c3aed", color:"#fff", border:"none" }}>🌎 {lang}</button>
-            <button onClick={()=>{ setAudioEnabled(a=>!a); if(speaking) stopSpeech(); }}
-              style={{ ...C.pill, background:audioEnabled?"#059669":"#f3f4f6", color:audioEnabled?"#fff":"#374151", border:"none", fontWeight:600 }}>
-              {audioEnabled?"🔊 Audio ON":"🔇 Audio OFF"}
-            </button>
-            <button onClick={()=>window.print()} style={C.pill}>🖨️ Print</button>
-          </div>
-        </div>
-
-        {/* TOPIC GRID */}
-        <div style={C.card}>
-          <div style={{ fontSize:14, fontWeight:700, marginBottom:10, color:"#374151" }}>
-            {activeTopic ? `Topic: ${TOPICS.find(t=>t.key===activeTopic)?.title || activeTopic} — tap a different topic to switch` : "Choose a topic to get started, or just type your question below"}
-          </div>
-          <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill,minmax(160px,1fr))", gap:8 }}>
+          <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill,minmax(130px,1fr))", gap:8 }}>
             {TOPICS.map(({ key, icon, title, prompt }) => (
-              <button key={key} style={C.topicBtn(activeTopic===key)}
-                onClick={() => startTopic(key, title, prompt)}>
-                <div style={{ fontSize:20 }}>{icon}</div>
-                <div style={{ fontSize:13, fontWeight:600, color:"#1f2933" }}>{title}</div>
+              <button key={key} onClick={() => startTopic(key, title, prompt)}
+                style={{ borderRadius:10, border:"2px solid " + (activeTopic===key?"#2563eb":"#e5e7eb"), background:activeTopic===key?"#eff6ff":"#f9fafb", padding:"10px 8px", cursor:"pointer", display:"flex", flexDirection:"column", gap:4, textAlign:"left" }}>
+                <span style={{ fontSize:20 }}>{icon}</span>
+                <span style={{ fontSize:12, fontWeight:600 }}>{title}</span>
               </button>
             ))}
           </div>
         </div>
 
-        {/* CONVERSATION */}
-        <div style={C.card}>
-          <div style={{ maxHeight:320, overflowY:"auto", marginBottom:12, display:"flex", flexDirection:"column", gap:8 }}>
-            {msgs.map((m,i) => (
-              <div key={i} style={{ display:"flex", flexDirection:"column", alignItems:m.role==="user"?"flex-end":"flex-start" }}>
-                <div style={{ maxWidth:"85%", ...C.bubble(m.role) }}>
-                  <span>{m.text}</span>
+        <div style={S.card}>
+          <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
+            {msgs.map((m, i) => (
+              <div key={i} style={{ display:"flex", flexDirection:"column", alignItems:m.role==="helper"?"flex-start":"flex-end" }}>
+                <div style={S.bubble(m.role)}>
+                  {m.text}
                   {m.role==="helper" && (
-                    <button onClick={()=>speak(m.text)} title="Read aloud"
-                      style={{ background:"none", border:"none", cursor:"pointer", fontSize:16, opacity:0.5, flexShrink:0, padding:0 }}>🔊</button>
+                    <button onClick={() => speak(m.text)} title="Read aloud"
+                      style={{ background:"none", border:"none", cursor:"pointer", fontSize:14, opacity:0.5, marginLeft:6, padding:0, verticalAlign:"middle" }}>🔊</button>
                   )}
                 </div>
-                <div style={{ fontSize:11, color:"#9ca3af", marginTop:2 }}>{m.role==="helper"?"Helper":name} • {m.time}</div>
+                <div style={{ fontSize:11, color:"#9ca3af", marginTop:2, marginLeft:4, marginRight:4 }}>
+                  {m.role==="helper" ? "Helper" : name} - {m.time}
+                </div>
               </div>
             ))}
-            {loading && (
-              <div style={{ display:"flex", alignItems:"center", gap:8, color:"#6b7280", fontSize:13, fontStyle:"italic" }}>
-                <span style={{ animation:"spin 1s linear infinite", display:"inline-block" }}>⏳</span> Helper is thinking...
-              </div>
-            )}
-            <div ref={endRef} />
+            {loading && <div style={{ color:"#6b7280", fontSize:13, fontStyle:"italic" }}>Helper is thinking...</div>}
+            <div ref={endRef} style={{ height:1 }} />
           </div>
-
-          {/* INPUT ROW — mic sits right next to textarea */}
-          <div style={C.inputArea}>
-            <button onClick={toggleMic} style={C.micBtn(listening)} title={listening?"Stop listening":"Tap to speak"}>
-              {listening ? "🔴" : "🎙️"}
-            </button>
-            <textarea
-              ref={inputRef}
-              value={input}
-              onChange={e=>setInput(e.target.value)}
-              onKeyDown={e=>{ if(e.key==="Enter"&&!e.shiftKey){e.preventDefault(); sendText(input, activeTopic);}}}
-              placeholder={listening ? "Listening... speak now" : activeTopic ? "Ask your question about " + (TOPICS.find(t=>t.key===activeTopic)?.title||"") + "..." : "Type your question here, or tap the mic to speak..."}
-              style={C.textarea}
-            />
-            <button onClick={()=>sendText(input,activeTopic)} disabled={loading} style={C.sendBtn}>Send</button>
+          <div style={{ display:"flex", flexWrap:"wrap", gap:6, marginTop:10 }}>
+            <button onClick={() => { setMsgs([]); setActiveTopic(null); addMsg("helper","Back to the start. Choose a topic or type your question."); }}
+              style={{ borderRadius:999, border:"1px solid #d1d5db", padding:"6px 12px", fontSize:12, background:"#fff", cursor:"pointer" }}>Start over</button>
+            <button onClick={() => sendText("Is this a scam? Help me check.", "scam")}
+              style={{ borderRadius:999, border:"1px solid #fecaca", padding:"6px 12px", fontSize:12, background:"#fef2f2", color:"#b91c1c", cursor:"pointer" }}>Scam check</button>
+            {speaking && <button onClick={stopSpeech} style={{ borderRadius:999, border:"1px solid #d1d5db", padding:"6px 12px", fontSize:12, background:"#fff", cursor:"pointer" }}>Stop audio</button>}
           </div>
-
-          {/* QUICK ACTIONS */}
-          <div style={{ display:"flex", flexWrap:"wrap", gap:6, marginTop:8 }}>
-            {lastFull && (
-              <button style={C.pill} onClick={()=>{ addMsg("helper",lastFull); if(audioEnabled) speak(lastFull); }}>➕ Tell me more</button>
-            )}
-            <button style={C.pill} onClick={()=>{ setMsgs([]); setActiveTopic(null); addMsg("helper","Back to the start. Choose a topic or type your question."); }}>🏠 Start over</button>
-            <button style={{ ...C.pill, background:"#fef2f2", color:"#b91c1c", border:"1px solid #fecaca" }}
-              onClick={()=>sendText("What are the signs of a scam?","scam")}>🛡️ Is this a scam?</button>
-            {speaking && <button style={C.pill} onClick={stopSpeech}>⏹ Stop audio</button>}
-          </div>
-
           <div style={{ marginTop:10, fontSize:11, color:"#9ca3af", textAlign:"center" }}>
-            Public helper — no data saved. <button style={{ background:"none",border:"none",color:"#2563eb",cursor:"pointer",fontSize:11,padding:0 }} onClick={()=>navigate("/login")}>Sign in</button> for saved notes and advanced tools.
+            Public helper - no data saved.{" "}
+            <button onClick={() => navigate("/login")} style={{ background:"none", border:"none", color:"#2563eb", cursor:"pointer", fontSize:11, padding:0 }}>Sign in</button> for saved notes and more tools.
           </div>
         </div>
+        <div style={{ height:20 }} />
       </div>
 
-      {toast && <div style={C.toast}><span>{toast.icon}</span><span>{toast.msg}</span></div>}
+      {/* INPUT ROW - mic, audio toggle, textarea, send all together */}
+      <div style={S.inputRow}>
+        <button onClick={toggleMic} style={S.iconBtn(listening, "#dc2626")} title={listening?"Stop":"Speak"}>
+          {listening ? "🔴" : "🎙️"}
+        </button>
+        <button onClick={() => { setAudioEnabled(a => !a); if (speaking) stopSpeech(); }}
+          style={S.iconBtn(audioEnabled, "#059669")} title={audioEnabled?"Audio ON - tap to turn off":"Audio OFF - tap to turn on"}>
+          {audioEnabled ? "🔊" : "🔇"}
+        </button>
+        <textarea
+          ref={inputRef}
+          value={input}
+          onChange={e => setInput(e.target.value)}
+          onKeyDown={e => { if (e.key==="Enter" && !e.shiftKey) { e.preventDefault(); sendText(input, activeTopic); }}}
+          onFocus={() => setTimeout(() => endRef.current?.scrollIntoView({ behavior:"smooth" }), 300)}
+          placeholder={listening ? "Listening... speak now" : activeTopic ? "Ask about " + activeTitle + "..." : "Type your question here..."}
+          style={S.textarea}
+          rows={1}
+        />
+        <button onClick={() => sendText(input, activeTopic)} disabled={loading} style={S.sendBtn}>Send</button>
+      </div>
+
+      {toast && <div style={S.toast}>{toast}</div>}
     </div>
   );
 }
 
 // ---------------------------------------------------------------------------
-// AUTHENTICATED HELPER
+// AUTH HELPER
 // ---------------------------------------------------------------------------
 function AuthHelper({ user }) {
   const [msgs, setMsgs] = useState([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [toast, setToast] = useState(null);
-  const [lastFull, setLastFull] = useState("");
   const [activeTopic, setActiveTopic] = useState(null);
   const [activeNav, setActiveNav] = useState("home");
   const [audioEnabled, setAudioEnabled] = useState(false);
   const endRef = useRef(null);
   const inputRef = useRef(null);
-  const callAPI = useHelperAPI(true);
-  const { speaking, speak, stop: stopSpeech } = useTTS();
+  const callAPI = useHelperAPI();
+  const { speaking, speak, stop: stopSpeech } = useTTS("shimmer");
+  useMobileKeyboardFix(endRef);
 
-  const showToast = useCallback((msg, icon="ℹ️", dur=2500) => {
-    setToast({ msg, icon });
-    setTimeout(() => setToast(null), dur);
+  const showToast = useCallback((msg) => {
+    setToast(msg);
+    setTimeout(() => setToast(null), 3000);
   }, []);
 
   const addMsg = useCallback((role, text) => {
@@ -526,205 +697,173 @@ function AuthHelper({ user }) {
     addMsg("user", text);
     setInput("");
     setLoading(true);
-    const data = await callAPI("ask", { question: text, context: topicKey || "general" }, showToast);
-    let reply, full;
-    if (data?.answer || data?.reply || data?.short) {
-      reply = data.short || data.answer || data.reply;
-      full = data.full || reply;
-    } else {
-      const fb = getFallback(topicKey || "default");
-      reply = fb.short; full = fb.full;
-    }
-    setLastFull(full);
+    const reply = await callAPI(text, topicKey || activeTopic);
     addMsg("helper", reply);
     if (audioEnabled) speak(reply);
     setLoading(false);
+    setTimeout(() => endRef.current?.scrollIntoView({ behavior:"smooth" }), 100);
     inputRef.current?.focus();
-  }, [loading, callAPI, showToast, addMsg, audioEnabled, speak]);
+  }, [loading, callAPI, addMsg, audioEnabled, speak, activeTopic]);
 
   const startTopic = useCallback((topicKey, title, prompt) => {
     setActiveTopic(topicKey);
     addMsg("helper", prompt);
     if (audioEnabled) speak(prompt);
+    setTimeout(() => endRef.current?.scrollIntoView({ behavior:"smooth" }), 100);
     inputRef.current?.focus();
   }, [addMsg, audioEnabled, speak]);
 
   const { listening, toggle: toggleMic } = useMic({
-    onResult: (transcript) => sendText(transcript, activeTopic),
-    onError: (msg) => showToast(msg, "🔇", 4000),
+    onResult: (t) => sendText(t, activeTopic),
+    onError: (msg) => showToast(msg),
   });
 
   useEffect(() => {
-    addMsg("helper", "This is your private helper inside WAI-Institute. Choose a topic from the tools or type your question. I will keep answers short and clear.");
+    addMsg("helper", "Welcome back, " + (user?.full_name?.split(" ")[0] || "there") + ". I am your private helper inside WAI-Institute. Choose a topic or type your question. I will keep answers short and clear.");
   }, []);
 
   useEffect(() => { endRef.current?.scrollIntoView({ behavior:"smooth" }); }, [msgs]);
 
-  const saveChat = async () => {
-    const transcript = msgs.map(m=>"["+m.role+"] "+m.text).join("\n\n");
-    const data = await callAPI("conversations/save", { transcript, context: activeTopic||"general" }, showToast);
-    if (data) showToast("Chat saved successfully.", "💾");
-  };
-
   const AUTH_TOOLS = [
     { section:"Daily tools", items:[
-      { key:"mail", icon:"📬", title:"Read my mail", prompt:"I can help you read and understand your mail. Paste or type the key parts of the letter and I will explain what it means and what you need to do." },
-      { key:"bills", icon:"💡", title:"My bills", prompt:"I can help with your bills. Tell me who sent it, the amount, and what it says. I will break it down line by line." },
-      { key:"appointments", icon:"📅", title:"Appointments", prompt:"I can help you prepare for an upcoming appointment. What kind is it — doctor, school, court, or something else? When is it?" },
-      { key:"notes", icon:"📝", title:"Notes", prompt:"I can help you keep simple notes. What would you like to write down or remember?" },
-      { key:"documents", icon:"🗂️", title:"Saved documents", prompt:"I can help you find or review documents saved for you. What are you looking for?" },
+      { key:"mail", icon:"📬", title:"Read my mail", prompt:"I can help you understand your mail. Paste or type what the letter says and I will explain what it means and what you need to do." },
+      { key:"bills", icon:"💡", title:"My bills", prompt:"I can help with your bills. Tell me who sent it, the amount, and what it says. I will break it down clearly." },
+      { key:"appointments", icon:"📅", title:"Appointments", prompt:"I can help you prepare for an upcoming appointment. What kind is it and when is it?" },
+      { key:"notes", icon:"📝", title:"Notes", prompt:"I can help you keep simple notes or reminders. What would you like to write down?" },
+      { key:"documents", icon:"🗂️", title:"Documents", prompt:"I can help you find or understand documents. What are you looking for?" },
     ]},
     { section:"Legal tools", items:[
-      { key:"legal-draft", icon:"📄", title:"Draft legal form", prompt:"I can help you draft a simple legal form or pleading in plain language. What type of form do you need, and what is the situation?" },
-      { key:"letter-draft", icon:"✉️", title:"Draft a letter", prompt:"I can help you write a clear, respectful letter. Who is the letter to, and what do you need to say?" },
-      { key:"legal", icon:"⚖️", title:"Understand legal papers", prompt:"I can explain legal documents in plain words. Paste or type the key parts and I will walk you through what they mean." },
+      { key:"legal-draft", icon:"📄", title:"Draft legal form", prompt:"I can help you draft a simple legal form in plain language. What type of form and what is the situation?" },
+      { key:"letter-draft", icon:"✉️", title:"Draft a letter", prompt:"I can help you write a clear, respectful letter. Who is it to and what do you need to say?" },
+      { key:"legal", icon:"⚖️", title:"Legal papers", prompt:"I can explain legal documents in plain words. Paste or type the key parts and I will walk you through them." },
       { key:"scam", icon:"🛡️", title:"Scam check", prompt:"I can check for scam signs. Paste the message, email, or letter you received and I will flag anything suspicious." },
     ]},
     { section:"Health and life", items:[
-      { key:"medicines", icon:"💊", title:"My medicines", prompt:"I can help you understand medicine labels and instructions. What is the medicine name and what does the label say?" },
-      { key:"food", icon:"🍽️", title:"Food and nutrition", prompt:"I can give simple food guidance — not medical advice. Are you looking for general healthy eating tips, or guidance for a specific situation?" },
+      { key:"medicines", icon:"💊", title:"My medicines", prompt:"I can help you understand medicine labels and instructions. What is the medicine and what does the label say?" },
+      { key:"food", icon:"🍽️", title:"Food and nutrition", prompt:"I can give simple food guidance or help with food assistance programs. What do you need?" },
       { key:"housing", icon:"🏠", title:"Housing", prompt:"I can help with housing documents. Do you have a lease, eviction notice, rent increase letter, or something else?" },
-      { key:"employment", icon:"💼", title:"Employment", prompt:"I can help with job papers and employment documents. What type of document do you have?" },
+      { key:"employment", icon:"💼", title:"Employment", prompt:"I can help with job papers and employment situations. What type of document or situation do you have?" },
     ]},
-    { section:"Support and safety", items:[
-      { key:"trusted-contacts", icon:"📇", title:"Trusted contacts", prompt:"I can help you review or update your trusted contacts — the people you rely on for help. What would you like to do?" },
-      { key:"caregiver-mode", icon:"❤️", title:"Caregiver mode", prompt:"Caregiver mode lets a trusted person work alongside you in this space. Is a caregiver present with you right now?" },
-      { key:"saved-conversations", icon:"💬", title:"Saved conversations", prompt:"I can help you review your past helper conversations. What are you looking for?" },
-      { key:"emergency", icon:"🚨", title:"Emergency info", prompt:"Emergency: 911 for immediate danger. 988 for mental health crisis. 1-800-222-1222 for Poison Control. 211 for local services. Are you safe right now?" },
+    { section:"Support", items:[
+      { key:"trusted-contacts", icon:"📇", title:"Trusted contacts", prompt:"I can help you review or update your trusted contacts. What would you like to do?" },
+      { key:"caregiver-mode", icon:"❤️", title:"Caregiver mode", prompt:"Caregiver mode lets a trusted person work alongside you. Is a caregiver present with you right now?" },
+      { key:"emergency", icon:"🚨", title:"Emergency", prompt:"Emergency: 911 for immediate danger. 988 for mental health crisis. 1-800-222-1222 for Poison Control. Are you safe right now?" },
     ]},
   ];
 
-  const C = {
-    wrap: { minHeight:"100vh", background:"#f5f7fb", fontFamily:"system-ui,-apple-system,sans-serif", color:"#1f2933", paddingBottom:32 },
-    topBar: { background:"#fff", borderBottom:"1px solid #e5e7eb", padding:"10px 16px", display:"flex", alignItems:"center", justifyContent:"space-between", gap:10, flexWrap:"wrap" },
-    card: { background:"#fff", borderRadius:16, padding:"14px 12px", boxShadow:"0 4px 20px rgba(15,23,42,.08)" },
-    toolBtn: (active) => ({ borderRadius:12, border:`2px solid ${active?"#2563eb":"#e5e7eb"}`, background:active?"#eff6ff":"#f9fafb", padding:"9px 9px", cursor:"pointer", display:"flex", flexDirection:"column", gap:3, textAlign:"left", width:"100%", transition:"all 0.15s" }),
-    bubble: (role) => ({ background:role==="helper"?"#dbeafe":"#f3f4f6", borderRadius:14, padding:"10px 12px", fontSize:14, lineHeight:1.5, display:"flex", justifyContent:"space-between", alignItems:"flex-start", gap:8 }),
-    textarea: { flex:1, minHeight:52, maxHeight:120, resize:"vertical", borderRadius:12, border:"1px solid #d1d5db", padding:"10px 12px", fontSize:14, fontFamily:"system-ui", outline:"none" },
-    sendBtn: { borderRadius:12, border:"none", padding:"12px 18px", fontSize:14, fontWeight:700, background:"#2563eb", color:"#fff", cursor:"pointer", flexShrink:0 },
-    micBtn: (active) => ({ borderRadius:12, border:"none", padding:"12px 14px", fontSize:18, background:active?"#dc2626":"#f3f4f6", color:active?"#fff":"#374151", cursor:"pointer", flexShrink:0 }),
-    pill: { borderRadius:999, border:"1px solid #d1d5db", padding:"6px 12px", fontSize:12, background:"#fff", color:"#374151", cursor:"pointer", display:"inline-flex", alignItems:"center", gap:4 },
-    navPill: (a) => ({ borderRadius:999, padding:"6px 12px", fontSize:13, border:`1px solid ${a?"#2563eb":"#d1d5db"}`, background:a?"#2563eb":"#fff", color:a?"#fff":"#111827", cursor:"pointer", fontWeight:a?600:400 }),
-    toast: { position:"fixed", bottom:20, left:"50%", transform:"translateX(-50%)", background:"#111827", color:"#f9fafb", padding:"10px 18px", borderRadius:999, fontSize:13, zIndex:9999, display:"inline-flex", alignItems:"center", gap:8, boxShadow:"0 4px 20px rgba(0,0,0,0.3)", whiteSpace:"nowrap" },
+  const activeTopicTitle = AUTH_TOOLS.flatMap(s => s.items).find(t => t.key === activeTopic)?.title;
+
+  const S = {
+    wrap: { display:"flex", flexDirection:"column", height:"100dvh", background:"#f5f7fb", fontFamily:"system-ui,-apple-system,sans-serif", color:"#1f2933", overflow:"hidden" },
+    topBar: { background:"#fff", borderBottom:"1px solid #e5e7eb", padding:"10px 14px", display:"flex", alignItems:"center", justifyContent:"space-between", gap:10, flexWrap:"wrap", flexShrink:0 },
+    body: { display:"flex", flex:1, overflow:"hidden" },
+    sidebar: { width:220, flexShrink:0, overflowY:"auto", padding:"10px 8px", borderRight:"1px solid #e5e7eb", background:"#fff", WebkitOverflowScrolling:"touch" },
+    main: { flex:1, display:"flex", flexDirection:"column", overflow:"hidden" },
+    msgArea: { flex:1, overflowY:"auto", padding:"10px 12px", WebkitOverflowScrolling:"touch" },
+    toolBtn: (active) => ({ borderRadius:10, border:"2px solid " + (active?"#2563eb":"#e5e7eb"), background:active?"#eff6ff":"#f9fafb", padding:"8px 10px", cursor:"pointer", display:"flex", alignItems:"center", gap:8, fontSize:13, fontWeight:active?700:400, width:"100%", textAlign:"left", marginBottom:4 }),
+    bubble: (role) => ({ maxWidth:"88%", background:role==="helper"?"#dbeafe":"#f3f4f6", borderRadius:14, padding:"10px 12px", fontSize:14, lineHeight:1.55, alignSelf:role==="helper"?"flex-start":"flex-end" }),
+    inputRow: { display:"flex", gap:6, alignItems:"flex-end", padding:"8px 12px", background:"#fff", borderTop:"1px solid #e5e7eb", flexShrink:0 },
+    textarea: { flex:1, minHeight:44, maxHeight:100, resize:"none", borderRadius:12, border:"1px solid #d1d5db", padding:"10px 12px", fontSize:15, fontFamily:"system-ui", outline:"none" },
+    sendBtn: { borderRadius:12, border:"none", padding:"12px 14px", fontSize:14, fontWeight:700, background:"#2563eb", color:"#fff", cursor:"pointer", flexShrink:0 },
+    iconBtn: (active, color) => ({ borderRadius:12, border:"none", padding:"12px 12px", fontSize:18, background:active?color:"#f3f4f6", color:active?"#fff":"#374151", cursor:"pointer", flexShrink:0 }),
+    navPill: (active) => ({ borderRadius:999, padding:"5px 10px", fontSize:12, border:"1px solid " + (active?"#2563eb":"#d1d5db"), background:active?"#2563eb":"#fff", color:active?"#fff":"#111827", cursor:"pointer", fontWeight:active?600:400 }),
+    toast: { position:"fixed", bottom:80, left:"50%", transform:"translateX(-50%)", background:"#111827", color:"#f9fafb", padding:"10px 18px", borderRadius:999, fontSize:13, zIndex:9999, whiteSpace:"nowrap", boxShadow:"0 4px 20px rgba(0,0,0,.3)" },
   };
 
-  const activeTopicTitle = AUTH_TOOLS.flatMap(s=>s.items).find(t=>t.key===activeTopic)?.title;
-
   return (
-    <div style={C.wrap}>
-      {/* TOP BAR */}
-      <div style={C.topBar}>
+    <div style={S.wrap}>
+      <div style={S.topBar}>
         <div style={{ display:"flex", alignItems:"center", gap:10 }}>
-          <div style={{ width:40, height:40, borderRadius:"50%", background:"radial-gradient(circle at 30% 20%,#fde68a,#facc15 40%,#f97316 80%)", display:"flex", alignItems:"center", justifyContent:"center", fontWeight:800, fontSize:20 }}>H</div>
+          <div style={{ width:36, height:36, borderRadius:"50%", background:"radial-gradient(circle at 30% 20%,#fde68a,#facc15 40%,#f97316 80%)", display:"flex", alignItems:"center", justifyContent:"center", fontWeight:800, fontSize:18 }}>H</div>
           <div>
-            <div style={{ fontSize:16, fontWeight:700 }}>Helper Workspace</div>
-            <div style={{ fontSize:12, color:"#6b7280" }}>WAI-Institute — private and secure</div>
+            <div style={{ fontSize:15, fontWeight:700 }}>Helper Workspace</div>
+            <div style={{ fontSize:11, color:"#6b7280" }}>WAI-Institute - private and secure</div>
           </div>
         </div>
         <div style={{ display:"flex", gap:6, alignItems:"center", flexWrap:"wrap" }}>
-          {["home","tasks","messages","profile"].map(n=>(
-            <button key={n} style={C.navPill(activeNav===n)} onClick={()=>setActiveNav(n)}>
+          {["home","tasks","messages","profile"].map(n => (
+            <button key={n} style={S.navPill(activeNav===n)} onClick={() => setActiveNav(n)}>
               {n.charAt(0).toUpperCase()+n.slice(1)}
             </button>
           ))}
-          <span style={{ borderRadius:999, padding:"5px 10px", fontSize:12, border:"1px solid #d1d5db", background:"#f9fafb" }}>
-            {user?.role||"Student"}
-          </span>
-          <button onClick={()=>{ setAudioEnabled(a=>!a); if(speaking) stopSpeech(); }}
-            style={{ ...C.pill, background:audioEnabled?"#059669":"#f3f4f6", color:audioEnabled?"#fff":"#374151", border:"none", fontWeight:600 }}>
-            {audioEnabled?"🔊 Audio ON":"🔇 Audio OFF"}
-          </button>
+          <span style={{ borderRadius:999, padding:"5px 10px", fontSize:11, border:"1px solid #d1d5db", background:"#f9fafb" }}>{user?.role||"Student"}</span>
         </div>
       </div>
 
-      {/* MAIN LAYOUT */}
-      <div style={{ display:"grid", gridTemplateColumns:"300px 1fr", gap:12, padding:"12px 12px 0", maxWidth:1100, margin:"0 auto" }}>
-
-        {/* LEFT — TOOLS */}
-        <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
+      <div style={S.body}>
+        <div style={S.sidebar}>
           {AUTH_TOOLS.map(({ section, items }) => (
-            <div key={section} style={C.card}>
-              <div style={{ fontSize:13, fontWeight:700, color:"#6b7280", marginBottom:8, textTransform:"uppercase", letterSpacing:"0.05em" }}>{section}</div>
-              <div style={{ display:"flex", flexDirection:"column", gap:6 }}>
-                {items.map(({ key, icon, title, prompt }) => (
-                  <button key={key} style={C.toolBtn(activeTopic===key)}
-                    onClick={()=>startTopic(key,title,prompt)}>
-                    <div style={{ display:"flex", alignItems:"center", gap:8, fontSize:13, fontWeight:600 }}>
-                      <span style={{ fontSize:16 }}>{icon}</span>{title}
-                    </div>
-                  </button>
-                ))}
-              </div>
+            <div key={section} style={{ marginBottom:16 }}>
+              <div style={{ fontSize:11, fontWeight:700, color:"#6b7280", textTransform:"uppercase", letterSpacing:"0.05em", marginBottom:6 }}>{section}</div>
+              {items.map(({ key, icon, title, prompt }) => (
+                <button key={key} style={S.toolBtn(activeTopic===key)} onClick={() => startTopic(key, title, prompt)}>
+                  <span style={{ fontSize:16 }}>{icon}</span><span>{title}</span>
+                </button>
+              ))}
             </div>
           ))}
         </div>
 
-        {/* RIGHT — CONVERSATION */}
-        <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
-          {/* Context banner */}
+        <div style={S.main}>
           {activeTopic && (
-            <div style={{ ...C.card, background:"#eff6ff", border:"1px solid #bfdbfe", padding:"10px 14px", display:"flex", justifyContent:"space-between", alignItems:"center" }}>
-              <div style={{ fontSize:14, fontWeight:600, color:"#1d4ed8" }}>
-                Topic: {activeTopicTitle}
-              </div>
-              <button onClick={()=>{ setActiveTopic(null); addMsg("helper","Topic cleared. Choose a new topic or type your question."); }}
-                style={{ ...C.pill, fontSize:11 }}>Clear topic</button>
+            <div style={{ background:"#eff6ff", borderBottom:"1px solid #bfdbfe", padding:"8px 14px", display:"flex", justifyContent:"space-between", alignItems:"center", flexShrink:0 }}>
+              <span style={{ fontSize:13, fontWeight:600, color:"#1d4ed8" }}>Topic: {activeTopicTitle}</span>
+              <button onClick={() => setActiveTopic(null)} style={{ background:"none", border:"1px solid #bfdbfe", borderRadius:999, padding:"3px 8px", fontSize:11, cursor:"pointer", color:"#1d4ed8" }}>Clear</button>
             </div>
           )}
 
-          <div style={C.card}>
-            {/* Messages */}
-            <div style={{ maxHeight:400, overflowY:"auto", marginBottom:12, display:"flex", flexDirection:"column", gap:8 }}>
-              {msgs.map((m,i) => (
-                <div key={i} style={{ display:"flex", flexDirection:"column", alignItems:m.role==="user"?"flex-end":"flex-start" }}>
-                  <div style={{ maxWidth:"88%", ...C.bubble(m.role) }}>
-                    <span>{m.text}</span>
+          <div style={S.msgArea}>
+            <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
+              {msgs.map((m, i) => (
+                <div key={i} style={{ display:"flex", flexDirection:"column", alignItems:m.role==="helper"?"flex-start":"flex-end" }}>
+                  <div style={S.bubble(m.role)}>
+                    {m.text}
                     {m.role==="helper" && (
-                      <button onClick={()=>speak(m.text)} title="Read aloud"
-                        style={{ background:"none", border:"none", cursor:"pointer", fontSize:16, opacity:0.5, flexShrink:0, padding:0 }}>🔊</button>
+                      <button onClick={() => speak(m.text)} title="Read aloud"
+                        style={{ background:"none", border:"none", cursor:"pointer", fontSize:14, opacity:0.5, marginLeft:6, padding:0, verticalAlign:"middle" }}>🔊</button>
                     )}
                   </div>
-                  <div style={{ fontSize:11, color:"#9ca3af", marginTop:2 }}>{m.role==="helper"?"Helper":"You"} • {m.time}</div>
+                  <div style={{ fontSize:11, color:"#9ca3af", marginTop:2, marginLeft:4, marginRight:4 }}>
+                    {m.role==="helper"?"Helper":"You"} - {m.time}
+                  </div>
                 </div>
               ))}
-              {loading && (
-                <div style={{ color:"#6b7280", fontSize:13, fontStyle:"italic", padding:"4px 0" }}>Helper is thinking...</div>
-              )}
-              <div ref={endRef} />
+              {loading && <div style={{ color:"#6b7280", fontSize:13, fontStyle:"italic" }}>Helper is thinking...</div>}
+              <div ref={endRef} style={{ height:1 }} />
             </div>
-
-            {/* INPUT ROW — mic next to input */}
-            <div style={{ display:"flex", gap:8, alignItems:"flex-end" }}>
-              <button onClick={toggleMic} style={C.micBtn(listening)} title={listening?"Stop":"Speak"}>
-                {listening?"🔴":"🎙️"}
-              </button>
-              <textarea
-                ref={inputRef}
-                value={input}
-                onChange={e=>setInput(e.target.value)}
-                onKeyDown={e=>{ if(e.key==="Enter"&&!e.shiftKey){e.preventDefault(); sendText(input,activeTopic);}}}
-                placeholder={listening?"Listening... speak now": activeTopic ? "Ask about "+activeTopicTitle+"..." : "Type your question, or tap the mic to speak..."}
-                style={C.textarea}
-              />
-              <button onClick={()=>sendText(input,activeTopic)} disabled={loading} style={C.sendBtn}>Send</button>
+            <div style={{ display:"flex", flexWrap:"wrap", gap:6, marginTop:12 }}>
+              <button onClick={() => { setMsgs([]); setActiveTopic(null); addMsg("helper","Cleared. Choose a tool or type your question."); }}
+                style={{ borderRadius:999, border:"1px solid #d1d5db", padding:"6px 12px", fontSize:12, background:"#fff", cursor:"pointer" }}>Clear chat</button>
+              {speaking && <button onClick={stopSpeech} style={{ borderRadius:999, border:"1px solid #d1d5db", padding:"6px 12px", fontSize:12, background:"#fff", cursor:"pointer" }}>Stop audio</button>}
             </div>
-
-            {/* QUICK ACTIONS */}
-            <div style={{ display:"flex", flexWrap:"wrap", gap:6, marginTop:8 }}>
-              {lastFull && <button style={C.pill} onClick={()=>{ addMsg("helper",lastFull); if(audioEnabled) speak(lastFull); }}>➕ Tell me more</button>}
-              <button style={C.pill} onClick={()=>{ setMsgs([]); setActiveTopic(null); addMsg("helper","Cleared. Choose a tool or type your question."); }}>🧹 Clear</button>
-              <button style={C.pill} onClick={saveChat}>💾 Save chat</button>
-              {speaking && <button style={C.pill} onClick={stopSpeech}>⏹ Stop audio</button>}
+            <div style={{ marginTop:10, fontSize:11, color:"#9ca3af", textAlign:"center" }}>
+              This helper is part of WAI-Institute. Actions may be logged for safety and training.
             </div>
           </div>
 
-          <div style={{ fontSize:11, color:"#9ca3af", textAlign:"center" }}>
-            This authenticated helper is part of WAI-Institute. Actions may be logged for safety and training. Not a lawyer, doctor, or emergency service.
+          <div style={S.inputRow}>
+            <button onClick={toggleMic} style={S.iconBtn(listening, "#dc2626")} title={listening?"Stop":"Speak"}>
+              {listening ? "🔴" : "🎙️"}
+            </button>
+            <button onClick={() => { setAudioEnabled(a => !a); if (speaking) stopSpeech(); }}
+              style={S.iconBtn(audioEnabled, "#059669")} title={audioEnabled?"Audio ON":"Audio OFF"}>
+              {audioEnabled ? "🔊" : "🔇"}
+            </button>
+            <textarea
+              ref={inputRef}
+              value={input}
+              onChange={e => setInput(e.target.value)}
+              onKeyDown={e => { if (e.key==="Enter" && !e.shiftKey) { e.preventDefault(); sendText(input, activeTopic); }}}
+              onFocus={() => setTimeout(() => endRef.current?.scrollIntoView({ behavior:"smooth" }), 300)}
+              placeholder={listening ? "Listening..." : activeTopic ? "Ask about " + activeTopicTitle + "..." : "Type your question..."}
+              style={S.textarea}
+            />
+            <button onClick={() => sendText(input, activeTopic)} disabled={loading} style={S.sendBtn}>Send</button>
           </div>
         </div>
       </div>
 
-      {toast && <div style={C.toast}><span>{toast.icon}</span><span>{toast.msg}</span></div>}
+      {toast && <div style={S.toast}>{toast}</div>}
     </div>
   );
 }
