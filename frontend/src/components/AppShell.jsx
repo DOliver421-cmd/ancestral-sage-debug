@@ -1,7 +1,7 @@
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../lib/auth";
 import { WAI_LOGO, BRAND } from "../lib/brand";
-import { LayoutDashboard, BookOpen, Award, Users, Settings, Sparkles, LogOut, FlaskConical, Target, ClipboardCheck, Briefcase, BadgeCheck, Brain, ShieldCheck, Building2, TrendingUp, ScrollText, Calendar, ShieldAlert, KeyRound, Crown, Compass } from "lucide-react";
+import { LayoutDashboard, BookOpen, Award, Users, Settings, Sparkles, LogOut, FlaskConical, Target, ClipboardCheck, Briefcase, BadgeCheck, Brain, ShieldCheck, Building2, TrendingUp, ScrollText, Calendar, ShieldAlert, KeyRound, Crown, Compass, HelpCircle } from "lucide-react";
 import NotificationBell from "./NotificationBell";
 
 const studentNav = [
@@ -47,7 +47,6 @@ const adminNav = [
   { to: "/settings", label: "Settings", icon: KeyRound, testid: "nav-settings" },
 ];
 
-// Executive admin = admin nav + a top-row "System" link to the exec-only page.
 const execAdminNav = [
   { to: "/admin/system", label: "System", icon: Crown, testid: "nav-exec-system" },
   { to: "/admin/sage-audit", label: "Sage Sessions", icon: Compass, testid: "nav-sage-audit" },
@@ -93,6 +92,35 @@ export default function AppShell({ children }) {
             );
           })}
         </nav>
+
+        {/* HELP CENTER BUTTON — sits above user info block */}
+        <div className="px-4 pb-3">
+          <Link
+            to="/app/helper"
+            data-testid="nav-helper"
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 10,
+              background: "linear-gradient(135deg,#2563eb,#7c3aed)",
+              borderRadius: 12,
+              padding: "12px 14px",
+              textDecoration: "none",
+              color: "#fff",
+              boxShadow: "0 4px 16px rgba(37,99,235,0.35)",
+              transition: "opacity 0.15s",
+            }}
+            onMouseEnter={e => e.currentTarget.style.opacity = "0.9"}
+            onMouseLeave={e => e.currentTarget.style.opacity = "1"}
+          >
+            <HelpCircle style={{ width: 22, height: 22, flexShrink: 0, color: "#fde68a" }} />
+            <div style={{ display: "flex", flexDirection: "column", gap: 1 }}>
+              <span style={{ fontSize: 14, fontWeight: 800, lineHeight: 1.2 }}>Need Help?</span>
+              <span style={{ fontSize: 11, opacity: 0.85, lineHeight: 1.3 }}>Read mail, bills, legal papers &amp; more</span>
+            </div>
+          </Link>
+        </div>
+
         <div className="px-4 py-5 border-t border-white/10">
           <div className="text-xs text-white/50 uppercase tracking-widest">Signed in as</div>
           <div className="font-heading text-white font-semibold mt-1 truncate flex items-center gap-2">
