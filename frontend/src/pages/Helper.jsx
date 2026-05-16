@@ -561,7 +561,7 @@ function PublicHelper() {
     textarea: { flex:1, minHeight:44, maxHeight:100, resize:"none", borderRadius:12, border:"1px solid #d1d5db", padding:"10px 12px", fontSize:15, fontFamily:"system-ui", outline:"none", lineHeight:1.4 },
     sendBtn: { borderRadius:12, border:"none", padding:"12px 14px", fontSize:14, fontWeight:700, background:"#2563eb", color:"#fff", cursor:"pointer", flexShrink:0 },
     iconBtn: (active, color) => ({ borderRadius:12, border:"none", padding:"12px 12px", fontSize:18, background:active?color:"#f3f4f6", color:active?"#fff":"#374151", cursor:"pointer", flexShrink:0 }),
-    toast: { position:"fixed", bottom:80, left:"50%", transform:"translateX(-50%)", background:"#111827", color:"#f9fafb", padding:"10px 18px", borderRadius:999, fontSize:13, zIndex:9999, whiteSpace:"nowrap", boxShadow:"0 4px 20px rgba(0,0,0,.3)" },
+    toast: { position:"fixed", top:16, left:"50%", transform:"translateX(-50%)", background:"#111827", color:"#f9fafb", padding:"10px 18px", borderRadius:999, fontSize:13, zIndex:9999, whiteSpace:"nowrap", boxShadow:"0 4px 20px rgba(0,0,0,.3)" },
   };
 
   return (
@@ -753,50 +753,56 @@ function AuthHelper({ user }) {
 
   const activeTopicTitle = AUTH_TOOLS.flatMap(s => s.items).find(t => t.key === activeTopic)?.title;
 
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+
   const S = {
     wrap: { display:"flex", flexDirection:"column", height:"100dvh", background:"#f5f7fb", fontFamily:"system-ui,-apple-system,sans-serif", color:"#1f2933", overflow:"hidden" },
     topBar: { background:"#fff", borderBottom:"1px solid #e5e7eb", padding:"10px 14px", display:"flex", alignItems:"center", justifyContent:"space-between", gap:10, flexWrap:"wrap", flexShrink:0 },
     body: { display:"flex", flex:1, overflow:"hidden" },
-    sidebar: { width:220, flexShrink:0, overflowY:"auto", padding:"10px 8px", borderRight:"1px solid #e5e7eb", background:"#fff", WebkitOverflowScrolling:"touch" },
+    sidebar: { width:sidebarOpen?220:0, flexShrink:0, overflowY:"auto", overflowX:"hidden", borderRight:sidebarOpen?"1px solid #e5e7eb":"none", background:"#fff", WebkitOverflowScrolling:"touch", transition:"width 0.2s", padding:sidebarOpen?"10px 8px":0 },
     main: { flex:1, display:"flex", flexDirection:"column", overflow:"hidden" },
-    msgArea: { flex:1, overflowY:"auto", padding:"10px 12px", WebkitOverflowScrolling:"touch" },
+    msgArea: { flex:1, overflowY:"auto", padding:"10px 16px", WebkitOverflowScrolling:"touch" },
     toolBtn: (active) => ({ borderRadius:10, border:"2px solid " + (active?"#2563eb":"#e5e7eb"), background:active?"#eff6ff":"#f9fafb", padding:"8px 10px", cursor:"pointer", display:"flex", alignItems:"center", gap:8, fontSize:13, fontWeight:active?700:400, width:"100%", textAlign:"left", marginBottom:4 }),
-    bubble: (role) => ({ maxWidth:"88%", background:role==="helper"?"#dbeafe":"#f3f4f6", borderRadius:14, padding:"10px 12px", fontSize:14, lineHeight:1.55, alignSelf:role==="helper"?"flex-start":"flex-end" }),
-    inputRow: { display:"flex", gap:6, alignItems:"flex-end", padding:"8px 12px", background:"#fff", borderTop:"1px solid #e5e7eb", flexShrink:0 },
-    textarea: { flex:1, minHeight:44, maxHeight:100, resize:"none", borderRadius:12, border:"1px solid #d1d5db", padding:"10px 12px", fontSize:15, fontFamily:"system-ui", outline:"none" },
-    sendBtn: { borderRadius:12, border:"none", padding:"12px 14px", fontSize:14, fontWeight:700, background:"#2563eb", color:"#fff", cursor:"pointer", flexShrink:0 },
+    bubble: (role) => ({ maxWidth:"85%", background:role==="helper"?"#dbeafe":"#f3f4f6", borderRadius:14, padding:"10px 14px", fontSize:15, lineHeight:1.6, alignSelf:role==="helper"?"flex-start":"flex-end" }),
+    inputRow: { display:"flex", gap:6, alignItems:"flex-end", padding:"8px 16px", background:"#fff", borderTop:"1px solid #e5e7eb", flexShrink:0 },
+    textarea: { flex:1, minHeight:48, maxHeight:120, resize:"none", borderRadius:12, border:"1px solid #d1d5db", padding:"12px 14px", fontSize:15, fontFamily:"system-ui", outline:"none" },
+    sendBtn: { borderRadius:12, border:"none", padding:"14px 18px", fontSize:15, fontWeight:700, background:"#2563eb", color:"#fff", cursor:"pointer", flexShrink:0 },
     iconBtn: (active, color) => ({ borderRadius:12, border:"none", padding:"12px 12px", fontSize:18, background:active?color:"#f3f4f6", color:active?"#fff":"#374151", cursor:"pointer", flexShrink:0 }),
     navPill: (active) => ({ borderRadius:999, padding:"5px 10px", fontSize:12, border:"1px solid " + (active?"#2563eb":"#d1d5db"), background:active?"#2563eb":"#fff", color:active?"#fff":"#111827", cursor:"pointer", fontWeight:active?600:400 }),
-    toast: { position:"fixed", bottom:80, left:"50%", transform:"translateX(-50%)", background:"#111827", color:"#f9fafb", padding:"10px 18px", borderRadius:999, fontSize:13, zIndex:9999, whiteSpace:"nowrap", boxShadow:"0 4px 20px rgba(0,0,0,.3)" },
+    toast: { position:"fixed", top:16, left:"50%", transform:"translateX(-50%)", background:"#111827", color:"#f9fafb", padding:"10px 18px", borderRadius:999, fontSize:13, zIndex:9999, whiteSpace:"nowrap", boxShadow:"0 4px 20px rgba(0,0,0,.3)" },
   };
 
   return (
     <div style={S.wrap}>
       <div style={S.topBar}>
         <div style={{ display:"flex", alignItems:"center", gap:10 }}>
-          <div style={{ width:36, height:36, borderRadius:"50%", background:"radial-gradient(circle at 30% 20%,#fde68a,#facc15 40%,#f97316 80%)", display:"flex", alignItems:"center", justifyContent:"center", fontWeight:800, fontSize:18 }}>H</div>
+          <button onClick={() => setSidebarOpen(o => !o)}
+            style={{ borderRadius:10, border:"1px solid #e5e7eb", padding:"8px 10px", background:sidebarOpen?"#eff6ff":"#f9fafb", cursor:"pointer", fontSize:13, fontWeight:600, color:sidebarOpen?"#2563eb":"#374151", flexShrink:0 }}>
+            {sidebarOpen ? "Hide Tools" : "Show Tools"}
+          </button>
+          <div style={{ width:32, height:32, borderRadius:"50%", background:"radial-gradient(circle at 30% 20%,#fde68a,#facc15 40%,#f97316 80%)", display:"flex", alignItems:"center", justifyContent:"center", fontWeight:800, fontSize:16 }}>H</div>
           <div>
-            <div style={{ fontSize:15, fontWeight:700 }}>Helper Workspace</div>
-            <div style={{ fontSize:11, color:"#6b7280" }}>WAI-Institute - private and secure</div>
+            <div style={{ fontSize:14, fontWeight:700 }}>Helper Workspace</div>
+            <div style={{ fontSize:11, color:"#6b7280" }}>{user?.full_name || "WAI-Institute"}</div>
           </div>
         </div>
         <div style={{ display:"flex", gap:6, alignItems:"center", flexWrap:"wrap" }}>
-          {["home","tasks","messages","profile"].map(n => (
-            <button key={n} style={S.navPill(activeNav===n)} onClick={() => setActiveNav(n)}>
-              {n.charAt(0).toUpperCase()+n.slice(1)}
-            </button>
-          ))}
+          {activeTopic && (
+            <span style={{ borderRadius:999, padding:"5px 10px", fontSize:12, background:"#eff6ff", color:"#1d4ed8", border:"1px solid #bfdbfe", fontWeight:600 }}>
+              {activeTopicTitle}
+            </span>
+          )}
           <span style={{ borderRadius:999, padding:"5px 10px", fontSize:11, border:"1px solid #d1d5db", background:"#f9fafb" }}>{user?.role||"Student"}</span>
         </div>
       </div>
 
       <div style={S.body}>
         <div style={S.sidebar}>
-          {AUTH_TOOLS.map(({ section, items }) => (
+          {sidebarOpen && AUTH_TOOLS.map(({ section, items }) => (
             <div key={section} style={{ marginBottom:16 }}>
               <div style={{ fontSize:11, fontWeight:700, color:"#6b7280", textTransform:"uppercase", letterSpacing:"0.05em", marginBottom:6 }}>{section}</div>
               {items.map(({ key, icon, title, prompt }) => (
-                <button key={key} style={S.toolBtn(activeTopic===key)} onClick={() => startTopic(key, title, prompt)}>
+                <button key={key} style={S.toolBtn(activeTopic===key)} onClick={() => { startTopic(key, title, prompt); setSidebarOpen(false); }}>
                   <span style={{ fontSize:16 }}>{icon}</span><span>{title}</span>
                 </button>
               ))}
@@ -805,12 +811,7 @@ function AuthHelper({ user }) {
         </div>
 
         <div style={S.main}>
-          {activeTopic && (
-            <div style={{ background:"#eff6ff", borderBottom:"1px solid #bfdbfe", padding:"8px 14px", display:"flex", justifyContent:"space-between", alignItems:"center", flexShrink:0 }}>
-              <span style={{ fontSize:13, fontWeight:600, color:"#1d4ed8" }}>Topic: {activeTopicTitle}</span>
-              <button onClick={() => setActiveTopic(null)} style={{ background:"none", border:"1px solid #bfdbfe", borderRadius:999, padding:"3px 8px", fontSize:11, cursor:"pointer", color:"#1d4ed8" }}>Clear</button>
-            </div>
-          )}
+
 
           <div style={S.msgArea}>
             <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
