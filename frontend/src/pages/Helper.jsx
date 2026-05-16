@@ -534,18 +534,18 @@ function PublicHelper() {
   useEffect(() => { endRef.current?.scrollIntoView({ behavior: "smooth" }); }, [msgs]);
 
   const TOPICS = [
-    { key:"mail", icon:"📬", title:"Read My Mail", prompt:"I can help you understand your mail. Please type or paste what the letter says and I will explain it in plain words." },
-    { key:"bills", icon:"💡", title:"My Bills", prompt:"I can help with your bills. Tell me who sent it, the amount, and what it says. I will explain each part clearly." },
+    { key:"mail", icon:"📬", title:"Understand a Letter", prompt:"I can help you understand any letter or official document. Please type or paste what it says - or tell me who sent it - and I will explain what it means and what you need to do." },
+    { key:"bills", icon:"💡", title:"Explain My Bill", prompt:"I can help with your bills. Tell me who sent it, the amount, and what it says. I will explain each part clearly." },
     { key:"credit", icon:"💳", title:"Credit Score", prompt:"I can explain your credit score and what affects it. What would you like to know?" },
     { key:"custody", icon:"👶", title:"Custody Help", prompt:"I can help you understand custody papers. Please type the key parts of the document." },
     { key:"medicines", icon:"💊", title:"My Medicines", prompt:"I can help you read medicine labels and understand instructions. What medicine do you need help with?" },
-    { key:"food", icon:"🍽️", title:"Food Help", prompt:"I can help with food assistance programs or nutrition questions. What do you need?" },
+    { key:"food", icon:"🍽️", title:"Food Assistance", prompt:"I can help with food assistance programs or nutrition questions. What do you need?" },
     { key:"appointments", icon:"📅", title:"Appointments", prompt:"I can help you prepare for an appointment. What kind is it and when is it?" },
     { key:"legal", icon:"⚖️", title:"Legal Help", prompt:"I can help explain legal papers in simple words. Please type or paste the key parts." },
-    { key:"employment", icon:"💼", title:"Job Help", prompt:"I can help you understand job papers or employment situations. What do you have?" },
+    { key:"employment", icon:"💼", title:"Employment Help", prompt:"I can help you understand job papers or employment situations. What do you have?" },
     { key:"housing", icon:"🏠", title:"Housing", prompt:"I can help with rent, lease, eviction notices, and housing letters. Please tell me what the document says." },
-    { key:"scam", icon:"🛡️", title:"Scam Check", prompt:"I can check something for scam signs. Paste or type what you received and I will tell you what I see." },
-    { key:"emergency", icon:"🚨", title:"Emergency", prompt:"Emergency: 911 for danger. 988 for mental health crisis. 1-800-222-1222 for Poison Control. Are you safe right now?" },
+    { key:"scam", icon:"🛡️", title:"Check for Scams", prompt:"I can check something for scam signs. Paste or type what you received and I will tell you what I see." },
+    { key:"emergency", icon:"🚨", title:"Emergency Numbers", prompt:"Emergency: 911 for danger. 988 for mental health crisis. 1-800-222-1222 for Poison Control. Are you safe right now?" },
   ];
 
   const activeTitle = TOPICS.find(t => t.key === activeTopic)?.title;
@@ -726,28 +726,28 @@ function AuthHelper({ user }) {
 
   const AUTH_TOOLS = [
     { section:"Daily tools", items:[
-      { key:"mail", icon:"📬", title:"Read my mail", prompt:"I can help you understand your mail. Paste or type what the letter says and I will explain what it means and what you need to do." },
-      { key:"bills", icon:"💡", title:"My bills", prompt:"I can help with your bills. Tell me who sent it, the amount, and what it says. I will break it down clearly." },
+      { key:"mail", icon:"📬", title:"Understand a letter", prompt:"I can help you understand your mail. Paste or type what the letter says and I will explain what it means and what you need to do." },
+      { key:"bills", icon:"💡", title:"Explain my bill", prompt:"I can help with your bills. Tell me who sent it, the amount, and what it says. I will break it down clearly." },
       { key:"appointments", icon:"📅", title:"Appointments", prompt:"I can help you prepare for an upcoming appointment. What kind is it and when is it?" },
       { key:"notes", icon:"📝", title:"Notes", prompt:"I can help you keep simple notes or reminders. What would you like to write down?" },
       { key:"documents", icon:"🗂️", title:"Documents", prompt:"I can help you find or understand documents. What are you looking for?" },
     ]},
     { section:"Legal tools", items:[
-      { key:"legal-draft", icon:"📄", title:"Draft legal form", prompt:"I can help you draft a simple legal form in plain language. What type of form and what is the situation?" },
-      { key:"letter-draft", icon:"✉️", title:"Draft a letter", prompt:"I can help you write a clear, respectful letter. Who is it to and what do you need to say?" },
-      { key:"legal", icon:"⚖️", title:"Legal papers", prompt:"I can explain legal documents in plain words. Paste or type the key parts and I will walk you through them." },
+      { key:"legal-draft", icon:"📄", title:"Help draft a form", prompt:"I can help you draft a simple legal form in plain language. What type of form and what is the situation?" },
+      { key:"letter-draft", icon:"✉️", title:"Help write a letter", prompt:"I can help you write a clear, respectful letter. Who is it to and what do you need to say?" },
+      { key:"legal", icon:"⚖️", title:"Explain legal papers", prompt:"I can explain legal documents in plain words. Paste or type the key parts and I will walk you through them." },
       { key:"scam", icon:"🛡️", title:"Scam check", prompt:"I can check for scam signs. Paste the message, email, or letter you received and I will flag anything suspicious." },
     ]},
     { section:"Health and life", items:[
-      { key:"medicines", icon:"💊", title:"My medicines", prompt:"I can help you understand medicine labels and instructions. What is the medicine and what does the label say?" },
-      { key:"food", icon:"🍽️", title:"Food and nutrition", prompt:"I can give simple food guidance or help with food assistance programs. What do you need?" },
+      { key:"medicines", icon:"💊", title:"Understand medicines", prompt:"I can help you understand medicine labels and instructions. What is the medicine and what does the label say?" },
+      { key:"food", icon:"🍽️", title:"Food assistance", prompt:"I can give simple food guidance or help with food assistance programs. What do you need?" },
       { key:"housing", icon:"🏠", title:"Housing", prompt:"I can help with housing documents. Do you have a lease, eviction notice, rent increase letter, or something else?" },
       { key:"employment", icon:"💼", title:"Employment", prompt:"I can help with job papers and employment situations. What type of document or situation do you have?" },
     ]},
     { section:"Support", items:[
       { key:"trusted-contacts", icon:"📇", title:"Trusted contacts", prompt:"I can help you review or update your trusted contacts. What would you like to do?" },
       { key:"caregiver-mode", icon:"❤️", title:"Caregiver mode", prompt:"Caregiver mode lets a trusted person work alongside you. Is a caregiver present with you right now?" },
-      { key:"emergency", icon:"🚨", title:"Emergency", prompt:"Emergency: 911 for immediate danger. 988 for mental health crisis. 1-800-222-1222 for Poison Control. Are you safe right now?" },
+      { key:"emergency", icon:"🚨", title:"Emergency Numbers", prompt:"Emergency: 911 for immediate danger. 988 for mental health crisis. 1-800-222-1222 for Poison Control. Are you safe right now?" },
     ]},
   ];
 
