@@ -93,31 +93,20 @@ export default function AppShell({ children }) {
           })}
         </nav>
 
-        {/* HELP CENTER BUTTON — sits above user info block */}
-        <div className="px-4 pb-3">
+        <div className="px-4 pb-4">
           <Link
             to="/app/helper"
             data-testid="nav-helper"
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 10,
-              background: "linear-gradient(135deg,#2563eb,#7c3aed)",
-              borderRadius: 12,
-              padding: "12px 14px",
-              textDecoration: "none",
-              color: "#fff",
-              boxShadow: "0 4px 16px rgba(37,99,235,0.35)",
-              transition: "opacity 0.15s",
-            }}
-            onMouseEnter={e => e.currentTarget.style.opacity = "0.9"}
-            onMouseLeave={e => e.currentTarget.style.opacity = "1"}
+            className="flex flex-col gap-1 w-full rounded-xl p-4 text-white no-underline transition-all hover:opacity-90"
+            style={{ background: "linear-gradient(135deg,#2563eb,#7c3aed)", textDecoration: "none", boxShadow: "0 4px 16px rgba(37,99,235,0.30)" }}
           >
-            <HelpCircle style={{ width: 22, height: 22, flexShrink: 0, color: "#fde68a" }} />
-            <div style={{ display: "flex", flexDirection: "column", gap: 1 }}>
-              <span style={{ fontSize: 14, fontWeight: 800, lineHeight: 1.2 }}>Need Help?</span>
-              <span style={{ fontSize: 11, opacity: 0.85, lineHeight: 1.3 }}>Read mail, bills, legal papers &amp; more</span>
+            <div className="flex items-center gap-2">
+              <HelpCircle className="w-5 h-5 shrink-0" style={{ color: "#fde68a" }} />
+              <span style={{ fontSize: 15, fontWeight: 800, lineHeight: 1.2, color: "#fff" }}>Personal Help Center</span>
             </div>
+            <span style={{ fontSize: 11, opacity: 0.85, lineHeight: 1.4, color: "#fff", paddingLeft: 28 }}>
+              Understand letters, bills, legal papers, housing notices and more — in plain words
+            </span>
           </Link>
         </div>
 
