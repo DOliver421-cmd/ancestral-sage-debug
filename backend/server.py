@@ -159,7 +159,7 @@ BACKUP_EXEC_DEFAULT_PASSWORD = os.environ.get("BACKUP_EXEC_DEFAULT_PASSWORD", "N
 # will be auto-demoted from executive_admin to admin on startup, so switching
 # the primary exec doesn't leave a dormant god-mode account behind.
 # NOTE: BACKUP_EXEC_EMAIL is intentionally excluded — it is a permanent second seat.
-LEGACY_EXEC_EMAILS: set[str] = set()
+LEGACY_EXEC_EMAILS = set()
 
 
 class User(BaseModel):
