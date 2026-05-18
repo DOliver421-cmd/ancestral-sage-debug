@@ -16,7 +16,7 @@ const studentNav = [
   { to: "/incidents", label: "Report Incident", icon: ShieldAlert, testid: "nav-incidents" },
   { to: "/ai", label: "AI Tutor", icon: Sparkles, testid: "nav-ai" },
   { to: "/council", label: "Council (Sage)", icon: Layers, testid: "nav-council" },
-  { to: "/more", label: "M.O.R.E.", icon: HandHelping, testid: "nav-more" },
+  { to: "/app/more", label: "M.O.R.E. Hub", icon: HandHelping, testid: "nav-more" },
   { to: "/more/litigation", label: "Legal Help Tool", icon: Scale, testid: "nav-litigation" },
   { to: "/certificates", label: "Certificates", icon: Award, testid: "nav-certs" },
   { to: "/settings", label: "Settings", icon: KeyRound, testid: "nav-settings" },
@@ -32,7 +32,7 @@ const instructorNav = [
   { to: "/labs", label: "Apprentice Labs", icon: FlaskConical, testid: "nav-labs" },
   { to: "/ai", label: "AI Tutor", icon: Sparkles, testid: "nav-ai" },
   { to: "/council", label: "Council (Sage)", icon: Layers, testid: "nav-council" },
-  { to: "/more", label: "M.O.R.E.", icon: HandHelping, testid: "nav-more" },
+  { to: "/app/more", label: "M.O.R.E. Hub", icon: HandHelping, testid: "nav-more" },
   { to: "/more/litigation", label: "Legal Help Tool", icon: Scale, testid: "nav-litigation" },
   { to: "/settings", label: "Settings", icon: KeyRound, testid: "nav-settings" },
 ];
@@ -52,6 +52,7 @@ const adminNav = [
   { to: "/ai", label: "AI Tutor", icon: Sparkles, testid: "nav-ai" },
   { to: "/council", label: "Council (Sage)", icon: Layers, testid: "nav-council" },
   { to: "/more", label: "M.O.R.E.", icon: HandHelping, testid: "nav-more" },
+  { to: "/app/more", label: "M.O.R.E. Hub", icon: HandHelping, testid: "nav-more-hub" },
   { to: "/more/admin", label: "M.O.R.E. Admin", icon: Scale, testid: "nav-more-admin" },
   { to: "/settings", label: "Settings", icon: KeyRound, testid: "nav-settings" },
 ];

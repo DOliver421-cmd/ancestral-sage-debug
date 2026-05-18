@@ -447,8 +447,36 @@ export default function More() {
             )
           )}
 
+          {/* Members upgrade banner */}
+          {!user && (
+            <div className="mt-10 bg-copper text-ink p-6 flex flex-col sm:flex-row items-center justify-between gap-5">
+              <div>
+                <div className="font-heading font-bold text-xl">Members get the full experience.</div>
+                <p className="text-ink/70 text-sm mt-1">
+                  Post, share needs, join community chat, access the Legal Aid tool, and get AI Help Center support — all free.
+                </p>
+              </div>
+              <div className="flex gap-3 shrink-0">
+                <Link to="/register" className="btn-primary text-sm flex items-center gap-2">
+                  <UserPlus className="w-4 h-4" /> Create Free Account
+                </Link>
+                <Link to="/login" className="btn-ghost text-sm flex items-center gap-2">
+                  <LogIn className="w-4 h-4" /> Sign In
+                </Link>
+              </div>
+            </div>
+          )}
+          {user && (
+            <div className="mt-10 bg-ink/5 border border-ink/10 px-6 py-4 flex items-center justify-between gap-4">
+              <p className="text-sm text-ink/60">You're signed in. Access your full M.O.R.E. experience with all features.</p>
+              <Link to="/app/more" className="btn-copper text-sm flex items-center gap-2">
+                Full Hub <ArrowRight className="w-4 h-4" />
+              </Link>
+            </div>
+          )}
+
           {/* Oliver Guardian footer */}
-          <div className="mt-12 border border-ink/10 p-5 bg-ink text-white">
+          <div className="mt-6 border border-ink/10 p-5 bg-ink text-white">
             <div className="flex items-start gap-4">
               <Shield className="w-8 h-8 text-signal shrink-0 mt-0.5" />
               <div>

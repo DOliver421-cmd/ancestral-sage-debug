@@ -35,6 +35,7 @@ import NotFound from "./pages/NotFound";
 import SageAudit from "./pages/SageAudit";
 import OrchestratorChat from "./pages/OrchestratorChat";
 import More from "./pages/More";
+import MoreHub from "./pages/MoreHub";
 import MoreChat from "./pages/MoreChat";
 import MoreAdmin from "./pages/MoreAdmin";
 import LitigationWeapon from "./pages/LitigationWeapon";
@@ -112,9 +113,11 @@ function App() {
           <Route path="/admin/system" element={<Protected roles={["executive_admin"]}><ExecSystem /></Protected>} />
           <Route path="/admin/sage-audit" element={<Protected roles={["executive_admin"]}><SageAudit /></Protected>} />
           <Route path="/council" element={<Protected><OrchestratorChat /></Protected>} />
-          {/* M.O.R.E. — public browsing, auth gated at the action level */}
+          {/* M.O.R.E. — public tier */}
           <Route path="/more" element={<More />} />
           <Route path="/more/litigation" element={<LitigationWeapon />} />
+          {/* M.O.R.E. — authenticated tier (full features, role-gated) */}
+          <Route path="/app/more" element={<Protected><MoreHub /></Protected>} />
           <Route path="/more/chat" element={<Protected><MoreChat /></Protected>} />
           <Route path="/more/chat/:roomId" element={<Protected><MoreChat /></Protected>} />
           <Route path="/more/admin" element={<Protected roles={["admin"]}><MoreAdmin /></Protected>} />
