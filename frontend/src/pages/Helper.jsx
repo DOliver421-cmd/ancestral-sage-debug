@@ -362,7 +362,6 @@ function PublicHelper() {
             <div style={{ fontSize:20, fontWeight:800, lineHeight:1.2 }}>I am here to be your HELPER.</div>
             <div style={{ fontSize:13, opacity:0.9, marginTop:2 }}>I can help you understand mail, bills, legal papers, housing and more — in plain, simple words.</div>
           </div>
-          <button onClick={() => navigate("/login")} style={{ borderRadius:999, border:"1px solid rgba(255,255,255,.7)", padding:"9px 16px", fontSize:13, background:"transparent", color:"#fff", cursor:"pointer", fontWeight:700, flexShrink:0, whiteSpace:"nowrap" }}>Sign in for full access</button>
         </div>
         {/* BIG ACTION BUTTONS */}
         <div style={{ display:"flex", flexWrap:"wrap", gap:8, marginBottom:8 }}>
@@ -434,8 +433,8 @@ function PublicHelper() {
             <button onClick={() => { setMsgs([]); setActiveTopic(null); addMsg("helper","Back to the start. Choose a topic or type your question."); }} style={{ borderRadius:999, border:"1px solid #d1d5db", padding:"6px 12px", fontSize:12, background:"#fff", cursor:"pointer" }}>🏠 Start over</button>
             {speaking && <button onClick={stopSpeech} style={{ borderRadius:999, border:"1px solid #d1d5db", padding:"6px 12px", fontSize:12, background:"#fff", cursor:"pointer" }}>⏹ Stop audio</button>}
           </div>
-          <div style={{ marginTop:10, fontSize:11, color:"#9ca3af", textAlign:"center" }}>
-            Public helper — no data saved. <button onClick={() => navigate("/login")} style={{ background:"none", border:"none", color:"#2563eb", cursor:"pointer", fontSize:11, padding:0 }}>Sign in</button> for saved notes and more tools.
+          <div style={{ marginTop:10, fontSize:11, color:"#c4c9d4", textAlign:"center" }}>
+            WAI-Institute members get saved notes, more tools, and a private workspace.
           </div>
         </div>
         <div style={{ height:20 }} />
