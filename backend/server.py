@@ -52,6 +52,7 @@ from prompts.ancestral_sage_prompt import (
     compute_sage_prompt_hash,
 )
 from prompts.orchestrator import get_orchestrator_system, compute_orchestrator_hash
+from prompts.more_department_system import get_more_department_system, compute_more_department_hash
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import landscape, letter
 from reportlab.lib.units import inch
@@ -4029,6 +4030,12 @@ class MoreFlagReq(BaseModel):
     target_type: Literal["post", "need", "chat"]
     reason: str
 
+class MoreDeptChatReq(BaseModel):
+    session_id: str
+    message: str
+    history: Optional[list[OrchestratorHistoryItem]] = []
+    department_hint: Optional[str] = None
+
 
 # ─── M.O.R.E. Endpoints ──────────────────────────────────────────────────────
 
@@ -4509,6 +4516,101 @@ async def run_escalation_check():
 
     if to_instructor or to_admin:
         logger.info("Escalation: %d → instructor, %d → admin", len(to_instructor), len(to_admin))
+
+
+# ─── M.O.R.E. Department AI ──────────────────────────────────────────────────
+
+@api_router.post("/more/department/chat")
+async def more_department_chat(body: MoreDeptChatReq, user: User = Depends(current_user)):
+    """M.O.R.E. Department AI System endpoint.
+
+    Routes the operator's message through the 13-persona M.O.R.E. Department
+    AI network. Admin and executive_admin only. The unified system prompt handles
+    internal routing to the correct persona (Finance, Revenue, Production, etc.)
+    and returns a structured header identifying the active persona and mode.
+    """
+    if ROLE_RANK.get(user.role, 0) < ROLE_RANK.get("admin", 3):
+        raise HTTPException(403, "Department AI requires admin access")
+
+    try:
+        import anthropic as _anthropic_module
+    except Exception as e:
+        raise HTTPException(500, f"AI library unavailable: {e}")
+
+    system = get_more_department_system()
+
+    user_message = body.message
+    if body.department_hint:
+        user_message = f"[DEPARTMENT CONTEXT: {body.department_hint}]\n\n{body.message}"
+
+    claude_messages = [
+        {"role": h.role, "content": h.content}
+        for h in (body.history or [])
+    ]
+    claude_messages.append({"role": "user", "content": user_message})
+
+    _client = _anthropic_module.AsyncAnthropic(api_key=ANTHROPIC_API_KEY)
+    try:
+        _msg = await _client.messages.create(
+            model="claude-sonnet-4-6",
+            max_tokens=4096,
+            system=system,
+            messages=claude_messages,
+        )
+        reply = _msg.content[0].text
+    except Exception as e:
+        logger.exception("M.O.R.E. Department AI error")
+        raise HTTPException(502, f"AI error: {e}")
+
+    # Parse persona and mode from the structured header the system prompt always emits:
+    # **[PERSONA NAME] | [DEPARTMENT] | Mode: [CURRENT MODE]**
+    persona = "Department AI"
+    department = "M.O.R.E."
+    mode = "Balanced"
+    first_line = reply.split("\n")[0].strip()
+    if first_line.startswith("**") and "|" in first_line:
+        parts = first_line.strip("*").split("|")
+        if len(parts) >= 1:
+            persona = parts[0].strip()
+        if len(parts) >= 2:
+            department = parts[1].strip()
+        if len(parts) >= 3:
+            mode_raw = parts[2].strip()
+            mode = mode_raw.replace("Mode:", "").strip()
+
+    await db.chat_history.insert_one({
+        "id": str(uuid.uuid4()),
+        "user_id": user.id,
+        "session_id": body.session_id,
+        "mode": "more_department",
+        "module_slug": None,
+        "user_msg": body.message,
+        "assistant_msg": reply,
+        "persona": persona,
+        "department": department,
+        "active_mode": mode,
+        "department_hint": body.department_hint,
+        "role_at_time": user.role,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    })
+
+    return {
+        "reply": reply,
+        "persona": persona,
+        "department": department,
+        "mode": mode,
+    }
+
+
+@api_router.get("/more/department/integrity")
+async def more_department_integrity(user: User = Depends(current_user)):
+    """SHA-256 hash of the M.O.R.E. Department system prompt for integrity auditing."""
+    if ROLE_RANK.get(user.role, 0) < ROLE_RANK.get("admin", 3):
+        raise HTTPException(403, "Admin access required")
+    return {
+        "hash": compute_more_department_hash(),
+        "system": "more_department",
+    }
 
 
 app.include_router(api_router)

@@ -38,6 +38,7 @@ import More from "./pages/More";
 import MoreHub from "./pages/MoreHub";
 import MoreChat from "./pages/MoreChat";
 import MoreAdmin from "./pages/MoreAdmin";
+import MoreOps from "./pages/MoreOps";
 import LitigationWeapon from "./pages/LitigationWeapon";
 import DirectorWidget from "./components/DirectorWidget";
 import ErrorBoundary from "./components/ErrorBoundary";
@@ -126,6 +127,7 @@ function App() {
           <Route path="/more/chat" element={<Protected><MoreChat /></Protected>} />
           <Route path="/more/chat/:roomId" element={<Protected><MoreChat /></Protected>} />
           <Route path="/more/admin" element={<Protected roles={["admin"]}><MoreAdmin /></Protected>} />
+          <Route path="/more/ops" element={<Protected roles={["admin"]}><MoreOps /></Protected>} />
           <Route path="*" element={<NotFound />} />
         </Routes>
         </ErrorBoundary>
