@@ -1,6 +1,6 @@
 import { Link } from "react-router-dom";
 import { WAI_LOGO, BRAND } from "../lib/brand";
-import { ShieldCheck, BookOpen, Sun, Award, Wrench, ArrowRight } from "lucide-react";
+import { ShieldCheck, BookOpen, Sun, Award, Wrench, ArrowRight, HelpCircle } from "lucide-react";
 
 const HERO = "https://placehold.co/1200x600/0A1628/C9A84C?text=WAI+Institute";
 const LAB = "https://placehold.co/800x500/0A1628/C9A84C?text=Apprentice+Labs";
@@ -23,6 +23,9 @@ export default function Landing() {
             <a href="#program" className="text-sm font-medium hover:text-copper" data-testid="link-program">Program</a>
             <a href="#curriculum" className="text-sm font-medium hover:text-copper" data-testid="link-curriculum">Curriculum</a>
             <a href="#values" className="text-sm font-medium hover:text-copper" data-testid="link-values">Values</a>
+            <Link to="/helper" className="flex items-center gap-1.5 text-sm font-medium hover:text-copper" data-testid="link-helper">
+              <HelpCircle className="w-4 h-4" /> Help Center
+            </Link>
             <Link to="/login" className="text-sm font-bold uppercase tracking-widest" data-testid="link-login">Sign in</Link>
             <Link to="/register" className="btn-copper text-sm" data-testid="btn-enroll">Enroll</Link>
           </nav>
@@ -99,6 +102,32 @@ export default function Landing() {
               <div className="text-sm text-ink/70 mt-2 leading-relaxed">{p.d}</div>
             </div>
           ))}
+        </div>
+      </section>
+
+      {/* Help Center banner */}
+      <section className="bg-ink text-white">
+        <div className="max-w-7xl mx-auto px-6 py-14 flex flex-col md:flex-row items-center justify-between gap-8">
+          <div className="flex items-start gap-5">
+            <div className="w-14 h-14 shrink-0 flex items-center justify-center" style={{ background: "linear-gradient(135deg,#2563eb,#7c3aed)" }}>
+              <HelpCircle className="w-7 h-7 text-white" />
+            </div>
+            <div>
+              <div className="overline text-signal">Free · No Account Needed</div>
+              <h2 className="font-heading text-2xl font-bold mt-1">Personal Help Center</h2>
+              <p className="text-white/70 text-sm mt-2 max-w-xl leading-relaxed">
+                Get plain-language help understanding letters, bills, legal notices, eviction paperwork, medical bills, employment rights, and more. Ask in your own words — no judgment, no forms, completely free.
+              </p>
+            </div>
+          </div>
+          <Link
+            to="/helper"
+            className="shrink-0 inline-flex items-center gap-2 px-7 py-3 font-bold text-sm uppercase tracking-widest text-ink transition-all"
+            style={{ background: "linear-gradient(135deg,#2563eb,#7c3aed)", color: "#fff" }}
+            data-testid="btn-help-center"
+          >
+            Open Help Center <ArrowRight className="w-4 h-4" />
+          </Link>
         </div>
       </section>
 

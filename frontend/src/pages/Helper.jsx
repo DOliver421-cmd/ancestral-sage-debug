@@ -1,12 +1,11 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import { useAuth } from "../lib/auth";
 import { useNavigate } from "react-router-dom";
-
-const BACKEND = "https://ancestral-sage-backend.onrender.com";
+import { BACKEND_URL } from "../lib/api";
 
 function useKeepAlive() {
   useEffect(() => {
-    const ping = () => fetch(`${BACKEND}/api/health`, { method:"GET" }).catch(()=>{});
+    const ping = () => fetch(`${BACKEND_URL}/api/health`, { method:"GET" }).catch(()=>{});
     ping();
     const id = setInterval(ping, 14 * 60 * 1000);
     return () => clearInterval(id);
