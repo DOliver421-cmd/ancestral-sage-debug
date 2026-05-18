@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { api, API } from "../lib/api";
 import { useAuth } from "../lib/auth";
 
@@ -34,8 +34,9 @@ const QUICK_ACTIONS = {
   ],
   admin: [
     { label: "System Status", msg: "Give me a quick system status report for WAI-Institute." },
-    { label: "Recent Activity", msg: "What is the recent activity across the institute?" },
-    { label: "User Management", msg: "Give me a summary of current users and any issues." },
+    { label: "Threat Report", msg: "Are there any active threats or incidents I should know about?" },
+    { label: "Generate Brief", msg: "Generate an executive brief on current institute operations." },
+    { label: "Legal Strategy", msg: "What legal risks or considerations require my attention?" },
   ],
   executive_admin: [
     { label: "System Status", msg: "Give me a full system status and security posture report." },
@@ -44,6 +45,58 @@ const QUICK_ACTIONS = {
     { label: "Legal Strategy", msg: "What legal risks or considerations require my attention?" },
   ],
 };
+
+const POLL_INTERVAL = 90_000; // 90 seconds
+
+const HEALTH_COLORS = {
+  nominal:  "#4CAF50",
+  warning:  "#C9A84C",
+  critical: "#E53935",
+};
+
+const LEVEL_COLORS = {
+  high: "#E53935",
+  warn: "#C9A84C",
+  info: "#4C9AC9",
+};
+
+function buildAlertMessage(pulse, prev) {
+  const lines = [];
+
+  // New alerts vs last poll
+  if (prev) {
+    const m = pulse.metrics;
+    const p = prev.metrics;
+    if (m.incidents_open > p.incidents_open)
+      lines.push(`⚠ ${m.incidents_open - p.incidents_open} new incident(s) opened.`);
+    if (m.at_risk_login > p.at_risk_login)
+      lines.push(`⚠ ${m.at_risk_login - p.at_risk_login} additional student(s) inactive 7+ days.`);
+    if (m.at_risk_quiz > p.at_risk_quiz)
+      lines.push(`⚠ ${m.at_risk_quiz - p.at_risk_quiz} additional student(s) struggling with quizzes.`);
+    if (m.more_flags_pending > p.more_flags_pending)
+      lines.push(`⚠ ${m.more_flags_pending - p.more_flags_pending} new M.O.R.E. content flag(s) require review.`);
+    if (m.failed_payments_24h > p.failed_payments_24h)
+      lines.push(`⚠ ${m.failed_payments_24h - p.failed_payments_24h} new payment failure(s) detected.`);
+    if (m.new_users_24h > p.new_users_24h)
+      lines.push(`ℹ ${m.new_users_24h - p.new_users_24h} new user registration(s) in the last 24h.`);
+    if (m.pending_labs > p.pending_labs)
+      lines.push(`ℹ ${m.pending_labs - p.pending_labs} additional lab submission(s) awaiting review.`);
+  } else {
+    // First poll — show full status if anything needs attention
+    if (pulse.alerts.length === 0) {
+      lines.push("✓ All systems nominal. No action required at this time.");
+    } else {
+      lines.push("Initial monitoring scan complete:");
+      pulse.alerts.forEach(a => lines.push(`${a.level === "high" ? "⚠" : a.level === "warn" ? "⚡" : "ℹ"} ${a.msg}`));
+    }
+    if (pulse.recent_incidents?.length) {
+      lines.push(`\nOpen incidents:`);
+      pulse.recent_incidents.forEach(i => lines.push(`  · ${i.title || "Untitled"}`));
+    }
+  }
+
+  return lines.length ? lines.join("\n") : null;
+}
 
 export default function DirectorWidget() {
   const { user } = useAuth();
@@ -55,33 +108,81 @@ export default function DirectorWidget() {
   const [minimized, setMinimized] = useState(false);
   const [audioOn, setAudioOn] = useState(true);
   const [recording, setRecording] = useState(false);
+
+  // Passive monitoring state
+  const [pulse, setPulse] = useState(null);
+  const [unread, setUnread] = useState(0);
+  const prevPulseRef = useRef(null);
+  const pollTimerRef = useRef(null);
+
   const bottomRef = useRef(null);
+  const isMonitor = user?.role === "admin" || user?.role === "executive_admin";
+
+  // ── Greeting + initial pulse ────────────────────────────────────────────
 
   useEffect(() => {
-    if (!user) {
-      setOpen(false);
-      setMsgs([]);
-      return;
-    }
+    if (!user) { setOpen(false); setMsgs([]); setPulse(null); return; }
     const isExec = user.role === "admin" || user.role === "executive_admin";
-    const defaultPersona = isExec ? "director" : "assistant_director";
-    const defaultGreeting = isExec
-      ? `Welcome back, ${user.full_name || user.email}. I am The Director. All systems are active. What requires your attention?`
-      : `Welcome back, ${user.full_name || user.email}. I am the Assistant Director. How can I guide you today?`;
-    setPersona(defaultPersona);
-    setMsgs([{ role: "assistant", text: defaultGreeting }]);
+    setPersona(isExec ? "director" : "assistant_director");
+    const fallback = isExec
+      ? `Welcome back, ${user.full_name}. I am The Director. Initiating monitoring scan…`
+      : `Welcome back, ${user.full_name}. I am the Assistant Director. How can I guide you today?`;
+    setMsgs([{ role: "assistant", text: fallback }]);
     setOpen(true);
+
     api.get("/ai/director/greeting")
-      .then((r) => {
+      .then(r => {
         setPersona(r.data.persona);
         setMsgs([{ role: "assistant", text: r.data.greeting }]);
       })
       .catch(() => {});
   }, [user]);
 
+  // ── Passive monitoring poll ─────────────────────────────────────────────
+
+  const poll = useCallback(async () => {
+    if (!isMonitor) return;
+    try {
+      const { data } = await api.get("/ai/director/pulse");
+      const prev = prevPulseRef.current;
+      const alertMsg = buildAlertMessage(data, prev);
+
+      setPulse(data);
+      prevPulseRef.current = data;
+
+      if (alertMsg) {
+        setMsgs(m => [...m, {
+          role: "assistant",
+          text: alertMsg,
+          isAlert: true,
+          health: data.health,
+          pulse: data,
+        }]);
+        if (minimized) setUnread(u => u + 1);
+      }
+    } catch {
+      // Silent failure — don't spam the user if the poll fails
+    }
+  }, [isMonitor, minimized]);
+
+  useEffect(() => {
+    if (!isMonitor) return;
+    // First poll right away
+    poll();
+    pollTimerRef.current = setInterval(poll, POLL_INTERVAL);
+    return () => clearInterval(pollTimerRef.current);
+  }, [isMonitor, poll]);
+
+  // Clear unread count when user opens the widget
+  useEffect(() => {
+    if (!minimized) setUnread(0);
+  }, [minimized]);
+
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [msgs]);
+
+  // ── TTS ─────────────────────────────────────────────────────────────────
 
   const speak = async (text) => {
     if (!audioOn) return;
@@ -101,19 +202,18 @@ export default function DirectorWidget() {
     } catch {}
   };
 
+  // ── STT ─────────────────────────────────────────────────────────────────
+
   const toggleMic = () => {
     if (!SpeechRecognitionImpl) return;
-    if (recording) {
-      setRecording(false);
-      return;
-    }
+    if (recording) { setRecording(false); return; }
     const rec = new SpeechRecognitionImpl();
     rec.lang = "en-US";
     rec.continuous = false;
     rec.interimResults = false;
-    rec.onresult = (ev) => {
+    rec.onresult = ev => {
       const txt = ev.results?.[0]?.[0]?.transcript?.trim();
-      if (txt) setInput((cur) => cur ? `${cur} ${txt}` : txt);
+      if (txt) setInput(cur => cur ? `${cur} ${txt}` : txt);
     };
     rec.onerror = () => setRecording(false);
     rec.onend = () => setRecording(false);
@@ -121,40 +221,44 @@ export default function DirectorWidget() {
     setRecording(true);
   };
 
-  const send = async () => {
-    if (!input.trim() || loading) return;
-    const userMsg = input.trim();
+  // ── Send ─────────────────────────────────────────────────────────────────
+
+  const send = async (overrideMsg) => {
+    const userMsg = (overrideMsg || input).trim();
+    if (!userMsg || loading) return;
     setInput("");
-    setMsgs((m) => [...m, { role: "user", text: userMsg }]);
+    setMsgs(m => [...m, { role: "user", text: userMsg }]);
     setLoading(true);
     try {
-      const r = await api.post("/ai/director", {
-        message: userMsg,
-        session_id: "director_session",
-      });
-      setMsgs((m) => [...m, { role: "assistant", text: r.data.reply }]);
+      const r = await api.post("/ai/director", { message: userMsg, session_id: "director_session" });
+      setMsgs(m => [...m, { role: "assistant", text: r.data.reply }]);
       speak(r.data.reply);
       setPersona(r.data.persona);
     } catch {
-      setMsgs((m) => [...m, { role: "assistant", text: "I am temporarily unavailable. Please try again." }]);
+      setMsgs(m => [...m, { role: "assistant", text: "I am temporarily unavailable. Please try again." }]);
     } finally {
       setLoading(false);
     }
   };
 
+  // ── Render ───────────────────────────────────────────────────────────────
+
   const quickActions = QUICK_ACTIONS[user?.role] || QUICK_ACTIONS.student;
   const style = PERSONA_STYLES[persona];
+  const healthColor = pulse ? HEALTH_COLORS[pulse.health] : style.color;
+
   if (!open) return null;
 
   return (
     <div style={{
       position: "fixed", bottom: "24px", right: "24px",
-      width: minimized ? "220px" : "360px",
+      width: minimized ? "220px" : "380px",
       zIndex: 1000, fontFamily: "inherit",
       boxShadow: "0 8px 32px rgba(0,0,0,0.4)",
       border: `1px solid ${style.color}40`,
       borderRadius: "4px", overflow: "hidden",
     }}>
+      {/* Header */}
       <div
         onClick={() => setMinimized(!minimized)}
         style={{
@@ -163,68 +267,165 @@ export default function DirectorWidget() {
           display: "flex", justifyContent: "space-between", alignItems: "center",
         }}
       >
-        <div>
-          <div style={{ fontSize: "10px", letterSpacing: "2px", fontWeight: "700" }}>
-            {style.title}
-          </div>
-          <div style={{ fontSize: "9px", opacity: 0.7, letterSpacing: "1px" }}>
-            {style.subtitle}
+        <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+          {/* Health pulse dot */}
+          {isMonitor && (
+            <span style={{
+              width: "8px", height: "8px", borderRadius: "50%",
+              background: healthColor,
+              display: "inline-block",
+              boxShadow: pulse?.health !== "nominal" ? `0 0 6px ${healthColor}` : "none",
+              animation: pulse?.health !== "nominal" ? "pulse-dot 1.5s infinite" : "none",
+            }} title={pulse ? `System: ${pulse.health}` : "Monitoring…"} />
+          )}
+          <div>
+            <div style={{ fontSize: "10px", letterSpacing: "2px", fontWeight: "700" }}>
+              {style.title}
+            </div>
+            <div style={{ fontSize: "9px", opacity: 0.7, letterSpacing: "1px" }}>
+              {pulse && isMonitor
+                ? `${pulse.health.toUpperCase()} · ${pulse.alerts.length} alert${pulse.alerts.length !== 1 ? "s" : ""}`
+                : style.subtitle}
+            </div>
           </div>
         </div>
+
         <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+          {/* Unread badge */}
+          {unread > 0 && minimized && (
+            <span style={{
+              background: "#E53935", color: "#fff",
+              borderRadius: "50%", width: "16px", height: "16px",
+              fontSize: "9px", fontWeight: "900",
+              display: "flex", alignItems: "center", justifyContent: "center",
+            }}>{unread > 9 ? "9+" : unread}</span>
+          )}
           <span style={{ fontSize: "12px", opacity: 0.7 }}>{minimized ? "▲" : "▼"}</span>
-          <span onClick={(e) => { e.stopPropagation(); setOpen(false); }} style={{ fontSize: "14px", opacity: 0.7, cursor: "pointer" }}>✕</span>
+          <span onClick={e => { e.stopPropagation(); setOpen(false); }}
+            style={{ fontSize: "14px", opacity: 0.7, cursor: "pointer" }}>✕</span>
         </div>
       </div>
 
       {!minimized && (
         <>
+          {/* Live metrics bar (admin/exec only) */}
+          {isMonitor && pulse && (
+            <div style={{
+              background: "#0A0A0A", borderBottom: `1px solid ${style.color}20`,
+              padding: "6px 10px", display: "flex", gap: "10px", flexWrap: "wrap",
+            }}>
+              {[
+                { label: "INCIDENTS", val: pulse.metrics.incidents_open, warn: pulse.metrics.incidents_open > 0 },
+                { label: "AT RISK", val: pulse.metrics.at_risk_login + pulse.metrics.at_risk_quiz, warn: (pulse.metrics.at_risk_login + pulse.metrics.at_risk_quiz) > 0 },
+                { label: "LABS PENDING", val: pulse.metrics.pending_labs, warn: pulse.metrics.pending_labs > 0 },
+                { label: "USERS", val: pulse.metrics.total_users },
+                { label: "NEW TODAY", val: pulse.metrics.new_users_24h },
+              ].map(item => (
+                <div key={item.label} style={{ textAlign: "center", minWidth: "48px" }}>
+                  <div style={{
+                    fontSize: "13px", fontWeight: "900", fontFamily: "monospace",
+                    color: item.warn ? HEALTH_COLORS.warning : "#AAA",
+                  }}>{item.val}</div>
+                  <div style={{ fontSize: "7px", color: "#555", letterSpacing: "0.5px" }}>{item.label}</div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Messages */}
           <div style={{
-            background: "#0D0D0D", height: "200px",
+            background: "#0D0D0D",
+            height: isMonitor && pulse ? "180px" : "200px",
             overflowY: "auto", padding: "12px",
             display: "flex", flexDirection: "column", gap: "8px",
           }}>
             {msgs.map((m, i) => (
-              <div key={i} style={{
-                alignSelf: m.role === "user" ? "flex-end" : "flex-start",
-                maxWidth: "85%",
-                background: m.role === "user" ? style.color + "20" : "#1A1A1A",
-                border: `1px solid ${m.role === "user" ? style.color + "40" : "#333"}`,
-                borderRadius: "4px", padding: "8px 10px",
-                fontSize: "12px", color: "#E8E8E8", lineHeight: "1.5",
-              }}>
-                {m.text}
+              <div key={i}>
+                <div style={{
+                  alignSelf: m.role === "user" ? "flex-end" : "flex-start",
+                  maxWidth: "90%",
+                  background: m.isAlert
+                    ? (m.health === "critical" ? "#2A0A0A" : m.health === "warning" ? "#1A1500" : "#0A1A0A")
+                    : m.role === "user" ? style.color + "20" : "#1A1A1A",
+                  border: `1px solid ${m.isAlert
+                    ? HEALTH_COLORS[m.health] + "60"
+                    : m.role === "user" ? style.color + "40" : "#333"}`,
+                  borderLeft: m.isAlert ? `3px solid ${HEALTH_COLORS[m.health]}` : undefined,
+                  borderRadius: "4px", padding: "8px 10px",
+                  fontSize: "11.5px", color: "#E8E8E8", lineHeight: "1.6",
+                  whiteSpace: "pre-wrap",
+                }}>
+                  {m.isAlert && (
+                    <div style={{ fontSize: "8px", color: HEALTH_COLORS[m.health], letterSpacing: "1px", fontWeight: "900", marginBottom: "4px" }}>
+                      ◉ DIRECTOR MONITORING ALERT
+                    </div>
+                  )}
+                  {m.text}
+                </div>
+                {/* "Brief me on this" button for alert messages */}
+                {m.isAlert && m.pulse?.alerts?.length > 0 && (
+                  <div style={{ marginTop: "4px", display: "flex", gap: "4px" }}>
+                    <button
+                      onClick={() => send(`Brief me on the current alerts: ${m.pulse.alerts.map(a => a.msg).join("; ")}`)}
+                      style={{
+                        background: "transparent", border: `1px solid ${style.color}40`,
+                        color: style.color, padding: "2px 8px", fontSize: "9px",
+                        cursor: "pointer", borderRadius: "2px", letterSpacing: "0.5px",
+                      }}
+                    >
+                      Brief me →
+                    </button>
+                    <button
+                      onClick={() => send(`What actions should I take immediately given: ${m.pulse.alerts.map(a => a.msg).join("; ")}`)}
+                      style={{
+                        background: "transparent", border: `1px solid ${style.color}30`,
+                        color: style.color + "90", padding: "2px 8px", fontSize: "9px",
+                        cursor: "pointer", borderRadius: "2px", letterSpacing: "0.5px",
+                      }}
+                    >
+                      Action plan →
+                    </button>
+                  </div>
+                )}
               </div>
             ))}
             {loading && (
               <div style={{ alignSelf: "flex-start", color: style.color, fontSize: "11px", padding: "4px 8px" }}>
-                Processing...
+                Processing…
               </div>
             )}
             <div ref={bottomRef} />
           </div>
 
+          {/* Quick actions */}
           <div style={{
             background: "#0D0D0D", borderTop: `1px solid ${style.color}20`,
             padding: "6px 8px", display: "flex", gap: "4px", flexWrap: "wrap",
           }}>
-            {quickActions.map((action) => (
-              <button
-                key={action.label}
-                onClick={() => setInput(action.msg)}
-                style={{
-                  background: "transparent",
-                  border: `1px solid ${style.color}40`,
-                  color: style.color, padding: "3px 8px",
-                  fontSize: "10px", cursor: "pointer",
-                  borderRadius: "2px", letterSpacing: "0.5px",
-                }}
-              >
+            {quickActions.map(action => (
+              <button key={action.label} onClick={() => setInput(action.msg)} style={{
+                background: "transparent", border: `1px solid ${style.color}40`,
+                color: style.color, padding: "3px 8px",
+                fontSize: "10px", cursor: "pointer",
+                borderRadius: "2px", letterSpacing: "0.5px",
+              }}>
                 {action.label}
               </button>
             ))}
+            {isMonitor && (
+              <button onClick={poll} style={{
+                background: "transparent", border: `1px solid #444`,
+                color: "#666", padding: "3px 8px",
+                fontSize: "10px", cursor: "pointer",
+                borderRadius: "2px", letterSpacing: "0.5px",
+                marginLeft: "auto",
+              }} title="Force a monitoring scan now">
+                ↺ Scan
+              </button>
+            )}
           </div>
 
+          {/* Input */}
           <div style={{
             background: "#111", borderTop: `1px solid ${style.color}30`,
             padding: "8px", display: "flex", gap: "6px", alignItems: "center",
@@ -247,8 +448,8 @@ export default function DirectorWidget() {
             </button>
             <input
               value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && send()}
+              onChange={e => setInput(e.target.value)}
+              onKeyDown={e => e.key === "Enter" && send()}
               placeholder="Ask The Director..."
               style={{
                 flex: 1, background: "#1A1A1A", border: `1px solid ${style.color}30`,
@@ -256,7 +457,7 @@ export default function DirectorWidget() {
                 borderRadius: "2px", outline: "none",
               }}
             />
-            <button onClick={send} disabled={loading} style={{
+            <button onClick={() => send()} disabled={loading} style={{
               background: style.color, color: "#000",
               border: "none", padding: "6px 12px",
               fontSize: "11px", fontWeight: "700",
@@ -267,6 +468,13 @@ export default function DirectorWidget() {
           </div>
         </>
       )}
+
+      <style>{`
+        @keyframes pulse-dot {
+          0%, 100% { opacity: 1; }
+          50% { opacity: 0.3; }
+        }
+      `}</style>
     </div>
   );
 }

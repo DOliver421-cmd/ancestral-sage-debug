@@ -2766,6 +2766,87 @@ async def director_greeting(user: User = Depends(current_user)):
     greeting = greetings.get(user.role, greetings["student"])
     return {"greeting": greeting, "role": user.role, "persona": "director" if user.role in ["admin", "executive_admin"] else "assistant_director"}
 
+@api_router.get("/ai/director/pulse")
+async def director_pulse(user: User = Depends(require_role("admin"))):
+    """Passive monitoring snapshot for The Director widget.
+
+    Returns current counts across every monitored dimension so the frontend
+    can detect changes between polls and surface proactive alerts without
+    burning AI tokens on every tick.
+    """
+    now = datetime.now(timezone.utc)
+    h24 = (now - timedelta(hours=24)).isoformat()
+    h1  = (now - timedelta(hours=1)).isoformat()
+    d7  = (now - timedelta(days=7)).isoformat()
+    d14 = (now - timedelta(days=14)).isoformat()
+
+    # Run all counts concurrently
+    import asyncio as _asyncio
+    (
+        incidents_24h, incidents_open,
+        pending_labs,
+        new_users_24h, total_users,
+        failed_payments_24h, revenue_paid_24h,
+        more_flags_pending,
+        at_risk_login, at_risk_quiz,
+        audit_1h,
+    ) = await _asyncio.gather(
+        db.incidents.count_documents({"created_at": {"$gte": h24}}),
+        db.incidents.count_documents({"status": {"$nin": ["resolved", "closed"]}}),
+        db.lab_submissions.count_documents({"status": "pending"}),
+        db.users.count_documents({"created_at": {"$gte": h24}}),
+        db.users.count_documents({"is_active": True}),
+        db.payments.count_documents({"status": {"$ne": "paid"}, "created_at": {"$gte": h24}}),
+        db.payments.count_documents({"status": "paid", "created_at": {"$gte": h24}}),
+        db.more_flags.count_documents({"status": "pending"}),
+        db.users.count_documents({"role": "student", "is_active": True, "last_login": {"$lt": d7}}),
+        db.users.count_documents({"role": "student", "is_active": True, "last_quiz_score": {"$lt": 70}, "last_quiz_at": {"$gte": d14}}),
+        db.audit_log.count_documents({"at": {"$gte": h1}}),
+    )
+
+    # Grab the 3 most recent unresolved incidents for context
+    recent_incidents = await db.incidents.find(
+        {"status": {"$nin": ["resolved", "closed"]}},
+        {"_id": 0, "title": 1, "severity": 1, "created_at": 1},
+    ).sort("created_at", -1).limit(3).to_list(3)
+
+    alerts = []
+    if incidents_open:
+        alerts.append({"level": "high" if incidents_open > 2 else "warn", "msg": f"{incidents_open} open incident{'s' if incidents_open != 1 else ''}"})
+    if at_risk_login:
+        alerts.append({"level": "warn", "msg": f"{at_risk_login} student{'s' if at_risk_login != 1 else ''} inactive 7+ days"})
+    if at_risk_quiz:
+        alerts.append({"level": "warn", "msg": f"{at_risk_quiz} student{'s' if at_risk_quiz != 1 else ''} struggling (quiz < 70)"})
+    if pending_labs:
+        alerts.append({"level": "info", "msg": f"{pending_labs} lab submission{'s' if pending_labs != 1 else ''} awaiting review"})
+    if more_flags_pending:
+        alerts.append({"level": "warn", "msg": f"{more_flags_pending} M.O.R.E. content flag{'s' if more_flags_pending != 1 else ''} pending"})
+    if failed_payments_24h:
+        alerts.append({"level": "warn", "msg": f"{failed_payments_24h} payment failure{'s' if failed_payments_24h != 1 else ''} in last 24h"})
+
+    return {
+        "timestamp": now.isoformat(),
+        "health": "critical" if any(a["level"] == "high" for a in alerts)
+                  else "warning" if alerts
+                  else "nominal",
+        "alerts": alerts,
+        "metrics": {
+            "incidents_24h": incidents_24h,
+            "incidents_open": incidents_open,
+            "pending_labs": pending_labs,
+            "new_users_24h": new_users_24h,
+            "total_users": total_users,
+            "failed_payments_24h": failed_payments_24h,
+            "revenue_paid_24h": revenue_paid_24h,
+            "more_flags_pending": more_flags_pending,
+            "at_risk_login": at_risk_login,
+            "at_risk_quiz": at_risk_quiz,
+            "audit_events_1h": audit_1h,
+        },
+        "recent_incidents": recent_incidents,
+    }
+
+
 @api_router.get("/ai/history/{session_id}")
 async def ai_history(session_id: str, user: User = Depends(current_user)):
     return await db.chat_history.find(
