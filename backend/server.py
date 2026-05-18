@@ -4511,45 +4511,6 @@ async def run_escalation_check():
         logger.info("Escalation: %d → instructor, %d → admin", len(to_instructor), len(to_admin))
 
 
-# ── TEMPORARY EMERGENCY EXEC RESET ──────────────────────────────────────────
-# One-time-use endpoint to restore exec accounts without shell access.
-# Protected by a hard-to-guess secret key. REMOVE after use.
-_RESET_SECRET = "NamOshun-WAI-Reset-2026-XK9"
-
-@api_router.get("/auth/emergency-exec-reset")
-async def emergency_exec_reset(secret: str = ""):
-    if secret != _RESET_SECRET:
-        raise HTTPException(status_code=403, detail="Forbidden")
-    results = []
-    for email, pw, name in [
-        (EXEC_ADMIN_EMAIL, EXEC_DEFAULT_PASSWORD, "Primary exec"),
-        (BACKUP_EXEC_EMAIL, BACKUP_EXEC_DEFAULT_PASSWORD, "Backup exec"),
-    ]:
-        existing = await db.users.find_one({"email": email}, {"_id": 0})
-        if existing:
-            await db.users.update_one({"email": email}, {"$set": {
-                "password_hash": hash_pw(pw),
-                "must_change_password": False,
-                "role": "executive_admin",
-                "is_active": True,
-            }})
-            results.append(f"{name} ({email}): password reset to default")
-        else:
-            await db.users.insert_one({
-                "id": str(uuid.uuid4()),
-                "email": email,
-                "full_name": name,
-                "role": "executive_admin",
-                "associate": None,
-                "is_active": True,
-                "must_change_password": False,
-                "created_at": datetime.now(timezone.utc).isoformat(),
-                "password_hash": hash_pw(pw),
-            })
-            results.append(f"{name} ({email}): account created")
-    return {"ok": True, "results": results}
-# ── END TEMPORARY ─────────────────────────────────────────────────────────────
-
 app.include_router(api_router)
 # CORS: when origins is wildcard ("*") browsers reject credentials, so we
 # turn off allow_credentials in that case (auth uses Bearer token in Authorization
