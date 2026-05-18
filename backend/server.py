@@ -80,14 +80,18 @@ ANTHROPIC_API_KEY = os.environ.get('ANTHROPIC_API_KEY', EMERGENT_LLM_KEY)
 ANTHROPIC_API_KEY = os.environ.get('ANTHROPIC_API_KEY', EMERGENT_LLM_KEY)
 
 pwd_ctx = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
+# API docs: disabled by default in production. Set ENABLE_API_DOCS=1 to enable.
+# Never enable in production — exposes full endpoint surface to the public internet.
+_DOCS_ENABLED = os.environ.get("ENABLE_API_DOCS", "0") == "1"
 app = FastAPI(
     title="W.A.I. Training Platform",
     version="3.0.0",
     description="W.A.I. — Workforce Apprentice Institute API. Hands-on electrical apprenticeship training, labs, credentials, and portfolio.",
     redirect_slashes=False,
-    docs_url="/api/docs",
-    redoc_url="/api/redoc",
-    openapi_url="/api/openapi.json",
+    docs_url="/api/docs" if _DOCS_ENABLED else None,
+    redoc_url="/api/redoc" if _DOCS_ENABLED else None,
+    openapi_url="/api/openapi.json" if _DOCS_ENABLED else None,
 )
 api_router = APIRouter(prefix="/api")
 logger = logging.getLogger("lcewai")
@@ -180,13 +184,12 @@ class User(BaseModel):
 
 
 class RegisterReq(BaseModel):
-    """Public self-registration. SECURITY: role is NOT accepted from clients here.
-    Public sign-ups are always created as students. Instructors/admins must be
-    created by an existing admin via /api/admin/users."""
+    """Public self-registration. SECURITY: role and associate are NOT accepted
+    from clients here. Public sign-ups are always students with no cohort
+    assignment. Admins assign cohorts via /api/admin/associate."""
     email: EmailStr
     full_name: str
     password: str
-    associate: Optional[str] = None
 
 
 class AdminCreateUserReq(BaseModel):
@@ -638,6 +641,125 @@ async def seed_labs():
             await db.labs.insert_one(doc)
 
 
+async def run_engagement_check():
+    """Flag academically at-risk students to their instructors and admins.
+
+    Triggers:
+      A) No login in 7+ days (last_login field, falls back to created_at).
+      B) Two or more failed quiz attempts in the last 14 days.
+
+    Each at-risk student gets one notification per day max (deduped by date tag).
+    Their assigned instructor (matched by associate) and all admins are alerted.
+    """
+    now = datetime.now(timezone.utc)
+    cutoff_login = (now - timedelta(days=7)).isoformat()
+    cutoff_quiz = (now - timedelta(days=14)).isoformat()
+    today_tag = now.strftime("%Y-%m-%d")
+
+    students = await db.users.find(
+        {"role": "student", "is_active": {"$ne": False}},
+        {"_id": 0, "id": 1, "full_name": 1, "email": 1, "associate": 1,
+         "last_login": 1, "created_at": 1},
+    ).to_list(5000)
+
+    admin_ids = [
+        u["id"] for u in await db.users.find(
+            {"role": {"$in": ["admin", "executive_admin"]}, "is_active": {"$ne": False}},
+            {"id": 1, "_id": 0},
+        ).to_list(100)
+    ]
+
+    flagged = 0
+    for student in students:
+        sid = student["id"]
+        associate = student.get("associate")
+        reasons = []
+
+        # Trigger A: no login in 7+ days
+        last_seen = student.get("last_login") or student.get("created_at", "")
+        if last_seen and last_seen < cutoff_login:
+            reasons.append("no activity in 7+ days")
+
+        # Trigger B: 2+ failed quiz scores (< 70) in the last 14 days
+        if not reasons:  # only run expensive query when needed
+            recent_fails = await db.progress.count_documents({
+                "user_id": sid,
+                "quiz_score": {"$lt": 70, "$ne": None},
+                "updated_at": {"$gte": cutoff_quiz},
+            })
+            if recent_fails >= 2:
+                reasons.append(f"{recent_fails} failed quiz attempts in 14 days")
+
+        if not reasons:
+            continue
+
+        reason_str = "; ".join(reasons)
+        dedup_key = f"engagement:{sid}:{today_tag}"
+
+        # Dedup: skip if we already sent this student's flag today
+        already_sent = await db.notifications.find_one({
+            "body": {"$regex": dedup_key},
+            "created_at": {"$gte": now.replace(hour=0, minute=0, second=0).isoformat()},
+        })
+        if already_sent:
+            continue
+
+        msg_body = (
+            f"Student {student['full_name']} may need support: {reason_str}. "
+            f"[ref:{dedup_key}]"
+        )
+
+        # Notify the student's instructor (if associate matches)
+        if associate:
+            instructors = await db.users.find(
+                {"role": "instructor", "associate": associate, "is_active": {"$ne": False}},
+                {"id": 1, "_id": 0},
+            ).to_list(10)
+            for inst in instructors:
+                await notify(
+                    inst["id"],
+                    f"Student needs attention: {student['full_name']}",
+                    msg_body,
+                    link="/instructor",
+                    kind="warning",
+                )
+
+        # Notify all admins
+        for aid in admin_ids:
+            await notify(
+                aid,
+                f"Engagement alert: {student['full_name']}",
+                msg_body,
+                link="/admin",
+                kind="warning",
+            )
+
+        flagged += 1
+
+    if flagged:
+        logger.info("Engagement check: flagged %d at-risk students", flagged)
+
+
+async def backfill_verification_codes():
+    """One-time migration: add verification_code to existing credentials that lack one."""
+    cursor = db.user_credentials.find(
+        {"verification_code": {"$exists": False}}, {"_id": 1}
+    )
+    count = 0
+    async for doc in cursor:
+        code = secrets.token_urlsafe(12)
+        try:
+            await db.user_credentials.update_one(
+                {"_id": doc["_id"], "verification_code": {"$exists": False}},
+                {"$set": {"verification_code": code}},
+            )
+            count += 1
+        except Exception:
+            pass  # unique constraint race — another startup already set it
+    if count:
+        logger.info("Backfilled verification_code on %d credentials", count)
+
+
 @app.on_event("startup")
 async def on_startup():
     await ensure_indexes()
@@ -646,7 +768,9 @@ async def on_startup():
     await seed_labs()
     await seed_compliance()
     await seed_sites_inventory()
+    await backfill_verification_codes()
     await run_escalation_check()
+    await run_engagement_check()
     # Loud warning if the dev-only token leak is enabled.  The production
     # .env should NEVER set this; it exists only for the preview test suite.
     if os.environ.get("DEV_RETURN_RESET_TOKEN") == "1":
@@ -708,6 +832,9 @@ async def ensure_indexes():
         await db.more_chats.create_index("session_id")
         await db.more_flags.create_index("expires_at")
         await db.more_flags.create_index("status")
+        # Credential public verification codes
+        await db.user_credentials.create_index("verification_code", unique=True,
+                                               sparse=True)
         # XP leaderboard
         await db.user_xp.create_index("user_id", unique=True)
         await db.user_xp.create_index([("total_xp", -1)])
@@ -770,7 +897,7 @@ async def register(body: RegisterReq):
         raise HTTPException(400, "Email already registered")
     # Public self-registration is always a student. Higher-privilege accounts
     # must be created by an admin (POST /api/admin/users).
-    user = User(email=body.email, full_name=body.full_name, role="student", associate=body.associate)
+    user = User(email=body.email, full_name=body.full_name, role="student")
     doc = user.model_dump()
     doc["created_at"] = doc["created_at"].isoformat()
     doc["password_hash"] = hash_pw(body.password)
@@ -780,14 +907,61 @@ async def register(body: RegisterReq):
 
 @api_router.post("/auth/login", response_model=TokenResp)
 async def login(body: LoginReq):
-    check_rate(f"login:{body.email}", max_calls=30, window_sec=60)
+    # Hard rate cap: 5 attempts per minute per email (in-memory, first line of defense).
+    check_rate(f"login:{body.email}", max_calls=5, window_sec=60)
     doc = await db.users.find_one({"email": body.email}, {"_id": 0})
+
+    # DB-backed lockout: survives restarts, enforced on every login attempt.
+    # Accounts lock for 30 minutes after 10 cumulative failed attempts.
+    if doc:
+        locked_until = doc.get("login_locked_until")
+        if locked_until:
+            try:
+                lock_dt = datetime.fromisoformat(locked_until)
+                if lock_dt.tzinfo is None:
+                    lock_dt = lock_dt.replace(tzinfo=timezone.utc)
+                remaining = (lock_dt - datetime.now(timezone.utc)).total_seconds()
+                if remaining > 0:
+                    mins = max(1, int(remaining / 60))
+                    raise HTTPException(423, f"Account temporarily locked after too many failed attempts. Try again in {mins} minute(s).")
+            except HTTPException:
+                raise
+            except Exception:
+                pass  # malformed date — ignore lock
+
     if not doc or not verify_pw(body.password, doc["password_hash"]):
         await audit(None, "auth.login.failed", body.email)
+        if doc:
+            attempts = doc.get("login_failed_attempts", 0) + 1
+            update: dict = {"login_failed_attempts": attempts}
+            if attempts >= 10:
+                update["login_locked_until"] = (
+                    datetime.now(timezone.utc) + timedelta(minutes=30)
+                ).isoformat()
+                update["login_failed_attempts"] = 0
+                await notify(
+                    doc["id"],
+                    "Security alert — account locked",
+                    "Your account was temporarily locked after 10 failed login attempts. "
+                    "It will unlock automatically in 30 minutes.",
+                    kind="warning",
+                )
+                logger.warning("Account locked after 10 failed attempts: %s", body.email)
+            await db.users.update_one({"email": body.email}, {"$set": update})
         raise HTTPException(401, "Invalid credentials")
+
     if doc.get("is_active") is False:
         await audit(doc.get("id"), "auth.login.blocked_inactive", body.email)
         raise HTTPException(403, "Your account has been deactivated. Contact your administrator.")
+
+    # Successful login: clear lockout state and stamp last_login for engagement tracking.
+    await db.users.update_one(
+        {"email": body.email},
+        {
+            "$unset": {"login_failed_attempts": "", "login_locked_until": ""},
+            "$set": {"last_login": datetime.now(timezone.utc).isoformat()},
+        },
+    )
     if isinstance(doc.get("created_at"), str):
         doc["created_at"] = datetime.fromisoformat(doc["created_at"])
     doc.pop("password_hash", None)
@@ -2438,7 +2612,8 @@ async def ai_orchestrator(body: OrchestratorReq, user: User = Depends(current_us
         logger.exception("Orchestrator AI error")
         raise HTTPException(502, f"AI error: {e}")
 
-    # Persist to chat_history with mode="orchestrator" for auditability
+    # Persist to chat_history with mode="orchestrator" for auditability.
+    # 90-day TTL via expires_at (same TTL index that governs sage history).
     await db.chat_history.insert_one({
         "id": str(uuid.uuid4()),
         "user_id": user.id,
@@ -2451,6 +2626,7 @@ async def ai_orchestrator(body: OrchestratorReq, user: User = Depends(current_us
         "protocol": body.protocol,
         "role_at_time": user.role,
         "created_at": datetime.now(timezone.utc).isoformat(),
+        "expires_at": (datetime.now(timezone.utc) + timedelta(days=90)).isoformat(),
     })
 
     return {
@@ -3053,6 +3229,7 @@ async def award_credentials(user_id: str) -> list:
             "earned_at": now.isoformat(),
             "expires_at": expires_at,
             "status": "active",
+            "verification_code": secrets.token_urlsafe(12),
         })
         awarded.append(cred["key"])
         await notify(user_id, "Credential earned",
@@ -4518,6 +4695,72 @@ async def run_escalation_check():
         logger.info("Escalation: %d → instructor, %d → admin", len(to_instructor), len(to_admin))
 
 
+@api_router.post("/admin/run-checks")
+async def admin_run_checks(user: User = Depends(require_role("admin"))):
+    """Admin-triggered: run escalation + engagement checks immediately.
+
+    Normally these run at server startup. Use this to trigger a fresh scan
+    without waiting for a restart — useful at the start of each program day.
+    Returns a summary of what was flagged.
+    """
+    await run_escalation_check()
+    await run_engagement_check()
+    await audit(user.id, "admin.checks.manual_trigger")
+    return {"ok": True, "message": "Escalation and engagement checks completed. Check notifications for flags."}
+
+
+# ─── Public Credential Verification ─────────────────────────────────────────
+
+@api_router.get("/verify/{code}")
+async def verify_credential(code: str):
+    """Public credential verification — no authentication required.
+
+    Any employer, partner, or third party can confirm a credential is real by
+    visiting /api/verify/{code}. The code appears on every issued credential
+    and in the credential PDF.
+    """
+    cred_doc = await db.user_credentials.find_one(
+        {"verification_code": code}, {"_id": 0}
+    )
+    if not cred_doc:
+        raise HTTPException(404, "Credential not found. The code may be invalid or the credential may have been revoked.")
+
+    user_doc = await db.users.find_one(
+        {"id": cred_doc["user_id"]}, {"_id": 0, "password_hash": 0}
+    )
+    if not user_doc:
+        raise HTTPException(404, "Credential holder not found.")
+
+    cred_map = {c["key"]: c for c in CREDENTIALS}
+    cred = cred_map.get(cred_doc["credential_key"])
+    if not cred:
+        raise HTTPException(404, "Credential type not recognized.")
+
+    now = datetime.now(timezone.utc)
+    expired = False
+    if cred_doc.get("expires_at"):
+        try:
+            exp_dt = datetime.fromisoformat(cred_doc["expires_at"])
+            if exp_dt.tzinfo is None:
+                exp_dt = exp_dt.replace(tzinfo=timezone.utc)
+            expired = exp_dt < now
+        except Exception:
+            pass
+
+    return {
+        "valid": not expired,
+        "status": "expired" if expired else "active",
+        "holder": user_doc["full_name"],
+        "credential": cred["name"],
+        "description": cred.get("description", ""),
+        "institution": "W.A.I. Workforce Apprentice Institute",
+        "earned_at": cred_doc.get("earned_at"),
+        "expires_at": cred_doc.get("expires_at"),
+        "verification_code": code,
+        "verified_at": now.isoformat(),
+    }
+
+
 # ─── M.O.R.E. Department AI ──────────────────────────────────────────────────
 
 @api_router.post("/more/department/chat")
@@ -4592,6 +4835,7 @@ async def more_department_chat(body: MoreDeptChatReq, user: User = Depends(curre
         "department_hint": body.department_hint,
         "role_at_time": user.role,
         "created_at": datetime.now(timezone.utc).isoformat(),
+        "expires_at": (datetime.now(timezone.utc) + timedelta(days=90)).isoformat(),
     })
 
     return {
