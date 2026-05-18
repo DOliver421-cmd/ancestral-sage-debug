@@ -4,96 +4,70 @@ import { useAuth } from "../lib/auth";
 import { api, BACKEND_URL } from "../lib/api";
 import { WAI_LOGO, BRAND } from "../lib/brand";
 import {
-  PlusCircle, Heart, HandHelping, BookOpen, Users, Shield,
-  Clock, MessageSquare, Flag, Loader2, RefreshCw, Scale,
-  ArrowRight, HelpCircle, LogIn, UserPlus, X,
+  PlusCircle, HandHelping, BookOpen, Users, Heart, Shield,
+  Clock, MessageSquare, Flag, Loader2, Scale, LogIn, UserPlus,
+  X, Zap, ChevronRight, HelpCircle, RefreshCw,
 } from "lucide-react";
 import { toast } from "sonner";
 
-const CATEGORY_META = {
-  skill_offer: { label: "Skill Offer", color: "bg-signal/10 text-signal border-signal/30", icon: BookOpen },
-  need:        { label: "Need",        color: "bg-copper/10 text-copper border-copper/30", icon: HandHelping },
-  community:   { label: "Community",  color: "bg-blue-100 text-blue-700 border-blue-200", icon: Users },
-  story:       { label: "Story",      color: "bg-purple-100 text-purple-700 border-purple-200", icon: Heart },
+// ── Category config ───────────────────────────────────────────────────────────
+const CAT = {
+  skill_offer: { label: "Skill Offer",  icon: BookOpen,    bg: "bg-emerald-500",   ring: "ring-emerald-400",  pill: "bg-emerald-500/15 text-emerald-700 border-emerald-300" },
+  need:        { label: "Need",         icon: HandHelping, bg: "bg-amber-500",     ring: "ring-amber-400",    pill: "bg-amber-500/15 text-amber-700 border-amber-300" },
+  community:   { label: "Community",   icon: Users,       bg: "bg-blue-500",      ring: "ring-blue-400",     pill: "bg-blue-500/15 text-blue-700 border-blue-300" },
+  story:       { label: "Story",       icon: Heart,       bg: "bg-purple-500",    ring: "ring-purple-400",   pill: "bg-purple-500/15 text-purple-700 border-purple-300" },
 };
 
-// ── Auth Gate Modal ───────────────────────────────────────────────────────────
+// ── Auth Gate ─────────────────────────────────────────────────────────────────
 function AuthGate({ action, onClose }) {
   return (
-    <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
-      <div className="bg-bone w-full max-w-sm shadow-2xl">
-        <div className="flex items-center justify-between px-6 py-4 border-b border-ink/10">
-          <div className="flex items-center gap-2">
-            <Shield className="w-5 h-5 text-copper" />
-            <span className="font-heading font-bold">Registered Users Only</span>
+    <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
+      <div className="bg-white w-full max-w-sm shadow-2xl rounded-2xl overflow-hidden">
+        <div className="bg-gradient-to-r from-blue-600 to-purple-600 p-6 text-white">
+          <div className="flex items-center justify-between">
+            <div className="font-heading font-extrabold text-xl">Join the Exchange</div>
+            <button onClick={onClose} className="text-white/60 hover:text-white"><X className="w-5 h-5" /></button>
           </div>
-          <button onClick={onClose} className="text-ink/40 hover:text-ink"><X className="w-4 h-4" /></button>
-        </div>
-        <div className="px-6 py-5">
-          <p className="text-sm text-ink/70 leading-relaxed">
-            <span className="font-semibold text-ink">{action}</span> is available to registered community members.
-            Create a free account or sign in to continue.
+          <p className="text-white/80 text-sm mt-2 leading-relaxed">
+            <span className="font-semibold text-white">{action}</span> is for registered community members. It's free — always.
           </p>
-          <div className="mt-6 flex flex-col gap-3">
-            <Link
-              to="/register"
-              className="btn-copper w-full text-sm flex items-center justify-center gap-2"
-              data-testid="auth-gate-register"
-            >
-              <UserPlus className="w-4 h-4" /> Create Free Account
-            </Link>
-            <Link
-              to="/login"
-              className="btn-ghost w-full text-sm flex items-center justify-center gap-2"
-              data-testid="auth-gate-login"
-            >
-              <LogIn className="w-4 h-4" /> Sign In
-            </Link>
-          </div>
+        </div>
+        <div className="p-6 flex flex-col gap-3">
+          <Link to="/register" className="flex items-center justify-center gap-2 bg-amber-500 hover:bg-amber-400 text-ink font-bold py-3 rounded-xl transition-colors" data-testid="auth-gate-register">
+            <UserPlus className="w-4 h-4" /> Create Free Account
+          </Link>
+          <Link to="/login" className="flex items-center justify-center gap-2 border-2 border-ink/20 hover:border-ink font-bold py-3 rounded-xl transition-colors text-sm" data-testid="auth-gate-login">
+            <LogIn className="w-4 h-4" /> Sign In
+          </Link>
         </div>
       </div>
-    </div>
-  );
-}
-
-// ── Oliver Guardian warning banner ────────────────────────────────────────────
-function OliverBanner({ message, onDismiss }) {
-  if (!message) return null;
-  return (
-    <div className="flex items-start gap-3 bg-amber-50 border border-amber-300 p-4 mb-4">
-      <Shield className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
-      <p className="flex-1 text-sm text-amber-800">
-        <span className="font-bold">Oliver Guardian: </span>{message}
-      </p>
-      <button onClick={onDismiss} className="text-amber-500 hover:text-amber-700 text-xs font-bold">✕</button>
     </div>
   );
 }
 
 // ── Post card ─────────────────────────────────────────────────────────────────
 function PostCard({ post, onFlag }) {
-  const meta = CATEGORY_META[post.category] || CATEGORY_META.community;
-  const Icon = meta.icon;
-  const daysLeft = Math.max(0, Math.ceil(
-    (new Date(post.expires_at) - Date.now()) / 86400000
-  ));
+  const cfg = CAT[post.category] || CAT.community;
+  const Icon = cfg.icon;
+  const daysLeft = Math.max(0, Math.ceil((new Date(post.expires_at) - Date.now()) / 86400000));
   return (
-    <div className="card-flat p-5 flex flex-col gap-3">
-      <div className="flex items-start justify-between gap-2">
-        <span className={`inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 border ${meta.color}`}>
-          <Icon className="w-3 h-3" />{meta.label}
-        </span>
-        <div className="flex items-center gap-1 text-xs text-ink/40">
-          <Clock className="w-3 h-3" />{daysLeft}d left
+    <div className={`relative bg-white rounded-2xl shadow-sm border-2 border-transparent hover:border-amber-300 hover:shadow-md transition-all overflow-hidden group`}>
+      <div className={`h-1.5 ${cfg.bg}`} />
+      <div className="p-5">
+        <div className="flex items-start justify-between gap-2 mb-3">
+          <span className={`inline-flex items-center gap-1.5 text-xs font-bold px-3 py-1 rounded-full border ${cfg.pill}`}>
+            <Icon className="w-3 h-3" />{cfg.label}
+          </span>
+          <span className="text-xs text-ink/30 flex items-center gap-1"><Clock className="w-3 h-3" />{daysLeft}d</span>
         </div>
-      </div>
-      <p className="text-sm text-ink/80 leading-relaxed whitespace-pre-wrap">{post.content}</p>
-      <div className="flex items-center justify-between pt-2 border-t border-ink/5">
-        <span className="text-xs text-ink/50">{post.author_name}</span>
-        <button onClick={() => onFlag(post.id, "post")}
-          className="flex items-center gap-1 text-xs text-ink/30 hover:text-red-500 transition-colors">
-          <Flag className="w-3 h-3" /> Flag
-        </button>
+        <p className="text-sm text-ink/85 leading-relaxed whitespace-pre-wrap font-medium">{post.content}</p>
+        <div className="flex items-center justify-between mt-4 pt-3 border-t border-ink/5">
+          <span className="text-xs font-semibold text-ink/50">{post.author_name}</span>
+          <button onClick={() => onFlag(post.id, "post")}
+            className="flex items-center gap-1 text-xs text-ink/20 hover:text-red-500 transition-colors opacity-0 group-hover:opacity-100">
+            <Flag className="w-3 h-3" />
+          </button>
+        </div>
       </div>
     </div>
   );
@@ -101,30 +75,32 @@ function PostCard({ post, onFlag }) {
 
 // ── Need card ─────────────────────────────────────────────────────────────────
 function NeedCard({ need, onFlag }) {
-  const daysLeft = Math.max(0, Math.ceil(
-    (new Date(need.expires_at) - Date.now()) / 86400000
-  ));
+  const daysLeft = Math.max(0, Math.ceil((new Date(need.expires_at) - Date.now()) / 86400000));
   return (
-    <div className="card-flat p-5 border-l-4 border-copper">
-      <div className="flex items-start justify-between gap-2 mb-2">
-        <h3 className="font-heading font-bold text-ink">{need.title}</h3>
-        <div className="flex items-center gap-1 text-xs text-ink/40 shrink-0">
-          <Clock className="w-3 h-3" />{daysLeft}d
+    <div className="relative bg-white rounded-2xl shadow-sm border-2 border-transparent hover:border-amber-300 hover:shadow-md transition-all overflow-hidden group">
+      <div className="h-1.5 bg-amber-500" />
+      <div className="p-5">
+        <div className="flex items-start justify-between gap-2 mb-2">
+          <span className="inline-flex items-center gap-1.5 text-xs font-bold px-3 py-1 rounded-full bg-amber-500/15 text-amber-700 border border-amber-300">
+            <HandHelping className="w-3 h-3" />Need
+          </span>
+          <span className="text-xs text-ink/30 flex items-center gap-1"><Clock className="w-3 h-3" />{daysLeft}d</span>
         </div>
-      </div>
-      <p className="text-sm text-ink/70 leading-relaxed">{need.description}</p>
-      <div className="flex items-center justify-between mt-3 pt-3 border-t border-ink/5">
-        <span className="text-xs text-ink/50">{need.author_name} · {need.category}</span>
-        <button onClick={() => onFlag(need.id, "need")}
-          className="flex items-center gap-1 text-xs text-ink/30 hover:text-red-500 transition-colors">
-          <Flag className="w-3 h-3" /> Flag
-        </button>
+        <h3 className="font-heading font-extrabold text-ink text-base mt-2">{need.title}</h3>
+        <p className="text-sm text-ink/70 leading-relaxed mt-1">{need.description}</p>
+        <div className="flex items-center justify-between mt-4 pt-3 border-t border-ink/5">
+          <span className="text-xs font-semibold text-ink/50">{need.author_name} · {need.category}</span>
+          <button onClick={() => onFlag(need.id, "need")}
+            className="flex items-center gap-1 text-xs text-ink/20 hover:text-red-500 transition-colors opacity-0 group-hover:opacity-100">
+            <Flag className="w-3 h-3" />
+          </button>
+        </div>
       </div>
     </div>
   );
 }
 
-// ── New Post Modal (auth-required action) ─────────────────────────────────────
+// ── New Post Modal ────────────────────────────────────────────────────────────
 function NewPostModal({ onClose, onSuccess }) {
   const [content, setContent] = useState("");
   const [category, setCategory] = useState("community");
@@ -133,53 +109,59 @@ function NewPostModal({ onClose, onSuccess }) {
 
   const submit = async () => {
     if (!content.trim()) return;
-    setLoading(true);
-    setOliver(null);
+    setLoading(true); setOliver(null);
     try {
       const r = await api.post("/more/post", { content: content.trim(), category });
-      if (r.data.oliver_response) { setOliver(r.data.oliver_response); }
-      else { toast.success("Posted to M.O.R.E."); onSuccess(); onClose(); }
+      if (r.data.oliver_response) setOliver(r.data.oliver_response);
+      else { toast.success("Posted to M.O.R.E.!"); onSuccess(); onClose(); }
     } catch (err) {
       const msg = err?.response?.data?.detail || "Could not post";
-      toast.error(msg);
-      setOliver(msg);
+      toast.error(msg); setOliver(msg);
     } finally { setLoading(false); }
   };
 
+  const cats = [
+    { k: "skill_offer", emoji: "🛠️", label: "Skill Offer", sub: "I can teach or help with…" },
+    { k: "need",        emoji: "🙏", label: "Need",        sub: "I need help with…" },
+    { k: "community",   emoji: "🤝", label: "Community",   sub: "General post" },
+    { k: "story",       emoji: "✨", label: "Story",       sub: "Share a win or story" },
+  ];
+
   return (
-    <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
-      <div className="bg-bone w-full max-w-lg shadow-2xl">
-        <div className="flex items-center justify-between px-6 py-4 border-b border-ink/10">
-          <h2 className="font-heading font-bold text-lg">Share with the Community</h2>
-          <button onClick={onClose} className="text-ink/40 hover:text-ink"><X className="w-4 h-4" /></button>
+    <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
+      <div className="bg-white w-full max-w-lg rounded-2xl shadow-2xl overflow-hidden">
+        <div className="bg-gradient-to-r from-blue-600 to-purple-600 p-5 text-white flex items-center justify-between">
+          <div className="font-heading font-extrabold text-lg">Share with the Community</div>
+          <button onClick={onClose} className="text-white/60 hover:text-white"><X className="w-5 h-5" /></button>
         </div>
         <div className="p-6 space-y-4">
-          {oliver && <OliverBanner message={oliver} onDismiss={() => setOliver(null)} />}
-          <div>
-            <label className="overline text-xs text-ink/60 mb-1 block">Category</label>
-            <select value={category} onChange={e => setCategory(e.target.value)}
-              className="w-full border border-ink/20 bg-white px-3 py-2 text-sm focus:outline-none focus:border-copper">
-              <option value="skill_offer">Skill Offer — I can teach or help with...</option>
-              <option value="need">Need — I need help with...</option>
-              <option value="community">Community — General post</option>
-              <option value="story">Story — Share a community story</option>
-            </select>
+          {oliver && (
+            <div className="flex items-start gap-3 bg-amber-50 border border-amber-300 rounded-xl p-4">
+              <Shield className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+              <p className="flex-1 text-sm text-amber-800"><span className="font-bold">Oliver Guardian: </span>{oliver}</p>
+              <button onClick={() => setOliver(null)} className="text-amber-500 text-xs font-bold">✕</button>
+            </div>
+          )}
+          <div className="grid grid-cols-2 gap-2">
+            {cats.map(c => (
+              <button key={c.k} onClick={() => setCategory(c.k)}
+                className={`rounded-xl p-3 border-2 text-left transition-all ${category === c.k ? "border-blue-500 bg-blue-50" : "border-ink/10 hover:border-ink/30"}`}>
+                <div className="text-xl mb-1">{c.emoji}</div>
+                <div className="font-bold text-sm">{c.label}</div>
+                <div className="text-xs text-ink/50">{c.sub}</div>
+              </button>
+            ))}
           </div>
-          <div>
-            <label className="overline text-xs text-ink/60 mb-1 block">
-              Content <span className="normal-case font-normal">({2000 - content.length} left)</span>
-            </label>
-            <textarea value={content} onChange={e => setContent(e.target.value)} maxLength={2000} rows={5}
-              placeholder="Share skills, needs, or community support — no money, no personal info."
-              className="w-full border border-ink/20 bg-white px-3 py-2 text-sm resize-none focus:outline-none focus:border-copper" />
-          </div>
-          <p className="text-xs text-ink/40 italic">All posts reviewed by Oliver Guardian. Auto-deletes after 30 days.</p>
+          <textarea value={content} onChange={e => setContent(e.target.value)} maxLength={2000} rows={4}
+            placeholder="Share skills, support, or community stories — no money, no personal info."
+            className="w-full border-2 border-ink/10 focus:border-blue-400 rounded-xl px-4 py-3 text-sm resize-none outline-none transition-colors" />
+          <p className="text-xs text-ink/40 italic text-center">Reviewed by Oliver Guardian · Auto-deletes in 30 days</p>
         </div>
-        <div className="px-6 pb-6 flex gap-3 justify-end">
-          <button onClick={onClose} className="btn-ghost text-sm">Cancel</button>
+        <div className="px-6 pb-6 flex gap-3">
+          <button onClick={onClose} className="flex-1 py-3 border-2 border-ink/10 rounded-xl font-bold text-sm hover:bg-ink/5 transition-colors">Cancel</button>
           <button onClick={submit} disabled={loading || !content.trim()}
-            className="btn-copper text-sm flex items-center gap-2 disabled:opacity-50">
-            {loading && <Loader2 className="w-4 h-4 animate-spin" />} Post
+            className="flex-1 py-3 bg-amber-500 hover:bg-amber-400 text-ink font-bold rounded-xl text-sm flex items-center justify-center gap-2 disabled:opacity-50 transition-colors">
+            {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Zap className="w-4 h-4" />} Post It
           </button>
         </div>
       </div>
@@ -187,7 +169,7 @@ function NewPostModal({ onClose, onSuccess }) {
   );
 }
 
-// ── New Need Modal ─────────────────────────────────────────────────────────────
+// ── New Need Modal ────────────────────────────────────────────────────────────
 function NewNeedModal({ onClose, onSuccess }) {
   const [title, setTitle] = useState("");
   const [desc, setDesc] = useState("");
@@ -200,45 +182,38 @@ function NewNeedModal({ onClose, onSuccess }) {
     setLoading(true);
     try {
       await api.post("/more/need", { title: title.trim(), description: desc.trim(), category });
-      toast.success("Need posted — community will see it.");
-      onSuccess(); onClose();
-    } catch (err) { toast.error(err?.response?.data?.detail || "Could not post need"); }
+      toast.success("Need posted — community will see it."); onSuccess(); onClose();
+    } catch (err) { toast.error(err?.response?.data?.detail || "Could not post"); }
     finally { setLoading(false); }
   };
 
   return (
-    <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
-      <div className="bg-bone w-full max-w-lg shadow-2xl">
-        <div className="flex items-center justify-between px-6 py-4 border-b border-ink/10">
-          <h2 className="font-heading font-bold text-lg">Post a Need</h2>
-          <button onClick={onClose} className="text-ink/40 hover:text-ink"><X className="w-4 h-4" /></button>
+    <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
+      <div className="bg-white w-full max-w-lg rounded-2xl shadow-2xl overflow-hidden">
+        <div className="bg-gradient-to-r from-amber-500 to-orange-500 p-5 text-white flex items-center justify-between">
+          <div>
+            <div className="font-heading font-extrabold text-lg">Post a Need</div>
+            <div className="text-white/80 text-sm">Ask the community — someone is ready to help</div>
+          </div>
+          <button onClick={onClose} className="text-white/60 hover:text-white"><X className="w-5 h-5" /></button>
         </div>
-        <div className="p-6 space-y-4">
-          <div>
-            <label className="overline text-xs text-ink/60 mb-1 block">What do you need?</label>
-            <input value={title} onChange={e => setTitle(e.target.value)} maxLength={120}
-              placeholder="Brief title for your need"
-              className="w-full border border-ink/20 bg-white px-3 py-2 text-sm focus:outline-none focus:border-copper" />
-          </div>
-          <div>
-            <label className="overline text-xs text-ink/60 mb-1 block">Details</label>
-            <textarea value={desc} onChange={e => setDesc(e.target.value)} maxLength={1000} rows={4}
-              placeholder="Describe what you need — no money, no personal contact info."
-              className="w-full border border-ink/20 bg-white px-3 py-2 text-sm resize-none focus:outline-none focus:border-copper" />
-          </div>
-          <div>
-            <label className="overline text-xs text-ink/60 mb-1 block">Category</label>
-            <select value={category} onChange={e => setCategory(e.target.value)}
-              className="w-full border border-ink/20 bg-white px-3 py-2 text-sm focus:outline-none focus:border-copper">
-              {CATS.map(c => <option key={c} value={c}>{c.charAt(0).toUpperCase() + c.slice(1)}</option>)}
-            </select>
-          </div>
+        <div className="p-6 space-y-3">
+          <input value={title} onChange={e => setTitle(e.target.value)} maxLength={120}
+            placeholder="What do you need? (brief title)"
+            className="w-full border-2 border-ink/10 focus:border-amber-400 rounded-xl px-4 py-3 text-sm outline-none transition-colors font-medium" />
+          <textarea value={desc} onChange={e => setDesc(e.target.value)} maxLength={1000} rows={4}
+            placeholder="Describe your need — no money, no personal contact info."
+            className="w-full border-2 border-ink/10 focus:border-amber-400 rounded-xl px-4 py-3 text-sm resize-none outline-none transition-colors" />
+          <select value={category} onChange={e => setCategory(e.target.value)}
+            className="w-full border-2 border-ink/10 focus:border-amber-400 rounded-xl px-4 py-3 text-sm outline-none transition-colors bg-white">
+            {CATS.map(c => <option key={c} value={c}>{c.charAt(0).toUpperCase() + c.slice(1)}</option>)}
+          </select>
         </div>
-        <div className="px-6 pb-6 flex gap-3 justify-end">
-          <button onClick={onClose} className="btn-ghost text-sm">Cancel</button>
+        <div className="px-6 pb-6 flex gap-3">
+          <button onClick={onClose} className="flex-1 py-3 border-2 border-ink/10 rounded-xl font-bold text-sm hover:bg-ink/5 transition-colors">Cancel</button>
           <button onClick={submit} disabled={loading || !title.trim() || !desc.trim()}
-            className="btn-primary text-sm flex items-center gap-2 disabled:opacity-50">
-            {loading && <Loader2 className="w-4 h-4 animate-spin" />} Post Need
+            className="flex-1 py-3 bg-amber-500 hover:bg-amber-400 text-ink font-bold rounded-xl text-sm flex items-center justify-center gap-2 disabled:opacity-50 transition-colors">
+            {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <HandHelping className="w-4 h-4" />} Post My Need
           </button>
         </div>
       </div>
@@ -258,9 +233,9 @@ export default function More() {
   const [loading, setLoading] = useState(false);
   const [showPost, setShowPost] = useState(false);
   const [showNeed, setShowNeed] = useState(false);
-  const [authGate, setAuthGate] = useState(null); // string describing the action
+  const [authGate, setAuthGate] = useState(null);
+  const [catFilter, setCatFilter] = useState("all");
 
-  // Public fetch — no auth token needed
   const fetchPublic = useCallback(async (url) => {
     const r = await fetch(`${BACKEND_URL}/api${url}`);
     if (!r.ok) throw new Error("fetch failed");
@@ -269,237 +244,247 @@ export default function More() {
 
   const loadPosts = useCallback(async () => {
     setLoading(true);
-    try {
-      const data = await fetchPublic("/more/posts?limit=20");
-      setPosts(data.posts || []); setPostsTotal(data.total || 0);
-    } catch { toast.error("Could not load posts"); }
+    try { const d = await fetchPublic("/more/posts?limit=30"); setPosts(d.posts || []); setPostsTotal(d.total || 0); }
+    catch { toast.error("Could not load posts"); }
     finally { setLoading(false); }
   }, [fetchPublic]);
 
   const loadNeeds = useCallback(async () => {
     setLoading(true);
-    try {
-      const data = await fetchPublic("/more/needs?limit=20");
-      setNeeds(data.needs || []); setNeedsTotal(data.total || 0);
-    } catch { toast.error("Could not load needs"); }
+    try { const d = await fetchPublic("/more/needs?limit=30"); setNeeds(d.needs || []); setNeedsTotal(d.total || 0); }
+    catch { toast.error("Could not load needs"); }
     finally { setLoading(false); }
   }, [fetchPublic]);
 
-  useEffect(() => {
-    if (tab === "posts") loadPosts(); else loadNeeds();
-  }, [tab, loadPosts, loadNeeds]);
+  useEffect(() => { if (tab === "posts") loadPosts(); else loadNeeds(); }, [tab, loadPosts, loadNeeds]);
 
-  // Gate actions behind auth
-  const requireAuth = (action, fn) => {
-    if (!user) { setAuthGate(action); return; }
-    fn();
-  };
+  const requireAuth = (action, fn) => { if (!user) { setAuthGate(action); return; } fn(); };
 
   const handleFlag = (targetId, targetType) => {
     requireAuth("Flagging content", async () => {
       const reason = window.prompt("Why are you flagging this?") ?? "No reason";
-      try {
-        await api.post("/more/flag", { target_id: targetId, target_type: targetType, reason });
-        toast.success("Flagged for review — thank you.");
-      } catch { toast.error("Could not submit flag"); }
+      try { await api.post("/more/flag", { target_id: targetId, target_type: targetType, reason }); toast.success("Flagged — thank you."); }
+      catch { toast.error("Could not submit flag"); }
     });
   };
 
-  const isAdmin = ["admin", "executive_admin"].includes(user?.role);
+  const filteredPosts = catFilter === "all" ? posts : posts.filter(p => p.category === catFilter);
 
   return (
     <>
-      {/* Public top bar (no AppShell — this is a public page) */}
-      <header className="border-b border-ink/10 bg-bone sticky top-0 z-30">
-        <div className="max-w-5xl mx-auto px-6 py-4 flex items-center justify-between gap-4">
-          <Link to="/" className="flex items-center gap-3">
-            <img src={WAI_LOGO} alt="W.A.I." className="w-9 h-9 object-contain" style={{ mixBlendMode: "multiply" }} />
-            <div className="hidden sm:block">
-              <div className="overline text-copper text-xs leading-none">{BRAND.short}</div>
-              <div className="font-heading font-bold text-xs leading-tight">{BRAND.name}</div>
-            </div>
+      {/* Sticky navbar */}
+      <header className="sticky top-0 z-30 bg-white/90 backdrop-blur border-b border-ink/10">
+        <div className="max-w-6xl mx-auto px-5 py-3 flex items-center justify-between gap-4">
+          <Link to="/" className="flex items-center gap-2.5">
+            <img src={WAI_LOGO} alt="W.A.I." className="w-8 h-8 object-contain" style={{ mixBlendMode: "multiply" }} />
+            <span className="font-heading font-bold text-sm hidden sm:block">{BRAND.short}</span>
           </Link>
-
-          <div className="flex items-center gap-2 font-heading font-extrabold text-lg">
-            <HandHelping className="w-5 h-5 text-copper" />
-            M.O.R.E. Help Center
+          <div className="flex items-center gap-2 font-heading font-extrabold text-base">
+            <HandHelping className="w-5 h-5 text-amber-500" />
+            <span>M.O.R.E.</span>
+            <span className="hidden sm:inline text-ink/50 font-normal text-sm">Michael Oliver Resource Exchange</span>
           </div>
-
-          <nav className="flex items-center gap-3">
-            <Link to="/helper" className="flex items-center gap-1.5 text-sm font-medium hover:text-copper">
-              <HelpCircle className="w-4 h-4" /><span className="hidden sm:inline">Help Center</span>
+          <nav className="flex items-center gap-2">
+            <Link to="/helper" className="hidden sm:flex items-center gap-1 text-sm font-medium hover:text-amber-500 transition-colors">
+              <HelpCircle className="w-4 h-4" /> Help AI
             </Link>
             {user ? (
-              <Link to="/dashboard" className="btn-copper text-sm">Dashboard</Link>
+              <Link to="/app/more" className="flex items-center gap-1.5 bg-amber-500 hover:bg-amber-400 text-ink font-bold text-sm px-4 py-2 rounded-xl transition-colors">
+                Full Hub <ChevronRight className="w-3.5 h-3.5" />
+              </Link>
             ) : (
               <>
-                <Link to="/login" className="text-sm font-bold uppercase tracking-widest hover:text-copper">Sign In</Link>
-                <Link to="/register" className="btn-copper text-sm">Join Free</Link>
+                <Link to="/login" className="text-sm font-bold hover:text-amber-500 transition-colors">Sign In</Link>
+                <Link to="/register" className="bg-amber-500 hover:bg-amber-400 text-ink font-bold text-sm px-4 py-2 rounded-xl transition-colors">Join Free</Link>
               </>
             )}
           </nav>
         </div>
       </header>
 
-      <div className="min-h-screen bg-bone text-ink">
-        <div className="max-w-5xl mx-auto px-6 py-10">
+      <div className="min-h-screen" style={{ background: "linear-gradient(180deg,#0f172a 0%,#1e1b4b 280px,#f8f7f4 280px)" }}>
 
-          {/* Page header */}
-          <div className="mb-8">
-            <div className="overline text-copper mb-1">Michael Oliver Resource Exchange</div>
-            <h1 className="font-heading text-4xl font-extrabold">Community Exchange</h1>
-            <p className="text-ink/60 mt-2 text-sm max-w-lg leading-relaxed">
-              Browse what the community is offering and asking for. Sign in to share, post needs, or join the chat.
-            </p>
-
-            {/* Action buttons — gated */}
-            <div className="mt-5 flex flex-wrap gap-3">
-              <button
-                onClick={() => requireAuth("Sharing with the community", () => setShowPost(true))}
-                className="btn-copper text-sm flex items-center gap-2"
-                data-testid="btn-share"
-              >
-                <PlusCircle className="w-4 h-4" /> Share Something
-              </button>
-              <button
-                onClick={() => requireAuth("Posting a need", () => setShowNeed(true))}
-                className="btn-primary text-sm flex items-center gap-2"
-                data-testid="btn-post-need"
-              >
-                <HandHelping className="w-4 h-4" /> Post a Need
-              </button>
-              <button
-                onClick={() => requireAuth("Community Chat", () => navigate("/more/chat"))}
-                className="flex items-center gap-2 px-4 py-2 border border-ink/20 text-sm font-medium hover:bg-ink hover:text-white transition-colors"
-              >
-                <MessageSquare className="w-4 h-4" /> Community Chat
-                <span className="text-xs text-ink/40 ml-1">(60 min rooms)</span>
-              </button>
-              <Link
-                to="/more/litigation"
-                className="flex items-center gap-2 px-4 py-2 border border-signal/40 bg-signal/5 text-sm font-medium hover:bg-signal hover:text-ink transition-colors"
-              >
-                <Scale className="w-4 h-4 text-signal" /> Legal Help Tool
-              </Link>
-              {isAdmin && (
-                <Link to="/more/admin"
-                  className="flex items-center gap-2 px-4 py-2 border border-ink/20 text-sm font-medium hover:bg-ink hover:text-white transition-colors">
-                  <Shield className="w-4 h-4" /> Admin
-                </Link>
-              )}
-            </div>
+        {/* ── Hero ──────────────────────────────────────────────────────────── */}
+        <div className="max-w-6xl mx-auto px-5 pt-10 pb-16 text-white">
+          <div className="inline-flex items-center gap-2 bg-white/10 border border-white/20 rounded-full px-4 py-1.5 text-sm font-semibold mb-5">
+            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" /> Community Exchange — Open Now
           </div>
+          <h1 className="font-heading text-5xl lg:text-7xl font-extrabold leading-[0.95] mb-5">
+            Give a skill.<br />
+            <span className="text-amber-400">Ask for help.</span><br />
+            <span className="text-blue-400">Build together.</span>
+          </h1>
+          <p className="text-white/70 max-w-xl text-lg leading-relaxed mb-8">
+            M.O.R.E. is a community exchange — no money changes hands, no exploitation, no judgment.
+            Share what you know. Ask for what you need. Show up for each other.
+          </p>
 
-          {/* Purge notice */}
-          <div className="flex items-center gap-2 text-xs text-ink/40 mb-6">
-            <Clock className="w-3.5 h-3.5" />
-            Posts auto-purge after 30 days · Chats auto-purge after 60 minutes
-          </div>
-
-          {/* Tabs */}
-          <div className="flex border-b border-ink/10 mb-6">
+          {/* Stat strip */}
+          <div className="flex flex-wrap gap-6 mb-8 text-sm">
             {[
-              { key: "posts", label: `Community (${postsTotal})` },
-              { key: "needs", label: `Needs Board (${needsTotal})` },
-            ].map(t => (
-              <button key={t.key} onClick={() => setTab(t.key)}
-                className={`px-5 py-3 text-sm font-semibold border-b-2 transition-colors ${tab === t.key ? "border-copper text-ink" : "border-transparent text-ink/50 hover:text-ink"}`}>
-                {t.label}
-              </button>
+              ["🛠️", postsTotal, "skills &amp; stories shared"],
+              ["🙏", needsTotal, "needs on the board"],
+              ["🛡️", "100%", "moderated by Oliver Guardian"],
+            ].map(([icon, val, label]) => (
+              <div key={label} className="flex items-center gap-2">
+                <span>{icon}</span>
+                <span className="font-heading font-extrabold text-amber-400 text-xl">{val}</span>
+                <span className="text-white/50" dangerouslySetInnerHTML={{ __html: label }} />
+              </div>
             ))}
-            <div className="ml-auto flex items-center">
-              <button onClick={tab === "posts" ? loadPosts : loadNeeds} className="p-2 text-ink/40 hover:text-copper transition-colors">
-                <RefreshCw className="w-4 h-4" />
-              </button>
-            </div>
           </div>
 
-          {/* Content */}
+          {/* Big action buttons */}
+          <div className="flex flex-wrap gap-3">
+            <button onClick={() => requireAuth("Sharing with the community", () => setShowPost(true))}
+              className="flex items-center gap-2 bg-amber-500 hover:bg-amber-400 text-ink font-extrabold text-base px-6 py-3.5 rounded-2xl shadow-lg shadow-amber-500/30 transition-all hover:scale-105 active:scale-100"
+              data-testid="btn-share">
+              <PlusCircle className="w-5 h-5" /> Share a Skill or Story
+            </button>
+            <button onClick={() => requireAuth("Posting a need", () => setShowNeed(true))}
+              className="flex items-center gap-2 bg-white/10 hover:bg-white/20 border border-white/30 text-white font-bold text-base px-6 py-3.5 rounded-2xl transition-all hover:scale-105 active:scale-100"
+              data-testid="btn-post-need">
+              <HandHelping className="w-5 h-5" /> Post a Need
+            </button>
+            <button onClick={() => requireAuth("Community Chat", () => navigate("/more/chat"))}
+              className="flex items-center gap-2 bg-blue-500/20 hover:bg-blue-500/30 border border-blue-400/40 text-blue-200 font-bold text-base px-6 py-3.5 rounded-2xl transition-all hover:scale-105 active:scale-100">
+              <MessageSquare className="w-5 h-5" /> Community Chat
+            </button>
+            <Link to="/more/litigation"
+              className="flex items-center gap-2 bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-400/40 text-emerald-200 font-bold text-base px-6 py-3.5 rounded-2xl transition-all hover:scale-105 active:scale-100">
+              <Scale className="w-5 h-5" /> Legal Help Tool
+            </Link>
+          </div>
+        </div>
+
+        {/* ── Feed area ─────────────────────────────────────────────────────── */}
+        <div className="max-w-6xl mx-auto px-5 pb-20">
+
+          {/* Tab + filter bar */}
+          <div className="bg-white rounded-2xl shadow-lg p-4 mb-6 flex flex-col sm:flex-row sm:items-center gap-4">
+            <div className="flex gap-2">
+              {[{ k: "posts", label: `Community (${postsTotal})` }, { k: "needs", label: `Needs (${needsTotal})` }].map(t => (
+                <button key={t.k} onClick={() => setTab(t.k)}
+                  className={`px-5 py-2.5 rounded-xl font-bold text-sm transition-all ${tab === t.k ? "bg-ink text-white" : "text-ink/50 hover:text-ink hover:bg-ink/5"}`}>
+                  {t.label}
+                </button>
+              ))}
+            </div>
+
+            {tab === "posts" && (
+              <div className="flex gap-2 flex-wrap sm:ml-auto">
+                {[["all", "All"], ["skill_offer", "🛠️ Skills"], ["community", "🤝 Community"], ["story", "✨ Stories"]].map(([k, label]) => (
+                  <button key={k} onClick={() => setCatFilter(k)}
+                    className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all ${catFilter === k ? "bg-amber-500 text-ink" : "bg-ink/5 text-ink/60 hover:bg-ink/10"}`}>
+                    {label}
+                  </button>
+                ))}
+              </div>
+            )}
+
+            <button onClick={tab === "posts" ? loadPosts : loadNeeds}
+              className="sm:ml-auto text-ink/30 hover:text-copper transition-colors p-1.5" title="Refresh">
+              <RefreshCw className="w-4 h-4" />
+            </button>
+          </div>
+
           {loading ? (
-            <div className="flex justify-center py-16">
-              <Loader2 className="w-6 h-6 animate-spin text-copper" />
+            <div className="flex justify-center py-20">
+              <div className="flex flex-col items-center gap-3">
+                <Loader2 className="w-8 h-8 animate-spin text-amber-500" />
+                <span className="text-ink/40 text-sm">Loading community…</span>
+              </div>
             </div>
           ) : tab === "posts" ? (
-            posts.length === 0 ? (
-              <div className="text-center py-16 text-ink/40">
-                <Users className="w-10 h-10 mx-auto mb-3 opacity-30" />
-                <p>No posts yet. Be the first to share with the community.</p>
+            filteredPosts.length === 0 ? (
+              <div className="bg-white rounded-2xl shadow p-16 text-center">
+                <div className="text-5xl mb-4">{catFilter === "all" ? "🌱" : "🔍"}</div>
+                <div className="font-heading text-2xl font-bold">Be the first to share</div>
+                <p className="text-ink/50 mt-2 max-w-sm mx-auto">This community is ready for you. Drop a skill offer, share a win, or just say hello.</p>
                 <button onClick={() => requireAuth("Sharing with the community", () => setShowPost(true))}
-                  className="mt-4 btn-copper text-sm">Share Something</button>
+                  className="mt-6 bg-amber-500 hover:bg-amber-400 text-ink font-bold px-8 py-3 rounded-xl transition-colors inline-flex items-center gap-2">
+                  <PlusCircle className="w-4 h-4" /> Share Something
+                </button>
               </div>
             ) : (
-              <div className="grid sm:grid-cols-2 gap-4">
-                {posts.map(p => <PostCard key={p.id} post={p} onFlag={handleFlag} />)}
+              <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                {filteredPosts.map(p => <PostCard key={p.id} post={p} onFlag={handleFlag} />)}
               </div>
             )
           ) : (
             needs.length === 0 ? (
-              <div className="text-center py-16 text-ink/40">
-                <HandHelping className="w-10 h-10 mx-auto mb-3 opacity-30" />
-                <p>No needs posted yet. Ask for help — that's what we're here for.</p>
+              <div className="bg-white rounded-2xl shadow p-16 text-center">
+                <div className="text-5xl mb-4">🙌</div>
+                <div className="font-heading text-2xl font-bold">No open needs right now</div>
+                <p className="text-ink/50 mt-2 max-w-sm mx-auto">If you need something, ask. This community shows up.</p>
                 <button onClick={() => requireAuth("Posting a need", () => setShowNeed(true))}
-                  className="mt-4 btn-primary text-sm">Post a Need</button>
+                  className="mt-6 bg-amber-500 hover:bg-amber-400 text-ink font-bold px-8 py-3 rounded-xl transition-colors inline-flex items-center gap-2">
+                  <HandHelping className="w-4 h-4" /> Post a Need
+                </button>
               </div>
             ) : (
-              <div className="space-y-4">
+              <div className="grid sm:grid-cols-2 gap-4">
                 {needs.map(n => <NeedCard key={n.id} need={n} onFlag={handleFlag} />)}
               </div>
             )
           )}
 
-          {/* Members upgrade banner */}
+          {/* Member upgrade CTA */}
           {!user && (
-            <div className="mt-10 bg-copper text-ink p-6 flex flex-col sm:flex-row items-center justify-between gap-5">
-              <div>
-                <div className="font-heading font-bold text-xl">Members get the full experience.</div>
-                <p className="text-ink/70 text-sm mt-1">
-                  Post, share needs, join community chat, access the Legal Aid tool, and get AI Help Center support — all free.
-                </p>
-              </div>
-              <div className="flex gap-3 shrink-0">
-                <Link to="/register" className="btn-primary text-sm flex items-center gap-2">
-                  <UserPlus className="w-4 h-4" /> Create Free Account
-                </Link>
-                <Link to="/login" className="btn-ghost text-sm flex items-center gap-2">
-                  <LogIn className="w-4 h-4" /> Sign In
-                </Link>
+            <div className="mt-12 rounded-2xl overflow-hidden shadow-xl"
+              style={{ background: "linear-gradient(135deg,#1e1b4b,#312e81,#1e3a8a)" }}>
+              <div className="p-8 sm:p-10 flex flex-col sm:flex-row items-center justify-between gap-6">
+                <div className="text-white">
+                  <div className="font-heading font-extrabold text-3xl mb-2">Members get the full experience.</div>
+                  <p className="text-white/70 max-w-lg leading-relaxed">
+                    Post, share skills, chat in community rooms, access the Legal Aid tool, and get AI Help Center support — all 100% free. No catch.
+                  </p>
+                </div>
+                <div className="flex flex-col gap-3 shrink-0 w-full sm:w-auto">
+                  <Link to="/register"
+                    className="flex items-center justify-center gap-2 bg-amber-500 hover:bg-amber-400 text-ink font-extrabold py-3.5 px-8 rounded-2xl transition-all hover:scale-105 shadow-lg shadow-amber-500/30">
+                    <UserPlus className="w-5 h-5" /> Create Free Account
+                  </Link>
+                  <Link to="/login"
+                    className="flex items-center justify-center gap-2 bg-white/10 hover:bg-white/20 border border-white/30 text-white font-bold py-3 px-8 rounded-2xl transition-colors">
+                    <LogIn className="w-4 h-4" /> Sign In
+                  </Link>
+                </div>
               </div>
             </div>
           )}
+
           {user && (
-            <div className="mt-10 bg-ink/5 border border-ink/10 px-6 py-4 flex items-center justify-between gap-4">
-              <p className="text-sm text-ink/60">You're signed in. Access your full M.O.R.E. experience with all features.</p>
-              <Link to="/app/more" className="btn-copper text-sm flex items-center gap-2">
-                Full Hub <ArrowRight className="w-4 h-4" />
+            <div className="mt-10 bg-white rounded-2xl shadow p-6 flex items-center justify-between gap-4 border-2 border-amber-200">
+              <div>
+                <div className="font-heading font-bold text-lg">You're in the exchange.</div>
+                <p className="text-sm text-ink/60 mt-0.5">Unlock all M.O.R.E. features — chat rooms, legal tools, AI help, and more.</p>
+              </div>
+              <Link to="/app/more"
+                className="shrink-0 flex items-center gap-2 bg-amber-500 hover:bg-amber-400 text-ink font-bold px-6 py-3 rounded-xl transition-all hover:scale-105">
+                Full Hub <ChevronRight className="w-4 h-4" />
               </Link>
             </div>
           )}
 
-          {/* Oliver Guardian footer */}
-          <div className="mt-6 border border-ink/10 p-5 bg-ink text-white">
-            <div className="flex items-start gap-4">
-              <Shield className="w-8 h-8 text-signal shrink-0 mt-0.5" />
-              <div>
-                <div className="font-heading font-bold">Protected by Oliver Guardian</div>
-                <p className="text-white/60 text-xs mt-1 leading-relaxed">
-                  All posted content is reviewed by our AI moderator before publishing. No money, no personal info, no exploitation — ever.
-                </p>
-              </div>
+          {/* Oliver footer */}
+          <div className="mt-8 bg-ink rounded-2xl p-5 flex items-center gap-4">
+            <div className="w-10 h-10 rounded-full bg-signal/20 flex items-center justify-center shrink-0">
+              <Shield className="w-5 h-5 text-signal" />
+            </div>
+            <div>
+              <div className="font-heading font-bold text-white text-sm">Protected by Oliver Guardian</div>
+              <p className="text-white/50 text-xs mt-0.5 leading-relaxed">
+                All content is AI-moderated before publishing. No money, no personal info, no exploitation — ever.
+              </p>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Auth Gate */}
       {authGate && <AuthGate action={authGate} onClose={() => setAuthGate(null)} />}
-
-      {/* Action modals (only reach here if user is logged in) */}
-      {showPost && (
-        <NewPostModal onClose={() => setShowPost(false)} onSuccess={() => { if (tab === "posts") loadPosts(); }} />
-      )}
-      {showNeed && (
-        <NewNeedModal onClose={() => setShowNeed(false)} onSuccess={() => { if (tab === "needs") loadNeeds(); }} />
-      )}
+      {showPost && <NewPostModal onClose={() => setShowPost(false)} onSuccess={() => { if (tab === "posts") loadPosts(); }} />}
+      {showNeed && <NewNeedModal onClose={() => setShowNeed(false)} onSuccess={() => { if (tab === "needs") loadNeeds(); }} />}
     </>
   );
 }
