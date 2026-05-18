@@ -22,7 +22,8 @@ export default function Login() {
         nav("/settings?force=1");
         return;
       }
-      nav(u.role === "executive_admin" || u.role === "admin" ? "/admin"
+      nav(u.role === "executive_admin" ? "/admin/system"
+        : u.role === "admin" ? "/admin"
         : u.role === "instructor" ? "/instructor"
         : "/dashboard");
     } catch (err) {

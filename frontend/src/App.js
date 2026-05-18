@@ -66,7 +66,8 @@ function Home() {
   if (loading) return null;
   if (!user) return <Landing />;
   // executive_admin and admin both land on the admin overview
-  if (user.role === "admin" || user.role === "executive_admin") return <Navigate to="/admin" replace />;
+  if (user.role === "executive_admin") return <Navigate to="/admin/system" replace />;
+  if (user.role === "admin") return <Navigate to="/admin" replace />;
   if (user.role === "instructor") return <Navigate to="/instructor" replace />;
   return <Navigate to="/dashboard" replace />;
 }

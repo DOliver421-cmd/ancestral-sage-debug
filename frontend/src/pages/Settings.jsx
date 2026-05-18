@@ -73,7 +73,8 @@ export default function Settings() {
       if (forced) {
         const role = r.data?.user?.role || user?.role;
         window.location.href =
-          role === "executive_admin" || role === "admin" ? "/admin"
+          role === "executive_admin" ? "/admin/system"
+            : role === "admin" ? "/admin"
             : role === "instructor" ? "/instructor" : "/dashboard";
       } else {
         if (refresh) await refresh();
