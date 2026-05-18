@@ -29,7 +29,7 @@ from pathlib import Path
 BACKUP_DIR   = Path(r"C:\WAI_Backups\snapshots")
 CONFIG_FILE  = Path(r"C:\WAI_Backups\config.env")
 LOG_FILE     = Path(r"C:\WAI_Backups\backup.log")
-KEEP_BACKUPS = 14          # 7 days at 2x/day
+KEEP_BACKUPS = 7           # 3.5 days at 2x/day — chat_history excluded so snapshots stay lean
 SYNC_HOURS   = 12          # scheduled task interval
 
 # Collections that hold real user data — backed up in full.
@@ -45,13 +45,16 @@ USER_COLLECTIONS = [
     "notifications",
     "more_posts",
     "more_needs",
-    "chat_history",
     "ai_consents",
     "tool_checkouts",
     "inventory",
     "sites",
     "mode_decisions",
 ]
+
+# chat_history excluded: AI conversation logs grow large quickly.
+# MongoDB Atlas handles long-term archiving for that collection.
+# Add it back here if you want local copies and have disk space to spare.
 
 # Collections seeded from code on every startup — small, still worth backing up.
 SEED_COLLECTIONS = ["modules", "labs"]
@@ -215,6 +218,69 @@ def install_task():
         print("\nYou may need to run this script as Administrator.")
 
 
+# ── Size check ────────────────────────────────────────────────────────────────
+async def run_size_check():
+    """Show the document count and estimated JSON size for every collection."""
+    try:
+        from motor.motor_asyncio import AsyncIOMotorClient
+    except ImportError:
+        log("ERROR: motor not installed. Run: pip install motor")
+        sys.exit(1)
+
+    cfg    = load_config()
+    client = AsyncIOMotorClient(cfg["MONGO_URL"], serverSelectionTimeoutMS=15000)
+    db     = client[cfg["DB_NAME"]]
+
+    # All collections we know about, plus chat_history for comparison
+    check_cols = ALL_COLLECTIONS + ["chat_history", "tts_cache", "password_reset_tokens"]
+
+    print()
+    print(f"{'Collection':<32} {'Docs':>7}  {'Est. size':>12}  {'Backed up?'}")
+    print("-" * 68)
+
+    grand_bytes = 0
+    backup_bytes = 0
+
+    for name in check_cols:
+        try:
+            docs = await db[name].find({}, {"_id": 0}).to_list(length=None)
+            raw  = json.dumps(docs, default=bson_default, ensure_ascii=False)
+            size = len(raw.encode("utf-8"))
+            grand_bytes += size
+
+            backed = name in ALL_COLLECTIONS
+            if backed:
+                backup_bytes += size
+
+            def fmt(b):
+                if b < 1024:        return f"{b} B"
+                elif b < 1048576:   return f"{b/1024:.1f} KB"
+                else:               return f"{b/1048576:.1f} MB"
+
+            marker = "YES" if backed else "no (excluded)"
+            print(f"  {name:<30} {len(docs):>7}  {fmt(size):>12}  {marker}")
+        except Exception as e:
+            print(f"  {name:<30} {'ERR':>7}  {'—':>12}  {e}")
+
+    print("-" * 68)
+    print(f"  {'TOTAL (all collections)':<30} {'':>7}  {fmt(grand_bytes):>12}")
+    print(f"  {'TOTAL (backed up)':<30} {'':>7}  {fmt(backup_bytes):>12}")
+    print(f"  {'Per 7 snapshots (3.5 days)':<30} {'':>7}  {fmt(backup_bytes * 7):>12}")
+    print()
+
+    # Disk space on C:\ drive
+    try:
+        import shutil as _sh
+        total, used, free = _sh.disk_usage("C:\\")
+        print(f"  Free space on C:\\  {free / (1024**3):.1f} GB")
+        print(f"  Snapshots will use ~{(backup_bytes * 7) / (1024**3):.2f} GB total")
+    except Exception:
+        pass
+
+    client.close()
+    print()
+
+
 # ── Entry point ───────────────────────────────────────────────────────────────
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="WAI MongoDB backup tool")
@@ -222,9 +288,15 @@ if __name__ == "__main__":
         "--install", action="store_true",
         help="Register Windows scheduled task (run as Administrator)"
     )
+    parser.add_argument(
+        "--size-check", action="store_true",
+        help="Show current collection sizes before committing to a schedule"
+    )
     args = parser.parse_args()
 
     if args.install:
         install_task()
+    elif args.size_check:
+        asyncio.run(run_size_check())
     else:
         asyncio.run(run_backup())
