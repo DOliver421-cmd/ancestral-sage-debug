@@ -50,9 +50,9 @@ export default function PaymentHistory() {
       </div>
 
       {loading ? (
-        <div className="text-ink/40 py-16 text-center">Loading…</div>
+        <div className="text-ink/60 py-16 text-center">Loading…</div>
       ) : payments.length === 0 ? (
-        <div className="text-center py-16 text-ink/40">
+        <div className="text-center py-16 text-ink/60">
           <Receipt className="w-12 h-12 mx-auto mb-3 opacity-30" />
           <div>No payments yet.</div>
         </div>
@@ -60,7 +60,7 @@ export default function PaymentHistory() {
         <div className="bg-white rounded-2xl border border-ink/10 overflow-hidden shadow-sm">
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-ink/10 bg-bone text-xs font-black uppercase tracking-widest text-ink/40">
+              <tr className="border-b border-ink/10 bg-bone text-xs font-black uppercase tracking-widest text-ink/60">
                 <th className="px-6 py-3 text-left">Date</th>
                 <th className="px-6 py-3 text-left">Item</th>
                 <th className="px-6 py-3 text-left">Type</th>

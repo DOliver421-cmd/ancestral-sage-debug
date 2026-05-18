@@ -344,7 +344,7 @@ export default function AITutor() {
           )}
           <div className="flex-1 overflow-y-auto p-6 space-y-4">
             {msgs.length === 0 && (
-              <div className="text-center text-ink/40 py-16">
+              <div className="text-center text-ink/70 py-16">
                 {sageActive ? (
                   <>
                     <Compass className="w-10 h-10 mx-auto text-copper/70" />

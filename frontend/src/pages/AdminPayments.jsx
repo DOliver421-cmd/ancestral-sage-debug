@@ -31,21 +31,21 @@ export default function AdminPayments() {
 
       <div className="grid grid-cols-2 gap-4 mb-8">
         <div className="bg-white border border-ink/10 rounded-2xl p-6 shadow-sm">
-          <div className="text-xs font-black uppercase tracking-widest text-ink/40 mb-1">Total Revenue</div>
+          <div className="text-xs font-black uppercase tracking-widest text-ink/60 mb-1">Total Revenue</div>
           <div className="font-heading font-bold text-4xl text-ink flex items-center gap-1">
             <DollarSign className="w-7 h-7 text-signal" />{totalDollars}
           </div>
         </div>
         <div className="bg-white border border-ink/10 rounded-2xl p-6 shadow-sm">
-          <div className="text-xs font-black uppercase tracking-widest text-ink/40 mb-1">Total Transactions</div>
+          <div className="text-xs font-black uppercase tracking-widest text-ink/60 mb-1">Total Transactions</div>
           <div className="font-heading font-bold text-4xl text-ink">{data?.count ?? "—"}</div>
         </div>
       </div>
 
       {loading ? (
-        <div className="text-ink/40 py-16 text-center">Loading…</div>
+        <div className="text-ink/60 py-16 text-center">Loading…</div>
       ) : !data?.payments?.length ? (
-        <div className="text-center py-16 text-ink/40">
+        <div className="text-center py-16 text-ink/60">
           <Receipt className="w-12 h-12 mx-auto mb-3 opacity-30" />
           <div>No transactions yet.</div>
         </div>
@@ -53,7 +53,7 @@ export default function AdminPayments() {
         <div className="bg-white rounded-2xl border border-ink/10 overflow-hidden shadow-sm">
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-ink/10 bg-bone text-xs font-black uppercase tracking-widest text-ink/40">
+              <tr className="border-b border-ink/10 bg-bone text-xs font-black uppercase tracking-widest text-ink/60">
                 <th className="px-6 py-3 text-left">Date</th>
                 <th className="px-6 py-3 text-left">User</th>
                 <th className="px-6 py-3 text-left">Product</th>

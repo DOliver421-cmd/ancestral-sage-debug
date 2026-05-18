@@ -219,14 +219,14 @@ export default function MoreOps() {
           {/* Messages */}
           <div className="flex-1 overflow-y-auto px-6 py-6 space-y-5">
             {messages.length === 0 && (
-              <div className="flex flex-col items-center justify-center h-full text-center text-ink/40 space-y-3">
-                <Bot className="w-12 h-12 text-copper/30" />
-                <div className="font-heading font-bold text-lg text-ink/30">M.O.R.E. Department AI</div>
-                <p className="text-sm max-w-sm">
+              <div className="flex flex-col items-center justify-center h-full text-center space-y-3">
+                <Bot className="w-12 h-12 text-copper/50" />
+                <div className="font-heading font-bold text-lg text-ink/80">M.O.R.E. Department AI</div>
+                <p className="text-sm max-w-sm text-ink/60">
                   Ask anything across Finance, Revenue, Production, Customer Success, or Executive
                   governance. The system routes your message to the right specialist.
                 </p>
-                <div className="text-xs text-ink/30 mt-2">
+                <div className="text-xs text-ink/50 mt-2">
                   Signed in as <span className="font-mono">{user?.full_name}</span>
                 </div>
               </div>
@@ -236,7 +236,7 @@ export default function MoreOps() {
             ))}
             {busy && (
               <div className="flex justify-start">
-                <div className="bg-white border border-ink/10 rounded-2xl rounded-tl-sm px-4 py-3 flex items-center gap-2 text-ink/40 text-sm">
+                <div className="bg-white border border-ink/10 rounded-2xl rounded-tl-sm px-4 py-3 flex items-center gap-2 text-ink/70 text-sm">
                   <Loader2 className="w-4 h-4 animate-spin" /> Routing to department…
                 </div>
               </div>
@@ -269,7 +269,7 @@ export default function MoreOps() {
                 {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
               </button>
             </div>
-            <p className="text-xs text-ink/30 mt-2">Enter to send · Shift+Enter for new line</p>
+            <p className="text-xs text-ink/50 mt-2">Enter to send · Shift+Enter for new line</p>
           </div>
         </div>
       </div>

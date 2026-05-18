@@ -196,7 +196,7 @@ function SessionsTab() {
           <tbody>
             {rows.length === 0 && !loading && (
               <tr>
-                <td colSpan={6} className="px-3 py-10 text-center text-ink/40">
+                <td colSpan={6} className="px-3 py-10 text-center text-ink/60">
                   No sage activity yet.
                 </td>
               </tr>
@@ -372,7 +372,7 @@ function LevelControlsTab() {
           <tbody>
             {overrides.length === 0 && !loading && (
               <tr>
-                <td colSpan={3} className="px-3 py-8 text-center text-ink/40">
+                <td colSpan={3} className="px-3 py-8 text-center text-ink/60">
                   No per-user overrides. Global cap applies to everyone.
                 </td>
               </tr>

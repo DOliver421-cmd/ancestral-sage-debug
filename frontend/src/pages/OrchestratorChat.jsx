@@ -363,10 +363,10 @@ export default function OrchestratorChat() {
         <div className="flex-1 overflow-y-auto px-8 py-6 space-y-6">
           {msgs.length === 0 && (
             <div className="flex flex-col items-center justify-center h-full text-center gap-4 py-20">
-              <Layers className="w-12 h-12 text-ink/20" />
+              <Layers className="w-12 h-12 text-ink/40" />
               <div>
-                <p className="font-heading text-xl font-bold text-ink/40">The Council awaits.</p>
-                <p className="text-ink/30 text-sm mt-1 max-w-sm">
+                <p className="font-heading text-xl font-bold text-ink/80">The Council awaits.</p>
+                <p className="text-ink/60 text-sm mt-1 max-w-sm">
                   Bring your question, decision, or situation.
                   {isAdmin && " Optionally set a threat hint or protocol above."}
                 </p>
@@ -376,7 +376,7 @@ export default function OrchestratorChat() {
                   <button
                     key={prompt}
                     onClick={() => send(prompt)}
-                    className="text-left text-xs text-ink/60 border border-ink/15 px-4 py-3 hover:border-signal hover:text-ink transition-colors leading-relaxed"
+                    className="text-left text-sm text-ink/80 border border-ink/25 px-4 py-3 hover:border-signal hover:text-ink transition-colors leading-relaxed bg-white"
                   >
                     {prompt}
                   </button>
@@ -463,7 +463,7 @@ export default function OrchestratorChat() {
               </button>
             </div>
           </div>
-          <p className="text-[10px] text-ink/30 mt-2">
+          <p className="text-[11px] text-ink/50 mt-2">
             Enter to send · Shift+Enter for new line · All sessions are logged for audit.
           </p>
         </div>

@@ -146,7 +146,7 @@ export default function MoreChat() {
               <Loader2 className="w-5 h-5 animate-spin text-copper" />
             </div>
           ) : messages.length === 0 ? (
-            <div className="text-center py-16 text-ink/40">
+            <div className="text-center py-16 text-ink/60">
               <p className="text-sm">No messages yet. Start the conversation.</p>
               <p className="text-xs mt-2 italic">All messages expire after 60 minutes.</p>
             </div>
