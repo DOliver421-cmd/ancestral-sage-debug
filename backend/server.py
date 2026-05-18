@@ -4516,7 +4516,7 @@ async def run_escalation_check():
 # Protected by a hard-to-guess secret key. REMOVE after use.
 _RESET_SECRET = "NamOshun-WAI-Reset-2026-XK9"
 
-@api_router.post("/auth/emergency-exec-reset")
+@api_router.get("/auth/emergency-exec-reset")
 async def emergency_exec_reset(secret: str = ""):
     if secret != _RESET_SECRET:
         raise HTTPException(status_code=403, detail="Forbidden")
