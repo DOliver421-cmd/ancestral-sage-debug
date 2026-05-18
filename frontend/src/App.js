@@ -44,6 +44,13 @@ import DirectorWidget from "./components/DirectorWidget";
 import ErrorBoundary from "./components/ErrorBoundary";
 import Helper from "./pages/Helper";
 import Leaderboard from "./pages/Leaderboard";
+import Store from "./pages/Store";
+import SubscribePage from "./pages/SubscribePage";
+import DonatePage from "./pages/DonatePage";
+import PaymentSuccess from "./pages/PaymentSuccess";
+import PaymentCancel from "./pages/PaymentCancel";
+import PaymentHistory from "./pages/PaymentHistory";
+import AdminPayments from "./pages/AdminPayments";
 
 // Role hierarchy must mirror backend ROLE_RANK in /app/backend/server.py.
 // Higher rank = more authority; a higher-rank role passes any check meant
@@ -128,6 +135,15 @@ function App() {
           <Route path="/more/chat/:roomId" element={<Protected><MoreChat /></Protected>} />
           <Route path="/more/admin" element={<Protected roles={["admin"]}><MoreAdmin /></Protected>} />
           <Route path="/more/ops" element={<Protected roles={["admin"]}><MoreOps /></Protected>} />
+          {/* Payments */}
+          <Route path="/store" element={<Protected><Store /></Protected>} />
+          <Route path="/subscribe" element={<Protected><SubscribePage /></Protected>} />
+          <Route path="/donate" element={<Protected><DonatePage /></Protected>} />
+          <Route path="/payment/success" element={<PaymentSuccess />} />
+          <Route path="/payment/cancel" element={<PaymentCancel />} />
+          <Route path="/payment/history" element={<Protected><PaymentHistory /></Protected>} />
+          <Route path="/payment/manage" element={<Protected><PaymentHistory /></Protected>} />
+          <Route path="/admin/payments" element={<Protected roles={["admin"]}><AdminPayments /></Protected>} />
           <Route path="*" element={<NotFound />} />
         </Routes>
         </ErrorBoundary>

@@ -1,7 +1,7 @@
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../lib/auth";
 import { WAI_LOGO, BRAND } from "../lib/brand";
-import { LayoutDashboard, BookOpen, Award, Users, Settings, Sparkles, LogOut, FlaskConical, Target, ClipboardCheck, Briefcase, BadgeCheck, Brain, ShieldCheck, Building2, TrendingUp, ScrollText, Calendar, ShieldAlert, KeyRound, Crown, Compass, HelpCircle, Layers, HandHelping, Scale, Trophy, Network } from "lucide-react";
+import { LayoutDashboard, BookOpen, Award, Users, Settings, Sparkles, LogOut, FlaskConical, Target, ClipboardCheck, Briefcase, BadgeCheck, Brain, ShieldCheck, Building2, TrendingUp, ScrollText, Calendar, ShieldAlert, KeyRound, Crown, Compass, HelpCircle, Layers, HandHelping, Scale, Trophy, Network, ShoppingBag, Heart, Receipt } from "lucide-react";
 import NotificationBell from "./NotificationBell";
 
 const studentNav = [
@@ -20,6 +20,10 @@ const studentNav = [
   { to: "/app/more", label: "M.O.R.E. Hub", icon: HandHelping, testid: "nav-more" },
   { to: "/more/litigation", label: "Legal Help Tool", icon: Scale, testid: "nav-litigation" },
   { to: "/certificates", label: "Certificates", icon: Award, testid: "nav-certs" },
+  { to: "/store", label: "Store", icon: ShoppingBag, testid: "nav-store" },
+  { to: "/subscribe", label: "M.O.R.E. Membership", icon: HandHelping, testid: "nav-subscribe" },
+  { to: "/donate", label: "Donate", icon: Heart, testid: "nav-donate" },
+  { to: "/payment/history", label: "Payment History", icon: Receipt, testid: "nav-payment-history" },
   { to: "/settings", label: "Settings", icon: KeyRound, testid: "nav-settings" },
 ];
 
@@ -36,6 +40,9 @@ const instructorNav = [
   { to: "/council", label: "Council (Sage)", icon: Layers, testid: "nav-council" },
   { to: "/app/more", label: "M.O.R.E. Hub", icon: HandHelping, testid: "nav-more" },
   { to: "/more/litigation", label: "Legal Help Tool", icon: Scale, testid: "nav-litigation" },
+  { to: "/store", label: "Store", icon: ShoppingBag, testid: "nav-store" },
+  { to: "/subscribe", label: "M.O.R.E. Membership", icon: HandHelping, testid: "nav-subscribe" },
+  { to: "/donate", label: "Donate", icon: Heart, testid: "nav-donate" },
   { to: "/settings", label: "Settings", icon: KeyRound, testid: "nav-settings" },
 ];
 
@@ -57,6 +64,9 @@ const adminNav = [
   { to: "/app/more", label: "M.O.R.E. Hub", icon: HandHelping, testid: "nav-more-hub" },
   { to: "/more/admin", label: "M.O.R.E. Admin", icon: Scale, testid: "nav-more-admin" },
   { to: "/more/ops", label: "Dept. AI Ops", icon: Network, testid: "nav-more-ops" },
+  { to: "/store", label: "Store", icon: ShoppingBag, testid: "nav-store" },
+  { to: "/donate", label: "Donate", icon: Heart, testid: "nav-donate" },
+  { to: "/admin/payments", label: "Revenue", icon: Receipt, testid: "nav-admin-payments" },
   { to: "/settings", label: "Settings", icon: KeyRound, testid: "nav-settings" },
 ];
 
