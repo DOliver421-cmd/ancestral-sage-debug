@@ -78,7 +78,7 @@ export default function AppShell({ children }) {
       <aside className="w-64 shrink-0 bg-ink text-white flex flex-col" data-testid="sidebar">
         <div className="px-6 py-7 border-b border-white/10 flex items-center justify-between">
           <Link to="/dashboard" className="flex items-center gap-3" data-testid="sidebar-brand">
-            <img src={WAI_LOGO} alt="W.A.I." className="w-10 h-10 object-contain bg-white p-1 rounded-sm" />
+            <img src={WAI_LOGO} alt="W.A.I." className="w-10 h-10 object-contain" style={{ mixBlendMode: "screen" }} />
             <div>
               <div className="overline text-signal">{BRAND.short}</div>
               <div className="font-heading font-bold text-sm leading-tight">{BRAND.name}</div>

@@ -13,7 +13,7 @@ export default function Landing() {
       <header className="border-b border-ink/10 bg-bone">
         <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
           <Link to="/" className="flex items-center gap-3" data-testid="landing-logo">
-            <img src={WAI_LOGO} alt="W.A.I." className="w-12 h-12 object-contain bg-white border border-ink/10 p-1" />
+            <img src={WAI_LOGO} alt="W.A.I." className="w-12 h-12 object-contain" style={{ mixBlendMode: "multiply" }} />
             <div>
               <div className="overline text-copper leading-none">{BRAND.short}</div>
               <div className="font-heading font-bold text-sm leading-tight">{BRAND.name}</div>
@@ -105,41 +105,66 @@ export default function Landing() {
         </div>
       </section>
 
-      {/* M.O.R.E. Banner */}
-      <section className="border-y border-ink/10">
-        <div className="max-w-7xl mx-auto px-6 py-14 grid md:grid-cols-2 gap-8">
-          {/* M.O.R.E. */}
-          <div className="flex items-start gap-5">
-            <div className="w-14 h-14 shrink-0 bg-copper flex items-center justify-center">
-              <HandHelping className="w-7 h-7 text-white" />
+      {/* M.O.R.E. Hero CTA */}
+      <section className="bg-copper text-ink">
+        <div className="max-w-7xl mx-auto px-6 py-20 text-center">
+          <div className="inline-flex items-center gap-2 bg-ink text-white text-xs font-bold uppercase tracking-widest px-4 py-2 mb-6">
+            <HandHelping className="w-4 h-4" />
+            Free · Community · No Judgment
+          </div>
+          <h2 className="font-heading text-5xl sm:text-6xl lg:text-7xl font-extrabold leading-[0.95] tracking-tight">
+            M.O.R.E.
+          </h2>
+          <p className="mt-4 text-2xl font-heading font-bold">Michael Oliver Resource Exchange</p>
+          <p className="mt-5 text-ink/80 text-lg max-w-2xl mx-auto leading-relaxed">
+            Trade skills, time, and support with your community. No money, no exploitation — just neighbors helping neighbors. AI-moderated for safety.
+          </p>
+          <div className="mt-10 flex flex-wrap items-center justify-center gap-4">
+            <Link
+              to="/register"
+              className="inline-flex items-center gap-3 bg-ink text-white font-bold text-lg uppercase tracking-widest px-10 py-5 hover:bg-ink/80 transition-colors"
+              data-testid="btn-more-cta"
+            >
+              <HandHelping className="w-6 h-6" />
+              Join M.O.R.E. — It's Free
+              <ArrowRight className="w-5 h-5" />
+            </Link>
+          </div>
+          <div className="mt-10 grid grid-cols-3 gap-6 max-w-lg mx-auto">
+            {[
+              { n: "Skill Swaps", d: "Teach what you know" },
+              { n: "Needs Board", d: "Ask for help, offer help" },
+              { n: "Safe Chat", d: "60-min privacy rooms" },
+            ].map(s => (
+              <div key={s.n} className="text-center">
+                <div className="font-heading font-black text-xl">{s.n}</div>
+                <div className="text-xs text-ink/70 mt-1">{s.d}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Legal Help Tool stripe */}
+      <section className="bg-ink text-white border-b border-white/5">
+        <div className="max-w-7xl mx-auto px-6 py-10 flex flex-col sm:flex-row items-center justify-between gap-6">
+          <div className="flex items-center gap-4">
+            <div className="w-12 h-12 shrink-0 bg-signal/10 flex items-center justify-center">
+              <Scale className="w-6 h-6 text-signal" />
             </div>
             <div>
-              <div className="overline text-copper">Community · Free · No Judgment</div>
-              <h2 className="font-heading text-2xl font-bold mt-1">M.O.R.E.</h2>
-              <p className="text-ink/70 text-sm mt-2 max-w-sm leading-relaxed">
-                Michael Oliver Resource Exchange — trade skills, time, and support with your community. No money, no exploitation, AI-moderated safety.
-              </p>
-              <Link to="/register" className="mt-4 inline-flex items-center gap-2 btn-copper text-sm">
-                Join M.O.R.E. <ArrowRight className="w-4 h-4" />
-              </Link>
+              <div className="overline text-signal text-xs">Free Legal Self-Help Tool</div>
+              <div className="font-heading font-bold text-lg mt-0.5">Universal Litigation Weapon</div>
+              <div className="text-white/60 text-sm mt-0.5">EEOC · Federal Court · Damages Calculator · Evidence Checklist</div>
             </div>
           </div>
-          {/* Litigation Weapon */}
-          <div className="flex items-start gap-5">
-            <div className="w-14 h-14 shrink-0 bg-ink flex items-center justify-center">
-              <Scale className="w-7 h-7 text-signal" />
-            </div>
-            <div>
-              <div className="overline text-signal">Know Your Rights · Free Tool</div>
-              <h2 className="font-heading text-2xl font-bold mt-1">Legal Help Tool</h2>
-              <p className="text-ink/70 text-sm mt-2 max-w-sm leading-relaxed">
-                Universal Litigation Weapon — understand discrimination law, build evidence checklists, calculate damages, generate EEOC and federal court documents.
-              </p>
-              <Link to="/register" className="mt-4 inline-flex items-center gap-2 btn-ghost text-sm border-ink">
-                Access Tool <ArrowRight className="w-4 h-4" />
-              </Link>
-            </div>
-          </div>
+          <Link
+            to="/register"
+            className="shrink-0 inline-flex items-center gap-2 border-2 border-signal text-signal font-bold text-sm uppercase tracking-widest px-6 py-3 hover:bg-signal hover:text-ink transition-colors"
+            data-testid="btn-litigation-cta"
+          >
+            Access Tool <ArrowRight className="w-4 h-4" />
+          </Link>
         </div>
       </section>
 
@@ -235,7 +260,7 @@ export default function Landing() {
       <footer className="bg-bone border-t border-ink/10">
         <div className="max-w-7xl mx-auto px-6 py-10 flex flex-col md:flex-row justify-between items-center gap-4">
           <div className="flex items-center gap-3">
-            <img src={WAI_LOGO} alt="W.A.I." className="w-8 h-8 object-contain bg-white border border-ink/10 p-0.5" />
+            <img src={WAI_LOGO} alt="W.A.I." className="w-8 h-8 object-contain" style={{ mixBlendMode: "multiply" }} />
             <span className="font-heading font-bold">W.A.I. — Workforce Apprentice Institute · LCE-WAI</span>
           </div>
           <div className="text-xs text-ink/60 italic">"Whatever you do, work at it with all your heart." — Colossians 3:23</div>
