@@ -1,6 +1,6 @@
 import { Link } from "react-router-dom";
 import { WAI_LOGO, BRAND } from "../lib/brand";
-import { ShieldCheck, BookOpen, Sun, Award, Wrench, ArrowRight, HelpCircle, HandHelping, Scale } from "lucide-react";
+import { ShieldCheck, BookOpen, Sun, Award, Wrench, ArrowRight, HelpCircle, HandHelping, Scale, MessageSquare } from "lucide-react";
 
 const HERO = "https://placehold.co/1200x600/0A1628/C9A84C?text=WAI+Institute";
 const LAB = "https://placehold.co/800x500/0A1628/C9A84C?text=Apprentice+Labs";
@@ -19,12 +19,20 @@ export default function Landing() {
               <div className="font-heading font-bold text-sm leading-tight">{BRAND.name}</div>
             </div>
           </Link>
-          <nav className="flex items-center gap-6">
+          <nav className="flex items-center gap-5">
             <a href="#program" className="text-sm font-medium hover:text-copper" data-testid="link-program">Program</a>
             <a href="#curriculum" className="text-sm font-medium hover:text-copper" data-testid="link-curriculum">Curriculum</a>
             <a href="#values" className="text-sm font-medium hover:text-copper" data-testid="link-values">Values</a>
             <Link to="/helper" className="flex items-center gap-1.5 text-sm font-medium hover:text-copper" data-testid="link-helper">
               <HelpCircle className="w-4 h-4" /> Help Center
+            </Link>
+            {/* M.O.R.E. — prominent nav button */}
+            <Link
+              to="/register"
+              className="flex items-center gap-2 px-4 py-2 font-bold text-sm uppercase tracking-widest text-ink border-2 border-copper hover:bg-copper transition-colors"
+              data-testid="link-more-nav"
+            >
+              <HandHelping className="w-4 h-4" /> M.O.R.E.
             </Link>
             <Link to="/login" className="text-sm font-bold uppercase tracking-widest" data-testid="link-login">Sign in</Link>
             <Link to="/register" className="btn-copper text-sm" data-testid="btn-enroll">Enroll</Link>
@@ -85,6 +93,77 @@ export default function Landing() {
         </div>
       </section>
 
+      {/* ───── M.O.R.E. HELP CENTER — full-width, first thing after hero ───── */}
+      <section id="more" className="bg-copper text-ink" data-testid="section-more">
+        <div className="max-w-7xl mx-auto px-6 py-20">
+          {/* Heading block */}
+          <div className="text-center mb-14">
+            <div className="inline-flex items-center gap-2 bg-ink text-white text-xs font-bold uppercase tracking-widest px-4 py-2 mb-6">
+              <HandHelping className="w-4 h-4" /> Free · Community · No Account Needed to Start
+            </div>
+            <h2 className="font-heading text-5xl sm:text-6xl lg:text-7xl font-extrabold leading-[0.95] tracking-tight">
+              M.O.R.E. Help Center
+            </h2>
+            <p className="mt-4 font-heading text-xl font-bold">Michael Oliver Resource Exchange</p>
+            <p className="mt-5 text-ink/80 text-lg max-w-2xl mx-auto leading-relaxed">
+              Trade skills, time, and support. Ask for help. Know your rights. Everything your community needs — free, safe, and judgment-free.
+            </p>
+            <div className="mt-8">
+              <Link
+                to="/register"
+                className="inline-flex items-center gap-3 bg-ink text-white font-bold text-xl uppercase tracking-widest px-12 py-6 hover:bg-ink/80 transition-colors"
+                data-testid="btn-more-main"
+              >
+                <HandHelping className="w-6 h-6" />
+                Open M.O.R.E. Help Center
+                <ArrowRight className="w-6 h-6" />
+              </Link>
+            </div>
+          </div>
+
+          {/* Feature cards — community + legal inside one section */}
+          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4 mt-4">
+            {[
+              {
+                icon: HandHelping,
+                title: "Community Exchange",
+                desc: "Offer skills, ask for help, share stories. Neighbors helping neighbors — no money, no exploitation.",
+                tag: "Free · AI-Moderated",
+              },
+              {
+                icon: MessageSquare,
+                title: "Safe Community Chat",
+                desc: "60-minute privacy rooms for real conversations. Auto-purge means no permanent record.",
+                tag: "Auto-Purge · Private",
+              },
+              {
+                icon: Scale,
+                title: "Legal Aid Tool",
+                desc: "Universal Litigation Weapon — EEOC filings, federal court docs, damages calculator, evidence checklist. Know your rights.",
+                tag: "Built-In · Free",
+              },
+              {
+                icon: HelpCircle,
+                title: "Personal Help Center",
+                desc: "Plain-language help with letters, bills, eviction notices, medical bills, employment rights. Ask in your own words.",
+                tag: "No Forms · Instant",
+              },
+            ].map(f => (
+              <div key={f.title} className="bg-ink text-white p-6 flex flex-col gap-3">
+                <div className="w-10 h-10 bg-copper flex items-center justify-center shrink-0">
+                  <f.icon className="w-5 h-5 text-ink" />
+                </div>
+                <div>
+                  <div className="font-heading font-bold text-lg">{f.title}</div>
+                  <div className="text-xs text-signal font-bold uppercase tracking-widest mt-1">{f.tag}</div>
+                </div>
+                <p className="text-white/70 text-sm leading-relaxed flex-1">{f.desc}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
       {/* Pillars */}
       <section id="values" className="border-y border-ink/10 bg-white">
         <div className="max-w-7xl mx-auto px-6 py-20 grid md:grid-cols-4 gap-8">
@@ -102,69 +181,6 @@ export default function Landing() {
               <div className="text-sm text-ink/70 mt-2 leading-relaxed">{p.d}</div>
             </div>
           ))}
-        </div>
-      </section>
-
-      {/* M.O.R.E. Hero CTA */}
-      <section className="bg-copper text-ink">
-        <div className="max-w-7xl mx-auto px-6 py-20 text-center">
-          <div className="inline-flex items-center gap-2 bg-ink text-white text-xs font-bold uppercase tracking-widest px-4 py-2 mb-6">
-            <HandHelping className="w-4 h-4" />
-            Free · Community · No Judgment
-          </div>
-          <h2 className="font-heading text-5xl sm:text-6xl lg:text-7xl font-extrabold leading-[0.95] tracking-tight">
-            M.O.R.E.
-          </h2>
-          <p className="mt-4 text-2xl font-heading font-bold">Michael Oliver Resource Exchange</p>
-          <p className="mt-5 text-ink/80 text-lg max-w-2xl mx-auto leading-relaxed">
-            Trade skills, time, and support with your community. No money, no exploitation — just neighbors helping neighbors. AI-moderated for safety.
-          </p>
-          <div className="mt-10 flex flex-wrap items-center justify-center gap-4">
-            <Link
-              to="/register"
-              className="inline-flex items-center gap-3 bg-ink text-white font-bold text-lg uppercase tracking-widest px-10 py-5 hover:bg-ink/80 transition-colors"
-              data-testid="btn-more-cta"
-            >
-              <HandHelping className="w-6 h-6" />
-              Join M.O.R.E. — It's Free
-              <ArrowRight className="w-5 h-5" />
-            </Link>
-          </div>
-          <div className="mt-10 grid grid-cols-3 gap-6 max-w-lg mx-auto">
-            {[
-              { n: "Skill Swaps", d: "Teach what you know" },
-              { n: "Needs Board", d: "Ask for help, offer help" },
-              { n: "Safe Chat", d: "60-min privacy rooms" },
-            ].map(s => (
-              <div key={s.n} className="text-center">
-                <div className="font-heading font-black text-xl">{s.n}</div>
-                <div className="text-xs text-ink/70 mt-1">{s.d}</div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* Legal Help Tool stripe */}
-      <section className="bg-ink text-white border-b border-white/5">
-        <div className="max-w-7xl mx-auto px-6 py-10 flex flex-col sm:flex-row items-center justify-between gap-6">
-          <div className="flex items-center gap-4">
-            <div className="w-12 h-12 shrink-0 bg-signal/10 flex items-center justify-center">
-              <Scale className="w-6 h-6 text-signal" />
-            </div>
-            <div>
-              <div className="overline text-signal text-xs">Free Legal Self-Help Tool</div>
-              <div className="font-heading font-bold text-lg mt-0.5">Universal Litigation Weapon</div>
-              <div className="text-white/60 text-sm mt-0.5">EEOC · Federal Court · Damages Calculator · Evidence Checklist</div>
-            </div>
-          </div>
-          <Link
-            to="/register"
-            className="shrink-0 inline-flex items-center gap-2 border-2 border-signal text-signal font-bold text-sm uppercase tracking-widest px-6 py-3 hover:bg-signal hover:text-ink transition-colors"
-            data-testid="btn-litigation-cta"
-          >
-            Access Tool <ArrowRight className="w-4 h-4" />
-          </Link>
         </div>
       </section>
 
