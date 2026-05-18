@@ -515,37 +515,11 @@ async def seed_users():
     for u in legacy_users:
         new_val = u["associate"].replace("Cohort-", "Associate-", 1)
         await db.users.update_one({"id": u["id"]}, {"$set": {"associate": new_val}})
-    seeds = [
-        ("admin@lcewai.org", "LCE-WAI Admin", "admin", None, "Admin@LCE2026"),
-        ("instructor@lcewai.org", "Jordan Rivera", "instructor", "Associate-Alpha", "Teach@LCE2026"),
-        ("student@lcewai.org", "Alex Carter", "student", "Associate-Alpha", "Learn@LCE2026"),
-    ]
-    for email, name, role, associate, pw in seeds:
-        existing = await db.users.find_one({"email": email}, {"_id": 0})
-        if not existing:
-            await db.users.insert_one({
-                "id": str(uuid.uuid4()),
-                "email": email,
-                "full_name": name,
-                "role": role,
-                "associate": associate,
-                "is_active": True,
-                "created_at": datetime.now(timezone.utc).isoformat(),
-                "password_hash": hash_pw(pw),
-            })
-        else:
-            # Auto-heal role / is_active drift on the seeded demo accounts.
-            # Without this, a manual demotion of e.g. admin@lcewai.org → instructor
-            # would persist forever (the original code only ran on first insert).
-            # Mirrors the executive_admin bootstrap pattern below.
-            update = {}
-            if existing.get("role") != role:
-                update["role"] = role
-            if existing.get("is_active") is False:
-                update["is_active"] = True
-            if update:
-                await db.users.update_one({"email": email}, {"$set": update})
-                logger.info("Healed seed-account drift for %s: %s", email, update)
+    # Demo accounts removed — platform is live. Delete any that still exist in DB.
+    _demo_emails = ["admin@lcewai.org", "instructor@lcewai.org", "student@lcewai.org"]
+    result = await db.users.delete_many({"email": {"$in": _demo_emails}})
+    if result.deleted_count:
+        logger.info("Removed %d demo account(s) from live database", result.deleted_count)
 
     # ----- EXECUTIVE ADMIN bootstrap -----
     # Hardcoded executive admin email. On every startup:
