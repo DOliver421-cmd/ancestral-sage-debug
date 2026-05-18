@@ -468,16 +468,21 @@ function PublicHelper() {
 }
 
 // ===========================================================================
-// AUTH HELPER - colorful header, full tool sidebar, max chat space
+// AUTH HELPER - two-panel desktop: persistent sidebar + tabbed right panel
 // ===========================================================================
 function AuthHelper({ user }) {
+  const [tab, setTab] = useState("home");
   const [msgs, setMsgs] = useState([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [toast, setToast] = useState(null);
   const [activeTopic, setActiveTopic] = useState(null);
   const [audioEnabled, setAudioEnabled] = useState(false);
-  const [toolsOpen, setToolsOpen] = useState(false);
+  const [tasks, setTasks] = useState([
+    { id:1, text:"Review any new mail or letters", done:false },
+    { id:2, text:"Check upcoming appointments", done:false },
+  ]);
+  const [newTask, setNewTask] = useState("");
   const endRef = useRef(null);
   const inputRef = useRef(null);
   const callAPI = useHelperAPI();
@@ -503,11 +508,11 @@ function AuthHelper({ user }) {
 
   const startTopic = useCallback((topicKey, title, prompt) => {
     setActiveTopic(topicKey);
+    setTab("messages");
     addMsg("helper", prompt);
     if (audioEnabled) speak(prompt);
-    setToolsOpen(false);
     setTimeout(() => endRef.current?.scrollIntoView({ behavior:"smooth" }), 100);
-    inputRef.current?.focus();
+    setTimeout(() => inputRef.current?.focus(), 200);
   }, [addMsg, audioEnabled, speak]);
 
   const { listening, toggle: toggleMic } = useMic({
@@ -516,138 +521,284 @@ function AuthHelper({ user }) {
   });
 
   useEffect(() => {
-    addMsg("helper", "Welcome back, " + (user?.full_name?.split(" ")[0] || "there") + ". I am your private helper inside WAI-Institute. Tap 'Your Tools' to choose a topic, or just type your question below.");
+    addMsg("helper", "Welcome back, " + (user?.full_name?.split(" ")[0] || "there") + ". I am your private helper inside WAI-Institute. Choose a tool from the sidebar or just type your question.");
   }, []);
   useEffect(() => { endRef.current?.scrollIntoView({ behavior:"smooth" }); }, [msgs]);
 
   const AUTH_TOOLS = [
-    { section:"Daily Tools", items:[
+    { section:"Daily Tools", color:"#2563eb", items:[
       { key:"mail", icon:"📬", title:"Understand a letter", prompt:"I can help you understand your mail. Paste or type what the letter says and I will explain what it means and what you need to do." },
       { key:"bills", icon:"💡", title:"Explain my bill", prompt:"I can help with your bills. Tell me who sent it, the amount, and what it says. I will break it down clearly." },
       { key:"appointments", icon:"📅", title:"Prepare for appointment", prompt:"I can help you prepare for an upcoming appointment. What kind is it and when is it?" },
-      { key:"notes", icon:"📝", title:"Keep notes", prompt:"I can help you keep simple notes or reminders. What would you like to write down?" },
-      { key:"documents", icon:"🗂️", title:"Saved documents", prompt:"I can help you find or understand documents. What are you looking for?" },
     ]},
-    { section:"Legal Tools", items:[
-      { key:"legal-draft", icon:"📄", title:"Help draft a form", prompt:"I can help you draft a simple legal form in plain language. What type of form and what is the situation?" },
-      { key:"letter-draft", icon:"✉️", title:"Help write a letter", prompt:"I can help you write a clear, respectful letter. Who is it to and what do you need to say?" },
+    { section:"Legal Tools", color:"#7c3aed", items:[
       { key:"legal", icon:"⚖️", title:"Explain legal papers", prompt:"I can explain legal documents in plain words. Paste or type the key parts and I will walk you through them." },
+      { key:"letter-draft", icon:"✉️", title:"Help write a letter", prompt:"I can help you write a clear, respectful letter. Who is it to and what do you need to say?" },
       { key:"scam", icon:"🛡️", title:"Check for scams", prompt:"I can check for scam signs. Paste the message, email, or letter you received and I will flag anything suspicious." },
     ]},
-    { section:"Health and Life", items:[
+    { section:"Health & Life", color:"#059669", items:[
       { key:"medicines", icon:"💊", title:"Understand medicines", prompt:"I can help you understand medicine labels and instructions. What is the medicine and what does the label say?" },
       { key:"food", icon:"🍽️", title:"Food assistance", prompt:"I can give simple food guidance or help with food assistance programs. What do you need?" },
       { key:"housing", icon:"🏠", title:"Housing issues", prompt:"I can help with housing documents. Do you have a lease, eviction notice, rent increase letter, or something else?" },
       { key:"employment", icon:"💼", title:"Employment help", prompt:"I can help with job papers and employment situations. What type of document or situation do you have?" },
+      { key:"credit", icon:"💳", title:"Credit score", prompt:"I can explain your credit score and what affects it. What would you like to know?" },
     ]},
-    { section:"Support and Safety", items:[
-      { key:"trusted-contacts", icon:"📇", title:"Trusted contacts", prompt:"I can help you review or update your trusted contacts. What would you like to do?" },
-      { key:"caregiver-mode", icon:"❤️", title:"Caregiver mode", prompt:"Caregiver mode lets a trusted person work alongside you. Is a caregiver present with you right now?" },
+    { section:"Support & Safety", color:"#dc2626", items:[
       { key:"emergency", icon:"🚨", title:"Emergency numbers", prompt:"Emergency: 911 for immediate danger. 988 for mental health crisis. 1-800-222-1222 for Poison Control. Are you safe right now?" },
+      { key:"caregiver-mode", icon:"❤️", title:"Caregiver mode", prompt:"Caregiver mode lets a trusted person work alongside you. Is a caregiver present with you right now?" },
     ]},
   ];
 
   const activeTopicTitle = AUTH_TOOLS.flatMap(s => s.items).find(t => t.key === activeTopic)?.title;
+  const firstName = user?.full_name?.split(" ")[0] || "there";
+
+  const TABS = [
+    { id:"home", label:"🏠 Home" },
+    { id:"tasks", label:"✅ Tasks" },
+    { id:"messages", label:"💬 Messages" },
+    { id:"profile", label:"👤 Profile" },
+  ];
 
   return (
-    <div style={{ display:"flex", flexDirection:"column", height:"100dvh", background:"#f5f7fb", fontFamily:"system-ui,-apple-system,sans-serif", color:"#1f2933", overflow:"hidden" }}>
-      {/* COLORFUL GRADIENT HEADER */}
-      <div style={{ background:"linear-gradient(135deg,#4b7cff,#7b5cff)", padding:"14px 16px", flexShrink:0, color:"#fff" }}>
-        <div style={{ display:"flex", alignItems:"center", gap:12, marginBottom:10 }}>
-          <div style={{ width:48, height:48, borderRadius:"50%", background:"radial-gradient(circle at 30% 20%,#fde68a,#facc15 40%,#f97316 80%)", display:"flex", alignItems:"center", justifyContent:"center", fontWeight:800, fontSize:22, flexShrink:0, boxShadow:"0 0 0 3px rgba(255,255,255,0.3)" }}>H</div>
+    <div style={{ display:"flex", flexDirection:"column", height:"100dvh", fontFamily:"system-ui,-apple-system,sans-serif", color:"#1f2933", overflow:"hidden", background:"#f8fafc" }}>
+
+      {/* TOP HEADER */}
+      <div style={{ background:"linear-gradient(135deg,#1e3a5f,#2563eb,#7c3aed)", padding:"12px 20px", flexShrink:0, color:"#fff" }}>
+        <div style={{ display:"flex", alignItems:"center", gap:14, marginBottom:12 }}>
+          <div style={{ width:44, height:44, borderRadius:"50%", background:"radial-gradient(circle at 30% 20%,#fde68a,#facc15 40%,#f97316 80%)", display:"flex", alignItems:"center", justifyContent:"center", fontWeight:900, fontSize:20, flexShrink:0, boxShadow:"0 0 0 3px rgba(255,255,255,0.25)" }}>H</div>
           <div style={{ flex:1 }}>
-            <div style={{ fontSize:18, fontWeight:800, lineHeight:1.2 }}>I am here to be your HELPER inside WAI-Institute.</div>
-            <div style={{ fontSize:12, opacity:0.9, marginTop:2 }}>This is your private workspace — read documents, draft letters, manage appointments, stay safe from scams.</div>
+            <div style={{ fontSize:15, fontWeight:800, lineHeight:1.2 }}>Personal Help Center</div>
+            <div style={{ fontSize:12, opacity:0.85 }}>Hello, {firstName} — your private workspace</div>
+          </div>
+          <div style={{ display:"flex", gap:8 }}>
+            <button onClick={toggleMic} style={{ borderRadius:999, border:listening?"2px solid #fff":"1px solid rgba(255,255,255,0.4)", padding:"7px 14px", fontSize:13, fontWeight:700, background:listening?"#dc2626":"rgba(255,255,255,0.12)", color:"#fff", cursor:"pointer" }}>
+              {listening ? "🔴 Stop" : "🎙️ Speak"}
+            </button>
+            <button onClick={() => { setAudioEnabled(a => !a); if (speaking) stopSpeech(); }} style={{ borderRadius:999, border:"1px solid rgba(255,255,255,0.4)", padding:"7px 14px", fontSize:13, fontWeight:700, background:audioEnabled?"#059669":"rgba(255,255,255,0.12)", color:"#fff", cursor:"pointer" }}>
+              {audioEnabled ? "🔊 ON" : "🔇 OFF"}
+            </button>
           </div>
         </div>
-        {/* BIG ACTION BUTTONS */}
-        <div style={{ display:"flex", flexWrap:"wrap", gap:8, marginBottom:8 }}>
-          <button onClick={toggleMic} style={{ flex:1, minWidth:120, borderRadius:999, border:listening?"3px solid #fff":"none", padding:"10px 12px", fontSize:14, fontWeight:700, background:listening?"#dc2626":"#2563eb", color:"#fff", cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", gap:6 }}>
-            <span>{listening ? "🔴" : "🎙️"}</span>{listening ? "Listening..." : "Speak to me"}
-          </button>
-          <button onClick={() => { setAudioEnabled(a => !a); if (speaking) stopSpeech(); }} style={{ flex:1, minWidth:120, borderRadius:999, border:"none", padding:"10px 12px", fontSize:14, fontWeight:700, background:audioEnabled?"#059669":"rgba(255,255,255,0.2)", color:"#fff", cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", gap:6 }}>
-            <span>{audioEnabled ? "🔊" : "🔇"}</span>{audioEnabled ? "Audio: ON" : "Audio: OFF"}
-          </button>
-          <button onClick={() => sendText("Is this a scam? Help me check.", "scam")} style={{ flex:1, minWidth:120, borderRadius:999, border:"none", padding:"10px 12px", fontSize:14, fontWeight:700, background:"#ef4444", color:"#fff", cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", gap:6 }}>
-            <span>🛡️</span>Scam check
-          </button>
-          <button onClick={() => setToolsOpen(o => !o)} style={{ flex:1, minWidth:120, borderRadius:999, border:"2px solid rgba(255,255,255,0.7)", padding:"10px 12px", fontSize:14, fontWeight:700, background:toolsOpen?"rgba(255,255,255,0.25)":"transparent", color:"#fff", cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", gap:6 }}>
-            <span>🧰</span>{toolsOpen ? "Hide Tools" : "Your Tools"}
-          </button>
+        {/* Tabs */}
+        <div style={{ display:"flex", gap:4 }}>
+          {TABS.map(t => (
+            <button key={t.id} onClick={() => setTab(t.id)}
+              style={{ borderRadius:999, border:"none", padding:"7px 18px", fontSize:13, fontWeight:700, cursor:"pointer", background:tab===t.id?"rgba(255,255,255,0.95)":"rgba(255,255,255,0.12)", color:tab===t.id?"#1e3a5f":"rgba(255,255,255,0.9)", transition:"all 0.15s" }}>
+              {t.label}
+            </button>
+          ))}
+          {msgs.length > 0 && tab !== "messages" && (
+            <button onClick={() => setTab("messages")} style={{ marginLeft:"auto", borderRadius:999, border:"1px solid rgba(255,255,255,0.5)", padding:"5px 12px", fontSize:12, fontWeight:600, cursor:"pointer", background:"transparent", color:"rgba(255,255,255,0.8)" }}>
+              Back to chat →
+            </button>
+          )}
         </div>
-        {activeTopic && (
-          <div style={{ display:"flex", alignItems:"center", gap:8, marginTop:4 }}>
-            <span style={{ fontSize:12, opacity:0.8 }}>Current topic:</span>
-            <span style={{ fontSize:13, fontWeight:700, background:"rgba(255,255,255,0.2)", borderRadius:999, padding:"3px 10px" }}>{activeTopicTitle}</span>
-            <button onClick={() => setActiveTopic(null)} style={{ fontSize:11, background:"none", border:"1px solid rgba(255,255,255,0.5)", borderRadius:999, padding:"2px 8px", color:"#fff", cursor:"pointer" }}>Clear</button>
-          </div>
-        )}
       </div>
 
-      {/* TOOLS PANEL - slides down when open */}
-      {toolsOpen && (
-        <div style={{ background:"#fff", borderBottom:"1px solid #e5e7eb", padding:"12px 16px", flexShrink:0, maxHeight:"40vh", overflowY:"auto" }}>
-          <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill,minmax(280px,1fr))", gap:16 }}>
-            {AUTH_TOOLS.map(({ section, items }) => (
-              <div key={section}>
-                <div style={{ fontSize:11, fontWeight:800, color:"#6b7280", textTransform:"uppercase", letterSpacing:"0.05em", marginBottom:8 }}>{section}</div>
-                <div style={{ display:"flex", flexDirection:"column", gap:4 }}>
-                  {items.map(({ key, icon, title, prompt }) => (
-                    <button key={key} onClick={() => startTopic(key, title, prompt)}
-                      style={{ borderRadius:10, border:"2px solid " + (activeTopic===key?"#2563eb":"#e5e7eb"), background:activeTopic===key?"#eff6ff":"#f9fafb", padding:"8px 12px", cursor:"pointer", display:"flex", alignItems:"center", gap:10, fontSize:14, fontWeight:activeTopic===key?700:400, textAlign:"left" }}>
-                      <span style={{ fontSize:18 }}>{icon}</span>
-                      <span>{title}</span>
-                    </button>
-                  ))}
+      {/* MAIN BODY — sidebar + content */}
+      <div style={{ flex:1, display:"flex", overflow:"hidden" }}>
+
+        {/* LEFT SIDEBAR */}
+        <div style={{ width:252, background:"#fff", borderRight:"1px solid #e5e7eb", overflowY:"auto", flexShrink:0, display:"flex", flexDirection:"column" }}>
+          {/* Quick actions */}
+          <div style={{ padding:"12px", borderBottom:"1px solid #f1f5f9" }}>
+            <div style={{ fontSize:10, fontWeight:800, color:"#94a3b8", textTransform:"uppercase", letterSpacing:"0.06em", marginBottom:8 }}>Quick Actions</div>
+            <button onClick={() => setTab("tasks")} style={{ width:"100%", borderRadius:10, border:"none", padding:"10px 12px", fontSize:13, fontWeight:700, background:"linear-gradient(135deg,#eff6ff,#dbeafe)", color:"#1e40af", cursor:"pointer", textAlign:"left", marginBottom:6, display:"flex", alignItems:"center", gap:8 }}>
+              ✅ Focus on today's tasks
+            </button>
+            <button onClick={() => startTopic("mail", "Understand a letter", "I can help you understand your mail. Paste or type what the letter says and I will explain what it means and what you need to do.")} style={{ width:"100%", borderRadius:10, border:"none", padding:"10px 12px", fontSize:13, fontWeight:700, background:"linear-gradient(135deg,#fef3c7,#fde68a)", color:"#92400e", cursor:"pointer", textAlign:"left", display:"flex", alignItems:"center", gap:8 }}>
+              📷 Quick scan & read
+            </button>
+          </div>
+
+          {/* Tool categories */}
+          <div style={{ padding:"8px", flex:1 }}>
+            {AUTH_TOOLS.map(({ section, color, items }) => (
+              <div key={section} style={{ marginBottom:14 }}>
+                <div style={{ fontSize:10, fontWeight:800, color:"#94a3b8", textTransform:"uppercase", letterSpacing:"0.08em", padding:"6px 6px 4px", display:"flex", alignItems:"center", gap:6 }}>
+                  <span style={{ width:7, height:7, borderRadius:"50%", background:color, display:"inline-block", flexShrink:0 }} />
+                  {section}
                 </div>
+                {items.map(({ key, icon, title, prompt }) => (
+                  <button key={key} onClick={() => startTopic(key, title, prompt)}
+                    style={{ width:"100%", borderRadius:8, border:"none", padding:"8px 10px", fontSize:13, cursor:"pointer", textAlign:"left", display:"flex", alignItems:"center", gap:8, background:activeTopic===key ? color+"18" : "transparent", color:activeTopic===key ? color : "#374151", fontWeight:activeTopic===key ? 700 : 400, borderLeft:activeTopic===key ? `3px solid ${color}` : "3px solid transparent", transition:"all 0.12s" }}>
+                    <span style={{ fontSize:16 }}>{icon}</span>
+                    <span>{title}</span>
+                  </button>
+                ))}
               </div>
             ))}
           </div>
         </div>
-      )}
 
-      {/* CHAT AREA - gets all remaining space */}
-      <div style={{ flex:1, overflowY:"auto", padding:"12px 16px", WebkitOverflowScrolling:"touch" }}>
-        <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
-          {msgs.map((m, i) => (
-            <div key={i} style={{ display:"flex", flexDirection:"column", alignItems:m.role==="helper"?"flex-start":"flex-end" }}>
-              <div style={{ maxWidth:"85%", background:m.role==="helper"?"#dbeafe":"#f3f4f6", borderRadius:14, padding:"11px 14px", fontSize:15, lineHeight:1.6 }}>
-                {m.text}
-                {m.role==="helper" && <button onClick={() => speak(m.text)} title="Read aloud" style={{ background:"none", border:"none", cursor:"pointer", fontSize:14, opacity:0.5, marginLeft:6, padding:0, verticalAlign:"middle" }}>🔊</button>}
+        {/* RIGHT CONTENT PANEL */}
+        <div style={{ flex:1, display:"flex", flexDirection:"column", overflow:"hidden" }}>
+
+          {/* HOME TAB */}
+          {tab === "home" && (
+            <div style={{ flex:1, overflowY:"auto", padding:"28px 32px" }}>
+              <div style={{ marginBottom:28 }}>
+                <div style={{ fontSize:28, fontWeight:900, color:"#0f172a", lineHeight:1.2 }}>Good to see you, {firstName}.</div>
+                <div style={{ fontSize:15, color:"#64748b", marginTop:6 }}>Your private help center is ready. What do you need today?</div>
               </div>
-              <div style={{ fontSize:11, color:"#9ca3af", marginTop:2, marginLeft:4, marginRight:4 }}>{m.role==="helper"?"Helper":"You"} — {m.time}</div>
+              <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill,minmax(190px,1fr))", gap:12, marginBottom:28 }}>
+                {[
+                  { icon:"📬", title:"Understand mail", desc:"Paste any letter and I'll explain it", color:"#2563eb", key:"mail", prompt:"I can help you understand your mail. Paste or type what the letter says and I will explain what it means and what you need to do." },
+                  { icon:"⚖️", title:"Legal papers", desc:"Plain-language legal document help", color:"#7c3aed", key:"legal", prompt:"I can explain legal documents in plain words. Paste or type the key parts and I will walk you through them." },
+                  { icon:"💡", title:"Explain my bill", desc:"Break down any bill or charge", color:"#f59e0b", key:"bills", prompt:"I can help with your bills. Tell me who sent it, the amount, and what it says." },
+                  { icon:"🛡️", title:"Check for scams", desc:"Flag suspicious messages or calls", color:"#dc2626", key:"scam", prompt:"I can check for scam signs. Paste the message, email, or letter you received." },
+                  { icon:"🏠", title:"Housing help", desc:"Leases, eviction, repairs", color:"#059669", key:"housing", prompt:"I can help with housing documents. Do you have a lease, eviction notice, rent increase letter, or something else?" },
+                  { icon:"✅", title:"Today's tasks", desc:"Stay on top of what matters", color:"#0891b2", toTab:"tasks" },
+                ].map(item => (
+                  <button key={item.key || item.toTab}
+                    onClick={() => item.key ? startTopic(item.key, item.title, item.prompt) : setTab(item.toTab)}
+                    style={{ borderRadius:14, border:`1.5px solid ${item.color}22`, padding:"16px", cursor:"pointer", textAlign:"left", background:"#fff", transition:"all 0.15s", boxShadow:"0 1px 4px rgba(0,0,0,.05)" }}>
+                    <div style={{ width:40, height:40, borderRadius:10, background:item.color+"1a", display:"flex", alignItems:"center", justifyContent:"center", fontSize:20, marginBottom:10 }}>{item.icon}</div>
+                    <div style={{ fontSize:14, fontWeight:700, color:"#0f172a", marginBottom:4 }}>{item.title}</div>
+                    <div style={{ fontSize:12, color:"#64748b", lineHeight:1.4 }}>{item.desc}</div>
+                  </button>
+                ))}
+              </div>
+              {msgs.length > 1 && (
+                <div style={{ background:"#fff", borderRadius:14, padding:"16px", border:"1px solid #e2e8f0" }}>
+                  <div style={{ fontSize:13, fontWeight:700, color:"#374151", marginBottom:10 }}>Recent conversation</div>
+                  {msgs.slice(-3).map((m, i) => (
+                    <div key={i} style={{ fontSize:13, color:m.role==="helper"?"#1e40af":"#374151", background:m.role==="helper"?"#eff6ff":"#f8fafc", borderRadius:8, padding:"8px 12px", marginBottom:6 }}>
+                      <span style={{ fontWeight:700 }}>{m.role==="helper"?"Helper":"You"}:</span>{" "}{m.text.slice(0,120)}{m.text.length>120?"...":""}
+                    </div>
+                  ))}
+                  <button onClick={() => setTab("messages")} style={{ borderRadius:999, border:"1px solid #dbeafe", padding:"6px 14px", fontSize:12, fontWeight:700, background:"#eff6ff", color:"#1e40af", cursor:"pointer", marginTop:6 }}>Continue conversation →</button>
+                </div>
+              )}
             </div>
-          ))}
-          {loading && <div style={{ color:"#6b7280", fontSize:13, fontStyle:"italic" }}>Helper is thinking...</div>}
-          <div ref={endRef} style={{ height:1 }} />
-        </div>
-        <div style={{ display:"flex", flexWrap:"wrap", gap:6, marginTop:12 }}>
-          <button onClick={() => { setMsgs([]); setActiveTopic(null); addMsg("helper","Cleared. Choose a tool or type your question."); }} style={{ borderRadius:999, border:"1px solid #d1d5db", padding:"6px 12px", fontSize:12, background:"#fff", cursor:"pointer" }}>Clear chat</button>
-          {speaking && <button onClick={stopSpeech} style={{ borderRadius:999, border:"1px solid #d1d5db", padding:"6px 12px", fontSize:12, background:"#fff", cursor:"pointer" }}>Stop audio</button>}
-        </div>
-        <div style={{ marginTop:10, fontSize:11, color:"#9ca3af", textAlign:"center" }}>
-          This helper is part of WAI-Institute. Actions may be logged for safety and training.
-        </div>
-      </div>
+          )}
 
-      {/* INPUT ROW - mic + audio + textarea + send */}
-      <div style={{ display:"flex", gap:6, alignItems:"flex-end", padding:"8px 16px", background:"#fff", borderTop:"1px solid #e5e7eb", flexShrink:0 }}>
-        <button onClick={toggleMic} style={{ borderRadius:12, border:"none", padding:"12px 12px", fontSize:18, background:listening?"#dc2626":"#f3f4f6", color:listening?"#fff":"#374151", cursor:"pointer", flexShrink:0 }}>
-          {listening ? "🔴" : "🎙️"}
-        </button>
-        <button onClick={() => { setAudioEnabled(a => !a); if (speaking) stopSpeech(); }} style={{ borderRadius:12, border:"none", padding:"12px 12px", fontSize:18, background:audioEnabled?"#059669":"#f3f4f6", color:audioEnabled?"#fff":"#374151", cursor:"pointer", flexShrink:0 }}>
-          {audioEnabled ? "🔊" : "🔇"}
-        </button>
-        <textarea
-          ref={inputRef}
-          value={input}
-          onChange={e => setInput(e.target.value)}
-          onKeyDown={e => { if (e.key==="Enter" && !e.shiftKey) { e.preventDefault(); sendText(input, activeTopic); }}}
-          onFocus={() => setTimeout(() => endRef.current?.scrollIntoView({ behavior:"smooth" }), 300)}
-          placeholder={listening ? "Listening..." : activeTopic ? "Ask about " + activeTopicTitle + "..." : "Type your question here..."}
-          style={{ flex:1, minHeight:48, maxHeight:120, resize:"none", borderRadius:12, border:"1px solid #d1d5db", padding:"12px 14px", fontSize:15, fontFamily:"system-ui", outline:"none" }}
-        />
-        <button onClick={() => sendText(input, activeTopic)} disabled={loading} style={{ borderRadius:12, border:"none", padding:"14px 18px", fontSize:15, fontWeight:700, background:"#2563eb", color:"#fff", cursor:"pointer", flexShrink:0 }}>Send</button>
+          {/* TASKS TAB */}
+          {tab === "tasks" && (
+            <div style={{ flex:1, overflowY:"auto", padding:"28px 32px" }}>
+              <div style={{ marginBottom:20 }}>
+                <div style={{ fontSize:24, fontWeight:900, color:"#0f172a" }}>Today's Tasks</div>
+                <div style={{ fontSize:14, color:"#64748b", marginTop:4 }}>Keep track of what you need to do or follow up on.</div>
+              </div>
+              <div style={{ background:"#fff", borderRadius:14, padding:"16px", border:"1px solid #e2e8f0", marginBottom:16 }}>
+                <div style={{ display:"flex", gap:8 }}>
+                  <input value={newTask} onChange={e => setNewTask(e.target.value)}
+                    onKeyDown={e => { if (e.key==="Enter" && newTask.trim()) { setTasks(t => [...t, {id:Date.now(),text:newTask.trim(),done:false}]); setNewTask(""); }}}
+                    placeholder="Add a task or reminder..."
+                    style={{ flex:1, borderRadius:8, border:"1px solid #d1d5db", padding:"10px 12px", fontSize:14, outline:"none", fontFamily:"system-ui" }} />
+                  <button onClick={() => { if (newTask.trim()) { setTasks(t => [...t, {id:Date.now(),text:newTask.trim(),done:false}]); setNewTask(""); }}}
+                    style={{ borderRadius:8, border:"none", padding:"10px 16px", fontSize:13, fontWeight:700, background:"#2563eb", color:"#fff", cursor:"pointer" }}>Add</button>
+                </div>
+              </div>
+              <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
+                {tasks.map(task => (
+                  <div key={task.id} style={{ background:"#fff", borderRadius:12, padding:"12px 16px", border:"1px solid #e2e8f0", display:"flex", alignItems:"center", gap:12, opacity:task.done?0.5:1, transition:"opacity 0.2s" }}>
+                    <input type="checkbox" checked={task.done} onChange={() => setTasks(t => t.map(tk => tk.id===task.id?{...tk,done:!tk.done}:tk))} style={{ width:18, height:18, cursor:"pointer", flexShrink:0 }} />
+                    <span style={{ flex:1, fontSize:14, textDecoration:task.done?"line-through":"none", color:"#374151" }}>{task.text}</span>
+                    <button onClick={() => setTasks(t => t.filter(tk => tk.id!==task.id))} style={{ borderRadius:6, border:"none", padding:"4px 8px", fontSize:12, background:"#fee2e2", color:"#dc2626", cursor:"pointer" }}>✕</button>
+                  </div>
+                ))}
+                {tasks.length === 0 && (
+                  <div style={{ textAlign:"center", padding:"48px 20px", color:"#94a3b8" }}>
+                    <div style={{ fontSize:36, marginBottom:8 }}>✅</div>
+                    <div style={{ fontSize:16, fontWeight:700 }}>All clear!</div>
+                    <div style={{ fontSize:13, marginTop:4 }}>Add something above to keep track of it.</div>
+                  </div>
+                )}
+              </div>
+              {tasks.filter(t=>t.done).length > 0 && (
+                <button onClick={() => setTasks(t => t.filter(tk => !tk.done))} style={{ marginTop:16, borderRadius:8, border:"1px solid #d1d5db", padding:"8px 14px", fontSize:13, background:"#fff", cursor:"pointer", color:"#6b7280" }}>Clear completed</button>
+              )}
+            </div>
+          )}
+
+          {/* MESSAGES TAB */}
+          {tab === "messages" && (
+            <div style={{ flex:1, display:"flex", flexDirection:"column", overflow:"hidden" }}>
+              {activeTopic && (
+                <div style={{ padding:"8px 20px", background:"#eff6ff", borderBottom:"1px solid #dbeafe", display:"flex", alignItems:"center", gap:10, flexShrink:0 }}>
+                  <span style={{ fontSize:13, color:"#1e40af" }}>Topic: <strong>{activeTopicTitle}</strong></span>
+                  <button onClick={() => setActiveTopic(null)} style={{ fontSize:11, background:"none", border:"1px solid #93c5fd", borderRadius:999, padding:"2px 8px", color:"#1e40af", cursor:"pointer" }}>Clear</button>
+                  <span style={{ marginLeft:"auto", fontSize:12, color:"#64748b" }}>← Pick a new tool from the sidebar anytime</span>
+                </div>
+              )}
+              <div style={{ flex:1, overflowY:"auto", padding:"16px 20px", WebkitOverflowScrolling:"touch" }}>
+                <div style={{ display:"flex", flexDirection:"column", gap:12 }}>
+                  {msgs.map((m, i) => (
+                    <div key={i} style={{ display:"flex", flexDirection:"column", alignItems:m.role==="helper"?"flex-start":"flex-end" }}>
+                      <div style={{ maxWidth:"80%", background:m.role==="helper"?"#dbeafe":"#f1f5f9", borderRadius:m.role==="helper"?"4px 16px 16px 16px":"16px 4px 16px 16px", padding:"12px 16px", fontSize:14, lineHeight:1.65, color:"#0f172a" }}>
+                        {m.text}
+                        {m.role==="helper" && <button onClick={() => speak(m.text)} title="Read aloud" style={{ background:"none", border:"none", cursor:"pointer", fontSize:13, opacity:0.45, marginLeft:8, padding:0, verticalAlign:"middle" }}>🔊</button>}
+                      </div>
+                      <div style={{ fontSize:11, color:"#94a3b8", marginTop:3, marginLeft:4, marginRight:4 }}>{m.role==="helper"?"Helper":"You"} · {m.time}</div>
+                    </div>
+                  ))}
+                  {loading && (
+                    <div style={{ display:"flex", alignItems:"center", gap:8, padding:"4px 0" }}>
+                      <div style={{ width:8, height:8, borderRadius:"50%", background:"#2563eb", opacity:0.6 }} />
+                      <span style={{ color:"#64748b", fontSize:13 }}>Helper is thinking...</span>
+                    </div>
+                  )}
+                  <div ref={endRef} style={{ height:1 }} />
+                </div>
+                {msgs.length > 0 && (
+                  <div style={{ display:"flex", flexWrap:"wrap", gap:6, marginTop:14 }}>
+                    <button onClick={() => { setMsgs([]); setActiveTopic(null); addMsg("helper","Cleared. Choose a tool from the sidebar or type your question."); }} style={{ borderRadius:999, border:"1px solid #e2e8f0", padding:"6px 12px", fontSize:12, background:"#fff", cursor:"pointer", color:"#374151" }}>Clear chat</button>
+                    {speaking && <button onClick={stopSpeech} style={{ borderRadius:999, border:"1px solid #e2e8f0", padding:"6px 12px", fontSize:12, background:"#fff", cursor:"pointer", color:"#374151" }}>Stop audio</button>}
+                  </div>
+                )}
+              </div>
+              <div style={{ display:"flex", gap:8, alignItems:"flex-end", padding:"10px 20px", background:"#fff", borderTop:"1px solid #e5e7eb", flexShrink:0 }}>
+                <button onClick={toggleMic} style={{ borderRadius:10, border:"none", padding:"12px", fontSize:18, background:listening?"#dc2626":"#f1f5f9", color:listening?"#fff":"#374151", cursor:"pointer", flexShrink:0 }}>{listening?"🔴":"🎙️"}</button>
+                <textarea
+                  ref={inputRef}
+                  value={input}
+                  onChange={e => setInput(e.target.value)}
+                  onKeyDown={e => { if (e.key==="Enter" && !e.shiftKey) { e.preventDefault(); sendText(input, activeTopic); }}}
+                  onFocus={() => setTimeout(() => endRef.current?.scrollIntoView({ behavior:"smooth" }), 300)}
+                  placeholder={listening ? "Listening... speak now" : activeTopic ? "Ask about " + activeTopicTitle + "..." : "Type your question here..."}
+                  style={{ flex:1, minHeight:46, maxHeight:120, resize:"none", borderRadius:10, border:"1px solid #d1d5db", padding:"11px 14px", fontSize:15, fontFamily:"system-ui", outline:"none", lineHeight:1.45 }}
+                  rows={1}
+                />
+                <button onClick={() => sendText(input, activeTopic)} disabled={loading} style={{ borderRadius:10, border:"none", padding:"12px 20px", fontSize:14, fontWeight:700, background:loading?"#94a3b8":"#2563eb", color:"#fff", cursor:loading?"not-allowed":"pointer", flexShrink:0 }}>Send</button>
+              </div>
+            </div>
+          )}
+
+          {/* PROFILE TAB */}
+          {tab === "profile" && (
+            <div style={{ flex:1, overflowY:"auto", padding:"28px 32px" }}>
+              <div style={{ marginBottom:20 }}>
+                <div style={{ fontSize:24, fontWeight:900, color:"#0f172a" }}>Your Profile</div>
+                <div style={{ fontSize:14, color:"#64748b", marginTop:4 }}>Helper preferences and account information.</div>
+              </div>
+              <div style={{ background:"#fff", borderRadius:14, padding:"20px", border:"1px solid #e2e8f0", marginBottom:14 }}>
+                <div style={{ fontSize:10, fontWeight:800, color:"#94a3b8", textTransform:"uppercase", letterSpacing:"0.06em", marginBottom:12 }}>Account</div>
+                <div style={{ fontSize:16, fontWeight:700, color:"#0f172a" }}>{user?.full_name}</div>
+                <div style={{ fontSize:13, color:"#64748b", marginTop:2 }}>{user?.email}</div>
+                <div style={{ fontSize:12, color:"#94a3b8", marginTop:4, textTransform:"capitalize" }}>Role: {(user?.role||"").replace("_"," ")}</div>
+              </div>
+              <div style={{ background:"#fff", borderRadius:14, padding:"20px", border:"1px solid #e2e8f0", marginBottom:14 }}>
+                <div style={{ fontSize:10, fontWeight:800, color:"#94a3b8", textTransform:"uppercase", letterSpacing:"0.06em", marginBottom:12 }}>Audio Settings</div>
+                <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between" }}>
+                  <div>
+                    <div style={{ fontSize:14, fontWeight:600, color:"#374151" }}>Read replies aloud</div>
+                    <div style={{ fontSize:12, color:"#94a3b8" }}>Helper will speak each response as it arrives</div>
+                  </div>
+                  <button onClick={() => { setAudioEnabled(a => !a); if (speaking) stopSpeech(); }}
+                    style={{ borderRadius:999, border:"none", padding:"8px 22px", fontSize:13, fontWeight:700, background:audioEnabled?"#059669":"#e5e7eb", color:audioEnabled?"#fff":"#374151", cursor:"pointer", transition:"all 0.15s" }}>
+                    {audioEnabled ? "ON" : "OFF"}
+                  </button>
+                </div>
+              </div>
+              <div style={{ background:"#fff", borderRadius:14, padding:"20px", border:"1px solid #e2e8f0" }}>
+                <div style={{ fontSize:10, fontWeight:800, color:"#94a3b8", textTransform:"uppercase", letterSpacing:"0.06em", marginBottom:10 }}>Privacy Note</div>
+                <div style={{ fontSize:13, color:"#374151", lineHeight:1.65 }}>This helper is part of WAI-Institute. Conversations may be logged for safety and quality improvement. No information is shared outside the institute without your consent.</div>
+              </div>
+            </div>
+          )}
+
+        </div>
       </div>
 
       {toast && <div style={{ position:"fixed", top:16, left:"50%", transform:"translateX(-50%)", background:"#111827", color:"#f9fafb", padding:"10px 18px", borderRadius:999, fontSize:13, zIndex:9999, whiteSpace:"nowrap", boxShadow:"0 4px 20px rgba(0,0,0,.3)" }}>{toast}</div>}
