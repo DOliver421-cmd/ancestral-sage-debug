@@ -33,6 +33,7 @@ import ForgotPassword from "./pages/ForgotPassword";
 import ResetPassword from "./pages/ResetPassword";
 import NotFound from "./pages/NotFound";
 import SageAudit from "./pages/SageAudit";
+import OrchestratorChat from "./pages/OrchestratorChat";
 import DirectorWidget from "./components/DirectorWidget";
 import Helper from "./pages/Helper";
 
@@ -106,6 +107,7 @@ function App() {
           <Route path="/settings" element={<Protected><Settings /></Protected>} />
           <Route path="/admin/system" element={<Protected roles={["executive_admin"]}><ExecSystem /></Protected>} />
           <Route path="/admin/sage-audit" element={<Protected roles={["executive_admin"]}><SageAudit /></Protected>} />
+          <Route path="/council" element={<Protected><OrchestratorChat /></Protected>} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>

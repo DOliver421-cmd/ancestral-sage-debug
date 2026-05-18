@@ -51,6 +51,7 @@ from prompts.ancestral_sage_prompt import (
     RESTRICTED_EDUCATIONAL_FALLBACK,
     compute_sage_prompt_hash,
 )
+from prompts.orchestrator import get_orchestrator_system, compute_orchestrator_hash
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import landscape, letter
 from reportlab.lib.units import inch
@@ -302,6 +303,26 @@ class AIChatReq(BaseModel):
     safety_level: Optional[Literal["conservative", "standard", "exploratory", "extreme"]] = None
     consent_log_id: Optional[str] = None
     scope: Optional[Literal["wai_training_only"]] = None
+
+
+class OrchestratorHistoryItem(BaseModel):
+    role: Literal["user", "assistant"]
+    content: str
+
+class OrchestratorReq(BaseModel):
+    session_id: str
+    message: str
+    # Conversation history for multi-turn sessions (client maintains state)
+    history: Optional[list[OrchestratorHistoryItem]] = []
+    # Optional: caller can pre-label a threat type to short-circuit classification
+    threat_hint: Optional[str] = None
+    # Optional: invoke a named protocol explicitly
+    protocol: Optional[Literal[
+        "rapid_threat_response",
+        "full_council_session",
+        "curriculum_design",
+        "quiet_checkin",
+    ]] = None
 
 
 class AIConsentReq(BaseModel):
@@ -2266,7 +2287,7 @@ async def ai_chat(body: AIChatReq, user: User = Depends(current_user)):
     session_id = f"{user.id}:{body.session_id}"
     _client = _anthropic_module.AsyncAnthropic(api_key=ANTHROPIC_API_KEY)
     try:
-        _msg = await _client.messages.create(model="claude-sonnet-4-5", max_tokens=2048, system=system, messages=[{"role": "user", "content": body.message}])
+        _msg = await _client.messages.create(model="claude-sonnet-4-6", max_tokens=2048, system=system, messages=[{"role": "user", "content": body.message}])
         reply = _msg.content[0].text
     except Exception as e:
         logger.exception("AI error")
@@ -2294,6 +2315,103 @@ async def ai_chat(body: AIChatReq, user: User = Depends(current_user)):
     await db.chat_history.insert_one(chat_doc)
     return {"reply": reply}
 
+
+
+@api_router.post("/ai/orchestrator")
+async def ai_orchestrator(body: OrchestratorReq, user: User = Depends(current_user)):
+    """Multi-persona Orchestrator endpoint.
+
+    Routes the user's message through the role-gated 7-Persona Team and, for
+    executive_admin, the full Council of 24 Elders.  The system prompt adapts
+    automatically based on the authenticated user's role:
+      student          → Ancestral Sage + Savant Scholar
+      instructor       → Above + Product & Experience Designer
+      admin            → Above + Risk Officer + Strategic Navigator + Assistant Director
+      executive_admin  → Full stack + Council of 24 + threat classification schema
+    """
+    try:
+        import anthropic as _anthropic_module
+    except Exception as e:
+        raise HTTPException(500, f"AI library unavailable: {e}")
+
+    # Build role-gated system prompt
+    system = get_orchestrator_system(user.role, user.full_name)
+
+    # Optionally surface the caller's threat hint or protocol choice
+    preamble_parts = []
+    if body.threat_hint:
+        preamble_parts.append(f"[THREAT HINT FROM USER: {body.threat_hint}]")
+    if body.protocol:
+        proto_label = {
+            "rapid_threat_response": "Rapid Threat Response Session",
+            "full_council_session": "Full Council Session",
+            "curriculum_design": "Curriculum / Product Design Session",
+            "quiet_checkin": "Quiet Check-In Session",
+        }.get(body.protocol, body.protocol)
+        preamble_parts.append(f"[REQUESTED PROTOCOL: {proto_label}]")
+
+    user_message = body.message
+    if preamble_parts:
+        user_message = "\n".join(preamble_parts) + "\n\n" + body.message
+
+    # Build message list: prior history + current turn
+    claude_messages = [
+        {"role": h.role, "content": h.content}
+        for h in (body.history or [])
+    ]
+    claude_messages.append({"role": "user", "content": user_message})
+
+    _client = _anthropic_module.AsyncAnthropic(api_key=ANTHROPIC_API_KEY)
+    try:
+        _msg = await _client.messages.create(
+            model="claude-sonnet-4-6",
+            max_tokens=4096,
+            system=system,
+            messages=claude_messages,
+        )
+        reply = _msg.content[0].text
+    except Exception as e:
+        logger.exception("Orchestrator AI error")
+        raise HTTPException(502, f"AI error: {e}")
+
+    # Persist to chat_history with mode="orchestrator" for auditability
+    await db.chat_history.insert_one({
+        "id": str(uuid.uuid4()),
+        "user_id": user.id,
+        "session_id": body.session_id,
+        "mode": "orchestrator",
+        "module_slug": None,
+        "user_msg": body.message,
+        "assistant_msg": reply,
+        "threat_hint": body.threat_hint,
+        "protocol": body.protocol,
+        "role_at_time": user.role,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    })
+
+    return {
+        "reply": reply,
+        "mode": "orchestrator",
+        "role": user.role,
+    }
+
+
+@api_router.get("/ai/orchestrator/integrity")
+async def orchestrator_integrity(user: User = Depends(current_user)):
+    """Returns SHA-256 hash of the orchestrator system prompt for the caller's role.
+    Executive admins see hashes for all roles for cross-role integrity auditing."""
+    if user.role == "executive_admin":
+        return {
+            "role": user.role,
+            "hashes": {
+                r: compute_orchestrator_hash(r)
+                for r in ("student", "instructor", "admin", "executive_admin")
+            },
+        }
+    return {
+        "role": user.role,
+        "hash": compute_orchestrator_hash(user.role),
+    }
 
 
 @api_router.post("/ai/director")
@@ -2326,7 +2444,7 @@ CURRENT USER CONTEXT:
     _client = _anthropic_module.AsyncAnthropic(api_key=ANTHROPIC_API_KEY)
     try:
         _msg = await _client.messages.create(
-            model="claude-sonnet-4-5",
+            model="claude-sonnet-4-6",
             max_tokens=512,
             system=system,
             messages=[{"role": "user", "content": message}]
