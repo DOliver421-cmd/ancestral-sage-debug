@@ -1,7 +1,7 @@
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../lib/auth";
 import { WAI_LOGO, BRAND } from "../lib/brand";
-import { LayoutDashboard, BookOpen, Award, Users, Settings, Sparkles, LogOut, FlaskConical, Target, ClipboardCheck, Briefcase, BadgeCheck, Brain, ShieldCheck, Building2, TrendingUp, ScrollText, Calendar, ShieldAlert, KeyRound, Crown, Compass, HelpCircle, Layers, HandHelping, Scale } from "lucide-react";
+import { LayoutDashboard, BookOpen, Award, Users, Settings, Sparkles, LogOut, FlaskConical, Target, ClipboardCheck, Briefcase, BadgeCheck, Brain, ShieldCheck, Building2, TrendingUp, ScrollText, Calendar, ShieldAlert, KeyRound, Crown, Compass, HelpCircle, Layers, HandHelping, Scale, Trophy } from "lucide-react";
 import NotificationBell from "./NotificationBell";
 
 const studentNav = [
@@ -14,6 +14,7 @@ const studentNav = [
   { to: "/credentials", label: "Credentials", icon: BadgeCheck, testid: "nav-credentials" },
   { to: "/portfolio", label: "Portfolio", icon: Briefcase, testid: "nav-portfolio" },
   { to: "/incidents", label: "Report Incident", icon: ShieldAlert, testid: "nav-incidents" },
+  { to: "/leaderboard", label: "XP Leaderboard", icon: Trophy, testid: "nav-leaderboard" },
   { to: "/ai", label: "AI Tutor", icon: Sparkles, testid: "nav-ai" },
   { to: "/council", label: "Council (Sage)", icon: Layers, testid: "nav-council" },
   { to: "/app/more", label: "M.O.R.E. Hub", icon: HandHelping, testid: "nav-more" },
@@ -27,6 +28,7 @@ const instructorNav = [
   { to: "/instructor/labs", label: "Lab Approvals", icon: ClipboardCheck, testid: "nav-lab-approvals" },
   { to: "/attendance", label: "Attendance", icon: Calendar, testid: "nav-attendance" },
   { to: "/incidents", label: "Incidents", icon: ShieldAlert, testid: "nav-incidents" },
+  { to: "/leaderboard", label: "XP Leaderboard", icon: Trophy, testid: "nav-leaderboard" },
   { to: "/modules", label: "Curriculum", icon: BookOpen, testid: "nav-modules" },
   { to: "/compliance", label: "Compliance", icon: ShieldCheck, testid: "nav-compliance" },
   { to: "/labs", label: "Apprentice Labs", icon: FlaskConical, testid: "nav-labs" },

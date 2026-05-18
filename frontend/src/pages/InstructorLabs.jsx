@@ -2,19 +2,31 @@ import { useCallback, useEffect, useState } from "react";
 import AppShell from "../components/AppShell";
 import { api } from "../lib/api";
 import { toast } from "sonner";
-import { ClipboardCheck, Download } from "lucide-react";
+import { ClipboardCheck, Download, Sparkles } from "lucide-react";
 
 export default function InstructorLabs() {
   const [subs, setSubs] = useState([]);
   const [report, setReport] = useState([]);
   const [tab, setTab] = useState("pending");
   const [feedback, setFeedback] = useState({});
+  const [aiFeedback, setAiFeedback] = useState({});
+  const [aiFeedbackLoading, setAiFeedbackLoading] = useState({});
 
   const load = useCallback(() => Promise.all([
     api.get("/instructor/submissions").then((r) => setSubs(r.data)),
     api.get("/instructor/lab-report").then((r) => setReport(r.data)),
   ]), []);
   useEffect(() => { load(); }, [load]);
+
+  const getAiFeedback = async (sub_id) => {
+    setAiFeedbackLoading((p) => ({ ...p, [sub_id]: true }));
+    try {
+      const r = await api.post(`/labs/submissions/${sub_id}/ai-feedback`);
+      setAiFeedback((p) => ({ ...p, [sub_id]: r.data.ai_feedback }));
+      if (!feedback[sub_id]) setFeedback((p) => ({ ...p, [sub_id]: r.data.ai_feedback }));
+    } catch { toast.error("AI feedback failed"); }
+    finally { setAiFeedbackLoading((p) => ({ ...p, [sub_id]: false })); }
+  };
 
   const review = async (sub_id, status) => {
     try {
@@ -95,14 +107,26 @@ export default function InstructorLabs() {
                   <ul className="mt-2 space-y-1 text-sm text-ink/80">{s.lab?.rubric?.map((r, i) => <li key={i}>— {r}</li>)}</ul>
                 </div>
 
+                {aiFeedback[s.id] && (
+                  <div className="mt-4 p-3 bg-signal/10 border border-signal/30 text-sm" data-testid={`ai-feedback-${s.id}`}>
+                    <div className="flex items-center gap-2 mb-1"><Sparkles className="w-4 h-4 text-copper" /><span className="overline text-copper">AI Coaching Preview</span></div>
+                    <div className="whitespace-pre-wrap text-ink/80">{aiFeedback[s.id]}</div>
+                  </div>
+                )}
+
                 <textarea value={feedback[s.id] || ""} onChange={(e) => setFeedback({ ...feedback, [s.id]: e.target.value })}
                   placeholder="Feedback to the apprentice…" rows={3}
                   className="w-full mt-4 px-3 py-2 border border-ink/20 focus:border-ink focus:outline-none focus:ring-2 focus:ring-signal text-sm"
                   data-testid={`feedback-${s.id}`} />
 
-                <div className="flex gap-2 mt-3">
+                <div className="flex gap-2 mt-3 flex-wrap">
                   <button onClick={() => review(s.id, "approved")} className="btn-copper" data-testid={`approve-${s.id}`}>Approve</button>
                   <button onClick={() => review(s.id, "rejected")} className="btn-ghost text-destructive border-destructive hover:bg-destructive hover:text-white" data-testid={`reject-${s.id}`}>Reject</button>
+                  <button onClick={() => getAiFeedback(s.id)} disabled={aiFeedbackLoading[s.id]}
+                    className="btn-ghost inline-flex items-center gap-1.5 text-copper border-copper" data-testid={`ai-btn-${s.id}`}>
+                    <Sparkles className="w-3.5 h-3.5" />
+                    {aiFeedbackLoading[s.id] ? "Thinking…" : "AI Coaching"}
+                  </button>
                 </div>
               </div>
             ))}

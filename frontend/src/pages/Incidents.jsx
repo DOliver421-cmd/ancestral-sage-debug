@@ -86,10 +86,16 @@ export default function Incidents() {
                 <div key={i.id} className="card-flat p-5" data-testid={`incident-${i.id}`}>
                   <div className="flex items-start justify-between gap-3 flex-wrap">
                     <div>
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 flex-wrap">
                         <span className="badge-ink">{i.type.replace(/_/g, " ")}</span>
                         <span className={SEV_COLOR[i.severity]}>{i.severity}</span>
                         <span className={i.status === "resolved" ? "badge-signal" : "badge-outline"}>{i.status}</span>
+                        {i.escalated_to === "instructor" && i.status === "open" && (
+                          <span className="bg-copper/20 text-copper border border-copper text-xs px-2 py-0.5 font-bold uppercase">↑ Escalated to Instructor</span>
+                        )}
+                        {i.escalated_to === "admin" && i.status === "open" && (
+                          <span className="bg-destructive/20 text-destructive border border-destructive text-xs px-2 py-0.5 font-bold uppercase">↑↑ Escalated to Admin</span>
+                        )}
                       </div>
                       <div className="text-sm text-ink/80 mt-2">{i.description}</div>
                       <div className="text-xs text-ink/50 mt-2 font-mono">

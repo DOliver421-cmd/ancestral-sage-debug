@@ -3,7 +3,7 @@ import AppShell from "../components/AppShell";
 import { api } from "../lib/api";
 import { Link } from "react-router-dom";
 import { useAuth } from "../lib/auth";
-import { ArrowRight, Award, BookOpen, Clock, Flame } from "lucide-react";
+import { ArrowRight, Award, BookOpen, Clock, Flame, Zap } from "lucide-react";
 
 const DAILY_VERSES = [
   { ref: "Proverbs 22:29", text: "Do you see someone skilled in their work? They will serve before kings." },
@@ -18,11 +18,13 @@ export default function StudentDashboard() {
   const [modules, setModules] = useState([]);
   const [progress, setProgress] = useState([]);
   const [certs, setCerts] = useState([]);
+  const [xp, setXp] = useState(null);
 
   useEffect(() => {
     api.get("/modules").then((r) => setModules(r.data));
     api.get("/progress/me").then((r) => setProgress(r.data));
     api.get("/certificates/me").then((r) => setCerts(r.data));
+    api.get("/xp/me").then((r) => setXp(r.data)).catch(() => {});
   }, []);
 
   const verse = DAILY_VERSES[new Date().getDate() % DAILY_VERSES.length];
@@ -55,6 +57,39 @@ export default function StudentDashboard() {
           <StatCard icon={Award} label="Certificates Earned" value={certs.length} testid="stat-certs" />
           <StatCard icon={Flame} label="Progress" value={`${pct}%`} testid="stat-progress" accent />
         </div>
+
+        {/* XP / Gamification banner */}
+        {xp && (
+          <div className="card-flat p-5 mb-10 flex items-center gap-6 bg-ink text-white" data-testid="xp-banner">
+            <div className="flex items-center gap-3">
+              <Zap className="w-8 h-8 text-signal" />
+              <div>
+                <div className="overline text-signal">Experience Points</div>
+                <div className="font-heading text-3xl font-black">{xp.total_xp} XP</div>
+              </div>
+            </div>
+            <div className="h-12 w-px bg-white/20" />
+            <div>
+              <div className="overline text-signal">Level</div>
+              <div className="font-heading text-xl font-bold">{xp.level}</div>
+            </div>
+            {xp.next && (
+              <div className="flex-1 min-w-0">
+                <div className="flex justify-between text-xs text-white/60 mb-1">
+                  <span>{xp.level}</span><span>{xp.next} XP → next level</span>
+                </div>
+                <div className="w-full h-2 bg-white/10">
+                  <div className="h-full bg-signal transition-all duration-500"
+                    style={{ width: `${Math.round(((xp.total_xp - xp.min) / (xp.next - xp.min)) * 100)}%` }} />
+                </div>
+              </div>
+            )}
+            <div className="text-right">
+              <div className="overline text-signal">Cohort Rank</div>
+              <div className="font-heading text-xl font-bold">#{xp.rank_in_cohort}</div>
+            </div>
+          </div>
+        )}
 
         {/* Progress bar */}
         <div className="card-flat p-6 mb-10" data-testid="progress-bar">

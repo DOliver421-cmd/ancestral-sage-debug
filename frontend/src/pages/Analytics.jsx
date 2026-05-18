@@ -2,11 +2,15 @@ import { useEffect, useState } from "react";
 import AppShell from "../components/AppShell";
 import { LoadingState } from "../components/LoadingState";
 import { api } from "../lib/api";
-import { TrendingUp, AlertTriangle, Users, BookOpen, Award, Activity, ShieldAlert, Clock, Download } from "lucide-react";
+import { TrendingUp, AlertTriangle, Users, BookOpen, Award, Activity, ShieldAlert, Clock, Download, BarChart2 } from "lucide-react";
 
 export default function Analytics() {
   const [data, setData] = useState(null);
-  useEffect(() => { api.get("/analytics/program").then((r) => setData(r.data)); }, []);
+  const [benchmark, setBenchmark] = useState(null);
+  useEffect(() => {
+    api.get("/analytics/program").then((r) => setData(r.data));
+    api.get("/analytics/benchmark").then((r) => setBenchmark(r.data)).catch(() => {});
+  }, []);
   if (!data) return <LoadingState label="Program Analytics" />;
   const t = data.totals;
 
@@ -75,6 +79,53 @@ export default function Analytics() {
             </div>
           </div>
         </div>
+
+        {benchmark && (
+          <div className="card-flat p-6 mt-6" data-testid="cohort-benchmark">
+            <div className="flex items-center gap-3 mb-4">
+              <BarChart2 className="w-6 h-6 text-copper" />
+              <h2 className="font-heading text-xl font-bold">Cohort Benchmarking</h2>
+              <span className="badge-outline ml-auto">vs Platform Average</span>
+            </div>
+            <div className="grid grid-cols-3 gap-4 mb-5 text-center">
+              <div className="p-4 bg-bone">
+                <div className="font-heading text-3xl font-black">{benchmark.platform.completion_pct}%</div>
+                <div className="overline text-ink/60 mt-1">Platform Avg Completion</div>
+              </div>
+              <div className="p-4 bg-bone">
+                <div className="font-heading text-3xl font-black">{benchmark.total_modules}</div>
+                <div className="overline text-ink/60 mt-1">Total Modules</div>
+              </div>
+              <div className="p-4 bg-bone">
+                <div className="font-heading text-3xl font-black">{benchmark.platform.total_students}</div>
+                <div className="overline text-ink/60 mt-1">Total Students</div>
+              </div>
+            </div>
+            <table className="w-full text-sm">
+              <thead className="bg-ink text-white">
+                <tr><Th>Associate Group</Th><Th>Students</Th><Th>Avg Modules</Th><Th>Completion %</Th><Th>vs Platform</Th></tr>
+              </thead>
+              <tbody>
+                {benchmark.by_cohort.map((c) => {
+                  const delta = c.completion_pct - benchmark.platform.completion_pct;
+                  return (
+                    <tr key={c.associate} className="border-b border-ink/10 hover:bg-bone">
+                      <Td><span className="font-heading font-bold">{c.associate}</span></Td>
+                      <Td>{c.students}</Td>
+                      <Td>{c.avg_completions}</Td>
+                      <Td><span className="font-mono font-bold">{c.completion_pct}%</span></Td>
+                      <Td>
+                        <span className={`font-mono font-bold ${delta >= 0 ? "text-green-600" : "text-destructive"}`}>
+                          {delta >= 0 ? "+" : ""}{delta}%
+                        </span>
+                      </Td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
 
         <div className="card-flat p-6 mt-6" data-testid="completion-rates">
           <h2 className="font-heading text-xl font-bold">Module Completion Rates</h2>

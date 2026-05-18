@@ -613,6 +613,7 @@ async def on_startup():
     await seed_labs()
     await seed_compliance()
     await seed_sites_inventory()
+    await run_escalation_check()
     # Loud warning if the dev-only token leak is enabled.  The production
     # .env should NEVER set this; it exists only for the preview test suite.
     if os.environ.get("DEV_RETURN_RESET_TOKEN") == "1":
@@ -674,6 +675,11 @@ async def ensure_indexes():
         await db.more_chats.create_index("session_id")
         await db.more_flags.create_index("expires_at")
         await db.more_flags.create_index("status")
+        # XP leaderboard
+        await db.user_xp.create_index("user_id", unique=True)
+        await db.user_xp.create_index([("total_xp", -1)])
+        # Escalation scan: open incidents ordered by creation time
+        await db.incidents.create_index([("status", 1), ("created_at", 1)])
         logger.info("Indexes ensured")
     except Exception:
         logger.exception("ensure_indexes failed (non-fatal)")
@@ -826,6 +832,7 @@ async def submit_quiz(body: QuizSubmit, user: User = Depends(current_user)):
     )
     if status_val == "completed":
         await award_credentials(user.id)
+        await award_xp(user.id, 100 + max(0, int(score - 70)), f"Module completed: {body.module_slug}")
     return {"score": score, "correct": correct, "total": len(quiz), "status": status_val}
 
 
@@ -2812,6 +2819,8 @@ async def submit_lab(slug: str, body: LabSubmitReq, user: User = Depends(current
         )
         if status_val == "passed":
             await award_credentials(user.id)
+            lab_pts = lab.get("skill_points", 0)
+            await award_xp(user.id, 50 + lab_pts * 2, f"Online lab passed: {slug}")
         return {**result, "status": status_val}
     else:
         doc = {
@@ -2872,8 +2881,10 @@ async def review_submission(sub_id: str, body: LabReviewReq, user: User = Depend
     )
     if body.status == "approved":
         await award_credentials(sub["user_id"])
-        # notify the apprentice
         lab = await db.labs.find_one({"slug": sub["lab_slug"]}, {"_id": 0})
+        lab_pts = lab.get("skill_points", 0) if lab else 0
+        await award_xp(sub["user_id"], 100 + lab_pts * 3, f"In-person lab approved: {sub['lab_slug']}")
+        # notify the apprentice
         await notify(sub["user_id"], "Lab approved",
                      f"Your submission for '{lab['title'] if lab else sub['lab_slug']}' was approved.",
                      link=f"/labs/{sub['lab_slug']}", kind="success")
@@ -3005,6 +3016,33 @@ async def award_credentials(user_id: str) -> list:
                      link="/credentials", kind="success")
         await audit(user_id, "credential.earned", target=cred["key"])
     return awarded
+
+
+def xp_level(total: int) -> dict:
+    if total >= 3000:
+        return {"level": "Master", "level_num": 4, "min": 3000, "next": None}
+    if total >= 1500:
+        return {"level": "Craftsman", "level_num": 3, "min": 1500, "next": 3000}
+    if total >= 500:
+        return {"level": "Journeyman", "level_num": 2, "min": 500, "next": 1500}
+    return {"level": "Apprentice", "level_num": 1, "min": 0, "next": 500}
+
+
+async def award_xp(user_id: str, amount: int, reason: str) -> int:
+    """Add XP to user total. Returns new total."""
+    from motor.motor_asyncio import AsyncIOMotorClient  # already imported; just for type hint clarity
+    entry = {"amount": amount, "reason": reason, "at": datetime.now(timezone.utc).isoformat()}
+    result = await db.user_xp.find_one_and_update(
+        {"user_id": user_id},
+        {
+            "$inc": {"total_xp": amount},
+            "$push": {"history": {"$each": [entry], "$slice": -50}},
+            "$setOnInsert": {"id": str(uuid.uuid4())},
+        },
+        upsert=True,
+        return_document=True,
+    )
+    return (result or {}).get("total_xp", amount)
 
 
 @api_router.get("/credentials")
@@ -4118,6 +4156,316 @@ async def more_admin_flags(user=Depends(current_user), skip: int = 0, limit: int
     flags = await cursor.to_list(limit)
     total = await db.more_flags.count_documents({"status": "pending"})
     return {"flags": flags, "total": total}
+
+
+# -- XP / GAMIFICATION --
+
+@api_router.get("/xp/me")
+async def my_xp(user: User = Depends(current_user)):
+    doc = await db.user_xp.find_one({"user_id": user.id}, {"_id": 0})
+    total = (doc or {}).get("total_xp", 0)
+    level_info = xp_level(total)
+    rank = 1
+    if user.associate:
+        cohort_ids = [u["id"] async for u in db.users.find({"associate": user.associate, "role": "student"}, {"id": 1, "_id": 0})]
+        higher = await db.user_xp.count_documents({"user_id": {"$in": cohort_ids}, "total_xp": {"$gt": total}})
+        rank = higher + 1
+    return {**level_info, "total_xp": total, "rank_in_cohort": rank, "history": (doc or {}).get("history", [])[-10:]}
+
+
+@api_router.get("/xp/leaderboard")
+async def xp_leaderboard(associate: Optional[str] = None, user: User = Depends(current_user)):
+    q: dict = {"role": "student"}
+    if associate:
+        q["associate"] = associate
+    students = await db.users.find(q, {"_id": 0, "id": 1, "full_name": 1, "associate": 1}).to_list(500)
+    ids = [s["id"] for s in students]
+    xp_docs = await db.user_xp.find({"user_id": {"$in": ids}}, {"_id": 0}).to_list(500) if ids else []
+    xp_map = {x["user_id"]: x["total_xp"] for x in xp_docs}
+    board = sorted(
+        [{**s, "total_xp": xp_map.get(s["id"], 0), "level": xp_level(xp_map.get(s["id"], 0))["level"]} for s in students],
+        key=lambda x: -x["total_xp"]
+    )[:25]
+    return board
+
+
+# -- AI LAB FEEDBACK --
+
+@api_router.post("/labs/submissions/{sub_id}/ai-feedback")
+async def lab_ai_feedback(sub_id: str, user: User = Depends(current_user)):
+    require_role(user, "instructor")
+    sub = await db.lab_submissions.find_one({"id": sub_id}, {"_id": 0})
+    if not sub:
+        raise HTTPException(404, "Submission not found")
+    lab = await db.labs.find_one({"slug": sub["lab_slug"]}, {"_id": 0})
+    rubric_lines = "\n".join(f"- {r}" for r in (lab.get("rubric", []) if lab else []))
+    prompt = (
+        f"You are an experienced trades instructor reviewing an apprentice's lab submission.\n\n"
+        f"Lab: {lab['title'] if lab else sub['lab_slug']}\n"
+        f"Track: {sub.get('track', 'unknown')}\n"
+        f"Student notes: {sub.get('notes') or 'No notes provided.'}\n"
+        f"Pass criteria: {lab.get('pass_criteria', 'Not specified') if lab else 'Not specified'}\n"
+        f"Rubric:\n{rubric_lines or 'Not specified'}\n\n"
+        "Write 2-3 paragraphs of constructive coaching feedback:\n"
+        "1. Acknowledge what the student demonstrated\n"
+        "2. Identify specific areas for improvement based on the rubric\n"
+        "3. Offer one concrete next step\n\n"
+        "Be encouraging and safety-focused. Keep it under 200 words."
+    )
+    ANTHROPIC_API_KEY_local = os.environ.get("ANTHROPIC_API_KEY", os.environ.get("EMERGENT_LLM_KEY", ""))
+    if not ANTHROPIC_API_KEY_local:
+        raise HTTPException(500, "AI not configured")
+    try:
+        import anthropic as _anth
+    except Exception as e:
+        raise HTTPException(500, f"AI library unavailable: {e}")
+    _cl = _anth.AsyncAnthropic(api_key=ANTHROPIC_API_KEY_local)
+    resp = await _cl.messages.create(
+        model="claude-sonnet-4-6",
+        max_tokens=400,
+        messages=[{"role": "user", "content": prompt}],
+    )
+    feedback_text = resp.content[0].text
+    await db.lab_submissions.update_one({"id": sub_id}, {"$set": {"ai_feedback": feedback_text}})
+    return {"ai_feedback": feedback_text}
+
+
+# -- COHORT BENCHMARKING --
+
+@api_router.get("/analytics/benchmark")
+async def cohort_benchmark(user: User = Depends(current_user)):
+    require_role(user, "instructor")
+    total_modules = await db.modules.count_documents({})
+    all_students = await db.users.count_documents({"role": "student"})
+    platform_completions = await db.progress.count_documents({"status": "completed"})
+    platform_avg = platform_completions / max(1, all_students)
+    platform_pct = round(platform_avg / max(1, total_modules) * 100)
+
+    associates = await db.users.distinct("associate", {"role": "student"})
+    cohorts = []
+    for assoc in associates:
+        if not assoc:
+            continue
+        students = await db.users.find({"role": "student", "associate": assoc}, {"id": 1, "_id": 0}).to_list(500)
+        sids = [s["id"] for s in students]
+        completions = await db.progress.count_documents({"user_id": {"$in": sids}, "status": "completed"}) if sids else 0
+        avg_comp = completions / max(1, len(sids))
+        pct = round(avg_comp / max(1, total_modules) * 100)
+        cohorts.append({"associate": assoc, "students": len(sids), "avg_completions": round(avg_comp, 1), "completion_pct": pct})
+    cohorts.sort(key=lambda x: -x["completion_pct"])
+    return {
+        "platform": {"avg_completions": round(platform_avg, 1), "completion_pct": platform_pct, "total_students": all_students},
+        "by_cohort": cohorts,
+        "total_modules": total_modules,
+    }
+
+
+# -- OFFICIAL TRANSCRIPT PDF --
+
+@api_router.get("/credentials/transcript.pdf")
+async def download_transcript(user: User = Depends(current_user)):
+    mod_progress = await db.progress.find({"user_id": user.id, "status": "completed"}, {"_id": 0}).to_list(200)
+    all_modules = await db.modules.find({}, {"_id": 0}).to_list(100)
+    mods_by_slug = {m["slug"]: m for m in all_modules}
+    lab_subs = await db.lab_submissions.find({"user_id": user.id, "status": {"$in": ["passed", "approved"]}}, {"_id": 0}).to_list(200)
+    all_labs = await db.labs.find({}, {"_id": 0}).to_list(200)
+    labs_by_slug = {lab["slug"]: lab for lab in all_labs}
+    cred_docs = await db.user_credentials.find({"user_id": user.id}, {"_id": 0}).to_list(200)
+    cred_map = {c["key"]: c for c in CREDENTIALS}
+
+    buf = io.BytesIO()
+    pdf = canvas.Canvas(buf, pagesize=letter)
+    pw, ph = letter
+
+    def new_page():
+        pdf.showPage()
+        return ph - inch
+
+    # Header bar
+    pdf.setFillColorRGB(0.11, 0.11, 0.11)
+    pdf.rect(0, ph - 1.4 * inch, pw, 1.4 * inch, fill=1, stroke=0)
+    pdf.setFillColorRGB(1.0, 0.78, 0.27)
+    pdf.setFont("Helvetica-Bold", 20)
+    pdf.drawString(0.75 * inch, ph - 0.68 * inch, "W.A.I. — Workforce Apprentice Institute")
+    pdf.setFont("Helvetica", 10)
+    pdf.setFillColorRGB(0.85, 0.85, 0.85)
+    pdf.drawString(0.75 * inch, ph - 0.98 * inch, "OFFICIAL ACADEMIC TRANSCRIPT")
+    pdf.drawRightString(pw - 0.75 * inch, ph - 0.98 * inch, f"Issued: {datetime.now(timezone.utc).strftime('%B %d, %Y')}")
+
+    y = ph - 1.8 * inch
+    pdf.setFillColorRGB(0.11, 0.11, 0.11)
+    pdf.setFont("Helvetica-Bold", 11)
+    pdf.drawString(0.75 * inch, y, "Student Information")
+    y -= 0.22 * inch
+    pdf.setFont("Helvetica", 10)
+    for line in [
+        f"Name:       {user.full_name}",
+        f"Email:      {user.email}",
+        f"Role:       {user.role.replace('_', ' ').title()}",
+        f"Associate:  {user.associate or 'N/A'}",
+    ]:
+        pdf.drawString(0.75 * inch, y, line)
+        y -= 0.19 * inch
+
+    def section_header(title):
+        nonlocal y
+        y -= 0.18 * inch
+        if y < 2.0 * inch:
+            y = new_page()
+        pdf.setFont("Helvetica-Bold", 11)
+        pdf.setFillColorRGB(0.65, 0.45, 0.10)
+        pdf.drawString(0.75 * inch, y, title)
+        y -= 0.04 * inch
+        pdf.setStrokeColorRGB(0.65, 0.45, 0.10)
+        pdf.line(0.75 * inch, y, pw - 0.75 * inch, y)
+        y -= 0.2 * inch
+        pdf.setFillColorRGB(0.11, 0.11, 0.11)
+
+    section_header("Curriculum Modules Completed")
+    pdf.setFont("Helvetica-Bold", 8)
+    pdf.setFillColorRGB(0.4, 0.4, 0.4)
+    for label, x in [("MODULE", 0.75), ("HRS", 4.2), ("SCORE", 5.1), ("DATE", 6.2)]:
+        pdf.drawString(x * inch, y, label)
+    y -= 0.16 * inch
+
+    total_hours = 0
+    for p in sorted(mod_progress, key=lambda x: x.get("completed_at") or ""):
+        mod = mods_by_slug.get(p["module_slug"])
+        if not mod:
+            continue
+        if y < 1.5 * inch:
+            y = new_page()
+        pdf.setFont("Helvetica", 9)
+        pdf.setFillColorRGB(0.11, 0.11, 0.11)
+        pdf.drawString(0.75 * inch, y, mod["title"][:48])
+        pdf.drawString(4.2 * inch, y, f"{mod.get('hours', 0)}h")
+        sc = p.get("quiz_score")
+        pdf.drawString(5.1 * inch, y, f"{sc:.0f}%" if sc is not None else "—")
+        pdf.drawString(6.2 * inch, y, (p.get("completed_at") or "")[:10] or "—")
+        total_hours += mod.get("hours", 0)
+        y -= 0.17 * inch
+
+    if not mod_progress:
+        pdf.setFont("Helvetica", 9)
+        pdf.setFillColorRGB(0.5, 0.5, 0.5)
+        pdf.drawString(0.75 * inch, y, "No modules completed.")
+        y -= 0.18 * inch
+
+    section_header("Practical Labs Completed")
+    lab_hours = 0
+    for s in lab_subs:
+        lab_doc = labs_by_slug.get(s["lab_slug"])
+        if not lab_doc:
+            continue
+        if y < 1.5 * inch:
+            y = new_page()
+        pdf.setFont("Helvetica", 9)
+        pdf.setFillColorRGB(0.11, 0.11, 0.11)
+        track_label = "Online" if lab_doc.get("track") == "online" else "In-Person"
+        pdf.drawString(0.75 * inch, y, f"{lab_doc['title'][:42]} ({track_label})")
+        pdf.drawString(5.2 * inch, y, f"{lab_doc.get('skill_points', 0)} pts")
+        pdf.setFillColorRGB(0.2, 0.6, 0.2)
+        pdf.drawString(6.4 * inch, y, "PASSED")
+        pdf.setFillColorRGB(0.11, 0.11, 0.11)
+        lab_hours += lab_doc.get("hours", 0)
+        y -= 0.17 * inch
+
+    if not lab_subs:
+        pdf.setFont("Helvetica", 9)
+        pdf.setFillColorRGB(0.5, 0.5, 0.5)
+        pdf.drawString(0.75 * inch, y, "No labs completed.")
+        y -= 0.18 * inch
+
+    section_header("Credentials & Certifications")
+    for cd in cred_docs:
+        cred = cred_map.get(cd["credential_key"])
+        if not cred:
+            continue
+        if y < 1.8 * inch:
+            y = new_page()
+        pdf.setFont("Helvetica-Bold", 9)
+        pdf.setFillColorRGB(0.11, 0.11, 0.11)
+        pdf.drawString(0.75 * inch, y, cred["name"][:55])
+        pdf.drawString(5.8 * inch, y, (cd.get("earned_at") or "")[:10])
+        y -= 0.15 * inch
+        pdf.setFont("Helvetica", 8)
+        pdf.setFillColorRGB(0.5, 0.5, 0.5)
+        pdf.drawString(0.75 * inch, y, cred.get("description", "")[:72])
+        y -= 0.2 * inch
+
+    if not cred_docs:
+        pdf.setFont("Helvetica", 9)
+        pdf.setFillColorRGB(0.5, 0.5, 0.5)
+        pdf.drawString(0.75 * inch, y, "No credentials earned yet.")
+        y -= 0.18 * inch
+
+    # Summary box
+    if y < 1.8 * inch:
+        y = new_page()
+    y -= 0.2 * inch
+    pdf.setFillColorRGB(0.94, 0.94, 0.88)
+    pdf.rect(0.75 * inch, y - 0.65 * inch, pw - 1.5 * inch, 0.75 * inch, fill=1, stroke=0)
+    pdf.setFillColorRGB(0.11, 0.11, 0.11)
+    pdf.setFont("Helvetica-Bold", 10)
+    pdf.drawString(inch, y - 0.2 * inch, f"Total Training Hours: {total_hours + lab_hours}h")
+    pdf.drawString(inch, y - 0.44 * inch, f"Credentials Earned: {len(cred_docs)}")
+    pdf.drawString(3.8 * inch, y - 0.2 * inch, f"Modules Completed: {len(mod_progress)}")
+    pdf.drawString(3.8 * inch, y - 0.44 * inch, f"Labs Passed: {len(lab_subs)}")
+
+    # Footer
+    pdf.setFont("Helvetica", 7)
+    pdf.setFillColorRGB(0.6, 0.6, 0.6)
+    pdf.drawString(0.75 * inch, 0.4 * inch,
+                   "Official transcript — W.A.I. Workforce Apprentice Institute. "
+                   "Verify credentials at workforceapprenticeinstitute.org")
+
+    pdf.save()
+    buf.seek(0)
+    safe = "".join(ch for ch in user.full_name if ch.isalnum() or ch == " ").replace(" ", "_")
+    filename = f"WAI_Transcript_{safe}_{datetime.now(timezone.utc).strftime('%Y%m%d')}.pdf"
+    return StreamingResponse(buf, media_type="application/pdf",
+                             headers={"Content-Disposition": f'attachment; filename="{filename}"'})
+
+
+# -- AUTOMATED ESCALATION --
+
+async def run_escalation_check():
+    """Escalate stale open incidents. 48h → instructor; 7d → admin."""
+    now = datetime.now(timezone.utc)
+    instructor_cutoff = (now - timedelta(hours=48)).isoformat()
+    admin_cutoff = (now - timedelta(days=7)).isoformat()
+
+    to_instructor = await db.incidents.find(
+        {"status": "open", "escalated_to": {"$exists": False}, "created_at": {"$lte": instructor_cutoff}},
+        {"_id": 0},
+    ).to_list(200)
+    for inc in to_instructor:
+        await db.incidents.update_one(
+            {"id": inc["id"]},
+            {"$set": {"escalated_to": "instructor", "escalated_at": now.isoformat()}},
+        )
+
+    to_admin = await db.incidents.find(
+        {"status": "open", "escalated_to": {"$in": ["instructor", None]}, "created_at": {"$lte": admin_cutoff}},
+        {"_id": 0},
+    ).to_list(200)
+    for inc in to_admin:
+        await db.incidents.update_one(
+            {"id": inc["id"]},
+            {"$set": {"escalated_to": "admin", "escalated_at": now.isoformat()}},
+        )
+        admins = await db.users.find(
+            {"role": {"$in": ["admin", "executive_admin"]}}, {"id": 1, "_id": 0}
+        ).to_list(50)
+        for adm in admins:
+            await notify(
+                adm["id"], "Incident escalated",
+                f"Incident {inc['id'][:8]} has been open for 7+ days and needs resolution.",
+                link="/incidents", kind="warning",
+            )
+
+    if to_instructor or to_admin:
+        logger.info("Escalation: %d → instructor, %d → admin", len(to_instructor), len(to_admin))
 
 
 app.include_router(api_router)

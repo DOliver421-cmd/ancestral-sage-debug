@@ -42,6 +42,7 @@ import LitigationWeapon from "./pages/LitigationWeapon";
 import DirectorWidget from "./components/DirectorWidget";
 import ErrorBoundary from "./components/ErrorBoundary";
 import Helper from "./pages/Helper";
+import Leaderboard from "./pages/Leaderboard";
 
 // Role hierarchy must mirror backend ROLE_RANK in /app/backend/server.py.
 // Higher rank = more authority; a higher-rank role passes any check meant
@@ -115,6 +116,7 @@ function App() {
           <Route path="/admin/system" element={<Protected roles={["executive_admin"]}><ExecSystem /></Protected>} />
           <Route path="/admin/sage-audit" element={<Protected roles={["executive_admin"]}><SageAudit /></Protected>} />
           <Route path="/council" element={<Protected><OrchestratorChat /></Protected>} />
+          <Route path="/leaderboard" element={<Protected><Leaderboard /></Protected>} />
           {/* M.O.R.E. — public tier */}
           <Route path="/more" element={<More />} />
           <Route path="/more/litigation" element={<LitigationWeapon />} />
