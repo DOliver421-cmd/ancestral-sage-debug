@@ -324,6 +324,10 @@ class OrchestratorReq(BaseModel):
     message: str
     # Conversation history for multi-turn sessions (client maintains state)
     history: Optional[list[OrchestratorHistoryItem]] = []
+    # Optional file attachment — base64-encoded, max ~10 MB
+    file_b64: Optional[str] = None
+    file_name: Optional[str] = None
+    file_type: Optional[str] = None  # MIME type
     # Optional: caller can pre-label a threat type to short-circuit classification
     threat_hint: Optional[str] = None
     # Optional: invoke a named protocol explicitly
@@ -2571,7 +2575,43 @@ async def ai_orchestrator(body: OrchestratorReq, user: User = Depends(current_us
         {"role": h.role, "content": h.content}
         for h in (body.history or [])
     ]
-    claude_messages.append({"role": "user", "content": user_message})
+
+    # Attach file if provided
+    if body.file_b64 and body.file_name:
+        import base64 as _b64
+        mime = (body.file_type or "").lower()
+        _IMAGE_TYPES = {"image/jpeg", "image/png", "image/gif", "image/webp"}
+
+        if mime in _IMAGE_TYPES:
+            # Vision content block
+            claude_messages.append({"role": "user", "content": [
+                {"type": "image", "source": {"type": "base64", "media_type": mime, "data": body.file_b64}},
+                {"type": "text", "text": user_message or f"[Attached image: {body.file_name}]"},
+            ]})
+        elif mime == "application/pdf":
+            # Document block (Anthropic PDF support)
+            claude_messages.append({"role": "user", "content": [
+                {"type": "document", "source": {"type": "base64", "media_type": "application/pdf", "data": body.file_b64}},
+                {"type": "text", "text": user_message or f"[Attached PDF: {body.file_name}]"},
+            ]})
+        else:
+            # Text / code / CSV / JSON — decode and inline
+            try:
+                file_text = _b64.b64decode(body.file_b64).decode("utf-8", errors="replace")
+                # Trim to 50k chars to avoid token overrun
+                if len(file_text) > 50_000:
+                    file_text = file_text[:50_000] + "\n… [truncated]"
+                user_message = (
+                    f"{user_message}\n\n"
+                    f"--- Attached file: {body.file_name} ---\n"
+                    f"{file_text}\n"
+                    f"--- End of {body.file_name} ---"
+                )
+            except Exception:
+                pass  # If decode fails, just proceed with text message
+            claude_messages.append({"role": "user", "content": user_message})
+    else:
+        claude_messages.append({"role": "user", "content": user_message})
 
     _client = _anthropic_module.AsyncAnthropic(api_key=ANTHROPIC_API_KEY)
     try:

@@ -5,7 +5,8 @@ import { api } from "../lib/api";
 import {
   Send, Mic, MicOff, Volume2, VolumeX, Loader2, ChevronDown,
   ChevronUp, Layers, Shield, BookOpen, Compass, Users, Star,
-  AlertTriangle, Zap, Download, Square,
+  AlertTriangle, Zap, Download, Square, Paperclip, X, FileText,
+  Image as ImageIcon, FileCode,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -127,6 +128,10 @@ export default function OrchestratorChat() {
   const [loading, setLoading] = useState(false);
   const [sessionId] = useState(() => `orch-${Date.now()}`);
 
+  // File attachment state
+  const [attachment, setAttachment] = useState(null); // {name, type, b64, preview}
+  const fileInputRef = useRef(null);
+
   // Advanced options (admin+)
   const [optionsOpen, setOptionsOpen] = useState(false);
   const [threatHint, setThreatHint] = useState("");
@@ -199,15 +204,45 @@ export default function OrchestratorChat() {
     setRecording(false);
   }, []);
 
+  // ── File attachment ───────────────────────────────────────────────────────
+
+  const handleFileSelect = useCallback((e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const MAX = 10 * 1024 * 1024; // 10 MB
+    if (file.size > MAX) {
+      toast.error("File too large — maximum 10 MB.");
+      e.target.value = "";
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      // reader.result is "data:<mime>;base64,<data>" — strip the prefix
+      const b64 = reader.result.split(",")[1];
+      const isImage = file.type.startsWith("image/");
+      setAttachment({ name: file.name, type: file.type, b64, isImage,
+                      preview: isImage ? reader.result : null });
+    };
+    reader.readAsDataURL(file);
+    e.target.value = ""; // allow re-selecting same file
+  }, []);
+
+  const clearAttachment = useCallback(() => setAttachment(null), []);
+
   // ── Send ──────────────────────────────────────────────────────────────────
 
   const send = useCallback(async (overrideText) => {
     const text = (overrideText ?? input).trim();
-    if (!text || loading) return;
+    if ((!text && !attachment) || loading) return;
     setInput("");
+    const currentAttachment = attachment;
+    setAttachment(null);
     setLoading(true);
 
-    const userMsg = { role: "user", content: text, ts: Date.now() };
+    const displayContent = text + (currentAttachment ? ` 📎 ${currentAttachment.name}` : "");
+    const userMsg = { role: "user", content: displayContent, ts: Date.now() };
     setMsgs((prev) => [...prev, userMsg]);
 
     // Build history from current msgs (exclude the one we just added)
@@ -220,6 +255,11 @@ export default function OrchestratorChat() {
         history,
         ...(threatHint ? { threat_hint: threatHint } : {}),
         ...(protocol ? { protocol } : {}),
+        ...(currentAttachment ? {
+          file_b64: currentAttachment.b64,
+          file_name: currentAttachment.name,
+          file_type: currentAttachment.type,
+        } : {}),
       };
       const { data } = await api.post("/ai/orchestrator", payload);
       const assistantMsg = { role: "assistant", content: data.reply, ts: Date.now() };
@@ -240,7 +280,7 @@ export default function OrchestratorChat() {
   }, [input, loading, msgs, sessionId, threatHint, protocol, playTTS]);
 
   const handleKey = (e) => {
-    if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); }
+    if (e.key === "Enter" && !e.shiftKey && !e.ctrlKey) { e.preventDefault(); send(); }
   };
 
   // ── Export transcript ────────────────────────────────────────────────────
@@ -429,6 +469,36 @@ export default function OrchestratorChat() {
 
         {/* ─── Input bar ─── */}
         <div className="shrink-0 px-8 py-4 border-t border-ink/10 bg-bone">
+          {/* Attachment preview chip */}
+          {attachment && (
+            <div className="mb-2 flex items-center gap-2 flex-wrap">
+              <div className="flex items-center gap-2 bg-white border border-signal/40 rounded-lg px-3 py-1.5 max-w-full">
+                {attachment.isImage
+                  ? <ImageIcon className="w-4 h-4 text-signal shrink-0" />
+                  : attachment.type === "application/pdf"
+                  ? <FileText className="w-4 h-4 text-red-500 shrink-0" />
+                  : <FileCode className="w-4 h-4 text-blue-500 shrink-0" />
+                }
+                {attachment.preview && (
+                  <img src={attachment.preview} alt="" className="w-8 h-8 object-cover rounded" />
+                )}
+                <span className="text-xs font-medium text-ink truncate max-w-[200px]">{attachment.name}</span>
+                <button onClick={clearAttachment} className="text-ink/40 hover:text-red-500 transition-colors ml-1">
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Hidden file input */}
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*,application/pdf,text/*,.csv,.json,.md,.txt,.py,.js,.ts,.jsx,.tsx,.html,.css,.xml,.yaml,.yml"
+            onChange={handleFileSelect}
+            className="hidden"
+          />
+
           <div className="flex gap-2 items-end">
             <textarea
               value={input}
@@ -447,6 +517,14 @@ export default function OrchestratorChat() {
             />
             <div className="flex flex-col gap-2">
               <button
+                onClick={() => fileInputRef.current?.click()}
+                disabled={loading}
+                className="p-3 border border-ink/20 text-ink/50 hover:text-signal hover:border-signal transition-colors disabled:opacity-40"
+                title="Attach file (image, PDF, text, code)"
+              >
+                <Paperclip className="w-4 h-4" />
+              </button>
+              <button
                 onClick={() => recording ? stopRecording() : startRecording()}
                 className={`p-3 border transition-colors ${recording ? "border-destructive text-destructive" : "border-ink/20 text-ink/50 hover:text-ink hover:border-ink/40"}`}
                 title={recording ? "Stop recording" : "Speak"}
@@ -455,7 +533,7 @@ export default function OrchestratorChat() {
               </button>
               <button
                 onClick={() => send()}
-                disabled={loading || !input.trim()}
+                disabled={loading || (!input.trim() && !attachment)}
                 className="p-3 bg-signal text-ink hover:bg-signal/90 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
                 title="Send"
               >
@@ -464,7 +542,7 @@ export default function OrchestratorChat() {
             </div>
           </div>
           <p className="text-[11px] text-ink/50 mt-2">
-            Enter to send · Shift+Enter for new line · All sessions are logged for audit.
+            Enter to send · Shift+Enter for new line · 📎 images, PDF, text &amp; code files supported · All sessions are logged for audit.
           </p>
         </div>
       </div>
