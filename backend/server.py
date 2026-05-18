@@ -661,6 +661,8 @@ async def ensure_indexes():
                                            partialFilterExpression={"expires_at": {"$exists": True}})
         # Sage v4 stability: ai_consents lookup by latest record per user+persona.
         await db.ai_consents.create_index([("user_id", 1), ("persona", 1), ("created_at", -1)])
+        # Composite index for sage audit queries (mode + user_id filter)
+        await db.chat_history.create_index([("mode", 1), ("user_id", 1), ("created_at", -1)])
         # M.O.R.E. indexes — expires_at for fast purge queries, category for filtering
         await db.more_posts.create_index("expires_at")
         await db.more_posts.create_index("category")
@@ -2485,10 +2487,10 @@ async def director_greeting(user: User = Depends(current_user)):
     from prompts.director_prompt import get_director_prompt
     
     greetings = {
-        "student": f"Welcome back, {user.name}. I am the Assistant Director. I am here to guide your learning journey at WAI-Institute. What would you like to work on today?",
-        "instructor": f"Welcome back, {user.name}. I am the Assistant Director. I am ready to support your teaching and course management. How can I assist you today?",
-        "admin": f"Welcome back, {user.name}. I am The Director. All systems are active. I am monitoring institute operations and ready to assist with administrative matters. What requires your attention?",
-        "executive_admin": f"Welcome back, {user.name}. I am The Director. I have reviewed all active reports from Ancestral Sage and institute systems. Everything is under watch. What is our focus today?"
+        "student": f"Welcome back, {user.full_name}. I am the Assistant Director. I am here to guide your learning journey at WAI-Institute. What would you like to work on today?",
+        "instructor": f"Welcome back, {user.full_name}. I am the Assistant Director. I am ready to support your teaching and course management. How can I assist you today?",
+        "admin": f"Welcome back, {user.full_name}. I am The Director. All systems are active. I am monitoring institute operations and ready to assist with administrative matters. What requires your attention?",
+        "executive_admin": f"Welcome back, {user.full_name}. I am The Director. I have reviewed all active reports from Ancestral Sage and institute systems. Everything is under watch. What is our focus today?"
     }
     
     greeting = greetings.get(user.role, greetings["student"])
@@ -3012,8 +3014,8 @@ async def list_credentials(user: User = Depends(current_user)):
 
 @api_router.get("/credentials/me")
 async def my_credentials(user: User = Depends(current_user)):
-    # re-run awards so fresh on page load
-    await award_credentials(user.id)
+    # award_credentials is triggered on completion events (quiz, lab approval)
+    # not on every read — avoids full eligibility scan on every page load
     earned = await db.user_credentials.find({"user_id": user.id}, {"_id": 0}).to_list(200)
     cred_map = {c["key"]: c for c in CREDENTIALS}
     result = []

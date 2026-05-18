@@ -78,23 +78,25 @@ export default function Login() {
             {loading ? "Signing in…" : "Sign In"}
           </button>
 
-          <div className="mt-6 p-4 bg-white border border-ink/10">
-            <div className="overline text-ink/50 mb-2">Demo accounts</div>
-            <div className="space-y-1.5 text-xs">
-              <button type="button" onClick={() => quickFill("student@lcewai.org", "Learn@LCE2026")}
-                className="w-full text-left font-mono hover:text-copper" data-testid="demo-student">
-                student@lcewai.org / Learn@LCE2026
-              </button>
-              <button type="button" onClick={() => quickFill("instructor@lcewai.org", "Teach@LCE2026")}
-                className="w-full text-left font-mono hover:text-copper" data-testid="demo-instructor">
-                instructor@lcewai.org / Teach@LCE2026
-              </button>
-              <button type="button" onClick={() => quickFill("admin@lcewai.org", "Admin@LCE2026")}
-                className="w-full text-left font-mono hover:text-copper" data-testid="demo-admin">
-                admin@lcewai.org / Admin@LCE2026
-              </button>
+          {process.env.REACT_APP_SHOW_DEMO === "true" && (
+            <div className="mt-6 p-4 bg-white border border-ink/10">
+              <div className="overline text-ink/50 mb-2">Demo accounts</div>
+              <div className="space-y-1.5 text-xs">
+                <button type="button" onClick={() => quickFill("student@lcewai.org", "Learn@LCE2026")}
+                  className="w-full text-left font-mono hover:text-copper" data-testid="demo-student">
+                  student@lcewai.org / Learn@LCE2026
+                </button>
+                <button type="button" onClick={() => quickFill("instructor@lcewai.org", "Teach@LCE2026")}
+                  className="w-full text-left font-mono hover:text-copper" data-testid="demo-instructor">
+                  instructor@lcewai.org / Teach@LCE2026
+                </button>
+                <button type="button" onClick={() => quickFill("admin@lcewai.org", "Admin@LCE2026")}
+                  className="w-full text-left font-mono hover:text-copper" data-testid="demo-admin">
+                  admin@lcewai.org / Admin@LCE2026
+                </button>
+              </div>
             </div>
-          </div>
+          )}
 
           <div className="mt-6 text-sm">
             No account? <Link to="/register" className="text-copper font-semibold hover:underline" data-testid="link-register">Enroll as apprentice</Link>

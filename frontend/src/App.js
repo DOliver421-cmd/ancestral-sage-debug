@@ -40,6 +40,7 @@ import MoreChat from "./pages/MoreChat";
 import MoreAdmin from "./pages/MoreAdmin";
 import LitigationWeapon from "./pages/LitigationWeapon";
 import DirectorWidget from "./components/DirectorWidget";
+import ErrorBoundary from "./components/ErrorBoundary";
 import Helper from "./pages/Helper";
 
 // Role hierarchy must mirror backend ROLE_RANK in /app/backend/server.py.
@@ -73,6 +74,7 @@ function App() {
   return (
     <AuthProvider>
       <BrowserRouter>
+        <ErrorBoundary>
         <Toaster position="top-right" richColors />
         <DirectorWidget />
         <Routes>
@@ -123,6 +125,7 @@ function App() {
           <Route path="/more/admin" element={<Protected roles={["admin"]}><MoreAdmin /></Protected>} />
           <Route path="*" element={<NotFound />} />
         </Routes>
+        </ErrorBoundary>
       </BrowserRouter>
     </AuthProvider>
   );
