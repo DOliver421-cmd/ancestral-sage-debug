@@ -56,14 +56,22 @@ export default function Settings() {
     if (pw.new_password !== pw.confirm) return toast.error("New password and confirmation don't match");
     setPwBusy(true);
     try {
-      await api.post("/auth/change-password", {
+      const r = await api.post("/auth/change-password", {
         current_password: pw.current_password,
         new_password: pw.new_password,
       });
+      // Update token and cached user immediately so the redirect lands with
+      // fresh state — no stale must_change_password in localStorage.
+      if (r.data?.access_token) {
+        localStorage.setItem("lce_token", r.data.access_token);
+      }
+      if (r.data?.user) {
+        localStorage.setItem("lce_user", JSON.stringify(r.data.user));
+      }
       toast.success("Password changed.");
       setPw({ current_password: "", new_password: "", confirm: "" });
       if (forced) {
-        const role = user?.role;
+        const role = r.data?.user?.role || user?.role;
         window.location.href =
           role === "executive_admin" || role === "admin" ? "/admin"
             : role === "instructor" ? "/instructor" : "/dashboard";

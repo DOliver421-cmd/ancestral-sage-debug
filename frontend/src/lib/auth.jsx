@@ -37,10 +37,17 @@ export function AuthProvider({ children }) {
     // Verify token and refresh user data from server in the background.
     api.get("/auth/me")
       .then((r) => { setUser(r.data); saveUser(r.data); })
-      .catch(() => {
-        localStorage.removeItem("lce_token");
-        localStorage.removeItem("lce_user");
-        setUser(null);
+      .catch((err) => {
+        // Only invalidate the session on a genuine "token rejected" response.
+        // Transient server errors (500, network failure) should NOT log the user
+        // out — the token is still valid and the next request will succeed.
+        const status = err?.response?.status;
+        if (status === 401 || status === 403) {
+          localStorage.removeItem("lce_token");
+          localStorage.removeItem("lce_user");
+          setUser(null);
+        }
+        // On 500 / network error: keep the cached user so the page stays usable.
       })
       .finally(() => setLoading(false));
   }, []);

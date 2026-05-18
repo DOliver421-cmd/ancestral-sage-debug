@@ -567,13 +567,10 @@ async def seed_users():
             update["role"] = "executive_admin"
         if existing_exec.get("is_active") is False:
             update["is_active"] = True
-        # If the password is still the seed default, require rotation on next
-        # login. Uses verify_pw because bcrypt hashes are non-deterministic.
-        try:
-            if verify_pw(EXEC_DEFAULT_PASSWORD, existing_exec.get("password_hash", "")):
-                update["must_change_password"] = True
-        except Exception:
-            pass
+        # Always clear must_change_password for exec accounts — they manage
+        # their own passwords and must never be locked out by this flag.
+        if existing_exec.get("must_change_password"):
+            update["must_change_password"] = False
         if update:
             await db.users.update_one({"email": EXEC_ADMIN_EMAIL}, {"$set": update})
             logger.info("Bootstrapped %s: %s", EXEC_ADMIN_EMAIL, update)
@@ -585,7 +582,7 @@ async def seed_users():
             "role": "executive_admin",
             "associate": None,
             "is_active": True,
-            "must_change_password": True,  # force rotation on first login
+            "must_change_password": False,
             "created_at": datetime.now(timezone.utc).isoformat(),
             "password_hash": hash_pw(EXEC_DEFAULT_PASSWORD),
         })
@@ -601,11 +598,8 @@ async def seed_users():
             update["role"] = "executive_admin"
         if existing_backup.get("is_active") is False:
             update["is_active"] = True
-        try:
-            if verify_pw(BACKUP_EXEC_DEFAULT_PASSWORD, existing_backup.get("password_hash", "")):
-                update["must_change_password"] = True
-        except Exception:
-            pass
+        if existing_backup.get("must_change_password"):
+            update["must_change_password"] = False
         if update:
             await db.users.update_one({"email": BACKUP_EXEC_EMAIL}, {"$set": update})
             logger.info("Bootstrapped backup exec %s: %s", BACKUP_EXEC_EMAIL, update)
@@ -617,7 +611,7 @@ async def seed_users():
             "role": "executive_admin",
             "associate": None,
             "is_active": True,
-            "must_change_password": True,
+            "must_change_password": False,
             "created_at": datetime.now(timezone.utc).isoformat(),
             "password_hash": hash_pw(BACKUP_EXEC_DEFAULT_PASSWORD),
         })
@@ -1109,7 +1103,9 @@ async def exec_system_info(user: User = Depends(require_role("executive_admin"))
 
 @api_router.post("/auth/change-password")
 async def change_password(body: ChangePasswordReq, user: User = Depends(current_user)):
-    """Any authenticated user can change their own password."""
+    """Any authenticated user can change their own password.
+    Returns a fresh token + updated user so the client can update its cache
+    immediately without relying on a follow-up /auth/me call."""
     if len(body.new_password) < 6:
         raise HTTPException(400, "Password must be at least 6 characters")
     doc = await db.users.find_one({"id": user.id}, {"_id": 0})
@@ -1117,10 +1113,19 @@ async def change_password(body: ChangePasswordReq, user: User = Depends(current_
         raise HTTPException(401, "Current password is incorrect")
     await db.users.update_one({"id": user.id}, {"$set": {
         "password_hash": hash_pw(body.new_password),
-        "must_change_password": False,  # cleared on self-change
+        "must_change_password": False,
     }})
     await audit(user.id, "auth.password_changed")
-    return {"ok": True}
+    # Fetch fresh user doc (must_change_password now False) and issue new token
+    fresh_doc = await db.users.find_one({"id": user.id}, {"_id": 0, "password_hash": 0})
+    if fresh_doc and isinstance(fresh_doc.get("created_at"), str):
+        fresh_doc["created_at"] = datetime.fromisoformat(fresh_doc["created_at"])
+    fresh_user = User(**(fresh_doc or {}))
+    return {
+        "ok": True,
+        "access_token": make_token(fresh_user.id, fresh_user.role),
+        "user": fresh_user.model_dump(),
+    }
 
 
 @api_router.patch("/auth/me", response_model=User)
