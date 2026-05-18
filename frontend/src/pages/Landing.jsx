@@ -28,7 +28,7 @@ export default function Landing() {
             </Link>
             {/* M.O.R.E. — prominent nav button */}
             <Link
-              to="/register"
+              to="/more"
               className="flex items-center gap-2 px-4 py-2 font-bold text-sm uppercase tracking-widest text-ink border-2 border-copper hover:bg-copper transition-colors"
               data-testid="link-more-nav"
             >
@@ -110,7 +110,7 @@ export default function Landing() {
             </p>
             <div className="mt-8">
               <Link
-                to="/register"
+                to="/more"
                 className="inline-flex items-center gap-3 bg-ink text-white font-bold text-xl uppercase tracking-widest px-12 py-6 hover:bg-ink/80 transition-colors"
                 data-testid="btn-more-main"
               >
@@ -121,35 +121,15 @@ export default function Landing() {
             </div>
           </div>
 
-          {/* Feature cards — community + legal inside one section */}
+          {/* Feature cards — each links directly to its destination */}
           <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4 mt-4">
             {[
-              {
-                icon: HandHelping,
-                title: "Community Exchange",
-                desc: "Offer skills, ask for help, share stories. Neighbors helping neighbors — no money, no exploitation.",
-                tag: "Free · AI-Moderated",
-              },
-              {
-                icon: MessageSquare,
-                title: "Safe Community Chat",
-                desc: "60-minute privacy rooms for real conversations. Auto-purge means no permanent record.",
-                tag: "Auto-Purge · Private",
-              },
-              {
-                icon: Scale,
-                title: "Legal Aid Tool",
-                desc: "Universal Litigation Weapon — EEOC filings, federal court docs, damages calculator, evidence checklist. Know your rights.",
-                tag: "Built-In · Free",
-              },
-              {
-                icon: HelpCircle,
-                title: "Personal Help Center",
-                desc: "Plain-language help with letters, bills, eviction notices, medical bills, employment rights. Ask in your own words.",
-                tag: "No Forms · Instant",
-              },
+              { icon: HandHelping, title: "Community Exchange", desc: "Offer skills, ask for help, share stories. Neighbors helping neighbors — no money, no exploitation.", tag: "Free · AI-Moderated", to: "/more" },
+              { icon: MessageSquare, title: "Safe Community Chat", desc: "60-minute privacy rooms for real conversations. Auto-purge means no permanent record.", tag: "Auto-Purge · Private", to: "/more" },
+              { icon: Scale, title: "Legal Aid Tool", desc: "Universal Litigation Weapon — EEOC filings, federal court docs, damages calculator, evidence checklist.", tag: "Built-In · Free", to: "/more/litigation" },
+              { icon: HelpCircle, title: "Personal Help Center", desc: "Plain-language help with letters, bills, eviction notices, medical bills, employment rights.", tag: "No Forms · Instant", to: "/helper" },
             ].map(f => (
-              <div key={f.title} className="bg-ink text-white p-6 flex flex-col gap-3">
+              <Link key={f.title} to={f.to} className="bg-ink text-white p-6 flex flex-col gap-3 hover:bg-ink/80 transition-colors group">
                 <div className="w-10 h-10 bg-copper flex items-center justify-center shrink-0">
                   <f.icon className="w-5 h-5 text-ink" />
                 </div>
@@ -158,7 +138,10 @@ export default function Landing() {
                   <div className="text-xs text-signal font-bold uppercase tracking-widest mt-1">{f.tag}</div>
                 </div>
                 <p className="text-white/70 text-sm leading-relaxed flex-1">{f.desc}</p>
-              </div>
+                <div className="flex items-center gap-1 text-copper text-xs font-bold mt-auto pt-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                  Open <ArrowRight className="w-3 h-3" />
+                </div>
+              </Link>
             ))}
           </div>
         </div>

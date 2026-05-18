@@ -3986,7 +3986,6 @@ async def more_list_posts(
     category: Optional[str] = None,
     skip: int = 0,
     limit: int = 20,
-    user=Depends(current_user),
 ):
     now = datetime.now(timezone.utc).isoformat()
     query: dict = {"expires_at": {"$gt": now}}
@@ -4032,7 +4031,6 @@ async def more_list_needs(
     status: str = "open",
     skip: int = 0,
     limit: int = 20,
-    user=Depends(current_user),
 ):
     now = datetime.now(timezone.utc).isoformat()
     query: dict = {"expires_at": {"$gt": now}, "status": status}
