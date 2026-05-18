@@ -34,6 +34,10 @@ import ResetPassword from "./pages/ResetPassword";
 import NotFound from "./pages/NotFound";
 import SageAudit from "./pages/SageAudit";
 import OrchestratorChat from "./pages/OrchestratorChat";
+import More from "./pages/More";
+import MoreChat from "./pages/MoreChat";
+import MoreAdmin from "./pages/MoreAdmin";
+import LitigationWeapon from "./pages/LitigationWeapon";
 import DirectorWidget from "./components/DirectorWidget";
 import Helper from "./pages/Helper";
 
@@ -108,6 +112,12 @@ function App() {
           <Route path="/admin/system" element={<Protected roles={["executive_admin"]}><ExecSystem /></Protected>} />
           <Route path="/admin/sage-audit" element={<Protected roles={["executive_admin"]}><SageAudit /></Protected>} />
           <Route path="/council" element={<Protected><OrchestratorChat /></Protected>} />
+          {/* M.O.R.E. — Michael Oliver Resource Exchange */}
+          <Route path="/more" element={<Protected><More /></Protected>} />
+          <Route path="/more/chat" element={<Protected><MoreChat /></Protected>} />
+          <Route path="/more/chat/:roomId" element={<Protected><MoreChat /></Protected>} />
+          <Route path="/more/litigation" element={<Protected><LitigationWeapon /></Protected>} />
+          <Route path="/more/admin" element={<Protected roles={["admin"]}><MoreAdmin /></Protected>} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>

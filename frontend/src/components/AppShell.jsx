@@ -1,7 +1,7 @@
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../lib/auth";
 import { WAI_LOGO, BRAND } from "../lib/brand";
-import { LayoutDashboard, BookOpen, Award, Users, Settings, Sparkles, LogOut, FlaskConical, Target, ClipboardCheck, Briefcase, BadgeCheck, Brain, ShieldCheck, Building2, TrendingUp, ScrollText, Calendar, ShieldAlert, KeyRound, Crown, Compass, HelpCircle, Layers } from "lucide-react";
+import { LayoutDashboard, BookOpen, Award, Users, Settings, Sparkles, LogOut, FlaskConical, Target, ClipboardCheck, Briefcase, BadgeCheck, Brain, ShieldCheck, Building2, TrendingUp, ScrollText, Calendar, ShieldAlert, KeyRound, Crown, Compass, HelpCircle, Layers, HandHelping, Scale } from "lucide-react";
 import NotificationBell from "./NotificationBell";
 
 const studentNav = [
@@ -16,6 +16,8 @@ const studentNav = [
   { to: "/incidents", label: "Report Incident", icon: ShieldAlert, testid: "nav-incidents" },
   { to: "/ai", label: "AI Tutor", icon: Sparkles, testid: "nav-ai" },
   { to: "/council", label: "Council (Sage)", icon: Layers, testid: "nav-council" },
+  { to: "/more", label: "M.O.R.E.", icon: HandHelping, testid: "nav-more" },
+  { to: "/more/litigation", label: "Legal Help Tool", icon: Scale, testid: "nav-litigation" },
   { to: "/certificates", label: "Certificates", icon: Award, testid: "nav-certs" },
   { to: "/settings", label: "Settings", icon: KeyRound, testid: "nav-settings" },
 ];
@@ -30,6 +32,8 @@ const instructorNav = [
   { to: "/labs", label: "Apprentice Labs", icon: FlaskConical, testid: "nav-labs" },
   { to: "/ai", label: "AI Tutor", icon: Sparkles, testid: "nav-ai" },
   { to: "/council", label: "Council (Sage)", icon: Layers, testid: "nav-council" },
+  { to: "/more", label: "M.O.R.E.", icon: HandHelping, testid: "nav-more" },
+  { to: "/more/litigation", label: "Legal Help Tool", icon: Scale, testid: "nav-litigation" },
   { to: "/settings", label: "Settings", icon: KeyRound, testid: "nav-settings" },
 ];
 
@@ -47,6 +51,8 @@ const adminNav = [
   { to: "/labs", label: "Apprentice Labs", icon: FlaskConical, testid: "nav-labs" },
   { to: "/ai", label: "AI Tutor", icon: Sparkles, testid: "nav-ai" },
   { to: "/council", label: "Council (Sage)", icon: Layers, testid: "nav-council" },
+  { to: "/more", label: "M.O.R.E.", icon: HandHelping, testid: "nav-more" },
+  { to: "/more/admin", label: "M.O.R.E. Admin", icon: Scale, testid: "nav-more-admin" },
   { to: "/settings", label: "Settings", icon: KeyRound, testid: "nav-settings" },
 ];
 

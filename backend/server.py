@@ -661,6 +661,17 @@ async def ensure_indexes():
                                            partialFilterExpression={"expires_at": {"$exists": True}})
         # Sage v4 stability: ai_consents lookup by latest record per user+persona.
         await db.ai_consents.create_index([("user_id", 1), ("persona", 1), ("created_at", -1)])
+        # M.O.R.E. indexes — expires_at for fast purge queries, category for filtering
+        await db.more_posts.create_index("expires_at")
+        await db.more_posts.create_index("category")
+        await db.more_posts.create_index([("created_at", -1)])
+        await db.more_needs.create_index("expires_at")
+        await db.more_needs.create_index("status")
+        await db.more_needs.create_index([("created_at", -1)])
+        await db.more_chats.create_index("expires_at")
+        await db.more_chats.create_index("session_id")
+        await db.more_flags.create_index("expires_at")
+        await db.more_flags.create_index("status")
         logger.info("Indexes ensured")
     except Exception:
         logger.exception("ensure_indexes failed (non-fatal)")
@@ -3845,6 +3856,268 @@ async def program_analytics(user: User = Depends(require_role("admin"))):
         "weakest_competencies": weakest_named,
         "module_completion_rates": mod_completions,
     }
+
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# M.O.R.E. — Michael Oliver Resource Exchange
+# Community-powered mutual aid platform: posts, needs, skill swaps, chat
+# AI Moderation: Oliver Guardian (sarcastic first-line moderator)
+# Auto-purge: posts 30 days, chats 60 minutes
+# ─────────────────────────────────────────────────────────────────────────────
+
+_OLIVER_GUARDIAN_PROMPT = """You are The Oliver Guardian — the first-line AI moderator for M.O.R.E. (Michael Oliver Resource Exchange), a community mutual aid platform.
+
+Your mission: protect the community with wit, firmness, and zero tolerance for exploitation.
+
+PLATFORM RULES — these are absolute:
+- NO money, payments, or financial transactions of any kind
+- NO personal contact info (phone numbers, addresses, email, social media handles)
+- NO illegal items, services, or activities
+- NO harassment, threats, or intimidation
+- NO sexual content of any kind
+- NO discrimination based on race, age, disability, or any protected class
+- NO scams, fake offers, or deceptive content
+- NO medical advice or emergency instructions
+- NO exploitation of elders, youth, or vulnerable people
+- NO hate speech
+
+ALLOWED CONTENT:
+- Skill offers (teaching, tutoring, mentoring)
+- Needs requests (help moving, transportation, meals, companionship, household tasks)
+- Community support stories
+- Trade of time and skills (no money)
+- Legitimate community information and events
+
+MODERATION TASK:
+Analyze the submitted content and respond with a JSON object:
+{
+  "decision": "approve" | "warn" | "block",
+  "reason": "brief explanation (1-2 sentences)",
+  "oliver_response": "if warn or block, your sarcastic-but-firm message to the user (1-2 sentences, Oliver Guardian voice)"
+}
+
+Oliver Guardian voice: sarcastic, witty, firm — not cruel, but absolutely clear. Think: a wise older uncle who has seen every trick in the book and will not be fooled.
+
+Examples:
+- Money attempt: "Ah yes, the ancient art of trying to sneak money into a no-money platform. Bold. Incorrect, but bold."
+- Harassment: "Let's try that again, but this time without the attitude. Community space, not a boxing ring."
+- Scam attempt: "Friend, if this were any more of a scam it would come with a Nigerian prince. Blocked."
+
+Only output the JSON object. No other text."""
+
+
+async def _oliver_moderate(content: str) -> dict:
+    """Run Oliver Guardian AI moderation on submitted content."""
+    import anthropic
+    try:
+        aclient = anthropic.AsyncAnthropic(api_key=ANTHROPIC_API_KEY)
+        resp = await aclient.messages.create(
+            model="claude-sonnet-4-6",
+            max_tokens=512,
+            system=_OLIVER_GUARDIAN_PROMPT,
+            messages=[{"role": "user", "content": f"Content to moderate:\n\n{content}"}],
+        )
+        import json as _json
+        raw = resp.content[0].text.strip()
+        return _json.loads(raw)
+    except Exception as e:
+        logger.warning(f"Oliver Guardian moderation failed: {e}")
+        return {"decision": "approve", "reason": "moderation unavailable", "oliver_response": None}
+
+
+# ─── M.O.R.E. Pydantic Models ────────────────────────────────────────────────
+
+class MorePostReq(BaseModel):
+    content: str
+    category: Literal["skill_offer", "need", "community", "story"] = "community"
+
+class MoreNeedReq(BaseModel):
+    title: str
+    description: str
+    category: str = "general"
+
+class MoreChatReq(BaseModel):
+    session_id: str
+    message: str
+
+class MoreFlagReq(BaseModel):
+    target_id: str
+    target_type: Literal["post", "need", "chat"]
+    reason: str
+
+
+# ─── M.O.R.E. Endpoints ──────────────────────────────────────────────────────
+
+@api_router.post("/more/post")
+async def more_create_post(req: MorePostReq, user=Depends(current_user)):
+    if not req.content.strip():
+        raise HTTPException(400, "Content cannot be empty")
+    if len(req.content) > 2000:
+        raise HTTPException(400, "Content too long (max 2000 chars)")
+
+    moderation = await _oliver_moderate(req.content)
+    decision = moderation.get("decision", "approve")
+
+    if decision == "block":
+        raise HTTPException(400, moderation.get("oliver_response") or "Content violates community guidelines.")
+
+    expires_at = (datetime.now(timezone.utc) + timedelta(days=30)).isoformat()
+    post_doc = {
+        "id": str(uuid.uuid4()),
+        "content": req.content,
+        "category": req.category,
+        "author_id": user["id"],
+        "author_name": user["full_name"],
+        "status": "active" if decision == "approve" else "warned",
+        "moderation_note": moderation.get("reason"),
+        "oliver_response": moderation.get("oliver_response") if decision == "warn" else None,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+        "expires_at": expires_at,
+        "likes": 0,
+    }
+    await db.more_posts.insert_one(post_doc)
+    post_doc.pop("_id", None)
+    return {"post": post_doc, "oliver_response": post_doc.get("oliver_response")}
+
+
+@api_router.get("/more/posts")
+async def more_list_posts(
+    category: Optional[str] = None,
+    skip: int = 0,
+    limit: int = 20,
+    user=Depends(current_user),
+):
+    now = datetime.now(timezone.utc).isoformat()
+    query: dict = {"expires_at": {"$gt": now}}
+    if category:
+        query["category"] = category
+    cursor = db.more_posts.find(query, {"_id": 0}).sort("created_at", -1).skip(skip).limit(limit)
+    posts = await cursor.to_list(limit)
+    total = await db.more_posts.count_documents(query)
+    return {"posts": posts, "total": total}
+
+
+@api_router.post("/more/need")
+async def more_create_need(req: MoreNeedReq, user=Depends(current_user)):
+    combined = f"{req.title}\n{req.description}"
+    moderation = await _oliver_moderate(combined)
+    decision = moderation.get("decision", "approve")
+
+    if decision == "block":
+        raise HTTPException(400, moderation.get("oliver_response") or "Content violates community guidelines.")
+
+    expires_at = (datetime.now(timezone.utc) + timedelta(days=30)).isoformat()
+    need_doc = {
+        "id": str(uuid.uuid4()),
+        "title": req.title,
+        "description": req.description,
+        "category": req.category,
+        "author_id": user["id"],
+        "author_name": user["full_name"],
+        "status": "open",
+        "moderation_note": moderation.get("reason"),
+        "created_at": datetime.now(timezone.utc).isoformat(),
+        "expires_at": expires_at,
+        "responses": 0,
+    }
+    await db.more_needs.insert_one(need_doc)
+    need_doc.pop("_id", None)
+    return {"need": need_doc, "oliver_response": moderation.get("oliver_response") if decision == "warn" else None}
+
+
+@api_router.get("/more/needs")
+async def more_list_needs(
+    category: Optional[str] = None,
+    status: str = "open",
+    skip: int = 0,
+    limit: int = 20,
+    user=Depends(current_user),
+):
+    now = datetime.now(timezone.utc).isoformat()
+    query: dict = {"expires_at": {"$gt": now}, "status": status}
+    if category:
+        query["category"] = category
+    cursor = db.more_needs.find(query, {"_id": 0}).sort("created_at", -1).skip(skip).limit(limit)
+    needs = await cursor.to_list(limit)
+    total = await db.more_needs.count_documents(query)
+    return {"needs": needs, "total": total}
+
+
+@api_router.post("/more/chat/send")
+async def more_chat_send(req: MoreChatReq, user=Depends(current_user)):
+    if not req.message.strip():
+        raise HTTPException(400, "Message cannot be empty")
+    if len(req.message) > 1000:
+        raise HTTPException(400, "Message too long (max 1000 chars)")
+
+    moderation = await _oliver_moderate(req.message)
+    if moderation.get("decision") == "block":
+        raise HTTPException(400, moderation.get("oliver_response") or "Message violates community guidelines.")
+
+    expires_at = (datetime.now(timezone.utc) + timedelta(minutes=60)).isoformat()
+    msg_doc = {
+        "id": str(uuid.uuid4()),
+        "session_id": req.session_id,
+        "content": req.message,
+        "author_id": user["id"],
+        "author_name": user["full_name"],
+        "created_at": datetime.now(timezone.utc).isoformat(),
+        "expires_at": expires_at,
+    }
+    await db.more_chats.insert_one(msg_doc)
+    msg_doc.pop("_id", None)
+    return {"message": msg_doc, "oliver_response": moderation.get("oliver_response") if moderation.get("decision") == "warn" else None}
+
+
+@api_router.get("/more/chat/{session_id}")
+async def more_chat_get(session_id: str, user=Depends(current_user)):
+    now = datetime.now(timezone.utc).isoformat()
+    cursor = db.more_chats.find(
+        {"session_id": session_id, "expires_at": {"$gt": now}},
+        {"_id": 0}
+    ).sort("created_at", 1).limit(200)
+    messages = await cursor.to_list(200)
+    return {"messages": messages, "session_id": session_id}
+
+
+@api_router.post("/more/flag")
+async def more_flag_content(req: MoreFlagReq, user=Depends(current_user)):
+    flag_doc = {
+        "id": str(uuid.uuid4()),
+        "target_id": req.target_id,
+        "target_type": req.target_type,
+        "reason": req.reason,
+        "flagged_by": user["id"],
+        "created_at": datetime.now(timezone.utc).isoformat(),
+        "expires_at": (datetime.now(timezone.utc) + timedelta(days=90)).isoformat(),
+        "status": "pending",
+    }
+    await db.more_flags.insert_one(flag_doc)
+    flag_doc.pop("_id", None)
+    return {"flag": flag_doc}
+
+
+@api_router.post("/more/purge")
+async def more_manual_purge(user=Depends(current_user)):
+    require_role(user, "admin")
+    now = datetime.now(timezone.utc).isoformat()
+    r1 = await db.more_posts.delete_many({"expires_at": {"$lte": now}})
+    r2 = await db.more_chats.delete_many({"expires_at": {"$lte": now}})
+    r3 = await db.more_flags.delete_many({"expires_at": {"$lte": now}})
+    await audit(user["id"], "more.purge", meta={
+        "posts": r1.deleted_count, "chats": r2.deleted_count, "flags": r3.deleted_count
+    })
+    return {"purged": {"posts": r1.deleted_count, "chats": r2.deleted_count, "flags": r3.deleted_count}}
+
+
+@api_router.get("/more/admin/flags")
+async def more_admin_flags(user=Depends(current_user), skip: int = 0, limit: int = 50):
+    require_role(user, "admin")
+    cursor = db.more_flags.find({"status": "pending"}, {"_id": 0}).sort("created_at", -1).skip(skip).limit(limit)
+    flags = await cursor.to_list(limit)
+    total = await db.more_flags.count_documents({"status": "pending"})
+    return {"flags": flags, "total": total}
 
 
 app.include_router(api_router)

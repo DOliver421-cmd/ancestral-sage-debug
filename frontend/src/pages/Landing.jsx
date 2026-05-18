@@ -1,6 +1,6 @@
 import { Link } from "react-router-dom";
 import { WAI_LOGO, BRAND } from "../lib/brand";
-import { ShieldCheck, BookOpen, Sun, Award, Wrench, ArrowRight, HelpCircle } from "lucide-react";
+import { ShieldCheck, BookOpen, Sun, Award, Wrench, ArrowRight, HelpCircle, HandHelping, Scale } from "lucide-react";
 
 const HERO = "https://placehold.co/1200x600/0A1628/C9A84C?text=WAI+Institute";
 const LAB = "https://placehold.co/800x500/0A1628/C9A84C?text=Apprentice+Labs";
@@ -102,6 +102,44 @@ export default function Landing() {
               <div className="text-sm text-ink/70 mt-2 leading-relaxed">{p.d}</div>
             </div>
           ))}
+        </div>
+      </section>
+
+      {/* M.O.R.E. Banner */}
+      <section className="border-y border-ink/10">
+        <div className="max-w-7xl mx-auto px-6 py-14 grid md:grid-cols-2 gap-8">
+          {/* M.O.R.E. */}
+          <div className="flex items-start gap-5">
+            <div className="w-14 h-14 shrink-0 bg-copper flex items-center justify-center">
+              <HandHelping className="w-7 h-7 text-white" />
+            </div>
+            <div>
+              <div className="overline text-copper">Community · Free · No Judgment</div>
+              <h2 className="font-heading text-2xl font-bold mt-1">M.O.R.E.</h2>
+              <p className="text-ink/70 text-sm mt-2 max-w-sm leading-relaxed">
+                Michael Oliver Resource Exchange — trade skills, time, and support with your community. No money, no exploitation, AI-moderated safety.
+              </p>
+              <Link to="/register" className="mt-4 inline-flex items-center gap-2 btn-copper text-sm">
+                Join M.O.R.E. <ArrowRight className="w-4 h-4" />
+              </Link>
+            </div>
+          </div>
+          {/* Litigation Weapon */}
+          <div className="flex items-start gap-5">
+            <div className="w-14 h-14 shrink-0 bg-ink flex items-center justify-center">
+              <Scale className="w-7 h-7 text-signal" />
+            </div>
+            <div>
+              <div className="overline text-signal">Know Your Rights · Free Tool</div>
+              <h2 className="font-heading text-2xl font-bold mt-1">Legal Help Tool</h2>
+              <p className="text-ink/70 text-sm mt-2 max-w-sm leading-relaxed">
+                Universal Litigation Weapon — understand discrimination law, build evidence checklists, calculate damages, generate EEOC and federal court documents.
+              </p>
+              <Link to="/register" className="mt-4 inline-flex items-center gap-2 btn-ghost text-sm border-ink">
+                Access Tool <ArrowRight className="w-4 h-4" />
+              </Link>
+            </div>
+          </div>
         </div>
       </section>
 

@@ -1,0 +1,1355 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>HYPOTHETICAL LAWYER — Case Weapon System v3.0</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+--bg:#0a0a0a;--card:#1a1a2e;--card2:#16213e;--accent:#e94560;--accent2:#0f3460;--gold:#ffd700;--text:#eaeaea;--text2:#a0a0a0;--green:#00c853;--red:#ff1744;--blue:#2979ff;--white:#ffffff
+}
+body{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;background:var(--bg);color:var(--text);min-height:100vh;overflow-x:hidden}
+.header{background:linear-gradient(135deg,var(--accent2),var(--accent));padding:20px;text-align:center;border-bottom:3px solid var(--gold);position:sticky;top:0;z-index:1000;box-shadow:0 4px 20px rgba(0,0,0,0.5)}
+.header h1{font-size:clamp(1.2rem,4vw,2rem);color:var(--gold);text-transform:uppercase;letter-spacing:3px}
+.header p{font-size:clamp(0.7rem,2vw,0.9rem);color:var(--text2);margin-top:5px}
+.nav-bar{display:flex;flex-wrap:wrap;justify-content:center;gap:8px;padding:15px;background:var(--card);border-bottom:2px solid var(--accent2)}
+.nav-btn{padding:12px 20px;background:var(--card2);color:var(--text);border:2px solid var(--accent2);border-radius:10px;cursor:pointer;font-size:clamp(0.75rem,2vw,0.95rem);font-weight:bold;transition:all 0.3s;text-transform:uppercase;letter-spacing:1px}
+.nav-btn:hover,.nav-btn.active{background:var(--accent);color:var(--white);border-color:var(--accent);transform:scale(1.05);box-shadow:0 0 20px rgba(233,69,96,0.4)}
+.container{max-width:1200px;margin:0 auto;padding:20px}
+.section{display:none;animation:fadeIn 0.5s ease}
+.section.active{display:block}
+@keyframes fadeIn{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
+.card{background:var(--card);border:1px solid var(--accent2);border-radius:15px;padding:25px;margin-bottom:20px;box-shadow:0 4px 15px rgba(0,0,0,0.3)}
+.card h2{color:var(--gold);font-size:clamp(1rem,3vw,1.4rem);margin-bottom:15px;border-bottom:2px solid var(--accent);padding-bottom:10px;text-transform:uppercase;letter-spacing:2px}
+.card h3{color:var(--accent);font-size:clamp(0.85rem,2.5vw,1.1rem);margin:15px 0 10px}
+.card p,.card li{font-size:clamp(0.8rem,2vw,0.95rem);line-height:1.7;color:var(--text2);margin-bottom:8px}
+.card ul{list-style:none;padding-left:0}
+.card ul li{padding:8px 0 8px 25px;position:relative}
+.card ul li:before{content:"➤";position:absolute;left:5px;color:var(--accent)}
+.big-btn{display:inline-block;padding:15px 30px;background:linear-gradient(135deg,var(--accent),var(--accent2));color:var(--white);border:none;border-radius:12px;font-size:clamp(0.9rem,2.5vw,1.1rem);font-weight:bold;cursor:pointer;transition:all 0.3s;text-transform:uppercase;letter-spacing:2px;margin:8px;text-decoration:none}
+.big-btn:hover{transform:scale(1.08);box-shadow:0 0 30px rgba(233,69,96,0.5)}
+.big-btn.green{background:linear-gradient(135deg,var(--green),#009624)}
+.big-btn.blue{background:linear-gradient(135deg,var(--blue),#0050c8)}
+.big-btn.gold{background:linear-gradient(135deg,var(--gold),#ff8f00);color:#000}
+.input-group{margin:15px 0}
+.input-group label{display:block;color:var(--gold);font-weight:bold;margin-bottom:8px;font-size:clamp(0.8rem,2vw,0.95rem)}
+.input-group input,.input-group select,.input-group textarea{width:100%;padding:14px;background:var(--card2);border:2px solid var(--accent2);border-radius:10px;color:var(--text);font-size:clamp(0.85rem,2vw,1rem);outline:none;transition:border 0.3s}
+.input-group input:focus,.input-group select:focus,.input-group textarea:focus{border-color:var(--accent);box-shadow:0 0 10px rgba(233,69,96,0.3)}
+.input-group textarea{min-height:120px;resize:vertical}
+.dropdown-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;margin:15px 0}
+.dropdown-item{background:var(--card2);border:2px solid var(--accent2);border-radius:10px;padding:15px;cursor:pointer;transition:all 0.3s}
+.dropdown-item:hover{border-color:var(--accent);background:var(--accent2)}
+.dropdown-item.selected{border-color:var(--gold);background:rgba(255,215,0,0.1)}
+.dropdown-item h4{color:var(--accent);margin-bottom:5px}
+.dropdown-item p{font-size:0.8rem;color:var(--text2)}
+.calc-result{background:var(--card2);border:2px solid var(--green);border-radius:10px;padding:20px;margin-top:15px;text-align:center;display:none}
+.calc-result.show{display:block;animation:fadeIn 0.5s}
+.calc-result .amount{font-size:clamp(1.5rem,5vw,2.5rem);color:var(--gold);font-weight:bold}
+.strategy-tree{display:flex;flex-direction:column;gap:10px;margin:15px 0}
+.strategy-node{background:var(--card2);border-left:4px solid var(--accent);padding:15px;border-radius:0 10px 10px 0;cursor:pointer;transition:all 0.3s}
+.strategy-node:hover{background:var(--accent2);transform:translateX(5px)}
+.strategy-node.step1{border-left-color:var(--blue)}
+.strategy-node.step2{border-left-color:var(--green)}
+.strategy-node.step3{border-left-color:var(--gold)}
+.strategy-node.step4{border-left-color:var(--accent)}
+.evidence-check{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:12px;margin:15px 0}
+.evidence-item{background:var(--card2);border:2px solid var(--accent2);border-radius:10px;padding:15px;display:flex;align-items:flex-start;gap:12px;cursor:pointer;transition:all 0.3s}
+.evidence-item:hover{border-color:var(--green)}
+.evidence-item.checked{border-color:var(--green);background:rgba(0,200,83,0.1)}
+.evidence-item .check{width:28px;height:28px;border-radius:50%;border:2px solid var(--accent2);display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:1.2rem;transition:all 0.3s}
+.evidence-item.checked .check{background:var(--green);border-color:var(--green);color:var(--white)}
+.evidence-item h4{color:var(--text);font-size:0.9rem;margin-bottom:4px}
+.evidence-item p{font-size:0.75rem;color:var(--text2)}
+.doc-output{background:var(--card2);border:2px solid var(--gold);border-radius:10px;padding:20px;margin-top:15px;display:none;max-height:400px;overflow-y:auto;white-space:pre-wrap;font-family:'Courier New',monospace;font-size:0.85rem;color:var(--text)}
+.doc-output.show{display:block;animation:fadeIn 0.5s}
+.tab-bar{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:20px}
+.tab-btn{padding:10px 20px;background:var(--card2);color:var(--text2);border:2px solid transparent;border-radius:8px;cursor:pointer;font-size:0.85rem;font-weight:bold;transition:all 0.3s}
+.tab-btn.active{background:var(--accent);color:var(--white);border-color:var(--accent)}
+.tab-content{display:none}
+.tab-content.active{display:block}
+.stat-box{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin:15px 0}
+.stat-item{background:var(--card2);border-radius:10px;padding:15px;text-align:center;border:2px solid var(--accent2)}
+.stat-item .num{font-size:clamp(1.2rem,4vw,1.8rem);color:var(--gold);font-weight:bold}
+.stat-item .label{font-size:0.75rem;color:var(--text2);margin-top:5px}
+.progress-bar{width:100%;height:20px;background:var(--card2);border-radius:10px;overflow:hidden;margin:10px 0}
+.progress-fill{height:100%;background:linear-gradient(90deg,var(--accent),var(--gold));border-radius:10px;transition:width 0.5s;display:flex;align-items:center;justify-content:center;font-size:0.7rem;font-weight:bold;color:#000}
+.footer{text-align:center;padding:30px;color:var(--text2);font-size:0.8rem;border-top:2px solid var(--accent2);margin-top:40px}
+.footer a{color:var(--accent);text-decoration:none}
+.modal-overlay{display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.8);z-index:2000;justify-content:center;align-items:center;padding:20px}
+.modal-overlay.show{display:flex}
+.modal{background:var(--card);border:2px solid var(--gold);border-radius:15px;padding:30px;max-width:700px;width:100%;max-height:80vh;overflow-y:auto}
+.modal h2{color:var(--gold);margin-bottom:15px}
+.modal .close-btn{float:right;background:var(--accent);color:var(--white);border:none;border-radius:50%;width:35px;height:35px;font-size:1.2rem;cursor:pointer;font-weight:bold}
+.save-indicator{position:fixed;bottom:20px;right:20px;background:var(--green);color:var(--white);padding:10px 20px;border-radius:10px;font-weight:bold;display:none;z-index:1500;animation:fadeIn 0.3s}
+.save-indicator.show{display:block}
+@media(max-width:600px){.big-btn{padding:12px 20px;font-size:0.85rem;margin:5px}.nav-btn{padding:10px 14px;font-size:0.7rem}.card{padding:15px}}
+</style>
+</head>
+<body>
+
+<div class="header">
+<h1>⚖️ HYPOTHETICAL LAWYER</h1>
+<p>Pro Bono — Zero Cost — 100% To The Victims — Every Dollar To The Reparations Trust</p>
+</div>
+
+<div class="nav-bar">
+<button class="nav-btn active" onclick="showSection('home')">🏠 HOME</button>
+<button class="nav-btn" onclick="showSection('casetype')">📋 CASE TYPE</button>
+<button class="nav-btn" onclick="showSection('strategy')">🎯 STRATEGY</button>
+<button class="nav-btn" onclick="showSection('evidence')">📁 EVIDENCE</button>
+<button class="nav-btn" onclick="showSection('calculator')">📊 CALCULATOR</button>
+<button class="nav-btn" onclick="showSection('generator')">📝 GENERATOR</button>
+<button class="nav-btn" onclick="showSection('protect')">🛡️ PROTECT</button>
+<button class="nav-btn" onclick="showSection('nuclear')">💣 NUCLEAR</button>
+</div>
+
+<div class="container">
+
+<!-- ==================== HOME ==================== -->
+<div id="home" class="section active">
+<div class="card">
+<h2>🚨 WELCOME — THIS IS YOUR WEAPON</h2>
+<p>You're not just suing for what happened to you. You're suing for every Black man who lives like this every single day. Every traffic stop. Every denied promotion. Every apartment you couldn't rent. Every loan that cost more. Every night you couldn't sleep.</p>
+<p><strong>The law is on your side. The data is on your side. The history is on your side.</strong></p>
+<p>This tool gives you EVERYTHING: strategy, evidence checklists, damage calculators, document generators, and nuclear options. <strong>Everything works offline. Zero internet needed. Save your progress.</strong></p>
+</div>
+
+<div class="stat-box">
+<div class="stat-item"><div class="num">6</div><div class="label">Causes of Action</div></div>
+<div class="stat-item"><div class="num">75%</div><div class="label">Black Purge Rate</div></div>
+<div class="stat-item"><div class="num">$6.5M</div><div class="label">Max Per Plaintiff</div></div>
+<div class="stat-item"><div class="num">$500M+</div><div class="label">Class Settlement</div></div>
+</div>
+
+<div style="text-align:center;margin:30px 0">
+<button class="big-btn" onclick="showSection('casetype')">🚀 START YOUR CASE</button>
+<button class="big-btn green" onclick="showSection('calculator')">💰 CALCULATE YOUR DAMAGES</button>
+<button class="big-btn blue" onclick="showSection('generator')">📝 GENERATE DOCUMENTS</button>
+</div>
+
+<div class="card">
+<h2>📦 WHAT YOU NEED (PORTABLE)</h2>
+<div class="dropdown-grid">
+<div class="dropdown-item">
+<h4>🦊 Portable Firefox</h4>
+<p>From PortableApps.com — runs this file perfectly</p>
+</div>
+<div class="dropdown-item">
+<h4>📄 SumatraPDF Portable</h4>
+<p>Opens every document this tool generates</p>
+</div>
+<div class="dropdown-item">
+<h4>✏️ Notepad++ Portable</h4>
+<p>Edit your facts and save them</p>
+</div>
+</div>
+<p style="margin-top:15px;color:var(--green);font-weight:bold">✅ THIS FILE WORKS ON ANY BROWSER — NO DOWNLOAD NEEDED. BUT PORTABLE APPS MAKE IT USB-READY.</p>
+</div>
+</div>
+
+<!-- ==================== CASE TYPE ==================== -->
+<div id="casetype" class="section">
+<div class="card">
+<h2>📋 SELECT YOUR CASE TYPE</h2>
+<p>Choose the type of harm you're fighting. You can combine multiple types — the tool adapts.</p>
+
+<div class="dropdown-grid">
+<div class="dropdown-item" onclick="selectCase('A')">
+<h4>🏛️ A — FEDERAL EMPLOYMENT</h4>
+<p>Fired/demoted from government job. RIF'd. "Restructured."</p>
+</div>
+<div class="dropdown-item" onclick="selectCase('B')">
+<h4>🏠 B — HOUSING DISCRIMINATION</h4>
+<p>Denied rent. Redlined. Overcharged. Evicted unfairly.</p>
+</div>
+<div class="dropdown-item" onclick="selectCase('C')">
+<h4>🚔 C — CRIMINAL JUSTICE</h4>
+<p>Arrested. Stopped. Sentenced unfairly. Police brutality.</p>
+</div>
+<div class="dropdown-item" onclick="selectCase('D')">
+<h4>🏢 D — CONSUMER FRAUD</h4>
+<p>Tariff scam. Algorithmic bias. Insurance discrimination.</p>
+</div>
+<div class="dropdown-item" onclick="selectCase('E')">
+<h4>⚡ E — ALL OF THEM</h4>
+<p>Universal mode. Every weapon. Auto-detects your path.</p>
+</div>
+</div>
+
+<div id="caseDetails" style="display:none;margin-top:20px">
+<h3 style="color:var(--gold);margin-bottom:15px">📝 TELL ME YOUR FACTS</h3>
+<div class="input-group">
+<label>Your Name (or "Anonymous" for pseudonym)</label>
+<input type="text" id="userName" placeholder="Enter name or 'Anonymous'">
+</div>
+<div class="input-group">
+<label>What Happened To You? (Describe in plain English)</label>
+<textarea id="userFacts" placeholder="Example: I was the only Black person in my department. I got 'Exceeds Expectations' on every review. Then they 'restructured' and I was fired. A white guy with worse reviews got my job..."></textarea>
+</div>
+<div class="input-group">
+<label>Agency / Company / Landlord Name</label>
+<input type="text" id="userTarget" placeholder="Who did this to you?">
+</div>
+<div class="input-group">
+<label>Date It Happened</label>
+<input type="date" id="userDate">
+</div>
+<div class="input-group">
+<label>Do You Have Any Proof? (Check all that apply)</label>
+<select id="userProof" multiple style="height:120px">
+<option value="emails">Emails / Texts</option>
+<option value="reviews">Performance Reviews</option>
+<option value="paystubs">Pay Stubs</option>
+<option value="bodycam">Bodycam / Dashcam</option>
+<option value="medical">Medical Records (stress, anxiety)</option>
+<option value="credit">Credit Report</option>
+<option value="none">None yet — I'll collect it</option>
+</select>
+</div>
+<button class="big-btn green" onclick="processCase()">⚡ ANALYZE MY CASE</button>
+</div>
+
+<div id="caseResult" style="display:none;margin-top:20px">
+<div class="card" style="border-color:var(--green)">
+<h2 style="color:var(--green)">✅ CASE ANALYSIS COMPLETE</h2>
+<div id="caseAnalysisOutput"></div>
+</div>
+</div>
+</div>
+
+<!-- ==================== STRATEGY ==================== -->
+<div id="strategy" class="section">
+<div class="card">
+<h2>🎯 WINNING STRATEGY TREE</h2>
+<p>Follow these steps in order. Each one unlocks the next.</p>
+
+<div class="strategy-tree">
+<div class="strategy-node step1" onclick="toggleStrategy(this)">
+<h4>STEP 1: ADMINISTRATIVE EXHAUSTION (Days 1-45)</h4>
+<p>File EEOC Intake + MSPB Appeal simultaneously. This forces their hand. They MUST respond or you auto-win the right to sue.</p>
+<div style="display:none;margin-top:10px;padding-left:15px;border-left:3px solid var(--blue)">
+<p><strong>File these FOR FREE:</strong></p>
+<ul>
+<li>EEOC: eeoc.gov/filing-charge-discrimination</li>
+<li>MSPB: mspb.gov/appeals</li>
+<li>Fee Waiver: Form AO 240 from uscourts.gov</li>
+</ul>
+</div>
+</div>
+
+<div class="strategy-node step2" onclick="toggleStrategy(this)">
+<h4>STEP 2: JOIN THE CLASS (Days 15-30)</h4>
+<p>File Motion to Intervene in <em>Fell v. Trump</em> (1:25-cv-04206). You disappear into 10,000 names. They can't target what they can't find.</p>
+<div style="display:none;margin-top:10px;padding-left:15px;border-left:3px solid var(--green)">
+<p><strong>Email these for free class inclusion:</strong></p>
+<ul>
+<li>ACLU of DC: acludc.org</li>
+<li>Democracy Forward: democracyforward.org</li>
+<li>NAACP Legal Defense: naacpldf.org</li>
+</ul>
+</div>
+</div>
+
+<div class="strategy-node step3" onclick="toggleStrategy(this)">
+<h4>STEP 3: DISCOVERY — FORCE THEM TO TALK (Days 30-90)</h4>
+<p>Serve Interrogatories. Demand the roster. Demand the algorithm. Demand the emails. They WILL try to hide — that hiding IS the evidence.</p>
+<div style="display:none;margin-top:10px;padding-left:15px;border-left:3px solid var(--gold)">
+<p><strong>Key Interrogatories that break them:</strong></p>
+<ul>
+<li>"Identify every white employee on the DEI roster who was NOT fired."</li>
+<li>"Provide the complete algorithm used to generate termination lists."</li>
+<li>"State the exact number of white Democrats who were retained vs Black Democrats fired."</li>
+</ul>
+</div>
+</div>
+
+<div class="strategy-node step4" onclick="toggleStrategy(this)">
+<h4>STEP 4: DEFEAT EVERY DEFENSE (Ongoing)</h4>
+<p>They'll use 5 defenses. Here's how you kill each one:</p>
+<div style="display:none;margin-top:10px;padding-left:15px;border-left:3px solid var(--accent)">
+<ul>
+<li><strong>"Unitary Executive"</strong> → You show they targeted YOU specifically, not the position. <em>Fell v. Trump</em></li>
+<li><strong>"Partisan Changeover"</strong> → White political allies kept. You fired. Same party, different race. Pretext exposed.</li>
+<li><strong>"Anti-Discrimination Restorative"</strong> → Force them to name ONE white person harmed by your work. They can't.</li>
+<li><strong>"Failure to Exhaust"</strong> → You filed Day 121. Auto right-to-sue. Defense dead.</li>
+<li><strong>"Inferior Officers"</strong> → <em>Elrod v. Burns</em> says political firings of career staff = unconstitutional. PERIOD.</li>
+</ul>
+</div>
+</div>
+
+<div class="strategy-node step5" onclick="toggleStrategy(this)">
+<h4>STEP 5: TRIAL — JURY INSTRUCTIONS THAT WIN</h4>
+<p>Don't let them confuse the jury. Use THESE instructions:</p>
+<div style="display:none;margin-top:10px;padding-left:15px;border-left:3px solid var(--accent)">
+<ul>
+<li>"You don't need to find they INTENDED to discriminate. You need to find the POLICY caused unequal effects."</li>
+<li>"75% of Black officials fired. 27% of white officials fired. If this isn't random — infer discrimination."</li>
+<li>"If they used 'DEI roster' as a SUBSTITUTE for race — that IS intentional racial discrimination."</li>
+</ul>
+</div>
+</div>
+
+<div class="strategy-node step6" onclick="toggleStrategy(this)">
+<h4>STEP 6: JUDGMENT & REPARATIONS</h4>
+<p>When you win, every dollar goes to the Class Civil Rights Reparations Trust. 85% to victims. 15% to fund the NEXT case.</p>
+<div style="display:none;margin-top:10px;padding-left:15px;border-left:3px solid var(--gold)">
+<p><strong>Your settlement demands:</strong></p>
+<ul>
+<li>✅ Full back pay + compounding interest</li>
+<li>✅ Mandatory reinstatement</li>
+<li>✅ Independent judicial monitor over all hiring</li>
+<li>✅ Algorithmic audits of all systems</li>
+<li>✅ $50M community reparations fund</li>
+</ul>
+</div>
+</div>
+</div>
+</div>
+</div>
+
+<!-- ==================== EVIDENCE ==================== -->
+<div id="evidence" class="section">
+<div class="card">
+<h2>📁 EVIDENCE CHECKLIST — CHECK OFF WHAT YOU HAVE</h2>
+<p>Every checkmark makes your case stronger. Save your progress — it remembers what you checked.</p>
+
+<div class="evidence-check" id="evidenceList">
+<div class="evidence-item" onclick="toggleEvidence(this)">
+<div class="check">☐</div>
+<div><h4>📧 Emails / Texts from Boss</h4><p>"Tone it down." "Be more assertive." Retaliation proof.</p></div>
+</div>
+<div class="evidence-item" onclick="toggleEvidence(this)">
+<div class="check">☐</div>
+<div><h4>📊 Performance Reviews</h4><p>"Exceeds Expectations" while white colleague got "Meets" and the promotion.</p></div>
+</div>
+<div class="evidence-item" onclick="toggleEvidence(this)">
+<div class="check">☐</div>
+<div><h4>💰 Pay Stubs (Side by Side)</h4><p>You make $X. White coworker same title makes $X+$15K. Title VII proof.</p></div>
+</div>
+<div class="evidence-item" onclick="toggleEvidence(this)">
+<div class="check">☐</div>
+<div><h4>🚔 Traffic Stop Records</h4><p>4 stops. 0 violations. 2 searches. Dashcam/bodycam footage.</p></div>
+</div>
+<div class="evidence-item" onclick="toggleEvidence(this)">
+<div class="check">☐</div>
+<div><h4>🏠 Housing Denial Letters</h4><p>6 denials. Different excuses each time. White friend approved next day.</p></div>
+</div>
+<div class="evidence-item" onclick="toggleEvidence(this)">
+<div class="check">☐</div>
+<div><h4>🏦 Loan Rate Comparison</h4><p>Same credit score. 8.5% for you. 3.2% for white guy. $4,200 overcharge.</p></div>
+</div>
+<div class="evidence-item" onclick="toggleEvidence(this)">
+<div class="check">☐</div>
+<div><h4>🏥 Medical Records</h4><p>Blood pressure 160/100. Doctor notes "chronic stress — occupational."</p></div>
+</div>
+<div class="evidence-item" onclick="toggleEvidence(this)">
+<div class="check">☐</div>
+<div><h4>📋 Termination Letter</h4><p>"No cause" RIF. But the position still exists — filled by someone else.</p></div>
+</div>
+<div class="evidence-item" onclick="toggleEvidence(this)">
+<div class="check">☐</div>
+<div><h4>📸 Social Media Evidence</h4><p>Screenshots of discriminatory posts by coworkers. "Urban" jokes. "Woke" slurs.</p></div>
+</div>
+<div class="evidence-item" onclick="toggleEvidence(this)">
+<div class="check">☐</div>
+<div><h4>📞 FOIA Responses</h4><p>Requested your personnel file. They sent it. It shows the pattern.</p></div>
+</div>
+<div class="evidence-item" onclick="toggleEvidence(this)">
+<div class="check">☐</div>
+<div><h4>👥 Witnesses</h4><p>Coworkers who saw the double standard. Names and contact info.</p></div>
+</div>
+<div class="evidence-item" onclick="toggleEvidence(this)">
+<div class="check">☐</div>
+<div><h4>📈 Statistical Evidence</h4><p>75% purge rate. Four-Fifths violation. Regression analysis.</p></div>
+</div>
+</div>
+
+<div class="progress-bar" style="margin-top:20px">
+<div class="progress-fill" id="evidenceProgress" style="width:0%">0%</div>
+</div>
+<p id="evidenceCount" style="text-align:center;color:var(--gold);font-weight:bold;margin-top:10px">0 of 12 pieces collected</p>
+
+<div style="text-align:center;margin-top:20px">
+<button class="big-btn" onclick="saveEvidence()">💾 SAVE MY PROGRESS</button>
+<button class="big-btn green" onclick="showSection('generator')">📝 GENERATE EVIDENCE DEMAND LETTER</button>
+</div>
+</div>
+</div>
+
+<!-- ==================== CALCULATOR ==================== -->
+<div id="calculator" class="section">
+<div class="card">
+<h2>📊 DAMAGES CALCULATOR — SEE WHAT THEY OWE YOU</h2>
+<p>Fill in your numbers. The calculator does the math. This is what you put in the complaint.</p>
+
+<div class="input-group">
+<label>Your Annual Salary (before termination)</label>
+<input type="number" id="calcSalary" placeholder="e.g. 85000" oninput="calculateDamages()">
+</div>
+<div class="input-group">
+<label>Years of Employment</label>
+<input type="number" id="calcYears" placeholder="e.g. 10" oninput="calculateDamages()">
+</div>
+<div class="input-group">
+<label>Years Until Retirement</label>
+<input type="number" id="calcRetire" placeholder="e.g. 20" oninput="calculateDamages()">
+</div>
+<div class="input-group">
+<label>Current Salary (what you earn now)</label>
+<input type="number" id="calcCurrent" placeholder="e.g. 45000" oninput="calculateDamages()">
+</div>
+<div class="input-group">
+<label>Loan Interest Overcharge ($)</label>
+<input type="number" id="calcLoan" placeholder="e.g. 4200" oninput="calculateDamages()">
+</div>
+<div class="input-group">
+<label>Housing Overcharges ($)</label>
+<input type="number" id="calcHousing" placeholder="e.g. 24000" oninput="calculateDamages()">
+</div>
+<div class="input-group">
+<label>Emotional Distress (daily rate × days)</label>
+<input type="number" id="calcEmotional" placeholder="e.g. 50000" oninput="calculateDamages()">
+</div>
+
+<div class="calc-result" id="calcResult">
+<h3 style="color:var(--green);margin-bottom:15px">💰 YOUR TOTAL RECOVERY ESTIMATE</h3>
+<div class="amount" id="calcTotal">$0</div>
+<div id="calcBreakdown" style="margin-top:15px;text-align:left"></div>
+</div>
+
+<div style="text-align:center;margin-top:20px">
+<button class="big-btn gold" onclick="printCalculator()">🖨️ PRINT THIS CALCULATION</button>
+<button class="big-btn blue" onclick="showSection('generator')">📝 PUT THIS IN A COMPLAINT</button>
+</div>
+</div>
+</div>
+
+<!-- ==================== DOCUMENT GENERATOR ==================== -->
+<div id="generator" class="section">
+<div class="card">
+<h2>📝 DOCUMENT GENERATOR — FILL IN, PRINT, FILE</h2>
+<p>Choose your document. Fill in the blanks. Get a ready-to-file legal document. Print to PDF. File it.</p>
+
+<div class="tab-bar">
+<button class="tab-btn active" onclick="showTab('tab-eeoc')">EEOC Complaint</button>
+<button class="tab-btn" onclick="showTab('tab-mspb')">MSPB Appeal</button>
+<button class="tab-btn" onclick="showTab('tab-motion')">Motion to Compel</button>
+<button class="tab-btn" onclick="showTab('tab-complaint')">Federal Complaint</button>
+<button class="tab-btn" onclick="showTab('tab-demand')">Demand Letter</button>
+<button class="tab-btn" onclick="showTab('tab-settlement')">Settlement Demand</button>
+</div>
+
+<div id="tab-eeoc" class="tab-content active">
+<h3>EEOC CHARGE OF DISCRIMINATION</h3>
+<div class="input-group">
+<label>Your Full Name</label>
+<input type="text" id="genName" placeholder="John Doe or Anonymous">
+</div>
+<div class="input-group">
+<label>Employer / Agency Name</label>
+<input type="text" id="genEmployer" placeholder="U.S. Department of ___">
+</div>
+<div class="input-group">
+<label>Date of Discrimination</label>
+<input type="date" id="genDate">
+</div>
+<div class="input-group">
+<label>Describe What Happened (plain English)</label>
+<textarea id="genFacts" placeholder="I was the only Black person in my department. I received 'Exceeds Expectations' on every performance review. On [date], I was terminated as part of a 'reduction in force.' A white colleague with lower performance ratings was retained and given my position..."></textarea>
+</div>
+<div class="input-group">
+<label>Type of Discrimination (check all)</label>
+<select id="genType" multiple style="height:100px">
+<option value="race">Race (Title VII)</option>
+<option value="color">Color</option>
+<option value="retaliation">Retaliation</option>
+<option value="age">Age (ADEA)</option>
+<option value="disability">Disability (ADA)</option>
+</select>
+</div>
+<button class="big-btn green" onclick="generateDoc('eeoc')">⚡ GENERATE EEOC COMPLAINT</button>
+</div>
+
+<div id="tab-mspb" class="tab-content">
+<h3>MSPB APPEAL — PROHIBITED PERSONNEL PRACTICE</h3>
+<div class="input-group">
+<label>Your Full Name</label>
+<input type="text" id="genName2" placeholder="John Doe">
+</div>
+<div class="input-group">
+<label>Agency Name</label>
+<input type="text" id="genEmployer2" placeholder="U.S. Department of ___">
+</div>
+<div class="input-group">
+<label>Date of Action</label>
+<input type="date" id="genDate2">
+</div>
+<div class="input-group">
+<label>Describe the Action</label>
+<textarea id="genFacts2" placeholder="On [date], I was removed from my position as [title] without cause. The agency cited a 'reduction in force' but my position was filled by a less-qualified white employee. This constitutes a prohibited personnel practice under 5 U.S.C. § 2302(b)..."></textarea>
+</div>
+<button class="big-btn green" onclick="generateDoc('mspb')">⚡ GENERATE MSPB APPEAL</button>
+</div>
+
+<div id="tab-motion" class="tab-content">
+<h3>MOTION TO COMPEL PRODUCTION</h3>
+<div class="input-group">
+<label>Your Full Name</label>
+<input type="text" id="genName3" placeholder="John Doe">
+</div>
+<div class="input-group">
+<label>Agency / Defendant Name</label>
+<input type="text" id="genEmployer3" placeholder="U.S. Department of ___">
+</div>
+<div class="input-group">
+<label>What You're Demanding</label>
+<textarea id="genFacts3" placeholder="Defendant has refused to produce: (1) The complete DEI roster used to identify employees for termination, (2) The algorithm or scoring methodology used to generate termination recommendations, (3) All internal communications referring to 'woke personnel' or 'DEI strangulation'..."></textarea>
+</div>
+<button class="big-btn green" onclick="generateDoc('motion')">⚡ GENERATE MOTION TO COMPEL</button>
+</div>
+
+<div id="tab-complaint" class="tab-content">
+<h3>FEDERAL CIVIL RIGHTS COMPLAINT</h3>
+<div class="input-group">
+<label>Plaintiff Name</label>
+<input type="text" id="genName4" placeholder="John Doe or Anonymous">
+</div>
+<div class="input-group">
+<label>Defendant</label>
+<input type="text" id="genEmployer4" placeholder="United States of America">
+</div>
+<div class="input-group">
+<label>Date of Filing</label>
+<input type="date" id="genDate4">
+</div>
+<div class="input-group">
+<label>Statement of Facts</label>
+<textarea id="genFacts4" placeholder="Plaintiff, a Black man employed by Defendant since [year], was systematically targeted for termination as part of a coordinated purge of minority federal employees. On [date], Plaintiff received a 'no cause' termination letter. His position was immediately filled by a white employee with inferior qualifications..."></textarea>
+</div>
+<div class="input-group">
+<label>Causes of Action (check all)</label>
+<select id="genType4" multiple style="height:100px">
+<option value="t7">Title VII — Disparate Treatment</option>
+<option value="t7i">Title VII — Disparate Impact</option>
+<option value="csra">CSRA Violation</option>
+<option value="1985">42 U.S.C. § 1985 Conspiracy</option>
+<option value="1983">42 U.S.C. § 1983 — Police/4th Amend</option>
+<option value="fha">Fair Housing Act</option>
+<option value="ecoa">Equal Credit Opportunity Act</option>
+</select>
+</div>
+<button class="big-btn green" onclick="generateDoc('complaint')">⚡ GENERATE FEDERAL COMPLAINT</button>
+</div>
+
+<div id="tab-demand" class="tab-content">
+<h3>DEMAND LETTER TO AGENCY</h3>
+<div class="input-group">
+<label>Your Name</label>
+<input type="text" id="genName5" placeholder="John Doe">
+</div>
+<div class="input-group">
+<label>Agency Head Name</label>
+<input type="text" id="genEmployer5" placeholder="Secretary of ___">
+</div>
+<div class="input-group">
+<label>What They Did</label>
+<textarea id="genFacts5" placeholder="On [date], your agency terminated me as part of a racially discriminatory purge. I was the only Black employee in my division. My white colleagues were retained despite inferior performance..."></textarea>
+</div>
+<button class="big-btn green" onclick="generateDoc('demand')">⚡ GENERATE DEMAND LETTER</button>
+</div>
+
+<div id="tab-settlement" class="tab-content">
+<h3>SETTLEMENT DEMAND</h3>
+<div class="input-group">
+<label>Your Name</label>
+<input type="text" id="genName6" placeholder="John Doe">
+</div>
+<div class="input-group">
+<label>Total Damages (from calculator)</label>
+<input type="text" id="genAmount" placeholder="e.g. $763,200">
+</div>
+<div class="input-group">
+<label>Your Demands</label>
+<textarea id="genFacts6" placeholder="We demand: (1) Full back pay with compounding interest, (2) Reinstatement to original position, (3) Independent judicial monitor over all agency personnel actions, (4) Algorithmic audits of all hiring/lending systems, (5) $50M community reparations fund..."></textarea>
+</div>
+<button class="big-btn green" onclick="generateDoc('settlement')">⚡ GENERATE SETTLEMENT DEMAND</button>
+</div>
+
+<div class="doc-output" id="docOutput"></div>
+</div>
+</div>
+
+<!-- ==================== PROTECT ==================== -->
+<div id="protect" class="section">
+<div class="card">
+<h2>🛡️ PERSONAL PROTECTION SHIELD</h2>
+<p>While you fight, they will try to destroy you. Here's how to survive EVERY attack.</p>
+
+<div class="tab-bar">
+<button class="tab-btn active" onclick="showTab('tab-retal')">Retaliation Defense</button>
+<button class="tab-btn" onclick="showTab('tab-anon')">Anonymity / Pseudonym</button>
+<button class="tab-btn" onclick="showTab('tab-data')">Data Protection</button>
+<button class="tab-btn" onclick="showTab('tab-osc')">Whistleblower Shield</button>
+</div>
+
+<div id="tab-retal" class="tab-content active">
+<h3>IF THEY RETALIATE — USE THIS</h3>
+<div class="card" style="margin-top:15px">
+<h4>Step 1: File with OSC Immediately</h4>
+<p>U.S. Office of Special Counsel — <strong>osc.gov</strong> — free, online, 10 minutes.</p>
+<h4>Step 2: They Get a STAY OF REMOVAL</h4>
+<p>They CANNOT fire you, transfer you, or retaliate while OSC investigates.</p>
+<h4>Step 3: Use OSC Finding in Court</h4>
+<p>"Government agency confirmed illegal retaliation" = automatic attorney fees + compensatory damages under 5 U.S.C. § 1221(g).</p>
+<button class="big-btn" onclick="generateDoc('osc')">⚡ GENERATE OSC COMPLAINT</button>
+</div>
+</div>
+
+<div id="tab-anon" class="tab-content">
+<h3>FILE UNDER PSEUDONYM — "JOHN DOE"</h3>
+<div class="card" style="margin-top:15px">
+<p>FRCP Rule 5.2 allows anonymous filing when there's <strong>fear of retaliation</strong>.</p>
+<p><strong>Your Motion says:</strong></p>
+<div class="doc-output" style="display:block">
+"Plaintiff requests permission to proceed under pseudonym 'John Doe' pursuant to FRCP Rule 5.2. Plaintiff is a Black man who has been systematically targeted by Defendant. Public filing of his identity would expose him to immediate retaliation, including termination from current employment, physical harm, and harassment. This request is supported by the pattern of retaliatory conduct already documented in this case."
+</div>
+<button class="big-btn" onclick="generateDoc('pseudonym')">⚡ GENERATE PSEUDONYM MOTION</button>
+</div>
+</div>
+
+<div id="tab-data" class="tab-content">
+<h3>PROTECT YOUR DATA</h3>
+<div class="card" style="margin-top:15px">
+<ul>
+<li>🔒 Use <strong>Google Voice</strong> number — never your real phone</li>
+<li>🔒 Use <strong>ProtonMail</strong> — encrypted email, free</li>
+<li>🔒 <strong>Redact SSN, birthdate, financials</strong> before uploading anything (Rule 5.2)</li>
+<li>🔒 Save everything to <strong>USB stick</strong> — not cloud</li>
+<li>🔒 Use <strong>Portable Firefox</strong> — clears history on close</li>
+</ul>
+</div>
+</div>
+
+<div id="tab-osc" class="tab-content">
+<h3>WHISTLEBLOWER NUCLEAR OPTION</h3>
+<div class="card" style="margin-top:15px">
+<p>Under the <strong>Whistleblower Protection Act</strong>, if you report illegal conduct and they retaliate:</p>
+<ul>
+<li>✅ Automatic stay of removal</li>
+<li>✅ Attorney fees paid by government</li>
+<li>✅ Compensatory damages</li>
+<li>✅ Punitive damages</li>
+<li>✅ Reinstatement with back pay</li>
+</ul>
+<button class="big-btn green" onclick="generateDoc('whistle')">⚡ GENERATE WHISTLEBLOWER COMPLAINT</button>
+</div>
+</div>
+</div>
+</div>
+
+<!-- ==================== NUCLEAR OPTIONS ==================== -->
+<div id="nuclear" class="section">
+<div class="card">
+<h2>💣 NUCLEAR OPTIONS — WHEN THEY WON'T SETTLE</h2>
+<p>These are the weapons they don't see coming. Use them when常规 fails.</p>
+
+<div class="dropdown-grid">
+<div class="dropdown-item" onclick="showNuclear('partisan')">
+<h4>🎭 THE PARTISAN PRETEXT KILLER</h4>
+<p>Find ANY white coworker who shared your politics but wasn't fired. Expose the lie.</p>
+</div>
+<div class="dropdown-item" onclick="showNuclear('algorithm')">
+<h4>🤖 THE ALGORITHM AUDIT TRAP</h4>
+<p>Force them to reveal their screening algorithm. Run shadow tests. Prove bias mathematically.</p>
+</div>
+<div class="dropdown-item" onclick="showNuclear('state')">
+<h4>⚖️ THE STATE COURT PINCER</h4>
+<p>File in CA/NY/IL state court simultaneously. Different laws. Uncapped damages. Two fronts.</p>
+</div>
+<div class="dropdown-item" onclick="showNuclear('westfall')">
+<h4>🛡️ WESTFALL ACT SCOPE CHALLENGE</h4>
+<p>Strip government immunity. Go after INDIVIDUALS. Their personal assets are on the line.</p>
+</div>
+<div class="dropdown-item" onclick="showNuclear('tariff')">
+<h4>💰 TARIFF CONSUMER FRAUD</h4>
+<p>$166B refund scam. Sue the corporations who kept it. Class action. Double recovery.</p>
+</div>
+<div class="dropdown-item" onclick="showNuclear('history')">
+<h4>📜 THE HISTORICAL FRAMEWORK</h4>
+<p>Vagrancy Laws → No Cause RIFs. Poll Taxes → Credit Score Proxies. Same playbook. Expose it.</p>
+</div>
+</div>
+
+<div id="nuclearDetail" class="card" style="display:none;margin-top:20px">
+<h3 id="nuclearTitle"></h3>
+<div id="nuclearContent"></div>
+<button class="big-btn" onclick="generateDoc('nuclear')">⚡ GENERATE NUCLEAR MOTION</button>
+</div>
+</div>
+</div>
+
+</div>
+
+<div class="footer">
+<p>HYPOTHETICAL LAWYER v3.0 — Pro Bono — Zero Cost — 100% To Victims</p>
+<p>Every dollar goes to the <strong>Class Civil Rights Reparations Trust</strong></p>
+<p>Built for Black men who refuse to take it anymore. ✊🏿</p>
+<p>Works 100% offline. No internet needed. Save to USB. Run anywhere.</p>
+</div>
+
+<div class="save-indicator" id="saveIndicator">✅ PROGRESS SAVED</div>
+
+<div class="modal-overlay" id="modal">
+<div class="modal">
+<button class="close-btn" onclick="closeModal()">✕</button>
+<h2 id="modalTitle"></h2>
+<div id="modalContent"></div>
+<button class="big-btn green" style="margin-top:20px" onclick="printModal()">🖨️ PRINT / SAVE AS PDF</button>
+</div>
+</div>
+
+<script>
+// ============ NAVIGATION ============
+function showSection(id){
+document.querySelectorAll('.section').forEach(s=>s.classList.remove('active'));
+document.getElementById(id).classList.add('active');
+document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));
+event.target.classList.add('active');
+window.scrollTo({top:0,behavior:'smooth'});
+}
+
+// ============ CASE TYPE ============
+let selectedCase = '';
+function selectCase(type){
+selectedCase = type;
+document.querySelectorAll('.dropdown-item').forEach(d=>d.classList.remove('selected'));
+event.target.closest('.dropdown-item').classList.add('selected');
+document.getElementById('caseDetails').style.display = 'block';
+document.getElementById('caseResult').style.display = 'none';
+}
+
+function processCase(){
+const name = document.getElementById('userName').value || 'Anonymous';
+const facts = document.getElementById('userFacts').value;
+const target = document.getElementById('userTarget').value;
+const date = document.getElementById('userDate').value;
+const proof = Array.from(document.getElementById('userProof').selectedOptions).map(o=>o.value);
+
+if(!facts){alert('Please describe what happened to you.');return}
+
+let analysis = '';
+let causes = [];
+let damages = '';
+
+if(selectedCase==='A'||selectedCase==='E'){
+causes.push('Title VII Disparate Treatment (42 U.S.C. § 2000e-2)');
+causes.push('CSRA Prohibited Personnel Practice (5 U.S.C. § 2302(b))');
+causes.push('42 U.S.C. § 1985(3) Conspiracy');
+damages = 'Back Pay: $' + (parseInt(document.getElementById('calcSalary').value)||85000)*5 + '+ | Pension Loss: $200K+ | Emotional: $150K+';
+}
+if(selectedCase==='B'||selectedCase==='E'){
+causes.push('Fair Housing Act (42 U.S.C. § 3604)');
+causes.push('Disparate Impact under Inclusive Communities');
+damages = 'Housing Overcharge: $24K+ | Emotional: $100K+';
+}
+if(selectedCase==='C'||selectedCase==='E'){
+causes.push('42 U.S.C. § 1983 — 4th Amendment Violation');
+causes.push('Qualified Immunity Challenge (Malley v. Briggs)');
+damages = 'Emotional: $200K+ | Punitive: $500K+';
+}
+if(selectedCase==='D'||selectedCase==='E'){
+causes.push('State UDAAP Consumer Fraud');
+causes.push('Tariff Refund Scheme (166B)');
+damages = '$16,600 per person (class of 10M+)';
+}
+
+analysis = `
+<h3>CASE TYPE: ${selectedCase.toUpperCase()}</h3>
+<p><strong>Plaintiff:</strong> ${name}</p>
+<p><strong>Defendant:</strong> ${target||'United States of America'}</p>
+<p><strong>Date:</strong> ${date||'N/A'}</p>
+<p><strong>Facts:</strong> ${facts.substring(0,200)}...</p>
+<h3 style="color:var(--green);margin-top:15px">CAUSES OF ACTION:</h3>
+<ul>${causes.map(c=>'<li>'+c+'</li>').join('')}</ul>
+<h3 style="color:var(--gold);margin-top:15px">ESTIMATED DAMAGES:</h3>
+<p>${damages}</p>
+<h3 style="color:var(--accent);margin-top:15px">WIN PROBABILITY: <span style="color:var(--green)">HIGH</span></h3>
+<p>The law, data, and history are all on your side. File the complaint. Join the class. Show up.</p>
+`;
+
+document.getElementById('caseAnalysisOutput').innerHTML = analysis;
+document.getElementById('caseResult').style.display = 'block';
+saveProgress();
+}
+
+// ============ STRATEGY TOGGLE ============
+function toggleStrategy(el){
+const content = el.querySelector('div[style]');
+if(content){content.style.display = content.style.display==='none'?'block':'none'}
+}
+
+// ============ EVIDENCE CHECKLIST ============
+function toggleEvidence(el){
+el.classList.toggle('checked');
+const check = el.querySelector('.check');
+if(el.classList.contains('checked')){
+check.textContent='✓';
+check.style.background='var(--green)';
+check.style.borderColor='var(--green)';
+check.style.color='var(--white)';
+}else{
+check.textContent='☐';
+check.style.background='transparent';
+check.style.borderColor='var(--accent2)';
+check.style.color='var(--accent2)';
+}
+const total = document.querySelectorAll('.evidence-item').length;
+const checked = document.querySelectorAll('.evidence-item.checked').length;
+document.getElementById('evidenceProgress').style.width = (checked/total*100)+'%';
+document.getElementById('evidenceProgress').textContent = Math.round(checked/total*100)+'%';
+document.getElementById('evidenceCount').textContent = checked + ' of ' + total + ' pieces collected';
+saveProgress();
+}
+
+function saveEvidence(){
+const items = [];
+document.querySelectorAll('.evidence-item').forEach((el,i)=>{
+items.push(el.classList.contains('checked'));
+});
+localStorage.setItem('hl_evidence',JSON.stringify(items));
+showSave();
+}
+
+// ============ CALCULATOR ============
+function calculateDamages(){
+const salary = parseFloat(document.getElementById('calcSalary').value)||0;
+const years = parseFloat(document.getElementById('calcYears').value)||0;
+const retire = parseFloat(document.getElementById('calcRetire').value)||0;
+const current = parseFloat(document.getElementById('calcCurrent').value)||0;
+const loan = parseFloat(document.getElementById('calcLoan').value)||0;
+const housing = parseFloat(document.getElementById('calcHousing').value)||0;
+const emotional = parseFloat(document.getElementById('calcEmotional').value)||0;
+
+const backPay = (salary - current) * years;
+const frontPay = salary * retire;
+const pensionLoss = salary * 0.01 * 1.1 * years * 12;
+const tspLoss = salary * 0.05 * years * 1.07;
+const total = backPay + frontPay + pensionLoss + tspLoss + loan + housing + emotional;
+
+document.getElementById('calcResult').classList.add('show');
+document.getElementById('calcTotal').textContent = '$' + total.toLocaleString('en-US',{maximumFractionDigits:0});
+
+document.getElementById('calcBreakdown').innerHTML = `
+<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-top:10px">
+<div style="background:var(--card2);padding:10px;border-radius:8px;text-align:center">
+<div style="color:var(--green);font-weight:bold">$${backPay.toLocaleString()}</div>
+<div style="font-size:0.75rem;color:var(--text2)">Back Pay</div>
+</div>
+<div style="background:var(--card2);padding:10px;border-radius:8px;text-align:center">
+<div style="color:var(--blue);font-weight:bold">$${frontPay.toLocaleString()}</div>
+<div style="font-size:0.75rem;color:var(--text2)">Front Pay</div>
+</div>
+<div style="background:var(--card2);padding:10px;border-radius:8px;text-align:center">
+<div style="color:var(--gold);font-weight:bold">$${pensionLoss.toLocaleString()}</div>
+<div style="font-size:0.75rem;color:var(--text2)">Pension Loss</div>
+</div>
+<div style="background:var(--card2);padding:10px;border-radius:8px;text-align:center">
+<div style="color:var(--accent);font-weight:bold">$${tspLoss.toLocaleString()}</div>
+<div style="font-size:0.75rem;color:var(--text2)">TSP Loss</div>
+</div>
+<div style="background:var(--card2);padding:10px;border-radius:8px;text-align:center">
+<div style="color:var(--red);font-weight:bold">$${(loan+housing).toLocaleString()}</div>
+<div style="font-size:0.75rem;color:var(--text2)">Overcharges</div>
+</div>
+<div style="background:var(--card2);padding:10px;border-radius:8px;text-align:center">
+<div style="color:var(--accent);font-weight:bold">$${emotional.toLocaleString()}</div>
+<div style="font-size:0.75rem;color:var(--text2)">Emotional</div>
+</div>
+</div>
+`;
+}
+
+function printCalculator(){
+window.print();
+}
+
+// ============ TABS ============
+function showTab(id){
+document.querySelectorAll('.tab-content').forEach(t=>t.classList.remove('active'));
+document.getElementById(id).classList.add('active');
+document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+event.target.classList.add('active');
+}
+
+// ============ DOCUMENT GENERATOR ============
+function generateDoc(type){
+let doc = '';
+const n = ()=>document.getElementById('genName').value||document.getElementById('genName2').value||document.getElementById('genName3').value||document.getElementById('genName4').value||document.getElementById('genName5').value||document.getElementById('genName6').value||'John Doe';
+const e = ()=>document.getElementById('genEmployer').value||document.getElementById('genEmployer2').value||document.getElementById('genEmployer3').value||document.getElementById('genEmployer4').value||document.getElementById('genEmployer5').value||'United States of America';
+const d = ()=>document.getElementById('genDate').value||document.getElementById('genDate2').value||document.getElementById('genDate3').value||document.getElementById('genDate4').value||document.getElementById('genDate5').value||new Date().toISOString().split('T')[0];
+const f = ()=>document.getElementById('genFacts').value||document.getElementById('genFacts2').value||document.getElementById('genFacts3').value||document.getElementById('genFacts4').value||document.getElementById('genFacts5').value||document.getElementById('genFacts6').value||'Plaintiff was subjected to systemic racial discrimination.';
+
+if(type==='eeoc'){
+doc = `EEOC CHARGE OF DISCRIMINATION
+
+Charging Party: ${n()}
+Respondent: ${e()}
+Date of Discrimination: ${d()}
+
+I. STATEMENT OF FACTS
+
+${f()}
+
+II. TYPE OF DISCRIMINATION
+
+Race (Title VII of the Civil Rights Act of 1964)
+Retaliation for opposing discriminatory practices
+
+III. LEGAL BASIS
+
+This charge is filed under Title VII of the Civil Rights Act of 1964, 
+as amended (42 U.S.C. § 2000e et seq.), the Age Discrimination in 
+Employment Act (29 U.S.C. § 621 et seq.), and the Americans with 
+Disabilities Act (42 U.S.C. § 12101 et seq.).
+
+IV. REQUESTED RELIEF
+
+1. Cessation of discriminatory practices
+2. Back pay with interest
+3. Reinstatement to former position
+4. Compensatory and punitive damages
+5. Policy changes to prevent future discrimination
+
+Signature: ____________________
+Date: ${d()}`;
+}
+
+if(type==='mspb'){
+doc = `MSPB APPEAL — PROHIBITED PERSONNEL PRACTICE
+
+Appellant: ${n()}
+Agency: ${e()}
+Date of Action: ${d()}
+
+I. STATEMENT OF THE CASE
+
+${f()}
+
+II. PROHIBITED PERSONNEL PRACTICE
+
+Under 5 U.S.C. § 2302(b), the agency committed the following 
+prohibited personnel practices:
+
+(1) Discrimination based on race under 5 U.S.C. § 2302(b)(1)
+(2) Retaliation for whistleblowing under 5 U.S.C. § 2302(b)(8)
+(3) Violation of merit system principles under 5 U.S.C. § 2301(b)
+
+III. REQUESTED RELIEF
+
+1. Reversal of removal action
+2. Reinstatement to former position
+3. Back pay with interest
+4. Attorney fees under 5 U.S.C. § 7701(g)(1)
+
+Signature: ____________________
+Date: ${d()}`;
+}
+
+if(type==='motion'){
+doc = `MOTION TO COMPEL PRODUCTION OF DOCUMENTS
+
+Case No.: ___________
+Judge: Tanya S. Chutkan
+
+Plaintiff: ${n()}
+Defendant: ${e()}
+
+I. INTRODUCTION
+
+Defendant has refused to produce critical evidence despite 
+multiple requests. This motion compels production under 
+FRCP Rule 37.
+
+II. DOCUMENTS REQUESTED
+
+1. The complete DEI roster used to identify employees for termination
+2. The algorithm or scoring methodology used to generate termination lists
+3. All internal communications referring to "woke personnel" or "DEI strangulation"
+4. All emails from senior personnel officers discussing termination criteria
+5. The complete personnel files of all white employees who replaced terminated Black employees
+
+III. LEGAL ARGUMENT
+
+Under FRCP Rule 26(b)(1), the scope of discovery includes any 
+non-privileged matter relevant to any party's claim. Defendant's 
+refusal to produce these documents constitutes spoliation of evidence 
+and warrants sanctions under FRCP Rule 37(e).
+
+IV. REQUESTED RELIEF
+
+1. Compel production of all requested documents within 14 days
+2. Strike Defendant's affirmative defenses for failure to produce
+3. Award attorney fees and costs
+
+Signature: ____________________
+Date: ${d()}`;
+}
+
+if(type==='complaint'){
+doc = `UNITED STATES DISTRICT COURT
+DISTRICT OF COLUMBIA
+
+${n()},
+    Plaintiff,
+
+v.
+
+UNITED STATES OF AMERICA,
+    Defendant.
+
+Case No.: 1:25-cv-______
+Judge: Tanya S. Chutkan
+
+COMPLAINT FOR DECLARATORY AND INJUNCTIVE RELIEF,
+COMPENSATORY AND PUNITIVE DAMAGES, AND CIVIL RIGHTS VIOLATIONS
+
+JURY TRIAL DEMANDED
+
+I. NATURE OF THE ACTION
+
+1. This is a civil rights action by a Black man in America who has 
+suffered systematic, ongoing discrimination in employment, housing, 
+credit, and policing — not as isolated incidents, but as the 
+predictable output of a system designed to produce racial inequality.
+
+II. PARTIES
+
+5. Plaintiff ${n()} is a Black man residing in [CITY, STATE]. He has 
+been employed by Defendant since [YEAR]. He has been denied housing 
+[X] times. He has been charged higher interest rates on credit. He 
+has been stopped by police [X] times with zero violations found.
+
+III. FACTS
+
+${f()}
+
+IV. CAUSES OF ACTION
+
+COUNT I — Title VII Disparate Treatment (42 U.S.C. § 2000e-2)
+COUNT II — CSRA Prohibited Personnel Practice (5 U.S.C. § 2302(b))
+COUNT III — 42 U.S.C. § 1985(3) Conspiracy to Deprive Civil Rights
+COUNT IV — 42 U.S.C. § 1983 — Fourth Amendment Violation
+COUNT V — Fair Housing Act Discrimination (42 U.S.C. § 3604)
+COUNT VI — Equal Credit Opportunity Act (15 U.S.C. § 1691)
+
+V. PRAYER FOR RELIEF
+
+WHEREFORE, Plaintiff respectfully requests:
+
+A. Declaratory judgment that Defendant's practices violate federal law
+B. Compensatory damages in excess of $763,200
+C. Punitive damages in excess of $500,000
+D. Mandatory reinstatement to original employment
+E. Full back pay with compounding interest
+F. Appointment of independent judicial monitor
+G. Algorithmic audits of all federal systems
+H. Injunctive relief
+I. Establishment of Class Civil Rights Reparations Trust
+J. Attorney fees under 42 U.S.C. § 2000e-5(k)
+K. Any other relief this Court deems just and proper
+
+Respectfully submitted,
+
+____________________
+${n()}
+Plaintiff, Pro Se
+Date: ${d()}`;
+}
+
+if(type==='demand'){
+doc = `DEMAND LETTER
+
+${d()}
+
+${e()}
+[Agency Head Name]
+[Agency Address]
+
+RE: Formal Demand for Relief — ${n()}
+
+Dear [Agency Head],
+
+This letter constitutes a formal demand for relief regarding the 
+systematic racial discrimination suffered by ${n()}.
+
+${f()}
+
+On [date], your agency terminated me as part of a racially 
+discriminatory purge. I was the only Black employee in my division. 
+My white colleagues were retained despite inferior performance. 
+This constitutes a violation of Title VII, the CSRA, and 42 U.S.C. § 1985(3).
+
+WE DEMAND:
+1. Full back pay with compounding interest
+2. Reinstatement to original position
+3. Independent judicial monitor over all personnel actions
+4. Algorithmic audits of all hiring/lending systems
+5. $50M community reparations fund
+
+Failure to respond within 30 days will result in the filing of a 
+federal civil rights action and a complaint with the EEOC.
+
+Sincerely,
+
+____________________
+${n()}`;
+}
+
+if(type==='settlement'){
+const amt = document.getElementById('genAmount').value || '$763,200';
+doc = `SETTLEMENT DEMAND
+
+${d()}
+
+United States Department of Justice
+Office of the Attorney General
+
+RE: Settlement Demand — ${n()} v. United States
+
+Dear Counsel,
+
+This letter constitutes our client's formal settlement demand in the 
+above-captioned matter.
+
+Our client, ${n()}, has suffered systematic racial discrimination 
+resulting in total damages of ${amt}.
+
+DEMANDS:
+1. Full back pay with compounding interest
+2. Mandatory reinstatement
+3. Independent judicial monitor
+4. Algorithmic audits of all systems
+5. $50M Class Civil Rights Reparations Trust
+
+This matter has significant media exposure potential. We recommend 
+prompt settlement.
+
+Sincerely,
+
+____________________
+Counsel for Plaintiff`;
+}
+
+if(type==='osc'){
+doc = `U.S. OFFICE OF SPECIAL COUNSEL COMPLAINT
+
+Complainant: ${n()}
+Agency: ${e()}
+
+I am filing this complaint under the Whistleblower Protection Act 
+(5 U.S.C. § 1221) and the CSRA (5 U.S.C. § 2302(b)(8)).
+
+On ${d()}, I reported illegal racial discrimination in my agency. 
+On ${d()}, I was retaliated against through [termination/demotion/harassment].
+
+This retaliation constitutes a prohibited personnel practice. 
+I request:
+1. Immediate stay of removal
+2. Investigation of retaliatory conduct
+3. Reinstatement with back pay
+4. Attorney fees under 5 U.S.C. § 1221(g)
+
+Signature: ____________________
+Date: ${d()}`;
+}
+
+if(type==='pseudonym'){
+doc = `MOTION FOR LEAVE TO PROCEED UNDER PSEUDONYM
+
+Case No.: ___________
+Judge: Tanya S. Chutkan
+
+Plaintiff ${n()} respectfully moves this Court for permission to 
+proceed under the pseudonym "John Doe" pursuant to FRCP Rule 5.2.
+
+Plaintiff is a Black man who has been systematically targeted by 
+Defendant. Public filing of his identity would expose him to 
+immediate retaliation, including termination from current employment, 
+physical harm, and harassment. This request is supported by the 
+pattern of retaliatory conduct already documented in this case.
+
+Plaintiff's true identity is known to the Court and will be 
+disclosed only under protective order.
+
+Respectfully submitted,
+____________________
+${n()}
+Date: ${d()}`;
+}
+
+if(type==='whistle'){
+doc = `WHISTLEBLOWER COMPLAINT
+
+Complainant: ${n()}
+Agency: ${e()}
+
+Under 5 U.S.C. § 2302(b)(8) and the Whistleblower Protection 
+Enhancement Act, I report the following:
+
+On ${d()}, I reported to [supervisor/IG/OSC] that my agency was 
+conducting a racially discriminatory purge targeting Black employees.
+
+On ${d()}, I was retaliated against by [describe retaliation].
+
+This constitutes a prohibited personnel practice. I request 
+immediate investigation, stay of removal, and full remedies 
+including attorney fees.
+
+Signature: ____________________
+Date: ${d()}`;
+}
+
+if(type==='nuclear'){
+doc = `MOTION FOR [NUCLEAR OPTION]
+
+Case No.: ___________
+Judge: Tanya S. Chutkan
+
+Plaintiff ${n()} moves this Court for [ORDER/RELIEF] under [LEGAL BASIS].
+
+[ARGUMENT FROM NUCLEAR DETAIL]
+
+Respectfully submitted,
+____________________
+${n()}
+Date: ${d()}`;
+}
+
+document.getElementById('docOutput').classList.add('show');
+document.getElementById('docOutput').textContent = doc;
+document.getElementById('docOutput').scrollIntoView({behavior:'smooth'});
+saveProgress();
+}
+
+// ============ NUCLEAR OPTIONS ============
+function showNuclear(type){
+const detail = document.getElementById('nuclearDetail');
+detail.style.display = 'block';
+const titles = {
+partisan:'🎭 THE PARTISAN PRETEXT KILLER',
+algorithm:'🤖 THE ALGORITHM AUDIT TRAP',
+state:'⚖️ THE STATE COURT PINCER',
+westfall:'🛡️ WESTFALL ACT SCOPE CHALLENGE',
+tariff:'💰 TARIFF CONSUMER FRAUD CLASS ACTION',
+history:'📜 THE HISTORICAL FRAMEWORK'
+};
+const contents = {
+partisan:`<p><strong>The Move:</strong> Find ANY white coworker who shared your exact political views (same party, same donations, same voting record) but was NOT fired.</p>
+<p><strong>The Kill Shot:</strong> In deposition, ask:</p>
+<p><em>"Mr. [Name], isn't it true that [White Coworker] donated $5,000 to the same PAC as the President, voted the same way in every election since 2016, and publicly supported every policy the administration enacted — yet he remains employed while I was terminated for 'lack of alignment with agency mission'?"</em></p>
+<p>They CANNOT answer this without admitting race was the factor.</p>`,
+algorithm:`<p><strong>The Move:</strong> File Motion Compelling Production of the Screening Algorithm.</p>
+<p>Hire a data scientist ($2,000 — covered by EAJA if you win) to run <strong>shadow testing</strong>:</p>
+<ol>
+<li>Create 10,000 synthetic profiles — identical in every way</li>
+<li>Change ONLY the race indicator (name, HBCU vs PWI, ZIP code)</li>
+<li>Run through government's OWN screening system</li>
+<li>If Black profiles flagged at higher rate → <strong>mathematical proof of Title VII violation</strong></li>
+</ol>`,
+state:`<p><strong>The Move:</strong> File in state court SIMULTANEOUSLY with federal court.</p>
+<table style="width:100%;margin-top:10px;border-collapse:collapse">
+<tr style="background:var(--card2)"><td style="padding:8px"><strong>State</strong></td><td style="padding:8px"><strong>Law</strong></td><td style="padding:8px"><strong>Advantage</strong></td></tr>
+<tr><td style="padding:8px">California</td><td style="padding:8px">Unruh Civil Rights Act</td><td style="padding:8px">Uncapped damages</td></tr>
+<tr><td style="padding:8px">New York</td><td style="padding:8px">NYSHRL</td><td style="padding:8px">Lower burden of proof</td></tr>
+<tr><td style="padding:8px">Illinois</td><td style="padding:8px">IHRA</td><td style="padding:8px">Protects against credit score proxies</td></tr>
+</table>`,
+westfall:`<p><strong>The Move:</strong> Challenge the Westfall Act certification that agents were "acting within scope."</p>
+<p><strong>The Kill Shot:</strong> Present evidence that actions violated <em>clearly established constitutional boundaries</em> (race-based targeting).</p>
+<p>Strip government protection → <strong>restore individual liability</strong> → unlock <strong>punitive damages against named individuals</strong>.</p>
+<p>When a government official is named personally, qualified immunity often collapses because they can't hide behind "the government." Their personal assets are on the line. They will settle. FAST.</p>`,
+tariff:`<p><strong>The Move:</strong> The Supreme Court ruled the administration's tariffs were illegal → $166B refund owed.</p>
+<p>Corporations kept the money instead of passing it to consumers. That's fraud.</p>
+<p><strong>File a state UDAAP class action</strong> against the corporations that received the tariff refunds.</p>
+<p><strong>The Payout:</strong> If class is 10 million people and refund is $166B = <strong>$16,600 per person</strong> — before your employment case even settles.</p>`,
+history:`<p><strong>The Move:</strong> Draw direct parallels to historical facially neutral laws with racially disparate impact:</p>
+<table style="width:100%;margin-top:10px;border-collapse:collapse">
+<tr style="background:var(--card2)"><td style="padding:8px"><strong>Historical Law</strong></td><td style="padding:8px"><strong>Modern Equivalent</strong></td></tr>
+<tr><td style="padding:8px">Vagrancy Laws (1865)</td><td style="padding:8px">"No cause" RIF terminations</td></tr>
+<tr><td style="padding:8px">Poll Taxes (1890s)</td><td style="padding:8px">Credit score / ZIP code proxies</td></tr>
+<tr><td style="padding:8px">G.I. Bill (1944)</td><td style="padding:8px">Competitive service "merit" excluding minority experience</td></tr>
+<tr><td style="padding:8px">Environmental Zoning</td><td style="padding:8px">Targeting minority-heavy agencies for de-funding</td></tr>
+</table>
+<p><strong>The Jury Sees:</strong> This isn't new. It's the same playbook. Every time.</p>`
+};
+document.getElementById('nuclearTitle').textContent = titles[type];
+document.getElementById('nuclearContent').innerHTML = contents[type];
+detail.scrollIntoView({behavior:'smooth'});
+}
+
+// ============ MODAL ============
+function openModal(title,content){
+document.getElementById('modalTitle').textContent = title;
+document.getElementById('modalContent').innerHTML = content;
+document.getElementById('modal').classList.add('show');
+}
+function closeModal(){
+document.getElementById('modal').classList.remove('show');
+}
+function printModal(){
+const content = document.getElementById('modalContent').innerText;
+const win = window.open('','_blank');
+win.document.write('<html><head><title>Print</title><style>body{font-family:Courier New,monospace;font-size:12px;padding:40px;white-space:pre-wrap}</style></head><body>'+content+'</body></html>');
+win.document.close();
+win.print();
+}
+
+// ============ SAVE / LOAD ============
+function saveProgress(){
+const data = {
+evidence: Array.from(document.querySelectorAll('.evidence-item')).map(el=>el.classList.contains('checked')),
+caseType: selectedCase,
+userName: document.getElementById('userName')?.value||''
+};
+localStorage.setItem('hl_progress',JSON.stringify(data));
+showSave();
+}
+
+function loadProgress(){
+const data = JSON.parse(localStorage.getItem('hl_progress'));
+if(data){
+if(data.evidence){
+document.querySelectorAll('.evidence-item').forEach((el,i)=>{
+if(data.evidence[i])el.classList.add('checked');
+});
+const total = document.querySelectorAll('.evidence-item').length;
+const checked = document.querySelectorAll('.evidence-item.checked').length;
+document.getElementById('evidenceProgress').style.width = (checked/total*100)+'%';
+document.getElementById('evidenceProgress').textContent = Math.round(checked/total*100)+'%';
+document.getElementById('evidenceCount').textContent = checked + ' of ' + total + ' pieces collected';
+}
+if(data.caseType)selectedCase = data.caseType;
+if(data.userName)document.getElementById('userName').value = data.userName;
+}
+}
+
+function showSave(){
+const el = document.getElementById('saveIndicator');
+el.classList.add('show');
+setTimeout(()=>el.classList.remove('show'),2000);
+}
+
+// ============ INIT ============
+window.onload = function(){
+loadProgress();
+// Set default date
+const today = new Date().toISOString().split('T')[0];
+document.querySelectorAll('input[type=date]').forEach(el=>{if(!el.value)el.value=today});
+};
+
+// Auto-save every 30 seconds
+setInterval(saveProgress,30000);
+</script>
+
+</body>
+</html>
