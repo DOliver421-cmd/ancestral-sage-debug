@@ -6,7 +6,7 @@ import {
   Send, Mic, MicOff, Volume2, VolumeX, Loader2, ChevronDown,
   ChevronUp, Layers, Shield, BookOpen, Compass, Users, Star,
   AlertTriangle, Zap, Download, Square, Paperclip, X, FileText,
-  Image as ImageIcon, FileCode,
+  Image as ImageIcon, FileCode, Music,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -475,6 +475,8 @@ export default function OrchestratorChat() {
               <div className="flex items-center gap-2 bg-white border border-signal/40 rounded-lg px-3 py-1.5 max-w-full">
                 {attachment.isImage
                   ? <ImageIcon className="w-4 h-4 text-signal shrink-0" />
+                  : attachment.type?.startsWith("audio/")
+                  ? <Music className="w-4 h-4 text-purple-500 shrink-0" />
                   : attachment.type === "application/pdf"
                   ? <FileText className="w-4 h-4 text-red-500 shrink-0" />
                   : <FileCode className="w-4 h-4 text-blue-500 shrink-0" />
@@ -494,7 +496,7 @@ export default function OrchestratorChat() {
           <input
             ref={fileInputRef}
             type="file"
-            accept="image/*,application/pdf,text/*,.csv,.json,.md,.txt,.py,.js,.ts,.jsx,.tsx,.html,.css,.xml,.yaml,.yml"
+            accept="image/*,audio/mpeg,audio/mp3,audio/wav,audio/m4a,audio/ogg,audio/webm,audio/flac,application/pdf,text/*,.csv,.json,.md,.txt,.py,.js,.ts,.jsx,.tsx,.html,.css,.xml,.yaml,.yml,.mp3,.wav,.m4a,.ogg,.flac"
             onChange={handleFileSelect}
             className="hidden"
           />
@@ -542,7 +544,7 @@ export default function OrchestratorChat() {
             </div>
           </div>
           <p className="text-[11px] text-ink/50 mt-2">
-            Enter to send · Shift+Enter for new line · 📎 images, PDF, text &amp; code files supported · All sessions are logged for audit.
+            Enter to send · Shift+Enter for new line · 📎 images, PDF, audio (MP3/WAV), text &amp; code files supported · All sessions are logged for audit.
           </p>
         </div>
       </div>

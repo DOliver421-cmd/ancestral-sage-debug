@@ -77,7 +77,7 @@ JWT_ALGO = os.environ.get('JWT_ALGORITHM', 'HS256')
 JWT_EXPIRE_HOURS = int(os.environ.get('JWT_EXPIRE_HOURS', '168'))
 EMERGENT_LLM_KEY = os.environ.get('EMERGENT_LLM_KEY', '')
 ANTHROPIC_API_KEY = os.environ.get('ANTHROPIC_API_KEY', EMERGENT_LLM_KEY)
-ANTHROPIC_API_KEY = os.environ.get('ANTHROPIC_API_KEY', EMERGENT_LLM_KEY)
+OPENAI_API_KEY = os.environ.get('OPENAI_API_KEY', EMERGENT_LLM_KEY)
 
 pwd_ctx = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
@@ -2581,8 +2581,37 @@ async def ai_orchestrator(body: OrchestratorReq, user: User = Depends(current_us
         import base64 as _b64
         mime = (body.file_type or "").lower()
         _IMAGE_TYPES = {"image/jpeg", "image/png", "image/gif", "image/webp"}
+        _AUDIO_TYPES = {"audio/mpeg", "audio/mp3", "audio/wav", "audio/x-wav",
+                        "audio/m4a", "audio/mp4", "audio/ogg", "audio/webm", "audio/flac"}
 
-        if mime in _IMAGE_TYPES:
+        if mime.startswith("audio/") or mime in _AUDIO_TYPES:
+            # Transcribe with OpenAI Whisper, inject transcript as text
+            if not OPENAI_API_KEY:
+                raise HTTPException(503, "Audio transcription requires OPENAI_API_KEY — contact your admin.")
+            try:
+                from openai import AsyncOpenAI as _OAI
+                import io as _io
+                _oai = _OAI(api_key=OPENAI_API_KEY)
+                audio_bytes = _b64.b64decode(body.file_b64)
+                transcript_resp = await _oai.audio.transcriptions.create(
+                    model="whisper-1",
+                    file=(body.file_name, _io.BytesIO(audio_bytes)),
+                    response_format="text",
+                )
+                transcript = str(transcript_resp).strip()
+                user_message = (
+                    f"{user_message}\n\n"
+                    f"--- Audio transcript: {body.file_name} ---\n"
+                    f"{transcript}\n"
+                    f"--- End of transcript ---"
+                )
+            except HTTPException:
+                raise
+            except Exception as e:
+                logger.exception("Whisper transcription failed")
+                raise HTTPException(502, f"Audio transcription failed: {e}")
+            claude_messages.append({"role": "user", "content": user_message})
+        elif mime in _IMAGE_TYPES:
             # Vision content block
             claude_messages.append({"role": "user", "content": [
                 {"type": "image", "source": {"type": "base64", "media_type": mime, "data": body.file_b64}},
