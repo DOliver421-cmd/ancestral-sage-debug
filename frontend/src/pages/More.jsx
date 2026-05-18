@@ -272,8 +272,8 @@ export default function More() {
 
   return (
     <>
-      {/* Sticky navbar */}
-      <header className="sticky top-0 z-30 bg-white/90 backdrop-blur border-b border-ink/10">
+      {/* ── Sticky navbar ─────────────────────────────────────────────────── */}
+      <header className="sticky top-0 z-30 bg-white/95 backdrop-blur border-b border-ink/10 shadow-sm">
         <div className="max-w-6xl mx-auto px-5 py-3 flex items-center justify-between gap-4">
           <Link to="/" className="flex items-center gap-2.5">
             <img src={WAI_LOGO} alt="W.A.I." className="w-8 h-8 object-contain" style={{ mixBlendMode: "multiply" }} />
@@ -282,83 +282,153 @@ export default function More() {
           <div className="flex items-center gap-2 font-heading font-extrabold text-base">
             <HandHelping className="w-5 h-5 text-amber-500" />
             <span>M.O.R.E.</span>
-            <span className="hidden sm:inline text-ink/50 font-normal text-sm">Michael Oliver Resource Exchange</span>
+            <span className="hidden sm:inline text-ink/40 font-normal text-sm">Michael Oliver Resource Exchange</span>
           </div>
           <nav className="flex items-center gap-2">
-            <Link to="/helper" className="hidden sm:flex items-center gap-1 text-sm font-medium hover:text-amber-500 transition-colors">
+            <Link to="/helper" className="hidden sm:flex items-center gap-1.5 text-sm font-semibold text-ink/60 hover:text-amber-600 transition-colors px-3 py-1.5 rounded-lg hover:bg-amber-50">
               <HelpCircle className="w-4 h-4" /> Help AI
             </Link>
             {user ? (
-              <Link to="/app/more" className="flex items-center gap-1.5 bg-amber-500 hover:bg-amber-400 text-ink font-bold text-sm px-4 py-2 rounded-xl transition-colors">
+              <Link to="/app/more" className="flex items-center gap-1.5 bg-amber-500 hover:bg-amber-400 text-ink font-bold text-sm px-4 py-2 rounded-xl transition-colors shadow-sm">
                 Full Hub <ChevronRight className="w-3.5 h-3.5" />
               </Link>
             ) : (
               <>
-                <Link to="/login" className="text-sm font-bold hover:text-amber-500 transition-colors">Sign In</Link>
-                <Link to="/register" className="bg-amber-500 hover:bg-amber-400 text-ink font-bold text-sm px-4 py-2 rounded-xl transition-colors">Join Free</Link>
+                <Link to="/login" className="text-sm font-bold text-ink/70 hover:text-ink transition-colors px-3 py-2">Sign In</Link>
+                <Link to="/register" className="bg-amber-500 hover:bg-amber-400 text-ink font-extrabold text-sm px-5 py-2 rounded-xl transition-colors shadow-sm">Join Free</Link>
               </>
             )}
           </nav>
         </div>
       </header>
 
-      <div className="min-h-screen" style={{ background: "linear-gradient(180deg,#0f172a 0%,#1e1b4b 280px,#f8f7f4 280px)" }}>
+      <div className="min-h-screen bg-slate-50">
 
-        {/* ── Hero ──────────────────────────────────────────────────────────── */}
-        <div className="max-w-6xl mx-auto px-5 pt-10 pb-16 text-white">
-          <div className="inline-flex items-center gap-2 bg-white/10 border border-white/20 rounded-full px-4 py-1.5 text-sm font-semibold mb-5">
-            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" /> Community Exchange — Open Now
-          </div>
-          <h1 className="font-heading text-5xl lg:text-7xl font-extrabold leading-[0.95] mb-5">
-            Give a skill.<br />
-            <span className="text-amber-400">Ask for help.</span><br />
-            <span className="text-blue-400">Build together.</span>
-          </h1>
-          <p className="text-white/70 max-w-xl text-lg leading-relaxed mb-8">
-            M.O.R.E. is a community exchange — no money changes hands, no exploitation, no judgment.
-            Share what you know. Ask for what you need. Show up for each other.
-          </p>
+        {/* ── HERO — full dark section, not a gradient trick ─────────────── */}
+        <div style={{ background: "linear-gradient(135deg,#0b1f3a 0%,#1e1b4b 60%,#0b203f 100%)" }}>
+          <div className="max-w-6xl mx-auto px-5 pt-12 pb-14 text-white">
 
-          {/* Stat strip */}
-          <div className="flex flex-wrap gap-6 mb-8 text-sm">
-            {[
-              ["🛠️", postsTotal, "skills &amp; stories shared"],
-              ["🙏", needsTotal, "needs on the board"],
-              ["🛡️", "100%", "moderated by Oliver Guardian"],
-            ].map(([icon, val, label]) => (
-              <div key={label} className="flex items-center gap-2">
-                <span>{icon}</span>
-                <span className="font-heading font-extrabold text-amber-400 text-xl">{val}</span>
-                <span className="text-white/50" dangerouslySetInnerHTML={{ __html: label }} />
+            {/* Eyebrow */}
+            <div className="inline-flex items-center gap-2 bg-white/10 border border-white/20 rounded-full px-4 py-1.5 text-sm font-semibold mb-6">
+              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+              Community Exchange — Open Now
+            </div>
+
+            {/* Headlines */}
+            <h1 className="font-heading font-extrabold leading-[0.92] mb-4" style={{ fontSize: "clamp(2.8rem,7vw,5.5rem)" }}>
+              Give a skill.<br />
+              <span style={{ color: "#f59e0b" }}>Ask for help.</span><br />
+              <span style={{ color: "#93c5fd" }}>Build together.</span>
+            </h1>
+
+            {/* Mission statement — the investor pitch */}
+            <p className="text-white/80 max-w-2xl text-lg leading-relaxed mb-3">
+              M.O.R.E. is a community-powered exchange where <strong className="text-white">no money changes hands</strong> — only skills, time, and knowledge.
+              Named in honor of <strong className="text-amber-300">Michael Oliver</strong>, a community organizer who believed that ordinary people, given the right structure, take extraordinary care of each other.
+            </p>
+            <p className="text-white/55 max-w-xl text-sm leading-relaxed mb-10">
+              No exploitation. No judgment. No gatekeeping. Share what you know. Ask for what you need. Show up for your neighbor.
+            </p>
+
+            {/* Action buttons — all on the dark background, all clearly readable */}
+            <div className="flex flex-wrap gap-3 mb-12">
+              <button onClick={() => requireAuth("Sharing with the community", () => setShowPost(true))}
+                className="flex items-center gap-2 font-extrabold text-base px-6 py-3.5 rounded-2xl transition-all hover:scale-105 active:scale-100 shadow-lg"
+                style={{ background: "#f59e0b", color: "#0b1f3a" }}
+                data-testid="btn-share">
+                <PlusCircle className="w-5 h-5" /> Share a Skill or Story
+              </button>
+              <button onClick={() => requireAuth("Posting a need", () => setShowNeed(true))}
+                className="flex items-center gap-2 font-bold text-base px-6 py-3.5 rounded-2xl transition-all hover:scale-105 active:scale-100"
+                style={{ background: "rgba(255,255,255,0.12)", border: "1.5px solid rgba(255,255,255,0.35)", color: "#fff" }}
+                data-testid="btn-post-need">
+                <HandHelping className="w-5 h-5" /> Post a Need
+              </button>
+              <button onClick={() => requireAuth("Community Chat", () => navigate("/more/chat"))}
+                className="flex items-center gap-2 font-bold text-base px-6 py-3.5 rounded-2xl transition-all hover:scale-105 active:scale-100"
+                style={{ background: "rgba(96,165,250,0.18)", border: "1.5px solid rgba(147,197,253,0.45)", color: "#bfdbfe" }}>
+                <MessageSquare className="w-5 h-5" /> Community Chat
+              </button>
+              <Link to="/more/litigation"
+                className="flex items-center gap-2 font-bold text-base px-6 py-3.5 rounded-2xl transition-all hover:scale-105 active:scale-100"
+                style={{ background: "rgba(52,211,153,0.18)", border: "1.5px solid rgba(110,231,183,0.45)", color: "#a7f3d0" }}>
+                <Scale className="w-5 h-5" /> Legal Help Tool
+              </Link>
+            </div>
+
+            {/* Stat strip */}
+            <div className="flex flex-wrap gap-8 border-t border-white/10 pt-8">
+              <div>
+                <div className="font-heading font-extrabold text-3xl text-amber-400">{postsTotal > 0 ? postsTotal.toLocaleString() : "—"}</div>
+                <div className="text-white/50 text-sm mt-0.5">skills &amp; stories shared</div>
               </div>
-            ))}
+              <div>
+                <div className="font-heading font-extrabold text-3xl text-amber-400">{needsTotal > 0 ? needsTotal.toLocaleString() : "—"}</div>
+                <div className="text-white/50 text-sm mt-0.5">community needs posted</div>
+              </div>
+              <div>
+                <div className="font-heading font-extrabold text-3xl text-emerald-400">100%</div>
+                <div className="text-white/50 text-sm mt-0.5">AI-moderated before publishing</div>
+              </div>
+              <div>
+                <div className="font-heading font-extrabold text-3xl text-blue-300">Free</div>
+                <div className="text-white/50 text-sm mt-0.5">always — no subscriptions, ever</div>
+              </div>
+            </div>
           </div>
+        </div>
 
-          {/* Big action buttons */}
-          <div className="flex flex-wrap gap-3">
-            <button onClick={() => requireAuth("Sharing with the community", () => setShowPost(true))}
-              className="flex items-center gap-2 bg-amber-500 hover:bg-amber-400 text-ink font-extrabold text-base px-6 py-3.5 rounded-2xl shadow-lg shadow-amber-500/30 transition-all hover:scale-105 active:scale-100"
-              data-testid="btn-share">
-              <PlusCircle className="w-5 h-5" /> Share a Skill or Story
-            </button>
-            <button onClick={() => requireAuth("Posting a need", () => setShowNeed(true))}
-              className="flex items-center gap-2 bg-white/10 hover:bg-white/20 border border-white/30 text-white font-bold text-base px-6 py-3.5 rounded-2xl transition-all hover:scale-105 active:scale-100"
-              data-testid="btn-post-need">
-              <HandHelping className="w-5 h-5" /> Post a Need
-            </button>
-            <button onClick={() => requireAuth("Community Chat", () => navigate("/more/chat"))}
-              className="flex items-center gap-2 bg-blue-500/20 hover:bg-blue-500/30 border border-blue-400/40 text-blue-200 font-bold text-base px-6 py-3.5 rounded-2xl transition-all hover:scale-105 active:scale-100">
-              <MessageSquare className="w-5 h-5" /> Community Chat
-            </button>
-            <Link to="/more/litigation"
-              className="flex items-center gap-2 bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-400/40 text-emerald-200 font-bold text-base px-6 py-3.5 rounded-2xl transition-all hover:scale-105 active:scale-100">
-              <Scale className="w-5 h-5" /> Legal Help Tool
-            </Link>
+        {/* ── WHY M.O.R.E. — mission pillars ────────────────────────────────── */}
+        <div className="bg-white border-b border-slate-100">
+          <div className="max-w-6xl mx-auto px-5 py-12">
+            <div className="text-center mb-10">
+              <div className="inline-block text-xs font-bold tracking-widest text-amber-600 uppercase mb-2 px-3 py-1 bg-amber-50 rounded-full border border-amber-200">The Mission</div>
+              <h2 className="font-heading font-extrabold text-2xl lg:text-3xl text-slate-900 mt-2">
+                Built for the communities institutions forgot.
+              </h2>
+              <p className="text-slate-500 max-w-xl mx-auto mt-3 leading-relaxed">
+                Every neighborhood has people who know things, people who need things, and people willing to help — they just need the right place to meet.
+              </p>
+            </div>
+            <div className="grid md:grid-cols-3 gap-6">
+              {[
+                {
+                  icon: "🤝",
+                  color: "#f59e0b",
+                  bg: "#fffbeb",
+                  border: "#fde68a",
+                  title: "Skill Exchange, Not Charity",
+                  body: "This is not a handout platform. Every member both gives and receives. The electrician teaches. The cook feeds. The accountant explains. Dignity is built into the structure."
+                },
+                {
+                  icon: "🛡️",
+                  color: "#0284c7",
+                  bg: "#f0f9ff",
+                  border: "#bae6fd",
+                  title: "Oliver Guardian Protects Everyone",
+                  body: "Every post passes through our AI moderation layer before it goes live. No scams, no exploitation, no personal info exposed. The community stays safe by design."
+                },
+                {
+                  icon: "⚖️",
+                  color: "#059669",
+                  bg: "#f0fdf4",
+                  border: "#bbf7d0",
+                  title: "Legal Tools — No Lawyer Required",
+                  body: "Understand your rights. Read a letter. Respond to a notice. Our plain-language Legal Help Tool turns intimidating documents into clear action steps."
+                },
+              ].map(({ icon, color, bg, border, title, body }) => (
+                <div key={title} className="rounded-2xl p-6 border-2" style={{ background: bg, borderColor: border }}>
+                  <div className="text-4xl mb-4">{icon}</div>
+                  <h3 className="font-heading font-extrabold text-lg mb-2" style={{ color }}>{title}</h3>
+                  <p className="text-slate-600 text-sm leading-relaxed">{body}</p>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
 
         {/* ── Feed area ─────────────────────────────────────────────────────── */}
-        <div className="max-w-6xl mx-auto px-5 pb-20">
+        <div className="max-w-6xl mx-auto px-5 pb-20 pt-8">
 
           {/* Tab + filter bar */}
           <div className="bg-white rounded-2xl shadow-lg p-4 mb-6 flex flex-col sm:flex-row sm:items-center gap-4">
