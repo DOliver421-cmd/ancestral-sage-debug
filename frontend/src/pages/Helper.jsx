@@ -16,11 +16,13 @@ export default function Helper({ requireAuth = false }) {
   const { user, loading } = useAuth();
   const navigate = useNavigate();
   useKeepAlive();
+
   useEffect(() => {
     const fab = document.getElementById("wai-helper-fab");
     if (fab) fab.style.display = "none";
     return () => { if (fab) fab.style.display = ""; };
   }, []);
+
   if (loading) return <div style={{display:"flex",alignItems:"center",justifyContent:"center",height:"100vh",fontFamily:"system-ui"}}>Loading...</div>;
   if (requireAuth && !user) { navigate("/login"); return null; }
   return requireAuth ? <AuthHelper user={user} /> : <PublicHelper />;
@@ -169,6 +171,7 @@ function useHelperAPI() {
     }
     try {
       const kbFacts = topicKey && KB[topicKey] ? KB[topicKey].keywords.join(", ") : "";
+      void kbFacts; // referenced to satisfy linter if needed
       const r = await fetch("https://api.anthropic.com/v1/messages", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -190,6 +193,7 @@ function useHelperAPI() {
 function useMic({ onResult, onError }) {
   const [listening, setListening] = useState(false);
   const recogRef = useRef(null);
+
   const start = useCallback(async () => {
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SR) { onError("Voice input is not supported in this browser. Please use Chrome or Edge."); return; }
@@ -203,6 +207,7 @@ function useMic({ onResult, onError }) {
     rec.onerror = (e) => { setListening(false); onError(e.error === "not-allowed" ? "Microphone access denied." : "Microphone error: " + e.error); };
     recogRef.current = rec; rec.start();
   }, [onResult, onError]);
+
   const stop = useCallback(() => { recogRef.current?.stop(); setListening(false); }, []);
   const toggle = useCallback(() => { if (listening) stop(); else start(); }, [listening, start, stop]);
   return { listening, toggle };
@@ -215,6 +220,7 @@ function useTTS(voice) {
   const [speaking, setSpeaking] = useState(false);
   const audioRef = useRef(null);
   const abortRef = useRef(null);
+
   const speakBrowser = useCallback((text) => {
     if (!window.speechSynthesis) return;
     window.speechSynthesis.cancel();
@@ -226,6 +232,13 @@ function useTTS(voice) {
     utt.onstart = () => setSpeaking(true); utt.onend = () => setSpeaking(false); utt.onerror = () => setSpeaking(false);
     window.speechSynthesis.speak(utt);
   }, []);
+
+  const stop = useCallback(() => {
+    abortRef.current?.abort();
+    if (audioRef.current) { audioRef.current.pause(); audioRef.current = null; }
+    window.speechSynthesis?.cancel(); setSpeaking(false);
+  }, []);
+
   const speak = useCallback(async (text) => {
     if (!text) return;
     abortRef.current?.abort();
@@ -254,11 +267,7 @@ function useTTS(voice) {
       audio.play();
     } catch (e) { if (e?.name !== "AbortError") { setSpeaking(false); speakBrowser(text); } }
   }, [voice, speakBrowser]);
-  const stop = useCallback(() => {
-    abortRef.current?.abort();
-    if (audioRef.current) { audioRef.current.pause(); audioRef.current = null; }
-    window.speechSynthesis?.cancel(); setSpeaking(false);
-  }, []);
+
   return { speaking, speak, stop };
 }
 
@@ -293,7 +302,9 @@ function PublicHelper() {
   useMobileKeyboardFix(endRef);
 
   const LANGS = ["English","Espanol","Kreyol Ayisyen","Yoruba","Af-Soomaali","Tagalog","Tieng Viet"];
+
   const showToast = useCallback((msg) => { setToast(msg); setTimeout(() => setToast(null), 3000); }, []);
+
   const addMsg = useCallback((role, text) => {
     const time = new Date().toLocaleTimeString([], { hour:"numeric", minute:"2-digit" });
     setMsgs(m => [...m, { role, text, time }]);
@@ -325,7 +336,8 @@ function PublicHelper() {
 
   useEffect(() => {
     addMsg("helper", "Hello! I am here to help you understand mail, bills, legal papers, housing, medicines, and more - all in plain, simple words. Choose a topic below or type your question.");
-  }, []);
+  }, [addMsg]);
+
   useEffect(() => { endRef.current?.scrollIntoView({ behavior:"smooth" }); }, [msgs]);
 
   const cycleLang = () => {
@@ -334,6 +346,9 @@ function PublicHelper() {
     setLang(next);
     showToast("I will try to respond in " + next);
   };
+
+  // suppress unused navigate warning - navigate is available for subcomponent use
+  void navigate;
 
   const TOPICS = [
     { key:"mail", icon:"📬", title:"Understand a Letter", prompt:"I can help you understand any letter or official document. Please type or paste what it says and I will explain it in plain words." },
@@ -440,7 +455,7 @@ function PublicHelper() {
         <div style={{ height:20 }} />
       </div>
 
-      {/* INPUT ROW - pinned to bottom, mic + audio + textarea + send */}
+      {/* INPUT ROW */}
       <div style={{ display:"flex", gap:6, alignItems:"flex-end", padding:"8px 10px", background:"#fff", borderTop:"1px solid #e5e7eb", flexShrink:0 }}>
         <button onClick={toggleMic} style={{ borderRadius:12, border:"none", padding:"12px 12px", fontSize:18, background:listening?"#dc2626":"#f3f4f6", color:listening?"#fff":"#374151", cursor:"pointer", flexShrink:0 }} title={listening?"Stop":"Speak"}>
           {listening ? "🔴" : "🎙️"}
@@ -460,7 +475,6 @@ function PublicHelper() {
         />
         <button onClick={() => sendText(input, activeTopic)} disabled={loading} style={{ borderRadius:12, border:"none", padding:"12px 16px", fontSize:14, fontWeight:700, background:"#2563eb", color:"#fff", cursor:"pointer", flexShrink:0 }}>Send</button>
       </div>
-
       {toast && <div style={{ position:"fixed", top:16, left:"50%", transform:"translateX(-50%)", background:"#111827", color:"#f9fafb", padding:"10px 18px", borderRadius:999, fontSize:13, zIndex:9999, whiteSpace:"nowrap", boxShadow:"0 4px 20px rgba(0,0,0,.3)" }}>{toast}</div>}
     </div>
   );
@@ -489,6 +503,7 @@ function AuthHelper({ user }) {
   useMobileKeyboardFix(endRef);
 
   const showToast = useCallback((msg) => { setToast(msg); setTimeout(() => setToast(null), 3000); }, []);
+
   const addMsg = useCallback((role, text) => {
     const time = new Date().toLocaleTimeString([], { hour:"numeric", minute:"2-digit" });
     setMsgs(m => [...m, { role, text, time }]);
@@ -521,7 +536,8 @@ function AuthHelper({ user }) {
 
   useEffect(() => {
     addMsg("helper", "Welcome back, " + (user?.full_name?.split(" ")[0] || "there") + ". I am your private helper inside WAI-Institute. Choose a tool from the sidebar or just type your question.");
-  }, []);
+  }, [addMsg, user?.full_name]);
+
   useEffect(() => { endRef.current?.scrollIntoView({ behavior:"smooth" }); }, [msgs]);
 
   const AUTH_TOOLS = [
@@ -560,7 +576,6 @@ function AuthHelper({ user }) {
 
   return (
     <div style={{ display:"flex", flexDirection:"column", height:"100dvh", fontFamily:"system-ui,-apple-system,sans-serif", color:"#1f2933", overflow:"hidden", background:"#f8fafc" }}>
-
       {/* TOP HEADER */}
       <div style={{ background:"linear-gradient(135deg,#1e3a5f,#2563eb,#7c3aed)", padding:"12px 20px", flexShrink:0, color:"#fff" }}>
         <div style={{ display:"flex", alignItems:"center", gap:14, marginBottom:12 }}>
@@ -596,7 +611,6 @@ function AuthHelper({ user }) {
 
       {/* MAIN BODY — sidebar + content */}
       <div style={{ flex:1, display:"flex", overflow:"hidden" }}>
-
         {/* LEFT SIDEBAR */}
         <div style={{ width:252, background:"#fff", borderRight:"1px solid #e5e7eb", overflowY:"auto", flexShrink:0, display:"flex", flexDirection:"column" }}>
           {/* Quick actions */}
@@ -609,7 +623,6 @@ function AuthHelper({ user }) {
               📷 Quick scan & read
             </button>
           </div>
-
           {/* Tool categories */}
           <div style={{ padding:"8px", flex:1 }}>
             {AUTH_TOOLS.map(({ section, color, items }) => (
@@ -632,7 +645,6 @@ function AuthHelper({ user }) {
 
         {/* RIGHT CONTENT PANEL */}
         <div style={{ flex:1, display:"flex", flexDirection:"column", overflow:"hidden" }}>
-
           {/* HOME TAB */}
           {tab === "home" && (
             <div style={{ flex:1, overflowY:"auto", padding:"28px 32px" }}>
@@ -796,7 +808,6 @@ function AuthHelper({ user }) {
               </div>
             </div>
           )}
-
         </div>
       </div>
 
