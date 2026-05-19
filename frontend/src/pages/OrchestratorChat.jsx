@@ -11,7 +11,6 @@ import {
 import { toast } from "sonner";
 
 // ── Role metadata ────────────────────────────────────────────────────────────
-
 const ROLE_META = {
   student: {
     label: "Learner",
@@ -52,7 +51,6 @@ const ROLE_META = {
 };
 
 // ── Protocol options (admin / exec only) ─────────────────────────────────────
-
 const PROTOCOLS = [
   { key: "", label: "Auto-route (recommended)" },
   { key: "rapid_threat_response", label: "Rapid Threat Response" },
@@ -62,8 +60,6 @@ const PROTOCOLS = [
 ];
 
 // ── Markdown-lite renderer ───────────────────────────────────────────────────
-// Turns **bold**, ## headers, and - bullets into HTML for exec structured output
-
 function RichReply({ text }) {
   const lines = text.split("\n");
   const rendered = [];
@@ -108,14 +104,12 @@ function formatInline(text) {
 }
 
 // ── Speech recognition ───────────────────────────────────────────────────────
-
 const SpeechRecognitionImpl =
   typeof window !== "undefined"
     ? window.SpeechRecognition || window.webkitSpeechRecognition
     : null;
 
 // ── Main component ───────────────────────────────────────────────────────────
-
 export default function OrchestratorChat() {
   const { user } = useAuth();
   const role = user?.role || "student";
@@ -123,13 +117,13 @@ export default function OrchestratorChat() {
   const isAdmin = role === "admin" || role === "executive_admin";
   const isExec = role === "executive_admin";
 
-  const [msgs, setMsgs] = useState([]);        // {role, content, ts}
+  const [msgs, setMsgs] = useState([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [sessionId] = useState(() => `orch-${Date.now()}`);
 
   // File attachment state
-  const [attachment, setAttachment] = useState(null); // {name, type, b64, preview}
+  const [attachment, setAttachment] = useState(null);
   const fileInputRef = useRef(null);
 
   // Advanced options (admin+)
@@ -144,16 +138,21 @@ export default function OrchestratorChat() {
   const recogRef = useRef(null);
   const audioElRef = useRef(null);
   const audioAbortRef = useRef(null);
-
   const endRef = useRef(null);
+
   useEffect(() => { endRef.current?.scrollIntoView({ behavior: "smooth" }); }, [msgs]);
 
   // ── TTS ──────────────────────────────────────────────────────────────────
+  const stopAudio = useCallback(() => {
+    if (audioElRef.current) { audioElRef.current.pause(); audioElRef.current.src = ""; }
+    if (audioAbortRef.current) audioAbortRef.current.abort();
+    setAudioPlaying(false);
+  }, []);
 
   const playTTS = useCallback(async (text) => {
     if (!audioOn || !text) return;
     try {
-      if (audioAbortRef.current) audioAbortRef.current.abort();
+      stopAudio();
       const ctrl = new AbortController();
       audioAbortRef.current = ctrl;
       const r = await api.post(
@@ -175,16 +174,9 @@ export default function OrchestratorChat() {
       }
       setAudioPlaying(false);
     }
-  }, [audioOn, sessionId]);
-
-  const stopAudio = useCallback(() => {
-    if (audioElRef.current) { audioElRef.current.pause(); audioElRef.current.src = ""; }
-    if (audioAbortRef.current) audioAbortRef.current.abort();
-    setAudioPlaying(false);
-  }, []);
+  }, [audioOn, sessionId, stopAudio]);
 
   // ── STT ──────────────────────────────────────────────────────────────────
-
   const startRecording = useCallback(() => {
     if (!SpeechRecognitionImpl) { toast.error("Speech input not supported in this browser."); return; }
     const r = new SpeechRecognitionImpl();
@@ -205,34 +197,29 @@ export default function OrchestratorChat() {
   }, []);
 
   // ── File attachment ───────────────────────────────────────────────────────
-
   const handleFileSelect = useCallback((e) => {
     const file = e.target.files?.[0];
     if (!file) return;
-
-    const MAX = 10 * 1024 * 1024; // 10 MB
+    const MAX = 10 * 1024 * 1024;
     if (file.size > MAX) {
       toast.error("File too large — maximum 10 MB.");
       e.target.value = "";
       return;
     }
-
     const reader = new FileReader();
     reader.onload = () => {
-      // reader.result is "data:<mime>;base64,<data>" — strip the prefix
       const b64 = reader.result.split(",")[1];
       const isImage = file.type.startsWith("image/");
       setAttachment({ name: file.name, type: file.type, b64, isImage,
-                      preview: isImage ? reader.result : null });
+        preview: isImage ? reader.result : null });
     };
     reader.readAsDataURL(file);
-    e.target.value = ""; // allow re-selecting same file
+    e.target.value = "";
   }, []);
 
   const clearAttachment = useCallback(() => setAttachment(null), []);
 
   // ── Send ──────────────────────────────────────────────────────────────────
-
   const send = useCallback(async (overrideText) => {
     const text = (overrideText ?? input).trim();
     if ((!text && !attachment) || loading) return;
@@ -240,12 +227,11 @@ export default function OrchestratorChat() {
     const currentAttachment = attachment;
     setAttachment(null);
     setLoading(true);
-
     const displayContent = text + (currentAttachment ? ` 📎 ${currentAttachment.name}` : "");
     const userMsg = { role: "user", content: displayContent, ts: Date.now() };
     setMsgs((prev) => [...prev, userMsg]);
 
-    // Build history from current msgs (exclude the one we just added)
+    // Build history snapshot before state update
     const history = msgs.map((m) => ({ role: m.role, content: m.content }));
 
     try {
@@ -277,14 +263,13 @@ export default function OrchestratorChat() {
     } finally {
       setLoading(false);
     }
-  }, [input, loading, msgs, sessionId, threatHint, protocol, playTTS]);
+  }, [input, loading, msgs, sessionId, threatHint, protocol, playTTS, attachment]);
 
   const handleKey = (e) => {
     if (e.key === "Enter" && !e.shiftKey && !e.ctrlKey) { e.preventDefault(); send(); }
   };
 
   // ── Export transcript ────────────────────────────────────────────────────
-
   const exportTranscript = () => {
     const lines = msgs.map((m) =>
       `[${m.role.toUpperCase()}] ${new Date(m.ts).toLocaleTimeString()}\n${m.content}`
@@ -297,14 +282,13 @@ export default function OrchestratorChat() {
   };
 
   // ── Render ───────────────────────────────────────────────────────────────
-
   const MetaIcon = meta.icon;
 
   return (
     <AppShell>
       <audio ref={audioElRef} style={{ display: "none" }} />
-
       <div className="flex flex-col h-screen max-h-screen">
+
         {/* ─── Header ─── */}
         <div className="shrink-0 px-8 py-5 border-b border-ink/10 bg-bone">
           <div className="flex items-start justify-between">
@@ -319,7 +303,6 @@ export default function OrchestratorChat() {
               </h1>
               <p className="text-ink/50 text-sm mt-1 max-w-xl">{meta.description}</p>
             </div>
-
             <div className="flex items-center gap-2 mt-1">
               {msgs.length > 0 && (
                 <button
@@ -331,7 +314,7 @@ export default function OrchestratorChat() {
                 </button>
               )}
               <button
-                onClick={() => { audioOn ? setAudioOn(false) : setAudioOn(true); }}
+                onClick={() => setAudioOn((prev) => !prev)}
                 className={`flex items-center gap-1.5 text-xs border px-3 py-1.5 transition-colors ${audioOn ? "border-signal text-signal" : "border-ink/20 text-ink/60 hover:text-ink"}`}
                 title={audioOn ? "Disable voice output" : "Enable voice output"}
               >
@@ -463,7 +446,6 @@ export default function OrchestratorChat() {
               </div>
             </div>
           )}
-
           <div ref={endRef} />
         </div>
 
@@ -553,7 +535,6 @@ export default function OrchestratorChat() {
 }
 
 // ── Role-specific starter prompts ────────────────────────────────────────────
-
 const STARTER_PROMPTS = {
   student: [
     "I'm struggling to stay motivated in my studies. What would the Sage say?",
