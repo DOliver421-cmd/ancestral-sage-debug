@@ -33,7 +33,6 @@ function needsConsent(intensity, safety) {
   return intensity === "deep" || safety === "exploratory" || safety === "extreme";
 }
 
-// Browser STT — Web Speech API (Chrome/Edge/Safari).
 const SpeechRecognitionImpl = typeof window !== "undefined"
   ? (window.SpeechRecognition || window.webkitSpeechRecognition)
   : null;
@@ -54,8 +53,7 @@ export default function AITutor() {
   const [consentLogId, setConsentLogId] = useState(null);
   const [consentOpen, setConsentOpen] = useState(false);
 
-  // Audio state
-  const [audioOn, setAudioOn] = useState(false); // user opt-in for speaker
+  const [audioOn, setAudioOn] = useState(false);
   const [audioSpeed, setAudioSpeed] = useState(1.0);
   const [audioVolume, setAudioVolume] = useState(1.0);
   const [audioPlaying, setAudioPlaying] = useState(false);
@@ -64,11 +62,11 @@ export default function AITutor() {
   const audioElRef = useRef(null);
   const audioAbortRef = useRef(null);
 
-  // Restricted Mode (integrity drift) + first-time consent gate
   const [restricted, setRestricted] = useState(false);
-  const [resolvedMode, setResolvedMode] = useState(null); // {mode, reason}
+  const [resolvedMode, setResolvedMode] = useState(null);
 
   useEffect(() => { endRef.current?.scrollIntoView({ behavior: "smooth" }); }, [msgs]);
+
   useEffect(() => {
     if (mode !== "ancestral_sage") return;
     api.get("/ai/sage/integrity").then((r) => {
@@ -83,14 +81,18 @@ export default function AITutor() {
     if (!needsConsent(intensity, safety)) setConsentLogId(null);
   }, [intensity, safety]);
 
-  const speak = useCallback(async (text) => {
-    if (!audioOn || !text) return;
-    // Cancel any in-flight request and stop any current audio
+  const cancelAudio = useCallback(() => {
     audioAbortRef.current?.abort();
     if (audioElRef.current) {
       audioElRef.current.pause();
       audioElRef.current = null;
     }
+    setAudioPlaying(false);
+  }, []);
+
+  const speak = useCallback(async (text) => {
+    if (!audioOn || !text) return;
+    cancelAudio();
     const controller = new AbortController();
     audioAbortRef.current = controller;
     try {
@@ -98,14 +100,14 @@ export default function AITutor() {
       const r = await fetch(`${API}/ai/sage/tts`, {
         method: "POST",
         headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
-        body: JSON.stringify({ 
-          text, 
-          voice: mode === "ancestral_sage" ? "sage" : 
-                 mode === "tutor" ? "nova" :
-                 mode === "scripture" ? "fable" :
-                 mode === "electrician" ? "echo" : "alloy",
-          speed: audioSpeed, 
-          session_id: sessionId 
+        body: JSON.stringify({
+          text,
+          voice: mode === "ancestral_sage" ? "sage" :
+            mode === "tutor" ? "nova" :
+            mode === "scripture" ? "fable" :
+            mode === "electrician" ? "echo" : "alloy",
+          speed: audioSpeed,
+          session_id: sessionId
         }),
         signal: controller.signal,
       });
@@ -134,16 +136,9 @@ export default function AITutor() {
         toast.error("Couldn't play audio. Text remains visible.");
       }
     }
-  }, [audioOn, audioSpeed, audioVolume, sessionId]);
+  }, [audioOn, audioSpeed, audioVolume, sessionId, mode, cancelAudio]);
 
-  const cancelAudio = () => {
-    audioAbortRef.current?.abort();
-    audioElRef.current?.pause();
-    audioElRef.current = null;
-    setAudioPlaying(false);
-  };
-
-  const downloadTranscript = () => {
+  const downloadTranscript = useCallback(() => {
     const lines = msgs.map((m) => `[${m.role}] ${m.text}`).join("\n\n");
     const blob = new Blob([lines || "(no messages)"], { type: "text/plain;charset=utf-8" });
     const url = URL.createObjectURL(blob);
@@ -152,9 +147,9 @@ export default function AITutor() {
     a.download = `sage-transcript-${sessionId}.txt`;
     a.click();
     URL.revokeObjectURL(url);
-  };
+  }, [msgs, sessionId]);
 
-  const send = async () => {
+  const send = useCallback(async () => {
     if (!input.trim() || loading) return;
     if (mode === "ancestral_sage" && needsConsent(intensity, safety) && !consentLogId) {
       setConsentOpen(true);
@@ -164,7 +159,7 @@ export default function AITutor() {
     setInput("");
     setMsgs((m) => [...m, { role: "user", text: userMsg }]);
     setLoading(true);
-    // Sage v4: deterministic mode reconciliation BEFORE the LLM call.
+
     if (mode === "ancestral_sage") {
       try {
         const rm = await api.post("/ai/sage/resolve_mode", {
@@ -181,9 +176,10 @@ export default function AITutor() {
           return;
         }
       } catch {
-        // Resolver failed — proceed silently, default sage behavior.
+        // Resolver failed — proceed silently
       }
     }
+
     try {
       const payload = { session_id: sessionId, message: userMsg, mode };
       if (mode === "ancestral_sage") {
@@ -211,10 +207,9 @@ export default function AITutor() {
         setMsgs((m) => [...m, { role: "assistant", text: "Sorry — I couldn't reach the tutor service. Try again in a moment." }]);
       }
     } finally { setLoading(false); }
-  };
+  }, [input, loading, mode, intensity, safety, consentLogId, sessionId, depth, culture, divMode, audioOn, speak]);
 
-  // STT — toggle dictation. Permission is requested by the browser.
-  const toggleMic = () => {
+  const toggleMic = useCallback(() => {
     if (!SpeechRecognitionImpl) {
       toast.error("Voice input is not supported in this browser. Use Chrome, Edge, or Safari.");
       return;
@@ -252,11 +247,7 @@ export default function AITutor() {
         setRecording(false);
       };
       rec.onend = () => {
-        if (recogRef.current && recording) {
-          try { rec.start(); } catch { setRecording(false); }
-        } else {
-          setRecording(false);
-        }
+        setRecording(false);
       };
       recogRef.current = rec;
       try {
@@ -268,7 +259,7 @@ export default function AITutor() {
       }
     };
     startRec();
-  };
+  }, [recording]);
 
   const sageActive = mode === "ancestral_sage";
   const consentRequired = sageActive && needsConsent(intensity, safety);
@@ -342,6 +333,7 @@ export default function AITutor() {
               <span className="text-ink/40">— {resolvedMode.reason}</span>
             </div>
           )}
+
           <div className="flex-1 overflow-y-auto p-6 space-y-4">
             {msgs.length === 0 && (
               <div className="text-center text-ink/70 py-16">
@@ -361,6 +353,7 @@ export default function AITutor() {
                 )}
               </div>
             )}
+
             {msgs.map((m, i) => (
               <div key={i} className={`flex ${m.role === "user" ? "justify-end" : "justify-start"} group`}>
                 <div className={`max-w-[80%] p-4 text-sm leading-relaxed whitespace-pre-wrap relative ${m.role === "user" ? "bg-ink text-white" : "bg-bone border border-ink/10"}`} data-testid={`msg-${i}`}>
@@ -379,6 +372,7 @@ export default function AITutor() {
                 </div>
               </div>
             ))}
+
             {loading && (
               <div className="text-sm text-ink/50 italic flex items-center gap-2">
                 <Loader2 className="w-3.5 h-3.5 animate-spin" /> Tutor is thinking…
@@ -386,6 +380,7 @@ export default function AITutor() {
             )}
             <div ref={endRef} />
           </div>
+
           <div className="border-t border-ink/10 p-4 flex gap-2 items-center">
             {sageActive && (
               <button
@@ -453,6 +448,7 @@ function SageParamPanel({
     { label: "Divination mode", value: divMode, set: setDivMode, opts: SAGE_DIVINATION, testid: "sage-divination" },
     { label: "Safety level", value: safety, set: setSafety, opts: SAGE_SAFETY, testid: "sage-safety" },
   ];
+
   return (
     <div className="card-flat mt-6 p-5 bg-white border-l-4 border-l-copper" data-testid="sage-param-panel">
       <div className="flex items-center justify-between gap-3 flex-wrap">
@@ -566,7 +562,7 @@ function SageParamPanel({
 }
 
 // ---------------------------------------------------------------------------
-// Layered consent modal — 3 disclaimers + verbatim YES + comprehension.
+// Layered consent modal
 // ---------------------------------------------------------------------------
 function ConsentModal({ intensity, safety, onClose, onGranted }) {
   const [confirmYes, setConfirmYes] = useState("");
@@ -622,7 +618,6 @@ function ConsentModal({ intensity, safety, onClose, onGranted }) {
         <h3 className="font-heading text-2xl font-bold mt-2 flex items-center gap-2">
           <ShieldAlert className="w-6 h-6 text-copper" /> Layered consent
         </h3>
-
         <div className="mt-5 space-y-3">
           <DisclaimerCard
             n={1} checked={d1} onCheck={setD1} testid="disclaimer-1"
@@ -704,7 +699,6 @@ function ConsentModal({ intensity, safety, onClose, onGranted }) {
             data-testid="sage-consent-yes"
             autoFocus
           />
-
           <p className="text-sm text-ink/70 mt-4">
             Please type the following exactly:
             <br />
@@ -767,3 +761,4 @@ function DisclaimerCard({ n, checked, onCheck, title, body, testid }) {
     </label>
   );
 }
+
