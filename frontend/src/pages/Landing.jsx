@@ -1,6 +1,6 @@
 import { Link } from "react-router-dom";
 import { WAI_LOGO, BRAND } from "../lib/brand";
-import { ShieldCheck, BookOpen, Sun, Award, Wrench, ArrowRight, HelpCircle, HandHelping, Scale, MessageSquare } from "lucide-react";
+import { ShieldCheck, BookOpen, Sun, Award, Wrench, ArrowRight, HelpCircle, HandHelping, Scale, MessageSquare, Heart } from "lucide-react";
 
 const HERO = "https://placehold.co/1200x600/0A1628/C9A84C?text=WAI+Institute";
 const LAB = "https://placehold.co/800x500/0A1628/C9A84C?text=Apprentice+Labs";
@@ -21,6 +21,13 @@ export default function Landing() {
           </Link>
           <nav className="flex items-center gap-5">
             <a href="#program" className="text-sm font-medium hover:text-copper" data-testid="link-program">Program</a>
+            <Link
+              to="/donate"
+              className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-bold uppercase tracking-widest text-white bg-copper hover:bg-copper/80 transition-colors rounded-sm"
+              data-testid="link-donate-nav"
+            >
+              <Heart className="w-3.5 h-3.5" /> Donate
+            </Link>
             <a href="#curriculum" className="text-sm font-medium hover:text-copper" data-testid="link-curriculum">Curriculum</a>
             <a href="#values" className="text-sm font-medium hover:text-copper" data-testid="link-values">Values</a>
             <Link to="/helper" className="flex items-center gap-1.5 text-sm font-medium hover:text-copper" data-testid="link-helper">
@@ -60,6 +67,9 @@ export default function Landing() {
             <div className="mt-10 flex flex-wrap items-center gap-4">
               <Link to="/register" className="btn-primary inline-flex items-center gap-2" data-testid="btn-cta-start">
                 Start Training <ArrowRight className="w-4 h-4" />
+              </Link>
+              <Link to="/donate" className="btn-copper inline-flex items-center gap-2" data-testid="btn-cta-donate">
+                <Heart className="w-4 h-4" /> Donate
               </Link>
               <Link to="/login" className="btn-ghost" data-testid="btn-cta-login">Instructor Sign In</Link>
             </div>

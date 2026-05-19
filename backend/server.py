@@ -51,7 +51,7 @@ from prompts.ancestral_sage_prompt import (
     RESTRICTED_EDUCATIONAL_FALLBACK,
     compute_sage_prompt_hash,
 )
-from prompts.orchestrator import get_orchestrator_system, compute_orchestrator_hash
+from prompts.orchestrator import get_orchestrator_system, compute_orchestrator_hash, get_scholar_system, compute_scholar_hash
 from prompts.more_department_system import get_more_department_system, compute_more_department_hash
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import landscape, letter
@@ -337,6 +337,21 @@ class OrchestratorReq(BaseModel):
         "curriculum_design",
         "quiet_checkin",
     ]] = None
+
+
+class ScholarTaskReq(BaseModel):
+    session_id: str
+    message: str
+    history: Optional[list[OrchestratorHistoryItem]] = []
+    task_context: Optional[str] = None
+    task_type: Optional[Literal[
+        "curriculum",
+        "assessment",
+        "study_plan",
+        "path_design",
+        "counter_curriculum",
+        "general",
+    ]] = "general"
 
 
 class AIConsentReq(BaseModel):
@@ -2695,6 +2710,68 @@ async def orchestrator_integrity(user: User = Depends(current_user)):
         "role": user.role,
         "hash": compute_orchestrator_hash(user.role),
     }
+
+
+@api_router.post("/ai/scholar")
+async def ai_scholar(body: ScholarTaskReq, user: User = Depends(current_user)):
+    """Savant Scholar — dedicated curriculum and training intelligence service.
+    Accepts task packages from The Director or direct requests from any authenticated user.
+    """
+    check_rate(f"ai_scholar:{user.id}", max_calls=30, window_sec=60)
+    try:
+        import anthropic as _anthropic_module
+    except Exception as e:
+        raise HTTPException(500, f"AI library unavailable: {e}")
+
+    task_ctx = body.task_context or ""
+    if body.task_type and body.task_type != "general":
+        task_label = {
+            "curriculum": "Curriculum Development",
+            "assessment": "Assessment Generation",
+            "study_plan": "Study Plan",
+            "path_design": "Learning Path Design",
+            "counter_curriculum": "Counter-Curriculum Design",
+        }.get(body.task_type, body.task_type)
+        task_ctx = f"[TASK TYPE: {task_label}]\n{task_ctx}" if task_ctx else f"[TASK TYPE: {task_label}]"
+
+    system = get_scholar_system(user_name=user.full_name, task_context=task_ctx)
+    claude_messages = [{"role": h.role, "content": h.content} for h in (body.history or [])]
+    claude_messages.append({"role": "user", "content": body.message})
+
+    _client = _anthropic_module.AsyncAnthropic(api_key=ANTHROPIC_API_KEY)
+    try:
+        _msg = await _client.messages.create(
+            model="claude-sonnet-4-6",
+            max_tokens=4096,
+            system=system,
+            messages=claude_messages,
+        )
+        reply = _msg.content[0].text
+    except Exception as e:
+        logger.exception("Scholar AI error")
+        raise HTTPException(502, f"AI error: {e}")
+
+    await db.chat_history.insert_one({
+        "id": str(uuid.uuid4()),
+        "user_id": user.id,
+        "session_id": body.session_id,
+        "mode": "scholar",
+        "module_slug": None,
+        "user_msg": body.message,
+        "assistant_msg": reply,
+        "task_type": body.task_type,
+        "created_at": datetime.utcnow().isoformat(),
+        "expires_at": datetime.utcnow().timestamp() + 90 * 86400,
+    })
+
+    return {"reply": reply, "mode": "scholar", "task_type": body.task_type}
+
+
+@api_router.get("/ai/scholar/integrity")
+async def scholar_integrity(user: User = Depends(current_user)):
+    """Returns SHA-256 hash of the Scholar service prompt for audit verification."""
+    require_role(user, "admin")
+    return {"service": "savant_scholar", "hash": compute_scholar_hash()}
 
 
 @api_router.post("/ai/director")
