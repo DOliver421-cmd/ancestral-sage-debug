@@ -23,6 +23,9 @@ pyasn1_modules==0.4.2
 anthropic>=0.40.0
 openai>=1.0.0
 
+# HTML parsing
+beautifulsoup4==4.13.4
+
 # HTTP
 httpx==0.28.1
 httpcore==1.0.9
