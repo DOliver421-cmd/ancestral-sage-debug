@@ -263,6 +263,7 @@ export default function OrchestratorChat() {
     } finally {
       setLoading(false);
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [input, loading, msgs, sessionId, threatHint, protocol, playTTS, attachment]);
 
   const handleKey = (e) => {
