@@ -2761,6 +2761,7 @@ async def ai_scholar(body: ScholarTaskReq, user: User = Depends(current_user)):
         "user_msg": body.message,
         "assistant_msg": reply,
         "task_type": body.task_type,
+        "expires_at": (datetime.now(timezone.utc) + timedelta(days=90)).isoformat(),
         "created_at": datetime.utcnow().isoformat(),
         "expires_at": datetime.utcnow().timestamp() + 90 * 86400,
     })
@@ -2935,6 +2936,7 @@ async def ai_director(body: dict, user: User = Depends(current_user)):
         "user_msg":     message,
         "assistant_msg": reply,
         "created_at":   datetime.now(timezone.utc).isoformat(),
+        "expires_at":   (datetime.now(timezone.utc) + timedelta(days=90)).isoformat(),
     })
 
     persona = "director" if is_exec else "assistant_director"
