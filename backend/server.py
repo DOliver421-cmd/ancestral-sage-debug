@@ -765,6 +765,21 @@ async def on_startup():
     await backfill_verification_codes()
     await run_escalation_check()
     await run_engagement_check()
+    # Director 4.0 — establish prompt integrity baseline at startup.
+    # Any drift detected on subsequent calls indicates unauthorized modification.
+    try:
+        from ai.prompt_guard import prompt_guard
+        results = prompt_guard.startup_integrity_check()
+        failed = [k for k, v in results.items() if not v]
+        if failed:
+            logger.error(
+                "STARTUP INTEGRITY WARNING: Prompt baseline enrollment incomplete for: %s. "
+                "AI endpoints will use fallback restrictions where applicable.", failed
+            )
+        else:
+            logger.info("STARTUP: All prompt integrity baselines enrolled successfully.")
+    except Exception as _pg_exc:
+        logger.error("STARTUP: prompt_guard baseline enrollment failed: %s", _pg_exc)
     # Loud warning if the dev-only token leak is enabled.  The production
     # .env should NEVER set this; it exists only for the preview test suite.
     if os.environ.get("DEV_RETURN_RESET_TOKEN") == "1":
@@ -2566,6 +2581,16 @@ async def ai_orchestrator(body: OrchestratorReq, user: User = Depends(current_us
     except Exception as e:
         raise HTTPException(500, f"AI library unavailable: {e}")
 
+    # Director 4.0 — AI tamper / prompt injection scan
+    check_rate(f"ai_orchestrator:{user.id}", max_calls=30, window_sec=60)
+    try:
+        from ai.prompt_guard import prompt_guard
+        prompt_guard.assert_message_safe(body.message, user.role, "/ai/orchestrator", user.id)
+        if body.threat_hint:
+            prompt_guard.assert_message_safe(body.threat_hint, user.role, "/ai/orchestrator:threat_hint", user.id)
+    except ValueError as _guard_err:
+        raise HTTPException(400, str(_guard_err))
+
     # Build role-gated system prompt
     system = get_orchestrator_system(user.role, user.full_name)
 
@@ -2848,10 +2873,18 @@ async def ai_director(body: dict, user: User = Depends(current_user)):
     """
     from prompts.director_prompt import get_director_prompt
     from tools.director_tools import DIRECTOR_TOOLS, dispatch_tool
+    from ai.prompt_guard import prompt_guard
 
     message = body.get("message", "")
     if not message:
         raise HTTPException(400, "Message is required")
+
+    # Director 4.0 — AI tamper / prompt injection scan
+    check_rate(f"ai_director:{user.id}", max_calls=20, window_sec=60)
+    try:
+        prompt_guard.assert_message_safe(message, user.role, "/ai/director", user.id)
+    except ValueError as _guard_err:
+        raise HTTPException(400, str(_guard_err))
 
     is_exec = user.role in ("admin", "executive_admin")
     system  = get_director_prompt(user.role)

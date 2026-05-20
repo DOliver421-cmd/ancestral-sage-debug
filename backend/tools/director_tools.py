@@ -286,6 +286,15 @@ async def tool_fetch_url(url: str) -> str:
     if not url.startswith(("http://", "https://")):
         return f"[ERROR] Invalid URL — must start with http:// or https://"
 
+    # Director 4.0 — SSRF protection: block private IPs and metadata endpoints
+    try:
+        from ai.prompt_guard import check_url_safe
+        ssrf_check = check_url_safe(url)
+        if not ssrf_check["safe"]:
+            return f"[SECURITY BLOCK] {ssrf_check['reason']} — URL: {url[:100]}"
+    except ImportError:
+        pass  # Guard not loaded; proceed with basic check only
+
     MAX = 12_000
 
     # ── Tier 1: httpx ────────────────────────────────────────────────────────
