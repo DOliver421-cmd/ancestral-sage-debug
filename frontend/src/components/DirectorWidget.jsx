@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { api, API } from "../lib/api";
 import { useAuth } from "../lib/auth";
+import { toast } from "sonner";
 
 const PERSONA_STYLES = {
   director: {
@@ -108,6 +109,9 @@ export default function DirectorWidget() {
   const [minimized, setMinimized] = useState(false);
   const [audioOn, setAudioOn] = useState(true);
   const [recording, setRecording] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [attachedFile, setAttachedFile] = useState(null); // { file_id, filename }
+  const fileInputRef = useRef(null);
 
   // Passive monitoring state
   const [pulse, setPulse] = useState(null);
@@ -221,16 +225,64 @@ export default function DirectorWidget() {
     setRecording(true);
   };
 
+  // ── File upload ───────────────────────────────────────────────────────────
+
+  const handleFileSelect = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error("File too large. Maximum size is 5 MB.");
+      return;
+    }
+    setUploading(true);
+    try {
+      const form = new FormData();
+      form.append("file", file);
+      const token = localStorage.getItem("lce_token");
+      const r = await fetch(`${API}/ai/director/upload`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+        body: form,
+      });
+      const data = await r.json();
+      if (!r.ok) throw new Error(data.detail || "Upload failed");
+      setAttachedFile({ file_id: data.file_id, filename: data.filename });
+      setMsgs(m => [...m, {
+        role: "assistant",
+        text: `📎 File received: ${data.filename}\nUse it in your next message — I'll read it automatically.`,
+      }]);
+    } catch (err) {
+      toast.error(err.message || "Upload failed");
+    } finally {
+      setUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  };
+
   // ── Send ─────────────────────────────────────────────────────────────────
 
   const send = async (overrideMsg) => {
     const userMsg = (overrideMsg || input).trim();
     if (!userMsg || loading) return;
     setInput("");
-    setMsgs(m => [...m, { role: "user", text: userMsg }]);
+
+    const displayMsg = attachedFile
+      ? `${userMsg}\n[Attached: ${attachedFile.filename}]`
+      : userMsg;
+
+    setMsgs(m => [...m, { role: "user", text: displayMsg }]);
     setLoading(true);
+
+    const payload = {
+      message: attachedFile
+        ? `${userMsg}\n\n[ATTACHED FILE — use read_file tool with file_id: ${attachedFile.file_id}]`
+        : userMsg,
+      session_id: "director_session",
+    };
+    setAttachedFile(null);
+
     try {
-      const r = await api.post("/ai/director", { message: userMsg, session_id: "director_session" });
+      const r = await api.post("/ai/director", payload);
       setMsgs(m => [...m, { role: "assistant", text: r.data.reply }]);
       speak(r.data.reply);
       setPersona(r.data.persona);
@@ -430,6 +482,14 @@ export default function DirectorWidget() {
             background: "#111", borderTop: `1px solid ${style.color}30`,
             padding: "8px", display: "flex", gap: "6px", alignItems: "center",
           }}>
+            {/* Hidden file input */}
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".txt,.md,.json,.csv,.py,.js,.jsx,.ts,.tsx,.html,.xml,.yaml,.yml,.log,.pdf"
+              style={{ display: "none" }}
+              onChange={handleFileSelect}
+            />
             <button onClick={toggleMic} style={{
               background: recording ? style.color : "#1A1A1A",
               border: `1px solid ${style.color}30`,
@@ -446,11 +506,28 @@ export default function DirectorWidget() {
             }} title={audioOn ? "Voice ON" : "Voice OFF"}>
               {audioOn ? "🔊" : "🔇"}
             </button>
+            {/* File attach button — exec/admin only */}
+            {isMonitor && (
+              <button
+                onClick={() => fileInputRef.current?.click()}
+                disabled={uploading}
+                style={{
+                  background: attachedFile ? style.color : "#1A1A1A",
+                  border: `1px solid ${style.color}30`,
+                  color: attachedFile ? "#000" : style.color,
+                  padding: "6px 8px", fontSize: "14px", cursor: "pointer", borderRadius: "2px",
+                  opacity: uploading ? 0.5 : 1,
+                }}
+                title={attachedFile ? `Attached: ${attachedFile.filename}` : "Attach file"}
+              >
+                {uploading ? "⏳" : attachedFile ? "📎" : "📂"}
+              </button>
+            )}
             <input
               value={input}
               onChange={e => setInput(e.target.value)}
               onKeyDown={e => e.key === "Enter" && send()}
-              placeholder="Ask The Director..."
+              placeholder={attachedFile ? `File attached — add a message…` : "Ask The Director..."}
               style={{
                 flex: 1, background: "#1A1A1A", border: `1px solid ${style.color}30`,
                 color: "#E8E8E8", padding: "6px 10px", fontSize: "12px",

@@ -30,6 +30,7 @@ DESIGN DECISIONS:
 - Every privileged action emits an audit-log row via `audit(...)`.
 - Indexes are declared idempotently on startup in `ensure_indexes()`.
 """
+import asyncio
 import io
 import logging
 import os
@@ -40,7 +41,7 @@ from typing import List, Optional, Literal
 
 import jwt
 from dotenv import load_dotenv
-from fastapi import Depends, FastAPI, APIRouter, HTTPException, Header, Request
+from fastapi import Depends, FastAPI, APIRouter, File, HTTPException, Header, Request, UploadFile
 from fastapi.responses import StreamingResponse
 from motor.motor_asyncio import AsyncIOMotorClient
 from passlib.context import CryptContext
@@ -2774,58 +2775,166 @@ async def scholar_integrity(user: User = Depends(current_user)):
     return {"service": "savant_scholar", "hash": compute_scholar_hash()}
 
 
+@api_router.post("/ai/director/upload")
+async def director_upload_file(
+    file: UploadFile = File(...),
+    user: User = Depends(current_user),
+):
+    """Accept a file upload from the Director widget.
+    Stores content in MongoDB with a 24-hour TTL.
+    Returns a file_id the Director can use with the read_file tool.
+    """
+    MAX_SIZE = 5 * 1024 * 1024  # 5 MB hard cap
+
+    raw = await file.read()
+    if len(raw) > MAX_SIZE:
+        raise HTTPException(413, "File too large. Maximum size is 5 MB.")
+
+    file_id = str(uuid.uuid4())
+    filename = file.filename or "upload"
+    ct = file.content_type or "application/octet-stream"
+
+    # Try to decode as text; mark binary otherwise
+    is_binary = False
+    content = ""
+    try:
+        content = raw.decode("utf-8")
+    except UnicodeDecodeError:
+        is_binary = True
+
+    expires_at = datetime.now(timezone.utc) + timedelta(hours=24)
+
+    await db.director_uploads.insert_one({
+        "id":           file_id,
+        "user_id":      user.id,
+        "filename":     filename,
+        "content_type": ct,
+        "content":      content,
+        "is_binary":    is_binary,
+        "size_bytes":   len(raw),
+        "created_at":   datetime.now(timezone.utc).isoformat(),
+        "expires_at":   expires_at.isoformat(),
+    })
+
+    return {
+        "file_id":   file_id,
+        "filename":  filename,
+        "size_bytes": len(raw),
+        "readable":  not is_binary,
+        "message": (
+            f"File '{filename}' uploaded. "
+            "Tell The Director: read_file " + file_id
+        ) if not is_binary else (
+            f"Binary file '{filename}' uploaded but cannot be read as text."
+        ),
+    }
+
+
 @api_router.post("/ai/director")
 async def ai_director(body: dict, user: User = Depends(current_user)):
-    """The Director / Assistant Director endpoint.
-    Role-based AI guide that activates on login.
-    Students/Instructors get Assistant Director.
-    Admin/Executive get The Director.
+    """The Director / Assistant Director endpoint with full tool-calling support.
+
+    Runs an agentic loop: Claude may call web_search, fetch_url, send_email,
+    get_incident_register, or read_file — tools execute server-side and results
+    feed back into the conversation until Claude produces a final text reply.
+
+    Students/Instructors → Assistant Director (no tools, warm guide)
+    Admin/Executive      → The Director (full tool suite)
     """
     from prompts.director_prompt import get_director_prompt
-    
+    from tools.director_tools import DIRECTOR_TOOLS, dispatch_tool
+
     message = body.get("message", "")
     if not message:
         raise HTTPException(400, "Message is required")
-    
-    # Get role-appropriate prompt
-    system = get_director_prompt(user.role)
-    
-    # Add user context
-    system += f"""
 
-CURRENT USER CONTEXT:
-- Name: {user.full_name}
-- Role: {user.role}
-- Email: {user.email}
-- You are speaking directly with this user. Address them appropriately by role.
-"""
-    
+    is_exec = user.role in ("admin", "executive_admin")
+    system  = get_director_prompt(user.role)
+    system += (
+        f"\n\nCURRENT USER CONTEXT:\n"
+        f"- Name: {user.full_name}\n"
+        f"- Role: {user.role}\n"
+        f"- Email: {user.email}\n"
+        f"- Address them appropriately by role.\n"
+    )
+
     import anthropic as _anthropic_module
     _client = _anthropic_module.AsyncAnthropic(api_key=ANTHROPIC_API_KEY)
+
+    messages = [{"role": "user", "content": message}]
+    tools    = DIRECTOR_TOOLS if is_exec else []
+    reply    = ""
+    MAX_TOOL_TURNS = 6  # prevent runaway loops
+
     try:
-        _msg = await _client.messages.create(
-            model="claude-sonnet-4-6",
-            max_tokens=512,
-            system=system,
-            messages=[{"role": "user", "content": message}]
-        )
-        reply = _msg.content[0].text
+        for _turn in range(MAX_TOOL_TURNS + 1):
+            kwargs = dict(
+                model      = "claude-sonnet-4-6",
+                max_tokens = 2048,
+                system     = system,
+                messages   = messages,
+            )
+            if tools:
+                kwargs["tools"] = tools
+
+            _msg = await _client.messages.create(**kwargs)
+
+            # ── Final text response ───────────────────────────────────────
+            if _msg.stop_reason != "tool_use":
+                for block in _msg.content:
+                    if hasattr(block, "text"):
+                        reply += block.text
+                break
+
+            # ── Tool-use turn: execute all requested tools in parallel ────
+            tool_use_blocks = [b for b in _msg.content if b.type == "tool_use"]
+            if not tool_use_blocks:
+                for block in _msg.content:
+                    if hasattr(block, "text"):
+                        reply += block.text
+                break
+
+            # Append assistant turn (includes tool_use blocks)
+            messages.append({"role": "assistant", "content": _msg.content})
+
+            # Execute tools concurrently
+            tool_results = await asyncio.gather(*[
+                dispatch_tool(b.name, b.input, db=db)
+                for b in tool_use_blocks
+            ])
+
+            # Build tool_result content list
+            result_content = [
+                {
+                    "type":        "tool_result",
+                    "tool_use_id": b.id,
+                    "content":     result,
+                }
+                for b, result in zip(tool_use_blocks, tool_results)
+            ]
+            messages.append({"role": "user", "content": result_content})
+
+        else:
+            # Exceeded MAX_TOOL_TURNS — return whatever we have
+            reply = reply or "[Director tool loop exceeded limit — partial response above]"
+
     except Exception as e:
         logger.exception("Director AI error")
         raise HTTPException(502, f"Director AI error: {e}")
-    
-    # Log the interaction
+
+    # ── Log interaction ───────────────────────────────────────────────────────
     await db.chat_history.insert_one({
-        "id": str(__import__("uuid").uuid4()),
-        "user_id": user.id,
-        "session_id": body.get("session_id", "director"),
-        "mode": "director",
-        "user_msg": message,
+        "id":           str(uuid.uuid4()),
+        "user_id":      user.id,
+        "session_id":   body.get("session_id", "director"),
+        "mode":         "director",
+        "user_msg":     message,
         "assistant_msg": reply,
-        "created_at": __import__("datetime").datetime.now(__import__("datetime").timezone.utc).isoformat(),
+        "created_at":   datetime.now(timezone.utc).isoformat(),
     })
-    
-    return {"reply": reply, "persona": "director" if user.role in ["admin", "executive_admin"] else "assistant_director"}
+
+    persona = "director" if is_exec else "assistant_director"
+    return {"reply": reply, "persona": persona}
 
 
 @api_router.get("/ai/director/greeting")
