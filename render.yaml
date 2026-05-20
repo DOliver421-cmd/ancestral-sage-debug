@@ -2,6 +2,6 @@ static_sites:
   - name: ancestral-sage-frontend
     repo: https://github.com/DOliver421-cmd/ancestral-sage-debug
     branch: main
-    rootDir: stub
-    buildCommand: echo "stub deploy"
-    staticPublishPath: .
+    rootDir: frontend
+    buildCommand: npm install --legacy-peer-deps && npm run build
+    staticPublishPath: build
