@@ -1,0 +1,4 @@
+[deploy]
+healthcheckPath = "/"
+healthcheckTimeout = 100
+startCommand = "serve -s build -l 3000"
