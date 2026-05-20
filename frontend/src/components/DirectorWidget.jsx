@@ -34,15 +34,15 @@ const QUICK_ACTIONS = {
     { label: "Course Help", msg: "Help me with course and curriculum management." },
   ],
   admin: [
+    { label: "Session Brief", msg: "Generate a full session brief: open incidents, at-risk students, pending reviews, platform health, and my top 3 priority actions right now. Use get_incident_register and any other tools needed." },
     { label: "System Status", msg: "Give me a quick system status report for WAI-Institute." },
     { label: "Threat Report", msg: "Are there any active threats or incidents I should know about?" },
-    { label: "Generate Brief", msg: "Generate an executive brief on current institute operations." },
     { label: "Legal Strategy", msg: "What legal risks or considerations require my attention?" },
   ],
   executive_admin: [
+    { label: "Session Brief", msg: "Generate a full session brief: open incidents, at-risk students, pending reviews, platform health, and my top 3 priority actions right now. Use get_incident_register and any other tools needed." },
     { label: "System Status", msg: "Give me a full system status and security posture report." },
     { label: "Threat Report", msg: "Are there any active threats or incidents I should know about?" },
-    { label: "Generate Brief", msg: "Generate an executive brief on current institute operations." },
     { label: "Legal Strategy", msg: "What legal risks or considerations require my attention?" },
   ],
 };

@@ -2945,18 +2945,68 @@ async def ai_director(body: dict, user: User = Depends(current_user)):
 
 @api_router.get("/ai/director/greeting")
 async def director_greeting(user: User = Depends(current_user)):
-    """Returns a role-appropriate greeting when user logs in."""
-    from prompts.director_prompt import get_director_prompt
-    
-    greetings = {
-        "student": f"Welcome back, {user.full_name}. I am the Assistant Director. I am here to guide your learning journey at WAI-Institute. What would you like to work on today?",
-        "instructor": f"Welcome back, {user.full_name}. I am the Assistant Director. I am ready to support your teaching and course management. How can I assist you today?",
-        "admin": f"Welcome back, {user.full_name}. I am The Director. All systems are active. I am monitoring institute operations and ready to assist with administrative matters. What requires your attention?",
-        "executive_admin": f"Welcome back, {user.full_name}. I am The Director. I have reviewed all active reports from Ancestral Sage and institute systems. Everything is under watch. What is our focus today?"
-    }
-    
-    greeting = greetings.get(user.role, greetings["student"])
-    return {"greeting": greeting, "role": user.role, "persona": "director" if user.role in ["admin", "executive_admin"] else "assistant_director"}
+    """Returns a role-appropriate greeting when the user logs in.
+
+    For admin and executive_admin: pulls live DB counts (no AI token cost)
+    so the greeting reflects actual system state rather than a static claim.
+    Students and instructors receive a warm, role-appropriate welcome.
+    """
+    is_exec = user.role in ("admin", "executive_admin")
+    persona = "director" if is_exec else "assistant_director"
+
+    if not is_exec:
+        greetings = {
+            "student":    (f"Welcome back, {user.full_name}. I am the Assistant Director. "
+                           "I am here to guide your learning journey at WAI-Institute. "
+                           "What would you like to work on today?"),
+            "instructor": (f"Welcome back, {user.full_name}. I am the Assistant Director. "
+                           "I am ready to support your teaching and course management. "
+                           "How can I assist you today?"),
+        }
+        greeting = greetings.get(user.role, greetings["student"])
+        return {"greeting": greeting, "role": user.role, "persona": persona}
+
+    # ── Live status pull for admin / executive_admin ──────────────────────────
+    # Query DB directly — no AI cost, no latency from a full agentic loop.
+    import asyncio as _asyncio
+    now = datetime.now(timezone.utc)
+    d7  = (now - timedelta(days=7)).isoformat()
+
+    open_incidents, at_risk_login, pending_labs, pending_flags = await _asyncio.gather(
+        db.incidents.count_documents({"status": {"$nin": ["resolved", "closed"]}}),
+        db.users.count_documents({
+            "role": "student", "is_active": {"$ne": False},
+            "last_login": {"$lt": d7},
+        }),
+        db.lab_submissions.count_documents({"status": "submitted"}),
+        db.more_flags.count_documents({"status": "pending"}),
+    )
+
+    # Build a terse, honest status line
+    items = []
+    if open_incidents:
+        items.append(f"{open_incidents} open incident{'s' if open_incidents != 1 else ''}")
+    if at_risk_login:
+        items.append(f"{at_risk_login} at-risk student{'s' if at_risk_login != 1 else ''}")
+    if pending_labs:
+        items.append(f"{pending_labs} lab submission{'s' if pending_labs != 1 else ''} pending review")
+    if pending_flags:
+        items.append(f"{pending_flags} content flag{'s' if pending_flags != 1 else ''} awaiting decision")
+
+    if items:
+        status_line = "Monitoring active. Flagged items: " + ", ".join(items) + "."
+        close_line  = "Use 'System Status' or 'Threat Report' for a full brief."
+    else:
+        status_line = "All systems nominal. No open incidents, no at-risk students, no pending reviews."
+        close_line  = "Platform is clean. Standing by for your direction."
+
+    greeting = (
+        f"Welcome back, {user.full_name}. I am The Director.\n"
+        f"{status_line}\n"
+        f"{close_line}"
+    )
+
+    return {"greeting": greeting, "role": user.role, "persona": persona}
 
 @api_router.get("/ai/director/pulse")
 async def director_pulse(user: User = Depends(require_role("admin"))):
