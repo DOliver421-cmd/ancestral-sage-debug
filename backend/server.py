@@ -2816,6 +2816,10 @@ async def director_upload_file(
         "expires_at":   expires_at.isoformat(),
     })
 
+    if not is_binary:
+        from tools.director_tools import cache_file
+        cache_file(file_id, filename, content, ct)
+
     return {
         "file_id":   file_id,
         "filename":  filename,

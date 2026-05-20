@@ -47,7 +47,7 @@ const QUICK_ACTIONS = {
   ],
 };
 
-const POLL_INTERVAL = 90_000; // 90 seconds
+const POLL_INTERVAL = 90_000;
 
 const HEALTH_COLORS = {
   nominal:  "#4CAF50",
@@ -55,16 +55,22 @@ const HEALTH_COLORS = {
   critical: "#E53935",
 };
 
-const LEVEL_COLORS = {
-  high: "#E53935",
-  warn: "#C9A84C",
-  info: "#4C9AC9",
-};
+// Pixel widths for each size mode (used for position clamping on resize)
+const SIZE_PX = { normal: 380, expanded: 580, fullscreen: () => Math.round(window.innerWidth * 0.9) };
+
+// CSS widths
+const SIZE_WIDTH = { normal: "380px", expanded: "580px", fullscreen: "min(90vw, 900px)" };
+
+function getDefaultPos() {
+  return {
+    x: Math.max(0, window.innerWidth - 404),
+    y: Math.max(0, window.innerHeight - 540),
+  };
+}
 
 function buildAlertMessage(pulse, prev) {
   const lines = [];
 
-  // New alerts vs last poll
   if (prev) {
     const m = pulse.metrics;
     const p = prev.metrics;
@@ -83,7 +89,6 @@ function buildAlertMessage(pulse, prev) {
     if (m.pending_labs > p.pending_labs)
       lines.push(`ℹ ${m.pending_labs - p.pending_labs} additional lab submission(s) awaiting review.`);
   } else {
-    // First poll — show full status if anything needs attention
     if (pulse.alerts.length === 0) {
       lines.push("✓ All systems nominal. No action required at this time.");
     } else {
@@ -110,7 +115,7 @@ export default function DirectorWidget() {
   const [audioOn, setAudioOn] = useState(true);
   const [recording, setRecording] = useState(false);
   const [uploading, setUploading] = useState(false);
-  const [attachedFile, setAttachedFile] = useState(null); // { file_id, filename }
+  const [attachedFile, setAttachedFile] = useState(null);
   const fileInputRef = useRef(null);
 
   // Passive monitoring state
@@ -119,10 +124,77 @@ export default function DirectorWidget() {
   const prevPulseRef = useRef(null);
   const pollTimerRef = useRef(null);
 
+  // ── Position & size ────────────────────────────────────────────────────────
+
+  const [pos, setPos] = useState(() => {
+    try {
+      const saved = localStorage.getItem("director_widget_pos");
+      if (saved) return JSON.parse(saved);
+    } catch {}
+    return getDefaultPos();
+  });
+  const [widgetSize, setWidgetSize] = useState("normal");
+
+  const widgetRef = useRef(null);
+  const dragging = useRef(false);
+  const dragOffset = useRef({ x: 0, y: 0 });
+  const hasDragged = useRef(false);
+  // Mirror pos into a ref so mousemove/mouseup closures always see the latest value
+  const posRef = useRef(pos);
+  useEffect(() => { posRef.current = pos; }, [pos]);
+
+  // Clamp position when size changes so the widget stays on screen
+  useEffect(() => {
+    const w = typeof SIZE_PX[widgetSize] === "function" ? SIZE_PX[widgetSize]() : SIZE_PX[widgetSize];
+    setPos(p => ({
+      x: Math.max(0, Math.min(window.innerWidth - w, p.x)),
+      y: Math.max(0, Math.min(window.innerHeight - 50, p.y)),
+    }));
+  }, [widgetSize]);
+
+  const onHeaderMouseDown = useCallback((e) => {
+    // Only drag on primary button; controls stop propagation themselves
+    if (e.button !== 0) return;
+    dragging.current = true;
+    hasDragged.current = false;
+    const rect = widgetRef.current.getBoundingClientRect();
+    dragOffset.current = { x: e.clientX - rect.left, y: e.clientY - rect.top };
+    e.preventDefault();
+  }, []);
+
+  useEffect(() => {
+    const onMove = (e) => {
+      if (!dragging.current) return;
+      hasDragged.current = true;
+      const w = widgetRef.current?.offsetWidth || 380;
+      const newX = Math.max(0, Math.min(window.innerWidth - w, e.clientX - dragOffset.current.x));
+      const newY = Math.max(0, Math.min(window.innerHeight - 50, e.clientY - dragOffset.current.y));
+      setPos({ x: newX, y: newY });
+    };
+    const onUp = () => {
+      if (!dragging.current) return;
+      dragging.current = false;
+      try { localStorage.setItem("director_widget_pos", JSON.stringify(posRef.current)); } catch {}
+    };
+    window.addEventListener("mousemove", onMove);
+    window.addEventListener("mouseup", onUp);
+    return () => {
+      window.removeEventListener("mousemove", onMove);
+      window.removeEventListener("mouseup", onUp);
+    };
+  }, []);
+
+  const cycleSize = useCallback((e) => {
+    e.stopPropagation();
+    setWidgetSize(s => s === "normal" ? "expanded" : s === "expanded" ? "fullscreen" : "normal");
+  }, []);
+
+  // ── Other refs ─────────────────────────────────────────────────────────────
+
   const bottomRef = useRef(null);
   const isMonitor = user?.role === "admin" || user?.role === "executive_admin";
 
-  // ── Greeting + initial pulse ────────────────────────────────────────────
+  // ── Greeting + initial pulse ───────────────────────────────────────────────
 
   useEffect(() => {
     if (!user) { setOpen(false); setMsgs([]); setPulse(null); return; }
@@ -142,7 +214,7 @@ export default function DirectorWidget() {
       .catch(() => {});
   }, [user]);
 
-  // ── Passive monitoring poll ─────────────────────────────────────────────
+  // ── Passive monitoring poll ────────────────────────────────────────────────
 
   const poll = useCallback(async () => {
     if (!isMonitor) return;
@@ -165,19 +237,17 @@ export default function DirectorWidget() {
         if (minimized) setUnread(u => u + 1);
       }
     } catch {
-      // Silent failure — don't spam the user if the poll fails
+      // Silent failure
     }
   }, [isMonitor, minimized]);
 
   useEffect(() => {
     if (!isMonitor) return;
-    // First poll right away
     poll();
     pollTimerRef.current = setInterval(poll, POLL_INTERVAL);
     return () => clearInterval(pollTimerRef.current);
   }, [isMonitor, poll]);
 
-  // Clear unread count when user opens the widget
   useEffect(() => {
     if (!minimized) setUnread(0);
   }, [minimized]);
@@ -186,7 +256,7 @@ export default function DirectorWidget() {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [msgs]);
 
-  // ── TTS ─────────────────────────────────────────────────────────────────
+  // ── TTS ───────────────────────────────────────────────────────────────────
 
   const speak = async (text) => {
     if (!audioOn) return;
@@ -206,7 +276,7 @@ export default function DirectorWidget() {
     } catch {}
   };
 
-  // ── STT ─────────────────────────────────────────────────────────────────
+  // ── STT ───────────────────────────────────────────────────────────────────
 
   const toggleMic = () => {
     if (!SpeechRecognitionImpl) return;
@@ -259,7 +329,7 @@ export default function DirectorWidget() {
     }
   };
 
-  // ── Send ─────────────────────────────────────────────────────────────────
+  // ── Send ──────────────────────────────────────────────────────────────────
 
   const send = async (overrideMsg) => {
     const userMsg = (overrideMsg || input).trim();
@@ -293,34 +363,55 @@ export default function DirectorWidget() {
     }
   };
 
-  // ── Render ───────────────────────────────────────────────────────────────
+  // ── Render ────────────────────────────────────────────────────────────────
 
   const quickActions = QUICK_ACTIONS[user?.role] || QUICK_ACTIONS.student;
   const style = PERSONA_STYLES[persona];
   const healthColor = pulse ? HEALTH_COLORS[pulse.health] : style.color;
 
+  // Dynamic message area height based on size + monitor bar presence
+  const msgHeights = {
+    normal:     isMonitor && pulse ? "180px" : "200px",
+    expanded:   isMonitor && pulse ? "300px" : "320px",
+    fullscreen: isMonitor && pulse ? "440px" : "460px",
+  };
+
   if (!open) return null;
 
   return (
-    <div style={{
-      position: "fixed", bottom: "24px", right: "24px",
-      width: minimized ? "220px" : "380px",
-      zIndex: 1000, fontFamily: "inherit",
-      boxShadow: "0 8px 32px rgba(0,0,0,0.4)",
-      border: `1px solid ${style.color}40`,
-      borderRadius: "4px", overflow: "hidden",
-    }}>
-      {/* Header */}
+    <div
+      ref={widgetRef}
+      style={{
+        position: "fixed",
+        left: `${pos.x}px`,
+        top: `${pos.y}px`,
+        width: minimized ? "220px" : SIZE_WIDTH[widgetSize],
+        zIndex: 1000,
+        fontFamily: "inherit",
+        boxShadow: "0 8px 32px rgba(0,0,0,0.4)",
+        border: `1px solid ${style.color}40`,
+        borderRadius: "4px",
+        overflow: "hidden",
+        transition: "width 0.15s ease",
+      }}
+    >
+      {/* Header — drag zone */}
       <div
-        onClick={() => setMinimized(!minimized)}
+        onMouseDown={onHeaderMouseDown}
+        onClick={() => { if (!hasDragged.current) setMinimized(m => !m); }}
         style={{
-          background: style.bg, color: style.color,
-          padding: "10px 14px", cursor: "pointer",
-          display: "flex", justifyContent: "space-between", alignItems: "center",
+          background: style.bg,
+          color: style.color,
+          padding: "10px 14px",
+          cursor: dragging.current ? "grabbing" : "grab",
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          userSelect: "none",
         }}
       >
+        {/* Title + health dot */}
         <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-          {/* Health pulse dot */}
           {isMonitor && (
             <span style={{
               width: "8px", height: "8px", borderRadius: "50%",
@@ -342,7 +433,11 @@ export default function DirectorWidget() {
           </div>
         </div>
 
-        <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+        {/* Controls — stop mousedown propagation so they don't start a drag */}
+        <div
+          onMouseDown={e => e.stopPropagation()}
+          style={{ display: "flex", gap: "8px", alignItems: "center" }}
+        >
           {/* Unread badge */}
           {unread > 0 && minimized && (
             <span style={{
@@ -352,9 +447,28 @@ export default function DirectorWidget() {
               display: "flex", alignItems: "center", justifyContent: "center",
             }}>{unread > 9 ? "9+" : unread}</span>
           )}
+
+          {/* Expand/shrink button */}
+          {!minimized && (
+            <span
+              onClick={cycleSize}
+              title={widgetSize === "fullscreen" ? "Shrink" : widgetSize === "expanded" ? "Fullscreen" : "Expand"}
+              style={{
+                fontSize: "13px", opacity: 0.7, cursor: "pointer",
+                lineHeight: 1, padding: "2px",
+              }}
+            >
+              {widgetSize === "fullscreen" ? "⊟" : "⊞"}
+            </span>
+          )}
+
           <span style={{ fontSize: "12px", opacity: 0.7 }}>{minimized ? "▲" : "▼"}</span>
-          <span onClick={e => { e.stopPropagation(); setOpen(false); }}
-            style={{ fontSize: "14px", opacity: 0.7, cursor: "pointer" }}>✕</span>
+          <span
+            onClick={e => { e.stopPropagation(); setOpen(false); }}
+            style={{ fontSize: "14px", opacity: 0.7, cursor: "pointer" }}
+          >
+            ✕
+          </span>
         </div>
       </div>
 
@@ -387,9 +501,13 @@ export default function DirectorWidget() {
           {/* Messages */}
           <div style={{
             background: "#0D0D0D",
-            height: isMonitor && pulse ? "180px" : "200px",
-            overflowY: "auto", padding: "12px",
-            display: "flex", flexDirection: "column", gap: "8px",
+            height: msgHeights[widgetSize],
+            overflowY: "auto",
+            padding: "12px",
+            display: "flex",
+            flexDirection: "column",
+            gap: "8px",
+            transition: "height 0.15s ease",
           }}>
             {msgs.map((m, i) => (
               <div key={i}>
@@ -414,7 +532,6 @@ export default function DirectorWidget() {
                   )}
                   {m.text}
                 </div>
-                {/* "Brief me on this" button for alert messages */}
                 {m.isAlert && m.pulse?.alerts?.length > 0 && (
                   <div style={{ marginTop: "4px", display: "flex", gap: "4px" }}>
                     <button
@@ -482,7 +599,6 @@ export default function DirectorWidget() {
             background: "#111", borderTop: `1px solid ${style.color}30`,
             padding: "8px", display: "flex", gap: "6px", alignItems: "center",
           }}>
-            {/* Hidden file input */}
             <input
               ref={fileInputRef}
               type="file"
@@ -506,7 +622,6 @@ export default function DirectorWidget() {
             }} title={audioOn ? "Voice ON" : "Voice OFF"}>
               {audioOn ? "🔊" : "🔇"}
             </button>
-            {/* File attach button — exec/admin only */}
             {isMonitor && (
               <button
                 onClick={() => fileInputRef.current?.click()}
