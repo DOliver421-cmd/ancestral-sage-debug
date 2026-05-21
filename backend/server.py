@@ -582,96 +582,106 @@ async def seed_users():
             await db.users.update_one({"email": legacy}, {"$set": {"role": "admin"}})
             logger.info("Demoted legacy hardcoded executive_admin: %s → admin", legacy)
 
-    existing_exec = await db.users.find_one({"email": EXEC_ADMIN_EMAIL}, {"_id": 0})
-    if existing_exec:
-        update = {}
-        if existing_exec.get("role") != "executive_admin":
-            update["role"] = "executive_admin"
-        if existing_exec.get("is_active") is False:
-            update["is_active"] = True
-        # Always clear must_change_password for exec accounts — they manage
-        # their own passwords and must never be locked out by this flag.
-        if existing_exec.get("must_change_password"):
-            update["must_change_password"] = False
-        if update:
-            await db.users.update_one({"email": EXEC_ADMIN_EMAIL}, {"$set": update})
-            logger.info("Bootstrapped %s: %s", EXEC_ADMIN_EMAIL, update)
-    else:
-        await db.users.insert_one({
-            "id": str(uuid.uuid4()),
-            "email": EXEC_ADMIN_EMAIL,
-            "full_name": "Executive Admin",
-            "role": "executive_admin",
-            "associate": None,
-            "is_active": True,
-            "must_change_password": False,
-            "created_at": datetime.now(timezone.utc).isoformat(),
-            "password_hash": hash_pw(EXEC_DEFAULT_PASSWORD),
-        })
-        logger.info("Created executive_admin account: %s", EXEC_ADMIN_EMAIL)
+    try:
+        existing_exec = await db.users.find_one({"email": EXEC_ADMIN_EMAIL}, {"_id": 0})
+        if existing_exec:
+            _upd0: dict = {}
+            if existing_exec.get("role") != "executive_admin":
+                _upd0["role"] = "executive_admin"
+            if existing_exec.get("is_active") is False:
+                _upd0["is_active"] = True
+            if existing_exec.get("must_change_password"):
+                _upd0["must_change_password"] = False
+            if EXEC_FORCE_RESET:
+                _upd0["password_hash"] = hash_pw(EXEC_DEFAULT_PASSWORD)
+                _upd0["must_change_password"] = False
+                logger.warning("EXEC_FORCE_RESET active: password reset for %s", EXEC_ADMIN_EMAIL)
+            if _upd0:
+                await db.users.update_one({"email": EXEC_ADMIN_EMAIL}, {"$set": _upd0})
+                logger.info("Bootstrapped primary exec %s: %s", EXEC_ADMIN_EMAIL, list(_upd0.keys()))
+        else:
+            await db.users.insert_one({
+                "id": str(uuid.uuid4()),
+                "email": EXEC_ADMIN_EMAIL,
+                "full_name": "Executive Admin",
+                "role": "executive_admin",
+                "associate": None,
+                "is_active": True,
+                "must_change_password": False,
+                "created_at": datetime.now(timezone.utc).isoformat(),
+                "password_hash": hash_pw(EXEC_DEFAULT_PASSWORD),
+            })
+            logger.info("Created executive_admin account: %s", EXEC_ADMIN_EMAIL)
+    except Exception as _exc0:
+        logger.error("Exec bootstrap failed for %s (non-fatal): %s", EXEC_ADMIN_EMAIL, _exc0)
 
     # ----- BACKUP EXECUTIVE ADMIN bootstrap (Delon Oliver — youpickeddoliver@gmail.com) -----
-    existing_backup = await db.users.find_one({"email": BACKUP_EXEC_EMAIL}, {"_id": 0})
-    if existing_backup:
-        update = {}
-        if existing_backup.get("role") != "executive_admin":
-            update["role"] = "executive_admin"
-        if existing_backup.get("is_active") is False:
-            update["is_active"] = True
-        if existing_backup.get("must_change_password"):
-            update["must_change_password"] = False
-        # RECOVERY: force-reset password to default when EXEC_FORCE_RESET=1
-        if EXEC_FORCE_RESET:
-            update["password_hash"] = hash_pw(BACKUP_EXEC_DEFAULT_PASSWORD)
-            update["must_change_password"] = False
-            logger.warning("EXEC_FORCE_RESET: Password reset to default for %s", BACKUP_EXEC_EMAIL)
-        if update:
-            await db.users.update_one({"email": BACKUP_EXEC_EMAIL}, {"$set": update})
-            logger.info("Bootstrapped backup exec %s: %s", BACKUP_EXEC_EMAIL, list(update.keys()))
-    else:
-        await db.users.insert_one({
-            "id": str(uuid.uuid4()),
-            "email": BACKUP_EXEC_EMAIL,
-            "full_name": "Delon Oliver",
-            "role": "executive_admin",
-            "associate": None,
-            "is_active": True,
-            "must_change_password": False,
-            "created_at": datetime.now(timezone.utc).isoformat(),
-            "password_hash": hash_pw(BACKUP_EXEC_DEFAULT_PASSWORD),
-        })
-        logger.info("Created exec account (Delon Oliver): %s", BACKUP_EXEC_EMAIL)
+    try:
+        existing_backup = await db.users.find_one({"email": BACKUP_EXEC_EMAIL}, {"_id": 0})
+        if existing_backup:
+            _upd: dict = {}
+            if existing_backup.get("role") != "executive_admin":
+                _upd["role"] = "executive_admin"
+            if existing_backup.get("is_active") is False:
+                _upd["is_active"] = True
+            if existing_backup.get("must_change_password"):
+                _upd["must_change_password"] = False
+            if EXEC_FORCE_RESET:
+                _upd["password_hash"] = hash_pw(BACKUP_EXEC_DEFAULT_PASSWORD)
+                _upd["must_change_password"] = False
+                logger.warning("EXEC_FORCE_RESET active: password reset for %s", BACKUP_EXEC_EMAIL)
+            if _upd:
+                await db.users.update_one({"email": BACKUP_EXEC_EMAIL}, {"$set": _upd})
+                logger.info("Bootstrapped Delon Oliver exec: %s", list(_upd.keys()))
+        else:
+            await db.users.insert_one({
+                "id": str(uuid.uuid4()),
+                "email": BACKUP_EXEC_EMAIL,
+                "full_name": "Delon Oliver",
+                "role": "executive_admin",
+                "associate": None,
+                "is_active": True,
+                "must_change_password": False,
+                "created_at": datetime.now(timezone.utc).isoformat(),
+                "password_hash": hash_pw(BACKUP_EXEC_DEFAULT_PASSWORD),
+            })
+            logger.info("Created exec account (Delon Oliver): %s", BACKUP_EXEC_EMAIL)
+    except Exception as _exc:
+        logger.error("Exec bootstrap failed for %s (non-fatal): %s", BACKUP_EXEC_EMAIL, _exc)
 
     # ----- NAM OSHUN executive seat (souppoetry@gmail.com) -----
-    existing_nam = await db.users.find_one({"email": NAM_EXEC_EMAIL}, {"_id": 0})
-    if existing_nam:
-        update = {}
-        if existing_nam.get("role") != "executive_admin":
-            update["role"] = "executive_admin"
-        if existing_nam.get("is_active") is False:
-            update["is_active"] = True
-        if existing_nam.get("must_change_password"):
-            update["must_change_password"] = False
-        if EXEC_FORCE_RESET:
-            update["password_hash"] = hash_pw(NAM_EXEC_DEFAULT_PASSWORD)
-            update["must_change_password"] = False
-            logger.warning("EXEC_FORCE_RESET: Password reset to default for %s", NAM_EXEC_EMAIL)
-        if update:
-            await db.users.update_one({"email": NAM_EXEC_EMAIL}, {"$set": update})
-            logger.info("Bootstrapped NAM Oshun exec %s: %s", NAM_EXEC_EMAIL, list(update.keys()))
-    else:
-        await db.users.insert_one({
-            "id": str(uuid.uuid4()),
-            "email": NAM_EXEC_EMAIL,
-            "full_name": "NAM Oshun",
-            "role": "executive_admin",
-            "associate": None,
-            "is_active": True,
-            "must_change_password": False,
-            "created_at": datetime.now(timezone.utc).isoformat(),
-            "password_hash": hash_pw(NAM_EXEC_DEFAULT_PASSWORD),
-        })
-        logger.info("Created exec account (NAM Oshun): %s", NAM_EXEC_EMAIL)
+    try:
+        existing_nam = await db.users.find_one({"email": NAM_EXEC_EMAIL}, {"_id": 0})
+        if existing_nam:
+            _upd2: dict = {}
+            if existing_nam.get("role") != "executive_admin":
+                _upd2["role"] = "executive_admin"
+            if existing_nam.get("is_active") is False:
+                _upd2["is_active"] = True
+            if existing_nam.get("must_change_password"):
+                _upd2["must_change_password"] = False
+            if EXEC_FORCE_RESET:
+                _upd2["password_hash"] = hash_pw(NAM_EXEC_DEFAULT_PASSWORD)
+                _upd2["must_change_password"] = False
+                logger.warning("EXEC_FORCE_RESET active: password reset for %s", NAM_EXEC_EMAIL)
+            if _upd2:
+                await db.users.update_one({"email": NAM_EXEC_EMAIL}, {"$set": _upd2})
+                logger.info("Bootstrapped NAM Oshun exec: %s", list(_upd2.keys()))
+        else:
+            await db.users.insert_one({
+                "id": str(uuid.uuid4()),
+                "email": NAM_EXEC_EMAIL,
+                "full_name": "NAM Oshun",
+                "role": "executive_admin",
+                "associate": None,
+                "is_active": True,
+                "must_change_password": False,
+                "created_at": datetime.now(timezone.utc).isoformat(),
+                "password_hash": hash_pw(NAM_EXEC_DEFAULT_PASSWORD),
+            })
+            logger.info("Created exec account (NAM Oshun): %s", NAM_EXEC_EMAIL)
+    except Exception as _exc2:
+        logger.error("Exec bootstrap failed for %s (non-fatal): %s", NAM_EXEC_EMAIL, _exc2)
 
 
 async def seed_labs():
