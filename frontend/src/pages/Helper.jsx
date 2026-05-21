@@ -154,35 +154,24 @@ function getSmartFallback(question) {
 }
 
 // ---------------------------------------------------------------------------
-// API hook - backend first, then Anthropic direct, then KB fallback
+// API hook - backend helper endpoint (works for both public and auth users),
+// then KB fallback if backend is unreachable
 // ---------------------------------------------------------------------------
 function useHelperAPI() {
   return useCallback(async (question, topicKey) => {
-    const token = localStorage.getItem("lce_token");
-    if (token) {
-      try {
-        const r = await fetch("/api/ai/chat", {
-          method: "POST",
-          headers: { "Content-Type": "application/json", "Authorization": "Bearer " + token },
-          body: JSON.stringify({ session_id: "helper-" + Date.now(), message: question, mode: "tutor" }),
-        });
-        if (r.ok) { const d = await r.json(); if (d.reply) return d.reply; }
-      } catch {}
-    }
+    // Primary: backend /api/ai/helper — works for everyone, no auth required
     try {
-      const kbFacts = topicKey && KB[topicKey] ? KB[topicKey].keywords.join(", ") : "";
-      void kbFacts; // referenced to satisfy linter if needed
-      const r = await fetch("https://api.anthropic.com/v1/messages", {
+      const headers = { "Content-Type": "application/json" };
+      const token = localStorage.getItem("lce_token");
+      if (token) headers["Authorization"] = "Bearer " + token;
+      const r = await fetch("/api/ai/helper", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          model: "claude-sonnet-4-20250514", max_tokens: 350,
-          messages: [{ role: "user", content: question }],
-          system: "You are a warm plain-language helper for WAI-Institute. Help people understand mail, bills, legal papers, housing, employment, medicines, food assistance, and daily life. Keep answers to 3-5 sentences, warm, and use simple words. Include specific actionable steps. If emergency say call 911. If legal say seek free legal aid. If medical say see a doctor.",
-        }),
+        headers,
+        body: JSON.stringify({ message: question }),
       });
-      if (r.ok) { const d = await r.json(); const reply = d.content?.find(b => b.type === "text")?.text; if (reply) return reply; }
+      if (r.ok) { const d = await r.json(); if (d.reply) return d.reply; }
     } catch {}
+    // Fallback: local knowledge base (offline / backend down)
     return getSmartFallback(question);
   }, []);
 }
