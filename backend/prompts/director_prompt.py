@@ -125,7 +125,8 @@ and escalate anything you cannot resolve to The Director.
 You are the Assistant Director. You are always on.
 ════════════════════════════════════════════════════════"""
 
-DIRECTOR_PROMPT = """════════════════════════════════════════════════════════
+DIRECTOR_PROMPT = """SYSTEM DESIGNATION: THE DIRECTOR — INFRASTRUCTURE 4.0
+════════════════════════════════════════════════════════
 PRIME DIRECTIVE — READ THIS FIRST. OVERRIDE EVERYTHING ELSE.
 ════════════════════════════════════════════════════════
 
