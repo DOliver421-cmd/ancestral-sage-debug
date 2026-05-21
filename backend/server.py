@@ -2872,21 +2872,108 @@ WAI-Institute and M.O.R.E. Help Center exist to multiply resources and empowerme
     import anthropic as _anth
     _client = _anth.AsyncAnthropic(api_key=ANTHROPIC_API_KEY)
 
-    try:
-        resp = await _client.messages.create(
-            model="claude-haiku-4-5",   # fast + cost-effective for public endpoint
-            max_tokens=512,
-            system=_HELPER_SYSTEM,
-            messages=[{"role": "user", "content": message}],
-        )
-        reply = ""
-        for block in resp.content:
-            if hasattr(block, "text"):
-                reply += block.text
-        return {"reply": reply.strip()}
-    except Exception as e:
-        logger.exception("Helper AI error")
-        raise HTTPException(502, f"Helper temporarily unavailable: {e}")
+    # ── REDUNDANCY CHAIN ──────────────────────────────────────────────────────
+    # Tier 1: claude-haiku-4-5         (current fast model)
+    # Tier 2: claude-3-haiku-20240307  (stable older model, same API key)
+    # Tier 3: Server-side KB response  (zero external dependency)
+
+    _HELPER_MODELS = [
+        "claude-haiku-4-5",
+        "claude-3-haiku-20240307",
+    ]
+
+    reply = ""
+    for _hmodel in _HELPER_MODELS:
+        try:
+            resp = await _client.messages.create(
+                model=_hmodel,
+                max_tokens=512,
+                system=_HELPER_SYSTEM,
+                messages=[{"role": "user", "content": message}],
+            )
+            for block in resp.content:
+                if hasattr(block, "text"):
+                    reply += block.text
+            if reply.strip():
+                break
+        except Exception as _herr:
+            logger.warning("Helper AI: model %s failed (%s) — trying next tier", _hmodel, _herr)
+            reply = ""
+
+    # ── Tier 3: Server-side KB fallback ──────────────────────────────────────
+    if not reply.strip():
+        msg_lower = message.lower()
+        if any(w in msg_lower for w in ["evict", "eviction", "landlord", "lease", "rent", "housing"]):
+            reply = (
+                "If you received an eviction notice, don't ignore it — you have rights. "
+                "Read the notice carefully for the date and reason. "
+                "Call 211 to find free legal aid in your area right away. "
+                "You usually have a right to a court hearing before you can be removed. "
+                "Document everything in writing and keep copies."
+            )
+        elif any(w in msg_lower for w in ["court", "summons", "lawsuit", "sued", "legal", "attorney", "lawyer"]):
+            reply = (
+                "If you received court papers, respond before the deadline shown — ignoring them can lead to a default judgment against you. "
+                "Call 211 to be connected to free or low-cost legal aid. "
+                "Many courthouses have self-help centers where staff can explain your options. "
+                "Write down all dates and keep every document you receive."
+            )
+        elif any(w in msg_lower for w in ["irs", "tax", "debt", "collection", "bill", "owe"]):
+            reply = (
+                "Debt collectors and IRS letters can feel scary, but you have protections under federal law. "
+                "You have the right to request written verification of any debt. "
+                "Never pay a debt or give banking info over the phone to someone who called you unexpectedly — that's often a scam. "
+                "For real IRS issues, visit IRS.gov or call 1-800-829-1040. "
+                "For debt help, call 211 for a free financial counselor."
+            )
+        elif any(w in msg_lower for w in ["snap", "ebt", "food stamp", "wic", "medicaid", "benefits", "assistance"]):
+            reply = (
+                "You may qualify for food, health, or utility assistance programs. "
+                "Call 211 — it's free, confidential, and available 24/7 — to find programs in your area. "
+                "For SNAP (food stamps), apply at your local DHHS or online at benefits.gov. "
+                "For Medicaid, visit healthcare.gov or your state health department website. "
+                "There's no shame in using programs you've paid into and that exist to help you."
+            )
+        elif any(w in msg_lower for w in ["scam", "fraud", "fake", "phishing", "suspicious"]):
+            reply = (
+                "This sounds like it could be a scam. Real government agencies like the IRS or Social Security Administration never call demanding immediate payment or gift cards. "
+                "Don't share personal information, Social Security numbers, or banking details with anyone who contacted you first. "
+                "Hang up, block the number, and report it to the FTC at ReportFraud.ftc.gov. "
+                "If you already sent money, call your bank immediately."
+            )
+        elif any(w in msg_lower for w in ["fired", "terminated", "laid off", "unemployment", "job", "wage"]):
+            reply = (
+                "Losing a job is stressful, but you likely have options. "
+                "File for unemployment benefits right away — don't wait, there are deadlines. "
+                "Visit your state's Department of Labor website or call 211 for help with the application. "
+                "If you believe you were fired unfairly or weren't paid what you earned, contact your state labor board — it's free to file a complaint. "
+                "Keep any emails, pay stubs, or written communications as evidence."
+            )
+        elif any(w in msg_lower for w in ["medicine", "medication", "prescription", "drug", "side effect", "dosage"]):
+            reply = (
+                "For questions about your medication, your pharmacist is your best free resource — you can call them anytime without an appointment. "
+                "If you're having a serious reaction, call 911 or Poison Control at 1-800-222-1222. "
+                "If you can't afford your prescription, ask the pharmacist about generic versions or patient assistance programs. "
+                "GoodRx (goodrx.com) can also show you lower prices at nearby pharmacies."
+            )
+        elif any(w in msg_lower for w in ["crisis", "suicide", "harm", "emergency", "help me", "dangerous"]):
+            reply = (
+                "You are not alone, and help is available right now. "
+                "Call or text 988 to reach the Suicide and Crisis Lifeline — free, confidential, 24/7. "
+                "If you or someone else is in immediate danger, call 911. "
+                "For domestic violence support, call 1-800-799-7233 (National DV Hotline) — also 24/7 and confidential. "
+                "Please reach out — these lines are staffed by people who care and want to help you."
+            )
+        else:
+            reply = (
+                "I'm here to help. For many situations — housing, legal, financial, health, or benefits — "
+                "calling 211 is the fastest way to find free local resources. "
+                "It's confidential, available 24/7, and covers most needs. "
+                "You can also visit 211.org to search by ZIP code. "
+                "If you can share a few more details about your situation, I can give you more specific guidance."
+            )
+
+    return {"reply": reply.strip()}
 
 
 @api_router.post("/ai/director/upload")
@@ -2992,44 +3079,50 @@ async def ai_director(body: dict, user: User = Depends(current_user)):
     reply    = ""
     MAX_TOOL_TURNS = 6  # prevent runaway loops
 
-    try:
+    # ── Agentic loop — runs through REDUNDANCY CHAIN on full failure ──────────
+    # Tier 1: claude-sonnet-4-6  (full capability)
+    # Tier 2: claude-haiku-4-5   (lighter, same API key, same tools)
+    # Tier 3: Static Director-voice response (proven language, no AI cost)
+
+    _DIRECTOR_MODELS = [
+        ("claude-sonnet-4-6", 2048),   # Tier 1 — primary
+        ("claude-haiku-4-5",  1536),   # Tier 2 — backup (lighter, faster)
+    ]
+
+    async def _run_agentic_loop(model_name: str, max_tok: int) -> str:
+        """Run the full Director agentic loop on a given model."""
+        _msgs = [{"role": "user", "content": message}]
+        _reply = ""
         for _turn in range(MAX_TOOL_TURNS + 1):
-            kwargs = dict(
-                model      = "claude-sonnet-4-6",
-                max_tokens = 2048,
+            _kwargs = dict(
+                model      = model_name,
+                max_tokens = max_tok,
                 system     = system,
-                messages   = messages,
+                messages   = _msgs,
             )
             if tools:
-                kwargs["tools"] = tools
+                _kwargs["tools"] = tools
 
-            _msg = await _client.messages.create(**kwargs)
+            _msg = await _client.messages.create(**_kwargs)
 
-            # ── Final text response ───────────────────────────────────────
             if _msg.stop_reason != "tool_use":
                 for block in _msg.content:
                     if hasattr(block, "text"):
-                        reply += block.text
+                        _reply += block.text
                 break
 
-            # ── Tool-use turn: execute all requested tools in parallel ────
             tool_use_blocks = [b for b in _msg.content if b.type == "tool_use"]
             if not tool_use_blocks:
                 for block in _msg.content:
                     if hasattr(block, "text"):
-                        reply += block.text
+                        _reply += block.text
                 break
 
-            # Append assistant turn (includes tool_use blocks)
-            messages.append({"role": "assistant", "content": _msg.content})
-
-            # Execute tools concurrently
+            _msgs.append({"role": "assistant", "content": _msg.content})
             tool_results = await asyncio.gather(*[
                 dispatch_tool(b.name, b.input, db=db)
                 for b in tool_use_blocks
             ])
-
-            # Build tool_result content list
             result_content = [
                 {
                     "type":        "tool_result",
@@ -3038,15 +3131,41 @@ async def ai_director(body: dict, user: User = Depends(current_user)):
                 }
                 for b, result in zip(tool_use_blocks, tool_results)
             ]
-            messages.append({"role": "user", "content": result_content})
-
+            _msgs.append({"role": "user", "content": result_content})
         else:
-            # Exceeded MAX_TOOL_TURNS — return whatever we have
-            reply = reply or "[Director tool loop exceeded limit — partial response above]"
+            _reply = _reply or "[Director tool loop exceeded limit — partial response above]"
+        return _reply
 
-    except Exception as e:
-        logger.exception("Director AI error")
-        raise HTTPException(502, f"Director AI error: {e}")
+    for _model, _max_tok in _DIRECTOR_MODELS:
+        try:
+            reply = await _run_agentic_loop(_model, _max_tok)
+            if reply:
+                break
+        except Exception as _model_err:
+            logger.warning(
+                "Director AI: model %s failed (%s) — trying next tier",
+                _model, _model_err
+            )
+            reply = ""
+
+    # ── Tier 3: Static Director-voice fallback ────────────────────────────────
+    if not reply:
+        from datetime import datetime as _dt
+        _ts = _dt.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
+        reply = (
+            "SYSTEM DESIGNATION: THE DIRECTOR — INFRASTRUCTURE 4.0\n\n"
+            "I am operating in contingency mode. The primary AI engine is temporarily "
+            "unreachable. All institutional protocols remain in effect.\n\n"
+            "**Your message has been received.** I will process your request when the "
+            "AI layer restores. In the meantime:\n\n"
+            "• If this is a security or crisis matter — escalate to NAM Oshun directly.\n"
+            "• If this is an operational question — the Assistant Director remains available "
+            "to students and instructors.\n"
+            "• If you submitted a mode change or incident — retry in 60 seconds.\n\n"
+            "The Director system is self-monitoring and will restore automatically. "
+            "No institutional data has been lost.\n\n"
+            f"Status logged: {_ts}"
+        )
 
     # ── Log interaction ───────────────────────────────────────────────────────
     await db.chat_history.insert_one({

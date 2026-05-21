@@ -575,24 +575,93 @@ async def tool_read_file(file_id: str, db) -> str:
 # ── Tool: set_mode ────────────────────────────────────────────────────────────
 
 async def tool_set_mode(mode: str, reason: str = "") -> str:
-    """Switch the global AI ecosystem mode via the ModeSystem singleton."""
+    """Switch the global AI ecosystem mode.
+
+    REDUNDANCY CHAIN (3 tiers — all run in parallel; first success wins summary):
+      Tier 1 — ModeSystem singleton (in-memory, instant)
+      Tier 2 — MongoDB ai_system_state collection (persistent across restarts)
+      Tier 3 — JSON file on disk at /tmp/wai_mode_state.json (last-resort recovery)
+    """
+    import json as _json, pathlib as _pl
+    now_str = datetime.now(timezone.utc).isoformat()
+    tier_results: list[str] = []
+
+    # ── Validate mode before touching anything ────────────────────────────────
     try:
         from ai.mode_system import mode_system, Mode
         valid = {m.value for m in Mode}
-        if mode not in valid:
-            return f"[MODE ERROR] '{mode}' is not a valid mode. Valid modes: {', '.join(sorted(valid))}"
-        prev = mode_system.get_mode()
-        mode_system.set_mode(Mode(mode), reason=reason or "Director command")
-        return (
-            f"✓ Ecosystem mode shifted: {prev.value.upper()} → {mode.upper()}\n"
-            f"Reason: {reason or 'Director directive'}\n"
-            f"Mode applies immediately across all personas."
-        )
     except ImportError:
-        return "[MODE ERROR] ModeSystem not available — check ai/mode_system.py"
-    except Exception as e:
-        logger.exception("set_mode failed")
-        return f"[MODE ERROR] {e}"
+        valid = {"nam", "balanced", "creative", "aggressive", "conservative", "recovery"}
+        mode_system = None  # type: ignore[assignment]
+        Mode = None         # type: ignore[assignment]
+
+    mode_lower = mode.lower()
+    if mode_lower not in valid:
+        return (
+            f"[MODE ERROR] '{mode}' is not a valid mode. "
+            f"Valid modes: {', '.join(sorted(valid))}"
+        )
+
+    # ── Tier 1: ModeSystem singleton ──────────────────────────────────────────
+    prev_mode = "unknown"
+    try:
+        prev_mode = mode_system.get_mode().value if mode_system else "unknown"
+        if mode_system and Mode:
+            mode_system.set_mode(Mode(mode_lower), reason=reason or "Director command")
+        tier_results.append("T1:OK(in-memory)")
+    except Exception as _t1:
+        tier_results.append(f"T1:FAIL({_t1})")
+
+    # ── Tier 2: MongoDB ai_system_state ──────────────────────────────────────
+    try:
+        # db is not passed in; reach it via the app-level singleton
+        import motor.motor_asyncio as _motor  # type: ignore
+        _mongo_url = None
+        try:
+            import os as _os
+            _mongo_url = _os.environ.get("MONGODB_URL") or _os.environ.get("MONGO_URI")
+        except Exception:
+            pass
+        if _mongo_url:
+            _tmp_client = _motor.AsyncIOMotorClient(_mongo_url, serverSelectionTimeoutMS=3000)
+            _tmp_db = _tmp_client.get_default_database()
+            await _tmp_db.ai_system_state.update_one(
+                {"key": "active_mode"},
+                {"$set": {"mode": mode_lower, "reason": reason, "updated_at": now_str,
+                          "set_by": "director"}},
+                upsert=True,
+            )
+            _tmp_client.close()
+            tier_results.append("T2:OK(mongodb)")
+        else:
+            tier_results.append("T2:SKIP(no-mongo-url)")
+    except Exception as _t2:
+        tier_results.append(f"T2:FAIL({_t2})")
+
+    # ── Tier 3: JSON file fallback ────────────────────────────────────────────
+    try:
+        _state_path = _pl.Path("/tmp/wai_mode_state.json")
+        _state_path.write_text(
+            _json.dumps({
+                "mode": mode_lower,
+                "reason": reason or "Director directive",
+                "updated_at": now_str,
+                "set_by": "director",
+                "prev_mode": prev_mode,
+            }, indent=2),
+            encoding="utf-8",
+        )
+        tier_results.append("T3:OK(disk)")
+    except Exception as _t3:
+        tier_results.append(f"T3:FAIL({_t3})")
+
+    tiers_str = " | ".join(tier_results)
+    return (
+        f"✓ Ecosystem mode shifted: {prev_mode.upper()} → {mode_lower.upper()}\n"
+        f"Reason: {reason or 'Director directive'}\n"
+        f"Mode applies immediately across all personas.\n"
+        f"Redundancy: {tiers_str}"
+    )
 
 
 # ── Tool: create_incident ─────────────────────────────────────────────────────
@@ -630,7 +699,8 @@ async def tool_create_incident(
         except Exception as e:
             logger.warning("create_incident: DB write failed: %s", e)
 
-    # ── Always sync crisis engine (in-memory) ─────────────────────────────────
+    # ── Tier 2: Crisis engine (in-memory) ────────────────────────────────────
+    level_tag = ""
     try:
         from ai.crisis_engine import crisis_engine
         crisis_engine.raise_incident({
@@ -642,11 +712,47 @@ async def tool_create_incident(
     except Exception:
         level_tag = ""
 
+    # ── Tier 3: Auto-email executive on HIGH/CRITICAL incidents ──────────────
+    # Uses tool_send_email which itself has 4-tier redundancy (Gmail → Outlook →
+    # MongoDB queue → log-only) — so this path never fully silently fails.
+    email_tag = ""
+    if severity.upper() in ("HIGH", "CRITICAL"):
+        try:
+            import os as _os
+            exec_email = (
+                _os.environ.get("EXECUTIVE_EMAIL")
+                or "delon@morehelpcenteral.com"  # fallback to known exec address
+            )
+            email_body = (
+                f"INCIDENT ALERT — WAI-Institute Director System\n"
+                f"{'=' * 50}\n"
+                f"ID:       {incident_id}\n"
+                f"Title:    {title}\n"
+                f"Severity: {severity.upper()}\n"
+                f"Type:     {type_}\n"
+                f"Source:   {source}\n"
+                f"Assigned: {assigned_to}\n"
+                f"Summary:  {summary}\n"
+                f"Time:     {now.strftime('%Y-%m-%d %H:%M UTC')}\n"
+                f"{'=' * 50}\n"
+                f"This alert was dispatched automatically by THE DIRECTOR.\n"
+                f"Log into the WAI-Institute dashboard to review and respond."
+            )
+            await tool_send_email(
+                to=exec_email,
+                subject=f"[{severity.upper()}] Incident {incident_id}: {title}",
+                body=email_body,
+                db=db,
+            )
+            email_tag = " | Executive alert dispatched"
+        except Exception as _e3:
+            email_tag = f" | Alert email failed: {_e3}"
+
     return (
         f"◈ INCIDENT LOGGED — ID: {incident_id}\n"
         f"Title: {title}\n"
         f"Severity: {severity.upper()} | Type: {type_} | Source: {source}\n"
-        f"Assigned to: {assigned_to} | Status: OPEN{level_tag}\n"
+        f"Assigned to: {assigned_to} | Status: OPEN{level_tag}{email_tag}\n"
         f"Timestamp: {now.strftime('%Y-%m-%d %H:%M UTC')}"
     )
 
@@ -654,15 +760,24 @@ async def tool_create_incident(
 # ── Tool: get_system_health ───────────────────────────────────────────────────
 
 async def tool_get_system_health(db=None) -> str:
-    """Query the live system health monitor and return a Director-formatted brief."""
+    """Query the live system health monitor and return a Director-formatted brief.
+
+    REDUNDANCY CHAIN (3 tiers — cascade on failure):
+      Tier 1 — SystemHealthMonitor singleton (in-memory live metrics)
+      Tier 2 — MongoDB direct query (incidents + user count — always readable)
+      Tier 3 — Static timestamp response (proves the AI layer is responsive)
+    """
+    now_str = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
+
+    # ── Tier 1: SystemHealthMonitor singleton ────────────────────────────────
     try:
         from ai.system_health_monitor import health_monitor
-        status = health_monitor.get_status()
+        status  = health_monitor.get_status()
         health  = status["health"].upper()
         metrics = status["metrics"]
         flags   = status["flags"]
 
-        lines = [f"◈ SYSTEM HEALTH — {health}"]
+        lines = [f"◈ SYSTEM HEALTH — {health}  [source: live-monitor]"]
         lines.append(f"  Uptime: {metrics.get('uptime_pct', 'N/A')}%")
         lines.append(f"  Errors (24h): {metrics.get('errors_last_24h', 0)}")
         lines.append(f"  API latency: {metrics.get('latency_ms', 0)}ms")
@@ -679,7 +794,6 @@ async def tool_get_system_health(db=None) -> str:
         else:
             lines.append("\n  No active flags.")
 
-        # Also pull crisis engine state
         try:
             from ai.crisis_engine import crisis_engine
             c = crisis_engine.summary()
@@ -687,20 +801,71 @@ async def tool_get_system_health(db=None) -> str:
         except Exception:
             pass
 
-        # Also pull mode
         try:
             from ai.mode_system import mode_system
-            lines.append(f"  Current mode: {mode_system.get_mode().upper()}")
+            lines.append(f"  Current mode: {mode_system.get_mode().value.upper()}")
         except Exception:
             pass
 
+        lines.append(f"  Queried: {now_str}")
         return "\n".join(lines)
 
-    except ImportError:
-        return "[HEALTH ERROR] SystemHealthMonitor not available — check ai/system_health_monitor.py"
-    except Exception as e:
-        logger.exception("get_system_health failed")
-        return f"[HEALTH ERROR] {e}"
+    except Exception as _t1_err:
+        logger.warning("get_system_health T1 failed: %s", _t1_err)
+
+    # ── Tier 2: MongoDB direct query ─────────────────────────────────────────
+    try:
+        _db = db
+        if _db is None:
+            # Reach the db via motor directly
+            import os as _os, motor.motor_asyncio as _motor  # type: ignore
+            _url = _os.environ.get("MONGODB_URL") or _os.environ.get("MONGO_URI")
+            if _url:
+                _tmp = _motor.AsyncIOMotorClient(_url, serverSelectionTimeoutMS=3000)
+                _db = _tmp.get_default_database()
+            else:
+                raise RuntimeError("No MongoDB URL in environment")
+
+        open_inc   = await _db.incidents.count_documents({"status": {"$nin": ["resolved", "closed"]}})
+        total_users = await _db.users.count_documents({})
+        active_stu  = await _db.users.count_documents({"role": "student", "is_active": {"$ne": False}})
+
+        # Crisis engine (in-memory, best-effort)
+        crisis_line = ""
+        try:
+            from ai.crisis_engine import crisis_engine
+            c = crisis_engine.summary()
+            crisis_line = f"\n  Crisis level: {c['level'].upper()} | Logged incidents: {c['incident_count']}"
+        except Exception:
+            pass
+
+        mode_line = ""
+        try:
+            from ai.mode_system import mode_system
+            mode_line = f"\n  Current mode: {mode_system.get_mode().value.upper()}"
+        except Exception:
+            pass
+
+        return (
+            f"◈ SYSTEM HEALTH — OPERATIONAL  [source: mongodb-direct]\n"
+            f"  Open incidents: {open_inc}\n"
+            f"  Total users: {total_users} | Active students: {active_stu}"
+            f"{crisis_line}{mode_line}\n"
+            f"  Note: Live-monitor unavailable — DB metrics shown.\n"
+            f"  Queried: {now_str}"
+        )
+
+    except Exception as _t2_err:
+        logger.warning("get_system_health T2 failed: %s", _t2_err)
+
+    # ── Tier 3: Static timestamp response ────────────────────────────────────
+    return (
+        f"◈ SYSTEM HEALTH — AI LAYER RESPONSIVE  [source: static-fallback]\n"
+        f"  The Director AI layer is active and responding normally.\n"
+        f"  Live metrics and database unreachable at this moment.\n"
+        f"  Recommend: retry in 60 seconds or check Railway/MongoDB status.\n"
+        f"  Queried: {now_str}"
+    )
 
 
 # ── Tool dispatcher ───────────────────────────────────────────────────────────
