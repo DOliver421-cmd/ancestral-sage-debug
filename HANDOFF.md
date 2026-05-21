@@ -359,11 +359,246 @@ ffcb5db  fix(helper): wire real AI backend — Helper was running on keyword KB
 
 ## HOW TO START THE NEXT CHAT
 
-Paste this exactly:
-
 > I'm Delon Oliver (NAM Oshun), Executive Director of WAI-Institute and M.O.R.E. Help Center.  
 > Read `C:\Users\lenovo\ancestral-sage-debug\HANDOFF.md` — that is the full project context.  
 > Repo: https://github.com/DOliver421-cmd/ancestral-sage-debug  
 > Deployed to Railway at www.wai-institute.org  
-> The most urgent issue: login is broken for youpickeddoliver@gmail.com — the fix instructions are in the handoff.  
 > Pick up from the last session and continue without asking me to re-explain the project.
+
+---
+
+# SESSION 2 UPDATE — 2026-05-21
+
+**Last commit this session:** `0a6d4df`  
+**Status:** All 4 new personas live. Memory system live. ElevenLabs wired. Login was already fixed (user resolved independently).
+
+---
+
+## WHAT WAS BUILT THIS SESSION
+
+### 1. ElevenLabs TTS Client (`backend/ai/elevenlabs_client.py`) — commit `1591493`
+
+3-tier voice system for THE CIPHER:
+
+**Tier 1: ElevenLabs** — `eleven_multilingual_v2` model  
+- Performance markup engine: `[whisper]` / `[fire]` / `[rise]` / `[crescendo]` / `[tender]` / `[shout]` etc. → ElevenLabs `voice_settings`
+- `parse_performance_markup(text)` → strips tags, averages voice_settings across all found tags  
+- `preserve_performance_markup(text)` → readable stage directions for Text Performance Mode
+- Budget: 29,500 chars/month hard cap (500 char buffer from $5 Starter), 25,000 soft warning  
+- Budget tracked in `db.cipher_audio_budget`, auto-resets monthly  
+- Audio cache in `db.cipher_tts_cache` (SHA-256 keyed, base64)  
+- Budget refunded on API failure (no phantom charges)
+
+**Tier 2: OpenAI TTS** — returns `{fallback_endpoint: "/api/ai/sage/tts", fallback_voice: "onyx"}` so client routes to existing infrastructure  
+**Tier 3: Text Performance Mode** — `display_text` with `‹stage directions›`, zero cost, always available
+
+### 2. `/api/ai/cipher/tts` endpoint (server.py) — commit `1591493`
+
+```
+POST /api/ai/cipher/tts
+Body: {text, force_tier?, session_id?}
+Access: admin, executive_admin | Rate: 20/min
+```
+
+- T1/cached → `StreamingResponse(audio/mpeg)` + `X-Tier`, `X-Budget-Remaining`, `X-Budget-Warning` headers  
+- T2 → JSON with `{tier:"openai", fallback_endpoint, fallback_voice, clean_text}`  
+- T3 → JSON with `{tier:"text", display_text, clean_text}`  
+- `force_tier` override: "elevenlabs" | "openai" | "text"
+
+### 3. THE AMBASSADOR 4.0 (`backend/tools/ambassador_tools.py`) — commit `e66157f`
+
+Campaign coordination authority. Runs Oracle → Cipher → Architect pipeline.
+
+**9 tools:**
+- `ambassador_coordinate_oracle` — calls Anthropic with Oracle persona (one-shot, Haiku)  
+- `ambassador_coordinate_cipher` — calls Anthropic with Cipher persona (one-shot, includes Oracle brief)  
+- `ambassador_coordinate_architect` — calls Anthropic with Architect persona (one-shot, visual brief)  
+- `ambassador_package_campaign` — packages deliverables to `db.ambassador_campaigns`  
+- `ambassador_publish_campaign` — Gumroad T1 → MongoDB T2 → exec notification T3  
+- `ambassador_request_director_approval` — logs to `db.director_approvals` + exec notification  
+- `ambassador_get_campaign_status` — MongoDB lookup  
+- `ambassador_list_active_campaigns` — MongoDB list with status filter  
+- `ambassador_list_revenue_streams` — preloaded catalog
+
+**Revenue streams:**
+| ID | Price | Description |
+|---|---|---|
+| `full_campaign_package` | $199.00 | Oracle + Cipher + Architect package |
+| `quarterly_content_calendar` | $349.00 | 13-week coordinated content plan |
+| `launch_campaign_kit` | $299.00 | Full product/movement launch sequence |
+| `movement_intelligence_brief` | $79.99 | Oracle-powered campaign brief |
+| `community_activation_pack` | $99.99 | Community engagement campaign |
+| `wai_campaign_production` | $0 | Internal WAI/M.O.R.E. |
+
+**Endpoint:** `POST /api/ai/ambassador`  
+- claude-sonnet-4-6 (8192 tokens), MAX_TOOL_TURNS=12, rate 10/min  
+- Escapes to haiku-4-5 on failure, then static message
+
+### 4. THE ARCHITECT 4.0 (`backend/tools/architect_tools.py`) — commit `e66157f`
+
+Visual intelligence authority. DALL-E 3 image generation.
+
+**8 tools:**
+- `architect_generate_cover_art` — DALL-E 3, WAI visual philosophy applied to every prompt  
+- `architect_design_social_asset` — DALL-E 3, 10 platform dimension presets  
+- `architect_build_brand_brief` — structured brand identity brief (no image generation)  
+- `architect_create_visual_storyboard` — 4-8 scene narrative with emotional arc  
+- `architect_audit_brand_consistency` — reviews `db.architect_assets` against visual standard  
+- `architect_get_asset_gallery` — MongoDB lookup of generated assets  
+- `architect_publish_design_product` — Gumroad T1 → MongoDB T2  
+- `architect_list_revenue_streams` — preloaded catalog
+
+**WAI Visual Philosophy (baked into every DALL-E prompt):**
+- Primary: Deep gold (#C9A84C) + Midnight black (#0A0A0A) + Cream (#F5F0E8)
+- Accent: Royal purple (#4B0082) + Copper (#B87333)
+- Tone: Cinematic, Afro-centric, high contrast, culturally sovereign
+- Prohibitions: No stock-photo energy. No poverty aesthetics. No cultural caricature.
+
+**Visual-Content bridge:** `[fire]` → hot colors + high contrast, `[whisper]` → intimate + soft light, etc.
+
+**DALL-E 3 formats:** square 1024x1024, portrait 1024x1792, landscape 1792x1024
+
+Assets saved to `db.architect_assets`. Storyboards to `db.architect_storyboards`. Brand briefs to `db.architect_brand_briefs`.
+
+**Revenue streams:**
+| ID | Price |
+|---|---|
+| `brand_identity_kit` | $299.00 |
+| `social_asset_pack` | $99.99 |
+| `cover_art_single` | $49.99 |
+| `visual_storyboard` | $149.99 |
+| `brand_audit_report` | $79.99 |
+| `wai_internal_design` | $0 |
+
+**Endpoint:** `POST /api/ai/architect`  
+- claude-sonnet-4-6 (4096 tokens), MAX_TOOL_TURNS=8, rate 10/min
+
+### 5. Persona strings added (`backend/ai/persona_loader.py`) — commit `e66157f`
+
+- `_AMBASSADOR` — Pipeline protocol (5-step: SCAN→CREATE→DESIGN→PACKAGE→PUBLISH), decision rules, revenue streams, prohibitions
+- `_ARCHITECT` — Visual philosophy, image generation protocol, platform intelligence, visual-content bridge, prohibitions
+
+**Total personas: 16** (was 14)  
+Registry: director, assistant_director, ancestral_sage, savant_scholar, apprentice, revenue_director, wai_success_engine, product_designer, risk_officer, strategic_navigator, confidentiality_sentinel, elder_council, **cipher, oracle, ambassador, architect**
+
+### 6. Memory System Phase 1 (`backend/ai/memory.py`) — commit `0a6d4df`
+
+**Episodic Memory:**
+- `log_episode(db, session_id, persona, user_id, message, reply, tools_used)` → `db.persona_episodes`
+- `get_recent_episodes(db, persona, user_id, limit=3)` → last N episodes in chronological order
+- Automatically injected into all 4 persona endpoints' system prompts
+
+**Policy Memory:**
+- `set_policy_order(db, persona, order_id, content, set_by)` → `db.persona_policies`
+- `remove_policy_order(...)` → soft delete (audit trail preserved)
+- `get_policy_orders(db, persona)` → global orders + persona-specific orders
+- Scope: per-persona OR `__global__` (applies to all personas)
+- Automatically injected above episodic memory in system prompts
+
+**Context Injection:** `format_memory_context(episodes, policies, persona)` → compact text block:
+```
+STANDING ORDERS (set by Executive Director — follow always):
+  [always_wai_brand] Always include WAI-Institute branding in content
+
+RECENT MEMORY (last 3 conversations with cipher):
+  [2026-05-21 | Tools: cipher_trend_scan]
+  User: write a piece about healing...
+  Reply: I opened with the wound...
+```
+
+**Memory API endpoints:**
+```
+GET    /api/ai/memory/{persona}           — episodes + policies (admin+)
+GET    /api/ai/memory                     — all policy orders (exec only)
+POST   /api/ai/memory/policy              — {persona, order_id, content} (exec only)
+DELETE /api/ai/memory/policy/{p}/{id}     — deactivate (exec only)
+```
+
+All 4 persona endpoints now log every conversation and inject memory context.
+
+---
+
+## CURRENT SYSTEM STATE
+
+### ✅ LIVE AND OPERATIONAL
+- Director 4.0 — all 8 tools, dual-model fallback, memory-injected
+- Oracle 4.0 — 9 tools, dual-model fallback, episodic + policy memory
+- Cipher 4.0 — 9 tools, dual-model fallback, episodic + policy memory
+- Ambassador 4.0 — 9 tools, 12-turn pipeline, episodic + policy memory
+- Architect 4.0 — 8 tools, DALL-E 3 ready, episodic + policy memory
+- /api/ai/cipher/tts — 3-tier voice: ElevenLabs → OpenAI → Text Mode
+- Memory System — episodic logs + executive policy orders
+
+### ⚠️ NEEDS ENV VARS SET IN RAILWAY TO UNLOCK FULL CAPABILITY
+```
+ELEVENLABS_API_KEY  = [from elevenlabs.io → Profile → API Keys → "WAI-Cipher"]
+CIPHER_VOICE_ID     = [from elevenlabs.io → Voices → My Voices → copy Voice ID]
+CIPHER_BACKUP_VOICE = onyx                          (already default, set explicitly)
+GUMROAD_API_KEY     = [from gumroad.com → Settings → Applications → Access Tokens]
+```
+
+### ⚠️ STILL PENDING
+- **Dormant Mode triggers** — MongoDB-tracked triggers for Ambassador's dormant state (not started)
+- **Memory Phase 2** — persona product memory (what each persona has produced), engagement tracking
+- **Frontend interface for new personas** — no UI built yet for Cipher, Oracle, Ambassador, Architect
+- **Home backup server** — code ready, user hasn't completed setup (see original instructions above)
+- **MongoDB Atlas backup** — code ready, user hasn't configured (see original instructions above)
+
+---
+
+## ALL NEW API ENDPOINTS (this session)
+
+```
+POST   /api/ai/ambassador                 — Ambassador pipeline (admin+, 10/min)
+POST   /api/ai/architect                  — Architect visual intelligence (admin+, 10/min)
+POST   /api/ai/cipher/tts                 — Cipher voice 3-tier TTS (admin+, 20/min)
+GET    /api/ai/memory/{persona}           — Episodic + policy memory (admin+)
+GET    /api/ai/memory                     — All policy orders (exec only)
+POST   /api/ai/memory/policy              — Set standing order (exec only)
+DELETE /api/ai/memory/policy/{p}/{id}     — Remove standing order (exec only)
+```
+
+Plus from prior session (already committed):
+```
+POST   /api/ai/cipher                     — Cipher spoken word (admin+, 15/min)
+POST   /api/ai/oracle                     — Oracle intelligence (admin+, 15/min)
+```
+
+---
+
+## GIT COMMIT HISTORY — SESSION 2
+
+```
+0a6d4df  feat: Memory System Phase 1 — episodic + policy memory for persona network
+e66157f  feat: build THE AMBASSADOR 4.0 and THE ARCHITECT 4.0 personas
+1591493  feat: add ElevenLabs TTS client and /api/ai/cipher/tts endpoint
+0be2f7b  feat: THE CIPHER 4.0 + THE ORACLE 4.0 personas with full tool suites
+e55bc0e  fix: re-apply DirectorWidget touch drag + expand button changes
+```
+
+---
+
+## NEW MONGODB COLLECTIONS (this session)
+
+All created automatically on first use — no setup required.
+
+| Collection | Purpose |
+|---|---|
+| `db.persona_episodes` | Episodic memory — every persona conversation |
+| `db.persona_policies` | Policy memory — executive standing orders |
+| `db.cipher_audio_budget` | ElevenLabs monthly char budget tracking |
+| `db.cipher_tts_cache` | ElevenLabs audio cache (base64) |
+| `db.cipher_products` | Cipher revenue products |
+| `db.cipher_orders` | Cipher product delivery records |
+| `db.oracle_intelligence_reports` | Oracle intelligence report archive |
+| `db.oracle_products` | Oracle revenue products |
+| `db.oracle_orders` | Oracle product delivery records |
+| `db.ambassador_campaigns` | Ambassador campaign packages |
+| `db.ambassador_oracle_briefs` | Ambassador Oracle brief archive |
+| `db.ambassador_cipher_content` | Ambassador Cipher content archive |
+| `db.architect_assets` | Architect generated image assets |
+| `db.architect_storyboards` | Architect visual storyboards |
+| `db.architect_brand_briefs` | Architect brand identity briefs |
+| `db.architect_products` | Architect revenue products |
+| `db.director_approvals` | Director approval requests from Ambassador |
+| `db.executive_notifications` | Executive notification queue |
