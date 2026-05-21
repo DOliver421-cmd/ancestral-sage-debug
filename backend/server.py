@@ -858,6 +858,21 @@ async def on_startup():
     await run_escalation_check()
     await run_engagement_check()
 
+    # ── WAI-Institute Autonomous Pipeline activation ───────────────────────────
+    try:
+        from wai_institute.scripts.system_activation import activate_system, start_scout_scheduler
+        _wai_result = await activate_system(db)
+        logger.info(
+            "WAI autonomous pipeline activated — %d personas bootstrapped",
+            _wai_result.get("personas", {}).get("bootstrapped", 0),
+        )
+        # Start Cultural Scout background scanner
+        # Configure interval via SCOUT_INTERVAL_HOURS env var (default: 6h)
+        _scout_interval = int(os.environ.get("SCOUT_INTERVAL_HOURS", "6"))
+        await start_scout_scheduler(db, interval_hours=_scout_interval)
+    except Exception as _wai_err:
+        logger.warning("WAI autonomous pipeline startup failed (non-fatal): %s", _wai_err)
+
     # ── Rate-limiter memory guard ─────────────────────────────────────────────
     # Prune stale entries every 10 minutes so the in-memory dict never grows
     # unbounded on long-running servers (home server especially).
@@ -6951,6 +6966,431 @@ async def cipher_tts(body: dict, user: User = Depends(current_user)):
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
+# WAI AUTONOMOUS PIPELINE — Scout, Match, Audio, Merch, Analytics
+# ═══════════════════════════════════════════════════════════════════════════════
+
+# ── Cultural Scout ────────────────────────────────────────────────────────────
+
+@api_router.post("/exec/scout/run")
+async def scout_run(user: User = Depends(require_role("executive_admin"))):
+    """
+    Manually trigger a full Cultural Scout scan across all platforms.
+    Returns lead counts by platform.
+    Executive only.
+    """
+    from wai_institute.pipelines.cultural_scout import CulturalScout
+    check_rate(f"exec_scout:{user.id}", max_calls=3, window_sec=300)
+    scout = CulturalScout(db)
+    result = await scout.run_full_scan(max_leads_per_source=20)
+    return result
+
+
+@api_router.get("/exec/scout/leads")
+async def scout_leads(
+    status:   str = "unmatched",
+    min_score: int = 0,
+    limit:    int = 50,
+    user:     User = Depends(require_role("executive_admin")),
+):
+    """
+    List cultural scout leads.
+    status: unmatched | matched | actioned | all
+    min_score: minimum lead score (0-5)
+    Executive only.
+    """
+    from wai_institute.pipelines.cultural_scout import CulturalScout
+    scout = CulturalScout(db)
+
+    limit = min(max(limit, 1), 200)
+    query: dict = {}
+    if status == "unmatched":
+        query["matched"] = False
+    elif status == "matched":
+        query["matched"] = True
+    elif status == "actioned":
+        query["actioned"] = True
+
+    if min_score > 0:
+        query["score"] = {"$gte": min_score}
+
+    leads = []
+    try:
+        cursor = db.scout_leads.find(query, {"_id": 0}).sort("score", -1).limit(limit)
+        async for doc in cursor:
+            leads.append(doc)
+    except Exception as e:
+        raise HTTPException(500, f"DB query failed: {e}")
+
+    return {"status_filter": status, "count": len(leads), "leads": leads}
+
+
+@api_router.get("/exec/scout/status")
+async def scout_status(user: User = Depends(require_role("executive_admin"))):
+    """
+    Cultural Scout system status: lead counts, last scan, platform config.
+    Executive only.
+    """
+    import os
+    total = matched = actioned = 0
+    last_scan = None
+    try:
+        total    = await db.scout_leads.count_documents({})
+        matched  = await db.scout_leads.count_documents({"matched": True})
+        actioned = await db.scout_leads.count_documents({"actioned": True})
+        last_doc = await db.scout_scan_log.find_one({}, sort=[("started_at", -1)])
+        if last_doc:
+            last_scan = {
+                "scan_id":    last_doc.get("scan_id"),
+                "started_at": last_doc.get("started_at"),
+                "leads_found": last_doc.get("leads_found", {}),
+            }
+    except Exception: pass
+
+    return {
+        "scout_enabled":     os.environ.get("SCOUT_ENABLED", "true").lower() != "false",
+        "scan_interval_hours": int(os.environ.get("SCOUT_INTERVAL_HOURS", "6")),
+        "platforms": {
+            "reddit":  True,
+            "rss":     True,
+            "youtube": bool(os.environ.get("YOUTUBE_API_KEY")),
+            "twitter": bool(os.environ.get("TWITTER_BEARER_TOKEN")),
+        },
+        "leads": {
+            "total":    total,
+            "matched":  matched,
+            "actioned": actioned,
+            "pending":  total - actioned,
+        },
+        "last_scan": last_scan,
+    }
+
+
+@api_router.post("/exec/scout/match-all")
+async def scout_match_all(user: User = Depends(require_role("executive_admin"))):
+    """
+    Run the Contextual Matcher on all unmatched leads.
+    Returns match summary.
+    Executive only.
+    """
+    from wai_institute.pipelines.cultural_scout import CulturalScout
+    from wai_institute.pipelines.contextual_matcher import ContextualMatcher
+    check_rate(f"exec_match:{user.id}", max_calls=3, window_sec=60)
+
+    scout   = CulturalScout(db)
+    matcher = ContextualMatcher(db)
+
+    unmatched = await scout.get_unmatched_leads(limit=50)
+    if not unmatched:
+        return {"status": "nothing_to_match", "unmatched_leads": 0}
+
+    results = await matcher.match_batch(unmatched)
+    matched_count = sum(1 for r in results if r.get("matched"))
+
+    return {
+        "processed":    len(results),
+        "matched":      matched_count,
+        "unmatched":    len(results) - matched_count,
+        "match_rate":   f"{matched_count / max(len(results), 1) * 100:.1f}%",
+    }
+
+
+# ── Audio Production ──────────────────────────────────────────────────────────
+
+@api_router.post("/ai/cipher/generate-audio")
+async def cipher_generate_audio(
+    body: dict,
+    user: User = Depends(require_role("executive_admin")),
+):
+    """
+    Full spoken word audio production pipeline.
+    Text → ElevenLabs → MongoDB GridFS → returns asset_id + access URL.
+
+    Body:
+        text:         Spoken word text (required)
+        persona:      "cipher" (default) | any persona name
+        title:        Product/asset title
+        preview_only: true = 15-second preview only
+        force_tier:   "elevenlabs" | "openai" | "text"
+
+    Returns asset metadata + access_url for GET /api/exec/audio/{asset_id}
+    Executive only.
+    """
+    from wai_institute.pipelines.audio_pipeline import AudioPipeline
+    check_rate(f"audio_gen:{user.id}", max_calls=10, window_sec=60)
+
+    text = (body.get("text") or "").strip()
+    if not text:
+        raise HTTPException(400, "text is required")
+    if len(text) > 5000:
+        text = text[:5000]
+
+    pipeline = AudioPipeline(db)
+    result = await pipeline.produce(
+        text=text,
+        persona=body.get("persona", "cipher"),
+        title=body.get("title", ""),
+        force_tier=body.get("force_tier", ""),
+        preview_only=body.get("preview_only", False),
+    )
+    return result
+
+
+@api_router.get("/exec/audio/{asset_id}")
+async def serve_audio(asset_id: str, user: User = Depends(current_user)):
+    """
+    Stream MP3 audio from MongoDB GridFS.
+    Access URL returned by /api/ai/cipher/generate-audio.
+    Any authenticated user can access.
+    """
+    from wai_institute.pipelines.audio_pipeline import AudioPipeline
+    pipeline = AudioPipeline(db)
+
+    audio_bytes = await pipeline.get_audio_bytes(asset_id)
+    if not audio_bytes:
+        raise HTTPException(404, f"Audio asset '{asset_id}' not found")
+
+    return StreamingResponse(
+        io.BytesIO(audio_bytes),
+        media_type="audio/mpeg",
+        headers={"Content-Disposition": f"inline; filename={asset_id}.mp3"},
+    )
+
+
+@api_router.get("/exec/audio")
+async def list_audio_assets(
+    persona: str = "",
+    limit:   int = 20,
+    user:    User = Depends(require_role("executive_admin")),
+):
+    """List generated audio assets. Executive only."""
+    from wai_institute.pipelines.audio_pipeline import AudioPipeline
+    pipeline = AudioPipeline(db)
+    assets = await pipeline.list_assets(persona=persona, limit=min(limit, 100))
+    return {"count": len(assets), "assets": assets}
+
+
+# ── Merch Pipeline ────────────────────────────────────────────────────────────
+
+@api_router.post("/exec/merch/create")
+async def merch_create(
+    body: dict,
+    user: User = Depends(require_role("executive_admin")),
+):
+    """
+    Create print-on-demand merch from a viral text/stanza.
+    Generates DALL-E 3 typography design + creates Printify products.
+
+    Body:
+        text:          Spoken word line or stanza to put on merch (required)
+        title:         Product title (optional — auto-generated)
+        product_types: ["classic_tee","poster_18x24","unisex_hoodie","tote_bag","mug_11oz"]
+        persona:       Which persona authored this (default: cipher)
+
+    Requires PRINTIFY_API_KEY + PRINTIFY_SHOP_ID for live publishing.
+    Without them: creates draft with DALL-E design concept.
+    Executive only.
+    """
+    from wai_institute.pipelines.merch_pipeline import MerchPipeline
+    check_rate(f"merch_create:{user.id}", max_calls=5, window_sec=60)
+
+    text = (body.get("text") or "").strip()
+    if not text:
+        raise HTTPException(400, "text is required")
+    if len(text) > 200:
+        text = text[:200]
+
+    pipeline = MerchPipeline(db)
+    result = await pipeline.create_merch_from_text(
+        text=text,
+        title=body.get("title", ""),
+        product_types=body.get("product_types", ["classic_tee", "poster_18x24"]),
+        persona=body.get("persona", "cipher"),
+    )
+    return result
+
+
+@api_router.get("/exec/merch")
+async def list_merch(
+    status: str = "all",
+    limit:  int = 20,
+    user:   User = Depends(require_role("executive_admin")),
+):
+    """List merch products. status: all | draft | created. Executive only."""
+    from wai_institute.pipelines.merch_pipeline import MerchPipeline
+    pipeline = MerchPipeline(db)
+    products = await pipeline.get_merch_products(status=status, limit=min(limit, 100))
+    return {"status_filter": status, "count": len(products), "products": products}
+
+
+# ── Analytics ─────────────────────────────────────────────────────────────────
+
+@api_router.get("/exec/analytics")
+async def pipeline_analytics(
+    period_days: int = 30,
+    user: User = Depends(require_role("executive_admin")),
+):
+    """
+    Full autonomous pipeline analytics report.
+    Covers leads, audio, merch, revenue, A/B performance.
+    Executive only.
+    """
+    from wai_institute.pipelines.analytics_pipeline import AnalyticsPipeline
+    analytics = AnalyticsPipeline(db)
+    report = await analytics.generate_full_report(period_days=min(period_days, 365))
+    return report
+
+
+# ── Persona Management ────────────────────────────────────────────────────────
+
+@api_router.get("/exec/personas")
+async def list_personas(user: User = Depends(require_role("executive_admin"))):
+    """
+    List all persona activation states.
+    Returns current status, tier, capabilities, evolution log.
+    Executive only.
+    """
+    from wai_institute.core.persona_manager import PersonaManager
+    pm = PersonaManager(db)
+    active = await pm.list_active()
+    from wai_institute.core.persona_registry import get_registry
+    registry = get_registry()
+    return {
+        "registry":       registry,
+        "active_count":   len(active),
+        "active_personas": active,
+    }
+
+
+@api_router.post("/exec/personas/{name}/evolve")
+async def evolve_persona(
+    name: str,
+    body: dict,
+    user: User = Depends(require_role("executive_admin")),
+):
+    """
+    Evolve a persona — add/remove capabilities.
+    Director-level action.
+
+    Body:
+        add_capabilities:    list of capability strings
+        remove_capabilities: list of capability strings
+        update_mandate:      new mandate string (optional)
+
+    Executive only.
+    """
+    from wai_institute.core.persona_manager import PersonaManager
+    pm = PersonaManager(db)
+    result = await pm.evolve(
+        name=name,
+        add_capabilities=body.get("add_capabilities", []),
+        remove_capabilities=body.get("remove_capabilities", []),
+        update_mandate=body.get("update_mandate"),
+        evolved_by=user.id,
+    )
+    return result
+
+
+@api_router.post("/exec/personas/{name}/activate")
+async def activate_persona(
+    name: str,
+    body: dict,
+    user: User = Depends(require_role("executive_admin")),
+):
+    """Activate or re-activate a persona. Executive only."""
+    from wai_institute.core.persona_manager import PersonaManager
+    pm = PersonaManager(db)
+    result = await pm.activate(
+        name=name,
+        config=body.get("config", {}),
+        mode=body.get("mode", "active"),
+        activated_by=user.id,
+    )
+    return result
+
+
+@api_router.post("/exec/personas/{name}/deactivate")
+async def deactivate_persona(
+    name: str,
+    body: dict,
+    user: User = Depends(require_role("executive_admin")),
+):
+    """Deactivate a persona. Executive only."""
+    from wai_institute.core.persona_manager import PersonaManager
+    pm = PersonaManager(db)
+    result = await pm.deactivate(
+        name=name,
+        reason=body.get("reason", ""),
+        deactivated_by=user.id,
+    )
+    return result
+
+
+# ── Conversational Engine / Outreach ──────────────────────────────────────────
+
+@api_router.post("/exec/scout/craft-response")
+async def craft_outreach_response(
+    body: dict,
+    user: User = Depends(require_role("executive_admin")),
+):
+    """
+    Craft a personalized outreach response for a scout lead.
+    Uses Cipher to write the message + generates audio preview + checkout link.
+
+    Body:
+        source_id: lead source_id from db.scout_leads (required)
+        include_preview:  generate audio preview (default: true)
+        include_checkout: generate checkout link (default: true)
+
+    Executive only.
+    """
+    from wai_institute.pipelines.contextual_matcher import ContextualMatcher
+    from wai_institute.pipelines.conversational_engine import ConversationalEngine
+    check_rate(f"craft_response:{user.id}", max_calls=10, window_sec=60)
+
+    source_id = (body.get("source_id") or "").strip()
+    if not source_id:
+        raise HTTPException(400, "source_id is required")
+
+    # Fetch the lead
+    lead = await db.scout_leads.find_one({"source_id": source_id}, {"_id": 0})
+    if not lead:
+        raise HTTPException(404, f"Lead '{source_id}' not found")
+
+    # Match it to a product
+    matcher = ContextualMatcher(db)
+    match = await matcher.match(lead)
+
+    # Craft the response
+    engine = ConversationalEngine(db)
+    response = await engine.craft_response(
+        lead=lead,
+        match_result=match,
+        include_preview=body.get("include_preview", True),
+        include_checkout=body.get("include_checkout", True),
+    )
+    return response
+
+
+@api_router.post("/exec/checkout/conversion")
+async def record_checkout_conversion(
+    body: dict,
+    user: User = Depends(require_role("executive_admin")),
+):
+    """
+    Record a conversion for a checkout link (e.g., from Lemon Squeezy webhook).
+    Body: {checkout_id, order_data (optional)}
+    Executive only (webhook token validation can be added later).
+    """
+    from wai_institute.pipelines.transaction_node import TransactionNode
+    checkout_id = (body.get("checkout_id") or "").strip()
+    if not checkout_id:
+        raise HTTPException(400, "checkout_id is required")
+    tn = TransactionNode(db)
+    result = await tn.record_conversion(checkout_id, body.get("order_data", {}))
+    return result
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
 # EXECUTIVE DASHBOARD — System overview for NAM Oshun
 # ═══════════════════════════════════════════════════════════════════════════════
 
@@ -7191,6 +7631,11 @@ app.add_middleware(
 
 @app.on_event("shutdown")
 async def shutdown_db_client():
+    try:
+        from wai_institute.scripts.system_activation import stop_scout_scheduler
+        stop_scout_scheduler()
+    except Exception:
+        pass
     client.close()
 
 
