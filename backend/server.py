@@ -69,9 +69,17 @@ from seed_inventory import SITES, INVENTORY
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
 
-mongo_url = os.environ['MONGO_URL']
-client = AsyncIOMotorClient(mongo_url)
+# ── MongoDB dual-connection (primary + Atlas backup) ──────────────────────────
+# Primary:  MONGO_URL          (Railway or any MongoDB host)
+# Backup:   MONGO_BACKUP_URL   (MongoDB Atlas free tier recommended)
+# Failover happens in on_startup() — all `db` references then use whichever
+# connection is live; no other code needs to change.
+mongo_url        = os.environ['MONGO_URL']
+MONGO_BACKUP_URL = os.environ.get('MONGO_BACKUP_URL', '')   # Atlas URI (optional)
+MONGO_BACKUP_DB  = os.environ.get('MONGO_BACKUP_DB', '')    # Atlas DB name (optional)
+client = AsyncIOMotorClient(mongo_url, serverSelectionTimeoutMS=5000)
 db = client[os.environ['DB_NAME']]
+_DB_SOURCE = "primary"   # updated in on_startup if failover fires
 
 JWT_SECRET = os.environ['JWT_SECRET']
 JWT_ALGO = os.environ.get('JWT_ALGORITHM', 'HS256')
@@ -79,6 +87,13 @@ JWT_EXPIRE_HOURS = int(os.environ.get('JWT_EXPIRE_HOURS', '168'))
 EMERGENT_LLM_KEY = os.environ.get('EMERGENT_LLM_KEY', '')
 ANTHROPIC_API_KEY = os.environ.get('ANTHROPIC_API_KEY', EMERGENT_LLM_KEY)
 OPENAI_API_KEY = os.environ.get('OPENAI_API_KEY', EMERGENT_LLM_KEY)
+
+# ── Backup server / home server config ───────────────────────────────────────
+# Set SERVE_FRONTEND=1 on your home server to serve the built React app too.
+# Set BACKUP_ORIGIN=https://your-cloudflare-tunnel.trycloudflare.com so the
+# home server URL is automatically allowed by CORS.
+SERVE_FRONTEND  = os.environ.get('SERVE_FRONTEND', '0') == '1'
+BACKUP_ORIGIN   = os.environ.get('BACKUP_ORIGIN', '').strip()
 
 pwd_ctx = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
@@ -756,6 +771,46 @@ async def backfill_verification_codes():
 
 @app.on_event("startup")
 async def on_startup():
+    # ── MongoDB failover ──────────────────────────────────────────────────────
+    # Try the primary DB. If it's unreachable AND a backup URL is configured,
+    # silently swap the global `client` + `db` to the Atlas backup so all
+    # subsequent DB calls go to the backup without any other code changes.
+    global client, db, _DB_SOURCE
+    try:
+        await asyncio.wait_for(client.admin.command("ping"), timeout=6.0)
+        _DB_SOURCE = "primary"
+        logger.info("STARTUP: Primary MongoDB connected successfully.")
+    except Exception as _primary_err:
+        logger.warning("STARTUP: Primary MongoDB unreachable (%s).", _primary_err)
+        if MONGO_BACKUP_URL:
+            try:
+                _backup_client = AsyncIOMotorClient(
+                    MONGO_BACKUP_URL, serverSelectionTimeoutMS=8000
+                )
+                _backup_db_name = MONGO_BACKUP_DB or os.environ.get('DB_NAME', 'wai')
+                await asyncio.wait_for(
+                    _backup_client.admin.command("ping"), timeout=10.0
+                )
+                client = _backup_client
+                db = _backup_client[_backup_db_name]
+                _DB_SOURCE = "backup-atlas"
+                logger.warning(
+                    "STARTUP: Switched to Atlas backup DB '%s'. "
+                    "Restore primary MongoDB when available.", _backup_db_name
+                )
+            except Exception as _backup_err:
+                _DB_SOURCE = "offline"
+                logger.error(
+                    "STARTUP: Both primary and backup MongoDB unreachable. "
+                    "DB-dependent routes will return 503. (%s)", _backup_err
+                )
+        else:
+            _DB_SOURCE = "offline"
+            logger.error(
+                "STARTUP: Primary DB unreachable and MONGO_BACKUP_URL not set. "
+                "Configure Atlas backup: set MONGO_BACKUP_URL in environment."
+            )
+
     await ensure_indexes()
     await seed_modules()
     await seed_users()
@@ -765,7 +820,53 @@ async def on_startup():
     await backfill_verification_codes()
     await run_escalation_check()
     await run_engagement_check()
-    # Director 4.0 — establish prompt integrity baseline at startup.
+
+    # ── Rate-limiter memory guard ─────────────────────────────────────────────
+    # Prune stale entries every 10 minutes so the in-memory dict never grows
+    # unbounded on long-running servers (home server especially).
+    async def _rate_limiter_cleanup():
+        while True:
+            await asyncio.sleep(600)
+            now = datetime.now(timezone.utc).timestamp()
+            stale = [k for k, v in _RATE.items() if not v or now - v[-1] > 300]
+            for k in stale:
+                del _RATE[k]
+            if stale:
+                logger.debug("Rate limiter: pruned %d stale keys.", len(stale))
+    asyncio.create_task(_rate_limiter_cleanup())
+
+    # ── Serve built React frontend (home/backup server only) ─────────────────
+    if SERVE_FRONTEND:
+        _build_paths = [
+            ROOT_DIR.parent / "frontend" / "build",
+            ROOT_DIR.parent / "frontend" / "dist",
+            Path("/app/frontend/build"),
+            Path("/app/frontend/dist"),
+        ]
+        _served = False
+        for _bp in _build_paths:
+            if _bp.exists() and (_bp / "index.html").exists():
+                from fastapi.staticfiles import StaticFiles
+                from fastapi.responses import FileResponse
+
+                # Serve static assets
+                app.mount("/static", StaticFiles(directory=str(_bp / "static")), name="static")
+
+                # SPA catch-all — must come AFTER api_router is included
+                @app.get("/{full_path:path}", include_in_schema=False)
+                async def _spa_catchall(full_path: str):
+                    return FileResponse(str(_bp / "index.html"))
+
+                logger.info("STARTUP: Serving React frontend from %s", _bp)
+                _served = True
+                break
+        if not _served:
+            logger.warning(
+                "STARTUP: SERVE_FRONTEND=1 but no built frontend found. "
+                "Run 'npm run build' in the frontend directory first."
+            )
+
+    # ── Director 4.0 — prompt integrity baseline ──────────────────────────────
     # Any drift detected on subsequent calls indicates unauthorized modification.
     try:
         from ai.prompt_guard import prompt_guard
@@ -780,6 +881,7 @@ async def on_startup():
             logger.info("STARTUP: All prompt integrity baselines enrolled successfully.")
     except Exception as _pg_exc:
         logger.error("STARTUP: prompt_guard baseline enrollment failed: %s", _pg_exc)
+
     # Loud warning if the dev-only token leak is enabled.  The production
     # .env should NEVER set this; it exists only for the preview test suite.
     if os.environ.get("DEV_RETURN_RESET_TOKEN") == "1":
@@ -789,6 +891,11 @@ async def on_startup():
             "FOR PRODUCTION. Remove DEV_RETURN_RESET_TOKEN from .env "
             "before deploying to a public environment."
         )
+
+    logger.info(
+        "STARTUP COMPLETE — Version: %s | DB: %s | Frontend: %s",
+        APP_VERSION, _DB_SOURCE, "served" if SERVE_FRONTEND else "railway-nginx"
+    )
 
 
 async def ensure_indexes():
@@ -885,11 +992,89 @@ async def root():
 
 @api_router.get("/health")
 async def health():
+    """Deep health check — used by UptimeRobot, home server heartbeat, and Director tool.
+
+    Always returns 200 with a detailed status object.
+    Use the top-level `status` field for simple up/down monitoring:
+      "operational"  — all systems normal
+      "degraded"     — one or more subsystems have issues but service is running
+      "critical"     — multiple core systems down
+
+    Non-200 is only returned if the server itself can't respond (handled by infra).
+    """
+    now = datetime.now(timezone.utc).isoformat()
+    checks: dict = {}
+    issues: list[str] = []
+
+    # ── Database ──────────────────────────────────────────────────────────────
     try:
-        await client.admin.command("ping")
-        return {"status": "ok", "version": APP_VERSION, "db": "up"}
-    except Exception:
-        raise HTTPException(503, "db_down")
+        await asyncio.wait_for(client.admin.command("ping"), timeout=3.0)
+        checks["db"] = {"status": "up", "source": _DB_SOURCE}
+    except Exception as _dbe:
+        checks["db"] = {"status": "down", "source": _DB_SOURCE, "error": str(_dbe)[:120]}
+        issues.append("db_down")
+
+    # ── Anthropic AI API ──────────────────────────────────────────────────────
+    if ANTHROPIC_API_KEY:
+        checks["ai_api"] = {"status": "configured", "key_present": True}
+    else:
+        checks["ai_api"] = {"status": "unconfigured", "key_present": False}
+        issues.append("ai_api_key_missing")
+
+    # ── Director 4.0 subsystems ───────────────────────────────────────────────
+    try:
+        from ai.mode_system import mode_system
+        checks["mode_system"] = {"status": "up", "current_mode": mode_system.get_mode().value}
+    except Exception as _me:
+        checks["mode_system"] = {"status": "down", "error": str(_me)[:80]}
+        issues.append("mode_system_down")
+
+    try:
+        from ai.crisis_engine import crisis_engine
+        c = crisis_engine.summary()
+        checks["crisis_engine"] = {
+            "status": "up",
+            "level": c.get("level", "low"),
+            "open_incidents": c.get("incident_count", 0),
+        }
+    except Exception as _ce:
+        checks["crisis_engine"] = {"status": "down", "error": str(_ce)[:80]}
+        issues.append("crisis_engine_down")
+
+    try:
+        from ai.prompt_guard import prompt_guard
+        checks["prompt_guard"] = {"status": "up", "patterns": len(getattr(prompt_guard, '_patterns', []))}
+    except Exception as _pge:
+        checks["prompt_guard"] = {"status": "down", "error": str(_pge)[:80]}
+        issues.append("prompt_guard_down")
+
+    try:
+        from ai.system_health_monitor import health_monitor
+        hm = health_monitor.get_status()
+        checks["health_monitor"] = {"status": "up", "health": hm.get("health", "unknown")}
+    except Exception as _hme:
+        checks["health_monitor"] = {"status": "down", "error": str(_hme)[:80]}
+
+    # ── Rate limiter ──────────────────────────────────────────────────────────
+    checks["rate_limiter"] = {"status": "up", "tracked_keys": len(_RATE)}
+
+    # ── Overall status ────────────────────────────────────────────────────────
+    if not issues:
+        overall = "operational"
+    elif len(issues) >= 2:
+        overall = "critical"
+    else:
+        overall = "degraded"
+
+    return {
+        "status":    overall,
+        "version":   APP_VERSION,
+        "db_source": _DB_SOURCE,
+        "issues":    issues,
+        "checks":    checks,
+        "timestamp": now,
+        "uptime_hint": "Monitor at /api/health — returns 200 always; check `status` field.",
+    }
 
 
 @api_router.get("/version")
@@ -2870,6 +3055,7 @@ YOU NEVER:
 WAI-Institute and M.O.R.E. Help Center exist to multiply resources and empowerment for communities that have been locked out of the institutions that build wealth, opportunity, and influence. Every person who uses this Helper deserves your full effort."""
 
     import anthropic as _anth
+    from ai.retry_utils import async_retry
     _client = _anth.AsyncAnthropic(api_key=ANTHROPIC_API_KEY)
 
     # ── REDUNDANCY CHAIN ──────────────────────────────────────────────────────
@@ -2885,7 +3071,9 @@ WAI-Institute and M.O.R.E. Help Center exist to multiply resources and empowerme
     reply = ""
     for _hmodel in _HELPER_MODELS:
         try:
-            resp = await _client.messages.create(
+            resp = await async_retry(
+                _client.messages.create,
+                max_attempts=3, base_delay=1.5,
                 model=_hmodel,
                 max_tokens=512,
                 system=_HELPER_SYSTEM,
@@ -3072,6 +3260,7 @@ async def ai_director(body: dict, user: User = Depends(current_user)):
     )
 
     import anthropic as _anthropic_module
+    from ai.retry_utils import async_retry
     _client = _anthropic_module.AsyncAnthropic(api_key=ANTHROPIC_API_KEY)
 
     messages = [{"role": "user", "content": message}]
@@ -3103,7 +3292,12 @@ async def ai_director(body: dict, user: User = Depends(current_user)):
             if tools:
                 _kwargs["tools"] = tools
 
-            _msg = await _client.messages.create(**_kwargs)
+            # Retry transient errors (429 rate-limit, 529 overload, timeout)
+            _msg = await async_retry(
+                _client.messages.create,
+                max_attempts=3, base_delay=2.0,
+                **_kwargs,
+            )
 
             if _msg.stop_reason != "tool_use":
                 for block in _msg.content:
@@ -5716,7 +5910,13 @@ app.include_router(api_router)
 # CORS: when origins is wildcard ("*") browsers reject credentials, so we
 # turn off allow_credentials in that case (auth uses Bearer token in Authorization
 # header anyway). If a specific origin list is supplied, credentials are allowed.
+#
+# BACKUP_ORIGIN (e.g. https://your-tunnel.trycloudflare.com) is auto-appended
+# so the home/backup server is always allowed without touching CORS_ORIGINS.
 _cors_origins = [o.strip() for o in os.environ.get('CORS_ORIGINS', '*').split(',') if o.strip()]
+if BACKUP_ORIGIN and BACKUP_ORIGIN not in _cors_origins and '*' not in _cors_origins:
+    _cors_origins.append(BACKUP_ORIGIN)
+    logger.info("CORS: Backup origin added: %s", BACKUP_ORIGIN)
 _allow_creds = _cors_origins != ['*']
 app.add_middleware(
     CORSMiddleware,
