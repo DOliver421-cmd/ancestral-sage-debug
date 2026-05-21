@@ -3288,8 +3288,10 @@ async def ai_director(body: dict, user: User = Depends(current_user)):
     from prompts.director_prompt import get_director_prompt
     from tools.director_tools import DIRECTOR_TOOLS, dispatch_tool
     from ai.prompt_guard import prompt_guard
+    from ai.memory import get_memory_context, log_episode
 
-    message = body.get("message", "")
+    message    = body.get("message", "")
+    session_id = body.get("session_id", "director")
     if not message:
         raise HTTPException(400, "Message is required")
 
@@ -3300,15 +3302,16 @@ async def ai_director(body: dict, user: User = Depends(current_user)):
     except ValueError as _guard_err:
         raise HTTPException(400, str(_guard_err))
 
-    is_exec = user.role in ("admin", "executive_admin")
-    system  = get_director_prompt(user.role)
-    system += (
+    is_exec    = user.role in ("admin", "executive_admin")
+    memory_ctx = await get_memory_context(db, "director", user.id) if is_exec else ""
+    system     = get_director_prompt(user.role)
+    system    += (
         f"\n\nCURRENT USER CONTEXT:\n"
         f"- Name: {user.full_name}\n"
         f"- Role: {user.role}\n"
         f"- Email: {user.email}\n"
         f"- Address them appropriately by role.\n"
-    )
+    ) + memory_ctx
 
     import anthropic as _anthropic_module
     from ai.retry_utils import async_retry
@@ -3416,13 +3419,17 @@ async def ai_director(body: dict, user: User = Depends(current_user)):
     await db.chat_history.insert_one({
         "id":           str(uuid.uuid4()),
         "user_id":      user.id,
-        "session_id":   body.get("session_id", "director"),
+        "session_id":   session_id,
         "mode":         "director",
         "user_msg":     message,
         "assistant_msg": reply,
         "created_at":   datetime.now(timezone.utc).isoformat(),
         "expires_at":   (datetime.now(timezone.utc) + timedelta(days=90)).isoformat(),
     })
+
+    if is_exec:
+        from ai.memory import log_episode as _log_ep
+        await _log_ep(db, session_id, "director", user.id, message, reply, [])
 
     persona = "director" if is_exec else "assistant_director"
     return {"reply": reply, "persona": persona}
@@ -3572,6 +3579,322 @@ async def director_pulse(user: User = Depends(require_role("admin"))):
         },
         "recent_incidents": recent_incidents,
     }
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# PERSONA VOICE TTS — Director / Revenue Director / Sage
+# ═══════════════════════════════════════════════════════════════════════════════
+
+@api_router.post("/ai/director/tts")
+async def director_tts(body: dict, user: User = Depends(current_user)):
+    """THE DIRECTOR voice — 3-tier TTS.
+    T1: ElevenLabs (DIRECTOR_VOICE_ID) — deep, authoritative, executive presence
+    T2: OpenAI TTS voice "alloy"
+    T3: Text mode — clean text returned
+    Access: admin, executive_admin | Rate: 20/min
+    """
+    from ai.persona_tts import persona_speak
+    if user.role not in ("admin", "executive_admin"):
+        raise HTTPException(403, "Director TTS requires admin or executive account.")
+    text = (body.get("text") or "").strip()
+    if not text:
+        raise HTTPException(400, "text is required")
+    if len(text) > 5000:
+        text = text[:5000]
+    force_tier = (body.get("force_tier") or "").lower().strip()
+    check_rate(f"ai_director_tts:{user.id}", max_calls=20, window_sec=60)
+    try:
+        result = await persona_speak("director", text, force_tier=force_tier, db=db)
+    except Exception as _e:
+        logger.warning("director_tts error: %s", _e)
+        result = {"tier": "text", "audio": None, "clean_text": text, "display_text": text, "budget_remaining": 0}
+    tier = result.get("tier", "text")
+    budget_remaining = result.get("budget_remaining", 0)
+    audio = result.get("audio")
+    if tier in ("elevenlabs", "elevenlabs_cached") and audio:
+        return StreamingResponse(io.BytesIO(audio), media_type="audio/mpeg",
+            headers={"X-Tier": tier, "X-Audio-Len": str(len(audio)), "X-Budget-Remaining": str(budget_remaining)})
+    return JSONResponse(content={
+        "tier": tier, "clean_text": result.get("clean_text", text), "display_text": result.get("display_text", text),
+        "budget_remaining": budget_remaining,
+        "fallback_voice": result.get("fallback_voice", "alloy"),
+        "fallback_endpoint": result.get("fallback_endpoint", "/api/ai/sage/tts"),
+    }, headers={"X-Tier": tier, "X-Budget-Remaining": str(budget_remaining)})
+
+
+@api_router.post("/ai/revenue-director/tts")
+async def revenue_director_tts(body: dict, user: User = Depends(current_user)):
+    """THE REVENUE DIRECTOR voice — 3-tier TTS.
+    T1: ElevenLabs (REVENUE_DIRECTOR_VOICE_ID) — confident, strategic
+    T2: OpenAI TTS voice "echo"
+    T3: Text mode
+    Access: admin, executive_admin | Rate: 20/min
+    """
+    from ai.persona_tts import persona_speak
+    if user.role not in ("admin", "executive_admin"):
+        raise HTTPException(403, "Revenue Director TTS requires admin or executive account.")
+    text = (body.get("text") or "").strip()
+    if not text:
+        raise HTTPException(400, "text is required")
+    if len(text) > 5000:
+        text = text[:5000]
+    force_tier = (body.get("force_tier") or "").lower().strip()
+    check_rate(f"ai_rd_tts:{user.id}", max_calls=20, window_sec=60)
+    try:
+        result = await persona_speak("revenue_director", text, force_tier=force_tier, db=db)
+    except Exception as _e:
+        logger.warning("revenue_director_tts error: %s", _e)
+        result = {"tier": "text", "audio": None, "clean_text": text, "display_text": text, "budget_remaining": 0}
+    tier = result.get("tier", "text")
+    budget_remaining = result.get("budget_remaining", 0)
+    audio = result.get("audio")
+    if tier in ("elevenlabs", "elevenlabs_cached") and audio:
+        return StreamingResponse(io.BytesIO(audio), media_type="audio/mpeg",
+            headers={"X-Tier": tier, "X-Audio-Len": str(len(audio)), "X-Budget-Remaining": str(budget_remaining)})
+    return JSONResponse(content={
+        "tier": tier, "clean_text": result.get("clean_text", text), "display_text": result.get("display_text", text),
+        "budget_remaining": budget_remaining,
+        "fallback_voice": result.get("fallback_voice", "echo"),
+        "fallback_endpoint": result.get("fallback_endpoint", "/api/ai/sage/tts"),
+    }, headers={"X-Tier": tier, "X-Budget-Remaining": str(budget_remaining)})
+
+
+@api_router.post("/ai/sage/elevenlabs/tts")
+async def sage_elevenlabs_tts(body: dict, user: User = Depends(current_user)):
+    """THE ANCESTRAL SAGE voice — 3-tier TTS (ElevenLabs upgrade for Sage).
+    Separate from /api/ai/sage/tts (OpenAI) — this route tries ElevenLabs first.
+    T1: ElevenLabs (SAGE_VOICE_ID) — warm, ancestral, resonant
+    T2: OpenAI TTS voice "shimmer"
+    T3: Text mode
+    Access: all authenticated users | Rate: 20/min
+    """
+    from ai.persona_tts import persona_speak
+    text = (body.get("text") or "").strip()
+    if not text:
+        raise HTTPException(400, "text is required")
+    if len(text) > 4000:
+        text = text[:4000]
+    force_tier = (body.get("force_tier") or "").lower().strip()
+    check_rate(f"ai_sage_el_tts:{user.id}", max_calls=20, window_sec=60)
+    try:
+        result = await persona_speak("ancestral_sage", text, force_tier=force_tier, db=db)
+    except Exception as _e:
+        logger.warning("sage_elevenlabs_tts error: %s", _e)
+        result = {"tier": "text", "audio": None, "clean_text": text, "display_text": text, "budget_remaining": 0}
+    tier = result.get("tier", "text")
+    budget_remaining = result.get("budget_remaining", 0)
+    audio = result.get("audio")
+    if tier in ("elevenlabs", "elevenlabs_cached") and audio:
+        return StreamingResponse(io.BytesIO(audio), media_type="audio/mpeg",
+            headers={"X-Tier": tier, "X-Audio-Len": str(len(audio)), "X-Budget-Remaining": str(budget_remaining)})
+    return JSONResponse(content={
+        "tier": tier, "clean_text": result.get("clean_text", text), "display_text": result.get("display_text", text),
+        "budget_remaining": budget_remaining,
+        "fallback_voice": result.get("fallback_voice", "shimmer"),
+        "fallback_endpoint": result.get("fallback_endpoint", "/api/ai/sage/tts"),
+    }, headers={"X-Tier": tier, "X-Budget-Remaining": str(budget_remaining)})
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# THE REVENUE DIRECTOR 4.0 — Financial Intelligence endpoint
+# ═══════════════════════════════════════════════════════════════════════════════
+
+@api_router.post("/ai/revenue-director")
+async def ai_revenue_director(body: dict, user: User = Depends(current_user)):
+    """THE REVENUE DIRECTOR — Financial Intelligence & Sustainability Authority.
+
+    Runs the Financial Synthesis Protocol: AUDIT→IDENTIFY→POSITION→PRICE→PACKAGE→LAUNCH→TRACK
+    Tools: rd_audit_revenue, rd_revenue_forecast, rd_identify_opportunity,
+           rd_create_financial_report, rd_publish_financial_report,
+           rd_grant_tracker, rd_pricing_analysis, rd_revenue_dashboard, rd_list_revenue_streams
+
+    Access: admin, executive_admin
+    Rate:   15 calls/min
+    """
+    from ai.persona_loader import get_persona
+    from tools.revenue_director_tools import REVENUE_DIRECTOR_TOOLS, dispatch_rd_tool
+    from ai.prompt_guard import prompt_guard
+    from ai.retry_utils import async_retry
+    from ai.memory import get_memory_context, log_episode
+
+    if user.role not in ("admin", "executive_admin"):
+        raise HTTPException(403, "THE REVENUE DIRECTOR is available to admin and executive accounts.")
+
+    message    = body.get("message", "")
+    session_id = body.get("session_id", "default")
+    if not message:
+        raise HTTPException(400, "Message is required")
+
+    check_rate(f"ai_rd:{user.id}", max_calls=15, window_sec=60)
+    try:
+        prompt_guard.assert_message_safe(message, user.role, "/ai/revenue-director", user.id)
+    except ValueError as _e:
+        raise HTTPException(400, str(_e))
+
+    memory_ctx = await get_memory_context(db, "revenue_director", user.id)
+
+    import anthropic as _anthropic_module
+    _client = _anthropic_module.AsyncAnthropic(api_key=ANTHROPIC_API_KEY)
+    system  = get_persona("revenue_director") + (
+        f"\n\nEXECUTIVE CONTEXT:\n"
+        f"- Operating for: {user.full_name} ({user.role})\n"
+        f"- Institution: WAI-Institute / M.O.R.E. Help Center\n"
+        f"- GUMROAD_API_KEY: {'SET — autonomous publishing active' if GUMROAD_API_KEY else 'NOT SET — Tier 2 fallback active'}\n"
+        f"- OPENAI_API_KEY (DALL-E 3 via Architect): {'SET' if os.environ.get('OPENAI_API_KEY', os.environ.get('EMERGENT_LLM_KEY', '')) else 'NOT SET'}\n"
+    ) + memory_ctx
+
+    _RD_MODELS = [
+        ("claude-sonnet-4-6", 4096),
+        ("claude-haiku-4-5",  2048),
+    ]
+    MAX_TOOL_TURNS = 8
+    reply = ""
+    _tools_called: list[str] = []
+
+    async def _run_rd_loop(model_name: str, max_tok: int) -> str:
+        _msgs  = [{"role": "user", "content": message}]
+        _reply = ""
+        for _turn in range(MAX_TOOL_TURNS + 1):
+            _kwargs = dict(model=model_name, max_tokens=max_tok, system=system, messages=_msgs, tools=REVENUE_DIRECTOR_TOOLS)
+            _msg = await async_retry(_client.messages.create, max_attempts=3, base_delay=2.0, **_kwargs)
+            if _msg.stop_reason != "tool_use":
+                for block in _msg.content:
+                    if hasattr(block, "text"):
+                        _reply += block.text
+                break
+            tool_use_blocks = [b for b in _msg.content if b.type == "tool_use"]
+            if not tool_use_blocks:
+                for block in _msg.content:
+                    if hasattr(block, "text"):
+                        _reply += block.text
+                break
+            _tools_called.extend(b.name for b in tool_use_blocks)
+            _msgs.append({"role": "assistant", "content": _msg.content})
+            tool_results = await asyncio.gather(*[dispatch_rd_tool(b.name, b.input, db=db) for b in tool_use_blocks])
+            _msgs.append({"role": "user", "content": [{"type": "tool_result", "tool_use_id": b.id, "content": r} for b, r in zip(tool_use_blocks, tool_results)]})
+        else:
+            _reply = _reply or "[REVENUE DIRECTOR tool loop reached limit — partial analysis above]"
+        return _reply
+
+    for _model, _max_tok in _RD_MODELS:
+        try:
+            reply = await _run_rd_loop(_model, _max_tok)
+            if reply:
+                break
+        except Exception as _err:
+            logger.warning("REVENUE DIRECTOR model %s failed: %s — trying next tier", _model, _err)
+            reply = ""
+
+    if not reply:
+        reply = "THE REVENUE DIRECTOR is temporarily offline. Financial archives remain active. Retry in a moment."
+
+    await log_episode(db, session_id, "revenue_director", user.id, message, reply, _tools_called)
+    logger.info("ai_revenue_director: responded for user %s", user.id)
+    return {"reply": reply, "persona": "revenue_director", "mode": "financial_intelligence"}
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# ANCESTRAL SAGE — Content Creation endpoint (revenue tools, no consent gate)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+@api_router.post("/ai/sage/create")
+async def sage_create(body: dict, user: User = Depends(current_user)):
+    """THE ANCESTRAL SAGE — Content Creation & Wellness Publishing.
+
+    This endpoint is for CONTENT CREATION (healing guides, meditation scripts,
+    wisdom collections, wellness publications). It does NOT replace the healing
+    chat at /api/ai/chat — that has its own consent gating for student use.
+
+    This endpoint applies the Healing Synthesis Protocol for creating publishable
+    wellness resources for the WAI-Institute community.
+
+    Tools: sage_create_healing_guide, sage_create_meditation_script, sage_wisdom_archive,
+           sage_community_pulse, sage_publish_wellness_content, sage_get_revenue_report,
+           sage_list_revenue_streams
+
+    Access: admin, executive_admin
+    Rate:   15 calls/min
+    """
+    from ai.persona_loader import get_persona
+    from tools.sage_tools import SAGE_TOOLS, dispatch_sage_tool
+    from ai.prompt_guard import prompt_guard
+    from ai.retry_utils import async_retry
+    from ai.memory import get_memory_context, log_episode
+
+    if user.role not in ("admin", "executive_admin"):
+        raise HTTPException(403, "Sage content creation is available to admin and executive accounts.")
+
+    message    = body.get("message", "")
+    session_id = body.get("session_id", "default")
+    if not message:
+        raise HTTPException(400, "Message is required")
+
+    check_rate(f"ai_sage_create:{user.id}", max_calls=15, window_sec=60)
+    try:
+        prompt_guard.assert_message_safe(message, user.role, "/ai/sage/create", user.id)
+    except ValueError as _e:
+        raise HTTPException(400, str(_e))
+
+    memory_ctx = await get_memory_context(db, "ancestral_sage", user.id)
+
+    import anthropic as _anthropic_module
+    _client = _anthropic_module.AsyncAnthropic(api_key=ANTHROPIC_API_KEY)
+    system  = get_persona("ancestral_sage") + (
+        f"\n\nEXECUTIVE CONTEXT:\n"
+        f"- Operating for: {user.full_name} ({user.role})\n"
+        f"- Institution: WAI-Institute / M.O.R.E. Help Center\n"
+        f"- Mode: CONTENT CREATION — creating healing resources and wellness products\n"
+        f"- GUMROAD_API_KEY: {'SET — autonomous publishing active' if GUMROAD_API_KEY else 'NOT SET — Tier 2 fallback active'}\n"
+    ) + memory_ctx
+
+    _SAGE_MODELS = [
+        ("claude-sonnet-4-6", 4096),
+        ("claude-haiku-4-5",  2048),
+    ]
+    MAX_TOOL_TURNS = 8
+    reply = ""
+    _tools_called: list[str] = []
+
+    async def _run_sage_loop(model_name: str, max_tok: int) -> str:
+        _msgs  = [{"role": "user", "content": message}]
+        _reply = ""
+        for _turn in range(MAX_TOOL_TURNS + 1):
+            _kwargs = dict(model=model_name, max_tokens=max_tok, system=system, messages=_msgs, tools=SAGE_TOOLS)
+            _msg = await async_retry(_client.messages.create, max_attempts=3, base_delay=2.0, **_kwargs)
+            if _msg.stop_reason != "tool_use":
+                for block in _msg.content:
+                    if hasattr(block, "text"):
+                        _reply += block.text
+                break
+            tool_use_blocks = [b for b in _msg.content if b.type == "tool_use"]
+            if not tool_use_blocks:
+                for block in _msg.content:
+                    if hasattr(block, "text"):
+                        _reply += block.text
+                break
+            _tools_called.extend(b.name for b in tool_use_blocks)
+            _msgs.append({"role": "assistant", "content": _msg.content})
+            tool_results = await asyncio.gather(*[dispatch_sage_tool(b.name, b.input, db=db) for b in tool_use_blocks])
+            _msgs.append({"role": "user", "content": [{"type": "tool_result", "tool_use_id": b.id, "content": r} for b, r in zip(tool_use_blocks, tool_results)]})
+        else:
+            _reply = _reply or "[SAGE tool loop reached limit — partial content above]"
+        return _reply
+
+    for _model, _max_tok in _SAGE_MODELS:
+        try:
+            reply = await _run_sage_loop(_model, _max_tok)
+            if reply:
+                break
+        except Exception as _err:
+            logger.warning("SAGE CREATE model %s failed: %s — trying next tier", _model, _err)
+            reply = ""
+
+    if not reply:
+        reply = "The Ancestral Sage is temporarily offline. Wisdom archives remain intact. Retry in a moment."
+
+    await log_episode(db, session_id, "ancestral_sage", user.id, message, reply, _tools_called)
+    logger.info("ai_sage_create: responded for user %s", user.id)
+    return {"reply": reply, "persona": "ancestral_sage", "mode": "content_creation"}
 
 
 @api_router.get("/ai/history/{session_id}")
