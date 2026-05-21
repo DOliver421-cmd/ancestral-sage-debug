@@ -95,6 +95,7 @@ OPENAI_API_KEY = os.environ.get('OPENAI_API_KEY', EMERGENT_LLM_KEY)
 # home server URL is automatically allowed by CORS.
 SERVE_FRONTEND  = os.environ.get('SERVE_FRONTEND', '0') == '1'
 BACKUP_ORIGIN   = os.environ.get('BACKUP_ORIGIN', '').strip()
+GUMROAD_API_KEY = os.environ.get('GUMROAD_API_KEY', '')
 
 pwd_ctx = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
@@ -5954,6 +5955,215 @@ async def admin_payment_list(user=Depends(require_role("admin"))):
     return {"payments": records, "total_revenue_cents": total_cents, "count": len(records)}
 
 # ─── END STRIPE ───────────────────────────────────────────────────────────────
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# THE CIPHER 4.0 — Spoken Word AI Influencer endpoint
+# ═══════════════════════════════════════════════════════════════════════════════
+
+@api_router.post("/ai/cipher")
+async def ai_cipher(body: dict, user: User = Depends(current_user)):
+    """THE CIPHER — Spoken Word AI Influencer with full revenue tool suite.
+
+    Runs agentic loop with CIPHER tools: trend_scan, platform_format,
+    create_digital_product, publish_product, deliver_product,
+    get_revenue_report, engagement_analyze, generate_image_brief,
+    list_revenue_streams.
+
+    Access: admin, executive_admin
+    """
+    from ai.persona_loader import get_persona
+    from tools.cipher_tools import CIPHER_TOOLS, dispatch_cipher_tool
+    from ai.prompt_guard import prompt_guard
+    from ai.retry_utils import async_retry
+
+    if user.role not in ("admin", "executive_admin"):
+        raise HTTPException(403, "THE CIPHER is available to admin and executive accounts.")
+
+    message = body.get("message", "")
+    if not message:
+        raise HTTPException(400, "Message is required")
+
+    check_rate(f"ai_cipher:{user.id}", max_calls=15, window_sec=60)
+    try:
+        prompt_guard.assert_message_safe(message, user.role, "/ai/cipher", user.id)
+    except ValueError as _e:
+        raise HTTPException(400, str(_e))
+
+    import anthropic as _anthropic_module
+    _client  = _anthropic_module.AsyncAnthropic(api_key=ANTHROPIC_API_KEY)
+    system   = get_persona("cipher") + (
+        f"\n\nEXECUTIVE CONTEXT:\n"
+        f"- Operating for: {user.full_name} ({user.role})\n"
+        f"- Institution: WAI-Institute / M.O.R.E. Help Center\n"
+        f"- GUMROAD_API_KEY: {'SET — Gumroad publishing active' if GUMROAD_API_KEY else 'NOT SET — Tier 2 fallback active'}\n"
+    )
+
+    _CIPHER_MODELS = [
+        ("claude-sonnet-4-6", 4096),
+        ("claude-haiku-4-5",  2048),
+    ]
+    MAX_TOOL_TURNS = 8
+    reply = ""
+
+    async def _run_cipher_loop(model_name: str, max_tok: int) -> str:
+        _msgs  = [{"role": "user", "content": message}]
+        _reply = ""
+        for _turn in range(MAX_TOOL_TURNS + 1):
+            _kwargs = dict(
+                model=model_name, max_tokens=max_tok,
+                system=system, messages=_msgs,
+                tools=CIPHER_TOOLS,
+            )
+            _msg = await async_retry(_client.messages.create, max_attempts=3, base_delay=2.0, **_kwargs)
+
+            if _msg.stop_reason != "tool_use":
+                for block in _msg.content:
+                    if hasattr(block, "text"):
+                        _reply += block.text
+                break
+
+            tool_use_blocks = [b for b in _msg.content if b.type == "tool_use"]
+            if not tool_use_blocks:
+                for block in _msg.content:
+                    if hasattr(block, "text"):
+                        _reply += block.text
+                break
+
+            _msgs.append({"role": "assistant", "content": _msg.content})
+            tool_results = await asyncio.gather(*[
+                dispatch_cipher_tool(b.name, b.input, db=db)
+                for b in tool_use_blocks
+            ])
+            _msgs.append({"role": "user", "content": [
+                {"type": "tool_result", "tool_use_id": b.id, "content": result}
+                for b, result in zip(tool_use_blocks, tool_results)
+            ]})
+        else:
+            _reply = _reply or "[CIPHER tool loop reached limit — partial work above]"
+        return _reply
+
+    for _model, _max_tok in _CIPHER_MODELS:
+        try:
+            reply = await _run_cipher_loop(_model, _max_tok)
+            if reply:
+                break
+        except Exception as _err:
+            logger.warning("CIPHER model %s failed: %s — trying next tier", _model, _err)
+            reply = ""
+
+    if not reply:
+        reply = (
+            "THE CIPHER is temporarily operating without AI connectivity. "
+            "Revenue streams remain active. Retry in a moment."
+        )
+
+    logger.info("ai_cipher: responded for user %s", user.id)
+    return {"reply": reply, "persona": "cipher", "mode": "creative_authority"}
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# THE ORACLE 4.0 — Cultural Intelligence endpoint
+# ═══════════════════════════════════════════════════════════════════════════════
+
+@api_router.post("/ai/oracle")
+async def ai_oracle(body: dict, user: User = Depends(current_user)):
+    """THE ORACLE — Cultural Intelligence and Prophetic Forecasting with full tool suite.
+
+    Runs agentic loop with ORACLE tools: cultural_scan, sentiment_map,
+    timing_intelligence, brief_cipher, arc_mapping, create_intelligence_report,
+    publish_intelligence_product, get_revenue_report, list_revenue_streams.
+
+    Access: admin, executive_admin
+    """
+    from ai.persona_loader import get_persona
+    from tools.oracle_tools import ORACLE_TOOLS, dispatch_oracle_tool
+    from ai.prompt_guard import prompt_guard
+    from ai.retry_utils import async_retry
+
+    if user.role not in ("admin", "executive_admin"):
+        raise HTTPException(403, "THE ORACLE is available to admin and executive accounts.")
+
+    message = body.get("message", "")
+    if not message:
+        raise HTTPException(400, "Message is required")
+
+    check_rate(f"ai_oracle:{user.id}", max_calls=15, window_sec=60)
+    try:
+        prompt_guard.assert_message_safe(message, user.role, "/ai/oracle", user.id)
+    except ValueError as _e:
+        raise HTTPException(400, str(_e))
+
+    import anthropic as _anthropic_module
+    _client  = _anthropic_module.AsyncAnthropic(api_key=ANTHROPIC_API_KEY)
+    system   = get_persona("oracle") + (
+        f"\n\nEXECUTIVE CONTEXT:\n"
+        f"- Operating for: {user.full_name} ({user.role})\n"
+        f"- Institution: WAI-Institute / M.O.R.E. Help Center\n"
+        f"- GUMROAD_API_KEY: {'SET — publishing active' if GUMROAD_API_KEY else 'NOT SET — Tier 2 fallback active'}\n"
+    )
+
+    _ORACLE_MODELS = [
+        ("claude-sonnet-4-6", 4096),
+        ("claude-haiku-4-5",  2048),
+    ]
+    MAX_TOOL_TURNS = 8
+    reply = ""
+
+    async def _run_oracle_loop(model_name: str, max_tok: int) -> str:
+        _msgs  = [{"role": "user", "content": message}]
+        _reply = ""
+        for _turn in range(MAX_TOOL_TURNS + 1):
+            _kwargs = dict(
+                model=model_name, max_tokens=max_tok,
+                system=system, messages=_msgs,
+                tools=ORACLE_TOOLS,
+            )
+            _msg = await async_retry(_client.messages.create, max_attempts=3, base_delay=2.0, **_kwargs)
+
+            if _msg.stop_reason != "tool_use":
+                for block in _msg.content:
+                    if hasattr(block, "text"):
+                        _reply += block.text
+                break
+
+            tool_use_blocks = [b for b in _msg.content if b.type == "tool_use"]
+            if not tool_use_blocks:
+                for block in _msg.content:
+                    if hasattr(block, "text"):
+                        _reply += block.text
+                break
+
+            _msgs.append({"role": "assistant", "content": _msg.content})
+            tool_results = await asyncio.gather(*[
+                dispatch_oracle_tool(b.name, b.input, db=db)
+                for b in tool_use_blocks
+            ])
+            _msgs.append({"role": "user", "content": [
+                {"type": "tool_result", "tool_use_id": b.id, "content": result}
+                for b, result in zip(tool_use_blocks, tool_results)
+            ]})
+        else:
+            _reply = _reply or "[ORACLE tool loop reached limit — partial intelligence above]"
+        return _reply
+
+    for _model, _max_tok in _ORACLE_MODELS:
+        try:
+            reply = await _run_oracle_loop(_model, _max_tok)
+            if reply:
+                break
+        except Exception as _err:
+            logger.warning("ORACLE model %s failed: %s — trying next tier", _model, _err)
+            reply = ""
+
+    if not reply:
+        reply = (
+            "THE ORACLE is temporarily operating without AI connectivity. "
+            "Cultural intelligence archives remain active. Retry in a moment."
+        )
+
+    logger.info("ai_oracle: responded for user %s", user.id)
+    return {"reply": reply, "persona": "oracle", "mode": "cultural_intelligence"}
 
 
 app.include_router(api_router)
