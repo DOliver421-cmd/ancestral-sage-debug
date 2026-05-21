@@ -77,9 +77,10 @@ load_dotenv(ROOT_DIR / '.env')
 mongo_url        = os.environ['MONGO_URL']
 MONGO_BACKUP_URL = os.environ.get('MONGO_BACKUP_URL', '')   # Atlas URI (optional)
 MONGO_BACKUP_DB  = os.environ.get('MONGO_BACKUP_DB', '')    # Atlas DB name (optional)
-client = AsyncIOMotorClient(mongo_url, serverSelectionTimeoutMS=5000)
+client = AsyncIOMotorClient(mongo_url)
 db = client[os.environ['DB_NAME']]
-_DB_SOURCE = "primary"   # updated in on_startup if failover fires
+_DB_SOURCE = "primary"   # informational; updated in on_startup
+_backup_db = None        # set in on_startup if MONGO_BACKUP_URL is configured
 
 JWT_SECRET = os.environ['JWT_SECRET']
 JWT_ALGO = os.environ.get('JWT_ALGORITHM', 'HS256')
@@ -771,45 +772,28 @@ async def backfill_verification_codes():
 
 @app.on_event("startup")
 async def on_startup():
-    # ── MongoDB failover ──────────────────────────────────────────────────────
-    # Try the primary DB. If it's unreachable AND a backup URL is configured,
-    # silently swap the global `client` + `db` to the Atlas backup so all
-    # subsequent DB calls go to the backup without any other code changes.
-    global client, db, _DB_SOURCE
-    try:
-        await asyncio.wait_for(client.admin.command("ping"), timeout=6.0)
-        _DB_SOURCE = "primary"
-        logger.info("STARTUP: Primary MongoDB connected successfully.")
-    except Exception as _primary_err:
-        logger.warning("STARTUP: Primary MongoDB unreachable (%s).", _primary_err)
-        if MONGO_BACKUP_URL:
-            try:
-                _backup_client = AsyncIOMotorClient(
-                    MONGO_BACKUP_URL, serverSelectionTimeoutMS=8000
-                )
-                _backup_db_name = MONGO_BACKUP_DB or os.environ.get('DB_NAME', 'wai')
-                await asyncio.wait_for(
-                    _backup_client.admin.command("ping"), timeout=10.0
-                )
-                client = _backup_client
-                db = _backup_client[_backup_db_name]
-                _DB_SOURCE = "backup-atlas"
-                logger.warning(
-                    "STARTUP: Switched to Atlas backup DB '%s'. "
-                    "Restore primary MongoDB when available.", _backup_db_name
-                )
-            except Exception as _backup_err:
-                _DB_SOURCE = "offline"
-                logger.error(
-                    "STARTUP: Both primary and backup MongoDB unreachable. "
-                    "DB-dependent routes will return 503. (%s)", _backup_err
-                )
-        else:
-            _DB_SOURCE = "offline"
-            logger.error(
-                "STARTUP: Primary DB unreachable and MONGO_BACKUP_URL not set. "
-                "Configure Atlas backup: set MONGO_BACKUP_URL in environment."
+    # ── MongoDB dual-connection setup ─────────────────────────────────────────
+    # Motor connects lazily — we don't ping at startup (asyncio.wait_for +
+    # Motor is unsafe; it can cancel mid-connection and corrupt the pool).
+    # The /api/health endpoint pings on demand.  If MONGO_BACKUP_URL is set,
+    # the backup client is ready and the health endpoint will use it when the
+    # primary is down.  The backup client is exposed as _backup_db for the
+    # health check and for manual failover via the Director.
+    global _DB_SOURCE, _backup_db
+    _DB_SOURCE = "primary"
+    _backup_db = None
+    if MONGO_BACKUP_URL:
+        try:
+            _backup_client = AsyncIOMotorClient(
+                MONGO_BACKUP_URL, serverSelectionTimeoutMS=8000
             )
+            _backup_db_name = MONGO_BACKUP_DB or os.environ.get('DB_NAME', 'wai')
+            _backup_db = _backup_client[_backup_db_name]
+            logger.info("STARTUP: Atlas backup DB client initialized (%s).", _backup_db_name)
+        except Exception as _bce:
+            logger.warning("STARTUP: Could not initialize Atlas backup client: %s", _bce)
+    else:
+        logger.info("STARTUP: No MONGO_BACKUP_URL set — single-DB mode.")
 
     await ensure_indexes()
     await seed_modules()
@@ -1007,12 +991,26 @@ async def health():
     issues: list[str] = []
 
     # ── Database ──────────────────────────────────────────────────────────────
+    # Use Motor's own timeout (serverSelectionTimeoutMS) — no asyncio.wait_for
+    # which can corrupt the connection pool on cancellation.
     try:
-        await asyncio.wait_for(client.admin.command("ping"), timeout=3.0)
+        await client.admin.command("ping")
         checks["db"] = {"status": "up", "source": _DB_SOURCE}
     except Exception as _dbe:
-        checks["db"] = {"status": "down", "source": _DB_SOURCE, "error": str(_dbe)[:120]}
-        issues.append("db_down")
+        _db_err_str = str(_dbe)[:120]
+        # Try backup if configured
+        if _backup_db is not None:
+            try:
+                await _backup_db.client.admin.command("ping")
+                checks["db"] = {"status": "up(backup)", "source": "atlas-backup",
+                                 "primary_error": _db_err_str}
+            except Exception as _dbbe:
+                checks["db"] = {"status": "down", "source": "both-failed",
+                                 "primary_error": _db_err_str, "backup_error": str(_dbbe)[:80]}
+                issues.append("db_down")
+        else:
+            checks["db"] = {"status": "down", "source": _DB_SOURCE, "error": _db_err_str}
+            issues.append("db_down")
 
     # ── Anthropic AI API ──────────────────────────────────────────────────────
     if ANTHROPIC_API_KEY:
