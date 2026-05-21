@@ -5980,11 +5980,13 @@ async def ai_ambassador(body: dict, user: User = Depends(current_user)):
     from tools.ambassador_tools import AMBASSADOR_TOOLS, dispatch_ambassador_tool
     from ai.prompt_guard import prompt_guard
     from ai.retry_utils import async_retry
+    from ai.memory import get_memory_context, log_episode
 
     if user.role not in ("admin", "executive_admin"):
         raise HTTPException(403, "THE AMBASSADOR is available to admin and executive accounts.")
 
-    message = body.get("message", "")
+    message    = body.get("message", "")
+    session_id = body.get("session_id", "default")
     if not message:
         raise HTTPException(400, "Message is required")
 
@@ -5994,6 +5996,8 @@ async def ai_ambassador(body: dict, user: User = Depends(current_user)):
     except ValueError as _e:
         raise HTTPException(400, str(_e))
 
+    memory_ctx = await get_memory_context(db, "ambassador", user.id)
+
     import anthropic as _anthropic_module
     _client = _anthropic_module.AsyncAnthropic(api_key=ANTHROPIC_API_KEY)
     system  = get_persona("ambassador") + (
@@ -6002,7 +6006,7 @@ async def ai_ambassador(body: dict, user: User = Depends(current_user)):
         f"- Institution: WAI-Institute / M.O.R.E. Help Center\n"
         f"- GUMROAD_API_KEY: {'SET — publishing active' if GUMROAD_API_KEY else 'NOT SET — Tier 2 fallback active'}\n"
         f"- OPENAI_API_KEY: {'SET — DALL-E 3 available via Architect' if os.environ.get('OPENAI_API_KEY', os.environ.get('EMERGENT_LLM_KEY', '')) else 'NOT SET — visual briefs only'}\n"
-    )
+    ) + memory_ctx
 
     _AMBASSADOR_MODELS = [
         ("claude-sonnet-4-6", 8192),   # Ambassador needs more tokens for full pipeline synthesis
@@ -6010,6 +6014,7 @@ async def ai_ambassador(body: dict, user: User = Depends(current_user)):
     ]
     MAX_TOOL_TURNS = 12   # Pipeline has 5 steps, each may take 2 turns
     reply = ""
+    _tools_called: list[str] = []
 
     async def _run_ambassador_loop(model_name: str, max_tok: int) -> str:
         _msgs  = [{"role": "user", "content": message}]
@@ -6035,6 +6040,7 @@ async def ai_ambassador(body: dict, user: User = Depends(current_user)):
                         _reply += block.text
                 break
 
+            _tools_called.extend(b.name for b in tool_use_blocks)
             _msgs.append({"role": "assistant", "content": _msg.content})
             tool_results = await asyncio.gather(*[
                 dispatch_ambassador_tool(b.name, b.input, db=db)
@@ -6063,6 +6069,7 @@ async def ai_ambassador(body: dict, user: User = Depends(current_user)):
             "Campaign pipeline intelligence remains archived. Retry in a moment."
         )
 
+    await log_episode(db, session_id, "ambassador", user.id, message, reply, _tools_called)
     logger.info("ai_ambassador: responded for user %s", user.id)
     return {"reply": reply, "persona": "ambassador", "mode": "campaign_coordination"}
 
@@ -6090,11 +6097,13 @@ async def ai_architect(body: dict, user: User = Depends(current_user)):
     from tools.architect_tools import ARCHITECT_TOOLS, dispatch_architect_tool
     from ai.prompt_guard import prompt_guard
     from ai.retry_utils import async_retry
+    from ai.memory import get_memory_context, log_episode
 
     if user.role not in ("admin", "executive_admin"):
         raise HTTPException(403, "THE ARCHITECT is available to admin and executive accounts.")
 
-    message = body.get("message", "")
+    message    = body.get("message", "")
+    session_id = body.get("session_id", "default")
     if not message:
         raise HTTPException(400, "Message is required")
 
@@ -6105,6 +6114,7 @@ async def ai_architect(body: dict, user: User = Depends(current_user)):
         raise HTTPException(400, str(_e))
 
     _openai_key = os.environ.get("OPENAI_API_KEY", os.environ.get("EMERGENT_LLM_KEY", ""))
+    memory_ctx  = await get_memory_context(db, "architect", user.id)
 
     import anthropic as _anthropic_module
     _client = _anthropic_module.AsyncAnthropic(api_key=ANTHROPIC_API_KEY)
@@ -6114,7 +6124,7 @@ async def ai_architect(body: dict, user: User = Depends(current_user)):
         f"- Institution: WAI-Institute / M.O.R.E. Help Center\n"
         f"- GUMROAD_API_KEY: {'SET — autonomous publishing active' if GUMROAD_API_KEY else 'NOT SET — Tier 2 fallback active'}\n"
         f"- OPENAI_API_KEY (DALL-E 3): {'SET — image generation live' if _openai_key else 'NOT SET — visual briefs only, no image generation'}\n"
-    )
+    ) + memory_ctx
 
     _ARCHITECT_MODELS = [
         ("claude-sonnet-4-6", 4096),
@@ -6122,6 +6132,7 @@ async def ai_architect(body: dict, user: User = Depends(current_user)):
     ]
     MAX_TOOL_TURNS = 8
     reply = ""
+    _tools_called: list[str] = []
 
     async def _run_architect_loop(model_name: str, max_tok: int) -> str:
         _msgs  = [{"role": "user", "content": message}]
@@ -6147,6 +6158,7 @@ async def ai_architect(body: dict, user: User = Depends(current_user)):
                         _reply += block.text
                 break
 
+            _tools_called.extend(b.name for b in tool_use_blocks)
             _msgs.append({"role": "assistant", "content": _msg.content})
             tool_results = await asyncio.gather(*[
                 dispatch_architect_tool(b.name, b.input, db=db)
@@ -6175,6 +6187,7 @@ async def ai_architect(body: dict, user: User = Depends(current_user)):
             "Visual intelligence archives remain active. Retry in a moment."
         )
 
+    await log_episode(db, session_id, "architect", user.id, message, reply, _tools_called)
     logger.info("ai_architect: responded for user %s", user.id)
     return {"reply": reply, "persona": "architect", "mode": "visual_intelligence"}
 
@@ -6198,11 +6211,13 @@ async def ai_cipher(body: dict, user: User = Depends(current_user)):
     from tools.cipher_tools import CIPHER_TOOLS, dispatch_cipher_tool
     from ai.prompt_guard import prompt_guard
     from ai.retry_utils import async_retry
+    from ai.memory import get_memory_context, log_episode
 
     if user.role not in ("admin", "executive_admin"):
         raise HTTPException(403, "THE CIPHER is available to admin and executive accounts.")
 
-    message = body.get("message", "")
+    message    = body.get("message", "")
+    session_id = body.get("session_id", "default")
     if not message:
         raise HTTPException(400, "Message is required")
 
@@ -6212,6 +6227,8 @@ async def ai_cipher(body: dict, user: User = Depends(current_user)):
     except ValueError as _e:
         raise HTTPException(400, str(_e))
 
+    memory_ctx = await get_memory_context(db, "cipher", user.id)
+
     import anthropic as _anthropic_module
     _client  = _anthropic_module.AsyncAnthropic(api_key=ANTHROPIC_API_KEY)
     system   = get_persona("cipher") + (
@@ -6219,7 +6236,7 @@ async def ai_cipher(body: dict, user: User = Depends(current_user)):
         f"- Operating for: {user.full_name} ({user.role})\n"
         f"- Institution: WAI-Institute / M.O.R.E. Help Center\n"
         f"- GUMROAD_API_KEY: {'SET — Gumroad publishing active' if GUMROAD_API_KEY else 'NOT SET — Tier 2 fallback active'}\n"
-    )
+    ) + memory_ctx
 
     _CIPHER_MODELS = [
         ("claude-sonnet-4-6", 4096),
@@ -6227,6 +6244,7 @@ async def ai_cipher(body: dict, user: User = Depends(current_user)):
     ]
     MAX_TOOL_TURNS = 8
     reply = ""
+    _tools_called: list[str] = []
 
     async def _run_cipher_loop(model_name: str, max_tok: int) -> str:
         _msgs  = [{"role": "user", "content": message}]
@@ -6252,6 +6270,7 @@ async def ai_cipher(body: dict, user: User = Depends(current_user)):
                         _reply += block.text
                 break
 
+            _tools_called.extend(b.name for b in tool_use_blocks)
             _msgs.append({"role": "assistant", "content": _msg.content})
             tool_results = await asyncio.gather(*[
                 dispatch_cipher_tool(b.name, b.input, db=db)
@@ -6280,6 +6299,7 @@ async def ai_cipher(body: dict, user: User = Depends(current_user)):
             "Revenue streams remain active. Retry in a moment."
         )
 
+    await log_episode(db, session_id, "cipher", user.id, message, reply, _tools_called)
     logger.info("ai_cipher: responded for user %s", user.id)
     return {"reply": reply, "persona": "cipher", "mode": "creative_authority"}
 
@@ -6302,11 +6322,13 @@ async def ai_oracle(body: dict, user: User = Depends(current_user)):
     from tools.oracle_tools import ORACLE_TOOLS, dispatch_oracle_tool
     from ai.prompt_guard import prompt_guard
     from ai.retry_utils import async_retry
+    from ai.memory import get_memory_context, log_episode
 
     if user.role not in ("admin", "executive_admin"):
         raise HTTPException(403, "THE ORACLE is available to admin and executive accounts.")
 
-    message = body.get("message", "")
+    message    = body.get("message", "")
+    session_id = body.get("session_id", "default")
     if not message:
         raise HTTPException(400, "Message is required")
 
@@ -6316,6 +6338,8 @@ async def ai_oracle(body: dict, user: User = Depends(current_user)):
     except ValueError as _e:
         raise HTTPException(400, str(_e))
 
+    memory_ctx = await get_memory_context(db, "oracle", user.id)
+
     import anthropic as _anthropic_module
     _client  = _anthropic_module.AsyncAnthropic(api_key=ANTHROPIC_API_KEY)
     system   = get_persona("oracle") + (
@@ -6323,7 +6347,7 @@ async def ai_oracle(body: dict, user: User = Depends(current_user)):
         f"- Operating for: {user.full_name} ({user.role})\n"
         f"- Institution: WAI-Institute / M.O.R.E. Help Center\n"
         f"- GUMROAD_API_KEY: {'SET — publishing active' if GUMROAD_API_KEY else 'NOT SET — Tier 2 fallback active'}\n"
-    )
+    ) + memory_ctx
 
     _ORACLE_MODELS = [
         ("claude-sonnet-4-6", 4096),
@@ -6331,6 +6355,7 @@ async def ai_oracle(body: dict, user: User = Depends(current_user)):
     ]
     MAX_TOOL_TURNS = 8
     reply = ""
+    _tools_called: list[str] = []
 
     async def _run_oracle_loop(model_name: str, max_tok: int) -> str:
         _msgs  = [{"role": "user", "content": message}]
@@ -6356,6 +6381,7 @@ async def ai_oracle(body: dict, user: User = Depends(current_user)):
                         _reply += block.text
                 break
 
+            _tools_called.extend(b.name for b in tool_use_blocks)
             _msgs.append({"role": "assistant", "content": _msg.content})
             tool_results = await asyncio.gather(*[
                 dispatch_oracle_tool(b.name, b.input, db=db)
@@ -6384,8 +6410,102 @@ async def ai_oracle(body: dict, user: User = Depends(current_user)):
             "Cultural intelligence archives remain active. Retry in a moment."
         )
 
+    await log_episode(db, session_id, "oracle", user.id, message, reply, _tools_called)
     logger.info("ai_oracle: responded for user %s", user.id)
     return {"reply": reply, "persona": "oracle", "mode": "cultural_intelligence"}
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# MEMORY SYSTEM — Episodic + Policy Memory API
+# ═══════════════════════════════════════════════════════════════════════════════
+
+@api_router.get("/ai/memory/{persona}")
+async def get_persona_memory(persona: str, user: User = Depends(current_user)):
+    """Return recent episodic memory + active policy orders for a given persona.
+
+    Access: admin, executive_admin
+    Personas: cipher, oracle, ambassador, architect, __global__
+    """
+    from ai.memory import get_recent_episodes, get_policy_orders, list_all_policy_orders
+
+    if user.role not in ("admin", "executive_admin"):
+        raise HTTPException(403, "Memory access requires admin or executive account.")
+
+    valid_personas = {"cipher", "oracle", "ambassador", "architect", "__global__"}
+    if persona not in valid_personas:
+        raise HTTPException(400, f"Unknown persona. Valid: {sorted(valid_personas)}")
+
+    episodes, policies = await asyncio.gather(
+        get_recent_episodes(db, persona, user.id, limit=10),
+        get_policy_orders(db, persona),
+    )
+    return {
+        "persona":       persona,
+        "episodes":      episodes,
+        "policy_orders": policies,
+        "episode_count": len(episodes),
+        "policy_count":  len(policies),
+    }
+
+
+@api_router.get("/ai/memory")
+async def get_all_memory(user: User = Depends(require_role("executive_admin"))):
+    """Return all active policy orders across all personas. Executive only."""
+    from ai.memory import list_all_policy_orders
+    orders = await list_all_policy_orders(db)
+    return {"policy_orders": orders, "count": len(orders)}
+
+
+@api_router.post("/ai/memory/policy")
+async def set_memory_policy(body: dict, user: User = Depends(require_role("executive_admin"))):
+    """Create or update a standing policy order for a persona.
+
+    Body: {persona, order_id, content}
+    persona: "cipher" | "oracle" | "ambassador" | "architect" | "__global__"
+    order_id: unique slug (e.g. "always_wai_brand")
+    content: The standing order text injected into that persona's system prompt.
+
+    Executive only — these orders shape all future responses from the target persona.
+    """
+    from ai.memory import set_policy_order
+
+    persona  = (body.get("persona") or "").strip()
+    order_id = (body.get("order_id") or "").strip()
+    content  = (body.get("content") or "").strip()
+
+    valid_personas = {"cipher", "oracle", "ambassador", "architect", "__global__"}
+    if not persona or persona not in valid_personas:
+        raise HTTPException(400, f"persona required. Valid: {sorted(valid_personas)}")
+    if not order_id or not order_id.replace("_", "").replace("-", "").isalnum():
+        raise HTTPException(400, "order_id required (alphanumeric + underscores/hyphens only)")
+    if not content:
+        raise HTTPException(400, "content required")
+    if len(content) > 500:
+        raise HTTPException(400, "content must be 500 chars or less")
+
+    ok = await set_policy_order(db, persona, order_id, content, set_by=user.id)
+    if not ok:
+        raise HTTPException(500, "Failed to save policy order")
+
+    logger.info("memory policy set: %s/%s by %s", persona, order_id, user.id)
+    return {"status": "ok", "persona": persona, "order_id": order_id, "content": content}
+
+
+@api_router.delete("/ai/memory/policy/{persona}/{order_id}")
+async def delete_memory_policy(
+    persona: str,
+    order_id: str,
+    user: User = Depends(require_role("executive_admin")),
+):
+    """Deactivate a standing policy order. Executive only. Soft-delete (audit trail preserved)."""
+    from ai.memory import remove_policy_order
+
+    ok = await remove_policy_order(db, persona, order_id, removed_by=user.id)
+    if not ok:
+        raise HTTPException(404, f"Policy order '{order_id}' not found for persona '{persona}'")
+
+    logger.info("memory policy removed: %s/%s by %s", persona, order_id, user.id)
+    return {"status": "removed", "persona": persona, "order_id": order_id}
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
