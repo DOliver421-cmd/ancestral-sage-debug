@@ -172,10 +172,18 @@ EXEC_ADMIN_EMAIL = os.environ.get("EXEC_ADMIN_EMAIL", "delon.oliver@lightningcit
 # value is operator-controlled.
 EXEC_DEFAULT_PASSWORD = os.environ.get("EXEC_DEFAULT_PASSWORD", "Executive@LCE2026")
 
-# Backup executive admin — NAM Oshun account. Bootstrapped on every startup
-# the same way the primary exec is, so it survives credential resets.
+# Executive accounts — both seats always bootstrapped on startup.
+# Seat 1 (Delon Oliver):  youpickeddoliver@gmail.com
+# Seat 2 (NAM Oshun):     souppoetry@gmail.com
 BACKUP_EXEC_EMAIL = os.environ.get("BACKUP_EXEC_ADMIN_EMAIL", "youpickeddoliver@gmail.com")
 BACKUP_EXEC_DEFAULT_PASSWORD = os.environ.get("BACKUP_EXEC_DEFAULT_PASSWORD", "NamOshun@WAI2026")
+
+NAM_EXEC_EMAIL = os.environ.get("NAM_EXEC_EMAIL", "souppoetry@gmail.com")
+NAM_EXEC_DEFAULT_PASSWORD = os.environ.get("NAM_EXEC_DEFAULT_PASSWORD", "NamOshun@WAI2026")
+
+# RECOVERY: Set EXEC_FORCE_RESET=1 in Railway env vars, redeploy, log in with
+# the default passwords above, then immediately change password and remove the flag.
+EXEC_FORCE_RESET = os.environ.get("EXEC_FORCE_RESET", "0") == "1"
 
 # One-time migration: any email that used to be the hardcoded EXEC_ADMIN_EMAIL
 # will be auto-demoted from executive_admin to admin on startup, so switching
@@ -602,9 +610,7 @@ async def seed_users():
         })
         logger.info("Created executive_admin account: %s", EXEC_ADMIN_EMAIL)
 
-    # ----- BACKUP EXECUTIVE ADMIN bootstrap (NAM Oshun) -----
-    # Mirrors the primary exec pattern exactly. Guarantees a second break-glass
-    # account that can never be left without executive_admin access.
+    # ----- BACKUP EXECUTIVE ADMIN bootstrap (Delon Oliver — youpickeddoliver@gmail.com) -----
     existing_backup = await db.users.find_one({"email": BACKUP_EXEC_EMAIL}, {"_id": 0})
     if existing_backup:
         update = {}
@@ -614,14 +620,19 @@ async def seed_users():
             update["is_active"] = True
         if existing_backup.get("must_change_password"):
             update["must_change_password"] = False
+        # RECOVERY: force-reset password to default when EXEC_FORCE_RESET=1
+        if EXEC_FORCE_RESET:
+            update["password_hash"] = hash_pw(BACKUP_EXEC_DEFAULT_PASSWORD)
+            update["must_change_password"] = False
+            logger.warning("EXEC_FORCE_RESET: Password reset to default for %s", BACKUP_EXEC_EMAIL)
         if update:
             await db.users.update_one({"email": BACKUP_EXEC_EMAIL}, {"$set": update})
-            logger.info("Bootstrapped backup exec %s: %s", BACKUP_EXEC_EMAIL, update)
+            logger.info("Bootstrapped backup exec %s: %s", BACKUP_EXEC_EMAIL, list(update.keys()))
     else:
         await db.users.insert_one({
             "id": str(uuid.uuid4()),
             "email": BACKUP_EXEC_EMAIL,
-            "full_name": "NAM Oshun",
+            "full_name": "Delon Oliver",
             "role": "executive_admin",
             "associate": None,
             "is_active": True,
@@ -629,7 +640,38 @@ async def seed_users():
             "created_at": datetime.now(timezone.utc).isoformat(),
             "password_hash": hash_pw(BACKUP_EXEC_DEFAULT_PASSWORD),
         })
-        logger.info("Created backup executive_admin account: %s", BACKUP_EXEC_EMAIL)
+        logger.info("Created exec account (Delon Oliver): %s", BACKUP_EXEC_EMAIL)
+
+    # ----- NAM OSHUN executive seat (souppoetry@gmail.com) -----
+    existing_nam = await db.users.find_one({"email": NAM_EXEC_EMAIL}, {"_id": 0})
+    if existing_nam:
+        update = {}
+        if existing_nam.get("role") != "executive_admin":
+            update["role"] = "executive_admin"
+        if existing_nam.get("is_active") is False:
+            update["is_active"] = True
+        if existing_nam.get("must_change_password"):
+            update["must_change_password"] = False
+        if EXEC_FORCE_RESET:
+            update["password_hash"] = hash_pw(NAM_EXEC_DEFAULT_PASSWORD)
+            update["must_change_password"] = False
+            logger.warning("EXEC_FORCE_RESET: Password reset to default for %s", NAM_EXEC_EMAIL)
+        if update:
+            await db.users.update_one({"email": NAM_EXEC_EMAIL}, {"$set": update})
+            logger.info("Bootstrapped NAM Oshun exec %s: %s", NAM_EXEC_EMAIL, list(update.keys()))
+    else:
+        await db.users.insert_one({
+            "id": str(uuid.uuid4()),
+            "email": NAM_EXEC_EMAIL,
+            "full_name": "NAM Oshun",
+            "role": "executive_admin",
+            "associate": None,
+            "is_active": True,
+            "must_change_password": False,
+            "created_at": datetime.now(timezone.utc).isoformat(),
+            "password_hash": hash_pw(NAM_EXEC_DEFAULT_PASSWORD),
+        })
+        logger.info("Created exec account (NAM Oshun): %s", NAM_EXEC_EMAIL)
 
 
 async def seed_labs():
