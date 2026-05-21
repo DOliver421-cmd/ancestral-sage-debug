@@ -139,6 +139,7 @@ export default function DirectorWidget() {
   const dragging = useRef(false);
   const dragOffset = useRef({ x: 0, y: 0 });
   const hasDragged = useRef(false);
+  const dragStartPos = useRef({ x: 0, y: 0 });
   // Mirror pos into a ref so mousemove/mouseup closures always see the latest value
   const posRef = useRef(pos);
   useEffect(() => { posRef.current = pos; }, [pos]);
@@ -152,41 +153,75 @@ export default function DirectorWidget() {
     }));
   }, [widgetSize]);
 
+  const startDrag = useCallback((clientX, clientY) => {
+    dragging.current = true;
+    hasDragged.current = false;
+    dragStartPos.current = { x: clientX, y: clientY };
+    const rect = widgetRef.current.getBoundingClientRect();
+    dragOffset.current = { x: clientX - rect.left, y: clientY - rect.top };
+  }, []);
+
   const onHeaderMouseDown = useCallback((e) => {
     // Only drag on primary button; controls stop propagation themselves
     if (e.button !== 0) return;
-    dragging.current = true;
-    hasDragged.current = false;
-    const rect = widgetRef.current.getBoundingClientRect();
-    dragOffset.current = { x: e.clientX - rect.left, y: e.clientY - rect.top };
+    startDrag(e.clientX, e.clientY);
     e.preventDefault();
-  }, []);
+  }, [startDrag]);
+
+  const onHeaderTouchStart = useCallback((e) => {
+    if (e.touches.length !== 1) return;
+    const t = e.touches[0];
+    startDrag(t.clientX, t.clientY);
+    // Don't preventDefault here — let click/tap still fire for collapse toggle
+  }, [startDrag]);
 
   useEffect(() => {
-    const onMove = (e) => {
-      if (!dragging.current) return;
+    const DRAG_THRESHOLD = 5; // px — must move this far before it counts as a drag
+    const moveWidget = (clientX, clientY) => {
+      const dx = clientX - dragStartPos.current.x;
+      const dy = clientY - dragStartPos.current.y;
+      if (!hasDragged.current && Math.sqrt(dx * dx + dy * dy) < DRAG_THRESHOLD) return;
       hasDragged.current = true;
       const w = widgetRef.current?.offsetWidth || 380;
-      const newX = Math.max(0, Math.min(window.innerWidth - w, e.clientX - dragOffset.current.x));
-      const newY = Math.max(0, Math.min(window.innerHeight - 50, e.clientY - dragOffset.current.y));
+      const newX = Math.max(0, Math.min(window.innerWidth - w, clientX - dragOffset.current.x));
+      const newY = Math.max(0, Math.min(window.innerHeight - 50, clientY - dragOffset.current.y));
       setPos({ x: newX, y: newY });
     };
-    const onUp = () => {
+    const endDrag = () => {
       if (!dragging.current) return;
       dragging.current = false;
       try { localStorage.setItem("director_widget_pos", JSON.stringify(posRef.current)); } catch {}
     };
+
+    const onMove = (e) => { if (dragging.current) moveWidget(e.clientX, e.clientY); };
+    const onUp = () => endDrag();
+    const onTouchMove = (e) => {
+      if (!dragging.current || e.touches.length !== 1) return;
+      e.preventDefault(); // prevent page scroll while dragging widget
+      moveWidget(e.touches[0].clientX, e.touches[0].clientY);
+    };
+    const onTouchEnd = () => endDrag();
+
     window.addEventListener("mousemove", onMove);
     window.addEventListener("mouseup", onUp);
+    window.addEventListener("touchmove", onTouchMove, { passive: false });
+    window.addEventListener("touchend", onTouchEnd);
     return () => {
       window.removeEventListener("mousemove", onMove);
       window.removeEventListener("mouseup", onUp);
+      window.removeEventListener("touchmove", onTouchMove);
+      window.removeEventListener("touchend", onTouchEnd);
     };
   }, []);
 
   const cycleSize = useCallback((e) => {
     e.stopPropagation();
-    setWidgetSize(s => s === "normal" ? "expanded" : s === "expanded" ? "fullscreen" : "normal");
+    // If minimized, un-minimize first — show the widget before cycling size
+    setMinimized(cur => {
+      if (cur) return false;
+      setWidgetSize(s => s === "normal" ? "expanded" : s === "expanded" ? "fullscreen" : "normal");
+      return false;
+    });
   }, []);
 
   // ── Other refs ─────────────────────────────────────────────────────────────
@@ -398,16 +433,18 @@ export default function DirectorWidget() {
       {/* Header — drag zone */}
       <div
         onMouseDown={onHeaderMouseDown}
+        onTouchStart={onHeaderTouchStart}
         onClick={() => { if (!hasDragged.current) setMinimized(m => !m); }}
         style={{
           background: style.bg,
           color: style.color,
           padding: "10px 14px",
-          cursor: dragging.current ? "grabbing" : "grab",
+          cursor: "grab",
           display: "flex",
           justifyContent: "space-between",
           alignItems: "center",
           userSelect: "none",
+          touchAction: "none",
         }}
       >
         {/* Title + health dot */}
@@ -433,39 +470,39 @@ export default function DirectorWidget() {
           </div>
         </div>
 
-        {/* Controls — stop mousedown propagation so they don't start a drag */}
+        {/* Controls — stop mouse AND touch propagation so they don't start a drag */}
         <div
           onMouseDown={e => e.stopPropagation()}
-          style={{ display: "flex", gap: "8px", alignItems: "center" }}
+          onTouchStart={e => e.stopPropagation()}
+          style={{ display: "flex", gap: "10px", alignItems: "center" }}
         >
           {/* Unread badge */}
           {unread > 0 && minimized && (
             <span style={{
               background: "#E53935", color: "#fff",
-              borderRadius: "50%", width: "16px", height: "16px",
+              borderRadius: "50%", width: "18px", height: "18px",
               fontSize: "9px", fontWeight: "900",
               display: "flex", alignItems: "center", justifyContent: "center",
             }}>{unread > 9 ? "9+" : unread}</span>
           )}
 
-          {/* Expand/shrink button */}
-          {!minimized && (
-            <span
-              onClick={cycleSize}
-              title={widgetSize === "fullscreen" ? "Shrink" : widgetSize === "expanded" ? "Fullscreen" : "Expand"}
-              style={{
-                fontSize: "13px", opacity: 0.7, cursor: "pointer",
-                lineHeight: 1, padding: "2px",
-              }}
-            >
-              {widgetSize === "fullscreen" ? "⊟" : "⊞"}
-            </span>
-          )}
+          {/* Expand/shrink button — always visible so user can find it even when minimized */}
+          <span
+            onClick={cycleSize}
+            title={minimized ? "Expand widget" : widgetSize === "fullscreen" ? "Shrink" : widgetSize === "expanded" ? "Fullscreen" : "Expand"}
+            style={{
+              fontSize: "16px", opacity: 1, cursor: "pointer",
+              lineHeight: 1, padding: "4px 2px",
+              color: style.color,
+            }}
+          >
+            {minimized ? "⊞" : widgetSize === "fullscreen" ? "⊟" : "⊞"}
+          </span>
 
-          <span style={{ fontSize: "12px", opacity: 0.7 }}>{minimized ? "▲" : "▼"}</span>
+          <span style={{ fontSize: "13px", opacity: 0.8 }}>{minimized ? "▲" : "▼"}</span>
           <span
             onClick={e => { e.stopPropagation(); setOpen(false); }}
-            style={{ fontSize: "14px", opacity: 0.7, cursor: "pointer" }}
+            style={{ fontSize: "15px", opacity: 0.8, cursor: "pointer", padding: "4px 2px" }}
           >
             ✕
           </span>
