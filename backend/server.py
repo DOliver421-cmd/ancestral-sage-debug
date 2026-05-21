@@ -81,6 +81,7 @@ client = AsyncIOMotorClient(mongo_url)
 db = client[os.environ['DB_NAME']]
 _DB_SOURCE = "primary"   # informational; updated in on_startup
 _backup_db = None        # set in on_startup if MONGO_BACKUP_URL is configured
+_pipeline_manager = None # set in on_startup once DB + API key are both available
 
 JWT_SECRET = os.environ['JWT_SECRET']
 JWT_ALGO = os.environ.get('JWT_ALGORITHM', 'HS256')
@@ -872,6 +873,16 @@ async def on_startup():
         await start_scout_scheduler(db, interval_hours=_scout_interval)
     except Exception as _wai_err:
         logger.warning("WAI autonomous pipeline startup failed (non-fatal): %s", _wai_err)
+
+    # ── PipelineManager (LLM intent routing) ─────────────────────────────────
+    global _pipeline_manager
+    try:
+        from src.agents.pipeline_manager import PipelineManager as _PipelineManager
+        _pipeline_manager = _PipelineManager(db=db, anthropic_api_key=ANTHROPIC_API_KEY)
+        _mode = "llm" if ANTHROPIC_API_KEY else "keyword_fallback"
+        logger.info("STARTUP: PipelineManager ready — analyzer=%s", _mode)
+    except Exception as _pm_err:
+        logger.warning("STARTUP: PipelineManager init failed (non-fatal): %s", _pm_err)
 
     # ── Rate-limiter memory guard ─────────────────────────────────────────────
     # Prune stale entries every 10 minutes so the in-memory dict never grows
@@ -7606,6 +7617,72 @@ async def exec_publish_all(user: User = Depends(require_role("executive_admin"))
         raise HTTPException(500, f"Batch publish failed: {e}")
 
     return result
+
+
+# ── Pipeline: LLM intent routing ──────────────────────────────────────────────
+
+@api_router.post("/exec/pipeline/process")
+async def exec_pipeline_process(
+    body: dict,
+    user: User = Depends(require_role("admin")),
+):
+    """
+    Route a single social media post through the intent pipeline.
+
+    Body:
+        text   (str, required) — the social media post / caption / comment
+        source (str, optional) — platform origin: "twitter", "reddit", etc.
+
+    Returns PipelineResult as JSON:
+        route, analysis, pipeline_outputs, execution_ms, cached
+
+    Analyzer:
+        - Claude Haiku when ANTHROPIC_API_KEY is set  (llm mode)
+        - Keyword fallback when key is absent          (offline mode)
+
+    Rate: 60 calls/min per user (shared with other exec endpoints).
+    """
+    if _pipeline_manager is None:
+        raise HTTPException(503, "PipelineManager not initialized — check server logs")
+
+    text   = (body.get("text") or "").strip()
+    source = (body.get("source") or "api").strip()
+
+    if not text:
+        raise HTTPException(400, "text field is required")
+
+    result = await _pipeline_manager.process(text, source=source)
+    return result.to_dict()
+
+
+@api_router.post("/exec/pipeline/process-batch")
+async def exec_pipeline_process_batch(
+    body: dict,
+    user: User = Depends(require_role("admin")),
+):
+    """
+    Route a batch of social media posts concurrently (max 50 per call).
+
+    Body:
+        texts  (list[str], required) — up to 50 posts
+        source (str, optional)       — platform origin
+
+    Returns list of PipelineResult dicts in the same order as input.
+    Semaphore inside PipelineManager limits concurrent LLM calls to 5.
+    """
+    if _pipeline_manager is None:
+        raise HTTPException(503, "PipelineManager not initialized — check server logs")
+
+    texts  = body.get("texts") or []
+    source = (body.get("source") or "api").strip()
+
+    if not isinstance(texts, list) or len(texts) == 0:
+        raise HTTPException(400, "texts must be a non-empty list")
+    if len(texts) > 50:
+        raise HTTPException(400, "Maximum 50 texts per batch call")
+
+    results = await _pipeline_manager.process_batch(texts, source=source)
+    return [r.to_dict() for r in results]
 
 
 app.include_router(api_router)
