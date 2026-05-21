@@ -6950,6 +6950,224 @@ async def cipher_tts(body: dict, user: User = Depends(current_user)):
     )
 
 
+# ═══════════════════════════════════════════════════════════════════════════════
+# EXECUTIVE DASHBOARD — System overview for NAM Oshun
+# ═══════════════════════════════════════════════════════════════════════════════
+
+@api_router.get("/exec/dashboard")
+async def exec_dashboard(user: User = Depends(require_role("executive_admin"))):
+    """
+    Full system status dashboard — executive_admin only.
+
+    Returns:
+      - Platform env var status (which publishing/voice keys are set)
+      - All 7 AI personas: tool counts, voice tier, memory status
+      - Product pipeline: published / pending counts
+      - Revenue projections summary
+      - Pending executive notifications
+      - Memory policy order counts per persona
+    """
+    from ai.publishing import LEMON_SQUEEZY_API_KEY, LEMON_SQUEEZY_STORE_ID, GUMROAD_API_KEY
+
+    # ── Env / platform status ─────────────────────────────────────────────────
+    elevenlabs_key   = bool(os.environ.get("ELEVENLABS_API_KEY", ""))
+    openai_key       = bool(os.environ.get("OPENAI_API_KEY", ""))
+    anthropic_key    = bool(os.environ.get("ANTHROPIC_API_KEY", ""))
+    ls_ready         = bool(LEMON_SQUEEZY_API_KEY and LEMON_SQUEEZY_STORE_ID)
+    gumroad_ready    = bool(GUMROAD_API_KEY)
+
+    platform_status = {
+        "anthropic_api":         anthropic_key,
+        "elevenlabs":            elevenlabs_key,
+        "openai_tts":            openai_key,
+        "lemon_squeezy":         ls_ready,
+        "lemon_squeezy_key_set": bool(LEMON_SQUEEZY_API_KEY),
+        "lemon_squeezy_store_set": bool(LEMON_SQUEEZY_STORE_ID),
+        "gumroad":               gumroad_ready,
+        "publishing_tier":       (
+            "lemon_squeezy" if ls_ready else
+            "gumroad"        if gumroad_ready else
+            "mongodb_archive"
+        ),
+    }
+
+    # ── Persona registry ──────────────────────────────────────────────────────
+    personas = [
+        {"id": "cipher",           "name": "THE CIPHER 4.0",          "tools": 8,  "voice": "elevenlabs", "tier": 4},
+        {"id": "oracle",           "name": "THE ORACLE 4.0",           "tools": 7,  "voice": "openai",     "tier": 4},
+        {"id": "ambassador",       "name": "THE AMBASSADOR 4.0",       "tools": 9,  "voice": "openai",     "tier": 4},
+        {"id": "architect",        "name": "THE ARCHITECT 4.0",        "tools": 8,  "voice": "openai",     "tier": 4},
+        {"id": "director",         "name": "THE DIRECTOR 4.0",         "tools": 8,  "voice": "elevenlabs", "tier": 2},
+        {"id": "revenue_director", "name": "THE REVENUE DIRECTOR 4.0", "tools": 9,  "voice": "elevenlabs", "tier": 3},
+        {"id": "ancestral_sage",   "name": "THE ANCESTRAL SAGE 4.0",   "tools": 7,  "voice": "elevenlabs", "tier": 3},
+    ]
+
+    # ── MongoDB queries ───────────────────────────────────────────────────────
+    pipeline_published = 0
+    pipeline_pending   = 0
+    pipeline_total     = 0
+    pending_notifs     = 0
+    policy_count       = 0
+    episode_count      = 0
+    tts_budgets        = {}
+
+    try:
+        pipeline_published = await db.wai_product_pipeline.count_documents({"status": "published"})
+        pipeline_pending   = await db.wai_product_pipeline.count_documents({"status": "pending_publish"})
+        pipeline_total     = pipeline_published + pipeline_pending
+    except Exception: pass
+
+    try:
+        pending_notifs = await db.executive_notifications.count_documents({})
+    except Exception: pass
+
+    try:
+        policy_count = await db.persona_policies.count_documents({"active": True})
+    except Exception: pass
+
+    try:
+        episode_count = await db.persona_episodes.count_documents({})
+    except Exception: pass
+
+    # Per-persona TTS budgets
+    try:
+        async for bdoc in db.persona_tts_budgets.find({}, {"_id": 0}):
+            p = bdoc.get("persona", "unknown")
+            tts_budgets[p] = {
+                "chars_used":      bdoc.get("chars_used_this_month", 0),
+                "monthly_cap":     bdoc.get("monthly_cap", 0),
+                "pct_used":        round(bdoc.get("chars_used_this_month", 0) / max(bdoc.get("monthly_cap", 1), 1) * 100, 1),
+            }
+    except Exception: pass
+
+    # Cipher budget (separate collection)
+    try:
+        cbdoc = await db.cipher_audio_budget.find_one({}, {"_id": 0})
+        if cbdoc:
+            cap = cbdoc.get("monthly_cap", 29500)
+            used = cbdoc.get("chars_used_this_month", 0)
+            tts_budgets["cipher"] = {
+                "chars_used":  used,
+                "monthly_cap": cap,
+                "pct_used":    round(used / max(cap, 1) * 100, 1),
+            }
+    except Exception: pass
+
+    # Recent pending pipeline items (up to 5 for dashboard preview)
+    pending_preview = []
+    try:
+        cursor = db.wai_product_pipeline.find(
+            {"status": "pending_publish"},
+            {"_id": 0, "name": 1, "persona": 1, "price_cents": 1, "created_at": 1, "content_type": 1},
+        ).sort("created_at", -1).limit(5)
+        async for doc in cursor:
+            doc["price"] = f"${doc.get('price_cents', 0) / 100:.2f}"
+            doc.pop("price_cents", None)
+            pending_preview.append(doc)
+    except Exception: pass
+
+    # Recent executive notifications (up to 5)
+    recent_notifs = []
+    try:
+        cursor = db.executive_notifications.find(
+            {}, {"_id": 0, "type": 1, "persona": 1, "name": 1, "note": 1, "created_at": 1}
+        ).sort("created_at", -1).limit(5)
+        async for doc in cursor:
+            recent_notifs.append(doc)
+    except Exception: pass
+
+    return {
+        "dashboard":        "WAI-Institute Executive Dashboard",
+        "generated_at":     datetime.now(timezone.utc).isoformat(),
+        "platform_status":  platform_status,
+        "personas":         personas,
+        "product_pipeline": {
+            "total":           pipeline_total,
+            "published":       pipeline_published,
+            "pending_publish": pipeline_pending,
+            "pending_preview": pending_preview,
+        },
+        "memory_system": {
+            "total_episodes":      episode_count,
+            "active_policy_orders": policy_count,
+        },
+        "tts_budgets":       tts_budgets,
+        "notifications": {
+            "total_pending":  pending_notifs,
+            "recent":         recent_notifs,
+        },
+        "setup_guidance": (
+            None if ls_ready else
+            "Add LEMON_SQUEEZY_API_KEY + LEMON_SQUEEZY_STORE_ID to Railway to enable "
+            "autonomous product publishing. Visit lemonsqueezy.com → Settings → API."
+        ),
+    }
+
+
+# ── Product Pipeline ──────────────────────────────────────────────────────────
+
+@api_router.get("/exec/products")
+async def exec_list_products(
+    status: str = "all",
+    limit: int  = 50,
+    user: User  = Depends(require_role("executive_admin")),
+):
+    """
+    List all products in the WAI publishing pipeline.
+
+    Query params:
+      status:  "all" | "published" | "pending_publish"   (default: all)
+      limit:   max results (default 50, max 200)
+
+    Returns full pipeline records sorted newest-first.
+    Executive only.
+    """
+    limit = min(max(limit, 1), 200)
+
+    query = {}
+    if status in ("published", "pending_publish"):
+        query["status"] = status
+
+    products = []
+    try:
+        cursor = db.wai_product_pipeline.find(
+            query,
+            {"_id": 0},
+        ).sort("created_at", -1).limit(limit)
+        async for doc in cursor:
+            doc["price"] = f"${doc.get('price_cents', 0) / 100:.2f}"
+            products.append(doc)
+    except Exception as e:
+        raise HTTPException(500, f"Pipeline query failed: {e}")
+
+    return {
+        "status_filter": status,
+        "count":         len(products),
+        "products":      products,
+    }
+
+
+@api_router.post("/exec/products/publish-all")
+async def exec_publish_all(user: User = Depends(require_role("executive_admin"))):
+    """
+    Attempt to publish all pending_publish products in the pipeline.
+
+    Runs batch_publish_pending() — tries Lemon Squeezy first, then Gumroad.
+    Call this after adding LEMON_SQUEEZY_API_KEY + LEMON_SQUEEZY_STORE_ID to Railway.
+
+    Executive only.
+    """
+    from ai.publishing import batch_publish_pending
+
+    logger.info("exec batch publish triggered by %s", user.id)
+    try:
+        result = await batch_publish_pending(db)
+    except Exception as e:
+        raise HTTPException(500, f"Batch publish failed: {e}")
+
+    return result
+
+
 app.include_router(api_router)
 # CORS: when origins is wildcard ("*") browsers reject credentials, so we
 # turn off allow_credentials in that case (auth uses Bearer token in Authorization
