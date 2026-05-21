@@ -7632,6 +7632,66 @@ async def exec_list_products(
     }
 
 
+@api_router.post("/exec/products/create")
+async def exec_create_product(body: dict, user: User = Depends(require_role("executive_admin"))):
+    """
+    Executive-only: Create and immediately publish a product via the 4-tier pipeline.
+
+    Body:
+        name             (required) — product listing name
+        description      (required) — public-facing description
+        price_cents      (required) — price in cents (e.g. 3900 = $39.00)
+        persona          (optional) — which persona is publishing (default: ancestral_sage)
+        content          (optional) — full product content to archive
+        content_type     (optional) — tag for pipeline filtering (default: digital_product)
+        is_subscription  (optional) — true for recurring billing (default: false)
+        interval         (optional) — "month" | "year" | "week" (default: month)
+
+    Returns tier, status, url, product_id, pipeline_id.
+    Tries Lemon Squeezy first (T1), then Gumroad (T2), then archives to MongoDB (T3).
+    """
+    from ai.publishing import autonomous_publish
+
+    name        = (body.get("name") or "").strip()
+    description = (body.get("description") or "").strip()
+    price_cents = int(body.get("price_cents", 0))
+
+    if not name:
+        raise HTTPException(400, "name is required")
+    if not description:
+        raise HTTPException(400, "description is required")
+    if price_cents < 0:
+        raise HTTPException(400, "price_cents must be >= 0")
+
+    persona          = body.get("persona", "ancestral_sage")
+    content          = body.get("content", "")
+    content_type     = body.get("content_type", "digital_product")
+    is_subscription  = bool(body.get("is_subscription", False))
+    interval         = body.get("interval", "month")
+
+    logger.info(
+        "exec product create: %s | $%.2f | subscription=%s | by %s",
+        name, price_cents / 100, is_subscription, user.id,
+    )
+
+    try:
+        result = await autonomous_publish(
+            name=name,
+            description=description,
+            price_cents=price_cents,
+            persona=persona,
+            content=content,
+            content_type=content_type,
+            is_subscription=is_subscription,
+            interval=interval,
+            db=db,
+        )
+    except Exception as e:
+        raise HTTPException(500, f"Publish failed: {e}")
+
+    return result
+
+
 @api_router.post("/exec/products/publish-all")
 async def exec_publish_all(user: User = Depends(require_role("executive_admin"))):
     """

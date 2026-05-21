@@ -41,6 +41,8 @@ async def _publish_lemon_squeezy(
     description: str,
     price_cents: int,
     persona: str,
+    is_subscription: bool = False,
+    interval: str = "month",
 ) -> dict | None:
     """
     Create a product + variant on Lemon Squeezy.
@@ -90,14 +92,21 @@ async def _publish_lemon_squeezy(
                 return None
 
             # Step 2: Create variant (price)
+            variant_attrs: dict = {
+                "name":  "Standard",
+                "price": price_cents,
+            }
+            if is_subscription:
+                variant_attrs["is_subscription"] = True
+                variant_attrs["interval"]        = interval
+                variant_attrs["interval_count"]  = 1
+            else:
+                variant_attrs["is_subscription"] = False
+
             variant_payload = {
                 "data": {
                     "type":       "variants",
-                    "attributes": {
-                        "name":       "Standard",
-                        "price":      price_cents,
-                        "is_subscription": False,
-                    },
+                    "attributes": variant_attrs,
                     "relationships": {
                         "product": {
                             "data": {"type": "products", "id": product_id}
@@ -183,6 +192,8 @@ async def autonomous_publish(
     content: str = "",
     content_type: str = "digital_product",
     revenue_stream_id: str = "",
+    is_subscription: bool = False,
+    interval: str = "month",
     db=None,
 ) -> dict:
     """
@@ -218,6 +229,8 @@ async def autonomous_publish(
         "content":          content[:3000] if content else "",
         "content_type":     content_type,
         "revenue_stream_id": revenue_stream_id,
+        "is_subscription":  is_subscription,
+        "interval":         interval if is_subscription else None,
         "status":           "pending_publish",
         "platform":         None,
         "platform_url":     None,
@@ -233,7 +246,10 @@ async def autonomous_publish(
 
     # ── Tier 1: Lemon Squeezy ─────────────────────────────────────────────────
     if price_cents > 0 or LEMON_SQUEEZY_API_KEY:
-        ls_result = await _publish_lemon_squeezy(name, description, price_cents, persona)
+        ls_result = await _publish_lemon_squeezy(
+            name, description, price_cents, persona,
+            is_subscription=is_subscription, interval=interval,
+        )
         if ls_result:
             if db is not None:
                 try:
@@ -249,13 +265,15 @@ async def autonomous_publish(
                     )
                 except Exception: pass
             return {
-                "tier":        "lemon_squeezy",
-                "status":      "published",
-                "url":         ls_result["url"],
-                "product_id":  ls_result["product_id"],
-                "pipeline_id": pipeline_id,
-                "name":        name,
-                "price":       f"${price_cents / 100:.2f}",
+                "tier":            "lemon_squeezy",
+                "status":          "published",
+                "url":             ls_result["url"],
+                "product_id":      ls_result["product_id"],
+                "pipeline_id":     pipeline_id,
+                "name":            name,
+                "price":           f"${price_cents / 100:.2f}",
+                "is_subscription": is_subscription,
+                "interval":        interval if is_subscription else None,
             }
 
     # ── Tier 2: Gumroad ───────────────────────────────────────────────────────
