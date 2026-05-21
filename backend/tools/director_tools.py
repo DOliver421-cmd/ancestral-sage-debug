@@ -1,15 +1,18 @@
 """
-Director Tool Suite — v2
-========================
+Director Tool Suite — 4.0
+==========================
 Every tool has a PRIMARY + 2 BACKUPS minimum. Failures cascade silently.
 
 Tools & their redundancy stack
 -------------------------------
-web_search     : DDG HTML scrape → DDG Instant API → Wikipedia API → Bing HTML
-fetch_url      : httpx+BS4 → requests+BS4 → urllib (built-in, zero deps)
-send_email     : Gmail SMTP → Outlook SMTP → MongoDB queue → log-only
+web_search            : DDG HTML scrape → DDG Instant API → Wikipedia API → Bing HTML
+fetch_url             : httpx+BS4 → requests+BS4 → urllib (built-in, zero deps)
+send_email            : Gmail SMTP → Outlook SMTP → MongoDB queue → log-only
 get_incident_register : live DB → in-memory cache → static notice
-read_file      : MongoDB → in-memory session cache → error notice
+read_file             : MongoDB → in-memory session cache → error notice
+set_mode              : ModeSystem singleton (in-memory, instant)
+create_incident       : MongoDB write + crisis engine sync
+get_system_health     : health_monitor singleton + crisis engine + mode system
 
 Zero paid APIs. Zero new external dependencies beyond httpx + beautifulsoup4.
 """
@@ -270,7 +273,7 @@ async def tool_web_search(query: str, num_results: int = 6) -> str:
             r = await c.get("https://api.duckduckgo.com/",
                             params={"q": query, "format": "json",
                                     "no_html": "1", "skip_disambig": "1"},
-                            headers={"User-Agent": "WAI-Director/2.0"})
+                            headers={"User-Agent": "WAI-Director/4.0"})
             data = r.json()
             results = []
             if data.get("Abstract"):
@@ -291,7 +294,7 @@ async def tool_web_search(query: str, num_results: int = 6) -> str:
                 "https://en.wikipedia.org/w/api.php",
                 params={"action": "query", "list": "search", "srsearch": query,
                         "format": "json", "srlimit": min(num_results, 5)},
-                headers={"User-Agent": "WAI-Director/2.0"},
+                headers={"User-Agent": "WAI-Director/4.0"},
             )
             items = r.json().get("query", {}).get("search", [])
             results = []
