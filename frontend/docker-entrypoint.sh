@@ -1,22 +1,23 @@
 #!/bin/sh
 set -e
 
-# ── Substitute BACKEND_URL in the nginx config template ──────────────────────
-# Using the explicit variable list form of envsubst so that nginx variables
-# like $uri, $host, $remote_addr are left untouched in the output config.
-
-# Default: same-origin (should not happen in production, but prevents a broken
-# nginx config if BACKEND_URL is somehow omitted from Railway env vars).
+# ── Resolve BACKEND_URL and extract hostname ──────────────────────────────────
 BACKEND_URL="${BACKEND_URL:-http://localhost:8000}"
+BACKEND_URL="${BACKEND_URL%/}"          # strip trailing slash
 
-# Strip trailing slash so proxy_pass URLs are well-formed
-BACKEND_URL="${BACKEND_URL%/}"
+# Extract just the hostname (strip scheme and any path)
+# e.g. https://ancestral-sage-debug-production.up.railway.app → ancestral-sage-debug-production.up.railway.app
+BACKEND_HOST=$(echo "$BACKEND_URL" | sed 's|^https\?://||' | cut -d'/' -f1)
 
 export BACKEND_URL
+export BACKEND_HOST
 
-echo "nginx proxy: /api/ → ${BACKEND_URL}/api/"
+echo "nginx proxy: /api/ → ${BACKEND_URL}/api/  (Host: ${BACKEND_HOST})"
 
-envsubst '${BACKEND_URL}' \
+# ── Write nginx config from template ─────────────────────────────────────────
+# Substitutes only ${BACKEND_URL} and ${BACKEND_HOST}.
+# All other nginx variables ($uri, $remote_addr, etc.) are left intact.
+envsubst '${BACKEND_URL} ${BACKEND_HOST}' \
     < /etc/nginx/templates/default.conf.template \
     > /etc/nginx/conf.d/default.conf
 
