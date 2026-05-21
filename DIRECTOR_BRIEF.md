@@ -1191,30 +1191,33 @@ TECHNICAL INFRASTRUCTURE
   AI Model:   Anthropic Claude (production)
   TTS:        OpenAI TTS-1 with circuit breaker and SHA-256 audio cache
 
-DEPLOYMENT — PRIMARY PLATFORM (Railway)
+DEPLOYMENT — PRIMARY PLATFORM (Railway)  ← ACTIVE
   Host: Railway (railway.app)
-  Backend URL: [Confirm in Railway dashboard]
-  Status: Director 4.0 code committed and queued at commit 2ce417c.
-          Deploy pending Railway platform availability.
+  Frontend: arts-and-tech-production.up.railway.app (nginx, Director 4.0)
+  Backend:  [Confirm exact URL in Railway dashboard → backend service → Domains]
+  Status:   LIVE — Director 4.0 code running as of commit 389fa18.
+            nginx now proxies /api/ to backend (BACKEND_URL env var required).
 
-DEPLOYMENT — FALLBACK PLATFORM (Render)
-  Host: Render
-  Frontend: ancestral-sage-debug.onrender.com
-  Backend:  ancestral-sage-backend.onrender.com (free tier, cold start ~50s)
-  Status: ACTIVE — www.wai-institute.org serves via Render DNS
-          Running pre-4.0 code — Railway has the latest.
+DEPLOYMENT — RENDER  ← DEPRECATED / OFFLINE
+  Render has been decommissioned as a deployment target.
+  render.yaml has been removed from the repository.
+  All onrender.com URLs are dead — do not reference them.
 
-DNS — CURRENT STATE (Namecheap)
-  www CNAME → ancestral-sage-debug.onrender.com (flip to Railway when ready)
-  @   URL   → https://www.wai-institute.org
+DNS — ACTION REQUIRED (Namecheap)
+  Current:  www CNAME → ancestral-sage-debug.onrender.com  ← STALE, must change
+  Required: www CNAME → arts-and-tech-production.up.railway.app
+  @   URL   → https://www.wai-institute.org  (keep as-is)
 
-DEPLOYMENT CHECKLIST (What Moves the System to Full 4.0 Live)
-  1. Railway deploys commit 2ce417c successfully (healthcheck /api/version passes)
-  2. DNS flip: www CNAME → Railway frontend URL
-  3. api.wai-institute.org CNAME → Railway backend URL
-  4. REACT_APP_BACKEND_URL set in Railway frontend service environment
-  5. Confirm in Railway dashboard: MONGO_URL, DB_NAME, JWT_SECRET,
-     ANTHROPIC_API_KEY, OPENAI_API_KEY, CORS_ORIGINS (specific domain, not *)
+DEPLOYMENT CHECKLIST (To Go Fully Live on Railway)
+  1. ✅ Railway backend service running (healthcheck /api/version passes)
+  2. ✅ Railway frontend service running (nginx with /api/ proxy)
+  3. ⬜ Set BACKEND_URL in Railway FRONTEND service env vars
+        Value: https://[your-backend-service].up.railway.app
+  4. ⬜ DNS flip: www CNAME → arts-and-tech-production.up.railway.app
+  5. ⬜ Set PUBLIC_BACKEND_URL in Railway BACKEND service env vars
+        Value: https://[your-backend-service].up.railway.app
+  6. ⬜ Confirm Railway backend env vars: MONGO_URL, DB_NAME, JWT_SECRET,
+        ANTHROPIC_API_KEY, CORS_ORIGINS=https://arts-and-tech-production.up.railway.app
 
 DIRECTOR 4.0 INFRASTRUCTURE STATUS
   Mode System:             DEPLOYED — 6 operational modes, history, reset
@@ -1241,10 +1244,8 @@ AI ECOSYSTEM STATUS
   Cross-session memory: UNDER DEVELOPMENT — not yet live
 
 OPEN TECHNICAL ITEMS REQUIRING DIRECTOR AWARENESS
-  - Railway env vars must be confirmed: MONGO_URL, DB_NAME, JWT_SECRET,
-    ANTHROPIC_API_KEY, OPENAI_API_KEY, CORS_ORIGINS, EXEC_DEFAULT_PASSWORD
-  - DNS flip to Railway pending deployment confirmation
-  - Render billing: contact support@render.com re: build minute catch-22 (backburner)
+  - Set BACKEND_URL in Railway frontend service (enables /api/ proxy → login fix)
+  - DNS flip: www CNAME must move from onrender.com to Railway frontend URL
   - In-memory rate limiter: adequate for single-replica; upgrade to Redis if
     multi-replica deployment is required
 

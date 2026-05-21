@@ -1,8 +1,15 @@
 """
 WAI-Institute full system test — verified route paths from server.py.
-Run: python test_system.py
+
+Usage:
+    python test_system.py
+    API_BASE=https://your-backend.up.railway.app/api python test_system.py
+
+API_BASE defaults to localhost for local dev. Override with the env var
+when running against Railway or any other environment.
 """
 
+import os
 import requests
 import urllib3
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
@@ -10,7 +17,8 @@ import random
 import string
 from datetime import datetime
 
-BASE = "https://ancestral-sage-backend.onrender.com/api"
+# Override with: API_BASE=https://your-backend.up.railway.app/api python test_system.py
+BASE = os.environ.get("API_BASE", "http://localhost:10000/api")
 V = False
 
 results = []

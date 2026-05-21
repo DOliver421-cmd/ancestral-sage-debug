@@ -40,6 +40,7 @@ RUN TO RECOMPUTE HASH:
 
 import hashlib
 import logging
+import os
 
 logger = logging.getLogger(__name__)
 
@@ -50,7 +51,10 @@ logger = logging.getLogger(__name__)
 WAI_ENV_CONFIG = {
     "domain": "https://www.wai-institute.org",
     "frontend_url": "https://www.wai-institute.org",
-    "backend_url": "https://ancestral-sage-backend.onrender.com",
+    # Read from Railway env var at runtime so no platform URL is hardcoded.
+    # Set PUBLIC_BACKEND_URL in Railway backend service → Variables.
+    # Fallback: production custom domain (correct once DNS flip is done).
+    "backend_url": os.environ.get("PUBLIC_BACKEND_URL", "https://www.wai-institute.org"),
     "service_name": "Ancestral Sage",
     "org_name": "WAI Institute",
     "mission": "NAM Oshun",
