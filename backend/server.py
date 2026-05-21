@@ -5958,6 +5958,228 @@ async def admin_payment_list(user=Depends(require_role("admin"))):
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
+# THE AMBASSADOR 4.0 — Campaign Coordination endpoint
+# ═══════════════════════════════════════════════════════════════════════════════
+
+@api_router.post("/ai/ambassador")
+async def ai_ambassador(body: dict, user: User = Depends(current_user)):
+    """THE AMBASSADOR — Campaign Coordination & Pipeline Authority.
+
+    Orchestrates Oracle → Cipher → Architect pipeline for full campaign
+    production. Manages active projects, packages deliverables, and publishes
+    to revenue channels independently.
+
+    Tools: coordinate_oracle, coordinate_cipher, coordinate_architect,
+           package_campaign, publish_campaign, request_director_approval,
+           get_campaign_status, list_active_campaigns, list_revenue_streams
+
+    Access: admin, executive_admin
+    Rate:   10 calls/min (pipeline calls are multi-step)
+    """
+    from ai.persona_loader import get_persona
+    from tools.ambassador_tools import AMBASSADOR_TOOLS, dispatch_ambassador_tool
+    from ai.prompt_guard import prompt_guard
+    from ai.retry_utils import async_retry
+
+    if user.role not in ("admin", "executive_admin"):
+        raise HTTPException(403, "THE AMBASSADOR is available to admin and executive accounts.")
+
+    message = body.get("message", "")
+    if not message:
+        raise HTTPException(400, "Message is required")
+
+    check_rate(f"ai_ambassador:{user.id}", max_calls=10, window_sec=60)
+    try:
+        prompt_guard.assert_message_safe(message, user.role, "/ai/ambassador", user.id)
+    except ValueError as _e:
+        raise HTTPException(400, str(_e))
+
+    import anthropic as _anthropic_module
+    _client = _anthropic_module.AsyncAnthropic(api_key=ANTHROPIC_API_KEY)
+    system  = get_persona("ambassador") + (
+        f"\n\nEXECUTIVE CONTEXT:\n"
+        f"- Operating for: {user.full_name} ({user.role})\n"
+        f"- Institution: WAI-Institute / M.O.R.E. Help Center\n"
+        f"- GUMROAD_API_KEY: {'SET — publishing active' if GUMROAD_API_KEY else 'NOT SET — Tier 2 fallback active'}\n"
+        f"- OPENAI_API_KEY: {'SET — DALL-E 3 available via Architect' if os.environ.get('OPENAI_API_KEY', os.environ.get('EMERGENT_LLM_KEY', '')) else 'NOT SET — visual briefs only'}\n"
+    )
+
+    _AMBASSADOR_MODELS = [
+        ("claude-sonnet-4-6", 8192),   # Ambassador needs more tokens for full pipeline synthesis
+        ("claude-haiku-4-5",  4096),
+    ]
+    MAX_TOOL_TURNS = 12   # Pipeline has 5 steps, each may take 2 turns
+    reply = ""
+
+    async def _run_ambassador_loop(model_name: str, max_tok: int) -> str:
+        _msgs  = [{"role": "user", "content": message}]
+        _reply = ""
+        for _turn in range(MAX_TOOL_TURNS + 1):
+            _kwargs = dict(
+                model=model_name, max_tokens=max_tok,
+                system=system, messages=_msgs,
+                tools=AMBASSADOR_TOOLS,
+            )
+            _msg = await async_retry(_client.messages.create, max_attempts=3, base_delay=2.0, **_kwargs)
+
+            if _msg.stop_reason != "tool_use":
+                for block in _msg.content:
+                    if hasattr(block, "text"):
+                        _reply += block.text
+                break
+
+            tool_use_blocks = [b for b in _msg.content if b.type == "tool_use"]
+            if not tool_use_blocks:
+                for block in _msg.content:
+                    if hasattr(block, "text"):
+                        _reply += block.text
+                break
+
+            _msgs.append({"role": "assistant", "content": _msg.content})
+            tool_results = await asyncio.gather(*[
+                dispatch_ambassador_tool(b.name, b.input, db=db)
+                for b in tool_use_blocks
+            ])
+            _msgs.append({"role": "user", "content": [
+                {"type": "tool_result", "tool_use_id": b.id, "content": result}
+                for b, result in zip(tool_use_blocks, tool_results)
+            ]})
+        else:
+            _reply = _reply or "[AMBASSADOR pipeline reached turn limit — partial campaign above]"
+        return _reply
+
+    for _model, _max_tok in _AMBASSADOR_MODELS:
+        try:
+            reply = await _run_ambassador_loop(_model, _max_tok)
+            if reply:
+                break
+        except Exception as _err:
+            logger.warning("AMBASSADOR model %s failed: %s — trying next tier", _model, _err)
+            reply = ""
+
+    if not reply:
+        reply = (
+            "THE AMBASSADOR is temporarily offline. "
+            "Campaign pipeline intelligence remains archived. Retry in a moment."
+        )
+
+    logger.info("ai_ambassador: responded for user %s", user.id)
+    return {"reply": reply, "persona": "ambassador", "mode": "campaign_coordination"}
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# THE ARCHITECT 4.0 — Visual Intelligence endpoint
+# ═══════════════════════════════════════════════════════════════════════════════
+
+@api_router.post("/ai/architect")
+async def ai_architect(body: dict, user: User = Depends(current_user)):
+    """THE ARCHITECT — Visual Intelligence & Brand Systems Authority.
+
+    Generates cover art and social assets via DALL-E 3. Creates brand briefs,
+    visual storyboards, and brand consistency audits. Publishes design products
+    to Gumroad independently.
+
+    Tools: generate_cover_art, design_social_asset, build_brand_brief,
+           create_visual_storyboard, audit_brand_consistency, get_asset_gallery,
+           publish_design_product, list_revenue_streams
+
+    Access: admin, executive_admin
+    Rate:   10 calls/min (image generation is resource-intensive)
+    """
+    from ai.persona_loader import get_persona
+    from tools.architect_tools import ARCHITECT_TOOLS, dispatch_architect_tool
+    from ai.prompt_guard import prompt_guard
+    from ai.retry_utils import async_retry
+
+    if user.role not in ("admin", "executive_admin"):
+        raise HTTPException(403, "THE ARCHITECT is available to admin and executive accounts.")
+
+    message = body.get("message", "")
+    if not message:
+        raise HTTPException(400, "Message is required")
+
+    check_rate(f"ai_architect:{user.id}", max_calls=10, window_sec=60)
+    try:
+        prompt_guard.assert_message_safe(message, user.role, "/ai/architect", user.id)
+    except ValueError as _e:
+        raise HTTPException(400, str(_e))
+
+    _openai_key = os.environ.get("OPENAI_API_KEY", os.environ.get("EMERGENT_LLM_KEY", ""))
+
+    import anthropic as _anthropic_module
+    _client = _anthropic_module.AsyncAnthropic(api_key=ANTHROPIC_API_KEY)
+    system  = get_persona("architect") + (
+        f"\n\nEXECUTIVE CONTEXT:\n"
+        f"- Operating for: {user.full_name} ({user.role})\n"
+        f"- Institution: WAI-Institute / M.O.R.E. Help Center\n"
+        f"- GUMROAD_API_KEY: {'SET — autonomous publishing active' if GUMROAD_API_KEY else 'NOT SET — Tier 2 fallback active'}\n"
+        f"- OPENAI_API_KEY (DALL-E 3): {'SET — image generation live' if _openai_key else 'NOT SET — visual briefs only, no image generation'}\n"
+    )
+
+    _ARCHITECT_MODELS = [
+        ("claude-sonnet-4-6", 4096),
+        ("claude-haiku-4-5",  2048),
+    ]
+    MAX_TOOL_TURNS = 8
+    reply = ""
+
+    async def _run_architect_loop(model_name: str, max_tok: int) -> str:
+        _msgs  = [{"role": "user", "content": message}]
+        _reply = ""
+        for _turn in range(MAX_TOOL_TURNS + 1):
+            _kwargs = dict(
+                model=model_name, max_tokens=max_tok,
+                system=system, messages=_msgs,
+                tools=ARCHITECT_TOOLS,
+            )
+            _msg = await async_retry(_client.messages.create, max_attempts=3, base_delay=2.0, **_kwargs)
+
+            if _msg.stop_reason != "tool_use":
+                for block in _msg.content:
+                    if hasattr(block, "text"):
+                        _reply += block.text
+                break
+
+            tool_use_blocks = [b for b in _msg.content if b.type == "tool_use"]
+            if not tool_use_blocks:
+                for block in _msg.content:
+                    if hasattr(block, "text"):
+                        _reply += block.text
+                break
+
+            _msgs.append({"role": "assistant", "content": _msg.content})
+            tool_results = await asyncio.gather(*[
+                dispatch_architect_tool(b.name, b.input, db=db)
+                for b in tool_use_blocks
+            ])
+            _msgs.append({"role": "user", "content": [
+                {"type": "tool_result", "tool_use_id": b.id, "content": result}
+                for b, result in zip(tool_use_blocks, tool_results)
+            ]})
+        else:
+            _reply = _reply or "[ARCHITECT tool loop reached limit — partial brief above]"
+        return _reply
+
+    for _model, _max_tok in _ARCHITECT_MODELS:
+        try:
+            reply = await _run_architect_loop(_model, _max_tok)
+            if reply:
+                break
+        except Exception as _err:
+            logger.warning("ARCHITECT model %s failed: %s — trying next tier", _model, _err)
+            reply = ""
+
+    if not reply:
+        reply = (
+            "THE ARCHITECT is temporarily offline. "
+            "Visual intelligence archives remain active. Retry in a moment."
+        )
+
+    logger.info("ai_architect: responded for user %s", user.id)
+    return {"reply": reply, "persona": "architect", "mode": "visual_intelligence"}
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
 # THE CIPHER 4.0 — Spoken Word AI Influencer endpoint
 # ═══════════════════════════════════════════════════════════════════════════════
 
