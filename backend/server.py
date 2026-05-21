@@ -42,7 +42,7 @@ from typing import List, Optional, Literal
 import jwt
 from dotenv import load_dotenv
 from fastapi import Depends, FastAPI, APIRouter, File, HTTPException, Header, Request, UploadFile
-from fastapi.responses import StreamingResponse
+from fastapi.responses import StreamingResponse, JSONResponse
 from motor.motor_asyncio import AsyncIOMotorClient
 from passlib.context import CryptContext
 from pydantic import BaseModel, Field, EmailStr, ConfigDict
@@ -6164,6 +6164,125 @@ async def ai_oracle(body: dict, user: User = Depends(current_user)):
 
     logger.info("ai_oracle: responded for user %s", user.id)
     return {"reply": reply, "persona": "oracle", "mode": "cultural_intelligence"}
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# THE CIPHER 4.0 — Voice / TTS endpoint (3-tier)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+@api_router.post("/ai/cipher/tts")
+async def cipher_tts(body: dict, user: User = Depends(current_user)):
+    """THE CIPHER voice system — 3-tier TTS routing.
+
+    Tier 1 (elevenlabs / elevenlabs_cached):
+        ElevenLabs eleven_multilingual_v2 with performance markup engine.
+        Budget: 29,500 chars/month (ElevenLabs $5 Starter plan).
+        Returns audio/mpeg StreamingResponse.
+
+    Tier 2 (openai):
+        Falls back to OpenAI TTS via existing /api/ai/sage/tts infrastructure.
+        Returns JSON with fallback_endpoint + fallback_voice so client routes.
+
+    Tier 3 (text):
+        Text Performance Mode — returns clean_text + display_text with
+        readable stage directions. Zero cost. Always available.
+
+    Performance markup tags in text are parsed, stripped before TTS,
+    and translated to ElevenLabs voice_settings (stability, style, speed, etc).
+
+    Access: admin, executive_admin
+    Rate:   20 calls/min per user
+    """
+    from ai.elevenlabs_client import (
+        cipher_speak, EL_MONTHLY_CAP, EL_SOFT_WARNING, CIPHER_BACKUP_VOICE as _backup_voice
+    )
+
+    if user.role not in ("admin", "executive_admin"):
+        raise HTTPException(403, "THE CIPHER voice is available to admin and executive accounts.")
+
+    text = (body.get("text") or "").strip()
+    if not text:
+        raise HTTPException(400, "text is required")
+    if len(text) > 5000:
+        text = text[:5000]
+
+    force_tier = (body.get("force_tier") or "").lower().strip()
+    if force_tier not in ("", "elevenlabs", "openai", "text"):
+        force_tier = ""
+
+    check_rate(f"ai_cipher_tts:{user.id}", max_calls=20, window_sec=60)
+
+    try:
+        result = await cipher_speak(text=text, force_tier=force_tier, db=db)
+    except Exception as _e:
+        logger.warning("cipher_tts: cipher_speak failed — %s", _e)
+        result = {
+            "tier":             "text",
+            "audio":            None,
+            "clean_text":       text,
+            "display_text":     text,
+            "voice_settings":   {},
+            "budget_remaining": EL_MONTHLY_CAP,
+        }
+
+    tier             = result.get("tier", "text")
+    budget_remaining = result.get("budget_remaining", EL_MONTHLY_CAP)
+    budget_warning   = budget_remaining < EL_SOFT_WARNING
+
+    # ── Tier 1 / Cached — stream audio bytes ─────────────────────────────────
+    audio = result.get("audio")
+    if tier in ("elevenlabs", "elevenlabs_cached") and audio:
+        logger.info(
+            "cipher_tts T1 %s: %d bytes — user %s — budget remaining %d",
+            tier, len(audio), user.id, budget_remaining,
+        )
+        return StreamingResponse(
+            io.BytesIO(audio),
+            media_type="audio/mpeg",
+            headers={
+                "X-Tier":             tier,
+                "X-Audio-Len":        str(len(audio)),
+                "X-Budget-Remaining": str(budget_remaining),
+                "X-Budget-Warning":   "true" if budget_warning else "false",
+            },
+        )
+
+    # ── Tier 2 — OpenAI fallback: tell client where to route ─────────────────
+    if tier == "openai":
+        logger.info("cipher_tts T2 openai: routing client → sage/tts — user %s", user.id)
+        return JSONResponse(
+            content={
+                "tier":              "openai",
+                "clean_text":        result.get("clean_text", text),
+                "display_text":      result.get("display_text", text),
+                "voice_settings":    result.get("voice_settings", {}),
+                "budget_remaining":  budget_remaining,
+                "fallback_voice":    result.get("fallback_voice", _backup_voice),
+                "fallback_endpoint": result.get("fallback_endpoint", "/api/ai/sage/tts"),
+            },
+            headers={
+                "X-Tier":             "openai",
+                "X-Budget-Remaining": str(budget_remaining),
+                "X-Budget-Warning":   "true" if budget_warning else "false",
+            },
+        )
+
+    # ── Tier 3 — Text Performance Mode ───────────────────────────────────────
+    logger.info("cipher_tts T3 text: returning display text — user %s", user.id)
+    return JSONResponse(
+        content={
+            "tier":             "text",
+            "clean_text":       result.get("clean_text", text),
+            "display_text":     result.get("display_text", text),
+            "voice_settings":   result.get("voice_settings", {}),
+            "budget_remaining": budget_remaining,
+        },
+        headers={
+            "X-Tier":             "text",
+            "X-Budget-Remaining": str(budget_remaining),
+            "X-Budget-Warning":   "true" if budget_warning else "false",
+        },
+    )
 
 
 app.include_router(api_router)
