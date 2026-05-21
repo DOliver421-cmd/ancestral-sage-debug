@@ -8,22 +8,28 @@ RUN npm ci --legacy-peer-deps
 
 COPY . .
 
+# Bake the backend URL into the React bundle at build time.
+# Railway injects service variables as Docker build args automatically.
+# REACT_APP_BACKEND_URL is already set in the Arts and Tech service Variables.
+# Once baked in, the React app calls the backend directly — no nginx proxy needed.
+ARG REACT_APP_BACKEND_URL
+ENV REACT_APP_BACKEND_URL=$REACT_APP_BACKEND_URL
+
 RUN npm run build
 
 FROM nginx:alpine
 
-# React build output
 COPY --from=builder /app/build /usr/share/nginx/html
 
-# nginx config template — BACKEND_URL is substituted at container startup
-# so the image can be reused across environments without a rebuild.
-COPY nginx.conf.template /etc/nginx/templates/default.conf.template
-
-# Entrypoint: runs envsubst on the template, then starts nginx
-COPY docker-entrypoint.sh /docker-entrypoint.sh
-RUN chmod +x /docker-entrypoint.sh
+# Simple static file server — no proxy needed because the React app
+# calls the backend directly via the baked-in REACT_APP_BACKEND_URL.
+RUN echo 'server { \
+    listen 8080; \
+    root /usr/share/nginx/html; \
+    index index.html; \
+    location / { try_files $uri $uri/ /index.html; } \
+}' > /etc/nginx/conf.d/default.conf
 
 EXPOSE 8080
 
-ENTRYPOINT ["/docker-entrypoint.sh"]
 CMD ["nginx", "-g", "daemon off;"]
