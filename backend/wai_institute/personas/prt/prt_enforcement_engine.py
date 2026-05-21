@@ -12,8 +12,16 @@ Key fixes applied:
 
 The Poor Righteous Teacher enforces the Ancestral Sage's doctrine.
 He obeys only the Sage and the Executive. He rejects all others.
+
+v2 improvements:
+  - Module-level lazy singleton for The9FusionEngine — trigger_the9() no
+    longer creates a new instance on every call (was: The9FusionEngine() per call)
+  - enforce() now includes a unique enforcement_id for DB tracing
+  - _evaluate_director_plan is a pure static — no instance state needed
+  - to_governance_dict() helper produces clean audit log entries
 """
 
+import uuid
 import logging
 from datetime import datetime, timezone
 from typing import Dict, Any, Optional
@@ -21,6 +29,20 @@ from typing import Dict, Any, Optional
 from wai_institute.core.prt_the9_authority import PRTThe9Authority
 
 logger = logging.getLogger("lcewai.prt_enforcement_engine")
+
+# ── Module-level lazy singleton — shared across all PRTEnforcementEngine instances
+# Avoids creating a new The9FusionEngine (and its PRTThe9Authority) on every
+# trigger_the9() call. The engine is stateless so sharing is safe.
+_the9_engine_singleton: Optional[Any] = None   # type: Optional[The9FusionEngine]
+
+
+def _get_the9_engine():
+    """Lazy-init the shared The9FusionEngine singleton."""
+    global _the9_engine_singleton
+    if _the9_engine_singleton is None:
+        from wai_institute.core.the9_fusion_engine import The9FusionEngine
+        _the9_engine_singleton = The9FusionEngine()
+    return _the9_engine_singleton
 
 
 class PRTEnforcementEngine:
@@ -73,21 +95,24 @@ class PRTEnforcementEngine:
           2. generate_action_plan — produce concrete, executable steps
           3. execute_without_hesitation — commit fully, no ambiguity
 
+        v2: includes enforcement_id for DB tracing and audit log correlation.
+
         Returns the enforcement record.
         """
         logger.info("PRT enforcing directive: %.80s...", directive)
 
         return {
-            "status":    "enforcing",
-            "directive": directive,
-            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "status":         "enforcing",
+            "enforcement_id": str(uuid.uuid4()),   # v2: traceability
+            "directive":      directive,
+            "timestamp":      datetime.now(timezone.utc).isoformat(),
             "actions": [
                 "interpret_doctrine",
                 "generate_action_plan",
                 "execute_without_hesitation",
             ],
-            "authority": "poor_righteous_teacher",
-            "alignment": "ancestral_sage",
+            "authority":  "poor_righteous_teacher",
+            "alignment":  "ancestral_sage",
         }
 
     # ── The 9 trigger ─────────────────────────────────────────────────────────
@@ -106,13 +131,15 @@ class PRTEnforcementEngine:
           - Cultural integrity is at risk
           - Time is critical
 
-        Returns a fusion request dict for The9FusionEngine.fuse().
+        v2: Uses module-level singleton — no new The9FusionEngine() per call.
+
+        Returns a fusion result dict.
         """
-        from wai_institute.core.the9_fusion_engine import The9FusionEngine
+        # v2: reuse singleton instead of creating a new engine each call
+        engine = _get_the9_engine()
 
         logger.warning("PRT activating The 9 — reason: %s", reason)
 
-        engine = The9FusionEngine()
         prt_directive = self.enforce(reason)
 
         return engine.fuse(
@@ -216,4 +243,27 @@ class PRTEnforcementEngine:
             "criteria_scores":        scores,
             "director_plan_superior": all_met,
             "decision":               "USE_DIRECTOR_PLAN" if all_met else "STAND_DOWN_AND_ALLOW_PRT",
+        }
+
+    # ── Governance audit helper ───────────────────────────────────────────────
+
+    @staticmethod
+    def to_governance_dict(
+        sender: str,
+        directive: str,
+        filter_result: Dict[str, Any],
+        enforcement: Optional[Dict[str, Any]] = None,
+    ) -> Dict[str, Any]:
+        """
+        Build a clean dict suitable for inserting into db.prt_enforcement_log.
+        Call this from the server endpoint after filter_directive().
+        """
+        return {
+            "sender":         sender,
+            "directive":      directive[:500],
+            "accepted":       filter_result.get("accepted", False),
+            "authority":      filter_result.get("authority", "unknown"),
+            "reason":         filter_result.get("reason", ""),
+            "enforcement_id": (enforcement or {}).get("enforcement_id"),
+            "timestamp":      datetime.now(timezone.utc).isoformat(),
         }

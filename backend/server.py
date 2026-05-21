@@ -83,6 +83,36 @@ _DB_SOURCE = "primary"   # informational; updated in on_startup
 _backup_db = None        # set in on_startup if MONGO_BACKUP_URL is configured
 _pipeline_manager = None # set in on_startup once DB + API key are both available
 
+# ── WAI engine singletons ─────────────────────────────────────────────────────
+# Lazy-initialized on first use, then reused across all requests.
+# Avoids creating new PRTEnforcementEngine/The9FusionEngine objects per request.
+_prt_engine  = None   # type: ignore[assignment]  PRTEnforcementEngine
+_the9_engine = None   # type: ignore[assignment]  The9FusionEngine
+
+
+def _get_prt_engine():
+    """Return the shared PRTEnforcementEngine singleton (lazy init)."""
+    global _prt_engine
+    if _prt_engine is None:
+        try:
+            from wai_institute.personas.prt.prt_enforcement_engine import PRTEnforcementEngine
+            _prt_engine = PRTEnforcementEngine()
+        except Exception as _e:
+            logger.warning("WAI: PRTEnforcementEngine init failed: %s", _e)
+    return _prt_engine
+
+
+def _get_the9_engine():
+    """Return the shared The9FusionEngine singleton (lazy init)."""
+    global _the9_engine
+    if _the9_engine is None:
+        try:
+            from wai_institute.core.the9_fusion_engine import The9FusionEngine
+            _the9_engine = The9FusionEngine()
+        except Exception as _e:
+            logger.warning("WAI: The9FusionEngine init failed: %s", _e)
+    return _the9_engine
+
 JWT_SECRET = os.environ['JWT_SECRET']
 JWT_ALGO = os.environ.get('JWT_ALGORITHM', 'HS256')
 JWT_EXPIRE_HOURS = int(os.environ.get('JWT_EXPIRE_HOURS', '168'))
@@ -7625,9 +7655,49 @@ async def exec_publish_all(user: User = Depends(require_role("executive_admin"))
 
 # ── Staff Meeting ─────────────────────────────────────────────────────────────
 
+class StaffMeetingRequest(BaseModel):
+    """
+    Validated request body for POST /api/exec/staff-meeting.
+
+    v2: Replaces bare `body: dict` — enforces types and length limits
+    so the endpoint cannot be crashed by sending wrong-typed fields
+    (e.g., brief as a list, participants as a string).
+    """
+    brief:        str              = Field(..., min_length=1, max_length=2000)
+    agenda:       List[str]        = Field(default_factory=list, max_length=20)
+    participants: List[str]        = Field(default_factory=list, max_length=20)
+    priority:     Literal["normal", "high"] = "normal"   # validated enum, not raw string
+
+
+class PipelineProcessRequest(BaseModel):
+    """Validated request body for POST /api/exec/pipeline/process."""
+    text:   str = Field(..., min_length=1, max_length=5000)
+    source: str = Field(default="api", max_length=100)
+
+
+class PipelineProcessBatchRequest(BaseModel):
+    """Validated request body for POST /api/exec/pipeline/process-batch."""
+    texts:  List[str] = Field(..., min_length=1, max_length=50)
+    source: str       = Field(default="api", max_length=100)
+
+
+# Domain role questions — moved to module scope so they're not re-created per request
+_DOMAIN_ROLES: dict = {
+    "director":               "Governance & strategy: what oversight does this require?",
+    "revenue_director":       "Revenue: what monetization opportunity does this create?",
+    "ancestral_sage":         "Healing & wisdom: what ancestral guidance applies here?",
+    "ambassador":             "Coordination: what execution steps and timeline?",
+    "cipher":                 "Creative: what content angle, hook, and viral potential?",
+    "oracle":                 "Intelligence: what is the cultural timing and sentiment?",
+    "architect":              "Visual: what brand and visual direction does this need?",
+    "poor_righteous_teacher": "Doctrine: is this culturally aligned? Any red flags?",
+    "the_9":                  "Synthesis: unified intelligence — what is the optimal path?",
+}
+
+
 @api_router.post("/exec/staff-meeting")
 async def exec_staff_meeting(
-    body: dict,
+    body: StaffMeetingRequest,
     user: User = Depends(require_role("executive_admin")),
 ):
     """
@@ -7638,45 +7708,40 @@ async def exec_staff_meeting(
     action items. The 9 synthesizes everything if priority is "high"
     or "the_9" is listed as a participant.
 
-    Body:
-        brief        (str, required) — the executive directive or agenda topic
-        agenda       (list[str])     — specific agenda items (optional)
-        participants (list[str])     — persona IDs to include; empty = all active
-        priority     (str)           — "normal" | "high" (high triggers The 9)
-
-    Returns:
-        meeting_id, prt_cleared, domain_briefs, synthesis (if high priority),
-        participants, governance log entry ID.
-
     Executive-only.
     """
-    brief        = (body.get("brief") or "").strip()
-    agenda       = body.get("agenda") or []
-    participants = body.get("participants") or []
-    priority     = body.get("priority", "normal")
-
-    if not brief:
-        raise HTTPException(400, "brief is required")
-    if len(brief) > 2000:
-        raise HTTPException(400, "brief must be under 2000 characters")
+    brief        = body.brief.strip()
+    agenda       = [str(a)[:500] for a in body.agenda]          # sanitize items
+    participants = [str(p)[:100] for p in body.participants]     # sanitize items
+    priority     = body.priority                                  # already validated enum
 
     # ── 1. PRT validation ─────────────────────────────────────────────────────
-    try:
-        from wai_institute.personas.prt.prt_enforcement_engine import PRTEnforcementEngine
-        prt = PRTEnforcementEngine()
-        filter_result = prt.filter_directive("executive", brief)
-        if not filter_result["accepted"]:
-            raise HTTPException(403, f"PRT rejected directive: {filter_result.get('reason')}")
-    except (ImportError, HTTPException):
-        raise
-    except Exception as _prt_err:
-        logger.warning("staff_meeting: PRT validation error (non-fatal): %s", _prt_err)
-        filter_result = {"accepted": True, "authority": "bypassed"}
+    # v2: use singleton (not per-request instantiation); `prt` is always
+    # defined before the high-priority block — no NameError possible.
+    prt           = _get_prt_engine()
+    filter_result = {"accepted": True, "authority": "bypassed"}
+    enforcement   = None
+    prt_cleared   = False   # v2: accurate flag, not hardcoded True
+
+    if prt is not None:
+        try:
+            filter_result = prt.filter_directive("executive", brief)
+            if not filter_result["accepted"]:
+                raise HTTPException(403, f"PRT rejected directive: {filter_result.get('reason')}")
+            enforcement = prt.enforce(brief)
+            prt_cleared = True
+        except HTTPException:
+            raise
+        except Exception as _prt_err:
+            logger.warning("staff_meeting: PRT validation error (non-fatal): %s", _prt_err)
+            filter_result = {"accepted": True, "authority": "bypassed"}
+    else:
+        logger.warning("staff_meeting: PRT engine unavailable — bypassing")
 
     # ── 2. Cultural alignment check ───────────────────────────────────────────
     try:
         from wai_institute.core.hierarchy_enforcer import HierarchyEnforcer
-        enforcer = HierarchyEnforcer(db)
+        enforcer  = HierarchyEnforcer(db)
         alignment = enforcer.check_cultural_alignment(brief)
         if not alignment["aligned"]:
             raise HTTPException(422, f"Cultural integrity check failed: {alignment.get('violations')}")
@@ -7688,8 +7753,8 @@ async def exec_staff_meeting(
     # ── 3. Resolve active participants ────────────────────────────────────────
     try:
         from wai_institute.core.persona_manager import PersonaManager
-        pm = PersonaManager(db)
-        active = await pm.list_active()
+        pm        = PersonaManager(db)
+        active    = await pm.list_active()
         active_ids = {p["persona"] for p in active}
     except Exception:
         active_ids = {
@@ -7698,28 +7763,16 @@ async def exec_staff_meeting(
         }
 
     if participants:
-        meeting_participants = [p for p in participants if p in active_ids or p in {
-            "poor_righteous_teacher", "the_9"
-        }]
+        # v2: filter against active_ids — participant strings from user input
+        # are not trusted for DB writes without validation against known personas
+        meeting_participants = [p for p in participants if p in active_ids]
     else:
         meeting_participants = sorted(active_ids)
 
     # ── 4. Generate domain briefs per persona ─────────────────────────────────
-    DOMAIN_ROLES = {
-        "director":               "Governance & strategy: what oversight does this require?",
-        "revenue_director":       "Revenue: what monetization opportunity does this create?",
-        "ancestral_sage":         "Healing & wisdom: what ancestral guidance applies here?",
-        "ambassador":             "Coordination: what execution steps and timeline?",
-        "cipher":                 "Creative: what content angle, hook, and viral potential?",
-        "oracle":                 "Intelligence: what is the cultural timing and sentiment?",
-        "architect":              "Visual: what brand and visual direction does this need?",
-        "poor_righteous_teacher": "Doctrine: is this culturally aligned? Any red flags?",
-        "the_9":                  "Synthesis: unified intelligence — what is the optimal path?",
-    }
-
     domain_briefs = {}
     for persona_id in meeting_participants:
-        role_question = DOMAIN_ROLES.get(persona_id, "Domain input for this brief.")
+        role_question = _DOMAIN_ROLES.get(persona_id, "Domain input for this brief.")
         domain_briefs[persona_id] = {
             "persona":   persona_id,
             "question":  role_question,
@@ -7729,61 +7782,104 @@ async def exec_staff_meeting(
 
     # ── 5. The 9 synthesis (high priority or explicitly requested) ────────────
     synthesis = None
-    if priority == "high" or "the_9" in (participants or []):
-        try:
-            from wai_institute.core.the9_fusion_engine import The9FusionEngine
-            engine  = The9FusionEngine()
-            fusion  = engine.fuse(
-                context           = {"brief": brief, "agenda": agenda, "participants": meeting_participants},
-                prt_directive     = prt.enforce(brief),
-                sender            = "executive",
-                activation_reason = "executive_command",
-            )
-            synthesis = fusion.to_dict()
-        except Exception as _the9_err:
-            logger.warning("staff_meeting: The 9 synthesis error: %s", _the9_err)
-            synthesis = {"status": "unavailable", "error": "the9_init_failed"}
+    if priority == "high" or "the_9" in body.participants:
+        the9 = _get_the9_engine()   # v2: singleton, not per-request
+        if the9 is not None:
+            try:
+                # v2: `enforcement` is always defined here (set above or None)
+                # so `prt.enforce(brief)` NameError is impossible
+                prt_directive = enforcement or {"directive": brief, "authority": "bypassed"}
+                fusion  = the9.fuse(
+                    context           = {"brief": brief, "agenda": agenda, "participants": meeting_participants},
+                    prt_directive     = prt_directive,
+                    sender            = "executive",
+                    activation_reason = "executive_command",
+                )
+                synthesis = fusion.to_dict()
+            except Exception as _the9_err:
+                logger.warning("staff_meeting: The 9 synthesis error: %s", _the9_err)
+                synthesis = {"status": "unavailable", "error": "the9_init_failed"}
+        else:
+            synthesis = {"status": "unavailable", "error": "engine_not_loaded"}
 
     # ── 6. Persist to DB ──────────────────────────────────────────────────────
-    meeting_id = str(uuid.uuid4())[:8].upper()
+    # v2: full UUID for meeting_id — 8-char truncation risked collision and
+    # silent data loss (DuplicateKeyError was swallowed in the except block)
+    meeting_id   = str(uuid.uuid4())
+    convened_at  = datetime.now(timezone.utc).isoformat()
     meeting_record = {
         "meeting_id":    meeting_id,
         "brief":         brief,
         "agenda":        agenda,
         "participants":  meeting_participants,
         "priority":      priority,
-        "prt_cleared":   True,
+        "prt_cleared":   prt_cleared,   # v2: accurate, not hardcoded True
         "domain_briefs": domain_briefs,
         "synthesis":     synthesis,
         "convened_by":   user.id,
-        "convened_at":   datetime.now(timezone.utc).isoformat(),
+        "convened_at":   convened_at,
     }
 
     try:
         await db.staff_meetings.insert_one({**meeting_record, "_id": meeting_id})
+
+        # Governance log
         await db.governance_log.insert_one({
             "action":    "staff_meeting",
             "persona":   "executive",
-            "decision":  {"meeting_id": meeting_id, "brief": brief[:200], "participants": meeting_participants},
-            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "decision":  {
+                "meeting_id":   meeting_id,
+                "brief":        brief[:200],
+                "participants": meeting_participants,
+                "prt_cleared":  prt_cleared,
+            },
+            "timestamp": convened_at,
         })
+
+        # v2: write to prt_enforcement_log — index was created but nothing
+        # was writing to it. Now every meeting records the PRT decision.
+        if prt is not None:
+            from wai_institute.personas.prt.prt_enforcement_engine import PRTEnforcementEngine
+            await db.prt_enforcement_log.insert_one(
+                PRTEnforcementEngine.to_governance_dict(
+                    sender       = "executive",
+                    directive    = brief,
+                    filter_result = filter_result,
+                    enforcement  = enforcement,
+                )
+            )
+
+        # v2: write to the9_activations — index was created but nothing
+        # was writing to it. Now every The 9 synthesis is recorded.
+        if synthesis and synthesis.get("status") == "fused":
+            await db.the9_activations.insert_one({
+                "meeting_id":       meeting_id,
+                "activated_by":     synthesis.get("activated_by", "executive"),
+                "activation_code":  synthesis.get("activation_code", "executive_command"),
+                "activation_reason": synthesis.get("activation_reason", ""),
+                "skill_count":      len(synthesis.get("unified_skill_set", [])),
+                "timestamp":        convened_at,
+            })
+
     except Exception as _db_err:
         logger.warning("staff_meeting: DB persist failed (non-fatal): %s", _db_err)
 
     logger.info(
-        "Staff meeting %s convened by %s — %d participants, priority=%s, the9=%s",
-        meeting_id, user.id, len(meeting_participants), priority, synthesis is not None,
+        "Staff meeting %s convened by %s — %d participants, priority=%s, "
+        "prt_cleared=%s, the9=%s",
+        meeting_id[:8], user.id, len(meeting_participants),
+        priority, prt_cleared, synthesis is not None,
     )
 
     return {
         "meeting_id":    meeting_id,
         "status":        "convened",
-        "prt_cleared":   True,
+        "prt_cleared":   prt_cleared,          # v2: accurate flag
         "participants":  meeting_participants,
         "domain_briefs": domain_briefs,
         "synthesis":     synthesis,
         "priority":      priority,
-        "convened_at":   meeting_record["convened_at"],
+        "convened_at":   convened_at,
     }
 
 
@@ -7791,60 +7887,40 @@ async def exec_staff_meeting(
 
 @api_router.post("/exec/pipeline/process")
 async def exec_pipeline_process(
-    body: dict,
+    body: PipelineProcessRequest,
     user: User = Depends(require_role("admin")),
 ):
     """
     Route a single social media post through the intent pipeline.
 
-    Body:
-        text   (str, required) — the social media post / caption / comment
-        source (str, optional) — platform origin: "twitter", "reddit", etc.
-
-    Returns PipelineResult as JSON:
-        route, analysis, pipeline_outputs, execution_ms, cached
-
     Analyzer:
         - Claude Haiku when ANTHROPIC_API_KEY is set  (llm mode)
         - Keyword fallback when key is absent          (offline mode)
-
-    Rate: 60 calls/min per user (shared with other exec endpoints).
     """
     if _pipeline_manager is None:
         raise HTTPException(503, "PipelineManager not initialized — check server logs")
 
-    text   = (body.get("text") or "").strip()
-    source = (body.get("source") or "api").strip()
-
-    if not text:
-        raise HTTPException(400, "text field is required")
-
-    result = await _pipeline_manager.process(text, source=source)
+    result = await _pipeline_manager.process(body.text.strip(), source=body.source.strip())
     return result.to_dict()
 
 
 @api_router.post("/exec/pipeline/process-batch")
 async def exec_pipeline_process_batch(
-    body: dict,
+    body: PipelineProcessBatchRequest,
     user: User = Depends(require_role("admin")),
 ):
     """
     Route a batch of social media posts concurrently (max 50 per call).
-
-    Body:
-        texts  (list[str], required) — up to 50 posts
-        source (str, optional)       — platform origin
-
     Returns list of PipelineResult dicts in the same order as input.
     Semaphore inside PipelineManager limits concurrent LLM calls to 5.
     """
     if _pipeline_manager is None:
         raise HTTPException(503, "PipelineManager not initialized — check server logs")
 
-    texts  = body.get("texts") or []
-    source = (body.get("source") or "api").strip()
+    texts  = body.texts
+    source = body.source.strip()
 
-    if not isinstance(texts, list) or len(texts) == 0:
+    if len(texts) == 0:
         raise HTTPException(400, "texts must be a non-empty list")
     if len(texts) > 50:
         raise HTTPException(400, "Maximum 50 texts per batch call")

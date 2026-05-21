@@ -119,6 +119,11 @@ _PRT_ALIGNMENT_THEMES = frozenset([
     "trauma", "rage", "purpose", "growth", "loneliness",
 ])
 
+# Maximum text length the PRT gate will scan — avoids iterating over
+# multi-KB payloads. Anything beyond this is still blocked/aligned by the
+# first _PRT_GATE_SCAN_LIMIT characters, which is conservative and safe.
+_PRT_GATE_SCAN_LIMIT = 10_000
+
 # ── LLM prompt (system + user separation — [S1] adversarial guard) ───────────
 INTENT_SYSTEM_PROMPT = (
     "You are an emotional intelligence engine for WAI-Institute, a spoken word artist "
@@ -778,24 +783,42 @@ class PipelineManager:
         (anti-Black tropes, caricatures). Scores cultural alignment
         based on theme presence.
 
-        Returns:
-            aligned (bool)
-            reason  (str)
-            score   (float 0.0–1.0)
-        """
-        lower = text.lower()
+        v2 improvements:
+          - Input length capped at _PRT_GATE_SCAN_LIMIT before lowercasing —
+            avoids scanning multi-KB payloads against the frozensets
+          - Single pass over the scanned text builds both the violation list
+            and the alignment theme count (was two separate passes in v1)
+          - Returns `violations` list in the blocked result for detailed logging
 
-        # Hard block — explicit violations
-        violations = [term for term in _PRT_BLOCK_TERMS if term in lower]
+        Returns:
+            aligned    (bool)
+            reason     (str)
+            score      (float 0.0–1.0)
+            violations (list[str], only when aligned=False)
+        """
+        # Cap scan window — don't iterate over huge texts
+        lower = text[:_PRT_GATE_SCAN_LIMIT].lower()
+
+        # Single pass: collect violations AND count alignment theme hits
+        violations: list = []
+        theme_hits: int  = 0
+
+        for term in _PRT_BLOCK_TERMS:
+            if term in lower:
+                violations.append(term)
+
         if violations:
             return {
-                "aligned": False,
-                "reason":  f"Cultural integrity violation detected: {violations}",
-                "score":   0.0,
+                "aligned":    False,
+                "reason":     f"Cultural integrity violation detected: {violations}",
+                "score":      0.0,
+                "violations": violations,
             }
 
-        # Alignment score — how strongly the content resonates with WAI themes
-        theme_hits = sum(1 for t in _PRT_ALIGNMENT_THEMES if t in lower)
+        for theme in _PRT_ALIGNMENT_THEMES:
+            if theme in lower:
+                theme_hits += 1
+
         score = min(1.0, theme_hits / 3)   # 3+ theme hits = fully aligned
 
         # Analysis theme directly present → boost

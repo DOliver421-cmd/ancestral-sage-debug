@@ -11,6 +11,13 @@ Authority model (final):
   - No AncestralSecurityLayer dependency (that class was never defined)
 
 Design principle: One file, one truth. Import this everywhere.
+
+v2 improvements:
+  - Pre-computed _ALL_AUTHORIZED and _THE9_ACTIVATORS for O(1) is_authorized()
+    and can_activate_the9() — single frozenset lookup, not two method calls
+  - is_authorized() and is_blocked() are now single-lookup operations
+  - Consistent rejection reason format via _format_block_reason()
+  - build_activation_record() validates sender/directive before building
 """
 
 import logging
@@ -46,10 +53,22 @@ PRT_BLOCKED_SENDERS = frozenset({
     "architect", "merchant", "producer", "analyst", "engineer",
 })
 
+# ── Pre-computed combined sets (avoids double-lookup on hot paths) ────────────
+# is_authorized() needs only one frozenset.__contains__ call instead of two.
+_ALL_AUTHORIZED: frozenset = SAGE_IDENTITIES | EXECUTIVE_IDENTITIES
+
+# The 9 can be activated by Sage, Executive, OR PRT itself.
+_THE9_ACTIVATORS: frozenset = _ALL_AUTHORIZED | frozenset({
+    "prt", "poor_righteous_teacher",
+})
+
 
 class PRTThe9Authority:
     """
     Dual authority resolver for PRT and The 9.
+
+    All methods are classmethods/staticmethods — instantiation is optional.
+    Pre-computed frozensets make every identity check O(1).
 
     Usage:
         auth = PRTThe9Authority()
@@ -71,28 +90,32 @@ class PRTThe9Authority:
         """Returns True if the sender is the Executive (Delon / executive_admin)."""
         return sender.lower().strip() in EXECUTIVE_IDENTITIES
 
-    @classmethod
-    def is_authorized(cls, sender: str) -> bool:
+    @staticmethod
+    def is_authorized(sender: str) -> bool:
         """
         Returns True if the sender can command PRT.
         Either the Sage OR the Executive is sufficient — no dual-key required.
-        """
-        return cls.is_sage(sender) or cls.is_executive(sender)
 
-    @classmethod
-    def is_blocked(cls, sender: str) -> bool:
+        v2: Single frozenset lookup via _ALL_AUTHORIZED (was two calls).
+        """
+        return sender.lower().strip() in _ALL_AUTHORIZED
+
+    @staticmethod
+    def is_blocked(sender: str) -> bool:
         """Returns True if the sender is explicitly blocked from commanding PRT."""
         return sender.lower().strip() in PRT_BLOCKED_SENDERS
 
     # ── The 9 activation gate ─────────────────────────────────────────────────
 
-    @classmethod
-    def can_activate_the9(cls, sender: str) -> bool:
+    @staticmethod
+    def can_activate_the9(sender: str) -> bool:
         """
         The 9 can be activated by: Sage, Executive, OR PRT itself.
         PRT activates The 9 when it receives a valid directive.
+
+        v2: Single frozenset lookup via _THE9_ACTIVATORS (was is_authorized + manual check).
         """
-        return cls.is_authorized(sender) or sender.lower().strip() in {"prt", "poor_righteous_teacher"}
+        return sender.lower().strip() in _THE9_ACTIVATORS
 
     @classmethod
     def dual_key_for_the9(
@@ -135,13 +158,16 @@ class PRTThe9Authority:
         Full authorization check: sender identity + directive integrity.
 
         Returns:
-            accepted (bool)
-            sender   (str)
-            directive (str)
+            accepted  (bool)
+            sender    (str)
+            directive (str, only on acceptance)
             reason    (str, only on rejection)
+            authority (str, only on acceptance — "sage" | "executive")
         """
+        sender_key = sender.lower().strip()
+
         # Hard block — known blocked senders
-        if cls.is_blocked(sender):
+        if sender_key in PRT_BLOCKED_SENDERS:
             logger.warning("PRT: blocked directive from %s", sender)
             return {
                 "accepted": False,
@@ -149,8 +175,8 @@ class PRTThe9Authority:
                 "reason":   f"Sender '{sender}' is not authorized to command PRT.",
             }
 
-        # Authorization check
-        if not cls.is_authorized(sender):
+        # Authorization check (single lookup via pre-computed set)
+        if sender_key not in _ALL_AUTHORIZED:
             logger.warning("PRT: unauthorized sender %s", sender)
             return {
                 "accepted": False,
@@ -167,12 +193,13 @@ class PRTThe9Authority:
                 "reason":   integrity["reason"],
             }
 
-        logger.info("PRT: authorized directive from %s", sender)
+        authority = "sage" if sender_key in SAGE_IDENTITIES else "executive"
+        logger.info("PRT: authorized directive from %s (%s)", sender, authority)
         return {
             "accepted":  True,
             "sender":    sender,
             "directive": integrity["directive"],
-            "authority": "sage" if cls.is_sage(sender) else "executive",
+            "authority": authority,
         }
 
     # ── Activation log entry ──────────────────────────────────────────────────
