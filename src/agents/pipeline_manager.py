@@ -104,6 +104,21 @@ BLOCKING_PATTERNS = [
     re.compile(r"\b(pornograph|xxx|nsfw adult)\b", re.IGNORECASE),
 ]
 
+# ── PRT cultural alignment gate ───────────────────────────────────────────────
+# Hard-block terms that violate WAI cultural integrity (anti-Black tropes).
+# PRT rejects any content containing these before it reaches outreach or merch.
+_PRT_BLOCK_TERMS = frozenset([
+    "poverty porn", "caricature", "stereotype",
+    "mammy", "coon", "sambo",
+])
+
+# Themes that signal ancestral/cultural alignment (from the WAI catalog)
+_PRT_ALIGNMENT_THEMES = frozenset([
+    "grief", "healing", "identity", "blackness", "resilience",
+    "community", "ancestry", "love", "justice", "freedom", "hope",
+    "trauma", "rage", "purpose", "growth", "loneliness",
+])
+
 # ── LLM prompt (system + user separation — [S1] adversarial guard) ───────────
 INTENT_SYSTEM_PROMPT = (
     "You are an emotional intelligence engine for WAI-Institute, a spoken word artist "
@@ -613,6 +628,21 @@ class PipelineManager:
         """Dispatch to the appropriate pipeline. Returns combined output dict."""
         lead = self._build_lead(text, analysis, source)
 
+        # ── PRT cultural alignment gate ───────────────────────────────────────
+        # Applied to high-value routes only (outreach and merch).
+        # Discovery and neutral bypass — they already have low confidence.
+        if route in (ROUTE_OUTREACH, ROUTE_MERCH):
+            prt = self._prt_validate(text, analysis)
+            if not prt["aligned"]:
+                logger.warning(
+                    "PRT blocked route %s — reason: %s", route, prt["reason"]
+                )
+                return {
+                    "stage":    "blocked_by_prt",
+                    "reason":   "cultural_integrity_check_failed",
+                    "redirect": ROUTE_DISCOVERY,
+                }
+
         if route == ROUTE_OUTREACH:
             return await self._run_outreach(lead, analysis)
         if route == ROUTE_MERCH:
@@ -738,6 +768,44 @@ class PipelineManager:
             "score":     int(analysis.confidence * 5),
             "matched":   False,
             "actioned":  False,
+        }
+
+    def _prt_validate(self, text: str, analysis: "IntentAnalysis") -> dict:
+        """
+        PRT cultural alignment gate.
+
+        Rejects content that violates WAI cultural integrity standards
+        (anti-Black tropes, caricatures). Scores cultural alignment
+        based on theme presence.
+
+        Returns:
+            aligned (bool)
+            reason  (str)
+            score   (float 0.0–1.0)
+        """
+        lower = text.lower()
+
+        # Hard block — explicit violations
+        violations = [term for term in _PRT_BLOCK_TERMS if term in lower]
+        if violations:
+            return {
+                "aligned": False,
+                "reason":  f"Cultural integrity violation detected: {violations}",
+                "score":   0.0,
+            }
+
+        # Alignment score — how strongly the content resonates with WAI themes
+        theme_hits = sum(1 for t in _PRT_ALIGNMENT_THEMES if t in lower)
+        score = min(1.0, theme_hits / 3)   # 3+ theme hits = fully aligned
+
+        # Analysis theme directly present → boost
+        if analysis and analysis.theme in _PRT_ALIGNMENT_THEMES:
+            score = min(1.0, score + 0.3)
+
+        return {
+            "aligned": True,
+            "reason":  "PRT: content cleared for cultural alignment",
+            "score":   round(score, 2),
         }
 
     @staticmethod

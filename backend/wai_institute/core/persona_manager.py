@@ -21,24 +21,28 @@ logger = logging.getLogger("lcewai.persona_manager")
 
 # Canonical persona tiers (matches persona_loader.py hierarchy)
 PERSONA_TIERS = {
-    "director":         2,
-    "revenue_director": 3,
-    "ancestral_sage":   3,
-    "ambassador":       4,
-    "cipher":           4,
-    "oracle":           4,
-    "architect":        4,
+    "the_9":                  0,   # Tier 0 — unified mind, above all hierarchy
+    "poor_righteous_teacher": 1,   # Tier 1 — doctrinal guardian, reports to Sage + Executive
+    "director":               2,
+    "revenue_director":       3,
+    "ancestral_sage":         3,
+    "ambassador":             4,
+    "cipher":                 4,
+    "oracle":                 4,
+    "architect":              4,
 }
 
 # Who each persona reports to
 REPORTING_LINES = {
-    "director":         None,
-    "revenue_director": "director",
-    "ancestral_sage":   "director",
-    "ambassador":       "director",
-    "cipher":           "ambassador",
-    "oracle":           "ambassador",
-    "architect":        "ambassador",
+    "the_9":                  "poor_righteous_teacher",
+    "poor_righteous_teacher": None,   # Reports to Sage + Executive (dual authority — stored separately)
+    "director":               None,
+    "revenue_director":       "director",
+    "ancestral_sage":         "director",
+    "ambassador":             "director",
+    "cipher":                 "ambassador",
+    "oracle":                 "ambassador",
+    "architect":              "ambassador",
 }
 
 

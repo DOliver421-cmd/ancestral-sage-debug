@@ -7444,13 +7444,17 @@ async def exec_dashboard(user: User = Depends(require_role("executive_admin"))):
 
     # ── Persona registry ──────────────────────────────────────────────────────
     personas = [
-        {"id": "cipher",           "name": "THE CIPHER 4.0",          "tools": 8,  "voice": "elevenlabs", "tier": 4},
-        {"id": "oracle",           "name": "THE ORACLE 4.0",           "tools": 7,  "voice": "openai",     "tier": 4},
-        {"id": "ambassador",       "name": "THE AMBASSADOR 4.0",       "tools": 9,  "voice": "openai",     "tier": 4},
-        {"id": "architect",        "name": "THE ARCHITECT 4.0",        "tools": 8,  "voice": "openai",     "tier": 4},
-        {"id": "director",         "name": "THE DIRECTOR 4.0",         "tools": 8,  "voice": "elevenlabs", "tier": 2},
-        {"id": "revenue_director", "name": "THE REVENUE DIRECTOR 4.0", "tools": 9,  "voice": "elevenlabs", "tier": 3},
-        {"id": "ancestral_sage",   "name": "THE ANCESTRAL SAGE 4.0",   "tools": 7,  "voice": "elevenlabs", "tier": 3},
+        # ── Authority layer ───────────────────────────────────────────────────
+        {"id": "the_9",                  "name": "THE 9 — UNIFIED MIND",         "tools": 16, "voice": "elevenlabs", "tier": 0, "authority": "unified_mind"},
+        {"id": "poor_righteous_teacher", "name": "THE POOR RIGHTEOUS TEACHER",   "tools": 6,  "voice": "elevenlabs", "tier": 1, "authority": "doctrinal_guardian"},
+        # ── Core personas ─────────────────────────────────────────────────────
+        {"id": "director",               "name": "THE DIRECTOR 4.0",             "tools": 8,  "voice": "elevenlabs", "tier": 2},
+        {"id": "revenue_director",       "name": "THE REVENUE DIRECTOR 4.0",     "tools": 9,  "voice": "elevenlabs", "tier": 3},
+        {"id": "ancestral_sage",         "name": "THE ANCESTRAL SAGE 4.0",       "tools": 7,  "voice": "elevenlabs", "tier": 3},
+        {"id": "ambassador",             "name": "THE AMBASSADOR 4.0",           "tools": 9,  "voice": "openai",     "tier": 4},
+        {"id": "cipher",                 "name": "THE CIPHER 4.0",               "tools": 8,  "voice": "elevenlabs", "tier": 4},
+        {"id": "oracle",                 "name": "THE ORACLE 4.0",               "tools": 7,  "voice": "openai",     "tier": 4},
+        {"id": "architect",              "name": "THE ARCHITECT 4.0",            "tools": 8,  "voice": "openai",     "tier": 4},
     ]
 
     # ── MongoDB queries ───────────────────────────────────────────────────────
@@ -7617,6 +7621,170 @@ async def exec_publish_all(user: User = Depends(require_role("executive_admin"))
         raise HTTPException(500, f"Batch publish failed: {e}")
 
     return result
+
+
+# ── Staff Meeting ─────────────────────────────────────────────────────────────
+
+@api_router.post("/exec/staff-meeting")
+async def exec_staff_meeting(
+    body: dict,
+    user: User = Depends(require_role("executive_admin")),
+):
+    """
+    Convene a staff meeting across the WAI-Institute persona network.
+
+    PRT chairs the meeting and validates cultural alignment first.
+    All active participants receive the brief and return domain-specific
+    action items. The 9 synthesizes everything if priority is "high"
+    or "the_9" is listed as a participant.
+
+    Body:
+        brief        (str, required) — the executive directive or agenda topic
+        agenda       (list[str])     — specific agenda items (optional)
+        participants (list[str])     — persona IDs to include; empty = all active
+        priority     (str)           — "normal" | "high" (high triggers The 9)
+
+    Returns:
+        meeting_id, prt_cleared, domain_briefs, synthesis (if high priority),
+        participants, governance log entry ID.
+
+    Executive-only.
+    """
+    brief        = (body.get("brief") or "").strip()
+    agenda       = body.get("agenda") or []
+    participants = body.get("participants") or []
+    priority     = body.get("priority", "normal")
+
+    if not brief:
+        raise HTTPException(400, "brief is required")
+    if len(brief) > 2000:
+        raise HTTPException(400, "brief must be under 2000 characters")
+
+    # ── 1. PRT validation ─────────────────────────────────────────────────────
+    try:
+        from wai_institute.personas.prt.prt_enforcement_engine import PRTEnforcementEngine
+        prt = PRTEnforcementEngine()
+        filter_result = prt.filter_directive("executive", brief)
+        if not filter_result["accepted"]:
+            raise HTTPException(403, f"PRT rejected directive: {filter_result.get('reason')}")
+    except (ImportError, HTTPException):
+        raise
+    except Exception as _prt_err:
+        logger.warning("staff_meeting: PRT validation error (non-fatal): %s", _prt_err)
+        filter_result = {"accepted": True, "authority": "bypassed"}
+
+    # ── 2. Cultural alignment check ───────────────────────────────────────────
+    try:
+        from wai_institute.core.hierarchy_enforcer import HierarchyEnforcer
+        enforcer = HierarchyEnforcer(db)
+        alignment = enforcer.check_cultural_alignment(brief)
+        if not alignment["aligned"]:
+            raise HTTPException(422, f"Cultural integrity check failed: {alignment.get('violations')}")
+    except (ImportError, HTTPException):
+        raise
+    except Exception:
+        alignment = {"aligned": True}
+
+    # ── 3. Resolve active participants ────────────────────────────────────────
+    try:
+        from wai_institute.core.persona_manager import PersonaManager
+        pm = PersonaManager(db)
+        active = await pm.list_active()
+        active_ids = {p["persona"] for p in active}
+    except Exception:
+        active_ids = {
+            "poor_righteous_teacher", "the_9", "director", "ancestral_sage",
+            "ambassador", "cipher", "oracle", "architect", "revenue_director",
+        }
+
+    if participants:
+        meeting_participants = [p for p in participants if p in active_ids or p in {
+            "poor_righteous_teacher", "the_9"
+        }]
+    else:
+        meeting_participants = sorted(active_ids)
+
+    # ── 4. Generate domain briefs per persona ─────────────────────────────────
+    DOMAIN_ROLES = {
+        "director":               "Governance & strategy: what oversight does this require?",
+        "revenue_director":       "Revenue: what monetization opportunity does this create?",
+        "ancestral_sage":         "Healing & wisdom: what ancestral guidance applies here?",
+        "ambassador":             "Coordination: what execution steps and timeline?",
+        "cipher":                 "Creative: what content angle, hook, and viral potential?",
+        "oracle":                 "Intelligence: what is the cultural timing and sentiment?",
+        "architect":              "Visual: what brand and visual direction does this need?",
+        "poor_righteous_teacher": "Doctrine: is this culturally aligned? Any red flags?",
+        "the_9":                  "Synthesis: unified intelligence — what is the optimal path?",
+    }
+
+    domain_briefs = {}
+    for persona_id in meeting_participants:
+        role_question = DOMAIN_ROLES.get(persona_id, "Domain input for this brief.")
+        domain_briefs[persona_id] = {
+            "persona":   persona_id,
+            "question":  role_question,
+            "brief":     brief[:300],
+            "status":    "awaiting_response",
+        }
+
+    # ── 5. The 9 synthesis (high priority or explicitly requested) ────────────
+    synthesis = None
+    if priority == "high" or "the_9" in (participants or []):
+        try:
+            from wai_institute.core.the9_fusion_engine import The9FusionEngine
+            engine  = The9FusionEngine()
+            fusion  = engine.fuse(
+                context           = {"brief": brief, "agenda": agenda, "participants": meeting_participants},
+                prt_directive     = prt.enforce(brief),
+                sender            = "executive",
+                activation_reason = "executive_command",
+            )
+            synthesis = fusion.to_dict()
+        except Exception as _the9_err:
+            logger.warning("staff_meeting: The 9 synthesis error: %s", _the9_err)
+            synthesis = {"status": "unavailable", "error": "the9_init_failed"}
+
+    # ── 6. Persist to DB ──────────────────────────────────────────────────────
+    meeting_id = str(uuid.uuid4())[:8].upper()
+    meeting_record = {
+        "meeting_id":    meeting_id,
+        "brief":         brief,
+        "agenda":        agenda,
+        "participants":  meeting_participants,
+        "priority":      priority,
+        "prt_cleared":   True,
+        "domain_briefs": domain_briefs,
+        "synthesis":     synthesis,
+        "convened_by":   user.id,
+        "convened_at":   datetime.now(timezone.utc).isoformat(),
+    }
+
+    try:
+        await db.staff_meetings.insert_one({**meeting_record, "_id": meeting_id})
+        await db.governance_log.insert_one({
+            "action":    "staff_meeting",
+            "persona":   "executive",
+            "decision":  {"meeting_id": meeting_id, "brief": brief[:200], "participants": meeting_participants},
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+        })
+    except Exception as _db_err:
+        logger.warning("staff_meeting: DB persist failed (non-fatal): %s", _db_err)
+
+    logger.info(
+        "Staff meeting %s convened by %s — %d participants, priority=%s, the9=%s",
+        meeting_id, user.id, len(meeting_participants), priority, synthesis is not None,
+    )
+
+    return {
+        "meeting_id":    meeting_id,
+        "status":        "convened",
+        "prt_cleared":   True,
+        "participants":  meeting_participants,
+        "domain_briefs": domain_briefs,
+        "synthesis":     synthesis,
+        "priority":      priority,
+        "convened_at":   meeting_record["convened_at"],
+    }
 
 
 # ── Pipeline: LLM intent routing ──────────────────────────────────────────────

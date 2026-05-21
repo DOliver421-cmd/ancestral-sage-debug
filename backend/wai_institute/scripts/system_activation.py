@@ -37,6 +37,33 @@ async def activate_system(db) -> dict:
         logger.warning("system_activation: persona bootstrap failed — %s", e)
         results["personas"] = {"error": str(e)}
 
+    # ── 1b. Bootstrap PRT + The 9 ─────────────────────────────────────────────
+    try:
+        from wai_institute.core.persona_manager import PersonaManager, PERSONA_TIERS, REPORTING_LINES
+        pm = PersonaManager(db)
+        for pname, scope, mode in [
+            ("poor_righteous_teacher", ["internal_ops", "cultural_enforcement", "the9_activation"], "active"),
+            ("the_9",                  ["internal_ops", "unified_execution", "campaign_synthesis"],  "active"),
+        ]:
+            existing = await db.persona_activations.find_one({"persona": pname}) if db else None
+            if not existing:
+                await pm.activate(
+                    name=pname,
+                    config={
+                        "source":        "system_activation",
+                        "bootstrapped":  True,
+                        "authority_model": "ESDAL_v4",
+                    },
+                    mode=mode,
+                    scope=scope,
+                    activated_by="system_startup",
+                )
+                logger.info("system_activation: bootstrapped %s", pname)
+        results["prt_the9"] = {"bootstrapped": True}
+    except Exception as e:
+        logger.warning("system_activation: PRT/The 9 bootstrap failed (non-fatal): %s", e)
+        results["prt_the9"] = {"error": str(e)}
+
     # ── 2. Ensure pipeline indexes ────────────────────────────────────────────
     try:
         results["indexes"] = await _ensure_pipeline_indexes(db)
@@ -100,6 +127,16 @@ async def _ensure_pipeline_indexes(db) -> dict:
         # Governance log
         ("governance_log",    [("action", 1)],        {}),
         ("governance_log",    [("timestamp", -1)],    {}),
+        # Staff meetings
+        ("staff_meetings",    [("meeting_id", 1)],    {"unique": True}),
+        ("staff_meetings",    [("convened_at", -1)],  {}),
+        ("staff_meetings",    [("priority", 1)],      {}),
+        # PRT enforcement log
+        ("prt_enforcement_log", [("sender", 1)],      {}),
+        ("prt_enforcement_log", [("timestamp", -1)],  {}),
+        # The 9 activation log
+        ("the9_activations",  [("activated_by", 1)],  {}),
+        ("the9_activations",  [("timestamp", -1)],    {}),
     ]
 
     for collection, keys, kwargs in index_plan:
