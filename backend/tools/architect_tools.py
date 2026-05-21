@@ -715,53 +715,22 @@ async def architect_publish_design_product(
     )
     final_price = price_cents if price_cents else (revenue_stream["price_cents"] if revenue_stream else 4999)
 
-    # ── Tier 1: Gumroad ───────────────────────────────────────────────────────
-    if GUMROAD_API_KEY and final_price > 0:
-        try:
-            import httpx as _httpx
-            async with _httpx.AsyncClient(timeout=20) as client:
-                r = await client.post(
-                    "https://api.gumroad.com/v2/products",
-                    data={
-                        "access_token": GUMROAD_API_KEY,
-                        "name":         product_name,
-                        "description":  description,
-                        "price":        final_price,
-                        "published":    "true",
-                    },
-                )
-            if r.status_code in (200, 201):
-                data = r.json()
-                url = data.get("product", {}).get("short_url", "")
-                logger.info("architect_publish_design_product T1 Gumroad: %s → %s", product_name, url)
-                return json.dumps({
-                    "status": "published", "tier": "gumroad",
-                    "name": product_name, "price": f"${final_price/100:.2f}", "url": url,
-                })
-        except Exception as e:
-            logger.warning("architect_publish T1 failed: %s", e)
+    # ── Unified 4-tier publishing pipeline ───────────────────────────────────
+    from ai.publishing import autonomous_publish
 
-    # ── Tier 2: MongoDB ───────────────────────────────────────────────────────
-    product_id = str(uuid.uuid4())
-    if db is not None:
-        try:
-            await db.architect_products.insert_one({
-                "_id": product_id, "name": product_name, "description": description,
-                "price_cents": final_price, "asset_ids": asset_ids or [],
-                "status": "archived", "created_at": datetime.now(timezone.utc).isoformat(),
-            })
-            await db.executive_notifications.insert_one({
-                "type": "architect_product_published", "product_id": product_id,
-                "name": product_name, "price_cents": final_price,
-                "note": "Add GUMROAD_API_KEY to Railway for autonomous publishing.",
-                "created_at": datetime.now(timezone.utc).isoformat(),
-            })
-        except Exception: pass
-
-    return json.dumps({
-        "status": "archived", "tier": "mongodb", "product_id": product_id,
-        "name": product_name, "note": "Add GUMROAD_API_KEY to Railway for autonomous Gumroad publishing.",
-    })
+    asset_note = f"asset_ids:{','.join(asset_ids)}" if asset_ids else ""
+    result = await autonomous_publish(
+        name=product_name,
+        description=description,
+        price_cents=final_price,
+        persona="architect",
+        content=asset_note,
+        content_type="design_product",
+        revenue_stream_id=revenue_stream_id,
+        db=db,
+    )
+    logger.info("architect_publish_design_product: tier=%s status=%s", result.get("tier"), result.get("status"))
+    return json.dumps(result)
 
 
 async def architect_list_revenue_streams(db=None) -> str:

@@ -504,34 +504,22 @@ async def rd_publish_financial_report(
     report_id: str = "",
     db=None,
 ) -> str:
-    """Publish a financial report/product to Gumroad T1 or MongoDB T2."""
+    """Publish a financial report/product via the unified 4-tier publishing pipeline."""
+    from ai.publishing import autonomous_publish
+
     pub_desc = description or f"{product_name} — financial intelligence from the WAI-Institute Revenue Director."
-
-    # ── Tier 1: Gumroad ───────────────────────────────────────────────────────
-    if GUMROAD_API_KEY and price_cents > 0:
-        try:
-            import httpx
-            async with httpx.AsyncClient(timeout=20) as client:
-                r = await client.post(
-                    "https://api.gumroad.com/v2/products",
-                    data={"access_token": GUMROAD_API_KEY, "name": product_name, "description": pub_desc, "price": price_cents, "published": "true"},
-                )
-            if r.status_code in (200, 201):
-                url = r.json().get("product", {}).get("short_url", "")
-                logger.info("rd_publish T1 Gumroad: %s → %s", product_name, url)
-                return json.dumps({"status": "published", "tier": "gumroad", "name": product_name, "price": f"${price_cents/100:.2f}", "url": url})
-        except Exception as e:
-            logger.warning("rd_publish T1 failed: %s", e)
-
-    # ── Tier 2: MongoDB ───────────────────────────────────────────────────────
-    product_id = str(uuid.uuid4())
-    if db is not None:
-        try:
-            await db.rd_products.insert_one({"_id": product_id, "name": product_name, "description": pub_desc, "price_cents": price_cents, "report_id": report_id, "status": "archived", "created_at": datetime.now(timezone.utc).isoformat()})
-            await db.executive_notifications.insert_one({"type": "rd_product_published", "product_id": product_id, "name": product_name, "price_cents": price_cents, "note": "Add GUMROAD_API_KEY to Railway for autonomous publishing.", "created_at": datetime.now(timezone.utc).isoformat()})
-        except Exception: pass
-
-    return json.dumps({"status": "archived", "tier": "mongodb", "product_id": product_id, "note": "Add GUMROAD_API_KEY to Railway for autonomous Gumroad publishing."})
+    result = await autonomous_publish(
+        name=product_name,
+        description=pub_desc,
+        price_cents=price_cents,
+        persona="revenue_director",
+        content=f"report_id:{report_id}" if report_id else "",
+        content_type="financial_report",
+        revenue_stream_id=revenue_stream_id,
+        db=db,
+    )
+    logger.info("rd_publish_financial_report: tier=%s status=%s", result.get("tier"), result.get("status"))
+    return json.dumps(result)
 
 
 async def rd_grant_tracker(action: str = "list_opportunities", data: dict = None, db=None) -> str:

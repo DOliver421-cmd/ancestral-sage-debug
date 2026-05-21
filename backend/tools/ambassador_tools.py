@@ -531,71 +531,36 @@ async def ambassador_publish_campaign(
         f"Includes Oracle cultural intelligence brief, Cipher spoken word content, and Architect visual brief."
     )
 
-    # ── Tier 1: Gumroad ───────────────────────────────────────────────────────
-    if GUMROAD_API_KEY and final_price > 0:
-        try:
-            import httpx as _httpx
-            async with _httpx.AsyncClient(timeout=20) as client:
-                r = await client.post(
-                    "https://api.gumroad.com/v2/products",
-                    data={
-                        "access_token": GUMROAD_API_KEY,
-                        "name":         campaign["name"],
-                        "description":  pub_desc,
-                        "price":        final_price,
-                        "published":    "true",
-                    },
-                )
-            if r.status_code in (200, 201):
-                data = r.json()
-                gumroad_url = data.get("product", {}).get("short_url", "")
-                if db is not None:
-                    await db.ambassador_campaigns.update_one(
-                        {"_id": campaign_id},
-                        {"$set": {"status": "published", "gumroad_url": gumroad_url, "updated_at": datetime.now(timezone.utc).isoformat()}},
-                    )
-                logger.info("ambassador_publish_campaign T1 Gumroad OK: %s → %s", campaign_id, gumroad_url)
-                return json.dumps({
-                    "status":      "published",
-                    "tier":        "gumroad",
-                    "campaign_id": campaign_id,
-                    "name":        campaign["name"],
-                    "price":       f"${final_price / 100:.2f}",
-                    "url":         gumroad_url,
-                })
-        except Exception as e:
-            logger.warning("ambassador_publish_campaign T1 Gumroad failed: %s", e)
+    # ── Unified 4-tier publishing pipeline ───────────────────────────────────
+    from ai.publishing import autonomous_publish
 
-    # ── Tier 2: MongoDB archive + email ───────────────────────────────────────
+    pub_result = await autonomous_publish(
+        name=campaign["name"],
+        description=pub_desc,
+        price_cents=final_price,
+        persona="ambassador",
+        content=f"campaign_id:{campaign_id}",
+        content_type="campaign_package",
+        revenue_stream_id=campaign.get("revenue_stream", {}).get("id", ""),
+        db=db,
+    )
+
+    # Update campaign record with publish result
     if db is not None:
         try:
             await db.ambassador_campaigns.update_one(
                 {"_id": campaign_id},
-                {"$set": {"status": "published_archived", "updated_at": datetime.now(timezone.utc).isoformat()}},
+                {"$set": {
+                    "status":       pub_result.get("status", "archived"),
+                    "platform_url": pub_result.get("url"),
+                    "pipeline_id":  pub_result.get("pipeline_id"),
+                    "updated_at":   datetime.now(timezone.utc).isoformat(),
+                }},
             )
         except Exception: pass
 
-    # ── Tier 3: Executive notification ────────────────────────────────────────
-    try:
-        if db is not None:
-            await db.executive_notifications.insert_one({
-                "type":        "ambassador_campaign_published",
-                "campaign_id": campaign_id,
-                "name":        campaign["name"],
-                "price_cents": final_price,
-                "description": pub_desc[:500],
-                "note":        "Campaign packaged and archived. Add GUMROAD_API_KEY to Railway to enable autonomous publishing.",
-                "created_at":  datetime.now(timezone.utc).isoformat(),
-            })
-    except Exception: pass
-
-    return json.dumps({
-        "status":      "archived",
-        "tier":        "mongodb",
-        "campaign_id": campaign_id,
-        "name":        campaign["name"],
-        "note":        "Campaign archived. Add GUMROAD_API_KEY to Railway for autonomous Gumroad publishing.",
-    })
+    logger.info("ambassador_publish_campaign: tier=%s status=%s", pub_result.get("tier"), pub_result.get("status"))
+    return json.dumps({"campaign_id": campaign_id, **pub_result})
 
 
 async def ambassador_request_director_approval(

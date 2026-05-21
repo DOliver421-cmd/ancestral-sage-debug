@@ -425,44 +425,22 @@ async def sage_publish_wellness_content(
     revenue_stream_id: str = "healing_guide",
     db=None,
 ) -> str:
-    """Publish healing content to Gumroad T1 or MongoDB T2."""
+    """Publish healing content via the unified 4-tier publishing pipeline."""
+    from ai.publishing import autonomous_publish
+
     pub_desc = description or f"{product_name} — Ancestral healing resource from the WAI-Institute."
-
-    # ── Tier 1: Gumroad ───────────────────────────────────────────────────────
-    if GUMROAD_API_KEY and price_cents > 0:
-        try:
-            import httpx
-            async with httpx.AsyncClient(timeout=20) as client:
-                r = await client.post(
-                    "https://api.gumroad.com/v2/products",
-                    data={"access_token": GUMROAD_API_KEY, "name": product_name, "description": pub_desc, "price": price_cents, "published": "true"},
-                )
-            if r.status_code in (200, 201):
-                url = r.json().get("product", {}).get("short_url", "")
-                logger.info("sage_publish T1 Gumroad: %s → %s", product_name, url)
-                return json.dumps({"status": "published", "tier": "gumroad", "name": product_name, "price": f"${price_cents/100:.2f}", "url": url})
-        except Exception as e:
-            logger.warning("sage_publish T1 failed: %s", e)
-
-    # ── Tier 2: MongoDB ───────────────────────────────────────────────────────
-    product_id = str(uuid.uuid4())
-    if db is not None:
-        try:
-            await db.sage_products.insert_one({
-                "_id": product_id, "name": product_name, "description": pub_desc,
-                "content": content[:2000] if content else "",  # store first 2K chars
-                "price_cents": price_cents, "status": "archived",
-                "created_at": datetime.now(timezone.utc).isoformat()
-            })
-            await db.executive_notifications.insert_one({
-                "type": "sage_product_published", "product_id": product_id,
-                "name": product_name, "price_cents": price_cents,
-                "note": "Add GUMROAD_API_KEY to Railway for autonomous Gumroad publishing.",
-                "created_at": datetime.now(timezone.utc).isoformat()
-            })
-        except Exception: pass
-
-    return json.dumps({"status": "archived", "tier": "mongodb", "product_id": product_id, "note": "Add GUMROAD_API_KEY to Railway for autonomous Gumroad publishing."})
+    result = await autonomous_publish(
+        name=product_name,
+        description=pub_desc,
+        price_cents=price_cents,
+        persona="ancestral_sage",
+        content=content,
+        content_type="healing_content",
+        revenue_stream_id=revenue_stream_id,
+        db=db,
+    )
+    logger.info("sage_publish_wellness_content: tier=%s status=%s", result.get("tier"), result.get("status"))
+    return json.dumps(result)
 
 
 async def sage_get_revenue_report(period: str = "30d", db=None) -> str:
@@ -487,7 +465,7 @@ async def sage_list_revenue_streams(db=None) -> str:
         "persona": "ancestral_sage",
         "streams": SAGE_REVENUE_STREAMS,
         "count":   len(SAGE_REVENUE_STREAMS),
-        "note":    "Set GUMROAD_API_KEY in Railway to enable autonomous publishing.",
+        "note":    "Set LEMON_SQUEEZY_API_KEY + LEMON_SQUEEZY_STORE_ID in Railway to enable autonomous publishing.",
     })
 
 
