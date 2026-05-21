@@ -602,3 +602,329 @@ All created automatically on first use — no setup required.
 | `db.architect_products` | Architect revenue products |
 | `db.director_approvals` | Director approval requests from Ambassador |
 | `db.executive_notifications` | Executive notification queue |
+
+---
+
+# SESSION 3 UPDATE — 2026-05-21
+
+**Last commit this session:** `12c9b75`
+**Status:** WAI-Institute Level 4 autonomous multi-agent revenue pipeline fully built, tested, committed, and live on Railway.
+
+---
+
+## WHAT WAS BUILT THIS SESSION
+
+### Overview — The Autonomous Revenue Pipeline
+
+The system now runs a continuous, self-operating revenue pipeline:
+
+```
+[Social Platforms]
+Reddit / RSS / YouTube / Twitter
+         │
+         ▼
+    CulturalScout          ← discovers culturally resonant content
+         │ leads
+         ▼
+  ContextualMatcher        ← matches leads to WAI products
+         │ match result
+         ▼
+ ConversationalEngine      ← crafts authentic outreach (Claude Haiku)
+         │ response + preview
+         ▼
+   TransactionNode         ← generates Lemon Squeezy checkout link
+         │ campaign logged
+         ▼
+   MerchPipeline           ← DALL-E 3 design + Printify POD product
+         │
+         ▼
+  AnalyticsPipeline        ← monthly performance report + recommendations
+```
+
+All scanning runs in the background automatically, every 6 hours. No manual trigger required.
+
+---
+
+### Module 1: PersonaManager (`backend/wai_institute/core/persona_manager.py`)
+
+Lifecycle management for all personas.
+
+**Methods:**
+- `activate(name, config, mode, scope, activated_by)` — upserts to `db.persona_activations`
+- `deactivate(name, reason, archive_memory, can_reactivate, deactivated_by)`
+- `evolve(name, add_capabilities, remove_capabilities, update_mandate, ...)` — appends to evolution_log
+- `clone(source, new_name, overrides, cloned_by)` — creates derivative persona
+- `merge(source_a, source_b, new_name, merged_by)` — union capabilities, combined memory policy
+- `status(name)` — returns activation doc from MongoDB
+- `list_active()` — returns all active personas
+- `bootstrap_core_personas(activated_by)` — idempotent startup bootstrap for all 7 personas
+
+**Called automatically:** `activate_system()` calls `bootstrap_core_personas()` on every startup.
+
+---
+
+### Module 2: PersonaRegistry (`backend/wai_institute/core/persona_registry.py`)
+
+Static configuration for all 7 core personas.
+
+| Persona | Tier | Reports To | Audio Budget |
+|---|---|---|---|
+| director | 1 | — | 3000 chars/month |
+| revenue_director | 1 | director | 2000 chars/month |
+| ancestral_sage | 2 | director | 4000 chars/month |
+| ambassador | 2 | director | 3000 chars/month |
+| cipher | 2 | director | 10000 chars/month |
+| oracle | 3 | director | 2000 chars/month |
+| architect | 3 | director | 1500 chars/month |
+
+Also loads 10 persona template blueprints from `backend/wai_institute/personas/templates/`.
+
+---
+
+### Module 3: HierarchyEnforcer (`backend/wai_institute/core/hierarchy_enforcer.py`)
+
+Approval gates and policy enforcement.
+
+**Requires Director approval:** system_changes, persona_creation, persona_retirement, major_release, budget_override, new_paid_tool, merge_personas
+
+**Requires Ambassador approval:** campaign_publish (≤$99), persona_deployment, tool_assignment, content_release
+
+**Key methods:**
+- `check_action(requesting_persona, action, context)` → {approved, approver, reason}
+- `check_audio_budget(persona, chars_requested)` → {approved, status, remaining, pct_used}
+- `enforce_free_first(tool)` → {approved, policy}
+- `check_cultural_alignment(content, flags)` → keyword-based block check
+- `approve_revenue_action(action)` → checks required env keys
+- `log_decision(action, persona, decision)` → writes to `db.governance_log`
+
+---
+
+### Module 4: CulturalScout (`backend/wai_institute/pipelines/cultural_scout.py`)
+
+Discovers culturally resonant content across 4 platforms.
+
+**Platforms:**
+- **Reddit** — 7 subreddits: blackpoetry, spokenword, poetry, blackculture, afrobeats, blackart, poetryslam. Uses public JSON API (no auth needed).
+- **RSS** — Google Trends RSS + Poetry Foundation RSS + NYT Arts RSS
+- **YouTube** — YouTube Data API v3 (needs `YOUTUBE_API_KEY`)
+- **Twitter/X** — API v2 search (needs `TWITTER_BEARER_TOKEN`, conservative 500 posts/month quota)
+
+**Scoring:** `_score_content(text)` → (score 0-5, theme, intent: seeking|sharing|trending|none)
+
+**Storage:** Deduplicates by `source_id` → stores to `db.scout_leads`
+
+**Env vars needed:** `YOUTUBE_API_KEY`, `TWITTER_BEARER_TOKEN` (optional — degrades gracefully)
+
+---
+
+### Module 5: ContextualMatcher (`backend/wai_institute/pipelines/contextual_matcher.py`)
+
+Matches scout leads to WAI-Institute products using keyword overlap scoring.
+
+**Algorithm:** Jaccard similarity with stopword removal. Boosts: +0.3 for content_type match, +0.2 if product has a published URL.
+
+**Fallback:** When no match found or DB unavailable, returns a curated fallback product so every lead gets a response.
+
+**Strategy mapping:** seeking → direct_recommendation, sharing → community_engagement, trending → trend_response
+
+---
+
+### Module 6: AudioPipeline (`backend/wai_institute/pipelines/audio_pipeline.py`)
+
+ElevenLabs TTS → MongoDB GridFS storage pipeline.
+
+- Stores full audio in GridFS bucket `audio_assets` as `{asset_id}.mp3`
+- Stores metadata in `db.audio_asset_meta`
+- Returns `access_url: /api/exec/audio/{asset_id}` for streaming
+- `CHARS_PER_SECOND = 12` — preview truncates to 15 seconds (180 chars)
+- Degrades gracefully without ElevenLabs key (returns text tier)
+
+---
+
+### Module 7: ConversationalEngine (`backend/wai_institute/pipelines/conversational_engine.py`)
+
+Crafts authentic outreach responses using Cipher's voice.
+
+- Calls Claude Haiku with Cipher persona prompt
+- Response is 3-5 sentences — acknowledgment first, offer second
+- Never sounds like an ad; identifies as a curator
+- Includes optional audio preview + checkout link
+- Logs campaign to `db.scout_campaigns`
+- Falls back to template response if API unavailable
+
+---
+
+### Module 8: TransactionNode (`backend/wai_institute/pipelines/transaction_node.py`)
+
+Generates Lemon Squeezy checkout sessions.
+
+**Checkout tiers:**
+- T1: Lemon Squeezy `/v1/checkouts` API (JSON:API format) — needs `LEMON_SQUEEZY_API_KEY` + `LEMON_SQUEEZY_STORE_ID`
+- T2: Direct platform_url from product record
+- T3: `{type: "unavailable"}` with clear message
+
+Logs all checkout links to `db.checkout_links`. Records conversions via webhook.
+
+---
+
+### Module 9: MerchPipeline (`backend/wai_institute/pipelines/merch_pipeline.py`)
+
+Print-on-demand pipeline from viral text to live product.
+
+**Flow:** DALL-E 3 typography design → Printify product → Lemon Squeezy listing
+
+**Products:** classic_tee ($29.99), poster_18x24 ($24.99), unisex_hoodie ($49.99), tote_bag ($22.99), mug_11oz ($17.99)
+
+**Without `PRINTIFY_API_KEY`:** Saves as draft with design concept. Draft products appear in the merch list and can be manually uploaded to Printify later.
+
+**WAI brand defaults:** Deep gold (#C9A84C) on midnight black (#0A0A0A), bold serif typography, Afro-centric, cinematic.
+
+---
+
+### Module 10: AnalyticsPipeline (`backend/wai_institute/pipelines/analytics_pipeline.py`)
+
+Full pipeline performance reporting.
+
+**Report sections:** scout, audio, merch, revenue, ab_performance, recommendations
+
+**Recommendations engine:** Flags HIGH priority if no leads, no published products. Flags MEDIUM if drafts pending or match rate < 50%.
+
+---
+
+### Module 11: System Activation (`backend/wai_institute/scripts/system_activation.py`)
+
+Called from FastAPI `on_startup()` — idempotent, safe every restart.
+
+1. Bootstraps all 7 core personas in `db.persona_activations`
+2. Creates MongoDB indexes for all pipeline collections
+3. Starts background scout scheduler (`asyncio.create_task`)
+4. Logs activation event to `db.system_events`
+
+**Background loop:** Scans all platforms → matches unmatched leads → sleeps → repeats. Interval: `SCOUT_INTERVAL_HOURS` (default: 6h).
+
+---
+
+### Module 12: Persona Templates (10 blueprints)
+
+Location: `backend/wai_institute/personas/templates/`
+
+| Template | Tier | Reports To | Role |
+|---|---|---|---|
+| strategist | 2 | director | Campaign & Growth Strategist |
+| producer | 2 | cipher | Content & Audio Production |
+| scribe | 3 | ancestral_sage | Documentation & Knowledge |
+| analyst | 2 | revenue_director | Data & Revenue Intelligence |
+| curator | 2 | cipher | Cultural Content Curator |
+| engineer | 2 | architect | Systems Integration |
+| storyteller | 2 | cipher | Narrative & Brand Storyteller |
+| merchant | 2 | revenue_director | Sales & Commerce |
+| guardian | 1 | director | Ethics & Cultural Integrity |
+| apprentice | 4 | ancestral_sage | Learning & Development |
+
+Templates are loaded via `get_template(name)` in persona_registry.py. Any template can be activated, cloned, or evolved using PersonaManager.
+
+---
+
+## NEW API ENDPOINTS — SESSION 3 (16 endpoints)
+
+```
+POST   /api/exec/scout/run              — Manual full platform scan (exec only, 3/5min)
+GET    /api/exec/scout/leads            — List leads (status, min_score, limit filters)
+GET    /api/exec/scout/status           — Platform config + lead counts + last scan
+POST   /api/exec/scout/match-all        — Batch match all unmatched leads (exec only)
+POST   /api/ai/cipher/generate-audio    — ElevenLabs TTS → GridFS (admin+)
+GET    /api/exec/audio/{asset_id}       — Stream MP3 from GridFS (any authenticated)
+GET    /api/exec/audio                  — List audio assets (persona, limit filters)
+POST   /api/exec/merch/create           — POD product from viral text (exec only)
+GET    /api/exec/merch                  — List merch products (status filter)
+GET    /api/exec/analytics              — Full pipeline analytics (exec only)
+GET    /api/exec/personas               — List all persona activation states + registry
+POST   /api/exec/personas/{name}/evolve — Add/remove capabilities (exec only)
+POST   /api/exec/personas/{name}/activate
+POST   /api/exec/personas/{name}/deactivate
+POST   /api/exec/scout/craft-response   — Craft personalized outreach for a lead
+POST   /api/exec/checkout/conversion    — Record Lemon Squeezy webhook conversion
+```
+
+---
+
+## NEW ENVIRONMENT VARIABLES — SESSION 3
+
+Add these to Railway as you acquire the accounts. System runs in degraded/draft mode without them — it will never crash.
+
+```
+# Cultural Scout (optional — Reddit and RSS work without keys)
+YOUTUBE_API_KEY          = [console.cloud.google.com → YouTube Data API v3]
+TWITTER_BEARER_TOKEN     = [developer.twitter.com → App → Bearer Token]
+
+# Scout scheduler
+SCOUT_ENABLED            = true    (set to "false" to disable background scanning)
+SCOUT_INTERVAL_HOURS     = 6       (how often scout runs — default 6)
+
+# Merch Pipeline
+PRINTIFY_API_KEY         = [printify.com → Account → API access]
+PRINTIFY_SHOP_ID         = [printify.com → Your shop ID from dashboard URL]
+
+# Sales (already needed, still needed)
+LEMON_SQUEEZY_API_KEY    = [app.lemonsqueezy.com → Settings → API]
+LEMON_SQUEEZY_STORE_ID   = [app.lemonsqueezy.com → your store ID]
+```
+
+---
+
+## NEW MONGODB COLLECTIONS — SESSION 3
+
+All created automatically. No setup required.
+
+| Collection | Purpose |
+|---|---|
+| `db.scout_leads` | Culturally resonant content discovered by CulturalScout |
+| `db.scout_scan_log` | Log of every platform scan run |
+| `db.scout_campaigns` | Outreach campaigns crafted by ConversationalEngine |
+| `db.audio_asset_meta` | Metadata for all produced audio assets |
+| `db.merch_products` | Printify POD product records |
+| `db.checkout_links` | Lemon Squeezy checkout sessions |
+| `db.persona_activations` | Activation state for all personas |
+| `db.governance_log` | All hierarchy enforcement decisions |
+| `db.persona_tts_budgets` | Per-persona audio budget tracking |
+| `db.system_events` | System activation and event log |
+
+Audio assets stored in MongoDB GridFS bucket `audio_assets` as `{asset_id}.mp3`.
+
+---
+
+## CURRENT SYSTEM STATE — AFTER SESSION 3
+
+### ✅ FULLY OPERATIONAL (needs no new keys)
+- All 7 core personas bootstrapped on startup
+- CulturalScout running on Reddit + RSS (no API keys needed)
+- ContextualMatcher matching leads to products
+- ConversationalEngine crafting outreach (uses existing Anthropic key)
+- AudioPipeline in text-tier mode (no ElevenLabs key needed for basic operation)
+- MerchPipeline creating draft products (no Printify key needed)
+- AnalyticsPipeline tracking all pipeline stages
+- All 16 new API endpoints live
+- 10 persona templates available
+
+### ⚡ UNLOCKED WHEN KEYS ADDED
+- `YOUTUBE_API_KEY` → Scout scans YouTube comments
+- `TWITTER_BEARER_TOKEN` → Scout scans Twitter/X
+- `ELEVENLABS_API_KEY` → Audio pipeline produces real MP3s
+- `PRINTIFY_API_KEY` + `PRINTIFY_SHOP_ID` → Merch goes live automatically
+- `LEMON_SQUEEZY_API_KEY` + `LEMON_SQUEEZY_STORE_ID` → Checkout sessions instead of direct links
+
+### ⚠️ STILL PENDING
+- Memory Phase 2 — per-persona product memory and engagement tracking
+- Frontend UI for new pipeline (admin dashboard for scout leads, analytics view)
+- Home backup server — code ready, user hasn't completed setup
+- MongoDB Atlas backup — code ready, user hasn't configured
+
+---
+
+## GIT COMMIT HISTORY — SESSION 3
+
+```
+12c9b75  feat: WAI-Institute autonomous multi-agent revenue pipeline (Level 4)
+9a69ce5  feat: unified autonomous_publish() — replace inline Gumroad in all 4 tools
+0f0ae02  feat: ai/publishing.py — 4-tier Lemon Squeezy T1 unified publisher
+```
