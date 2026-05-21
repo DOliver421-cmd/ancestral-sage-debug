@@ -97,7 +97,7 @@ app = FastAPI(
 api_router = APIRouter(prefix="/api")
 logger = logging.getLogger("lcewai")
 logging.basicConfig(level=logging.INFO)
-APP_VERSION = "3.0.0"
+APP_VERSION = "4.0.0"
 
 # Simple in-memory rate limit (per IP, per route) — replace with redis in true HA prod
 from collections import defaultdict as _dd

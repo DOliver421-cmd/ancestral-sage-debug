@@ -142,6 +142,61 @@ DIRECTOR_TOOLS = [
             "required": ["file_id"],
         },
     },
+    {
+        "name": "set_mode",
+        "description": (
+            "Switch the WAI-Institute AI ecosystem to a new operational mode. "
+            "Modes: nam (full creative+growth), balanced (default steady-state), "
+            "creative (innovation-first), aggressive (growth-first), "
+            "conservative (protection-first), recovery (crisis stabilization). "
+            "Mode shifts apply instantly across all personas."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "mode": {
+                    "type": "string",
+                    "enum": ["nam", "balanced", "creative", "aggressive", "conservative", "recovery"],
+                    "description": "The target operational mode",
+                },
+                "reason": {
+                    "type": "string",
+                    "description": "Brief reason for the mode change (logged)",
+                },
+            },
+            "required": ["mode"],
+        },
+    },
+    {
+        "name": "create_incident",
+        "description": (
+            "Formally log a new threat or incident to the WAI-Institute incident register. "
+            "Use when a threat is detected, a security event occurs, or D. Oliver directs logging. "
+            "Severity: LOW | ELEVATED | HIGH | CRITICAL. "
+            "Type: technical | legal | reputational | safety | financial | ai_tamper | insider."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "title":       {"type": "string", "description": "Short incident title"},
+                "type":        {"type": "string", "description": "Incident type category"},
+                "severity":    {"type": "string", "enum": ["LOW", "ELEVATED", "HIGH", "CRITICAL"]},
+                "summary":     {"type": "string", "description": "Full description of the incident"},
+                "source":      {"type": "string", "description": "Origin of the threat or event"},
+                "assigned_to": {"type": "string", "description": "Owner for this incident (default: director)"},
+            },
+            "required": ["title", "type", "severity", "summary"],
+        },
+    },
+    {
+        "name": "get_system_health",
+        "description": (
+            "Query the live WAI-Institute system health monitor. "
+            "Returns health status (nominal/warning/critical), all active flags, "
+            "and key platform metrics. Call at session start or any time health is in question."
+        ),
+        "input_schema": {"type": "object", "properties": {}, "required": []},
+    },
 ]
 
 
@@ -514,6 +569,137 @@ async def tool_read_file(file_id: str, db) -> str:
     )
 
 
+# ── Tool: set_mode ────────────────────────────────────────────────────────────
+
+async def tool_set_mode(mode: str, reason: str = "") -> str:
+    """Switch the global AI ecosystem mode via the ModeSystem singleton."""
+    try:
+        from ai.mode_system import mode_system, Mode
+        valid = {m.value for m in Mode}
+        if mode not in valid:
+            return f"[MODE ERROR] '{mode}' is not a valid mode. Valid modes: {', '.join(sorted(valid))}"
+        prev = mode_system.get_mode()
+        mode_system.set_mode(Mode(mode), reason=reason or "Director command")
+        return (
+            f"✓ Ecosystem mode shifted: {prev.value.upper()} → {mode.upper()}\n"
+            f"Reason: {reason or 'Director directive'}\n"
+            f"Mode applies immediately across all personas."
+        )
+    except ImportError:
+        return "[MODE ERROR] ModeSystem not available — check ai/mode_system.py"
+    except Exception as e:
+        logger.exception("set_mode failed")
+        return f"[MODE ERROR] {e}"
+
+
+# ── Tool: create_incident ─────────────────────────────────────────────────────
+
+async def tool_create_incident(
+    title: str,
+    type_: str,
+    severity: str,
+    summary: str,
+    source: str = "director",
+    assigned_to: str = "director",
+    db=None,
+) -> str:
+    """Log a new incident to the WAI-Institute incident register and sync crisis engine."""
+    incident_id = str(uuid.uuid4())[:8].upper()
+    now = datetime.now(timezone.utc)
+
+    record = {
+        "id":          incident_id,
+        "title":       title,
+        "type":        type_,
+        "severity":    severity.upper(),
+        "summary":     summary,
+        "source":      source,
+        "assigned_to": assigned_to,
+        "status":      "open",
+        "created_at":  now.isoformat(),
+        "created_by":  "director",
+    }
+
+    # ── Tier 1: MongoDB ───────────────────────────────────────────────────────
+    if db is not None:
+        try:
+            await db.incidents.insert_one({**record, "_id": incident_id})
+        except Exception as e:
+            logger.warning("create_incident: DB write failed: %s", e)
+
+    # ── Always sync crisis engine (in-memory) ─────────────────────────────────
+    try:
+        from ai.crisis_engine import crisis_engine
+        crisis_engine.raise_incident({
+            "type": type_, "severity": severity.upper(),
+            "source": source, "summary": summary,
+        })
+        level = crisis_engine.get_level()
+        level_tag = f" | Crisis level now: {level.upper()}"
+    except Exception:
+        level_tag = ""
+
+    return (
+        f"◈ INCIDENT LOGGED — ID: {incident_id}\n"
+        f"Title: {title}\n"
+        f"Severity: {severity.upper()} | Type: {type_} | Source: {source}\n"
+        f"Assigned to: {assigned_to} | Status: OPEN{level_tag}\n"
+        f"Timestamp: {now.strftime('%Y-%m-%d %H:%M UTC')}"
+    )
+
+
+# ── Tool: get_system_health ───────────────────────────────────────────────────
+
+async def tool_get_system_health(db=None) -> str:
+    """Query the live system health monitor and return a Director-formatted brief."""
+    try:
+        from ai.system_health_monitor import health_monitor
+        status = health_monitor.get_status()
+        health  = status["health"].upper()
+        metrics = status["metrics"]
+        flags   = status["flags"]
+
+        lines = [f"◈ SYSTEM HEALTH — {health}"]
+        lines.append(f"  Uptime: {metrics.get('uptime_pct', 'N/A')}%")
+        lines.append(f"  Errors (24h): {metrics.get('errors_last_24h', 0)}")
+        lines.append(f"  API latency: {metrics.get('latency_ms', 0)}ms")
+        lines.append(f"  Open incidents: {metrics.get('open_incidents', 0)}")
+        lines.append(f"  DB connected: {'YES' if metrics.get('db_connected', True) else 'NO — CRITICAL'}")
+        lines.append(f"  AI API reachable: {'YES' if metrics.get('ai_api_reachable', True) else 'NO — CRITICAL'}")
+        lines.append(f"  Persona drift flags: {metrics.get('persona_drift_flags', 0)}")
+        lines.append(f"  TTS circuit: {'OPEN (degraded)' if metrics.get('tts_circuit_open') else 'CLOSED (normal)'}")
+
+        if flags:
+            lines.append(f"\n  Active flags ({len(flags)}):")
+            for f_ in flags:
+                lines.append(f"    ⚠ {f_}")
+        else:
+            lines.append("\n  No active flags.")
+
+        # Also pull crisis engine state
+        try:
+            from ai.crisis_engine import crisis_engine
+            c = crisis_engine.summary()
+            lines.append(f"\n  Crisis level: {c['level'].upper()} | Incidents: {c['incident_count']}")
+        except Exception:
+            pass
+
+        # Also pull mode
+        try:
+            from ai.mode_system import mode_system
+            lines.append(f"  Current mode: {mode_system.get_mode().upper()}")
+        except Exception:
+            pass
+
+        return "\n".join(lines)
+
+    except ImportError:
+        return "[HEALTH ERROR] SystemHealthMonitor not available — check ai/system_health_monitor.py"
+    except Exception as e:
+        logger.exception("get_system_health failed")
+        return f"[HEALTH ERROR] {e}"
+
+
 # ── Tool dispatcher ───────────────────────────────────────────────────────────
 
 async def dispatch_tool(tool_name: str, tool_input: dict, db=None) -> str:
@@ -536,6 +722,23 @@ async def dispatch_tool(tool_name: str, tool_input: dict, db=None) -> str:
             return await tool_get_incident_register(db=db)
         elif tool_name == "read_file":
             return await tool_read_file(file_id=tool_input["file_id"], db=db)
+        elif tool_name == "set_mode":
+            return await tool_set_mode(
+                mode=tool_input["mode"],
+                reason=tool_input.get("reason", ""),
+            )
+        elif tool_name == "create_incident":
+            return await tool_create_incident(
+                title=tool_input["title"],
+                type_=tool_input["type"],
+                severity=tool_input["severity"],
+                summary=tool_input["summary"],
+                source=tool_input.get("source", "director"),
+                assigned_to=tool_input.get("assigned_to", "director"),
+                db=db,
+            )
+        elif tool_name == "get_system_health":
+            return await tool_get_system_health(db=db)
         else:
             return f"[UNKNOWN TOOL] '{tool_name}' is not a registered Director tool."
     except KeyError as e:
