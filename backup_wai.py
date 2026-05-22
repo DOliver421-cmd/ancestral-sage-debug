@@ -50,6 +50,24 @@ USER_COLLECTIONS = [
     "inventory",
     "sites",
     "mode_decisions",
+    # Payments & billing
+    "subscriptions",
+    "invoices",
+    "payment_methods",
+    "creator_balances",
+    "creator_payouts",
+    "revenue_events",
+    "usage_events",
+    "payment_log",
+    # Playlist curation gateway system
+    "playlist_gateways",
+    "playlist_submissions",
+    # Social publishing
+    "social_publish_log",
+    # CRM / sales
+    "leads",
+    "bug_reports",
+    "password_reset_tokens",
 ]
 
 # chat_history excluded: AI conversation logs grow large quickly.

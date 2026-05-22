@@ -509,6 +509,10 @@ import secrets  # noqa: E402
 RESET_TOKEN_TTL_MIN = int(os.environ.get("PASSWORD_RESET_TTL_MIN", "30"))
 RESEND_API_KEY = os.environ.get("RESEND_API_KEY", "")
 RESEND_FROM = os.environ.get("RESEND_FROM", "W.A.I. <noreply@wai-institute.org>")
+# Gmail SMTP fallback — used when RESEND_API_KEY is not set.
+# In Railway: set GMAIL_USER and GMAIL_APP_PASSWORD (16-char Google App Password).
+GMAIL_USER     = os.environ.get("GMAIL_USER", "")
+GMAIL_APP_PASSWORD = os.environ.get("GMAIL_APP_PASSWORD", "")
 
 
 def _hash_token(raw: str) -> str:
@@ -532,23 +536,14 @@ def _build_reset_url(raw_token: str, base: Optional[str] = None) -> str:
     return f"{base}/reset-password?token={raw_token}"
 
 
-async def _send_reset_email(to_email: str, raw_token: str, full_name: str = "there") -> bool:
-    """Best-effort email send via Resend. Returns True on send, False if no
-    key configured or on transient failure (caller decides whether to
-    surface an admin-mediated link instead)."""
-    if not RESEND_API_KEY:
-        return False
-    reset_url = _build_reset_url(raw_token)
-    if reset_url.startswith("/"):
-        # No PUBLIC_APP_URL configured — refuse to email a relative link.
-        logger.warning("RESEND_API_KEY set but PUBLIC_APP_URL missing; skipping email.")
-        return False
+def _reset_email_html(full_name: str, reset_url: str) -> tuple[str, str]:
+    """Returns (subject, html) for a password reset email."""
     subject = "Reset your W.A.I. password"
     html = f"""
     <div style="font-family:system-ui,Segoe UI,Roboto,sans-serif;max-width:560px;margin:0 auto;padding:24px;color:#0a0e14">
       <h2 style="margin:0 0 8px">Reset your password</h2>
       <p>Hi {full_name},</p>
-      <p>We got a request to reset your W.A.I. password. The link below is single-use and expires in {RESET_TOKEN_TTL_MIN} minutes.</p>
+      <p>We received a request to reset your W.A.I. password. The link below is single-use and expires in {RESET_TOKEN_TTL_MIN} minutes.</p>
       <p style="margin:28px 0">
         <a href="{reset_url}" style="background:#0a0e14;color:#fff;padding:12px 20px;text-decoration:none;font-weight:600">Reset Password</a>
       </p>
@@ -556,6 +551,11 @@ async def _send_reset_email(to_email: str, raw_token: str, full_name: str = "the
       <p style="font-size:12px;color:#666">Or paste this URL into your browser:<br><code style="word-break:break-all">{reset_url}</code></p>
     </div>
     """
+    return subject, html
+
+
+async def _send_via_resend(to_email: str, subject: str, html: str) -> bool:
+    """Send via Resend API. Returns True on success."""
     try:
         import httpx
         async with httpx.AsyncClient(timeout=10.0) as cx:
@@ -573,6 +573,57 @@ async def _send_reset_email(to_email: str, raw_token: str, full_name: str = "the
     except Exception:
         logger.exception("Resend send raised")
         return False
+
+
+async def _send_via_gmail(to_email: str, subject: str, html: str) -> bool:
+    """Send via Gmail SMTP using an App Password. Returns True on success.
+    Requires GMAIL_USER and GMAIL_APP_PASSWORD set in Railway environment."""
+    if not GMAIL_USER or not GMAIL_APP_PASSWORD:
+        return False
+    import smtplib
+    from email.mime.multipart import MIMEMultipart
+    from email.mime.text import MIMEText
+
+    def _send():
+        msg = MIMEMultipart("alternative")
+        msg["Subject"] = subject
+        msg["From"] = f"W.A.I. Institute <{GMAIL_USER}>"
+        msg["To"] = to_email
+        msg.attach(MIMEText(html, "html"))
+        with smtplib.SMTP_SSL("smtp.gmail.com", 465, timeout=15) as smtp:
+            smtp.login(GMAIL_USER, GMAIL_APP_PASSWORD)
+            smtp.sendmail(GMAIL_USER, to_email, msg.as_string())
+
+    try:
+        loop = asyncio.get_event_loop()
+        await loop.run_in_executor(None, _send)
+        logger.info("Gmail SMTP: sent reset email to %s", to_email)
+        return True
+    except Exception:
+        logger.exception("Gmail SMTP send raised")
+        return False
+
+
+async def _send_reset_email(to_email: str, raw_token: str, full_name: str = "there") -> bool:
+    """Send password reset email. Tries Resend first, falls back to Gmail SMTP.
+    Returns True if sent by either provider, False if neither is configured."""
+    reset_url = _build_reset_url(raw_token)
+    if reset_url.startswith("/"):
+        logger.warning("PUBLIC_APP_URL not set — cannot build absolute reset URL for email.")
+        return False
+    subject, html = _reset_email_html(full_name, reset_url)
+
+    if RESEND_API_KEY:
+        sent = await _send_via_resend(to_email, subject, html)
+        if sent:
+            return True
+        logger.warning("Resend failed — falling back to Gmail SMTP")
+
+    if GMAIL_USER and GMAIL_APP_PASSWORD:
+        return await _send_via_gmail(to_email, subject, html)
+
+    logger.warning("No email provider configured (RESEND_API_KEY or GMAIL_USER+GMAIL_APP_PASSWORD).")
+    return False
 # ----------------------------------------------------------------------------
 
 
