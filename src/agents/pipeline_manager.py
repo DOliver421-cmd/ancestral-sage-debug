@@ -124,6 +124,19 @@ _PRT_ALIGNMENT_THEMES = frozenset([
 # first _PRT_GATE_SCAN_LIMIT characters, which is conservative and safe.
 _PRT_GATE_SCAN_LIMIT = 10_000
 
+# Precompiled PRT block patterns — use word boundaries for single-word terms
+# so that "coon" doesn't match "raccoon", "cocoon", "cartoon", "harpoon" etc.
+# Multi-word phrases like "poverty porn" are long enough to be unambiguous
+# so they use plain case-insensitive substring matching.
+_PRT_BLOCK_PATTERNS: "Dict[str, re.Pattern]" = {
+    term: (
+        re.compile(r"\b" + re.escape(term) + r"\b", re.IGNORECASE)
+        if " " not in term
+        else re.compile(re.escape(term), re.IGNORECASE)
+    )
+    for term in _PRT_BLOCK_TERMS
+}
+
 # ── LLM prompt (system + user separation — [S1] adversarial guard) ───────────
 INTENT_SYSTEM_PROMPT = (
     "You are an emotional intelligence engine for WAI-Institute, a spoken word artist "
@@ -751,11 +764,16 @@ class PipelineManager:
 
         Steps:
           1. Truncate to MAX_TEXT_LENGTH
-          2. Escape double-quotes (prevent breaking out of JSON-style prompt wrapping)
-          3. Strip null bytes and control chars
+          2. Escape backslashes FIRST, then double-quotes — order matters.
+             Backslashes must be escaped before quotes so that the new backslash
+             added in step 2 is not then doubled a second time by a subsequent
+             backslash-escape pass.  Correct: replace('\\', '\\\\') then
+             replace('"', '\\"').  Wrong order would double-escape quotes.
+          3. Strip null bytes and non-printable control chars (keep tab/newline/CR)
         """
         truncated = text[:MAX_TEXT_LENGTH]
-        escaped   = truncated.replace('"', '\\"').replace("\\", "\\\\")
+        # [BUG FIX] backslashes first — prevents double-escaping quotes
+        escaped   = truncated.replace("\\", "\\\\").replace('"', '\\"')
         cleaned   = re.sub(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]", "", escaped)
         return cleaned
 
@@ -783,12 +801,16 @@ class PipelineManager:
         (anti-Black tropes, caricatures). Scores cultural alignment
         based on theme presence.
 
-        v2 improvements:
-          - Input length capped at _PRT_GATE_SCAN_LIMIT before lowercasing —
-            avoids scanning multi-KB payloads against the frozensets
-          - Single pass over the scanned text builds both the violation list
-            and the alignment theme count (was two separate passes in v1)
-          - Returns `violations` list in the blocked result for detailed logging
+        v3 improvements over v2:
+          - Block detection uses precompiled word-boundary regex (_PRT_BLOCK_PATTERNS)
+            instead of plain substring matching. This prevents false positives:
+            "coon" no longer matches "raccoon", "cocoon", "cartoon", "harpoon", etc.
+            Multi-word terms ("poverty porn") use plain case-insensitive match —
+            they're long enough to be unambiguous without word boundaries.
+          - Input truncated to _PRT_GATE_SCAN_LIMIT before scanning (unchanged)
+          - Violation list preserved in return value (unchanged)
+          - Alignment scoring uses plain substring match intentionally — we WANT
+            "healing" to score "self-healing", "grief-healing", etc. as aligned.
 
         Returns:
             aligned    (bool)
@@ -797,14 +819,13 @@ class PipelineManager:
             violations (list[str], only when aligned=False)
         """
         # Cap scan window — don't iterate over huge texts
-        lower = text[:_PRT_GATE_SCAN_LIMIT].lower()
+        scanned = text[:_PRT_GATE_SCAN_LIMIT]
 
-        # Single pass: collect violations AND count alignment theme hits
+        # [BUG FIX] Use precompiled word-boundary patterns — prevents false positives
+        # on common English words that contain block terms as substrings.
         violations: list = []
-        theme_hits: int  = 0
-
-        for term in _PRT_BLOCK_TERMS:
-            if term in lower:
+        for term, pattern in _PRT_BLOCK_PATTERNS.items():
+            if pattern.search(scanned):
                 violations.append(term)
 
         if violations:
@@ -815,10 +836,9 @@ class PipelineManager:
                 "violations": violations,
             }
 
-        for theme in _PRT_ALIGNMENT_THEMES:
-            if theme in lower:
-                theme_hits += 1
-
+        # Alignment scoring — plain substring match on lowercase is intentional
+        lower = scanned.lower()
+        theme_hits: int = sum(1 for theme in _PRT_ALIGNMENT_THEMES if theme in lower)
         score = min(1.0, theme_hits / 3)   # 3+ theme hits = fully aligned
 
         # Analysis theme directly present → boost

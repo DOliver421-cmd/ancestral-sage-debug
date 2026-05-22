@@ -45,7 +45,7 @@ from fastapi import Depends, FastAPI, APIRouter, File, HTTPException, Header, Re
 from fastapi.responses import StreamingResponse, JSONResponse
 from motor.motor_asyncio import AsyncIOMotorClient
 from passlib.context import CryptContext
-from pydantic import BaseModel, Field, EmailStr, ConfigDict
+from pydantic import BaseModel, Field, EmailStr, ConfigDict, field_validator
 from prompts.ancestral_sage_prompt import (
     ANCESTRAL_SAGE_PROMPT,
     ANCESTRAL_SAGE_PROMPT_HASH_EXPECTED,
@@ -7740,6 +7740,19 @@ class PipelineProcessBatchRequest(BaseModel):
     texts:  List[str] = Field(..., min_length=1, max_length=50)
     source: str       = Field(default="api", max_length=100)
 
+    @field_validator("texts")
+    @classmethod
+    def validate_text_item_lengths(cls, v: List[str]) -> List[str]:
+        """Enforce per-item max length at Pydantic parse time.
+        Without this, FastAPI fully deserializes a 50×1MB payload before
+        PipelineManager rejects each item individually — fail fast here."""
+        for i, text in enumerate(v):
+            if len(text) > 5000:
+                raise ValueError(
+                    f"texts[{i}] is {len(text)} chars — maximum is 5000"
+                )
+        return v
+
 
 # Domain role questions — moved to module scope so they're not re-created per request
 _DOMAIN_ROLES: dict = {
@@ -7880,10 +7893,17 @@ async def exec_staff_meeting(
         "convened_at":   convened_at,
     }
 
+    # ── Each insert is wrapped independently so one failure cannot silently
+    # swallow all subsequent writes (Bug fix: previously one try/except covered
+    # all four inserts; an AttributeError on prt_enforcement_log caused
+    # the9_activations to be silently skipped every time).
+
     try:
         await db.staff_meetings.insert_one({**meeting_record, "_id": meeting_id})
+    except Exception as _db_err:
+        logger.warning("staff_meeting: staff_meetings write failed: %s", _db_err)
 
-        # Governance log
+    try:
         await db.governance_log.insert_one({
             "action":    "staff_meeting",
             "persona":   "executive",
@@ -7895,34 +7915,37 @@ async def exec_staff_meeting(
             },
             "timestamp": convened_at,
         })
+    except Exception as _db_err:
+        logger.warning("staff_meeting: governance_log write failed: %s", _db_err)
 
-        # v2: write to prt_enforcement_log — index was created but nothing
-        # was writing to it. Now every meeting records the PRT decision.
-        if prt is not None:
+    # PRT enforcement log — uses to_governance_dict() for a structured record
+    if prt is not None:
+        try:
             from wai_institute.personas.prt.prt_enforcement_engine import PRTEnforcementEngine
             await db.prt_enforcement_log.insert_one(
                 PRTEnforcementEngine.to_governance_dict(
-                    sender       = "executive",
-                    directive    = brief,
+                    sender        = "executive",
+                    directive     = brief,
                     filter_result = filter_result,
-                    enforcement  = enforcement,
+                    enforcement   = enforcement,
                 )
             )
+        except Exception as _db_err:
+            logger.warning("staff_meeting: prt_enforcement_log write failed: %s", _db_err)
 
-        # v2: write to the9_activations — index was created but nothing
-        # was writing to it. Now every The 9 synthesis is recorded.
-        if synthesis and synthesis.get("status") == "fused":
+    # The 9 activation record — written for every successful fusion
+    if synthesis and synthesis.get("status") == "fused":
+        try:
             await db.the9_activations.insert_one({
-                "meeting_id":       meeting_id,
-                "activated_by":     synthesis.get("activated_by", "executive"),
-                "activation_code":  synthesis.get("activation_code", "executive_command"),
+                "meeting_id":        meeting_id,
+                "activated_by":      synthesis.get("activated_by", "executive"),
+                "activation_code":   synthesis.get("activation_code", "executive_command"),
                 "activation_reason": synthesis.get("activation_reason", ""),
-                "skill_count":      len(synthesis.get("unified_skill_set", [])),
-                "timestamp":        convened_at,
+                "skill_count":       len(synthesis.get("unified_skill_set", [])),
+                "timestamp":         convened_at,
             })
-
-    except Exception as _db_err:
-        logger.warning("staff_meeting: DB persist failed (non-fatal): %s", _db_err)
+        except Exception as _db_err:
+            logger.warning("staff_meeting: the9_activations write failed: %s", _db_err)
 
     logger.info(
         "Staff meeting %s convened by %s — %d participants, priority=%s, "

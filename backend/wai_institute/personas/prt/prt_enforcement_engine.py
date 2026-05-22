@@ -212,6 +212,42 @@ class PRTEnforcementEngine:
             "note":      "The 9 available via trigger_the9() if unified intelligence needed",
         }
 
+    # ── Governance log record builder ────────────────────────────────────────
+
+    @staticmethod
+    def to_governance_dict(
+        sender: str,
+        directive: str,
+        filter_result: Dict[str, Any],
+        enforcement: Optional[Dict[str, Any]] = None,
+    ) -> Dict[str, Any]:
+        """
+        Build a structured record for db.prt_enforcement_log.
+
+        Called by server.py after every staff meeting and any PRT-gated
+        operation to record PRT's accept/reject decision and the enforcement
+        actions taken.
+
+        Args:
+            sender:        Who issued the directive ("executive", "ancestral_sage", etc.)
+            directive:     The raw directive string (capped at 500 chars in the log)
+            filter_result: The dict returned by filter_directive() / authorize()
+            enforcement:   The dict returned by enforce(), or None if not enforced
+
+        Returns:
+            A flat dict ready for insert_one() into prt_enforcement_log.
+        """
+        return {
+            "sender":              sender,
+            "directive":           directive[:500],
+            "accepted":            filter_result.get("accepted", False),
+            "authority":           filter_result.get("authority", "unknown"),
+            "rejection_reason":    filter_result.get("reason", ""),
+            "enforcement":         enforcement is not None,
+            "enforcement_actions": enforcement.get("actions", []) if enforcement else [],
+            "timestamp":           datetime.now(timezone.utc).isoformat(),
+        }
+
     # ── Director plan evaluation ──────────────────────────────────────────────
 
     @staticmethod
