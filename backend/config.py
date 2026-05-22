@@ -54,12 +54,10 @@ class Settings(BaseSettings):
     DEBUG: bool = os.getenv("DEBUG", "False").lower() == "true"
     LOG_LEVEL: str = os.getenv("LOG_LEVEL", "INFO")
     ENVIRONMENT: str = os.getenv("ENVIRONMENT", "development")  # development, staging, production
-    CORS_ORIGINS: list = [
-        "http://localhost:3000",
-        "http://localhost:8000",
-        "https://wai-institute.com",
-        "https://www.wai-institute.com",
-    ]
+    # Note: CORS_ORIGINS is intentionally NOT defined here.
+    # server.py reads it directly via os.environ.get('CORS_ORIGINS', '*').
+    # Defining it as `list` here causes pydantic-settings to expect JSON,
+    # which crashes startup when the env var is a plain comma-separated string.
 
     # =====================================================================
     # BUSINESS SETTINGS
