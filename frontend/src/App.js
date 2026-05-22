@@ -31,7 +31,7 @@ import Settings from "./pages/Settings";
 import ExecSystem from "./pages/ExecSystem";
 import ForgotPassword from "./pages/ForgotPassword";
 import ResetPassword from "./pages/ResetPassword";
-import NotFound from "./pages/NotFound";
+import { Error404 } from "./pages/ErrorPages";
 import SageAudit from "./pages/SageAudit";
 import OrchestratorChat from "./pages/OrchestratorChat";
 import More from "./pages/More";
@@ -144,7 +144,7 @@ function App() {
           <Route path="/payment/history" element={<Protected><PaymentHistory /></Protected>} />
           <Route path="/payment/manage" element={<Protected><PaymentHistory /></Protected>} />
           <Route path="/admin/payments" element={<Protected roles={["admin"]}><AdminPayments /></Protected>} />
-          <Route path="*" element={<NotFound />} />
+          <Route path="*" element={<Error404 />} />
         </Routes>
         </ErrorBoundary>
       </BrowserRouter>
