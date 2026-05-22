@@ -83,7 +83,8 @@
       "Bash(Start-Sleep -Seconds 15)",
       "Bash(git diff *)",
       "Bash(curl -s \"https://ancestral-sage-debug-production.up.railway.app/\")",
-      "Bash(curl -s \"https://ancestral-sage-debug-production.up.railway.app/api/version\")"
+      "Bash(curl -s \"https://ancestral-sage-debug-production.up.railway.app/api/version\")",
+      "Bash(python -c \"from revenue_operations_integration import get_revenue_routers; print\\('OK'\\)\")"
     ]
   }
 }

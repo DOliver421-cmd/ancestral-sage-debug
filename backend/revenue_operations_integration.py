@@ -9,6 +9,7 @@ import os
 from fastapi import FastAPI
 from motor.motor_asyncio import AsyncIOMotorDatabase
 from .jobs import job_scheduler
+from .billing.course_licensing import init_course_licensing
 
 logger = logging.getLogger(__name__)
 
@@ -80,7 +81,6 @@ async def init_revenue_operations(db: AsyncIOMotorDatabase) -> dict:
         await db.job_execution_log.create_index("executed_at", expireAfterSeconds=365 * 24 * 3600)
 
         # ── Course Licensing (Electrical Contractor Market) ──────────────────────
-        from .billing.course_licensing import init_course_licensing
         await init_course_licensing(db)
 
         logger.info("✅ Revenue operations collections and indexes initialized")
