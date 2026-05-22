@@ -23,4 +23,5 @@ COPY . .
 
 EXPOSE 10000
 
-CMD ["uvicorn", "server:app", "--host", "0.0.0.0", "--port", "10000"]
+# Use shell form so Railway's $PORT variable is expanded correctly
+CMD uvicorn server:app --host 0.0.0.0 --port ${PORT:-10000}
