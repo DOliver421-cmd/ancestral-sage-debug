@@ -82,7 +82,8 @@
       "Bash(git commit *)",
       "Bash(Start-Sleep -Seconds 15)",
       "Bash(git diff *)",
-      "Bash(curl -s \"https://ancestral-sage-debug-production.up.railway.app/\")"
+      "Bash(curl -s \"https://ancestral-sage-debug-production.up.railway.app/\")",
+      "Bash(curl -s \"https://ancestral-sage-debug-production.up.railway.app/api/version\")"
     ]
   }
 }

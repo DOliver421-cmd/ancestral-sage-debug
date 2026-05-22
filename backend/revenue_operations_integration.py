@@ -79,8 +79,12 @@ async def init_revenue_operations(db: AsyncIOMotorDatabase) -> dict:
         # Auto-delete job logs after 1 year for space management
         await db.job_execution_log.create_index("executed_at", expireAfterSeconds=365 * 24 * 3600)
 
+        # ── Course Licensing (Electrical Contractor Market) ──────────────────────
+        from .billing.course_licensing import init_course_licensing
+        await init_course_licensing(db)
+
         logger.info("✅ Revenue operations collections and indexes initialized")
-        return {"status": "success", "collections": 11}
+        return {"status": "success", "collections": 14}
 
     except Exception as e:
         logger.warning(f"Revenue operations initialization (non-fatal): {e}")
@@ -146,5 +150,12 @@ def get_revenue_routers():
         logger.info("✅ CRM router loaded")
     except Exception as e:
         logger.warning(f"Could not load CRM router: {e}")
+
+    try:
+        from .billing.course_routes import router as course_router
+        routers.append(course_router)
+        logger.info("✅ Course licensing router loaded")
+    except Exception as e:
+        logger.warning(f"Could not load course licensing router: {e}")
 
     return routers
