@@ -8,8 +8,8 @@ import logging
 import os
 from fastapi import FastAPI
 from motor.motor_asyncio import AsyncIOMotorDatabase
-from .jobs import job_scheduler
-from .billing.course_licensing import init_course_licensing
+from jobs import job_scheduler
+from billing.course_licensing import init_course_licensing
 
 logger = logging.getLogger(__name__)
 
@@ -84,7 +84,7 @@ async def init_revenue_operations(db: AsyncIOMotorDatabase) -> dict:
         await init_course_licensing(db)
 
         # ── Creator Courses (Creator-built courses at low pricing) ─────────────────
-        from .billing.creator_courses import init_creator_courses
+        from billing.creator_courses import init_creator_courses
         await init_creator_courses(db)
 
         logger.info("✅ Revenue operations collections and indexes initialized")
@@ -123,8 +123,8 @@ def stop_revenue_operations() -> None:
 def init_revenue_services(app: FastAPI, db: AsyncIOMotorDatabase) -> None:
     """Initialize revenue operations services and attach to app.state"""
     try:
-        from .billing.stripe_service import StripeService, CreatorPayoutService
-        from .billing.financial_reporting import FinancialReportingService
+        from billing.stripe_service import StripeService, CreatorPayoutService
+        from billing.financial_reporting import FinancialReportingService
 
         stripe_key = os.environ.get("STRIPE_API_KEY", "")
 
@@ -142,28 +142,28 @@ def get_revenue_routers():
     routers = []
 
     try:
-        from .billing.routes import router as billing_router
+        from billing.routes import router as billing_router
         routers.append(billing_router)
         logger.info("✅ Billing router loaded")
     except Exception as e:
         logger.warning(f"Could not load billing router: {e}")
 
     try:
-        from .crm.routes import router as crm_router
+        from crm.routes import router as crm_router
         routers.append(crm_router)
         logger.info("✅ CRM router loaded")
     except Exception as e:
         logger.warning(f"Could not load CRM router: {e}")
 
     try:
-        from .billing.course_routes import router as course_router
+        from billing.course_routes import router as course_router
         routers.append(course_router)
         logger.info("✅ Course licensing router loaded")
     except Exception as e:
         logger.warning(f"Could not load course licensing router: {e}")
 
     try:
-        from .billing.creator_course_routes import router as creator_course_router
+        from billing.creator_course_routes import router as creator_course_router
         routers.append(creator_course_router)
         logger.info("✅ Creator course router loaded")
     except Exception as e:

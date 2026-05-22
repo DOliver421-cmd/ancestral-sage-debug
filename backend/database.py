@@ -5,7 +5,7 @@ Real database setup that creates collections and indexes
 
 import logging
 from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorDatabase
-from .config import settings
+from config import settings
 
 logger = logging.getLogger(__name__)
 

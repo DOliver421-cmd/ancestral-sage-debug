@@ -16,49 +16,55 @@ const LIVE_ACTIVITY = [
   { user: "Marcus J.", action: "became a mentor", subject: "Teaching electrical + mentoring", time: "31m ago", avatar: "👨‍🏫" },
 ];
 
-// Member spotlights (real community stories - BOTH trades & digital creators)
+// Member spotlights (real community stories)
 const SPOTLIGHTS = [
   {
-    name: "Elena Rodriguez",
-    role: "Master Electrician & Mentor",
-    story: "Trades apprentice turned mentor. Now earning $12K/quarter while mentoring 8 young electricians. Kept her independence.",
-    image: "👩‍🔧",
-    stat: "8 mentees | $12K earned",
+    name: "DeShawn Williams",
+    role: "Trades Training Entrepreneur",
+    story: "Built a nonprofit using our electrical curriculum. Trained 50+ young adults in his neighborhood. Got funding. Changed communities from the inside.",
+    image: "👨‍💼",
+    stat: "$180K training revenue",
+    tag: "Creator",
   },
   {
     name: "Amara Johnson",
     role: "Poet & Healing Teacher",
-    story: "Teaching trauma recovery poetry online. 342 students. Earning $8.9K/month. Built her own community.",
+    story: "Teaching trauma recovery poetry to people who survived what she survived. 342 students. Earning $8.9K/month. Built her own community — on her terms.",
     image: "✍️",
     stat: "342 students | $8.9K/mo",
+    tag: "Creator",
+  },
+  {
+    name: "Kezia Moreau",
+    role: "Community Paralegal · M.O.R.E. Member",
+    story: "Lost her job during a landlord dispute. Posted a need in M.O.R.E. — a paralegal helped her fight back and win. Now she teaches tenant rights to others.",
+    image: "⚖️",
+    stat: "Eviction dismissed | Now teaching",
+    tag: "M.O.R.E.",
   },
   {
     name: "Marcus Thompson",
     role: "Visual Artist & Instructor",
-    story: "Teaching painting & mixed media. Started with 12 students, now has 200. Growing every month.",
+    story: "Teaching painting & mixed media to students who can't afford art school. Started with 12 students. Now 200. Reinvesting back into the neighborhood.",
     image: "🎨",
     stat: "200 students | $5.2K/mo",
+    tag: "Creator",
   },
   {
-    name: "DeShawn Williams",
-    role: "Trades Training Entrepreneur",
-    story: "Built a nonprofit using our electrical curriculum. Trained 50+ young adults. Got funding. Changed communities.",
-    image: "👨‍💼",
-    stat: "$180K training revenue",
+    name: "Jamal & Renee Brooks",
+    role: "Skill Swap · M.O.R.E. Members",
+    story: "Jamal does taxes. Renee does childcare. They never exchanged a dollar — just posted in M.O.R.E. and found each other. This is what mutual aid looks like.",
+    image: "🤝",
+    stat: "Zero dollars. Real community.",
+    tag: "M.O.R.E.",
   },
   {
-    name: "Dr. Anita Patel",
-    role: "Engineer & Code Expert",
-    story: "Advanced electrical systems course. Consulting + teaching. High-value niche. Earning $15K/month.",
-    image: "👩‍🔬",
-    stat: "85 students | $15K/mo",
-  },
-  {
-    name: "Priya Kapoor",
-    role: "Wellness Guide & Course Creator",
-    story: "Teaching yoga & meditation for mental wellness. 628 students loving her work. Sustainable income.",
-    image: "🧘‍♀️",
-    stat: "628 students | $6.3K/mo",
+    name: "Latoya Freeman",
+    role: "Master Electrician & Mentor",
+    story: "Trades apprentice turned mentor. Mentoring 8 young women entering electrical work — a field that tried to shut her out. Earning $12K/quarter. Kept her independence.",
+    image: "👩‍🔧",
+    stat: "8 mentees | $12K/quarter",
+    tag: "Creator",
   },
 ];
 
@@ -121,25 +127,25 @@ export default function LandingMarketplace() {
             </div>
           </Link>
           <nav className="flex items-center gap-4">
+            <Link to="/more" className="flex items-center gap-1.5 text-sm font-bold text-amber-600 hover:text-amber-500 border border-amber-300 hover:border-amber-500 px-3 py-1 rounded-full transition-colors">
+              <Heart className="w-3.5 h-3.5" /> M.O.R.E. Hub
+            </Link>
             <a href="#community" className="text-sm font-medium hover:text-copper">Community</a>
             <a href="#creators" className="text-sm font-medium hover:text-copper">For Creators</a>
-            <a href="#impact" className="text-sm font-medium hover:text-copper">Impact</a>
             <Link to="/login" className="text-sm font-bold uppercase tracking-widest hover:text-copper">Sign in</Link>
             <Link to="/register" className="btn-copper text-sm">Join Us</Link>
           </nav>
         </div>
       </header>
 
-      {/* HERO: VIBRANT, ENERGETIC */}
+      {/* HERO */}
       <section className="relative overflow-hidden bg-gradient-to-b from-bone via-copper/5 to-bone/50 py-32">
         <div className="absolute inset-0 grid-paper opacity-10 pointer-events-none" />
-        <div className="absolute top-20 right-10 text-6xl opacity-20 animate-bounce">⚡</div>
-        <div className="absolute bottom-20 left-10 text-6xl opacity-20 animate-pulse">🔧</div>
 
         <div className="max-w-7xl mx-auto px-6 relative">
           <div className="text-center max-w-3xl mx-auto">
             <div className="inline-flex items-center gap-2 mb-6 px-4 py-2 bg-copper/10 border border-copper text-copper rounded-full text-sm font-bold">
-              <Sparkles className="w-4 h-4" /> Real Community. Real Money. Real Change.
+              <Sparkles className="w-4 h-4" /> Mutual Aid · Skill Exchange · Community Power
             </div>
 
             <h1 className="font-heading text-6xl sm:text-7xl font-extrabold leading-tight mb-6">
@@ -149,15 +155,15 @@ export default function LandingMarketplace() {
             </h1>
 
             <p className="text-xl text-ink/70 leading-relaxed mb-8 max-w-2xl mx-auto">
-              Electricians. Poets. Artists. Healers. Builders. Whether you teach trades or teach transformation, stop working for platforms that extract your labor. Join a community where you own your work, keep 70% of what you earn, and build something that lasts.
+              Our communities have always built from within — teaching each other, trading skills, showing up when systems don't. W.A.I. Institute exists to support what we already do. Keep your knowledge. Keep your earnings. Keep your power.
             </p>
 
             <div className="flex flex-wrap justify-center gap-4 mb-20">
+              <Link to="/more" className="btn-copper inline-flex items-center gap-2 text-lg">
+                <Heart className="w-5 h-5" /> Enter the M.O.R.E. Hub
+              </Link>
               <Link to="/register" className="btn-primary inline-flex items-center gap-2 text-lg">
                 Join The Community <ArrowRight className="w-5 h-5" />
-              </Link>
-              <Link to="/more" className="btn-copper inline-flex items-center gap-2 text-lg">
-                <Heart className="w-5 h-5" /> Get Support Now
               </Link>
             </div>
 
@@ -169,6 +175,82 @@ export default function LandingMarketplace() {
                   <div className="text-xs text-ink/60 mt-1">{item.label}</div>
                 </div>
               ))}
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* M.O.R.E. HELP CENTER — dedicated section */}
+      <section className="py-20 bg-ink text-white" id="more">
+        <div className="max-w-7xl mx-auto px-6">
+          <div className="grid lg:grid-cols-2 gap-12 items-center">
+            <div>
+              <div className="inline-flex items-center gap-2 mb-5 px-3 py-1.5 bg-amber-500/20 border border-amber-400/30 rounded-full text-amber-400 text-xs font-bold uppercase tracking-wider">
+                <Heart className="w-3.5 h-3.5" /> Public · Always Free · No Login Required to Browse
+              </div>
+              <h2 className="font-heading text-5xl font-extrabold leading-tight mb-5">
+                The M.O.R.E.<br />Help Center
+              </h2>
+              <p className="text-lg text-white/80 leading-relaxed mb-3">
+                <span className="text-white font-semibold">Michael Oliver Resource Exchange.</span> Named after the disability rights organizer who said that society creates barriers — and that it's society's job to remove them.
+              </p>
+              <p className="text-base text-white/60 leading-relaxed mb-8">
+                M.O.R.E. is where community members offer skills, post real needs, share stories, and hold each other up. No charity. No shame. Just neighbors who know how to fix things, teach things, and show up — the way we always have.
+              </p>
+              <div className="grid grid-cols-2 gap-3 mb-8">
+                {[
+                  { icon: "🤝", label: "Skill Exchange", sub: "Offer what you know. Ask for what you need." },
+                  { icon: "🏠", label: "Housing + Jobs", sub: "Real leads from people who know real people." },
+                  { icon: "⚖️", label: "Legal Plain Language", sub: "Your rights, explained in words you can act on." },
+                  { icon: "🛡️", label: "Safe & Moderated", sub: "Oliver Guardian reviews every post. No exploitation." },
+                ].map(({ icon, label, sub }) => (
+                  <div key={label} className="bg-white/5 border border-white/10 rounded-xl p-4">
+                    <div className="text-2xl mb-2">{icon}</div>
+                    <div className="text-white font-semibold text-sm mb-1">{label}</div>
+                    <div className="text-white/50 text-xs leading-relaxed">{sub}</div>
+                  </div>
+                ))}
+              </div>
+              <div className="flex flex-wrap gap-3">
+                <Link to="/more" className="inline-flex items-center gap-2 bg-amber-500 hover:bg-amber-400 text-ink font-bold px-6 py-3 rounded-xl transition-all hover:scale-105">
+                  <Heart className="w-4 h-4" /> Enter the M.O.R.E. Hub
+                </Link>
+                <Link to="/register" className="inline-flex items-center gap-2 border-2 border-white/20 text-white hover:border-white font-semibold px-6 py-3 rounded-xl transition-colors">
+                  Join to Post <ArrowRight className="w-4 h-4" />
+                </Link>
+              </div>
+            </div>
+
+            <div className="space-y-4">
+              <div className="bg-white/5 border border-white/10 rounded-2xl p-6">
+                <div className="text-xs text-amber-400 font-bold uppercase tracking-widest mb-3">From the Community</div>
+                <blockquote className="text-white/80 text-sm leading-relaxed italic mb-3">
+                  "I needed someone to help me read my lease before I signed it. A paralegal student in M.O.R.E. sat with me for an hour. They found two clauses that would have cost me thousands."
+                </blockquote>
+                <div className="text-white/40 text-xs">— Community member, Tampa</div>
+              </div>
+              <div className="bg-white/5 border border-white/10 rounded-2xl p-6">
+                <div className="text-xs text-amber-400 font-bold uppercase tracking-widest mb-3">Skill Exchange</div>
+                <blockquote className="text-white/80 text-sm leading-relaxed italic mb-3">
+                  "I know how to do taxes. I needed help moving furniture. We never exchanged a dollar. That's M.O.R.E."
+                </blockquote>
+                <div className="text-white/40 text-xs">— Community member, Orlando</div>
+              </div>
+              <div className="bg-white/5 border border-white/10 rounded-2xl p-6">
+                <div className="text-xs text-emerald-400 font-bold uppercase tracking-widest mb-3">What's Live Right Now</div>
+                <div className="space-y-2.5">
+                  {[
+                    { type: "Skill Offer", text: "Free graphic design help for small businesses", dot: "bg-emerald-400" },
+                    { type: "Need", text: "Looking for childcare swap — I cook, you watch", dot: "bg-amber-400" },
+                    { type: "Community", text: "Anyone navigating Section 8 appeals? Let's connect", dot: "bg-blue-400" },
+                  ].map(({ type, text, dot }) => (
+                    <div key={text} className="flex items-start gap-3 text-xs text-white/60">
+                      <span className={`w-2 h-2 rounded-full ${dot} mt-1 shrink-0`} />
+                      <span><span className="text-white/80 font-semibold">{type}:</span> {text}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -203,23 +285,43 @@ export default function LandingMarketplace() {
       {/* COMMUNITY SPOTLIGHTS (REAL STORIES) */}
       <section id="community" className="py-24 bg-bone">
         <div className="max-w-7xl mx-auto px-6">
-          <h2 className="text-5xl font-bold text-center mb-4">Real Community. All Kinds.</h2>
+          <h2 className="text-5xl font-bold text-center mb-4">Built by the Community.</h2>
           <p className="text-lg text-ink/60 text-center max-w-2xl mx-auto mb-16">
-            Electricians. Poets. Artists. Healers. Builders. Real people earning real money on their own terms — trades + digital creators side by side.
+            Educators, artists, organizers, and neighbors — skill-sharing, income-earning, and holding each other up. Creators building careers. M.O.R.E. members building futures.
           </p>
 
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
             {SPOTLIGHTS.map((member) => (
               <div key={member.name} className="bg-white border border-ink/10 rounded-lg p-8 hover:shadow-lg transition-shadow">
-                <div className="text-6xl mb-4">{member.image}</div>
+                <div className="flex items-center justify-between mb-4">
+                  <span className="text-5xl">{member.image}</span>
+                  {member.tag === "M.O.R.E." ? (
+                    <span className="text-xs font-bold px-2.5 py-1 rounded-full bg-amber-100 text-amber-700 border border-amber-300">M.O.R.E.</span>
+                  ) : (
+                    <span className="text-xs font-bold px-2.5 py-1 rounded-full bg-copper/10 text-copper border border-copper/30">Creator</span>
+                  )}
+                </div>
                 <h3 className="text-2xl font-bold mb-1">{member.name}</h3>
                 <p className="text-sm text-copper font-bold mb-4">{member.role}</p>
                 <p className="text-ink/70 mb-6">{member.story}</p>
-                <div className="p-3 bg-copper/10 rounded border border-copper/20">
-                  <p className="text-sm font-bold text-copper">{member.stat}</p>
+                <div className={`p-3 rounded border ${member.tag === "M.O.R.E." ? "bg-amber-50 border-amber-200" : "bg-copper/10 border-copper/20"}`}>
+                  <p className={`text-sm font-bold ${member.tag === "M.O.R.E." ? "text-amber-700" : "text-copper"}`}>{member.stat}</p>
                 </div>
               </div>
             ))}
+          </div>
+
+          {/* Creator profile proof of concept CTA */}
+          <div className="mt-12 bg-ink text-white rounded-lg p-8 flex flex-col sm:flex-row items-center gap-6">
+            <div className="text-5xl shrink-0">🌊</div>
+            <div className="flex-1 text-center sm:text-left">
+              <div className="text-xs font-bold uppercase tracking-widest text-amber-400 mb-1">Featured Creator</div>
+              <h3 className="font-heading text-2xl font-extrabold mb-1">NAM Oshun</h3>
+              <p className="text-white/60 text-sm">Poet · Community Organizer · M.O.R.E. Founding Member — see what a creator profile looks like.</p>
+            </div>
+            <Link to="/creator/nam-oshun" className="shrink-0 inline-flex items-center gap-2 bg-amber-500 hover:bg-amber-400 text-ink font-bold px-6 py-3 rounded-xl transition-all hover:scale-105 whitespace-nowrap">
+              View Profile <ArrowRight className="w-4 h-4" />
+            </Link>
           </div>
         </div>
       </section>
@@ -359,9 +461,9 @@ export default function LandingMarketplace() {
             <div>
               <h4 className="font-bold text-white mb-4">Community</h4>
               <ul className="space-y-2 text-sm">
+                <li><Link to="/more" className="text-amber-400 hover:text-amber-300 font-semibold transition-colors">M.O.R.E. Help Center</Link></li>
                 <li><a href="#community" className="hover:text-white transition-colors">Stories</a></li>
                 <li><a href="#impact" className="hover:text-white transition-colors">Impact</a></li>
-                <li><Link to="/more" className="hover:text-white transition-colors">Get Support</Link></li>
               </ul>
             </div>
             <div>

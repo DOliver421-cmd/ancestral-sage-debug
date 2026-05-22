@@ -6,7 +6,7 @@ Endpoints for creators to build and sell courses, students to discover and learn
 from fastapi import APIRouter, Request, HTTPException, Query, Depends
 from datetime import datetime
 from pydantic import BaseModel, Field
-from ..security.field_authorization import FieldAuthorization
+from security.field_authorization import FieldAuthorization
 from .creator_courses import (
     init_creator_courses,
     create_course,

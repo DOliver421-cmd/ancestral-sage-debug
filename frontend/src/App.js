@@ -40,6 +40,7 @@ import MoreChat from "./pages/MoreChat";
 import MoreAdmin from "./pages/MoreAdmin";
 import MoreOps from "./pages/MoreOps";
 import LitigationWeapon from "./pages/LitigationWeapon";
+import CreatorProfile from "./pages/CreatorProfile";
 import DirectorWidget from "./components/DirectorWidget";
 import ErrorBoundary from "./components/ErrorBoundary";
 import Helper from "./pages/Helper";
@@ -126,6 +127,8 @@ function App() {
           <Route path="/admin/sage-audit" element={<Protected roles={["executive_admin"]}><SageAudit /></Protected>} />
           <Route path="/council" element={<Protected><OrchestratorChat /></Protected>} />
           <Route path="/leaderboard" element={<Protected><Leaderboard /></Protected>} />
+          {/* Creator profiles — public, slug-based */}
+          <Route path="/creator/:slug" element={<CreatorProfile />} />
           {/* M.O.R.E. — public tier */}
           <Route path="/more" element={<More />} />
           <Route path="/more/litigation" element={<LitigationWeapon />} />

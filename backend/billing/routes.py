@@ -22,9 +22,20 @@ from .models import (
 )
 from .stripe_service import StripeService, CreatorPayoutService
 from .financial_reporting import FinancialReportingService, RevenueRecognitionService
-from ..auth import get_current_user
-from ..security.field_authorization import FieldAuthorization, get_visible_fields
-from ..security.encryption import decrypt_payout_account, mask_sensitive_field
+from security.field_authorization import FieldAuthorization, get_visible_fields
+from security.encryption import decrypt_payout_account, mask_sensitive_field
+
+
+def _get_current_user(request: Request):
+    """Extract current user from request state (set by server.py JWT middleware)."""
+    user = getattr(request.state, "user", None)
+    if not user:
+        raise HTTPException(status_code=401, detail="Authentication required")
+    return user
+
+
+# Alias so all existing Depends(get_current_user) calls keep working
+get_current_user = _get_current_user
 
 router = APIRouter(prefix="/api/billing", tags=["billing"])
 

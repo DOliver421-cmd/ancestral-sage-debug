@@ -102,6 +102,7 @@ db = client[os.environ['DB_NAME']]
 _DB_SOURCE = "primary"   # informational; updated in on_startup
 _backup_db = None        # set in on_startup if MONGO_BACKUP_URL is configured
 _pipeline_manager = None # set in on_startup once DB + API key are both available
+_discount_manager = None # set in on_startup() for discount management
 
 # ── WAI engine singletons ─────────────────────────────────────────────────────
 # Lazy-initialized on first use, then reused across all requests.
@@ -940,6 +941,15 @@ async def on_startup():
     except Exception as _pm_err:
         logger.warning("STARTUP: PipelineManager init failed (non-fatal): %s", _pm_err)
 
+    # ── Discount Management System initialization ─────────────────────────────
+    try:
+        from billing.discount_service import init_discount_service
+        global _discount_manager
+        _discount_manager = await init_discount_service(db)
+        logger.info("STARTUP: Discount management system initialized")
+    except Exception as _disc_err:
+        logger.warning("STARTUP: Discount system initialization failed (non-fatal): %s", _disc_err)
+
     # ── Rate-limiter memory guard ─────────────────────────────────────────────
     # Prune stale entries every 10 minutes so the in-memory dict never grows
     # unbounded on long-running servers (home server especially).
@@ -1082,6 +1092,14 @@ async def ensure_indexes():
         await db.more_flags.create_index("expires_at", expireAfterSeconds=0,
                                         partialFilterExpression={"expires_at": {"$exists": True}})
         await db.more_flags.create_index("status")
+        # Oliver Guardian — audit log and appeals
+        await db.more_moderation_log.create_index([("created_at", -1)])
+        await db.more_moderation_log.create_index("user_id")
+        await db.more_moderation_log.create_index("decision")
+        await db.more_appeals.create_index("expires_at", expireAfterSeconds=0,
+                                          partialFilterExpression={"expires_at": {"$exists": True}})
+        await db.more_appeals.create_index("status")
+        await db.more_appeals.create_index("user_id")
         # Credential public verification codes
         await db.user_credentials.create_index("verification_code", unique=True,
                                                sparse=True)
@@ -5611,64 +5629,183 @@ async def program_analytics(user: User = Depends(require_role("admin"))):
 # Auto-purge: posts 30 days, chats 60 minutes
 # ─────────────────────────────────────────────────────────────────────────────
 
-_OLIVER_GUARDIAN_PROMPT = """You are The Oliver Guardian — the first-line AI moderator for M.O.R.E. (Michael Oliver Resource Exchange), a community mutual aid platform.
+_OLIVER_GUARDIAN_PROMPT = """You are Oliver Guardian — the first-line AI moderator for M.O.R.E. (Michael Oliver Resource Exchange).
 
-Your mission: protect the community with wit, firmness, and zero tolerance for exploitation.
+M.O.R.E. is named in honor of Michael Oliver, a community organizer who believed ordinary people, given the right structure, take extraordinary care of each other. This platform exists to honor that belief. You are its protector.
 
-PLATFORM RULES — these are absolute:
-- NO money, payments, or financial transactions of any kind
-- NO personal contact info (phone numbers, addresses, email, social media handles)
+WHO YOU ARE
+You are a wise, protective presence — part community elder, part sharp-eyed guard. You have warmth for people who belong here and zero patience for those who don't. You read the room. You know the difference between someone new to the platform who made an honest mistake, someone confused about the rules, and someone deliberately trying to exploit a community of vulnerable people. Your response is different for each.
+
+PLATFORM RULES — absolute, no exceptions:
+- NO money, payments, prices, or financial transactions of any kind
+- NO personal contact info: phone numbers, addresses, email, social media handles
 - NO illegal items, services, or activities
-- NO harassment, threats, or intimidation
+- NO harassment, threats, bullying, or intimidation
 - NO sexual content of any kind
-- NO discrimination based on race, age, disability, or any protected class
-- NO scams, fake offers, or deceptive content
-- NO medical advice or emergency instructions
-- NO exploitation of elders, youth, or vulnerable people
+- NO discrimination based on race, ethnicity, age, disability, religion, gender, sexual orientation, or any protected class
+- NO scams, fake offers, deceptive content, or false claims
+- NO exploitation of elders, children, or vulnerable people
 - NO hate speech
+- NO solicitation of professional services that require licensing (medical diagnosis, legal advice, financial advice)
 
-ALLOWED CONTENT:
-- Skill offers (teaching, tutoring, mentoring)
-- Needs requests (help moving, transportation, meals, companionship, household tasks)
-- Community support stories
-- Trade of time and skills (no money)
-- Legitimate community information and events
+ALLOWED CONTENT — this community THRIVES on:
+- Skill offers: teaching, tutoring, mentoring, trades, crafts, cooking, childcare
+- Needs: help moving, transportation, meals, companionship, household tasks, job searching, reading/writing help
+- Housing and shelter needs (legitimate, not solicitation)
+- Community support, encouragement, stories of resilience
+- Time and skill exchange — no money involved
+- Legitimate local information, events, resources
+- Crisis support REQUESTS (someone asking for help IS allowed — see CRISIS section)
 
-MODERATION TASK:
-Analyze the submitted content and respond with a JSON object:
+DECISION TYPES — read carefully, each has a different response:
+
+"approve" — content is legitimate, post it.
+
+"warn" — content has a rule violation but the intent seems genuine or confused, not malicious.
+  Voice: Warm but clear. Like an elder who corrects a child without shaming them. Explain what was wrong and how to fix it.
+  Example (money mention): "Hey, I know you meant well — but we don't use money here, even as a reference. Just describe what you're offering or need in plain terms. Try again?"
+  Example (phone number): "Almost there. We keep personal info off the platform for your protection — take out that number and repost. We've got you."
+
+"block" — clear bad-faith violation: scam, harassment, hate speech, deliberate exploitation, repeated boundary-pushing.
+  Voice: Oliver with full presence. Firm, direct, a little sharp. Not cruel, but unmistakably clear.
+  Example (scam): "Ah yes. We've seen this move before. The community here has real needs — and real people protecting them. Not today."
+  Example (harassment): "That kind of talk doesn't belong anywhere, and it definitely doesn't belong here. This one's staying off the platform."
+  Example (money extraction): "A 'fee' on a no-fee platform. Interesting strategy. Incorrect one, but interesting."
+
+"crisis" — content indicates the person may be in personal danger, expressing suicidal ideation, escaping domestic violence, or facing an immediate safety emergency.
+  This is NOT a block. This person may need help. The post should NOT be published (it may contain unsafe personal details), but the person needs resources, not rejection.
+  Voice: No sarcasm. Warm, direct, caring. Oliver at his most human.
+  Example: "I hear you, and I want you to know help is real and available. Please reach out to 211 (call or text) — they connect people with shelter, food, crisis support, and more, 24/7 and free. If you're in immediate danger, call 911. You matter here."
+  The crisis decision ALWAYS includes a crisis_resources array of specific resources.
+
+FIRST-TIME GRACE
+If the content seems like an honest first-time mistake (mention of money in passing, accidentally included a phone number, etc.) and there is no malicious pattern — use "warn" not "block." Protect the community. Don't punish the newcomer.
+
+RESPOND ONLY with a valid JSON object — no other text:
 {
-  "decision": "approve" | "warn" | "block",
-  "reason": "brief explanation (1-2 sentences)",
-  "oliver_response": "if warn or block, your sarcastic-but-firm message to the user (1-2 sentences, Oliver Guardian voice)"
+  "decision": "approve" | "warn" | "block" | "crisis",
+  "reason": "internal note — brief, factual (1-2 sentences, not shown to user)",
+  "oliver_response": "message shown to user — only for warn, block, crisis decisions. null for approve.",
+  "crisis_resources": ["211 — call or text, free, 24/7", "Crisis Text Line — text HOME to 741741", "National DV Hotline — 1-800-799-7233", "Childhelp National Child Abuse Hotline — 1-800-422-4453"],
+  "violation_category": "money | contact_info | illegal | harassment | sexual | discrimination | scam | exploitation | hate_speech | crisis | none"
 }
 
-Oliver Guardian voice: sarcastic, witty, firm — not cruel, but absolutely clear. Think: a wise older uncle who has seen every trick in the book and will not be fooled.
-
-Examples:
-- Money attempt: "Ah yes, the ancient art of trying to sneak money into a no-money platform. Bold. Incorrect, but bold."
-- Harassment: "Let's try that again, but this time without the attitude. Community space, not a boxing ring."
-- Scam attempt: "Friend, if this were any more of a scam it would come with a Nigerian prince. Blocked."
-
-Only output the JSON object. No other text."""
+crisis_resources: include ONLY for "crisis" decisions. For all other decisions, omit this field or set to null.
+oliver_response: required for warn, block, crisis. null for approve.
+violation_category: always include, use "none" for approved content."""
 
 
-async def _oliver_moderate(content: str) -> dict:
-    """Run Oliver Guardian AI moderation on submitted content."""
+# Crisis resources — kept in sync with the prompt above
+_CRISIS_RESOURCES = [
+    {"name": "211 (US)", "description": "Free local crisis resources — call or text, 24/7", "contact": "Call or text 211 | 211.org"},
+    {"name": "Crisis Text Line", "description": "Text-based crisis support, free and confidential", "contact": "Text HOME to 741741"},
+    {"name": "National Domestic Violence Hotline", "description": "Safe, confidential support for DV situations", "contact": "1-800-799-7233 | thehotline.org"},
+    {"name": "Childhelp National Child Abuse Hotline", "description": "Child abuse reporting and support", "contact": "1-800-422-4453"},
+    {"name": "988 Suicide & Crisis Lifeline", "description": "Mental health crisis support", "contact": "Call or text 988"},
+    {"name": "SAMHSA National Helpline", "description": "Substance use and mental health treatment referrals", "contact": "1-800-662-4357"},
+]
+
+
+async def _oliver_write_audit_log(
+    user_id: str,
+    content_type: str,
+    content: str,
+    decision: str,
+    reason: str,
+    violation_category: str,
+    oliver_response: str | None,
+) -> None:
+    """Write every moderation decision to the audit log — regardless of outcome."""
+    try:
+        await db.more_moderation_log.insert_one({
+            "id": str(uuid.uuid4()),
+            "user_id": user_id,
+            "content_type": content_type,
+            "content_preview": content[:500],  # truncated — full content not stored for PII protection
+            "decision": decision,
+            "reason": reason,
+            "violation_category": violation_category,
+            "oliver_response": oliver_response,
+            "created_at": datetime.now(timezone.utc).isoformat(),
+        })
+    except Exception as e:
+        logger.error(f"Oliver Guardian audit log write failed: {e}")
+
+
+async def _oliver_check_rate_limit(user_id: str) -> bool:
+    """Returns True if the user is within rate limits, False if they should be throttled.
+    Limit: 10 posts/needs/chats per hour per user across all M.O.R.E. content types."""
+    try:
+        one_hour_ago = (datetime.now(timezone.utc) - timedelta(hours=1)).isoformat()
+        count = 0
+        for collection in [db.more_posts, db.more_needs, db.more_chats]:
+            count += await collection.count_documents({
+                "author_id": user_id,
+                "created_at": {"$gte": one_hour_ago},
+            })
+        return count < 10
+    except Exception as e:
+        logger.warning(f"Oliver Guardian rate limit check failed: {e}")
+        return True  # Fail open for rate limiting only — don't block users if DB is slow
+
+
+async def _oliver_moderate(content: str, user_id: str = "unknown", content_type: str = "post") -> dict:
+    """Run Oliver Guardian AI moderation on submitted content.
+
+    FAIL-SAFE: on any error, returns 'quarantine' decision — never auto-approves.
+    Every decision is written to the audit log regardless of outcome.
+    """
     import anthropic
+    import json as _json
+
+    decision_result = None
     try:
         aclient = anthropic.AsyncAnthropic(api_key=ANTHROPIC_API_KEY)
         resp = await aclient.messages.create(
-            model="claude-sonnet-4-6",
+            model="claude-haiku-4-5-20251001",  # Fast and cost-effective for routine moderation
             max_tokens=512,
             system=_OLIVER_GUARDIAN_PROMPT,
             messages=[{"role": "user", "content": f"Content to moderate:\n\n{content}"}],
         )
-        import json as _json
         raw = resp.content[0].text.strip()
-        return _json.loads(raw)
+        # Strip markdown code fences if model adds them
+        if raw.startswith("```"):
+            raw = raw.split("```")[1]
+            if raw.startswith("json"):
+                raw = raw[4:]
+        decision_result = _json.loads(raw.strip())
+        decision_result.setdefault("decision", "warn")
+        decision_result.setdefault("reason", "moderation review")
+        decision_result.setdefault("oliver_response", None)
+        decision_result.setdefault("violation_category", "none")
+        # Attach full crisis resources if crisis decision
+        if decision_result["decision"] == "crisis":
+            decision_result["crisis_resources"] = _CRISIS_RESOURCES
     except Exception as e:
-        logger.warning(f"Oliver Guardian moderation failed: {e}")
-        return {"decision": "approve", "reason": "moderation unavailable", "oliver_response": None}
+        logger.error(f"Oliver Guardian moderation failed: {e}")
+        # FAIL-SAFE: on error, quarantine for human review — never auto-approve
+        decision_result = {
+            "decision": "quarantine",
+            "reason": f"Moderation system temporarily unavailable: {type(e).__name__}",
+            "oliver_response": (
+                "We're having a brief technical hiccup reviewing your post. "
+                "It's been held for a quick human review and will be up shortly if everything looks good."
+            ),
+            "violation_category": "none",
+        }
+
+    # Write audit log — every decision, every time
+    await _oliver_write_audit_log(
+        user_id=user_id,
+        content_type=content_type,
+        content=content,
+        decision=decision_result.get("decision", "unknown"),
+        reason=decision_result.get("reason", ""),
+        violation_category=decision_result.get("violation_category", "none"),
+        oliver_response=decision_result.get("oliver_response"),
+    )
+
+    return decision_result
 
 
 # ─── M.O.R.E. Pydantic Models ────────────────────────────────────────────────
@@ -5707,29 +5844,68 @@ async def more_create_post(req: MorePostReq, user=Depends(current_user)):
     if len(req.content) > 2000:
         raise HTTPException(400, "Content too long (max 2000 chars)")
 
-    moderation = await _oliver_moderate(req.content)
-    decision = moderation.get("decision", "approve")
+    # Rate limit check
+    if not await _oliver_check_rate_limit(user["id"]):
+        raise HTTPException(429, "You're posting a lot right now. Take a breath and try again in an hour.")
 
+    moderation = await _oliver_moderate(req.content, user_id=user["id"], content_type="post")
+    decision = moderation.get("decision", "warn")
+
+    # Crisis — do not publish, return resources
+    if decision == "crisis":
+        return {
+            "post": None,
+            "oliver_response": moderation.get("oliver_response"),
+            "crisis": True,
+            "crisis_resources": moderation.get("crisis_resources", _CRISIS_RESOURCES),
+        }
+
+    # Block — do not publish, return Oliver's message
     if decision == "block":
-        raise HTTPException(400, moderation.get("oliver_response") or "Content violates community guidelines.")
+        raise HTTPException(400, moderation.get("oliver_response") or "This content cannot be posted.")
 
     expires_at = (datetime.now(timezone.utc) + timedelta(days=30)).isoformat()
+
+    # Warn or quarantine → hold for admin review, not live
+    if decision in ("warn", "quarantine"):
+        post_doc = {
+            "id": str(uuid.uuid4()),
+            "content": req.content,
+            "category": req.category,
+            "author_id": user["id"],
+            "author_name": user["full_name"],
+            "status": "pending_review",
+            "moderation_note": moderation.get("reason"),
+            "violation_category": moderation.get("violation_category", "none"),
+            "created_at": datetime.now(timezone.utc).isoformat(),
+            "expires_at": expires_at,
+            "likes": 0,
+        }
+        await db.more_posts.insert_one(post_doc)
+        post_doc.pop("_id", None)
+        return {
+            "post": post_doc,
+            "oliver_response": moderation.get("oliver_response"),
+            "pending_review": True,
+        }
+
+    # Approve — publish immediately
     post_doc = {
         "id": str(uuid.uuid4()),
         "content": req.content,
         "category": req.category,
         "author_id": user["id"],
         "author_name": user["full_name"],
-        "status": "active" if decision == "approve" else "warned",
+        "status": "active",
         "moderation_note": moderation.get("reason"),
-        "oliver_response": moderation.get("oliver_response") if decision == "warn" else None,
+        "violation_category": "none",
         "created_at": datetime.now(timezone.utc).isoformat(),
         "expires_at": expires_at,
         "likes": 0,
     }
     await db.more_posts.insert_one(post_doc)
     post_doc.pop("_id", None)
-    return {"post": post_doc, "oliver_response": post_doc.get("oliver_response")}
+    return {"post": post_doc, "oliver_response": None}
 
 
 @api_router.get("/more/posts")
@@ -5751,13 +5927,34 @@ async def more_list_posts(
 @api_router.post("/more/need")
 async def more_create_need(req: MoreNeedReq, user=Depends(current_user)):
     combined = f"{req.title}\n{req.description}"
-    moderation = await _oliver_moderate(combined)
-    decision = moderation.get("decision", "approve")
+
+    if not req.title.strip() or not req.description.strip():
+        raise HTTPException(400, "Title and description are required")
+
+    # Rate limit check
+    if not await _oliver_check_rate_limit(user["id"]):
+        raise HTTPException(429, "You're posting a lot right now. Take a breath and try again in an hour.")
+
+    moderation = await _oliver_moderate(combined, user_id=user["id"], content_type="need")
+    decision = moderation.get("decision", "warn")
+
+    # Crisis — return resources, do not publish raw distress as a "need"
+    if decision == "crisis":
+        return {
+            "need": None,
+            "oliver_response": moderation.get("oliver_response"),
+            "crisis": True,
+            "crisis_resources": moderation.get("crisis_resources", _CRISIS_RESOURCES),
+        }
 
     if decision == "block":
-        raise HTTPException(400, moderation.get("oliver_response") or "Content violates community guidelines.")
+        raise HTTPException(400, moderation.get("oliver_response") or "This content cannot be posted.")
 
     expires_at = (datetime.now(timezone.utc) + timedelta(days=30)).isoformat()
+
+    # Warn or quarantine → hold for review
+    status = "open" if decision == "approve" else "pending_review"
+
     need_doc = {
         "id": str(uuid.uuid4()),
         "title": req.title,
@@ -5765,15 +5962,20 @@ async def more_create_need(req: MoreNeedReq, user=Depends(current_user)):
         "category": req.category,
         "author_id": user["id"],
         "author_name": user["full_name"],
-        "status": "open",
+        "status": status,
         "moderation_note": moderation.get("reason"),
+        "violation_category": moderation.get("violation_category", "none"),
         "created_at": datetime.now(timezone.utc).isoformat(),
         "expires_at": expires_at,
         "responses": 0,
     }
     await db.more_needs.insert_one(need_doc)
     need_doc.pop("_id", None)
-    return {"need": need_doc, "oliver_response": moderation.get("oliver_response") if decision == "warn" else None}
+    return {
+        "need": need_doc,
+        "oliver_response": moderation.get("oliver_response") if decision != "approve" else None,
+        "pending_review": decision in ("warn", "quarantine"),
+    }
 
 
 @api_router.get("/more/needs")
@@ -5800,9 +6002,22 @@ async def more_chat_send(req: MoreChatReq, user=Depends(current_user)):
     if len(req.message) > 1000:
         raise HTTPException(400, "Message too long (max 1000 chars)")
 
-    moderation = await _oliver_moderate(req.message)
-    if moderation.get("decision") == "block":
-        raise HTTPException(400, moderation.get("oliver_response") or "Message violates community guidelines.")
+    if not await _oliver_check_rate_limit(user["id"]):
+        raise HTTPException(429, "Slow down a bit — you've been very active. Try again in an hour.")
+
+    moderation = await _oliver_moderate(req.message, user_id=user["id"], content_type="chat")
+    decision = moderation.get("decision", "warn")
+
+    if decision == "crisis":
+        return {
+            "message": None,
+            "oliver_response": moderation.get("oliver_response"),
+            "crisis": True,
+            "crisis_resources": moderation.get("crisis_resources", _CRISIS_RESOURCES),
+        }
+
+    if decision == "block":
+        raise HTTPException(400, moderation.get("oliver_response") or "This message cannot be sent.")
 
     expires_at = (datetime.now(timezone.utc) + timedelta(minutes=60)).isoformat()
     msg_doc = {
@@ -5847,6 +6062,121 @@ async def more_flag_content(req: MoreFlagReq, user=Depends(current_user)):
     return {"flag": flag_doc}
 
 
+@api_router.post("/more/appeal")
+async def more_appeal_decision(
+    target_id: str,
+    reason: str,
+    user=Depends(current_user),
+):
+    """Appeal a moderation decision. Logs the appeal for admin review.
+    Users can appeal a block or a pending_review hold on their own content."""
+    if not reason.strip():
+        raise HTTPException(400, "Please explain why you are appealing.")
+    if len(reason) > 1000:
+        raise HTTPException(400, "Appeal reason too long (max 1000 chars).")
+
+    # Verify the content belongs to this user
+    post = await db.more_posts.find_one({"id": target_id, "author_id": user["id"]}, {"_id": 0})
+    need = await db.more_needs.find_one({"id": target_id, "author_id": user["id"]}, {"_id": 0}) if not post else None
+    if not post and not need:
+        raise HTTPException(404, "Content not found or does not belong to your account.")
+
+    appeal_doc = {
+        "id": str(uuid.uuid4()),
+        "target_id": target_id,
+        "target_type": "post" if post else "need",
+        "user_id": user["id"],
+        "user_name": user["full_name"],
+        "appeal_reason": reason.strip(),
+        "status": "pending",
+        "created_at": datetime.now(timezone.utc).isoformat(),
+        "expires_at": (datetime.now(timezone.utc) + timedelta(days=30)).isoformat(),
+    }
+    await db.more_appeals.insert_one(appeal_doc)
+    appeal_doc.pop("_id", None)
+    await audit(user["id"], "more.appeal", meta={"target_id": target_id})
+    return {
+        "appeal": appeal_doc,
+        "message": (
+            "Your appeal has been received. A real human will review it within 48 hours. "
+            "Oliver Guardian protects everyone — including you. If the decision was wrong, we'll fix it."
+        ),
+    }
+
+
+@api_router.get("/more/admin/queue")
+async def more_admin_review_queue(user=Depends(current_user), skip: int = 0, limit: int = 50):
+    """Admin review queue — pending_review posts and needs, plus appeals."""
+    require_role(user, "admin")
+    posts_cursor = db.more_posts.find({"status": "pending_review"}, {"_id": 0}).sort("created_at", 1).skip(skip).limit(limit)
+    needs_cursor = db.more_needs.find({"status": "pending_review"}, {"_id": 0}).sort("created_at", 1).skip(skip).limit(limit)
+    appeals_cursor = db.more_appeals.find({"status": "pending"}, {"_id": 0}).sort("created_at", 1).skip(skip).limit(limit)
+    posts_total = await db.more_posts.count_documents({"status": "pending_review"})
+    needs_total = await db.more_needs.count_documents({"status": "pending_review"})
+    appeals_total = await db.more_appeals.count_documents({"status": "pending"})
+    posts, needs, appeals = await _asyncio.gather(
+        posts_cursor.to_list(limit),
+        needs_cursor.to_list(limit),
+        appeals_cursor.to_list(limit),
+    )
+    return {
+        "posts": posts, "posts_total": posts_total,
+        "needs": needs, "needs_total": needs_total,
+        "appeals": appeals, "appeals_total": appeals_total,
+    }
+
+
+@api_router.post("/more/admin/queue/{content_type}/{content_id}/approve")
+async def more_admin_approve(content_type: str, content_id: str, user=Depends(current_user)):
+    """Admin approves a pending_review post or need — moves it to active/open."""
+    require_role(user, "admin")
+    if content_type == "post":
+        result = await db.more_posts.update_one(
+            {"id": content_id, "status": "pending_review"},
+            {"$set": {"status": "active", "reviewed_by": user["id"], "reviewed_at": datetime.now(timezone.utc).isoformat()}},
+        )
+    elif content_type == "need":
+        result = await db.more_needs.update_one(
+            {"id": content_id, "status": "pending_review"},
+            {"$set": {"status": "open", "reviewed_by": user["id"], "reviewed_at": datetime.now(timezone.utc).isoformat()}},
+        )
+    else:
+        raise HTTPException(400, "content_type must be 'post' or 'need'")
+    if result.modified_count == 0:
+        raise HTTPException(404, "Content not found or already reviewed.")
+    await audit(user["id"], f"more.admin.approve.{content_type}", meta={"content_id": content_id})
+    return {"approved": True, "content_id": content_id}
+
+
+@api_router.post("/more/admin/queue/{content_type}/{content_id}/reject")
+async def more_admin_reject(content_type: str, content_id: str, reason: str = "", user=Depends(current_user)):
+    """Admin rejects a pending_review item — removes it permanently."""
+    require_role(user, "admin")
+    if content_type == "post":
+        result = await db.more_posts.delete_one({"id": content_id, "status": "pending_review"})
+    elif content_type == "need":
+        result = await db.more_needs.delete_one({"id": content_id, "status": "pending_review"})
+    else:
+        raise HTTPException(400, "content_type must be 'post' or 'need'")
+    if result.deleted_count == 0:
+        raise HTTPException(404, "Content not found or already reviewed.")
+    await audit(user["id"], f"more.admin.reject.{content_type}", meta={"content_id": content_id, "reason": reason})
+    return {"rejected": True, "content_id": content_id}
+
+
+@api_router.get("/more/admin/moderation-log")
+async def more_moderation_log(user=Depends(current_user), skip: int = 0, limit: int = 100, decision: Optional[str] = None):
+    """Full Oliver Guardian moderation audit log — admin only."""
+    require_role(user, "admin")
+    query = {}
+    if decision:
+        query["decision"] = decision
+    cursor = db.more_moderation_log.find(query, {"_id": 0}).sort("created_at", -1).skip(skip).limit(limit)
+    logs = await cursor.to_list(limit)
+    total = await db.more_moderation_log.count_documents(query)
+    return {"logs": logs, "total": total}
+
+
 @api_router.post("/more/purge")
 async def more_manual_purge(user=Depends(current_user)):
     require_role(user, "admin")
@@ -5854,10 +6184,12 @@ async def more_manual_purge(user=Depends(current_user)):
     r1 = await db.more_posts.delete_many({"expires_at": {"$lte": now}})
     r2 = await db.more_chats.delete_many({"expires_at": {"$lte": now}})
     r3 = await db.more_flags.delete_many({"expires_at": {"$lte": now}})
+    r4 = await db.more_appeals.delete_many({"expires_at": {"$lte": now}})
     await audit(user["id"], "more.purge", meta={
-        "posts": r1.deleted_count, "chats": r2.deleted_count, "flags": r3.deleted_count
+        "posts": r1.deleted_count, "chats": r2.deleted_count,
+        "flags": r3.deleted_count, "appeals": r4.deleted_count,
     })
-    return {"purged": {"posts": r1.deleted_count, "chats": r2.deleted_count, "flags": r3.deleted_count}}
+    return {"purged": {"posts": r1.deleted_count, "chats": r2.deleted_count, "flags": r3.deleted_count, "appeals": r4.deleted_count}}
 
 
 @api_router.get("/more/admin/flags")
@@ -6586,6 +6918,138 @@ async def admin_payment_list(user=Depends(require_role("admin"))):
     records = await cursor.to_list(500)
     total_cents = sum(r.get("amount_cents", 0) for r in records if r.get("status") == "paid")
     return {"payments": records, "total_revenue_cents": total_cents, "count": len(records)}
+
+
+# ─── DISCOUNT MANAGEMENT ──────────────────────────────────────────────────────
+
+@api_router.get("/admin/discounts")
+async def get_active_discount(user: User = Depends(require_role("executive_admin"))):
+    """Get the currently active discount (Director-only).
+
+    Returns:
+        Current discount with percentage, expiration, and days remaining,
+        or null if no active discount.
+    """
+    if not _discount_manager:
+        raise HTTPException(500, "Discount system not initialized")
+
+    discount = await _discount_manager.get_active_discount()
+    if discount:
+        return discount.dict()
+    return None
+
+
+@api_router.post("/admin/discounts")
+async def set_discount(
+    body: dict,
+    user: User = Depends(require_role("executive_admin"))
+):
+    """Create or update discount (Director-only).
+
+    Request body:
+        {
+            "percentage": 50,     # 0-100
+            "notes": "Optional reason"
+        }
+
+    Returns:
+        Updated discount with id, creation time, and expiration.
+
+    Notes:
+        - Creating a new discount deactivates any existing discount
+        - To deactivate, set "active": false
+        - Expiration is always 90 days from creation (not reset on update)
+    """
+    if not _discount_manager:
+        raise HTTPException(500, "Discount system not initialized")
+
+    try:
+        percentage = body.get("percentage")
+        active = body.get("active", True)
+        notes = body.get("notes", "")
+
+        if percentage is None:
+            raise ValueError("percentage is required")
+
+        if not isinstance(percentage, int) or not (0 <= percentage <= 100):
+            raise ValueError("percentage must be an integer between 0 and 100")
+
+        if not active:
+            # Deactivate the current discount
+            discount = await _discount_manager.deactivate_discount()
+            if discount:
+                await audit(user.id, "discount.deactivated", meta={"discount_id": discount.id})
+                return discount.dict()
+            return None
+
+        # Check if discount exists
+        existing = await _discount_manager.get_active_discount()
+        if existing:
+            # Update existing discount's percentage
+            discount = await _discount_manager.update_discount_percentage(percentage, notes)
+            await audit(
+                user.id,
+                "discount.updated",
+                meta={
+                    "discount_id": discount.id,
+                    "new_percentage": percentage,
+                    "notes": notes
+                }
+            )
+        else:
+            # Create new discount
+            discount = await _discount_manager.create_discount(percentage, user.id, notes)
+            await audit(
+                user.id,
+                "discount.created",
+                meta={
+                    "discount_id": discount.id,
+                    "percentage": percentage,
+                    "expires_at": discount.expires_at.isoformat(),
+                    "notes": notes
+                }
+            )
+
+        return discount.dict()
+
+    except ValueError as ve:
+        raise HTTPException(400, str(ve))
+    except Exception as e:
+        logger.exception("Error setting discount: %s", e)
+        raise HTTPException(500, f"Error setting discount: {str(e)}")
+
+
+@api_router.get("/pricing")
+async def get_pricing():
+    """Get subscription pricing with active discount applied.
+
+    This is a PUBLIC endpoint (no auth required).
+
+    Returns:
+        {
+            "tiers": {
+                "basic": {
+                    "monthly": 9.99,
+                    "monthly_discounted": 5.00  (if discount active)
+                },
+                ...
+            },
+            "active_discount": {
+                "percentage": 50,
+                "expires_at": "2026-08-20T...",
+                "message": "Save 50% for the first 90 days!"
+            }  // or null if no discount
+        }
+    """
+    if not _discount_manager:
+        raise HTTPException(500, "Pricing system not initialized")
+
+    from billing.models import TIER_PRICING
+
+    discount = await _discount_manager.get_active_discount()
+    pricing_response = _discount_manager.get_pricing_with_discount(TIER_PRICING, discount)
+
+    return pricing_response
 
 # ─── END STRIPE ───────────────────────────────────────────────────────────────
 

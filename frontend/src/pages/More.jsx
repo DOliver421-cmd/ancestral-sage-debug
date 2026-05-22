@@ -100,23 +100,141 @@ function NeedCard({ need, onFlag }) {
   );
 }
 
+// ── Crisis Resources Panel ─────────────────────────────────────────────────────
+function CrisisPanel({ oliverMessage, resources, onClose }) {
+  return (
+    <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
+      <div className="bg-white w-full max-w-lg rounded-2xl shadow-2xl overflow-hidden">
+        <div className="bg-gradient-to-r from-blue-900 to-blue-700 p-6 text-white">
+          <div className="flex items-center gap-3 mb-3">
+            <Heart className="w-6 h-6 text-blue-300 shrink-0" />
+            <div className="font-heading font-extrabold text-lg">Oliver Guardian — We See You</div>
+          </div>
+          <p className="text-white/90 text-sm leading-relaxed">{oliverMessage}</p>
+        </div>
+        <div className="p-6">
+          <p className="text-sm font-bold text-slate-800 mb-4">Free resources available right now:</p>
+          <div className="space-y-3">
+            {(resources || []).map((r, i) => (
+              <div key={i} className="flex gap-3 p-3 bg-blue-50 rounded-xl border border-blue-100">
+                <Shield className="w-4 h-4 text-blue-600 shrink-0 mt-0.5" />
+                <div>
+                  <div className="font-bold text-sm text-blue-900">{r.name}</div>
+                  <div className="text-xs text-slate-600 mt-0.5">{r.description}</div>
+                  <div className="text-xs font-bold text-blue-700 mt-1">{r.contact}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+          <p className="text-xs text-slate-500 mt-4 text-center italic">
+            If you're in immediate danger, call 911. You are not alone.
+          </p>
+        </div>
+        <div className="px-6 pb-6">
+          <button onClick={onClose}
+            className="w-full py-3 bg-blue-700 hover:bg-blue-600 text-white font-bold rounded-xl transition-colors">
+            I understand — close this
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Oliver Guardian Message ────────────────────────────────────────────────────
+function OliverMessage({ message, postId, postType, onDismiss }) {
+  const [appealing, setAppealing] = useState(false);
+  const [appealReason, setAppealReason] = useState("");
+  const [appealSent, setAppealSent] = useState(false);
+  const [appealLoading, setAppealLoading] = useState(false);
+
+  const submitAppeal = async () => {
+    if (!appealReason.trim() || !postId) return;
+    setAppealLoading(true);
+    try {
+      await api.post(`/more/appeal?target_id=${postId}&reason=${encodeURIComponent(appealReason.trim())}`);
+      setAppealSent(true);
+      toast.success("Appeal submitted — a real human will review within 48 hours.");
+    } catch (err) {
+      toast.error(err?.response?.data?.detail || "Could not submit appeal");
+    } finally { setAppealLoading(false); }
+  };
+
+  return (
+    <div className="rounded-2xl overflow-hidden border-2 border-amber-300 bg-amber-50">
+      <div className="flex items-start gap-3 p-4">
+        <Shield className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+        <div className="flex-1">
+          <div className="font-bold text-sm text-amber-900 mb-1">Oliver Guardian</div>
+          <p className="text-sm text-amber-800 leading-relaxed">{message}</p>
+        </div>
+        <button onClick={onDismiss} className="text-amber-400 hover:text-amber-600 text-xs font-bold shrink-0">✕</button>
+      </div>
+      {postId && !appealSent && (
+        <div className="border-t border-amber-200 px-4 pb-4 pt-3">
+          {!appealing ? (
+            <button onClick={() => setAppealing(true)}
+              className="text-xs font-bold text-amber-700 hover:text-amber-900 underline underline-offset-2">
+              Think this was a mistake? Appeal this decision →
+            </button>
+          ) : (
+            <div className="space-y-2">
+              <textarea value={appealReason} onChange={e => setAppealReason(e.target.value)} rows={2}
+                placeholder="Explain why your post should be approved…"
+                className="w-full border border-amber-300 rounded-lg px-3 py-2 text-xs resize-none outline-none focus:border-amber-500" />
+              <div className="flex gap-2">
+                <button onClick={() => setAppealing(false)}
+                  className="text-xs text-amber-600 hover:text-amber-800 font-medium">Cancel</button>
+                <button onClick={submitAppeal} disabled={!appealReason.trim() || appealLoading}
+                  className="flex-1 py-1.5 bg-amber-500 hover:bg-amber-400 text-ink font-bold text-xs rounded-lg disabled:opacity-50 transition-colors">
+                  {appealLoading ? "Submitting…" : "Submit Appeal"}
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+      {appealSent && (
+        <div className="border-t border-amber-200 px-4 pb-4 pt-3">
+          <p className="text-xs text-green-700 font-medium">✓ Appeal submitted. We'll review within 48 hours.</p>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── New Post Modal ────────────────────────────────────────────────────────────
 function NewPostModal({ onClose, onSuccess }) {
   const [content, setContent] = useState("");
   const [category, setCategory] = useState("community");
   const [loading, setLoading] = useState(false);
   const [oliver, setOliver] = useState(null);
+  const [oliverPostId, setOliverPostId] = useState(null);
+  const [crisis, setCrisis] = useState(null);
+  const [pendingReview, setPendingReview] = useState(false);
 
   const submit = async () => {
     if (!content.trim()) return;
-    setLoading(true); setOliver(null);
+    setLoading(true); setOliver(null); setOliverPostId(null); setCrisis(null); setPendingReview(false);
     try {
       const r = await api.post("/more/post", { content: content.trim(), category });
-      if (r.data.oliver_response) setOliver(r.data.oliver_response);
-      else { toast.success("Posted to M.O.R.E.!"); onSuccess(); onClose(); }
+      if (r.data.crisis) {
+        setCrisis({ message: r.data.oliver_response, resources: r.data.crisis_resources });
+      } else if (r.data.pending_review) {
+        setPendingReview(true);
+        setOliver(r.data.oliver_response);
+        setOliverPostId(r.data.post?.id || null);
+      } else if (r.data.oliver_response) {
+        setOliver(r.data.oliver_response);
+        setOliverPostId(r.data.post?.id || null);
+      } else {
+        toast.success("Posted to M.O.R.E.!");
+        onSuccess();
+        onClose();
+      }
     } catch (err) {
       const msg = err?.response?.data?.detail || "Could not post";
-      toast.error(msg); setOliver(msg);
+      setOliver(msg);
     } finally { setLoading(false); }
   };
 
@@ -127,6 +245,10 @@ function NewPostModal({ onClose, onSuccess }) {
     { k: "story",       emoji: "✨", label: "Story",       sub: "Share a win or story" },
   ];
 
+  if (crisis) {
+    return <CrisisPanel oliverMessage={crisis.message} resources={crisis.resources} onClose={onClose} />;
+  }
+
   return (
     <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
       <div className="bg-white w-full max-w-lg rounded-2xl shadow-2xl overflow-hidden">
@@ -135,34 +257,54 @@ function NewPostModal({ onClose, onSuccess }) {
           <button onClick={onClose} className="text-white/60 hover:text-white"><X className="w-5 h-5" /></button>
         </div>
         <div className="p-6 space-y-4">
-          {oliver && (
-            <div className="flex items-start gap-3 bg-amber-50 border border-amber-300 rounded-xl p-4">
-              <Shield className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
-              <p className="flex-1 text-sm text-amber-800"><span className="font-bold">Oliver Guardian: </span>{oliver}</p>
-              <button onClick={() => setOliver(null)} className="text-amber-500 text-xs font-bold">✕</button>
+          {pendingReview && !oliver && (
+            <div className="flex items-start gap-3 bg-blue-50 border border-blue-200 rounded-xl p-4">
+              <Clock className="w-5 h-5 text-blue-600 shrink-0 mt-0.5" />
+              <p className="text-sm text-blue-800">
+                <span className="font-bold">Held for review.</span> Oliver Guardian flagged this for a quick human check.
+                It'll be up within 48 hours if it looks good.
+              </p>
             </div>
           )}
-          <div className="grid grid-cols-2 gap-2">
-            {cats.map(c => (
-              <button key={c.k} onClick={() => setCategory(c.k)}
-                className={`rounded-xl p-3 border-2 text-left transition-all ${category === c.k ? "border-blue-500 bg-blue-50" : "border-ink/10 hover:border-ink/30"}`}>
-                <div className="text-xl mb-1">{c.emoji}</div>
-                <div className="font-bold text-sm">{c.label}</div>
-                <div className="text-xs text-ink/50">{c.sub}</div>
-              </button>
-            ))}
-          </div>
-          <textarea value={content} onChange={e => setContent(e.target.value)} maxLength={2000} rows={4}
-            placeholder="Share skills, support, or community stories — no money, no personal info."
-            className="w-full border-2 border-ink/10 focus:border-blue-400 rounded-xl px-4 py-3 text-sm resize-none outline-none transition-colors" />
-          <p className="text-xs text-ink/40 italic text-center">Reviewed by Oliver Guardian · Auto-deletes in 30 days</p>
+          {oliver && (
+            <OliverMessage
+              message={oliver}
+              postId={oliverPostId}
+              postType="post"
+              onDismiss={() => { setOliver(null); setOliverPostId(null); }}
+            />
+          )}
+          {!pendingReview && (
+            <>
+              <div className="grid grid-cols-2 gap-2">
+                {cats.map(c => (
+                  <button key={c.k} onClick={() => setCategory(c.k)}
+                    className={`rounded-xl p-3 border-2 text-left transition-all ${category === c.k ? "border-blue-500 bg-blue-50" : "border-ink/10 hover:border-ink/30"}`}>
+                    <div className="text-xl mb-1">{c.emoji}</div>
+                    <div className="font-bold text-sm">{c.label}</div>
+                    <div className="text-xs text-ink/50">{c.sub}</div>
+                  </button>
+                ))}
+              </div>
+              <textarea value={content} onChange={e => setContent(e.target.value)} maxLength={2000} rows={4}
+                placeholder="Share skills, support, or community stories — no money, no personal info."
+                className="w-full border-2 border-ink/10 focus:border-blue-400 rounded-xl px-4 py-3 text-sm resize-none outline-none transition-colors" />
+              <p className="text-xs text-ink/40 italic text-center">
+                Reviewed by Oliver Guardian · Auto-deletes in 30 days · <span className="text-blue-600 cursor-default" title="No money. No personal contact info. No harassment. Skills and community only.">Community rules</span>
+              </p>
+            </>
+          )}
         </div>
         <div className="px-6 pb-6 flex gap-3">
-          <button onClick={onClose} className="flex-1 py-3 border-2 border-ink/10 rounded-xl font-bold text-sm hover:bg-ink/5 transition-colors">Cancel</button>
-          <button onClick={submit} disabled={loading || !content.trim()}
-            className="flex-1 py-3 bg-amber-500 hover:bg-amber-400 text-ink font-bold rounded-xl text-sm flex items-center justify-center gap-2 disabled:opacity-50 transition-colors">
-            {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Zap className="w-4 h-4" />} Post It
+          <button onClick={onClose} className="flex-1 py-3 border-2 border-ink/10 rounded-xl font-bold text-sm hover:bg-ink/5 transition-colors">
+            {pendingReview ? "Close" : "Cancel"}
           </button>
+          {!pendingReview && (
+            <button onClick={submit} disabled={loading || !content.trim()}
+              className="flex-1 py-3 bg-amber-500 hover:bg-amber-400 text-ink font-bold rounded-xl text-sm flex items-center justify-center gap-2 disabled:opacity-50 transition-colors">
+              {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Zap className="w-4 h-4" />} Post It
+            </button>
+          )}
         </div>
       </div>
     </div>
@@ -175,17 +317,37 @@ function NewNeedModal({ onClose, onSuccess }) {
   const [desc, setDesc] = useState("");
   const [category, setCategory] = useState("general");
   const [loading, setLoading] = useState(false);
-  const CATS = ["general","transportation","household","meals","companionship","tutoring","mentorship","other"];
+  const [oliver, setOliver] = useState(null);
+  const [oliverNeedId, setOliverNeedId] = useState(null);
+  const [crisis, setCrisis] = useState(null);
+  const [pendingReview, setPendingReview] = useState(false);
+  const CATS = ["general","transportation","housing","household","meals","companionship","tutoring","mentorship","job_search","other"];
 
   const submit = async () => {
     if (!title.trim() || !desc.trim()) return;
-    setLoading(true);
+    setLoading(true); setOliver(null); setOliverNeedId(null); setCrisis(null); setPendingReview(false);
     try {
-      await api.post("/more/need", { title: title.trim(), description: desc.trim(), category });
-      toast.success("Need posted — community will see it."); onSuccess(); onClose();
-    } catch (err) { toast.error(err?.response?.data?.detail || "Could not post"); }
-    finally { setLoading(false); }
+      const r = await api.post("/more/need", { title: title.trim(), description: desc.trim(), category });
+      if (r.data.crisis) {
+        setCrisis({ message: r.data.oliver_response, resources: r.data.crisis_resources });
+      } else if (r.data.pending_review) {
+        setPendingReview(true);
+        setOliver(r.data.oliver_response);
+        setOliverNeedId(r.data.need?.id || null);
+      } else {
+        toast.success("Need posted — the community will see it.");
+        onSuccess();
+        onClose();
+      }
+    } catch (err) {
+      const msg = err?.response?.data?.detail || "Could not post";
+      setOliver(msg);
+    } finally { setLoading(false); }
   };
+
+  if (crisis) {
+    return <CrisisPanel oliverMessage={crisis.message} resources={crisis.resources} onClose={onClose} />;
+  }
 
   return (
     <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
@@ -198,23 +360,47 @@ function NewNeedModal({ onClose, onSuccess }) {
           <button onClick={onClose} className="text-white/60 hover:text-white"><X className="w-5 h-5" /></button>
         </div>
         <div className="p-6 space-y-3">
-          <input value={title} onChange={e => setTitle(e.target.value)} maxLength={120}
-            placeholder="What do you need? (brief title)"
-            className="w-full border-2 border-ink/10 focus:border-amber-400 rounded-xl px-4 py-3 text-sm outline-none transition-colors font-medium" />
-          <textarea value={desc} onChange={e => setDesc(e.target.value)} maxLength={1000} rows={4}
-            placeholder="Describe your need — no money, no personal contact info."
-            className="w-full border-2 border-ink/10 focus:border-amber-400 rounded-xl px-4 py-3 text-sm resize-none outline-none transition-colors" />
-          <select value={category} onChange={e => setCategory(e.target.value)}
-            className="w-full border-2 border-ink/10 focus:border-amber-400 rounded-xl px-4 py-3 text-sm outline-none transition-colors bg-white">
-            {CATS.map(c => <option key={c} value={c}>{c.charAt(0).toUpperCase() + c.slice(1)}</option>)}
-          </select>
+          {pendingReview && (
+            <div className="flex items-start gap-3 bg-blue-50 border border-blue-200 rounded-xl p-4">
+              <Clock className="w-5 h-5 text-blue-600 shrink-0 mt-0.5" />
+              <p className="text-sm text-blue-800">
+                <span className="font-bold">Held for review.</span> A real person will check this within 48 hours. If it's legitimate, it'll go live.
+              </p>
+            </div>
+          )}
+          {oliver && (
+            <OliverMessage
+              message={oliver}
+              postId={oliverNeedId}
+              postType="need"
+              onDismiss={() => { setOliver(null); setOliverNeedId(null); }}
+            />
+          )}
+          {!pendingReview && (
+            <>
+              <input value={title} onChange={e => setTitle(e.target.value)} maxLength={120}
+                placeholder="What do you need? (brief title)"
+                className="w-full border-2 border-ink/10 focus:border-amber-400 rounded-xl px-4 py-3 text-sm outline-none transition-colors font-medium" />
+              <textarea value={desc} onChange={e => setDesc(e.target.value)} maxLength={1000} rows={4}
+                placeholder="Describe your need — no money, no personal contact info."
+                className="w-full border-2 border-ink/10 focus:border-amber-400 rounded-xl px-4 py-3 text-sm resize-none outline-none transition-colors" />
+              <select value={category} onChange={e => setCategory(e.target.value)}
+                className="w-full border-2 border-ink/10 focus:border-amber-400 rounded-xl px-4 py-3 text-sm outline-none transition-colors bg-white">
+                {CATS.map(c => <option key={c} value={c}>{c.charAt(0).toUpperCase() + c.replace(/_/g, " ").slice(1)}</option>)}
+              </select>
+            </>
+          )}
         </div>
         <div className="px-6 pb-6 flex gap-3">
-          <button onClick={onClose} className="flex-1 py-3 border-2 border-ink/10 rounded-xl font-bold text-sm hover:bg-ink/5 transition-colors">Cancel</button>
-          <button onClick={submit} disabled={loading || !title.trim() || !desc.trim()}
-            className="flex-1 py-3 bg-amber-500 hover:bg-amber-400 text-ink font-bold rounded-xl text-sm flex items-center justify-center gap-2 disabled:opacity-50 transition-colors">
-            {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <HandHelping className="w-4 h-4" />} Post My Need
+          <button onClick={onClose} className="flex-1 py-3 border-2 border-ink/10 rounded-xl font-bold text-sm hover:bg-ink/5 transition-colors">
+            {pendingReview ? "Close" : "Cancel"}
           </button>
+          {!pendingReview && (
+            <button onClick={submit} disabled={loading || !title.trim() || !desc.trim()}
+              className="flex-1 py-3 bg-amber-500 hover:bg-amber-400 text-ink font-bold rounded-xl text-sm flex items-center justify-center gap-2 disabled:opacity-50 transition-colors">
+              {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <HandHelping className="w-4 h-4" />} Post My Need
+            </button>
+          )}
         </div>
       </div>
     </div>
@@ -537,16 +723,84 @@ export default function More() {
             </div>
           )}
 
-          {/* Oliver footer */}
-          <div className="mt-8 bg-ink rounded-2xl p-5 flex items-center gap-4">
-            <div className="w-10 h-10 rounded-full bg-signal/20 flex items-center justify-center shrink-0">
-              <Shield className="w-5 h-5 text-signal" />
+          {/* Featured creator spotlight */}
+          <div className="mt-8 bg-gradient-to-r from-amber-50 to-amber-100/50 border-2 border-amber-200 rounded-2xl p-6 flex flex-col sm:flex-row items-start sm:items-center gap-5">
+            <div className="w-14 h-14 rounded-full bg-amber-500/20 border-2 border-amber-300 flex items-center justify-center text-3xl shrink-0">🌊</div>
+            <div className="flex-1 min-w-0">
+              <div className="text-xs font-bold text-amber-600 uppercase tracking-widest mb-1">Featured Community Creator</div>
+              <div className="font-heading font-extrabold text-xl text-ink leading-tight">NAM Oshun</div>
+              <p className="text-sm text-ink/60 mt-0.5">Poet · Spoken Word Artist · Community Organizer · M.O.R.E. Founding Member</p>
             </div>
-            <div>
-              <div className="font-heading font-bold text-white text-sm">Protected by Oliver Guardian</div>
-              <p className="text-white/50 text-xs mt-0.5 leading-relaxed">
-                All content is AI-moderated before publishing. No money, no personal info, no exploitation — ever.
+            <Link to="/creator/nam-oshun"
+              className="shrink-0 flex items-center gap-2 bg-amber-500 hover:bg-amber-400 text-ink font-bold px-5 py-2.5 rounded-xl transition-all hover:scale-105 text-sm">
+              View Profile <ChevronRight className="w-4 h-4" />
+            </Link>
+          </div>
+
+          {/* Oliver footer — character introduction */}
+          <div className="mt-8 bg-ink rounded-2xl overflow-hidden">
+            {/* Header band */}
+            <div className="bg-gradient-to-r from-blue-700 to-blue-900 px-6 py-4 flex items-center gap-4">
+              <div className="w-12 h-12 rounded-full bg-white/10 border-2 border-white/20 flex items-center justify-center shrink-0">
+                <Shield className="w-6 h-6 text-white" />
+              </div>
+              <div>
+                <div className="font-heading font-extrabold text-white text-base tracking-wide">Meet Oliver Guardian</div>
+                <div className="text-blue-200 text-xs font-medium">Community Protector · M.O.R.E. Help Center</div>
+              </div>
+            </div>
+
+            {/* Body */}
+            <div className="px-6 py-5 space-y-4">
+              {/* Who he is */}
+              <p className="text-white/80 text-sm leading-relaxed">
+                Oliver is named after <span className="text-white font-semibold">Michael Oliver</span> — the British disability rights activist and sociologist who argued that society, not the individual, is the source of barriers that exclude people from full participation.
+                That principle lives here. Oliver Guardian exists to remove barriers, not add them.
               </p>
+
+              {/* What he does */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                {[
+                  { icon: "🛡️", label: "He reviews every post", sub: "Before anything goes live, Oliver reads it. Fast, consistent, no favoritism." },
+                  { icon: "🤝", label: "He leads with grace", sub: "First-time missteps get a gentle correction — not an instant ban. Community first." },
+                  { icon: "📋", label: "He keeps a record", sub: "Every decision is logged. You can appeal. Admins can audit. Nothing is hidden." },
+                ].map(({ icon, label, sub }) => (
+                  <div key={label} className="bg-white/5 rounded-xl p-4 border border-white/10">
+                    <div className="text-2xl mb-2">{icon}</div>
+                    <div className="text-white font-semibold text-xs mb-1">{label}</div>
+                    <div className="text-white/50 text-xs leading-relaxed">{sub}</div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Rules summary */}
+              <div className="bg-white/5 rounded-xl px-5 py-4 border border-white/10">
+                <div className="text-white/60 text-xs font-bold uppercase tracking-widest mb-2">Community Rules Oliver Enforces</div>
+                <ul className="text-white/60 text-xs space-y-1 leading-relaxed list-none">
+                  {[
+                    "No money, payments, or financial solicitation of any kind",
+                    "No personal contact information (phone, address, email) in posts",
+                    "No exploitation, scams, or predatory offers",
+                    "No hate speech, slurs, or targeted harassment",
+                    "Skills, stories, needs, and community — that's what belongs here",
+                  ].map(rule => (
+                    <li key={rule} className="flex items-start gap-2">
+                      <span className="text-blue-400 mt-0.5 shrink-0">·</span>
+                      <span>{rule}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+
+              {/* Footer line */}
+              <div className="flex items-center justify-between pt-1 border-t border-white/10">
+                <p className="text-white/30 text-xs">
+                  Oliver is powered by AI · All decisions are human-reviewable · Content auto-expires in 30 days
+                </p>
+                <a href="/more/about-oliver" className="text-blue-400 text-xs font-semibold hover:text-blue-300 transition-colors whitespace-nowrap ml-4">
+                  Learn more →
+                </a>
+              </div>
             </div>
           </div>
         </div>
