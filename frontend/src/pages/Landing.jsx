@@ -172,6 +172,108 @@ export default function Landing() {
         </div>
       </section>
 
+      {/* FEATURED CREATORS */}
+      <section className="py-24 bg-white border-t border-ink/10">
+        <div className="max-w-7xl mx-auto px-6">
+          <h2 className="font-heading text-5xl font-bold mb-4 text-center">Creators Like You</h2>
+          <p className="text-lg text-ink/60 text-center max-w-2xl mx-auto mb-16">
+            Poets. Artists. Healers. Teachers. Building income and community on their own terms.
+          </p>
+
+          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
+            {/* Creator 1: Poet */}
+            <div className="group rounded-lg overflow-hidden border border-ink/10 hover:border-copper hover:shadow-lg transition-all">
+              <div className="aspect-square bg-gradient-to-br from-copper/20 to-copper/5 flex items-center justify-center">
+                <img
+                  src="/images/creators/creator-1-poet.jpg"
+                  alt="Black poet and writer"
+                  className="w-full h-full object-cover group-hover:scale-105 transition-transform"
+                  onError={(e) => {
+                    e.target.src = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 400 400'%3E%3Crect fill='%23f5e6d3' width='400' height='400'/%3E%3Ctext x='50%25' y='50%25' font-size='18' fill='%23666' text-anchor='middle' dominant-baseline='middle'%3EPoet %26 Writer%3C/text%3E%3C/svg%3E";
+                  }}
+                />
+              </div>
+              <div className="p-4">
+                <h4 className="font-bold text-lg mb-2">Poet & Healer</h4>
+                <p className="text-sm text-ink/60 mb-3">Sharing poetry for trauma recovery. 342 students.</p>
+                <div className="flex items-center gap-2 text-copper text-sm font-bold">
+                  <span className="text-lg">★★★★★</span> 4.9
+                </div>
+              </div>
+            </div>
+
+            {/* Creator 2: Visual Artist */}
+            <div className="group rounded-lg overflow-hidden border border-ink/10 hover:border-copper hover:shadow-lg transition-all">
+              <div className="aspect-square bg-gradient-to-br from-copper/20 to-copper/5 flex items-center justify-center">
+                <img
+                  src="/images/creators/creator-2-artist.jpg"
+                  alt="Black visual artist"
+                  className="w-full h-full object-cover group-hover:scale-105 transition-transform"
+                  onError={(e) => {
+                    e.target.src = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 400 400'%3E%3Crect fill='%23f5e6d3' width='400' height='400'/%3E%3Ctext x='50%25' y='50%25' font-size='18' fill='%23666' text-anchor='middle' dominant-baseline='middle'%3EVisual Artist%3C/text%3E%3C/svg%3E";
+                  }}
+                />
+              </div>
+              <div className="p-4">
+                <h4 className="font-bold text-lg mb-2">Visual Artist</h4>
+                <p className="text-sm text-ink/60 mb-3">Teaching painting & mixed media. 215 students.</p>
+                <div className="flex items-center gap-2 text-copper text-sm font-bold">
+                  <span className="text-lg">★★★★★</span> 4.8
+                </div>
+              </div>
+            </div>
+
+            {/* Creator 3: Wellness Teacher */}
+            <div className="group rounded-lg overflow-hidden border border-ink/10 hover:border-copper hover:shadow-lg transition-all">
+              <div className="aspect-square bg-gradient-to-br from-copper/20 to-copper/5 flex items-center justify-center">
+                <img
+                  src="/images/creators/creator-3-healer.jpg"
+                  alt="Black wellness instructor"
+                  className="w-full h-full object-cover group-hover:scale-105 transition-transform"
+                  onError={(e) => {
+                    e.target.src = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 400 400'%3E%3Crect fill='%23f5e6d3' width='400' height='400'/%3E%3Ctext x='50%25' y='50%25' font-size='18' fill='%23666' text-anchor='middle' dominant-baseline='middle'%3EWellness Teacher%3C/text%3E%3C/svg%3E";
+                  }}
+                />
+              </div>
+              <div className="p-4">
+                <h4 className="font-bold text-lg mb-2">Wellness Guide</h4>
+                <p className="text-sm text-ink/60 mb-3">Yoga & meditation for Black joy. 628 students.</p>
+                <div className="flex items-center gap-2 text-copper text-sm font-bold">
+                  <span className="text-lg">★★★★★</span> 4.9
+                </div>
+              </div>
+            </div>
+
+            {/* Creator 4: Musician */}
+            <div className="group rounded-lg overflow-hidden border border-ink/10 hover:border-copper hover:shadow-lg transition-all">
+              <div className="aspect-square bg-gradient-to-br from-copper/20 to-copper/5 flex items-center justify-center">
+                <img
+                  src="/images/creators/creator-4-musician.jpg"
+                  alt="Black music producer"
+                  className="w-full h-full object-cover group-hover:scale-105 transition-transform"
+                  onError={(e) => {
+                    e.target.src = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 400 400'%3E%3Crect fill='%23f5e6d3' width='400' height='400'/%3E%3Ctext x='50%25' y='50%25' font-size='18' fill='%23666' text-anchor='middle' dominant-baseline='middle'%3EMusic Producer%3C/text%3E%3C/svg%3E";
+                  }}
+                />
+              </div>
+              <div className="p-4">
+                <h4 className="font-bold text-lg mb-2">Music Producer</h4>
+                <p className="text-sm text-ink/60 mb-3">Hip-hop production masterclass. 891 students.</p>
+                <div className="flex items-center gap-2 text-copper text-sm font-bold">
+                  <span className="text-lg">★★★★★</span> 4.7
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="text-center mt-12">
+            <Link to="/register" className="btn-primary inline-flex items-center gap-2">
+              Become A Creator Too <ArrowRight className="w-4 h-4" />
+            </Link>
+          </div>
+        </div>
+      </section>
+
       {/* FOR CREATORS */}
       <section id="for-creators" className="py-24 bg-bone">
         <div className="max-w-7xl mx-auto px-6">
