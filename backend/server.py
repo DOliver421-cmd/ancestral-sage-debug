@@ -879,15 +879,50 @@ async def on_startup():
     else:
         logger.info("STARTUP: No MONGO_BACKUP_URL set — single-DB mode.")
 
-    await ensure_indexes()
-    await seed_modules()
-    await seed_users()
-    await seed_labs()
-    await seed_compliance()
-    await seed_sites_inventory()
-    await backfill_verification_codes()
-    await run_escalation_check()
-    await run_engagement_check()
+    try:
+        await ensure_indexes()
+    except Exception as _e:
+        logger.warning("STARTUP: ensure_indexes failed (non-fatal): %s", _e)
+
+    try:
+        await seed_modules()
+    except Exception as _e:
+        logger.warning("STARTUP: seed_modules failed (non-fatal): %s", _e)
+
+    try:
+        await seed_users()
+    except Exception as _e:
+        logger.warning("STARTUP: seed_users failed (non-fatal): %s", _e)
+
+    try:
+        await seed_labs()
+    except Exception as _e:
+        logger.warning("STARTUP: seed_labs failed (non-fatal): %s", _e)
+
+    try:
+        await seed_compliance()
+    except Exception as _e:
+        logger.warning("STARTUP: seed_compliance failed (non-fatal): %s", _e)
+
+    try:
+        await seed_sites_inventory()
+    except Exception as _e:
+        logger.warning("STARTUP: seed_sites_inventory failed (non-fatal): %s", _e)
+
+    try:
+        await backfill_verification_codes()
+    except Exception as _e:
+        logger.warning("STARTUP: backfill_verification_codes failed (non-fatal): %s", _e)
+
+    try:
+        await run_escalation_check()
+    except Exception as _e:
+        logger.warning("STARTUP: run_escalation_check failed (non-fatal): %s", _e)
+
+    try:
+        await run_engagement_check()
+    except Exception as _e:
+        logger.warning("STARTUP: run_engagement_check failed (non-fatal): %s", _e)
 
     # ── WAI-Institute Autonomous Pipeline activation ───────────────────────────
     try:
