@@ -600,8 +600,12 @@ class PipelineManager:
         else:
             sentiment = "neutral"
 
-        # Confidence capped at KEYWORD_SCORE_CONFIDENCE_CAP
-        confidence = min(score / 6, KEYWORD_SCORE_CONFIDENCE_CAP)
+        # Viral phrase match is a direct signal — don't let the cap block merch routing.
+        # All other posts stay capped so keyword scorer doesn't overclaim confidence.
+        if viral:
+            confidence = max(min(score / 6, 1.0), VIRAL_SCORE_THRESHOLD + 0.02)
+        else:
+            confidence = min(score / 6, KEYWORD_SCORE_CONFIDENCE_CAP)
 
         urgency = "high" if intent == "seeking" else ("medium" if score >= 2 else "low")
 
