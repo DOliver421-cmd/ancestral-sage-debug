@@ -79,7 +79,10 @@
       "Bash(npm run *)",
       "Bash(timeout 30 python -m uvicorn backend.server:app --port 8000)",
       "Bash(python -c \"from backend import server\")",
-      "Bash(git commit *)"
+      "Bash(git commit *)",
+      "Bash(Start-Sleep -Seconds 15)",
+      "Bash(git diff *)",
+      "Bash(curl -s \"https://ancestral-sage-debug-production.up.railway.app/\")"
     ]
   }
 }
