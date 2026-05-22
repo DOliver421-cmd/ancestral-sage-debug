@@ -5,20 +5,54 @@ Creators (poets, healers, artists, teachers, community leaders) can build and se
 
 ---
 
-## Pricing Model: Super Affordable Tiers
+## Pricing Model: SUPER DUPER CHEAP + Dynamic Escalation
 
-| Type | Price | Creator Earns (70%) | WAI Earns (30%) | Use Case |
-|------|-------|-------------------|-----------------|----------|
-| **Workshop** | $4.99 | $3.49 | $1.50 | Single 1-3 hr session |
-| **Mini Course** | $9.99 | $6.99 | $3.00 | 2-5 focused lessons |
-| **Full Course** | $24.99 | $17.49 | $7.50 | 6+ comprehensive lessons |
-| **Certification** | $34.99 | $24.49 | $10.50 | With completion cert + badge |
+### Launch Pricing (Phase 1: Build Audience)
 
-### Why This Pricing?
-- **$4.99 workshops** = lower barrier for students, creates habit
-- **$9.99 mini-courses** = 2 cups of coffee, accessible
-- **$24.99 full courses** = cheaper than industry (Udemy $30-100), creators earn more
-- **Creator gets 70%** = better than Skillshare (50%), Udemy (30%), traditional ed platforms
+| Type | Launch Price | Creator Earns (70%) | WAI Earns (30%) | Use Case |
+|------|--------------|-------------------|-----------------|----------|
+| **Workshop** | $1.99 | $1.39 | $0.60 | Single 1-3 hr session |
+| **Mini Course** | $3.99 | $2.79 | $1.20 | 2-5 focused lessons |
+| **Full Course** | $7.99 | $5.59 | $2.40 | 6+ comprehensive lessons |
+| **Certification** | $9.99 | $6.99 | $3.00 | With completion cert + badge |
+
+### Dynamic Price Escalation (As Demand Grows)
+
+**Workshop escalates:**
+- 0-49 students: $1.99
+- 50-199 students: $2.99
+- 200-499 students: $3.99
+- 500-999 students: $4.99
+- 1000+ students: $5.99
+
+**Mini Course escalates:**
+- 0-99 students: $3.99
+- 100-299 students: $4.99
+- 300-749 students: $6.99
+- 750-1499 students: $8.99
+- 1500+ students: $9.99
+
+**Full Course escalates:**
+- 0-199 students: $7.99
+- 200-499 students: $12.99
+- 500-999 students: $16.99
+- 1000-1999 students: $19.99
+- 2000+ students: $24.99
+
+**Certification escalates:**
+- 0-149 students: $9.99
+- 150-399 students: $14.99
+- 400-799 students: $19.99
+- 800-1499 students: $24.99
+- 1500+ students: $29.99
+
+### Why This Strategy?
+- **Launch cheap** = zero friction, fast audience growth
+- **Reward popular teachers** = prices auto-increase as courses prove value
+- **Students win first** = early adopters pay pennies
+- **Fair to all** = same formula applies to everyone
+- **Creator incentive** = better economics as you grow
+- **Never punish success** = prices increase slowly, existing students keep original price
 
 ---
 
@@ -173,19 +207,39 @@ Creators can build courses in any of these areas:
 
 ## Revenue Sharing Model
 
-**Example: $9.99 Mini Course**
+### Example: Mini Course (Dynamic Pricing)
 
-Student pays: **$9.99**
+**Launch Phase (First 100 students):** $3.99
+
+Student pays: **$3.99**
 
 | Recipient | Amount | % |
 |-----------|--------|-----|
-| Creator | $6.99 | 70% |
-| WAI Platform | $3.00 | 30% |
-| Processing fees | -$0.30 | (Stripe) |
-| **Net to Creator** | **$6.69** | |
+| Creator | $2.79 | 70% |
+| WAI Platform | $1.20 | 30% |
+| Processing fees | -$0.18 | (Stripe) |
+| **Net to Creator** | **$2.61** | |
 
-**After 100 students:** Creator earns $669 / month  
-**After 500 students:** Creator earns $3,345 / month
+**After 100 students, price escalates to $4.99**
+
+| Recipient | Amount | % |
+|-----------|--------|-----|
+| Creator | $3.49 | 70% |
+| WAI Platform | $1.50 | 30% |
+| Processing fees | -$0.22 | (Stripe) |
+| **Net to Creator** | **$3.27** | |
+
+### Growth Trajectory
+
+| Students | Price | Monthly Revenue | Creator Earns | WAI Earns |
+|----------|-------|-----------------|---------------|-----------|
+| **50** (launch) | $3.99 | $199.50 | $139.65 | $60.00 |
+| **100** | $3.99 | $399 | $279.30 | $119.70 |
+| **300** | $4.99 avg | $1,247 | $872.90 | $374.10 |
+| **750** | $6.99 avg | $2,321 | $1,624.70 | $696.30 |
+| **1500** | $8.99 avg | $3,745 | $2,621.50 | $1,123.50 |
+
+**Key:** Each student pays their entry price once (lifetime access). New students pay current price tier.
 
 ---
 

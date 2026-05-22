@@ -14,7 +14,9 @@ from .creator_courses import (
     record_course_completion,
     get_creator_dashboard,
     get_marketplace,
+    get_course_price,
     CREATOR_COURSE_PRICING,
+    PRICE_ESCALATION_SCHEDULE,
     CreatorCourse,
 )
 
@@ -23,10 +25,26 @@ router = APIRouter(prefix="/api/creator-courses", tags=["creator-courses"])
 
 @router.get("/pricing")
 async def get_pricing():
-    """List creator course pricing tiers"""
+    """List creator course pricing tiers with escalation schedule"""
     return {
         "status": "success",
+        "note": "Prices increase with demand (student enrollment) to reward popular courses",
         "pricing": CREATOR_COURSE_PRICING,
+        "escalation_schedule": PRICE_ESCALATION_SCHEDULE,
+    }
+
+
+@router.get("/pricing/{course_type}")
+async def get_course_pricing(course_type: str, students: int = Query(0)):
+    """Get current price for a course type based on enrollment"""
+    price_info = get_course_price(course_type, students)
+    if not price_info:
+        raise HTTPException(status_code=400, detail=f"Invalid course type: {course_type}")
+
+    return {
+        "status": "success",
+        "price_info": price_info,
+        "escalation_schedule": PRICE_ESCALATION_SCHEDULE.get(course_type, []),
     }
 
 

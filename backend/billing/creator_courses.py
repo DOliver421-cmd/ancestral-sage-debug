@@ -23,38 +23,80 @@ class CourseType(str, Enum):
 
 
 CREATOR_COURSE_PRICING = {
+    # PHASE 1: LAUNCH PRICING (Super Cheap - Build Audience)
     "workshop": {
         "name": "Workshop (1-3 hours)",
-        "price": 4.99,
-        "creator_earnings": 3.49,  # 70%
-        "wai_earnings": 1.50,      # 30%
+        "base_price": 1.99,          # SUPER CHEAP
+        "current_price": 1.99,
+        "creator_earnings": 1.39,    # 70%
+        "wai_earnings": 0.60,        # 30%
         "description": "Single session, live or recorded",
         "max_lessons": 1,
+        "enrollment_threshold": None,  # Price increases at this enrollment count
+        "next_price": 2.99,           # Price after threshold
     },
     "mini": {
         "name": "Mini Course (2-5 lessons)",
-        "price": 9.99,
-        "creator_earnings": 6.99,
-        "wai_earnings": 3.00,
+        "base_price": 3.99,           # SUPER CHEAP
+        "current_price": 3.99,
+        "creator_earnings": 2.79,     # 70%
+        "wai_earnings": 1.20,         # 30%
         "description": "Short, focused training series",
         "max_lessons": 5,
+        "enrollment_threshold": 100,   # After 100 students, raise to $4.99
+        "next_price": 4.99,
     },
     "full": {
         "name": "Full Course (6+ lessons)",
-        "price": 24.99,
-        "creator_earnings": 17.49,
-        "wai_earnings": 7.50,
+        "base_price": 7.99,           # SUPER CHEAP
+        "current_price": 7.99,
+        "creator_earnings": 5.59,     # 70%
+        "wai_earnings": 2.40,         # 30%
         "description": "Comprehensive, in-depth curriculum",
         "max_lessons": 999,
+        "enrollment_threshold": 200,   # After 200 students, raise to $12.99
+        "next_price": 12.99,
     },
     "cert": {
         "name": "Certification Course (with cert)",
-        "price": 34.99,
-        "creator_earnings": 24.49,
-        "wai_earnings": 10.50,
+        "base_price": 9.99,           # SUPER CHEAP
+        "current_price": 9.99,
+        "creator_earnings": 6.99,     # 70%
+        "wai_earnings": 3.00,         # 30%
         "description": "Includes completion certificate & badge",
         "max_lessons": 999,
+        "enrollment_threshold": 150,   # After 150 students, raise to $14.99
+        "next_price": 14.99,
     },
+}
+
+# Price increase schedule based on demand (students enrolled)
+PRICE_ESCALATION_SCHEDULE = {
+    # When course reaches this enrollment count, price goes to this level
+    "workshop": [
+        {"students": 50, "price": 2.99},
+        {"students": 200, "price": 3.99},
+        {"students": 500, "price": 4.99},
+        {"students": 1000, "price": 5.99},
+    ],
+    "mini": [
+        {"students": 100, "price": 4.99},
+        {"students": 300, "price": 6.99},
+        {"students": 750, "price": 8.99},
+        {"students": 1500, "price": 9.99},
+    ],
+    "full": [
+        {"students": 200, "price": 12.99},
+        {"students": 500, "price": 16.99},
+        {"students": 1000, "price": 19.99},
+        {"students": 2000, "price": 24.99},
+    ],
+    "cert": [
+        {"students": 150, "price": 14.99},
+        {"students": 400, "price": 19.99},
+        {"students": 800, "price": 24.99},
+        {"students": 1500, "price": 29.99},
+    ],
 }
 
 
@@ -113,6 +155,33 @@ class CreatorEarnings(BaseModel):
     last_payout_amount: float = 0.0
 
 
+def get_course_price(course_type: str, students_enrolled: int) -> dict:
+    """Calculate current price based on demand (students enrolled)"""
+    if course_type not in PRICE_ESCALATION_SCHEDULE:
+        return None
+
+    base = CREATOR_COURSE_PRICING[course_type]
+    schedule = PRICE_ESCALATION_SCHEDULE[course_type]
+
+    # Find applicable price tier based on enrollment
+    current_price = base["base_price"]
+    for tier in schedule:
+        if students_enrolled >= tier["students"]:
+            current_price = tier["price"]
+
+    creator_earnings = current_price * 0.7
+    wai_earnings = current_price * 0.3
+
+    return {
+        "course_type": course_type,
+        "students_enrolled": students_enrolled,
+        "current_price": current_price,
+        "creator_earnings": round(creator_earnings, 2),
+        "wai_earnings": round(wai_earnings, 2),
+        "next_price_at": None,  # Will be set if there's a next tier
+    }
+
+
 async def init_creator_courses(db: AsyncIOMotorDatabase) -> dict:
     """Initialize creator course collections"""
     try:
@@ -168,7 +237,8 @@ async def create_course(
         "course_type": course_type,
         "category": category,
         "language": language,
-        "price": pricing["price"],
+        "base_price": pricing["base_price"],       # Base launch price
+        "current_price": pricing["base_price"],     # Current price (increases with demand)
         "lessons": [],
         "cover_image_url": None,
         "preview_video_url": None,
@@ -186,7 +256,7 @@ async def create_course(
     }
 
     result = await db.creator_courses.insert_one(course_doc)
-    logger.info(f"Created course draft for {creator_id}: {title}")
+    logger.info(f"Created course draft for {creator_id}: {title} (base price: ${pricing['base_price']})")
 
     # Initialize creator earnings if not exists
     await db.creator_earnings.update_one(
@@ -214,7 +284,8 @@ async def create_course(
         "status": "success",
         "course_id": str(result.inserted_id),
         "course_type": course_type,
-        "price": pricing["price"],
+        "base_price": pricing["base_price"],
+        "current_price": pricing["base_price"],
     }
 
 
