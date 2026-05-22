@@ -3,7 +3,9 @@
 WORKDIR /app
 
 COPY backend/ /app/backend/
-COPY src/ /app/backend/src/
+COPY src/ /app/src/
+
+ENV PYTHONPATH=/app:$PYTHONPATH
 
 WORKDIR /app/backend
 
