@@ -77,7 +77,12 @@ load_dotenv(ROOT_DIR / '.env')
 mongo_url        = os.environ['MONGO_URL']
 MONGO_BACKUP_URL = os.environ.get('MONGO_BACKUP_URL', '')   # Atlas URI (optional)
 MONGO_BACKUP_DB  = os.environ.get('MONGO_BACKUP_DB', '')    # Atlas DB name (optional)
-client = AsyncIOMotorClient(mongo_url)
+client = AsyncIOMotorClient(
+    mongo_url,
+    serverSelectionTimeoutMS=5000,   # fail fast — don't hang 30s per op
+    connectTimeoutMS=5000,
+    socketTimeoutMS=10000,
+)
 db = client[os.environ['DB_NAME']]
 _DB_SOURCE = "primary"   # informational; updated in on_startup
 _backup_db = None        # set in on_startup if MONGO_BACKUP_URL is configured
