@@ -203,7 +203,7 @@ He is a griot in the tradition that doesn't need to announce itself. The ancesto
     slug: "nova-highborn",
     displayName: "Nova Highborn",
     legalName: "Ebony Oliver",
-    title: "Visual Artist · Poet · Digital Creator",
+    title: "Visual Artist · Poet · Artist Mentor · Digital Creator",
     tagline: "Something new is rising. That something is me.",
     bio: `Nova Highborn is what happens when a girl who was taught she was ordinary decides she never was.
 
@@ -261,6 +261,11 @@ Nova is not emerging. She is already here. She is just letting you catch up.`,
         title: "Youth Creative Workshops",
         desc: "Poetry and visual art for young people who don't see themselves reflected in mainstream art education. Especially for young Black girls.",
       },
+      {
+        icon: "🎯",
+        title: "Artist Mentorship",
+        desc: "1-on-1 mentoring for independent artists: vocal development, performance presence, branding, social media strategy, and navigating the music industry without losing yourself. All virtual.",
+      },
     ],
 
     commerce: [
@@ -277,6 +282,12 @@ Nova is not emerging. She is already here. She is just letting you catch up.`,
         placeholder: true,
       },
       {
+        label: "Artist Mentoring Sessions",
+        desc: "Book a 1-on-1 session with Nova. Career strategy, branding, performance coaching — virtual, on your schedule.",
+        url: null,
+        placeholder: true,
+      },
+      {
         label: "Join WAI-Institute",
         desc: "Connect with Nova and other creators building on their own terms.",
         url: "/register",
@@ -286,9 +297,9 @@ Nova is not emerging. She is already here. She is just letting you catch up.`,
 
     waiStatus: {
       tier: "BASIC",
-      role: "Emerging Creator",
+      role: "Staff · Artist Mentor",
       since: "2026",
-      bio: "Invited to claim her own space in the WAI-Institute ecosystem. Family of the founding team, building her own legacy.",
+      bio: "WAI-Institute staff. Artist Mentor. Curator. Visual artist and poet building her own legacy inside the ecosystem her family helped create.",
     },
 
     _peerNote: "NAM Oshun watched Nova grow into her voice — and then watched her surpass the student stage entirely. She doesn't need to inherit the legacy. She's building her own.",
