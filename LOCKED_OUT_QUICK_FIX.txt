@@ -1,0 +1,79 @@
+═══════════════════════════════════════════════════════════════════════════════
+  WAI-INSTITUTE EXECUTIVE ACCOUNT — INSTANT UNLOCK
+═══════════════════════════════════════════════════════════════════════════════
+
+YOU ARE LOCKED OUT. HERE'S HOW TO GET BACK IN RIGHT NOW (2 MINUTES):
+
+═══════════════════════════════════════════════════════════════════════════════
+STEP 1: Open Railway Dashboard
+═══════════════════════════════════════════════════════════════════════════════
+
+1. Go to: https://railway.app/project/ancestral-sage-debug
+2. Click "Backend" service
+3. Click "Variables" tab
+
+
+═══════════════════════════════════════════════════════════════════════════════
+STEP 2: Add Recovery Variable
+═══════════════════════════════════════════════════════════════════════════════
+
+1. Click "New Variable"
+2. Key:   EXEC_FORCE_RESET
+3. Value: 1
+4. Click Save
+
+
+═══════════════════════════════════════════════════════════════════════════════
+STEP 3: Wait for Redeploy (60 seconds)
+═══════════════════════════════════════════════════════════════════════════════
+
+1. Click "Deployments" tab
+2. Watch for green checkmark ✅
+3. When green, continue to Step 4
+
+
+═══════════════════════════════════════════════════════════════════════════════
+STEP 4: Log In With Reset Password
+═══════════════════════════════════════════════════════════════════════════════
+
+Go to: https://ancestral-sage-debug-production.up.railway.app/login
+
+Email:    youpickeddoliver@gmail.com
+Password: NamOshun@WAI2026
+
+Click Login ✓ YOU'RE IN
+
+
+═══════════════════════════════════════════════════════════════════════════════
+STEP 5: DELETE THE RECOVERY VARIABLE IMMEDIATELY ⚠️
+═══════════════════════════════════════════════════════════════════════════════
+
+1. Go back to Railway → Backend → Variables
+2. Find "EXEC_FORCE_RESET"
+3. Click the trash icon to delete it
+4. Save
+
+⚠️  IF YOU DON'T DELETE THIS, PASSWORD RESETS ON EVERY DEPLOY
+
+
+═══════════════════════════════════════════════════════════════════════════════
+STEP 6: Change Your Password
+═══════════════════════════════════════════════════════════════════════════════
+
+1. Once logged in, go to Settings → Change Password
+2. Set a new password you'll remember
+3. Save
+
+
+═══════════════════════════════════════════════════════════════════════════════
+DONE. YOU'RE BACK IN. 🎉
+═══════════════════════════════════════════════════════════════════════════════
+
+Total time: ~2 minutes
+
+Your new system has THREE ways to get back in if this happens again:
+  1. EXEC_FORCE_RESET (this method)
+  2. Recovery codes (saved in your vault)
+  3. Backup executive accounts (gmail & souppoetry)
+
+For complete documentation, see: EMERGENCY_ACCESS_RECOVERY.md
