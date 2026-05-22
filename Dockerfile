@@ -2,18 +2,9 @@
 
 WORKDIR /app
 
-# Copy Python source files
-COPY server.py /app/
-COPY requirements.txt /app/
+COPY backend/ /app/backend/
 
-# Copy subdirectories that contain Python modules
-COPY ai/ /app/ai/
-COPY billing/ /app/billing/
-COPY contracts/ /app/contracts/
-COPY crm/ /app/crm/
-COPY migrations/ /app/migrations/
-COPY prompts/ /app/prompts/
-COPY scripts/ /app/scripts/
+WORKDIR /app/backend
 
 RUN apt-get update && apt-get install -y build-essential && rm -rf /var/lib/apt/lists/*
 
