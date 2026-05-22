@@ -22,13 +22,24 @@ router = APIRouter(prefix="/api/crm", tags=["crm"])
 # LEAD ENDPOINTS
 # ============================================================================
 
+def _get_current_user(request: Request):
+    """Extract current user from request state"""
+    user = getattr(request.state, "user", None)
+    if not user:
+        raise HTTPException(status_code=401, detail="Authentication required")
+    return user
+
+
 @router.post("/leads", response_model=Lead)
 async def create_lead(
     lead_create: LeadCreate,
-    request: Request
+    request: Request,
+    current_user: dict = Depends(_get_current_user)
 ):
     """
     Create a new sales lead
+
+    ✅ Authentication required (admin/steward only)
 
     Example:
     {
@@ -46,6 +57,11 @@ async def create_lead(
         "notes": "Referred by existing customer ABC"
     }
     """
+    # Verify authorization (admin/steward only)
+    allowed_roles = ["admin", "steward", "elder", "executive_admin"]
+    if current_user.get("role") not in allowed_roles:
+        raise HTTPException(status_code=403, detail="CRM access requires admin or steward role")
+
     leads = request.app.state.db.leads
 
     lead_doc = {
@@ -72,6 +88,7 @@ async def create_lead(
 @router.get("/leads", response_model=List[Lead])
 async def list_leads(
     request: Request,
+    current_user: dict = Depends(_get_current_user),
     status: Optional[str] = Query(None),
     source: Optional[str] = Query(None),
     owner_id: Optional[str] = Query(None),
@@ -82,6 +99,8 @@ async def list_leads(
     """
     List leads with filtering
 
+    ✅ Authentication required (admin/steward only)
+
     Query params:
     - status: lead|prospect|opportunity|proposal|contract|customer|lost
     - source: inbound|referral|event|cold_outreach|partner|competitor_switch
@@ -90,6 +109,11 @@ async def list_leads(
     - limit: Number to return (default 50, max 100)
     - skip: Pagination offset (default 0)
     """
+    # Verify authorization (admin/steward only)
+    allowed_roles = ["admin", "steward", "elder", "executive_admin"]
+    if current_user.get("role") not in allowed_roles:
+        raise HTTPException(status_code=403, detail="CRM access requires admin or steward role")
+
     leads = request.app.state.db.leads
 
     filter_query = {}

@@ -3,8 +3,9 @@ Creator Course API Routes
 Endpoints for creators to build and sell courses, students to discover and learn.
 """
 
-from fastapi import APIRouter, Request, HTTPException, Query
+from fastapi import APIRouter, Request, HTTPException, Query, Depends
 from datetime import datetime
+from pydantic import BaseModel, Field
 from .creator_courses import (
     init_creator_courses,
     create_course,
@@ -21,6 +22,23 @@ from .creator_courses import (
 )
 
 router = APIRouter(prefix="/api/creator-courses", tags=["creator-courses"])
+
+
+class CourseCreateRequest(BaseModel):
+    """Request model for course creation (without creator_id)"""
+    title: str = Field(..., min_length=1, max_length=500)
+    description: str = Field(..., min_length=10, max_length=5000)
+    course_type: str = Field(..., min_length=1, max_length=50)
+    category: str = Field(..., min_length=1, max_length=100)
+    language: str = Field(default="en", min_length=2, max_length=5)
+
+
+def get_current_user_from_request(request: Request):
+    """Extract authenticated user from request context"""
+    user = getattr(request.state, "user", None)
+    if not user:
+        raise HTTPException(status_code=401, detail="Authentication required")
+    return user
 
 
 @router.get("/pricing")
@@ -50,23 +68,55 @@ async def get_course_pricing(course_type: str, students: int = Query(0)):
 
 @router.post("/create")
 async def create_new_course(
-    creator_id: str,
-    title: str,
-    description: str,
-    course_type: str,
-    category: str,
+    course_data: CourseCreateRequest,
     request: Request,
-    language: str = "en",
+    current_user: dict = Depends(get_current_user_from_request),
 ):
-    """Create a new course draft"""
+    """Create a new course draft
+
+    ✅ Authentication required
+    ✅ Uses authenticated user's ID (not client-provided)
+    ✅ Creator role required
+    """
+    # Verify user has creator role
+    user_role = current_user.get("role", "")
+    creator_roles = ["creator", "mentor", "steward", "elder", "admin", "executive_admin"]
+    if user_role not in creator_roles:
+        raise HTTPException(status_code=403, detail="Must be creator to create courses")
+
+    # Validate course type
+    if course_data.course_type not in CREATOR_COURSE_PRICING:
+        raise HTTPException(status_code=400, detail=f"Invalid course type: {course_data.course_type}")
+
     db = request.app.state.db
 
-    if course_type not in CREATOR_COURSE_PRICING:
-        raise HTTPException(status_code=400, detail=f"Invalid course type: {course_type}")
+    # Use authenticated user's ID, NOT client input
+    result = await create_course(
+        db,
+        creator_id=current_user["id"],  # From auth, not request
+        title=course_data.title,
+        description=course_data.description,
+        course_type=course_data.course_type,
+        category=course_data.category,
+        language=course_data.language,
+    )
 
-    result = await create_course(db, creator_id, title, description, course_type, category, language)
     if result["status"] != "success":
         raise HTTPException(status_code=400, detail=result.get("message"))
+
+    # Audit log this action
+    try:
+        audit_fn = getattr(request.app, "audit", None)
+        if audit_fn:
+            await audit_fn(
+                actor_id=current_user["id"],
+                action="course_created",
+                target=result.get("course_id"),
+                meta={"title": course_data.title, "type": course_data.course_type}
+            )
+    except Exception:
+        pass  # Audit logging non-fatal
+
     return result
 
 
@@ -95,9 +145,31 @@ async def add_new_lesson(
     content: str,
     duration_minutes: int,
     request: Request,
+    current_user: dict = Depends(get_current_user_from_request),
 ):
-    """Add lesson to course"""
+    """Add lesson to course
+
+    ✅ Authentication required
+    ✅ Creator must own the course
+    """
+    from bson import ObjectId
+
     db = request.app.state.db
+
+    # Verify the course exists and user owns it
+    try:
+        course = await db.creator_courses.find_one({"_id": ObjectId(course_id)})
+    except:
+        raise HTTPException(status_code=400, detail="Invalid course ID")
+
+    if not course:
+        raise HTTPException(status_code=404, detail="Course not found")
+
+    # Verify ownership
+    if course.get("creator_id") != current_user["id"]:
+        if current_user.get("role") not in ["admin", "executive_admin"]:
+            raise HTTPException(status_code=403, detail="You don't own this course")
+
     result = await add_lesson(db, course_id, title, content, duration_minutes)
     if result["status"] != "success":
         raise HTTPException(status_code=400, detail=result.get("message"))
@@ -105,9 +177,34 @@ async def add_new_lesson(
 
 
 @router.post("/course/{course_id}/publish")
-async def publish_new_course(course_id: str, request: Request):
-    """Publish course (make available for purchase)"""
+async def publish_new_course(
+    course_id: str,
+    request: Request,
+    current_user: dict = Depends(get_current_user_from_request),
+):
+    """Publish course (make available for purchase)
+
+    ✅ Authentication required
+    ✅ Creator must own the course
+    """
+    from bson import ObjectId
+
     db = request.app.state.db
+
+    # Verify the course exists and user owns it
+    try:
+        course = await db.creator_courses.find_one({"_id": ObjectId(course_id)})
+    except:
+        raise HTTPException(status_code=400, detail="Invalid course ID")
+
+    if not course:
+        raise HTTPException(status_code=404, detail="Course not found")
+
+    # Verify ownership
+    if course.get("creator_id") != current_user["id"]:
+        if current_user.get("role") not in ["admin", "executive_admin"]:
+            raise HTTPException(status_code=403, detail="You don't own this course")
+
     result = await publish_course(db, course_id)
     if result["status"] != "success":
         raise HTTPException(status_code=400, detail=result.get("message"))
@@ -115,8 +212,21 @@ async def publish_new_course(course_id: str, request: Request):
 
 
 @router.get("/dashboard/{creator_id}")
-async def get_creator_stats(creator_id: str, request: Request):
-    """Get creator dashboard"""
+async def get_creator_stats(
+    creator_id: str,
+    request: Request,
+    current_user: dict = Depends(get_current_user_from_request),
+):
+    """Get creator dashboard
+
+    ✅ Authentication required
+    ✅ Only the creator or admins can view financials
+    """
+    # Verify ownership (creator can only view their own, admins can view anyone's)
+    if creator_id != current_user["id"]:
+        if current_user.get("role") not in ["admin", "executive_admin"]:
+            raise HTTPException(status_code=403, detail="You cannot view other creators' financials")
+
     db = request.app.state.db
     result = await get_creator_dashboard(db, creator_id)
     if result["status"] != "success":
@@ -140,15 +250,34 @@ async def get_courses(
 
 @router.post("/enroll")
 async def enroll_in_course(
-    student_id: str,
     course_id: str,
     request: Request,
+    current_user: dict = Depends(get_current_user_from_request),
 ):
-    """Enroll student in course"""
+    """Enroll student in course
+
+    ✅ Authentication required
+    ✅ Uses authenticated user's ID (not client-provided)
+    """
     db = request.app.state.db
-    result = await enroll_student(db, student_id, course_id)
+    # Use authenticated user's ID, NOT client input
+    result = await enroll_student(db, current_user["id"], course_id)
     if result["status"] != "success":
         raise HTTPException(status_code=400, detail=result.get("message"))
+
+    # Audit enrollment
+    try:
+        audit_fn = getattr(request.app, "audit", None)
+        if audit_fn:
+            await audit_fn(
+                actor_id=current_user["id"],
+                action="course_enrolled",
+                target=course_id,
+                meta={}
+            )
+    except Exception:
+        pass
+
     return result
 
 

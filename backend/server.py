@@ -651,129 +651,43 @@ async def seed_users():
     if result.deleted_count:
         logger.info("Removed %d demo account(s) from live database", result.deleted_count)
 
-    # ----- EXECUTIVE ADMIN bootstrap -----
-    # Hardcoded executive admin email. On every startup:
-    #   * if the account exists with any other role → upgrade to executive_admin
-    #   * if it does not exist → create it with the seed password (which the
-    #     admin should rotate immediately on first login)
-    # This guarantees the operator always has a way back into the system.
-
-    # First: demote any LEGACY hardcoded exec emails that are no longer the
-    # current EXEC_ADMIN_EMAIL. They become regular admins, not execs.
-    for legacy in LEGACY_EXEC_EMAILS:
-        if legacy == EXEC_ADMIN_EMAIL:
-            continue
-        legacy_doc = await db.users.find_one({"email": legacy}, {"_id": 0})
-        if legacy_doc and legacy_doc.get("role") == "executive_admin":
-            await db.users.update_one({"email": legacy}, {"$set": {"role": "admin"}})
-            logger.info("Demoted legacy hardcoded executive_admin: %s → admin", legacy)
-
+    # ----- EMERGENCY EXEC FORCE RESET (if flag enabled) -----
+    # EXEC_FORCE_RESET is ONLY for emergency account recovery via EMERGENCY_ACCESS_RECOVERY.md
+    # It resets password for ONE account and requires the new password in an env var.
+    # This is NOT a bootstrap mechanism — it's a recovery mechanism.
     try:
-        existing_exec = await db.users.find_one({"email": EXEC_ADMIN_EMAIL}, {"_id": 0})
-        if existing_exec:
-            _upd0: dict = {}
-            if existing_exec.get("role") != "executive_admin":
-                _upd0["role"] = "executive_admin"
-            if existing_exec.get("is_active") is False:
-                _upd0["is_active"] = True
-            if existing_exec.get("must_change_password"):
-                _upd0["must_change_password"] = False
-            if EXEC_FORCE_RESET:
-                _upd0["password_hash"] = hash_pw(EXEC_DEFAULT_PASSWORD)
-                _upd0["must_change_password"] = False
-                logger.warning("EXEC_FORCE_RESET active: password reset for %s", EXEC_ADMIN_EMAIL)
-            if _upd0:
-                await db.users.update_one({"email": EXEC_ADMIN_EMAIL}, {"$set": _upd0})
-                logger.info("Bootstrapped primary exec %s: %s", EXEC_ADMIN_EMAIL, list(_upd0.keys()))
-        else:
-            await db.users.insert_one({
-                "id": str(uuid.uuid4()),
-                "email": EXEC_ADMIN_EMAIL,
-                "full_name": "Executive Admin",
-                "role": "executive_admin",
-                "associate": None,
-                "is_active": True,
-                "must_change_password": False,
-                "created_at": datetime.now(timezone.utc).isoformat(),
-                "password_hash": hash_pw(EXEC_DEFAULT_PASSWORD),
-            })
-            logger.info("Created executive_admin account: %s", EXEC_ADMIN_EMAIL)
-    except Exception as _exc0:
-        logger.error("Exec bootstrap failed for %s (non-fatal): %s", EXEC_ADMIN_EMAIL, _exc0)
+        if EXEC_FORCE_RESET:
+            force_reset_email = os.environ.get("EXEC_FORCE_RESET_EMAIL", EXEC_ADMIN_EMAIL)
+            force_reset_password = os.environ.get("EXEC_FORCE_RESET_PASSWORD")
 
-    # ----- BACKUP EXECUTIVE ADMIN bootstrap (Delon Oliver — youpickeddoliver@gmail.com) -----
-    try:
-        existing_backup = await db.users.find_one({"email": BACKUP_EXEC_EMAIL}, {"_id": 0})
-        if existing_backup:
-            _upd: dict = {}
-            if existing_backup.get("role") != "executive_admin":
-                _upd["role"] = "executive_admin"
-            if existing_backup.get("is_active") is False:
-                _upd["is_active"] = True
-            if existing_backup.get("must_change_password"):
-                _upd["must_change_password"] = False
-            if EXEC_FORCE_RESET:
-                _upd["password_hash"] = hash_pw(BACKUP_EXEC_DEFAULT_PASSWORD)
-                _upd["must_change_password"] = False
-                logger.warning("EXEC_FORCE_RESET active: password reset for %s", BACKUP_EXEC_EMAIL)
-            if _upd:
-                await db.users.update_one({"email": BACKUP_EXEC_EMAIL}, {"$set": _upd})
-                logger.info("Bootstrapped Delon Oliver exec: %s", list(_upd.keys()))
-        else:
-            await db.users.insert_one({
-                "id": str(uuid.uuid4()),
-                "email": BACKUP_EXEC_EMAIL,
-                "full_name": "Delon Oliver",
-                "role": "executive_admin",
-                "associate": None,
-                "is_active": True,
-                "must_change_password": False,
-                "created_at": datetime.now(timezone.utc).isoformat(),
-                "password_hash": hash_pw(BACKUP_EXEC_DEFAULT_PASSWORD),
-            })
-            logger.info("Created exec account (Delon Oliver): %s", BACKUP_EXEC_EMAIL)
+            if not force_reset_password:
+                logger.error("EXEC_FORCE_RESET=1 but EXEC_FORCE_RESET_PASSWORD not set. Skipping.")
+            else:
+                user_doc = await db.users.find_one({"email": force_reset_email}, {"_id": 0})
+                if user_doc:
+                    await db.users.update_one(
+                        {"email": force_reset_email},
+                        {"$set": {
+                            "password_hash": hash_pw(force_reset_password),
+                            "must_change_password": True,
+                            "force_reset_at": datetime.now(timezone.utc).isoformat(),
+                        }}
+                    )
+                    logger.warning("EXEC_FORCE_RESET: password reset for %s", force_reset_email)
+                    await audit(None, "exec.force_reset.completed", target=force_reset_email,
+                                meta={"reason": "EXEC_FORCE_RESET flag set"})
+                else:
+                    logger.error("EXEC_FORCE_RESET: email not found: %s", force_reset_email)
     except Exception as _exc:
-        logger.error("Exec bootstrap failed for %s (non-fatal): %s", BACKUP_EXEC_EMAIL, _exc)
+        logger.error("EXEC_FORCE_RESET failed: %s", _exc)
 
-    # ----- NAM OSHUN executive seat (souppoetry@gmail.com) -----
+    # ----- Initialize recovery codes for all active executive accounts -----
     try:
-        existing_nam = await db.users.find_one({"email": NAM_EXEC_EMAIL}, {"_id": 0})
-        if existing_nam:
-            _upd2: dict = {}
-            if existing_nam.get("role") != "executive_admin":
-                _upd2["role"] = "executive_admin"
-            if existing_nam.get("is_active") is False:
-                _upd2["is_active"] = True
-            if existing_nam.get("must_change_password"):
-                _upd2["must_change_password"] = False
-            if EXEC_FORCE_RESET:
-                _upd2["password_hash"] = hash_pw(NAM_EXEC_DEFAULT_PASSWORD)
-                _upd2["must_change_password"] = False
-                logger.warning("EXEC_FORCE_RESET active: password reset for %s", NAM_EXEC_EMAIL)
-            if _upd2:
-                await db.users.update_one({"email": NAM_EXEC_EMAIL}, {"$set": _upd2})
-                logger.info("Bootstrapped NAM Oshun exec: %s", list(_upd2.keys()))
-        else:
-            await db.users.insert_one({
-                "id": str(uuid.uuid4()),
-                "email": NAM_EXEC_EMAIL,
-                "full_name": "NAM Oshun",
-                "role": "executive_admin",
-                "associate": None,
-                "is_active": True,
-                "must_change_password": False,
-                "created_at": datetime.now(timezone.utc).isoformat(),
-                "password_hash": hash_pw(NAM_EXEC_DEFAULT_PASSWORD),
-            })
-            logger.info("Created exec account (NAM Oshun): %s", NAM_EXEC_EMAIL)
-    except Exception as _exc2:
-        logger.error("Exec bootstrap failed for %s (non-fatal): %s", NAM_EXEC_EMAIL, _exc2)
-
-    # ----- Initialize recovery codes for all executive accounts -----
-    try:
-        exec_emails = [EXEC_ADMIN_EMAIL, BACKUP_EXEC_EMAIL, NAM_EXEC_EMAIL]
-        await ensure_recovery_codes_exist(db, exec_emails)
-        logger.info("Initialized recovery codes for executive accounts")
+        all_execs = await db.users.find({"role": "executive_admin"}, {"email": 1}).to_list(100)
+        exec_emails = [e["email"] for e in all_execs if e.get("email")]
+        if exec_emails:
+            await ensure_recovery_codes_exist(db, exec_emails)
+            logger.info("Initialized recovery codes for %d executive account(s)", len(exec_emails))
     except Exception as _exc_recovery:
         logger.error("Recovery codes initialization failed (non-fatal): %s", _exc_recovery)
 
