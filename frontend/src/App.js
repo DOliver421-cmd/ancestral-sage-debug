@@ -2,7 +2,7 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { Toaster } from "sonner";
 import "./App.css";
 import { AuthProvider, useAuth } from "./lib/auth";
-import Landing from "./pages/Landing";
+import LandingMarketplace from "./pages/LandingMarketplace";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
 import StudentDashboard from "./pages/StudentDashboard";
@@ -72,7 +72,7 @@ function Protected({ children, roles }) {
 function Home() {
   const { user, loading } = useAuth();
   if (loading) return null;
-  if (!user) return <Landing />;
+  if (!user) return <LandingMarketplace />;
   // executive_admin and admin both land on the admin overview
   if (user.role === "executive_admin") return <Navigate to="/admin/system" replace />;
   if (user.role === "admin") return <Navigate to="/admin" replace />;
