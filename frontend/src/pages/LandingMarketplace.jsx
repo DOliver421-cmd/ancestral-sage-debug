@@ -4,38 +4,61 @@ import { WAI_LOGO, BRAND } from "../lib/brand";
 import { Heart, BookOpen, Users, Award, Zap, ArrowRight, MessageSquare, DollarSign, Shield, Sparkles, TrendingUp } from "lucide-react";
 import BugReportModal from "../components/BugReportModal";
 
-// Community activity feed (simulated live data)
+// Community activity feed (simulated live data - BOTH trades & digital creators)
 const LIVE_ACTIVITY = [
   { user: "Maya T.", action: "just completed", subject: "Electrical Safety Module", time: "2m ago", avatar: "🎓" },
+  { user: "Khalil M.", action: "enrolled in", subject: "Amara's Healing Poetry Course", time: "3m ago", avatar: "✍️" },
   { user: "James L.", action: "earned certificate in", subject: "AC/DC Fundamentals", time: "5m ago", avatar: "⚡" },
-  { user: "Sofia M.", action: "joined premium mentoring", subject: "with Marcus Johnson", time: "12m ago", avatar: "🚀" },
+  { user: "Sofia M.", action: "joined premium mentoring", subject: "with Marcus Thompson (Art)", time: "12m ago", avatar: "🎨" },
   { user: "David K.", action: "posted in community", subject: "Help with conduit bending", time: "18m ago", avatar: "🔧" },
-  { user: "Aisha P.", action: "shared their portfolio", subject: "Electrical installations", time: "25m ago", avatar: "📁" },
-  { user: "Marcus B.", action: "became a mentor", subject: "Now helping 3 apprentices", time: "31m ago", avatar: "👨‍🏫" },
+  { user: "Zara P.", action: "purchased course", subject: "Priya's Wellness & Meditation", time: "22m ago", avatar: "🧘" },
+  { user: "Aisha B.", action: "shared their portfolio", subject: "Mixed Media Artwork", time: "25m ago", avatar: "📁" },
+  { user: "Marcus J.", action: "became a mentor", subject: "Teaching electrical + mentoring", time: "31m ago", avatar: "👨‍🏫" },
 ];
 
-// Member spotlights (real community stories)
+// Member spotlights (real community stories - BOTH trades & digital creators)
 const SPOTLIGHTS = [
   {
     name: "Elena Rodriguez",
-    role: "From student to master electrician",
-    story: "Started with zero experience. Now mentoring others. Earned $12K last quarter.",
+    role: "Master Electrician & Mentor",
+    story: "Trades apprentice turned mentor. Now earning $12K/quarter while mentoring 8 young electricians. Kept her independence.",
     image: "👩‍🔧",
-    stat: "8 students mentored",
+    stat: "8 mentees | $12K earned",
+  },
+  {
+    name: "Amara Johnson",
+    role: "Poet & Healing Teacher",
+    story: "Teaching trauma recovery poetry online. 342 students. Earning $8.9K/month. Built her own community.",
+    image: "✍️",
+    stat: "342 students | $8.9K/mo",
+  },
+  {
+    name: "Marcus Thompson",
+    role: "Visual Artist & Instructor",
+    story: "Teaching painting & mixed media. Started with 12 students, now has 200. Growing every month.",
+    image: "🎨",
+    stat: "200 students | $5.2K/mo",
   },
   {
     name: "DeShawn Williams",
-    role: "Built a training nonprofit",
-    story: "Used our curriculum to train 50+ young adults. Got funding. Changed his community.",
+    role: "Trades Training Entrepreneur",
+    story: "Built a nonprofit using our electrical curriculum. Trained 50+ young adults. Got funding. Changed communities.",
     image: "👨‍💼",
-    stat: "$180K in training revenue",
+    stat: "$180K training revenue",
+  },
+  {
+    name: "Dr. Anita Patel",
+    role: "Engineer & Code Expert",
+    story: "Advanced electrical systems course. Consulting + teaching. High-value niche. Earning $15K/month.",
+    image: "👩‍🔬",
+    stat: "85 students | $15K/mo",
   },
   {
     name: "Priya Kapoor",
-    role: "Corporate trainer",
-    story: "Scaled from 1 cohort to 5 corporate training contracts. Growing every month.",
-    image: "👩‍💻",
-    stat: "150+ professionals trained",
+    role: "Wellness Guide & Course Creator",
+    story: "Teaching yoga & meditation for mental wellness. 628 students loving her work. Sustainable income.",
+    image: "🧘‍♀️",
+    stat: "628 students | $6.3K/mo",
   },
 ];
 
@@ -47,25 +70,31 @@ const IMPACT = [
   { number: "52", label: "Corporate contracts", color: "text-copper" },
 ];
 
-// Testimonials (community voices)
+// Testimonials (community voices - BOTH trades & digital creators)
 const TESTIMONIALS = [
   {
-    quote: "I went from struggling to find work to running my own training business. This platform gave me the tools AND the community.",
-    author: "Marcus Johnson",
+    quote: "I went from struggling to find work to running my own training business. This platform gave me the tools AND the community. Now I earn $12K/quarter.",
+    author: "Elena Rodriguez",
     role: "Master Electrician & Mentor",
-    avatar: "👨‍⚡",
+    avatar: "👩‍🔧",
   },
   {
-    quote: "Finally a place where my expertise is valued, I keep 70% of what I earn, and I actually own my content. Revolutionary.",
-    author: "Dr. Anita Patel",
-    role: "Engineer & Course Creator",
-    avatar: "👩‍🔬",
+    quote: "As a poet teaching healing work, I finally found a platform that doesn't extract from creators. I keep 70%, I own my content, and my students are real.",
+    author: "Amara Johnson",
+    role: "Poet & Healing Teacher",
+    avatar: "✍️",
   },
   {
-    quote: "The community here is real. People actually help each other. It doesn't feel like a soulless platform — it feels like home.",
+    quote: "The community here is REAL. Electricians mentoring apprentices. Artists teaching artists. Healers supporting healers. It feels like home, not a corporate platform.",
     author: "Sofia Martinez",
-    role: "Apprentice + Community Leader",
+    role: "Apprentice & Community Organizer",
     avatar: "👩‍🎓",
+  },
+  {
+    quote: "Whether you're teaching trades or teaching art, this platform respects your work. You're not just extracting value for a VC — you're building something real.",
+    author: "Marcus Thompson",
+    role: "Visual Artist & Instructor",
+    avatar: "🎨",
   },
 ];
 
@@ -114,13 +143,13 @@ export default function LandingMarketplace() {
             </div>
 
             <h1 className="font-heading text-6xl sm:text-7xl font-extrabold leading-tight mb-6">
-              You're the <span className="text-copper">healers.</span><br />
-              You're the <span className="text-copper">builders.</span><br />
-              You're the <span className="text-copper">culture makers.</span>
+              You're the <span className="text-copper">teachers.</span><br />
+              You're the <span className="text-copper">makers.</span><br />
+              You're the <span className="text-copper">healers.</span>
             </h1>
 
             <p className="text-xl text-ink/70 leading-relaxed mb-8 max-w-2xl mx-auto">
-              Stop working for platforms that extract your labor. Join a community where you own your work, keep 70% of what you earn, and build something that lasts.
+              Electricians. Poets. Artists. Healers. Builders. Whether you teach trades or teach transformation, stop working for platforms that extract your labor. Join a community where you own your work, keep 70% of what you earn, and build something that lasts.
             </p>
 
             <div className="flex flex-wrap justify-center gap-4 mb-20">
@@ -150,8 +179,9 @@ export default function LandingMarketplace() {
         <div className="max-w-7xl mx-auto px-6">
           <div className="flex items-center justify-between mb-8">
             <h2 className="text-3xl font-bold flex items-center gap-2">
-              <TrendingUp className="w-8 h-8 text-copper" /> What's happening right now
+              <TrendingUp className="w-8 h-8 text-copper" /> Right now in our community
             </h2>
+            <p className="text-sm text-ink/60">Trades + digital creators learning, earning, and building together</p>
           </div>
 
           <div className="space-y-3 max-w-2xl">
@@ -173,12 +203,12 @@ export default function LandingMarketplace() {
       {/* COMMUNITY SPOTLIGHTS (REAL STORIES) */}
       <section id="community" className="py-24 bg-bone">
         <div className="max-w-7xl mx-auto px-6">
-          <h2 className="text-5xl font-bold text-center mb-4">Real Community. Real Stories.</h2>
+          <h2 className="text-5xl font-bold text-center mb-4">Real Community. All Kinds.</h2>
           <p className="text-lg text-ink/60 text-center max-w-2xl mx-auto mb-16">
-            These aren't marketing stories. These are your neighbors building real income and real impact.
+            Electricians. Poets. Artists. Healers. Builders. Real people earning real money on their own terms — trades + digital creators side by side.
           </p>
 
-          <div className="grid md:grid-cols-3 gap-8">
+          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
             {SPOTLIGHTS.map((member) => (
               <div key={member.name} className="bg-white border border-ink/10 rounded-lg p-8 hover:shadow-lg transition-shadow">
                 <div className="text-6xl mb-4">{member.image}</div>
@@ -240,9 +270,9 @@ export default function LandingMarketplace() {
         <div className="max-w-7xl mx-auto px-6">
           <div className="grid lg:grid-cols-2 gap-12 items-center">
             <div>
-              <h2 className="font-heading text-5xl font-bold mb-6">For Creators & Builders</h2>
+              <h2 className="font-heading text-5xl font-bold mb-6">For Creators, Teachers, Builders</h2>
               <p className="text-lg text-ink/60 mb-8">
-                Your work is valuable. Your voice matters. You deserve a platform that pays you fairly and lets you own your creation.
+                Teaching electrical skills. Teaching poetry. Teaching art. Teaching healing. Your work matters. You deserve a platform that pays you fairly and lets you own your creation — whether you're in trades or digital arts.
               </p>
 
               <div className="space-y-4">
