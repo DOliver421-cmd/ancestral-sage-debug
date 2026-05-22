@@ -259,6 +259,12 @@ NAM_EXEC_DEFAULT_PASSWORD = os.environ.get("NAM_EXEC_DEFAULT_PASSWORD", "NamOshu
 # the default passwords above, then immediately change password and remove the flag.
 EXEC_FORCE_RESET = os.environ.get("EXEC_FORCE_RESET", "0") == "1"
 
+# Secret key for the no-login exec unlock endpoint POST /api/auth/exec-unlock.
+# Set EXEC_RESET_SECRET to any value in Railway Variables.  If not set the
+# endpoint is disabled (returns 404).  This is the zero-human-intervention
+# recovery path when exec accounts are locked — no login, no Railway access needed.
+EXEC_RESET_SECRET = os.environ.get("EXEC_RESET_SECRET", "")
+
 # One-time migration: any email that used to be the hardcoded EXEC_ADMIN_EMAIL
 # will be auto-demoted from executive_admin to admin on startup, so switching
 # the primary exec doesn't leave a dormant god-mode account behind.
@@ -2107,6 +2113,53 @@ async def emergency_recovery(body: EmergencyRecoveryReq, request: Request):
         "email": user_doc["email"],
         "message": "Account recovered. You are now logged in. Please update your password in settings.",
     }
+
+
+@api_router.post("/auth/exec-unlock")
+async def exec_unlock(request: Request):
+    """No-login exec account unlock.
+
+    Requires EXEC_RESET_SECRET env var to be set on the server.
+    POST {"secret": "<value of EXEC_RESET_SECRET>"}
+
+    Clears lockouts and resets ALL exec seats to their default passwords.
+    Use this when locked out and can't log in — no Railway access needed,
+    just an HTTP POST from any terminal or browser.
+    """
+    if not EXEC_RESET_SECRET:
+        raise HTTPException(404, "Not found")
+    try:
+        body = await request.json()
+    except Exception:
+        raise HTTPException(400, "JSON body required")
+    if body.get("secret") != EXEC_RESET_SECRET:
+        await asyncio.sleep(2)
+        raise HTTPException(403, "Invalid secret")
+
+    _seats = [
+        (EXEC_ADMIN_EMAIL,  EXEC_DEFAULT_PASSWORD),
+        (BACKUP_EXEC_EMAIL, BACKUP_EXEC_DEFAULT_PASSWORD),
+        (NAM_EXEC_EMAIL,    NAM_EXEC_DEFAULT_PASSWORD),
+    ]
+    reset = []
+    for _email, _pw in _seats:
+        await db.users.update_one(
+            {"email": _email},
+            {
+                "$set": {
+                    "password_hash": hash_pw(_pw),
+                    "role": "executive_admin",
+                    "is_active": True,
+                    "must_change_password": False,
+                },
+                "$unset": {"login_locked_until": "", "login_failed_attempts": ""},
+            },
+            upsert=False,
+        )
+        reset.append(_email)
+    await audit(None, "exec.unlock.via_secret", meta={"ip": request.client.host if request.client else "unknown"})
+    logger.warning("exec-unlock: all exec seats reset via secret key")
+    return {"ok": True, "reset": reset, "message": "All exec seats unlocked. Log in with default passwords."}
 
 
 @api_router.post("/auth/recovery-codes-generate")
