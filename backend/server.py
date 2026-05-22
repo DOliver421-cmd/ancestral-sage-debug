@@ -8789,6 +8789,14 @@ try:
 except Exception as _social_err:
     logger.warning(f"Could not include social router: {_social_err}")
 
+# ── Playlist curation router ───────────────────────────────────────────────────
+try:
+    from playlist_routes import router as playlist_router
+    api_router.include_router(playlist_router)
+    logger.info("Playlist curation router included")
+except Exception as _playlist_err:
+    logger.warning(f"Could not include playlist router: {_playlist_err}")
+
 app.include_router(api_router)
 # CORS: when origins is wildcard ("*") browsers reject credentials, so we
 # turn off allow_credentials in that case (auth uses Bearer token in Authorization

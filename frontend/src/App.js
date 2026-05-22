@@ -43,6 +43,8 @@ import LitigationWeapon from "./pages/LitigationWeapon";
 import CreatorProfile from "./pages/CreatorProfile";
 import SocialPublish from "./pages/SocialPublish";
 import Internships from "./pages/Internships";
+import PlaylistSubmit from "./pages/PlaylistSubmit";
+import PlaylistDashboard from "./pages/PlaylistDashboard";
 import DirectorWidget from "./components/DirectorWidget";
 import ErrorBoundary from "./components/ErrorBoundary";
 import Helper from "./pages/Helper";
@@ -135,6 +137,9 @@ function App() {
           <Route path="/internships" element={<Internships />} />
           {/* Social publisher — authenticated */}
           <Route path="/social/publish" element={<Protected><SocialPublish /></Protected>} />
+          {/* Playlist curation — public submission form, private dashboard */}
+          <Route path="/playlist/:slug/submit" element={<PlaylistSubmit />} />
+          <Route path="/playlist/dashboard" element={<Protected><PlaylistDashboard /></Protected>} />
           {/* M.O.R.E. — public tier */}
           <Route path="/more" element={<More />} />
           <Route path="/more/litigation" element={<LitigationWeapon />} />

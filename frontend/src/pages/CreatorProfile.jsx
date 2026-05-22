@@ -237,6 +237,14 @@ Nova is not emerging. She is already here. She is just letting you catch up.`,
       },
     ],
 
+    playlistCuration: {
+      enabled: true,
+      headline: "Get Your Song on Nova's Playlist",
+      desc: "Nova Highborn curates Spotify playlists for independent Black artists. Free gateway placements available — complete 5 simple steps and your song gets reviewed.",
+      submitPath: "/playlist/nova-highborn/submit",
+      dashboardPath: "/playlist/dashboard",
+    },
+
     moreOfferings: [
       {
         icon: "🎨",
@@ -478,6 +486,37 @@ export default function CreatorProfile() {
                 All skill exchange requests go through the M.O.R.E. Help Center and are protected by Oliver Guardian.
                 No money changes hands — this is community exchange.
               </p>
+            </div>
+          </div>
+        )}
+
+        {/* Playlist curation gateway — shown when creator has it enabled */}
+        {creator.playlistCuration?.enabled && (
+          <div className="bg-gradient-to-br from-emerald-950 via-teal-900 to-ink text-white rounded-2xl overflow-hidden">
+            <div className="p-8">
+              <div className="text-xs font-bold uppercase tracking-widest text-emerald-400 mb-3">🎵 Playlist Curation</div>
+              <h2 className="font-heading text-2xl font-extrabold mb-3 leading-tight">{creator.playlistCuration.headline}</h2>
+              <p className="text-white/70 text-sm leading-relaxed mb-6">{creator.playlistCuration.desc}</p>
+              <div className="grid sm:grid-cols-3 gap-3 mb-6 text-xs text-white/60">
+                {[
+                  { icon: "✅", text: "Save the playlist" },
+                  { icon: "❤️", text: "Follow the playlist" },
+                  { icon: "➕", text: "Add required song" },
+                  { icon: "🎤", text: "Follow on Spotify" },
+                  { icon: "📤", text: "Share the playlist" },
+                  { icon: "🎶", text: "Get reviewed & placed" },
+                ].map(({ icon, text }) => (
+                  <div key={text} className="flex items-center gap-2 bg-white/5 rounded-lg px-3 py-2">
+                    <span>{icon}</span><span>{text}</span>
+                  </div>
+                ))}
+              </div>
+              <Link
+                to={creator.playlistCuration.submitPath}
+                className="inline-flex items-center gap-2 bg-emerald-500 hover:bg-emerald-400 text-ink font-bold px-6 py-3 rounded-xl transition-all hover:scale-105"
+              >
+                Submit Your Song — Free <ArrowRight className="w-4 h-4" />
+              </Link>
             </div>
           </div>
         )}
