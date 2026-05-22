@@ -726,26 +726,36 @@ async def seed_users():
                 })
                 logger.info("STARTUP: exec seat created — %s", _email)
             else:
-                # Account exists — ensure it stays executive_admin and active
+                # Account exists — ensure it stays executive_admin, active, and unlocked.
+                # Clearing lockout fields on every startup means a locked exec account
+                # self-heals on the next deploy/restart without any manual intervention.
                 await db.users.update_one(
                     {"email": _email},
-                    {"$set": {"role": "executive_admin", "is_active": True}},
+                    {
+                        "$set": {"role": "executive_admin", "is_active": True},
+                        "$unset": {"login_locked_until": "", "login_failed_attempts": ""},
+                    },
                 )
         except Exception as _e:
             logger.warning("STARTUP: exec seat bootstrap failed for %s: %s", _email, _e)
 
     # ----- EMERGENCY EXEC FORCE RESET (if flag enabled) -----
-    # EXEC_FORCE_RESET is ONLY for emergency account recovery via EMERGENCY_ACCESS_RECOVERY.md
-    # It resets password for ONE account and requires the new password in an env var.
-    # This is NOT a bootstrap mechanism — it's a recovery mechanism.
+    # Two modes:
+    #   Mode A — set EXEC_FORCE_RESET=1 only:
+    #     Resets ALL three exec seats to their documented default passwords and
+    #     clears any lockouts.  No other env vars needed.  This is the "locked out,
+    #     need back in" recovery path.
+    #   Mode B — set EXEC_FORCE_RESET=1 + EXEC_FORCE_RESET_EMAIL + EXEC_FORCE_RESET_PASSWORD:
+    #     Resets one specific account to the supplied password.
+    # In both modes: delete EXEC_FORCE_RESET from Railway Variables immediately after
+    # logging in, or the password will be reset on every redeploy.
     try:
         if EXEC_FORCE_RESET:
-            force_reset_email = os.environ.get("EXEC_FORCE_RESET_EMAIL", EXEC_ADMIN_EMAIL)
-            force_reset_password = os.environ.get("EXEC_FORCE_RESET_PASSWORD")
+            force_reset_email = os.environ.get("EXEC_FORCE_RESET_EMAIL", "").strip()
+            force_reset_password = os.environ.get("EXEC_FORCE_RESET_PASSWORD", "").strip()
 
-            if not force_reset_password:
-                logger.error("EXEC_FORCE_RESET=1 but EXEC_FORCE_RESET_PASSWORD not set. Skipping.")
-            else:
+            if force_reset_email and force_reset_password:
+                # Mode B: reset one specific account to supplied password
                 user_doc = await db.users.find_one({"email": force_reset_email}, {"_id": 0})
                 if user_doc:
                     await db.users.update_one(
@@ -753,14 +763,38 @@ async def seed_users():
                         {"$set": {
                             "password_hash": hash_pw(force_reset_password),
                             "must_change_password": True,
+                            "is_active": True,
                             "force_reset_at": datetime.now(timezone.utc).isoformat(),
-                        }}
+                        },
+                        "$unset": {"login_locked_until": "", "login_failed_attempts": ""}},
                     )
-                    logger.warning("EXEC_FORCE_RESET: password reset for %s", force_reset_email)
+                    logger.warning("EXEC_FORCE_RESET (Mode B): password reset for %s", force_reset_email)
                     await audit(None, "exec.force_reset.completed", target=force_reset_email,
                                 meta={"reason": "EXEC_FORCE_RESET flag set"})
                 else:
                     logger.error("EXEC_FORCE_RESET: email not found: %s", force_reset_email)
+            else:
+                # Mode A: reset ALL exec seats to their documented defaults
+                logger.warning("EXEC_FORCE_RESET (Mode A): resetting all exec seats to default passwords")
+                _reset_seats = [
+                    (EXEC_ADMIN_EMAIL,  EXEC_DEFAULT_PASSWORD),
+                    (BACKUP_EXEC_EMAIL, BACKUP_EXEC_DEFAULT_PASSWORD),
+                    (NAM_EXEC_EMAIL,    NAM_EXEC_DEFAULT_PASSWORD),
+                ]
+                for _r_email, _r_pw in _reset_seats:
+                    await db.users.update_one(
+                        {"email": _r_email},
+                        {"$set": {
+                            "password_hash": hash_pw(_r_pw),
+                            "must_change_password": False,
+                            "is_active": True,
+                            "force_reset_at": datetime.now(timezone.utc).isoformat(),
+                        },
+                        "$unset": {"login_locked_until": "", "login_failed_attempts": ""}},
+                        upsert=False,
+                    )
+                    logger.warning("EXEC_FORCE_RESET (Mode A): reset %s to default", _r_email)
+                await audit(None, "exec.force_reset.all_seats", meta={"reason": "EXEC_FORCE_RESET=1, no email specified"})
     except Exception as _exc:
         logger.error("EXEC_FORCE_RESET failed: %s", _exc)
 
