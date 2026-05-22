@@ -88,7 +88,16 @@
       "Bash(python -c \"from revenue_operations_integration import get_revenue_routers; routers = get_revenue_routers\\(\\); print\\(f'✅ Loaded {len\\(routers\\)} routers'\\); [print\\(f'  - {r.tags}'\\) for r in routers]\")",
       "Bash(python -m py_compile backend/billing/creator_course_routes.py backend/billing/creator_courses.py)",
       "Bash(grep -E \"\\\\.\\(tsx|jsx\\)$\")",
-      "Bash(chmod +x frontend/scripts/generate-creator-images.sh)"
+      "Bash(chmod +x frontend/scripts/generate-creator-images.sh)",
+      "Bash(python -c \"import ast; f = open\\('backend/server.py', encoding='utf-8'\\); ast.parse\\(f.read\\(\\)\\); print\\('OK'\\)\")",
+      "Bash(python -c \"import ast; [ast.parse\\(open\\(f, encoding='utf-8'\\).read\\(\\)\\) for f in ['backend/server.py', 'backend/billing/creator_course_routes.py', 'backend/crm/routes.py', 'backend/scripts/bootstrap_exec_admin.py']]\")",
+      "Bash(python -c \"import ast; [ast.parse\\(open\\(f, encoding='utf-8'\\).read\\(\\)\\) for f in ['backend/security/field_authorization.py', 'backend/security/encryption.py', 'backend/billing/routes.py']]\")",
+      "Bash(grep -i \"\\\\.py$\")",
+      "Bash(Select-String -SimpleMatch \"routes\")",
+      "Bash(python -c \"import ast; f = open\\('backend/server.py', encoding='utf-8'\\); ast.parse\\(f.read\\(\\)\\); print\\('✅ backend/server.py compiles'\\)\")",
+      "Bash(python -c \"import ast; f = open\\('backend/server.py', encoding='utf-8'\\); ast.parse\\(f.read\\(\\)\\); print\\('server.py compiles'\\)\")",
+      "Bash(python -c \"import ast; f = open\\('backend/billing/creator_course_routes.py', encoding='utf-8'\\); ast.parse\\(f.read\\(\\)\\); print\\('creator_course_routes.py compiles'\\)\")",
+      "Bash(node -c frontend/src/components/BugReportModal.jsx)"
     ]
   }
 }

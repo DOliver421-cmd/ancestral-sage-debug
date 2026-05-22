@@ -2,6 +2,7 @@ import { Link } from "react-router-dom";
 import { useEffect } from "react";
 import { WAI_LOGO, BRAND } from "../lib/brand";
 import { Heart, BookOpen, Users, Award, Zap, ArrowRight, MessageSquare, DollarSign, Shield } from "lucide-react";
+import BugReportModal from "../components/BugReportModal";
 
 export default function Landing() {
   useEffect(() => {
@@ -493,6 +494,8 @@ export default function Landing() {
           </div>
         </div>
       </footer>
+
+      <BugReportModal />
     </div>
   );
 }

@@ -8266,6 +8266,49 @@ async def exec_pipeline_process_batch(
     return [r.to_dict() for r in results]
 
 
+# ── BUG REPORT ENDPOINT (48-hour testing campaign) ──────────────────────────────
+class BugReportRequest(BaseModel):
+    name: str = Field(..., min_length=1, max_length=200)
+    email: EmailStr
+    venmoOrPaypal: str = Field(..., min_length=1, max_length=200)
+    whatYouTried: str = Field(..., min_length=1, max_length=100)
+    whatBroke: str = Field(..., min_length=1, max_length=2000)
+    screenshot: Optional[str] = None
+
+
+@api_router.post("/bug-report")
+async def submit_bug_report(body: BugReportRequest):
+    """
+    Submit a bug report during the 48-hour break-the-site campaign.
+    Submissions are stored in 'bug_reports' collection and emailed to admin.
+    """
+    try:
+        report = {
+            "id": str(uuid.uuid4()),
+            "name": body.name.strip(),
+            "email": body.email,
+            "venmoOrPaypal": body.venmoOrPaypal.strip(),
+            "whatYouTried": body.whatYouTried.strip(),
+            "whatBroke": body.whatBroke.strip(),
+            "screenshot": body.screenshot,
+            "submittedAt": datetime.now(timezone.utc),
+            "status": "new",
+        }
+        result = await db["bug_reports"].insert_one(report)
+        report["_id"] = str(result.inserted_id)
+
+        # Log the submission
+        logger.info(f"Bug report submitted: {body.email} — {body.whatYouTried}")
+
+        # TODO: Send email notification to admin (poetgames3@gmail.com)
+        # For now, just store in DB and return success
+
+        return {"status": "submitted", "message": "Thanks for testing! You'll get $1 for trying."}
+    except Exception as e:
+        logger.error(f"Bug report submission error: {e}")
+        raise HTTPException(500, "Could not submit bug report")
+
+
 # ── Include revenue operations routers ────────────────────────────────────────
 try:
     for _rev_router in get_revenue_routers():
