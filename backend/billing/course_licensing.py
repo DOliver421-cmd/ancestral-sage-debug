@@ -85,7 +85,8 @@ class CourseLicense(BaseModel):
     stripe_subscription_id: Optional[str] = None
     max_seats: int
     used_seats: int = 0
-    team_members: list = []  # [{"name": "...", "email": "...", "labs_completed": [...]}, ...]
+    language: str = "en"  # Default language (en, es, pt, fr)
+    team_members: list = []  # [{"name": "...", "email": "...", "language": "es", "labs_completed": [...]}, ...]
     created_at: datetime = None
     expires_at: Optional[datetime] = None
     auto_renew: bool = True
@@ -148,26 +149,33 @@ async def create_contractor_license(
     contractor_id: str,
     business_name: str,
     tier: str,
+    language: str = "en",
 ) -> dict:
     """Create a new contractor license"""
     tier_info = CONTRACTOR_TIERS.get(tier)
     if not tier_info:
         return {"status": "error", "message": f"Invalid tier: {tier}"}
 
+    # Validate language
+    from .course_multilingual import COURSE_LANGUAGES
+    if language not in COURSE_LANGUAGES:
+        language = "en"
+
     license_doc = {
         "contractor_id": contractor_id,
         "business_name": business_name,
         "tier": tier,
+        "language": language,
         "max_seats": tier_info["seats"] or 999,
         "used_seats": 1,
-        "team_members": [{"name": business_name, "email": None}],
+        "team_members": [{"name": business_name, "email": None, "language": language}],
         "created_at": datetime.utcnow(),
         "expires_at": datetime.utcnow() + timedelta(days=365),
         "auto_renew": True,
     }
 
     result = await db.course_licenses.insert_one(license_doc)
-    logger.info(f"Created course license for {business_name} ({tier})")
+    logger.info(f"Created course license for {business_name} ({tier}) in {language}")
     return {"status": "success", "license_id": str(result.inserted_id)}
 
 
@@ -176,6 +184,7 @@ async def add_team_member(
     contractor_id: str,
     name: str,
     email: str,
+    language: str = None,
 ) -> dict:
     """Add a team member to contractor's license"""
     license = await db.course_licenses.find_one({"contractor_id": contractor_id})
@@ -185,10 +194,15 @@ async def add_team_member(
     if license["used_seats"] >= license["max_seats"]:
         return {"status": "error", "message": "License capacity reached"}
 
+    # Use team member's language preference or license default
+    if language is None:
+        language = license.get("language", "en")
+
     new_member = {
         "id": f"{contractor_id}_{len(license['team_members'])}",
         "name": name,
         "email": email,
+        "language": language,
         "labs_completed": [],
         "added_at": datetime.utcnow(),
     }
@@ -200,7 +214,7 @@ async def add_team_member(
             "$inc": {"used_seats": 1},
         },
     )
-    logger.info(f"Added {name} to {contractor_id}'s license")
+    logger.info(f"Added {name} to {contractor_id}'s license (language: {language})")
     return {"status": "success", "member_id": new_member["id"]}
 
 

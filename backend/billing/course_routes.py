@@ -14,6 +14,13 @@ from .course_licensing import (
     estimate_contractor_arv,
     CONTRACTOR_TIERS,
 )
+from .course_multilingual import (
+    COURSE_LANGUAGES,
+    UI_STRINGS,
+    ONLINE_LABS_MULTILINGUAL,
+    get_course_content,
+    get_ui_string,
+)
 
 router = APIRouter(prefix="/api/courses", tags=["courses"])
 
@@ -27,16 +34,85 @@ async def list_contractor_tiers():
     }
 
 
+@router.get("/languages")
+async def list_languages():
+    """List available course languages"""
+    return {
+        "status": "success",
+        "languages": COURSE_LANGUAGES,
+    }
+
+
+@router.get("/labs")
+async def list_labs(language: str = Query("en")):
+    """List all available labs in requested language"""
+    if language not in COURSE_LANGUAGES:
+        language = "en"
+
+    labs = []
+    for lab_slug, content in ONLINE_LABS_MULTILINGUAL.items():
+        lab_content = get_course_content(lab_slug, language)
+        if lab_content:
+            labs.append({
+                "slug": lab_slug,
+                "title": lab_content.get("title", ""),
+                "summary": lab_content.get("summary", ""),
+                "language": language,
+            })
+
+    return {
+        "status": "success",
+        "language": language,
+        "labs": labs,
+    }
+
+
+@router.get("/labs/{lab_slug}")
+async def get_lab_details(lab_slug: str, language: str = Query("en")):
+    """Get detailed course content for a specific lab in requested language"""
+    if language not in COURSE_LANGUAGES:
+        language = "en"
+
+    content = get_course_content(lab_slug, language)
+    if not content:
+        raise HTTPException(status_code=404, detail="Lab not found")
+
+    return {
+        "status": "success",
+        "slug": lab_slug,
+        "language": language,
+        "content": content,
+    }
+
+
+@router.get("/ui/{key}")
+async def get_ui_text(key: str, language: str = Query("en")):
+    """Get UI strings in requested language"""
+    if language not in COURSE_LANGUAGES:
+        language = "en"
+
+    text = get_ui_string(key, language)
+    return {
+        "status": "success",
+        "key": key,
+        "language": language,
+        "text": text,
+    }
+
+
 @router.post("/license/create")
 async def create_license(
     contractor_id: str,
     business_name: str,
     tier: str,
     request: Request,
+    language: str = Query("en"),
 ):
     """Create a new contractor training license"""
     db = request.app.state.db
-    result = await create_contractor_license(db, contractor_id, business_name, tier)
+    if language not in COURSE_LANGUAGES:
+        language = "en"
+    result = await create_contractor_license(db, contractor_id, business_name, tier, language)
     if result["status"] != "success":
         raise HTTPException(status_code=400, detail=result.get("message", "Failed to create license"))
     return result
@@ -63,10 +139,13 @@ async def add_member(
     name: str,
     email: str,
     request: Request,
+    language: str = Query(None),
 ):
-    """Add a team member to contractor's license"""
+    """Add a team member to contractor's license with optional language preference"""
     db = request.app.state.db
-    result = await add_team_member(db, contractor_id, name, email)
+    if language and language not in COURSE_LANGUAGES:
+        language = None
+    result = await add_team_member(db, contractor_id, name, email, language)
     if result["status"] != "success":
         raise HTTPException(status_code=400, detail=result.get("message", "Failed to add member"))
     return result
