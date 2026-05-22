@@ -1,8 +1,41 @@
 import { Link } from "react-router-dom";
+import { useEffect } from "react";
 import { WAI_LOGO, BRAND } from "../lib/brand";
 import { Heart, BookOpen, Users, Award, Zap, ArrowRight, MessageSquare, DollarSign, Shield } from "lucide-react";
 
 export default function Landing() {
+  useEffect(() => {
+    // Handle smooth scroll to anchor links
+    const handleAnchorClick = (e) => {
+      const href = e.currentTarget.getAttribute("href");
+      if (href?.startsWith("#")) {
+        e.preventDefault();
+        const targetId = href.slice(1);
+        const element = document.getElementById(targetId);
+        if (element) {
+          const headerHeight = 80; // sticky header height
+          const elementPosition = element.getBoundingClientRect().top + window.scrollY;
+          window.scrollTo({
+            top: elementPosition - headerHeight,
+            behavior: "smooth",
+          });
+        }
+      }
+    };
+
+    // Attach handler to all anchor links
+    const anchorLinks = document.querySelectorAll('a[href^="#"]');
+    anchorLinks.forEach((link) => {
+      link.addEventListener("click", handleAnchorClick);
+    });
+
+    return () => {
+      anchorLinks.forEach((link) => {
+        link.removeEventListener("click", handleAnchorClick);
+      });
+    };
+  }, []);
+
   return (
     <div className="min-h-screen bg-bone text-ink">
       {/* Header */}
@@ -420,8 +453,8 @@ export default function Landing() {
         </div>
       </section>
 
-      {/* Footer */}
-      <footer className="bg-ink/95 text-white/60 border-t border-white/10 py-12">
+      {/* Community & Footer */}
+      <footer id="community" className="bg-ink/95 text-white/60 border-t border-white/10 py-12">
         <div className="max-w-7xl mx-auto px-6">
           <div className="grid md:grid-cols-4 gap-8 mb-12">
             <div>
