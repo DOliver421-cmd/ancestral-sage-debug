@@ -68,13 +68,13 @@ export default function Landing() {
             </div>
 
             <h1 className="font-heading text-6xl sm:text-7xl font-extrabold leading-tight mb-8">
-              We're Here For You.<br />
-              <span className="text-copper">No Extraction.</span><br />
-              <span className="text-copper">Just Community.</span>
+              Partner With Us.<br />
+              <span className="text-copper">Together We Give</span><br />
+              <span className="text-copper">The World Something Beautiful.</span>
             </h1>
 
             <p className="text-xl text-ink/70 leading-relaxed mb-8 max-w-2xl mx-auto">
-              Social support and educational services for communities that every other system has abandoned. We provide healing, learning, and economic opportunity — all built with you, not for profit off you.
+              You're the healers. The teachers. The artists. The ones building culture. Let's stop pretending that's not the most valuable work. We're here to make sure you own it, keep the money it makes, and build community on your terms.
             </p>
 
             <div className="flex flex-wrap justify-center gap-4 mb-16">
@@ -87,22 +87,22 @@ export default function Landing() {
               <Link to="/login" className="btn-ghost">Already Joined</Link>
             </div>
 
-            {/* Value Props */}
+            {/* Real Commitments */}
             <div className="grid md:grid-cols-3 gap-8 mt-20">
               <div className="p-6 border border-ink/10 rounded-lg hover:border-copper/30 transition-colors">
                 <DollarSign className="w-8 h-8 text-copper mb-4" />
-                <h3 className="font-bold text-lg mb-2">Earn With Dignity</h3>
-                <p className="text-sm text-ink/60">Creators get 70%. Not 30%. Not 50%. Your work pays you.</p>
-              </div>
-              <div className="p-6 border border-ink/10 rounded-lg hover:border-copper/30 transition-colors">
-                <Shield className="w-8 h-8 text-copper mb-4" />
-                <h3 className="font-bold text-lg mb-2">Your Privacy Protected</h3>
-                <p className="text-sm text-ink/60">No extraction. No surveillance. No algorithmic manipulation.</p>
+                <h3 className="font-bold text-lg mb-2">70% Is Yours</h3>
+                <p className="text-sm text-ink/60">Not a percentage we negotiate. Not "fair share." Seventy. You keep what you earn.</p>
               </div>
               <div className="p-6 border border-ink/10 rounded-lg hover:border-copper/30 transition-colors">
                 <Heart className="w-8 h-8 text-copper mb-4" />
-                <h3 className="font-bold text-lg mb-2">Built For Your Community</h3>
-                <p className="text-sm text-ink/60">Cultural alignment. Safety. Trust. Structural, not contractual.</p>
+                <h3 className="font-bold text-lg mb-2">Your Content Stays Yours</h3>
+                <p className="text-sm text-ink/60">We don't own it. We don't resell it. You control everything. Forever.</p>
+              </div>
+              <div className="p-6 border border-ink/10 rounded-lg hover:border-copper/30 transition-colors">
+                <Shield className="w-8 h-8 text-copper mb-4" />
+                <h3 className="font-bold text-lg mb-2">Built BY Us, Not FOR Us</h3>
+                <p className="text-sm text-ink/60">You decide what gets built. We move at community speed, not venture speed.</p>
               </div>
             </div>
           </div>
@@ -312,9 +312,9 @@ export default function Landing() {
         <div className="max-w-7xl mx-auto px-6">
           <div className="grid lg:grid-cols-2 gap-12 items-center">
             <div>
-              <h2 className="font-heading text-5xl font-bold mb-6">For Creators & Artists</h2>
+              <h2 className="font-heading text-5xl font-bold mb-6">For Creators & Builders</h2>
               <p className="text-lg text-ink/60 mb-8">
-                You're doing the healing work. Teaching. Creating. Building community. The system should pay you for it.
+                Your work is sacred. Teaching is sacred. Healing is sacred. Creating culture is sacred. Stop apologizing for charging for it.
               </p>
 
               <div className="space-y-6 mb-8">
@@ -323,8 +323,8 @@ export default function Landing() {
                     <div className="w-2 h-2 bg-copper rounded-full" />
                   </div>
                   <div>
-                    <h4 className="font-bold mb-1">You keep 70% of revenue</h4>
-                    <p className="text-sm text-ink/60">Not 30%. Not 50%. Seventy percent. You're not the product.</p>
+                    <h4 className="font-bold mb-1">You keep 70%. Monthly. On the 1st.</h4>
+                    <p className="text-sm text-ink/60">Not someday. Not "when we feel like it." Automatic deposit every month.</p>
                   </div>
                 </div>
 
@@ -333,8 +333,8 @@ export default function Landing() {
                     <div className="w-2 h-2 bg-copper rounded-full" />
                   </div>
                   <div>
-                    <h4 className="font-bold mb-1">$500/month guaranteed for 10K+ followers</h4>
-                    <p className="text-sm text-ink/60">A revenue floor so you can actually build a life doing your work.</p>
+                    <h4 className="font-bold mb-1">Pricing that grows with demand</h4>
+                    <p className="text-sm text-ink/60">Start super cheap ($1.99-$9.99). Price increases as more people find your work. Early students lock in low price forever.</p>
                   </div>
                 </div>
 
@@ -343,8 +343,8 @@ export default function Landing() {
                     <div className="w-2 h-2 bg-copper rounded-full" />
                   </div>
                   <div>
-                    <h4 className="font-bold mb-1">Multiple revenue streams</h4>
-                    <p className="text-sm text-ink/60">Subscriptions, tips, educational licensing, research partnerships.</p>
+                    <h4 className="font-bold mb-1">Your content. Your terms. Forever.</h4>
+                    <p className="text-sm text-ink/60">We don't own it. We can't sell it without you. You can leave anytime and take it with you.</p>
                   </div>
                 </div>
 
@@ -353,8 +353,8 @@ export default function Landing() {
                     <div className="w-2 h-2 bg-copper rounded-full" />
                   </div>
                   <div>
-                    <h4 className="font-bold mb-1">Your content stays yours</h4>
-                    <p className="text-sm text-ink/60">We don't own it. We don't resell it. You control everything.</p>
+                    <h4 className="font-bold mb-1">No algorithm. No shadow bans. No games.</h4>
+                    <p className="text-sm text-ink/60">Your students find you. You build your community. We don't manipulate what they see.</p>
                   </div>
                 </div>
               </div>
@@ -437,9 +437,9 @@ export default function Landing() {
       {/* CTA */}
       <section className="py-24 bg-ink text-white">
         <div className="max-w-3xl mx-auto px-6 text-center">
-          <h2 className="font-heading text-5xl font-bold mb-6">Ready?</h2>
+          <h2 className="font-heading text-5xl font-bold mb-6">Let's Build This</h2>
           <p className="text-xl text-white/80 mb-8">
-            Whether you're a creator looking to earn with dignity, someone seeking support, or both — we're building this for you.
+            If you're tired of systems that extract your labor, your culture, your genius—and you want to build something with people who actually get it. That's why we're here.
           </p>
 
           <div className="flex flex-wrap justify-center gap-4">
