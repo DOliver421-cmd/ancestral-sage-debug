@@ -187,6 +187,13 @@ async def _scout_loop(db, interval_hours: int = 6) -> None:
 
     interval_secs = interval_hours * 3600
 
+    # Wait 5 minutes before the first scan so startup seeding and health checks
+    # complete cleanly before the scout adds HTTP load to the event loop.
+    _initial_delay = int(os.environ.get("SCOUT_INITIAL_DELAY_SECS", "300"))
+    if _initial_delay > 0:
+        logger.info("CulturalScout: waiting %ds before first scan (SCOUT_INITIAL_DELAY_SECS)", _initial_delay)
+        await asyncio.sleep(_initial_delay)
+
     while True:
         try:
             logger.info("CulturalScout: starting scheduled scan...")
