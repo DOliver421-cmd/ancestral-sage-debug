@@ -333,13 +333,23 @@ class TestKeywordScorer(unittest.TestCase):
         a = self._score("this hits different. nobody talks about this pain")
         self.assertTrue(a.viral_potential)
 
-    def test_confidence_capped_at_0_55_for_keyword_fallback(self):
-        """Keyword fallback must never exceed 0.55 confidence."""
+    def test_non_viral_confidence_capped_at_0_55_for_keyword_fallback(self):
+        """Non-viral keyword fallback must not exceed 0.55 confidence."""
         a = self._score(
             "looking for grief healing trauma loss struggle love identity blackness "
-            "resilience hope this hits different nobody talks about"
+            "resilience hope and guidance"
         )
         self.assertLessEqual(a.confidence, 0.55)
+
+    def test_viral_posts_bypass_confidence_cap(self):
+        """Viral phrase matches bypass the 0.55 cap and reach merch threshold."""
+        a = self._score(
+            "i want this on a shirt. this quote about resilience is everything. "
+            "grief and healing are real"
+        )
+        # Viral posts should have confidence >= VIRAL_SCORE_THRESHOLD (0.60) to route to merch
+        self.assertGreaterEqual(a.confidence, 0.60)
+        self.assertTrue(a.viral_potential)
 
     def test_positive_sentiment_detected(self):
         a = self._score("filled with joy and hope and love today")

@@ -147,6 +147,27 @@ app = FastAPI(
     redoc_url="/api/redoc" if _DOCS_ENABLED else None,
     openapi_url="/api/openapi.json" if _DOCS_ENABLED else None,
 )
+
+# Security headers middleware
+@app.middleware("http")
+async def add_security_headers(request: Request, call_next):
+    response = await call_next(request)
+    # Prevent clickjacking attacks
+    response.headers["X-Frame-Options"] = "DENY"
+    # Prevent MIME type sniffing
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    # Enable XSS protection (supported by older browsers)
+    response.headers["X-XSS-Protection"] = "1; mode=block"
+    # Strict transport security (force HTTPS)
+    response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
+    # Content Security Policy (restrict resource loading)
+    response.headers["Content-Security-Policy"] = "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:;"
+    # Referrer policy (limit referrer disclosure)
+    response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+    # Permissions policy (disable legacy features)
+    response.headers["Permissions-Policy"] = "geolocation=(), microphone=(), camera=()"
+    return response
+
 api_router = APIRouter(prefix="/api")
 logger = logging.getLogger("lcewai")
 logging.basicConfig(level=logging.INFO)
@@ -559,7 +580,9 @@ def require_role(*roles):
     needed_rank = min(ROLE_RANK[r] for r in roles)
     async def dep(user: User = Depends(current_user)) -> User:
         if ROLE_RANK.get(user.role, 0) < needed_rank:
-            raise HTTPException(403, f"Requires role: {roles}")
+            # Don't reveal required roles to prevent attackers from understanding the role hierarchy
+            logger.warning("Unauthorized access attempt — insufficient privileges (user=%s, role=%s)", user.id, user.role)
+            raise HTTPException(403, "Insufficient permissions to access this resource.")
         return user
     return dep
 
@@ -1042,8 +1065,12 @@ async def ensure_indexes():
         await db.progress.create_index([("status", 1), ("user_id", 1)])
         await db.users.create_index([("associate", 1), ("role", 1)])
         await db.compliance_progress.create_index([("user_id", 1), ("module_slug", 1)], unique=True)
+        # Audit logs: retain for 1 year (365 days) for compliance
         await db.audit_log.create_index([("at", -1)])
+        await db.audit_log.create_index("at", expireAfterSeconds=365 * 24 * 3600)
+        # Notifications: auto-delete after 30 days
         await db.notifications.create_index([("user_id", 1), ("created_at", -1)])
+        await db.notifications.create_index("created_at", expireAfterSeconds=30 * 24 * 3600)
         await db.user_credentials.create_index([("user_id", 1), ("credential_key", 1)], unique=True)
         await db.attendance.create_index([("user_id", 1), ("date", -1)])
         await db.incidents.create_index([("status", 1), ("created_at", -1)])
@@ -1071,15 +1098,20 @@ async def ensure_indexes():
         # Composite index for sage audit queries (mode + user_id filter)
         await db.chat_history.create_index([("mode", 1), ("user_id", 1), ("created_at", -1)])
         # M.O.R.E. indexes — expires_at for fast purge queries, category for filtering
-        await db.more_posts.create_index("expires_at")
+        # TTL indexes auto-delete expired documents
+        await db.more_posts.create_index("expires_at", expireAfterSeconds=0,
+                                        partialFilterExpression={"expires_at": {"$exists": True}})
         await db.more_posts.create_index("category")
         await db.more_posts.create_index([("created_at", -1)])
-        await db.more_needs.create_index("expires_at")
+        await db.more_needs.create_index("expires_at", expireAfterSeconds=0,
+                                        partialFilterExpression={"expires_at": {"$exists": True}})
         await db.more_needs.create_index("status")
         await db.more_needs.create_index([("created_at", -1)])
-        await db.more_chats.create_index("expires_at")
+        await db.more_chats.create_index("expires_at", expireAfterSeconds=0,
+                                        partialFilterExpression={"expires_at": {"$exists": True}})
         await db.more_chats.create_index("session_id")
-        await db.more_flags.create_index("expires_at")
+        await db.more_flags.create_index("expires_at", expireAfterSeconds=0,
+                                        partialFilterExpression={"expires_at": {"$exists": True}})
         await db.more_flags.create_index("status")
         # Credential public verification codes
         await db.user_credentials.create_index("verification_code", unique=True,
@@ -2748,6 +2780,54 @@ async def admin_sage_metrics(user: User = Depends(require_role("executive_admin"
     }
 
 
+# ── Sage Subscription Tier System ────────────────────────────────────────
+# Users can subscribe to "basic" (free/freemium) or "advanced" ($9.99/mo) tiers.
+# Advanced tier gets access to deeper safety levels + premium features.
+
+async def _get_user_sage_tier(user_id: str) -> str:
+    """
+    Get user's Sage subscription tier (basic | advanced).
+    Returns "basic" by default for backward compatibility.
+    """
+    # TODO: In production, query db.sage_subscriptions for tier status
+    # For now, default to "basic" for all users (backward compatible)
+    return "basic"
+
+
+async def _apply_sage_safety_gates(response_text: str, user_tier: str) -> tuple:
+    """
+    Apply Sage safety gates based on user tier.
+
+    Returns: (should_deliver: bool, hold_reason: str | None, escalation_id: str | None)
+
+    Basic tier: Gate 1 only (automated harmful content filter)
+    Advanced tier: Gates 1-3 (filter, escalation, director approval)
+    """
+    from ai.sage_safety_gates import gate_1_filter, gate_2_requires_escalation, gate_3_is_high_impact
+
+    # Gate 1: Always apply (all tiers)
+    blocked, block_reason = await gate_1_filter(response_text)
+    if blocked:
+        return (False, f"gate_1_block:{block_reason}", None)
+
+    # Remaining gates only for Advanced tier
+    if user_tier == "advanced":
+        # Gate 2: Human escalation
+        should_escalate, escalation_reason = gate_2_requires_escalation(response_text)
+        if should_escalate:
+            # Create escalation ID and hold response
+            escalation_id = str(uuid.uuid4())
+            return (False, f"gate_2_escalation:{escalation_reason}", escalation_id)
+
+        # Gate 3: Director approval
+        is_high_impact, impact_reason = gate_3_is_high_impact(response_text)
+        if is_high_impact:
+            approval_id = str(uuid.uuid4())
+            return (False, f"gate_3_approval:{impact_reason}", approval_id)
+
+    return (True, None, None)
+
+
 @api_router.post("/ai/chat")
 async def ai_chat(body: AIChatReq, user: User = Depends(current_user)):
     # ---- Ancestral Sage gating (runs BEFORE any LLM cost) ---------------
@@ -2871,6 +2951,35 @@ async def ai_chat(body: AIChatReq, user: User = Depends(current_user)):
     except Exception as e:
         logger.exception("AI error")
         raise HTTPException(502, f"AI error: {e}")
+
+    # ---- Apply Sage safety gates before delivering response ----
+    if is_sage:
+        user_tier = await _get_user_sage_tier(user.id)
+        should_deliver, hold_reason, escalation_id = await _apply_sage_safety_gates(reply, user_tier)
+
+        if not should_deliver:
+            # Log the held response for audit/compliance
+            chat_doc = {
+                "id": str(uuid.uuid4()),
+                "user_id": user.id,
+                "session_id": body.session_id,
+                "mode": body.mode,
+                "user_msg": body.message,
+                "assistant_msg": reply,
+                "refusal_reason": hold_reason,
+                "escalation_id": escalation_id,
+                "created_at": datetime.now(timezone.utc).isoformat(),
+            }
+            await db.chat_history.insert_one(chat_doc)
+            await audit(user.id, f"sage.{hold_reason.split(':')[0]}.held", target=escalation_id or "auto",
+                       meta={"reason": hold_reason, "tier": user_tier})
+            # Return appropriate message based on gate type
+            if "gate_1" in hold_reason:
+                return {"reply": "I can't engage with that content. Let me help you with something else.", "safety_intervention": True}
+            elif "gate_2" in hold_reason:
+                return {"reply": "This touches on sensitive topics. A human advisor will review and get back to you shortly.", "safety_intervention": True}
+            elif "gate_3" in hold_reason:
+                return {"reply": "This is a significant decision. Please discuss with a human advisor before proceeding.", "safety_intervention": True}
 
     chat_doc = {
         "id": str(uuid.uuid4()),
@@ -3327,7 +3436,12 @@ async def director_upload_file(
         raise HTTPException(413, "File too large. Maximum size is 5 MB.")
 
     file_id = str(uuid.uuid4())
+    # Sanitize filename to prevent path traversal attacks
+    import os as _os
     filename = file.filename or "upload"
+    filename = _os.path.basename(filename)  # Remove any directory components
+    filename = "".join(c for c in filename if c.isalnum() or c in ".-_")  # Keep only safe chars
+    filename = filename or "upload"  # Fallback if filename becomes empty
     ct = file.content_type or "application/octet-stream"
 
     # Try to decode as text; mark binary otherwise

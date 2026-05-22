@@ -63,7 +63,11 @@
       "Bash(cat)",
       "Read(//tmp/**)",
       "Bash(git -C . add -A)",
-      "Bash(git -C . commit -m 'audit: comprehensive codebase review; fix: merch routing in keyword fallback *)"
+      "Bash(git -C . commit -m 'audit: comprehensive codebase review; fix: merch routing in keyword fallback *)",
+      "Bash(python -m pytest src/tests/test_pipeline_manager.py -v)",
+      "Bash(python -m pytest src/tests/test_pipeline_manager.py::TestKeywordScorer -v)",
+      "Bash(python -m py_compile backend/server.py)",
+      "Bash(git -C . commit -m 'repairs: fix all audit findings \\(Issues 2-9, partial Issue 1\\) *)"
     ]
   }
 }
