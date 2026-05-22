@@ -11,7 +11,9 @@ export const PARTNERSHIP_LEVELS = [
     maxPoints: 100,
     discount: 0,
     waiMargin: 0.30,
-    description: "Getting started"
+    description: "Getting started",
+    firstMilestone: 50,
+    firstMilestoneUnlock: "Early Adopter (5% discount preview)"
   },
   {
     name: "Rooted",
@@ -19,7 +21,9 @@ export const PARTNERSHIP_LEVELS = [
     maxPoints: 300,
     discount: 0.05,
     waiMargin: 0.25,
-    description: "Growing your impact"
+    description: "Growing your impact",
+    firstMilestone: 120,
+    firstMilestoneUnlock: "Voice Badge (comment on discussions)"
   },
   {
     name: "Builder",
@@ -27,7 +31,9 @@ export const PARTNERSHIP_LEVELS = [
     maxPoints: 800,
     discount: 0.10,
     waiMargin: 0.20,
-    description: "Shaping the foundation"
+    description: "Shaping the foundation",
+    firstMilestone: 325,
+    firstMilestoneUnlock: "Teacher Badge (featured in top teachers)"
   },
   {
     name: "Steward",
@@ -35,7 +41,9 @@ export const PARTNERSHIP_LEVELS = [
     maxPoints: 2000,
     discount: 0.15,
     waiMargin: 0.15,
-    description: "Holding space for others"
+    description: "Holding space for others",
+    firstMilestone: 850,
+    firstMilestoneUnlock: "Decision Maker (vote on fund allocation)"
   },
   {
     name: "Elder",
@@ -43,7 +51,9 @@ export const PARTNERSHIP_LEVELS = [
     maxPoints: 99999,
     discount: 0.15,
     waiMargin: 0.15,
-    description: "Shaping the future"
+    description: "Shaping the future",
+    firstMilestone: 2100,
+    firstMilestoneUnlock: "Board Advisory"
   },
 ];
 
