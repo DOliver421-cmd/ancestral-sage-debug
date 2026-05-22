@@ -1,9 +1,17 @@
-﻿FROM python:3.11-slim
+﻿FROM node:18 AS frontend-builder
+WORKDIR /app/frontend
+COPY frontend/package*.json ./
+RUN npm install
+COPY frontend/ ./
+RUN npm run build
+
+FROM python:3.11-slim
 
 WORKDIR /app
 
 COPY backend/ /app/backend/
 COPY src/ /app/backend/src/
+COPY --from=frontend-builder /app/frontend/build /app/frontend/build
 
 WORKDIR /app/backend
 
