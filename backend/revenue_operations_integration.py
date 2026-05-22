@@ -83,8 +83,12 @@ async def init_revenue_operations(db: AsyncIOMotorDatabase) -> dict:
         # ── Course Licensing (Electrical Contractor Market) ──────────────────────
         await init_course_licensing(db)
 
+        # ── Creator Courses (Creator-built courses at low pricing) ─────────────────
+        from .billing.creator_courses import init_creator_courses
+        await init_creator_courses(db)
+
         logger.info("✅ Revenue operations collections and indexes initialized")
-        return {"status": "success", "collections": 14}
+        return {"status": "success", "collections": 17}
 
     except Exception as e:
         logger.warning(f"Revenue operations initialization (non-fatal): {e}")
@@ -157,5 +161,12 @@ def get_revenue_routers():
         logger.info("✅ Course licensing router loaded")
     except Exception as e:
         logger.warning(f"Could not load course licensing router: {e}")
+
+    try:
+        from .billing.creator_course_routes import router as creator_course_router
+        routers.append(creator_course_router)
+        logger.info("✅ Creator course router loaded")
+    except Exception as e:
+        logger.warning(f"Could not load creator course router: {e}")
 
     return routers
