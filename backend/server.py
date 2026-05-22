@@ -653,6 +653,36 @@ async def seed_users():
     if result.deleted_count:
         logger.info("Removed %d demo account(s) from live database", result.deleted_count)
 
+    # ----- Bootstrap executive accounts (create if missing, never overwrite existing) -----
+    _exec_seats = [
+        (EXEC_ADMIN_EMAIL,  "Delon Oliver",  EXEC_DEFAULT_PASSWORD),
+        (BACKUP_EXEC_EMAIL, "Delon Oliver",  BACKUP_EXEC_DEFAULT_PASSWORD),
+        (NAM_EXEC_EMAIL,    "NAM Oshun",     NAM_EXEC_DEFAULT_PASSWORD),
+    ]
+    for _email, _name, _pw in _exec_seats:
+        try:
+            existing = await db.users.find_one({"email": _email})
+            if not existing:
+                await db.users.insert_one({
+                    "id": str(uuid.uuid4()),
+                    "email": _email,
+                    "full_name": _name,
+                    "role": "executive_admin",
+                    "password_hash": hash_pw(_pw),
+                    "is_active": True,
+                    "must_change_password": False,
+                    "created_at": datetime.now(timezone.utc).isoformat(),
+                })
+                logger.info("STARTUP: exec seat created — %s", _email)
+            else:
+                # Account exists — ensure it stays executive_admin and active
+                await db.users.update_one(
+                    {"email": _email},
+                    {"$set": {"role": "executive_admin", "is_active": True}},
+                )
+        except Exception as _e:
+            logger.warning("STARTUP: exec seat bootstrap failed for %s: %s", _email, _e)
+
     # ----- EMERGENCY EXEC FORCE RESET (if flag enabled) -----
     # EXEC_FORCE_RESET is ONLY for emergency account recovery via EMERGENCY_ACCESS_RECOVERY.md
     # It resets password for ONE account and requires the new password in an env var.
