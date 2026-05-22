@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useAuth } from "../lib/auth";
-import api from "../lib/api";
+import { api } from "../lib/api";
 import { toast } from "sonner";
 import { Instagram, Facebook, ExternalLink, CheckCircle, XCircle, Loader, Send, Link as LinkIcon } from "lucide-react";
 

@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useParams, Link } from "react-router-dom";
-import api from "../lib/api";
+import { api } from "../lib/api";
 import { toast } from "sonner";
 import { CheckCircle, ExternalLink, Music, ArrowRight, Loader, Send, Heart } from "lucide-react";
 import { WAI_LOGO, BRAND } from "../lib/brand";
