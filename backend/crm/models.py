@@ -57,18 +57,18 @@ class BudgetRange(str, Enum):
 
 class DecisionMaker(BaseModel):
     """Key person at customer organization"""
-    name: str
-    title: str
-    email: str
-    phone: Optional[str] = None
+    name: str = Field(..., min_length=1, max_length=200)
+    title: str = Field(..., min_length=1, max_length=200)
+    email: str = Field(..., min_length=5, max_length=255)  # Basic email validation
+    phone: Optional[str] = Field(None, min_length=10, max_length=20)
     verified: bool = False
 
 
 class LeadBase(BaseModel):
     """Core lead information"""
-    company_name: str
-    company_size: Optional[int] = None  # Number of employees
-    industry: Optional[str] = None
+    company_name: str = Field(..., min_length=1, max_length=500)
+    company_size: Optional[int] = Field(None, ge=1, le=1000000)  # Number of employees (1 to 1M)
+    industry: Optional[str] = Field(None, min_length=1, max_length=100)
     budget_range: Optional[BudgetRange] = None
     decision_maker: DecisionMaker
     source: LeadSource
@@ -77,7 +77,7 @@ class LeadBase(BaseModel):
 
 class LeadCreate(LeadBase):
     """Create new lead"""
-    notes: Optional[str] = None
+    notes: Optional[str] = Field(None, max_length=5000)
 
 
 class Lead(LeadBase):

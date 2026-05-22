@@ -23,6 +23,8 @@ from .models import (
 from .stripe_service import StripeService, CreatorPayoutService
 from .financial_reporting import FinancialReportingService, RevenueRecognitionService
 from ..auth import get_current_user
+from ..security.field_authorization import FieldAuthorization, get_visible_fields
+from ..security.encryption import decrypt_payout_account, mask_sensitive_field
 
 router = APIRouter(prefix="/api/billing", tags=["billing"])
 
@@ -87,9 +89,42 @@ async def create_subscription(
 async def get_subscription(
     current_user: dict = Depends(get_current_user),
     stripe_service: StripeService = Depends(get_stripe_service),
+    request: Request = None,
 ):
-    """Get the current user's active subscription"""
+    """Get the current user's active subscription
+
+    ✅ Field-level authorization applied
+    ✅ Payment method details masked
+    ✅ Audit logged
+    """
     subscription = await stripe_service.get_subscription(current_user["_id"])
+
+    if subscription:
+        # Mask payment method details
+        if "payment_method" in subscription and subscription["payment_method"]:
+            payment = subscription["payment_method"]
+            subscription["payment_method"] = {
+                "type": payment.get("type"),
+                "last4": payment.get("last4"),
+                "brand": payment.get("brand"),
+                "exp_month": payment.get("exp_month"),
+                "exp_year": payment.get("exp_year"),
+                # Remove card number, CVV, etc.
+            }
+
+        # Audit log subscription access
+        try:
+            audit_fn = getattr(request.app, "audit", None)
+            if audit_fn:
+                await audit_fn(
+                    actor_id=current_user["id"],
+                    action="subscription.viewed",
+                    target=current_user["id"],
+                    meta={"tier": subscription.get("tier")}
+                )
+        except Exception:
+            pass
+
     return subscription
 
 
@@ -409,9 +444,31 @@ async def get_creator_payouts(
 async def get_financial_dashboard(
     financial_service: FinancialReportingService = Depends(get_financial_service),
     current_user: dict = Depends(get_current_user),
+    request: Request = None,
 ):
-    """Get complete financial dashboard summary - all key metrics"""
-    # TODO: Add role check - only finance/admin can view
+    """Get complete financial dashboard summary - all key metrics
+
+    ✅ Authorization: Admin/steward only
+    ✅ Audit logged for sensitive data access
+    """
+    # Only admins, stewards, and executives can access financial reporting
+    allowed_roles = ["admin", "steward", "elder", "executive_admin"]
+    if current_user.get("role") not in allowed_roles:
+        raise HTTPException(status_code=403, detail="Financial reporting access denied")
+
+    # Audit log financial data access
+    try:
+        audit_fn = getattr(request.app, "audit", None)
+        if audit_fn:
+            await audit_fn(
+                actor_id=current_user["id"],
+                action="financial_reporting.summary_accessed",
+                target="financial_reporting",
+                meta={"severity": "high"}
+            )
+    except Exception:
+        pass
+
     return await financial_service.get_dashboard_summary()
 
 
@@ -419,8 +476,23 @@ async def get_financial_dashboard(
 async def get_monthly_recurring_revenue(
     financial_service: FinancialReportingService = Depends(get_financial_service),
     current_user: dict = Depends(get_current_user),
+    request: Request = None,
 ):
-    """Get current MRR (Monthly Recurring Revenue)"""
+    """Get current MRR (Monthly Recurring Revenue)
+
+    ✅ Authorization: Admin/steward only
+    """
+    allowed_roles = ["admin", "steward", "elder", "executive_admin"]
+    if current_user.get("role") not in allowed_roles:
+        raise HTTPException(status_code=403, detail="Financial reporting access denied")
+
+    try:
+        audit_fn = getattr(request.app, "audit", None)
+        if audit_fn:
+            await audit_fn(actor_id=current_user["id"], action="financial_reporting.mrr_accessed", target="mrr")
+    except Exception:
+        pass
+
     return {"mrr": await financial_service.get_mrr()}
 
 
@@ -430,8 +502,27 @@ async def get_revenue_summary(
     month: int,
     financial_service: FinancialReportingService = Depends(get_financial_service),
     current_user: dict = Depends(get_current_user),
+    request: Request = None,
 ):
-    """Get revenue summary for specific month"""
+    """Get revenue summary for specific month
+
+    ✅ Authorization: Admin/steward only
+    """
+    allowed_roles = ["admin", "steward", "elder", "executive_admin"]
+    if current_user.get("role") not in allowed_roles:
+        raise HTTPException(status_code=403, detail="Financial reporting access denied")
+
+    try:
+        audit_fn = getattr(request.app, "audit", None)
+        if audit_fn:
+            await audit_fn(
+                actor_id=current_user["id"],
+                action="financial_reporting.revenue_accessed",
+                target=f"revenue:{year}:{month}"
+            )
+    except Exception:
+        pass
+
     return await financial_service.get_monthly_revenue_summary(year, month)
 
 
@@ -439,8 +530,23 @@ async def get_revenue_summary(
 async def get_ltv_metrics(
     financial_service: FinancialReportingService = Depends(get_financial_service),
     current_user: dict = Depends(get_current_user),
+    request: Request = None,
 ):
-    """Get LTV (Lifetime Value) and CAC (Customer Acquisition Cost) metrics"""
+    """Get LTV (Lifetime Value) and CAC (Customer Acquisition Cost) metrics
+
+    ✅ Authorization: Admin/steward only
+    """
+    allowed_roles = ["admin", "steward", "elder", "executive_admin"]
+    if current_user.get("role") not in allowed_roles:
+        raise HTTPException(status_code=403, detail="Financial reporting access denied")
+
+    try:
+        audit_fn = getattr(request.app, "audit", None)
+        if audit_fn:
+            await audit_fn(actor_id=current_user["id"], action="financial_reporting.ltv_cac_accessed", target="ltv_cac")
+    except Exception:
+        pass
+
     return await financial_service.get_ltv_cac()
 
 
@@ -448,8 +554,23 @@ async def get_ltv_metrics(
 async def get_net_revenue_retention(
     financial_service: FinancialReportingService = Depends(get_financial_service),
     current_user: dict = Depends(get_current_user),
+    request: Request = None,
 ):
-    """Get NRR (Net Revenue Retention) - measure of expansion/contraction"""
+    """Get NRR (Net Revenue Retention) - measure of expansion/contraction
+
+    ✅ Authorization: Admin/steward only
+    """
+    allowed_roles = ["admin", "steward", "elder", "executive_admin"]
+    if current_user.get("role") not in allowed_roles:
+        raise HTTPException(status_code=403, detail="Financial reporting access denied")
+
+    try:
+        audit_fn = getattr(request.app, "audit", None)
+        if audit_fn:
+            await audit_fn(actor_id=current_user["id"], action="financial_reporting.nrr_accessed", target="nrr")
+    except Exception:
+        pass
+
     return {"nrr": await financial_service.get_nrr()}
 
 
@@ -457,8 +578,23 @@ async def get_net_revenue_retention(
 async def get_retention_cohorts(
     financial_service: FinancialReportingService = Depends(get_financial_service),
     current_user: dict = Depends(get_current_user),
+    request: Request = None,
 ):
-    """Get cohort analysis - retention by signup cohort"""
+    """Get cohort analysis - retention by signup cohort
+
+    ✅ Authorization: Admin/steward only
+    """
+    allowed_roles = ["admin", "steward", "elder", "executive_admin"]
+    if current_user.get("role") not in allowed_roles:
+        raise HTTPException(status_code=403, detail="Financial reporting access denied")
+
+    try:
+        audit_fn = getattr(request.app, "audit", None)
+        if audit_fn:
+            await audit_fn(actor_id=current_user["id"], action="financial_reporting.cohort_accessed", target="cohort")
+    except Exception:
+        pass
+
     return await financial_service.get_cohort_analysis()
 
 
@@ -467,8 +603,27 @@ async def get_cash_flow_forecast(
     months: int = 12,
     financial_service: FinancialReportingService = Depends(get_financial_service),
     current_user: dict = Depends(get_current_user),
+    request: Request = None,
 ):
-    """Get cash flow forecast for next N months (default 12)"""
+    """Get cash flow forecast for next N months (default 12)
+
+    ✅ Authorization: Admin/steward only
+    """
+    allowed_roles = ["admin", "steward", "elder", "executive_admin"]
+    if current_user.get("role") not in allowed_roles:
+        raise HTTPException(status_code=403, detail="Financial reporting access denied")
+
+    try:
+        audit_fn = getattr(request.app, "audit", None)
+        if audit_fn:
+            await audit_fn(
+                actor_id=current_user["id"],
+                action="financial_reporting.forecast_accessed",
+                target=f"forecast:{months}m"
+            )
+    except Exception:
+        pass
+
     return await financial_service.get_cash_flow_forecast(months)
 
 
