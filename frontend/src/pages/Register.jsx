@@ -19,7 +19,15 @@ export default function Register() {
       toast.success(`Welcome, ${u.full_name}!`);
       nav("/dashboard");
     } catch (err) {
-      toast.error(err?.response?.data?.detail || "Registration failed");
+      const status = err?.response?.status;
+      if (status >= 500) {
+        // api.js interceptor already fired "Server error" toast for 5xx — stay silent here.
+      } else if (!status) {
+        // Network error (no response at all) — api.js interceptor did NOT fire.
+        toast.error("Can't reach the server — wait 60 seconds and try again.");
+      } else {
+        toast.error(err?.response?.data?.detail || "Registration failed");
+      }
     } finally { setLoading(false); }
   };
 
@@ -139,14 +147,6 @@ export default function Register() {
               onChange={(e) => setForm({ ...form, associate: e.target.value })}
               data-testid="input-associate"
             />
-
-            {/* What brings you here? (optional context) */}
-            <div className="bg-copper/5 border border-copper/20 rounded p-4">
-              <p className="text-sm text-ink/70 mb-2 font-semibold">What brings you here?</p>
-              <p className="text-xs text-ink/60">
-                Whether you're here to create, learn, find support, or build community — all are welcome. You'll be able to customize your experience after signing up.
-              </p>
-            </div>
 
             {/* Terms */}
             <div className="text-xs text-ink/60">
