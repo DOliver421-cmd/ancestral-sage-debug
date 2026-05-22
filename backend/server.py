@@ -72,6 +72,13 @@ from revenue_operations_integration import (
     stop_revenue_operations,
     get_revenue_routers,
 )
+from recovery import (
+    generate_recovery_codes,
+    verify_recovery_code,
+    get_recovery_code_status,
+    emergency_password_reset,
+    ensure_recovery_codes_exist,
+)
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
@@ -320,6 +327,18 @@ class ForgotPasswordReq(BaseModel):
 class ResetPasswordReq(BaseModel):
     token: str
     new_password: str
+
+
+class EmergencyRecoveryReq(BaseModel):
+    """Executive account emergency recovery via recovery code."""
+    email: EmailStr
+    recovery_code: str
+    new_password: str
+
+
+class RecoveryCodeStatusReq(BaseModel):
+    """Check status of recovery codes for an executive account."""
+    email: EmailStr
 
 
 class SelfEditMeReq(BaseModel):
@@ -750,6 +769,14 @@ async def seed_users():
     except Exception as _exc2:
         logger.error("Exec bootstrap failed for %s (non-fatal): %s", NAM_EXEC_EMAIL, _exc2)
 
+    # ----- Initialize recovery codes for all executive accounts -----
+    try:
+        exec_emails = [EXEC_ADMIN_EMAIL, BACKUP_EXEC_EMAIL, NAM_EXEC_EMAIL]
+        await ensure_recovery_codes_exist(db, exec_emails)
+        logger.info("Initialized recovery codes for executive accounts")
+    except Exception as _exc_recovery:
+        logger.error("Recovery codes initialization failed (non-fatal): %s", _exc_recovery)
+
 
 async def seed_labs():
     for spec in ONLINE_LABS:
@@ -1103,6 +1130,12 @@ async def ensure_indexes():
         await db.password_reset_tokens.create_index("token_hash", unique=True)
         await db.password_reset_tokens.create_index("expires_at", expireAfterSeconds=0)
         await db.password_reset_tokens.create_index("user_id")
+        # Recovery codes — executive emergency access (one per email, TTL 1 year)
+        await db.recovery_codes.create_index("email", unique=True)
+        await db.recovery_codes.create_index("generated_at", expireAfterSeconds=365 * 24 * 3600)
+        # Recovery logs — audit trail of recovery actions (TTL 7 years for compliance)
+        await db.recovery_log.create_index([("email", 1), ("at", -1)])
+        await db.recovery_log.create_index("at", expireAfterSeconds=7 * 365 * 24 * 3600)
         # Sage v3 perf: TTS audio cache (TTL 7d) + per-user daily usage (TTL 25h).
         await db.tts_cache.create_index("key", unique=True)
         await db.tts_cache.create_index("created_at", expireAfterSeconds=7 * 24 * 3600)
@@ -1918,7 +1951,109 @@ async def admin_create_reset_link(uid: str, request: Request,
         "expires_at": expires_at.isoformat(),
         "ttl_minutes": RESET_TOKEN_TTL_MIN,
     }
-# ----------------------------------------------------------------------------
+# ────────────────────────────────────────────────────────────────────────────
+# EXECUTIVE EMERGENCY RECOVERY ENDPOINTS
+# ────────────────────────────────────────────────────────────────────────────
+
+
+@api_router.post("/auth/recovery-status")
+async def recovery_code_status(body: RecoveryCodeStatusReq):
+    """Check how many recovery codes are available for an executive account.
+
+    Returns: {remaining_codes, total_codes, generated_at}
+    Does NOT leak whether the email exists (always returns 200).
+    """
+    status = await get_recovery_code_status(db, body.email)
+    return {
+        "ok": True,
+        "remaining_codes": status["remaining_codes"],
+        "total_codes": status["total_codes"],
+        "generated_at": status["generated_at"],
+    }
+
+
+@api_router.post("/auth/emergency-recovery")
+async def emergency_recovery(body: EmergencyRecoveryReq, request: Request):
+    """Executive emergency account recovery using a recovery code.
+
+    Flow:
+      1. Verify recovery code is valid and unused
+      2. Reset password to the provided new password
+      3. Mark code as used (one-time use)
+      4. Return JWT token for immediate login
+
+    Recovery codes are 4 per account, generated on signup/startup.
+    Each code can only be used once.
+    """
+    ip = (request.client.host if request.client else "emergency-recovery")
+    check_rate(f"recovery:ip:{ip}", max_calls=10, window_sec=300)
+    check_rate(f"recovery:email:{body.email}", max_calls=3, window_sec=600)
+
+    # Verify the user exists and is an executive
+    user_doc = await db.users.find_one({"email": body.email}, {"_id": 0})
+    if not user_doc:
+        # Don't leak existence — generic error
+        raise HTTPException(401, "Recovery code invalid or email not found")
+
+    if user_doc.get("role") != "executive_admin":
+        # Prevent recovery codes on non-executive accounts
+        logger.warning("Recovery code attempted on non-executive account: %s", body.email)
+        raise HTTPException(403, "Recovery codes are for executive accounts only")
+
+    # Verify recovery code
+    code_valid = await verify_recovery_code(db, body.email, body.recovery_code)
+    if not code_valid:
+        logger.warning("Invalid recovery code for: %s (ip=%s)", body.email, ip)
+        raise HTTPException(401, "Recovery code invalid or already used")
+
+    # Reset password
+    try:
+        await emergency_password_reset(
+            db,
+            body.email,
+            body.new_password,
+            reason=f"recovery_code_used (ip={ip})"
+        )
+    except Exception as exc:
+        logger.error("Recovery password reset failed for %s: %s", body.email, exc)
+        raise HTTPException(500, "Password reset failed — contact administrator")
+
+    # Issue JWT token for immediate login
+    token = make_token(user_doc["id"], user_doc.get("role", "student"))
+    await audit(user_doc["id"], "auth.emergency_recovery.completed",
+                target=user_doc["id"], meta={"ip": ip, "recovery_used": True})
+
+    return {
+        "ok": True,
+        "access_token": token,
+        "token_type": "bearer",
+        "email": user_doc["email"],
+        "message": "Account recovered. You are now logged in. Please update your password in settings.",
+    }
+
+
+@api_router.post("/auth/recovery-codes-generate")
+async def generate_recovery_codes_endpoint(user: User = Depends(require_role("executive_admin"))):
+    """Executive-only: Generate new recovery codes for their account.
+
+    Returns: List of 4 recovery codes (shown only once — user must save them).
+    Previous codes are invalidated.
+    """
+    if user.role != "executive_admin":
+        raise HTTPException(403, "Recovery codes can only be generated by executive accounts")
+
+    codes = await generate_recovery_codes(db, user.email)
+    await audit(user.id, "auth.recovery_codes.generated", target=user.id,
+                meta={"count": len(codes)})
+
+    return {
+        "ok": True,
+        "recovery_codes": codes,
+        "message": "SAVE THESE CODES IN A SECURE LOCATION. You will not see them again. Each code can be used once to recover your account.",
+        "valid_for_days": 365,
+    }
+
+# ────────────────────────────────────────────────────────────────────────────
 
 
 @api_router.get("/admin/stats")
