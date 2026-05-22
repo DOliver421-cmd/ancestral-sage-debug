@@ -69,7 +69,17 @@
       "Bash(python -m py_compile backend/server.py)",
       "Bash(git -C . commit -m 'repairs: fix all audit findings \\(Issues 2-9, partial Issue 1\\) *)",
       "Bash(python3 -m py_compile config.py)",
-      "Bash(grep \"\\\\.py$\")"
+      "Bash(grep \"\\\\.py$\")",
+      "Bash(git commit -m 'docs: add revenue operations quick start guide *)",
+      "Bash(git commit -m 'feat: rebuild landing page - W.A.I. Wellbeing & Artistry mission *)",
+      "Bash(grep -E \"\\\\.\\(js|jsx\\)$\")",
+      "Bash(git commit -m 'brand: update to W.A.I. = Wellbeing & Artistry *)",
+      "mcp__Claude_in_Chrome__tabs_context_mcp",
+      "Bash(curl -s \"https://ancestral-sage-debug-production.up.railway.app/api/health\")",
+      "Bash(npm run *)",
+      "Bash(timeout 30 python -m uvicorn backend.server:app --port 8000)",
+      "Bash(python -c \"from backend import server\")",
+      "Bash(git commit *)"
     ]
   }
 }
