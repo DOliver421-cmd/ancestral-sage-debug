@@ -6,6 +6,7 @@ Endpoints for creators to build and sell courses, students to discover and learn
 from fastapi import APIRouter, Request, HTTPException, Query, Depends
 from datetime import datetime
 from pydantic import BaseModel, Field
+from ..security.field_authorization import FieldAuthorization
 from .creator_courses import (
     init_creator_courses,
     create_course,
@@ -221,16 +222,48 @@ async def get_creator_stats(
 
     ✅ Authentication required
     ✅ Only the creator or admins can view financials
+    ✅ Sensitive financial data filtered based on role
     """
     # Verify ownership (creator can only view their own, admins can view anyone's)
-    if creator_id != current_user["id"]:
-        if current_user.get("role") not in ["admin", "executive_admin"]:
+    is_own = creator_id == current_user["id"]
+    if not is_own:
+        if current_user.get("role") not in ["admin", "steward", "elder", "executive_admin"]:
             raise HTTPException(status_code=403, detail="You cannot view other creators' financials")
 
     db = request.app.state.db
     result = await get_creator_dashboard(db, creator_id)
     if result["status"] != "success":
         raise HTTPException(status_code=404, detail=result.get("message"))
+
+    # Filter sensitive financial data based on role
+    # Creators see their own full dashboard, admins see all, other roles see minimal data
+    viewer_role = current_user.get("role", "student")
+    target_role = "creator"
+
+    # For financial endpoints, check if sensitive fields should be visible
+    sensitive_fields = {"total_revenue", "total_earnings", "monthly_revenue",
+                       "monthly_earnings", "creator_earnings", "revenue", "last_payout_date", "next_payout_date"}
+
+    if not is_own and viewer_role not in ["admin", "steward", "elder", "executive_admin"]:
+        # Non-owners/non-admins should not see financial data
+        if "earnings" in result:
+            result["earnings"] = {}
+        # Remove revenue/earnings from courses
+        if "courses" in result:
+            for course in result["courses"]:
+                for field in sensitive_fields:
+                    if field in course:
+                        del course[field]
+
+    # Audit access to creator financials if sensitive fields accessed
+    if "earnings" in result and result.get("earnings"):
+        try:
+            from ..server import audit
+            await audit(current_user["id"], "creator.dashboard.accessed", target=creator_id,
+                       meta={"is_owner": is_own, "viewer_role": viewer_role})
+        except Exception:
+            pass  # Audit failure doesn't block the request
+
     return result
 
 

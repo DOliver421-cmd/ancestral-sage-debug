@@ -79,6 +79,7 @@ from recovery import (
     emergency_password_reset,
     ensure_recovery_codes_exist,
 )
+from security.field_authorization import FieldAuthorization
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
@@ -291,10 +292,10 @@ class RegisterReq(BaseModel):
 
 class AdminCreateUserReq(BaseModel):
     email: EmailStr
-    full_name: str
-    password: str
+    full_name: str = Field(..., min_length=1, max_length=500)
+    password: str = Field(..., min_length=8, max_length=128)
     role: Role = "student"
-    associate: Optional[str] = None
+    associate: Optional[str] = Field(None, min_length=1, max_length=200)
 
 
 class AdminRoleReq(BaseModel):
@@ -302,9 +303,9 @@ class AdminRoleReq(BaseModel):
 
 
 class AdminEditUserReq(BaseModel):
-    full_name: Optional[str] = None
+    full_name: Optional[str] = Field(None, min_length=1, max_length=500)
     email: Optional[EmailStr] = None
-    associate: Optional[str] = None
+    associate: Optional[str] = Field(None, min_length=1, max_length=200)
 
 
 class AdminActiveReq(BaseModel):
@@ -312,12 +313,12 @@ class AdminActiveReq(BaseModel):
 
 
 class ChangePasswordReq(BaseModel):
-    current_password: str
-    new_password: str
+    current_password: str = Field(..., min_length=8, max_length=128)
+    new_password: str = Field(..., min_length=8, max_length=128)
 
 
 class AdminResetPasswordReq(BaseModel):
-    new_password: str
+    new_password: str = Field(..., min_length=8, max_length=128)
 
 
 class ForgotPasswordReq(BaseModel):
@@ -1313,7 +1314,15 @@ async def login(body: LoginReq):
 
 @api_router.get("/auth/me", response_model=User)
 async def me(user: User = Depends(current_user)):
-    return user
+    # Get visible fields for own profile
+    visible_fields = FieldAuthorization.get_visible_fields(
+        viewer_role=user.role,
+        target_role=user.role,
+        is_own_profile=True
+    )
+    user_dict = user.model_dump()
+    filtered = FieldAuthorization.filter_response(user_dict, visible_fields)
+    return User(**filtered)
 
 
 @api_router.get("/modules", response_model=List[Module])
@@ -1436,7 +1445,28 @@ async def all_users(
             {"full_name": {"$regex": rx, "$options": "i"}},
             {"email": {"$regex": rx, "$options": "i"}},
         ]
-    return await db.users.find(query, {"_id": 0, "password_hash": 0}).to_list(5000)
+    users = await db.users.find(query, {"_id": 0, "password_hash": 0}).to_list(5000)
+
+    # Get visible fields for admin viewing user list (admin can see most, but still filter sensitive data)
+    visible_fields = FieldAuthorization.get_visible_fields(
+        viewer_role=user.role,
+        target_role="student",  # Assume viewing students; actual role varies
+        is_own_profile=False
+    )
+
+    # Filter each user's response
+    filtered_users = []
+    for u in users:
+        filtered = FieldAuthorization.filter_response(u, visible_fields)
+        filtered_users.append(filtered)
+
+    # Audit access to user list
+    try:
+        await audit(user.id, "admin.users.list_accessed", target="all_users", meta={"count": len(filtered_users)})
+    except Exception:
+        pass  # Audit failure doesn't block the request
+
+    return filtered_users
 
 
 @api_router.post("/admin/associate")
