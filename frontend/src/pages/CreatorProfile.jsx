@@ -69,6 +69,13 @@ From open mics to community workshops, from the page to the stage, NAM writes an
       bio: "Founding member of the M.O.R.E. Help Center. Co-architect of the Oliver Guardian community protection system.",
     },
 
+    // Peer connection — rendered as a community link section
+    _peerNote: "NAM Oshun and Royal Black Falcon have been brothers in this work since the beginning. Two poets. One mission: remind the community of what it already knows.",
+    _peerSlug: "royal-black-falcon",
+    _peerName: "Royal Black Falcon",
+    _peerAvatar: "🦅",
+    _peerTitle: "Poet · Spoken Word Artist · Cultural Warrior",
+
     // Ecosystem (non-artist — not shown on page but documented for handoff)
     _ecosystemNotes: `
 NAM's broader network feeds users INTO WAI-Institute. These are NOT artist pages and should NOT appear on this profile,
@@ -86,6 +93,109 @@ but they are community pipelines:
 Reconfiguration strategy: Each of these groups gets a ONE-LINE bio posted in their Facebook descriptions
 pointing to wai-institute.org and the M.O.R.E. Hub. They become feeder communities.
     `,
+  },
+
+  // ── Royal Black Falcon — Kamau Baruti ───────────────────────────────────────
+  "royal-black-falcon": {
+    slug: "royal-black-falcon",
+    displayName: "Royal Black Falcon",
+    legalName: "Kamau Baruti",
+    title: "Poet · Spoken Word Artist · Cultural Warrior",
+    tagline: "The falcon sees from height, dives with intention, and lands exactly where it means to.",
+    bio: `Kamau Baruti carries two names that say everything.
+
+Kamau — Kikuyu for the quiet warrior. Not quiet because he has nothing to say. Quiet because he has learned that a warrior chooses when to move. Baruti — gunpowder. Not the explosion. The force that makes things fly.
+
+The Royal Black Falcon is what happens when those two truths take the stage. A spoken word artist whose work lives at the razor edge between poetry and prophecy — sharply political when the moment demands it, achingly personal when the truth requires vulnerability. The falcon does not circle aimlessly. It soars to see clearly, then descends with precision.
+
+Performing across stages, schools, living rooms, and sacred spaces, Kamau writes and delivers poetry that reminds people: Blackness has always been regal, sophisticated, and sovereign — not in spite of struggle, but rooted in something older than the struggle ever was.
+
+He is a griot in the tradition that doesn't need to announce itself. The ancestors already know his name.`,
+    pronouns: "he/him",
+    location: "USA",
+    avatar: "🦅",
+    bannerColor: "from-blue-950 via-indigo-900 to-slate-900",
+    accentColor: "indigo",
+
+    socials: [
+      {
+        platform: "Instagram",
+        handle: "@royalblackfalcon",
+        url: "https://www.instagram.com/royalblackfalcon",
+        icon: "instagram",
+        color: "bg-gradient-to-br from-indigo-600 to-blue-700",
+        note: "Poetry drops, stage moments, and movement",
+      },
+      {
+        platform: "Facebook",
+        handle: "Royal Black Falcon",
+        url: "https://www.facebook.com/",
+        icon: "facebook-page",
+        color: "bg-blue-800",
+        note: "Events, community, and spoken word announcements",
+      },
+      {
+        platform: "WAI-Institute",
+        handle: "Community Poet",
+        url: "/register",
+        icon: "wai",
+        color: "bg-gradient-to-br from-amber-600 to-amber-700",
+        note: "Invited to the platform by NAM Oshun · M.O.R.E. community voice",
+      },
+    ],
+
+    moreOfferings: [
+      {
+        icon: "🦅",
+        title: "Youth Poetry Workshops",
+        desc: "Teaching young people — especially Black youth — to find their voice and trust it. Schools, rec centers, community orgs. Free through M.O.R.E.",
+      },
+      {
+        icon: "✊🏿",
+        title: "Cultural History Through Verse",
+        desc: "Spoken word sessions tracing Black history, African origins, and the radical power of naming yourself. For organizations, classrooms, and communities.",
+      },
+      {
+        icon: "🎤",
+        title: "Stage Presence Coaching",
+        desc: "For poets who are ready to step in front of the room. Breath, stillness, delivery, timing. The craft behind the thunder.",
+      },
+    ],
+
+    commerce: [
+      {
+        label: "Poetry Collection",
+        desc: "Royal Black Falcon — debut chapbook. The words that built the name.",
+        url: null,
+        placeholder: true,
+      },
+      {
+        label: "Book a Performance",
+        desc: "Bring Kamau to your event, school, church, or community gathering. He shows up fully.",
+        url: null,
+        placeholder: true,
+      },
+      {
+        label: "Join WAI-Institute",
+        desc: "The platform where creators like Kamau teach, build, and connect with community.",
+        url: "/register",
+        placeholder: false,
+      },
+    ],
+
+    waiStatus: {
+      tier: "BASIC",
+      role: "Community Poet",
+      since: "2026",
+      bio: "Invited to WAI-Institute by Executive Director NAM Oshun. Recognized as a founding voice of the M.O.R.E. poetry community.",
+    },
+
+    // Connection to NAM Oshun
+    _peerNote: "Royal Black Falcon and NAM Oshun have been brothers in this work since the beginning. Two poets. One mission: remind the community of what it already knows.",
+    _peerSlug: "nam-oshun",
+    _peerName: "NAM Oshun",
+    _peerAvatar: "🌊",
+    _peerTitle: "Poet · Community Organizer · M.O.R.E. Founding Member",
   },
 };
 
@@ -112,6 +222,11 @@ function SocialIcon({ type, className }) {
   if (type === "facebook-page") return (
     <svg className={className} viewBox="0 0 24 24" fill="currentColor">
       <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
+    </svg>
+  );
+  if (type === "wai") return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+      <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
     </svg>
   );
   return <ExternalLink className={className} />;
@@ -308,6 +423,39 @@ export default function CreatorProfile() {
             ))}
           </div>
         </div>
+
+        {/* Peer connection — shows when _peerNote exists (Royal Black Falcon ↔ NAM Oshun) */}
+        {creator._peerNote && creator._peerSlug && (
+          <div className="bg-gradient-to-br from-indigo-950 via-blue-900 to-slate-900 text-white rounded-2xl p-8">
+            <div className="text-xs font-bold uppercase tracking-widest text-amber-400 mb-4">Community · Brotherhood · The Work</div>
+            <div className="grid sm:grid-cols-2 gap-6 items-center">
+              <div>
+                <p className="text-white/80 text-base leading-relaxed italic mb-6">
+                  "{creator._peerNote}"
+                </p>
+                <p className="text-white/50 text-sm">
+                  Two poets. One mission. Separate stages, same root.
+                </p>
+              </div>
+              <div className="flex flex-col gap-3">
+                <div className="text-white/40 text-xs uppercase tracking-widest mb-1">Also in the M.O.R.E. community</div>
+                <Link
+                  to={`/creator/${creator._peerSlug}`}
+                  className="flex items-center gap-4 bg-white/5 border border-white/10 hover:border-amber-400/40 rounded-2xl p-4 transition-all group"
+                >
+                  <div className="w-12 h-12 rounded-full bg-amber-500/20 border-2 border-amber-400/30 flex items-center justify-center text-2xl shrink-0">
+                    {creator._peerAvatar}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="font-heading font-extrabold text-white text-base leading-none mb-1">{creator._peerName}</div>
+                    <div className="text-white/50 text-xs">{creator._peerTitle}</div>
+                  </div>
+                  <ArrowRight className="w-4 h-4 text-white/30 group-hover:text-amber-400 transition-colors shrink-0" />
+                </Link>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Creator as proof of concept callout */}
         <div className="bg-gradient-to-br from-ink to-ink/90 text-white rounded-2xl overflow-hidden">
