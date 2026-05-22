@@ -3,6 +3,7 @@
 WORKDIR /app
 
 COPY backend/ /app/backend/
+COPY src/ /app/backend/src/
 
 WORKDIR /app/backend
 
