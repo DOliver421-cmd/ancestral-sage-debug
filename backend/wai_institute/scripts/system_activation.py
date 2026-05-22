@@ -180,9 +180,9 @@ async def _scout_loop(db, interval_hours: int = 6) -> None:
     Runs inside the FastAPI event loop.
     """
     import os
-    # Allow disabling via env var
-    if os.environ.get("SCOUT_ENABLED", "true").lower() == "false":
-        logger.info("Scout scheduler disabled via SCOUT_ENABLED=false")
+    # Scout is OFF by default. Set SCOUT_ENABLED=true in Railway Variables to enable.
+    if os.environ.get("SCOUT_ENABLED", "false").lower() != "true":
+        logger.info("Cultural Scout disabled (set SCOUT_ENABLED=true to enable)")
         return
 
     interval_secs = interval_hours * 3600

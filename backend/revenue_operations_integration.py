@@ -96,7 +96,14 @@ async def init_revenue_operations(db: AsyncIOMotorDatabase) -> dict:
 
 
 async def start_revenue_operations(db: AsyncIOMotorDatabase) -> None:
-    """Start scheduled jobs for revenue operations."""
+    """Start scheduled jobs for revenue operations.
+    OFF by default — set JOBS_ENABLED=true in Railway Variables to enable.
+    Keeps the free-tier container lean until revenue features are actively used.
+    """
+    import os
+    if os.environ.get("JOBS_ENABLED", "false").lower() != "true":
+        logger.info("Revenue job scheduler disabled (set JOBS_ENABLED=true to enable)")
+        return
     try:
         await job_scheduler.start()
         logger.info("✅ Revenue operations job scheduler started")
