@@ -41,6 +41,8 @@ import MoreAdmin from "./pages/MoreAdmin";
 import MoreOps from "./pages/MoreOps";
 import LitigationWeapon from "./pages/LitigationWeapon";
 import CreatorProfile from "./pages/CreatorProfile";
+import SocialPublish from "./pages/SocialPublish";
+import Internships from "./pages/Internships";
 import DirectorWidget from "./components/DirectorWidget";
 import ErrorBoundary from "./components/ErrorBoundary";
 import Helper from "./pages/Helper";
@@ -129,6 +131,10 @@ function App() {
           <Route path="/leaderboard" element={<Protected><Leaderboard /></Protected>} />
           {/* Creator profiles — public, slug-based */}
           <Route path="/creator/:slug" element={<CreatorProfile />} />
+          {/* Public pages */}
+          <Route path="/internships" element={<Internships />} />
+          {/* Social publisher — authenticated */}
+          <Route path="/social/publish" element={<Protected><SocialPublish /></Protected>} />
           {/* M.O.R.E. — public tier */}
           <Route path="/more" element={<More />} />
           <Route path="/more/litigation" element={<LitigationWeapon />} />

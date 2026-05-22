@@ -341,9 +341,18 @@ async def get_categories():
             "wellness",
             "education",
             "music",
+            "music-production",
+            "artist-management",
+            "ar",
+            "music-business",
+            "radio-promotion",
+            "performance",
             "poetry",
+            "spoken-word",
             "spirituality",
             "community",
+            "trades",
+            "marketing",
         ],
     }
 

@@ -1,22 +1,22 @@
 import { Link } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { WAI_LOGO, BRAND } from "../lib/brand";
-import { Heart, BookOpen, Users, Award, Zap, ArrowRight, MessageSquare, DollarSign, Shield, Sparkles, TrendingUp } from "lucide-react";
+import { Heart, Users, ArrowRight, DollarSign, Sparkles, TrendingUp, Mic } from "lucide-react";
 import BugReportModal from "../components/BugReportModal";
 
-// Community activity feed (simulated live data - BOTH trades & digital creators)
 const LIVE_ACTIVITY = [
   { user: "Maya T.", action: "just completed", subject: "Electrical Safety Module", time: "2m ago", avatar: "🎓" },
   { user: "Khalil M.", action: "enrolled in", subject: "Amara's Healing Poetry Course", time: "3m ago", avatar: "✍️" },
+  { user: "DeShawn R.", action: "joined", subject: "Artist Management Fundamentals", time: "4m ago", avatar: "🎵" },
   { user: "James L.", action: "earned certificate in", subject: "AC/DC Fundamentals", time: "5m ago", avatar: "⚡" },
+  { user: "Tasha W.", action: "enrolled in", subject: "A&R: Finding and Developing Talent", time: "8m ago", avatar: "🎙️" },
   { user: "Sofia M.", action: "joined premium mentoring", subject: "with Marcus Thompson (Art)", time: "12m ago", avatar: "🎨" },
-  { user: "David K.", action: "posted in community", subject: "Help with conduit bending", time: "18m ago", avatar: "🔧" },
+  { user: "Raheem B.", action: "posted in M.O.R.E.", subject: "Need beat producer for community album", time: "15m ago", avatar: "🎚️" },
   { user: "Zara P.", action: "purchased course", subject: "Priya's Wellness & Meditation", time: "22m ago", avatar: "🧘" },
   { user: "Aisha B.", action: "shared their portfolio", subject: "Mixed Media Artwork", time: "25m ago", avatar: "📁" },
-  { user: "Marcus J.", action: "became a mentor", subject: "Teaching electrical + mentoring", time: "31m ago", avatar: "👨‍🏫" },
+  { user: "Marcus J.", action: "became a mentor", subject: "Teaching music business + A&R", time: "31m ago", avatar: "👨‍🏫" },
 ];
 
-// Member spotlights (real community stories)
 const SPOTLIGHTS = [
   {
     name: "DeShawn Williams",
@@ -43,11 +43,11 @@ const SPOTLIGHTS = [
     tag: "M.O.R.E.",
   },
   {
-    name: "Marcus Thompson",
-    role: "Visual Artist & Instructor",
-    story: "Teaching painting & mixed media to students who can't afford art school. Started with 12 students. Now 200. Reinvesting back into the neighborhood.",
-    image: "🎨",
-    stat: "200 students | $5.2K/mo",
+    name: "Ray Calloway",
+    role: "A&R Director turned Community Educator",
+    story: "Spent 12 years at a major label watching artists get robbed of their masters. Left. Built a course teaching independent artists how to own their music. 600+ students protected their work.",
+    image: "🎵",
+    stat: "600 artists · Masters protected",
     tag: "Creator",
   },
   {
@@ -68,7 +68,45 @@ const SPOTLIGHTS = [
   },
 ];
 
-// Real impact numbers
+const MUSIC_COURSES = [
+  { icon: "🎵", title: "Artist Management Fundamentals", desc: "Contracts, royalties, touring logistics, and team building. Build an artist's career on their terms — not the label's." },
+  { icon: "🎙️", title: "A&R: Finding & Developing Talent", desc: "Artist & Repertoire from the inside. How to spot, sign, and develop artists without extracting from them." },
+  { icon: "📻", title: "Radio & Media Promotion", desc: "From community radio to streaming playlists. Get your music heard without a major label machine running it." },
+  { icon: "🎤", title: "Performance & Stage Presence", desc: "The craft behind the live show. Breath, movement, crowd connection — delivered by working performers." },
+  { icon: "🎚️", title: "Music Production for Creatives", desc: "DAWs, beat building, arrangement. The technical foundation that makes your musical vision real." },
+  { icon: "💰", title: "Music Business & Publishing", desc: "Licensing, sync deals, PRO registration, owning your masters. Knowledge the industry never wanted you to have." },
+];
+
+const FEATURED_CREATORS = [
+  {
+    slug: "nam-oshun",
+    name: "NAM Oshun",
+    role: "Poet · Community Organizer",
+    bio: "Founding voice of the M.O.R.E. Help Center. Words that heal. Community that holds.",
+    avatar: "🌊",
+    palette: "from-amber-900 via-amber-800 to-ink",
+    badge: "Founding Member",
+  },
+  {
+    slug: "royal-black-falcon",
+    name: "Royal Black Falcon",
+    role: "Poet · Cultural Warrior",
+    bio: "The falcon soars to see clearly, then descends with precision. A griot in the tradition that doesn't need to announce itself.",
+    avatar: "🦅",
+    palette: "from-blue-950 via-indigo-900 to-slate-900",
+    badge: "Community Poet",
+  },
+  {
+    slug: "nova-highborn",
+    name: "Nova Highborn",
+    role: "Visual Artist · Digital Creator",
+    bio: "Something new is rising. Visual art that speaks before it's explained. Poetry that arrives like light.",
+    avatar: "✨",
+    palette: "from-emerald-900 via-teal-800 to-ink",
+    badge: "Emerging Creator",
+  },
+];
+
 const IMPACT = [
   { number: "2,847", label: "Students learning", color: "text-copper" },
   { number: "$1.2M", label: "Creator earnings", color: "text-signal" },
@@ -76,10 +114,9 @@ const IMPACT = [
   { number: "52", label: "Corporate contracts", color: "text-copper" },
 ];
 
-// Testimonials (community voices - BOTH trades & digital creators)
 const TESTIMONIALS = [
   {
-    quote: "I went from struggling to find work to running my own training business. This platform gave me the tools AND the community. Now I earn $12K/quarter.",
+    quote: "My grandmother taught herbs. My mother taught sewing. I teach electrical. We've always trained each other — this platform just lets me do it at scale and get paid for it.",
     author: "Elena Rodriguez",
     role: "Master Electrician & Mentor",
     avatar: "👩‍🔧",
@@ -91,16 +128,16 @@ const TESTIMONIALS = [
     avatar: "✍️",
   },
   {
+    quote: "I spent twelve years watching labels rob artists of their masters. I built a course to stop that cycle. Six hundred artists now own their work. That's the platform I needed.",
+    author: "Ray Calloway",
+    role: "A&R Director turned Educator",
+    avatar: "🎵",
+  },
+  {
     quote: "The community here is REAL. Electricians mentoring apprentices. Artists teaching artists. Healers supporting healers. It feels like home, not a corporate platform.",
     author: "Sofia Martinez",
     role: "Apprentice & Community Organizer",
     avatar: "👩‍🎓",
-  },
-  {
-    quote: "Whether you're teaching trades or teaching art, this platform respects your work. You're not just extracting value for a VC — you're building something real.",
-    author: "Marcus Thompson",
-    role: "Visual Artist & Instructor",
-    avatar: "🎨",
   },
 ];
 
@@ -116,7 +153,8 @@ export default function LandingMarketplace() {
 
   return (
     <div className="min-h-screen bg-bone text-ink">
-      {/* Header */}
+
+      {/* ── Header ─────────────────────────────────────────────────────── */}
       <header className="border-b border-ink/10 bg-bone sticky top-0 z-40">
         <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
           <Link to="/" className="flex items-center gap-3">
@@ -130,15 +168,16 @@ export default function LandingMarketplace() {
             <Link to="/more" className="flex items-center gap-1.5 text-sm font-bold text-amber-600 hover:text-amber-500 border border-amber-300 hover:border-amber-500 px-3 py-1 rounded-full transition-colors">
               <Heart className="w-3.5 h-3.5" /> M.O.R.E. Hub
             </Link>
-            <a href="#community" className="text-sm font-medium hover:text-copper">Community</a>
-            <a href="#creators" className="text-sm font-medium hover:text-copper">For Creators</a>
+            <a href="#community" className="text-sm font-medium hover:text-copper hidden sm:block">Community</a>
+            <a href="#music" className="text-sm font-medium hover:text-copper hidden sm:block">Music & Arts</a>
+            <a href="#creators" className="text-sm font-medium hover:text-copper hidden sm:block">For Creators</a>
             <Link to="/login" className="text-sm font-bold uppercase tracking-widest hover:text-copper">Sign in</Link>
             <Link to="/register" className="btn-copper text-sm">Join Us</Link>
           </nav>
         </div>
       </header>
 
-      {/* BETA TESTER BANNER */}
+      {/* ── Beta tester banner ──────────────────────────────────────────── */}
       <div className="bg-ink text-white py-3 px-6">
         <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-2 text-sm">
           <div className="flex items-center gap-2 font-medium">
@@ -149,31 +188,28 @@ export default function LandingMarketplace() {
             <Link to="/register" className="bg-copper hover:bg-copper/80 text-white font-bold px-4 py-1.5 rounded-lg text-xs transition-colors">
               Step 1: Create Account
             </Link>
-            <span className="text-white/40 text-xs">Then click 🐛 at bottom-right to report</span>
+            <span className="text-white/40 text-xs hidden sm:inline">Then click 🐛 at bottom-right to report</span>
           </div>
         </div>
       </div>
 
-      {/* HERO */}
+      {/* ── Hero ───────────────────────────────────────────────────────── */}
       <section className="relative overflow-hidden bg-gradient-to-b from-bone via-copper/5 to-bone/50 py-32">
         <div className="absolute inset-0 grid-paper opacity-10 pointer-events-none" />
-
         <div className="max-w-7xl mx-auto px-6 relative">
           <div className="text-center max-w-3xl mx-auto">
             <div className="inline-flex items-center gap-2 mb-6 px-4 py-2 bg-copper/10 border border-copper text-copper rounded-full text-sm font-bold">
               <Sparkles className="w-4 h-4" /> Mutual Aid · Skill Exchange · Community Power
             </div>
-
             <h1 className="font-heading text-6xl sm:text-7xl font-extrabold leading-tight mb-6">
               You're the <span className="text-copper">teachers.</span><br />
               You're the <span className="text-copper">makers.</span><br />
               You're the <span className="text-copper">healers.</span>
             </h1>
-
             <p className="text-xl text-ink/70 leading-relaxed mb-8 max-w-2xl mx-auto">
-              Our communities have always built from within — teaching each other, trading skills, showing up when systems don't. W.A.I. Institute exists to support what we already do. Keep your knowledge. Keep your earnings. Keep your power.
+              Our communities have always built from within — teaching each other, trading skills, showing up when systems don't.
+              W.A.I. Institute exists to support what we already do. Keep your knowledge. Keep your earnings. Keep your power.
             </p>
-
             <div className="flex flex-wrap justify-center gap-4 mb-20">
               <Link to="/more" className="btn-copper inline-flex items-center gap-2 text-lg">
                 <Heart className="w-5 h-5" /> Enter the M.O.R.E. Hub
@@ -182,8 +218,6 @@ export default function LandingMarketplace() {
                 Join The Community <ArrowRight className="w-5 h-5" />
               </Link>
             </div>
-
-            {/* LIVE IMPACT STATS */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-6 max-w-2xl mx-auto">
               {IMPACT.map((item) => (
                 <div key={item.label} className="p-4 bg-white/50 border border-ink/10 rounded-lg backdrop-blur">
@@ -196,7 +230,49 @@ export default function LandingMarketplace() {
         </div>
       </section>
 
-      {/* M.O.R.E. HELP CENTER — dedicated section */}
+      {/* ── Who This Is For ────────────────────────────────────────────── */}
+      <section className="py-20 bg-copper text-white">
+        <div className="max-w-7xl mx-auto px-6">
+          <div className="text-center mb-12">
+            <p className="text-white/70 text-xs uppercase tracking-widest font-bold mb-3">Our people. Our platform.</p>
+            <h2 className="font-heading text-4xl sm:text-5xl font-extrabold leading-tight mb-4">
+              This is not for everyone.<br />It's for us.
+            </h2>
+            <p className="text-white/80 max-w-2xl mx-auto text-base leading-relaxed">
+              Black creators. Indigenous artists. Working-class teachers. Healers who learned from their grandmothers.
+              Poets who performed in barbershops before anyone gave them a stage.
+              The communities that built everything — and were written out of the ownership.
+            </p>
+          </div>
+          <div className="grid md:grid-cols-3 gap-8 text-center">
+            {[
+              {
+                icon: "🌍",
+                title: "Black & BIPOC Creators",
+                body: "Platforms built to extract from us don't deserve our content. This one was built by us, designed around our communities, and structured so we keep what we earn.",
+              },
+              {
+                icon: "🤝",
+                title: "Working-Class Community",
+                body: "Trades workers. Caregivers. Neighborhood organizers. The people who hold communities together without recognition. You're teachers. This platform pays you like it.",
+              },
+              {
+                icon: "🎵",
+                title: "Artists, Poets & Musicians",
+                body: "From the open mic to the recording studio. From spoken word to A&R. The music and arts industry has extracted from our culture for generations. Here, we own our work.",
+              },
+            ].map(({ icon, title, body }) => (
+              <div key={title} className="bg-white/10 border border-white/20 rounded-2xl p-8">
+                <div className="text-5xl mb-4">{icon}</div>
+                <h3 className="font-heading font-extrabold text-xl mb-3">{title}</h3>
+                <p className="text-white/75 text-sm leading-relaxed">{body}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ── M.O.R.E. Help Center ───────────────────────────────────────── */}
       <section className="py-20 bg-ink text-white" id="more">
         <div className="max-w-7xl mx-auto px-6">
           <div className="grid lg:grid-cols-2 gap-12 items-center">
@@ -211,7 +287,8 @@ export default function LandingMarketplace() {
                 <span className="text-white font-semibold">Michael Oliver Resource Exchange.</span> Named after the disability rights organizer who said that society creates barriers — and that it's society's job to remove them.
               </p>
               <p className="text-base text-white/60 leading-relaxed mb-8">
-                M.O.R.E. is where community members offer skills, post real needs, share stories, and hold each other up. No charity. No shame. Just neighbors who know how to fix things, teach things, and show up — the way we always have.
+                M.O.R.E. is where community members offer skills, post real needs, share stories, and hold each other up.
+                No charity. No shame. Just neighbors who know how to fix things, teach things, and show up — the way we always have.
               </p>
               <div className="grid grid-cols-2 gap-3 mb-8">
                 {[
@@ -236,7 +313,6 @@ export default function LandingMarketplace() {
                 </Link>
               </div>
             </div>
-
             <div className="space-y-4">
               <div className="bg-white/5 border border-white/10 rounded-2xl p-6">
                 <div className="text-xs text-amber-400 font-bold uppercase tracking-widest mb-3">From the Community</div>
@@ -258,7 +334,7 @@ export default function LandingMarketplace() {
                   {[
                     { type: "Skill Offer", text: "Free graphic design help for small businesses", dot: "bg-emerald-400" },
                     { type: "Need", text: "Looking for childcare swap — I cook, you watch", dot: "bg-amber-400" },
-                    { type: "Community", text: "Anyone navigating Section 8 appeals? Let's connect", dot: "bg-blue-400" },
+                    { type: "Music", text: "Need a beat producer for community album — no budget, rev share", dot: "bg-purple-400" },
                   ].map(({ type, text, dot }) => (
                     <div key={text} className="flex items-start gap-3 text-xs text-white/60">
                       <span className={`w-2 h-2 rounded-full ${dot} mt-1 shrink-0`} />
@@ -272,16 +348,15 @@ export default function LandingMarketplace() {
         </div>
       </section>
 
-      {/* LIVE COMMUNITY ACTIVITY FEED */}
+      {/* ── Live Activity Feed ─────────────────────────────────────────── */}
       <section className="py-16 bg-white border-t border-b border-ink/10">
         <div className="max-w-7xl mx-auto px-6">
           <div className="flex items-center justify-between mb-8">
             <h2 className="text-3xl font-bold flex items-center gap-2">
               <TrendingUp className="w-8 h-8 text-copper" /> Right now in our community
             </h2>
-            <p className="text-sm text-ink/60">Trades + digital creators learning, earning, and building together</p>
+            <p className="text-sm text-ink/60 hidden sm:block">Trades · arts · music · healing · community — all learning together</p>
           </div>
-
           <div className="space-y-3 max-w-2xl">
             {LIVE_ACTIVITY.map((activity, idx) => (
               <div key={idx} className="p-4 border border-ink/10 rounded-lg hover:border-copper/30 transition-colors flex items-center gap-4">
@@ -298,14 +373,13 @@ export default function LandingMarketplace() {
         </div>
       </section>
 
-      {/* COMMUNITY SPOTLIGHTS (REAL STORIES) */}
+      {/* ── Community Spotlights ───────────────────────────────────────── */}
       <section id="community" className="py-24 bg-bone">
         <div className="max-w-7xl mx-auto px-6">
           <h2 className="text-5xl font-bold text-center mb-4">Built by the Community.</h2>
           <p className="text-lg text-ink/60 text-center max-w-2xl mx-auto mb-16">
-            Educators, artists, organizers, and neighbors — skill-sharing, income-earning, and holding each other up. Creators building careers. M.O.R.E. members building futures.
+            Educators, artists, organizers, and neighbors — skill-sharing, income-earning, and holding each other up.
           </p>
-
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
             {SPOTLIGHTS.map((member) => (
               <div key={member.name} className="bg-white border border-ink/10 rounded-lg p-8 hover:shadow-lg transition-shadow">
@@ -326,37 +400,107 @@ export default function LandingMarketplace() {
               </div>
             ))}
           </div>
+        </div>
+      </section>
 
-          {/* Creator profile proof of concept CTA */}
-          <div className="mt-12 bg-ink text-white rounded-lg p-8 flex flex-col sm:flex-row items-center gap-6">
-            <div className="text-5xl shrink-0">🌊</div>
-            <div className="flex-1 text-center sm:text-left">
-              <div className="text-xs font-bold uppercase tracking-widest text-amber-400 mb-1">Featured Creator</div>
-              <h3 className="font-heading text-2xl font-extrabold mb-1">NAM Oshun</h3>
-              <p className="text-white/60 text-sm">Poet · Community Organizer · M.O.R.E. Founding Member — see what a creator profile looks like.</p>
+      {/* ── Music & Arts Industry ─────────────────────────────────────── */}
+      <section id="music" className="py-24 bg-gradient-to-br from-ink via-ink/95 to-ink/90 text-white">
+        <div className="max-w-7xl mx-auto px-6">
+          <div className="text-center mb-14">
+            <div className="inline-flex items-center gap-2 mb-5 px-3 py-1.5 bg-amber-500/20 border border-amber-400/30 rounded-full text-amber-400 text-xs font-bold uppercase tracking-wider">
+              <Mic className="w-3.5 h-3.5" /> Music · Arts · Culture · Business
             </div>
-            <Link to="/creator/nam-oshun" className="shrink-0 inline-flex items-center gap-2 bg-amber-500 hover:bg-amber-400 text-ink font-bold px-6 py-3 rounded-xl transition-all hover:scale-105 whitespace-nowrap">
-              View Profile <ArrowRight className="w-4 h-4" />
+            <h2 className="font-heading text-5xl font-extrabold mb-5 leading-tight">
+              Music. Art. Culture. Business.<br />
+              <span className="text-amber-400">On our terms.</span>
+            </h2>
+            <p className="text-white/70 max-w-2xl mx-auto text-base leading-relaxed">
+              The industry has been extracting from our communities since there was an industry.
+              We're building the other side — where artists own their masters, managers work for their artists,
+              and knowledge doesn't cost you your soul.
+            </p>
+          </div>
+          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-5 mb-14">
+            {MUSIC_COURSES.map(({ icon, title, desc }) => (
+              <div key={title} className="bg-white/5 border border-white/10 hover:border-amber-400/30 rounded-2xl p-6 transition-all group">
+                <div className="text-4xl mb-4">{icon}</div>
+                <h3 className="font-heading font-extrabold text-lg mb-2 text-white group-hover:text-amber-300 transition-colors">{title}</h3>
+                <p className="text-white/55 text-sm leading-relaxed mb-4">{desc}</p>
+                <Link to="/register" className="inline-flex items-center gap-1.5 text-xs font-bold text-amber-400 hover:text-amber-300 transition-colors">
+                  Start learning <ArrowRight className="w-3 h-3" />
+                </Link>
+              </div>
+            ))}
+          </div>
+          <div className="bg-white/5 border border-white/10 rounded-2xl p-8 flex flex-col sm:flex-row items-center gap-6 text-center sm:text-left">
+            <div className="text-5xl">🎵</div>
+            <div className="flex-1">
+              <h3 className="font-heading font-extrabold text-xl mb-1">Are you in the music industry?</h3>
+              <p className="text-white/60 text-sm leading-relaxed">
+                A&R directors, managers, promoters, producers, engineers — bring your knowledge here.
+                Teach what the industry didn't want you to share. Keep 70%.
+              </p>
+            </div>
+            <Link to="/register" className="shrink-0 inline-flex items-center gap-2 bg-amber-500 hover:bg-amber-400 text-ink font-bold px-6 py-3 rounded-xl transition-all hover:scale-105 whitespace-nowrap">
+              Become a Creator <ArrowRight className="w-4 h-4" />
             </Link>
           </div>
         </div>
       </section>
 
-      {/* TESTIMONIALS (ROTATING) */}
+      {/* ── Featured Creators ─────────────────────────────────────────── */}
+      <section className="py-20 bg-bone border-t border-ink/10">
+        <div className="max-w-7xl mx-auto px-6">
+          <div className="text-center mb-12">
+            <p className="text-copper text-xs uppercase tracking-widest font-bold mb-2">Real People. Real Community.</p>
+            <h2 className="font-heading text-4xl font-extrabold mb-3">Meet the Creators</h2>
+            <p className="text-ink/60 max-w-xl mx-auto text-sm">
+              These are not stock photos. These are the people building this with us.
+              Click their profiles. See what's possible.
+            </p>
+          </div>
+          <div className="grid md:grid-cols-3 gap-6 mb-8">
+            {FEATURED_CREATORS.map((c) => (
+              <Link
+                key={c.slug}
+                to={`/creator/${c.slug}`}
+                className="group block rounded-2xl overflow-hidden border border-ink/10 hover:shadow-xl transition-all hover:scale-[1.02]"
+              >
+                <div className={`bg-gradient-to-br ${c.palette} p-8 text-white text-center`}>
+                  <div className="text-6xl mb-3">{c.avatar}</div>
+                  <div className="font-heading font-extrabold text-2xl leading-none mb-1">{c.name}</div>
+                  <div className="text-white/60 text-xs mb-3">{c.role}</div>
+                  <span className="inline-block px-3 py-1 bg-amber-500/20 border border-amber-400/30 text-amber-300 text-xs font-bold rounded-full">{c.badge}</span>
+                </div>
+                <div className="bg-white p-5">
+                  <p className="text-ink/70 text-sm leading-relaxed mb-3">{c.bio}</p>
+                  <span className="inline-flex items-center gap-1.5 text-xs font-bold text-copper group-hover:text-copper/80 transition-colors">
+                    View Profile <ArrowRight className="w-3 h-3" />
+                  </span>
+                </div>
+              </Link>
+            ))}
+          </div>
+          <div className="text-center">
+            <Link to="/register" className="inline-flex items-center gap-2 border-2 border-ink text-ink font-bold px-6 py-3 rounded-xl hover:bg-ink hover:text-white transition-all">
+              Claim Your Creator Profile <ArrowRight className="w-4 h-4" />
+            </Link>
+          </div>
+        </div>
+      </section>
+
+      {/* ── Testimonials ──────────────────────────────────────────────── */}
       <section className="py-24 bg-white border-t border-ink/10">
         <div className="max-w-3xl mx-auto px-6 text-center">
           <h2 className="text-4xl font-bold mb-12">What members say</h2>
-
-          <div className="relative">
+          <div className="relative min-h-[200px]">
             {TESTIMONIALS.map((testimonial, idx) => (
               <div
                 key={idx}
-                className={`transition-opacity duration-500 ${idx === activeTestimonial ? "opacity-100" : "opacity-0 absolute"}`}
+                className={`transition-opacity duration-500 ${idx === activeTestimonial ? "opacity-100" : "opacity-0 absolute inset-0"}`}
               >
                 <blockquote className="mb-8">
-                  <p className="text-2xl font-bold text-ink leading-relaxed">
-                    "{testimonial.quote}"
-                  </p>
+                  <p className="text-2xl font-bold text-ink leading-relaxed">"{testimonial.quote}"</p>
                 </blockquote>
                 <div className="flex items-center justify-center gap-4">
                   <span className="text-5xl">{testimonial.avatar}</span>
@@ -368,31 +512,28 @@ export default function LandingMarketplace() {
               </div>
             ))}
           </div>
-
           <div className="flex justify-center gap-2 mt-12">
             {TESTIMONIALS.map((_, idx) => (
               <button
                 key={idx}
                 onClick={() => setActiveTestimonial(idx)}
-                className={`w-2 h-2 rounded-full transition-colors ${
-                  idx === activeTestimonial ? "bg-copper" : "bg-ink/20"
-                }`}
+                className={`w-2 h-2 rounded-full transition-colors ${idx === activeTestimonial ? "bg-copper" : "bg-ink/20"}`}
               />
             ))}
           </div>
         </div>
       </section>
 
-      {/* FOR CREATORS */}
+      {/* ── For Creators ──────────────────────────────────────────────── */}
       <section id="creators" className="py-24 bg-bone">
         <div className="max-w-7xl mx-auto px-6">
           <div className="grid lg:grid-cols-2 gap-12 items-center">
             <div>
               <h2 className="font-heading text-5xl font-bold mb-6">For Creators, Teachers, Builders</h2>
               <p className="text-lg text-ink/60 mb-8">
-                Teaching electrical skills. Teaching poetry. Teaching art. Teaching healing. Your work matters. You deserve a platform that pays you fairly and lets you own your creation — whether you're in trades or digital arts.
+                Whether you teach electrical work, music business, healing arts, or spoken word — your knowledge has value.
+                You deserve a platform that pays you fairly and lets you own your creation.
               </p>
-
               <div className="space-y-4">
                 <div className="flex gap-4">
                   <DollarSign className="w-6 h-6 text-copper flex-shrink-0 mt-1" />
@@ -416,12 +557,10 @@ export default function LandingMarketplace() {
                   </div>
                 </div>
               </div>
-
               <Link to="/register" className="btn-primary mt-8 inline-flex items-center gap-2">
                 Become A Creator <ArrowRight className="w-4 h-4" />
               </Link>
             </div>
-
             <div className="bg-gradient-to-br from-copper/10 to-copper/5 border border-copper/20 rounded-lg p-12">
               <h4 className="font-bold text-lg mb-8">Creator Example</h4>
               <div className="space-y-6">
@@ -442,28 +581,75 @@ export default function LandingMarketplace() {
         </div>
       </section>
 
-      {/* CTA: FINAL MARKETPLACE ENERGY */}
+      {/* ── Grow With Us ──────────────────────────────────────────────── */}
+      <section className="py-20 bg-amber-50 border-t border-amber-200">
+        <div className="max-w-7xl mx-auto px-6">
+          <div className="text-center mb-12">
+            <p className="text-amber-700 text-xs uppercase tracking-widest font-bold mb-2">Opportunities</p>
+            <h2 className="font-heading text-4xl font-extrabold mb-3">Grow With Us</h2>
+            <p className="text-ink/60 max-w-xl mx-auto text-sm">WAI-Institute is building something real. We need real people to build it with us.</p>
+          </div>
+          <div className="grid md:grid-cols-3 gap-6">
+            <div className="bg-white rounded-2xl border border-amber-200 p-8">
+              <div className="text-4xl mb-4">🎓</div>
+              <h3 className="font-heading font-extrabold text-xl mb-2">Internships</h3>
+              <p className="text-ink/60 text-sm leading-relaxed mb-5">
+                Community-based internships in content creation, community organizing, music marketing, platform development,
+                and M.O.R.E. coordination. Credit available. Real work. Real mentorship.
+              </p>
+              <Link to="/internships" className="inline-flex items-center gap-1.5 text-sm font-bold text-amber-700 hover:text-amber-600 transition-colors">
+                Learn more <ArrowRight className="w-3.5 h-3.5" />
+              </Link>
+            </div>
+            <div className="bg-white rounded-2xl border border-amber-200 p-8">
+              <div className="text-4xl mb-4">📢</div>
+              <h3 className="font-heading font-extrabold text-xl mb-2">Advertise With Us</h3>
+              <p className="text-ink/60 text-sm leading-relaxed mb-5">
+                Reach Black creators, artists, musicians, and community builders. Ethical advertising only —
+                no surveillance, no data mining. Sponsors who align with community values only.
+              </p>
+              <a href="mailto:ads@wai-institute.org" className="inline-flex items-center gap-1.5 text-sm font-bold text-amber-700 hover:text-amber-600 transition-colors">
+                Contact us <ArrowRight className="w-3.5 h-3.5" />
+              </a>
+            </div>
+            <div className="bg-white rounded-2xl border border-amber-200 p-8">
+              <div className="text-4xl mb-4">🤝</div>
+              <h3 className="font-heading font-extrabold text-xl mb-2">Community Partnerships</h3>
+              <p className="text-ink/60 text-sm leading-relaxed mb-5">
+                Organizations, nonprofits, community groups, and collectives — partner with WAI-Institute to bring
+                M.O.R.E. resources, courses, and creator tools to your community.
+              </p>
+              <a href="mailto:partners@wai-institute.org" className="inline-flex items-center gap-1.5 text-sm font-bold text-amber-700 hover:text-amber-600 transition-colors">
+                Partner with us <ArrowRight className="w-3.5 h-3.5" />
+              </a>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ── Final CTA ─────────────────────────────────────────────────── */}
       <section id="impact" className="py-24 bg-ink text-white">
         <div className="max-w-3xl mx-auto px-6 text-center">
-          <h2 className="font-heading text-5xl font-bold mb-6 flex items-center justify-center gap-3">
-            <Sparkles className="w-10 h-10" /> Let's Build This Together
+          <p className="text-white/50 text-xs uppercase tracking-widest font-bold mb-4">Ubuntu · Mutual Aid · Community Power</p>
+          <h2 className="font-heading text-5xl font-bold mb-6 leading-tight">
+            We are because<br />we are together.
           </h2>
-          <p className="text-xl text-white/80 mb-8">
-            This isn't a platform. It's a marketplace. A community. A place where your value is recognized and your work is honored.
+          <p className="text-xl text-white/80 mb-8 leading-relaxed">
+            Our communities have always known how to build. We've always known how to teach. We've always known how to hold each other up.
+            This platform exists to support what we already do — and make sure we get paid for it.
           </p>
-
           <div className="flex flex-wrap justify-center gap-4">
-            <Link to="/register" className="btn-primary inline-flex items-center gap-2">
-              Join Us <ArrowRight className="w-4 h-4" />
+            <Link to="/register" className="btn-primary inline-flex items-center gap-2 text-lg">
+              Join Us <ArrowRight className="w-5 h-5" />
             </Link>
-            <Link to="/login" className="px-6 py-3 border-2 border-white text-white font-bold hover:bg-white hover:text-ink transition-colors rounded-sm">
-              Sign In
+            <Link to="/more" className="inline-flex items-center gap-2 px-6 py-3 border-2 border-amber-400 text-amber-300 font-bold hover:bg-amber-400 hover:text-ink transition-colors rounded-sm text-lg">
+              <Heart className="w-5 h-5" /> Visit M.O.R.E.
             </Link>
           </div>
         </div>
       </section>
 
-      {/* Footer */}
+      {/* ── Footer ────────────────────────────────────────────────────── */}
       <footer className="bg-ink/95 text-white/60 border-t border-white/10 py-12">
         <div className="max-w-7xl mx-auto px-6">
           <div className="grid md:grid-cols-4 gap-8 mb-12">
@@ -479,7 +665,8 @@ export default function LandingMarketplace() {
               <ul className="space-y-2 text-sm">
                 <li><Link to="/more" className="text-amber-400 hover:text-amber-300 font-semibold transition-colors">M.O.R.E. Help Center</Link></li>
                 <li><a href="#community" className="hover:text-white transition-colors">Stories</a></li>
-                <li><a href="#impact" className="hover:text-white transition-colors">Impact</a></li>
+                <li><a href="#music" className="hover:text-white transition-colors">Music & Arts</a></li>
+                <li><Link to="/internships" className="hover:text-white transition-colors">Internships</Link></li>
               </ul>
             </div>
             <div>
@@ -487,6 +674,7 @@ export default function LandingMarketplace() {
               <ul className="space-y-2 text-sm">
                 <li><Link to="/register" className="hover:text-white transition-colors">Start Creating</Link></li>
                 <li><a href="#creators" className="hover:text-white transition-colors">How it works</a></li>
+                <li><a href="#music" className="hover:text-white transition-colors">Music & A&R Courses</a></li>
               </ul>
             </div>
             <div>
@@ -494,10 +682,10 @@ export default function LandingMarketplace() {
               <ul className="space-y-2 text-sm">
                 <li><Link to="/login" className="hover:text-white transition-colors">Sign In</Link></li>
                 <li><Link to="/register" className="hover:text-white transition-colors">Join</Link></li>
+                <li><a href="mailto:ads@wai-institute.org" className="hover:text-white transition-colors">Advertise</a></li>
               </ul>
             </div>
           </div>
-
           <div className="border-t border-white/10 pt-8 text-sm text-center">
             <p>&copy; 2026 WAI Institute. Built by community, for community.</p>
           </div>

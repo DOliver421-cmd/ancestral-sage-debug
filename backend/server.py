@@ -8781,6 +8781,14 @@ try:
 except Exception as _router_err:
     logger.warning(f"Could not include revenue routers: {_router_err}")
 
+# ── Social publisher router ────────────────────────────────────────────────────
+try:
+    from social_routes import router as social_router
+    api_router.include_router(social_router)
+    logger.info("Social publisher router included")
+except Exception as _social_err:
+    logger.warning(f"Could not include social router: {_social_err}")
+
 app.include_router(api_router)
 # CORS: when origins is wildcard ("*") browsers reject credentials, so we
 # turn off allow_credentials in that case (auth uses Bearer token in Authorization

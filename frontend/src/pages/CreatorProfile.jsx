@@ -197,6 +197,98 @@ He is a griot in the tradition that doesn't need to announce itself. The ancesto
     _peerAvatar: "🌊",
     _peerTitle: "Poet · Community Organizer · M.O.R.E. Founding Member",
   },
+
+  // ── Nova Highborn — Ebony Oliver ─────────────────────────────────────────────
+  "nova-highborn": {
+    slug: "nova-highborn",
+    displayName: "Nova Highborn",
+    legalName: "Ebony Oliver",
+    title: "Visual Artist · Poet · Digital Creator",
+    tagline: "Something new is rising. That something is me.",
+    bio: `Nova Highborn is what happens when a girl who was taught she was ordinary decides she never was.
+
+Ebony Oliver came up watching the elders — her uncle NAM Oshun pouring words into audiences that needed them, her family building and creating and organizing when no one came to help. She learned early: you make your own door.
+
+As Nova Highborn, she brings that inheritance into a new generation's language. Visual art that speaks before it's explained. Poetry that arrives like light through a crack. Digital content that makes her community feel seen on screens that have historically looked past them.
+
+Nova is not emerging. She is already here. She is just letting you catch up.`,
+    pronouns: "she/her",
+    location: "Florida, USA",
+    avatar: "✨",
+    bannerColor: "from-emerald-900 via-teal-800 to-ink",
+    accentColor: "emerald",
+
+    socials: [
+      {
+        platform: "Instagram",
+        handle: "@novahighborn",
+        url: "https://www.instagram.com/",
+        icon: "instagram",
+        color: "bg-gradient-to-br from-emerald-500 to-teal-600",
+        note: "Art drops, poetry, and what's on her mind",
+      },
+      {
+        platform: "WAI-Institute",
+        handle: "Community Creator",
+        url: "/register",
+        icon: "wai",
+        color: "bg-gradient-to-br from-amber-500 to-amber-600",
+        note: "Connect in the M.O.R.E. community",
+      },
+    ],
+
+    moreOfferings: [
+      {
+        icon: "🎨",
+        title: "Visual Art for Community Orgs",
+        desc: "Flyers, graphics, social media assets, event visuals — made by the community, for the community. Free through M.O.R.E. by request.",
+      },
+      {
+        icon: "📱",
+        title: "Content Creation Coaching",
+        desc: "Teaching community members and small businesses how to show up powerfully on social media without selling their soul to algorithms.",
+      },
+      {
+        icon: "✍️",
+        title: "Youth Creative Workshops",
+        desc: "Poetry and visual art for young people who don't see themselves reflected in mainstream art education. Especially for young Black girls.",
+      },
+    ],
+
+    commerce: [
+      {
+        label: "Original Artwork",
+        desc: "Prints, digital pieces, and commissioned work — visual art rooted in Black beauty and community.",
+        url: null,
+        placeholder: true,
+      },
+      {
+        label: "Poetry Chapbook",
+        desc: "'Something Is Rising' — debut collection. Words from a young woman who decided to take up space.",
+        url: null,
+        placeholder: true,
+      },
+      {
+        label: "Join WAI-Institute",
+        desc: "Connect with Nova and other creators building on their own terms.",
+        url: "/register",
+        placeholder: false,
+      },
+    ],
+
+    waiStatus: {
+      tier: "BASIC",
+      role: "Emerging Creator",
+      since: "2026",
+      bio: "Invited to claim her own space in the WAI-Institute ecosystem. Family of the founding team, building her own legacy.",
+    },
+
+    _peerNote: "NAM Oshun watched Nova grow into her voice — and then watched her surpass the student stage entirely. She doesn't need to inherit the legacy. She's building her own.",
+    _peerSlug: "nam-oshun",
+    _peerName: "NAM Oshun",
+    _peerAvatar: "🌊",
+    _peerTitle: "Poet · Community Organizer · M.O.R.E. Founding Member",
+  },
 };
 
 const PLACEHOLDER_CREATOR = {
