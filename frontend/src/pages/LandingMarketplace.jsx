@@ -138,6 +138,22 @@ export default function LandingMarketplace() {
         </div>
       </header>
 
+      {/* BETA TESTER BANNER */}
+      <div className="bg-ink text-white py-3 px-6">
+        <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-2 text-sm">
+          <div className="flex items-center gap-2 font-medium">
+            <span className="text-lg">🐛</span>
+            <span><strong>Beta Tester?</strong> Sign up → explore → report bugs → get $1. First 20 testers only.</span>
+          </div>
+          <div className="flex items-center gap-3 shrink-0">
+            <Link to="/register" className="bg-copper hover:bg-copper/80 text-white font-bold px-4 py-1.5 rounded-lg text-xs transition-colors">
+              Step 1: Create Account
+            </Link>
+            <span className="text-white/40 text-xs">Then click 🐛 at bottom-right to report</span>
+          </div>
+        </div>
+      </div>
+
       {/* HERO */}
       <section className="relative overflow-hidden bg-gradient-to-b from-bone via-copper/5 to-bone/50 py-32">
         <div className="absolute inset-0 grid-paper opacity-10 pointer-events-none" />

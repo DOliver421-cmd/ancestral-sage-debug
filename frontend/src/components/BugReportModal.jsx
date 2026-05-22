@@ -1,190 +1,212 @@
-import { useState, useEffect } from "react";
-import { X, AlertCircle } from "lucide-react";
+import { useState } from "react";
+import { X, Bug, CheckCircle, ArrowRight } from "lucide-react";
+
+// ── Steps the tester follows — shown before the form ──────────────────────────
+const STEPS = [
+  { n: "1", label: "Sign up free", desc: "Click 'Create Account' — takes 60 seconds.", action: { label: "Sign Up Now", href: "/register" } },
+  { n: "2", label: "Explore the platform", desc: "Try to sign in, browse courses, open M.O.R.E., click things." },
+  { n: "3", label: "Come back here and report", desc: "Tell us what you tried and what happened. You get paid either way." },
+];
 
 export default function BugReportModal() {
-  const [isOpen, setIsOpen] = useState(false);
-  const [submitted, setSubmitted] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const [formData, setFormData] = useState({
+  const [isOpen, setIsOpen]       = useState(false);
+  const [step, setStep]           = useState("instructions"); // "instructions" | "form" | "done"
+  const [loading, setLoading]     = useState(false);
+  const [formData, setFormData]   = useState({
     name: "",
     email: "",
     venmoOrPaypal: "",
     whatYouTried: "",
     whatBroke: "",
-    screenshot: null,
   });
-
-  // Check if modal should show (first time, not submitted, within 48 hours of deploy)
-  useEffect(() => {
-    const lastShown = localStorage.getItem("bugReportModalShown");
-    const deployTime = localStorage.getItem("deployTime") || new Date().getTime();
-    localStorage.setItem("deployTime", deployTime);
-
-    const hoursSinceDeploy = (new Date().getTime() - parseInt(deployTime)) / (1000 * 60 * 60);
-
-    // Show modal if: not shown before AND within 48 hours of deploy
-    if (!lastShown && hoursSinceDeploy < 48) {
-      setIsOpen(true);
-      localStorage.setItem("bugReportModalShown", "true");
-    }
-  }, []);
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setLoading(true);
-
-    try {
-      const response = await fetch("/api/bug-report", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(formData),
-      });
-
-      if (response.ok) {
-        setSubmitted(true);
-        setTimeout(() => setIsOpen(false), 2000);
-      } else {
-        alert("Error submitting bug report. Please try again.");
-      }
-    } catch (error) {
-      console.error("Bug report submission failed:", error);
-      alert("Error submitting bug report. Check console for details.");
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
-  if (!isOpen) return null;
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    try {
+      const res = await fetch("/api/bug-report", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(formData),
+      });
+      if (res.ok) {
+        setStep("done");
+      } else {
+        alert("Submission error — please try again or text Delon directly.");
+      }
+    } catch {
+      alert("Connection error — please try again.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const open = () => { setIsOpen(true); setStep("instructions"); };
+  const close = () => setIsOpen(false);
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-bone border-2 border-copper rounded-lg max-w-lg w-full shadow-xl">
-        {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-copper/20">
-          <div className="flex items-center gap-3">
-            <AlertCircle className="w-6 h-6 text-copper" />
-            <h2 className="text-xl font-bold">Break This Page</h2>
-          </div>
-          <button
-            onClick={() => setIsOpen(false)}
-            className="p-1 hover:bg-copper/10 rounded"
-          >
-            <X className="w-5 h-5" />
-          </button>
-        </div>
+    <>
+      {/* ── Floating trigger button — always visible ─────────────────────────── */}
+      <button
+        onClick={open}
+        className="fixed bottom-5 right-5 z-50 flex items-center gap-2 bg-ink text-white font-bold text-sm px-4 py-3 rounded-full shadow-2xl hover:bg-copper hover:scale-105 transition-all border-2 border-copper/50"
+        title="Bug Bounty — Get $1"
+      >
+        <Bug className="w-4 h-4" />
+        <span>🐛 Report Bug — Get $1</span>
+      </button>
 
-        {/* Body */}
-        <div className="p-6">
-          {submitted ? (
-            <div className="text-center py-8">
-              <div className="text-4xl mb-4">✅</div>
-              <p className="font-bold text-lg mb-2">Thanks for testing!</p>
-              <p className="text-sm text-ink/70">
-                You'll get <strong>$1</strong> for trying. If you found a bug, you get <strong>$1 + free BASIC membership</strong>.
-              </p>
+      {/* ── Modal ────────────────────────────────────────────────────────────── */}
+      {isOpen && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4 backdrop-blur-sm" onClick={(e) => e.target === e.currentTarget && close()}>
+          <div className="bg-white w-full max-w-md shadow-2xl rounded-2xl overflow-hidden">
+
+            {/* Header */}
+            <div className="bg-gradient-to-r from-ink to-copper/80 px-6 py-5 text-white flex items-center justify-between">
+              <div>
+                <div className="font-heading font-extrabold text-xl flex items-center gap-2">
+                  <Bug className="w-5 h-5" /> Bug Bounty
+                </div>
+                <p className="text-white/70 text-xs mt-0.5">$1 for trying · $1 + free membership for finding a bug</p>
+              </div>
+              <button onClick={close} className="text-white/60 hover:text-white transition-colors">
+                <X className="w-5 h-5" />
+              </button>
             </div>
-          ) : (
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div>
-                <label className="block text-sm font-bold mb-1">Name</label>
-                <input
-                  type="text"
-                  name="name"
-                  value={formData.name}
-                  onChange={handleChange}
-                  required
-                  className="w-full px-3 py-2 border border-ink/20 rounded bg-white text-ink text-sm"
-                  placeholder="Your name"
-                />
-              </div>
 
-              <div>
-                <label className="block text-sm font-bold mb-1">Email</label>
-                <input
-                  type="email"
-                  name="email"
-                  value={formData.email}
-                  onChange={handleChange}
-                  required
-                  className="w-full px-3 py-2 border border-ink/20 rounded bg-white text-ink text-sm"
-                  placeholder="your@email.com"
-                />
-              </div>
+            {/* ── Step: Instructions ──────────────────────────────────────────── */}
+            {step === "instructions" && (
+              <div className="p-6">
+                <p className="text-sm text-ink/70 leading-relaxed mb-6">
+                  You're a <span className="font-bold text-ink">Beta Tester</span>. Your job: break things and tell us what happened. Here's the flow:
+                </p>
 
-              <div>
-                <label className="block text-sm font-bold mb-1">Venmo or PayPal</label>
-                <input
-                  type="text"
-                  name="venmoOrPaypal"
-                  value={formData.venmoOrPaypal}
-                  onChange={handleChange}
-                  required
-                  className="w-full px-3 py-2 border border-ink/20 rounded bg-white text-ink text-sm"
-                  placeholder="@venmo or paypal@email.com"
-                />
-              </div>
+                <div className="space-y-4 mb-6">
+                  {STEPS.map(({ n, label, desc, action }) => (
+                    <div key={n} className="flex gap-4 items-start">
+                      <div className="w-8 h-8 rounded-full bg-copper text-white font-black flex items-center justify-center shrink-0 text-sm">{n}</div>
+                      <div className="flex-1">
+                        <div className="font-bold text-sm">{label}</div>
+                        <p className="text-xs text-ink/60 mt-0.5 leading-relaxed">{desc}</p>
+                        {action && (
+                          <a href={action.href} className="inline-flex items-center gap-1 text-xs font-bold text-copper hover:text-copper/80 mt-1 transition-colors">
+                            {action.label} <ArrowRight className="w-3 h-3" />
+                          </a>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
 
-              <div>
-                <label className="block text-sm font-bold mb-1">What did you try to do?</label>
-                <select
-                  name="whatYouTried"
-                  value={formData.whatYouTried}
-                  onChange={handleChange}
-                  required
-                  className="w-full px-3 py-2 border border-ink/20 rounded bg-white text-ink text-sm"
-                >
-                  <option value="">Select...</option>
-                  <option value="signup">Sign up</option>
-                  <option value="login">Log in</option>
-                  <option value="payment">Add payment method</option>
-                  <option value="subscribe">Subscribe</option>
-                  <option value="course">Access course</option>
-                  <option value="refund">Request refund</option>
-                  <option value="other">Other</option>
-                </select>
-              </div>
+                <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 mb-5 text-sm text-amber-800">
+                  <strong>Already explored?</strong> Click below to fill out your report and get paid.
+                </div>
 
-              <div>
-                <label className="block text-sm font-bold mb-1">What broke?</label>
-                <textarea
-                  name="whatBroke"
-                  value={formData.whatBroke}
-                  onChange={handleChange}
-                  required
-                  className="w-full px-3 py-2 border border-ink/20 rounded bg-white text-ink text-sm h-20 resize-none"
-                  placeholder="Describe the bug, error message, or unexpected behavior..."
-                />
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => setStep("form")}
+                    className="flex-1 bg-copper hover:bg-copper/90 text-white font-bold py-3 rounded-xl transition-colors"
+                  >
+                    I'm ready — Report a Bug
+                  </button>
+                  <a href="/register" className="flex-1 border-2 border-ink text-ink font-bold py-3 rounded-xl hover:bg-ink/5 transition-colors text-center text-sm flex items-center justify-center">
+                    Sign Up First
+                  </a>
+                </div>
               </div>
+            )}
 
-              <div className="flex gap-2 pt-4">
-                <button
-                  type="submit"
-                  disabled={loading}
-                  className="flex-1 btn-copper font-bold py-2 disabled:opacity-50"
-                >
-                  {loading ? "Submitting..." : "Submit Bug Report"}
+            {/* ── Step: Form ─────────────────────────────────────────────────── */}
+            {step === "form" && (
+              <form onSubmit={handleSubmit} className="p-6 space-y-4">
+                <button type="button" onClick={() => setStep("instructions")} className="text-xs text-ink/40 hover:text-ink mb-1 transition-colors">
+                  ← Back to instructions
                 </button>
-                <button
-                  type="button"
-                  onClick={() => setIsOpen(false)}
-                  className="px-4 py-2 border border-ink/20 rounded font-bold hover:bg-ink/5"
-                >
-                  Skip
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-bold mb-1 text-ink/70">Your Name</label>
+                    <input name="name" value={formData.name} onChange={handleChange} required
+                      className="w-full px-3 py-2 border border-ink/20 rounded-lg text-sm bg-white focus:outline-none focus:border-copper"
+                      placeholder="First name" />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold mb-1 text-ink/70">Email</label>
+                    <input name="email" type="email" value={formData.email} onChange={handleChange} required
+                      className="w-full px-3 py-2 border border-ink/20 rounded-lg text-sm bg-white focus:outline-none focus:border-copper"
+                      placeholder="you@email.com" />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold mb-1 text-ink/70">Venmo or PayPal (to send your $1)</label>
+                  <input name="venmoOrPaypal" value={formData.venmoOrPaypal} onChange={handleChange} required
+                    className="w-full px-3 py-2 border border-ink/20 rounded-lg text-sm bg-white focus:outline-none focus:border-copper"
+                    placeholder="@venmo-handle or paypal@email.com" />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold mb-1 text-ink/70">What did you try to do?</label>
+                  <select name="whatYouTried" value={formData.whatYouTried} onChange={handleChange} required
+                    className="w-full px-3 py-2 border border-ink/20 rounded-lg text-sm bg-white focus:outline-none focus:border-copper">
+                    <option value="">Choose one...</option>
+                    <option value="signup">Sign up for an account</option>
+                    <option value="login">Log in</option>
+                    <option value="browse-more">Browse M.O.R.E. Help Center</option>
+                    <option value="post-more">Post in M.O.R.E.</option>
+                    <option value="courses">Browse or access courses</option>
+                    <option value="subscribe">Try to subscribe</option>
+                    <option value="payment">Add payment method</option>
+                    <option value="profile">View profile / settings</option>
+                    <option value="just-browsed">Just browsed around</option>
+                    <option value="other">Something else</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold mb-1 text-ink/70">What happened? (bug, error, or "nothing broke")</label>
+                  <textarea name="whatBroke" value={formData.whatBroke} onChange={handleChange} required
+                    className="w-full px-3 py-2 border border-ink/20 rounded-lg text-sm bg-white focus:outline-none focus:border-copper h-20 resize-none"
+                    placeholder="Describe what you saw — error messages, blank screens, things that felt off, or just 'looked fine to me'" />
+                </div>
+
+                <button type="submit" disabled={loading}
+                  className="w-full bg-ink hover:bg-ink/80 text-white font-bold py-3 rounded-xl transition-colors disabled:opacity-50">
+                  {loading ? "Sending..." : "Submit — I'm Done Testing"}
+                </button>
+
+                <p className="text-xs text-ink/40 text-center">
+                  You get <strong>$1</strong> just for trying. Finding a real bug = <strong>$1 + free BASIC membership</strong>.
+                </p>
+              </form>
+            )}
+
+            {/* ── Step: Done ─────────────────────────────────────────────────── */}
+            {step === "done" && (
+              <div className="p-8 text-center">
+                <CheckCircle className="w-14 h-14 text-emerald-500 mx-auto mb-4" />
+                <h3 className="font-heading font-extrabold text-2xl mb-2">You're a tester. 🙏</h3>
+                <p className="text-ink/60 text-sm leading-relaxed mb-4">
+                  Report received. Delon will send your <strong>$1</strong> within 24 hours.
+                  If you found a bug, you'll also get a <strong>free BASIC membership</strong> — automatically.
+                </p>
+                <p className="text-xs text-ink/40">
+                  Questions? Text or DM @namoshun. You're part of the community now.
+                </p>
+                <button onClick={close} className="mt-6 text-sm font-bold text-ink/50 hover:text-ink transition-colors">
+                  Close
                 </button>
               </div>
+            )}
 
-              <p className="text-xs text-ink/50 text-center">
-                First 20 reports get $1. Breaking it gets you $1 + free BASIC membership.
-              </p>
-            </form>
-          )}
+          </div>
         </div>
-      </div>
-    </div>
+      )}
+    </>
   );
 }
