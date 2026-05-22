@@ -65,6 +65,13 @@ from seed_labs import ONLINE_LABS, IN_PERSON_LABS, COMPETENCIES
 from seed_credentials import CREDENTIALS
 from seed_compliance import COMPLIANCE_MODULES, COMPLIANCE_QUIZZES
 from seed_inventory import SITES, INVENTORY
+from revenue_operations_integration import (
+    init_revenue_operations,
+    init_revenue_services,
+    start_revenue_operations,
+    stop_revenue_operations,
+    get_revenue_routers,
+)
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
@@ -951,6 +958,20 @@ async def on_startup():
         await run_engagement_check()
     except Exception as _e:
         logger.warning("STARTUP: run_engagement_check failed (non-fatal): %s", _e)
+
+    # ── Revenue Operations System initialization ───────────────────────────────
+    try:
+        await init_revenue_operations(db)
+        init_revenue_services(app, db)
+        logger.info("STARTUP: Revenue operations system initialized")
+    except Exception as _rev_err:
+        logger.warning("STARTUP: Revenue operations initialization failed (non-fatal): %s", _rev_err)
+
+    # Start scheduled jobs (payouts, revenue recognition, etc.)
+    try:
+        await start_revenue_operations(db)
+    except Exception as _sched_err:
+        logger.warning("STARTUP: Revenue job scheduler startup failed (non-fatal): %s", _sched_err)
 
     # ── WAI-Institute Autonomous Pipeline activation ───────────────────────────
     try:
@@ -8166,6 +8187,14 @@ async def exec_pipeline_process_batch(
     return [r.to_dict() for r in results]
 
 
+# ── Include revenue operations routers ────────────────────────────────────────
+try:
+    for _rev_router in get_revenue_routers():
+        api_router.include_router(_rev_router)
+    logger.info("Revenue operations routers included")
+except Exception as _router_err:
+    logger.warning(f"Could not include revenue routers: {_router_err}")
+
 app.include_router(api_router)
 # CORS: when origins is wildcard ("*") browsers reject credentials, so we
 # turn off allow_credentials in that case (auth uses Bearer token in Authorization
@@ -8192,6 +8221,10 @@ async def shutdown_db_client():
     try:
         from wai_institute.scripts.system_activation import stop_scout_scheduler
         stop_scout_scheduler()
+    except Exception:
+        pass
+    try:
+        stop_revenue_operations()
     except Exception:
         pass
     client.close()

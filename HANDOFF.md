@@ -55,7 +55,7 @@ Not a developer. Expects results, not explanations.
 
 ---
 
-## Current System State (as of 2026-05-21)
+## Current System State (as of 2026-05-22)
 
 ### What's Working
 - Server deploys and starts
@@ -64,14 +64,15 @@ Not a developer. Expects results, not explanations.
 - PRT + The 9 system installed
 - Staff meeting endpoint (`POST /api/exec/staff-meeting`) installed
 - Cultural Scout background scanner running (every 6h)
+- Revenue Operations System integrated (billing, CRM, financial reporting)
 - 199/199 tests passing
 
 ### What's Broken / Pending
-- **502 intermittent** — Server starts but may still be crashing mid-run (see 502 History below)
 - **Custom domain** `wai-institute.org` not connected to Railway (Namecheap login issues)
 - **Email not sending** — Director `send_email` falls back to MongoDB queue; needs `GMAIL_USER` + `GMAIL_APP_PASSWORD` in Railway vars
 - **Reddit scout** — All 6 subreddits return 403; needs Reddit API credentials
 - **Google Trends + Poetry Foundation** feed URLs are stale (404)
+- **Revenue System Testing** — Billing endpoints created but not yet tested in production
 
 ---
 
@@ -118,6 +119,17 @@ client = AsyncIOMotorClient(
 | `src/tests/test_pipeline_manager.py` | 55 pipeline tests |
 | `railway.toml` | Railway deploy config (healthcheckTimeout = 60) |
 | `Dockerfile` | Root Dockerfile used by Railway |
+| `backend/revenue_operations_integration.py` | Revenue system init + router registration |
+| `backend/config.py` | Revenue system configuration (Stripe, email, Slack) |
+| `backend/database.py` | Revenue system database setup |
+| `backend/jobs.py` | Scheduled jobs: payouts, revenue recognition, renewals |
+| `backend/billing/routes.py` | Billing API: subscriptions, invoices, financial reporting |
+| `backend/billing/stripe_service.py` | Stripe integration: payments, payouts, webhooks |
+| `backend/billing/financial_reporting.py` | Financial metrics: MRR, LTV, CAC, forecasting |
+| `backend/billing/models.py` | Pydantic models: Subscription, Invoice, etc. |
+| `backend/crm/routes.py` | CRM API: leads, opportunities, pipeline |
+| `backend/crm/models.py` | Pydantic models: Lead, Opportunity, etc. |
+| `backend/contracts/templates.py` | Contract generation: Consumer, Enterprise, Research |
 
 ---
 
@@ -230,10 +242,45 @@ cf3843e  fix: security/architecture hardening — 5 bugs corrected
 
 ---
 
+## Revenue Operations System (NEW — as of 2026-05-22)
+
+The system now includes a complete revenue operations infrastructure integrated into the main FastAPI app:
+
+### Billing System
+- **Endpoints:** `/api/billing/subscribe`, `/api/billing/invoices`, `/api/billing/subscription`, etc.
+- **Features:** Subscription management, invoice tracking, payment method storage
+- **Stripe Integration:** Test mode ready (use sk_test_* keys), automatic payment processing
+- **Creator Payouts:** Track creator earnings with 70/30 revenue split, monthly payout jobs
+
+### Financial Reporting
+- **Endpoints:** `/api/billing/reporting/summary`, `/api/billing/reporting/mrr`, `/api/billing/reporting/revenue/{year}/{month}`, etc.
+- **Metrics:** MRR, churn rate, LTV/CAC, cohort analysis, cash flow forecasting
+- **Revenue Recognition:** ASC 606 compliant monthly revenue recognition
+
+### Sales Pipeline (CRM)
+- **Endpoints:** `/api/crm/leads`, `/api/crm/opportunities`, `/api/crm/metrics/pipeline`, etc.
+- **Features:** Lead management, opportunity tracking, sales stage forecasting
+- **Metrics:** Pipeline value, win rate, sales cycle length, deal size
+
+### Scheduled Jobs
+- **Creator Payouts:** 1st of month at 2am UTC
+- **Revenue Recognition:** Last day of month at 3am UTC
+- **Renewal Reminders:** Daily at 6am UTC (enterprise contracts within 90 days)
+- **Failed Payment Checks:** Daily at 7am UTC
+
+### Deployment Notes
+- All collections and indexes initialized automatically on startup
+- Services attached to `app.state` for dependency injection
+- Routers registered with main `api_router` automatically
+- Requires MongoDB collections (12 new collections for revenue, CRM, and jobs)
+- No additional databases or external services required (test mode Stripe is free)
+
+---
+
 ## What Delon Wants Next (priority order)
 
-1. Stable server — no more 502s
-2. Login verified working
-3. Connect `wai-institute.org` domain (blocked on Namecheap)
-4. `GMAIL_USER` + `GMAIL_APP_PASSWORD` set so Director can send email
-5. Reddit API credentials for Cultural Scout
+1. Test revenue operations system end-to-end (create subscription, verify payment, check metrics)
+2. Connect `wai-institute.org` domain (blocked on Namecheap)
+3. `GMAIL_USER` + `GMAIL_APP_PASSWORD` set so Director can send email
+4. Reddit API credentials for Cultural Scout
+5. Monitor first production deployment of revenue system

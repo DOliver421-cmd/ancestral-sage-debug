@@ -65,6 +65,10 @@ distro==1.9.0
 # Stripe
 stripe==15.1.0
 
+# Scheduling & Config
+apscheduler==3.10.4
+pydantic-settings==2.1.0
+
 # PDF
 reportlab==4.5.0
 

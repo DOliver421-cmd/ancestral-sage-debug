@@ -67,7 +67,9 @@
       "Bash(python -m pytest src/tests/test_pipeline_manager.py -v)",
       "Bash(python -m pytest src/tests/test_pipeline_manager.py::TestKeywordScorer -v)",
       "Bash(python -m py_compile backend/server.py)",
-      "Bash(git -C . commit -m 'repairs: fix all audit findings \\(Issues 2-9, partial Issue 1\\) *)"
+      "Bash(git -C . commit -m 'repairs: fix all audit findings \\(Issues 2-9, partial Issue 1\\) *)",
+      "Bash(python3 -m py_compile config.py)",
+      "Bash(grep \"\\\\.py$\")"
     ]
   }
 }
