@@ -41,7 +41,7 @@ class DatabaseManager:
 
     async def initialize_collections(self):
         """Create all collections and indexes"""
-        if not self.db:
+        if self.db is None:
             raise RuntimeError("Database not connected. Call connect() first.")
 
         logger.info("Initializing database collections...")
@@ -192,6 +192,6 @@ async def close_database():
 # Helper function to get database in FastAPI dependencies
 async def get_database() -> AsyncIOMotorDatabase:
     """Dependency for getting database in routes"""
-    if not db_manager.db:
+    if db_manager.db is None:
         raise RuntimeError("Database not initialized")
     return db_manager.db

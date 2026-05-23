@@ -129,6 +129,12 @@ class FieldAuthorization:
         Returns:
             Set of field names that are visible to this viewer
         """
+        # Executive admin: unrestricted (None = all fields). password_hash and
+        # other secrets are still stripped in filter_response(). This fixes the
+        # empty FIELD_VISIBILITY["executive_admin"] that made /auth/me return {}.
+        if viewer_role == "executive_admin":
+            return None
+
         # Own profile: full visibility for own role
         if is_own_profile:
             return cls.FIELD_VISIBILITY.get(viewer_role, set())
@@ -190,7 +196,7 @@ class FieldAuthorization:
         for key, value in data.items():
             if key in blacklist:
                 continue
-            if key in visible_fields:
+            if visible_fields is None or key in visible_fields:
                 # Mask sensitive fields
                 if key == "bankAccount" and value:
                     filtered[key] = f"****{value[-4:]}"  # Last 4 digits only

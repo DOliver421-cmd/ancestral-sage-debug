@@ -78,6 +78,11 @@ class Settings(BaseSettings):
     class Config:
         env_file = ".env"
         case_sensitive = True
+        # This Settings model only owns its declared fields. server.py uses a
+        # separate os.environ-based config and shares the same .env file, so
+        # ignore any keys here that belong to that side (MONGO_URL, DB_NAME,
+        # CORS_ORIGINS, etc.) instead of crashing on them.
+        extra = "ignore"
 
 
 # Singleton instance

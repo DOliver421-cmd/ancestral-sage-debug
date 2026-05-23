@@ -45,7 +45,7 @@ async def activate_system(db) -> dict:
             ("poor_righteous_teacher", ["internal_ops", "cultural_enforcement", "the9_activation"], "active"),
             ("the_9",                  ["internal_ops", "unified_execution", "campaign_synthesis"],  "active"),
         ]:
-            existing = await db.persona_activations.find_one({"persona": pname}) if db else None
+            existing = await db.persona_activations.find_one({"persona": pname}) if db is not None else None
             if not existing:
                 await pm.activate(
                     name=pname,

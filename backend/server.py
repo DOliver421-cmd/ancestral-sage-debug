@@ -82,7 +82,7 @@ from recovery import (
 from security.field_authorization import FieldAuthorization
 
 ROOT_DIR = Path(__file__).parent
-load_dotenv(ROOT_DIR / '.env')
+load_dotenv(ROOT_DIR / '.env', override=True)  # .env is source of truth (overrides empty/stale shell vars; no .env in Docker image so prod is unaffected)
 
 # ── MongoDB dual-connection (primary + Atlas backup) ──────────────────────────
 # Primary:  MONGO_URL          (Railway or any MongoDB host)
@@ -163,6 +163,15 @@ app = FastAPI(
     redoc_url="/api/redoc" if _DOCS_ENABLED else None,
     openapi_url="/api/openapi.json" if _DOCS_ENABLED else None,
 )
+
+try:
+    from routers import ai
+    app.include_router(ai.router, prefix="/api/ai")
+except Exception as _ai_router_err:
+    logging.getLogger("server").warning(
+        "Optional 'routers.ai' package not present (%s) — the inline /api/ai handlers "
+        "below remain active. NOTE: 'routers' is an unfinished local refactor; the "
+        "committed/deployed server.py does not import it.", _ai_router_err)
 
 # Security headers middleware
 @app.middleware("http")
@@ -672,6 +681,18 @@ def require_role(*roles):
     return dep
 
 
+def assert_role(user: User, *roles) -> None:
+    """Inline authorization check (raises 403 if the user lacks the rank).
+
+    Use this INSIDE an endpoint body. `require_role(...)` is a dependency
+    factory for `Depends(...)` — calling it with a User instance raises
+    'unhashable type: User'. This is the inline equivalent.
+    """
+    needed_rank = min(ROLE_RANK[r] for r in roles)
+    if ROLE_RANK.get(user.role, 0) < needed_rank:
+        raise HTTPException(403, "Insufficient permissions to access this resource.")
+
+
 def can_modify(actor: User, target_role: str) -> bool:
     """Returns True iff `actor` is allowed to modify a user whose role is
     `target_role`. Admins cannot touch executive_admin accounts; only an
@@ -982,6 +1003,15 @@ async def on_startup():
         await ensure_indexes()
     except Exception as _e:
         logger.warning("STARTUP: ensure_indexes failed (non-fatal): %s", _e)
+
+    try:
+        from partnership import points as _pp_idx
+        await _pp_idx.ensure_indexes(db)
+        await db["puzzle_progress"].create_index("user_id")
+        await db["sovereign_memory"].create_index([("exec_id", 1), ("ts", -1)])
+        logger.info("STARTUP: sovereign/partnership/puzzle indexes ensured")
+    except Exception as _e:
+        logger.warning("STARTUP: sovereign/partnership indexes failed (non-fatal): %s", _e)
 
     try:
         await seed_modules()
@@ -3524,7 +3554,7 @@ async def ai_scholar(body: ScholarTaskReq, user: User = Depends(current_user)):
 @api_router.get("/ai/scholar/integrity")
 async def scholar_integrity(user: User = Depends(current_user)):
     """Returns SHA-256 hash of the Scholar service prompt for audit verification."""
-    require_role(user, "admin")
+    assert_role(user, "admin")
     return {"service": "savant_scholar", "hash": compute_scholar_hash()}
 
 
@@ -6013,10 +6043,10 @@ async def more_create_post(req: MorePostReq, user=Depends(current_user)):
         raise HTTPException(400, "Content too long (max 2000 chars)")
 
     # Rate limit check
-    if not await _oliver_check_rate_limit(user["id"]):
+    if not await _oliver_check_rate_limit(user.id):
         raise HTTPException(429, "You're posting a lot right now. Take a breath and try again in an hour.")
 
-    moderation = await _oliver_moderate(req.content, user_id=user["id"], content_type="post")
+    moderation = await _oliver_moderate(req.content, user_id=user.id, content_type="post")
     decision = moderation.get("decision", "warn")
 
     # Crisis — do not publish, return resources
@@ -6040,8 +6070,8 @@ async def more_create_post(req: MorePostReq, user=Depends(current_user)):
             "id": str(uuid.uuid4()),
             "content": req.content,
             "category": req.category,
-            "author_id": user["id"],
-            "author_name": user["full_name"],
+            "author_id": user.id,
+            "author_name": user.full_name,
             "status": "pending_review",
             "moderation_note": moderation.get("reason"),
             "violation_category": moderation.get("violation_category", "none"),
@@ -6062,8 +6092,8 @@ async def more_create_post(req: MorePostReq, user=Depends(current_user)):
         "id": str(uuid.uuid4()),
         "content": req.content,
         "category": req.category,
-        "author_id": user["id"],
-        "author_name": user["full_name"],
+        "author_id": user.id,
+        "author_name": user.full_name,
         "status": "active",
         "moderation_note": moderation.get("reason"),
         "violation_category": "none",
@@ -6083,7 +6113,9 @@ async def more_list_posts(
     limit: int = 20,
 ):
     now = datetime.now(timezone.utc).isoformat()
-    query: dict = {"expires_at": {"$gt": now}}
+    # Only Oliver-approved posts are public. Held content (pending_review) stays
+    # off the public feed until a human clears it.
+    query: dict = {"expires_at": {"$gt": now}, "status": "active"}
     if category:
         query["category"] = category
     cursor = db.more_posts.find(query, {"_id": 0}).sort("created_at", -1).skip(skip).limit(limit)
@@ -6100,10 +6132,10 @@ async def more_create_need(req: MoreNeedReq, user=Depends(current_user)):
         raise HTTPException(400, "Title and description are required")
 
     # Rate limit check
-    if not await _oliver_check_rate_limit(user["id"]):
+    if not await _oliver_check_rate_limit(user.id):
         raise HTTPException(429, "You're posting a lot right now. Take a breath and try again in an hour.")
 
-    moderation = await _oliver_moderate(combined, user_id=user["id"], content_type="need")
+    moderation = await _oliver_moderate(combined, user_id=user.id, content_type="need")
     decision = moderation.get("decision", "warn")
 
     # Crisis — return resources, do not publish raw distress as a "need"
@@ -6128,8 +6160,8 @@ async def more_create_need(req: MoreNeedReq, user=Depends(current_user)):
         "title": req.title,
         "description": req.description,
         "category": req.category,
-        "author_id": user["id"],
-        "author_name": user["full_name"],
+        "author_id": user.id,
+        "author_name": user.full_name,
         "status": status,
         "moderation_note": moderation.get("reason"),
         "violation_category": moderation.get("violation_category", "none"),
@@ -6154,6 +6186,10 @@ async def more_list_needs(
     limit: int = 20,
 ):
     now = datetime.now(timezone.utc).isoformat()
+    # Never expose held/quarantined content via the public feed, even if a
+    # client explicitly requests status=pending_review.
+    if status == "pending_review":
+        status = "open"
     query: dict = {"expires_at": {"$gt": now}, "status": status}
     if category:
         query["category"] = category
@@ -6170,10 +6206,10 @@ async def more_chat_send(req: MoreChatReq, user=Depends(current_user)):
     if len(req.message) > 1000:
         raise HTTPException(400, "Message too long (max 1000 chars)")
 
-    if not await _oliver_check_rate_limit(user["id"]):
+    if not await _oliver_check_rate_limit(user.id):
         raise HTTPException(429, "Slow down a bit — you've been very active. Try again in an hour.")
 
-    moderation = await _oliver_moderate(req.message, user_id=user["id"], content_type="chat")
+    moderation = await _oliver_moderate(req.message, user_id=user.id, content_type="chat")
     decision = moderation.get("decision", "warn")
 
     if decision == "crisis":
@@ -6192,8 +6228,8 @@ async def more_chat_send(req: MoreChatReq, user=Depends(current_user)):
         "id": str(uuid.uuid4()),
         "session_id": req.session_id,
         "content": req.message,
-        "author_id": user["id"],
-        "author_name": user["full_name"],
+        "author_id": user.id,
+        "author_name": user.full_name,
         "created_at": datetime.now(timezone.utc).isoformat(),
         "expires_at": expires_at,
     }
@@ -6220,7 +6256,7 @@ async def more_flag_content(req: MoreFlagReq, user=Depends(current_user)):
         "target_id": req.target_id,
         "target_type": req.target_type,
         "reason": req.reason,
-        "flagged_by": user["id"],
+        "flagged_by": user.id,
         "created_at": datetime.now(timezone.utc).isoformat(),
         "expires_at": (datetime.now(timezone.utc) + timedelta(days=90)).isoformat(),
         "status": "pending",
@@ -6244,8 +6280,8 @@ async def more_appeal_decision(
         raise HTTPException(400, "Appeal reason too long (max 1000 chars).")
 
     # Verify the content belongs to this user
-    post = await db.more_posts.find_one({"id": target_id, "author_id": user["id"]}, {"_id": 0})
-    need = await db.more_needs.find_one({"id": target_id, "author_id": user["id"]}, {"_id": 0}) if not post else None
+    post = await db.more_posts.find_one({"id": target_id, "author_id": user.id}, {"_id": 0})
+    need = await db.more_needs.find_one({"id": target_id, "author_id": user.id}, {"_id": 0}) if not post else None
     if not post and not need:
         raise HTTPException(404, "Content not found or does not belong to your account.")
 
@@ -6253,8 +6289,8 @@ async def more_appeal_decision(
         "id": str(uuid.uuid4()),
         "target_id": target_id,
         "target_type": "post" if post else "need",
-        "user_id": user["id"],
-        "user_name": user["full_name"],
+        "user_id": user.id,
+        "user_name": user.full_name,
         "appeal_reason": reason.strip(),
         "status": "pending",
         "created_at": datetime.now(timezone.utc).isoformat(),
@@ -6262,7 +6298,7 @@ async def more_appeal_decision(
     }
     await db.more_appeals.insert_one(appeal_doc)
     appeal_doc.pop("_id", None)
-    await audit(user["id"], "more.appeal", meta={"target_id": target_id})
+    await audit(user.id, "more.appeal", meta={"target_id": target_id})
     return {
         "appeal": appeal_doc,
         "message": (
@@ -6275,14 +6311,14 @@ async def more_appeal_decision(
 @api_router.get("/more/admin/queue")
 async def more_admin_review_queue(user=Depends(current_user), skip: int = 0, limit: int = 50):
     """Admin review queue — pending_review posts and needs, plus appeals."""
-    require_role(user, "admin")
+    assert_role(user, "admin")
     posts_cursor = db.more_posts.find({"status": "pending_review"}, {"_id": 0}).sort("created_at", 1).skip(skip).limit(limit)
     needs_cursor = db.more_needs.find({"status": "pending_review"}, {"_id": 0}).sort("created_at", 1).skip(skip).limit(limit)
     appeals_cursor = db.more_appeals.find({"status": "pending"}, {"_id": 0}).sort("created_at", 1).skip(skip).limit(limit)
     posts_total = await db.more_posts.count_documents({"status": "pending_review"})
     needs_total = await db.more_needs.count_documents({"status": "pending_review"})
     appeals_total = await db.more_appeals.count_documents({"status": "pending"})
-    posts, needs, appeals = await _asyncio.gather(
+    posts, needs, appeals = await asyncio.gather(
         posts_cursor.to_list(limit),
         needs_cursor.to_list(limit),
         appeals_cursor.to_list(limit),
@@ -6297,29 +6333,29 @@ async def more_admin_review_queue(user=Depends(current_user), skip: int = 0, lim
 @api_router.post("/more/admin/queue/{content_type}/{content_id}/approve")
 async def more_admin_approve(content_type: str, content_id: str, user=Depends(current_user)):
     """Admin approves a pending_review post or need — moves it to active/open."""
-    require_role(user, "admin")
+    assert_role(user, "admin")
     if content_type == "post":
         result = await db.more_posts.update_one(
             {"id": content_id, "status": "pending_review"},
-            {"$set": {"status": "active", "reviewed_by": user["id"], "reviewed_at": datetime.now(timezone.utc).isoformat()}},
+            {"$set": {"status": "active", "reviewed_by": user.id, "reviewed_at": datetime.now(timezone.utc).isoformat()}},
         )
     elif content_type == "need":
         result = await db.more_needs.update_one(
             {"id": content_id, "status": "pending_review"},
-            {"$set": {"status": "open", "reviewed_by": user["id"], "reviewed_at": datetime.now(timezone.utc).isoformat()}},
+            {"$set": {"status": "open", "reviewed_by": user.id, "reviewed_at": datetime.now(timezone.utc).isoformat()}},
         )
     else:
         raise HTTPException(400, "content_type must be 'post' or 'need'")
     if result.modified_count == 0:
         raise HTTPException(404, "Content not found or already reviewed.")
-    await audit(user["id"], f"more.admin.approve.{content_type}", meta={"content_id": content_id})
+    await audit(user.id, f"more.admin.approve.{content_type}", meta={"content_id": content_id})
     return {"approved": True, "content_id": content_id}
 
 
 @api_router.post("/more/admin/queue/{content_type}/{content_id}/reject")
 async def more_admin_reject(content_type: str, content_id: str, reason: str = "", user=Depends(current_user)):
     """Admin rejects a pending_review item — removes it permanently."""
-    require_role(user, "admin")
+    assert_role(user, "admin")
     if content_type == "post":
         result = await db.more_posts.delete_one({"id": content_id, "status": "pending_review"})
     elif content_type == "need":
@@ -6328,14 +6364,14 @@ async def more_admin_reject(content_type: str, content_id: str, reason: str = ""
         raise HTTPException(400, "content_type must be 'post' or 'need'")
     if result.deleted_count == 0:
         raise HTTPException(404, "Content not found or already reviewed.")
-    await audit(user["id"], f"more.admin.reject.{content_type}", meta={"content_id": content_id, "reason": reason})
+    await audit(user.id, f"more.admin.reject.{content_type}", meta={"content_id": content_id, "reason": reason})
     return {"rejected": True, "content_id": content_id}
 
 
 @api_router.get("/more/admin/moderation-log")
 async def more_moderation_log(user=Depends(current_user), skip: int = 0, limit: int = 100, decision: Optional[str] = None):
     """Full Oliver Guardian moderation audit log — admin only."""
-    require_role(user, "admin")
+    assert_role(user, "admin")
     query = {}
     if decision:
         query["decision"] = decision
@@ -6347,13 +6383,13 @@ async def more_moderation_log(user=Depends(current_user), skip: int = 0, limit: 
 
 @api_router.post("/more/purge")
 async def more_manual_purge(user=Depends(current_user)):
-    require_role(user, "admin")
+    assert_role(user, "admin")
     now = datetime.now(timezone.utc).isoformat()
     r1 = await db.more_posts.delete_many({"expires_at": {"$lte": now}})
     r2 = await db.more_chats.delete_many({"expires_at": {"$lte": now}})
     r3 = await db.more_flags.delete_many({"expires_at": {"$lte": now}})
     r4 = await db.more_appeals.delete_many({"expires_at": {"$lte": now}})
-    await audit(user["id"], "more.purge", meta={
+    await audit(user.id, "more.purge", meta={
         "posts": r1.deleted_count, "chats": r2.deleted_count,
         "flags": r3.deleted_count, "appeals": r4.deleted_count,
     })
@@ -6362,7 +6398,7 @@ async def more_manual_purge(user=Depends(current_user)):
 
 @api_router.get("/more/admin/flags")
 async def more_admin_flags(user=Depends(current_user), skip: int = 0, limit: int = 50):
-    require_role(user, "admin")
+    assert_role(user, "admin")
     cursor = db.more_flags.find({"status": "pending"}, {"_id": 0}).sort("created_at", -1).skip(skip).limit(limit)
     flags = await cursor.to_list(limit)
     total = await db.more_flags.count_documents({"status": "pending"})
@@ -6404,7 +6440,7 @@ async def xp_leaderboard(associate: Optional[str] = None, user: User = Depends(c
 
 @api_router.post("/labs/submissions/{sub_id}/ai-feedback")
 async def lab_ai_feedback(sub_id: str, user: User = Depends(current_user)):
-    require_role(user, "instructor")
+    assert_role(user, "instructor")
     sub = await db.lab_submissions.find_one({"id": sub_id}, {"_id": 0})
     if not sub:
         raise HTTPException(404, "Submission not found")
@@ -6445,7 +6481,7 @@ async def lab_ai_feedback(sub_id: str, user: User = Depends(current_user)):
 
 @api_router.get("/analytics/benchmark")
 async def cohort_benchmark(user: User = Depends(current_user)):
-    require_role(user, "instructor")
+    assert_role(user, "instructor")
     total_modules = await db.modules.count_documents({})
     all_students = await db.users.count_documents({"role": "student"})
     platform_completions = await db.progress.count_documents({"status": "completed"})
@@ -6904,17 +6940,17 @@ async def create_checkout_session(req: CheckoutReq, user=Depends(current_user)):
         price_data["recurring"] = {"interval": product["interval"]}
 
     # Retrieve or create Stripe customer (enables Customer Portal later)
-    user_doc = await db.users.find_one({"id": user["id"]}, {"stripe_customer_id": 1, "email": 1, "full_name": 1})
+    user_doc = await db.users.find_one({"id": user.id}, {"stripe_customer_id": 1, "email": 1, "full_name": 1})
     customer_id = (user_doc or {}).get("stripe_customer_id")
 
     if not customer_id:
         customer = _stripe.Customer.create(
-            email=user["email"],
-            name=user["full_name"],
-            metadata={"wai_user_id": user["id"]},
+            email=user.email,
+            name=user.full_name,
+            metadata={"wai_user_id": user.id},
         )
         customer_id = customer.id
-        await db.users.update_one({"id": user["id"]}, {"$set": {"stripe_customer_id": customer_id}})
+        await db.users.update_one({"id": user.id}, {"$set": {"stripe_customer_id": customer_id}})
 
     session = _stripe.checkout.Session.create(
         mode=mode,
@@ -6922,10 +6958,10 @@ async def create_checkout_session(req: CheckoutReq, user=Depends(current_user)):
         line_items=[{"price_data": price_data, "quantity": req.quantity}],
         success_url=f"{FRONTEND_URL}/payment/success?session_id={{CHECKOUT_SESSION_ID}}",
         cancel_url=f"{FRONTEND_URL}/payment/cancel",
-        metadata={"wai_user_id": user["id"], "product_key": req.product_key, **(req.extra_meta or {})},
+        metadata={"wai_user_id": user.id, "product_key": req.product_key, **(req.extra_meta or {})},
     )
 
-    await audit(user["id"], "payment_checkout_created", meta={"product": req.product_key, "session_id": session.id})
+    await audit(user.id, "payment_checkout_created", meta={"product": req.product_key, "session_id": session.id})
     return {"url": session.url, "session_id": session.id}
 
 
@@ -7061,7 +7097,7 @@ async def customer_portal(user=Depends(current_user)):
     if not STRIPE_SECRET_KEY:
         raise HTTPException(503, "Payment system not configured")
 
-    user_doc = await db.users.find_one({"id": user["id"]}, {"stripe_customer_id": 1})
+    user_doc = await db.users.find_one({"id": user.id}, {"stripe_customer_id": 1})
     customer_id = (user_doc or {}).get("stripe_customer_id")
 
     if not customer_id:
@@ -7076,7 +7112,7 @@ async def customer_portal(user=Depends(current_user)):
 
 @api_router.get("/payments/history")
 async def payment_history(user=Depends(current_user)):
-    cursor = db.payments.find({"user_id": user["id"]}, {"_id": 0}).sort("created_at", -1).limit(50)
+    cursor = db.payments.find({"user_id": user.id}, {"_id": 0}).sort("created_at", -1).limit(50)
     return {"payments": await cursor.to_list(50)}
 
 
@@ -8964,6 +9000,94 @@ try:
     logger.info("Playlist curation router included")
 except Exception as _playlist_err:
     logger.warning(f"Could not include playlist router: {_playlist_err}")
+
+# ── The Sovereign (NAM Oshun Revenue Engine) + Puzzle/Points endpoints ─────────
+# Executive-only Sovereign chat (Director-supervised, carries memory) + a public
+# puzzle game that awards partnership points toward membership tiers. All logic
+# lives in isolated, unit-tested modules (sovereign/, partnership/, puzzles/).
+# Wrapped so any import/registration failure can NEVER break server boot.
+try:
+    from sovereign.sovereign_loader import build_sovereign_prompt as _build_sovereign_prompt
+    from sovereign import sovereign_memory as _sovereign_memory
+    from partnership import points as _partnership_points
+    from puzzles import engine as _puzzle_engine
+
+    async def _optional_user_id(authorization: Optional[str]):
+        """Return the user id from a valid Bearer token, else None (never raises).
+        Lets puzzles be viewed/attempted anonymously while points require login."""
+        if not authorization or not authorization.startswith("Bearer "):
+            return None
+        try:
+            payload = jwt.decode(authorization.split(" ", 1)[1], JWT_SECRET, algorithms=[JWT_ALGO])
+            return payload.get("sub")
+        except Exception:
+            return None
+
+    class _SovereignChatBody(BaseModel):
+        message: str
+        session_id: Optional[str] = "default"
+
+    class _SovereignMemoryBody(BaseModel):
+        content: str
+        kind: Optional[str] = "fact"
+
+    class _PuzzleAnswerBody(BaseModel):
+        puzzle_id: str
+        answer: str
+
+    @api_router.post("/sovereign/chat")
+    async def sovereign_chat(body: _SovereignChatBody, user: User = Depends(require_role("executive_admin"))):
+        """Talk to The Sovereign — executive-only, Director-supervised, memory-aware."""
+        system = await _build_sovereign_prompt(db, user.id)
+        try:
+            import anthropic as _anthropic_module
+            _client = _anthropic_module.AsyncAnthropic(api_key=ANTHROPIC_API_KEY)
+            _msg = await _client.messages.create(
+                model="claude-sonnet-4-6", max_tokens=2048,
+                system=system, messages=[{"role": "user", "content": body.message}],
+            )
+            reply = _msg.content[0].text
+        except Exception as e:
+            logger.exception("Sovereign AI error")
+            raise HTTPException(502, f"Sovereign AI error: {e}")
+        try:
+            await _sovereign_memory.save_memory(db, user.id, f"Asked: {body.message[:200]}", kind="note")
+        except Exception:
+            pass
+        return {"reply": reply}
+
+    @api_router.get("/sovereign/memory")
+    async def sovereign_memory_list(user: User = Depends(require_role("executive_admin"))):
+        return {"memory": await _sovereign_memory.load_memory_block(db, user.id)}
+
+    @api_router.post("/sovereign/memory")
+    async def sovereign_memory_add(body: _SovereignMemoryBody, user: User = Depends(require_role("executive_admin"))):
+        return {"saved": await _sovereign_memory.save_memory(db, user.id, body.content, kind=body.kind or "fact")}
+
+    @api_router.delete("/sovereign/memory")
+    async def sovereign_memory_clear(user: User = Depends(require_role("executive_admin"))):
+        return {"cleared": await _sovereign_memory.clear_memory(db, user.id)}
+
+    @api_router.get("/puzzles/next")
+    async def puzzles_next(authorization: Optional[str] = Header(None)):
+        """Get the next puzzle. Public to view; points require login."""
+        uid = await _optional_user_id(authorization)
+        return await _puzzle_engine.next_puzzle(db, uid)
+
+    @api_router.post("/puzzles/answer")
+    async def puzzles_answer(body: _PuzzleAnswerBody, authorization: Optional[str] = Header(None)):
+        """Submit an answer. Correct + logged-in => partnership points awarded once."""
+        uid = await _optional_user_id(authorization)
+        return await _puzzle_engine.submit_answer(db, uid, body.puzzle_id, body.answer)
+
+    @api_router.get("/partnership/status")
+    async def partnership_status(user: User = Depends(current_user)):
+        """Current member's partnership points + membership tier."""
+        return await _partnership_points.get_status(db, user.id)
+
+    logger.info("Sovereign + puzzle/points endpoints registered")
+except Exception as _sov_err:
+    logger.warning(f"Could not register Sovereign/puzzle endpoints: {_sov_err}")
 
 app.include_router(api_router)
 # CORS: when origins is wildcard ("*") browsers reject credentials, so we

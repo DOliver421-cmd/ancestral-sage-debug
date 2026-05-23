@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>The Sovereign — your moving avatar (free, working demo)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --vibe:#6a2cc9; --vibe-deep:#2a1147; --gold:#e9c46a; --gold-bright:#ffe9ad;
+    --ink:#0c0716; --cream:#f7f1e6;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{font-family:'DM Sans',system-ui,sans-serif;color:var(--cream);min-height:100vh;
+    background:radial-gradient(1000px 600px at 50% -10%,#241246,#160a2b 50%,var(--ink));overflow:hidden;}
+  .stage{position:fixed;inset:0;}
+  .hint{position:fixed;top:18px;left:50%;transform:translateX(-50%);text-align:center;opacity:.8;
+    font-size:14px;letter-spacing:.3px;max-width:90vw;}
+  .hint b{color:var(--gold);}
+  .conn{position:fixed;top:14px;right:16px;font-size:11px;letter-spacing:1px;text-transform:uppercase;
+    padding:4px 10px;border-radius:20px;border:1px solid rgba(233,196,106,.4);color:var(--gold);opacity:.8;}
+
+  /* ── Avatar widget (bottom-right) ── */
+  .widget{position:fixed;right:28px;bottom:28px;display:flex;flex-direction:column;align-items:flex-end;gap:10px;z-index:50;}
+  .activity{font-size:12.5px;font-style:italic;color:var(--gold);opacity:.85;background:rgba(12,7,22,.6);
+    padding:5px 12px;border-radius:14px;border:1px solid rgba(233,196,106,.25);max-width:240px;text-align:right;
+    transition:opacity .4s;}
+  .avatar{position:relative;width:128px;height:128px;cursor:pointer;}
+  /* vibranium ring */
+  .ring{position:absolute;inset:-8px;border-radius:50%;
+    background:conic-gradient(from 0deg,var(--gold),var(--vibe),var(--gold-bright),var(--vibe),var(--gold));
+    filter:blur(1px);animation:spin 8s linear infinite;opacity:.85;}
+  .ring::after{content:"";position:absolute;inset:6px;border-radius:50%;background:var(--ink);}
+  @keyframes spin{to{transform:rotate(360deg);}}
+  .glow{position:absolute;inset:-22px;border-radius:50%;
+    background:radial-gradient(circle,rgba(106,44,201,.55),transparent 70%);filter:blur(8px);
+    animation:breathe 4s ease-in-out infinite;}
+  @keyframes breathe{0%,100%{opacity:.5;transform:scale(.96);}50%{opacity:1;transform:scale(1.06);}}
+
+  .disc{position:absolute;inset:4px;border-radius:50%;overflow:hidden;border:2px solid var(--gold);
+    background:linear-gradient(180deg,#3a2a55,#1c1030);z-index:2;}
+  .disc img{width:100%;height:100%;object-fit:cover;display:block;}
+
+  /* CSS stylized stand-in (shown if no photo) — bald w/ blonde top, gray goatee, magenta shirt */
+  .face{position:absolute;inset:0;}
+  .face .shirt{position:absolute;left:50%;bottom:0;transform:translateX(-50%);width:130%;height:42%;
+    background:linear-gradient(180deg,#e0479a,#c01f7c);border-radius:50% 50% 0 0;}
+  .face .neck{position:absolute;left:50%;bottom:36%;transform:translateX(-50%);width:26%;height:16%;background:#6b4a36;border-radius:6px;}
+  .face .head{position:absolute;left:50%;top:14%;transform:translateX(-50%);width:54%;height:60%;
+    background:radial-gradient(circle at 50% 38%,#7a5740,#5c4030);border-radius:48% 48% 46% 46%;}
+  .face .hair{position:absolute;left:50%;top:11%;transform:translateX(-50%);width:50%;height:16%;
+    background:linear-gradient(180deg,#f3e3a8,#c9a23f);border-radius:50% 50% 30% 30%;}
+  .face .eyes{position:absolute;left:50%;top:36%;transform:translateX(-50%);width:40%;display:flex;justify-content:space-between;}
+  .face .eyes i{width:9px;height:9px;border-radius:50%;background:#1a120c;display:block;transition:transform .3s;}
+  .face .brows{position:absolute;left:50%;top:32%;transform:translateX(-50%);width:42%;display:flex;justify-content:space-between;}
+  .face .brows i{width:14px;height:3px;border-radius:3px;background:#3a2a1a;display:block;}
+  .face .goatee{position:absolute;left:50%;top:60%;transform:translateX(-50%);width:24%;height:16%;
+    background:linear-gradient(180deg,#cfcfcf,#9a9a9a);border-radius:0 0 50% 50%;}
+
+  /* idle + activities (applied to .disc) */
+  .disc{transition:transform .35s ease;}
+  .avatar.bob .disc{animation:bob 3.2s ease-in-out infinite;}
+  @keyframes bob{0%,100%{transform:translateY(0) rotate(0);}50%{transform:translateY(-4px) rotate(-1deg);}}
+  .avatar.look-left .disc{transform:translateX(-6px) rotate(-4deg);}
+  .avatar.look-right .disc{transform:translateX(6px) rotate(4deg);}
+  .avatar.peek .disc{animation:peek 1.1s ease;}
+  @keyframes peek{0%,100%{transform:translateY(0);}40%{transform:translateY(30px);}}
+  .avatar.nod .disc{animation:nod 1s ease;}
+  @keyframes nod{0%,100%{transform:rotate(0);}30%{transform:rotate(8deg) translateY(3px);}60%{transform:rotate(-3deg);}}
+  .avatar.attention .disc{transform:scale(1.05) translateY(-2px);}
+  .avatar.attention .ring{animation:spin 2.2s linear infinite;}
+  .avatar.attention .glow{background:radial-gradient(circle,rgba(233,196,106,.7),transparent 70%);}
+
+  /* waving hand */
+  .hand{position:absolute;right:-6px;bottom:14px;font-size:28px;opacity:0;transform-origin:bottom center;z-index:3;}
+  .avatar.wave .hand{opacity:1;animation:wave 1.1s ease;}
+  @keyframes wave{0%,100%{transform:rotate(0);}25%{transform:rotate(20deg);}75%{transform:rotate(-15deg);}}
+  .think{position:absolute;right:-2px;top:-10px;font-size:20px;opacity:0;z-index:3;}
+  .avatar.think .think{opacity:1;animation:floaty 1.4s ease;}
+  @keyframes floaty{0%{opacity:0;transform:translateY(6px);}40%{opacity:1;}100%{opacity:0;transform:translateY(-8px);}}
+
+  /* ── speech bubble / panel ── */
+  .bubble{position:fixed;right:172px;bottom:60px;width:300px;max-width:72vw;background:linear-gradient(180deg,#1c1036,#120a24);
+    border:2px solid var(--gold);border-radius:16px;padding:18px;box-shadow:0 0 0 5px var(--ink),0 18px 50px rgba(0,0,0,.5);
+    opacity:0;visibility:hidden;transform:translateY(10px) scale(.98);transition:all .3s;z-index:60;}
+  .bubble.open{opacity:1;visibility:visible;transform:translateY(0) scale(1);}
+  .bubble::after{content:"";position:absolute;right:-12px;bottom:46px;border:12px solid transparent;border-left-color:var(--gold);}
+  .bubble h3{font-family:'Cinzel',serif;color:var(--gold-bright);font-size:18px;margin-bottom:6px;}
+  .bubble p{font-size:13.5px;opacity:.9;line-height:1.5;}
+  .row{display:flex;gap:8px;margin-top:14px;flex-wrap:wrap;}
+  .btn{cursor:pointer;border:none;padding:10px 14px;border-radius:10px;font-weight:700;font-size:13px;font-family:'DM Sans',sans-serif;
+    background:linear-gradient(180deg,var(--gold-bright),#c9961f);color:var(--ink);transition:transform .15s;}
+  .btn:hover{transform:translateY(-2px);}
+  .btn.ghost{background:transparent;border:1.5px solid var(--gold);color:var(--gold);}
+  .q{margin-top:12px;font-size:14px;line-height:1.45;color:var(--cream);}
+  .qmeta{font-size:11px;letter-spacing:1px;text-transform:uppercase;color:var(--gold);opacity:.8;}
+  input.ans{width:100%;margin-top:10px;padding:9px 11px;border-radius:9px;border:1px solid rgba(233,196,106,.5);
+    background:#0e0820;color:var(--cream);font-size:14px;}
+  .feedback{margin-top:10px;font-size:13px;}
+  .ok{color:#7fe0a0;} .no{color:#ffb9a0;} .pts{color:var(--gold-bright);font-weight:700;}
+  .close{position:absolute;top:8px;right:12px;cursor:pointer;color:var(--gold);font-size:20px;background:none;border:none;opacity:.7;}
+</style>
+</head>
+<body>
+  <div class="stage"></div>
+  <div class="hint">Meet <b>The Sovereign</b> — your avatar, his own identity. He's always busy (watch him). <b>Click him</b> to call his attention → solve a puzzle, earn points.</div>
+  <div class="conn" id="conn">checking server…</div>
+
+  <div class="widget">
+    <div class="activity" id="activity">humming a verse…</div>
+    <div class="avatar bob" id="avatar" title="Click to call his attention">
+      <div class="glow"></div>
+      <div class="ring"></div>
+      <div class="disc" id="disc">
+        <!-- The Sovereign wears YOUR face: drop your photo at  sovereign.png  (next to this file) to replace the stand-in -->
+        <img id="photo" src="sovereign.png" alt="The Sovereign" onerror="this.style.display='none';document.getElementById('standin').style.display='block';" />
+        <div class="face" id="standin" style="display:none;">
+          <div class="shirt"></div><div class="neck"></div>
+          <div class="head"></div><div class="hair"></div>
+          <div class="brows"><i></i><i></i></div>
+          <div class="eyes" id="eyes"><i></i><i></i></div>
+          <div class="goatee"></div>
+        </div>
+      </div>
+      <div class="hand">👋</div>
+      <div class="think">💭</div>
+    </div>
+  </div>
+
+  <!-- speech bubble / interaction panel -->
+  <div class="bubble" id="bubble">
+    <button class="close" onclick="dismiss()">×</button>
+    <div id="panel-greet">
+      <h3>You called?</h3>
+      <p>I am <b>The Sovereign</b> — your avatar, your sharper self. I'm always working back here. Want to test your mind, or talk shop?</p>
+      <div class="row">
+        <button class="btn" onclick="getPuzzle()">🧩 Give me a puzzle</button>
+        <button class="btn ghost" onclick="talk()">✨ The Sovereign</button>
+      </div>
+    </div>
+    <div id="panel-puzzle" style="display:none;">
+      <h3>🧩 A puzzle for you</h3>
+      <div class="qmeta" id="qmeta">level 1 · 10 pts</div>
+      <div class="q" id="qtext">…</div>
+      <input class="ans" id="ans" placeholder="your answer…" onkeydown="if(event.key==='Enter')answer()" />
+      <div class="feedback" id="fb"></div>
+      <div class="row">
+        <button class="btn" onclick="answer()">Submit</button>
+        <button class="btn ghost" onclick="getPuzzle()">Another</button>
+      </div>
+    </div>
+    <div id="panel-talk" style="display:none;">
+      <h3>✨ The Sovereign</h3>
+      <p id="talkline">"Revenue is not the goal. It is the fuel. Tell me the room, and I'll tell you whether it's worth your voice."</p>
+      <p style="opacity:.6;font-size:12px;margin-top:8px;">Full chat is executive-only — it opens inside your app once you're logged in (POST /api/sovereign/chat).</p>
+      <div class="row"><button class="btn ghost" onclick="showGreet()">← back</button></div>
+    </div>
+  </div>
+
+<script>
+  // ── config ──
+  const API = "http://localhost:8001/api";   // your local backend
+  const av = document.getElementById('avatar');
+  const activityEl = document.getElementById('activity');
+  const bubble = document.getElementById('bubble');
+  let attention = false, current = null, busyTimer = null;
+
+  // ── "always doing something" idle loop (Waldo) ──
+  const ACTIVITIES = [
+    ["humming a verse…","nod"], ["watching the festival…","look-left"],
+    ["sketching a poem…","think"], ["reviewing bookings…","look-right"],
+    ["greeting a neighbor…","wave"], ["checking the door…","peek"],
+    ["counting partnership points…","nod"], ["listening to the drums…","look-left"],
+  ];
+  function doActivity(){
+    if(attention) return;
+    const [label, cls] = ACTIVITIES[Math.floor(Math.random()*ACTIVITIES.length)];
+    activityEl.textContent = label;
+    av.classList.add(cls);
+    setTimeout(()=>av.classList.remove(cls), 1300);
+    busyTimer = setTimeout(doActivity, 3500 + Math.random()*3500);
+  }
+  doActivity();
+
+  // subtle eye follow for the stand-in
+  document.addEventListener('mousemove', e=>{
+    const eyes = document.getElementById('eyes'); if(!eyes) return;
+    const dx = (e.clientX/window.innerWidth - .5)*4;
+    [...eyes.children].forEach(i=>i.style.transform=`translateX(${dx}px)`);
+  });
+
+  // ── call his attention ──
+  av.addEventListener('click', ()=>{
+    attention = true; clearTimeout(busyTimer);
+    av.classList.remove('bob'); av.classList.add('attention','wave');
+    activityEl.textContent = "…you have my attention.";
+    setTimeout(()=>av.classList.remove('wave'), 1100);
+    showGreet(); bubble.classList.add('open');
+  });
+  function dismiss(){
+    bubble.classList.remove('open'); attention=false;
+    av.classList.remove('attention'); av.classList.add('bob'); doActivity();
+  }
+  function panel(id){
+    ['greet','puzzle','talk'].forEach(p=>document.getElementById('panel-'+p).style.display = (p===id?'block':'none'));
+  }
+  function showGreet(){ panel('greet'); }
+  function talk(){ panel('talk'); }
+
+  // ── puzzles: try the live backend, fall back to built-ins so it always works ──
+  const FALLBACK = [
+    {id:'p1',level:1,points:10,question:"I'm tall when I'm young and short when I'm old. What am I?",answers:["candle","a candle"]},
+    {id:'p2',level:1,points:10,question:"What has keys but can't open locks?",answers:["piano","a piano","keyboard"]},
+    {id:'p12',level:4,points:50,question:"The Yoruba orisha of love, beauty, rivers, and art — a name carried with intention. Who?",answers:["oshun"]},
+  ];
+  let usingLive = false;
+
+  async function ping(){
+    try{ const r = await fetch(API+"/health",{cache:"no-store"});
+      usingLive = r.ok; document.getElementById('conn').textContent = r.ok ? "● server: live" : "server: offline (demo mode)";
+    }catch(e){ usingLive=false; document.getElementById('conn').textContent="server: offline (demo mode)"; }
+  }
+  ping();
+
+  async function getPuzzle(){
+    panel('puzzle'); document.getElementById('fb').textContent='';
+    document.getElementById('ans').value='';
+    if(usingLive){
+      try{
+        const r = await fetch(API+"/puzzles/next"); const j = await r.json();
+        if(j && j.puzzle){ current = j.puzzle; render(j.puzzle); return; }
+      }catch(e){ /* fall through to demo */ }
+    }
+    current = FALLBACK[Math.floor(Math.random()*FALLBACK.length)];
+    render(current);
+  }
+  function render(p){
+    document.getElementById('qmeta').textContent = `level ${p.level} · ${p.points} pts`;
+    document.getElementById('qtext').textContent = p.question;
+  }
+  function norm(s){ return (s||'').toLowerCase().replace(/[^a-z0-9 ]/g,' ').replace(/\s+/g,' ').trim(); }
+
+  async function answer(){
+    const val = document.getElementById('ans').value;
+    const fb = document.getElementById('fb');
+    if(usingLive){
+      try{
+        const r = await fetch(API+"/puzzles/answer",{method:"POST",headers:{"Content-Type":"application/json"},
+          body:JSON.stringify({puzzle_id:current.id,answer:val})});
+        const j = await r.json();
+        if(j.correct){ fb.innerHTML = `<span class="ok">Correct!</span> ` + (j.points_awarded>0
+          ? `<span class="pts">+${j.points_awarded} points</span>` : `<span class="pts">log in to bank points</span>`); }
+        else { fb.innerHTML = `<span class="no">Not yet.</span> ${j.hint?('Hint: '+j.hint):''}`; }
+        return;
+      }catch(e){ /* fall through to demo check */ }
+    }
+    const ok = (current.answers||[]).some(a=>norm(a)===norm(val));
+    fb.innerHTML = ok ? `<span class="ok">Correct!</span> <span class="pts">+${current.points} points</span> <span style="opacity:.6">(demo)</span>`
+                      : `<span class="no">Not yet — try again.</span>`;
+  }
+</script>
+</body>
+</html>
