@@ -33,7 +33,11 @@ dist
 # Environment and credential files
 .env
 .env.*
+.env*
 *.env
+*env*.txt
+*env*.text
+backend/serverpytext.txt
 *token.json*
 *credentials.json*
 credentials.json
