@@ -115,7 +115,7 @@ export default function InstructorLabs() {
                 )}
 
                 <textarea value={feedback[s.id] || ""} onChange={(e) => setFeedback({ ...feedback, [s.id]: e.target.value })}
-                  placeholder="Feedback to the apprentice…" rows={3}
+                  placeholder="Feedback to the trainee…" rows={3}
                   className="w-full mt-4 px-3 py-2 border border-ink/20 focus:border-ink focus:outline-none focus:ring-2 focus:ring-signal text-sm"
                   data-testid={`feedback-${s.id}`} />
 
@@ -136,7 +136,7 @@ export default function InstructorLabs() {
             <table className="w-full text-sm">
               <thead className="bg-ink text-white">
                 <tr>
-                  <Th>Apprentice</Th><Th>Associate</Th><Th>Passed</Th><Th>Pending</Th><Th>Points</Th><Th>Hours</Th>
+                  <Th>Trainee</Th><Th>Associate</Th><Th>Passed</Th><Th>Pending</Th><Th>Points</Th><Th>Hours</Th>
                 </tr>
               </thead>
               <tbody>

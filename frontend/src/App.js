@@ -58,6 +58,9 @@ import PaymentHistory from "./pages/PaymentHistory";
 import AdminPayments from "./pages/AdminPayments";
 import AvatarSetup from "./pages/AvatarSetup";
 import SovereignChat from "./components/SovereignChat";
+import Palace from "./pages/Palace";
+import ElderCouncil from "./pages/ElderCouncil";
+import Plans from "./pages/Plans";
 
 // Role hierarchy must mirror backend ROLE_RANK in /app/backend/server.py.
 // Higher rank = more authority; a higher-rank role passes any check meant
@@ -111,6 +114,10 @@ function App() {
           <Route path="/dashboard/admin" element={<Protected roles={["admin"]}><AdminDashboard /></Protected>} />
           <Route path="/dashboard/instructor" element={<Protected roles={["instructor", "admin"]}><InstructorDashboard /></Protected>} />
           <Route path="/avatar-setup" element={<Protected><AvatarSetup /></Protected>} />
+          {/* Themed member spaces */}
+          <Route path="/palace" element={<Protected><Palace /></Protected>} />
+          <Route path="/elder-council" element={<Protected><ElderCouncil /></Protected>} />
+          <Route path="/plans" element={<Plans />} />
           <Route path="/instructor" element={<Protected roles={["instructor", "admin"]}><InstructorDashboard /></Protected>} />
           <Route path="/admin" element={<Protected roles={["admin"]}><AdminDashboard /></Protected>} />
           <Route path="/admin/users" element={<Protected roles={["admin"]}><AdminDashboard /></Protected>} />

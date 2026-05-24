@@ -48,7 +48,7 @@ export default function StudentDashboard() {
       <div className="px-10 py-10 max-w-6xl">
         <div className="flex items-end justify-between mb-10">
           <div>
-            <div className="overline text-copper">Apprentice</div>
+            <div className="overline text-copper">Workforce Trainee</div>
             <h1 className="font-heading text-4xl font-bold mt-2">Welcome back, {user?.full_name?.split(" ")[0]}.</h1>
             <p className="text-ink/60 mt-2">Your tools, your associate, your progress — all in one shop.</p>
           </div>

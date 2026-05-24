@@ -61,7 +61,7 @@ const SPOTLIGHTS = [
   {
     name: "Latoya Freeman",
     role: "Master Electrician & Mentor",
-    story: "Trades apprentice turned mentor. Mentoring 8 young women entering electrical work — a field that tried to shut her out. Earning $12K/quarter. Kept her independence.",
+    story: "Trades trainee turned mentor. Mentoring 8 young women entering electrical work — a field that tried to shut her out. Earning $12K/quarter. Kept her independence.",
     image: "👩‍🔧",
     stat: "8 mentees | $12K/quarter",
     tag: "Creator",
@@ -134,9 +134,9 @@ const TESTIMONIALS = [
     avatar: "🎵",
   },
   {
-    quote: "The community here is REAL. Electricians mentoring apprentices. Artists teaching artists. Healers supporting healers. It feels like home, not a corporate platform.",
+    quote: "The community here is REAL. Electricians mentoring trainees. Artists teaching artists. Healers supporting healers. It feels like home, not a corporate platform.",
     author: "Sofia Martinez",
-    role: "Apprentice & Community Organizer",
+    role: "Trainee & Community Organizer",
     avatar: "👩‍🎓",
   },
 ];

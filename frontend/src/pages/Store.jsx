@@ -9,12 +9,12 @@ const ITEMS = [
     name: "WAI Institute T-Shirt",
     price: "$25.00",
     icon: Shirt,
-    description: "Official WAI Apprentice tee. Show your trade pride.",
+    description: "Official WAI Workforce tee. Show your trade pride.",
     badge: null,
   },
   {
     key: "workbook",
-    name: "WAI Apprentice Workbook",
+    name: "WAI Workforce Workbook",
     price: "$15.00",
     icon: BookOpen,
     description: "Printed study guide — electrical theory, code, and lab prep.",
@@ -22,10 +22,10 @@ const ITEMS = [
   },
   {
     key: "kit",
-    name: "WAI Apprentice Kit",
+    name: "WAI Workforce Kit",
     price: "$45.00",
     icon: Package,
-    description: "T-Shirt + Workbook bundle. Best value for new apprentices.",
+    description: "T-Shirt + Workbook bundle. Best value for new trainees.",
     badge: "Best Value",
   },
   {

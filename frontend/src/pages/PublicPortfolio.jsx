@@ -41,12 +41,12 @@ export default function PublicPortfolio() {
               <div className="font-heading font-bold">{BRAND.name}</div>
             </div>
           </Link>
-          <span className="overline text-signal">Public Apprentice Portfolio</span>
+          <span className="overline text-signal">Public Trainee Portfolio</span>
         </div>
       </header>
 
       <div className="max-w-5xl mx-auto px-6 py-10">
-        <div className="overline text-copper">Apprentice</div>
+        <div className="overline text-copper">Workforce Trainee</div>
         <h1 className="font-heading text-5xl font-bold mt-2">{data.user.full_name}</h1>
         {data.user.associate && <div className="overline text-ink/60 mt-2">{data.user.associate}</div>}
         {data.bio && <p className="text-lg text-ink/70 mt-6 max-w-3xl">{data.bio}</p>}

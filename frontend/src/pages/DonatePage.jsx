@@ -37,7 +37,7 @@ export default function DonatePage() {
         <h1 className="font-heading text-3xl font-bold text-ink">Support the WAI Mission</h1>
       </div>
       <p className="text-ink/60 mb-8">
-        Your donation directly funds apprentice scholarships, lab equipment, and the M.O.R.E. community
+        Your donation directly funds workforce training scholarships, lab equipment, and the M.O.R.E. community
         platform. Every dollar keeps the path to a skilled trade open for the next generation.
       </p>
 

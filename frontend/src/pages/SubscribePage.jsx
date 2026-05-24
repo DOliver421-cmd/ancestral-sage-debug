@@ -68,7 +68,7 @@ export default function SubscribePage() {
         <h1 className="font-heading text-3xl font-bold text-ink">M.O.R.E. Membership</h1>
       </div>
       <p className="text-ink/60 mb-8 max-w-xl">
-        M.O.R.E. (Mutual Outreach &amp; Resource Exchange) connects apprentices and community members
+        M.O.R.E. (Michael Oliver Resource Exchange) connects learners and community members
         with real support — housing, legal help, tools, and more. Membership funds the platform and
         keeps it free for those who need it most.
       </p>
