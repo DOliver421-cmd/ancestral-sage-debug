@@ -19,17 +19,34 @@ logger = logging.getLogger("partnership.points")
 POINTS_COLLECTION = "partnership_points"         # one running-total doc per user
 LEDGER_COLLECTION = "partnership_points_ledger"  # append-only audit trail
 
-# Membership ladder — aligned to frontend/src/lib/partnership_pricing.js.
+# Membership ladder — 20-rung partnership progression (NAM Oshun's design).
 # (name, min_points), ordered low -> high.
 TIERS = [
-    ("Seed", 0),
-    ("Rooted", 100),
-    ("Builder", 300),
-    ("Steward", 800),
-    ("Elder", 2000),
+    ("Seed I", 0),
+    ("Seed II", 300),
+    ("Seed III", 700),
+    ("Rooted I", 1200),
+    ("Rooted II", 1800),
+    ("Rooted III", 2500),
+    ("Builder I", 3500),
+    ("Builder II", 5000),
+    ("Builder III", 7000),
+    ("Steward I", 9500),
+    ("Steward II", 12500),
+    ("Steward III", 16000),
+    ("Griot", 20000),
+    ("Sankofa", 25000),
+    ("Ubuntu", 31000),
+    ("Elder I", 38000),
+    ("Elder II", 46000),
+    ("Elder III", 55000),
+    ("Ancestor", 65000),
+    ("Sovereign", 80000),
 ]
-# Free Basic membership unlocks at Rooted (reachable, per the earned-membership design).
-MEMBERSHIP_UNLOCK_TIER = "Rooted"
+# Free Basic membership stays reachable: it unlocks by POINTS (decoupled from the
+# 20 tier names) so the "earn your way to a free membership" intent survives the
+# longer ladder. Reaching the 2nd rung (Seed II) earns it.
+MEMBERSHIP_UNLOCK_POINTS = 300
 
 
 def _rank(tier_name: str) -> int:
@@ -54,7 +71,7 @@ def tier_for(points) -> dict:
         "points": points,
         "tier": current[0],
         "tier_min": current[1],
-        "membership_unlocked": _rank(current[0]) >= _rank(MEMBERSHIP_UNLOCK_TIER),
+        "membership_unlocked": points >= MEMBERSHIP_UNLOCK_POINTS,
         "next_tier": nxt[0] if nxt else None,
         "points_to_next": max(0, nxt[1] - points) if nxt else 0,
     }

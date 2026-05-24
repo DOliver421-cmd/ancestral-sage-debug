@@ -258,6 +258,7 @@ export default function ExecSystem() {
                 <QuickAction icon={Activity}     label="Analytics"           to="/admin/analytics"   color="#0891b2" />
                 <QuickAction icon={Scale}        label="M.O.R.E. Admin"      to="/more/admin"        color="#059669" />
                 <QuickAction icon={MessageSquare} label="Council of Elders"  to="/council"           color="#1d4ed8" />
+                <QuickAction icon={Crown}        label="Set Sovereign Face"  to="/avatar-setup"      color="#059669" />
                 <QuickAction icon={Cog}          label="Admin Dashboard"     to="/admin"             color="#64748b" />
               </div>
             </div>

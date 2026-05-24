@@ -59,6 +59,7 @@ export default function PlaylistDashboard() {
     }
   };
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional: load once on mount
   useEffect(() => { load(); }, []);
 
   const createGateway = async (e) => {

@@ -56,6 +56,8 @@ import PaymentSuccess from "./pages/PaymentSuccess";
 import PaymentCancel from "./pages/PaymentCancel";
 import PaymentHistory from "./pages/PaymentHistory";
 import AdminPayments from "./pages/AdminPayments";
+import AvatarSetup from "./pages/AvatarSetup";
+import SovereignChat from "./components/SovereignChat";
 
 // Role hierarchy must mirror backend ROLE_RANK in /app/backend/server.py.
 // Higher rank = more authority; a higher-rank role passes any check meant
@@ -92,6 +94,7 @@ function App() {
         <ErrorBoundary>
         <Toaster position="top-right" richColors />
         <DirectorWidget />
+        <SovereignChat />
         <Routes>
           <Route path="/" element={<Home />} />
           <Route path="/login" element={<Login />} />
@@ -102,6 +105,12 @@ function App() {
           <Route path="/helper" element={<Helper requireAuth={false} />} />
           <Route path="/app/helper" element={<Helper requireAuth={true} />} />
           <Route path="/dashboard" element={<Protected><StudentDashboard /></Protected>} />
+          {/* Dashboard aliases (handoff routing scheme) — same pages, role-gated */}
+          <Route path="/dashboard/student" element={<Protected><StudentDashboard /></Protected>} />
+          <Route path="/dashboard/exec" element={<Protected roles={["executive_admin"]}><ExecSystem /></Protected>} />
+          <Route path="/dashboard/admin" element={<Protected roles={["admin"]}><AdminDashboard /></Protected>} />
+          <Route path="/dashboard/instructor" element={<Protected roles={["instructor", "admin"]}><InstructorDashboard /></Protected>} />
+          <Route path="/avatar-setup" element={<Protected><AvatarSetup /></Protected>} />
           <Route path="/instructor" element={<Protected roles={["instructor", "admin"]}><InstructorDashboard /></Protected>} />
           <Route path="/admin" element={<Protected roles={["admin"]}><AdminDashboard /></Protected>} />
           <Route path="/admin/users" element={<Protected roles={["admin"]}><AdminDashboard /></Protected>} />

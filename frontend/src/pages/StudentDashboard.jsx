@@ -1,9 +1,12 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import AppShell from "../components/AppShell";
 import { api } from "../lib/api";
 import { Link } from "react-router-dom";
 import { useAuth } from "../lib/auth";
 import { ArrowRight, Award, BookOpen, Clock, Flame, Zap } from "lucide-react";
+import PuzzleCard from "../components/PuzzleCard";
+import PartnershipProgress from "../components/PartnershipProgress";
+import SovereignAvatar from "../components/SovereignAvatar";
 
 const DAILY_VERSES = [
   { ref: "Proverbs 22:29", text: "Do you see someone skilled in their work? They will serve before kings." },
@@ -19,13 +22,19 @@ export default function StudentDashboard() {
   const [progress, setProgress] = useState([]);
   const [certs, setCerts] = useState([]);
   const [xp, setXp] = useState(null);
+  const [partnership, setPartnership] = useState(null);
+
+  const refreshPartnership = useCallback(() => {
+    api.get("/partnership/status").then((r) => setPartnership(r.data)).catch(() => {});
+  }, []);
 
   useEffect(() => {
     api.get("/modules").then((r) => setModules(r.data));
     api.get("/progress/me").then((r) => setProgress(r.data));
     api.get("/certificates/me").then((r) => setCerts(r.data));
     api.get("/xp/me").then((r) => setXp(r.data)).catch(() => {});
-  }, []);
+    refreshPartnership();
+  }, [refreshPartnership]);
 
   const verse = DAILY_VERSES[new Date().getDate() % DAILY_VERSES.length];
   const completed = progress.filter((p) => p.status === "completed").length;
@@ -131,6 +140,16 @@ export default function StudentDashboard() {
           </div>
 
           <aside className="space-y-6">
+            <div className="card-flat p-6 flex items-center gap-4" data-testid="guide-card">
+              <SovereignAvatar size={56} name={user?.full_name || "Guide"} />
+              <div>
+                <div className="overline text-copper">Your Guide</div>
+                <div className="font-heading font-bold leading-tight">AI Tutor</div>
+                <Link to="/ai" className="text-sm font-bold text-copper" data-testid="link-tutor">Open Tutor →</Link>
+              </div>
+            </div>
+            <PartnershipProgress status={partnership} />
+            <PuzzleCard onSolved={refreshPartnership} />
             <div className="bg-ink text-white p-6" data-testid="devotional-card">
               <div className="overline text-signal">Today's Devotional</div>
               <div className="font-heading text-lg font-semibold mt-4 leading-snug">"{verse.text}"</div>

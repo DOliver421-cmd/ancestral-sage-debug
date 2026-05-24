@@ -127,3 +127,33 @@ input, textarea, select {
 }
 
 ::selection { background: #FFD100; color: #0B203F; }
+
+/* ── W.A.I. integrated design tokens (Sovereign / themed spaces) ──────────────
+   Additive only — these do NOT alter the existing blueprint front-door theme
+   above. Used by the exec/Sovereign dashboard, Members' Palace (Zamunda) and
+   Elder Council (Egyptian) spaces. */
+:root {
+  --wai-dark: #0a0a0f;
+  --wai-navy: #0d1b2a;
+  --wai-purple: #2e1065;
+  --wai-gold: #d4af37;
+  --wai-gold-light: #f0d060;
+  --wai-emerald: #064e3b;
+  --wai-blue: #0ea5e9;
+  --wai-amber: #f59e0b;
+  --wai-text: #f1f0fb;
+  --wai-muted: #94a3b8;
+  --wai-border: rgba(212,175,55,0.2);
+  --zam-gold: #c9a84c;
+  --egypt-sand: #c8a96e;
+}
+
+/* Sovereign "busy" pulse — the avatar's always-working amber dot. */
+@keyframes wai-busy-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(245,158,11,0.55); }
+  50% { box-shadow: 0 0 0 6px rgba(245,158,11,0); }
+}
+.wai-busy-dot {
+  width: 10px; height: 10px; border-radius: 9999px;
+  background: var(--wai-amber); animation: wai-busy-pulse 1.8s infinite;
+}
