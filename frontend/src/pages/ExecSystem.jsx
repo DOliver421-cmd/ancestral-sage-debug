@@ -111,19 +111,19 @@ export default function ExecSystem() {
 
   return (
     <AppShell>
-      <div className="px-6 lg:px-10 py-8 max-w-7xl" style={{ background: "#f8f7f4", minHeight: "100vh" }}>
+      <div className="px-6 lg:px-10 py-8 max-w-7xl" style={{ background: "linear-gradient(160deg,#06251c,#0a0a0f 70%)", minHeight: "100vh", color: "var(--wai-text)" }}>
 
         {/* ── Header ───────────────────────────────────────────────────────── */}
         <div className="flex items-start justify-between flex-wrap gap-4 mb-8">
           <div>
             <div className="flex items-center gap-2 mb-1">
-              <Crown className="w-5 h-5 text-amber-500" />
-              <span className="text-xs font-bold uppercase tracking-widest text-amber-600">Executive Command</span>
+              <Crown className="w-5 h-5" style={{ color: "var(--wai-gold)" }} />
+              <span className="text-xs font-bold uppercase tracking-widest" style={{ color: "var(--wai-gold-light)" }}>Sovereign Command · Zamunda</span>
             </div>
-            <h1 className="font-heading text-3xl lg:text-4xl font-extrabold text-slate-900">
+            <h1 className="font-heading text-3xl lg:text-4xl font-extrabold" style={{ color: "var(--wai-gold-light)" }}>
               WAI-Institute Platform
             </h1>
-            <p className="text-slate-500 text-sm mt-1">
+            <p className="text-sm mt-1" style={{ color: "rgba(241,240,251,0.6)" }}>
               {lastSync
                 ? <>Last refreshed {ts(lastSync)} · <span className="text-emerald-600 font-semibold">All systems checked</span></>
                 : "Loading…"}

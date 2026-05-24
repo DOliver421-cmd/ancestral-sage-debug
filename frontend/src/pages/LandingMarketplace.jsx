@@ -154,25 +154,28 @@ export default function LandingMarketplace() {
   return (
     <div className="min-h-screen bg-bone text-ink">
 
-      {/* ── Header ─────────────────────────────────────────────────────── */}
-      <header className="border-b border-ink/10 bg-bone sticky top-0 z-40">
+      {/* Pan-African accent bar */}
+      <div style={{ height: 6, background: "linear-gradient(90deg,#c1121f 0 33.33%,#111 33.33% 66.66%,#0b6e4f 66.66%)" }} />
+
+      {/* ── Header (festival) ──────────────────────────────────────────── */}
+      <header className="sticky top-0 z-40" style={{ background: "linear-gradient(135deg,#2e1065,#4c1d95)", borderBottom: "3px solid var(--wai-gold)" }}>
         <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
           <Link to="/" className="flex items-center gap-3">
-            <img src={WAI_LOGO} alt="W.A.I." className="w-12 h-12 object-contain" style={{ mixBlendMode: "multiply" }} />
+            <img src={WAI_LOGO} alt="W.A.I." className="w-12 h-12 object-contain" />
             <div>
-              <div className="overline text-copper leading-none">{BRAND.short}</div>
-              <div className="font-heading font-bold text-sm leading-tight">{BRAND.name}</div>
+              <div className="overline leading-none" style={{ color: "var(--wai-gold-light)" }}>{BRAND.short}</div>
+              <div className="font-heading font-bold text-sm leading-tight text-white">{BRAND.name}</div>
             </div>
           </Link>
           <nav className="flex items-center gap-4">
-            <Link to="/more" className="flex items-center gap-1.5 text-sm font-bold text-amber-600 hover:text-amber-500 border border-amber-300 hover:border-amber-500 px-3 py-1 rounded-full transition-colors">
+            <Link to="/more" className="flex items-center gap-1.5 text-sm font-bold px-3 py-1 rounded-full transition-transform hover:scale-105" style={{ color: "#1a0b2e", background: "var(--wai-gold)" }}>
               <Heart className="w-3.5 h-3.5" /> M.O.R.E. Hub
             </Link>
-            <a href="#community" className="text-sm font-medium hover:text-copper hidden sm:block">Community</a>
-            <a href="#music" className="text-sm font-medium hover:text-copper hidden sm:block">Music & Arts</a>
-            <a href="#creators" className="text-sm font-medium hover:text-copper hidden sm:block">For Creators</a>
-            <Link to="/login" className="text-sm font-bold uppercase tracking-widest hover:text-copper">Sign in</Link>
-            <Link to="/register" className="btn-copper text-sm">Join Us</Link>
+            <a href="#community" className="text-sm font-medium text-white/80 hover:text-white hidden sm:block">Community</a>
+            <a href="#music" className="text-sm font-medium text-white/80 hover:text-white hidden sm:block">Music & Arts</a>
+            <a href="#creators" className="text-sm font-medium text-white/80 hover:text-white hidden sm:block">For Creators</a>
+            <Link to="/login" className="text-sm font-bold uppercase tracking-widest text-white/90 hover:text-white">Sign in</Link>
+            <Link to="/register" className="text-sm font-bold px-4 py-2 rounded transition-transform hover:scale-105" style={{ background: "var(--wai-gold)", color: "#1a0b2e" }}>Join Us</Link>
           </nav>
         </div>
       </header>
@@ -193,36 +196,36 @@ export default function LandingMarketplace() {
         </div>
       </div>
 
-      {/* ── Hero ───────────────────────────────────────────────────────── */}
-      <section className="relative overflow-hidden bg-gradient-to-b from-bone via-copper/5 to-bone/50 py-32">
-        <div className="absolute inset-0 grid-paper opacity-10 pointer-events-none" />
+      {/* ── Hero (festival street-market) ──────────────────────────────── */}
+      <section className="relative overflow-hidden py-32" style={{ background: "radial-gradient(900px 500px at 50% -5%, rgba(212,175,55,0.25), transparent), linear-gradient(165deg,#2e1065,#1a0a36 70%)" }}>
+        <div className="absolute inset-0 pointer-events-none" style={{ opacity: 0.08, backgroundImage: "repeating-linear-gradient(45deg, var(--wai-gold) 0 2px, transparent 2px 26px)" }} />
         <div className="max-w-7xl mx-auto px-6 relative">
           <div className="text-center max-w-3xl mx-auto">
-            <div className="inline-flex items-center gap-2 mb-6 px-4 py-2 bg-copper/10 border border-copper text-copper rounded-full text-sm font-bold">
-              <Sparkles className="w-4 h-4" /> Mutual Aid · Skill Exchange · Community Power
+            <div className="inline-flex items-center gap-2 mb-6 px-4 py-2 rounded-full text-sm font-bold" style={{ background: "rgba(212,175,55,0.15)", border: "1px solid var(--wai-gold)", color: "var(--wai-gold-light)" }}>
+              🥁 A festival of mutual aid, skill &amp; culture
             </div>
-            <h1 className="font-heading text-6xl sm:text-7xl font-extrabold leading-tight mb-6">
-              You're the <span className="text-copper">teachers.</span><br />
-              You're the <span className="text-copper">makers.</span><br />
-              You're the <span className="text-copper">healers.</span>
+            <h1 className="font-heading text-6xl sm:text-7xl font-extrabold leading-tight mb-6 text-white">
+              You're the <span style={{ color: "var(--wai-gold-light)" }}>teachers.</span><br />
+              You're the <span style={{ color: "var(--wai-gold-light)" }}>makers.</span><br />
+              You're the <span style={{ color: "var(--wai-gold-light)" }}>healers.</span>
             </h1>
-            <p className="text-xl text-ink/70 leading-relaxed mb-8 max-w-2xl mx-auto">
+            <p className="text-xl leading-relaxed mb-8 max-w-2xl mx-auto" style={{ color: "rgba(241,240,251,0.82)" }}>
               Our communities have always built from within — teaching each other, trading skills, showing up when systems don't.
               W.A.I. Institute exists to support what we already do. Keep your knowledge. Keep your earnings. Keep your power.
             </p>
             <div className="flex flex-wrap justify-center gap-4 mb-20">
-              <Link to="/more" className="btn-copper inline-flex items-center gap-2 text-lg">
+              <Link to="/more" className="inline-flex items-center gap-2 text-lg font-bold px-6 py-3 rounded transition-transform hover:scale-105" style={{ background: "var(--wai-gold)", color: "#1a0b2e" }}>
                 <Heart className="w-5 h-5" /> Enter the M.O.R.E. Hub
               </Link>
-              <Link to="/register" className="btn-primary inline-flex items-center gap-2 text-lg">
+              <Link to="/register" className="inline-flex items-center gap-2 text-lg font-bold px-6 py-3 rounded transition-transform hover:scale-105" style={{ border: "2px solid var(--wai-gold)", color: "var(--wai-gold-light)" }}>
                 Join The Community <ArrowRight className="w-5 h-5" />
               </Link>
             </div>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-6 max-w-2xl mx-auto">
               {IMPACT.map((item) => (
-                <div key={item.label} className="p-4 bg-white/50 border border-ink/10 rounded-lg backdrop-blur">
-                  <div className={`text-3xl font-black ${item.color}`}>{item.number}</div>
-                  <div className="text-xs text-ink/60 mt-1">{item.label}</div>
+                <div key={item.label} className="p-4 rounded-lg" style={{ background: "rgba(255,255,255,0.05)", border: "1px solid var(--wai-border)" }}>
+                  <div className="text-3xl font-black" style={{ color: "var(--wai-gold-light)" }}>{item.number}</div>
+                  <div className="text-xs mt-1" style={{ color: "rgba(241,240,251,0.6)" }}>{item.label}</div>
                 </div>
               ))}
             </div>
@@ -239,7 +242,7 @@ export default function LandingMarketplace() {
               This is not for everyone.<br />It's for us.
             </h2>
             <p className="text-white/80 max-w-2xl mx-auto text-base leading-relaxed">
-              Black creators. Indigenous artists. Working-class teachers. Healers who learned from their grandmothers.
+              Creators. Artists. Working-class teachers. Healers who learned from their grandmothers.
               Poets who performed in barbershops before anyone gave them a stage.
               The communities that built everything — and were written out of the ownership.
             </p>
@@ -248,7 +251,7 @@ export default function LandingMarketplace() {
             {[
               {
                 icon: "🌍",
-                title: "Black & BIPOC Creators",
+                title: "Creators & Culture-Builders",
                 body: "Platforms built to extract from us don't deserve our content. This one was built by us, designed around our communities, and structured so we keep what we earn.",
               },
               {
@@ -605,7 +608,7 @@ export default function LandingMarketplace() {
               <div className="text-4xl mb-4">📢</div>
               <h3 className="font-heading font-extrabold text-xl mb-2">Advertise With Us</h3>
               <p className="text-ink/60 text-sm leading-relaxed mb-5">
-                Reach Black creators, artists, musicians, and community builders. Ethical advertising only —
+                Reach creators, artists, musicians, and community builders. Ethical advertising only —
                 no surveillance, no data mining. Sponsors who align with community values only.
               </p>
               <a href="mailto:ads@wai-institute.org" className="inline-flex items-center gap-1.5 text-sm font-bold text-amber-700 hover:text-amber-600 transition-colors">

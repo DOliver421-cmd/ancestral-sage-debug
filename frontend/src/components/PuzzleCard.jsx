@@ -1,57 +1,46 @@
 import { useCallback, useEffect, useState } from "react";
 import { api } from "../lib/api";
 import { useAuth } from "../lib/auth";
-import { Brain, Check, Lightbulb, X } from "lucide-react";
+import { Brain, Check, X, Flame, Trophy, Star } from "lucide-react";
 
-// Daily puzzle wired to the real backend:
-//   GET  /api/puzzles/next   -> { done, level, solved_count, requires_login_to_earn, puzzle:{id,level,points,question,hints_shown[],hints_available} }
-//   POST /api/puzzles/answer -> correct: { correct, points_awarded, duplicate, status, next_level }
-//                               wrong:   { correct:false, try_again, hint, hints_shown[] }
-// Backend uses free-text answers + progressive hints (NOT multiple choice).
-// Points vary per puzzle (10–75). On a correct, points-earning solve we cycle to
-// the next puzzle after 3.2s and tell the parent to refresh partnership status.
+// Daily puzzle — A/B/C/D multiple choice. Choices come from the backend
+// (GET /puzzles/next), the answer is verified server-side (POST /puzzles/answer),
+// and partnership points are awarded on a correct, logged-in solve. Wrong answers
+// reveal the correct one and deduct nothing. Cycles to the next puzzle after 3.2s.
 export default function PuzzleCard({ onSolved }) {
   const { user } = useAuth();
   const [data, setData] = useState(null);
-  const [answer, setAnswer] = useState("");
   const [result, setResult] = useState(null);
-  const [hints, setHints] = useState([]);
+  const [picked, setPicked] = useState(null);
   const [submitting, setSubmitting] = useState(false);
+  const [stats, setStats] = useState({ streak: 0, correct: 0, points: 0 });
 
   const load = useCallback(() => {
     setResult(null);
-    setAnswer("");
-    setHints([]);
-    api
-      .get("/puzzles/next")
-      .then((r) => {
-        setData(r.data);
-        setHints(r.data?.puzzle?.hints_shown || []);
-      })
-      .catch(() => setData(null));
+    setPicked(null);
+    setSubmitting(false);
+    api.get("/puzzles/next").then((r) => setData(r.data)).catch(() => setData(null));
   }, []);
 
   useEffect(() => {
     load();
   }, [load]);
 
-  const submit = async (e) => {
-    e.preventDefault();
-    if (!answer.trim() || submitting || !data?.puzzle) return;
+  const choose = async (choice) => {
+    if (submitting || result || !data?.puzzle) return;
+    setPicked(choice);
     setSubmitting(true);
     try {
-      const r = await api.post("/puzzles/answer", { puzzle_id: data.puzzle.id, answer });
+      const r = await api.post("/puzzles/answer", { puzzle_id: data.puzzle.id, answer: choice });
       setResult(r.data);
-      if (r.data.correct) {
-        if (r.data.points_awarded > 0 && onSolved) onSolved();
-        setTimeout(load, 3200);
-      } else {
-        if (r.data.hints_shown) setHints(r.data.hints_shown);
-        setAnswer("");
-      }
+      setStats((s) =>
+        r.data.correct
+          ? { streak: s.streak + 1, correct: s.correct + 1, points: s.points + (r.data.points_awarded || 0) }
+          : { streak: 0, correct: s.correct, points: s.points }
+      );
+      if (r.data.correct && r.data.points_awarded > 0 && onSolved) onSolved();
+      setTimeout(load, 3200);
     } catch {
-      /* global axios interceptor surfaces errors */
-    } finally {
       setSubmitting(false);
     }
   };
@@ -64,14 +53,15 @@ export default function PuzzleCard({ onSolved }) {
         <div className="overline text-copper flex items-center gap-2">
           <Brain className="w-4 h-4" /> Daily Puzzle
         </div>
-        <div className="font-heading text-xl font-bold mt-3">
-          {data.message || "You've solved them all."}
-        </div>
+        <div className="font-heading text-xl font-bold mt-3">{data.message || "You've solved them all."}</div>
       </div>
     );
   }
 
   const p = data.puzzle;
+  const choices = data.choices || [];
+  const letters = ["A", "B", "C", "D", "E"];
+
   return (
     <div className="card-flat p-6" data-testid="puzzle-card">
       <div className="flex items-center justify-between">
@@ -83,70 +73,65 @@ export default function PuzzleCard({ onSolved }) {
 
       <div className="font-heading text-lg font-semibold mt-4 leading-snug">{p.question}</div>
 
-      {hints.length > 0 && (
-        <div className="mt-4 space-y-1">
-          {hints.map((h, i) => (
-            <div key={i} className="flex items-start gap-2 text-sm text-ink/70">
-              <Lightbulb className="w-4 h-4 text-signal mt-0.5 shrink-0" />
-              <span>{h}</span>
-            </div>
-          ))}
+      <div className="grid gap-2 mt-4">
+        {choices.map((c, i) => {
+          const isPicked = picked === c;
+          const isCorrectChoice =
+            result &&
+            (result.correct
+              ? isPicked
+              : result.correct_answer && c.toLowerCase() === String(result.correct_answer).toLowerCase());
+          const isWrongPick = result && isPicked && !result.correct;
+          let cls = "border-ink/15 hover:border-copper";
+          if (isCorrectChoice) cls = "border-signal bg-signal/20";
+          else if (isWrongPick) cls = "border-destructive bg-destructive/10";
+          return (
+            <button
+              key={i}
+              onClick={() => choose(c)}
+              disabled={!!result || submitting}
+              data-testid={`puzzle-choice-${i}`}
+              className={`text-left px-4 py-3 border rounded transition-colors flex items-center gap-3 disabled:cursor-default ${cls}`}
+            >
+              <span className="font-heading font-black text-copper w-5 shrink-0">{letters[i]}</span>
+              <span className="text-sm text-ink">{c}</span>
+              {isCorrectChoice && <Check className="w-4 h-4 text-ink ml-auto shrink-0" />}
+              {isWrongPick && <X className="w-4 h-4 text-destructive ml-auto shrink-0" />}
+            </button>
+          );
+        })}
+      </div>
+
+      {result && (
+        <div className="mt-4 text-sm font-bold" data-testid="puzzle-result">
+          {result.correct ? (
+            <span className="text-ink">
+              Correct!{" "}
+              {result.points_awarded > 0
+                ? `+${result.points_awarded} pts`
+                : result.requires_login_to_earn
+                ? "— sign in to bank points"
+                : ""}{" "}
+              {result.status?.tier ? `· ${result.status.tier}` : ""}
+            </span>
+          ) : (
+            <span className="text-ink/70">
+              Answer: <span className="text-ink">{result.correct_answer}</span>. Next one coming…
+            </span>
+          )}
         </div>
       )}
 
-      {result?.correct ? (
-        <div
-          className="mt-5 p-4 bg-signal/20 border border-signal flex items-center gap-3"
-          data-testid="puzzle-correct"
-        >
-          <Check className="w-5 h-5 text-ink shrink-0" />
-          <div className="font-bold text-ink">
-            {result.points_awarded > 0
-              ? `Correct! +${result.points_awarded} points${result.status?.tier ? ` — now ${result.status.tier}.` : "."}`
-              : result.requires_login_to_earn
-              ? "Correct! Create a free account to bank these points toward membership."
-              : "Correct!"}
-          </div>
-        </div>
-      ) : (
-        <form onSubmit={submit} className="mt-5">
-          {result && result.correct === false && (
-            <div
-              className="mb-3 flex items-center gap-2 text-sm text-destructive"
-              data-testid="puzzle-wrong"
-            >
-              <X className="w-4 h-4 shrink-0" /> Not quite — here's another hint. Try again.
-            </div>
-          )}
-          <input
-            value={answer}
-            onChange={(e) => setAnswer(e.target.value)}
-            placeholder="Your answer…"
-            data-testid="puzzle-input"
-            className="border border-ink/20 px-4 py-3 w-full"
-          />
-          <div className="flex items-center justify-between mt-3">
-            <div className="text-xs text-ink/60 font-mono">Solved: {data.solved_count ?? 0}</div>
-            <button
-              type="submit"
-              disabled={submitting}
-              className="btn-primary text-sm disabled:opacity-50"
-              data-testid="puzzle-submit"
-            >
-              {submitting ? "Checking…" : "Submit"}
-            </button>
-          </div>
-          {!user && (
-            <div className="text-xs text-ink/60 mt-3">
-              Playing as a guest —{" "}
-              <a className="text-copper font-bold" href="/register">
-                create a free account
-              </a>{" "}
-              to earn points.
-            </div>
-          )}
-        </form>
-      )}
+      <div className="flex items-center gap-4 mt-5 pt-4 border-t border-ink/10 text-xs">
+        <span className="flex items-center gap-1 text-ink/70"><Flame className="w-3.5 h-3.5 text-copper" /> Streak {stats.streak}</span>
+        <span className="flex items-center gap-1 text-ink/70"><Trophy className="w-3.5 h-3.5 text-copper" /> Correct {stats.correct}</span>
+        <span className="flex items-center gap-1 text-ink/70"><Star className="w-3.5 h-3.5 text-copper" /> {stats.points} pts</span>
+        {!user && (
+          <span className="ml-auto text-ink/50">
+            Guest — <a href="/register" className="text-copper font-bold">join</a> to earn
+          </span>
+        )}
+      </div>
     </div>
   );
 }

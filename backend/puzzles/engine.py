@@ -13,6 +13,7 @@ puzzles/engine.py — escalating puzzle game that awards partnership points.
 SAFETY: db wrappers guard all failures; pure helpers are deterministic + unit-tested.
 """
 import logging
+import random
 import re
 
 from partnership import points as points_engine
@@ -129,6 +130,24 @@ def _public(puzzle: dict, hints_shown: int = 0) -> dict:
     }
 
 
+def _choices(puzzle: dict):
+    """4 multiple-choice options (correct + 3 distractors from other puzzles' answers), shuffled."""
+    if not puzzle:
+        return []
+    correct = (puzzle.get("answers") or ["?"])[0]
+    pool = []
+    for q in _BANK:
+        if q["id"] == puzzle["id"]:
+            continue
+        a = (q.get("answers") or [None])[0]
+        if a and a.lower() != correct.lower() and a not in pool:
+            pool.append(a)
+    random.shuffle(pool)
+    opts = [correct] + pool[:3]
+    random.shuffle(opts)
+    return opts
+
+
 async def _get_progress(db, user_id: str) -> dict:
     default = {"solved": [], "level": 1, "attempts": {}}
     if db is None or not user_id:
@@ -157,6 +176,7 @@ async def next_puzzle(db, user_id: str) -> dict:
     shown = int((prog.get("attempts") or {}).get(p["id"], 0))
     return {"done": False, "level": level, "solved_count": len(prog["solved"]),
             "requires_login_to_earn": not bool(user_id),
+            "choices": _choices(p),
             "puzzle": _public(p, hints_shown=shown)}
 
 
@@ -185,6 +205,7 @@ async def submit_answer(db, user_id: str, puzzle_id: str, answer: str) -> dict:
             except Exception as e:
                 logger.error(f"puzzle attempt persist failed: {e}")
         return {"correct": False, "try_again": True,
+                "correct_answer": (p.get("answers") or [None])[0],
                 "hint": hints[shown - 1] if 0 < shown <= len(hints) else None,
                 "hints_shown": hints[:shown]}
 

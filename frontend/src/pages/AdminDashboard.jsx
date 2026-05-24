@@ -13,6 +13,7 @@ import {
   Flag,
   Lock,
 } from "lucide-react";
+import BackButton from "../components/BackButton";
 
 /**
  * Moderation & Governance Dashboard
@@ -159,15 +160,17 @@ export default function AdminDashboard() {
   };
 
   return (
-    <div className="min-h-screen bg-bone text-ink">
-      {/* Header */}
-      <div className="border-b border-ink/10 bg-white">
+    <div className="min-h-screen" style={{ background: "linear-gradient(180deg,#0a0f1e,#0d1b2a)", color: "#e2e8f0" }}>
+      {/* Header — LCARS console */}
+      <div style={{ background: "#060d1a", borderBottom: "2px solid var(--wai-blue)" }}>
         <div className="max-w-7xl mx-auto px-6 py-8">
-          <h1 className="font-heading text-4xl font-bold mb-2">Moderation & Governance</h1>
-          <p className="text-ink/60">Manage community content, handle reports, and escalate to leadership</p>
-          <div className="mt-4 text-sm text-ink/70">
+          <BackButton to="/admin/system" label="Back to Command" style={{ color: "var(--wai-blue)" }} />
+          <div className="mt-4" style={{ fontFamily: "'IBM Plex Mono', monospace", color: "var(--wai-blue)", letterSpacing: "0.2em", fontSize: 12, fontWeight: 700 }}>LCARS · GOVERNANCE CONSOLE</div>
+          <h1 className="font-heading text-4xl font-bold mb-2 mt-1 text-white">Moderation &amp; Governance</h1>
+          <p style={{ color: "#94a3b8" }}>Manage community content, handle reports, and escalate to leadership</p>
+          <div className="mt-4 text-sm" style={{ color: "#cbd5e1" }}>
             Role: <span className="font-bold capitalize">{userRole}</span>
-            {canEscalate && <span className="ml-4 text-copper">✓ Can escalate to Director</span>}
+            {canEscalate && <span className="ml-4" style={{ color: "var(--wai-blue)" }}>✓ Can escalate to Director</span>}
             {canDelete && <span className="ml-4">✓ Can delete/ban</span>}
           </div>
         </div>
@@ -175,13 +178,13 @@ export default function AdminDashboard() {
 
       {/* Tabs */}
       <div className="max-w-7xl mx-auto px-6">
-        <div className="border-b border-ink/10 flex gap-8 mt-0">
+        <div className="flex gap-8 mt-0" style={{ borderBottom: "1px solid rgba(255,255,255,0.1)" }}>
           <button
             onClick={() => setActiveTab("reports")}
             className={`py-4 font-bold border-b-2 transition-all ${
               activeTab === "reports"
                 ? "border-red-600 text-red-600"
-                : "border-transparent text-ink/60 hover:text-ink"
+                : "border-transparent text-white/50 hover:text-white"
             }`}
           >
             🚨 Reported Content ({reports.filter(r => r.status === "open").length})
@@ -191,7 +194,7 @@ export default function AdminDashboard() {
             className={`py-4 font-bold border-b-2 transition-all ${
               activeTab === "suspicious"
                 ? "border-orange-600 text-orange-600"
-                : "border-transparent text-ink/60 hover:text-ink"
+                : "border-transparent text-white/50 hover:text-white"
             }`}
           >
             ⚠️ Suspicious Users ({suspiciousUsers.length})
@@ -201,7 +204,7 @@ export default function AdminDashboard() {
             className={`py-4 font-bold border-b-2 transition-all ${
               activeTab === "actions"
                 ? "border-copper text-copper"
-                : "border-transparent text-ink/60 hover:text-ink"
+                : "border-transparent text-white/50 hover:text-white"
             }`}
           >
             📋 Action Log ({actionLog.length})

@@ -16,10 +16,10 @@ html {
   --card-foreground: 220 40% 8%;
   --popover: 0 0% 100%;
   --popover-foreground: 220 40% 8%;
-  --primary: 219 71% 15%;
+  --primary: 263 76% 23%;
   --primary-foreground: 0 0% 100%;
-  --secondary: 22 59% 50%;
-  --secondary-foreground: 0 0% 100%;
+  --secondary: 43 89% 38%;
+  --secondary-foreground: 263 80% 12%;
   --muted: 220 14% 90%;
   --muted-foreground: 220 10% 35%;
   --accent: 51 100% 50%;
@@ -28,7 +28,7 @@ html {
   --destructive-foreground: 0 0% 100%;
   --border: 220 13% 82%;
   --input: 220 13% 82%;
-  --ring: 219 71% 15%;
+  --ring: 263 76% 23%;
   --radius: 0.25rem;
 }
 
@@ -68,7 +68,7 @@ code, pre { font-family: 'IBM Plex Mono', monospace; }
 }
 
 .hard-shadow-copper {
-  box-shadow: 6px 6px 0 0 #1E5BA8;
+  box-shadow: 6px 6px 0 0 #b8860b;
 }
 
 .card-flat {
@@ -82,51 +82,51 @@ code, pre { font-family: 'IBM Plex Mono', monospace; }
 }
 
 .btn-primary {
-  background: #0B203F;
+  background: #2e1065;
   color: white;
   padding: 0.75rem 1.5rem;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  border: 1px solid #0B203F;
+  border: 1px solid #2e1065;
   transition: all 0.15s ease;
 }
-.btn-primary:hover { background: #0F2B55; box-shadow: 4px 4px 0 #1E5BA8; transform: translate(-2px, -2px); }
+.btn-primary:hover { background: #3d1a75; box-shadow: 4px 4px 0 #b8860b; transform: translate(-2px, -2px); }
 
 .btn-copper {
-  background: #1E5BA8;
-  color: white;
+  background: #b8860b;
+  color: #1a0b2e;
   padding: 0.75rem 1.5rem;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  border: 1px solid #1E5BA8;
+  border: 1px solid #b8860b;
   transition: all 0.15s ease;
 }
-.btn-copper:hover { background: #174B8F; box-shadow: 4px 4px 0 #0B203F; transform: translate(-2px, -2px); }
+.btn-copper:hover { background: #9a7209; box-shadow: 4px 4px 0 #2e1065; transform: translate(-2px, -2px); }
 
 .btn-ghost {
   background: transparent;
-  color: #0B203F;
+  color: #2e1065;
   padding: 0.75rem 1.5rem;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  border: 1px solid #0B203F;
+  border: 1px solid #2e1065;
   transition: all 0.15s ease;
 }
-.btn-ghost:hover { background: #0B203F; color: white; }
+.btn-ghost:hover { background: #2e1065; color: white; }
 
-.badge-signal { background: #FFD100; color: #0B203F; padding: 0.2rem 0.55rem; font-weight: 700; font-size: 0.7rem; letter-spacing: 0.1em; text-transform: uppercase; }
-.badge-copper { background: #1E5BA8; color: white; padding: 0.2rem 0.55rem; font-weight: 700; font-size: 0.7rem; letter-spacing: 0.1em; text-transform: uppercase; }
-.badge-ink { background: #0B203F; color: white; padding: 0.2rem 0.55rem; font-weight: 700; font-size: 0.7rem; letter-spacing: 0.1em; text-transform: uppercase; }
-.badge-outline { background: transparent; color: #0B203F; padding: 0.2rem 0.55rem; font-weight: 700; font-size: 0.7rem; letter-spacing: 0.1em; text-transform: uppercase; border: 1px solid #0B203F; }
+.badge-signal { background: #FFD100; color: #2e1065; padding: 0.2rem 0.55rem; font-weight: 700; font-size: 0.7rem; letter-spacing: 0.1em; text-transform: uppercase; }
+.badge-copper { background: #b8860b; color: #1a0b2e; padding: 0.2rem 0.55rem; font-weight: 700; font-size: 0.7rem; letter-spacing: 0.1em; text-transform: uppercase; }
+.badge-ink { background: #2e1065; color: white; padding: 0.2rem 0.55rem; font-weight: 700; font-size: 0.7rem; letter-spacing: 0.1em; text-transform: uppercase; }
+.badge-outline { background: transparent; color: #2e1065; padding: 0.2rem 0.55rem; font-weight: 700; font-size: 0.7rem; letter-spacing: 0.1em; text-transform: uppercase; border: 1px solid #2e1065; }
 
 input, textarea, select {
   font-family: 'IBM Plex Sans', sans-serif;
 }
 
-::selection { background: #FFD100; color: #0B203F; }
+::selection { background: #FFD100; color: #2e1065; }
 
 /* ── W.A.I. integrated design tokens (Sovereign / themed spaces) ──────────────
    Additive only — these do NOT alter the existing blueprint front-door theme
