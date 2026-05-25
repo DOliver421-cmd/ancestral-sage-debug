@@ -1,6 +1,21 @@
 """
-WAI Institute FastAPI Application Initialization
-Wires together all services: Stripe, database, CRM, billing, etc.
+WAI Institute FastAPI Application Initialization (ALTERNATIVE ENTRY POINT)
+
+NOTE: This is NOT the production entry point.  Production uses `server.py`
+(Dockerfile: `CMD uvicorn server:app`).  This file creates its own FastAPI
+instance using pydantic-settings (backend/config.py) with different env var
+names (MONGODB_URI vs MONGO_URL, etc.).
+
+The billing/CRM routers are ALSO included in server.py via
+`revenue_operations_integration.get_revenue_routers()`, so this file is
+functionally redundant for deployed environments.
+
+Use this to test billing/CRM features in isolation:
+    cd backend
+    uvicorn app_init:app --port 8000
+
+The main production .env is at backend/.env (see backend/.env.example).
+The config.py Settings model uses its own .env.example at project root.
 """
 
 import logging
