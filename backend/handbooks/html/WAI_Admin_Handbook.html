@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>WAI Institute — Admin Handbook</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,600;0,700;1,400&display=swap');
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Cormorant Garamond', Georgia, 'Times New Roman', serif;
+    color: #1a1a1a;
+    line-height: 1.6;
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 60px 40px;
+    background: #faf8f5;
+  }
+  h1 {
+    font-size: 32px;
+    font-weight: 700;
+    color: #1a1a1a;
+    border-bottom: 3px solid #D4AF37;
+    padding-bottom: 12px;
+    margin-bottom: 8px;
+    text-align: center;
+  }
+  .subtitle {
+    text-align: center;
+    font-size: 15px;
+    color: #666;
+    margin-bottom: 40px;
+    font-style: italic;
+  }
+  h2 {
+    font-size: 22px;
+    font-weight: 600;
+    color: #1a1a1a;
+    margin-top: 36px;
+    margin-bottom: 12px;
+    border-bottom: 1px solid #e0d5c0;
+    padding-bottom: 4px;
+  }
+  h3 {
+    font-size: 18px;
+    font-weight: 600;
+    color: #333;
+    margin-top: 24px;
+    margin-bottom: 8px;
+  }
+  h4 {
+    font-size: 16px;
+    font-weight: 600;
+    color: #444;
+    margin-top: 18px;
+    margin-bottom: 6px;
+  }
+  p { margin-bottom: 12px; font-size: 16px; }
+  ul, ol { margin: 8px 0 16px 24px; }
+  li { margin-bottom: 4px; font-size: 16px; }
+  strong { font-weight: 700; }
+  em { font-style: italic; }
+  blockquote {
+    border-left: 4px solid #D4AF37;
+    margin: 16px 0;
+    padding: 12px 20px;
+    background: #f5f0e8;
+    font-style: italic;
+    color: #444;
+    font-size: 16px;
+  }
+  code {
+    font-family: 'Courier New', monospace;
+    background: #f0ede8;
+    padding: 1px 6px;
+    border-radius: 3px;
+    font-size: 14px;
+  }
+  pre {
+    background: #f0ede8;
+    padding: 16px 20px;
+    border-radius: 4px;
+    overflow-x: auto;
+    font-size: 14px;
+    margin: 12px 0 20px;
+  }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 16px 0 24px;
+    font-size: 15px;
+  }
+  th {
+    background: #1a1a1a;
+    color: white;
+    padding: 10px 14px;
+    text-align: left;
+    font-weight: 600;
+  }
+  td {
+    padding: 8px 14px;
+    border-bottom: 1px solid #ddd;
+  }
+  tr:nth-child(even) td { background: #f5f2ed; }
+  hr {
+    border: none;
+    border-top: 2px solid #D4AF37;
+    margin: 32px 0;
+  }
+  .footer {
+    text-align: center;
+    margin-top: 48px;
+    padding-top: 16px;
+    border-top: 1px solid #e0d5c0;
+    font-size: 14px;
+    color: #888;
+    font-style: italic;
+  }
+</style>
+</head>
+<body>
+<h1>WAI Institute — Admin Handbook</h1>
+<p><strong>Author:</strong> Delon Oliver<br />
+<strong>Publication:</strong> WAI Institute, NAM Oshun Mission<br />
+<strong>Version:</strong> 1.0</p>
+<hr />
+<h2>1. Organizational Structure</h2>
+<pre><code>NAM Oshun (Delon Oliver)
+└── Director
+    ├── Assistant Director
+    ├── Revenue Director
+    ├── Finance Director
+    ├── Customer Success
+    ├── Production Team (7)
+    └── M.O.R.E. Help Center
+</code></pre>
+<p>You are responsible for the operational backbone that enables every other role to function.</p>
+<hr />
+<h2>2. Core Systems</h2>
+<h3>AI Persona Engine</h3>
+<p>The WAI backend runs 17 AI personas across 5 tiers. These personas handle curriculum delivery, student support, revenue operations, and creative production. Admin ensures the server stays running and secrets stay secret.</p>
+<h3>Key Endpoints (local)</h3>
+<ul>
+<li>API Server: <code>http://localhost:8001</code></li>
+<li>M.O.R.E. Hub: <code>/more</code> route</li>
+<li>Creator Courses: <code>/api/creator-courses/</code></li>
+</ul>
+<h3>Environment Variables</h3>
+<p>Stored in <code>backend/.env</code> (gitignored). Critical vars:</p>
+<ul>
+<li><code>OPENAI_API_KEY</code> — Powers all AI personas</li>
+<li><code>GUMROAD_API_KEY</code> — Digital product sales</li>
+<li><code>STRIPE_SECRET_KEY</code> — Payment processing</li>
+<li><code>ANTHROPIC_API_KEY</code> — Additional AI models</li>
+</ul>
+<p>Never commit these to version control.</p>
+<hr />
+<h2>3. Daily Operations</h2>
+<h3>Startup</h3>
+<pre><code class="language-bash">cd backend
+python -m server           # API server (port 8001)
+</code></pre>
+<h3>Health Checks</h3>
+<pre><code class="language-bash">python scripts/tools/verify_endpoints.py    # Smoke test all routes
+python scripts/tools/deploy_sim.py          # Deploy simulation data
+</code></pre>
+<h3>Monitoring</h3>
+<ul>
+<li>Check server logs for persona errors</li>
+<li>Monitor API response times</li>
+<li>Track student enrollment and revenue data</li>
+<li>Verify Stripe webhook delivery</li>
+</ul>
+<hr />
+<h2>4. Revenue Administration</h2>
+<h3>Current Products</h3>
+<p>| Product | Price | Platform |
+|---------|-------|----------|
+| Book I: Deep Roots | $9.99 | Gumroad |
+| M.O.R.E. Membership (Monthly) | $9.99 | WAI |
+| M.O.R.E. Membership (Annual) | $79.99 | WAI |
+| Certification Exams | $49 | WAI |
+| Creator Courses | Variable | WAI Marketplace |</p>
+<h3>Revenue Streams</h3>
+<ol>
+<li>Student subscriptions ($9.99-$99.99/mo)</li>
+<li>Creator marketplace (70/30 split)</li>
+<li>Certification exams ($49)</li>
+<li>Corporate training ($5K-$15K/cohort)</li>
+<li>Premium support ($99/mo)</li>
+</ol>
+<hr />
+<h2>5. Safety &amp; Compliance</h2>
+<ul>
+<li>All <code>rm</code>, <code>git reset --hard</code>, and <code>git push --force</code> commands are prohibited from automated execution</li>
+<li><code>git push</code> requires human confirmation</li>
+<li>Secrets must never appear in logs or commit history</li>
+<li>Student PII must never be exposed via API</li>
+</ul>
+<hr />
+<h2>6. Persona System Overview</h2>
+<p>| Tier | Personas |
+|------|----------|
+| 1 | NAM Oshun, Delon Oliver |
+| 2 | Director |
+| 3 | Assistant Director |
+| 4 | Ancestral Sage, Revenue Director, Cipher, Oracle, Ambassador, Architect, Savant Scholar, Apprentice, Product Designer, Risk Officer, Strategic Navigator, WAI Success Engine, Confidentiality Sentinel, PRT |
+| 5 | Elder Council |
+| Fusion | The 9 |</p>
+<p>Each T4 persona has specific tools and produces sellable digital products ($9.99-$349.00). Revenue projection: $16K-$71K/yr at slow-to-moderate demand.</p>
+<hr />
+<h2>7. Escalation Matrix</h2>
+<p>| Incident | Response | Timeline |
+|----------|----------|----------|
+| Server down | Restart service | &lt; 5 min |
+| API errors | Check logs, rollback if needed | &lt; 15 min |
+| Payment failure | Check Stripe dashboard | &lt; 1 hr |
+| Security breach | Revoke keys, notify Director | Immediate |
+| Student complaint | Escalate to Customer Success | &lt; 24 hrs |</p>
+<hr />
+<h2>8. Deployment</h2>
+<ul>
+<li>Code deploys automatically via Railway from <code>origin/main</code></li>
+<li>Environment variables must be set manually in Railway dashboard</li>
+<li>Test locally before pushing to main</li>
+</ul>
+<hr />
+<p><em>&quot;You do not run the Institute. You serve the mission by running the systems.&quot;</em></p>
+
+<div class="footer">WAI Institute — NAM Oshun Mission</div>
+</body>
+</html>
