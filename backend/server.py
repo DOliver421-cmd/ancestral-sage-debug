@@ -422,9 +422,6 @@ class Module(BaseModel):
     competencies: List[str]
     hours: int
     quiz: List[QuizQ] = []
-    free: bool = False
-    points: Optional[int] = None
-    leads_to: List[str] = []
 
 
 class ProgressEntry(BaseModel):
@@ -690,20 +687,6 @@ async def current_user(authorization: Optional[str] = Header(None)) -> User:
         raise HTTPException(401, "User not found")
     if user_doc.get("is_active") is False:
         raise HTTPException(403, "Account deactivated")
-    return User(**user_doc)
-
-
-async def current_user_optional(authorization: Optional[str] = Header(None)) -> Optional[User]:
-    if not authorization or not authorization.startswith("Bearer "):
-        return None
-    token = authorization.split(" ", 1)[1]
-    try:
-        payload = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGO])
-    except jwt.PyJWTError:
-        return None
-    user_doc = await db.users.find_one({"id": payload["sub"]}, {"_id": 0, "password_hash": 0})
-    if not user_doc or user_doc.get("is_active") is False:
-        return None
     return User(**user_doc)
 
 
@@ -1625,13 +1608,13 @@ async def me(user: User = Depends(current_user)):
 
 
 @api_router.get("/modules", response_model=List[Module])
-async def list_modules(user: Optional[User] = Depends(current_user_optional)):
+async def list_modules(user: User = Depends(current_user)):
     docs = await db.modules.find({}, {"_id": 0}).sort("order", 1).to_list(100)
     return [Module(**d) for d in docs]
 
 
 @api_router.get("/modules/{slug}", response_model=Module)
-async def get_module(slug: str, user: Optional[User] = Depends(current_user_optional)):
+async def get_module(slug: str, user: User = Depends(current_user)):
     doc = await db.modules.find_one({"slug": slug}, {"_id": 0})
     if not doc:
         raise HTTPException(404, "Module not found")
