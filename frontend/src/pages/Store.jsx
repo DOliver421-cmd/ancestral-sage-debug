@@ -1,6 +1,8 @@
 import { useState } from "react";
+import { Link } from "react-router-dom";
 import { api } from "../lib/api";
-import { ShoppingBag, Package, BookOpen, Shirt } from "lucide-react";
+import { useAuth } from "../lib/auth";
+import { ShoppingBag, Package, BookOpen, Shirt, LogIn, UserPlus, X } from "lucide-react";
 import { toast } from "sonner";
 
 const ITEMS = [
@@ -38,10 +40,37 @@ const ITEMS = [
   },
 ];
 
+function AuthGate({ onClose }) {
+  return (
+    <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
+      <div className="bg-white w-full max-w-sm shadow-2xl rounded-2xl overflow-hidden">
+        <div className="bg-gradient-to-r from-amber-500 to-orange-500 p-6 text-white">
+          <div className="flex items-center justify-between">
+            <div className="font-heading font-extrabold text-xl">Sign in to purchase</div>
+            <button onClick={onClose} className="text-white/60 hover:text-white"><X className="w-5 h-5" /></button>
+          </div>
+          <p className="text-white/80 text-sm mt-2">Browse freely. Purchase with an account — it's free to join.</p>
+        </div>
+        <div className="p-6 flex flex-col gap-3">
+          <Link to="/register" className="flex items-center justify-center gap-2 bg-amber-500 hover:bg-amber-400 text-ink font-bold py-3 rounded-xl transition-colors">
+            <UserPlus className="w-4 h-4" /> Create Free Account
+          </Link>
+          <Link to="/login" className="flex items-center justify-center gap-2 border-2 border-ink/20 hover:border-ink font-bold py-3 rounded-xl transition-colors text-sm">
+            <LogIn className="w-4 h-4" /> Sign In
+          </Link>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function Store() {
+  const { user } = useAuth();
   const [loading, setLoading] = useState(null);
+  const [showGate, setShowGate] = useState(false);
 
   async function checkout(key) {
+    if (!user) { setShowGate(true); return; }
     setLoading(key);
     try {
       const { data } = await api.post("/payments/checkout", { product_key: key, quantity: 1 });
@@ -90,6 +119,7 @@ export default function Store() {
           );
         })}
       </div>
+      {showGate && <AuthGate onClose={() => setShowGate(false)} />}
     </div>
   );
 }

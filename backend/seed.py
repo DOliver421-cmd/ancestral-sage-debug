@@ -1,6 +1,65 @@
-"""Seed data for LCE-WAI: 12 Camper-to-Classroom projects."""
+"""Seed data for LCE-WAI: 12 Camper-to-Classroom projects + 2 free intro modules."""
 
-MODULES = [
+FREE_MODULES = [
+    {
+        "order": 0,
+        "slug": "free-electrical-basics",
+        "title": "Electrical Basics — Free Preview",
+        "summary": "A free introductory walkthrough of electrical fundamentals. No gear needed. Complete this and earn 50 Partnership Points toward full enrollment.",
+        "objectives": [
+            "Understand voltage, current, and resistance (Ohm's Law at a glance)",
+            "Identify common electrical tools and their purpose",
+            "Recognize the three types of electrical circuits: series, parallel, series-parallel",
+            "Know when you're ready for the full 12-module Camper-to-Classroom program",
+        ],
+        "safety": [
+            "This module uses no live electricity — theory only",
+            "Always assume a wire is live until verified dead",
+        ],
+        "tools": [],
+        "scripture": {"ref": "Proverbs 4:7", "text": "The beginning of wisdom is this: Get wisdom. Though it cost all you have, get understanding."},
+        "tasks": [
+            "Trace a simple DC circuit from source to load and back",
+            "Calculate the current through a 120Ω resistor at 12V",
+            "Identify series vs parallel in a house wiring diagram",
+        ],
+        "competencies": ["ohms-law-basics", "circuit-identification", "tool-recognition"],
+        "hours": 2,
+        "free": True,
+        "points": 50,
+        "leads_to": ["safety-loto", "dc-fundamentals"],
+    },
+    {
+        "order": 0.5,
+        "slug": "free-tools-orientation",
+        "title": "Tools of the Trade — Free Orientation",
+        "summary": "A free walkthrough of the essential tools every apprentice needs. No purchase required. Complete this and earn 50 Partnership Points toward the full kit list.",
+        "objectives": [
+            "Identify 10 essential hand tools for electrical work",
+            "Understand the difference between insulated and uninsulated tools",
+            "Build your apprentice starter kit (shopping list included)",
+            "Learn basic tool care and storage",
+        ],
+        "safety": [
+            "Inspect tools before every use — damaged insulation means replace it",
+            "Use the right tool for the job — screwdrivers are not pry bars",
+        ],
+        "tools": ["Lineman's pliers", "Wire strippers", "Needle-nose pliers", "Multi-bit screwdriver", "Non-contact voltage tester"],
+        "scripture": {"ref": "Ecclesiastes 10:10", "text": "If the ax is dull and its edge unsharpened, more strength is needed, but skill will bring success."},
+        "tasks": [
+            "Identify each tool in the starter kit by sight and name",
+            "Demonstrate proper wire stripping technique on a scrap piece",
+            "Create your own apprentice tool budget sheet",
+        ],
+        "competencies": ["tool-identification", "tool-safety", "kit-building"],
+        "hours": 1.5,
+        "free": True,
+        "points": 50,
+        "leads_to": ["safety-loto", "tools-materials"],
+    },
+]
+
+MODULES = FREE_MODULES + [
     {
         "order": 1,
         "slug": "safety-loto",

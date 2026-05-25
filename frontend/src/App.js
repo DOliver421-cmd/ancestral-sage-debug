@@ -154,8 +154,9 @@ function App() {
           <Route path="/admin" element={<Protected roles={["admin"]}><AdminDashboard /></Protected>} />
           <Route path="/admin/users" element={<Protected roles={["admin"]}><AdminDashboard /></Protected>} />
           <Route path="/admin/associate" element={<Protected roles={["admin"]}><AdminDashboard /></Protected>} />
-          <Route path="/modules" element={<Protected><ModulesList /></Protected>} />
-          <Route path="/modules/:slug" element={<Protected><ModuleView /></Protected>} />
+          {/* Modules — public preview shows free intro modules; full catalog gated */}
+          <Route path="/modules" element={<ModulesList />} />
+          <Route path="/modules/:slug" element={<ModuleView />} />
           <Route path="/lab" element={<Navigate to="/labs" replace />} />
           <Route path="/labs" element={<Protected><LabsHub /></Protected>} />
           <Route path="/labs/:slug" element={<Protected><LabDetail /></Protected>} />
@@ -182,7 +183,8 @@ function App() {
           <Route path="/admin/moderation" element={<Protected roles={["admin"]}><ModerationAnalytics /></Protected>} />
           <Route path="/revenue" element={<Protected roles={["admin", "executive_admin"]}><RevenueDivision /></Protected>} />
           <Route path="/council" element={<Protected><OrchestratorChat /></Protected>} />
-          <Route path="/leaderboard" element={<Protected><Leaderboard /></Protected>} />
+          {/* Leaderboard — public read-only */}
+          <Route path="/leaderboard" element={<Leaderboard />} />
           {/* Creator profiles — public, slug-based */}
           <Route path="/creator/:slug" element={<CreatorProfile />} />
           {/* Public pages */}
@@ -202,9 +204,10 @@ function App() {
           <Route path="/more/admin" element={<Protected roles={["admin"]}><MoreAdmin /></Protected>} />
           <Route path="/more/ops" element={<Protected roles={["admin"]}><MoreOps /></Protected>} />
           {/* Payments */}
-          <Route path="/store" element={<Protected><Store /></Protected>} />
-          <Route path="/subscribe" element={<Protected><SubscribePage /></Protected>} />
-          <Route path="/donate" element={<Protected><DonatePage /></Protected>} />
+          {/* Store & subscribe — public browsing, gated checkout */}
+          <Route path="/store" element={<Store />} />
+          <Route path="/subscribe" element={<SubscribePage />} />
+          <Route path="/donate" element={<DonatePage />} />
           <Route path="/payment/success" element={<PaymentSuccess />} />
           <Route path="/payment/cancel" element={<PaymentCancel />} />
           <Route path="/payment/history" element={<Protected><PaymentHistory /></Protected>} />
