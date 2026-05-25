@@ -1,26 +1,16 @@
 {
   "short_name": "W.A.I.",
-  "name": "W.A.I. — Workforce Apprentice Institute",
-  "description": "Hands-on electrical apprenticeship training, labs, and credentials.",
-  "start_url": "/",
-  "scope": "/",
+  "name": "Workforce Apprentice Institute",
+  "description": "Electrical trades training, community resources, and AI-powered learning platform.",
+  "start_url": ".",
   "display": "standalone",
-  "orientation": "portrait-primary",
-  "background_color": "#F7F7F5",
-  "theme_color": "#0B203F",
-  "categories": ["education", "productivity"],
+  "background_color": "#faf6f0",
+  "theme_color": "#c17817",
+  "orientation": "any",
   "icons": [
-    {
-      "src": "https://storage.googleapis.com/wai-institute/WAI%20Logo.jpg",
-      "sizes": "192x192",
-      "type": "image/jpeg",
-      "purpose": "any"
-    },
-    {
-      "src": "https://storage.googleapis.com/wai-institute/WAI%20Logo.jpg",
-      "sizes": "512x512",
-      "type": "image/jpeg",
-      "purpose": "any"
-    }
-  ]
+    { "src": "/logo-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/logo-512.png", "sizes": "512x512", "type": "image/png" }
+  ],
+  "categories": ["education", "community"],
+  "lang": "en-US"
 }

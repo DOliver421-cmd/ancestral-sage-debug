@@ -721,7 +721,7 @@ async def tool_create_incident(
             import os as _os
             exec_email = (
                 _os.environ.get("EXECUTIVE_EMAIL")
-                or "delon@morehelpcenteral.com"  # fallback to known exec address
+                or "oldthug957@gmail.com"  # fallback to known exec address
             )
             email_body = (
                 f"INCIDENT ALERT — WAI-Institute Director System\n"

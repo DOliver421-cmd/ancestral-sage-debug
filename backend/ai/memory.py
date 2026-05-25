@@ -251,6 +251,24 @@ def format_memory_context(
 
 # ── Convenience: load and format memory for a persona endpoint ────────────────
 
+# ── Memory Consolidation ─────────────────────────────────────────────────────
+
+async def consolidate_all(db) -> int:
+    """
+    Phase 2 stub: archive episodes older than 30 days into a summary record,
+    then delete the raw episodes.  Returns number of episodes consolidated.
+    Currently a no-op that returns 0 — ready for semantic-search integration.
+    """
+    try:
+        _cutoff = datetime.now(timezone.utc).isoformat()
+        # Placeholder: log that consolidation ran
+        logger.info("memory: consolidate_all cycle complete (phase 2 stub — no episodes archived yet)")
+        return 0
+    except Exception as e:
+        logger.warning("memory: consolidate_all failed — %s", e)
+        return 0
+
+
 async def get_memory_context(
     db,
     persona: str,

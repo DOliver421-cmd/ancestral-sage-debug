@@ -37,6 +37,8 @@ api.interceptors.response.use(
         toast.error("Your account has been deactivated.");
         window.location.href = "/login";
       }
+    } else if (status === 429) {
+      toast.error("Too many requests — please slow down and try again shortly.");
     } else if (status >= 500) {
       toast.error("Server error — please try again in a moment.");
     }

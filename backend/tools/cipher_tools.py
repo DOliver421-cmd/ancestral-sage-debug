@@ -18,7 +18,7 @@ from datetime import datetime, timezone
 logger = logging.getLogger("lcewai.cipher")
 
 GUMROAD_API_KEY  = os.environ.get("GUMROAD_API_KEY", "")
-EXECUTIVE_EMAIL  = os.environ.get("EXECUTIVE_EMAIL", "delon@morehelpcenteral.com")
+EXECUTIVE_EMAIL  = os.environ.get("EXECUTIVE_EMAIL", "oldthug957@gmail.com")
 OPENAI_API_KEY   = os.environ.get("OPENAI_API_KEY", "")
 
 # ── Preloaded Revenue Stream Catalog ─────────────────────────────────────────

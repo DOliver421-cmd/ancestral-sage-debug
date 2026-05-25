@@ -31,7 +31,7 @@ logger = logging.getLogger("lcewai.publishing")
 LEMON_SQUEEZY_API_KEY = os.environ.get("LEMON_SQUEEZY_API_KEY", "")
 LEMON_SQUEEZY_STORE_ID = os.environ.get("LEMON_SQUEEZY_STORE_ID", "")
 GUMROAD_API_KEY = os.environ.get("GUMROAD_API_KEY", "")
-EXECUTIVE_EMAIL = os.environ.get("EXECUTIVE_EMAIL", "delon@morehelpcenteral.com")
+EXECUTIVE_EMAIL = os.environ.get("EXECUTIVE_EMAIL", "oldthug957@gmail.com")
 
 
 # ── Lemon Squeezy ─────────────────────────────────────────────────────────────

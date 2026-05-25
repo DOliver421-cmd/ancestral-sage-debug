@@ -422,7 +422,7 @@ class DoItEngine:
                 "Recovery codes exist but Delon might not know"
             ),
             fix_proposal=(
-                "1. Create unified Delon identity (delon@wai-institute.org)\n"
+                "1. Create unified Delon identity (oldthug957@gmail.com)\n"
                 "2. Migrate all 3 old accounts → new identity\n"
                 "3. Document recovery procedure in DELON_QUICK_START.md\n"
                 "4. Print recovery codes for offline backup\n"

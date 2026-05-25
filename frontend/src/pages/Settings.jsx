@@ -4,7 +4,7 @@ import AppShell from "../components/AppShell";
 import { api } from "../lib/api";
 import { useAuth } from "../lib/auth";
 import { toast } from "sonner";
-import { KeyRound, ShieldCheck, AlertTriangle, User as UserIcon, Save, Mail } from "lucide-react";
+import { KeyRound, ShieldCheck, AlertTriangle, User as UserIcon, Save, Mail, Trash2, Download, Monitor, XCircle } from "lucide-react";
 
 export default function Settings() {
   const { user, refresh } = useAuth();
@@ -51,7 +51,7 @@ export default function Settings() {
 
   const submitPassword = async (e) => {
     e.preventDefault();
-    if (pw.new_password.length < 6) return toast.error("New password must be at least 6 characters");
+    if (pw.new_password.length < 8) return toast.error("New password must be at least 8 characters");
     if (pw.new_password === pw.current_password) return toast.error("New password must differ from the current one");
     if (pw.new_password !== pw.confirm) return toast.error("New password and confirmation don't match");
     setPwBusy(true);
@@ -120,6 +120,12 @@ export default function Settings() {
           </TabBtn>
           <TabBtn id="password" active={tab === "password"} onClick={() => setTab("password")} icon={KeyRound}>
             Password
+          </TabBtn>
+          <TabBtn id="privacy" active={tab === "privacy"} onClick={() => setTab("privacy")} icon={ShieldCheck}>
+            Privacy
+          </TabBtn>
+          <TabBtn id="sessions" active={tab === "sessions"} onClick={() => setTab("sessions")} icon={Monitor}>
+            Sessions
           </TabBtn>
         </div>
 
@@ -199,6 +205,75 @@ export default function Settings() {
             </p>
           </form>
         )}
+
+        {/* SESSIONS */}
+        {tab === "sessions" && (
+          <SessionManager />
+        )}
+
+        {/* PRIVACY / GDPR */}
+        {tab === "privacy" && (
+          <div className="card-flat p-6 mt-6 space-y-6">
+            <h3 className="font-heading text-xl font-bold flex items-center gap-2">
+              <ShieldCheck className="w-5 h-5 text-copper" /> Privacy & Legal
+            </h3>
+
+            {/* Export Data */}
+            <div>
+              <p className="text-sm text-ink/70 mb-3">
+                Download all personal data we hold about you (GDPR Article 20 — Data Portability).
+              </p>
+              <button
+                type="button"
+                className="btn-primary inline-flex items-center gap-2"
+                onClick={async () => {
+                  try {
+                    const r = await api.get("/auth/account/export");
+                    const blob = new Blob([JSON.stringify(r.data, null, 2)], { type: "application/json" });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement("a");
+                    a.href = url;
+                    a.download = `sage-export-${new Date().toISOString().split("T")[0]}.json`;
+                    a.click();
+                    URL.revokeObjectURL(url);
+                    toast.success("Data exported.");
+                  } catch (err) {
+                    toast.error("Export failed. Try again later.");
+                  }
+                }}
+              >
+                <Download className="w-4 h-4" /> Export My Data
+              </button>
+            </div>
+
+            {/* Delete Account */}
+            <div className="border-t border-ink/10 pt-6">
+              <p className="text-sm text-ink/70 mb-3">
+                Permanently delete your account and anonymize all personal data
+                (GDPR Article 17 — Right to Erasure). This action cannot be undone.
+              </p>
+              <button
+                type="button"
+                className="px-4 py-2 text-sm font-bold border-2 border-destructive text-destructive rounded hover:bg-destructive/10 transition-colors inline-flex items-center gap-2"
+                onClick={async () => {
+                  if (!window.confirm("Are you sure? This will immediately anonymize your account and schedule it for permanent deletion after 30 days. You can contact support within that period to cancel the deletion.")) return;
+                  if (!window.confirm("Final confirmation: Delete your account? All progress, submissions, and personal data will be lost.")) return;
+                  try {
+                    await api.delete("/auth/account");
+                    toast.success("Account scheduled for deletion. You will be signed out.");
+                    localStorage.removeItem("auth_token");
+                    window.location.href = "/";
+                  } catch (err) {
+                    const detail = err?.response?.data?.detail;
+                    toast.error(typeof detail === "string" ? detail : "Account deletion failed.");
+                  }
+                }}
+              >
+                <Trash2 className="w-4 h-4" /> Delete My Account
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     </AppShell>
   );
@@ -244,6 +319,92 @@ function ReadOnly({ label, value, testid }) {
       <div className="mt-2 px-4 py-3 bg-ink/5 border border-ink/10 font-mono text-sm" data-testid={testid}>
         {value}
       </div>
+    </div>
+  );
+}
+
+function SessionManager() {
+  const [sessions, setSessions] = useState([]);
+  const [busy, setBusy] = useState(false);
+
+  const load = async () => {
+    setBusy(true);
+    try {
+      const r = await api.get("/auth/sessions");
+      setSessions(r.data.sessions || []);
+    } catch {
+      toast.error("Failed to load sessions.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  useEffect(() => { load(); }, []);
+
+  const revokeAll = async () => {
+    if (!window.confirm("Log out all other devices? You will need to sign in again on those devices.")) return;
+    try {
+      await api.delete("/auth/sessions");
+      toast.success("Other sessions revoked.");
+      setSessions([]);
+    } catch {
+      toast.error("Failed to revoke sessions.");
+    }
+  };
+
+  const revokeOne = async (sid) => {
+    try {
+      await api.delete(`/auth/sessions/${sid}`);
+      toast.success("Session revoked.");
+      load();
+    } catch {
+      toast.error("Failed to revoke session.");
+    }
+  };
+
+  return (
+    <div className="card-flat p-6 mt-6">
+      <h3 className="font-heading text-xl font-bold flex items-center gap-2">
+        <Monitor className="w-5 h-5 text-copper" /> Active Sessions
+      </h3>
+      <p className="text-xs text-ink/50 mt-1">Devices currently logged into your account.</p>
+
+      {busy && <p className="text-sm text-ink/50 mt-4">Loading sessions…</p>}
+
+      {!busy && sessions.length === 0 && (
+        <p className="text-sm text-ink/50 mt-4">No other active sessions.</p>
+      )}
+
+      {!busy && sessions.length > 0 && (
+        <>
+          <div className="space-y-3 mt-4">
+            {sessions.map((s) => (
+              <div key={s.session_id} className="flex items-center justify-between p-3 bg-ink/5 rounded-lg">
+                <div className="text-sm">
+                  <p className="font-medium text-ink">{s.user_agent ? s.user_agent.slice(0, 60) : "Unknown device"}</p>
+                  <p className="text-xs text-ink/50 mt-0.5">
+                    {s.ip ? `${s.ip} · ` : ""}
+                    {s.created_at ? new Date(s.created_at).toLocaleDateString() : ""}
+                  </p>
+                </div>
+                <button
+                  onClick={() => revokeOne(s.session_id)}
+                  className="text-destructive hover:text-destructive/80 transition-colors"
+                  title="Revoke session"
+                >
+                  <XCircle className="w-4 h-4" />
+                </button>
+              </div>
+            ))}
+          </div>
+          <button
+            onClick={revokeAll}
+            className="mt-4 px-4 py-2 text-sm border border-destructive text-destructive rounded-lg hover:bg-destructive/10 transition-colors"
+          >
+            Log out all other devices
+          </button>
+        </>
+      )}
     </div>
   );
 }

@@ -220,7 +220,7 @@ This software, documentation, and all associated materials are the
 proprietary property of WAI Institute, Inc. Unauthorized copying,
 reproduction, modification, or distribution is strictly prohibited.
 
-For licensing inquiries: legal@wai-institute.com
+For licensing inquiries: oldthug957@gmail.com
 ```
 
 **Add to:**
@@ -1219,9 +1219,9 @@ If you regain access to any system, you must report it immediately.
 ## CONTACT AFTER EMPLOYMENT
 
 For any questions about:
-- Licensing: licensing@wai-institute.com
-- Legal: legal@wai-institute.com
-- Technical: technical-support@wai-institute.com
+- Licensing: oldthug957@gmail.com
+- Legal: oldthug957@gmail.com
+- Technical: technical-souppoetry@gmail.com
 
 Do not contact current employees to discuss Proprietary Information.
 

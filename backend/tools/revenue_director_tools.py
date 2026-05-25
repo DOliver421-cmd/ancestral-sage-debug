@@ -25,7 +25,7 @@ from datetime import datetime, timezone
 logger = logging.getLogger("lcewai.revenue_director")
 
 GUMROAD_API_KEY = os.environ.get("GUMROAD_API_KEY", "")
-EXECUTIVE_EMAIL = os.environ.get("EXECUTIVE_EMAIL", "delon@morehelpcenteral.com")
+EXECUTIVE_EMAIL = os.environ.get("EXECUTIVE_EMAIL", "oldthug957@gmail.com")
 
 # ── Preloaded Revenue Stream Catalog ─────────────────────────────────────────
 

@@ -36,7 +36,7 @@ export default function Community() {
           </div>
         </div>
         <div className="text-center mt-8 flex gap-3 justify-center flex-wrap">
-          <Link to="/app/more" className="btn-primary text-sm">Enter the Exchange</Link>
+          <Link to="/more" className="btn-primary text-sm">Enter the Exchange</Link>
           <Link to="/register" className="btn-copper text-sm">Join Free</Link>
         </div>
       </div>

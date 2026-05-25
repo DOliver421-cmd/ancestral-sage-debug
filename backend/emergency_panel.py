@@ -1,19 +1,22 @@
 """
-Emergency Breaker Panel & Gateway System
+Emergency Breaker Panel — state tracking for multi-layer redundancy.
 
-Electrical-panel-style failover control for the multi-layer redundancy
-architecture.  Each "breaker" represents a system component that can be
-toggled on/off/tripped.  The "gateway" tracks which origin is currently
-active and supports automatic failover.
+Each "breaker" represents a system component and its status (on/off/standby/
+tripped/fault). The "gateway" records the desired active origin, but actual
+traffic routing depends on infrastructure-level DNS / reverse proxy config.
 
-Tiers (in failover order):
+This module is a control-plane only: it records intent and exposes toggle/
+reset/failover/heartbeat endpoints for manual or watchdog-driven operation.
+
+Tiers (documented — actual failover requires the failover_watchdog or manual
+invocation of the /api/exec/failover endpoint):
   1. PRIMARY   — Railway (production API + React SPA)
-  2. BACKUP    — Home server via Cloudflare Tunnel
-  3. EMERGENCY — Standalone HTML UI (served directly by this backend)
+  2. BACKUP    — Home server via Cloudflare Tunnel (requires deploy/ config)
+  3. EMERGENCY — Standalone HTML UI (served at /emergency)
 
-Database failover:
+Database:
   - Primary MongoDB (MONGO_URL)
-  - Backup MongoDB Atlas (MONGO_BACKUP_URL)
+  - Backup MongoDB Atlas (MONGO_BACKUP_URL) — used in /api/health
 """
 
 import os

@@ -44,7 +44,7 @@ export default class ErrorBoundary extends Component {
                 >
                   Reload Page
                 </button>
-                <a href="mailto:support@wai-institute.com" className="btn-copper inline-flex items-center justify-center gap-2">
+                <a href="mailto:souppoetry@gmail.com" className="btn-copper inline-flex items-center justify-center gap-2">
                   Get Help
                 </a>
               </div>

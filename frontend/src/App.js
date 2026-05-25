@@ -62,6 +62,15 @@ import Palace from "./pages/Palace";
 import ElderCouncil from "./pages/ElderCouncil";
 import Plans from "./pages/Plans";
 import HelpCenter from "./pages/HelpCenter";
+import TermsOfService from "./pages/TermsOfService";
+import PrivacyPolicy from "./pages/PrivacyPolicy";
+import CookieConsent from "./components/CookieConsent";
+import HelpGuide from "./components/HelpGuide";
+import WelcomeWizard from "./components/WelcomeWizard";
+import StaffMeetingHistory from "./pages/StaffMeetingHistory";
+import SystemHealth from "./pages/SystemHealth";
+import ModerationAnalytics from "./pages/ModerationAnalytics";
+import RevenueDivision from "./pages/RevenueDivision";
 import Courses from "./pages/Courses";
 import Community from "./pages/Community";
 import Creators from "./pages/Creators";
@@ -100,8 +109,20 @@ function App() {
       <BrowserRouter>
         <ErrorBoundary>
         <Toaster position="top-right" richColors />
+        {/* Skip-to-content link for accessibility */}
+        <a href="#main-content" className="sr-only focus:not-sr-only focus:fixed focus:top-4 focus:left-4 focus:z-[200] focus:px-4 focus:py-2 focus:bg-copper focus:text-white focus:font-bold focus:rounded-lg">
+          Skip to content
+        </a>
+
+        {/* Global widgets */}
         <DirectorWidget />
         <SovereignChat />
+        <CookieConsent />
+        <HelpGuide />
+        <WelcomeWizard />
+
+        {/* Routes wrapped with main-content anchor */}
+        <div id="main-content">
         <Routes>
           <Route path="/" element={<Home />} />
           <Route path="/login" element={<Login />} />
@@ -124,6 +145,8 @@ function App() {
           <Route path="/plans" element={<Plans />} />
           {/* Public funnel pages */}
           <Route path="/help-center" element={<HelpCenter />} />
+          <Route path="/terms" element={<TermsOfService />} />
+          <Route path="/privacy" element={<PrivacyPolicy />} />
           <Route path="/courses" element={<Courses />} />
           <Route path="/community" element={<Community />} />
           <Route path="/creators" element={<Creators />} />
@@ -154,6 +177,10 @@ function App() {
           <Route path="/settings" element={<Protected><Settings /></Protected>} />
           <Route path="/admin/system" element={<Protected roles={["executive_admin"]}><ExecSystem /></Protected>} />
           <Route path="/admin/sage-audit" element={<Protected roles={["executive_admin"]}><SageAudit /></Protected>} />
+          <Route path="/admin/staff-meetings" element={<Protected roles={["executive_admin"]}><StaffMeetingHistory /></Protected>} />
+          <Route path="/admin/health" element={<Protected roles={["admin"]}><SystemHealth /></Protected>} />
+          <Route path="/admin/moderation" element={<Protected roles={["admin"]}><ModerationAnalytics /></Protected>} />
+          <Route path="/revenue" element={<Protected roles={["admin", "executive_admin"]}><RevenueDivision /></Protected>} />
           <Route path="/council" element={<Protected><OrchestratorChat /></Protected>} />
           <Route path="/leaderboard" element={<Protected><Leaderboard /></Protected>} />
           {/* Creator profiles — public, slug-based */}
@@ -185,6 +212,7 @@ function App() {
           <Route path="/admin/payments" element={<Protected roles={["admin"]}><AdminPayments /></Protected>} />
           <Route path="*" element={<Error404 />} />
         </Routes>
+        </div>
         </ErrorBoundary>
       </BrowserRouter>
     </AuthProvider>

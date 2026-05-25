@@ -96,12 +96,12 @@ export default function Internships() {
             We're building a platform for Black creators, artists, musicians, and community members — and we need people who actually care about that mission.
           </p>
           <a
-            href="mailto:internships@wai-institute.org"
+            href="mailto:poetgames@gmail.com"
             className="inline-flex items-center gap-2 bg-amber-500 hover:bg-amber-400 text-ink font-bold px-8 py-4 rounded-xl transition-all hover:scale-105 text-lg"
           >
             Apply Now <ArrowRight className="w-5 h-5" />
           </a>
-          <p className="text-white/40 text-xs mt-4">Email internships@wai-institute.org with your name, role interest, and a sentence about why this matters to you.</p>
+          <p className="text-white/40 text-xs mt-4">Email poetgames@gmail.com with your name, role interest, and a sentence about why this matters to you.</p>
         </div>
       </section>
 
@@ -145,7 +145,7 @@ export default function Internships() {
                 <div className="flex items-center justify-between">
                   <span className="text-xs text-ink/45 font-medium">{role.commitment}</span>
                   <a
-                    href={`mailto:internships@wai-institute.org?subject=Internship Application: ${role.title}`}
+                    href={`mailto:poetgames@gmail.com?subject=Internship Application: ${role.title}`}
                     className="inline-flex items-center gap-1.5 text-xs font-bold text-ink hover:text-copper transition-colors"
                   >
                     Apply <ArrowRight className="w-3 h-3" />
@@ -176,12 +176,12 @@ export default function Internships() {
             ))}
           </div>
           <a
-            href="mailto:internships@wai-institute.org"
+            href="mailto:poetgames@gmail.com"
             className="inline-flex items-center gap-2 bg-amber-500 hover:bg-amber-400 text-ink font-bold px-8 py-4 rounded-xl transition-all hover:scale-105"
           >
             Send us an email <ArrowRight className="w-5 h-5" />
           </a>
-          <p className="text-white/40 text-xs mt-4">internships@wai-institute.org — introduce yourself in 3 sentences or less.</p>
+          <p className="text-white/40 text-xs mt-4">poetgames@gmail.com — introduce yourself in 3 sentences or less.</p>
         </div>
       </section>
 

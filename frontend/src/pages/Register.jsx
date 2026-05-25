@@ -8,11 +8,13 @@ import { ArrowRight, Heart, CheckCircle } from "lucide-react";
 export default function Register() {
   const { register } = useAuth();
   const nav = useNavigate();
-  const [form, setForm] = useState({ full_name: "", email: "", password: "", associate: "Associate-Alpha" });
+  const [form, setForm] = useState({ full_name: "", email: "", password: "", associate: "Associate-Alpha", agreed_terms: false, over_13: false });
   const [loading, setLoading] = useState(false);
 
   const submit = async (e) => {
     e.preventDefault();
+    if (!form.agreed_terms) { toast.error("You must agree to the Terms of Service and Privacy Policy."); setLoading(false); return; }
+    if (!form.over_13) { toast.error("You must be at least 13 years old to create an account."); setLoading(false); return; }
     setLoading(true);
     try {
       const u = await register(form);
@@ -130,10 +132,10 @@ export default function Register() {
               <input
                 type="password"
                 required
-                minLength={6}
+                minLength={8}
                 value={form.password}
                 onChange={(e) => setForm({ ...form, password: e.target.value })}
-                placeholder="At least 6 characters"
+                placeholder="At least 8 characters"
                 className="w-full px-4 py-3 bg-white border border-ink/20 rounded focus:border-copper focus:outline-none focus:ring-2 focus:ring-copper/30 transition-all"
                 data-testid="input-password"
               />
@@ -148,17 +150,32 @@ export default function Register() {
               data-testid="input-associate"
             />
 
-            {/* Terms */}
-            <div className="text-xs text-ink/60">
-              By joining, you agree to our{" "}
-              <Link to="/terms" className="text-copper hover:text-copper/80 font-medium">
-                Terms of Service
-              </Link>
-              {" "}and{" "}
-              <Link to="/privacy" className="text-copper hover:text-copper/80 font-medium">
-                Privacy Policy
-              </Link>
-              . We respect your data.
+            {/* Legal Checkboxes */}
+            <div className="space-y-3">
+              <label className="flex items-start gap-3 cursor-pointer group">
+                <input
+                  type="checkbox"
+                  checked={form.agreed_terms}
+                  onChange={(e) => setForm({ ...form, agreed_terms: e.target.checked })}
+                  className="mt-0.5 w-4 h-4 rounded border-ink/30 text-copper focus:ring-copper/30"
+                  data-testid="checkbox-terms"
+                />
+                <span className="text-sm text-ink/70 group-hover:text-ink transition-colors">
+                  I agree to the <Link to="/terms" className="text-copper hover:underline">Terms of Service</Link> and <Link to="/privacy" className="text-copper hover:underline">Privacy Policy</Link>
+                </span>
+              </label>
+              <label className="flex items-start gap-3 cursor-pointer group">
+                <input
+                  type="checkbox"
+                  checked={form.over_13}
+                  onChange={(e) => setForm({ ...form, over_13: e.target.checked })}
+                  className="mt-0.5 w-4 h-4 rounded border-ink/30 text-copper focus:ring-copper/30"
+                  data-testid="checkbox-age"
+                />
+                <span className="text-sm text-ink/70 group-hover:text-ink transition-colors">
+                  I confirm that I am at least 13 years old
+                </span>
+              </label>
             </div>
 
             {/* Submit */}
@@ -197,7 +214,7 @@ export default function Register() {
 
           {/* Support */}
           <div className="mt-8 text-center text-xs text-ink/50">
-            Questions? <Link to="/help" className="text-copper hover:text-copper/80 font-medium">Get help</Link>
+            Questions? <Link to="/help-center" className="text-copper hover:text-copper/80 font-medium">Help Center</Link>
           </div>
         </div>
       </section>

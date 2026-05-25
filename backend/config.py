@@ -37,9 +37,11 @@ class Settings(BaseSettings):
     # EMAIL & NOTIFICATIONS
     # =====================================================================
     SENDGRID_API_KEY: Optional[str] = os.getenv("SENDGRID_API_KEY")
-    ADMIN_EMAIL: str = os.getenv("ADMIN_EMAIL", "admin@wai-institute.com")
-    SUPPORT_EMAIL: str = os.getenv("SUPPORT_EMAIL", "support@wai-institute.com")
-    NOREPLY_EMAIL: str = os.getenv("NOREPLY_EMAIL", "noreply@wai-institute.com")
+    ADMIN_EMAIL: str = os.getenv("ADMIN_EMAIL", "oldthug957@gmail.com")
+
+    SUPPORT_EMAIL: str = os.getenv("SUPPORT_EMAIL", "souppoetry@gmail.com")
+
+    NOREPLY_EMAIL: str = os.getenv("NOREPLY_EMAIL", "poetgames@gmail.com")
 
     # =====================================================================
     # SLACK (for alerts, logging)

@@ -38,7 +38,7 @@ export function Error404() {
           </div>
 
           <p className="text-xs text-ink/40 mt-8">
-            Can't find what you need? <a href="mailto:support@wai-institute.com" className="underline hover:text-ink">Reach out to us.</a>
+            Can't find what you need? <a href="mailto:souppoetry@gmail.com" className="underline hover:text-ink">Reach out to us.</a>
           </p>
         </div>
       </div>
@@ -73,7 +73,7 @@ export function Error500() {
             <button onClick={() => window.location.reload()} className="btn-primary inline-flex items-center justify-center gap-2">
               Try again
             </button>
-            <a href="mailto:support@wai-institute.com" className="btn-copper inline-flex items-center justify-center gap-2">
+            <a href="mailto:souppoetry@gmail.com" className="btn-copper inline-flex items-center justify-center gap-2">
               <Mail className="w-4 h-4" /> Contact support
             </a>
           </div>
@@ -165,7 +165,7 @@ export function ErrorFallback({ error, resetErrorBoundary }) {
           </div>
 
           <p className="text-xs text-ink/40 mt-8">
-            Error details have been logged. <a href="mailto:support@wai-institute.com" className="underline hover:text-ink">Report this</a> if it keeps happening.
+            Error details have been logged. <a href="mailto:souppoetry@gmail.com" className="underline hover:text-ink">Report this</a> if it keeps happening.
           </p>
         </div>
       </div>

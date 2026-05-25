@@ -20,7 +20,7 @@ logger = logging.getLogger("lcewai.architect")
 
 OPENAI_API_KEY  = os.environ.get("OPENAI_API_KEY", os.environ.get("EMERGENT_LLM_KEY", ""))
 GUMROAD_API_KEY = os.environ.get("GUMROAD_API_KEY", "")
-EXECUTIVE_EMAIL = os.environ.get("EXECUTIVE_EMAIL", "delon@morehelpcenteral.com")
+EXECUTIVE_EMAIL = os.environ.get("EXECUTIVE_EMAIL", "oldthug957@gmail.com")
 
 # ── WAI Brand Defaults ────────────────────────────────────────────────────────
 # Applied when no custom brand_context is provided.

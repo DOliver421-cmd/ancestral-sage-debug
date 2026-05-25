@@ -797,9 +797,9 @@ export default function More() {
                 <p className="text-white/30 text-xs">
                   Oliver is powered by AI · All decisions are human-reviewable · Content auto-expires in 30 days
                 </p>
-                <a href="/more/about-oliver" className="text-blue-400 text-xs font-semibold hover:text-blue-300 transition-colors whitespace-nowrap ml-4">
-                  Learn more →
-                </a>
+                <Link to="/" className="text-blue-400 text-xs font-semibold hover:text-blue-300 transition-colors whitespace-nowrap ml-4">
+                  Back to home →
+                </Link>
               </div>
             </div>
           </div>

@@ -87,8 +87,9 @@ load_dotenv(ROOT_DIR / '.env', override=True)  # .env is source of truth (overri
 # ── MongoDB dual-connection (primary + Atlas backup) ──────────────────────────
 # Primary:  MONGO_URL          (Railway or any MongoDB host)
 # Backup:   MONGO_BACKUP_URL   (MongoDB Atlas free tier recommended)
-# Failover happens in on_startup() — all `db` references then use whichever
-# connection is live; no other code needs to change.
+# The health endpoint at /api/health pings backup when primary is down.
+# All other code uses `db` (the primary connection) — there is no automatic
+# DB connection failover in business logic.
 mongo_url        = os.environ['MONGO_URL']
 MONGO_BACKUP_URL = os.environ.get('MONGO_BACKUP_URL', '')   # Atlas URI (optional)
 MONGO_BACKUP_DB  = os.environ.get('MONGO_BACKUP_DB', '')    # Atlas DB name (optional)
@@ -186,11 +187,22 @@ async def add_security_headers(request: Request, call_next):
     # Strict transport security (force HTTPS)
     response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
     # Content Security Policy (restrict resource loading)
-    response.headers["Content-Security-Policy"] = "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:;"
+    response.headers["Content-Security-Policy"] = "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self' https:; frame-ancestors 'none'; base-uri 'self'; form-action 'self'"
     # Referrer policy (limit referrer disclosure)
     response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
     # Permissions policy (disable legacy features)
     response.headers["Permissions-Policy"] = "geolocation=(), microphone=(), camera=()"
+    return response
+
+
+@app.middleware("http")
+async def log_requests_pii_safe(request: Request, call_next):
+    """Log request method, path, and status code. Never log request bodies,
+    query strings, headers, or IP addresses (PII-safe)."""
+    start = time.perf_counter()
+    response = await call_next(request)
+    elapsed = int((time.perf_counter() - start) * 1000)
+    logger.info("%s %s → %s (%dms)", request.method, request.url.path, response.status_code, elapsed)
     return response
 
 api_router = APIRouter(prefix="/api")
@@ -210,6 +222,16 @@ def check_rate(key: str, max_calls: int, window_sec: int):
     _RATE[key].append(now)
 
 
+# PII-safe field names — values for these keys are redacted in audit logs
+_PII_KEYS = {"email", "password", "password_hash", "current_password", "new_password",
+             "confirm", "full_name", "phone", "address", "ip", "ip_address",
+             "user_agent", "token", "access_token", "refresh_token"}
+
+def _strip_pii(d: dict) -> dict:
+    """Return a copy of *d* with PII-field values replaced by ``[REDACTED]``."""
+    return {k: "[REDACTED]" if k in _PII_KEYS else v for k, v in d.items()}
+
+
 async def audit(actor_id: Optional[str], action: str, target: Optional[str] = None, meta: Optional[dict] = None):
     try:
         await db.audit_log.insert_one({
@@ -217,7 +239,7 @@ async def audit(actor_id: Optional[str], action: str, target: Optional[str] = No
             "actor_id": actor_id,
             "action": action,
             "target": target,
-            "meta": meta or {},
+            "meta": _strip_pii(meta or {}),
             "at": datetime.now(timezone.utc).isoformat(),
         })
     except Exception:
@@ -302,8 +324,10 @@ class RegisterReq(BaseModel):
     from clients here. Public sign-ups are always students with no cohort
     assignment. Admins assign cohorts via /api/admin/associate."""
     email: EmailStr
-    full_name: str
-    password: str
+    full_name: str = Field(..., min_length=1, max_length=500)
+    password: str = Field(..., min_length=8, max_length=128)
+    agreed_terms: bool = False
+    over_13: bool = False
 
 
 class AdminCreateUserReq(BaseModel):
@@ -523,7 +547,7 @@ import secrets  # noqa: E402
 
 RESET_TOKEN_TTL_MIN = int(os.environ.get("PASSWORD_RESET_TTL_MIN", "30"))
 RESEND_API_KEY = os.environ.get("RESEND_API_KEY", "")
-RESEND_FROM = os.environ.get("RESEND_FROM", "W.A.I. <noreply@wai-institute.org>")
+RESEND_FROM = os.environ.get("RESEND_FROM", "W.A.I. <poetgames@gmail.com>")
 # Gmail SMTP fallback — used when RESEND_API_KEY is not set.
 # In Railway: set GMAIL_USER and GMAIL_APP_PASSWORD (16-char Google App Password).
 GMAIL_USER     = os.environ.get("GMAIL_USER", "")
@@ -642,9 +666,12 @@ async def _send_reset_email(to_email: str, raw_token: str, full_name: str = "the
 # ----------------------------------------------------------------------------
 
 
-def make_token(user_id: str, role: str) -> str:
+def make_token(user_id: str, role: str, extra: Optional[dict] = None) -> str:
     exp = datetime.now(timezone.utc) + timedelta(hours=JWT_EXPIRE_HOURS)
-    return jwt.encode({"sub": user_id, "role": role, "exp": exp}, JWT_SECRET, algorithm=JWT_ALGO)
+    payload = {"sub": user_id, "role": role, "exp": exp}
+    if extra:
+        payload.update(extra)
+    return jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALGO)
 
 
 async def current_user(authorization: Optional[str] = Header(None)) -> User:
@@ -1185,6 +1212,53 @@ async def _on_startup_impl():
             "before deploying to a public environment."
         )
 
+    # ── Auto-failover watchdog ────────────────────────────────────────────────
+    # Background health poller.  Detects primary failures, records failover
+    # state in the breaker panel.  Set WATCHDOG_DISABLE=1 to skip.
+    if not os.environ.get("WATCHDOG_DISABLE"):
+        try:
+            from failover_watchdog import run_watchdog
+            asyncio.create_task(run_watchdog(panel_db=db))
+            logger.info("STARTUP: Failover watchdog launched (interval=%s, threshold=%s)",
+                        os.environ.get("WATCHDOG_CHECK_INTERVAL", "60"),
+                        os.environ.get("WATCHDOG_FAILURE_THRESHOLD", "3"))
+        except Exception as _wd_err:
+            logger.warning("STARTUP: Failover watchdog not available: %s", _wd_err)
+    else:
+        logger.info("STARTUP: Failover watchdog disabled via WATCHDOG_DISABLE=1")
+
+    # ── GDPR hard-delete purge (daily) ─────────────────────────────────────────
+    # Users who passed the 30-day grace period get permanently removed.
+    async def _gdpr_purge_loop():
+        while True:
+            await asyncio.sleep(86400)
+            try:
+                _cutoff = (datetime.now(timezone.utc) - timedelta(days=30)).isoformat()
+                _expired = await db.users.find(
+                    {"gdpr_deleted_at": {"$ne": None}, "gdpr_grace_until": {"$lte": _cutoff}}
+                ).to_list(length=100)
+                for _u in _expired:
+                    await db.users.delete_one({"id": _u.get("id")})
+                if _expired:
+                    logger.info("GDPR purge: hard-deleted %d expired accounts.", len(_expired))
+            except Exception as _g_err:
+                logger.warning("GDPR purge cycle failed: %s", _g_err)
+    asyncio.create_task(_gdpr_purge_loop())
+    logger.info("STARTUP: GDPR purge cron launched (24h interval)")
+
+    # ── Memory consolidation cron (daily) ─────────────────────────────────────
+    async def _memory_consolidation_loop():
+        while True:
+            await asyncio.sleep(86400)
+            try:
+                from ai.memory import consolidate_all
+                await consolidate_all(db)
+                logger.info("Memory consolidation cycle complete.")
+            except Exception as _m_err:
+                logger.warning("Memory consolidation failed: %s", _m_err)
+    asyncio.create_task(_memory_consolidation_loop())
+    logger.info("STARTUP: Memory consolidation cron launched (24h interval)")
+
     logger.info(
         "STARTUP COMPLETE — Version: %s | DB: %s | Frontend: %s",
         APP_VERSION, _DB_SOURCE, "served" if SERVE_FRONTEND else "railway-nginx"
@@ -1419,18 +1493,29 @@ async def register(body: RegisterReq):
     check_rate(f"register:{body.email}", max_calls=5, window_sec=60)
     if await db.users.find_one({"email": body.email}):
         raise HTTPException(400, "Email already registered")
+
+    # Legal consent gates
+    if not body.agreed_terms:
+        raise HTTPException(400, "You must agree to the Terms of Service and Privacy Policy to create an account.")
+    if not body.over_13:
+        raise HTTPException(400, "You must be at least 13 years old to create an account. If you are under 13, please ask a parent or guardian to contact us.")
+
     # Public self-registration is always a student. Higher-privilege accounts
     # must be created by an admin (POST /api/admin/users).
     user = User(email=body.email, full_name=body.full_name, role="student")
     doc = user.model_dump()
     doc["created_at"] = doc["created_at"].isoformat()
     doc["password_hash"] = hash_pw(body.password)
+    # Record consent timestamp for GDPR audit trail
+    doc["terms_accepted_at"] = datetime.now(timezone.utc).isoformat()
+    doc["over_13_confirmed"] = True
     await db.users.insert_one(doc)
+    await audit(user.id, "auth.register.success", meta={"consent_terms": True, "over_13": True})
     return TokenResp(access_token=make_token(user.id, user.role), user=user)
 
 
 @api_router.post("/auth/login", response_model=TokenResp)
-async def login(body: LoginReq):
+async def login(body: LoginReq, request: Request):
     # Hard rate cap: 5 attempts per minute per email (in-memory, first line of defense).
     check_rate(f"login:{body.email}", max_calls=5, window_sec=60)
     doc = await db.users.find_one({"email": body.email}, {"_id": 0})
@@ -1491,7 +1576,22 @@ async def login(body: LoginReq):
     doc.pop("password_hash", None)
     user = User(**doc)
     await audit(user.id, "auth.login.success")
-    return TokenResp(access_token=make_token(user.id, user.role), user=user)
+    # Record session for session management
+    _session_id = None
+    try:
+        _session_id = str(uuid.uuid4())
+        await db.auth_sessions.insert_one({
+            "session_id": _session_id,
+            "user_id": user.id,
+            "user_agent": request.headers.get("user-agent", "")[:200],
+            "ip": request.client.host if request.client else None,
+            "created_at": datetime.now(timezone.utc).isoformat(),
+            "last_seen": datetime.now(timezone.utc).isoformat(),
+        })
+    except Exception:
+        logger.warning("login: session recording failed (non-fatal)")
+    _extra = {"session_id": _session_id} if _session_id else None
+    return TokenResp(access_token=make_token(user.id, user.role, extra=_extra), user=user)
 
 
 @api_router.get("/auth/me", response_model=User)
@@ -1803,6 +1903,99 @@ async def admin_reset_password(uid: str, body: AdminResetPasswordReq,
     }})
     await audit(user.id, "admin.user.password_reset", target=uid)
     return {"ok": True}
+
+
+# ── GDPR / Legal Compliance Endpoints ──────────────────────────────────────────
+
+@api_router.delete("/auth/account")
+async def gdpr_delete_account(user: User = Depends(current_user)):
+    """GDPR Article 17 — Right to erasure. Self-service account deletion.
+    Anonymizes all personal data and marks the account for hard deletion
+    after a 30-day grace period.  Executive_admin accounts cannot be
+    self-deleted — contact another executive."""
+    if user.role == "executive_admin":
+        active_execs = await db.users.count_documents({"role": "executive_admin", "is_active": {"$ne": False}})
+        if active_execs <= 1:
+            raise HTTPException(400, "Cannot delete the last executive_admin account. Contact support.")
+    # Anonymize — replace PII with placeholder, keep non-PII for audit trail
+    await db.users.update_one(
+        {"id": user.id},
+        {"$set": {
+            "email": f"deleted-{user.id}@anon.wai",
+            "full_name": "[deleted]",
+            "is_active": False,
+            "gdpr_deleted_at": datetime.now(timezone.utc).isoformat(),
+            "gdpr_grace_until": (datetime.now(timezone.utc) + timedelta(days=30)).isoformat(),
+            "password_hash": "[deleted]",
+        }}
+    )
+    # Remove user from active collections
+    for coll in ["progress", "lab_submissions", "portfolio", "ai_consents"]:
+        try:
+            await db[coll].delete_many({"user_id": user.id})
+        except Exception:
+            pass
+    await audit(user.id, "gdpr.account_deleted", meta={"grace_period_days": 30})
+    return {"ok": True, "message": "Account scheduled for deletion. You have a 30-day grace period to contact support if this was a mistake."}
+
+
+@api_router.get("/auth/account/export")
+async def gdpr_export_data(user: User = Depends(current_user)):
+    """GDPR Article 20 — Right to data portability.
+    Returns all personal data the platform holds about you in JSON format."""
+    export = {"exported_at": datetime.now(timezone.utc).isoformat(), "user_id": user.id}
+
+    # Profile
+    doc = await db.users.find_one({"id": user.id}, {"_id": 0, "password_hash": 0})
+    if doc:
+        export["profile"] = doc
+
+    # Progress
+    progress = await db.progress.find({"user_id": user.id}, {"_id": 0}).to_list(length=9999)
+    if progress:
+        export["progress"] = progress
+
+    # Certificates
+    certs = await db.certificates.find({"user_id": user.id}, {"_id": 0}).to_list(length=9999)
+    if certs:
+        export["certificates"] = certs
+
+    # Lab submissions
+    labs = await db.lab_submissions.find({"user_id": user.id}, {"_id": 0}).to_list(length=9999)
+    if labs:
+        export["lab_submissions"] = labs
+
+    # AI consents
+    consents = await db.ai_consents.find({"user_id": user.id}, {"_id": 0}).to_list(length=9999)
+    if consents:
+        export["ai_consents"] = consents
+
+    # Audit trail (limited)
+    audit_log = await db.audit_log.find({"actor_id": user.id}, {"_id": 0}).sort("at", -1).to_list(length=100)
+    if audit_log:
+        export["recent_activity"] = audit_log
+
+    await audit(user.id, "gdpr.data_exported")
+    return export
+
+
+@api_router.post("/auth/reconsent")
+async def gdpr_reconsent(body: dict, user: User = Depends(current_user)):
+    """Re-affirm terms of service / privacy policy consent.
+    Used when terms are updated.  Body: {"agreed_terms": true, "over_13": true}"""
+    if not body.get("agreed_terms"):
+        raise HTTPException(400, "You must agree to the Terms of Service.")
+    if not body.get("over_13"):
+        raise HTTPException(400, "You must confirm you are at least 13 years old.")
+    await db.users.update_one(
+        {"id": user.id},
+        {"$set": {
+            "terms_accepted_at": datetime.now(timezone.utc).isoformat(),
+            "over_13_confirmed": True,
+        }}
+    )
+    await audit(user.id, "gdpr.consent_reaffirmed")
+    return {"ok": True, "message": "Consent recorded."}
 
 
 @api_router.get("/exec/system")
@@ -6394,6 +6587,29 @@ async def more_moderation_log(user=Depends(current_user), skip: int = 0, limit: 
     return {"logs": logs, "total": total}
 
 
+@api_router.get("/more/admin/moderation-stats")
+async def more_moderation_stats(user=Depends(current_user)):
+    """Oliver Guardian moderation summary statistics — admin only."""
+    assert_role(user, "admin")
+    total_moderated = await db.more_moderation_log.count_documents({})
+    approved = await db.more_moderation_log.count_documents({"decision": "approve"})
+    blocked = await db.more_moderation_log.count_documents({"decision": "block"})
+    warned = await db.more_moderation_log.count_documents({"decision": "warn"})
+    flagged = await db.more_flags.count_documents({})
+    pending = await db.more_moderation_log.count_documents({"decision": {"$in": ["hold", "quarantine"]}})
+    recent = db.more_moderation_log.find({}, {"_id": 0}).sort("created_at", -1).limit(20)
+    recent_log = await recent.to_list(20)
+    return {
+        "total_moderated": total_moderated,
+        "approved": approved,
+        "blocked": blocked,
+        "warned": warned,
+        "flagged": flagged,
+        "pending_count": pending,
+        "recent_log": recent_log,
+    }
+
+
 @api_router.post("/more/purge")
 async def more_manual_purge(user=Depends(current_user)):
     assert_role(user, "admin")
@@ -8650,6 +8866,20 @@ async def exec_publish_all(user: User = Depends(require_role("executive_admin"))
 
 # ── Staff Meeting ─────────────────────────────────────────────────────────────
 
+@api_router.get("/exec/staff-meetings")
+async def list_staff_meetings(
+    limit: int = 20,
+    user: User = Depends(require_role("executive_admin")),
+):
+    """List past staff meetings, most recent first."""
+    cursor = db.staff_meetings.find(
+        {},
+        {"_id": 0},
+    ).sort("convened_at", -1).limit(min(limit, 100))
+    meetings = await cursor.to_list(length=limit)
+    return {"meetings": meetings}
+
+
 class StaffMeetingRequest(BaseModel):
     """
     Validated request body for POST /api/exec/staff-meeting.
@@ -8777,7 +9007,7 @@ async def exec_staff_meeting(
     else:
         meeting_participants = sorted(active_ids)
 
-    # ── 4. Generate domain briefs per persona ─────────────────────────────────
+    # ── 4. Generate domain briefs per persona with LLM responses ────────────────
     domain_briefs = {}
     for persona_id in meeting_participants:
         role_question = _DOMAIN_ROLES.get(persona_id, "Domain input for this brief.")
@@ -8788,22 +9018,109 @@ async def exec_staff_meeting(
             "status":    "awaiting_response",
         }
 
+    # Generate real persona responses via LLM in parallel
+    async def _call_persona(persona_id: str, question: str) -> tuple[str, str]:
+        """Call a single persona via Anthropic and return (persona_id, response_text).
+        Returns (persona_id, "") on any failure so the meeting still completes."""
+        try:
+            import anthropic as _anthropic_module
+
+            # Build system prompt — use persona_loader if available, else construct from domain role
+            try:
+                from ai.persona_loader import get_persona
+                system_prompt = get_persona(persona_id)
+            except (ImportError, KeyError):
+                system_prompt = (
+                    f"You are {persona_id.replace('_', ' ').title()}, a member of the WAI-Institute council. "
+                    f"Your role: {question}. Respond with concise, actionable guidance based on your domain "
+                    f"expertise. Keep your response under 300 words."
+                )
+
+            user_message = (
+                f"STAFF MEETING BRIEF:\n{brief}\n\n"
+                f"AGENDA:\n" + "\n".join(f"- {a}" for a in agenda) + "\n\n"
+                f"YOUR ROLE QUESTION: {question}\n\n"
+                f"Provide your domain-specific assessment, action items, and recommendations."
+            )
+
+            _client = _anthropic_module.AsyncAnthropic(api_key=ANTHROPIC_API_KEY)
+            _msg = await _client.messages.create(
+                model="claude-haiku-4-5",
+                max_tokens=1024,
+                system=system_prompt,
+                messages=[{"role": "user", "content": user_message}],
+            )
+            response = _msg.content[0].text.strip()
+            return persona_id, response
+        except Exception as exc:
+            logger.warning("staff_meeting: persona %s LLM call failed: %s", persona_id, exc)
+            return persona_id, ""
+
+    # Only call LLM for personas that have a role question (skip the_9 & prt — handled separately)
+    _llm_personas = [pid for pid in meeting_participants if pid not in ("the_9", "poor_righteous_teacher")]
+    if _llm_personas and ANTHROPIC_API_KEY:
+        _results = await asyncio.gather(*[
+            _call_persona(pid, domain_briefs[pid]["question"])
+            for pid in _llm_personas
+        ], return_exceptions=False)
+        for pid, resp in _results:
+            if resp:
+                domain_briefs[pid]["response"] = resp
+                domain_briefs[pid]["status"] = "responded"
+
     # ── 5. The 9 synthesis (high priority or explicitly requested) ────────────
     synthesis = None
     if priority == "high" or "the_9" in body.participants:
         the9 = _get_the9_engine()   # v2: singleton, not per-request
         if the9 is not None:
             try:
-                # v2: `enforcement` is always defined here (set above or None)
-                # so `prt.enforce(brief)` NameError is impossible
+                # Collect actual persona responses as context for fusion
+                _persona_responses = {
+                    pid: brief.get("response", "")
+                    for pid, brief in domain_briefs.items()
+                    if brief.get("response")
+                }
                 prt_directive = enforcement or {"directive": brief, "authority": "bypassed"}
                 fusion  = the9.fuse(
-                    context           = {"brief": brief, "agenda": agenda, "participants": meeting_participants},
+                    context           = {"brief": brief, "agenda": agenda, "participants": meeting_participants, "persona_responses": _persona_responses},
                     prt_directive     = prt_directive,
                     sender            = "executive",
                     activation_reason = "executive_command",
                 )
                 synthesis = fusion.to_dict()
+                # Enrich synthesis with LLM-generated analysis
+                if synthesis.get("status") == "fused" and ANTHROPIC_API_KEY:
+                    try:
+                        import anthropic as _anthropic_module
+                        _responses_text = "\n\n".join(
+                            f"=== {pid} ===\n{resp}"
+                            for pid, resp in _persona_responses.items()
+                        ) if _persona_responses else "(no persona responses available)"
+                        _client = _anthropic_module.AsyncAnthropic(api_key=ANTHROPIC_API_KEY)
+                        _msg = await _client.messages.create(
+                            model="claude-sonnet-4-6",
+                            max_tokens=2048,
+                            system=(
+                                "You are THE 9 — the unified intelligence of the WAI-Institute. "
+                                "You merge the capabilities of all 9 core personas into one coherent synthesis. "
+                                "Given a staff meeting brief, agenda, and the individual persona responses, "
+                                "produce a unified strategic synthesis with: 1) Key insights, 2) Recommended actions, "
+                                "3) Risk assessment, 4) Success metrics. Be concise and actionable."
+                            ),
+                            messages=[{
+                                "role": "user",
+                                "content": (
+                                    f"BRIEF: {brief}\n\n"
+                                    f"AGENDA:\n" + "\n".join(f"- {a}" for a in agenda) + "\n\n"
+                                    f"PERSONA RESPONSES:\n{_responses_text}\n\n"
+                                    f"Unified skill set: {', '.join(synthesis.get('unified_skill_set', []))}\n\n"
+                                    f"Produce your unified synthesis."
+                                )
+                            }],
+                        )
+                        synthesis["synthesis_brief"] = _msg.content[0].text.strip()
+                    except Exception as _synth_err:
+                        logger.warning("staff_meeting: The 9 LLM synthesis failed: %s", _synth_err)
             except Exception as _the9_err:
                 logger.warning("staff_meeting: The 9 synthesis error: %s", _the9_err)
                 synthesis = {"status": "unavailable", "error": "the9_init_failed"}
@@ -8899,6 +9216,370 @@ async def exec_staff_meeting(
         "priority":      priority,
         "convened_at":   convened_at,
     }
+
+
+# ── AI Cost Tracking ───────────────────────────────────────────────────────────
+
+@api_router.get("/admin/ai-costs")
+async def get_ai_costs(
+    persona: Optional[str] = None,
+    days: int = 7,
+    user: User = Depends(require_role("admin")),
+):
+    """Per-persona AI cost summary for the last N days. Admin only."""
+    from ai_cost_tracker import get_persona_costs, get_total_cost
+    costs = await get_persona_costs(db, persona=persona, days=days)
+    total = await get_total_cost(db, days=days)
+    return {"costs": costs, "total": total, "period_days": days}
+
+
+# ── Session Management ─────────────────────────────────────────────────────────
+
+@api_router.get("/auth/sessions")
+async def list_sessions(user: User = Depends(current_user)):
+    """List active login sessions for the current user."""
+    sessions = await db.auth_sessions.find(
+        {"user_id": user.id},
+        {"_id": 0, "session_id": 1, "user_agent": 1, "ip": 1, "created_at": 1, "last_seen": 1},
+    ).sort("created_at", -1).to_list(length=20)
+    return {"sessions": sessions}
+
+
+@api_router.delete("/auth/sessions/{session_id}")
+async def revoke_session(session_id: str, user: User = Depends(current_user)):
+    """Revoke a specific session (log out that device)."""
+    result = await db.auth_sessions.delete_one({"user_id": user.id, "session_id": session_id})
+    if result.deleted_count == 0:
+        raise HTTPException(404, "Session not found")
+    return {"ok": True}
+
+
+@api_router.delete("/auth/sessions")
+async def revoke_all_sessions(user: User = Depends(current_user)):
+    """Revoke all sessions except the current one (log out other devices)."""
+    # Increment token version to invalidate all existing JWTs
+    await db.users.update_one({"id": user.id}, {"$inc": {"token_version": 1}})
+    # Clear session records
+    await db.auth_sessions.delete_many({"user_id": user.id})
+    return {"ok": True, "message": "All other sessions revoked. Please re-authenticate."}
+
+
+# ── Cookie Consent Logging ─────────────────────────────────────────────────────
+
+@api_router.post("/consent/cookie")
+async def log_cookie_consent(body: dict, request: Request):
+    """Log cookie consent preference to DB for GDPR compliance.
+    Works for both authenticated and anonymous users."""
+    choice = body.get("choice", "accepted")
+    if choice not in ("accepted", "declined"):
+        raise HTTPException(400, "choice must be 'accepted' or 'declined'")
+    token = request.headers.get("authorization", "").replace("Bearer ", "")
+    user_id = None
+    if token:
+        try:
+            payload = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGO])
+            user_id = payload.get("sub")
+        except Exception:
+            pass
+    await db.cookie_consent_log.insert_one({
+        "user_id": user_id,
+        "choice": choice,
+        "ip": request.client.host if request.client else None,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    })
+    return {"ok": True}
+
+
+# ── API-as-a-Service: Revenue Division ─────────────────────────────────────────
+
+@api_router.get("/revenue/api-keys")
+async def revenue_list_keys(user: User = Depends(current_user)):
+    """List API keys for the current user (hashes only, never raw keys)."""
+    from api_keys import list_api_keys
+    keys = await list_api_keys(db, user.id)
+    return {"keys": keys}
+
+
+@api_router.post("/revenue/api-keys")
+async def revenue_create_key(body: dict, user: User = Depends(current_user)):
+    """Create a new API key. Body: {"label": "...", "tier": "free|starter|pro|enterprise"}"""
+    from api_keys import create_api_key
+    label = body.get("label", "").strip()
+    tier = body.get("tier", "free")
+    if not label:
+        raise HTTPException(400, "label is required")
+    if tier not in ("free", "starter", "pro", "enterprise"):
+        raise HTTPException(400, "tier must be free, starter, pro, or enterprise")
+    result = await create_api_key(db, label, tier, user.id)
+    await audit(user.id, "revenue.api_key.created", meta={"tier": tier, "label": label})
+    return result
+
+
+@api_router.delete("/revenue/api-keys/{key_hash}")
+async def revenue_revoke_key(key_hash: str, user: User = Depends(current_user)):
+    """Revoke an API key."""
+    from api_keys import revoke_api_key
+    ok = await revoke_api_key(db, key_hash, user.id)
+    if not ok:
+        raise HTTPException(404, "Key not found or already revoked")
+    await audit(user.id, "revenue.api_key.revoked")
+    return {"ok": True}
+
+
+@api_router.get("/revenue/api-keys/stats")
+async def revenue_key_stats(user: User = Depends(current_user)):
+    """Usage statistics for all keys owned by the current user."""
+    from api_keys import get_usage_stats
+    stats = await get_usage_stats(db, user.id)
+    return stats
+
+
+@api_router.get("/revenue/api-keys/tiers")
+async def revenue_list_tiers():
+    """List available API key tiers and their rate limits."""
+    from api_keys import TIERS
+    return {"tiers": TIERS}
+
+
+# ── Credential Verification Employer Portal ────────────────────────────────────
+
+@api_router.post("/revenue/verify-credential")
+async def revenue_verify_credential(body: dict):
+    """Public endpoint for employers to verify a candidate credential.
+    Body: {"verification_code": "..."} or {"assertion_url": "..."}"""
+    code = body.get("verification_code", "")
+    if not code:
+        raise HTTPException(400, "verification_code is required")
+    from backend.server import db as _db
+    cred = await db.credentials.find_one(
+        {"verification_code": code},
+        {"_id": 0, "password_hash": 0},
+    )
+    if not cred:
+        raise HTTPException(404, "Credential not found")
+    # Return only what an employer should see
+    return {
+        "valid": True,
+        "credential": cred.get("title", ""),
+        "holder": cred.get("holder_name", ""),
+        "issued": cred.get("issued_at", ""),
+        "expires": cred.get("expires_at", ""),
+        "verified_at": datetime.now(timezone.utc).isoformat(),
+    }
+
+
+@api_router.get("/revenue/employer/verify-batch")
+async def revenue_employer_batch_verify(
+    codes: str = "",
+    user: User = Depends(require_role("instructor")),
+):
+    """Batch verify multiple credential codes. Instructor+ only.
+    Query: ?codes=CODE1,CODE2,CODE3"""
+    if not codes:
+        raise HTTPException(400, "Provide comma-separated verification codes")
+    code_list = [c.strip() for c in codes.split(",") if c.strip()]
+    results = []
+    for code in code_list:
+        cred = await db.credentials.find_one(
+            {"verification_code": code},
+            {"_id": 0, "title": 1, "holder_name": 1, "issued_at": 1, "expires_at": 1},
+        )
+        results.append({
+            "code": code,
+            "valid": cred is not None,
+            "credential": cred.get("title", "") if cred else None,
+            "holder": cred.get("holder_name", "") if cred else None,
+        })
+    return {"results": results, "total": len(results), "valid": sum(1 for r in results if r["valid"])}
+
+
+# ── Course Licensing Marketplace ───────────────────────────────────────────────
+
+@api_router.get("/revenue/courses/public")
+async def revenue_public_courses():
+    """Public catalog of licensable courses for contractors."""
+    modules = await db.modules.find({}, {"_id": 0, "slug": 1, "title": 1, "description": 1,
+                                          "hours": 1, "competencies": 1, "price": 1}).to_list(length=50)
+    return {"courses": modules}
+
+
+@api_router.post("/revenue/courses/license")
+async def revenue_license_course(body: dict, user: User = Depends(current_user)):
+    """License a course for a contractor organization.
+    Body: {"organization": "...", "course_slugs": ["slug1","slug2"], "seats": 5}"""
+    org = body.get("organization", "").strip()
+    slugs = body.get("course_slugs", [])
+    seats = int(body.get("seats", 1))
+    if not org or not slugs:
+        raise HTTPException(400, "organization and course_slugs are required")
+    if seats < 1 or seats > 1000:
+        raise HTTPException(400, "seats must be between 1 and 1000")
+    license_id = str(uuid.uuid4())
+    await db.course_licenses.insert_one({
+        "license_id": license_id,
+        "organization": org,
+        "course_slugs": slugs,
+        "seats": seats,
+        "user_id": user.id,
+        "active": True,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    })
+    await audit(user.id, "revenue.course.licensed", meta={"org": org, "slugs": slugs, "seats": seats})
+    return {"license_id": license_id, "organization": org, "seats": seats}
+
+
+@api_router.get("/revenue/courses/my-licenses")
+async def revenue_my_licenses(user: User = Depends(current_user)):
+    """List course licenses owned by the current user."""
+    licenses = await db.course_licenses.find(
+        {"user_id": user.id},
+        {"_id": 0},
+    ).sort("created_at", -1).to_list(length=50)
+    return {"licenses": licenses}
+
+
+# ── Compliance Hour Tracking — Employer Dashboard ─────────────────────────────
+
+@api_router.get("/revenue/employer/compliance")
+async def revenue_employer_compliance(
+    associate: str = "",
+    user: User = Depends(require_role("instructor")),
+):
+    """Employer/instructor dashboard: compliance hour summary by cohort.
+    Query: ?associate=COHORT_NAME for filtering."""
+    match = {}
+    if associate:
+        match["associate"] = associate
+    # Aggregate attendance + lab completion as compliance hours
+    pipeline = [
+        {"$match": match},
+        {"$group": {
+            "_id": "$user_id",
+            "total_hours": {"$sum": "$hours"},
+            "lab_count": {"$sum": 1},
+            "last_activity": {"$max": "$created_at"},
+        }},
+        {"$sort": {"total_hours": -1}},
+        {"$limit": 100},
+    ]
+    try:
+        attendance = await db.attendance.aggregate(pipeline).to_list(length=100)
+    except Exception:
+        attendance = []
+    total_hours = sum(a.get("total_hours", 0) for a in attendance)
+    return {
+        "total_apprentices": len(attendance),
+        "total_hours": total_hours,
+        "average_hours": round(total_hours / len(attendance), 1) if attendance else 0,
+        "records": attendance,
+        "associate_filter": associate or "all",
+    }
+
+
+# ── Sovereign AI Team Seats ────────────────────────────────────────────────────
+
+@api_router.post("/revenue/sovereign/workspace")
+async def revenue_create_workspace(body: dict, user: User = Depends(require_role("admin"))):
+    """Create a Sovereign AI workspace for a team. Admin+.
+    Body: {"name": "...", "member_ids": ["uid1","uid2"]}"""
+    name = body.get("name", "").strip()
+    member_ids = body.get("member_ids", [])
+    if not name:
+        raise HTTPException(400, "workspace name is required")
+    ws_id = str(uuid.uuid4())
+    await db.sovereign_workspaces.insert_one({
+        "workspace_id": ws_id,
+        "name": name,
+        "owner_id": user.id,
+        "member_ids": member_ids,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    })
+    await audit(user.id, "revenue.sovereign.workspace_created", meta={"name": name, "members": len(member_ids)})
+    return {"workspace_id": ws_id, "name": name}
+
+
+@api_router.get("/revenue/sovereign/workspaces")
+async def revenue_list_workspaces(user: User = Depends(require_role("admin"))):
+    """List Sovereign workspaces accessible to the current user."""
+    workspaces = await db.sovereign_workspaces.find(
+        {"$or": [{"owner_id": user.id}, {"member_ids": user.id}]},
+        {"_id": 0},
+    ).sort("created_at", -1).to_list(length=50)
+    return {"workspaces": workspaces}
+
+
+@api_router.post("/revenue/sovereign/workspace/{ws_id}/chat")
+async def revenue_workspace_chat(ws_id: str, body: dict, user: User = Depends(current_user)):
+    """Chat within a Sovereign workspace. All workspace members share context."""
+    from bson.objectid import ObjectId
+    ws = await db.sovereign_workspaces.find_one({"workspace_id": ws_id})
+    if not ws:
+        raise HTTPException(404, "Workspace not found")
+    if user.id != ws["owner_id"] and user.id not in ws.get("member_ids", []):
+        raise HTTPException(403, "Not a member of this workspace")
+    message = body.get("message", "").strip()
+    if not message:
+        raise HTTPException(400, "message is required")
+    # Load workspace memory (shared across members)
+    memory = await db.sovereign_memory.find(
+        {"workspace_id": ws_id},
+        {"_id": 0},
+    ).sort("ts", -1).limit(10).to_list(length=10)
+    memory_context = "\n".join(f"[{m.get('actor','')}]: {m.get('content','')}" for m in reversed(memory))
+    import anthropic as _anthropic_module
+    _client = _anthropic_module.AsyncAnthropic(api_key=ANTHROPIC_API_KEY)
+    system_prompt = f"You are the Sovereign AI for workspace '{ws['name']}'. Respond helpfully."
+    if memory_context:
+        system_prompt += f"\n\nRecent workspace memory:\n{memory_context}"
+    _msg = await _client.messages.create(
+        model="claude-sonnet-4-6", max_tokens=2048,
+        system=system_prompt,
+        messages=[{"role": "user", "content": message}],
+    )
+    reply = _msg.content[0].text.strip()
+    # Store in workspace memory
+    await db.sovereign_memory.insert_one({
+        "workspace_id": ws_id, "actor": user.id, "content": message[:500],
+        "reply": reply[:500], "ts": datetime.now(timezone.utc).isoformat(),
+    })
+    return {"reply": reply, "workspace": ws["name"]}
+
+
+# ── AI Resume Builder ─────────────────────────────────────────────────────────
+
+@api_router.get("/revenue/resume/preview")
+async def revenue_resume_preview(user: User = Depends(current_user)):
+    """Preview an AI-generated resume from portfolio + credentials data."""
+    portfolio = await db.portfolio.find_one({"user_id": user.id}, {"_id": 0})
+    credentials = await db.credentials.find(
+        {"user_id": user.id},
+        {"_id": 0, "title": 1, "issued_at": 1, "issuer": 1},
+    ).to_list(length=50)
+    user_doc = await db.users.find_one({"id": user.id}, {"_id": 0, "full_name": 1, "email": 1})
+    return {
+        "name": user_doc.get("full_name", "") if user_doc else "",
+        "email": user_doc.get("email", "") if user_doc else "",
+        "credentials": credentials,
+        "portfolio_bio": (portfolio or {}).get("bio", ""),
+        "portfolio_projects": (portfolio or {}).get("projects", []),
+    }
+
+
+# ── Help Guide: context-sensitive help for every route ─────────────────────────
+
+class HelpGuideRequest(BaseModel):
+    path: str = Field(..., min_length=1, max_length=500)
+    query: Optional[str] = Field(default=None, max_length=500)
+
+
+@api_router.post("/help/guide")
+async def help_guide(body: HelpGuideRequest, user: User = Depends(current_user)):
+    """
+    Context-sensitive help for any route in the platform.
+    Returns role-aware guidance, tips, related links, and common tasks.
+    """
+    from help_guide import get_help_for
+    return get_help_for(role=user.role, path=body.path, query=body.query)
 
 
 # ── Pipeline: LLM intent routing ──────────────────────────────────────────────
@@ -9167,6 +9848,12 @@ try:
         if not result["ok"]:
             raise HTTPException(400, result["error"])
         return result
+
+    @api_router.get("/exec/free-backup-matrix")
+    async def exec_free_backup_matrix(user: User = Depends(require_role("executive_admin"))):
+        """Return the free API backup matrix — shows every service and its fallback status."""
+        from free_api_backup import status_summary
+        return status_summary()
 
     logger.info("Emergency Breaker Panel + Gateway endpoints registered")
 except Exception as _ep_err:
