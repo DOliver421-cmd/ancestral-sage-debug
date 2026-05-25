@@ -2,12 +2,13 @@ import { useEffect, useState, useCallback } from "react";
 import { Link } from "react-router-dom";
 import AppShell from "../components/AppShell";
 import { api } from "../lib/api";
+import EmergencyPanel from "../components/EmergencyPanel";
 import {
   Crown, Database, Users, Shield, Settings as Cog,
   Activity, AlertTriangle, BadgeCheck, BookOpen,
   GraduationCap, Award, RefreshCw, ExternalLink,
   CheckCircle2, XCircle, Clock, Zap, Scale, MessageSquare,
-  FileText, UserCog, Eye, HandHelping,
+  FileText, UserCog, Eye, HandHelping, Siren,
 } from "lucide-react";
 
 // ── small helpers ─────────────────────────────────────────────────────────────
@@ -67,6 +68,7 @@ export default function ExecSystem() {
   const [err,      setErr]      = useState(null);
   const [lastSync, setLastSync] = useState(null);
   const [loading,  setLoading]  = useState(true);
+  const [showPanel, setShowPanel] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -129,10 +131,16 @@ export default function ExecSystem() {
                 : "Loading…"}
             </p>
           </div>
-          <button onClick={load} disabled={loading}
-            className="flex items-center gap-2 px-4 py-2 bg-slate-900 text-white text-sm font-bold rounded-xl hover:bg-slate-700 transition-colors disabled:opacity-50">
-            <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} /> Refresh
-          </button>
+          <div className="flex items-center gap-2">
+            <button onClick={() => setShowPanel(!showPanel)}
+              className={`flex items-center gap-2 px-4 py-2 text-sm font-bold rounded-xl border-2 transition-all ${showPanel ? "bg-amber-900/30 border-amber-500 text-amber-400" : "bg-slate-900 border-slate-700 text-white hover:bg-slate-800"}`}>
+              <Siren className="w-4 h-4" /> Breaker Panel
+            </button>
+            <button onClick={load} disabled={loading}
+              className="flex items-center gap-2 px-4 py-2 bg-slate-900 text-white text-sm font-bold rounded-xl hover:bg-slate-700 transition-colors disabled:opacity-50">
+              <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} /> Refresh
+            </button>
+          </div>
         </div>
 
         {err && (
@@ -151,6 +159,13 @@ export default function ExecSystem() {
             <StatusDot ok={!hasLabsPending} label={hasLabsPending ? `${stats?.labs_pending} Labs Pending` : "Labs Current"} />
           </div>
         </div>
+
+        {/* ── Emergency Breaker Panel (toggle) ──────────────────────────── */}
+        {showPanel && (
+          <div className="mb-6">
+            <EmergencyPanel onClose={() => setShowPanel(false)} />
+          </div>
+        )}
 
         {/* ── KPI grid ─────────────────────────────────────────────────── */}
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 mb-6">

@@ -9102,6 +9102,93 @@ try:
 except Exception as _sov_err:
     logger.warning(f"Could not register Sovereign/puzzle endpoints: {_sov_err}")
 
+
+# ── EMERGENCY BREAKER PANEL + GATEWAY ────────────────────────────────────────────
+# Electrical-panel-style failover control for the multi-layer redundancy
+# architecture (Railway → Home Server → Standalone HTML UI).
+# All endpoints require executive_admin role.
+try:
+    from emergency_panel import (
+        get_panel, toggle_breaker, reset_breaker,
+        failover, heartbeat, get_system_health,
+    )
+
+    class _PanelToggleBody(BaseModel):
+        breaker_id: str
+
+    class _PanelFailoverBody(BaseModel):
+        target: Literal["primary", "backup", "emergency"]
+        reason: Optional[str] = None
+
+    class _PanelHeartbeatBody(BaseModel):
+        source: Literal["backup", "emergency"]
+        version: Optional[str] = None
+
+    @api_router.get("/exec/panel")
+    async def exec_panel_get(user: User = Depends(require_role("executive_admin"))):
+        """Get full breaker panel state — all breakers + gateway config."""
+        panel = await get_panel(db)
+        return {k: v for k, v in panel.items() if k != "_id"}
+
+    @api_router.post("/exec/panel/toggle")
+    async def exec_panel_toggle(body: _PanelToggleBody, user: User = Depends(require_role("executive_admin"))):
+        """Toggle a single breaker on/off/standby."""
+        result = await toggle_breaker(db, body.breaker_id)
+        if not result["ok"]:
+            raise HTTPException(400, result["error"])
+        return result
+
+    @api_router.post("/exec/panel/reset")
+    async def exec_panel_reset(body: _PanelToggleBody, user: User = Depends(require_role("executive_admin"))):
+        """Reset a tripped/faulted breaker to its default state."""
+        result = await reset_breaker(db, body.breaker_id)
+        if not result["ok"]:
+            raise HTTPException(400, result["error"])
+        return result
+
+    @api_router.post("/exec/failover")
+    async def exec_failover(body: _PanelFailoverBody, user: User = Depends(require_role("executive_admin"))):
+        """Perform gateway failover: primary → backup → emergency."""
+        result = await failover(db, body.target, reason=body.reason)
+        if not result["ok"]:
+            raise HTTPException(400, result["error"])
+        return result
+
+    @api_router.get("/exec/panel/health")
+    async def exec_panel_health(user: User = Depends(require_role("executive_admin"))):
+        """Quick health summary for the breaker panel."""
+        return await get_system_health(db)
+
+    @api_router.post("/exec/panel/heartbeat")
+    async def exec_panel_heartbeat(body: _PanelHeartbeatBody):
+        """Heartbeat from backup server or emergency UI (no auth required —
+        the backup server reports its liveness so the panel shows it as alive)."""
+        result = await heartbeat(db, body.source, version=body.version)
+        if not result["ok"]:
+            raise HTTPException(400, result["error"])
+        return result
+
+    logger.info("Emergency Breaker Panel + Gateway endpoints registered")
+except Exception as _ep_err:
+    logger.warning(f"Could not register Emergency Panel endpoints: {_ep_err}")
+
+# ── Gateway: serve the standalone emergency UI ────────────────────────────────────
+# When the React SPA is unavailable, this route serves the zero-dependency
+# sovereign UI so execs can still access the system via any browser.
+_EMERGENCY_UI_PATH = ROOT_DIR / "sovereign" / "ui.html"
+if _EMERGENCY_UI_PATH.exists():
+    from fastapi.responses import HTMLResponse as _HTMLResponse
+
+    @api_router.get("/emergency", include_in_schema=False)
+    @api_router.get("/emergency/", include_in_schema=False)
+    async def emergency_ui():
+        """Standalone emergency UI — works without React SPA."""
+        html = _EMERGENCY_UI_PATH.read_text(encoding="utf-8")
+        return _HTMLResponse(content=html)
+    logger.info("Emergency UI gateway: /emergency")
+else:
+    logger.warning("Emergency UI not found at %s — gateway disabled", _EMERGENCY_UI_PATH)
+
 app.include_router(api_router)
 # CORS: when origins is wildcard ("*") browsers reject credentials, so we
 # turn off allow_credentials in that case (auth uses Bearer token in Authorization

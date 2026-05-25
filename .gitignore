@@ -30,7 +30,7 @@ next-env.d.ts
 dist/
 dist
 
-# Environment and credential files
+# Environment and credential files — NO .env VARIANT should EVER be committed
 .env
 .env.*
 .env*
@@ -54,6 +54,8 @@ dump.rdb
 
 # System files
 .DS_Store
+Thumbs.db
+Desktop.ini
 
 # Python
 __pycache__/
@@ -88,3 +90,24 @@ agenthub/agents/youtube/db
 # Local files
 memory/test_credentials.md
 WAI_Handoff.txt
+
+# Binary / document formats that should never be committed
+*.doc
+*.docx
+*.pdf
+*.png
+*.jpg
+*.jpeg
+*.gif
+*.ico
+*.woff
+*.woff2
+*.ttf
+*.otf
+*.eot
+
+# Archive directory — historical reference only, not part of the live codebase
+.archive/
+
+# Operational scripts (may contain local paths / credentials)
+scripts/ops/
