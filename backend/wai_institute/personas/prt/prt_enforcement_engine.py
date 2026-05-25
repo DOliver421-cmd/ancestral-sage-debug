@@ -68,12 +68,25 @@ class PRTEnforcementEngine:
 
     # ── Directive filter ──────────────────────────────────────────────────────
 
-    def filter_directive(self, sender: str, directive: str) -> Dict[str, Any]:
+    def filter_directive(
+        self,
+        sender: str,
+        directive: str,
+        relay_from: Optional[str] = None,
+    ) -> Dict[str, Any]:
         """
-        Gate all incoming directives.
+        Gate all incoming directives with tier-aware enforcement.
 
         Only the Ancestral Sage or the Executive can command PRT.
-        All other personas are blocked regardless of their tier.
+        The Director (Tier 2) may relay directives on behalf of Sage or Executive
+        by passing relay_from="sage" or relay_from="executive". All other personas
+        are blocked regardless of their tier.
+
+        Args:
+            sender:     Identity of the directive source
+            directive:  The directive text
+            relay_from: Optional — if set, allows a Tier 2+ persona to relay
+                        a command from the specified authority ("sage" or "executive")
 
         Returns:
             accepted (bool)
@@ -82,6 +95,16 @@ class PRTEnforcementEngine:
             reason (str)      — only present on rejection
             authority (str)   — "sage" | "executive", only on acceptance
         """
+        sender_key = sender.lower().strip()
+
+        # Tier-aware relay: Director (Tier 2) can relay Sage/Executive commands
+        if relay_from and sender_key in ("director", "assistant_director"):
+            relay_authority = relay_from.lower().strip()
+            if relay_authority in ("sage", "ancestral_sage", "ancestralsage"):
+                return self.auth.authorize("ancestral_sage", directive)
+            if relay_authority in ("executive", "executive_admin", "delon", "nam_oshun", "namoshun"):
+                return self.auth.authorize("executive", directive)
+
         return self.auth.authorize(sender, directive)
 
     # ── Enforcement ───────────────────────────────────────────────────────────
@@ -157,6 +180,7 @@ class PRTEnforcementEngine:
         directive: str,
         director_plan: Optional[Dict[str, Any]] = None,
         context: Optional[Dict[str, Any]] = None,
+        relay_from: Optional[str] = None,
     ) -> Dict[str, Any]:
         """
         Full PRT decision flow: filter → evaluate director plan → enforce or activate.
@@ -178,7 +202,7 @@ class PRTEnforcementEngine:
             Full flow result dict with all decision stages
         """
         # Step 1: Filter
-        filter_result = self.filter_directive(sender, directive)
+        filter_result = self.filter_directive(sender, directive, relay_from=relay_from)
         if not filter_result["accepted"]:
             return {
                 "stage":  "filter",

@@ -130,6 +130,7 @@ class The9FusionEngine:
         prt_directive: Optional[Dict[str, Any]] = None,
         sender: str = "poor_righteous_teacher",
         activation_reason: str = "prt_command",
+        verification: Optional[Dict[str, str]] = None,
     ) -> FusionResult:
         """
         Activate The 9 unified mind.
@@ -144,6 +145,37 @@ class The9FusionEngine:
             FusionResult — always returned, never raises
         """
         now = datetime.now(timezone.utc).isoformat()
+
+        # Identity verification (optional but enforced when provided)
+        if verification:
+            expected_roles = {
+                "sage": "ancestral_sage",
+                "executive": "executive",
+                "prt": "poor_righteous_teacher",
+            }
+            claimed_role = verification.get("sender_role", "").lower().strip()
+            auth_token = verification.get("auth_token", "").strip()
+            expected_sender = expected_roles.get(claimed_role, "")
+            if not expected_sender:
+                logger.warning("The 9: unknown sender_role '%s' in verification", claimed_role)
+                return FusionResult(
+                    status="blocked",
+                    activated_by=sender,
+                    activation_code=activation_reason,
+                    activation_reason=ACTIVATION_CONDITIONS.get(activation_reason, activation_reason),
+                    error=f"Unknown sender_role '{claimed_role}' in verification. Must be one of: sage, executive, prt.",
+                    timestamp=now,
+                )
+            if sender.lower().strip() != expected_sender:
+                logger.warning("The 9: sender '%s' does not match verification role '%s'", sender, claimed_role)
+                return FusionResult(
+                    status="blocked",
+                    activated_by=sender,
+                    activation_code=activation_reason,
+                    activation_reason=ACTIVATION_CONDITIONS.get(activation_reason, activation_reason),
+                    error=f"Sender '{sender}' does not match verified role '{claimed_role}'.",
+                    timestamp=now,
+                )
 
         # Authorization check
         if not self.auth.can_activate_the9(sender):
@@ -191,6 +223,7 @@ class The9FusionEngine:
             prt_directive     = request.get("prt_directive"),
             sender            = request.get("sender", "poor_righteous_teacher"),
             activation_reason = request.get("reason", "prt_command"),
+            verification      = request.get("verification"),
         )
 
     # ── Synthesis brief builder ───────────────────────────────────────────────
