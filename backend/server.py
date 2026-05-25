@@ -976,6 +976,19 @@ async def backfill_verification_codes():
 
 @app.on_event("startup")
 async def on_startup():
+    # Return immediately so uvicorn begins serving and Railway's /api/version
+    # healthcheck passes within seconds. The full init below is DB/network-heavy
+    # (indexes, seeds, revenue/WAI/pipeline/discount bootstrap). If MONGO_URL is
+    # slow or unreachable, awaiting it inline blocks uvicorn from serving (the
+    # ASGI lifespan must finish before the socket accepts requests) — measured at
+    # 30s+ per Mongo serverSelection timeout, stacking past the healthcheck
+    # window and producing the 502 fallback + restart loop seen in production.
+    # Running it as a background task decouples container health from DB state;
+    # /api/version and /api/health do not depend on any of it.
+    asyncio.create_task(_on_startup_impl())
+
+
+async def _on_startup_impl():
     # ── MongoDB dual-connection setup ─────────────────────────────────────────
     # Motor connects lazily — we don't ping at startup (asyncio.wait_for +
     # Motor is unsafe; it can cancel mid-connection and corrupt the pool).
