@@ -64,6 +64,7 @@ import Plans from "./pages/Plans";
 import HelpCenter from "./pages/HelpCenter";
 import TermsOfService from "./pages/TermsOfService";
 import PrivacyPolicy from "./pages/PrivacyPolicy";
+import MoreHelpCenter from "./pages/MoreHelpCenter";
 import CookieConsent from "./components/CookieConsent";
 import HelpGuide from "./components/HelpGuide";
 import WelcomeWizard from "./components/WelcomeWizard";
@@ -104,6 +105,11 @@ function Home() {
 }
 
 function App() {
+  const hostname = window.location.hostname;
+  if (hostname.includes("morehelp.center")) {
+    return <MoreHelpCenter />;
+  }
+
   return (
     <AuthProvider>
       <BrowserRouter>
