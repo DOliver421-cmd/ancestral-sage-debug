@@ -1,4 +1,24 @@
-console.log(await puter.kv.get('ancestral_sage_memory_latest'));
+// ═════════════════════════════════════════════════════════════
+// 🔥 MEMORY SYNC TEST — ADDED FOR DEBUGGING
+// ═════════════════════════════════════════════════════════════
+
+// Function to test memory sync
+async function testMemorySync() {
+    try {
+        const memory = await puter.kv.get('ancestral_sage_memory_latest');
+        console.log('📊 MEMORY SYNC TEST RESULT:', memory || 'No memory found');
+        return memory;
+    } catch (error) {
+        console.error('❌ MEMORY SYNC TEST FAILED:', error);
+        return null;
+    }
+}
+
+// Run the test when the app loads
+testMemorySync();
+
+// ═════════════════════════════════════════════════════════════
+
 import { useState } from "react";
 
 function Input({ label, value, onChange, type = "number", testid, placeholder }) {
