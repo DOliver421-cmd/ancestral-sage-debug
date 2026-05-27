@@ -1,3 +1,4 @@
+console.log(await puter.kv.get('ancestral_sage_memory_latest'));
 import { useState } from "react";
 
 function Input({ label, value, onChange, type = "number", testid, placeholder }) {
