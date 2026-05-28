@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { Link } from "react-router-dom";
 import AppShell from "../components/AppShell";
 import { api } from "../lib/api";
@@ -8,7 +8,8 @@ import {
   Activity, AlertTriangle, BadgeCheck, BookOpen,
   GraduationCap, Award, RefreshCw, ExternalLink,
   CheckCircle2, XCircle, Clock, Zap, Scale, MessageSquare,
-  FileText, UserCog, Eye, HandHelping, Siren,
+  FileText, UserCog, Eye, HandHelping, Siren, Search,
+  UserCheck, UserX, ChevronDown,
 } from "lucide-react";
 
 // ── small helpers ─────────────────────────────────────────────────────────────
@@ -55,6 +56,171 @@ function QuickAction({ icon: Icon, label, to, color = "#0b1f3a" }) {
       {label}
       <ExternalLink className="w-3.5 h-3.5 ml-auto opacity-40" />
     </Link>
+  );
+}
+
+// ── User Database panel ───────────────────────────────────────────────────────
+const ROLES = ["", "student", "instructor", "admin", "executive_admin"];
+const ROLE_LABELS = { "": "All Roles", student: "Student", instructor: "Instructor", admin: "Admin", executive_admin: "Exec Admin" };
+const ROLE_COLORS = { executive_admin: "bg-amber-100 text-amber-800", admin: "bg-slate-100 text-slate-700", instructor: "bg-blue-100 text-blue-800", student: "bg-emerald-100 text-emerald-800" };
+
+function UserDatabase() {
+  const [users, setUsers]       = useState([]);
+  const [loading, setLoading]   = useState(true);
+  const [error, setError]       = useState(null);
+  const [q, setQ]               = useState("");
+  const [roleFilter, setRole]   = useState("");
+  const [actionMsg, setMsg]     = useState(null);
+  const debounce                = useRef(null);
+
+  const fetchUsers = useCallback(async (search, role) => {
+    setLoading(true); setError(null);
+    try {
+      const params = new URLSearchParams();
+      if (search) params.set("q", search);
+      if (role)   params.set("role", role);
+      const r = await api.get(`/admin/users?${params}`);
+      setUsers(r.data);
+    } catch (e) {
+      setError(e?.response?.data?.detail || "Failed to load users");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    clearTimeout(debounce.current);
+    debounce.current = setTimeout(() => fetchUsers(q, roleFilter), 300);
+    return () => clearTimeout(debounce.current);
+  }, [q, roleFilter, fetchUsers]);
+
+  async function toggleActive(u) {
+    try {
+      await api.patch(`/admin/users/${u.id}/active`, { is_active: !u.is_active });
+      setMsg(`${u.full_name} ${u.is_active ? "deactivated" : "activated"}`);
+      setUsers(prev => prev.map(x => x.id === u.id ? { ...x, is_active: !x.is_active } : x));
+      setTimeout(() => setMsg(null), 3000);
+    } catch (e) {
+      setMsg(`Error: ${e?.response?.data?.detail || "action failed"}`);
+      setTimeout(() => setMsg(null), 4000);
+    }
+  }
+
+  async function changeRole(u, newRole) {
+    try {
+      await api.patch(`/admin/users/${u.id}/role`, { role: newRole });
+      setMsg(`${u.full_name} → ${ROLE_LABELS[newRole]}`);
+      setUsers(prev => prev.map(x => x.id === u.id ? { ...x, role: newRole } : x));
+      setTimeout(() => setMsg(null), 3000);
+    } catch (e) {
+      setMsg(`Error: ${e?.response?.data?.detail || "role change failed"}`);
+      setTimeout(() => setMsg(null), 4000);
+    }
+  }
+
+  return (
+    <div className="bg-white rounded-2xl border border-slate-100 shadow-sm mb-6 overflow-hidden">
+      {/* header */}
+      <div className="px-6 py-4 border-b border-slate-100 flex flex-wrap items-center justify-between gap-3">
+        <h2 className="font-heading font-extrabold text-lg text-slate-900 flex items-center gap-2">
+          <Users className="w-5 h-5 text-slate-400" /> User Database
+          <span className="text-sm font-normal text-slate-400 ml-1">({users.length})</span>
+        </h2>
+        <div className="flex items-center gap-2 flex-wrap">
+          {/* search */}
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
+            <input
+              value={q}
+              onChange={e => setQ(e.target.value)}
+              placeholder="Name or email…"
+              className="pl-8 pr-3 py-1.5 text-sm border border-slate-200 rounded-lg text-slate-700 placeholder:text-slate-400 focus:outline-none focus:border-amber-400 w-52"
+            />
+          </div>
+          {/* role filter */}
+          <div className="relative">
+            <select
+              value={roleFilter}
+              onChange={e => setRole(e.target.value)}
+              className="appearance-none pl-3 pr-7 py-1.5 text-sm border border-slate-200 rounded-lg text-slate-700 focus:outline-none focus:border-amber-400 bg-white"
+            >
+              {ROLES.map(r => <option key={r} value={r}>{ROLE_LABELS[r]}</option>)}
+            </select>
+            <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 pointer-events-none" />
+          </div>
+        </div>
+      </div>
+
+      {/* action toast */}
+      {actionMsg && (
+        <div className="px-6 py-2 bg-amber-50 border-b border-amber-100 text-amber-800 text-sm font-medium">{actionMsg}</div>
+      )}
+
+      {/* table */}
+      <div className="overflow-x-auto">
+        {loading ? (
+          <div className="py-10 text-center text-slate-400 text-sm">Loading users…</div>
+        ) : error ? (
+          <div className="py-10 text-center text-red-500 text-sm">{error}</div>
+        ) : users.length === 0 ? (
+          <div className="py-10 text-center text-slate-400 text-sm">No users found.</div>
+        ) : (
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b-2 border-slate-100">
+                <th className="text-left py-2 px-4 text-xs uppercase tracking-wider text-slate-400 font-bold">Name</th>
+                <th className="text-left py-2 px-4 text-xs uppercase tracking-wider text-slate-400 font-bold">Email</th>
+                <th className="text-left py-2 px-4 text-xs uppercase tracking-wider text-slate-400 font-bold">Role</th>
+                <th className="text-left py-2 px-4 text-xs uppercase tracking-wider text-slate-400 font-bold">Associate</th>
+                <th className="text-left py-2 px-4 text-xs uppercase tracking-wider text-slate-400 font-bold">Status</th>
+                <th className="py-2 px-4 text-xs uppercase tracking-wider text-slate-400 font-bold text-right">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {users.map(u => (
+                <tr key={u.id} className="border-b border-slate-50 hover:bg-slate-50">
+                  <td className="py-3 px-4 font-heading font-bold text-slate-900 whitespace-nowrap">{u.full_name || "—"}</td>
+                  <td className="py-3 px-4 font-mono text-slate-500 text-xs whitespace-nowrap">{u.email}</td>
+                  <td className="py-3 px-4">
+                    <select
+                      value={u.role}
+                      onChange={e => changeRole(u, e.target.value)}
+                      className={`appearance-none text-xs font-bold px-2 py-1 rounded-full border-0 cursor-pointer focus:outline-none focus:ring-2 focus:ring-amber-300 ${ROLE_COLORS[u.role] || "bg-slate-100 text-slate-700"}`}
+                    >
+                      {["student","instructor","admin","executive_admin"].map(r =>
+                        <option key={r} value={r}>{ROLE_LABELS[r]}</option>
+                      )}
+                    </select>
+                  </td>
+                  <td className="py-3 px-4 text-slate-600 text-xs">{u.associate || <span className="text-slate-300">—</span>}</td>
+                  <td className="py-3 px-4">
+                    {u.is_active === false
+                      ? <span className="text-xs font-bold text-red-500 bg-red-50 px-2 py-0.5 rounded-full">Inactive</span>
+                      : <span className="text-xs font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full">Active</span>
+                    }
+                  </td>
+                  <td className="py-3 px-4 text-right">
+                    <button
+                      onClick={() => toggleActive(u)}
+                      title={u.is_active === false ? "Activate" : "Deactivate"}
+                      className="inline-flex items-center gap-1 text-xs font-bold px-2 py-1 rounded-lg border transition-colors hover:scale-105"
+                      style={u.is_active === false
+                        ? { borderColor: "#059669", color: "#059669" }
+                        : { borderColor: "#dc2626", color: "#dc2626" }}
+                    >
+                      {u.is_active === false
+                        ? <><UserCheck className="w-3.5 h-3.5" /> Activate</>
+                        : <><UserX className="w-3.5 h-3.5" /> Deactivate</>
+                      }
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
+    </div>
   );
 }
 
@@ -324,6 +490,9 @@ export default function ExecSystem() {
             </div>
           )}
         </div>
+
+        {/* ── User Database ─────────────────────────────────────────────── */}
+        <UserDatabase />
 
         {/* ── DB collections ────────────────────────────────────────────── */}
         <div className="bg-white rounded-2xl p-6 border border-slate-100 shadow-sm">
