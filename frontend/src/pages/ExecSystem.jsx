@@ -113,7 +113,7 @@ export default function ExecSystem() {
 
   return (
     <AppShell>
-      <div className="px-6 lg:px-10 py-8 max-w-7xl" style={{ background: "linear-gradient(160deg,#06251c,#0a0a0f 70%)", minHeight: "100vh", color: "var(--wai-text)" }}>
+      <div className="px-6 lg:px-10 py-8 max-w-7xl" style={{ background: "linear-gradient(160deg,#06251c,#0a0a0f 70%)", minHeight: "100vh", color: "#0b1f3a" }}>
 
         {/* ── Header ───────────────────────────────────────────────────────── */}
         <div className="flex items-start justify-between flex-wrap gap-4 mb-8">
