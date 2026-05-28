@@ -60,18 +60,173 @@ function QuickAction({ icon: Icon, label, to, color = "#0b1f3a" }) {
 }
 
 // ── User Database panel ───────────────────────────────────────────────────────
-const ROLES = ["", "student", "instructor", "admin", "executive_admin"];
-const ROLE_LABELS = { "": "All Roles", student: "Student", instructor: "Instructor", admin: "Admin", executive_admin: "Exec Admin" };
-const ROLE_COLORS = { executive_admin: "bg-amber-100 text-amber-800", admin: "bg-slate-100 text-slate-700", instructor: "bg-blue-100 text-blue-800", student: "bg-emerald-100 text-emerald-800" };
+const ROLES_FILTER = ["", "student", "instructor", "admin", "executive_admin"];
+const ROLE_LABELS  = { "": "All Roles", student: "Student", instructor: "Instructor", admin: "Admin", executive_admin: "Exec Admin" };
+const ROLE_COLORS  = { executive_admin: "bg-amber-100 text-amber-800", admin: "bg-slate-100 text-slate-700", instructor: "bg-blue-100 text-blue-800", student: "bg-emerald-100 text-emerald-800" };
+
+// Modal: edit a single user (email, name, role, password, activate/deactivate, reset link)
+function UserEditModal({ user: u, onClose, onUpdated, notify }) {
+  const [name,     setName]    = useState(u.full_name || "");
+  const [email,    setEmail]   = useState(u.email || "");
+  const [role,     setRole]    = useState(u.role || "student");
+  const [assoc,    setAssoc]   = useState(u.associate || "");
+  const [pw,       setPw]      = useState("");
+  const [saving,   setSaving]  = useState(false);
+  const [resetLink, setLink]   = useState(null);
+
+  async function save() {
+    setSaving(true);
+    try {
+      // update name / email / associate
+      await api.patch(`/admin/users/${u.id}`, { full_name: name, email, associate: assoc || undefined });
+      // update role if changed
+      if (role !== u.role) await api.patch(`/admin/users/${u.id}/role`, { role });
+      // update password if provided
+      if (pw.trim()) await api.post(`/admin/users/${u.id}/password`, { new_password: pw });
+      notify(`${name} updated`);
+      onUpdated({ ...u, full_name: name, email, role, associate: assoc });
+      onClose();
+    } catch (e) {
+      notify(`Error: ${e?.response?.data?.detail || "save failed"}`, true);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function toggleActive() {
+    setSaving(true);
+    try {
+      await api.patch(`/admin/users/${u.id}/active`, { is_active: u.is_active === false });
+      notify(`${u.full_name} ${u.is_active === false ? "activated" : "deactivated"}`);
+      onUpdated({ ...u, is_active: u.is_active === false });
+      onClose();
+    } catch (e) {
+      notify(`Error: ${e?.response?.data?.detail || "action failed"}`, true);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function getResetLink() {
+    setSaving(true);
+    try {
+      const r = await api.post(`/admin/users/${u.id}/reset-link`);
+      setLink(r.data.reset_url || r.data.link || JSON.stringify(r.data));
+    } catch (e) {
+      notify(`Error: ${e?.response?.data?.detail || "could not generate link"}`, true);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  // trap focus inside modal
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: "rgba(0,0,0,0.55)" }} onClick={e => e.target === e.currentTarget && onClose()}>
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden">
+        {/* modal header */}
+        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100">
+          <div>
+            <h3 className="font-heading font-extrabold text-slate-900 text-lg">{u.full_name || u.email}</h3>
+            <p className="text-xs text-slate-400 font-mono mt-0.5">{u.id}</p>
+          </div>
+          <button onClick={onClose} className="text-slate-400 hover:text-slate-700 text-xl font-bold leading-none">×</button>
+        </div>
+
+        <div className="px-6 py-5 space-y-4">
+          {/* name */}
+          <div>
+            <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1">Full Name</label>
+            <input value={name} onChange={e => setName(e.target.value)}
+              className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-800 focus:outline-none focus:border-amber-400" />
+          </div>
+
+          {/* email */}
+          <div>
+            <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1">Email</label>
+            <input type="email" value={email} onChange={e => setEmail(e.target.value)}
+              className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-800 font-mono focus:outline-none focus:border-amber-400" />
+          </div>
+
+          {/* role */}
+          <div>
+            <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1">Role / Access Level</label>
+            <div className="relative">
+              <select value={role} onChange={e => setRole(e.target.value)}
+                className="w-full appearance-none border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-800 focus:outline-none focus:border-amber-400 bg-white pr-8">
+                {["student","instructor","admin","executive_admin"].map(r =>
+                  <option key={r} value={r}>{ROLE_LABELS[r]}</option>
+                )}
+              </select>
+              <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+            </div>
+          </div>
+
+          {/* associate */}
+          <div>
+            <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1">Associate Cohort</label>
+            <input value={assoc} onChange={e => setAssoc(e.target.value)} placeholder="e.g. Associate-Alpha"
+              className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-800 focus:outline-none focus:border-amber-400" />
+          </div>
+
+          {/* new password */}
+          <div>
+            <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1">Set New Password <span className="font-normal text-slate-400">(leave blank to keep current)</span></label>
+            <input type="password" value={pw} onChange={e => setPw(e.target.value)} placeholder="Min 8 characters"
+              className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-800 focus:outline-none focus:border-amber-400" />
+          </div>
+
+          {/* reset link */}
+          <div>
+            <div className="flex items-center justify-between mb-1">
+              <label className="block text-xs font-bold uppercase tracking-wider text-slate-500">Password Reset Link</label>
+              <button onClick={getResetLink} disabled={saving}
+                className="text-xs font-bold text-amber-600 hover:underline disabled:opacity-40">
+                Generate one-time link
+              </button>
+            </div>
+            {resetLink && (
+              <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
+                <p className="text-xs text-amber-700 font-mono break-all">{resetLink}</p>
+                <button onClick={() => navigator.clipboard?.writeText(resetLink)}
+                  className="text-xs font-bold text-amber-600 hover:underline mt-1">Copy link</button>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* footer */}
+        <div className="flex items-center justify-between px-6 py-4 border-t border-slate-100 bg-slate-50 gap-3 flex-wrap">
+          <button onClick={toggleActive} disabled={saving}
+            className={`text-xs font-bold px-4 py-2 rounded-lg border transition-colors disabled:opacity-40 ${u.is_active === false ? "border-emerald-500 text-emerald-600 hover:bg-emerald-50" : "border-red-400 text-red-500 hover:bg-red-50"}`}>
+            {u.is_active === false ? "Activate Account" : "Deactivate Account"}
+          </button>
+          <div className="flex gap-2">
+            <button onClick={onClose} className="text-sm text-slate-500 hover:text-slate-700 px-4 py-2">Cancel</button>
+            <button onClick={save} disabled={saving}
+              className="text-sm font-bold bg-amber-500 hover:bg-amber-600 text-white px-5 py-2 rounded-lg transition-colors disabled:opacity-40">
+              {saving ? "Saving…" : "Save Changes"}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 function UserDatabase() {
-  const [users, setUsers]       = useState([]);
-  const [loading, setLoading]   = useState(true);
-  const [error, setError]       = useState(null);
-  const [q, setQ]               = useState("");
-  const [roleFilter, setRole]   = useState("");
-  const [actionMsg, setMsg]     = useState(null);
-  const debounce                = useRef(null);
+  const [users,    setUsers]   = useState([]);
+  const [loading,  setLoading] = useState(true);
+  const [error,    setError]   = useState(null);
+  const [q,        setQ]       = useState("");
+  const [roleFilter, setRole]  = useState("");
+  const [toast,    setToast]   = useState(null);
+  const [editing,  setEditing] = useState(null); // user being edited
+  const debounce               = useRef(null);
+
+  function notify(msg, isErr = false) {
+    setToast({ msg, isErr });
+    setTimeout(() => setToast(null), 4000);
+  }
 
   const fetchUsers = useCallback(async (search, role) => {
     setLoading(true); setError(null);
@@ -94,28 +249,8 @@ function UserDatabase() {
     return () => clearTimeout(debounce.current);
   }, [q, roleFilter, fetchUsers]);
 
-  async function toggleActive(u) {
-    try {
-      await api.patch(`/admin/users/${u.id}/active`, { is_active: !u.is_active });
-      setMsg(`${u.full_name} ${u.is_active ? "deactivated" : "activated"}`);
-      setUsers(prev => prev.map(x => x.id === u.id ? { ...x, is_active: !x.is_active } : x));
-      setTimeout(() => setMsg(null), 3000);
-    } catch (e) {
-      setMsg(`Error: ${e?.response?.data?.detail || "action failed"}`);
-      setTimeout(() => setMsg(null), 4000);
-    }
-  }
-
-  async function changeRole(u, newRole) {
-    try {
-      await api.patch(`/admin/users/${u.id}/role`, { role: newRole });
-      setMsg(`${u.full_name} → ${ROLE_LABELS[newRole]}`);
-      setUsers(prev => prev.map(x => x.id === u.id ? { ...x, role: newRole } : x));
-      setTimeout(() => setMsg(null), 3000);
-    } catch (e) {
-      setMsg(`Error: ${e?.response?.data?.detail || "role change failed"}`);
-      setTimeout(() => setMsg(null), 4000);
-    }
+  function handleUpdated(updated) {
+    setUsers(prev => prev.map(x => x.id === updated.id ? updated : x));
   }
 
   return (
@@ -127,33 +262,29 @@ function UserDatabase() {
           <span className="text-sm font-normal text-slate-400 ml-1">({users.length})</span>
         </h2>
         <div className="flex items-center gap-2 flex-wrap">
-          {/* search */}
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
-            <input
-              value={q}
-              onChange={e => setQ(e.target.value)}
-              placeholder="Name or email…"
-              className="pl-8 pr-3 py-1.5 text-sm border border-slate-200 rounded-lg text-slate-700 placeholder:text-slate-400 focus:outline-none focus:border-amber-400 w-52"
-            />
+            <input value={q} onChange={e => setQ(e.target.value)} placeholder="Name or email…"
+              className="pl-8 pr-3 py-1.5 text-sm border border-slate-200 rounded-lg text-slate-700 placeholder:text-slate-400 focus:outline-none focus:border-amber-400 w-52" />
           </div>
-          {/* role filter */}
           <div className="relative">
-            <select
-              value={roleFilter}
-              onChange={e => setRole(e.target.value)}
-              className="appearance-none pl-3 pr-7 py-1.5 text-sm border border-slate-200 rounded-lg text-slate-700 focus:outline-none focus:border-amber-400 bg-white"
-            >
-              {ROLES.map(r => <option key={r} value={r}>{ROLE_LABELS[r]}</option>)}
+            <select value={roleFilter} onChange={e => setRole(e.target.value)}
+              className="appearance-none pl-3 pr-7 py-1.5 text-sm border border-slate-200 rounded-lg text-slate-700 focus:outline-none focus:border-amber-400 bg-white">
+              {ROLES_FILTER.map(r => <option key={r} value={r}>{ROLE_LABELS[r]}</option>)}
             </select>
             <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 pointer-events-none" />
           </div>
+          <button onClick={() => fetchUsers(q, roleFilter)} className="text-xs font-bold text-slate-500 hover:text-amber-600 border border-slate-200 px-3 py-1.5 rounded-lg transition-colors">
+            <RefreshCw className="w-3.5 h-3.5 inline mr-1" />Refresh
+          </button>
         </div>
       </div>
 
-      {/* action toast */}
-      {actionMsg && (
-        <div className="px-6 py-2 bg-amber-50 border-b border-amber-100 text-amber-800 text-sm font-medium">{actionMsg}</div>
+      {/* toast */}
+      {toast && (
+        <div className={`px-6 py-2 border-b text-sm font-medium ${toast.isErr ? "bg-red-50 border-red-100 text-red-700" : "bg-amber-50 border-amber-100 text-amber-800"}`}>
+          {toast.msg}
+        </div>
       )}
 
       {/* table */}
@@ -182,15 +313,9 @@ function UserDatabase() {
                   <td className="py-3 px-4 font-heading font-bold text-slate-900 whitespace-nowrap">{u.full_name || "—"}</td>
                   <td className="py-3 px-4 font-mono text-slate-500 text-xs whitespace-nowrap">{u.email}</td>
                   <td className="py-3 px-4">
-                    <select
-                      value={u.role}
-                      onChange={e => changeRole(u, e.target.value)}
-                      className={`appearance-none text-xs font-bold px-2 py-1 rounded-full border-0 cursor-pointer focus:outline-none focus:ring-2 focus:ring-amber-300 ${ROLE_COLORS[u.role] || "bg-slate-100 text-slate-700"}`}
-                    >
-                      {["student","instructor","admin","executive_admin"].map(r =>
-                        <option key={r} value={r}>{ROLE_LABELS[r]}</option>
-                      )}
-                    </select>
+                    <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${ROLE_COLORS[u.role] || "bg-slate-100 text-slate-700"}`}>
+                      {ROLE_LABELS[u.role] || u.role}
+                    </span>
                   </td>
                   <td className="py-3 px-4 text-slate-600 text-xs">{u.associate || <span className="text-slate-300">—</span>}</td>
                   <td className="py-3 px-4">
@@ -200,18 +325,9 @@ function UserDatabase() {
                     }
                   </td>
                   <td className="py-3 px-4 text-right">
-                    <button
-                      onClick={() => toggleActive(u)}
-                      title={u.is_active === false ? "Activate" : "Deactivate"}
-                      className="inline-flex items-center gap-1 text-xs font-bold px-2 py-1 rounded-lg border transition-colors hover:scale-105"
-                      style={u.is_active === false
-                        ? { borderColor: "#059669", color: "#059669" }
-                        : { borderColor: "#dc2626", color: "#dc2626" }}
-                    >
-                      {u.is_active === false
-                        ? <><UserCheck className="w-3.5 h-3.5" /> Activate</>
-                        : <><UserX className="w-3.5 h-3.5" /> Deactivate</>
-                      }
+                    <button onClick={() => setEditing(u)}
+                      className="text-xs font-bold px-3 py-1.5 rounded-lg border border-amber-300 text-amber-700 hover:bg-amber-50 transition-colors">
+                      Manage
                     </button>
                   </td>
                 </tr>
@@ -220,6 +336,16 @@ function UserDatabase() {
           </table>
         )}
       </div>
+
+      {/* edit modal */}
+      {editing && (
+        <UserEditModal
+          user={editing}
+          onClose={() => setEditing(null)}
+          onUpdated={handleUpdated}
+          notify={notify}
+        />
+      )}
     </div>
   );
 }
