@@ -10088,6 +10088,12 @@ try:
         from free_api_backup import status_summary
         return status_summary()
 
+    @api_router.get("/admin/gateway/status")
+    async def admin_gateway_status(user: User = Depends(require_role("admin"))):
+        """Return LLM gateway provider availability and budget usage."""
+        from ai.llm_gateway import gateway_status
+        return gateway_status()
+
     logger.info("Emergency Breaker Panel + Gateway endpoints registered")
 except Exception as _ep_err:
     logger.warning(f"Could not register Emergency Panel endpoints: {_ep_err}")

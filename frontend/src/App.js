@@ -159,7 +159,7 @@ function App() {
           {/* Public funnel pages */}
           <Route path="/help-center" element={<HelpCenter />} />
           <Route path="/seshats-hub" element={<SeshatsHub />} />
-          {/* MORE Help Center — primary entry point for unauthenticated visitors */}
+          {/* MORE Help Center — unified entry point (greeter / exec / decoy modes) */}
           <Route path="/more-help-center" element={<MoreHelpCenter />} />
           <Route path="/landing" element={<LandingMarketplace />} />
           {/* Supervisor — executive_admin only; separate login at /supervisor-login */}
