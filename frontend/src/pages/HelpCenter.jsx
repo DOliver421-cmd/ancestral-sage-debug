@@ -42,15 +42,15 @@ export default function HelpCenter() {
         <div className="mt-12 rounded-[28px] border border-[#e6d0ae] bg-[#fff8ee] p-8 shadow-[0_18px_45px_rgba(97,60,20,0.08)]">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <div className="overline" style={{ color: "#9d6b33" }}>Supervisor Plaza</div>
-              <h2 className="font-heading text-3xl font-bold text-ink">Welcome to Seshat’s Hub</h2>
+              <div className="overline" style={{ color: "#9d6b33" }}>Supervisor Access</div>
+              <h2 className="font-heading text-3xl font-bold text-ink">Supervisor controls are part of MORE Help Center</h2>
             </div>
-            <Link to="/seshats-hub" className="inline-flex items-center gap-2 rounded-full bg-[#b47b2f] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#9a6527]">
-              Enter the Supervisor Hub <ArrowRight className="w-4 h-4" />
+            <Link to="/supervisor/login" className="inline-flex items-center gap-2 rounded-full bg-[#0d7377] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#095b5e]">
+              Supervisor Login <ArrowRight className="w-4 h-4" />
             </Link>
           </div>
           <p className="mt-4 text-ink/70 max-w-2xl">
-            Start with a guided welcome from the Supervisor, explore the finance backbone that powers the M.O.R.E. Help Center, and step into a market-inspired exhibit of support services.
+            Sign in as an executive supervisor to access secure oversight and the centralized MORE Help Center experience. There is no separate supervisor hub page.
           </p>
         </div>
       </div>

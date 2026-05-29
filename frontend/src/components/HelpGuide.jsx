@@ -170,10 +170,10 @@ export default function HelpGuide() {
           {/* Footer */}
           <div className="border-t border-ink/10 px-5 py-3 bg-ink/5">
             <a
-              href="/help-center"
+              href="/more-help-center"
               className="text-xs text-copper hover:underline flex items-center gap-1"
             >
-              <ExternalLink className="w-3 h-3" /> Visit Help Center
+              <ExternalLink className="w-3 h-3" /> Visit MORE Help Center
             </a>
           </div>
         </div>

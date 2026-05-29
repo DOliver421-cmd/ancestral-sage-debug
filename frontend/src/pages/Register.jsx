@@ -214,7 +214,7 @@ export default function Register() {
 
           {/* Support */}
           <div className="mt-8 text-center text-xs text-ink/50">
-            Questions? <Link to="/help-center" className="text-copper hover:text-copper/80 font-medium">Help Center</Link>
+            Questions? <Link to="/more-help-center" className="text-copper hover:text-copper/80 font-medium">MORE Help Center</Link>
           </div>
         </div>
       </section>

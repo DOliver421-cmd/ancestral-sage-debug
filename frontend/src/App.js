@@ -61,11 +61,10 @@ import SovereignChat from "./components/SovereignChat";
 import Palace from "./pages/Palace";
 import ElderCouncil from "./pages/ElderCouncil";
 import Plans from "./pages/Plans";
-import HelpCenter from "./pages/HelpCenter";
-import SeshatsHub from "./pages/SeshatsHub";
 import TermsOfService from "./pages/TermsOfService";
 import PrivacyPolicy from "./pages/PrivacyPolicy";
 import MoreHelpCenter from "./pages/MoreHelpCenter";
+import SupervisorLogin from "./pages/SupervisorLogin";
 import CookieConsent from "./components/CookieConsent";
 import HelpGuide from "./components/HelpGuide";
 import WelcomeWizard from "./components/WelcomeWizard";
@@ -82,10 +81,10 @@ import Creators from "./pages/Creators";
 // for a lower-rank role (executive_admin passes every check).
 const ROLE_RANK = { student: 1, instructor: 2, admin: 3, executive_admin: 4 };
 
-function Protected({ children, roles }) {
+function Protected({ children, roles, loginRoute = "/login" }) {
   const { user, loading } = useAuth();
   if (loading) return <div className="p-12 text-ink font-heading">Loading…</div>;
-  if (!user) return <Navigate to="/login" replace />;
+  if (!user) return <Navigate to={loginRoute} replace />;
   if (roles && roles.length > 0) {
     const needed = Math.min(...roles.map((r) => ROLE_RANK[r] ?? 99));
     const have = ROLE_RANK[user.role] ?? 0;
@@ -97,7 +96,7 @@ function Protected({ children, roles }) {
 function Home() {
   const { user, loading } = useAuth();
   if (loading) return null;
-  if (!user) return <LandingMarketplace />;
+  if (!user) return <Navigate to="/more-help-center" replace />;
   // executive_admin and admin both land on the admin overview
   if (user.role === "executive_admin") return <Navigate to="/admin/system" replace />;
   if (user.role === "admin") return <Navigate to="/admin" replace />;
@@ -151,9 +150,12 @@ function App() {
           <Route path="/elder-council" element={<Protected><ElderCouncil /></Protected>} />
           <Route path="/plans" element={<Plans />} />
           {/* Public funnel pages */}
-          <Route path="/help-center" element={<HelpCenter />} />
-          <Route path="/seshats-hub" element={<SeshatsHub />} />
-          <Route path="/supervisor" element={<SeshatsHub />} />
+          <Route path="/main" element={<LandingMarketplace />} />
+          <Route path="/help-center" element={<Navigate to="/more-help-center" replace />} />
+          <Route path="/more-help-center" element={<MoreHelpCenter />} />
+          <Route path="/supervisor/login" element={<SupervisorLogin />} />
+          <Route path="/supervisor" element={<Protected roles={["executive_admin"]} loginRoute="/supervisor/login"><MoreHelpCenter /></Protected>} />
+          <Route path="/seshats-hub" element={<Navigate to="/more-help-center" replace />} />
           <Route path="/terms" element={<TermsOfService />} />
           <Route path="/privacy" element={<PrivacyPolicy />} />
           <Route path="/courses" element={<Courses />} />

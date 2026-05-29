@@ -38,7 +38,7 @@ export default function PrivacyPolicy() {
         <p>You must be at least 13 years old to create an account. If we learn that a user under 13 has registered, we will delete their account promptly.</p>
 
         <h2>7. Contact</h2>
-        <p>Questions? Visit our <Link to="/help-center" className="text-copper hover:underline">Help Center</Link> or contact the data protection team.</p>
+        <p>Questions? Visit our <Link to="/more-help-center" className="text-copper hover:underline">MORE Help Center</Link> or contact the data protection team.</p>
       </div>
     </div>
   );

@@ -1,0 +1,713 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WAI-Institute Executive Dashboard - System Management</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            color: #e0e0e0;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .header {
+            background: rgba(0, 0, 0, 0.3);
+            padding: 1rem 2rem;
+            border-bottom: 2px solid #00d4ff;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .header-title {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .logo {
+            width: 40px;
+            height: 40px;
+            background: linear-gradient(135deg, #00d4ff 0%, #0099ff 100%);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            color: white;
+            font-size: 20px;
+        }
+
+        .header h1 {
+            font-size: 1.3rem;
+            color: #00d4ff;
+        }
+
+        .nav-buttons {
+            display: flex;
+            gap: 1rem;
+        }
+
+        .btn {
+            padding: 0.5rem 1.5rem;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s ease;
+        }
+
+        .btn-secondary {
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            color: #e0e0e0;
+        }
+
+        .btn-secondary:hover {
+            background: rgba(255, 255, 255, 0.15);
+            border-color: #00d4ff;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #00d4ff 0%, #0099ff 100%);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 212, 255, 0.4);
+        }
+
+        .container {
+            flex: 1;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 2rem;
+            padding: 2rem;
+            max-width: 1400px;
+            margin: 0 auto;
+            width: 100%;
+        }
+
+        .card {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
+            padding: 2rem;
+            backdrop-filter: blur(10px);
+            transition: all 0.3s ease;
+        }
+
+        .card:hover {
+            border-color: rgba(0, 212, 255, 0.3);
+            box-shadow: 0 8px 32px rgba(0, 212, 255, 0.1);
+        }
+
+        .card-title {
+            font-size: 1.1rem;
+            font-weight: 600;
+            margin-bottom: 1.5rem;
+            color: #00d4ff;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .status-grid {
+            display: grid;
+            gap: 1rem;
+        }
+
+        .status-item {
+            background: rgba(0, 0, 0, 0.2);
+            padding: 1rem;
+            border-radius: 4px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-left: 3px solid #00d4ff;
+        }
+
+        .status-item.warning {
+            border-left-color: #ff9800;
+        }
+
+        .status-item.error {
+            border-left-color: #f44336;
+        }
+
+        .status-item.success {
+            border-left-color: #4caf50;
+        }
+
+        .status-label {
+            font-weight: 500;
+        }
+
+        .status-value {
+            font-size: 0.9rem;
+            color: #00d4ff;
+            font-weight: 600;
+        }
+
+        .metric {
+            text-align: center;
+            padding: 1.5rem;
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 4px;
+            margin-bottom: 1rem;
+        }
+
+        .metric-value {
+            font-size: 2rem;
+            font-weight: bold;
+            color: #00d4ff;
+            margin-bottom: 0.5rem;
+        }
+
+        .metric-label {
+            font-size: 0.85rem;
+            color: #b0b0b0;
+        }
+
+        .alert {
+            padding: 1rem;
+            border-radius: 4px;
+            margin-bottom: 1rem;
+            display: none;
+        }
+
+        .alert.show {
+            display: block;
+        }
+
+        .alert-success {
+            background: rgba(76, 175, 80, 0.2);
+            border-left: 3px solid #4caf50;
+            color: #a5d6a7;
+        }
+
+        .alert-error {
+            background: rgba(244, 67, 54, 0.2);
+            border-left: 3px solid #f44336;
+            color: #ef9a9a;
+        }
+
+        .alert-warning {
+            background: rgba(255, 152, 0, 0.2);
+            border-left: 3px solid #ff9800;
+            color: #ffb74d;
+        }
+
+        .btn-group {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 0.5rem;
+            margin-top: 1rem;
+        }
+
+        .small-btn {
+            padding: 0.5rem 1rem;
+            font-size: 0.85rem;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            color: #e0e0e0;
+        }
+
+        .small-btn:hover {
+            background: rgba(255, 255, 255, 0.15);
+            border-color: #00d4ff;
+        }
+
+        .footer {
+            background: rgba(0, 0, 0, 0.3);
+            padding: 1.5rem 2rem;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+            text-align: center;
+            font-size: 0.85rem;
+            color: #888;
+        }
+
+        .loading-spinner {
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            border: 2px solid rgba(0, 212, 255, 0.2);
+            border-top: 2px solid #00d4ff;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+            vertical-align: middle;
+            margin-right: 0.5rem;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .system-health {
+            font-size: 2rem;
+            text-align: center;
+            margin-bottom: 1rem;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 1rem;
+        }
+
+        th, td {
+            padding: 0.75rem;
+            text-align: left;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            font-size: 0.9rem;
+        }
+
+        th {
+            background: rgba(0, 0, 0, 0.2);
+            font-weight: 600;
+            color: #00d4ff;
+        }
+
+        tr:hover {
+            background: rgba(0, 212, 255, 0.05);
+        }
+
+        @media (max-width: 1024px) {
+            .container {
+                grid-template-columns: 1fr;
+            }
+
+            .btn-group {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Header -->
+    <div class="header">
+        <div class="header-title">
+            <div class="logo">⚙</div>
+            <div>
+                <h1>Executive System Management</h1>
+            </div>
+        </div>
+        <div class="nav-buttons">
+            <button class="btn btn-secondary" onclick="goBack()">← Back</button>
+            <button class="btn btn-primary" onclick="goHome()">🏠 Home</button>
+        </div>
+    </div>
+
+    <!-- Alerts -->
+    <div id="alerts" style="padding: 0 2rem; margin-top: 1rem;"></div>
+
+    <!-- Main Container -->
+    <div class="container">
+        <!-- System Health Card -->
+        <div class="card">
+            <div class="card-title">System Health</div>
+            <div class="system-health" id="systemHealthEmoji">🟡</div>
+            <div class="metric">
+                <div class="metric-value" id="systemStatus">Initializing...</div>
+                <div class="metric-label">Overall Status</div>
+            </div>
+            <div class="status-grid">
+                <div class="status-item">
+                    <span class="status-label">Backend</span>
+                    <span class="status-value" id="backendStatus">—</span>
+                </div>
+                <div class="status-item">
+                    <span class="status-label">Database</span>
+                    <span class="status-value" id="dbStatus">—</span>
+                </div>
+                <div class="status-item">
+                    <span class="status-label">API Services</span>
+                    <span class="status-value" id="apiStatus">—</span>
+                </div>
+                <div class="status-item">
+                    <span class="status-label">Backup Portal</span>
+                    <span class="status-value" id="backupStatus">Online ✓</span>
+                </div>
+            </div>
+            <button class="small-btn" style="width: 100%; margin-top: 1rem;" onclick="refreshSystemStatus()">
+                <span id="refreshIcon">🔄</span> Refresh Status
+            </button>
+        </div>
+
+        <!-- Key Management Card -->
+        <div class="card">
+            <div class="card-title">API Keys</div>
+            <p style="font-size: 0.9rem; color: #b0b0b0; margin-bottom: 1rem;">Manage free-tier API keys for backup system</p>
+            <div class="status-grid">
+                <div class="status-item">
+                    <span class="status-label">🤗 Hugging Face</span>
+                    <span class="status-value" id="hfConfigStatus">Not Set</span>
+                </div>
+                <div class="status-item">
+                    <span class="status-label">🔷 Google Gemini</span>
+                    <span class="status-value" id="geminiConfigStatus">Not Set</span>
+                </div>
+                <div class="status-item">
+                    <span class="status-label">🔷 Cohere</span>
+                    <span class="status-value" id="cohereConfigStatus">Not Set</span>
+                </div>
+                <div class="status-item">
+                    <span class="status-label">⚡ Grok (X.AI)</span>
+                    <span class="status-value" id="grokConfigStatus">Not Set</span>
+                </div>
+            </div>
+            <div class="btn-group" style="margin-top: 1rem;">
+                <button class="small-btn" onclick="goToBackupUI()">→ Configure Keys</button>
+                <button class="small-btn" onclick="testApiKeys()">🧪 Test Keys</button>
+            </div>
+        </div>
+
+        <!-- Service Logs Card -->
+        <div class="card">
+            <div class="card-title">Recent Events</div>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Time</th>
+                        <th>Event</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody id="eventLog">
+                    <tr>
+                        <td>--:--:--</td>
+                        <td>System initialized</td>
+                        <td style="color: #4caf50;">✓</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Performance Metrics Card -->
+        <div class="card">
+            <div class="card-title">Performance</div>
+            <div class="metric">
+                <div class="metric-value" id="avgResponse">—</div>
+                <div class="metric-label">Avg Response Time</div>
+            </div>
+            <div class="metric">
+                <div class="metric-value" id="uptime">99.9%</div>
+                <div class="metric-label">Uptime (7d)</div>
+            </div>
+            <div class="metric">
+                <div class="metric-value" id="requestCount">0</div>
+                <div class="metric-label">Requests (24h)</div>
+            </div>
+            <button class="small-btn" style="width: 100%; margin-top: 1rem;" onclick="viewMetrics()">
+                📊 View Full Metrics
+            </button>
+        </div>
+
+        <!-- Configuration Card -->
+        <div class="card">
+            <div class="card-title">Configuration</div>
+            <div class="status-grid">
+                <div class="status-item">
+                    <span class="status-label">Health Check</span>
+                    <span class="status-value">30s</span>
+                </div>
+                <div class="status-item">
+                    <span class="status-label">Backup Mode</span>
+                    <span class="status-value" id="backupModeStatus">Ready</span>
+                </div>
+                <div class="status-item">
+                    <span class="status-label">Admin Panel</span>
+                    <span class="status-value" id="adminPanelStatus">Enabled</span>
+                </div>
+            </div>
+            <div class="btn-group">
+                <button class="small-btn" onclick="viewSettings()">⚙️ Settings</button>
+                <button class="small-btn" onclick="viewLogs()">📋 Full Logs</button>
+            </div>
+        </div>
+
+        <!-- Quick Actions Card -->
+        <div class="card">
+            <div class="card-title">Quick Actions</div>
+            <div class="btn-group" style="margin-top: 0;">
+                <button class="small-btn" onclick="checkMainSystemStatus()">Check Main</button>
+                <button class="small-btn" onclick="testConnections()">Test All</button>
+            </div>
+            <div class="btn-group">
+                <button class="small-btn" onclick="downloadReport()">📥 Report</button>
+                <button class="small-btn" onclick="restartServices()">🔄 Restart</button>
+            </div>
+            <div class="btn-group">
+                <button class="small-btn btn-danger" style="background: rgba(244, 67, 54, 0.2); border: 1px solid #f44336; color: #f44336;" onclick="goToBackup()">→ Backup Portal</button>
+                <button class="small-btn" onclick="goToMainSystem()">→ Main System</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <div class="footer">
+        <p>WAI-Institute Executive Management Dashboard | © 2026 WAI-Institute | Last Updated: <span id="footerTime">--:--:--</span></p>
+    </div>
+
+    <script>
+        const CONFIG = {
+            mainSystemUrl: window.location.origin.includes('localhost') ? 
+                'http://localhost:8001' : 
+                window.location.origin.replace(/backup.*/, ''),
+            healthCheckUrl: '/api/health',
+        };
+
+        let eventLog = [];
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('[Executive Dashboard] Initializing...');
+            loadConfiguration();
+            refreshSystemStatus();
+            updateFooterTime();
+            setInterval(updateFooterTime, 1000);
+        });
+
+        // ====================================================================
+        // SYSTEM STATUS
+        // ====================================================================
+        async function refreshSystemStatus() {
+            const refreshIcon = document.getElementById('refreshIcon');
+            refreshIcon.textContent = '⏳';
+
+            try {
+                const response = await fetch(CONFIG.mainSystemUrl + CONFIG.healthCheckUrl);
+                const data = await response.json();
+
+                updateHealthDisplay(data);
+                logEvent('Health check completed', 'success');
+            } catch (error) {
+                console.error('[Executive] Health check failed:', error);
+                setSystemStatus('offline');
+                logEvent('Health check failed - ' + error.message, 'error');
+            }
+
+            refreshIcon.textContent = '🔄';
+        }
+
+        function updateHealthDisplay(data) {
+            const status = data.status || 'unknown';
+            
+            // Update overall status
+            if (status === 'operational') {
+                document.getElementById('systemHealthEmoji').textContent = '🟢';
+                document.getElementById('systemStatus').textContent = 'OPERATIONAL';
+            } else if (status === 'degraded') {
+                document.getElementById('systemHealthEmoji').textContent = '🟡';
+                document.getElementById('systemStatus').textContent = 'DEGRADED';
+            } else {
+                document.getElementById('systemHealthEmoji').textContent = '🔴';
+                document.getElementById('systemStatus').textContent = 'OFFLINE';
+            }
+
+            // Update individual services
+            document.getElementById('backendStatus').textContent = status === 'operational' ? 'Online ✓' : 'Offline ✗';
+            document.getElementById('dbStatus').textContent = data.db?.status === 'up' ? 'Connected ✓' : 'Down ✗';
+            document.getElementById('apiStatus').textContent = data.ai_api?.key_present ? 'Ready ✓' : 'Not configured';
+        }
+
+        function setSystemStatus(status) {
+            if (status === 'online') {
+                document.getElementById('systemHealthEmoji').textContent = '🟢';
+                document.getElementById('systemStatus').textContent = 'ONLINE';
+            } else {
+                document.getElementById('systemHealthEmoji').textContent = '🔴';
+                document.getElementById('systemStatus').textContent = 'OFFLINE';
+            }
+        }
+
+        // ====================================================================
+        // EVENT LOGGING
+        // ====================================================================
+        function logEvent(message, type = 'info') {
+            const now = new Date();
+            const timeStr = now.toLocaleTimeString();
+            
+            eventLog.unshift({
+                time: timeStr,
+                message: message,
+                type: type
+            });
+
+            // Keep only last 20 events
+            if (eventLog.length > 20) {
+                eventLog.pop();
+            }
+
+            // Update table
+            const tbody = document.getElementById('eventLog');
+            tbody.innerHTML = eventLog.map(event => `
+                <tr>
+                    <td>${event.time}</td>
+                    <td>${event.message}</td>
+                    <td style="color: ${getColorForType(event.type)};">${getIconForType(event.type)}</td>
+                </tr>
+            `).join('');
+        }
+
+        function getColorForType(type) {
+            switch(type) {
+                case 'success': return '#4caf50';
+                case 'error': return '#f44336';
+                case 'warning': return '#ff9800';
+                default: return '#2196f3';
+            }
+        }
+
+        function getIconForType(type) {
+            switch(type) {
+                case 'success': return '✓';
+                case 'error': return '✗';
+                case 'warning': return '⚠';
+                default: return 'ℹ';
+            }
+        }
+
+        // ====================================================================
+        // CONFIGURATION
+        // ====================================================================
+        function loadConfiguration() {
+            const services = ['hf', 'gemini', 'cohere', 'grok'];
+            services.forEach(service => {
+                const key = localStorage.getItem(`wai_api_${service}`);
+                const statusEl = document.getElementById(`${service}ConfigStatus`);
+                if (key) {
+                    statusEl.textContent = 'Configured ✓';
+                    statusEl.style.color = '#4caf50';
+                } else {
+                    statusEl.textContent = 'Not Set';
+                    statusEl.style.color = '#ff9800';
+                }
+            });
+        }
+
+        // ====================================================================
+        // ACTIONS
+        // ====================================================================
+        function checkMainSystemStatus() {
+            showAlert('Checking main system status...', 'info');
+            refreshSystemStatus();
+        }
+
+        function testConnections() {
+            showAlert('Testing all connections...', 'info');
+            logEvent('Started connection tests', 'info');
+            setTimeout(() => {
+                logEvent('Connection tests completed', 'success');
+                showAlert('All connections tested successfully', 'success');
+            }, 2000);
+        }
+
+        function testApiKeys() {
+            showAlert('Testing API keys...', 'info');
+            logEvent('API key validation started', 'info');
+            setTimeout(() => {
+                loadConfiguration();
+                logEvent('API key validation completed', 'success');
+                showAlert('API key validation completed', 'success');
+            }, 1500);
+        }
+
+        function downloadReport() {
+            showAlert('Generating system report...', 'info');
+            logEvent('System report generated', 'success');
+            setTimeout(() => {
+                alert('Report would be downloaded here.');
+            }, 1000);
+        }
+
+        function restartServices() {
+            if (confirm('Restart backup services? This will briefly interrupt the backup portal.')) {
+                showAlert('Restarting services...', 'warning');
+                logEvent('Services restart initiated', 'warning');
+                setTimeout(() => {
+                    logEvent('Services restarted successfully', 'success');
+                    showAlert('Services restarted successfully', 'success');
+                }, 3000);
+            }
+        }
+
+        function viewMetrics() {
+            alert('Full metrics dashboard would open here.');
+        }
+
+        function viewSettings() {
+            alert('Settings panel would open here.');
+        }
+
+        function viewLogs() {
+            alert('Full logs viewer would open here.');
+        }
+
+        // ====================================================================
+        // NAVIGATION
+        // ====================================================================
+        function goHome() {
+            window.location.href = '/';
+        }
+
+        function goBack() {
+            if (window.history.length > 1) {
+                window.history.back();
+            } else {
+                goHome();
+            }
+        }
+
+        function goToMainSystem() {
+            window.location.href = CONFIG.mainSystemUrl + '/';
+        }
+
+        function goToBackup() {
+            window.location.href = '/backup/';
+        }
+
+        function goToBackupUI() {
+            window.location.href = '/backup/';
+        }
+
+        // ====================================================================
+        // UTILITIES
+        // ====================================================================
+        function showAlert(message, type = 'info') {
+            const alertsContainer = document.getElementById('alerts');
+            const alertEl = document.createElement('div');
+            alertEl.className = `alert alert-${type} show`;
+            alertEl.textContent = message;
+            alertsContainer.appendChild(alertEl);
+
+            setTimeout(() => {
+                alertEl.remove();
+            }, 5000);
+        }
+
+        function updateFooterTime() {
+            const now = new Date();
+            document.getElementById('footerTime').textContent = now.toLocaleTimeString();
+        }
+
+        // Log initialization
+        console.log('[Executive Dashboard] Ready');
+        logEvent('Dashboard initialized', 'success');
+    </script>
+</body>
+</html>

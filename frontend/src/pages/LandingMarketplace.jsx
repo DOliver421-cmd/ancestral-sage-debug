@@ -77,8 +77,8 @@ export default function LandingMarketplace() {
               <Link to="/more" className="inline-flex items-center gap-2 text-lg font-bold px-6 py-3 rounded transition-transform hover:scale-105" style={{ background: "var(--wai-gold)", color: "#1a0b2e" }}>
                 <Heart className="w-5 h-5" /> Enter the M.O.R.E. Hub
               </Link>
-              <Link to="/seshats-hub" className="inline-flex items-center gap-2 text-lg font-bold px-6 py-3 rounded transition-transform hover:scale-105" style={{ background: "#0d7377", color: "white" }}>
-                <ArrowRight className="w-5 h-5" /> Visit Seshat’s Hub
+              <Link to="/supervisor/login" className="inline-flex items-center gap-2 text-lg font-bold px-6 py-3 rounded transition-transform hover:scale-105" style={{ background: "#0d7377", color: "white" }}>
+                <ArrowRight className="w-5 h-5" /> Supervisor Login
               </Link>
               <Link to="/register" className="inline-flex items-center gap-2 text-lg font-bold px-6 py-3 rounded transition-transform hover:scale-105" style={{ border: "2px solid var(--wai-gold)", color: "var(--wai-gold-light)" }}>
                 Join The Community <ArrowRight className="w-5 h-5" />
@@ -108,17 +108,17 @@ export default function LandingMarketplace() {
             <p className="text-ink/60 max-w-xl mx-auto">Everything starts here. Each section has a back button to return to this page.</p>
           </div>
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
-            <Link to="/help-center" className="group bg-bone border border-ink/10 rounded-2xl p-6 hover:shadow-lg hover:scale-[1.02] transition-all">
+            <Link to="/more-help-center" className="group bg-bone border border-ink/10 rounded-2xl p-6 hover:shadow-lg hover:scale-[1.02] transition-all">
               <div className="text-4xl mb-3">🤝</div>
-              <h3 className="font-heading font-extrabold text-lg mb-1">M.O.R.E. Help Center</h3>
+              <h3 className="font-heading font-extrabold text-lg mb-1">MORE Help Center</h3>
               <p className="text-ink/60 text-sm leading-relaxed">Skill exchange, mutual aid, community support. Free and open to all.</p>
               <span className="inline-flex items-center gap-1 text-xs font-bold text-copper mt-3 group-hover:gap-2 transition-all">Enter hub <ArrowRight className="w-3 h-3" /></span>
             </Link>
-            <Link to="/seshats-hub" className="group bg-bone border border-ink/10 rounded-2xl p-6 hover:shadow-lg hover:scale-[1.02] transition-all">
+            <Link to="/supervisor/login" className="group bg-bone border border-ink/10 rounded-2xl p-6 hover:shadow-lg hover:scale-[1.02] transition-all">
               <div className="text-4xl mb-3">📜</div>
-              <h3 className="font-heading font-extrabold text-lg mb-1">Seshat’s Hub</h3>
-              <p className="text-ink/60 text-sm leading-relaxed">Visit the Supervisor-led landing page for finance, community, and support services.</p>
-              <span className="inline-flex items-center gap-1 text-xs font-bold text-copper mt-3 group-hover:gap-2 transition-all">Open the plaza <ArrowRight className="w-3 h-3" /></span>
+              <h3 className="font-heading font-extrabold text-lg mb-1">Supervisor Login</h3>
+              <p className="text-ink/60 text-sm leading-relaxed">Access executive controls and secure mode selection inside the centralized MORE Help Center.</p>
+              <span className="inline-flex items-center gap-1 text-xs font-bold text-copper mt-3 group-hover:gap-2 transition-all">Sign in as supervisor <ArrowRight className="w-3 h-3" /></span>
             </Link>
             <Link to="/courses" className="group bg-bone border border-ink/10 rounded-2xl p-6 hover:shadow-lg hover:scale-[1.02] transition-all">
               <div className="text-4xl mb-3">📚</div>
