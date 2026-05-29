@@ -4,7 +4,7 @@ import {
   ArrowRight,
   Activity,
   BadgeCheck,
-  CurrencyDollar,
+  DollarSign,
   GlobeAlt,
   ShieldCheck,
   Sparkles,
@@ -17,7 +17,7 @@ import { api } from "../lib/api";
 
 const LANDSCAPE = [
   {
-    icon: CurrencyDollar,
+    icon: DollarSign,
     title: "Autonomous Finance",
     desc: "A self-managing finance department runs budgets, compliance, and expense flow for the M.O.R.E. Help Center.",
   },
@@ -136,9 +136,9 @@ export default function SeshatsHub() {
         <section className="grid gap-10 lg:grid-cols-[1.2fr_0.8fr] items-start">
           <div>
             <div className="overline" style={{ color: "#8d5a33" }}>Supervisor Plaza</div>
-            <h1 className="font-heading text-5xl font-black tracking-tight text-[#2b1f15] mt-3">Seshat’s Hub</h1>
+            <h1 className="font-heading text-5xl font-black tracking-tight text-[#2b1f15] mt-3">Seshat's Hub</h1>
             <p className="mt-6 max-w-3xl text-lg leading-8 text-[#4b4038]">
-              Welcome to Seshat’s Hub — the virtual community center wrapped in an African marketplace and driven by the Supervisor. Walk through the plaza the way you would walk through a mall, with clear corridors, visible storefronts, and a human-guided path to every service.
+              Welcome to Seshat's Hub — the virtual community center wrapped in an African marketplace and driven by the Supervisor. Walk through the plaza the way you would walk through a mall, with clear corridors, visible storefronts, and a human-guided path to every service.
             </p>
             <p className="mt-6 max-w-3xl text-lg leading-8 text-[#4b4038]">
               This hub is designed with security, privacy, and executive visibility built in. Every action is routed through governance checks, and fallback paths are available when automated systems need human support.
@@ -230,7 +230,7 @@ export default function SeshatsHub() {
               <div className="text-sm uppercase tracking-[0.35em] font-bold text-[#8d5a33]">Supervisor briefing</div>
               <div className="mt-5 space-y-4 text-[#4f4134]">
                 <p>
-                  The Supervisor is the landing greeter and navigator. It is the page’s host, offering a warm welcome and making the mission of the hub obvious from the first moment.
+                  The Supervisor is the landing greeter and navigator. It is the page's host, offering a warm welcome and making the mission of the hub obvious from the first moment.
                 </p>
                 <p>
                   Visitors are guided into the African market experience, with finance, legal, community, and production services all clearly visible and accessible.
@@ -412,3 +412,4 @@ export default function SeshatsHub() {
     </div>
   );
 }
+
