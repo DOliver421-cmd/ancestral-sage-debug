@@ -3399,6 +3399,7 @@ async def _apply_sage_safety_gates(response_text: str, user_tier: str) -> tuple:
 
 @api_router.post("/ai/chat")
 async def ai_chat(body: AIChatReq, user: User = Depends(current_user)):
+    check_rate(f"ai_chat:{user.id}", max_calls=20, window_sec=60)
     # ---- Ancestral Sage gating (runs BEFORE any LLM cost) ---------------
     is_sage = body.mode == "ancestral_sage"
 
@@ -4365,7 +4366,7 @@ async def director_pulse(user: User = Depends(require_role("admin"))):
 # ═══════════════════════════════════════════════════════════════════════════════
 
 @api_router.post("/ai/director/tts")
-async def director_tts(body: dict, user: User = Depends(current_user)):
+async def director_tts(body: dict, user: User = Depends(require_role("executive_admin"))):
     """THE DIRECTOR voice — 3-tier TTS.
     T1: ElevenLabs (DIRECTOR_VOICE_ID) — deep, authoritative, executive presence
     T2: OpenAI TTS voice "alloy"
@@ -4402,7 +4403,7 @@ async def director_tts(body: dict, user: User = Depends(current_user)):
 
 
 @api_router.post("/ai/revenue-director/tts")
-async def revenue_director_tts(body: dict, user: User = Depends(current_user)):
+async def revenue_director_tts(body: dict, user: User = Depends(require_role("executive_admin"))):
     """THE REVENUE DIRECTOR voice — 3-tier TTS.
     T1: ElevenLabs (REVENUE_DIRECTOR_VOICE_ID) — confident, strategic
     T2: OpenAI TTS voice "echo"
@@ -4439,7 +4440,7 @@ async def revenue_director_tts(body: dict, user: User = Depends(current_user)):
 
 
 @api_router.post("/ai/sage/elevenlabs/tts")
-async def sage_elevenlabs_tts(body: dict, user: User = Depends(current_user)):
+async def sage_elevenlabs_tts(body: dict, user: User = Depends(require_role("executive_admin"))):
     """THE ANCESTRAL SAGE voice — 3-tier TTS (ElevenLabs upgrade for Sage).
     Separate from /api/ai/sage/tts (OpenAI) — this route tries ElevenLabs first.
     T1: ElevenLabs (SAGE_VOICE_ID) — warm, ancestral, resonant
@@ -7243,6 +7244,16 @@ async def more_department_integrity(user: User = Depends(current_user)):
 # ─── STRIPE PAYMENTS ──────────────────────────────────────────────────────────
 import stripe as _stripe
 
+# ── Payment routing assignment ────────────────────────────────────────────────
+# Stripe       → Platform commerce (physical goods, subscriptions, donations,
+#                credentials). Fixed pricing, institutional revenue.
+# Lemon Squeezy → AI-generated income (ebooks, digital products, courses,
+#                 spoken word audio, AI-produced content). Starts at $0,
+#                 no monthly fee, pays out via PayPal or bank. Handled in
+#                 ai/publishing.py — all persona publishing routes use LS first.
+# Gumroad      → Physical/traditional books and printed materials only.
+#                Fallback if Lemon Squeezy is unavailable for digital products.
+# ──────────────────────────────────────────────────────────────────────────────
 STRIPE_SECRET_KEY    = os.environ.get("STRIPE_SECRET_KEY", "")
 STRIPE_WEBHOOK_SECRET = os.environ.get("STRIPE_WEBHOOK_SECRET", "")
 STRIPE_PUBLISHABLE_KEY = os.environ.get("STRIPE_PUBLISHABLE_KEY", "")
@@ -8177,7 +8188,7 @@ async def delete_memory_policy(
 # ═══════════════════════════════════════════════════════════════════════════════
 
 @api_router.post("/ai/cipher/tts")
-async def cipher_tts(body: dict, user: User = Depends(current_user)):
+async def cipher_tts(body: dict, user: User = Depends(require_role("executive_admin"))):
     """THE CIPHER voice system — 3-tier TTS routing.
 
     Tier 1 (elevenlabs / elevenlabs_cached):
