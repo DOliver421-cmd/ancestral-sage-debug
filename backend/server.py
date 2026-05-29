@@ -5809,6 +5809,50 @@ async def mark_all_read(user: User = Depends(current_user)):
     return {"ok": True}
 
 
+@api_router.post("/admin/broadcast")
+async def broadcast_notification(
+    payload: dict,
+    user: User = Depends(require_role("executive_admin", "admin")),
+):
+    """Broadcast a notification to all users or a specific cohort/role.
+    Body: { message, title, target: 'all' | role_name | associate_name }
+    Executive/admin only.
+    """
+    message = (payload.get("message") or "").strip()
+    title   = (payload.get("title") or "Platform Announcement").strip()
+    target  = (payload.get("target") or "all").strip()
+
+    if not message:
+        raise HTTPException(400, "message is required")
+
+    query: dict = {}
+    if target != "all":
+        # Try role first, then associate
+        query = {"$or": [{"role": target}, {"associate": target}]}
+
+    recipients = await db.users.find(query, {"_id": 0, "id": 1}).to_list(10000)
+    if not recipients:
+        return {"sent": 0, "message": "No recipients matched"}
+
+    now = datetime.now(timezone.utc).isoformat()
+    docs = [
+        {
+            "id": str(uuid.uuid4()),
+            "user_id": r["id"],
+            "title": title,
+            "message": message,
+            "type": "broadcast",
+            "read": False,
+            "created_at": now,
+            "sent_by": user.id,
+        }
+        for r in recipients
+    ]
+    await db.notifications.insert_many(docs)
+    await audit(db, user.id, f"broadcast:{target}", {"title": title, "recipients": len(docs)})
+    return {"sent": len(docs), "target": target}
+
+
 # -- ATTENDANCE (instructor records, student views own) --
 @api_router.post("/attendance")
 async def record_attendance(payload: dict, user: User = Depends(require_role("instructor", "admin"))):
