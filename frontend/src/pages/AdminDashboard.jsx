@@ -1,417 +1,223 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import {
-  AlertTriangle,
-  Users,
-  Trash2,
-  Ban,
-  ShieldAlert,
-  CheckCircle,
-  Clock,
-  Activity,
-  TrendingDown,
-  MessageSquare,
-  Flag,
-  Lock,
+  AlertTriangle, Users, Ban, ShieldAlert,
+  RefreshCw, CheckCircle, Clock, Flag,
 } from "lucide-react";
-import BackButton from "../components/BackButton";
-
-/**
- * Moderation & Governance Dashboard
- * For Moderators, Stewards, and Elders to manage community content and users
- * Escalation path to Executive Director for platform-level threats
- */
+import { api } from "../lib/api";
+import { useAuth } from "../lib/auth";
+import AppShell from "../components/AppShell";
 
 export default function AdminDashboard() {
-  const [activeTab, setActiveTab] = useState("reports");
-  const [reports, setReports] = useState([
-    {
-      id: 1,
-      type: "hate_speech",
-      severity: "critical",
-      reportedUser: "user_567",
-      content: "Post with hate speech reported 47 times",
-      reportCount: 47,
-      reportedAt: "2 minutes ago",
-      status: "open",
-      reason: "Violates community standards"
-    },
-    {
-      id: 2,
-      type: "harassment",
-      severity: "high",
-      reportedUser: "user_234",
-      content: "Harassment campaign in community discussion",
-      reportCount: 12,
-      reportedAt: "15 minutes ago",
-      status: "open",
-      reason: "Targeted abuse"
-    },
-    {
-      id: 3,
-      type: "spam",
-      severity: "medium",
-      reportedUser: "user_891",
-      content: "Repeated promotional messages",
-      reportCount: 5,
-      reportedAt: "45 minutes ago",
-      status: "investigating",
-      reason: "Commercial spam"
-    },
-  ]);
+  const { user } = useAuth();
+  const [activeTab, setActiveTab]     = useState("incidents");
+  const [incidents, setIncidents]     = useState([]);
+  const [users, setUsers]             = useState([]);
+  const [auditLog, setAuditLog]       = useState([]);
+  const [stats, setStats]             = useState(null);
+  const [loading, setLoading]         = useState(true);
+  const [toast, setToast]             = useState(null);
 
-  const [suspiciousUsers, setSuspiciousUsers] = useState([
-    {
-      id: 1,
-      username: "user_567",
-      email: "user567@example.com",
-      riskScore: 92,
-      flags: ["hate_speech", "multiple_reports", "account_3_days_old"],
-      activeReports: 5,
-      joinedAt: "May 19, 2026"
-    },
-    {
-      id: 2,
-      username: "creator_89",
-      email: "creator89@example.com",
-      riskScore: 68,
-      flags: ["fraud_pattern", "suspicious_payouts"],
-      activeReports: 1,
-      joinedAt: "Jan 15, 2025"
-    },
-    {
-      id: 3,
-      username: "user_234",
-      email: "user234@example.com",
-      riskScore: 85,
-      flags: ["coordinated_harassment", "ban_evasion_suspected"],
-      activeReports: 3,
-      joinedAt: "Mar 22, 2026"
-    },
-  ]);
+  function notify(msg, err = false) {
+    setToast({ msg, err });
+    setTimeout(() => setToast(null), 4000);
+  }
 
-  const [actionLog, setActionLog] = useState([
-    { time: "2:47 PM", action: "Content deleted: post_567", by: "Moderator James", reason: "Hate speech", status: "completed" },
-    { time: "2:30 PM", action: "User warned: user_234", by: "Moderator James", reason: "Harassment", status: "completed" },
-    { time: "2:15 PM", action: "Escalated to Director: creator_89", by: "Steward Maria", reason: "Possible fraud pattern", status: "pending_director" },
-    { time: "1:45 PM", action: "Account locked: user_567", by: "Moderator James", reason: "Critical severity report", status: "completed" },
-  ]);
-
-  const [userRole] = useState("steward"); // Mock: would come from auth context
-
-  // Permission checks based on role
-  const canDelete = ["moderator", "steward", "elder", "admin"].includes(userRole);
-  const canBan = ["moderator", "steward", "elder", "admin"].includes(userRole);
-  const canEscalate = ["steward", "elder", "admin"].includes(userRole);
-  const canLockPlatform = ["elder", "admin"].includes(userRole); // Director-only feature
-
-  const handleDeleteContent = (reportId) => {
-    if (!canDelete) {
-      alert("You don't have permission to delete content");
-      return;
-    }
-    if (window.confirm("Delete this content? This action cannot be undone.")) {
-      setReports(reports.map(r => r.id === reportId ? { ...r, status: "resolved" } : r));
-      setActionLog([
-        { time: new Date().toLocaleTimeString(), action: `Content deleted: report_${reportId}`, by: "You", reason: "Moderator action", status: "completed" },
-        ...actionLog
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      const [incR, usrR, actR, stR] = await Promise.allSettled([
+        api.get("/incidents"),
+        api.get("/admin/users"),
+        api.get("/admin/recent-activity?limit=20"),
+        api.get("/admin/stats"),
       ]);
+      if (incR.status === "fulfilled") setIncidents(incR.value.data || []);
+      if (usrR.status === "fulfilled") setUsers(usrR.value.data || []);
+      if (actR.status === "fulfilled") setAuditLog(actR.value.data || []);
+      if (stR.status  === "fulfilled") setStats(stR.value.data);
+    } finally {
+      setLoading(false);
     }
-  };
+  }, []);
 
-  const handleBanUser = (userId) => {
-    if (!canBan) {
-      alert("You don't have permission to ban users");
-      return;
-    }
-    if (window.confirm("Ban this user from the platform?")) {
-      setSuspiciousUsers(suspiciousUsers.filter(u => u.id !== userId));
-      setActionLog([
-        { time: new Date().toLocaleTimeString(), action: `User banned: ${userId}`, by: "You", reason: "Moderation decision", status: "completed" },
-        ...actionLog
-      ]);
-    }
-  };
+  useEffect(() => { load(); }, [load]);
 
-  const handleWarnUser = (userId) => {
-    if (!canDelete) {
-      alert("You don't have permission to warn users");
-      return;
+  async function resolveIncident(iid) {
+    const resolution = window.prompt("Enter resolution note:");
+    if (!resolution) return;
+    try {
+      await api.post(`/incidents/${iid}/resolve`, { resolution });
+      notify("Incident resolved");
+      setIncidents(prev => prev.map(i => i.id === iid ? { ...i, status: "resolved", resolution } : i));
+    } catch (e) {
+      notify(e?.response?.data?.detail || "Failed to resolve", true);
     }
-    if (window.confirm("Send warning to this user?")) {
-      setActionLog([
-        { time: new Date().toLocaleTimeString(), action: `User warned: user_${userId}`, by: "You", reason: "Community violation", status: "completed" },
-        ...actionLog
-      ]);
-    }
-  };
+  }
 
-  const handleEscalate = (reportId) => {
-    if (!canEscalate) {
-      alert("Only Steward+ can escalate to Director");
-      return;
+  async function deactivateUser(uid, name) {
+    if (!window.confirm(`Deactivate ${name}?`)) return;
+    try {
+      await api.patch(`/admin/users/${uid}/active`, { is_active: false });
+      notify(`${name} deactivated`);
+      setUsers(prev => prev.map(u => u.id === uid ? { ...u, is_active: false } : u));
+    } catch (e) {
+      notify(e?.response?.data?.detail || "Failed", true);
     }
-    if (window.confirm("Escalate this report to the Executive Director? They have platform-level controls.")) {
-      setReports(reports.map(r => r.id === reportId ? { ...r, status: "escalated_to_director" } : r));
-      setActionLog([
-        { time: new Date().toLocaleTimeString(), action: `Escalated to Director: report_${reportId}`, by: "You", reason: "High-severity threat", status: "pending_director" },
-        ...actionLog
-      ]);
-    }
-  };
+  }
+
+  const canResolve = ["admin", "executive_admin"].includes(user?.role);
 
   return (
-    <div className="min-h-screen" style={{ background: "linear-gradient(180deg,#0a0f1e,#0d1b2a)", color: "#e2e8f0" }}>
-      {/* Header — LCARS console */}
-      <div style={{ background: "#060d1a", borderBottom: "2px solid var(--wai-blue)" }}>
-        <div className="max-w-7xl mx-auto px-6 py-8">
-          <BackButton to="/admin/system" label="Back to Command" style={{ color: "var(--wai-blue)" }} />
-          <div className="mt-4" style={{ fontFamily: "'IBM Plex Mono', monospace", color: "var(--wai-blue)", letterSpacing: "0.2em", fontSize: 12, fontWeight: 700 }}>LCARS · GOVERNANCE CONSOLE</div>
-          <h1 className="font-heading text-4xl font-bold mb-2 mt-1 text-white">Moderation &amp; Governance</h1>
-          <p style={{ color: "#94a3b8" }}>Manage community content, handle reports, and escalate to leadership</p>
-          <div className="mt-4 text-sm" style={{ color: "#cbd5e1" }}>
-            Role: <span className="font-bold capitalize">{userRole}</span>
-            {canEscalate && <span className="ml-4" style={{ color: "var(--wai-blue)" }}>✓ Can escalate to Director</span>}
-            {canDelete && <span className="ml-4">✓ Can delete/ban</span>}
+    <AppShell>
+      <div className="min-h-screen bg-bone">
+        {/* Header */}
+        <div className="bg-ink text-white px-6 lg:px-10 py-6 border-b border-white/10">
+          <div className="max-w-6xl mx-auto flex items-center justify-between gap-4 flex-wrap">
+            <div>
+              <div className="text-xs font-bold uppercase tracking-widest text-white/50 mb-1">Admin</div>
+              <h1 className="font-heading text-2xl font-extrabold">Governance Dashboard</h1>
+              <p className="text-sm text-white/60 mt-1">
+                {stats ? `${stats.users ?? 0} users · ${stats.incidents_open ?? 0} open incidents` : "Loading…"}
+              </p>
+            </div>
+            <button onClick={load} disabled={loading}
+              className="flex items-center gap-2 px-4 py-2 bg-white/10 hover:bg-white/20 text-sm font-bold rounded-lg transition-colors disabled:opacity-40">
+              <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} /> Refresh
+            </button>
           </div>
         </div>
-      </div>
 
-      {/* Tabs */}
-      <div className="max-w-7xl mx-auto px-6">
-        <div className="flex gap-8 mt-0" style={{ borderBottom: "1px solid rgba(255,255,255,0.1)" }}>
-          <button
-            onClick={() => setActiveTab("reports")}
-            className={`py-4 font-bold border-b-2 transition-all ${
-              activeTab === "reports"
-                ? "border-red-600 text-red-600"
-                : "border-transparent text-white/50 hover:text-white"
-            }`}
-          >
-            🚨 Reported Content ({reports.filter(r => r.status === "open").length})
-          </button>
-          <button
-            onClick={() => setActiveTab("suspicious")}
-            className={`py-4 font-bold border-b-2 transition-all ${
-              activeTab === "suspicious"
-                ? "border-orange-600 text-orange-600"
-                : "border-transparent text-white/50 hover:text-white"
-            }`}
-          >
-            ⚠️ Suspicious Users ({suspiciousUsers.length})
-          </button>
-          <button
-            onClick={() => setActiveTab("actions")}
-            className={`py-4 font-bold border-b-2 transition-all ${
-              activeTab === "actions"
-                ? "border-copper text-copper"
-                : "border-transparent text-white/50 hover:text-white"
-            }`}
-          >
-            📋 Action Log ({actionLog.length})
-          </button>
-        </div>
-      </div>
-
-      <div className="max-w-7xl mx-auto px-6 py-8">
-        {/* REPORTED CONTENT TAB */}
-        {activeTab === "reports" && (
-          <div className="space-y-4">
-            {reports.length === 0 ? (
-              <div className="bg-white border border-ink/10 rounded-lg p-8 text-center text-ink/60">
-                No reports at this time. Community is healthy.
-              </div>
-            ) : (
-              reports.map((report) => (
-                <div
-                  key={report.id}
-                  className={`p-6 border-l-4 rounded-lg ${
-                    report.status === "open"
-                      ? "bg-red-50 border-red-600"
-                      : report.status === "escalated_to_director"
-                      ? "bg-purple-50 border-purple-600"
-                      : "bg-green-50 border-green-600"
-                  }`}
-                >
-                  <div className="flex items-start justify-between mb-4">
-                    <div>
-                      <p className="font-bold text-lg text-ink">{report.type.replace("_", " ").toUpperCase()}</p>
-                      <p className="text-sm text-ink/70 mt-1">{report.content}</p>
-                      <p className="text-xs text-ink/60 mt-2">
-                        User: {report.reportedUser} • {report.reportCount} reports • Status: {report.status.replace("_", " ")}
-                      </p>
-                    </div>
-                    <span className={`text-xs font-bold px-3 py-1 rounded ${
-                      report.severity === "critical"
-                        ? "bg-red-600 text-white"
-                        : report.severity === "high"
-                        ? "bg-orange-600 text-white"
-                        : "bg-yellow-600 text-white"
-                    }`}>
-                      {report.severity.toUpperCase()}
-                    </span>
-                  </div>
-
-                  {/* Actions */}
-                  <div className="flex gap-2 mt-4 pt-4 border-t border-ink/10">
-                    {report.status === "open" && (
-                      <>
-                        {canDelete && (
-                          <button
-                            onClick={() => handleDeleteContent(report.id)}
-                            className="flex-1 py-2 px-3 bg-red-600 text-white rounded font-bold hover:bg-red-700 transition-colors flex items-center justify-center gap-2 text-sm"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                            DELETE CONTENT
-                          </button>
-                        )}
-                        {canBan && (
-                          <button
-                            onClick={() => handleBanUser(report.reportedUser)}
-                            className="flex-1 py-2 px-3 bg-red-600 text-white rounded font-bold hover:bg-red-700 transition-colors flex items-center justify-center gap-2 text-sm"
-                          >
-                            <Ban className="w-4 h-4" />
-                            BAN USER
-                          </button>
-                        )}
-                        <button
-                          onClick={() => handleWarnUser(report.reportedUser)}
-                          className="flex-1 py-2 px-3 bg-orange-600 text-white rounded font-bold hover:bg-orange-700 transition-colors flex items-center justify-center gap-2 text-sm"
-                        >
-                          <AlertTriangle className="w-4 h-4" />
-                          WARN USER
-                        </button>
-                        {canEscalate && (
-                          <button
-                            onClick={() => handleEscalate(report.id)}
-                            className="flex-1 py-2 px-3 bg-purple-600 text-white rounded font-bold hover:bg-purple-700 transition-colors flex items-center justify-center gap-2 text-sm"
-                          >
-                            <ShieldAlert className="w-4 h-4" />
-                            ESCALATE
-                          </button>
-                        )}
-                      </>
-                    )}
-                    {report.status === "escalated_to_director" && (
-                      <div className="w-full py-2 px-3 bg-purple-100 text-purple-700 rounded text-sm font-bold text-center">
-                        ⬆️ Awaiting Director action
-                      </div>
-                    )}
-                    {report.status === "resolved" && (
-                      <div className="w-full py-2 px-3 bg-green-100 text-green-700 rounded text-sm font-bold text-center">
-                        ✓ Resolved
-                      </div>
-                    )}
-                  </div>
-                </div>
-              ))
-            )}
+        {toast && (
+          <div className={`px-6 py-3 text-sm font-medium ${toast.err ? "bg-red-50 text-red-700" : "bg-emerald-50 text-emerald-700"}`}>
+            {toast.msg}
           </div>
         )}
 
-        {/* SUSPICIOUS USERS TAB */}
-        {activeTab === "suspicious" && (
-          <div className="space-y-4">
-            {suspiciousUsers.map((user) => (
-              <div key={user.id} className="bg-white border border-ink/10 rounded-lg p-6">
-                <div className="flex items-start justify-between mb-4">
-                  <div className="flex-1">
-                    <div className="flex items-center gap-3">
-                      <div>
-                        <p className="font-bold text-lg text-ink">{user.username}</p>
-                        <p className="text-sm text-ink/60 font-mono">{user.email}</p>
-                        <p className="text-xs text-ink/60 mt-1">Joined {user.joinedAt}</p>
-                      </div>
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <div className={`text-3xl font-bold ${
-                      user.riskScore >= 80 ? "text-red-600" : user.riskScore >= 60 ? "text-orange-600" : "text-yellow-600"
-                    }`}>
-                      {user.riskScore}
-                    </div>
-                    <p className="text-xs text-ink/60">Risk Score</p>
-                  </div>
-                </div>
-
-                <div className="mb-4">
-                  <p className="text-xs text-ink/60 mb-2">Flags:</p>
-                  <div className="flex flex-wrap gap-2">
-                    {user.flags.map((flag, idx) => (
-                      <span key={idx} className="px-2 py-1 bg-orange-100 text-orange-700 text-xs rounded">
-                        {flag.replace(/_/g, " ")}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="flex gap-2 pt-4 border-t border-ink/10">
-                  <button
-                    onClick={() => handleWarnUser(user.id)}
-                    className="flex-1 py-2 px-3 bg-orange-600 text-white rounded font-bold hover:bg-orange-700 transition-colors text-sm"
-                  >
-                    Warn
-                  </button>
-                  {canBan && (
-                    <button
-                      onClick={() => handleBanUser(user.id)}
-                      className="flex-1 py-2 px-3 bg-red-600 text-white rounded font-bold hover:bg-red-700 transition-colors text-sm"
-                    >
-                      Ban User
-                    </button>
-                  )}
-                  {canEscalate && (
-                    <button
-                      onClick={() => window.confirm("Escalate to Director?")}
-                      className="flex-1 py-2 px-3 bg-purple-600 text-white rounded font-bold hover:bg-purple-700 transition-colors text-sm"
-                    >
-                      Escalate
-                    </button>
-                  )}
-                </div>
-              </div>
+        <div className="max-w-6xl mx-auto px-6 lg:px-10 py-6">
+          {/* Tabs */}
+          <div className="flex gap-6 border-b border-ink/10 mb-6">
+            {[
+              { key: "incidents", label: `Incidents (${incidents.filter(i => i.status === "open").length})` },
+              { key: "users",     label: `Users (${users.length})` },
+              { key: "audit",     label: `Audit Log (${auditLog.length})` },
+            ].map(t => (
+              <button key={t.key} onClick={() => setActiveTab(t.key)}
+                className={`pb-3 text-sm font-bold border-b-2 transition-colors ${activeTab === t.key ? "border-copper text-copper" : "border-transparent text-ink/50 hover:text-ink"}`}>
+                {t.label}
+              </button>
             ))}
           </div>
-        )}
 
-        {/* ACTION LOG TAB */}
-        {activeTab === "actions" && (
-          <div className="bg-white border border-ink/10 rounded-lg p-6">
-            <h3 className="font-bold text-lg mb-6">Moderation Action Log</h3>
-            <div className="space-y-2">
-              {actionLog.map((log, idx) => (
-                <div key={idx} className="flex justify-between py-3 border-b border-ink/10 text-sm">
-                  <div className="flex-1">
-                    <p className="font-bold text-ink">{log.action}</p>
-                    <p className="text-xs text-ink/60">{log.reason}</p>
-                  </div>
-                  <div className="text-right ml-4">
-                    <p className="text-ink/60 text-xs">{log.time}</p>
-                    <p className="text-xs font-bold text-copper">{log.by}</p>
-                    <span className={`inline-block mt-1 text-xs px-2 py-1 rounded ${
-                      log.status === "completed" ? "bg-green-100 text-green-700" : "bg-yellow-100 text-yellow-700"
-                    }`}>
-                      {log.status.replace(/_/g, " ")}
-                    </span>
+          {/* INCIDENTS TAB */}
+          {activeTab === "incidents" && (
+            <div className="space-y-3">
+              {loading ? (
+                <div className="py-10 text-center text-ink/40 text-sm">Loading…</div>
+              ) : incidents.length === 0 ? (
+                <div className="py-10 text-center text-ink/40 text-sm">No incidents found.</div>
+              ) : incidents.map(inc => (
+                <div key={inc.id} className={`bg-white border-l-4 rounded-xl p-5 shadow-sm ${
+                  inc.severity === "critical" ? "border-red-500" :
+                  inc.severity === "high"     ? "border-orange-400" :
+                  inc.severity === "medium"   ? "border-yellow-400" : "border-slate-300"
+                }`}>
+                  <div className="flex items-start justify-between gap-4 flex-wrap">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className={`text-xs font-black uppercase px-2 py-0.5 rounded-full ${
+                          inc.status === "open" ? "bg-red-100 text-red-700" :
+                          inc.status === "resolved" ? "bg-emerald-100 text-emerald-700" : "bg-slate-100 text-slate-600"
+                        }`}>{inc.status}</span>
+                        <span className="text-xs font-bold text-slate-500 uppercase">{inc.severity}</span>
+                      </div>
+                      <p className="font-heading font-bold text-slate-900">{inc.title || inc.type || "Incident"}</p>
+                      <p className="text-sm text-slate-600 mt-1">{inc.description || inc.content || ""}</p>
+                      {inc.resolution && <p className="text-xs text-emerald-700 mt-1 italic">Resolution: {inc.resolution}</p>}
+                      <p className="text-xs text-slate-400 mt-2">
+                        Reported by {inc.reporter?.full_name || inc.reported_by} · {inc.created_at ? new Date(inc.created_at).toLocaleString() : ""}
+                      </p>
+                    </div>
+                    {canResolve && inc.status === "open" && (
+                      <button onClick={() => resolveIncident(inc.id)}
+                        className="text-xs font-bold px-3 py-1.5 rounded-lg border border-emerald-400 text-emerald-700 hover:bg-emerald-50 transition-colors whitespace-nowrap">
+                        <CheckCircle className="w-3.5 h-3.5 inline mr-1" />Resolve
+                      </button>
+                    )}
                   </div>
                 </div>
               ))}
             </div>
-          </div>
-        )}
-      </div>
+          )}
 
-      {/* Permission Info */}
-      <div className="max-w-7xl mx-auto px-6 py-8">
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 text-sm text-blue-700">
-          <p className="font-bold mb-2">Permission Summary for {userRole.toUpperCase()}:</p>
-          <ul className="text-xs space-y-1">
-            {canDelete && <li>✓ Can delete content and issue warnings</li>}
-            {canBan && <li>✓ Can ban users from platform</li>}
-            {canEscalate && <li>✓ Can escalate reports to Executive Director (platform-level action)</li>}
-            {!canLockPlatform && <li className="text-blue-600">ℹ️ Only Directors can lock the platform or shut down features</li>}
-          </ul>
+          {/* USERS TAB */}
+          {activeTab === "users" && (
+            <div className="bg-white rounded-xl border border-slate-100 shadow-sm overflow-hidden">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b-2 border-slate-100">
+                    <th className="text-left py-3 px-4 text-xs uppercase tracking-wider text-slate-600 font-bold">Name</th>
+                    <th className="text-left py-3 px-4 text-xs uppercase tracking-wider text-slate-600 font-bold">Email</th>
+                    <th className="text-left py-3 px-4 text-xs uppercase tracking-wider text-slate-600 font-bold">Role</th>
+                    <th className="text-left py-3 px-4 text-xs uppercase tracking-wider text-slate-600 font-bold">Status</th>
+                    <th className="py-3 px-4 text-xs uppercase tracking-wider text-slate-600 font-bold text-right">Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {users.map(u => (
+                    <tr key={u.id} className="border-b border-slate-50 hover:bg-slate-50">
+                      <td className="py-3 px-4 font-heading font-bold text-slate-900">{u.full_name || "—"}</td>
+                      <td className="py-3 px-4 font-mono text-slate-600 text-xs">{u.email}</td>
+                      <td className="py-3 px-4 text-xs font-bold text-slate-700 capitalize">{u.role?.replace("_", " ")}</td>
+                      <td className="py-3 px-4">
+                        {u.is_active === false
+                          ? <span className="text-xs font-bold bg-red-50 text-red-600 px-2 py-0.5 rounded-full">Inactive</span>
+                          : <span className="text-xs font-bold bg-emerald-50 text-emerald-700 px-2 py-0.5 rounded-full">Active</span>}
+                      </td>
+                      <td className="py-3 px-4 text-right">
+                        {canResolve && u.is_active !== false && (
+                          <button onClick={() => deactivateUser(u.id, u.full_name)}
+                            className="text-xs font-bold px-2 py-1 border border-red-300 text-red-500 hover:bg-red-50 rounded-lg transition-colors">
+                            Deactivate
+                          </button>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+
+          {/* AUDIT LOG TAB */}
+          {activeTab === "audit" && (
+            <div className="bg-white rounded-xl border border-slate-100 shadow-sm overflow-hidden">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b-2 border-slate-100">
+                    <th className="text-left py-3 px-4 text-xs uppercase tracking-wider text-slate-600 font-bold">Time</th>
+                    <th className="text-left py-3 px-4 text-xs uppercase tracking-wider text-slate-600 font-bold">Actor</th>
+                    <th className="text-left py-3 px-4 text-xs uppercase tracking-wider text-slate-600 font-bold">Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {auditLog.map((a, i) => (
+                    <tr key={i} className="border-b border-slate-50 hover:bg-slate-50">
+                      <td className="py-3 px-4 text-xs text-slate-500 whitespace-nowrap">
+                        {a.at ? new Date(a.at).toLocaleString() : "—"}
+                      </td>
+                      <td className="py-3 px-4 text-slate-700 font-medium">{a.actor_name || a.actor_id || "—"}</td>
+                      <td className="py-3 px-4 font-mono text-xs text-amber-700">{a.action}</td>
+                    </tr>
+                  ))}
+                  {auditLog.length === 0 && !loading && (
+                    <tr><td colSpan={3} className="py-8 text-center text-slate-400 text-sm">No audit entries found.</td></tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
       </div>
-    </div>
+    </AppShell>
   );
 }

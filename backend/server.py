@@ -1026,6 +1026,9 @@ async def _on_startup_impl():
     global _DB_SOURCE, _backup_db
     _DB_SOURCE = "primary"
     _backup_db = None
+    # Wire shared db reference for sub-routers (social, playlist, etc.)
+    import deps as _deps
+    _deps.set_db(db)
     if MONGO_BACKUP_URL:
         try:
             _backup_client = AsyncIOMotorClient(
@@ -8236,7 +8239,7 @@ async def scout_status(user: User = Depends(require_role("executive_admin"))):
                 "started_at": last_doc.get("started_at"),
                 "leads_found": last_doc.get("leads_found", {}),
             }
-    except Exception: pass
+    except Exception as _e: logger.warning("Swallowed exception: %s", _e)
 
     return {
         "scout_enabled":     os.environ.get("SCOUT_ENABLED", "true").lower() != "false",
@@ -8651,19 +8654,19 @@ async def exec_dashboard(user: User = Depends(require_role("executive_admin"))):
         pipeline_published = await db.wai_product_pipeline.count_documents({"status": "published"})
         pipeline_pending   = await db.wai_product_pipeline.count_documents({"status": "pending_publish"})
         pipeline_total     = pipeline_published + pipeline_pending
-    except Exception: pass
+    except Exception as _e: logger.warning("Swallowed exception: %s", _e)
 
     try:
         pending_notifs = await db.executive_notifications.count_documents({})
-    except Exception: pass
+    except Exception as _e: logger.warning("Swallowed exception: %s", _e)
 
     try:
         policy_count = await db.persona_policies.count_documents({"active": True})
-    except Exception: pass
+    except Exception as _e: logger.warning("Swallowed exception: %s", _e)
 
     try:
         episode_count = await db.persona_episodes.count_documents({})
-    except Exception: pass
+    except Exception as _e: logger.warning("Swallowed exception: %s", _e)
 
     # Per-persona TTS budgets
     try:
@@ -8674,7 +8677,7 @@ async def exec_dashboard(user: User = Depends(require_role("executive_admin"))):
                 "monthly_cap":     bdoc.get("monthly_cap", 0),
                 "pct_used":        round(bdoc.get("chars_used_this_month", 0) / max(bdoc.get("monthly_cap", 1), 1) * 100, 1),
             }
-    except Exception: pass
+    except Exception as _e: logger.warning("Swallowed exception: %s", _e)
 
     # Cipher budget (separate collection)
     try:
@@ -8687,7 +8690,7 @@ async def exec_dashboard(user: User = Depends(require_role("executive_admin"))):
                 "monthly_cap": cap,
                 "pct_used":    round(used / max(cap, 1) * 100, 1),
             }
-    except Exception: pass
+    except Exception as _e: logger.warning("Swallowed exception: %s", _e)
 
     # Recent pending pipeline items (up to 5 for dashboard preview)
     pending_preview = []
@@ -8700,7 +8703,7 @@ async def exec_dashboard(user: User = Depends(require_role("executive_admin"))):
             doc["price"] = f"${doc.get('price_cents', 0) / 100:.2f}"
             doc.pop("price_cents", None)
             pending_preview.append(doc)
-    except Exception: pass
+    except Exception as _e: logger.warning("Swallowed exception: %s", _e)
 
     # Recent executive notifications (up to 5)
     recent_notifs = []
@@ -8710,7 +8713,7 @@ async def exec_dashboard(user: User = Depends(require_role("executive_admin"))):
         ).sort("created_at", -1).limit(5)
         async for doc in cursor:
             recent_notifs.append(doc)
-    except Exception: pass
+    except Exception as _e: logger.warning("Swallowed exception: %s", _e)
 
     return {
         "dashboard":        "WAI-Institute Executive Dashboard",
