@@ -13,7 +13,7 @@ From the backend directory:
 
 Current verified hashes (as of last governance update):
     Ancestral Sage   : fbfba5fb4411c9b2bb475fcd29aabec138e52c60e12256234737a3be2f4e17a8
-    Director (admin) : 718f825edf450b7b4bef50416489a11a7604e86f3530c7b3b32364e23a9dd18a
+    Director (admin) : 8a0e47a12eaa53c62fafcbc3e80fe9bc5e7952f2ea118987b9e5a2f8efe070c3
     Asst Director    : 967f97586e54f9c4c8c2f9d8a3639189c072a641f263a402d5a416e389009276
 """
 
@@ -34,7 +34,7 @@ sys.path.insert(0, BACKEND_DIR)
 # ── expected hashes ───────────────────────────────────────────────────────────
 EXPECTED = {
     "Ancestral Sage":       "fbfba5fb4411c9b2bb475fcd29aabec138e52c60e12256234737a3be2f4e17a8",
-    "Director (admin)":     "718f825edf450b7b4bef50416489a11a7604e86f3530c7b3b32364e23a9dd18a",
+    "Director (admin)":     "8a0e47a12eaa53c62fafcbc3e80fe9bc5e7952f2ea118987b9e5a2f8efe070c3",
     "Asst Director":        "967f97586e54f9c4c8c2f9d8a3639189c072a641f263a402d5a416e389009276",
 }
 
