@@ -552,14 +552,14 @@
               <div class="priority-item" draggable="true" data-key="gemini" style="padding:10px 14px;background:#f9f9fb;border:1.5px solid var(--border);border-radius:7px;display:flex;align-items:center;gap:10px;cursor:move;">
                 <span style="font-size:16px;">☰</span><strong>1.</strong> Google Gemini
               </div>
-              <div class="priority-item" draggable="true" data-key="cohere" style="padding:10px 14px;background:#f9f9fb;border:1.5px solid var(--border);border-radius:7px;display:flex;align-items:center;gap:10px;cursor:move;">
-                <span style="font-size:16px;">☰</span><strong>2.</strong> Cohere
+              <div class="priority-item" draggable="true" data-key="grok" style="padding:10px 14px;background:#f9f9fb;border:1.5px solid var(--border);border-radius:7px;display:flex;align-items:center;gap:10px;cursor:move;">
+                <span style="font-size:16px;">☰</span><strong>2.</strong> Grok (xAI)
               </div>
               <div class="priority-item" draggable="true" data-key="hf" style="padding:10px 14px;background:#f9f9fb;border:1.5px solid var(--border);border-radius:7px;display:flex;align-items:center;gap:10px;cursor:move;">
                 <span style="font-size:16px;">☰</span><strong>3.</strong> Hugging Face
               </div>
-              <div class="priority-item" draggable="true" data-key="grok" style="padding:10px 14px;background:#f9f9fb;border:1.5px solid var(--border);border-radius:7px;display:flex;align-items:center;gap:10px;cursor:move;">
-                <span style="font-size:16px;">☰</span><strong>4.</strong> Grok (xAI)
+              <div class="priority-item" draggable="true" data-key="cohere" style="padding:10px 14px;background:#f9f9fb;border:1.5px solid var(--border);border-radius:7px;display:flex;align-items:center;gap:10px;cursor:move;">
+                <span style="font-size:16px;">☰</span><strong>4.</strong> Cohere
               </div>
             </div>
           </div>
@@ -695,7 +695,7 @@ async function callAI(messages) {
 function getPriority() {
   const items = document.querySelectorAll('#priority-list .priority-item');
   if (items.length) return Array.from(items).map(el => el.dataset.key);
-  return ['gemini', 'cohere', 'hf', 'grok'];
+  return ['gemini', 'grok', 'hf', 'cohere'];
 }
 
 async function callProvider(provider, key, messages) {
