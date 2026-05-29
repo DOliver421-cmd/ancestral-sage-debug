@@ -108,6 +108,85 @@ const ROLE_LANES = [
   },
 ];
 
+const TRUSTED_SERVICES = [
+  {
+    title: "Help intake desk",
+    desc: "A vetted local intake desk screens requests, routes people to the right support, and keeps handoffs transparent.",
+    badge: "low-cost / free",
+  },
+  {
+    title: "Housing referral review",
+    desc: "Trusted helpers review referrals, verify resources, and connect people with safe housing options.",
+    badge: "trusted partner",
+  },
+  {
+    title: "Basic finance check",
+    desc: "Community finance coaching helps people understand budgets, payments, and low-cost support options.",
+    badge: "clear price",
+  },
+  {
+    title: "Training module support",
+    desc: "A guide helps learners start with the right training module and keep service expectations grounded.",
+    badge: "manual linked",
+  },
+  {
+    title: "Creative production help",
+    desc: "Verified creators support media and storytelling work with clear scope, price, and help resources.",
+    badge: "human-reviewed",
+  },
+];
+
+const MARKETPLACE_TIMELINE = [
+  {
+    phase: "Phase 1: Launch minimum viable plaza",
+    range: "0–3 months",
+    details: [
+      "4–6 trusted offerings",
+      "2–4 vetted helpers",
+      "100–250 unique visitors per month",
+      "50–100 service requests",
+      "$0–$1,000 revenue per month",
+      "$3,000–$7,000 monthly cost",
+    ],
+  },
+  {
+    phase: "Phase 2: Stabilize and validate",
+    range: "3–6 months",
+    details: [
+      "8–12 marketplace offerings",
+      "5–8 vetted partners",
+      "300–600 unique visitors per month",
+      "150–250 service requests",
+      "$1,200–$3,000 revenue per month",
+      "$5,000–$10,000 monthly cost",
+    ],
+  },
+  {
+    phase: "Phase 3: Grow utility, keep it grounded",
+    range: "6–12 months",
+    details: [
+      "15–20 offerings",
+      "10–15 trusted helpers",
+      "700–1,200 unique visitors per month",
+      "300–500 requests",
+      "$3,000–$6,000 revenue per month",
+      "$8,000–$15,000 monthly cost",
+    ],
+  },
+  {
+    phase: "Phase 4: Sustainable base",
+    range: "12–18 months",
+    details: [
+      "20–30 trusted services",
+      "15–20 providers onboarded",
+      "1,500–2,500 unique visitors per month",
+      "500–900 requests",
+      "$6,000–$12,000 revenue per month",
+      "$12,000–$20,000 monthly cost",
+    ],
+  },
+];
+
 export default function SeshatsHub() {
   const [gatewayStatus, setGatewayStatus] = useState({ label: "Checking…", state: "pending" });
 
