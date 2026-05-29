@@ -10,12 +10,11 @@
  */
 
 import { useEffect, useState, useCallback } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
 import {
   Heart, BookOpen, MessageSquare, ArrowRight, Phone, Shield, Users, Globe,
   Activity, BadgeCheck, ShieldCheck, Sparkles, MapPin,
-  RefreshCw, AlertTriangle, CheckCircle2, XCircle, Send, KeyRound,
-  Eye, EyeOff, Crown, Siren, Radio,
+  Send, Eye, EyeOff, Crown,
 } from "lucide-react";
 import { api } from "../lib/api";
 import { useAuth } from "../lib/auth";
@@ -462,7 +461,6 @@ function ExecPanel({ apiOnline }) {
 // ── Main component ─────────────────────────────────────────────────────────────
 export default function MoreHelpCenter() {
   const { user } = useAuth();
-  const nav = useNavigate();
   const [freeModules,  setFreeModules]  = useState([]);
   const [apiOnline,    setApiOnline]    = useState(null); // null = checking
   const [gwLabel,      setGwLabel]      = useState("Checking…");
