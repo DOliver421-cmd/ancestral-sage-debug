@@ -670,7 +670,7 @@ export default function MoreHelpCenter() {
 
         {/* ── Finance backbone (from SeshatsHub) ── */}
         <section style={{ marginBottom: 48, background: CREAM, borderRadius: 24, border: `1px solid #d8b88e`, padding: "40px 36px", boxShadow: "0 24px 80px rgba(97,60,20,0.12)" }}>
-          <div style={{ display: "grid", gridTemplateColumns: "1.2fr 0.8fr", gap: 32, alignItems: "start" }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(280px,1fr))", gap: 32, alignItems: "start" }}>
             <div>
               <div style={{ fontSize: 11, fontWeight: 800, textTransform: "uppercase", letterSpacing: 3, color: COPPER, marginBottom: 10 }}>Finance Backbone</div>
               <h2 style={{ fontSize: 30, fontWeight: 900, color: "#2b1f15", marginBottom: 16 }}>The finance department acts like its own autonomous staff.</h2>
@@ -723,6 +723,94 @@ export default function MoreHelpCenter() {
                 </div>
               );
             })}
+          </div>
+        </section>
+
+        {/* ── Market Pulse — quick actions (from Seshat's Hub) ── */}
+        <section style={{ marginBottom: 48 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(280px,1fr))", gap: 32, alignItems: "start" }}>
+            <div>
+              <div style={{ fontSize: 11, fontWeight: 800, textTransform: "uppercase", letterSpacing: 3, color: COPPER, marginBottom: 6 }}>Meet the market</div>
+              <h2 style={{ fontSize: 28, fontWeight: 900, color: "#2b1f15", marginBottom: 16 }}>What visitors do here</h2>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(200px,1fr))", gap: 16 }}>
+                {[
+                  { icon: MapPin,  title: "Receive a guided welcome",  desc: "The Supervisor points new visitors to platform support, finance tools, and the help center." },
+                  { icon: Globe,   title: "Access the help center",     desc: "Find help across housing, legal, training, and community resources with a single click." },
+                  { icon: Users,   title: "Join the market experience", desc: "Browse the community marketplace of services, courses, and production support." },
+                ].map(item => {
+                  const Icon = item.icon;
+                  return (
+                    <div key={item.title} style={{ background: "white", borderRadius: 20, padding: 24, border: "1px solid #e3ccb1", boxShadow: "0 18px 45px rgba(90,60,30,0.08)" }}>
+                      <div style={{ width: 44, height: 44, borderRadius: 14, background: "#f7ead9", display: "flex", alignItems: "center", justifyContent: "center", color: "#855a32", marginBottom: 14 }}>
+                        <Icon style={{ width: 20, height: 20 }} />
+                      </div>
+                      <h3 style={{ fontWeight: 800, fontSize: 16, color: "#2b1f15", marginBottom: 8 }}>{item.title}</h3>
+                      <p style={{ fontSize: 13, color: "#5c4c41", lineHeight: 1.7 }}>{item.desc}</p>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Market Pulse sidebar */}
+            <div style={{ background: "#fffdf7", borderRadius: 20, border: "1px solid #ebd8c6", padding: 24, boxShadow: "0 14px 50px rgba(97,70,42,0.08)" }}>
+              <div style={{ fontSize: 10, fontWeight: 800, textTransform: "uppercase", letterSpacing: 3, color: "#7c593d", marginBottom: 8 }}>Market Pulse</div>
+              <div style={{ fontSize: 20, fontWeight: 800, color: "#2e1f17", marginBottom: 20 }}>Live services in this plaza</div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                <Link to="/help-center" style={{ display: "block", borderRadius: 16, padding: "14px 18px", fontSize: 13, fontWeight: 700, textDecoration: "none", background: "#f6d06d", color: "#1a1a2e" }}>Visit the Help Center</Link>
+                <Link to="/more"        style={{ display: "block", borderRadius: 16, padding: "14px 18px", fontSize: 13, fontWeight: 700, textDecoration: "none", background: TEAL, color: "white" }}>Explore M.O.R.E.</Link>
+                <Link to="/community"   style={{ display: "block", borderRadius: 16, padding: "14px 18px", fontSize: 13, fontWeight: 700, textDecoration: "none", background: "#583c1d", color: "white" }}>Community Marketplace</Link>
+                {execMode && (
+                  <Link to="/admin/system" style={{ display: "block", borderRadius: 16, padding: "14px 18px", fontSize: 13, fontWeight: 700, textDecoration: "none", background: "#5a3d1a", color: "white" }}>Executive Oversight</Link>
+                )}
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* ── Process map + Service ownership (from Seshat's Hub) ── */}
+        <section style={{ marginBottom: 48, background: "#fff9ed", borderRadius: 24, border: "1px solid #d8b88e", padding: "36px 32px", boxShadow: "0 24px 60px rgba(97,60,20,0.12)" }}>
+          <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", flexWrap: "wrap", gap: 12, marginBottom: 24 }}>
+            <div>
+              <div style={{ fontSize: 11, fontWeight: 800, textTransform: "uppercase", letterSpacing: 3, color: COPPER, marginBottom: 6 }}>Governance pulse</div>
+              <h2 style={{ fontSize: 26, fontWeight: 900, color: "#2b1f15" }}>Live oversight, analytics, and process flow</h2>
+            </div>
+            <div style={{ background: "#fff5e5", border: "1px solid #d7b290", borderRadius: 999, padding: "7px 16px", fontSize: 13, fontWeight: 600, color: "#5c422c" }}>
+              Built for human review and executive visibility
+            </div>
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(280px,1fr))", gap: 20 }}>
+            {/* Process map */}
+            <div style={{ background: "white", borderRadius: 20, padding: 24, border: "1px solid #e4d1b4", boxShadow: "0 18px 50px rgba(96,62,28,0.08)" }}>
+              <div style={{ fontSize: 10, fontWeight: 800, textTransform: "uppercase", letterSpacing: 2, color: COPPER, marginBottom: 16 }}>Process map</div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                {[
+                  { step: "1. Request", desc: "A visitor enters the plaza and selects help, service, finance, or community support." },
+                  { step: "2. Review",  desc: "The Supervisor and operator lane assess the need, apply compliance checks, and route the request." },
+                  { step: "3. Approve", desc: "Human oversight verifies decisions, triggers executive visibility, or escalates to audit if needed." },
+                  { step: "4. Execute", desc: "Workflows are completed and results are published to the help system for future reference." },
+                ].map(s => (
+                  <div key={s.step} style={{ background: "#f7ead9", borderRadius: 12, padding: "12px 16px" }}>
+                    <div style={{ fontWeight: 700, color: "#2b1f15", fontSize: 13 }}>{s.step}</div>
+                    <div style={{ fontSize: 12, color: "#4c3f35", marginTop: 4, lineHeight: 1.6 }}>{s.desc}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+            {/* Service ownership */}
+            <div style={{ background: "#fff7e3", borderRadius: 20, padding: 24, border: "1px solid #e4d1b4", boxShadow: "0 18px 50px rgba(96,62,28,0.08)" }}>
+              <div style={{ fontSize: 10, fontWeight: 800, textTransform: "uppercase", letterSpacing: 2, color: COPPER, marginBottom: 16 }}>Service ownership</div>
+              {[
+                { owner: "Finance",    desc: "Manages budgets, approvals, and audit trails for every community and help service." },
+                { owner: "Compliance", desc: "Verifies that recommendations follow policy, privacy, and safety standards." },
+                { owner: "Community",  desc: "Operates the marketplace lanes and ensures each service has a visible help manual entry." },
+              ].map(s => (
+                <div key={s.owner} style={{ marginBottom: 16 }}>
+                  <div style={{ fontWeight: 700, color: "#2b1f15", fontSize: 14 }}>{s.owner}</div>
+                  <div style={{ fontSize: 12, color: "#4c3f35", marginTop: 4, lineHeight: 1.6 }}>{s.desc}</div>
+                </div>
+              ))}
+            </div>
           </div>
         </section>
 
