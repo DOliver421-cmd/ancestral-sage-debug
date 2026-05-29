@@ -716,6 +716,34 @@ async def _send_reset_email(to_email: str, raw_token: str, full_name: str = "the
 
     logger.warning("No email provider configured (RESEND_API_KEY or GMAIL_USER+GMAIL_APP_PASSWORD).")
     return False
+
+
+async def _send_welcome_email(to_email: str, full_name: str) -> bool:
+    """Send welcome email on registration. Uses same provider chain as reset emails."""
+    app_url = os.environ.get("PUBLIC_APP_URL", "https://wai-institute.org")
+    subject = "Welcome to WAI-Institute — You're In"
+    html = f"""
+    <div style="font-family:sans-serif;max-width:540px;margin:0 auto;padding:32px 24px;background:#fff;">
+      <div style="background:#2e1065;border-radius:12px;padding:28px 24px;text-align:center;margin-bottom:24px;">
+        <h1 style="color:#FFD100;font-size:26px;margin:0 0 8px;">Welcome, {full_name}.</h1>
+        <p style="color:rgba(255,255,255,0.8);font-size:15px;margin:0;">You are now part of the WAI-Institute community.</p>
+      </div>
+      <p style="color:#2b1f15;font-size:15px;line-height:1.7;">Your account is active. Start with free modules — no paywall, no waiting.</p>
+      <div style="text-align:center;margin:28px 0;">
+        <a href="{app_url}/modules" style="background:#0d7377;color:#fff;padding:12px 28px;border-radius:8px;text-decoration:none;font-weight:700;font-size:14px;">Start Learning Free</a>
+      </div>
+      <p style="color:#5a4e42;font-size:13px;">Need help? Reply to this email or visit the <a href="{app_url}/help-center" style="color:#0d7377;">Help Center</a>.</p>
+      <hr style="border:none;border-top:1px solid #e0d6cc;margin:24px 0;">
+      <p style="color:#9ca3af;font-size:11px;text-align:center;">WAI-Institute · MORE Help Center</p>
+    </div>"""
+    if RESEND_API_KEY:
+        sent = await _send_via_resend(to_email, subject, html)
+        if sent:
+            return True
+    if GMAIL_USER and GMAIL_APP_PASSWORD:
+        return await _send_via_gmail(to_email, subject, html)
+    logger.warning("Welcome email not sent — no email provider configured.")
+    return False
 # ----------------------------------------------------------------------------
 
 
@@ -1602,6 +1630,8 @@ async def register(body: RegisterReq):
     doc["over_13_confirmed"] = True
     await db.users.insert_one(doc)
     await audit(user.id, "auth.register.success", meta={"consent_terms": True, "over_13": True})
+    # Send welcome email — fire-and-forget, never blocks registration
+    asyncio.create_task(_send_welcome_email(user.email, user.full_name))
     return TokenResp(access_token=make_token(user.id, user.role), user=user)
 
 
@@ -3558,10 +3588,10 @@ async def ai_chat(body: AIChatReq, user: User = Depends(current_user)):
     else:
         system = SYSTEM_PROMPTS.get(body.mode, SYSTEM_PROMPTS["tutor"]) + ctx
     session_id = f"{user.id}:{body.session_id}"
-    _client = _anthropic_module.AsyncAnthropic(api_key=ANTHROPIC_API_KEY)
     try:
-        _msg = await _client.messages.create(model="claude-sonnet-4-6", max_tokens=2048, system=system, messages=[{"role": "user", "content": body.message}])
-        reply = _msg.content[0].text
+        from ai.llm_gateway import call_llm as _call_llm
+        _gw = await _call_llm(system=system, messages=[{"role": "user", "content": body.message}], max_tokens=2048, persona_label="ai_chat")
+        reply = _gw["text"]
     except Exception as e:
         logger.exception("AI error")
         raise HTTPException(502, f"AI error: {e}")
@@ -3738,15 +3768,10 @@ async def ai_orchestrator(body: OrchestratorReq, user: User = Depends(current_us
     else:
         claude_messages.append({"role": "user", "content": user_message})
 
-    _client = _anthropic_module.AsyncAnthropic(api_key=ANTHROPIC_API_KEY)
     try:
-        _msg = await _client.messages.create(
-            model="claude-sonnet-4-6",
-            max_tokens=4096,
-            system=system,
-            messages=claude_messages,
-        )
-        reply = _msg.content[0].text
+        from ai.llm_gateway import call_llm as _call_llm
+        _gw = await _call_llm(system=system, messages=claude_messages, max_tokens=4096, persona_label="orchestrator")
+        reply = _gw["text"]
     except Exception as e:
         logger.exception("Orchestrator AI error")
         raise HTTPException(502, f"AI error: {e}")
@@ -3819,15 +3844,10 @@ async def ai_scholar(body: ScholarTaskReq, user: User = Depends(current_user)):
     claude_messages = [{"role": h.role, "content": h.content} for h in (body.history or [])]
     claude_messages.append({"role": "user", "content": body.message})
 
-    _client = _anthropic_module.AsyncAnthropic(api_key=ANTHROPIC_API_KEY)
     try:
-        _msg = await _client.messages.create(
-            model="claude-sonnet-4-6",
-            max_tokens=4096,
-            system=system,
-            messages=claude_messages,
-        )
-        reply = _msg.content[0].text
+        from ai.llm_gateway import call_llm as _call_llm
+        _gw = await _call_llm(system=system, messages=claude_messages, max_tokens=4096, persona_label="scholar")
+        reply = _gw["text"]
     except Exception as e:
         logger.exception("Scholar AI error")
         raise HTTPException(502, f"AI error: {e}")
@@ -4610,7 +4630,12 @@ async def ai_revenue_director(body: dict, user: User = Depends(current_user)):
             reply = ""
 
     if not reply:
-        reply = "THE REVENUE DIRECTOR is temporarily offline. Financial archives remain active. Retry in a moment."
+        try:
+            from ai.llm_gateway import call_llm as _call_llm
+            _gw = await _call_llm(system=get_persona("revenue_director"), messages=[{"role": "user", "content": message}], max_tokens=2048, persona_label="revenue_director")
+            reply = _gw["text"]
+        except Exception:
+            reply = "THE REVENUE DIRECTOR is temporarily offline. Financial archives remain active. Retry in a moment."
 
     await log_episode(db, session_id, "revenue_director", user.id, message, reply, _tools_called)
     logger.info("ai_revenue_director: responded for user %s", user.id)
@@ -4714,7 +4739,12 @@ async def sage_create(body: dict, user: User = Depends(current_user)):
             reply = ""
 
     if not reply:
-        reply = "The Ancestral Sage is temporarily offline. Wisdom archives remain intact. Retry in a moment."
+        try:
+            from ai.llm_gateway import call_llm as _call_llm
+            _gw = await _call_llm(system=get_persona("ancestral_sage"), messages=[{"role": "user", "content": message}], max_tokens=2048, persona_label="ancestral_sage")
+            reply = _gw["text"]
+        except Exception:
+            reply = "The Ancestral Sage is temporarily offline. Wisdom archives remain intact. Retry in a moment."
 
     await log_episode(db, session_id, "ancestral_sage", user.id, message, reply, _tools_called)
     logger.info("ai_sage_create: responded for user %s", user.id)
@@ -7220,15 +7250,10 @@ async def more_department_chat(body: MoreDeptChatReq, user: User = Depends(curre
     ]
     claude_messages.append({"role": "user", "content": user_message})
 
-    _client = _anthropic_module.AsyncAnthropic(api_key=ANTHROPIC_API_KEY)
     try:
-        _msg = await _client.messages.create(
-            model="claude-sonnet-4-6",
-            max_tokens=4096,
-            system=system,
-            messages=claude_messages,
-        )
-        reply = _msg.content[0].text
+        from ai.llm_gateway import call_llm as _call_llm
+        _gw = await _call_llm(system=system, messages=claude_messages, max_tokens=4096, persona_label="more_department")
+        reply = _gw["text"]
     except Exception as e:
         logger.exception("M.O.R.E. Department AI error")
         raise HTTPException(502, f"AI error: {e}")
@@ -7783,10 +7808,12 @@ async def ai_ambassador(body: dict, user: User = Depends(current_user)):
             reply = ""
 
     if not reply:
-        reply = (
-            "THE AMBASSADOR is temporarily offline. "
-            "Campaign pipeline intelligence remains archived. Retry in a moment."
-        )
+        try:
+            from ai.llm_gateway import call_llm as _call_llm
+            _gw = await _call_llm(system=get_persona("ambassador"), messages=[{"role": "user", "content": message}], max_tokens=2048, persona_label="ambassador")
+            reply = _gw["text"]
+        except Exception:
+            reply = "THE AMBASSADOR is temporarily offline. Campaign pipeline intelligence remains archived. Retry in a moment."
 
     await log_episode(db, session_id, "ambassador", user.id, message, reply, _tools_called)
     logger.info("ai_ambassador: responded for user %s", user.id)
@@ -7901,10 +7928,12 @@ async def ai_architect(body: dict, user: User = Depends(current_user)):
             reply = ""
 
     if not reply:
-        reply = (
-            "THE ARCHITECT is temporarily offline. "
-            "Visual intelligence archives remain active. Retry in a moment."
-        )
+        try:
+            from ai.llm_gateway import call_llm as _call_llm
+            _gw = await _call_llm(system=get_persona("architect"), messages=[{"role": "user", "content": message}], max_tokens=2048, persona_label="architect")
+            reply = _gw["text"]
+        except Exception:
+            reply = "THE ARCHITECT is temporarily offline. Visual intelligence archives remain active. Retry in a moment."
 
     await log_episode(db, session_id, "architect", user.id, message, reply, _tools_called)
     logger.info("ai_architect: responded for user %s", user.id)
@@ -8013,10 +8042,12 @@ async def ai_cipher(body: dict, user: User = Depends(current_user)):
             reply = ""
 
     if not reply:
-        reply = (
-            "THE CIPHER is temporarily operating without AI connectivity. "
-            "Revenue streams remain active. Retry in a moment."
-        )
+        try:
+            from ai.llm_gateway import call_llm as _call_llm
+            _gw = await _call_llm(system=get_persona("cipher"), messages=[{"role": "user", "content": message}], max_tokens=2048, persona_label="cipher")
+            reply = _gw["text"]
+        except Exception:
+            reply = "THE CIPHER is temporarily operating without AI connectivity. Revenue streams remain active. Retry in a moment."
 
     await log_episode(db, session_id, "cipher", user.id, message, reply, _tools_called)
     logger.info("ai_cipher: responded for user %s", user.id)
@@ -8124,10 +8155,12 @@ async def ai_oracle(body: dict, user: User = Depends(current_user)):
             reply = ""
 
     if not reply:
-        reply = (
-            "THE ORACLE is temporarily operating without AI connectivity. "
-            "Cultural intelligence archives remain active. Retry in a moment."
-        )
+        try:
+            from ai.llm_gateway import call_llm as _call_llm
+            _gw = await _call_llm(system=get_persona("oracle"), messages=[{"role": "user", "content": message}], max_tokens=2048, persona_label="oracle")
+            reply = _gw["text"]
+        except Exception:
+            reply = "THE ORACLE is temporarily operating without AI connectivity. Cultural intelligence archives remain active. Retry in a moment."
 
     await log_episode(db, session_id, "oracle", user.id, message, reply, _tools_called)
     logger.info("ai_oracle: responded for user %s", user.id)
@@ -9715,17 +9748,12 @@ async def revenue_workspace_chat(ws_id: str, body: dict, user: User = Depends(cu
         {"_id": 0},
     ).sort("ts", -1).limit(10).to_list(length=10)
     memory_context = "\n".join(f"[{m.get('actor','')}]: {m.get('content','')}" for m in reversed(memory))
-    import anthropic as _anthropic_module
-    _client = _anthropic_module.AsyncAnthropic(api_key=ANTHROPIC_API_KEY)
     system_prompt = f"You are the Sovereign AI for workspace '{ws['name']}'. Respond helpfully."
     if memory_context:
         system_prompt += f"\n\nRecent workspace memory:\n{memory_context}"
-    _msg = await _client.messages.create(
-        model="claude-sonnet-4-6", max_tokens=2048,
-        system=system_prompt,
-        messages=[{"role": "user", "content": message}],
-    )
-    reply = _msg.content[0].text.strip()
+    from ai.llm_gateway import call_llm as _call_llm
+    _gw = await _call_llm(system=system_prompt, messages=[{"role": "user", "content": message}], max_tokens=2048, persona_label="revenue_workspace")
+    reply = _gw["text"].strip()
     # Store in workspace memory
     await db.sovereign_memory.insert_one({
         "workspace_id": ws_id, "actor": user.id, "content": message[:500],
@@ -9923,13 +9951,9 @@ try:
         """Talk to The Sovereign — executive-only, Director-supervised, memory-aware."""
         system = await _build_sovereign_prompt(db, user.id)
         try:
-            import anthropic as _anthropic_module
-            _client = _anthropic_module.AsyncAnthropic(api_key=ANTHROPIC_API_KEY)
-            _msg = await _client.messages.create(
-                model="claude-sonnet-4-6", max_tokens=2048,
-                system=system, messages=[{"role": "user", "content": body.message}],
-            )
-            reply = _msg.content[0].text
+            from ai.llm_gateway import call_llm as _call_llm
+            _gw = await _call_llm(system=system, messages=[{"role": "user", "content": body.message}], max_tokens=2048, persona_label="sovereign")
+            reply = _gw["text"]
         except Exception as e:
             logger.exception("Sovereign AI error")
             raise HTTPException(502, f"Sovereign AI error: {e}")
@@ -9993,6 +10017,7 @@ try:
     class _PanelHeartbeatBody(BaseModel):
         source: Literal["backup", "emergency"]
         version: Optional[str] = None
+        secret: Optional[str] = None
 
     @api_router.get("/exec/panel")
     async def exec_panel_get(user: User = Depends(require_role("executive_admin"))):
@@ -10074,10 +10099,35 @@ try:
         logger.info("Gateway key pushed by exec: %s", var_name)
         return {"ok": True, "var": var_name, "active": True}
 
+    # Auto-generate shared secret once; stored in DB so exec can retrieve it.
+    _HEARTBEAT_SECRET_KEY = "exec_panel_heartbeat_secret"
+
+    async def _get_or_create_heartbeat_secret() -> str:
+        doc = await db.platform_config.find_one({"key": _HEARTBEAT_SECRET_KEY}, {"_id": 0})
+        if doc and doc.get("value"):
+            return doc["value"]
+        secret = secrets.token_urlsafe(32)
+        await db.platform_config.update_one(
+            {"key": _HEARTBEAT_SECRET_KEY},
+            {"$set": {"key": _HEARTBEAT_SECRET_KEY, "value": secret}},
+            upsert=True,
+        )
+        logger.info("HEARTBEAT: auto-generated shared secret stored in DB — retrieve via /exec/panel/heartbeat-secret")
+        return secret
+
+    @api_router.get("/exec/panel/heartbeat-secret")
+    async def exec_panel_heartbeat_secret(user: User = Depends(require_role("executive_admin"))):
+        """Return the current heartbeat shared secret — executive_admin only.
+        Copy this value into the backup/emergency server HEARTBEAT_SECRET env var."""
+        return {"secret": await _get_or_create_heartbeat_secret()}
+
     @api_router.post("/exec/panel/heartbeat")
     async def exec_panel_heartbeat(body: _PanelHeartbeatBody):
-        """Heartbeat from backup server or emergency UI (no auth required —
-        the backup server reports its liveness so the panel shows it as alive)."""
+        """Heartbeat from backup/emergency server. Requires shared secret."""
+        expected = await _get_or_create_heartbeat_secret()
+        provided = getattr(body, "secret", None) or ""
+        if not secrets.compare_digest(provided, expected):
+            raise HTTPException(401, "Invalid or missing heartbeat secret.")
         result = await heartbeat(db, body.source, version=body.version)
         if not result["ok"]:
             raise HTTPException(400, result["error"])

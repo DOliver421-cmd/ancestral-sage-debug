@@ -102,7 +102,7 @@ export default function AdminDashboard() {
               { key: "audit",     label: `Audit Log (${auditLog.length})` },
             ].map(t => (
               <button key={t.key} onClick={() => setActiveTab(t.key)}
-                className={`pb-3 text-sm font-bold border-b-2 transition-colors ${activeTab === t.key ? "border-copper text-copper" : "border-transparent text-ink/50 hover:text-ink"}`}>
+                className={`pb-3 text-sm font-bold border-b-2 transition-colors ${activeTab === t.key ? "border-copper text-copper" : "border-transparent text-ink/80 hover:text-ink"}`}>
                 {t.label}
               </button>
             ))}
@@ -112,9 +112,9 @@ export default function AdminDashboard() {
           {activeTab === "incidents" && (
             <div className="space-y-3">
               {loading ? (
-                <div className="py-10 text-center text-ink/40 text-sm">Loading…</div>
+                <div className="py-10 text-center text-ink/70 text-sm">Loading…</div>
               ) : incidents.length === 0 ? (
-                <div className="py-10 text-center text-ink/40 text-sm">No incidents found.</div>
+                <div className="py-10 text-center text-ink/70 text-sm">No incidents found.</div>
               ) : incidents.map(inc => (
                 <div key={inc.id} className={`bg-white border-l-4 rounded-xl p-5 shadow-sm ${
                   inc.severity === "critical" ? "border-red-500" :

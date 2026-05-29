@@ -88,7 +88,7 @@ function DecoyMode() {
 }
 
 // ── Exec Supervisor Control Panel ──────────────────────────────────────────────
-function ExecPanel({ apiOnline }) {
+function ExecPanel({ apiOnline, visibility, setVisibility }) {
   const [tab, setTab]               = useState("health");
   const [health, setHealth]         = useState(null);
   const [users, setUsers]           = useState([]);
@@ -183,14 +183,15 @@ function ExecPanel({ apiOnline }) {
   };
 
   const TABS = [
-    { key: "health",    label: "Health" },
-    { key: "gateway",   label: "Gateway" },
-    { key: "users",     label: "Users" },
-    { key: "broadcast", label: "Broadcast" },
-    { key: "incidents", label: "Incidents" },
-    { key: "safety",    label: "Safety Cap" },
-    { key: "apikeys",   label: "API Keys" },
-    { key: "audit",     label: "Audit Log" },
+    { key: "health",     label: "Health" },
+    { key: "gateway",    label: "Gateway" },
+    { key: "users",      label: "Users" },
+    { key: "broadcast",  label: "Broadcast" },
+    { key: "incidents",  label: "Incidents" },
+    { key: "safety",     label: "Safety Cap" },
+    { key: "apikeys",    label: "API Keys" },
+    { key: "audit",      label: "Audit Log" },
+    { key: "visibility", label: "Visibility" },
   ];
 
   const INK = "#2e1065";
@@ -430,6 +431,11 @@ function ExecPanel({ apiOnline }) {
           </div>
         )}
 
+        {/* Visibility */}
+        {tab === "visibility" && (
+          <VisibilityTab visibility={visibility} setVisibility={setVisibility} />
+        )}
+
         {/* Audit Log */}
         {tab === "audit" && (
           <div>
@@ -458,12 +464,60 @@ function ExecPanel({ apiOnline }) {
   );
 }
 
+// ── Default section visibility (all on) ───────────────────────────────────────
+const DEFAULT_VISIBILITY = {
+  freeModules:  { label: "Free Modules",       minRank: 0 },
+  features:     { label: "What We Do",         minRank: 0 },
+  finance:      { label: "Finance Backbone",   minRank: 0 },
+  roleLanes:    { label: "Role Lanes",         minRank: 0 },
+  marketPulse:  { label: "Market Pulse",       minRank: 0 },
+  governance:   { label: "Governance Pulse",   minRank: 0 },
+  resources:    { label: "Resources",          minRank: 0 },
+  support:      { label: "Support",            minRank: 0 },
+};
+
+// ── Visibility toggle panel (exec only) ───────────────────────────────────────
+function VisibilityTab({ visibility, setVisibility }) {
+  const RANK_LABELS = { 0: "Everyone", 1: "Students+", 2: "Instructors+", 3: "Admins+", 4: "Exec only" };
+  const INK = "#2e1065"; const SIG = "#FFD100";
+  return (
+    <div>
+      <div style={{ color: "white", fontWeight: 700, fontSize: 14, marginBottom: 6 }}>Section Visibility</div>
+      <div style={{ color: "rgba(255,255,255,0.5)", fontSize: 11, marginBottom: 16 }}>
+        Control which sections appear for each access level. Changes save instantly.
+      </div>
+      {Object.entries(visibility).map(([key, cfg]) => (
+        <div key={key} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "8px 0", borderBottom: "1px solid rgba(255,255,255,0.07)" }}>
+          <span style={{ color: "rgba(255,255,255,0.85)", fontSize: 13 }}>{cfg.label}</span>
+          <div style={{ display: "flex", gap: 4 }}>
+            {[0,1,2,3,4].map(rank => (
+              <button key={rank} onClick={() => {
+                const next = { ...visibility, [key]: { ...cfg, minRank: rank } };
+                setVisibility(next);
+                try { localStorage.setItem("mhc_visibility", JSON.stringify(next)); } catch {}
+              }}
+                style={{ padding: "3px 8px", borderRadius: 4, border: "none", fontSize: 10, fontWeight: 700, cursor: "pointer",
+                  background: cfg.minRank === rank ? SIG : "rgba(255,255,255,0.12)",
+                  color: cfg.minRank === rank ? INK : "rgba(255,255,255,0.6)" }}>
+                {RANK_LABELS[rank]}
+              </button>
+            ))}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 // ── Main component ─────────────────────────────────────────────────────────────
 export default function MoreHelpCenter() {
   const { user } = useAuth();
   const [freeModules,  setFreeModules]  = useState([]);
   const [apiOnline,    setApiOnline]    = useState(null); // null = checking
   const [gwLabel,      setGwLabel]      = useState("Checking…");
+  const [visibility,   setVisibility]   = useState(() => {
+    try { const s = localStorage.getItem("mhc_visibility"); return s ? JSON.parse(s) : DEFAULT_VISIBILITY; } catch { return DEFAULT_VISIBILITY; }
+  });
 
   useEffect(() => {
     api.get("/health")
@@ -494,6 +548,15 @@ export default function MoreHelpCenter() {
 
   const execMode = isExec(user);
   const superExec = isSupExec(user);
+  const userRank = ROLE_RANK[user?.role] ?? 0;
+  const canSee = (key) => userRank >= (visibility[key]?.minRank ?? 0);
+
+  const USER_DASHBOARD = {
+    executive_admin: { label: "Executive Dashboard", to: "/admin/system", color: "#2e1065" },
+    admin:           { label: "Admin Dashboard",      to: "/admin",        color: "#0d7377" },
+    instructor:      { label: "Instructor Hub",       to: "/instructor",   color: COPPER },
+    student:         { label: "My Dashboard",         to: "/dashboard",    color: TEAL },
+  };
 
   return (
     <div style={{ minHeight: "100vh", background: WARM, color: "#1a1a2e" }}>
@@ -532,22 +595,8 @@ export default function MoreHelpCenter() {
 
       <main style={{ maxWidth: 1200, margin: "0 auto", padding: "0 24px" }}>
 
-        {/* ── Exec Supervisor Panel (admin + executive_admin only) ── */}
-        {execMode && (
-          <div style={{ marginTop: 32 }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 16 }}>
-              <Crown style={{ width: 18, height: 18, color: GOLD }} />
-              <span style={{ fontWeight: 800, fontSize: 16, color: "#2b1f15" }}>Supervisor Controls</span>
-              <span style={{ fontSize: 11, color: "#8d5a33", background: "#fff3e0", padding: "2px 8px", borderRadius: 20, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1 }}>
-                {superExec ? "Executive Admin" : "Admin"}
-              </span>
-            </div>
-            <ExecPanel apiOnline={apiOnline} />
-          </div>
-        )}
-
-        {/* ── Hero ── */}
-        <section style={{ borderRadius: 24, overflow: "hidden", marginTop: execMode ? 0 : 32, marginBottom: 48, background: `linear-gradient(165deg, ${TEAL_DARK} 0%, #0a4e52 50%, ${TEAL} 100%)`, padding: "64px 40px", textAlign: "center", position: "relative" }}>
+        {/* ── Hero — always first, exec panel comes after ── */}
+        <section style={{ borderRadius: 24, overflow: "hidden", marginTop: 32, marginBottom: 28, background: `linear-gradient(165deg, ${TEAL_DARK} 0%, #0a4e52 50%, ${TEAL} 100%)`, padding: "56px 40px", textAlign: "center", position: "relative" }}>
           <div style={{ position: "absolute", inset: 0, opacity: 0.08, backgroundImage: "radial-gradient(circle at 25px 25px, white 1px, transparent 0)", backgroundSize: "50px 50px" }} />
           <div style={{ position: "relative", zIndex: 1 }}>
             <div style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "6px 16px", borderRadius: 999, background: "rgba(255,255,255,0.15)", color: GOLD, fontSize: 11, fontWeight: 800, textTransform: "uppercase", letterSpacing: 3, marginBottom: 24 }}>
@@ -556,8 +605,8 @@ export default function MoreHelpCenter() {
             <h1 style={{ color: "white", fontSize: "clamp(32px, 6vw, 56px)", fontWeight: 900, lineHeight: 1.1, marginBottom: 16 }}>
               Help is here.<br /><span style={{ color: GOLD }}>Free, always.</span>
             </h1>
-            <p style={{ color: "#c8e6e8", fontSize: 18, maxWidth: 560, margin: "0 auto 32px", lineHeight: 1.7 }}>
-              No paywalls. No sign-ups for core help. Browse free training, access community support, and find real guidance — no strings attached.
+            <p style={{ color: "#c8e6e8", fontSize: 18, maxWidth: 560, margin: "0 auto 28px", lineHeight: 1.7 }}>
+              No paywalls. No sign-ups for core help. Free training, community support, and real guidance — no strings attached.
             </p>
             <div style={{ display: "flex", flexWrap: "wrap", gap: 12, justifyContent: "center" }}>
               <a href="#modules" style={{ background: GOLD, color: "#1a1a2e", padding: "12px 28px", borderRadius: 8, fontWeight: 800, fontSize: 13, textDecoration: "none", textTransform: "uppercase", letterSpacing: 2 }}>Start Learning Free</a>
@@ -566,6 +615,38 @@ export default function MoreHelpCenter() {
             </div>
           </div>
         </section>
+
+        {/* ── Logged-in user: your space card (item 7) ── */}
+        {user && USER_DASHBOARD[user.role] && (
+          <div style={{ background: "white", borderRadius: 14, border: "1px solid #e0d6cc", padding: "14px 20px", marginBottom: 24, display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 12 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <div style={{ width: 36, height: 36, borderRadius: "50%", background: USER_DASHBOARD[user.role].color, display: "flex", alignItems: "center", justifyContent: "center", color: "white", fontWeight: 900, fontSize: 14 }}>
+                {(user.full_name || "U")[0].toUpperCase()}
+              </div>
+              <div>
+                <div style={{ fontWeight: 700, fontSize: 14, color: "#2b1f15" }}>Welcome back, {user.full_name?.split(" ")[0] || "there"}.</div>
+                <div style={{ fontSize: 11, color: "#8a7e72", textTransform: "capitalize" }}>{(user.role || "").replace("_", " ")} · WAI-Institute</div>
+              </div>
+            </div>
+            <Link to={USER_DASHBOARD[user.role].to} style={{ background: USER_DASHBOARD[user.role].color, color: "white", padding: "8px 18px", borderRadius: 8, fontWeight: 700, fontSize: 12, textDecoration: "none", display: "flex", alignItems: "center", gap: 6 }}>
+              {USER_DASHBOARD[user.role].label} <ArrowRight style={{ width: 13, height: 13 }} />
+            </Link>
+          </div>
+        )}
+
+        {/* ── Exec Supervisor Panel (admin + executive_admin only) ── */}
+        {execMode && (
+          <div style={{ marginBottom: 32 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 16 }}>
+              <Crown style={{ width: 18, height: 18, color: GOLD }} />
+              <span style={{ fontWeight: 800, fontSize: 16, color: "#2b1f15" }}>Supervisor Controls</span>
+              <span style={{ fontSize: 11, color: "#8d5a33", background: "#fff3e0", padding: "2px 8px", borderRadius: 20, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1 }}>
+                {superExec ? "Executive Admin" : "Admin"}
+              </span>
+            </div>
+            <ExecPanel apiOnline={apiOnline} visibility={visibility} setVisibility={setVisibility} />
+          </div>
+        )}
 
         {/* ── Gateway status strip ── */}
         <div style={{ background: "white", borderRadius: 12, padding: "12px 20px", marginBottom: 32, display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 12, border: "1px solid #e0d6cc" }}>
@@ -608,7 +689,7 @@ export default function MoreHelpCenter() {
         </section>
 
         {/* ── Free Modules ── */}
-        {freeModules.length > 0 && (
+        {canSee("freeModules") && freeModules.length > 0 && (
           <section id="modules" style={{ marginBottom: 48 }}>
             <div style={{ textAlign: "center", marginBottom: 32 }}>
               <div style={{ fontSize: 11, fontWeight: 800, textTransform: "uppercase", letterSpacing: 3, color: TEAL, marginBottom: 6 }}>Free Curriculum</div>
@@ -640,7 +721,7 @@ export default function MoreHelpCenter() {
         )}
 
         {/* ── Features grid ── */}
-        <section style={{ marginBottom: 48 }}>
+        {canSee("features") && <section style={{ marginBottom: 48 }}>
           <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", marginBottom: 24, flexWrap: "wrap", gap: 12 }}>
             <div>
               <div style={{ fontSize: 11, fontWeight: 800, textTransform: "uppercase", letterSpacing: 3, color: COPPER, marginBottom: 6 }}>Designed around the hub</div>
@@ -664,10 +745,10 @@ export default function MoreHelpCenter() {
               );
             })}
           </div>
-        </section>
+        </section>}
 
         {/* ── Finance backbone (from SeshatsHub) ── */}
-        <section style={{ marginBottom: 48, background: CREAM, borderRadius: 24, border: `1px solid #d8b88e`, padding: "40px 36px", boxShadow: "0 24px 80px rgba(97,60,20,0.12)" }}>
+        {canSee("finance") && <section style={{ marginBottom: 48, background: CREAM, borderRadius: 24, border: `1px solid #d8b88e`, padding: "40px 36px", boxShadow: "0 24px 80px rgba(97,60,20,0.12)" }}>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(280px,1fr))", gap: 32, alignItems: "start" }}>
             <div>
               <div style={{ fontSize: 11, fontWeight: 800, textTransform: "uppercase", letterSpacing: 3, color: COPPER, marginBottom: 10 }}>Finance Backbone</div>
@@ -697,10 +778,10 @@ export default function MoreHelpCenter() {
               </div>
             </div>
           </div>
-        </section>
+        </section>}
 
         {/* ── Role lanes ── */}
-        <section style={{ marginBottom: 48 }}>
+        {canSee("roleLanes") && <section style={{ marginBottom: 48 }}>
           <div style={{ marginBottom: 24 }}>
             <div style={{ fontSize: 11, fontWeight: 800, textTransform: "uppercase", letterSpacing: 3, color: COPPER, marginBottom: 6 }}>Role-based lanes</div>
             <h2 style={{ fontSize: 28, fontWeight: 900, color: "#2b1f15" }}>Choose your entry path</h2>
@@ -722,10 +803,10 @@ export default function MoreHelpCenter() {
               );
             })}
           </div>
-        </section>
+        </section>}
 
         {/* ── Market Pulse — quick actions (from Seshat's Hub) ── */}
-        <section style={{ marginBottom: 48 }}>
+        {canSee("marketPulse") && <section style={{ marginBottom: 48 }}>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(280px,1fr))", gap: 32, alignItems: "start" }}>
             <div>
               <div style={{ fontSize: 11, fontWeight: 800, textTransform: "uppercase", letterSpacing: 3, color: COPPER, marginBottom: 6 }}>Meet the market</div>
@@ -764,10 +845,10 @@ export default function MoreHelpCenter() {
               </div>
             </div>
           </div>
-        </section>
+        </section>}
 
         {/* ── Process map + Service ownership (from Seshat's Hub) ── */}
-        <section style={{ marginBottom: 48, background: "#fff9ed", borderRadius: 24, border: "1px solid #d8b88e", padding: "36px 32px", boxShadow: "0 24px 60px rgba(97,60,20,0.12)" }}>
+        {canSee("governance") && <section style={{ marginBottom: 48, background: "#fff9ed", borderRadius: 24, border: "1px solid #d8b88e", padding: "36px 32px", boxShadow: "0 24px 60px rgba(97,60,20,0.12)" }}>
           <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", flexWrap: "wrap", gap: 12, marginBottom: 24 }}>
             <div>
               <div style={{ fontSize: 11, fontWeight: 800, textTransform: "uppercase", letterSpacing: 3, color: COPPER, marginBottom: 6 }}>Governance pulse</div>
@@ -810,10 +891,10 @@ export default function MoreHelpCenter() {
               ))}
             </div>
           </div>
-        </section>
+        </section>}
 
         {/* ── Resources ── */}
-        <section id="resources" style={{ marginBottom: 48 }}>
+        {canSee("resources") && <section id="resources" style={{ marginBottom: 48 }}>
           <div style={{ textAlign: "center", marginBottom: 32 }}>
             <div style={{ fontSize: 11, fontWeight: 800, textTransform: "uppercase", letterSpacing: 3, color: TEAL, marginBottom: 6 }}>Goodwill Resources</div>
             <h2 style={{ fontSize: 28, fontWeight: 900, color: "#1a1a2e" }}>Everything You Need, No Cost</h2>
@@ -843,10 +924,10 @@ export default function MoreHelpCenter() {
                 : <a    key={r.title} href={r.to} style={sharedStyle}>{content}</a>;
             })}
           </div>
-        </section>
+        </section>}
 
         {/* ── Support section ── */}
-        <section id="support" style={{ textAlign: "center", background: "white", borderRadius: 24, padding: "48px 32px", marginBottom: 48, border: "1px solid #e0d6cc" }}>
+        {canSee("support") && <section id="support" style={{ textAlign: "center", background: "white", borderRadius: 24, padding: "48px 32px", marginBottom: 48, border: "1px solid #e0d6cc" }}>
           <div style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "6px 16px", borderRadius: 999, background: WARM, color: TEAL, fontSize: 11, fontWeight: 800, textTransform: "uppercase", letterSpacing: 2, marginBottom: 20 }}>
             <Phone style={{ width: 13, height: 13 }} /> Get In Touch
           </div>
@@ -861,10 +942,10 @@ export default function MoreHelpCenter() {
             <Link to="/help-center" style={{ border: `2px solid ${TEAL}`, color: TEAL, padding: "11px 24px", borderRadius: 8, fontWeight: 700, fontSize: 13, textDecoration: "none" }}>Help Center</Link>
             <Link to="/community" style={{ border: `2px solid ${TEAL}`, color: TEAL, padding: "11px 24px", borderRadius: 8, fontWeight: 700, fontSize: 13, textDecoration: "none" }}>Community Forum</Link>
           </div>
-        </section>
+        </section>}
 
         {/* ── Exec-only: Governance pulse (from SeshatsHub) ── */}
-        {execMode && (
+        {execMode && canSee("governance") && (
           <section style={{ marginBottom: 48, background: "#fff9ed", borderRadius: 24, border: `1px solid #d8b88e`, padding: "36px 32px" }}>
             <div style={{ marginBottom: 20 }}>
               <div style={{ fontSize: 11, fontWeight: 800, textTransform: "uppercase", letterSpacing: 3, color: COPPER, marginBottom: 6 }}>Governance pulse</div>

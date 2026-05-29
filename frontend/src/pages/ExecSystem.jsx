@@ -744,7 +744,7 @@ export default function ExecSystem() {
             <h1 className="font-heading text-3xl lg:text-4xl font-extrabold" style={{ color: "var(--wai-gold-light)" }}>
               WAI-Institute Platform
             </h1>
-            <p className="text-sm mt-1" style={{ color: "rgba(241,240,251,0.6)" }}>
+            <p className="text-sm mt-1" style={{ color: "rgba(241,240,251,0.9)" }}>
               {lastSync
                 ? <>Last refreshed {ts(lastSync)} · <span className="text-emerald-600 font-semibold">All systems checked</span></>
                 : "Loading…"}
