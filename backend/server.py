@@ -319,16 +319,24 @@ EXEC_ADMIN_EMAIL = os.environ.get("EXEC_ADMIN_EMAIL", "delon.oliver@lightningcit
 # `must_change_password=True`, so the seed is safe by construction).  In
 # production set EXEC_DEFAULT_PASSWORD to a fresh secret so even the seed
 # value is operator-controlled.
-EXEC_DEFAULT_PASSWORD = os.environ.get("EXEC_DEFAULT_PASSWORD", "Executive@LCE2026")
+# No fallback passwords in source. If EXEC_DEFAULT_PASSWORD is not set in Railway,
+# a cryptographically random password is generated at startup and emailed to
+# PLATFORM_NOTIFY_EMAIL (morehelpcenter@gmail.com) automatically.
+EXEC_DEFAULT_PASSWORD = os.environ.get("EXEC_DEFAULT_PASSWORD", "")
 
 # Executive accounts — both seats always bootstrapped on startup.
 # Seat 1 (Delon Oliver):  youpickeddoliver@gmail.com
 # Seat 2 (NAM Oshun):     souppoetry@gmail.com
 BACKUP_EXEC_EMAIL = os.environ.get("BACKUP_EXEC_ADMIN_EMAIL", "youpickeddoliver@gmail.com")
-BACKUP_EXEC_DEFAULT_PASSWORD = os.environ.get("BACKUP_EXEC_DEFAULT_PASSWORD", "NamOshun@WAI2026")
+BACKUP_EXEC_DEFAULT_PASSWORD = os.environ.get("BACKUP_EXEC_DEFAULT_PASSWORD", "")
 
 NAM_EXEC_EMAIL = os.environ.get("NAM_EXEC_EMAIL", "souppoetry@gmail.com")
-NAM_EXEC_DEFAULT_PASSWORD = os.environ.get("NAM_EXEC_DEFAULT_PASSWORD", "NamOshun@WAI2026")
+NAM_EXEC_DEFAULT_PASSWORD = os.environ.get("NAM_EXEC_DEFAULT_PASSWORD", "")
+
+# Platform notification email — receives auto-generated passwords and system alerts.
+# Defaults to the configured GMAIL_USER (morehelpcenter@gmail.com).
+PLATFORM_NOTIFY_EMAIL = os.environ.get("PLATFORM_NOTIFY_EMAIL",
+                                        os.environ.get("GMAIL_USER", "morehelpcenter@gmail.com"))
 
 # RECOVERY: Set EXEC_FORCE_RESET=1 in Railway env vars, redeploy, log in with
 # the default passwords above, then immediately change password and remove the flag.
@@ -803,15 +811,48 @@ async def seed_users():
         logger.info("Removed %d demo account(s) from live database", result.deleted_count)
 
     # ----- Bootstrap executive accounts (create if missing, never overwrite existing) -----
+    # Passwords: if ENV var is set use it; otherwise generate a random one and
+    # email it to PLATFORM_NOTIFY_EMAIL. No password is ever hardcoded in source.
+    import secrets as _secrets
+
+    def _gen_pw() -> str:
+        """Generate a 20-char cryptographically random password."""
+        alpha = "abcdefghjkmnpqrstuvwxyzABCDEFGHJKMNPQRSTUVWXYZ23456789!@#$%^&*"
+        return "".join(_secrets.choice(alpha) for _ in range(20))
+
+    async def _email_new_pw(email: str, name: str, pw: str) -> None:
+        """Send auto-generated password to PLATFORM_NOTIFY_EMAIL via Gmail SMTP."""
+        subject = f"WAI-Institute: New exec account created — {email}"
+        html = (
+            f"<p>A new executive account was bootstrapped at startup.</p>"
+            f"<p><b>Account:</b> {email} ({name})<br>"
+            f"<b>Temporary password:</b> <code>{pw}</code></p>"
+            f"<p>Log in and change this password immediately. "
+            f"The account has <code>must_change_password=True</code>.</p>"
+        )
+        try:
+            await _send_via_gmail(PLATFORM_NOTIFY_EMAIL, subject, html)
+            logger.info("STARTUP: auto-generated password emailed to %s for account %s",
+                        PLATFORM_NOTIFY_EMAIL, email)
+        except Exception as _em:
+            # Email failed — log the password to stdout (visible in Railway logs only)
+            logger.warning(
+                "STARTUP: email failed for %s — TEMP PASSWORD (change immediately): %s | error: %s",
+                email, pw, _em,
+            )
+
     _exec_seats = [
         (EXEC_ADMIN_EMAIL,  "Delon Oliver",  EXEC_DEFAULT_PASSWORD),
         (BACKUP_EXEC_EMAIL, "Delon Oliver",  BACKUP_EXEC_DEFAULT_PASSWORD),
         (NAM_EXEC_EMAIL,    "NAM Oshun",     NAM_EXEC_DEFAULT_PASSWORD),
     ]
-    for _email, _name, _pw in _exec_seats:
+    for _email, _name, _env_pw in _exec_seats:
         try:
             existing = await db.users.find_one({"email": _email})
             if not existing:
+                # Use ENV-supplied password if set, otherwise generate one
+                _pw = _env_pw if _env_pw else _gen_pw()
+                _auto_generated = not bool(_env_pw)
                 await db.users.insert_one({
                     "id": str(uuid.uuid4()),
                     "email": _email,
@@ -819,10 +860,12 @@ async def seed_users():
                     "role": "executive_admin",
                     "password_hash": hash_pw(_pw),
                     "is_active": True,
-                    "must_change_password": False,
+                    "must_change_password": True,   # always force change on first login
                     "created_at": datetime.now(timezone.utc).isoformat(),
                 })
-                logger.info("STARTUP: exec seat created — %s", _email)
+                logger.info("STARTUP: exec seat created — %s (auto_pw=%s)", _email, _auto_generated)
+                if _auto_generated:
+                    await _email_new_pw(_email, _name, _pw)
             else:
                 # Account exists — ensure it stays executive_admin, active, and unlocked.
                 # Clearing lockout fields on every startup means a locked exec account
