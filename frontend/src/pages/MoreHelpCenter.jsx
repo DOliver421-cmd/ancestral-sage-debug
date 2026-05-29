@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Heart, BookOpen, MessageSquare, ArrowRight, Phone, Shield, Users, Globe } from "lucide-react";
 import { api } from "../lib/api";
+import { Link } from "react-router-dom";
 
 const SUPPORT_EMAIL = "poetgames@gmail.com";
 const GOLD = "#e8b83e";
@@ -30,13 +31,16 @@ export default function MoreHelpCenter() {
               <div className="text-[10px] font-semibold tracking-widest uppercase" style={{ color: "#8a7e72" }}>Goodwill Wing</div>
             </div>
           </div>
-          <nav className="flex items-center gap-3 sm:gap-5">
+          <nav className="flex items-center gap-3 sm:gap-5 flex-wrap">
             <a href="#modules" className="text-xs font-bold uppercase tracking-widest" style={{ color: "#5a4e42" }}>Learn Free</a>
             <a href="#resources" className="text-xs font-bold uppercase tracking-widest" style={{ color: "#5a4e42" }}>Resources</a>
             <a href="#support" className="text-xs font-bold uppercase tracking-widest" style={{ color: "#5a4e42" }}>Get Help</a>
-            <a href="https://www.wai-institute.org" target="_blank" rel="noopener noreferrer" className="text-xs font-bold px-4 py-2 rounded-lg transition-transform hover:scale-105" style={{ background: GOLD, color: "#1a1a2e" }}>
-              WAI Institute →
-            </a>
+            <Link to="/courses" className="text-xs font-bold uppercase tracking-widest" style={{ color: "#5a4e42" }}>Courses</Link>
+            <Link to="/community" className="text-xs font-bold uppercase tracking-widest" style={{ color: "#5a4e42" }}>Community</Link>
+            <Link to="/seshats-hub" className="text-xs font-bold uppercase tracking-widest" style={{ color: "#5a4e42" }}>Seshat's Hub</Link>
+            <Link to="/login" className="text-xs font-bold px-4 py-2 rounded-lg transition-transform hover:scale-105" style={{ background: GOLD, color: "#1a1a2e" }}>
+              Sign In →
+            </Link>
           </nav>
         </div>
       </header>
@@ -76,7 +80,7 @@ export default function MoreHelpCenter() {
             </div>
             <div className="grid md:grid-cols-2 gap-6">
               {freeModules.map((m) => (
-                <a href={`https://www.wai-institute.org/modules/${m.slug}`} key={m.slug} className="block p-6 rounded-xl transition-all hover:-translate-y-1" style={{ background: BG_WARM, border: "1px solid #e0d6cc" }}>
+                <Link to={`/modules/${m.slug}`} key={m.slug} className="block p-6 rounded-xl transition-all hover:-translate-y-1" style={{ background: BG_WARM, border: "1px solid #e0d6cc" }}>
                   <div className="flex items-start justify-between mb-3">
                     <span className="px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest" style={{ background: GOLD, color: "#1a1a2e" }}>FREE</span>
                     {m.points && <span className="text-xs font-bold" style={{ color: TEAL }}>+{m.points} pts</span>}
@@ -88,13 +92,13 @@ export default function MoreHelpCenter() {
                     <span>{m.tasks.length} tasks</span>
                     <ArrowRight className="w-3.5 h-3.5" />
                   </div>
-                </a>
+                </Link>
               ))}
             </div>
             <div className="text-center mt-8">
-              <a href="https://www.wai-institute.org/register" target="_blank" rel="noopener noreferrer" className="px-6 py-3 font-bold text-sm uppercase tracking-widest rounded-lg transition-all hover:scale-105 inline-flex items-center gap-2" style={{ border: `2px solid ${TEAL}`, color: TEAL }}>
+              <Link to="/register" className="px-6 py-3 font-bold text-sm uppercase tracking-widest rounded-lg transition-all hover:scale-105 inline-flex items-center gap-2" style={{ border: `2px solid ${TEAL}`, color: TEAL }}>
                 Create Account for Full Program <ArrowRight className="w-4 h-4" />
-              </a>
+              </Link>
             </div>
           </div>
         </section>
@@ -108,18 +112,29 @@ export default function MoreHelpCenter() {
           </div>
           <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-5">
             {[
-              { icon: BookOpen, title: "Free Modules", desc: "Hands-on training in electrical basics, tools, and safety — free forever.", link: "https://www.wai-institute.org/modules" },
-              { icon: MessageSquare, title: "Community Help", desc: "Ask questions, share knowledge, get real answers from real people.", link: "https://www.wai-institute.org/community" },
-              { icon: Shield, title: "Support Line", desc: "Email us anytime. No bots, no runaround — just help.", link: `mailto:${SUPPORT_EMAIL}` },
-              { icon: Globe, title: "Full Program", desc: "Ready to go deeper? Enroll in the complete WAI Institute curriculum.", link: "https://www.wai-institute.org" },
+              { icon: BookOpen, title: "Free Modules", desc: "Hands-on training in electrical basics, tools, and safety — free forever.", link: "/modules", internal: true },
+              { icon: MessageSquare, title: "Community", desc: "Ask questions, share knowledge, get real answers from real people.", link: "/community", internal: true },
+              { icon: Shield, title: "Support Line", desc: "Email us anytime. No bots, no runaround — just help.", link: `mailto:${SUPPORT_EMAIL}`, internal: false },
+              { icon: Globe, title: "Full Program", desc: "Ready to go deeper? Enroll in the complete WAI Institute curriculum.", link: "/courses", internal: true },
             ].map((r) => (
-              <a key={r.title} href={r.link} target={r.link.startsWith("http") ? "_blank" : undefined} rel={r.link.startsWith("http") ? "noopener noreferrer" : undefined} className="p-6 rounded-xl transition-all hover:-translate-y-1" style={{ background: "#ffffff", border: "1px solid #e0d6cc" }}>
-                <div className="w-10 h-10 rounded-lg flex items-center justify-center mb-4" style={{ background: TEAL }}>
-                  <r.icon className="w-5 h-5" style={{ color: "white" }} />
-                </div>
-                <h3 className="font-heading font-bold text-lg" style={{ color: "#1a1a2e" }}>{r.title}</h3>
-                <p className="text-sm mt-2 leading-relaxed" style={{ color: "#5a4e42" }}>{r.desc}</p>
-              </a>
+              r.internal
+                ? (
+                  <Link key={r.title} to={r.link} className="p-6 rounded-xl transition-all hover:-translate-y-1 block" style={{ background: "#ffffff", border: "1px solid #e0d6cc" }}>
+                    <div className="w-10 h-10 rounded-lg flex items-center justify-center mb-4" style={{ background: TEAL }}>
+                      <r.icon className="w-5 h-5" style={{ color: "white" }} />
+                    </div>
+                    <h3 className="font-heading font-bold text-lg" style={{ color: "#1a1a2e" }}>{r.title}</h3>
+                    <p className="text-sm mt-2 leading-relaxed" style={{ color: "#5a4e42" }}>{r.desc}</p>
+                  </Link>
+                ) : (
+                  <a key={r.title} href={r.link} className="p-6 rounded-xl transition-all hover:-translate-y-1 block" style={{ background: "#ffffff", border: "1px solid #e0d6cc" }}>
+                    <div className="w-10 h-10 rounded-lg flex items-center justify-center mb-4" style={{ background: TEAL }}>
+                      <r.icon className="w-5 h-5" style={{ color: "white" }} />
+                    </div>
+                    <h3 className="font-heading font-bold text-lg" style={{ color: "#1a1a2e" }}>{r.title}</h3>
+                    <p className="text-sm mt-2 leading-relaxed" style={{ color: "#5a4e42" }}>{r.desc}</p>
+                  </a>
+                )
             ))}
           </div>
         </div>
@@ -155,9 +170,9 @@ export default function MoreHelpCenter() {
             <a href={`mailto:${SUPPORT_EMAIL}`} className="px-8 py-3 font-bold text-sm uppercase tracking-widest rounded-lg transition-all hover:scale-105" style={{ background: TEAL, color: "white" }}>
               Email Support
             </a>
-            <a href="https://www.wai-institute.org/help-center" target="_blank" rel="noopener noreferrer" className="px-8 py-3 font-bold text-sm uppercase tracking-widest rounded-lg transition-all hover:scale-105" style={{ border: `2px solid ${TEAL}`, color: TEAL }}>
+            <Link to="/help-center" className="px-8 py-3 font-bold text-sm uppercase tracking-widest rounded-lg transition-all hover:scale-105" style={{ border: `2px solid ${TEAL}`, color: TEAL }}>
               Help Center
-            </a>
+            </Link>
           </div>
         </div>
       </section>
@@ -189,8 +204,8 @@ export default function MoreHelpCenter() {
             <span>MoreHelp Center — Goodwill Wing of WAI Institute</span>
           </div>
           <div className="flex items-center gap-4">
-            <a href="https://www.wai-institute.org/privacy" target="_blank" rel="noopener noreferrer" className="hover:text-white transition-colors">Privacy</a>
-            <a href="https://www.wai-institute.org/terms" target="_blank" rel="noopener noreferrer" className="hover:text-white transition-colors">Terms</a>
+            <Link to="/privacy" className="hover:text-white transition-colors">Privacy</Link>
+            <Link to="/terms" className="hover:text-white transition-colors">Terms</Link>
             <a href={`mailto:${SUPPORT_EMAIL}`} className="hover:text-white transition-colors">Contact</a>
           </div>
         </div>

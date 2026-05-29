@@ -3,6 +3,7 @@ import { Toaster } from "sonner";
 import "./App.css";
 import { AuthProvider, useAuth } from "./lib/auth";
 import LandingMarketplace from "./pages/LandingMarketplace";
+import SupervisorLogin from "./pages/SupervisorLogin";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
 import StudentDashboard from "./pages/StudentDashboard";
@@ -98,7 +99,7 @@ function Protected({ children, roles }) {
 function Home() {
   const { user, loading } = useAuth();
   if (loading) return null;
-  if (!user) return <LandingMarketplace />;
+  if (!user) return <Navigate to="/more-help-center" replace />;
   // executive_admin and admin both land on the admin overview
   if (user.role === "executive_admin") return <Navigate to="/admin/system" replace />;
   if (user.role === "admin") return <Navigate to="/admin" replace />;
@@ -109,7 +110,11 @@ function Home() {
 function App() {
   const hostname = window.location.hostname;
   if (hostname.includes("morehelp.center")) {
-    return <MoreHelpCenter />;
+    return (
+      <BrowserRouter>
+        <MoreHelpCenter />
+      </BrowserRouter>
+    );
   }
 
   return (
@@ -154,7 +159,12 @@ function App() {
           {/* Public funnel pages */}
           <Route path="/help-center" element={<HelpCenter />} />
           <Route path="/seshats-hub" element={<SeshatsHub />} />
-          <Route path="/supervisor" element={<SeshatsHub />} />
+          {/* MORE Help Center — primary entry point for unauthenticated visitors */}
+          <Route path="/more-help-center" element={<MoreHelpCenter />} />
+          <Route path="/landing" element={<LandingMarketplace />} />
+          {/* Supervisor — executive_admin only; separate login at /supervisor-login */}
+          <Route path="/supervisor-login" element={<SupervisorLogin />} />
+          <Route path="/supervisor" element={<Protected roles={["executive_admin"]}><SeshatsHub /></Protected>} />
           <Route path="/terms" element={<TermsOfService />} />
           <Route path="/privacy" element={<PrivacyPolicy />} />
           <Route path="/courses" element={<Courses />} />
