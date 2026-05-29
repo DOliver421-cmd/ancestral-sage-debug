@@ -5893,7 +5893,7 @@ async def set_platform_flag(
         }},
         upsert=True,
     )
-    await audit(db, user.id, f"platform_flag:{flag}:{value}", {"reason": reason})
+    await audit(user.id, f"platform_flag:{flag}:{value}", {"reason": reason})
     return {"flag": flag, "enabled": value, "set_at": now}
 
 
@@ -5937,7 +5937,7 @@ async def broadcast_notification(
         for r in recipients
     ]
     await db.notifications.insert_many(docs)
-    await audit(db, user.id, f"broadcast:{target}", {"title": title, "recipients": len(docs)})
+    await audit(user.id, f"broadcast:{target}", {"title": title, "recipients": len(docs)})
     return {"sent": len(docs), "target": target}
 
 
