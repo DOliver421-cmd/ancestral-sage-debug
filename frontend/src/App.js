@@ -76,6 +76,7 @@ import RevenueDivision from "./pages/RevenueDivision";
 import Courses from "./pages/Courses";
 import Community from "./pages/Community";
 import Creators from "./pages/Creators";
+import ExecutiveDirectorDashboard from "./pages/ExecutiveDirectorDashboard";
 
 // Role hierarchy must mirror backend ROLE_RANK in /app/backend/server.py.
 // Higher rank = more authority; a higher-rank role passes any check meant
@@ -186,6 +187,7 @@ function App() {
           <Route path="/incidents" element={<Protected><Incidents /></Protected>} />
           <Route path="/settings" element={<Protected><Settings /></Protected>} />
           <Route path="/admin/system" element={<Protected roles={["executive_admin"]}><ExecSystem /></Protected>} />
+          <Route path="/admin/director" element={<Protected roles={["executive_admin"]}><ExecutiveDirectorDashboard /></Protected>} />
           <Route path="/admin/sage-audit" element={<Protected roles={["executive_admin"]}><SageAudit /></Protected>} />
           <Route path="/admin/staff-meetings" element={<Protected roles={["executive_admin"]}><StaffMeetingHistory /></Protected>} />
           <Route path="/admin/health" element={<Protected roles={["admin"]}><SystemHealth /></Protected>} />

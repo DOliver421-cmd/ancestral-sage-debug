@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback, useRef } from "react";
+import { Link } from "react-router-dom";
 import AppShell from "../components/AppShell";
 import { api } from "../lib/api";
 import EmergencyPanel from "../components/EmergencyPanel";
@@ -7,7 +8,7 @@ import {
   Activity, AlertTriangle, BadgeCheck,
   GraduationCap, Award, RefreshCw,
   CheckCircle2, XCircle, Clock, MessageSquare,
-  HandHelping, Siren, Search, ChevronDown,
+  HandHelping, Siren, Search, ChevronDown, ShieldAlert,
 } from "lucide-react";
 
 // ── small helpers ─────────────────────────────────────────────────────────────
@@ -487,6 +488,10 @@ export default function ExecSystem() {
             </p>
           </div>
           <div className="flex items-center gap-2">
+            <Link to="/admin/director"
+              className="flex items-center gap-2 px-4 py-2 bg-red-800 text-white text-sm font-bold rounded-xl hover:bg-red-700 transition-colors border-2 border-red-600">
+              <ShieldAlert className="w-4 h-4" /> Director
+            </Link>
             <button onClick={() => setShowPanel(!showPanel)}
               className={`flex items-center gap-2 px-4 py-2 text-sm font-bold rounded-xl border-2 transition-all ${showPanel ? "bg-amber-900/30 border-amber-500 text-amber-400" : "bg-slate-900 border-slate-700 text-white hover:bg-slate-800"}`}>
               <Siren className="w-4 h-4" /> Breaker Panel

@@ -215,6 +215,31 @@ async def add_security_headers(request: Request, call_next):
 
 
 @app.middleware("http")
+async def enforce_platform_flags(request: Request, call_next):
+    """Block requests when platform_locked flag is active.
+    Always passes: /api/health, /api/auth/*, /api/admin/platform/flags
+    """
+    path = request.url.path
+    exempt = (
+        path in ("/api/health", "/api/version", "/")
+        or path.startswith("/api/auth/")
+        or path.startswith("/api/admin/platform/flags")
+        or path.startswith("/api/admin/")  # admins always pass
+    )
+    if not exempt and db is not None:
+        try:
+            doc = await db.platform_flags.find_one({"_id": "flags"}, {"_id": 0, "flags.platform_locked": 1})
+            if doc and doc.get("flags", {}).get("platform_locked", {}).get("enabled"):
+                return JSONResponse(
+                    status_code=503,
+                    content={"detail": "Platform is currently locked by the executive team. Please check back shortly."},
+                )
+        except Exception:
+            pass
+    return await call_next(request)
+
+
+@app.middleware("http")
 async def log_requests_pii_safe(request: Request, call_next):
     """Log request method, path, and status code. Never log request bodies,
     query strings, headers, or IP addresses (PII-safe)."""
@@ -5826,6 +5851,49 @@ async def mark_read(nid: str, user: User = Depends(current_user)):
 async def mark_all_read(user: User = Depends(current_user)):
     await db.notifications.update_many({"user_id": user.id, "read": False}, {"$set": {"read": True}})
     return {"ok": True}
+
+
+@api_router.get("/admin/platform/flags")
+async def get_platform_flags(user: User = Depends(require_role("executive_admin"))):
+    """Return all platform feature flags. Executive only."""
+    doc = await db.platform_flags.find_one({"_id": "flags"}, {"_id": 0})
+    if not doc:
+        return {"flags": {}}
+    return {"flags": doc.get("flags", {})}
+
+
+@api_router.post("/admin/platform/flags/{flag}")
+async def set_platform_flag(
+    flag: str,
+    payload: dict,
+    user: User = Depends(require_role("executive_admin")),
+):
+    """Set a platform feature flag (true/false). Executive only.
+    Body: { value: bool, reason?: str }
+    Supported flags: platform_locked, marketplace_disabled, ai_disabled,
+                     community_disabled, labs_disabled
+    """
+    ALLOWED = {"platform_locked", "marketplace_disabled", "ai_disabled",
+               "community_disabled", "labs_disabled"}
+    if flag not in ALLOWED:
+        raise HTTPException(400, f"Unknown flag '{flag}'. Allowed: {', '.join(sorted(ALLOWED))}")
+    value = bool(payload.get("value", True))
+    reason = (payload.get("reason") or "").strip()
+    now = datetime.now(timezone.utc).isoformat()
+    await db.platform_flags.update_one(
+        {"_id": "flags"},
+        {"$set": {
+            f"flags.{flag}": {
+                "enabled": value,
+                "set_by": user.id,
+                "set_at": now,
+                "reason": reason,
+            }
+        }},
+        upsert=True,
+    )
+    await audit(db, user.id, f"platform_flag:{flag}:{value}", {"reason": reason})
+    return {"flag": flag, "enabled": value, "set_at": now}
 
 
 @api_router.post("/admin/broadcast")
