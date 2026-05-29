@@ -9,6 +9,7 @@ import {
   GraduationCap, Award, RefreshCw,
   CheckCircle2, XCircle, Clock, MessageSquare,
   HandHelping, Siren, Search, ChevronDown, ShieldAlert,
+  UserPlus, Trash2, ArrowUpCircle, ArrowDownCircle, Copy, KeyRound, Eye, EyeOff,
 } from "lucide-react";
 
 // ── small helpers ─────────────────────────────────────────────────────────────
@@ -47,37 +48,206 @@ function KPI({ icon: Icon, label, value, alert, sub, accent }) {
 }
 
 // ── User Database panel ───────────────────────────────────────────────────────
-const ROLES_FILTER = ["", "student", "instructor", "admin", "executive_admin"];
+const ROLES_ALL    = ["student", "instructor", "admin", "executive_admin"];
+const ROLES_FILTER = ["", ...ROLES_ALL];
 const ROLE_LABELS  = { "": "All Roles", student: "Student", instructor: "Instructor", admin: "Admin", executive_admin: "Exec Admin" };
 const ROLE_COLORS  = { executive_admin: "bg-amber-100 text-amber-800", admin: "bg-slate-100 text-slate-700", instructor: "bg-blue-100 text-blue-800", student: "bg-emerald-100 text-emerald-800" };
+const ROLE_RANK    = { student: 1, instructor: 2, admin: 3, executive_admin: 4 };
 
-// Modal: edit a single user (email, name, role, password, activate/deactivate, reset link)
-function UserEditModal({ user: u, onClose, onUpdated, notify }) {
-  const [name,     setName]    = useState(u.full_name || "");
-  const [email,    setEmail]   = useState(u.email || "");
-  const [role,     setRole]    = useState(u.role || "student");
-  const [assoc,    setAssoc]   = useState(u.associate || "");
-  const [pw,       setPw]      = useState("");
-  const [saving,   setSaving]  = useState(false);
-  const [resetLink, setLink]   = useState(null);
+function fmtJoined(iso) {
+  if (!iso) return "—";
+  return new Date(iso).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
+}
+
+// ── Create User Modal ─────────────────────────────────────────────────────────
+function UserCreateModal({ onClose, onCreated, notify }) {
+  const [name,      setName]     = useState("");
+  const [email,     setEmail]    = useState("");
+  const [role,      setRole]     = useState("student");
+  const [assoc,     setAssoc]    = useState("");
+  const [pw,        setPw]       = useState("");
+  const [showPw,    setShowPw]   = useState(false);
+  const [saving,    setSaving]   = useState(false);
+  const [resetLink, setResetLink]= useState(null);
+  const [created,   setCreated]  = useState(null);
+
+  function genPw() {
+    const chars = "ABCDEFGHJKMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789!@#";
+    setPw(Array.from({ length: 14 }, () => chars[Math.floor(Math.random() * chars.length)]).join(""));
+    setShowPw(true);
+  }
+
+  async function create() {
+    if (!name.trim())        return notify("Full name is required", true);
+    if (!email.trim())       return notify("Email is required", true);
+    if (pw.length < 8)       return notify("Password must be at least 8 characters", true);
+    setSaving(true);
+    try {
+      const r = await api.post("/admin/users", {
+        full_name: name.trim(), email: email.trim().toLowerCase(),
+        password: pw, role, associate: assoc.trim() || undefined,
+      });
+      const newUser = r.data;
+      setCreated(newUser);
+      notify(`${name} created as ${ROLE_LABELS[role]}`);
+      onCreated(newUser);
+      // auto-generate reset link so exec can send it directly
+      try {
+        const lr = await api.post(`/admin/users/${newUser.id}/reset-link`);
+        setResetLink(lr.data.reset_url || lr.data.link || null);
+      } catch (_) {}
+    } catch (e) {
+      notify(`Error: ${e?.response?.data?.detail || "create failed"}`, true);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  // After creation — show confirmation with link
+  if (created) {
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: "rgba(0,0,0,0.6)" }}>
+        <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden">
+          <div className="px-6 py-5 border-b border-slate-100 bg-emerald-50 flex items-center gap-3">
+            <CheckCircle2 className="w-6 h-6 text-emerald-600" />
+            <div>
+              <p className="font-bold text-emerald-900">Account Created</p>
+              <p className="text-xs text-emerald-700 mt-0.5">{created.full_name} · {ROLE_LABELS[created.role]}</p>
+            </div>
+          </div>
+          <div className="px-6 py-5 space-y-4">
+            <div>
+              <p className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-1">Email</p>
+              <p className="font-mono text-sm text-slate-800">{created.email}</p>
+            </div>
+            <div>
+              <p className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-1">Temporary Password</p>
+              <div className="flex items-center gap-2 bg-slate-50 rounded-lg px-3 py-2 border border-slate-200">
+                <span className="font-mono text-sm text-slate-800 flex-1">{pw}</span>
+                <button onClick={() => navigator.clipboard?.writeText(pw)} className="text-xs font-bold text-amber-600 hover:underline flex items-center gap-1">
+                  <Copy className="w-3 h-3" /> Copy
+                </button>
+              </div>
+              <p className="text-xs text-slate-400 mt-1">User will be prompted to change this on first login.</p>
+            </div>
+            {resetLink && (
+              <div>
+                <p className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-1">One-Time Login Link <span className="font-normal text-slate-400">(send this to skip password entry)</span></p>
+                <div className="flex items-start gap-2 bg-amber-50 rounded-lg px-3 py-2 border border-amber-200">
+                  <span className="font-mono text-xs text-amber-800 flex-1 break-all">{resetLink}</span>
+                  <button onClick={() => navigator.clipboard?.writeText(resetLink)} className="text-xs font-bold text-amber-600 hover:underline flex items-center gap-1 shrink-0">
+                    <Copy className="w-3 h-3" /> Copy
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+          <div className="px-6 py-4 border-t border-slate-100 bg-slate-50 flex justify-end">
+            <button onClick={onClose} className="text-sm font-bold bg-slate-900 text-white px-6 py-2 rounded-lg hover:bg-slate-700">Done</button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: "rgba(0,0,0,0.55)" }} onClick={e => e.target === e.currentTarget && onClose()}>
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100">
+          <div className="flex items-center gap-2">
+            <UserPlus className="w-5 h-5 text-amber-500" />
+            <h3 className="font-heading font-extrabold text-slate-900 text-lg">Create New Account</h3>
+          </div>
+          <button onClick={onClose} className="text-slate-400 hover:text-slate-700 text-xl font-bold leading-none">×</button>
+        </div>
+
+        <div className="px-6 py-5 space-y-4 max-h-[70vh] overflow-y-auto">
+          <div>
+            <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1">Full Name *</label>
+            <input value={name} onChange={e => setName(e.target.value)} placeholder="First Last"
+              className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-800 focus:outline-none focus:border-amber-400" />
+          </div>
+          <div>
+            <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1">Email Address *</label>
+            <input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="email@example.com"
+              className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-800 font-mono focus:outline-none focus:border-amber-400" />
+          </div>
+          <div>
+            <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1">Access Level / Role *</label>
+            <div className="relative">
+              <select value={role} onChange={e => setRole(e.target.value)}
+                className="w-full appearance-none border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-800 focus:outline-none focus:border-amber-400 bg-white pr-8">
+                {ROLES_ALL.map(r => <option key={r} value={r}>{ROLE_LABELS[r]}</option>)}
+              </select>
+              <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+            </div>
+            <div className="mt-1.5 text-xs text-slate-400 space-y-0.5">
+              <p><strong className="text-slate-600">Student</strong> — takes courses, submits labs, earns credentials</p>
+              <p><strong className="text-slate-600">Instructor</strong> — manages rosters, reviews lab submissions, grades</p>
+              <p><strong className="text-slate-600">Admin</strong> — full platform management, sees all data</p>
+              <p><strong className="text-amber-600">Exec Admin</strong> — executive control, AI governance, emergency controls</p>
+            </div>
+          </div>
+          <div>
+            <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1">Associate Cohort <span className="font-normal text-slate-400">(optional)</span></label>
+            <input value={assoc} onChange={e => setAssoc(e.target.value)} placeholder="e.g. Associate-Alpha"
+              className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-800 focus:outline-none focus:border-amber-400" />
+          </div>
+          <div>
+            <div className="flex items-center justify-between mb-1">
+              <label className="block text-xs font-bold uppercase tracking-wider text-slate-500">Temporary Password *</label>
+              <button type="button" onClick={genPw} className="text-xs font-bold text-amber-600 hover:underline flex items-center gap-1">
+                <KeyRound className="w-3 h-3" /> Generate secure password
+              </button>
+            </div>
+            <div className="relative">
+              <input type={showPw ? "text" : "password"} value={pw} onChange={e => setPw(e.target.value)}
+                placeholder="Min 8 characters"
+                className="w-full border border-slate-200 rounded-lg px-3 py-2 pr-10 text-sm text-slate-800 font-mono focus:outline-none focus:border-amber-400" />
+              <button type="button" onClick={() => setShowPw(!showPw)} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
+                {showPw ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+              </button>
+            </div>
+            <p className="text-xs text-slate-400 mt-1">A one-time reset link is auto-generated after creation so you can send them direct access without sharing this password.</p>
+          </div>
+        </div>
+
+        <div className="flex items-center justify-between px-6 py-4 border-t border-slate-100 bg-slate-50">
+          <button onClick={onClose} className="text-sm text-slate-600 hover:text-slate-700 px-4 py-2">Cancel</button>
+          <button onClick={create} disabled={saving}
+            className="text-sm font-bold bg-amber-500 hover:bg-amber-600 text-white px-6 py-2 rounded-lg transition-colors disabled:opacity-40 flex items-center gap-2">
+            <UserPlus className="w-4 h-4" />
+            {saving ? "Creating…" : "Create Account"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Edit User Modal ───────────────────────────────────────────────────────────
+function UserEditModal({ user: u, onClose, onUpdated, onDeleted, notify }) {
+  const [name,      setName]     = useState(u.full_name || "");
+  const [email,     setEmail]    = useState(u.email || "");
+  const [role,      setRole]     = useState(u.role || "student");
+  const [assoc,     setAssoc]    = useState(u.associate || "");
+  const [pw,        setPw]       = useState("");
+  const [showPw,    setShowPw]   = useState(false);
+  const [saving,    setSaving]   = useState(false);
+  const [resetLink, setLink]     = useState(null);
 
   async function save() {
     setSaving(true);
     try {
-      // update name / email / associate
       await api.patch(`/admin/users/${u.id}`, { full_name: name, email, associate: assoc || undefined });
-      // update role if changed
       if (role !== u.role) await api.patch(`/admin/users/${u.id}/role`, { role });
-      // update password if provided
       if (pw.trim()) await api.post(`/admin/users/${u.id}/password`, { new_password: pw });
       notify(`${name} updated`);
       onUpdated({ ...u, full_name: name, email, role, associate: assoc });
       onClose();
     } catch (e) {
       notify(`Error: ${e?.response?.data?.detail || "save failed"}`, true);
-    } finally {
-      setSaving(false);
-    }
+    } finally { setSaving(false); }
   }
 
   async function toggleActive() {
@@ -89,9 +259,20 @@ function UserEditModal({ user: u, onClose, onUpdated, notify }) {
       onClose();
     } catch (e) {
       notify(`Error: ${e?.response?.data?.detail || "action failed"}`, true);
-    } finally {
-      setSaving(false);
-    }
+    } finally { setSaving(false); }
+  }
+
+  async function deleteUser() {
+    if (!window.confirm(`Permanently delete ${u.full_name || u.email}? This cannot be undone.`)) return;
+    setSaving(true);
+    try {
+      await api.delete(`/admin/users/${u.id}`);
+      notify(`${u.full_name || u.email} deleted`);
+      onDeleted(u.id);
+      onClose();
+    } catch (e) {
+      notify(`Error: ${e?.response?.data?.detail || "delete failed"}`, true);
+    } finally { setSaving(false); }
   }
 
   async function getResetLink() {
@@ -101,92 +282,91 @@ function UserEditModal({ user: u, onClose, onUpdated, notify }) {
       setLink(r.data.reset_url || r.data.link || JSON.stringify(r.data));
     } catch (e) {
       notify(`Error: ${e?.response?.data?.detail || "could not generate link"}`, true);
-    } finally {
-      setSaving(false);
-    }
+    } finally { setSaving(false); }
   }
 
-  // trap focus inside modal
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: "rgba(0,0,0,0.55)" }} onClick={e => e.target === e.currentTarget && onClose()}>
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden">
-        {/* modal header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100">
           <div>
             <h3 className="font-heading font-extrabold text-slate-900 text-lg">{u.full_name || u.email}</h3>
-            <p className="text-xs text-slate-400 font-mono mt-0.5">{u.id}</p>
+            <div className="flex items-center gap-2 mt-0.5">
+              <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${ROLE_COLORS[u.role] || "bg-slate-100 text-slate-600"}`}>{ROLE_LABELS[u.role] || u.role}</span>
+              {u.is_active === false && <span className="text-xs font-bold text-red-500 bg-red-50 px-2 py-0.5 rounded-full">Inactive</span>}
+              <span className="text-xs text-slate-400 font-mono">{u.email}</span>
+            </div>
           </div>
           <button onClick={onClose} className="text-slate-400 hover:text-slate-700 text-xl font-bold leading-none">×</button>
         </div>
 
-        <div className="px-6 py-5 space-y-4">
-          {/* name */}
+        <div className="px-6 py-5 space-y-4 max-h-[65vh] overflow-y-auto">
           <div>
             <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1">Full Name</label>
             <input value={name} onChange={e => setName(e.target.value)}
               className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-800 focus:outline-none focus:border-amber-400" />
           </div>
-
-          {/* email */}
           <div>
             <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1">Email</label>
             <input type="email" value={email} onChange={e => setEmail(e.target.value)}
               className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-800 font-mono focus:outline-none focus:border-amber-400" />
           </div>
-
-          {/* role */}
           <div>
-            <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1">Role / Access Level</label>
+            <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1">Access Level / Role</label>
             <div className="relative">
               <select value={role} onChange={e => setRole(e.target.value)}
                 className="w-full appearance-none border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-800 focus:outline-none focus:border-amber-400 bg-white pr-8">
-                {["student","instructor","admin","executive_admin"].map(r =>
-                  <option key={r} value={r}>{ROLE_LABELS[r]}</option>
-                )}
+                {ROLES_ALL.map(r => <option key={r} value={r}>{ROLE_LABELS[r]}</option>)}
               </select>
               <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
             </div>
           </div>
-
-          {/* associate */}
           <div>
             <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1">Associate Cohort</label>
             <input value={assoc} onChange={e => setAssoc(e.target.value)} placeholder="e.g. Associate-Alpha"
               className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-800 focus:outline-none focus:border-amber-400" />
           </div>
-
-          {/* new password */}
           <div>
-            <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1">Set New Password <span className="font-normal text-slate-400">(leave blank to keep current)</span></label>
-            <input type="password" value={pw} onChange={e => setPw(e.target.value)} placeholder="Min 8 characters"
-              className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-800 focus:outline-none focus:border-amber-400" />
+            <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1">
+              Set New Password <span className="font-normal text-slate-400">(leave blank to keep current)</span>
+            </label>
+            <div className="relative">
+              <input type={showPw ? "text" : "password"} value={pw} onChange={e => setPw(e.target.value)} placeholder="Min 8 characters"
+                className="w-full border border-slate-200 rounded-lg px-3 py-2 pr-10 text-sm text-slate-800 font-mono focus:outline-none focus:border-amber-400" />
+              <button type="button" onClick={() => setShowPw(!showPw)} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
+                {showPw ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+              </button>
+            </div>
           </div>
-
-          {/* reset link */}
           <div>
             <div className="flex items-center justify-between mb-1">
               <label className="block text-xs font-bold uppercase tracking-wider text-slate-500">Password Reset Link</label>
-              <button onClick={getResetLink} disabled={saving}
-                className="text-xs font-bold text-amber-600 hover:underline disabled:opacity-40">
-                Generate one-time link
+              <button onClick={getResetLink} disabled={saving} className="text-xs font-bold text-amber-600 hover:underline disabled:opacity-40 flex items-center gap-1">
+                <KeyRound className="w-3 h-3" /> Generate one-time link
               </button>
             </div>
             {resetLink && (
               <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
                 <p className="text-xs text-amber-700 font-mono break-all">{resetLink}</p>
-                <button onClick={() => navigator.clipboard?.writeText(resetLink)}
-                  className="text-xs font-bold text-amber-600 hover:underline mt-1">Copy link</button>
+                <button onClick={() => navigator.clipboard?.writeText(resetLink)} className="text-xs font-bold text-amber-600 hover:underline mt-1 flex items-center gap-1">
+                  <Copy className="w-3 h-3" /> Copy link
+                </button>
               </div>
             )}
           </div>
         </div>
 
-        {/* footer */}
         <div className="flex items-center justify-between px-6 py-4 border-t border-slate-100 bg-slate-50 gap-3 flex-wrap">
-          <button onClick={toggleActive} disabled={saving}
-            className={`text-xs font-bold px-4 py-2 rounded-lg border transition-colors disabled:opacity-40 ${u.is_active === false ? "border-emerald-500 text-emerald-600 hover:bg-emerald-50" : "border-red-400 text-red-500 hover:bg-red-50"}`}>
-            {u.is_active === false ? "Activate Account" : "Deactivate Account"}
-          </button>
+          <div className="flex gap-2">
+            <button onClick={toggleActive} disabled={saving}
+              className={`text-xs font-bold px-3 py-2 rounded-lg border transition-colors disabled:opacity-40 ${u.is_active === false ? "border-emerald-500 text-emerald-600 hover:bg-emerald-50" : "border-orange-400 text-orange-600 hover:bg-orange-50"}`}>
+              {u.is_active === false ? "Activate" : "Deactivate"}
+            </button>
+            <button onClick={deleteUser} disabled={saving}
+              className="text-xs font-bold px-3 py-2 rounded-lg border border-red-300 text-red-500 hover:bg-red-50 transition-colors disabled:opacity-40 flex items-center gap-1">
+              <Trash2 className="w-3 h-3" /> Delete
+            </button>
+          </div>
           <div className="flex gap-2">
             <button onClick={onClose} className="text-sm text-slate-600 hover:text-slate-700 px-4 py-2">Cancel</button>
             <button onClick={save} disabled={saving}
@@ -200,69 +380,115 @@ function UserEditModal({ user: u, onClose, onUpdated, notify }) {
   );
 }
 
+// ── User Database ─────────────────────────────────────────────────────────────
 function UserDatabase() {
-  const [users,    setUsers]   = useState([]);
-  const [loading,  setLoading] = useState(true);
-  const [error,    setError]   = useState(null);
-  const [q,        setQ]       = useState("");
-  const [roleFilter, setRole]  = useState("");
-  const [toast,    setToast]   = useState(null);
-  const [editing,  setEditing] = useState(null); // user being edited
-  const debounce               = useRef(null);
+  const [users,       setUsers]      = useState([]);
+  const [loading,     setLoading]    = useState(true);
+  const [error,       setError]      = useState(null);
+  const [q,           setQ]          = useState("");
+  const [roleFilter,  setRoleFilter] = useState("");
+  const [activeFilter,setActiveFilter]=useState("");
+  const [toast,       setToast]      = useState(null);
+  const [editing,     setEditing]    = useState(null);
+  const [creating,    setCreating]   = useState(false);
+  const [promoting,   setPromoting]  = useState({}); // uid → bool
+  const debounce                     = useRef(null);
 
   function notify(msg, isErr = false) {
     setToast({ msg, isErr });
-    setTimeout(() => setToast(null), 4000);
+    setTimeout(() => setToast(null), 5000);
   }
 
-  const fetchUsers = useCallback(async (search, role) => {
+  const fetchUsers = useCallback(async (search, role, active) => {
     setLoading(true); setError(null);
     try {
       const params = new URLSearchParams();
       if (search) params.set("q", search);
       if (role)   params.set("role", role);
+      if (active) params.set("active", active);
       const r = await api.get(`/admin/users?${params}`);
       setUsers(r.data);
     } catch (e) {
       setError(e?.response?.data?.detail || "Failed to load users");
-    } finally {
-      setLoading(false);
-    }
+    } finally { setLoading(false); }
   }, []);
 
   useEffect(() => {
     clearTimeout(debounce.current);
-    debounce.current = setTimeout(() => fetchUsers(q, roleFilter), 300);
+    debounce.current = setTimeout(() => fetchUsers(q, roleFilter, activeFilter), 300);
     return () => clearTimeout(debounce.current);
-  }, [q, roleFilter, fetchUsers]);
+  }, [q, roleFilter, activeFilter, fetchUsers]);
 
   function handleUpdated(updated) {
-    setUsers(prev => prev.map(x => x.id === updated.id ? updated : x));
+    setUsers(prev => prev.map(x => x.id === updated.id ? { ...x, ...updated } : x));
   }
+  function handleDeleted(uid) {
+    setUsers(prev => prev.filter(x => x.id !== uid));
+  }
+  function handleCreated(newUser) {
+    setUsers(prev => [newUser, ...prev]);
+  }
+
+  // Quick role change directly on the row — one click promote/demote
+  async function quickRole(u, newRole) {
+    setPromoting(p => ({ ...p, [u.id]: true }));
+    try {
+      await api.patch(`/admin/users/${u.id}/role`, { role: newRole });
+      setUsers(prev => prev.map(x => x.id === u.id ? { ...x, role: newRole } : x));
+      notify(`${u.full_name || u.email} → ${ROLE_LABELS[newRole]}`);
+    } catch (e) {
+      notify(`Role change failed: ${e?.response?.data?.detail || e.message}`, true);
+    } finally {
+      setPromoting(p => ({ ...p, [u.id]: false }));
+    }
+  }
+
+  const byRole = ROLES_ALL.reduce((acc, r) => ({ ...acc, [r]: users.filter(u => u.role === r).length }), {});
 
   return (
     <div className="bg-white rounded-2xl border border-slate-100 shadow-sm mb-6 overflow-hidden">
       {/* header */}
-      <div className="px-6 py-4 border-b border-slate-100 flex flex-wrap items-center justify-between gap-3">
-        <h2 className="font-heading font-extrabold text-lg text-slate-900 flex items-center gap-2">
-          <Users className="w-5 h-5 text-slate-400" /> User Database
-          <span className="text-sm font-normal text-slate-400 ml-1">({users.length})</span>
-        </h2>
+      <div className="px-6 py-4 border-b border-slate-100">
+        <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
+          <h2 className="font-heading font-extrabold text-lg text-slate-900 flex items-center gap-2">
+            <Users className="w-5 h-5 text-slate-400" /> User Database
+            <span className="text-sm font-normal text-slate-400 ml-1">({users.length} shown)</span>
+          </h2>
+          <button onClick={() => setCreating(true)}
+            className="flex items-center gap-2 px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white text-sm font-bold rounded-xl transition-colors">
+            <UserPlus className="w-4 h-4" /> Create Account
+          </button>
+        </div>
+
+        {/* role summary chips */}
+        <div className="flex gap-2 flex-wrap mb-3">
+          {ROLES_ALL.map(r => (
+            <button key={r} onClick={() => setRoleFilter(roleFilter === r ? "" : r)}
+              className={`text-xs font-bold px-3 py-1 rounded-full border transition-all ${roleFilter === r ? ROLE_COLORS[r] + " border-transparent" : "border-slate-200 text-slate-500 hover:border-slate-300"}`}>
+              {ROLE_LABELS[r]} ({byRole[r] || 0})
+            </button>
+          ))}
+        </div>
+
+        {/* filters row */}
         <div className="flex items-center gap-2 flex-wrap">
-          <div className="relative">
+          <div className="relative flex-1 min-w-[180px]">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
-            <input value={q} onChange={e => setQ(e.target.value)} placeholder="Name or email…"
-              className="pl-8 pr-3 py-1.5 text-sm border border-slate-200 rounded-lg text-slate-700 placeholder:text-slate-400 focus:outline-none focus:border-amber-400 w-52" />
+            <input value={q} onChange={e => setQ(e.target.value)} placeholder="Search name or email…"
+              className="w-full pl-8 pr-3 py-1.5 text-sm border border-slate-200 rounded-lg text-slate-700 placeholder:text-slate-400 focus:outline-none focus:border-amber-400" />
           </div>
-          <div className="relative">
-            <select value={roleFilter} onChange={e => setRole(e.target.value)}
-              className="appearance-none pl-3 pr-7 py-1.5 text-sm border border-slate-200 rounded-lg text-slate-700 focus:outline-none focus:border-amber-400 bg-white">
-              {ROLES_FILTER.map(r => <option key={r} value={r}>{ROLE_LABELS[r]}</option>)}
-            </select>
-            <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 pointer-events-none" />
-          </div>
-          <button onClick={() => fetchUsers(q, roleFilter)} className="text-xs font-bold text-slate-600 hover:text-amber-600 border border-slate-200 px-3 py-1.5 rounded-lg transition-colors">
-            <RefreshCw className="w-3.5 h-3.5 inline mr-1" />Refresh
+          <select value={roleFilter} onChange={e => setRoleFilter(e.target.value)}
+            className="py-1.5 px-3 text-sm border border-slate-200 rounded-lg text-slate-700 focus:outline-none focus:border-amber-400 bg-white">
+            {ROLES_FILTER.map(r => <option key={r} value={r}>{ROLE_LABELS[r]}</option>)}
+          </select>
+          <select value={activeFilter} onChange={e => setActiveFilter(e.target.value)}
+            className="py-1.5 px-3 text-sm border border-slate-200 rounded-lg text-slate-700 focus:outline-none focus:border-amber-400 bg-white">
+            <option value="">All Status</option>
+            <option value="true">Active only</option>
+            <option value="false">Inactive only</option>
+          </select>
+          <button onClick={() => fetchUsers(q, roleFilter, activeFilter)} className="text-xs font-bold text-slate-600 hover:text-amber-600 border border-slate-200 px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1">
+            <RefreshCw className="w-3.5 h-3.5" /> Refresh
           </button>
         </div>
       </div>
@@ -281,55 +507,92 @@ function UserDatabase() {
         ) : error ? (
           <div className="py-10 text-center text-red-500 text-sm">{error}</div>
         ) : users.length === 0 ? (
-          <div className="py-10 text-center text-slate-400 text-sm">No users found.</div>
+          <div className="py-10 text-center text-slate-400 text-sm">No users match these filters.</div>
         ) : (
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b-2 border-slate-100">
-                <th className="text-left py-2 px-4 text-xs uppercase tracking-wider text-slate-600 font-bold">Name</th>
-                <th className="text-left py-2 px-4 text-xs uppercase tracking-wider text-slate-600 font-bold">Email</th>
-                <th className="text-left py-2 px-4 text-xs uppercase tracking-wider text-slate-600 font-bold">Role</th>
-                <th className="text-left py-2 px-4 text-xs uppercase tracking-wider text-slate-600 font-bold">Associate</th>
-                <th className="text-left py-2 px-4 text-xs uppercase tracking-wider text-slate-600 font-bold">Status</th>
-                <th className="py-2 px-4 text-xs uppercase tracking-wider text-slate-600 font-bold text-right">Actions</th>
+              <tr className="border-b-2 border-slate-100 bg-slate-50/60">
+                <th className="text-left py-2.5 px-4 text-xs uppercase tracking-wider text-slate-500 font-bold">Name</th>
+                <th className="text-left py-2.5 px-4 text-xs uppercase tracking-wider text-slate-500 font-bold">Email</th>
+                <th className="text-left py-2.5 px-4 text-xs uppercase tracking-wider text-slate-500 font-bold">Role</th>
+                <th className="text-left py-2.5 px-4 text-xs uppercase tracking-wider text-slate-500 font-bold">Cohort</th>
+                <th className="text-left py-2.5 px-4 text-xs uppercase tracking-wider text-slate-500 font-bold">Joined</th>
+                <th className="text-left py-2.5 px-4 text-xs uppercase tracking-wider text-slate-500 font-bold">Status</th>
+                <th className="text-left py-2.5 px-4 text-xs uppercase tracking-wider text-slate-500 font-bold">Promote / Demote</th>
+                <th className="py-2.5 px-4 text-xs uppercase tracking-wider text-slate-500 font-bold text-right">Edit</th>
               </tr>
             </thead>
             <tbody>
-              {users.map(u => (
-                <tr key={u.id} className="border-b border-slate-50 hover:bg-slate-50">
-                  <td className="py-3 px-4 font-heading font-bold text-slate-900 whitespace-nowrap">{u.full_name || "—"}</td>
-                  <td className="py-3 px-4 font-mono text-slate-700 text-xs whitespace-nowrap">{u.email}</td>
-                  <td className="py-3 px-4">
-                    <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${ROLE_COLORS[u.role] || "bg-slate-100 text-slate-700"}`}>
-                      {ROLE_LABELS[u.role] || u.role}
-                    </span>
-                  </td>
-                  <td className="py-3 px-4 text-slate-600 text-xs">{u.associate || <span className="text-slate-300">—</span>}</td>
-                  <td className="py-3 px-4">
-                    {u.is_active === false
-                      ? <span className="text-xs font-bold text-red-500 bg-red-50 px-2 py-0.5 rounded-full">Inactive</span>
-                      : <span className="text-xs font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full">Active</span>
-                    }
-                  </td>
-                  <td className="py-3 px-4 text-right">
-                    <button onClick={() => setEditing(u)}
-                      className="text-xs font-bold px-3 py-1.5 rounded-lg border border-amber-300 text-amber-700 hover:bg-amber-50 transition-colors">
-                      Manage
-                    </button>
-                  </td>
-                </tr>
-              ))}
+              {users.map(u => {
+                const rank    = ROLE_RANK[u.role] || 1;
+                const canUp   = rank < 4;
+                const canDown = rank > 1;
+                const nextUp   = ROLES_ALL[rank];      // one step up
+                const nextDown = ROLES_ALL[rank - 2];  // one step down
+                const busy    = !!promoting[u.id];
+                return (
+                  <tr key={u.id} className="border-b border-slate-50 hover:bg-slate-50/70">
+                    <td className="py-3 px-4 font-bold text-slate-900 whitespace-nowrap">{u.full_name || "—"}</td>
+                    <td className="py-3 px-4 font-mono text-slate-600 text-xs whitespace-nowrap">{u.email}</td>
+                    <td className="py-3 px-4">
+                      <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${ROLE_COLORS[u.role] || "bg-slate-100 text-slate-700"}`}>
+                        {ROLE_LABELS[u.role] || u.role}
+                      </span>
+                    </td>
+                    <td className="py-3 px-4 text-slate-500 text-xs">{u.associate || <span className="text-slate-300">—</span>}</td>
+                    <td className="py-3 px-4 text-slate-500 text-xs whitespace-nowrap">{fmtJoined(u.created_at)}</td>
+                    <td className="py-3 px-4">
+                      {u.is_active === false
+                        ? <span className="text-xs font-bold text-red-500 bg-red-50 px-2 py-0.5 rounded-full">Inactive</span>
+                        : <span className="text-xs font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full">Active</span>
+                      }
+                    </td>
+                    <td className="py-3 px-4">
+                      <div className="flex items-center gap-1">
+                        {canUp && (
+                          <button onClick={() => quickRole(u, nextUp)} disabled={busy} title={`Promote to ${ROLE_LABELS[nextUp]}`}
+                            className="flex items-center gap-1 text-xs font-bold px-2 py-1 rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100 disabled:opacity-40 transition-colors whitespace-nowrap">
+                            <ArrowUpCircle className="w-3.5 h-3.5" />
+                            {ROLE_LABELS[nextUp]}
+                          </button>
+                        )}
+                        {canDown && (
+                          <button onClick={() => quickRole(u, nextDown)} disabled={busy} title={`Demote to ${ROLE_LABELS[nextDown]}`}
+                            className="flex items-center gap-1 text-xs font-bold px-2 py-1 rounded-lg bg-slate-50 text-slate-600 border border-slate-200 hover:bg-slate-100 disabled:opacity-40 transition-colors whitespace-nowrap">
+                            <ArrowDownCircle className="w-3.5 h-3.5" />
+                            {ROLE_LABELS[nextDown]}
+                          </button>
+                        )}
+                        {!canUp && !canDown && <span className="text-xs text-slate-300">—</span>}
+                      </div>
+                    </td>
+                    <td className="py-3 px-4 text-right">
+                      <button onClick={() => setEditing(u)}
+                        className="text-xs font-bold px-3 py-1.5 rounded-lg border border-amber-300 text-amber-700 hover:bg-amber-50 transition-colors">
+                        Edit
+                      </button>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         )}
       </div>
 
-      {/* edit modal */}
+      {creating && (
+        <UserCreateModal
+          onClose={() => setCreating(false)}
+          onCreated={handleCreated}
+          notify={notify}
+        />
+      )}
       {editing && (
         <UserEditModal
           user={editing}
           onClose={() => setEditing(null)}
           onUpdated={handleUpdated}
+          onDeleted={handleDeleted}
           notify={notify}
         />
       )}
