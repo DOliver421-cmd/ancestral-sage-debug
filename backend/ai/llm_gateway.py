@@ -4,23 +4,24 @@ llm_gateway.py — Centralized LLM routing for WAI-Institute
 Single entry point for all persona LLM calls.  Enforces:
   - 6-tier free-first provider fallback chain
   - Per-hour token budget guard  (HOURLY_TOKEN_CAP env var, default 200k)
-  - Anthropic degraded-state tracking with 5-minute auto-recovery
+  - Degraded-state tracking with 5-minute auto-recovery per provider
   - OpenAI-compatible message conversion for non-Anthropic providers
 
-Provider priority (free tiers used wherever available):
-  Tier 1 — Anthropic Claude          (ANTHROPIC_API_KEY)         paid primary
-  Tier 2 — Groq / Llama 3.3 70B      (GROQ_API_KEY)              free, tool-capable, fastest
-  Tier 3 — Gemini 2.0 Flash Direct   (GEMINI_API_KEY)            free, 15 RPM, 1M ctx
-  Tier 4 — Grok / xAI                (XAI_API_KEY)               free credits, tool-capable
-  Tier 5 — Cohere Command R+         (COHERE_API_KEY)            free tier, tool-capable
-  Tier 6 — Keyword KB                (always available)          zero cost, zero dependency
+Provider priority (free-first by design — no paid API without D. Oliver consent):
+  Tier 1 — Groq / Llama 3.3 70B      (GROQ_API_KEY)              FREE  tool-capable, fastest
+  Tier 2 — Gemini 2.0 Flash Direct   (GEMINI_API_KEY)            FREE  15 RPM, 1M ctx
+  Tier 3 — Grok / xAI                (XAI_API_KEY)               FREE credits, tool-capable
+  Tier 4 — Cohere Command R+         (COHERE_API_KEY)            FREE tier, tool-capable
+  Tier 5 — Anthropic Claude          (ANTHROPIC_API_KEY)         PAID  last resort only
+  Tier 6 — Keyword KB                (always available)          ZERO  no dependency
+
+Anthropic is last resort — only reached when all free tiers are unavailable.
+Set ANTHROPIC_API_KEY in Railway only if you want it available as emergency backup.
 
 Tool-calling note:
-  Anthropic, Groq (Llama 3.3), Grok, and Cohere Command R+ all support function
-  calling.  Gemini Direct does not receive tool definitions via this gateway
-  (the Google AI SDK has a different tool format — Tier 3 is text-only fallback).
-  If tools are required and Anthropic is down, Groq is the primary tool-capable
-  fallback.
+  Groq (Llama 3.3), Grok, and Cohere Command R+ all support function calling.
+  Gemini via OpenAI-compat layer does not receive tool defs here — text-only tier.
+  Anthropic supports full tool calling but is paid — Tier 5 emergency only.
 """
 
 import os
@@ -271,7 +272,114 @@ async def call_llm(
         )
         return _KB_RESULT
 
-    # ── Tier 1: Anthropic Claude ──────────────────────────────────────────────
+    # ── Tier 1: Groq / Llama 3.3 70B (FREE — primary) ────────────────────────
+    if GROQ_API_KEY:
+        try:
+            result = await _oai_compat_call(
+                base_url=GROQ_BASE, api_key=GROQ_API_KEY, model=GROQ_MODEL,
+                system=system, messages=messages, max_tokens=max_tokens, tools=tools,
+            )
+            _record_tokens(result["in_tok"] + result["out_tok"])
+            return {
+                "text":          result["text"],
+                "provider":      "groq",
+                "model":         GROQ_MODEL,
+                "input_tokens":  result["in_tok"],
+                "output_tokens": result["out_tok"],
+                "degraded":      False,
+            }
+        except Exception as e:
+            logger.warning("LLM Gateway T1 Groq failed (%s): %s", persona_label, e)
+
+    # ── Tier 2: Gemini 2.0 Flash Direct (FREE — text fallback) ───────────────
+    if GEMINI_API_KEY:
+        try:
+            result = await _oai_compat_call(
+                base_url=GEMINI_BASE, api_key=GEMINI_API_KEY, model=GEMINI_MODEL,
+                system=system, messages=messages, max_tokens=max_tokens,
+                tools=None,  # Gemini OpenAI-compat layer: tool defs not supported here
+                extra_headers={},
+            )
+            _record_tokens(result["in_tok"] + result["out_tok"])
+            logger.info("LLM Gateway: %s via Gemini Direct (free)", persona_label)
+            return {
+                "text":          result["text"],
+                "provider":      "gemini",
+                "model":         GEMINI_MODEL,
+                "input_tokens":  result["in_tok"],
+                "output_tokens": result["out_tok"],
+                "degraded":      True,
+            }
+        except Exception as e:
+            logger.warning("LLM Gateway T2 Gemini failed (%s): %s", persona_label, e)
+
+    # ── Tier 3: Grok / xAI (FREE credits — tool-capable) ─────────────────────
+    if XAI_API_KEY:
+        try:
+            result = await _oai_compat_call(
+                base_url=XAI_BASE, api_key=XAI_API_KEY, model=XAI_MODEL,
+                system=system, messages=messages, max_tokens=max_tokens, tools=tools,
+            )
+            _record_tokens(result["in_tok"] + result["out_tok"])
+            logger.info("LLM Gateway: %s via Grok/xAI (free credits)", persona_label)
+            return {
+                "text":          result["text"],
+                "provider":      "grok",
+                "model":         XAI_MODEL,
+                "input_tokens":  result["in_tok"],
+                "output_tokens": result["out_tok"],
+                "degraded":      True,
+            }
+        except Exception as e:
+            logger.warning("LLM Gateway T3 Grok failed (%s): %s", persona_label, e)
+
+    # ── Tier 4: Cohere Command R+ (FREE tier — tool-capable) ─────────────────
+    if COHERE_API_KEY:
+        try:
+            result = await _cohere_call(
+                system=system, messages=messages, max_tokens=max_tokens, tools=tools,
+            )
+            _record_tokens(result["in_tok"] + result["out_tok"])
+            logger.info("LLM Gateway: %s via Cohere Command R+ (free)", persona_label)
+            return {
+                "text":          result["text"],
+                "provider":      "cohere",
+                "model":         COHERE_MODEL,
+                "input_tokens":  result["in_tok"],
+                "output_tokens": result["out_tok"],
+                "degraded":      True,
+            }
+        except Exception as e:
+            logger.warning("LLM Gateway T4 Cohere failed (%s): %s", persona_label, e)
+
+    # ── OpenRouter bonus path (FREE Gemini — if key set) ──────────────────────
+    if OPENROUTER_API_KEY:
+        try:
+            result = await _oai_compat_call(
+                base_url=OPENROUTER_BASE, api_key=OPENROUTER_API_KEY,
+                model=OPENROUTER_MODEL,
+                system=system, messages=messages, max_tokens=max_tokens, tools=None,
+                extra_headers={
+                    "HTTP-Referer": "https://wai-institute.com",
+                    "X-Title":      "WAI-Institute",
+                },
+            )
+            _record_tokens(result["in_tok"] + result["out_tok"])
+            logger.info("LLM Gateway: %s via OpenRouter/Gemini (free)", persona_label)
+            return {
+                "text":          result["text"],
+                "provider":      "openrouter",
+                "model":         OPENROUTER_MODEL,
+                "input_tokens":  result["in_tok"],
+                "output_tokens": result["out_tok"],
+                "degraded":      True,
+            }
+        except Exception as e:
+            logger.warning("LLM Gateway OpenRouter failed (%s): %s", persona_label, e)
+
+    # ── Tier 5: Anthropic Claude (PAID — emergency last resort only) ──────────
+    # Only reached when every free tier above is unavailable.
+    # D. Oliver's directive: free-first. Anthropic fires only when nothing else can.
     if _anthropic_available():
         try:
             import anthropic as _anth
@@ -285,124 +393,22 @@ async def call_llm(
             out_tok = getattr(resp.usage, "output_tokens", 0)
             _record_tokens(in_tok + out_tok)
             _mark_anthropic_ok()
+            logger.warning(
+                "LLM Gateway: %s fell through to Anthropic (paid — all free tiers failed)",
+                persona_label,
+            )
             return {
                 "text":          text,
                 "provider":      "anthropic",
                 "model":         model,
                 "input_tokens":  in_tok,
                 "output_tokens": out_tok,
-                "degraded":      False,
+                "degraded":      True,   # degraded = not primary (Groq is primary now)
                 "_raw":          resp,
             }
         except Exception as e:
-            logger.warning("LLM Gateway T1 Anthropic failed (%s): %s", persona_label, e)
+            logger.warning("LLM Gateway T5 Anthropic failed (%s): %s", persona_label, e)
             _mark_anthropic_fail()
-
-    # ── Tier 2: Groq / Llama 3.3 70B (free, fastest, tool-capable) ───────────
-    if GROQ_API_KEY:
-        try:
-            result = await _oai_compat_call(
-                base_url=GROQ_BASE, api_key=GROQ_API_KEY, model=GROQ_MODEL,
-                system=system, messages=messages, max_tokens=max_tokens, tools=tools,
-            )
-            _record_tokens(result["in_tok"] + result["out_tok"])
-            logger.info("LLM Gateway: %s served via Groq/Llama3.3 (free)", persona_label)
-            return {
-                "text":          result["text"],
-                "provider":      "groq",
-                "model":         GROQ_MODEL,
-                "input_tokens":  result["in_tok"],
-                "output_tokens": result["out_tok"],
-                "degraded":      True,
-            }
-        except Exception as e:
-            logger.warning("LLM Gateway T2 Groq failed (%s): %s", persona_label, e)
-
-    # ── Tier 3: Gemini 2.0 Flash Direct (free, 15 RPM, text-only fallback) ───
-    if GEMINI_API_KEY:
-        try:
-            result = await _oai_compat_call(
-                base_url=GEMINI_BASE, api_key=GEMINI_API_KEY, model=GEMINI_MODEL,
-                system=system, messages=messages, max_tokens=max_tokens,
-                tools=None,   # Gemini via OpenAI-compat layer doesn't support tool defs here
-                extra_headers={},
-            )
-            _record_tokens(result["in_tok"] + result["out_tok"])
-            logger.info("LLM Gateway: %s served via Gemini Direct (free)", persona_label)
-            return {
-                "text":          result["text"],
-                "provider":      "gemini",
-                "model":         GEMINI_MODEL,
-                "input_tokens":  result["in_tok"],
-                "output_tokens": result["out_tok"],
-                "degraded":      True,
-            }
-        except Exception as e:
-            logger.warning("LLM Gateway T3 Gemini failed (%s): %s", persona_label, e)
-
-    # ── Tier 4: Grok / xAI (free credits, tool-capable) ─────────────────────
-    if XAI_API_KEY:
-        try:
-            result = await _oai_compat_call(
-                base_url=XAI_BASE, api_key=XAI_API_KEY, model=XAI_MODEL,
-                system=system, messages=messages, max_tokens=max_tokens, tools=tools,
-            )
-            _record_tokens(result["in_tok"] + result["out_tok"])
-            logger.info("LLM Gateway: %s served via Grok/xAI (free credits)", persona_label)
-            return {
-                "text":          result["text"],
-                "provider":      "grok",
-                "model":         XAI_MODEL,
-                "input_tokens":  result["in_tok"],
-                "output_tokens": result["out_tok"],
-                "degraded":      True,
-            }
-        except Exception as e:
-            logger.warning("LLM Gateway T4 Grok failed (%s): %s", persona_label, e)
-
-    # ── Tier 5: Cohere Command R+ (free tier, tool-capable) ──────────────────
-    if COHERE_API_KEY:
-        try:
-            result = await _cohere_call(
-                system=system, messages=messages, max_tokens=max_tokens, tools=tools,
-            )
-            _record_tokens(result["in_tok"] + result["out_tok"])
-            logger.info("LLM Gateway: %s served via Cohere Command R+ (free)", persona_label)
-            return {
-                "text":          result["text"],
-                "provider":      "cohere",
-                "model":         COHERE_MODEL,
-                "input_tokens":  result["in_tok"],
-                "output_tokens": result["out_tok"],
-                "degraded":      True,
-            }
-        except Exception as e:
-            logger.warning("LLM Gateway T5 Cohere failed (%s): %s", persona_label, e)
-
-    # ── Bonus: OpenRouter (if key set — additional Gemini path) ──────────────
-    if OPENROUTER_API_KEY:
-        try:
-            result = await _oai_compat_call(
-                base_url=OPENROUTER_BASE, api_key=OPENROUTER_API_KEY,
-                model=OPENROUTER_MODEL,
-                system=system, messages=messages, max_tokens=max_tokens, tools=None,
-                extra_headers={
-                    "HTTP-Referer": "https://wai-institute.com",
-                    "X-Title":      "WAI-Institute",
-                },
-            )
-            _record_tokens(result["in_tok"] + result["out_tok"])
-            logger.info("LLM Gateway: %s served via OpenRouter/Gemini (free)", persona_label)
-            return {
-                "text":          result["text"],
-                "provider":      "openrouter",
-                "model":         OPENROUTER_MODEL,
-                "input_tokens":  result["in_tok"],
-                "output_tokens": result["out_tok"],
-                "degraded":      True,
-            }
-        except Exception as e:
-            logger.warning("LLM Gateway OpenRouter failed (%s): %s", persona_label, e)
 
     # ── Tier 6: Keyword KB — always available, zero cost ─────────────────────
     logger.error("LLM Gateway: ALL providers failed for %s — KB fallback", persona_label)
@@ -415,13 +421,13 @@ def gateway_status() -> dict:
     _reset_hour_if_needed()
     return {
         "providers": {
-            "anthropic":   {"available": _anthropic_available(), "degraded": _anthropic_degraded, "key_set": bool(ANTHROPIC_API_KEY), "cost": "paid",      "tool_calling": True},
-            "groq":        {"available": bool(GROQ_API_KEY),     "degraded": False,                "key_set": bool(GROQ_API_KEY),      "cost": "free",      "tool_calling": True},
-            "gemini":      {"available": bool(GEMINI_API_KEY),   "degraded": False,                "key_set": bool(GEMINI_API_KEY),    "cost": "free",      "tool_calling": False},
-            "grok":        {"available": bool(XAI_API_KEY),      "degraded": False,                "key_set": bool(XAI_API_KEY),       "cost": "free_credits", "tool_calling": True},
-            "cohere":      {"available": bool(COHERE_API_KEY),   "degraded": False,                "key_set": bool(COHERE_API_KEY),    "cost": "free",      "tool_calling": True},
-            "openrouter":  {"available": bool(OPENROUTER_API_KEY),"degraded": False,               "key_set": bool(OPENROUTER_API_KEY),"cost": "free",      "tool_calling": False},
-            "kb_fallback": {"available": True,                   "degraded": False,                "key_set": True,                   "cost": "zero",      "tool_calling": False},
+            "groq":        {"tier": 1, "primary": True,  "available": bool(GROQ_API_KEY),      "key_set": bool(GROQ_API_KEY),       "cost": "free",         "tool_calling": True},
+            "gemini":      {"tier": 2, "primary": False, "available": bool(GEMINI_API_KEY),    "key_set": bool(GEMINI_API_KEY),     "cost": "free",         "tool_calling": False},
+            "grok":        {"tier": 3, "primary": False, "available": bool(XAI_API_KEY),       "key_set": bool(XAI_API_KEY),        "cost": "free_credits", "tool_calling": True},
+            "cohere":      {"tier": 4, "primary": False, "available": bool(COHERE_API_KEY),    "key_set": bool(COHERE_API_KEY),     "cost": "free",         "tool_calling": True},
+            "openrouter":  {"tier": 4, "primary": False, "available": bool(OPENROUTER_API_KEY),"key_set": bool(OPENROUTER_API_KEY), "cost": "free",         "tool_calling": False},
+            "anthropic":   {"tier": 5, "primary": False, "available": _anthropic_available(),  "key_set": bool(ANTHROPIC_API_KEY),  "cost": "paid_last_resort", "tool_calling": True},
+            "kb_fallback": {"tier": 6, "primary": False, "available": True,                    "key_set": True,                     "cost": "zero",         "tool_calling": False},
         },
         "budget": {
             "hourly_cap":     HOURLY_TOKEN_CAP,
