@@ -1,7 +1,7 @@
 import { Link } from "react-router-dom";
 import PublicNav from "../components/PublicNav";
 import BackButton from "../components/BackButton";
-import { Home, Scale, Utensils, Briefcase, GraduationCap, HeartPulse } from "lucide-react";
+import { ArrowRight, Home, Scale, Utensils, Briefcase, GraduationCap, HeartPulse } from "lucide-react";
 
 // Public M.O.R.E. Help Center — 6 resource categories, each linking to a real
 // destination (the exchange, the legal tool, the course catalog). No dead ends.
@@ -38,6 +38,20 @@ export default function HelpCenter() {
               </Link>
             );
           })}
+        </div>
+        <div className="mt-12 rounded-[28px] border border-[#e6d0ae] bg-[#fff8ee] p-8 shadow-[0_18px_45px_rgba(97,60,20,0.08)]">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <div className="overline" style={{ color: "#9d6b33" }}>Supervisor Plaza</div>
+              <h2 className="font-heading text-3xl font-bold text-ink">Welcome to Seshat’s Hub</h2>
+            </div>
+            <Link to="/seshats-hub" className="inline-flex items-center gap-2 rounded-full bg-[#b47b2f] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#9a6527]">
+              Enter the Supervisor Hub <ArrowRight className="w-4 h-4" />
+            </Link>
+          </div>
+          <p className="mt-4 text-ink/70 max-w-2xl">
+            Start with a guided welcome from the Supervisor, explore the finance backbone that powers the M.O.R.E. Help Center, and step into a market-inspired exhibit of support services.
+          </p>
         </div>
       </div>
     </div>

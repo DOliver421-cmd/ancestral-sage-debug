@@ -125,6 +125,21 @@ export default function MoreHelpCenter() {
         </div>
       </section>
 
+      <section className="py-16 px-6" style={{ background: "#ffffff" }}>
+        <div className="max-w-6xl mx-auto rounded-[32px] border border-[#e0d6cc] bg-[#f6f0e9] p-10 text-center shadow-[0_20px_50px_rgba(97,64,35,0.08)]">
+          <div className="inline-flex items-center justify-center gap-2 rounded-full bg-[#e8b83e33] px-4 py-2 text-xs font-bold uppercase tracking-[0.35em] text-[#8d5a33]">
+            New hub guided tour
+          </div>
+          <h2 className="mt-6 text-3xl font-black text-[#1a1a2e]">Seshat’s Hub is now live</h2>
+          <p className="mt-4 max-w-3xl mx-auto text-sm leading-7 text-[#5a4e42]">
+            Experience the Supervisor landing page, visit the finance-driven marketplace, and discover the support services that frame the M.O.R.E. Help Center.
+          </p>
+          <a href="/seshats-hub" className="mt-8 inline-flex items-center justify-center gap-2 rounded-full bg-[#0d7377] px-8 py-4 text-sm font-bold uppercase tracking-[0.15em] text-white transition hover:bg-[#095b5e]">
+            Visit Seshat’s Hub <ArrowRight className="w-4 h-4" />
+          </a>
+        </div>
+      </section>
+
       <section id="support" className="py-20 px-6" style={{ background: "#ffffff" }}>
         <div className="max-w-3xl mx-auto text-center">
           <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-widest mb-6" style={{ background: BG_WARM, color: TEAL }}>
