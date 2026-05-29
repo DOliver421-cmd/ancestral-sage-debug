@@ -15,22 +15,17 @@ Each gateway has a max_slots (default 2). When approved submissions reach max_sl
 the gateway automatically closes. Curators can reopen it at any time.
 """
 
-from fastapi import APIRouter, Request, HTTPException, Depends
+from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel, EmailStr
 from typing import Optional
 from datetime import datetime
 from bson import ObjectId
 
+from deps import require_user, get_db
+
 router = APIRouter(prefix="/api/playlist", tags=["playlist"])
 
 GATEWAY_STEPS = ["save_playlist", "follow_playlist", "add_song", "follow_profile", "share"]
-
-
-def _require_user(request: Request):
-    user = getattr(request.state, "user", None)
-    if not user:
-        raise HTTPException(status_code=401, detail="Authentication required")
-    return user
 
 
 def _ser(doc):
@@ -78,9 +73,9 @@ class ReviewRequest(BaseModel):
 # ── Public endpoints ──────────────────────────────────────────────────────────
 
 @router.get("/gateways/{curator_slug}")
-async def get_active_gateways(curator_slug: str, request: Request):
+async def get_active_gateways(curator_slug: str):
     """Public — list open gateways for a curator (used by submission form)."""
-    db = request.app.state.db
+    db = get_db()
     gateways = await db.playlist_gateways.find(
         {"curator_slug": curator_slug, "status": "open"}
     ).sort("created_at", -1).to_list(None)
@@ -92,9 +87,9 @@ async def get_active_gateways(curator_slug: str, request: Request):
 
 
 @router.post("/submit")
-async def submit_song(data: SubmissionRequest, request: Request):
+async def submit_song(data: SubmissionRequest):
     """Public — artist submits a song to an open gateway."""
-    db = request.app.state.db
+    db = get_db()
 
     try:
         gateway = await db.playlist_gateways.find_one({"_id": ObjectId(data.gateway_id)})
@@ -141,12 +136,12 @@ async def submit_song(data: SubmissionRequest, request: Request):
 
 
 @router.post("/complete-step")
-async def complete_step(data: StepRequest, request: Request):
+async def complete_step(data: StepRequest):
     """Public — artist marks a gateway step as complete."""
     if data.step not in GATEWAY_STEPS:
         raise HTTPException(status_code=400, detail=f"Invalid step: {data.step}")
 
-    db = request.app.state.db
+    db = get_db()
     try:
         sub = await db.playlist_submissions.find_one({"_id": ObjectId(data.submission_id)})
     except Exception:
@@ -182,11 +177,11 @@ async def complete_step(data: StepRequest, request: Request):
 @router.post("/gateway/create")
 async def create_gateway(
     data: GatewayCreateRequest,
-    request: Request,
-    current_user: dict = Depends(_require_user),
+
+    current_user: dict = Depends(require_user),
 ):
     """Authenticated — curator creates a new gateway slot."""
-    db = request.app.state.db
+    db = get_db()
     curator_slug = data.curator_slug or current_user.get("creator_slug", str(current_user["_id"]))
 
     doc = {
@@ -212,11 +207,11 @@ async def create_gateway(
 
 @router.get("/dashboard")
 async def get_dashboard(
-    request: Request,
-    current_user: dict = Depends(_require_user),
+
+    current_user: dict = Depends(require_user),
 ):
     """Authenticated — curator's full dashboard with all gateways and submissions."""
-    db = request.app.state.db
+    db = get_db()
     curator_id = str(current_user["_id"])
 
     gateways = await db.playlist_gateways.find(
@@ -254,11 +249,11 @@ async def get_dashboard(
 @router.post("/approve")
 async def approve_submission(
     data: ReviewRequest,
-    request: Request,
-    current_user: dict = Depends(_require_user),
+
+    current_user: dict = Depends(require_user),
 ):
     """Authenticated — curator approves an artist's submission."""
-    db = request.app.state.db
+    db = get_db()
     try:
         sub = await db.playlist_submissions.find_one({"_id": ObjectId(data.submission_id)})
     except Exception:
@@ -302,11 +297,11 @@ async def approve_submission(
 @router.post("/reject")
 async def reject_submission(
     data: ReviewRequest,
-    request: Request,
-    current_user: dict = Depends(_require_user),
+
+    current_user: dict = Depends(require_user),
 ):
     """Authenticated — curator rejects a submission."""
-    db = request.app.state.db
+    db = get_db()
     try:
         sub = await db.playlist_submissions.find_one({"_id": ObjectId(data.submission_id)})
     except Exception:
@@ -327,11 +322,11 @@ async def reject_submission(
 @router.patch("/gateway/{gateway_id}/status")
 async def set_gateway_status(
     gateway_id: str,
-    request: Request,
-    current_user: dict = Depends(_require_user),
+
+    current_user: dict = Depends(require_user),
 ):
     """Authenticated — toggle gateway open/closed."""
-    db = request.app.state.db
+    db = get_db()
     gateway = await db.playlist_gateways.find_one({
         "_id": ObjectId(gateway_id),
         "curator_id": str(current_user["_id"]),

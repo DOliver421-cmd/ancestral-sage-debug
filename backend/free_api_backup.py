@@ -129,12 +129,17 @@ MATRIX = {
 }
 
 
-def resolve(service_key: str) -> dict:
+def resolve(service_key: str, primary_is_up: bool = False) -> dict:
     """
     Return the first working fallback for a service.
 
+    Args:
+        service_key: key from MATRIX
+        primary_is_up: caller passes True only if they have verified the
+                       primary provider is configured AND reachable.
+
     Returns a dict with:
-      {name, endpoint, note, tier (primary | free)}
+      {name, endpoint, note, tier (primary | free | unavailable)}
     or None if the service_key is unknown.
     """
     entry = MATRIX.get(service_key)
@@ -142,33 +147,30 @@ def resolve(service_key: str) -> dict:
         logger.warning("resolve: unknown service_key=%s", service_key)
         return None
 
-    # Check if primary is available (env var or config)
-    primary_available = True  # caller context determines this
-
-    if primary_available:
+    if primary_is_up:
         return {
-            "name": entry["primary"],
+            "name":     entry["primary"],
             "endpoint": None,
-            "note": None,
-            "tier": "primary",
+            "note":     None,
+            "tier":     "primary",
         }
 
-    # Try free fallbacks in order
+    # Primary not confirmed up — try free fallbacks in order
     for fb in entry["free_fallbacks"]:
         if fb["ok"]:
             return {
-                "name": fb["name"],
+                "name":     fb["name"],
                 "endpoint": fb["endpoint"],
-                "note": fb.get("note"),
-                "tier": "free",
+                "note":     fb.get("note"),
+                "tier":     "free",
             }
 
     # All fallbacks exhausted
     return {
-        "name": "No fallback available",
+        "name":     "No fallback available",
         "endpoint": None,
-        "note": f"All fallbacks for {service_key} are unavailable",
-        "tier": "unavailable",
+        "note":     f"All fallbacks for {service_key} are unavailable",
+        "tier":     "unavailable",
     }
 
 

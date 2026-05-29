@@ -751,6 +751,8 @@ export default function DirectorWidget() {
       ? `Welcome back, ${user.full_name}. I am The Director. Initiating monitoring scan…`
       : `Welcome back, ${user.full_name}. I am the Assistant Director. How can I guide you today?`;
     setMsgs([{ role: "assistant", text: fallback }]);
+    // Always show widget on login — clear any stale "closed" state from localStorage
+    try { localStorage.removeItem("director_widget_open"); } catch {}
     setOpen(true);
 
     api.get("/ai/director/greeting")

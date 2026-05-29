@@ -3,6 +3,7 @@ import { Toaster } from "sonner";
 import "./App.css";
 import { AuthProvider, useAuth } from "./lib/auth";
 import LandingMarketplace from "./pages/LandingMarketplace";
+import SupervisorLogin from "./pages/SupervisorLogin";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
 import StudentDashboard from "./pages/StudentDashboard";
@@ -76,6 +77,7 @@ import RevenueDivision from "./pages/RevenueDivision";
 import Courses from "./pages/Courses";
 import Community from "./pages/Community";
 import Creators from "./pages/Creators";
+import ExecutiveDirectorDashboard from "./pages/ExecutiveDirectorDashboard";
 
 // Role hierarchy must mirror backend ROLE_RANK in /app/backend/server.py.
 // Higher rank = more authority; a higher-rank role passes any check meant
@@ -97,7 +99,7 @@ function Protected({ children, roles }) {
 function Home() {
   const { user, loading } = useAuth();
   if (loading) return null;
-  if (!user) return <LandingMarketplace />;
+  if (!user) return <Navigate to="/more-help-center" replace />;
   // executive_admin and admin both land on the admin overview
   if (user.role === "executive_admin") return <Navigate to="/admin/system" replace />;
   if (user.role === "admin") return <Navigate to="/admin" replace />;
@@ -108,7 +110,11 @@ function Home() {
 function App() {
   const hostname = window.location.hostname;
   if (hostname.includes("morehelp.center")) {
-    return <MoreHelpCenter />;
+    return (
+      <BrowserRouter>
+        <MoreHelpCenter />
+      </BrowserRouter>
+    );
   }
 
   return (
@@ -153,7 +159,12 @@ function App() {
           {/* Public funnel pages */}
           <Route path="/help-center" element={<HelpCenter />} />
           <Route path="/seshats-hub" element={<SeshatsHub />} />
-          <Route path="/supervisor" element={<SeshatsHub />} />
+          {/* MORE Help Center — unified entry point (greeter / exec / decoy modes) */}
+          <Route path="/more-help-center" element={<MoreHelpCenter />} />
+          <Route path="/landing" element={<LandingMarketplace />} />
+          {/* Supervisor — executive_admin only; separate login at /supervisor-login */}
+          <Route path="/supervisor-login" element={<SupervisorLogin />} />
+          <Route path="/supervisor" element={<Protected roles={["executive_admin"]}><SeshatsHub /></Protected>} />
           <Route path="/terms" element={<TermsOfService />} />
           <Route path="/privacy" element={<PrivacyPolicy />} />
           <Route path="/courses" element={<Courses />} />
@@ -186,6 +197,7 @@ function App() {
           <Route path="/incidents" element={<Protected><Incidents /></Protected>} />
           <Route path="/settings" element={<Protected><Settings /></Protected>} />
           <Route path="/admin/system" element={<Protected roles={["executive_admin"]}><ExecSystem /></Protected>} />
+          <Route path="/admin/director" element={<Protected roles={["executive_admin"]}><ExecutiveDirectorDashboard /></Protected>} />
           <Route path="/admin/sage-audit" element={<Protected roles={["executive_admin"]}><SageAudit /></Protected>} />
           <Route path="/admin/staff-meetings" element={<Protected roles={["executive_admin"]}><StaffMeetingHistory /></Protected>} />
           <Route path="/admin/health" element={<Protected roles={["admin"]}><SystemHealth /></Protected>} />

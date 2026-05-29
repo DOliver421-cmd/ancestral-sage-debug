@@ -10,20 +10,15 @@ Supported platforms:
 OAuth tokens are stored per-user in MongoDB: users.social_accounts.{platform}
 """
 
-from fastapi import APIRouter, Request, HTTPException, Depends
+from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel
 from typing import Optional
 from datetime import datetime
 import os
 
+from deps import require_user, get_db
+
 router = APIRouter(prefix="/api/social", tags=["social"])
-
-
-def _require_user(request: Request):
-    user = getattr(request.state, "user", None)
-    if not user:
-        raise HTTPException(status_code=401, detail="Authentication required")
-    return user
 
 
 class PublishRequest(BaseModel):
@@ -42,11 +37,11 @@ class ConnectAccountRequest(BaseModel):
 
 @router.get("/connected-accounts")
 async def get_connected_accounts(
-    request: Request,
-    current_user: dict = Depends(_require_user),
+
+    current_user: dict = Depends(require_user),
 ):
     """Return the user's connected social media platforms."""
-    db = request.app.state.db
+    db = get_db()
     user = await db.users.find_one({"_id": current_user["_id"]})
     accounts = (user or {}).get("social_accounts", {})
 
@@ -68,8 +63,8 @@ async def get_connected_accounts(
 @router.post("/connect")
 async def connect_account(
     data: ConnectAccountRequest,
-    request: Request,
-    current_user: dict = Depends(_require_user),
+
+    current_user: dict = Depends(require_user),
 ):
     """
     Store OAuth token for a social media platform.
@@ -80,7 +75,7 @@ async def connect_account(
     if data.platform not in VALID_PLATFORMS:
         raise HTTPException(status_code=400, detail=f"Unsupported platform: {data.platform}")
 
-    db = request.app.state.db
+    db = get_db()
     await db.users.update_one(
         {"_id": current_user["_id"]},
         {
@@ -100,11 +95,11 @@ async def connect_account(
 @router.delete("/disconnect/{platform}")
 async def disconnect_account(
     platform: str,
-    request: Request,
-    current_user: dict = Depends(_require_user),
+
+    current_user: dict = Depends(require_user),
 ):
     """Remove a connected social media account."""
-    db = request.app.state.db
+    db = get_db()
     await db.users.update_one(
         {"_id": current_user["_id"]},
         {"$unset": {f"social_accounts.{platform}": ""}}
@@ -115,8 +110,8 @@ async def disconnect_account(
 @router.post("/publish")
 async def publish_to_platforms(
     data: PublishRequest,
-    request: Request,
-    current_user: dict = Depends(_require_user),
+
+    current_user: dict = Depends(require_user),
 ):
     """
     Publish content to all requested platforms simultaneously.
@@ -127,7 +122,7 @@ async def publish_to_platforms(
       Twitter/X:            TWITTER_API_KEY, TWITTER_API_SECRET
       TikTok:               TIKTOK_CLIENT_KEY, TIKTOK_CLIENT_SECRET
     """
-    db = request.app.state.db
+    db = get_db()
     user_doc = await db.users.find_one({"_id": current_user["_id"]})
     social_accounts = (user_doc or {}).get("social_accounts", {})
 

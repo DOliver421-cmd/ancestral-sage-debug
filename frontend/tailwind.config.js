@@ -6,7 +6,7 @@ module.exports = {
     container: { center: true, padding: "2rem", screens: { "2xl": "1400px" } },
     extend: {
       fontFamily: {
-        heading: ["'Cabinet Grotesk'", "sans-serif"],
+        heading: ["'Cabinet Grotesk'", "'Plus Jakarta Sans'", "sans-serif"],
         sans: ["'IBM Plex Sans'", "sans-serif"],
         mono: ["'IBM Plex Mono'", "monospace"],
       },
