@@ -9992,6 +9992,22 @@ try:
         """Current member's partnership points + membership tier."""
         return await _partnership_points.get_status(db, user.id)
 
+    @api_router.get("/partnership/ledger")
+    async def partnership_ledger(limit: int = 20, user: User = Depends(current_user)):
+        """Recent point-award history for the current user."""
+        try:
+            from partnership.points import LEDGER_COLLECTION
+            docs = await db[LEDGER_COLLECTION].find(
+                {"user_id": user.id},
+                {"_id": 0, "user_id": 0},
+            ).sort("ts", -1).limit(min(limit, 50)).to_list(50)
+            for d in docs:
+                if hasattr(d.get("ts"), "isoformat"):
+                    d["ts"] = d["ts"].isoformat()
+            return docs
+        except Exception:
+            return []
+
     logger.info("Sovereign + puzzle/points endpoints registered")
 except Exception as _sov_err:
     logger.warning(f"Could not register Sovereign/puzzle endpoints: {_sov_err}")
