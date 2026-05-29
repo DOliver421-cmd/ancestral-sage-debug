@@ -4,6 +4,7 @@ import { Link } from "react-router-dom";
 // public page set cross-linked without cluttering the authenticated app sidebar.
 const LINKS = [
   { to: "/help-center", label: "Help Center" },
+  { to: "/seshats-hub", label: "Supervisor Hub" },
   { to: "/courses", label: "Courses" },
   { to: "/community", label: "Community" },
   { to: "/creators", label: "Creators" },

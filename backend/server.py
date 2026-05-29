@@ -89,23 +89,42 @@ load_dotenv(ROOT_DIR / '.env', override=True)  # .env is source of truth (overri
 # Backup:   MONGO_BACKUP_URL   (MongoDB Atlas free tier recommended)
 # The health endpoint at /api/health pings backup when primary is down.
 # All other code uses `db` (the primary connection) — there is no automatic
-# DB connection failover in business logic.
-mongo_url        = os.environ['MONGO_URL']
-MONGO_BACKUP_URL = os.environ.get('MONGO_BACKUP_URL', '')   # Atlas URI (optional)
-MONGO_BACKUP_DB  = os.environ.get('MONGO_BACKUP_DB', '')    # Atlas DB name (optional)
-client = AsyncIOMotorClient(
-    mongo_url,
-    serverSelectionTimeoutMS=5000,   # fail fast — don't hang 30s per op
-    connectTimeoutMS=5000,
-    socketTimeoutMS=10000,
-)
-db = client[os.environ['DB_NAME']]
-_DB_SOURCE = "primary"   # informational; updated in on_startup
-_backup_db = None        # set in on_startup if MONGO_BACKUP_URL is configured
-_pipeline_manager = None # set in on_startup once DB + API key are both available
-_discount_manager = None # set in on_startup() for discount management
+# ── DB connection failover in business logic ──
 
-# ── WAI engine singletons ─────────────────────────────────────────────────────
+import os
+
+mongo_url = os.environ.get("MONGO_URL")
+db_name = os.environ.get("DB_NAME", "ancestral_sage")
+
+if not mongo_url:
+    print("⚠️ WARNING: MONGO_URL not set — database disabled")
+    client = None
+    db = None
+    _DB_SOURCE = "disabled"
+else:
+    from motor.motor_asyncio import AsyncIOMotorClient
+
+    client = AsyncIOMotorClient(
+        mongo_url,
+        serverSelectionTimeoutMS=5000,
+        connectTimeoutMS=5000,
+        socketTimeoutMS=10000,
+    )
+
+    db = client[db_name]
+    _DB_SOURCE = "primary"
+
+
+# ── Backup / optional configs ──
+
+MONGO_BACKUP_URL = os.environ.get("MONGO_BACKUP_URL", "")
+MONGO_BACKUP_DB  = os.environ.get("MONGO_BACKUP_DB", "")
+
+_backup_db = None
+_pipeline_manager = None
+_discount_manager = None
+
+# ── WAI engine singletons ───────────────────────────────────────────────────────
 # Lazy-initialized on first use, then reused across all requests.
 # Avoids creating new PRTEnforcementEngine/The9FusionEngine objects per request.
 _prt_engine  = None   # type: ignore[assignment]  PRTEnforcementEngine
