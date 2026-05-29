@@ -78,6 +78,11 @@ import Courses from "./pages/Courses";
 import Community from "./pages/Community";
 import Creators from "./pages/Creators";
 import ExecutiveDirectorDashboard from "./pages/ExecutiveDirectorDashboard";
+import PartnershipDashboard from "./pages/PartnershipDashboard";
+import PartnershipDiscounts from "./pages/PartnershipDiscounts";
+import UserProfile from "./pages/UserProfile";
+import LabSimulations from "./pages/LabSimulations";
+import Landing from "./pages/Landing";
 
 // Role hierarchy must mirror backend ROLE_RANK in /app/backend/server.py.
 // Higher rank = more authority; a higher-rank role passes any check meant
@@ -234,6 +239,15 @@ function App() {
           <Route path="/payment/history" element={<Protected><PaymentHistory /></Protected>} />
           <Route path="/payment/manage" element={<Protected><PaymentHistory /></Protected>} />
           <Route path="/admin/payments" element={<Protected roles={["admin"]}><AdminPayments /></Protected>} />
+          {/* Partnership & profile features */}
+          <Route path="/partnership" element={<Protected><PartnershipDashboard /></Protected>} />
+          <Route path="/partnership/discounts" element={<Protected><PartnershipDiscounts /></Protected>} />
+          <Route path="/profile" element={<Protected><UserProfile /></Protected>} />
+          <Route path="/profile/:id" element={<Protected><UserProfile /></Protected>} />
+          {/* Lab simulations */}
+          <Route path="/lab-simulations" element={<Protected><LabSimulations /></Protected>} />
+          {/* Original landing page (alternate entry point) */}
+          <Route path="/welcome" element={<Landing />} />
           <Route path="*" element={<Error404 />} />
         </Routes>
         </div>
