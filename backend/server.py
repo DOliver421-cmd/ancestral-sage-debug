@@ -9985,50 +9985,50 @@ try:
         """Quick health summary for the breaker panel."""
         return await get_system_health(db)
 
-@api_router.post("/admin/gateway/keys")
-async def push_gateway_key(body: dict, user: User = Depends(require_role("executive_admin"))):
-    """
-    Receive an API key from The Supervisor and inject it into the live
-    llm_gateway module so it takes effect immediately without a Railway
-    redeploy.  Keys are held in process memory — they persist until the
-    container restarts, at which point Railway env vars take over.
+    @api_router.post("/admin/gateway/keys")
+    async def push_gateway_key(body: dict, user: User = Depends(require_role("executive_admin"))):
+        """
+        Receive an API key from The Supervisor and inject it into the live
+        llm_gateway module so it takes effect immediately without a Railway
+        redeploy.  Keys are held in process memory — they persist until the
+        container restarts, at which point Railway env vars take over.
 
-    Body: { var_name: "GROQ_API_KEY", value: "gsk_..." }
-    """
-    ALLOWED = {
-        "GROQ_API_KEY", "CEREBRAS_API_KEY", "GEMINI_API_KEY",
-        "XAI_API_KEY",  "COHERE_API_KEY",   "HUGGINGFACE_API_KEY",
-        "OPENROUTER_API_KEY",
-    }
-    var_name = (body.get("var_name") or "").strip().upper()
-    value    = (body.get("value")    or "").strip()
+        Body: { var_name: "GROQ_API_KEY", value: "gsk_..." }
+        """
+        ALLOWED = {
+            "GROQ_API_KEY", "CEREBRAS_API_KEY", "GEMINI_API_KEY",
+            "XAI_API_KEY",  "COHERE_API_KEY",   "HUGGINGFACE_API_KEY",
+            "OPENROUTER_API_KEY",
+        }
+        var_name = (body.get("var_name") or "").strip().upper()
+        value    = (body.get("value")    or "").strip()
 
-    if var_name not in ALLOWED:
-        raise HTTPException(400, f"var_name '{var_name}' not in allowed set")
-    if not value:
-        raise HTTPException(400, "value cannot be empty")
+        if var_name not in ALLOWED:
+            raise HTTPException(400, f"var_name '{var_name}' not in allowed set")
+        if not value:
+            raise HTTPException(400, "value cannot be empty")
 
-    # Inject into the live gateway module
-    import ai.llm_gateway as _gw
-    import os as _os
+        # Inject into the live gateway module
+        import ai.llm_gateway as _gw
+        import os as _os
 
-    # Map var name → gateway module attribute
-    ATTR_MAP = {
-        "GROQ_API_KEY":        "GROQ_API_KEY",
-        "CEREBRAS_API_KEY":    "CEREBRAS_API_KEY",
-        "GEMINI_API_KEY":      "GEMINI_API_KEY",
-        "XAI_API_KEY":         "XAI_API_KEY",
-        "COHERE_API_KEY":      "COHERE_API_KEY",
-        "HUGGINGFACE_API_KEY": "HUGGINGFACE_API_KEY",
-        "OPENROUTER_API_KEY":  "OPENROUTER_API_KEY",
-    }
-    attr = ATTR_MAP[var_name]
-    setattr(_gw, attr, value)
-    _os.environ[var_name] = value   # also set in env so any late imports pick it up
+        # Map var name → gateway module attribute
+        ATTR_MAP = {
+            "GROQ_API_KEY":        "GROQ_API_KEY",
+            "CEREBRAS_API_KEY":    "CEREBRAS_API_KEY",
+            "GEMINI_API_KEY":      "GEMINI_API_KEY",
+            "XAI_API_KEY":         "XAI_API_KEY",
+            "COHERE_API_KEY":      "COHERE_API_KEY",
+            "HUGGINGFACE_API_KEY": "HUGGINGFACE_API_KEY",
+            "OPENROUTER_API_KEY":  "OPENROUTER_API_KEY",
+        }
+        attr = ATTR_MAP[var_name]
+        setattr(_gw, attr, value)
+        _os.environ[var_name] = value   # also set in env so any late imports pick it up
 
-    await audit(user.id, "gateway.key.pushed", meta={"var": var_name})
-    logger.info("Gateway key pushed by exec: %s", var_name)
-    return {"ok": True, "var": var_name, "active": True}
+        await audit(user.id, "gateway.key.pushed", meta={"var": var_name})
+        logger.info("Gateway key pushed by exec: %s", var_name)
+        return {"ok": True, "var": var_name, "active": True}
 
     @api_router.post("/exec/panel/heartbeat")
     async def exec_panel_heartbeat(body: _PanelHeartbeatBody):
