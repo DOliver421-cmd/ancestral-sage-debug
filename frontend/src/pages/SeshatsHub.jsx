@@ -4,8 +4,8 @@ import {
   ArrowRight,
   Activity,
   BadgeCheck,
-  CurrencyDollar,
-  GlobeAlt,
+  DollarSign,
+  Globe,
   ShieldCheck,
   Sparkles,
   Users,
@@ -17,7 +17,7 @@ import { api } from "../lib/api";
 
 const LANDSCAPE = [
   {
-    icon: CurrencyDollar,
+    icon: DollarSign,
     title: "Autonomous Finance",
     desc: "A self-managing finance department runs budgets, compliance, and expense flow for the M.O.R.E. Help Center.",
   },
@@ -37,7 +37,7 @@ const LANDSCAPE = [
     desc: "Media, course-building, branding and storytelling tools keep the hub vibrant and alive.",
   },
   {
-    icon: GlobeAlt,
+    icon: Globe,
     title: "Platform Gateway",
     desc: "All calls are routed through the secure platform gateway so every API action is tracked and protected.",
   },
@@ -72,7 +72,7 @@ const WAYPOINTS = [
     desc: "Every AI-driven direction is backed by human review, audit, and executive supervision.",
   },
   {
-    icon: GlobeAlt,
+    icon: Globe,
     title: "WAI Infrastructure",
     desc: "This hub is connected to the full WAI system, from course catalogs to executive controls.",
   },
@@ -89,7 +89,7 @@ const ROLE_LANES = [
   {
     title: "Visitor lane",
     desc: "Public guests are guided to support, community learning, and marketplace discovery with clear wayfinding.",
-    icon: GlobeAlt,
+    icon: Globe,
   },
   {
     title: "Operator lane",
@@ -378,7 +378,7 @@ export default function SeshatsHub() {
               {
                 title: "Access the help center",
                 desc: "Find help across housing, legal, training, and community resources with a single click.",
-                icon: GlobeAlt,
+                icon: Globe,
               },
               {
                 title: "Join the market experience",
