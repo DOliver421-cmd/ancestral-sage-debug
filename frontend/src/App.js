@@ -101,6 +101,15 @@ function Protected({ children, roles }) {
   return children;
 }
 
+// Supervisor-specific protection — redirects to the Supervisor login, not the main login.
+function SupervisorProtected({ children }) {
+  const { user, loading } = useAuth();
+  if (loading) return <div className="p-12 text-ink font-heading">Loading…</div>;
+  if (!user) return <Navigate to="/supervisor-login" replace />;
+  if ((ROLE_RANK[user.role] ?? 0) < ROLE_RANK["executive_admin"]) return <Navigate to="/supervisor-login" replace />;
+  return children;
+}
+
 function Home() {
   const { user, loading } = useAuth();
   if (loading) return null;
@@ -169,7 +178,7 @@ function App() {
           <Route path="/landing" element={<LandingMarketplace />} />
           {/* Supervisor — executive_admin only; separate login at /supervisor-login */}
           <Route path="/supervisor-login" element={<SupervisorLogin />} />
-          <Route path="/supervisor" element={<Protected roles={["executive_admin"]}><SeshatsHub /></Protected>} />
+          <Route path="/supervisor" element={<SupervisorProtected><SeshatsHub /></SupervisorProtected>} />
           <Route path="/terms" element={<TermsOfService />} />
           <Route path="/privacy" element={<PrivacyPolicy />} />
           <Route path="/courses" element={<Courses />} />
