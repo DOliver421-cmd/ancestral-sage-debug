@@ -62,6 +62,7 @@ import Palace from "./pages/Palace";
 import ElderCouncil from "./pages/ElderCouncil";
 import Plans from "./pages/Plans";
 import HelpCenter from "./pages/HelpCenter";
+import SeshatsHub from "./pages/SeshatsHub";
 import TermsOfService from "./pages/TermsOfService";
 import PrivacyPolicy from "./pages/PrivacyPolicy";
 import MoreHelpCenter from "./pages/MoreHelpCenter";
@@ -151,6 +152,8 @@ function App() {
           <Route path="/plans" element={<Plans />} />
           {/* Public funnel pages */}
           <Route path="/help-center" element={<HelpCenter />} />
+          <Route path="/seshats-hub" element={<SeshatsHub />} />
+          <Route path="/supervisor" element={<SeshatsHub />} />
           <Route path="/terms" element={<TermsOfService />} />
           <Route path="/privacy" element={<PrivacyPolicy />} />
           <Route path="/courses" element={<Courses />} />
