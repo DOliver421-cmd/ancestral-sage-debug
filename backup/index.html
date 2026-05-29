@@ -660,10 +660,12 @@ const BASE = (()=>{
 })();
 
 const AI_PROVIDERS = [
-  {key:'gemini', label:'Google Gemini', hint:'AIza…', tier:'Free via AI Studio'},
-  {key:'grok',   label:'Grok (xAI)',    hint:'xai-…', tier:'Free beta tier'},
-  {key:'hf',     label:'Hugging Face',  hint:'hf_…',  tier:'Free inference API'},
-  {key:'cohere', label:'Cohere',        hint:'…',      tier:'Free trial tier'},
+  {key:'groq',     label:'Groq (Llama 3.3)',  hint:'gsk_…',  tier:'Free · Fastest · Primary'},
+  {key:'cerebras', label:'Cerebras',           hint:'csk-…',  tier:'Free · Fast · Llama 70B'},
+  {key:'gemini',   label:'Google Gemini',      hint:'AIza…',  tier:'Free via AI Studio'},
+  {key:'grok',     label:'Grok (xAI)',         hint:'xai-…',  tier:'Free credits'},
+  {key:'cohere',   label:'Cohere',             hint:'…',      tier:'Free tier'},
+  {key:'hf',       label:'Hugging Face',       hint:'hf_…',   tier:'Free · Slowest'},
 ];
 
 const FALLBACK = {
@@ -1155,21 +1157,25 @@ async function callAI(msg){
 
 async function callProvider(p,key,msg){
   const sys = SYSTEM[S.persona];
-  if(p==='gemini'){
-    const r=await ftimeout(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${key}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({contents:[{parts:[{text:sys+'\n\n'+msg}]}],generationConfig:{maxOutputTokens:200}})});
-    const d=await r.json(); return d?.candidates?.[0]?.content?.parts?.[0]?.text||null;
-  }
-  if(p==='grok'){
-    const r=await ftimeout('https://api.x.ai/v1/chat/completions',{method:'POST',headers:{'Authorization':'Bearer '+key,'Content-Type':'application/json'},body:JSON.stringify({model:'grok-beta',messages:[{role:'system',content:sys},{role:'user',content:msg}],max_tokens:200})});
+  // OpenAI-compatible helper (Groq, Cerebras, Grok share same shape)
+  async function oaiCall(base,model){
+    const r=await ftimeout(base+'/chat/completions',{method:'POST',headers:{'Authorization':'Bearer '+key,'Content-Type':'application/json'},body:JSON.stringify({model,messages:[{role:'system',content:sys},{role:'user',content:msg}],max_tokens:300})});
     const d=await r.json(); return d?.choices?.[0]?.message?.content||null;
   }
-  if(p==='hf'){
-    const r=await ftimeout('https://api-inference.huggingface.co/models/mistralai/Mistral-7B-Instruct-v0.2',{method:'POST',headers:{'Authorization':'Bearer '+key,'Content-Type':'application/json'},body:JSON.stringify({inputs:`[INST] ${sys}\n${msg} [/INST]`,parameters:{max_new_tokens:200}})});
-    const d=await r.json(); return Array.isArray(d)?d[0]?.generated_text?.split('[/INST]').pop()?.trim()||null:null;
+  if(p==='groq')     return oaiCall('https://api.groq.com/openai/v1','llama-3.3-70b-versatile');
+  if(p==='cerebras') return oaiCall('https://api.cerebras.ai/v1','llama-3.3-70b');
+  if(p==='grok')     return oaiCall('https://api.x.ai/v1','grok-3-mini');
+  if(p==='gemini'){
+    const r=await ftimeout(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${key}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({contents:[{parts:[{text:sys+'\n\n'+msg}]}],generationConfig:{maxOutputTokens:300}})});
+    const d=await r.json(); return d?.candidates?.[0]?.content?.parts?.[0]?.text||null;
   }
   if(p==='cohere'){
-    const r=await ftimeout('https://api.cohere.ai/v1/generate',{method:'POST',headers:{'Authorization':'Bearer '+key,'Content-Type':'application/json'},body:JSON.stringify({model:'command-light',prompt:sys+'\n\nUser: '+msg+'\nSupervisor:',max_tokens:200,stop_sequences:['\nUser:']})});
+    const r=await ftimeout('https://api.cohere.ai/v1/generate',{method:'POST',headers:{'Authorization':'Bearer '+key,'Content-Type':'application/json'},body:JSON.stringify({model:'command-light',prompt:sys+'\n\nUser: '+msg+'\nSupervisor:',max_tokens:300,stop_sequences:['\nUser:']})});
     const d=await r.json(); return d?.generations?.[0]?.text?.trim()||null;
+  }
+  if(p==='hf'){
+    const r=await ftimeout('https://api-inference.huggingface.co/models/mistralai/Mistral-7B-Instruct-v0.2',{method:'POST',headers:{'Authorization':'Bearer '+key,'Content-Type':'application/json'},body:JSON.stringify({inputs:`[INST] ${sys}\n${msg} [/INST]`,parameters:{max_new_tokens:300}})});
+    const d=await r.json(); return Array.isArray(d)?d[0]?.generated_text?.split('[/INST]').pop()?.trim()||null:null;
   }
   return null;
 }
@@ -1180,7 +1186,7 @@ function ftimeout(url,opts,ms=6000){
 }
 
 function fallback(){ const p=FALLBACK[S.persona]; return p[Math.floor(Math.random()*p.length)]; }
-function getPriority(){ const items=document.querySelectorAll('#priority-list .pi'); if(items.length) return Array.from(items).map(e=>e.dataset.key); return ['gemini','grok','hf','cohere']; }
+function getPriority(){ const items=document.querySelectorAll('#priority-list .pi'); if(items.length) return Array.from(items).map(e=>e.dataset.key); return ['groq','cerebras','gemini','grok','cohere','hf']; }
 function getActiveModel(){ for(const p of getPriority()){ if(S.apiKeys[p]) return p.charAt(0).toUpperCase()+p.slice(1); } return 'Fallback'; }
 
 async function fullSend(){ await sendChat('full-msgs','full-typing','full-input'); }
@@ -1245,13 +1251,33 @@ function renderApiKeys(){
   renderPriorityList();
 }
 
-function saveKey(k){
+// Map Supervisor provider keys → backend env var names expected by llm_gateway.py
+const BACKEND_KEY_MAP = {
+  groq:     'GROQ_API_KEY',
+  cerebras: 'CEREBRAS_API_KEY',
+  gemini:   'GEMINI_API_KEY',
+  grok:     'XAI_API_KEY',
+  cohere:   'COHERE_API_KEY',
+  hf:       'HUGGINGFACE_API_KEY',
+};
+
+async function saveKey(k){
   const val=document.getElementById('key-'+k)?.value.trim();
   if(!val){ toast('Key cannot be empty','err'); return; }
   S.apiKeys[k]=val;
   localStorage.setItem('sup_ai_keys',JSON.stringify(S.apiKeys));
   const s=document.getElementById('ks-'+k); if(s){s.style.display='inline';setTimeout(()=>s.style.display='none',3000);}
-  toast(`${k} key saved`);
+  // Push to backend gateway so it takes effect without a Railway redeploy
+  const envVar = BACKEND_KEY_MAP[k];
+  if(envVar && S.token){
+    try{
+      const r = await api('/admin/gateway/keys',{method:'POST',body:JSON.stringify({var_name:envVar,value:val})});
+      if(r?.ok) toast(`${k} key saved & pushed to gateway ✓`);
+      else toast(`${k} key saved locally (backend sync pending)`,'warn');
+    } catch(e){ toast(`${k} key saved locally (gateway offline)`,'warn'); }
+  } else {
+    toast(`${k} key saved`);
+  }
   renderAiStatus();
   document.getElementById('s-model').textContent=getActiveModel();
 }
