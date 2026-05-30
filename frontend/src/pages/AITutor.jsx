@@ -129,7 +129,10 @@ export default function AITutor() {
       audio.onended = () => { URL.revokeObjectURL(url); setAudioPlaying(false); };
       audio.onpause = () => setAudioPlaying(false);
       audio.onplay = () => setAudioPlaying(true);
-      audio.oncanplaythrough = () => audio.play();
+      audio.oncanplaythrough = () => {
+        if (audioElRef.current !== audio) return;
+        audio.play().catch(() => setAudioPlaying(false));
+      };
       audio.load();
     } catch (e) {
       if (e?.name !== "AbortError") {

@@ -165,8 +165,10 @@ export default function OrchestratorChat() {
       if (audioElRef.current) {
         audioElRef.current.src = url;
         setAudioPlaying(true);
-        audioElRef.current.play().catch(() => {});
-        audioElRef.current.onended = () => setAudioPlaying(false);
+        audioElRef.current.play().catch(() => { URL.revokeObjectURL(url); setAudioPlaying(false); });
+        audioElRef.current.onended = () => { URL.revokeObjectURL(url); setAudioPlaying(false); };
+      } else {
+        URL.revokeObjectURL(url);
       }
     } catch (e) {
       if (e?.code !== "ERR_CANCELED") {

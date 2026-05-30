@@ -732,8 +732,10 @@ export default function DirectorWidget() {
 
   // ── Derived ────────────────────────────────────────────────────────────────
 
-  const bottomRef  = useRef(null);
-  const recRef     = useRef(null);
+  const bottomRef     = useRef(null);
+  const recRef        = useRef(null);
+  const speakAudioRef = useRef(null);
+  const speakAbortRef = useRef(null);
   const isMonitor  = user?.role === "admin" || user?.role === "executive_admin";
   const roleTabs   = ROLE_TABS[user?.role] || ["chat"];
 
@@ -797,20 +799,26 @@ export default function DirectorWidget() {
 
   const speak = async (text) => {
     if (!audioOn) return;
+    speakAbortRef.current?.abort();
+    if (speakAudioRef.current) { speakAudioRef.current.pause(); speakAudioRef.current = null; }
+    const controller = new AbortController();
+    speakAbortRef.current = controller;
     try {
       const token = localStorage.getItem("lce_token");
       const r = await fetch(`${API}/ai/sage/tts`, {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify({ text, voice: persona === "director" ? "onyx" : "nova", speed: 1.0, session_id: "director" }),
+        signal: controller.signal,
       });
       if (!r.ok) return;
       const blob = await r.blob();
       const url  = URL.createObjectURL(blob);
       const audio = new Audio(url);
-      audio.onended = () => URL.revokeObjectURL(url);
-      audio.play();
-    } catch {}
+      speakAudioRef.current = audio;
+      audio.onended = () => { URL.revokeObjectURL(url); speakAudioRef.current = null; };
+      audio.play().catch(() => { URL.revokeObjectURL(url); speakAudioRef.current = null; });
+    } catch (e) { if (e?.name !== "AbortError") { speakAudioRef.current = null; } }
   };
 
   // ── STT ───────────────────────────────────────────────────────────────────

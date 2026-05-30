@@ -188,16 +188,19 @@ function useMic({ onResult, onError }) {
     if (!SR) { onError("Voice input is not supported in this browser. Please use Chrome or Edge."); return; }
     try { await navigator.mediaDevices.getUserMedia({ audio: true }); }
     catch { onError("Microphone access was denied. Please allow mic access in your browser settings."); return; }
+    if (recogRef.current) { recogRef.current.stop(); recogRef.current = null; }
     const rec = new SR();
     rec.lang = "en-US"; rec.continuous = false; rec.interimResults = false; rec.maxAlternatives = 1;
     rec.onstart = () => setListening(true);
-    rec.onend = () => setListening(false);
+    rec.onend = () => { recogRef.current = null; setListening(false); };
     rec.onresult = (e) => { const t = e.results[0]?.[0]?.transcript || ""; if (t.trim()) onResult(t.trim()); };
-    rec.onerror = (e) => { setListening(false); onError(e.error === "not-allowed" ? "Microphone access denied." : "Microphone error: " + e.error); };
-    recogRef.current = rec; rec.start();
+    rec.onerror = (e) => { recogRef.current = null; setListening(false); onError(e.error === "not-allowed" ? "Microphone access denied." : "Microphone error: " + e.error); };
+    recogRef.current = rec;
+    try { rec.start(); }
+    catch { recogRef.current = null; onError("Microphone error: could not start."); }
   }, [onResult, onError]);
 
-  const stop = useCallback(() => { recogRef.current?.stop(); setListening(false); }, []);
+  const stop = useCallback(() => { recogRef.current?.stop(); recogRef.current = null; setListening(false); }, []);
   const toggle = useCallback(() => { if (listening) stop(); else start(); }, [listening, start, stop]);
   return { listening, toggle };
 }
@@ -253,7 +256,7 @@ function useTTS(voice) {
       audio.onended = () => { URL.revokeObjectURL(url); setSpeaking(false); };
       audio.onpause = () => setSpeaking(false);
       audio.onerror = () => { setSpeaking(false); speakBrowser(text); };
-      audio.play();
+      audio.play().catch(() => { setSpeaking(false); speakBrowser(text); });
     } catch (e) { if (e?.name !== "AbortError") { setSpeaking(false); speakBrowser(text); } }
   }, [voice, speakBrowser]);
 
