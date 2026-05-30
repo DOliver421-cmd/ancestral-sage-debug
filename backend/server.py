@@ -10197,6 +10197,76 @@ try:
         logger.info("Gateway key %s %s by exec", var_name, "enabled" if enabled else "disabled")
         return {"ok": True, "var": var_name, "enabled": enabled}
 
+    @api_router.patch("/admin/gateway/budget")
+    async def set_gateway_budget(body: dict, user: User = Depends(require_role("executive_admin"))):
+        """
+        Update the live hourly token budget cap without a redeploy.
+        Body: { hourly_cap: int }  (minimum 1000, maximum 10_000_000)
+        """
+        import ai.llm_gateway as _gw
+        cap = body.get("hourly_cap")
+        if not isinstance(cap, int) or cap < 1000:
+            raise HTTPException(400, "hourly_cap must be an integer >= 1000")
+        if cap > 10_000_000:
+            raise HTTPException(400, "hourly_cap cannot exceed 10,000,000")
+        _gw.HOURLY_TOKEN_CAP = cap
+        await db.platform_config.update_one(
+            {"key": "gateway_hourly_cap"},
+            {"$set": {"key": "gateway_hourly_cap", "value": cap}},
+            upsert=True,
+        )
+        await audit(user.id, "gateway.budget.updated", meta={"hourly_cap": cap})
+        logger.info("Gateway hourly_cap set to %d by exec", cap)
+        return {"ok": True, "hourly_cap": cap}
+
+    @api_router.post("/admin/gateway/reset-budget")
+    async def reset_gateway_budget(user: User = Depends(require_role("executive_admin"))):
+        """
+        Emergency: zero out the current-hour token counter so the gateway
+        can accept new calls immediately (use when cap was hit due to a runaway).
+        """
+        import ai.llm_gateway as _gw
+        prev = _gw._hour_tokens_used
+        _gw._hour_tokens_used = 0
+        _gw._hour_window_start = None  # force window re-init on next call
+        await audit(user.id, "gateway.budget.reset", meta={"previous_tokens_used": prev})
+        logger.info("Gateway hourly token counter reset by exec (was %d)", prev)
+        return {"ok": True, "previous_tokens_used": prev}
+
+    _PROVIDER_RANKING_KEY = "gateway_provider_ranking"
+    _DEFAULT_PROVIDER_RANKING = [
+        "groq", "cerebras", "gemini", "grok", "cohere", "openrouter", "huggingface", "anthropic",
+    ]
+
+    @api_router.get("/admin/gateway/ranking")
+    async def get_gateway_ranking(user: User = Depends(require_role("executive_admin"))):
+        """Return current provider priority order (free-first by default)."""
+        doc = await db.platform_config.find_one({"key": _PROVIDER_RANKING_KEY}, {"_id": 0})
+        ranking = (doc or {}).get("value", _DEFAULT_PROVIDER_RANKING)
+        return {"ranking": ranking, "default": _DEFAULT_PROVIDER_RANKING}
+
+    @api_router.patch("/admin/gateway/ranking")
+    async def set_gateway_ranking(body: dict, user: User = Depends(require_role("executive_admin"))):
+        """
+        Set the soft provider priority order.
+        Body: { ranking: ["groq", "cerebras", ...] }
+        Must include all providers or will be rejected.
+        NOTE: this stores the preference in DB for display; the gateway's
+        hard-coded fallback chain is the live order. To override runtime order,
+        push/revoke keys to make only the desired providers available.
+        """
+        ranking = body.get("ranking", [])
+        valid = set(_DEFAULT_PROVIDER_RANKING)
+        if not isinstance(ranking, list) or set(ranking) != valid:
+            raise HTTPException(400, f"ranking must be a list containing exactly: {sorted(valid)}")
+        await db.platform_config.update_one(
+            {"key": _PROVIDER_RANKING_KEY},
+            {"$set": {"key": _PROVIDER_RANKING_KEY, "value": ranking}},
+            upsert=True,
+        )
+        await audit(user.id, "gateway.ranking.updated", meta={"ranking": ranking})
+        return {"ok": True, "ranking": ranking}
+
     # Auto-generate shared secret once; stored in DB so exec can retrieve it.
     _HEARTBEAT_SECRET_KEY = "exec_panel_heartbeat_secret"
 

@@ -151,6 +151,9 @@ function ExecPanel({ apiOnline, visibility, setVisibility, superExec }) {
   const [capLevel, setCapLevel]     = useState("");
   const [loading, setLoading]       = useState(false);
   const [notice, setNotice]         = useState("");
+  // ── gateway controls ───────────────────────────────────────────────────────
+  const [budgetCap, setBudgetCap]         = useState("");
+  const [gwRanking, setGwRanking]         = useState(null);
   // ── failover tab ───────────────────────────────────────────────────────────
   const [backupMatrix, setBackupMatrix]   = useState(null);
   const [failoverTarget, setFailoverTarget] = useState("backup");
@@ -179,6 +182,11 @@ function ExecPanel({ apiOnline, visibility, setVisibility, superExec }) {
 
   const loadGateway = useCallback(async () => {
     try { const r = await api.get("/admin/gateway/status"); setGwStatus(r.data); } catch {}
+    try {
+      const r2 = await api.get("/admin/gateway/ranking");
+      setGwRanking(r2.data);
+      if (r2.data?.hourly_cap) setBudgetCap(String(r2.data.hourly_cap));
+    } catch {}
   }, []);
 
   const loadUsers = useCallback(async (q, role) => {
@@ -378,6 +386,38 @@ function ExecPanel({ apiOnline, visibility, setVisibility, superExec }) {
     } catch (e) { notify(`Toggle failed: ${e?.response?.data?.detail || e.message}`); }
   };
 
+  const saveBudgetCap = async () => {
+    const cap = parseInt(budgetCap, 10);
+    if (isNaN(cap) || cap < 1000) { notify("Minimum budget cap is 1,000 tokens"); return; }
+    try {
+      await api.patch("/admin/gateway/budget", { hourly_cap: cap });
+      notify(`Hourly cap set to ${cap.toLocaleString()} tokens`);
+      await loadGateway();
+    } catch (e) { notify(`Budget update failed: ${e?.response?.data?.detail || e.message}`); }
+  };
+
+  const resetBudgetCounter = async () => {
+    if (!window.confirm("Zero out the current-hour token counter? This lets the gateway accept new calls immediately.")) return;
+    try {
+      const r = await api.post("/admin/gateway/reset-budget");
+      notify(`Token counter reset (was ${r.data.previous_tokens_used?.toLocaleString()})`);
+      await loadGateway();
+    } catch (e) { notify(`Reset failed: ${e?.response?.data?.detail || e.message}`); }
+  };
+
+  const moveRanking = async (index, dir) => {
+    if (!gwRanking?.ranking) return;
+    const arr = [...gwRanking.ranking];
+    const swap = index + dir;
+    if (swap < 0 || swap >= arr.length) return;
+    [arr[index], arr[swap]] = [arr[swap], arr[index]];
+    try {
+      await api.patch("/admin/gateway/ranking", { ranking: arr });
+      setGwRanking(r => ({ ...r, ranking: arr }));
+      notify("Provider ranking updated");
+    } catch (e) { notify(`Ranking update failed: ${e?.response?.data?.detail || e.message}`); }
+  };
+
   const TABS = [
     { key: "health",     label: "Health" },
     { key: "gateway",    label: "Gateway" },
@@ -454,10 +494,13 @@ function ExecPanel({ apiOnline, visibility, setVisibility, superExec }) {
 
         {tab === "gateway" && (
           <div>
-            <div style={{ color: "white", fontWeight: 700, fontSize: 14, marginBottom: 14 }}>LLM Gateway Status</div>
+            <div style={{ color: "white", fontWeight: 700, fontSize: 14, marginBottom: 14 }}>LLM Gateway Controls</div>
+
+            {/* Provider status grid */}
             {gwStatus ? (
               <div>
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(160px,1fr))", gap: 10, marginBottom: 14 }}>
+                <div style={{ color: SIG, fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1, marginBottom: 8 }}>Provider Status</div>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(160px,1fr))", gap: 10, marginBottom: 18 }}>
                   {Object.entries(gwStatus.providers || {}).map(([name, p]) => (
                     <div key={name} style={{ background: "rgba(255,255,255,0.07)", borderRadius: 8, padding: "10px 14px" }}>
                       <div style={{ color: "white", fontWeight: 700, fontSize: 13, textTransform: "capitalize" }}>{name}</div>
@@ -468,16 +511,66 @@ function ExecPanel({ apiOnline, visibility, setVisibility, superExec }) {
                     </div>
                   ))}
                 </div>
+
+                {/* Budget controls */}
                 {gwStatus.budget && (
-                  <div style={{ background: "rgba(255,255,255,0.06)", borderRadius: 8, padding: "10px 14px", fontSize: 12, color: "rgba(255,255,255,0.6)" }}>
-                    Hourly budget: {gwStatus.budget.tokens_used?.toLocaleString()} / {gwStatus.budget.hourly_cap?.toLocaleString()} tokens ({gwStatus.budget.budget_pct}%)
-                    {gwStatus.budget.over_budget && <span style={{ color: "#dc2626", marginLeft: 8, fontWeight: 700 }}>OVER BUDGET</span>}
+                  <div style={{ background: "rgba(255,255,255,0.06)", borderRadius: 8, padding: "12px 16px", marginBottom: 18 }}>
+                    <div style={{ color: SIG, fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1, marginBottom: 8 }}>Hourly Token Budget</div>
+                    <div style={{ fontSize: 12, color: "rgba(255,255,255,0.6)", marginBottom: 10 }}>
+                      Used: {gwStatus.budget.tokens_used?.toLocaleString()} / {gwStatus.budget.hourly_cap?.toLocaleString()} tokens ({gwStatus.budget.budget_pct}%)
+                      {gwStatus.budget.over_budget && <span style={{ color: "#dc2626", marginLeft: 8, fontWeight: 700 }}>⚠ OVER BUDGET</span>}
+                    </div>
+                    <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+                      <input
+                        type="number"
+                        value={budgetCap || gwStatus.budget.hourly_cap || ""}
+                        onChange={e => setBudgetCap(e.target.value)}
+                        placeholder="tokens/hour"
+                        style={{ background: "rgba(255,255,255,0.1)", border: "1px solid rgba(255,255,255,0.2)", borderRadius: 6, padding: "6px 10px", color: "white", fontSize: 12, width: 140, outline: "none" }}
+                      />
+                      <button onClick={saveBudgetCap}
+                        style={{ background: SIG, border: "none", color: INK, padding: "6px 14px", borderRadius: 6, fontSize: 11, fontWeight: 800, cursor: "pointer" }}>
+                        Set Cap
+                      </button>
+                      <button onClick={resetBudgetCounter}
+                        style={{ background: "rgba(220,38,38,0.25)", border: "none", color: "#f87171", padding: "6px 14px", borderRadius: 6, fontSize: 11, fontWeight: 800, cursor: "pointer" }}>
+                        Reset Counter
+                      </button>
+                    </div>
                   </div>
                 )}
               </div>
             ) : (
               <p style={{ color: "rgba(255,255,255,0.4)", fontSize: 13 }}>Loading gateway status…</p>
             )}
+
+            {/* Provider ranking */}
+            <div style={{ background: "rgba(255,255,255,0.06)", borderRadius: 8, padding: "12px 16px", marginBottom: 14 }}>
+              <div style={{ color: SIG, fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1, marginBottom: 6 }}>Provider Priority Order (Free-First)</div>
+              <div style={{ color: "rgba(255,255,255,0.4)", fontSize: 10, marginBottom: 10 }}>
+                Soft preference stored in DB. Use API Keys tab to push/revoke/disable providers to enforce hard routing.
+              </div>
+              {gwRanking?.ranking ? (
+                <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                  {gwRanking.ranking.map((prov, i) => (
+                    <div key={prov} style={{ display: "flex", alignItems: "center", gap: 8, background: "rgba(255,255,255,0.05)", borderRadius: 6, padding: "6px 10px" }}>
+                      <span style={{ color: SIG, fontWeight: 800, fontSize: 11, width: 20 }}>#{i + 1}</span>
+                      <span style={{ color: "white", fontSize: 12, flex: 1, textTransform: "capitalize" }}>{prov}</span>
+                      <button onClick={() => moveRanking(i, -1)} disabled={i === 0}
+                        style={{ background: "none", border: "none", color: i === 0 ? "rgba(255,255,255,0.2)" : "rgba(255,255,255,0.6)", fontSize: 14, cursor: i === 0 ? "default" : "pointer", padding: "0 4px" }}>▲</button>
+                      <button onClick={() => moveRanking(i, 1)} disabled={i === gwRanking.ranking.length - 1}
+                        style={{ background: "none", border: "none", color: i === gwRanking.ranking.length - 1 ? "rgba(255,255,255,0.2)" : "rgba(255,255,255,0.6)", fontSize: 14, cursor: i === gwRanking.ranking.length - 1 ? "default" : "pointer", padding: "0 4px" }}>▼</button>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p style={{ color: "rgba(255,255,255,0.4)", fontSize: 12 }}>Loading ranking…</p>
+              )}
+            </div>
+
+            <button onClick={loadGateway} style={{ background: "rgba(255,255,255,0.1)", border: "none", color: "white", padding: "5px 12px", borderRadius: 6, fontSize: 11, cursor: "pointer" }}>
+              Refresh Status
+            </button>
           </div>
         )}
 
