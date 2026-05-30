@@ -1,6 +1,6 @@
 # WAI-Institute — Delivery Accountability Report
 
-**Date:** 2026-05-29  
+**Date:** 2026-05-30  
 **Branch:** claude/quirky-hopper-TL0KR  
 **Maintained by:** Claude Code sessions  
 **Owner:** D. Oliver, Executive Director, WAI-Institute
@@ -51,6 +51,11 @@ This document tracks every task assigned and its actual delivery status. A task 
 | A20 | Registration sends welcome email (fire-and-forget, no human interaction) | 66cbb2c | ✓ verified line 1634 server.py |
 | A21 | Forgot-password sends reset email via `_send_reset_email()` | (pre-existing) | ✓ verified in server.py |
 | A22 | Landing page `"/"` redirects unauthenticated users to MoreHelpCenter | (current App.js) | ✓ verified line 116 |
+| A23 | SupervisorProtected component — /supervisor redirects to /supervisor-login | 357dc2c | ✓ verified App.js lines 104–111 |
+| A24 | ExecSystem white-card text-slate-900 — near-white inheritance on white bg fixed | 357dc2c | ✓ verified ExecSystem.jsx all bg-white containers |
+| A25 | AdminDashboard contrast fixes (text-ink/50→/80, /40→/70) | 357dc2c | ✓ verified in git diff 357dc2c |
+| A26 | Backend gateway wiring: lab AI feedback, staff meeting _call_persona, The 9 synthesis | a24d63a | ✓ verified server.py call_llm() as primary + Anthropic fallback |
+| A27 | Standalone MORE Help Center HTML page (backup/more_help_center.html) | 177c17a | ✓ 1468 lines, 6 tabs, Sage AI, voice, training, localStorage, health monitor |
 
 ---
 
@@ -58,11 +63,7 @@ This document tracks every task assigned and its actual delivery status. A task 
 
 | # | Task | Current State | Gap |
 |---|------|---------------|-----|
-| B1 | /supervisor route redirects to /supervisor-login (not /login) | `Protected` still used; sends to `/login` | `SupervisorProtected` component not yet committed |
-| B2 | ExecSystem white-card text visible (inherited near-white on white bg) | One timestamp line fixed (66cbb2c); white card containers have no explicit dark color | `text-slate-900` on card containers not yet committed |
-| B3 | All 18+ persona endpoints wired through `call_llm()` gateway | ~10 endpoints wired; ~8 still use direct `AsyncAnthropic` calls | Direct Anthropic calls at server.py lines 3576, 3665, 3828, 4160, 4580, 4689, 6376, 6907, 7237, 7745, 7865, 7980, 8093 |
-| B4 | Standalone MORE Help Center HTML page (`backup/more_help_center.html`) | Not created | Full standalone HTML file with Sage panel, voice, role toggles, navigation |
-| B5 | AdminDashboard contrast fixes | Claimed in 66cbb2c commit message but not verified as sufficient | Needs re-audit |
+| B3 | All 18+ persona endpoints wired through `call_llm()` gateway | Partially done (a24d63a); tool-use loops intentionally excluded | Remaining direct Anthropic calls at server.py: ~lines 3576, 3665, 3828, 4160, 4580, 4689 — these use tool-use API and cannot route through text-only gateway without refactor |
 
 ---
 
@@ -76,14 +77,11 @@ Prior sessions show a consistent 31% delivery rate: tasks are acknowledged, part
 
 ## PART 4 — OUTSTANDING WORK (Current Session Priority Order)
 
-1. **COMMIT** — `/supervisor` → `SupervisorProtected` (redirect to `/supervisor-login`) [code ready, not committed]
-2. **COMMIT** — ExecSystem white-card `text-slate-900` fixes [code ready, not committed]
-3. **VERIFY** — AdminDashboard contrast (re-audit 66cbb2c claim)
-4. **BUILD** — Standalone MORE Help Center HTML page (`backup/more_help_center.html`)
-5. **WIRE** — Remaining direct Anthropic persona endpoints through `call_llm()` gateway
-6. **DEPLOY** — Frontend changes (section 1)
-7. **DEPLOY** — Backend changes (section 2)
+1. **DONE** — SupervisorProtected + ExecSystem contrast + AdminDashboard contrast [357dc2c, pushed]
+2. **DONE** — Backend gateway wiring for lab feedback, staff meeting, The 9 synthesis [a24d63a, pushed]
+3. **DONE** — Standalone MORE Help Center HTML page [177c17a, pushed]
+4. **OPEN** — Tool-use persona endpoints (Director, exec personas): cannot route through text-only call_llm() gateway without adding tool-use support to the gateway itself. Requires explicit authorization and scope definition before proceeding.
 
 ---
 
-*Last updated: 2026-05-29 by Claude Code session*
+*Last updated: 2026-05-30 by Claude Code session*
