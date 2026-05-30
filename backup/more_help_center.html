@@ -1464,5 +1464,669 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 });
 </script>
+
+<!-- ═══════════════════════════════════════════════════════════════════════════
+     THE SUPERVISOR WIDGET — standalone, no external deps, full offline support
+     ══════════════════════════════════════════════════════════════════════════ -->
+<style>
+  #sup-widget *{box-sizing:border-box;margin:0;padding:0;font-family:'Segoe UI',system-ui,sans-serif;}
+  #sup-chip{position:fixed;bottom:88px;right:24px;z-index:9997;display:flex;align-items:center;gap:8px;
+    background:linear-gradient(135deg,#0b1024,#050814);border:1px solid rgba(74,242,197,.55);
+    border-radius:999px;padding:8px 14px;cursor:pointer;box-shadow:0 0 18px rgba(74,242,197,.2);
+    user-select:none;transition:box-shadow .2s;}
+  #sup-chip:hover{box-shadow:0 0 28px rgba(74,242,197,.4);}
+  #sup-chip .sdot{width:8px;height:8px;border-radius:50%;background:#f59e0b;box-shadow:0 0 6px #f59e0b;flex-shrink:0;}
+  #sup-chip .sdot.online{background:#4af2c5;box-shadow:0 0 6px #4af2c5;}
+  #sup-chip .sdot.offline{background:#ff4b81;box-shadow:0 0 6px #ff4b81;}
+  #sup-chip .sname{font-size:11px;font-weight:700;letter-spacing:.1em;color:#f5f7ff;text-transform:uppercase;}
+  #sup-chip .smode{font-size:10px;color:rgba(139,146,181,.8);border-left:1px solid rgba(74,242,197,.2);padding-left:8px;}
+
+  #sup-panel{position:fixed;bottom:24px;right:24px;z-index:9997;
+    width:460px;height:min(84vh,700px);
+    background:radial-gradient(circle at top,#151b3a,#050814 55%);
+    border:1px solid rgba(74,242,197,.3);border-radius:18px;
+    display:none;flex-direction:column;
+    box-shadow:0 0 48px rgba(0,0,0,.85);overflow:hidden;}
+  #sup-panel.open{display:flex;}
+  #sup-panel.fs{position:fixed;inset:0;width:100vw;height:100vh;border-radius:0;display:flex;flex-direction:row;}
+
+  .sup-hdr{padding:8px 12px;border-bottom:1px solid rgba(74,242,197,.18);
+    display:flex;align-items:center;justify-content:space-between;gap:8px;
+    background:linear-gradient(120deg,rgba(74,242,197,.1),transparent 50%);
+    cursor:grab;flex-shrink:0;}
+  .sup-hdr .si{display:flex;align-items:center;gap:10px;}
+  .sup-hdr .sn{font-size:12px;font-weight:700;letter-spacing:.1em;color:#f5f7ff;text-transform:uppercase;}
+  .sup-hdr .ss{font-size:10px;color:rgba(139,146,181,.7);}
+  .sup-hdr .hr{display:flex;gap:5px;align-items:center;}
+
+  .smb{font-size:9px;padding:3px 8px;border-radius:999px;cursor:pointer;font-weight:600;
+    border:1px solid rgba(139,146,181,.35);background:rgba(5,8,20,.9);color:rgba(139,146,181,.7);transition:.15s;}
+  .smb.on{border-color:rgba(74,242,197,.8);color:#4af2c5;background:radial-gradient(circle,rgba(74,242,197,.25),#050814);}
+  .sib{background:none;border:none;color:rgba(139,146,181,.7);cursor:pointer;font-size:14px;padding:2px 5px;line-height:1;}
+
+  .sup-tabs{display:flex;gap:4px;padding:5px 12px;border-bottom:1px solid rgba(74,242,197,.1);flex-shrink:0;flex-wrap:wrap;}
+  .stb{font-size:10px;padding:3px 10px;border-radius:999px;cursor:pointer;
+    border:1px solid rgba(139,146,181,.25);background:transparent;color:rgba(139,146,181,.6);transition:.15s;}
+  .stb.on{border-color:rgba(74,242,197,.8);color:#4af2c5;background:radial-gradient(circle,rgba(74,242,197,.2),#050814);}
+
+  .sup-body{flex:1;overflow:hidden;display:flex;flex-direction:column;}
+
+  /* Chat */
+  .sup-log{flex:1;overflow-y:auto;padding:10px 12px;font-size:13px;line-height:1.55;
+    scrollbar-width:thin;scrollbar-color:rgba(74,242,197,.4) transparent;}
+  .smsg{margin-bottom:10px;max-width:88%;}
+  .smsg.u{margin-left:auto;text-align:right;}
+  .smsg .sr{font-size:10px;color:rgba(139,146,181,.6);margin-bottom:2px;text-transform:uppercase;letter-spacing:.06em;}
+  .smsg .sb{padding:7px 10px;border-radius:10px;white-space:pre-wrap;
+    background:rgba(11,16,36,.95);border:1px solid rgba(74,242,197,.18);}
+  .smsg.u .sb{background:radial-gradient(circle at 100% 0,rgba(74,242,197,.28),#050814);border-color:rgba(74,242,197,.55);}
+
+  .sup-inp{padding:8px 10px;border-top:1px solid rgba(74,242,197,.15);flex-shrink:0;}
+  .sup-inp .row{display:flex;gap:6px;margin-bottom:6px;}
+  .sup-inp input{flex:1;background:rgba(5,8,20,.9);border:1px solid rgba(74,242,197,.4);border-radius:999px;
+    padding:6px 12px;font-size:12px;color:#f5f7ff;outline:none;}
+  .ssend{border-radius:999px;border:1px solid rgba(74,242,197,.8);
+    background:radial-gradient(circle at 0 0,rgba(74,242,197,.4),#050814);
+    color:#f5f7ff;font-size:11px;padding:6px 14px;cursor:pointer;font-weight:700;white-space:nowrap;}
+  .chip2{font-size:9px;padding:3px 8px;border-radius:999px;cursor:pointer;
+    border:1px solid rgba(139,146,181,.45);background:rgba(5,8,20,.9);color:rgba(139,146,181,.85);
+    display:inline-flex;align-items:center;gap:4px;}
+  .chip2.on{border-color:rgba(74,242,197,.8);color:#4af2c5;}
+
+  /* Training */
+  .sup-train{flex:1;overflow-y:auto;padding:12px 14px;}
+  .sup-train .tdesc{font-size:12px;color:rgba(139,146,181,.8);margin-bottom:14px;line-height:1.6;}
+  .bcard{border-radius:10px;border:1px solid rgba(74,242,197,.18);background:rgba(5,8,20,.9);padding:10px 12px;margin-bottom:10px;}
+  .bcard.active{border-color:var(--bc,rgba(74,242,197,.4));}
+  .bcard-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;}
+  .bcard-hdr .bl{display:flex;align-items:center;gap:8px;}
+  .bcard-hdr .bn{font-size:12px;font-weight:700;}
+  .bcard-hdr .bd{font-size:10px;color:rgba(139,146,181,.6);}
+  .bcard-hdr .br{display:flex;align-items:center;gap:6px;}
+  .wbadge{font-size:9px;padding:2px 6px;border-radius:999px;}
+  .bcard-btns{display:flex;gap:6px;flex-wrap:wrap;margin-top:4px;}
+  .bcard textarea{width:100%;min-height:110px;background:rgba(5,8,20,.95);border:1px solid rgba(74,242,197,.35);
+    border-radius:8px;padding:8px 10px;font-size:11px;color:#f5f7ff;outline:none;resize:vertical;line-height:1.5;
+    margin-top:8px;font-family:inherit;}
+  .bpreview{margin-top:5px;font-size:10px;color:rgba(139,146,181,.45);line-height:1.4;
+    overflow:hidden;max-height:30px;mask-image:linear-gradient(to bottom,black 40%,transparent);}
+
+  /* Culture stream */
+  .sup-cult{flex:1;overflow:hidden;display:flex;flex-direction:column;padding:10px 12px;}
+  .cult-list{flex:1;overflow-y:auto;}
+  .cult-item{display:flex;gap:8px;padding:5px 4px;border-radius:8px;
+    background:radial-gradient(circle at 0 0,rgba(74,242,197,.07),transparent 70%);margin-bottom:3px;}
+  .cult-hl{font-size:11px;font-weight:500;color:#e8e4f0;}
+  .cult-cat{font-size:9px;color:rgba(139,146,181,.6);text-transform:uppercase;letter-spacing:.05em;}
+  .cult-foot{border-top:1px solid rgba(74,242,197,.15);padding-top:8px;margin-top:8px;}
+  .cult-foot .row{display:flex;gap:6px;margin-bottom:6px;}
+  .cult-foot input{flex:1;background:rgba(5,8,20,.9);border:1px solid rgba(74,242,197,.3);border-radius:999px;
+    padding:4px 10px;font-size:11px;color:#f5f7ff;outline:none;}
+  .cult-foot select{width:100%;background:rgba(5,8,20,.9);border:1px solid rgba(74,242,197,.2);border-radius:999px;
+    padding:3px 8px;font-size:10px;color:rgba(139,146,181,.8);outline:none;}
+
+  /* System */
+  .sup-sys{flex:1;overflow-y:auto;padding:12px 14px;}
+  .scard{border-radius:10px;border:1px solid rgba(74,242,197,.2);background:rgba(5,8,20,.9);padding:10px 12px;margin-bottom:8px;}
+  .scard-t{font-size:11px;font-weight:700;margin-bottom:4px;}
+  .scard-b{font-size:10px;color:rgba(139,146,181,.75);line-height:1.6;}
+
+  /* Fullscreen culture column */
+  #sup-cult-col{width:240px;border-right:1px solid rgba(74,242,197,.15);
+    background:linear-gradient(160deg,#070b1c,#050814 60%,#0b1024);
+    display:flex;flex-direction:column;overflow:hidden;}
+
+  @media(max-width:600px){
+    #sup-panel{right:0;bottom:0;width:100vw;border-radius:18px 18px 0 0;height:90vh;}
+    #sup-chip{right:12px;bottom:12px;}
+  }
+</style>
+
+<div id="sup-widget">
+  <!-- Collapsed chip -->
+  <div id="sup-chip">
+    <div class="sdot" id="sup-dot"></div>
+    <span class="sname">The Supervisor</span>
+    <span class="smode" id="sup-mode-label">Staff</span>
+  </div>
+
+  <!-- Expanded panel -->
+  <div id="sup-panel">
+
+    <!-- Culture col (fullscreen only) -->
+    <div id="sup-cult-col" style="display:none">
+      <div style="padding:8px 12px 6px;border-bottom:1px solid rgba(74,242,197,.18)">
+        <div style="font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:rgba(139,146,181,.7)">
+          <span style="color:#4af2c5">Culture Stream</span> · Live Feed
+        </div>
+        <div style="font-size:10px;color:rgba(139,146,181,.55)">Spoken word · art · healing · spirituality</div>
+      </div>
+      <div class="cult-list" id="sup-cult-list-fs" style="flex:1;overflow-y:auto;padding:8px 10px"></div>
+      <div class="cult-foot" style="padding:8px 10px">
+        <div class="row">
+          <input id="sup-ci-fs" placeholder="Add to stream…">
+          <button class="chip2" onclick="supAddCulture('fs')">＋</button>
+        </div>
+        <select id="sup-cc-fs">
+          <option value="spoken">Spoken Word</option><option value="slam">Slam</option>
+          <option value="art">Art</option><option value="healing">Healing</option>
+          <option value="spirituality">Spirituality</option><option value="performance">Performance</option>
+          <option value="music">Music</option><option value="micro">Micro-Lesson</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- Main col -->
+    <div style="flex:1;display:flex;flex-direction:column;overflow:hidden">
+
+      <!-- Header -->
+      <div class="sup-hdr" id="sup-drag-hdr">
+        <div class="si">
+          <div class="sdot" id="sup-dot2"></div>
+          <div>
+            <div class="sn">The Supervisor</div>
+            <div class="ss">Fused persona · PRT + The 9 · Director · Sage · Ops</div>
+          </div>
+        </div>
+        <div class="hr">
+          <button class="smb on" id="sbm-Staff"  onclick="supMode('Staff')">Staff</button>
+          <button class="smb"    id="sbm-Greeter" onclick="supMode('Greeter')">Greeter</button>
+          <button class="smb"    id="sbm-Decoy"   onclick="supMode('Decoy')">Decoy</button>
+          <button class="sib" onclick="supToggleFS()" title="Fullscreen">⛶</button>
+          <button class="sib" onclick="supClose()" title="Minimize">─</button>
+        </div>
+      </div>
+
+      <!-- Tabs -->
+      <div class="sup-tabs">
+        <button class="stb on" id="stab-chat"     onclick="supTab('chat')">Chat</button>
+        <button class="stb"    id="stab-training"  onclick="supTab('training')">Training</button>
+        <button class="stb"    id="stab-culture"   onclick="supTab('culture')">Culture</button>
+        <button class="stb"    id="stab-system"    onclick="supTab('system')">System</button>
+        <div id="sup-active-chips" style="flex:1;display:flex;gap:4px;justify-content:flex-end;flex-wrap:wrap;align-items:center"></div>
+      </div>
+
+      <!-- Chat tab -->
+      <div id="stab-chat-body" class="sup-body">
+        <div class="sup-log" id="sup-log"></div>
+        <div class="sup-inp">
+          <div class="row">
+            <input id="sup-input" placeholder="Ask The Supervisor…" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();supSend();}">
+            <button class="ssend" onclick="supSend()">Send</button>
+          </div>
+          <div style="display:flex;gap:5px;flex-wrap:wrap">
+            <button class="chip2" id="sup-mic-btn" onclick="supToggleMic()">🎙 Voice</button>
+            <button class="chip2" id="sup-vo-btn"  onclick="supToggleVoiceOut()">🔇 Off</button>
+            <button class="chip2" onclick="supTab('training')">📚 Train me</button>
+            <button class="chip2" onclick="supToggleBucket('prt')"   id="sbk-prt">PRT</button>
+            <button class="chip2" onclick="supToggleBucket('the9')"  id="sbk-the9">The 9</button>
+            <button class="chip2" onclick="supToggleBucket('sage')"  id="sbk-sage">Sage</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Training tab -->
+      <div id="stab-training-body" class="sup-body" style="display:none">
+        <div class="sup-train">
+          <div class="tdesc">Load your knowledge into buckets. The Supervisor reads only what you give her — nothing leaves your browser. Activate a bucket to use it in chat.</div>
+          <div id="sup-buckets-list"></div>
+          <div style="font-size:10px;color:rgba(139,146,181,.4);text-align:center;margin-top:4px">Supports .txt · .md · .html · .htm · .pdf</div>
+        </div>
+      </div>
+
+      <!-- Culture tab -->
+      <div id="stab-culture-body" class="sup-body" style="display:none">
+        <div class="sup-cult">
+          <div class="cult-list" id="sup-cult-list"></div>
+          <div class="cult-foot">
+            <div class="row">
+              <input id="sup-ci" placeholder="Add to stream…" onkeydown="if(event.key==='Enter')supAddCulture('')">
+              <button class="chip2" onclick="supAddCulture('')">＋</button>
+            </div>
+            <select id="sup-cc">
+              <option value="spoken">Spoken Word</option><option value="slam">Slam</option>
+              <option value="art">Art</option><option value="healing">Healing</option>
+              <option value="spirituality">Spirituality</option><option value="performance">Performance</option>
+              <option value="music">Music</option><option value="micro">Micro-Lesson</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <!-- System tab -->
+      <div id="stab-system-body" class="sup-body" style="display:none">
+        <div class="sup-sys">
+          <div class="scard">
+            <div class="scard-t" id="sup-status-label" style="color:#f59e0b">Checking backend…</div>
+            <div class="scard-b">Supervisor works fully offline. Chat, voice, file upload, and culture stream need no backend.</div>
+          </div>
+          <div class="scard">
+            <div class="scard-t" style="color:#f5f7ff">Memory</div>
+            <div class="scard-b" style="margin-bottom:8px">Everything stored in this browser only. Nothing is transmitted anywhere.</div>
+            <button class="chip2" style="color:#ff4b81;border-color:rgba(255,75,129,.4)" onclick="supClearChat()">🧹 Clear chat</button>
+          </div>
+          <div class="scard">
+            <div class="scard-t" style="color:#f5f7ff">Active buckets</div>
+            <div class="scard-b" id="sys-buckets">None</div>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /main col -->
+
+  </div><!-- /panel -->
+
+  <!-- Hidden file input -->
+  <input type="file" id="sup-file-input" accept=".txt,.md,.html,.htm,.pdf" style="display:none" onchange="supHandleFile(this)">
+</div><!-- /widget -->
+
+<script>
+(function(){
+  // ── Buckets ────────────────────────────────────────────────────────────────
+  const BUCKETS=[
+    {key:'prt',       label:'PRT',        color:'#4af2c5', desc:'Precision Revenue Technology'},
+    {key:'the9',      label:'The 9',      color:'#a78bfa', desc:'Multi-angle council reasoning'},
+    {key:'director',  label:'Director',   color:'#f59e0b', desc:'Executive authority & strategy'},
+    {key:'sage',      label:'Sage',       color:'#34d399', desc:'Cultural wisdom & community'},
+    {key:'electrical',label:'Electrical', color:'#60a5fa', desc:'Circuits, safety, NEC'},
+    {key:'books',     label:'Books',      color:'#f472b6', desc:'Publishing, drafting, metadata'},
+    {key:'custom',    label:'Custom',     color:'#94a3b8', desc:'Your own notes & documents'},
+  ];
+  const DEFAULT_KB={
+    prt:'PRT — Precision Revenue Technology: systematic execution, revenue-aligned decisions, measurable outcomes, accountability at every step.',
+    the9:'The 9: layered multi-angle reasoning, collective wisdom, grounded analysis, coherent synthesis of opposing views.',
+    director:'The Director: executive authority, governance, strategic oversight, organizational vision, long-term thinking.',
+    sage:'The Ancestral Sage: cultural wisdom, intergenerational knowledge, community care, spiritual grounding, radical hospitality.',
+    electrical:'Electrical: NEC codes, circuit fundamentals, wiring safety, troubleshooting, load calculations, panel work, grounding.',
+    books:'Books & Publishing: outlining chapters, refining titles and hooks, drafting and editing, metadata, blurbs, Gumroad distribution.',
+    custom:'',
+  };
+  const CULT_EMOJI={spoken:'🎤',slam:'🔥',art:'🎨',healing:'🧘🏾',spirituality:'🌿',performance:'🎭',music:'🎧',micro:'📜'};
+  const CULT_DEF=[
+    {emoji:'🎤',headline:'New slam piece: fire in the quiet',category:'spoken'},
+    {emoji:'🎨',headline:'Neon diaspora collage just dropped',category:'art'},
+    {emoji:'🧘🏾',headline:'Breathe into the tension, not away',category:'healing'},
+    {emoji:'🌿',headline:'Micro-teaching: release the grip',category:'spirituality'},
+    {emoji:'🎧',headline:'New track live on ReverbNation',category:'music'},
+    {emoji:'📜',headline:'Staff is a persona, not a role',category:'micro'},
+    {emoji:'🔥',headline:'Spoken word clip trending in the back room',category:'spoken'},
+    {emoji:'🎭',headline:'Stay in character, not in costume',category:'performance'},
+  ];
+
+  // ── State ──────────────────────────────────────────────────────────────────
+  function ls(k,fb){try{const v=localStorage.getItem(k);return v?JSON.parse(v):fb;}catch{return fb;}}
+  function ss(k,v){try{localStorage.setItem(k,JSON.stringify(v));}catch{}}
+
+  let supChat     = ls('sup_chat_v2',[]);
+  let supMode_    = ls('sup_mode','Staff');
+  let supActive   = ls('sup_active_buckets',[]);
+  let supKB       = {};
+  BUCKETS.forEach(b=>{supKB[b.key]=ls('sup_kb_'+b.key, DEFAULT_KB[b.key]||'');});
+  let supCulture  = ls('sup_cult_v2', CULT_DEF);
+  let supVoiceOut = ls('sup_voice_out', false);
+  let supListening= false;
+  let supSR       = null;
+  let supFS       = false;
+  let supPasteTarget = null;
+  let supFileTarget  = null;
+  let supTab_     = 'chat';
+  let supApiStatus= 'unknown';
+
+  // ── DOM refs ───────────────────────────────────────────────────────────────
+  const chip   = document.getElementById('sup-chip');
+  const panel  = document.getElementById('sup-panel');
+  const log    = document.getElementById('sup-log');
+  const inp    = document.getElementById('sup-input');
+  const dot1   = document.getElementById('sup-dot');
+  const dot2   = document.getElementById('sup-dot2');
+  const modeL  = document.getElementById('sup-mode-label');
+  const cultCol= document.getElementById('sup-cult-col');
+
+  // ── Open / Close ───────────────────────────────────────────────────────────
+  chip.addEventListener('click', ()=>{ panel.classList.add('open'); chip.style.display='none'; });
+  window.supClose = ()=>{ panel.classList.remove('open'); chip.style.display='flex'; };
+
+  // ── Fullscreen ─────────────────────────────────────────────────────────────
+  window.supToggleFS = ()=>{
+    supFS=!supFS;
+    panel.classList.toggle('fs',supFS);
+    cultCol.style.display=supFS?'flex':'none';
+    document.querySelector('#sup-panel .sup-tabs #stab-culture').style.display=supFS?'none':'';
+    if(supFS) renderCultureFS();
+  };
+
+  // ── Health check ───────────────────────────────────────────────────────────
+  async function checkHealth(){
+    try{
+      const r=await fetch('/api/health',{signal:AbortSignal.timeout(4000)});
+      supApiStatus=r.ok?'online':'offline';
+    }catch{supApiStatus='offline';}
+    const colors={online:'#4af2c5',offline:'#ff4b81',unknown:'#f59e0b'};
+    const labels={online:'Backend online',offline:'Backend offline — fallback active',unknown:'Checking…'};
+    const c=colors[supApiStatus];
+    [dot1,dot2].forEach(d=>{if(d){d.style.background=c;d.style.boxShadow=`0 0 6px ${c}`;}});
+    [dot1,dot2].forEach(d=>{if(d){d.className='sdot '+supApiStatus;}});
+    const sl=document.getElementById('sup-status-label');
+    if(sl){sl.textContent=labels[supApiStatus];sl.style.color=c;}
+    updateSysBuckets();
+  }
+  checkHealth();
+  setInterval(checkHealth,60000);
+
+  // ── Tabs ───────────────────────────────────────────────────────────────────
+  window.supTab = function(name){
+    supTab_=name;
+    ['chat','training','culture','system'].forEach(t=>{
+      const btn=document.getElementById('stab-'+t);
+      const body=document.getElementById('stab-'+t+'-body');
+      if(btn) btn.classList.toggle('on',t===name);
+      if(body) body.style.display=t===name?'flex':'none';
+    });
+    if(name==='training') renderBuckets();
+    if(name==='culture')  renderCulture();
+    if(name==='system')   updateSysBuckets();
+  };
+
+  // ── Mode ───────────────────────────────────────────────────────────────────
+  window.supMode = function(m){
+    supMode_=m; ss('sup_mode',m); modeL.textContent=m;
+    ['Staff','Greeter','Decoy'].forEach(x=>{
+      const b=document.getElementById('sbm-'+x);
+      if(b) b.classList.toggle('on',x===m);
+    });
+    addMsg('supervisor',`${m} Mode. What do you need?`);
+  };
+
+  // ── Chat ───────────────────────────────────────────────────────────────────
+  function addMsg(role,text){
+    supChat.push({role,text,ts:Date.now()});
+    if(supChat.length>80) supChat=supChat.slice(-80);
+    ss('sup_chat_v2',supChat);
+    renderChat();
+    if(role==='supervisor'&&supVoiceOut) speak(text);
+  }
+
+  function renderChat(){
+    log.innerHTML='';
+    supChat.forEach(m=>{
+      const wrap=document.createElement('div');
+      wrap.className='smsg'+(m.role==='user'?' u':'');
+      const rl=document.createElement('div'); rl.className='sr';
+      rl.textContent=m.role==='user'?'You':'The Supervisor';
+      const bub=document.createElement('div'); bub.className='sb';
+      bub.textContent=m.text;
+      wrap.appendChild(rl); wrap.appendChild(bub);
+      log.appendChild(wrap);
+    });
+    log.scrollTop=log.scrollHeight;
+  }
+
+  window.supSend = function(){
+    const text=(inp.value||'').trim(); if(!text) return;
+    addMsg('user',text); inp.value='';
+    setTimeout(()=>addMsg('supervisor',pseudoReply(text)),380);
+  };
+  inp.addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();supSend();}});
+
+  function pseudoReply(text){
+    const lower=text.toLowerCase();
+    for(const bKey of supActive){
+      const content=(supKB[bKey]||DEFAULT_KB[bKey]||'').toLowerCase();
+      const words=lower.split(/\s+/).filter(w=>w.length>4);
+      const match=words.find(w=>content.includes(w));
+      if(match){
+        const meta=BUCKETS.find(b=>b.key===bKey);
+        const ex=(supKB[bKey]||DEFAULT_KB[bKey]||'').slice(0,220);
+        return `[${meta?.label}] Working from your loaded corpus:\n\n"${ex}…"\n\nTell me exactly what you need and I'll stay inside your material.`;
+      }
+    }
+    if(supMode_==='Greeter') return "Welcome — I'm The Supervisor. I'm here to guide you to the right resource, person, or tool. What do you need today?";
+    if(supMode_==='Decoy')   return "I'm here and steady. The main system may be offline but I can still help you find resources and contacts.";
+    if(/publish|book|chapter|outline|draft|blurb/.test(lower)) return "Books mode: tell me the working title, your audience, and the core promise. Load the Books bucket if you have existing notes.";
+    if(/electrical|circuit|wir|panel|breaker|nec|ground/.test(lower)) return "Electrical: I'll stay strictly in this lane — safe, code-compliant, practical. What's the situation?";
+    if(/prt|revenue|precision/.test(lower)) return "PRT: systematic execution, revenue alignment, measurable outcomes. What are we working toward?";
+    if(/the.?9|nine|council/.test(lower)) return "The 9 online. Give me the full picture and I'll give you a layered synthesis.";
+    if(/sage|ancestor|spirit|heal/.test(lower)) return "The Ancestral Sage is present. What's the question underneath the question?";
+    if(/train|teach|learn|load|upload/.test(lower)) return "Yes — I love being taught. Go to the Training tab, pick a bucket, and paste or upload your content. I'll use your material instead of guessing.";
+    if(/hello|hi |hey /.test(lower)) return "I'm here. What do we need to get done today?";
+    if(/memory|forget|clear/.test(lower)) return "Everything I know lives in your browser only. Clear it from the System tab anytime.";
+    return "I'm anchored to your corpus — not guessing outside it. Activate a bucket or load content in the Training tab and I'll give you precise answers.";
+  }
+
+  // ── Voice ──────────────────────────────────────────────────────────────────
+  function speak(text){
+    if(!('speechSynthesis' in window)) return;
+    speechSynthesis.cancel();
+    const u=new SpeechSynthesisUtterance(text.slice(0,300)); u.rate=0.95;
+    speechSynthesis.speak(u);
+  }
+  window.supToggleMic=function(){
+    const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+    const btn=document.getElementById('sup-mic-btn');
+    if(!SR){addMsg('supervisor','Voice input not supported in this browser.');return;}
+    if(supListening){supSR?.stop();supListening=false;if(btn)btn.textContent='🎙 Voice';return;}
+    const sr=new SR(); supSR=sr;
+    sr.continuous=false; sr.interimResults=false;
+    sr.onresult=e=>{inp.value=e.results[0][0].transcript;supListening=false;if(btn)btn.textContent='🎙 Voice';};
+    sr.onerror=sr.onend=()=>{supListening=false;if(btn)btn.textContent='🎙 Voice';};
+    sr.start(); supListening=true; if(btn)btn.textContent='⏹ Listening…';
+  };
+  window.supToggleVoiceOut=function(){
+    supVoiceOut=!supVoiceOut; ss('sup_voice_out',supVoiceOut);
+    const btn=document.getElementById('sup-vo-btn');
+    if(btn){btn.textContent=supVoiceOut?'🔊 On':'🔇 Off';btn.classList.toggle('on',supVoiceOut);}
+  };
+
+  // ── Buckets (training) ─────────────────────────────────────────────────────
+  window.supToggleBucket=function(bKey){
+    if(supActive.includes(bKey)) supActive=supActive.filter(k=>k!==bKey);
+    else supActive=[...supActive,bKey];
+    ss('sup_active_buckets',supActive);
+    renderActiveChips();
+    renderBuckets();
+    updateBucketQuickBtns();
+  };
+
+  function renderActiveChips(){
+    const cont=document.getElementById('sup-active-chips'); if(!cont) return;
+    cont.innerHTML='';
+    supActive.forEach(bKey=>{
+      const meta=BUCKETS.find(b=>b.key===bKey); if(!meta) return;
+      const s=document.createElement('span');
+      s.style.cssText=`font-size:9px;padding:2px 7px;border-radius:999px;cursor:pointer;border:1px solid ${meta.color}66;color:${meta.color};background:rgba(5,8,20,.9)`;
+      s.textContent=meta.label+' ×';
+      s.onclick=()=>supToggleBucket(bKey);
+      cont.appendChild(s);
+    });
+  }
+
+  function updateBucketQuickBtns(){
+    ['prt','the9','sage'].forEach(k=>{
+      const b=document.getElementById('sbk-'+k); if(!b) return;
+      const meta=BUCKETS.find(x=>x.key===k);
+      const on=supActive.includes(k);
+      b.style.borderColor=on?meta.color:'rgba(139,146,181,.45)';
+      b.style.color=on?meta.color:'rgba(139,146,181,.85)';
+    });
+  }
+
+  function renderBuckets(){
+    const cont=document.getElementById('sup-buckets-list'); if(!cont) return;
+    cont.innerHTML='';
+    BUCKETS.forEach(b=>{
+      const content=supKB[b.key]||'';
+      const wc=content?content.trim().split(/\s+/).length:0;
+      const isActive=supActive.includes(b.key);
+      const isPasting=supPasteTarget===b.key;
+
+      const card=document.createElement('div');
+      card.className='bcard'+(isActive?' active':'');
+      card.style.setProperty('--bc',b.color+'66');
+
+      // Header row
+      const hdr=document.createElement('div'); hdr.className='bcard-hdr';
+      const bl=document.createElement('div'); bl.className='bl';
+      const dot=document.createElement('div');
+      dot.style.cssText=`width:8px;height:8px;border-radius:50%;background:${b.color};box-shadow:0 0 6px ${b.color};flex-shrink:0`;
+      const bn=document.createElement('div'); bn.className='bn'; bn.style.color=b.color; bn.textContent=b.label;
+      const bd=document.createElement('div'); bd.className='bd'; bd.textContent=b.desc;
+      bl.append(dot,bn,bd);
+
+      const br=document.createElement('div'); br.className='br';
+      if(wc>0){
+        const badge=document.createElement('span'); badge.className='wbadge';
+        badge.style.cssText=`background:${b.color}22;color:${b.color};border:1px solid ${b.color}44`;
+        badge.textContent=wc.toLocaleString()+' words'; br.appendChild(badge);
+      }
+      const actBtn=document.createElement('button'); actBtn.className='chip2'+(isActive?' on':'');
+      if(isActive){actBtn.style.borderColor=b.color;actBtn.style.color=b.color;}
+      actBtn.textContent=isActive?'✓ Active':'Activate';
+      actBtn.onclick=()=>{supToggleBucket(b.key); renderBuckets();};
+      br.appendChild(actBtn);
+
+      hdr.append(bl,br);
+      card.appendChild(hdr);
+
+      // Action buttons
+      if(!isPasting){
+        const btns=document.createElement('div'); btns.className='bcard-btns';
+        const ub=document.createElement('button'); ub.className='chip2'; ub.textContent='📄 Upload file';
+        ub.onclick=()=>{supFileTarget=b.key; document.getElementById('sup-file-input').click();};
+        const pb=document.createElement('button'); pb.className='chip2'; pb.textContent='✏️ Paste text';
+        pb.onclick=()=>{supPasteTarget=b.key; renderBuckets();};
+        btns.append(ub,pb);
+        if(content){
+          const cb=document.createElement('button'); cb.className='chip2';
+          cb.style.cssText='color:#ff4b81;border-color:rgba(255,75,129,.4)';
+          cb.textContent='🗑 Clear';
+          cb.onclick=()=>{supKB[b.key]=''; ss('sup_kb_'+b.key,''); if(isActive) supToggleBucket(b.key); renderBuckets(); addMsg('supervisor',`${b.label} bucket cleared. Load new content whenever you're ready.`);};
+          btns.appendChild(cb);
+        }
+        card.appendChild(btns);
+        // Preview
+        if(content){
+          const prev=document.createElement('div'); prev.className='bpreview';
+          prev.textContent=content.slice(0,120); card.appendChild(prev);
+        }
+      } else {
+        // Paste editor
+        const ta=document.createElement('textarea');
+        ta.placeholder=`Paste ${b.label} content here — notes, teachings, documents…`;
+        ta.value=supKB[b.key]||'';
+        ta.oninput=e=>{supKB[b.key+'__draft']=e.target.value;};
+        card.appendChild(ta);
+        const savRow=document.createElement('div'); savRow.className='bcard-btns';
+        const sv=document.createElement('button'); sv.className='chip2';
+        sv.style.cssText=`border-color:${b.color};color:${b.color}`;
+        sv.textContent='✓ Save to '+b.label;
+        sv.onclick=()=>{
+          const text=(ta.value||'').trim().slice(0,50000);
+          supKB[b.key]=text; ss('sup_kb_'+b.key,text);
+          if(!supActive.includes(b.key)){supToggleBucket(b.key);}
+          supPasteTarget=null;
+          renderBuckets(); renderActiveChips();
+          supTab('chat');
+          addMsg('supervisor',`Saved to the ${b.label} bucket and activated. I've got it — ask me anything that draws on this material.`);
+        };
+        const cn=document.createElement('button'); cn.className='chip2'; cn.textContent='Cancel';
+        cn.onclick=()=>{supPasteTarget=null; renderBuckets();};
+        savRow.append(sv,cn); card.appendChild(savRow);
+      }
+
+      cont.appendChild(card);
+    });
+  }
+
+  // ── File upload ────────────────────────────────────────────────────────────
+  window.supHandleFile=function(el){
+    const file=el.files[0]; if(!file||!supFileTarget) return;
+    const bKey=supFileTarget;
+    const reader=new FileReader();
+    reader.onload=ev=>{
+      let text=ev.target.result;
+      if(file.name.endsWith('.html')||file.name.endsWith('.htm')){
+        const tmp=document.createElement('div'); tmp.innerHTML=text; text=tmp.innerText;
+      }
+      const trimmed=text.slice(0,50000);
+      supKB[bKey]=trimmed; ss('sup_kb_'+bKey,trimmed);
+      if(!supActive.includes(bKey)) supToggleBucket(bKey);
+      renderBuckets(); renderActiveChips();
+      supTab('chat');
+      const meta=BUCKETS.find(b=>b.key===bKey);
+      addMsg('supervisor',`Loaded "${file.name}" into the ${meta?.label} bucket — ${Math.round(trimmed.length/1000)}k characters, stored locally only.\n\nI've got it. Ask me anything that draws on this material.`);
+    };
+    reader.readAsText(file);
+    el.value='';
+  };
+
+  // ── Culture stream ─────────────────────────────────────────────────────────
+  function renderCulture(){
+    const list=document.getElementById('sup-cult-list'); if(!list) return;
+    list.innerHTML='';
+    supCulture.forEach(item=>{
+      const d=document.createElement('div'); d.className='cult-item';
+      d.innerHTML=`<span style="font-size:13px;flex-shrink:0">${item.emoji||'✨'}</span><div><div class="cult-hl">${item.headline}</div><div class="cult-cat">${item.category}</div></div>`;
+      list.appendChild(d);
+    });
+  }
+  function renderCultureFS(){
+    const list=document.getElementById('sup-cult-list-fs'); if(!list) return;
+    list.innerHTML='';
+    supCulture.forEach(item=>{
+      const d=document.createElement('div'); d.className='cult-item';
+      d.innerHTML=`<span style="font-size:13px;flex-shrink:0">${item.emoji||'✨'}</span><div><div class="cult-hl">${item.headline}</div><div class="cult-cat">${item.category}</div></div>`;
+      list.appendChild(d);
+    });
+  }
+  window.supAddCulture=function(variant){
+    const inp2=document.getElementById(variant?'sup-ci-fs':'sup-ci');
+    const sel=document.getElementById(variant?'sup-cc-fs':'sup-cc');
+    const text=(inp2?.value||'').trim(); if(!text) return;
+    const cat=sel?.value||'spoken';
+    supCulture.unshift({emoji:CULT_EMOJI[cat]||'✨',headline:text.slice(0,60),category:cat,source:'user'});
+    if(supCulture.length>80) supCulture=supCulture.slice(0,80);
+    ss('sup_cult_v2',supCulture);
+    if(inp2) inp2.value='';
+    renderCulture(); renderCultureFS();
+  };
+
+  // ── System ─────────────────────────────────────────────────────────────────
+  function updateSysBuckets(){
+    const el=document.getElementById('sys-buckets'); if(!el) return;
+    el.textContent=supActive.length?supActive.map(k=>BUCKETS.find(b=>b.key===k)?.label).join(', '):'None';
+  }
+  window.supClearChat=function(){
+    supChat=[]; ss('sup_chat_v2',[]);
+    addMsg('supervisor',"Memory cleared. I'm still here — same persona, fresh start.");
+  };
+
+  // ── Drag (panel) ───────────────────────────────────────────────────────────
+  let drag=false, ox=0, oy=0;
+  const hdr=document.getElementById('sup-drag-hdr');
+  hdr.addEventListener('mousedown',e=>{
+    if(supFS) return;
+    if(e.target.tagName==='BUTTON') return;
+    drag=true; const r=panel.getBoundingClientRect(); ox=e.clientX-r.left; oy=e.clientY-r.top; e.preventDefault();
+  });
+  window.addEventListener('mousemove',e=>{
+    if(!drag) return;
+    panel.style.right='auto'; panel.style.bottom='auto';
+    panel.style.left=Math.max(0,e.clientX-ox)+'px';
+    panel.style.top=Math.max(0,e.clientY-oy)+'px';
+  });
+  window.addEventListener('mouseup',()=>{drag=false;});
+
+  // ── Init ───────────────────────────────────────────────────────────────────
+  renderChat();
+  renderActiveChips();
+  updateBucketQuickBtns();
+  if(!supChat.length){
+    addMsg('supervisor',"I'm The Supervisor.\n\nI'm here to help you get things done — publishing, operations, electrical, teaching, community work, whatever you need.\n\nI work best when you teach me. Load content into the Training tab and I'll use your material instead of guessing. Everything stays in this browser — nothing goes anywhere.\n\nWhat are we working on today?");
+  }
+  // Restore mode UI
+  ['Staff','Greeter','Decoy'].forEach(x=>{const b=document.getElementById('sbm-'+x);if(b)b.classList.toggle('on',x===supMode_);});
+  modeL.textContent=supMode_;
+})();
+</script>
 </body>
 </html>

@@ -47,6 +47,7 @@ import Internships from "./pages/Internships";
 import PlaylistSubmit from "./pages/PlaylistSubmit";
 import PlaylistDashboard from "./pages/PlaylistDashboard";
 import DirectorWidget from "./components/DirectorWidget";
+import SupervisorWidget from "./components/SupervisorWidget";
 import ErrorBoundary from "./components/ErrorBoundary";
 import Helper from "./pages/Helper";
 import Leaderboard from "./pages/Leaderboard";
@@ -143,6 +144,7 @@ function App() {
 
         {/* Global widgets */}
         <DirectorWidget />
+        <SupervisorWidget />
         <SovereignChat />
         <CookieConsent />
         <HelpGuide />
