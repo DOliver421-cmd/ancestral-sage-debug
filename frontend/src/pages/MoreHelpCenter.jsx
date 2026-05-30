@@ -211,6 +211,8 @@ function ExecPanel({ apiOnline, visibility, setVisibility, superExec }) {
   const [failoverTarget, setFailoverTarget] = useState("backup");
   const [failoverReason, setFailoverReason] = useState("");
   const [heartbeatSecret, setHeartbeatSecret] = useState(null);
+  const [breakerPanel, setBreakerPanel]   = useState(null);
+  const [panelHealth, setPanelHealth]     = useState(null);
   // ── mode switcher (exec/greeter/decoy) ─────────────────────────────────────
   const [pageMode, setPageMode]     = useState(() => {
     try { return localStorage.getItem("more_help_center_mode") || "greeter"; } catch { return "greeter"; }
@@ -257,6 +259,8 @@ function ExecPanel({ apiOnline, visibility, setVisibility, superExec }) {
 
   const loadBackupMatrix = useCallback(async () => {
     try { const r = await api.get("/exec/free-backup-matrix"); setBackupMatrix(r.data); } catch {}
+    try { const r = await api.get("/exec/panel"); setBreakerPanel(r.data); } catch {}
+    try { const r = await api.get("/exec/panel/health"); setPanelHealth(r.data); } catch {}
   }, []);
 
   const loadIncidents = useCallback(async () => {
@@ -399,6 +403,22 @@ function ExecPanel({ apiOnline, visibility, setVisibility, superExec }) {
       const r = await api.get("/exec/panel/heartbeat-secret");
       setHeartbeatSecret(r.data.secret);
     } catch (e) { notify(`Failed: ${e?.response?.data?.detail || e.message}`); }
+  }
+
+  async function toggleBreaker(breakerId) {
+    try {
+      await api.post("/exec/panel/toggle", { breaker_id: breakerId });
+      notify(`Breaker ${breakerId} toggled`);
+      const r = await api.get("/exec/panel"); setBreakerPanel(r.data);
+    } catch (e) { notify(`Toggle failed: ${e?.response?.data?.detail || e.message}`); }
+  }
+
+  async function resetBreaker(breakerId) {
+    try {
+      await api.post("/exec/panel/reset", { breaker_id: breakerId });
+      notify(`Breaker ${breakerId} reset`);
+      const r = await api.get("/exec/panel"); setBreakerPanel(r.data);
+    } catch (e) { notify(`Reset failed: ${e?.response?.data?.detail || e.message}`); }
   }
 
   const sendBroadcast = async () => {
@@ -1174,6 +1194,50 @@ function ExecPanel({ apiOnline, visibility, setVisibility, superExec }) {
                   <button onClick={() => navigator.clipboard?.writeText(heartbeatSecret)}
                     style={{ fontSize:11, color:"rgba(255,255,255,0.6)", fontWeight:700, border:"none", background:"none", cursor:"pointer", marginTop:4 }}>Copy</button>
                 </div>
+              )}
+            </div>
+
+            {/* Breaker Panel */}
+            <div style={{ marginBottom:20 }}>
+              <div style={{ color:SIG, fontWeight:700, fontSize:12, marginBottom:8 }}>Circuit Breaker Panel</div>
+              {panelHealth && (
+                <div style={{ display:"flex", gap:8, flexWrap:"wrap", marginBottom:10 }}>
+                  {Object.entries(panelHealth).filter(([,v]) => typeof v !== "object").map(([k, v]) => (
+                    <div key={k} style={{ background:"rgba(255,255,255,0.07)", borderRadius:6, padding:"5px 10px", fontSize:10 }}>
+                      <span style={{ color:"rgba(255,255,255,0.4)", textTransform:"uppercase" }}>{k}: </span>
+                      <span style={{ color: v === "up" || v === true ? "#22c55e" : v === "down" || v === false ? "#ef4444" : "white", fontWeight:700 }}>{String(v)}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+              {breakerPanel?.breakers ? (
+                <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(200px,1fr))", gap:8 }}>
+                  {Object.entries(breakerPanel.breakers).map(([id, breaker]) => {
+                    const state = breaker?.state || breaker?.status || "unknown";
+                    const isOn = state === "on" || state === "active" || state === "closed";
+                    const isTripped = state === "tripped" || state === "fault";
+                    return (
+                      <div key={id} style={{ background:"rgba(255,255,255,0.06)", borderRadius:8, padding:"10px 14px", border:`1px solid ${isTripped ? "rgba(220,38,38,0.4)" : "rgba(255,255,255,0.1)"}` }}>
+                        <div style={{ color:"white", fontWeight:700, fontSize:11, textTransform:"capitalize", marginBottom:4 }}>{id.replace(/_/g," ")}</div>
+                        <div style={{ color: isTripped ? "#f87171" : isOn ? "#22c55e" : "#94a3b8", fontSize:10, fontWeight:700, textTransform:"uppercase", marginBottom:8 }}>{state}</div>
+                        <div style={{ display:"flex", gap:5 }}>
+                          <button onClick={() => toggleBreaker(id)}
+                            style={{ background:"rgba(255,255,255,0.1)", border:"none", color:"white", padding:"3px 8px", borderRadius:4, fontSize:9, fontWeight:700, cursor:"pointer" }}>
+                            Toggle
+                          </button>
+                          {isTripped && (
+                            <button onClick={() => resetBreaker(id)}
+                              style={{ background:"rgba(234,179,8,0.25)", border:"none", color:"#fbbf24", padding:"3px 8px", borderRadius:4, fontSize:9, fontWeight:700, cursor:"pointer" }}>
+                              Reset
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <p style={{ color:"rgba(255,255,255,0.35)", fontSize:12 }}>Breaker data loading with backup matrix…</p>
               )}
             </div>
 
