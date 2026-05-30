@@ -200,6 +200,7 @@ function ExecPanel({ apiOnline, visibility, setVisibility, superExec }) {
   const [apiKeys, setApiKeys]       = useState({});
   const [showKeys, setShowKeys]     = useState({});
   const [sysInfo, setSysInfo]       = useState(null);
+  const [sageStatus, setSageStatus] = useState(null);
   const [capLevel, setCapLevel]     = useState("");
   const [capOverrides, setCapOverrides] = useState([]);
   const [capOverrideUid, setCapOverrideUid] = useState("");
@@ -216,6 +217,7 @@ function ExecPanel({ apiOnline, visibility, setVisibility, superExec }) {
   const [heartbeatSecret, setHeartbeatSecret] = useState(null);
   const [breakerPanel, setBreakerPanel]   = useState(null);
   const [panelHealth, setPanelHealth]     = useState(null);
+  const [platformFlags, setPlatformFlags] = useState(null);
   // ── mode switcher (exec/greeter/decoy) ─────────────────────────────────────
   const [pageMode, setPageMode]     = useState(() => {
     try { return localStorage.getItem("more_help_center_mode") || "greeter"; } catch { return "greeter"; }
@@ -235,6 +237,7 @@ function ExecPanel({ apiOnline, visibility, setVisibility, superExec }) {
     setLoading(true);
     try { const r = await api.get("/health"); setHealth(r.data); } catch { setHealth(null); }
     try { const r = await api.get("/exec/system"); setSysInfo(r.data); } catch {}
+    try { const r = await api.get("/admin/sage/status"); setSageStatus(r.data); } catch {}
     finally { setLoading(false); }
   }, []);
 
@@ -265,6 +268,7 @@ function ExecPanel({ apiOnline, visibility, setVisibility, superExec }) {
     try { const r = await api.get("/exec/free-backup-matrix"); setBackupMatrix(r.data); } catch {}
     try { const r = await api.get("/exec/panel"); setBreakerPanel(r.data); } catch {}
     try { const r = await api.get("/exec/panel/health"); setPanelHealth(r.data); } catch {}
+    try { const r = await api.get("/admin/platform/flags"); setPlatformFlags(r.data?.flags || {}); } catch {}
   }, []);
 
   const loadIncidents = useCallback(async () => {
@@ -407,6 +411,14 @@ function ExecPanel({ apiOnline, visibility, setVisibility, superExec }) {
       const r = await api.get("/exec/panel/heartbeat-secret");
       setHeartbeatSecret(r.data.secret);
     } catch (e) { notify(`Failed: ${e?.response?.data?.detail || e.message}`); }
+  }
+
+  async function setPlatformFlag(flag, value, reason) {
+    try {
+      await api.post(`/admin/platform/flags/${flag}`, { value, reason });
+      notify(`${flag} set to ${value}`);
+      const r = await api.get("/admin/platform/flags"); setPlatformFlags(r.data?.flags || {});
+    } catch (e) { notify(`Flag failed: ${e?.response?.data?.detail || e.message}`); }
   }
 
   async function toggleBreaker(breakerId) {
@@ -624,6 +636,34 @@ function ExecPanel({ apiOnline, visibility, setVisibility, superExec }) {
                       ))}
                     </div>
                   </div>
+                )}
+              </div>
+            )}
+            {sageStatus && (
+              <div style={{ background: "rgba(255,255,255,0.05)", borderRadius: 10, padding: "14px 18px", marginTop: 14 }}>
+                <div style={{ color: SIG, fontWeight: 700, fontSize: 12, textTransform: "uppercase", letterSpacing: 1, marginBottom: 10 }}>Sage Integrity Status</div>
+                <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 10 }}>
+                  <div style={{ background: "rgba(255,255,255,0.06)", borderRadius: 6, padding: "6px 12px" }}>
+                    <div style={{ color: "rgba(255,255,255,0.4)", fontSize: 10, textTransform: "uppercase" }}>Prompt Hash</div>
+                    <div style={{ color: sageStatus.prompt_hash_status === "match" ? "#22c55e" : "#ef4444", fontWeight: 700, fontSize: 12, marginTop: 2, textTransform: "capitalize" }}>
+                      {sageStatus.prompt_hash_status === "match" ? "✓ Match" : "✗ " + sageStatus.prompt_hash_status}
+                    </div>
+                  </div>
+                  <div style={{ background: "rgba(255,255,255,0.06)", borderRadius: 6, padding: "6px 12px" }}>
+                    <div style={{ color: "rgba(255,255,255,0.4)", fontSize: 10, textTransform: "uppercase" }}>Fallback</div>
+                    <div style={{ color: sageStatus.fallback_active ? "#f87171" : "#22c55e", fontWeight: 700, fontSize: 12, marginTop: 2 }}>
+                      {sageStatus.fallback_active ? "Active" : "Off"}
+                    </div>
+                  </div>
+                  {sageStatus.modules && Object.entries(sageStatus.modules).map(([mod, status]) => (
+                    <div key={mod} style={{ background: "rgba(255,255,255,0.06)", borderRadius: 6, padding: "6px 12px" }}>
+                      <div style={{ color: "rgba(255,255,255,0.4)", fontSize: 10, textTransform: "uppercase" }}>Module {mod}</div>
+                      <div style={{ color: status === "present" ? "#22c55e" : "#ef4444", fontWeight: 700, fontSize: 12, marginTop: 2, textTransform: "capitalize" }}>{status}</div>
+                    </div>
+                  ))}
+                </div>
+                {sageStatus.last_audit_id && (
+                  <div style={{ color: "rgba(255,255,255,0.35)", fontSize: 10, fontFamily: "monospace" }}>Last audit ID: {sageStatus.last_audit_id}</div>
                 )}
               </div>
             )}
@@ -1239,6 +1279,34 @@ function ExecPanel({ apiOnline, visibility, setVisibility, superExec }) {
                   <button onClick={() => navigator.clipboard?.writeText(heartbeatSecret)}
                     style={{ fontSize:11, color:"rgba(255,255,255,0.6)", fontWeight:700, border:"none", background:"none", cursor:"pointer", marginTop:4 }}>Copy</button>
                 </div>
+              )}
+            </div>
+
+            {/* Platform Feature Flags */}
+            <div style={{ marginBottom:24 }}>
+              <div style={{ color:SIG, fontWeight:700, fontSize:12, marginBottom:6 }}>Emergency Platform Flags</div>
+              <div style={{ color:"rgba(255,255,255,0.4)", fontSize:11, marginBottom:10 }}>
+                Instantly disable platform features without a redeploy. Exec-only. Each change is audited.
+              </div>
+              {platformFlags !== null ? (
+                <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(200px,1fr))", gap:8 }}>
+                  {["platform_locked","marketplace_disabled","ai_disabled","community_disabled","labs_disabled"].map(flag => {
+                    const info = platformFlags[flag];
+                    const enabled = info?.enabled === true;
+                    return (
+                      <div key={flag} style={{ background: enabled ? "rgba(220,38,38,0.15)" : "rgba(255,255,255,0.06)", borderRadius:8, padding:"10px 14px", border: `1px solid ${enabled ? "rgba(220,38,38,0.4)" : "rgba(255,255,255,0.1)"}` }}>
+                        <div style={{ color:"white", fontWeight:700, fontSize:11, textTransform:"capitalize", marginBottom:4 }}>{flag.replace(/_/g," ")}</div>
+                        <div style={{ color: enabled ? "#f87171" : "#22c55e", fontSize:10, fontWeight:700, marginBottom:8 }}>{enabled ? "● ENABLED" : "○ off"}</div>
+                        <button onClick={() => setPlatformFlag(flag, !enabled, enabled ? "Exec override: disable" : "Exec override: enable")}
+                          style={{ background: enabled ? "rgba(220,38,38,0.3)" : "rgba(34,197,94,0.2)", border:"none", color: enabled ? "#fca5a5" : "#4ade80", padding:"3px 10px", borderRadius:4, fontSize:9, fontWeight:700, cursor:"pointer" }}>
+                          {enabled ? "Disable" : "Enable"}
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <p style={{ color:"rgba(255,255,255,0.35)", fontSize:12 }}>Loading platform flags…</p>
               )}
             </div>
 
