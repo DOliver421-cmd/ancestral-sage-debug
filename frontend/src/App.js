@@ -107,7 +107,13 @@ function Home() {
 function App() {
   const hostname = window.location.hostname;
   if (hostname.includes("morehelp.center")) {
-    return <MoreHelpCenter />;
+    return (
+      <AuthProvider>
+        <BrowserRouter>
+          <MoreHelpCenter />
+        </BrowserRouter>
+      </AuthProvider>
+    );
   }
 
   return (
