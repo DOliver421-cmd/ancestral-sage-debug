@@ -6897,20 +6897,28 @@ async def lab_ai_feedback(sub_id: str, user: User = Depends(current_user)):
         "3. Offer one concrete next step\n\n"
         "Be encouraging and safety-focused. Keep it under 200 words."
     )
-    ANTHROPIC_API_KEY_local = os.environ.get("ANTHROPIC_API_KEY", os.environ.get("EMERGENT_LLM_KEY", ""))
-    if not ANTHROPIC_API_KEY_local:
-        raise HTTPException(500, "AI not configured")
     try:
-        import anthropic as _anth
-    except Exception as e:
-        raise HTTPException(500, f"AI library unavailable: {e}")
-    _cl = _anth.AsyncAnthropic(api_key=ANTHROPIC_API_KEY_local)
-    resp = await _cl.messages.create(
-        model="claude-sonnet-4-6",
-        max_tokens=400,
-        messages=[{"role": "user", "content": prompt}],
-    )
-    feedback_text = resp.content[0].text
+        from ai.llm_gateway import call_llm as _call_llm
+        _gw = await _call_llm(
+            system="You are an experienced trades instructor providing constructive coaching feedback.",
+            messages=[{"role": "user", "content": prompt}],
+            max_tokens=400,
+            persona_label="lab_feedback",
+        )
+        feedback_text = _gw["text"]
+    except Exception as _gw_err:
+        logger.warning("lab_ai_feedback: gateway failed (%s) — trying direct Anthropic", _gw_err)
+        ANTHROPIC_API_KEY_local = os.environ.get("ANTHROPIC_API_KEY", os.environ.get("EMERGENT_LLM_KEY", ""))
+        if not ANTHROPIC_API_KEY_local:
+            raise HTTPException(500, "AI not configured")
+        try:
+            import anthropic as _anth
+        except Exception as e:
+            raise HTTPException(500, f"AI library unavailable: {e}")
+        _cl = _anth.AsyncAnthropic(api_key=ANTHROPIC_API_KEY_local)
+        resp = await _cl.messages.create(model="claude-sonnet-4-6", max_tokens=400,
+                                         messages=[{"role": "user", "content": prompt}])
+        feedback_text = resp.content[0].text
     await db.lab_submissions.update_one({"id": sub_id}, {"$set": {"ai_feedback": feedback_text}})
     return {"ai_feedback": feedback_text}
 
@@ -9265,14 +9273,15 @@ async def exec_staff_meeting(
                 f"Provide your domain-specific assessment, action items, and recommendations."
             )
 
-            _client = _anthropic_module.AsyncAnthropic(api_key=ANTHROPIC_API_KEY)
-            _msg = await _client.messages.create(
-                model="claude-haiku-4-5",
-                max_tokens=1024,
-                system=system_prompt,
-                messages=[{"role": "user", "content": user_message}],
-            )
-            response = _msg.content[0].text.strip()
+            try:
+                from ai.llm_gateway import call_llm as _call_llm
+                _gw = await _call_llm(system=system_prompt, messages=[{"role": "user", "content": user_message}], max_tokens=1024, persona_label=persona_id)
+                response = _gw["text"].strip()
+            except Exception:
+                _client = _anthropic_module.AsyncAnthropic(api_key=ANTHROPIC_API_KEY)
+                _msg = await _client.messages.create(model="claude-haiku-4-5", max_tokens=1024,
+                                                      system=system_prompt, messages=[{"role": "user", "content": user_message}])
+                response = _msg.content[0].text.strip()
             return persona_id, response
         except Exception as exc:
             logger.warning("staff_meeting: persona %s LLM call failed: %s", persona_id, exc)
@@ -9311,36 +9320,36 @@ async def exec_staff_meeting(
                 )
                 synthesis = fusion.to_dict()
                 # Enrich synthesis with LLM-generated analysis
-                if synthesis.get("status") == "fused" and ANTHROPIC_API_KEY:
+                if synthesis.get("status") == "fused":
                     try:
-                        import anthropic as _anthropic_module
                         _responses_text = "\n\n".join(
                             f"=== {pid} ===\n{resp}"
                             for pid, resp in _persona_responses.items()
                         ) if _persona_responses else "(no persona responses available)"
-                        _client = _anthropic_module.AsyncAnthropic(api_key=ANTHROPIC_API_KEY)
-                        _msg = await _client.messages.create(
-                            model="claude-sonnet-4-6",
-                            max_tokens=2048,
-                            system=(
-                                "You are THE 9 — the unified intelligence of the WAI-Institute. "
-                                "You merge the capabilities of all 9 core personas into one coherent synthesis. "
-                                "Given a staff meeting brief, agenda, and the individual persona responses, "
-                                "produce a unified strategic synthesis with: 1) Key insights, 2) Recommended actions, "
-                                "3) Risk assessment, 4) Success metrics. Be concise and actionable."
-                            ),
-                            messages=[{
-                                "role": "user",
-                                "content": (
-                                    f"BRIEF: {brief}\n\n"
-                                    f"AGENDA:\n" + "\n".join(f"- {a}" for a in agenda) + "\n\n"
-                                    f"PERSONA RESPONSES:\n{_responses_text}\n\n"
-                                    f"Unified skill set: {', '.join(synthesis.get('unified_skill_set', []))}\n\n"
-                                    f"Produce your unified synthesis."
-                                )
-                            }],
+                        _the9_system = (
+                            "You are THE 9 — the unified intelligence of the WAI-Institute. "
+                            "You merge the capabilities of all 9 core personas into one coherent synthesis. "
+                            "Given a staff meeting brief, agenda, and the individual persona responses, "
+                            "produce a unified strategic synthesis with: 1) Key insights, 2) Recommended actions, "
+                            "3) Risk assessment, 4) Success metrics. Be concise and actionable."
                         )
-                        synthesis["synthesis_brief"] = _msg.content[0].text.strip()
+                        _the9_user = (
+                            f"BRIEF: {brief}\n\n"
+                            f"AGENDA:\n" + "\n".join(f"- {a}" for a in agenda) + "\n\n"
+                            f"PERSONA RESPONSES:\n{_responses_text}\n\n"
+                            f"Unified skill set: {', '.join(synthesis.get('unified_skill_set', []))}\n\n"
+                            f"Produce your unified synthesis."
+                        )
+                        try:
+                            from ai.llm_gateway import call_llm as _call_llm
+                            _gw = await _call_llm(system=_the9_system, messages=[{"role": "user", "content": _the9_user}], max_tokens=2048, persona_label="the_9")
+                            synthesis["synthesis_brief"] = _gw["text"].strip()
+                        except Exception:
+                            import anthropic as _anthropic_module
+                            _client = _anthropic_module.AsyncAnthropic(api_key=ANTHROPIC_API_KEY)
+                            _msg = await _client.messages.create(model="claude-sonnet-4-6", max_tokens=2048,
+                                                                  system=_the9_system, messages=[{"role": "user", "content": _the9_user}])
+                            synthesis["synthesis_brief"] = _msg.content[0].text.strip()
                     except Exception as _synth_err:
                         logger.warning("staff_meeting: The 9 LLM synthesis failed: %s", _synth_err)
             except Exception as _the9_err:

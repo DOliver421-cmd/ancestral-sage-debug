@@ -32,7 +32,7 @@ function StatusDot({ ok, label }) {
 function KPI({ icon: Icon, label, value, alert, sub, accent }) {
   const color = alert ? "#dc2626" : accent || "#b5501a";
   return (
-    <div className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm"
+    <div className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm text-slate-900"
       style={alert ? { borderLeft: "4px solid #dc2626" } : {}}>
       <div className="flex items-start justify-between">
         <Icon className="w-5 h-5 mt-0.5" style={{ color }} />
@@ -446,7 +446,7 @@ function UserDatabase() {
   const byRole = ROLES_ALL.reduce((acc, r) => ({ ...acc, [r]: users.filter(u => u.role === r).length }), {});
 
   return (
-    <div className="bg-white rounded-2xl border border-slate-100 shadow-sm mb-6 overflow-hidden">
+    <div className="bg-white rounded-2xl border border-slate-100 shadow-sm mb-6 overflow-hidden text-slate-900">
       {/* header */}
       <div className="px-6 py-4 border-b border-slate-100">
         <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
@@ -633,7 +633,7 @@ function ApiKeyManager() {
   }
 
   return (
-    <div className="bg-white rounded-2xl p-6 border border-slate-100 shadow-sm">
+    <div className="bg-white rounded-2xl p-6 border border-slate-100 shadow-sm text-slate-900">
       <h2 className="font-heading font-extrabold text-base text-slate-900 mb-1 flex items-center gap-2">
         <Shield className="w-4 h-4 text-amber-500" /> AI Service API Keys
       </h2>
@@ -773,7 +773,7 @@ export default function ExecSystem() {
         )}
 
         {/* ── System status bar ─────────────────────────────────────────── */}
-        <div className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm mb-6">
+        <div className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm mb-6 text-slate-900">
           <div className="text-xs font-bold uppercase tracking-widest text-slate-600 mb-3">Platform Status</div>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
             <StatusDot ok={!!sys}      label="API Server" />
@@ -806,7 +806,7 @@ export default function ExecSystem() {
         <div className="grid lg:grid-cols-3 gap-6 mb-6">
 
           {/* Role distribution */}
-          <div className="bg-white rounded-2xl p-6 border border-slate-100 shadow-sm">
+          <div className="bg-white rounded-2xl p-6 border border-slate-100 shadow-sm text-slate-900">
             <h2 className="font-heading font-extrabold text-lg text-slate-900 mb-4 flex items-center gap-2">
               <Users className="w-5 h-5 text-slate-400" /> Role Distribution
             </h2>
@@ -858,7 +858,7 @@ export default function ExecSystem() {
           </div>
 
           {/* Recent activity */}
-          <div className="bg-white rounded-2xl p-6 border border-slate-100 shadow-sm">
+          <div className="bg-white rounded-2xl p-6 border border-slate-100 shadow-sm text-slate-900">
             <h2 className="font-heading font-extrabold text-lg text-slate-900 mb-1 flex items-center gap-2">
               <Activity className="w-5 h-5 text-slate-400" /> Recent Activity
             </h2>
@@ -882,7 +882,7 @@ export default function ExecSystem() {
         </div>
 
         {/* ── Associate cohort table ─────────────────────────────────── */}
-        <div className="bg-white rounded-2xl p-6 border border-slate-100 shadow-sm mb-6">
+        <div className="bg-white rounded-2xl p-6 border border-slate-100 shadow-sm mb-6 text-slate-900">
           <h2 className="font-heading font-extrabold text-lg text-slate-900 mb-4 flex items-center gap-2">
             <GraduationCap className="w-5 h-5 text-slate-400" /> Associate Cohort Performance
           </h2>
@@ -933,7 +933,7 @@ export default function ExecSystem() {
         <ApiKeyManager />
 
         {/* ── DB collections ────────────────────────────────────────────── */}
-        <div className="bg-white rounded-2xl p-6 border border-slate-100 shadow-sm">
+        <div className="bg-white rounded-2xl p-6 border border-slate-100 shadow-sm text-slate-900">
           <h2 className="font-heading font-extrabold text-base text-slate-900 mb-3 flex items-center gap-2">
             <Database className="w-4 h-4 text-slate-400" /> Live Collections ({sys?.collections?.length || 0})
           </h2>
