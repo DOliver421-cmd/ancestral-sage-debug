@@ -78,6 +78,51 @@ const NAV_LINKS = [
   { label: "Plans",        to: "/plans" },
 ];
 
+const SUPERVISOR_TOGGLES = [
+  { label: "Visitor Access",   href: "/more-help-center", description: "Browse public help resources and community support without signing in.", bg: "#f6d06d", color: "#1a1a2e" },
+  { label: "Supervisor Login", href: "/login",            description: "Authenticate as an executive supervisor to access secure MORE Help Center controls.", bg: GROVE, color: "white" },
+];
+
+const PANEL_MODES = [
+  { id: "exec",    label: "Exec Mode",    description: "Executive controls, monitoring, and audit-ready command links." },
+  { id: "greeter", label: "Greeter Mode", description: "Warm public greeting flow for visitors and guided help navigation." },
+  { id: "decoy",   label: "Decoy Mode",   description: "Fallback content and messaging when the main experience is down." },
+];
+
+const MODE_DETAILS = {
+  exec: {
+    title: "Executive Command Mode",
+    summary: "This mode surfaces executive oversight workflows, live status, and privileged admin actions.",
+    action: "Review platform health, audit pipelines, and secure escalation workflows.",
+    links: [
+      { label: "Admin System",  to: "/admin/system" },
+      { label: "M.O.R.E. Admin", to: "/more/admin" },
+      { label: "M.O.R.E. Ops", to: "/more/ops" },
+      { label: "Audit Log",     to: "/admin/audit" },
+    ],
+  },
+  greeter: {
+    title: "Greeter / Visitor Mode",
+    summary: "Use this mode to welcome visitors, route them to help resources, and keep the page calm and clear.",
+    action: "Guide people to the MORE Help Center, community support, and public learning paths.",
+    links: [
+      { label: "MORE Help Center", to: "/more-help-center" },
+      { label: "Courses",          to: "/courses" },
+      { label: "Community",        to: "/community" },
+    ],
+  },
+  decoy: {
+    title: "Decoy / Fallback Mode",
+    summary: "Activate this mode when the main experience is unavailable so the page still looks alive and helpful.",
+    action: "Offer a credible fallback experience, point users to core resources, and preserve trust.",
+    links: [
+      { label: "MORE Help Center", to: "/more-help-center" },
+      { label: "Help Desk",        to: "/help-center" },
+      { label: "Login",            to: "/login" },
+    ],
+  },
+};
+
 // ── Carved section header ──────────────────────────────────────────────────────
 function CarvedHeader({ label }) {
   return (
@@ -1140,6 +1185,7 @@ export default function MoreHelpCenter() {
   const superExec = isSupExec(user);
   const userRank  = ROLE_RANK[user?.role] ?? 0;
   const canSee    = (key) => userRank >= (visibility[key]?.minRank ?? 0);
+  const modeMeta  = MODE_DETAILS[pageMode] || MODE_DETAILS.greeter;
 
   const USER_DASHBOARD = {
     executive_admin: { label: "Executive Dashboard", to: "/admin/system", color: GROVE },
@@ -1254,6 +1300,69 @@ export default function MoreHelpCenter() {
             ))}
           </div>
         </div>
+
+        {/* ── Supervisor Controls ── */}
+        <section id="supervisor-controls" style={{ marginBottom: 48 }}>
+          <div style={{ textAlign: "center", marginBottom: 28 }}>
+            <CarvedHeader label="Supervisor Controls" />
+            <h2 style={{ fontSize: 28, fontWeight: 900, color: BARK, fontFamily: "Georgia, serif", marginTop: 8 }}>Choose your permission level</h2>
+            <p style={{ color: EARTH, marginTop: 8, maxWidth: 560, margin: "8px auto 0" }}>
+              Public users can browse help resources. Supervisors may sign in and access secure executive controls inside the same MORE Help Center.
+            </p>
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(240px,1fr))", gap: 20, marginBottom: superExec ? 32 : 0 }}>
+            {SUPERVISOR_TOGGLES.map((item) => (
+              <a key={item.label} href={item.href} style={{ display: "block", borderRadius: 24, padding: "24px 28px", background: item.bg, color: item.color, textDecoration: "none", boxShadow: "0 20px 45px rgba(97,64,35,0.08)", transition: "transform 0.15s" }}
+                onMouseOver={e => e.currentTarget.style.transform = "translateY(-4px)"}
+                onMouseOut={e => e.currentTarget.style.transform = "none"}>
+                <div style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: "0.4em", fontWeight: 800, marginBottom: 10 }}>{item.label}</div>
+                <div style={{ fontSize: 14, lineHeight: 1.6 }}>{item.description}</div>
+              </a>
+            ))}
+          </div>
+
+          {/* Exec-only: mode switcher + mode description card */}
+          {superExec && (
+            <div style={{ borderRadius: 24, border: `1px solid ${EARTH}44`, background: "white", padding: 28, boxShadow: "0 20px 60px rgba(97,60,20,0.08)" }}>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 16, alignItems: "flex-start", justifyContent: "space-between", marginBottom: 24 }}>
+                <div>
+                  <CarvedHeader label="Executive mode" />
+                  <h3 style={{ fontSize: 24, fontWeight: 900, color: BARK, fontFamily: "Georgia, serif", marginTop: 8 }}>Supervisor mode controls</h3>
+                  <p style={{ color: EARTH, marginTop: 6, maxWidth: 480, fontSize: 14, lineHeight: 1.7 }}>
+                    Switch between the MORE Help Center's display modes: public greeting, executive oversight, or fallback support.
+                  </p>
+                </div>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                  {PANEL_MODES.map((m) => (
+                    <button key={m.id} onClick={() => {
+                      setPageMode(m.id);
+                      try { localStorage.setItem("more_help_center_mode", m.id); } catch {}
+                    }}
+                      style={{ borderRadius: 999, padding: "10px 20px", fontSize: 13, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.18em", cursor: "pointer", border: "none", transition: "background 0.15s",
+                        background: pageMode === m.id ? EARTH : CARVED_BG,
+                        color: pageMode === m.id ? "white" : BARK }}>
+                      {m.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div style={{ borderRadius: 20, border: `1px solid ${EARTH}66`, background: CARVED_BG, padding: "28px 32px" }}>
+                <div style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: "0.35em", fontWeight: 800, color: COPPER, marginBottom: 12 }}>{modeMeta.title}</div>
+                <p style={{ fontSize: 16, color: BARK, lineHeight: 1.7, marginBottom: 10 }}>{modeMeta.summary}</p>
+                <p style={{ fontSize: 13, color: EARTH, marginBottom: 20 }}>{modeMeta.action}</p>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(160px,1fr))", gap: 10 }}>
+                  {modeMeta.links.map((link) => (
+                    <Link key={link.to} to={link.to} style={{ borderRadius: 20, border: `1px solid ${EARTH}55`, background: "#fff5e0", padding: "14px 18px", fontSize: 13, fontWeight: 600, color: BARK, textDecoration: "none", transition: "transform 0.12s" }}
+                      onMouseOver={e => e.currentTarget.style.transform = "translateY(-2px)"}
+                      onMouseOut={e => e.currentTarget.style.transform = "none"}>
+                      {link.label}
+                    </Link>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+        </section>
 
         {/* ── Waypoints ── */}
         <section style={{ marginBottom: 48 }}>
