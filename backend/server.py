@@ -10191,6 +10191,596 @@ if _EMERGENCY_UI_PATH.exists():
 else:
     logger.warning("Emergency UI not found at %s — gateway disabled", _EMERGENCY_UI_PATH)
 
+# ── Executive Governance Layer ─────────────────────────────────────────────────
+# Routes added for full RBAC governance restoration.
+# All routes require executive_admin unless noted.
+
+@api_router.get("/admin/users/{uid}/sessions")
+async def exec_list_user_sessions(uid: str, user: User = Depends(require_role("executive_admin"))):
+    """List active login sessions for any user (exec-only)."""
+    sessions = await db.auth_sessions.find(
+        {"user_id": uid},
+        {"_id": 0, "session_id": 1, "user_agent": 1, "ip": 1, "created_at": 1, "last_seen": 1},
+    ).sort("last_seen", -1).to_list(length=50)
+    return {"sessions": sessions}
+
+@api_router.delete("/admin/users/{uid}/sessions")
+async def exec_force_logout(uid: str, user: User = Depends(require_role("executive_admin"))):
+    """Force-logout all sessions for a user (exec-only)."""
+    target = await db.users.find_one({"id": uid}, {"_id": 0, "full_name": 1})
+    if not target:
+        raise HTTPException(404, "User not found")
+    await db.users.update_one({"id": uid}, {"$inc": {"token_version": 1}})
+    result = await db.auth_sessions.delete_many({"user_id": uid})
+    await audit(user.id, "exec.user.force_logout", target=uid,
+                meta={"sessions_revoked": result.deleted_count})
+    return {"ok": True, "sessions_revoked": result.deleted_count}
+
+@api_router.post("/admin/users/bulk")
+async def exec_bulk_action(body: dict, user: User = Depends(require_role("executive_admin"))):
+    """Bulk action on multiple users: upgrade, downgrade, suspend, unsuspend.
+    body: { action: 'role'|'suspend'|'unsuspend', uids: [...], role?: str }"""
+    action = body.get("action")
+    uids = body.get("uids", [])
+    if not uids or not isinstance(uids, list):
+        raise HTTPException(400, "uids must be a non-empty list")
+    if action not in ("role", "suspend", "unsuspend"):
+        raise HTTPException(400, "action must be role|suspend|unsuspend")
+    results = {"ok": [], "err": []}
+    for uid in uids:
+        try:
+            target = await db.users.find_one({"id": uid}, {"_id": 0, "role": 1, "full_name": 1})
+            if not target:
+                results["err"].append({"uid": uid, "reason": "not found"})
+                continue
+            if not can_modify(user, target.get("role", "")):
+                results["err"].append({"uid": uid, "reason": "hierarchy"})
+                continue
+            if action == "role":
+                new_role = body.get("role")
+                if new_role not in ROLE_RANK:
+                    results["err"].append({"uid": uid, "reason": "invalid role"})
+                    continue
+                await db.users.update_one({"id": uid}, {"$set": {"role": new_role}})
+                await audit(user.id, "exec.bulk.role_changed", target=uid,
+                            meta={"from": target["role"], "to": new_role})
+            elif action == "suspend":
+                await db.users.update_one({"id": uid}, {"$set": {"is_active": False}})
+                await audit(user.id, "exec.bulk.suspended", target=uid)
+            elif action == "unsuspend":
+                await db.users.update_one({"id": uid}, {"$set": {"is_active": True}})
+                await audit(user.id, "exec.bulk.unsuspended", target=uid)
+            results["ok"].append(uid)
+        except Exception as e:
+            results["err"].append({"uid": uid, "reason": str(e)})
+    return results
+
+@api_router.get("/admin/users/{uid}/audit")
+async def exec_user_audit(uid: str, limit: int = 50, user: User = Depends(require_role("admin"))):
+    """Audit history for a specific user (as actor or target), admin+."""
+    entries = await db.audit_log.find(
+        {"$or": [{"actor_id": uid}, {"target_id": uid}]},
+        {"_id": 0},
+    ).sort("at", -1).limit(min(limit, 200)).to_list(length=200)
+    return entries
+
+@api_router.get("/admin/rbac/matrix")
+async def get_rbac_matrix(user: User = Depends(require_role("executive_admin"))):
+    """Return the platform permission matrix stored in DB."""
+    doc = await db.platform_config.find_one({"key": "rbac_matrix"}, {"_id": 0})
+    default_matrix = {
+        "student":         {"content_read": True,  "content_create": False, "content_edit_own": True,  "content_delete_own": True,  "user_warn": False, "user_mute": False, "user_ban": False, "api_access": False, "billing_view": False, "export_data": False},
+        "instructor":      {"content_read": True,  "content_create": True,  "content_edit_own": True,  "content_delete_own": True,  "user_warn": True,  "user_mute": True,  "user_ban": False, "api_access": True,  "billing_view": False, "export_data": False},
+        "admin":           {"content_read": True,  "content_create": True,  "content_edit_own": True,  "content_delete_own": True,  "user_warn": True,  "user_mute": True,  "user_ban": True,  "api_access": True,  "billing_view": True,  "export_data": True},
+        "executive_admin": {"content_read": True,  "content_create": True,  "content_edit_own": True,  "content_delete_own": True,  "user_warn": True,  "user_mute": True,  "user_ban": True,  "api_access": True,  "billing_view": True,  "export_data": True},
+    }
+    return {"matrix": (doc or {}).get("value", default_matrix)}
+
+@api_router.patch("/admin/rbac/matrix")
+async def set_rbac_matrix(body: dict, user: User = Depends(require_role("executive_admin"))):
+    """Update the platform permission matrix (exec-only)."""
+    matrix = body.get("matrix")
+    if not isinstance(matrix, dict):
+        raise HTTPException(400, "matrix must be an object")
+    valid_roles = set(ROLE_RANK.keys())
+    for role in matrix:
+        if role not in valid_roles:
+            raise HTTPException(400, f"Unknown role: {role}")
+    await db.platform_config.update_one(
+        {"key": "rbac_matrix"},
+        {"$set": {"key": "rbac_matrix", "value": matrix, "updated_by": user.id, "updated_at": datetime.now(timezone.utc).isoformat()}},
+        upsert=True,
+    )
+    await audit(user.id, "exec.rbac.matrix_updated", meta={"roles": list(matrix.keys())})
+    return {"ok": True}
+
+@api_router.get("/admin/mfa/config")
+async def get_mfa_config(user: User = Depends(require_role("executive_admin"))):
+    """Return MFA enforcement config per role."""
+    doc = await db.platform_config.find_one({"key": "mfa_config"}, {"_id": 0})
+    default = {"executive_admin": True, "admin": True, "instructor": False, "student": False}
+    return {"mfa": (doc or {}).get("value", default)}
+
+@api_router.patch("/admin/mfa/config")
+async def set_mfa_config(body: dict, user: User = Depends(require_role("executive_admin"))):
+    """Set MFA enforcement per role (exec-only)."""
+    mfa = body.get("mfa")
+    if not isinstance(mfa, dict):
+        raise HTTPException(400, "mfa must be an object")
+    await db.platform_config.update_one(
+        {"key": "mfa_config"},
+        {"$set": {"key": "mfa_config", "value": mfa, "updated_by": user.id, "updated_at": datetime.now(timezone.utc).isoformat()}},
+        upsert=True,
+    )
+    await audit(user.id, "exec.mfa.config_updated", meta=mfa)
+    return {"ok": True, "mfa": mfa}
+
+@api_router.get("/admin/access/ipwhitelist")
+async def get_ip_whitelist(user: User = Depends(require_role("executive_admin"))):
+    """Return IP whitelist entries."""
+    entries = await db.ip_whitelist.find({}, {"_id": 0}).sort("created_at", -1).to_list(length=200)
+    return {"entries": entries}
+
+@api_router.post("/admin/access/ipwhitelist")
+async def add_ip_whitelist(body: dict, user: User = Depends(require_role("executive_admin"))):
+    """Add an IP/CIDR to the whitelist for a role."""
+    ip = (body.get("ip") or "").strip()
+    role = body.get("role", "executive_admin")
+    note = (body.get("note") or "").strip()
+    if not ip:
+        raise HTTPException(400, "ip is required")
+    if role not in ROLE_RANK:
+        raise HTTPException(400, f"Unknown role: {role}")
+    import uuid as _uuid
+    entry = {"id": str(_uuid.uuid4()), "ip": ip, "role": role, "note": note,
+             "added_by": user.id, "created_at": datetime.now(timezone.utc).isoformat()}
+    await db.ip_whitelist.insert_one(entry)
+    await audit(user.id, "exec.access.ip_added", meta={"ip": ip, "role": role})
+    entry.pop("_id", None)
+    return entry
+
+@api_router.delete("/admin/access/ipwhitelist/{entry_id}")
+async def remove_ip_whitelist(entry_id: str, user: User = Depends(require_role("executive_admin"))):
+    """Remove an IP whitelist entry."""
+    result = await db.ip_whitelist.delete_one({"id": entry_id})
+    if result.deleted_count == 0:
+        raise HTTPException(404, "Entry not found")
+    await audit(user.id, "exec.access.ip_removed", meta={"entry_id": entry_id})
+    return {"ok": True}
+
+@api_router.post("/admin/users/{uid}/elevated-role")
+async def grant_elevated_role(uid: str, body: dict, user: User = Depends(require_role("executive_admin"))):
+    """Grant a time-bound elevated role to a user (exec-only).
+    body: { role: str, expires_hours: int, reason: str }"""
+    role = body.get("role")
+    hours = body.get("expires_hours", 24)
+    reason = body.get("reason", "")
+    if role not in ROLE_RANK:
+        raise HTTPException(400, f"Unknown role: {role}")
+    if not (1 <= hours <= 168):
+        raise HTTPException(400, "expires_hours must be 1-168")
+    target = await db.users.find_one({"id": uid}, {"_id": 0, "role": 1, "full_name": 1})
+    if not target:
+        raise HTTPException(404, "User not found")
+    expires_at = (datetime.now(timezone.utc) + timedelta(hours=hours)).isoformat()
+    import uuid as _uuid
+    record = {
+        "id": str(_uuid.uuid4()), "user_id": uid, "role": role,
+        "original_role": target["role"], "expires_at": expires_at,
+        "reason": reason, "granted_by": user.id,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    }
+    await db.elevated_roles.insert_one(record)
+    await db.users.update_one({"id": uid}, {"$set": {"role": role, "elevated_until": expires_at, "original_role": target["role"]}})
+    await audit(user.id, "exec.user.elevated_role", target=uid,
+                meta={"role": role, "expires_at": expires_at, "reason": reason})
+    record.pop("_id", None)
+    return record
+
+@api_router.get("/admin/users/{uid}/elevated-role")
+async def get_elevated_role(uid: str, user: User = Depends(require_role("executive_admin"))):
+    """Get active elevated role record for user."""
+    record = await db.elevated_roles.find_one(
+        {"user_id": uid, "expires_at": {"$gt": datetime.now(timezone.utc).isoformat()}},
+        {"_id": 0},
+    )
+    return {"elevated": record}
+
+@api_router.delete("/admin/users/{uid}/elevated-role")
+async def revoke_elevated_role(uid: str, user: User = Depends(require_role("executive_admin"))):
+    """Revoke time-bound elevated role and revert to original."""
+    target = await db.users.find_one({"id": uid}, {"_id": 0, "original_role": 1, "elevated_until": 1})
+    if not target or not target.get("original_role"):
+        raise HTTPException(404, "No active elevation found")
+    original = target["original_role"]
+    await db.users.update_one({"id": uid}, {"$set": {"role": original}, "$unset": {"elevated_until": 1, "original_role": 1}})
+    await db.elevated_roles.delete_many({"user_id": uid})
+    await audit(user.id, "exec.user.elevation_revoked", target=uid, meta={"reverted_to": original})
+    return {"ok": True, "reverted_to": original}
+
+@api_router.get("/admin/audit/export")
+async def export_audit_log(
+    format: str = "json",
+    limit: int = 1000,
+    action: str = None,
+    actor_id: str = None,
+    user: User = Depends(require_role("executive_admin")),
+):
+    """Export full audit log as JSON or CSV (exec-only)."""
+    filt: dict = {}
+    if action:
+        import re as _re
+        filt["action"] = {"$regex": action, "$options": "i"}
+    if actor_id:
+        filt["actor_id"] = actor_id
+    entries = await db.audit_log.find(filt, {"_id": 0}).sort("at", -1).limit(min(limit, 5000)).to_list(length=5000)
+    if format == "csv":
+        import io as _io, csv as _csv
+        buf = _io.StringIO()
+        writer = _csv.DictWriter(buf, fieldnames=["at", "actor_id", "actor_name", "action", "target_id", "meta"])
+        writer.writeheader()
+        for e in entries:
+            writer.writerow({"at": e.get("at",""), "actor_id": e.get("actor_id",""), "actor_name": e.get("actor_name",""),
+                             "action": e.get("action",""), "target_id": e.get("target_id",""), "meta": str(e.get("meta",""))})
+        from fastapi.responses import Response as _Response
+        return _Response(content=buf.getvalue(), media_type="text/csv",
+                         headers={"Content-Disposition": "attachment; filename=audit_export.csv"})
+    return entries
+
+
+# ── Supervisor Control Panel Routes ────────────────────────────────────────────
+# Distinct from exec routes. Supervisor has independent controls:
+# content moderation, escalation management, visitor flow, greeter config,
+# backup system health, and system continuity controls.
+# All require executive_admin (supervisor rank).
+
+@api_router.get("/supervisor/dashboard")
+async def supervisor_dashboard(user: User = Depends(require_role("executive_admin"))):
+    """Supervisor overview: moderation queue counts, system health summary, backup status, incident summary."""
+    mod_pending  = await db.more_posts.count_documents({"status": "pending_review"})
+    need_pending = await db.more_needs.count_documents({"status": "pending_review"})
+    flag_pending = await db.more_flags.count_documents({"status": "pending"})
+    appeal_pending = await db.more_appeals.count_documents({"status": "pending"})
+    open_incidents = await db.incidents.count_documents({"status": "open"})
+    total_users = await db.users.count_documents({})
+    active_users = await db.users.count_documents({"is_active": {"$ne": False}})
+    return {
+        "moderation": {
+            "posts_pending": mod_pending,
+            "needs_pending": need_pending,
+            "flags_pending": flag_pending,
+            "appeals_pending": appeal_pending,
+        },
+        "incidents": {"open": open_incidents},
+        "users": {"total": total_users, "active": active_users},
+    }
+
+@api_router.get("/supervisor/escalations")
+async def supervisor_escalations(user: User = Depends(require_role("executive_admin"))):
+    """List open escalation records — supervisor manages these."""
+    escalations = await db.escalations.find(
+        {"status": {"$in": ["open", "pending_supervisor"]}},
+        {"_id": 0},
+    ).sort("created_at", -1).to_list(length=100)
+    return {"escalations": escalations}
+
+@api_router.post("/supervisor/escalations/{esc_id}/resolve")
+async def supervisor_resolve_escalation(esc_id: str, body: dict, user: User = Depends(require_role("executive_admin"))):
+    """Supervisor resolves an escalation with a decision and note."""
+    decision = body.get("decision", "resolved")
+    note     = body.get("note", "")
+    result   = await db.escalations.update_one(
+        {"id": esc_id},
+        {"$set": {
+            "status": decision,
+            "resolved_by": user.id,
+            "resolution_note": note,
+            "resolved_at": datetime.now(timezone.utc).isoformat(),
+        }},
+    )
+    if result.matched_count == 0:
+        raise HTTPException(404, "Escalation not found")
+    await audit(user.id, "supervisor.escalation.resolved", meta={"esc_id": esc_id, "decision": decision})
+    return {"ok": True, "decision": decision}
+
+@api_router.post("/supervisor/escalations")
+async def supervisor_create_escalation(body: dict, user: User = Depends(require_role("executive_admin"))):
+    """Supervisor creates a new escalation record (e.g. flagging a pattern for exec review)."""
+    import uuid as _uuid
+    esc = {
+        "id": str(_uuid.uuid4()),
+        "title": body.get("title", "Untitled"),
+        "description": body.get("description", ""),
+        "severity": body.get("severity", "medium"),
+        "target_id": body.get("target_id"),
+        "target_type": body.get("target_type", "user"),
+        "status": "open",
+        "created_by": user.id,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    }
+    await db.escalations.insert_one(esc)
+    await audit(user.id, "supervisor.escalation.created", meta={"id": esc["id"], "title": esc["title"]})
+    esc.pop("_id", None)
+    return esc
+
+@api_router.get("/supervisor/greeter/config")
+async def supervisor_greeter_config(user: User = Depends(require_role("executive_admin"))):
+    """Return greeter/Supervisor persona config: welcome message, mode, routing rules."""
+    doc = await db.platform_config.find_one({"key": "greeter_config"}, {"_id": 0})
+    default = {
+        "welcome_message": "Welcome to the WAI Institute. I'm here to guide you.",
+        "mode": "greeter",
+        "route_unauthenticated_to": "/more-help-center",
+        "route_authenticated_to": "/dashboard",
+        "show_help_link": True,
+        "show_community_link": True,
+        "greeter_name": "The Supervisor",
+    }
+    return {"config": (doc or {}).get("value", default)}
+
+@api_router.patch("/supervisor/greeter/config")
+async def supervisor_update_greeter(body: dict, user: User = Depends(require_role("executive_admin"))):
+    """Update greeter persona config — supervisor controls the visitor welcome experience."""
+    config = body.get("config")
+    if not isinstance(config, dict):
+        raise HTTPException(400, "config must be an object")
+    await db.platform_config.update_one(
+        {"key": "greeter_config"},
+        {"$set": {"key": "greeter_config", "value": config,
+                  "updated_by": user.id, "updated_at": datetime.now(timezone.utc).isoformat()}},
+        upsert=True,
+    )
+    await audit(user.id, "supervisor.greeter.config_updated", meta=config)
+    return {"ok": True, "config": config}
+
+@api_router.get("/supervisor/visitor-flow")
+async def supervisor_visitor_flow(user: User = Depends(require_role("executive_admin"))):
+    """Return visitor routing/flow config: where unauthenticated visitors land, fallback paths."""
+    doc = await db.platform_config.find_one({"key": "visitor_flow"}, {"_id": 0})
+    default = {
+        "public_landing": "/more-help-center",
+        "auth_landing": "/dashboard",
+        "fallback_path": "/help-center",
+        "login_optional": True,
+        "auto_redirect_to_login": False,
+        "show_supervisor_widget": True,
+    }
+    return {"flow": (doc or {}).get("value", default)}
+
+@api_router.patch("/supervisor/visitor-flow")
+async def supervisor_update_visitor_flow(body: dict, user: User = Depends(require_role("executive_admin"))):
+    """Update visitor flow config — supervisor controls public routing."""
+    flow = body.get("flow")
+    if not isinstance(flow, dict):
+        raise HTTPException(400, "flow must be an object")
+    # Enforce governance rule: login must never auto-redirect
+    if flow.get("auto_redirect_to_login") is True:
+        raise HTTPException(400, "auto_redirect_to_login must remain false — governance rule.")
+    await db.platform_config.update_one(
+        {"key": "visitor_flow"},
+        {"$set": {"key": "visitor_flow", "value": flow,
+                  "updated_by": user.id, "updated_at": datetime.now(timezone.utc).isoformat()}},
+        upsert=True,
+    )
+    await audit(user.id, "supervisor.visitor_flow.updated", meta=flow)
+    return {"ok": True, "flow": flow}
+
+@api_router.post("/supervisor/content/{content_type}/{content_id}/approve")
+async def supervisor_approve_content(content_type: str, content_id: str, user: User = Depends(require_role("executive_admin"))):
+    """Supervisor approves content — same as admin queue but with supervisor audit trail."""
+    if content_type == "post":
+        result = await db.more_posts.update_one(
+            {"id": content_id},
+            {"$set": {"status": "active", "reviewed_by": user.id,
+                      "reviewed_at": datetime.now(timezone.utc).isoformat(), "reviewed_by_role": "supervisor"}},
+        )
+    elif content_type == "need":
+        result = await db.more_needs.update_one(
+            {"id": content_id},
+            {"$set": {"status": "open", "reviewed_by": user.id,
+                      "reviewed_at": datetime.now(timezone.utc).isoformat(), "reviewed_by_role": "supervisor"}},
+        )
+    elif content_type == "appeal":
+        result = await db.more_appeals.update_one(
+            {"id": content_id},
+            {"$set": {"status": "approved", "reviewed_by": user.id,
+                      "reviewed_at": datetime.now(timezone.utc).isoformat()}},
+        )
+    else:
+        raise HTTPException(400, "content_type must be post|need|appeal")
+    await audit(user.id, f"supervisor.content.approved.{content_type}", meta={"content_id": content_id})
+    return {"ok": True, "content_id": content_id}
+
+@api_router.post("/supervisor/content/{content_type}/{content_id}/reject")
+async def supervisor_reject_content(content_type: str, content_id: str, body: dict, user: User = Depends(require_role("executive_admin"))):
+    """Supervisor rejects/removes content with reason."""
+    reason = body.get("reason", "")
+    if content_type == "post":
+        result = await db.more_posts.delete_one({"id": content_id})
+    elif content_type == "need":
+        result = await db.more_needs.delete_one({"id": content_id})
+    elif content_type == "appeal":
+        result = await db.more_appeals.update_one(
+            {"id": content_id},
+            {"$set": {"status": "rejected", "rejection_reason": reason,
+                      "reviewed_by": user.id, "reviewed_at": datetime.now(timezone.utc).isoformat()}},
+        )
+    elif content_type == "flag":
+        result = await db.more_flags.update_one(
+            {"id": content_id},
+            {"$set": {"status": "dismissed", "dismissed_by": user.id,
+                      "dismissed_at": datetime.now(timezone.utc).isoformat()}},
+        )
+    else:
+        raise HTTPException(400, "content_type must be post|need|appeal|flag")
+    await audit(user.id, f"supervisor.content.rejected.{content_type}", meta={"content_id": content_id, "reason": reason})
+    return {"ok": True}
+
+@api_router.get("/supervisor/backup/status")
+async def supervisor_backup_status(user: User = Depends(require_role("executive_admin"))):
+    """Comprehensive backup system status: gateway, providers, panel health, DB reachability."""
+    status = {"checked_at": datetime.now(timezone.utc).isoformat()}
+    # DB ping
+    try:
+        await db.command("ping")
+        status["database"] = "connected"
+    except Exception as e:
+        status["database"] = f"error: {str(e)[:80]}"
+    # Gateway
+    try:
+        import ai.llm_gateway as _gw
+        status["gateway"] = {
+            "tokens_used": _gw._hour_tokens_used,
+            "cap": _gw.HOURLY_TOKEN_CAP,
+            "percent": round(_gw._hour_tokens_used / max(_gw.HOURLY_TOKEN_CAP, 1) * 100, 1),
+        }
+    except Exception:
+        status["gateway"] = "unavailable"
+    # Backup panel state
+    try:
+        from exec_panel import get_panel
+        panel = await get_panel(db)
+        status["breaker_panel"] = panel
+    except Exception:
+        status["breaker_panel"] = "unavailable"
+    # Provider ranking
+    try:
+        doc = await db.platform_config.find_one({"key": "gateway_provider_ranking"}, {"_id": 0})
+        status["provider_ranking"] = (doc or {}).get("value", [])
+    except Exception:
+        status["provider_ranking"] = []
+    return status
+
+@api_router.post("/supervisor/backup/switch-provider")
+async def supervisor_switch_provider(body: dict, user: User = Depends(require_role("executive_admin"))):
+    """Supervisor manually promotes a provider to top of ranking (backup system override)."""
+    provider = body.get("provider", "").strip()
+    _DEFAULT = ["groq","cerebras","gemini","xai","cohere","openrouter","huggingface","anthropic"]
+    if provider not in _DEFAULT:
+        raise HTTPException(400, f"Unknown provider: {provider}. Valid: {_DEFAULT}")
+    doc = await db.platform_config.find_one({"key": "gateway_provider_ranking"}, {"_id": 0})
+    ranking = list((doc or {}).get("value", _DEFAULT))
+    if provider in ranking:
+        ranking.remove(provider)
+    ranking.insert(0, provider)
+    await db.platform_config.update_one(
+        {"key": "gateway_provider_ranking"},
+        {"$set": {"key": "gateway_provider_ranking", "value": ranking,
+                  "updated_by": user.id, "updated_at": datetime.now(timezone.utc).isoformat()}},
+        upsert=True,
+    )
+    await audit(user.id, "supervisor.backup.provider_switched", meta={"provider": provider, "new_ranking": ranking})
+    return {"ok": True, "provider": provider, "ranking": ranking}
+
+@api_router.post("/supervisor/backup/reset-gateway")
+async def supervisor_reset_gateway(user: User = Depends(require_role("executive_admin"))):
+    """Supervisor resets gateway budget counter (backup system continuity action)."""
+    try:
+        import ai.llm_gateway as _gw
+        prev = _gw._hour_tokens_used
+        _gw._hour_tokens_used = 0
+        _gw._hour_window_start = 0.0
+        await audit(user.id, "supervisor.backup.gateway_reset", meta={"previous_tokens_used": prev})
+        return {"ok": True, "previous_tokens_used": prev}
+    except Exception as e:
+        raise HTTPException(500, f"Gateway reset failed: {e}")
+
+@api_router.get("/supervisor/backup/free-matrix")
+async def supervisor_backup_matrix(user: User = Depends(require_role("executive_admin"))):
+    """Return the free backup provider matrix with live status for each provider."""
+    try:
+        from exec_panel import get_system_health
+        health = await get_system_health(db)
+        return health
+    except Exception as e:
+        return {"error": str(e), "note": "exec_panel module unavailable"}
+
+@api_router.post("/supervisor/backup/emergency-broadcast")
+async def supervisor_emergency_broadcast(body: dict, user: User = Depends(require_role("executive_admin"))):
+    """Supervisor sends an emergency broadcast — system continuity announcement."""
+    title   = body.get("title", "System Notice").strip()
+    message = body.get("message", "").strip()
+    target  = body.get("target", "all")
+    if not message:
+        raise HTTPException(400, "message is required")
+    import uuid as _uuid
+    broadcast = {
+        "id": str(_uuid.uuid4()),
+        "title": title,
+        "message": message,
+        "target": target,
+        "sent_by": user.id,
+        "sent_at": datetime.now(timezone.utc).isoformat(),
+        "type": "emergency",
+    }
+    await db.broadcasts.insert_one(broadcast)
+    await audit(user.id, "supervisor.backup.emergency_broadcast", meta={"title": title, "target": target})
+    broadcast.pop("_id", None)
+    return broadcast
+
+@api_router.get("/supervisor/sage/sessions")
+async def supervisor_sage_sessions(
+    limit: int = 50,
+    user_id: str = None,
+    user: User = Depends(require_role("executive_admin")),
+):
+    """Supervisor reviews Sage session activity — for content safety oversight."""
+    filt = {}
+    if user_id:
+        filt["user_id"] = user_id
+    sessions = await db.sage_sessions.find(filt, {"_id": 0}).sort("created_at", -1).limit(min(limit, 200)).to_list(length=200)
+    return {"sessions": sessions, "total": len(sessions)}
+
+@api_router.post("/supervisor/sage/sessions/{session_id}/flag")
+async def supervisor_flag_sage_session(session_id: str, body: dict, user: User = Depends(require_role("executive_admin"))):
+    """Supervisor flags a Sage session for exec review."""
+    reason = body.get("reason", "")
+    await db.sage_sessions.update_one(
+        {"id": session_id},
+        {"$set": {"flagged": True, "flagged_by": user.id,
+                  "flag_reason": reason, "flagged_at": datetime.now(timezone.utc).isoformat()}},
+    )
+    await audit(user.id, "supervisor.sage.session_flagged", meta={"session_id": session_id, "reason": reason})
+    return {"ok": True}
+
+@api_router.get("/supervisor/system/continuity-check")
+async def supervisor_continuity_check(user: User = Depends(require_role("executive_admin"))):
+    """Run a full system continuity check: DB, gateway, backup panel, key routes."""
+    results = {}
+    # DB
+    try:
+        await db.command("ping")
+        results["database"] = {"status": "ok"}
+    except Exception as e:
+        results["database"] = {"status": "error", "detail": str(e)[:120]}
+    # Gateway module
+    try:
+        import ai.llm_gateway as _gw
+        results["gateway_module"] = {"status": "ok", "tokens_used": _gw._hour_tokens_used, "cap": _gw.HOURLY_TOKEN_CAP}
+    except Exception as e:
+        results["gateway_module"] = {"status": "error", "detail": str(e)[:120]}
+    # Exec panel module
+    try:
+        from exec_panel import get_panel
+        await get_panel(db)
+        results["exec_panel"] = {"status": "ok"}
+    except Exception as e:
+        results["exec_panel"] = {"status": "error", "detail": str(e)[:120]}
+    # Platform config
+    try:
+        count = await db.platform_config.count_documents({})
+        results["platform_config"] = {"status": "ok", "keys": count}
+    except Exception as e:
+        results["platform_config"] = {"status": "error", "detail": str(e)[:120]}
+    # User count sanity check
+    try:
+        uc = await db.users.count_documents({})
+        results["users_collection"] = {"status": "ok", "count": uc}
+    except Exception as e:
+        results["users_collection"] = {"status": "error", "detail": str(e)[:120]}
+    all_ok = all(v.get("status") == "ok" for v in results.values())
+    return {"all_ok": all_ok, "checks": results, "checked_at": datetime.now(timezone.utc).isoformat()}
+
 app.include_router(api_router)
 # CORS: when origins is wildcard ("*") browsers reject credentials, so we
 # turn off allow_credentials in that case (auth uses Bearer token in Authorization
