@@ -1729,13 +1729,13 @@ async def me(user: User = Depends(current_user)):
 
 
 @api_router.get("/modules", response_model=List[Module])
-async def list_modules(user: User = Depends(current_user)):
+async def list_modules():
     docs = await db.modules.find({}, {"_id": 0}).sort("order", 1).to_list(100)
     return [Module(**d) for d in docs]
 
 
 @api_router.get("/modules/{slug}", response_model=Module)
-async def get_module(slug: str, user: User = Depends(current_user)):
+async def get_module(slug: str):
     doc = await db.modules.find_one({"slug": slug}, {"_id": 0})
     if not doc:
         raise HTTPException(404, "Module not found")

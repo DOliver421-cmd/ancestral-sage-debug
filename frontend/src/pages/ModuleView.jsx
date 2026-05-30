@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import AppShell from "../components/AppShell";
 import { LoadingState } from "../components/LoadingState";
-import { api } from "../lib/api";
+import { api, BACKEND_URL } from "../lib/api";
 import { toast } from "sonner";
 import { BookOpen, ShieldAlert, Wrench, CheckSquare, FileImage, Sparkles, ArrowLeft } from "lucide-react";
 
@@ -14,7 +14,10 @@ export default function ModuleView() {
   const [result, setResult] = useState(null);
 
   useEffect(() => {
-    api.get(`/modules/${slug}`).then((r) => setMod(r.data));
+    fetch(`${BACKEND_URL}/api/modules/${slug}`)
+      .then((r) => r.ok ? r.json() : null)
+      .then((data) => { if (data) setMod(data); })
+      .catch(() => {});
     api.post("/progress/start", { module_slug: slug }).then((r) => setProgress(r.data)).catch(() => {});
   }, [slug]);
 
