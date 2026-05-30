@@ -210,8 +210,11 @@ async def add_security_headers(request: Request, call_next):
     response.headers["Content-Security-Policy"] = "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self' https:; frame-ancestors 'none'; base-uri 'self'; form-action 'self'"
     # Referrer policy (limit referrer disclosure)
     response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
-    # Permissions policy (disable legacy features)
-    response.headers["Permissions-Policy"] = "geolocation=(), microphone=(), camera=()"
+    # Permissions policy — allow microphone for voice input surfaces (Director, Supervisor, AI Tutor,
+    # Sovereign, Orchestrator, Helper). Camera and geolocation remain blocked.
+    response.headers["Permissions-Policy"] = "geolocation=(), microphone=(self), camera=()"
+    # CSP: media-src includes blob: for TTS audio (createObjectURL) and data: for inline assets
+    response.headers["Content-Security-Policy"] = "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self' https:; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; media-src 'self' blob:"
     return response
 
 
