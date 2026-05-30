@@ -188,12 +188,19 @@ function ExecPanel({ apiOnline, visibility, setVisibility, superExec }) {
   // ── other tabs ─────────────────────────────────────────────────────────────
   const [incidents, setIncidents]   = useState([]);
   const [auditLog, setAuditLog]     = useState([]);
+  const [auditActionQ, setAuditActionQ] = useState("");
+  const [auditActorQ, setAuditActorQ]   = useState("");
+  const [auditLimit, setAuditLimit]     = useState(50);
   const [broadcastMsg, setBroadcast]= useState("");
   const [sending, setSending]       = useState(false);
   const [gwStatus, setGwStatus]     = useState(null);
   const [apiKeys, setApiKeys]       = useState({});
   const [showKeys, setShowKeys]     = useState({});
+  const [sysInfo, setSysInfo]       = useState(null);
   const [capLevel, setCapLevel]     = useState("");
+  const [capOverrides, setCapOverrides] = useState([]);
+  const [capOverrideUid, setCapOverrideUid] = useState("");
+  const [capOverrideLvl, setCapOverrideLvl] = useState("standard");
   const [loading, setLoading]       = useState(false);
   const [notice, setNotice]         = useState("");
   // ── gateway controls ───────────────────────────────────────────────────────
@@ -222,15 +229,19 @@ function ExecPanel({ apiOnline, visibility, setVisibility, superExec }) {
   const loadHealth = useCallback(async () => {
     setLoading(true);
     try { const r = await api.get("/health"); setHealth(r.data); } catch { setHealth(null); }
+    try { const r = await api.get("/exec/system"); setSysInfo(r.data); } catch {}
     finally { setLoading(false); }
   }, []);
 
   const loadGateway = useCallback(async () => {
-    try { const r = await api.get("/admin/gateway/status"); setGwStatus(r.data); } catch {}
+    try {
+      const r = await api.get("/admin/gateway/status");
+      setGwStatus(r.data);
+      if (r.data?.budget?.hourly_cap) setBudgetCap(String(r.data.budget.hourly_cap));
+    } catch {}
     try {
       const r2 = await api.get("/admin/gateway/ranking");
       setGwRanking(r2.data);
-      if (r2.data?.hourly_cap) setBudgetCap(String(r2.data.hourly_cap));
     } catch {}
   }, []);
 
@@ -255,12 +266,19 @@ function ExecPanel({ apiOnline, visibility, setVisibility, superExec }) {
     } catch {}
   }, []);
 
-  const loadAudit = useCallback(async () => {
-    try { const r = await api.get("/admin/audit?limit=20"); setAuditLog(Array.isArray(r.data) ? r.data : []); } catch {}
+  const loadAudit = useCallback(async (action, actorId, limit) => {
+    const params = new URLSearchParams({ limit: limit || 50 });
+    if (action) params.set("action", action);
+    if (actorId) params.set("actor_id", actorId);
+    try { const r = await api.get(`/admin/audit?${params}`); setAuditLog(Array.isArray(r.data) ? r.data : []); } catch {}
   }, []);
 
   const loadSageCap = useCallback(async () => {
-    try { const r = await api.get("/admin/sage/cap"); setCapLevel(r.data?.global_level || ""); } catch {}
+    try {
+      const r = await api.get("/admin/sage/cap");
+      setCapLevel(r.data?.global_level || "");
+      setCapOverrides(Array.isArray(r.data?.overrides) ? r.data.overrides : []);
+    } catch {}
   }, []);
 
   useEffect(() => {
@@ -271,10 +289,10 @@ function ExecPanel({ apiOnline, visibility, setVisibility, superExec }) {
   useEffect(() => {
     if (tab === "users")     loadUsers(userQ, userRoleFilter);
     if (tab === "incidents") loadIncidents();
-    if (tab === "audit")     loadAudit();
+    if (tab === "audit")     loadAudit(auditActionQ, auditActorQ, auditLimit);
     if (tab === "safety")    loadSageCap();
     if (tab === "failover")  loadBackupMatrix();
-  }, [tab, loadUsers, loadIncidents, loadAudit, loadSageCap, loadBackupMatrix, userQ, userRoleFilter]);
+  }, [tab, loadUsers, loadIncidents, loadAudit, loadSageCap, loadBackupMatrix, userQ, userRoleFilter, auditActionQ, auditActorQ, auditLimit]);
 
   // ── User governance actions ────────────────────────────────────────────────
   function openEdit(u) {
@@ -402,6 +420,23 @@ function ExecPanel({ apiOnline, visibility, setVisibility, superExec }) {
     } catch { notify("Failed to set cap", true); }
   };
 
+  const setUserCapOverride = async (uid, level) => {
+    if (!uid.trim()) { notify("Enter a user ID"); return; }
+    try {
+      await api.put(`/admin/sage/cap/user/${uid.trim()}`, { level: level || null });
+      notify(`Per-user cap set for ${uid.trim()}: ${level || "cleared"}`);
+      await loadSageCap();
+    } catch (e) { notify(`User cap failed: ${e?.response?.data?.detail || e.message}`); }
+  };
+
+  const clearUserCapOverride = async (uid) => {
+    try {
+      await api.put(`/admin/sage/cap/user/${uid}`, { level: null });
+      notify(`Cap override cleared for ${uid}`);
+      await loadSageCap();
+    } catch (e) { notify(`Clear failed: ${e?.response?.data?.detail || e.message}`); }
+  };
+
   const pushApiKey = async (envKey, value) => {
     if (!value) return;
     try {
@@ -523,7 +558,7 @@ function ExecPanel({ apiOnline, visibility, setVisibility, superExec }) {
               </button>
             </div>
             {health ? (
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(140px,1fr))", gap: 10 }}>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(140px,1fr))", gap: 10, marginBottom: 20 }}>
                 {Object.entries(health).filter(([k]) => typeof health[k] !== "object").map(([k, v]) => (
                   <div key={k} style={{ background: "rgba(255,255,255,0.07)", borderRadius: 8, padding: "10px 14px" }}>
                     <div style={{ color: "rgba(255,255,255,0.45)", fontSize: 10, textTransform: "uppercase", letterSpacing: 1 }}>{k}</div>
@@ -533,6 +568,40 @@ function ExecPanel({ apiOnline, visibility, setVisibility, superExec }) {
               </div>
             ) : (
               <p style={{ color: "rgba(255,255,255,0.4)", fontSize: 13 }}>Click Refresh to run health check.</p>
+            )}
+            {sysInfo && (
+              <div style={{ background: "rgba(255,255,255,0.05)", borderRadius: 10, padding: "14px 18px" }}>
+                <div style={{ color: SIG, fontWeight: 700, fontSize: 12, textTransform: "uppercase", letterSpacing: 1, marginBottom: 10 }}>System Info (Exec)</div>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(160px,1fr))", gap: 8, marginBottom: 10 }}>
+                  <div style={{ background: "rgba(255,255,255,0.06)", borderRadius: 6, padding: "8px 12px" }}>
+                    <div style={{ color: "rgba(255,255,255,0.4)", fontSize: 10, textTransform: "uppercase" }}>Version</div>
+                    <div style={{ color: "white", fontSize: 12, fontWeight: 700, marginTop: 3, fontFamily: "monospace" }}>{sysInfo.version || "—"}</div>
+                  </div>
+                  <div style={{ background: "rgba(255,255,255,0.06)", borderRadius: 6, padding: "8px 12px" }}>
+                    <div style={{ color: "rgba(255,255,255,0.4)", fontSize: 10, textTransform: "uppercase" }}>Audit Log Entries</div>
+                    <div style={{ color: "white", fontSize: 12, fontWeight: 700, marginTop: 3 }}>{sysInfo.audit_log_total?.toLocaleString() || "—"}</div>
+                  </div>
+                  {sysInfo.env && Object.entries(sysInfo.env).map(([k, v]) => (
+                    <div key={k} style={{ background: "rgba(255,255,255,0.06)", borderRadius: 6, padding: "8px 12px" }}>
+                      <div style={{ color: "rgba(255,255,255,0.4)", fontSize: 10, textTransform: "uppercase" }}>{k.replace(/_/g, " ")}</div>
+                      <div style={{ color: "white", fontSize: 11, fontWeight: 600, marginTop: 3, fontFamily: "monospace", wordBreak: "break-all" }}>{String(v)}</div>
+                    </div>
+                  ))}
+                </div>
+                {sysInfo.role_counts && (
+                  <div>
+                    <div style={{ color: "rgba(255,255,255,0.4)", fontSize: 10, textTransform: "uppercase", letterSpacing: 1, marginBottom: 6 }}>Role Distribution</div>
+                    <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                      {Object.entries(sysInfo.role_counts).map(([role, count]) => (
+                        <div key={role} style={{ background: "rgba(255,255,255,0.08)", borderRadius: 5, padding: "4px 10px", fontSize: 11 }}>
+                          <span style={{ color: "rgba(255,255,255,0.6)", textTransform: "capitalize" }}>{role.replace("_", " ")}</span>
+                          <span style={{ color: SIG, fontWeight: 800, marginLeft: 6 }}>{count}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
             )}
           </div>
         )}
@@ -885,11 +954,12 @@ function ExecPanel({ apiOnline, visibility, setVisibility, superExec }) {
 
         {tab === "safety" && (
           <div>
+            {/* Global cap */}
             <div style={{ color: "white", fontWeight: 700, fontSize: 14, marginBottom: 6 }}>Global Sage Safety Cap</div>
-            <div style={{ color: "rgba(255,255,255,0.5)", fontSize: 12, marginBottom: 16 }}>
+            <div style={{ color: "rgba(255,255,255,0.5)", fontSize: 12, marginBottom: 14 }}>
               Current: <strong style={{ color: SIG }}>{capLevel || "No restriction"}</strong>
             </div>
-            <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 28 }}>
               {["conservative", "standard", "exploratory"].map(lvl => (
                 <button key={lvl} onClick={() => setSafetyCap(lvl)}
                   style={{ background: capLevel === lvl ? SIG : "rgba(255,255,255,0.1)", border: "none", color: capLevel === lvl ? INK : "white", padding: "8px 16px", borderRadius: 7, fontSize: 12, fontWeight: 700, cursor: "pointer", textTransform: "capitalize" }}>
@@ -901,6 +971,49 @@ function ExecPanel({ apiOnline, visibility, setVisibility, superExec }) {
                 Clear Restriction
               </button>
             </div>
+
+            {/* Per-user overrides — exec only */}
+            {superExec && (
+              <div>
+                <div style={{ color: SIG, fontWeight: 700, fontSize: 12, textTransform: "uppercase", letterSpacing: 1, marginBottom: 10 }}>Per-User Cap Overrides</div>
+                <div style={{ color: "rgba(255,255,255,0.45)", fontSize: 11, marginBottom: 12 }}>
+                  Override the global cap for a specific user. Use User ID from the Users tab. Set to null to remove.
+                </div>
+                <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 16 }}>
+                  <input value={capOverrideUid} onChange={e => setCapOverrideUid(e.target.value)}
+                    placeholder="User ID…"
+                    style={{ flex: 1, minWidth: 180, background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.2)", borderRadius: 6, padding: "6px 10px", color: "white", fontSize: 12, outline: "none" }} />
+                  <select value={capOverrideLvl} onChange={e => setCapOverrideLvl(e.target.value)}
+                    style={{ background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.2)", borderRadius: 6, padding: "6px 10px", color: "white", fontSize: 12, cursor: "pointer" }}>
+                    {["conservative", "standard", "exploratory"].map(lvl => <option key={lvl} value={lvl}>{lvl}</option>)}
+                  </select>
+                  <button onClick={() => setUserCapOverride(capOverrideUid, capOverrideLvl)}
+                    style={{ background: SIG, border: "none", color: INK, padding: "6px 14px", borderRadius: 6, fontSize: 11, fontWeight: 800, cursor: "pointer" }}>
+                    Set Override
+                  </button>
+                </div>
+                {capOverrides.length > 0 ? (
+                  <div>
+                    <div style={{ color: "rgba(255,255,255,0.5)", fontSize: 11, marginBottom: 8 }}>Active overrides ({capOverrides.length}):</div>
+                    {capOverrides.map(ov => (
+                      <div key={ov.user_id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "6px 10px", background: "rgba(255,255,255,0.06)", borderRadius: 6, marginBottom: 5 }}>
+                        <div style={{ flex: 1 }}>
+                          <span style={{ color: "white", fontSize: 12, fontWeight: 600 }}>{ov.full_name || ov.email || ov.user_id}</span>
+                          <span style={{ color: "rgba(255,255,255,0.4)", fontSize: 10, marginLeft: 8 }}>{ov.user_id}</span>
+                        </div>
+                        <span style={{ color: SIG, fontSize: 11, fontWeight: 700, textTransform: "capitalize" }}>{ov.level}</span>
+                        <button onClick={() => clearUserCapOverride(ov.user_id)}
+                          style={{ background: "rgba(220,38,38,0.2)", border: "none", color: "#fca5a5", padding: "3px 8px", borderRadius: 5, fontSize: 10, fontWeight: 700, cursor: "pointer" }}>
+                          Clear
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p style={{ color: "rgba(255,255,255,0.35)", fontSize: 12 }}>No per-user overrides active.</p>
+                )}
+              </div>
+            )}
           </div>
         )}
 
@@ -1074,18 +1187,30 @@ function ExecPanel({ apiOnline, visibility, setVisibility, superExec }) {
 
         {tab === "audit" && (
           <div>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
-              <span style={{ color: "white", fontWeight: 700, fontSize: 14 }}>Recent Audit Log</span>
-              <button onClick={loadAudit} style={{ background: "rgba(255,255,255,0.1)", border: "none", color: "white", padding: "5px 10px", borderRadius: 6, fontSize: 11, cursor: "pointer" }}>Refresh</button>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12, flexWrap: "wrap", gap: 8 }}>
+              <span style={{ color: "white", fontWeight: 700, fontSize: 14 }}>Audit Log ({auditLog.length})</span>
+              <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                <input value={auditActionQ} onChange={e => setAuditActionQ(e.target.value)} placeholder="Filter by action…"
+                  style={{ background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.2)", borderRadius: 6, padding: "4px 10px", color: "white", fontSize: 11, outline: "none", width: 140 }} />
+                <input value={auditActorQ} onChange={e => setAuditActorQ(e.target.value)} placeholder="Actor user ID…"
+                  style={{ background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.2)", borderRadius: 6, padding: "4px 10px", color: "white", fontSize: 11, outline: "none", width: 130 }} />
+                <select value={auditLimit} onChange={e => setAuditLimit(Number(e.target.value))}
+                  style={{ background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.2)", borderRadius: 6, padding: "4px 8px", color: "white", fontSize: 11, cursor: "pointer" }}>
+                  {[20, 50, 100, 200, 500].map(n => <option key={n} value={n}>{n} rows</option>)}
+                </select>
+                <button onClick={() => loadAudit(auditActionQ, auditActorQ, auditLimit)}
+                  style={{ background: "rgba(255,255,255,0.1)", border: "none", color: "white", padding: "4px 10px", borderRadius: 6, fontSize: 11, cursor: "pointer" }}>Search</button>
+              </div>
             </div>
             {auditLog.length === 0
-              ? <p style={{ color: "rgba(255,255,255,0.4)", fontSize: 13 }}>No audit entries loaded.</p>
-              : auditLog.slice(0, 20).map((a, i) => (
+              ? <p style={{ color: "rgba(255,255,255,0.4)", fontSize: 13 }}>No audit entries. Adjust filters or click Search.</p>
+              : auditLog.map((a, i) => (
                 <div key={a.id || i} style={{ display: "flex", gap: 12, padding: "7px 0", borderBottom: "1px solid rgba(255,255,255,0.06)", alignItems: "flex-start" }}>
                   <div style={{ width: 6, height: 6, borderRadius: "50%", background: SIG, marginTop: 6, flexShrink: 0 }} />
-                  <div style={{ flex: 1 }}>
+                  <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ color: "white", fontSize: 12, fontWeight: 600 }}>{a.actor?.full_name || a.actor?.email || a.actor_id || "system"}</div>
                     <div style={{ color: "rgba(255,209,0,0.7)", fontSize: 11, fontFamily: "monospace" }}>{a.action}</div>
+                    {a.meta && <div style={{ color: "rgba(255,255,255,0.3)", fontSize: 10, fontFamily: "monospace", marginTop: 2 }}>{JSON.stringify(a.meta)}</div>}
                   </div>
                   <div style={{ color: "rgba(255,255,255,0.35)", fontSize: 10, whiteSpace: "nowrap" }}>{a.at ? new Date(a.at).toLocaleString() : ""}</div>
                 </div>

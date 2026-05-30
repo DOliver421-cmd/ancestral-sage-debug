@@ -6144,11 +6144,21 @@ async def resolve_incident(iid: str, payload: dict, user: User = Depends(require
 
 # -- AUDIT LOG (admin only) --
 @api_router.get("/admin/audit")
-async def view_audit(limit: int = 200, user: User = Depends(require_role("admin"))):
-    docs = await db.audit_log.find({}, {"_id": 0}).sort("at", -1).to_list(min(limit, 1000))
+async def view_audit(
+    limit: int = 200,
+    action: Optional[str] = None,
+    actor_id: Optional[str] = None,
+    user: User = Depends(require_role("admin")),
+):
+    query: dict = {}
+    if action:
+        query["action"] = {"$regex": action, "$options": "i"}
+    if actor_id:
+        query["actor_id"] = actor_id
+    docs = await db.audit_log.find(query, {"_id": 0}).sort("at", -1).to_list(min(limit, 1000))
     user_ids = list({d["actor_id"] for d in docs if d.get("actor_id")})
-    users = await db.users.find({"id": {"$in": user_ids}}, {"_id": 0, "password_hash": 0}).to_list(1000)
-    umap = {u["id"]: u for u in users}
+    users_list = await db.users.find({"id": {"$in": user_ids}}, {"_id": 0, "password_hash": 0}).to_list(1000)
+    umap = {u["id"]: u for u in users_list}
     for d in docs:
         d["actor"] = umap.get(d.get("actor_id")) if d.get("actor_id") else None
     return docs
@@ -10228,7 +10238,7 @@ try:
         import ai.llm_gateway as _gw
         prev = _gw._hour_tokens_used
         _gw._hour_tokens_used = 0
-        _gw._hour_window_start = None  # force window re-init on next call
+        _gw._hour_window_start = 0.0  # set to epoch so next _reset_hour_if_needed fires immediately
         await audit(user.id, "gateway.budget.reset", meta={"previous_tokens_used": prev})
         logger.info("Gateway hourly token counter reset by exec (was %d)", prev)
         return {"ok": True, "previous_tokens_used": prev}
