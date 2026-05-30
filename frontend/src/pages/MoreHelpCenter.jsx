@@ -194,7 +194,9 @@ function ExecPanel({ apiOnline, visibility, setVisibility, superExec }) {
   const [auditActionQ, setAuditActionQ] = useState("");
   const [auditActorQ, setAuditActorQ]   = useState("");
   const [auditLimit, setAuditLimit]     = useState(50);
-  const [broadcastMsg, setBroadcast]= useState("");
+  const [broadcastMsg, setBroadcast]    = useState("");
+  const [broadcastTitle, setBcastTitle] = useState("");
+  const [broadcastTarget, setBcastTarget] = useState("all");
   const [sending, setSending]       = useState(false);
   const [gwStatus, setGwStatus]     = useState(null);
   const [apiKeys, setApiKeys]       = useState({});
@@ -441,7 +443,7 @@ function ExecPanel({ apiOnline, visibility, setVisibility, superExec }) {
     if (!broadcastMsg.trim()) return;
     setSending(true);
     try {
-      await api.post("/admin/broadcast", { message: broadcastMsg.trim() });
+      await api.post("/admin/broadcast", { message: broadcastMsg.trim(), title: broadcastTitle.trim() || "Platform Announcement", target: broadcastTarget });
       notify("Broadcast sent");
       setBroadcast("");
     } catch { notify("Broadcast failed", true); }
@@ -990,16 +992,30 @@ function ExecPanel({ apiOnline, visibility, setVisibility, superExec }) {
         {tab === "broadcast" && (
           <div>
             <div style={{ color: "white", fontWeight: 700, fontSize: 14, marginBottom: 14 }}>Send Platform Broadcast</div>
+            <div style={{ marginBottom: 10 }}>
+              <div style={{ color: "rgba(255,255,255,0.5)", fontSize: 11, marginBottom: 4 }}>Title (optional)</div>
+              <input value={broadcastTitle} onChange={e => setBcastTitle(e.target.value)}
+                placeholder="Platform Announcement"
+                style={{ width: "100%", background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.15)", borderRadius: 8, padding: "8px 12px", color: "white", fontSize: 13, outline: "none", boxSizing: "border-box" }} />
+            </div>
+            <div style={{ marginBottom: 10 }}>
+              <div style={{ color: "rgba(255,255,255,0.5)", fontSize: 11, marginBottom: 4 }}>Target audience</div>
+              <select value={broadcastTarget} onChange={e => setBcastTarget(e.target.value)}
+                style={{ background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.15)", borderRadius: 8, padding: "8px 12px", color: "white", fontSize: 13, cursor: "pointer" }}>
+                <option value="all">All users</option>
+                {PANEL_ROLES.map(r => <option key={r} value={r}>{PANEL_ROLE_LABELS[r]}s only</option>)}
+              </select>
+            </div>
             <textarea
               value={broadcastMsg}
               onChange={e => setBroadcast(e.target.value)}
-              placeholder="Type a message to broadcast to all active users…"
+              placeholder="Type a message to broadcast…"
               rows={4}
               style={{ width: "100%", background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.15)", borderRadius: 8, padding: "10px 14px", color: "white", fontSize: 13, resize: "vertical", outline: "none", boxSizing: "border-box" }}
             />
             <button onClick={sendBroadcast} disabled={sending || !broadcastMsg.trim()}
               style={{ marginTop: 10, background: SIG, border: "none", color: INK, padding: "9px 20px", borderRadius: 7, fontSize: 13, fontWeight: 700, cursor: "pointer", display: "flex", alignItems: "center", gap: 6 }}>
-              <Send style={{ width: 14, height: 14 }} /> {sending ? "Sending…" : "Send Broadcast"}
+              <Send style={{ width: 14, height: 14 }} /> {sending ? "Sending…" : `Send to ${broadcastTarget === "all" ? "all users" : PANEL_ROLE_LABELS[broadcastTarget] + "s"}`}
             </button>
           </div>
         )}
