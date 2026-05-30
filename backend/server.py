@@ -10124,6 +10124,79 @@ try:
         logger.info("Gateway key pushed by exec: %s", var_name)
         return {"ok": True, "var": var_name, "active": True}
 
+    @api_router.delete("/admin/gateway/keys/{var_name}")
+    async def revoke_gateway_key(var_name: str, user: User = Depends(require_role("executive_admin"))):
+        """
+        Revoke a live API key by clearing it from the gateway module and env.
+        The key is removed from process memory immediately; Railway env var is
+        NOT touched — the key will NOT be restored on next deploy unless the
+        exec re-pushes it.
+        """
+        ALLOWED = {
+            "GROQ_API_KEY", "CEREBRAS_API_KEY", "GEMINI_API_KEY",
+            "XAI_API_KEY",  "COHERE_API_KEY",   "HUGGINGFACE_API_KEY",
+            "OPENROUTER_API_KEY",
+        }
+        var_name = var_name.strip().upper()
+        if var_name not in ALLOWED:
+            raise HTTPException(400, f"var_name '{var_name}' not in allowed set")
+
+        import ai.llm_gateway as _gw
+        import os as _os
+
+        setattr(_gw, var_name, "")
+        _os.environ.pop(var_name, None)
+
+        await audit(user.id, "gateway.key.revoked", meta={"var": var_name})
+        logger.info("Gateway key revoked by exec: %s", var_name)
+        return {"ok": True, "var": var_name, "active": False}
+
+    @api_router.patch("/admin/gateway/keys/{var_name}/toggle")
+    async def toggle_gateway_key(var_name: str, body: dict, user: User = Depends(require_role("executive_admin"))):
+        """
+        Enable or disable a provider key without permanently revoking it.
+        Body: { enabled: bool }
+        When disabling: clears the live attr so the gateway skips this provider.
+        When enabling: requires the key to be re-pushed via POST /admin/gateway/keys.
+        Returns current state.
+        """
+        ALLOWED = {
+            "GROQ_API_KEY", "CEREBRAS_API_KEY", "GEMINI_API_KEY",
+            "XAI_API_KEY",  "COHERE_API_KEY",   "HUGGINGFACE_API_KEY",
+            "OPENROUTER_API_KEY",
+        }
+        var_name = var_name.strip().upper()
+        if var_name not in ALLOWED:
+            raise HTTPException(400, f"var_name '{var_name}' not in allowed set")
+
+        enabled = bool(body.get("enabled", True))
+
+        import ai.llm_gateway as _gw
+        import os as _os
+
+        if not enabled:
+            # Disable: clear from live gateway (env var preserved for re-enable)
+            _saved = _os.environ.get(var_name, "") or getattr(_gw, var_name, "")
+            setattr(_gw, var_name, "")
+            # Store the saved value so re-enable can restore it
+            await db.platform_config.update_one(
+                {"key": f"gateway_key_saved_{var_name}"},
+                {"$set": {"key": f"gateway_key_saved_{var_name}", "value": _saved}},
+                upsert=True,
+            )
+        else:
+            # Re-enable: restore from saved value in DB or current env
+            doc = await db.platform_config.find_one({"key": f"gateway_key_saved_{var_name}"}, {"_id": 0})
+            saved = (doc or {}).get("value", "") or _os.environ.get(var_name, "")
+            if not saved:
+                raise HTTPException(400, f"No saved key for {var_name} — push the key first via POST /admin/gateway/keys")
+            setattr(_gw, var_name, saved)
+            _os.environ[var_name] = saved
+
+        await audit(user.id, "gateway.key.toggled", meta={"var": var_name, "enabled": enabled})
+        logger.info("Gateway key %s %s by exec", var_name, "enabled" if enabled else "disabled")
+        return {"ok": True, "var": var_name, "enabled": enabled}
+
     # Auto-generate shared secret once; stored in DB so exec can retrieve it.
     _HEARTBEAT_SECRET_KEY = "exec_panel_heartbeat_secret"
 
