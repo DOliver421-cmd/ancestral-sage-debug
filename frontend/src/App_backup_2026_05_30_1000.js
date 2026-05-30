@@ -3,7 +3,6 @@ import { Toaster } from "sonner";
 import "./App.css";
 import { AuthProvider, useAuth } from "./lib/auth";
 import LandingMarketplace from "./pages/LandingMarketplace";
-import SupervisorLogin from "./pages/SupervisorLogin";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
 import StudentDashboard from "./pages/StudentDashboard";
@@ -47,7 +46,6 @@ import Internships from "./pages/Internships";
 import PlaylistSubmit from "./pages/PlaylistSubmit";
 import PlaylistDashboard from "./pages/PlaylistDashboard";
 import DirectorWidget from "./components/DirectorWidget";
-import SupervisorWidget from "./components/SupervisorWidget";
 import ErrorBoundary from "./components/ErrorBoundary";
 import Helper from "./pages/Helper";
 import Leaderboard from "./pages/Leaderboard";
@@ -64,7 +62,6 @@ import Palace from "./pages/Palace";
 import ElderCouncil from "./pages/ElderCouncil";
 import Plans from "./pages/Plans";
 import HelpCenter from "./pages/HelpCenter";
-import SeshatsHub from "./pages/SeshatsHub";
 import TermsOfService from "./pages/TermsOfService";
 import PrivacyPolicy from "./pages/PrivacyPolicy";
 import MoreHelpCenter from "./pages/MoreHelpCenter";
@@ -78,12 +75,6 @@ import RevenueDivision from "./pages/RevenueDivision";
 import Courses from "./pages/Courses";
 import Community from "./pages/Community";
 import Creators from "./pages/Creators";
-import ExecutiveDirectorDashboard from "./pages/ExecutiveDirectorDashboard";
-import PartnershipDashboard from "./pages/PartnershipDashboard";
-import PartnershipDiscounts from "./pages/PartnershipDiscounts";
-import UserProfile from "./pages/UserProfile";
-import LabSimulations from "./pages/LabSimulations";
-import Landing from "./pages/Landing";
 
 // Role hierarchy must mirror backend ROLE_RANK in /app/backend/server.py.
 // Higher rank = more authority; a higher-rank role passes any check meant
@@ -102,19 +93,10 @@ function Protected({ children, roles }) {
   return children;
 }
 
-// Supervisor-specific protection — redirects to the Supervisor login, not the main login.
-function SupervisorProtected({ children }) {
-  const { user, loading } = useAuth();
-  if (loading) return <div className="p-12 text-ink font-heading">Loading…</div>;
-  if (!user) return <Navigate to="/supervisor-login" replace />;
-  if ((ROLE_RANK[user.role] ?? 0) < ROLE_RANK["executive_admin"]) return <Navigate to="/supervisor-login" replace />;
-  return children;
-}
-
 function Home() {
   const { user, loading } = useAuth();
   if (loading) return null;
-  if (!user) return <Navigate to="/more-help-center" replace />;
+  if (!user) return <LandingMarketplace />;
   // executive_admin and admin both land on the admin overview
   if (user.role === "executive_admin") return <Navigate to="/admin/system" replace />;
   if (user.role === "admin") return <Navigate to="/admin" replace />;
@@ -125,11 +107,7 @@ function Home() {
 function App() {
   const hostname = window.location.hostname;
   if (hostname.includes("morehelp.center")) {
-    return (
-      <BrowserRouter>
-        <MoreHelpCenter />
-      </BrowserRouter>
-    );
+    return <MoreHelpCenter />;
   }
 
   return (
@@ -144,7 +122,6 @@ function App() {
 
         {/* Global widgets */}
         <DirectorWidget />
-        <SupervisorWidget />
         <SovereignChat />
         <CookieConsent />
         <HelpGuide />
@@ -174,13 +151,6 @@ function App() {
           <Route path="/plans" element={<Plans />} />
           {/* Public funnel pages */}
           <Route path="/help-center" element={<HelpCenter />} />
-          <Route path="/seshats-hub" element={<SeshatsHub />} />
-          {/* MORE Help Center — unified entry point (greeter / exec / decoy modes) */}
-          <Route path="/more-help-center" element={<MoreHelpCenter />} />
-          <Route path="/landing" element={<LandingMarketplace />} />
-          {/* Supervisor — executive_admin only; separate login at /supervisor-login */}
-          <Route path="/supervisor-login" element={<SupervisorLogin />} />
-          <Route path="/supervisor" element={<SupervisorProtected><SeshatsHub /></SupervisorProtected>} />
           <Route path="/terms" element={<TermsOfService />} />
           <Route path="/privacy" element={<PrivacyPolicy />} />
           <Route path="/courses" element={<Courses />} />
@@ -213,7 +183,6 @@ function App() {
           <Route path="/incidents" element={<Protected><Incidents /></Protected>} />
           <Route path="/settings" element={<Protected><Settings /></Protected>} />
           <Route path="/admin/system" element={<Protected roles={["executive_admin"]}><ExecSystem /></Protected>} />
-          <Route path="/admin/director" element={<Protected roles={["executive_admin"]}><ExecutiveDirectorDashboard /></Protected>} />
           <Route path="/admin/sage-audit" element={<Protected roles={["executive_admin"]}><SageAudit /></Protected>} />
           <Route path="/admin/staff-meetings" element={<Protected roles={["executive_admin"]}><StaffMeetingHistory /></Protected>} />
           <Route path="/admin/health" element={<Protected roles={["admin"]}><SystemHealth /></Protected>} />
@@ -250,15 +219,6 @@ function App() {
           <Route path="/payment/history" element={<Protected><PaymentHistory /></Protected>} />
           <Route path="/payment/manage" element={<Protected><PaymentHistory /></Protected>} />
           <Route path="/admin/payments" element={<Protected roles={["admin"]}><AdminPayments /></Protected>} />
-          {/* Partnership & profile features */}
-          <Route path="/partnership" element={<Protected><PartnershipDashboard /></Protected>} />
-          <Route path="/partnership/discounts" element={<Protected><PartnershipDiscounts /></Protected>} />
-          <Route path="/profile" element={<Protected><UserProfile /></Protected>} />
-          <Route path="/profile/:id" element={<Protected><UserProfile /></Protected>} />
-          {/* Lab simulations */}
-          <Route path="/lab-simulations" element={<Protected><LabSimulations /></Protected>} />
-          {/* Original landing page (alternate entry point) */}
-          <Route path="/welcome" element={<Landing />} />
           <Route path="*" element={<Error404 />} />
         </Routes>
         </div>

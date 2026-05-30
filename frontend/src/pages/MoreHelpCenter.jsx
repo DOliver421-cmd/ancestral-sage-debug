@@ -207,6 +207,8 @@ function ExecPanel({ apiOnline, visibility, setVisibility, superExec }) {
   const [sysInfo, setSysInfo]       = useState(null);
   const [sysStats, setSysStats]     = useState(null);
   const [sageStatus, setSageStatus] = useState(null);
+  const [execDash, setExecDash]     = useState(null);
+  const [ttsMetrics, setTtsMetrics] = useState(null);
   const [capLevel, setCapLevel]     = useState("");
   const [capOverrides, setCapOverrides] = useState([]);
   const [capOverrideUid, setCapOverrideUid] = useState("");
@@ -245,6 +247,8 @@ function ExecPanel({ apiOnline, visibility, setVisibility, superExec }) {
     try { const r = await api.get("/exec/system"); setSysInfo(r.data); } catch {}
     try { const r = await api.get("/admin/sage/status"); setSageStatus(r.data); } catch {}
     try { const r = await api.get("/admin/stats"); setSysStats(r.data); } catch {}
+    try { const r = await api.get("/exec/dashboard"); setExecDash(r.data); } catch {}
+    try { const r = await api.get("/admin/sage/metrics"); setTtsMetrics(r.data); } catch {}
     finally { setLoading(false); }
   }, []);
 
@@ -698,6 +702,73 @@ function ExecPanel({ apiOnline, visibility, setVisibility, superExec }) {
                 </div>
                 {sageStatus.last_audit_id && (
                   <div style={{ color: "rgba(255,255,255,0.35)", fontSize: 10, fontFamily: "monospace" }}>Last audit ID: {sageStatus.last_audit_id}</div>
+                )}
+              </div>
+            )}
+            {ttsMetrics && (
+              <div style={{ background: "rgba(255,255,255,0.05)", borderRadius: 10, padding: "14px 18px", marginTop: 14 }}>
+                <div style={{ color: SIG, fontWeight: 700, fontSize: 12, textTransform: "uppercase", letterSpacing: 1, marginBottom: 10 }}>TTS Metrics (5-min window)</div>
+                <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                  {[["p95 latency", `${ttsMetrics.p95_latency_ms}ms`], ["cache hit", `${(ttsMetrics.cache_hit_ratio*100).toFixed(1)}%`], ["error rate", `${(ttsMetrics.error_rate*100).toFixed(1)}%`], ["samples", ttsMetrics.sample_count], ["breaker", ttsMetrics.breaker || "—"]].map(([label, val]) => (
+                    <div key={label} style={{ background: "rgba(255,255,255,0.07)", borderRadius: 6, padding: "6px 12px" }}>
+                      <div style={{ color: "rgba(255,255,255,0.4)", fontSize: 9, textTransform: "uppercase" }}>{label}</div>
+                      <div style={{ color: "white", fontWeight: 700, fontSize: 12, marginTop: 2 }}>{String(val)}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+            {execDash && (
+              <div style={{ background: "rgba(255,255,255,0.04)", borderRadius: 10, padding: "14px 18px", marginTop: 14 }}>
+                <div style={{ color: SIG, fontWeight: 700, fontSize: 12, textTransform: "uppercase", letterSpacing: 1, marginBottom: 10 }}>Executive Dashboard</div>
+                {execDash.platform_status && (
+                  <div style={{ marginBottom: 12 }}>
+                    <div style={{ color: "rgba(255,255,255,0.4)", fontSize: 10, textTransform: "uppercase", letterSpacing: 1, marginBottom: 6 }}>Platform Integration Status</div>
+                    <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                      {Object.entries(execDash.platform_status).map(([k, v]) => (
+                        <div key={k} style={{ background: "rgba(255,255,255,0.07)", borderRadius: 5, padding: "3px 10px", fontSize: 10 }}>
+                          <span style={{ color: "rgba(255,255,255,0.5)" }}>{k.replace(/_/g," ")}: </span>
+                          <span style={{ color: v === true ? "#22c55e" : v === false ? "#ef4444" : "white", fontWeight: 700 }}>{String(v)}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {execDash.personas && (
+                  <div style={{ marginBottom: 12 }}>
+                    <div style={{ color: "rgba(255,255,255,0.4)", fontSize: 10, textTransform: "uppercase", letterSpacing: 1, marginBottom: 6 }}>AI Personas</div>
+                    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(160px,1fr))", gap: 6 }}>
+                      {Object.entries(execDash.personas).map(([name, p]) => (
+                        <div key={name} style={{ background: "rgba(255,255,255,0.06)", borderRadius: 6, padding: "8px 12px" }}>
+                          <div style={{ color: "white", fontWeight: 700, fontSize: 11, textTransform: "capitalize", marginBottom: 3 }}>{name}</div>
+                          <div style={{ color: p?.active ? "#22c55e" : "#94a3b8", fontSize: 10, marginBottom: 4 }}>{p?.active ? "● Active" : "○ Inactive"}</div>
+                          {p?.tools != null && <div style={{ color: "rgba(255,255,255,0.35)", fontSize: 9, marginBottom: 6 }}>{p.tools} tools · {p.voice_tier || "—"}</div>}
+                          <div style={{ display: "flex", gap: 4 }}>
+                            {!p?.active && (
+                              <button onClick={async () => {
+                                try { await api.post(`/exec/personas/${name}/activate`); notify(`${name} activated`); const r = await api.get("/exec/dashboard"); setExecDash(r.data); }
+                                catch (e) { notify(`Activate failed: ${e?.response?.data?.detail || e.message}`); }
+                              }} style={{ background: "rgba(34,197,94,0.2)", border: "none", color: "#4ade80", padding: "2px 8px", borderRadius: 3, fontSize: 9, fontWeight: 700, cursor: "pointer" }}>Activate</button>
+                            )}
+                            {p?.active && (
+                              <button onClick={async () => {
+                                try { await api.post(`/exec/personas/${name}/deactivate`); notify(`${name} deactivated`); const r = await api.get("/exec/dashboard"); setExecDash(r.data); }
+                                catch (e) { notify(`Deactivate failed: ${e?.response?.data?.detail || e.message}`); }
+                              }} style={{ background: "rgba(220,38,38,0.2)", border: "none", color: "#f87171", padding: "2px 8px", borderRadius: 3, fontSize: 9, fontWeight: 700, cursor: "pointer" }}>Deactivate</button>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {execDash.notifications?.length > 0 && (
+                  <div>
+                    <div style={{ color: "rgba(255,255,255,0.4)", fontSize: 10, textTransform: "uppercase", letterSpacing: 1, marginBottom: 6 }}>Pending Exec Notifications ({execDash.notifications.length})</div>
+                    {execDash.notifications.slice(0,3).map((n, i) => (
+                      <div key={i} style={{ background: "rgba(255,209,0,0.1)", borderRadius: 5, padding: "5px 10px", marginBottom: 4, fontSize: 11, color: SIG }}>{n.message || n.title || JSON.stringify(n)}</div>
+                    ))}
+                  </div>
                 )}
               </div>
             )}

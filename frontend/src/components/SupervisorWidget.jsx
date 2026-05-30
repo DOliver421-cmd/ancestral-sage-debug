@@ -1,5 +1,4 @@
 import { useState, useEffect, useRef } from "react";
-import { Crown } from "lucide-react";
 
 // ── Bucket definitions ───────────────────────────────────────────────────────
 const BUCKETS = [
@@ -278,38 +277,6 @@ function StaffPanel({ activeBuckets, toggleBucket, kb, triggerFile, setPasteTarg
   );
 }
 
-// ── Orb Button (collapsed state) ─────────────────────────────────────────────
-function OrbButton({ statusColor, mode }) {
-  const [hovered, setHovered] = useState(false);
-  return (
-    <>
-      <div
-        onMouseEnter={() => setHovered(true)}
-        onMouseLeave={() => setHovered(false)}
-        style={{
-          width: 64, height: 64, borderRadius: "50%",
-          background: "radial-gradient(circle at 35% 35%, #4af2c5 0%, #050814 70%)",
-          border: "2px solid #4af2c5",
-          boxShadow: hovered
-            ? "0 0 36px rgba(74,242,197,0.9), 0 0 72px rgba(74,242,197,0.5)"
-            : "0 0 24px rgba(74,242,197,0.7), 0 0 48px rgba(74,242,197,0.3)",
-          display: "flex", flexDirection: "column", alignItems: "center",
-          justifyContent: "center", gap: 4,
-          transform: hovered ? "scale(1.08)" : "scale(1)",
-          transition: "transform 0.2s ease, box-shadow 0.2s ease",
-          cursor: "grab",
-        }}>
-        <Crown style={{ width: 16, height: 16, color: "white" }} />
-        <div style={{ width: 6, height: 6, borderRadius: "50%", background: statusColor, boxShadow: `0 0 6px ${statusColor}` }} />
-      </div>
-      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 1 }}>
-        <span style={{ fontSize: 9, fontWeight: 800, letterSpacing: "0.12em", color: "#f5f7ff", textTransform: "uppercase" }}>THE SUPERVISOR</span>
-        <span style={{ fontSize: 9, color: "rgba(139,146,181,0.7)" }}>{mode}</span>
-      </div>
-    </>
-  );
-}
-
 // ── Main component ───────────────────────────────────────────────────────────
 export default function SupervisorWidget() {
   const [open,        setOpen]        = useState(false);
@@ -499,15 +466,19 @@ export default function SupervisorWidget() {
       ? { left: pos.x, top: pos.y, right: "auto", bottom: "auto" }
       : { right: 24, bottom: 24 };
 
-  // ── COLLAPSED orb ────────────────────────────────────────────────────────────
+  // ── COLLAPSED chip ───────────────────────────────────────────────────────────
   if (!open) {
     return (
       <div ref={dragRef} onMouseDown={onDragStart}
-        style={{ position:"fixed", ...panelPos, zIndex:9998,
-          display:"flex", flexDirection:"column", alignItems:"center", gap:6,
-          userSelect:"none" }}
+        style={{ position:"fixed", ...panelPos, zIndex:9998, cursor:"grab",
+          background:"linear-gradient(135deg,#0b1024 0%,#050814 100%)",
+          border:"1px solid rgba(74,242,197,0.5)", borderRadius:999,
+          padding:"8px 14px", display:"flex", alignItems:"center", gap:8,
+          boxShadow:"0 0 20px rgba(74,242,197,0.25)", userSelect:"none" }}
         onClick={() => setOpen(true)}>
-        <OrbButton statusColor={statusColor} mode={mode} />
+        <div style={{ width:8, height:8, borderRadius:"50%", background:statusColor, boxShadow:`0 0 8px ${statusColor}` }} />
+        <span style={{ fontSize:11, fontWeight:700, letterSpacing:"0.1em", color:"#f5f7ff", textTransform:"uppercase" }}>The Supervisor</span>
+        <span style={{ fontSize:10, color:"rgba(139,146,181,0.7)", borderLeft:"1px solid rgba(74,242,197,0.2)", paddingLeft:8 }}>{mode}</span>
       </div>
     );
   }
@@ -556,11 +527,7 @@ export default function SupervisorWidget() {
                   color: mode===m ? "#4af2c5" : "rgba(139,146,181,0.7)" }}>{m}</button>
             ))}
             <button onClick={() => setFullscreen(f=>!f)} style={S.iconBtn} title={fullscreen?"Exit fullscreen":"Fullscreen"}>{fullscreen?"⊡":"⛶"}</button>
-            <button onClick={() => setOpen(false)} title="Minimize"
-              style={{ fontSize:9, fontWeight:800, letterSpacing:"0.1em", padding:"4px 10px",
-                borderRadius:6, cursor:"pointer", border:"1px solid rgba(255,75,129,0.5)",
-                background:"rgba(255,75,129,0.12)", color:"#ff4b81",
-                textTransform:"uppercase", transition:"background 0.15s" }}>✕ CLOSE</button>
+            <button onClick={() => setOpen(false)} style={S.iconBtn} title="Minimize">─</button>
           </div>
         </div>
 
