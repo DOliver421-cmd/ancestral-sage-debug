@@ -107,37 +107,11 @@ function DecoyMode() {
   );
 }
 
-// ── Role constants for user DB inside panel ────────────────────────────────────
-const PANEL_ROLES      = ["student", "instructor", "admin", "executive_admin"];
-const PANEL_ROLE_LABELS= { student:"Student", instructor:"Instructor", admin:"Admin", executive_admin:"Exec Admin" };
-
 // ── Exec Supervisor Control Panel ──────────────────────────────────────────────
-function ExecPanel({ apiOnline, visibility, setVisibility, superExec }) {
+function ExecPanel({ apiOnline, visibility, setVisibility }) {
   const [tab, setTab]               = useState("health");
   const [health, setHealth]         = useState(null);
-  // ── users ──────────────────────────────────────────────────────────────────
   const [users, setUsers]           = useState([]);
-  const [userQ, setUserQ]           = useState("");
-  const [userRoleFilter, setUserRoleFilter] = useState("");
-  const [editing, setEditing]       = useState(null);   // user being edited
-  const [creating, setCreating]     = useState(false);
-  const [promoting, setPromoting]   = useState({});
-  // ── edit modal state ───────────────────────────────────────────────────────
-  const [editName, setEditName]     = useState("");
-  const [editEmail, setEditEmail]   = useState("");
-  const [editRole, setEditRole]     = useState("student");
-  const [editPw, setEditPw]         = useState("");
-  const [editShowPw, setEditShowPw] = useState(false);
-  const [editResetLink, setEditResetLink] = useState(null);
-  // ── create modal state ─────────────────────────────────────────────────────
-  const [newName, setNewName]       = useState("");
-  const [newEmail, setNewEmail]     = useState("");
-  const [newRole, setNewRole]       = useState("student");
-  const [newPw, setNewPw]           = useState("");
-  const [newShowPw, setNewShowPw]   = useState(false);
-  const [newResetLink, setNewResetLink] = useState(null);
-  const [newCreated, setNewCreated] = useState(null);
-  // ── other tabs ─────────────────────────────────────────────────────────────
   const [incidents, setIncidents]   = useState([]);
   const [auditLog, setAuditLog]     = useState([]);
   const [broadcastMsg, setBroadcast]= useState("");
@@ -148,22 +122,8 @@ function ExecPanel({ apiOnline, visibility, setVisibility, superExec }) {
   const [capLevel, setCapLevel]     = useState("");
   const [loading, setLoading]       = useState(false);
   const [notice, setNotice]         = useState("");
-  // ── failover tab ───────────────────────────────────────────────────────────
-  const [backupMatrix, setBackupMatrix]   = useState(null);
-  const [failoverTarget, setFailoverTarget] = useState("backup");
-  const [failoverReason, setFailoverReason] = useState("");
-  const [heartbeatSecret, setHeartbeatSecret] = useState(null);
-  // ── mode switcher (exec/greeter/decoy) ─────────────────────────────────────
-  const [pageMode, setPageMode]     = useState(() => {
-    try { return localStorage.getItem("more_help_center_mode") || "greeter"; } catch { return "greeter"; }
-  });
-  const PAGE_MODES = [
-    { id:"exec",    label:"Exec Mode",    desc:"Executive controls, monitoring, and audit-ready command links." },
-    { id:"greeter", label:"Greeter Mode", desc:"Warm public greeting flow for visitors and guided help navigation." },
-    { id:"decoy",   label:"Decoy Mode",   desc:"Fallback content and messaging when the main experience is down." },
-  ];
 
-  const notify = (msg) => {
+  const notify = (msg, isErr) => {
     setNotice(msg);
     setTimeout(() => setNotice(""), 3500);
   };
@@ -178,18 +138,8 @@ function ExecPanel({ apiOnline, visibility, setVisibility, superExec }) {
     try { const r = await api.get("/admin/gateway/status"); setGwStatus(r.data); } catch {}
   }, []);
 
-  const loadUsers = useCallback(async (q, role) => {
-    try {
-      const params = new URLSearchParams();
-      if (q)    params.set("q", q);
-      if (role) params.set("role", role);
-      const r = await api.get(`/admin/users?${params}`);
-      setUsers(Array.isArray(r.data) ? r.data : []);
-    } catch {}
-  }, []);
-
-  const loadBackupMatrix = useCallback(async () => {
-    try { const r = await api.get("/exec/free-backup-matrix"); setBackupMatrix(r.data); } catch {}
+  const loadUsers = useCallback(async () => {
+    try { const r = await api.get("/admin/users"); setUsers(Array.isArray(r.data) ? r.data : []); } catch {}
   }, []);
 
   const loadIncidents = useCallback(async () => {
@@ -213,106 +163,11 @@ function ExecPanel({ apiOnline, visibility, setVisibility, superExec }) {
   }, [loadHealth, loadGateway]);
 
   useEffect(() => {
-    if (tab === "users")     loadUsers(userQ, userRoleFilter);
+    if (tab === "users")     loadUsers();
     if (tab === "incidents") loadIncidents();
     if (tab === "audit")     loadAudit();
     if (tab === "safety")    loadSageCap();
-    if (tab === "failover")  loadBackupMatrix();
-  }, [tab, loadUsers, loadIncidents, loadAudit, loadSageCap, loadBackupMatrix, userQ, userRoleFilter]);
-
-  // ── User governance actions ────────────────────────────────────────────────
-  function openEdit(u) {
-    setEditing(u);
-    setEditName(u.full_name || "");
-    setEditEmail(u.email || "");
-    setEditRole(u.role || "student");
-    setEditPw("");
-    setEditShowPw(false);
-    setEditResetLink(null);
-  }
-
-  async function saveEdit() {
-    if (!editing) return;
-    try {
-      await api.patch(`/admin/users/${editing.id}`, { full_name: editName, email: editEmail });
-      if (editRole !== editing.role) await api.patch(`/admin/users/${editing.id}/role`, { role: editRole });
-      if (editPw.trim()) await api.post(`/admin/users/${editing.id}/password`, { new_password: editPw });
-      setUsers(prev => prev.map(x => x.id === editing.id ? { ...x, full_name: editName, email: editEmail, role: editRole } : x));
-      notify(`${editName} updated`);
-      setEditing(null);
-    } catch (e) { notify(`Save failed: ${e?.response?.data?.detail || e.message}`); }
-  }
-
-  async function genEditResetLink() {
-    if (!editing) return;
-    try {
-      const r = await api.post(`/admin/users/${editing.id}/reset-link`);
-      setEditResetLink(r.data.reset_url || r.data.link || JSON.stringify(r.data));
-    } catch (e) { notify(`Failed: ${e?.response?.data?.detail || e.message}`); }
-  }
-
-  async function toggleActive(u) {
-    try {
-      await api.patch(`/admin/users/${u.id}/active`, { is_active: u.is_active === false });
-      setUsers(prev => prev.map(x => x.id === u.id ? { ...x, is_active: u.is_active === false } : x));
-      notify(`${u.full_name || u.email} ${u.is_active === false ? "activated" : "deactivated"}`);
-      setEditing(null);
-    } catch (e) { notify(`Failed: ${e?.response?.data?.detail || e.message}`); }
-  }
-
-  async function deleteUser(u) {
-    if (!window.confirm(`Permanently delete ${u.full_name || u.email}? Cannot be undone.`)) return;
-    try {
-      await api.delete(`/admin/users/${u.id}`);
-      setUsers(prev => prev.filter(x => x.id !== u.id));
-      notify(`${u.full_name || u.email} deleted`);
-      setEditing(null);
-    } catch (e) { notify(`Failed: ${e?.response?.data?.detail || e.message}`); }
-  }
-
-  async function quickRole(u, newRole) {
-    setPromoting(p => ({ ...p, [u.id]: true }));
-    try {
-      await api.patch(`/admin/users/${u.id}/role`, { role: newRole });
-      setUsers(prev => prev.map(x => x.id === u.id ? { ...x, role: newRole } : x));
-      notify(`${u.full_name || u.email} → ${PANEL_ROLE_LABELS[newRole]}`);
-    } catch (e) { notify(`Role change failed: ${e?.response?.data?.detail || e.message}`); }
-    finally { setPromoting(p => ({ ...p, [u.id]: false })); }
-  }
-
-  async function createUser() {
-    if (!newName.trim() || !newEmail.trim() || newPw.length < 8) {
-      notify("Name, email, and password (min 8 chars) are required"); return;
-    }
-    try {
-      const r = await api.post("/admin/users", { full_name: newName.trim(), email: newEmail.trim().toLowerCase(), password: newPw, role: newRole });
-      const u = r.data;
-      setUsers(prev => [u, ...prev]);
-      setNewCreated(u);
-      try {
-        const lr = await api.post(`/admin/users/${u.id}/reset-link`);
-        setNewResetLink(lr.data.reset_url || lr.data.link || null);
-      } catch {}
-      notify(`${newName} created`);
-    } catch (e) { notify(`Create failed: ${e?.response?.data?.detail || e.message}`); }
-  }
-
-  // ── Failover actions ──────────────────────────────────────────────────────
-  async function triggerFailover() {
-    if (!failoverReason.trim()) { notify("Enter a reason before triggering failover"); return; }
-    try {
-      await api.post("/exec/failover", { target: failoverTarget, reason: failoverReason });
-      notify(`Failover to ${failoverTarget} triggered`);
-      setFailoverReason("");
-    } catch (e) { notify(`Failover failed: ${e?.response?.data?.detail || e.message}`); }
-  }
-
-  async function loadHeartbeatSecret() {
-    try {
-      const r = await api.get("/exec/panel/heartbeat-secret");
-      setHeartbeatSecret(r.data.secret);
-    } catch (e) { notify(`Failed: ${e?.response?.data?.detail || e.message}`); }
-  }
+  }, [tab, loadUsers, loadIncidents, loadAudit, loadSageCap]);
 
   const sendBroadcast = async () => {
     if (!broadcastMsg.trim()) return;
@@ -336,9 +191,9 @@ function ExecPanel({ apiOnline, visibility, setVisibility, superExec }) {
   const pushApiKey = async (envKey, value) => {
     if (!value) return;
     try {
-      await api.post("/admin/gateway/keys", { var_name: envKey, value });
+      await api.post("/admin/gateway/keys", { [envKey]: value });
       notify(`${envKey} pushed to gateway`);
-    } catch (e) { notify(`Failed to push ${envKey}: ${e?.response?.data?.detail || e.message}`); }
+    } catch { notify(`Failed to push ${envKey}`, true); }
   };
 
   const TABS = [
@@ -351,8 +206,6 @@ function ExecPanel({ apiOnline, visibility, setVisibility, superExec }) {
     { key: "apikeys",    label: "API Keys" },
     { key: "audit",      label: "Audit Log" },
     { key: "visibility", label: "Visibility" },
-    { key: "modes",      label: "Page Mode" },
-    ...(superExec ? [{ key: "failover", label: "⚡ Failover" }] : []),
   ];
 
   const INK = "#2e1065";
@@ -446,195 +299,40 @@ function ExecPanel({ apiOnline, visibility, setVisibility, superExec }) {
 
         {tab === "users" && (
           <div>
-            {/* ── Create modal ── */}
-            {creating && (
-              <div style={{ position:"fixed", inset:0, zIndex:200, background:"rgba(0,0,0,0.7)", display:"flex", alignItems:"center", justifyContent:"center", padding:16 }}
-                onClick={e => e.target === e.currentTarget && setCreating(false)}>
-                <div style={{ background:"white", borderRadius:16, width:"100%", maxWidth:480, overflow:"hidden" }}>
-                  <div style={{ padding:"14px 20px", borderBottom:"1px solid #e5e7eb", display:"flex", justifyContent:"space-between", alignItems:"center" }}>
-                    <span style={{ fontWeight:800, color:"#1e293b" }}>Create New Account</span>
-                    <button onClick={() => { setCreating(false); setNewCreated(null); setNewResetLink(null); }} style={{ border:"none", background:"none", fontSize:20, cursor:"pointer", color:"#64748b" }}>×</button>
-                  </div>
-                  {newCreated ? (
-                    <div style={{ padding:20 }}>
-                      <div style={{ color:"#166534", fontWeight:700, marginBottom:8 }}>✓ {newCreated.full_name} created as {PANEL_ROLE_LABELS[newCreated.role]}</div>
-                      {newResetLink && (
-                        <div style={{ background:"#fefce8", border:"1px solid #fde68a", borderRadius:8, padding:12, marginTop:8 }}>
-                          <div style={{ fontSize:11, fontWeight:700, color:"#92400e", marginBottom:4 }}>One-time login link:</div>
-                          <div style={{ fontSize:11, fontFamily:"monospace", wordBreak:"break-all", color:"#78350f" }}>{newResetLink}</div>
-                          <button onClick={() => navigator.clipboard?.writeText(newResetLink)} style={{ marginTop:6, fontSize:11, color:"#b45309", fontWeight:700, border:"none", background:"none", cursor:"pointer" }}>Copy link</button>
-                        </div>
-                      )}
-                      <button onClick={() => { setCreating(false); setNewCreated(null); setNewResetLink(null); setNewName(""); setNewEmail(""); setNewPw(""); setNewRole("student"); }}
-                        style={{ marginTop:14, background:"#1e293b", color:"white", border:"none", padding:"8px 20px", borderRadius:8, fontWeight:700, fontSize:13, cursor:"pointer" }}>Done</button>
-                    </div>
-                  ) : (
-                    <div style={{ padding:20 }}>
-                      {[["Full Name", newName, setNewName, "text", "First Last"], ["Email", newEmail, setNewEmail, "email", "email@example.com"]].map(([label, val, setter, type, ph]) => (
-                        <div key={label} style={{ marginBottom:12 }}>
-                          <div style={{ fontSize:11, fontWeight:700, color:"#64748b", textTransform:"uppercase", letterSpacing:1, marginBottom:4 }}>{label}</div>
-                          <input type={type} value={val} onChange={e => setter(e.target.value)} placeholder={ph}
-                            style={{ width:"100%", border:"1px solid #cbd5e1", borderRadius:8, padding:"7px 10px", fontSize:13, boxSizing:"border-box" }} />
-                        </div>
-                      ))}
-                      <div style={{ marginBottom:12 }}>
-                        <div style={{ fontSize:11, fontWeight:700, color:"#64748b", textTransform:"uppercase", letterSpacing:1, marginBottom:4 }}>Role</div>
-                        <select value={newRole} onChange={e => setNewRole(e.target.value)}
-                          style={{ width:"100%", border:"1px solid #cbd5e1", borderRadius:8, padding:"7px 10px", fontSize:13 }}>
-                          {PANEL_ROLES.map(r => <option key={r} value={r}>{PANEL_ROLE_LABELS[r]}</option>)}
-                        </select>
-                      </div>
-                      <div style={{ marginBottom:16 }}>
-                        <div style={{ fontSize:11, fontWeight:700, color:"#64748b", textTransform:"uppercase", letterSpacing:1, marginBottom:4 }}>Password (min 8 chars)</div>
-                        <div style={{ display:"flex", gap:6 }}>
-                          <input type={newShowPw ? "text" : "password"} value={newPw} onChange={e => setNewPw(e.target.value)} placeholder="Min 8 characters"
-                            style={{ flex:1, border:"1px solid #cbd5e1", borderRadius:8, padding:"7px 10px", fontSize:13, fontFamily:"monospace" }} />
-                          <button onClick={() => setNewShowPw(s => !s)} style={{ border:"1px solid #cbd5e1", borderRadius:8, background:"white", padding:"0 10px", cursor:"pointer" }}>
-                            {newShowPw ? <EyeOff style={{ width:14, height:14 }} /> : <Eye style={{ width:14, height:14 }} />}
-                          </button>
-                        </div>
-                      </div>
-                      <div style={{ display:"flex", justifyContent:"flex-end", gap:8 }}>
-                        <button onClick={() => setCreating(false)} style={{ border:"none", background:"none", color:"#64748b", fontSize:13, cursor:"pointer", padding:"8px 14px" }}>Cancel</button>
-                        <button onClick={createUser} style={{ background:"#f59e0b", color:"white", border:"none", padding:"8px 20px", borderRadius:8, fontWeight:700, fontSize:13, cursor:"pointer" }}>Create Account</button>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
-
-            {/* ── Edit modal ── */}
-            {editing && (
-              <div style={{ position:"fixed", inset:0, zIndex:200, background:"rgba(0,0,0,0.7)", display:"flex", alignItems:"center", justifyContent:"center", padding:16 }}
-                onClick={e => e.target === e.currentTarget && setEditing(null)}>
-                <div style={{ background:"white", borderRadius:16, width:"100%", maxWidth:480, maxHeight:"90vh", overflow:"auto" }}>
-                  <div style={{ padding:"14px 20px", borderBottom:"1px solid #e5e7eb", display:"flex", justifyContent:"space-between", alignItems:"center", position:"sticky", top:0, background:"white" }}>
-                    <div>
-                      <div style={{ fontWeight:800, color:"#1e293b" }}>{editing.full_name || editing.email}</div>
-                      <div style={{ fontSize:11, color:"#64748b" }}>{editing.email}</div>
-                    </div>
-                    <button onClick={() => setEditing(null)} style={{ border:"none", background:"none", fontSize:20, cursor:"pointer", color:"#64748b" }}>×</button>
-                  </div>
-                  <div style={{ padding:20 }}>
-                    {[["Full Name", editName, setEditName, "text"], ["Email", editEmail, setEditEmail, "email"]].map(([label, val, setter, type]) => (
-                      <div key={label} style={{ marginBottom:12 }}>
-                        <div style={{ fontSize:11, fontWeight:700, color:"#64748b", textTransform:"uppercase", letterSpacing:1, marginBottom:4 }}>{label}</div>
-                        <input type={type} value={val} onChange={e => setter(e.target.value)}
-                          style={{ width:"100%", border:"1px solid #cbd5e1", borderRadius:8, padding:"7px 10px", fontSize:13, boxSizing:"border-box" }} />
-                      </div>
-                    ))}
-                    <div style={{ marginBottom:12 }}>
-                      <div style={{ fontSize:11, fontWeight:700, color:"#64748b", textTransform:"uppercase", letterSpacing:1, marginBottom:4 }}>Role</div>
-                      <select value={editRole} onChange={e => setEditRole(e.target.value)}
-                        style={{ width:"100%", border:"1px solid #cbd5e1", borderRadius:8, padding:"7px 10px", fontSize:13 }}>
-                        {PANEL_ROLES.map(r => <option key={r} value={r}>{PANEL_ROLE_LABELS[r]}</option>)}
-                      </select>
-                    </div>
-                    <div style={{ marginBottom:12 }}>
-                      <div style={{ fontSize:11, fontWeight:700, color:"#64748b", textTransform:"uppercase", letterSpacing:1, marginBottom:4 }}>Set New Password (leave blank to keep current)</div>
-                      <div style={{ display:"flex", gap:6 }}>
-                        <input type={editShowPw ? "text" : "password"} value={editPw} onChange={e => setEditPw(e.target.value)} placeholder="Min 8 characters"
-                          style={{ flex:1, border:"1px solid #cbd5e1", borderRadius:8, padding:"7px 10px", fontSize:13, fontFamily:"monospace", boxSizing:"border-box" }} />
-                        <button onClick={() => setEditShowPw(s => !s)} style={{ border:"1px solid #cbd5e1", borderRadius:8, background:"white", padding:"0 10px", cursor:"pointer" }}>
-                          {editShowPw ? <EyeOff style={{ width:14, height:14 }} /> : <Eye style={{ width:14, height:14 }} />}
-                        </button>
-                      </div>
-                    </div>
-                    <div style={{ marginBottom:16 }}>
-                      <div style={{ fontSize:11, fontWeight:700, color:"#64748b", textTransform:"uppercase", letterSpacing:1, marginBottom:6 }}>Password Reset Link</div>
-                      <button onClick={genEditResetLink} style={{ fontSize:11, color:"#b45309", fontWeight:700, border:"1px solid #fde68a", background:"#fefce8", padding:"5px 12px", borderRadius:6, cursor:"pointer" }}>Generate one-time link</button>
-                      {editResetLink && (
-                        <div style={{ marginTop:8, background:"#fefce8", border:"1px solid #fde68a", borderRadius:8, padding:10 }}>
-                          <div style={{ fontSize:11, fontFamily:"monospace", wordBreak:"break-all", color:"#78350f" }}>{editResetLink}</div>
-                          <button onClick={() => navigator.clipboard?.writeText(editResetLink)} style={{ fontSize:11, color:"#b45309", fontWeight:700, border:"none", background:"none", cursor:"pointer", marginTop:4 }}>Copy</button>
-                        </div>
-                      )}
-                    </div>
-                    <div style={{ display:"flex", justifyContent:"space-between", flexWrap:"wrap", gap:8, borderTop:"1px solid #f1f5f9", paddingTop:14 }}>
-                      <div style={{ display:"flex", gap:6 }}>
-                        <button onClick={() => toggleActive(editing)}
-                          style={{ fontSize:12, fontWeight:700, padding:"6px 12px", borderRadius:8, cursor:"pointer", border: editing.is_active === false ? "1px solid #10b981" : "1px solid #f97316", color: editing.is_active === false ? "#059669" : "#ea580c", background:"transparent" }}>
-                          {editing.is_active === false ? "Activate" : "Deactivate"}
-                        </button>
-                        <button onClick={() => deleteUser(editing)}
-                          style={{ fontSize:12, fontWeight:700, padding:"6px 12px", borderRadius:8, cursor:"pointer", border:"1px solid #fca5a5", color:"#dc2626", background:"transparent" }}>
-                          Delete
-                        </button>
-                      </div>
-                      <div style={{ display:"flex", gap:6 }}>
-                        <button onClick={() => setEditing(null)} style={{ border:"none", background:"none", color:"#64748b", fontSize:13, cursor:"pointer", padding:"6px 12px" }}>Cancel</button>
-                        <button onClick={saveEdit} style={{ background:"#f59e0b", color:"white", border:"none", padding:"6px 18px", borderRadius:8, fontWeight:700, fontSize:13, cursor:"pointer" }}>Save Changes</button>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* ── User list ── */}
-            <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:12, flexWrap:"wrap", gap:8 }}>
-              <span style={{ color:"white", fontWeight:700, fontSize:14 }}>User Database ({users.length})</span>
-              <div style={{ display:"flex", gap:6, flexWrap:"wrap" }}>
-                <input value={userQ} onChange={e => setUserQ(e.target.value)} placeholder="Search name or email…"
-                  style={{ background:"rgba(255,255,255,0.08)", border:"1px solid rgba(255,255,255,0.2)", borderRadius:6, padding:"4px 10px", color:"white", fontSize:12, outline:"none", width:160 }} />
-                <select value={userRoleFilter} onChange={e => setUserRoleFilter(e.target.value)}
-                  style={{ background:"rgba(255,255,255,0.08)", border:"1px solid rgba(255,255,255,0.2)", borderRadius:6, padding:"4px 8px", color:"white", fontSize:12, cursor:"pointer" }}>
-                  <option value="">All Roles</option>
-                  {PANEL_ROLES.map(r => <option key={r} value={r}>{PANEL_ROLE_LABELS[r]}</option>)}
-                </select>
-                <button onClick={() => loadUsers(userQ, userRoleFilter)} style={{ background:"rgba(255,255,255,0.1)", border:"none", color:"white", padding:"4px 10px", borderRadius:6, fontSize:11, cursor:"pointer" }}>Refresh</button>
-                <button onClick={() => { setCreating(true); setNewCreated(null); setNewResetLink(null); }}
-                  style={{ background:SIG, border:"none", color:INK, padding:"4px 12px", borderRadius:6, fontSize:11, fontWeight:700, cursor:"pointer" }}>+ Create</button>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
+              <span style={{ color: "white", fontWeight: 700, fontSize: 14 }}>Recent Users</span>
+              <div style={{ display: "flex", gap: 8 }}>
+                <button onClick={loadUsers} style={{ background: "rgba(255,255,255,0.1)", border: "none", color: "white", padding: "5px 10px", borderRadius: 6, fontSize: 11, cursor: "pointer" }}>Refresh</button>
+                <Link to="/admin/system" style={{ background: SIG, color: INK, padding: "5px 10px", borderRadius: 6, fontSize: 11, fontWeight: 700, textDecoration: "none" }}>Full User DB</Link>
               </div>
             </div>
-            <div style={{ overflowX:"auto" }}>
-              <table style={{ width:"100%", borderCollapse:"collapse", fontSize:12 }}>
+            <div style={{ overflowX: "auto" }}>
+              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
                 <thead>
                   <tr>
-                    {["Name / Email", "Role", "Status", "Joined", "Actions"].map(h => (
-                      <th key={h} style={{ textAlign:"left", padding:"6px 10px", color:"rgba(255,255,255,0.4)", fontWeight:700, borderBottom:"1px solid rgba(255,255,255,0.08)", textTransform:"uppercase", fontSize:10, whiteSpace:"nowrap" }}>{h}</th>
+                    {["Name", "Email", "Role", "Joined"].map(h => (
+                      <th key={h} style={{ textAlign: "left", padding: "6px 10px", color: "rgba(255,255,255,0.4)", fontWeight: 700, borderBottom: "1px solid rgba(255,255,255,0.08)", textTransform: "uppercase", fontSize: 10 }}>{h}</th>
                     ))}
                   </tr>
                 </thead>
                 <tbody>
-                  {users.slice(0, 30).map(u => (
-                    <tr key={u.id || u.email} style={{ borderBottom:"1px solid rgba(255,255,255,0.06)" }}>
-                      <td style={{ padding:"7px 10px" }}>
-                        <div style={{ color:"white", fontWeight:600 }}>{u.full_name || "—"}</div>
-                        <div style={{ color:"rgba(255,255,255,0.45)", fontSize:10 }}>{u.email}</div>
-                      </td>
-                      <td style={{ padding:"7px 10px" }}>
-                        <div style={{ display:"flex", gap:3, flexWrap:"wrap" }}>
-                          {PANEL_ROLES.map(r => (
-                            <button key={r} onClick={() => quickRole(u, r)} disabled={!!promoting[u.id]}
-                              style={{ fontSize:9, padding:"2px 6px", borderRadius:10, border:"none", cursor:"pointer", fontWeight:700,
-                                background: u.role === r ? (r === "executive_admin" ? SIG : r === "admin" ? "#7c3aed" : r === "instructor" ? "#2563eb" : "#10b981") : "rgba(255,255,255,0.12)",
-                                color: u.role === r ? (r === "executive_admin" ? INK : "white") : "rgba(255,255,255,0.5)" }}>
-                              {PANEL_ROLE_LABELS[r]}
-                            </button>
-                          ))}
-                        </div>
-                      </td>
-                      <td style={{ padding:"7px 10px" }}>
-                        <span style={{ fontSize:10, fontWeight:700, color: u.is_active === false ? "#ef4444" : "#22c55e" }}>
-                          {u.is_active === false ? "Inactive" : "Active"}
+                  {users.slice(0, 15).map(u => (
+                    <tr key={u.id || u.email} style={{ borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
+                      <td style={{ padding: "7px 10px", color: "white", fontWeight: 600 }}>{u.full_name || "—"}</td>
+                      <td style={{ padding: "7px 10px", color: "rgba(255,255,255,0.6)" }}>{u.email}</td>
+                      <td style={{ padding: "7px 10px" }}>
+                        <span style={{ background: u.role === "executive_admin" ? SIG : u.role === "admin" ? "#7c3aed" : "rgba(255,255,255,0.15)", color: u.role === "executive_admin" ? INK : "white", padding: "2px 8px", borderRadius: 20, fontSize: 10, fontWeight: 700 }}>
+                          {u.role}
                         </span>
                       </td>
-                      <td style={{ padding:"7px 10px", color:"rgba(255,255,255,0.45)", fontSize:10, whiteSpace:"nowrap" }}>
+                      <td style={{ padding: "7px 10px", color: "rgba(255,255,255,0.45)", fontSize: 11 }}>
                         {u.created_at ? new Date(u.created_at).toLocaleDateString() : "—"}
-                      </td>
-                      <td style={{ padding:"7px 10px" }}>
-                        <button onClick={() => openEdit(u)}
-                          style={{ fontSize:10, fontWeight:700, padding:"3px 10px", borderRadius:6, border:"1px solid rgba(255,209,0,0.5)", color:SIG, background:"transparent", cursor:"pointer" }}>
-                          Edit
-                        </button>
                       </td>
                     </tr>
                   ))}
                 </tbody>
               </table>
-              {users.length === 0 && <p style={{ color:"rgba(255,255,255,0.4)", fontSize:13, marginTop:12 }}>No users loaded. Use search or Refresh.</p>}
+              {users.length === 0 && <p style={{ color: "rgba(255,255,255,0.4)", fontSize: 13, marginTop: 12 }}>No users loaded.</p>}
             </div>
           </div>
         )}
@@ -697,160 +395,47 @@ function ExecPanel({ apiOnline, visibility, setVisibility, superExec }) {
 
         {tab === "apikeys" && (
           <div>
-            <div style={{ color:"white", fontWeight:700, fontSize:14, marginBottom:4 }}>Push API Keys to Gateway</div>
-            <div style={{ color:"rgba(255,255,255,0.45)", fontSize:11, marginBottom:16 }}>
-              Free-tier providers listed first. Keys inject live into the running gateway without a redeploy.
-              Active status reflects gateway's current provider availability.
-            </div>
-            {/* Free-first order — matches backend ALLOWED set exactly */}
+            <div style={{ color: "white", fontWeight: 700, fontSize: 14, marginBottom: 16 }}>Push API Keys to Gateway</div>
             {[
-              { label: "1. Groq",        env: "GROQ_API_KEY",        prefix: "gsk_",  tier:"free" },
-              { label: "2. Cerebras",    env: "CEREBRAS_API_KEY",    prefix: "csk-",  tier:"free" },
-              { label: "3. Gemini",      env: "GEMINI_API_KEY",      prefix: "AI",    tier:"free" },
-              { label: "4. xAI / Grok", env: "XAI_API_KEY",         prefix: "xai-",  tier:"free" },
-              { label: "5. Cohere",      env: "COHERE_API_KEY",      prefix: "",      tier:"free" },
-              { label: "6. HuggingFace",env: "HUGGINGFACE_API_KEY", prefix: "hf_",   tier:"free" },
-              { label: "7. OpenRouter",  env: "OPENROUTER_API_KEY",  prefix: "sk-or", tier:"free" },
-            ].map(({ label, env, prefix, tier }) => {
+              { label: "Groq (Primary Free)", env: "GROQ_API_KEY",        prefix: "gsk_" },
+              { label: "Cerebras",             env: "CEREBRAS_API_KEY",    prefix: "csk-" },
+              { label: "Gemini",               env: "GEMINI_API_KEY",      prefix: "AI" },
+              { label: "xAI / Grok",           env: "XAI_API_KEY",         prefix: "xai-" },
+              { label: "Cohere",               env: "COHERE_API_KEY",      prefix: "" },
+              { label: "HuggingFace",          env: "HUGGINGFACE_API_KEY", prefix: "hf_" },
+              { label: "Anthropic (paid)",     env: "ANTHROPIC_API_KEY",   prefix: "sk-ant" },
+              { label: "ElevenLabs (exec TTS)",env: "ELEVENLABS_API_KEY",  prefix: "" },
+            ].map(({ label, env, prefix }) => {
               const val = apiKeys[env] || "";
               const shown = showKeys[env];
-              const provKey = env.replace("_API_KEY","").toLowerCase();
-              const isActive = gwStatus?.providers?.[provKey]?.available;
               return (
-                <div key={env} style={{ marginBottom:10, display:"flex", alignItems:"center", gap:8, flexWrap:"wrap" }}>
-                  <div style={{ minWidth:150, display:"flex", flexDirection:"column", gap:2 }}>
-                    <span style={{ color:"rgba(255,255,255,0.85)", fontSize:12, fontWeight:700 }}>{label}</span>
-                    <span style={{ fontSize:9, fontWeight:700, textTransform:"uppercase", letterSpacing:1,
-                      color: isActive === true ? "#22c55e" : isActive === false ? "#ef4444" : "rgba(255,255,255,0.3)" }}>
-                      {isActive === true ? "● Active" : isActive === false ? "○ No key" : "○ Unknown"}
-                    </span>
-                  </div>
-                  <div style={{ flex:1, display:"flex", gap:6, minWidth:220 }}>
+                <div key={env} style={{ marginBottom: 10, display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                  <div style={{ minWidth: 160, color: "rgba(255,255,255,0.7)", fontSize: 12, fontWeight: 600 }}>{label}</div>
+                  <div style={{ flex: 1, display: "flex", gap: 6, minWidth: 220 }}>
                     <input
                       type={shown ? "text" : "password"}
                       placeholder={prefix ? `${prefix}…` : "paste key…"}
                       value={val}
                       onChange={e => setApiKeys(k => ({ ...k, [env]: e.target.value }))}
-                      style={{ flex:1, background:"rgba(255,255,255,0.08)", border:"1px solid rgba(255,255,255,0.15)", borderRadius:6, padding:"6px 10px", color:"white", fontSize:12, outline:"none" }}
+                      style={{ flex: 1, background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.15)", borderRadius: 6, padding: "6px 10px", color: "white", fontSize: 12, outline: "none" }}
                     />
                     <button onClick={() => setShowKeys(s => ({ ...s, [env]: !s[env] }))}
-                      style={{ background:"rgba(255,255,255,0.1)", border:"none", color:"white", width:30, borderRadius:6, cursor:"pointer" }}>
-                      {shown ? <EyeOff style={{ width:13, height:13 }} /> : <Eye style={{ width:13, height:13 }} />}
+                      style={{ background: "rgba(255,255,255,0.1)", border: "none", color: "white", width: 30, borderRadius: 6, cursor: "pointer" }}>
+                      {shown ? <EyeOff style={{ width: 13, height: 13 }} /> : <Eye style={{ width: 13, height: 13 }} />}
                     </button>
                     <button onClick={() => pushApiKey(env, val)} disabled={!val}
-                      style={{ background: val ? SIG : "rgba(255,255,255,0.08)", border:"none", color: val ? INK : "rgba(255,255,255,0.3)", padding:"6px 12px", borderRadius:6, fontSize:11, fontWeight:700, cursor: val ? "pointer" : "not-allowed" }}>
+                      style={{ background: val ? SIG : "rgba(255,255,255,0.08)", border: "none", color: val ? INK : "rgba(255,255,255,0.3)", padding: "6px 12px", borderRadius: 6, fontSize: 11, fontWeight: 700, cursor: val ? "pointer" : "not-allowed" }}>
                       Push
                     </button>
                   </div>
                 </div>
               );
             })}
-            <button onClick={loadGateway} style={{ marginTop:8, background:"rgba(255,255,255,0.1)", border:"none", color:"white", padding:"5px 12px", borderRadius:6, fontSize:11, cursor:"pointer" }}>
-              Refresh Status
-            </button>
           </div>
         )}
 
         {tab === "visibility" && (
           <VisibilityTab visibility={visibility} setVisibility={setVisibility} />
-        )}
-
-        {tab === "modes" && (
-          <div>
-            <div style={{ color:"white", fontWeight:700, fontSize:14, marginBottom:6 }}>Page Display Mode</div>
-            <div style={{ color:"rgba(255,255,255,0.5)", fontSize:11, marginBottom:16 }}>
-              Controls what public visitors see on this page. Stored in their browser's localStorage.
-            </div>
-            <div style={{ display:"flex", flexWrap:"wrap", gap:8, marginBottom:20 }}>
-              {PAGE_MODES.map(m => (
-                <button key={m.id} onClick={() => {
-                  setPageMode(m.id);
-                  try { localStorage.setItem("more_help_center_mode", m.id); } catch {}
-                  notify(`Page mode set to ${m.label}`);
-                }}
-                  style={{ background: pageMode === m.id ? SIG : "rgba(255,255,255,0.1)", border:"none", color: pageMode === m.id ? INK : "white", padding:"8px 18px", borderRadius:7, fontSize:12, fontWeight:700, cursor:"pointer", textTransform:"capitalize" }}>
-                  {m.label}
-                </button>
-              ))}
-            </div>
-            {PAGE_MODES.map(m => (
-              <div key={m.id} style={{ marginBottom:12, background: pageMode === m.id ? "rgba(255,209,0,0.12)" : "rgba(255,255,255,0.05)", border: pageMode === m.id ? `1px solid ${SIG}44` : "1px solid rgba(255,255,255,0.08)", borderRadius:8, padding:"12px 16px" }}>
-                <div style={{ color: pageMode === m.id ? SIG : "rgba(255,255,255,0.7)", fontWeight:700, fontSize:12 }}>{m.label}</div>
-                <div style={{ color:"rgba(255,255,255,0.5)", fontSize:11, marginTop:4 }}>{m.desc}</div>
-              </div>
-            ))}
-          </div>
-        )}
-
-        {tab === "failover" && superExec && (
-          <div>
-            <div style={{ color:"white", fontWeight:700, fontSize:14, marginBottom:4 }}>⚡ Gateway Failover</div>
-            <div style={{ color:"rgba(255,255,255,0.45)", fontSize:11, marginBottom:16 }}>
-              Executive-only. Triggers a live gateway failover to backup or emergency provider.
-            </div>
-
-            {/* Backup matrix */}
-            <div style={{ marginBottom:20 }}>
-              <div style={{ color:SIG, fontWeight:700, fontSize:12, marginBottom:8 }}>Free API Backup Matrix</div>
-              {backupMatrix ? (
-                <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(160px,1fr))", gap:8 }}>
-                  {Object.entries(backupMatrix).map(([svc, info]) => (
-                    <div key={svc} style={{ background:"rgba(255,255,255,0.07)", borderRadius:8, padding:"10px 14px" }}>
-                      <div style={{ color:"white", fontWeight:700, fontSize:12, textTransform:"capitalize" }}>{svc}</div>
-                      <div style={{ color: info?.available ? "#22c55e" : "#ef4444", fontSize:11, marginTop:3 }}>
-                        {info?.available ? "✓ Available" : "✗ Unavailable"}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <button onClick={loadBackupMatrix} style={{ background:"rgba(255,255,255,0.1)", border:"none", color:"white", padding:"5px 12px", borderRadius:6, fontSize:11, cursor:"pointer" }}>
-                  Load Matrix
-                </button>
-              )}
-            </div>
-
-            {/* Failover trigger */}
-            <div style={{ background:"rgba(220,38,38,0.1)", border:"1px solid rgba(220,38,38,0.3)", borderRadius:10, padding:16, marginBottom:16 }}>
-              <div style={{ color:"#fca5a5", fontWeight:700, fontSize:12, marginBottom:12 }}>Trigger Failover</div>
-              <div style={{ display:"flex", gap:8, marginBottom:10, flexWrap:"wrap" }}>
-                {["backup", "emergency"].map(t => (
-                  <button key={t} onClick={() => setFailoverTarget(t)}
-                    style={{ background: failoverTarget === t ? "#dc2626" : "rgba(255,255,255,0.1)", border:"none", color:"white", padding:"6px 14px", borderRadius:6, fontSize:12, fontWeight:700, cursor:"pointer", textTransform:"capitalize" }}>
-                    {t}
-                  </button>
-                ))}
-              </div>
-              <input value={failoverReason} onChange={e => setFailoverReason(e.target.value)}
-                placeholder="Reason for failover (required)…"
-                style={{ width:"100%", background:"rgba(255,255,255,0.08)", border:"1px solid rgba(255,255,255,0.2)", borderRadius:6, padding:"8px 12px", color:"white", fontSize:12, outline:"none", boxSizing:"border-box", marginBottom:10 }} />
-              <button onClick={triggerFailover} disabled={!failoverReason.trim()}
-                style={{ background: failoverReason.trim() ? "#dc2626" : "rgba(255,255,255,0.08)", border:"none", color:"white", padding:"8px 20px", borderRadius:7, fontSize:12, fontWeight:700, cursor: failoverReason.trim() ? "pointer" : "not-allowed" }}>
-                Trigger Failover → {failoverTarget}
-              </button>
-            </div>
-
-            {/* Heartbeat secret */}
-            <div style={{ background:"rgba(255,255,255,0.05)", borderRadius:10, padding:16, marginBottom:16 }}>
-              <div style={{ color:"rgba(255,255,255,0.7)", fontWeight:700, fontSize:12, marginBottom:8 }}>Heartbeat Secret (for backup server)</div>
-              <button onClick={loadHeartbeatSecret} style={{ background:"rgba(255,255,255,0.1)", border:"none", color:"white", padding:"5px 12px", borderRadius:6, fontSize:11, cursor:"pointer" }}>
-                Retrieve Secret
-              </button>
-              {heartbeatSecret && (
-                <div style={{ marginTop:10, background:"rgba(0,0,0,0.3)", borderRadius:6, padding:"8px 12px" }}>
-                  <div style={{ fontFamily:"monospace", fontSize:12, color:SIG, wordBreak:"break-all" }}>{heartbeatSecret}</div>
-                  <button onClick={() => navigator.clipboard?.writeText(heartbeatSecret)}
-                    style={{ fontSize:11, color:"rgba(255,255,255,0.6)", fontWeight:700, border:"none", background:"none", cursor:"pointer", marginTop:4 }}>Copy</button>
-                </div>
-              )}
-            </div>
-
-            {/* Emergency UI link */}
-            <a href="/api/emergency" target="_blank" rel="noopener noreferrer"
-              style={{ display:"inline-flex", alignItems:"center", gap:6, background:"rgba(255,255,255,0.08)", border:"1px solid rgba(255,255,255,0.2)", color:"white", padding:"8px 16px", borderRadius:7, fontSize:12, fontWeight:700, textDecoration:"none" }}>
-              Open Emergency UI (works without React SPA) ↗
-            </a>
-          </div>
         )}
 
         {tab === "audit" && (
@@ -958,11 +543,11 @@ export default function MoreHelpCenter() {
     );
   }
 
-  if (apiOnline === false && !isSupExec(user)) {
+  if (apiOnline === false && !isExec(user)) {
     return <DecoyMode />;
   }
 
-  const execMode  = isSupExec(user);   // executive_admin only
+  const execMode  = isExec(user);
   const superExec = isSupExec(user);
   const userRank  = ROLE_RANK[user?.role] ?? 0;
   const canSee    = (key) => userRank >= (visibility[key]?.minRank ?? 0);
@@ -1059,7 +644,7 @@ export default function MoreHelpCenter() {
                 {superExec ? "Executive Admin" : "Admin"}
               </span>
             </div>
-            <ExecPanel apiOnline={apiOnline} visibility={visibility} setVisibility={setVisibility} superExec={superExec} />
+            <ExecPanel apiOnline={apiOnline} visibility={visibility} setVisibility={setVisibility} />
           </div>
         )}
 
