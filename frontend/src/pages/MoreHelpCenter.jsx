@@ -194,6 +194,9 @@ function ExecPanel({ apiOnline, visibility, setVisibility, superExec }) {
   const [auditActionQ, setAuditActionQ] = useState("");
   const [auditActorQ, setAuditActorQ]   = useState("");
   const [auditLimit, setAuditLimit]     = useState(50);
+  const [sageAuditLog, setSageAuditLog] = useState([]);
+  const [sageAuditKind, setSageAuditKind] = useState("all");
+  const [sageAuditUid, setSageAuditUid]   = useState("");
   const [broadcastMsg, setBroadcast]    = useState("");
   const [broadcastTitle, setBcastTitle] = useState("");
   const [broadcastTarget, setBcastTarget] = useState("all");
@@ -289,6 +292,12 @@ function ExecPanel({ apiOnline, visibility, setVisibility, superExec }) {
     try { const r = await api.get(`/admin/audit?${params}`); setAuditLog(Array.isArray(r.data) ? r.data : []); } catch {}
   }, []);
 
+  const loadSageAudit = useCallback(async (kind, uid) => {
+    const params = new URLSearchParams({ kind: kind || "all", limit: 50 });
+    if (uid) params.set("user_id", uid);
+    try { const r = await api.get(`/admin/sage/audit?${params}`); setSageAuditLog(Array.isArray(r.data) ? r.data : []); } catch {}
+  }, []);
+
   const loadSageCap = useCallback(async () => {
     try {
       const r = await api.get("/admin/sage/cap");
@@ -305,10 +314,10 @@ function ExecPanel({ apiOnline, visibility, setVisibility, superExec }) {
   useEffect(() => {
     if (tab === "users")     loadUsers(userQ, userRoleFilter, userActiveFilter);
     if (tab === "incidents") loadIncidents();
-    if (tab === "audit")     loadAudit(auditActionQ, auditActorQ, auditLimit);
+    if (tab === "audit")     { loadAudit(auditActionQ, auditActorQ, auditLimit); if (superExec) loadSageAudit(sageAuditKind, sageAuditUid); }
     if (tab === "safety")    loadSageCap();
     if (tab === "failover")  loadBackupMatrix();
-  }, [tab, loadUsers, loadIncidents, loadAudit, loadSageCap, loadBackupMatrix, userQ, userRoleFilter, userActiveFilter, auditActionQ, auditActorQ, auditLimit]);
+  }, [tab, loadUsers, loadIncidents, loadAudit, loadSageAudit, loadSageCap, loadBackupMatrix, userQ, userRoleFilter, userActiveFilter, auditActionQ, auditActorQ, auditLimit, sageAuditKind, sageAuditUid, superExec]);
 
   // ── User governance actions ────────────────────────────────────────────────
   function openEdit(u) {
@@ -1432,6 +1441,45 @@ function ExecPanel({ apiOnline, visibility, setVisibility, superExec }) {
                 </div>
               ))
             }
+
+            {/* Sage Session Audit — exec only */}
+            {superExec && (
+              <div style={{ marginTop: 24, borderTop: "1px solid rgba(255,255,255,0.08)", paddingTop: 20 }}>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12, flexWrap: "wrap", gap: 8 }}>
+                  <span style={{ color: SIG, fontWeight: 700, fontSize: 13 }}>Sage Session Audit (Exec)</span>
+                  <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                    <select value={sageAuditKind} onChange={e => setSageAuditKind(e.target.value)}
+                      style={{ background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.2)", borderRadius: 6, padding: "4px 8px", color: "white", fontSize: 11, cursor: "pointer" }}>
+                      {["all","chat","refusal","crisis","consent"].map(k => <option key={k} value={k}>{k}</option>)}
+                    </select>
+                    <input value={sageAuditUid} onChange={e => setSageAuditUid(e.target.value)} placeholder="User ID filter…"
+                      style={{ background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.2)", borderRadius: 6, padding: "4px 10px", color: "white", fontSize: 11, outline: "none", width: 130 }} />
+                    <button onClick={() => loadSageAudit(sageAuditKind, sageAuditUid)}
+                      style={{ background: "rgba(255,255,255,0.1)", border: "none", color: "white", padding: "4px 10px", borderRadius: 6, fontSize: 11, cursor: "pointer" }}>Search</button>
+                  </div>
+                </div>
+                {sageAuditLog.length === 0
+                  ? <p style={{ color: "rgba(255,255,255,0.35)", fontSize: 12 }}>No sage sessions. Adjust filters or click Search.</p>
+                  : sageAuditLog.map((a, i) => (
+                    <div key={a.id || i} style={{ display: "flex", gap: 10, padding: "6px 0", borderBottom: "1px solid rgba(255,255,255,0.05)", alignItems: "flex-start" }}>
+                      <div style={{ width: 5, height: 5, borderRadius: "50%", background: a.refusal_reason ? "#f87171" : "#22c55e", marginTop: 6, flexShrink: 0 }} />
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ color: "white", fontSize: 11, fontWeight: 600 }}>{a.user_id || "anon"}</div>
+                        <div style={{ color: "rgba(255,255,255,0.5)", fontSize: 10, fontFamily: "monospace" }}>
+                          {a.persona || ""}{a.refusal_reason ? ` · REFUSED: ${a.refusal_reason}` : ""}
+                        </div>
+                        {a.messages?.[0]?.content && (
+                          <div style={{ color: "rgba(255,255,255,0.3)", fontSize: 10, marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 300 }}>
+                            {typeof a.messages[0].content === "string" ? a.messages[0].content.slice(0, 80) : ""}…
+                          </div>
+                        )}
+                      </div>
+                      <div style={{ color: "rgba(255,255,255,0.3)", fontSize: 9, whiteSpace: "nowrap" }}>{a.created_at ? new Date(a.created_at).toLocaleString() : ""}</div>
+                    </div>
+                  ))
+                }
+              </div>
+            )}
           </div>
         )}
 
