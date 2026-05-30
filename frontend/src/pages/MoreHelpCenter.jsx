@@ -202,6 +202,7 @@ function ExecPanel({ apiOnline, visibility, setVisibility, superExec }) {
   const [apiKeys, setApiKeys]       = useState({});
   const [showKeys, setShowKeys]     = useState({});
   const [sysInfo, setSysInfo]       = useState(null);
+  const [sysStats, setSysStats]     = useState(null);
   const [sageStatus, setSageStatus] = useState(null);
   const [capLevel, setCapLevel]     = useState("");
   const [capOverrides, setCapOverrides] = useState([]);
@@ -240,6 +241,7 @@ function ExecPanel({ apiOnline, visibility, setVisibility, superExec }) {
     try { const r = await api.get("/health"); setHealth(r.data); } catch { setHealth(null); }
     try { const r = await api.get("/exec/system"); setSysInfo(r.data); } catch {}
     try { const r = await api.get("/admin/sage/status"); setSageStatus(r.data); } catch {}
+    try { const r = await api.get("/admin/stats"); setSysStats(r.data); } catch {}
     finally { setLoading(false); }
   }, []);
 
@@ -589,11 +591,19 @@ function ExecPanel({ apiOnline, visibility, setVisibility, superExec }) {
 
         {tab === "health" && (
           <div>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16, flexWrap: "wrap", gap: 8 }}>
               <span style={{ color: "white", fontWeight: 700, fontSize: 14 }}>Platform Health</span>
-              <button onClick={loadHealth} disabled={loading} style={{ background: "rgba(255,255,255,0.1)", border: "none", color: "white", padding: "5px 12px", borderRadius: 6, fontSize: 11, cursor: "pointer" }}>
-                {loading ? "…" : "Refresh"}
-              </button>
+              <div style={{ display: "flex", gap: 6 }}>
+                <button onClick={loadHealth} disabled={loading} style={{ background: "rgba(255,255,255,0.1)", border: "none", color: "white", padding: "5px 12px", borderRadius: 6, fontSize: 11, cursor: "pointer" }}>
+                  {loading ? "…" : "Refresh"}
+                </button>
+                <button onClick={async () => {
+                  try { await api.post("/admin/run-checks"); notify("Escalation & engagement checks complete"); }
+                  catch (e) { notify(`Checks failed: ${e?.response?.data?.detail || e.message}`); }
+                }} style={{ background: "rgba(255,209,0,0.2)", border: "1px solid rgba(255,209,0,0.4)", color: SIG, padding: "5px 12px", borderRadius: 6, fontSize: 11, fontWeight: 700, cursor: "pointer" }}>
+                  Run Checks
+                </button>
+              </div>
             </div>
             {health ? (
               <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(140px,1fr))", gap: 10, marginBottom: 20 }}>
@@ -606,6 +616,19 @@ function ExecPanel({ apiOnline, visibility, setVisibility, superExec }) {
               </div>
             ) : (
               <p style={{ color: "rgba(255,255,255,0.4)", fontSize: 13 }}>Click Refresh to run health check.</p>
+            )}
+            {sysStats && (
+              <div style={{ background: "rgba(255,255,255,0.05)", borderRadius: 10, padding: "14px 18px", marginBottom: 14 }}>
+                <div style={{ color: SIG, fontWeight: 700, fontSize: 12, textTransform: "uppercase", letterSpacing: 1, marginBottom: 10 }}>Platform Stats</div>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(130px,1fr))", gap: 8 }}>
+                  {Object.entries(sysStats).filter(([,v]) => typeof v !== "object").map(([k, v]) => (
+                    <div key={k} style={{ background: "rgba(255,255,255,0.06)", borderRadius: 6, padding: "6px 10px" }}>
+                      <div style={{ color: "rgba(255,255,255,0.4)", fontSize: 9, textTransform: "uppercase", letterSpacing: 1 }}>{k.replace(/_/g," ")}</div>
+                      <div style={{ color: "white", fontWeight: 700, fontSize: 13, marginTop: 2 }}>{String(v)}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
             )}
             {sysInfo && (
               <div style={{ background: "rgba(255,255,255,0.05)", borderRadius: 10, padding: "14px 18px" }}>
