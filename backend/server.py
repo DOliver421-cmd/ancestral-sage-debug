@@ -244,6 +244,59 @@ async def enforce_platform_flags(request: Request, call_next):
 
 
 @app.middleware("http")
+async def enforce_ip_whitelist(request: Request, call_next):
+    """Enforce IP whitelist for executive-gated paths.
+    If ip_whitelist collection has entries for role="executive_admin", then
+    only requests from those CIDRs/IPs may reach /api/admin/system, /api/admin/access,
+    /api/admin/sage-audit, /api/admin/director, /api/sovereign/, and /api/admin/mfa.
+    When the collection is empty the middleware passes all traffic (open mode).
+    Respects X-Forwarded-For set by Railway's load balancer.
+    """
+    exec_paths = (
+        "/api/admin/system",
+        "/api/admin/access",
+        "/api/admin/sage-audit",
+        "/api/admin/director",
+        "/api/sovereign/",
+        "/api/admin/mfa",
+        "/api/admin/staff-meetings",
+    )
+    path = request.url.path
+    if not any(path.startswith(p) for p in exec_paths):
+        return await call_next(request)
+    if db is None:
+        return await call_next(request)
+    try:
+        entries = await db.ip_whitelist.find({"role": "executive_admin"}, {"_id": 0, "ip": 1}).to_list(length=500)
+        if not entries:
+            return await call_next(request)
+        import ipaddress as _ipmod
+        allowed_nets = []
+        for e in entries:
+            raw = (e.get("ip") or "").strip()
+            if not raw:
+                continue
+            try:
+                allowed_nets.append(_ipmod.ip_network(raw, strict=False))
+            except ValueError:
+                pass
+        if not allowed_nets:
+            return await call_next(request)
+        forwarded_for = request.headers.get("x-forwarded-for", "")
+        raw_ip = forwarded_for.split(",")[0].strip() if forwarded_for else (request.client.host if request.client else "")
+        try:
+            client_addr = _ipmod.ip_address(raw_ip)
+        except ValueError:
+            return JSONResponse(status_code=403, content={"detail": "Access denied: unresolvable source IP."})
+        if any(client_addr in net for net in allowed_nets):
+            return await call_next(request)
+        logger.warning("IP whitelist block: %s → %s", raw_ip, path)
+        return JSONResponse(status_code=403, content={"detail": "Access denied: your IP is not on the executive access list."})
+    except Exception:
+        return await call_next(request)
+
+
+@app.middleware("http")
 async def log_requests_pii_safe(request: Request, call_next):
     """Log request method, path, and status code. Never log request bodies,
     query strings, headers, or IP addresses (PII-safe)."""
@@ -3433,11 +3486,15 @@ async def admin_sage_metrics(user: User = Depends(require_role("executive_admin"
 async def _get_user_sage_tier(user_id: str) -> str:
     """
     Get user's Sage subscription tier (basic | advanced).
-    Returns "basic" by default for backward compatibility.
+    Reads sage_tier field from the user document (written by Stripe webhook
+    or admin grant). Falls back to "basic" for backward compatibility.
     """
-    # TODO: In production, query db.sage_subscriptions for tier status
-    # For now, default to "basic" for all users (backward compatible)
-    return "basic"
+    try:
+        doc = await db.users.find_one({"id": user_id}, {"_id": 0, "sage_tier": 1})
+        tier = (doc or {}).get("sage_tier", "basic")
+        return tier if tier in ("basic", "advanced") else "basic"
+    except Exception:
+        return "basic"
 
 
 async def _apply_sage_safety_gates(response_text: str, user_tier: str) -> tuple:
@@ -9901,8 +9958,25 @@ async def submit_bug_report(body: BugReportRequest):
         # Log the submission
         logger.info(f"Bug report submitted: {body.email} — {body.whatYouTried}")
 
-        # TODO: Send email notification to admin (poetgames3@gmail.com)
-        # For now, just store in DB and return success
+        # Notify admin via platform email provider
+        try:
+            admin_email = os.environ.get("BUG_REPORT_NOTIFY_EMAIL", PLATFORM_NOTIFY_EMAIL)
+            subject = f"[Bug Report] {body.email} — {body.whatBroke[:60]}"
+            html = f"""<div style="font-family:sans-serif;max-width:600px;padding:24px;">
+<h2 style="color:#b45309;">New Bug Report Submitted</h2>
+<p><strong>From:</strong> {body.name} ({body.email})</p>
+<p><strong>Payment handle:</strong> {body.venmoOrPaypal}</p>
+<p><strong>What they tried:</strong><br>{body.whatYouTried}</p>
+<p><strong>What broke:</strong><br>{body.whatBroke}</p>
+{'<p><strong>Screenshot:</strong> included (base64)</p>' if body.screenshot else ''}
+<p style="color:#666;font-size:12px;">Submitted: {report['submittedAt'].isoformat()}</p>
+</div>"""
+            if RESEND_API_KEY:
+                await _send_via_resend(admin_email, subject, html)
+            elif GMAIL_USER and GMAIL_APP_PASSWORD:
+                await _send_via_gmail(admin_email, subject, html)
+        except Exception as _email_err:
+            logger.warning("Bug report email notification failed: %s", _email_err)
 
         return {"status": "submitted", "message": "Thanks for testing! You'll get $1 for trying."}
     except Exception as e:
@@ -10553,6 +10627,20 @@ async def revoke_elevated_role(uid: str, user: User = Depends(require_role("exec
     await db.elevated_roles.delete_many({"user_id": uid})
     await audit(user.id, "exec.user.elevation_revoked", target=uid, meta={"reverted_to": original})
     return {"ok": True, "reverted_to": original}
+
+@api_router.patch("/admin/users/{uid}/sage-tier")
+async def set_user_sage_tier(uid: str, body: dict, user: User = Depends(require_role("admin"))):
+    """Grant or revoke Sage advanced tier for a user (admin+).
+    body: { tier: "basic" | "advanced" }"""
+    tier = (body.get("tier") or "").strip().lower()
+    if tier not in ("basic", "advanced"):
+        raise HTTPException(400, "tier must be 'basic' or 'advanced'")
+    target = await db.users.find_one({"id": uid}, {"_id": 0, "id": 1, "email": 1})
+    if not target:
+        raise HTTPException(404, "User not found")
+    await db.users.update_one({"id": uid}, {"$set": {"sage_tier": tier}})
+    await audit(user.id, "admin.sage.tier_updated", target=uid, meta={"tier": tier})
+    return {"ok": True, "uid": uid, "sage_tier": tier}
 
 @api_router.get("/admin/audit/export")
 async def export_audit_log(
