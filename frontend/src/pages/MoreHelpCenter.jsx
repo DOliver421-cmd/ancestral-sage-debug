@@ -19,67 +19,87 @@ import {
 import { api, BACKEND_URL } from "../lib/api";
 import { useAuth } from "../lib/auth";
 
-// ── Brand tokens ───────────────────────────────────────────────────────────────
-const GOLD      = "#e8b83e";
-const TEAL      = "#0d7377";
-const TEAL_DARK = "#095b5e";
-const WARM      = "#f9f5f0";
-const COPPER    = "#8d5a33";
-const CREAM     = "#fff8f0";
+// ── Legacy tokens (kept for ExecPanel internal use) ───────────────────────────
+const GOLD        = "#e8b83e";
+const TEAL        = "#0d7377";
+const TEAL_DARK   = "#095b5e";
+const WARM        = "#f9f5f0";
+const CREAM       = "#fff8f0";
 const SUPPORT_EMAIL = "morehelpcenter@gmail.com";
+
+// ── African Marketplace palette ────────────────────────────────────────────────
+const MARKET_BG   = "#FFF8EC";   // page background, warm cream
+const FOREST      = "#2D6A4F";   // primary brand green
+const GROVE       = "#1B4332";   // Legal Clearing, deep forest
+const AMBER       = "#E8A51E";   // accents, highlights
+const COPPER      = "#C47A1E";   // section headers, carved symbols
+const EARTH       = "#8B4513";   // borders, depth
+const TERRACOTTA  = "#C1440E";   // CTA buttons, feature cards
+const BARK        = "#3E2723";   // text, carved header lines
+const SAND        = "#F5DEB3";   // card backgrounds
+const CARVED_BG   = "#FFF1DC";   // organic card fill
 
 // ── Role helpers ───────────────────────────────────────────────────────────────
 const ROLE_RANK = { student: 1, instructor: 2, admin: 3, executive_admin: 4 };
 function hasRank(user, min) { return (ROLE_RANK[user?.role] ?? 0) >= min; }
-const isExec    = (u) => hasRank(u, 3);   // admin or executive_admin
-const isSupExec = (u) => hasRank(u, 4);   // executive_admin only
+const isExec    = (u) => hasRank(u, 3);
+const isSupExec = (u) => hasRank(u, 4);
 
-// ── Static content (shared across modes) ──────────────────────────────────────
+// ── Static content ─────────────────────────────────────────────────────────────
 const FEATURES = [
-  { icon: BookOpen,     title: "Free Learning",       desc: "Hands-on training, free modules, and certification pathways — no paywall at the door." },
-  { icon: MessageSquare,title: "Community Support",   desc: "Ask questions, share knowledge, and get real answers from real people in your community." },
-  { icon: Shield,       title: "Legal & Compliance",  desc: "Governance guidance, risk controls, and community-safe procedures built into every process." },
-  { icon: Users,        title: "Community Market",    desc: "A virtual African market plaza where visitors discover services, training, and trusted allies." },
-  { icon: Sparkles,     title: "Creative Production", desc: "Media, course-building, branding, and storytelling tools keep the hub vibrant and alive." },
-  { icon: Activity,     title: "Autonomous Finance",  desc: "Self-managing finance operations run budgets, compliance, and expense flow for the center." },
+  { icon: BookOpen,      title: "Free Learning",       desc: "Hands-on training, free modules, and certification pathways — no paywall at the door." },
+  { icon: MessageSquare, title: "Community Support",   desc: "Ask questions, share knowledge, and get real answers from real people in your community." },
+  { icon: Shield,        title: "Legal & Compliance",  desc: "Governance guidance, risk controls, and community-safe procedures built into every process." },
+  { icon: Users,         title: "Community Market",    desc: "A virtual African market plaza where visitors discover services, training, and trusted allies." },
+  { icon: Sparkles,      title: "Creative Production", desc: "Media, course-building, branding, and storytelling tools keep the hub vibrant and alive." },
+  { icon: Activity,      title: "Autonomous Finance",  desc: "Self-managing finance operations run budgets, compliance, and expense flow for the center." },
 ];
 
 const WAYPOINTS = [
-  { icon: MapPin,     title: "Entrance Atrium",        desc: "Step in like a mall visitor and find the main path to finance, legal, and community services." },
-  { icon: Users,      title: "Service Lanes",           desc: "Move through themed lanes for support, training, production, and marketplace discovery." },
-  { icon: BadgeCheck, title: "Human Oversight Desk",   desc: "Every AI-driven direction is backed by human review, audit, and executive supervision." },
-  { icon: Globe,      title: "WAI Infrastructure",     desc: "This hub is connected to the full WAI system, from course catalogs to executive controls." },
+  { icon: MapPin,     title: "Entrance Atrium",      desc: "Step in like a mall visitor and find the main path to finance, legal, and community services." },
+  { icon: Users,      title: "Service Lanes",         desc: "Move through themed lanes for support, training, production, and marketplace discovery." },
+  { icon: BadgeCheck, title: "Human Oversight Desk", desc: "Every AI-driven direction is backed by human review, audit, and executive supervision." },
+  { icon: Globe,      title: "WAI Infrastructure",   desc: "This hub is connected to the full WAI system, from course catalogs to executive controls." },
 ];
 
 const ROLE_LANES = [
-  { icon: Globe,      title: "Visitor lane",   desc: "Public guests are guided to support, community learning, and marketplace discovery." },
-  { icon: Activity,   title: "Operator lane",  desc: "Platform operators manage service routing, compliance checks, and live response workflows." },
-  { icon: BadgeCheck, title: "Supervisor lane",desc: "Supervisors review AI suggestions, coordinate escalations, and maintain executive visibility." },
-  { icon: ShieldCheck,title: "Auditor lane",   desc: "Auditors verify governance, privacy, and finance decisions with transparent records." },
+  { icon: Globe,       title: "Visitor lane",    desc: "Public guests are guided to support, community learning, and marketplace discovery." },
+  { icon: Activity,    title: "Operator lane",   desc: "Platform operators manage service routing, compliance checks, and live response workflows." },
+  { icon: BadgeCheck,  title: "Supervisor lane", desc: "Supervisors review AI suggestions, coordinate escalations, and maintain executive visibility." },
+  { icon: ShieldCheck, title: "Auditor lane",    desc: "Auditors verify governance, privacy, and finance decisions with transparent records." },
 ];
 
 const NAV_LINKS = [
-  { label: "Free Modules",  to: "/modules" },
-  { label: "Community",     to: "/community" },
-  { label: "Courses",       to: "/courses" },
-  { label: "Help Center",   to: "/help-center" },
-  { label: "Store",         to: "/store" },
-  { label: "Plans",         to: "/plans" },
+  { label: "Free Modules", to: "/modules" },
+  { label: "Community",    to: "/community" },
+  { label: "Courses",      to: "/courses" },
+  { label: "Help Center",  to: "/help-center" },
+  { label: "Store",        to: "/store" },
+  { label: "Plans",        to: "/plans" },
 ];
 
-// ── Decoy Mode (API offline) ───────────────────────────────────────────────────
+// ── Carved section header ──────────────────────────────────────────────────────
+function CarvedHeader({ label }) {
+  return (
+    <div style={{ fontSize: 11, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.2em", color: COPPER, marginBottom: 6, fontFamily: "Georgia, serif", borderBottom: `2px solid ${TERRACOTTA}`, paddingBottom: 4, display: "inline-block" }}>
+      ✦ {label}
+    </div>
+  );
+}
+
+// ── Decoy Mode ─────────────────────────────────────────────────────────────────
 function DecoyMode() {
   return (
-    <div style={{ minHeight: "100vh", background: TEAL_DARK, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: 32, textAlign: "center" }}>
-      <div style={{ width: 64, height: 64, borderRadius: "50%", background: GOLD, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 28, fontWeight: 900, color: "#1a1a2e", marginBottom: 24 }}>M</div>
-      <h1 style={{ color: "white", fontSize: 36, fontWeight: 900, marginBottom: 12 }}>MORE Help Center</h1>
-      <p style={{ color: "#a0d4d6", fontSize: 18, maxWidth: 480, lineHeight: 1.6, marginBottom: 8 }}>
+    <div style={{ minHeight: "100vh", background: GROVE, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: 32, textAlign: "center" }}>
+      <div style={{ width: 64, height: 64, borderRadius: "50%", background: AMBER, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 28, fontWeight: 900, color: BARK, marginBottom: 24 }}>M</div>
+      <h1 style={{ color: "white", fontSize: 36, fontWeight: 900, marginBottom: 12, fontFamily: "Georgia, serif" }}>MORE Help Center</h1>
+      <p style={{ color: "#c8e6c9", fontSize: 18, maxWidth: 480, lineHeight: 1.6, marginBottom: 8 }}>
         We're temporarily offline for maintenance. Our team is working on it.
       </p>
-      <p style={{ color: "#a0d4d6", fontSize: 14, marginBottom: 32 }}>
+      <p style={{ color: "#c8e6c9", fontSize: 14, marginBottom: 32 }}>
         All your data is safe. We'll be back shortly.
       </p>
-      <a href={`mailto:${SUPPORT_EMAIL}`} style={{ background: GOLD, color: "#1a1a2e", padding: "12px 28px", borderRadius: 8, fontWeight: 700, fontSize: 14, textDecoration: "none", display: "inline-block" }}>
+      <a href={`mailto:${SUPPORT_EMAIL}`} style={{ background: AMBER, color: BARK, padding: "12px 28px", borderRadius: 4, fontWeight: 700, fontSize: 14, textDecoration: "none", display: "inline-block" }}>
         Email Support
       </a>
       <p style={{ color: "rgba(255,255,255,0.3)", marginTop: 40, fontSize: 12 }}>WAI-Institute · MORE Help Center</p>
@@ -115,17 +135,14 @@ function ExecPanel({ apiOnline, visibility, setVisibility }) {
   }, []);
 
   const loadGateway = useCallback(async () => {
-    // GET /admin/gateway/status — returns gateway_status() from llm_gateway
     try { const r = await api.get("/admin/gateway/status"); setGwStatus(r.data); } catch {}
   }, []);
 
   const loadUsers = useCallback(async () => {
-    // GET /admin/users — returns array directly
     try { const r = await api.get("/admin/users"); setUsers(Array.isArray(r.data) ? r.data : []); } catch {}
   }, []);
 
   const loadIncidents = useCallback(async () => {
-    // GET /incidents?status=open — returns array directly; requires instructor+
     try {
       const r = await api.get("/incidents?status=open");
       setIncidents(Array.isArray(r.data) ? r.data.slice(0, 20) : []);
@@ -133,12 +150,10 @@ function ExecPanel({ apiOnline, visibility, setVisibility }) {
   }, []);
 
   const loadAudit = useCallback(async () => {
-    // GET /admin/audit?limit=20 — returns array directly
     try { const r = await api.get("/admin/audit?limit=20"); setAuditLog(Array.isArray(r.data) ? r.data : []); } catch {}
   }, []);
 
   const loadSageCap = useCallback(async () => {
-    // GET /admin/sage/cap — returns { global_level, available_levels, overrides }
     try { const r = await api.get("/admin/sage/cap"); setCapLevel(r.data?.global_level || ""); } catch {}
   }, []);
 
@@ -167,7 +182,6 @@ function ExecPanel({ apiOnline, visibility, setVisibility }) {
 
   const setSafetyCap = async (level) => {
     try {
-      // PUT /admin/sage/cap/global — requires executive_admin
       await api.put("/admin/sage/cap/global", { level: level || null });
       setCapLevel(level);
       notify(`Safety cap set: ${level || "cleared"}`);
@@ -199,7 +213,6 @@ function ExecPanel({ apiOnline, visibility, setVisibility }) {
 
   return (
     <div style={{ background: INK, borderRadius: 16, overflow: "hidden", boxShadow: "0 8px 40px rgba(0,0,0,0.4)", marginBottom: 32 }}>
-      {/* Panel header */}
       <div style={{ padding: "16px 24px", borderBottom: "1px solid rgba(255,255,255,0.1)", display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 12 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
           <div style={{ width: 36, height: 36, borderRadius: "50%", background: SIG, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 900, fontSize: 14, color: INK }}>S</div>
@@ -217,7 +230,6 @@ function ExecPanel({ apiOnline, visibility, setVisibility }) {
         </div>
       </div>
 
-      {/* Tab bar */}
       <div style={{ display: "flex", overflowX: "auto", borderBottom: "1px solid rgba(255,255,255,0.08)", padding: "0 16px" }}>
         {TABS.map(t => (
           <button key={t.key} onClick={() => setTab(t.key)}
@@ -227,15 +239,12 @@ function ExecPanel({ apiOnline, visibility, setVisibility }) {
         ))}
       </div>
 
-      {/* Notice */}
       {notice && (
         <div style={{ margin: "12px 20px 0", background: "rgba(255,255,255,0.1)", borderRadius: 8, padding: "8px 14px", fontSize: 12, color: SIG }}>{notice}</div>
       )}
 
-      {/* Panel body */}
       <div style={{ padding: 20, minHeight: 220 }}>
 
-        {/* Health */}
         {tab === "health" && (
           <div>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
@@ -259,7 +268,6 @@ function ExecPanel({ apiOnline, visibility, setVisibility }) {
           </div>
         )}
 
-        {/* Gateway */}
         {tab === "gateway" && (
           <div>
             <div style={{ color: "white", fontWeight: 700, fontSize: 14, marginBottom: 14 }}>LLM Gateway Status</div>
@@ -289,7 +297,6 @@ function ExecPanel({ apiOnline, visibility, setVisibility }) {
           </div>
         )}
 
-        {/* Users */}
         {tab === "users" && (
           <div>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
@@ -330,7 +337,6 @@ function ExecPanel({ apiOnline, visibility, setVisibility }) {
           </div>
         )}
 
-        {/* Broadcast */}
         {tab === "broadcast" && (
           <div>
             <div style={{ color: "white", fontWeight: 700, fontSize: 14, marginBottom: 14 }}>Send Platform Broadcast</div>
@@ -348,7 +354,6 @@ function ExecPanel({ apiOnline, visibility, setVisibility }) {
           </div>
         )}
 
-        {/* Incidents */}
         {tab === "incidents" && (
           <div>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
@@ -367,7 +372,6 @@ function ExecPanel({ apiOnline, visibility, setVisibility }) {
           </div>
         )}
 
-        {/* Safety Cap */}
         {tab === "safety" && (
           <div>
             <div style={{ color: "white", fontWeight: 700, fontSize: 14, marginBottom: 6 }}>Global Sage Safety Cap</div>
@@ -389,7 +393,6 @@ function ExecPanel({ apiOnline, visibility, setVisibility }) {
           </div>
         )}
 
-        {/* API Keys */}
         {tab === "apikeys" && (
           <div>
             <div style={{ color: "white", fontWeight: 700, fontSize: 14, marginBottom: 16 }}>Push API Keys to Gateway</div>
@@ -431,12 +434,10 @@ function ExecPanel({ apiOnline, visibility, setVisibility }) {
           </div>
         )}
 
-        {/* Visibility */}
         {tab === "visibility" && (
           <VisibilityTab visibility={visibility} setVisibility={setVisibility} />
         )}
 
-        {/* Audit Log */}
         {tab === "audit" && (
           <div>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
@@ -464,7 +465,7 @@ function ExecPanel({ apiOnline, visibility, setVisibility }) {
   );
 }
 
-// ── Default section visibility (all on) ───────────────────────────────────────
+// ── Default section visibility ─────────────────────────────────────────────────
 const DEFAULT_VISIBILITY = {
   freeModules:  { label: "Free Modules",       minRank: 0 },
   features:     { label: "What We Do",         minRank: 0 },
@@ -476,7 +477,7 @@ const DEFAULT_VISIBILITY = {
   support:      { label: "Support",            minRank: 0 },
 };
 
-// ── Visibility toggle panel (exec only) ───────────────────────────────────────
+// ── Visibility toggle panel ────────────────────────────────────────────────────
 function VisibilityTab({ visibility, setVisibility }) {
   const RANK_LABELS = { 0: "Everyone", 1: "Students+", 2: "Instructors+", 3: "Admins+", 4: "Exec only" };
   const INK = "#2e1065"; const SIG = "#FFD100";
@@ -513,7 +514,7 @@ function VisibilityTab({ visibility, setVisibility }) {
 export default function MoreHelpCenter() {
   const { user } = useAuth();
   const [freeModules,  setFreeModules]  = useState([]);
-  const [apiOnline,    setApiOnline]    = useState(null); // null = checking
+  const [apiOnline,    setApiOnline]    = useState(null);
   const [gwLabel,      setGwLabel]      = useState("Checking…");
   const [visibility,   setVisibility]   = useState(() => {
     try { const s = localStorage.getItem("mhc_visibility"); return s ? JSON.parse(s) : DEFAULT_VISIBILITY; } catch { return DEFAULT_VISIBILITY; }
@@ -534,116 +535,112 @@ export default function MoreHelpCenter() {
     }
   }, [apiOnline]);
 
-  // ── Mode resolution ──────────────────────────────────────────────────────────
-  // Still checking API status — show nothing (avoids flash to decoy)
   if (apiOnline === null) {
     return (
-      <div style={{ minHeight: "100vh", background: TEAL_DARK, display: "flex", alignItems: "center", justifyContent: "center" }}>
-        <div style={{ color: "rgba(255,255,255,0.5)", fontSize: 14 }}>Loading MORE Help Center…</div>
+      <div style={{ minHeight: "100vh", background: MARKET_BG, display: "flex", alignItems: "center", justifyContent: "center" }}>
+        <div style={{ color: COPPER, fontSize: 14, fontFamily: "Georgia, serif" }}>Loading MORE Help Center…</div>
       </div>
     );
   }
 
-  // Decoy mode — API completely unreachable
   if (apiOnline === false && !isExec(user)) {
     return <DecoyMode />;
   }
 
-  const execMode = isExec(user);
+  const execMode  = isExec(user);
   const superExec = isSupExec(user);
-  const userRank = ROLE_RANK[user?.role] ?? 0;
-  const canSee = (key) => userRank >= (visibility[key]?.minRank ?? 0);
+  const userRank  = ROLE_RANK[user?.role] ?? 0;
+  const canSee    = (key) => userRank >= (visibility[key]?.minRank ?? 0);
 
   const USER_DASHBOARD = {
-    executive_admin: { label: "Executive Dashboard", to: "/admin/system", color: "#2e1065" },
-    admin:           { label: "Admin Dashboard",      to: "/admin",        color: "#0d7377" },
+    executive_admin: { label: "Executive Dashboard", to: "/admin/system", color: GROVE },
+    admin:           { label: "Admin Dashboard",      to: "/admin",        color: FOREST },
     instructor:      { label: "Instructor Hub",       to: "/instructor",   color: COPPER },
-    student:         { label: "My Dashboard",         to: "/dashboard",    color: TEAL },
+    student:         { label: "My Dashboard",         to: "/dashboard",    color: FOREST },
   };
 
   return (
-    <div style={{ minHeight: "100vh", background: WARM, color: "#1a1a2e" }}>
+    <div style={{ minHeight: "100vh", background: MARKET_BG, color: BARK }}>
       {/* Accent bar */}
-      <div style={{ height: 4, background: `linear-gradient(90deg, ${TEAL} 0%, ${GOLD} 50%, ${TEAL} 100%)` }} />
+      <div style={{ height: 5, background: `linear-gradient(90deg, ${BARK} 0%, ${TERRACOTTA} 25%, ${AMBER} 60%, ${COPPER} 100%)` }} />
 
       {/* ── Header ── */}
-      <header style={{ position: "sticky", top: 0, zIndex: 40, background: "#ffffff", borderBottom: "1px solid #e0d6cc" }}>
+      <header style={{ position: "sticky", top: 0, zIndex: 40, background: "#ffffff", borderBottom: `1px solid ${EARTH}44` }}>
         <div style={{ maxWidth: 1200, margin: "0 auto", padding: "10px 24px", display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 12 }}>
           <Link to="/more-help-center" style={{ display: "flex", alignItems: "center", gap: 10, textDecoration: "none" }}>
-            <div style={{ width: 36, height: 36, borderRadius: 8, background: TEAL, display: "flex", alignItems: "center", justifyContent: "center", color: "white", fontWeight: 900, fontSize: 18 }}>M</div>
+            <div style={{ width: 36, height: 36, borderRadius: 8, background: FOREST, display: "flex", alignItems: "center", justifyContent: "center", color: "white", fontWeight: 900, fontSize: 18 }}>M</div>
             <div>
-              <div style={{ fontWeight: 800, fontSize: 14, color: TEAL, lineHeight: 1.2 }}>MORE Help Center</div>
-              <div style={{ fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: 3, color: "#8a7e72" }}>
+              <div style={{ fontWeight: 800, fontSize: 14, color: FOREST, lineHeight: 1.2, fontFamily: "Georgia, serif" }}>MORE Help Center</div>
+              <div style={{ fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: 3, color: COPPER }}>
                 {execMode ? (superExec ? "Exec · Supervisor Mode" : "Admin Mode") : "Goodwill Wing"}
               </div>
             </div>
           </Link>
 
-          <nav style={{ display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
+          <nav style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
             {NAV_LINKS.map(({ label, to }) => (
-              <Link key={to} to={to} style={{ fontSize: 12, fontWeight: 700, textTransform: "uppercase", letterSpacing: 2, color: "#5a4e42", textDecoration: "none" }}>{label}</Link>
+              <Link key={to} to={to} style={{ fontSize: 10, fontWeight: 800, textTransform: "uppercase", letterSpacing: 2, color: "white", textDecoration: "none", background: TERRACOTTA, padding: "4px 11px", borderRadius: 4 }}>{label}</Link>
             ))}
             {execMode && (
-              <Link to="/admin/system" style={{ fontSize: 12, fontWeight: 700, textTransform: "uppercase", letterSpacing: 2, color: COPPER, textDecoration: "none", display: "flex", alignItems: "center", gap: 4 }}>
-                <Crown style={{ width: 13, height: 13 }} /> Dashboard
+              <Link to="/admin/system" style={{ fontSize: 10, fontWeight: 800, textTransform: "uppercase", letterSpacing: 2, color: AMBER, textDecoration: "none", background: BARK, padding: "4px 11px", borderRadius: 4, display: "flex", alignItems: "center", gap: 4 }}>
+                <Crown style={{ width: 12, height: 12 }} /> Dashboard
               </Link>
             )}
-            {!user
-              ? <Link to="/login" style={{ background: GOLD, color: "#1a1a2e", padding: "7px 16px", borderRadius: 8, fontSize: 12, fontWeight: 700, textDecoration: "none" }}>Sign In →</Link>
-              : null
-            }
+            {!user && (
+              <Link to="/login" style={{ background: AMBER, color: BARK, padding: "6px 16px", borderRadius: 4, fontSize: 11, fontWeight: 800, textDecoration: "none" }}>Sign In →</Link>
+            )}
           </nav>
         </div>
       </header>
 
       <main style={{ maxWidth: 1200, margin: "0 auto", padding: "0 24px" }}>
 
-        {/* ── Hero — always first, exec panel comes after ── */}
-        <section style={{ borderRadius: 24, overflow: "hidden", marginTop: 32, marginBottom: 28, background: `linear-gradient(165deg, ${TEAL_DARK} 0%, #0a4e52 50%, ${TEAL} 100%)`, padding: "56px 40px", textAlign: "center", position: "relative" }}>
-          <div style={{ position: "absolute", inset: 0, opacity: 0.08, backgroundImage: "radial-gradient(circle at 25px 25px, white 1px, transparent 0)", backgroundSize: "50px 50px" }} />
+        {/* ── Hero ── */}
+        <section style={{ borderRadius: 16, overflow: "hidden", marginTop: 32, marginBottom: 28, background: `linear-gradient(165deg, ${BARK} 0%, ${TERRACOTTA} 35%, ${AMBER} 70%, ${COPPER} 100%)`, padding: "56px 40px", textAlign: "center", position: "relative" }}>
+          <div style={{ position: "absolute", inset: 0, opacity: 0.07, backgroundImage: "radial-gradient(circle at 20px 20px, #f5e6c8 1.5px, transparent 0)", backgroundSize: "40px 40px" }} />
           <div style={{ position: "relative", zIndex: 1 }}>
-            <div style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "6px 16px", borderRadius: 999, background: "rgba(255,255,255,0.15)", color: GOLD, fontSize: 11, fontWeight: 800, textTransform: "uppercase", letterSpacing: 3, marginBottom: 24 }}>
+            <div style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "6px 16px", borderRadius: 4, background: "rgba(0,0,0,0.25)", color: AMBER, fontSize: 11, fontWeight: 800, textTransform: "uppercase", letterSpacing: 3, marginBottom: 24 }}>
               <Heart style={{ width: 12, height: 12 }} /> 100% Free · Community-Powered
             </div>
-            <h1 style={{ color: "white", fontSize: "clamp(32px, 6vw, 56px)", fontWeight: 900, lineHeight: 1.1, marginBottom: 16 }}>
-              Help is here.<br /><span style={{ color: GOLD }}>Free, always.</span>
+            <h1 style={{ color: "white", fontSize: "clamp(32px, 6vw, 56px)", fontWeight: 900, lineHeight: 1.1, marginBottom: 16, fontFamily: "Georgia, serif" }}>
+              Help is here.<br /><span style={{ color: AMBER }}>Free, always.</span>
             </h1>
-            <p style={{ color: "#c8e6e8", fontSize: 18, maxWidth: 560, margin: "0 auto 28px", lineHeight: 1.7 }}>
+            <p style={{ color: "#ffe8cc", fontSize: 18, maxWidth: 560, margin: "0 auto 28px", lineHeight: 1.7 }}>
               No paywalls. No sign-ups for core help. Free training, community support, and real guidance — no strings attached.
             </p>
             <div style={{ display: "flex", flexWrap: "wrap", gap: 12, justifyContent: "center" }}>
-              <a href="#modules" style={{ background: GOLD, color: "#1a1a2e", padding: "12px 28px", borderRadius: 8, fontWeight: 800, fontSize: 13, textDecoration: "none", textTransform: "uppercase", letterSpacing: 2 }}>Start Learning Free</a>
-              <a href="#support" style={{ border: `2px solid ${GOLD}`, color: "white", padding: "12px 28px", borderRadius: 8, fontWeight: 800, fontSize: 13, textDecoration: "none", textTransform: "uppercase", letterSpacing: 2 }}>Get Support</a>
-              <Link to="/community" style={{ border: `2px solid rgba(255,255,255,0.4)`, color: "white", padding: "12px 28px", borderRadius: 8, fontWeight: 800, fontSize: 13, textDecoration: "none", textTransform: "uppercase", letterSpacing: 2 }}>Join Community</Link>
+              <a href="#modules" style={{ background: AMBER, color: BARK, padding: "12px 28px", borderRadius: 4, fontWeight: 800, fontSize: 13, textDecoration: "none", textTransform: "uppercase", letterSpacing: 2 }}>Start Learning Free</a>
+              <a href="#support" style={{ border: `2px solid ${AMBER}`, color: "white", padding: "12px 28px", borderRadius: 4, fontWeight: 800, fontSize: 13, textDecoration: "none", textTransform: "uppercase", letterSpacing: 2 }}>Get Support</a>
+              <Link to="/community" style={{ border: "2px solid rgba(255,255,255,0.5)", color: "white", padding: "12px 28px", borderRadius: 4, fontWeight: 800, fontSize: 13, textDecoration: "none", textTransform: "uppercase", letterSpacing: 2 }}>Join Community</Link>
             </div>
           </div>
         </section>
 
-        {/* ── Logged-in user: your space card (item 7) ── */}
+        {/* ── Logged-in user card ── */}
         {user && USER_DASHBOARD[user.role] && (
-          <div style={{ background: "white", borderRadius: 14, border: "1px solid #e0d6cc", padding: "14px 20px", marginBottom: 24, display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 12 }}>
+          <div style={{ background: "white", borderRadius: 10, border: `1px solid ${EARTH}44`, padding: "14px 20px", marginBottom: 24, display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 12 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
               <div style={{ width: 36, height: 36, borderRadius: "50%", background: USER_DASHBOARD[user.role].color, display: "flex", alignItems: "center", justifyContent: "center", color: "white", fontWeight: 900, fontSize: 14 }}>
                 {(user.full_name || "U")[0].toUpperCase()}
               </div>
               <div>
-                <div style={{ fontWeight: 700, fontSize: 14, color: "#2b1f15" }}>Welcome back, {user.full_name?.split(" ")[0] || "there"}.</div>
-                <div style={{ fontSize: 11, color: "#8a7e72", textTransform: "capitalize" }}>{(user.role || "").replace("_", " ")} · WAI-Institute</div>
+                <div style={{ fontWeight: 700, fontSize: 14, color: BARK }}>Welcome back, {user.full_name?.split(" ")[0] || "there"}.</div>
+                <div style={{ fontSize: 11, color: COPPER, textTransform: "capitalize" }}>{(user.role || "").replace("_", " ")} · WAI-Institute</div>
               </div>
             </div>
-            <Link to={USER_DASHBOARD[user.role].to} style={{ background: USER_DASHBOARD[user.role].color, color: "white", padding: "8px 18px", borderRadius: 8, fontWeight: 700, fontSize: 12, textDecoration: "none", display: "flex", alignItems: "center", gap: 6 }}>
+            <Link to={USER_DASHBOARD[user.role].to} style={{ background: USER_DASHBOARD[user.role].color, color: "white", padding: "8px 18px", borderRadius: 6, fontWeight: 700, fontSize: 12, textDecoration: "none", display: "flex", alignItems: "center", gap: 6 }}>
               {USER_DASHBOARD[user.role].label} <ArrowRight style={{ width: 13, height: 13 }} />
             </Link>
           </div>
         )}
 
-        {/* ── Exec Supervisor Panel (admin + executive_admin only) ── */}
+        {/* ── Exec Supervisor Panel ── */}
         {execMode && (
           <div style={{ marginBottom: 32 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 16 }}>
-              <Crown style={{ width: 18, height: 18, color: GOLD }} />
-              <span style={{ fontWeight: 800, fontSize: 16, color: "#2b1f15" }}>Supervisor Controls</span>
-              <span style={{ fontSize: 11, color: "#8d5a33", background: "#fff3e0", padding: "2px 8px", borderRadius: 20, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1 }}>
+              <Crown style={{ width: 18, height: 18, color: AMBER }} />
+              <span style={{ fontWeight: 800, fontSize: 16, color: BARK, fontFamily: "Georgia, serif" }}>Supervisor Controls</span>
+              <span style={{ fontSize: 11, color: COPPER, background: CARVED_BG, padding: "2px 8px", borderRadius: 20, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1 }}>
                 {superExec ? "Executive Admin" : "Admin"}
               </span>
             </div>
@@ -652,10 +649,10 @@ export default function MoreHelpCenter() {
         )}
 
         {/* ── Gateway status strip ── */}
-        <div style={{ background: "white", borderRadius: 12, padding: "12px 20px", marginBottom: 32, display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 12, border: "1px solid #e0d6cc" }}>
+        <div style={{ background: "white", borderRadius: 8, padding: "12px 20px", marginBottom: 32, display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 12, border: `1px solid ${EARTH}44` }}>
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
             <div style={{ width: 8, height: 8, borderRadius: "50%", background: apiOnline ? "#22c55e" : "#dc2626" }} />
-            <span style={{ fontSize: 13, fontWeight: 600, color: "#4b4038" }}>{gwLabel}</span>
+            <span style={{ fontSize: 13, fontWeight: 600, color: BARK }}>{gwLabel}</span>
           </div>
           <div style={{ display: "flex", gap: 16, flexWrap: "wrap" }}>
             {[
@@ -664,7 +661,7 @@ export default function MoreHelpCenter() {
               { label: "Plans & Programs",   to: "/plans" },
               ...(execMode ? [{ label: "Executive Corridor", to: "/admin/system" }] : []),
             ].map(({ label, to }) => (
-              <Link key={to} to={to} style={{ fontSize: 12, fontWeight: 700, color: TEAL, textDecoration: "underline" }}>{label}</Link>
+              <Link key={to} to={to} style={{ fontSize: 12, fontWeight: 700, color: TERRACOTTA, textDecoration: "underline" }}>{label}</Link>
             ))}
           </div>
         </div>
@@ -672,19 +669,19 @@ export default function MoreHelpCenter() {
         {/* ── Waypoints ── */}
         <section style={{ marginBottom: 48 }}>
           <div style={{ marginBottom: 24 }}>
-            <div style={{ fontSize: 11, fontWeight: 800, textTransform: "uppercase", letterSpacing: 3, color: COPPER, marginBottom: 6 }}>How the plaza works</div>
-            <h2 style={{ fontSize: 28, fontWeight: 900, color: "#2b1f15" }}>Your path through the center</h2>
+            <CarvedHeader label="How the plaza works" />
+            <h2 style={{ fontSize: 28, fontWeight: 900, color: BARK, fontFamily: "Georgia, serif", marginTop: 8 }}>Your path through the center</h2>
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(220px,1fr))", gap: 16 }}>
             {WAYPOINTS.map(pt => {
               const Icon = pt.icon;
               return (
-                <div key={pt.title} style={{ background: "white", borderRadius: 20, padding: 24, border: "1px solid #e2d3ba", boxShadow: "0 14px 35px rgba(96,62,28,0.08)" }}>
-                  <div style={{ width: 48, height: 48, borderRadius: 16, background: "#f7ebdc", display: "flex", alignItems: "center", justifyContent: "center", color: COPPER, marginBottom: 16 }}>
+                <div key={pt.title} style={{ background: SAND, borderRadius: 8, padding: 24, border: `1px solid ${EARTH}66`, boxShadow: `0 14px 35px rgba(139,69,19,0.08)` }}>
+                  <div style={{ width: 48, height: 48, borderRadius: 12, background: TERRACOTTA, display: "flex", alignItems: "center", justifyContent: "center", color: "white", marginBottom: 16 }}>
                     <Icon style={{ width: 22, height: 22 }} />
                   </div>
-                  <h3 style={{ fontWeight: 800, fontSize: 16, color: "#2b1f15", marginBottom: 8 }}>{pt.title}</h3>
-                  <p style={{ fontSize: 13, color: "#5c4c41", lineHeight: 1.6 }}>{pt.desc}</p>
+                  <h3 style={{ fontWeight: 800, fontSize: 16, color: BARK, marginBottom: 8, fontFamily: "Georgia, serif" }}>{pt.title}</h3>
+                  <p style={{ fontSize: 13, color: EARTH, lineHeight: 1.6 }}>{pt.desc}</p>
                 </div>
               );
             })}
@@ -695,20 +692,20 @@ export default function MoreHelpCenter() {
         {canSee("freeModules") && freeModules.length > 0 && (
           <section id="modules" style={{ marginBottom: 48 }}>
             <div style={{ textAlign: "center", marginBottom: 32 }}>
-              <div style={{ fontSize: 11, fontWeight: 800, textTransform: "uppercase", letterSpacing: 3, color: TEAL, marginBottom: 6 }}>Free Curriculum</div>
-              <h2 style={{ fontSize: 28, fontWeight: 900, color: "#1a1a2e" }}>Start Here — No Account Needed</h2>
-              <p style={{ color: "#6b5e52", marginTop: 8 }}>Complete free modules and earn Partnership Points toward the full program.</p>
+              <CarvedHeader label="Free Curriculum" />
+              <h2 style={{ fontSize: 28, fontWeight: 900, color: BARK, fontFamily: "Georgia, serif", marginTop: 8 }}>Start Here — No Account Needed</h2>
+              <p style={{ color: EARTH, marginTop: 8 }}>Complete free modules and earn Partnership Points toward the full program.</p>
             </div>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(280px,1fr))", gap: 20 }}>
               {freeModules.map(m => (
-                <Link to={`/modules/${m.slug}`} key={m.slug} style={{ display: "block", padding: 24, borderRadius: 16, background: WARM, border: "1px solid #e0d6cc", textDecoration: "none", transition: "transform 0.2s" }}>
+                <Link to={`/modules/${m.slug}`} key={m.slug} style={{ display: "block", padding: 24, borderRadius: 8, background: CARVED_BG, border: `1px solid ${EARTH}55`, textDecoration: "none" }}>
                   <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 12 }}>
-                    <span style={{ background: GOLD, color: "#1a1a2e", padding: "3px 10px", borderRadius: 20, fontSize: 10, fontWeight: 900, textTransform: "uppercase" }}>FREE</span>
-                    {m.points && <span style={{ fontSize: 12, fontWeight: 700, color: TEAL }}>+{m.points} pts</span>}
+                    <span style={{ background: AMBER, color: BARK, padding: "3px 10px", borderRadius: 4, fontSize: 10, fontWeight: 900, textTransform: "uppercase" }}>FREE</span>
+                    {m.points && <span style={{ fontSize: 12, fontWeight: 700, color: FOREST }}>+{m.points} pts</span>}
                   </div>
-                  <h3 style={{ fontWeight: 800, fontSize: 18, color: "#1a1a2e", marginBottom: 8 }}>{m.title}</h3>
-                  <p style={{ fontSize: 13, color: "#5a4e42", lineHeight: 1.6 }}>{m.summary}</p>
-                  <div style={{ display: "flex", gap: 16, marginTop: 14, fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1, color: TEAL }}>
+                  <h3 style={{ fontWeight: 800, fontSize: 18, color: BARK, marginBottom: 8, fontFamily: "Georgia, serif" }}>{m.title}</h3>
+                  <p style={{ fontSize: 13, color: EARTH, lineHeight: 1.6 }}>{m.summary}</p>
+                  <div style={{ display: "flex", gap: 16, marginTop: 14, fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1, color: FOREST }}>
                     <span>{m.hours}h</span>
                     <ArrowRight style={{ width: 13, height: 13 }} />
                   </div>
@@ -716,249 +713,336 @@ export default function MoreHelpCenter() {
               ))}
             </div>
             <div style={{ textAlign: "center", marginTop: 24 }}>
-              <Link to="/register" style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "10px 24px", border: `2px solid ${TEAL}`, borderRadius: 8, color: TEAL, fontWeight: 700, fontSize: 13, textDecoration: "none", textTransform: "uppercase", letterSpacing: 1 }}>
+              <Link to="/register" style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "10px 24px", border: `2px solid ${FOREST}`, borderRadius: 4, color: FOREST, fontWeight: 700, fontSize: 13, textDecoration: "none", textTransform: "uppercase", letterSpacing: 1 }}>
                 Create Account for Full Program <ArrowRight style={{ width: 15, height: 15 }} />
               </Link>
             </div>
           </section>
         )}
 
-        {/* ── Features grid ── */}
-        {canSee("features") && <section style={{ marginBottom: 48 }}>
-          <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", marginBottom: 24, flexWrap: "wrap", gap: 12 }}>
-            <div>
-              <div style={{ fontSize: 11, fontWeight: 800, textTransform: "uppercase", letterSpacing: 3, color: COPPER, marginBottom: 6 }}>Designed around the hub</div>
-              <h2 style={{ fontSize: 28, fontWeight: 900, color: "#2b1f15" }}>What this center is built to do</h2>
-            </div>
-            <div style={{ background: CREAM, border: `1px solid #d7b290`, borderRadius: 999, padding: "8px 18px", fontSize: 13, fontWeight: 600, color: "#5c422c" }}>
-              Finance-led autonomy + community guidance
-            </div>
-          </div>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(260px,1fr))", gap: 20 }}>
-            {FEATURES.map(f => {
-              const Icon = f.icon;
-              return (
-                <div key={f.title} style={{ background: "white", borderRadius: 20, padding: 28, border: "1px solid #e4d1b4", boxShadow: "0 20px 45px rgba(102,70,33,0.08)" }}>
-                  <div style={{ width: 52, height: 52, borderRadius: 16, background: "#f7ebdc", display: "flex", alignItems: "center", justifyContent: "center", color: COPPER, marginBottom: 16 }}>
-                    <Icon style={{ width: 24, height: 24 }} />
-                  </div>
-                  <h3 style={{ fontWeight: 800, fontSize: 18, color: "#2b1f15", marginBottom: 8 }}>{f.title}</h3>
-                  <p style={{ fontSize: 13, color: "#5c4e44", lineHeight: 1.7 }}>{f.desc}</p>
-                </div>
-              );
-            })}
-          </div>
-        </section>}
-
-        {/* ── Finance backbone (from SeshatsHub) ── */}
-        {canSee("finance") && <section style={{ marginBottom: 48, background: CREAM, borderRadius: 24, border: `1px solid #d8b88e`, padding: "40px 36px", boxShadow: "0 24px 80px rgba(97,60,20,0.12)" }}>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(280px,1fr))", gap: 32, alignItems: "start" }}>
-            <div>
-              <div style={{ fontSize: 11, fontWeight: 800, textTransform: "uppercase", letterSpacing: 3, color: COPPER, marginBottom: 10 }}>Finance Backbone</div>
-              <h2 style={{ fontSize: 30, fontWeight: 900, color: "#2b1f15", marginBottom: 16 }}>The finance department acts like its own autonomous staff.</h2>
-              <p style={{ fontSize: 15, color: "#524236", lineHeight: 1.8, marginBottom: 20 }}>
-                Every resource in the center is supported by finance, compliance, and revenue operations — making this not just a landing spot, but a living marketplace.
-              </p>
-              <ul style={{ listStyle: "none", padding: 0, space: 0 }}>
-                {["Real-time budget visibility for help center initiatives.", "Compliance and approvals built into autonomous workflows.", "Finance staff personas coordinate with production, legal, and community teams."].map(item => (
-                  <li key={item} style={{ display: "flex", gap: 10, marginBottom: 12, fontSize: 14, color: "#4c3f35" }}>
-                    <BadgeCheck style={{ width: 18, height: 18, color: COPPER, marginTop: 2, flexShrink: 0 }} /> {item}
-                  </li>
-                ))}
-              </ul>
-            </div>
-            <div style={{ background: "#fff5e5", borderRadius: 20, border: `1px solid #e3c6a6`, padding: 24 }}>
-              <div style={{ fontSize: 11, fontWeight: 800, textTransform: "uppercase", letterSpacing: 3, color: COPPER, marginBottom: 14 }}>Supervisor briefing</div>
-              <p style={{ fontSize: 13, color: "#4f4134", lineHeight: 1.7, marginBottom: 12 }}>
-                The Supervisor is the landing greeter and navigator — the host offering a warm welcome and making the mission obvious from the first moment.
-              </p>
-              <p style={{ fontSize: 13, fontWeight: 700, color: "#6b4c2b", lineHeight: 1.7 }}>
-                Human oversight is a must-have: executive review, audit checkpoints, and real people ensure every action is safe, compliant, and accountable.
-              </p>
-              <div style={{ marginTop: 16, background: "#fff1d2", borderRadius: 12, padding: 16 }}>
-                <div style={{ fontWeight: 700, color: "#3e2f1f", fontSize: 13 }}>Gateway status</div>
-                <div style={{ fontSize: 16, fontWeight: 800, color: apiOnline ? "#166534" : "#991b1b", marginTop: 6 }}>{gwLabel}</div>
+        {/* ── Features — market-stall grid ── */}
+        {canSee("features") && (
+          <section style={{ marginBottom: 48 }}>
+            <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", marginBottom: 24, flexWrap: "wrap", gap: 12 }}>
+              <div>
+                <CarvedHeader label="Designed around the hub" />
+                <h2 style={{ fontSize: 28, fontWeight: 900, color: BARK, fontFamily: "Georgia, serif", marginTop: 8 }}>What this center is built to do</h2>
+              </div>
+              <div style={{ background: CARVED_BG, border: `1px solid ${EARTH}55`, borderRadius: 4, padding: "8px 18px", fontSize: 13, fontWeight: 600, color: BARK }}>
+                Finance-led autonomy + community guidance
               </div>
             </div>
-          </div>
-        </section>}
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(260px,1fr))", gap: 20 }}>
+              {FEATURES.map(f => {
+                const Icon = f.icon;
+                return (
+                  <div key={f.title} style={{ background: "white", borderRadius: 0, padding: 28, border: `2px solid ${TERRACOTTA}88`, borderTop: `4px solid ${TERRACOTTA}`, boxShadow: `0 20px 45px rgba(193,68,14,0.08)` }}>
+                    <div style={{ width: 52, height: 52, borderRadius: 8, background: TERRACOTTA, display: "flex", alignItems: "center", justifyContent: "center", color: "white", marginBottom: 16 }}>
+                      <Icon style={{ width: 24, height: 24 }} />
+                    </div>
+                    <h3 style={{ fontWeight: 800, fontSize: 18, color: BARK, marginBottom: 8, fontFamily: "Georgia, serif" }}>{f.title}</h3>
+                    <p style={{ fontSize: 13, color: EARTH, lineHeight: 1.7 }}>{f.desc}</p>
+                  </div>
+                );
+              })}
+            </div>
+          </section>
+        )}
+
+        {/* ── Finance backbone ── */}
+        {canSee("finance") && (
+          <section style={{ marginBottom: 48, background: SAND, borderRadius: 12, border: `1px solid ${EARTH}88`, padding: "40px 36px", boxShadow: `0 24px 80px rgba(139,69,19,0.10)` }}>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(280px,1fr))", gap: 32, alignItems: "start" }}>
+              <div>
+                <CarvedHeader label="Finance Backbone" />
+                <h2 style={{ fontSize: 30, fontWeight: 900, color: BARK, marginBottom: 16, fontFamily: "Georgia, serif", marginTop: 8 }}>The finance department acts like its own autonomous staff.</h2>
+                <p style={{ fontSize: 15, color: EARTH, lineHeight: 1.8, marginBottom: 20 }}>
+                  Every resource in the center is supported by finance, compliance, and revenue operations — making this not just a landing spot, but a living marketplace.
+                </p>
+                <ul style={{ listStyle: "none", padding: 0 }}>
+                  {["Real-time budget visibility for help center initiatives.", "Compliance and approvals built into autonomous workflows.", "Finance staff personas coordinate with production, legal, and community teams."].map(item => (
+                    <li key={item} style={{ display: "flex", gap: 10, marginBottom: 12, fontSize: 14, color: BARK }}>
+                      <BadgeCheck style={{ width: 18, height: 18, color: TERRACOTTA, marginTop: 2, flexShrink: 0 }} /> {item}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+              <div style={{ background: `rgba(193,68,14,0.07)`, borderRadius: 8, border: `1px solid ${TERRACOTTA}55`, padding: 24 }}>
+                <CarvedHeader label="Supervisor briefing" />
+                <p style={{ fontSize: 13, color: BARK, lineHeight: 1.7, marginBottom: 12, marginTop: 8 }}>
+                  The Supervisor is the landing greeter and navigator — the host offering a warm welcome and making the mission obvious from the first moment.
+                </p>
+                <p style={{ fontSize: 13, fontWeight: 700, color: BARK, lineHeight: 1.7 }}>
+                  Human oversight is a must-have: executive review, audit checkpoints, and real people ensure every action is safe, compliant, and accountable.
+                </p>
+                <div style={{ marginTop: 16, background: `rgba(123,63,0,0.08)`, borderRadius: 8, padding: 16 }}>
+                  <div style={{ fontWeight: 700, color: BARK, fontSize: 13 }}>Gateway status</div>
+                  <div style={{ fontSize: 16, fontWeight: 800, color: apiOnline ? "#166534" : "#991b1b", marginTop: 6 }}>{gwLabel}</div>
+                </div>
+              </div>
+            </div>
+          </section>
+        )}
 
         {/* ── Role lanes ── */}
-        {canSee("roleLanes") && <section style={{ marginBottom: 48 }}>
-          <div style={{ marginBottom: 24 }}>
-            <div style={{ fontSize: 11, fontWeight: 800, textTransform: "uppercase", letterSpacing: 3, color: COPPER, marginBottom: 6 }}>Role-based lanes</div>
-            <h2 style={{ fontSize: 28, fontWeight: 900, color: "#2b1f15" }}>Choose your entry path</h2>
-            <p style={{ marginTop: 8, fontSize: 14, color: "#5c4c41", maxWidth: 480 }}>
-              The center supports different personas with specific corridors: visitors, operators, supervisors, and auditors all have distinct journeys.
+        {canSee("roleLanes") && (
+          <section style={{ marginBottom: 48 }}>
+            <div style={{ marginBottom: 24 }}>
+              <CarvedHeader label="Role-based lanes" />
+              <h2 style={{ fontSize: 28, fontWeight: 900, color: BARK, fontFamily: "Georgia, serif", marginTop: 8 }}>Choose your entry path</h2>
+              <p style={{ marginTop: 8, fontSize: 14, color: EARTH, maxWidth: 480 }}>
+                The center supports different personas with specific corridors: visitors, operators, supervisors, and auditors all have distinct journeys.
+              </p>
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(200px,1fr))", gap: 16 }}>
+              {ROLE_LANES.map(lane => {
+                const Icon = lane.icon;
+                return (
+                  <div key={lane.title} style={{ background: SAND, borderRadius: 8, padding: 24, border: `1px solid ${EARTH}66`, boxShadow: `0 18px 45px rgba(193,68,14,0.08)` }}>
+                    <div style={{ width: 44, height: 44, borderRadius: 10, background: TERRACOTTA, display: "flex", alignItems: "center", justifyContent: "center", color: "white", marginBottom: 14 }}>
+                      <Icon style={{ width: 20, height: 20 }} />
+                    </div>
+                    <h3 style={{ fontWeight: 800, fontSize: 16, color: BARK, marginBottom: 8, fontFamily: "Georgia, serif" }}>{lane.title}</h3>
+                    <p style={{ fontSize: 13, color: EARTH, lineHeight: 1.6 }}>{lane.desc}</p>
+                  </div>
+                );
+              })}
+            </div>
+          </section>
+        )}
+
+        {/* ── Market Pulse ── */}
+        {canSee("marketPulse") && (
+          <section style={{ marginBottom: 48 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(280px,1fr))", gap: 32, alignItems: "start" }}>
+              <div>
+                <CarvedHeader label="Meet the market" />
+                <h2 style={{ fontSize: 28, fontWeight: 900, color: BARK, marginBottom: 16, fontFamily: "Georgia, serif", marginTop: 8 }}>What visitors do here</h2>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(200px,1fr))", gap: 16 }}>
+                  {[
+                    { icon: MapPin, title: "Receive a guided welcome",  desc: "The Supervisor points new visitors to platform support, finance tools, and the help center." },
+                    { icon: Globe,  title: "Access the help center",     desc: "Find help across housing, legal, training, and community resources with a single click." },
+                    { icon: Users,  title: "Join the market experience", desc: "Browse the community marketplace of services, courses, and production support." },
+                  ].map(item => {
+                    const Icon = item.icon;
+                    return (
+                      <div key={item.title} style={{ background: SAND, borderRadius: 8, padding: 24, border: `1px solid ${EARTH}66`, boxShadow: `0 18px 45px rgba(139,69,19,0.08)` }}>
+                        <div style={{ width: 44, height: 44, borderRadius: 10, background: TERRACOTTA, display: "flex", alignItems: "center", justifyContent: "center", color: "white", marginBottom: 14 }}>
+                          <Icon style={{ width: 20, height: 20 }} />
+                        </div>
+                        <h3 style={{ fontWeight: 800, fontSize: 16, color: BARK, marginBottom: 8, fontFamily: "Georgia, serif" }}>{item.title}</h3>
+                        <p style={{ fontSize: 13, color: EARTH, lineHeight: 1.7 }}>{item.desc}</p>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+              <div style={{ background: CARVED_BG, borderRadius: 8, border: `1px solid ${EARTH}66`, padding: 24, boxShadow: `0 14px 50px rgba(139,69,19,0.08)` }}>
+                <CarvedHeader label="Market Pulse" />
+                <div style={{ fontSize: 20, fontWeight: 800, color: BARK, marginBottom: 20, fontFamily: "Georgia, serif", marginTop: 8 }}>Live services in this plaza</div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                  <Link to="/help-center" style={{ display: "block", borderRadius: 0, padding: "14px 18px", fontSize: 13, fontWeight: 700, textDecoration: "none", background: AMBER, color: BARK, fontFamily: "Georgia, serif" }}>Visit the Help Center</Link>
+                  <Link to="/more"        style={{ display: "block", borderRadius: 0, padding: "14px 18px", fontSize: 13, fontWeight: 700, textDecoration: "none", background: TERRACOTTA, color: "white", fontFamily: "Georgia, serif" }}>Explore M.O.R.E.</Link>
+                  <Link to="/community"   style={{ display: "block", borderRadius: 0, padding: "14px 18px", fontSize: 13, fontWeight: 700, textDecoration: "none", background: FOREST, color: "white", fontFamily: "Georgia, serif" }}>Community Marketplace</Link>
+                  {execMode && (
+                    <Link to="/admin/system" style={{ display: "block", borderRadius: 0, padding: "14px 18px", fontSize: 13, fontWeight: 700, textDecoration: "none", background: GROVE, color: AMBER, fontFamily: "Georgia, serif" }}>Executive Oversight</Link>
+                  )}
+                </div>
+              </div>
+            </div>
+          </section>
+        )}
+
+        {/* ── Governance Pulse ── */}
+        {canSee("governance") && (
+          <section style={{ marginBottom: 48, background: SAND, borderRadius: 12, border: `1px solid ${EARTH}88`, padding: "36px 32px", boxShadow: `0 24px 60px rgba(139,69,19,0.10)` }}>
+            <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", flexWrap: "wrap", gap: 12, marginBottom: 24 }}>
+              <div>
+                <CarvedHeader label="Governance pulse" />
+                <h2 style={{ fontSize: 26, fontWeight: 900, color: BARK, fontFamily: "Georgia, serif", marginTop: 8 }}>Live oversight, analytics, and process flow</h2>
+              </div>
+              <div style={{ background: CARVED_BG, border: `1px solid ${EARTH}55`, borderRadius: 4, padding: "7px 16px", fontSize: 13, fontWeight: 600, color: BARK }}>
+                Built for human review and executive visibility
+              </div>
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(280px,1fr))", gap: 20 }}>
+              <div style={{ background: "white", borderRadius: 8, padding: 24, border: `1px solid ${EARTH}66`, boxShadow: `0 18px 50px rgba(193,68,14,0.08)` }}>
+                <CarvedHeader label="Process map" />
+                <div style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: 8 }}>
+                  {[
+                    { step: "1. Request", desc: "A visitor enters the plaza and selects help, service, finance, or community support." },
+                    { step: "2. Review",  desc: "The Supervisor and operator lane assess the need, apply compliance checks, and route the request." },
+                    { step: "3. Approve", desc: "Human oversight verifies decisions, triggers executive visibility, or escalates to audit if needed." },
+                    { step: "4. Execute", desc: "Workflows are completed and results are published to the help system for future reference." },
+                  ].map(s => (
+                    <div key={s.step} style={{ background: `rgba(193,68,14,0.07)`, borderRadius: 8, padding: "12px 16px" }}>
+                      <div style={{ fontWeight: 700, color: BARK, fontSize: 13, fontFamily: "Georgia, serif" }}>{s.step}</div>
+                      <div style={{ fontSize: 12, color: EARTH, marginTop: 4, lineHeight: 1.6 }}>{s.desc}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              <div style={{ background: CARVED_BG, borderRadius: 8, padding: 24, border: `1px solid ${EARTH}66`, boxShadow: `0 18px 50px rgba(193,68,14,0.08)` }}>
+                <CarvedHeader label="Service ownership" />
+                <div style={{ marginTop: 8 }}>
+                  {[
+                    { owner: "Finance",    desc: "Manages budgets, approvals, and audit trails for every community and help service." },
+                    { owner: "Compliance", desc: "Verifies that recommendations follow policy, privacy, and safety standards." },
+                    { owner: "Community",  desc: "Operates the marketplace lanes and ensures each service has a visible help manual entry." },
+                  ].map(s => (
+                    <div key={s.owner} style={{ marginBottom: 16 }}>
+                      <div style={{ fontWeight: 700, color: BARK, fontSize: 14, fontFamily: "Georgia, serif" }}>{s.owner}</div>
+                      <div style={{ fontSize: 12, color: EARTH, marginTop: 4, lineHeight: 1.6 }}>{s.desc}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </section>
+        )}
+
+        {/* ── Forest Court · Legal Clearing ── */}
+        <section style={{ marginBottom: 48, background: GROVE, borderRadius: 12, padding: "40px 36px" }}>
+          <div style={{ marginBottom: 28, textAlign: "center" }}>
+            <div style={{ fontSize: 11, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.2em", color: AMBER, marginBottom: 6, fontFamily: "Georgia, serif", borderBottom: `2px solid ${AMBER}55`, paddingBottom: 4, display: "inline-block" }}>
+              ✦ Forest Court
+            </div>
+            <h2 style={{ fontSize: 28, fontWeight: 900, color: "white", fontFamily: "Georgia, serif", marginTop: 10, marginBottom: 10 }}>Legal Clearing</h2>
+            <p style={{ color: "#c8e6c9", fontSize: 15, maxWidth: 520, margin: "0 auto", lineHeight: 1.7 }}>
+              Where disputes are heard, rights are protected, and community law is made plain.
             </p>
           </div>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(200px,1fr))", gap: 16 }}>
-            {ROLE_LANES.map(lane => {
-              const Icon = lane.icon;
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(220px,1fr))", gap: 16, marginBottom: 28 }}>
+            {[
+              { icon: Shield,      title: "Community Rights",   desc: "Plain-language summaries of your rights as a community member, student, and creator." },
+              { icon: ShieldCheck, title: "Compliance Lane",    desc: "Governance, privacy, and policy verification built into every workflow." },
+              { icon: BadgeCheck,  title: "Dispute Resolution", desc: "Human oversight at every escalation point — no automated final decisions." },
+            ].map(card => {
+              const Icon = card.icon;
               return (
-                <div key={lane.title} style={{ background: "white", borderRadius: 20, padding: 24, border: "1px solid #e4d1b4", boxShadow: "0 18px 45px rgba(96,62,28,0.08)" }}>
-                  <div style={{ width: 44, height: 44, borderRadius: 14, background: "#f7ead9", display: "flex", alignItems: "center", justifyContent: "center", color: "#855a32", marginBottom: 14 }}>
+                <div key={card.title} style={{ background: "white", borderRadius: 8, padding: 24, border: `1px solid ${TERRACOTTA}55` }}>
+                  <div style={{ width: 44, height: 44, borderRadius: 10, background: FOREST, display: "flex", alignItems: "center", justifyContent: "center", color: AMBER, marginBottom: 14 }}>
                     <Icon style={{ width: 20, height: 20 }} />
                   </div>
-                  <h3 style={{ fontWeight: 800, fontSize: 16, color: "#2b1f15", marginBottom: 8 }}>{lane.title}</h3>
-                  <p style={{ fontSize: 13, color: "#5c4c41", lineHeight: 1.6 }}>{lane.desc}</p>
+                  <h3 style={{ fontWeight: 800, fontSize: 16, color: BARK, marginBottom: 8, fontFamily: "Georgia, serif" }}>{card.title}</h3>
+                  <p style={{ fontSize: 13, color: EARTH, lineHeight: 1.6 }}>{card.desc}</p>
                 </div>
               );
             })}
           </div>
-        </section>}
-
-        {/* ── Market Pulse — quick actions (from Seshat's Hub) ── */}
-        {canSee("marketPulse") && <section style={{ marginBottom: 48 }}>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(280px,1fr))", gap: 32, alignItems: "start" }}>
-            <div>
-              <div style={{ fontSize: 11, fontWeight: 800, textTransform: "uppercase", letterSpacing: 3, color: COPPER, marginBottom: 6 }}>Meet the market</div>
-              <h2 style={{ fontSize: 28, fontWeight: 900, color: "#2b1f15", marginBottom: 16 }}>What visitors do here</h2>
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(200px,1fr))", gap: 16 }}>
-                {[
-                  { icon: MapPin,  title: "Receive a guided welcome",  desc: "The Supervisor points new visitors to platform support, finance tools, and the help center." },
-                  { icon: Globe,   title: "Access the help center",     desc: "Find help across housing, legal, training, and community resources with a single click." },
-                  { icon: Users,   title: "Join the market experience", desc: "Browse the community marketplace of services, courses, and production support." },
-                ].map(item => {
-                  const Icon = item.icon;
-                  return (
-                    <div key={item.title} style={{ background: "white", borderRadius: 20, padding: 24, border: "1px solid #e3ccb1", boxShadow: "0 18px 45px rgba(90,60,30,0.08)" }}>
-                      <div style={{ width: 44, height: 44, borderRadius: 14, background: "#f7ead9", display: "flex", alignItems: "center", justifyContent: "center", color: "#855a32", marginBottom: 14 }}>
-                        <Icon style={{ width: 20, height: 20 }} />
-                      </div>
-                      <h3 style={{ fontWeight: 800, fontSize: 16, color: "#2b1f15", marginBottom: 8 }}>{item.title}</h3>
-                      <p style={{ fontSize: 13, color: "#5c4c41", lineHeight: 1.7 }}>{item.desc}</p>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* Market Pulse sidebar */}
-            <div style={{ background: "#fffdf7", borderRadius: 20, border: "1px solid #ebd8c6", padding: 24, boxShadow: "0 14px 50px rgba(97,70,42,0.08)" }}>
-              <div style={{ fontSize: 10, fontWeight: 800, textTransform: "uppercase", letterSpacing: 3, color: "#7c593d", marginBottom: 8 }}>Market Pulse</div>
-              <div style={{ fontSize: 20, fontWeight: 800, color: "#2e1f17", marginBottom: 20 }}>Live services in this plaza</div>
-              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                <Link to="/help-center" style={{ display: "block", borderRadius: 16, padding: "14px 18px", fontSize: 13, fontWeight: 700, textDecoration: "none", background: "#f6d06d", color: "#1a1a2e" }}>Visit the Help Center</Link>
-                <Link to="/more"        style={{ display: "block", borderRadius: 16, padding: "14px 18px", fontSize: 13, fontWeight: 700, textDecoration: "none", background: TEAL, color: "white" }}>Explore M.O.R.E.</Link>
-                <Link to="/community"   style={{ display: "block", borderRadius: 16, padding: "14px 18px", fontSize: 13, fontWeight: 700, textDecoration: "none", background: "#583c1d", color: "white" }}>Community Marketplace</Link>
-                {execMode && (
-                  <Link to="/admin/system" style={{ display: "block", borderRadius: 16, padding: "14px 18px", fontSize: 13, fontWeight: 700, textDecoration: "none", background: "#5a3d1a", color: "white" }}>Executive Oversight</Link>
-                )}
-              </div>
-            </div>
+          <div style={{ display: "flex", gap: 12, justifyContent: "center", flexWrap: "wrap" }}>
+            <Link to="/help-center" style={{ display: "inline-flex", alignItems: "center", gap: 8, background: AMBER, color: BARK, padding: "11px 28px", borderRadius: 4, fontWeight: 800, fontSize: 13, textDecoration: "none", textTransform: "uppercase", letterSpacing: 1, fontFamily: "Georgia, serif" }}>
+              Legal Resources <ArrowRight style={{ width: 14, height: 14 }} />
+            </Link>
+            <Link to="/terms" style={{ display: "inline-flex", alignItems: "center", gap: 8, background: "transparent", color: AMBER, border: `2px solid ${AMBER}`, padding: "11px 28px", borderRadius: 4, fontWeight: 800, fontSize: 13, textDecoration: "none", textTransform: "uppercase", letterSpacing: 1, fontFamily: "Georgia, serif" }}>
+              Accept Legal Terms
+            </Link>
           </div>
-        </section>}
+        </section>
 
-        {/* ── Process map + Service ownership (from Seshat's Hub) ── */}
-        {canSee("governance") && <section style={{ marginBottom: 48, background: "#fff9ed", borderRadius: 24, border: "1px solid #d8b88e", padding: "36px 32px", boxShadow: "0 24px 60px rgba(97,60,20,0.12)" }}>
-          <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", flexWrap: "wrap", gap: 12, marginBottom: 24 }}>
-            <div>
-              <div style={{ fontSize: 11, fontWeight: 800, textTransform: "uppercase", letterSpacing: 3, color: COPPER, marginBottom: 6 }}>Governance pulse</div>
-              <h2 style={{ fontSize: 26, fontWeight: 900, color: "#2b1f15" }}>Live oversight, analytics, and process flow</h2>
+        {/* ── Creator's Sanctuary ── */}
+        <section style={{ marginBottom: 48, background: SAND, borderRadius: 12, border: `2px solid ${FOREST}55`, padding: "40px 36px" }}>
+          <div style={{ marginBottom: 28, textAlign: "center" }}>
+            <div style={{ fontSize: 11, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.2em", color: FOREST, marginBottom: 6, fontFamily: "Georgia, serif", borderBottom: `2px solid ${FOREST}`, paddingBottom: 4, display: "inline-block" }}>
+              ✦ Protected Space
             </div>
-            <div style={{ background: "#fff5e5", border: "1px solid #d7b290", borderRadius: 999, padding: "7px 16px", fontSize: 13, fontWeight: 600, color: "#5c422c" }}>
-              Built for human review and executive visibility
-            </div>
+            <h2 style={{ fontSize: 28, fontWeight: 900, color: BARK, fontFamily: "Georgia, serif", marginTop: 10, marginBottom: 10 }}>Creator's Sanctuary</h2>
+            <p style={{ color: EARTH, fontSize: 15, maxWidth: 520, margin: "0 auto", lineHeight: 1.7 }}>
+              A protected space for artists, educators, authors, and storytellers building inside the WAI ecosystem.
+            </p>
           </div>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(280px,1fr))", gap: 20 }}>
-            {/* Process map */}
-            <div style={{ background: "white", borderRadius: 20, padding: 24, border: "1px solid #e4d1b4", boxShadow: "0 18px 50px rgba(96,62,28,0.08)" }}>
-              <div style={{ fontSize: 10, fontWeight: 800, textTransform: "uppercase", letterSpacing: 2, color: COPPER, marginBottom: 16 }}>Process map</div>
-              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                {[
-                  { step: "1. Request", desc: "A visitor enters the plaza and selects help, service, finance, or community support." },
-                  { step: "2. Review",  desc: "The Supervisor and operator lane assess the need, apply compliance checks, and route the request." },
-                  { step: "3. Approve", desc: "Human oversight verifies decisions, triggers executive visibility, or escalates to audit if needed." },
-                  { step: "4. Execute", desc: "Workflows are completed and results are published to the help system for future reference." },
-                ].map(s => (
-                  <div key={s.step} style={{ background: "#f7ead9", borderRadius: 12, padding: "12px 16px" }}>
-                    <div style={{ fontWeight: 700, color: "#2b1f15", fontSize: 13 }}>{s.step}</div>
-                    <div style={{ fontSize: 12, color: "#4c3f35", marginTop: 4, lineHeight: 1.6 }}>{s.desc}</div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(220px,1fr))", gap: 16, marginBottom: 28 }}>
+            {[
+              { icon: Sparkles,  title: "Course Builder",       desc: "Build and publish your own training modules with instructor tools." },
+              { icon: Activity,  title: "Media Production",     desc: "Video, audio, and written content tools keep the community vibrant." },
+              { icon: BookOpen,  title: "Publishing Pipeline",  desc: "From manuscript to Gumroad listing — the full book pipeline is here." },
+            ].map(card => {
+              const Icon = card.icon;
+              return (
+                <div key={card.title} style={{ background: "white", borderRadius: 8, padding: 24, border: `1px solid ${EARTH}66`, boxShadow: `0 14px 35px rgba(45,106,79,0.07)` }}>
+                  <div style={{ width: 44, height: 44, borderRadius: 10, background: GROVE, display: "flex", alignItems: "center", justifyContent: "center", color: AMBER, marginBottom: 14 }}>
+                    <Icon style={{ width: 20, height: 20 }} />
                   </div>
-                ))}
-              </div>
-            </div>
-            {/* Service ownership */}
-            <div style={{ background: "#fff7e3", borderRadius: 20, padding: 24, border: "1px solid #e4d1b4", boxShadow: "0 18px 50px rgba(96,62,28,0.08)" }}>
-              <div style={{ fontSize: 10, fontWeight: 800, textTransform: "uppercase", letterSpacing: 2, color: COPPER, marginBottom: 16 }}>Service ownership</div>
-              {[
-                { owner: "Finance",    desc: "Manages budgets, approvals, and audit trails for every community and help service." },
-                { owner: "Compliance", desc: "Verifies that recommendations follow policy, privacy, and safety standards." },
-                { owner: "Community",  desc: "Operates the marketplace lanes and ensures each service has a visible help manual entry." },
-              ].map(s => (
-                <div key={s.owner} style={{ marginBottom: 16 }}>
-                  <div style={{ fontWeight: 700, color: "#2b1f15", fontSize: 14 }}>{s.owner}</div>
-                  <div style={{ fontSize: 12, color: "#4c3f35", marginTop: 4, lineHeight: 1.6 }}>{s.desc}</div>
+                  <h3 style={{ fontWeight: 800, fontSize: 16, color: BARK, marginBottom: 8, fontFamily: "Georgia, serif" }}>{card.title}</h3>
+                  <p style={{ fontSize: 13, color: EARTH, lineHeight: 1.6 }}>{card.desc}</p>
                 </div>
-              ))}
-            </div>
+              );
+            })}
           </div>
-        </section>}
+          <div style={{ textAlign: "center" }}>
+            <Link to="/social/publish" style={{ display: "inline-flex", alignItems: "center", gap: 8, background: GROVE, color: AMBER, padding: "11px 28px", borderRadius: 4, fontWeight: 800, fontSize: 13, textDecoration: "none", textTransform: "uppercase", letterSpacing: 1, fontFamily: "Georgia, serif" }}>
+              Enter the Sanctuary <ArrowRight style={{ width: 14, height: 14 }} />
+            </Link>
+          </div>
+        </section>
 
         {/* ── Resources ── */}
-        {canSee("resources") && <section id="resources" style={{ marginBottom: 48 }}>
-          <div style={{ textAlign: "center", marginBottom: 32 }}>
-            <div style={{ fontSize: 11, fontWeight: 800, textTransform: "uppercase", letterSpacing: 3, color: TEAL, marginBottom: 6 }}>Goodwill Resources</div>
-            <h2 style={{ fontSize: 28, fontWeight: 900, color: "#1a1a2e" }}>Everything You Need, No Cost</h2>
-          </div>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(220px,1fr))", gap: 16 }}>
-            {[
-              { icon: BookOpen,     title: "Free Modules",    desc: "Hands-on training free forever.", to: "/modules",   internal: true },
-              { icon: MessageSquare,title: "Community",       desc: "Real answers from real people.",  to: "/community", internal: true },
-              { icon: Shield,       title: "Support Line",    desc: "Email us — no bots, no runaround.", to: `mailto:${SUPPORT_EMAIL}`, internal: false },
-              { icon: Globe,        title: "Full Program",    desc: "Enroll in the complete WAI curriculum.", to: "/courses", internal: true },
-              { icon: BadgeCheck,   title: "Help Center",     desc: "Core support and community navigation.", to: "/help-center", internal: true },
-              { icon: Activity,     title: "Plans",           desc: "Training, services, and subscriptions.", to: "/plans",  internal: true },
-            ].map(r => {
-              const Icon = r.icon;
-              const content = (
-                <>
-                  <div style={{ width: 40, height: 40, borderRadius: 12, background: TEAL, display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 14 }}>
-                    <Icon style={{ width: 18, height: 18, color: "white" }} />
-                  </div>
-                  <h3 style={{ fontWeight: 800, fontSize: 16, color: "#1a1a2e", marginBottom: 6 }}>{r.title}</h3>
-                  <p style={{ fontSize: 13, color: "#5a4e42", lineHeight: 1.6 }}>{r.desc}</p>
-                </>
-              );
-              const sharedStyle = { display: "block", background: "white", padding: 22, borderRadius: 16, border: "1px solid #e0d6cc", textDecoration: "none" };
-              return r.internal
-                ? <Link key={r.title} to={r.to} style={sharedStyle}>{content}</Link>
-                : <a    key={r.title} href={r.to} style={sharedStyle}>{content}</a>;
-            })}
-          </div>
-        </section>}
+        {canSee("resources") && (
+          <section id="resources" style={{ marginBottom: 48 }}>
+            <div style={{ textAlign: "center", marginBottom: 32 }}>
+              <CarvedHeader label="Goodwill Resources" />
+              <h2 style={{ fontSize: 28, fontWeight: 900, color: BARK, fontFamily: "Georgia, serif", marginTop: 8 }}>Everything You Need, No Cost</h2>
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(220px,1fr))", gap: 16 }}>
+              {[
+                { icon: BookOpen,      title: "Free Modules",  desc: "Hands-on training free forever.",             to: "/modules",      internal: true },
+                { icon: MessageSquare, title: "Community",     desc: "Real answers from real people.",              to: "/community",    internal: true },
+                { icon: Shield,        title: "Support Line",  desc: "Email us — no bots, no runaround.",           to: `mailto:${SUPPORT_EMAIL}`, internal: false },
+                { icon: Globe,         title: "Full Program",  desc: "Enroll in the complete WAI curriculum.",      to: "/courses",      internal: true },
+                { icon: BadgeCheck,    title: "Help Center",   desc: "Core support and community navigation.",      to: "/help-center",  internal: true },
+                { icon: Activity,      title: "Plans",         desc: "Training, services, and subscriptions.",      to: "/plans",        internal: true },
+              ].map(r => {
+                const Icon = r.icon;
+                const content = (
+                  <>
+                    <div style={{ width: 40, height: 40, borderRadius: 8, background: TERRACOTTA, display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 14 }}>
+                      <Icon style={{ width: 18, height: 18, color: "white" }} />
+                    </div>
+                    <h3 style={{ fontWeight: 800, fontSize: 16, color: BARK, marginBottom: 6, fontFamily: "Georgia, serif" }}>{r.title}</h3>
+                    <p style={{ fontSize: 13, color: EARTH, lineHeight: 1.6 }}>{r.desc}</p>
+                  </>
+                );
+                const sharedStyle = { display: "block", background: CARVED_BG, padding: 22, borderRadius: 8, border: `1px solid ${EARTH}55`, textDecoration: "none" };
+                return r.internal
+                  ? <Link key={r.title} to={r.to} style={sharedStyle}>{content}</Link>
+                  : <a    key={r.title} href={r.to} style={sharedStyle}>{content}</a>;
+              })}
+            </div>
+          </section>
+        )}
 
-        {/* ── Support section ── */}
-        {canSee("support") && <section id="support" style={{ textAlign: "center", background: "white", borderRadius: 24, padding: "48px 32px", marginBottom: 48, border: "1px solid #e0d6cc" }}>
-          <div style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "6px 16px", borderRadius: 999, background: WARM, color: TEAL, fontSize: 11, fontWeight: 800, textTransform: "uppercase", letterSpacing: 2, marginBottom: 20 }}>
-            <Phone style={{ width: 13, height: 13 }} /> Get In Touch
-          </div>
-          <h2 style={{ fontSize: 28, fontWeight: 900, color: "#1a1a2e", marginBottom: 12 }}>Need Help?</h2>
-          <p style={{ fontSize: 16, color: "#5a4e42", maxWidth: 480, margin: "0 auto 28px" }}>
-            Email us at{" "}
-            <a href={`mailto:${SUPPORT_EMAIL}`} style={{ color: TEAL, fontWeight: 700 }}>{SUPPORT_EMAIL}</a>
-            {" "}— we respond within 24 hours.
-          </p>
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 12, justifyContent: "center" }}>
-            <a href={`mailto:${SUPPORT_EMAIL}`} style={{ background: TEAL, color: "white", padding: "11px 24px", borderRadius: 8, fontWeight: 700, fontSize: 13, textDecoration: "none" }}>Email Support</a>
-            <Link to="/help-center" style={{ border: `2px solid ${TEAL}`, color: TEAL, padding: "11px 24px", borderRadius: 8, fontWeight: 700, fontSize: 13, textDecoration: "none" }}>Help Center</Link>
-            <Link to="/community" style={{ border: `2px solid ${TEAL}`, color: TEAL, padding: "11px 24px", borderRadius: 8, fontWeight: 700, fontSize: 13, textDecoration: "none" }}>Community Forum</Link>
-          </div>
-        </section>}
+        {/* ── Support ── */}
+        {canSee("support") && (
+          <section id="support" style={{ textAlign: "center", background: SAND, borderRadius: 12, padding: "48px 32px", marginBottom: 48, border: `1px solid ${EARTH}88` }}>
+            <div style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "6px 16px", borderRadius: 4, background: TERRACOTTA, color: AMBER, fontSize: 11, fontWeight: 800, textTransform: "uppercase", letterSpacing: 2, marginBottom: 20 }}>
+              <Phone style={{ width: 13, height: 13 }} /> Get In Touch
+            </div>
+            <h2 style={{ fontSize: 28, fontWeight: 900, color: BARK, marginBottom: 12, fontFamily: "Georgia, serif" }}>Need Help?</h2>
+            <p style={{ fontSize: 16, color: EARTH, maxWidth: 480, margin: "0 auto 28px" }}>
+              Email us at{" "}
+              <a href={`mailto:${SUPPORT_EMAIL}`} style={{ color: TERRACOTTA, fontWeight: 700 }}>{SUPPORT_EMAIL}</a>
+              {" "}— we respond within 24 hours.
+            </p>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 12, justifyContent: "center" }}>
+              <a href={`mailto:${SUPPORT_EMAIL}`} style={{ background: TERRACOTTA, color: "white", padding: "11px 24px", borderRadius: 4, fontWeight: 700, fontSize: 13, textDecoration: "none" }}>Email Support</a>
+              <Link to="/help-center" style={{ border: `2px solid ${TERRACOTTA}`, color: BARK, padding: "11px 24px", borderRadius: 4, fontWeight: 700, fontSize: 13, textDecoration: "none" }}>Help Center</Link>
+              <Link to="/community"   style={{ border: `2px solid ${TERRACOTTA}`, color: BARK, padding: "11px 24px", borderRadius: 4, fontWeight: 700, fontSize: 13, textDecoration: "none" }}>Community Forum</Link>
+            </div>
+          </section>
+        )}
 
-        {/* ── Exec-only: Governance pulse (from SeshatsHub) ── */}
+        {/* ── Exec-only Governance Pulse ── */}
         {execMode && canSee("governance") && (
-          <section style={{ marginBottom: 48, background: "#fff9ed", borderRadius: 24, border: `1px solid #d8b88e`, padding: "36px 32px" }}>
+          <section style={{ marginBottom: 48, background: CARVED_BG, borderRadius: 12, border: `1px solid ${EARTH}88`, padding: "36px 32px" }}>
             <div style={{ marginBottom: 20 }}>
-              <div style={{ fontSize: 11, fontWeight: 800, textTransform: "uppercase", letterSpacing: 3, color: COPPER, marginBottom: 6 }}>Governance pulse</div>
-              <h2 style={{ fontSize: 24, fontWeight: 900, color: "#2b1f15" }}>Live oversight, analytics, and process flow</h2>
+              <CarvedHeader label="Governance pulse" />
+              <h2 style={{ fontSize: 24, fontWeight: 900, color: BARK, fontFamily: "Georgia, serif", marginTop: 8 }}>Live oversight, analytics, and process flow</h2>
             </div>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(180px,1fr))", gap: 12, marginBottom: 24 }}>
               {["Audit readiness", "Observability", "Fallback mode"].map(label => (
-                <div key={label} style={{ background: "white", borderRadius: 16, padding: 20, border: "1px solid #e2d2b7" }}>
-                  <div style={{ fontWeight: 700, color: "#2b1f15", marginBottom: 8 }}>{label}</div>
-                  <p style={{ fontSize: 12, color: "#5c4c41", lineHeight: 1.6 }}>
+                <div key={label} style={{ background: "white", borderRadius: 8, padding: 20, border: `1px solid ${EARTH}55` }}>
+                  <div style={{ fontWeight: 700, color: BARK, marginBottom: 8, fontFamily: "Georgia, serif" }}>{label}</div>
+                  <p style={{ fontSize: 12, color: EARTH, lineHeight: 1.6 }}>
                     {label === "Audit readiness" && "Every task can be traced back to a supervisor review and compliance checklist."}
                     {label === "Observability" && "Usage trends, service demand, and escalation volume are visible in the dashboard."}
                     {label === "Fallback mode" && "When automation is unstable, the Supervisor switches to manual support and exec review routes."}
@@ -967,10 +1051,10 @@ export default function MoreHelpCenter() {
               ))}
             </div>
             <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
-              <Link to="/admin/system"      style={{ background: "#2e1065", color: "white", padding: "10px 20px", borderRadius: 8, fontWeight: 700, fontSize: 13, textDecoration: "none" }}>Executive Dashboard</Link>
-              <Link to="/admin/audit"       style={{ border: "1px solid #d8b88e", color: COPPER, padding: "10px 20px", borderRadius: 8, fontWeight: 700, fontSize: 13, textDecoration: "none" }}>Audit Log</Link>
-              <Link to="/admin/health"      style={{ border: "1px solid #d8b88e", color: COPPER, padding: "10px 20px", borderRadius: 8, fontWeight: 700, fontSize: 13, textDecoration: "none" }}>System Health</Link>
-              <Link to="/admin/moderation"  style={{ border: "1px solid #d8b88e", color: COPPER, padding: "10px 20px", borderRadius: 8, fontWeight: 700, fontSize: 13, textDecoration: "none" }}>Moderation</Link>
+              <Link to="/admin/system"     style={{ background: GROVE, color: "white", padding: "10px 20px", borderRadius: 4, fontWeight: 700, fontSize: 13, textDecoration: "none" }}>Executive Dashboard</Link>
+              <Link to="/admin/audit"      style={{ border: `1px solid ${EARTH}88`, color: COPPER, padding: "10px 20px", borderRadius: 4, fontWeight: 700, fontSize: 13, textDecoration: "none" }}>Audit Log</Link>
+              <Link to="/admin/health"     style={{ border: `1px solid ${EARTH}88`, color: COPPER, padding: "10px 20px", borderRadius: 4, fontWeight: 700, fontSize: 13, textDecoration: "none" }}>System Health</Link>
+              <Link to="/admin/moderation" style={{ border: `1px solid ${EARTH}88`, color: COPPER, padding: "10px 20px", borderRadius: 4, fontWeight: 700, fontSize: 13, textDecoration: "none" }}>Moderation</Link>
             </div>
           </section>
         )}
@@ -978,19 +1062,19 @@ export default function MoreHelpCenter() {
       </main>
 
       {/* ── Footer ── */}
-      <footer style={{ background: "#0d2b2d", color: "#7ab8bb", padding: "28px 24px" }}>
+      <footer style={{ background: GROVE, color: "#c8b896", padding: "28px 24px" }}>
         <div style={{ maxWidth: 1200, margin: "0 auto", display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "space-between", gap: 16, fontSize: 12 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
             <Heart style={{ width: 13, height: 13 }} />
             <span>MORE Help Center — Goodwill Wing of WAI Institute</span>
           </div>
           <div style={{ display: "flex", gap: 20, flexWrap: "wrap" }}>
-            <Link to="/privacy"    style={{ color: "#7ab8bb", textDecoration: "none" }}>Privacy</Link>
-            <Link to="/terms"      style={{ color: "#7ab8bb", textDecoration: "none" }}>Terms</Link>
-            <Link to="/modules"    style={{ color: "#7ab8bb", textDecoration: "none" }}>Modules</Link>
-            <Link to="/community"  style={{ color: "#7ab8bb", textDecoration: "none" }}>Community</Link>
-            <Link to="/register"   style={{ color: GOLD, fontWeight: 700, textDecoration: "none" }}>Join WAI →</Link>
-            <a href={`mailto:${SUPPORT_EMAIL}`} style={{ color: "#7ab8bb", textDecoration: "none" }}>Contact</a>
+            <Link to="/privacy"   style={{ color: "#c8b896", textDecoration: "none" }}>Privacy</Link>
+            <Link to="/terms"     style={{ color: "#c8b896", textDecoration: "none" }}>Terms</Link>
+            <Link to="/modules"   style={{ color: "#c8b896", textDecoration: "none" }}>Modules</Link>
+            <Link to="/community" style={{ color: "#c8b896", textDecoration: "none" }}>Community</Link>
+            <Link to="/register"  style={{ color: AMBER, fontWeight: 700, textDecoration: "none" }}>Join WAI →</Link>
+            <a href={`mailto:${SUPPORT_EMAIL}`} style={{ color: "#c8b896", textDecoration: "none" }}>Contact</a>
           </div>
         </div>
       </footer>
