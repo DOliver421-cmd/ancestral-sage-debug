@@ -123,12 +123,15 @@ function ExecPanel({ apiOnline, visibility, setVisibility, superExec }) {
   const [creating, setCreating]     = useState(false);
   const [promoting, setPromoting]   = useState({});
   // ── edit modal state ───────────────────────────────────────────────────────
-  const [editName, setEditName]     = useState("");
-  const [editEmail, setEditEmail]   = useState("");
-  const [editRole, setEditRole]     = useState("student");
-  const [editPw, setEditPw]         = useState("");
-  const [editShowPw, setEditShowPw] = useState(false);
+  const [editName, setEditName]         = useState("");
+  const [editEmail, setEditEmail]       = useState("");
+  const [editRole, setEditRole]         = useState("student");
+  const [editPw, setEditPw]             = useState("");
+  const [editShowPw, setEditShowPw]     = useState(false);
   const [editResetLink, setEditResetLink] = useState(null);
+  const [editUserIncidents, setEditUserIncidents] = useState([]);
+  const [editUserAudit, setEditUserAudit]         = useState([]);
+  const [editHistoryLoaded, setEditHistoryLoaded] = useState(false);
   // ── create modal state ─────────────────────────────────────────────────────
   const [newName, setNewName]       = useState("");
   const [newEmail, setNewEmail]     = useState("");
@@ -229,6 +232,19 @@ function ExecPanel({ apiOnline, visibility, setVisibility, superExec }) {
     setEditPw("");
     setEditShowPw(false);
     setEditResetLink(null);
+    setEditUserIncidents([]);
+    setEditUserAudit([]);
+    setEditHistoryLoaded(false);
+    // load incidents and audit for this user in background
+    api.get("/incidents").then(r => {
+      const all = Array.isArray(r.data) ? r.data : [];
+      setEditUserIncidents(all.filter(i => i.reported_by === u.id || (i.involved_user_ids || []).includes(u.id)));
+    }).catch(() => {});
+    api.get("/admin/audit?limit=200").then(r => {
+      const all = Array.isArray(r.data) ? r.data : [];
+      setEditUserAudit(all.filter(a => a.actor_id === u.id || a.target === u.id));
+      setEditHistoryLoaded(true);
+    }).catch(() => { setEditHistoryLoaded(true); });
   }
 
   async function saveEdit() {
@@ -551,6 +567,40 @@ function ExecPanel({ apiOnline, visibility, setVisibility, superExec }) {
                         </div>
                       )}
                     </div>
+                    {/* ── User history ── */}
+                    <div style={{ marginBottom:16 }}>
+                      <div style={{ fontSize:11, fontWeight:700, color:"#64748b", textTransform:"uppercase", letterSpacing:1, marginBottom:8 }}>
+                        User History & Incidents {!editHistoryLoaded && <span style={{ color:"#94a3b8" }}>loading…</span>}
+                      </div>
+                      {editUserIncidents.length > 0 && (
+                        <div style={{ marginBottom:8 }}>
+                          <div style={{ fontSize:10, fontWeight:700, color:"#dc2626", textTransform:"uppercase", letterSpacing:1, marginBottom:4 }}>Incidents ({editUserIncidents.length})</div>
+                          {editUserIncidents.slice(0,5).map(inc => (
+                            <div key={inc.id} style={{ background:"#fef2f2", border:"1px solid #fecaca", borderRadius:6, padding:"6px 10px", marginBottom:4, fontSize:11 }}>
+                              <div style={{ fontWeight:700, color:"#991b1b" }}>{inc.title || inc.description}</div>
+                              <div style={{ color:"#64748b", fontSize:10, marginTop:2 }}>
+                                {inc.status} · {inc.severity || ""} · {inc.created_at ? new Date(inc.created_at).toLocaleDateString() : ""}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                      {editHistoryLoaded && editUserIncidents.length === 0 && (
+                        <div style={{ fontSize:11, color:"#94a3b8" }}>No incidents on record.</div>
+                      )}
+                      {editUserAudit.length > 0 && (
+                        <div>
+                          <div style={{ fontSize:10, fontWeight:700, color:"#475569", textTransform:"uppercase", letterSpacing:1, marginBottom:4 }}>Audit Trail ({editUserAudit.length} entries)</div>
+                          {editUserAudit.slice(0,8).map((a, i) => (
+                            <div key={a.id || i} style={{ display:"flex", gap:8, padding:"4px 0", borderBottom:"1px solid #f1f5f9", fontSize:11 }}>
+                              <div style={{ color:"#7c3aed", fontFamily:"monospace", flex:1 }}>{a.action}</div>
+                              <div style={{ color:"#94a3b8", whiteSpace:"nowrap" }}>{a.at ? new Date(a.at).toLocaleString() : ""}</div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+
                     <div style={{ display:"flex", justifyContent:"space-between", flexWrap:"wrap", gap:8, borderTop:"1px solid #f1f5f9", paddingTop:14 }}>
                       <div style={{ display:"flex", gap:6 }}>
                         <button onClick={() => toggleActive(editing)}
