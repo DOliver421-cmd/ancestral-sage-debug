@@ -86,6 +86,7 @@ import UserProfile from "./pages/UserProfile";
 import LabSimulations from "./pages/LabSimulations";
 import Landing from "./pages/Landing";
 import PlatformPrices from "./pages/PlatformPrices";
+import AuditorDashboard from "./pages/AuditorDashboard";
 
 // Role hierarchy must mirror backend ROLE_RANK in /app/backend/server.py.
 // Higher rank = more authority; a higher-rank role passes any check meant
@@ -261,6 +262,8 @@ function App() {
           <Route path="/lab-simulations" element={<Protected><LabSimulations /></Protected>} />
           {/* Platform Prices — admin manage, exec delete */}
           <Route path="/admin/prices" element={<Protected roles={["admin"]}><PlatformPrices /></Protected>} />
+          {/* The Auditor — read-only ledger and reporting, admin+ */}
+          <Route path="/auditor" element={<Protected roles={["admin"]}><AuditorDashboard /></Protected>} />
           {/* Original landing page (alternate entry point) */}
           <Route path="/welcome" element={<Landing />} />
           <Route path="*" element={<Error404 />} />
