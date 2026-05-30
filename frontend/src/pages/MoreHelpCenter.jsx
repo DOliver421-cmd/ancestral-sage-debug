@@ -164,6 +164,7 @@ function ExecPanel({ apiOnline, visibility, setVisibility, superExec }) {
   const [users, setUsers]           = useState([]);
   const [userQ, setUserQ]           = useState("");
   const [userRoleFilter, setUserRoleFilter] = useState("");
+  const [userActiveFilter, setUserActiveFilter] = useState("");
   const [editing, setEditing]       = useState(null);   // user being edited
   const [creating, setCreating]     = useState(false);
   const [promoting, setPromoting]   = useState({});
@@ -187,6 +188,8 @@ function ExecPanel({ apiOnline, visibility, setVisibility, superExec }) {
   const [newCreated, setNewCreated] = useState(null);
   // ── other tabs ─────────────────────────────────────────────────────────────
   const [incidents, setIncidents]   = useState([]);
+  const [resolvingId, setResolvingId] = useState(null);
+  const [resolveText, setResolveText] = useState("");
   const [auditLog, setAuditLog]     = useState([]);
   const [auditActionQ, setAuditActionQ] = useState("");
   const [auditActorQ, setAuditActorQ]   = useState("");
@@ -247,11 +250,12 @@ function ExecPanel({ apiOnline, visibility, setVisibility, superExec }) {
     } catch {}
   }, []);
 
-  const loadUsers = useCallback(async (q, role) => {
+  const loadUsers = useCallback(async (q, role, active) => {
     try {
       const params = new URLSearchParams();
-      if (q)    params.set("q", q);
-      if (role) params.set("role", role);
+      if (q)      params.set("q", q);
+      if (role)   params.set("role", role);
+      if (active) params.set("active", active);
       const r = await api.get(`/admin/users?${params}`);
       setUsers(Array.isArray(r.data) ? r.data : []);
     } catch {}
@@ -291,12 +295,12 @@ function ExecPanel({ apiOnline, visibility, setVisibility, superExec }) {
   }, [loadHealth, loadGateway]);
 
   useEffect(() => {
-    if (tab === "users")     loadUsers(userQ, userRoleFilter);
+    if (tab === "users")     loadUsers(userQ, userRoleFilter, userActiveFilter);
     if (tab === "incidents") loadIncidents();
     if (tab === "audit")     loadAudit(auditActionQ, auditActorQ, auditLimit);
     if (tab === "safety")    loadSageCap();
     if (tab === "failover")  loadBackupMatrix();
-  }, [tab, loadUsers, loadIncidents, loadAudit, loadSageCap, loadBackupMatrix, userQ, userRoleFilter, auditActionQ, auditActorQ, auditLimit]);
+  }, [tab, loadUsers, loadIncidents, loadAudit, loadSageCap, loadBackupMatrix, userQ, userRoleFilter, userActiveFilter, auditActionQ, auditActorQ, auditLimit]);
 
   // ── User governance actions ────────────────────────────────────────────────
   function openEdit(u) {
@@ -881,14 +885,20 @@ function ExecPanel({ apiOnline, visibility, setVisibility, superExec }) {
                   <option value="">All Roles</option>
                   {PANEL_ROLES.map(r => <option key={r} value={r}>{PANEL_ROLE_LABELS[r]}</option>)}
                 </select>
-                <button onClick={() => loadUsers(userQ, userRoleFilter)} style={{ background:"rgba(255,255,255,0.1)", border:"none", color:"white", padding:"4px 10px", borderRadius:6, fontSize:11, cursor:"pointer" }}>Refresh</button>
+                <select value={userActiveFilter} onChange={e => setUserActiveFilter(e.target.value)}
+                  style={{ background:"rgba(255,255,255,0.08)", border:"1px solid rgba(255,255,255,0.2)", borderRadius:6, padding:"4px 8px", color:"white", fontSize:12, cursor:"pointer" }}>
+                  <option value="">Any Status</option>
+                  <option value="true">Active only</option>
+                  <option value="false">Inactive only</option>
+                </select>
+                <button onClick={() => loadUsers(userQ, userRoleFilter, userActiveFilter)} style={{ background:"rgba(255,255,255,0.1)", border:"none", color:"white", padding:"4px 10px", borderRadius:6, fontSize:11, cursor:"pointer" }}>Refresh</button>
                 <button onClick={() => { setCreating(true); setNewCreated(null); setNewResetLink(null); }}
                   style={{ background:SIG, border:"none", color:INK, padding:"4px 12px", borderRadius:6, fontSize:11, fontWeight:700, cursor:"pointer" }}>+ Create</button>
               </div>
             </div>
-            <div style={{ overflowX:"auto" }}>
+            <div style={{ overflowX:"auto", maxHeight: 480, overflowY:"auto" }}>
               <table style={{ width:"100%", borderCollapse:"collapse", fontSize:12 }}>
-                <thead>
+                <thead style={{ position:"sticky", top:0, background:"#2e1065", zIndex:1 }}>
                   <tr>
                     {["Name / Email", "Role", "Status", "Joined", "Actions"].map(h => (
                       <th key={h} style={{ textAlign:"left", padding:"6px 10px", color:"rgba(255,255,255,0.4)", fontWeight:700, borderBottom:"1px solid rgba(255,255,255,0.08)", textTransform:"uppercase", fontSize:10, whiteSpace:"nowrap" }}>{h}</th>
@@ -896,7 +906,7 @@ function ExecPanel({ apiOnline, visibility, setVisibility, superExec }) {
                   </tr>
                 </thead>
                 <tbody>
-                  {users.slice(0, 30).map(u => (
+                  {users.map(u => (
                     <tr key={u.id || u.email} style={{ borderBottom:"1px solid rgba(255,255,255,0.06)" }}>
                       <td style={{ padding:"7px 10px" }}>
                         <div style={{ color:"white", fontWeight:600 }}>{u.full_name || "—"}</div>
@@ -957,15 +967,50 @@ function ExecPanel({ apiOnline, visibility, setVisibility, superExec }) {
         {tab === "incidents" && (
           <div>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
-              <span style={{ color: "white", fontWeight: 700, fontSize: 14 }}>Open Incidents</span>
+              <span style={{ color: "white", fontWeight: 700, fontSize: 14 }}>Open Incidents ({incidents.length})</span>
               <button onClick={loadIncidents} style={{ background: "rgba(255,255,255,0.1)", border: "none", color: "white", padding: "5px 10px", borderRadius: 6, fontSize: 11, cursor: "pointer" }}>Refresh</button>
             </div>
             {incidents.length === 0
               ? <p style={{ color: "rgba(255,255,255,0.4)", fontSize: 13 }}>No open incidents.</p>
               : incidents.map(inc => (
-                <div key={inc.id} style={{ background: "rgba(220,38,38,0.12)", border: "1px solid rgba(220,38,38,0.25)", borderRadius: 8, padding: "10px 14px", marginBottom: 8 }}>
-                  <div style={{ color: "white", fontWeight: 700, fontSize: 13 }}>{inc.title || inc.description}</div>
-                  <div style={{ color: "rgba(255,255,255,0.5)", fontSize: 11, marginTop: 3 }}>{inc.created_at ? new Date(inc.created_at).toLocaleString() : ""} · {inc.severity || ""}</div>
+                <div key={inc.id} style={{ background: "rgba(220,38,38,0.10)", border: "1px solid rgba(220,38,38,0.25)", borderRadius: 8, padding: "12px 16px", marginBottom: 10 }}>
+                  <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 8, flexWrap: "wrap" }}>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ color: "white", fontWeight: 700, fontSize: 13 }}>{inc.title || inc.description}</div>
+                      <div style={{ color: "rgba(255,255,255,0.45)", fontSize: 11, marginTop: 3 }}>
+                        {inc.created_at ? new Date(inc.created_at).toLocaleString() : ""}
+                        {inc.severity ? ` · ${inc.severity}` : ""}
+                        {inc.reporter ? ` · Reported by: ${inc.reporter.full_name || inc.reporter.email}` : ""}
+                      </div>
+                      {inc.involved?.length > 0 && (
+                        <div style={{ color: "rgba(255,255,255,0.4)", fontSize: 10, marginTop: 3 }}>
+                          Involved: {inc.involved.map(u => u.full_name || u.email).join(", ")}
+                        </div>
+                      )}
+                    </div>
+                    <button onClick={() => { setResolvingId(resolvingId === inc.id ? null : inc.id); setResolveText(""); }}
+                      style={{ background: "rgba(34,197,94,0.2)", border: "1px solid rgba(34,197,94,0.4)", color: "#4ade80", padding: "4px 10px", borderRadius: 5, fontSize: 10, fontWeight: 700, cursor: "pointer", whiteSpace: "nowrap" }}>
+                      Resolve
+                    </button>
+                  </div>
+                  {resolvingId === inc.id && (
+                    <div style={{ marginTop: 10, display: "flex", gap: 6, flexWrap: "wrap" }}>
+                      <input value={resolveText} onChange={e => setResolveText(e.target.value)}
+                        placeholder="Resolution note (required)…"
+                        style={{ flex: 1, minWidth: 180, background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.2)", borderRadius: 6, padding: "5px 10px", color: "white", fontSize: 12, outline: "none" }} />
+                      <button disabled={!resolveText.trim()} onClick={async () => {
+                        try {
+                          await api.post(`/incidents/${inc.id}/resolve`, { resolution: resolveText });
+                          notify(`Incident resolved`);
+                          setResolvingId(null); setResolveText("");
+                          await loadIncidents();
+                        } catch (e) { notify(`Resolve failed: ${e?.response?.data?.detail || e.message}`); }
+                      }}
+                        style={{ background: resolveText.trim() ? "#22c55e" : "rgba(255,255,255,0.1)", border: "none", color: resolveText.trim() ? "white" : "rgba(255,255,255,0.3)", padding: "5px 12px", borderRadius: 6, fontSize: 11, fontWeight: 700, cursor: resolveText.trim() ? "pointer" : "not-allowed" }}>
+                        Confirm
+                      </button>
+                    </div>
+                  )}
                 </div>
               ))
             }
