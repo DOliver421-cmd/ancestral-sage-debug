@@ -10934,6 +10934,99 @@ async def supervisor_continuity_check(user: User = Depends(require_role("executi
     all_ok = all(v.get("status") == "ok" for v in results.values())
     return {"all_ok": all_ok, "checks": results, "checked_at": datetime.now(timezone.utc).isoformat()}
 
+# ── Platform Prices ──────────────────────────────────────────────────────────
+# Collection: platform_prices  { id, key, value, description, last_modified_by, last_modified_at }
+
+@api_router.get("/admin/prices")
+async def list_prices(user: User = Depends(require_role("admin"))):
+    docs = await db.platform_prices.find({}, {"_id": 0}).sort("key", 1).to_list(length=500)
+    return {"prices": docs}
+
+@api_router.post("/admin/prices")
+async def create_price(body: dict, user: User = Depends(require_role("admin"))):
+    key   = (body.get("key") or "").strip()
+    value = body.get("value")
+    desc  = (body.get("description") or "").strip()
+    if not key:
+        raise HTTPException(400, "key is required")
+    if value is None:
+        raise HTTPException(400, "value is required")
+    try:
+        value = float(value)
+    except (TypeError, ValueError):
+        raise HTTPException(400, "value must be a number")
+    existing = await db.platform_prices.find_one({"key": key})
+    if existing:
+        raise HTTPException(409, f"Price key '{key}' already exists — use PATCH to update")
+    now = datetime.now(timezone.utc).isoformat()
+    doc = {
+        "id": str(uuid.uuid4()),
+        "key": key,
+        "value": value,
+        "description": desc,
+        "last_modified_by": user.id,
+        "last_modified_at": now,
+    }
+    await db.platform_prices.insert_one(doc)
+    await db.audit_log.insert_one({
+        "id": str(uuid.uuid4()), "action": "price_create", "actor": user.id,
+        "detail": f"Created price key={key} value={value}", "at": now,
+    })
+    return {k: v for k, v in doc.items() if k != "_id"}
+
+@api_router.patch("/admin/prices/{price_id}")
+async def update_price(price_id: str, body: dict, user: User = Depends(require_role("admin"))):
+    doc = await db.platform_prices.find_one({"id": price_id})
+    if not doc:
+        raise HTTPException(404, "Price not found")
+    updates: dict = {}
+    if "value" in body:
+        try:
+            updates["value"] = float(body["value"])
+        except (TypeError, ValueError):
+            raise HTTPException(400, "value must be a number")
+    if "description" in body:
+        updates["description"] = (body["description"] or "").strip()
+    if "key" in body:
+        new_key = (body["key"] or "").strip()
+        if not new_key:
+            raise HTTPException(400, "key cannot be empty")
+        conflict = await db.platform_prices.find_one({"key": new_key, "id": {"$ne": price_id}})
+        if conflict:
+            raise HTTPException(409, f"Key '{new_key}' already in use")
+        updates["key"] = new_key
+    if not updates:
+        raise HTTPException(400, "No fields to update")
+    now = datetime.now(timezone.utc).isoformat()
+    updates["last_modified_by"] = user.id
+    updates["last_modified_at"] = now
+    await db.platform_prices.update_one({"id": price_id}, {"$set": updates})
+    await db.audit_log.insert_one({
+        "id": str(uuid.uuid4()), "action": "price_update", "actor": user.id,
+        "detail": f"Updated price id={price_id} fields={list(updates.keys())}", "at": now,
+    })
+    updated = await db.platform_prices.find_one({"id": price_id}, {"_id": 0})
+    return updated
+
+@api_router.delete("/admin/prices/{price_id}")
+async def delete_price(price_id: str, user: User = Depends(require_role("executive_admin"))):
+    doc = await db.platform_prices.find_one({"id": price_id})
+    if not doc:
+        raise HTTPException(404, "Price not found")
+    await db.platform_prices.delete_one({"id": price_id})
+    now = datetime.now(timezone.utc).isoformat()
+    await db.audit_log.insert_one({
+        "id": str(uuid.uuid4()), "action": "price_delete", "actor": user.id,
+        "detail": f"Deleted price key={doc.get('key')} id={price_id}", "at": now,
+    })
+    return {"deleted": price_id}
+
+@api_router.get("/prices/public")
+async def public_prices():
+    """Returns all price keys and values — no auth. Used by frontend to display current pricing."""
+    docs = await db.platform_prices.find({}, {"_id": 0, "id": 1, "key": 1, "value": 1, "description": 1}).sort("key", 1).to_list(length=500)
+    return {"prices": docs}
+
 app.include_router(api_router)
 # CORS: when origins is wildcard ("*") browsers reject credentials, so we
 # turn off allow_credentials in that case (auth uses Bearer token in Authorization
