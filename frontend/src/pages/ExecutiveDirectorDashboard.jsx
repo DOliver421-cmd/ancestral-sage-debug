@@ -1,220 +1,328 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
+import { api } from "../lib/api";
+import { useAuth } from "../lib/auth";
+import { toast } from "sonner";
 import {
-  AlertTriangle,
-  Activity,
-  Users,
-  TrendingUp,
-  Lock,
-  Ban,
-  ShieldAlert,
-  Settings,
-  BarChart3,
+  AlertTriangle, Activity, Users, TrendingUp, Lock, Unlock,
+  ShieldAlert, RefreshCw, CheckCircle, XCircle, Radio,
+  BarChart3, FileText, Power, Megaphone,
 } from "lucide-react";
 
-/**
- * Executive Director Dashboard
- * CEO-level controls for platform governance and emergency response
- * Can immediately shut down threats, ban users, delete content
- */
+const SEV_COLOR = {
+  critical: "bg-red-50 border-red-600",
+  high: "bg-orange-50 border-orange-600",
+  medium: "bg-yellow-50 border-yellow-500",
+  low: "bg-gray-50 border-gray-400",
+};
+const SEV_BADGE = {
+  critical: "bg-red-600 text-white",
+  high: "bg-orange-600 text-white",
+  medium: "bg-yellow-500 text-white",
+  low: "bg-gray-400 text-white",
+};
+
+const FEATURES = [
+  { key: "marketplace_disabled", label: "Marketplace", desc: "Blocks new enrollments and course publishing." },
+  { key: "ai_disabled",          label: "AI Services",  desc: "Disables all AI chat endpoints platform-wide." },
+  { key: "community_disabled",   label: "Community (M.O.R.E.)", desc: "Blocks posting and interaction in M.O.R.E." },
+  { key: "labs_disabled",        label: "Labs",         desc: "Disables lab submission and simulation access." },
+];
 
 export default function ExecutiveDirectorDashboard() {
-  const [alerts, setAlerts] = useState([
-    {
-      id: 1,
-      type: "hate_speech",
-      severity: "critical",
-      user: "user_567",
-      content: "Post with hate speech reported 50 times",
-      reportedAt: "2 minutes ago",
-      actions: 50,
-    },
-    {
-      id: 2,
-      type: "fraud",
-      severity: "critical",
-      user: "creator_89",
-      content: "Suspicious payout pattern detected (3 payouts in 1 hour)",
-      reportedAt: "5 minutes ago",
-      actions: 3,
-    },
-    {
-      id: 3,
-      type: "harassment",
-      severity: "high",
-      user: "user_234",
-      content: "Harassment campaign detected in community",
-      reportedAt: "15 minutes ago",
-      actions: 12,
-    },
-  ]);
-
+  const { user } = useAuth();
   const [activeTab, setActiveTab] = useState("threats");
-  const [selectedAlert, setSelectedAlert] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  // --- data state ---
+  const [stats, setStats]         = useState(null);
+  const [incidents, setIncidents] = useState([]);
+  const [users, setUsers]         = useState([]);
+  const [auditLog, setAuditLog]   = useState([]);
+  const [flags, setFlags]         = useState({});
+  const [platformLocked, setPlatformLocked] = useState(false);
+
+  // --- broadcast state ---
+  const [bcTarget, setBcTarget]   = useState("all");
+  const [bcTitle, setBcTitle]     = useState("");
+  const [bcMsg, setBcMsg]         = useState("");
+  const [bcSending, setBcSending] = useState(false);
+
+  const loadAll = useCallback(async () => {
+    setLoading(true);
+    const [statsRes, incRes, usersRes, auditRes, flagsRes] = await Promise.allSettled([
+      api.get("/admin/stats"),
+      api.get("/incidents?status=open"),
+      api.get("/admin/users"),
+      api.get("/admin/recent-activity?limit=50"),
+      api.get("/admin/platform/flags"),
+    ]);
+    if (statsRes.status === "fulfilled") setStats(statsRes.value.data);
+    if (incRes.status === "fulfilled")   setIncidents(incRes.value.data || []);
+    if (usersRes.status === "fulfilled") setUsers(usersRes.value.data || []);
+    if (auditRes.status === "fulfilled") setAuditLog(auditRes.value.data || []);
+    if (flagsRes.status === "fulfilled") {
+      const f = flagsRes.value.data?.flags || {};
+      setFlags(f);
+      setPlatformLocked(!!f.platform_locked?.enabled);
+    }
+    setLoading(false);
+  }, []);
+
+  useEffect(() => { loadAll(); }, [loadAll]);
+
+  const criticalCount = incidents.filter(i => i.severity === "critical").length;
+  const highCount     = incidents.filter(i => i.severity === "high").length;
+
+  // ── INCIDENT ACTIONS ──────────────────────────────────────────────────────
+  async function resolveIncident(id) {
+    const note = window.prompt("Resolution note (required):");
+    if (!note?.trim()) return;
+    try {
+      await api.post(`/incidents/${id}/resolve`, { resolution_notes: note });
+      toast.success("Incident resolved");
+      setIncidents(prev => prev.filter(i => i.id !== id));
+    } catch (e) {
+      toast.error("Failed: " + (e.response?.data?.detail || e.message));
+    }
+  }
+
+  // ── USER ACTIONS ──────────────────────────────────────────────────────────
+  async function deactivateUser(uid, name) {
+    if (!window.confirm(`Deactivate ${name}?`)) return;
+    try {
+      await api.patch(`/admin/users/${uid}/active`, { is_active: false });
+      toast.success(`${name} deactivated`);
+      setUsers(prev => prev.map(u => u.id === uid ? { ...u, is_active: false } : u));
+    } catch (e) {
+      toast.error("Failed: " + (e.response?.data?.detail || e.message));
+    }
+  }
+
+  async function activateUser(uid, name) {
+    try {
+      await api.patch(`/admin/users/${uid}/active`, { is_active: true });
+      toast.success(`${name} activated`);
+      setUsers(prev => prev.map(u => u.id === uid ? { ...u, is_active: true } : u));
+    } catch (e) {
+      toast.error("Failed: " + (e.response?.data?.detail || e.message));
+    }
+  }
+
+  async function deleteUser(uid, name) {
+    if (!window.confirm(`PERMANENTLY DELETE ${name}? This cannot be undone.`)) return;
+    try {
+      await api.delete(`/admin/users/${uid}`);
+      toast.success(`${name} deleted`);
+      setUsers(prev => prev.filter(u => u.id !== uid));
+    } catch (e) {
+      toast.error("Failed: " + (e.response?.data?.detail || e.message));
+    }
+  }
+
+  // ── PLATFORM LOCK ─────────────────────────────────────────────────────────
+  async function togglePlatformLock() {
+    const next = !platformLocked;
+    const reason = next
+      ? window.prompt("Reason for locking the platform (required):")
+      : "Lock removed by executive";
+    if (next && !reason?.trim()) return;
+    try {
+      await api.post("/admin/platform/flags/platform_locked", { value: next, reason });
+      setPlatformLocked(next);
+      toast.success(next ? "Platform locked — users cannot make changes" : "Platform unlocked");
+    } catch (e) {
+      toast.error("Failed: " + (e.response?.data?.detail || e.message));
+    }
+  }
+
+  // ── FEATURE FLAGS ─────────────────────────────────────────────────────────
+  async function toggleFeature(flagKey, label) {
+    const current = !!flags[flagKey]?.enabled;
+    const next = !current;
+    const reason = next
+      ? window.prompt(`Reason for disabling ${label} (required):`)
+      : `${label} re-enabled by executive`;
+    if (next && !reason?.trim()) return;
+    try {
+      await api.post(`/admin/platform/flags/${flagKey}`, { value: next, reason });
+      setFlags(prev => ({
+        ...prev,
+        [flagKey]: { enabled: next, reason, set_at: new Date().toISOString() },
+      }));
+      toast.success(`${label} ${next ? "disabled" : "re-enabled"}`);
+    } catch (e) {
+      toast.error("Failed: " + (e.response?.data?.detail || e.message));
+    }
+  }
+
+  // ── BROADCAST ─────────────────────────────────────────────────────────────
+  async function sendBroadcast() {
+    if (!bcMsg.trim()) { toast.error("Message is required"); return; }
+    setBcSending(true);
+    try {
+      const res = await api.post("/admin/broadcast", {
+        target: bcTarget,
+        title: bcTitle.trim() || "Platform Announcement",
+        message: bcMsg.trim(),
+      });
+      toast.success(`Broadcast sent to ${res.data.sent} user(s)`);
+      setBcMsg(""); setBcTitle("");
+    } catch (e) {
+      toast.error("Broadcast failed: " + (e.response?.data?.detail || e.message));
+    } finally {
+      setBcSending(false);
+    }
+  }
+
+  const fmtTime = iso => iso
+    ? new Date(iso).toLocaleString(undefined, { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })
+    : "—";
+
+  const TABS = [
+    { id: "threats",   label: `Threats (${incidents.length})`,        icon: <ShieldAlert className="w-4 h-4" /> },
+    { id: "users",     label: `Users (${users.length})`,              icon: <Users className="w-4 h-4" /> },
+    { id: "controls",  label: "Emergency Controls",                   icon: <Power className="w-4 h-4" /> },
+    { id: "broadcast", label: "Broadcast",                            icon: <Megaphone className="w-4 h-4" /> },
+    { id: "audit",     label: "Audit Log",                            icon: <FileText className="w-4 h-4" /> },
+  ];
 
   return (
     <div className="min-h-screen bg-bone text-ink">
-      {/* Critical Alert Banner */}
-      {alerts.some((a) => a.severity === "critical") && (
-        <div className="bg-red-900 text-white p-4 border-b-4 border-red-700">
-          <div className="max-w-7xl mx-auto flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <ShieldAlert className="w-6 h-6 animate-pulse" />
-              <div>
-                <p className="font-bold">CRITICAL THREATS DETECTED</p>
-                <p className="text-sm">{alerts.filter((a) => a.severity === "critical").length} require immediate action</p>
-              </div>
+
+      {/* Critical alert banner — only when real incidents exist */}
+      {criticalCount > 0 && (
+        <div className="bg-red-900 text-white px-6 py-4 border-b-4 border-red-700 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <ShieldAlert className="w-6 h-6 animate-pulse" />
+            <div>
+              <p className="font-bold">CRITICAL INCIDENTS ACTIVE</p>
+              <p className="text-sm">{criticalCount} require immediate action</p>
             </div>
-            <button className="px-4 py-2 bg-red-700 hover:bg-red-800 rounded font-bold">
-              EMERGENCY MODE
-            </button>
           </div>
+          <button
+            onClick={() => setActiveTab("threats")}
+            className="px-4 py-2 bg-red-700 hover:bg-red-800 rounded font-bold text-sm"
+          >
+            VIEW THREATS
+          </button>
+        </div>
+      )}
+
+      {/* Platform locked banner */}
+      {platformLocked && (
+        <div className="bg-amber-100 border-b-2 border-amber-500 px-6 py-3 flex items-center gap-3">
+          <Lock className="w-5 h-5 text-amber-700" />
+          <p className="text-amber-800 font-semibold text-sm">
+            Platform is currently locked — users cannot make changes. Only admins can operate.
+          </p>
         </div>
       )}
 
       {/* Header */}
       <div className="border-b border-ink/10 bg-white">
-        <div className="max-w-7xl mx-auto px-6 py-8">
-          <h1 className="font-heading text-4xl font-bold mb-2">Executive Director</h1>
-          <p className="text-ink/60">Platform governance, crisis management, strategic oversight</p>
+        <div className="max-w-7xl mx-auto px-6 py-6 flex items-center justify-between">
+          <div>
+            <h1 className="font-heading text-3xl font-bold">Executive Director</h1>
+            <p className="text-ink/80 text-sm mt-1">Platform governance, crisis response, strategic oversight</p>
+          </div>
+          <button
+            onClick={loadAll}
+            className="flex items-center gap-2 px-4 py-2 border border-ink/20 rounded-lg text-sm font-semibold hover:bg-ink/5"
+          >
+            <RefreshCw className="w-4 h-4" />
+            Refresh
+          </button>
         </div>
       </div>
 
-      {/* Quick Stats */}
       <div className="max-w-7xl mx-auto px-6 py-8">
-        <div className="grid md:grid-cols-5 gap-4 mb-8">
-          <div className="bg-white border border-ink/10 rounded-lg p-6">
-            <div className="flex items-center gap-3 mb-4">
-              <AlertTriangle className="w-5 h-5 text-red-600" />
-              <span className="text-sm text-ink/60 font-bold">CRITICAL</span>
-            </div>
-            <p className="text-4xl font-bold text-red-600">{alerts.filter((a) => a.severity === "critical").length}</p>
-            <p className="text-xs text-ink/60 mt-2">Immediate action needed</p>
-          </div>
 
-          <div className="bg-white border border-ink/10 rounded-lg p-6">
-            <div className="flex items-center gap-3 mb-4">
-              <ShieldAlert className="w-5 h-5 text-orange-600" />
-              <span className="text-sm text-ink/60 font-bold">HIGH</span>
+        {/* Stats row */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+          <div className="bg-white border border-ink/10 rounded-lg p-5">
+            <div className="flex items-center gap-2 mb-2">
+              <ShieldAlert className="w-4 h-4 text-red-600" />
+              <span className="text-xs font-bold text-ink/80 uppercase tracking-wide">Critical</span>
             </div>
-            <p className="text-4xl font-bold text-orange-600">{alerts.filter((a) => a.severity === "high").length}</p>
-            <p className="text-xs text-ink/60 mt-2">Review in 1 hour</p>
+            <p className="text-3xl font-bold text-red-600">{criticalCount}</p>
+            <p className="text-xs text-ink/80 mt-1">Open incidents</p>
           </div>
-
-          <div className="bg-white border border-ink/10 rounded-lg p-6">
-            <div className="flex items-center gap-3 mb-4">
-              <Users className="w-5 h-5 text-ink" />
-              <span className="text-sm text-ink/60 font-bold">USERS</span>
+          <div className="bg-white border border-ink/10 rounded-lg p-5">
+            <div className="flex items-center gap-2 mb-2">
+              <AlertTriangle className="w-4 h-4 text-orange-500" />
+              <span className="text-xs font-bold text-ink/80 uppercase tracking-wide">High</span>
             </div>
-            <p className="text-4xl font-bold text-ink">2,847</p>
-            <p className="text-xs text-green-600">+12 active now</p>
+            <p className="text-3xl font-bold text-orange-500">{highCount}</p>
+            <p className="text-xs text-ink/80 mt-1">Open incidents</p>
           </div>
-
-          <div className="bg-white border border-ink/10 rounded-lg p-6">
-            <div className="flex items-center gap-3 mb-4">
-              <TrendingUp className="w-5 h-5 text-green-600" />
-              <span className="text-sm text-ink/60 font-bold">REVENUE</span>
+          <div className="bg-white border border-ink/10 rounded-lg p-5">
+            <div className="flex items-center gap-2 mb-2">
+              <Users className="w-4 h-4 text-ink" />
+              <span className="text-xs font-bold text-ink/80 uppercase tracking-wide">Users</span>
             </div>
-            <p className="text-4xl font-bold text-green-600">$12.4K</p>
-            <p className="text-xs text-ink/60 mt-2">This month</p>
+            <p className="text-3xl font-bold text-ink">{loading ? "—" : (stats?.users ?? users.length)}</p>
+            <p className="text-xs text-ink/80 mt-1">Registered</p>
           </div>
-
-          <div className="bg-white border border-ink/10 rounded-lg p-6">
-            <div className="flex items-center gap-3 mb-4">
-              <Activity className="w-5 h-5 text-ink" />
-              <span className="text-sm text-ink/60 font-bold">STATUS</span>
+          <div className="bg-white border border-ink/10 rounded-lg p-5">
+            <div className="flex items-center gap-2 mb-2">
+              <Activity className="w-4 h-4 text-ink" />
+              <span className="text-xs font-bold text-ink/80 uppercase tracking-wide">Platform</span>
             </div>
-            <p className="text-4xl font-bold text-green-600">●</p>
-            <p className="text-xs text-green-600">All systems normal</p>
+            <p className="text-3xl font-bold" style={{ color: platformLocked ? "#dc2626" : "#16a34a" }}>
+              {platformLocked ? "Locked" : "Active"}
+            </p>
+            <p className="text-xs text-ink/80 mt-1">Current state</p>
           </div>
         </div>
 
         {/* Tabs */}
-        <div className="border-b border-ink/10 flex gap-8 mb-8">
-          <button
-            onClick={() => setActiveTab("threats")}
-            className={`py-3 font-bold border-b-2 transition-all ${
-              activeTab === "threats"
-                ? "border-red-600 text-red-600"
-                : "border-transparent text-ink/60 hover:text-ink"
-            }`}
-          >
-            🚨 Threats ({alerts.length})
-          </button>
-          <button
-            onClick={() => setActiveTab("users")}
-            className={`py-3 font-bold border-b-2 transition-all ${
-              activeTab === "users"
-                ? "border-copper text-copper"
-                : "border-transparent text-ink/60 hover:text-ink"
-            }`}
-          >
-            👥 User Management
-          </button>
-          <button
-            onClick={() => setActiveTab("controls")}
-            className={`py-3 font-bold border-b-2 transition-all ${
-              activeTab === "controls"
-                ? "border-copper text-copper"
-                : "border-transparent text-ink/60 hover:text-ink"
-            }`}
-          >
-            ⚙️ Emergency Controls
-          </button>
-          <button
-            onClick={() => setActiveTab("logs")}
-            className={`py-3 font-bold border-b-2 transition-all ${
-              activeTab === "logs"
-                ? "border-copper text-copper"
-                : "border-transparent text-ink/60 hover:text-ink"
-            }`}
-          >
-            📋 Audit Logs
-          </button>
+        <div className="border-b border-ink/10 flex gap-6 mb-8 overflow-x-auto">
+          {TABS.map(t => (
+            <button
+              key={t.id}
+              onClick={() => setActiveTab(t.id)}
+              className={`flex items-center gap-2 py-3 font-bold border-b-2 transition-all whitespace-nowrap text-sm ${
+                activeTab === t.id
+                  ? "border-ink text-ink"
+                  : "border-transparent text-ink/80 hover:text-ink"
+              }`}
+            >
+              {t.icon}{t.label}
+            </button>
+          ))}
         </div>
 
-        {/* THREATS TAB */}
+        {/* ── THREATS TAB ─────────────────────────────────────────────────── */}
         {activeTab === "threats" && (
           <div className="space-y-4">
-            {alerts.map((alert) => (
-              <div
-                key={alert.id}
-                className={`p-6 border-l-4 rounded-lg ${
-                  alert.severity === "critical"
-                    ? "bg-red-50 border-red-600"
-                    : "bg-orange-50 border-orange-600"
-                }`}
-              >
-                <div className="flex items-start justify-between mb-4">
-                  <div>
-                    <p className="font-bold text-lg text-ink">{alert.type.replace("_", " ").toUpperCase()}</p>
-                    <p className="text-sm text-ink/70 mt-1">{alert.content}</p>
-                    <p className="text-xs text-ink/60 mt-2">User: {alert.user} • {alert.actions} reports</p>
+            {loading && <p className="text-ink/80">Loading incidents…</p>}
+            {!loading && incidents.length === 0 && (
+              <div className="bg-green-50 border border-green-200 rounded-lg p-8 text-center">
+                <CheckCircle className="w-10 h-10 text-green-600 mx-auto mb-3" />
+                <p className="font-bold text-green-800">No open incidents</p>
+                <p className="text-green-700 text-sm mt-1">Platform is clear.</p>
+              </div>
+            )}
+            {incidents.map(inc => (
+              <div key={inc.id} className={`p-5 border-l-4 rounded-lg ${SEV_COLOR[inc.severity] || SEV_COLOR.low}`}>
+                <div className="flex items-start justify-between gap-4">
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className={`text-xs font-bold px-2 py-0.5 rounded ${SEV_BADGE[inc.severity] || SEV_BADGE.low}`}>
+                        {(inc.severity || "unknown").toUpperCase()}
+                      </span>
+                      <span className="text-xs text-ink/80">{inc.type || "incident"}</span>
+                      <span className="text-xs text-ink/70">{fmtTime(inc.created_at)}</span>
+                    </div>
+                    <p className="font-bold text-ink">{inc.title || inc.summary}</p>
+                    {inc.description && <p className="text-sm text-ink/70 mt-1">{inc.description}</p>}
+                    {inc.reported_by && <p className="text-xs text-ink/80 mt-2">Reported by: {inc.reported_by}</p>}
                   </div>
-                  <span className={`text-xs font-bold px-3 py-1 rounded ${
-                    alert.severity === "critical"
-                      ? "bg-red-600 text-white"
-                      : "bg-orange-600 text-white"
-                  }`}>
-                    {alert.severity.toUpperCase()}
-                  </span>
-                </div>
-
-                {/* Quick Actions */}
-                <div className="flex gap-2 mt-4 pt-4 border-t border-ink/10">
-                  <button className="flex-1 py-2 px-3 bg-red-600 text-white rounded font-bold hover:bg-red-700 transition-colors flex items-center justify-center gap-2 text-sm">
-                    <Ban className="w-4 h-4" />
-                    BAN USER
-                  </button>
-                  <button className="flex-1 py-2 px-3 bg-red-500 text-white rounded font-bold hover:bg-red-600 transition-colors flex items-center justify-center gap-2 text-sm">
-                    <AlertTriangle className="w-4 h-4" />
-                    DELETE CONTENT
-                  </button>
-                  <button className="flex-1 py-2 px-3 bg-orange-600 text-white rounded font-bold hover:bg-orange-700 transition-colors flex items-center justify-center gap-2 text-sm">
-                    <Lock className="w-4 h-4" />
-                    LOCK ACCOUNT
-                  </button>
-                  <button className="flex-1 py-2 px-3 border-2 border-ink/20 rounded font-bold hover:bg-ink/5 transition-colors text-sm">
-                    Review
+                  <button
+                    onClick={() => resolveIncident(inc.id)}
+                    className="px-4 py-2 bg-green-600 text-white text-sm font-bold rounded hover:bg-green-700 whitespace-nowrap"
+                  >
+                    Resolve
                   </button>
                 </div>
               </div>
@@ -222,129 +330,205 @@ export default function ExecutiveDirectorDashboard() {
           </div>
         )}
 
-        {/* EMERGENCY CONTROLS TAB */}
+        {/* ── USERS TAB ────────────────────────────────────────────────────── */}
+        {activeTab === "users" && (
+          <div className="bg-white border border-ink/10 rounded-lg overflow-hidden">
+            <div className="px-5 py-4 border-b border-ink/10 flex items-center justify-between">
+              <h2 className="font-bold text-ink">All Users ({users.length})</h2>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-ink/10 text-ink/80 text-xs uppercase tracking-wide">
+                    <th className="text-left px-5 py-3">Name</th>
+                    <th className="text-left px-5 py-3">Email</th>
+                    <th className="text-left px-5 py-3">Role</th>
+                    <th className="text-left px-5 py-3">Status</th>
+                    <th className="text-left px-5 py-3">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {loading && (
+                    <tr><td colSpan={5} className="text-center py-8 text-ink/70">Loading…</td></tr>
+                  )}
+                  {!loading && users.length === 0 && (
+                    <tr><td colSpan={5} className="text-center py-8 text-ink/70">No users found.</td></tr>
+                  )}
+                  {users.map(u => (
+                    <tr key={u.id} className="border-b border-ink/5 hover:bg-ink/10">
+                      <td className="px-5 py-3 font-semibold">{u.full_name || "—"}</td>
+                      <td className="px-5 py-3 font-mono text-xs text-ink/70">{u.email}</td>
+                      <td className="px-5 py-3">
+                        <span className="text-xs font-bold px-2 py-0.5 rounded bg-blue-100 text-blue-800">
+                          {(u.role || "").replace("_", " ")}
+                        </span>
+                      </td>
+                      <td className="px-5 py-3">
+                        {u.is_active === false
+                          ? <span className="text-xs font-bold px-2 py-0.5 rounded bg-red-100 text-red-700">Inactive</span>
+                          : <span className="text-xs font-bold px-2 py-0.5 rounded bg-green-100 text-green-700">Active</span>
+                        }
+                      </td>
+                      <td className="px-5 py-3">
+                        <div className="flex items-center gap-2">
+                          {u.is_active === false
+                            ? <button onClick={() => activateUser(u.id, u.full_name || u.email)} className="text-xs px-3 py-1.5 bg-green-600 text-white rounded font-bold hover:bg-green-700">Activate</button>
+                            : <button onClick={() => deactivateUser(u.id, u.full_name || u.email)} className="text-xs px-3 py-1.5 bg-orange-500 text-white rounded font-bold hover:bg-orange-600">Deactivate</button>
+                          }
+                          {u.id !== user?.id && (
+                            <button onClick={() => deleteUser(u.id, u.full_name || u.email)} className="text-xs px-3 py-1.5 bg-red-100 text-red-700 border border-red-300 rounded font-bold hover:bg-red-600 hover:text-white">Delete</button>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        {/* ── EMERGENCY CONTROLS TAB ───────────────────────────────────────── */}
         {activeTab === "controls" && (
-          <div className="max-w-2xl space-y-6">
-            <div className="bg-red-50 border-2 border-red-600 rounded-lg p-8">
-              <h2 className="font-heading text-2xl font-bold text-red-900 mb-6">Emergency Controls</h2>
+          <div className="max-w-2xl space-y-5">
 
-              <div className="space-y-4">
-                {/* Lock Platform */}
-                <div className="bg-white p-6 rounded border-l-4 border-red-600">
-                  <h3 className="font-bold text-lg text-ink mb-2">🔒 Lock Platform (Everyone read-only)</h3>
-                  <p className="text-sm text-ink/70 mb-4">
-                    Prevents all writes. Users can view but not post, enroll, publish. Emergency mode only.
+            {/* Platform Lock */}
+            <div className={`p-6 rounded-lg border-2 ${platformLocked ? "bg-red-50 border-red-500" : "bg-white border-ink/10"}`}>
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <div className="flex items-center gap-2 mb-1">
+                    {platformLocked ? <Lock className="w-5 h-5 text-red-600" /> : <Unlock className="w-5 h-5 text-ink" />}
+                    <h3 className="font-bold text-lg">Platform Lock</h3>
+                  </div>
+                  <p className="text-sm text-ink/80">
+                    When locked, all users are in read-only mode. No posts, enrollments, or submissions go through.
+                    Auth and admin endpoints remain operational. Reason is logged.
                   </p>
-                  <button className="px-6 py-3 bg-red-600 text-white rounded font-bold hover:bg-red-700">
-                    LOCK PLATFORM
-                  </button>
+                  {platformLocked && flags.platform_locked?.reason && (
+                    <p className="text-sm text-red-700 font-semibold mt-2">Reason: {flags.platform_locked.reason}</p>
+                  )}
                 </div>
-
-                {/* Shut Down Feature */}
-                <div className="bg-white p-6 rounded border-l-4 border-red-600">
-                  <h3 className="font-bold text-lg text-ink mb-2">⛔ Shut Down Marketplace</h3>
-                  <p className="text-sm text-ink/70 mb-4">
-                    Prevent new enrollments and course publishing. Existing access continues.
-                  </p>
-                  <button className="px-6 py-3 bg-red-600 text-white rounded font-bold hover:bg-red-700">
-                    SHUT DOWN MARKETPLACE
-                  </button>
-                </div>
-
-                {/* Ban by IP */}
-                <div className="bg-white p-6 rounded border-l-4 border-orange-600">
-                  <h3 className="font-bold text-lg text-ink mb-2">🚫 Ban by IP Address</h3>
-                  <p className="text-sm text-ink/70 mb-4">
-                    Block entire IP ranges for coordinated attacks.
-                  </p>
-                  <input
-                    type="text"
-                    placeholder="e.g., 192.168.1.0/24"
-                    className="w-full px-4 py-2 border border-ink/20 rounded mb-4"
-                  />
-                  <button className="px-6 py-3 bg-orange-600 text-white rounded font-bold hover:bg-orange-700">
-                    BAN IP RANGE
-                  </button>
-                </div>
-
-                {/* Disable Feature */}
-                <div className="bg-white p-6 rounded border-l-4 border-orange-600">
-                  <h3 className="font-bold text-lg text-ink mb-2">⚠️ Disable Feature</h3>
-                  <p className="text-sm text-ink/70 mb-4">
-                    Quickly disable problematic features (comments, messaging, etc).
-                  </p>
-                  <select className="w-full px-4 py-2 border border-ink/20 rounded mb-4">
-                    <option>Select feature...</option>
-                    <option>Community comments</option>
-                    <option>Direct messaging</option>
-                    <option>Course reviews</option>
-                    <option>Marketplace</option>
-                    <option>Payouts</option>
-                  </select>
-                  <button className="px-6 py-3 bg-orange-600 text-white rounded font-bold hover:bg-orange-700">
-                    DISABLE FEATURE
-                  </button>
-                </div>
-
-                {/* Broadcast Emergency Message */}
-                <div className="bg-white p-6 rounded border-l-4 border-yellow-600">
-                  <h3 className="font-bold text-lg text-ink mb-2">📢 Broadcast Emergency Message</h3>
-                  <p className="text-sm text-ink/70 mb-4">
-                    Show banner to all users explaining situation.
-                  </p>
-                  <textarea
-                    className="w-full px-4 py-2 border border-ink/20 rounded mb-4 h-24"
-                    placeholder="e.g., We're experiencing an issue with payments. Please check back in 1 hour."
-                  />
-                  <button className="px-6 py-3 bg-yellow-600 text-white rounded font-bold hover:bg-yellow-700">
-                    SEND MESSAGE
-                  </button>
-                </div>
+                <button
+                  onClick={togglePlatformLock}
+                  className={`px-5 py-2.5 rounded font-bold text-sm whitespace-nowrap ${
+                    platformLocked
+                      ? "bg-green-600 text-white hover:bg-green-700"
+                      : "bg-red-600 text-white hover:bg-red-700"
+                  }`}
+                >
+                  {platformLocked ? "Unlock Platform" : "Lock Platform"}
+                </button>
               </div>
             </div>
 
-            {/* Control Log */}
+            {/* Feature Flags */}
+            {FEATURES.map(f => {
+              const active = !!flags[f.key]?.enabled;
+              return (
+                <div key={f.key} className={`p-6 rounded-lg border-2 ${active ? "bg-red-50 border-red-400" : "bg-white border-ink/10"}`}>
+                  <div className="flex items-start justify-between gap-4">
+                    <div>
+                      <div className="flex items-center gap-2 mb-1">
+                        <Power className={`w-4 h-4 ${active ? "text-red-600" : "text-ink/80"}`} />
+                        <h3 className="font-bold">{f.label}</h3>
+                        {active && <span className="text-xs font-bold px-2 py-0.5 rounded bg-red-600 text-white">DISABLED</span>}
+                      </div>
+                      <p className="text-sm text-ink/80">{f.desc}</p>
+                      {active && flags[f.key]?.reason && (
+                        <p className="text-xs text-red-700 font-semibold mt-1">Reason: {flags[f.key].reason}</p>
+                      )}
+                    </div>
+                    <button
+                      onClick={() => toggleFeature(f.key, f.label)}
+                      className={`px-4 py-2 rounded font-bold text-sm whitespace-nowrap ${
+                        active
+                          ? "bg-green-600 text-white hover:bg-green-700"
+                          : "bg-red-600 text-white hover:bg-red-700"
+                      }`}
+                    >
+                      {active ? `Re-enable ${f.label}` : `Disable ${f.label}`}
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        {/* ── BROADCAST TAB ─────────────────────────────────────────────────── */}
+        {activeTab === "broadcast" && (
+          <div className="max-w-2xl">
             <div className="bg-white border border-ink/10 rounded-lg p-6">
-              <h3 className="font-bold text-lg mb-4">Recent Control Actions</h3>
-              <div className="space-y-2 text-sm">
-                <div className="flex justify-between py-2 border-b border-ink/10">
-                  <span>Platform locked by Director</span>
-                  <span className="text-ink/60">5 min ago</span>
+              <h2 className="font-bold text-lg mb-5">Send Platform Broadcast</h2>
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-xs font-bold uppercase tracking-wide text-ink/80 mb-1">Target Audience</label>
+                  <select
+                    value={bcTarget}
+                    onChange={e => setBcTarget(e.target.value)}
+                    className="w-full px-3 py-2.5 border border-ink/20 rounded-lg text-sm font-medium"
+                  >
+                    <option value="all">Everyone (all users)</option>
+                    <option value="student">Students only</option>
+                    <option value="instructor">Instructors only</option>
+                    <option value="admin">Admins only</option>
+                    <option value="executive_admin">Executive Admins only</option>
+                  </select>
                 </div>
-                <div className="flex justify-between py-2 border-b border-ink/10">
-                  <span>IP range 203.0.113.0/24 banned</span>
-                  <span className="text-ink/60">12 min ago</span>
+                <div>
+                  <label className="block text-xs font-bold uppercase tracking-wide text-ink/80 mb-1">Title</label>
+                  <input
+                    value={bcTitle}
+                    onChange={e => setBcTitle(e.target.value)}
+                    placeholder="Platform Announcement"
+                    className="w-full px-3 py-2.5 border border-ink/20 rounded-lg text-sm"
+                  />
                 </div>
-                <div className="flex justify-between py-2">
-                  <span>Marketplace shut down (read-only)</span>
-                  <span className="text-ink/60">18 min ago</span>
+                <div>
+                  <label className="block text-xs font-bold uppercase tracking-wide text-ink/80 mb-1">Message</label>
+                  <textarea
+                    value={bcMsg}
+                    onChange={e => setBcMsg(e.target.value)}
+                    placeholder="Enter your message here…"
+                    rows={5}
+                    className="w-full px-3 py-2.5 border border-ink/20 rounded-lg text-sm resize-vertical"
+                  />
                 </div>
+                <button
+                  onClick={sendBroadcast}
+                  disabled={bcSending || !bcMsg.trim()}
+                  className="px-6 py-3 bg-ink text-white rounded-lg font-bold text-sm hover:bg-ink/80 disabled:opacity-50"
+                >
+                  {bcSending ? "Sending…" : "Send Broadcast"}
+                </button>
               </div>
             </div>
           </div>
         )}
 
-        {/* AUDIT LOGS TAB */}
-        {activeTab === "logs" && (
-          <div className="bg-white border border-ink/10 rounded-lg p-6">
-            <h2 className="font-bold text-lg mb-6">Audit Log (All Admin Actions)</h2>
-            <div className="space-y-2 max-h-96 overflow-y-auto">
-              {[
-                { time: "2:47 PM", action: "User banned: creator_89", by: "Director", reason: "Fraud investigation" },
-                { time: "2:45 PM", action: "Content deleted: post_567", by: "Director", reason: "Hate speech" },
-                { time: "2:43 PM", action: "Platform locked (read-only)", by: "Director", reason: "Security threat" },
-                { time: "2:40 PM", action: "IP ban: 203.0.113.0/24", by: "Director", reason: "Spam attacks" },
-                { time: "2:30 PM", action: "User reported: user_234", by: "Moderator James", reason: "Harassment" },
-              ].map((log, idx) => (
-                <div key={idx} className="flex justify-between py-3 border-b border-ink/10 text-sm">
+        {/* ── AUDIT LOG TAB ─────────────────────────────────────────────────── */}
+        {activeTab === "audit" && (
+          <div className="bg-white border border-ink/10 rounded-lg overflow-hidden">
+            <div className="px-5 py-4 border-b border-ink/10">
+              <h2 className="font-bold">Recent Platform Actions</h2>
+            </div>
+            <div className="divide-y divide-ink/5 max-h-[600px] overflow-y-auto">
+              {loading && <p className="text-center py-8 text-ink/70">Loading…</p>}
+              {!loading && auditLog.length === 0 && (
+                <p className="text-center py-8 text-ink/70">No audit entries found.</p>
+              )}
+              {auditLog.map((entry, i) => (
+                <div key={i} className="px-5 py-3 flex items-start justify-between gap-4 text-sm">
                   <div>
-                    <p className="font-bold text-ink">{log.action}</p>
-                    <p className="text-xs text-ink/60">{log.reason}</p>
+                    <p className="font-semibold text-ink">{entry.action || entry.event || "—"}</p>
+                    {entry.actor && <p className="text-xs text-ink/80 mt-0.5">By: {entry.actor}</p>}
+                    {entry.detail && typeof entry.detail === "object" && (
+                      <p className="text-xs text-ink/70 mt-0.5 font-mono">
+                        {JSON.stringify(entry.detail).slice(0, 120)}
+                      </p>
+                    )}
                   </div>
-                  <div className="text-right">
-                    <p className="text-ink/60">{log.time}</p>
-                    <p className="text-xs text-copper">{log.by}</p>
-                  </div>
+                  <p className="text-xs text-ink/70 whitespace-nowrap">{fmtTime(entry.created_at || entry.ts)}</p>
                 </div>
               ))}
             </div>

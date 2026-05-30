@@ -34,6 +34,7 @@ import asyncio
 import io
 import logging
 import os
+import time
 import uuid
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -89,23 +90,42 @@ load_dotenv(ROOT_DIR / '.env', override=True)  # .env is source of truth (overri
 # Backup:   MONGO_BACKUP_URL   (MongoDB Atlas free tier recommended)
 # The health endpoint at /api/health pings backup when primary is down.
 # All other code uses `db` (the primary connection) — there is no automatic
-# DB connection failover in business logic.
-mongo_url        = os.environ['MONGO_URL']
-MONGO_BACKUP_URL = os.environ.get('MONGO_BACKUP_URL', '')   # Atlas URI (optional)
-MONGO_BACKUP_DB  = os.environ.get('MONGO_BACKUP_DB', '')    # Atlas DB name (optional)
-client = AsyncIOMotorClient(
-    mongo_url,
-    serverSelectionTimeoutMS=5000,   # fail fast — don't hang 30s per op
-    connectTimeoutMS=5000,
-    socketTimeoutMS=10000,
-)
-db = client[os.environ['DB_NAME']]
-_DB_SOURCE = "primary"   # informational; updated in on_startup
-_backup_db = None        # set in on_startup if MONGO_BACKUP_URL is configured
-_pipeline_manager = None # set in on_startup once DB + API key are both available
-_discount_manager = None # set in on_startup() for discount management
+# ── DB connection failover in business logic ──
 
-# ── WAI engine singletons ─────────────────────────────────────────────────────
+import os
+
+mongo_url = os.environ.get("MONGO_URL")
+db_name = os.environ.get("DB_NAME", "ancestral_sage")
+
+if not mongo_url:
+    print("⚠️ WARNING: MONGO_URL not set — database disabled")
+    client = None
+    db = None
+    _DB_SOURCE = "disabled"
+else:
+    from motor.motor_asyncio import AsyncIOMotorClient
+
+    client = AsyncIOMotorClient(
+        mongo_url,
+        serverSelectionTimeoutMS=5000,
+        connectTimeoutMS=5000,
+        socketTimeoutMS=10000,
+    )
+
+    db = client[db_name]
+    _DB_SOURCE = "primary"
+
+
+# ── Backup / optional configs ──
+
+MONGO_BACKUP_URL = os.environ.get("MONGO_BACKUP_URL", "")
+MONGO_BACKUP_DB  = os.environ.get("MONGO_BACKUP_DB", "")
+
+_backup_db = None
+_pipeline_manager = None
+_discount_manager = None
+
+# ── WAI engine singletons ───────────────────────────────────────────────────────
 # Lazy-initialized on first use, then reused across all requests.
 # Avoids creating new PRTEnforcementEngine/The9FusionEngine objects per request.
 _prt_engine  = None   # type: ignore[assignment]  PRTEnforcementEngine
@@ -196,6 +216,31 @@ async def add_security_headers(request: Request, call_next):
 
 
 @app.middleware("http")
+async def enforce_platform_flags(request: Request, call_next):
+    """Block requests when platform_locked flag is active.
+    Always passes: /api/health, /api/auth/*, /api/admin/platform/flags
+    """
+    path = request.url.path
+    exempt = (
+        path in ("/api/health", "/api/version", "/")
+        or path.startswith("/api/auth/")
+        or path.startswith("/api/admin/platform/flags")
+        or path.startswith("/api/admin/")  # admins always pass
+    )
+    if not exempt and db is not None:
+        try:
+            doc = await db.platform_flags.find_one({"_id": "flags"}, {"_id": 0, "flags.platform_locked": 1})
+            if doc and doc.get("flags", {}).get("platform_locked", {}).get("enabled"):
+                return JSONResponse(
+                    status_code=503,
+                    content={"detail": "Platform is currently locked by the executive team. Please check back shortly."},
+                )
+        except Exception:
+            pass
+    return await call_next(request)
+
+
+@app.middleware("http")
 async def log_requests_pii_safe(request: Request, call_next):
     """Log request method, path, and status code. Never log request bodies,
     query strings, headers, or IP addresses (PII-safe)."""
@@ -275,16 +320,24 @@ EXEC_ADMIN_EMAIL = os.environ.get("EXEC_ADMIN_EMAIL", "delon.oliver@lightningcit
 # `must_change_password=True`, so the seed is safe by construction).  In
 # production set EXEC_DEFAULT_PASSWORD to a fresh secret so even the seed
 # value is operator-controlled.
-EXEC_DEFAULT_PASSWORD = os.environ.get("EXEC_DEFAULT_PASSWORD", "Executive@LCE2026")
+# No fallback passwords in source. If EXEC_DEFAULT_PASSWORD is not set in Railway,
+# a cryptographically random password is generated at startup and emailed to
+# PLATFORM_NOTIFY_EMAIL (morehelpcenter@gmail.com) automatically.
+EXEC_DEFAULT_PASSWORD = os.environ.get("EXEC_DEFAULT_PASSWORD", "")
 
 # Executive accounts — both seats always bootstrapped on startup.
 # Seat 1 (Delon Oliver):  youpickeddoliver@gmail.com
 # Seat 2 (NAM Oshun):     souppoetry@gmail.com
 BACKUP_EXEC_EMAIL = os.environ.get("BACKUP_EXEC_ADMIN_EMAIL", "youpickeddoliver@gmail.com")
-BACKUP_EXEC_DEFAULT_PASSWORD = os.environ.get("BACKUP_EXEC_DEFAULT_PASSWORD", "NamOshun@WAI2026")
+BACKUP_EXEC_DEFAULT_PASSWORD = os.environ.get("BACKUP_EXEC_DEFAULT_PASSWORD", "")
 
 NAM_EXEC_EMAIL = os.environ.get("NAM_EXEC_EMAIL", "souppoetry@gmail.com")
-NAM_EXEC_DEFAULT_PASSWORD = os.environ.get("NAM_EXEC_DEFAULT_PASSWORD", "NamOshun@WAI2026")
+NAM_EXEC_DEFAULT_PASSWORD = os.environ.get("NAM_EXEC_DEFAULT_PASSWORD", "")
+
+# Platform notification email — receives auto-generated passwords and system alerts.
+# Defaults to the configured GMAIL_USER (morehelpcenter@gmail.com).
+PLATFORM_NOTIFY_EMAIL = os.environ.get("PLATFORM_NOTIFY_EMAIL",
+                                        os.environ.get("GMAIL_USER", "morehelpcenter@gmail.com"))
 
 # RECOVERY: Set EXEC_FORCE_RESET=1 in Railway env vars, redeploy, log in with
 # the default passwords above, then immediately change password and remove the flag.
@@ -663,6 +716,34 @@ async def _send_reset_email(to_email: str, raw_token: str, full_name: str = "the
 
     logger.warning("No email provider configured (RESEND_API_KEY or GMAIL_USER+GMAIL_APP_PASSWORD).")
     return False
+
+
+async def _send_welcome_email(to_email: str, full_name: str) -> bool:
+    """Send welcome email on registration. Uses same provider chain as reset emails."""
+    app_url = os.environ.get("PUBLIC_APP_URL", "https://wai-institute.org")
+    subject = "Welcome to WAI-Institute — You're In"
+    html = f"""
+    <div style="font-family:sans-serif;max-width:540px;margin:0 auto;padding:32px 24px;background:#fff;">
+      <div style="background:#2e1065;border-radius:12px;padding:28px 24px;text-align:center;margin-bottom:24px;">
+        <h1 style="color:#FFD100;font-size:26px;margin:0 0 8px;">Welcome, {full_name}.</h1>
+        <p style="color:rgba(255,255,255,0.8);font-size:15px;margin:0;">You are now part of the WAI-Institute community.</p>
+      </div>
+      <p style="color:#2b1f15;font-size:15px;line-height:1.7;">Your account is active. Start with free modules — no paywall, no waiting.</p>
+      <div style="text-align:center;margin:28px 0;">
+        <a href="{app_url}/modules" style="background:#0d7377;color:#fff;padding:12px 28px;border-radius:8px;text-decoration:none;font-weight:700;font-size:14px;">Start Learning Free</a>
+      </div>
+      <p style="color:#5a4e42;font-size:13px;">Need help? Reply to this email or visit the <a href="{app_url}/help-center" style="color:#0d7377;">Help Center</a>.</p>
+      <hr style="border:none;border-top:1px solid #e0d6cc;margin:24px 0;">
+      <p style="color:#9ca3af;font-size:11px;text-align:center;">WAI-Institute · MORE Help Center</p>
+    </div>"""
+    if RESEND_API_KEY:
+        sent = await _send_via_resend(to_email, subject, html)
+        if sent:
+            return True
+    if GMAIL_USER and GMAIL_APP_PASSWORD:
+        return await _send_via_gmail(to_email, subject, html)
+    logger.warning("Welcome email not sent — no email provider configured.")
+    return False
 # ----------------------------------------------------------------------------
 
 
@@ -759,15 +840,48 @@ async def seed_users():
         logger.info("Removed %d demo account(s) from live database", result.deleted_count)
 
     # ----- Bootstrap executive accounts (create if missing, never overwrite existing) -----
+    # Passwords: if ENV var is set use it; otherwise generate a random one and
+    # email it to PLATFORM_NOTIFY_EMAIL. No password is ever hardcoded in source.
+    import secrets as _secrets
+
+    def _gen_pw() -> str:
+        """Generate a 20-char cryptographically random password."""
+        alpha = "abcdefghjkmnpqrstuvwxyzABCDEFGHJKMNPQRSTUVWXYZ23456789!@#$%^&*"
+        return "".join(_secrets.choice(alpha) for _ in range(20))
+
+    async def _email_new_pw(email: str, name: str, pw: str) -> None:
+        """Send auto-generated password to PLATFORM_NOTIFY_EMAIL via Gmail SMTP."""
+        subject = f"WAI-Institute: New exec account created — {email}"
+        html = (
+            f"<p>A new executive account was bootstrapped at startup.</p>"
+            f"<p><b>Account:</b> {email} ({name})<br>"
+            f"<b>Temporary password:</b> <code>{pw}</code></p>"
+            f"<p>Log in and change this password immediately. "
+            f"The account has <code>must_change_password=True</code>.</p>"
+        )
+        try:
+            await _send_via_gmail(PLATFORM_NOTIFY_EMAIL, subject, html)
+            logger.info("STARTUP: auto-generated password emailed to %s for account %s",
+                        PLATFORM_NOTIFY_EMAIL, email)
+        except Exception as _em:
+            # Email failed — log the password to stdout (visible in Railway logs only)
+            logger.warning(
+                "STARTUP: email failed for %s — TEMP PASSWORD (change immediately): %s | error: %s",
+                email, pw, _em,
+            )
+
     _exec_seats = [
         (EXEC_ADMIN_EMAIL,  "Delon Oliver",  EXEC_DEFAULT_PASSWORD),
         (BACKUP_EXEC_EMAIL, "Delon Oliver",  BACKUP_EXEC_DEFAULT_PASSWORD),
         (NAM_EXEC_EMAIL,    "NAM Oshun",     NAM_EXEC_DEFAULT_PASSWORD),
     ]
-    for _email, _name, _pw in _exec_seats:
+    for _email, _name, _env_pw in _exec_seats:
         try:
             existing = await db.users.find_one({"email": _email})
             if not existing:
+                # Use ENV-supplied password if set, otherwise generate one
+                _pw = _env_pw if _env_pw else _gen_pw()
+                _auto_generated = not bool(_env_pw)
                 await db.users.insert_one({
                     "id": str(uuid.uuid4()),
                     "email": _email,
@@ -775,10 +889,12 @@ async def seed_users():
                     "role": "executive_admin",
                     "password_hash": hash_pw(_pw),
                     "is_active": True,
-                    "must_change_password": False,
+                    "must_change_password": True,   # always force change on first login
                     "created_at": datetime.now(timezone.utc).isoformat(),
                 })
-                logger.info("STARTUP: exec seat created — %s", _email)
+                logger.info("STARTUP: exec seat created — %s (auto_pw=%s)", _email, _auto_generated)
+                if _auto_generated:
+                    await _email_new_pw(_email, _name, _pw)
             else:
                 # Account exists — ensure it stays executive_admin, active, and unlocked.
                 # Clearing lockout fields on every startup means a locked exec account
@@ -1026,6 +1142,9 @@ async def _on_startup_impl():
     global _DB_SOURCE, _backup_db
     _DB_SOURCE = "primary"
     _backup_db = None
+    # Wire shared db reference for sub-routers (social, playlist, etc.)
+    import deps as _deps
+    _deps.set_db(db)
     if MONGO_BACKUP_URL:
         try:
             _backup_client = AsyncIOMotorClient(
@@ -1511,6 +1630,8 @@ async def register(body: RegisterReq):
     doc["over_13_confirmed"] = True
     await db.users.insert_one(doc)
     await audit(user.id, "auth.register.success", meta={"consent_terms": True, "over_13": True})
+    # Send welcome email — fire-and-forget, never blocks registration
+    asyncio.create_task(_send_welcome_email(user.email, user.full_name))
     return TokenResp(access_token=make_token(user.id, user.role), user=user)
 
 
@@ -3352,6 +3473,7 @@ async def _apply_sage_safety_gates(response_text: str, user_tier: str) -> tuple:
 
 @api_router.post("/ai/chat")
 async def ai_chat(body: AIChatReq, user: User = Depends(current_user)):
+    check_rate(f"ai_chat:{user.id}", max_calls=20, window_sec=60)
     # ---- Ancestral Sage gating (runs BEFORE any LLM cost) ---------------
     is_sage = body.mode == "ancestral_sage"
 
@@ -3466,10 +3588,10 @@ async def ai_chat(body: AIChatReq, user: User = Depends(current_user)):
     else:
         system = SYSTEM_PROMPTS.get(body.mode, SYSTEM_PROMPTS["tutor"]) + ctx
     session_id = f"{user.id}:{body.session_id}"
-    _client = _anthropic_module.AsyncAnthropic(api_key=ANTHROPIC_API_KEY)
     try:
-        _msg = await _client.messages.create(model="claude-sonnet-4-6", max_tokens=2048, system=system, messages=[{"role": "user", "content": body.message}])
-        reply = _msg.content[0].text
+        from ai.llm_gateway import call_llm as _call_llm
+        _gw = await _call_llm(system=system, messages=[{"role": "user", "content": body.message}], max_tokens=2048, persona_label="ai_chat")
+        reply = _gw["text"]
     except Exception as e:
         logger.exception("AI error")
         raise HTTPException(502, f"AI error: {e}")
@@ -3646,15 +3768,10 @@ async def ai_orchestrator(body: OrchestratorReq, user: User = Depends(current_us
     else:
         claude_messages.append({"role": "user", "content": user_message})
 
-    _client = _anthropic_module.AsyncAnthropic(api_key=ANTHROPIC_API_KEY)
     try:
-        _msg = await _client.messages.create(
-            model="claude-sonnet-4-6",
-            max_tokens=4096,
-            system=system,
-            messages=claude_messages,
-        )
-        reply = _msg.content[0].text
+        from ai.llm_gateway import call_llm as _call_llm
+        _gw = await _call_llm(system=system, messages=claude_messages, max_tokens=4096, persona_label="orchestrator")
+        reply = _gw["text"]
     except Exception as e:
         logger.exception("Orchestrator AI error")
         raise HTTPException(502, f"AI error: {e}")
@@ -3727,15 +3844,10 @@ async def ai_scholar(body: ScholarTaskReq, user: User = Depends(current_user)):
     claude_messages = [{"role": h.role, "content": h.content} for h in (body.history or [])]
     claude_messages.append({"role": "user", "content": body.message})
 
-    _client = _anthropic_module.AsyncAnthropic(api_key=ANTHROPIC_API_KEY)
     try:
-        _msg = await _client.messages.create(
-            model="claude-sonnet-4-6",
-            max_tokens=4096,
-            system=system,
-            messages=claude_messages,
-        )
-        reply = _msg.content[0].text
+        from ai.llm_gateway import call_llm as _call_llm
+        _gw = await _call_llm(system=system, messages=claude_messages, max_tokens=4096, persona_label="scholar")
+        reply = _gw["text"]
     except Exception as e:
         logger.exception("Scholar AI error")
         raise HTTPException(502, f"AI error: {e}")
@@ -4318,7 +4430,7 @@ async def director_pulse(user: User = Depends(require_role("admin"))):
 # ═══════════════════════════════════════════════════════════════════════════════
 
 @api_router.post("/ai/director/tts")
-async def director_tts(body: dict, user: User = Depends(current_user)):
+async def director_tts(body: dict, user: User = Depends(require_role("executive_admin"))):
     """THE DIRECTOR voice — 3-tier TTS.
     T1: ElevenLabs (DIRECTOR_VOICE_ID) — deep, authoritative, executive presence
     T2: OpenAI TTS voice "alloy"
@@ -4355,7 +4467,7 @@ async def director_tts(body: dict, user: User = Depends(current_user)):
 
 
 @api_router.post("/ai/revenue-director/tts")
-async def revenue_director_tts(body: dict, user: User = Depends(current_user)):
+async def revenue_director_tts(body: dict, user: User = Depends(require_role("executive_admin"))):
     """THE REVENUE DIRECTOR voice — 3-tier TTS.
     T1: ElevenLabs (REVENUE_DIRECTOR_VOICE_ID) — confident, strategic
     T2: OpenAI TTS voice "echo"
@@ -4392,7 +4504,7 @@ async def revenue_director_tts(body: dict, user: User = Depends(current_user)):
 
 
 @api_router.post("/ai/sage/elevenlabs/tts")
-async def sage_elevenlabs_tts(body: dict, user: User = Depends(current_user)):
+async def sage_elevenlabs_tts(body: dict, user: User = Depends(require_role("executive_admin"))):
     """THE ANCESTRAL SAGE voice — 3-tier TTS (ElevenLabs upgrade for Sage).
     Separate from /api/ai/sage/tts (OpenAI) — this route tries ElevenLabs first.
     T1: ElevenLabs (SAGE_VOICE_ID) — warm, ancestral, resonant
@@ -4518,7 +4630,12 @@ async def ai_revenue_director(body: dict, user: User = Depends(current_user)):
             reply = ""
 
     if not reply:
-        reply = "THE REVENUE DIRECTOR is temporarily offline. Financial archives remain active. Retry in a moment."
+        try:
+            from ai.llm_gateway import call_llm as _call_llm
+            _gw = await _call_llm(system=get_persona("revenue_director"), messages=[{"role": "user", "content": message}], max_tokens=2048, persona_label="revenue_director")
+            reply = _gw["text"]
+        except Exception:
+            reply = "THE REVENUE DIRECTOR is temporarily offline. Financial archives remain active. Retry in a moment."
 
     await log_episode(db, session_id, "revenue_director", user.id, message, reply, _tools_called)
     logger.info("ai_revenue_director: responded for user %s", user.id)
@@ -4622,7 +4739,12 @@ async def sage_create(body: dict, user: User = Depends(current_user)):
             reply = ""
 
     if not reply:
-        reply = "The Ancestral Sage is temporarily offline. Wisdom archives remain intact. Retry in a moment."
+        try:
+            from ai.llm_gateway import call_llm as _call_llm
+            _gw = await _call_llm(system=get_persona("ancestral_sage"), messages=[{"role": "user", "content": message}], max_tokens=2048, persona_label="ancestral_sage")
+            reply = _gw["text"]
+        except Exception:
+            reply = "The Ancestral Sage is temporarily offline. Wisdom archives remain intact. Retry in a moment."
 
     await log_episode(db, session_id, "ancestral_sage", user.id, message, reply, _tools_called)
     logger.info("ai_sage_create: responded for user %s", user.id)
@@ -5804,6 +5926,93 @@ async def mark_read(nid: str, user: User = Depends(current_user)):
 async def mark_all_read(user: User = Depends(current_user)):
     await db.notifications.update_many({"user_id": user.id, "read": False}, {"$set": {"read": True}})
     return {"ok": True}
+
+
+@api_router.get("/admin/platform/flags")
+async def get_platform_flags(user: User = Depends(require_role("executive_admin"))):
+    """Return all platform feature flags. Executive only."""
+    doc = await db.platform_flags.find_one({"_id": "flags"}, {"_id": 0})
+    if not doc:
+        return {"flags": {}}
+    return {"flags": doc.get("flags", {})}
+
+
+@api_router.post("/admin/platform/flags/{flag}")
+async def set_platform_flag(
+    flag: str,
+    payload: dict,
+    user: User = Depends(require_role("executive_admin")),
+):
+    """Set a platform feature flag (true/false). Executive only.
+    Body: { value: bool, reason?: str }
+    Supported flags: platform_locked, marketplace_disabled, ai_disabled,
+                     community_disabled, labs_disabled
+    """
+    ALLOWED = {"platform_locked", "marketplace_disabled", "ai_disabled",
+               "community_disabled", "labs_disabled"}
+    if flag not in ALLOWED:
+        raise HTTPException(400, f"Unknown flag '{flag}'. Allowed: {', '.join(sorted(ALLOWED))}")
+    value = bool(payload.get("value", True))
+    reason = (payload.get("reason") or "").strip()
+    now = datetime.now(timezone.utc).isoformat()
+    await db.platform_flags.update_one(
+        {"_id": "flags"},
+        {"$set": {
+            f"flags.{flag}": {
+                "enabled": value,
+                "set_by": user.id,
+                "set_at": now,
+                "reason": reason,
+            }
+        }},
+        upsert=True,
+    )
+    await audit(user.id, f"platform_flag:{flag}:{value}", {"reason": reason})
+    return {"flag": flag, "enabled": value, "set_at": now}
+
+
+@api_router.post("/admin/broadcast")
+async def broadcast_notification(
+    payload: dict,
+    user: User = Depends(require_role("executive_admin", "admin")),
+):
+    """Broadcast a notification to all users or a specific cohort/role.
+    Body: { message, title, target: 'all' | role_name | associate_name }
+    Executive/admin only.
+    """
+    message = (payload.get("message") or "").strip()
+    title   = (payload.get("title") or "Platform Announcement").strip()
+    target  = (payload.get("target") or "all").strip()
+
+    if not message:
+        raise HTTPException(400, "message is required")
+
+    query: dict = {}
+    if target != "all":
+        # Try role first, then associate
+        query = {"$or": [{"role": target}, {"associate": target}]}
+
+    recipients = await db.users.find(query, {"_id": 0, "id": 1}).to_list(10000)
+    if not recipients:
+        return {"sent": 0, "message": "No recipients matched"}
+
+    now = datetime.now(timezone.utc).isoformat()
+    docs = [
+        {
+            "id": str(uuid.uuid4()),
+            "user_id": r["id"],
+            "title": title,
+            "message": message,
+            "type": "broadcast",
+            "read": False,
+            "created_at": now,
+            "sent_by": user.id,
+        }
+        for r in recipients
+    ]
+    await db.notifications.insert_many(docs)
+    await audit(user.id, f"broadcast:{target}", {"title": title, "recipients": len(docs)})
+    return {"sent": len(docs), "target": target}
 
 
 # -- ATTENDANCE (instructor records, student views own) --
@@ -7041,15 +7250,10 @@ async def more_department_chat(body: MoreDeptChatReq, user: User = Depends(curre
     ]
     claude_messages.append({"role": "user", "content": user_message})
 
-    _client = _anthropic_module.AsyncAnthropic(api_key=ANTHROPIC_API_KEY)
     try:
-        _msg = await _client.messages.create(
-            model="claude-sonnet-4-6",
-            max_tokens=4096,
-            system=system,
-            messages=claude_messages,
-        )
-        reply = _msg.content[0].text
+        from ai.llm_gateway import call_llm as _call_llm
+        _gw = await _call_llm(system=system, messages=claude_messages, max_tokens=4096, persona_label="more_department")
+        reply = _gw["text"]
     except Exception as e:
         logger.exception("M.O.R.E. Department AI error")
         raise HTTPException(502, f"AI error: {e}")
@@ -7109,6 +7313,16 @@ async def more_department_integrity(user: User = Depends(current_user)):
 # ─── STRIPE PAYMENTS ──────────────────────────────────────────────────────────
 import stripe as _stripe
 
+# ── Payment routing assignment ────────────────────────────────────────────────
+# Stripe       → Platform commerce (physical goods, subscriptions, donations,
+#                credentials). Fixed pricing, institutional revenue.
+# Lemon Squeezy → AI-generated income (ebooks, digital products, courses,
+#                 spoken word audio, AI-produced content). Starts at $0,
+#                 no monthly fee, pays out via PayPal or bank. Handled in
+#                 ai/publishing.py — all persona publishing routes use LS first.
+# Gumroad      → Physical/traditional books and printed materials only.
+#                Fallback if Lemon Squeezy is unavailable for digital products.
+# ──────────────────────────────────────────────────────────────────────────────
 STRIPE_SECRET_KEY    = os.environ.get("STRIPE_SECRET_KEY", "")
 STRIPE_WEBHOOK_SECRET = os.environ.get("STRIPE_WEBHOOK_SECRET", "")
 STRIPE_PUBLISHABLE_KEY = os.environ.get("STRIPE_PUBLISHABLE_KEY", "")
@@ -7594,10 +7808,12 @@ async def ai_ambassador(body: dict, user: User = Depends(current_user)):
             reply = ""
 
     if not reply:
-        reply = (
-            "THE AMBASSADOR is temporarily offline. "
-            "Campaign pipeline intelligence remains archived. Retry in a moment."
-        )
+        try:
+            from ai.llm_gateway import call_llm as _call_llm
+            _gw = await _call_llm(system=get_persona("ambassador"), messages=[{"role": "user", "content": message}], max_tokens=2048, persona_label="ambassador")
+            reply = _gw["text"]
+        except Exception:
+            reply = "THE AMBASSADOR is temporarily offline. Campaign pipeline intelligence remains archived. Retry in a moment."
 
     await log_episode(db, session_id, "ambassador", user.id, message, reply, _tools_called)
     logger.info("ai_ambassador: responded for user %s", user.id)
@@ -7712,10 +7928,12 @@ async def ai_architect(body: dict, user: User = Depends(current_user)):
             reply = ""
 
     if not reply:
-        reply = (
-            "THE ARCHITECT is temporarily offline. "
-            "Visual intelligence archives remain active. Retry in a moment."
-        )
+        try:
+            from ai.llm_gateway import call_llm as _call_llm
+            _gw = await _call_llm(system=get_persona("architect"), messages=[{"role": "user", "content": message}], max_tokens=2048, persona_label="architect")
+            reply = _gw["text"]
+        except Exception:
+            reply = "THE ARCHITECT is temporarily offline. Visual intelligence archives remain active. Retry in a moment."
 
     await log_episode(db, session_id, "architect", user.id, message, reply, _tools_called)
     logger.info("ai_architect: responded for user %s", user.id)
@@ -7824,10 +8042,12 @@ async def ai_cipher(body: dict, user: User = Depends(current_user)):
             reply = ""
 
     if not reply:
-        reply = (
-            "THE CIPHER is temporarily operating without AI connectivity. "
-            "Revenue streams remain active. Retry in a moment."
-        )
+        try:
+            from ai.llm_gateway import call_llm as _call_llm
+            _gw = await _call_llm(system=get_persona("cipher"), messages=[{"role": "user", "content": message}], max_tokens=2048, persona_label="cipher")
+            reply = _gw["text"]
+        except Exception:
+            reply = "THE CIPHER is temporarily operating without AI connectivity. Revenue streams remain active. Retry in a moment."
 
     await log_episode(db, session_id, "cipher", user.id, message, reply, _tools_called)
     logger.info("ai_cipher: responded for user %s", user.id)
@@ -7935,10 +8155,12 @@ async def ai_oracle(body: dict, user: User = Depends(current_user)):
             reply = ""
 
     if not reply:
-        reply = (
-            "THE ORACLE is temporarily operating without AI connectivity. "
-            "Cultural intelligence archives remain active. Retry in a moment."
-        )
+        try:
+            from ai.llm_gateway import call_llm as _call_llm
+            _gw = await _call_llm(system=get_persona("oracle"), messages=[{"role": "user", "content": message}], max_tokens=2048, persona_label="oracle")
+            reply = _gw["text"]
+        except Exception:
+            reply = "THE ORACLE is temporarily operating without AI connectivity. Cultural intelligence archives remain active. Retry in a moment."
 
     await log_episode(db, session_id, "oracle", user.id, message, reply, _tools_called)
     logger.info("ai_oracle: responded for user %s", user.id)
@@ -8043,7 +8265,7 @@ async def delete_memory_policy(
 # ═══════════════════════════════════════════════════════════════════════════════
 
 @api_router.post("/ai/cipher/tts")
-async def cipher_tts(body: dict, user: User = Depends(current_user)):
+async def cipher_tts(body: dict, user: User = Depends(require_role("executive_admin"))):
     """THE CIPHER voice system — 3-tier TTS routing.
 
     Tier 1 (elevenlabs / elevenlabs_cached):
@@ -8236,7 +8458,7 @@ async def scout_status(user: User = Depends(require_role("executive_admin"))):
                 "started_at": last_doc.get("started_at"),
                 "leads_found": last_doc.get("leads_found", {}),
             }
-    except Exception: pass
+    except Exception as _e: logger.warning("Swallowed exception: %s", _e)
 
     return {
         "scout_enabled":     os.environ.get("SCOUT_ENABLED", "true").lower() != "false",
@@ -8651,19 +8873,19 @@ async def exec_dashboard(user: User = Depends(require_role("executive_admin"))):
         pipeline_published = await db.wai_product_pipeline.count_documents({"status": "published"})
         pipeline_pending   = await db.wai_product_pipeline.count_documents({"status": "pending_publish"})
         pipeline_total     = pipeline_published + pipeline_pending
-    except Exception: pass
+    except Exception as _e: logger.warning("Swallowed exception: %s", _e)
 
     try:
         pending_notifs = await db.executive_notifications.count_documents({})
-    except Exception: pass
+    except Exception as _e: logger.warning("Swallowed exception: %s", _e)
 
     try:
         policy_count = await db.persona_policies.count_documents({"active": True})
-    except Exception: pass
+    except Exception as _e: logger.warning("Swallowed exception: %s", _e)
 
     try:
         episode_count = await db.persona_episodes.count_documents({})
-    except Exception: pass
+    except Exception as _e: logger.warning("Swallowed exception: %s", _e)
 
     # Per-persona TTS budgets
     try:
@@ -8674,7 +8896,7 @@ async def exec_dashboard(user: User = Depends(require_role("executive_admin"))):
                 "monthly_cap":     bdoc.get("monthly_cap", 0),
                 "pct_used":        round(bdoc.get("chars_used_this_month", 0) / max(bdoc.get("monthly_cap", 1), 1) * 100, 1),
             }
-    except Exception: pass
+    except Exception as _e: logger.warning("Swallowed exception: %s", _e)
 
     # Cipher budget (separate collection)
     try:
@@ -8687,7 +8909,7 @@ async def exec_dashboard(user: User = Depends(require_role("executive_admin"))):
                 "monthly_cap": cap,
                 "pct_used":    round(used / max(cap, 1) * 100, 1),
             }
-    except Exception: pass
+    except Exception as _e: logger.warning("Swallowed exception: %s", _e)
 
     # Recent pending pipeline items (up to 5 for dashboard preview)
     pending_preview = []
@@ -8700,7 +8922,7 @@ async def exec_dashboard(user: User = Depends(require_role("executive_admin"))):
             doc["price"] = f"${doc.get('price_cents', 0) / 100:.2f}"
             doc.pop("price_cents", None)
             pending_preview.append(doc)
-    except Exception: pass
+    except Exception as _e: logger.warning("Swallowed exception: %s", _e)
 
     # Recent executive notifications (up to 5)
     recent_notifs = []
@@ -8710,7 +8932,7 @@ async def exec_dashboard(user: User = Depends(require_role("executive_admin"))):
         ).sort("created_at", -1).limit(5)
         async for doc in cursor:
             recent_notifs.append(doc)
-    except Exception: pass
+    except Exception as _e: logger.warning("Swallowed exception: %s", _e)
 
     return {
         "dashboard":        "WAI-Institute Executive Dashboard",
@@ -9526,17 +9748,12 @@ async def revenue_workspace_chat(ws_id: str, body: dict, user: User = Depends(cu
         {"_id": 0},
     ).sort("ts", -1).limit(10).to_list(length=10)
     memory_context = "\n".join(f"[{m.get('actor','')}]: {m.get('content','')}" for m in reversed(memory))
-    import anthropic as _anthropic_module
-    _client = _anthropic_module.AsyncAnthropic(api_key=ANTHROPIC_API_KEY)
     system_prompt = f"You are the Sovereign AI for workspace '{ws['name']}'. Respond helpfully."
     if memory_context:
         system_prompt += f"\n\nRecent workspace memory:\n{memory_context}"
-    _msg = await _client.messages.create(
-        model="claude-sonnet-4-6", max_tokens=2048,
-        system=system_prompt,
-        messages=[{"role": "user", "content": message}],
-    )
-    reply = _msg.content[0].text.strip()
+    from ai.llm_gateway import call_llm as _call_llm
+    _gw = await _call_llm(system=system_prompt, messages=[{"role": "user", "content": message}], max_tokens=2048, persona_label="revenue_workspace")
+    reply = _gw["text"].strip()
     # Store in workspace memory
     await db.sovereign_memory.insert_one({
         "workspace_id": ws_id, "actor": user.id, "content": message[:500],
@@ -9734,13 +9951,9 @@ try:
         """Talk to The Sovereign — executive-only, Director-supervised, memory-aware."""
         system = await _build_sovereign_prompt(db, user.id)
         try:
-            import anthropic as _anthropic_module
-            _client = _anthropic_module.AsyncAnthropic(api_key=ANTHROPIC_API_KEY)
-            _msg = await _client.messages.create(
-                model="claude-sonnet-4-6", max_tokens=2048,
-                system=system, messages=[{"role": "user", "content": body.message}],
-            )
-            reply = _msg.content[0].text
+            from ai.llm_gateway import call_llm as _call_llm
+            _gw = await _call_llm(system=system, messages=[{"role": "user", "content": body.message}], max_tokens=2048, persona_label="sovereign")
+            reply = _gw["text"]
         except Exception as e:
             logger.exception("Sovereign AI error")
             raise HTTPException(502, f"Sovereign AI error: {e}")
@@ -9779,6 +9992,22 @@ try:
         """Current member's partnership points + membership tier."""
         return await _partnership_points.get_status(db, user.id)
 
+    @api_router.get("/partnership/ledger")
+    async def partnership_ledger(limit: int = 20, user: User = Depends(current_user)):
+        """Recent point-award history for the current user."""
+        try:
+            from partnership.points import LEDGER_COLLECTION
+            docs = await db[LEDGER_COLLECTION].find(
+                {"user_id": user.id},
+                {"_id": 0, "user_id": 0},
+            ).sort("ts", -1).limit(min(limit, 50)).to_list(50)
+            for d in docs:
+                if hasattr(d.get("ts"), "isoformat"):
+                    d["ts"] = d["ts"].isoformat()
+            return docs
+        except Exception:
+            return []
+
     logger.info("Sovereign + puzzle/points endpoints registered")
 except Exception as _sov_err:
     logger.warning(f"Could not register Sovereign/puzzle endpoints: {_sov_err}")
@@ -9804,6 +10033,7 @@ try:
     class _PanelHeartbeatBody(BaseModel):
         source: Literal["backup", "emergency"]
         version: Optional[str] = None
+        secret: Optional[str] = None
 
     @api_router.get("/exec/panel")
     async def exec_panel_get(user: User = Depends(require_role("executive_admin"))):
@@ -9840,10 +10070,80 @@ try:
         """Quick health summary for the breaker panel."""
         return await get_system_health(db)
 
+    @api_router.post("/admin/gateway/keys")
+    async def push_gateway_key(body: dict, user: User = Depends(require_role("executive_admin"))):
+        """
+        Receive an API key from The Supervisor and inject it into the live
+        llm_gateway module so it takes effect immediately without a Railway
+        redeploy.  Keys are held in process memory — they persist until the
+        container restarts, at which point Railway env vars take over.
+
+        Body: { var_name: "GROQ_API_KEY", value: "gsk_..." }
+        """
+        ALLOWED = {
+            "GROQ_API_KEY", "CEREBRAS_API_KEY", "GEMINI_API_KEY",
+            "XAI_API_KEY",  "COHERE_API_KEY",   "HUGGINGFACE_API_KEY",
+            "OPENROUTER_API_KEY",
+        }
+        var_name = (body.get("var_name") or "").strip().upper()
+        value    = (body.get("value")    or "").strip()
+
+        if var_name not in ALLOWED:
+            raise HTTPException(400, f"var_name '{var_name}' not in allowed set")
+        if not value:
+            raise HTTPException(400, "value cannot be empty")
+
+        # Inject into the live gateway module
+        import ai.llm_gateway as _gw
+        import os as _os
+
+        # Map var name → gateway module attribute
+        ATTR_MAP = {
+            "GROQ_API_KEY":        "GROQ_API_KEY",
+            "CEREBRAS_API_KEY":    "CEREBRAS_API_KEY",
+            "GEMINI_API_KEY":      "GEMINI_API_KEY",
+            "XAI_API_KEY":         "XAI_API_KEY",
+            "COHERE_API_KEY":      "COHERE_API_KEY",
+            "HUGGINGFACE_API_KEY": "HUGGINGFACE_API_KEY",
+            "OPENROUTER_API_KEY":  "OPENROUTER_API_KEY",
+        }
+        attr = ATTR_MAP[var_name]
+        setattr(_gw, attr, value)
+        _os.environ[var_name] = value   # also set in env so any late imports pick it up
+
+        await audit(user.id, "gateway.key.pushed", meta={"var": var_name})
+        logger.info("Gateway key pushed by exec: %s", var_name)
+        return {"ok": True, "var": var_name, "active": True}
+
+    # Auto-generate shared secret once; stored in DB so exec can retrieve it.
+    _HEARTBEAT_SECRET_KEY = "exec_panel_heartbeat_secret"
+
+    async def _get_or_create_heartbeat_secret() -> str:
+        doc = await db.platform_config.find_one({"key": _HEARTBEAT_SECRET_KEY}, {"_id": 0})
+        if doc and doc.get("value"):
+            return doc["value"]
+        secret = secrets.token_urlsafe(32)
+        await db.platform_config.update_one(
+            {"key": _HEARTBEAT_SECRET_KEY},
+            {"$set": {"key": _HEARTBEAT_SECRET_KEY, "value": secret}},
+            upsert=True,
+        )
+        logger.info("HEARTBEAT: auto-generated shared secret stored in DB — retrieve via /exec/panel/heartbeat-secret")
+        return secret
+
+    @api_router.get("/exec/panel/heartbeat-secret")
+    async def exec_panel_heartbeat_secret(user: User = Depends(require_role("executive_admin"))):
+        """Return the current heartbeat shared secret — executive_admin only.
+        Copy this value into the backup/emergency server HEARTBEAT_SECRET env var."""
+        return {"secret": await _get_or_create_heartbeat_secret()}
+
     @api_router.post("/exec/panel/heartbeat")
     async def exec_panel_heartbeat(body: _PanelHeartbeatBody):
-        """Heartbeat from backup server or emergency UI (no auth required —
-        the backup server reports its liveness so the panel shows it as alive)."""
+        """Heartbeat from backup/emergency server. Requires shared secret."""
+        expected = await _get_or_create_heartbeat_secret()
+        provided = getattr(body, "secret", None) or ""
+        if not secrets.compare_digest(provided, expected):
+            raise HTTPException(401, "Invalid or missing heartbeat secret.")
         result = await heartbeat(db, body.source, version=body.version)
         if not result["ok"]:
             raise HTTPException(400, result["error"])
@@ -9854,6 +10154,12 @@ try:
         """Return the free API backup matrix — shows every service and its fallback status."""
         from free_api_backup import status_summary
         return status_summary()
+
+    @api_router.get("/admin/gateway/status")
+    async def admin_gateway_status(user: User = Depends(require_role("admin"))):
+        """Return LLM gateway provider availability and budget usage."""
+        from ai.llm_gateway import gateway_status
+        return gateway_status()
 
     logger.info("Emergency Breaker Panel + Gateway endpoints registered")
 except Exception as _ep_err:

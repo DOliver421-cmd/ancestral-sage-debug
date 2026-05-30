@@ -23,7 +23,7 @@ export default function Helper({ requireAuth = false }) {
     return () => { if (fab) fab.style.display = ""; };
   }, []);
 
-  if (loading) return <div style={{display:"flex",alignItems:"center",justifyContent:"center",height:"100vh",fontFamily:"system-ui"}}>Loading...</div>;
+  if (loading) return <div style={{display:"flex",alignItems:"center",justifyContent:"center",height:"100vh",fontFamily:"'IBM Plex Sans', sans-serif"}}>Loading...</div>;
   if (requireAuth && !user) { navigate("/login"); return null; }
   return requireAuth ? <AuthHelper user={user} /> : <PublicHelper />;
 }
@@ -357,7 +357,7 @@ function PublicHelper() {
   const activeTitle = TOPICS.find(t => t.key === activeTopic)?.title;
 
   return (
-    <div style={{ display:"flex", flexDirection:"column", height:"100dvh", background:"#f5f7fb", fontFamily:"system-ui,-apple-system,sans-serif", color:"#1f2933", overflow:"hidden" }}>
+    <div style={{ display:"flex", flexDirection:"column", height:"100dvh", background:"#f5f7fb", fontFamily:"'IBM Plex Sans', -apple-system, sans-serif", color:"#1f2933", overflow:"hidden" }}>
       {/* COLORFUL GRADIENT HEADER */}
       <div style={{ background:"linear-gradient(135deg,#4b7cff,#7b5cff)", padding:"14px 16px", flexShrink:0, color:"#fff" }}>
         <div style={{ display:"flex", alignItems:"center", gap:12, marginBottom:10 }}>
@@ -459,7 +459,7 @@ function PublicHelper() {
           onKeyDown={e => { if (e.key==="Enter" && !e.shiftKey) { e.preventDefault(); sendText(input, activeTopic); }}}
           onFocus={() => setTimeout(() => endRef.current?.scrollIntoView({ behavior:"smooth" }), 300)}
           placeholder={listening ? "Listening... speak now" : activeTopic ? "Ask about " + activeTitle + "..." : "Type your question here..."}
-          style={{ flex:1, minHeight:44, maxHeight:100, resize:"none", borderRadius:12, border:"1px solid #d1d5db", padding:"10px 12px", fontSize:15, fontFamily:"system-ui", outline:"none", lineHeight:1.4 }}
+          style={{ flex:1, minHeight:44, maxHeight:100, resize:"none", borderRadius:12, border:"1px solid #d1d5db", padding:"10px 12px", fontSize:15, fontFamily:"'IBM Plex Sans', sans-serif", outline:"none", lineHeight:1.4 }}
           rows={1}
         />
         <button onClick={() => sendText(input, activeTopic)} disabled={loading} style={{ borderRadius:12, border:"none", padding:"12px 16px", fontSize:14, fontWeight:700, background:"#2563eb", color:"#fff", cursor:"pointer", flexShrink:0 }}>Send</button>
@@ -564,7 +564,7 @@ function AuthHelper({ user }) {
   ];
 
   return (
-    <div style={{ display:"flex", flexDirection:"column", height:"100dvh", fontFamily:"system-ui,-apple-system,sans-serif", color:"#1f2933", overflow:"hidden", background:"#f8fafc" }}>
+    <div style={{ display:"flex", flexDirection:"column", height:"100dvh", fontFamily:"'IBM Plex Sans', -apple-system, sans-serif", color:"#1f2933", overflow:"hidden", background:"#f8fafc" }}>
       {/* TOP HEADER */}
       <div style={{ background:"linear-gradient(135deg,#1e3a5f,#2563eb,#7c3aed)", padding:"12px 20px", flexShrink:0, color:"#fff" }}>
         <div style={{ display:"flex", alignItems:"center", gap:14, marginBottom:12 }}>
@@ -685,7 +685,7 @@ function AuthHelper({ user }) {
                   <input value={newTask} onChange={e => setNewTask(e.target.value)}
                     onKeyDown={e => { if (e.key==="Enter" && newTask.trim()) { setTasks(t => [...t, {id:Date.now(),text:newTask.trim(),done:false}]); setNewTask(""); }}}
                     placeholder="Add a task or reminder..."
-                    style={{ flex:1, borderRadius:8, border:"1px solid #d1d5db", padding:"10px 12px", fontSize:14, outline:"none", fontFamily:"system-ui" }} />
+                    style={{ flex:1, borderRadius:8, border:"1px solid #d1d5db", padding:"10px 12px", fontSize:14, outline:"none", fontFamily:"'IBM Plex Sans', sans-serif" }} />
                   <button onClick={() => { if (newTask.trim()) { setTasks(t => [...t, {id:Date.now(),text:newTask.trim(),done:false}]); setNewTask(""); }}}
                     style={{ borderRadius:8, border:"none", padding:"10px 16px", fontSize:13, fontWeight:700, background:"#2563eb", color:"#fff", cursor:"pointer" }}>Add</button>
                 </div>
@@ -757,7 +757,7 @@ function AuthHelper({ user }) {
                   onKeyDown={e => { if (e.key==="Enter" && !e.shiftKey) { e.preventDefault(); sendText(input, activeTopic); }}}
                   onFocus={() => setTimeout(() => endRef.current?.scrollIntoView({ behavior:"smooth" }), 300)}
                   placeholder={listening ? "Listening... speak now" : activeTopic ? "Ask about " + activeTopicTitle + "..." : "Type your question here..."}
-                  style={{ flex:1, minHeight:46, maxHeight:120, resize:"none", borderRadius:10, border:"1px solid #d1d5db", padding:"11px 14px", fontSize:15, fontFamily:"system-ui", outline:"none", lineHeight:1.45 }}
+                  style={{ flex:1, minHeight:46, maxHeight:120, resize:"none", borderRadius:10, border:"1px solid #d1d5db", padding:"11px 14px", fontSize:15, fontFamily:"'IBM Plex Sans', sans-serif", outline:"none", lineHeight:1.45 }}
                   rows={1}
                 />
                 <button onClick={() => sendText(input, activeTopic)} disabled={loading} style={{ borderRadius:10, border:"none", padding:"12px 20px", fontSize:14, fontWeight:700, background:loading?"#94a3b8":"#2563eb", color:"#fff", cursor:loading?"not-allowed":"pointer", flexShrink:0 }}>Send</button>

@@ -306,24 +306,3 @@ class PRTEnforcementEngine:
         }
 
     # ── Governance audit helper ───────────────────────────────────────────────
-
-    @staticmethod
-    def to_governance_dict(
-        sender: str,
-        directive: str,
-        filter_result: Dict[str, Any],
-        enforcement: Optional[Dict[str, Any]] = None,
-    ) -> Dict[str, Any]:
-        """
-        Build a clean dict suitable for inserting into db.prt_enforcement_log.
-        Call this from the server endpoint after filter_directive().
-        """
-        return {
-            "sender":         sender,
-            "directive":      directive[:500],
-            "accepted":       filter_result.get("accepted", False),
-            "authority":      filter_result.get("authority", "unknown"),
-            "reason":         filter_result.get("reason", ""),
-            "enforcement_id": (enforcement or {}).get("enforcement_id"),
-            "timestamp":      datetime.now(timezone.utc).isoformat(),
-        }
