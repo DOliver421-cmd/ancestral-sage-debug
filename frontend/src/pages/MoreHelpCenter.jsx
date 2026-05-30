@@ -354,7 +354,28 @@ function ExecPanel({ apiOnline, visibility, setVisibility, superExec }) {
     try {
       await api.post("/admin/gateway/keys", { var_name: envKey, value });
       notify(`${envKey} pushed to gateway`);
+      await loadGateway();
     } catch (e) { notify(`Failed to push ${envKey}: ${e?.response?.data?.detail || e.message}`); }
+  };
+
+  const [keyEnabled, setKeyEnabled] = useState({});
+
+  const revokeApiKey = async (envKey) => {
+    if (!window.confirm(`Revoke ${envKey}? This clears the key from the live gateway immediately.`)) return;
+    try {
+      await api.delete(`/admin/gateway/keys/${envKey}`);
+      notify(`${envKey} revoked from gateway`);
+      await loadGateway();
+    } catch (e) { notify(`Revoke failed: ${e?.response?.data?.detail || e.message}`); }
+  };
+
+  const toggleApiKey = async (envKey, enable) => {
+    try {
+      await api.patch(`/admin/gateway/keys/${envKey}/toggle`, { enabled: enable });
+      setKeyEnabled(s => ({ ...s, [envKey]: enable }));
+      notify(`${envKey} ${enable ? "enabled" : "disabled"}`);
+      await loadGateway();
+    } catch (e) { notify(`Toggle failed: ${e?.response?.data?.detail || e.message}`); }
   };
 
   const TABS = [
@@ -790,6 +811,16 @@ function ExecPanel({ apiOnline, visibility, setVisibility, superExec }) {
                     <button onClick={() => pushApiKey(env, val)} disabled={!val}
                       style={{ background: val ? SIG : "rgba(255,255,255,0.08)", border:"none", color: val ? INK : "rgba(255,255,255,0.3)", padding:"6px 12px", borderRadius:6, fontSize:11, fontWeight:700, cursor: val ? "pointer" : "not-allowed" }}>
                       Push
+                    </button>
+                    <button onClick={() => toggleApiKey(env, !(keyEnabled[env] !== false && isActive !== false))}
+                      title={keyEnabled[env] === false ? "Enable key in gateway" : "Disable key (saves for re-enable)"}
+                      style={{ background: keyEnabled[env] === false ? "rgba(234,179,8,0.25)" : "rgba(255,255,255,0.1)", border:"none", color: keyEnabled[env] === false ? "#fbbf24" : "rgba(255,255,255,0.7)", padding:"6px 10px", borderRadius:6, fontSize:11, fontWeight:700, cursor:"pointer", whiteSpace:"nowrap" }}>
+                      {keyEnabled[env] === false ? "Enable" : "Disable"}
+                    </button>
+                    <button onClick={() => revokeApiKey(env)}
+                      title="Permanently remove key from live gateway"
+                      style={{ background:"rgba(220,38,38,0.18)", border:"none", color:"#f87171", padding:"6px 10px", borderRadius:6, fontSize:11, fontWeight:700, cursor:"pointer" }}>
+                      Revoke
                     </button>
                   </div>
                 </div>
