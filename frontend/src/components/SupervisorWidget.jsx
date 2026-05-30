@@ -358,16 +358,21 @@ export default function SupervisorWidget() {
   function toggleVoice() {
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SR) { addMsg("supervisor", "Voice input isn't supported in this browser. Try Chrome or Edge."); return; }
-    if (listening) { srRef.current?.stop(); setListening(false); return; }
+    if (listening) { srRef.current?.stop(); srRef.current = null; setListening(false); return; }
     const sr = new SR();
     srRef.current = sr;
+    sr.lang = "en-US";
     sr.continuous = false;
     sr.interimResults = false;
-    sr.onresult = e => { setInput(e.results[0][0].transcript); setListening(false); };
-    sr.onerror  = () => setListening(false);
-    sr.onend    = () => setListening(false);
-    sr.start();
-    setListening(true);
+    sr.onresult = e => { setInput(e.results[0][0].transcript); srRef.current = null; setListening(false); };
+    sr.onerror  = () => { srRef.current = null; setListening(false); };
+    sr.onend    = () => { srRef.current = null; setListening(false); };
+    try {
+      sr.start();
+      setListening(true);
+    } catch {
+      srRef.current = null;
+    }
   }
 
   // ── Send ─────────────────────────────────────────────────────────────────────

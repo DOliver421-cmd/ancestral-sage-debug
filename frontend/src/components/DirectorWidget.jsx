@@ -733,6 +733,7 @@ export default function DirectorWidget() {
   // ── Derived ────────────────────────────────────────────────────────────────
 
   const bottomRef  = useRef(null);
+  const recRef     = useRef(null);
   const isMonitor  = user?.role === "admin" || user?.role === "executive_admin";
   const roleTabs   = ROLE_TABS[user?.role] || ["chat"];
 
@@ -816,17 +817,27 @@ export default function DirectorWidget() {
 
   const toggleMic = () => {
     if (!SpeechRecognitionImpl) return;
-    if (recording) { setRecording(false); return; }
+    if (recording) {
+      recRef.current?.stop();
+      recRef.current = null;
+      setRecording(false);
+      return;
+    }
     const rec = new SpeechRecognitionImpl();
     rec.lang = "en-US"; rec.continuous = false; rec.interimResults = false;
     rec.onresult = ev => {
       const txt = ev.results?.[0]?.[0]?.transcript?.trim();
       if (txt) setInput(cur => cur ? `${cur} ${txt}` : txt);
     };
-    rec.onerror = () => setRecording(false);
-    rec.onend   = () => setRecording(false);
-    rec.start();
-    setRecording(true);
+    rec.onerror = () => { recRef.current = null; setRecording(false); };
+    rec.onend   = () => { recRef.current = null; setRecording(false); };
+    recRef.current = rec;
+    try {
+      rec.start();
+      setRecording(true);
+    } catch {
+      recRef.current = null;
+    }
   };
 
   // ── File upload ───────────────────────────────────────────────────────────
