@@ -45,6 +45,8 @@ from app.routes import (
     system,
 )
 from app.routes import exec as exec_routes
+from app.routes import executive_control, legal
+from app.security.enforcement import TierEnforcementMiddleware
 
 logger = logging.getLogger("lcewai")
 logging.basicConfig(level=logging.INFO)
@@ -194,9 +196,11 @@ app.include_router(supervisor.router,    prefix=_PREFIX)
 app.include_router(auditor.router,       prefix=_PREFIX)
 app.include_router(payments.router,      prefix=_PREFIX)
 app.include_router(adaptive.router,      prefix=_PREFIX)
-app.include_router(ai.router,            prefix=_PREFIX)
-app.include_router(exec_routes.router,   prefix=_PREFIX)
-app.include_router(misc.router,          prefix=_PREFIX)
+app.include_router(ai.router,                  prefix=_PREFIX)
+app.include_router(exec_routes.router,         prefix=_PREFIX)
+app.include_router(executive_control.router,   prefix=_PREFIX)
+app.include_router(legal.router,               prefix=_PREFIX)
+app.include_router(misc.router,                prefix=_PREFIX)
 
 # Revenue operations routers (wired at startup)
 try:
@@ -227,6 +231,9 @@ except Exception:
     except Exception as _pr_err:
         logger.warning("playlist_routes unavailable: %s", _pr_err)
 
+
+# ── Middleware: Tier + Role enforcement (second line of defence) ──────────────
+app.add_middleware(TierEnforcementMiddleware)
 
 # ── CORS ──────────────────────────────────────────────────────────────────────
 _cors_origins = [o.strip() for o in os.environ.get("CORS_ORIGINS", "*").split(",") if o.strip()]

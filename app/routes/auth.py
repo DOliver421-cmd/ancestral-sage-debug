@@ -144,7 +144,7 @@ async def login(body: LoginReq, request: Request):
     return TokenResp(access_token=make_token(user.id, user.role, extra=_extra), user=user)
 
 
-@router.get("/auth/me", response_model=User)
+@router.get("/auth/me")
 async def me(user: User = Depends(current_user)):
     if FieldAuthorization is not None:
         visible_fields = FieldAuthorization.get_visible_fields(
@@ -154,8 +154,49 @@ async def me(user: User = Depends(current_user)):
         )
         user_dict = user.model_dump()
         filtered = FieldAuthorization.filter_response(user_dict, visible_fields)
-        return User(**filtered)
-    return user
+        user_out = User(**filtered)
+    else:
+        user_out = user
+
+    # Attach capability contract so the frontend doesn't need a second round-trip
+    try:
+        from app.security.feature_tiers import build_capability_contract
+        from app.security.enforcement import _resolve_user_tier, _resolve_sage_tier
+        feature_tier = await _resolve_user_tier(user.id)
+        sage_tier    = await _resolve_sage_tier(user.id)
+        capabilities = build_capability_contract(
+            role=user.role,
+            feature_tier=feature_tier,
+            sage_tier=sage_tier,
+            more_member=getattr(user, "more_member", False),
+        )
+    except Exception:
+        capabilities = None
+
+    result = user_out.model_dump()
+    if capabilities is not None:
+        result["capabilities"] = capabilities
+    return result
+
+
+@router.get("/auth/capabilities")
+async def get_capabilities(user: User = Depends(current_user)):
+    """Return the full capability contract for the authenticated user.
+
+    Used by the frontend to determine feature visibility without re-fetching /auth/me.
+    """
+    from app.security.feature_tiers import build_capability_contract
+    from app.security.enforcement import _resolve_user_tier, _resolve_sage_tier
+
+    feature_tier = await _resolve_user_tier(user.id)
+    sage_tier    = await _resolve_sage_tier(user.id)
+
+    return build_capability_contract(
+        role=user.role,
+        feature_tier=feature_tier,
+        sage_tier=sage_tier,
+        more_member=getattr(user, "more_member", False),
+    )
 
 
 @router.post("/auth/change-password")

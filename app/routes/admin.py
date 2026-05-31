@@ -1288,3 +1288,99 @@ async def delete_price(price_id: str, user: User = Depends(require_role("executi
         "detail": f"Deleted price key={doc.get('key')} id={price_id}", "at": now,
     })
     return {"deleted": price_id}
+
+
+# ── Feature tier management (admin/editor endpoints) ─────────────────────────
+
+@router.patch("/admin/users/{uid}/feature-tier")
+async def set_user_feature_tier(uid: str, body: dict, user: User = Depends(require_role("admin"))):
+    """Set a user's commercial feature tier. Admin+ required."""
+    tier = (body.get("tier") or "").strip().lower()
+    if tier not in ("free", "premium", "executive"):
+        raise HTTPException(400, "tier must be 'free', 'premium', or 'executive'")
+    target = await db.users.find_one({"id": uid}, {"_id": 0, "feature_tier": 1, "role": 1})
+    if not target:
+        raise HTTPException(404, "User not found")
+    old_tier = target.get("feature_tier", "free")
+    await db.users.update_one({"id": uid}, {"$set": {"feature_tier": tier}})
+    await audit(
+        user.id, "admin.user.feature_tier_changed",
+        target=uid,
+        meta={"from": old_tier, "to": tier},
+    )
+    return {"ok": True, "uid": uid, "feature_tier": tier, "previous": old_tier}
+
+
+@router.get("/admin/users/{uid}/capabilities")
+async def get_user_capabilities(uid: str, user: User = Depends(require_role("admin"))):
+    """Return the full capability contract for any user. Admin+ required."""
+    from app.security.feature_tiers import build_capability_contract
+    target = await db.users.find_one({"id": uid}, {"_id": 0})
+    if not target:
+        raise HTTPException(404, "User not found")
+    return build_capability_contract(
+        role=target.get("role", "student"),
+        feature_tier=target.get("feature_tier", "free"),
+        sage_tier=target.get("sage_tier", "basic"),
+        more_member=target.get("more_member", False),
+    )
+
+
+@router.get("/admin/feature-tiers/summary")
+async def feature_tier_summary(user: User = Depends(require_role("admin"))):
+    """Return a breakdown of how many users are on each feature tier."""
+    pipeline = [
+        {"$group": {"_id": "$feature_tier", "count": {"$sum": 1}}},
+        {"$sort": {"_id": 1}},
+    ]
+    rows = await db.users.aggregate(pipeline).to_list(length=10)
+    return {
+        "tiers": [{"tier": r["_id"] or "free", "count": r["count"]} for r in rows]
+    }
+
+
+@router.post("/admin/feature-flags/user")
+async def set_user_feature_flag(body: dict, user: User = Depends(require_role("admin"))):
+    """Set a feature flag override for a specific user. Admin+ required.
+
+    Body: { uid, flag, enabled, reason? }
+    """
+    uid     = (body.get("uid") or "").strip()
+    flag    = (body.get("flag") or "").strip()
+    enabled = bool(body.get("enabled", True))
+    reason  = (body.get("reason") or "").strip() or None
+
+    if not uid or not flag:
+        raise HTTPException(400, "uid and flag are required")
+
+    target = await db.users.find_one({"id": uid}, {"_id": 0, "id": 1})
+    if not target:
+        raise HTTPException(404, "User not found")
+
+    now = datetime.now(timezone.utc)
+    record = {
+        "uid":        uid,
+        "flag":       flag,
+        "enabled":    enabled,
+        "set_by":     user.id,
+        "set_at":     now,
+        "reason":     reason,
+    }
+    await db.user_feature_flags.update_one(
+        {"uid": uid, "flag": flag},
+        {"$set": record},
+        upsert=True,
+    )
+    await audit(
+        user.id, "admin.feature_flag.user_override",
+        target=uid,
+        meta={"flag": flag, "enabled": enabled, "reason": reason},
+    )
+    return {"ok": True, **record, "set_at": now.isoformat()}
+
+
+@router.get("/admin/feature-flags/user/{uid}")
+async def get_user_feature_flags(uid: str, user: User = Depends(require_role("admin"))):
+    """Return all feature flag overrides for a user."""
+    flags = await db.user_feature_flags.find({"uid": uid}, {"_id": 0}).to_list(length=200)
+    return {"uid": uid, "overrides": flags}
