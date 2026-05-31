@@ -45,6 +45,7 @@ from app.routes import (
 )
 from app.routes import exec as exec_routes
 from app.routes import executive_control, legal
+from app.routes import providers, billing, supervisor_v2
 from app.security.enforcement import TierEnforcementMiddleware
 from app.config import APP_ENV, _DOCS_ENABLED as _DOCS_ENABLED_CFG
 from app.utils.alerting import init_sentry
@@ -232,6 +233,10 @@ app.include_router(exec_routes.router,         prefix=_PREFIX)
 app.include_router(executive_control.router,   prefix=_PREFIX)
 app.include_router(legal.router,               prefix=_PREFIX)
 app.include_router(misc.router,                prefix=_PREFIX)
+# Phase 2–3: Supervisor reconstruction modules
+app.include_router(providers.router,           prefix=_PREFIX)
+app.include_router(billing.router,             prefix=_PREFIX)
+app.include_router(supervisor_v2.router,       prefix=_PREFIX)
 
 # Revenue operations routers (wired at startup)
 try:

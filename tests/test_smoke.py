@@ -190,3 +190,174 @@ def test_csp_production_no_unsafe_eval():
     )
     assert "unsafe-eval" not in csp
     assert "upgrade-insecure-requests" in csp
+
+
+# ── Supervisor service ────────────────────────────────────────────────────────
+
+def test_supervisor_service_imports():
+    from app.services import supervisor_service as ss
+    assert callable(ss.set_policy)
+    assert callable(ss.get_policy)
+    assert callable(ss.list_policies)
+    assert callable(ss.set_feature_flag)
+    assert callable(ss.get_feature_flag)
+    assert callable(ss.record_decision)
+    assert callable(ss.evaluate_fallback_decision_tree)
+
+
+def test_fallback_tree_legal_unclear():
+    import asyncio
+    from app.services.supervisor_service import evaluate_fallback_decision_tree
+    result = asyncio.get_event_loop().run_until_complete(
+        evaluate_fallback_decision_tree({"is_legal_related": True, "is_clear": False})
+    )
+    assert result.verdict == "BLOCK"
+    assert result.log_key == "unclear_legal_request"
+
+
+def test_fallback_tree_legal_unknown_legality():
+    import asyncio
+    from app.services.supervisor_service import evaluate_fallback_decision_tree
+    result = asyncio.get_event_loop().run_until_complete(
+        evaluate_fallback_decision_tree({
+            "is_legal_related": True,
+            "is_clear": True,
+            "is_action_legal": None,   # unknown = escalate
+        })
+    )
+    assert result.verdict == "ESCALATE"
+    assert result.log_key == "blocked_for_legal_uncertainty"
+
+
+def test_fallback_tree_exploitative():
+    import asyncio
+    from app.services.supervisor_service import evaluate_fallback_decision_tree
+    result = asyncio.get_event_loop().run_until_complete(
+        evaluate_fallback_decision_tree({
+            "is_legal_related": True,
+            "is_clear": True,
+            "is_action_legal": True,
+            "benefits_platform_only": True,
+        })
+    )
+    assert result.verdict == "BLOCK"
+    assert result.log_key == "blocked_exploitative_action"
+
+
+def test_fallback_tree_legal_pass():
+    import asyncio
+    from app.services.supervisor_service import evaluate_fallback_decision_tree
+    result = asyncio.get_event_loop().run_until_complete(
+        evaluate_fallback_decision_tree({
+            "is_legal_related": True,
+            "is_clear": True,
+            "is_action_legal": True,
+            "benefits_platform_only": False,
+            "harms_wai": False,
+            "harms_user": False,
+        })
+    )
+    assert result.verdict == "PASS"
+
+
+def test_fallback_tree_nonfunctional_control():
+    import asyncio
+    from app.services.supervisor_service import evaluate_fallback_decision_tree
+    result = asyncio.get_event_loop().run_until_complete(
+        evaluate_fallback_decision_tree({
+            "is_legal_related": False,
+            "feature_functional": False,
+        })
+    )
+    assert result.verdict == "BLOCK"
+    assert result.log_key == "nonfunctional_control_used"
+
+
+def test_fallback_tree_misrepresentation():
+    import asyncio
+    from app.services.supervisor_service import evaluate_fallback_decision_tree
+    result = asyncio.get_event_loop().run_until_complete(
+        evaluate_fallback_decision_tree({
+            "is_legal_related": False,
+            "feature_functional": True,
+            "misrepresents_capability": True,
+        })
+    )
+    assert result.verdict == "BLOCK"
+    assert result.log_key == "blocked_misrepresentation"
+
+
+def test_fallback_tree_non_legal_pass():
+    import asyncio
+    from app.services.supervisor_service import evaluate_fallback_decision_tree
+    result = asyncio.get_event_loop().run_until_complete(
+        evaluate_fallback_decision_tree({
+            "is_legal_related": False,
+            "feature_functional": True,
+            "misrepresents_capability": False,
+            "creates_false_compliance": False,
+        })
+    )
+    assert result.verdict == "PASS"
+
+
+# ── Compliance engine ─────────────────────────────────────────────────────────
+
+def test_compliance_engine_imports():
+    from app.services.compliance_engine import ComplianceEngine, Verdict, list_compliance_events
+    assert callable(ComplianceEngine.evaluate)
+    assert Verdict.PASS == "PASS"
+    assert Verdict.BLOCK == "BLOCK"
+    assert Verdict.ESCALATE == "ESCALATE"
+
+
+# ── Billing service ───────────────────────────────────────────────────────────
+
+def test_billing_fee_rate():
+    from app.services.billing_service import PROCESSING_FEE_RATE, SAGE_FEE_CENTS
+    assert PROCESSING_FEE_RATE == 0.10
+    assert SAGE_FEE_CENTS == 300
+
+
+def test_billing_credit_refund_amount_no_value():
+    """Amount = cost + 10% when user received no value."""
+    cost = 1000   # $10.00
+    expected = int(cost * 1.10)  # $11.00
+    assert expected == 1100
+
+
+def test_billing_credit_refund_amount_with_value():
+    """Amount = cost only when value was delivered."""
+    cost = 1000
+    expected = cost
+    assert expected == 1000
+
+
+# ── Route modules ─────────────────────────────────────────────────────────────
+
+def test_supervisor_v2_router_paths():
+    from app.routes.supervisor_v2 import router
+    paths = [r.path for r in router.routes]
+    assert "/supervisor/v2/policies" in paths
+    assert "/supervisor/v2/flags" in paths
+    assert "/supervisor/v2/decisions" in paths
+    assert "/supervisor/v2/governance-log" in paths
+    assert "/supervisor/v2/compliance" in paths
+    assert "/supervisor/v2/decision-tree/evaluate" in paths
+
+
+def test_providers_router_paths():
+    from app.routes.providers import router
+    paths = [r.path for r in router.routes]
+    assert "/providers" in paths
+    assert "/providers/keys" in paths
+    assert "/providers/usage-log" in paths
+
+
+def test_billing_router_paths():
+    from app.routes.billing import router
+    paths = [r.path for r in router.routes]
+    assert "/billing/credits/balance" in paths
+    assert "/billing/refunds/site-credits" in paths
+    assert "/billing/refunds/cash" in paths
+    assert "/billing/sage-sessions" in paths

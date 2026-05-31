@@ -87,6 +87,40 @@ async def ensure_indexes():
         await db.incidents.create_index([("status", 1), ("created_at", 1)])
         # Rate-limit counter TTL index (distributed rate limiting)
         await db.rate_limit_counters.create_index("expires_at", expireAfterSeconds=0)
+
+        # Phase 2–3: Supervisor reconstruction indexes
+        await db.supervisor_policies.create_index("key", unique=True)
+        await db.supervisor_policies.create_index([("active", 1), ("key", 1)])
+        await db.feature_flags.create_index("key", unique=True)
+        await db.feature_flags.create_index([("active", 1), ("key", 1)])
+        await db.supervisor_decisions.create_index([("created_at", -1)])
+        await db.supervisor_decisions.create_index([("actor_id", 1), ("action", 1)])
+        await db.governance_log.create_index([("created_at", -1)])
+        await db.governance_log.create_index([("actor_id", 1), ("event_type", 1)])
+        await db.compliance_events.create_index([("created_at", -1)])
+        await db.compliance_events.create_index([("actor_id", 1), ("decision", 1)])
+        await db.compliance_events.create_index([("action", 1), ("created_at", -1)])
+        await db.api_providers.create_index("name", unique=True)
+        await db.api_providers.create_index([("status", 1)])
+        await db.api_keys.create_index([("provider_id", 1), ("status", 1), ("scope", 1)])
+        await db.api_key_usage_log.create_index([("created_at", -1)])
+        await db.api_key_usage_log.create_index([("provider_id", 1), ("created_at", -1)])
+        await db.api_key_usage_log.create_index(
+            "created_at", expireAfterSeconds=90 * 24 * 3600
+        )
+        await db.billing_events.create_index([("user_id", 1), ("created_at", -1)])
+        await db.credits.create_index([("user_id", 1), ("created_at", -1)])
+        await db.refunds.create_index([("user_id", 1), ("created_at", -1)])
+        await db.sage_sessions.create_index([("user_id", 1), ("started_at", -1)])
+        await db.persona_capabilities.create_index(
+            [("persona_id", 1), ("capability_key", 1)], unique=True
+        )
+        await db.persona_provider_scopes.create_index(
+            [("persona_id", 1), ("provider_id", 1)], unique=True
+        )
+        await db.persona_policies.create_index(
+            [("persona_id", 1), ("key", 1)], unique=True
+        )
         logger.info("Indexes ensured")
     except Exception:
         logger.exception("ensure_indexes failed (non-fatal)")
