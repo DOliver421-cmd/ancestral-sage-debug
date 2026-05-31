@@ -32,7 +32,7 @@ from app.security.passwords import (
     hash_pw, verify_pw, _hash_token, _make_reset_token, _build_reset_url,
     _send_reset_email, _send_welcome_email,
 )
-from app.security.rate_limit import check_rate
+from app.security.rate_limit import async_check_rate as check_rate
 from app.utils.audit import audit, notify
 
 logger = logging.getLogger("lcewai")
@@ -48,7 +48,7 @@ except ImportError:
 
 @router.post("/auth/register", response_model=TokenResp)
 async def register(body: RegisterReq):
-    check_rate(f"register:{body.email}", max_calls=5, window_sec=60)
+    await check_rate(f"register:{body.email}", max_calls=5, window_sec=60)
     if await db.users.find_one({"email": body.email}):
         raise HTTPException(400, "Email already registered")
 
@@ -56,6 +56,8 @@ async def register(body: RegisterReq):
         raise HTTPException(400, "You must agree to the Terms of Service and Privacy Policy to create an account.")
     if not body.over_13:
         raise HTTPException(400, "You must be at least 13 years old to create an account. If you are under 13, please ask a parent or guardian to contact us.")
+    if len(body.password) < 8:
+        raise HTTPException(400, "Password must be at least 8 characters.")
 
     user = User(email=body.email, full_name=body.full_name, role="student")
     doc = user.model_dump()
@@ -71,7 +73,7 @@ async def register(body: RegisterReq):
 
 @router.post("/auth/login", response_model=TokenResp)
 async def login(body: LoginReq, request: Request):
-    check_rate(f"login:{body.email}", max_calls=5, window_sec=60)
+    await check_rate(f"login:{body.email}", max_calls=5, window_sec=60)
     doc = await db.users.find_one({"email": body.email}, {"_id": 0})
 
     if doc:
@@ -108,12 +110,59 @@ async def login(body: LoginReq, request: Request):
                     kind="warning",
                 )
                 logger.warning("Account locked after 10 failed attempts: %s", body.email)
+                try:
+                    from app.utils.alerting import alert_account_locked
+                    asyncio.create_task(alert_account_locked(body.email))
+                except Exception:
+                    pass
             await db.users.update_one({"email": body.email}, {"$set": update})
         raise HTTPException(401, "Invalid credentials")
 
     if doc.get("is_active") is False:
         await audit(doc.get("id"), "auth.login.blocked_inactive", body.email)
         raise HTTPException(403, "Your account has been deactivated. Contact your administrator.")
+
+    # ── MFA enforcement ──────────────────────────────────────────────────────────
+    # If the executive has configured MFA for this role, require a TOTP token.
+    # The client sends it as X-MFA-Token header; the raw header value is checked
+    # against the stored TOTP secret via pyotp (if installed).
+    if db is not None:
+        try:
+            mfa_cfg = await db.mfa_config.find_one({"_id": "config"}, {"_id": 0})
+            if mfa_cfg and mfa_cfg.get("totp_enabled"):
+                required_roles = mfa_cfg.get("require_mfa_for_roles", [])
+                user_role_for_mfa = doc.get("role", "student")
+                if user_role_for_mfa in required_roles:
+                    mfa_token = (request.headers.get("x-mfa-token") or "").strip()
+                    totp_secret = doc.get("totp_secret")
+                    if not totp_secret:
+                        raise HTTPException(
+                            403,
+                            detail={
+                                "error": "mfa_not_configured",
+                                "message": "MFA is required for your role but has not been set up on your account. Contact your administrator.",
+                            },
+                        )
+                    if not mfa_token:
+                        raise HTTPException(
+                            403,
+                            detail={
+                                "error": "mfa_required",
+                                "message": "Multi-factor authentication is required. Provide your TOTP code in the X-MFA-Token header.",
+                            },
+                        )
+                    try:
+                        import pyotp as _pyotp
+                        totp = _pyotp.TOTP(totp_secret)
+                        if not totp.verify(mfa_token, valid_window=1):
+                            await audit(doc.get("id"), "auth.login.mfa_failed", body.email)
+                            raise HTTPException(401, "Invalid MFA token.")
+                    except ImportError:
+                        logger.warning("pyotp not installed — MFA check skipped for role=%s", user_role_for_mfa)
+        except HTTPException:
+            raise
+        except Exception as _mfa_err:
+            logger.warning("MFA config check failed (non-fatal): %s", _mfa_err)
 
     await db.users.update_one(
         {"email": body.email},
@@ -141,7 +190,23 @@ async def login(body: LoginReq, request: Request):
     except Exception:
         logger.warning("login: session recording failed (non-fatal)")
     _extra = {"session_id": _session_id} if _session_id else None
-    return TokenResp(access_token=make_token(user.id, user.role, extra=_extra), user=user)
+    _tv = doc.get("token_version", 0)
+    return TokenResp(access_token=make_token(user.id, user.role, extra=_extra, token_version=_tv), user=user)
+
+
+@router.post("/auth/refresh")
+async def refresh_token(user: User = Depends(current_user)):
+    """Issue a new JWT for an authenticated user without requiring re-login.
+
+    Reads the current token_version from DB so the new token is always in sync
+    with the revocation state. The previous token remains valid until its original
+    exp — clients must replace it immediately on receiving the new one.
+    """
+    doc = await db.users.find_one({"id": user.id}, {"_id": 0, "token_version": 1})
+    _tv = (doc or {}).get("token_version", 0)
+    new_token = make_token(user.id, user.role, token_version=_tv)
+    await audit(user.id, "auth.token_refreshed")
+    return {"access_token": new_token}
 
 
 @router.get("/auth/me")
@@ -265,11 +330,27 @@ async def gdpr_delete_account(user: User = Depends(current_user)):
             "password_hash": "[deleted]",
         }}
     )
-    for coll in ["progress", "lab_submissions", "portfolio", "ai_consents"]:
+    # Delete all user-owned data across every collection
+    _delete_colls = [
+        # Original collections
+        "progress", "lab_submissions", "portfolio", "ai_consents",
+        # Phase 2 collections (legal, exec controls, chat, sessions)
+        "legal_consents", "break_glass_overrides", "user_feature_flags",
+        "chat_history", "notifications", "auth_sessions",
+    ]
+    for coll in _delete_colls:
         try:
             await db[coll].delete_many({"user_id": user.id})
         except Exception:
             pass
+    # Anonymise exec_audit_log actor_id rather than delete (preserve audit chain)
+    try:
+        await db.exec_audit_log.update_many(
+            {"actor_id": user.id},
+            {"$set": {"actor_id": f"[deleted:{user.id[:8]}]", "actor_email": "[deleted]"}},
+        )
+    except Exception:
+        pass
     await audit(user.id, "gdpr.account_deleted", meta={"grace_period_days": 30})
     return {"ok": True, "message": "Account scheduled for deletion. You have a 30-day grace period to contact support if this was a mistake."}
 
@@ -344,8 +425,8 @@ async def exec_system_info(user: User = Depends(require_role("executive_admin"))
 @router.post("/auth/forgot-password")
 async def forgot_password(body: ForgotPasswordReq, request: Request):
     ip = (request.client.host if request.client else "anon")
-    check_rate(f"forgot:ip:{ip}", max_calls=30, window_sec=300)
-    check_rate(f"forgot:email:{body.email}", max_calls=5, window_sec=600)
+    await check_rate(f"forgot:ip:{ip}", max_calls=30, window_sec=300)
+    await check_rate(f"forgot:email:{body.email}", max_calls=5, window_sec=600)
 
     user_doc = await db.users.find_one({"email": body.email}, {"_id": 0})
     email_sent = False
@@ -440,7 +521,7 @@ async def _apply_password_reset(target_id: str, new_password: str,
 async def reset_password_endpoint(body: ResetPasswordReq, request: Request):
     _validate_reset_request(body.token, body.new_password)
     ip = (request.client.host if request.client else "anon")
-    check_rate(f"reset:ip:{ip}", max_calls=60, window_sec=300)
+    await check_rate(f"reset:ip:{ip}", max_calls=60, window_sec=300)
     token_hash = _hash_token(body.token)
     rec = await _load_reset_token(token_hash)
     target = await _load_target_user_for_reset(rec["user_id"])
@@ -466,8 +547,8 @@ async def recovery_code_status(body: RecoveryCodeStatusReq):
 async def emergency_recovery(body: EmergencyRecoveryReq, request: Request):
     from recovery import verify_recovery_code, emergency_password_reset
     ip = (request.client.host if request.client else "emergency-recovery")
-    check_rate(f"recovery:ip:{ip}", max_calls=10, window_sec=300)
-    check_rate(f"recovery:email:{body.email}", max_calls=3, window_sec=600)
+    await check_rate(f"recovery:ip:{ip}", max_calls=10, window_sec=300)
+    await check_rate(f"recovery:email:{body.email}", max_calls=3, window_sec=600)
 
     user_doc = await db.users.find_one({"email": body.email}, {"_id": 0})
     if not user_doc:
@@ -579,4 +660,24 @@ async def revoke_session(session_id: str, user: User = Depends(current_user)):
 async def revoke_all_sessions(user: User = Depends(current_user)):
     await db.users.update_one({"id": user.id}, {"$inc": {"token_version": 1}})
     await db.auth_sessions.delete_many({"user_id": user.id})
-    return {"ok": True, "message": "All other sessions revoked. Please re-authenticate."}
+    await audit(user.id, "auth.sessions_revoked_all")
+    return {"ok": True, "message": "All sessions revoked. Please re-authenticate."}
+
+
+@router.post("/auth/force-logout/{uid}")
+async def force_logout_user(uid: str, user: User = Depends(require_role("admin"))):
+    """Force-revoke all tokens for a specific user. Admin+ required.
+
+    Increments token_version in DB — every existing JWT for this user becomes invalid
+    on their next request regardless of its exp claim.
+    """
+    target = await db.users.find_one({"id": uid}, {"_id": 0, "role": 1})
+    if not target:
+        raise HTTPException(404, "User not found")
+    from app.security.auth import can_modify
+    if not can_modify(user, target.get("role", "student")):
+        raise HTTPException(403, "Cannot force-logout a user with a higher role than yours.")
+    await db.users.update_one({"id": uid}, {"$inc": {"token_version": 1}})
+    await db.auth_sessions.delete_many({"user_id": uid})
+    await audit(user.id, "auth.force_logout", target=uid)
+    return {"ok": True, "uid": uid, "message": "All tokens for this user have been revoked."}

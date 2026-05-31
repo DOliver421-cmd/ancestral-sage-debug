@@ -17,9 +17,9 @@ from app.models.user import User
 logger = logging.getLogger("lcewai")
 
 
-def make_token(user_id: str, role: str, extra: Optional[dict] = None) -> str:
+def make_token(user_id: str, role: str, extra: Optional[dict] = None, token_version: int = 0) -> str:
     exp = datetime.now(timezone.utc) + timedelta(hours=JWT_EXPIRE_HOURS)
-    payload = {"sub": user_id, "role": role, "exp": exp}
+    payload = {"sub": user_id, "role": role, "exp": exp, "tv": token_version}
     if extra:
         payload.update(extra)
     return jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALGO)
@@ -38,6 +38,12 @@ async def current_user(authorization: Optional[str] = Header(None)) -> User:
         raise HTTPException(401, "User not found")
     if user_doc.get("is_active") is False:
         raise HTTPException(403, "Account deactivated")
+    # Token version check — revoked when user calls DELETE /auth/sessions (all)
+    # or when an admin forcibly invalidates tokens.
+    db_tv = user_doc.get("token_version", 0)
+    token_tv = payload.get("tv", 0)
+    if token_tv < db_tv:
+        raise HTTPException(401, "Token has been revoked. Please log in again.")
     return User(**user_doc)
 
 

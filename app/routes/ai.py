@@ -38,7 +38,8 @@ from app.database import db
 from app.models.user import User
 from app.models.ai import AIConsentReq, ResolveModeReq, AIChatReq, OrchestratorReq, ScholarTaskReq
 from app.security.auth import current_user
-from app.security.rate_limit import check_rate
+from app.security.enforcement import gate, require_tier
+from app.security.rate_limit import async_check_rate as check_rate
 
 logger = logging.getLogger("lcewai")
 router = APIRouter()
@@ -282,7 +283,7 @@ class SageTTSReq(__import__('pydantic').BaseModel):
 
 
 @router.post("/ai/sage/tts")
-async def sage_tts(body: SageTTSReq, user: User = Depends(current_user)):
+async def sage_tts(body: SageTTSReq, user: User = Depends(gate("student", "premium", "tts_sage_openai"))):
     import time as _t
     if not OPENAI_API_KEY and not EMERGENT_LLM_KEY:
         raise HTTPException(500, "AI not configured")
@@ -348,7 +349,7 @@ async def sage_tts(body: SageTTSReq, user: User = Depends(current_user)):
 
 
 @router.post("/ai/ambassador")
-async def ai_ambassador(body: dict, user: User = Depends(current_user)):
+async def ai_ambassador(body: dict, user: User = Depends(gate("admin", "executive", "ai_ambassador"))):
     from ai.persona_loader import get_persona
     from tools.ambassador_tools import AMBASSADOR_TOOLS, dispatch_ambassador_tool
     from ai.prompt_guard import prompt_guard
@@ -361,7 +362,7 @@ async def ai_ambassador(body: dict, user: User = Depends(current_user)):
     session_id = body.get("session_id", "default")
     if not message:
         raise HTTPException(400, "Message is required")
-    check_rate(f"ai_ambassador:{user.id}", max_calls=10, window_sec=60)
+    await check_rate(f"ai_ambassador:{user.id}", max_calls=10, window_sec=60)
     try:
         prompt_guard.assert_message_safe(message, user.role, "/ai/ambassador", user.id)
     except ValueError as _e:
@@ -427,7 +428,7 @@ async def ai_ambassador(body: dict, user: User = Depends(current_user)):
 
 
 @router.post("/ai/architect")
-async def ai_architect(body: dict, user: User = Depends(current_user)):
+async def ai_architect(body: dict, user: User = Depends(gate("admin", "executive", "ai_architect"))):
     from ai.persona_loader import get_persona
     from tools.architect_tools import ARCHITECT_TOOLS, dispatch_architect_tool
     from ai.prompt_guard import prompt_guard
@@ -440,7 +441,7 @@ async def ai_architect(body: dict, user: User = Depends(current_user)):
     session_id = body.get("session_id", "default")
     if not message:
         raise HTTPException(400, "Message is required")
-    check_rate(f"ai_architect:{user.id}", max_calls=10, window_sec=60)
+    await check_rate(f"ai_architect:{user.id}", max_calls=10, window_sec=60)
     try:
         prompt_guard.assert_message_safe(message, user.role, "/ai/architect", user.id)
     except ValueError as _e:
@@ -582,8 +583,8 @@ def _build_ancestral_sage_system(body) -> str:
 
 
 @router.post("/ai/chat")
-async def ai_chat(body: AIChatReq, user: User = Depends(current_user)):
-    check_rate(f"ai_chat:{user.id}", max_calls=20, window_sec=60)
+async def ai_chat(body: AIChatReq, user: User = Depends(gate("student", "premium", "ai_chat"))):
+    await check_rate(f"ai_chat:{user.id}", max_calls=20, window_sec=60)
     is_sage = body.mode == "ancestral_sage"
 
     if is_sage:
@@ -727,14 +728,14 @@ def compute_scholar_hash() -> str:
 
 
 @router.post("/ai/orchestrator")
-async def ai_orchestrator(body: OrchestratorReq, user: User = Depends(current_user)):
+async def ai_orchestrator(body: OrchestratorReq, user: User = Depends(gate("student", "premium", "ai_orchestrator"))):
     import asyncio as _asyncio
     import base64 as _b64
     try:
         import anthropic as _anthropic_module
     except Exception as e:
         raise HTTPException(500, f"AI library unavailable: {e}")
-    check_rate(f"ai_orchestrator:{user.id}", max_calls=30, window_sec=60)
+    await check_rate(f"ai_orchestrator:{user.id}", max_calls=30, window_sec=60)
     try:
         from ai.prompt_guard import prompt_guard
         prompt_guard.assert_message_safe(body.message, user.role, "/ai/orchestrator", user.id)
@@ -838,9 +839,9 @@ async def orchestrator_integrity(user: User = Depends(current_user)):
 # ─── Scholar ──────────────────────────────────────────────────────────────────
 
 @router.post("/ai/scholar")
-async def ai_scholar(body: ScholarTaskReq, user: User = Depends(current_user)):
+async def ai_scholar(body: ScholarTaskReq, user: User = Depends(gate("student", "premium", "ai_scholar"))):
     from app.security.auth import assert_role
-    check_rate(f"ai_scholar:{user.id}", max_calls=30, window_sec=60)
+    await check_rate(f"ai_scholar:{user.id}", max_calls=30, window_sec=60)
     task_ctx = body.task_context or ""
     if body.task_type and body.task_type != "general":
         task_label = {
@@ -888,7 +889,7 @@ async def ai_helper(body: dict, request: _Request):
     if len(message) > 4000:
         raise HTTPException(400, "Message too long (max 4000 characters)")
     ip = request.client.host if request.client else "unknown"
-    check_rate(f"ai_helper:ip:{ip}", max_calls=15, window_sec=60)
+    await check_rate(f"ai_helper:ip:{ip}", max_calls=15, window_sec=60)
     try:
         from ai.prompt_guard import prompt_guard
         prompt_guard.assert_message_safe(message, "public", "/ai/helper", ip)
@@ -954,7 +955,7 @@ YOU NEVER:
 from fastapi import UploadFile, File as _File
 
 @router.post("/ai/director/upload")
-async def director_upload_file(file: UploadFile = _File(...), user: User = Depends(current_user)):
+async def director_upload_file(file: UploadFile = _File(...), user: User = Depends(gate("admin", "executive", "ai_director"))):
     MAX_SIZE = 5 * 1024 * 1024
     raw = await file.read()
     if len(raw) > MAX_SIZE:
@@ -991,7 +992,7 @@ async def director_upload_file(file: UploadFile = _File(...), user: User = Depen
 
 
 @router.post("/ai/director")
-async def ai_director(body: dict, user: User = Depends(current_user)):
+async def ai_director(body: dict, user: User = Depends(gate("admin", "executive", "ai_director"))):
     import asyncio as _asyncio
     from prompts.director_prompt import get_director_prompt
     from tools.director_tools import DIRECTOR_TOOLS, dispatch_tool
@@ -1002,7 +1003,7 @@ async def ai_director(body: dict, user: User = Depends(current_user)):
     session_id = body.get("session_id", "director")
     if not message:
         raise HTTPException(400, "Message is required")
-    check_rate(f"ai_director:{user.id}", max_calls=20, window_sec=60)
+    await check_rate(f"ai_director:{user.id}", max_calls=20, window_sec=60)
     try:
         prompt_guard.assert_message_safe(message, user.role, "/ai/director", user.id)
     except ValueError as _guard_err:
@@ -1087,7 +1088,7 @@ async def ai_director(body: dict, user: User = Depends(current_user)):
 
 
 @router.get("/ai/director/greeting")
-async def director_greeting(user: User = Depends(current_user)):
+async def director_greeting(user: User = Depends(gate("admin", "executive", "ai_director"))):
     import asyncio as _asyncio
     is_exec = user.role in ("admin", "executive_admin")
     persona = "director" if is_exec else "assistant_director"
@@ -1129,7 +1130,7 @@ async def director_greeting(user: User = Depends(current_user)):
 
 
 @router.get("/ai/director/pulse")
-async def director_pulse(user: User = Depends(current_user)):
+async def director_pulse(user: User = Depends(gate("admin", "executive", "ai_director"))):
     from app.security.auth import require_role as _rr
     from app.security.auth import assert_role
     assert_role(user, "admin")
@@ -1187,7 +1188,7 @@ async def director_pulse(user: User = Depends(current_user)):
 from fastapi.responses import JSONResponse as _JSONResponse
 
 @router.post("/ai/director/tts")
-async def director_tts(body: dict, user: User = Depends(current_user)):
+async def director_tts(body: dict, user: User = Depends(gate("admin", "executive", "tts_director"))):
     from app.security.auth import assert_role
     assert_role(user, "admin")
     from ai.persona_tts import persona_speak
@@ -1197,7 +1198,7 @@ async def director_tts(body: dict, user: User = Depends(current_user)):
     if len(text) > 5000:
         text = text[:5000]
     force_tier = (body.get("force_tier") or "").lower().strip()
-    check_rate(f"ai_director_tts:{user.id}", max_calls=20, window_sec=60)
+    await check_rate(f"ai_director_tts:{user.id}", max_calls=20, window_sec=60)
     try:
         result = await persona_speak("director", text, force_tier=force_tier, db=db)
     except Exception as _e:
@@ -1217,7 +1218,7 @@ async def director_tts(body: dict, user: User = Depends(current_user)):
 
 
 @router.post("/ai/revenue-director/tts")
-async def revenue_director_tts(body: dict, user: User = Depends(current_user)):
+async def revenue_director_tts(body: dict, user: User = Depends(gate("admin", "executive", "tts_revenue_director"))):
     from app.security.auth import assert_role
     assert_role(user, "admin")
     from ai.persona_tts import persona_speak
@@ -1227,7 +1228,7 @@ async def revenue_director_tts(body: dict, user: User = Depends(current_user)):
     if len(text) > 5000:
         text = text[:5000]
     force_tier = (body.get("force_tier") or "").lower().strip()
-    check_rate(f"ai_rd_tts:{user.id}", max_calls=20, window_sec=60)
+    await check_rate(f"ai_rd_tts:{user.id}", max_calls=20, window_sec=60)
     try:
         result = await persona_speak("revenue_director", text, force_tier=force_tier, db=db)
     except Exception as _e:
@@ -1246,7 +1247,7 @@ async def revenue_director_tts(body: dict, user: User = Depends(current_user)):
 
 
 @router.post("/ai/sage/elevenlabs/tts")
-async def sage_elevenlabs_tts(body: dict, user: User = Depends(current_user)):
+async def sage_elevenlabs_tts(body: dict, user: User = Depends(gate("student", "executive", "tts_sage_elevenlabs"))):
     from ai.persona_tts import persona_speak
     text = (body.get("text") or "").strip()
     if not text:
@@ -1254,7 +1255,7 @@ async def sage_elevenlabs_tts(body: dict, user: User = Depends(current_user)):
     if len(text) > 4000:
         text = text[:4000]
     force_tier = (body.get("force_tier") or "").lower().strip()
-    check_rate(f"ai_sage_el_tts:{user.id}", max_calls=20, window_sec=60)
+    await check_rate(f"ai_sage_el_tts:{user.id}", max_calls=20, window_sec=60)
     try:
         result = await persona_speak("ancestral_sage", text, force_tier=force_tier, db=db)
     except Exception as _e:
@@ -1275,7 +1276,7 @@ async def sage_elevenlabs_tts(body: dict, user: User = Depends(current_user)):
 # ─── Revenue Director ─────────────────────────────────────────────────────────
 
 @router.post("/ai/revenue-director")
-async def ai_revenue_director(body: dict, user: User = Depends(current_user)):
+async def ai_revenue_director(body: dict, user: User = Depends(gate("admin", "executive", "ai_revenue_director"))):
     import asyncio as _asyncio
     from ai.persona_loader import get_persona
     from tools.revenue_director_tools import REVENUE_DIRECTOR_TOOLS, dispatch_rd_tool
@@ -1288,7 +1289,7 @@ async def ai_revenue_director(body: dict, user: User = Depends(current_user)):
     session_id = body.get("session_id", "default")
     if not message:
         raise HTTPException(400, "Message is required")
-    check_rate(f"ai_rd:{user.id}", max_calls=15, window_sec=60)
+    await check_rate(f"ai_rd:{user.id}", max_calls=15, window_sec=60)
     try:
         prompt_guard.assert_message_safe(message, user.role, "/ai/revenue-director", user.id)
     except ValueError as _e:
@@ -1348,7 +1349,7 @@ async def ai_revenue_director(body: dict, user: User = Depends(current_user)):
 # ─── Sage Create ──────────────────────────────────────────────────────────────
 
 @router.post("/ai/sage/create")
-async def sage_create(body: dict, user: User = Depends(current_user)):
+async def sage_create(body: dict, user: User = Depends(gate("admin", "executive", "ai_sage_create"))):
     import asyncio as _asyncio
     from ai.persona_loader import get_persona
     from tools.sage_tools import SAGE_TOOLS, dispatch_sage_tool
@@ -1361,7 +1362,7 @@ async def sage_create(body: dict, user: User = Depends(current_user)):
     session_id = body.get("session_id", "default")
     if not message:
         raise HTTPException(400, "Message is required")
-    check_rate(f"ai_sage_create:{user.id}", max_calls=15, window_sec=60)
+    await check_rate(f"ai_sage_create:{user.id}", max_calls=15, window_sec=60)
     try:
         prompt_guard.assert_message_safe(message, user.role, "/ai/sage/create", user.id)
     except ValueError as _e:
@@ -1421,7 +1422,7 @@ async def sage_create(body: dict, user: User = Depends(current_user)):
 # ─── Cipher ───────────────────────────────────────────────────────────────────
 
 @router.post("/ai/cipher")
-async def ai_cipher(body: dict, user: User = Depends(current_user)):
+async def ai_cipher(body: dict, user: User = Depends(gate("admin", "executive", "ai_cipher"))):
     import asyncio as _asyncio
     from ai.persona_loader import get_persona
     from tools.cipher_tools import CIPHER_TOOLS, dispatch_cipher_tool
@@ -1434,7 +1435,7 @@ async def ai_cipher(body: dict, user: User = Depends(current_user)):
     session_id = body.get("session_id", "default")
     if not message:
         raise HTTPException(400, "Message is required")
-    check_rate(f"ai_cipher:{user.id}", max_calls=15, window_sec=60)
+    await check_rate(f"ai_cipher:{user.id}", max_calls=15, window_sec=60)
     try:
         prompt_guard.assert_message_safe(message, user.role, "/ai/cipher", user.id)
     except ValueError as _e:
@@ -1494,7 +1495,7 @@ async def ai_cipher(body: dict, user: User = Depends(current_user)):
 # ─── Oracle ───────────────────────────────────────────────────────────────────
 
 @router.post("/ai/oracle")
-async def ai_oracle(body: dict, user: User = Depends(current_user)):
+async def ai_oracle(body: dict, user: User = Depends(gate("admin", "executive", "ai_oracle"))):
     import asyncio as _asyncio
     from ai.persona_loader import get_persona
     from tools.oracle_tools import ORACLE_TOOLS, dispatch_oracle_tool
@@ -1507,7 +1508,7 @@ async def ai_oracle(body: dict, user: User = Depends(current_user)):
     session_id = body.get("session_id", "default")
     if not message:
         raise HTTPException(400, "Message is required")
-    check_rate(f"ai_oracle:{user.id}", max_calls=15, window_sec=60)
+    await check_rate(f"ai_oracle:{user.id}", max_calls=15, window_sec=60)
     try:
         prompt_guard.assert_message_safe(message, user.role, "/ai/oracle", user.id)
     except ValueError as _e:
@@ -1631,7 +1632,7 @@ async def delete_memory_policy(persona: str, order_id: str, user: User = Depends
 # ─── Cipher TTS ───────────────────────────────────────────────────────────────
 
 @router.post("/ai/cipher/tts")
-async def cipher_tts(body: dict, user: User = Depends(current_user)):
+async def cipher_tts(body: dict, user: User = Depends(gate("admin", "executive", "tts_cipher"))):
     from app.security.auth import assert_role
     assert_role(user, "admin")
     from ai.elevenlabs_client import (
@@ -1645,7 +1646,7 @@ async def cipher_tts(body: dict, user: User = Depends(current_user)):
     force_tier = (body.get("force_tier") or "").lower().strip()
     if force_tier not in ("", "elevenlabs", "openai", "text"):
         force_tier = ""
-    check_rate(f"ai_cipher_tts:{user.id}", max_calls=20, window_sec=60)
+    await check_rate(f"ai_cipher_tts:{user.id}", max_calls=20, window_sec=60)
     try:
         result = await cipher_speak(text=text, force_tier=force_tier, db=db)
     except Exception as _e:
@@ -1675,7 +1676,7 @@ async def cipher_tts(body: dict, user: User = Depends(current_user)):
 # ─── Chat History ─────────────────────────────────────────────────────────────
 
 @router.get("/ai/history/{session_id}")
-async def ai_history(session_id: str, user: User = Depends(current_user)):
+async def ai_history(session_id: str, user: User = Depends(gate("student", "premium", "ai_chat"))):
     return await db.chat_history.find(
         {"user_id": user.id, "session_id": session_id}, {"_id": 0}
     ).sort("created_at", 1).to_list(200)

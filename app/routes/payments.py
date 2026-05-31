@@ -84,6 +84,11 @@ async def create_checkout_session(req: CheckoutReq, user=Depends(current_user)):
         )
         customer_id = customer.id
         await db.users.update_one({"id": user.id}, {"$set": {"stripe_customer_id": customer_id}})
+    # Idempotency key prevents duplicate sessions if the client retries the request.
+    # Scoped to user + product + UTC date so each legitimate daily purchase gets
+    # a unique key while accidental double-submits are de-duplicated by Stripe.
+    from datetime import date as _date
+    _idem_key = f"checkout-{user.id}-{req.product_key}-{_date.today().isoformat()}"
     session = _stripe.checkout.Session.create(
         mode=mode,
         customer=customer_id,
@@ -91,6 +96,7 @@ async def create_checkout_session(req: CheckoutReq, user=Depends(current_user)):
         success_url=f"{FRONTEND_URL}/payment/success?session_id={{CHECKOUT_SESSION_ID}}",
         cancel_url=f"{FRONTEND_URL}/payment/cancel",
         metadata={"wai_user_id": user.id, "product_key": req.product_key, **(req.extra_meta or {})},
+        idempotency_key=_idem_key,
     )
     await audit(user.id, "payment_checkout_created", meta={"product": req.product_key, "session_id": session.id})
     return {"url": session.url, "session_id": session.id}

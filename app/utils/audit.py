@@ -30,6 +30,9 @@ async def audit(
     target: Optional[str] = None,
     meta: Optional[dict] = None,
 ):
+    if db is None:
+        logger.debug("audit skipped (db not ready): %s actor=%s", action, actor_id)
+        return
     try:
         await db.audit_log.insert_one({
             "id": str(uuid.uuid4()),
@@ -50,6 +53,9 @@ async def notify(
     link: Optional[str] = None,
     kind: str = "info",
 ):
+    if db is None:
+        logger.debug("notify skipped (db not ready): title=%s user=%s", title, user_id)
+        return
     await db.notifications.insert_one({
         "id": str(uuid.uuid4()),
         "user_id": user_id,

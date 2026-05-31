@@ -69,6 +69,15 @@ LEGACY_EXEC_EMAILS: set = set()
 # ── Role system ───────────────────────────────────────────────────────────────
 ROLE_RANK = {"student": 1, "instructor": 2, "admin": 3, "executive_admin": 4}
 
+# ── Environment ───────────────────────────────────────────────────────────────
+APP_ENV = os.environ.get("APP_ENV", "production").lower()  # "development" | "staging" | "production"
+_IS_DEV  = APP_ENV == "development"
+_IS_PROD = APP_ENV == "production"
+
+# ── Observability / Alerting ──────────────────────────────────────────────────
+SENTRY_DSN         = os.environ.get("SENTRY_DSN", "")
+SLACK_ALERT_WEBHOOK = os.environ.get("SLACK_ALERT_WEBHOOK", "")
+
 # ── App version ───────────────────────────────────────────────────────────────
 APP_VERSION = "4.0.1"
 

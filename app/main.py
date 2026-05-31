@@ -47,19 +47,26 @@ from app.routes import (
 from app.routes import exec as exec_routes
 from app.routes import executive_control, legal
 from app.security.enforcement import TierEnforcementMiddleware
+from app.config import APP_ENV, _DOCS_ENABLED as _DOCS_ENABLED_CFG
+from app.utils.alerting import init_sentry
 
 logger = logging.getLogger("lcewai")
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(level=logging.INFO if APP_ENV == "production" else logging.DEBUG)
+
+# ── Sentry — initialise before the app object so exceptions during startup ─────
+# ── are captured. No-op if SENTRY_DSN is not set. ────────────────────────────
+init_sentry()
 
 # ── FastAPI app ───────────────────────────────────────────────────────────────
+_show_docs = _DOCS_ENABLED or APP_ENV != "production"
 app = FastAPI(
     title="W.A.I. Training Platform",
-    version="3.0.0",
+    version=APP_VERSION,
     description="W.A.I. — Workforce Apprentice Institute API.",
     redirect_slashes=False,
-    docs_url="/api/docs" if _DOCS_ENABLED else None,
-    redoc_url="/api/redoc" if _DOCS_ENABLED else None,
-    openapi_url="/api/openapi.json" if _DOCS_ENABLED else None,
+    docs_url="/api/docs" if _show_docs else None,
+    redoc_url="/api/redoc" if _show_docs else None,
+    openapi_url="/api/openapi.json" if _show_docs else None,
 )
 
 # ── Optional routers from unfinished refactor packages ───────────────────────
@@ -127,6 +134,7 @@ async def enforce_ip_whitelist(request: Request, call_next):
         "/api/sovereign/",
         "/api/admin/mfa",
         "/api/admin/staff-meetings",
+        "/api/exec/control/",   # Executive control layer — all writes IP-gated
     )
     path = request.url.path
     if not any(path.startswith(p) for p in exec_paths):

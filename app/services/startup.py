@@ -85,6 +85,8 @@ async def ensure_indexes():
         await db.user_xp.create_index("user_id", unique=True)
         await db.user_xp.create_index([("total_xp", -1)])
         await db.incidents.create_index([("status", 1), ("created_at", 1)])
+        # Rate-limit counter TTL index (distributed rate limiting)
+        await db.rate_limit_counters.create_index("expires_at", expireAfterSeconds=0)
         logger.info("Indexes ensured")
     except Exception:
         logger.exception("ensure_indexes failed (non-fatal)")
@@ -160,35 +162,41 @@ async def _on_startup_impl(app=None):
     except Exception as _e:
         logger.warning("STARTUP: sovereign/partnership indexes failed (non-fatal): %s", _e)
 
-    try:
-        from app.services.seed import seed_modules
-        await seed_modules()
-    except Exception as _e:
-        logger.warning("STARTUP: seed_modules failed (non-fatal): %s", _e)
+    # Seed data — skipped in production to avoid overwriting live data
+    from app.config import APP_ENV as _APP_ENV
+    if _APP_ENV != "production":
+        logger.info("STARTUP: APP_ENV=%s — running seed data (skipped in production)", _APP_ENV)
+        try:
+            from app.services.seed import seed_modules
+            await seed_modules()
+        except Exception as _e:
+            logger.warning("STARTUP: seed_modules failed (non-fatal): %s", _e)
 
-    try:
-        from app.services.seed import seed_users
-        await seed_users()
-    except Exception as _e:
-        logger.warning("STARTUP: seed_users failed (non-fatal): %s", _e)
+        try:
+            from app.services.seed import seed_users
+            await seed_users()
+        except Exception as _e:
+            logger.warning("STARTUP: seed_users failed (non-fatal): %s", _e)
 
-    try:
-        from app.services.seed import seed_labs
-        await seed_labs()
-    except Exception as _e:
-        logger.warning("STARTUP: seed_labs failed (non-fatal): %s", _e)
+        try:
+            from app.services.seed import seed_labs
+            await seed_labs()
+        except Exception as _e:
+            logger.warning("STARTUP: seed_labs failed (non-fatal): %s", _e)
 
-    try:
-        from app.services.seed import seed_compliance
-        await seed_compliance()
-    except Exception as _e:
-        logger.warning("STARTUP: seed_compliance failed (non-fatal): %s", _e)
+        try:
+            from app.services.seed import seed_compliance
+            await seed_compliance()
+        except Exception as _e:
+            logger.warning("STARTUP: seed_compliance failed (non-fatal): %s", _e)
 
-    try:
-        from app.services.seed import seed_sites_inventory
-        await seed_sites_inventory()
-    except Exception as _e:
-        logger.warning("STARTUP: seed_sites_inventory failed (non-fatal): %s", _e)
+        try:
+            from app.services.seed import seed_sites_inventory
+            await seed_sites_inventory()
+        except Exception as _e:
+            logger.warning("STARTUP: seed_sites_inventory failed (non-fatal): %s", _e)
+    else:
+        logger.info("STARTUP: APP_ENV=production — seed data skipped.")
 
     try:
         from app.services.engagement import backfill_verification_codes

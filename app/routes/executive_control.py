@@ -735,6 +735,14 @@ async def break_glass_activate(
         actor.id, body.scope, body.target_uid, body.duration_minutes, override_id,
     )
 
+    # External alert — fire-and-forget; never raises
+    try:
+        from app.utils.alerting import alert_break_glass
+        import asyncio as _asyncio
+        _asyncio.create_task(alert_break_glass(actor.id, body.scope, body.reason))
+    except Exception:
+        pass
+
     return {
         "override_id":      override_id,
         "scope":            body.scope,
