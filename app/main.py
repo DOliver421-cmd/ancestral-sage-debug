@@ -10,7 +10,6 @@ Usage:
 import asyncio
 import logging
 import os
-import time
 
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
@@ -49,9 +48,15 @@ from app.routes import executive_control, legal
 from app.security.enforcement import TierEnforcementMiddleware
 from app.config import APP_ENV, _DOCS_ENABLED as _DOCS_ENABLED_CFG
 from app.utils.alerting import init_sentry
+from app.utils.logging_config import (
+    configure_logging,
+    CorrelationIdMiddleware,
+    RequestLoggingMiddleware,
+)
 
+# ── Logging — must run before anything else emits log records ─────────────────
+configure_logging(APP_ENV)
 logger = logging.getLogger("lcewai")
-logging.basicConfig(level=logging.INFO if APP_ENV == "production" else logging.DEBUG)
 
 # ── Sentry — initialise before the app object so exceptions during startup ─────
 # ── are captured. No-op if SENTRY_DSN is not set. ────────────────────────────
@@ -81,6 +86,34 @@ except Exception as _ai_router_err:
 
 
 # ── Middleware: security headers ──────────────────────────────────────────────
+_CSP_PRODUCTION = (
+    "default-src 'self'; "
+    "script-src 'self'; "                       # no unsafe-inline/eval in prod
+    "style-src 'self' 'unsafe-inline'; "
+    "img-src 'self' data: https:; "
+    "font-src 'self' data:; "
+    "connect-src 'self' https:; "
+    "frame-ancestors 'none'; "
+    "base-uri 'self'; "
+    "form-action 'self'; "
+    "media-src 'self' blob:; "
+    "upgrade-insecure-requests"
+)
+_CSP_DEVELOPMENT = (
+    "default-src 'self'; "
+    "script-src 'self' 'unsafe-inline' 'unsafe-eval'; "  # dev HMR needs these
+    "style-src 'self' 'unsafe-inline'; "
+    "img-src 'self' data: https: blob:; "
+    "font-src 'self' data:; "
+    "connect-src 'self' ws: wss: https:; "
+    "frame-ancestors 'none'; "
+    "base-uri 'self'; "
+    "form-action 'self'; "
+    "media-src 'self' blob:"
+)
+_CSP = _CSP_PRODUCTION if APP_ENV == "production" else _CSP_DEVELOPMENT
+
+
 @app.middleware("http")
 async def add_security_headers(request: Request, call_next):
     response = await call_next(request)
@@ -90,11 +123,7 @@ async def add_security_headers(request: Request, call_next):
     response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
     response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
     response.headers["Permissions-Policy"] = "geolocation=(), microphone=(self), camera=()"
-    response.headers["Content-Security-Policy"] = (
-        "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; "
-        "img-src 'self' data: https:; font-src 'self' data:; connect-src 'self' https:; "
-        "frame-ancestors 'none'; base-uri 'self'; form-action 'self'; media-src 'self' blob:"
-    )
+    response.headers["Content-Security-Policy"] = _CSP
     return response
 
 
@@ -175,14 +204,8 @@ async def enforce_ip_whitelist(request: Request, call_next):
         return await call_next(request)
 
 
-# ── Middleware: PII-safe request logger ───────────────────────────────────────
-@app.middleware("http")
-async def log_requests_pii_safe(request: Request, call_next):
-    start = time.perf_counter()
-    response = await call_next(request)
-    elapsed = int((time.perf_counter() - start) * 1000)
-    logger.info("%s %s → %s (%dms)", request.method, request.url.path, response.status_code, elapsed)
-    return response
+# ── Structured request logging + correlation IDs — added via add_middleware ───
+# (registered after router wiring so middleware stack order is correct)
 
 
 # ── Include all routers ───────────────────────────────────────────────────────
@@ -242,6 +265,12 @@ except Exception:
 
 # ── Middleware: Tier + Role enforcement (second line of defence) ──────────────
 app.add_middleware(TierEnforcementMiddleware)
+
+# ── Middleware: Structured request logging (innermost — runs last, sees status) ─
+app.add_middleware(RequestLoggingMiddleware, app_env=APP_ENV)
+
+# ── Middleware: Correlation ID (outermost — runs first, echoed in all responses) ─
+app.add_middleware(CorrelationIdMiddleware)
 
 # ── CORS ──────────────────────────────────────────────────────────────────────
 _cors_origins = [o.strip() for o in os.environ.get("CORS_ORIGINS", "*").split(",") if o.strip()]

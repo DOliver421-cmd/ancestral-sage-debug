@@ -102,3 +102,27 @@ async def alert_circuit_breaker(service: str, detail: str) -> None:
         detail,
         level="critical",
     )
+
+
+async def alert_rate_limit_abuse(key: str, ip: str, count: int) -> None:
+    await slack_alert(
+        "rate_limit.abuse",
+        f"Rate-limit abuse detected: key=`{key}` ip=`{ip}` count={count}",
+        level="warning",
+    )
+
+
+async def alert_ai_outage(provider: str, error: str) -> None:
+    await slack_alert(
+        f"ai_provider.outage.{provider}",
+        f"AI provider `{provider}` returned an error: {error[:300]}",
+        level="critical",
+    )
+
+
+async def alert_db_failover(primary_error: str) -> None:
+    await slack_alert(
+        "db.failover",
+        f"Primary DB unreachable — failed over to backup.\nError: {primary_error[:300]}",
+        level="critical",
+    )

@@ -73,7 +73,13 @@ async def register(body: RegisterReq):
 
 @router.post("/auth/login", response_model=TokenResp)
 async def login(body: LoginReq, request: Request):
+    # Per-email AND per-IP rate limits — both must pass
+    _login_ip = (
+        (request.headers.get("x-forwarded-for", "") or "").split(",")[0].strip()
+        or (request.client.host if request.client else "unknown")
+    )
     await check_rate(f"login:{body.email}", max_calls=5, window_sec=60)
+    await check_rate(f"login:ip:{_login_ip}", max_calls=20, window_sec=60)
     doc = await db.users.find_one({"email": body.email}, {"_id": 0})
 
     if doc:
@@ -196,16 +202,16 @@ async def login(body: LoginReq, request: Request):
 
 @router.post("/auth/refresh")
 async def refresh_token(user: User = Depends(current_user)):
-    """Issue a new JWT for an authenticated user without requiring re-login.
+    """Issue a rotated JWT for an authenticated user without requiring re-login.
 
-    Reads the current token_version from DB so the new token is always in sync
-    with the revocation state. The previous token remains valid until its original
-    exp — clients must replace it immediately on receiving the new one.
+    Reads current token_version from DB (revocation-safe). Each refresh produces a
+    unique token via jti claim — the caller should immediately discard the old token.
     """
+    import uuid as _uuid
     doc = await db.users.find_one({"id": user.id}, {"_id": 0, "token_version": 1})
     _tv = (doc or {}).get("token_version", 0)
-    new_token = make_token(user.id, user.role, token_version=_tv)
-    await audit(user.id, "auth.token_refreshed")
+    new_token = make_token(user.id, user.role, extra={"jti": str(_uuid.uuid4())}, token_version=_tv)
+    await audit(user.id, "auth.token_rotated")
     return {"access_token": new_token}
 
 

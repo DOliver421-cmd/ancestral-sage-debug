@@ -61,6 +61,14 @@ async def _check_rate_mongo(key: str, max_calls: int, window_sec: int) -> None:
     )
     count = (result or {}).get("count", 1)
     if count > max_calls:
+        # Alert on severe abuse (10× the limit) — fire-and-forget
+        if count == max_calls * 10:
+            try:
+                import asyncio as _asyncio
+                from app.utils.alerting import alert_rate_limit_abuse
+                _asyncio.create_task(alert_rate_limit_abuse(key, "", count))
+            except Exception:
+                pass
         raise HTTPException(429, "Too many requests, slow down")
 
 
