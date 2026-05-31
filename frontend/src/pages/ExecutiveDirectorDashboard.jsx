@@ -5,7 +5,7 @@ import { toast } from "sonner";
 import {
   AlertTriangle, Activity, Users, TrendingUp, Lock, Unlock,
   ShieldAlert, RefreshCw, CheckCircle, XCircle, Radio,
-  BarChart3, FileText, Power, Megaphone,
+  BarChart3, FileText, Power, Megaphone, KeyRound,
 } from "lucide-react";
 
 const SEV_COLOR = {
@@ -31,6 +31,10 @@ const FEATURES = [
 export default function ExecutiveDirectorDashboard() {
   const { user } = useAuth();
   const [activeTab, setActiveTab] = useState("threats");
+
+  // --- password change state ---
+  const [pwForm, setPwForm]         = useState({ current: "", next: "", confirm: "" });
+  const [pwLoading, setPwLoading]   = useState(false);
   const [loading, setLoading] = useState(true);
 
   // --- data state ---
@@ -184,6 +188,7 @@ export default function ExecutiveDirectorDashboard() {
     { id: "controls",  label: "Emergency Controls",                   icon: <Power className="w-4 h-4" /> },
     { id: "broadcast", label: "Broadcast",                            icon: <Megaphone className="w-4 h-4" /> },
     { id: "audit",     label: "Audit Log",                            icon: <FileText className="w-4 h-4" /> },
+    { id: "account",   label: "Account",                              icon: <KeyRound className="w-4 h-4" /> },
   ];
 
   return (
@@ -503,6 +508,66 @@ export default function ExecutiveDirectorDashboard() {
                 </button>
               </div>
             </div>
+          </div>
+        )}
+
+        {/* ── ACCOUNT TAB ───────────────────────────────────────────────────── */}
+        {activeTab === "account" && (
+          <div className="bg-white border border-ink/10 rounded-lg p-6 max-w-md">
+            <h2 className="font-bold text-lg mb-4 flex items-center gap-2">
+              <KeyRound className="w-5 h-5" /> Change Password
+            </h2>
+            <form
+              onSubmit={async (e) => {
+                e.preventDefault();
+                if (pwForm.next !== pwForm.confirm) {
+                  toast.error("New passwords do not match.");
+                  return;
+                }
+                if (pwForm.next.length < 8) {
+                  toast.error("New password must be at least 8 characters.");
+                  return;
+                }
+                setPwLoading(true);
+                try {
+                  await api.post("/auth/change-password", {
+                    current_password: pwForm.current,
+                    new_password: pwForm.next,
+                  });
+                  toast.success("Password updated. Use your new password next time you log in.");
+                  setPwForm({ current: "", next: "", confirm: "" });
+                } catch (err) {
+                  toast.error(err?.response?.data?.detail || "Password change failed.");
+                } finally {
+                  setPwLoading(false);
+                }
+              }}
+              className="space-y-4"
+            >
+              {[
+                { label: "Current password", key: "current" },
+                { label: "New password",     key: "next"    },
+                { label: "Confirm new password", key: "confirm" },
+              ].map(({ label, key }) => (
+                <div key={key}>
+                  <label className="block text-sm font-medium text-ink mb-1">{label}</label>
+                  <input
+                    type="password"
+                    value={pwForm[key]}
+                    onChange={e => setPwForm(f => ({ ...f, [key]: e.target.value }))}
+                    required
+                    className="w-full border border-ink/20 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gold"
+                  />
+                </div>
+              ))}
+              <button
+                type="submit"
+                disabled={pwLoading}
+                className="w-full bg-gold text-white font-semibold py-2 rounded-md hover:bg-gold/90 disabled:opacity-50 transition"
+              >
+                {pwLoading ? "Saving…" : "Update Password"}
+              </button>
+            </form>
           </div>
         )}
 
