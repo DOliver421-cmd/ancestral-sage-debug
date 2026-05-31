@@ -121,6 +121,27 @@ async def ensure_indexes():
         await db.persona_policies.create_index(
             [("persona_id", 1), ("key", 1)], unique=True
         )
+
+        # Site Editing Interface indexes
+        await db.roles.create_index("name", unique=True)
+        await db.roles.create_index([("tier_level", -1), ("status", 1)])
+        await db.role_feature_access.create_index(
+            [("role_id", 1), ("feature_key", 1)], unique=True
+        )
+        await db.user_tiers.create_index([("user_id", 1), ("role_id", 1)], unique=True)
+        await db.user_tiers.create_index([("user_id", 1), ("status", 1)])
+        await db.feature_categories.create_index("name", unique=True)
+        await db.feature_registry.create_index("feature_key", unique=True)
+        await db.feature_registry.create_index("category_id")
+        await db.ui_customization.create_index("user_id", unique=True)
+        await db.ui_theme_presets.create_index("name", unique=True)
+        await db.user_ui_overrides.create_index("user_id", unique=True)
+        await db.exec_privileges.create_index("exec_user_id", unique=True)
+        await db.admin_privileges.create_index("admin_user_id", unique=True)
+        await db.instructor_settings.create_index("instructor_user_id", unique=True)
+        await db.creator_settings.create_index("creator_user_id", unique=True)
+        await db.student_settings.create_index("student_user_id", unique=True)
+        await db.system_config.create_index("key", unique=True)
         logger.info("Indexes ensured")
     except Exception:
         logger.exception("ensure_indexes failed (non-fatal)")

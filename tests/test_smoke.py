@@ -361,3 +361,47 @@ def test_billing_router_paths():
     assert "/billing/refunds/site-credits" in paths
     assert "/billing/refunds/cash" in paths
     assert "/billing/sage-sessions" in paths
+
+
+# ── Site editor ───────────────────────────────────────────────────────────────
+
+def test_site_editor_router_imports():
+    from app.routes.site_editor import router
+    paths = [r.path for r in router.routes]
+    # spot-check one from each table group
+    assert "/site-editor/roles" in paths
+    assert "/site-editor/role-feature-access" in paths
+    assert "/site-editor/user-tiers" in paths
+    assert "/site-editor/feature-flags" in paths
+    assert "/site-editor/feature-categories" in paths
+    assert "/site-editor/feature-registry" in paths
+    assert "/site-editor/ui-customization/me" in paths
+    assert "/site-editor/ui-theme-presets" in paths
+    assert "/site-editor/user-ui-overrides" in paths
+    assert "/site-editor/exec-privileges" in paths
+    assert "/site-editor/admin-privileges" in paths
+    assert "/site-editor/instructor-settings" in paths
+    assert "/site-editor/creator-settings" in paths
+    assert "/site-editor/system-config" in paths
+
+
+def test_site_editor_access_level_constants():
+    from app.routes.site_editor import _ACCESS_LEVELS, _VISIBILITY
+    assert "none" in _ACCESS_LEVELS
+    assert "read" in _ACCESS_LEVELS
+    assert "write" in _ACCESS_LEVELS
+    assert "admin" in _ACCESS_LEVELS
+    assert "show" in _VISIBILITY
+    assert "hide" in _VISIBILITY
+
+
+def test_site_editor_role_names():
+    """Valid role names match the schema exactly."""
+    valid = {"exec", "admin", "instructor", "student", "creator"}
+    assert len(valid) == 5
+
+
+def test_site_editor_category_names():
+    from app.routes.site_editor import _VALID_CATEGORY_NAMES
+    expected = {"billing", "content", "personas", "providers", "ui", "system"}
+    assert _VALID_CATEGORY_NAMES == expected
