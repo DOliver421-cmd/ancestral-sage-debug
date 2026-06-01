@@ -133,7 +133,8 @@ def init_revenue_services(app: FastAPI, db: AsyncIOMotorDatabase) -> None:
         from billing.stripe_service import StripeService, CreatorPayoutService
         from billing.financial_reporting import FinancialReportingService
 
-        stripe_key = os.environ.get("STRIPE_API_KEY", "")
+        # server.py uses STRIPE_SECRET_KEY; fall back to STRIPE_API_KEY for compat
+        stripe_key = os.environ.get("STRIPE_SECRET_KEY", "") or os.environ.get("STRIPE_API_KEY", "")
 
         app.state.stripe_service = StripeService(db, stripe_key)
         app.state.creator_payout_service = CreatorPayoutService(db, stripe_key)

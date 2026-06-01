@@ -156,7 +156,16 @@ def _get_the9_engine():
             logger.warning("WAI: The9FusionEngine init failed: %s", _e)
     return _the9_engine
 
-JWT_SECRET = os.environ['JWT_SECRET']
+JWT_SECRET = os.environ.get('JWT_SECRET', '')
+if not JWT_SECRET:
+    import sys as _sys
+    print(
+        "FATAL: JWT_SECRET environment variable is not set. "
+        "Generate one with: python -c \"import secrets; print(secrets.token_hex(32))\" "
+        "and add it to Railway Variables.",
+        file=_sys.stderr,
+    )
+    _sys.exit(1)
 JWT_ALGO = os.environ.get('JWT_ALGORITHM', 'HS256')
 JWT_EXPIRE_HOURS = int(os.environ.get('JWT_EXPIRE_HOURS', '168'))
 EMERGENT_LLM_KEY = os.environ.get('EMERGENT_LLM_KEY', '')
@@ -755,12 +764,15 @@ async def _send_via_gmail(to_email: str, subject: str, html: str) -> bool:
         return False
 
 
-async def _send_reset_email(to_email: str, raw_token: str, full_name: str = "there") -> bool:
+async def _send_reset_email(to_email: str, raw_token: str, full_name: str = "there", base_url: str = "") -> bool:
     """Send password reset email. Tries Resend first, falls back to Gmail SMTP.
     Returns True if sent by either provider, False if neither is configured."""
-    reset_url = _build_reset_url(raw_token)
+    reset_url = _build_reset_url(raw_token, base=base_url or None)
     if reset_url.startswith("/"):
-        logger.warning("PUBLIC_APP_URL not set — cannot build absolute reset URL for email.")
+        logger.error(
+            "PUBLIC_APP_URL not set and no request origin available — "
+            "cannot send password reset email. Set PUBLIC_APP_URL in Railway variables."
+        )
         return False
     subject, html = _reset_email_html(full_name, reset_url)
 
@@ -2398,8 +2410,15 @@ async def forgot_password(body: ForgotPasswordReq, request: Request):
         })
         await audit(user_doc["id"], "auth.password_reset.requested",
                     target=user_doc["id"], meta={"ip": ip})
+        # Derive base URL from request if PUBLIC_APP_URL is not explicitly set.
+        _req_base = os.environ.get("PUBLIC_APP_URL", "")
+        if not _req_base:
+            _scheme = request.headers.get("x-forwarded-proto", "https")
+            _host = request.headers.get("host", "")
+            if _host:
+                _req_base = f"{_scheme}://{_host}"
         email_sent = await _send_reset_email(
-            user_doc["email"], raw, user_doc.get("full_name", "there"),
+            user_doc["email"], raw, user_doc.get("full_name", "there"), base_url=_req_base,
         )
         # Dev/admin convenience: when explicitly enabled, return the raw
         # token so the requester (or curl-based tests) can complete the
@@ -3755,10 +3774,14 @@ async def ai_chat(body: AIChatReq, user: User = Depends(current_user)):
     else:
         system = SYSTEM_PROMPTS.get(body.mode, SYSTEM_PROMPTS["tutor"]) + ctx
     session_id = f"{user.id}:{body.session_id}"
+    _gw_degraded = False
+    _gw_provider = "unknown"
     try:
         from ai.llm_gateway import call_llm as _call_llm
         _gw = await _call_llm(system=system, messages=[{"role": "user", "content": body.message}], max_tokens=2048, persona_label="ai_chat")
         reply = _gw["text"]
+        _gw_degraded = _gw.get("degraded", False)
+        _gw_provider = _gw.get("provider", "unknown")
     except Exception as e:
         logger.exception("AI error")
         raise HTTPException(502, f"AI error: {e}")
@@ -3812,7 +3835,11 @@ async def ai_chat(body: AIChatReq, user: User = Depends(current_user)):
         # for TTL-based deletion (24h). Mongo TTL index is already in place.
         chat_doc["expires_at"] = datetime.now(timezone.utc) + timedelta(hours=24)
     await db.chat_history.insert_one(chat_doc)
-    return {"reply": reply}
+    resp: dict = {"reply": reply}
+    if _gw_degraded:
+        resp["degraded"] = True
+        resp["provider"] = _gw_provider
+    return resp
 
 
 # ── Tool Chat ──────────────────────────────────────────────────────────────────
