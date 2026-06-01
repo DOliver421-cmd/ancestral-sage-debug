@@ -82,6 +82,7 @@ const adminNav = [
 ];
 
 const execAdminNav = [
+  { to: "/admin/control", label: "Control Panel", icon: Shield, testid: "nav-control-panel" },
   { to: "/admin/system", label: "System", icon: Crown, testid: "nav-exec-system" },
   { to: "/admin/sage-audit", label: "Sage Sessions", icon: Compass, testid: "nav-sage-audit" },
   ...adminNav,

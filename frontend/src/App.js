@@ -93,6 +93,7 @@ import BillingAdmin from "./pages/BillingAdmin";
 import CreatorCourses from "./pages/CreatorCourses";
 import CreatorEarnings from "./pages/CreatorEarnings";
 import CreatorProfileEdit from "./pages/CreatorProfileEdit";
+import SiteControlPanel from "./pages/SiteControlPanel";
 
 // Role hierarchy must mirror backend ROLE_RANK in /app/backend/server.py.
 // Higher rank = more authority; a higher-rank role passes any check meant
@@ -226,6 +227,8 @@ function App() {
           <Route path="/incidents" element={<Protected><Incidents /></Protected>} />
           <Route path="/settings" element={<Protected><Settings /></Protected>} />
           <Route path="/admin/system" element={<Protected roles={["executive_admin"]}><ExecSystem /></Protected>} />
+          {/* Site Control Panel — executive_admin only, not linked from any nav */}
+          <Route path="/admin/control" element={<Protected roles={["executive_admin"]}><SiteControlPanel /></Protected>} />
           <Route path="/admin/director" element={<Protected roles={["executive_admin"]}><ExecutiveDirectorDashboard /></Protected>} />
           <Route path="/admin/sage-audit" element={<Protected roles={["executive_admin"]}><SageAudit /></Protected>} />
           <Route path="/admin/staff-meetings" element={<Protected roles={["executive_admin"]}><StaffMeetingHistory /></Protected>} />
