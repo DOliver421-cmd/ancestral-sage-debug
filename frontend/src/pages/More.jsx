@@ -9,6 +9,7 @@ import {
   X, Zap, ChevronRight, HelpCircle, RefreshCw,
 } from "lucide-react";
 import { toast } from "sonner";
+import FlagModal from "../components/FlagModal";
 
 // ── Category config ───────────────────────────────────────────────────────────
 const CAT = {
@@ -421,6 +422,7 @@ export default function More() {
   const [showNeed, setShowNeed] = useState(false);
   const [authGate, setAuthGate] = useState(null);
   const [catFilter, setCatFilter] = useState("all");
+  const [flagTarget, setFlagTarget] = useState(null);
 
   const fetchPublic = useCallback(async (url) => {
     const r = await fetch(`${BACKEND_URL}/api${url}`);
@@ -447,11 +449,7 @@ export default function More() {
   const requireAuth = (action, fn) => { if (!user) { setAuthGate(action); return; } fn(); };
 
   const handleFlag = (targetId, targetType) => {
-    requireAuth("Flagging content", async () => {
-      const reason = window.prompt("Why are you flagging this?") ?? "No reason";
-      try { await api.post("/more/flag", { target_id: targetId, target_type: targetType, reason }); toast.success("Flagged — thank you."); }
-      catch { toast.error("Could not submit flag"); }
-    });
+    requireAuth("Flagging content", () => setFlagTarget({ targetId, targetType }));
   };
 
   const filteredPosts = catFilter === "all" ? posts : posts.filter(p => p.category === catFilter);
@@ -809,6 +807,7 @@ export default function More() {
       {authGate && <AuthGate action={authGate} onClose={() => setAuthGate(null)} />}
       {showPost && <NewPostModal onClose={() => setShowPost(false)} onSuccess={() => { if (tab === "posts") loadPosts(); }} />}
       {showNeed && <NewNeedModal onClose={() => setShowNeed(false)} onSuccess={() => { if (tab === "needs") loadNeeds(); }} />}
+      {flagTarget && <FlagModal targetId={flagTarget.targetId} targetType={flagTarget.targetType} onClose={() => setFlagTarget(null)} />}
     </>
   );
 }
