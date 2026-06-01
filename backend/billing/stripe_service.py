@@ -284,7 +284,7 @@ class StripeService:
     async def _get_or_create_customer(self, user_id: str, email: str) -> Any:
         """Get or create Stripe customer"""
         # Check if we already have Stripe customer ID stored
-        user_doc = await self.db.users.find_one({"_id": user_id})
+        user_doc = await self.db.users.find_one({"id": user_id}, {"_id": 0, "stripe_customer_id": 1})
 
         if user_doc and user_doc.get("stripe_customer_id"):
             return stripe.Customer.retrieve(user_doc["stripe_customer_id"])
@@ -295,9 +295,9 @@ class StripeService:
             metadata={"wai_user_id": user_id}
         )
 
-        # Store Stripe ID in user document
+        # Store Stripe ID in user document (using application UUID field, not MongoDB _id)
         await self.db.users.update_one(
-            {"_id": user_id},
+            {"id": user_id},
             {"$set": {"stripe_customer_id": customer.id}}
         )
 
