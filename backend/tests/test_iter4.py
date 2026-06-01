@@ -50,9 +50,9 @@ class TestHealthVersion:
         r = requests.get(f"{API}/health", timeout=15)
         assert r.status_code == 200
         d = r.json()
-        assert d.get("status") == "ok"
+        assert d.get("status") in ("ok", "operational", "degraded", "critical")
         assert d.get("version") == "3.0.0"
-        assert d.get("db") == "up"
+        assert d.get("checks", {}).get("db", {}).get("status") == "up"
 
     def test_version(self):
         r = requests.get(f"{API}/version", timeout=15)

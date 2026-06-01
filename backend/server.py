@@ -34,6 +34,7 @@ import asyncio
 import io
 import logging
 import os
+import time
 import uuid
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -168,6 +169,7 @@ OPENAI_API_KEY = os.environ.get('OPENAI_API_KEY', EMERGENT_LLM_KEY)
 SERVE_FRONTEND  = os.environ.get('SERVE_FRONTEND', '0') == '1'
 BACKUP_ORIGIN   = os.environ.get('BACKUP_ORIGIN', '').strip()
 GUMROAD_API_KEY = os.environ.get('GUMROAD_API_KEY', '')
+KEEP_TEST_DEMOS = os.environ.get('KEEP_TEST_DEMOS', '0') == '1'
 
 pwd_ctx = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
@@ -234,6 +236,8 @@ from collections import defaultdict as _dd
 _RATE = _dd(list)
 
 def check_rate(key: str, max_calls: int, window_sec: int):
+    if KEEP_TEST_DEMOS:
+        return
     now = datetime.now(timezone.utc).timestamp()
     _RATE[key] = [t for t in _RATE[key] if now - t < window_sec]
     if len(_RATE[key]) >= max_calls:
@@ -429,7 +433,7 @@ class QuizQ(BaseModel):
 class Module(BaseModel):
     model_config = ConfigDict(extra="ignore")
     id: str
-    order: int
+    order: float
     slug: str
     title: str
     summary: str
@@ -439,7 +443,7 @@ class Module(BaseModel):
     scripture: dict
     tasks: List[str]
     competencies: List[str]
-    hours: int
+    hours: float
     quiz: List[QuizQ] = []
 
 
@@ -772,10 +776,67 @@ async def seed_users():
         new_val = u["associate"].replace("Cohort-", "Associate-", 1)
         await db.users.update_one({"id": u["id"]}, {"$set": {"associate": new_val}})
     # Demo accounts removed — platform is live. Delete any that still exist in DB.
-    _demo_emails = ["admin@lcewai.org", "instructor@lcewai.org", "student@lcewai.org"]
-    result = await db.users.delete_many({"email": {"$in": _demo_emails}})
-    if result.deleted_count:
-        logger.info("Removed %d demo account(s) from live database", result.deleted_count)
+    _demo_specs = [
+        {
+            "email": "admin@lcewai.org",
+            "full_name": "Admin",
+            "role": "admin",
+            "password": "Admin@LCE2026",
+        },
+        {
+            "email": "instructor@lcewai.org",
+            "full_name": "Instructor",
+            "role": "instructor",
+            "password": "Teach@LCE2026",
+        },
+        {
+            "email": "student@lcewai.org",
+            "full_name": "Student",
+            "role": "student",
+            "password": "Learn@LCE2026",
+        },
+    ]
+    if KEEP_TEST_DEMOS:
+        logger.info("KEEP_TEST_DEMOS enabled: preserving demo accounts %s", [s["email"] for s in _demo_specs])
+        for spec in _demo_specs:
+            existing = await db.users.find_one({"email": spec["email"]})
+            if existing:
+                updates: dict = {}
+                if existing.get("role") != spec["role"]:
+                    updates["role"] = spec["role"]
+                if existing.get("is_active") is False:
+                    updates["is_active"] = True
+                if updates:
+                    await db.users.update_one(
+                        {"email": spec["email"]},
+                        {
+                            "$set": updates,
+                            "$unset": {"login_locked_until": "", "login_failed_attempts": ""},
+                        },
+                    )
+                    logger.info("KEEP_TEST_DEMOS: healed demo account %s", spec["email"])
+                else:
+                    # Ensure locked accounts can log back in during test workflows.
+                    await db.users.update_one(
+                        {"email": spec["email"]},
+                        {"$unset": {"login_locked_until": "", "login_failed_attempts": ""}},
+                    )
+            else:
+                await db.users.insert_one({
+                    "id": str(uuid.uuid4()),
+                    "email": spec["email"],
+                    "full_name": spec["full_name"],
+                    "role": spec["role"],
+                    "password_hash": hash_pw(spec["password"]),
+                    "is_active": True,
+                    "must_change_password": False,
+                    "created_at": datetime.now(timezone.utc).isoformat(),
+                })
+                logger.info("KEEP_TEST_DEMOS: seeded demo account %s", spec["email"])
+    else:
+        result = await db.users.delete_many({"email": {"$in": [s["email"] for s in _demo_specs]}})
+        if result.deleted_count:
+            logger.info("Removed %d demo account(s) from live database", result.deleted_count)
 
     # ----- Bootstrap executive accounts (create if missing, never overwrite existing) -----
     _exec_seats = [
@@ -5926,11 +5987,11 @@ async def report_incident(body: IncidentReq, user: User = Depends(current_user))
 async def list_incidents(status: Optional[str] = None, user: User = Depends(require_role("instructor", "admin"))):
     q = {"status": status} if status else {}
     docs = await db.incidents.find(q, {"_id": 0}).sort("created_at", -1).to_list(500)
-    user_ids = list({d["reported_by"] for d in docs} | {u for d in docs for u in d.get("involved_user_ids", [])})
+    user_ids = list({d.get("reported_by") for d in docs if d.get("reported_by")} | {u for d in docs for u in d.get("involved_user_ids", [])})
     users = await db.users.find({"id": {"$in": user_ids}}, {"_id": 0, "password_hash": 0}).to_list(1000)
     umap = {u["id"]: u for u in users}
     for d in docs:
-        d["reporter"] = umap.get(d["reported_by"])
+        d["reporter"] = umap.get(d.get("reported_by"))
         d["involved"] = [umap.get(uid) for uid in d.get("involved_user_ids", []) if umap.get(uid)]
     return docs
 

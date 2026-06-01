@@ -331,7 +331,7 @@ class TestDomainParity:
     def test_health_ok(self):
         r = requests.get(f"{API}/health", timeout=30)
         assert r.status_code == 200
-        assert r.json()["db"] == "up"
+        assert r.json().get("checks", {}).get("db", {}).get("status") == "up"
 
     def test_login_returns_bearer_token(self):
         d = _login(EXEC_EMAIL, EXEC_PW)
