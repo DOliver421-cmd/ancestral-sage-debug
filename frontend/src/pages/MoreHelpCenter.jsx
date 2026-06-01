@@ -1626,9 +1626,12 @@ export default function MoreHelpCenter() {
     // Always try wai-institute.org as the authoritative backend, regardless of
     // which domain the page is served from (morehelp.center shares the same backend).
     const healthUrl = "https://www.wai-institute.org/api/health";
-    fetch(healthUrl, { signal: AbortSignal.timeout(5000) })
-      .then(r => { setApiOnline(r.ok); setGwLabel(r.ok ? "Gateway online" : "Gateway unavailable"); })
+    const _hcCtrl = new AbortController();
+    const _hcTimer = setTimeout(() => _hcCtrl.abort(), 5000);
+    fetch(healthUrl, { signal: _hcCtrl.signal })
+      .then(r => { clearTimeout(_hcTimer); setApiOnline(r.ok); setGwLabel(r.ok ? "Gateway online" : "Gateway unavailable"); })
       .catch(() => {
+        clearTimeout(_hcTimer);
         // Network failure ≠ platform offline — show the page, just mark gateway unavailable.
         setApiOnline(true);
         setGwLabel("Gateway unavailable");

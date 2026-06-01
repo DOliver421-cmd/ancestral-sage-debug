@@ -139,7 +139,13 @@ function App() {
       <AuthProvider>
         <BrowserRouter>
           <ErrorBoundary>
-            <MoreHelpCenter />
+            <Toaster position="top-right" richColors />
+            <Routes>
+              {/* Auth pages must work on morehelp.center too */}
+              <Route path="/login" element={<Login />} />
+              <Route path="/register" element={<Register />} />
+              <Route path="*" element={<MoreHelpCenter />} />
+            </Routes>
           </ErrorBoundary>
         </BrowserRouter>
       </AuthProvider>
