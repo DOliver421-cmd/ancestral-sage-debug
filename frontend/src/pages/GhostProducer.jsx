@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { api } from "../lib/api";
 
 /* ── design tokens ──────────────────────────────────────────────────────── */
 const T = {
@@ -94,6 +95,10 @@ export default function GhostProducer() {
   const [vaultPass, setVaultPass]   = useState("");
   const [vaultOpen, setVaultOpen]   = useState(false);
   const [ttsOutput, setTtsOutput]   = useState("");
+  const [ttsText, setTtsText]       = useState("");
+  const [ttsVoice, setTtsVoice]     = useState("sage");
+  const [ttsLoading, setTtsLoading] = useState(false);
+  const ttsAudioRef = useRef(null);
   const [currentSession, setCurrentSession] = useState(1);
   const [panelOpen, setPanelOpen]   = useState(false);
 
@@ -210,30 +215,40 @@ export default function GhostProducer() {
     else { alert("⚠️ Password too short. The ghost demands at least 4 characters."); }
   }
 
-  let puterLoaded = false;
-  function loadPuter() {
-    if (puterLoaded) return;
-    const s = document.createElement("script");
-    s.src = "https://js.puter.com/v2/";
-    s.onload = () => { puterLoaded = true; };
-    document.head.appendChild(s);
-  }
-  function puterTTS() {
-    loadPuter();
-    setTtsOutput("🔄 Loading Puter.js TTS...");
-    setTimeout(() => setTtsOutput("🔊 \"The ghost producer does not need permission. It only needs rhythm.\" — NAM Oshun"), 800);
+  async function puterTTS() {
+    const text = ttsText.trim();
+    if (!text) { setTtsOutput("⚠️ Enter text above to convert."); return; }
+    setTtsLoading(true);
+    setTtsOutput("🔄 Generating audio…");
+    try {
+      const resp = await api.post("/ai/sage/tts", { text, voice: ttsVoice, speed: 1.0, session_id: "ghost_producer" }, { responseType: "blob" });
+      const url = URL.createObjectURL(resp.data);
+      if (ttsAudioRef.current) { ttsAudioRef.current.pause(); URL.revokeObjectURL(ttsAudioRef.current.src); }
+      const audio = new Audio(url);
+      ttsAudioRef.current = audio;
+      audio.play();
+      setTtsOutput("🔊 Playing — voice: " + ttsVoice);
+    } catch (e) {
+      const detail = e?.response?.data?.detail || e?.message || "TTS failed";
+      setTtsOutput("⚠️ " + detail);
+    } finally {
+      setTtsLoading(false);
+    }
   }
   function puterSTT() {
-    loadPuter();
-    setTtsOutput("🎙️ Puter.js STT ready. Say something haunting...");
-    setTimeout(() => setTtsOutput("✅ STT listening... (speak into your microphone, ghost)"), 800);
+    setTtsOutput("🎙️ Speech-to-Text — coming soon.");
   }
   function puterShare() {
-    loadPuter();
-    setTtsOutput("📁 Puter.js File Share loaded. Drop your manuscript and watch it publish itself.");
+    setTtsOutput("📁 File Share — coming soon.");
   }
   function compressMemory() {
-    alert("💾 COMPRESSING SESSION MEMORY...\n\n✅ Context from last 14 sessions compressed.\n✅ All notes saved to local storage.\n✅ Ghost sync complete.\n\n\"Nothing is lost. The ghost remembers everything.\"");
+    try {
+      const keys = Object.keys(localStorage).filter(k => k.startsWith("wai_hub_"));
+      keys.forEach(k => localStorage.removeItem(k));
+      setTtsOutput("💾 Session memory cleared — " + keys.length + " keys removed.");
+    } catch (e) {
+      setTtsOutput("⚠️ Could not clear memory: " + e.message);
+    }
   }
 
   /* ── render ── */
@@ -496,17 +511,32 @@ export default function GhostProducer() {
               </div>
             </div>
 
-            {/* Puter TTS/STT */}
+            {/* TTS */}
             <div style={{ ...S.cardGold, marginTop: 16 }}>
-              <h3 style={{ color: T.gold, fontFamily: "'Space Mono', monospace", marginBottom: 8 }}>🔊 PUTER.JS — NATIVE TTS &amp; STT (NO API KEY)</h3>
-              <p style={{ marginBottom: 16, color: "#888" }}>Free Text-to-Speech and Speech-to-Text without any account. Powered by Puter.js — loaded directly in this widget.</p>
-              <div style={{ display: "flex", gap: 12, flexWrap: "wrap", justifyContent: "center" }}>
-                <button style={vizBtnStyle(false, true)} onClick={puterTTS}>🔊 TEXT → SPEECH</button>
-                <button style={vizBtnStyle(false, true)} onClick={puterSTT}>🎙️ SPEECH → TEXT</button>
-                <button style={vizBtnStyle(false, true)} onClick={puterShare}>📁 SHARE FILE</button>
+              <h3 style={{ color: T.gold, fontFamily: "'Space Mono', monospace", marginBottom: 8 }}>🔊 WAI TEXT TO SPEECH</h3>
+              <p style={{ marginBottom: 12, color: "#888" }}>Convert any text to audio using the WAI voice engine. Requires a WAI account.</p>
+              <textarea
+                value={ttsText}
+                onChange={e => setTtsText(e.target.value)}
+                rows={3}
+                placeholder="Type something for the ghost to speak…"
+                style={{ width: "100%", background: "#0a0a0f", border: "1px solid #333", borderRadius: 8, padding: "10px 12px", color: T.text, fontFamily: "'Space Mono', monospace", fontSize: "0.8rem", resize: "vertical", boxSizing: "border-box", marginBottom: 10 }}
+              />
+              <div style={{ display: "flex", gap: 10, alignItems: "center", marginBottom: 12, flexWrap: "wrap" }}>
+                <select value={ttsVoice} onChange={e => setTtsVoice(e.target.value)}
+                  style={{ background: "#1a1a2a", border: "1px solid #333", borderRadius: 8, padding: "6px 10px", color: T.gold, fontFamily: "'Space Mono', monospace", fontSize: "0.8rem" }}>
+                  {["alloy","ash","coral","echo","fable","nova","onyx","sage","shimmer"].map(v => (
+                    <option key={v} value={v}>{v}</option>
+                  ))}
+                </select>
+                <button style={vizBtnStyle(ttsLoading, true)} onClick={puterTTS} disabled={ttsLoading}>
+                  {ttsLoading ? "⏳ Generating…" : "🔊 TEXT → SPEECH"}
+                </button>
+                <button style={{ ...vizBtnStyle(false, false), opacity: 0.5, cursor: "default" }} title="Coming soon">🎙️ STT</button>
+                <button style={{ ...vizBtnStyle(false, false), opacity: 0.5, cursor: "default" }} title="Coming soon">📁 SHARE</button>
               </div>
               {ttsOutput && (
-                <div style={{ marginTop: 16, textAlign: "center", fontFamily: "'Space Mono', monospace", color: T.ghost, fontSize: "0.9rem", minHeight: 40 }}>
+                <div style={{ marginTop: 8, textAlign: "center", fontFamily: "'Space Mono', monospace", color: T.ghost, fontSize: "0.85rem", minHeight: 32 }}>
                   {ttsOutput}
                 </div>
               )}
