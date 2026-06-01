@@ -56,8 +56,6 @@ From open mics to community workshops, from the page to the stage, NAM writes an
 
     // Store / merch / products
     commerce: [
-      { label: "Digital Chapbook", desc: "First collection — 'Rivers Remember'", url: null, placeholder: true },
-      { label: "Live Workshop Booking", desc: "Book NAM for your school, event, or organization", url: null, placeholder: true },
       { label: "WAI-Institute Courses", desc: "Community development and healing arts curriculum", url: "/store", placeholder: false },
       { label: "The Ghost Producer × Publisher Prime", desc: "Interactive music & publishing empire — no sign-in required", url: "/ghost-producer", placeholder: false },
       { label: "Creators Sanctuary", desc: "The hub for all WAI creators — community, courses, healing arts, music", url: "/tools/creators-sanctuary.html", placeholder: false },
@@ -170,18 +168,6 @@ He is a griot in the tradition that doesn't need to announce itself. The ancesto
 
     commerce: [
       {
-        label: "Poetry Collection",
-        desc: "Royal Black Falcon — debut chapbook. The words that built the name.",
-        url: null,
-        placeholder: true,
-      },
-      {
-        label: "Book a Performance",
-        desc: "Bring Kamau to your event, school, church, or community gathering. He shows up fully.",
-        url: null,
-        placeholder: true,
-      },
-      {
         label: "Join WAI-Institute",
         desc: "The platform where creators like Kamau teach, build, and connect with community.",
         url: "/register",
@@ -275,24 +261,6 @@ Nova is not emerging. She is already here. She is just letting you catch up.`,
     ],
 
     commerce: [
-      {
-        label: "Original Artwork",
-        desc: "Prints, digital pieces, and commissioned work — visual art rooted in Black beauty and community.",
-        url: null,
-        placeholder: true,
-      },
-      {
-        label: "Poetry Chapbook",
-        desc: "'Something Is Rising' — debut collection. Words from a young woman who decided to take up space.",
-        url: null,
-        placeholder: true,
-      },
-      {
-        label: "Artist Mentoring Sessions",
-        desc: "Book a 1-on-1 session with Nova. Career strategy, branding, performance coaching — virtual, on your schedule.",
-        url: null,
-        placeholder: true,
-      },
       {
         label: "Join WAI-Institute",
         desc: "Connect with Nova and other creators building on their own terms.",
