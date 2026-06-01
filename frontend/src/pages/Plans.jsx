@@ -22,7 +22,7 @@ const PLANS = [
     tagline: "Join in fully",
     features: ["Everything in Public", "Full M.O.R.E. — post & connect", "AI Tutor (standard)", "Member badge"],
     cta: "Choose Member",
-    to: "/subscribe",
+    to: "/subscribe?plan=member_monthly",
   },
   {
     name: "Plus",
@@ -30,7 +30,7 @@ const PLANS = [
     tagline: "More tools",
     features: ["Everything in Member", "Priority resource matching", "Expanded course library", "Portfolio tools"],
     cta: "Choose Plus",
-    to: "/subscribe",
+    to: "/subscribe?plan=plus_monthly",
     highlight: true,
   },
   {
@@ -39,7 +39,7 @@ const PLANS = [
     tagline: "Go further",
     features: ["Everything in Plus", "Advanced courses + labs", "Full AI tools suite", "Mentor support hours"],
     cta: "Choose Pro",
-    to: "/subscribe",
+    to: "/subscribe?plan=pro_monthly",
   },
   {
     name: "Patron",
@@ -47,7 +47,7 @@ const PLANS = [
     tagline: "Fund the mission",
     features: ["Everything in Pro", "Founder's circle", "You fund free access for others", "Direct line to the team"],
     cta: "Become a Patron",
-    to: "/subscribe",
+    to: "/subscribe?plan=patron_monthly",
   },
 ];
 
