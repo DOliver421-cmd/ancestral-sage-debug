@@ -595,6 +595,9 @@ async function generateOnlineResponse(userText) {
 
   const fullPrompt = `${systemPrompt}${kbContext}\n\nUser: ${userText}\nPUBLISHER:`;
 
+  if (SESHAT.getWAIToken()) {
+    try { return await SESHAT.callWAI(currentSkill, userText, kbContext); } catch (e) { /* fall through */ }
+  }
   if (SESHAT.getKeys().grok) {
     return await callGrok(fullPrompt);
   } else if (SESHAT.getKeys().hf) {
