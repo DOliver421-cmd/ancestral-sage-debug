@@ -1,7 +1,10 @@
 import { Link, useParams } from "react-router-dom";
-import { Heart, Instagram, ExternalLink, ShoppingBag, Music, BookOpen, Users, ArrowRight, Shield, Mic, Star } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Heart, Instagram, ExternalLink, ShoppingBag, Music, BookOpen, Users, ArrowRight, Shield, Mic, Star, Pencil } from "lucide-react";
 import { WAI_LOGO, BRAND } from "../lib/brand";
 import BugReportModal from "../components/BugReportModal";
+import { api } from "../lib/api";
+import { useAuth } from "../lib/auth";
 
 // ── Creator registry (proof of concept — one creator hardcoded, architecture is slug-based) ──
 const CREATORS = {
@@ -317,11 +320,53 @@ function SocialIcon({ type, className }) {
   return <ExternalLink className={className} />;
 }
 
+// Normalize a DB profile doc to match the shape the render tree expects
+function dbToCreator(p) {
+  return {
+    slug: p.slug,
+    displayName: p.display_name,
+    title: p.title || "",
+    tagline: p.tagline || "",
+    bio: p.bio || "",
+    pronouns: p.pronouns || "",
+    location: p.location || "",
+    avatar: p.avatar || "✨",
+    bannerColor: "from-amber-900 via-amber-800 to-ink",
+    accentColor: "amber",
+    socials: (p.socials || []).map(s => ({ platform: s.platform, handle: s.handle, url: s.url, note: s.note })),
+    moreOfferings: (p.more_offerings || []).map(o => ({ icon: o.icon, title: o.title, desc: o.desc })),
+    commerce: (p.commerce || []).map(c => ({ label: c.label, desc: c.desc, url: c.url, placeholder: false })),
+    waiStatus: { tier: "CREATOR", role: "Creator", since: new Date(p.created_at || Date.now()).getFullYear().toString(), bio: "" },
+    _dbUserId: p.user_id,
+  };
+}
+
 export default function CreatorProfile() {
   const { slug } = useParams();
-  const creator = CREATORS[slug] || PLACEHOLDER_CREATOR;
+  const { user } = useAuth();
+  const [dbProfile, setDbProfile] = useState(undefined); // undefined = loading, null = not found
 
-  if (!CREATORS[slug]) {
+  useEffect(() => {
+    api.get(`/creator/profile/${slug}`)
+      .then(r => setDbProfile(r.data.profile))
+      .catch(() => setDbProfile(null));
+  }, [slug]);
+
+  // While fetching, check hardcoded registry as instant fallback
+  const hardcoded = CREATORS[slug] || null;
+
+  // Still loading from backend
+  if (dbProfile === undefined && !hardcoded) {
+    return (
+      <div className="min-h-screen bg-bone flex items-center justify-center">
+        <div className="text-ink/40 text-sm">Loading profile…</div>
+      </div>
+    );
+  }
+
+  const creator = dbProfile ? dbToCreator(dbProfile) : hardcoded;
+
+  if (!creator) {
     return (
       <div className="min-h-screen bg-bone flex flex-col items-center justify-center gap-6 text-ink">
         <div className="text-6xl">🌊</div>
@@ -334,6 +379,9 @@ export default function CreatorProfile() {
     );
   }
 
+  // Show edit button if logged-in user owns this DB profile
+  const isOwner = dbProfile && user && dbProfile.user_id === user.id;
+
   return (
     <div className="min-h-screen bg-bone text-ink">
 
@@ -345,6 +393,14 @@ export default function CreatorProfile() {
             <span className="font-heading font-bold text-sm hidden sm:block">{BRAND.name}</span>
           </Link>
           <div className="flex items-center gap-3">
+            {isOwner && (
+              <Link
+                to={`/creator/profile/edit`}
+                className="flex items-center gap-1.5 text-xs font-bold text-copper border border-copper/40 hover:border-copper px-3 py-1.5 rounded-full transition-colors"
+              >
+                <Pencil className="w-3 h-3" /> Edit Profile
+              </Link>
+            )}
             <Link to="/more" className="flex items-center gap-1.5 text-xs font-bold text-amber-700 hover:text-amber-600 border border-amber-300 hover:border-amber-500 px-3 py-1.5 rounded-full transition-colors">
               <Heart className="w-3 h-3" /> M.O.R.E. Hub
             </Link>

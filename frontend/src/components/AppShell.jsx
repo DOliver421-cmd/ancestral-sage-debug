@@ -1,11 +1,12 @@
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../lib/auth";
 import { WAI_LOGO, BRAND } from "../lib/brand";
-import { LayoutDashboard, BookOpen, Award, Users, Settings, Sparkles, LogOut, FlaskConical, Target, ClipboardCheck, Briefcase, BadgeCheck, Brain, ShieldCheck, Building2, TrendingUp, ScrollText, Calendar, ShieldAlert, KeyRound, Crown, Compass, HelpCircle, Layers, HandHelping, Scale, Trophy, Network, ShoppingBag, Heart, Receipt, Video, DollarSign } from "lucide-react";
+import { LayoutDashboard, BookOpen, Award, Users, Settings, Sparkles, LogOut, FlaskConical, Target, ClipboardCheck, Briefcase, BadgeCheck, Brain, ShieldCheck, Building2, TrendingUp, ScrollText, Calendar, ShieldAlert, KeyRound, Crown, Compass, HelpCircle, Layers, HandHelping, Scale, Trophy, Network, ShoppingBag, Heart, Receipt, Video, DollarSign, UserCircle } from "lucide-react";
 import NotificationBell from "./NotificationBell";
 
 const studentNav = [
   { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard, testid: "nav-dashboard" },
+  { to: "/creator/profile/edit", label: "Creator Profile", icon: UserCircle, testid: "nav-creator-profile" },
   { to: "/creator/courses", label: "Creator Studio", icon: Video, testid: "nav-creator-courses" },
   { to: "/creator/earnings", label: "My Earnings", icon: DollarSign, testid: "nav-creator-earnings" },
   { to: "/palace", label: "Members' Palace", icon: Crown, testid: "nav-palace" },
@@ -33,6 +34,7 @@ const studentNav = [
 ];
 
 const instructorNav = [
+  { to: "/creator/profile/edit", label: "Creator Profile", icon: UserCircle, testid: "nav-creator-profile" },
   { to: "/creator/courses", label: "Creator Studio", icon: Video, testid: "nav-creator-courses" },
   { to: "/creator/earnings", label: "My Earnings", icon: DollarSign, testid: "nav-creator-earnings" },
   { to: "/instructor", label: "Roster", icon: Users, testid: "nav-instructor" },
