@@ -34,6 +34,7 @@ import asyncio
 import io
 import logging
 import os
+import re
 import time
 import uuid
 from datetime import datetime, timedelta, timezone
@@ -11623,6 +11624,149 @@ async def auditor_risks(user: User = Depends(require_role("admin"))):
         "high_count": sum(1 for i in items if i.get("risk_level") == "high"),
         "generated_at": datetime.now(timezone.utc).isoformat(),
     }
+
+
+# ── Creator Course Publishing ─────────────────────────────────────────────────
+# Any authenticated user can be a creator. Courses live in db.creator_courses.
+# Sections are text-based (title + content). Price in cents (0 = free).
+# Status: "draft" (private, only creator sees) | "published" (public catalog).
+
+class CourseSection(BaseModel):
+    title: str = Field(..., min_length=1, max_length=200)
+    content: str = Field(..., min_length=1, max_length=20000)
+
+class CreateCourseReq(BaseModel):
+    title: str = Field(..., min_length=2, max_length=200)
+    description: str = Field(default="", max_length=2000)
+    category: str = Field(default="general", max_length=100)
+    price_cents: int = Field(default=0, ge=0, le=99900)
+    sections: List[CourseSection] = Field(default_factory=list)
+    thumbnail_url: Optional[str] = Field(default=None, max_length=500)
+
+class UpdateCourseReq(BaseModel):
+    title: Optional[str] = Field(default=None, min_length=2, max_length=200)
+    description: Optional[str] = Field(default=None, max_length=2000)
+    category: Optional[str] = Field(default=None, max_length=100)
+    price_cents: Optional[int] = Field(default=None, ge=0, le=99900)
+    sections: Optional[List[CourseSection]] = None
+    thumbnail_url: Optional[str] = Field(default=None, max_length=500)
+    status: Optional[Literal["draft", "published"]] = None
+
+
+@api_router.post("/creator/courses", status_code=201)
+async def creator_create_course(body: CreateCourseReq, user: User = Depends(current_user)):
+    """Create a new course draft. Any authenticated user can create."""
+    course_id = str(uuid.uuid4())
+    slug = re.sub(r"[^a-z0-9]+", "-", body.title.lower()).strip("-")[:60] + "-" + course_id[:8]
+    doc = {
+        "course_id": course_id,
+        "creator_id": user.id,
+        "creator_name": user.full_name,
+        "title": body.title,
+        "description": body.description,
+        "category": body.category,
+        "price_cents": body.price_cents,
+        "sections": [s.model_dump() for s in body.sections],
+        "thumbnail_url": body.thumbnail_url,
+        "slug": slug,
+        "status": "draft",
+        "enrollment_count": 0,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+        "updated_at": datetime.now(timezone.utc).isoformat(),
+    }
+    await db.creator_courses.insert_one(doc)
+    await audit(user.id, "creator.course.created", meta={"course_id": course_id, "title": body.title})
+    doc.pop("_id", None)
+    return {"course": doc}
+
+
+@api_router.get("/creator/courses")
+async def creator_list_my_courses(user: User = Depends(current_user)):
+    """List all courses owned by the current user."""
+    courses = await db.creator_courses.find(
+        {"creator_id": user.id},
+        {"_id": 0},
+    ).sort("created_at", -1).to_list(length=100)
+    return {"courses": courses}
+
+
+@api_router.get("/creator/courses/published")
+async def creator_published_catalog(
+    category: str = "",
+    skip: int = 0,
+    limit: int = 24,
+):
+    """Public catalog — published courses from all creators."""
+    query: dict = {"status": "published"}
+    if category:
+        query["category"] = category
+    courses = await db.creator_courses.find(
+        query,
+        {"_id": 0, "sections": 0},
+    ).sort("created_at", -1).skip(skip).limit(min(limit, 50)).to_list(length=50)
+    total = await db.creator_courses.count_documents(query)
+    return {"courses": courses, "total": total}
+
+
+@api_router.get("/creator/courses/{course_id}")
+async def creator_get_course(course_id: str, user: User = Depends(current_user)):
+    """Get full course detail. Drafts only visible to their creator."""
+    course = await db.creator_courses.find_one({"course_id": course_id}, {"_id": 0})
+    if not course:
+        raise HTTPException(404, "Course not found")
+    if course["status"] == "draft" and course["creator_id"] != user.id:
+        raise HTTPException(403, "Not your draft")
+    return {"course": course}
+
+
+@api_router.patch("/creator/courses/{course_id}")
+async def creator_update_course(
+    course_id: str,
+    body: UpdateCourseReq,
+    user: User = Depends(current_user),
+):
+    """Update a course. Only the creator can edit."""
+    course = await db.creator_courses.find_one({"course_id": course_id})
+    if not course:
+        raise HTTPException(404, "Course not found")
+    if course["creator_id"] != user.id:
+        raise HTTPException(403, "Not your course")
+    update: dict = {"updated_at": datetime.now(timezone.utc).isoformat()}
+    if body.title is not None:
+        update["title"] = body.title
+        update["slug"] = re.sub(r"[^a-z0-9]+", "-", body.title.lower()).strip("-")[:60] + "-" + course_id[:8]
+    if body.description is not None:
+        update["description"] = body.description
+    if body.category is not None:
+        update["category"] = body.category
+    if body.price_cents is not None:
+        update["price_cents"] = body.price_cents
+    if body.sections is not None:
+        update["sections"] = [s.model_dump() for s in body.sections]
+    if body.thumbnail_url is not None:
+        update["thumbnail_url"] = body.thumbnail_url
+    if body.status is not None:
+        update["status"] = body.status
+    await db.creator_courses.update_one({"course_id": course_id}, {"$set": update})
+    await audit(user.id, "creator.course.updated", meta={"course_id": course_id, "fields": list(update.keys())})
+    updated = await db.creator_courses.find_one({"course_id": course_id}, {"_id": 0})
+    return {"course": updated}
+
+
+@api_router.delete("/creator/courses/{course_id}", status_code=204)
+async def creator_delete_course(course_id: str, user: User = Depends(current_user)):
+    """Soft-delete (archive) a course. Only the creator can delete."""
+    course = await db.creator_courses.find_one({"course_id": course_id})
+    if not course:
+        raise HTTPException(404, "Course not found")
+    if course["creator_id"] != user.id:
+        raise HTTPException(403, "Not your course")
+    await db.creator_courses.update_one(
+        {"course_id": course_id},
+        {"$set": {"status": "archived", "updated_at": datetime.now(timezone.utc).isoformat()}},
+    )
+    await audit(user.id, "creator.course.deleted", meta={"course_id": course_id})
+
 
 app.include_router(api_router)
 # CORS: when origins is wildcard ("*") browsers reject credentials, so we
