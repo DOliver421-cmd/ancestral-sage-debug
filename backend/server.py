@@ -12244,6 +12244,16 @@ async def upsert_creator_profile(body: UpsertCreatorProfileReq, user: User = Dep
     return {"profile": saved}
 
 
+@api_router.get("/creator/profiles/public")
+async def list_public_creator_profiles(limit: int = 50):
+    """Public — list creator profiles for the Creators directory page."""
+    profiles = await db.creator_profiles.find(
+        {},
+        {"_id": 0, "user_id": 0, "encrypted_key": 0},
+    ).sort("created_at", -1).limit(min(limit, 100)).to_list(length=100)
+    return {"profiles": profiles, "total": len(profiles)}
+
+
 @api_router.get("/creator/profile/{slug}")
 async def get_creator_profile_by_slug(slug: str, authorization: Optional[str] = Header(None)):
     """Public — get a creator profile by slug. Returns is_owner=True if the requester owns it."""

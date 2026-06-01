@@ -24,6 +24,7 @@ export default function CreatorCourses() {
   const [form, setForm] = useState(EMPTY_FORM);
   const [saving, setSaving] = useState(false);
   const [expandedId, setExpandedId] = useState(null);
+  const [deleteTarget, setDeleteTarget] = useState(null);
 
   useEffect(() => { loadCourses(); }, []);
 
@@ -119,11 +120,11 @@ export default function CreatorCourses() {
   }
 
   async function deleteCourse(course) {
-    if (!window.confirm(`Delete "${course.title}"? This cannot be undone.`)) return;
     try {
       await api.delete(`/creator/courses/${course.course_id}`);
       setCourses(cs => cs.filter(c => c.course_id !== course.course_id));
       toast.success("Course deleted.");
+      setDeleteTarget(null);
     } catch (e) {
       toast.error(e?.response?.data?.detail || "Delete failed.");
     }
@@ -318,7 +319,7 @@ export default function CreatorCourses() {
                       <Pencil className="w-4 h-4" />
                     </button>
                     <button
-                      onClick={e => { e.stopPropagation(); deleteCourse(course); }}
+                      onClick={e => { e.stopPropagation(); setDeleteTarget(course); }}
                       className="p-2 text-ink/40 hover:text-destructive transition-colors"
                     >
                       <Trash2 className="w-4 h-4" />
@@ -358,6 +359,30 @@ export default function CreatorCourses() {
           </div>
         )}
       </div>
+      {deleteTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm">
+            <div className="px-6 py-5">
+              <div className="flex items-center gap-2 mb-3">
+                <Trash2 className="w-4 h-4 text-red-600" />
+                <h2 className="font-heading font-bold text-lg text-slate-900">Delete Course</h2>
+              </div>
+              <p className="text-sm text-slate-600">
+                Delete <strong>"{deleteTarget.title}"</strong>? This cannot be undone.
+              </p>
+            </div>
+            <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-slate-100">
+              <button onClick={() => setDeleteTarget(null)} className="text-sm px-4 py-2 rounded-lg text-slate-600 hover:bg-slate-50">Cancel</button>
+              <button
+                onClick={() => deleteCourse(deleteTarget)}
+                className="flex items-center gap-2 text-sm px-5 py-2 rounded-lg bg-red-600 text-white font-bold hover:bg-red-700"
+              >
+                <Trash2 className="w-4 h-4" /> Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </AppShell>
   );
 }

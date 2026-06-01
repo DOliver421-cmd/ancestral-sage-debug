@@ -4,13 +4,14 @@ import AppShell from "../components/AppShell";
 import { api } from "../lib/api";
 import { useAuth } from "../lib/auth";
 import { toast } from "sonner";
-import { KeyRound, ShieldCheck, AlertTriangle, User as UserIcon, Save, Mail, Trash2, Download, Monitor, XCircle } from "lucide-react";
+import { KeyRound, ShieldCheck, AlertTriangle, User as UserIcon, Save, Mail, Trash2, Download, Monitor, XCircle, X } from "lucide-react";
 
 export default function Settings() {
   const { user, refresh } = useAuth();
   const [params] = useSearchParams();
   const forced = params.get("force") === "1" || user?.must_change_password;
   const [tab, setTab] = useState(forced ? "password" : "profile");
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
 
   // ---- Profile tab state -------------------------------------------------
   const [profile, setProfile] = useState({ full_name: "", email: "" });
@@ -255,9 +256,35 @@ export default function Settings() {
               <button
                 type="button"
                 className="px-4 py-2 text-sm font-bold border-2 border-destructive text-destructive rounded hover:bg-destructive/10 transition-colors inline-flex items-center gap-2"
+                onClick={() => setShowDeleteModal(true)}
+              >
+                <Trash2 className="w-4 h-4" /> Delete My Account
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+      {showDeleteModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100">
+              <div className="flex items-center gap-2">
+                <Trash2 className="w-4 h-4 text-red-600" />
+                <h2 className="font-heading font-bold text-lg text-slate-900">Delete Your Account</h2>
+              </div>
+              <button onClick={() => setShowDeleteModal(false)} className="text-slate-400 hover:text-slate-600"><X className="w-5 h-5" /></button>
+            </div>
+            <div className="px-6 py-5 space-y-3">
+              <div className="bg-red-50 border border-red-200 rounded-lg px-4 py-3 text-sm text-red-800">
+                <strong>This cannot be undone.</strong> Your account will be immediately anonymized and permanently deleted after 30 days (GDPR Article 17). You can contact support within that period to cancel.
+              </div>
+              <p className="text-sm text-slate-600">All progress, submissions, and personal data will be lost.</p>
+            </div>
+            <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-slate-100">
+              <button onClick={() => setShowDeleteModal(false)} className="text-sm px-4 py-2 rounded-lg text-slate-600 hover:bg-slate-50">Cancel</button>
+              <button
+                className="flex items-center gap-2 text-sm px-5 py-2 rounded-lg bg-red-600 text-white font-bold hover:bg-red-700"
                 onClick={async () => {
-                  if (!window.confirm("Are you sure? This will immediately anonymize your account and schedule it for permanent deletion after 30 days. You can contact support within that period to cancel the deletion.")) return;
-                  if (!window.confirm("Final confirmation: Delete your account? All progress, submissions, and personal data will be lost.")) return;
                   try {
                     await api.delete("/auth/account");
                     toast.success("Account scheduled for deletion. You will be signed out.");
@@ -266,15 +293,16 @@ export default function Settings() {
                   } catch (err) {
                     const detail = err?.response?.data?.detail;
                     toast.error(typeof detail === "string" ? detail : "Account deletion failed.");
+                    setShowDeleteModal(false);
                   }
                 }}
               >
-                <Trash2 className="w-4 h-4" /> Delete My Account
+                <Trash2 className="w-4 h-4" /> Permanently Delete Account
               </button>
             </div>
           </div>
-        )}
-      </div>
+        </div>
+      )}
     </AppShell>
   );
 }
