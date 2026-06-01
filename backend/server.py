@@ -11994,6 +11994,90 @@ async def admin_process_creator_payouts(user: User = Depends(require_role("execu
     return {"payouts_initiated": len(payouts_created), "detail": payouts_created}
 
 
+# ── Creator Public Profiles ───────────────────────────────────────────────────
+# Creators claim a slug and edit their own profile. Public GET by slug.
+# Hardcoded profiles in the frontend are the fallback when no DB record exists.
+
+class CreatorSocialLink(BaseModel):
+    platform: str = Field(..., max_length=100)
+    handle: str = Field(default="", max_length=100)
+    url: str = Field(..., max_length=500)
+    note: str = Field(default="", max_length=300)
+
+class CreatorOffering(BaseModel):
+    icon: str = Field(default="✨", max_length=10)
+    title: str = Field(..., max_length=200)
+    desc: str = Field(default="", max_length=1000)
+
+class CreatorCommerceItem(BaseModel):
+    label: str = Field(..., max_length=200)
+    desc: str = Field(default="", max_length=500)
+    url: str = Field(..., max_length=500)
+
+class UpsertCreatorProfileReq(BaseModel):
+    slug: str = Field(..., min_length=2, max_length=80, pattern=r"^[a-z0-9-]+$")
+    display_name: str = Field(..., min_length=1, max_length=100)
+    title: str = Field(default="", max_length=200)
+    tagline: str = Field(default="", max_length=300)
+    bio: str = Field(default="", max_length=5000)
+    pronouns: str = Field(default="", max_length=50)
+    location: str = Field(default="", max_length=100)
+    avatar: str = Field(default="✨", max_length=10)
+    socials: List[CreatorSocialLink] = Field(default_factory=list)
+    more_offerings: List[CreatorOffering] = Field(default_factory=list)
+    commerce: List[CreatorCommerceItem] = Field(default_factory=list)
+
+
+@api_router.get("/creator/profile/me")
+async def get_my_creator_profile(user: User = Depends(current_user)):
+    """Get the current user's creator profile (if claimed)."""
+    profile = await db.creator_profiles.find_one({"user_id": user.id}, {"_id": 0})
+    return {"profile": profile}
+
+
+@api_router.put("/creator/profile")
+async def upsert_creator_profile(body: UpsertCreatorProfileReq, user: User = Depends(current_user)):
+    """Create or update the current user's creator profile."""
+    # Ensure slug is not already taken by someone else
+    existing = await db.creator_profiles.find_one({"slug": body.slug})
+    if existing and existing.get("user_id") != user.id:
+        raise HTTPException(409, "That profile URL is already taken. Choose a different slug.")
+
+    now = datetime.now(timezone.utc).isoformat()
+    doc = {
+        "user_id": user.id,
+        "slug": body.slug,
+        "display_name": body.display_name,
+        "title": body.title,
+        "tagline": body.tagline,
+        "bio": body.bio,
+        "pronouns": body.pronouns,
+        "location": body.location,
+        "avatar": body.avatar,
+        "socials": [s.model_dump() for s in body.socials],
+        "more_offerings": [o.model_dump() for o in body.more_offerings],
+        "commerce": [c.model_dump() for c in body.commerce],
+        "updated_at": now,
+    }
+    await db.creator_profiles.update_one(
+        {"user_id": user.id},
+        {"$set": doc, "$setOnInsert": {"created_at": now}},
+        upsert=True,
+    )
+    await audit(user.id, "creator.profile.saved", meta={"slug": body.slug})
+    saved = await db.creator_profiles.find_one({"user_id": user.id}, {"_id": 0})
+    return {"profile": saved}
+
+
+@api_router.get("/creator/profile/{slug}")
+async def get_creator_profile_by_slug(slug: str):
+    """Public — get a creator profile by slug."""
+    profile = await db.creator_profiles.find_one({"slug": slug}, {"_id": 0, "user_id": 0})
+    if not profile:
+        raise HTTPException(404, "Creator profile not found")
+    return {"profile": profile}
+
+
 app.include_router(api_router)
 # CORS: when origins is wildcard ("*") browsers reject credentials, so we
 # turn off allow_credentials in that case (auth uses Bearer token in Authorization
