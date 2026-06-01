@@ -510,6 +510,9 @@ async function generateOnlineResponse(userText) {
     ).join('\n\n');
   }
   const fullPrompt = `${systemPrompt}${kbContext}\n\nUser: ${userText}\nELECTRICAL COURSES:`;
+  if (SESHAT.getWAIToken()) {
+    try { return await SESHAT.callWAI(currentSkill, userText, kbContext); } catch (e) { /* fall through */ }
+  }
   if (SESHAT.getKeys().grok) return await callGrok(fullPrompt);
   else if (SESHAT.getKeys().hf) return await callHuggingFace(fullPrompt);
   else if (SESHAT.getKeys().cohere) return await callCohere(fullPrompt);

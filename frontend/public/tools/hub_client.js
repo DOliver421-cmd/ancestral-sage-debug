@@ -169,7 +169,39 @@ var SESHAT = (function () {
 
     // Expose WebLLM engine for inline use
     getWebLLM: function () { return _webLLMEngine; },
-    isWebLLMReady: function () { return _webLLMReady; }
+    isWebLLMReady: function () { return _webLLMReady; },
+
+    // WAI backend token helper
+    getWAIToken: function () {
+      try { return localStorage.getItem('lce_token') || null; } catch (e) { return null; }
+    },
+
+    // Call the WAI backend AI endpoint — requires a logged-in WAI session.
+    // Returns the reply string, or throws on failure.
+    callWAI: async function (skillKey, message, contextText) {
+      var token = this.getWAIToken();
+      if (!token) throw new Error('Not logged in to WAI');
+      var body = JSON.stringify({
+        session_id: _name + '_' + Date.now(),
+        skill: skillKey || 'kemetic',
+        message: message,
+        context: contextText || '',
+      });
+      var resp = await fetch('/api/ai/tool-chat', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer ' + token,
+        },
+        body: body,
+      });
+      if (!resp.ok) {
+        var err = await resp.json().catch(function () { return {}; });
+        throw new Error(err.detail || ('WAI error ' + resp.status));
+      }
+      var data = await resp.json();
+      return data.reply;
+    }
   };
 })();
 
