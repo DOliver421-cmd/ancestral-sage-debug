@@ -2,11 +2,17 @@ import axios from "axios";
 import { toast } from "sonner";
 
 // Always use REACT_APP_BACKEND_URL if set (Render production).
-// Fall back to same-origin only for local dev where no env var is set.
+// Fall back to the known production backend host when deployed as static
+// assets where a runtime proxy may not be available.
 const ENV_URL = process.env.REACT_APP_BACKEND_URL;
 const RUNTIME_ORIGIN = typeof window !== "undefined" ? window.location.origin : "";
 
-export const BACKEND_URL = ENV_URL || RUNTIME_ORIGIN;
+// Fallback backend URL (production deployed backend). This ensures the
+// frontend will contact the real API even when the static host does not
+// provide a runtime proxy for /api/ paths.
+const FALLBACK_BACKEND = "https://ancestral-sage-debug-production.up.railway.app";
+
+export const BACKEND_URL = ENV_URL || RUNTIME_ORIGIN || FALLBACK_BACKEND;
 export const API = `${BACKEND_URL}/api`;
 
 export const api = axios.create({ baseURL: API });
