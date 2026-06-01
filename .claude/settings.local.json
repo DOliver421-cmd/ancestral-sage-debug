@@ -213,7 +213,12 @@
       "Bash(curl -s -o /tmp/login.txt -w '%{http_code}' -m 20 -X POST -H 'Content-Type: application/json' -d '{\"email\":\"youpickeddoliver@gmail.com\",\"password\":\"NamOshun@WAI2026\"}' https://ancestral-sage-debug-production.up.railway.app/api/auth/login)",
       "Bash(curl -s -o /tmp/r.txt -w \"HTTP %{http_code}\\\\n\" -m 20 https://ancestral-sage-backend.onrender.com/api/version)",
       "Bash(nslookup www.wai-institute.org)",
-      "Bash(curl -s -o /tmp/site.txt -w \"http=%{http_code} ssl_verify=%{ssl_verify_result}\\\\n\" -m 25 https://www.wai-institute.org/)"
+      "Bash(curl -s -o /tmp/site.txt -w \"http=%{http_code} ssl_verify=%{ssl_verify_result}\\\\n\" -m 25 https://www.wai-institute.org/)",
+      "Bash(cp /root/.claude/uploads/8da14145-635f-4a67-bb4b-e2faa9213c36/88829e7b-djedi_oracle.html /home/user/ancestral-sage-debug/frontend/public/tools/djedi-oracle.html)",
+      "Bash(cp /root/.claude/uploads/8da14145-635f-4a67-bb4b-e2faa9213c36/932e84be-electrical_courses.html /home/user/ancestral-sage-debug/frontend/public/tools/electrical-courses.html)",
+      "Bash(cp /root/.claude/uploads/8da14145-635f-4a67-bb4b-e2faa9213c36/0d49647b-media_strategist.html /home/user/ancestral-sage-debug/frontend/public/tools/media-strategist.html)",
+      "Bash(cp /root/.claude/uploads/8da14145-635f-4a67-bb4b-e2faa9213c36/09d356a2-publisher.html /home/user/ancestral-sage-debug/frontend/public/tools/publisher-prime.html)",
+      "Bash(cp /root/.claude/uploads/8da14145-635f-4a67-bb4b-e2faa9213c36/aad27775-Creators_Sanctuary.html /home/user/ancestral-sage-debug/frontend/public/tools/creators-sanctuary.html)"
     ]
   }
 }
