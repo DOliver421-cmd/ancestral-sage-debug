@@ -1,21 +1,32 @@
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../lib/auth";
 import { WAI_LOGO, BRAND } from "../lib/brand";
-import { LayoutDashboard, BookOpen, Award, Users, Settings, Sparkles, LogOut, FlaskConical, Target, ClipboardCheck, Briefcase, BadgeCheck, Brain, ShieldCheck, Building2, TrendingUp, ScrollText, Calendar, ShieldAlert, KeyRound, Crown, Compass } from "lucide-react";
+import { LayoutDashboard, BookOpen, Award, Users, Settings, Sparkles, LogOut, FlaskConical, Target, ClipboardCheck, Briefcase, BadgeCheck, Brain, ShieldCheck, Building2, TrendingUp, ScrollText, Calendar, ShieldAlert, KeyRound, Crown, Compass, HelpCircle, Layers, HandHelping, Scale, Trophy, Network, ShoppingBag, Heart, Receipt } from "lucide-react";
 import NotificationBell from "./NotificationBell";
 
 const studentNav = [
   { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard, testid: "nav-dashboard" },
+  { to: "/palace", label: "Members' Palace", icon: Crown, testid: "nav-palace" },
+  { to: "/elder-council", label: "Elder Council", icon: Layers, testid: "nav-elder-council" },
+  { to: "/plans", label: "Plans & Pricing", icon: Receipt, testid: "nav-plans" },
   { to: "/modules", label: "Curriculum", icon: BookOpen, testid: "nav-modules" },
-  { to: "/labs", label: "Apprentice Labs", icon: FlaskConical, testid: "nav-labs" },
+  { to: "/labs", label: "Workforce Labs", icon: FlaskConical, testid: "nav-labs" },
   { to: "/compliance", label: "Compliance", icon: ShieldCheck, testid: "nav-compliance" },
   { to: "/adaptive", label: "Learning Path", icon: Brain, testid: "nav-adaptive" },
   { to: "/competencies", label: "Competencies", icon: Target, testid: "nav-competencies" },
   { to: "/credentials", label: "Credentials", icon: BadgeCheck, testid: "nav-credentials" },
   { to: "/portfolio", label: "Portfolio", icon: Briefcase, testid: "nav-portfolio" },
   { to: "/incidents", label: "Report Incident", icon: ShieldAlert, testid: "nav-incidents" },
+  { to: "/leaderboard", label: "XP Leaderboard", icon: Trophy, testid: "nav-leaderboard" },
   { to: "/ai", label: "AI Tutor", icon: Sparkles, testid: "nav-ai" },
+  { to: "/council", label: "Council (Sage)", icon: Layers, testid: "nav-council" },
+  { to: "/app/more", label: "M.O.R.E. Hub", icon: HandHelping, testid: "nav-more" },
+  { to: "/more/litigation", label: "Legal Help Tool", icon: Scale, testid: "nav-litigation" },
   { to: "/certificates", label: "Certificates", icon: Award, testid: "nav-certs" },
+  { to: "/store", label: "Store", icon: ShoppingBag, testid: "nav-store" },
+  { to: "/subscribe", label: "M.O.R.E. Membership", icon: HandHelping, testid: "nav-subscribe" },
+  { to: "/donate", label: "Donate", icon: Heart, testid: "nav-donate" },
+  { to: "/payment/history", label: "Payment History", icon: Receipt, testid: "nav-payment-history" },
   { to: "/settings", label: "Settings", icon: KeyRound, testid: "nav-settings" },
 ];
 
@@ -24,10 +35,17 @@ const instructorNav = [
   { to: "/instructor/labs", label: "Lab Approvals", icon: ClipboardCheck, testid: "nav-lab-approvals" },
   { to: "/attendance", label: "Attendance", icon: Calendar, testid: "nav-attendance" },
   { to: "/incidents", label: "Incidents", icon: ShieldAlert, testid: "nav-incidents" },
+  { to: "/leaderboard", label: "XP Leaderboard", icon: Trophy, testid: "nav-leaderboard" },
   { to: "/modules", label: "Curriculum", icon: BookOpen, testid: "nav-modules" },
   { to: "/compliance", label: "Compliance", icon: ShieldCheck, testid: "nav-compliance" },
-  { to: "/labs", label: "Apprentice Labs", icon: FlaskConical, testid: "nav-labs" },
+  { to: "/labs", label: "Workforce Labs", icon: FlaskConical, testid: "nav-labs" },
   { to: "/ai", label: "AI Tutor", icon: Sparkles, testid: "nav-ai" },
+  { to: "/council", label: "Council (Sage)", icon: Layers, testid: "nav-council" },
+  { to: "/app/more", label: "M.O.R.E. Hub", icon: HandHelping, testid: "nav-more" },
+  { to: "/more/litigation", label: "Legal Help Tool", icon: Scale, testid: "nav-litigation" },
+  { to: "/store", label: "Store", icon: ShoppingBag, testid: "nav-store" },
+  { to: "/subscribe", label: "M.O.R.E. Membership", icon: HandHelping, testid: "nav-subscribe" },
+  { to: "/donate", label: "Donate", icon: Heart, testid: "nav-donate" },
   { to: "/settings", label: "Settings", icon: KeyRound, testid: "nav-settings" },
 ];
 
@@ -42,12 +60,19 @@ const adminNav = [
   { to: "/attendance", label: "Attendance", icon: Calendar, testid: "nav-attendance" },
   { to: "/incidents", label: "Incidents", icon: ShieldAlert, testid: "nav-incidents" },
   { to: "/modules", label: "Curriculum", icon: BookOpen, testid: "nav-modules" },
-  { to: "/labs", label: "Apprentice Labs", icon: FlaskConical, testid: "nav-labs" },
+  { to: "/labs", label: "Workforce Labs", icon: FlaskConical, testid: "nav-labs" },
   { to: "/ai", label: "AI Tutor", icon: Sparkles, testid: "nav-ai" },
+  { to: "/council", label: "Council (Sage)", icon: Layers, testid: "nav-council" },
+  { to: "/more", label: "M.O.R.E.", icon: HandHelping, testid: "nav-more" },
+  { to: "/app/more", label: "M.O.R.E. Hub", icon: HandHelping, testid: "nav-more-hub" },
+  { to: "/more/admin", label: "M.O.R.E. Admin", icon: Scale, testid: "nav-more-admin" },
+  { to: "/more/ops", label: "Dept. AI Ops", icon: Network, testid: "nav-more-ops" },
+  { to: "/store", label: "Store", icon: ShoppingBag, testid: "nav-store" },
+  { to: "/donate", label: "Donate", icon: Heart, testid: "nav-donate" },
+  { to: "/admin/payments", label: "Revenue", icon: Receipt, testid: "nav-admin-payments" },
   { to: "/settings", label: "Settings", icon: KeyRound, testid: "nav-settings" },
 ];
 
-// Executive admin = admin nav + a top-row "System" link to the exec-only page.
 const execAdminNav = [
   { to: "/admin/system", label: "System", icon: Crown, testid: "nav-exec-system" },
   { to: "/admin/sage-audit", label: "Sage Sessions", icon: Compass, testid: "nav-sage-audit" },
@@ -70,7 +95,7 @@ export default function AppShell({ children }) {
       <aside className="w-64 shrink-0 bg-ink text-white flex flex-col" data-testid="sidebar">
         <div className="px-6 py-7 border-b border-white/10 flex items-center justify-between">
           <Link to="/dashboard" className="flex items-center gap-3" data-testid="sidebar-brand">
-            <img src={WAI_LOGO} alt="W.A.I." className="w-10 h-10 object-contain bg-white p-1 rounded-sm" />
+            <img src={WAI_LOGO} alt="W.A.I." className="w-10 h-10 object-contain" style={{ mixBlendMode: "screen" }} />
             <div>
               <div className="overline text-signal">{BRAND.short}</div>
               <div className="font-heading font-bold text-sm leading-tight">{BRAND.name}</div>
@@ -93,6 +118,24 @@ export default function AppShell({ children }) {
             );
           })}
         </nav>
+
+        <div className="px-4 pb-4">
+          <Link
+            to="/app/helper"
+            data-testid="nav-helper"
+            className="flex flex-col gap-1 w-full rounded-xl p-4 text-white no-underline transition-all hover:opacity-90"
+            style={{ background: "linear-gradient(135deg,#2563eb,#7c3aed)", textDecoration: "none", boxShadow: "0 4px 16px rgba(37,99,235,0.30)" }}
+          >
+            <div className="flex items-center gap-2">
+              <HelpCircle className="w-5 h-5 shrink-0" style={{ color: "#fde68a" }} />
+              <span style={{ fontSize: 15, fontWeight: 800, lineHeight: 1.2, color: "#fff" }}>Personal Help Center</span>
+            </div>
+            <span style={{ fontSize: 11, opacity: 0.85, lineHeight: 1.4, color: "#fff", paddingLeft: 28 }}>
+              Understand letters, bills, legal papers, housing notices and more — in plain words
+            </span>
+          </Link>
+        </div>
+
         <div className="px-4 py-5 border-t border-white/10">
           <div className="text-xs text-white/50 uppercase tracking-widest">Signed in as</div>
           <div className="font-heading text-white font-semibold mt-1 truncate flex items-center gap-2">

@@ -1,6 +1,8 @@
-export const WAI_LOGO = "https://customer-assets.emergentagent.com/job_apprentice-academy/artifacts/zqurn9jd_WAI%20Logo.jpg";
+export const WAI_LOGO = "https://storage.googleapis.com/wai-institute/WAI%20Logo.jpg";
 export const BRAND = {
   short: "W.A.I.",
-  name: "Workforce Apprentice Institute",
-  subtitle: "LCE-WAI Partner Program",
+  name: "Workforce And Arts Institute",
+  full: "W.A.I. — Workforce And Arts Institute",
+  tagline: "Social support and education for invisible communities",
+  mission: "Creator economy. Cultural expression. Economic dignity.",
 };

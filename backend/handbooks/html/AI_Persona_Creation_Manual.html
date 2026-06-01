@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Building AI Personas — A Manual for Underserved Communities</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,600;0,700;1,400&display=swap');
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Cormorant Garamond', Georgia, 'Times New Roman', serif;
+    color: #1a1a1a;
+    line-height: 1.6;
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 60px 40px;
+    background: #faf8f5;
+  }
+  h1 {
+    font-size: 32px;
+    font-weight: 700;
+    color: #1a1a1a;
+    border-bottom: 3px solid #D4AF37;
+    padding-bottom: 12px;
+    margin-bottom: 8px;
+    text-align: center;
+  }
+  .subtitle {
+    text-align: center;
+    font-size: 15px;
+    color: #666;
+    margin-bottom: 40px;
+    font-style: italic;
+  }
+  h2 {
+    font-size: 22px;
+    font-weight: 600;
+    color: #1a1a1a;
+    margin-top: 36px;
+    margin-bottom: 12px;
+    border-bottom: 1px solid #e0d5c0;
+    padding-bottom: 4px;
+  }
+  h3 {
+    font-size: 18px;
+    font-weight: 600;
+    color: #333;
+    margin-top: 24px;
+    margin-bottom: 8px;
+  }
+  h4 {
+    font-size: 16px;
+    font-weight: 600;
+    color: #444;
+    margin-top: 18px;
+    margin-bottom: 6px;
+  }
+  p { margin-bottom: 12px; font-size: 16px; }
+  ul, ol { margin: 8px 0 16px 24px; }
+  li { margin-bottom: 4px; font-size: 16px; }
+  strong { font-weight: 700; }
+  em { font-style: italic; }
+  blockquote {
+    border-left: 4px solid #D4AF37;
+    margin: 16px 0;
+    padding: 12px 20px;
+    background: #f5f0e8;
+    font-style: italic;
+    color: #444;
+    font-size: 16px;
+  }
+  code {
+    font-family: 'Courier New', monospace;
+    background: #f0ede8;
+    padding: 1px 6px;
+    border-radius: 3px;
+    font-size: 14px;
+  }
+  pre {
+    background: #f0ede8;
+    padding: 16px 20px;
+    border-radius: 4px;
+    overflow-x: auto;
+    font-size: 14px;
+    margin: 12px 0 20px;
+  }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 16px 0 24px;
+    font-size: 15px;
+  }
+  th {
+    background: #1a1a1a;
+    color: white;
+    padding: 10px 14px;
+    text-align: left;
+    font-weight: 600;
+  }
+  td {
+    padding: 8px 14px;
+    border-bottom: 1px solid #ddd;
+  }
+  tr:nth-child(even) td { background: #f5f2ed; }
+  hr {
+    border: none;
+    border-top: 2px solid #D4AF37;
+    margin: 32px 0;
+  }
+  .footer {
+    text-align: center;
+    margin-top: 48px;
+    padding-top: 16px;
+    border-top: 1px solid #e0d5c0;
+    font-size: 14px;
+    color: #888;
+    font-style: italic;
+  }
+</style>
+</head>
+<body>
+<h1>Building AI Personas &amp; Generating Revenue — A Manual for Underserved Communities</h1>
+<p><strong>Author:</strong> Delon Oliver<br />
+<strong>Publication:</strong> WAI Institute, NAM Oshun Mission<br />
+<strong>Version:</strong> 1.0</p>
+<hr />
+<h2>Introduction</h2>
+<p>This manual shows you how to build AI personas (expert AI agents) and turn them into revenue-generating tools. You do not need a computer science degree. You need a clear mission and the willingness to build.</p>
+<hr />
+<h2>Part 1: What Is an AI Persona?</h2>
+<p>An AI persona is a specialized AI agent with:</p>
+<ul>
+<li><strong>A defined role</strong> — e.g., Tutor, Financial Coach, Legal Advisor</li>
+<li><strong>Knowledge boundaries</strong> — It knows its domain and stays in it</li>
+<li><strong>A consistent voice</strong> — It communicates with a specific tone and style</li>
+<li><strong>Tools and capabilities</strong> — It can perform specific actions</li>
+</ul>
+<p>Think of it as hiring an expert who works 24/7, never gets tired, and costs pennies per interaction.</p>
+<hr />
+<h2>Part 2: How to Build a Persona (5 Steps)</h2>
+<h3>Step 1: Define the Mission</h3>
+<p>Ask: What problem does this persona solve? Who does it serve?</p>
+<p>Example: &quot;A financial literacy coach for first-generation entrepreneurs in underserved communities.&quot;</p>
+<h3>Step 2: Write the System Prompt</h3>
+<p>The system prompt is the persona's brain. Include:</p>
+<ul>
+<li>Role and identity</li>
+<li>Mission statement</li>
+<li>Knowledge domain (what it knows)</li>
+<li>Boundaries (what it will not do)</li>
+<li>Tone and style guidelines</li>
+<li>Output format rules</li>
+</ul>
+<p>Keep it under 2000 words. Be specific.</p>
+<h3>Step 3: Define Capabilities</h3>
+<p>List what the persona can do:</p>
+<ul>
+<li>Answer questions in its domain</li>
+<li>Generate documents (reports, plans, assessments)</li>
+<li>Analyze data</li>
+<li>Guide users through processes</li>
+<li>Escalate complex issues to humans</li>
+</ul>
+<h3>Step 4: Set Safety Guardrails</h3>
+<p>Every persona needs:</p>
+<ul>
+<li>Content filters (no harmful advice)</li>
+<li>Escalation paths (when to pass to a human)</li>
+<li>Transparency (it must identify as AI)</li>
+<li>Privacy rules (no collecting or storing PII)</li>
+</ul>
+<h3>Step 5: Test and Iterate</h3>
+<ul>
+<li>Chat with your persona. Does it stay in character?</li>
+<li>Test edge cases. What happens when asked something outside its domain?</li>
+<li>Refine the prompt. Small changes produce big behavior shifts.</li>
+</ul>
+<hr />
+<h2>Part 3: Revenue Models for AI Personas</h2>
+<h3>Model 1: Digital Products ($9.99-$49)</h3>
+<p>Personas can generate sellable content:</p>
+<ul>
+<li>Custom business plans</li>
+<li>Personalized learning modules</li>
+<li>Audit reports</li>
+<li>Strategy documents</li>
+</ul>
+<p><strong>Platform:</strong> Gumroad (5% fee), your own site</p>
+<h3>Model 2: Subscription Access ($9.99-$99/mo)</h3>
+<ul>
+<li>Monthly coaching via AI persona</li>
+<li>Tiered access (basic / premium)</li>
+<li>Weekly personalized content</li>
+</ul>
+<p><strong>Platform:</strong> Stripe recurring billing</p>
+<h3>Model 3: Course Bundles ($49-$349)</h3>
+<ul>
+<li>Bundle persona-generated content into courses</li>
+<li>Video, worksheets, templates</li>
+<li>Certification upon completion</li>
+</ul>
+<p><strong>Platform:</strong> WAI Creator Marketplace (70/30 split), Gumroad</p>
+<h3>Model 4: Corporate Training ($5K-$15K)</h3>
+<ul>
+<li>License persona-based training to organizations</li>
+<li>Customized for company needs</li>
+<li>Volume pricing for cohorts</li>
+</ul>
+<h3>Model 5: Freemium + Upsell</h3>
+<ul>
+<li>Free tier: basic Q&amp;A with the persona</li>
+<li>Paid tier: personalized deep work, documents, audits</li>
+<li>Conversion target: 5-10% of free users</li>
+</ul>
+<hr />
+<h2>Part 4: Technical Requirements (Minimal)</h2>
+<h3>What You Need</h3>
+<ul>
+<li><strong>API access</strong> — OpenAI API key ($5-20/mo for small scale)</li>
+<li><strong>A backend</strong> — A simple Python or Node.js server</li>
+<li><strong>A frontend</strong> — Chat interface or landing page</li>
+<li><strong>Payment processor</strong> — Stripe or Gumroad account</li>
+</ul>
+<h3>One-Person Tech Stack</h3>
+<p>| Component | Recommended |
+|-----------|-------------|
+| Server | Python (FastAPI) or Node.js (Express) |
+| Hosting | Railway, Render, or Fly.io |
+| Payments | Stripe + Gumroad |
+| AI | OpenAI API |
+| Frontend | Simple React or HTML/JS |</p>
+<h3>Operating Cost Estimate (per month)</h3>
+<p>| Item | Cost |
+|------|------|
+| OpenAI API | $10-50 |
+| Server hosting | $5-25 |
+| Domain + email | $10-15 |
+| Stripe fees | 2.9% + $0.30 per transaction |
+| <strong>Total</strong> | <strong>$25-90/mo</strong> |</p>
+<hr />
+<h2>Part 5: Case Study — WAI Institute</h2>
+<p>WAI runs 17 AI personas generating revenue across 5 streams:</p>
+<ul>
+<li><strong>Sage</strong> ($9.99) — Wisdom and strategy content</li>
+<li><strong>Revenue Director</strong> — Subscription management</li>
+<li><strong>Savant Scholar</strong> — Curriculum and assessments</li>
+<li><strong>Oracle</strong> — Forecasting and analytics</li>
+<li><strong>Architect</strong> — System design</li>
+</ul>
+<p>Revenue projection at slow demand: $16K/yr<br />
+Revenue projection at moderate demand: $71K/yr</p>
+<hr />
+<h2>Part 6: Legal Considerations</h2>
+<ul>
+<li><strong>Disclose AI</strong> — Users must know they are interacting with AI</li>
+<li><strong>Ownership</strong> — You own your personas and their outputs</li>
+<li><strong>Liability</strong> — The persona should disclaim professional advice</li>
+<li><strong>Privacy</strong> — Never store user conversations longer than needed</li>
+<li><strong>Terms of Service</strong> — Clearly state what the persona can and cannot do</li>
+</ul>
+<hr />
+<h2>Part 7: Getting Started This Week</h2>
+<h3>Day 1</h3>
+<ul>
+<li>Define your persona's mission</li>
+<li>Write a 500-word system prompt</li>
+<li>Test it in ChatGPT or the OpenAI Playground</li>
+</ul>
+<h3>Day 2</h3>
+<ul>
+<li>Set up a Gumroad account</li>
+<li>Create your first digital product ($9.99)</li>
+<li>Generate sample content from your persona</li>
+</ul>
+<h3>Day 3</h3>
+<ul>
+<li>Deploy a simple chat interface</li>
+<li>Connect Stripe for payments</li>
+<li>Share with 5 trusted testers</li>
+</ul>
+<h3>Day 4</h3>
+<ul>
+<li>Collect feedback and refine your prompt</li>
+<li>Add one more persona</li>
+<li>Set up your pricing tiers</li>
+</ul>
+<h3>Day 5</h3>
+<ul>
+<li>Launch publicly</li>
+<li>Post on social media</li>
+<li>Track revenue and engagement</li>
+</ul>
+<hr />
+<h2>Resources</h2>
+<ul>
+<li>OpenAI API documentation: https://platform.openai.com</li>
+<li>Gumroad: https://gumroad.com</li>
+<li>Stripe: https://stripe.com</li>
+<li>WAI Institute: https://wai-institute.org (coming soon)</li>
+</ul>
+<hr />
+<p><em>&quot;You do not need permission. You need a persona, a prompt, and a price.&quot;</em> — Delon Oliver</p>
+
+<div class="footer">WAI Institute — NAM Oshun Mission</div>
+</body>
+</html>

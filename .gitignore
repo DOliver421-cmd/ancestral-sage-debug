@@ -30,10 +30,20 @@ next-env.d.ts
 dist/
 dist
 
-# Environment files (comprehensive coverage)
-
+# Environment and credential files — NO .env VARIANT should EVER be committed
+.env
+.env.*
+.env*
+*.env
+*env*.txt
+*env*.text
+backend/serverpytext.txt
 *token.json*
 *credentials.json*
+credentials.json
+*.pem
+*.key
+.credentials
 
 # Logs and debug files
 npm-debug.log*
@@ -44,7 +54,8 @@ dump.rdb
 
 # System files
 .DS_Store
-*.pem
+Thumbs.db
+Desktop.ini
 
 # Python
 __pycache__/
@@ -76,15 +87,27 @@ agenthub/agents/youtube/db
 # Build caches
 .cache/
 
+# Local files
 memory/test_credentials.md
+WAI_Handoff.txt
 
-# Mobile development
-android-sdk/-e 
-# Environment and credential files
-.env
-.env.*
-*.env
-credentials.json
-*.pem
-*.key
-.credentials
+# Binary / document formats that should never be committed
+*.doc
+*.docx
+*.pdf
+*.png
+*.jpg
+*.jpeg
+*.gif
+*.ico
+*.woff
+*.woff2
+*.ttf
+*.otf
+*.eot
+
+# Archive directory — historical reference only, not part of the live codebase
+.archive/
+
+# Operational scripts (may contain local paths / credentials)
+scripts/ops/

@@ -70,7 +70,7 @@ export default function Portfolio() {
           <div className="mt-4">
             <label className="overline text-ink/60">About You (optional bio, 1-2 sentences)</label>
             <textarea value={bio} onChange={(e) => setBio(e.target.value)} rows={2} maxLength={200}
-              placeholder="e.g., Second-year apprentice focused on residential wiring and off-grid solar."
+              placeholder="e.g., Second-year trainee focused on residential wiring and off-grid solar."
               className="w-full mt-2 px-3 py-2 border border-ink/20 focus:border-ink focus:outline-none focus:ring-2 focus:ring-signal text-sm"
               data-testid="input-bio" />
             <div className="text-xs text-ink/50 mt-1">{bio.length}/200</div>

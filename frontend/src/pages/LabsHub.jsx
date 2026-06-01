@@ -23,9 +23,9 @@ export default function LabsHub() {
   return (
     <AppShell>
       <div className="px-10 py-10 max-w-6xl">
-        <div className="overline text-copper">Electrical Apprentice Labs</div>
+        <div className="overline text-copper">Electrical Workforce Labs</div>
         <h1 className="font-heading text-4xl font-bold mt-2">Shop-Floor Ready.</h1>
-        <p className="text-ink/60 mt-2 max-w-2xl">{onlineCount} online simulations + {inpersonCount} in-person labs. Every lab awards skill points, hours, and competency badges toward apprenticeship readiness.</p>
+        <p className="text-ink/60 mt-2 max-w-2xl">{onlineCount} online simulations + {inpersonCount} in-person labs. Every lab awards skill points, hours, and competency badges toward workforce readiness.</p>
 
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mt-8">
           <Stat icon={Monitor} label="Online Labs" value={onlineCount} testid="stat-online" />

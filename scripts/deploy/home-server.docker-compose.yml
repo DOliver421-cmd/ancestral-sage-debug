@@ -1,0 +1,76 @@
+# Home Server Backup — Docker Compose
+#
+# Deploys the WAI backend as a backup tier that reports heartbeats to the
+# primary server's breaker panel.  Combined with Cloudflare Tunnel (see
+# cloudflare-tunnel-setup.sh) this becomes the BACKUP origin.
+#
+# Usage:
+#   cp ../../.env.example ../../.env   # fill in secrets
+#   docker compose -f home-server.docker-compose.yml up -d
+#
+# Environment variables expected in .env:
+#   MONGO_URL           — primary MongoDB (Railway Atlas)
+#   MONGO_BACKUP_URL    — local MongoDB or secondary Atlas
+#   BACKEND_SECRET_KEY  — JWT signing secret
+#   PRIMARY_API_URL     — the Railway-hosted primary (for heartbeat)
+#   BACKUP_ORIGIN       — this server's public tunnel URL
+#   PORT                — internal port (default 8080)
+
+version: "3.8"
+
+services:
+  mongo:
+    image: mongo:7
+    container_name: wai-backup-mongo
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo_backup_data:/data/db
+    restart: unless-stopped
+    healthcheck:
+      test: echo 'db.runCommand("ping").ok' | mongosh --quiet
+      interval: 15s
+      timeout: 5s
+      retries: 3
+
+  backend:
+    build:
+      context: ../..
+      dockerfile: Dockerfile
+    container_name: wai-backup-backend
+    ports:
+      - "${PORT:-8080}:8080"
+    env_file:
+      - ../../.env
+    environment:
+      - MONGO_URL=mongodb://mongo:27017/wai_backup
+      - MONGO_BACKUP_URL=${MONGO_URL}              # remote primary as backup source
+      - DB_NAME=wai_backup
+      - CORS_ORIGINS=${BACKUP_ORIGIN},http://localhost:8080
+      - PUBLIC_APP_URL=${BACKUP_ORIGIN}
+      - SERVE_FRONTEND=1
+      - BACKUP_ORIGIN=${BACKUP_ORIGIN}
+      - PRIMARY_API_URL=${PRIMARY_API_URL}          # for watchdog heartbeat
+      - WATCHDOG_PRIMARY_URL=${PRIMARY_API_URL}     # watchdog checks primary health
+      - WATCHDOG_DISABLE=0
+      - BACKEND_SECRET_KEY=${BACKEND_SECRET_KEY}
+    depends_on:
+      mongo:
+        condition: service_healthy
+    restart: unless-stopped
+    volumes:
+      - ../../backend:/app/backend
+
+  # Cloudflare Tunnel sidecar — exposes this backend via tunnel
+  tunnel:
+    image: cloudflare/cloudflared:latest
+    container_name: wai-backup-tunnel
+    command: tunnel run
+    environment:
+      - TUNNEL_TOKEN=${CF_TUNNEL_TOKEN}
+    restart: unless-stopped
+    depends_on:
+      - backend
+
+volumes:
+  mongo_backup_data:

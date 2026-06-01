@@ -18,7 +18,7 @@ export default function InstructorDashboard() {
         <p className="text-ink/60 mt-2">Watch the associate. Unlock modules. Sign off skill demonstrations.</p>
 
         <div className="grid grid-cols-3 gap-5 mt-8">
-          <Stat icon={Users} label="Apprentices" value={roster.length} testid="stat-apprentices" />
+          <Stat icon={Users} label="Trainees" value={roster.length} testid="stat-apprentices" />
           <Stat icon={Award} label="Modules Completed" value={totalCompletions} testid="stat-completions" />
           <Stat icon={Clock} label="Associate Hours" value={totalHours} testid="stat-associate-hours" />
         </div>
@@ -27,7 +27,7 @@ export default function InstructorDashboard() {
           <table className="w-full text-sm">
             <thead className="bg-ink text-white">
               <tr>
-                <Th>Apprentice</Th>
+                <Th>Trainee</Th>
                 <Th>Email</Th>
                 <Th>Associate</Th>
                 <Th>Modules</Th>
@@ -37,7 +37,7 @@ export default function InstructorDashboard() {
             </thead>
             <tbody>
               {roster.length === 0 && (
-                <tr><td colSpan={6} className="p-8 text-center text-ink/50">No apprentices enrolled yet.</td></tr>
+                <tr><td colSpan={6} className="p-8 text-center text-ink/50">No trainees enrolled yet.</td></tr>
               )}
               {roster.map((s) => (
                 <tr key={s.id} className="border-b border-ink/10 hover:bg-bone" data-testid={`row-${s.id}`}>

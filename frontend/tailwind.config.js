@@ -6,7 +6,7 @@ module.exports = {
     container: { center: true, padding: "2rem", screens: { "2xl": "1400px" } },
     extend: {
       fontFamily: {
-        heading: ["'Cabinet Grotesk'", "sans-serif"],
+        heading: ["'Cabinet Grotesk'", "'Plus Jakarta Sans'", "sans-serif"],
         sans: ["'IBM Plex Sans'", "sans-serif"],
         mono: ["'IBM Plex Mono'", "monospace"],
       },
@@ -45,9 +45,9 @@ module.exports = {
           foreground: "hsl(var(--card-foreground))",
         },
         // W.A.I. brand
-        ink: "#0B203F",
+        ink: "#2e1065",
         bone: "#F7F7F5",
-        copper: "#1E5BA8",
+        copper: "#b8860b",
         signal: "#FFD100",
         slate: "#7A8290",
       },

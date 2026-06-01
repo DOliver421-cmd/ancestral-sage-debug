@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import AppShell from "../components/AppShell";
 import { LoadingState } from "../components/LoadingState";
 import { api, BACKEND_URL } from "../lib/api";
-import { BadgeCheck, Shield, Award, Star, Download, ExternalLink, Clock } from "lucide-react";
+import { BadgeCheck, Shield, Award, Star, Download, ExternalLink, Clock, FileText } from "lucide-react";
 
 const CAT_ICON = { level: Award, skill: Star, compliance: Shield, capstone: BadgeCheck };
 const CAT_COLOR = {
@@ -22,9 +22,17 @@ export default function Credentials() {
   return (
     <AppShell>
       <div className="px-10 py-10 max-w-6xl">
-        <div className="overline text-copper">Digital Credentials</div>
-        <h1 className="font-heading text-4xl font-bold mt-2 flex items-center gap-3"><BadgeCheck className="w-8 h-8 text-copper" /> Your Credential Wallet</h1>
-        <p className="text-ink/60 mt-2 max-w-2xl">OpenBadges-compatible micro-credentials. Share them on LinkedIn, your resume, or any badge-aware platform.</p>
+        <div className="flex items-start justify-between gap-4 flex-wrap">
+          <div>
+            <div className="overline text-copper">Digital Credentials</div>
+            <h1 className="font-heading text-4xl font-bold mt-2 flex items-center gap-3"><BadgeCheck className="w-8 h-8 text-copper" /> Your Credential Wallet</h1>
+            <p className="text-ink/60 mt-2 max-w-2xl">OpenBadges-compatible micro-credentials. Share them on LinkedIn, your resume, or any badge-aware platform.</p>
+          </div>
+          <a href={`${BACKEND_URL}/api/credentials/transcript.pdf`} target="_blank" rel="noreferrer"
+            className="btn-primary inline-flex items-center gap-2 shrink-0" data-testid="btn-transcript">
+            <FileText className="w-4 h-4" /> Official Transcript
+          </a>
+        </div>
 
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mt-8">
           <Stat label="Earned" value={data.earned.length} />

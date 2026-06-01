@@ -2,7 +2,8 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { Toaster } from "sonner";
 import "./App.css";
 import { AuthProvider, useAuth } from "./lib/auth";
-import Landing from "./pages/Landing";
+import LandingMarketplace from "./pages/LandingMarketplace";
+import SupervisorLogin from "./pages/SupervisorLogin";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
 import StudentDashboard from "./pages/StudentDashboard";
@@ -31,8 +32,52 @@ import Settings from "./pages/Settings";
 import ExecSystem from "./pages/ExecSystem";
 import ForgotPassword from "./pages/ForgotPassword";
 import ResetPassword from "./pages/ResetPassword";
-import NotFound from "./pages/NotFound";
+import { Error404 } from "./pages/ErrorPages";
 import SageAudit from "./pages/SageAudit";
+import OrchestratorChat from "./pages/OrchestratorChat";
+import More from "./pages/More";
+import MoreHub from "./pages/MoreHub";
+import MoreChat from "./pages/MoreChat";
+import MoreAdmin from "./pages/MoreAdmin";
+import MoreOps from "./pages/MoreOps";
+import LitigationWeapon from "./pages/LitigationWeapon";
+import CreatorProfile from "./pages/CreatorProfile";
+import SocialPublish from "./pages/SocialPublish";
+import Internships from "./pages/Internships";
+import PlaylistSubmit from "./pages/PlaylistSubmit";
+import PlaylistDashboard from "./pages/PlaylistDashboard";
+import DirectorWidget from "./components/DirectorWidget";
+import ErrorBoundary from "./components/ErrorBoundary";
+import Helper from "./pages/Helper";
+import Leaderboard from "./pages/Leaderboard";
+import Store from "./pages/Store";
+import SubscribePage from "./pages/SubscribePage";
+import DonatePage from "./pages/DonatePage";
+import PaymentSuccess from "./pages/PaymentSuccess";
+import PaymentCancel from "./pages/PaymentCancel";
+import PaymentHistory from "./pages/PaymentHistory";
+import AdminPayments from "./pages/AdminPayments";
+import AvatarSetup from "./pages/AvatarSetup";
+import SovereignChat from "./components/SovereignChat";
+import Palace from "./pages/Palace";
+import ElderCouncil from "./pages/ElderCouncil";
+import Plans from "./pages/Plans";
+import HelpCenter from "./pages/HelpCenter";
+import SeshatsHub from "./pages/SeshatsHub";
+import TermsOfService from "./pages/TermsOfService";
+import PrivacyPolicy from "./pages/PrivacyPolicy";
+import MoreHelpCenter from "./pages/MoreHelpCenter";
+import CookieConsent from "./components/CookieConsent";
+import HelpGuide from "./components/HelpGuide";
+import WelcomeWizard from "./components/WelcomeWizard";
+import StaffMeetingHistory from "./pages/StaffMeetingHistory";
+import SystemHealth from "./pages/SystemHealth";
+import ModerationAnalytics from "./pages/ModerationAnalytics";
+import RevenueDivision from "./pages/RevenueDivision";
+import Courses from "./pages/Courses";
+import Community from "./pages/Community";
+import Creators from "./pages/Creators";
+import ExecutiveDirectorDashboard from "./pages/ExecutiveDirectorDashboard";
 
 // Role hierarchy must mirror backend ROLE_RANK in /app/backend/server.py.
 // Higher rank = more authority; a higher-rank role passes any check meant
@@ -54,31 +99,84 @@ function Protected({ children, roles }) {
 function Home() {
   const { user, loading } = useAuth();
   if (loading) return null;
-  if (!user) return <Landing />;
+  if (!user) return <Navigate to="/more-help-center" replace />;
   // executive_admin and admin both land on the admin overview
-  if (user.role === "admin" || user.role === "executive_admin") return <Navigate to="/admin" replace />;
+  if (user.role === "executive_admin") return <Navigate to="/admin/system" replace />;
+  if (user.role === "admin") return <Navigate to="/admin" replace />;
   if (user.role === "instructor") return <Navigate to="/instructor" replace />;
   return <Navigate to="/dashboard" replace />;
 }
 
 function App() {
+  const hostname = window.location.hostname;
+  if (hostname.includes("morehelp.center")) {
+    return (
+      <BrowserRouter>
+        <MoreHelpCenter />
+      </BrowserRouter>
+    );
+  }
+
   return (
     <AuthProvider>
       <BrowserRouter>
+        <ErrorBoundary>
         <Toaster position="top-right" richColors />
+        {/* Skip-to-content link for accessibility */}
+        <a href="#main-content" className="sr-only focus:not-sr-only focus:fixed focus:top-4 focus:left-4 focus:z-[200] focus:px-4 focus:py-2 focus:bg-copper focus:text-white focus:font-bold focus:rounded-lg">
+          Skip to content
+        </a>
+
+        {/* Global widgets */}
+        <DirectorWidget />
+        <SovereignChat />
+        <CookieConsent />
+        <HelpGuide />
+        <WelcomeWizard />
+
+        {/* Routes wrapped with main-content anchor */}
+        <div id="main-content">
         <Routes>
           <Route path="/" element={<Home />} />
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
           <Route path="/forgot-password" element={<ForgotPassword />} />
           <Route path="/reset-password" element={<ResetPassword />} />
+          {/* Helper routes — /helper is public, /app/helper requires auth */}
+          <Route path="/helper" element={<Helper requireAuth={false} />} />
+          <Route path="/app/helper" element={<Helper requireAuth={true} />} />
           <Route path="/dashboard" element={<Protected><StudentDashboard /></Protected>} />
+          {/* Dashboard aliases (handoff routing scheme) — same pages, role-gated */}
+          <Route path="/dashboard/student" element={<Protected><StudentDashboard /></Protected>} />
+          <Route path="/dashboard/exec" element={<Protected roles={["executive_admin"]}><ExecSystem /></Protected>} />
+          <Route path="/dashboard/admin" element={<Protected roles={["admin"]}><AdminDashboard /></Protected>} />
+          <Route path="/dashboard/instructor" element={<Protected roles={["instructor", "admin"]}><InstructorDashboard /></Protected>} />
+          <Route path="/avatar-setup" element={<Protected><AvatarSetup /></Protected>} />
+          {/* Themed member spaces */}
+          <Route path="/palace" element={<Protected><Palace /></Protected>} />
+          <Route path="/elder-council" element={<Protected><ElderCouncil /></Protected>} />
+          <Route path="/plans" element={<Plans />} />
+          {/* Public funnel pages */}
+          <Route path="/help-center" element={<HelpCenter />} />
+          <Route path="/seshats-hub" element={<SeshatsHub />} />
+          {/* MORE Help Center — unified entry point (greeter / exec / decoy modes) */}
+          <Route path="/more-help-center" element={<MoreHelpCenter />} />
+          <Route path="/landing" element={<LandingMarketplace />} />
+          {/* Supervisor — executive_admin only; separate login at /supervisor-login */}
+          <Route path="/supervisor-login" element={<SupervisorLogin />} />
+          <Route path="/supervisor" element={<Protected roles={["executive_admin"]}><SeshatsHub /></Protected>} />
+          <Route path="/terms" element={<TermsOfService />} />
+          <Route path="/privacy" element={<PrivacyPolicy />} />
+          <Route path="/courses" element={<Courses />} />
+          <Route path="/community" element={<Community />} />
+          <Route path="/creators" element={<Creators />} />
           <Route path="/instructor" element={<Protected roles={["instructor", "admin"]}><InstructorDashboard /></Protected>} />
           <Route path="/admin" element={<Protected roles={["admin"]}><AdminDashboard /></Protected>} />
           <Route path="/admin/users" element={<Protected roles={["admin"]}><AdminDashboard /></Protected>} />
           <Route path="/admin/associate" element={<Protected roles={["admin"]}><AdminDashboard /></Protected>} />
-          <Route path="/modules" element={<Protected><ModulesList /></Protected>} />
-          <Route path="/modules/:slug" element={<Protected><ModuleView /></Protected>} />
+          {/* Modules — public preview shows free intro modules; full catalog gated */}
+          <Route path="/modules" element={<ModulesList />} />
+          <Route path="/modules/:slug" element={<ModuleView />} />
           <Route path="/lab" element={<Navigate to="/labs" replace />} />
           <Route path="/labs" element={<Protected><LabsHub /></Protected>} />
           <Route path="/labs/:slug" element={<Protected><LabDetail /></Protected>} />
@@ -99,9 +197,47 @@ function App() {
           <Route path="/incidents" element={<Protected><Incidents /></Protected>} />
           <Route path="/settings" element={<Protected><Settings /></Protected>} />
           <Route path="/admin/system" element={<Protected roles={["executive_admin"]}><ExecSystem /></Protected>} />
+          <Route path="/admin/director" element={<Protected roles={["executive_admin"]}><ExecutiveDirectorDashboard /></Protected>} />
           <Route path="/admin/sage-audit" element={<Protected roles={["executive_admin"]}><SageAudit /></Protected>} />
-          <Route path="*" element={<NotFound />} />
+          <Route path="/admin/staff-meetings" element={<Protected roles={["executive_admin"]}><StaffMeetingHistory /></Protected>} />
+          <Route path="/admin/health" element={<Protected roles={["admin"]}><SystemHealth /></Protected>} />
+          <Route path="/admin/moderation" element={<Protected roles={["admin"]}><ModerationAnalytics /></Protected>} />
+          <Route path="/revenue" element={<Protected roles={["admin", "executive_admin"]}><RevenueDivision /></Protected>} />
+          <Route path="/council" element={<Protected><OrchestratorChat /></Protected>} />
+          {/* Leaderboard — public read-only */}
+          <Route path="/leaderboard" element={<Leaderboard />} />
+          {/* Creator profiles — public, slug-based */}
+          <Route path="/creator/:slug" element={<CreatorProfile />} />
+          {/* Public pages */}
+          <Route path="/internships" element={<Internships />} />
+          {/* Social publisher — authenticated */}
+          <Route path="/social/publish" element={<Protected><SocialPublish /></Protected>} />
+          {/* Playlist curation — public submission form, private dashboard */}
+          <Route path="/playlist/:slug/submit" element={<PlaylistSubmit />} />
+          <Route path="/playlist/dashboard" element={<Protected><PlaylistDashboard /></Protected>} />
+          {/* M.O.R.E. — public tier */}
+          <Route path="/more" element={<More />} />
+          <Route path="/more/litigation" element={<LitigationWeapon />} />
+          {/* M.O.R.E. — authenticated tier (full features, role-gated) */}
+          <Route path="/app/more" element={<Protected><MoreHub /></Protected>} />
+          <Route path="/more/chat" element={<Protected><MoreChat /></Protected>} />
+          <Route path="/more/chat/:roomId" element={<Protected><MoreChat /></Protected>} />
+          <Route path="/more/admin" element={<Protected roles={["admin"]}><MoreAdmin /></Protected>} />
+          <Route path="/more/ops" element={<Protected roles={["admin"]}><MoreOps /></Protected>} />
+          {/* Payments */}
+          {/* Store & subscribe — public browsing, gated checkout */}
+          <Route path="/store" element={<Store />} />
+          <Route path="/subscribe" element={<SubscribePage />} />
+          <Route path="/donate" element={<DonatePage />} />
+          <Route path="/payment/success" element={<PaymentSuccess />} />
+          <Route path="/payment/cancel" element={<PaymentCancel />} />
+          <Route path="/payment/history" element={<Protected><PaymentHistory /></Protected>} />
+          <Route path="/payment/manage" element={<Protected><PaymentHistory /></Protected>} />
+          <Route path="/admin/payments" element={<Protected roles={["admin"]}><AdminPayments /></Protected>} />
+          <Route path="*" element={<Error404 />} />
         </Routes>
+        </div>
+        </ErrorBoundary>
       </BrowserRouter>
     </AuthProvider>
   );

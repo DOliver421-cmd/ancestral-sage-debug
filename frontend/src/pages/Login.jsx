@@ -3,6 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../lib/auth";
 import { WAI_LOGO, BRAND } from "../lib/brand";
 import { toast } from "sonner";
+import { ArrowRight, Heart } from "lucide-react";
 
 export default function Login() {
   const { login } = useAuth();
@@ -22,7 +23,8 @@ export default function Login() {
         nav("/settings?force=1");
         return;
       }
-      nav(u.role === "executive_admin" || u.role === "admin" ? "/admin"
+      nav(u.role === "executive_admin" ? "/admin/system"
+        : u.role === "admin" ? "/admin"
         : u.role === "instructor" ? "/instructor"
         : "/dashboard");
     } catch (err) {
@@ -30,81 +32,136 @@ export default function Login() {
     } finally { setLoading(false); }
   };
 
-  const quickFill = (e, p) => { setEmail(e); setPassword(p); };
-
   return (
     <div className="min-h-screen bg-bone grid lg:grid-cols-2">
-      <div className="hidden lg:block bg-ink relative overflow-hidden">
-        <div className="absolute inset-0 grid-paper opacity-10" />
-        <div className="relative h-full flex flex-col justify-between p-12 text-white">
-          <Link to="/" className="flex items-center gap-3" data-testid="login-brand">
-            <img src={WAI_LOGO} alt="W.A.I." className="w-12 h-12 object-contain bg-white p-1" />
+      {/* Left: Brand & Message */}
+      <div className="hidden lg:flex flex-col justify-between p-12 bg-ink text-white relative overflow-hidden">
+        <div className="absolute inset-0 grid-paper opacity-10 pointer-events-none" />
+        <div className="relative">
+          <Link to="/" className="flex items-center gap-3 inline-block" data-testid="login-brand">
+            <img src={WAI_LOGO} alt="W.A.I." className="w-12 h-12 object-contain bg-white p-1 rounded" />
             <div>
-              <div className="overline text-signal">{BRAND.short}</div>
-              <div className="font-heading font-bold">{BRAND.name}</div>
+              <div className="overline text-copper leading-none">{BRAND.short}</div>
+              <div className="font-heading font-bold text-sm">{BRAND.name}</div>
             </div>
           </Link>
-          <div>
-            <div className="overline text-copper">Welcome back</div>
-            <h1 className="font-heading text-5xl font-extrabold mt-4 leading-tight">Sign in to the shop floor.</h1>
-            <p className="mt-6 text-white/70 max-w-md">Your curriculum, progress, and certificates are ready. Pick up where you left off.</p>
-          </div>
-          <div className="text-xs text-white/50 italic">"The Lord will guide you always." — Isaiah 58:11</div>
+        </div>
+
+        <div className="relative">
+          <div className="overline text-copper mb-4">Welcome back</div>
+          <h1 className="font-heading text-5xl font-extrabold leading-tight mb-6">
+            Your community<br />is waiting for you.
+          </h1>
+          <p className="text-lg text-white/80 max-w-md leading-relaxed">
+            Create. Heal. Earn with dignity. Continue your journey with a platform built for you, not against you.
+          </p>
+        </div>
+
+        <div className="relative">
+          <p className="text-xs text-white/50 italic">
+            "{BRAND.mission}"
+          </p>
         </div>
       </div>
 
-      <div className="flex items-center justify-center p-8">
-        <form onSubmit={submit} className="w-full max-w-md" data-testid="login-form">
-          <div className="overline text-copper">Sign In</div>
-          <h2 className="font-heading text-3xl font-bold mt-2">Welcome back.</h2>
-          <p className="text-ink/60 text-sm mt-2">Apprentices, instructors, and admins.</p>
-
-          <div className="mt-8 space-y-4">
-            <div>
-              <label className="overline text-ink/60">Email</label>
-              <input type="email" required value={email} onChange={(e) => setEmail(e.target.value)}
-                className="w-full mt-2 px-4 py-3 bg-white border border-ink/20 focus:border-ink focus:outline-none focus:ring-2 focus:ring-signal"
-                data-testid="input-email" />
-            </div>
-            <div>
-              <label className="overline text-ink/60">Password</label>
-              <input type="password" required value={password} onChange={(e) => setPassword(e.target.value)}
-                className="w-full mt-2 px-4 py-3 bg-white border border-ink/20 focus:border-ink focus:outline-none focus:ring-2 focus:ring-signal"
-                data-testid="input-password" />
-            </div>
-          </div>
-
-          <button type="submit" disabled={loading} className="btn-primary w-full mt-6" data-testid="btn-submit">
-            {loading ? "Signing in…" : "Sign In"}
-          </button>
-
-          <div className="mt-6 p-4 bg-white border border-ink/10">
-            <div className="overline text-ink/50 mb-2">Demo accounts</div>
-            <div className="space-y-1.5 text-xs">
-              <button type="button" onClick={() => quickFill("student@lcewai.org", "Learn@LCE2026")}
-                className="w-full text-left font-mono hover:text-copper" data-testid="demo-student">
-                student@lcewai.org / Learn@LCE2026
-              </button>
-              <button type="button" onClick={() => quickFill("instructor@lcewai.org", "Teach@LCE2026")}
-                className="w-full text-left font-mono hover:text-copper" data-testid="demo-instructor">
-                instructor@lcewai.org / Teach@LCE2026
-              </button>
-              <button type="button" onClick={() => quickFill("admin@lcewai.org", "Admin@LCE2026")}
-                className="w-full text-left font-mono hover:text-copper" data-testid="demo-admin">
-                admin@lcewai.org / Admin@LCE2026
-              </button>
-            </div>
-          </div>
-
-          <div className="mt-6 text-sm">
-            No account? <Link to="/register" className="text-copper font-semibold hover:underline" data-testid="link-register">Enroll as apprentice</Link>
-          </div>
-          <div className="mt-2 text-sm">
-            <Link to="/forgot-password" className="text-ink/60 hover:text-copper hover:underline" data-testid="link-forgot-password">
-              Forgot your password?
+      {/* Right: Login Form */}
+      <div className="flex flex-col items-center justify-center p-8 bg-bone">
+        <div className="w-full max-w-sm">
+          {/* Mobile Header */}
+          <div className="lg:hidden mb-8 text-center">
+            <Link to="/" className="inline-flex items-center gap-3 mb-6" data-testid="login-brand-mobile">
+              <img src={WAI_LOGO} alt="W.A.I." className="w-10 h-10 object-contain" style={{ mixBlendMode: "multiply" }} />
+              <div>
+                <div className="overline text-copper leading-none text-xs">{BRAND.short}</div>
+                <div className="font-heading font-bold text-sm">{BRAND.name}</div>
+              </div>
             </Link>
           </div>
-        </form>
+
+          <form onSubmit={submit} className="space-y-6" data-testid="login-form">
+            {/* Heading */}
+            <div className="text-center mb-8">
+              <h2 className="font-heading text-3xl font-bold mb-2">Sign in</h2>
+              <p className="text-ink/60 text-sm">Creators, artists, and community members</p>
+            </div>
+
+            {/* Email */}
+            <div>
+              <label className="block overline text-ink/60 mb-3">Email</label>
+              <input
+                type="email"
+                required
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="you@example.com"
+                className="w-full px-4 py-3 bg-white border border-ink/20 rounded focus:border-copper focus:outline-none focus:ring-2 focus:ring-copper/30 transition-all"
+                data-testid="input-email"
+              />
+            </div>
+
+            {/* Password */}
+            <div>
+              <label className="block overline text-ink/60 mb-3">Password</label>
+              <input
+                type="password"
+                required
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="••••••••"
+                className="w-full px-4 py-3 bg-white border border-ink/20 rounded focus:border-copper focus:outline-none focus:ring-2 focus:ring-copper/30 transition-all"
+                data-testid="input-password"
+              />
+            </div>
+
+            {/* Forgot Password */}
+            <div className="text-right">
+              <Link to="/forgot-password" className="text-sm text-copper hover:text-copper/80 font-medium">
+                Forgot password?
+              </Link>
+            </div>
+
+            {/* Submit */}
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full py-3 px-4 bg-copper text-white font-bold uppercase tracking-widest hover:bg-copper/90 disabled:bg-copper/50 transition-colors rounded flex items-center justify-center gap-2"
+              data-testid="btn-submit"
+            >
+              {loading ? "Signing in…" : (
+                <>
+                  Sign In <ArrowRight className="w-4 h-4" />
+                </>
+              )}
+            </button>
+
+            {/* Divider */}
+            <div className="relative my-8">
+              <div className="absolute inset-0 flex items-center">
+                <div className="w-full border-t border-ink/10"></div>
+              </div>
+              <div className="relative flex justify-center text-sm">
+                <span className="px-2 bg-bone text-ink/50">New here?</span>
+              </div>
+            </div>
+
+            {/* Sign Up */}
+            <Link
+              to="/register"
+              className="w-full py-3 px-4 border-2 border-copper text-copper font-bold uppercase tracking-widest hover:bg-copper hover:text-white transition-colors rounded flex items-center justify-center gap-2"
+              data-testid="btn-register"
+            >
+              <Heart className="w-4 h-4" />
+              Join as Creator
+            </Link>
+          </form>
+
+          {/* Footer Link */}
+          <div className="mt-8 text-center">
+            <p className="text-xs text-ink/50">
+              Need help? <Link to="/help-center" className="text-copper hover:text-copper/80 font-medium">Help Center</Link>
+            </p>
+          </div>
+        </div>
       </div>
     </div>
   );

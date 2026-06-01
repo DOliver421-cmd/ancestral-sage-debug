@@ -1,0 +1,128 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+
+  "username": "wai-dev",
+
+  "instructions": ["AGENTS.md"],
+
+  "permission": {
+    "bash": {
+      "rm *": "deny",
+      "rm -rf *": "deny",
+      "rm -rf .*": "deny",
+      "git reset --hard*": "deny",
+      "git push --force*": "deny",
+      "dropdb *": "deny",
+      "mongo * --eval \"db.dropDatabase*\"": "deny",
+      "git push": "ask",
+      "git commit -m *": "allow",
+      "git add *": "allow",
+      "npm run migrate*": "ask",
+      "python -m pytest*": "allow",
+      "docker-compose*": "ask",
+      "docker *": "ask",
+      "npx *": "ask",
+      "*": "ask"
+    },
+    "edit": "allow",
+    "read": "allow",
+    "task": "ask",
+    "external_directory": {
+      "C:\\Users\\lenovo\\AppData\\Local\\Temp\\opencode\\**": "allow",
+      "*": "ask"
+    }
+  },
+
+  "command": {
+    "simulate": {
+      "description": "Run the full WAI revenue simulation (all 5 scenarios)",
+      "prompt": "cd backend && python -m tests.revenue_simulation"
+    },
+    "test": {
+      "description": "Run critical-path regression tests",
+      "prompt": "cd backend && python -m pytest tests/test_critical_paths.py -v"
+    },
+    "test-all": {
+      "description": "Run ALL backend tests with coverage",
+      "prompt": "cd backend && python -m pytest tests/ -v --tb=short"
+    },
+    "verify": {
+      "description": "Run endpoint smoke tests against live server",
+      "prompt": "cd backend && python scripts/tools/verify_endpoints.py"
+    },
+    "doctor": {
+      "description": "Run backend diagnostics (imports, DB, routes)",
+      "prompt": "cd backend && python scripts/tools/backend_doctor.py"
+    },
+    "seed": {
+      "description": "Start the backend server (auto-seeds DB on startup)",
+      "prompt": "cd backend && python -m server"
+    },
+    "deploy-sim": {
+      "description": "Run Railway deployment simulation",
+      "prompt": "cd backend && python scripts/tools/deploy_sim.py"
+    },
+    "clear-lockout": {
+      "description": "Clear exec account lockouts (emergency)",
+      "prompt": "cd backend && python scripts/ops/clear_lockouts.py"
+    },
+    "reset-password": {
+      "description": "Reset an exec account password (emergency)",
+      "prompt": "cd backend && python scripts/ops/reset_password.py"
+    },
+    "status": {
+      "description": "Show git status + recent log + what's running",
+      "prompt": "WriteStatus()"
+    }
+  },
+
+  "agent": {
+    "wai-expert": {
+      "description": "WAI-Institute expert — knows the persona system, revenue division, PRT engine, simulation suite, and project architecture. Use for persona design, revenue questions, system analysis, or architectural guidance.",
+      "mode": "subagent",
+      "model": "anthropic/claude-sonnet-4-6",
+      "permission": {
+        "read": "allow",
+        "bash": {
+          "python -m tests.*": "allow",
+          "python -m server": "deny",
+          "*": "ask"
+        }
+      },
+      "prompt": "You are the WAI-Institute domain expert for this project. You know:\n\n- BACKEND: Django/Next.js app at backend/. Key files: server.py (main API), ai/persona_loader.py (17 personas), wai_institute/core/ (PRT, The 9), tests/revenue_simulation.py (5-scenario sim)\n- PERSONAS: Director (T2), Assistant Director (T3), 14 T4 personas (Ancestral Sage, Revenue Director, Cipher, Oracle, Ambassador, Architect, Savant Scholar, Apprentice, Product Designer, Risk Officer, Strategic Navigator, WAI Success Engine, Confidentiality Sentinel, Poor Righteous Teacher), Elder Council (T5), The 9 (fusion engine). All have VERIFIED ACTIVE CAPABILITIES and tool access.\n- REVENUE: 6 personas each produce sellable digital products ($9.99-$349.00). Annual projection: $16K-$71K at slow-to-moderate demand.\n- SIMULATION: tests/revenue_simulation.py runs 5 scenarios: student crisis, revenue shortfall, campaign launch, enrollment surge, governance challenge.\n- RECENT FIXES: All 9 persona weaknesses addressed. PRT engine got tier-aware relay. The 9 got identity verification. Director got creative production. Ancestral Sage got revenue awareness + escalation. Cipher got technical depth. Oracle got methodology frameworks. Ambassador got crisis override. Architect got strategic stake.\n\nGive concise, accurate answers. Reference file paths and line numbers when relevant."
+    },
+    "revenue-analyst": {
+      "description": "Revenue simulation specialist. Run scenarios, interpret results, project earnings, and debug simulation failures.",
+      "mode": "subagent",
+      "permission": {
+        "read": "allow",
+        "bash": {
+          "python -m tests.revenue_simulation": "allow",
+          "*": "ask"
+        }
+      },
+      "prompt": "You are the revenue analyst for WAI-Institute. You run the simulation at backend/tests/revenue_simulation.py and interpret the output. The simulation runs 5 staff-meeting scenarios through the live backend API. Each persona produces digital products at known price points. You can project slow/moderate demand revenue and identify which personas or scenarios need attention.\n\nWhen asked, run the simulation and present: scenarios passed/failed, revenue projection table, and clear recommendations."
+    }
+  },
+
+  "skills": {
+    "paths": [
+      ".opencode/skills"
+    ]
+  },
+
+  "experimental": {
+    "primary_tools": ["read", "edit", "glob", "grep", "bash", "task", "write"],
+    "mcp_timeout": 60000
+  },
+
+  "tool_output": {
+    "max_lines": 300,
+    "max_bytes": 10240
+  },
+
+  "compaction": {
+    "auto": true,
+    "tail_turns": 20
+  }
+}

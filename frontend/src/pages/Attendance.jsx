@@ -67,7 +67,7 @@ export default function Attendance() {
           <div className="mt-6 overflow-x-auto">
             <table className="w-full text-sm">
               <thead className="bg-ink text-white">
-                <tr><Th>Apprentice</Th><Th>Associate</Th><Th>Rate</Th><Th>Status</Th></tr>
+                <tr><Th>Trainee</Th><Th>Associate</Th><Th>Rate</Th><Th>Status</Th></tr>
               </thead>
               <tbody>
                 {roster.length === 0 && <tr><td colSpan={4} className="p-6 text-center text-ink/50">No students.</td></tr>}

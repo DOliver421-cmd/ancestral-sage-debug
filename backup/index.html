@@ -1,0 +1,1365 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>The Supervisor — WAI Institute</title>
+<style>
+:root{
+  --ink:#2e1065;--copper:#b8860b;--bone:#F7F7F5;--signal:#FFD100;
+  --white:#ffffff;--dark:#0b1225;--nav:#120836;
+  --ok:#16a34a;--warn:#ca8a04;--err:#dc2626;
+  --border:#e5e7eb;--muted:#6b7280;--radius:10px;
+  --shadow:0 4px 24px rgba(46,16,101,.12);
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'IBM Plex Sans',-apple-system,sans-serif;background:var(--bone);color:#1a1a2e;min-height:100vh;}
+
+/* ── AUTH SCREEN ─────────────────────────────────────── */
+#auth-screen{display:flex;align-items:center;justify-content:center;min-height:100vh;background:var(--dark);}
+.auth-card{background:var(--white);border-radius:14px;padding:40px;width:360px;box-shadow:0 8px 40px rgba(0,0,0,.4);}
+.auth-logo{width:56px;height:56px;background:var(--ink);border-radius:50%;margin:0 auto 16px;display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:800;color:var(--signal);}
+.auth-card h2{font-size:22px;font-weight:800;color:var(--ink);text-align:center;margin-bottom:4px;}
+.auth-card p{text-align:center;color:var(--muted);font-size:13px;margin-bottom:24px;}
+.auth-input{width:100%;padding:11px 14px;border:1.5px solid var(--border);border-radius:7px;font-size:14px;font-family:inherit;margin-bottom:10px;outline:none;color:#1a1a2e;}
+.auth-input:focus{border-color:var(--ink);}
+.auth-btn{width:100%;padding:12px;background:var(--ink);color:var(--white);border:none;border-radius:7px;font-size:14px;font-weight:700;cursor:pointer;transition:background .15s;}
+.auth-btn:hover{background:#1e0a47;}
+.auth-err{color:var(--err);font-size:12px;text-align:center;margin-bottom:8px;display:none;}
+.auth-note{text-align:center;font-size:11px;color:var(--muted);margin-top:14px;}
+
+/* ── SHELL ───────────────────────────────────────────── */
+#shell{display:none;min-height:100vh;flex-direction:column;}
+#shell.visible{display:flex;}
+
+/* TOP BAR */
+.topbar{background:var(--ink);color:var(--white);padding:0 28px;height:58px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;}
+.topbar-brand{display:flex;align-items:center;gap:12px;}
+.tb-avatar{width:34px;height:34px;background:var(--signal);border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:13px;color:var(--ink);}
+.tb-title{font-size:17px;font-weight:800;letter-spacing:-.3px;}
+.tb-sub{font-size:11px;opacity:.55;margin-top:1px;}
+.topbar-right{display:flex;align-items:center;gap:12px;font-size:13px;}
+.tb-badge{background:var(--signal);color:var(--ink);padding:3px 10px;border-radius:20px;font-weight:700;font-size:10px;letter-spacing:.5px;}
+.tb-status{display:flex;align-items:center;gap:5px;font-size:12px;opacity:.8;}
+.sdot{width:8px;height:8px;border-radius:50%;background:#22c55e;}
+.sdot.off{background:var(--err);}
+.sdot.deg{background:var(--signal);}
+.tb-signout{background:rgba(255,255,255,.12);border:none;color:var(--white);padding:6px 12px;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;}
+.tb-signout:hover{background:rgba(255,255,255,.22);}
+
+/* MAINTENANCE BANNER */
+#maint-bar{display:none;background:#fef3cd;border-bottom:2px solid #f59e0b;padding:10px 28px;font-size:13px;color:#78350f;align-items:center;gap:10px;}
+#maint-bar.on{display:flex;}
+
+/* LAYOUT */
+.layout{display:flex;flex:1;overflow:hidden;}
+
+/* SIDEBAR */
+.sidebar{width:220px;background:var(--nav);flex-shrink:0;overflow-y:auto;padding:12px 0 24px;}
+.sb-section{padding:16px 14px 4px;font-size:10px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:rgba(255,255,255,.35);}
+.sb-btn{display:flex;align-items:center;gap:9px;width:100%;padding:9px 14px;border:none;background:none;color:rgba(255,255,255,.72);font-size:13px;font-weight:500;cursor:pointer;border-radius:0;text-align:left;transition:all .12s;}
+.sb-btn:hover{background:rgba(255,255,255,.08);color:var(--white);}
+.sb-btn.active{background:var(--signal);color:var(--ink);font-weight:700;}
+.sb-btn svg{width:15px;height:15px;flex-shrink:0;}
+.sb-version{padding:16px 14px 0;font-size:10px;color:rgba(255,255,255,.25);line-height:1.7;}
+
+/* MAIN */
+.main{flex:1;overflow-y:auto;padding:24px 28px;background:var(--bone);}
+.panel{display:none;}.panel.active{display:block;}
+
+/* CARDS */
+.card{background:var(--white);border-radius:var(--radius);box-shadow:var(--shadow);margin-bottom:18px;overflow:hidden;}
+.card-head{padding:14px 18px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;}
+.card-title{font-size:14px;font-weight:700;color:var(--ink);}
+.card-body{padding:18px;}
+.page-h{font-size:22px;font-weight:800;color:var(--ink);margin-bottom:4px;}
+.page-sub{font-size:13px;color:var(--muted);margin-bottom:20px;}
+
+/* STATS */
+.stat-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;margin-bottom:20px;}
+.stat{background:var(--white);border-radius:var(--radius);padding:16px 18px;box-shadow:var(--shadow);border-top:3px solid var(--copper);}
+.stat-lbl{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--muted);}
+.stat-val{font-size:28px;font-weight:800;color:var(--ink);margin-top:4px;line-height:1;}
+.stat-val.sm{font-size:15px;margin-top:8px;}
+
+/* TABLES */
+.tbl{width:100%;border-collapse:collapse;font-size:13px;}
+.tbl th{text-align:left;padding:10px 12px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:var(--muted);border-bottom:2px solid var(--border);}
+.tbl td{padding:10px 12px;border-bottom:1px solid #f3f4f6;color:#374151;vertical-align:middle;}
+.tbl tr:hover td{background:#fafafa;}
+.tbl tr:last-child td{border:none;}
+
+/* BADGES */
+.badge{display:inline-block;padding:2px 8px;border-radius:20px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;}
+.badge-ok{background:#dcfce7;color:#166534;}
+.badge-err{background:#fee2e2;color:#991b1b;}
+.badge-warn{background:#fef9c3;color:#854d0e;}
+.badge-blue{background:#dbeafe;color:#1e40af;}
+.badge-purple{background:#ede9fe;color:#5b21b6;}
+.badge-gray{background:#f3f4f6;color:#374151;}
+
+/* BUTTONS */
+.btn{padding:8px 16px;border-radius:7px;font-size:13px;font-weight:700;cursor:pointer;border:none;transition:all .15s;font-family:inherit;}
+.btn-primary{background:var(--ink);color:var(--white);}
+.btn-primary:hover{background:#1e0a47;}
+.btn-sm{padding:5px 11px;font-size:11px;}
+.btn-outline{background:var(--white);border:1.5px solid var(--ink);color:var(--ink);}
+.btn-outline:hover{background:var(--ink);color:var(--white);}
+.btn-red{background:#fee2e2;color:var(--err);border:1.5px solid #fca5a5;}
+.btn-red:hover{background:var(--err);color:var(--white);}
+.btn-green{background:#dcfce7;color:#166534;border:1.5px solid #86efac;}
+.btn-green:hover{background:#166534;color:var(--white);}
+.btn-yellow{background:#fef9c3;color:#854d0e;border:1.5px solid #fde047;}
+.btn-yellow:hover{background:#854d0e;color:var(--white);}
+.btn:disabled{opacity:.45;cursor:not-allowed;}
+
+/* FORMS */
+.form-lbl{display:block;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:var(--muted);margin-bottom:5px;}
+.form-input{width:100%;padding:9px 13px;border:1.5px solid var(--border);border-radius:7px;font-size:13px;font-family:inherit;color:#1a1a2e;outline:none;transition:border-color .15s;}
+.form-input:focus{border-color:var(--ink);}
+.form-row{margin-bottom:14px;}
+.form-select{width:100%;padding:9px 13px;border:1.5px solid var(--border);border-radius:7px;font-size:13px;font-family:inherit;color:#1a1a2e;outline:none;background:var(--white);}
+
+/* STATUS ROWS */
+.status-row{display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--border);font-size:13px;}
+.status-row:last-child{border:none;}
+.s-ok{color:var(--ok);font-weight:600;}
+.s-err{color:var(--err);font-weight:600;}
+.s-warn{color:var(--warn);font-weight:600;}
+
+/* CHAT */
+.chat-msgs{height:360px;overflow-y:auto;padding:14px;display:flex;flex-direction:column;gap:10px;background:#f9f9fb;border-radius:8px;margin-bottom:12px;}
+.msg{display:flex;gap:8px;align-items:flex-end;}
+.msg.user{flex-direction:row-reverse;}
+.bubble{max-width:78%;padding:9px 13px;border-radius:14px;font-size:13px;line-height:1.45;}
+.msg.bot .bubble{background:var(--white);color:#1a1a2e;border-bottom-left-radius:3px;box-shadow:0 1px 4px rgba(0,0,0,.08);}
+.msg.user .bubble{background:var(--ink);color:var(--white);border-bottom-right-radius:3px;}
+.msg-av{width:26px;height:26px;border-radius:50%;background:var(--ink);flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:800;color:var(--signal);}
+.chat-bar{display:flex;gap:8px;}
+.chat-bar input{flex:1;}
+.typing{font-size:11px;color:var(--muted);font-style:italic;padding:4px 0;}
+
+/* PERSONA TOGGLE */
+.persona-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;}
+.persona-card{border:2px solid var(--border);border-radius:9px;padding:14px;cursor:pointer;transition:all .15s;background:var(--white);}
+.persona-card.active{border-color:var(--ok);background:#f0fdf4;}
+.persona-card.inactive-card{border-color:#fca5a5;background:#fff5f5;}
+.persona-card h4{font-size:13px;font-weight:700;color:var(--ink);margin-bottom:3px;}
+.persona-card p{font-size:11px;color:var(--muted);}
+.persona-card .p-status{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-top:6px;}
+
+/* LOG */
+.log-entry{padding:7px 0;border-bottom:1px solid #f3f4f6;font-family:monospace;font-size:11px;color:#374151;line-height:1.5;}
+.log-entry:last-child{border:none;}
+.log-time{color:var(--muted);}
+.log-err{color:var(--err);}
+
+/* PILL TABS */
+.pill-tabs{display:flex;gap:6px;margin-bottom:16px;flex-wrap:wrap;}
+.pill{padding:6px 14px;border-radius:20px;font-size:12px;font-weight:600;cursor:pointer;border:1.5px solid var(--border);background:var(--white);color:var(--muted);transition:all .12s;}
+.pill.active{background:var(--ink);color:var(--white);border-color:var(--ink);}
+
+/* MODAL */
+.modal-bg{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:1000;align-items:center;justify-content:center;}
+.modal-bg.open{display:flex;}
+.modal{background:var(--white);border-radius:12px;width:480px;max-width:94vw;max-height:86vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,.3);}
+.modal-head{padding:16px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;}
+.modal-title{font-size:15px;font-weight:700;color:var(--ink);}
+.modal-close{background:none;border:none;font-size:20px;cursor:pointer;color:var(--muted);line-height:1;}
+.modal-body{padding:20px;}
+.modal-foot{padding:14px 20px;border-top:1px solid var(--border);display:flex;gap:8px;justify-content:flex-end;}
+
+/* TOAST */
+#toast{position:fixed;bottom:24px;right:24px;z-index:9999;display:flex;flex-direction:column;gap:8px;}
+.toast-msg{padding:12px 18px;border-radius:8px;font-size:13px;font-weight:600;box-shadow:0 4px 20px rgba(0,0,0,.2);animation:fadeIn .2s;}
+.toast-ok{background:#166534;color:var(--white);}
+.toast-err{background:var(--err);color:var(--white);}
+.toast-info{background:var(--ink);color:var(--white);}
+@keyframes fadeIn{from{opacity:0;transform:translateY(8px);}to{opacity:1;transform:translateY(0);}}
+
+/* PUBLIC WIDGET */
+#widget{position:fixed;bottom:22px;right:22px;z-index:8000;}
+#widget-toggle{width:56px;height:56px;background:var(--ink);border-radius:50%;border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 18px rgba(46,16,101,.35);transition:transform .2s;}
+#widget-toggle:hover{transform:scale(1.07);}
+#widget-toggle svg{width:26px;height:26px;fill:var(--signal);}
+#widget-panel{display:none;position:absolute;bottom:66px;right:0;width:330px;background:var(--white);border-radius:12px;box-shadow:var(--shadow);border:1.5px solid var(--border);overflow:hidden;flex-direction:column;}
+#widget-panel.open{display:flex;}
+.w-head{background:var(--ink);color:var(--white);padding:12px 14px;display:flex;align-items:center;justify-content:space-between;}
+.w-av{width:32px;height:32px;background:var(--signal);border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:12px;color:var(--ink);}
+.w-name{font-weight:700;font-size:13px;}
+.w-sub{font-size:10px;opacity:.65;margin-top:1px;}
+.w-close{background:none;border:none;color:var(--white);font-size:18px;cursor:pointer;opacity:.7;}
+.w-close:hover{opacity:1;}
+.w-persona-row{display:flex;gap:6px;padding:8px 10px;border-bottom:1px solid var(--border);background:#fafafa;}
+.w-pbtn{flex:1;padding:5px;border:1.5px solid var(--border);border-radius:6px;font-size:11px;font-weight:600;background:var(--white);cursor:pointer;color:var(--muted);transition:all .12s;}
+.w-pbtn.active{background:var(--ink);border-color:var(--ink);color:var(--white);}
+.w-msgs{max-height:260px;overflow-y:auto;padding:12px;display:flex;flex-direction:column;gap:8px;}
+.w-typing{padding:4px 12px;font-size:11px;color:var(--muted);font-style:italic;display:none;}
+.w-input-row{display:flex;gap:6px;padding:10px;border-top:1px solid var(--border);}
+.w-input-row input{flex:1;padding:8px 11px;border:1.5px solid var(--border);border-radius:7px;font-size:12px;font-family:inherit;outline:none;color:#1a1a2e;}
+.w-input-row input:focus{border-color:var(--ink);}
+.w-send{background:var(--ink);color:var(--white);border:none;border-radius:7px;padding:8px 12px;cursor:pointer;font-weight:700;font-size:12px;}
+
+@media(max-width:680px){.layout{flex-direction:column;}.sidebar{width:100%;height:auto;}.main{padding:16px;} #widget-panel{width:92vw;right:4vw;}}
+</style>
+</head>
+<body>
+
+<!-- ══ AUTH ═══════════════════════════════════════════════════════════════════ -->
+<div id="auth-screen">
+  <div class="auth-card">
+    <div class="auth-logo">S</div>
+    <h2>The Supervisor</h2>
+    <p>WAI Institute Governance System<br>Executive access required</p>
+    <div class="auth-err" id="auth-err"></div>
+    <input class="auth-input" id="a-email" type="email" placeholder="Email address" autocomplete="email"/>
+    <input class="auth-input" id="a-pass" type="password" placeholder="Password" autocomplete="current-password" onkeydown="if(event.key==='Enter')doLogin()"/>
+    <button class="auth-btn" onclick="doLogin()">Sign In</button>
+    <div class="auth-note">Supervisor credentials · Exec access only<br><a href="/" style="color:var(--copper);">← Back to platform</a></div>
+  </div>
+</div>
+
+<!-- ══ MAINTENANCE BANNER ═══════════════════════════════════════════════════ -->
+<div id="maint-bar">
+  <span style="font-size:18px">⚠️</span>
+  <span><strong>Primary platform offline.</strong> The Supervisor is operating in backup mode — some live data may be unavailable.</span>
+</div>
+
+<!-- ══ SHELL ═══════════════════════════════════════════════════════════════════ -->
+<div id="shell">
+  <!-- TOP BAR -->
+  <div class="topbar">
+    <div class="topbar-brand">
+      <div class="tb-avatar">S</div>
+      <div>
+        <div class="tb-title">The Supervisor</div>
+        <div class="tb-sub">WAI Institute · Governance Control Panel</div>
+      </div>
+    </div>
+    <div class="topbar-right">
+      <div class="tb-status"><div class="sdot" id="api-dot"></div><span id="api-lbl">Checking…</span></div>
+      <div class="tb-badge" id="role-badge">EXEC</div>
+      <span id="user-name" style="font-size:12px;opacity:.75;"></span>
+      <button class="tb-signout" onclick="doLogout()">Sign Out</button>
+    </div>
+  </div>
+
+  <!-- LAYOUT -->
+  <div class="layout">
+    <!-- SIDEBAR -->
+    <nav class="sidebar">
+      <div class="sb-section">Dashboard</div>
+      <button class="sb-btn active" onclick="nav('overview')">
+        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M3 13h8V3H3zm0 8h8v-6H3zm10 0h8V11h-8zm0-18v6h8V3z"/></svg>Overview
+      </button>
+      <button class="sb-btn" onclick="nav('chat')">
+        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z"/></svg>AI Chat
+      </button>
+      <div class="sb-section">Users</div>
+      <button class="sb-btn" onclick="nav('users')">
+        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/></svg>User Management
+      </button>
+      <button class="sb-btn" onclick="nav('broadcast')">
+        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M18 11v2h4v-2h-4zm-2 6.61c.96.71 2.21 1.65 3.2 2.39.4-.53.8-1.07 1.2-1.6-.99-.74-2.24-1.68-3.2-2.4-.4.54-.8 1.08-1.2 1.61zM20.4 5.6c-.4-.53-.8-1.07-1.2-1.6-.99.74-2.24 1.68-3.2 2.4.4.53.8 1.07 1.2 1.6.96-.72 2.21-1.65 3.2-2.4zM4 9c-1.1 0-2 .9-2 2v2c0 1.1.9 2 2 2h1v4h2v-4h1l5 3V6L8 9H4zm11.5 3c0-1.33-.58-2.53-1.5-3.35v6.69c.92-.81 1.5-2.01 1.5-3.34z"/></svg>Broadcast
+      </button>
+      <div class="sb-section">Personas</div>
+      <button class="sb-btn" onclick="nav('personas')">
+        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 14.5v-9l6 4.5-6 4.5z"/></svg>Persona Control
+      </button>
+      <button class="sb-btn" onclick="nav('sage-cap')">
+        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4z"/></svg>Sage Safety Cap
+      </button>
+      <div class="sb-section">Platform</div>
+      <button class="sb-btn" onclick="nav('incidents')">
+        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-4h2v4z"/></svg>Incidents
+      </button>
+      <button class="sb-btn" onclick="nav('audit')">
+        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M14 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V8l-6-6zM6 20V4h7v5h5v11H6z"/></svg>Audit Log
+      </button>
+      <button class="sb-btn" onclick="nav('system')">
+        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M19.14 12.94c.04-.3.06-.61.06-.94s-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/></svg>System Status
+      </button>
+      <div class="sb-section">Config</div>
+      <button class="sb-btn" onclick="nav('apikeys')">
+        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12.65 10C11.83 7.67 9.61 6 7 6c-3.31 0-6 2.69-6 6s2.69 6 6 6c2.61 0 4.83-1.67 5.65-4H17v4h4v-4h2v-4H12.65zM7 14c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2z"/></svg>API Keys
+      </button>
+      <button class="sb-btn" onclick="nav('errorlog')">
+        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M11 15h2v2h-2zm0-8h2v6h-2zm.99-5C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8z"/></svg>Error Log
+      </button>
+      <div class="sb-version">WAI Institute<br>The Supervisor v2.0<br>Backup Governance System</div>
+    </nav>
+
+    <!-- MAIN CONTENT -->
+    <main class="main">
+
+      <!-- ── OVERVIEW ─────────────────────────────────────────────────────── -->
+      <div class="panel active" id="panel-overview">
+        <div class="page-h">Governance Overview</div>
+        <div class="page-sub">Real-time platform health and control summary</div>
+        <div class="stat-grid" id="ov-stats">
+          <div class="stat"><div class="stat-lbl">Platform API</div><div class="stat-val sm" id="s-api">—</div></div>
+          <div class="stat" style="border-color:var(--signal)"><div class="stat-lbl">Active AI Model</div><div class="stat-val sm" id="s-model">—</div></div>
+          <div class="stat" style="border-color:#22c55e"><div class="stat-lbl">Total Users</div><div class="stat-val" id="s-users">—</div></div>
+          <div class="stat" style="border-color:var(--err)"><div class="stat-lbl">Open Incidents</div><div class="stat-val" id="s-incidents">—</div></div>
+        </div>
+        <div class="card">
+          <div class="card-head"><span class="card-title">Endpoint Health</span><button class="btn btn-sm btn-outline" onclick="runHealth()">Run Checks</button></div>
+          <div class="card-body" id="health-results"><span style="color:var(--muted);font-size:13px;">Click "Run Checks" to test all endpoints.</span></div>
+        </div>
+        <div class="card">
+          <div class="card-head"><span class="card-title">Recent Activity</span></div>
+          <div class="card-body" id="ov-activity"><span style="color:var(--muted);font-size:13px;">Loading…</span></div>
+        </div>
+      </div>
+
+      <!-- ── AI CHAT ──────────────────────────────────────────────────────── -->
+      <div class="panel" id="panel-chat">
+        <div class="page-h">AI Chat Console</div>
+        <div class="page-sub">Direct conversation with The Supervisor AI</div>
+        <div class="card">
+          <div class="card-head">
+            <span class="card-title">Conversation</span>
+            <div style="display:flex;gap:6px;">
+              <button class="btn btn-sm btn-outline" onclick="setPersona('governance')" id="pb-gov">⚖️ Governance</button>
+              <button class="btn btn-sm" style="background:#f3f4f6;border:1.5px solid var(--border);color:var(--muted);" onclick="setPersona('helpdesk')" id="pb-help">🛎 Help Desk</button>
+              <button class="btn btn-sm" style="background:#f3f4f6;border:1.5px solid var(--border);color:var(--muted);" onclick="clearMsgs('full-msgs')">Clear</button>
+            </div>
+          </div>
+          <div class="card-body">
+            <div class="chat-msgs" id="full-msgs"></div>
+            <div class="typing" id="full-typing">The Supervisor is thinking…</div>
+            <div class="chat-bar">
+              <input class="form-input" id="full-input" placeholder="Message The Supervisor…" onkeydown="if(event.key==='Enter')fullSend()"/>
+              <button class="btn btn-primary" onclick="fullSend()">Send</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── USER MANAGEMENT ─────────────────────────────────────────────── -->
+      <div class="panel" id="panel-users">
+        <div class="page-h">User Management</div>
+        <div class="page-sub">Activate, deactivate, reset passwords, change roles</div>
+        <div class="card">
+          <div class="card-head">
+            <span class="card-title">All Users</span>
+            <div style="display:flex;gap:6px;align-items:center;">
+              <input class="form-input" id="user-search" placeholder="Search name or email…" style="width:200px;padding:6px 10px;font-size:12px;" oninput="filterUsers()"/>
+              <button class="btn btn-sm btn-outline" onclick="loadUsers()">Refresh</button>
+            </div>
+          </div>
+          <div class="card-body" style="padding:0;overflow-x:auto;">
+            <table class="tbl" id="users-table">
+              <thead><tr>
+                <th>Name</th><th>Email</th><th>Role</th><th>Status</th>
+                <th>Activate</th><th>Deactivate</th><th>Reset PW</th><th>Change Role</th><th>Delete</th>
+              </tr></thead>
+              <tbody id="users-tbody"><tr><td colspan="9" style="text-align:center;padding:24px;color:var(--muted);">Loading users…</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── BROADCAST ───────────────────────────────────────────────────── -->
+      <div class="panel" id="panel-broadcast">
+        <div class="page-h">Platform Broadcast</div>
+        <div class="page-sub">Send a notification to all users or a specific group</div>
+        <div class="card">
+          <div class="card-head"><span class="card-title">Compose Message</span></div>
+          <div class="card-body">
+            <div class="form-row">
+              <label class="form-lbl">Target Audience</label>
+              <select class="form-select" id="bc-target">
+                <option value="all">Everyone (all users)</option>
+                <option value="student">Students only</option>
+                <option value="instructor">Instructors only</option>
+                <option value="admin">Admins only</option>
+                <option value="executive_admin">Executive Admins only</option>
+              </select>
+            </div>
+            <div class="form-row">
+              <label class="form-lbl">Notification Title</label>
+              <input class="form-input" id="bc-title" placeholder="Platform Announcement"/>
+            </div>
+            <div class="form-row">
+              <label class="form-lbl">Message</label>
+              <textarea class="form-input" id="bc-msg" rows="4" placeholder="Enter your message here…" style="resize:vertical;"></textarea>
+            </div>
+            <div style="display:flex;align-items:center;gap:10px;">
+              <button class="btn btn-primary" onclick="sendBroadcast()">Send Broadcast</button>
+              <span id="bc-result" style="font-size:13px;color:var(--ok);display:none;"></span>
+            </div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-head"><span class="card-title">Broadcast History</span><button class="btn btn-sm btn-outline" onclick="loadAudit('broadcast')">Refresh</button></div>
+          <div class="card-body" id="bc-history"><span style="color:var(--muted);font-size:13px;">Loading…</span></div>
+        </div>
+      </div>
+
+      <!-- ── PERSONAS ─────────────────────────────────────────────────────── -->
+      <div class="panel" id="panel-personas">
+        <div class="page-h">Persona Control</div>
+        <div class="page-sub">Enable, disable, or pause individual AI personas. Changes take effect immediately.</div>
+        <div class="card">
+          <div class="card-head"><span class="card-title">Active Personas</span><button class="btn btn-sm btn-outline" onclick="loadPersonas()">Refresh</button></div>
+          <div class="card-body">
+            <div class="persona-grid" id="persona-grid"><span style="color:var(--muted);font-size:13px;">Loading…</span></div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-head"><span class="card-title">Persona Action Log</span></div>
+          <div class="card-body" id="persona-log"><span style="color:var(--muted);font-size:13px;">Actions will appear here.</span></div>
+        </div>
+      </div>
+
+      <!-- ── SAGE SAFETY CAP ─────────────────────────────────────────────── -->
+      <div class="panel" id="panel-sage-cap">
+        <div class="page-h">Sage Safety Cap</div>
+        <div class="page-sub">Control the global safety level cap and per-user overrides for Ancestral Sage</div>
+        <div class="card">
+          <div class="card-head"><span class="card-title">Global Safety Level</span><button class="btn btn-sm btn-outline" onclick="loadSageCap()">Refresh</button></div>
+          <div class="card-body">
+            <p style="font-size:13px;color:var(--muted);margin-bottom:14px;">
+              Levels: <strong>conservative</strong> (most restricted) → <strong>standard</strong> → <strong>exploratory</strong> → <strong>extreme</strong> (exec only, deeper educational mode).
+              Setting a cap prevents users from accessing higher levels. Clearing the cap removes the restriction.
+            </p>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+              <span style="font-size:13px;font-weight:600;color:var(--ink);">Current global cap: <span id="global-cap-val" style="color:var(--copper);">Loading…</span></span>
+            </div>
+            <div style="display:flex;gap:6px;margin-top:12px;flex-wrap:wrap;">
+              <button class="btn btn-sm btn-outline" onclick="setGlobalCap('conservative')">Conservative</button>
+              <button class="btn btn-sm btn-outline" onclick="setGlobalCap('standard')">Standard</button>
+              <button class="btn btn-sm btn-outline" onclick="setGlobalCap('exploratory')">Exploratory</button>
+              <button class="btn btn-sm" style="background:#4c1d95;color:white;" onclick="setGlobalCap('extreme')">Extreme (Exec)</button>
+              <button class="btn btn-sm btn-red" onclick="clearGlobalCap()">Clear Cap (No Restriction)</button>
+            </div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-head"><span class="card-title">Per-User Overrides</span></div>
+          <div class="card-body">
+            <div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap;">
+              <input class="form-input" id="cap-uid" placeholder="User ID" style="width:200px;"/>
+              <select class="form-select" id="cap-level" style="width:160px;">
+                <option value="conservative">Conservative</option>
+                <option value="standard">Standard</option>
+                <option value="exploratory">Exploratory</option>
+                <option value="extreme">Extreme</option>
+              </select>
+              <button class="btn btn-primary btn-sm" onclick="setUserCap()">Set Override</button>
+              <button class="btn btn-sm btn-red" onclick="clearUserCap()">Clear Override</button>
+            </div>
+            <div id="cap-overrides"><span style="color:var(--muted);font-size:13px;">Loading overrides…</span></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── INCIDENTS ───────────────────────────────────────────────────── -->
+      <div class="panel" id="panel-incidents">
+        <div class="page-h">Incident Management</div>
+        <div class="page-sub">Create, resolve, and escalate platform incidents</div>
+        <div class="card">
+          <div class="card-head">
+            <span class="card-title">Create Incident</span>
+          </div>
+          <div class="card-body">
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+              <div class="form-row" style="margin:0;">
+                <label class="form-lbl">Title</label>
+                <input class="form-input" id="inc-title" placeholder="Brief incident description"/>
+              </div>
+              <div class="form-row" style="margin:0;">
+                <label class="form-lbl">Severity</label>
+                <select class="form-select" id="inc-sev">
+                  <option value="low">Low</option>
+                  <option value="medium">Medium</option>
+                  <option value="high" selected>High</option>
+                  <option value="critical">Critical</option>
+                </select>
+              </div>
+            </div>
+            <div class="form-row" style="margin-top:12px;">
+              <label class="form-lbl">Description</label>
+              <textarea class="form-input" id="inc-desc" rows="3" placeholder="Full description of the incident…" style="resize:vertical;"></textarea>
+            </div>
+            <button class="btn btn-primary" onclick="createIncident()">Create Incident</button>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-head"><span class="card-title">Open Incidents</span><button class="btn btn-sm btn-outline" onclick="loadIncidents()">Refresh</button></div>
+          <div class="card-body" id="incidents-list"><span style="color:var(--muted);font-size:13px;">Loading…</span></div>
+        </div>
+      </div>
+
+      <!-- ── AUDIT LOG ───────────────────────────────────────────────────── -->
+      <div class="panel" id="panel-audit">
+        <div class="page-h">Audit Log</div>
+        <div class="page-sub">Full platform action history</div>
+        <div class="card">
+          <div class="card-head"><span class="card-title">Recent Actions</span><button class="btn btn-sm btn-outline" onclick="loadAuditFull()">Refresh</button></div>
+          <div class="card-body" style="padding:0;overflow-x:auto;">
+            <table class="tbl">
+              <thead><tr><th>Time</th><th>Actor</th><th>Action</th></tr></thead>
+              <tbody id="audit-tbody"><tr><td colspan="3" style="text-align:center;padding:20px;color:var(--muted);">Loading…</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── SYSTEM STATUS ───────────────────────────────────────────────── -->
+      <div class="panel" id="panel-system">
+        <div class="page-h">System Status</div>
+        <div class="page-sub">Endpoint health, AI provider availability, platform checks</div>
+        <div class="card">
+          <div class="card-head"><span class="card-title">Endpoint Health</span><button class="btn btn-sm btn-outline" onclick="runHealth()">Run Now</button></div>
+          <div class="card-body" id="sys-health"><span style="color:var(--muted);font-size:13px;">Click "Run Now" to test all endpoints.</span></div>
+        </div>
+        <div class="card">
+          <div class="card-head"><span class="card-title">AI Provider Status</span></div>
+          <div class="card-body" id="ai-status"><span style="color:var(--muted);font-size:13px;">Loading…</span></div>
+        </div>
+      </div>
+
+      <!-- ── API KEYS ────────────────────────────────────────────────────── -->
+      <div class="panel" id="panel-apikeys">
+        <div class="page-h">API Key Management</div>
+        <div class="page-sub">Configure AI provider keys (all free-tier). Stored locally in this browser.</div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:14px;" id="apikey-cards"></div>
+        <div class="card" style="margin-top:14px;">
+          <div class="card-head"><span class="card-title">Model Priority Order</span></div>
+          <div class="card-body">
+            <p style="font-size:13px;color:var(--muted);margin-bottom:12px;">The Supervisor tries providers in this order. Drag to reorder.</p>
+            <div id="priority-list" style="display:flex;flex-direction:column;gap:8px;"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── ERROR LOG ───────────────────────────────────────────────────── -->
+      <div class="panel" id="panel-errorlog">
+        <div class="page-h">Error Log</div>
+        <div class="page-sub">API failures, timeouts, and system errors captured this session</div>
+        <div class="card">
+          <div class="card-head">
+            <span class="card-title">Events (<span id="err-count">0</span>)</span>
+            <button class="btn btn-sm btn-red" onclick="clearErrLog()">Clear Log</button>
+          </div>
+          <div class="card-body" id="err-log-body"><span style="color:var(--muted);font-size:13px;">No errors logged.</span></div>
+        </div>
+      </div>
+
+    </main><!-- /main -->
+  </div><!-- /layout -->
+</div><!-- /shell -->
+
+<!-- ══ USER EDIT MODAL ═══════════════════════════════════════════════════════ -->
+<div class="modal-bg" id="role-modal">
+  <div class="modal">
+    <div class="modal-head">
+      <span class="modal-title">Change Role — <span id="rm-name"></span></span>
+      <button class="modal-close" onclick="closeModal('role-modal')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-row">
+        <label class="form-lbl">New Role</label>
+        <select class="form-select" id="rm-role">
+          <option value="student">Student</option>
+          <option value="instructor">Instructor</option>
+          <option value="admin">Admin</option>
+          <option value="executive_admin">Executive Admin</option>
+        </select>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-outline btn-sm" onclick="closeModal('role-modal')">Cancel</button>
+      <button class="btn btn-primary btn-sm" onclick="commitRoleChange()">Save Role</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ RESET PW MODAL ════════════════════════════════════════════════════════ -->
+<div class="modal-bg" id="pw-modal">
+  <div class="modal">
+    <div class="modal-head">
+      <span class="modal-title">Reset Password — <span id="pm-name"></span></span>
+      <button class="modal-close" onclick="closeModal('pw-modal')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-row">
+        <label class="form-lbl">New Password</label>
+        <input class="form-input" id="pm-pw" type="password" placeholder="Enter new password (min 8 chars)"/>
+      </div>
+      <div id="pm-link-area" style="margin-top:10px;"></div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-outline btn-sm" onclick="genResetLink()">Generate Reset Link Instead</button>
+      <button class="btn btn-outline btn-sm" onclick="closeModal('pw-modal')">Cancel</button>
+      <button class="btn btn-primary btn-sm" onclick="commitPwReset()">Set Password</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ RESOLVE INCIDENT MODAL ════════════════════════════════════════════════ -->
+<div class="modal-bg" id="resolve-modal">
+  <div class="modal">
+    <div class="modal-head">
+      <span class="modal-title">Resolve Incident</span>
+      <button class="modal-close" onclick="closeModal('resolve-modal')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-row">
+        <label class="form-lbl">Resolution Note</label>
+        <textarea class="form-input" id="resolve-note" rows="3" placeholder="Describe how this was resolved…" style="resize:vertical;"></textarea>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-outline btn-sm" onclick="closeModal('resolve-modal')">Cancel</button>
+      <button class="btn btn-green btn-sm" onclick="commitResolve()">Mark Resolved</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ TOAST ════════════════════════════════════════════════════════════════ -->
+<div id="toast"></div>
+
+<!-- ══ PUBLIC WIDGET ════════════════════════════════════════════════════════ -->
+<div id="widget">
+  <button id="widget-toggle" onclick="wToggle()" title="The Supervisor">
+    <svg viewBox="0 0 24 24"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z"/></svg>
+  </button>
+  <div id="widget-panel">
+    <div class="w-head">
+      <div style="display:flex;align-items:center;gap:9px;">
+        <div class="w-av">S</div>
+        <div><div class="w-name">The Supervisor</div><div class="w-sub">WAI Institute · Backup AI</div></div>
+      </div>
+      <button class="w-close" onclick="wToggle()">✕</button>
+    </div>
+    <div class="w-persona-row">
+      <button class="w-pbtn active" id="wp-gov" onclick="setPersona('governance')">⚖️ Governance</button>
+      <button class="w-pbtn" id="wp-help" onclick="setPersona('helpdesk')">🛎 Help Desk</button>
+    </div>
+    <div class="w-msgs" id="w-msgs"></div>
+    <div class="w-typing" id="w-typing">Thinking…</div>
+    <div class="w-input-row">
+      <input type="text" id="w-input" placeholder="Ask a question…" onkeydown="if(event.key==='Enter')wSend()"/>
+      <button class="w-send" onclick="wSend()">→</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════════════════
+     JAVASCRIPT
+════════════════════════════════════════════════════════════════════════════ -->
+<script>
+// ─── CONFIG ──────────────────────────────────────────────────────────────────
+const BASE = (()=>{
+  const o = window.location.origin;
+  return (o.includes('localhost') || o.includes('127.0.0.1'))
+    ? 'http://localhost:8000/api' : o + '/api';
+})();
+
+const AI_PROVIDERS = [
+  {key:'groq',     label:'Groq (Llama 3.3)',  hint:'gsk_…',  tier:'Free · Fastest · Primary'},
+  {key:'cerebras', label:'Cerebras',           hint:'csk-…',  tier:'Free · Fast · Llama 70B'},
+  {key:'gemini',   label:'Google Gemini',      hint:'AIza…',  tier:'Free via AI Studio'},
+  {key:'grok',     label:'Grok (xAI)',         hint:'xai-…',  tier:'Free credits'},
+  {key:'cohere',   label:'Cohere',             hint:'…',      tier:'Free tier'},
+  {key:'hf',       label:'Hugging Face',       hint:'hf_…',   tier:'Free · Slowest'},
+];
+
+const FALLBACK = {
+  governance:[
+    'The WAI Institute operates under a covenant of integrity and transparent governance. Please review our published bylaws for authoritative guidance.',
+    'Governance matters require proper documentation. I recommend consulting the relevant policy framework through official channels.',
+    'Under WAI principles, all decisions require accountability, transparency, and alignment with our founding mission.',
+    'I am currently in offline mode. For urgent governance matters, please contact the executive team directly.',
+  ],
+  helpdesk:[
+    'I am here to help! For account issues, use the password reset link on the login page.',
+    'For technical issues, try refreshing or clearing your browser cache. If problems persist, contact support.',
+    'Lab submissions and compliance certificates are managed through your dashboard.',
+    'I am currently in offline mode — limited to pre-loaded responses. Your question has been logged.',
+  ],
+};
+
+// ─── STATE ───────────────────────────────────────────────────────────────────
+const S = {
+  token: localStorage.getItem('sup_token') || '',
+  persona: 'governance',
+  apiKeys: JSON.parse(localStorage.getItem('sup_ai_keys') || '{}'),
+  errLog: JSON.parse(localStorage.getItem('sup_err_log') || '[]'),
+  errCount: 0,
+  wOpen: false,
+  allUsers: [],
+  // modal context
+  modalUid: null,
+  modalName: null,
+  incModalId: null,
+};
+
+// ─── HELPERS ─────────────────────────────────────────────────────────────────
+function esc(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+function toast(msg, type='ok'){
+  const el = document.createElement('div');
+  el.className = `toast-msg toast-${type}`;
+  el.textContent = msg;
+  document.getElementById('toast').appendChild(el);
+  setTimeout(()=>el.remove(), 4000);
+}
+
+function logErr(msg){
+  const e = {t: new Date().toISOString(), msg};
+  S.errLog.unshift(e);
+  if(S.errLog.length > 150) S.errLog = S.errLog.slice(0,150);
+  localStorage.setItem('sup_err_log', JSON.stringify(S.errLog));
+  S.errCount++;
+  document.getElementById('err-count').textContent = S.errCount;
+  renderErrLog();
+}
+
+async function api(path, opts={}){
+  const headers = {'Content-Type':'application/json'};
+  if(S.token) headers['Authorization'] = 'Bearer ' + S.token;
+  const ctrl = new AbortController();
+  const tid = setTimeout(()=>ctrl.abort(), 8000);
+  try {
+    const r = await fetch(BASE + path, {...opts, headers:{...headers,...(opts.headers||{})}, signal:ctrl.signal});
+    clearTimeout(tid);
+    if(!r.ok){
+      const d = await r.json().catch(()=>({}));
+      throw new Error(d.detail || `HTTP ${r.status}`);
+    }
+    return r.json();
+  } catch(e){
+    clearTimeout(tid);
+    logErr(path + ' — ' + e.message);
+    throw e;
+  }
+}
+
+function fmtTime(iso){ return iso ? new Date(iso).toLocaleString(undefined,{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'}) : '—'; }
+
+// ─── AUTH ────────────────────────────────────────────────────────────────────
+async function doLogin(){
+  const email = document.getElementById('a-email').value.trim();
+  const pw    = document.getElementById('a-pass').value;
+  const errEl = document.getElementById('auth-err');
+  errEl.style.display = 'none';
+  if(!email||!pw){ errEl.textContent='Enter email and password.'; errEl.style.display='block'; return; }
+  try {
+    const d = await api('/auth/login',{method:'POST',body:JSON.stringify({email,password:pw})});
+    const role = d?.user?.role || d?.role || '';
+    if(!['admin','executive_admin'].includes(role)){
+      errEl.textContent='Access restricted to admin and executive accounts.'; errEl.style.display='block'; return;
+    }
+    S.token = d.token || d.access_token || '';
+    localStorage.setItem('sup_token', S.token);
+    document.getElementById('user-name').textContent = d.user?.full_name || d.user?.email || '';
+    document.getElementById('role-badge').textContent = role.replace('_',' ').toUpperCase();
+    document.getElementById('auth-screen').style.display='none';
+    document.getElementById('shell').classList.add('visible');
+    initShell();
+  } catch(e){
+    errEl.textContent = e.message.includes('abort') ? 'Platform offline — cannot verify credentials. Use backup credentials.' : ('Login failed: ' + e.message);
+    errEl.style.display='block';
+  }
+}
+
+function doLogout(){
+  localStorage.removeItem('sup_token');
+  S.token='';
+  document.getElementById('shell').classList.remove('visible');
+  document.getElementById('auth-screen').style.display='flex';
+}
+
+// ─── NAV ─────────────────────────────────────────────────────────────────────
+function nav(name){
+  document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.sb-btn').forEach(b=>b.classList.remove('active'));
+  document.getElementById('panel-'+name)?.classList.add('active');
+  document.querySelector(`.sb-btn[onclick*="'${name}'"]`)?.classList.add('active');
+  // lazy-load on first visit
+  const loaders = {
+    users: loadUsers, personas: loadPersonas, incidents: loadIncidents,
+    audit: loadAuditFull, 'sage-cap': loadSageCap, broadcast: ()=>loadAudit('broadcast'),
+    system: ()=>{ renderAiStatus(); runHealth(); },
+    apikeys: renderApiKeys,
+  };
+  if(loaders[name]) loaders[name]();
+}
+
+// ─── INIT ────────────────────────────────────────────────────────────────────
+function initShell(){
+  renderApiKeys();
+  renderAiStatus();
+  runHealth();
+  loadOverviewActivity();
+  loadIncidents();
+  document.getElementById('s-model').textContent = getActiveModel();
+  setInterval(runHealth, 30000);
+  appendMsg('full-msgs','bot','Good day. I am The Supervisor. Ask me anything or use the sidebar controls.');
+}
+
+// ─── HEALTH CHECKS ───────────────────────────────────────────────────────────
+const ENDPOINTS = [
+  {name:'Platform API',    path:'/health'},
+  {name:'Auth Service',    path:'/auth/me'},
+  {name:'Admin Stats',     path:'/admin/stats'},
+  {name:'Compliance API',  path:'/compliance'},
+  {name:'Labs API',        path:'/labs'},
+];
+
+async function checkEp(ep){
+  const t0=Date.now();
+  try {
+    const ctrl=new AbortController();
+    const tid=setTimeout(()=>ctrl.abort(),5000);
+    const h={'Content-Type':'application/json'};
+    if(S.token) h['Authorization']='Bearer '+S.token;
+    const r=await fetch(BASE+ep.path,{headers:h,signal:ctrl.signal});
+    clearTimeout(tid);
+    return {name:ep.name,ok:r.ok||r.status<500,status:r.status,ms:Date.now()-t0};
+  } catch(e){
+    return {name:ep.name,ok:false,status:'Timeout',ms:null};
+  }
+}
+
+async function runHealth(){
+  const results = await Promise.all(ENDPOINTS.map(checkEp));
+  const html = results.map(r=>`
+    <div class="status-row">
+      <strong>${esc(r.name)}</strong>
+      <span>
+        ${r.ok?'<span class="s-ok">✓ OK</span>':'<span class="s-err">✗ DOWN</span>'}
+        ${r.ms?`<span style="color:var(--muted);font-size:11px;margin-left:8px;">${r.ms}ms</span>`:''}
+        <span style="color:var(--muted);font-size:11px;margin-left:6px;">${r.status}</span>
+      </span>
+    </div>`).join('');
+  document.getElementById('health-results').innerHTML = html;
+  const hf = document.getElementById('sys-health');
+  if(hf) hf.innerHTML = html;
+
+  const mainOk = results[0]?.ok;
+  const dot=document.getElementById('api-dot'), lbl=document.getElementById('api-lbl');
+  const wdot=document.getElementById('widget-status-dot');
+  if(mainOk){
+    dot.style.background='#22c55e'; lbl.textContent='Online';
+    document.getElementById('s-api').textContent='✓ Online';
+    document.getElementById('maint-bar').classList.remove('on');
+  } else {
+    dot.style.background='var(--err)'; lbl.textContent='API Offline';
+    document.getElementById('s-api').textContent='✗ Offline';
+    document.getElementById('maint-bar').classList.add('on');
+    logErr('Platform health check failed');
+  }
+
+  // update overview stats from admin/stats
+  try {
+    const st = await api('/admin/stats');
+    document.getElementById('s-users').textContent = st.users ?? '—';
+    document.getElementById('s-incidents').textContent = st.incidents_open ?? '—';
+  } catch(_){}
+}
+
+// ─── USERS ───────────────────────────────────────────────────────────────────
+async function loadUsers(){
+  const tbody = document.getElementById('users-tbody');
+  tbody.innerHTML='<tr><td colspan="9" style="text-align:center;padding:20px;color:var(--muted);">Loading…</td></tr>';
+  try {
+    const data = await api('/admin/users');
+    S.allUsers = data || [];
+    renderUsers(S.allUsers);
+  } catch(e){ tbody.innerHTML=`<tr><td colspan="9" style="padding:16px;color:var(--err);">Error: ${esc(e.message)}</td></tr>`; }
+}
+
+function filterUsers(){
+  const q = document.getElementById('user-search').value.toLowerCase();
+  renderUsers(S.allUsers.filter(u=>(u.full_name||'').toLowerCase().includes(q)||(u.email||'').toLowerCase().includes(q)));
+}
+
+function renderUsers(users){
+  const tbody = document.getElementById('users-tbody');
+  if(!users.length){ tbody.innerHTML='<tr><td colspan="9" style="text-align:center;padding:20px;color:var(--muted);">No users found.</td></tr>'; return; }
+  tbody.innerHTML = users.map(u=>`
+    <tr>
+      <td><strong>${esc(u.full_name||'—')}</strong></td>
+      <td style="font-family:monospace;font-size:11px;">${esc(u.email)}</td>
+      <td><span class="badge badge-blue">${esc((u.role||'').replace('_',' '))}</span></td>
+      <td>${u.is_active===false?'<span class="badge badge-err">Inactive</span>':'<span class="badge badge-ok">Active</span>'}</td>
+      <td>${u.is_active===false?`<button class="btn btn-sm btn-green" onclick="activateUser('${u.id}','${esc(u.full_name||u.email)}')">Activate</button>`:'<span style="color:var(--muted);font-size:12px;">—</span>'}</td>
+      <td>${u.is_active!==false?`<button class="btn btn-sm btn-red" onclick="deactivateUser('${u.id}','${esc(u.full_name||u.email)}')">Deactivate</button>`:'<span style="color:var(--muted);font-size:12px;">—</span>'}</td>
+      <td><button class="btn btn-sm btn-outline" onclick="openPwModal('${u.id}','${esc(u.full_name||u.email)}')">Reset PW</button></td>
+      <td><button class="btn btn-sm btn-yellow" onclick="openRoleModal('${u.id}','${esc(u.full_name||u.email)}','${u.role}')">Change Role</button></td>
+      <td><button class="btn btn-sm btn-red" onclick="deleteUser('${u.id}','${esc(u.full_name||u.email)}')">Delete</button></td>
+    </tr>`).join('');
+}
+
+async function activateUser(uid,name){
+  try { await api(`/admin/users/${uid}/active`,{method:'PATCH',body:JSON.stringify({is_active:true})}); toast(`${name} activated`); loadUsers(); }
+  catch(e){ toast('Failed: '+e.message,'err'); }
+}
+async function deactivateUser(uid,name){
+  if(!confirm(`Deactivate ${name}?`)) return;
+  try { await api(`/admin/users/${uid}/active`,{method:'PATCH',body:JSON.stringify({is_active:false})}); toast(`${name} deactivated`,'info'); loadUsers(); }
+  catch(e){ toast('Failed: '+e.message,'err'); }
+}
+async function deleteUser(uid,name){
+  if(!confirm(`PERMANENTLY DELETE ${name}? This cannot be undone.`)) return;
+  try { await api(`/admin/users/${uid}`,{method:'DELETE'}); toast(`${name} deleted`,'info'); loadUsers(); }
+  catch(e){ toast('Failed: '+e.message,'err'); }
+}
+
+// Role modal
+function openRoleModal(uid,name,currentRole){
+  S.modalUid=uid; S.modalName=name;
+  document.getElementById('rm-name').textContent=name;
+  document.getElementById('rm-role').value=currentRole||'student';
+  document.getElementById('role-modal').classList.add('open');
+}
+async function commitRoleChange(){
+  const role=document.getElementById('rm-role').value;
+  try { await api(`/admin/users/${S.modalUid}/role`,{method:'PATCH',body:JSON.stringify({role})}); toast(`${S.modalName} role updated to ${role}`); closeModal('role-modal'); loadUsers(); }
+  catch(e){ toast('Failed: '+e.message,'err'); }
+}
+
+// PW modal
+function openPwModal(uid,name){
+  S.modalUid=uid; S.modalName=name;
+  document.getElementById('pm-name').textContent=name;
+  document.getElementById('pm-pw').value='';
+  document.getElementById('pm-link-area').innerHTML='';
+  document.getElementById('pw-modal').classList.add('open');
+}
+async function commitPwReset(){
+  const pw=document.getElementById('pm-pw').value;
+  if(pw.length<8){ toast('Password must be at least 8 characters','err'); return; }
+  try { await api(`/admin/users/${S.modalUid}/password`,{method:'POST',body:JSON.stringify({password:pw})}); toast(`Password updated for ${S.modalName}`); closeModal('pw-modal'); }
+  catch(e){ toast('Failed: '+e.message,'err'); }
+}
+async function genResetLink(){
+  try {
+    const d = await api(`/admin/users/${S.modalUid}/reset-link`,{method:'POST',body:JSON.stringify({})});
+    const link = d.reset_link || d.link || JSON.stringify(d);
+    document.getElementById('pm-link-area').innerHTML=`<div style="background:#f0fdf4;border:1px solid #86efac;border-radius:7px;padding:10px;font-size:11px;font-family:monospace;word-break:break-all;color:#166534;">${esc(link)}</div>`;
+  } catch(e){ toast('Failed: '+e.message,'err'); }
+}
+
+function closeModal(id){ document.getElementById(id).classList.remove('open'); }
+
+// ─── BROADCAST ───────────────────────────────────────────────────────────────
+async function sendBroadcast(){
+  const target = document.getElementById('bc-target').value;
+  const title  = document.getElementById('bc-title').value.trim() || 'Platform Announcement';
+  const msg    = document.getElementById('bc-msg').value.trim();
+  if(!msg){ toast('Message is required','err'); return; }
+  try {
+    const d = await api('/admin/broadcast',{method:'POST',body:JSON.stringify({target,title,message:msg})});
+    const el = document.getElementById('bc-result');
+    el.textContent=`✓ Sent to ${d.sent} user(s)`;
+    el.style.display='inline';
+    setTimeout(()=>el.style.display='none',5000);
+    document.getElementById('bc-msg').value='';
+    toast(`Broadcast sent to ${d.sent} users`);
+  } catch(e){ toast('Broadcast failed: '+e.message,'err'); }
+}
+
+// ─── PERSONAS ────────────────────────────────────────────────────────────────
+async function loadPersonas(){
+  const grid = document.getElementById('persona-grid');
+  grid.innerHTML='<span style="color:var(--muted);font-size:13px;">Loading…</span>';
+  try {
+    const d = await api('/exec/personas');
+    const registry = d.registry || {};
+    const active = new Set((d.active_personas||[]).map(p=>p.name||p));
+    const names = Object.keys(registry);
+    if(!names.length){ grid.innerHTML='<span style="color:var(--muted);">No personas registered.</span>'; return; }
+    grid.innerHTML = names.map(name=>{
+      const info = registry[name] || {};
+      const on = active.has(name);
+      return `<div class="persona-card ${on?'active':'inactive-card'}">
+        <h4>${esc(name)}</h4>
+        <p>${esc(info.mandate||info.description||'—')}</p>
+        <div class="p-status" style="color:${on?'var(--ok)':'var(--err)'};">${on?'● Active':'○ Inactive'}</div>
+        <div style="display:flex;gap:6px;margin-top:10px;flex-wrap:wrap;">
+          ${on
+            ? `<button class="btn btn-sm btn-red" onclick="personaAction('${name}','deactivate')">Deactivate</button>
+               <button class="btn btn-sm btn-yellow" onclick="personaAction('${name}','pause')">Pause</button>`
+            : `<button class="btn btn-sm btn-green" onclick="personaAction('${name}','activate')">Activate</button>`
+          }
+        </div>
+      </div>`;
+    }).join('');
+  } catch(e){ grid.innerHTML=`<span style="color:var(--err);">Error: ${esc(e.message)}</span>`; }
+}
+
+async function personaAction(name, action){
+  const log = document.getElementById('persona-log');
+  try {
+    let d;
+    if(action==='activate') d = await api(`/exec/personas/${name}/activate`,{method:'POST',body:JSON.stringify({})});
+    else if(action==='deactivate') d = await api(`/exec/personas/${name}/deactivate`,{method:'POST',body:JSON.stringify({reason:'Supervisor action'})});
+    else if(action==='pause') d = await api(`/exec/personas/${name}/deactivate`,{method:'POST',body:JSON.stringify({reason:'Paused by Supervisor'})});
+    toast(`${name} ${action}d`);
+    log.innerHTML = `<div class="log-entry"><span class="log-time">${new Date().toLocaleTimeString()}</span> — <strong>${esc(name)}</strong> → ${action}</div>` + log.innerHTML;
+    setTimeout(loadPersonas, 500);
+  } catch(e){ toast(`${action} failed: `+e.message,'err'); }
+}
+
+// ─── SAGE SAFETY CAP ─────────────────────────────────────────────────────────
+async function loadSageCap(){
+  try {
+    const d = await api('/admin/sage/cap');
+    document.getElementById('global-cap-val').textContent = d.global_level || 'None (unrestricted)';
+    const overEl = document.getElementById('cap-overrides');
+    if(!d.overrides||!d.overrides.length){ overEl.innerHTML='<span style="color:var(--muted);font-size:13px;">No per-user overrides set.</span>'; return; }
+    overEl.innerHTML=`<table class="tbl"><thead><tr><th>User</th><th>Email</th><th>Cap Level</th><th>Action</th></tr></thead><tbody>
+      ${d.overrides.map(o=>`<tr>
+        <td>${esc(o.full_name||'—')}</td>
+        <td style="font-family:monospace;font-size:11px;">${esc(o.email||o.user_id)}</td>
+        <td><span class="badge badge-purple">${esc(o.level)}</span></td>
+        <td><button class="btn btn-sm btn-red" onclick="clearUserCapById('${o.user_id}')">Clear</button></td>
+      </tr>`).join('')}
+    </tbody></table>`;
+  } catch(e){ toast('Failed to load sage cap: '+e.message,'err'); }
+}
+
+async function setGlobalCap(level){
+  try { await api('/admin/sage/cap/global',{method:'PUT',body:JSON.stringify({level})}); toast(`Global cap set to ${level}`); loadSageCap(); }
+  catch(e){ toast('Failed: '+e.message,'err'); }
+}
+async function clearGlobalCap(){
+  try { await api('/admin/sage/cap/global',{method:'PUT',body:JSON.stringify({level:null})}); toast('Global cap cleared'); loadSageCap(); }
+  catch(e){ toast('Failed: '+e.message,'err'); }
+}
+async function setUserCap(){
+  const uid=document.getElementById('cap-uid').value.trim();
+  const level=document.getElementById('cap-level').value;
+  if(!uid){ toast('Enter a User ID','err'); return; }
+  try { await api(`/admin/sage/cap/user/${uid}`,{method:'PUT',body:JSON.stringify({level})}); toast(`Cap set to ${level} for user`); loadSageCap(); }
+  catch(e){ toast('Failed: '+e.message,'err'); }
+}
+async function clearUserCap(){ const uid=document.getElementById('cap-uid').value.trim(); if(!uid){toast('Enter a User ID','err');return;} clearUserCapById(uid); }
+async function clearUserCapById(uid){
+  try { await api(`/admin/sage/cap/user/${uid}`,{method:'PUT',body:JSON.stringify({level:null})}); toast('User cap cleared'); loadSageCap(); }
+  catch(e){ toast('Failed: '+e.message,'err'); }
+}
+
+// ─── INCIDENTS ───────────────────────────────────────────────────────────────
+async function loadIncidents(){
+  const el = document.getElementById('incidents-list');
+  if(!el) return;
+  el.innerHTML='<span style="color:var(--muted);font-size:13px;">Loading…</span>';
+  try {
+    const data = await api('/incidents');
+    const open = (data||[]).filter(i=>i.status==='open');
+    if(!open.length){ el.innerHTML='<span style="color:var(--ok);font-size:13px;">✓ No open incidents.</span>'; return; }
+    el.innerHTML = open.map(i=>`
+      <div style="border-left:4px solid ${i.severity==='critical'?'var(--err)':i.severity==='high'?'#f97316':i.severity==='medium'?'#eab308':'#94a3b8'};background:#fafafa;border-radius:0 8px 8px 0;padding:12px 14px;margin-bottom:10px;">
+        <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:10px;flex-wrap:wrap;">
+          <div>
+            <div style="display:flex;gap:6px;margin-bottom:4px;">
+              <span class="badge badge-err">${esc(i.severity||'—')}</span>
+              <span class="badge badge-gray">${esc(i.type||i.title||'Incident')}</span>
+            </div>
+            <div style="font-weight:700;font-size:13px;color:var(--ink);">${esc(i.title||i.type||'Incident')}</div>
+            <div style="font-size:12px;color:var(--muted);margin-top:3px;">${esc(i.description||i.content||'')}</div>
+            <div style="font-size:11px;color:var(--muted);margin-top:4px;">Reported ${fmtTime(i.created_at)}</div>
+          </div>
+          <button class="btn btn-sm btn-green" onclick="openResolveModal('${i.id}')">Resolve</button>
+        </div>
+      </div>`).join('');
+  } catch(e){ el.innerHTML=`<span style="color:var(--err);">Error: ${esc(e.message)}</span>`; }
+}
+
+async function createIncident(){
+  const title = document.getElementById('inc-title').value.trim();
+  const desc  = document.getElementById('inc-desc').value.trim();
+  const sev   = document.getElementById('inc-sev').value;
+  if(!title){ toast('Title required','err'); return; }
+  try {
+    await api('/incidents',{method:'POST',body:JSON.stringify({title,description:desc,severity:sev,type:'manual'})});
+    toast('Incident created');
+    document.getElementById('inc-title').value='';
+    document.getElementById('inc-desc').value='';
+    loadIncidents();
+  } catch(e){ toast('Failed: '+e.message,'err'); }
+}
+
+function openResolveModal(iid){ S.incModalId=iid; document.getElementById('resolve-note').value=''; document.getElementById('resolve-modal').classList.add('open'); }
+async function commitResolve(){
+  const note = document.getElementById('resolve-note').value.trim();
+  if(!note){ toast('Resolution note required','err'); return; }
+  try { await api(`/incidents/${S.incModalId}/resolve`,{method:'POST',body:JSON.stringify({resolution:note})}); toast('Incident resolved'); closeModal('resolve-modal'); loadIncidents(); }
+  catch(e){ toast('Failed: '+e.message,'err'); }
+}
+
+// ─── AUDIT LOG ───────────────────────────────────────────────────────────────
+async function loadOverviewActivity(){
+  const el = document.getElementById('ov-activity');
+  try {
+    const d = await api('/admin/recent-activity?limit=10');
+    if(!d||!d.length){ el.innerHTML='<span style="color:var(--muted);font-size:13px;">No recent activity.</span>'; return; }
+    el.innerHTML=`<table class="tbl"><tbody>${d.map(a=>`<tr>
+      <td style="width:130px;font-size:11px;color:var(--muted);">${fmtTime(a.at)}</td>
+      <td>${esc(a.actor_name||a.actor_id||'—')}</td>
+      <td style="font-family:monospace;font-size:11px;color:var(--copper);">${esc(a.action)}</td>
+    </tr>`).join('')}</tbody></table>`;
+  } catch(e){ el.innerHTML=`<span style="color:var(--err);">Error: ${esc(e.message)}</span>`; }
+}
+
+async function loadAuditFull(){
+  const tbody = document.getElementById('audit-tbody');
+  tbody.innerHTML='<tr><td colspan="3" style="text-align:center;padding:20px;color:var(--muted);">Loading…</td></tr>';
+  try {
+    const d = await api('/admin/recent-activity?limit=50');
+    if(!d||!d.length){ tbody.innerHTML='<tr><td colspan="3" style="text-align:center;padding:16px;color:var(--muted);">No entries.</td></tr>'; return; }
+    tbody.innerHTML = d.map(a=>`<tr>
+      <td style="font-size:11px;color:var(--muted);white-space:nowrap;">${fmtTime(a.at)}</td>
+      <td>${esc(a.actor_name||a.actor_id||'—')}</td>
+      <td style="font-family:monospace;font-size:11px;color:var(--copper);">${esc(a.action)}</td>
+    </tr>`).join('');
+  } catch(e){ tbody.innerHTML=`<tr><td colspan="3" style="padding:16px;color:var(--err);">Error: ${esc(e.message)}</td></tr>`; }
+}
+
+async function loadAudit(filter){
+  const el = document.getElementById('bc-history');
+  if(!el) return;
+  el.innerHTML='<span style="color:var(--muted);font-size:13px;">Loading…</span>';
+  try {
+    const d = await api('/admin/recent-activity?limit=30');
+    const rows = (d||[]).filter(a=>a.action&&a.action.includes(filter||''));
+    if(!rows.length){ el.innerHTML='<span style="color:var(--muted);font-size:13px;">No entries found.</span>'; return; }
+    el.innerHTML=`<table class="tbl"><tbody>${rows.map(a=>`<tr>
+      <td style="font-size:11px;color:var(--muted);">${fmtTime(a.at)}</td>
+      <td>${esc(a.actor_name||'—')}</td>
+      <td style="font-family:monospace;font-size:11px;">${esc(a.action)}</td>
+    </tr>`).join('')}</tbody></table>`;
+  } catch(e){ el.innerHTML=`<span style="color:var(--err);">Error: ${esc(e.message)}</span>`; }
+}
+
+// ─── AI CHAT ─────────────────────────────────────────────────────────────────
+const SYSTEM = {
+  governance:'You are The Supervisor, an AI governance assistant for the WAI Institute. You are formal, precise, and grounded in institutional governance principles. Keep answers concise (2-3 sentences).',
+  helpdesk:'You are The Supervisor in Help Desk mode for the WAI Institute. You are friendly and helpful. Keep answers concise and actionable.',
+};
+
+async function callAI(msg){
+  const priority = getPriority();
+  for(const p of priority){
+    const key = S.apiKeys[p]||'';
+    if(!key) continue;
+    try { const r = await callProvider(p,key,msg); if(r) return r; } catch(e){ logErr(`[AI:${p}] ${e.message}`); }
+  }
+  return null;
+}
+
+async function callProvider(p,key,msg){
+  const sys = SYSTEM[S.persona];
+  // OpenAI-compatible helper (Groq, Cerebras, Grok share same shape)
+  async function oaiCall(base,model){
+    const r=await ftimeout(base+'/chat/completions',{method:'POST',headers:{'Authorization':'Bearer '+key,'Content-Type':'application/json'},body:JSON.stringify({model,messages:[{role:'system',content:sys},{role:'user',content:msg}],max_tokens:300})});
+    const d=await r.json(); return d?.choices?.[0]?.message?.content||null;
+  }
+  if(p==='groq')     return oaiCall('https://api.groq.com/openai/v1','llama-3.3-70b-versatile');
+  if(p==='cerebras') return oaiCall('https://api.cerebras.ai/v1','llama-3.3-70b');
+  if(p==='grok')     return oaiCall('https://api.x.ai/v1','grok-3-mini');
+  if(p==='gemini'){
+    const r=await ftimeout(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${key}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({contents:[{parts:[{text:sys+'\n\n'+msg}]}],generationConfig:{maxOutputTokens:300}})});
+    const d=await r.json(); return d?.candidates?.[0]?.content?.parts?.[0]?.text||null;
+  }
+  if(p==='cohere'){
+    const r=await ftimeout('https://api.cohere.ai/v1/generate',{method:'POST',headers:{'Authorization':'Bearer '+key,'Content-Type':'application/json'},body:JSON.stringify({model:'command-light',prompt:sys+'\n\nUser: '+msg+'\nSupervisor:',max_tokens:300,stop_sequences:['\nUser:']})});
+    const d=await r.json(); return d?.generations?.[0]?.text?.trim()||null;
+  }
+  if(p==='hf'){
+    const r=await ftimeout('https://api-inference.huggingface.co/models/mistralai/Mistral-7B-Instruct-v0.2',{method:'POST',headers:{'Authorization':'Bearer '+key,'Content-Type':'application/json'},body:JSON.stringify({inputs:`[INST] ${sys}\n${msg} [/INST]`,parameters:{max_new_tokens:300}})});
+    const d=await r.json(); return Array.isArray(d)?d[0]?.generated_text?.split('[/INST]').pop()?.trim()||null:null;
+  }
+  return null;
+}
+
+function ftimeout(url,opts,ms=6000){
+  const c=new AbortController(); const t=setTimeout(()=>c.abort(),ms);
+  return fetch(url,{...opts,signal:c.signal}).finally(()=>clearTimeout(t));
+}
+
+function fallback(){ const p=FALLBACK[S.persona]; return p[Math.floor(Math.random()*p.length)]; }
+function getPriority(){ const items=document.querySelectorAll('#priority-list .pi'); if(items.length) return Array.from(items).map(e=>e.dataset.key); return ['groq','cerebras','gemini','grok','cohere','hf']; }
+function getActiveModel(){ for(const p of getPriority()){ if(S.apiKeys[p]) return p.charAt(0).toUpperCase()+p.slice(1); } return 'Fallback'; }
+
+async function fullSend(){ await sendChat('full-msgs','full-typing','full-input'); }
+async function sendChat(msgsId,typingId,inputId){
+  const inp=document.getElementById(inputId); const txt=inp.value.trim(); if(!txt) return; inp.value='';
+  appendMsg(msgsId,'user',txt);
+  const typ=document.getElementById(typingId); if(typ) typ.style.display='block';
+  const reply = await callAI(txt) || fallback();
+  if(typ) typ.style.display='none';
+  appendMsg(msgsId,'bot',reply);
+}
+
+function appendMsg(cid,role,text){
+  const c=document.getElementById(cid); if(!c) return;
+  const d=document.createElement('div'); d.className='msg '+role;
+  d.innerHTML=role==='bot'?`<div class="msg-av">S</div><div class="bubble">${esc(text)}</div>`:`<div class="bubble">${esc(text)}</div>`;
+  c.appendChild(d); c.scrollTop=c.scrollHeight;
+}
+function clearMsgs(id){ const el=document.getElementById(id); if(el) el.innerHTML=''; }
+
+// ─── PERSONA TOGGLE ──────────────────────────────────────────────────────────
+function setPersona(p){
+  S.persona=p;
+  ['gov','help'].forEach(k=>{ document.getElementById('pb-'+k)?.classList.remove('btn-primary'); document.getElementById('pb-'+k)?.classList.add('btn-outline'); });
+  ['wp-gov','wp-help'].forEach(id=>document.getElementById(id)?.classList.remove('active'));
+  if(p==='governance'){ document.getElementById('pb-gov')?.classList.add('btn-primary'); document.getElementById('wp-gov')?.classList.add('active'); }
+  else { document.getElementById('pb-help')?.classList.add('btn-primary'); document.getElementById('wp-help')?.classList.add('active'); }
+  document.getElementById('s-model').textContent = getActiveModel();
+}
+
+// ─── AI PROVIDER STATUS ──────────────────────────────────────────────────────
+function renderAiStatus(){
+  const el=document.getElementById('ai-status'); if(!el) return;
+  el.innerHTML=AI_PROVIDERS.map(p=>`
+    <div class="status-row">
+      <div><strong>${esc(p.label)}</strong><div style="font-size:11px;color:var(--muted);">${esc(p.tier)}</div></div>
+      <span class="${S.apiKeys[p.key]?'s-ok':'s-warn'}">${S.apiKeys[p.key]?'✓ Key Set':'○ No Key'}</span>
+    </div>`).join('');
+}
+
+// ─── API KEYS ────────────────────────────────────────────────────────────────
+function renderApiKeys(){
+  const c=document.getElementById('apikey-cards'); if(!c) return;
+  c.innerHTML=AI_PROVIDERS.map(p=>`
+    <div class="card" style="margin:0;">
+      <div class="card-head">
+        <span class="card-title">${esc(p.label)}</span>
+        <span class="badge badge-ok" style="font-size:9px;">${esc(p.tier)}</span>
+      </div>
+      <div class="card-body">
+        <div class="form-row">
+          <label class="form-lbl">API Key</label>
+          <input type="password" class="form-input" id="key-${p.key}" placeholder="${esc(p.hint)}" value="${esc(S.apiKeys[p.key]||'')}"/>
+        </div>
+        <div style="display:flex;gap:6px;align-items:center;">
+          <button class="btn btn-primary btn-sm" onclick="saveKey('${p.key}')">Save</button>
+          ${S.apiKeys[p.key]?`<button class="btn btn-sm btn-red" onclick="clearKey('${p.key}')">Clear</button>`:''}
+          <span id="ks-${p.key}" style="font-size:12px;color:var(--ok);display:none;">✓ Saved</span>
+        </div>
+      </div>
+    </div>`).join('');
+  renderPriorityList();
+}
+
+// Map Supervisor provider keys → backend env var names expected by llm_gateway.py
+const BACKEND_KEY_MAP = {
+  groq:     'GROQ_API_KEY',
+  cerebras: 'CEREBRAS_API_KEY',
+  gemini:   'GEMINI_API_KEY',
+  grok:     'XAI_API_KEY',
+  cohere:   'COHERE_API_KEY',
+  hf:       'HUGGINGFACE_API_KEY',
+};
+
+async function saveKey(k){
+  const val=document.getElementById('key-'+k)?.value.trim();
+  if(!val){ toast('Key cannot be empty','err'); return; }
+  S.apiKeys[k]=val;
+  localStorage.setItem('sup_ai_keys',JSON.stringify(S.apiKeys));
+  const s=document.getElementById('ks-'+k); if(s){s.style.display='inline';setTimeout(()=>s.style.display='none',3000);}
+  // Push to backend gateway so it takes effect without a Railway redeploy
+  const envVar = BACKEND_KEY_MAP[k];
+  if(envVar && S.token){
+    try{
+      const r = await api('/admin/gateway/keys',{method:'POST',body:JSON.stringify({var_name:envVar,value:val})});
+      if(r?.ok) toast(`${k} key saved & pushed to gateway ✓`);
+      else toast(`${k} key saved locally (backend sync pending)`,'warn');
+    } catch(e){ toast(`${k} key saved locally (gateway offline)`,'warn'); }
+  } else {
+    toast(`${k} key saved`);
+  }
+  renderAiStatus();
+  document.getElementById('s-model').textContent=getActiveModel();
+}
+function clearKey(k){
+  delete S.apiKeys[k];
+  localStorage.setItem('sup_ai_keys',JSON.stringify(S.apiKeys));
+  toast(`${k} key cleared`,'info');
+  renderApiKeys();
+  renderAiStatus();
+}
+
+function renderPriorityList(){
+  const el=document.getElementById('priority-list'); if(!el) return;
+  el.innerHTML=AI_PROVIDERS.map((p,i)=>`
+    <div class="pi" draggable="true" data-key="${p.key}" style="padding:10px 14px;background:#f9f9fb;border:1.5px solid var(--border);border-radius:7px;display:flex;align-items:center;gap:10px;cursor:move;user-select:none;">
+      <span style="font-size:16px;color:var(--muted);">☰</span><strong>${i+1}.</strong> ${esc(p.label)}
+      ${S.apiKeys[p.key]?'<span class="badge badge-ok" style="margin-left:auto;font-size:9px;">Key Set</span>':'<span class="badge badge-gray" style="margin-left:auto;font-size:9px;">No Key</span>'}
+    </div>`).join('');
+  initDrag();
+}
+
+function initDrag(){
+  let drag=null;
+  document.querySelectorAll('#priority-list .pi').forEach(el=>{
+    el.addEventListener('dragstart',()=>drag=el);
+    el.addEventListener('dragover',e=>{e.preventDefault();const r=e.target.closest('.pi');if(r&&r!==drag){const list=r.parentNode;const all=[...list.children];const di=all.indexOf(drag),ri=all.indexOf(r);if(di>ri)list.insertBefore(drag,r);else list.insertBefore(drag,r.nextSibling);}});
+    el.addEventListener('dragend',()=>{ drag=null; document.getElementById('s-model').textContent=getActiveModel(); });
+  });
+}
+
+// ─── ERROR LOG ───────────────────────────────────────────────────────────────
+function renderErrLog(){
+  const el=document.getElementById('err-log-body'); if(!el) return;
+  if(!S.errLog.length){ el.innerHTML='<span style="color:var(--muted);font-size:13px;">No errors logged.</span>'; return; }
+  el.innerHTML=S.errLog.map(e=>`<div class="log-entry"><span class="log-time">${e.t}</span> — <span class="log-err">${esc(e.msg)}</span></div>`).join('');
+}
+function clearErrLog(){ S.errLog=[]; S.errCount=0; localStorage.removeItem('sup_err_log'); document.getElementById('err-count').textContent=0; renderErrLog(); }
+
+// ─── WIDGET ──────────────────────────────────────────────────────────────────
+function wToggle(){
+  S.wOpen=!S.wOpen;
+  document.getElementById('widget-panel').classList.toggle('open',S.wOpen);
+  if(S.wOpen&&!document.getElementById('w-msgs').children.length)
+    wAppend('bot',S.persona==='governance'?'Greetings. I am The Supervisor, WAI Institute\'s governance AI. How may I assist?':'Hi! I\'m The Supervisor — here to help with your WAI platform questions.');
+}
+async function wSend(){
+  const inp=document.getElementById('w-input'); const txt=inp.value.trim(); if(!txt) return; inp.value='';
+  wAppend('user',txt);
+  document.getElementById('w-typing').style.display='block';
+  const r=await callAI(txt)||fallback();
+  document.getElementById('w-typing').style.display='none';
+  wAppend('bot',r);
+}
+function wAppend(role,text){
+  const c=document.getElementById('w-msgs');
+  const d=document.createElement('div'); d.className='msg '+role;
+  d.innerHTML=role==='bot'?`<div class="msg-av">S</div><div class="bubble">${esc(text)}</div>`:`<div class="bubble">${esc(text)}</div>`;
+  c.appendChild(d); c.scrollTop=c.scrollHeight;
+}
+
+// ─── BOOT ────────────────────────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded',()=>{
+  // If token already in storage, try to use it
+  if(S.token){
+    // validate token by calling /auth/me
+    fetch(BASE+'/auth/me',{headers:{'Authorization':'Bearer '+S.token}})
+      .then(r=>r.ok?r.json():Promise.reject())
+      .then(d=>{
+        const role=d.role||'';
+        if(['admin','executive_admin'].includes(role)){
+          document.getElementById('user-name').textContent=d.full_name||d.email||'';
+          document.getElementById('role-badge').textContent=role.replace('_',' ').toUpperCase();
+          document.getElementById('auth-screen').style.display='none';
+          document.getElementById('shell').classList.add('visible');
+          initShell();
+        } else { localStorage.removeItem('sup_token'); }
+      })
+      .catch(()=>{ localStorage.removeItem('sup_token'); S.token=''; });
+  }
+  // Always initialise widget for public view
+  setPersona('governance');
+});
+</script>
+</body>
+</html>
