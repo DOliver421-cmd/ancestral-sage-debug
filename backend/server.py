@@ -12075,12 +12075,23 @@ async def upsert_creator_profile(body: UpsertCreatorProfileReq, user: User = Dep
 
 
 @api_router.get("/creator/profile/{slug}")
-async def get_creator_profile_by_slug(slug: str):
-    """Public — get a creator profile by slug."""
-    profile = await db.creator_profiles.find_one({"slug": slug}, {"_id": 0, "user_id": 0})
+async def get_creator_profile_by_slug(slug: str, authorization: Optional[str] = Header(None)):
+    """Public — get a creator profile by slug. Returns is_owner=True if the requester owns it."""
+    profile = await db.creator_profiles.find_one({"slug": slug}, {"_id": 0})
     if not profile:
         raise HTTPException(404, "Creator profile not found")
-    return {"profile": profile}
+    # Determine ownership without requiring auth (public endpoint)
+    requester_id = None
+    if authorization and authorization.startswith("Bearer "):
+        try:
+            payload = jwt.decode(authorization.split(" ", 1)[1], JWT_SECRET, algorithms=[JWT_ALGO])
+            requester_id = payload.get("sub")
+        except Exception:
+            pass
+    is_owner = requester_id is not None and profile.get("user_id") == requester_id
+    profile_out = {k: v for k, v in profile.items() if k != "user_id"}
+    profile_out["is_owner"] = is_owner
+    return {"profile": profile_out}
 
 
 # ── Site Control Panel — executive_admin only ─────────────────────────────────

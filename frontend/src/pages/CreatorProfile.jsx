@@ -379,8 +379,8 @@ export default function CreatorProfile() {
     );
   }
 
-  // Show edit button if logged-in user owns this DB profile
-  const isOwner = dbProfile && user && dbProfile.user_id === user.id;
+  // is_owner is set by the backend based on the JWT — never trust user_id from the response
+  const isOwner = dbProfile && dbProfile.is_owner === true;
 
   return (
     <div className="min-h-screen bg-bone text-ink">
