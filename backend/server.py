@@ -7533,6 +7533,7 @@ async def _stripe_checkout_done(session):
     uid = (session.get("metadata") or {}).get("wai_user_id")
     product_key = (session.get("metadata") or {}).get("product_key", "unknown")
     amount = session.get("amount_total", 0)
+    now_iso = datetime.now(timezone.utc).isoformat()
 
     await db.payments.insert_one({
         "id": str(uuid.uuid4()),
@@ -7544,8 +7545,39 @@ async def _stripe_checkout_done(session):
         "currency": session.get("currency", "usd"),
         "mode": session.get("mode"),
         "status": "paid",
-        "created_at": datetime.now(timezone.utc).isoformat(),
+        "created_at": now_iso,
     })
+
+    # Creator course sale — write earnings ledger entry (70/30 split)
+    if product_key == "creator_course":
+        meta = session.get("metadata") or {}
+        creator_id = meta.get("creator_id")
+        course_id = meta.get("course_id")
+        if creator_id and course_id:
+            creator_share = int(amount * 0.70)
+            platform_share = amount - creator_share
+            period = datetime.now(timezone.utc).strftime("%Y-%m")
+            await db.creator_earnings.insert_one({
+                "id": str(uuid.uuid4()),
+                "creator_id": creator_id,
+                "course_id": course_id,
+                "buyer_user_id": uid,
+                "stripe_session_id": session.get("id"),
+                "gross_cents": amount,
+                "creator_share_cents": creator_share,
+                "platform_share_cents": platform_share,
+                "period": period,
+                "payout_status": "pending",
+                "created_at": now_iso,
+            })
+            # Increment enrollment count on course
+            await db.creator_courses.update_one(
+                {"course_id": course_id},
+                {"$inc": {"enrollment_count": 1}},
+            )
+            await notify(creator_id, "New Course Sale!",
+                         f"Someone enrolled in your course. You earned ${creator_share/100:.2f}.",
+                         link="/creator/earnings", kind="success")
 
     if uid:
         await notify(uid, "Payment Confirmed",
@@ -11766,6 +11798,200 @@ async def creator_delete_course(course_id: str, user: User = Depends(current_use
         {"$set": {"status": "archived", "updated_at": datetime.now(timezone.utc).isoformat()}},
     )
     await audit(user.id, "creator.course.deleted", meta={"course_id": course_id})
+
+
+# ── Creator Course Checkout ───────────────────────────────────────────────────
+
+@api_router.post("/creator/courses/{course_id}/checkout")
+async def creator_course_checkout(course_id: str, user: User = Depends(current_user)):
+    """Initiate Stripe checkout for a published creator course."""
+    if not STRIPE_SECRET_KEY:
+        raise HTTPException(503, "Payment system not configured")
+    course = await db.creator_courses.find_one({"course_id": course_id}, {"_id": 0})
+    if not course:
+        raise HTTPException(404, "Course not found")
+    if course["status"] != "published":
+        raise HTTPException(400, "Course is not available for purchase")
+    if course["creator_id"] == user.id:
+        raise HTTPException(400, "You cannot buy your own course")
+
+    amount = course["price_cents"]
+    if amount == 0:
+        # Free course — enroll directly without Stripe
+        await db.creator_courses.update_one({"course_id": course_id}, {"$inc": {"enrollment_count": 1}})
+        await db.creator_enrollments.update_one(
+            {"course_id": course_id, "user_id": user.id},
+            {"$setOnInsert": {"enrolled_at": datetime.now(timezone.utc).isoformat()}},
+            upsert=True,
+        )
+        return {"enrolled": True, "free": True}
+
+    user_doc = await db.users.find_one({"id": user.id}, {"stripe_customer_id": 1, "email": 1, "full_name": 1})
+    customer_id = (user_doc or {}).get("stripe_customer_id")
+    if not customer_id:
+        customer = _stripe.Customer.create(
+            email=user.email, name=user.full_name, metadata={"wai_user_id": user.id}
+        )
+        customer_id = customer.id
+        await db.users.update_one({"id": user.id}, {"$set": {"stripe_customer_id": customer_id}})
+
+    session = _stripe.checkout.Session.create(
+        mode="payment",
+        customer=customer_id,
+        line_items=[{
+            "price_data": {
+                "currency": "usd",
+                "product_data": {"name": course["title"], "description": course.get("description", "")[:500]},
+                "unit_amount": amount,
+            },
+            "quantity": 1,
+        }],
+        success_url=f"{FRONTEND_URL}/creator/courses/{course_id}?enrolled=1",
+        cancel_url=f"{FRONTEND_URL}/creator/courses/{course_id}",
+        metadata={
+            "wai_user_id": user.id,
+            "product_key": "creator_course",
+            "creator_id": course["creator_id"],
+            "course_id": course_id,
+        },
+    )
+    await audit(user.id, "creator.course.checkout", meta={"course_id": course_id, "amount": amount})
+    return {"url": session.url}
+
+
+# ── Creator Earnings & Payouts ────────────────────────────────────────────────
+# Platform retains 30%; creator keeps 70%. Payouts accumulate monthly.
+# "Pending" = earned but not yet disbursed. "paid" = payout sent.
+
+class SaveBankAccountReq(BaseModel):
+    account_holder_name: str = Field(..., min_length=2, max_length=200)
+    routing_number: str = Field(..., min_length=9, max_length=9, pattern=r"^\d{9}$")
+    account_number: str = Field(..., min_length=4, max_length=17, pattern=r"^\d+$")
+    account_type: Literal["checking", "savings"] = "checking"
+
+
+@api_router.get("/creator/earnings")
+async def creator_earnings_summary(user: User = Depends(current_user)):
+    """Monthly earnings summary for the current creator."""
+    entries = await db.creator_earnings.find(
+        {"creator_id": user.id},
+        {"_id": 0},
+    ).sort("created_at", -1).to_list(length=500)
+
+    # Group by period
+    by_period: dict = {}
+    for e in entries:
+        p = e["period"]
+        if p not in by_period:
+            by_period[p] = {"period": p, "gross_cents": 0, "creator_share_cents": 0, "sales": 0, "payout_status": "pending"}
+        by_period[p]["gross_cents"] += e["gross_cents"]
+        by_period[p]["creator_share_cents"] += e["creator_share_cents"]
+        by_period[p]["sales"] += 1
+        if e.get("payout_status") == "paid":
+            by_period[p]["payout_status"] = "paid"
+
+    months = sorted(by_period.values(), key=lambda x: x["period"], reverse=True)
+    total_earned = sum(e["creator_share_cents"] for e in entries)
+    total_pending = sum(e["creator_share_cents"] for e in entries if e.get("payout_status") == "pending")
+    total_paid = sum(e["creator_share_cents"] for e in entries if e.get("payout_status") == "paid")
+
+    # Check if bank account on file
+    bank = await db.creator_bank_accounts.find_one({"creator_id": user.id}, {"_id": 0, "account_number": 0, "routing_number": 0})
+
+    return {
+        "total_earned_cents": total_earned,
+        "total_pending_cents": total_pending,
+        "total_paid_cents": total_paid,
+        "months": months,
+        "bank_account_on_file": bank is not None,
+        "bank_account_holder": (bank or {}).get("account_holder_name"),
+        "bank_account_type": (bank or {}).get("account_type"),
+    }
+
+
+@api_router.get("/creator/payouts")
+async def creator_payout_history(user: User = Depends(current_user)):
+    """Payout disbursement history for the current creator."""
+    payouts = await db.creator_payouts.find(
+        {"creator_id": user.id},
+        {"_id": 0},
+    ).sort("created_at", -1).to_list(length=100)
+    return {"payouts": payouts}
+
+
+@api_router.post("/creator/bank-account", status_code=201)
+async def creator_save_bank_account(body: SaveBankAccountReq, user: User = Depends(current_user)):
+    """Save or update creator bank account for payouts.
+    Account number stored masked (last 4 digits only after save)."""
+    masked = "****" + body.account_number[-4:]
+    await db.creator_bank_accounts.update_one(
+        {"creator_id": user.id},
+        {"$set": {
+            "creator_id": user.id,
+            "account_holder_name": body.account_holder_name,
+            "routing_number": body.routing_number,  # stored for payout processing
+            "account_number_masked": masked,
+            "account_type": body.account_type,
+            "updated_at": datetime.now(timezone.utc).isoformat(),
+        }, "$setOnInsert": {"created_at": datetime.now(timezone.utc).isoformat()}},
+        upsert=True,
+    )
+    await audit(user.id, "creator.bank_account.saved", meta={"masked": masked})
+    return {"saved": True, "account_number_masked": masked}
+
+
+@api_router.get("/creator/bank-account")
+async def creator_get_bank_account(user: User = Depends(current_user)):
+    """Get masked bank account info on file."""
+    bank = await db.creator_bank_accounts.find_one(
+        {"creator_id": user.id},
+        {"_id": 0, "routing_number": 0},
+    )
+    if not bank:
+        return {"bank_account": None}
+    return {"bank_account": bank}
+
+
+# Admin endpoint — process monthly payouts (executive_admin only)
+@api_router.post("/admin/creator-payouts/process")
+async def admin_process_creator_payouts(user: User = Depends(require_role("executive_admin"))):
+    """Mark all pending earnings as paid and write payout records.
+    In production this triggers ACH transfer; here it records the intent."""
+    period = datetime.now(timezone.utc).strftime("%Y-%m")
+    # Find all creators with pending earnings this period
+    pipeline = [
+        {"$match": {"payout_status": "pending", "period": {"$lt": period}}},
+        {"$group": {"_id": "$creator_id", "total_cents": {"$sum": "$creator_share_cents"}, "count": {"$sum": 1}}},
+    ]
+    summaries = await db.creator_earnings.aggregate(pipeline).to_list(length=500)
+    payouts_created = []
+    for s in summaries:
+        creator_id = s["_id"]
+        amount = s["total_cents"]
+        if amount < 100:
+            continue  # below $1 minimum, roll over
+        bank = await db.creator_bank_accounts.find_one({"creator_id": creator_id})
+        payout_id = str(uuid.uuid4())
+        await db.creator_payouts.insert_one({
+            "payout_id": payout_id,
+            "creator_id": creator_id,
+            "amount_cents": amount,
+            "sale_count": s["count"],
+            "bank_on_file": bank is not None,
+            "status": "processing",
+            "created_at": datetime.now(timezone.utc).isoformat(),
+        })
+        # Mark earnings as paid
+        await db.creator_earnings.update_many(
+            {"creator_id": creator_id, "payout_status": "pending", "period": {"$lt": period}},
+            {"$set": {"payout_status": "paid", "payout_id": payout_id}},
+        )
+        await notify(creator_id, "Payout Initiated",
+                     f"Your payout of ${amount/100:.2f} has been initiated. Allow 2-3 business days.",
+                     link="/creator/earnings", kind="success")
+        payouts_created.append({"creator_id": creator_id, "amount_cents": amount})
+    await audit(user.id, "admin.creator_payouts.processed", meta={"count": len(payouts_created)})
+    return {"payouts_initiated": len(payouts_created), "detail": payouts_created}
 
 
 app.include_router(api_router)
