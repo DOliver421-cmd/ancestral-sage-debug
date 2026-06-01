@@ -1,10 +1,11 @@
 import { useState } from "react";
+import { useSearchParams, Link } from "react-router-dom";
 import { api } from "../lib/api";
 import { useAuth } from "../lib/auth";
-import { HandHelping, CheckCircle, ExternalLink } from "lucide-react";
+import { HandHelping, CheckCircle, ExternalLink, ArrowLeft } from "lucide-react";
 import { toast } from "sonner";
 
-const PLANS = [
+const MORE_PLANS = [
   {
     key: "more_monthly",
     label: "Monthly",
@@ -32,10 +33,21 @@ const PLANS = [
   },
 ];
 
+const TIER_PLANS = {
+  member_monthly:  { name: "Member",  price: "$9",  period: "/mo", color: "border-ink/20",    features: ["Full M.O.R.E. — post & connect", "AI Tutor (standard)", "Member badge", "Cancel anytime"] },
+  plus_monthly:    { name: "Plus",    price: "$15", period: "/mo", color: "border-copper",    features: ["Everything in Member", "Priority resource matching", "Expanded course library", "Portfolio tools"] },
+  pro_monthly:     { name: "Pro",     price: "$29", period: "/mo", color: "border-signal",    features: ["Everything in Plus", "Advanced courses + labs", "Full AI tools suite", "Mentor support hours"] },
+  patron_monthly:  { name: "Patron",  price: "$59", period: "/mo", color: "border-amber-500", features: ["Everything in Pro", "Founder's circle", "You fund free access for others", "Direct line to the team"] },
+};
+
 export default function SubscribePage() {
   const { user } = useAuth();
+  const [searchParams] = useSearchParams();
   const [loading, setLoading] = useState(null);
   const [portalLoading, setPortalLoading] = useState(false);
+
+  const planParam = searchParams.get("plan");
+  const tierPlan = planParam && TIER_PLANS[planParam] ? { key: planParam, ...TIER_PLANS[planParam] } : null;
 
   const isAlreadyMember = user?.more_member;
 
@@ -61,6 +73,42 @@ export default function SubscribePage() {
     }
   }
 
+  // ── Tier-specific view (coming from Plans.jsx with ?plan=xxx) ───────────
+  if (tierPlan) {
+    return (
+      <div className="p-8 max-w-lg mx-auto">
+        <Link to="/plans" className="inline-flex items-center gap-1.5 text-sm text-ink/50 hover:text-ink mb-6">
+          <ArrowLeft className="w-4 h-4" /> Back to plans
+        </Link>
+        <div className={`bg-white border-2 rounded-2xl p-8 shadow-sm ${tierPlan.color}`}>
+          <div className="overline text-ink/40 mb-1">WAI Institute — {tierPlan.name} Tier</div>
+          <div className="flex items-end gap-1 mb-1">
+            <span className="font-heading font-black text-5xl text-ink">{tierPlan.price}</span>
+            <span className="text-ink/50 text-sm mb-2">{tierPlan.period}</span>
+          </div>
+          <ul className="space-y-3 my-6">
+            {tierPlan.features.map((f) => (
+              <li key={f} className="flex items-center gap-2 text-sm text-ink/80">
+                <CheckCircle className="w-4 h-4 text-copper shrink-0" /> {f}
+              </li>
+            ))}
+          </ul>
+          <button
+            onClick={() => subscribe(tierPlan.key)}
+            disabled={!!loading}
+            className="w-full py-4 text-sm font-bold rounded-xl btn-copper disabled:opacity-50"
+          >
+            {loading === tierPlan.key ? "Redirecting to checkout…" : `Start ${tierPlan.name} — ${tierPlan.price}${tierPlan.period}`}
+          </button>
+          <p className="text-xs text-ink/40 text-center mt-4">
+            Secure checkout via Stripe. Cancel anytime from your account.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  // ── Default M.O.R.E. membership view ─────────────────────────────────────
   return (
     <div className="p-8 max-w-4xl mx-auto">
       <div className="flex items-center gap-3 mb-2">
@@ -92,7 +140,7 @@ export default function SubscribePage() {
       )}
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-        {PLANS.map((plan) => (
+        {MORE_PLANS.map((plan) => (
           <div key={plan.key}
             className={`relative bg-white border-2 rounded-2xl p-6 flex flex-col gap-4 shadow-sm ${plan.key === "more_annual" ? "border-signal" : "border-ink/10"}`}
           >
