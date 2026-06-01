@@ -100,6 +100,9 @@ WAI_Handoff.txt
 *.jpeg
 *.gif
 *.ico
+# Allow required PWA icons and favicon
+!frontend/public/logo-*.png
+!frontend/public/favicon.ico
 *.woff
 *.woff2
 *.ttf
