@@ -7575,10 +7575,15 @@ async def _stripe_checkout_done(session):
                 "payout_status": "pending",
                 "created_at": now_iso,
             })
-            # Increment enrollment count on course
+            # Increment enrollment count and record enrollment (mirrors free-course path)
             await db.creator_courses.update_one(
                 {"course_id": course_id},
                 {"$inc": {"enrollment_count": 1}},
+            )
+            await db.creator_enrollments.update_one(
+                {"course_id": course_id, "user_id": uid},
+                {"$setOnInsert": {"enrolled_at": now_iso, "paid": True}},
+                upsert=True,
             )
             await notify(creator_id, "New Course Sale!",
                          f"Someone enrolled in your course. You earned ${creator_share/100:.2f}.",
@@ -11862,6 +11867,16 @@ async def creator_course_checkout(course_id: str, user: User = Depends(current_u
     )
     await audit(user.id, "creator.course.checkout", meta={"course_id": course_id, "amount": amount})
     return {"url": session.url}
+
+
+@api_router.get("/creator/enrollments/me")
+async def creator_enrollments_me(user: User = Depends(current_user)):
+    """Return the list of course_ids the current user is enrolled in (free + paid)."""
+    docs = await db.creator_enrollments.find(
+        {"user_id": user.id},
+        {"_id": 0, "course_id": 1},
+    ).to_list(length=500)
+    return {"enrolled_course_ids": [d["course_id"] for d in docs]}
 
 
 # ── Creator Earnings & Payouts ────────────────────────────────────────────────
