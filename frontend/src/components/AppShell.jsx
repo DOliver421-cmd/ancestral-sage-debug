@@ -1,12 +1,13 @@
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../lib/auth";
 import { WAI_LOGO, BRAND } from "../lib/brand";
-import { LayoutDashboard, BookOpen, Award, Users, Settings, Sparkles, LogOut, FlaskConical, Target, ClipboardCheck, Briefcase, BadgeCheck, Brain, ShieldCheck, Building2, TrendingUp, ScrollText, Calendar, ShieldAlert, KeyRound, Crown, Compass, HelpCircle, Layers, HandHelping, Scale, Trophy, Network, ShoppingBag, Heart, Receipt, Video } from "lucide-react";
+import { LayoutDashboard, BookOpen, Award, Users, Settings, Sparkles, LogOut, FlaskConical, Target, ClipboardCheck, Briefcase, BadgeCheck, Brain, ShieldCheck, Building2, TrendingUp, ScrollText, Calendar, ShieldAlert, KeyRound, Crown, Compass, HelpCircle, Layers, HandHelping, Scale, Trophy, Network, ShoppingBag, Heart, Receipt, Video, DollarSign } from "lucide-react";
 import NotificationBell from "./NotificationBell";
 
 const studentNav = [
   { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard, testid: "nav-dashboard" },
   { to: "/creator/courses", label: "Creator Studio", icon: Video, testid: "nav-creator-courses" },
+  { to: "/creator/earnings", label: "My Earnings", icon: DollarSign, testid: "nav-creator-earnings" },
   { to: "/palace", label: "Members' Palace", icon: Crown, testid: "nav-palace" },
   { to: "/elder-council", label: "Elder Council", icon: Layers, testid: "nav-elder-council" },
   { to: "/plans", label: "Plans & Pricing", icon: Receipt, testid: "nav-plans" },
@@ -33,6 +34,7 @@ const studentNav = [
 
 const instructorNav = [
   { to: "/creator/courses", label: "Creator Studio", icon: Video, testid: "nav-creator-courses" },
+  { to: "/creator/earnings", label: "My Earnings", icon: DollarSign, testid: "nav-creator-earnings" },
   { to: "/instructor", label: "Roster", icon: Users, testid: "nav-instructor" },
   { to: "/instructor/labs", label: "Lab Approvals", icon: ClipboardCheck, testid: "nav-lab-approvals" },
   { to: "/attendance", label: "Attendance", icon: Calendar, testid: "nav-attendance" },
@@ -54,6 +56,7 @@ const instructorNav = [
 const adminNav = [
   { to: "/admin", label: "Overview", icon: Settings, testid: "nav-admin" },
   { to: "/creator/courses", label: "Creator Studio", icon: Video, testid: "nav-creator-courses" },
+  { to: "/creator/earnings", label: "My Earnings", icon: DollarSign, testid: "nav-creator-earnings" },
   { to: "/admin/users", label: "Users", icon: Users, testid: "nav-admin-users" },
   { to: "/admin/analytics", label: "Analytics", icon: TrendingUp, testid: "nav-analytics" },
   { to: "/admin/audit", label: "Audit Log", icon: ScrollText, testid: "nav-audit" },

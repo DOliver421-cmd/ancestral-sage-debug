@@ -91,6 +91,7 @@ import AuditorDashboard from "./pages/AuditorDashboard";
 import ProviderGateway from "./pages/ProviderGateway";
 import BillingAdmin from "./pages/BillingAdmin";
 import CreatorCourses from "./pages/CreatorCourses";
+import CreatorEarnings from "./pages/CreatorEarnings";
 
 // Role hierarchy must mirror backend ROLE_RANK in /app/backend/server.py.
 // Higher rank = more authority; a higher-rank role passes any check meant
@@ -235,6 +236,8 @@ function App() {
           <Route path="/leaderboard" element={<Leaderboard />} />
           {/* Creator Studio — publish & manage courses */}
           <Route path="/creator/courses" element={<Protected><CreatorCourses /></Protected>} />
+          {/* Creator earnings & payouts */}
+          <Route path="/creator/earnings" element={<Protected><CreatorEarnings /></Protected>} />
           {/* Creator profiles — public, slug-based */}
           <Route path="/creator/:slug" element={<CreatorProfile />} />
           <Route path="/ghost-producer" element={<GhostProducer />} />
