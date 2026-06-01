@@ -90,6 +90,7 @@ import PlatformPrices from "./pages/PlatformPrices";
 import AuditorDashboard from "./pages/AuditorDashboard";
 import ProviderGateway from "./pages/ProviderGateway";
 import BillingAdmin from "./pages/BillingAdmin";
+import CreatorCourses from "./pages/CreatorCourses";
 
 // Role hierarchy must mirror backend ROLE_RANK in /app/backend/server.py.
 // Higher rank = more authority; a higher-rank role passes any check meant
@@ -232,6 +233,8 @@ function App() {
           <Route path="/council" element={<Protected><OrchestratorChat /></Protected>} />
           {/* Leaderboard — public read-only */}
           <Route path="/leaderboard" element={<Leaderboard />} />
+          {/* Creator Studio — publish & manage courses */}
+          <Route path="/creator/courses" element={<Protected><CreatorCourses /></Protected>} />
           {/* Creator profiles — public, slug-based */}
           <Route path="/creator/:slug" element={<CreatorProfile />} />
           <Route path="/ghost-producer" element={<GhostProducer />} />
