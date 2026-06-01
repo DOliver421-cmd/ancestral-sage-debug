@@ -9,6 +9,7 @@ import {
   RefreshCw, Layers, Eye, X, Zap, ChevronRight, Star,
 } from "lucide-react";
 import { toast } from "sonner";
+import FlagModal from "../components/FlagModal";
 
 const ROLE_CONFIG = {
   student:        { label: "Community Member",    color: "#22d3ee", features: ["browse","post","need","chat","legal","helper"] },
@@ -243,6 +244,7 @@ export default function MoreHub() {
   const [showPost, setShowPost] = useState(false);
   const [showNeed, setShowNeed] = useState(false);
   const [catFilter, setCatFilter] = useState("all");
+  const [flagTarget, setFlagTarget] = useState(null);
 
   const loadPosts = useCallback(async () => {
     setLoading(true);
@@ -260,10 +262,8 @@ export default function MoreHub() {
 
   useEffect(() => { if (tab === "posts") loadPosts(); else loadNeeds(); }, [tab, loadPosts, loadNeeds]);
 
-  const handleFlag = async (targetId, targetType) => {
-    const reason = window.prompt("Why are you flagging this?") ?? "No reason";
-    try { await api.post("/more/flag", { target_id: targetId, target_type: targetType, reason }); toast.success("Flagged — thank you."); }
-    catch { toast.error("Could not submit flag"); }
+  const handleFlag = (targetId, targetType) => {
+    setFlagTarget({ targetId, targetType });
   };
 
   const filteredPosts = catFilter === "all" ? posts : posts.filter(p => p.category === catFilter);
@@ -401,6 +401,7 @@ export default function MoreHub() {
 
       {showPost && <NewPostModal onClose={() => setShowPost(false)} onSuccess={() => { if (tab==="posts") loadPosts(); }} />}
       {showNeed && <NewNeedModal onClose={() => setShowNeed(false)} onSuccess={() => { if (tab==="needs") loadNeeds(); }} />}
+      {flagTarget && <FlagModal targetId={flagTarget.targetId} targetType={flagTarget.targetType} onClose={() => setFlagTarget(null)} />}
     </AppShell>
   );
 }
