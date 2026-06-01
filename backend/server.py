@@ -2039,6 +2039,104 @@ async def admin_set_active(uid: str, body: AdminActiveReq, user: User = Depends(
     return {"ok": True, "id": uid, "is_active": body.is_active}
 
 
+class BanReq(BaseModel):
+    reason: str = Field(..., min_length=5, max_length=500)
+
+@api_router.post("/admin/users/{uid}/ban")
+async def admin_ban_user(uid: str, body: BanReq, user: User = Depends(require_role("executive_admin"))):
+    """Permanently ban a user: deactivates account, records ban reason, and kills all sessions.
+    executive_admin only. Cannot ban another executive_admin or yourself."""
+    if uid == user.id:
+        raise HTTPException(400, "Cannot ban yourself.")
+    target = await db.users.find_one({"id": uid}, {"_id": 0})
+    if not target:
+        raise HTTPException(404, "User not found")
+    if target.get("role") == "executive_admin":
+        raise HTTPException(403, "Cannot ban an executive_admin.")
+    now_iso = datetime.now(timezone.utc).isoformat()
+    await db.users.update_one({"id": uid}, {"$set": {
+        "is_active": False,
+        "banned": True,
+        "ban_reason": body.reason,
+        "banned_by": user.id,
+        "banned_at": now_iso,
+    }})
+    await db.sessions.delete_many({"user_id": uid})
+    await audit(user.id, "admin.user.banned", target=uid, meta={"reason": body.reason})
+    return {"ok": True, "id": uid, "banned": True}
+
+
+@api_router.post("/admin/users/{uid}/unban")
+async def admin_unban_user(uid: str, user: User = Depends(require_role("executive_admin"))):
+    """Remove a ban and reactivate the account. executive_admin only."""
+    target = await db.users.find_one({"id": uid}, {"_id": 0})
+    if not target:
+        raise HTTPException(404, "User not found")
+    await db.users.update_one({"id": uid}, {
+        "$set": {"is_active": True},
+        "$unset": {"banned": "", "ban_reason": "", "banned_by": "", "banned_at": ""},
+    })
+    await audit(user.id, "admin.user.unbanned", target=uid)
+    return {"ok": True, "id": uid, "banned": False}
+
+
+@api_router.get("/admin/courses")
+async def admin_list_courses(
+    status: str = "",
+    skip: int = 0,
+    limit: int = 50,
+    user: User = Depends(require_role("admin")),
+):
+    """List all creator courses with creator info. admin+ only."""
+    query: dict = {}
+    if status:
+        query["status"] = status
+    courses = await db.creator_courses.find(
+        query, {"_id": 0, "sections": 0}
+    ).sort("created_at", -1).skip(skip).limit(min(limit, 100)).to_list(length=100)
+    total = await db.creator_courses.count_documents(query)
+    # Enrich with creator name
+    creator_ids = list({c["creator_id"] for c in courses if c.get("creator_id")})
+    creator_map = {}
+    if creator_ids:
+        async for u in db.users.find({"id": {"$in": creator_ids}}, {"_id": 0, "id": 1, "full_name": 1, "email": 1}):
+            creator_map[u["id"]] = u
+    for c in courses:
+        creator = creator_map.get(c.get("creator_id"), {})
+        c["creator_name"] = creator.get("full_name", "Unknown")
+        c["creator_email"] = creator.get("email", "")
+    return {"courses": courses, "total": total}
+
+
+class ModerateCourseReq(BaseModel):
+    action: Literal["unpublish", "archive", "restore"]
+    reason: str = Field(default="", max_length=500)
+
+@api_router.post("/admin/courses/{course_id}/moderate")
+async def admin_moderate_course(
+    course_id: str,
+    body: ModerateCourseReq,
+    user: User = Depends(require_role("admin")),
+):
+    """Admin course moderation: unpublish (→ draft), archive, or restore (→ published)."""
+    course = await db.creator_courses.find_one({"course_id": course_id})
+    if not course:
+        raise HTTPException(404, "Course not found")
+    status_map = {"unpublish": "draft", "archive": "archived", "restore": "published"}
+    new_status = status_map[body.action]
+    await db.creator_courses.update_one({"course_id": course_id}, {"$set": {
+        "status": new_status,
+        "moderated_by": user.id,
+        "moderated_at": datetime.now(timezone.utc).isoformat(),
+        "moderation_reason": body.reason,
+    }})
+    await audit(user.id, f"admin.course.{body.action}", target=course_id, meta={"reason": body.reason, "new_status": new_status})
+    await notify(course["creator_id"], "Course Status Changed",
+                 f"Your course \"{course['title']}\" has been {body.action}d by a moderator." + (f" Reason: {body.reason}" if body.reason else ""),
+                 link="/creator/courses", kind="warning")
+    return {"ok": True, "course_id": course_id, "status": new_status}
+
+
 @api_router.delete("/admin/users/{uid}")
 async def admin_delete_user(uid: str, user: User = Depends(require_role("admin"))):
     """Admin-only: delete a user. Refuses self-delete and last-admin/exec delete."""

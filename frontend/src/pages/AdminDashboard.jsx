@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from "react";
-import { RefreshCw, Search, ChevronDown, X, UserCheck, UserX, Key, Clock, Shield } from "lucide-react";
+import { RefreshCw, Search, ChevronDown, X, UserCheck, UserX, Key, Clock, Shield, Ban, BookOpen, EyeOff, Archive, RotateCcw } from "lucide-react";
 import { api } from "../lib/api";
 import { useAuth } from "../lib/auth";
 import AppShell from "../components/AppShell";
@@ -195,6 +195,66 @@ function UserAuditModal({ user: target, onClose }) {
   );
 }
 
+// ── Ban User Modal ────────────────────────────────────────────────────────────
+function BanModal({ user: target, onBan, onClose }) {
+  const [reason, setReason] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState("");
+
+  async function handleBan() {
+    if (reason.trim().length < 5) { setErr("Reason must be at least 5 characters."); return; }
+    setBusy(true); setErr("");
+    try {
+      await api.post(`/admin/users/${target.id}/ban`, { reason: reason.trim() });
+      onBan(target.id);
+    } catch (e) {
+      setErr(e?.response?.data?.detail || "Ban failed.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100">
+          <div className="flex items-center gap-2">
+            <Ban className="w-4 h-4 text-red-600" />
+            <h2 className="font-heading font-bold text-lg text-slate-900">Permanently Ban User</h2>
+          </div>
+          <button onClick={onClose} className="text-slate-400 hover:text-slate-600"><X className="w-5 h-5" /></button>
+        </div>
+        <div className="px-6 py-5 space-y-4">
+          <div className="bg-red-50 border border-red-200 rounded-lg px-4 py-3 text-sm text-red-800">
+            <strong>{target.full_name}</strong> ({target.email}) will be permanently banned.
+            Their account will be deactivated and all sessions killed immediately.
+          </div>
+          {err && <div className="bg-red-50 text-red-700 text-sm rounded-lg px-4 py-2">{err}</div>}
+          <div>
+            <label className="text-xs font-bold uppercase tracking-wider text-slate-500 block mb-1">Ban Reason <span className="font-normal normal-case text-red-500">*required</span></label>
+            <textarea
+              value={reason}
+              onChange={e => setReason(e.target.value)}
+              rows={3}
+              placeholder="Document the specific reason for this ban…"
+              className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-400 resize-none"
+              autoFocus
+            />
+          </div>
+        </div>
+        <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-slate-100">
+          <button onClick={onClose} className="text-sm px-4 py-2 rounded-lg text-slate-600 hover:bg-slate-50">Cancel</button>
+          <button onClick={handleBan} disabled={busy || reason.trim().length < 5}
+            className="flex items-center gap-2 text-sm px-5 py-2 rounded-lg bg-red-600 text-white font-bold hover:bg-red-700 disabled:opacity-50">
+            <Ban className="w-4 h-4" />
+            {busy ? "Banning…" : "Confirm Ban"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── Bulk Action Bar ───────────────────────────────────────────────────────────
 function BulkBar({ selected, onBulk, onClear }) {
   const [newRole, setNewRole] = useState("instructor");
@@ -237,6 +297,10 @@ export default function AdminDashboard() {
   const [editing,    setEditing]    = useState(null);
   const [viewSessions, setViewSessions] = useState(null);
   const [viewAudit,  setViewAudit]  = useState(null);
+  const [banTarget,  setBanTarget]  = useState(null);
+  const [courses,    setCourses]    = useState([]);
+  const [coursesLoading, setCoursesLoading] = useState(false);
+  const [courseStatusFilter, setCourseStatusFilter] = useState("published");
 
   // Audit filters
   const [auditAction, setAuditAction] = useState("");
@@ -274,6 +338,7 @@ export default function AdminDashboard() {
 
   useEffect(() => { loadAll(); }, [loadAll]);
   useEffect(() => { if (activeTab === "audit") loadAudit(); }, [activeTab, loadAudit]);
+  useEffect(() => { if (activeTab === "courses") loadCourses(); }, [activeTab, courseStatusFilter]);
 
   // ── Filtered user list ──────────────────────────────────────────────────────
   const filteredUsers = users.filter(u => {
@@ -334,6 +399,40 @@ export default function AdminDashboard() {
       setSelected([]);
       loadAll();
     } catch (e) { notify(e?.response?.data?.detail || "Bulk action failed", true); }
+  }
+
+  async function banUser(uid) {
+    setUsers(prev => prev.map(u => u.id === uid ? { ...u, is_active: false, banned: true } : u));
+    setBanTarget(null);
+    notify("User banned.");
+  }
+
+  async function unbanUser(u) {
+    if (!window.confirm(`Remove ban for ${u.full_name} and reactivate their account?`)) return;
+    try {
+      await api.post(`/admin/users/${u.id}/unban`);
+      setUsers(prev => prev.map(x => x.id === u.id ? { ...x, is_active: true, banned: false, ban_reason: undefined } : x));
+      notify(`${u.full_name} unbanned.`);
+    } catch (e) { notify(e?.response?.data?.detail || "Unban failed.", true); }
+  }
+
+  async function loadCourses() {
+    setCoursesLoading(true);
+    try {
+      const { data } = await api.get(`/admin/courses${courseStatusFilter ? `?status=${courseStatusFilter}` : ""}`);
+      setCourses(data.courses || []);
+    } catch { notify("Could not load courses.", true); }
+    finally { setCoursesLoading(false); }
+  }
+
+  async function moderateCourse(course, action) {
+    const reason = window.prompt(`Reason for ${action}ing "${course.title}"? (optional)`);
+    if (reason === null) return;
+    try {
+      await api.post(`/admin/courses/${course.course_id}/moderate`, { action, reason: reason.trim() });
+      notify(`Course ${action}d.`);
+      loadCourses();
+    } catch (e) { notify(e?.response?.data?.detail || "Moderation failed.", true); }
   }
 
   async function resolveIncident(iid) {
@@ -398,6 +497,7 @@ export default function AdminDashboard() {
         {editing    && <EditUserModal user={editing} actorRole={user?.role} onSave={(updated) => { setUsers(prev => prev.map(u => u.id === updated.id ? updated : u)); setEditing(null); notify("User updated"); }} onClose={() => setEditing(null)} />}
         {viewSessions && <SessionsModal user={viewSessions} onClose={() => setViewSessions(null)} onForceLogout={() => forceLogout(viewSessions.id, viewSessions.full_name)} />}
         {viewAudit  && <UserAuditModal user={viewAudit} onClose={() => setViewAudit(null)} />}
+        {banTarget  && <BanModal user={banTarget} onBan={banUser} onClose={() => setBanTarget(null)} />}
 
         <div className="max-w-7xl mx-auto px-6 lg:px-10 py-6">
           {/* Tabs */}
@@ -405,6 +505,7 @@ export default function AdminDashboard() {
             {[
               { key: "users",     label: `Users (${users.length})` },
               { key: "incidents", label: `Incidents (${incidents.filter(i=>i.status==="open").length} open)` },
+              { key: "courses",   label: "Course Moderation" },
               { key: "audit",     label: "Audit Log" },
             ].map(t => (
               <button key={t.key} onClick={() => setActiveTab(t.key)}
@@ -489,7 +590,9 @@ export default function AdminDashboard() {
                               </span>
                             </td>
                             <td className="py-3 px-4">
-                              {u.is_active === false
+                              {u.banned
+                                ? <span className="text-xs font-bold bg-red-100 text-red-700 px-2 py-0.5 rounded-full" title={u.ban_reason}>Banned</span>
+                                : u.is_active === false
                                 ? <span className="text-xs font-bold bg-red-50 text-red-600 px-2 py-0.5 rounded-full">Inactive</span>
                                 : <span className="text-xs font-bold bg-emerald-50 text-emerald-700 px-2 py-0.5 rounded-full">Active</span>}
                               {u.elevated_until && new Date(u.elevated_until) > new Date() && (
@@ -537,6 +640,19 @@ export default function AdminDashboard() {
                                     className="text-xs font-bold px-2 py-1 border border-orange-200 text-orange-600 hover:bg-orange-50 rounded-lg transition-colors">
                                     Logout
                                   </button>
+                                )}
+                                {isExec && u.id !== user?.id && u.role !== "executive_admin" && (
+                                  u.banned ? (
+                                    <button onClick={() => unbanUser(u)}
+                                      className="text-xs font-bold px-2 py-1 border border-emerald-300 text-emerald-700 hover:bg-emerald-50 rounded-lg transition-colors">
+                                      Unban
+                                    </button>
+                                  ) : (
+                                    <button onClick={() => setBanTarget(u)}
+                                      className="flex items-center gap-0.5 text-xs font-bold px-2 py-1 border border-red-400 text-red-700 hover:bg-red-50 rounded-lg transition-colors">
+                                      <Ban className="w-3 h-3" />Ban
+                                    </button>
+                                  )
                                 )}
                                 {isExec && u.id !== user?.id && u.role !== "executive_admin" && (
                                   <button onClick={() => deleteUser(u)}
@@ -597,6 +713,94 @@ export default function AdminDashboard() {
                   </div>
                 </div>
               ))}
+            </div>
+          )}
+
+          {/* ── COURSES TAB ── */}
+          {activeTab === "courses" && (
+            <div>
+              <div className="flex items-center gap-3 mb-4 flex-wrap">
+                <select value={courseStatusFilter} onChange={e => setCourseStatusFilter(e.target.value)}
+                  className="border border-slate-200 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none">
+                  <option value="">All Statuses</option>
+                  <option value="published">Published</option>
+                  <option value="draft">Draft</option>
+                  <option value="archived">Archived</option>
+                </select>
+                <button onClick={loadCourses} disabled={coursesLoading}
+                  className="flex items-center gap-2 px-4 py-2 bg-ink text-white text-sm font-bold rounded-lg hover:bg-ink/90 disabled:opacity-40">
+                  <RefreshCw className={`w-4 h-4 ${coursesLoading ? "animate-spin" : ""}`} /> Refresh
+                </button>
+                <span className="text-xs text-ink/40 ml-auto">{courses.length} courses shown</span>
+              </div>
+              <div className="bg-white rounded-xl border border-slate-100 shadow-sm overflow-hidden">
+                <div style={{ maxHeight: 560, overflowY: "auto" }}>
+                  <table className="w-full text-sm">
+                    <thead className="sticky top-0 bg-white z-10">
+                      <tr className="border-b-2 border-slate-100">
+                        <th className="text-left py-3 px-4 text-xs uppercase tracking-wider text-slate-600 font-bold">Course</th>
+                        <th className="text-left py-3 px-4 text-xs uppercase tracking-wider text-slate-600 font-bold">Creator</th>
+                        <th className="text-left py-3 px-4 text-xs uppercase tracking-wider text-slate-600 font-bold">Status</th>
+                        <th className="text-left py-3 px-4 text-xs uppercase tracking-wider text-slate-600 font-bold">Price</th>
+                        <th className="py-3 px-4 text-xs uppercase tracking-wider text-slate-600 font-bold text-right">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {coursesLoading ? (
+                        <tr><td colSpan={5} className="py-10 text-center text-slate-400 text-sm">Loading…</td></tr>
+                      ) : courses.length === 0 ? (
+                        <tr><td colSpan={5} className="py-10 text-center text-slate-400 text-sm">No courses found.</td></tr>
+                      ) : courses.map(c => (
+                        <tr key={c.course_id} className="border-b border-slate-50 hover:bg-slate-50">
+                          <td className="py-3 px-4">
+                            <div className="font-heading font-bold text-slate-900 text-sm">{c.title}</div>
+                            <div className="text-xs text-slate-400 mt-0.5">{c.category} · {c.enrollment_count || 0} enrolled</div>
+                          </td>
+                          <td className="py-3 px-4">
+                            <div className="text-xs font-medium text-slate-700">{c.creator_name}</div>
+                            <div className="text-xs text-slate-400 font-mono">{c.creator_email}</div>
+                          </td>
+                          <td className="py-3 px-4">
+                            <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${
+                              c.status === "published" ? "bg-green-100 text-green-700" :
+                              c.status === "draft" ? "bg-slate-100 text-slate-600" :
+                              "bg-red-100 text-red-600"
+                            }`}>{c.status}</span>
+                            {c.moderated_by && (
+                              <div className="text-xs text-red-400 mt-0.5">Moderated</div>
+                            )}
+                          </td>
+                          <td className="py-3 px-4 text-sm text-slate-700">
+                            {c.price_cents === 0 ? "Free" : `$${(c.price_cents / 100).toFixed(2)}`}
+                          </td>
+                          <td className="py-3 px-4">
+                            <div className="flex items-center justify-end gap-1.5">
+                              {c.status === "published" && (
+                                <button onClick={() => moderateCourse(c, "unpublish")}
+                                  className="flex items-center gap-1 text-xs font-bold px-2 py-1 border border-amber-300 text-amber-700 hover:bg-amber-50 rounded-lg transition-colors">
+                                  <EyeOff className="w-3 h-3" />Unpublish
+                                </button>
+                              )}
+                              {c.status !== "archived" && (
+                                <button onClick={() => moderateCourse(c, "archive")}
+                                  className="flex items-center gap-1 text-xs font-bold px-2 py-1 border border-red-300 text-red-600 hover:bg-red-50 rounded-lg transition-colors">
+                                  <Archive className="w-3 h-3" />Archive
+                                </button>
+                              )}
+                              {c.status === "archived" && (
+                                <button onClick={() => moderateCourse(c, "restore")}
+                                  className="flex items-center gap-1 text-xs font-bold px-2 py-1 border border-green-300 text-green-700 hover:bg-green-50 rounded-lg transition-colors">
+                                  <RotateCcw className="w-3 h-3" />Restore
+                                </button>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
             </div>
           )}
 
