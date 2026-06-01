@@ -1613,6 +1613,14 @@ export default function MoreHelpCenter() {
   const [visibility,   setVisibility]   = useState(() => {
     try { const s = localStorage.getItem("mhc_visibility"); return s ? JSON.parse(s) : DEFAULT_VISIBILITY; } catch { return DEFAULT_VISIBILITY; }
   });
+  const [pageMode, setPageMode] = useState(() => {
+    try {
+      const stored = localStorage.getItem("more_help_center_mode") || "greeter";
+      // decoy must never persist — resets to greeter on reload
+      if (stored === "decoy") { localStorage.removeItem("more_help_center_mode"); return "greeter"; }
+      return stored;
+    } catch { return "greeter"; }
+  });
 
   useEffect(() => {
     // Always try wai-institute.org as the authoritative backend, regardless of
