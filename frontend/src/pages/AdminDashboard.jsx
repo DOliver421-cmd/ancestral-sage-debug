@@ -301,6 +301,8 @@ export default function AdminDashboard() {
   const [courses,    setCourses]    = useState([]);
   const [coursesLoading, setCoursesLoading] = useState(false);
   const [courseStatusFilter, setCourseStatusFilter] = useState("published");
+  const [page, setPage] = useState(1);
+  const PAGE_SIZE = 50;
 
   // Audit filters
   const [auditAction, setAuditAction] = useState("");
@@ -349,6 +351,12 @@ export default function AdminDashboard() {
     if (statusFilter === "inactive" && u.is_active !== false) return false;
     return true;
   });
+
+  const totalPages = Math.max(1, Math.ceil(filteredUsers.length / PAGE_SIZE));
+  const pagedUsers = filteredUsers.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+
+  // Reset page when filters change
+  useEffect(() => { setPage(1); }, [search, roleFilter, statusFilter]);
 
   // ── User actions ────────────────────────────────────────────────────────────
   async function toggleActive(u) {
@@ -569,7 +577,7 @@ export default function AdminDashboard() {
                           <tr><td colSpan={isExec?6:5} className="py-10 text-center text-slate-400 text-sm">Loading…</td></tr>
                         ) : filteredUsers.length === 0 ? (
                           <tr><td colSpan={isExec?6:5} className="py-10 text-center text-slate-400 text-sm">No users match your filters.</td></tr>
-                        ) : filteredUsers.map(u => (
+                        ) : pagedUsers.map(u => (
                           <tr key={u.id} className={`border-b border-slate-50 hover:bg-slate-50 ${selected.includes(u.id) ? "bg-amber-50/40" : ""}`}>
                             {isExec && (
                               <td className="py-3 px-4">
@@ -668,8 +676,33 @@ export default function AdminDashboard() {
                     </table>
                   </div>
                 </div>
-                <div className="px-4 py-2 border-t border-slate-100 text-xs text-slate-400">
-                  {filteredUsers.length} of {users.length} users shown{selected.length > 0 ? ` · ${selected.length} selected` : ""}
+                <div className="px-4 py-2 border-t border-slate-100 flex items-center justify-between gap-4 flex-wrap">
+                  <span className="text-xs text-slate-400">
+                    {filteredUsers.length} of {users.length} users{selected.length > 0 ? ` · ${selected.length} selected` : ""}
+                    {totalPages > 1 && ` · page ${page} of ${totalPages}`}
+                  </span>
+                  {totalPages > 1 && (
+                    <div className="flex items-center gap-1">
+                      <button onClick={() => setPage(1)} disabled={page === 1}
+                        className="text-xs px-2 py-1 border border-slate-200 rounded hover:bg-slate-50 disabled:opacity-40">«</button>
+                      <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1}
+                        className="text-xs px-2 py-1 border border-slate-200 rounded hover:bg-slate-50 disabled:opacity-40">‹</button>
+                      {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                        const start = Math.max(1, Math.min(page - 2, totalPages - 4));
+                        const pg = start + i;
+                        return pg <= totalPages ? (
+                          <button key={pg} onClick={() => setPage(pg)}
+                            className={`text-xs px-2.5 py-1 border rounded ${pg === page ? "bg-ink text-white border-ink" : "border-slate-200 hover:bg-slate-50"}`}>
+                            {pg}
+                          </button>
+                        ) : null;
+                      })}
+                      <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages}
+                        className="text-xs px-2 py-1 border border-slate-200 rounded hover:bg-slate-50 disabled:opacity-40">›</button>
+                      <button onClick={() => setPage(totalPages)} disabled={page === totalPages}
+                        className="text-xs px-2 py-1 border border-slate-200 rounded hover:bg-slate-50 disabled:opacity-40">»</button>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
