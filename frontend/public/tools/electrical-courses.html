@@ -1,0 +1,543 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>⚡ Electrical Courses — Kemetic Digital Empire</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700;900&family=Raleway:wght@300;400;600;700&display=swap');
+:root { --gold:#D4AF37; --deep-gold:#B8860B; --dark:#0A0A0F; --darker:#050508; --card:#111118; --card2:#1A1A24; --accent:#8B6914; --ankh:#00CED1; --eye:#FF6B35; --papyrus:#F5E6C8; --tech:#1ABC9C; }
+* { margin:0; padding:0; box-sizing:border-box; }
+body { font-family:'Raleway',sans-serif; background:var(--dark); color:var(--papyrus); min-height:100vh; overflow-x:hidden; }
+body::before { content:''; position:fixed; top:0;left:0;right:0;bottom:0; background:radial-gradient(ellipse at 20% 80%,rgba(26,188,156,0.08) 0%,transparent 50%); z-index:-1; }
+.hieroglyphs { position:fixed; font-size:2rem; opacity:0.06; z-index:-1; pointer-events:none; animation:floatHiero 20s linear infinite; }
+.hieroglyphs:nth-child(1){top:10%;left:5%;animation-delay:0s}
+.hieroglyphs:nth-child(2){top:60%;right:8%;animation-delay:-7s}
+.hieroglyphs:nth-child(3){bottom:15%;left:15%;animation-delay:-14s}
+@keyframes floatHiero { 0%{transform:translateY(0) rotate(0deg)} 50%{transform:translateY(-30px) rotate(10deg)} 100%{transform:translateY(0) rotate(0deg)} }
+.header { background:linear-gradient(135deg,var(--darker),#050F0A,var(--darker)); border-bottom:2px solid var(--tech); padding:12px 20px; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px; position:sticky; top:0; z-index:100; box-shadow:0 4px 30px rgba(26,188,156,0.2); }
+.logo { display:flex; align-items:center; gap:12px; }
+.logo-symbol { font-size:2.5rem; animation:circuitPulse 4s ease-in-out infinite; filter:drop-shadow(0 0 10px var(--tech)); }
+@keyframes circuitPulse { 0%,100%{transform:scale(1)} 25%{transform:scale(1.05)} 75%{transform:scale(1.05)} }
+.logo h1 { font-family:'Cinzel',serif; font-size:1.4rem; font-weight:900; background:linear-gradient(135deg,var(--tech),var(--papyrus),var(--tech)); -webkit-background-clip:text; -webkit-text-fill-color:transparent; letter-spacing:2px; }
+.logo p { font-size:0.7rem; color:var(--eye); letter-spacing:3px; text-transform:uppercase; }
+.status-bar { display:flex; align-items:center; gap:15px; flex-wrap:wrap; }
+.mode-toggle { display:flex; background:var(--card); border-radius:25px; padding:3px; border:1px solid var(--tech); }
+.mode-btn { padding:6px 16px; border:none; border-radius:22px; cursor:pointer; font-family:'Raleway',sans-serif; font-weight:600; font-size:0.75rem; transition:all 0.3s; color:var(--papyrus); background:transparent; }
+.mode-btn.active { background:linear-gradient(135deg,var(--tech),#17A589); color:var(--dark); box-shadow:0 0 15px rgba(26,188,156,0.4); }
+.main-container { display:grid; grid-template-columns:280px 1fr 320px; gap:0; min-height:calc(100vh - 70px); }
+.sidebar { background:var(--card); border-right:1px solid rgba(26,188,156,0.2); padding:15px; overflow-y:auto; max-height:calc(100vh - 70px); }
+.sidebar h3 { font-family:'Cinzel',serif; color:var(--tech); font-size:0.9rem; margin-bottom:10px; letter-spacing:2px; text-transform:uppercase; }
+.sidebar-skills { display:grid; gap:8px; margin-bottom:20px; }
+.skill-card { background:var(--card2); border:1px solid rgba(26,188,156,0.15); border-radius:12px; padding:12px; cursor:pointer; transition:all 0.3s; text-align:center; }
+.skill-card:hover,.skill-card.active { border-color:var(--tech); background:rgba(26,188,156,0.1); transform:translateX(5px); }
+.skill-card .icon { font-size:1.8rem; margin-bottom:5px; }
+.skill-card .name { font-family:'Cinzel',serif; font-size:0.8rem; color:var(--tech); }
+.skill-card .desc { font-size:0.65rem; color:#888; margin-top:3px; }
+.upload-zone { border:2px dashed rgba(26,188,156,0.3); border-radius:12px; padding:20px; text-align:center; cursor:pointer; transition:all 0.3s; margin-bottom:15px; }
+.upload-zone:hover { border-color:var(--tech); background:rgba(26,188,156,0.05); }
+.upload-zone .icon { font-size:2rem; }
+.upload-zone p { font-size:0.75rem; color:#888; margin-top:8px; }
+.upload-zone .formats { font-size:0.65rem; color:var(--ankh); margin-top:4px; }
+#fileInput { display:none; }
+.file-list { max-height:150px; overflow-y:auto; margin-top:10px; }
+.file-item { background:var(--card2); padding:6px 10px; border-radius:6px; font-size:0.7rem; margin-bottom:4px; display:flex; align-items:center; gap:8px; color:var(--papyrus); }
+.file-item .remove { margin-left:auto; cursor:pointer; color:var(--eye); font-size:0.9rem; }
+.chat-area { display:flex; flex-direction:column; max-height:calc(100vh - 70px); }
+.chat-messages { flex:1; overflow-y:auto; padding:20px; display:flex; flex-direction:column; gap:15px; }
+.message { max-width:80%; animation:msgIn 0.4s ease-out; }
+.message.user { align-self:flex-end; }
+.message.bot { align-self:flex-start; }
+.msg-bubble { padding:14px 18px; border-radius:18px; font-size:0.9rem; line-height:1.6; position:relative; }
+.message.user .msg-bubble { background:linear-gradient(135deg,#050F0A,#0A1510); color:var(--papyrus); border-bottom-right-radius:4px; }
+.message.bot .msg-bubble { background:var(--card2); border:1px solid rgba(26,188,156,0.2); color:var(--papyrus); border-bottom-left-radius:4px; }
+.msg-bubble .msg-time { font-size:0.6rem; color:#666; margin-top:6px; }
+.msg-bubble .msg-label { font-family:'Cinzel',serif; font-size:0.65rem; color:var(--tech); margin-bottom:4px; letter-spacing:1px; }
+.typing-indicator { display:none; align-self:flex-start; padding:14px 18px; background:var(--card2); border-radius:18px; border-bottom-left-radius:4px; }
+.typing-indicator.show { display:flex; gap:4px; }
+.typing-indicator span { width:8px; height:8px; background:var(--tech); border-radius:50%; animation:typing 1.4s infinite; }
+.typing-indicator span:nth-child(2) { animation-delay:0.2s; }
+.typing-indicator span:nth-child(3) { animation-delay:0.4s; }
+@keyframes typing { 0%,60%,100%{transform:translateY(0);opacity:0.4} 30%{transform:translateY(-8px);opacity:1} }
+.chat-input-area { padding:15px 20px; background:var(--card); border-top:1px solid rgba(26,188,156,0.2); }
+.input-row { display:flex; gap:10px; align-items:flex-end; }
+.input-wrapper { flex:1; position:relative; }
+#chatInput { width:100%; padding:14px 50px 14px 18px; border-radius:25px; border:2px solid rgba(26,188,156,0.3); background:var(--card2); color:var(--papyrus); font-family:'Raleway',sans-serif; font-size:0.9rem; resize:none; outline:none; transition:border 0.3s; max-height:120px; }
+#chatInput:focus { border-color:var(--tech); box-shadow:0 0 20px rgba(26,188,156,0.15); }
+#chatInput::placeholder { color:#555; }
+.input-actions { position:absolute; right:8px; bottom:8px; display:flex; gap:5px; }
+.input-btn { width:34px; height:34px; border-radius:50%; border:none; background:rgba(26,188,156,0.15); color:var(--tech); cursor:pointer; font-size:1rem; transition:all 0.3s; display:flex; align-items:center; justify-content:center; }
+.input-btn:hover { background:var(--tech); color:var(--dark); }
+#sendBtn { width:50px; height:50px; border-radius:50%; border:2px solid var(--tech); background:linear-gradient(135deg,var(--tech),#17A589); color:var(--dark); font-size:1.3rem; cursor:pointer; transition:all 0.3s; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+#sendBtn:hover { transform:scale(1.1); box-shadow:0 0 25px rgba(26,188,156,0.5); }
+.right-panel { background:var(--card); border-left:1px solid rgba(26,188,156,0.2); padding:15px; overflow-y:auto; max-height:calc(100vh - 70px); }
+.panel-section { margin-bottom:20px; }
+.panel-section h3 { font-family:'Cinzel',serif; color:var(--tech); font-size:0.85rem; margin-bottom:10px; letter-spacing:1px; display:flex; align-items:center; gap:8px; }
+.api-box { background:var(--card2); border:1px solid rgba(26,188,156,0.15); border-radius:10px; padding:12px; margin-bottom:10px; }
+.api-box label { font-family:'Cinzel',serif; font-size:0.75rem; color:var(--tech); display:block; margin-bottom:5px; }
+.api-box .api-desc { font-size:0.65rem; color:#777; margin-bottom:8px; line-height:1.4; }
+.api-box input { width:100%; padding:8px 12px; border-radius:8px; border:1px solid rgba(26,188,156,0.2); background:var(--dark); color:var(--papyrus); font-size:0.8rem; outline:none; font-family:monospace; }
+.api-box input.filled { border-color:var(--ankh); box-shadow:0 0 10px rgba(0,206,209,0.2); }
+.tool-btn { width:100%; padding:10px; border-radius:10px; border:1px solid rgba(26,188,156,0.3); background:var(--card2); color:var(--papyrus); cursor:pointer; font-family:'Raleway',sans-serif; font-size:0.8rem; transition:all 0.3s; margin-bottom:8px; text-align:left; }
+.tool-btn:hover { border-color:var(--tech); background:rgba(26,188,156,0.1); transform:translateX(3px); }
+.tool-btn .ticon { font-size:1.2rem; }
+.tts-controls { display:flex; gap:8px; align-items:center; margin-top:10px; flex-wrap:wrap; }
+.tts-slider { flex:1; min-width:100px; -webkit-appearance:none; height:4px; background:var(--card2); border-radius:2px; outline:none; }
+.tts-slider::-webkit-slider-thumb { -webkit-appearance:none; width:16px; height:16px; background:var(--tech); border-radius:50%; cursor:pointer; }
+.kb-status { background:var(--card2); border-radius:8px; padding:10px; margin-top:10px; font-size:0.7rem; }
+.kb-status .bar { height:4px; background:var(--darker); border-radius:2px; margin-top:6px; overflow:hidden; }
+.kb-status .bar-fill { height:100%; background:linear-gradient(90deg,var(--tech),var(--ankh)); border-radius:2px; transition:width 0.5s; }
+.notification { position:fixed; bottom:20px; right:20px; background:var(--card2); border:1px solid var(--tech); border-radius:12px; padding:12px 20px; color:var(--papyrus); font-size:0.8rem; z-index:2000; animation:slideIn 0.3s ease-out; display:none; }
+.notification.show { display:block; }
+@keyframes slideIn { from{transform:translateX(100%);opacity:0} to{transform:translateX(0);opacity:1} }
+.spinner { display:inline-block; width:20px; height:20px; border:3px solid rgba(26,188,156,0.3); border-top:3px solid var(--tech); border-radius:50%; animation:spin 1s linear infinite; }
+@keyframes spin { to{transform:rotate(360deg)} }
+.welcome-screen { text-align:center; padding:40px 20px; }
+.welcome-screen .book-icon { font-size:4rem; animation:techGlow 3s ease-in-out infinite; }
+@keyframes techGlow { 0%,100%{filter:drop-shadow(0 0 10px var(--tech))} 50%{filter:drop-shadow(0 0 30px var(--tech)) drop-shadow(0 0 60px var(--eye))} }
+.welcome-screen h2 { font-family:'Cinzel',serif; color:var(--tech); font-size:1.8rem; margin-bottom:10px; }
+.welcome-screen p { color:#888; font-size:0.9rem; max-width:500px; margin:0 auto 20px; line-height:1.6; }
+.welcome-actions { display:flex; gap:10px; justify-content:center; flex-wrap:wrap; }
+.welcome-btn { padding:10px 20px; border-radius:25px; border:1px solid var(--tech); background:transparent; color:var(--tech); cursor:pointer; font-family:'Raleway',sans-serif; font-size:0.85rem; transition:all 0.3s; text-decoration:none; }
+.welcome-btn:hover { background:var(--tech); color:var(--dark); }
+.publishing-checklist { background:var(--card2); border:1px solid rgba(26,188,156,0.15); border-radius:12px; padding:15px; margin-top:15px; }
+.publishing-checklist h4 { font-family:'Cinzel',serif; color:var(--tech); font-size:0.9rem; margin-bottom:10px; }
+.check-item { display:flex; align-items:center; gap:8px; padding:6px 0; font-size:0.8rem; color:var(--papyrus); border-bottom:1px solid rgba(26,188,156,0.1); }
+.check-item:last-child { border-bottom:none; }
+.check-item .check { width:18px; height:18px; border-radius:3px; border:2px solid var(--tech); display:flex; align-items:center; justify-content:center; font-size:0.7rem; }
+.check-item.done .check { background:var(--tech); color:var(--dark); }
+.check-item.done { text-decoration:line-through; opacity:0.6; }
+.platform-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; margin-top:10px; }
+.platform-btn { padding:8px; border-radius:8px; border:1px solid rgba(26,188,156,0.3); background:var(--card); color:var(--papyrus); cursor:pointer; font-size:0.75rem; text-align:center; transition:all 0.3s; }
+.platform-btn:hover { border-color:var(--tech); background:rgba(26,188,156,0.1); }
+.platform-btn.active { border-color:var(--tech); background:var(--tech); color:var(--dark); }
+</style>
+</head>
+<body>
+<!-- WAI INSTITUTE TOOL NAV -->
+<nav style="background:#050508;border-bottom:1px solid rgba(212,175,55,0.3);padding:8px 20px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;position:sticky;top:0;z-index:9999;font-family:Raleway,sans-serif;">
+  <a href="/" style="display:flex;align-items:center;gap:8px;text-decoration:none;">
+    <span style="font-family:Cinzel,serif;font-size:0.85rem;color:#D4AF37;letter-spacing:2px;font-weight:900;">WAI INSTITUTE</span>
+    <span style="font-size:0.65rem;color:#888;letter-spacing:1px;">TOOLS HUB</span>
+  </a>
+  <div style="display:flex;gap:6px;flex-wrap:wrap;">
+    <a href="/tools/creators-sanctuary.html" style="padding:4px 10px;border:1px solid rgba(212,175,55,0.3);border-radius:20px;color:#D4AF37;font-size:0.7rem;text-decoration:none;transition:all 0.2s;" onmouseover="this.style.background='rgba(212,175,55,0.1)'" onmouseout="this.style.background='transparent'">🌙 Sanctuary</a>
+    <a href="/tools/djedi-oracle.html" style="padding:4px 10px;border:1px solid rgba(212,175,55,0.3);border-radius:20px;color:#D4AF37;font-size:0.7rem;text-decoration:none;transition:all 0.2s;" onmouseover="this.style.background='rgba(212,175,55,0.1)'" onmouseout="this.style.background='transparent'">𓂀 DJEDI Oracle</a>
+    <a href="/tools/electrical-courses.html" style="padding:4px 10px;border:1px solid rgba(212,175,55,0.3);border-radius:20px;color:#D4AF37;font-size:0.7rem;text-decoration:none;transition:all 0.2s;" onmouseover="this.style.background='rgba(212,175,55,0.1)'" onmouseout="this.style.background='transparent'">⚡ Electrical</a>
+    <a href="/tools/media-strategist.html" style="padding:4px 10px;border:1px solid rgba(212,175,55,0.3);border-radius:20px;color:#D4AF37;font-size:0.7rem;text-decoration:none;transition:all 0.2s;" onmouseover="this.style.background='rgba(212,175,55,0.1)'" onmouseout="this.style.background='transparent'">📡 Media</a>
+    <a href="/tools/publisher-prime.html" style="padding:4px 10px;border:1px solid rgba(212,175,55,0.3);border-radius:20px;color:#D4AF37;font-size:0.7rem;text-decoration:none;transition:all 0.2s;" onmouseover="this.style.background='rgba(212,175,55,0.1)'" onmouseout="this.style.background='transparent'">📚 Publisher</a>
+    <a href="/ghost-producer" style="padding:4px 10px;border:1px solid rgba(212,175,55,0.3);border-radius:20px;color:#D4AF37;font-size:0.7rem;text-decoration:none;transition:all 0.2s;" onmouseover="this.style.background='rgba(212,175,55,0.1)'" onmouseout="this.style.background='transparent'">🎵 Ghost Producer</a>
+  </div>
+</nav>
+
+<div class="hieroglyphs">⚡</div>
+<div class="hieroglyphs">𓂀</div>
+<div class="hieroglyphs">𓁹</div>
+
+<header class="header">
+  <div class="logo">
+    <div class="logo-symbol">⚡</div>
+    <div>
+      <h1>ELECTRICAL COURSES</h1>
+      <p>Technical Skills Hub</p>
+    </div>
+  </div>
+  <div class="status-bar">
+    <div class="mode-toggle">
+      <button class="mode-btn active" id="localMode" onclick="setMode('local')">🏛️ LOCAL AI</button>
+      <button class="mode-btn" id="onlineMode" onclick="setMode('online')">🌐 ONLINE</button>
+    </div>
+    <div class="voice-controls">
+      <button class="voice-btn" id="sttBtn" onclick="toggleSTT()" title="Speech to Text">🎤</button>
+      <button class="voice-btn" id="ttsBtn" onclick="toggleTTS()" title="Text to Speech">🔊</button>
+      <button class="voice-btn" id="stopVoiceBtn" onclick="stopVoice()" title="Stop">⏹️</button>
+    </div>
+  </div>
+</header>
+
+<div class="main-container">
+  <aside class="sidebar">
+    <h3>⚡ TECHNICAL SKILLS</h3>
+    <div class="sidebar-skills">
+      <div class="skill-card active" onclick="setSkill(this,'circuit')" data-skill="circuit">
+        <div class="icon">🔌</div>
+        <div class="name">Circuit Design</div>
+        <div class="desc">Ohm's Law & Kirchhoff</div>
+      </div>
+      <div class="skill-card" onclick="setSkill(this,'wiring')" data-skill="wiring">
+        <div class="icon">🔧</div>
+        <div class="name">Wiring Diagrams</div>
+        <div class="desc">Residential & Commercial</div>
+      </div>
+      <div class="skill-card" onclick="setSkill(this,'solar')" data-skill="solar">
+        <div class="icon">☀️</div>
+        <div class="name">Solar Systems</div>
+        <div class="desc">Pan-African Solar Design</div>
+      </div>
+      <div class="skill-card" onclick="setSkill(this,'safety')" data-skill="safety">
+        <div class="icon">🛡️</div>
+        <div class="name">Electrical Safety</div>
+        <div class="desc">Code Compliance</div>
+      </div>
+    </div>
+
+    <h3>📂 COURSE MATERIALS</h3>
+    <div class="upload-zone" onclick="document.getElementById('fileInput').click()">
+      <div class="icon">📁</div>
+      <p>Upload course notes or diagrams</p>
+      <div class="formats">PDF • DOC • DOCX • TXT • IMG</div>
+    </div>
+    <input type="file" id="fileInput" multiple accept=".pdf,.doc,.docx,.txt,.jpg,.png" onchange="handleFiles(this.files)">
+    <div class="file-list" id="fileList"></div>
+
+    <div class="kb-status">
+      <div>📊 Course Library: <span id="kbCount">0</span> files loaded</div>
+      <div class="bar"><div class="bar-fill" id="kbBar" style="width:0%"></div></div>
+    </div>
+
+    <h3>🛠️ TECH TOOLS</h3>
+    <button class="tool-btn" onclick="explainCircuit()">
+      <span class="ticon">🔌</span> Explain Circuit Theory
+    </button>
+    <button class="tool-btn" onclick="generateDiagram()">
+      <span class="ticon">📐</span> Generate Wiring Diagram
+    </button>
+    <button class="tool-btn" onclick="solarCalc()">
+      <span class="ticon">☀️</span> Solar Panel Calculator
+    </button>
+    <button class="tool-btn" onclick="safetyCheck()">
+      <span class="ticon">🛡️</span> Safety Code Checker
+    </button>
+  </aside>
+
+  <div class="chat-area">
+    <div class="chat-messages" id="chatMessages">
+      <div class="welcome-screen">
+        <div class="book-icon">⚡</div>
+        <h2>Welcome to ELECTRICAL COURSES</h2>
+        <p>I am <strong>ELECTRICAL COURSES</strong> — your Technical Skills Hub. Learn circuit design, wiring, solar systems, and electrical safety. Your skills. My machine. All running free. All running local.</p>
+        <div class="welcome-actions">
+          <button class="welcome-btn" onclick="sendQuickMessage('Explain Ohms Law with an example')">🔌 Ohm's Law</button>
+          <button class="welcome-btn" onclick="sendQuickMessage('Design a solar system for a 3-bedroom house')">☀️ Solar Design</button>
+          <button class="welcome-btn" onclick="sendQuickMessage('Explain Kirchhoffs Voltage Law')">📐 Kirchhoff's Law</button>
+          <button class="welcome-btn" onclick="sendQuickMessage('Check if this wiring is code compliant')">🛡️ Safety Check</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="typing-indicator" id="typingIndicator">
+      <span></span><span></span><span></span>
+    </div>
+
+    <div class="publishing-checklist">
+      <h4>⚡ Technical Checklist</h4>
+      <div class="check-item" id="check1">
+        <div class="check">✓</div>
+        <span>Circuit theory understood</span>
+      </div>
+      <div class="check-item" id="check2">
+        <div class="check">✓</div>
+        <span>Wiring diagram created</span>
+      </div>
+      <div class="check-item" id="check3">
+        <div class="check">✓</div>
+        <span>Solar system designed</span>
+      </div>
+      <div class="check-item" id="check4">
+        <div class="check">✓</div>
+        <span>Safety code verified</span>
+      </div>
+      <div class="check-item" id="check5">
+        <div class="check">✓</div>
+        <span>Calculations checked</span>
+      </div>
+      <div class="check-item" id="check6">
+        <div class="check">✓</div>
+        <span>Certification ready</span>
+      </div>
+    </div>
+
+    <div class="chat-input-area">
+      <div class="input-row">
+        <div class="input-wrapper">
+          <textarea id="chatInput" rows="1" placeholder="Ask ELECTRICAL COURSES anything... ⚡" onkeydown="handleKeyDown(event)"></textarea>
+          <div class="input-actions">
+            <button class="input-btn" onclick="toggleSTT()" title="Voice Input">🎤</button>
+            <button class="input-btn" onclick="sendFromVoice()" title="Send">📤</button>
+          </div>
+        </div>
+        <button id="sendBtn" onclick="sendMessage()">➤</button>
+      </div>
+
+      <div class="tts-controls" id="ttsControls" style="display:none;">
+        <span style="font-size:0.75rem;color:#888;">🔊 Voice:</span>
+        <select id="ttsVoice" style="background:var(--card2);color:var(--papyrus);border:1px solid var(--tech);border-radius:6px;padding:4px 8px;font-size:0.75rem;outline:none;">
+          <option value="">Loading voices...</option>
+        </select>
+        <input type="range" class="tts-slider" id="ttsRate" min="0.5" max="2" step="0.1" value="1" oninput="updateTTSRate()">
+        <span style="font-size:0.7rem;color:#888;" id="rateLabel">1x</span>
+        <button class="input-btn" onclick="speakLastMessage()" title="Replay">🔁</button>
+      </div>
+    </div>
+  </div>
+
+  <aside class="right-panel" id="rightPanel">
+    <div class="panel-section">
+      <h3>🔑 API KEYS (Online Mode)</h3>
+      <p style="font-size:0.7rem;color:#666;margin-bottom:12px;">Enter keys to unlock cloud AI. Leave empty for local-only mode.</p>
+
+      <div class="api-box">
+        <label>🤖 GROK (xAI / Elon Musk)</label>
+        <div class="api-desc">
+          <strong>What it is:</strong> Grok is xAI's large language model. Known for real-time X/Twitter data access, unfiltered responses, and strong reasoning.
+          <br><strong>Best for:</strong> Real-time social media analysis, trending topics, unfiltered takes.
+        </div>
+        <input type="password" id="grokKey" placeholder="xai-xxxxxxxxxxxxxxxx" oninput="saveApiKey('grok',this.value)">
+      </div>
+
+      <div class="api-box">
+        <label>🤗 HUGGING FACE</label>
+        <div class="api-desc">
+          <strong>What it is:</strong> Hugging Face Inference API gives access to 100,000+ open-source models (Llama, Mistral, Falcon, etc.).
+          <br><strong>Best for:</strong> Custom models, multilingual support, African language models, fine-tuned models.
+        </div>
+        <input type="password" id="hfKey" placeholder="hf_xxxxxxxxxxxxxxxx" oninput="saveApiKey('hf',this.value)">
+      </div>
+
+      <div class="api-box">
+        <label>🔵 COHERE</label>
+        <div class="api-desc">
+          <strong>What it is:</strong> Cohere's Command R/R+ models excel at RAG (Retrieval Augmented Generation), enterprise search, and multi-step reasoning.
+          <br><strong>Best for:</strong> Document Q&A from your uploaded files, legal research, structured output.
+        </div>
+        <input type="password" id="cohereKey" placeholder="xxxxxxxxxxxxxxxxxxxxxxxx" oninput="saveApiKey('cohere',this.value)">
+      </div>
+
+      <div style="margin-top:12px;padding:10px;background:rgba(26,188,156,0.1);border-radius:8px;font-size:0.7rem;color:var(--tech);">
+        💡 <strong>Tip:</strong> ELECTRICAL COURSES runs 100% LOCAL with WebLLM (no keys needed). API keys only activate when you switch to ONLINE mode for enhanced calculations.
+      </div>
+    </div>
+
+    <div class="panel-section">
+      <h3>📊 TECH STATUS</h3>
+      <div style="font-size:0.75rem;line-height:2;">
+        <div>🧠 AI Engine: <span id="aiEngine" style="color:var(--ankh);">WebLLM (Local)</span></div>
+        <div>📂 Course Files: <span id="docCount" style="color:var(--tech);">0</span></div>
+        <div>🗣️ Voice: <span id="voiceStatus" style="color:#888;">Ready</span></div>
+        <div>🌐 Mode: <span id="currentMode" style="color:var(--eye);">LOCAL</span></div>
+      </div>
+    </div>
+
+    <div class="panel-section">
+      <h3>🎯 ACTIVE SKILL</h3>
+      <div id="activeSkillDisplay" style="background:var(--card2);border-radius:10px;padding:12px;font-size:0.8rem;color:var(--tech);text-align:center;">
+        🔌 Circuit Design
+      </div>
+    </div>
+
+    <div class="panel-section">
+      <h3>🌐 PLATFORMS</h3>
+      <div class="platform-grid">
+        <button class="platform-btn" onclick="selectPlatform(this,'youtube')">🎬 YouTube</button>
+        <button class="platform-btn" onclick="selectPlatform(this,'linkedin')">💼 LinkedIn</button>
+        <button class="platform-btn" onclick="selectPlatform(this,'twitter')">🐦 Twitter/X</button>
+        <button class="platform-btn" onclick="selectPlatform(this,'facebook')">📘 Facebook</button>
+        <button class="platform-btn" onclick="selectPlatform(this,'instagram')">📸 Instagram</button>
+        <button class="platform-btn" onclick="selectPlatform(this,'tiktok')">🎵 TikTok</button>
+      </div>
+    </div>
+  </aside>
+</div>
+
+<div class="notification" id="notification"></div>
+
+<script src="hub_client.js"></script>
+<script>
+window.addEventListener('DOMContentLoaded', () => {
+  SESHAT.init('ELECTRICAL COURSES', 9);
+  const keys = SESHAT.getKeys();
+  if (keys.grok) document.getElementById('grokKey').value = keys.grok;
+  if (keys.hf) document.getElementById('hfKey').value = keys.hf;
+  if (keys.cohere) document.getElementById('cohereKey').value = keys.cohere;
+  handleFiles(document.getElementById('fileInput').files);
+
+  window.addEventListener('SESHAT_broadcast', (e) => {
+    const msg = e.detail;
+    if (msg.type === 'mode_switch') { setMode(msg.data.mode); notify('⚡ ELECTRICAL COURSES: Mode set to ' + msg.data.mode.toUpperCase()); }
+    if (msg.type === 'key_update') console.log('⚡ ELECTRICAL COURSES: Key vault updated by SESHAT');
+    if (msg.type === 'crosspost') notify('📤 Cross-post received: ' + msg.data.text);
+    if (msg.type === 'emergency') notify('🚨 ' + msg.data.message);
+    if (msg.type === 'heartbeat') SESHAT.broadcast('heartbeat', { page: 'ELECTRICAL COURSES', mode: getCurrentMode(), status: 'alive' });
+  });
+
+  window.setPageMode = function(mode) {
+    currentMode = mode;
+    document.getElementById('localMode').classList.toggle('active', mode === 'local');
+    document.getElementById('onlineMode').classList.toggle('active', mode === 'online');
+    notify('⚡ ELECTRICAL COURSES: Mode: ' + mode.toUpperCase());
+  };
+
+  window.handleCrossPost = function(data) {
+    const div = document.createElement('div');
+    div.className = 'msg-bubble';
+    div.style.cssText = 'background:var(--card2);border:1px solid var(--tech);border-radius:18px;padding:14px 18px;font-size:0.9rem;line-height:1.6;margin-top:10px;';
+    div.innerHTML = '<div style="font-family:Cinzel,serif;color:var(--tech);margin-bottom:4px;font-size:0.7rem;">📤 CROSS-POST FROM HUB</div>' + data.text;
+    document.getElementById('chatMessages').appendChild(div);
+    document.getElementById('chatMessages').scrollTop = document.getElementById('chatMessages').scrollHeight;
+  };
+
+  window.handleEmergency = function(data) { notify('🚨 ' + data.message); };
+  SESHAT.checkAPIs();
+});
+
+function setMode(mode) {
+  currentMode = mode;
+  SESHAT.setMode(mode);
+  document.getElementById('localMode').classList.toggle('active', mode === 'local');
+  document.getElementById('onlineMode').classList.toggle('active', mode === 'online');
+  document.getElementById('currentMode').textContent = mode.toUpperCase();
+  document.getElementById('currentMode').style.color = mode === 'local' ? 'var(--ankh)' : 'var(--eye)';
+  notify('⚡ ELECTRICAL COURSES: Mode: ' + mode.toUpperCase());
+}
+
+function getCurrentMode() { return SESHAT.getMode(); }
+
+function setSkill(el, skill) {
+  document.querySelectorAll('.skill-card').forEach(c => c.classList.remove('active'));
+  el.classList.add('active');
+  currentSkill = skill;
+  const names = { circuit:'🔌 Circuit Design', wiring:'🔧 Wiring Diagrams', solar:'☀️ Solar Systems', safety:'🛡️ Electrical Safety' };
+  document.getElementById('activeSkillDisplay').textContent = names[skill];
+}
+
+function saveApiKey(provider, value) {
+  const keys = SESHAT.getKeys();
+  keys[provider] = value;
+  SESHAT.saveKeys(keys);
+  document.getElementById(provider + 'Key').classList.toggle('filled', value.length > 0);
+}
+
+function handleFiles(files) {
+  Array.from(files).forEach(file => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      let text = e.target.result;
+      if (file.name.endsWith('.pdf')) text = extractPDFText(text);
+      else if (file.name.endsWith('.doc') || file.name.endsWith('.docx')) text = extractDocText(text);
+      SESHAT.saveKB([{ name: file.name, content: text, date: new Date().toLocaleDateString() }]);
+      addFileToList(file.name);
+      updateKBStatus();
+      notify('📜 Loaded: ' + file.name);
+    };
+    reader.readAsText(file);
+  });
+}
+
+function extractPDFText(data) {
+  const text = data.replace(/\\n/g, ' ').replace(/\s+/g, ' ');
+  return text.substring(text.indexOf('stream'), text.lastIndexOf('endstream')) || text;
+}
+
+function extractDocText(data) {
+  return data.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+}
+
+function addFileToList(name) {
+  const list = document.getElementById('fileList');
+  const item = document.createElement('div');
+  item.className = 'file-item';
+  item.innerHTML = `📄 ${name} <span class="remove" onclick="this.parentElement.remove()">✕</span>`;
+  list.appendChild(item);
+}
+
+function updateKBStatus() {
+  document.getElementById('kbCount').textContent = SESHAT.getKB().length;
+  document.getElementById('docCount').textContent = SESHAT.getKB().length;
+  const pct = Math.min(100, (SESHAT.getKB().length / 10) * 100);
+  document.getElementById('kbBar').style.width = pct + '%';
+}
+
+async function sendMessage() {
+  const input = document.getElementById('chatInput');
+  const text = input.value.trim();
+  if (!text) return;
+  input.value = '';
+  addMessage(text, 'user');
+  SESHAT.broadcast('heartbeat', { page: 'ELECTRICAL COURSES', mode: getCurrentMode(), status: 'alive' });
+  showTyping(true);
+
+  try {
+    let response;
+    if (currentMode === 'local') response = await generateLocalResponse(text);
+    else response = await generateOnlineResponse(text);
+    addMessage(response, 'bot');
+    SESHAT.broadcast('heartbeat', { page: 'ELECTRICAL COURSES', mode: getCurrentMode(), status: 'alive' });
+    lastResponse = response;
+    if (ttsEnabled) speak(response);
+    checkDone(response);
+  } catch (err) {
+    console.error(err);
+    addMessage('⚡ ELECTRICAL COURSES encountered a power surge... The circuit is reset. Try again. ' + err.message, 'bot');
+  }
+  showTyping(false);
+}
+
+async function generateLocalResponse(userText) {
+  if (!window.mlcEngine) throw new Error('WebLLM not initialized');
+  const systemPrompt = SYSTEM_PROMPTS[currentSkill];
+  let kbContext = '';
+  if (SESHAT.getKB().length > 0) {
+    kbContext = '\n\nRELEVANT COURSE MATERIALS:\n' + SESHAT.getKB().map(k =>
+      `[${k.name}]\n${k.content.substring(0, 500)}`
+    ).join('\n\n');
+  }
+  const messages = [
+    { role: 'system', content: systemPrompt + kbContext },
+    ...conversationHistory.slice(-10)
+  ];
+  const reply = await window.mlcEngine.chat.completions.create({
+    messages: messages, temperature: 0.7, max_tokens: 1024, repetition_penalty: 1.1
+  });
+  return reply.choices[0].message.content;
+}
+
+async function generateOnlineResponse(userText) {
+  const systemPrompt = SYSTEM_PROMPTS[currentSkill];
+  let kbContext = '';
+  if (SESHAT.getKB().length > 0) {
+    kbContext = '\n\nRELEVANT COURSE MATERIALS:\n' + SESHAT.getKB().map(k =>
+      `Document: ${k.name}\n${k.content.substring(0, 800)}`
+    ).join('\n\n');
+  }
+  const fullPrompt = `${systemPrompt}${kbContext}\n\nUser: ${userText}\nELECTRICAL COURSES:`;
+  if (SESHAT.getWAIToken()) {
+    try { return await SESHAT.callWAI(currentSkill, userText, kbContext); } catch (e) { /* fall through */ }
+  }
+  if (SESHAT.getKeys().grok) return await callGrok(fullPrompt);
+  else if (SESHAT.getKeys().hf) return await callHuggingFace(fullPrompt);
+  else if (SESHAT.getKeys().cohere) return await callCohere(fullPrompt);
+  else return generateLocalResponse(userText);
+}
+
+async function callGrok(prompt) {
+  const resp = await fetch('https://api.x.ai/v1/chat/completions', {
+    method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${SESHAT.getKeys().grok}` },
+    body: JSON.stringify({ model: 'grok-2-latest', messages: [{role:'user',content:prompt}], temperature: 0.7, max_tokens: 1024 }),
+    signal: AbortSignal.timeout(5000)
+  });
+  const data = await resp.json();
+  return data.choices[0].message.content;
+}
+
+async function callHuggingFace(prompt) {
+  const resp = await fetch('https://api-inference.huggingface.co/models/mistralai/Mistral-7B-Instruct-v0.3', {
+    method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${SESHAT.getKeys().hf}` },
+    body: JSON.stringify({ inputs: prompt, parameters: { max_new_tokens: 512, temperature: 0.7, return_full_text: false } }),
+    signal: AbortSignal.timeout(5000)
+  });
+  const data = await resp.json();
+  return Array.isArray(data) ? data[0].generated_text : data.generated_text || 'No response';
+}
+
+async function callCohere(prompt) {
+  const resp = await fetch('https://api.cohere.

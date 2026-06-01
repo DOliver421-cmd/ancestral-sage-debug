@@ -165,8 +165,10 @@ export default function OrchestratorChat() {
       if (audioElRef.current) {
         audioElRef.current.src = url;
         setAudioPlaying(true);
-        audioElRef.current.play().catch(() => {});
-        audioElRef.current.onended = () => setAudioPlaying(false);
+        audioElRef.current.play().catch(() => { URL.revokeObjectURL(url); setAudioPlaying(false); });
+        audioElRef.current.onended = () => { URL.revokeObjectURL(url); setAudioPlaying(false); };
+      } else {
+        URL.revokeObjectURL(url);
       }
     } catch (e) {
       if (e?.code !== "ERR_CANCELED") {
@@ -179,20 +181,26 @@ export default function OrchestratorChat() {
   // ── STT ──────────────────────────────────────────────────────────────────
   const startRecording = useCallback(() => {
     if (!SpeechRecognitionImpl) { toast.error("Speech input not supported in this browser."); return; }
+    if (recogRef.current) { recogRef.current.stop(); recogRef.current = null; }
     const r = new SpeechRecognitionImpl();
     r.continuous = false;
     r.interimResults = false;
     r.lang = "en-US";
     r.onresult = (e) => setInput((prev) => prev + e.results[0][0].transcript);
-    r.onerror = () => setRecording(false);
-    r.onend = () => setRecording(false);
+    r.onerror = () => { recogRef.current = null; setRecording(false); };
+    r.onend = () => { recogRef.current = null; setRecording(false); };
     recogRef.current = r;
-    r.start();
-    setRecording(true);
+    try {
+      r.start();
+      setRecording(true);
+    } catch {
+      recogRef.current = null;
+    }
   }, []);
 
   const stopRecording = useCallback(() => {
     recogRef.current?.stop();
+    recogRef.current = null;
     setRecording(false);
   }, []);
 

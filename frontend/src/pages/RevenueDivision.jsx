@@ -16,6 +16,7 @@ export default function RevenueDivision() {
   const [newKeyResult, setNewKeyResult] = useState(null);
   const [busy, setBusy] = useState(false);
   const [freshKey, setFreshKey] = useState(null);
+  const [revokeTarget, setRevokeTarget] = useState(null);
 
   const [licenses, setLicenses] = useState([]);
   const [publicCourses, setPublicCourses] = useState([]);
@@ -75,10 +76,10 @@ export default function RevenueDivision() {
   };
 
   const revokeKey = async (hash) => {
-    if (!window.confirm("Revoke this API key? This cannot be undone.")) return;
     try {
       await api.delete(`/revenue/api-keys/${hash}`);
       toast.success("Key revoked.");
+      setRevokeTarget(null);
       loadKeys();
     } catch { toast.error("Failed to revoke key."); }
   };
@@ -207,7 +208,7 @@ export default function RevenueDivision() {
                       <p className="text-xs text-ink/50 font-mono">{k.key_hash.slice(0, 16)}... · {k.tier} · {k.usage_count || 0} calls</p>
                     </div>
                     {k.active ? (
-                      <button onClick={() => revokeKey(k.key_hash)}
+                      <button onClick={() => setRevokeTarget(k)}
                         className="text-xs text-destructive hover:text-destructive/80">Revoke</button>
                     ) : (
                       <span className="text-xs text-ink/30">Revoked</span>
@@ -462,6 +463,22 @@ export default function RevenueDivision() {
           </div>
         )}
       </div>
+
+      {revokeTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
+          <div className="bg-white rounded-2xl p-6 max-w-sm w-full shadow-xl">
+            <p className="font-bold text-ink text-sm mb-1">Revoke API key?</p>
+            <p className="text-xs text-ink/60 mb-4">"{revokeTarget.label}" — this cannot be undone.</p>
+            <div className="flex gap-2 justify-end">
+              <button onClick={() => setRevokeTarget(null)} className="text-sm px-4 py-2 text-ink/60 hover:text-ink">Cancel</button>
+              <button onClick={() => revokeKey(revokeTarget.key_hash)}
+                className="text-sm font-bold bg-destructive hover:bg-destructive/90 text-white px-4 py-2 rounded-lg">
+                Revoke Key
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </AppShell>
   );
 }

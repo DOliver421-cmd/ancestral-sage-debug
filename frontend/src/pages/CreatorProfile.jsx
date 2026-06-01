@@ -1,7 +1,10 @@
 import { Link, useParams } from "react-router-dom";
-import { Heart, Instagram, ExternalLink, ShoppingBag, Music, BookOpen, Users, ArrowRight, Shield, Mic, Star } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Heart, Instagram, ExternalLink, ShoppingBag, Music, BookOpen, Users, ArrowRight, Shield, Mic, Star, Pencil } from "lucide-react";
 import { WAI_LOGO, BRAND } from "../lib/brand";
 import BugReportModal from "../components/BugReportModal";
+import { api } from "../lib/api";
+import { useAuth } from "../lib/auth";
 
 // ── Creator registry (proof of concept — one creator hardcoded, architecture is slug-based) ──
 const CREATORS = {
@@ -56,9 +59,13 @@ From open mics to community workshops, from the page to the stage, NAM writes an
 
     // Store / merch / products
     commerce: [
-      { label: "Digital Chapbook", desc: "First collection — 'Rivers Remember'", url: null, placeholder: true },
-      { label: "Live Workshop Booking", desc: "Book NAM for your school, event, or organization", url: null, placeholder: true },
       { label: "WAI-Institute Courses", desc: "Community development and healing arts curriculum", url: "/store", placeholder: false },
+      { label: "The Ghost Producer × Publisher Prime", desc: "Interactive music & publishing empire — no sign-in required", url: "/ghost-producer", placeholder: false },
+      { label: "Creators Sanctuary", desc: "The hub for all WAI creators — community, courses, healing arts, music", url: "/tools/creators-sanctuary.html", placeholder: false },
+      { label: "Sage Oracle (DJEDI)", desc: "Kemetic AI guide — wisdom, social strategy, publishing, legal navigation", url: "/tools/djedi-oracle.html", placeholder: false },
+      { label: "Electrical Courses", desc: "Circuit design, wiring, solar, safety — trade skills AI tutor", url: "/tools/electrical-courses.html", placeholder: false },
+      { label: "Media Strategist", desc: "Campaign builder, press releases, pitch decks, analytics intelligence", url: "/tools/media-strategist.html", placeholder: false },
+      { label: "Publisher Prime", desc: "Book publishing, marketing, ISBN guide, contract review — full empire", url: "/tools/publisher-prime.html", placeholder: false },
     ],
 
     // WAI-Institute creator status
@@ -164,18 +171,6 @@ He is a griot in the tradition that doesn't need to announce itself. The ancesto
 
     commerce: [
       {
-        label: "Poetry Collection",
-        desc: "Royal Black Falcon — debut chapbook. The words that built the name.",
-        url: null,
-        placeholder: true,
-      },
-      {
-        label: "Book a Performance",
-        desc: "Bring Kamau to your event, school, church, or community gathering. He shows up fully.",
-        url: null,
-        placeholder: true,
-      },
-      {
         label: "Join WAI-Institute",
         desc: "The platform where creators like Kamau teach, build, and connect with community.",
         url: "/register",
@@ -270,24 +265,6 @@ Nova is not emerging. She is already here. She is just letting you catch up.`,
 
     commerce: [
       {
-        label: "Original Artwork",
-        desc: "Prints, digital pieces, and commissioned work — visual art rooted in Black beauty and community.",
-        url: null,
-        placeholder: true,
-      },
-      {
-        label: "Poetry Chapbook",
-        desc: "'Something Is Rising' — debut collection. Words from a young woman who decided to take up space.",
-        url: null,
-        placeholder: true,
-      },
-      {
-        label: "Artist Mentoring Sessions",
-        desc: "Book a 1-on-1 session with Nova. Career strategy, branding, performance coaching — virtual, on your schedule.",
-        url: null,
-        placeholder: true,
-      },
-      {
         label: "Join WAI-Institute",
         desc: "Connect with Nova and other creators building on their own terms.",
         url: "/register",
@@ -343,11 +320,53 @@ function SocialIcon({ type, className }) {
   return <ExternalLink className={className} />;
 }
 
+// Normalize a DB profile doc to match the shape the render tree expects
+function dbToCreator(p) {
+  return {
+    slug: p.slug,
+    displayName: p.display_name,
+    title: p.title || "",
+    tagline: p.tagline || "",
+    bio: p.bio || "",
+    pronouns: p.pronouns || "",
+    location: p.location || "",
+    avatar: p.avatar || "✨",
+    bannerColor: "from-amber-900 via-amber-800 to-ink",
+    accentColor: "amber",
+    socials: (p.socials || []).map(s => ({ platform: s.platform, handle: s.handle, url: s.url, note: s.note })),
+    moreOfferings: (p.more_offerings || []).map(o => ({ icon: o.icon, title: o.title, desc: o.desc })),
+    commerce: (p.commerce || []).map(c => ({ label: c.label, desc: c.desc, url: c.url, placeholder: false })),
+    waiStatus: { tier: "CREATOR", role: "Creator", since: new Date(p.created_at || Date.now()).getFullYear().toString(), bio: "" },
+    _dbUserId: p.user_id,
+  };
+}
+
 export default function CreatorProfile() {
   const { slug } = useParams();
-  const creator = CREATORS[slug] || PLACEHOLDER_CREATOR;
+  const { user } = useAuth();
+  const [dbProfile, setDbProfile] = useState(undefined); // undefined = loading, null = not found
 
-  if (!CREATORS[slug]) {
+  useEffect(() => {
+    api.get(`/creator/profile/${slug}`)
+      .then(r => setDbProfile(r.data.profile))
+      .catch(() => setDbProfile(null));
+  }, [slug]);
+
+  // While fetching, check hardcoded registry as instant fallback
+  const hardcoded = CREATORS[slug] || null;
+
+  // Still loading from backend
+  if (dbProfile === undefined && !hardcoded) {
+    return (
+      <div className="min-h-screen bg-bone flex items-center justify-center">
+        <div className="text-ink/40 text-sm">Loading profile…</div>
+      </div>
+    );
+  }
+
+  const creator = dbProfile ? dbToCreator(dbProfile) : hardcoded;
+
+  if (!creator) {
     return (
       <div className="min-h-screen bg-bone flex flex-col items-center justify-center gap-6 text-ink">
         <div className="text-6xl">🌊</div>
@@ -360,6 +379,9 @@ export default function CreatorProfile() {
     );
   }
 
+  // is_owner is set by the backend based on the JWT — never trust user_id from the response
+  const isOwner = dbProfile && dbProfile.is_owner === true;
+
   return (
     <div className="min-h-screen bg-bone text-ink">
 
@@ -371,6 +393,14 @@ export default function CreatorProfile() {
             <span className="font-heading font-bold text-sm hidden sm:block">{BRAND.name}</span>
           </Link>
           <div className="flex items-center gap-3">
+            {isOwner && (
+              <Link
+                to={`/creator/profile/edit`}
+                className="flex items-center gap-1.5 text-xs font-bold text-copper border border-copper/40 hover:border-copper px-3 py-1.5 rounded-full transition-colors"
+              >
+                <Pencil className="w-3 h-3" /> Edit Profile
+              </Link>
+            )}
             <Link to="/more" className="flex items-center gap-1.5 text-xs font-bold text-amber-700 hover:text-amber-600 border border-amber-300 hover:border-amber-500 px-3 py-1.5 rounded-full transition-colors">
               <Heart className="w-3 h-3" /> M.O.R.E. Hub
             </Link>

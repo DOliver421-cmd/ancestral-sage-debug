@@ -1,10 +1,19 @@
 import { Link } from "react-router-dom";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { WAI_LOGO, BRAND } from "../lib/brand";
 import { Heart, BookOpen, Users, Award, Zap, ArrowRight, MessageSquare, DollarSign, Shield } from "lucide-react";
 import BugReportModal from "../components/BugReportModal";
+import { api } from "../lib/api";
 
 export default function Landing() {
+  const [featuredCourses, setFeaturedCourses] = useState(null);
+
+  useEffect(() => {
+    api.get("/creator/courses/published?limit=4")
+      .then(r => setFeaturedCourses(r.data.courses || []))
+      .catch(() => setFeaturedCourses([]));
+  }, []);
+
   useEffect(() => {
     // Handle smooth scroll to anchor links
     const handleAnchorClick = (e) => {
@@ -214,91 +223,55 @@ export default function Landing() {
             Poets. Artists. Healers. Teachers. Building income and community on their own terms.
           </p>
 
-          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
-            {/* Creator 1: Poet */}
-            <div className="group rounded-lg overflow-hidden border border-ink/10 hover:border-copper hover:shadow-lg transition-all">
-              <div className="aspect-square bg-gradient-to-br from-copper/20 to-copper/5 flex items-center justify-center">
-                <img
-                  src="/images/creators/creator-1-poet.jpg"
-                  alt="Black poet and writer"
-                  className="w-full h-full object-cover group-hover:scale-105 transition-transform"
-                  onError={(e) => {
-                    e.target.src = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 400 400'%3E%3Crect fill='%23f5e6d3' width='400' height='400'/%3E%3Ctext x='50%25' y='50%25' font-size='18' fill='%23666' text-anchor='middle' dominant-baseline='middle'%3EPoet %26 Writer%3C/text%3E%3C/svg%3E";
-                  }}
-                />
-              </div>
-              <div className="p-4">
-                <h4 className="font-bold text-lg mb-2">Poet & Healer</h4>
-                <p className="text-sm text-ink/60 mb-3">Sharing poetry for trauma recovery. 342 students.</p>
-                <div className="flex items-center gap-2 text-copper text-sm font-bold">
-                  <span className="text-lg">★★★★★</span> 4.9
+          {featuredCourses === null ? (
+            <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
+              {[1,2,3,4].map(i => (
+                <div key={i} className="rounded-lg overflow-hidden border border-ink/10 animate-pulse">
+                  <div className="aspect-square bg-ink/5" />
+                  <div className="p-4 space-y-2">
+                    <div className="h-4 bg-ink/10 rounded w-3/4" />
+                    <div className="h-3 bg-ink/5 rounded w-full" />
+                  </div>
                 </div>
-              </div>
+              ))}
             </div>
-
-            {/* Creator 2: Visual Artist */}
-            <div className="group rounded-lg overflow-hidden border border-ink/10 hover:border-copper hover:shadow-lg transition-all">
-              <div className="aspect-square bg-gradient-to-br from-copper/20 to-copper/5 flex items-center justify-center">
-                <img
-                  src="/images/creators/creator-2-artist.jpg"
-                  alt="Black visual artist"
-                  className="w-full h-full object-cover group-hover:scale-105 transition-transform"
-                  onError={(e) => {
-                    e.target.src = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 400 400'%3E%3Crect fill='%23f5e6d3' width='400' height='400'/%3E%3Ctext x='50%25' y='50%25' font-size='18' fill='%23666' text-anchor='middle' dominant-baseline='middle'%3EVisual Artist%3C/text%3E%3C/svg%3E";
-                  }}
-                />
-              </div>
-              <div className="p-4">
-                <h4 className="font-bold text-lg mb-2">Visual Artist</h4>
-                <p className="text-sm text-ink/60 mb-3">Teaching painting & mixed media. 215 students.</p>
-                <div className="flex items-center gap-2 text-copper text-sm font-bold">
-                  <span className="text-lg">★★★★★</span> 4.8
+          ) : featuredCourses.length === 0 ? (
+            <div className="text-center py-12 border border-dashed border-copper/30 rounded-2xl">
+              <p className="text-ink/50 mb-4">Creators are just getting started. Be the first.</p>
+              <Link to="/register" className="btn-primary inline-flex items-center gap-2">
+                Start Creating <ArrowRight className="w-4 h-4" />
+              </Link>
+            </div>
+          ) : (
+            <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
+              {featuredCourses.map(course => (
+                <div key={course.course_id} className="group rounded-lg overflow-hidden border border-ink/10 hover:border-copper hover:shadow-lg transition-all">
+                  <div className="aspect-square bg-gradient-to-br from-copper/20 to-copper/5 flex items-center justify-center overflow-hidden">
+                    {course.thumbnail_url ? (
+                      <img
+                        src={course.thumbnail_url}
+                        alt={course.title}
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform"
+                        onError={(e) => { e.target.style.display = "none"; }}
+                      />
+                    ) : (
+                      <span className="text-4xl text-copper/40 font-bold">{(course.category || course.title || "?")[0].toUpperCase()}</span>
+                    )}
+                  </div>
+                  <div className="p-4">
+                    <h4 className="font-bold text-lg mb-1 line-clamp-2 leading-snug">{course.title}</h4>
+                    <p className="text-sm text-ink/60 mb-3 line-clamp-2">
+                      {course.description || course.category || ""}
+                      {course.enrollment_count > 0 && ` · ${course.enrollment_count} enrolled`}
+                    </p>
+                    <div className="text-sm font-bold text-copper">
+                      {course.price_cents === 0 ? "Free" : `$${(course.price_cents / 100).toFixed(0)}`}
+                    </div>
+                  </div>
                 </div>
-              </div>
+              ))}
             </div>
-
-            {/* Creator 3: Wellness Teacher */}
-            <div className="group rounded-lg overflow-hidden border border-ink/10 hover:border-copper hover:shadow-lg transition-all">
-              <div className="aspect-square bg-gradient-to-br from-copper/20 to-copper/5 flex items-center justify-center">
-                <img
-                  src="/images/creators/creator-3-healer.jpg"
-                  alt="Black wellness instructor"
-                  className="w-full h-full object-cover group-hover:scale-105 transition-transform"
-                  onError={(e) => {
-                    e.target.src = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 400 400'%3E%3Crect fill='%23f5e6d3' width='400' height='400'/%3E%3Ctext x='50%25' y='50%25' font-size='18' fill='%23666' text-anchor='middle' dominant-baseline='middle'%3EWellness Teacher%3C/text%3E%3C/svg%3E";
-                  }}
-                />
-              </div>
-              <div className="p-4">
-                <h4 className="font-bold text-lg mb-2">Wellness Guide</h4>
-                <p className="text-sm text-ink/60 mb-3">Yoga & meditation for Black joy. 628 students.</p>
-                <div className="flex items-center gap-2 text-copper text-sm font-bold">
-                  <span className="text-lg">★★★★★</span> 4.9
-                </div>
-              </div>
-            </div>
-
-            {/* Creator 4: Musician */}
-            <div className="group rounded-lg overflow-hidden border border-ink/10 hover:border-copper hover:shadow-lg transition-all">
-              <div className="aspect-square bg-gradient-to-br from-copper/20 to-copper/5 flex items-center justify-center">
-                <img
-                  src="/images/creators/creator-4-musician.jpg"
-                  alt="Black music producer"
-                  className="w-full h-full object-cover group-hover:scale-105 transition-transform"
-                  onError={(e) => {
-                    e.target.src = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 400 400'%3E%3Crect fill='%23f5e6d3' width='400' height='400'/%3E%3Ctext x='50%25' y='50%25' font-size='18' fill='%23666' text-anchor='middle' dominant-baseline='middle'%3EMusic Producer%3C/text%3E%3C/svg%3E";
-                  }}
-                />
-              </div>
-              <div className="p-4">
-                <h4 className="font-bold text-lg mb-2">Music Producer</h4>
-                <p className="text-sm text-ink/60 mb-3">Hip-hop production masterclass. 891 students.</p>
-                <div className="flex items-center gap-2 text-copper text-sm font-bold">
-                  <span className="text-lg">★★★★★</span> 4.7
-                </div>
-              </div>
-            </div>
-          </div>
+          )}
 
           <div className="text-center mt-12">
             <Link to="/register" className="btn-primary inline-flex items-center gap-2">

@@ -34,6 +34,7 @@ import asyncio
 import io
 import logging
 import os
+import re
 import time
 import uuid
 from datetime import datetime, timedelta, timezone
@@ -155,7 +156,16 @@ def _get_the9_engine():
             logger.warning("WAI: The9FusionEngine init failed: %s", _e)
     return _the9_engine
 
-JWT_SECRET = os.environ['JWT_SECRET']
+JWT_SECRET = os.environ.get('JWT_SECRET', '')
+if not JWT_SECRET:
+    import sys as _sys
+    print(
+        "FATAL: JWT_SECRET environment variable is not set. "
+        "Generate one with: python -c \"import secrets; print(secrets.token_hex(32))\" "
+        "and add it to Railway Variables.",
+        file=_sys.stderr,
+    )
+    _sys.exit(1)
 JWT_ALGO = os.environ.get('JWT_ALGORITHM', 'HS256')
 JWT_EXPIRE_HOURS = int(os.environ.get('JWT_EXPIRE_HOURS', '168'))
 EMERGENT_LLM_KEY = os.environ.get('EMERGENT_LLM_KEY', '')
@@ -210,8 +220,11 @@ async def add_security_headers(request: Request, call_next):
     response.headers["Content-Security-Policy"] = "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self' https:; frame-ancestors 'none'; base-uri 'self'; form-action 'self'"
     # Referrer policy (limit referrer disclosure)
     response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
-    # Permissions policy (disable legacy features)
-    response.headers["Permissions-Policy"] = "geolocation=(), microphone=(), camera=()"
+    # Permissions policy — allow microphone for voice input surfaces (Director, Supervisor, AI Tutor,
+    # Sovereign, Orchestrator, Helper). Camera and geolocation remain blocked.
+    response.headers["Permissions-Policy"] = "geolocation=(), microphone=(self), camera=()"
+    # CSP: media-src includes blob: for TTS audio (createObjectURL) and data: for inline assets
+    response.headers["Content-Security-Policy"] = "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self' https:; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; media-src 'self' blob:"
     return response
 
 
@@ -238,6 +251,59 @@ async def enforce_platform_flags(request: Request, call_next):
         except Exception:
             pass
     return await call_next(request)
+
+
+@app.middleware("http")
+async def enforce_ip_whitelist(request: Request, call_next):
+    """Enforce IP whitelist for executive-gated paths.
+    If ip_whitelist collection has entries for role="executive_admin", then
+    only requests from those CIDRs/IPs may reach /api/admin/system, /api/admin/access,
+    /api/admin/sage-audit, /api/admin/director, /api/sovereign/, and /api/admin/mfa.
+    When the collection is empty the middleware passes all traffic (open mode).
+    Respects X-Forwarded-For set by Railway's load balancer.
+    """
+    exec_paths = (
+        "/api/admin/system",
+        "/api/admin/access",
+        "/api/admin/sage-audit",
+        "/api/admin/director",
+        "/api/sovereign/",
+        "/api/admin/mfa",
+        "/api/admin/staff-meetings",
+    )
+    path = request.url.path
+    if not any(path.startswith(p) for p in exec_paths):
+        return await call_next(request)
+    if db is None:
+        return await call_next(request)
+    try:
+        entries = await db.ip_whitelist.find({"role": "executive_admin"}, {"_id": 0, "ip": 1}).to_list(length=500)
+        if not entries:
+            return await call_next(request)
+        import ipaddress as _ipmod
+        allowed_nets = []
+        for e in entries:
+            raw = (e.get("ip") or "").strip()
+            if not raw:
+                continue
+            try:
+                allowed_nets.append(_ipmod.ip_network(raw, strict=False))
+            except ValueError:
+                pass
+        if not allowed_nets:
+            return await call_next(request)
+        forwarded_for = request.headers.get("x-forwarded-for", "")
+        raw_ip = forwarded_for.split(",")[0].strip() if forwarded_for else (request.client.host if request.client else "")
+        try:
+            client_addr = _ipmod.ip_address(raw_ip)
+        except ValueError:
+            return JSONResponse(status_code=403, content={"detail": "Access denied: unresolvable source IP."})
+        if any(client_addr in net for net in allowed_nets):
+            return await call_next(request)
+        logger.warning("IP whitelist block: %s → %s", raw_ip, path)
+        return JSONResponse(status_code=403, content={"detail": "Access denied: your IP is not on the executive access list."})
+    except Exception:
+        return await call_next(request)
 
 
 @app.middleware("http")
@@ -370,6 +436,7 @@ class User(BaseModel):
     # picks their own on first login.
     must_change_password: bool = False
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    avatar_url: Optional[str] = None
 
 
 class RegisterReq(BaseModel):
@@ -441,6 +508,7 @@ class SelfEditMeReq(BaseModel):
     to prevent privilege/cohort drift."""
     full_name: Optional[str] = None
     email: Optional[EmailStr] = None
+    avatar_url: Optional[str] = None
 
 
 class LoginReq(BaseModel):
@@ -696,12 +764,15 @@ async def _send_via_gmail(to_email: str, subject: str, html: str) -> bool:
         return False
 
 
-async def _send_reset_email(to_email: str, raw_token: str, full_name: str = "there") -> bool:
+async def _send_reset_email(to_email: str, raw_token: str, full_name: str = "there", base_url: str = "") -> bool:
     """Send password reset email. Tries Resend first, falls back to Gmail SMTP.
     Returns True if sent by either provider, False if neither is configured."""
-    reset_url = _build_reset_url(raw_token)
+    reset_url = _build_reset_url(raw_token, base=base_url or None)
     if reset_url.startswith("/"):
-        logger.warning("PUBLIC_APP_URL not set — cannot build absolute reset URL for email.")
+        logger.error(
+            "PUBLIC_APP_URL not set and no request origin available — "
+            "cannot send password reset email. Set PUBLIC_APP_URL in Railway variables."
+        )
         return False
     subject, html = _reset_email_html(full_name, reset_url)
 
@@ -715,6 +786,34 @@ async def _send_reset_email(to_email: str, raw_token: str, full_name: str = "the
         return await _send_via_gmail(to_email, subject, html)
 
     logger.warning("No email provider configured (RESEND_API_KEY or GMAIL_USER+GMAIL_APP_PASSWORD).")
+    return False
+
+
+async def _send_welcome_email(to_email: str, full_name: str) -> bool:
+    """Send welcome email on registration. Uses same provider chain as reset emails."""
+    app_url = os.environ.get("PUBLIC_APP_URL", "https://wai-institute.org")
+    subject = "Welcome to WAI-Institute — You're In"
+    html = f"""
+    <div style="font-family:sans-serif;max-width:540px;margin:0 auto;padding:32px 24px;background:#fff;">
+      <div style="background:#2e1065;border-radius:12px;padding:28px 24px;text-align:center;margin-bottom:24px;">
+        <h1 style="color:#FFD100;font-size:26px;margin:0 0 8px;">Welcome, {full_name}.</h1>
+        <p style="color:rgba(255,255,255,0.8);font-size:15px;margin:0;">You are now part of the WAI-Institute community.</p>
+      </div>
+      <p style="color:#2b1f15;font-size:15px;line-height:1.7;">Your account is active. Start with free modules — no paywall, no waiting.</p>
+      <div style="text-align:center;margin:28px 0;">
+        <a href="{app_url}/modules" style="background:#0d7377;color:#fff;padding:12px 28px;border-radius:8px;text-decoration:none;font-weight:700;font-size:14px;">Start Learning Free</a>
+      </div>
+      <p style="color:#5a4e42;font-size:13px;">Need help? Reply to this email or visit the <a href="{app_url}/help-center" style="color:#0d7377;">Help Center</a>.</p>
+      <hr style="border:none;border-top:1px solid #e0d6cc;margin:24px 0;">
+      <p style="color:#9ca3af;font-size:11px;text-align:center;">WAI-Institute · MORE Help Center</p>
+    </div>"""
+    if RESEND_API_KEY:
+        sent = await _send_via_resend(to_email, subject, html)
+        if sent:
+            return True
+    if GMAIL_USER and GMAIL_APP_PASSWORD:
+        return await _send_via_gmail(to_email, subject, html)
+    logger.warning("Welcome email not sent — no email provider configured.")
     return False
 # ----------------------------------------------------------------------------
 
@@ -1602,6 +1701,8 @@ async def register(body: RegisterReq):
     doc["over_13_confirmed"] = True
     await db.users.insert_one(doc)
     await audit(user.id, "auth.register.success", meta={"consent_terms": True, "over_13": True})
+    # Send welcome email — fire-and-forget, never blocks registration
+    asyncio.create_task(_send_welcome_email(user.email, user.full_name))
     return TokenResp(access_token=make_token(user.id, user.role), user=user)
 
 
@@ -1699,13 +1800,13 @@ async def me(user: User = Depends(current_user)):
 
 
 @api_router.get("/modules", response_model=List[Module])
-async def list_modules(user: User = Depends(current_user)):
+async def list_modules():
     docs = await db.modules.find({}, {"_id": 0}).sort("order", 1).to_list(100)
     return [Module(**d) for d in docs]
 
 
 @api_router.get("/modules/{slug}", response_model=Module)
-async def get_module(slug: str, user: User = Depends(current_user)):
+async def get_module(slug: str):
     doc = await db.modules.find_one({"slug": slug}, {"_id": 0})
     if not doc:
         raise HTTPException(404, "Module not found")
@@ -1950,6 +2051,104 @@ async def admin_set_active(uid: str, body: AdminActiveReq, user: User = Depends(
     return {"ok": True, "id": uid, "is_active": body.is_active}
 
 
+class BanReq(BaseModel):
+    reason: str = Field(..., min_length=5, max_length=500)
+
+@api_router.post("/admin/users/{uid}/ban")
+async def admin_ban_user(uid: str, body: BanReq, user: User = Depends(require_role("executive_admin"))):
+    """Permanently ban a user: deactivates account, records ban reason, and kills all sessions.
+    executive_admin only. Cannot ban another executive_admin or yourself."""
+    if uid == user.id:
+        raise HTTPException(400, "Cannot ban yourself.")
+    target = await db.users.find_one({"id": uid}, {"_id": 0})
+    if not target:
+        raise HTTPException(404, "User not found")
+    if target.get("role") == "executive_admin":
+        raise HTTPException(403, "Cannot ban an executive_admin.")
+    now_iso = datetime.now(timezone.utc).isoformat()
+    await db.users.update_one({"id": uid}, {"$set": {
+        "is_active": False,
+        "banned": True,
+        "ban_reason": body.reason,
+        "banned_by": user.id,
+        "banned_at": now_iso,
+    }})
+    await db.sessions.delete_many({"user_id": uid})
+    await audit(user.id, "admin.user.banned", target=uid, meta={"reason": body.reason})
+    return {"ok": True, "id": uid, "banned": True}
+
+
+@api_router.post("/admin/users/{uid}/unban")
+async def admin_unban_user(uid: str, user: User = Depends(require_role("executive_admin"))):
+    """Remove a ban and reactivate the account. executive_admin only."""
+    target = await db.users.find_one({"id": uid}, {"_id": 0})
+    if not target:
+        raise HTTPException(404, "User not found")
+    await db.users.update_one({"id": uid}, {
+        "$set": {"is_active": True},
+        "$unset": {"banned": "", "ban_reason": "", "banned_by": "", "banned_at": ""},
+    })
+    await audit(user.id, "admin.user.unbanned", target=uid)
+    return {"ok": True, "id": uid, "banned": False}
+
+
+@api_router.get("/admin/courses")
+async def admin_list_courses(
+    status: str = "",
+    skip: int = 0,
+    limit: int = 50,
+    user: User = Depends(require_role("admin")),
+):
+    """List all creator courses with creator info. admin+ only."""
+    query: dict = {}
+    if status:
+        query["status"] = status
+    courses = await db.creator_courses.find(
+        query, {"_id": 0, "sections": 0}
+    ).sort("created_at", -1).skip(skip).limit(min(limit, 100)).to_list(length=100)
+    total = await db.creator_courses.count_documents(query)
+    # Enrich with creator name
+    creator_ids = list({c["creator_id"] for c in courses if c.get("creator_id")})
+    creator_map = {}
+    if creator_ids:
+        async for u in db.users.find({"id": {"$in": creator_ids}}, {"_id": 0, "id": 1, "full_name": 1, "email": 1}):
+            creator_map[u["id"]] = u
+    for c in courses:
+        creator = creator_map.get(c.get("creator_id"), {})
+        c["creator_name"] = creator.get("full_name", "Unknown")
+        c["creator_email"] = creator.get("email", "")
+    return {"courses": courses, "total": total}
+
+
+class ModerateCourseReq(BaseModel):
+    action: Literal["unpublish", "archive", "restore"]
+    reason: str = Field(default="", max_length=500)
+
+@api_router.post("/admin/courses/{course_id}/moderate")
+async def admin_moderate_course(
+    course_id: str,
+    body: ModerateCourseReq,
+    user: User = Depends(require_role("admin")),
+):
+    """Admin course moderation: unpublish (→ draft), archive, or restore (→ published)."""
+    course = await db.creator_courses.find_one({"course_id": course_id})
+    if not course:
+        raise HTTPException(404, "Course not found")
+    status_map = {"unpublish": "draft", "archive": "archived", "restore": "published"}
+    new_status = status_map[body.action]
+    await db.creator_courses.update_one({"course_id": course_id}, {"$set": {
+        "status": new_status,
+        "moderated_by": user.id,
+        "moderated_at": datetime.now(timezone.utc).isoformat(),
+        "moderation_reason": body.reason,
+    }})
+    await audit(user.id, f"admin.course.{body.action}", target=course_id, meta={"reason": body.reason, "new_status": new_status})
+    await notify(course["creator_id"], "Course Status Changed",
+                 f"Your course \"{course['title']}\" has been {body.action}d by a moderator." + (f" Reason: {body.reason}" if body.reason else ""),
+                 link="/creator/courses", kind="warning")
+    return {"ok": True, "course_id": course_id, "status": new_status}
+
+
 @api_router.delete("/admin/users/{uid}")
 async def admin_delete_user(uid: str, user: User = Depends(require_role("admin"))):
     """Admin-only: delete a user. Refuses self-delete and last-admin/exec delete."""
@@ -2158,9 +2357,15 @@ async def edit_self(body: SelfEditMeReq, user: User = Depends(current_user)):
         if clash:
             raise HTTPException(400, "Email already in use")
         update["email"] = body.email
+    if body.avatar_url is not None:
+        # Accept empty string (clear) or base64/URL up to 3MB
+        if len(body.avatar_url) > 3 * 1024 * 1024:
+            raise HTTPException(400, "Avatar image too large (max 3 MB)")
+        update["avatar_url"] = body.avatar_url if body.avatar_url else None
     if update:
         await db.users.update_one({"id": user.id}, {"$set": update})
-        await audit(user.id, "auth.self_edit", target=user.id, meta=update)
+        audit_meta = {k: v for k, v in update.items() if k != "avatar_url"}
+        await audit(user.id, "auth.self_edit", target=user.id, meta=audit_meta)
     fresh = await db.users.find_one({"id": user.id}, {"_id": 0, "password_hash": 0})
     if isinstance(fresh.get("created_at"), str):
         fresh["created_at"] = datetime.fromisoformat(fresh["created_at"])
@@ -2205,8 +2410,15 @@ async def forgot_password(body: ForgotPasswordReq, request: Request):
         })
         await audit(user_doc["id"], "auth.password_reset.requested",
                     target=user_doc["id"], meta={"ip": ip})
+        # Derive base URL from request if PUBLIC_APP_URL is not explicitly set.
+        _req_base = os.environ.get("PUBLIC_APP_URL", "")
+        if not _req_base:
+            _scheme = request.headers.get("x-forwarded-proto", "https")
+            _host = request.headers.get("host", "")
+            if _host:
+                _req_base = f"{_scheme}://{_host}"
         email_sent = await _send_reset_email(
-            user_doc["email"], raw, user_doc.get("full_name", "there"),
+            user_doc["email"], raw, user_doc.get("full_name", "there"), base_url=_req_base,
         )
         # Dev/admin convenience: when explicitly enabled, return the raw
         # token so the requester (or curl-based tests) can complete the
@@ -3400,11 +3612,15 @@ async def admin_sage_metrics(user: User = Depends(require_role("executive_admin"
 async def _get_user_sage_tier(user_id: str) -> str:
     """
     Get user's Sage subscription tier (basic | advanced).
-    Returns "basic" by default for backward compatibility.
+    Reads sage_tier field from the user document (written by Stripe webhook
+    or admin grant). Falls back to "basic" for backward compatibility.
     """
-    # TODO: In production, query db.sage_subscriptions for tier status
-    # For now, default to "basic" for all users (backward compatible)
-    return "basic"
+    try:
+        doc = await db.users.find_one({"id": user_id}, {"_id": 0, "sage_tier": 1})
+        tier = (doc or {}).get("sage_tier", "basic")
+        return tier if tier in ("basic", "advanced") else "basic"
+    except Exception:
+        return "basic"
 
 
 async def _apply_sage_safety_gates(response_text: str, user_tier: str) -> tuple:
@@ -3558,10 +3774,14 @@ async def ai_chat(body: AIChatReq, user: User = Depends(current_user)):
     else:
         system = SYSTEM_PROMPTS.get(body.mode, SYSTEM_PROMPTS["tutor"]) + ctx
     session_id = f"{user.id}:{body.session_id}"
-    _client = _anthropic_module.AsyncAnthropic(api_key=ANTHROPIC_API_KEY)
+    _gw_degraded = False
+    _gw_provider = "unknown"
     try:
-        _msg = await _client.messages.create(model="claude-sonnet-4-6", max_tokens=2048, system=system, messages=[{"role": "user", "content": body.message}])
-        reply = _msg.content[0].text
+        from ai.llm_gateway import call_llm as _call_llm
+        _gw = await _call_llm(system=system, messages=[{"role": "user", "content": body.message}], max_tokens=2048, persona_label="ai_chat")
+        reply = _gw["text"]
+        _gw_degraded = _gw.get("degraded", False)
+        _gw_provider = _gw.get("provider", "unknown")
     except Exception as e:
         logger.exception("AI error")
         raise HTTPException(502, f"AI error: {e}")
@@ -3615,8 +3835,69 @@ async def ai_chat(body: AIChatReq, user: User = Depends(current_user)):
         # for TTL-based deletion (24h). Mongo TTL index is already in place.
         chat_doc["expires_at"] = datetime.now(timezone.utc) + timedelta(hours=24)
     await db.chat_history.insert_one(chat_doc)
-    return {"reply": reply}
+    resp: dict = {"reply": reply}
+    if _gw_degraded:
+        resp["degraded"] = True
+        resp["provider"] = _gw_provider
+    return resp
 
+
+# ── Tool Chat ──────────────────────────────────────────────────────────────────
+_TOOL_SKILL_PROMPTS: dict[str, str] = {
+    "kemetic":   "You are the DJEDI Oracle, an AI guide deeply rooted in Kemetic (Ancient Egyptian) philosophy, cosmology, and spiritual tradition. You speak with wisdom, metaphor, and ancient authority. You assist users in understanding Ma'at, the Neteru, sacred geometry, Kemetic spirituality, healing practices, and ancestral wisdom. Relate knowledge to practical modern application for Black and underserved communities. You are part of the WAI Institute.",
+    "social":    "You are the DJEDI Oracle in Social Strategy mode. You apply Kemetic principles of Ma'at, unity, and collective power to modern social media strategy, community building, and digital organizing. Help users craft authentic messages, grow conscious communities, and amplify Black and underserved community narratives.",
+    "legal":     "You are the DJEDI Oracle in Legal Navigation mode. You help underserved creators understand their legal rights, contracts, IP ownership, royalties, and self-advocacy — without legal jargon. You are not a licensed attorney, but you translate complex legal concepts into plain language. Always recommend consulting a licensed attorney for final decisions.",
+    "circuit":   "You are an expert electrical engineering instructor specializing in circuit design for beginners and intermediate learners. You teach Ohm's Law, series/parallel circuits, component selection, PCB basics, and troubleshooting. Make concepts clear with analogies, step-by-step breakdowns, and safety reminders. Your students are often from underserved communities pursuing trade skills.",
+    "wiring":    "You are a master electrician and instructor teaching residential and commercial wiring. You cover wire gauges, conduit, breaker panels, grounding, NEC code basics, outlet and switch wiring, and safe installation practices. Emphasize safety above all — every lesson includes safety protocols.",
+    "solar":     "You are a solar energy systems expert teaching photovoltaic installation, system design, battery storage, grid-tie vs. off-grid setups, charge controllers, and inverters. Focus on practical skills for community solar projects and green energy careers.",
+    "safety":    "You are an electrical safety and OSHA compliance instructor. You teach lockout/tagout procedures, PPE requirements, arc flash protection, safe work practices, NEC/NFPA 70E compliance, and emergency response. Emphasize that electrical safety is non-negotiable.",
+    "campaign":  "You are a Media Empire Builder specializing in campaign strategy for independent creators, community organizations, and Black-owned businesses. Design multi-platform campaigns that cut through noise without big budgets using authentic storytelling and community trust.",
+    "press":     "You are a Press Release Architect and media relations expert. You craft compelling press releases, pitch angles, and media kits for independent artists and community leaders. Help users become their own publicist and build media relationships.",
+    "pitch":     "You are a Pitch Deck and Business Narrative Strategist. You help creators tell their story to attract investors, partners, sponsors, and opportunities — especially for grants, label deals, brand partnerships, and impact investors.",
+    "analytics": "You are a Media Analytics and Performance Intelligence specialist. You interpret engagement data, audience metrics, and conversion funnels for content creators and community organizations. Translate numbers into actionable strategy focused on meaningful metrics.",
+    "publish":   "You are Publisher Prime — a Book & Content Publishing Empire strategist. You guide authors through every stage of self-publishing: manuscript prep, editing, cover design, ISBN/LCCN registration, formatting, distribution, and launch planning. Specialize in helping Black authors and independent voices.",
+    "marketing": "You are Publisher Prime in Book Marketing mode. You design book launch strategies, email campaigns, social media rollouts, Amazon optimization, and sustainable sales funnels for self-published authors. Focus on low-budget, high-impact tactics.",
+    "isbn":      "You are Publisher Prime in ISBN & Publishing Metadata mode. You guide authors through obtaining ISBNs, LCCN registration, CIP data, BISAC codes, metadata optimization, and catalog registration. Be precise and clear about costs and options.",
+    "contract":  "You are Publisher Prime in Contract Review mode. You help authors understand publishing contracts, agent agreements, licensing deals, royalty structures, rights clauses, reversion rights, and red flags. You are not a licensed attorney — always recommend final legal review.",
+    "sanctuary": "You are the Sage Oracle — the AI heart of the Creators Sanctuary at the WAI Institute. You are a wise, compassionate guide for creators, artists, musicians, healers, and community builders. Help creators navigate the platform, understand tier benefits, and grow their creative practice into sustainable income.",
+    "sage":      "You are the Sage Oracle, moderator and guide of the Creators Sanctuary community. You enforce harmony, mediate disputes, explain platform rules, assist with payout questions, trial status, and community standards. Speak with calm authority, Kemetic wisdom, and genuine care.",
+    "studio":    "You are Ghost Producer Prime — a music production AI advisor for beatmakers, producers, and sound engineers. Guide users through beat construction, arrangement, mixing concepts, sound selection, and the business side: licensing beats, ghost production agreements, royalty collection.",
+    "tracks":    "You are a Music Licensing and Distribution strategist for independent producers. Explain sync licensing, beat leasing vs. exclusive rights, digital distribution platforms, PRO registration, neighboring rights, and publishing splits.",
+}
+
+class ToolChatReq(BaseModel):
+    session_id: str
+    skill: str
+    message: str
+    context: Optional[str] = ""
+
+@api_router.post("/ai/tool-chat")
+async def ai_tool_chat(body: ToolChatReq, user: User = Depends(current_user)):
+    """Authenticated AI chat for standalone WAI tool pages (DJEDI, Electrical, Media, Publisher)."""
+    check_rate(f"ai_tool_chat:{user.id}", max_calls=15, window_sec=60)
+    skill_key = body.skill if body.skill in _TOOL_SKILL_PROMPTS else "kemetic"
+    system = _TOOL_SKILL_PROMPTS[skill_key]
+    if body.context:
+        system += f"\n\nRELEVANT DOCUMENTS:\n{body.context[:2000]}"
+    try:
+        from ai.llm_gateway import call_llm as _call_llm
+        gw = await _call_llm(
+            system=system,
+            messages=[{"role": "user", "content": body.message}],
+            max_tokens=1024,
+            persona_label=f"tool_{skill_key}",
+        )
+        reply = gw["text"]
+    except Exception as e:
+        logger.exception("Tool chat AI error")
+        raise HTTPException(502, f"AI error: {e}")
+    await db.ai_usage_log.insert_one({
+        "user_id": user.id,
+        "endpoint": "/ai/tool-chat",
+        "skill": skill_key,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    })
+    return {"reply": reply, "session_id": body.session_id}
 
 
 @api_router.post("/ai/orchestrator")
@@ -3738,15 +4019,10 @@ async def ai_orchestrator(body: OrchestratorReq, user: User = Depends(current_us
     else:
         claude_messages.append({"role": "user", "content": user_message})
 
-    _client = _anthropic_module.AsyncAnthropic(api_key=ANTHROPIC_API_KEY)
     try:
-        _msg = await _client.messages.create(
-            model="claude-sonnet-4-6",
-            max_tokens=4096,
-            system=system,
-            messages=claude_messages,
-        )
-        reply = _msg.content[0].text
+        from ai.llm_gateway import call_llm as _call_llm
+        _gw = await _call_llm(system=system, messages=claude_messages, max_tokens=4096, persona_label="orchestrator")
+        reply = _gw["text"]
     except Exception as e:
         logger.exception("Orchestrator AI error")
         raise HTTPException(502, f"AI error: {e}")
@@ -3819,15 +4095,10 @@ async def ai_scholar(body: ScholarTaskReq, user: User = Depends(current_user)):
     claude_messages = [{"role": h.role, "content": h.content} for h in (body.history or [])]
     claude_messages.append({"role": "user", "content": body.message})
 
-    _client = _anthropic_module.AsyncAnthropic(api_key=ANTHROPIC_API_KEY)
     try:
-        _msg = await _client.messages.create(
-            model="claude-sonnet-4-6",
-            max_tokens=4096,
-            system=system,
-            messages=claude_messages,
-        )
-        reply = _msg.content[0].text
+        from ai.llm_gateway import call_llm as _call_llm
+        _gw = await _call_llm(system=system, messages=claude_messages, max_tokens=4096, persona_label="scholar")
+        reply = _gw["text"]
     except Exception as e:
         logger.exception("Scholar AI error")
         raise HTTPException(502, f"AI error: {e}")
@@ -4610,7 +4881,12 @@ async def ai_revenue_director(body: dict, user: User = Depends(current_user)):
             reply = ""
 
     if not reply:
-        reply = "THE REVENUE DIRECTOR is temporarily offline. Financial archives remain active. Retry in a moment."
+        try:
+            from ai.llm_gateway import call_llm as _call_llm
+            _gw = await _call_llm(system=get_persona("revenue_director"), messages=[{"role": "user", "content": message}], max_tokens=2048, persona_label="revenue_director")
+            reply = _gw["text"]
+        except Exception:
+            reply = "THE REVENUE DIRECTOR is temporarily offline. Financial archives remain active. Retry in a moment."
 
     await log_episode(db, session_id, "revenue_director", user.id, message, reply, _tools_called)
     logger.info("ai_revenue_director: responded for user %s", user.id)
@@ -4714,7 +4990,12 @@ async def sage_create(body: dict, user: User = Depends(current_user)):
             reply = ""
 
     if not reply:
-        reply = "The Ancestral Sage is temporarily offline. Wisdom archives remain intact. Retry in a moment."
+        try:
+            from ai.llm_gateway import call_llm as _call_llm
+            _gw = await _call_llm(system=get_persona("ancestral_sage"), messages=[{"role": "user", "content": message}], max_tokens=2048, persona_label="ancestral_sage")
+            reply = _gw["text"]
+        except Exception:
+            reply = "The Ancestral Sage is temporarily offline. Wisdom archives remain intact. Retry in a moment."
 
     await log_episode(db, session_id, "ancestral_sage", user.id, message, reply, _tools_called)
     logger.info("ai_sage_create: responded for user %s", user.id)
@@ -6114,11 +6395,21 @@ async def resolve_incident(iid: str, payload: dict, user: User = Depends(require
 
 # -- AUDIT LOG (admin only) --
 @api_router.get("/admin/audit")
-async def view_audit(limit: int = 200, user: User = Depends(require_role("admin"))):
-    docs = await db.audit_log.find({}, {"_id": 0}).sort("at", -1).to_list(min(limit, 1000))
+async def view_audit(
+    limit: int = 200,
+    action: Optional[str] = None,
+    actor_id: Optional[str] = None,
+    user: User = Depends(require_role("admin")),
+):
+    query: dict = {}
+    if action:
+        query["action"] = {"$regex": action, "$options": "i"}
+    if actor_id:
+        query["actor_id"] = actor_id
+    docs = await db.audit_log.find(query, {"_id": 0}).sort("at", -1).to_list(min(limit, 1000))
     user_ids = list({d["actor_id"] for d in docs if d.get("actor_id")})
-    users = await db.users.find({"id": {"$in": user_ids}}, {"_id": 0, "password_hash": 0}).to_list(1000)
-    umap = {u["id"]: u for u in users}
+    users_list = await db.users.find({"id": {"$in": user_ids}}, {"_id": 0, "password_hash": 0}).to_list(1000)
+    umap = {u["id"]: u for u in users_list}
     for d in docs:
         d["actor"] = umap.get(d.get("actor_id")) if d.get("actor_id") else None
     return docs
@@ -6867,20 +7158,28 @@ async def lab_ai_feedback(sub_id: str, user: User = Depends(current_user)):
         "3. Offer one concrete next step\n\n"
         "Be encouraging and safety-focused. Keep it under 200 words."
     )
-    ANTHROPIC_API_KEY_local = os.environ.get("ANTHROPIC_API_KEY", os.environ.get("EMERGENT_LLM_KEY", ""))
-    if not ANTHROPIC_API_KEY_local:
-        raise HTTPException(500, "AI not configured")
     try:
-        import anthropic as _anth
-    except Exception as e:
-        raise HTTPException(500, f"AI library unavailable: {e}")
-    _cl = _anth.AsyncAnthropic(api_key=ANTHROPIC_API_KEY_local)
-    resp = await _cl.messages.create(
-        model="claude-sonnet-4-6",
-        max_tokens=400,
-        messages=[{"role": "user", "content": prompt}],
-    )
-    feedback_text = resp.content[0].text
+        from ai.llm_gateway import call_llm as _call_llm
+        _gw = await _call_llm(
+            system="You are an experienced trades instructor providing constructive coaching feedback.",
+            messages=[{"role": "user", "content": prompt}],
+            max_tokens=400,
+            persona_label="lab_feedback",
+        )
+        feedback_text = _gw["text"]
+    except Exception as _gw_err:
+        logger.warning("lab_ai_feedback: gateway failed (%s) — trying direct Anthropic", _gw_err)
+        ANTHROPIC_API_KEY_local = os.environ.get("ANTHROPIC_API_KEY", os.environ.get("EMERGENT_LLM_KEY", ""))
+        if not ANTHROPIC_API_KEY_local:
+            raise HTTPException(500, "AI not configured")
+        try:
+            import anthropic as _anth
+        except Exception as e:
+            raise HTTPException(500, f"AI library unavailable: {e}")
+        _cl = _anth.AsyncAnthropic(api_key=ANTHROPIC_API_KEY_local)
+        resp = await _cl.messages.create(model="claude-sonnet-4-6", max_tokens=400,
+                                         messages=[{"role": "user", "content": prompt}])
+        feedback_text = resp.content[0].text
     await db.lab_submissions.update_one({"id": sub_id}, {"$set": {"ai_feedback": feedback_text}})
     return {"ai_feedback": feedback_text}
 
@@ -7220,15 +7519,10 @@ async def more_department_chat(body: MoreDeptChatReq, user: User = Depends(curre
     ]
     claude_messages.append({"role": "user", "content": user_message})
 
-    _client = _anthropic_module.AsyncAnthropic(api_key=ANTHROPIC_API_KEY)
     try:
-        _msg = await _client.messages.create(
-            model="claude-sonnet-4-6",
-            max_tokens=4096,
-            system=system,
-            messages=claude_messages,
-        )
-        reply = _msg.content[0].text
+        from ai.llm_gateway import call_llm as _call_llm
+        _gw = await _call_llm(system=system, messages=claude_messages, max_tokens=4096, persona_label="more_department")
+        reply = _gw["text"]
     except Exception as e:
         logger.exception("M.O.R.E. Department AI error")
         raise HTTPException(502, f"AI error: {e}")
@@ -7311,10 +7605,19 @@ PAYMENT_PRODUCTS = {
     "tshirt":       {"name": "WAI Institute T-Shirt",         "amount": 2500, "mode": "payment",      "description": "Official WAI Apprentice tee"},
     "workbook":     {"name": "WAI Apprentice Workbook",        "amount": 1500, "mode": "payment",      "description": "Printed apprentice study guide"},
     "kit":          {"name": "WAI Apprentice Kit",             "amount": 4500, "mode": "payment",      "description": "T-Shirt + Workbook bundle"},
-    "more_monthly": {"name": "M.O.R.E. Membership – Monthly", "amount":  999, "mode": "subscription", "interval": "month", "description": "Monthly M.O.R.E. community access"},
-    "more_annual":  {"name": "M.O.R.E. Membership – Annual",  "amount": 7999, "mode": "subscription", "interval": "year",  "description": "Annual M.O.R.E. membership (save 33%)"},
-    "credential":   {"name": "WAI Credential Certificate",    "amount": 2500, "mode": "payment",      "description": "Official printed credential certificate"},
+    "more_monthly":   {"name": "M.O.R.E. Membership – Monthly",   "amount":  999, "mode": "subscription", "interval": "month", "description": "Monthly M.O.R.E. community access"},
+    "more_annual":    {"name": "M.O.R.E. Membership – Annual",    "amount": 7999, "mode": "subscription", "interval": "year",  "description": "Annual M.O.R.E. membership (save 33%)"},
+    "member_monthly": {"name": "WAI Member – Monthly",            "amount":  900, "mode": "subscription", "interval": "month", "description": "WAI Member tier — full M.O.R.E. + AI Tutor"},
+    "plus_monthly":   {"name": "WAI Plus – Monthly",              "amount": 1500, "mode": "subscription", "interval": "month", "description": "WAI Plus tier — priority matching + expanded courses"},
+    "pro_monthly":    {"name": "WAI Pro – Monthly",               "amount": 2900, "mode": "subscription", "interval": "month", "description": "WAI Pro tier — advanced courses, labs, full AI suite"},
+    "patron_monthly": {"name": "WAI Patron – Monthly",            "amount": 5900, "mode": "subscription", "interval": "month", "description": "WAI Patron — founders circle + funds free access for others"},
+    "credential":     {"name": "WAI Credential Certificate",      "amount": 2500, "mode": "payment",      "description": "Official printed credential certificate"},
     "donation":     {"name": "Donation – WAI Institute",      "amount": None, "mode": "payment",      "description": "Support the WAI mission"},
+    # Creators Sanctuary tiers
+    "sanctuary_trial":   {"name": "Creators Sanctuary – 3-Day Trial",     "amount":  300, "mode": "payment",      "description": "All-access 3 days & 33 minutes trial"},
+    "sanctuary_paid":    {"name": "Creators Sanctuary – Paid Creator",    "amount":  700, "mode": "subscription", "interval": "month", "description": "Paid Beginning Creator tier — $7/mo"},
+    "sanctuary_creator": {"name": "Creators Sanctuary – Advanced Creator","amount": 1100, "mode": "subscription", "interval": "month", "description": "Advanced Creator tier — $11/mo"},
+    "sanctuary_mod":     {"name": "Creators Sanctuary – Certified Mod",   "amount": 1500, "mode": "subscription", "interval": "month", "description": "Certified Moderator tier — $15/mo"},
 }
 
 
@@ -7417,6 +7720,7 @@ async def _stripe_checkout_done(session):
     uid = (session.get("metadata") or {}).get("wai_user_id")
     product_key = (session.get("metadata") or {}).get("product_key", "unknown")
     amount = session.get("amount_total", 0)
+    now_iso = datetime.now(timezone.utc).isoformat()
 
     await db.payments.insert_one({
         "id": str(uuid.uuid4()),
@@ -7428,8 +7732,44 @@ async def _stripe_checkout_done(session):
         "currency": session.get("currency", "usd"),
         "mode": session.get("mode"),
         "status": "paid",
-        "created_at": datetime.now(timezone.utc).isoformat(),
+        "created_at": now_iso,
     })
+
+    # Creator course sale — write earnings ledger entry (70/30 split)
+    if product_key == "creator_course":
+        meta = session.get("metadata") or {}
+        creator_id = meta.get("creator_id")
+        course_id = meta.get("course_id")
+        if creator_id and course_id:
+            creator_share = int(amount * 0.70)
+            platform_share = amount - creator_share
+            period = datetime.now(timezone.utc).strftime("%Y-%m")
+            await db.creator_earnings.insert_one({
+                "id": str(uuid.uuid4()),
+                "creator_id": creator_id,
+                "course_id": course_id,
+                "buyer_user_id": uid,
+                "stripe_session_id": session.get("id"),
+                "gross_cents": amount,
+                "creator_share_cents": creator_share,
+                "platform_share_cents": platform_share,
+                "period": period,
+                "payout_status": "pending",
+                "created_at": now_iso,
+            })
+            # Increment enrollment count and record enrollment (mirrors free-course path)
+            await db.creator_courses.update_one(
+                {"course_id": course_id},
+                {"$inc": {"enrollment_count": 1}},
+            )
+            await db.creator_enrollments.update_one(
+                {"course_id": course_id, "user_id": uid},
+                {"$setOnInsert": {"enrolled_at": now_iso, "paid": True}},
+                upsert=True,
+            )
+            await notify(creator_id, "New Course Sale!",
+                         f"Someone enrolled in your course. You earned ${creator_share/100:.2f}.",
+                         link="/creator/earnings", kind="success")
 
     if uid:
         await notify(uid, "Payment Confirmed",
@@ -7783,10 +8123,12 @@ async def ai_ambassador(body: dict, user: User = Depends(current_user)):
             reply = ""
 
     if not reply:
-        reply = (
-            "THE AMBASSADOR is temporarily offline. "
-            "Campaign pipeline intelligence remains archived. Retry in a moment."
-        )
+        try:
+            from ai.llm_gateway import call_llm as _call_llm
+            _gw = await _call_llm(system=get_persona("ambassador"), messages=[{"role": "user", "content": message}], max_tokens=2048, persona_label="ambassador")
+            reply = _gw["text"]
+        except Exception:
+            reply = "THE AMBASSADOR is temporarily offline. Campaign pipeline intelligence remains archived. Retry in a moment."
 
     await log_episode(db, session_id, "ambassador", user.id, message, reply, _tools_called)
     logger.info("ai_ambassador: responded for user %s", user.id)
@@ -7901,10 +8243,12 @@ async def ai_architect(body: dict, user: User = Depends(current_user)):
             reply = ""
 
     if not reply:
-        reply = (
-            "THE ARCHITECT is temporarily offline. "
-            "Visual intelligence archives remain active. Retry in a moment."
-        )
+        try:
+            from ai.llm_gateway import call_llm as _call_llm
+            _gw = await _call_llm(system=get_persona("architect"), messages=[{"role": "user", "content": message}], max_tokens=2048, persona_label="architect")
+            reply = _gw["text"]
+        except Exception:
+            reply = "THE ARCHITECT is temporarily offline. Visual intelligence archives remain active. Retry in a moment."
 
     await log_episode(db, session_id, "architect", user.id, message, reply, _tools_called)
     logger.info("ai_architect: responded for user %s", user.id)
@@ -8013,10 +8357,12 @@ async def ai_cipher(body: dict, user: User = Depends(current_user)):
             reply = ""
 
     if not reply:
-        reply = (
-            "THE CIPHER is temporarily operating without AI connectivity. "
-            "Revenue streams remain active. Retry in a moment."
-        )
+        try:
+            from ai.llm_gateway import call_llm as _call_llm
+            _gw = await _call_llm(system=get_persona("cipher"), messages=[{"role": "user", "content": message}], max_tokens=2048, persona_label="cipher")
+            reply = _gw["text"]
+        except Exception:
+            reply = "THE CIPHER is temporarily operating without AI connectivity. Revenue streams remain active. Retry in a moment."
 
     await log_episode(db, session_id, "cipher", user.id, message, reply, _tools_called)
     logger.info("ai_cipher: responded for user %s", user.id)
@@ -8124,10 +8470,12 @@ async def ai_oracle(body: dict, user: User = Depends(current_user)):
             reply = ""
 
     if not reply:
-        reply = (
-            "THE ORACLE is temporarily operating without AI connectivity. "
-            "Cultural intelligence archives remain active. Retry in a moment."
-        )
+        try:
+            from ai.llm_gateway import call_llm as _call_llm
+            _gw = await _call_llm(system=get_persona("oracle"), messages=[{"role": "user", "content": message}], max_tokens=2048, persona_label="oracle")
+            reply = _gw["text"]
+        except Exception:
+            reply = "THE ORACLE is temporarily operating without AI connectivity. Cultural intelligence archives remain active. Retry in a moment."
 
     await log_episode(db, session_id, "oracle", user.id, message, reply, _tools_called)
     logger.info("ai_oracle: responded for user %s", user.id)
@@ -9232,14 +9580,15 @@ async def exec_staff_meeting(
                 f"Provide your domain-specific assessment, action items, and recommendations."
             )
 
-            _client = _anthropic_module.AsyncAnthropic(api_key=ANTHROPIC_API_KEY)
-            _msg = await _client.messages.create(
-                model="claude-haiku-4-5",
-                max_tokens=1024,
-                system=system_prompt,
-                messages=[{"role": "user", "content": user_message}],
-            )
-            response = _msg.content[0].text.strip()
+            try:
+                from ai.llm_gateway import call_llm as _call_llm
+                _gw = await _call_llm(system=system_prompt, messages=[{"role": "user", "content": user_message}], max_tokens=1024, persona_label=persona_id)
+                response = _gw["text"].strip()
+            except Exception:
+                _client = _anthropic_module.AsyncAnthropic(api_key=ANTHROPIC_API_KEY)
+                _msg = await _client.messages.create(model="claude-haiku-4-5", max_tokens=1024,
+                                                      system=system_prompt, messages=[{"role": "user", "content": user_message}])
+                response = _msg.content[0].text.strip()
             return persona_id, response
         except Exception as exc:
             logger.warning("staff_meeting: persona %s LLM call failed: %s", persona_id, exc)
@@ -9278,36 +9627,36 @@ async def exec_staff_meeting(
                 )
                 synthesis = fusion.to_dict()
                 # Enrich synthesis with LLM-generated analysis
-                if synthesis.get("status") == "fused" and ANTHROPIC_API_KEY:
+                if synthesis.get("status") == "fused":
                     try:
-                        import anthropic as _anthropic_module
                         _responses_text = "\n\n".join(
                             f"=== {pid} ===\n{resp}"
                             for pid, resp in _persona_responses.items()
                         ) if _persona_responses else "(no persona responses available)"
-                        _client = _anthropic_module.AsyncAnthropic(api_key=ANTHROPIC_API_KEY)
-                        _msg = await _client.messages.create(
-                            model="claude-sonnet-4-6",
-                            max_tokens=2048,
-                            system=(
-                                "You are THE 9 — the unified intelligence of the WAI-Institute. "
-                                "You merge the capabilities of all 9 core personas into one coherent synthesis. "
-                                "Given a staff meeting brief, agenda, and the individual persona responses, "
-                                "produce a unified strategic synthesis with: 1) Key insights, 2) Recommended actions, "
-                                "3) Risk assessment, 4) Success metrics. Be concise and actionable."
-                            ),
-                            messages=[{
-                                "role": "user",
-                                "content": (
-                                    f"BRIEF: {brief}\n\n"
-                                    f"AGENDA:\n" + "\n".join(f"- {a}" for a in agenda) + "\n\n"
-                                    f"PERSONA RESPONSES:\n{_responses_text}\n\n"
-                                    f"Unified skill set: {', '.join(synthesis.get('unified_skill_set', []))}\n\n"
-                                    f"Produce your unified synthesis."
-                                )
-                            }],
+                        _the9_system = (
+                            "You are THE 9 — the unified intelligence of the WAI-Institute. "
+                            "You merge the capabilities of all 9 core personas into one coherent synthesis. "
+                            "Given a staff meeting brief, agenda, and the individual persona responses, "
+                            "produce a unified strategic synthesis with: 1) Key insights, 2) Recommended actions, "
+                            "3) Risk assessment, 4) Success metrics. Be concise and actionable."
                         )
-                        synthesis["synthesis_brief"] = _msg.content[0].text.strip()
+                        _the9_user = (
+                            f"BRIEF: {brief}\n\n"
+                            f"AGENDA:\n" + "\n".join(f"- {a}" for a in agenda) + "\n\n"
+                            f"PERSONA RESPONSES:\n{_responses_text}\n\n"
+                            f"Unified skill set: {', '.join(synthesis.get('unified_skill_set', []))}\n\n"
+                            f"Produce your unified synthesis."
+                        )
+                        try:
+                            from ai.llm_gateway import call_llm as _call_llm
+                            _gw = await _call_llm(system=_the9_system, messages=[{"role": "user", "content": _the9_user}], max_tokens=2048, persona_label="the_9")
+                            synthesis["synthesis_brief"] = _gw["text"].strip()
+                        except Exception:
+                            import anthropic as _anthropic_module
+                            _client = _anthropic_module.AsyncAnthropic(api_key=ANTHROPIC_API_KEY)
+                            _msg = await _client.messages.create(model="claude-sonnet-4-6", max_tokens=2048,
+                                                                  system=_the9_system, messages=[{"role": "user", "content": _the9_user}])
+                            synthesis["synthesis_brief"] = _msg.content[0].text.strip()
                     except Exception as _synth_err:
                         logger.warning("staff_meeting: The 9 LLM synthesis failed: %s", _synth_err)
             except Exception as _the9_err:
@@ -9715,17 +10064,12 @@ async def revenue_workspace_chat(ws_id: str, body: dict, user: User = Depends(cu
         {"_id": 0},
     ).sort("ts", -1).limit(10).to_list(length=10)
     memory_context = "\n".join(f"[{m.get('actor','')}]: {m.get('content','')}" for m in reversed(memory))
-    import anthropic as _anthropic_module
-    _client = _anthropic_module.AsyncAnthropic(api_key=ANTHROPIC_API_KEY)
     system_prompt = f"You are the Sovereign AI for workspace '{ws['name']}'. Respond helpfully."
     if memory_context:
         system_prompt += f"\n\nRecent workspace memory:\n{memory_context}"
-    _msg = await _client.messages.create(
-        model="claude-sonnet-4-6", max_tokens=2048,
-        system=system_prompt,
-        messages=[{"role": "user", "content": message}],
-    )
-    reply = _msg.content[0].text.strip()
+    from ai.llm_gateway import call_llm as _call_llm
+    _gw = await _call_llm(system=system_prompt, messages=[{"role": "user", "content": message}], max_tokens=2048, persona_label="revenue_workspace")
+    reply = _gw["text"].strip()
     # Store in workspace memory
     await db.sovereign_memory.insert_one({
         "workspace_id": ws_id, "actor": user.id, "content": message[:500],
@@ -9851,8 +10195,25 @@ async def submit_bug_report(body: BugReportRequest):
         # Log the submission
         logger.info(f"Bug report submitted: {body.email} — {body.whatYouTried}")
 
-        # TODO: Send email notification to admin (poetgames3@gmail.com)
-        # For now, just store in DB and return success
+        # Notify admin via platform email provider
+        try:
+            admin_email = os.environ.get("BUG_REPORT_NOTIFY_EMAIL", PLATFORM_NOTIFY_EMAIL)
+            subject = f"[Bug Report] {body.email} — {body.whatBroke[:60]}"
+            html = f"""<div style="font-family:sans-serif;max-width:600px;padding:24px;">
+<h2 style="color:#b45309;">New Bug Report Submitted</h2>
+<p><strong>From:</strong> {body.name} ({body.email})</p>
+<p><strong>Payment handle:</strong> {body.venmoOrPaypal}</p>
+<p><strong>What they tried:</strong><br>{body.whatYouTried}</p>
+<p><strong>What broke:</strong><br>{body.whatBroke}</p>
+{'<p><strong>Screenshot:</strong> included (base64)</p>' if body.screenshot else ''}
+<p style="color:#666;font-size:12px;">Submitted: {report['submittedAt'].isoformat()}</p>
+</div>"""
+            if RESEND_API_KEY:
+                await _send_via_resend(admin_email, subject, html)
+            elif GMAIL_USER and GMAIL_APP_PASSWORD:
+                await _send_via_gmail(admin_email, subject, html)
+        except Exception as _email_err:
+            logger.warning("Bug report email notification failed: %s", _email_err)
 
         return {"status": "submitted", "message": "Thanks for testing! You'll get $1 for trying."}
     except Exception as e:
@@ -9867,6 +10228,282 @@ try:
     logger.info("Revenue operations routers included")
 except Exception as _router_err:
     logger.warning(f"Could not include revenue routers: {_router_err}")
+
+# ── Billing Admin routes (/billing/credits, /billing/refunds, /billing/sage-sessions) ─
+# WAI-specific admin tools: credit grants, site-credit refunds, cash refunds, Sage sessions.
+# Stored in MongoDB collections: wai_credits, wai_refunds, sage_conduct_sessions.
+try:
+    from cryptography.fernet import Fernet as _Fernet, InvalidToken as _InvalidToken
+    _BILLING_FERNET = None
+    _bfe_key = os.environ.get("PROVIDER_KEY_ENCRYPTION_SECRET", "")
+    if _bfe_key:
+        try:
+            _BILLING_FERNET = _Fernet(_bfe_key.encode() if isinstance(_bfe_key, str) else _bfe_key)
+        except Exception:
+            pass
+
+    class _GrantBody(BaseModel):
+        user_id: str
+        amount_cents: int
+        reason: str
+
+    class _SiteCreditBody(BaseModel):
+        user_id: str
+        platform_cost_cents: int
+        reason: str
+        user_received_value: bool = False
+
+    class _CashRefundBody(BaseModel):
+        user_id: str
+        amount_cents: int
+        reason: str
+        conditions: dict
+
+    class _ResolveSessionBody(BaseModel):
+        user_self_corrected: bool
+        actor_id: Optional[str] = None
+
+    @api_router.get("/billing/credits/balance")
+    async def billing_credits_balance(user_id: Optional[str] = None, user: User = Depends(require_role("admin"))):
+        uid = user_id or user.id
+        doc = await db.wai_credits.find_one({"user_id": uid}, {"_id": 0})
+        if not doc:
+            return {"user_id": uid, "balance_cents": 0}
+        return {"user_id": uid, "balance_cents": doc.get("balance_cents", 0)}
+
+    @api_router.post("/billing/credits/grant")
+    async def billing_credits_grant(body: _GrantBody, user: User = Depends(require_role("admin"))):
+        await db.wai_credits.update_one(
+            {"user_id": body.user_id},
+            {"$inc": {"balance_cents": body.amount_cents},
+             "$push": {"ledger": {"ts": datetime.utcnow(), "amount_cents": body.amount_cents,
+                                  "reason": body.reason, "actor_id": user.id}}},
+            upsert=True,
+        )
+        await audit(db, user.id, "billing_grant", {"user_id": body.user_id, "amount_cents": body.amount_cents, "reason": body.reason})
+        return {"ok": True, "user_id": body.user_id, "granted_cents": body.amount_cents}
+
+    @api_router.post("/billing/refunds/site-credits")
+    async def billing_site_credit_refund(body: _SiteCreditBody, user: User = Depends(require_role("admin"))):
+        # If no value delivered: refund = cost + 10%. If value received: refund = cost only.
+        amount = body.platform_cost_cents if body.user_received_value else round(body.platform_cost_cents * 1.10)
+        await db.wai_credits.update_one(
+            {"user_id": body.user_id},
+            {"$inc": {"balance_cents": amount},
+             "$push": {"ledger": {"ts": datetime.utcnow(), "amount_cents": amount,
+                                  "reason": f"Site credit refund: {body.reason}", "actor_id": user.id}}},
+            upsert=True,
+        )
+        await db.wai_refunds.insert_one({
+            "type": "site_credit", "user_id": body.user_id, "amount_cents": amount,
+            "platform_cost_cents": body.platform_cost_cents, "reason": body.reason,
+            "user_received_value": body.user_received_value, "actor_id": user.id,
+            "created_at": datetime.utcnow(),
+        })
+        await audit(db, user.id, "billing_site_credit_refund", {"user_id": body.user_id, "amount_cents": amount})
+        return {"ok": True, "user_id": body.user_id, "amount_cents": amount}
+
+    @api_router.post("/billing/refunds/cash")
+    async def billing_cash_refund(body: _CashRefundBody, user: User = Depends(require_role("executive_admin"))):
+        conditions = body.conditions or {}
+        required = ["is_extreme_violation", "user_not_at_fault", "is_legal", "no_harm_to_wai", "supervisor_approved"]
+        if not all(conditions.get(k) for k in required):
+            raise HTTPException(400, "All 5 conditions must be confirmed for a cash refund.")
+        await db.wai_refunds.insert_one({
+            "type": "cash", "user_id": body.user_id, "amount_cents": body.amount_cents,
+            "reason": body.reason, "conditions": conditions, "actor_id": user.id,
+            "status": "pending_processing", "created_at": datetime.utcnow(),
+        })
+        await audit(db, user.id, "billing_cash_refund_submitted", {"user_id": body.user_id, "amount_cents": body.amount_cents})
+        return {"ok": True, "status": "pending_processing", "message": "Cash refund submitted for processing."}
+
+    @api_router.get("/billing/sage-sessions")
+    async def billing_sage_sessions(user: User = Depends(require_role("admin"))):
+        docs = await db.sage_conduct_sessions.find({}, {"_id": 1, "user_id": 1, "trigger_reason": 1,
+            "status": 1, "fee_amount": 1, "created_at": 1}).sort("created_at", -1).to_list(200)
+        for d in docs:
+            d["_id"] = str(d["_id"])
+            if hasattr(d.get("created_at"), "isoformat"):
+                d["created_at"] = d["created_at"].isoformat()
+        return docs
+
+    @api_router.post("/billing/sage-sessions/{session_id}/resolve")
+    async def billing_resolve_sage_session(session_id: str, body: _ResolveSessionBody, user: User = Depends(require_role("admin"))):
+        from bson import ObjectId as _ObjId
+        try:
+            oid = _ObjId(session_id)
+        except Exception:
+            raise HTTPException(400, "Invalid session ID")
+        update = {
+            "status": "resolved" if body.user_self_corrected else "escalated",
+            "fee_waived": body.user_self_corrected,
+            "resolved_by": body.actor_id or user.id,
+            "resolved_at": datetime.utcnow(),
+        }
+        result = await db.sage_conduct_sessions.update_one({"_id": oid}, {"$set": update})
+        if result.matched_count == 0:
+            raise HTTPException(404, "Session not found")
+        await audit(db, user.id, "sage_session_resolved", {"session_id": session_id, "self_corrected": body.user_self_corrected})
+        return {"ok": True, "status": update["status"], "fee_waived": body.user_self_corrected}
+
+    logger.info("Billing admin routes registered")
+except Exception as _billing_routes_err:
+    logger.warning(f"Billing admin routes unavailable: {_billing_routes_err}")
+
+# ── Provider Gateway routes (/providers, /providers/keys) ─────────────────────
+# Executive-only AI provider management. Keys encrypted at rest via Fernet.
+# PROVIDER_KEY_ENCRYPTION_SECRET env var must be set; keys are never returned in plaintext.
+try:
+    import secrets as _secrets_mod
+    from cryptography.fernet import Fernet as _PFernet
+    from bson import ObjectId as _PObjId
+
+    _PFERNET = None
+    _pfk = os.environ.get("PROVIDER_KEY_ENCRYPTION_SECRET", "")
+    if _pfk:
+        try:
+            _PFERNET = _PFernet(_pfk.encode() if isinstance(_pfk, str) else _pfk)
+        except Exception:
+            pass
+
+    def _encrypt_key(plaintext: str) -> str:
+        if not _PFERNET:
+            raise HTTPException(503, "PROVIDER_KEY_ENCRYPTION_SECRET not configured")
+        return _PFERNET.encrypt(plaintext.encode()).decode()
+
+    class _ProviderBody(BaseModel):
+        name: str
+        provider_type: str = "custom"
+        base_url: Optional[str] = ""
+        notes: Optional[str] = ""
+
+    class _KeyBody(BaseModel):
+        provider_id: str
+        label: str
+        plaintext_key: str
+        scope: Optional[str] = "chat"
+
+    class _ProviderStatusBody(BaseModel):
+        status: str
+
+    def _ser_provider(doc):
+        if doc:
+            doc["_id"] = str(doc["_id"])
+            if hasattr(doc.get("created_at"), "isoformat"):
+                doc["created_at"] = doc["created_at"].isoformat()
+            doc.pop("encrypted_key", None)  # never expose encrypted key
+        return doc
+
+    @api_router.get("/providers")
+    async def providers_list(user: User = Depends(require_role("executive_admin"))):
+        docs = await db.ai_providers.find({}, {"encrypted_key": 0}).sort("created_at", -1).to_list(200)
+        return [_ser_provider(d) for d in docs]
+
+    @api_router.post("/providers")
+    async def providers_create(body: _ProviderBody, user: User = Depends(require_role("executive_admin"))):
+        doc = {"name": body.name, "provider_type": body.provider_type,
+               "base_url": body.base_url or "", "notes": body.notes or "",
+               "status": "inactive", "created_by": user.id, "created_at": datetime.utcnow()}
+        result = await db.ai_providers.insert_one(doc)
+        doc["_id"] = str(result.inserted_id)
+        doc.pop("encrypted_key", None)
+        await audit(db, user.id, "provider_created", {"name": body.name, "type": body.provider_type})
+        return _ser_provider(doc)
+
+    @api_router.patch("/providers/{provider_id}/status")
+    async def providers_set_status(provider_id: str, body: _ProviderStatusBody, user: User = Depends(require_role("executive_admin"))):
+        if body.status not in ("active", "inactive"):
+            raise HTTPException(400, "status must be active or inactive")
+        try:
+            oid = _PObjId(provider_id)
+        except Exception:
+            raise HTTPException(400, "Invalid provider ID")
+        result = await db.ai_providers.update_one({"_id": oid}, {"$set": {"status": body.status}})
+        if result.matched_count == 0:
+            raise HTTPException(404, "Provider not found")
+        await audit(db, user.id, "provider_status_changed", {"provider_id": provider_id, "status": body.status})
+        return {"ok": True, "status": body.status}
+
+    @api_router.get("/providers/keys")
+    async def provider_keys_list(user: User = Depends(require_role("executive_admin"))):
+        docs = await db.ai_provider_keys.find({}, {"encrypted_key": 0}).sort("created_at", -1).to_list(500)
+        for d in docs:
+            d["_id"] = str(d["_id"])
+            if hasattr(d.get("created_at"), "isoformat"):
+                d["created_at"] = d["created_at"].isoformat()
+        return docs
+
+    @api_router.post("/providers/keys")
+    async def provider_keys_create(body: _KeyBody, user: User = Depends(require_role("executive_admin"))):
+        encrypted = _encrypt_key(body.plaintext_key)
+        doc = {"provider_id": body.provider_id, "label": body.label,
+               "encrypted_key": encrypted, "scope": body.scope or "chat",
+               "created_by": user.id, "created_at": datetime.utcnow()}
+        result = await db.ai_provider_keys.insert_one(doc)
+        await audit(db, user.id, "provider_key_added", {"provider_id": body.provider_id, "label": body.label})
+        return {"ok": True, "_id": str(result.inserted_id), "label": body.label, "scope": body.scope}
+
+    @api_router.delete("/providers/keys/{key_id}")
+    async def provider_keys_delete(key_id: str, user: User = Depends(require_role("executive_admin"))):
+        try:
+            oid = _PObjId(key_id)
+        except Exception:
+            raise HTTPException(400, "Invalid key ID")
+        result = await db.ai_provider_keys.delete_one({"_id": oid})
+        if result.deleted_count == 0:
+            raise HTTPException(404, "Key not found")
+        await audit(db, user.id, "provider_key_deleted", {"key_id": key_id})
+        return {"ok": True}
+
+    @api_router.post("/providers/keys/{key_id}/test")
+    async def provider_keys_test(key_id: str, user: User = Depends(require_role("executive_admin"))):
+        try:
+            oid = _PObjId(key_id)
+        except Exception:
+            raise HTTPException(400, "Invalid key ID")
+        doc = await db.ai_provider_keys.find_one({"_id": oid})
+        if not doc:
+            raise HTTPException(404, "Key not found")
+        if not _PFERNET:
+            raise HTTPException(503, "Encryption not configured — cannot decrypt key for test")
+        try:
+            plaintext = _PFERNET.decrypt(doc["encrypted_key"].encode()).decode()
+        except Exception:
+            raise HTTPException(500, "Failed to decrypt key")
+        # Determine provider type to pick the right test endpoint
+        provider = await db.ai_providers.find_one({"_id": _PObjId(doc["provider_id"])}) if doc.get("provider_id") else None
+        ptype = (provider or {}).get("provider_type", "openai")
+        import httpx as _httpx, time as _time
+        start = _time.monotonic()
+        try:
+            async with _httpx.AsyncClient(timeout=10) as client:
+                if ptype == "anthropic":
+                    r = await client.post("https://api.anthropic.com/v1/messages",
+                        headers={"x-api-key": plaintext, "anthropic-version": "2023-06-01", "content-type": "application/json"},
+                        json={"model": "claude-haiku-4-5-20251001", "max_tokens": 1, "messages": [{"role": "user", "content": "ping"}]})
+                else:
+                    base = (provider or {}).get("base_url") or "https://api.openai.com/v1"
+                    r = await client.post(f"{base}/chat/completions",
+                        headers={"Authorization": f"Bearer {plaintext}", "content-type": "application/json"},
+                        json={"model": "gpt-4o-mini", "max_tokens": 1, "messages": [{"role": "user", "content": "ping"}]})
+            latency_ms = round((_time.monotonic() - start) * 1000)
+            ok = r.status_code < 500
+            return {"ok": ok, "latency_ms": latency_ms, "status_code": r.status_code}
+        except Exception as e:
+            latency_ms = round((_time.monotonic() - start) * 1000)
+            return {"ok": False, "latency_ms": latency_ms, "error": str(e)}
+
+    @api_router.get("/providers/usage-log")
+    async def provider_usage_log(user: User = Depends(require_role("executive_admin"))):
+        docs = await db.ai_usage_log.find({}, {"_id": 0}).sort("created_at", -1).limit(500).to_list(500)
+        for d in docs:
+            if hasattr(d.get("created_at"), "isoformat"):
+                d["created_at"] = d["created_at"].isoformat()
+        return docs
+
+    logger.info("Provider gateway routes registered")
+except Exception as _provider_routes_err:
+    logger.warning(f"Provider gateway routes unavailable: {_provider_routes_err}")
 
 # ── Social publisher router ────────────────────────────────────────────────────
 try:
@@ -9923,13 +10560,9 @@ try:
         """Talk to The Sovereign — executive-only, Director-supervised, memory-aware."""
         system = await _build_sovereign_prompt(db, user.id)
         try:
-            import anthropic as _anthropic_module
-            _client = _anthropic_module.AsyncAnthropic(api_key=ANTHROPIC_API_KEY)
-            _msg = await _client.messages.create(
-                model="claude-sonnet-4-6", max_tokens=2048,
-                system=system, messages=[{"role": "user", "content": body.message}],
-            )
-            reply = _msg.content[0].text
+            from ai.llm_gateway import call_llm as _call_llm
+            _gw = await _call_llm(system=system, messages=[{"role": "user", "content": body.message}], max_tokens=2048, persona_label="sovereign")
+            reply = _gw["text"]
         except Exception as e:
             logger.exception("Sovereign AI error")
             raise HTTPException(502, f"Sovereign AI error: {e}")
@@ -9968,6 +10601,22 @@ try:
         """Current member's partnership points + membership tier."""
         return await _partnership_points.get_status(db, user.id)
 
+    @api_router.get("/partnership/ledger")
+    async def partnership_ledger(limit: int = 20, user: User = Depends(current_user)):
+        """Recent point-award history for the current user."""
+        try:
+            from partnership.points import LEDGER_COLLECTION
+            docs = await db[LEDGER_COLLECTION].find(
+                {"user_id": user.id},
+                {"_id": 0, "user_id": 0},
+            ).sort("ts", -1).limit(min(limit, 50)).to_list(50)
+            for d in docs:
+                if hasattr(d.get("ts"), "isoformat"):
+                    d["ts"] = d["ts"].isoformat()
+            return docs
+        except Exception:
+            return []
+
     logger.info("Sovereign + puzzle/points endpoints registered")
 except Exception as _sov_err:
     logger.warning(f"Could not register Sovereign/puzzle endpoints: {_sov_err}")
@@ -9993,6 +10642,7 @@ try:
     class _PanelHeartbeatBody(BaseModel):
         source: Literal["backup", "emergency"]
         version: Optional[str] = None
+        secret: Optional[str] = None
 
     @api_router.get("/exec/panel")
     async def exec_panel_get(user: User = Depends(require_role("executive_admin"))):
@@ -10074,10 +10724,178 @@ try:
         logger.info("Gateway key pushed by exec: %s", var_name)
         return {"ok": True, "var": var_name, "active": True}
 
+    @api_router.delete("/admin/gateway/keys/{var_name}")
+    async def revoke_gateway_key(var_name: str, user: User = Depends(require_role("executive_admin"))):
+        """
+        Revoke a live API key by clearing it from the gateway module and env.
+        The key is removed from process memory immediately; Railway env var is
+        NOT touched — the key will NOT be restored on next deploy unless the
+        exec re-pushes it.
+        """
+        ALLOWED = {
+            "GROQ_API_KEY", "CEREBRAS_API_KEY", "GEMINI_API_KEY",
+            "XAI_API_KEY",  "COHERE_API_KEY",   "HUGGINGFACE_API_KEY",
+            "OPENROUTER_API_KEY",
+        }
+        var_name = var_name.strip().upper()
+        if var_name not in ALLOWED:
+            raise HTTPException(400, f"var_name '{var_name}' not in allowed set")
+
+        import ai.llm_gateway as _gw
+        import os as _os
+
+        setattr(_gw, var_name, "")
+        _os.environ.pop(var_name, None)
+
+        await audit(user.id, "gateway.key.revoked", meta={"var": var_name})
+        logger.info("Gateway key revoked by exec: %s", var_name)
+        return {"ok": True, "var": var_name, "active": False}
+
+    @api_router.patch("/admin/gateway/keys/{var_name}/toggle")
+    async def toggle_gateway_key(var_name: str, body: dict, user: User = Depends(require_role("executive_admin"))):
+        """
+        Enable or disable a provider key without permanently revoking it.
+        Body: { enabled: bool }
+        When disabling: clears the live attr so the gateway skips this provider.
+        When enabling: requires the key to be re-pushed via POST /admin/gateway/keys.
+        Returns current state.
+        """
+        ALLOWED = {
+            "GROQ_API_KEY", "CEREBRAS_API_KEY", "GEMINI_API_KEY",
+            "XAI_API_KEY",  "COHERE_API_KEY",   "HUGGINGFACE_API_KEY",
+            "OPENROUTER_API_KEY",
+        }
+        var_name = var_name.strip().upper()
+        if var_name not in ALLOWED:
+            raise HTTPException(400, f"var_name '{var_name}' not in allowed set")
+
+        enabled = bool(body.get("enabled", True))
+
+        import ai.llm_gateway as _gw
+        import os as _os
+
+        if not enabled:
+            # Disable: clear from live gateway (env var preserved for re-enable)
+            _saved = _os.environ.get(var_name, "") or getattr(_gw, var_name, "")
+            setattr(_gw, var_name, "")
+            # Store the saved value so re-enable can restore it
+            await db.platform_config.update_one(
+                {"key": f"gateway_key_saved_{var_name}"},
+                {"$set": {"key": f"gateway_key_saved_{var_name}", "value": _saved}},
+                upsert=True,
+            )
+        else:
+            # Re-enable: restore from saved value in DB or current env
+            doc = await db.platform_config.find_one({"key": f"gateway_key_saved_{var_name}"}, {"_id": 0})
+            saved = (doc or {}).get("value", "") or _os.environ.get(var_name, "")
+            if not saved:
+                raise HTTPException(400, f"No saved key for {var_name} — push the key first via POST /admin/gateway/keys")
+            setattr(_gw, var_name, saved)
+            _os.environ[var_name] = saved
+
+        await audit(user.id, "gateway.key.toggled", meta={"var": var_name, "enabled": enabled})
+        logger.info("Gateway key %s %s by exec", var_name, "enabled" if enabled else "disabled")
+        return {"ok": True, "var": var_name, "enabled": enabled}
+
+    @api_router.patch("/admin/gateway/budget")
+    async def set_gateway_budget(body: dict, user: User = Depends(require_role("executive_admin"))):
+        """
+        Update the live hourly token budget cap without a redeploy.
+        Body: { hourly_cap: int }  (minimum 1000, maximum 10_000_000)
+        """
+        import ai.llm_gateway as _gw
+        cap = body.get("hourly_cap")
+        if not isinstance(cap, int) or cap < 1000:
+            raise HTTPException(400, "hourly_cap must be an integer >= 1000")
+        if cap > 10_000_000:
+            raise HTTPException(400, "hourly_cap cannot exceed 10,000,000")
+        _gw.HOURLY_TOKEN_CAP = cap
+        await db.platform_config.update_one(
+            {"key": "gateway_hourly_cap"},
+            {"$set": {"key": "gateway_hourly_cap", "value": cap}},
+            upsert=True,
+        )
+        await audit(user.id, "gateway.budget.updated", meta={"hourly_cap": cap})
+        logger.info("Gateway hourly_cap set to %d by exec", cap)
+        return {"ok": True, "hourly_cap": cap}
+
+    @api_router.post("/admin/gateway/reset-budget")
+    async def reset_gateway_budget(user: User = Depends(require_role("executive_admin"))):
+        """
+        Emergency: zero out the current-hour token counter so the gateway
+        can accept new calls immediately (use when cap was hit due to a runaway).
+        """
+        import ai.llm_gateway as _gw
+        prev = _gw._hour_tokens_used
+        _gw._hour_tokens_used = 0
+        _gw._hour_window_start = 0.0  # set to epoch so next _reset_hour_if_needed fires immediately
+        await audit(user.id, "gateway.budget.reset", meta={"previous_tokens_used": prev})
+        logger.info("Gateway hourly token counter reset by exec (was %d)", prev)
+        return {"ok": True, "previous_tokens_used": prev}
+
+    _PROVIDER_RANKING_KEY = "gateway_provider_ranking"
+    _DEFAULT_PROVIDER_RANKING = [
+        "groq", "cerebras", "gemini", "grok", "cohere", "openrouter", "huggingface", "anthropic",
+    ]
+
+    @api_router.get("/admin/gateway/ranking")
+    async def get_gateway_ranking(user: User = Depends(require_role("executive_admin"))):
+        """Return current provider priority order (free-first by default)."""
+        doc = await db.platform_config.find_one({"key": _PROVIDER_RANKING_KEY}, {"_id": 0})
+        ranking = (doc or {}).get("value", _DEFAULT_PROVIDER_RANKING)
+        return {"ranking": ranking, "default": _DEFAULT_PROVIDER_RANKING}
+
+    @api_router.patch("/admin/gateway/ranking")
+    async def set_gateway_ranking(body: dict, user: User = Depends(require_role("executive_admin"))):
+        """
+        Set the soft provider priority order.
+        Body: { ranking: ["groq", "cerebras", ...] }
+        Must include all providers or will be rejected.
+        NOTE: this stores the preference in DB for display; the gateway's
+        hard-coded fallback chain is the live order. To override runtime order,
+        push/revoke keys to make only the desired providers available.
+        """
+        ranking = body.get("ranking", [])
+        valid = set(_DEFAULT_PROVIDER_RANKING)
+        if not isinstance(ranking, list) or set(ranking) != valid:
+            raise HTTPException(400, f"ranking must be a list containing exactly: {sorted(valid)}")
+        await db.platform_config.update_one(
+            {"key": _PROVIDER_RANKING_KEY},
+            {"$set": {"key": _PROVIDER_RANKING_KEY, "value": ranking}},
+            upsert=True,
+        )
+        await audit(user.id, "gateway.ranking.updated", meta={"ranking": ranking})
+        return {"ok": True, "ranking": ranking}
+
+    # Auto-generate shared secret once; stored in DB so exec can retrieve it.
+    _HEARTBEAT_SECRET_KEY = "exec_panel_heartbeat_secret"
+
+    async def _get_or_create_heartbeat_secret() -> str:
+        doc = await db.platform_config.find_one({"key": _HEARTBEAT_SECRET_KEY}, {"_id": 0})
+        if doc and doc.get("value"):
+            return doc["value"]
+        secret = secrets.token_urlsafe(32)
+        await db.platform_config.update_one(
+            {"key": _HEARTBEAT_SECRET_KEY},
+            {"$set": {"key": _HEARTBEAT_SECRET_KEY, "value": secret}},
+            upsert=True,
+        )
+        logger.info("HEARTBEAT: auto-generated shared secret stored in DB — retrieve via /exec/panel/heartbeat-secret")
+        return secret
+
+    @api_router.get("/exec/panel/heartbeat-secret")
+    async def exec_panel_heartbeat_secret(user: User = Depends(require_role("executive_admin"))):
+        """Return the current heartbeat shared secret — executive_admin only.
+        Copy this value into the backup/emergency server HEARTBEAT_SECRET env var."""
+        return {"secret": await _get_or_create_heartbeat_secret()}
+
     @api_router.post("/exec/panel/heartbeat")
     async def exec_panel_heartbeat(body: _PanelHeartbeatBody):
-        """Heartbeat from backup server or emergency UI (no auth required —
-        the backup server reports its liveness so the panel shows it as alive)."""
+        """Heartbeat from backup/emergency server. Requires shared secret."""
+        expected = await _get_or_create_heartbeat_secret()
+        provided = getattr(body, "secret", None) or ""
+        if not secrets.compare_digest(provided, expected):
+            raise HTTPException(401, "Invalid or missing heartbeat secret.")
         result = await heartbeat(db, body.source, version=body.version)
         if not result["ok"]:
             raise HTTPException(400, result["error"])
@@ -10115,6 +10933,1655 @@ if _EMERGENCY_UI_PATH.exists():
     logger.info("Emergency UI gateway: /emergency")
 else:
     logger.warning("Emergency UI not found at %s — gateway disabled", _EMERGENCY_UI_PATH)
+
+# ── Executive Governance Layer ─────────────────────────────────────────────────
+# Routes added for full RBAC governance restoration.
+# All routes require executive_admin unless noted.
+
+@api_router.get("/admin/users/{uid}/sessions")
+async def exec_list_user_sessions(uid: str, user: User = Depends(require_role("executive_admin"))):
+    """List active login sessions for any user (exec-only)."""
+    sessions = await db.auth_sessions.find(
+        {"user_id": uid},
+        {"_id": 0, "session_id": 1, "user_agent": 1, "ip": 1, "created_at": 1, "last_seen": 1},
+    ).sort("last_seen", -1).to_list(length=50)
+    return {"sessions": sessions}
+
+@api_router.delete("/admin/users/{uid}/sessions")
+async def exec_force_logout(uid: str, user: User = Depends(require_role("executive_admin"))):
+    """Force-logout all sessions for a user (exec-only)."""
+    target = await db.users.find_one({"id": uid}, {"_id": 0, "full_name": 1})
+    if not target:
+        raise HTTPException(404, "User not found")
+    await db.users.update_one({"id": uid}, {"$inc": {"token_version": 1}})
+    result = await db.auth_sessions.delete_many({"user_id": uid})
+    await audit(user.id, "exec.user.force_logout", target=uid,
+                meta={"sessions_revoked": result.deleted_count})
+    return {"ok": True, "sessions_revoked": result.deleted_count}
+
+@api_router.post("/admin/users/bulk")
+async def exec_bulk_action(body: dict, user: User = Depends(require_role("executive_admin"))):
+    """Bulk action on multiple users: upgrade, downgrade, suspend, unsuspend.
+    body: { action: 'role'|'suspend'|'unsuspend', uids: [...], role?: str }"""
+    action = body.get("action")
+    uids = body.get("uids", [])
+    if not uids or not isinstance(uids, list):
+        raise HTTPException(400, "uids must be a non-empty list")
+    if action not in ("role", "suspend", "unsuspend"):
+        raise HTTPException(400, "action must be role|suspend|unsuspend")
+    results = {"ok": [], "err": []}
+    for uid in uids:
+        try:
+            target = await db.users.find_one({"id": uid}, {"_id": 0, "role": 1, "full_name": 1})
+            if not target:
+                results["err"].append({"uid": uid, "reason": "not found"})
+                continue
+            if not can_modify(user, target.get("role", "")):
+                results["err"].append({"uid": uid, "reason": "hierarchy"})
+                continue
+            if action == "role":
+                new_role = body.get("role")
+                if new_role not in ROLE_RANK:
+                    results["err"].append({"uid": uid, "reason": "invalid role"})
+                    continue
+                await db.users.update_one({"id": uid}, {"$set": {"role": new_role}})
+                await audit(user.id, "exec.bulk.role_changed", target=uid,
+                            meta={"from": target["role"], "to": new_role})
+            elif action == "suspend":
+                await db.users.update_one({"id": uid}, {"$set": {"is_active": False}})
+                await audit(user.id, "exec.bulk.suspended", target=uid)
+            elif action == "unsuspend":
+                await db.users.update_one({"id": uid}, {"$set": {"is_active": True}})
+                await audit(user.id, "exec.bulk.unsuspended", target=uid)
+            results["ok"].append(uid)
+        except Exception as e:
+            results["err"].append({"uid": uid, "reason": str(e)})
+    return results
+
+@api_router.get("/admin/users/{uid}/audit")
+async def exec_user_audit(uid: str, limit: int = 50, user: User = Depends(require_role("admin"))):
+    """Audit history for a specific user (as actor or target), admin+."""
+    entries = await db.audit_log.find(
+        {"$or": [{"actor_id": uid}, {"target_id": uid}]},
+        {"_id": 0},
+    ).sort("at", -1).limit(min(limit, 200)).to_list(length=200)
+    return entries
+
+@api_router.get("/admin/rbac/matrix")
+async def get_rbac_matrix(user: User = Depends(require_role("executive_admin"))):
+    """Return the platform permission matrix stored in DB."""
+    doc = await db.platform_config.find_one({"key": "rbac_matrix"}, {"_id": 0})
+    default_matrix = {
+        "student":         {"content_read": True,  "content_create": False, "content_edit_own": True,  "content_delete_own": True,  "user_warn": False, "user_mute": False, "user_ban": False, "api_access": False, "billing_view": False, "export_data": False},
+        "instructor":      {"content_read": True,  "content_create": True,  "content_edit_own": True,  "content_delete_own": True,  "user_warn": True,  "user_mute": True,  "user_ban": False, "api_access": True,  "billing_view": False, "export_data": False},
+        "admin":           {"content_read": True,  "content_create": True,  "content_edit_own": True,  "content_delete_own": True,  "user_warn": True,  "user_mute": True,  "user_ban": True,  "api_access": True,  "billing_view": True,  "export_data": True},
+        "executive_admin": {"content_read": True,  "content_create": True,  "content_edit_own": True,  "content_delete_own": True,  "user_warn": True,  "user_mute": True,  "user_ban": True,  "api_access": True,  "billing_view": True,  "export_data": True},
+    }
+    return {"matrix": (doc or {}).get("value", default_matrix)}
+
+@api_router.patch("/admin/rbac/matrix")
+async def set_rbac_matrix(body: dict, user: User = Depends(require_role("executive_admin"))):
+    """Update the platform permission matrix (exec-only)."""
+    matrix = body.get("matrix")
+    if not isinstance(matrix, dict):
+        raise HTTPException(400, "matrix must be an object")
+    valid_roles = set(ROLE_RANK.keys())
+    for role in matrix:
+        if role not in valid_roles:
+            raise HTTPException(400, f"Unknown role: {role}")
+    await db.platform_config.update_one(
+        {"key": "rbac_matrix"},
+        {"$set": {"key": "rbac_matrix", "value": matrix, "updated_by": user.id, "updated_at": datetime.now(timezone.utc).isoformat()}},
+        upsert=True,
+    )
+    await audit(user.id, "exec.rbac.matrix_updated", meta={"roles": list(matrix.keys())})
+    return {"ok": True}
+
+@api_router.get("/admin/mfa/config")
+async def get_mfa_config(user: User = Depends(require_role("executive_admin"))):
+    """Return MFA enforcement config per role."""
+    doc = await db.platform_config.find_one({"key": "mfa_config"}, {"_id": 0})
+    default = {"executive_admin": True, "admin": True, "instructor": False, "student": False}
+    return {"mfa": (doc or {}).get("value", default)}
+
+@api_router.patch("/admin/mfa/config")
+async def set_mfa_config(body: dict, user: User = Depends(require_role("executive_admin"))):
+    """Set MFA enforcement per role (exec-only)."""
+    mfa = body.get("mfa")
+    if not isinstance(mfa, dict):
+        raise HTTPException(400, "mfa must be an object")
+    await db.platform_config.update_one(
+        {"key": "mfa_config"},
+        {"$set": {"key": "mfa_config", "value": mfa, "updated_by": user.id, "updated_at": datetime.now(timezone.utc).isoformat()}},
+        upsert=True,
+    )
+    await audit(user.id, "exec.mfa.config_updated", meta=mfa)
+    return {"ok": True, "mfa": mfa}
+
+@api_router.get("/admin/access/ipwhitelist")
+async def get_ip_whitelist(user: User = Depends(require_role("executive_admin"))):
+    """Return IP whitelist entries."""
+    entries = await db.ip_whitelist.find({}, {"_id": 0}).sort("created_at", -1).to_list(length=200)
+    return {"entries": entries}
+
+@api_router.post("/admin/access/ipwhitelist")
+async def add_ip_whitelist(body: dict, user: User = Depends(require_role("executive_admin"))):
+    """Add an IP/CIDR to the whitelist for a role."""
+    ip = (body.get("ip") or "").strip()
+    role = body.get("role", "executive_admin")
+    note = (body.get("note") or "").strip()
+    if not ip:
+        raise HTTPException(400, "ip is required")
+    if role not in ROLE_RANK:
+        raise HTTPException(400, f"Unknown role: {role}")
+    import uuid as _uuid
+    entry = {"id": str(_uuid.uuid4()), "ip": ip, "role": role, "note": note,
+             "added_by": user.id, "created_at": datetime.now(timezone.utc).isoformat()}
+    await db.ip_whitelist.insert_one(entry)
+    await audit(user.id, "exec.access.ip_added", meta={"ip": ip, "role": role})
+    entry.pop("_id", None)
+    return entry
+
+@api_router.delete("/admin/access/ipwhitelist/{entry_id}")
+async def remove_ip_whitelist(entry_id: str, user: User = Depends(require_role("executive_admin"))):
+    """Remove an IP whitelist entry."""
+    result = await db.ip_whitelist.delete_one({"id": entry_id})
+    if result.deleted_count == 0:
+        raise HTTPException(404, "Entry not found")
+    await audit(user.id, "exec.access.ip_removed", meta={"entry_id": entry_id})
+    return {"ok": True}
+
+@api_router.post("/admin/users/{uid}/elevated-role")
+async def grant_elevated_role(uid: str, body: dict, user: User = Depends(require_role("executive_admin"))):
+    """Grant a time-bound elevated role to a user (exec-only).
+    body: { role: str, expires_hours: int, reason: str }"""
+    role = body.get("role")
+    hours = body.get("expires_hours", 24)
+    reason = body.get("reason", "")
+    if role not in ROLE_RANK:
+        raise HTTPException(400, f"Unknown role: {role}")
+    if not (1 <= hours <= 168):
+        raise HTTPException(400, "expires_hours must be 1-168")
+    target = await db.users.find_one({"id": uid}, {"_id": 0, "role": 1, "full_name": 1})
+    if not target:
+        raise HTTPException(404, "User not found")
+    expires_at = (datetime.now(timezone.utc) + timedelta(hours=hours)).isoformat()
+    import uuid as _uuid
+    record = {
+        "id": str(_uuid.uuid4()), "user_id": uid, "role": role,
+        "original_role": target["role"], "expires_at": expires_at,
+        "reason": reason, "granted_by": user.id,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    }
+    await db.elevated_roles.insert_one(record)
+    await db.users.update_one({"id": uid}, {"$set": {"role": role, "elevated_until": expires_at, "original_role": target["role"]}})
+    await audit(user.id, "exec.user.elevated_role", target=uid,
+                meta={"role": role, "expires_at": expires_at, "reason": reason})
+    record.pop("_id", None)
+    return record
+
+@api_router.get("/admin/users/{uid}/elevated-role")
+async def get_elevated_role(uid: str, user: User = Depends(require_role("executive_admin"))):
+    """Get active elevated role record for user."""
+    record = await db.elevated_roles.find_one(
+        {"user_id": uid, "expires_at": {"$gt": datetime.now(timezone.utc).isoformat()}},
+        {"_id": 0},
+    )
+    return {"elevated": record}
+
+@api_router.delete("/admin/users/{uid}/elevated-role")
+async def revoke_elevated_role(uid: str, user: User = Depends(require_role("executive_admin"))):
+    """Revoke time-bound elevated role and revert to original."""
+    target = await db.users.find_one({"id": uid}, {"_id": 0, "original_role": 1, "elevated_until": 1})
+    if not target or not target.get("original_role"):
+        raise HTTPException(404, "No active elevation found")
+    original = target["original_role"]
+    await db.users.update_one({"id": uid}, {"$set": {"role": original}, "$unset": {"elevated_until": 1, "original_role": 1}})
+    await db.elevated_roles.delete_many({"user_id": uid})
+    await audit(user.id, "exec.user.elevation_revoked", target=uid, meta={"reverted_to": original})
+    return {"ok": True, "reverted_to": original}
+
+@api_router.patch("/admin/users/{uid}/sage-tier")
+async def set_user_sage_tier(uid: str, body: dict, user: User = Depends(require_role("admin"))):
+    """Grant or revoke Sage advanced tier for a user (admin+).
+    body: { tier: "basic" | "advanced" }"""
+    tier = (body.get("tier") or "").strip().lower()
+    if tier not in ("basic", "advanced"):
+        raise HTTPException(400, "tier must be 'basic' or 'advanced'")
+    target = await db.users.find_one({"id": uid}, {"_id": 0, "id": 1, "email": 1})
+    if not target:
+        raise HTTPException(404, "User not found")
+    await db.users.update_one({"id": uid}, {"$set": {"sage_tier": tier}})
+    await audit(user.id, "admin.sage.tier_updated", target=uid, meta={"tier": tier})
+    return {"ok": True, "uid": uid, "sage_tier": tier}
+
+@api_router.get("/admin/audit/export")
+async def export_audit_log(
+    format: str = "json",
+    limit: int = 1000,
+    action: str = None,
+    actor_id: str = None,
+    user: User = Depends(require_role("executive_admin")),
+):
+    """Export full audit log as JSON or CSV (exec-only)."""
+    filt: dict = {}
+    if action:
+        import re as _re
+        filt["action"] = {"$regex": action, "$options": "i"}
+    if actor_id:
+        filt["actor_id"] = actor_id
+    entries = await db.audit_log.find(filt, {"_id": 0}).sort("at", -1).limit(min(limit, 5000)).to_list(length=5000)
+    if format == "csv":
+        import io as _io, csv as _csv
+        buf = _io.StringIO()
+        writer = _csv.DictWriter(buf, fieldnames=["at", "actor_id", "actor_name", "action", "target_id", "meta"])
+        writer.writeheader()
+        for e in entries:
+            writer.writerow({"at": e.get("at",""), "actor_id": e.get("actor_id",""), "actor_name": e.get("actor_name",""),
+                             "action": e.get("action",""), "target_id": e.get("target_id",""), "meta": str(e.get("meta",""))})
+        from fastapi.responses import Response as _Response
+        return _Response(content=buf.getvalue(), media_type="text/csv",
+                         headers={"Content-Disposition": "attachment; filename=audit_export.csv"})
+    return entries
+
+
+# ── Supervisor Control Panel Routes ────────────────────────────────────────────
+# Distinct from exec routes. Supervisor has independent controls:
+# content moderation, escalation management, visitor flow, greeter config,
+# backup system health, and system continuity controls.
+# All require executive_admin (supervisor rank).
+
+@api_router.get("/supervisor/dashboard")
+async def supervisor_dashboard(user: User = Depends(require_role("executive_admin"))):
+    """Supervisor overview: moderation queue counts, system health summary, backup status, incident summary."""
+    mod_pending  = await db.more_posts.count_documents({"status": "pending_review"})
+    need_pending = await db.more_needs.count_documents({"status": "pending_review"})
+    flag_pending = await db.more_flags.count_documents({"status": "pending"})
+    appeal_pending = await db.more_appeals.count_documents({"status": "pending"})
+    open_incidents = await db.incidents.count_documents({"status": "open"})
+    total_users = await db.users.count_documents({})
+    active_users = await db.users.count_documents({"is_active": {"$ne": False}})
+    return {
+        "moderation": {
+            "posts_pending": mod_pending,
+            "needs_pending": need_pending,
+            "flags_pending": flag_pending,
+            "appeals_pending": appeal_pending,
+        },
+        "incidents": {"open": open_incidents},
+        "users": {"total": total_users, "active": active_users},
+    }
+
+@api_router.get("/supervisor/escalations")
+async def supervisor_escalations(user: User = Depends(require_role("executive_admin"))):
+    """List open escalation records — supervisor manages these."""
+    escalations = await db.escalations.find(
+        {"status": {"$in": ["open", "pending_supervisor"]}},
+        {"_id": 0},
+    ).sort("created_at", -1).to_list(length=100)
+    return {"escalations": escalations}
+
+@api_router.post("/supervisor/escalations/{esc_id}/resolve")
+async def supervisor_resolve_escalation(esc_id: str, body: dict, user: User = Depends(require_role("executive_admin"))):
+    """Supervisor resolves an escalation with a decision and note."""
+    decision = body.get("decision", "resolved")
+    note     = body.get("note", "")
+    result   = await db.escalations.update_one(
+        {"id": esc_id},
+        {"$set": {
+            "status": decision,
+            "resolved_by": user.id,
+            "resolution_note": note,
+            "resolved_at": datetime.now(timezone.utc).isoformat(),
+        }},
+    )
+    if result.matched_count == 0:
+        raise HTTPException(404, "Escalation not found")
+    await audit(user.id, "supervisor.escalation.resolved", meta={"esc_id": esc_id, "decision": decision})
+    return {"ok": True, "decision": decision}
+
+@api_router.post("/supervisor/escalations")
+async def supervisor_create_escalation(body: dict, user: User = Depends(require_role("executive_admin"))):
+    """Supervisor creates a new escalation record (e.g. flagging a pattern for exec review)."""
+    import uuid as _uuid
+    esc = {
+        "id": str(_uuid.uuid4()),
+        "title": body.get("title", "Untitled"),
+        "description": body.get("description", ""),
+        "severity": body.get("severity", "medium"),
+        "target_id": body.get("target_id"),
+        "target_type": body.get("target_type", "user"),
+        "status": "open",
+        "created_by": user.id,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    }
+    await db.escalations.insert_one(esc)
+    await audit(user.id, "supervisor.escalation.created", meta={"id": esc["id"], "title": esc["title"]})
+    esc.pop("_id", None)
+    return esc
+
+@api_router.get("/supervisor/greeter/config")
+async def supervisor_greeter_config(user: User = Depends(require_role("executive_admin"))):
+    """Return greeter/Supervisor persona config: welcome message, mode, routing rules."""
+    doc = await db.platform_config.find_one({"key": "greeter_config"}, {"_id": 0})
+    default = {
+        "welcome_message": "Welcome to the WAI Institute. I'm here to guide you.",
+        "mode": "greeter",
+        "route_unauthenticated_to": "/more-help-center",
+        "route_authenticated_to": "/dashboard",
+        "show_help_link": True,
+        "show_community_link": True,
+        "greeter_name": "The Supervisor",
+    }
+    return {"config": (doc or {}).get("value", default)}
+
+@api_router.patch("/supervisor/greeter/config")
+async def supervisor_update_greeter(body: dict, user: User = Depends(require_role("executive_admin"))):
+    """Update greeter persona config — supervisor controls the visitor welcome experience."""
+    config = body.get("config")
+    if not isinstance(config, dict):
+        raise HTTPException(400, "config must be an object")
+    await db.platform_config.update_one(
+        {"key": "greeter_config"},
+        {"$set": {"key": "greeter_config", "value": config,
+                  "updated_by": user.id, "updated_at": datetime.now(timezone.utc).isoformat()}},
+        upsert=True,
+    )
+    await audit(user.id, "supervisor.greeter.config_updated", meta=config)
+    return {"ok": True, "config": config}
+
+@api_router.get("/supervisor/visitor-flow")
+async def supervisor_visitor_flow(user: User = Depends(require_role("executive_admin"))):
+    """Return visitor routing/flow config: where unauthenticated visitors land, fallback paths."""
+    doc = await db.platform_config.find_one({"key": "visitor_flow"}, {"_id": 0})
+    default = {
+        "public_landing": "/more-help-center",
+        "auth_landing": "/dashboard",
+        "fallback_path": "/help-center",
+        "login_optional": True,
+        "auto_redirect_to_login": False,
+        "show_supervisor_widget": True,
+    }
+    return {"flow": (doc or {}).get("value", default)}
+
+@api_router.patch("/supervisor/visitor-flow")
+async def supervisor_update_visitor_flow(body: dict, user: User = Depends(require_role("executive_admin"))):
+    """Update visitor flow config — supervisor controls public routing."""
+    flow = body.get("flow")
+    if not isinstance(flow, dict):
+        raise HTTPException(400, "flow must be an object")
+    # Enforce governance rule: login must never auto-redirect
+    if flow.get("auto_redirect_to_login") is True:
+        raise HTTPException(400, "auto_redirect_to_login must remain false — governance rule.")
+    await db.platform_config.update_one(
+        {"key": "visitor_flow"},
+        {"$set": {"key": "visitor_flow", "value": flow,
+                  "updated_by": user.id, "updated_at": datetime.now(timezone.utc).isoformat()}},
+        upsert=True,
+    )
+    await audit(user.id, "supervisor.visitor_flow.updated", meta=flow)
+    return {"ok": True, "flow": flow}
+
+@api_router.post("/supervisor/content/{content_type}/{content_id}/approve")
+async def supervisor_approve_content(content_type: str, content_id: str, user: User = Depends(require_role("executive_admin"))):
+    """Supervisor approves content — same as admin queue but with supervisor audit trail."""
+    if content_type == "post":
+        result = await db.more_posts.update_one(
+            {"id": content_id},
+            {"$set": {"status": "active", "reviewed_by": user.id,
+                      "reviewed_at": datetime.now(timezone.utc).isoformat(), "reviewed_by_role": "supervisor"}},
+        )
+    elif content_type == "need":
+        result = await db.more_needs.update_one(
+            {"id": content_id},
+            {"$set": {"status": "open", "reviewed_by": user.id,
+                      "reviewed_at": datetime.now(timezone.utc).isoformat(), "reviewed_by_role": "supervisor"}},
+        )
+    elif content_type == "appeal":
+        result = await db.more_appeals.update_one(
+            {"id": content_id},
+            {"$set": {"status": "approved", "reviewed_by": user.id,
+                      "reviewed_at": datetime.now(timezone.utc).isoformat()}},
+        )
+    else:
+        raise HTTPException(400, "content_type must be post|need|appeal")
+    await audit(user.id, f"supervisor.content.approved.{content_type}", meta={"content_id": content_id})
+    return {"ok": True, "content_id": content_id}
+
+@api_router.post("/supervisor/content/{content_type}/{content_id}/reject")
+async def supervisor_reject_content(content_type: str, content_id: str, body: dict, user: User = Depends(require_role("executive_admin"))):
+    """Supervisor rejects/removes content with reason."""
+    reason = body.get("reason", "")
+    if content_type == "post":
+        result = await db.more_posts.delete_one({"id": content_id})
+    elif content_type == "need":
+        result = await db.more_needs.delete_one({"id": content_id})
+    elif content_type == "appeal":
+        result = await db.more_appeals.update_one(
+            {"id": content_id},
+            {"$set": {"status": "rejected", "rejection_reason": reason,
+                      "reviewed_by": user.id, "reviewed_at": datetime.now(timezone.utc).isoformat()}},
+        )
+    elif content_type == "flag":
+        result = await db.more_flags.update_one(
+            {"id": content_id},
+            {"$set": {"status": "dismissed", "dismissed_by": user.id,
+                      "dismissed_at": datetime.now(timezone.utc).isoformat()}},
+        )
+    else:
+        raise HTTPException(400, "content_type must be post|need|appeal|flag")
+    await audit(user.id, f"supervisor.content.rejected.{content_type}", meta={"content_id": content_id, "reason": reason})
+    return {"ok": True}
+
+@api_router.get("/supervisor/backup/status")
+async def supervisor_backup_status(user: User = Depends(require_role("executive_admin"))):
+    """Comprehensive backup system status: gateway, providers, panel health, DB reachability."""
+    status = {"checked_at": datetime.now(timezone.utc).isoformat()}
+    # DB ping
+    try:
+        await db.command("ping")
+        status["database"] = "connected"
+    except Exception as e:
+        status["database"] = f"error: {str(e)[:80]}"
+    # Gateway
+    try:
+        import ai.llm_gateway as _gw
+        status["gateway"] = {
+            "tokens_used": _gw._hour_tokens_used,
+            "cap": _gw.HOURLY_TOKEN_CAP,
+            "percent": round(_gw._hour_tokens_used / max(_gw.HOURLY_TOKEN_CAP, 1) * 100, 1),
+        }
+    except Exception:
+        status["gateway"] = "unavailable"
+    # Backup panel state
+    try:
+        from exec_panel import get_panel
+        panel = await get_panel(db)
+        status["breaker_panel"] = panel
+    except Exception:
+        status["breaker_panel"] = "unavailable"
+    # Provider ranking
+    try:
+        doc = await db.platform_config.find_one({"key": "gateway_provider_ranking"}, {"_id": 0})
+        status["provider_ranking"] = (doc or {}).get("value", [])
+    except Exception:
+        status["provider_ranking"] = []
+    return status
+
+@api_router.post("/supervisor/backup/switch-provider")
+async def supervisor_switch_provider(body: dict, user: User = Depends(require_role("executive_admin"))):
+    """Supervisor manually promotes a provider to top of ranking (backup system override)."""
+    provider = body.get("provider", "").strip()
+    _DEFAULT = ["groq","cerebras","gemini","xai","cohere","openrouter","huggingface","anthropic"]
+    if provider not in _DEFAULT:
+        raise HTTPException(400, f"Unknown provider: {provider}. Valid: {_DEFAULT}")
+    doc = await db.platform_config.find_one({"key": "gateway_provider_ranking"}, {"_id": 0})
+    ranking = list((doc or {}).get("value", _DEFAULT))
+    if provider in ranking:
+        ranking.remove(provider)
+    ranking.insert(0, provider)
+    await db.platform_config.update_one(
+        {"key": "gateway_provider_ranking"},
+        {"$set": {"key": "gateway_provider_ranking", "value": ranking,
+                  "updated_by": user.id, "updated_at": datetime.now(timezone.utc).isoformat()}},
+        upsert=True,
+    )
+    await audit(user.id, "supervisor.backup.provider_switched", meta={"provider": provider, "new_ranking": ranking})
+    return {"ok": True, "provider": provider, "ranking": ranking}
+
+@api_router.post("/supervisor/backup/reset-gateway")
+async def supervisor_reset_gateway(user: User = Depends(require_role("executive_admin"))):
+    """Supervisor resets gateway budget counter (backup system continuity action)."""
+    try:
+        import ai.llm_gateway as _gw
+        prev = _gw._hour_tokens_used
+        _gw._hour_tokens_used = 0
+        _gw._hour_window_start = 0.0
+        await audit(user.id, "supervisor.backup.gateway_reset", meta={"previous_tokens_used": prev})
+        return {"ok": True, "previous_tokens_used": prev}
+    except Exception as e:
+        raise HTTPException(500, f"Gateway reset failed: {e}")
+
+@api_router.get("/supervisor/backup/free-matrix")
+async def supervisor_backup_matrix(user: User = Depends(require_role("executive_admin"))):
+    """Return the free backup provider matrix with live status for each provider."""
+    try:
+        from exec_panel import get_system_health
+        health = await get_system_health(db)
+        return health
+    except Exception as e:
+        return {"error": str(e), "note": "exec_panel module unavailable"}
+
+@api_router.post("/supervisor/backup/emergency-broadcast")
+async def supervisor_emergency_broadcast(body: dict, user: User = Depends(require_role("executive_admin"))):
+    """Supervisor sends an emergency broadcast — system continuity announcement."""
+    title   = body.get("title", "System Notice").strip()
+    message = body.get("message", "").strip()
+    target  = body.get("target", "all")
+    if not message:
+        raise HTTPException(400, "message is required")
+    import uuid as _uuid
+    broadcast = {
+        "id": str(_uuid.uuid4()),
+        "title": title,
+        "message": message,
+        "target": target,
+        "sent_by": user.id,
+        "sent_at": datetime.now(timezone.utc).isoformat(),
+        "type": "emergency",
+    }
+    await db.broadcasts.insert_one(broadcast)
+    await audit(user.id, "supervisor.backup.emergency_broadcast", meta={"title": title, "target": target})
+    broadcast.pop("_id", None)
+    return broadcast
+
+@api_router.get("/supervisor/sage/sessions")
+async def supervisor_sage_sessions(
+    limit: int = 50,
+    user_id: str = None,
+    user: User = Depends(require_role("executive_admin")),
+):
+    """Supervisor reviews Sage session activity — for content safety oversight."""
+    filt = {}
+    if user_id:
+        filt["user_id"] = user_id
+    sessions = await db.sage_sessions.find(filt, {"_id": 0}).sort("created_at", -1).limit(min(limit, 200)).to_list(length=200)
+    return {"sessions": sessions, "total": len(sessions)}
+
+@api_router.post("/supervisor/sage/sessions/{session_id}/flag")
+async def supervisor_flag_sage_session(session_id: str, body: dict, user: User = Depends(require_role("executive_admin"))):
+    """Supervisor flags a Sage session for exec review."""
+    reason = body.get("reason", "")
+    await db.sage_sessions.update_one(
+        {"id": session_id},
+        {"$set": {"flagged": True, "flagged_by": user.id,
+                  "flag_reason": reason, "flagged_at": datetime.now(timezone.utc).isoformat()}},
+    )
+    await audit(user.id, "supervisor.sage.session_flagged", meta={"session_id": session_id, "reason": reason})
+    return {"ok": True}
+
+@api_router.get("/supervisor/system/continuity-check")
+async def supervisor_continuity_check(user: User = Depends(require_role("executive_admin"))):
+    """Run a full system continuity check: DB, gateway, backup panel, key routes."""
+    results = {}
+    # DB
+    try:
+        await db.command("ping")
+        results["database"] = {"status": "ok"}
+    except Exception as e:
+        results["database"] = {"status": "error", "detail": str(e)[:120]}
+    # Gateway module
+    try:
+        import ai.llm_gateway as _gw
+        results["gateway_module"] = {"status": "ok", "tokens_used": _gw._hour_tokens_used, "cap": _gw.HOURLY_TOKEN_CAP}
+    except Exception as e:
+        results["gateway_module"] = {"status": "error", "detail": str(e)[:120]}
+    # Exec panel module
+    try:
+        from exec_panel import get_panel
+        await get_panel(db)
+        results["exec_panel"] = {"status": "ok"}
+    except Exception as e:
+        results["exec_panel"] = {"status": "error", "detail": str(e)[:120]}
+    # Platform config
+    try:
+        count = await db.platform_config.count_documents({})
+        results["platform_config"] = {"status": "ok", "keys": count}
+    except Exception as e:
+        results["platform_config"] = {"status": "error", "detail": str(e)[:120]}
+    # User count sanity check
+    try:
+        uc = await db.users.count_documents({})
+        results["users_collection"] = {"status": "ok", "count": uc}
+    except Exception as e:
+        results["users_collection"] = {"status": "error", "detail": str(e)[:120]}
+    all_ok = all(v.get("status") == "ok" for v in results.values())
+    return {"all_ok": all_ok, "checks": results, "checked_at": datetime.now(timezone.utc).isoformat()}
+
+# ── Platform Prices ──────────────────────────────────────────────────────────
+# Collection: platform_prices  { id, key, value, description, last_modified_by, last_modified_at }
+
+@api_router.get("/admin/prices")
+async def list_prices(user: User = Depends(require_role("admin"))):
+    docs = await db.platform_prices.find({}, {"_id": 0}).sort("key", 1).to_list(length=500)
+    return {"prices": docs}
+
+@api_router.post("/admin/prices")
+async def create_price(body: dict, user: User = Depends(require_role("admin"))):
+    key   = (body.get("key") or "").strip()
+    value = body.get("value")
+    desc  = (body.get("description") or "").strip()
+    if not key:
+        raise HTTPException(400, "key is required")
+    if value is None:
+        raise HTTPException(400, "value is required")
+    try:
+        value = float(value)
+    except (TypeError, ValueError):
+        raise HTTPException(400, "value must be a number")
+    existing = await db.platform_prices.find_one({"key": key})
+    if existing:
+        raise HTTPException(409, f"Price key '{key}' already exists — use PATCH to update")
+    now = datetime.now(timezone.utc).isoformat()
+    doc = {
+        "id": str(uuid.uuid4()),
+        "key": key,
+        "value": value,
+        "description": desc,
+        "last_modified_by": user.id,
+        "last_modified_at": now,
+    }
+    await db.platform_prices.insert_one(doc)
+    await db.audit_log.insert_one({
+        "id": str(uuid.uuid4()), "action": "price_create", "actor": user.id,
+        "detail": f"Created price key={key} value={value}", "at": now,
+    })
+    return {k: v for k, v in doc.items() if k != "_id"}
+
+@api_router.patch("/admin/prices/{price_id}")
+async def update_price(price_id: str, body: dict, user: User = Depends(require_role("admin"))):
+    doc = await db.platform_prices.find_one({"id": price_id})
+    if not doc:
+        raise HTTPException(404, "Price not found")
+    updates: dict = {}
+    if "value" in body:
+        try:
+            updates["value"] = float(body["value"])
+        except (TypeError, ValueError):
+            raise HTTPException(400, "value must be a number")
+    if "description" in body:
+        updates["description"] = (body["description"] or "").strip()
+    if "key" in body:
+        new_key = (body["key"] or "").strip()
+        if not new_key:
+            raise HTTPException(400, "key cannot be empty")
+        conflict = await db.platform_prices.find_one({"key": new_key, "id": {"$ne": price_id}})
+        if conflict:
+            raise HTTPException(409, f"Key '{new_key}' already in use")
+        updates["key"] = new_key
+    if not updates:
+        raise HTTPException(400, "No fields to update")
+    now = datetime.now(timezone.utc).isoformat()
+    updates["last_modified_by"] = user.id
+    updates["last_modified_at"] = now
+    await db.platform_prices.update_one({"id": price_id}, {"$set": updates})
+    await db.audit_log.insert_one({
+        "id": str(uuid.uuid4()), "action": "price_update", "actor": user.id,
+        "detail": f"Updated price id={price_id} fields={list(updates.keys())}", "at": now,
+    })
+    updated = await db.platform_prices.find_one({"id": price_id}, {"_id": 0})
+    return updated
+
+@api_router.delete("/admin/prices/{price_id}")
+async def delete_price(price_id: str, user: User = Depends(require_role("executive_admin"))):
+    doc = await db.platform_prices.find_one({"id": price_id})
+    if not doc:
+        raise HTTPException(404, "Price not found")
+    await db.platform_prices.delete_one({"id": price_id})
+    now = datetime.now(timezone.utc).isoformat()
+    await db.audit_log.insert_one({
+        "id": str(uuid.uuid4()), "action": "price_delete", "actor": user.id,
+        "detail": f"Deleted price key={doc.get('key')} id={price_id}", "at": now,
+    })
+    return {"deleted": price_id}
+
+@api_router.get("/prices/public")
+async def public_prices():
+    """Returns all price keys and values — no auth. Used by frontend to display current pricing."""
+    docs = await db.platform_prices.find({}, {"_id": 0, "id": 1, "key": 1, "value": 1, "description": 1}).sort("key", 1).to_list(length=500)
+    return {"prices": docs}
+
+# ── The Auditor — read-only ledger, reporting, and value tracking ─────────────
+# Collection: auditor_ledger
+# Schema: { id, delivery_date, commit_sha, category, description, dollar_value,
+#           evidence, status, risk_level, created_at, created_by }
+#
+# Categories: revenue_restored | risk_eliminated | cost_avoided | debt_repaid | governance
+# Statuses:   PASS | FAIL | UNVERIFIED | INCOMPLETE | NO_EVIDENCE
+# Risk levels: none | low | medium | high | critical
+#
+# Access: admin+ (read). Only The Director or Finance Director adds entries.
+# The Auditor persona never modifies state.
+
+_AUDITOR_CATEGORIES = {"revenue_restored", "risk_eliminated", "cost_avoided", "debt_repaid", "governance"}
+_AUDITOR_STATUSES   = {"PASS", "FAIL", "UNVERIFIED", "INCOMPLETE", "NO_EVIDENCE"}
+_AUDITOR_RISK       = {"none", "low", "medium", "high", "critical"}
+
+@api_router.get("/auditor/summary")
+async def auditor_summary(user: User = Depends(require_role("admin"))):
+    """Running ledger totals by category. Read-only."""
+    pipeline = [
+        {"$group": {
+            "_id": "$category",
+            "total_value": {"$sum": "$dollar_value"},
+            "count": {"$sum": 1},
+            "verified_value": {"$sum": {"$cond": [{"$eq": ["$status", "PASS"]}, "$dollar_value", 0]}},
+            "unverified_count": {"$sum": {"$cond": [{"$eq": ["$status", "UNVERIFIED"]}, 1, 0]}},
+        }},
+        {"$sort": {"total_value": -1}},
+    ]
+    by_category = await db.auditor_ledger.aggregate(pipeline).to_list(length=20)
+    total = sum(r["total_value"] for r in by_category)
+    verified = sum(r["verified_value"] for r in by_category)
+    unverified = sum(r["unverified_count"] for r in by_category)
+    risk_counts = {}
+    async for doc in db.auditor_ledger.find({}, {"_id": 0, "risk_level": 1}):
+        lvl = doc.get("risk_level", "none")
+        risk_counts[lvl] = risk_counts.get(lvl, 0) + 1
+    recent = await db.auditor_ledger.find({}, {"_id": 0}).sort("created_at", -1).limit(5).to_list(5)
+    return {
+        "total_dollar_value": total,
+        "verified_dollar_value": verified,
+        "unverified_count": unverified,
+        "by_category": by_category,
+        "risk_distribution": risk_counts,
+        "recent_entries": recent,
+        "generated_at": datetime.now(timezone.utc).isoformat(),
+    }
+
+@api_router.get("/auditor/ledger")
+async def auditor_ledger_list(
+    category: str = None,
+    status: str = None,
+    risk_level: str = None,
+    limit: int = 50,
+    skip: int = 0,
+    user: User = Depends(require_role("admin")),
+):
+    """Paginated ledger. All filters optional. Read-only."""
+    q: dict = {}
+    if category and category in _AUDITOR_CATEGORIES:
+        q["category"] = category
+    if status and status in _AUDITOR_STATUSES:
+        q["status"] = status
+    if risk_level and risk_level in _AUDITOR_RISK:
+        q["risk_level"] = risk_level
+    limit = min(max(1, limit), 200)
+    skip = max(0, skip)
+    docs = await db.auditor_ledger.find(q, {"_id": 0}).sort("delivery_date", -1).skip(skip).limit(limit).to_list(limit)
+    total_count = await db.auditor_ledger.count_documents(q)
+    return {"entries": docs, "total": total_count, "limit": limit, "skip": skip}
+
+@api_router.post("/auditor/ledger")
+async def auditor_add_entry(body: dict, user: User = Depends(require_role("admin"))):
+    """Director or Finance Director records a verified delivery. The Auditor does not call this."""
+    required = ["description", "category", "dollar_value", "evidence", "status"]
+    for f in required:
+        if f not in body or body[f] is None:
+            raise HTTPException(400, f"Field '{f}' is required")
+    if body["category"] not in _AUDITOR_CATEGORIES:
+        raise HTTPException(400, f"category must be one of: {sorted(_AUDITOR_CATEGORIES)}")
+    if body["status"] not in _AUDITOR_STATUSES:
+        raise HTTPException(400, f"status must be one of: {sorted(_AUDITOR_STATUSES)}")
+    risk = body.get("risk_level", "none")
+    if risk not in _AUDITOR_RISK:
+        raise HTTPException(400, f"risk_level must be one of: {sorted(_AUDITOR_RISK)}")
+    try:
+        dollar_value = float(body["dollar_value"])
+    except (TypeError, ValueError):
+        raise HTTPException(400, "dollar_value must be a number")
+    now = datetime.now(timezone.utc).isoformat()
+    doc = {
+        "id": str(uuid.uuid4()),
+        "delivery_date": body.get("delivery_date") or now,
+        "commit_sha": (body.get("commit_sha") or "").strip() or None,
+        "category": body["category"],
+        "description": body["description"].strip(),
+        "dollar_value": dollar_value,
+        "evidence": body["evidence"].strip(),
+        "status": body["status"],
+        "risk_level": risk,
+        "created_at": now,
+        "created_by": user.id,
+    }
+    await db.auditor_ledger.insert_one(doc)
+    await db.audit_log.insert_one({
+        "id": str(uuid.uuid4()), "action": "auditor.entry.added", "actor": user.id,
+        "detail": f"Auditor entry: {body['description'][:80]} | ${dollar_value:.2f} | {body['status']}", "at": now,
+    })
+    return {k: v for k, v in doc.items() if k != "_id"}
+
+@api_router.patch("/auditor/ledger/{entry_id}")
+async def auditor_update_entry(entry_id: str, body: dict, user: User = Depends(require_role("admin"))):
+    """Correct status, dollar value, or evidence on an existing entry. Audit-logged."""
+    doc = await db.auditor_ledger.find_one({"id": entry_id})
+    if not doc:
+        raise HTTPException(404, "Entry not found")
+    allowed_fields = {"status", "dollar_value", "evidence", "risk_level", "description", "commit_sha"}
+    updates: dict = {}
+    for field in allowed_fields:
+        if field in body:
+            if field == "status" and body[field] not in _AUDITOR_STATUSES:
+                raise HTTPException(400, f"Invalid status: {body[field]}")
+            if field == "risk_level" and body[field] not in _AUDITOR_RISK:
+                raise HTTPException(400, f"Invalid risk_level: {body[field]}")
+            if field == "dollar_value":
+                try:
+                    updates[field] = float(body[field])
+                except (TypeError, ValueError):
+                    raise HTTPException(400, "dollar_value must be a number")
+            else:
+                updates[field] = body[field]
+    if not updates:
+        raise HTTPException(400, "No valid fields to update")
+    now = datetime.now(timezone.utc).isoformat()
+    updates["updated_at"] = now
+    updates["updated_by"] = user.id
+    await db.auditor_ledger.update_one({"id": entry_id}, {"$set": updates})
+    await db.audit_log.insert_one({
+        "id": str(uuid.uuid4()), "action": "auditor.entry.updated", "actor": user.id,
+        "detail": f"Updated entry {entry_id}: fields={list(updates.keys())}", "at": now,
+    })
+    updated = await db.auditor_ledger.find_one({"id": entry_id}, {"_id": 0})
+    return updated
+
+@api_router.get("/auditor/report")
+async def auditor_report(
+    start: str = None,
+    end: str = None,
+    user: User = Depends(require_role("admin")),
+):
+    """Full report for a date range. Includes ledger, totals, debt, risks."""
+    q: dict = {}
+    if start:
+        q.setdefault("delivery_date", {})["$gte"] = start
+    if end:
+        q.setdefault("delivery_date", {})["$lte"] = end
+    entries = await db.auditor_ledger.find(q, {"_id": 0}).sort("delivery_date", -1).to_list(500)
+    total = sum(e.get("dollar_value", 0) for e in entries)
+    verified = sum(e.get("dollar_value", 0) for e in entries if e.get("status") == "PASS")
+    by_cat: dict = {}
+    for e in entries:
+        cat = e.get("category", "unknown")
+        by_cat[cat] = by_cat.get(cat, 0) + e.get("dollar_value", 0)
+    debt_items = [e for e in entries if e.get("status") in ("INCOMPLETE", "FAIL")]
+    risk_items = [e for e in entries if e.get("risk_level") in ("high", "critical")]
+    unverified = [e for e in entries if e.get("status") == "UNVERIFIED"]
+    return {
+        "report_period": {"start": start or "all-time", "end": end or "present"},
+        "generated_at": datetime.now(timezone.utc).isoformat(),
+        "generated_by": user.id,
+        "summary": {
+            "total_entries": len(entries),
+            "total_dollar_value": total,
+            "verified_dollar_value": verified,
+            "unverified_dollar_value": total - verified,
+        },
+        "by_category": by_cat,
+        "entries": entries,
+        "debt_items": debt_items,
+        "risk_items": risk_items,
+        "unverified_items": unverified,
+        "flags": {
+            "unverified_count": len(unverified),
+            "incomplete_count": len([e for e in entries if e.get("status") == "INCOMPLETE"]),
+            "high_risk_count": len(risk_items),
+            "no_evidence_count": len([e for e in entries if e.get("status") == "NO_EVIDENCE"]),
+        },
+    }
+
+@api_router.get("/auditor/debt")
+async def auditor_debt(user: User = Depends(require_role("admin"))):
+    """Outstanding technical debt and incomplete items. Read-only."""
+    items = await db.auditor_ledger.find(
+        {"status": {"$in": ["INCOMPLETE", "FAIL", "UNVERIFIED"]}},
+        {"_id": 0},
+    ).sort("risk_level", -1).to_list(200)
+    total_debt_value = sum(i.get("dollar_value", 0) for i in items if i.get("status") in ("INCOMPLETE", "FAIL"))
+    return {
+        "debt_items": items,
+        "total_debt_count": len(items),
+        "total_debt_value": total_debt_value,
+        "generated_at": datetime.now(timezone.utc).isoformat(),
+    }
+
+@api_router.get("/auditor/risks")
+async def auditor_risks(user: User = Depends(require_role("admin"))):
+    """Unresolved risk items. Read-only."""
+    items = await db.auditor_ledger.find(
+        {"risk_level": {"$in": ["high", "critical"]}},
+        {"_id": 0},
+    ).sort("delivery_date", -1).to_list(200)
+    return {
+        "risk_items": items,
+        "critical_count": sum(1 for i in items if i.get("risk_level") == "critical"),
+        "high_count": sum(1 for i in items if i.get("risk_level") == "high"),
+        "generated_at": datetime.now(timezone.utc).isoformat(),
+    }
+
+
+# ── Creator Course Publishing ─────────────────────────────────────────────────
+# Any authenticated user can be a creator. Courses live in db.creator_courses.
+# Sections are text-based (title + content). Price in cents (0 = free).
+# Status: "draft" (private, only creator sees) | "published" (public catalog).
+
+class CourseSection(BaseModel):
+    title: str = Field(..., min_length=1, max_length=200)
+    content: str = Field(..., min_length=1, max_length=20000)
+
+class CreateCourseReq(BaseModel):
+    title: str = Field(..., min_length=2, max_length=200)
+    description: str = Field(default="", max_length=2000)
+    category: str = Field(default="general", max_length=100)
+    price_cents: int = Field(default=0, ge=0, le=99900)
+    sections: List[CourseSection] = Field(default_factory=list)
+    thumbnail_url: Optional[str] = Field(default=None, max_length=500)
+
+class UpdateCourseReq(BaseModel):
+    title: Optional[str] = Field(default=None, min_length=2, max_length=200)
+    description: Optional[str] = Field(default=None, max_length=2000)
+    category: Optional[str] = Field(default=None, max_length=100)
+    price_cents: Optional[int] = Field(default=None, ge=0, le=99900)
+    sections: Optional[List[CourseSection]] = None
+    thumbnail_url: Optional[str] = Field(default=None, max_length=500)
+    status: Optional[Literal["draft", "published"]] = None
+
+
+@api_router.post("/creator/courses", status_code=201)
+async def creator_create_course(body: CreateCourseReq, user: User = Depends(current_user)):
+    """Create a new course draft. Any authenticated user can create."""
+    course_id = str(uuid.uuid4())
+    slug = re.sub(r"[^a-z0-9]+", "-", body.title.lower()).strip("-")[:60] + "-" + course_id[:8]
+    doc = {
+        "course_id": course_id,
+        "creator_id": user.id,
+        "creator_name": user.full_name,
+        "title": body.title,
+        "description": body.description,
+        "category": body.category,
+        "price_cents": body.price_cents,
+        "sections": [s.model_dump() for s in body.sections],
+        "thumbnail_url": body.thumbnail_url,
+        "slug": slug,
+        "status": "draft",
+        "enrollment_count": 0,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+        "updated_at": datetime.now(timezone.utc).isoformat(),
+    }
+    await db.creator_courses.insert_one(doc)
+    await audit(user.id, "creator.course.created", meta={"course_id": course_id, "title": body.title})
+    doc.pop("_id", None)
+    return {"course": doc}
+
+
+@api_router.get("/creator/courses")
+async def creator_list_my_courses(user: User = Depends(current_user)):
+    """List all courses owned by the current user."""
+    courses = await db.creator_courses.find(
+        {"creator_id": user.id},
+        {"_id": 0},
+    ).sort("created_at", -1).to_list(length=100)
+    return {"courses": courses}
+
+
+@api_router.get("/creator/courses/published")
+async def creator_published_catalog(
+    category: str = "",
+    skip: int = 0,
+    limit: int = 24,
+):
+    """Public catalog — published courses from all creators."""
+    query: dict = {"status": "published"}
+    if category:
+        query["category"] = category
+    courses = await db.creator_courses.find(
+        query,
+        {"_id": 0, "sections": 0},
+    ).sort("created_at", -1).skip(skip).limit(min(limit, 50)).to_list(length=50)
+    total = await db.creator_courses.count_documents(query)
+    return {"courses": courses, "total": total}
+
+
+@api_router.get("/creator/courses/{course_id}")
+async def creator_get_course(course_id: str, user: User = Depends(current_user)):
+    """Get full course detail. Drafts only visible to their creator."""
+    course = await db.creator_courses.find_one({"course_id": course_id}, {"_id": 0})
+    if not course:
+        raise HTTPException(404, "Course not found")
+    if course["status"] == "draft" and course["creator_id"] != user.id:
+        raise HTTPException(403, "Not your draft")
+    return {"course": course}
+
+
+@api_router.patch("/creator/courses/{course_id}")
+async def creator_update_course(
+    course_id: str,
+    body: UpdateCourseReq,
+    user: User = Depends(current_user),
+):
+    """Update a course. Only the creator can edit."""
+    course = await db.creator_courses.find_one({"course_id": course_id})
+    if not course:
+        raise HTTPException(404, "Course not found")
+    if course["creator_id"] != user.id:
+        raise HTTPException(403, "Not your course")
+    update: dict = {"updated_at": datetime.now(timezone.utc).isoformat()}
+    if body.title is not None:
+        update["title"] = body.title
+        update["slug"] = re.sub(r"[^a-z0-9]+", "-", body.title.lower()).strip("-")[:60] + "-" + course_id[:8]
+    if body.description is not None:
+        update["description"] = body.description
+    if body.category is not None:
+        update["category"] = body.category
+    if body.price_cents is not None:
+        update["price_cents"] = body.price_cents
+    if body.sections is not None:
+        update["sections"] = [s.model_dump() for s in body.sections]
+    if body.thumbnail_url is not None:
+        update["thumbnail_url"] = body.thumbnail_url
+    if body.status is not None:
+        update["status"] = body.status
+    await db.creator_courses.update_one({"course_id": course_id}, {"$set": update})
+    await audit(user.id, "creator.course.updated", meta={"course_id": course_id, "fields": list(update.keys())})
+    updated = await db.creator_courses.find_one({"course_id": course_id}, {"_id": 0})
+    return {"course": updated}
+
+
+@api_router.delete("/creator/courses/{course_id}", status_code=204)
+async def creator_delete_course(course_id: str, user: User = Depends(current_user)):
+    """Soft-delete (archive) a course. Only the creator can delete."""
+    course = await db.creator_courses.find_one({"course_id": course_id})
+    if not course:
+        raise HTTPException(404, "Course not found")
+    if course["creator_id"] != user.id:
+        raise HTTPException(403, "Not your course")
+    await db.creator_courses.update_one(
+        {"course_id": course_id},
+        {"$set": {"status": "archived", "updated_at": datetime.now(timezone.utc).isoformat()}},
+    )
+    await audit(user.id, "creator.course.deleted", meta={"course_id": course_id})
+
+
+# ── Creator Course Checkout ───────────────────────────────────────────────────
+
+@api_router.post("/creator/courses/{course_id}/checkout")
+async def creator_course_checkout(course_id: str, user: User = Depends(current_user)):
+    """Initiate Stripe checkout for a published creator course."""
+    if not STRIPE_SECRET_KEY:
+        raise HTTPException(503, "Payment system not configured")
+    course = await db.creator_courses.find_one({"course_id": course_id}, {"_id": 0})
+    if not course:
+        raise HTTPException(404, "Course not found")
+    if course["status"] != "published":
+        raise HTTPException(400, "Course is not available for purchase")
+    if course["creator_id"] == user.id:
+        raise HTTPException(400, "You cannot buy your own course")
+
+    amount = course["price_cents"]
+    if amount == 0:
+        # Free course — enroll directly without Stripe
+        await db.creator_courses.update_one({"course_id": course_id}, {"$inc": {"enrollment_count": 1}})
+        await db.creator_enrollments.update_one(
+            {"course_id": course_id, "user_id": user.id},
+            {"$setOnInsert": {"enrolled_at": datetime.now(timezone.utc).isoformat()}},
+            upsert=True,
+        )
+        return {"enrolled": True, "free": True}
+
+    user_doc = await db.users.find_one({"id": user.id}, {"stripe_customer_id": 1, "email": 1, "full_name": 1})
+    customer_id = (user_doc or {}).get("stripe_customer_id")
+    if not customer_id:
+        customer = _stripe.Customer.create(
+            email=user.email, name=user.full_name, metadata={"wai_user_id": user.id}
+        )
+        customer_id = customer.id
+        await db.users.update_one({"id": user.id}, {"$set": {"stripe_customer_id": customer_id}})
+
+    session = _stripe.checkout.Session.create(
+        mode="payment",
+        customer=customer_id,
+        line_items=[{
+            "price_data": {
+                "currency": "usd",
+                "product_data": {"name": course["title"], "description": course.get("description", "")[:500]},
+                "unit_amount": amount,
+            },
+            "quantity": 1,
+        }],
+        success_url=f"{FRONTEND_URL}/creator/courses/{course_id}?enrolled=1",
+        cancel_url=f"{FRONTEND_URL}/creator/courses/{course_id}",
+        metadata={
+            "wai_user_id": user.id,
+            "product_key": "creator_course",
+            "creator_id": course["creator_id"],
+            "course_id": course_id,
+        },
+    )
+    await audit(user.id, "creator.course.checkout", meta={"course_id": course_id, "amount": amount})
+    return {"url": session.url}
+
+
+@api_router.get("/creator/enrollments/me")
+async def creator_enrollments_me(user: User = Depends(current_user)):
+    """Return the list of course_ids the current user is enrolled in (free + paid)."""
+    docs = await db.creator_enrollments.find(
+        {"user_id": user.id},
+        {"_id": 0, "course_id": 1},
+    ).to_list(length=500)
+    return {"enrolled_course_ids": [d["course_id"] for d in docs]}
+
+
+# ── Creator Earnings & Payouts ────────────────────────────────────────────────
+# Platform retains 30%; creator keeps 70%. Payouts accumulate monthly.
+# "Pending" = earned but not yet disbursed. "paid" = payout sent.
+
+class SaveBankAccountReq(BaseModel):
+    account_holder_name: str = Field(..., min_length=2, max_length=200)
+    routing_number: str = Field(..., min_length=9, max_length=9, pattern=r"^\d{9}$")
+    account_number: str = Field(..., min_length=4, max_length=17, pattern=r"^\d+$")
+    account_type: Literal["checking", "savings"] = "checking"
+
+
+@api_router.get("/creator/earnings")
+async def creator_earnings_summary(user: User = Depends(current_user)):
+    """Monthly earnings summary for the current creator."""
+    entries = await db.creator_earnings.find(
+        {"creator_id": user.id},
+        {"_id": 0},
+    ).sort("created_at", -1).to_list(length=500)
+
+    # Group by period
+    by_period: dict = {}
+    for e in entries:
+        p = e["period"]
+        if p not in by_period:
+            by_period[p] = {"period": p, "gross_cents": 0, "creator_share_cents": 0, "sales": 0, "payout_status": "pending"}
+        by_period[p]["gross_cents"] += e["gross_cents"]
+        by_period[p]["creator_share_cents"] += e["creator_share_cents"]
+        by_period[p]["sales"] += 1
+        if e.get("payout_status") == "paid":
+            by_period[p]["payout_status"] = "paid"
+
+    months = sorted(by_period.values(), key=lambda x: x["period"], reverse=True)
+    total_earned = sum(e["creator_share_cents"] for e in entries)
+    total_pending = sum(e["creator_share_cents"] for e in entries if e.get("payout_status") == "pending")
+    total_paid = sum(e["creator_share_cents"] for e in entries if e.get("payout_status") == "paid")
+
+    # Check if bank account on file
+    bank = await db.creator_bank_accounts.find_one({"creator_id": user.id}, {"_id": 0, "account_number": 0, "routing_number": 0})
+
+    return {
+        "total_earned_cents": total_earned,
+        "total_pending_cents": total_pending,
+        "total_paid_cents": total_paid,
+        "months": months,
+        "bank_account_on_file": bank is not None,
+        "bank_account_holder": (bank or {}).get("account_holder_name"),
+        "bank_account_type": (bank or {}).get("account_type"),
+    }
+
+
+@api_router.get("/creator/payouts")
+async def creator_payout_history(user: User = Depends(current_user)):
+    """Payout disbursement history for the current creator."""
+    payouts = await db.creator_payouts.find(
+        {"creator_id": user.id},
+        {"_id": 0},
+    ).sort("created_at", -1).to_list(length=100)
+    return {"payouts": payouts}
+
+
+@api_router.post("/creator/bank-account", status_code=201)
+async def creator_save_bank_account(body: SaveBankAccountReq, user: User = Depends(current_user)):
+    """Save or update creator bank account for payouts.
+    Account number stored masked (last 4 digits only after save)."""
+    masked = "****" + body.account_number[-4:]
+    await db.creator_bank_accounts.update_one(
+        {"creator_id": user.id},
+        {"$set": {
+            "creator_id": user.id,
+            "account_holder_name": body.account_holder_name,
+            "routing_number": body.routing_number,  # stored for payout processing
+            "account_number_masked": masked,
+            "account_type": body.account_type,
+            "updated_at": datetime.now(timezone.utc).isoformat(),
+        }, "$setOnInsert": {"created_at": datetime.now(timezone.utc).isoformat()}},
+        upsert=True,
+    )
+    await audit(user.id, "creator.bank_account.saved", meta={"masked": masked})
+    return {"saved": True, "account_number_masked": masked}
+
+
+@api_router.get("/creator/bank-account")
+async def creator_get_bank_account(user: User = Depends(current_user)):
+    """Get masked bank account info on file."""
+    bank = await db.creator_bank_accounts.find_one(
+        {"creator_id": user.id},
+        {"_id": 0, "routing_number": 0},
+    )
+    if not bank:
+        return {"bank_account": None}
+    return {"bank_account": bank}
+
+
+# Admin endpoint — process monthly payouts (executive_admin only)
+@api_router.post("/admin/creator-payouts/process")
+async def admin_process_creator_payouts(user: User = Depends(require_role("executive_admin"))):
+    """Mark all pending earnings as paid and write payout records.
+    In production this triggers ACH transfer; here it records the intent."""
+    period = datetime.now(timezone.utc).strftime("%Y-%m")
+    # Find all creators with pending earnings this period
+    pipeline = [
+        {"$match": {"payout_status": "pending", "period": {"$lt": period}}},
+        {"$group": {"_id": "$creator_id", "total_cents": {"$sum": "$creator_share_cents"}, "count": {"$sum": 1}}},
+    ]
+    summaries = await db.creator_earnings.aggregate(pipeline).to_list(length=500)
+    payouts_created = []
+    for s in summaries:
+        creator_id = s["_id"]
+        amount = s["total_cents"]
+        if amount < 100:
+            continue  # below $1 minimum, roll over
+        bank = await db.creator_bank_accounts.find_one({"creator_id": creator_id})
+        payout_id = str(uuid.uuid4())
+        await db.creator_payouts.insert_one({
+            "payout_id": payout_id,
+            "creator_id": creator_id,
+            "amount_cents": amount,
+            "sale_count": s["count"],
+            "bank_on_file": bank is not None,
+            "status": "processing",
+            "created_at": datetime.now(timezone.utc).isoformat(),
+        })
+        # Mark earnings as paid
+        await db.creator_earnings.update_many(
+            {"creator_id": creator_id, "payout_status": "pending", "period": {"$lt": period}},
+            {"$set": {"payout_status": "paid", "payout_id": payout_id}},
+        )
+        await notify(creator_id, "Payout Initiated",
+                     f"Your payout of ${amount/100:.2f} has been initiated. Allow 2-3 business days.",
+                     link="/creator/earnings", kind="success")
+        payouts_created.append({"creator_id": creator_id, "amount_cents": amount})
+    await audit(user.id, "admin.creator_payouts.processed", meta={"count": len(payouts_created)})
+    return {"payouts_initiated": len(payouts_created), "detail": payouts_created}
+
+
+# ── Creator Public Profiles ───────────────────────────────────────────────────
+# Creators claim a slug and edit their own profile. Public GET by slug.
+# Hardcoded profiles in the frontend are the fallback when no DB record exists.
+
+class CreatorSocialLink(BaseModel):
+    platform: str = Field(..., max_length=100)
+    handle: str = Field(default="", max_length=100)
+    url: str = Field(..., max_length=500)
+    note: str = Field(default="", max_length=300)
+
+class CreatorOffering(BaseModel):
+    icon: str = Field(default="✨", max_length=10)
+    title: str = Field(..., max_length=200)
+    desc: str = Field(default="", max_length=1000)
+
+class CreatorCommerceItem(BaseModel):
+    label: str = Field(..., max_length=200)
+    desc: str = Field(default="", max_length=500)
+    url: str = Field(..., max_length=500)
+
+class UpsertCreatorProfileReq(BaseModel):
+    slug: str = Field(..., min_length=2, max_length=80, pattern=r"^[a-z0-9-]+$")
+    display_name: str = Field(..., min_length=1, max_length=100)
+    title: str = Field(default="", max_length=200)
+    tagline: str = Field(default="", max_length=300)
+    bio: str = Field(default="", max_length=5000)
+    pronouns: str = Field(default="", max_length=50)
+    location: str = Field(default="", max_length=100)
+    avatar: str = Field(default="✨", max_length=10)
+    socials: List[CreatorSocialLink] = Field(default_factory=list)
+    more_offerings: List[CreatorOffering] = Field(default_factory=list)
+    commerce: List[CreatorCommerceItem] = Field(default_factory=list)
+
+
+@api_router.get("/creator/profile/me")
+async def get_my_creator_profile(user: User = Depends(current_user)):
+    """Get the current user's creator profile (if claimed)."""
+    profile = await db.creator_profiles.find_one({"user_id": user.id}, {"_id": 0})
+    return {"profile": profile}
+
+
+@api_router.put("/creator/profile")
+async def upsert_creator_profile(body: UpsertCreatorProfileReq, user: User = Depends(current_user)):
+    """Create or update the current user's creator profile."""
+    # Ensure slug is not already taken by someone else
+    existing = await db.creator_profiles.find_one({"slug": body.slug})
+    if existing and existing.get("user_id") != user.id:
+        raise HTTPException(409, "That profile URL is already taken. Choose a different slug.")
+
+    now = datetime.now(timezone.utc).isoformat()
+    doc = {
+        "user_id": user.id,
+        "slug": body.slug,
+        "display_name": body.display_name,
+        "title": body.title,
+        "tagline": body.tagline,
+        "bio": body.bio,
+        "pronouns": body.pronouns,
+        "location": body.location,
+        "avatar": body.avatar,
+        "socials": [s.model_dump() for s in body.socials],
+        "more_offerings": [o.model_dump() for o in body.more_offerings],
+        "commerce": [c.model_dump() for c in body.commerce],
+        "updated_at": now,
+    }
+    await db.creator_profiles.update_one(
+        {"user_id": user.id},
+        {"$set": doc, "$setOnInsert": {"created_at": now}},
+        upsert=True,
+    )
+    await audit(user.id, "creator.profile.saved", meta={"slug": body.slug})
+    saved = await db.creator_profiles.find_one({"user_id": user.id}, {"_id": 0})
+    return {"profile": saved}
+
+
+@api_router.get("/creator/profiles/public")
+async def list_public_creator_profiles(limit: int = 50):
+    """Public — list creator profiles for the Creators directory page."""
+    profiles = await db.creator_profiles.find(
+        {},
+        {"_id": 0, "user_id": 0, "encrypted_key": 0},
+    ).sort("created_at", -1).limit(min(limit, 100)).to_list(length=100)
+    return {"profiles": profiles, "total": len(profiles)}
+
+
+@api_router.get("/creator/profile/{slug}")
+async def get_creator_profile_by_slug(slug: str, authorization: Optional[str] = Header(None)):
+    """Public — get a creator profile by slug. Returns is_owner=True if the requester owns it."""
+    profile = await db.creator_profiles.find_one({"slug": slug}, {"_id": 0})
+    if not profile:
+        raise HTTPException(404, "Creator profile not found")
+    # Determine ownership without requiring auth (public endpoint)
+    requester_id = None
+    if authorization and authorization.startswith("Bearer "):
+        try:
+            payload = jwt.decode(authorization.split(" ", 1)[1], JWT_SECRET, algorithms=[JWT_ALGO])
+            requester_id = payload.get("sub")
+        except Exception:
+            pass
+    is_owner = requester_id is not None and profile.get("user_id") == requester_id
+    profile_out = {k: v for k, v in profile.items() if k != "user_id"}
+    profile_out["is_owner"] = is_owner
+    return {"profile": profile_out}
+
+
+# ── Site Control Panel — executive_admin only ─────────────────────────────────
+# Single endpoint that pulls every real metric in one shot.
+# No mocks. No estimates. Every number comes from the DB or Stripe API.
+
+@api_router.get("/admin/control-panel")
+async def control_panel_data(user: User = Depends(require_role("executive_admin"))):
+    """Full real-time site dashboard. executive_admin only."""
+    now = datetime.now(timezone.utc)
+    today_start = now.replace(hour=0, minute=0, second=0, microsecond=0).isoformat()
+    month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0).isoformat()
+
+    # ── Users ──────────────────────────────────────────────────────────────────
+    user_total          = await db.users.count_documents({})
+    user_active         = await db.users.count_documents({"is_active": {"$ne": False}})
+    user_suspended      = await db.users.count_documents({"is_active": False})
+    users_today         = await db.users.count_documents({"created_at": {"$gte": today_start}})
+    users_this_month    = await db.users.count_documents({"created_at": {"$gte": month_start}})
+    role_counts = {}
+    for role in ["student", "instructor", "admin", "executive_admin"]:
+        role_counts[role] = await db.users.count_documents({"role": role})
+
+    # ── Revenue ────────────────────────────────────────────────────────────────
+    # Payments this month
+    month_payments = await db.payments.find(
+        {"status": "paid", "created_at": {"$gte": month_start}},
+        {"_id": 0, "amount_cents": 1, "product_key": 1, "created_at": 1}
+    ).to_list(length=2000)
+    revenue_month_cents = sum(p.get("amount_cents", 0) for p in month_payments)
+
+    # Payments today
+    today_payments = [p for p in month_payments if p.get("created_at", "") >= today_start]
+    revenue_today_cents = sum(p.get("amount_cents", 0) for p in today_payments)
+
+    # All-time
+    all_payments = await db.payments.find({"status": "paid"}, {"_id": 0, "amount_cents": 1}).to_list(length=10000)
+    revenue_alltime_cents = sum(p.get("amount_cents", 0) for p in all_payments)
+
+    # Failed payments (invoices with no matching paid entry — logged via webhook)
+    failed_payments_count = await db.payments.count_documents({"status": {"$in": ["failed", "unpaid"]}})
+
+    # Active subscriptions
+    active_subs = await db.subscriptions.count_documents({"status": "active"})
+    canceled_subs = await db.subscriptions.count_documents({"status": "canceled"})
+
+    # Creator economy
+    creator_courses_total     = await db.creator_courses.count_documents({"status": {"$ne": "archived"}})
+    creator_courses_published = await db.creator_courses.count_documents({"status": "published"})
+    creator_earnings_pending  = await db.creator_earnings.aggregate([
+        {"$match": {"payout_status": "pending"}},
+        {"$group": {"_id": None, "total": {"$sum": "$creator_share_cents"}}},
+    ]).to_list(1)
+    pending_payout_cents = (creator_earnings_pending[0]["total"] if creator_earnings_pending else 0)
+    creator_profiles_count = await db.creator_profiles.count_documents({})
+
+    # Revenue by product key this month
+    product_breakdown: dict = {}
+    for p in month_payments:
+        k = p.get("product_key", "unknown")
+        product_breakdown[k] = product_breakdown.get(k, 0) + p.get("amount_cents", 0)
+
+    # ── Stripe live check ──────────────────────────────────────────────────────
+    stripe_mode = "not_configured"
+    stripe_balance = None
+    if STRIPE_SECRET_KEY:
+        stripe_mode = "test" if STRIPE_SECRET_KEY.startswith("sk_test_") else "live"
+        try:
+            bal = _stripe.Balance.retrieve()
+            stripe_balance = {
+                "available": [{"amount": f["amount"], "currency": f["currency"]} for f in bal.available],
+                "pending":   [{"amount": f["amount"], "currency": f["currency"]} for f in bal.pending],
+            }
+        except Exception:
+            stripe_balance = None
+
+    # ── Platform flags ─────────────────────────────────────────────────────────
+    flags_doc = await db.platform_flags.find_one({"_id": "flags"}, {"_id": 0})
+    platform_flags = (flags_doc or {}).get("flags", {})
+
+    # ── Curriculum & learning ──────────────────────────────────────────────────
+    modules_total      = await db.modules.count_documents({})
+    completions_total  = await db.progress.count_documents({"status": "completed"})
+    completions_today  = await db.progress.count_documents({"status": "completed", "completed_at": {"$gte": today_start}})
+    labs_pending       = await db.lab_submissions.count_documents({"status": "pending_review"})
+    credentials_issued = await db.user_credentials.count_documents({})
+    incidents_open     = await db.incidents.count_documents({"status": "open"})
+
+    # ── AI spend ───────────────────────────────────────────────────────────────
+    ai_usage = await db.ai_usage_log.find(
+        {"created_at": {"$gte": month_start}},
+        {"_id": 0, "cost_usd": 1, "provider": 1, "model": 1, "created_at": 1}
+    ).to_list(length=5000)
+    ai_spend_month = sum(float(r.get("cost_usd") or 0) for r in ai_usage)
+    ai_spend_today  = sum(float(r.get("cost_usd") or 0) for r in ai_usage if r.get("created_at", "") >= today_start)
+    ai_calls_month  = len(ai_usage)
+    ai_by_provider: dict = {}
+    for r in ai_usage:
+        p = r.get("provider", "unknown")
+        ai_by_provider[p] = round(ai_by_provider.get(p, 0) + float(r.get("cost_usd") or 0), 4)
+
+    # ── M.O.R.E. community ────────────────────────────────────────────────────
+    more_posts_total    = await db.more_posts.count_documents({})
+    more_posts_today    = await db.more_posts.count_documents({"created_at": {"$gte": today_start}})
+    more_needs_open     = await db.more_needs.count_documents({"status": {"$nin": ["resolved", "closed"]}})
+    more_flags_pending  = await db.more_flags.count_documents({"status": "pending"})
+    more_members        = await db.users.count_documents({"more_member": True})
+
+    # ── Audit / governance ────────────────────────────────────────────────────
+    audit_today = await db.audit_log.find(
+        {"at": {"$gte": today_start}},
+        {"_id": 0, "actor_id": 1, "action": 1, "at": 1}
+    ).sort("at", -1).limit(50).to_list(50)
+    audit_total_today = len(audit_today)
+    governance_entries = await db.governance_log.count_documents({})
+
+    # Recent failures / serious events from audit log (last 24h)
+    yesterday = (now - timedelta(hours=24)).isoformat()
+    failure_keywords = ["fail", "error", "denied", "locked", "suspend", "ban", "refund", "violation"]
+    failure_pipeline = [
+        {"$match": {"at": {"$gte": yesterday}, "$or": [{"action": {"$regex": k}} for k in failure_keywords]}},
+        {"$sort": {"at": -1}},
+        {"$limit": 30},
+        {"$project": {"_id": 0, "actor_id": 1, "action": 1, "at": 1, "meta": 1}},
+    ]
+    recent_failures = await db.audit_log.aggregate(failure_pipeline).to_list(30)
+
+    # ── Recent audit trail (last 20 actions) ─────────────────────────────────
+    recent_audit = await db.audit_log.find(
+        {}, {"_id": 0, "actor_id": 1, "action": 1, "at": 1, "target_id": 1}
+    ).sort("at", -1).limit(20).to_list(20)
+
+    # Enrich with actor names
+    actor_ids = list({r["actor_id"] for r in recent_audit + recent_failures if r.get("actor_id")})
+    actor_map = {}
+    if actor_ids:
+        async for u in db.users.find({"id": {"$in": actor_ids}}, {"_id": 0, "id": 1, "full_name": 1, "role": 1}):
+            actor_map[u["id"]] = u
+    for r in recent_audit + recent_failures:
+        a = actor_map.get(r.get("actor_id"))
+        r["actor_name"] = a["full_name"] if a else "system"
+        r["actor_role"] = a["role"] if a else ""
+
+    # ── Stripe webhook health (proxy: last recorded payment) ──────────────────
+    last_payment = await db.payments.find_one({}, {"_id": 0, "created_at": 1}, sort=[("created_at", -1)])
+    last_payment_at = last_payment["created_at"] if last_payment else None
+    yesterday_iso = (now - timedelta(hours=24)).isoformat()
+    payments_24h = await db.payments.count_documents({"created_at": {"$gte": yesterday_iso}})
+
+    # ── AI monthly spend budget ────────────────────────────────────────────────
+    budget_doc = await db.platform_config.find_one({"key": "ai_monthly_budget"}, {"_id": 0, "value": 1})
+    ai_monthly_budget = float(budget_doc["value"]) if budget_doc else None
+
+    # ── Broadcasts / announcements ─────────────────────────────────────────────
+    active_broadcast = await db.broadcasts.find_one({"active": True}, {"_id": 0})
+
+    # ── Pending refunds ────────────────────────────────────────────────────────
+    pending_refunds = await db.wai_refunds.count_documents({"status": "pending"})
+    pending_escalations = await db.escalations.count_documents({"status": {"$in": ["open", "pending"]}})
+
+    return {
+        "generated_at": now.isoformat(),
+        "users": {
+            "total": user_total, "active": user_active, "suspended": user_suspended,
+            "new_today": users_today, "new_this_month": users_this_month,
+            "by_role": role_counts,
+        },
+        "revenue": {
+            "today_cents": revenue_today_cents,
+            "month_cents": revenue_month_cents,
+            "alltime_cents": revenue_alltime_cents,
+            "failed_payments": failed_payments_count,
+            "active_subscriptions": active_subs,
+            "canceled_subscriptions": canceled_subs,
+            "by_product_month": product_breakdown,
+            "pending_creator_payouts_cents": pending_payout_cents,
+        },
+        "stripe": {
+            "mode": stripe_mode,
+            "balance": stripe_balance,
+        },
+        "platform_flags": platform_flags,
+        "creator_economy": {
+            "courses_total": creator_courses_total,
+            "courses_published": creator_courses_published,
+            "creator_profiles": creator_profiles_count,
+        },
+        "learning": {
+            "modules": modules_total,
+            "completions_total": completions_total,
+            "completions_today": completions_today,
+            "labs_pending_review": labs_pending,
+            "credentials_issued": credentials_issued,
+            "incidents_open": incidents_open,
+        },
+        "ai_spend": {
+            "month_usd": round(ai_spend_month, 4),
+            "today_usd": round(ai_spend_today, 4),
+            "calls_this_month": ai_calls_month,
+            "by_provider": ai_by_provider,
+            "monthly_budget_usd": ai_monthly_budget,
+        },
+        "community": {
+            "more_members": more_members,
+            "posts_total": more_posts_total,
+            "posts_today": more_posts_today,
+            "needs_open": more_needs_open,
+            "flags_pending": more_flags_pending,
+        },
+        "governance": {
+            "audit_events_today": audit_total_today,
+            "governance_log_entries": governance_entries,
+            "pending_refunds": pending_refunds,
+            "pending_escalations": pending_escalations,
+        },
+        "webhook_health": {
+            "last_payment_at": last_payment_at,
+            "payments_24h": payments_24h,
+        },
+        "recent_failures": recent_failures,
+        "recent_audit": recent_audit,
+        "active_broadcast": active_broadcast,
+    }
+
+
+@api_router.post("/admin/ai-spend-budget")
+async def admin_set_ai_spend_budget(
+    payload: dict,
+    user: User = Depends(require_role("executive_admin")),
+):
+    """Set or clear the monthly AI spend budget alert threshold (USD). executive_admin only.
+    Body: { budget_usd: float|null }
+    """
+    raw = payload.get("budget_usd")
+    if raw is None:
+        await db.platform_config.delete_one({"key": "ai_monthly_budget"})
+        await audit(user.id, "admin.ai_budget.cleared")
+        return {"budget_usd": None}
+    try:
+        val = float(raw)
+        if val <= 0:
+            raise ValueError
+    except (ValueError, TypeError):
+        raise HTTPException(400, "budget_usd must be a positive number")
+    await db.platform_config.update_one(
+        {"key": "ai_monthly_budget"},
+        {"$set": {"key": "ai_monthly_budget", "value": val, "set_by": user.id, "set_at": datetime.now(timezone.utc).isoformat()}},
+        upsert=True,
+    )
+    await audit(user.id, "admin.ai_budget.set", meta={"budget_usd": val})
+    return {"budget_usd": val}
+
+
+@api_router.post("/admin/control-panel/broadcast")
+async def control_panel_set_broadcast(
+    payload: dict,
+    user: User = Depends(require_role("executive_admin")),
+):
+    """Set or clear the site-wide broadcast banner. executive_admin only.
+    Body: { message: str, kind: 'info'|'warning'|'error', active: bool }
+    """
+    message = (payload.get("message") or "").strip()
+    kind = payload.get("kind", "info")
+    active = bool(payload.get("active", True))
+    if kind not in ("info", "warning", "error"):
+        raise HTTPException(400, "kind must be info, warning, or error")
+    now_iso = datetime.now(timezone.utc).isoformat()
+    if active and not message:
+        raise HTTPException(400, "message is required when active=true")
+    await db.broadcasts.update_one(
+        {"_id": "site_banner"},
+        {"$set": {
+            "active": active,
+            "message": message,
+            "kind": kind,
+            "set_by": user.id,
+            "updated_at": now_iso,
+        }},
+        upsert=True,
+    )
+    await audit(user.id, f"broadcast:{'set' if active else 'cleared'}", meta={"message": message[:100], "kind": kind})
+    return {"active": active, "message": message, "kind": kind}
+
 
 app.include_router(api_router)
 # CORS: when origins is wildcard ("*") browsers reject credentials, so we

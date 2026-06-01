@@ -1,12 +1,13 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import AppShell from "../components/AppShell";
 import BackButton from "../components/BackButton";
 import SovereignAvatar, { SOVEREIGN_AVATAR_KEY } from "../components/SovereignAvatar";
 import { Crown, Upload } from "lucide-react";
+import { api } from "../lib/api";
 
-// /avatar-setup — choose the photo that becomes The Sovereign's face. Stored
-// client-side (localStorage) so it needs no backend; broadcast via a custom event
-// so every mounted SovereignAvatar updates immediately.
+// /avatar-setup — choose the photo that becomes The Sovereign's face.
+// Stored in localStorage for instant access AND synced to the user's profile
+// in the backend so it persists across devices and sessions.
 export default function AvatarSetup() {
   const [preview, setPreview] = useState(() => {
     try {
@@ -17,6 +18,21 @@ export default function AvatarSetup() {
   });
   const [error, setError] = useState("");
   const [saved, setSaved] = useState(false);
+  const [syncing, setSyncing] = useState(false);
+
+  // On mount: if localStorage is empty, try to restore from backend profile
+  useEffect(() => {
+    const local = localStorage.getItem(SOVEREIGN_AVATAR_KEY);
+    if (local) return;
+    api.get("/auth/me").then(res => {
+      const url = res.data?.avatar_url;
+      if (url) {
+        try { localStorage.setItem(SOVEREIGN_AVATAR_KEY, url); } catch {}
+        setPreview(url);
+        window.dispatchEvent(new Event("sovereign-avatar-changed"));
+      }
+    }).catch(() => {});
+  }, []);
 
   const onFile = (e) => {
     const f = e.target.files?.[0];
@@ -36,17 +52,23 @@ export default function AvatarSetup() {
     reader.readAsDataURL(f);
   };
 
-  const save = () => {
+  const save = async () => {
     try {
       localStorage.setItem(SOVEREIGN_AVATAR_KEY, preview);
       window.dispatchEvent(new Event("sovereign-avatar-changed"));
+      setSyncing(true);
+      await api.patch("/auth/me", { avatar_url: preview });
+      setSyncing(false);
       setSaved(true);
     } catch {
-      setError("Could not save — the image may be too large for this device.");
+      setSyncing(false);
+      // localStorage save succeeded — backend sync failed silently
+      setSaved(true);
+      setError("Saved locally. Could not sync to your profile — try again later.");
     }
   };
 
-  const clear = () => {
+  const clear = async () => {
     try {
       localStorage.removeItem(SOVEREIGN_AVATAR_KEY);
     } catch {
@@ -55,6 +77,9 @@ export default function AvatarSetup() {
     setPreview("");
     setSaved(false);
     window.dispatchEvent(new Event("sovereign-avatar-changed"));
+    try {
+      await api.patch("/auth/me", { avatar_url: "" });
+    } catch {}
   };
 
   return (
@@ -66,7 +91,7 @@ export default function AvatarSetup() {
         </div>
         <h1 className="font-heading text-3xl font-bold mt-2">Set The Sovereign's Face</h1>
         <p className="text-ink/60 mt-2">
-          Your photo becomes The Sovereign — your clearer, sovereign self. Stored privately on this device.
+          Your photo becomes The Sovereign — your clearer, sovereign self. Saved to your profile and synced across devices.
         </p>
 
         <div className="card-flat p-8 mt-8 flex items-center gap-8">
@@ -77,10 +102,10 @@ export default function AvatarSetup() {
               <input type="file" accept="image/*" onChange={onFile} className="hidden" data-testid="avatar-file" />
             </label>
             {error && <div className="text-sm text-destructive mt-3">{error}</div>}
-            {saved && <div className="text-sm text-copper font-bold mt-3">Saved.</div>}
+            {saved && !error && <div className="text-sm text-copper font-bold mt-3">Saved — synced to your profile.</div>}
             <div className="flex gap-3 mt-4">
-              <button onClick={save} disabled={!preview} className="btn-copper text-sm disabled:opacity-50" data-testid="avatar-save">
-                Save
+              <button onClick={save} disabled={!preview || syncing} className="btn-copper text-sm disabled:opacity-50" data-testid="avatar-save">
+                {syncing ? "Saving…" : "Save"}
               </button>
               <button onClick={clear} className="btn-ghost text-sm" data-testid="avatar-clear">
                 Remove

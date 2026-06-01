@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import AppShell from "../components/AppShell";
-import { api } from "../lib/api";
+import { api, BACKEND_URL } from "../lib/api";
 import { useAuth } from "../lib/auth";
 import { Link } from "react-router-dom";
 import { Lock, Zap } from "lucide-react";
@@ -10,7 +10,10 @@ export default function ModulesList() {
   const [modules, setModules] = useState([]);
   const [progress, setProgress] = useState([]);
   useEffect(() => {
-    api.get("/modules").then((r) => setModules(r.data));
+    fetch(`${BACKEND_URL}/api/modules`)
+      .then((r) => r.ok ? r.json() : [])
+      .then((data) => setModules(Array.isArray(data) ? data : []))
+      .catch(() => {});
     if (user) {
       api.get("/progress/me").then((r) => setProgress(r.data)).catch(() => {});
     }

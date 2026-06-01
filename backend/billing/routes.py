@@ -3,12 +3,15 @@ WAI Institute Billing API Routes
 Real endpoints for subscription, invoice, and payment management
 """
 
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+import os
+from fastapi import APIRouter, Depends, HTTPException, Header, Request, status
 from typing import List, Optional
 import json
 import hmac
 import hashlib
 from datetime import datetime
+
+import jwt as _jwt
 
 from .models import (
     Subscription,
@@ -25,17 +28,41 @@ from .financial_reporting import FinancialReportingService, RevenueRecognitionSe
 from security.field_authorization import FieldAuthorization, get_visible_fields
 from security.encryption import decrypt_payout_account, mask_sensitive_field
 
+_JWT_SECRET = os.environ.get("JWT_SECRET", "")
+_JWT_ALGO = os.environ.get("JWT_ALGORITHM", "HS256")
 
-def _get_current_user(request: Request):
-    """Extract current user from request state (set by server.py JWT middleware)."""
-    user = getattr(request.state, "user", None)
-    if not user:
+
+async def get_current_user(
+    request: Request,
+    authorization: Optional[str] = Header(None),
+) -> dict:
+    """Validate JWT and return user dict, mirroring server.py's current_user dependency."""
+    token = None
+    if authorization and authorization.startswith("Bearer "):
+        token = authorization.split(" ", 1)[1]
+    if not token:
         raise HTTPException(status_code=401, detail="Authentication required")
-    return user
+    try:
+        payload = _jwt.decode(token, _JWT_SECRET, algorithms=[_JWT_ALGO])
+    except _jwt.ExpiredSignatureError:
+        raise HTTPException(status_code=401, detail="Token expired")
+    except _jwt.InvalidTokenError:
+        raise HTTPException(status_code=401, detail="Invalid token")
 
+    user_id = payload.get("sub")
+    if not user_id:
+        raise HTTPException(status_code=401, detail="Invalid token payload")
 
-# Alias so all existing Depends(get_current_user) calls keep working
-get_current_user = _get_current_user
+    db = getattr(request.app.state, "db", None)
+    if db is None:
+        raise HTTPException(status_code=503, detail="Database unavailable")
+
+    user_doc = await db.users.find_one({"id": user_id}, {"_id": 0, "password_hash": 0})
+    if not user_doc:
+        raise HTTPException(status_code=401, detail="User not found")
+    if not user_doc.get("active", True):
+        raise HTTPException(status_code=403, detail="Account deactivated")
+    return user_doc
 
 router = APIRouter(prefix="/api/billing", tags=["billing"])
 
@@ -81,7 +108,7 @@ async def create_subscription(
     """
     try:
         subscription = await stripe_service.create_subscription(
-            user_id=current_user["_id"],
+            user_id=current_user["id"],
             tier=SubscriptionTier(subscription_create.tier),
             billing_cycle=BillingCycle(subscription_create.billing_cycle),
             payment_method_id=subscription_create.payment_method_id,
@@ -108,7 +135,7 @@ async def get_subscription(
     ✅ Payment method details masked
     ✅ Audit logged
     """
-    subscription = await stripe_service.get_subscription(current_user["_id"])
+    subscription = await stripe_service.get_subscription(current_user["id"])
 
     if subscription:
         # Mask payment method details
@@ -154,7 +181,7 @@ async def upgrade_subscription(
     """
     try:
         subscription = await stripe_service.update_subscription_tier(
-            user_id=current_user["_id"],
+            user_id=current_user["id"],
             new_tier=new_tier,
         )
         return subscription
@@ -180,7 +207,7 @@ async def cancel_subscription(
     """
     try:
         subscription = await stripe_service.cancel_subscription(
-            user_id=current_user["_id"],
+            user_id=current_user["id"],
             reason=reason,
         )
         return subscription
@@ -213,7 +240,7 @@ async def get_invoices(
 
     # Get user's subscriptions
     user_subs = await subscriptions_collection.find({
-        "user_id": current_user["_id"]
+        "user_id": current_user["id"]
     }).to_list(None)
 
     sub_ids = [str(sub["_id"]) for sub in user_subs]
@@ -253,7 +280,7 @@ async def add_payment_method(
 
     # Save payment method
     payment_method_doc = {
-        "user_id": current_user["_id"],
+        "user_id": current_user["id"],
         "stripe_payment_method_id": payment_method_create.stripe_payment_method_id,
         "type": payment_method_create.type,
         "last_4": payment_method_create.last_4,
@@ -266,7 +293,7 @@ async def add_payment_method(
     # If this is set as default, unset others
     if payment_method_create.is_default:
         await payment_methods_collection.update_many(
-            {"user_id": current_user["_id"]},
+            {"user_id": current_user["id"]},
             {"$set": {"is_default": False}}
         )
 
@@ -284,7 +311,7 @@ async def list_payment_methods(
     payment_methods_collection = request.app.state.db.payment_methods
 
     methods = await payment_methods_collection.find({
-        "user_id": current_user["_id"]
+        "user_id": current_user["id"]
     }).to_list(None)
 
     return [PaymentMethod(**m, id=str(m["_id"])) for m in methods]
@@ -301,7 +328,7 @@ async def delete_payment_method(
 
     result = await payment_methods_collection.delete_one({
         "_id": payment_method_id,
-        "user_id": current_user["_id"],
+        "user_id": current_user["id"],
     })
 
     if result.deleted_count == 0:
@@ -333,7 +360,9 @@ async def stripe_webhook(
         sig_header = request.headers.get("stripe-signature")
 
         # Verify webhook signature (prevents spoofing)
-        webhook_secret = request.app.state.config.stripe_webhook_secret
+        webhook_secret = os.environ.get("STRIPE_WEBHOOK_SECRET", "")
+        if not webhook_secret:
+            raise ValueError("STRIPE_WEBHOOK_SECRET not configured")
         event = _verify_stripe_webhook(payload, sig_header, webhook_secret)
 
         # Process the event
@@ -363,7 +392,7 @@ async def get_creator_balance(
     creator_balances = request.app.state.db.creator_balances
 
     balance_doc = await creator_balances.find_one({
-        "creator_id": current_user["_id"]
+        "creator_id": current_user["id"]
     })
 
     if not balance_doc:
@@ -397,7 +426,7 @@ async def creator_withdraw(
     try:
         # Get creator's Stripe Connect ID
         users_collection = request.app.state.db.users
-        creator_doc = await users_collection.find_one({"_id": current_user["_id"]})
+        creator_doc = await users_collection.find_one({"id": current_user["id"]}, {"_id": 0})
 
         stripe_connect_id = creator_doc.get("stripe_connect_account_id")
         if not stripe_connect_id:
@@ -408,7 +437,7 @@ async def creator_withdraw(
 
         # Execute withdrawal
         payout_id = await creator_payout_service.execute_creator_withdrawal(
-            creator_id=current_user["_id"],
+            creator_id=current_user["id"],
             amount=amount,
             stripe_connect_account_id=stripe_connect_id,
         )
@@ -435,7 +464,7 @@ async def get_creator_payouts(
     creator_payouts = request.app.state.db.creator_payouts
 
     payouts = await creator_payouts.find({
-        "creator_id": current_user["_id"]
+        "creator_id": current_user["id"]
     }).sort("requested_date", -1).limit(limit).to_list(None)
 
     return [{

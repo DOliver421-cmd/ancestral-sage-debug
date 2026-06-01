@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback, useRef } from "react";
 import { Link } from "react-router-dom";
 import AppShell from "../components/AppShell";
-import { api } from "../lib/api";
+import { api, BACKEND_URL } from "../lib/api";
 import EmergencyPanel from "../components/EmergencyPanel";
 import {
   Crown, Database, Users, Shield,
@@ -32,7 +32,7 @@ function StatusDot({ ok, label }) {
 function KPI({ icon: Icon, label, value, alert, sub, accent }) {
   const color = alert ? "#dc2626" : accent || "#b5501a";
   return (
-    <div className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm"
+    <div className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm text-slate-900"
       style={alert ? { borderLeft: "4px solid #dc2626" } : {}}>
       <div className="flex items-start justify-between">
         <Icon className="w-5 h-5 mt-0.5" style={{ color }} />
@@ -233,8 +233,9 @@ function UserEditModal({ user: u, onClose, onUpdated, onDeleted, notify }) {
   const [assoc,     setAssoc]    = useState(u.associate || "");
   const [pw,        setPw]       = useState("");
   const [showPw,    setShowPw]   = useState(false);
-  const [saving,    setSaving]   = useState(false);
-  const [resetLink, setLink]     = useState(null);
+  const [saving,       setSaving]  = useState(false);
+  const [resetLink,    setLink]    = useState(null);
+  const [confirmDel,   setConfirmDel] = useState(false);
 
   async function save() {
     setSaving(true);
@@ -263,7 +264,6 @@ function UserEditModal({ user: u, onClose, onUpdated, onDeleted, notify }) {
   }
 
   async function deleteUser() {
-    if (!window.confirm(`Permanently delete ${u.full_name || u.email}? This cannot be undone.`)) return;
     setSaving(true);
     try {
       await api.delete(`/admin/users/${u.id}`);
@@ -287,7 +287,7 @@ function UserEditModal({ user: u, onClose, onUpdated, onDeleted, notify }) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: "rgba(0,0,0,0.55)" }} onClick={e => e.target === e.currentTarget && onClose()}>
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden">
+      <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden">
         <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100">
           <div>
             <h3 className="font-heading font-extrabold text-slate-900 text-lg">{u.full_name || u.email}</h3>
@@ -356,13 +356,28 @@ function UserEditModal({ user: u, onClose, onUpdated, onDeleted, notify }) {
           </div>
         </div>
 
+        {confirmDel && (
+          <div className="absolute inset-0 bg-black/50 flex items-center justify-center rounded-2xl z-10">
+            <div className="bg-white rounded-xl p-6 mx-4 max-w-sm w-full shadow-xl">
+              <p className="font-bold text-slate-800 text-sm mb-1">Permanently delete account?</p>
+              <p className="text-xs text-slate-500 mb-4">{u.full_name || u.email} — this cannot be undone.</p>
+              <div className="flex gap-2 justify-end">
+                <button onClick={() => setConfirmDel(false)} className="text-sm px-4 py-2 text-slate-600 hover:text-slate-800">Cancel</button>
+                <button onClick={deleteUser} disabled={saving}
+                  className="text-sm font-bold bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg disabled:opacity-40">
+                  {saving ? "Deleting…" : "Delete Forever"}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
         <div className="flex items-center justify-between px-6 py-4 border-t border-slate-100 bg-slate-50 gap-3 flex-wrap">
           <div className="flex gap-2">
             <button onClick={toggleActive} disabled={saving}
               className={`text-xs font-bold px-3 py-2 rounded-lg border transition-colors disabled:opacity-40 ${u.is_active === false ? "border-emerald-500 text-emerald-600 hover:bg-emerald-50" : "border-orange-400 text-orange-600 hover:bg-orange-50"}`}>
               {u.is_active === false ? "Activate" : "Deactivate"}
             </button>
-            <button onClick={deleteUser} disabled={saving}
+            <button onClick={() => setConfirmDel(true)} disabled={saving}
               className="text-xs font-bold px-3 py-2 rounded-lg border border-red-300 text-red-500 hover:bg-red-50 transition-colors disabled:opacity-40 flex items-center gap-1">
               <Trash2 className="w-3 h-3" /> Delete
             </button>
@@ -446,7 +461,7 @@ function UserDatabase() {
   const byRole = ROLES_ALL.reduce((acc, r) => ({ ...acc, [r]: users.filter(u => u.role === r).length }), {});
 
   return (
-    <div className="bg-white rounded-2xl border border-slate-100 shadow-sm mb-6 overflow-hidden">
+    <div className="bg-white rounded-2xl border border-slate-100 shadow-sm mb-6 overflow-hidden text-slate-900">
       {/* header */}
       <div className="px-6 py-4 border-b border-slate-100">
         <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
@@ -633,7 +648,7 @@ function ApiKeyManager() {
   }
 
   return (
-    <div className="bg-white rounded-2xl p-6 border border-slate-100 shadow-sm">
+    <div className="bg-white rounded-2xl p-6 border border-slate-100 shadow-sm text-slate-900">
       <h2 className="font-heading font-extrabold text-base text-slate-900 mb-1 flex items-center gap-2">
         <Shield className="w-4 h-4 text-amber-500" /> AI Service API Keys
       </h2>
@@ -697,8 +712,8 @@ export default function ExecSystem() {
         api.get("/admin/stats"),
         api.get("/admin/recent-activity?limit=12"),
         api.get("/admin/cohorts"),
-        fetch(`${window.location.origin}/api/more/posts?limit=1`).then(r => r.json()),
-        fetch(`${window.location.origin}/api/more/needs?limit=1`).then(r => r.json()),
+        fetch(`${BACKEND_URL}/api/more/posts?limit=1`).then(r => r.json()),
+        fetch(`${BACKEND_URL}/api/more/needs?limit=1`).then(r => r.json()),
       ]);
       if (sysR.status === "fulfilled")   setSys(sysR.value.data);
       else                               setErr("System endpoint unavailable");
@@ -744,7 +759,7 @@ export default function ExecSystem() {
             <h1 className="font-heading text-3xl lg:text-4xl font-extrabold" style={{ color: "var(--wai-gold-light)" }}>
               WAI-Institute Platform
             </h1>
-            <p className="text-sm mt-1" style={{ color: "rgba(241,240,251,0.6)" }}>
+            <p className="text-sm mt-1" style={{ color: "rgba(241,240,251,0.9)" }}>
               {lastSync
                 ? <>Last refreshed {ts(lastSync)} · <span className="text-emerald-600 font-semibold">All systems checked</span></>
                 : "Loading…"}
@@ -773,7 +788,7 @@ export default function ExecSystem() {
         )}
 
         {/* ── System status bar ─────────────────────────────────────────── */}
-        <div className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm mb-6">
+        <div className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm mb-6 text-slate-900">
           <div className="text-xs font-bold uppercase tracking-widest text-slate-600 mb-3">Platform Status</div>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
             <StatusDot ok={!!sys}      label="API Server" />
@@ -806,7 +821,7 @@ export default function ExecSystem() {
         <div className="grid lg:grid-cols-3 gap-6 mb-6">
 
           {/* Role distribution */}
-          <div className="bg-white rounded-2xl p-6 border border-slate-100 shadow-sm">
+          <div className="bg-white rounded-2xl p-6 border border-slate-100 shadow-sm text-slate-900">
             <h2 className="font-heading font-extrabold text-lg text-slate-900 mb-4 flex items-center gap-2">
               <Users className="w-5 h-5 text-slate-400" /> Role Distribution
             </h2>
@@ -858,7 +873,7 @@ export default function ExecSystem() {
           </div>
 
           {/* Recent activity */}
-          <div className="bg-white rounded-2xl p-6 border border-slate-100 shadow-sm">
+          <div className="bg-white rounded-2xl p-6 border border-slate-100 shadow-sm text-slate-900">
             <h2 className="font-heading font-extrabold text-lg text-slate-900 mb-1 flex items-center gap-2">
               <Activity className="w-5 h-5 text-slate-400" /> Recent Activity
             </h2>
@@ -882,7 +897,7 @@ export default function ExecSystem() {
         </div>
 
         {/* ── Associate cohort table ─────────────────────────────────── */}
-        <div className="bg-white rounded-2xl p-6 border border-slate-100 shadow-sm mb-6">
+        <div className="bg-white rounded-2xl p-6 border border-slate-100 shadow-sm mb-6 text-slate-900">
           <h2 className="font-heading font-extrabold text-lg text-slate-900 mb-4 flex items-center gap-2">
             <GraduationCap className="w-5 h-5 text-slate-400" /> Associate Cohort Performance
           </h2>
@@ -933,7 +948,7 @@ export default function ExecSystem() {
         <ApiKeyManager />
 
         {/* ── DB collections ────────────────────────────────────────────── */}
-        <div className="bg-white rounded-2xl p-6 border border-slate-100 shadow-sm">
+        <div className="bg-white rounded-2xl p-6 border border-slate-100 shadow-sm text-slate-900">
           <h2 className="font-heading font-extrabold text-base text-slate-900 mb-3 flex items-center gap-2">
             <Database className="w-4 h-4 text-slate-400" /> Live Collections ({sys?.collections?.length || 0})
           </h2>

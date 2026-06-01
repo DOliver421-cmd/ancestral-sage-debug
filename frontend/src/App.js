@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { Toaster } from "sonner";
 import "./App.css";
 import { AuthProvider, useAuth } from "./lib/auth";
@@ -47,6 +47,7 @@ import Internships from "./pages/Internships";
 import PlaylistSubmit from "./pages/PlaylistSubmit";
 import PlaylistDashboard from "./pages/PlaylistDashboard";
 import DirectorWidget from "./components/DirectorWidget";
+import SupervisorWidget from "./components/SupervisorWidget";
 import ErrorBoundary from "./components/ErrorBoundary";
 import Helper from "./pages/Helper";
 import Leaderboard from "./pages/Leaderboard";
@@ -64,6 +65,7 @@ import ElderCouncil from "./pages/ElderCouncil";
 import Plans from "./pages/Plans";
 import HelpCenter from "./pages/HelpCenter";
 import SeshatsHub from "./pages/SeshatsHub";
+import SeshatsHubPublic from "./pages/SeshatsHubPublic";
 import TermsOfService from "./pages/TermsOfService";
 import PrivacyPolicy from "./pages/PrivacyPolicy";
 import MoreHelpCenter from "./pages/MoreHelpCenter";
@@ -77,7 +79,21 @@ import RevenueDivision from "./pages/RevenueDivision";
 import Courses from "./pages/Courses";
 import Community from "./pages/Community";
 import Creators from "./pages/Creators";
+import GhostProducer from "./pages/GhostProducer";
 import ExecutiveDirectorDashboard from "./pages/ExecutiveDirectorDashboard";
+import PartnershipDashboard from "./pages/PartnershipDashboard";
+import PartnershipDiscounts from "./pages/PartnershipDiscounts";
+import UserProfile from "./pages/UserProfile";
+import LabSimulations from "./pages/LabSimulations";
+import Landing from "./pages/Landing";
+import PlatformPrices from "./pages/PlatformPrices";
+import AuditorDashboard from "./pages/AuditorDashboard";
+import ProviderGateway from "./pages/ProviderGateway";
+import BillingAdmin from "./pages/BillingAdmin";
+import CreatorCourses from "./pages/CreatorCourses";
+import CreatorEarnings from "./pages/CreatorEarnings";
+import CreatorProfileEdit from "./pages/CreatorProfileEdit";
+import SiteControlPanel from "./pages/SiteControlPanel";
 
 // Role hierarchy must mirror backend ROLE_RANK in /app/backend/server.py.
 // Higher rank = more authority; a higher-rank role passes any check meant
@@ -96,6 +112,26 @@ function Protected({ children, roles }) {
   return children;
 }
 
+// Wraps admin/exec routes in their own ErrorBoundary so a crash in one page
+// doesn't bring down the whole app. resetKey resets the boundary on navigation.
+function BoundedAdmin({ children, roles, label, backTo = "/admin" }) {
+  const { pathname } = useLocation();
+  return (
+    <ErrorBoundary compact resetKey={pathname} label={label} backTo={backTo}>
+      <Protected roles={roles}>{children}</Protected>
+    </ErrorBoundary>
+  );
+}
+
+// Supervisor-specific protection — redirects to the Supervisor login, not the main login.
+function SupervisorProtected({ children }) {
+  const { user, loading } = useAuth();
+  if (loading) return <div className="p-12 text-ink font-heading">Loading…</div>;
+  if (!user) return <Navigate to="/supervisor-login" replace />;
+  if ((ROLE_RANK[user.role] ?? 0) < ROLE_RANK["executive_admin"]) return <Navigate to="/supervisor-login" replace />;
+  return children;
+}
+
 function Home() {
   const { user, loading } = useAuth();
   if (loading) return null;
@@ -111,9 +147,19 @@ function App() {
   const hostname = window.location.hostname;
   if (hostname.includes("morehelp.center")) {
     return (
-      <BrowserRouter>
-        <MoreHelpCenter />
-      </BrowserRouter>
+      <AuthProvider>
+        <BrowserRouter>
+          <ErrorBoundary>
+            <Toaster position="top-right" richColors />
+            <Routes>
+              {/* Auth pages must work on morehelp.center too */}
+              <Route path="/login" element={<Login />} />
+              <Route path="/register" element={<Register />} />
+              <Route path="*" element={<MoreHelpCenter />} />
+            </Routes>
+          </ErrorBoundary>
+        </BrowserRouter>
+      </AuthProvider>
     );
   }
 
@@ -129,6 +175,7 @@ function App() {
 
         {/* Global widgets */}
         <DirectorWidget />
+        <SupervisorWidget />
         <SovereignChat />
         <CookieConsent />
         <HelpGuide />
@@ -148,8 +195,8 @@ function App() {
           <Route path="/dashboard" element={<Protected><StudentDashboard /></Protected>} />
           {/* Dashboard aliases (handoff routing scheme) — same pages, role-gated */}
           <Route path="/dashboard/student" element={<Protected><StudentDashboard /></Protected>} />
-          <Route path="/dashboard/exec" element={<Protected roles={["executive_admin"]}><ExecSystem /></Protected>} />
-          <Route path="/dashboard/admin" element={<Protected roles={["admin"]}><AdminDashboard /></Protected>} />
+          <Route path="/dashboard/exec" element={<BoundedAdmin roles={["executive_admin"]} label="Exec Dashboard" backTo="/admin"><ExecSystem /></BoundedAdmin>} />
+          <Route path="/dashboard/admin" element={<BoundedAdmin roles={["admin"]} label="Admin Dashboard"><AdminDashboard /></BoundedAdmin>} />
           <Route path="/dashboard/instructor" element={<Protected roles={["instructor", "admin"]}><InstructorDashboard /></Protected>} />
           <Route path="/avatar-setup" element={<Protected><AvatarSetup /></Protected>} />
           {/* Themed member spaces */}
@@ -158,22 +205,22 @@ function App() {
           <Route path="/plans" element={<Plans />} />
           {/* Public funnel pages */}
           <Route path="/help-center" element={<HelpCenter />} />
-          <Route path="/seshats-hub" element={<SeshatsHub />} />
+          <Route path="/seshats-hub" element={<SeshatsHubPublic />} />
           {/* MORE Help Center — unified entry point (greeter / exec / decoy modes) */}
           <Route path="/more-help-center" element={<MoreHelpCenter />} />
           <Route path="/landing" element={<LandingMarketplace />} />
           {/* Supervisor — executive_admin only; separate login at /supervisor-login */}
           <Route path="/supervisor-login" element={<SupervisorLogin />} />
-          <Route path="/supervisor" element={<Protected roles={["executive_admin"]}><SeshatsHub /></Protected>} />
+          <Route path="/supervisor" element={<SupervisorProtected><SeshatsHub /></SupervisorProtected>} />
           <Route path="/terms" element={<TermsOfService />} />
           <Route path="/privacy" element={<PrivacyPolicy />} />
           <Route path="/courses" element={<Courses />} />
           <Route path="/community" element={<Community />} />
           <Route path="/creators" element={<Creators />} />
           <Route path="/instructor" element={<Protected roles={["instructor", "admin"]}><InstructorDashboard /></Protected>} />
-          <Route path="/admin" element={<Protected roles={["admin"]}><AdminDashboard /></Protected>} />
-          <Route path="/admin/users" element={<Protected roles={["admin"]}><AdminDashboard /></Protected>} />
-          <Route path="/admin/associate" element={<Protected roles={["admin"]}><AdminDashboard /></Protected>} />
+          <Route path="/admin" element={<BoundedAdmin roles={["admin"]} label="Admin Dashboard"><AdminDashboard /></BoundedAdmin>} />
+          <Route path="/admin/users" element={<BoundedAdmin roles={["admin"]} label="Admin Dashboard"><AdminDashboard /></BoundedAdmin>} />
+          <Route path="/admin/associate" element={<BoundedAdmin roles={["admin"]} label="Admin Dashboard"><AdminDashboard /></BoundedAdmin>} />
           {/* Modules — public preview shows free intro modules; full catalog gated */}
           <Route path="/modules" element={<ModulesList />} />
           <Route path="/modules/:slug" element={<ModuleView />} />
@@ -190,24 +237,33 @@ function App() {
           <Route path="/adaptive" element={<Protected><Adaptive /></Protected>} />
           <Route path="/compliance" element={<Protected><ComplianceList /></Protected>} />
           <Route path="/compliance/:slug" element={<Protected><ComplianceDetail /></Protected>} />
-          <Route path="/admin/tools" element={<Protected roles={["admin"]}><AdminTools /></Protected>} />
-          <Route path="/admin/analytics" element={<Protected roles={["admin"]}><Analytics /></Protected>} />
-          <Route path="/admin/audit" element={<Protected roles={["admin"]}><AuditLog /></Protected>} />
+          <Route path="/admin/tools" element={<BoundedAdmin roles={["admin"]} label="Admin Tools"><AdminTools /></BoundedAdmin>} />
+          <Route path="/admin/analytics" element={<BoundedAdmin roles={["admin"]} label="Analytics"><Analytics /></BoundedAdmin>} />
+          <Route path="/admin/audit" element={<BoundedAdmin roles={["admin"]} label="Audit Log"><AuditLog /></BoundedAdmin>} />
           <Route path="/attendance" element={<Protected roles={["instructor", "admin"]}><Attendance /></Protected>} />
           <Route path="/incidents" element={<Protected><Incidents /></Protected>} />
           <Route path="/settings" element={<Protected><Settings /></Protected>} />
-          <Route path="/admin/system" element={<Protected roles={["executive_admin"]}><ExecSystem /></Protected>} />
-          <Route path="/admin/director" element={<Protected roles={["executive_admin"]}><ExecutiveDirectorDashboard /></Protected>} />
-          <Route path="/admin/sage-audit" element={<Protected roles={["executive_admin"]}><SageAudit /></Protected>} />
-          <Route path="/admin/staff-meetings" element={<Protected roles={["executive_admin"]}><StaffMeetingHistory /></Protected>} />
-          <Route path="/admin/health" element={<Protected roles={["admin"]}><SystemHealth /></Protected>} />
-          <Route path="/admin/moderation" element={<Protected roles={["admin"]}><ModerationAnalytics /></Protected>} />
-          <Route path="/revenue" element={<Protected roles={["admin", "executive_admin"]}><RevenueDivision /></Protected>} />
+          <Route path="/admin/system" element={<BoundedAdmin roles={["executive_admin"]} label="Exec System" backTo="/admin/control"><ExecSystem /></BoundedAdmin>} />
+          {/* Site Control Panel — executive_admin only, not linked from any nav */}
+          <Route path="/admin/control" element={<BoundedAdmin roles={["executive_admin"]} label="Site Control Panel" backTo="/admin"><SiteControlPanel /></BoundedAdmin>} />
+          <Route path="/admin/director" element={<BoundedAdmin roles={["executive_admin"]} label="Director Dashboard" backTo="/admin"><ExecutiveDirectorDashboard /></BoundedAdmin>} />
+          <Route path="/admin/sage-audit" element={<BoundedAdmin roles={["executive_admin"]} label="Sage Audit" backTo="/admin"><SageAudit /></BoundedAdmin>} />
+          <Route path="/admin/staff-meetings" element={<BoundedAdmin roles={["executive_admin"]} label="Staff Meetings" backTo="/admin"><StaffMeetingHistory /></BoundedAdmin>} />
+          <Route path="/admin/health" element={<BoundedAdmin roles={["admin"]} label="System Health"><SystemHealth /></BoundedAdmin>} />
+          <Route path="/admin/moderation" element={<BoundedAdmin roles={["admin"]} label="Moderation Analytics"><ModerationAnalytics /></BoundedAdmin>} />
+          <Route path="/revenue" element={<BoundedAdmin roles={["admin", "executive_admin"]} label="Revenue Division"><RevenueDivision /></BoundedAdmin>} />
           <Route path="/council" element={<Protected><OrchestratorChat /></Protected>} />
           {/* Leaderboard — public read-only */}
           <Route path="/leaderboard" element={<Leaderboard />} />
+          {/* Creator Studio — publish & manage courses */}
+          <Route path="/creator/courses" element={<Protected><CreatorCourses /></Protected>} />
+          {/* Creator earnings & payouts */}
+          <Route path="/creator/earnings" element={<Protected><CreatorEarnings /></Protected>} />
+          {/* Creator profile editor */}
+          <Route path="/creator/profile/edit" element={<Protected><CreatorProfileEdit /></Protected>} />
           {/* Creator profiles — public, slug-based */}
           <Route path="/creator/:slug" element={<CreatorProfile />} />
+          <Route path="/ghost-producer" element={<GhostProducer />} />
           {/* Public pages */}
           <Route path="/internships" element={<Internships />} />
           {/* Social publisher — authenticated */}
@@ -233,7 +289,24 @@ function App() {
           <Route path="/payment/cancel" element={<PaymentCancel />} />
           <Route path="/payment/history" element={<Protected><PaymentHistory /></Protected>} />
           <Route path="/payment/manage" element={<Protected><PaymentHistory /></Protected>} />
-          <Route path="/admin/payments" element={<Protected roles={["admin"]}><AdminPayments /></Protected>} />
+          <Route path="/admin/payments" element={<BoundedAdmin roles={["admin"]} label="Admin Payments"><AdminPayments /></BoundedAdmin>} />
+          {/* Partnership & profile features */}
+          <Route path="/partnership" element={<Protected><PartnershipDashboard /></Protected>} />
+          <Route path="/partnership/discounts" element={<Protected><PartnershipDiscounts /></Protected>} />
+          <Route path="/profile" element={<Protected><UserProfile /></Protected>} />
+          <Route path="/profile/:id" element={<Protected><UserProfile /></Protected>} />
+          {/* Lab simulations */}
+          <Route path="/lab-simulations" element={<Protected><LabSimulations /></Protected>} />
+          {/* Platform Prices — admin manage, exec delete */}
+          <Route path="/admin/prices" element={<BoundedAdmin roles={["admin"]} label="Platform Prices"><PlatformPrices /></BoundedAdmin>} />
+          {/* The Auditor — read-only ledger and reporting, admin+ */}
+          <Route path="/auditor" element={<BoundedAdmin roles={["admin"]} label="Auditor Dashboard"><AuditorDashboard /></BoundedAdmin>} />
+          {/* Provider Gateway — executive only */}
+          <Route path="/admin/providers" element={<BoundedAdmin roles={["executive_admin"]} label="Provider Gateway" backTo="/admin/control"><ProviderGateway /></BoundedAdmin>} />
+          {/* Billing Admin — exec/admin */}
+          <Route path="/admin/billing" element={<BoundedAdmin roles={["admin"]} label="Billing Admin"><BillingAdmin /></BoundedAdmin>} />
+          {/* Original landing page (alternate entry point) */}
+          <Route path="/welcome" element={<Landing />} />
           <Route path="*" element={<Error404 />} />
         </Routes>
         </div>

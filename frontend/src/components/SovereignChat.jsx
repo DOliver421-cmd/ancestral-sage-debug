@@ -1,8 +1,13 @@
-import { useState } from "react";
+import { useState, useRef, useCallback } from "react";
 import { useAuth } from "../lib/auth";
-import { api } from "../lib/api";
+import { api, BACKEND_URL } from "../lib/api";
 import SovereignAvatar from "./SovereignAvatar";
-import { Send, X } from "lucide-react";
+import { Send, X, Mic, MicOff, Volume2, VolumeX } from "lucide-react";
+
+const SpeechRecognitionImpl =
+  typeof window !== "undefined"
+    ? window.SpeechRecognition || window.webkitSpeechRecognition
+    : null;
 
 // Executive-only "Summon The Sovereign" launcher + resizable chat panel.
 // Wired to POST /api/sovereign/chat (exec-gated on the backend). Renders nothing
@@ -10,13 +15,80 @@ import { Send, X } from "lucide-react";
 // never collides with the bottom-anchored Director widget.
 export default function SovereignChat() {
   const { user } = useAuth();
-  const [open, setOpen] = useState(false);
+  const [open, setOpen]       = useState(false);
   const [messages, setMessages] = useState([]);
-  const [input, setInput] = useState("");
+  const [input, setInput]     = useState("");
   const [sending, setSending] = useState(false);
+
+  // Audio state
+  const [audioOn, setAudioOn]       = useState(false);
+  const [recording, setRecording]   = useState(false);
+
+  // Refs
+  const recRef        = useRef(null);
+  const speakAudioRef = useRef(null);
+  const speakAbortRef = useRef(null);
+
+  // ── TTS ─────────────────────────────────────────────────────────────────────
+  const speak = useCallback(async (text) => {
+    if (!audioOn || !text) return;
+    speakAbortRef.current?.abort();
+    if (speakAudioRef.current) { speakAudioRef.current.pause(); speakAudioRef.current = null; }
+    const controller = new AbortController();
+    speakAbortRef.current = controller;
+    try {
+      const token = localStorage.getItem("lce_token");
+      const r = await fetch(`${BACKEND_URL}/api/ai/sage/tts`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ text: text.slice(0, 1500), voice: "onyx", speed: 1.0, session_id: "sovereign" }),
+        signal: controller.signal,
+      });
+      if (!r.ok) return;
+      const blob = await r.blob();
+      const url  = URL.createObjectURL(blob);
+      const audio = new Audio(url);
+      speakAudioRef.current = audio;
+      audio.onended = () => { URL.revokeObjectURL(url); speakAudioRef.current = null; };
+      audio.play().catch(() => { URL.revokeObjectURL(url); speakAudioRef.current = null; });
+    } catch (e) { if (e?.name !== "AbortError") speakAudioRef.current = null; }
+  }, [audioOn]);
+
+  const stopAudio = useCallback(() => {
+    speakAbortRef.current?.abort();
+    if (speakAudioRef.current) { speakAudioRef.current.pause(); speakAudioRef.current = null; }
+  }, []);
+
+  // ── STT ─────────────────────────────────────────────────────────────────────
+  const toggleMic = useCallback(() => {
+    if (!SpeechRecognitionImpl) return;
+    if (recording) {
+      recRef.current?.stop();
+      recRef.current = null;
+      setRecording(false);
+      return;
+    }
+    if (recRef.current) { recRef.current.stop(); recRef.current = null; }
+    const rec = new SpeechRecognitionImpl();
+    rec.lang = "en-US"; rec.continuous = false; rec.interimResults = false;
+    rec.onresult = (ev) => {
+      const txt = ev.results?.[0]?.[0]?.transcript?.trim();
+      if (txt) setInput((cur) => cur ? `${cur} ${txt}` : txt);
+    };
+    rec.onerror = () => { recRef.current = null; setRecording(false); };
+    rec.onend   = () => { recRef.current = null; setRecording(false); };
+    recRef.current = rec;
+    try {
+      rec.start();
+      setRecording(true);
+    } catch {
+      recRef.current = null;
+    }
+  }, [recording]);
 
   if (user?.role !== "executive_admin") return null;
 
+  // ── Send ─────────────────────────────────────────────────────────────────────
   const send = async (e) => {
     e.preventDefault();
     const msg = input.trim();
@@ -26,7 +98,9 @@ export default function SovereignChat() {
     setSending(true);
     try {
       const r = await api.post("/sovereign/chat", { message: msg });
-      setMessages((m) => [...m, { role: "sovereign", text: r.data?.reply || "…" }]);
+      const reply = r.data?.reply || "…";
+      setMessages((m) => [...m, { role: "sovereign", text: reply }]);
+      speak(reply);
     } catch {
       setMessages((m) => [...m, { role: "sovereign", text: "(The Sovereign is unavailable right now — try again shortly.)" }]);
     } finally {
@@ -60,16 +134,40 @@ export default function SovereignChat() {
       }}
       data-testid="sovereign-panel"
     >
+      {/* Header */}
       <div className="flex items-center justify-between px-4 py-3" style={{ background: "var(--wai-emerald)" }}>
         <div className="flex items-center gap-2" style={{ color: "var(--wai-gold-light)" }}>
           <SovereignAvatar size={32} />
           <span className="font-heading font-bold">The Sovereign</span>
         </div>
-        <button onClick={() => setOpen(false)} aria-label="Close" style={{ color: "var(--wai-gold-light)" }}>
-          <X className="w-5 h-5" />
-        </button>
+        <div className="flex items-center gap-2">
+          {/* Voice output toggle */}
+          <button
+            onClick={() => { setAudioOn((v) => !v); if (audioOn) stopAudio(); }}
+            title={audioOn ? "Voice ON — click to mute" : "Voice OFF — click to unmute"}
+            aria-label={audioOn ? "Mute voice output" : "Enable voice output"}
+            style={{
+              background: audioOn ? "var(--wai-gold)" : "rgba(255,255,255,0.15)",
+              border: "none",
+              borderRadius: "50%",
+              width: 30,
+              height: 30,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              cursor: "pointer",
+              color: audioOn ? "#1a1100" : "var(--wai-gold-light)",
+            }}
+          >
+            {audioOn ? <Volume2 style={{ width: 14, height: 14 }} /> : <VolumeX style={{ width: 14, height: 14 }} />}
+          </button>
+          <button onClick={() => { setOpen(false); stopAudio(); }} aria-label="Close" style={{ color: "var(--wai-gold-light)" }}>
+            <X className="w-5 h-5" />
+          </button>
+        </div>
       </div>
 
+      {/* Messages */}
       <div className="flex-1 overflow-y-auto p-4 space-y-3" style={{ color: "var(--wai-text)" }}>
         {messages.length === 0 && (
           <div className="text-sm" style={{ color: "var(--wai-muted)" }}>
@@ -87,17 +185,48 @@ export default function SovereignChat() {
               }
             >
               {m.text}
+              {m.role === "sovereign" && (
+                <button
+                  onClick={() => speak(m.text)}
+                  title="Read aloud"
+                  style={{ background: "none", border: "none", cursor: "pointer", fontSize: 12, opacity: 0.5, marginLeft: 6, padding: 0, verticalAlign: "middle" }}
+                >
+                  🔊
+                </button>
+              )}
             </div>
           </div>
         ))}
         {sending && <div className="text-xs" style={{ color: "var(--wai-muted)" }}>The Sovereign is considering…</div>}
       </div>
 
+      {/* Input bar */}
       <form onSubmit={send} className="p-3 flex gap-2" style={{ borderTop: "1px solid var(--wai-border)" }}>
+        {/* Mic button */}
+        <button
+          type="button"
+          onClick={toggleMic}
+          title={recording ? "Stop dictation" : "Voice input"}
+          aria-label={recording ? "Stop dictation" : "Dictate message"}
+          style={{
+            background: recording ? "#dc2626" : "rgba(255,255,255,0.1)",
+            border: "none",
+            borderRadius: 8,
+            padding: "0 10px",
+            cursor: "pointer",
+            color: recording ? "#fff" : "var(--wai-gold-light)",
+            flexShrink: 0,
+          }}
+        >
+          {recording
+            ? <MicOff style={{ width: 15, height: 15 }} />
+            : <Mic    style={{ width: 15, height: 15 }} />}
+        </button>
+
         <input
           value={input}
           onChange={(e) => setInput(e.target.value)}
-          placeholder="Ask The Sovereign…"
+          placeholder={recording ? "Listening…" : "Ask The Sovereign…"}
           data-testid="sovereign-input"
           style={{ background: "var(--wai-dark)", color: "var(--wai-text)", border: "1px solid var(--wai-border)", borderRadius: 8, padding: "0.5rem 0.75rem", flex: 1 }}
         />

@@ -129,7 +129,10 @@ export default function AITutor() {
       audio.onended = () => { URL.revokeObjectURL(url); setAudioPlaying(false); };
       audio.onpause = () => setAudioPlaying(false);
       audio.onplay = () => setAudioPlaying(true);
-      audio.oncanplaythrough = () => audio.play();
+      audio.oncanplaythrough = () => {
+        if (audioElRef.current !== audio) return;
+        audio.play().catch(() => setAudioPlaying(false));
+      };
       audio.load();
     } catch (e) {
       if (e?.name !== "AbortError") {
@@ -216,6 +219,7 @@ export default function AITutor() {
     }
     if (recording) {
       recogRef.current?.stop();
+      recogRef.current = null;
       setRecording(false);
       return;
     }
@@ -244,9 +248,11 @@ export default function AITutor() {
       rec.onerror = (ev) => {
         if (ev.error === "no-speech") { rec.stop(); return; }
         toast.error(`Mic error: ${ev.error || "unknown"}`);
+        recogRef.current = null;
         setRecording(false);
       };
       rec.onend = () => {
+        recogRef.current = null;
         setRecording(false);
       };
       recogRef.current = rec;
@@ -255,6 +261,7 @@ export default function AITutor() {
         setRecording(true);
         toast.info("Listening… click mic again to stop.");
       } catch {
+        recogRef.current = null;
         toast.error("Couldn't start microphone.");
       }
     };

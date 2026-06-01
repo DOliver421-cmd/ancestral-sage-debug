@@ -188,16 +188,19 @@ function useMic({ onResult, onError }) {
     if (!SR) { onError("Voice input is not supported in this browser. Please use Chrome or Edge."); return; }
     try { await navigator.mediaDevices.getUserMedia({ audio: true }); }
     catch { onError("Microphone access was denied. Please allow mic access in your browser settings."); return; }
+    if (recogRef.current) { recogRef.current.stop(); recogRef.current = null; }
     const rec = new SR();
     rec.lang = "en-US"; rec.continuous = false; rec.interimResults = false; rec.maxAlternatives = 1;
     rec.onstart = () => setListening(true);
-    rec.onend = () => setListening(false);
+    rec.onend = () => { recogRef.current = null; setListening(false); };
     rec.onresult = (e) => { const t = e.results[0]?.[0]?.transcript || ""; if (t.trim()) onResult(t.trim()); };
-    rec.onerror = (e) => { setListening(false); onError(e.error === "not-allowed" ? "Microphone access denied." : "Microphone error: " + e.error); };
-    recogRef.current = rec; rec.start();
+    rec.onerror = (e) => { recogRef.current = null; setListening(false); onError(e.error === "not-allowed" ? "Microphone access denied." : "Microphone error: " + e.error); };
+    recogRef.current = rec;
+    try { rec.start(); }
+    catch { recogRef.current = null; onError("Microphone error: could not start."); }
   }, [onResult, onError]);
 
-  const stop = useCallback(() => { recogRef.current?.stop(); setListening(false); }, []);
+  const stop = useCallback(() => { recogRef.current?.stop(); recogRef.current = null; setListening(false); }, []);
   const toggle = useCallback(() => { if (listening) stop(); else start(); }, [listening, start, stop]);
   return { listening, toggle };
 }
@@ -253,7 +256,7 @@ function useTTS(voice) {
       audio.onended = () => { URL.revokeObjectURL(url); setSpeaking(false); };
       audio.onpause = () => setSpeaking(false);
       audio.onerror = () => { setSpeaking(false); speakBrowser(text); };
-      audio.play();
+      audio.play().catch(() => { setSpeaking(false); speakBrowser(text); });
     } catch (e) { if (e?.name !== "AbortError") { setSpeaking(false); speakBrowser(text); } }
   }, [voice, speakBrowser]);
 
@@ -365,6 +368,7 @@ function PublicHelper() {
           <div style={{ flex:1 }}>
             <div style={{ fontSize:20, fontWeight:800, lineHeight:1.2 }}>I am here to be your HELPER.</div>
             <div style={{ fontSize:13, opacity:0.9, marginTop:2 }}>I can help you understand mail, bills, legal papers, housing and more — in plain, simple words.</div>
+            <div style={{ display:"inline-flex", alignItems:"center", gap:4, marginTop:5, background:"rgba(255,255,255,0.15)", borderRadius:999, padding:"2px 10px", fontSize:11, fontWeight:700, letterSpacing:"0.5px" }}>⚡ AI-Powered — Real answers, not scripts</div>
           </div>
         </div>
         {/* BIG ACTION BUTTONS */}
@@ -570,7 +574,10 @@ function AuthHelper({ user }) {
         <div style={{ display:"flex", alignItems:"center", gap:14, marginBottom:12 }}>
           <div style={{ width:44, height:44, borderRadius:"50%", background:"radial-gradient(circle at 30% 20%,#fde68a,#facc15 40%,#f97316 80%)", display:"flex", alignItems:"center", justifyContent:"center", fontWeight:900, fontSize:20, flexShrink:0, boxShadow:"0 0 0 3px rgba(255,255,255,0.25)" }}>H</div>
           <div style={{ flex:1 }}>
-            <div style={{ fontSize:15, fontWeight:800, lineHeight:1.2 }}>Personal Help Center</div>
+            <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+              <span style={{ fontSize:15, fontWeight:800, lineHeight:1.2 }}>Personal Help Center</span>
+              <span style={{ background:"rgba(255,255,255,0.15)", borderRadius:999, padding:"1px 8px", fontSize:10, fontWeight:700, letterSpacing:"0.5px" }}>⚡ AI</span>
+            </div>
             <div style={{ fontSize:12, opacity:0.85 }}>Hello, {firstName} — your private workspace</div>
           </div>
           <div style={{ display:"flex", gap:8 }}>

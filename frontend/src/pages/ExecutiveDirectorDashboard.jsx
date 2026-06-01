@@ -1,11 +1,12 @@
 import { useState, useEffect, useCallback } from "react";
+import { Link } from "react-router-dom";
 import { api } from "../lib/api";
 import { useAuth } from "../lib/auth";
 import { toast } from "sonner";
 import {
   AlertTriangle, Activity, Users, TrendingUp, Lock, Unlock,
   ShieldAlert, RefreshCw, CheckCircle, XCircle, Radio,
-  BarChart3, FileText, Power, Megaphone,
+  BarChart3, FileText, Power, Megaphone, KeyRound,
 } from "lucide-react";
 
 const SEV_COLOR = {
@@ -31,6 +32,10 @@ const FEATURES = [
 export default function ExecutiveDirectorDashboard() {
   const { user } = useAuth();
   const [activeTab, setActiveTab] = useState("threats");
+
+  // --- password change state ---
+  const [pwForm, setPwForm]         = useState({ current: "", next: "", confirm: "" });
+  const [pwLoading, setPwLoading]   = useState(false);
   const [loading, setLoading] = useState(true);
 
   // --- data state ---
@@ -184,6 +189,7 @@ export default function ExecutiveDirectorDashboard() {
     { id: "controls",  label: "Emergency Controls",                   icon: <Power className="w-4 h-4" /> },
     { id: "broadcast", label: "Broadcast",                            icon: <Megaphone className="w-4 h-4" /> },
     { id: "audit",     label: "Audit Log",                            icon: <FileText className="w-4 h-4" /> },
+    { id: "account",   label: "Account",                              icon: <KeyRound className="w-4 h-4" /> },
   ];
 
   return (
@@ -223,15 +229,15 @@ export default function ExecutiveDirectorDashboard() {
         <div className="max-w-7xl mx-auto px-6 py-6 flex items-center justify-between">
           <div>
             <h1 className="font-heading text-3xl font-bold">Executive Director</h1>
-            <p className="text-ink/60 text-sm mt-1">Platform governance, crisis response, strategic oversight</p>
+            <p className="text-ink/80 text-sm mt-1">Platform governance, crisis response, strategic oversight</p>
           </div>
-          <button
-            onClick={loadAll}
-            className="flex items-center gap-2 px-4 py-2 border border-ink/20 rounded-lg text-sm font-semibold hover:bg-ink/5"
-          >
-            <RefreshCw className="w-4 h-4" />
-            Refresh
-          </button>
+          <div className="flex items-center gap-2">
+            <Link to="/admin/providers" className="px-3 py-2 border border-ink/20 rounded-lg text-xs font-semibold hover:bg-ink/5">Provider Gateway</Link>
+            <Link to="/admin/billing"   className="px-3 py-2 border border-ink/20 rounded-lg text-xs font-semibold hover:bg-ink/5">Billing & Credits</Link>
+            <button onClick={loadAll} className="flex items-center gap-2 px-4 py-2 border border-ink/20 rounded-lg text-sm font-semibold hover:bg-ink/5">
+              <RefreshCw className="w-4 h-4" /> Refresh
+            </button>
+          </div>
         </div>
       </div>
 
@@ -242,36 +248,36 @@ export default function ExecutiveDirectorDashboard() {
           <div className="bg-white border border-ink/10 rounded-lg p-5">
             <div className="flex items-center gap-2 mb-2">
               <ShieldAlert className="w-4 h-4 text-red-600" />
-              <span className="text-xs font-bold text-ink/50 uppercase tracking-wide">Critical</span>
+              <span className="text-xs font-bold text-ink/80 uppercase tracking-wide">Critical</span>
             </div>
             <p className="text-3xl font-bold text-red-600">{criticalCount}</p>
-            <p className="text-xs text-ink/50 mt-1">Open incidents</p>
+            <p className="text-xs text-ink/80 mt-1">Open incidents</p>
           </div>
           <div className="bg-white border border-ink/10 rounded-lg p-5">
             <div className="flex items-center gap-2 mb-2">
               <AlertTriangle className="w-4 h-4 text-orange-500" />
-              <span className="text-xs font-bold text-ink/50 uppercase tracking-wide">High</span>
+              <span className="text-xs font-bold text-ink/80 uppercase tracking-wide">High</span>
             </div>
             <p className="text-3xl font-bold text-orange-500">{highCount}</p>
-            <p className="text-xs text-ink/50 mt-1">Open incidents</p>
+            <p className="text-xs text-ink/80 mt-1">Open incidents</p>
           </div>
           <div className="bg-white border border-ink/10 rounded-lg p-5">
             <div className="flex items-center gap-2 mb-2">
               <Users className="w-4 h-4 text-ink" />
-              <span className="text-xs font-bold text-ink/50 uppercase tracking-wide">Users</span>
+              <span className="text-xs font-bold text-ink/80 uppercase tracking-wide">Users</span>
             </div>
             <p className="text-3xl font-bold text-ink">{loading ? "—" : (stats?.users ?? users.length)}</p>
-            <p className="text-xs text-ink/50 mt-1">Registered</p>
+            <p className="text-xs text-ink/80 mt-1">Registered</p>
           </div>
           <div className="bg-white border border-ink/10 rounded-lg p-5">
             <div className="flex items-center gap-2 mb-2">
               <Activity className="w-4 h-4 text-ink" />
-              <span className="text-xs font-bold text-ink/50 uppercase tracking-wide">Platform</span>
+              <span className="text-xs font-bold text-ink/80 uppercase tracking-wide">Platform</span>
             </div>
             <p className="text-3xl font-bold" style={{ color: platformLocked ? "#dc2626" : "#16a34a" }}>
               {platformLocked ? "Locked" : "Active"}
             </p>
-            <p className="text-xs text-ink/50 mt-1">Current state</p>
+            <p className="text-xs text-ink/80 mt-1">Current state</p>
           </div>
         </div>
 
@@ -284,7 +290,7 @@ export default function ExecutiveDirectorDashboard() {
               className={`flex items-center gap-2 py-3 font-bold border-b-2 transition-all whitespace-nowrap text-sm ${
                 activeTab === t.id
                   ? "border-ink text-ink"
-                  : "border-transparent text-ink/50 hover:text-ink"
+                  : "border-transparent text-ink/80 hover:text-ink"
               }`}
             >
               {t.icon}{t.label}
@@ -295,7 +301,7 @@ export default function ExecutiveDirectorDashboard() {
         {/* ── THREATS TAB ─────────────────────────────────────────────────── */}
         {activeTab === "threats" && (
           <div className="space-y-4">
-            {loading && <p className="text-ink/50">Loading incidents…</p>}
+            {loading && <p className="text-ink/80">Loading incidents…</p>}
             {!loading && incidents.length === 0 && (
               <div className="bg-green-50 border border-green-200 rounded-lg p-8 text-center">
                 <CheckCircle className="w-10 h-10 text-green-600 mx-auto mb-3" />
@@ -311,12 +317,12 @@ export default function ExecutiveDirectorDashboard() {
                       <span className={`text-xs font-bold px-2 py-0.5 rounded ${SEV_BADGE[inc.severity] || SEV_BADGE.low}`}>
                         {(inc.severity || "unknown").toUpperCase()}
                       </span>
-                      <span className="text-xs text-ink/50">{inc.type || "incident"}</span>
-                      <span className="text-xs text-ink/40">{fmtTime(inc.created_at)}</span>
+                      <span className="text-xs text-ink/80">{inc.type || "incident"}</span>
+                      <span className="text-xs text-ink/70">{fmtTime(inc.created_at)}</span>
                     </div>
                     <p className="font-bold text-ink">{inc.title || inc.summary}</p>
                     {inc.description && <p className="text-sm text-ink/70 mt-1">{inc.description}</p>}
-                    {inc.reported_by && <p className="text-xs text-ink/50 mt-2">Reported by: {inc.reported_by}</p>}
+                    {inc.reported_by && <p className="text-xs text-ink/80 mt-2">Reported by: {inc.reported_by}</p>}
                   </div>
                   <button
                     onClick={() => resolveIncident(inc.id)}
@@ -339,7 +345,7 @@ export default function ExecutiveDirectorDashboard() {
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="border-b border-ink/10 text-ink/50 text-xs uppercase tracking-wide">
+                  <tr className="border-b border-ink/10 text-ink/80 text-xs uppercase tracking-wide">
                     <th className="text-left px-5 py-3">Name</th>
                     <th className="text-left px-5 py-3">Email</th>
                     <th className="text-left px-5 py-3">Role</th>
@@ -349,13 +355,13 @@ export default function ExecutiveDirectorDashboard() {
                 </thead>
                 <tbody>
                   {loading && (
-                    <tr><td colSpan={5} className="text-center py-8 text-ink/40">Loading…</td></tr>
+                    <tr><td colSpan={5} className="text-center py-8 text-ink/70">Loading…</td></tr>
                   )}
                   {!loading && users.length === 0 && (
-                    <tr><td colSpan={5} className="text-center py-8 text-ink/40">No users found.</td></tr>
+                    <tr><td colSpan={5} className="text-center py-8 text-ink/70">No users found.</td></tr>
                   )}
                   {users.map(u => (
-                    <tr key={u.id} className="border-b border-ink/5 hover:bg-ink/2">
+                    <tr key={u.id} className="border-b border-ink/5 hover:bg-ink/10">
                       <td className="px-5 py-3 font-semibold">{u.full_name || "—"}</td>
                       <td className="px-5 py-3 font-mono text-xs text-ink/70">{u.email}</td>
                       <td className="px-5 py-3">
@@ -400,7 +406,7 @@ export default function ExecutiveDirectorDashboard() {
                     {platformLocked ? <Lock className="w-5 h-5 text-red-600" /> : <Unlock className="w-5 h-5 text-ink" />}
                     <h3 className="font-bold text-lg">Platform Lock</h3>
                   </div>
-                  <p className="text-sm text-ink/60">
+                  <p className="text-sm text-ink/80">
                     When locked, all users are in read-only mode. No posts, enrollments, or submissions go through.
                     Auth and admin endpoints remain operational. Reason is logged.
                   </p>
@@ -429,11 +435,11 @@ export default function ExecutiveDirectorDashboard() {
                   <div className="flex items-start justify-between gap-4">
                     <div>
                       <div className="flex items-center gap-2 mb-1">
-                        <Power className={`w-4 h-4 ${active ? "text-red-600" : "text-ink/50"}`} />
+                        <Power className={`w-4 h-4 ${active ? "text-red-600" : "text-ink/80"}`} />
                         <h3 className="font-bold">{f.label}</h3>
                         {active && <span className="text-xs font-bold px-2 py-0.5 rounded bg-red-600 text-white">DISABLED</span>}
                       </div>
-                      <p className="text-sm text-ink/60">{f.desc}</p>
+                      <p className="text-sm text-ink/80">{f.desc}</p>
                       {active && flags[f.key]?.reason && (
                         <p className="text-xs text-red-700 font-semibold mt-1">Reason: {flags[f.key].reason}</p>
                       )}
@@ -462,7 +468,7 @@ export default function ExecutiveDirectorDashboard() {
               <h2 className="font-bold text-lg mb-5">Send Platform Broadcast</h2>
               <div className="space-y-4">
                 <div>
-                  <label className="block text-xs font-bold uppercase tracking-wide text-ink/50 mb-1">Target Audience</label>
+                  <label className="block text-xs font-bold uppercase tracking-wide text-ink/80 mb-1">Target Audience</label>
                   <select
                     value={bcTarget}
                     onChange={e => setBcTarget(e.target.value)}
@@ -476,7 +482,7 @@ export default function ExecutiveDirectorDashboard() {
                   </select>
                 </div>
                 <div>
-                  <label className="block text-xs font-bold uppercase tracking-wide text-ink/50 mb-1">Title</label>
+                  <label className="block text-xs font-bold uppercase tracking-wide text-ink/80 mb-1">Title</label>
                   <input
                     value={bcTitle}
                     onChange={e => setBcTitle(e.target.value)}
@@ -485,7 +491,7 @@ export default function ExecutiveDirectorDashboard() {
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-bold uppercase tracking-wide text-ink/50 mb-1">Message</label>
+                  <label className="block text-xs font-bold uppercase tracking-wide text-ink/80 mb-1">Message</label>
                   <textarea
                     value={bcMsg}
                     onChange={e => setBcMsg(e.target.value)}
@@ -506,6 +512,66 @@ export default function ExecutiveDirectorDashboard() {
           </div>
         )}
 
+        {/* ── ACCOUNT TAB ───────────────────────────────────────────────────── */}
+        {activeTab === "account" && (
+          <div className="bg-white border border-ink/10 rounded-lg p-6 max-w-md">
+            <h2 className="font-bold text-lg mb-4 flex items-center gap-2">
+              <KeyRound className="w-5 h-5" /> Change Password
+            </h2>
+            <form
+              onSubmit={async (e) => {
+                e.preventDefault();
+                if (pwForm.next !== pwForm.confirm) {
+                  toast.error("New passwords do not match.");
+                  return;
+                }
+                if (pwForm.next.length < 8) {
+                  toast.error("New password must be at least 8 characters.");
+                  return;
+                }
+                setPwLoading(true);
+                try {
+                  await api.post("/auth/change-password", {
+                    current_password: pwForm.current,
+                    new_password: pwForm.next,
+                  });
+                  toast.success("Password updated. Use your new password next time you log in.");
+                  setPwForm({ current: "", next: "", confirm: "" });
+                } catch (err) {
+                  toast.error(err?.response?.data?.detail || "Password change failed.");
+                } finally {
+                  setPwLoading(false);
+                }
+              }}
+              className="space-y-4"
+            >
+              {[
+                { label: "Current password", key: "current" },
+                { label: "New password",     key: "next"    },
+                { label: "Confirm new password", key: "confirm" },
+              ].map(({ label, key }) => (
+                <div key={key}>
+                  <label className="block text-sm font-medium text-ink mb-1">{label}</label>
+                  <input
+                    type="password"
+                    value={pwForm[key]}
+                    onChange={e => setPwForm(f => ({ ...f, [key]: e.target.value }))}
+                    required
+                    className="w-full border border-ink/20 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gold"
+                  />
+                </div>
+              ))}
+              <button
+                type="submit"
+                disabled={pwLoading}
+                className="w-full bg-gold text-white font-semibold py-2 rounded-md hover:bg-gold/90 disabled:opacity-50 transition"
+              >
+                {pwLoading ? "Saving…" : "Update Password"}
+              </button>
+            </form>
+          </div>
+        )}
+
         {/* ── AUDIT LOG TAB ─────────────────────────────────────────────────── */}
         {activeTab === "audit" && (
           <div className="bg-white border border-ink/10 rounded-lg overflow-hidden">
@@ -513,22 +579,22 @@ export default function ExecutiveDirectorDashboard() {
               <h2 className="font-bold">Recent Platform Actions</h2>
             </div>
             <div className="divide-y divide-ink/5 max-h-[600px] overflow-y-auto">
-              {loading && <p className="text-center py-8 text-ink/40">Loading…</p>}
+              {loading && <p className="text-center py-8 text-ink/70">Loading…</p>}
               {!loading && auditLog.length === 0 && (
-                <p className="text-center py-8 text-ink/40">No audit entries found.</p>
+                <p className="text-center py-8 text-ink/70">No audit entries found.</p>
               )}
               {auditLog.map((entry, i) => (
                 <div key={i} className="px-5 py-3 flex items-start justify-between gap-4 text-sm">
                   <div>
                     <p className="font-semibold text-ink">{entry.action || entry.event || "—"}</p>
-                    {entry.actor && <p className="text-xs text-ink/50 mt-0.5">By: {entry.actor}</p>}
+                    {entry.actor && <p className="text-xs text-ink/80 mt-0.5">By: {entry.actor}</p>}
                     {entry.detail && typeof entry.detail === "object" && (
-                      <p className="text-xs text-ink/40 mt-0.5 font-mono">
+                      <p className="text-xs text-ink/70 mt-0.5 font-mono">
                         {JSON.stringify(entry.detail).slice(0, 120)}
                       </p>
                     )}
                   </div>
-                  <p className="text-xs text-ink/40 whitespace-nowrap">{fmtTime(entry.created_at || entry.ts)}</p>
+                  <p className="text-xs text-ink/70 whitespace-nowrap">{fmtTime(entry.created_at || entry.ts)}</p>
                 </div>
               ))}
             </div>

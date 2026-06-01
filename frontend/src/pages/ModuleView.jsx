@@ -2,7 +2,8 @@ import { useEffect, useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import AppShell from "../components/AppShell";
 import { LoadingState } from "../components/LoadingState";
-import { api } from "../lib/api";
+import { api, BACKEND_URL } from "../lib/api";
+import { useAuth } from "../lib/auth";
 import { toast } from "sonner";
 import { BookOpen, ShieldAlert, Wrench, CheckSquare, FileImage, Sparkles, ArrowLeft } from "lucide-react";
 
@@ -12,11 +13,17 @@ export default function ModuleView() {
   const [progress, setProgress] = useState(null);
   const [answers, setAnswers] = useState({});
   const [result, setResult] = useState(null);
+  const { user } = useAuth();
 
   useEffect(() => {
-    api.get(`/modules/${slug}`).then((r) => setMod(r.data));
-    api.post("/progress/start", { module_slug: slug }).then((r) => setProgress(r.data)).catch(() => {});
-  }, [slug]);
+    fetch(`${BACKEND_URL}/api/modules/${slug}`)
+      .then((r) => r.ok ? r.json() : null)
+      .then((data) => { if (data) setMod(data); })
+      .catch(() => {});
+    if (user) {
+      api.post("/progress/start", { module_slug: slug }).then((r) => setProgress(r.data)).catch(() => {});
+    }
+  }, [slug, user]);
 
   const submitQuiz = async () => {
     if (!mod) return;
@@ -124,7 +131,9 @@ export default function ModuleView() {
                 </div>
               </div>
             ))}
-            <button onClick={submitQuiz} className="btn-primary" data-testid="btn-submit-quiz">Submit Quiz</button>
+            {user
+              ? <button onClick={submitQuiz} className="btn-primary" data-testid="btn-submit-quiz">Submit Quiz</button>
+              : <Link to="/register" className="btn-primary" data-testid="btn-submit-quiz">Sign up to take quiz</Link>}
             {result?.status === "completed" && (
               <Link to="/certificates" className="btn-copper ml-3 inline-block" data-testid="btn-view-cert">View Certificate</Link>
             )}

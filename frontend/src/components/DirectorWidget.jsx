@@ -141,7 +141,7 @@ function buildAlertMessage(pulse, prev) {
 function MonitorPanel({ pulse, style, onAction, onScan }) {
   if (!pulse) {
     return (
-      <div style={{ padding: "32px", textAlign: "center", color: "#444", fontSize: "12px" }}>
+      <div style={{ padding: "32px", textAlign: "center", color: "#aaa", fontSize: "12px" }}>
         <div style={{ fontSize: "28px", marginBottom: "10px" }}>📡</div>
         Scanning systems…
       </div>
@@ -221,7 +221,7 @@ function MonitorPanel({ pulse, style, onAction, onScan }) {
       {/* Metrics grid */}
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "5px", marginBottom: "10px" }}>
         {metrics.map(item => {
-          const c = item.critical ? HEALTH_COLORS.critical : item.warn ? HEALTH_COLORS.warning : "#555";
+          const c = item.critical ? HEALTH_COLORS.critical : item.warn ? HEALTH_COLORS.warning : "#aaa";
           return (
             <div
               key={item.label}
@@ -235,14 +235,14 @@ function MonitorPanel({ pulse, style, onAction, onScan }) {
               }}
               title={item.action ? "Click to brief Director" : ""}
             >
-              <div style={{ fontSize: "8px", color: "#555", letterSpacing: "0.5px", marginBottom: "3px" }}>
+              <div style={{ fontSize: "8px", color: "#999", letterSpacing: "0.5px", marginBottom: "3px" }}>
                 {item.icon} {item.label}
               </div>
-              <div style={{ fontSize: "22px", fontWeight: "900", fontFamily: "monospace", color: item.warn ? c : "#888" }}>
+              <div style={{ fontSize: "22px", fontWeight: "900", fontFamily: "monospace", color: item.warn ? c : "#ccc" }}>
                 {item.val ?? "—"}
               </div>
               {item.action && item.warn && (
-                <div style={{ fontSize: "8px", color: c + "70", marginTop: "2px" }}>tap to brief →</div>
+                <div style={{ fontSize: "8px", color: c + "CC", marginTop: "2px" }}>tap to brief →</div>
               )}
             </div>
           );
@@ -252,7 +252,7 @@ function MonitorPanel({ pulse, style, onAction, onScan }) {
       {/* Recent incidents */}
       {pulse.recent_incidents?.length > 0 && (
         <div style={{ marginBottom: "10px" }}>
-          <div style={{ fontSize: "8px", color: "#555", letterSpacing: "1px", marginBottom: "5px" }}>OPEN INCIDENTS</div>
+          <div style={{ fontSize: "8px", color: "#999", letterSpacing: "1px", marginBottom: "5px" }}>OPEN INCIDENTS</div>
           {pulse.recent_incidents.map((inc, i) => (
             <div
               key={i}
@@ -274,7 +274,7 @@ function MonitorPanel({ pulse, style, onAction, onScan }) {
       {/* Active alerts */}
       {pulse.alerts?.length > 0 && (
         <div>
-          <div style={{ fontSize: "8px", color: "#555", letterSpacing: "1px", marginBottom: "5px" }}>ACTIVE ALERTS</div>
+          <div style={{ fontSize: "8px", color: "#999", letterSpacing: "1px", marginBottom: "5px" }}>ACTIVE ALERTS</div>
           {pulse.alerts.map((alert, i) => {
             const ac = alert.level === "high" ? HEALTH_COLORS.critical
               : alert.level === "warn" ? HEALTH_COLORS.warning : "#4CAF50";
@@ -329,7 +329,7 @@ function MorePanel({ style, onAction, pulse }) {
 
   if (loadingMore) {
     return (
-      <div style={{ padding: "32px", textAlign: "center", color: "#444", fontSize: "12px" }}>
+      <div style={{ padding: "32px", textAlign: "center", color: "#aaa", fontSize: "12px" }}>
         <div style={{ fontSize: "28px", marginBottom: "10px" }}>🤝</div>
         Loading M.O.R.E. data…
       </div>
@@ -343,7 +343,7 @@ function MorePanel({ style, onAction, pulse }) {
         {[
           { label: "Posts",  val: moreStats.postsTotal, icon: "📝", color: "#4C9AC9",                   warn: false },
           { label: "Needs",  val: moreStats.needsTotal, icon: "🙏", color: "#C9A84C",                   warn: false },
-          { label: "Flags",  val: flagCount,            icon: "🚩", color: flagCount > 0 ? HEALTH_COLORS.warning : "#555", warn: flagCount > 0 },
+          { label: "Flags",  val: flagCount,            icon: "🚩", color: flagCount > 0 ? HEALTH_COLORS.warning : "#aaa", warn: flagCount > 0 },
         ].map(item => (
           <div key={item.label} style={{
             background: item.warn ? "#1A1500" : "#111",
@@ -352,7 +352,7 @@ function MorePanel({ style, onAction, pulse }) {
           }}>
             <div style={{ fontSize: "14px" }}>{item.icon}</div>
             <div style={{ fontSize: "20px", fontWeight: "900", color: item.color, fontFamily: "monospace" }}>{item.val}</div>
-            <div style={{ fontSize: "8px", color: "#555" }}>{item.label}</div>
+            <div style={{ fontSize: "8px", color: "#999" }}>{item.label}</div>
           </div>
         ))}
       </div>
@@ -374,7 +374,7 @@ function MorePanel({ style, onAction, pulse }) {
 
       {/* Action buttons */}
       <div style={{ marginBottom: "10px" }}>
-        <div style={{ fontSize: "8px", color: "#555", letterSpacing: "1px", marginBottom: "6px" }}>DIRECTOR ACTIONS</div>
+        <div style={{ fontSize: "8px", color: "#999", letterSpacing: "1px", marginBottom: "6px" }}>DIRECTOR ACTIONS</div>
         {[
           { label: "Review Content Flags",  msg: "Review all pending M.O.R.E. content flags. For each: what is it, does it violate policy, and what action should I take?" },
           { label: "Community Health",      msg: "Analyze the current state of the M.O.R.E. community exchange — engagement levels, common needs, and what needs my attention." },
@@ -384,7 +384,7 @@ function MorePanel({ style, onAction, pulse }) {
           <button key={action.label} onClick={() => onAction(action.msg)} style={{
             display: "block", width: "100%", textAlign: "left",
             background: "transparent", border: `1px solid ${style.color}25`,
-            color: style.color + "BB", padding: "6px 10px",
+            color: style.color, padding: "6px 10px",
             fontSize: "10px", cursor: "pointer", borderRadius: "2px",
             marginBottom: "4px", letterSpacing: "0.3px",
           }}>
@@ -395,7 +395,7 @@ function MorePanel({ style, onAction, pulse }) {
 
       {/* Quick links */}
       <div style={{ marginBottom: "10px" }}>
-        <div style={{ fontSize: "8px", color: "#555", letterSpacing: "1px", marginBottom: "6px" }}>QUICK LINKS</div>
+        <div style={{ fontSize: "8px", color: "#999", letterSpacing: "1px", marginBottom: "6px" }}>QUICK LINKS</div>
         {[
           { label: "↗ M.O.R.E. Exchange",   href: "/more" },
           { label: "↗ M.O.R.E. Admin",      href: "/more/admin" },
@@ -404,13 +404,13 @@ function MorePanel({ style, onAction, pulse }) {
           { label: "↗ Community Chat",       href: "/more/chat" },
         ].map(link => (
           <a key={link.href} href={link.href} style={{
-            display: "block", color: style.color + "70", fontSize: "10px",
+            display: "block", color: style.color + "CC", fontSize: "10px",
             padding: "4px 0", textDecoration: "none",
             borderBottom: "1px solid #1A1A1A",
             transition: "color 0.1s",
           }}
             onMouseEnter={e => { e.currentTarget.style.color = style.color; }}
-            onMouseLeave={e => { e.currentTarget.style.color = style.color + "70"; }}
+            onMouseLeave={e => { e.currentTarget.style.color = style.color + "CC"; }}
           >
             {link.label}
           </a>
@@ -420,13 +420,13 @@ function MorePanel({ style, onAction, pulse }) {
       {/* Recent needs */}
       {moreStats.recentNeeds.length > 0 && (
         <div>
-          <div style={{ fontSize: "8px", color: "#555", letterSpacing: "1px", marginBottom: "6px" }}>RECENT NEEDS</div>
+          <div style={{ fontSize: "8px", color: "#999", letterSpacing: "1px", marginBottom: "6px" }}>RECENT NEEDS</div>
           {moreStats.recentNeeds.slice(0, 3).map((n, i) => (
             <div key={i} style={{
               padding: "5px 8px", marginBottom: "3px",
               background: "#0D0D0D", border: "1px solid #C9A84C18",
               borderLeft: "2px solid #C9A84C35", borderRadius: "2px",
-              fontSize: "10px", color: "#888",
+              fontSize: "10px", color: "#bbb",
             }}>
               🙏 {n.title}
             </div>
@@ -464,18 +464,18 @@ function StudentsPanel({ pulse, style, onAction }) {
               borderRadius: "4px", padding: "10px", cursor: "pointer",
             }}
           >
-            <div style={{ fontSize: "8px", color: "#555", marginBottom: "3px" }}>{item.icon} {item.label}</div>
-            <div style={{ fontSize: "24px", fontWeight: "900", fontFamily: "monospace", color: item.warn ? "#C9A84C" : "#888" }}>
+            <div style={{ fontSize: "8px", color: "#999", marginBottom: "3px" }}>{item.icon} {item.label}</div>
+            <div style={{ fontSize: "24px", fontWeight: "900", fontFamily: "monospace", color: item.warn ? "#C9A84C" : "#ccc" }}>
               {item.val ?? "—"}
             </div>
-            <div style={{ fontSize: "8px", color: "#C9A84C60", marginTop: "2px" }}>tap to brief →</div>
+            <div style={{ fontSize: "8px", color: "#C9A84C", marginTop: "2px" }}>tap to brief →</div>
           </div>
         ))}
       </div>
 
       {/* Actions */}
       <div style={{ marginBottom: "10px" }}>
-        <div style={{ fontSize: "8px", color: "#555", letterSpacing: "1px", marginBottom: "6px" }}>ACTIONS</div>
+        <div style={{ fontSize: "8px", color: "#999", letterSpacing: "1px", marginBottom: "6px" }}>ACTIONS</div>
         {[
           { label: "Student Progress Report", msg: "Give me a full progress report across all students — who is excelling, who is struggling, and what I should do." },
           { label: "Lab Review Queue",        msg: "List all pending lab submissions in priority order. Include student name, module, and how long it has been waiting." },
@@ -486,7 +486,7 @@ function StudentsPanel({ pulse, style, onAction }) {
           <button key={action.label} onClick={() => onAction(action.msg)} style={{
             display: "block", width: "100%", textAlign: "left",
             background: "transparent", border: `1px solid ${style.color}25`,
-            color: style.color + "BB", padding: "6px 10px",
+            color: style.color, padding: "6px 10px",
             fontSize: "10px", cursor: "pointer", borderRadius: "2px",
             marginBottom: "4px",
           }}>
@@ -497,7 +497,7 @@ function StudentsPanel({ pulse, style, onAction }) {
 
       {/* Quick links */}
       <div>
-        <div style={{ fontSize: "8px", color: "#555", letterSpacing: "1px", marginBottom: "6px" }}>QUICK LINKS</div>
+        <div style={{ fontSize: "8px", color: "#999", letterSpacing: "1px", marginBottom: "6px" }}>QUICK LINKS</div>
         {[
           { label: "↗ Admin Dashboard",  href: "/admin" },
           { label: "↗ Instructor Hub",   href: "/instructor" },
@@ -506,12 +506,12 @@ function StudentsPanel({ pulse, style, onAction }) {
           { label: "↗ Incidents",        href: "/incidents" },
         ].map(link => (
           <a key={link.href} href={link.href} style={{
-            display: "block", color: style.color + "70", fontSize: "10px",
+            display: "block", color: style.color + "CC", fontSize: "10px",
             padding: "4px 0", textDecoration: "none", borderBottom: "1px solid #1A1A1A",
             transition: "color 0.1s",
           }}
             onMouseEnter={e => { e.currentTarget.style.color = style.color; }}
-            onMouseLeave={e => { e.currentTarget.style.color = style.color + "70"; }}
+            onMouseLeave={e => { e.currentTarget.style.color = style.color + "CC"; }}
           >
             {link.label}
           </a>
@@ -558,17 +558,17 @@ function NotesPanel({ style }) {
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%", padding: "10px" }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "6px" }}>
-        <div style={{ fontSize: "8px", color: "#555", letterSpacing: "1px" }}>SESSION NOTES — auto-saves</div>
+        <div style={{ fontSize: "8px", color: "#999", letterSpacing: "1px" }}>SESSION NOTES — auto-saves</div>
         <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
           {saved && <span style={{ fontSize: "8px", color: "#4CAF50" }}>✓ saved</span>}
           <button onClick={exportNotes} style={{
             background: "transparent", border: "1px solid #333",
-            color: "#555", padding: "2px 6px", fontSize: "8px",
+            color: "#999", padding: "2px 6px", fontSize: "8px",
             cursor: "pointer", borderRadius: "2px",
           }}>↓ export</button>
           <button onClick={clearNotes} style={{
             background: "transparent", border: "1px solid #333",
-            color: "#555", padding: "2px 6px", fontSize: "8px",
+            color: "#999", padding: "2px 6px", fontSize: "8px",
             cursor: "pointer", borderRadius: "2px",
           }}>clear</button>
         </div>
@@ -732,7 +732,10 @@ export default function DirectorWidget() {
 
   // ── Derived ────────────────────────────────────────────────────────────────
 
-  const bottomRef  = useRef(null);
+  const bottomRef     = useRef(null);
+  const recRef        = useRef(null);
+  const speakAudioRef = useRef(null);
+  const speakAbortRef = useRef(null);
   const isMonitor  = user?.role === "admin" || user?.role === "executive_admin";
   const roleTabs   = ROLE_TABS[user?.role] || ["chat"];
 
@@ -796,37 +799,53 @@ export default function DirectorWidget() {
 
   const speak = async (text) => {
     if (!audioOn) return;
+    speakAbortRef.current?.abort();
+    if (speakAudioRef.current) { speakAudioRef.current.pause(); speakAudioRef.current = null; }
+    const controller = new AbortController();
+    speakAbortRef.current = controller;
     try {
       const token = localStorage.getItem("lce_token");
       const r = await fetch(`${API}/ai/sage/tts`, {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify({ text, voice: persona === "director" ? "onyx" : "nova", speed: 1.0, session_id: "director" }),
+        signal: controller.signal,
       });
       if (!r.ok) return;
       const blob = await r.blob();
       const url  = URL.createObjectURL(blob);
       const audio = new Audio(url);
-      audio.onended = () => URL.revokeObjectURL(url);
-      audio.play();
-    } catch {}
+      speakAudioRef.current = audio;
+      audio.onended = () => { URL.revokeObjectURL(url); speakAudioRef.current = null; };
+      audio.play().catch(() => { URL.revokeObjectURL(url); speakAudioRef.current = null; });
+    } catch (e) { if (e?.name !== "AbortError") { speakAudioRef.current = null; } }
   };
 
   // ── STT ───────────────────────────────────────────────────────────────────
 
   const toggleMic = () => {
     if (!SpeechRecognitionImpl) return;
-    if (recording) { setRecording(false); return; }
+    if (recording) {
+      recRef.current?.stop();
+      recRef.current = null;
+      setRecording(false);
+      return;
+    }
     const rec = new SpeechRecognitionImpl();
     rec.lang = "en-US"; rec.continuous = false; rec.interimResults = false;
     rec.onresult = ev => {
       const txt = ev.results?.[0]?.[0]?.transcript?.trim();
       if (txt) setInput(cur => cur ? `${cur} ${txt}` : txt);
     };
-    rec.onerror = () => setRecording(false);
-    rec.onend   = () => setRecording(false);
-    rec.start();
-    setRecording(true);
+    rec.onerror = () => { recRef.current = null; setRecording(false); };
+    rec.onend   = () => { recRef.current = null; setRecording(false); };
+    recRef.current = rec;
+    try {
+      rec.start();
+      setRecording(true);
+    } catch {
+      recRef.current = null;
+    }
   };
 
   // ── File upload ───────────────────────────────────────────────────────────
@@ -1224,7 +1243,7 @@ export default function DirectorWidget() {
           {quickActions.map(action => (
             <button key={action.label} onClick={() => setInput(action.msg)} style={{
               background: "transparent", border: `1px solid ${style.color}30`,
-              color: style.color + "BB", padding: "3px 8px",
+              color: style.color, padding: "3px 8px",
               fontSize: "9px", cursor: "pointer", borderRadius: "2px",
               letterSpacing: "0.3px",
             }}>
@@ -1234,18 +1253,18 @@ export default function DirectorWidget() {
           <div style={{ marginLeft: "auto", display: "flex", gap: "3px" }}>
             <button onClick={clearChat} title="Clear conversation" style={{
               background: "transparent", border: "1px solid #2A2A2A",
-              color: "#444", padding: "3px 6px", fontSize: "11px",
+              color: "#aaa", padding: "3px 6px", fontSize: "11px",
               cursor: "pointer", borderRadius: "2px",
             }}>🗑</button>
             <button onClick={exportChat} title="Export conversation" style={{
               background: "transparent", border: "1px solid #2A2A2A",
-              color: "#444", padding: "3px 6px", fontSize: "11px",
+              color: "#aaa", padding: "3px 6px", fontSize: "11px",
               cursor: "pointer", borderRadius: "2px",
             }}>↓</button>
             {isMonitor && (
               <button onClick={poll} title="Force monitoring scan" style={{
                 background: "transparent", border: "1px solid #2A2A2A",
-                color: "#444", padding: "3px 6px", fontSize: "10px",
+                color: "#aaa", padding: "3px 6px", fontSize: "10px",
                 cursor: "pointer", borderRadius: "2px",
               }}>↺</button>
             )}
