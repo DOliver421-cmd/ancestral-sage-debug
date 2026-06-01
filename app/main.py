@@ -266,6 +266,12 @@ _cors_origins = [o.strip() for o in os.environ.get("CORS_ORIGINS", "*").split(",
 if BACKUP_ORIGIN and BACKUP_ORIGIN not in _cors_origins and "*" not in _cors_origins:
     _cors_origins.append(BACKUP_ORIGIN)
     logger.info("CORS: Backup origin added: %s", BACKUP_ORIGIN)
+# morehelp.center shares the same backend — always allow it regardless of env config
+_MORE_HELP_ORIGINS = ["https://www.morehelp.center", "https://morehelp.center"]
+if "*" not in _cors_origins:
+    for _mho in _MORE_HELP_ORIGINS:
+        if _mho not in _cors_origins:
+            _cors_origins.append(_mho)
 _allow_creds = _cors_origins != ["*"]
 app.add_middleware(
     CORSMiddleware,

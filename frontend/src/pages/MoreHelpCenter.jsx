@@ -228,7 +228,12 @@ function ExecPanel({ apiOnline, visibility, setVisibility, superExec }) {
   const [platformFlags, setPlatformFlags] = useState(null);
   // ── mode switcher (exec/greeter/decoy) ─────────────────────────────────────
   const [pageMode, setPageMode]     = useState(() => {
-    try { return localStorage.getItem("more_help_center_mode") || "greeter"; } catch { return "greeter"; }
+    try {
+      const stored = localStorage.getItem("more_help_center_mode") || "greeter";
+      // decoy must never persist — exec can activate it live but it resets on reload
+      if (stored === "decoy") { localStorage.removeItem("more_help_center_mode"); return "greeter"; }
+      return stored;
+    } catch { return "greeter"; }
   });
   const PAGE_MODES = [
     { id:"exec",    label:"Exec Mode",    desc:"Executive controls, monitoring, and audit-ready command links." },
@@ -1321,7 +1326,8 @@ function ExecPanel({ apiOnline, visibility, setVisibility, superExec }) {
               {PAGE_MODES.map(m => (
                 <button key={m.id} onClick={() => {
                   setPageMode(m.id);
-                  try { localStorage.setItem("more_help_center_mode", m.id); } catch {}
+                  // decoy is session-only — never write it to localStorage
+                  try { if (m.id !== "decoy") localStorage.setItem("more_help_center_mode", m.id); else localStorage.removeItem("more_help_center_mode"); } catch {}
                   notify(`Page mode set to ${m.label}`);
                 }}
                   style={{ background: pageMode === m.id ? SIG : "rgba(255,255,255,0.1)", border:"none", color: pageMode === m.id ? INK : "white", padding:"8px 18px", borderRadius:7, fontSize:12, fontWeight:700, cursor:"pointer", textTransform:"capitalize" }}>
@@ -1803,7 +1809,8 @@ export default function MoreHelpCenter() {
                   {PANEL_MODES.map((m) => (
                     <button key={m.id} onClick={() => {
                       setPageMode(m.id);
-                      try { localStorage.setItem("more_help_center_mode", m.id); } catch {}
+                      // decoy is session-only — never write it to localStorage
+                      try { if (m.id !== "decoy") localStorage.setItem("more_help_center_mode", m.id); else localStorage.removeItem("more_help_center_mode"); } catch {}
                     }}
                       style={{ borderRadius: 999, padding: "10px 20px", fontSize: 13, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.18em", cursor: "pointer", border: "none", transition: "background 0.15s",
                         background: pageMode === m.id ? EARTH : CARVED_BG,
