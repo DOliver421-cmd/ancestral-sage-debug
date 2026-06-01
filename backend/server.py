@@ -12083,6 +12083,245 @@ async def get_creator_profile_by_slug(slug: str):
     return {"profile": profile}
 
 
+# ── Site Control Panel — executive_admin only ─────────────────────────────────
+# Single endpoint that pulls every real metric in one shot.
+# No mocks. No estimates. Every number comes from the DB or Stripe API.
+
+@api_router.get("/admin/control-panel")
+async def control_panel_data(user: User = Depends(require_role("executive_admin"))):
+    """Full real-time site dashboard. executive_admin only."""
+    now = datetime.now(timezone.utc)
+    today_start = now.replace(hour=0, minute=0, second=0, microsecond=0).isoformat()
+    month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0).isoformat()
+
+    # ── Users ──────────────────────────────────────────────────────────────────
+    user_total          = await db.users.count_documents({})
+    user_active         = await db.users.count_documents({"is_active": {"$ne": False}})
+    user_suspended      = await db.users.count_documents({"is_active": False})
+    users_today         = await db.users.count_documents({"created_at": {"$gte": today_start}})
+    users_this_month    = await db.users.count_documents({"created_at": {"$gte": month_start}})
+    role_counts = {}
+    for role in ["student", "instructor", "admin", "executive_admin"]:
+        role_counts[role] = await db.users.count_documents({"role": role})
+
+    # ── Revenue ────────────────────────────────────────────────────────────────
+    # Payments this month
+    month_payments = await db.payments.find(
+        {"status": "paid", "created_at": {"$gte": month_start}},
+        {"_id": 0, "amount_cents": 1, "product_key": 1, "created_at": 1}
+    ).to_list(length=2000)
+    revenue_month_cents = sum(p.get("amount_cents", 0) for p in month_payments)
+
+    # Payments today
+    today_payments = [p for p in month_payments if p.get("created_at", "") >= today_start]
+    revenue_today_cents = sum(p.get("amount_cents", 0) for p in today_payments)
+
+    # All-time
+    all_payments = await db.payments.find({"status": "paid"}, {"_id": 0, "amount_cents": 1}).to_list(length=10000)
+    revenue_alltime_cents = sum(p.get("amount_cents", 0) for p in all_payments)
+
+    # Failed payments (invoices with no matching paid entry — logged via webhook)
+    failed_payments_count = await db.payments.count_documents({"status": {"$in": ["failed", "unpaid"]}})
+
+    # Active subscriptions
+    active_subs = await db.subscriptions.count_documents({"status": "active"})
+    canceled_subs = await db.subscriptions.count_documents({"status": "canceled"})
+
+    # Creator economy
+    creator_courses_total     = await db.creator_courses.count_documents({"status": {"$ne": "archived"}})
+    creator_courses_published = await db.creator_courses.count_documents({"status": "published"})
+    creator_earnings_pending  = await db.creator_earnings.aggregate([
+        {"$match": {"payout_status": "pending"}},
+        {"$group": {"_id": None, "total": {"$sum": "$creator_share_cents"}}},
+    ]).to_list(1)
+    pending_payout_cents = (creator_earnings_pending[0]["total"] if creator_earnings_pending else 0)
+    creator_profiles_count = await db.creator_profiles.count_documents({})
+
+    # Revenue by product key this month
+    product_breakdown: dict = {}
+    for p in month_payments:
+        k = p.get("product_key", "unknown")
+        product_breakdown[k] = product_breakdown.get(k, 0) + p.get("amount_cents", 0)
+
+    # ── Stripe live check ──────────────────────────────────────────────────────
+    stripe_mode = "not_configured"
+    stripe_balance = None
+    if STRIPE_SECRET_KEY:
+        stripe_mode = "test" if STRIPE_SECRET_KEY.startswith("sk_test_") else "live"
+        try:
+            bal = _stripe.Balance.retrieve()
+            stripe_balance = {
+                "available": [{"amount": f["amount"], "currency": f["currency"]} for f in bal.available],
+                "pending":   [{"amount": f["amount"], "currency": f["currency"]} for f in bal.pending],
+            }
+        except Exception:
+            stripe_balance = None
+
+    # ── Platform flags ─────────────────────────────────────────────────────────
+    flags_doc = await db.platform_flags.find_one({"_id": "flags"}, {"_id": 0})
+    platform_flags = (flags_doc or {}).get("flags", {})
+
+    # ── Curriculum & learning ──────────────────────────────────────────────────
+    modules_total      = await db.modules.count_documents({})
+    completions_total  = await db.progress.count_documents({"status": "completed"})
+    completions_today  = await db.progress.count_documents({"status": "completed", "completed_at": {"$gte": today_start}})
+    labs_pending       = await db.lab_submissions.count_documents({"status": "pending_review"})
+    credentials_issued = await db.user_credentials.count_documents({})
+    incidents_open     = await db.incidents.count_documents({"status": "open"})
+
+    # ── AI spend ───────────────────────────────────────────────────────────────
+    ai_usage = await db.ai_usage_log.find(
+        {"created_at": {"$gte": month_start}},
+        {"_id": 0, "cost_usd": 1, "provider": 1, "model": 1, "created_at": 1}
+    ).to_list(length=5000)
+    ai_spend_month = sum(float(r.get("cost_usd") or 0) for r in ai_usage)
+    ai_spend_today  = sum(float(r.get("cost_usd") or 0) for r in ai_usage if r.get("created_at", "") >= today_start)
+    ai_calls_month  = len(ai_usage)
+    ai_by_provider: dict = {}
+    for r in ai_usage:
+        p = r.get("provider", "unknown")
+        ai_by_provider[p] = round(ai_by_provider.get(p, 0) + float(r.get("cost_usd") or 0), 4)
+
+    # ── M.O.R.E. community ────────────────────────────────────────────────────
+    more_posts_total    = await db.more_posts.count_documents({})
+    more_posts_today    = await db.more_posts.count_documents({"created_at": {"$gte": today_start}})
+    more_needs_open     = await db.more_needs.count_documents({"status": {"$nin": ["resolved", "closed"]}})
+    more_flags_pending  = await db.more_flags.count_documents({"status": "pending"})
+    more_members        = await db.users.count_documents({"more_member": True})
+
+    # ── Audit / governance ────────────────────────────────────────────────────
+    audit_today = await db.audit_log.find(
+        {"at": {"$gte": today_start}},
+        {"_id": 0, "actor_id": 1, "action": 1, "at": 1}
+    ).sort("at", -1).limit(50).to_list(50)
+    audit_total_today = len(audit_today)
+    governance_entries = await db.governance_log.count_documents({})
+
+    # Recent failures / serious events from audit log (last 24h)
+    yesterday = (now - timedelta(hours=24)).isoformat()
+    failure_keywords = ["fail", "error", "denied", "locked", "suspend", "ban", "refund", "violation"]
+    failure_pipeline = [
+        {"$match": {"at": {"$gte": yesterday}, "$or": [{"action": {"$regex": k}} for k in failure_keywords]}},
+        {"$sort": {"at": -1}},
+        {"$limit": 30},
+        {"$project": {"_id": 0, "actor_id": 1, "action": 1, "at": 1, "meta": 1}},
+    ]
+    recent_failures = await db.audit_log.aggregate(failure_pipeline).to_list(30)
+
+    # ── Recent audit trail (last 20 actions) ─────────────────────────────────
+    recent_audit = await db.audit_log.find(
+        {}, {"_id": 0, "actor_id": 1, "action": 1, "at": 1, "target_id": 1}
+    ).sort("at", -1).limit(20).to_list(20)
+
+    # Enrich with actor names
+    actor_ids = list({r["actor_id"] for r in recent_audit + recent_failures if r.get("actor_id")})
+    actor_map = {}
+    if actor_ids:
+        async for u in db.users.find({"id": {"$in": actor_ids}}, {"_id": 0, "id": 1, "full_name": 1, "role": 1}):
+            actor_map[u["id"]] = u
+    for r in recent_audit + recent_failures:
+        a = actor_map.get(r.get("actor_id"))
+        r["actor_name"] = a["full_name"] if a else "system"
+        r["actor_role"] = a["role"] if a else ""
+
+    # ── Broadcasts / announcements ─────────────────────────────────────────────
+    active_broadcast = await db.broadcasts.find_one({"active": True}, {"_id": 0})
+
+    # ── Pending refunds ────────────────────────────────────────────────────────
+    pending_refunds = await db.wai_refunds.count_documents({"status": "pending"})
+    pending_escalations = await db.escalations.count_documents({"status": {"$in": ["open", "pending"]}})
+
+    return {
+        "generated_at": now.isoformat(),
+        "users": {
+            "total": user_total, "active": user_active, "suspended": user_suspended,
+            "new_today": users_today, "new_this_month": users_this_month,
+            "by_role": role_counts,
+        },
+        "revenue": {
+            "today_cents": revenue_today_cents,
+            "month_cents": revenue_month_cents,
+            "alltime_cents": revenue_alltime_cents,
+            "failed_payments": failed_payments_count,
+            "active_subscriptions": active_subs,
+            "canceled_subscriptions": canceled_subs,
+            "by_product_month": product_breakdown,
+            "pending_creator_payouts_cents": pending_payout_cents,
+        },
+        "stripe": {
+            "mode": stripe_mode,
+            "balance": stripe_balance,
+        },
+        "platform_flags": platform_flags,
+        "creator_economy": {
+            "courses_total": creator_courses_total,
+            "courses_published": creator_courses_published,
+            "creator_profiles": creator_profiles_count,
+        },
+        "learning": {
+            "modules": modules_total,
+            "completions_total": completions_total,
+            "completions_today": completions_today,
+            "labs_pending_review": labs_pending,
+            "credentials_issued": credentials_issued,
+            "incidents_open": incidents_open,
+        },
+        "ai_spend": {
+            "month_usd": round(ai_spend_month, 4),
+            "today_usd": round(ai_spend_today, 4),
+            "calls_this_month": ai_calls_month,
+            "by_provider": ai_by_provider,
+        },
+        "community": {
+            "more_members": more_members,
+            "posts_total": more_posts_total,
+            "posts_today": more_posts_today,
+            "needs_open": more_needs_open,
+            "flags_pending": more_flags_pending,
+        },
+        "governance": {
+            "audit_events_today": audit_total_today,
+            "governance_log_entries": governance_entries,
+            "pending_refunds": pending_refunds,
+            "pending_escalations": pending_escalations,
+        },
+        "recent_failures": recent_failures,
+        "recent_audit": recent_audit,
+        "active_broadcast": active_broadcast,
+    }
+
+
+@api_router.post("/admin/control-panel/broadcast")
+async def control_panel_set_broadcast(
+    payload: dict,
+    user: User = Depends(require_role("executive_admin")),
+):
+    """Set or clear the site-wide broadcast banner. executive_admin only.
+    Body: { message: str, kind: 'info'|'warning'|'error', active: bool }
+    """
+    message = (payload.get("message") or "").strip()
+    kind = payload.get("kind", "info")
+    active = bool(payload.get("active", True))
+    if kind not in ("info", "warning", "error"):
+        raise HTTPException(400, "kind must be info, warning, or error")
+    now_iso = datetime.now(timezone.utc).isoformat()
+    if active and not message:
+        raise HTTPException(400, "message is required when active=true")
+    await db.broadcasts.update_one(
+        {"_id": "site_banner"},
+        {"$set": {
+            "active": active,
+            "message": message,
+            "kind": kind,
+            "set_by": user.id,
+            "updated_at": now_iso,
+        }},
+        upsert=True,
+    )
+    await audit(user.id, f"broadcast:{'set' if active else 'cleared'}", meta={"message": message[:100], "kind": kind})
+    return {"active": active, "message": message, "kind": kind}
+
+
 app.include_router(api_router)
 # CORS: when origins is wildcard ("*") browsers reject credentials, so we
 # turn off allow_credentials in that case (auth uses Bearer token in Authorization
