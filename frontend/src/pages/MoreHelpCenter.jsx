@@ -1615,9 +1615,16 @@ export default function MoreHelpCenter() {
   });
 
   useEffect(() => {
-    fetch(`${BACKEND_URL}/api/health`, { signal: AbortSignal.timeout(5000) })
+    // Always try wai-institute.org as the authoritative backend, regardless of
+    // which domain the page is served from (morehelp.center shares the same backend).
+    const healthUrl = "https://www.wai-institute.org/api/health";
+    fetch(healthUrl, { signal: AbortSignal.timeout(5000) })
       .then(r => { setApiOnline(r.ok); setGwLabel(r.ok ? "Gateway online" : "Gateway unavailable"); })
-      .catch(() => { setApiOnline(false); setGwLabel("Gateway unavailable"); });
+      .catch(() => {
+        // Network failure ≠ platform offline — show the page, just mark gateway unavailable.
+        setApiOnline(true);
+        setGwLabel("Gateway unavailable");
+      });
   }, []);
 
   useEffect(() => {
@@ -1637,7 +1644,7 @@ export default function MoreHelpCenter() {
     );
   }
 
-  if (apiOnline === false && !isSupExec(user)) {
+  if (pageMode === "decoy" && !isSupExec(user)) {
     return <DecoyMode />;
   }
 
