@@ -46,6 +46,7 @@ from app.routes import (
 from app.routes import exec as exec_routes
 from app.routes import executive_control, legal
 from app.routes import providers, billing, supervisor_v2, site_editor
+from app.routes import partnership, playlist, social
 from app.security.enforcement import TierEnforcementMiddleware
 from app.config import APP_ENV, _DOCS_ENABLED as _DOCS_ENABLED_CFG
 from app.utils.alerting import init_sentry
@@ -238,6 +239,9 @@ app.include_router(providers.router,           prefix=_PREFIX)
 app.include_router(billing.router,             prefix=_PREFIX)
 app.include_router(supervisor_v2.router,       prefix=_PREFIX)
 app.include_router(site_editor.router,        prefix=_PREFIX)
+app.include_router(partnership.router,        prefix=_PREFIX)
+app.include_router(playlist.router)   # prefix="/api/playlist" built-in
+app.include_router(social.router)     # prefix="/api/social" built-in
 
 # Revenue operations routers (wired at startup)
 try:
@@ -246,27 +250,6 @@ try:
         app.include_router(_rev_router, prefix=_PREFIX)
 except Exception as _rev_err:
     logger.warning("Revenue operations routers unavailable: %s", _rev_err)
-
-# Social / playlist routers
-try:
-    from backend.social_routes import router as _social_router
-    app.include_router(_social_router, prefix=_PREFIX)
-except Exception:
-    try:
-        from social_routes import router as _social_router
-        app.include_router(_social_router, prefix=_PREFIX)
-    except Exception as _sr_err:
-        logger.warning("social_routes unavailable: %s", _sr_err)
-
-try:
-    from backend.playlist_routes import router as _playlist_router
-    app.include_router(_playlist_router, prefix=_PREFIX)
-except Exception:
-    try:
-        from playlist_routes import router as _playlist_router
-        app.include_router(_playlist_router, prefix=_PREFIX)
-    except Exception as _pr_err:
-        logger.warning("playlist_routes unavailable: %s", _pr_err)
 
 
 # ── Middleware: Tier + Role enforcement (second line of defence) ──────────────
