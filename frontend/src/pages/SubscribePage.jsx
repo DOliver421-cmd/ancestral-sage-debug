@@ -34,10 +34,15 @@ const MORE_PLANS = [
 ];
 
 const TIER_PLANS = {
-  member_monthly:  { name: "Member",  price: "$9",  period: "/mo", color: "border-ink/20",    features: ["Full M.O.R.E. — post & connect", "AI Tutor (standard)", "Member badge", "Cancel anytime"] },
-  plus_monthly:    { name: "Plus",    price: "$15", period: "/mo", color: "border-copper",    features: ["Everything in Member", "Priority resource matching", "Expanded course library", "Portfolio tools"] },
-  pro_monthly:     { name: "Pro",     price: "$29", period: "/mo", color: "border-signal",    features: ["Everything in Plus", "Advanced courses + labs", "Full AI tools suite", "Mentor support hours"] },
-  patron_monthly:  { name: "Patron",  price: "$59", period: "/mo", color: "border-amber-500", features: ["Everything in Pro", "Founder's circle", "You fund free access for others", "Direct line to the team"] },
+  member_monthly:    { name: "Member",  price: "$9",  period: "/mo", color: "border-ink/20",    features: ["Full M.O.R.E. — post & connect", "AI Tutor (standard)", "Member badge", "Cancel anytime"] },
+  plus_monthly:      { name: "Plus",    price: "$15", period: "/mo", color: "border-copper",    features: ["Everything in Member", "Priority resource matching", "Expanded course library", "Portfolio tools"] },
+  pro_monthly:       { name: "Pro",     price: "$29", period: "/mo", color: "border-signal",    features: ["Everything in Plus", "Advanced courses + labs", "Full AI tools suite", "Mentor support hours"] },
+  patron_monthly:    { name: "Patron",  price: "$59", period: "/mo", color: "border-amber-500", features: ["Everything in Pro", "Founder's circle", "You fund free access for others", "Direct line to the team"] },
+  // Creators Sanctuary tiers
+  sanctuary_trial:   { name: "Sanctuary Trial",   price: "$3",  period: " once", color: "border-amber-400", backTo: "/tools/creators-sanctuary.html", features: ["All-access 3 days & 33 minutes", "Every Sanctuary tool unlocked", "Auto-transitions to $7/mo unless canceled", "Cancel within 3 hrs of expiry"] },
+  sanctuary_paid:    { name: "Paid Creator",       price: "$7",  period: "/mo",   color: "border-amber-500", backTo: "/tools/creators-sanctuary.html", features: ["Full Sanctuary access", "Course publishing", "90% payout on tips & courses", "Cancel anytime"] },
+  sanctuary_creator: { name: "Advanced Creator",   price: "$11", period: "/mo",   color: "border-purple-500", backTo: "/tools/creators-sanctuary.html", features: ["Everything in Paid Creator", "Advanced tools suite", "80% payout rate", "Priority community support"] },
+  sanctuary_mod:     { name: "Certified Moderator", price: "$15", period: "/mo",  color: "border-red-400",   backTo: "/tools/creators-sanctuary.html", features: ["Everything in Advanced Creator", "Moderator privileges", "85% payout + 1.5% mod bonus", "Governance voting rights"] },
 };
 
 export default function SubscribePage() {
@@ -77,8 +82,8 @@ export default function SubscribePage() {
   if (tierPlan) {
     return (
       <div className="p-8 max-w-lg mx-auto">
-        <Link to="/plans" className="inline-flex items-center gap-1.5 text-sm text-ink/50 hover:text-ink mb-6">
-          <ArrowLeft className="w-4 h-4" /> Back to plans
+        <Link to={tierPlan.backTo || "/plans"} className="inline-flex items-center gap-1.5 text-sm text-ink/50 hover:text-ink mb-6">
+          <ArrowLeft className="w-4 h-4" /> {tierPlan.backTo ? "Back to Sanctuary" : "Back to plans"}
         </Link>
         <div className={`bg-white border-2 rounded-2xl p-8 shadow-sm ${tierPlan.color}`}>
           <div className="overline text-ink/40 mb-1">WAI Institute — {tierPlan.name} Tier</div>
