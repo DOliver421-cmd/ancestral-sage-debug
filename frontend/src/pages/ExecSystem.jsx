@@ -233,8 +233,9 @@ function UserEditModal({ user: u, onClose, onUpdated, onDeleted, notify }) {
   const [assoc,     setAssoc]    = useState(u.associate || "");
   const [pw,        setPw]       = useState("");
   const [showPw,    setShowPw]   = useState(false);
-  const [saving,    setSaving]   = useState(false);
-  const [resetLink, setLink]     = useState(null);
+  const [saving,       setSaving]  = useState(false);
+  const [resetLink,    setLink]    = useState(null);
+  const [confirmDel,   setConfirmDel] = useState(false);
 
   async function save() {
     setSaving(true);
@@ -263,7 +264,6 @@ function UserEditModal({ user: u, onClose, onUpdated, onDeleted, notify }) {
   }
 
   async function deleteUser() {
-    if (!window.confirm(`Permanently delete ${u.full_name || u.email}? This cannot be undone.`)) return;
     setSaving(true);
     try {
       await api.delete(`/admin/users/${u.id}`);
@@ -287,7 +287,7 @@ function UserEditModal({ user: u, onClose, onUpdated, onDeleted, notify }) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: "rgba(0,0,0,0.55)" }} onClick={e => e.target === e.currentTarget && onClose()}>
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden">
+      <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden">
         <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100">
           <div>
             <h3 className="font-heading font-extrabold text-slate-900 text-lg">{u.full_name || u.email}</h3>
@@ -356,13 +356,28 @@ function UserEditModal({ user: u, onClose, onUpdated, onDeleted, notify }) {
           </div>
         </div>
 
+        {confirmDel && (
+          <div className="absolute inset-0 bg-black/50 flex items-center justify-center rounded-2xl z-10">
+            <div className="bg-white rounded-xl p-6 mx-4 max-w-sm w-full shadow-xl">
+              <p className="font-bold text-slate-800 text-sm mb-1">Permanently delete account?</p>
+              <p className="text-xs text-slate-500 mb-4">{u.full_name || u.email} — this cannot be undone.</p>
+              <div className="flex gap-2 justify-end">
+                <button onClick={() => setConfirmDel(false)} className="text-sm px-4 py-2 text-slate-600 hover:text-slate-800">Cancel</button>
+                <button onClick={deleteUser} disabled={saving}
+                  className="text-sm font-bold bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg disabled:opacity-40">
+                  {saving ? "Deleting…" : "Delete Forever"}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
         <div className="flex items-center justify-between px-6 py-4 border-t border-slate-100 bg-slate-50 gap-3 flex-wrap">
           <div className="flex gap-2">
             <button onClick={toggleActive} disabled={saving}
               className={`text-xs font-bold px-3 py-2 rounded-lg border transition-colors disabled:opacity-40 ${u.is_active === false ? "border-emerald-500 text-emerald-600 hover:bg-emerald-50" : "border-orange-400 text-orange-600 hover:bg-orange-50"}`}>
               {u.is_active === false ? "Activate" : "Deactivate"}
             </button>
-            <button onClick={deleteUser} disabled={saving}
+            <button onClick={() => setConfirmDel(true)} disabled={saving}
               className="text-xs font-bold px-3 py-2 rounded-lg border border-red-300 text-red-500 hover:bg-red-50 transition-colors disabled:opacity-40 flex items-center gap-1">
               <Trash2 className="w-3 h-3" /> Delete
             </button>

@@ -38,6 +38,7 @@ export default function ProviderGateway() {
   const [newKey, setNewKey] = useState({ provider_id: "", label: "", plaintext_key: "", scope: "chat" });
   const [addingKey, setAddingKey] = useState(false);
   const [savingKey, setSavingKey] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -104,11 +105,11 @@ export default function ProviderGateway() {
     } finally { setSavingKey(false); }
   };
 
-  const deleteKey = async (keyId, label) => {
-    if (!window.confirm(`Delete key "${label}"? This cannot be undone.`)) return;
+  const deleteKey = async (keyId) => {
     try {
       await api.delete(`/providers/keys/${keyId}`);
       toast.success("Key deleted");
+      setDeleteTarget(null);
       load();
     } catch (e) {
       toast.error(e?.response?.data?.detail || "Failed to delete key");
@@ -271,7 +272,7 @@ export default function ProviderGateway() {
                       {testing[k._id || k.id] ? <RefreshCw className="w-3 h-3 animate-spin" /> : <FlaskConical className="w-3 h-3" />}
                       Test
                     </button>
-                    <button onClick={() => deleteKey(k._id || k.id, k.label)}
+                    <button onClick={() => setDeleteTarget(k)}
                       className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg border border-red-200 text-red-600 hover:bg-red-50">
                       <Trash2 className="w-3 h-3" /> Delete
                     </button>
@@ -307,6 +308,22 @@ export default function ProviderGateway() {
           </div>
         )}
       </div>
+
+      {deleteTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
+          <div className="bg-white rounded-2xl p-6 max-w-sm w-full shadow-xl">
+            <p className="font-bold text-ink text-sm mb-1">Delete provider key?</p>
+            <p className="text-xs text-ink/60 mb-4">"{deleteTarget.label}" — this cannot be undone.</p>
+            <div className="flex gap-2 justify-end">
+              <button onClick={() => setDeleteTarget(null)} className="text-sm px-4 py-2 text-ink/60 hover:text-ink">Cancel</button>
+              <button onClick={() => deleteKey(deleteTarget._id || deleteTarget.id)}
+                className="text-sm font-bold bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg">
+                Delete Key
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
