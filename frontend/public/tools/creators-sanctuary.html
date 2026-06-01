@@ -1319,36 +1319,32 @@ function toggleMobile() {
 }
 
 // ===================== TIER SYSTEM =====================
+// ===================== TIER SYSTEM =====================
+// Map tier keys to WAI backend product keys
+const TIER_PRODUCT_KEYS = {
+  trial:   'sanctuary_trial',
+  paid:    'sanctuary_paid',
+  creator: 'sanctuary_creator',
+  mod:     'sanctuary_mod',
+};
+
 function selectTier(tier) {
-  if (tier === 'trial') {
-    startTrial();
+  if (tier === 'free') {
+    state.currentTier = 'free';
+    updateTierBadge();
+    showNotification('Free tier active — explore the Sanctuary.', 'success');
     return;
   }
-  
+  // All paid tiers route to WAI checkout (requires WAI login)
+  const productKey = TIER_PRODUCT_KEYS[tier];
+  if (productKey) {
+    const checkoutUrl = '/subscribe?plan=' + productKey;
+    showNotification('Redirecting to secure checkout…', 'info');
+    setTimeout(() => { window.location.href = checkoutUrl; }, 800);
+    return;
+  }
   state.currentTier = tier;
-  
-  const tierNames = { free: 'Begin Creating (FREE)', paid: 'Paid Commitment ($7/mo)', creator: 'Advanced Creator ($11/mo)', mod: 'Certified Moderator ($15/mo)' };
-  const tierColors = { free: 'bg-gold-300/10 text-gold-300 border-gold-300/30', paid: 'bg-gold-400/10 text-gold-300 border-gold-400/30', creator: 'bg-purple-500/10 text-purple-400 border-purple-500/30', mod: 'bg-red-500/10 text-red-400 border-red-500/30' };
-  
-  const badge = document.getElementById('tierBadge');
-  badge.className = `hidden sm:block px-3 py-1.5 rounded-full text-xs font-bold border cursor-pointer ${tierColors[tier]}`;
-  badge.innerHTML = `${tierNames[tier].split('(')[0].trim()} <span class="${tierColors[tier].includes('text-gold') ? 'text-gold-400' : 'text-gold-400'}">${tierNames[tier].match(/\$[^)]+/)?.[0] || 'FREE'}</span>`;
-  
-  // Update payout matrix
-  const payouts = {
-    free: { tips: '60%', courses: '0%', stream: '0%', mod: 'N/A' },
-    paid: { tips: '90%', courses: '90%', stream: '90%', mod: 'N/A' },
-    creator: { tips: '80%', courses: '80%', stream: '80%', mod: 'N/A' },
-    mod: { tips: '85%', courses: '85%', stream: '85%', mod: '85% + 1.5%' }
-  };
-  
-  document.getElementById('payoutTips').textContent = payouts[tier].tips;
-  document.getElementById('payoutCourses').textContent = payouts[tier].courses;
-  document.getElementById('payoutStream').textContent = payouts[tier].stream;
-  document.getElementById('payoutMod').textContent = payouts[tier].mod;
-  
-  showNotification(`Tier Updated: ${tierNames[tier]}`, 'success');
-}
+  updateTierBadge();
 
 function updateTierBadge() {
   const tiers = {
@@ -1370,6 +1366,13 @@ function updateTierBadge() {
 
 // ===================== TRIAL SYSTEM =====================
 function startTrial() {
+  // Route to real $3 Stripe checkout — trial activates after payment
+  showNotification('Starting $3 All-Access Trial checkout…', 'info');
+  setTimeout(() => { window.location.href = '/subscribe?plan=sanctuary_trial'; }, 800);
+}
+
+function _startTrialLocally() {
+  // Called post-payment (future webhook integration)
   state.trialActive = true;
   state.trialEndTime = Date.now() + (3 * 24 * 60 * 60 * 1000) + (33 * 60 * 1000); // 3 days 33 min
   state.trialMinutesRemaining = 3 * 24 * 60 + 33;

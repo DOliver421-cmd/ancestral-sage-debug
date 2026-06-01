@@ -7431,6 +7431,11 @@ PAYMENT_PRODUCTS = {
     "patron_monthly": {"name": "WAI Patron – Monthly",            "amount": 5900, "mode": "subscription", "interval": "month", "description": "WAI Patron — founders circle + funds free access for others"},
     "credential":     {"name": "WAI Credential Certificate",      "amount": 2500, "mode": "payment",      "description": "Official printed credential certificate"},
     "donation":     {"name": "Donation – WAI Institute",      "amount": None, "mode": "payment",      "description": "Support the WAI mission"},
+    # Creators Sanctuary tiers
+    "sanctuary_trial":   {"name": "Creators Sanctuary – 3-Day Trial",     "amount":  300, "mode": "payment",      "description": "All-access 3 days & 33 minutes trial"},
+    "sanctuary_paid":    {"name": "Creators Sanctuary – Paid Creator",    "amount":  700, "mode": "subscription", "interval": "month", "description": "Paid Beginning Creator tier — $7/mo"},
+    "sanctuary_creator": {"name": "Creators Sanctuary – Advanced Creator","amount": 1100, "mode": "subscription", "interval": "month", "description": "Advanced Creator tier — $11/mo"},
+    "sanctuary_mod":     {"name": "Creators Sanctuary – Certified Mod",   "amount": 1500, "mode": "subscription", "interval": "month", "description": "Certified Moderator tier — $15/mo"},
 }
 
 
