@@ -12250,6 +12250,16 @@ async def control_panel_data(user: User = Depends(require_role("executive_admin"
         r["actor_name"] = a["full_name"] if a else "system"
         r["actor_role"] = a["role"] if a else ""
 
+    # ── Stripe webhook health (proxy: last recorded payment) ──────────────────
+    last_payment = await db.payments.find_one({}, {"_id": 0, "created_at": 1}, sort=[("created_at", -1)])
+    last_payment_at = last_payment["created_at"] if last_payment else None
+    yesterday_iso = (now - timedelta(hours=24)).isoformat()
+    payments_24h = await db.payments.count_documents({"created_at": {"$gte": yesterday_iso}})
+
+    # ── AI monthly spend budget ────────────────────────────────────────────────
+    budget_doc = await db.platform_config.find_one({"key": "ai_monthly_budget"}, {"_id": 0, "value": 1})
+    ai_monthly_budget = float(budget_doc["value"]) if budget_doc else None
+
     # ── Broadcasts / announcements ─────────────────────────────────────────────
     active_broadcast = await db.broadcasts.find_one({"active": True}, {"_id": 0})
 
@@ -12297,6 +12307,7 @@ async def control_panel_data(user: User = Depends(require_role("executive_admin"
             "today_usd": round(ai_spend_today, 4),
             "calls_this_month": ai_calls_month,
             "by_provider": ai_by_provider,
+            "monthly_budget_usd": ai_monthly_budget,
         },
         "community": {
             "more_members": more_members,
@@ -12311,10 +12322,42 @@ async def control_panel_data(user: User = Depends(require_role("executive_admin"
             "pending_refunds": pending_refunds,
             "pending_escalations": pending_escalations,
         },
+        "webhook_health": {
+            "last_payment_at": last_payment_at,
+            "payments_24h": payments_24h,
+        },
         "recent_failures": recent_failures,
         "recent_audit": recent_audit,
         "active_broadcast": active_broadcast,
     }
+
+
+@api_router.post("/admin/ai-spend-budget")
+async def admin_set_ai_spend_budget(
+    payload: dict,
+    user: User = Depends(require_role("executive_admin")),
+):
+    """Set or clear the monthly AI spend budget alert threshold (USD). executive_admin only.
+    Body: { budget_usd: float|null }
+    """
+    raw = payload.get("budget_usd")
+    if raw is None:
+        await db.platform_config.delete_one({"key": "ai_monthly_budget"})
+        await audit(user.id, "admin.ai_budget.cleared")
+        return {"budget_usd": None}
+    try:
+        val = float(raw)
+        if val <= 0:
+            raise ValueError
+    except (ValueError, TypeError):
+        raise HTTPException(400, "budget_usd must be a positive number")
+    await db.platform_config.update_one(
+        {"key": "ai_monthly_budget"},
+        {"$set": {"key": "ai_monthly_budget", "value": val, "set_by": user.id, "set_at": datetime.now(timezone.utc).isoformat()}},
+        upsert=True,
+    )
+    await audit(user.id, "admin.ai_budget.set", meta={"budget_usd": val})
+    return {"budget_usd": val}
 
 
 @api_router.post("/admin/control-panel/broadcast")
