@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { Link } from "react-router-dom";
 import { api } from "../lib/api";
 import { useAuth } from "../lib/auth";
 import { toast } from "sonner";
@@ -230,13 +231,13 @@ export default function ExecutiveDirectorDashboard() {
             <h1 className="font-heading text-3xl font-bold">Executive Director</h1>
             <p className="text-ink/80 text-sm mt-1">Platform governance, crisis response, strategic oversight</p>
           </div>
-          <button
-            onClick={loadAll}
-            className="flex items-center gap-2 px-4 py-2 border border-ink/20 rounded-lg text-sm font-semibold hover:bg-ink/5"
-          >
-            <RefreshCw className="w-4 h-4" />
-            Refresh
-          </button>
+          <div className="flex items-center gap-2">
+            <Link to="/admin/providers" className="px-3 py-2 border border-ink/20 rounded-lg text-xs font-semibold hover:bg-ink/5">Provider Gateway</Link>
+            <Link to="/admin/billing"   className="px-3 py-2 border border-ink/20 rounded-lg text-xs font-semibold hover:bg-ink/5">Billing & Credits</Link>
+            <button onClick={loadAll} className="flex items-center gap-2 px-4 py-2 border border-ink/20 rounded-lg text-sm font-semibold hover:bg-ink/5">
+              <RefreshCw className="w-4 h-4" /> Refresh
+            </button>
+          </div>
         </div>
       </div>
 

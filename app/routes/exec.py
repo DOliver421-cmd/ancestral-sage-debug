@@ -652,3 +652,127 @@ async def exec_pipeline_process_batch(body: PipelineProcessBatchRequest, user: U
         raise HTTPException(400, "Maximum 50 texts per batch call")
     results = await _app_db._pipeline_manager.process_batch(texts, source=source)
     return [r.to_dict() for r in results]
+
+
+# ── Emergency Breaker Panel ───────────────────────────────────────────────────
+
+import secrets as _secrets
+from app.services.emergency_panel import (
+    get_panel, toggle_breaker, reset_breaker,
+    failover as _failover, get_system_health, heartbeat as _heartbeat,
+)
+from app.utils.audit import audit
+
+_HEARTBEAT_SECRET_KEY = "exec_panel_heartbeat_secret"
+
+
+class _PanelToggleBody(BaseModel):
+    breaker_id: str
+
+class _PanelFailoverBody(BaseModel):
+    target: str
+    reason: Optional[str] = None
+
+class _PanelHeartbeatBody(BaseModel):
+    source: Literal["backup", "emergency"]
+    version: Optional[str] = None
+    secret: Optional[str] = None
+
+
+async def _get_or_create_heartbeat_secret() -> str:
+    doc = await db.platform_config.find_one({"key": _HEARTBEAT_SECRET_KEY}, {"_id": 0})
+    if doc and doc.get("value"):
+        return doc["value"]
+    secret = _secrets.token_urlsafe(32)
+    await db.platform_config.update_one(
+        {"key": _HEARTBEAT_SECRET_KEY},
+        {"$set": {"key": _HEARTBEAT_SECRET_KEY, "value": secret}},
+        upsert=True,
+    )
+    return secret
+
+
+@router.get("/exec/system")
+async def exec_system_info(user: User = Depends(require_role("executive_admin"))):
+    role_counts = {}
+    cursor = db.users.aggregate([{"$group": {"_id": "$role", "n": {"$sum": 1}}}])
+    async for row in cursor:
+        role_counts[row["_id"] or "unknown"] = row["n"]
+    audit_total = await db.audit_log.count_documents({})
+    collections = await db.list_collection_names()
+    import os as _os
+    return {
+        "version": os.environ.get("APP_VERSION", "1.0.0"),
+        "role_counts": role_counts,
+        "audit_log_total": audit_total,
+        "collections": sorted(collections),
+        "env": {
+            "db_name": _os.environ.get("DB_NAME", ""),
+            "jwt_expire_hours": int(_os.environ.get("JWT_EXPIRE_HOURS", 168)),
+            "cors_origins": _os.environ.get("CORS_ORIGINS", "*"),
+        },
+    }
+
+
+@router.get("/exec/panel")
+async def exec_panel_get(user: User = Depends(require_role("executive_admin"))):
+    panel = await get_panel(db)
+    return {k: v for k, v in panel.items() if k != "_id"}
+
+
+@router.post("/exec/panel/toggle")
+async def exec_panel_toggle(body: _PanelToggleBody, user: User = Depends(require_role("executive_admin"))):
+    result = await toggle_breaker(db, body.breaker_id)
+    if not result["ok"]:
+        raise HTTPException(400, result["error"])
+    await audit(user.id, "exec.panel.toggle", meta={"breaker": body.breaker_id, "status": result["status"]})
+    return result
+
+
+@router.post("/exec/panel/reset")
+async def exec_panel_reset(body: _PanelToggleBody, user: User = Depends(require_role("executive_admin"))):
+    result = await reset_breaker(db, body.breaker_id)
+    if not result["ok"]:
+        raise HTTPException(400, result["error"])
+    await audit(user.id, "exec.panel.reset", meta={"breaker": body.breaker_id})
+    return result
+
+
+@router.post("/exec/failover")
+async def exec_failover(body: _PanelFailoverBody, user: User = Depends(require_role("executive_admin"))):
+    result = await _failover(db, body.target, reason=body.reason)
+    if not result["ok"]:
+        raise HTTPException(400, result["error"])
+    await audit(user.id, "exec.failover", meta={"target": body.target, "reason": body.reason})
+    return result
+
+
+@router.get("/exec/panel/health")
+async def exec_panel_health(user: User = Depends(require_role("executive_admin"))):
+    return await get_system_health(db)
+
+
+@router.get("/exec/panel/heartbeat-secret")
+async def exec_panel_heartbeat_secret(user: User = Depends(require_role("executive_admin"))):
+    return {"secret": await _get_or_create_heartbeat_secret()}
+
+
+@router.post("/exec/panel/heartbeat")
+async def exec_panel_heartbeat(body: _PanelHeartbeatBody):
+    expected = await _get_or_create_heartbeat_secret()
+    provided = body.secret or ""
+    if not _secrets.compare_digest(provided, expected):
+        raise HTTPException(401, "Invalid or missing heartbeat secret.")
+    result = await _heartbeat(db, body.source, version=body.version)
+    if not result["ok"]:
+        raise HTTPException(400, result["error"])
+    return result
+
+
+@router.get("/exec/free-backup-matrix")
+async def exec_free_backup_matrix(user: User = Depends(require_role("executive_admin"))):
+    try:
+        from free_api_backup import status_summary
+        return status_summary()
+    except ImportError:
+        return {"status": "free_api_backup module not installed", "providers": []}
