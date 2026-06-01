@@ -5,7 +5,7 @@ import { toast } from "sonner";
 import {
   Users, DollarSign, AlertTriangle, CheckCircle, Activity, Zap, Shield, BookOpen,
   MessageSquare, TrendingUp, RefreshCw, X, Megaphone, ToggleLeft, ToggleRight,
-  CreditCard, Server, Clock, Eye, Ban
+  CreditCard, Server, Clock, Eye, Ban, Loader2, Wifi, WifiOff, SendHorizonal
 } from "lucide-react";
 
 const FLAG_LABELS = {
@@ -38,6 +38,11 @@ export default function SiteControlPanel() {
   const [flagReasonModal, setFlagReasonModal] = useState(null); // { flag, value }
   const [flagReason, setFlagReason] = useState("");
   const [activeTab, setActiveTab] = useState("overview");
+  const [payoutModal, setPayoutModal] = useState(false);
+  const [payoutBusy, setPayoutBusy] = useState(false);
+  const [payoutResult, setPayoutResult] = useState(null);
+  const [budgetInput, setBudgetInput] = useState("");
+  const [budgetSaving, setBudgetSaving] = useState(false);
 
   const load = useCallback(async (silent = false) => {
     if (!silent) setLoading(true);
@@ -95,6 +100,38 @@ export default function SiteControlPanel() {
     }
   }
 
+  async function processPayouts() {
+    setPayoutBusy(true);
+    try {
+      const { data: result } = await api.post("/admin/creator-payouts/process");
+      setPayoutResult(result);
+      await load(true);
+    } catch (e) {
+      toast.error(e?.response?.data?.detail || "Payout processing failed.");
+      setPayoutModal(false);
+    } finally {
+      setPayoutBusy(false);
+    }
+  }
+
+  async function saveBudget() {
+    const val = budgetInput.trim() === "" ? null : parseFloat(budgetInput);
+    if (budgetInput.trim() !== "" && (isNaN(val) || val <= 0)) {
+      toast.error("Enter a positive dollar amount, or leave blank to clear.");
+      return;
+    }
+    setBudgetSaving(true);
+    try {
+      await api.post("/admin/ai-spend-budget", { budget_usd: val });
+      toast.success(val ? `AI budget set to $${val.toFixed(2)}/mo` : "AI budget cleared.");
+      await load(true);
+    } catch (e) {
+      toast.error(e?.response?.data?.detail || "Failed to save budget.");
+    } finally {
+      setBudgetSaving(false);
+    }
+  }
+
   if (loading) return (
     <AppShell>
       <div className="p-10 text-ink/50 text-sm flex items-center gap-2">
@@ -109,7 +146,7 @@ export default function SiteControlPanel() {
     </AppShell>
   );
 
-  const { users, revenue, stripe, platform_flags, creator_economy, learning, ai_spend, community, governance, recent_failures, recent_audit, active_broadcast } = data;
+  const { users, revenue, stripe, platform_flags, creator_economy, learning, ai_spend, community, governance, recent_failures, recent_audit, active_broadcast, webhook_health } = data;
 
   // Determine critical alerts
   const alerts = [];
@@ -121,6 +158,15 @@ export default function SiteControlPanel() {
   if (learning.incidents_open > 0) alerts.push({ level: "warning", msg: `${learning.incidents_open} open incident report${learning.incidents_open > 1 ? "s" : ""}` });
   if (platform_flags?.platform_locked?.enabled) alerts.push({ level: "error", msg: "PLATFORM IS LOCKED — public access blocked" });
   if (recent_failures?.length > 5) alerts.push({ level: "warning", msg: `${recent_failures.length} failure/denial events in the last 24 hours` });
+  if (webhook_health) {
+    const lastMs = webhook_health.last_payment_at ? Date.now() - new Date(webhook_health.last_payment_at).getTime() : Infinity;
+    if (lastMs > 48 * 3600000) alerts.push({ level: "error", msg: "No Stripe payment recorded in 48h+ — webhook may be down" });
+    else if (lastMs > 24 * 3600000) alerts.push({ level: "warning", msg: "No Stripe payment recorded in 24h — verify webhook is receiving events" });
+  }
+  if (ai_spend?.monthly_budget_usd && ai_spend.month_usd >= ai_spend.monthly_budget_usd * 0.8) {
+    const pct = Math.round((ai_spend.month_usd / ai_spend.monthly_budget_usd) * 100);
+    alerts.push({ level: pct >= 100 ? "error" : "warning", msg: `AI spend at ${pct}% of monthly budget ($${ai_spend.monthly_budget_usd.toFixed(2)})` });
+  }
 
   const tabs = [
     ["overview", "Overview"],
@@ -272,6 +318,28 @@ export default function SiteControlPanel() {
               )}
             </div>
 
+            {webhook_health && (
+              <div className="card-flat p-5">
+                <div className="flex items-center gap-2 mb-3">
+                  {webhook_health.payments_24h > 0
+                    ? <Wifi className="w-4 h-4 text-green-600" />
+                    : <WifiOff className="w-4 h-4 text-red-500" />}
+                  <span className="font-bold text-sm">Stripe Webhook Health</span>
+                  <span className={`ml-auto text-xs font-bold px-2 py-0.5 rounded-full ${
+                    webhook_health.payments_24h > 0 ? "bg-green-100 text-green-700" :
+                    webhook_health.last_payment_at && Date.now() - new Date(webhook_health.last_payment_at).getTime() < 48 * 3600000
+                      ? "bg-amber-100 text-amber-700" : "bg-red-100 text-red-700"
+                  }`}>
+                    {webhook_health.payments_24h > 0 ? `${webhook_health.payments_24h} payments today` : "No payments in 24h"}
+                  </span>
+                </div>
+                <div className="text-sm text-ink/60">
+                  Last payment recorded: <span className="font-semibold text-ink">{webhook_health.last_payment_at ? ago(webhook_health.last_payment_at) : "never"}</span>
+                  <span className="ml-2 text-xs text-ink/40">(proxy for webhook activity)</span>
+                </div>
+              </div>
+            )}
+
             {stripe.balance && (
               <div className="card-flat p-5">
                 <div className="flex items-center gap-2 mb-3">
@@ -342,11 +410,40 @@ export default function SiteControlPanel() {
               <MetricCard icon={Users} label="Creator Profiles" value={fmtNum(creator_economy.creator_profiles)} />
               <MetricCard icon={DollarSign} label="Pending Payouts" value={fmt(revenue.pending_creator_payouts_cents)} accent="text-amber-600" />
             </div>
-            <div className="card-flat p-5 text-sm text-ink/60">
-              <div className="font-bold text-ink mb-1">Payout Processing</div>
-              To trigger payouts for all creators with pending earnings from prior months:
-              <code className="block mt-2 p-3 bg-ink/5 rounded-lg font-mono text-xs">POST /api/admin/creator-payouts/process</code>
-              <p className="mt-2 text-xs text-ink/40">This marks all pre-current-month pending earnings as "processing" and notifies each creator. Run on the 1st of each month.</p>
+            <div className="card-flat p-5">
+              <div className="font-bold text-sm mb-1 flex items-center gap-2">
+                <SendHorizonal className="w-4 h-4 text-copper" /> Payout Processing
+              </div>
+              <p className="text-sm text-ink/60 mb-4">
+                Marks all prior-month pending earnings as "processing" and notifies each creator.
+                Run on the 1st of each month. Minimum payout is $1.00.
+              </p>
+              {payoutResult ? (
+                <div className="bg-green-50 border border-green-200 rounded-xl p-4 text-sm">
+                  <div className="font-bold text-green-800 mb-1">
+                    {payoutResult.payouts_initiated} payout{payoutResult.payouts_initiated !== 1 ? "s" : ""} initiated
+                  </div>
+                  {payoutResult.detail?.length > 0 && (
+                    <div className="space-y-1 mt-2 max-h-40 overflow-y-auto">
+                      {payoutResult.detail.map((p, i) => (
+                        <div key={i} className="flex justify-between text-xs text-green-700">
+                          <span className="font-mono truncate max-w-[200px]">{p.creator_id}</span>
+                          <span className="font-bold">{fmt(p.amount_cents)}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  <button onClick={() => setPayoutResult(null)} className="mt-3 text-xs text-green-600 underline">Dismiss</button>
+                </div>
+              ) : (
+                <button
+                  onClick={() => setPayoutModal(true)}
+                  className="flex items-center gap-2 bg-amber-500 hover:bg-amber-400 text-white font-bold text-sm px-5 py-2.5 rounded-xl transition-colors"
+                >
+                  <SendHorizonal className="w-4 h-4" />
+                  Process Monthly Payouts — {fmt(revenue.pending_creator_payouts_cents)} pending
+                </button>
+              )}
             </div>
           </div>
         )}
@@ -369,6 +466,55 @@ export default function SiteControlPanel() {
               <MetricCard icon={Zap} label="AI Spend Today" value={fmtUSD(ai_spend.today_usd)} accent="text-amber-600" />
               <MetricCard icon={Zap} label="AI Spend This Month" value={`$${ai_spend.month_usd.toFixed(4)}`} accent="text-amber-600" />
               <MetricCard icon={Activity} label="API Calls This Month" value={fmtNum(ai_spend.calls_this_month)} />
+            </div>
+
+            {/* Budget alert */}
+            {ai_spend.monthly_budget_usd && (
+              <div className={`flex items-center gap-3 px-4 py-3 rounded-xl border text-sm font-semibold ${
+                ai_spend.month_usd >= ai_spend.monthly_budget_usd
+                  ? "bg-red-50 border-red-300 text-red-800"
+                  : ai_spend.month_usd >= ai_spend.monthly_budget_usd * 0.8
+                  ? "bg-amber-50 border-amber-300 text-amber-800"
+                  : "bg-green-50 border-green-300 text-green-800"
+              }`}>
+                <Zap className="w-4 h-4 shrink-0" />
+                <span>
+                  AI spend: ${ai_spend.month_usd.toFixed(2)} of ${ai_spend.monthly_budget_usd.toFixed(2)} budget
+                  ({Math.round((ai_spend.month_usd / ai_spend.monthly_budget_usd) * 100)}%)
+                </span>
+              </div>
+            )}
+
+            {/* Budget control */}
+            <div className="card-flat p-5">
+              <div className="font-bold text-sm mb-1">Monthly Spend Budget Alert</div>
+              <p className="text-xs text-ink/50 mb-3">
+                Set a monthly USD threshold. You'll see a warning in the alert bar when spend reaches 80%, and an error at 100%.
+              </p>
+              <div className="flex items-center gap-3">
+                <span className="text-sm text-ink/60">$</span>
+                <input
+                  type="number"
+                  min="0"
+                  step="1"
+                  placeholder={ai_spend.monthly_budget_usd ? ai_spend.monthly_budget_usd.toFixed(2) : "e.g. 50"}
+                  value={budgetInput}
+                  onChange={e => setBudgetInput(e.target.value)}
+                  className="input w-32 text-sm"
+                />
+                <span className="text-sm text-ink/60">/ month</span>
+                <button
+                  onClick={saveBudget}
+                  disabled={budgetSaving}
+                  className="flex items-center gap-1.5 text-sm font-bold bg-ink text-bone px-4 py-2 rounded-xl hover:bg-ink/80 transition-colors disabled:opacity-50"
+                >
+                  {budgetSaving ? <Loader2 className="w-3 h-3 animate-spin" /> : null}
+                  {budgetInput.trim() === "" ? "Clear Budget" : "Save Budget"}
+                </button>
+              </div>
+              {ai_spend.monthly_budget_usd && (
+                <p className="text-xs text-ink/40 mt-2">Current budget: ${ai_spend.monthly_budget_usd.toFixed(2)}/mo — leave blank and save to remove.</p>
+              )}
             </div>
             <div className="card-flat p-5">
               <div className="font-bold text-sm mb-3">Spend by Provider This Month</div>
@@ -489,6 +635,39 @@ export default function SiteControlPanel() {
           </div>
         )}
       </div>
+
+      {/* Payout confirmation modal */}
+      {payoutModal && !payoutResult && (
+        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center px-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6">
+            <div className="flex items-center gap-2 mb-4">
+              <SendHorizonal className="w-5 h-5 text-amber-600" />
+              <h3 className="font-heading font-bold text-lg">Process Monthly Payouts</h3>
+              <button onClick={() => setPayoutModal(false)} className="ml-auto">
+                <X className="w-4 h-4 text-ink/40" />
+              </button>
+            </div>
+            <p className="text-sm text-ink/70 mb-2">
+              This will mark all prior-month pending creator earnings as <strong>processing</strong> and send each creator a notification.
+            </p>
+            <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 mb-5 text-sm">
+              <span className="font-bold text-amber-800">Total pending: </span>
+              <span className="text-amber-700">{fmt(revenue.pending_creator_payouts_cents)}</span>
+            </div>
+            <div className="flex gap-3 justify-end">
+              <button onClick={() => setPayoutModal(false)} className="btn-ghost text-sm">Cancel</button>
+              <button
+                onClick={processPayouts}
+                disabled={payoutBusy}
+                className="flex items-center gap-2 bg-amber-500 hover:bg-amber-400 text-white text-sm font-bold px-5 py-2 rounded-xl transition-colors disabled:opacity-50"
+              >
+                {payoutBusy ? <Loader2 className="w-4 h-4 animate-spin" /> : <SendHorizonal className="w-4 h-4" />}
+                {payoutBusy ? "Processing…" : "Confirm & Process"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Flag reason modal */}
       {flagReasonModal && (
