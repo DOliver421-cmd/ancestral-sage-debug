@@ -368,6 +368,7 @@ function PublicHelper() {
           <div style={{ flex:1 }}>
             <div style={{ fontSize:20, fontWeight:800, lineHeight:1.2 }}>I am here to be your HELPER.</div>
             <div style={{ fontSize:13, opacity:0.9, marginTop:2 }}>I can help you understand mail, bills, legal papers, housing and more — in plain, simple words.</div>
+            <div style={{ display:"inline-flex", alignItems:"center", gap:4, marginTop:5, background:"rgba(255,255,255,0.15)", borderRadius:999, padding:"2px 10px", fontSize:11, fontWeight:700, letterSpacing:"0.5px" }}>⚡ AI-Powered — Real answers, not scripts</div>
           </div>
         </div>
         {/* BIG ACTION BUTTONS */}
@@ -573,7 +574,10 @@ function AuthHelper({ user }) {
         <div style={{ display:"flex", alignItems:"center", gap:14, marginBottom:12 }}>
           <div style={{ width:44, height:44, borderRadius:"50%", background:"radial-gradient(circle at 30% 20%,#fde68a,#facc15 40%,#f97316 80%)", display:"flex", alignItems:"center", justifyContent:"center", fontWeight:900, fontSize:20, flexShrink:0, boxShadow:"0 0 0 3px rgba(255,255,255,0.25)" }}>H</div>
           <div style={{ flex:1 }}>
-            <div style={{ fontSize:15, fontWeight:800, lineHeight:1.2 }}>Personal Help Center</div>
+            <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+              <span style={{ fontSize:15, fontWeight:800, lineHeight:1.2 }}>Personal Help Center</span>
+              <span style={{ background:"rgba(255,255,255,0.15)", borderRadius:999, padding:"1px 8px", fontSize:10, fontWeight:700, letterSpacing:"0.5px" }}>⚡ AI</span>
+            </div>
             <div style={{ fontSize:12, opacity:0.85 }}>Hello, {firstName} — your private workspace</div>
           </div>
           <div style={{ display:"flex", gap:8 }}>

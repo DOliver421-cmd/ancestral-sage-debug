@@ -426,6 +426,7 @@ class User(BaseModel):
     # picks their own on first login.
     must_change_password: bool = False
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    avatar_url: Optional[str] = None
 
 
 class RegisterReq(BaseModel):
@@ -497,6 +498,7 @@ class SelfEditMeReq(BaseModel):
     to prevent privilege/cohort drift."""
     full_name: Optional[str] = None
     email: Optional[EmailStr] = None
+    avatar_url: Optional[str] = None
 
 
 class LoginReq(BaseModel):
@@ -2244,9 +2246,15 @@ async def edit_self(body: SelfEditMeReq, user: User = Depends(current_user)):
         if clash:
             raise HTTPException(400, "Email already in use")
         update["email"] = body.email
+    if body.avatar_url is not None:
+        # Accept empty string (clear) or base64/URL up to 3MB
+        if len(body.avatar_url) > 3 * 1024 * 1024:
+            raise HTTPException(400, "Avatar image too large (max 3 MB)")
+        update["avatar_url"] = body.avatar_url if body.avatar_url else None
     if update:
         await db.users.update_one({"id": user.id}, {"$set": update})
-        await audit(user.id, "auth.self_edit", target=user.id, meta=update)
+        audit_meta = {k: v for k, v in update.items() if k != "avatar_url"}
+        await audit(user.id, "auth.self_edit", target=user.id, meta=audit_meta)
     fresh = await db.users.find_one({"id": user.id}, {"_id": 0, "password_hash": 0})
     if isinstance(fresh.get("created_at"), str):
         fresh["created_at"] = datetime.fromisoformat(fresh["created_at"])
