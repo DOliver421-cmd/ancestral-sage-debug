@@ -164,7 +164,7 @@ function useHelperAPI() {
       const headers = { "Content-Type": "application/json" };
       const token = localStorage.getItem("lce_token");
       if (token) headers["Authorization"] = "Bearer " + token;
-      const r = await fetch("/api/ai/helper", {
+      const r = await fetch(`${BACKEND_URL}/api/ai/helper`, {
         method: "POST",
         headers,
         body: JSON.stringify({ message: question }),
@@ -242,7 +242,7 @@ function useTTS(voice) {
     abortRef.current = controller;
     setSpeaking(true);
     try {
-      const r = await fetch("/api/ai/sage/tts", {
+      const r = await fetch(`${BACKEND_URL}/api/ai/sage/tts`, {
         method: "POST",
         headers: { "Content-Type": "application/json", "Authorization": "Bearer " + token },
         body: JSON.stringify({ text: text.slice(0, 1000), voice: voice || "nova", speed: 0.95, session_id: "helper-tts" }),
