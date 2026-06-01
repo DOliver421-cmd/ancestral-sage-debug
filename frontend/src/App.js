@@ -79,6 +79,7 @@ import RevenueDivision from "./pages/RevenueDivision";
 import Courses from "./pages/Courses";
 import Community from "./pages/Community";
 import Creators from "./pages/Creators";
+import GhostProducer from "./pages/GhostProducer";
 import ExecutiveDirectorDashboard from "./pages/ExecutiveDirectorDashboard";
 import PartnershipDashboard from "./pages/PartnershipDashboard";
 import PartnershipDiscounts from "./pages/PartnershipDiscounts";
@@ -233,6 +234,7 @@ function App() {
           <Route path="/leaderboard" element={<Leaderboard />} />
           {/* Creator profiles — public, slug-based */}
           <Route path="/creator/:slug" element={<CreatorProfile />} />
+          <Route path="/ghost-producer" element={<GhostProducer />} />
           {/* Public pages */}
           <Route path="/internships" element={<Internships />} />
           {/* Social publisher — authenticated */}

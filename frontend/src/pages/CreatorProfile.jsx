@@ -59,6 +59,7 @@ From open mics to community workshops, from the page to the stage, NAM writes an
       { label: "Digital Chapbook", desc: "First collection — 'Rivers Remember'", url: null, placeholder: true },
       { label: "Live Workshop Booking", desc: "Book NAM for your school, event, or organization", url: null, placeholder: true },
       { label: "WAI-Institute Courses", desc: "Community development and healing arts curriculum", url: "/store", placeholder: false },
+      { label: "The Ghost Producer × Publisher Prime", desc: "Interactive music & publishing empire — no sign-in required", url: "/ghost-producer", placeholder: false },
       { label: "Creators Sanctuary", desc: "The hub for all WAI creators — community, courses, healing arts, music", url: "/tools/creators-sanctuary.html", placeholder: false },
       { label: "Sage Oracle (DJEDI)", desc: "Kemetic AI guide — wisdom, social strategy, publishing, legal navigation", url: "/tools/djedi-oracle.html", placeholder: false },
       { label: "Electrical Courses", desc: "Circuit design, wiring, solar, safety — trade skills AI tutor", url: "/tools/electrical-courses.html", placeholder: false },
