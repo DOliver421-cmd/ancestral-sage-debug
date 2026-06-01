@@ -1,0 +1,1746 @@
+html
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Creators Sanctuary | WAI-Institute.org & MOREHELP.Center</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700;900&family=Montserrat:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<script>
+  tailwind.config = {
+    theme: {
+      extend: {
+        colors: {
+          obsidian: {
+            900: '#0D0A08',
+            800: '#1A1512',
+            700: '#261F1A',
+            600: '#3D322B',
+          },
+          gold: {
+            100: '#FFF5EA',
+            200: '#F5E6D3',
+            300: '#D4AF37',
+            400: '#C5A028',
+            500: '#B8960F',
+            600: '#9A7D0A',
+          },
+          emerald: {
+            accent: '#2D8B56',
+            glow: '#3DAA6A',
+          }
+        },
+        fontFamily: {
+          cinzel: ['Cinzel', 'serif'],
+          montserrat: ['Montserrat', 'sans-serif'],
+        }
+      }
+    }
+  }
+</script>
+<style>
+  :root {
+    --gold-gradient: linear-gradient(135deg, #B8960F 0%, #D4AF37 40%, #FFF5EA 70%, #D4AF37 100%);
+    --obsidian-gradient: linear-gradient(180deg, #1A1512 0%, #0D0A08 100%);
+  }
+  * { scrollbar-width: thin; scrollbar-color: #D4AF37 #1A1512; }
+  *::-webkit-scrollbar { width: 6px; }
+  *::-webkit-scrollbar-track { background: #1A1512; }
+  *::-webkit-scrollbar-thumb { background: #D4AF37; border-radius: 3px; }
+  
+  body { font-family: 'Montserrat', sans-serif; background: #0D0A08; color: #FFF5EA; }
+  .font-cinzel { font-family: 'Cinzel', serif; }
+  
+  .gold-text { background: var(--gold-gradient); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+  .gold-border { border-image: var(--gold-gradient) 1; }
+  .gold-glow { box-shadow: 0 0 20px rgba(212,175,55,0.3), 0 0 60px rgba(212,175,55,0.1); }
+  .gold-glow-strong { box-shadow: 0 0 30px rgba(212,175,55,0.5), 0 0 80px rgba(212,175,55,0.2); }
+  
+  .obsidian-card { background: linear-gradient(145deg, #1A1512 0%, #261F1A 100%); border: 1px solid rgba(212,175,55,0.15); }
+  .obsidian-card:hover { border-color: rgba(212,175,55,0.4); transition: all 0.3s ease; }
+  
+  .tier-locked { filter: grayscale(80%) brightness(0.5); pointer-events: none; position: relative; }
+  .tier-locked::after {
+    content: '🔒 UPGRADE TO UNLOCK';
+    position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%);
+    background: rgba(13,10,8,0.9); color: #D4AF37; padding: 8px 16px;
+    border-radius: 8px; font-weight: 700; font-size: 12px; letter-spacing: 2px;
+    border: 1px solid #D4AF37; z-index: 10;
+  }
+  
+  .pulse-gold { animation: pulseGold 2s ease-in-out infinite; }
+  @keyframes pulseGold {
+    0%, 100% { box-shadow: 0 0 5px rgba(212,175,55,0.3); }
+    50% { box-shadow: 0 0 25px rgba(212,175,55,0.6), 0 0 50px rgba(212,175,55,0.2); }
+  }
+  
+  .fade-in { animation: fadeIn 0.5s ease-out; }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+  
+  .slide-up { animation: slideUp 0.4s ease-out; }
+  @keyframes slideUp { from { opacity: 0; transform: translateY(30px); } to { opacity: 1; transform: translateY(0); } }
+
+  .tab-active { border-bottom: 3px solid #D4AF37; color: #D4AF37; }
+  
+  .trial-bar { background: linear-gradient(90deg, #D4AF37 var(--progress), #3D322B var(--progress)); }
+  
+  .sage-typing::after {
+    content: '...'; animation: typing 1.5s infinite;
+  }
+  @keyframes typing { 0%,100% { content: '.'; } 33% { content: '..'; } 66% { content: '...'; } }
+
+  .notification-enter { animation: notifSlide 0.5s ease-out; }
+  @keyframes notifSlide { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+
+  .mobile-menu { transform: translateX(-100%); transition: transform 0.3s ease; }
+  .mobile-menu.open { transform: translateX(0); }
+
+  .harmony-slider { -webkit-appearance: none; appearance: none; height: 6px; border-radius: 3px; background: #3D322B; outline: none; }
+  .harmony-slider::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 20px; height: 20px; border-radius: 50%; background: #D4AF37; cursor: pointer; box-shadow: 0 0 10px rgba(212,175,55,0.5); }
+</style>
+</head>
+<body class="min-h-screen">
+<!-- WAI INSTITUTE TOOL NAV -->
+<nav style="background:#050508;border-bottom:1px solid rgba(212,175,55,0.3);padding:8px 20px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;position:sticky;top:0;z-index:9999;font-family:Raleway,sans-serif;">
+  <a href="/" style="display:flex;align-items:center;gap:8px;text-decoration:none;">
+    <span style="font-family:Cinzel,serif;font-size:0.85rem;color:#D4AF37;letter-spacing:2px;font-weight:900;">WAI INSTITUTE</span>
+    <span style="font-size:0.65rem;color:#888;letter-spacing:1px;">TOOLS HUB</span>
+  </a>
+  <div style="display:flex;gap:6px;flex-wrap:wrap;">
+    <a href="/tools/creators-sanctuary.html" style="padding:4px 10px;border:1px solid rgba(212,175,55,0.3);border-radius:20px;color:#D4AF37;font-size:0.7rem;text-decoration:none;transition:all 0.2s;" onmouseover="this.style.background='rgba(212,175,55,0.1)'" onmouseout="this.style.background='transparent'">🌙 Sanctuary</a>
+    <a href="/tools/djedi-oracle.html" style="padding:4px 10px;border:1px solid rgba(212,175,55,0.3);border-radius:20px;color:#D4AF37;font-size:0.7rem;text-decoration:none;transition:all 0.2s;" onmouseover="this.style.background='rgba(212,175,55,0.1)'" onmouseout="this.style.background='transparent'">𓂀 DJEDI Oracle</a>
+    <a href="/tools/electrical-courses.html" style="padding:4px 10px;border:1px solid rgba(212,175,55,0.3);border-radius:20px;color:#D4AF37;font-size:0.7rem;text-decoration:none;transition:all 0.2s;" onmouseover="this.style.background='rgba(212,175,55,0.1)'" onmouseout="this.style.background='transparent'">⚡ Electrical</a>
+    <a href="/tools/media-strategist.html" style="padding:4px 10px;border:1px solid rgba(212,175,55,0.3);border-radius:20px;color:#D4AF37;font-size:0.7rem;text-decoration:none;transition:all 0.2s;" onmouseover="this.style.background='rgba(212,175,55,0.1)'" onmouseout="this.style.background='transparent'">📡 Media</a>
+    <a href="/tools/publisher-prime.html" style="padding:4px 10px;border:1px solid rgba(212,175,55,0.3);border-radius:20px;color:#D4AF37;font-size:0.7rem;text-decoration:none;transition:all 0.2s;" onmouseover="this.style.background='rgba(212,175,55,0.1)'" onmouseout="this.style.background='transparent'">📚 Publisher</a>
+    <a href="/ghost-producer" style="padding:4px 10px;border:1px solid rgba(212,175,55,0.3);border-radius:20px;color:#D4AF37;font-size:0.7rem;text-decoration:none;transition:all 0.2s;" onmouseover="this.style.background='rgba(212,175,55,0.1)'" onmouseout="this.style.background='transparent'">🎵 Ghost Producer</a>
+  </div>
+</nav>
+
+
+<!-- ===================== NOTIFICATION SYSTEM ===================== -->
+<div id="notificationContainer" class="fixed top-4 right-4 z-[100] space-y-3 max-w-sm"></div>
+
+<!-- ===================== MOBILE MENU ===================== -->
+<div id="mobileMenu" class="mobile-menu fixed top-0 left-0 w-72 h-full bg-obsidian-800 z-[90] shadow-2xl overflow-y-auto">
+  <div class="p-6">
+    <div class="flex items-center justify-between mb-8">
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-full bg-gold-300 flex items-center justify-center">
+          <i class="fas fa-ankh text-obsidian-900 text-lg"></i>
+        </div>
+        <span class="font-cinzel text-gold-300 text-xl font-bold">AURA</span>
+      </div>
+      <button onclick="toggleMobile()" class="text-gold-300 text-2xl"><i class="fas fa-times"></i></button>
+    </div>
+    <nav class="space-y-2">
+      <a onclick="showSection('home')" class="block px-4 py-3 rounded-lg hover:bg-obsidian-700 text-gold-200 transition cursor-pointer"><i class="fas fa-home mr-3"></i>Sanctuary Home</a>
+      <a onclick="showSection('feed')" class="block px-4 py-3 rounded-lg hover:bg-obsidian-700 text-gold-200 transition cursor-pointer"><i class="fas fa-newspaper mr-3"></i>News Feed</a>
+      <a onclick="showSection('academy')" class="block px-4 py-3 rounded-lg hover:bg-obsidian-700 text-gold-200 transition cursor-pointer"><i class="fas fa-graduation-cap mr-3"></i>Academies</a>
+      <a onclick="showSection('healing')" class="block px-4 py-3 rounded-lg hover:bg-obsidian-700 text-gold-200 transition cursor-pointer"><i class="fas fa-spa mr-3"></i>Healing Sanctuary</a>
+      <a onclick="showSection('music')" class="block px-4 py-3 rounded-lg hover:bg-obsidian-700 text-gold-200 transition cursor-pointer"><i class="fas fa-music mr-3"></i>Music Creation</a>
+      <a onclick="showSection('collab')" class="block px-4 py-3 rounded-lg hover:bg-obsidian-700 text-gold-200 transition cursor-pointer"><i class="fas fa-hands-helping mr-3"></i>Guild Sync</a>
+      <a onclick="showSection('dashboard')" class="block px-4 py-3 rounded-lg hover:bg-obsidian-700 text-gold-200 transition cursor-pointer"><i class="fas fa-chart-line mr-3"></i>Creator Dashboard</a>
+      <a onclick="showSection('moderator')" class="block px-4 py-3 rounded-lg hover:bg-obsidian-700 text-gold-200 transition cursor-pointer"><i class="fas fa-shield-alt mr-3"></i>Moderator Sanctum</a>
+      <a onclick="showSection('admin')" class="block px-4 py-3 rounded-lg hover:bg-obsidian-700 text-gold-200 transition cursor-pointer"><i class="fas fa-cog mr-3"></i>Admin Console</a>
+      <a onclick="openSage()" class="block px-4 py-3 rounded-lg hover:bg-obsidian-700 text-gold-200 transition cursor-pointer"><i class="fas fa-eye mr-3"></i>Sage Oracle</a>
+    </nav>
+    <div class="mt-8 p-4 obsidian-card rounded-xl">
+      <div class="text-xs text-gold-400 mb-2">CURRENT TIER</div>
+      <div id="mobileTierBadge" class="font-cinzel text-lg font-bold gold-text">Begin Creating (FREE)</div>
+      <div id="mobileTrialTimer" class="text-xs text-gold-400 mt-2 hidden"></div>
+    </div>
+  </div>
+</div>
+<div id="mobileOverlay" class="fixed inset-0 bg-black/60 z-[85] hidden" onclick="toggleMobile()"></div>
+
+<!-- ===================== NAVBAR ===================== -->
+<nav class="sticky top-0 z-50 bg-obsidian-900/95 backdrop-blur-md border-b border-gold-300/10">
+  <div class="max-w-7xl mx-auto px-4">
+    <div class="flex items-center justify-between h-16">
+      <div class="flex items-center gap-3">
+        <button onclick="toggleMobile()" class="md:hidden text-gold-300 text-xl mr-2"><i class="fas fa-bars"></i></button>
+        <div class="w-9 h-9 rounded-full bg-gradient-to-br from-gold-400 to-gold-600 flex items-center justify-center pulse-gold">
+          <i class="fas fa-ankh text-obsidian-900"></i>
+        </div>
+        <span class="font-cinzel text-gold-300 text-lg font-bold tracking-wider hidden sm:block">AURA</span>
+      </div>
+      
+      <div class="hidden md:flex items-center gap-1">
+        <a onclick="showSection('home')" class="px-3 py-2 text-sm text-gold-200 hover:text-gold-300 hover:bg-obsidian-700 rounded-lg transition cursor-pointer">Home</a>
+        <a onclick="showSection('feed')" class="px-3 py-2 text-sm text-gold-200 hover:text-gold-300 hover:bg-obsidian-700 rounded-lg transition cursor-pointer">Feed</a>
+        <a onclick="showSection('academy')" class="px-3 py-2 text-sm text-gold-200 hover:text-gold-300 hover:bg-obsidian-700 rounded-lg transition cursor-pointer">Academies</a>
+        <a onclick="showSection('healing')" class="px-3 py-2 text-sm text-gold-200 hover:text-gold-300 hover:bg-obsidian-700 rounded-lg transition cursor-pointer">Healing</a>
+        <a onclick="showSection('music')" class="px-3 py-2 text-sm text-gold-200 hover:text-gold-300 hover:bg-obsidian-700 rounded-lg transition cursor-pointer">Music</a>
+        <a onclick="showSection('collab')" class="px-3 py-2 text-sm text-gold-200 hover:text-gold-300 hover:bg-obsidian-700 rounded-lg transition cursor-pointer">Guilds</a>
+      </div>
+
+      <div class="flex items-center gap-3">
+        <button onclick="openSage()" class="w-9 h-9 rounded-full bg-obsidian-700 border border-gold-300/30 flex items-center justify-center text-gold-300 hover:bg-obsidian-600 transition" title="Sage Oracle">
+          <i class="fas fa-eye"></i>
+        </button>
+        <div id="tierBadge" class="hidden sm:block px-3 py-1.5 rounded-full text-xs font-bold bg-gold-300/10 border border-gold-300/30 text-gold-300 cursor-pointer" onclick="showSection('dashboard')">
+          BEGIN CREATING <span class="text-gold-400">FREE</span>
+        </div>
+        <button onclick="showSection('dashboard')" class="w-9 h-9 rounded-full bg-obsidian-700 border border-gold-300/20 flex items-center justify-center text-gold-300 hover:bg-obsidian-600 transition">
+          <i class="fas fa-user"></i>
+        </button>
+      </div>
+    </div>
+  </div>
+</nav>
+
+<!-- ===================== MAIN CONTENT ===================== -->
+<main class="max-w-7xl mx-auto px-4 pb-28">
+
+  <!-- =================== SECTION: HOME =================== -->
+  <section id="section-home" class="section-content fade-in">
+    <!-- HERO -->
+    <div class="relative py-16 md:py-24 text-center overflow-hidden">
+      <div class="absolute inset-0 opacity-10">
+        <div class="absolute top-10 left-1/4 w-64 h-64 bg-gold-300 rounded-full blur-3xl"></div>
+        <div class="absolute bottom-10 right-1/4 w-96 h-96 bg-gold-500 rounded-full blur-3xl"></div>
+      </div>
+      <div class="relative z-10">
+        <div class="w-20 h-20 mx-auto mb-6 rounded-full bg-gradient-to-br from-gold-400 to-gold-600 flex items-center justify-center gold-glow-strong">
+          <i class="fas fa-ankh text-obsidian-900 text-3xl"></i>
+        </div>
+        <h1 class="font-cinzel text-4xl md:text-6xl font-black gold-text mb-4 leading-tight">
+          CREATORS SANCTUARY
+        </h1>
+        <p class="font-cinzel text-gold-400 text-sm md:text-base tracking-[0.3em] mb-6">ARTS • CULTURE • TECHNOLOGY</p>
+        <p class="text-gold-200/70 max-w-2xl mx-auto text-sm md:text-base mb-8">
+          A culturally anchored, immersive virtual ecosystem for the global Pan-African diaspora. 
+          Build. Create. Heal. Earn. <span class="text-gold-300 font-semibold">No algorithms. No rage-bait. Just harmony.</span>
+        </p>
+        <div class="flex flex-col sm:flex-row gap-4 justify-center">
+          <button onclick="showSection('feed')" class="px-8 py-3 bg-gradient-to-r from-gold-400 to-gold-500 text-obsidian-900 font-bold rounded-xl hover:shadow-lg hover:shadow-gold-300/30 transition transform hover:scale-105">
+            <i class="fas fa-compass mr-2"></i>Enter the Sanctuary
+          </button>
+          <button onclick="showSection('academy')" class="px-8 py-3 border-2 border-gold-300/40 text-gold-300 font-bold rounded-xl hover:bg-gold-300/10 transition">
+            <i class="fas fa-graduation-cap mr-2"></i>Explore Academies
+          </button>
+        </div>
+
+        <!-- TIER QUICK VIEW -->
+        <div class="mt-16 grid grid-cols-2 md:grid-cols-4 gap-4 max-w-4xl mx-auto">
+          <div class="obsidian-card rounded-xl p-4 text-center hover:scale-105 transition cursor-pointer" onclick="selectTier('free')">
+            <div class="text-3xl mb-2">🌱</div>
+            <div class="font-cinzel text-gold-300 font-bold text-sm">Begin Creating</div>
+            <div class="text-gold-400 text-2xl font-bold mt-1">FREE</div>
+          </div>
+          <div class="obsidian-card rounded-xl p-4 text-center hover:scale-105 transition cursor-pointer relative" onclick="startTrial()">
+            <div class="absolute -top-2 -right-2 bg-red-500 text-white text-xs px-2 py-0.5 rounded-full font-bold animate-pulse">HOT</div>
+            <div class="text-3xl mb-2">⚡</div>
+            <div class="font-cinzel text-gold-300 font-bold text-sm">All-Access Trial</div>
+            <div class="text-gold-400 text-2xl font-bold mt-1">$3</div>
+            <div class="text-gold-400/60 text-xs mt-1">3 Days & 33 Min</div>
+          </div>
+          <div class="obsidian-card rounded-xl p-4 text-center hover:scale-105 transition cursor-pointer" onclick="selectTier('paid')">
+            <div class="text-3xl mb-2">👑</div>
+            <div class="font-cinzel text-gold-300 font-bold text-sm">Paid Commitment</div>
+            <div class="text-gold-400 text-2xl font-bold mt-1">$7<span class="text-sm">/mo</span></div>
+          </div>
+          <div class="obsidian-card rounded-xl p-4 text-center hover:scale-105 transition cursor-pointer" onclick="selectTier('creator')">
+            <div class="text-3xl mb-2">🔥</div>
+            <div class="font-cinzel text-gold-300 font-bold text-sm">Advanced Creator</div>
+            <div class="text-gold-400 text-2xl font-bold mt-1">$11<span class="text-sm">/mo</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SANCTUARY SPOTLIGHT CAROUSEL -->
+    <div class="mb-16">
+      <h2 class="font-cinzel text-2xl gold-text mb-6 text-center"><i class="fas fa-star mr-2"></i>Sanctuary Spotlight</h2>
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-4" id="spotlightCarousel">
+        <div class="obsidian-card rounded-2xl p-6 gold-glow cursor-pointer hover:scale-[1.02] transition">
+          <div class="flex items-center gap-3 mb-4">
+            <div class="w-12 h-12 rounded-full bg-gradient-to-br from-emerald-accent to-emerald-glow flex items-center justify-center text-white text-xl"><i class="fas fa-leaf"></i></div>
+            <div>
+              <div class="font-bold text-gold-200">Mama Ayo's Herbal Lab</div>
+              <div class="text-xs text-gold-400">🌿 Holistic Healing • LIVE NOW</div>
+            </div>
+          </div>
+          <p class="text-gold-200/70 text-sm mb-4">"Today we explore the sacred properties of Moringa and its role in ancestral wellness..."</p>
+          <div class="flex items-center justify-between">
+            <span class="text-xs bg-emerald-accent/20 text-emerald-glow px-3 py-1 rounded-full"><i class="fas fa-circle text-[8px] mr-1 animate-pulse"></i>LIVE</span>
+            <span class="text-gold-400 text-sm"><i class="fas fa-users mr-1"></i>247 watching</span>
+          </div>
+        </div>
+        <div class="obsidian-card rounded-2xl p-6 gold-glow cursor-pointer hover:scale-[1.02] transition">
+          <div class="flex items-center gap-3 mb-4">
+            <div class="w-12 h-12 rounded-full bg-gradient-to-br from-gold-400 to-gold-600 flex items-center justify-center text-obsidian-900 text-xl"><i class="fas fa-drum"></i></div>
+            <div>
+              <div class="font-bold text-gold-200">Drummer Kofi</div>
+              <div class="text-xs text-gold-400">🥁 Sound Medicine • LIVE NOW</div>
+            </div>
+          </div>
+          <p class="text-gold-200/70 text-sm mb-4">"432Hz ancestral rhythms for deep meditation and spiritual recalibration..."</p>
+          <div class="flex items-center justify-between">
+            <span class="text-xs bg-emerald-accent/20 text-emerald-glow px-3 py-1 rounded-full"><i class="fas fa-circle text-[8px] mr-1 animate-pulse"></i>LIVE</span>
+            <span class="text-gold-400 text-sm"><i class="fas fa-users mr-1"></i>189 watching</span>
+          </div>
+        </div>
+        <div class="obsidian-card rounded-2xl p-6 gold-glow cursor-pointer hover:scale-[1.02] transition">
+          <div class="flex items-center gap-3 mb-4">
+            <div class="w-12 h-12 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-white text-xl"><i class="fas fa-feather-alt"></i></div>
+            <div>
+              <div class="font-bold text-gold-200">Poetess Nia</div>
+              <div class="text-xs text-gold-400">📜 Poetry Scroll • LIVE NOW</div>
+            </div>
+          </div>
+          <p class="text-gold-200/70 text-sm mb-4">"A new spoken word piece on the weight of carrying our ancestors' dreams..."</p>
+          <div class="flex items-center justify-between">
+            <span class="text-xs bg-emerald-accent/20 text-emerald-glow px-3 py-1 rounded-full"><i class="fas fa-circle text-[8px] mr-1 animate-pulse"></i>LIVE</span>
+            <span class="text-gold-400 text-sm"><i class="fas fa-users mr-1"></i>312 watching</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- FEATURED PATHS -->
+    <div class="mb-16">
+      <h2 class="font-cinzel text-2xl gold-text mb-6 text-center"><i class="fas fa-compass mr-2"></i>Converging Paths</h2>
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div onclick="showSection('academy')" class="obsidian-card rounded-xl p-5 text-center cursor-pointer hover:scale-105 transition group">
+          <div class="w-14 h-14 mx-auto mb-3 rounded-full bg-gold-300/10 flex items-center justify-center group-hover:bg-gold-300/20 transition">
+            <i class="fas fa-bolt text-gold-300 text-2xl"></i>
+          </div>
+          <div class="font-cinzel text-gold-200 font-bold text-sm">Sage Oracle</div>
+          <div class="text-gold-400/60 text-xs mt-1">AI Guidance</div>
+        </div>
+        <div onclick="showSection('academy')" class="obsidian-card rounded-xl p-5 text-center cursor-pointer hover:scale-105 transition group">
+          <div class="w-14 h-14 mx-auto mb-3 rounded-full bg-gold-300/10 flex items-center justify-center group-hover:bg-gold-300/20 transition">
+            <i class="fas fa-plug text-gold-300 text-2xl"></i>
+          </div>
+          <div class="font-cinzel text-gold-200 font-bold text-sm">Electrical Courses</div>
+          <div class="text-gold-400/60 text-xs mt-1">Tech Skills</div>
+        </div>
+        <div onclick="showSection('academy')" class="obsidian-card rounded-xl p-5 text-center cursor-pointer hover:scale-105 transition group">
+          <div class="w-14 h-14 mx-auto mb-3 rounded-full bg-gold-300/10 flex items-center justify-center group-hover:bg-gold-300/20 transition">
+            <i class="fas fa-bullhorn text-gold-300 text-2xl"></i>
+          </div>
+          <div class="font-cinzel text-gold-200 font-bold text-sm">Media Strategist</div>
+          <div class="text-gold-400/60 text-xs mt-1">Growth Engine</div>
+        </div>
+        <div onclick="showSection('music')" class="obsidian-card rounded-xl p-5 text-center cursor-pointer hover:scale-105 transition group">
+          <div class="w-14 h-14 mx-auto mb-3 rounded-full bg-gold-300/10 flex items-center justify-center group-hover:bg-gold-300/20 transition">
+            <i class="fas fa-music text-gold-300 text-2xl"></i>
+          </div>
+          <div class="font-cinzel text-gold-200 font-bold text-sm">Music Creation</div>
+          <div class="text-gold-400/60 text-xs mt-1">Studio Tools</div>
+        </div>
+        <div onclick="showSection('collab')" class="obsidian-card rounded-xl p-5 text-center cursor-pointer hover:scale-105 transition group">
+          <div class="w-14 h-14 mx-auto mb-3 rounded-full bg-gold-300/10 flex items-center justify-center group-hover:bg-gold-300/20 transition">
+            <i class="fas fa-share-alt text-gold-300 text-2xl"></i>
+          </div>
+          <div class="font-cinzel text-gold-200 font-bold text-sm">Social Media</div>
+          <div class="text-gold-400/60 text-xs mt-1">Network</div>
+        </div>
+        <div onclick="showSection('academy')" class="obsidian-card rounded-xl p-5 text-center cursor-pointer hover:scale-105 transition group">
+          <div class="w-14 h-14 mx-auto mb-3 rounded-full bg-gold-300/10 flex items-center justify-center group-hover:bg-gold-300/20 transition">
+            <i class="fas fa-book text-gold-300 text-2xl"></i>
+          </div>
+          <div class="font-cinzel text-gold-200 font-bold text-sm">Publishing Support</div>
+          <div class="text-gold-400/60 text-xs mt-1">Your Book</div>
+        </div>
+        <div onclick="showSection('academy')" class="obsidian-card rounded-xl p-5 text-center cursor-pointer hover:scale-105 transition group">
+          <div class="w-14 h-14 mx-auto mb-3 rounded-full bg-gold-300/10 flex items-center justify-center group-hover:bg-gold-300/20 transition">
+            <i class="fas fa-balance-scale text-gold-300 text-2xl"></i>
+          </div>
+          <div class="font-cinzel text-gold-200 font-bold text-sm">Legal Support</div>
+          <div class="text-gold-400/60 text-xs mt-1">IP Protection</div>
+        </div>
+        <div onclick="showSection('healing')" class="obsidian-card rounded-xl p-5 text-center cursor-pointer hover:scale-105 transition group">
+          <div class="w-14 h-14 mx-auto mb-3 rounded-full bg-gold-300/10 flex items-center justify-center group-hover:bg-gold-300/20 transition">
+            <i class="fas fa-heartbeat text-gold-300 text-2xl"></i>
+          </div>
+          <div class="font-cinzel text-gold-200 font-bold text-sm">Healing Arts</div>
+          <div class="text-gold-400/60 text-xs mt-1">Wellness</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 10 IMPROVEMENTS SHOWCASE -->
+    <div class="mb-16">
+      <h2 class="font-cinzel text-2xl gold-text mb-6 text-center"><i class="fas fa-gem mr-2"></i>10 Architectural Improvements</h2>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div class="obsidian-card rounded-xl p-4 flex items-start gap-4">
+          <div class="w-10 h-10 rounded-lg bg-gold-300/10 flex items-center justify-center shrink-0 mt-1"><span class="text-gold-300 font-bold text-sm">1</span></div>
+          <div><div class="font-bold text-gold-200 text-sm">Nile Dawn High-Contrast Theme</div><div class="text-gold-400/60 text-xs mt-1">Obsidian + Liquid Gold, WCAG accessible</div></div>
+        </div>
+        <div class="obsidian-card rounded-xl p-4 flex items-start gap-4">
+          <div class="w-10 h-10 rounded-lg bg-gold-300/10 flex items-center justify-center shrink-0 mt-1"><span class="text-gold-300 font-bold text-sm">2</span></div>
+          <div><div class="font-bold text-gold-200 text-sm">True Tier-Based Feature Gateways</div><div class="text-gold-400/60 text-xs mt-1">UI locks/alters tools based on active tier</div></div>
+        </div>
+        <div class="obsidian-card rounded-xl p-4 flex items-start gap-4">
+          <div class="w-10 h-10 rounded-lg bg-gold-300/10 flex items-center justify-center shrink-0 mt-1"><span class="text-gold-300 font-bold text-sm">3</span></div>
+          <div><div class="font-bold text-gold-200 text-sm">Interactive Sage Oracle Chat</div><div class="text-gold-400/60 text-xs mt-1">Full AI moderator persona integration</div></div>
+        </div>
+        <div class="obsidian-card rounded-xl p-4 flex items-start gap-4">
+          <div class="w-10 h-10 rounded-lg bg-gold-300/10 flex items-center justify-center shrink-0 mt-1"><span class="text-gold-300 font-bold text-sm">4</span></div>
+          <div><div class="font-bold text-gold-200 text-sm">Dynamic Live Workshop Canvas</div><div class="text-gold-400/60 text-xs mt-1">Simulated real-time user chat overlays</div></div>
+        </div>
+        <div class="obsidian-card rounded-xl p-4 flex items-start gap-4">
+          <div class="w-10 h-10 rounded-lg bg-gold-300/10 flex items-center justify-center shrink-0 mt-1"><span class="text-gold-300 font-bold text-sm">5</span></div>
+          <div><div class="font-bold text-gold-200 text-sm">Interactive Audio Deck & Playlist</div><div class="text-gold-400/60 text-xs mt-1">Visualizer + 432Hz Healing toggle</div></div>
+        </div>
+        <div class="obsidian-card rounded-xl p-4 flex items-start gap-4">
+          <div class="w-10 h-10 rounded-lg bg-gold-300/10 flex items-center justify-center shrink-0 mt-1"><span class="text-gold-300 font-bold text-sm">6</span></div>
+          <div><div class="font-bold text-gold-200 text-sm">Poetry & Art Multi-Tab Showcase</div><div class="text-gold-400/60 text-xs mt-1">Filter toggle: Art / Poetry / Music</div></div>
+        </div>
+        <div class="obsidian-card rounded-xl p-4 flex items-start gap-4">
+          <div class="w-10 h-10 rounded-lg bg-gold-300/10 flex items-center justify-center shrink-0 mt-1"><span class="text-gold-300 font-bold text-sm">7</span></div>
+          <div><div class="font-bold text-gold-200 text-sm">Guild Sync Collaborative System</div><div class="text-gold-400/60 text-xs mt-1">Cross-tier co-creation task blocks</div></div>
+        </div>
+        <div class="obsidian-card rounded-xl p-4 flex items-start gap-4">
+          <div class="w-10 h-10 rounded-lg bg-gold-300/10 flex items-center justify-center shrink-0 mt-1"><span class="text-gold-300 font-bold text-sm">8</span></div>
+          <div><div class="font-bold text-gold-200 text-sm">Freemium Monetization Banners</div><div class="text-gold-400/60 text-xs mt-1">Subtle feature-lock upsell popups</div></div>
+        </div>
+        <div class="obsidian-card rounded-xl p-4 flex items-start gap-4">
+          <div class="w-10 h-10 rounded-lg bg-gold-300/10 flex items-center justify-center shrink-0 mt-1"><span class="text-gold-300 font-bold text-sm">9</span></div>
+          <div><div class="font-bold text-gold-200 text-sm">Fully Responsive Adaptive Layout</div><div class="text-gold-400/60 text-xs mt-1">Mobile + Desktop parity, zero overlap</div></div>
+        </div>
+        <div class="obsidian-card rounded-xl p-4 flex items-start gap-4">
+          <div class="w-10 h-10 rounded-lg bg-gold-300/10 flex items-center justify-center shrink-0 mt-1"><span class="text-gold-300 font-bold text-sm">10</span></div>
+          <div><div class="font-bold text-gold-200 text-sm">Vanilla JS State Management</div><div class="text-gold-400/60 text-xs mt-1">Zero dependencies, pure interactivity</div></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- =================== SECTION: NEWS FEED =================== -->
+  <section id="section-feed" class="section-content hidden fade-in">
+    <div class="py-8">
+      <h2 class="font-cinzel text-3xl gold-text mb-2"><i class="fas fa-newspaper mr-3"></i>The Cultural Feed</h2>
+      <p class="text-gold-400/60 text-sm mb-6">Multi-format content. No rage-bait. Just harmony.</p>
+      
+      <!-- FEED TABS -->
+      <div class="flex gap-2 mb-6 overflow-x-auto pb-2">
+        <button onclick="switchFeedTab('all')" class="feed-tab px-4 py-2 rounded-full text-sm font-bold bg-gold-300/20 text-gold-300 border border-gold-300/30 whitespace-nowrap" data-tab="all">✨ All</button>
+        <button onclick="switchFeedTab('art')" class="feed-tab px-4 py-2 rounded-full text-sm font-bold bg-obsidian-700 text-gold-400 border border-gold-300/10 whitespace-nowrap" data-tab="art">🎨 Art Gallery</button>
+        <button onclick="switchFeedTab('poetry')" class="feed-tab px-4 py-2 rounded-full text-sm font-bold bg-obsidian-700 text-gold-400 border border-gold-300/10 whitespace-nowrap" data-tab="poetry">📜 Poetry Scrolls</button>
+        <button onclick="switchFeedTab('music')" class="feed-tab px-4 py-2 rounded-full text-sm font-bold bg-obsidian-700 text-gold-400 border border-gold-300/10 whitespace-nowrap" data-tab="music">🎵 Audio Medicine</button>
+        <button onclick="switchFeedTab('workshop')" class="feed-tab px-4 py-2 rounded-full text-sm font-bold bg-obsidian-700 text-gold-400 border border-gold-300/10 whitespace-nowrap" data-tab="workshop">📚 Live Workshop</button>
+      </div>
+
+      <!-- FEED ITEMS -->
+      <div id="feedContainer" class="space-y-4">
+        <!-- Post 1 -->
+        <div class="obsidian-card rounded-2xl p-5 slide-up" data-type="poetry">
+          <div class="flex items-center gap-3 mb-4">
+            <div class="w-10 h-10 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-white font-bold text-sm">N</div>
+            <div class="flex-1">
+              <div class="font-bold text-gold-200 text-sm">Poetess Nia</div>
+              <div class="text-gold-400/50 text-xs">2 hours ago • 📜 Poetry Scroll</div>
+            </div>
+            <span class="text-xs bg-gold-300/10 text-gold-400 px-2 py-1 rounded-full">FREE TIER</span>
+          </div>
+          <p class="text-gold-200/80 text-sm leading-relaxed mb-4 italic">"We are the children of stars who forgot their names,<br>walking through fire, carrying water in our hands.<br>The ancestors whisper: 'You were never lost—<br>you were just taking the long way home.'"</p>
+          <div class="flex items-center gap-4 text-gold-400 text-sm">
+            <button onclick="sparkPost(this)" class="flex items-center gap-2 hover:text-gold-300 transition"><i class="fas fa-fire"></i><span class="spark-count">47</span> Sparks</button>
+            <button class="flex items-center gap-2 hover:text-gold-300 transition"><i class="fas fa-comment"></i>12 Replies</button>
+            <button class="flex items-center gap-2 hover:text-gold-300 transition"><i class="fas fa-retweet"></i>Share</button>
+            <button class="ml-auto text-gold-400/40 hover:text-gold-300 transition"><i class="fas fa-bookmark"></i></button>
+          </div>
+        </div>
+
+        <!-- Post 2 -->
+        <div class="obsidian-card rounded-2xl p-5 slide-up" data-type="art">
+          <div class="flex items-center gap-3 mb-4">
+            <div class="w-10 h-10 rounded-full bg-gradient-to-br from-emerald-500 to-teal-500 flex items-center justify-center text-white font-bold text-sm">K</div>
+            <div class="flex-1">
+              <div class="font-bold text-gold-200 text-sm">Artist Kofi</div>
+              <div class="text-gold-400/50 text-xs">5 hours ago • 🎨 Art Gallery</div>
+            </div>
+            <span class="text-xs bg-gold-300/10 text-gold-400 px-2 py-1 rounded-full">FREE TIER</span>
+          </div>
+          <div class="w-full h-48 bg-gradient-to-br from-obsidian-700 via-obsidian-800 to-obsidian-900 rounded-xl mb-4 flex items-center justify-center relative overflow-hidden">
+            <div class="absolute inset-0 bg-gradient-to-t from-gold-300/5 to-transparent"></div>
+            <div class="text-center">
+              <i class="fas fa-image text-gold-300/30 text-6xl mb-2"></i>
+              <div class="text-gold-400/40 text-sm">"Ancestral Sunrise" — Digital Kemetic Art</div>
+            </div>
+          </div>
+          <div class="flex items-center gap-4 text-gold-400 text-sm">
+            <button onclick="sparkPost(this)" class="flex items-center gap-2 hover:text-gold-300 transition"><i class="fas fa-fire"></i><span class="spark-count">89</span> Sparks</button>
+            <button class="flex items-center gap-2 hover:text-gold-300 transition"><i class="fas fa-comment"></i>23 Replies</button>
+            <button class="flex items-center gap-2 hover:text-gold-300 transition"><i class="fas fa-retweet"></i>Share</button>
+            <button class="ml-auto text-gold-400/40 hover:text-gold-300 transition"><i class="fas fa-bookmark"></i></button>
+          </div>
+        </div>
+
+        <!-- Post 3 - LOCKED (Premium) -->
+        <div class="obsidian-card rounded-2xl p-5 slide-up tier-locked" data-type="music">
+          <div class="flex items-center gap-3 mb-4">
+            <div class="w-10 h-10 rounded-full bg-gradient-to-br from-gold-400 to-gold-600 flex items-center justify-center text-obsidian-900 font-bold text-sm">D</div>
+            <div class="flex-1">
+              <div class="font-bold text-gold-200 text-sm">Drummer Kofi</div>
+              <div class="text-gold-400/50 text-xs">1 day ago • 🎵 Audio Medicine • PREMIUM</div>
+            </div>
+            <span class="text-xs bg-gold-500/20 text-gold-300 px-2 py-1 rounded-full font-bold">$11 CREATOR</span>
+          </div>
+          <div class="w-full h-32 bg-gradient-to-r from-gold-300/10 via-obsidian-700 to-gold-300/10 rounded-xl mb-4 flex items-center justify-center">
+            <div class="text-center">
+              <i class="fas fa-waveform-lines text-gold-300/40 text-4xl mb-2"></i>
+              <div class="text-gold-400/40 text-sm">432Hz Ancestral Drum Pattern — Raw Stem</div>
+            </div>
+          </div>
+          <div class="flex items-center gap-4 text-gold-400 text-sm">
+            <button onclick="sparkPost(this)" class="flex items-center gap-2 hover:text-gold-300 transition"><i class="fas fa-fire"></i><span class="spark-count">156</span> Sparks</button>
+            <button class="flex items-center gap-2 hover:text-gold-300 transition"><i class="fas fa-comment"></i>41 Replies</button>
+            <button class="ml-auto text-gold-400/40 hover:text-gold-300 transition"><i class="fas fa-bookmark"></i></button>
+          </div>
+        </div>
+
+        <!-- Post 4 - Collaboration CTA -->
+        <div class="obsidian-card rounded-2xl p-5 slide-up" data-type="workshop">
+          <div class="flex items-center gap-3 mb-4">
+            <div class="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-indigo-500 flex items-center justify-center text-white font-bold text-sm">M</div>
+            <div class="flex-1">
+              <div class="font-bold text-gold-200 text-sm">Master Ayo</div>
+              <div class="text-gold-400/50 text-xs">3 hours ago • 📚 Live Workshop</div>
+            </div>
+            <span class="text-xs bg-emerald-accent/20 text-emerald-glow px-2 py-1 rounded-full"><i class="fas fa-circle text-[8px] mr-1 animate-pulse"></i>LIVE</span>
+          </div>
+          <h3 class="font-cinzel text-gold-200 font-bold mb-2">"Kemetic Astrology: Mapping Your Ancestral Blueprint"</h3>
+          <p class="text-gold-200/60 text-sm mb-4">Join Master Ayo for a deep dive into the stellar calendars of our ancestors and how they inform your creative destiny...</p>
+          <div class="flex gap-3 mb-4">
+            <button onclick="bookWorkshop(this)" class="px-4 py-2 bg-gold-300/20 text-gold-300 rounded-lg text-sm font-bold hover:bg-gold-300/30 transition"><i class="fas fa-ticket mr-2"></i>Book Seat — FREE</button>
+            <button class="px-4 py-2 border border-gold-300/20 text-gold-400 rounded-lg text-sm hover:bg-gold-300/10 transition"><i class="fas fa-bell mr-2"></i>Remind Me</button>
+          </div>
+          <div class="flex items-center gap-4 text-gold-400 text-sm">
+            <button onclick="sparkPost(this)" class="flex items-center gap-2 hover:text-gold-300 transition"><i class="fas fa-fire"></i><span class="spark-count">73</span> Sparks</button>
+            <button class="flex items-center gap-2 hover:text-gold-300 transition"><i class="fas fa-users"></i>89 Attending</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- =================== SECTION: ACADEMIES =================== -->
+  <section id="section-academy" class="section-content hidden fade-in">
+    <div class="py-8">
+      <h2 class="font-cinzel text-3xl gold-text mb-2"><i class="fas fa-graduation-cap mr-3"></i>Digital Academies</h2>
+      <p class="text-gold-400/60 text-sm mb-6">Structured e-learning meets cultural preservation.</p>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <!-- Course 1 - FREE -->
+        <div class="obsidian-card rounded-2xl overflow-hidden hover:scale-[1.02] transition">
+          <div class="h-32 bg-gradient-to-br from-emerald-accent/20 to-obsidian-700 flex items-center justify-center">
+            <i class="fas fa-leaf text-emerald-glow text-5xl opacity-50"></i>
+          </div>
+          <div class="p-5">
+            <div class="flex items-center justify-between mb-3">
+              <span class="text-xs bg-emerald-accent/20 text-emerald-glow px-2 py-1 rounded-full">FREE</span>
+              <span class="text-xs text-gold-400/50">6 Lessons</span>
+            </div>
+            <h3 class="font-cinzel text-gold-200 font-bold mb-2">Ancestral Herbalism 101</h3>
+            <p class="text-gold-400/60 text-sm mb-4">Learn the sacred plants of our ancestors and their modern wellness applications.</p>
+            <button onclick="enrollCourse(this, 'free')" class="w-full py-2 bg-gold-300/10 text-gold-300 rounded-lg text-sm font-bold hover:bg-gold-300/20 transition">Enroll Free</button>
+          </div>
+        </div>
+
+        <!-- Course 2 - TIER 2+ -->
+        <div class="obsidian-card rounded-2xl overflow-hidden hover:scale-[1.02] transition tier-locked" data-tier="2">
+          <div class="h-32 bg-gradient-to-br from-gold-300/20 to-obsidian-700 flex items-center justify-center">
+            <i class="fas fa-bolt text-gold-300 text-5xl opacity-50"></i>
+          </div>
+          <div class="p-5">
+            <div class="flex items-center justify-between mb-3">
+              <span class="text-xs bg-gold-500/20 text-gold-300 px-2 py-1 rounded-full font-bold">$7+ TIER</span>
+              <span class="text-xs text-gold-400/50">12 Lessons</span>
+            </div>
+            <h3 class="font-cinzel text-gold-200 font-bold mb-2">Electrical Engineering for Creatives</h3>
+            <p class="text-gold-400/60 text-sm mb-4">Build your own studio gear from scratch using ancestral + modern circuit design.</p>
+            <button class="w-full py-2 bg-obsidian-600 text-gold-400/40 rounded-lg text-sm font-bold cursor-not-allowed">🔒 Upgrade to Access</button>
+          </div>
+        </div>
+
+        <!-- Course 3 - PREMIUM -->
+        <div class="obsidian-card rounded-2xl overflow-hidden hover:scale-[1.02] transition tier-locked" data-tier="3">
+          <div class="h-32 bg-gradient-to-br from-purple-500/20 to-obsidian-700 flex items-center justify-center">
+            <i class="fas fa-music text-purple-400 text-5xl opacity-50"></i>
+          </div>
+          <div class="p-5">
+            <div class="flex items-center justify-between mb-3">
+              <span class="text-xs bg-purple-500/20 text-purple-400 px-2 py-1 rounded-full font-bold">$11 CREATOR</span>
+              <span class="text-xs text-gold-400/50">20 Lessons</span>
+            </div>
+            <h3 class="font-cinzel text-gold-200 font-bold mb-2">Sound Medicine & 432Hz Production</h3>
+            <p class="text-gold-400/60 text-sm mb-4">Master the healing frequencies and produce audio medicine that actually heals.</p>
+            <button class="w-full py-2 bg-obsidian-600 text-gold-400/40 rounded-lg text-sm font-bold cursor-not-allowed">🔒 Upgrade to Access</button>
+          </div>
+        </div>
+
+        <!-- Course 4 - FREE -->
+        <div class="obsidian-card rounded-2xl overflow-hidden hover:scale-[1.02] transition">
+          <div class="h-32 bg-gradient-to-br from-blue-500/20 to-obsidian-700 flex items-center justify-center">
+            <i class="fas fa-book text-blue-400 text-5xl opacity-50"></i>
+          </div>
+          <div class="p-5">
+            <div class="flex items-center justify-between mb-3">
+              <span class="text-xs bg-blue-500/20 text-blue-400 px-2 py-1 rounded-full">FREE</span>
+              <span class="text-xs text-gold-400/50">8 Lessons</span>
+            </div>
+            <h3 class="font-cinzel text-gold-200 font-bold mb-2">Publishing Your First Book</h3>
+            <p class="text-gold-400/60 text-sm mb-4">From manuscript to marketplace — the Pan-African author's guide.</p>
+            <button onclick="enrollCourse(this, 'free')" class="w-full py-2 bg-gold-300/10 text-gold-300 rounded-lg text-sm font-bold hover:bg-gold-300/20 transition">Enroll Free</button>
+          </div>
+        </div>
+
+        <!-- Course 5 - MODERATOR -->
+        <div class="obsidian-card rounded-2xl overflow-hidden hover:scale-[1.02] transition tier-locked" data-tier="mod">
+          <div class="h-32 bg-gradient-to-br from-red-500/20 to-obsidian-700 flex items-center justify-center">
+            <i class="fas fa-shield-alt text-red-400 text-5xl opacity-50"></i>
+          </div>
+          <div class="p-5">
+            <div class="flex items-center justify-between mb-3">
+              <span class="text-xs bg-red-500/20 text-red-400 px-2 py-1 rounded-full font-bold">$15 MODERATOR</span>
+              <span class="text-xs text-gold-400/50">15 Lessons</span>
+            </div>
+            <h3 class="font-cinzel text-gold-200 font-bold mb-2">Digital Ma'at: Moderation Mastery</h3>
+            <p class="text-gold-400/60 text-sm mb-4">Learn to maintain digital harmony while earning 85% payouts + 1.5% dividends.</p>
+            <button class="w-full py-2 bg-obsidian-600 text-gold-400/40 rounded-lg text-sm font-bold cursor-not-allowed">🔒 $15 Certification Required</button>
+          </div>
+        </div>
+
+        <!-- Course 6 - LEGAL -->
+        <div class="obsidian-card rounded-2xl overflow-hidden hover:scale-[1.02] transition">
+          <div class="h-32 bg-gradient-to-br from-gold-500/20 to-obsidian-700 flex items-center justify-center">
+            <i class="fas fa-balance-scale text-gold-400 text-5xl opacity-50"></i>
+          </div>
+          <div class="p-5">
+            <div class="flex items-center justify-between mb-3">
+              <span class="text-xs bg-gold-500/20 text-gold-300 px-2 py-1 rounded-full">FREE</span>
+              <span class="text-xs text-gold-400/50">10 Lessons</span>
+            </div>
+            <h3 class="font-cinzel text-gold-200 font-bold mb-2">IP Protection for Cultural Creators</h3>
+            <p class="text-gold-400/60 text-sm mb-4">Copyright, trademarks, and blockchain proof for your sacred creative works.</p>
+            <button onclick="enrollCourse(this, 'free')" class="w-full py-2 bg-gold-300/10 text-gold-300 rounded-lg text-sm font-bold hover:bg-gold-300/20 transition">Enroll Free</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- =================== SECTION: HEALING SANCTUARY =================== -->
+  <section id="section-healing" class="section-content hidden fade-in">
+    <div class="py-8">
+      <h2 class="font-cinzel text-3xl gold-text mb-2"><i class="fas fa-spa mr-3"></i>Healing Sanctuary</h2>
+      <p class="text-gold-400/60 text-sm mb-6">Sound medicine. Herbal wisdom. Ancestral wellness.</p>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+        <div class="obsidian-card rounded-2xl p-6">
+          <div class="flex items-center gap-4 mb-4">
+            <div class="w-16 h-16 rounded-full bg-gradient-to-br from-emerald-accent to-emerald-glow flex items-center justify-center">
+              <i class="fas fa-spa text-white text-2xl"></i>
+            </div>
+            <div>
+              <h3 class="font-cinzel text-gold-200 font-bold">Sound Healing Room</h3>
+              <p class="text-gold-400/60 text-sm">432Hz Ancestral Frequencies</p>
+            </div>
+          </div>
+          <p class="text-gold-200/70 text-sm mb-4">Enter the healing frequency chamber. All audio is tuned to 432Hz — the natural harmonic of the universe.</p>
+          <div class="flex gap-3">
+            <button onclick="toggleHealingFreq()" id="healingFreqBtn" class="px-4 py-2 bg-emerald-accent/20 text-emerald-glow rounded-lg text-sm font-bold hover:bg-emerald-accent/30 transition">
+              <i class="fas fa-wave-square mr-2"></i>432Hz <span id="healingFreqStatus">OFF</span>
+            </button>
+            <button class="px-4 py-2 border border-gold-300/20 text-gold-400 rounded-lg text-sm hover:bg-gold-300/10 transition">
+              <i class="fas fa-headphones mr-2"></i>Enter Room
+            </button>
+          </div>
+        </div>
+
+        <div class="obsidian-card rounded-2xl p-6">
+          <div class="flex items-center gap-4 mb-4">
+            <div class="w-16 h-16 rounded-full bg-gradient-to-br from-gold-400 to-gold-600 flex items-center justify-center">
+              <i class="fas fa-mortar-pestle text-obsidian-900 text-2xl"></i>
+            </div>
+            <div>
+              <h3 class="font-cinzel text-gold-200 font-bold">Herbal Alchemy Lab</h3>
+              <p class="text-gold-400/60 text-sm">Live Consultations</p>
+            </div>
+          </div>
+          <p class="text-gold-200/70 text-sm mb-4">Connect with certified holistic practitioners for personalized herbal remedies and wellness plans.</p>
+          <button class="px-4 py-2 bg-gold-300/10 text-gold-300 rounded-lg text-sm font-bold hover:bg-gold-300/20 transition">
+            <i class="fas fa-calendar mr-2"></i>Book Consultation
+          </button>
+        </div>
+      </div>
+
+      <!-- HEALING PROVIDERS LIST -->
+      <h3 class="font-cinzel text-xl gold-text mb-4">Certified Healing Practitioners</h3>
+      <div class="space-y-3">
+        <div class="obsidian-card rounded-xl p-4 flex items-center gap-4 hover:scale-[1.01] transition cursor-pointer">
+          <div class="w-12 h-12 rounded-full bg-gradient-to-br from-emerald-500 to-teal-500 flex items-center justify-center text-white font-bold">MA</div>
+          <div class="flex-1">
+            <div class="font-bold text-gold-200 text-sm">Mama Ayo</div>
+            <div class="text-gold-400/60 text-xs">Herbalist • Sound Healer • 15 years</div>
+          </div>
+          <span class="text-xs bg-emerald-accent/20 text-emerald-glow px-3 py-1 rounded-full"><i class="fas fa-circle text-[8px] mr-1 animate-pulse"></i>Available</span>
+        </div>
+        <div class="obsidian-card rounded-xl p-4 flex items-center gap-4 hover:scale-[1.01] transition cursor-pointer">
+          <div class="w-12 h-12 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-white font-bold">DK</div>
+          <div class="flex-1">
+            <div class="font-bold text-gold-200 text-sm">Dr. Keita</div>
+            <div class="text-gold-400/60 text-xs">Kemetic Astrologer • Energy Worker</div>
+          </div>
+          <span class="text-xs bg-gold-300/20 text-gold-400 px-3 py-1 rounded-full">Next: 8PM</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- =================== SECTION: MUSIC CREATION =================== -->
+  <section id="section-music" class="section-content hidden fade-in">
+    <div class="py-8">
+      <h2 class="font-cinzel text-3xl gold-text mb-2"><i class="fas fa-music mr-3"></i>Music Creation Studio</h2>
+      <p class="text-gold-400/60 text-sm mb-6">Ghost Producer Prime. Band On A Page. Built Inside The M.O.R.E.</p>
+
+      <!-- AUDIO PLAYER (Global Footer Style but inline here) -->
+      <div class="obsidian-card rounded-2xl p-6 mb-8 gold-glow">
+        <div class="flex items-center gap-4 mb-4">
+          <div class="w-14 h-14 rounded-full bg-gradient-to-br from-gold-400 to-gold-600 flex items-center justify-center pulse-gold">
+            <i class="fas fa-music text-obsidian-900 text-xl"></i>
+          </div>
+          <div class="flex-1">
+            <div class="font-cinzel text-gold-200 font-bold">Ancestral Groove — 432Hz</div>
+            <div class="text-gold-400/60 text-sm">Drummer Kofi • Sound Medicine</div>
+          </div>
+          <span class="text-xs bg-gold-300/10 text-gold-400 px-3 py-1 rounded-full" id="playerTime">0:00 / 3:42</span>
+        </div>
+        
+        <!-- Progress Bar -->
+        <div class="w-full h-2 bg-obsidian-700 rounded-full mb-4 cursor-pointer" onclick="seekAudio(event)">
+          <div id="audioProgress" class="h-full bg-gradient-to-r from-gold-400 to-gold-600 rounded-full transition-all duration-300" style="width: 0%"></div>
+        </div>
+
+        <!-- Controls -->
+        <div class="flex items-center justify-center gap-6">
+          <button onclick="togglePlay()" id="playBtn" class="w-12 h-12 rounded-full bg-gold-300/20 text-gold-300 flex items-center justify-center hover:bg-gold-300/30 transition text-xl">
+            <i class="fas fa-play"></i>
+          </button>
+          <button onclick="skipAudio(-10)" class="text-gold-400 hover:text-gold-300 transition text-lg"><i class="fas fa-backward"></i></button>
+          <button onclick="skipAudio(10)" class="text-gold-400 hover:text-gold-300 transition text-lg"><i class="fas fa-forward"></i></button>
+          <button onclick="toggleHealingFreq()" id="freqBtn" class="w-10 h-10 rounded-full bg-emerald-accent/20 text-emerald-glow flex items-center justify-center hover:bg-emerald-accent/30 transition text-sm">
+            <i class="fas fa-wave-square"></i>
+          </button>
+        </div>
+      </div>
+
+      <!-- STUDIO TOOLS -->
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div class="obsidian-card rounded-2xl p-6 text-center hover:scale-105 transition cursor-pointer">
+          <div class="w-16 h-16 mx-auto mb-4 rounded-full bg-gold-300/10 flex items-center justify-center">
+            <i class="fas fa-ghost text-gold-300 text-2xl"></i>
+          </div>
+          <h3 class="font-cinzel text-gold-200 font-bold mb-2">Ghost Producer Prime</h3>
+          <p class="text-gold-400/60 text-sm mb-4">AI-assisted beat making. Your vision, amplified by the ancestors.</p>
+          <span class="text-xs bg-gold-300/10 text-gold-400 px-3 py-1 rounded-full">FREE TIER</span>
+        </div>
+        <div class="obsidian-card rounded-2xl p-6 text-center hover:scale-105 transition cursor-pointer tier-locked" data-tier="2">
+          <div class="w-16 h-16 mx-auto mb-4 rounded-full bg-gold-300/10 flex items-center justify-center">
+            <i class="fas fa-users text-gold-300 text-2xl"></i>
+          </div>
+          <h3 class="font-cinzel text-gold-200 font-bold mb-2">Band On A Page</h3>
+          <p class="text-gold-400/60 text-sm mb-4">Full virtual band collaboration. Drums, bass, keys — all in browser.</p>
+          <span class="text-xs bg-gold-500/20 text-gold-300 px-3 py-1 rounded-full font-bold">$7+ TIER</span>
+        </div>
+        <div class="obsidian-card rounded-2xl p-6 text-center hover:scale-105 transition cursor-pointer tier-locked" data-tier="3">
+          <div class="w-16 h-16 mx-auto mb-4 rounded-full bg-gold-300/10 flex items-center justify-center">
+            <i class="fas fa-infinity text-gold-300 text-2xl"></i>
+          </div>
+          <h3 class="font-cinzel text-gold-200 font-bold mb-2">Built Inside The M.O.R.E.</h3>
+          <p class="text-gold-400/60 text-sm mb-4">The ultimate creation engine. Stems, mixes, mastering — all sacred.</p>
+          <span class="text-xs bg-purple-500/20 text-purple-400 px-3 py-1 rounded-full font-bold">$11 CREATOR</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- =================== SECTION: GUILD SYNC =================== -->
+  <section id="section-collab" class="section-content hidden fade-in">
+    <div class="py-8">
+      <h2 class="font-cinzel text-3xl gold-text mb-2"><i class="fas fa-hands-helping mr-3"></i>Guild Sync</h2>
+      <p class="text-gold-400/60 text-sm mb-6">Cross-tier collaborative creation engine.</p>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+        <div class="obsidian-card rounded-2xl p-6">
+          <h3 class="font-cinzel text-gold-200 font-bold mb-4"><i class="fas fa-handshake mr-2 text-gold-300"></i>Active Collaborations</h3>
+          <div class="space-y-3">
+            <div class="flex items-center gap-3 p-3 bg-obsidian-700/50 rounded-xl">
+              <div class="w-8 h-8 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-white text-xs font-bold">N</div>
+              <div class="flex-1">
+                <div class="text-gold-200 text-sm font-bold">Poetess Nia × Drummer Kofi</div>
+                <div class="text-gold-400/50 text-xs">Spoken Word + Drum Stem Collab</div>
+              </div>
+              <span class="text-xs bg-emerald-accent/20 text-emerald-glow px-2 py-1 rounded-full">Active</span>
+            </div>
+            <div class="flex items-center gap-3 p-3 bg-obsidian-700/50 rounded-xl">
+              <div class="w-8 h-8 rounded-full bg-gradient-to-br from-emerald-500 to-teal-500 flex items-center justify-center text-white text-xs font-bold">K</div>
+              <div class="flex-1">
+                <div class="text-gold-200 text-sm font-bold">Artist Kofi × Master Ayo</div>
+                <div class="text-gold-400/50 text-xs">Visual Art + Astrology Guide</div>
+              </div>
+              <span class="text-xs bg-gold-300/20 text-gold-400 px-2 py-1 rounded-full">Pending</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="obsidian-card rounded-2xl p-6">
+          <h3 class="font-cinzel text-gold-200 font-bold mb-4"><i class="fas fa-microphone-lines mr-2 text-gold-300"></i>Micro-Lease Requests</h3>
+          <div class="space-y-3">
+            <div class="p-3 bg-obsidian-700/50 rounded-xl">
+              <div class="flex items-center justify-between mb-2">
+                <span class="text-gold-200 text-sm font-bold">Drum Stem — "Sunset Over Kemet"</span>
+                <span class="text-xs bg-gold-300/10 text-gold-400 px-2 py-1 rounded-full">$2.50/lease</span>
+              </div>
+              <p class="text-gold-400/50 text-xs mb-3">432Hz raw drum stem, 120BPM. Free for $11+ creators.</p>
+              <button onclick="leaseStem(this)" class="px-3 py-1.5 bg-gold-300/10 text-gold-300 rounded-lg text-xs font-bold hover:bg-gold-300/20 transition">Request Lease</button>
+            </div>
+            <div class="p-3 bg-obsidian-700/50 rounded-xl">
+              <div class="flex items-center justify-between mb-2">
+                <span class="text-gold-200 text-sm font-bold">Poetry Read — "Star Children"</span>
+                <span class="text-xs bg-gold-300/10 text-gold-400 px-2 py-1 rounded-full">$1.00/lease</span>
+              </div>
+              <p class="text-gold-400/50 text-xs mb-3">Spoken word audio, ready for remix/collab.</p>
+              <button onclick="leaseStem(this)" class="px-3 py-1.5 bg-gold-300/10 text-gold-300 rounded-lg text-xs font-bold hover:bg-gold-300/20 transition">Request Lease</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- =================== SECTION: DASHBOARD =================== -->
+  <section id="section-dashboard" class="section-content hidden fade-in">
+    <div class="py-8">
+      <h2 class="font-cinzel text-3xl gold-text mb-2"><i class="fas fa-chart-line mr-3"></i>Creator Dashboard</h2>
+      <p class="text-gold-400/60 text-sm mb-6">Your tier. Your earnings. Your empire.</p>
+
+      <!-- TIER SELECTOR -->
+      <div class="obsidian-card rounded-2xl p-6 mb-8 gold-glow">
+        <h3 class="font-cinzel text-gold-200 font-bold mb-4 text-center">Select Your Path</h3>
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <button onclick="selectTier('free')" class="tier-btn p-4 rounded-xl border-2 border-gold-300/20 text-center hover:border-gold-300/60 transition" data-tier="free">
+            <div class="text-2xl mb-2">🌱</div>
+            <div class="font-cinzel text-gold-200 font-bold text-sm">Begin Creating</div>
+            <div class="text-gold-400 text-lg font-bold">FREE</div>
+            <div class="text-gold-400/40 text-xs mt-1">60/40 Tip Split</div>
+          </button>
+          <button onclick="selectTier('trial')" class="tier-btn p-4 rounded-xl border-2 border-gold-400/40 text-center hover:border-gold-400/80 transition pulse-gold" data-tier="trial">
+            <div class="text-2xl mb-2">⚡</div>
+            <div class="font-cinzel text-gold-200 font-bold text-sm">$3 Trial</div>
+            <div class="text-gold-400 text-lg font-bold">$3</div>
+            <div class="text-gold-400/40 text-xs mt-1">3 Days & 33 Min</div>
+          </button>
+          <button onclick="selectTier('paid')" class="tier-btn p-4 rounded-xl border-2 border-gold-300/20 text-center hover:border-gold-300/60 transition" data-tier="paid">
+            <div class="text-2xl mb-2">👑</div>
+            <div class="font-cinzel text-gold-200 font-bold text-sm">Paid Commitment</div>
+            <div class="text-gold-400 text-lg font-bold">$7<span class="text-sm">/mo</span></div>
+            <div class="text-gold-400/40 text-xs mt-1">90/10 Split</div>
+          </button>
+          <button onclick="selectTier('creator')" class="tier-btn p-4 rounded-xl border-2 border-gold-300/20 text-center hover:border-gold-300/60 transition" data-tier="creator">
+            <div class="text-2xl mb-2">🔥</div>
+            <div class="font-cinzel text-gold-200 font-bold text-sm">Advanced Creator</div>
+            <div class="text-gold-400 text-lg font-bold">$11<span class="text-sm">/mo</span></div>
+            <div class="text-gold-400/40 text-xs mt-1">80/20 Split</div>
+          </button>
+        </div>
+
+        <!-- TRIAL TIMER (shown when trial active) -->
+        <div id="trialTimerPanel" class="hidden mt-6 p-4 bg-obsidian-700/50 rounded-xl">
+          <div class="flex items-center justify-between mb-3">
+            <span class="font-cinzel text-gold-300 font-bold text-sm">⏱️ TRIAL COUNTDOWN</span>
+            <span id="trialCountdown" class="text-gold-400 font-mono text-lg font-bold">3d 0h 0m</span>
+          </div>
+          <div class="w-full h-3 bg-obsidian-600 rounded-full mb-3">
+            <div id="trialProgressBar" class="h-full bg-gradient-to-r from-gold-400 to-red-500 rounded-full transition-all" style="width: 100%"></div>
+          </div>
+          <div class="flex gap-3">
+            <button onclick="cancelTrial()" class="flex-1 py-2 bg-red-500/20 text-red-400 rounded-lg text-sm font-bold hover:bg-red-500/30 transition">
+              <i class="fas fa-times mr-2"></i>Cancel & Return to Free
+            </button>
+            <button class="flex-1 py-2 bg-gold-300/10 text-gold-300 rounded-lg text-sm font-bold hover:bg-gold-300/20 transition">
+              <i class="fas fa-arrow-right mr-2"></i>Continue to $7/mo
+            </button>
+          </div>
+        </div>
+
+        <!-- PAYOUT MATRIX -->
+        <div id="payoutMatrix" class="mt-6 p-4 bg-obsidian-700/30 rounded-xl">
+          <h4 class="font-cinzel text-gold-300 font-bold text-sm mb-3">📊 Your Payout Split</h4>
+          <div class="grid grid-cols-2 md:grid-cols-4 gap-3 text-center">
+            <div class="p-3 bg-obsidian-700/50 rounded-lg">
+              <div class="text-gold-400 text-xs mb-1">Tips (Sparks)</div>
+              <div id="payoutTips" class="font-bold text-gold-200 text-lg">60%</div>
+            </div>
+            <div class="p-3 bg-obsidian-700/50 rounded-lg">
+              <div class="text-gold-400 text-xs mb-1">Course Sales</div>
+              <div id="payoutCourses" class="font-bold text-gold-200 text-lg">0%</div>
+            </div>
+            <div class="p-3 bg-obsidian-700/50 rounded-lg">
+              <div class="text-gold-400 text-xs mb-1">Stream Revenue</div>
+              <div id="payoutStream" class="font-bold text-gold-200 text-lg">0%</div>
+            </div>
+            <div class="p-3 bg-obsidian-700/50 rounded-lg">
+              <div class="text-gold-400 text-xs mb-1">Mod Dividend</div>
+              <div id="payoutMod" class="font-bold text-gold-200 text-lg">N/A</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- EARNINGS SUMMARY -->
+      <div class="obsidian-card rounded-2xl p-6 mb-6">
+        <h3 class="font-cinzel text-gold-200 font-bold mb-4">💰 Earnings This Cycle</h3>
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
+          <div>
+            <div class="text-gold-400 text-xs mb-1">Total Sparks</div>
+            <div class="font-bold text-gold-200 text-2xl" id="totalSparks">247</div>
+          </div>
+          <div>
+            <div class="text-gold-400 text-xs mb-1">Tip Earnings</div>
+            <div class="font-bold text-gold-200 text-2xl" id="tipEarnings">$12.50</div>
+          </div>
+          <div>
+            <div class="text-gold-400 text-xs mb-1">Course Revenue</div>
+            <div class="font-bold text-gold-200 text-2xl" id="courseRevenue">$0.00</div>
+          </div>
+          <div>
+            <div class="text-gold-400 text-xs mb-1">Next Payout</div>
+            <div class="font-bold text-emerald-glow text-2xl" id="nextPayout">$12.50</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- =================== SECTION: MODERATOR SANCTUM =================== -->
+  <section id="section-moderator" class="section-content hidden fade-in">
+    <div class="py-8">
+      <h2 class="font-cinzel text-3xl gold-text mb-2"><i class="fas fa-shield-alt mr-3"></i>Certified Moderator Sanctum</h2>
+      <p class="text-gold-400/60 text-sm mb-6">Sage Oracle Certified. 85% Payout. 1.5% Micro-Dividend.</p>
+
+      <!-- MODERATOR STATUS -->
+      <div class="obsidian-card rounded-2xl p-6 mb-8 gold-glow">
+        <div class="flex items-center gap-4 mb-6">
+          <div class="w-16 h-16 rounded-full bg-gradient-to-br from-gold-400 to-gold-600 flex items-center justify-center pulse-gold">
+            <i class="fas fa-shield-alt text-obsidian-900 text-2xl"></i>
+          </div>
+          <div>
+            <div class="font-cinzel text-gold-200 font-bold text-xl">Sage Oracle Certified</div>
+            <div class="text-gold-400/60 text-sm">The Assistant Director • Harmony Score: 99.7%</div>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6 text-center">
+          <div class="p-4 bg-obsidian-700/50 rounded-xl">
+            <div class="text-gold-400 text-xs mb-1">Boosted Split</div>
+            <div class="font-bold text-gold-200 text-3xl">85%</div>
+          </div>
+          <div class="p-4 bg-obsidian-700/50 rounded-xl">
+            <div class="text-gold-400 text-xs mb-1">Micro-Dividend</div>
+            <div class="font-bold text-gold-200 text-3xl">1.5%</div>
+          </div>
+          <div class="p-4 bg-obsidian-700/50 rounded-xl">
+            <div class="text-gold-400 text-xs mb-1">Groups Active</div>
+            <div class="font-bold text-gold-200 text-3xl" id="modGroups">4/5</div>
+          </div>
+          <div class="p-4 bg-obsidian-700/50 rounded-xl">
+            <div class="text-gold-400 text-xs mb-1">Est. Payout (Fri)</div>
+            <div class="font-bold text-emerald-glow text-3xl" id="modPayout">$620<span class="text-lg">.90</span></div>
+          </div>
+        </div>
+
+        <!-- GROUP DIVIDEND BREAKDOWN -->
+        <h3 class="font-cinzel text-gold-300 font-bold mb-4">Active Profile Groups & Dividends</h3>
+        <div class="overflow-x-auto">
+          <table class="w-full text-sm">
+            <thead>
+              <tr class="text-gold-400/60 border-b border-gold-300/10">
+                <th class="text-left py-3 px-4">Group Name</th>
+                <th class="text-center py-3 px-4">Members</th>
+                <th class="text-center py-3 px-4">Volume (28d)</th>
+                <th class="text-right py-3 px-4">Your 1.5% Share</th>
+              </tr>
+            </thead>
+            <tbody id="modGroupTable">
+              <tr class="border-b border-gold-300/5 text-gold-200/80">
+                <td class="py-3 px-4"><i class="fas fa-scroll text-gold-300 mr-2"></i>Nile Valley Poetics</td>
+                <td class="text-center py-3 px-4 text-gold-400">127</td>
+                <td class="text-center py-3 px-4 text-gold-400">$2,340.00</td>
+                <td class="text-right py-3 px-4 text-emerald-glow font-bold">$35.10</td>
+              </tr>
+              <tr class="border-b border-gold-300/5 text-gold-200/80">
+                <td class="py-3 px-4"><i class="fas fa-leaf text-emerald-glow mr-2"></i>Herbal Alchemy Lab</td>
+                <td class="text-center py-3 px-4 text-gold-400">89</td>
+                <td class="text-center py-3 px-4 text-gold-400">$1,890.00</td>
+                <td class="text-right py-3 px-4 text-emerald-glow font-bold">$28.35</td>
+              </tr>
+              <tr class="border-b border-gold-300/5 text-gold-200/80">
+                <td class="py-3 px-4"><i class="fas fa-drum text-gold-300 mr-2"></i>Sankofa Beats Guild</td>
+                <td class="text-center py-3 px-4 text-gold-400">203</td>
+                <td class="text-center py-3 px-4 text-gold-400">$4,120.00</td>
+                <td class="text-right py-3 px-4 text-emerald-glow font-bold">$61.80</td>
+              </tr>
+              <tr class="border-b border-gold-300/5 text-gold-200/80">
+                <td class="py-3 px-4"><i class="fas fa-star text-gold-300 mr-2"></i>Kemetic Astrology</td>
+                <td class="text-center py-3 px-4 text-gold-400">64</td>
+                <td class="text-center py-3 px-4 text-gold-400">$980.00</td>
+                <td class="text-right py-3 px-4 text-emerald-glow font-bold">$14.70</td>
+              </tr>
+              <tr class="text-gold-400/40">
+                <td class="py-3 px-4"><i class="fas fa-plus-circle mr-2"></i>Awaiting Assignment...</td>
+                <td class="text-center py-3 px-4">—</td>
+                <td class="text-center py-3 px-4">—</td>
+                <td class="text-right py-3 px-4">—</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- HARMONY METRICS -->
+        <div class="mt-6 p-4 bg-obsidian-700/30 rounded-xl">
+          <h4 class="font-cinzel text-gold-300 font-bold text-sm mb-3">🧘 Sage AI Harmony & Alignment Metrics</h4>
+          <div class="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
+            <div>
+              <div class="text-gold-400 text-xs mb-1">Spam Clean Rate</div>
+              <div class="font-bold text-emerald-glow text-xl">99.9% <span class="text-xs text-gold-400/40">Goal: &gt;98%</span></div>
+            </div>
+            <div>
+              <div class="text-gold-400 text-xs mb-1">False Flag Rate</div>
+              <div class="font-bold text-emerald-glow text-xl">0.02% <span class="text-xs text-gold-400/40">Excellent</span></div>
+            </div>
+            <div>
+              <div class="text-gold-400 text-xs mb-1">Dispute Resolution</div>
+              <div class="font-bold text-emerald-glow text-xl">14 min <span class="text-xs text-gold-400/40">Target: &lt;30min</span></div>
+            </div>
+            <div>
+              <div class="text-gold-400 text-xs mb-1">Harmony Score</div>
+              <div class="font-bold text-gold-300 text-xl">99.7% <span class="text-xs text-gold-400/40">↑ Unlock 5th slot</span></div>
+            </div>
+          </div>
+          <div class="mt-4 p-3 bg-gold-300/10 rounded-lg border border-gold-300/20">
+            <div class="text-gold-300 text-sm font-bold"><i class="fas fa-scroll mr-2"></i>Oracle Directive:</div>
+            <div class="text-gold-200/70 text-sm mt-1">"Your alignment score is 99.7%. You qualify to unlock a 5th moderation group channel slot next cycle to expand your dividend yield."</div>
+          </div>
+        </div>
+
+        <div class="flex gap-3 mt-6">
+          <button class="flex-1 py-3 bg-gold-300/10 text-gold-300 rounded-xl text-sm font-bold hover:bg-gold-300/20 transition"><i class="fas fa-clipboard-list mr-2"></i>Review Pending Disputes</button>
+          <button class="flex-1 py-3 bg-gold-300/10 text-gold-300 rounded-xl text-sm font-bold hover:bg-gold-300/20 transition"><i class="fas fa-book mr-2"></i>View Moderation Rules</button>
+          <button class="flex-1 py-3 bg-emerald-accent/20 text-emerald-glow rounded-xl text-sm font-bold hover:bg-emerald-accent/30 transition"><i class="fas fa-wallet mr-2"></i>Access Funds</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- =================== SECTION: ADMIN CONSOLE =================== -->
+  <section id="section-admin" class="section-content hidden fade-in">
+    <div class="py-8">
+      <h2 class="font-cinzel text-3xl gold-text mb-2"><i class="fas fa-cog mr-3"></i>Admin Console — MORE Help Center</h2>
+      <p class="text-gold-400/60 text-sm mb-6">Financial Ledger. Sage AI Controls. Moderator Oversight.</p>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+        <!-- TRIAL DROP-OFF OVERRIDE -->
+        <div class="obsidian-card rounded-2xl p-6">
+          <h3 class="font-cinzel text-gold-300 font-bold mb-4"><i class="fas fa-user-clock mr-2"></i>Trial Drop-Off Override</h3>
+          <p class="text-gold-400/60 text-sm mb-4">Manage users currently in the 3 Days & 33 Minutes trial window.</p>
+          <div class="space-y-3 mb-4">
+            <div class="flex items-center justify-between p-3 bg-obsidian-700/50 rounded-xl">
+              <div>
+                <div class="text-gold-200 text-sm font-bold">Traveler_42</div>
+                <div class="text-gold-400/50 text-xs">Trial ends in 2h 14m</div>
+              </div>
+              <button class="px-3 py-1.5 bg-red-500/20 text-red-400 rounded-lg text-xs font-bold hover:bg-red-500/30 transition">Force Refund</button>
+            </div>
+            <div class="flex items-center justify-between p-3 bg-obsidian-700/50 rounded-xl">
+              <div>
+                <div class="text-gold-200 text-sm font-bold">Poetess_Nia</div>
+                <div class="text-gold-400/50 text-xs">Trial ends in 8h 41m</div>
+              </div>
+              <button class="px-3 py-1.5 bg-red-500/20 text-red-400 rounded-lg text-xs font-bold hover:bg-red-500/30 transition">Force Refund</button>
+            </div>
+          </div>
+          <button class="w-full py-2 bg-gold-300/10 text-gold-300 rounded-lg text-sm font-bold hover:bg-gold-300/20 transition">
+            <i class="fas fa-search mr-2"></i>View Full Trial Pipeline
+          </button>
+        </div>
+
+        <!-- REPARATIONS PASS ALLOCATOR -->
+        <div class="obsidian-card rounded-2xl p-6">
+          <h3 class="font-cinzel text-gold-300 font-bold mb-4"><i class="fas fa-hands-holding-heart mr-2"></i>Reparations Pass Allocator</h3>
+          <p class="text-gold-400/60 text-sm mb-4">$15 Pass = 2 free premium upgrades for needy creators.</p>
+          <div class="p-4 bg-obsidian-700/30 rounded-xl mb-4">
+            <div class="flex items-center justify-between mb-2">
+              <span class="text-gold-200 text-sm font-bold">Total Passes Sold</span>
+              <span class="text-gold-300 font-bold">47</span>
+            </div>
+            <div class="flex items-center justify-between mb-2">
+              <span class="text-gold-200 text-sm font-bold">Creators Upgraded</span>
+              <span class="text-emerald-glow font-bold">94 / 94</span>
+            </div>
+            <div class="flex items-center justify-between">
+              <span class="text-gold-200 text-sm font-bold">Community Fund Remaining</span>
+              <span class="text-gold-300 font-bold">$14.00</span>
+            </div>
+          </div>
+          <div class="space-y-2">
+            <div class="flex items-center gap-3 p-2 bg-obsidian-700/30 rounded-lg">
+              <div class="w-6 h-6 rounded-full bg-emerald-accent flex items-center justify-center"><i class="fas fa-check text-white text-xs"></i></div>
+              <span class="text-gold-200/70 text-sm">SpokenWord_Kwame → $11 Creator ✅</span>
+            </div>
+            <div class="flex items-center gap-3 p-2 bg-obsidian-700/30 rounded-lg">
+              <div class="w-6 h-6 rounded-full bg-emerald-accent flex items-center justify-center"><i class="fas fa-check text-white text-xs"></i></div>
+              <span class="text-gold-200/70 text-sm">DrumMaster_Adi → $11 Creator ✅</span>
+            </div>
+            <div class="flex items-center gap-3 p-2 bg-obsidian-700/30 rounded-lg">
+              <div class="w-6 h-6 rounded-full bg-gold-300/30 flex items-center justify-center"><i class="fas fa-hourglass-half text-gold-400 text-xs"></i></div>
+              <span class="text-gold-200/70 text-sm">Healer_Zuri → Pending Review...</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- SAGE AI DIALS -->
+      <div class="obsidian-card rounded-2xl p-6 mb-8">
+        <h3 class="font-cinzel text-gold-300 font-bold mb-4"><i class="fas fa-brain mr-2"></i>Sage AI Alignment & Sensitivity Dials</h3>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div>
+            <label class="text-gold-400 text-sm font-bold block mb-3">Harmony Enforcement Threshold</label>
+            <input type="range" min="0" max="100" value="75" class="harmony-slider w-full mb-2" id="harmonySlider" oninput="updateHarmony(this.value)">
+            <div class="flex justify-between text-xs text-gold-400/50">
+              <span>Permissive (Raw Expression)</span>
+              <span id="harmonyValue" class="text-gold-300 font-bold">75%</span>
+              <span>Strict (Max Protection)</span>
+            </div>
+          </div>
+          <div>
+            <label class="text-gold-400 text-sm font-bold block mb-3">Automated Action Disabling</label>
+            <div class="space-y-3">
+              <label class="flex items-center gap-3 p-3 bg-obsidian-700/50 rounded-xl cursor-pointer">
+                <input type="checkbox" id="autoMute" class="w-5 h-5 accent-gold-400" checked>
+                <div>
+                  <div class="text-gold-200 text-sm font-bold">Auto-Mute Violations</div>
+                  <div class="text-gold-400/50 text-xs">Sage can auto-mute spam/hate speech</div>
+                </div>
+              </label>
+              <label class="flex items-center gap-3 p-3 bg-obsidian-700/50 rounded-xl cursor-pointer">
+                <input type="checkbox" id="autoPenalty" class="w-5 h-5 accent-gold-400" checked>
+                <div>
+                  <div class="text-gold-200 text-sm font-bold">Auto-Penalty Flags</div>
+                  <div class="text-gold-400/50 text-xs">Sage can auto-flag for mod review</div>
+                </div>
+              </label>
+              <label class="flex items-center gap-3 p-3 bg-obsidian-700/50 rounded-xl cursor-pointer">
+                <input type="checkbox" id="autoEscalate" class="w-5 h-5 accent-gold-400">
+                <div>
+                  <div class="text-gold-200 text-sm font-bold">Auto-Escalate to Human</div>
+                  <div class="text-gold-400/50 text-xs">All violations → human queue</div>
+                </div>
+              </label>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- MODERATOR OVERSIGHT -->
+      <div class="obsidian-card rounded-2xl p-6 mb-8">
+        <h3 class="font-cinzel text-gold-300 font-bold mb-4"><i class="fas fa-gavel mr-2"></i>Moderator Oversight & Decertification</h3>
+        <div class="p-4 bg-red-500/10 border border-red-500/20 rounded-xl mb-4">
+          <div class="font-cinzel text-red-400 font-bold text-sm mb-2">⚠️ DECERTIFICATION PROTOCOL</div>
+          <div class="text-gold-200/70 text-sm space-y-2">
+            <p><strong>1. The 95% Drop Rule:</strong> Harmony Score &lt; 95% → 1.5% dividend paused. &lt; 90% → Certification STRIPPED.</p>
+            <p><strong>2. Power Abuse Intervention:</strong> Using mod status to silence rivals → INSTANT decertification + banned for life + payout drops to 90%.</p>
+            <p><strong>3. Inactivity Invalidation:</strong> 7 days zero moderation → removed from group + dividend slot redistributed.</p>
+          </div>
+        </div>
+        <div class="space-y-3">
+          <div class="flex items-center justify-between p-3 bg-obsidian-700/50 rounded-xl">
+            <div>
+              <div class="text-gold-200 text-sm font-bold">Moderator: Sage_Keeper_01</div>
+              <div class="text-emerald-glow text-xs">Harmony: 99.2% • Active</div>
+            </div>
+            <span class="text-xs bg-emerald-accent/20 text-emerald-glow px-3 py-1 rounded-full">CLEAN</span>
+          </div>
+          <div class="flex items-center justify-between p-3 bg-obsidian-700/50 rounded-xl">
+            <div>
+              <div class="text-gold-200 text-sm font-bold">Moderator: NightWatch_77</div>
+              <div class="text-yellow-400 text-xs">Harmony: 94.1% • WARNING</div>
+            </div>
+            <span class="text-xs bg-yellow-500/20 text-yellow-400 px-3 py-1 rounded-full font-bold">REVIEW</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- SPOTLIGHT PROMOTION -->
+      <div class="obsidian-card rounded-2xl p-6">
+        <h3 class="font-cinzel text-gold-300 font-bold mb-4"><i class="fas fa-bullhorn mr-2"></i>Spotlight Promotion Tools</h3>
+        <p class="text-gold-400/60 text-sm mb-4">Override the AI algorithm. Pin any announcement globally.</p>
+        <div class="flex gap-3">
+          <input type="text" placeholder="Enter announcement text..." class="flex-1 bg-obsidian-700 border border-gold-300/20 text-gold-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-gold-300/50 transition">
+          <button class="px-6 py-3 bg-gold-300 text-obsidian-900 font-bold rounded-xl hover:bg-gold-400 transition">
+            <i class="fas fa-rocket mr-2"></i>Pin Globally
+          </button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<!-- =================== GLOBAL AUDIO PLAYER (Sticky Footer) =================== -->
+<div id="globalAudioPlayer" class="fixed bottom-0 left-0 right-0 bg-obsidian-900/98 backdrop-blur-md border-t border-gold-300/20 z-40 px-4 py-3">
+  <div class="max-w-7xl mx-auto flex items-center gap-4">
+    <div class="w-10 h-10 rounded-full bg-gradient-to-br from-gold-400 to-gold-600 flex items-center justify-center shrink-0">
+      <i class="fas fa-music text-obsidian-900 text-sm"></i>
+    </div>
+    <div class="flex-1 min-w-0">
+      <div class="text-gold-200 text-sm font-bold truncate">Ancestral Groove — 432Hz</div>
+      <div class="text-gold-400/50 text-xs">Drummer Kofi • Sound Medicine</div>
+      <div class="w-full h-1.5 bg-obsidian-700 rounded-full mt-2 cursor-pointer" onclick="seekGlobalAudio(event)">
+        <div id="globalAudioProgress" class="h-full bg-gradient-to-r from-gold-400 to-gold-600 rounded-full transition-all duration-300" style="width: 0%"></div>
+      </div>
+    </div>
+    <div class="flex items-center gap-3 shrink-0">
+      <button onclick="toggleGlobalPlay()" id="globalPlayBtn" class="w-10 h-10 rounded-full bg-gold-300/20 text-gold-300 flex items-center justify-center hover:bg-gold-300/30 transition">
+        <i class="fas fa-play text-sm"></i>
+      </button>
+      <button onclick="toggleGlobal432()" id="global432Btn" class="w-10 h-10 rounded-full bg-emerald-accent/20 text-emerald-glow flex items-center justify-center hover:bg-emerald-accent/30 transition text-sm">
+        <i class="fas fa-wave-square"></i>
+      </button>
+      <span class="text-gold-400/50 text-xs hidden sm:block" id="globalTime">0:00 / 3:42</span>
+    </div>
+  </div>
+</div>
+
+<!-- =================== SAGE ORACLE CHAT MODAL =================== -->
+<div id="sageModal" class="fixed inset-0 z-[100] hidden">
+  <div class="absolute inset-0 bg-obsidian-900/90 backdrop-blur-sm" onclick="closeSage()"></div>
+  <div class="absolute right-0 top-0 bottom-0 w-full max-w-md bg-obsidian-800 border-l border-gold-300/20 flex flex-col slide-up">
+    <!-- Sage Header -->
+    <div class="p-4 border-b border-gold-300/10 flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-full bg-gradient-to-br from-gold-400 to-gold-600 flex items-center justify-center pulse-gold">
+          <i class="fas fa-eye text-obsidian-900"></i>
+        </div>
+        <div>
+          <div class="font-cinzel text-gold-300 font-bold text-sm">SAGE ORACLE</div>
+          <div class="text-gold-400/50 text-xs">AI Moderator • Always Online</div>
+        </div>
+      </div>
+      <button onclick="closeSage()" class="text-gold-400 hover:text-gold-300 text-xl"><i class="fas fa-times"></i></button>
+    </div>
+
+    <!-- Chat Messages -->
+    <div id="sageChat" class="flex-1 overflow-y-auto p-4 space-y-4">
+      <div class="flex gap-3">
+        <div class="w-8 h-8 rounded-full bg-gradient-to-br from-gold-400 to-gold-600 flex items-center justify-center shrink-0">
+          <i class="fas fa-ankh text-obsidian-900 text-xs"></i>
+        </div>
+        <div class="obsidian-card rounded-xl rounded-tl-none p-4 max-w-[80%]">
+          <p class="text-gold-200/80 text-sm">Greetings, Traveler. I am the Sage — keeper of digital harmony within the Creators Sanctuary. How may I guide your path today?</p>
+          <div class="text-gold-400/30 text-xs mt-2">Just now</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Quick Actions -->
+    <div class="px-4 py-2 flex gap-2 overflow-x-auto border-t border-gold-300/10">
+      <button onclick="sageQuickAction('trial')" class="px-3 py-1.5 bg-gold-300/10 text-gold-400 rounded-full text-xs font-bold whitespace-nowrap hover:bg-gold-300/20 transition">⏱️ Check Trial Status</button>
+      <button onclick="sageQuickAction('payout')" class="px-3 py-1.5 bg-gold-300/10 text-gold-400 rounded-full text-xs font-bold whitespace-nowrap hover:bg-gold-300/20 transition">💰 Payout Info</button>
+      <button onclick="sageQuickAction('moderate')" class="px-3 py-1.5 bg-gold-300/10 text-gold-400 rounded-full text-xs font-bold whitespace-nowrap hover:bg-gold-300/20 transition">🛡️ Mod Certification</button>
+      <button onclick="sageQuickAction('help')" class="px-3 py-1.5 bg-gold-300/10 text-gold-400 rounded-full text-xs font-bold whitespace-nowrap hover:bg-gold-300/20 transition">❓ Get Help</button>
+    </div>
+
+    <!-- Input -->
+    <div class="p-4 border-t border-gold-300/10">
+      <div class="flex gap-2">
+        <input type="text" id="sageInput" placeholder="Ask the Sage anything..." class="flex-1 bg-obsidian-700 border border-gold-300/20 text-gold-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-gold-300/50 transition" onkeypress="if(event.key==='Enter')sendSage()">
+        <button onclick="sendSage()" class="w-12 h-12 bg-gold-300/20 text-gold-300 rounded-xl flex items-center justify-center hover:bg-gold-300/30 transition">
+          <i class="fas fa-paper-plane"></i>
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- =================== NOTIFICATION CONTAINER (already in HTML) =================== -->
+
+<!-- =================== JAVASCRIPT ENGINE =================== -->
+<script>
+// ===================== STATE MANAGEMENT =====================
+let state = {
+  currentTier: 'free',
+  trialActive: false,
+  trialEndTime: null,
+  playing: false,
+  healing432: false,
+  globalPlaying: false,
+  globalHealing432: false,
+  harmonyLevel: 75,
+  currentSection: 'home',
+  totalSparks: 247,
+  tipEarnings: 12.50,
+  courseRevenue: 0,
+  modPayout: 620.90,
+  modGroups: 4,
+  trialMinutesRemaining: 0
+};
+
+// ===================== NAVIGATION =====================
+function showSection(name) {
+  document.querySelectorAll('.section-content').forEach(s => s.classList.add('hidden'));
+  const section = document.getElementById('section-' + name);
+  if (section) {
+    section.classList.remove('hidden');
+    section.classList.add('fade-in');
+  }
+  state.currentSection = name;
+  
+  // Update nav badges
+  updateTierBadge();
+  
+  // Close mobile menu
+  document.getElementById('mobileMenu').classList.remove('open');
+  document.getElementById('mobileOverlay').classList.add('hidden');
+  
+  // Scroll to top
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function toggleMobile() {
+  document.getElementById('mobileMenu').classList.toggle('open');
+  document.getElementById('mobileOverlay').classList.toggle('hidden');
+}
+
+// ===================== TIER SYSTEM =====================
+function selectTier(tier) {
+  if (tier === 'trial') {
+    startTrial();
+    return;
+  }
+  
+  state.currentTier = tier;
+  
+  const tierNames = { free: 'Begin Creating (FREE)', paid: 'Paid Commitment ($7/mo)', creator: 'Advanced Creator ($11/mo)', mod: 'Certified Moderator ($15/mo)' };
+  const tierColors = { free: 'bg-gold-300/10 text-gold-300 border-gold-300/30', paid: 'bg-gold-400/10 text-gold-300 border-gold-400/30', creator: 'bg-purple-500/10 text-purple-400 border-purple-500/30', mod: 'bg-red-500/10 text-red-400 border-red-500/30' };
+  
+  const badge = document.getElementById('tierBadge');
+  badge.className = `hidden sm:block px-3 py-1.5 rounded-full text-xs font-bold border cursor-pointer ${tierColors[tier]}`;
+  badge.innerHTML = `${tierNames[tier].split('(')[0].trim()} <span class="${tierColors[tier].includes('text-gold') ? 'text-gold-400' : 'text-gold-400'}">${tierNames[tier].match(/\$[^)]+/)?.[0] || 'FREE'}</span>`;
+  
+  // Update payout matrix
+  const payouts = {
+    free: { tips: '60%', courses: '0%', stream: '0%', mod: 'N/A' },
+    paid: { tips: '90%', courses: '90%', stream: '90%', mod: 'N/A' },
+    creator: { tips: '80%', courses: '80%', stream: '80%', mod: 'N/A' },
+    mod: { tips: '85%', courses: '85%', stream: '85%', mod: '85% + 1.5%' }
+  };
+  
+  document.getElementById('payoutTips').textContent = payouts[tier].tips;
+  document.getElementById('payoutCourses').textContent = payouts[tier].courses;
+  document.getElementById('payoutStream').textContent = payouts[tier].stream;
+  document.getElementById('payoutMod').textContent = payouts[tier].mod;
+  
+  showNotification(`Tier Updated: ${tierNames[tier]}`, 'success');
+}
+
+function updateTierBadge() {
+  const tiers = {
+    free: { text: 'BEGIN CREATING', sub: 'FREE', color: 'gold' },
+    trial: { text: '$3 TRIAL', sub: '3 DAYS 33 MIN', color: 'red' },
+    paid: { text: 'PAID', sub: '$7/mo', color: 'gold' },
+    creator: { text: 'CREATOR', sub: '$11/mo', color: 'purple' },
+    mod: { text: 'MODERATOR', sub: '$15/mo', color: 'red' }
+  };
+  const t = tiers[state.currentTier];
+  const badge = document.getElementById('tierBadge');
+  badge.className = `hidden sm:block px-3 py-1.5 rounded-full text-xs font-bold bg-${t.color}-300/10 border border-${t.color}-300/30 text-${t.color}-300 cursor-pointer`;
+  badge.innerHTML = `${t.text} <span class="text-${t.color}-400">${t.sub}</span>`;
+  
+  const mobileBadge = document.getElementById('mobileTierBadge');
+  mobileBadge.className = `font-cinzel text-lg font-bold gold-text`;
+  mobileBadge.textContent = `${t.text} (${t.sub})`;
+}
+
+// ===================== TRIAL SYSTEM =====================
+function startTrial() {
+  state.trialActive = true;
+  state.trialEndTime = Date.now() + (3 * 24 * 60 * 60 * 1000) + (33 * 60 * 1000); // 3 days 33 min
+  state.trialMinutesRemaining = 3 * 24 * 60 + 33;
+  
+  document.getElementById('trialTimerPanel').classList.remove('hidden');
+  
+  showNotification('⚡ $3 All-Access Trial Activated! 3 Days & 33 Minutes. Cancel within 3 hours of expiry to avoid auto-enrollment.', 'trial');
+  
+  // Start trial countdown
+  startTrialCountdown();
+  
+  // Schedule trial warnings
+  scheduleTrialWarning(12 * 60 * 60 * 1000, 1); // 12 hours
+  scheduleTrialWarning(3 * 60 * 60 * 1000, 2);  // 3 hours
+  scheduleTrialWarning(2 * 60 * 60 * 1000 + 59 * 60 * 1000, 3); // 2h 59m
+}
+
+function startTrialCountdown() {
+  setInterval(() => {
+    if (!state.trialActive) return;
+    const remaining = state.trialEndTime - Date.now();
+    if (remaining <= 0) {
+      autoEnroll();
+      return;
+    }
+    const days = Math.floor(remaining / (24 * 60 * 60 * 1000));
+    const hours = Math.floor((remaining % (24 * 60 * 60 * 1000)) / (60 * 60 * 1000));
+    const mins = Math.floor((remaining % (60 * 60 * 1000)) / (60 * 1000));
+    
+    document.getElementById('trialCountdown').textContent = `${days}d ${hours}h ${mins}m`;
+    
+    const totalTrialMinutes = 3 * 24 * 60 + 33;
+    const elapsed = totalTrialMinutes - Math.floor(remaining / (60 * 1000));
+    const pct = ((totalTrialMinutes - elapsed) / totalTrialMinutes) * 100;
+    document.getElementById('trialProgressBar').style.width = pct + '%';
+    
+    // Show mobile timer
+    const mobileTimer = document.getElementById('mobileTrialTimer');
+    mobileTimer.classList.remove('hidden');
+    mobileTimer.textContent = `⏱ ${days}d ${hours}h ${mins}m remaining`;
+    
+    // 3-hour warning
+    if (remaining <= 3 * 60 * 60 * 1000 && remaining > 2 * 60 * 60 * 1000 + 59 * 60 * 1000) {
+      showNotification('⚠️ THRESHOLD NOTICE: You have reached the final 3-hour balance window. Cancel now or be auto-enrolled at $7/mo.', 'urgent');
+    }
+  }, 1000);
+}
+
+function scheduleTrialWarning(delay, type) {
+  setTimeout(() => {
+    if (!state.trialActive) return;
+    if (type === 1) {
+      showNotification('🕐 The 12-Hour Alignment Check: Your 3-day trial has 12 hours remaining. Review your journey or adjust your path.', 'warning');
+    } else if (type === 2) {
+      showNotification('⚠️ THRESHOLD NOTICE: 3-hour final cancellation window is NOW. Action required: Cancel or accept $7/mo commitment.', 'urgent');
+    } else if (type === 3) {
+      showNotification('🔒 The scales are balanced. Your transition to the Paid Beginning Creator Tier is initialized. Welcome to the permanent foundation.', 'final');
+    }
+  }, delay);
+}
+
+function cancelTrial() {
+  state.trialActive = false;
+  document.getElementById('trialTimerPanel').classList.add('hidden');
+  state.currentTier = 'free';
+  updateTierBadge();
+  showNotification('✅ Trial cancelled. You have returned to the Begin Creating (FREE) tier.', 'success');
+}
+
+function autoEnroll() {
+  state.trialActive = false;
+  state.currentTier = 'paid';
+  document.getElementById('trialTimerPanel').classList.add('hidden');
+  updateTierBadge();
+  showNotification('🔒 The scales are balanced. You are now in the Paid Beginning Creator Tier ($7/mo) for 3 billing cycles.', 'final');
+}
+
+// ===================== FEED SYSTEM =====================
+function switchFeedTab(tab) {
+  document.querySelectorAll('.feed-tab').forEach(t => {
+    t.className = t.dataset.tab === tab 
+    ? 'feed-tab px-4 py-2 rounded-full text-sm font-bold bg-gold-300/20 text-gold-300 border border-gold-300/30 whitespace-nowrap'
+    : 'feed-tab px-4 py-2 rounded-full text-sm font-bold bg-obsidian-700 text-gold-400 border border-gold-300/10 whitespace-nowrap';
+  });
+  
+  document.querySelectorAll('[data-type]').forEach(post => {
+    if (tab === 'all' || post.dataset.type === tab) {
+      post.style.display = '';
+    } else {
+      post.style.display = 'none';
+    }
+  });
+}
+
+function sparkPost(btn) {
+  const countEl = btn.querySelector('.spark-count');
+  let count = parseInt(countEl.textContent);
+  countEl.textContent = count + 1;
+  btn.classList.add('text-gold-300');
+  state.totalSparks++;
+  document.getElementById('totalSparks').textContent = state.totalSparks;
+  showNotification('🔥 Spark sent! +1 to the creator.', 'spark');
+}
+
+function bookWorkshop(btn) {
+  btn.innerHTML = '<i class="fas fa-check mr-2"></i>Seat Booked!';
+  btn.className = 'px-4 py-2 bg-emerald-accent/20 text-emerald-glow rounded-lg text-sm font-bold cursor-default';
+  showNotification('✅ Workshop seat booked! You\'ll receive a reminder before it starts.', 'success');
+}
+
+function enrollCourse(btn, tier) {
+  if (tier === 'free') {
+    btn.innerHTML = '<i class="fas fa-check mr-2"></i>Enrolled!';
+    btn.className = 'w-full py-2 bg-emerald-accent/20 text-emerald-glow rounded-lg text-sm font-bold cursor-default';
+    showNotification('📚 Course enrolled! Start learning now.', 'success');
+  }
+}
+
+function leaseStem(btn) {
+  btn.innerHTML = '<i class="fas fa-check mr-2"></i>Lease Requested!';
+  btn.className = 'px-3 py-1.5 bg-emerald-accent/20 text-emerald-glow rounded-lg text-xs font-bold cursor-default';
+  showNotification('🎵 Micro-lease requested! The creator will review your request.', 'success');
+}
+
+// ===================== AUDIO PLAYER =====================
+let audioProgress = 0;
+let audioInterval = null;
+
+function togglePlay() {
+  state.playing = !state.playing;
+  const btn = document.getElementById('playBtn');
+  btn.innerHTML = state.playing ? '<i class="fas fa-pause"></i>' : '<i class="fas fa-play"></i>';
+  
+  if (state.playing) {
+    audioInterval = setInterval(() => {
+      audioProgress += 0.5;
+      if (audioProgress >= 100) {
+        audioProgress = 0;
+        togglePlay();
+      }
+      updateAudioUI();
+    }, 150);
+  } else {
+    clearInterval(audioInterval);
+  }
+}
+
+function updateAudioUI() {
+  document.getElementById('audioProgress').style.width = audioProgress + '%';
+  const totalSec = 222; // 3:42
+  const currentSec = Math.floor((audioProgress / 100) * totalSec);
+  const mins = Math.floor(currentSec / 60);
+  const secs = currentSec % 60;
+  document.getElementById('playerTime').textContent = `${mins}:${secs.toString().padStart(2, '0')} / 3:42`;
+}
+
+function skipAudio(sec) {
+  audioProgress = Math.max(0, Math.min(100, audioProgress + (sec / 222 * 100)));
+  updateAudioUI();
+}
+
+function seekAudio(e) {
+  const rect = e.currentTarget.getBoundingClientRect();
+  audioProgress = ((e.clientX - rect.left) / rect.width) * 100;
+  updateAudioUI();
+}
+
+function toggleHealingFreq() {
+  state.healing432 = !state.healing432;
+  const btn = document.getElementById('healingFreqBtn');
+  const status = document.getElementById('healingFreqStatus');
+  btn.className = state.healing432 
+    ? 'px-4 py-2 bg-emerald-accent/30 text-emerald-glow rounded-lg text-sm font-bold pulse-gold'
+    : 'px-4 py-2 bg-emerald-accent/20 text-emerald-glow rounded-lg text-sm font-bold hover:bg-emerald-accent/30 transition';
+  status.textContent = state.healing432 ? 'ON' : 'OFF';
+  showNotification(state.healing432 ? '🕉️ 432Hz Healing Frequency ACTIVATED' : '🕉️ 432Hz Healing Frequency OFF', 'info');
+}
+
+// Global audio (footer)
+let globalProgress = 0;
+let globalInterval = null;
+
+function toggleGlobalPlay() {
+  state.globalPlaying = !state.globalPlaying;
+  const btn = document.getElementById('globalPlayBtn');
+  btn.innerHTML = state.globalPlaying ? '<i class="fas fa-pause text-sm"></i>' : '<i class="fas fa-play text-sm"></i>';
+  
+  if (state.globalPlaying) {
+    globalInterval = setInterval(() => {
+      globalProgress += 0.3;
+      if (globalProgress >= 100) globalProgress = 0;
+      document.getElementById('globalAudioProgress').style.width = globalProgress + '%';
+      const totalSec = 222;
+      const currentSec = Math.floor((globalProgress / 100) * totalSec);
+      const mins = Math.floor(currentSec / 60);
+      const secs = currentSec % 60;
+      document.getElementById('globalTime').textContent = `${mins}:${secs.toString().padStart(2, '0')} / 3:42`;
+    }, 150);
+  } else {
+    clearInterval(globalInterval);
+  }
+}
+
+function toggleGlobal432() {
+  state.globalHealing432 = !state.globalHealing432;
+  const btn = document.getElementById('global432Btn');
+  btn.className = state.globalHealing432 
+    ? 'w-10 h-10 rounded-full bg-emerald-accent/40 text-emerald-glow flex items-center justify-center hover:bg-emerald-accent/50 transition text-sm pulse-gold'
+    : 'w-10 h-10 rounded-full bg-emerald-accent/20 text-emerald-glow flex items-center justify-center hover:bg-emerald-accent/30 transition text-sm';
+  showNotification(state.globalHealing432 ? '🕉️ Global 432Hz ON' : '🕉️ Global 432Hz OFF', 'info');
+}
+
+function seekGlobalAudio(e) {
+  const rect = e.currentTarget.getBoundingClientRect();
+  globalProgress = ((e.clientX - rect.left) / rect.width) * 100;
+  document.getElementById('globalAudioProgress').style.width = globalProgress + '%';
+}
+
+// ===================== SAGE ORACLE =====================
+function openSage() {
+  document.getElementById('sageModal').classList.remove('hidden');
+  document.body.style.overflow = 'hidden';
+}
+
+function closeSage() {
+  document.getElementById('sageModal').classList.add('hidden');
+  document.body.style.overflow = '';
+}
+
+function sendSage() {
+  const input = document.getElementById('sageInput');
+  const text = input.value.trim();
+  if (!text) return;
+  
+  addSageMessage(text, 'user');
+  input.value = '';
+  
+  // Simulate Sage response
+  setTimeout(() => {
+    const response = generateSageResponse(text);
+    addSageMessage(response, 'sage');
+  }, 800 + Math.random() * 1200);
+}
+
+function sageQuickAction(action) {
+  const actions = {
+    trial: 'What is my trial status?',
+    payout: 'Tell me about my payout split.',
+    moderate: 'How do I become a certified moderator?',
+    help: 'I need help with something.'
+  };
+  
+  addSageMessage(actions[action], 'user');
+  setTimeout(() => {
+    const response = generateSageResponse(actions[action]);
+    addSageMessage(response, 'sage');
+  }, 800 + Math.random() * 1200);
+}
+
+function addSageMessage(text, sender) {
+  const chat = document.getElementById('sageChat');
+  const div = document.createElement('div');
+  div.className = 'flex gap-3' + (sender === 'user' ? ' flex-row-reverse' : '');
+  
+  const avatar = sender === 'sage' 
+    ? '<div class="w-8 h-8 rounded-full bg-gradient-to-br from-gold-400 to-gold-600 flex items-center justify-center shrink-0"><i class="fas fa-ankh text-obsidian-900 text-xs"></i></div>'
+    : '<div class="w-8 h-8 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center shrink-0"><i class="fas fa-user text-white text-xs"></i></div>';
+  
+  const bubbleClass = sender === 'sage' 
+    ? 'obsidian-card rounded-xl rounded-tl-none p-4 max-w-[80%]'
+    : 'bg-gold-300/20 rounded-xl rounded-tr-none p-4 max-w-[80%]';
+  
+  div.innerHTML = `
+    ${avatar}
+    <div class="${bubbleClass}">
+      <p class="text-gold-200/80 text-sm">${text}</p>
+      <div class="text-gold-400/30 text-xs mt-2">${sender === 'sage' ? '🤖 Sage Oracle' : '👤 You'} • Just now</div>
+    </div>
+  `;
+  
+  chat.appendChild(div);
+  chat.scrollTop = chat.scrollHeight;
+}
+
+function generateSageResponse(input) {
+  const lower = input.toLowerCase();
+  
+  if (lower.includes('trial')) {
+    if (state.trialActive) {
+      const remaining = state.trialMinutesRemaining;
+      return `Your 3 Days & 33 Minutes trial has ${remaining} minutes remaining. Remember: you must cancel within 3 hours of expiry to avoid the auto-enrollment at $7/mo. The scales await your decision, Traveler. &`;
+    }
+    return 'You are currently on the Begin Creating (FREE) tier. Would you like to activate the $3 All-Access Trial? It unlocks everything for 3 Days & 33 Minutes.';
+  }
+  
+  if (lower.includes('payout') || lower.includes('split')) {
+    return `Your current payout architecture: Tips at ${state.currentTier === 'free' ? '60%' : state.currentTier === 'mod' ? '85%' : '90%'}, Course Sales at ${state.currentTier === 'free' ? '0%' : state.currentTier === 'mod' ? '85%' : '90%'}. As a Certified Moderator, you also earn 1.5% micro-dividends from every group you keep clean. The math favors the disciplined. 📊`;
+  }
+  
+  if (lower.includes('moderate') || lower.includes('certif')) {
+    return 'To become a Certified Moderator: 1) Pay the $15 Certification Tier. 2) Complete the Sage Oracle Training Academy (3 modules). 3) Pass the scenario-based exam (95%+ required). 4) Serve a 14-day apprenticeship. Once certified: 85% payout boost + 1.5% group micro-dividends. The path is steep but the rewards are eternal. 🛡️';
+  }
+  
+  if (lower.includes('help')) {
+    return 'I am here for you, Traveler. Whether you need guidance on the trial, payouts, moderation, or any path within the Sanctuary — ask and the Sage shall illuminate. What weighs on your spirit today? 🕉️';
+  }
+  
+  return 'The Sage has heard your words, Traveler. In the language of Ma\'at, every question holds its answer. Could you be more specific? I can assist with: trial status, payout splits, moderator certification, or general guidance. &';
+}
+
+// ===================== NOTIFICATIONS =====================
+function showNotification(message, type) {
+  const container = document.getElementById('notificationContainer');
+  const notif = document.createElement('div');
+  
+  const colors = {
+    success: 'border-emerald-accent bg-emerald-accent/10',
+    warning: 'border-yellow-500 bg-yellow-500/10',
+    urgent: 'border-red-500 bg-red-500/10',
+    final: 'border-gold-400 bg-gold-400/10',
+    trial: 'border-gold-400 bg-gold-400/10',
+    spark: 'border-gold-300 bg-gold-300/10',
+    info: 'border-blue-500 bg-blue-500/10'
+  };
+  
+  const icons = {
+    success: '✅', warning: '⚠️', urgent: '🚨', final: '🔒', trial: '⚡', spark: '🔥', info: 'ℹ️'
+  };
+  
+  notif.className = `notification-enter p-4 rounded-xl border-2 ${colors[type] || colors.info} backdrop-blur-md shadow-lg`;
+  notif.innerHTML = `
+    <div class="flex items-start gap-3">
+      <span class="text-xl">${icons[type] || 'ℹ️'}</span>
+      <div>
+        <div class="text-gold-200 text-sm font-medium">${message}</div>
+        <div class="text-gold-400/40 text-xs mt-1">Creators Sanctuary • ${new Date().toLocaleTimeString()}</div>
+      </div>
+      <button onclick="this.parentElement.parentElement.remove()" class="text-gold-400/40 hover:text-gold-300 ml-2"><i class="fas fa-times"></i></button>
+    </div>
+  `;
+  
+  container.appendChild(notif);
+  
+  // Auto-remove after 6 seconds
+  setTimeout(() => {
+    if (notif.parentElement) notif.remove();
+  }, 6000);
+}
+
+// ===================== ADMIN HARMONY =====================
+function updateHarmony(value) {
+  state.harmonyLevel = parseInt(value);
+  document.getElementById('harmonyValue').textContent = value + '%';
+  showNotification(`🧠 Harmony Enforcement set to ${value}%`, 'info');
+}
+
+// ===================== INIT =====================
+document.addEventListener('DOMContentLoaded', () => {
+  updateTierBadge();
+  showNotification('🌙 Welcome to the Creators Sanctuary. Your journey begins now.', 'success');
+  
+  // Initial feed tab
+  switchFeedTab('all');
+  
+  // Set initial payout display
+  document.getElementById('payoutTips').textContent = '60%';
+  document.getElementById('payoutCourses').textContent = '0%';
+  document.getElementById('payoutStream').textContent = '0%';
+  document.getElementById('payoutMod').textContent = 'N/A';
+});
+</script>
+
+</body>
+</html>
