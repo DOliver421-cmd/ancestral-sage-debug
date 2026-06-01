@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback, useRef } from "react";
 import { Link } from "react-router-dom";
 import AppShell from "../components/AppShell";
-import { api } from "../lib/api";
+import { api, BACKEND_URL } from "../lib/api";
 import EmergencyPanel from "../components/EmergencyPanel";
 import {
   Crown, Database, Users, Shield,
@@ -697,8 +697,8 @@ export default function ExecSystem() {
         api.get("/admin/stats"),
         api.get("/admin/recent-activity?limit=12"),
         api.get("/admin/cohorts"),
-        fetch(`${window.location.origin}/api/more/posts?limit=1`).then(r => r.json()),
-        fetch(`${window.location.origin}/api/more/needs?limit=1`).then(r => r.json()),
+        fetch(`${BACKEND_URL}/api/more/posts?limit=1`).then(r => r.json()),
+        fetch(`${BACKEND_URL}/api/more/needs?limit=1`).then(r => r.json()),
       ]);
       if (sysR.status === "fulfilled")   setSys(sysR.value.data);
       else                               setErr("System endpoint unavailable");

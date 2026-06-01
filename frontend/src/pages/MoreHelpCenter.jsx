@@ -80,7 +80,7 @@ const NAV_LINKS = [
 
 const SUPERVISOR_TOGGLES = [
   { label: "Visitor Access",   href: "/more-help-center", description: "Browse public help resources and community support without signing in.", bg: "#f6d06d", color: "#1a1a2e" },
-  { label: "Supervisor Login", href: "/login",            description: "Authenticate as an executive supervisor to access secure MORE Help Center controls.", bg: GROVE, color: "white" },
+  { label: "Supervisor Login", href: "/supervisor-login", description: "Authenticate as an executive supervisor to access secure MORE Help Center controls.", bg: GROVE, color: "white" },
 ];
 
 const PANEL_MODES = [
