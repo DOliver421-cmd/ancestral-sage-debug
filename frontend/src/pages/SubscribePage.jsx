@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useSearchParams, Link } from "react-router-dom";
+import AppShell from "../components/AppShell";
 import { api } from "../lib/api";
 import { useAuth } from "../lib/auth";
 import { HandHelping, CheckCircle, ExternalLink, ArrowLeft } from "lucide-react";
@@ -81,6 +82,7 @@ export default function SubscribePage() {
   // ── Tier-specific view (coming from Plans.jsx with ?plan=xxx) ───────────
   if (tierPlan) {
     return (
+      <AppShell>
       <div className="p-8 max-w-lg mx-auto">
         <Link to={tierPlan.backTo || "/plans"} className="inline-flex items-center gap-1.5 text-sm text-ink/50 hover:text-ink mb-6">
           <ArrowLeft className="w-4 h-4" /> {tierPlan.backTo ? "Back to Sanctuary" : "Back to plans"}
@@ -110,11 +112,13 @@ export default function SubscribePage() {
           </p>
         </div>
       </div>
+      </AppShell>
     );
   }
 
   // ── Default M.O.R.E. membership view ─────────────────────────────────────
   return (
+    <AppShell>
     <div className="p-8 max-w-4xl mx-auto">
       <div className="flex items-center gap-3 mb-2">
         <HandHelping className="w-8 h-8 text-signal" />
@@ -202,5 +206,6 @@ export default function SubscribePage() {
         </div>
       )}
     </div>
+    </AppShell>
   );
 }
