@@ -1,115 +1,97 @@
 """
 Field-Level Authorization Module
 
-Determines which fields a user can see based on their role and relationship to the data.
-Applied to all user profile and financial endpoints.
+Controls which fields are visible based on the viewer's role.
+
+Two overlapping role systems on this platform:
+  Core auth:       student | instructor | admin | executive_admin
+  Community/creator: guest | student | creator | mentor | moderator | steward | elder | admin
+
+Both are real. This module handles all of them.
 """
 
 from typing import Set, Dict, Optional
 
 
-class FieldAuthorization:
-    """Role-based field visibility control"""
+# Fields ALWAYS stripped — never returned in any response
+_BLACKLIST = {"password_hash", "_id", "recovery_codes", "last_recovery_reset"}
 
-    # Field visibility matrix: role -> set of allowed fields
-    FIELD_VISIBILITY = {
-        # Guest/anonymous users (minimal access)
-        "guest": {
-            "id", "full_name", "role",
-            "created_at",  # Public creation date only
-        },
+# Unified role hierarchy — higher rank = more visibility
+# instructor sits between student and creator (core platform teacher role)
+ROLE_RANK: Dict[str, int] = {
+    "guest":            0,
+    "student":          1,
+    "instructor":       2,   # Core platform: teaches courses, views student data
+    "creator":          2,   # Community: publishes courses, earns revenue
+    "mentor":           3,   # Community: mentors users, additional access
+    "moderator":        4,   # Community: moderates content and posts
+    "steward":          5,   # Community: governance + financial visibility
+    "elder":            6,   # Community: board-level, full analytics
+    "admin":            7,   # Platform admin
+    "executive_admin":  8,   # Owner — unrestricted
+}
 
-        # Student role (sees own profile, limited peer visibility)
-        "student": {
-            "id", "full_name", "role", "email",
-            "created_at", "partnership_level", "total_points",
-            "bio", "avatar_url", "location",
-        },
+# Fields each role can see on their OWN profile
+_OWN_PROFILE_BASE = {
+    "id", "email", "full_name", "role", "associate",
+    "is_active", "created_at", "avatar_url",
+    "must_change_password", "last_login",
+    "partnership_level", "total_points",
+    "feature_tier", "sage_tier",
+    "terms_accepted_at", "over_13_confirmed",
+    "bio", "location",
+}
 
-        # Creator role (sees own financials, limited peer visibility)
-        "creator": {
-            "id", "full_name", "role", "email",
-            "created_at", "partnership_level", "total_points",
-            "bio", "avatar_url",
-            # Creator-specific (only own profile):
-            "totalEarnings", "monthlyRevenue", "payoutMethod",
-            "bankAccount", "courses_created", "students_enrolled",
-        },
+_OWN_PROFILE_CREATOR = _OWN_PROFILE_BASE | {
+    "totalEarnings", "monthlyRevenue", "payoutMethod",
+    "courses_created", "students_enrolled",
+    "bankAccount", "stripeConnectId", "paypalEmail",
+}
 
-        # Mentor role (sees creator data + moderation info)
-        "mentor": {
-            "id", "full_name", "role", "email",
-            "created_at", "partnership_level", "total_points",
-            "totalEarnings", "monthlyRevenue",
-            "courses_created", "students_enrolled",
-            "last_login", "is_active",
-        },
+_OWN_PROFILE_BY_ROLE: Dict[str, Set[str]] = {
+    "guest":            {"id", "full_name", "role", "created_at"},
+    "student":          _OWN_PROFILE_BASE,
+    "instructor":       _OWN_PROFILE_BASE | {"associate", "must_change_password"},
+    "creator":          _OWN_PROFILE_CREATOR,
+    "mentor":           _OWN_PROFILE_CREATOR | {"mentee_count"},
+    "moderator":        _OWN_PROFILE_BASE | {"reports_against", "warning_count"},
+    "steward":          _OWN_PROFILE_CREATOR | {"mentee_count", "vote_weight"},
+    "elder":            _OWN_PROFILE_CREATOR | {"mentee_count", "vote_weight", "board_access"},
+    "admin":            None,   # None = all fields (password_hash still stripped)
+    "executive_admin":  None,
+}
 
-        # Moderator role (sees all except payment details)
-        "moderator": {
-            "id", "full_name", "role", "email",
-            "created_at", "partnership_level", "total_points",
-            "totalEarnings", "monthlyRevenue",
-            "courses_created", "students_enrolled",
-            "last_login", "is_active",
-            "reports_against", "warning_count",
-            "ip_address", "user_agent",
-        },
+# Fields visible when viewing SOMEONE ELSE's profile
+_PEER_PUBLIC = {"id", "full_name", "role", "created_at", "avatar_url", "bio", "partnership_level"}
 
-        # Steward role (can see payment methods, not numbers)
-        "steward": {
-            "id", "full_name", "role", "email",
-            "created_at", "partnership_level", "total_points",
-            "totalEarnings", "monthlyRevenue",
-            "payoutMethod",  # TYPE only, not account number
-            "courses_created", "students_enrolled",
-            "last_login", "is_active",
-            "reports_against", "warning_count",
-            "ip_address", "user_agent",
-            "last_payout_at",
-        },
-
-        # Elder role (full access except passwords)
-        "elder": {
-            "id", "full_name", "role", "email",
-            "created_at", "partnership_level", "total_points",
-            "totalEarnings", "monthlyRevenue", "payoutMethod",
-            "bankAccount",  # Last 4 digits masked
-            "courses_created", "students_enrolled",
-            "last_login", "is_active",
-            "reports_against", "warning_count",
-            "ip_address", "user_agent",
-            "last_payout_at",
-            "associate", "must_change_password",
-        },
-
-        # Admin role (full access except master secrets)
-        "admin": {
-            "id", "full_name", "role", "email",
-            "created_at", "partnership_level", "total_points",
-            "totalEarnings", "monthlyRevenue", "payoutMethod",
-            "bankAccount",  # Last 4 digits masked
-            "courses_created", "students_enrolled",
-            "last_login", "is_active",
-            "reports_against", "warning_count",
-            "ip_address", "user_agent",
-            "last_payout_at",
-            "associate", "must_change_password",
-            "2fa_enabled", "last_2fa_at",
-        },
-
-        # Executive admin (unrestricted)
-        "executive_admin": {
-            # All fields (password_hash filtered separately)
-        },
-    }
-
-    # Sensitive financial fields that require audit logging
-    SENSITIVE_FIELDS = {
+_PEER_BY_VIEWER_ROLE: Dict[str, Optional[Set[str]]] = {
+    "guest":            _PEER_PUBLIC - {"bio"},
+    "student":          _PEER_PUBLIC,
+    "instructor":       _PEER_PUBLIC | {"email", "associate", "is_active", "last_login", "must_change_password"},
+    "creator":          _PEER_PUBLIC | {"courses_created", "students_enrolled", "total_points"},
+    "mentor":           _PEER_PUBLIC | {"courses_created", "students_enrolled", "total_points", "email"},
+    "moderator":        _PEER_PUBLIC | {"email", "is_active", "last_login", "reports_against", "warning_count", "ip_address"},
+    "steward":          _PEER_PUBLIC | {
+        "email", "is_active", "last_login",
         "totalEarnings", "monthlyRevenue", "payoutMethod",
-        "bankAccount", "stripeConnectId", "paypalEmail",
-        "taxId", "ssn", "bankRoutingNumber",
-    }
+        "courses_created", "students_enrolled",
+        "reports_against", "warning_count",
+    },
+    "elder":            _PEER_PUBLIC | {
+        "email", "is_active", "last_login",
+        "totalEarnings", "monthlyRevenue", "payoutMethod",
+        "bankAccount",  # masked to last 4 digits in filter_response
+        "courses_created", "students_enrolled",
+        "reports_against", "warning_count",
+        "ip_address", "user_agent",
+        "associate", "must_change_password",
+    },
+    "admin":            None,
+    "executive_admin":  None,
+}
+
+
+class FieldAuthorization:
 
     @classmethod
     def get_visible_fields(
@@ -117,111 +99,53 @@ class FieldAuthorization:
         viewer_role: str,
         target_role: str,
         is_own_profile: bool = False,
-    ) -> Set[str]:
+    ) -> Optional[Set[str]]:
         """
-        Determine which fields a viewer can see.
-
-        Args:
-            viewer_role: Role of the person requesting the data
-            target_role: Role of the person whose data is being viewed
-            is_own_profile: True if viewer is viewing their own profile
-
-        Returns:
-            Set of field names that are visible to this viewer
+        Return the set of fields the viewer may see.
+        None = unrestricted (admin / executive_admin) — password_hash still stripped.
         """
-        # Executive admin: unrestricted (None = all fields). password_hash and
-        # other secrets are still stripped in filter_response(). This fixes the
-        # empty FIELD_VISIBILITY["executive_admin"] that made /auth/me return {}.
-        if viewer_role == "executive_admin":
-            return None
-
-        # Own profile: full visibility for own role
         if is_own_profile:
-            return cls.FIELD_VISIBILITY.get(viewer_role, set())
+            return _OWN_PROFILE_BY_ROLE.get(viewer_role, _OWN_PROFILE_BASE)
 
-        # Admin/executive can see anyone's data (except passwords)
-        if viewer_role in ["admin", "executive_admin"]:
-            return cls.FIELD_VISIBILITY.get(viewer_role, set()) or set()
-
-        # Role hierarchy: higher roles see more
-        role_hierarchy = {
-            "guest": 0,
-            "student": 1,
-            "creator": 2,
-            "mentor": 3,
-            "moderator": 4,
-            "steward": 5,
-            "elder": 6,
-            "admin": 7,
-            "executive_admin": 8,
-        }
-
-        viewer_level = role_hierarchy.get(viewer_role, 0)
-        target_level = role_hierarchy.get(target_role, 0)
-
-        # Higher role always sees more
-        if viewer_level > target_level:
-            return cls.FIELD_VISIBILITY.get(viewer_role, set())
-
-        # Equal role: limited peer visibility
-        if viewer_level == target_level:
-            return {
-                "id", "full_name", "role", "partnership_level",
-                "total_points", "bio", "avatar_url", "created_at"
-            }
-
-        # Lower role: minimal visibility
-        return cls.FIELD_VISIBILITY.get("guest", set())
+        return _PEER_BY_VIEWER_ROLE.get(viewer_role, _PEER_PUBLIC)
 
     @classmethod
     def filter_response(
         cls,
         data: Dict,
-        visible_fields: Set[str],
+        visible_fields: Optional[Set[str]],
     ) -> Dict:
-        """
-        Filter a response dict to only include visible fields.
-
-        Args:
-            data: Full user document
-            visible_fields: Set of allowed field names
-
-        Returns:
-            Filtered dict with only visible fields
-        """
-        # Always remove these fields
-        blacklist = {"password_hash", "_id", "recovery_codes", "last_recovery_reset"}
-
-        filtered = {}
+        """Strip blacklisted fields, apply visibility, mask sensitive values."""
+        result = {}
         for key, value in data.items():
-            if key in blacklist:
+            if key in _BLACKLIST:
                 continue
             if visible_fields is None or key in visible_fields:
-                # Mask sensitive fields
-                if key == "bankAccount" and value:
-                    filtered[key] = f"****{value[-4:]}"  # Last 4 digits only
-                elif key == "ssn" and value:
-                    filtered[key] = f"***-**-{value[-4:]}"
+                # Mask last-4 for bank account numbers
+                if key == "bankAccount" and value and isinstance(value, str) and len(value) > 4:
+                    result[key] = f"****{value[-4:]}"
+                elif key == "ssn" and value and isinstance(value, str) and len(value) > 4:
+                    result[key] = f"***-**-{value[-4:]}"
                 else:
-                    filtered[key] = value
-
-        return filtered
+                    result[key] = value
+        return result
 
     @classmethod
     def requires_sensitive_audit(cls, accessed_fields: Set[str]) -> bool:
-        """Check if accessed fields require audit logging"""
-        return bool(accessed_fields & cls.SENSITIVE_FIELDS)
+        _sensitive = {
+            "totalEarnings", "monthlyRevenue", "payoutMethod",
+            "bankAccount", "stripeConnectId", "paypalEmail",
+            "taxId", "ssn", "bankRoutingNumber",
+        }
+        return bool(accessed_fields & _sensitive)
 
 
-# Helper function for FastAPI endpoints
-def get_visible_fields(viewer: dict, target: dict, is_own: bool = False) -> Set[str]:
-    """
-    Convenience function for use in FastAPI endpoints.
-
-    Usage:
-        visible = get_visible_fields(current_user, target_user, is_own=False)
-        filtered = FieldAuthorization.filter_response(target_user, visible)
-    """
+def get_visible_fields(
+    viewer: dict,
+    target: dict,
+    is_own: bool = False,
+) -> Optional[Set[str]]:
+    """Convenience wrapper for FastAPI endpoints."""
     return FieldAuthorization.get_visible_fields(
         viewer_role=viewer.get("role", "guest"),
         target_role=target.get("role", "guest"),
