@@ -355,10 +355,16 @@ export default function SupervisorWidget() {
   }
 
   // ── STT ──────────────────────────────────────────────────────────────────────
-  function toggleVoice() {
+  async function toggleVoice() {
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SR) { addMsg("supervisor", "Voice input isn't supported in this browser. Try Chrome or Edge."); return; }
     if (listening) { srRef.current?.stop(); srRef.current = null; setListening(false); return; }
+    try {
+      await navigator.mediaDevices.getUserMedia({ audio: true });
+    } catch {
+      addMsg("supervisor", "Microphone access was denied. Please allow mic access in your browser settings.");
+      return;
+    }
     const sr = new SR();
     srRef.current = sr;
     sr.lang = "en-US";

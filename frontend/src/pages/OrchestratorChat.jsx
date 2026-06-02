@@ -179,8 +179,14 @@ export default function OrchestratorChat() {
   }, [audioOn, sessionId, stopAudio]);
 
   // ── STT ──────────────────────────────────────────────────────────────────
-  const startRecording = useCallback(() => {
+  const startRecording = useCallback(async () => {
     if (!SpeechRecognitionImpl) { toast.error("Speech input not supported in this browser."); return; }
+    try {
+      await navigator.mediaDevices.getUserMedia({ audio: true });
+    } catch {
+      toast.error("Microphone access denied. Please allow mic access in your browser settings.");
+      return;
+    }
     if (recogRef.current) { recogRef.current.stop(); recogRef.current = null; }
     const r = new SpeechRecognitionImpl();
     r.continuous = false;
