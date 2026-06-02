@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
+import AppShell from "../components/AppShell";
 import { WAI_LOGO, BRAND } from "../lib/brand";
 import { Scale, ArrowLeft, ExternalLink, Shield, AlertTriangle, HandHelping, HelpCircle } from "lucide-react";
 
@@ -7,6 +8,7 @@ export default function LitigationWeapon() {
   const [agreed, setAgreed] = useState(false);
 
   return (
+    <AppShell>
     <div className="min-h-screen flex flex-col bg-bone">
       {/* Public top bar */}
       <header className="border-b border-ink/10 bg-bone shrink-0">
@@ -92,5 +94,6 @@ export default function LitigationWeapon() {
         />
       )}
     </div>
+    </AppShell>
   );
 }

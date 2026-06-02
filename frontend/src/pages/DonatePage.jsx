@@ -1,4 +1,5 @@
 import { useState } from "react";
+import AppShell from "../components/AppShell";
 import { api } from "../lib/api";
 import { Heart } from "lucide-react";
 import { toast } from "sonner";
@@ -31,6 +32,7 @@ export default function DonatePage() {
   }
 
   return (
+    <AppShell>
     <div className="p-8 max-w-2xl mx-auto">
       <div className="flex items-center gap-3 mb-2">
         <Heart className="w-8 h-8 text-red-500" />
@@ -100,5 +102,6 @@ export default function DonatePage() {
         Payments are processed securely by Stripe. WAI Institute / LCE is a registered organization.
       </p>
     </div>
+    </AppShell>
   );
 }
