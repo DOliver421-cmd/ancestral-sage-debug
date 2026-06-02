@@ -6,7 +6,7 @@ import { Target } from "lucide-react";
 
 export default function Competencies() {
   const [data, setData] = useState(null);
-  useEffect(() => { api.get("/competencies").then((r) => setData(r.data)); }, []);
+  useEffect(() => { api.get("/competencies").then((r) => setData(r.data)).catch(() => {}); }, []);
   if (!data) return <LoadingState label="Competencies" />;
 
   const maxPoints = Math.max(100, ...Object.values(data.progress).map((p) => p.points));

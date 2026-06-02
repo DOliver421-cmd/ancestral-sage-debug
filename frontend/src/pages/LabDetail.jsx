@@ -14,7 +14,7 @@ export default function LabDetail() {
   const [photoUrl, setPhotoUrl] = useState("");
   const [notes, setNotes] = useState("");
 
-  const load = useCallback(() => api.get(`/labs/${slug}`).then((r) => { setLab(r.data); if (r.data.my_submission?.track === "inperson") { setPhotoUrl(r.data.my_submission.photo_url || ""); setNotes(r.data.my_submission.notes || ""); } }), [slug]);
+  const load = useCallback(() => api.get(`/labs/${slug}`).then((r) => { setLab(r.data); if (r.data.my_submission?.track === "inperson") { setPhotoUrl(r.data.my_submission.photo_url || ""); setNotes(r.data.my_submission.notes || ""); } }).catch(() => {}), [slug]);
   useEffect(() => { load(); }, [load]);
 
   const submitOnline = async (answers) => {

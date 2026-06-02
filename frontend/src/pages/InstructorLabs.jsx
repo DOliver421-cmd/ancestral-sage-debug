@@ -13,8 +13,8 @@ export default function InstructorLabs() {
   const [aiFeedbackLoading, setAiFeedbackLoading] = useState({});
 
   const load = useCallback(() => Promise.all([
-    api.get("/instructor/submissions").then((r) => setSubs(r.data)),
-    api.get("/instructor/lab-report").then((r) => setReport(r.data)),
+    api.get("/instructor/submissions").then((r) => setSubs(r.data)).catch(() => {}),
+    api.get("/instructor/lab-report").then((r) => setReport(r.data)).catch(() => {}),
   ]), []);
   useEffect(() => { load(); }, [load]);
 

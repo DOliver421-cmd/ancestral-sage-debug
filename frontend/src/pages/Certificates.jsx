@@ -5,7 +5,7 @@ import { Award, Download } from "lucide-react";
 
 export default function Certificates() {
   const [certs, setCerts] = useState([]);
-  useEffect(() => { api.get("/certificates/me").then((r) => setCerts(r.data)); }, []);
+  useEffect(() => { api.get("/certificates/me").then((r) => setCerts(r.data)).catch(() => {}); }, []);
   const token = getToken();
 
   return (

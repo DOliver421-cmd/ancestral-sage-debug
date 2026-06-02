@@ -10,7 +10,7 @@ const LEVEL_ICON = { hot: Flame, warm: Sun, cold: Snowflake };
 
 export default function Adaptive() {
   const [data, setData] = useState(null);
-  useEffect(() => { api.get("/adaptive/me").then((r) => setData(r.data)); }, []);
+  useEffect(() => { api.get("/adaptive/me").then((r) => setData(r.data)).catch(() => {}); }, []);
   if (!data) return <LoadingState label="Personalized Path" />;
 
   const heatmapEntries = Object.entries(data.heatmap);

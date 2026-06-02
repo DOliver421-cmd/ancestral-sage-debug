@@ -8,7 +8,7 @@ export default function Analytics() {
   const [data, setData] = useState(null);
   const [benchmark, setBenchmark] = useState(null);
   useEffect(() => {
-    api.get("/analytics/program").then((r) => setData(r.data));
+    api.get("/analytics/program").then((r) => setData(r.data)).catch(() => {});
     api.get("/analytics/benchmark").then((r) => setBenchmark(r.data)).catch(() => {});
   }, []);
   if (!data) return <LoadingState label="Program Analytics" />;

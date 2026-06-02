@@ -12,7 +12,7 @@ export default function Portfolio() {
   const [publishing, setPublishing] = useState(false);
   const token = getToken();
 
-  const load = useCallback(() => api.get("/portfolio/me").then((r) => { setData(r.data); setBio(r.data.bio || ""); }), []);
+  const load = useCallback(() => api.get("/portfolio/me").then((r) => { setData(r.data); setBio(r.data.bio || ""); }).catch(() => {}), []);
   useEffect(() => { load(); }, [load]);
 
   const publish = async (shouldPublish) => {

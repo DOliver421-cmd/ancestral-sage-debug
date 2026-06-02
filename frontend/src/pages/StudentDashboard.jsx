@@ -29,9 +29,9 @@ export default function StudentDashboard() {
   }, []);
 
   useEffect(() => {
-    api.get("/modules").then((r) => setModules(r.data));
-    api.get("/progress/me").then((r) => setProgress(r.data));
-    api.get("/certificates/me").then((r) => setCerts(r.data));
+    api.get("/modules").then((r) => setModules(r.data)).catch(() => {});
+    api.get("/progress/me").then((r) => setProgress(r.data)).catch(() => {});
+    api.get("/certificates/me").then((r) => setCerts(r.data)).catch(() => {});
     api.get("/xp/me").then((r) => setXp(r.data)).catch(() => {});
     refreshPartnership();
   }, [refreshPartnership]);

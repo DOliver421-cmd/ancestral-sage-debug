@@ -15,7 +15,7 @@ const CAT_COLOR = {
 export default function Credentials() {
   const [data, setData] = useState(null);
   const [tab, setTab] = useState("earned");
-  useEffect(() => { api.get("/credentials/me").then((r) => setData(r.data)); }, []);
+  useEffect(() => { api.get("/credentials/me").then((r) => setData(r.data)).catch(() => {}); }, []);
 
   if (!data) return <LoadingState label="Credentials" />;
 

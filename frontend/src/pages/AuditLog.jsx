@@ -7,7 +7,7 @@ const ACTION_COLOR = (a) => a.includes("failed") ? "text-destructive" : a.includ
 
 export default function AuditLog() {
   const [logs, setLogs] = useState([]);
-  useEffect(() => { api.get("/admin/audit?limit=300").then((r) => setLogs(r.data)); }, []);
+  useEffect(() => { api.get("/admin/audit?limit=300").then((r) => setLogs(r.data)).catch(() => {}); }, []);
 
   const exportCSV = () => {
     const rows = [["when", "actor_name", "actor_id", "action", "target", "meta"], ...logs.map((l) => [l.at, l.actor?.full_name || "system", l.actor_id || "", l.action, l.target || "", JSON.stringify(l.meta || {})])];
