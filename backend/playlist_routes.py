@@ -23,7 +23,7 @@ from bson import ObjectId
 
 from deps import require_user, get_db
 
-router = APIRouter(prefix="/api/playlist", tags=["playlist"])
+router = APIRouter(prefix="/playlist", tags=["playlist"])
 
 GATEWAY_STEPS = ["save_playlist", "follow_playlist", "add_song", "follow_profile", "share"]
 

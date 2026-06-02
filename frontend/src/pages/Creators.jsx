@@ -55,7 +55,7 @@ export default function Creators() {
             {list.map((c) => (
               <Link key={c.slug} to={`/creator/${c.slug}`} className="card-flat p-6 block text-center hover:border-copper transition-colors">
                 <div style={{ fontSize: 48 }}>{c.avatar || "🎨"}</div>
-                <div className="font-heading font-bold text-ink text-lg mt-2">{c.displayName || c.name}</div>
+                <div className="font-heading font-bold text-ink text-lg mt-2">{c.display_name || c.displayName || c.name}</div>
                 <div className="overline text-copper mt-1">{c.title || c.role}</div>
                 <div className="text-sm text-ink/60 mt-2 line-clamp-3">{c.bio}</div>
                 <div className="text-sm font-bold text-copper mt-3">View Profile →</div>

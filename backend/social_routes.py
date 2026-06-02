@@ -18,7 +18,7 @@ import os
 
 from deps import require_user, get_db
 
-router = APIRouter(prefix="/api/social", tags=["social"])
+router = APIRouter(prefix="/social", tags=["social"])
 
 
 class PublishRequest(BaseModel):
