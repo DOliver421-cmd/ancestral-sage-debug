@@ -832,12 +832,17 @@ export default function DirectorWidget() {
 
   // ── STT ───────────────────────────────────────────────────────────────────
 
-  const toggleMic = () => {
+  const toggleMic = async () => {
     if (!SpeechRecognitionImpl) return;
     if (recording) {
       recRef.current?.stop();
       recRef.current = null;
       setRecording(false);
+      return;
+    }
+    try {
+      await navigator.mediaDevices.getUserMedia({ audio: true });
+    } catch {
       return;
     }
     const rec = new SpeechRecognitionImpl();

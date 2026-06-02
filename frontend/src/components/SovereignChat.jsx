@@ -74,12 +74,17 @@ export default function SovereignChat() {
   }, []);
 
   // ── STT ─────────────────────────────────────────────────────────────────────
-  const toggleMic = useCallback(() => {
+  const toggleMic = useCallback(async () => {
     if (!SpeechRecognitionImpl) return;
     if (recording) {
       recRef.current?.stop();
       recRef.current = null;
       setRecording(false);
+      return;
+    }
+    try {
+      await navigator.mediaDevices.getUserMedia({ audio: true });
+    } catch {
       return;
     }
     if (recRef.current) { recRef.current.stop(); recRef.current = null; }

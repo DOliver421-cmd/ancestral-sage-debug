@@ -59,6 +59,98 @@ function fmtJoined(iso) {
   return new Date(iso).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
 }
 
+// ── Reset Password Modal — focused single-purpose modal for exec row action ───
+function ResetPasswordModal({ user: u, onClose, notify }) {
+  const [pw,      setPw]      = useState("");
+  const [showPw,  setShowPw]  = useState(false);
+  const [saving,  setSaving]  = useState(false);
+  const [link,    setLink]    = useState(null);
+
+  async function setPassword() {
+    if (pw.length < 8) { notify("Password must be at least 8 characters", true); return; }
+    setSaving(true);
+    try {
+      await api.post(`/admin/users/${u.id}/password`, { new_password: pw });
+      notify(`Password updated for ${u.full_name || u.email}`);
+      onClose();
+    } catch (e) {
+      notify(`Error: ${e?.response?.data?.detail || "failed to set password"}`, true);
+    } finally { setSaving(false); }
+  }
+
+  async function getResetLink() {
+    setSaving(true);
+    try {
+      const r = await api.post(`/admin/users/${u.id}/reset-link`);
+      setLink(r.data.reset_url || r.data.link || JSON.stringify(r.data));
+    } catch (e) {
+      notify(`Error: ${e?.response?.data?.detail || "could not generate link"}`, true);
+    } finally { setSaving(false); }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: "rgba(0,0,0,0.55)" }} onClick={e => e.target === e.currentTarget && onClose()}>
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100">
+          <div>
+            <h3 className="font-heading font-extrabold text-slate-900 text-base flex items-center gap-2">
+              <KeyRound className="w-4 h-4 text-amber-500" /> Reset Password
+            </h3>
+            <p className="text-xs text-slate-500 mt-0.5">{u.full_name || u.email} · <span className="font-mono">{u.email}</span></p>
+          </div>
+          <button onClick={onClose} className="text-slate-400 hover:text-slate-700 text-xl font-bold leading-none">×</button>
+        </div>
+
+        <div className="px-6 py-5 space-y-4">
+          {/* Set password directly */}
+          <div>
+            <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1">Set New Password</label>
+            <div className="relative">
+              <input type={showPw ? "text" : "password"} value={pw} onChange={e => setPw(e.target.value)}
+                placeholder="Min 8 characters" autoFocus
+                className="w-full border border-slate-200 rounded-lg px-3 py-2 pr-10 text-sm text-slate-800 font-mono focus:outline-none focus:border-amber-400" />
+              <button type="button" onClick={() => setShowPw(!showPw)} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
+                {showPw ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+              </button>
+            </div>
+            <button onClick={setPassword} disabled={saving || pw.length < 8}
+              className="mt-2 w-full py-2 bg-amber-500 hover:bg-amber-600 text-white text-sm font-bold rounded-lg transition-colors disabled:opacity-40">
+              {saving ? "Saving…" : "Set Password"}
+            </button>
+          </div>
+
+          <div className="relative flex items-center gap-3 text-slate-300 text-xs">
+            <div className="flex-1 border-t border-slate-100" />
+            <span className="text-slate-400 font-medium">or send a reset link</span>
+            <div className="flex-1 border-t border-slate-100" />
+          </div>
+
+          {/* One-time reset link */}
+          <div>
+            <button onClick={getResetLink} disabled={saving}
+              className="w-full py-2 border border-amber-300 text-amber-700 text-sm font-bold rounded-lg hover:bg-amber-50 transition-colors disabled:opacity-40 flex items-center justify-center gap-2">
+              <KeyRound className="w-3.5 h-3.5" /> Generate One-Time Login Link
+            </button>
+            {link && (
+              <div className="mt-2 bg-amber-50 border border-amber-200 rounded-lg p-3">
+                <p className="text-xs text-amber-800 font-mono break-all">{link}</p>
+                <button onClick={() => navigator.clipboard?.writeText(link)}
+                  className="text-xs font-bold text-amber-600 hover:underline mt-2 flex items-center gap-1">
+                  <Copy className="w-3 h-3" /> Copy link
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+
+        <div className="px-6 py-3 border-t border-slate-100 bg-slate-50 flex justify-end">
+          <button onClick={onClose} className="text-sm text-slate-600 hover:text-slate-800 px-4 py-2">Close</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── Create User Modal ─────────────────────────────────────────────────────────
 function UserCreateModal({ onClose, onCreated, notify }) {
   const [name,      setName]     = useState("");
@@ -405,6 +497,7 @@ function UserDatabase() {
   const [activeFilter,setActiveFilter]=useState("");
   const [toast,       setToast]      = useState(null);
   const [editing,     setEditing]    = useState(null);
+  const [resetting,   setResetting]  = useState(null);
   const [creating,    setCreating]   = useState(false);
   const [promoting,   setPromoting]  = useState({}); // uid → bool
   const debounce                     = useRef(null);
@@ -534,6 +627,7 @@ function UserDatabase() {
                 <th className="text-left py-2.5 px-4 text-xs uppercase tracking-wider text-slate-500 font-bold">Joined</th>
                 <th className="text-left py-2.5 px-4 text-xs uppercase tracking-wider text-slate-500 font-bold">Status</th>
                 <th className="text-left py-2.5 px-4 text-xs uppercase tracking-wider text-slate-500 font-bold">Promote / Demote</th>
+                <th className="py-2.5 px-4 text-xs uppercase tracking-wider text-slate-500 font-bold text-center">Password</th>
                 <th className="py-2.5 px-4 text-xs uppercase tracking-wider text-slate-500 font-bold text-right">Edit</th>
               </tr>
             </thead>
@@ -581,6 +675,12 @@ function UserDatabase() {
                         {!canUp && !canDown && <span className="text-xs text-slate-300">—</span>}
                       </div>
                     </td>
+                    <td className="py-3 px-4 text-center">
+                      <button onClick={() => setResetting(u)} title="Reset password"
+                        className="text-xs font-bold px-3 py-1.5 rounded-lg border border-slate-200 text-slate-600 hover:bg-amber-50 hover:border-amber-300 hover:text-amber-700 transition-colors flex items-center gap-1 mx-auto">
+                        <KeyRound className="w-3 h-3" /> Reset PW
+                      </button>
+                    </td>
                     <td className="py-3 px-4 text-right">
                       <button onClick={() => setEditing(u)}
                         className="text-xs font-bold px-3 py-1.5 rounded-lg border border-amber-300 text-amber-700 hover:bg-amber-50 transition-colors">
@@ -599,6 +699,13 @@ function UserDatabase() {
         <UserCreateModal
           onClose={() => setCreating(false)}
           onCreated={handleCreated}
+          notify={notify}
+        />
+      )}
+      {resetting && (
+        <ResetPasswordModal
+          user={resetting}
+          onClose={() => setResetting(null)}
           notify={notify}
         />
       )}
