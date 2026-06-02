@@ -1,5 +1,6 @@
 import { Link } from "react-router-dom";
 import { useAuth } from "../lib/auth";
+import AppShell from "../components/AppShell";
 import BackButton from "../components/BackButton";
 import { Check } from "lucide-react";
 
@@ -54,6 +55,7 @@ const PLANS = [
 export default function Plans() {
   const { user } = useAuth();
   return (
+    <AppShell>
     <div className="min-h-screen bg-bone">
       <div className="max-w-6xl mx-auto px-6 py-10">
         <BackButton to={user ? "/dashboard" : "/"} />
@@ -101,5 +103,6 @@ export default function Plans() {
         </p>
       </div>
     </div>
+    </AppShell>
   );
 }
