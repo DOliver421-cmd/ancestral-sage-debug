@@ -662,6 +662,16 @@ def verify_pw(p: str, h: str) -> bool:
     return pwd_ctx.verify(p, h)
 
 
+import secrets as _secrets_mod  # noqa: E402
+
+
+def _gen_random_password() -> str:
+    """Generate a 20-char cryptographically random password. Used when no
+    env-var password is configured for exec account bootstrap/recovery."""
+    alpha = "abcdefghjkmnpqrstuvwxyzABCDEFGHJKMNPQRSTUVWXYZ23456789!@#$%^&*"
+    return "".join(_secrets_mod.choice(alpha) for _ in range(20))
+
+
 # --- Password reset helpers --------------------------------------------------
 import hashlib  # noqa: E402
 import secrets  # noqa: E402
@@ -913,13 +923,6 @@ async def seed_users():
     # ----- Bootstrap executive accounts (create if missing, never overwrite existing) -----
     # Passwords: if ENV var is set use it; otherwise generate a random one and
     # email it to PLATFORM_NOTIFY_EMAIL. No password is ever hardcoded in source.
-    import secrets as _secrets
-
-    def _gen_pw() -> str:
-        """Generate a 20-char cryptographically random password."""
-        alpha = "abcdefghjkmnpqrstuvwxyzABCDEFGHJKMNPQRSTUVWXYZ23456789!@#$%^&*"
-        return "".join(_secrets.choice(alpha) for _ in range(20))
-
     async def _email_new_pw(email: str, name: str, pw: str) -> None:
         """Send auto-generated password to PLATFORM_NOTIFY_EMAIL via Gmail SMTP."""
         subject = f"WAI-Institute: New exec account created — {email}"
@@ -951,7 +954,7 @@ async def seed_users():
             existing = await db.users.find_one({"email": _email})
             if not existing:
                 # Use ENV-supplied password if set, otherwise generate one
-                _pw = _env_pw if _env_pw else _gen_pw()
+                _pw = _env_pw if _env_pw else _gen_random_password()
                 _auto_generated = not bool(_env_pw)
                 await db.users.insert_one({
                     "id": str(uuid.uuid4()),
@@ -1015,26 +1018,34 @@ async def seed_users():
                 else:
                     logger.error("EXEC_FORCE_RESET: email not found: %s", force_reset_email)
             else:
-                # Mode A: reset ALL exec seats to their documented defaults
-                logger.warning("EXEC_FORCE_RESET (Mode A): resetting all exec seats to default passwords")
+                # Mode A: reset ALL exec seats.
+                # If the env-var password is empty, generate a fresh random one and
+                # email/log it — never hash an empty string as a real password.
+                logger.warning("EXEC_FORCE_RESET (Mode A): resetting all exec seats")
                 _reset_seats = [
-                    (EXEC_ADMIN_EMAIL,  EXEC_DEFAULT_PASSWORD),
-                    (BACKUP_EXEC_EMAIL, BACKUP_EXEC_DEFAULT_PASSWORD),
-                    (NAM_EXEC_EMAIL,    NAM_EXEC_DEFAULT_PASSWORD),
+                    (EXEC_ADMIN_EMAIL,  "Delon Oliver",  EXEC_DEFAULT_PASSWORD),
+                    (BACKUP_EXEC_EMAIL, "Delon Oliver",  BACKUP_EXEC_DEFAULT_PASSWORD),
+                    (NAM_EXEC_EMAIL,    "NAM Oshun",     NAM_EXEC_DEFAULT_PASSWORD),
                 ]
-                for _r_email, _r_pw in _reset_seats:
+                for _r_email, _r_name, _r_pw in _reset_seats:
+                    _auto = False
+                    if not _r_pw:
+                        _r_pw = _gen_random_password()
+                        _auto = True
                     await db.users.update_one(
                         {"email": _r_email},
                         {"$set": {
                             "password_hash": hash_pw(_r_pw),
-                            "must_change_password": False,
+                            "must_change_password": True,
                             "is_active": True,
                             "force_reset_at": datetime.now(timezone.utc).isoformat(),
                         },
                         "$unset": {"login_locked_until": "", "login_failed_attempts": ""}},
                         upsert=False,
                     )
-                    logger.warning("EXEC_FORCE_RESET (Mode A): reset %s to default", _r_email)
+                    logger.warning("EXEC_FORCE_RESET (Mode A): reset %s (auto_pw=%s)", _r_email, _auto)
+                    if _auto:
+                        await _email_new_pw(_r_email, _r_name, _r_pw)
                 await audit(None, "exec.force_reset.all_seats", meta={"reason": "EXEC_FORCE_RESET=1, no email specified"})
     except Exception as _exc:
         logger.error("EXEC_FORCE_RESET failed: %s", _exc)
@@ -2743,12 +2754,16 @@ async def exec_unlock(request: Request):
         raise HTTPException(403, "Invalid secret")
 
     _seats = [
-        (EXEC_ADMIN_EMAIL,  EXEC_DEFAULT_PASSWORD),
-        (BACKUP_EXEC_EMAIL, BACKUP_EXEC_DEFAULT_PASSWORD),
-        (NAM_EXEC_EMAIL,    NAM_EXEC_DEFAULT_PASSWORD),
+        (EXEC_ADMIN_EMAIL,  "Delon Oliver",  EXEC_DEFAULT_PASSWORD),
+        (BACKUP_EXEC_EMAIL, "Delon Oliver",  BACKUP_EXEC_DEFAULT_PASSWORD),
+        (NAM_EXEC_EMAIL,    "NAM Oshun",     NAM_EXEC_DEFAULT_PASSWORD),
     ]
     reset = []
-    for _email, _pw in _seats:
+    for _email, _name, _pw in _seats:
+        _auto = False
+        if not _pw:
+            _pw = _gen_random_password()
+            _auto = True
         await db.users.update_one(
             {"email": _email},
             {
@@ -2756,16 +2771,21 @@ async def exec_unlock(request: Request):
                     "password_hash": hash_pw(_pw),
                     "role": "executive_admin",
                     "is_active": True,
-                    "must_change_password": False,
+                    "must_change_password": True,
                 },
                 "$unset": {"login_locked_until": "", "login_failed_attempts": ""},
             },
             upsert=False,
         )
-        reset.append(_email)
+        reset.append({"email": _email, "auto_password": _auto})
+        if _auto:
+            try:
+                await _email_new_pw(_email, _name, _pw)
+            except Exception:
+                logger.warning("exec-unlock: email failed for %s — TEMP PASSWORD (change immediately): %s", _email, _pw)
     await audit(None, "exec.unlock.via_secret", meta={"ip": request.client.host if request.client else "unknown"})
     logger.warning("exec-unlock: all exec seats reset via secret key")
-    return {"ok": True, "reset": reset, "message": "All exec seats unlocked. Log in with default passwords."}
+    return {"ok": True, "reset": reset, "message": "All exec seats unlocked. Check Railway logs or email for auto-generated passwords."}
 
 
 @api_router.post("/auth/recovery-codes-generate")

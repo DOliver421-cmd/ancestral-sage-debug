@@ -811,15 +811,24 @@ export default function DirectorWidget() {
         body: JSON.stringify({ text, voice: persona === "director" ? "onyx" : "nova", speed: 1.0, session_id: "director" }),
         signal: controller.signal,
       });
-      if (!r.ok) return;
+      if (!r.ok) { _browserSpeak(text); return; }
       const blob = await r.blob();
+      if (!blob.size) { _browserSpeak(text); return; }
       const url  = URL.createObjectURL(blob);
       const audio = new Audio(url);
       speakAudioRef.current = audio;
       audio.onended = () => { URL.revokeObjectURL(url); speakAudioRef.current = null; };
-      audio.play().catch(() => { URL.revokeObjectURL(url); speakAudioRef.current = null; });
-    } catch (e) { if (e?.name !== "AbortError") { speakAudioRef.current = null; } }
+      audio.play().catch(() => { URL.revokeObjectURL(url); speakAudioRef.current = null; _browserSpeak(text); });
+    } catch (e) { if (e?.name !== "AbortError") { speakAudioRef.current = null; _browserSpeak(text); } }
   };
+
+  function _browserSpeak(text) {
+    if (!("speechSynthesis" in window)) return;
+    window.speechSynthesis.cancel();
+    const utt = new SpeechSynthesisUtterance(text.slice(0, 500));
+    utt.rate = 0.95;
+    window.speechSynthesis.speak(utt);
+  }
 
   // ── STT ───────────────────────────────────────────────────────────────────
 
