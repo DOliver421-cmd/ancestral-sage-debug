@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { api } from "../lib/api";
 import { useAuth } from "../lib/auth";
+import AppShell from "../components/AppShell";
 import BackButton from "../components/BackButton";
 import SovereignAvatar from "../components/SovereignAvatar";
 import { BookOpen, Brain, MessageSquare, ShoppingBag, Sparkles, HandHelping, ArrowRight } from "lucide-react";
@@ -34,6 +35,7 @@ export default function Palace() {
   const pct = next ? Math.min(100, Math.round(((pts - tierMin) / Math.max(1, nextThreshold - tierMin)) * 100)) : 100;
 
   return (
+    <AppShell>
     <div
       style={{
         minHeight: "100vh",
@@ -122,5 +124,6 @@ export default function Palace() {
         </div>
       </div>
     </div>
+    </AppShell>
   );
 }
