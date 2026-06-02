@@ -1,8 +1,9 @@
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../lib/auth";
 import { WAI_LOGO, BRAND } from "../lib/brand";
-import { LayoutDashboard, BookOpen, Award, Users, Settings, Sparkles, LogOut, FlaskConical, Target, ClipboardCheck, Briefcase, BadgeCheck, Brain, ShieldCheck, Building2, TrendingUp, ScrollText, Calendar, ShieldAlert, KeyRound, Crown, Compass, HelpCircle, Layers, HandHelping, Scale, Trophy, Network, ShoppingBag, Heart, Receipt, Video, DollarSign, UserCircle } from "lucide-react";
+import { LayoutDashboard, BookOpen, Award, Users, Settings, Sparkles, LogOut, FlaskConical, Target, ClipboardCheck, Briefcase, BadgeCheck, Brain, ShieldCheck, Building2, TrendingUp, ScrollText, Calendar, ShieldAlert, KeyRound, Crown, Compass, HelpCircle, Layers, HandHelping, Scale, Trophy, Network, ShoppingBag, Heart, Receipt, Video, DollarSign, UserCircle, WifiOff } from "lucide-react";
 import NotificationBell from "./NotificationBell";
+import { useEffect, useState } from "react";
 
 const studentNav = [
   { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard, testid: "nav-dashboard" },
@@ -92,6 +93,17 @@ export default function AppShell({ children }) {
   const { user, logout } = useAuth();
   const loc = useLocation();
   const nav = useNavigate();
+  const [backendDown, setBackendDown] = useState(false);
+
+  useEffect(() => {
+    const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || "https://ancestral-sage-debug-production.up.railway.app";
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 6000);
+    fetch(`${BACKEND_URL}/api/version`, { signal: ctrl.signal })
+      .then(r => { clearTimeout(timer); setBackendDown(!r.ok); })
+      .catch(() => { clearTimeout(timer); setBackendDown(true); });
+    return () => { clearTimeout(timer); ctrl.abort(); };
+  }, []);
 
   const items = user?.role === "executive_admin" ? execAdminNav
     : user?.role === "admin" ? adminNav
@@ -158,7 +170,15 @@ export default function AppShell({ children }) {
           </button>
         </div>
       </aside>
-      <main className="flex-1 min-w-0">{children}</main>
+      <div className="flex-1 min-w-0 flex flex-col">
+        {backendDown && (
+          <div className="flex items-center gap-3 px-6 py-3 bg-destructive/10 border-b border-destructive/20" data-testid="backend-offline-banner">
+            <WifiOff className="w-4 h-4 text-destructive shrink-0" />
+            <span className="text-sm font-semibold text-destructive">Backend offline — data cannot load. Check Railway service status or contact support.</span>
+          </div>
+        )}
+        <main className="flex-1 min-w-0">{children}</main>
+      </div>
     </div>
   );
 }
