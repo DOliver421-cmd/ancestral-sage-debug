@@ -140,7 +140,21 @@ export default function AppShell({ children }) {
           })}
         </nav>
 
-        <div className="px-4 pb-4">
+        <div className="px-4 pb-2">
+          <Link
+            to="/wai-institute"
+            data-testid="nav-wai-institute"
+            className="flex flex-col gap-1 w-full rounded-xl p-4 text-white no-underline transition-all hover:opacity-90 mb-2"
+            style={{ background: "linear-gradient(135deg,#1B4332,#2D6A4F)", textDecoration: "none", border: "1.5px solid #E8A51E", boxShadow: "0 4px 16px rgba(27,67,50,0.40)" }}
+          >
+            <div className="flex items-center gap-2">
+              <span style={{ fontSize: 16 }}>🏛️</span>
+              <span style={{ fontSize: 14, fontWeight: 900, lineHeight: 1.2, color: "#E8A51E", letterSpacing: "0.02em" }}>WAI Institute</span>
+            </div>
+            <span style={{ fontSize: 11, opacity: 0.85, lineHeight: 1.4, color: "#fff", paddingLeft: 26 }}>
+              Administration · Classrooms · Credentials
+            </span>
+          </Link>
           <Link
             to="/app/helper"
             data-testid="nav-helper"
