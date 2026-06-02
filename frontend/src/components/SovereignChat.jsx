@@ -3,11 +3,7 @@ import { useAuth } from "../lib/auth";
 import { api, BACKEND_URL } from "../lib/api";
 import SovereignAvatar from "./SovereignAvatar";
 import { Send, X, Mic, MicOff, Volume2, VolumeX } from "lucide-react";
-
-const SpeechRecognitionImpl =
-  typeof window !== "undefined"
-    ? window.SpeechRecognition || window.webkitSpeechRecognition
-    : null;
+import { useMic } from "../hooks/useMic";
 
 // Executive-only "Summon The Sovereign" launcher + resizable chat panel.
 // Wired to POST /api/sovereign/chat (exec-gated on the backend). Renders nothing
@@ -21,11 +17,9 @@ export default function SovereignChat() {
   const [sending, setSending] = useState(false);
 
   // Audio state
-  const [audioOn, setAudioOn]       = useState(false);
-  const [recording, setRecording]   = useState(false);
+  const [audioOn, setAudioOn] = useState(false);
 
   // Refs
-  const recRef        = useRef(null);
   const speakAudioRef = useRef(null);
   const speakAbortRef = useRef(null);
 
@@ -74,36 +68,10 @@ export default function SovereignChat() {
   }, []);
 
   // ── STT ─────────────────────────────────────────────────────────────────────
-  const toggleMic = useCallback(async () => {
-    if (!SpeechRecognitionImpl) return;
-    if (recording) {
-      recRef.current?.stop();
-      recRef.current = null;
-      setRecording(false);
-      return;
-    }
-    try {
-      await navigator.mediaDevices.getUserMedia({ audio: true });
-    } catch {
-      return;
-    }
-    if (recRef.current) { recRef.current.stop(); recRef.current = null; }
-    const rec = new SpeechRecognitionImpl();
-    rec.lang = "en-US"; rec.continuous = false; rec.interimResults = false;
-    rec.onresult = (ev) => {
-      const txt = ev.results?.[0]?.[0]?.transcript?.trim();
-      if (txt) setInput((cur) => cur ? `${cur} ${txt}` : txt);
-    };
-    rec.onerror = () => { recRef.current = null; setRecording(false); };
-    rec.onend   = () => { recRef.current = null; setRecording(false); };
-    recRef.current = rec;
-    try {
-      rec.start();
-      setRecording(true);
-    } catch {
-      recRef.current = null;
-    }
-  }, [recording]);
+  const { listening: recording, toggle: toggleMic } = useMic({
+    onResult: (txt) => setInput((cur) => cur ? `${cur} ${txt}` : txt),
+    onError:  () => {},
+  });
 
   if (user?.role !== "executive_admin") return null;
 

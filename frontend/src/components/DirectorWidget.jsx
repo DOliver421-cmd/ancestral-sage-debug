@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { api, API, BACKEND_URL } from "../lib/api";
 import { useAuth } from "../lib/auth";
 import { toast } from "sonner";
+import { useMic } from "../hooks/useMic";
 
 // ── Constants ──────────────────────────────────────────────────────────────────
 
@@ -603,7 +604,6 @@ export default function DirectorWidget() {
   const [loading, setLoading]       = useState(false);
   const [minimized, setMinimized]   = useState(false);
   const [audioOn, setAudioOn]       = useState(true);
-  const [recording, setRecording]   = useState(false);
   const [uploading, setUploading]   = useState(false);
   const [attachedFile, setAttachedFile] = useState(null);
   const [activeTab, setActiveTab]   = useState("chat");
@@ -733,7 +733,6 @@ export default function DirectorWidget() {
   // ── Derived ────────────────────────────────────────────────────────────────
 
   const bottomRef     = useRef(null);
-  const recRef        = useRef(null);
   const speakAudioRef = useRef(null);
   const speakAbortRef = useRef(null);
   const isMonitor  = user?.role === "admin" || user?.role === "executive_admin";
@@ -832,35 +831,10 @@ export default function DirectorWidget() {
 
   // ── STT ───────────────────────────────────────────────────────────────────
 
-  const toggleMic = async () => {
-    if (!SpeechRecognitionImpl) return;
-    if (recording) {
-      recRef.current?.stop();
-      recRef.current = null;
-      setRecording(false);
-      return;
-    }
-    try {
-      await navigator.mediaDevices.getUserMedia({ audio: true });
-    } catch {
-      return;
-    }
-    const rec = new SpeechRecognitionImpl();
-    rec.lang = "en-US"; rec.continuous = false; rec.interimResults = false;
-    rec.onresult = ev => {
-      const txt = ev.results?.[0]?.[0]?.transcript?.trim();
-      if (txt) setInput(cur => cur ? `${cur} ${txt}` : txt);
-    };
-    rec.onerror = () => { recRef.current = null; setRecording(false); };
-    rec.onend   = () => { recRef.current = null; setRecording(false); };
-    recRef.current = rec;
-    try {
-      rec.start();
-      setRecording(true);
-    } catch {
-      recRef.current = null;
-    }
-  };
+  const { listening: recording, toggle: toggleMic } = useMic({
+    onResult: (txt) => setInput(cur => cur ? `${cur} ${txt}` : txt),
+    onError:  (msg) => toast.error(msg),
+  });
 
   // ── File upload ───────────────────────────────────────────────────────────
 
