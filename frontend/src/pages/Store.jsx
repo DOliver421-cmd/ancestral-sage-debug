@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
+import AppShell from "../components/AppShell";
 import { api } from "../lib/api";
 import { useAuth } from "../lib/auth";
 import { ShoppingBag, Package, BookOpen, Shirt, LogIn, UserPlus, X } from "lucide-react";
@@ -82,6 +83,7 @@ export default function Store() {
   }
 
   return (
+    <AppShell>
     <div className="p-8 max-w-5xl mx-auto">
       <div className="mb-8">
         <h1 className="font-heading text-3xl font-bold text-ink mb-2">WAI Store</h1>
@@ -121,5 +123,6 @@ export default function Store() {
       </div>
       {showGate && <AuthGate onClose={() => setShowGate(false)} />}
     </div>
+    </AppShell>
   );
 }
