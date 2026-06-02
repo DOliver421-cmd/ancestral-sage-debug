@@ -69,6 +69,7 @@ import SeshatsHubPublic from "./pages/SeshatsHubPublic";
 import TermsOfService from "./pages/TermsOfService";
 import PrivacyPolicy from "./pages/PrivacyPolicy";
 import MoreHelpCenter from "./pages/MoreHelpCenter";
+import WAIInstitute from "./pages/WAIInstitute";
 import CookieConsent from "./components/CookieConsent";
 import HelpGuide from "./components/HelpGuide";
 import WelcomeWizard from "./components/WelcomeWizard";
@@ -145,6 +146,11 @@ function Home() {
 
 function App() {
   const hostname = window.location.hostname;
+  // wai-institute.org is the institution portal (admin + classrooms) — redirect to the WAI Institute hub on morehelp.center
+  if (hostname.includes("wai-institute.org")) {
+    window.location.replace("https://www.morehelp.center/wai-institute");
+    return null;
+  }
   if (hostname.includes("morehelp.center")) {
     return (
       <AuthProvider>
@@ -155,6 +161,9 @@ function App() {
               {/* Auth pages must work on morehelp.center too */}
               <Route path="/login" element={<Login />} />
               <Route path="/register" element={<Register />} />
+              {/* WAI Institute portal — administration + classrooms */}
+              <Route path="/wai-institute" element={<WAIInstitute />} />
+              <Route path="/wai-institute/*" element={<WAIInstitute />} />
               <Route path="*" element={<MoreHelpCenter />} />
             </Routes>
           </ErrorBoundary>

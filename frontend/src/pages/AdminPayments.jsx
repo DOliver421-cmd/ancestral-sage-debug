@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import AppShell from "../components/AppShell";
 import { api } from "../lib/api";
 import { DollarSign, Receipt } from "lucide-react";
 import { toast } from "sonner";
@@ -23,6 +24,7 @@ export default function AdminPayments() {
   const totalDollars = data ? (data.total_revenue_cents / 100).toFixed(2) : "—";
 
   return (
+    <AppShell>
     <div className="p-8 max-w-6xl mx-auto">
       <div className="flex items-center gap-3 mb-8">
         <Receipt className="w-7 h-7 text-ink/60" />
@@ -88,5 +90,6 @@ export default function AdminPayments() {
         </div>
       )}
     </div>
+    </AppShell>
   );
 }

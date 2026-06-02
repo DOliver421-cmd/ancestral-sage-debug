@@ -1694,6 +1694,10 @@ export default function MoreHelpCenter() {
             {NAV_LINKS.map(({ label, to }) => (
               <Link key={to} to={to} style={{ fontSize: 10, fontWeight: 800, textTransform: "uppercase", letterSpacing: 2, color: "white", textDecoration: "none", background: TERRACOTTA, padding: "4px 11px", borderRadius: 4 }}>{label}</Link>
             ))}
+            {/* WAI Institute — prominent entry point to administration + classrooms */}
+            <Link to="/wai-institute" style={{ fontSize: 11, fontWeight: 900, textTransform: "uppercase", letterSpacing: 2, color: "#fff", textDecoration: "none", background: GROVE, padding: "6px 14px", borderRadius: 4, border: `1.5px solid ${AMBER}`, display: "flex", alignItems: "center", gap: 5 }}>
+              🏛️ WAI Institute
+            </Link>
             {execMode && (
               <Link to="/admin/system" style={{ fontSize: 10, fontWeight: 800, textTransform: "uppercase", letterSpacing: 2, color: AMBER, textDecoration: "none", background: BARK, padding: "4px 11px", borderRadius: 4, display: "flex", alignItems: "center", gap: 4 }}>
                 <Crown style={{ width: 12, height: 12 }} /> Dashboard
