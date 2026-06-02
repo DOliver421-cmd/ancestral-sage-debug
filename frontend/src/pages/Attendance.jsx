@@ -10,7 +10,7 @@ export default function Attendance() {
   const [statuses, setStatuses] = useState({});
   const [saving, setSaving] = useState(false);
 
-  const load = useCallback(() => api.get("/attendance/roster").then((r) => setRoster(r.data)), []);
+  const load = useCallback(() => api.get("/attendance/roster").then((r) => setRoster(r.data)).catch(() => {}), []);
   useEffect(() => { load(); }, [load]);
 
   const setStatus = (id, s) => setStatuses({ ...statuses, [id]: s });

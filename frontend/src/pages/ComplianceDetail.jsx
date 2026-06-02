@@ -12,7 +12,7 @@ export default function ComplianceDetail() {
   const [answers, setAnswers] = useState({});
   const [result, setResult] = useState(null);
 
-  useEffect(() => { api.get(`/compliance/${slug}`).then((r) => setMod(r.data)); }, [slug]);
+  useEffect(() => { api.get(`/compliance/${slug}`).then((r) => setMod(r.data)).catch(() => {}); }, [slug]);
 
   const submitQuiz = async () => {
     const ordered = mod.quiz.map((_, i) => answers[i] ?? -1);

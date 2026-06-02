@@ -10,8 +10,8 @@ export default function LabsHub() {
   const [comp, setComp] = useState(null);
 
   useEffect(() => {
-    api.get("/labs").then((r) => setLabs(r.data));
-    api.get("/competencies").then((r) => setComp(r.data));
+    api.get("/labs").then((r) => setLabs(r.data)).catch(() => {});
+    api.get("/competencies").then((r) => setComp(r.data)).catch(() => {});
   }, []);
 
   const filtered = labs.filter((l) => l.track === tab);

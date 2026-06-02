@@ -19,7 +19,7 @@ export default function Incidents() {
 
   const load = useCallback(() => {
     if (!isStaff) return Promise.resolve();
-    return api.get(`/incidents${filter ? `?status=${filter}` : ""}`).then((r) => setList(r.data));
+    return api.get(`/incidents${filter ? `?status=${filter}` : ""}`).then((r) => setList(r.data)).catch(() => {});
   }, [filter, isStaff]);
   useEffect(() => { load(); }, [load]);
 
