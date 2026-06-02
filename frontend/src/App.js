@@ -145,6 +145,11 @@ function Home() {
 
 function App() {
   const hostname = window.location.hostname;
+  // wai-institute.org is the AI/LLM gateway — hard-redirect to the AI tutor on morehelp.center
+  if (hostname.includes("wai-institute.org")) {
+    window.location.replace("https://www.morehelp.center/ai");
+    return null;
+  }
   if (hostname.includes("morehelp.center")) {
     return (
       <AuthProvider>
