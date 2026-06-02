@@ -95,6 +95,7 @@ import CreatorCourses from "./pages/CreatorCourses";
 import CreatorEarnings from "./pages/CreatorEarnings";
 import CreatorProfileEdit from "./pages/CreatorProfileEdit";
 import SiteControlPanel from "./pages/SiteControlPanel";
+import AccountControls from "./pages/AccountControls";
 
 // Role hierarchy must mirror backend ROLE_RANK in /app/backend/server.py.
 // Higher rank = more authority; a higher-rank role passes any check meant
@@ -229,6 +230,7 @@ function App() {
           <Route path="/instructor" element={<Protected roles={["instructor", "admin"]}><InstructorDashboard /></Protected>} />
           <Route path="/admin" element={<BoundedAdmin roles={["admin"]} label="Admin Dashboard"><AdminDashboard /></BoundedAdmin>} />
           <Route path="/admin/users" element={<BoundedAdmin roles={["admin"]} label="Admin Dashboard"><AdminDashboard /></BoundedAdmin>} />
+          <Route path="/admin/accounts" element={<BoundedAdmin roles={["admin"]} label="Account Controls" backTo="/admin"><AccountControls /></BoundedAdmin>} />
           <Route path="/admin/associate" element={<BoundedAdmin roles={["admin"]} label="Admin Dashboard"><AdminDashboard /></BoundedAdmin>} />
           {/* Modules — public preview shows free intro modules; full catalog gated */}
           <Route path="/modules" element={<ModulesList />} />

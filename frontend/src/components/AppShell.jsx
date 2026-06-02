@@ -58,6 +58,7 @@ const instructorNav = [
 
 const adminNav = [
   { to: "/admin", label: "Overview", icon: Settings, testid: "nav-admin" },
+  { to: "/admin/accounts", label: "Account Controls", icon: Users, testid: "nav-accounts" },
   { to: "/creator/courses", label: "Creator Studio", icon: Video, testid: "nav-creator-courses" },
   { to: "/creator/earnings", label: "My Earnings", icon: DollarSign, testid: "nav-creator-earnings" },
   { to: "/admin/users", label: "Users", icon: Users, testid: "nav-admin-users" },
@@ -85,6 +86,7 @@ const adminNav = [
 const execAdminNav = [
   { to: "/admin/control", label: "Control Panel", icon: Shield, testid: "nav-control-panel" },
   { to: "/admin/system", label: "System", icon: Crown, testid: "nav-exec-system" },
+  { to: "/admin/accounts", label: "Account Controls", icon: Users, testid: "nav-accounts-exec" },
   { to: "/admin/sage-audit", label: "Sage Sessions", icon: Compass, testid: "nav-sage-audit" },
   ...adminNav,
 ];
