@@ -1269,6 +1269,11 @@ async def _on_startup_impl():
         logger.warning("STARTUP: seed_sites_inventory failed (non-fatal): %s", _e)
 
     try:
+        await seed_creator_profiles()
+    except Exception as _e:
+        logger.warning("STARTUP: seed_creator_profiles failed (non-fatal): %s", _e)
+
+    try:
         await backfill_verification_codes()
     except Exception as _e:
         logger.warning("STARTUP: backfill_verification_codes failed (non-fatal): %s", _e)
@@ -1563,6 +1568,57 @@ async def seed_sites_inventory():
                 "id": str(uuid.uuid4()),
                 "quantity_available": it["quantity_total"],
             })
+
+
+# Creator profiles that must exist in the DB (previously hardcoded in frontend).
+# Upserted by slug on every startup so the data survives collection wipes.
+_SEED_CREATOR_PROFILES = [
+    {
+        "slug": "nova-highborn",
+        "display_name": "Nova Highborn",
+        "title": "Visual Artist · Poet · Digital Content Creator",
+        "bio": (
+            "Nova Highborn is what happens when a girl who was taught she was ordinary decides she never was. "
+            "Visual art that speaks before it's explained. Poetry that arrives like light through a crack. "
+            "Digital content that makes her community feel seen on screens that have historically looked past them."
+        ),
+        "avatar": "✨",
+        "tags": ["visual art", "poetry", "digital content", "music curation"],
+        "social_links": {},
+        "is_public": True,
+    },
+    {
+        "slug": "nam-oshun",
+        "display_name": "NAM Oshun",
+        "title": "Poet · Community Organizer",
+        "bio": "Founding voice of the M.O.R.E. Help Center. Words that heal. Community that holds.",
+        "avatar": "🌊",
+        "tags": ["poetry", "community", "healing"],
+        "social_links": {},
+        "is_public": True,
+    },
+    {
+        "slug": "royal-black-falcon",
+        "display_name": "Royal Black Falcon",
+        "title": "Poet · Cultural Warrior",
+        "bio": "A griot in the tradition that doesn't need to announce itself.",
+        "avatar": "🦅",
+        "tags": ["poetry", "culture", "griot"],
+        "social_links": {},
+        "is_public": True,
+    },
+]
+
+
+async def seed_creator_profiles():
+    now = datetime.now(timezone.utc).isoformat()
+    for profile in _SEED_CREATOR_PROFILES:
+        await db.creator_profiles.update_one(
+            {"slug": profile["slug"]},
+            {"$set": profile, "$setOnInsert": {"created_at": now, "user_id": "seed"}},
+            upsert=True,
+        )
+    logger.info("Seeded %d creator profiles", len(_SEED_CREATOR_PROFILES))
 
 
 @api_router.get("/")
@@ -3895,6 +3951,9 @@ async def ai_tool_chat(body: ToolChatReq, user: User = Depends(current_user)):
         "user_id": user.id,
         "endpoint": "/ai/tool-chat",
         "skill": skill_key,
+        "model": gw.get("model", "unknown"),
+        "provider": gw.get("provider", "anthropic"),
+        "cost_usd": gw.get("cost_usd", 0.0),
         "created_at": datetime.now(timezone.utc).isoformat(),
     })
     return {"reply": reply, "session_id": body.session_id}
@@ -4195,41 +4254,21 @@ YOU NEVER:
 
 WAI-Institute and M.O.R.E. Help Center exist to multiply resources and empowerment for communities that have been locked out of the institutions that build wealth, opportunity, and influence. Every person who uses this Helper deserves your full effort."""
 
-    import anthropic as _anth
-    from ai.retry_utils import async_retry
-    _client = _anth.AsyncAnthropic(api_key=ANTHROPIC_API_KEY)
-
-    # ── REDUNDANCY CHAIN ──────────────────────────────────────────────────────
-    # Tier 1: claude-haiku-4-5         (current fast model)
-    # Tier 2: claude-3-haiku-20240307  (stable older model, same API key)
-    # Tier 3: Server-side KB response  (zero external dependency)
-
-    _HELPER_MODELS = [
-        "claude-haiku-4-5",
-        "claude-3-haiku-20240307",
-    ]
-
+    # ── LLM via gateway (handles retry, fallback, cost tracking) ─────────────
     reply = ""
-    for _hmodel in _HELPER_MODELS:
-        try:
-            resp = await async_retry(
-                _client.messages.create,
-                max_attempts=3, base_delay=1.5,
-                model=_hmodel,
-                max_tokens=512,
-                system=_HELPER_SYSTEM,
-                messages=[{"role": "user", "content": message}],
-            )
-            for block in resp.content:
-                if hasattr(block, "text"):
-                    reply += block.text
-            if reply.strip():
-                break
-        except Exception as _herr:
-            logger.warning("Helper AI: model %s failed (%s) — trying next tier", _hmodel, _herr)
-            reply = ""
+    try:
+        from ai.llm_gateway import call_llm as _call_llm
+        _gw = await _call_llm(
+            system=_HELPER_SYSTEM,
+            messages=[{"role": "user", "content": message}],
+            max_tokens=512,
+            persona_label="helper",
+        )
+        reply = _gw.get("text", "").strip()
+    except Exception as _herr:
+        logger.warning("Helper AI: gateway call failed (%s) — falling through to KB", _herr)
 
-    # ── Tier 3: Server-side KB fallback ──────────────────────────────────────
+    # ── Server-side KB fallback (zero external dependency) ───────────────────
     if not reply.strip():
         msg_lower = message.lower()
         if any(w in msg_lower for w in ["evict", "eviction", "landlord", "lease", "rent", "housing"]):
@@ -4527,6 +4566,15 @@ async def ai_director(body: dict, user: User = Depends(current_user)):
         await _log_ep(db, session_id, "director", user.id, message, reply, [])
 
     persona = "director" if is_exec else "assistant_director"
+    await db.ai_usage_log.insert_one({
+        "user_id": user.id,
+        "endpoint": "/ai/director",
+        "persona": persona,
+        "model": "claude-sonnet-4-6",
+        "provider": "anthropic",
+        "cost_usd": 0.0,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    })
     return {"reply": reply, "persona": persona}
 
 
@@ -6629,19 +6677,18 @@ async def _oliver_moderate(content: str, user_id: str = "unknown", content_type:
     FAIL-SAFE: on any error, returns 'quarantine' decision — never auto-approves.
     Every decision is written to the audit log regardless of outcome.
     """
-    import anthropic
     import json as _json
 
     decision_result = None
     try:
-        aclient = anthropic.AsyncAnthropic(api_key=ANTHROPIC_API_KEY)
-        resp = await aclient.messages.create(
-            model="claude-haiku-4-5-20251001",  # Fast and cost-effective for routine moderation
-            max_tokens=512,
+        from ai.llm_gateway import call_llm as _call_llm
+        _gw = await _call_llm(
             system=_OLIVER_GUARDIAN_PROMPT,
             messages=[{"role": "user", "content": f"Content to moderate:\n\n{content}"}],
+            max_tokens=512,
+            persona_label="oliver_guardian",
         )
-        raw = resp.content[0].text.strip()
+        raw = _gw["text"].strip()
         # Strip markdown code fences if model adds them
         if raw.startswith("```"):
             raw = raw.split("```")[1]
@@ -8131,6 +8178,11 @@ async def ai_ambassador(body: dict, user: User = Depends(current_user)):
             reply = "THE AMBASSADOR is temporarily offline. Campaign pipeline intelligence remains archived. Retry in a moment."
 
     await log_episode(db, session_id, "ambassador", user.id, message, reply, _tools_called)
+    await db.ai_usage_log.insert_one({
+        "user_id": user.id, "endpoint": "/ai/ambassador", "persona": "ambassador",
+        "model": "claude-sonnet-4-6", "provider": "anthropic", "cost_usd": 0.0,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    })
     logger.info("ai_ambassador: responded for user %s", user.id)
     return {"reply": reply, "persona": "ambassador", "mode": "campaign_coordination"}
 
@@ -8251,6 +8303,11 @@ async def ai_architect(body: dict, user: User = Depends(current_user)):
             reply = "THE ARCHITECT is temporarily offline. Visual intelligence archives remain active. Retry in a moment."
 
     await log_episode(db, session_id, "architect", user.id, message, reply, _tools_called)
+    await db.ai_usage_log.insert_one({
+        "user_id": user.id, "endpoint": "/ai/architect", "persona": "architect",
+        "model": "claude-sonnet-4-6", "provider": "anthropic", "cost_usd": 0.0,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    })
     logger.info("ai_architect: responded for user %s", user.id)
     return {"reply": reply, "persona": "architect", "mode": "visual_intelligence"}
 
@@ -8365,6 +8422,11 @@ async def ai_cipher(body: dict, user: User = Depends(current_user)):
             reply = "THE CIPHER is temporarily operating without AI connectivity. Revenue streams remain active. Retry in a moment."
 
     await log_episode(db, session_id, "cipher", user.id, message, reply, _tools_called)
+    await db.ai_usage_log.insert_one({
+        "user_id": user.id, "endpoint": "/ai/cipher", "persona": "cipher",
+        "model": "claude-sonnet-4-6", "provider": "anthropic", "cost_usd": 0.0,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    })
     logger.info("ai_cipher: responded for user %s", user.id)
     return {"reply": reply, "persona": "cipher", "mode": "creative_authority"}
 
@@ -8478,6 +8540,11 @@ async def ai_oracle(body: dict, user: User = Depends(current_user)):
             reply = "THE ORACLE is temporarily operating without AI connectivity. Cultural intelligence archives remain active. Retry in a moment."
 
     await log_episode(db, session_id, "oracle", user.id, message, reply, _tools_called)
+    await db.ai_usage_log.insert_one({
+        "user_id": user.id, "endpoint": "/ai/oracle", "persona": "oracle",
+        "model": "claude-sonnet-4-6", "provider": "anthropic", "cost_usd": 0.0,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    })
     logger.info("ai_oracle: responded for user %s", user.id)
     return {"reply": reply, "persona": "oracle", "mode": "cultural_intelligence"}
 
@@ -9580,15 +9647,9 @@ async def exec_staff_meeting(
                 f"Provide your domain-specific assessment, action items, and recommendations."
             )
 
-            try:
-                from ai.llm_gateway import call_llm as _call_llm
-                _gw = await _call_llm(system=system_prompt, messages=[{"role": "user", "content": user_message}], max_tokens=1024, persona_label=persona_id)
-                response = _gw["text"].strip()
-            except Exception:
-                _client = _anthropic_module.AsyncAnthropic(api_key=ANTHROPIC_API_KEY)
-                _msg = await _client.messages.create(model="claude-haiku-4-5", max_tokens=1024,
-                                                      system=system_prompt, messages=[{"role": "user", "content": user_message}])
-                response = _msg.content[0].text.strip()
+            from ai.llm_gateway import call_llm as _call_llm
+            _gw = await _call_llm(system=system_prompt, messages=[{"role": "user", "content": user_message}], max_tokens=1024, persona_label=persona_id)
+            response = _gw["text"].strip()
             return persona_id, response
         except Exception as exc:
             logger.warning("staff_meeting: persona %s LLM call failed: %s", persona_id, exc)
@@ -9651,12 +9712,8 @@ async def exec_staff_meeting(
                             from ai.llm_gateway import call_llm as _call_llm
                             _gw = await _call_llm(system=_the9_system, messages=[{"role": "user", "content": _the9_user}], max_tokens=2048, persona_label="the_9")
                             synthesis["synthesis_brief"] = _gw["text"].strip()
-                        except Exception:
-                            import anthropic as _anthropic_module
-                            _client = _anthropic_module.AsyncAnthropic(api_key=ANTHROPIC_API_KEY)
-                            _msg = await _client.messages.create(model="claude-sonnet-4-6", max_tokens=2048,
-                                                                  system=_the9_system, messages=[{"role": "user", "content": _the9_user}])
-                            synthesis["synthesis_brief"] = _msg.content[0].text.strip()
+                        except Exception as _synth_err:
+                            logger.warning("staff_meeting: The 9 LLM synthesis failed: %s", _synth_err)
                     except Exception as _synth_err:
                         logger.warning("staff_meeting: The 9 LLM synthesis failed: %s", _synth_err)
             except Exception as _the9_err:

@@ -69,19 +69,31 @@ export default function ModuleView() {
           <div className="overline text-signal/80 mt-3">{mod.scripture.ref}</div>
         </div>
 
-        {/* Video/image placeholders */}
-        <div className="grid md:grid-cols-2 gap-4 mt-8">
-          <div className="card-flat aspect-video flex flex-col items-center justify-center bg-ink/5" data-testid="video-placeholder">
-            <FileImage className="w-10 h-10 text-ink/30" />
-            <div className="overline text-ink/50 mt-3">Lesson Video</div>
-            <div className="text-xs text-ink/40 mt-1">Instructor upload pending</div>
+        {/* Video and diagram — render only when backend provides URLs */}
+        {(mod.video_url || mod.diagram_url) && (
+          <div className="grid md:grid-cols-2 gap-4 mt-8">
+            {mod.video_url ? (
+              <div className="card-flat aspect-video overflow-hidden" data-testid="video-player">
+                <iframe
+                  src={mod.video_url}
+                  title={`${mod.title} — lesson video`}
+                  className="w-full h-full"
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                  allowFullScreen
+                />
+              </div>
+            ) : null}
+            {mod.diagram_url ? (
+              <div className="card-flat aspect-video overflow-hidden flex items-center justify-center bg-ink/5" data-testid="diagram-viewer">
+                <img
+                  src={mod.diagram_url}
+                  alt={`${mod.title} — wiring diagram`}
+                  className="max-w-full max-h-full object-contain"
+                />
+              </div>
+            ) : null}
           </div>
-          <div className="card-flat aspect-video flex flex-col items-center justify-center bg-ink/5" data-testid="diagram-placeholder">
-            <FileImage className="w-10 h-10 text-ink/30" />
-            <div className="overline text-ink/50 mt-3">Wiring Diagram</div>
-            <div className="text-xs text-ink/40 mt-1">Reference drawing</div>
-          </div>
-        </div>
+        )}
 
         {/* Content sections */}
         <Section icon={BookOpen} title="Learning Objectives" testid="section-objectives">
