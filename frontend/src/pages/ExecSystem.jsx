@@ -616,78 +616,58 @@ function UserDatabase() {
 }
 
 // ── API Key Manager ───────────────────────────────────────────────────────────
-const AI_PROVIDERS = [
-  { key: "gemini",  label: "Google Gemini",  hint: "AIza…",  tier: "Free via AI Studio",        link: "https://aistudio.google.com" },
-  { key: "cohere",  label: "Cohere",         hint: "…",      tier: "Free trial tier",            link: "https://dashboard.cohere.com" },
-  { key: "hf",      label: "Hugging Face",   hint: "hf_…",   tier: "Free inference API",         link: "https://huggingface.co/settings/tokens" },
-  { key: "grok",    label: "Grok (xAI)",     hint: "xai-…",  tier: "Free beta tier",             link: "https://console.x.ai" },
-];
-
 function ApiKeyManager() {
-  const STORAGE_KEY = "supervisor_api_keys";
-  const [keys, setKeys] = useState(() => {
-    try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}"); } catch { return {}; }
-  });
-  const [saved, setSaved] = useState({});
+  const [keys, setKeys] = useState([]);
+  const [loading, setLoading] = useState(true);
 
-  function handleSave(provider) {
-    const val = keys[provider] || "";
-    if (!val.trim()) return;
-    const updated = { ...keys, [provider]: val.trim() };
-    setKeys(updated);
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
-    setSaved(s => ({ ...s, [provider]: true }));
-    setTimeout(() => setSaved(s => ({ ...s, [provider]: false })), 3000);
-  }
-
-  function handleClear(provider) {
-    const updated = { ...keys };
-    delete updated[provider];
-    setKeys(updated);
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
-  }
+  useEffect(() => {
+    api.get("/providers/keys")
+      .then(r => setKeys(Array.isArray(r.data) ? r.data : []))
+      .catch(() => setKeys([]))
+      .finally(() => setLoading(false));
+  }, []);
 
   return (
     <div className="bg-white rounded-2xl p-6 border border-slate-100 shadow-sm text-slate-900">
-      <h2 className="font-heading font-extrabold text-base text-slate-900 mb-1 flex items-center gap-2">
-        <Shield className="w-4 h-4 text-amber-500" /> AI Service API Keys
-      </h2>
-      <p className="text-xs text-slate-500 mb-5">Keys are stored locally in your browser. All providers offer free tiers. Used by The Supervisor backup system.</p>
-      <div className="grid sm:grid-cols-2 gap-4">
-        {AI_PROVIDERS.map(p => (
-          <div key={p.key} className="border border-slate-100 rounded-xl p-4">
-            <div className="flex items-center justify-between mb-1">
-              <span className="font-heading font-bold text-sm text-slate-900">{p.label}</span>
-              {keys[p.key]
-                ? <span className="text-xs font-bold bg-emerald-50 text-emerald-700 px-2 py-0.5 rounded-full">Key Set ✓</span>
-                : <span className="text-xs font-bold bg-slate-100 text-slate-500 px-2 py-0.5 rounded-full">Not Set</span>
+      <div className="flex items-start justify-between gap-4 mb-4">
+        <div>
+          <h2 className="font-heading font-extrabold text-base text-slate-900 flex items-center gap-2">
+            <KeyRound className="w-4 h-4 text-amber-500" /> AI Provider Keys
+          </h2>
+          <p className="text-xs text-slate-500 mt-1">
+            Keys are encrypted and stored in the database — they take effect on the server immediately.
+          </p>
+        </div>
+        <Link
+          to="/admin/providers"
+          className="flex-shrink-0 flex items-center gap-1.5 text-xs font-bold px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white rounded-lg transition-colors"
+        >
+          <KeyRound className="w-3.5 h-3.5" /> Manage Keys
+        </Link>
+      </div>
+
+      {loading ? (
+        <p className="text-sm text-slate-400">Loading…</p>
+      ) : keys.length === 0 ? (
+        <div className="bg-amber-50 border border-amber-200 rounded-lg px-4 py-3 text-sm text-amber-800">
+          No API keys configured yet. Click <strong>Manage Keys</strong> to add providers.
+        </div>
+      ) : (
+        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
+          {keys.map(k => (
+            <div key={k.id || k.provider_id} className="flex items-center justify-between border border-slate-100 rounded-xl px-4 py-3">
+              <div>
+                <div className="font-bold text-sm text-slate-800">{k.provider_name || k.provider_type}</div>
+                <div className="text-xs text-slate-500 mt-0.5">{k.provider_type}</div>
+              </div>
+              {k.is_active
+                ? <span className="text-xs font-bold bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full">Active</span>
+                : <span className="text-xs font-bold bg-slate-100 text-slate-500 px-2 py-0.5 rounded-full">Inactive</span>
               }
             </div>
-            <p className="text-xs text-slate-400 mb-3">{p.tier}</p>
-            <div className="flex gap-2">
-              <input
-                type="password"
-                className="flex-1 text-xs font-mono px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:border-slate-500"
-                placeholder={p.hint}
-                value={keys[p.key] || ""}
-                onChange={e => setKeys(k => ({ ...k, [p.key]: e.target.value }))}
-                onKeyDown={e => e.key === "Enter" && handleSave(p.key)}
-              />
-              <button
-                onClick={() => handleSave(p.key)}
-                className="px-3 py-2 text-xs font-bold bg-slate-900 text-white rounded-lg hover:bg-slate-700 transition-colors whitespace-nowrap">
-                {saved[p.key] ? "Saved ✓" : "Save"}
-              </button>
-              {keys[p.key] && (
-                <button onClick={() => handleClear(p.key)}
-                  className="px-3 py-2 text-xs font-bold border border-red-200 text-red-500 rounded-lg hover:bg-red-50 transition-colors">
-                  ✕
-                </button>
-              )}
-            </div>
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
@@ -952,9 +932,9 @@ export default function ExecSystem() {
           <h2 className="font-heading font-extrabold text-base text-slate-900 mb-3 flex items-center gap-2">
             <Database className="w-4 h-4 text-slate-400" /> Live Collections ({sys?.collections?.length || 0})
           </h2>
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-1">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-1.5">
             {(sys?.collections || []).map((c) => (
-              <div key={c} className="text-xs font-mono text-slate-700 py-1 px-2 bg-slate-50 rounded border border-slate-100">
+              <div key={c} className="text-xs font-mono font-semibold text-slate-800 py-1.5 px-3 bg-slate-100 rounded-lg border border-slate-200">
                 {c}
               </div>
             ))}
