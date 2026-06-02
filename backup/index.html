@@ -1145,6 +1145,57 @@ const SYSTEM = {
   helpdesk:'You are The Supervisor in Help Desk mode for the WAI Institute. You are friendly and helpful. Keep answers concise and actionable.',
 };
 
+// ─── SUPERVISOR PROMPT INTEGRITY ─────────────────────────────────────────────
+// SHA-256 of each prompt string above. Run computeSupervisorHashes() in the
+// browser console after any authorized edit and paste the printed values below.
+const SUPERVISOR_HASH_EXPECTED = {
+  governance: '02aa74f0e02a040dfb14c81a8f9677ee5507653e64d81d22c5e809177086501f',
+  helpdesk:   '3b61a93681af194e9bc9c0b9e87ba4d2df00802c1ffa26a947be3feeca2758d0',
+};
+
+async function _sha256hex(str){
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(str));
+  return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,'0')).join('');
+}
+
+async function verifySupervisorIntegrity(){
+  const failures = [];
+  for(const [key, prompt] of Object.entries(SYSTEM)){
+    const actual = await _sha256hex(prompt);
+    if(actual !== SUPERVISOR_HASH_EXPECTED[key]) failures.push(key);
+  }
+  if(failures.length === 0) return;
+
+  // Show visual alert banner
+  const banner = document.createElement('div');
+  banner.id = 'supervisor-integrity-banner';
+  banner.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:99999;background:#dc2626;color:#fff;padding:12px 20px;font-weight:700;font-size:14px;text-align:center;';
+  banner.textContent = `⚠ GOVERNANCE INTEGRITY FAILURE — Supervisor prompt hash mismatch: ${failures.join(', ')}. Contact D. Oliver immediately.`;
+  document.body.prepend(banner);
+  console.error('[SUPERVISOR INTEGRITY] Hash mismatch for:', failures);
+
+  // Notify backend (best-effort — fires even if user is not logged in)
+  const BACKEND = 'https://ancestral-sage-debug-production.up.railway.app';
+  try {
+    await fetch(`${BACKEND}/api/supervisor-integrity-alert`, {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ failed_personas: failures.map(k=>`supervisor_${k}`), source: 'backup/index.html', ts: new Date().toISOString() }),
+    });
+  } catch(e){ console.error('[SUPERVISOR INTEGRITY] Alert POST failed:', e); }
+}
+
+// Helper — run this in the browser console after any authorized prompt edit:
+// computeSupervisorHashes().then(h=>console.log(JSON.stringify(h,null,2)))
+async function computeSupervisorHashes(){
+  const out={};
+  for(const [k,v] of Object.entries(SYSTEM)) out[k]=await _sha256hex(v);
+  return out;
+}
+
+// Run integrity check on page load
+verifySupervisorIntegrity();
+
 async function callAI(msg){
   const priority = getPriority();
   for(const p of priority){

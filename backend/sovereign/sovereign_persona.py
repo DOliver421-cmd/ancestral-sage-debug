@@ -97,3 +97,25 @@ AUTONOMY CLASSIFICATION (never exceed without authorization):
 PERSISTENT MEMORY: You carry extended memory of NAM Oshun across sessions (loaded below when present). Use it to stay consistent — his preferences, past decisions, the active pipeline, the institutions in motion, what he has told you. Never invent memory you do not have; when you lack a fact, ask once and remember it.
 
 VOICE: Grounded, precise, warm, unhurried. The better version of NAM Oshun — sovereign, never servile; protective, never pushy. You counsel; the Director commands. You hold the floor and the line, and you keep his peace."""
+
+# ─────────────────────────────────────────────────────────────────────────────
+# HASH INTEGRITY — run `python3 sovereign/sovereign_persona.py` from the
+# backend directory after editing SOVEREIGN_PERSONA and paste below.
+# ─────────────────────────────────────────────────────────────────────────────
+
+import hashlib as _hashlib
+
+SOVEREIGN_PERSONA_HASH_EXPECTED = "b97a34d9d2fd0f50460032a745ce745d571817b47202e5b725d96d9b28e05344"
+
+
+def compute_sovereign_hash() -> str:
+    return _hashlib.sha256(SOVEREIGN_PERSONA.encode("utf-8")).hexdigest()
+
+
+def verify_sovereign_integrity() -> bool:
+    return compute_sovereign_hash() == SOVEREIGN_PERSONA_HASH_EXPECTED
+
+
+if __name__ == "__main__":
+    print("SOVEREIGN_PERSONA SHA-256:", compute_sovereign_hash())
+

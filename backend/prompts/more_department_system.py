@@ -236,9 +236,25 @@ Delon Oliver is the human executive. His authority supersedes all AI authority. 
 """
 
 
+# ─────────────────────────────────────────────────────────────────────────────
+# HASH INTEGRITY — run `python3 prompts/more_department_system.py` from the
+# backend directory after editing _MORE_DEPARTMENT_SYSTEM and paste below.
+# ─────────────────────────────────────────────────────────────────────────────
+
+MORE_DEPARTMENT_HASH_EXPECTED = "c2cdea49ca6e1924d42213aa04130963011da203b27f3a5fa64945b083980968"
+
+
 def get_more_department_system() -> str:
     return _MORE_DEPARTMENT_SYSTEM.strip()
 
 
 def compute_more_department_hash() -> str:
     return hashlib.sha256(_MORE_DEPARTMENT_SYSTEM.encode("utf-8")).hexdigest()
+
+
+def verify_more_department_integrity() -> bool:
+    return compute_more_department_hash() == MORE_DEPARTMENT_HASH_EXPECTED
+
+
+if __name__ == "__main__":
+    print("more_department:", compute_more_department_hash())
