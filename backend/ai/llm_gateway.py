@@ -32,7 +32,7 @@ from typing import Optional
 
 logger = logging.getLogger("lcewai.llm_gateway")
 
-# ── Environment keys ──────────────────────────────────────────────────────────
+# ── Environment keys (env vars take priority; DB keys fill gaps) ──────────────
 ANTHROPIC_API_KEY  = os.environ.get("ANTHROPIC_API_KEY", os.environ.get("EMERGENT_LLM_KEY", ""))
 GROQ_API_KEY       = os.environ.get("GROQ_API_KEY", "")
 CEREBRAS_API_KEY   = os.environ.get("CEREBRAS_API_KEY", "")
@@ -41,6 +41,73 @@ XAI_API_KEY        = os.environ.get("XAI_API_KEY", os.environ.get("GROK_API_KEY"
 COHERE_API_KEY     = os.environ.get("COHERE_API_KEY", "")
 HUGGINGFACE_API_KEY = os.environ.get("HUGGINGFACE_API_KEY", os.environ.get("HF_API_KEY", ""))
 OPENROUTER_API_KEY = os.environ.get("OPENROUTER_API_KEY", "")   # bonus Gemini path
+
+# ── DB key reload — called at startup and after Provider Gateway saves a key ──
+# Maps provider_type values from the Provider Gateway UI to gateway globals.
+_PROVIDER_TYPE_TO_GLOBAL = {
+    "anthropic":   "ANTHROPIC_API_KEY",
+    "groq":        "GROQ_API_KEY",
+    "gemini":      "GEMINI_API_KEY",
+    "xai":         "XAI_API_KEY",
+    "grok":        "XAI_API_KEY",
+    "cohere":      "COHERE_API_KEY",
+    "huggingface": "HUGGINGFACE_API_KEY",
+    "openrouter":  "OPENROUTER_API_KEY",
+    "cerebras":    "CEREBRAS_API_KEY",
+}
+
+async def reload_provider_keys(db) -> int:
+    """Read active provider keys from MongoDB and update module globals.
+    Env vars always win — DB keys only fill gaps where env var is empty.
+    Returns the number of keys loaded from DB."""
+    import sys
+    enc_secret = os.environ.get("PROVIDER_KEY_ENCRYPTION_SECRET", "")
+    if not enc_secret:
+        return 0
+    try:
+        from cryptography.fernet import Fernet
+        fernet = Fernet(enc_secret.encode() if isinstance(enc_secret, str) else enc_secret)
+    except Exception:
+        return 0
+
+    loaded = 0
+    module = sys.modules[__name__]
+    try:
+        # Join provider_keys with providers to get provider_type
+        keys = await db.ai_provider_keys.find({}).to_list(200)
+        provider_ids = list({k.get("provider_id") for k in keys if k.get("provider_id")})
+        providers = {}
+        if provider_ids:
+            from bson import ObjectId
+            oids = []
+            for pid in provider_ids:
+                try: oids.append(ObjectId(pid))
+                except Exception: pass
+            if oids:
+                async for p in db.ai_providers.find({"_id": {"$in": oids}}):
+                    providers[str(p["_id"])] = p.get("provider_type", "")
+
+        for key_doc in keys:
+            provider_type = providers.get(str(key_doc.get("provider_id", "")), "")
+            global_name = _PROVIDER_TYPE_TO_GLOBAL.get(provider_type.lower(), "")
+            if not global_name:
+                continue
+            # Only fill if env var is currently empty
+            if getattr(module, global_name, ""):
+                continue
+            encrypted = key_doc.get("encrypted_key", "")
+            if not encrypted:
+                continue
+            try:
+                plaintext = fernet.decrypt(encrypted.encode() if isinstance(encrypted, str) else encrypted).decode()
+                setattr(module, global_name, plaintext)
+                loaded += 1
+                logger.info("llm_gateway: loaded %s from DB (provider_type=%s)", global_name, provider_type)
+            except Exception as e:
+                logger.warning("llm_gateway: failed to decrypt key for %s: %s", global_name, e)
+    except Exception as e:
+        logger.warning("llm_gateway: reload_provider_keys error: %s", e)
+    return loaded
 
 # ── Model identifiers ─────────────────────────────────────────────────────────
 GROQ_MODEL        = "llama-3.3-70b-versatile"       # free, 128k ctx, tool-calling

@@ -1350,6 +1350,17 @@ async def _on_startup_impl():
                 logger.debug("Rate limiter: pruned %d stale keys.", len(stale))
     asyncio.create_task(_rate_limiter_cleanup())
 
+    # ── Load provider API keys from DB into LLM gateway ──────────────────────
+    # Env vars always take priority; DB keys only fill gaps. This makes the
+    # Provider Gateway UI actually take effect without a Railway redeploy.
+    try:
+        from ai.llm_gateway import reload_provider_keys as _reload_keys
+        _n = await _reload_keys(db)
+        if _n:
+            logger.info("STARTUP: Loaded %d provider key(s) from DB into LLM gateway.", _n)
+    except Exception as _pk_err:
+        logger.warning("STARTUP: provider key reload failed (non-fatal): %s", _pk_err)
+
     # ── Serve built React frontend (home/backup server only) ─────────────────
     if SERVE_FRONTEND:
         _build_paths = [
@@ -10498,6 +10509,12 @@ try:
                "created_by": user.id, "created_at": datetime.utcnow()}
         result = await db.ai_provider_keys.insert_one(doc)
         await audit(db, user.id, "provider_key_added", {"provider_id": body.provider_id, "label": body.label})
+        # Reload gateway keys immediately so the new key takes effect without a redeploy
+        try:
+            from ai.llm_gateway import reload_provider_keys as _rlk
+            await _rlk(db)
+        except Exception:
+            pass
         return {"ok": True, "_id": str(result.inserted_id), "label": body.label, "scope": body.scope}
 
     @api_router.delete("/providers/keys/{key_id}")
