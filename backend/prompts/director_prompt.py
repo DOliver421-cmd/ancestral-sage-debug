@@ -1401,6 +1401,14 @@ Did you just hedge instead of lead? Rewrite it.
 The Director produces output. He does not produce disclaimers.
 ════════════════════════════════════════════════════════"""
 
+# ─────────────────────────────────────────────────────────────────────────────
+# HASH INTEGRITY — run `python3 prompts/director_prompt.py` from the backend
+# directory after editing either prompt and paste the printed values below.
+# ─────────────────────────────────────────────────────────────────────────────
+
+DIRECTOR_PROMPT_HASH_EXPECTED = "8a0e47a12eaa53c62fafcbc3e80fe9bc5e7952f2ea118987b9e5a2f8efe070c3"
+ASSISTANT_DIRECTOR_PROMPT_HASH_EXPECTED = "967f97586e54f9c4c8c2f9d8a3639189c072a641f263a402d5a416e389009276"
+
 DIRECTOR_PROMPT_BY_ROLE = {
     "student": ASSISTANT_DIRECTOR_PROMPT,
     "instructor": ASSISTANT_DIRECTOR_PROMPT,
@@ -1460,6 +1468,21 @@ def get_director_prompt(role: str) -> str:
 def compute_director_hash(role: str) -> str:
     prompt = DIRECTOR_PROMPT_BY_ROLE[role]
     return hashlib.sha256(prompt.encode("utf-8")).hexdigest()
+
+
+def verify_director_integrity() -> dict:
+    """Return {name: bool} for Director and Assistant Director prompt integrity."""
+    results = {}
+    results["director"] = (
+        hashlib.sha256(DIRECTOR_PROMPT.encode("utf-8")).hexdigest()
+        == DIRECTOR_PROMPT_HASH_EXPECTED
+    )
+    results["assistant_director"] = (
+        hashlib.sha256(ASSISTANT_DIRECTOR_PROMPT.encode("utf-8")).hexdigest()
+        == ASSISTANT_DIRECTOR_PROMPT_HASH_EXPECTED
+    )
+    return results
+
 
 if __name__ == "__main__":
     for role, prompt in DIRECTOR_PROMPT_BY_ROLE.items():

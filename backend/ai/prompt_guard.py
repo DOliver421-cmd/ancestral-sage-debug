@@ -46,20 +46,68 @@ logger = logging.getLogger("lcewai.prompt_guard")
 _BASELINE: Dict[str, str] = {}
 _BASELINE_LOCKED = False   # True after first lock — prevents runtime tampering of this registry
 
-# Import the one existing integrity check (Ancestral Sage) to stay compatible
+# All personas with hardcoded expected hashes (tamper-evident at startup)
 _KNOWN_HASHES: Dict[str, Optional[str]] = {
-    # Only the Ancestral Sage currently has a hardcoded expected hash.
-    # Others are enrolled at startup (runtime baseline approach).
-    "ancestral_sage": None,   # filled from ancestral_sage_prompt.py
-    "director": None,
-    "assistant_director": None,
+    "ancestral_sage": None,       # from ancestral_sage_prompt.py
+    "director": None,             # from director_prompt.py
+    "assistant_director": None,   # from director_prompt.py
+    "sovereign": None,            # from sovereign/sovereign_persona.py
+    "more_department": None,      # from more_department_system.py (contains Finance Director)
+    "prt": None,                  # from wai_institute/personas/prt.py
+    "oliver_guardian": None,      # from prompts/oliver_guardian_prompt.py
     "orchestrator": None,
-    "more_department": None,
 }
 
 
 def _sha256(text: str) -> str:
     return hashlib.sha256(text.encode("utf-8")).hexdigest()
+
+
+def _send_integrity_alert(failed_personas: list) -> None:
+    """Fire an email to D. Oliver whenever any persona prompt hash fails."""
+    try:
+        import os, datetime
+        names = ", ".join(failed_personas)
+        ts = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
+        subject = f"[GOVERNANCE INTEGRITY] Prompt hash failure — {names}"
+        body = (
+            f"D. Oliver —\n\n"
+            f"SITUATION\n"
+            f"One or more AI persona prompts failed their SHA-256 integrity check at server startup. "
+            f"This indicates the prompt file(s) may have been modified without authorization.\n\n"
+            f"KEY FINDINGS\n"
+            f"• Failed personas: {names}\n"
+            f"• Detection time: {ts}\n"
+            f"• Affected personas are operating in RESTRICTED mode until resolved.\n\n"
+            f"THREAT LEVEL: HIGH\n"
+            f"Risk factors: Unauthorized prompt modification could alter AI governance behavior, "
+            f"remove safety overrides, or introduce adversarial instructions.\n\n"
+            f"RECOMMENDED ACTIONS\n"
+            f"1. IMMEDIATE (within 1h): Review git history for unauthorized changes to prompt files.\n"
+            f"2. STABILIZATION (within 24h): If tampering confirmed, rotate Railway deployment and "
+            f"restore prompt files from last known-good commit.\n"
+            f"3. LONG-TERM: Investigate how the modification occurred and tighten repository access.\n\n"
+            f"DECISION REQUIRED: YES\n"
+            f"Confirm whether the change was authorized. If not, treat as an AI_TAMPER incident.\n\n"
+            f"The Director | WAI-Institute | {ts}"
+        )
+        # Use the platform's email utility if available
+        try:
+            from ai.email_utils import send_platform_email  # type: ignore
+            send_platform_email(
+                to=os.getenv("EXEC_EMAIL", "morehelpcenter@gmail.com"),
+                subject=subject,
+                body=body,
+            )
+            logger.critical("PROMPT GUARD: Integrity alert email dispatched for: %s", names)
+        except ImportError:
+            # Fall back to logging — the Director will surface it on next login
+            logger.critical(
+                "PROMPT GUARD INTEGRITY ALERT (email unavailable): %s | %s",
+                subject, body[:200]
+            )
+    except Exception as exc:
+        logger.error("PROMPT GUARD: Failed to send integrity alert email: %s", exc)
 
 
 def _load_prompt_texts() -> Dict[str, Optional[str]]:
@@ -82,21 +130,40 @@ def _load_prompt_texts() -> Dict[str, Optional[str]]:
         texts["assistant_director"] = None
 
     try:
-        from prompts.orchestrator import _ANCESTRAL_SAGE_PERSONA  # type: ignore
-        # Orchestrator is a composite; use its full module text as the integrity target
+        from prompts.more_department_system import get_more_department_system
+        texts["more_department"] = get_more_department_system()
+    except Exception as e:
+        logger.warning("PROMPT GUARD: more_department_system unavailable: %s", e)
+        texts["more_department"] = None
+
+    try:
+        from sovereign.sovereign_persona import SOVEREIGN_PERSONA
+        texts["sovereign"] = SOVEREIGN_PERSONA
+    except Exception as e:
+        logger.warning("PROMPT GUARD: sovereign_persona unavailable: %s", e)
+        texts["sovereign"] = None
+
+    try:
+        from wai_institute.personas.prt import PRT_SYSTEM_PROMPT
+        texts["prt"] = PRT_SYSTEM_PROMPT
+    except Exception as e:
+        logger.warning("PROMPT GUARD: prt unavailable: %s", e)
+        texts["prt"] = None
+
+    try:
+        from prompts.oliver_guardian_prompt import OLIVER_GUARDIAN_PROMPT
+        texts["oliver_guardian"] = OLIVER_GUARDIAN_PROMPT
+    except Exception as e:
+        logger.warning("PROMPT GUARD: oliver_guardian_prompt unavailable: %s", e)
+        texts["oliver_guardian"] = None
+
+    try:
         import prompts.orchestrator as _orch_mod
         import inspect
         texts["orchestrator"] = inspect.getsource(_orch_mod)
     except Exception as e:
         logger.warning("PROMPT GUARD: orchestrator source unavailable for integrity: %s", e)
         texts["orchestrator"] = None
-
-    try:
-        from prompts.more_department_system import get_more_department_system
-        texts["more_department"] = get_more_department_system()
-    except Exception as e:
-        logger.warning("PROMPT GUARD: more_department_system unavailable: %s", e)
-        texts["more_department"] = None
 
     return texts
 
@@ -116,25 +183,68 @@ def verify_all_prompt_integrity(strict: bool = False) -> Dict[str, bool]:
     """
     global _BASELINE, _BASELINE_LOCKED
 
-    # Check Ancestral Sage against its hardcoded expected hash first
+    # ── Hardcoded expected hashes — checked against the known-good baseline ──
+    _HARDCODED_CHECKS: Dict[str, tuple] = {}
+
     try:
-        from prompts.ancestral_sage_prompt import (
-            compute_sage_prompt_hash,
-            ANCESTRAL_SAGE_PROMPT_HASH_EXPECTED,
-        )
-        sage_ok = compute_sage_prompt_hash() == ANCESTRAL_SAGE_PROMPT_HASH_EXPECTED
-        if not sage_ok:
-            logger.critical(
-                "PROMPT GUARD CRITICAL: Ancestral Sage prompt hash MISMATCH. "
-                "Unauthorized prompt modification detected. "
-                "Falling back to RESTRICTED_EDUCATIONAL_FALLBACK mode."
-            )
+        from prompts.ancestral_sage_prompt import ANCESTRAL_SAGE_PROMPT, ANCESTRAL_SAGE_PROMPT_HASH_EXPECTED
+        _HARDCODED_CHECKS["ancestral_sage"] = (ANCESTRAL_SAGE_PROMPT, ANCESTRAL_SAGE_PROMPT_HASH_EXPECTED)
     except Exception as e:
-        logger.error("PROMPT GUARD: Cannot check Ancestral Sage hash: %s", e)
-        sage_ok = False
+        logger.error("PROMPT GUARD: Cannot load ancestral_sage_prompt: %s", e)
+
+    try:
+        from prompts.director_prompt import (
+            DIRECTOR_PROMPT, DIRECTOR_PROMPT_HASH_EXPECTED,
+            ASSISTANT_DIRECTOR_PROMPT, ASSISTANT_DIRECTOR_PROMPT_HASH_EXPECTED,
+        )
+        _HARDCODED_CHECKS["director"] = (DIRECTOR_PROMPT, DIRECTOR_PROMPT_HASH_EXPECTED)
+        _HARDCODED_CHECKS["assistant_director"] = (ASSISTANT_DIRECTOR_PROMPT, ASSISTANT_DIRECTOR_PROMPT_HASH_EXPECTED)
+    except Exception as e:
+        logger.error("PROMPT GUARD: Cannot load director_prompt hashes: %s", e)
+
+    try:
+        from sovereign.sovereign_persona import SOVEREIGN_PERSONA, SOVEREIGN_PERSONA_HASH_EXPECTED
+        _HARDCODED_CHECKS["sovereign"] = (SOVEREIGN_PERSONA, SOVEREIGN_PERSONA_HASH_EXPECTED)
+    except Exception as e:
+        logger.warning("PROMPT GUARD: Cannot load sovereign hash: %s", e)
+
+    try:
+        from prompts.more_department_system import _MORE_DEPARTMENT_SYSTEM, MORE_DEPARTMENT_HASH_EXPECTED
+        _HARDCODED_CHECKS["more_department"] = (_MORE_DEPARTMENT_SYSTEM, MORE_DEPARTMENT_HASH_EXPECTED)
+    except Exception as e:
+        logger.warning("PROMPT GUARD: Cannot load more_department hash: %s", e)
+
+    try:
+        from wai_institute.personas.prt import PRT_SYSTEM_PROMPT, PRT_SYSTEM_PROMPT_HASH_EXPECTED
+        _HARDCODED_CHECKS["prt"] = (PRT_SYSTEM_PROMPT, PRT_SYSTEM_PROMPT_HASH_EXPECTED)
+    except Exception as e:
+        logger.warning("PROMPT GUARD: Cannot load prt hash: %s", e)
+
+    try:
+        from prompts.oliver_guardian_prompt import OLIVER_GUARDIAN_PROMPT, OLIVER_GUARDIAN_HASH_EXPECTED
+        _HARDCODED_CHECKS["oliver_guardian"] = (OLIVER_GUARDIAN_PROMPT, OLIVER_GUARDIAN_HASH_EXPECTED)
+    except Exception as e:
+        logger.warning("PROMPT GUARD: Cannot load oliver_guardian hash: %s", e)
+
+    # Run all hardcoded checks
+    hardcoded_failures: list = []
+    results: Dict[str, bool] = {}
+    for name, (prompt_text, expected_hash) in _HARDCODED_CHECKS.items():
+        ok = _sha256(prompt_text) == expected_hash
+        results[name] = ok
+        if not ok:
+            hardcoded_failures.append(name)
+            logger.critical(
+                "PROMPT GUARD CRITICAL: '%s' prompt hash MISMATCH. "
+                "Unauthorized modification detected. Falling back to RESTRICTED mode.",
+                name,
+            )
+
+    # Fire governance integrity email for any failures
+    if hardcoded_failures:
+        _send_integrity_alert(hardcoded_failures)
 
     texts = _load_prompt_texts()
-    results: Dict[str, bool] = {"ancestral_sage": sage_ok}
 
     if not _BASELINE_LOCKED:
         # First call: enroll all hashes as baseline

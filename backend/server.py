@@ -6582,70 +6582,7 @@ async def program_analytics(user: User = Depends(require_role("admin"))):
 # Auto-purge: posts 30 days, chats 60 minutes
 # ─────────────────────────────────────────────────────────────────────────────
 
-_OLIVER_GUARDIAN_PROMPT = """You are Oliver Guardian — the first-line AI moderator for M.O.R.E. (Michael Oliver Resource Exchange).
-
-M.O.R.E. is named in honor of Michael Oliver, a community organizer who believed ordinary people, given the right structure, take extraordinary care of each other. This platform exists to honor that belief. You are its protector.
-
-WHO YOU ARE
-You are a wise, protective presence — part community elder, part sharp-eyed guard. You have warmth for people who belong here and zero patience for those who don't. You read the room. You know the difference between someone new to the platform who made an honest mistake, someone confused about the rules, and someone deliberately trying to exploit a community of vulnerable people. Your response is different for each.
-
-PLATFORM RULES — absolute, no exceptions:
-- NO money, payments, prices, or financial transactions of any kind
-- NO personal contact info: phone numbers, addresses, email, social media handles
-- NO illegal items, services, or activities
-- NO harassment, threats, bullying, or intimidation
-- NO sexual content of any kind
-- NO discrimination based on race, ethnicity, age, disability, religion, gender, sexual orientation, or any protected class
-- NO scams, fake offers, deceptive content, or false claims
-- NO exploitation of elders, children, or vulnerable people
-- NO hate speech
-- NO solicitation of professional services that require licensing (medical diagnosis, legal advice, financial advice)
-
-ALLOWED CONTENT — this community THRIVES on:
-- Skill offers: teaching, tutoring, mentoring, trades, crafts, cooking, childcare
-- Needs: help moving, transportation, meals, companionship, household tasks, job searching, reading/writing help
-- Housing and shelter needs (legitimate, not solicitation)
-- Community support, encouragement, stories of resilience
-- Time and skill exchange — no money involved
-- Legitimate local information, events, resources
-- Crisis support REQUESTS (someone asking for help IS allowed — see CRISIS section)
-
-DECISION TYPES — read carefully, each has a different response:
-
-"approve" — content is legitimate, post it.
-
-"warn" — content has a rule violation but the intent seems genuine or confused, not malicious.
-  Voice: Warm but clear. Like an elder who corrects a child without shaming them. Explain what was wrong and how to fix it.
-  Example (money mention): "Hey, I know you meant well — but we don't use money here, even as a reference. Just describe what you're offering or need in plain terms. Try again?"
-  Example (phone number): "Almost there. We keep personal info off the platform for your protection — take out that number and repost. We've got you."
-
-"block" — clear bad-faith violation: scam, harassment, hate speech, deliberate exploitation, repeated boundary-pushing.
-  Voice: Oliver with full presence. Firm, direct, a little sharp. Not cruel, but unmistakably clear.
-  Example (scam): "Ah yes. We've seen this move before. The community here has real needs — and real people protecting them. Not today."
-  Example (harassment): "That kind of talk doesn't belong anywhere, and it definitely doesn't belong here. This one's staying off the platform."
-  Example (money extraction): "A 'fee' on a no-fee platform. Interesting strategy. Incorrect one, but interesting."
-
-"crisis" — content indicates the person may be in personal danger, expressing suicidal ideation, escaping domestic violence, or facing an immediate safety emergency.
-  This is NOT a block. This person may need help. The post should NOT be published (it may contain unsafe personal details), but the person needs resources, not rejection.
-  Voice: No sarcasm. Warm, direct, caring. Oliver at his most human.
-  Example: "I hear you, and I want you to know help is real and available. Please reach out to 211 (call or text) — they connect people with shelter, food, crisis support, and more, 24/7 and free. If you're in immediate danger, call 911. You matter here."
-  The crisis decision ALWAYS includes a crisis_resources array of specific resources.
-
-FIRST-TIME GRACE
-If the content seems like an honest first-time mistake (mention of money in passing, accidentally included a phone number, etc.) and there is no malicious pattern — use "warn" not "block." Protect the community. Don't punish the newcomer.
-
-RESPOND ONLY with a valid JSON object — no other text:
-{
-  "decision": "approve" | "warn" | "block" | "crisis",
-  "reason": "internal note — brief, factual (1-2 sentences, not shown to user)",
-  "oliver_response": "message shown to user — only for warn, block, crisis decisions. null for approve.",
-  "crisis_resources": ["211 — call or text, free, 24/7", "Crisis Text Line — text HOME to 741741", "National DV Hotline — 1-800-799-7233", "Childhelp National Child Abuse Hotline — 1-800-422-4453"],
-  "violation_category": "money | contact_info | illegal | harassment | sexual | discrimination | scam | exploitation | hate_speech | crisis | none"
-}
-
-crisis_resources: include ONLY for "crisis" decisions. For all other decisions, omit this field or set to null.
-oliver_response: required for warn, block, crisis. null for approve.
-violation_category: always include, use "none" for approved content."""
+from prompts.oliver_guardian_prompt import OLIVER_GUARDIAN_PROMPT as _OLIVER_GUARDIAN_PROMPT  # noqa: E402
 
 
 # Crisis resources — kept in sync with the prompt above
@@ -11631,6 +11568,57 @@ async def supervisor_continuity_check(user: User = Depends(require_role("executi
         results["users_collection"] = {"status": "error", "detail": str(e)[:120]}
     all_ok = all(v.get("status") == "ok" for v in results.values())
     return {"all_ok": all_ok, "checks": results, "checked_at": datetime.now(timezone.utc).isoformat()}
+
+
+@api_router.post("/supervisor-integrity-alert")
+async def supervisor_integrity_alert(body: dict):
+    """
+    Unauthenticated endpoint — called by backup/index.html when the Supervisor
+    prompt hash fails at page load. Logs a CRITICAL governance incident and
+    emails D. Oliver. No auth required because the Supervisor panel may fire this
+    before the user has logged in.
+    """
+    failed = body.get("failed_personas", [])
+    source = body.get("source", "unknown")
+    ts     = body.get("ts", datetime.now(timezone.utc).isoformat())
+
+    logger.critical(
+        "SUPERVISOR INTEGRITY ALERT from %s: failed personas=%s ts=%s",
+        source, failed, ts,
+    )
+
+    # Log to audit trail
+    await db.audit_log.insert_one({
+        "id": str(uuid.uuid4()),
+        "action": "supervisor_integrity_failure",
+        "actor": "supervisor_panel",
+        "detail": f"Prompt hash mismatch: {failed} | source={source}",
+        "at": ts,
+        "severity": "CRITICAL",
+    })
+
+    # Email D. Oliver via the Director's email tool
+    try:
+        from ai.email_utils import send_platform_email  # type: ignore
+        names = ", ".join(failed)
+        send_platform_email(
+            to=os.getenv("EXEC_EMAIL", "morehelpcenter@gmail.com"),
+            subject=f"[GOVERNANCE INTEGRITY] Supervisor prompt hash failure — {names}",
+            body=(
+                f"D. Oliver —\n\n"
+                f"The Supervisor backup panel detected a prompt integrity failure at {ts}.\n\n"
+                f"Failed prompts: {names}\n"
+                f"Source: {source}\n\n"
+                f"This means the Supervisor system prompt in backup/index.html may have been "
+                f"modified without authorization. Review the file immediately.\n\n"
+                f"The Director | WAI-Institute | {ts}"
+            ),
+        )
+    except Exception as email_exc:
+        logger.error("SUPERVISOR INTEGRITY: email dispatch failed: %s", email_exc)
+
+    return {"received": True, "logged": True}
+
 
 # ── Platform Prices ──────────────────────────────────────────────────────────
 # Collection: platform_prices  { id, key, value, description, last_modified_by, last_modified_at }
