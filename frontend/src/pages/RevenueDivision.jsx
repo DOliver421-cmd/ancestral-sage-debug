@@ -2,12 +2,13 @@ import { useEffect, useState } from "react";
 import AppShell from "../components/AppShell";
 import { api } from "../lib/api";
 import { useAuth } from "../lib/auth";
-import { DollarSign, Key, Shield, BookOpen, Clock, Users, FileText, Building, Plus, X, Check, Copy, ExternalLink, RefreshCw } from "lucide-react";
+import { DollarSign, Key, Shield, BookOpen, Clock, Users, FileText, Building, Plus, X, Check, Copy, ExternalLink, RefreshCw, TrendingUp, Zap, CreditCard } from "lucide-react";
 import { toast } from "sonner";
 
 export default function RevenueDivision() {
   const { user } = useAuth();
-  const [tab, setTab] = useState("keys");
+  const isExec = user?.role === "executive_admin";
+  const [tab, setTab] = useState(isExec ? "overview" : "keys");
   const [keys, setKeys] = useState([]);
   const [tiers, setTiers] = useState({});
   const [showCreateKey, setShowCreateKey] = useState(false);
@@ -28,8 +29,12 @@ export default function RevenueDivision() {
   const [wsName, setWsName] = useState("");
 
   const [resume, setResume] = useState(null);
+  const [overview, setOverview] = useState(null);
+  const [overviewBusy, setOverviewBusy] = useState(false);
+  const [payoutBusy, setPayoutBusy] = useState(false);
 
   useEffect(() => {
+    if (isExec) loadOverview();
     loadKeys();
     api.get("/revenue/api-keys/tiers").then(r => setTiers(r.data.tiers || {})).catch(() => {});
     api.get("/revenue/courses/public").then(r => setPublicCourses(r.data.courses || [])).catch(() => {});
@@ -51,6 +56,26 @@ export default function RevenueDivision() {
   const loadResume = async () => {
     try { const r = await api.get("/revenue/resume/preview"); setResume(r.data); } catch {}
   };
+
+  const loadOverview = async () => {
+    setOverviewBusy(true);
+    try { const r = await api.get("/revenue/exec-overview"); setOverview(r.data); }
+    catch { toast.error("Failed to load revenue overview."); }
+    finally { setOverviewBusy(false); }
+  };
+
+  const processPayouts = async () => {
+    if (!window.confirm("Process all pending creator payouts now?")) return;
+    setPayoutBusy(true);
+    try {
+      const r = await api.post("/admin/creator-payouts/process");
+      toast.success(`${r.data.payouts_initiated} payout(s) initiated.`);
+      loadOverview();
+    } catch (err) { toast.error(err?.response?.data?.detail || "Payout processing failed."); }
+    finally { setPayoutBusy(false); }
+  };
+
+  const fmtUSD = (cents) => `$${(cents / 100).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
   const loadCompliance = async () => {
     setBusy(true);
@@ -130,6 +155,7 @@ export default function RevenueDivision() {
 
         {/* Tabs */}
         <div className="mt-8 flex gap-1 border-b border-ink/10 overflow-x-auto" role="tablist">
+          {isExec && <TabBtn id="overview" icon={TrendingUp}>Revenue Overview</TabBtn>}
           <TabBtn id="keys" icon={Key}>API Keys</TabBtn>
           <TabBtn id="verify" icon={Shield}>Verification</TabBtn>
           <TabBtn id="courses" icon={BookOpen}>Course Licensing</TabBtn>
@@ -137,6 +163,199 @@ export default function RevenueDivision() {
           <TabBtn id="sovereign" icon={Users}>Sovereign Seats</TabBtn>
           <TabBtn id="resume" icon={FileText}>Resume Builder</TabBtn>
         </div>
+
+        {/* ── REVENUE OVERVIEW (exec only) ─────────────────────────────────────── */}
+        {tab === "overview" && isExec && (
+          <div className="mt-6 space-y-6">
+            <div className="flex items-center justify-between">
+              <h2 className="font-heading text-2xl font-bold">Revenue Overview</h2>
+              <button onClick={loadOverview} disabled={overviewBusy}
+                className="text-sm text-ink/50 hover:text-ink inline-flex items-center gap-1">
+                <RefreshCw className={`w-4 h-4 ${overviewBusy ? "animate-spin" : ""}`} /> Refresh
+              </button>
+            </div>
+
+            {overview ? (<>
+              {/* $8k/month progress */}
+              <div className="bg-white rounded-2xl border border-ink/10 p-6">
+                <div className="flex items-center justify-between mb-2">
+                  <div>
+                    <p className="text-xs font-bold uppercase text-ink/50">Monthly Revenue Goal</p>
+                    <p className="text-3xl font-bold font-mono text-ink mt-1">{fmtUSD(overview.goal.month_cents)}</p>
+                    <p className="text-xs text-ink/40 mt-0.5">of {fmtUSD(overview.goal.monthly_target_cents)} target</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-5xl font-bold font-mono" style={{ color: overview.goal.progress_pct >= 100 ? "#16a34a" : overview.goal.progress_pct >= 60 ? "#d97706" : "#dc2626" }}>
+                      {overview.goal.progress_pct}%
+                    </p>
+                  </div>
+                </div>
+                <div className="h-4 bg-ink/10 rounded-full overflow-hidden mt-4">
+                  <div className="h-full rounded-full transition-all duration-700"
+                    style={{
+                      width: `${Math.min(overview.goal.progress_pct, 100)}%`,
+                      background: overview.goal.progress_pct >= 100 ? "#16a34a" : overview.goal.progress_pct >= 60 ? "#d97706" : "#dc2626",
+                    }} />
+                </div>
+                <div className="flex justify-between text-xs text-ink/40 mt-2">
+                  <span>Today: {fmtUSD(overview.goal.today_cents)}</span>
+                  <span>All-time: {fmtUSD(overview.goal.alltime_cents)}</span>
+                </div>
+              </div>
+
+              {/* Stats row */}
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                <div className="bg-white rounded-xl border border-ink/10 p-5 text-center">
+                  <p className="text-xs text-ink/50 uppercase">Active Subs</p>
+                  <p className="text-2xl font-bold font-mono text-ink">{overview.subscriptions.active}</p>
+                  <p className="text-xs text-ink/30">{overview.subscriptions.canceled} canceled</p>
+                </div>
+                <div className="bg-white rounded-xl border border-ink/10 p-5 text-center">
+                  <p className="text-xs text-ink/50 uppercase">Creators Owed</p>
+                  <p className="text-2xl font-bold font-mono text-ink">{overview.creator_payouts.creators_pending}</p>
+                  <p className="text-xs text-ink/30">{fmtUSD(overview.creator_payouts.total_pending_cents)} pending</p>
+                </div>
+                <div className="bg-white rounded-xl border border-ink/10 p-5 text-center">
+                  <p className="text-xs text-ink/50 uppercase">AI Spend / Month</p>
+                  <p className="text-2xl font-bold font-mono text-ink">${overview.ai_spend.month_usd.toFixed(2)}</p>
+                  <p className="text-xs text-ink/30">{overview.ai_spend.calls_month.toLocaleString()} calls</p>
+                </div>
+                <div className="bg-white rounded-xl border border-ink/10 p-5 text-center">
+                  <p className="text-xs text-ink/50 uppercase">Revenue Share</p>
+                  <p className="text-2xl font-bold font-mono text-ink">70/30</p>
+                  <p className="text-xs text-ink/30">creator / platform</p>
+                </div>
+              </div>
+
+              {/* Monthly trend */}
+              {overview.monthly_trend?.length > 0 && (
+                <div className="bg-white rounded-2xl border border-ink/10 p-6">
+                  <h3 className="font-heading font-bold text-sm uppercase text-ink/50 mb-4 flex items-center gap-2">
+                    <TrendingUp className="w-4 h-4" /> 6-Month Trend
+                  </h3>
+                  <div className="flex items-end gap-3 h-32">
+                    {(() => {
+                      const max = Math.max(...overview.monthly_trend.map(m => m.revenue_cents), 1);
+                      return overview.monthly_trend.map((m, i) => (
+                        <div key={m.period} className="flex-1 flex flex-col items-center gap-1">
+                          <span className="text-[10px] text-ink/40">{fmtUSD(m.revenue_cents)}</span>
+                          <div className="w-full rounded-t-sm transition-all"
+                            style={{
+                              height: `${Math.max((m.revenue_cents / max) * 80, 4)}px`,
+                              background: i === overview.monthly_trend.length - 1 ? "#b45309" : "#e5e7eb",
+                            }} />
+                          <span className="text-[10px] text-ink/50">{m.period.slice(5)}/{m.period.slice(2, 4)}</span>
+                        </div>
+                      ));
+                    })()}
+                  </div>
+                </div>
+              )}
+
+              {/* Revenue by product */}
+              {Object.keys(overview.by_product).length > 0 && (
+                <div className="bg-white rounded-2xl border border-ink/10 p-6">
+                  <h3 className="font-heading font-bold text-sm uppercase text-ink/50 mb-4 flex items-center gap-2">
+                    <CreditCard className="w-4 h-4" /> Revenue by Product (This Month)
+                  </h3>
+                  <div className="space-y-3">
+                    {Object.entries(overview.by_product).sort((a, b) => b[1] - a[1]).map(([key, cents]) => {
+                      const pct = overview.goal.month_cents > 0 ? Math.round(cents / overview.goal.month_cents * 100) : 0;
+                      return (
+                        <div key={key}>
+                          <div className="flex justify-between text-sm mb-1">
+                            <span className="text-ink font-medium capitalize">{key.replace(/_/g, " ")}</span>
+                            <span className="font-mono text-ink/70">{fmtUSD(cents)} <span className="text-ink/40 text-xs">({pct}%)</span></span>
+                          </div>
+                          <div className="h-2 bg-ink/10 rounded-full overflow-hidden">
+                            <div className="h-full bg-copper rounded-full" style={{ width: `${pct}%` }} />
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* AI spend by provider */}
+              {Object.keys(overview.ai_spend.by_provider).length > 0 && (
+                <div className="bg-white rounded-2xl border border-ink/10 p-6">
+                  <h3 className="font-heading font-bold text-sm uppercase text-ink/50 mb-4 flex items-center gap-2">
+                    <Zap className="w-4 h-4" /> AI Spend by Provider (This Month)
+                  </h3>
+                  <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+                    {Object.entries(overview.ai_spend.by_provider).sort((a, b) => b[1] - a[1]).map(([prov, usd]) => (
+                      <div key={prov} className="bg-ink/5 rounded-xl p-3 text-center">
+                        <p className="text-xs font-bold text-ink/50 uppercase">{prov}</p>
+                        <p className="text-base font-bold font-mono text-ink mt-1">${usd.toFixed(4)}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Creator payout table */}
+              <div className="bg-white rounded-2xl border border-ink/10 p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <div>
+                    <h3 className="font-heading font-bold text-sm uppercase text-ink/50 flex items-center gap-2">
+                      <Users className="w-4 h-4" /> Creator Pending Payouts
+                    </h3>
+                    <p className="text-xs text-ink/40 mt-0.5">Platform owes {fmtUSD(overview.creator_payouts.total_pending_cents)} to {overview.creator_payouts.creators_pending} creator(s)</p>
+                  </div>
+                  {overview.creator_payouts.creators_pending > 0 && (
+                    <button onClick={processPayouts} disabled={payoutBusy}
+                      className="btn-primary text-sm flex items-center gap-2 px-4 py-2">
+                      {payoutBusy ? <RefreshCw className="w-4 h-4 animate-spin" /> : <DollarSign className="w-4 h-4" />}
+                      Process All Payouts
+                    </button>
+                  )}
+                </div>
+
+                {overview.creator_payouts.detail.length > 0 ? (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="border-b border-ink/10">
+                          <th className="text-left py-2 text-xs text-ink/50 uppercase font-bold">Creator</th>
+                          <th className="text-right py-2 text-xs text-ink/50 uppercase font-bold">Pending</th>
+                          <th className="text-right py-2 text-xs text-ink/50 uppercase font-bold">Sales</th>
+                          <th className="text-center py-2 text-xs text-ink/50 uppercase font-bold">Bank</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {overview.creator_payouts.detail.map(c => (
+                          <tr key={c.creator_id} className="border-b border-ink/5 last:border-0">
+                            <td className="py-3">
+                              <p className="font-medium text-ink">{c.name}</p>
+                              <p className="text-xs text-ink/40">{c.email}</p>
+                            </td>
+                            <td className="py-3 text-right font-mono font-bold text-ink">{fmtUSD(c.pending_cents)}</td>
+                            <td className="py-3 text-right text-ink/60">{c.sales}</td>
+                            <td className="py-3 text-center">
+                              {c.bank_on_file
+                                ? <span className="text-xs bg-green-50 text-green-700 font-bold px-2 py-0.5 rounded-full">On file</span>
+                                : <span className="text-xs bg-red-50 text-red-600 px-2 py-0.5 rounded-full">Missing</span>}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                ) : (
+                  <p className="text-sm text-ink/50 text-center py-6">No pending payouts.</p>
+                )}
+              </div>
+            </>) : (
+              <div className="text-center py-16 text-ink/40">
+                {overviewBusy
+                  ? <RefreshCw className="w-8 h-8 mx-auto animate-spin mb-3" />
+                  : <TrendingUp className="w-12 h-12 mx-auto mb-4 opacity-30" />}
+                <p>{overviewBusy ? "Loading revenue data..." : "No data loaded."}</p>
+              </div>
+            )}
+          </div>
+        )}
 
         {/* ── API KEYS ──────────────────────────────────────────────────────────── */}
         {tab === "keys" && (
