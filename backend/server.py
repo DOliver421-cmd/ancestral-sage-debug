@@ -13289,6 +13289,131 @@ async def band_update_booking(booking_id: str, body: dict, user: User = Depends(
     return {"ok": True, "booking_id": booking_id, "status": status}
 
 
+# ── Revenue Executive Overview ────────────────────────────────────────────────
+# Single-call dashboard for executive revenue: monthly goal progress, product
+# breakdown, per-creator pending payouts, AI spend, and subscription health.
+
+@api_router.get("/revenue/exec-overview")
+async def revenue_exec_overview(user: User = Depends(require_role("executive_admin"))):
+    """Real-time executive revenue overview. executive_admin only."""
+    now = datetime.now(timezone.utc)
+    month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0).isoformat()
+    today_start = now.replace(hour=0, minute=0, second=0, microsecond=0).isoformat()
+    MONTHLY_GOAL_CENTS = 800_000  # $8,000
+
+    # Platform revenue this month
+    month_payments = await db.payments.find(
+        {"status": "paid", "created_at": {"$gte": month_start}},
+        {"_id": 0, "amount_cents": 1, "product_key": 1, "created_at": 1},
+    ).to_list(length=5000)
+    revenue_month_cents = sum(p.get("amount_cents", 0) for p in month_payments)
+    revenue_today_cents = sum(p.get("amount_cents", 0) for p in month_payments if p.get("created_at", "") >= today_start)
+
+    all_payments = await db.payments.find({"status": "paid"}, {"_id": 0, "amount_cents": 1}).to_list(length=20000)
+    revenue_alltime_cents = sum(p.get("amount_cents", 0) for p in all_payments)
+
+    # Product breakdown this month
+    by_product: dict = {}
+    for p in month_payments:
+        k = p.get("product_key", "unknown")
+        by_product[k] = by_product.get(k, 0) + p.get("amount_cents", 0)
+
+    # Monthly trend — last 6 periods
+    months_trend = []
+    for i in range(5, -1, -1):
+        target_date = now.replace(day=1) - timedelta(days=1) if i > 0 else now.replace(day=1)
+        for _ in range(i):
+            target_date = (target_date.replace(day=1) - timedelta(days=1))
+        period_label = target_date.strftime("%Y-%m")
+        period_start = target_date.replace(day=1, hour=0, minute=0, second=0, microsecond=0).isoformat()
+        if i == 0:
+            next_month = (now.replace(day=28) + timedelta(days=4)).replace(day=1)
+            period_end = next_month.replace(hour=0, minute=0, second=0, microsecond=0).isoformat()
+        else:
+            next_m = (target_date.replace(day=28) + timedelta(days=4)).replace(day=1)
+            period_end = next_m.replace(hour=0, minute=0, second=0, microsecond=0).isoformat()
+        total = await db.payments.aggregate([
+            {"$match": {"status": "paid", "created_at": {"$gte": period_start, "$lt": period_end}}},
+            {"$group": {"_id": None, "total": {"$sum": "$amount_cents"}}},
+        ]).to_list(1)
+        months_trend.append({"period": period_label, "revenue_cents": total[0]["total"] if total else 0})
+
+    # Active subscriptions
+    active_subs = await db.subscriptions.count_documents({"status": "active"})
+    canceled_subs = await db.subscriptions.count_documents({"status": "canceled"})
+
+    # Creator payout details — all creators with pending earnings
+    pending_pipeline = [
+        {"$match": {"payout_status": "pending"}},
+        {"$group": {"_id": "$creator_id", "pending_cents": {"$sum": "$creator_share_cents"}, "sales": {"$sum": 1}}},
+        {"$sort": {"pending_cents": -1}},
+    ]
+    pending_by_creator = await db.creator_earnings.aggregate(pending_pipeline).to_list(200)
+    total_pending_creator_cents = sum(c["pending_cents"] for c in pending_by_creator)
+
+    # Enrich creator names and bank status
+    creator_ids = [c["_id"] for c in pending_by_creator]
+    creator_names: dict = {}
+    if creator_ids:
+        async for u in db.users.find({"id": {"$in": creator_ids}}, {"_id": 0, "id": 1, "full_name": 1, "email": 1}):
+            creator_names[u["id"]] = u
+    bank_set = set()
+    if creator_ids:
+        async for b in db.creator_bank_accounts.find({"creator_id": {"$in": creator_ids}}, {"_id": 0, "creator_id": 1}):
+            bank_set.add(b["creator_id"])
+
+    creator_payouts_detail = []
+    for c in pending_by_creator:
+        u = creator_names.get(c["_id"], {})
+        creator_payouts_detail.append({
+            "creator_id": c["_id"],
+            "name": u.get("full_name", "Unknown"),
+            "email": u.get("email", ""),
+            "pending_cents": c["pending_cents"],
+            "sales": c["sales"],
+            "bank_on_file": c["_id"] in bank_set,
+        })
+
+    # AI spend this month
+    ai_usage = await db.ai_usage_log.find(
+        {"created_at": {"$gte": month_start}},
+        {"_id": 0, "cost_usd": 1, "provider": 1},
+    ).to_list(length=5000)
+    ai_spend_month = round(sum(float(r.get("cost_usd") or 0) for r in ai_usage), 4)
+    ai_calls_month = len(ai_usage)
+    ai_by_provider: dict = {}
+    for r in ai_usage:
+        p = r.get("provider", "unknown")
+        ai_by_provider[p] = round(ai_by_provider.get(p, 0) + float(r.get("cost_usd") or 0), 4)
+
+    return {
+        "generated_at": now.isoformat(),
+        "goal": {
+            "monthly_target_cents": MONTHLY_GOAL_CENTS,
+            "month_cents": revenue_month_cents,
+            "today_cents": revenue_today_cents,
+            "alltime_cents": revenue_alltime_cents,
+            "progress_pct": round(revenue_month_cents / MONTHLY_GOAL_CENTS * 100, 1),
+        },
+        "by_product": by_product,
+        "monthly_trend": months_trend,
+        "subscriptions": {
+            "active": active_subs,
+            "canceled": canceled_subs,
+        },
+        "creator_payouts": {
+            "total_pending_cents": total_pending_creator_cents,
+            "creators_pending": len(creator_payouts_detail),
+            "detail": creator_payouts_detail,
+        },
+        "ai_spend": {
+            "month_usd": ai_spend_month,
+            "calls_month": ai_calls_month,
+            "by_provider": ai_by_provider,
+        },
+    }
+
+
 app.include_router(api_router)
 # CORS: when origins is wildcard ("*") browsers reject credentials, so we
 # turn off allow_credentials in that case (auth uses Bearer token in Authorization
