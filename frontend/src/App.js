@@ -95,6 +95,9 @@ import CreatorCourses from "./pages/CreatorCourses";
 import CreatorEarnings from "./pages/CreatorEarnings";
 import CreatorProfileEdit from "./pages/CreatorProfileEdit";
 import SiteControlPanel from "./pages/SiteControlPanel";
+import ExecControlPanel from "./pages/ExecControlPanel";
+import CreatorLounge from "./pages/CreatorLounge";
+import BandOnPage from "./pages/BandOnPage";
 import AccountControls from "./pages/AccountControls";
 
 // Role hierarchy must mirror backend ROLE_RANK in /app/backend/server.py.
@@ -257,6 +260,7 @@ function App() {
           <Route path="/admin/system" element={<BoundedAdmin roles={["executive_admin"]} label="Exec System" backTo="/admin/control"><ExecSystem /></BoundedAdmin>} />
           {/* Site Control Panel — executive_admin only, not linked from any nav */}
           <Route path="/admin/control" element={<BoundedAdmin roles={["executive_admin"]} label="Site Control Panel" backTo="/admin"><SiteControlPanel /></BoundedAdmin>} />
+          <Route path="/admin/exec-control" element={<BoundedAdmin roles={["executive_admin"]} label="Sovereign Command" backTo="/admin"><ExecControlPanel /></BoundedAdmin>} />
           <Route path="/admin/director" element={<BoundedAdmin roles={["executive_admin"]} label="Director Dashboard" backTo="/admin"><ExecutiveDirectorDashboard /></BoundedAdmin>} />
           <Route path="/admin/sage-audit" element={<BoundedAdmin roles={["executive_admin"]} label="Sage Audit" backTo="/admin"><SageAudit /></BoundedAdmin>} />
           <Route path="/admin/staff-meetings" element={<BoundedAdmin roles={["executive_admin"]} label="Staff Meetings" backTo="/admin"><StaffMeetingHistory /></BoundedAdmin>} />
@@ -275,6 +279,8 @@ function App() {
           {/* Creator profiles — public, slug-based */}
           <Route path="/creator/:slug" element={<CreatorProfile />} />
           <Route path="/ghost-producer" element={<GhostProducer />} />
+          <Route path="/creator-lounge" element={<Protected><CreatorLounge /></Protected>} />
+          <Route path="/band" element={<Protected><BandOnPage /></Protected>} />
           {/* Public pages */}
           <Route path="/internships" element={<Internships />} />
           {/* Social publisher — authenticated */}

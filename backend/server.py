@@ -12665,6 +12665,630 @@ async def control_panel_set_broadcast(
     return {"active": active, "message": message, "kind": kind}
 
 
+# ═══════════════════════════════════════════════════════════════════════════════
+#  EXECUTIVE CONTROL LAYER  —  /api/exec/control/*
+#  Ported from dead app/routes/executive_control.py into the live server.
+#  All endpoints require executive_admin unless noted. All writes are audited.
+# ═══════════════════════════════════════════════════════════════════════════════
+
+class _ExecSetUserRoleReq(BaseModel):
+    user_id:  str
+    new_role: Literal["guest", "student", "instructor", "creator", "mentor",
+                      "moderator", "steward", "elder", "admin", "executive_admin"]
+    reason:   str = Field(..., min_length=1, max_length=500)
+
+class _ExecSetUserTierReq(BaseModel):
+    user_id:          str
+    new_feature_tier: Literal["free", "premium", "executive"]
+    new_sage_tier:    Optional[Literal["basic", "advanced"]] = None
+    reason:           str = Field(..., min_length=1, max_length=500)
+
+class _ExecFeatureFlagReq(BaseModel):
+    flag_name: str  = Field(..., min_length=1, max_length=200)
+    enabled:   bool
+    scope:     Literal["platform", "user"] = "platform"
+    user_id:   Optional[str] = None
+    reason:    str  = Field(..., min_length=1, max_length=500)
+
+class _ExecAIAccessReq(BaseModel):
+    user_id: str
+    persona: str
+    enabled: bool
+    reason:  str = Field(..., min_length=1, max_length=500)
+
+class _ExecLegalAccessReq(BaseModel):
+    user_id:  str
+    tool_key: Literal["legal_guide_1", "legal_guide_2", "all"]
+    enabled:  bool
+    reason:   str = Field(..., min_length=1, max_length=500)
+
+class _ExecPriceReq(BaseModel):
+    price_id:     str
+    amount_cents: int = Field(..., ge=0)
+    label:        Optional[str] = None
+    reason:       str = Field(..., min_length=1, max_length=500)
+
+class _ExecBudgetReq(BaseModel):
+    budget_key: str
+    limit:      float = Field(..., ge=0)
+    reason:     str   = Field(..., min_length=1, max_length=500)
+
+class _ExecProviderRankingReq(BaseModel):
+    service: str
+    ranking: List[str]
+    reason:  str = Field(..., min_length=1, max_length=500)
+
+class _ExecIPWhitelistReq(BaseModel):
+    action: Literal["add", "remove"]
+    ip:     str
+    label:  Optional[str] = None
+    role:   Literal["executive_admin", "admin"] = "executive_admin"
+    reason: str = Field(..., min_length=1, max_length=500)
+
+class _ExecMFAReq(BaseModel):
+    require_mfa_for_roles: List[str]
+    totp_enabled:          bool = True
+    backup_codes_enabled:  bool = True
+    reason:                str  = Field(..., min_length=1, max_length=500)
+
+class _ExecFailoverReq(BaseModel):
+    service:  str
+    provider: str
+    enabled:  bool
+    reason:   str = Field(..., min_length=1, max_length=500)
+
+class _ExecPageModeReq(BaseModel):
+    page:   str
+    mode:   str
+    reason: str = Field(..., min_length=1, max_length=500)
+
+class _ExecVisibilityReq(BaseModel):
+    flag:    str
+    enabled: bool
+    reason:  str = Field(..., min_length=1, max_length=500)
+
+class _ExecSageCapReq(BaseModel):
+    user_id:   str
+    sage_tier: Literal["basic", "advanced"]
+    cap_level: Optional[Literal["general", "exploratory", "advanced"]] = None
+    reason:    str = Field(..., min_length=1, max_length=500)
+
+class _BreakGlassActivateReq(BaseModel):
+    reason:           str = Field(..., min_length=20)
+    scope:            str
+    target_uid:       Optional[str] = None
+    duration_minutes: int = Field(default=60, ge=5, le=480)
+
+class _BreakGlassRevokeReq(BaseModel):
+    override_id: str
+    reason:      Optional[str] = None
+
+
+async def _exec_audit(actor: User, action: str, target_id: Optional[str] = None,
+                      before: Optional[dict] = None, after: Optional[dict] = None,
+                      request: Optional[Request] = None, note: str = ""):
+    ip = None
+    if request:
+        fwd = request.headers.get("x-forwarded-for", "")
+        ip  = fwd.split(",")[0].strip() if fwd else (request.client.host if request.client else None)
+    await db.exec_audit_log.insert_one({
+        "id": str(uuid.uuid4()), "actor_id": actor.id, "actor_role": actor.role,
+        "action": action, "target_id": target_id, "before": before, "after": after,
+        "note": note, "ip": ip, "created_at": datetime.now(timezone.utc).isoformat(),
+    })
+    await audit(actor.id, action, target=target_id, meta={"note": note})
+
+
+@api_router.post("/exec/control/user/role")
+async def ec_set_user_role(body: _ExecSetUserRoleReq, request: Request,
+                           actor: User = Depends(require_role("executive_admin"))):
+    target = await db.users.find_one({"id": body.user_id}, {"_id": 0, "role": 1, "full_name": 1})
+    if not target:
+        raise HTTPException(404, "User not found")
+    old_role = target.get("role", "student")
+    if ROLE_RANK.get(old_role, 0) >= ROLE_RANK.get("executive_admin", 4) and actor.id != body.user_id:
+        raise HTTPException(403, "Cannot modify another executive_admin's role.")
+    if actor.id == body.user_id and ROLE_RANK.get(body.new_role, 0) < ROLE_RANK.get("admin", 3):
+        raise HTTPException(400, "Cannot demote your own account below admin.")
+    await db.users.update_one({"id": body.user_id},
+        {"$set": {"role": body.new_role, "updated_at": datetime.now(timezone.utc).isoformat()}})
+    await _exec_audit(actor, "exec.user.role_changed", target_id=body.user_id,
+        before={"role": old_role}, after={"role": body.new_role}, request=request, note=body.reason)
+    if body.user_id != actor.id:
+        await notify(body.user_id, "Account Role Updated",
+            f"Your account role has been updated to: {body.new_role}.", kind="info")
+    return {"ok": True, "user_id": body.user_id, "old_role": old_role, "new_role": body.new_role}
+
+
+@api_router.post("/exec/control/user/tier")
+async def ec_set_user_tier(body: _ExecSetUserTierReq, request: Request,
+                           actor: User = Depends(require_role("admin"))):
+    target = await db.users.find_one({"id": body.user_id},
+        {"_id": 0, "feature_tier": 1, "sage_tier": 1})
+    if not target:
+        raise HTTPException(404, "User not found")
+    old_ft = target.get("feature_tier", "free")
+    old_st = target.get("sage_tier", "basic")
+    upd = {"feature_tier": body.new_feature_tier, "updated_at": datetime.now(timezone.utc).isoformat()}
+    if body.new_sage_tier:
+        upd["sage_tier"] = body.new_sage_tier
+    await db.users.update_one({"id": body.user_id}, {"$set": upd})
+    await _exec_audit(actor, "exec.user.tier_changed", target_id=body.user_id,
+        before={"feature_tier": old_ft, "sage_tier": old_st}, after=upd,
+        request=request, note=body.reason)
+    await notify(body.user_id, "Account Plan Updated",
+        f"Your plan has been updated to {body.new_feature_tier}.", link="/dashboard", kind="success")
+    return {"ok": True, "user_id": body.user_id,
+            "old_feature_tier": old_ft, "new_feature_tier": body.new_feature_tier,
+            "old_sage_tier": old_st, "new_sage_tier": body.new_sage_tier or old_st}
+
+
+@api_router.post("/exec/control/feature-flag")
+async def ec_feature_flag(body: _ExecFeatureFlagReq, request: Request,
+                          actor: User = Depends(require_role("executive_admin"))):
+    now_iso = datetime.now(timezone.utc).isoformat()
+    if body.scope == "platform":
+        await db.platform_flags.update_one({"_id": "flags"},
+            {"$set": {f"flags.{body.flag_name}.enabled": body.enabled,
+                      f"flags.{body.flag_name}.updated_by": actor.id,
+                      f"flags.{body.flag_name}.updated_at": now_iso,
+                      "updated_at": now_iso}}, upsert=True)
+        await _exec_audit(actor, f"exec.platform_flag.{'enabled' if body.enabled else 'disabled'}",
+            after={"flag": body.flag_name, "enabled": body.enabled}, request=request, note=body.reason)
+    else:
+        if not body.user_id:
+            raise HTTPException(400, "user_id required for user-scoped flag")
+        await db.user_feature_overrides.update_one({"user_id": body.user_id},
+            {"$set": {f"flags.{body.flag_name}": body.enabled, "updated_at": now_iso}}, upsert=True)
+        await _exec_audit(actor, f"exec.user_flag.{'enabled' if body.enabled else 'disabled'}",
+            target_id=body.user_id, after={"flag": body.flag_name, "enabled": body.enabled},
+            request=request, note=body.reason)
+    return {"ok": True, "flag": body.flag_name, "enabled": body.enabled, "scope": body.scope}
+
+
+@api_router.post("/exec/control/ai-access")
+async def ec_ai_access(body: _ExecAIAccessReq, request: Request,
+                       actor: User = Depends(require_role("executive_admin"))):
+    now_iso = datetime.now(timezone.utc).isoformat()
+    if body.persona == "all":
+        upd_field, upd_val = "ai_access_override", {"all": body.enabled}
+    else:
+        upd_field, upd_val = f"ai_access.{body.persona}", body.enabled
+    await db.user_feature_overrides.update_one({"user_id": body.user_id},
+        {"$set": {upd_field: upd_val, "updated_at": now_iso}}, upsert=True)
+    await _exec_audit(actor, f"exec.ai_access.{'granted' if body.enabled else 'revoked'}",
+        target_id=body.user_id, after={"persona": body.persona, "enabled": body.enabled},
+        request=request, note=body.reason)
+    return {"ok": True, "user_id": body.user_id, "persona": body.persona, "enabled": body.enabled}
+
+
+@api_router.post("/exec/control/legal-access")
+async def ec_legal_access(body: _ExecLegalAccessReq, request: Request,
+                          actor: User = Depends(require_role("executive_admin"))):
+    now_iso = datetime.now(timezone.utc).isoformat()
+    tools = ["legal_guide_1", "legal_guide_2"] if body.tool_key == "all" else [body.tool_key]
+    for t in tools:
+        await db.user_feature_overrides.update_one({"user_id": body.user_id},
+            {"$set": {f"legal_access.{t}": body.enabled, "updated_at": now_iso}}, upsert=True)
+    await _exec_audit(actor, f"exec.legal_access.{'granted' if body.enabled else 'revoked'}",
+        target_id=body.user_id, after={"tools": tools, "enabled": body.enabled},
+        request=request, note=body.reason)
+    return {"ok": True, "user_id": body.user_id, "tools": tools, "enabled": body.enabled}
+
+
+@api_router.post("/exec/control/price")
+async def ec_set_price(body: _ExecPriceReq, request: Request,
+                       actor: User = Depends(require_role("executive_admin"))):
+    old = await db.platform_prices.find_one({"id": body.price_id}, {"_id": 0})
+    if not old:
+        raise HTTPException(404, "Price record not found")
+    await db.platform_prices.update_one({"id": body.price_id},
+        {"$set": {"amount_cents": body.amount_cents, "label": body.label,
+                  "updated_by": actor.id, "updated_at": datetime.now(timezone.utc).isoformat()}})
+    await _exec_audit(actor, "exec.price.updated", target_id=body.price_id,
+        before={"amount_cents": old.get("amount_cents"), "label": old.get("label")},
+        after={"amount_cents": body.amount_cents, "label": body.label},
+        request=request, note=body.reason)
+    return {"ok": True, "price_id": body.price_id, "new_amount_cents": body.amount_cents}
+
+
+@api_router.post("/exec/control/budget")
+async def ec_set_budget(body: _ExecBudgetReq, request: Request,
+                        actor: User = Depends(require_role("executive_admin"))):
+    old = await db.platform_budgets.find_one({"key": body.budget_key}, {"_id": 0, "limit": 1})
+    await db.platform_budgets.update_one({"key": body.budget_key},
+        {"$set": {"limit": body.limit, "updated_by": actor.id,
+                  "updated_at": datetime.now(timezone.utc).isoformat()}}, upsert=True)
+    await _exec_audit(actor, "exec.budget.updated", target_id=body.budget_key,
+        before={"limit": (old or {}).get("limit")}, after={"limit": body.limit},
+        request=request, note=body.reason)
+    return {"ok": True, "budget_key": body.budget_key, "new_limit": body.limit}
+
+
+@api_router.post("/exec/control/provider-ranking")
+async def ec_provider_ranking(body: _ExecProviderRankingReq, request: Request,
+                              actor: User = Depends(require_role("executive_admin"))):
+    old = await db.provider_rankings.find_one({"service": body.service}, {"_id": 0, "ranking": 1})
+    await db.provider_rankings.update_one({"service": body.service},
+        {"$set": {"ranking": body.ranking, "updated_by": actor.id,
+                  "updated_at": datetime.now(timezone.utc).isoformat()}}, upsert=True)
+    await _exec_audit(actor, "exec.provider_ranking.updated", target_id=body.service,
+        before={"ranking": (old or {}).get("ranking")}, after={"ranking": body.ranking},
+        request=request, note=body.reason)
+    return {"ok": True, "service": body.service, "new_ranking": body.ranking}
+
+
+@api_router.post("/exec/control/ip-whitelist")
+async def ec_ip_whitelist(body: _ExecIPWhitelistReq, request: Request,
+                          actor: User = Depends(require_role("executive_admin"))):
+    if body.action == "add":
+        await db.ip_whitelist.update_one({"ip": body.ip, "role": body.role},
+            {"$set": {"ip": body.ip, "role": body.role, "label": body.label,
+                      "added_by": actor.id, "added_at": datetime.now(timezone.utc).isoformat()}}, upsert=True)
+    else:
+        await db.ip_whitelist.delete_one({"ip": body.ip, "role": body.role})
+    await _exec_audit(actor, f"exec.ip_whitelist.{'added' if body.action == 'add' else 'removed'}",
+        after={"ip": body.ip, "role": body.role, "action": body.action},
+        request=request, note=body.reason)
+    return {"ok": True, "action": body.action, "ip": body.ip}
+
+
+@api_router.post("/exec/control/mfa")
+async def ec_mfa_config(body: _ExecMFAReq, request: Request,
+                        actor: User = Depends(require_role("executive_admin"))):
+    old = await db.mfa_config.find_one({"_id": "config"}, {"_id": 0}) or {}
+    config = {"require_mfa_for_roles": body.require_mfa_for_roles,
+               "totp_enabled": body.totp_enabled, "backup_codes_enabled": body.backup_codes_enabled,
+               "updated_by": actor.id, "updated_at": datetime.now(timezone.utc).isoformat()}
+    await db.mfa_config.update_one({"_id": "config"}, {"$set": config}, upsert=True)
+    await _exec_audit(actor, "exec.mfa_config.updated", before=old, after=config,
+        request=request, note=body.reason)
+    return {"ok": True, "config": config}
+
+
+@api_router.post("/exec/control/failover")
+async def ec_failover(body: _ExecFailoverReq, request: Request,
+                      actor: User = Depends(require_role("executive_admin"))):
+    await db.failover_config.update_one({"service": body.service, "provider": body.provider},
+        {"$set": {"enabled": body.enabled, "updated_by": actor.id,
+                  "updated_at": datetime.now(timezone.utc).isoformat()}}, upsert=True)
+    await _exec_audit(actor, f"exec.failover.{'enabled' if body.enabled else 'disabled'}",
+        after={"service": body.service, "provider": body.provider, "enabled": body.enabled},
+        request=request, note=body.reason)
+    return {"ok": True, "service": body.service, "provider": body.provider, "enabled": body.enabled}
+
+
+@api_router.post("/exec/control/page-mode")
+async def ec_page_mode(body: _ExecPageModeReq, request: Request,
+                       actor: User = Depends(require_role("executive_admin"))):
+    await db.page_modes.update_one({"page": body.page},
+        {"$set": {"mode": body.mode, "updated_by": actor.id,
+                  "updated_at": datetime.now(timezone.utc).isoformat()}}, upsert=True)
+    await _exec_audit(actor, "exec.page_mode.updated",
+        after={"page": body.page, "mode": body.mode}, request=request, note=body.reason)
+    return {"ok": True, "page": body.page, "mode": body.mode}
+
+
+@api_router.post("/exec/control/visibility")
+async def ec_visibility(body: _ExecVisibilityReq, request: Request,
+                        actor: User = Depends(require_role("executive_admin"))):
+    now_iso = datetime.now(timezone.utc).isoformat()
+    old = await db.visibility_flags.find_one({"flag": body.flag}, {"_id": 0, "enabled": 1})
+    await db.visibility_flags.update_one({"flag": body.flag},
+        {"$set": {"enabled": body.enabled, "updated_by": actor.id, "updated_at": now_iso}}, upsert=True)
+    await _exec_audit(actor, f"exec.visibility.{'shown' if body.enabled else 'hidden'}",
+        before={"flag": body.flag, "enabled": (old or {}).get("enabled")},
+        after={"flag": body.flag, "enabled": body.enabled}, request=request, note=body.reason)
+    return {"ok": True, "flag": body.flag, "enabled": body.enabled}
+
+
+@api_router.post("/exec/control/sage-cap")
+async def ec_sage_cap(body: _ExecSageCapReq, request: Request,
+                      actor: User = Depends(require_role("admin"))):
+    old = await db.users.find_one({"id": body.user_id},
+        {"_id": 0, "sage_tier": 1, "sage_safety_cap": 1})
+    upd: dict = {"sage_tier": body.sage_tier, "updated_at": datetime.now(timezone.utc).isoformat()}
+    if body.cap_level is not None:
+        upd["sage_safety_cap"] = body.cap_level
+    await db.users.update_one({"id": body.user_id}, {"$set": upd})
+    await _exec_audit(actor, "exec.sage_cap.updated", target_id=body.user_id,
+        before=old, after=upd, request=request, note=body.reason)
+    return {"ok": True, "user_id": body.user_id, "sage_tier": body.sage_tier, "cap_level": body.cap_level}
+
+
+@api_router.get("/exec/control/state")
+async def ec_get_state(actor: User = Depends(require_role("executive_admin"))):
+    import asyncio as _aio
+    flags, budgets, rankings, page_modes, vis_flags, ip_list, mfa_cfg, failover = await _aio.gather(
+        db.platform_flags.find_one({"_id": "flags"}, {"_id": 0}),
+        db.platform_budgets.find({}, {"_id": 0}).to_list(100),
+        db.provider_rankings.find({}, {"_id": 0}).to_list(50),
+        db.page_modes.find({}, {"_id": 0}).to_list(50),
+        db.visibility_flags.find({}, {"_id": 0}).to_list(100),
+        db.ip_whitelist.find({}, {"_id": 0}).to_list(500),
+        db.mfa_config.find_one({"_id": "config"}, {"_id": 0}),
+        db.failover_config.find({}, {"_id": 0}).to_list(50),
+    )
+    return {"platform_flags": flags or {}, "budgets": budgets, "provider_rankings": rankings,
+            "page_modes": page_modes, "visibility_flags": vis_flags, "ip_whitelist": ip_list,
+            "mfa_config": mfa_cfg, "failover_config": failover,
+            "fetched_at": datetime.now(timezone.utc).isoformat()}
+
+
+@api_router.get("/exec/control/audit")
+async def ec_audit_log(limit: int = 50, actor_id: Optional[str] = None,
+                       action: Optional[str] = None,
+                       actor: User = Depends(require_role("executive_admin"))):
+    limit = min(max(limit, 1), 200)
+    q: dict = {}
+    if actor_id: q["actor_id"] = actor_id
+    if action:   q["action"]   = {"$regex": action, "$options": "i"}
+    records = await db.exec_audit_log.find(q, {"_id": 0}).sort("created_at", -1).limit(limit).to_list(limit)
+    return {"count": len(records), "records": records}
+
+
+@api_router.post("/exec/control/break-glass/activate")
+async def ec_break_glass_activate(body: _BreakGlassActivateReq, request: Request,
+                                  actor: User = Depends(require_role("executive_admin"))):
+    from datetime import timedelta
+    now = datetime.now(timezone.utc)
+    expires_at = now + timedelta(minutes=body.duration_minutes)
+    override_id = str(uuid.uuid4())
+    fwd = request.headers.get("x-forwarded-for", "")
+    ip  = fwd.split(",")[0].strip() if fwd else (request.client.host if request.client else "unknown")
+    record = {"id": override_id, "actor_id": actor.id,
+              "actor_email": getattr(actor, "email", "unknown"),
+              "scope": body.scope, "target_uid": body.target_uid,
+              "reason": body.reason, "duration_minutes": body.duration_minutes,
+              "activated_at": now, "expires_at": expires_at,
+              "revoked": False, "revoked_at": None, "revoked_reason": None,
+              "ip": ip, "status": "active"}
+    await db.break_glass_overrides.insert_one({**record, "_id": override_id})
+    await _exec_audit(actor, "break_glass.activated", target_id=body.target_uid or "platform",
+        after={"scope": body.scope, "duration_minutes": body.duration_minutes, "override_id": override_id},
+        request=request, note=f"BREAK GLASS: {body.reason}")
+    return {"override_id": override_id, "scope": body.scope, "target_uid": body.target_uid,
+            "activated_at": now.isoformat(), "expires_at": expires_at.isoformat(),
+            "duration_minutes": body.duration_minutes, "status": "active",
+            "warning": "This override is time-bound and fully audited."}
+
+
+@api_router.post("/exec/control/break-glass/revoke")
+async def ec_break_glass_revoke(body: _BreakGlassRevokeReq, request: Request,
+                                actor: User = Depends(require_role("executive_admin"))):
+    doc = await db.break_glass_overrides.find_one({"id": body.override_id, "revoked": False}, {"_id": 0})
+    if not doc:
+        raise HTTPException(404, "Override not found or already revoked.")
+    now = datetime.now(timezone.utc)
+    await db.break_glass_overrides.update_one({"id": body.override_id},
+        {"$set": {"revoked": True, "revoked_at": now, "revoked_reason": body.reason, "status": "revoked"}})
+    await _exec_audit(actor, "break_glass.revoked", target_id=doc.get("target_uid") or "platform",
+        before={"status": "active"}, after={"status": "revoked", "reason": body.reason},
+        request=request, note=f"BREAK GLASS REVOKED: {body.override_id}")
+    return {"override_id": body.override_id, "revoked_at": now.isoformat(), "status": "revoked"}
+
+
+@api_router.get("/exec/control/break-glass/active")
+async def ec_break_glass_active(actor: User = Depends(require_role("executive_admin"))):
+    now = datetime.now(timezone.utc)
+    docs = await db.break_glass_overrides.find(
+        {"revoked": False, "expires_at": {"$gt": now}}, {"_id": 0}
+    ).sort("activated_at", -1).to_list(100)
+    return {"active_overrides": docs, "count": len(docs)}
+
+
+@api_router.get("/exec/control/break-glass/history")
+async def ec_break_glass_history(limit: int = 50,
+                                 actor: User = Depends(require_role("executive_admin"))):
+    limit = min(max(limit, 1), 200)
+    docs = await db.break_glass_overrides.find({}, {"_id": 0}).sort("activated_at", -1).limit(limit).to_list(limit)
+    return {"records": docs, "count": len(docs)}
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+#  CREATOR LOUNGE  —  /api/creator-lounge/*
+#  Collaboration space for creators: projects, collabs, resource sharing.
+# ═══════════════════════════════════════════════════════════════════════════════
+
+class _CLProjectReq(BaseModel):
+    title:       str   = Field(..., min_length=1, max_length=200)
+    description: str   = Field("", max_length=2000)
+    genre:       str   = Field("", max_length=100)
+    looking_for: List[str] = []  # e.g. ["vocalist", "mixing engineer"]
+    open:        bool  = True
+
+class _CLCollab(BaseModel):
+    project_id: str
+    message:    str = Field("", max_length=500)
+
+@api_router.get("/creator-lounge/projects")
+async def cl_list_projects(
+    genre: Optional[str] = None, open_only: bool = True,
+    limit: int = 30, offset: int = 0,
+    user: User = Depends(current_user)
+):
+    q: dict = {}
+    if open_only: q["open"] = True
+    if genre:     q["genre"] = {"$regex": genre, "$options": "i"}
+    total  = await db.cl_projects.count_documents(q)
+    cursor = db.cl_projects.find(q, {"_id": 0}).sort("created_at", -1).skip(offset).limit(min(limit, 50))
+    items  = await cursor.to_list(min(limit, 50))
+    return {"total": total, "projects": items}
+
+@api_router.post("/creator-lounge/projects")
+async def cl_create_project(body: _CLProjectReq, user: User = Depends(current_user)):
+    doc = {
+        "id":          str(uuid.uuid4()),
+        "owner_id":    user.id,
+        "owner_name":  getattr(user, "full_name", None) or getattr(user, "email", ""),
+        "title":       body.title,
+        "description": body.description,
+        "genre":       body.genre,
+        "looking_for": body.looking_for,
+        "open":        body.open,
+        "collabs":     [],
+        "created_at":  datetime.now(timezone.utc).isoformat(),
+        "updated_at":  datetime.now(timezone.utc).isoformat(),
+    }
+    await db.cl_projects.insert_one({**doc, "_id": doc["id"]})
+    await audit(user.id, "creator_lounge.project.created", target=doc["id"])
+    return doc
+
+@api_router.patch("/creator-lounge/projects/{project_id}")
+async def cl_update_project(project_id: str, body: _CLProjectReq, user: User = Depends(current_user)):
+    proj = await db.cl_projects.find_one({"id": project_id}, {"_id": 0, "owner_id": 1})
+    if not proj: raise HTTPException(404, "Project not found")
+    if proj["owner_id"] != user.id and ROLE_RANK.get(user.role, 0) < ROLE_RANK.get("admin", 3):
+        raise HTTPException(403, "Not your project")
+    await db.cl_projects.update_one({"id": project_id}, {"$set": {
+        **body.model_dump(), "updated_at": datetime.now(timezone.utc).isoformat()
+    }})
+    return {"ok": True}
+
+@api_router.delete("/creator-lounge/projects/{project_id}")
+async def cl_delete_project(project_id: str, user: User = Depends(current_user)):
+    proj = await db.cl_projects.find_one({"id": project_id}, {"_id": 0, "owner_id": 1})
+    if not proj: raise HTTPException(404, "Project not found")
+    if proj["owner_id"] != user.id and ROLE_RANK.get(user.role, 0) < ROLE_RANK.get("admin", 3):
+        raise HTTPException(403, "Not your project")
+    await db.cl_projects.delete_one({"id": project_id})
+    return {"ok": True}
+
+@api_router.post("/creator-lounge/projects/{project_id}/collab")
+async def cl_request_collab(project_id: str, body: _CLCollab, user: User = Depends(current_user)):
+    proj = await db.cl_projects.find_one({"id": project_id}, {"_id": 0, "owner_id": 1, "open": 1})
+    if not proj: raise HTTPException(404, "Project not found")
+    if not proj.get("open"): raise HTTPException(400, "This project is not accepting collaborators")
+    entry = {"user_id": user.id, "user_name": getattr(user, "full_name", None) or getattr(user, "email", ""),
+             "message": body.message, "status": "pending", "requested_at": datetime.now(timezone.utc).isoformat()}
+    await db.cl_projects.update_one({"id": project_id}, {"$push": {"collabs": entry}})
+    await notify(proj["owner_id"], "New Collaboration Request",
+        f"{entry['user_name']} wants to collaborate on your project.", link="/creator-lounge", kind="info")
+    return {"ok": True}
+
+@api_router.get("/creator-lounge/my-projects")
+async def cl_my_projects(user: User = Depends(current_user)):
+    cursor = db.cl_projects.find({"owner_id": user.id}, {"_id": 0}).sort("created_at", -1).limit(50)
+    return {"projects": await cursor.to_list(50)}
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+#  BAND ON PAGE  —  /api/band/*
+#  Live music booking: artist listings, venue inquiries, booking requests.
+# ═══════════════════════════════════════════════════════════════════════════════
+
+class _BandListingReq(BaseModel):
+    artist_name: str  = Field(..., min_length=1, max_length=200)
+    bio:         str  = Field("", max_length=3000)
+    genres:      List[str] = []
+    location:    str  = Field("", max_length=200)
+    rate_min:    Optional[int] = None   # cents
+    rate_max:    Optional[int] = None   # cents
+    available:   bool = True
+    social_links: dict = {}
+
+class _BandBookingReq(BaseModel):
+    listing_id:  str
+    event_name:  str  = Field(..., min_length=1, max_length=200)
+    event_date:  str  = Field(..., min_length=8, max_length=30)
+    venue_name:  str  = Field(..., min_length=1, max_length=200)
+    venue_city:  str  = Field("", max_length=100)
+    offer_cents: Optional[int] = None
+    message:     str  = Field("", max_length=1000)
+
+@api_router.get("/band/listings")
+async def band_list(
+    genre: Optional[str] = None, location: Optional[str] = None,
+    available_only: bool = True, limit: int = 30, offset: int = 0
+):
+    q: dict = {}
+    if available_only: q["available"] = True
+    if genre:    q["genres"]   = {"$regex": genre, "$options": "i"}
+    if location: q["location"] = {"$regex": location, "$options": "i"}
+    total  = await db.band_listings.count_documents(q)
+    cursor = db.band_listings.find(q, {"_id": 0}).sort("created_at", -1).skip(offset).limit(min(limit, 50))
+    return {"total": total, "listings": await cursor.to_list(min(limit, 50))}
+
+@api_router.post("/band/listings")
+async def band_create_listing(body: _BandListingReq, user: User = Depends(current_user)):
+    existing = await db.band_listings.find_one({"owner_id": user.id}, {"_id": 0, "id": 1})
+    doc = {
+        "id":          existing["id"] if existing else str(uuid.uuid4()),
+        "owner_id":    user.id,
+        "artist_name": body.artist_name,
+        "bio":         body.bio,
+        "genres":      body.genres,
+        "location":    body.location,
+        "rate_min":    body.rate_min,
+        "rate_max":    body.rate_max,
+        "available":   body.available,
+        "social_links":body.social_links,
+        "updated_at":  datetime.now(timezone.utc).isoformat(),
+    }
+    if existing:
+        await db.band_listings.update_one({"owner_id": user.id}, {"$set": doc})
+    else:
+        doc["created_at"] = datetime.now(timezone.utc).isoformat()
+        await db.band_listings.insert_one({**doc, "_id": doc["id"]})
+    await audit(user.id, "band.listing.upserted", target=doc["id"])
+    return doc
+
+@api_router.get("/band/my-listing")
+async def band_my_listing(user: User = Depends(current_user)):
+    doc = await db.band_listings.find_one({"owner_id": user.id}, {"_id": 0})
+    return doc or {}
+
+@api_router.post("/band/book")
+async def band_request_booking(body: _BandBookingReq, user: User = Depends(current_user)):
+    listing = await db.band_listings.find_one({"id": body.listing_id}, {"_id": 0, "owner_id": 1, "artist_name": 1, "available": 1})
+    if not listing: raise HTTPException(404, "Artist listing not found")
+    if not listing.get("available"): raise HTTPException(400, "This artist is not currently available")
+    booking = {
+        "id":           str(uuid.uuid4()),
+        "listing_id":   body.listing_id,
+        "artist_id":    listing["owner_id"],
+        "artist_name":  listing["artist_name"],
+        "requester_id": user.id,
+        "requester_name": getattr(user, "full_name", None) or getattr(user, "email", ""),
+        "event_name":   body.event_name,
+        "event_date":   body.event_date,
+        "venue_name":   body.venue_name,
+        "venue_city":   body.venue_city,
+        "offer_cents":  body.offer_cents,
+        "message":      body.message,
+        "status":       "pending",
+        "created_at":   datetime.now(timezone.utc).isoformat(),
+    }
+    await db.band_bookings.insert_one({**booking, "_id": booking["id"]})
+    await notify(listing["owner_id"], "New Booking Request",
+        f"{booking['requester_name']} wants to book you for {body.event_name} on {body.event_date}.",
+        link="/band/bookings", kind="info")
+    await audit(user.id, "band.booking.requested", target=booking["id"])
+    return {"ok": True, "booking_id": booking["id"]}
+
+@api_router.get("/band/bookings")
+async def band_my_bookings(user: User = Depends(current_user)):
+    as_artist   = await db.band_bookings.find({"artist_id":    user.id}, {"_id": 0}).sort("created_at", -1).to_list(50)
+    as_requester= await db.band_bookings.find({"requester_id": user.id}, {"_id": 0}).sort("created_at", -1).to_list(50)
+    return {"as_artist": as_artist, "as_requester": as_requester}
+
+@api_router.patch("/band/bookings/{booking_id}/status")
+async def band_update_booking(booking_id: str, body: dict, user: User = Depends(current_user)):
+    status = body.get("status")
+    if status not in ("accepted", "declined", "cancelled"):
+        raise HTTPException(400, "status must be accepted, declined, or cancelled")
+    bk = await db.band_bookings.find_one({"id": booking_id}, {"_id": 0})
+    if not bk: raise HTTPException(404, "Booking not found")
+    if bk["artist_id"] != user.id and bk["requester_id"] != user.id:
+        raise HTTPException(403, "Not your booking")
+    await db.band_bookings.update_one({"id": booking_id},
+        {"$set": {"status": status, "updated_at": datetime.now(timezone.utc).isoformat()}})
+    notify_uid = bk["requester_id"] if user.id == bk["artist_id"] else bk["artist_id"]
+    await notify(notify_uid, f"Booking {status.title()}",
+        f"Your booking for {bk['event_name']} has been {status}.", link="/band/bookings", kind="info")
+    return {"ok": True, "booking_id": booking_id, "status": status}
+
+
 app.include_router(api_router)
 # CORS: when origins is wildcard ("*") browsers reject credentials, so we
 # turn off allow_credentials in that case (auth uses Bearer token in Authorization
