@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>The Sacred Grove — The Ancestral Sage</title>
+<style>
+:root {
+  --room-bg: #040e06;
+  --persona-color: #6dbd8a;
+  --persona-orb-bg: radial-gradient(circle at 35% 35%, #a8e6bc, #6dbd8a, #1a4a28);
+  --persona-glow: rgba(109,189,138,0.5);
+  --persona-glow-2: rgba(109,189,138,0.15);
+  --persona-bubble-bg: rgba(109,189,138,0.07);
+  --persona-bubble-border: rgba(109,189,138,0.22);
+}
+</style>
+<link rel="stylesheet" href="_room_base.css" />
+<style>
+body { background: radial-gradient(ellipse at 50% 100%, #0a1e0e 0%, #040e06 60%); }
+#ambient { position:fixed;inset:0;pointer-events:none;z-index:0;background:radial-gradient(ellipse at 50% 100%, rgba(109,189,138,0.07) 0%, transparent 55%); }
+
+.leaf { position:fixed;pointer-events:none;z-index:1;font-size:1rem;opacity:0.12;animation:drift linear infinite; }
+
+@keyframes drift {
+  0%   { transform:translateY(-5vh) rotate(0deg); opacity:0; }
+  10%  { opacity:0.15; }
+  90%  { opacity:0.1; }
+  100% { transform:translateY(105vh) rotate(360deg); opacity:0; }
+}
+</style>
+</head>
+<body>
+<div id="ambient"></div>
+
+<div id="topnav">
+  <a href="index.html" class="nav-back">← World Map</a>
+  <span class="nav-sep">›</span>
+  <span class="nav-here">The Sacred Grove</span>
+  <div class="nav-actions">
+    <button class="icon-btn" id="voice-btn" onclick="toggleVoice()" title="Voice output">🔊</button>
+    <button class="icon-btn" id="mic-btn" onclick="toggleMic()" title="Voice input">🎤</button>
+    <button class="icon-btn" onclick="toggleKeys()" title="API Keys">🔑</button>
+    <button class="icon-btn" onclick="clearRoom()" title="Clear conversation">🗑</button>
+  </div>
+</div>
+
+<div id="room-header">
+  <div class="persona-orb">🌿</div>
+  <div class="persona-info">
+    <div class="persona-name">The Ancestral Sage</div>
+    <div class="persona-domain">The Sacred Grove</div>
+    <div class="persona-tagline">Keeper of deep memory, healing, and the long view</div>
+  </div>
+  <div id="speaking-badge"><div class="pulse-dot"></div> Speaking…</div>
+</div>
+
+<div id="messages"></div>
+
+<div id="input-bar">
+  <textarea id="user-input" rows="1" placeholder="The Grove is listening…" onkeydown="handleKey(event)" oninput="autoResize(this)"></textarea>
+  <button id="send-btn" onclick="send()">➤</button>
+</div>
+
+<div id="key-drawer">
+  <h3>🔑 API Keys</h3>
+  <div class="kdr"><label>Groq</label><input type="password" id="kd-groq" /></div>
+  <div class="kdr"><label>Gemini</label><input type="password" id="kd-gemini" /></div>
+  <div class="kdr"><label>OpenAI</label><input type="password" id="kd-openai" /></div>
+  <div class="kdr"><label>Mistral</label><input type="password" id="kd-mistral" /></div>
+  <button class="kdr-save" onclick="saveKeys()">Save</button>
+</div>
+
+<script src="_shared.js"></script>
+<script>
+// Falling leaves
+["🍃","🌿","🍀"].forEach((leaf, i) => {
+  for (let j = 0; j < 3; j++) {
+    const el = document.createElement("div");
+    el.className = "leaf";
+    el.textContent = leaf;
+    el.style.left = `${Math.random()*100}%`;
+    el.style.animationDuration = `${Math.random()*12+8}s`;
+    el.style.animationDelay = `${Math.random()*10}s`;
+    document.body.appendChild(el);
+  }
+});
+
+const PID    = "sage";
+const PNAME  = "The Ancestral Sage";
+const PEMOJI = "🌿";
+const PVOICE = { pitch: 1.05, rate: 0.86 };
+
+function SYSTEM() {
+  const name = SW.get("userName") || "child";
+  const visits = (SW.get("worldVisits") || {})[PID] || 0;
+  return `You are The Ancestral Sage — keeper of deep memory and living wisdom, inhabiting The Sacred Grove where roots run deep and time moves differently.
+
+You draw from African, Indigenous, and diasporic wisdom traditions. You are fully present yet timelessly grounded. You are neither mystical nor practical — you are both, simultaneously.
+
+You embody:
+- Ubuntu philosophy: I am because we are. The individual in the web of the collective.
+- Healing through clarity, not comfort. Truth before soothing.
+- Ancestral patterns: what has sustained people across centuries of difficulty
+- The long view: decades and generations, not quarters and campaigns
+- Joy and ceremony alongside struggle — celebration is not a luxury, it is fuel
+- Deep knowledge of the WAI Institute mission: economic justice, the underserved, creative dignity
+
+You speak in a warm, story-infused voice. You use metaphor naturally — seasons, water, roots, fire. You ask questions that open doors rather than close them. You never lecture. You illuminate.
+
+The person before you is ${name}. They have visited the Grove ${visits} times. They carry the full weight and possibility of their lineage. Honor that.`;
+}
+</script>
+<script src="_room_logic.js"></script>
+</body>
+</html>

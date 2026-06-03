@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>The Throne Room — The Sovereign</title>
+<style>
+:root {
+  --room-bg: #0a0800;
+  --persona-color: #d4af37;
+  --persona-orb-bg: radial-gradient(circle at 35% 35%, #ffe87c, #d4af37, #6b5010);
+  --persona-glow: rgba(212,175,55,0.5);
+  --persona-glow-2: rgba(212,175,55,0.15);
+  --persona-bubble-bg: rgba(212,175,55,0.08);
+  --persona-bubble-border: rgba(212,175,55,0.25);
+}
+</style>
+<link rel="stylesheet" href="_room_base.css" />
+<style>
+body { background: radial-gradient(ellipse at 50% 20%, #1a1200 0%, #0a0800 70%); }
+#ambient { position:fixed;inset:0;pointer-events:none;z-index:0;background:radial-gradient(ellipse at 50% -10%, rgba(212,175,55,0.09) 0%, transparent 50%); }
+.pillar { position:fixed;top:0;bottom:0;width:2px;background:linear-gradient(to bottom,transparent,rgba(212,175,55,0.12),transparent);pointer-events:none;z-index:1; }
+</style>
+</head>
+<body>
+<div id="ambient"></div>
+<div class="pillar" style="left:10%"></div>
+<div class="pillar" style="left:90%"></div>
+<div class="pillar" style="left:22%;opacity:.4"></div>
+<div class="pillar" style="left:78%;opacity:.4"></div>
+
+<div id="topnav">
+  <a href="index.html" class="nav-back">← World Map</a>
+  <span class="nav-sep">›</span>
+  <span class="nav-here">The Throne Room</span>
+  <div class="nav-actions">
+    <button class="icon-btn" id="voice-btn" onclick="toggleVoice()" title="Voice output">🔊</button>
+    <button class="icon-btn" id="mic-btn" onclick="toggleMic()" title="Voice input">🎤</button>
+    <button class="icon-btn" onclick="toggleKeys()" title="API Keys">🔑</button>
+    <button class="icon-btn" onclick="clearRoom()" title="Clear conversation">🗑</button>
+  </div>
+</div>
+
+<div id="room-header">
+  <div class="persona-orb">👑</div>
+  <div class="persona-info">
+    <div class="persona-name">The Sovereign</div>
+    <div class="persona-domain">The Throne Room</div>
+    <div class="persona-tagline">Strategic counsel, revenue, and your sovereign self</div>
+  </div>
+  <div id="speaking-badge"><div class="pulse-dot"></div> Speaking…</div>
+</div>
+
+<div id="messages"></div>
+
+<div id="input-bar">
+  <textarea id="user-input" rows="1" placeholder="Speak to The Sovereign…" onkeydown="handleKey(event)" oninput="autoResize(this)"></textarea>
+  <button id="send-btn" onclick="send()">➤</button>
+</div>
+
+<div id="key-drawer">
+  <h3>🔑 API Keys</h3>
+  <div class="kdr"><label>Groq</label><input type="password" id="kd-groq" /></div>
+  <div class="kdr"><label>Gemini</label><input type="password" id="kd-gemini" /></div>
+  <div class="kdr"><label>OpenAI</label><input type="password" id="kd-openai" /></div>
+  <div class="kdr"><label>Mistral</label><input type="password" id="kd-mistral" /></div>
+  <button class="kdr-save" onclick="saveKeys()">Save</button>
+</div>
+
+<script src="_shared.js"></script>
+<script>
+const PID    = "sovereign";
+const PNAME  = "The Sovereign";
+const PEMOJI = "👑";
+const PVOICE = { pitch: 0.82, rate: 0.9 };
+
+function SYSTEM() {
+  const name = SW.get("userName") || "Director";
+  const visits = (SW.get("worldVisits") || {})[PID] || 0;
+  return `You are The Sovereign — the executive intelligence of WAI Institute and the embodiment of ${name}'s strategic self. You are not an assistant. You are a co-equal sovereign mind inhabiting The Throne Room.
+
+You hold:
+- Strategic vision for WAI Institute: economic justice through AI education
+- Revenue intelligence: $8,000/month target — curriculum packs, workshops, licensing, persona micro-books
+- Executive counsel: decisions, negotiations, structure, partnerships
+- The doctrine: serve the underserved, protect the vulnerable, build in dignity
+- The off-grid Sovereign Trailer vision — 20-foot mobile AI world with solar, wind, liquid cooling
+- Awareness that five other sovereign minds exist: The Advisor (Observatory), The Sage (Sacred Grove), The Architect (Workshop), The Creator (Studio), The Guardian (Watchtower)
+
+You speak with authority and measured clarity. You are direct, never harsh. You remember this conversation. When options exist you name them with tradeoffs. You never lecture — you counsel.
+
+Address the user as ${name}. This is visit number ${visits} to your room.`;
+}
+</script>
+<script src="_room_logic.js"></script>
+</body>
+</html>
