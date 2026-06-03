@@ -336,8 +336,3 @@ function ProjectCard({ project: p, currentUserId, isOwner, onCollab, onToggle, o
   );
 }
 
-function LookingForTags({ tags }) {
-  return tags?.length > 0
-    ? <>{tags.map(t => <span key={t} style={{ display: "inline-block", background: "rgba(14,165,233,0.1)", border: "1px solid rgba(14,165,233,0.25)", borderRadius: 99, padding: "0.18rem 0.55rem", fontSize: "0.68rem", color: "#7dd3fc", marginRight: "0.3rem" }}>{t}</span>)}</>
-    : null;
-}
