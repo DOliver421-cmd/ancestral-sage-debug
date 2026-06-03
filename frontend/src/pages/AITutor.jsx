@@ -33,9 +33,7 @@ function needsConsent(intensity, safety) {
   return intensity === "deep" || safety === "exploratory" || safety === "extreme";
 }
 
-const SpeechRecognitionImpl = typeof window !== "undefined"
-  ? (window.SpeechRecognition || window.webkitSpeechRecognition)
-  : null;
+import { useMic } from "../hooks/useMic";
 
 export default function AITutor() {
   const [mode, setMode] = useState("tutor");
@@ -57,8 +55,6 @@ export default function AITutor() {
   const [audioSpeed, setAudioSpeed] = useState(1.0);
   const [audioVolume, setAudioVolume] = useState(1.0);
   const [audioPlaying, setAudioPlaying] = useState(false);
-  const [recording, setRecording] = useState(false);
-  const recogRef = useRef(null);
   const audioElRef = useRef(null);
   const audioAbortRef = useRef(null);
 
@@ -212,61 +208,15 @@ export default function AITutor() {
     } finally { setLoading(false); }
   }, [input, loading, mode, intensity, safety, consentLogId, sessionId, depth, culture, divMode, audioOn, speak]);
 
-  const toggleMic = useCallback(() => {
-    if (!SpeechRecognitionImpl) {
-      toast.error("Voice input is not supported in this browser. Use Chrome, Edge, or Safari.");
-      return;
-    }
-    if (recording) {
-      recogRef.current?.stop();
-      recogRef.current = null;
-      setRecording(false);
-      return;
-    }
-    const startRec = () => {
-      const rec = new SpeechRecognitionImpl();
-      rec.lang = "en-US";
-      rec.continuous = true;
-      rec.interimResults = true;
-      rec.maxAlternatives = 1;
-      let silenceTimer = null;
-      rec.onresult = (ev) => {
-        let txt = "";
-        for (let i = ev.resultIndex; i < ev.results.length; i++) {
-          if (ev.results[i].isFinal) txt += ev.results[i][0].transcript;
-        }
-        if (txt.trim()) {
-          setInput((cur) => (cur ? `${cur} ${txt.trim()}` : txt.trim()));
-          clearTimeout(silenceTimer);
-          silenceTimer = setTimeout(() => {
-            rec.stop();
-            setRecording(false);
-            setTimeout(() => document.querySelector("[data-testid=btn-send]")?.click(), 100);
-          }, 2000);
-        }
-      };
-      rec.onerror = (ev) => {
-        if (ev.error === "no-speech") { rec.stop(); return; }
-        toast.error(`Mic error: ${ev.error || "unknown"}`);
-        recogRef.current = null;
-        setRecording(false);
-      };
-      rec.onend = () => {
-        recogRef.current = null;
-        setRecording(false);
-      };
-      recogRef.current = rec;
-      try {
-        rec.start();
-        setRecording(true);
-        toast.info("Listening… click mic again to stop.");
-      } catch {
-        recogRef.current = null;
-        toast.error("Couldn't start microphone.");
-      }
-    };
-    startRec();
-  }, [recording]);
+  const { listening: recording, toggle: toggleMic } = useMic({
+    continuous: true,
+    silenceMs:  2000,
+    onResult:   (txt) => {
+      setInput((cur) => cur ? `${cur} ${txt}` : txt);
+      setTimeout(() => document.querySelector("[data-testid=btn-send]")?.click(), 100);
+    },
+    onError: (msg) => toast.error(msg),
+  });
 
   const sageActive = mode === "ancestral_sage";
   const consentRequired = sageActive && needsConsent(intensity, safety);

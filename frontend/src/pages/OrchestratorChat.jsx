@@ -9,6 +9,7 @@ import {
   Image as ImageIcon, FileCode, Music,
 } from "lucide-react";
 import { toast } from "sonner";
+import { useMic } from "../hooks/useMic";
 
 // ── Role metadata ────────────────────────────────────────────────────────────
 const ROLE_META = {
@@ -103,11 +104,6 @@ function formatInline(text) {
   );
 }
 
-// ── Speech recognition ───────────────────────────────────────────────────────
-const SpeechRecognitionImpl =
-  typeof window !== "undefined"
-    ? window.SpeechRecognition || window.webkitSpeechRecognition
-    : null;
 
 // ── Main component ───────────────────────────────────────────────────────────
 export default function OrchestratorChat() {
@@ -134,8 +130,6 @@ export default function OrchestratorChat() {
   // Audio
   const [audioOn, setAudioOn] = useState(false);
   const [audioPlaying, setAudioPlaying] = useState(false);
-  const [recording, setRecording] = useState(false);
-  const recogRef = useRef(null);
   const audioElRef = useRef(null);
   const audioAbortRef = useRef(null);
   const endRef = useRef(null);
@@ -179,30 +173,10 @@ export default function OrchestratorChat() {
   }, [audioOn, sessionId, stopAudio]);
 
   // ── STT ──────────────────────────────────────────────────────────────────
-  const startRecording = useCallback(async () => {
-    if (!SpeechRecognitionImpl) { toast.error("Speech input not supported in this browser."); return; }
-    try {
-      await navigator.mediaDevices.getUserMedia({ audio: true });
-    } catch {
-      toast.error("Microphone access denied. Please allow mic access in your browser settings.");
-      return;
-    }
-    if (recogRef.current) { recogRef.current.stop(); recogRef.current = null; }
-    const r = new SpeechRecognitionImpl();
-    r.continuous = false;
-    r.interimResults = false;
-    r.lang = "en-US";
-    r.onresult = (e) => setInput((prev) => prev + e.results[0][0].transcript);
-    r.onerror = () => { recogRef.current = null; setRecording(false); };
-    r.onend = () => { recogRef.current = null; setRecording(false); };
-    recogRef.current = r;
-    try {
-      r.start();
-      setRecording(true);
-    } catch {
-      recogRef.current = null;
-    }
-  }, []);
+  const { listening: recording, toggle: startRecording } = useMic({
+    onResult: (txt) => setInput((prev) => prev + txt),
+    onError:  (msg) => toast.error(msg),
+  });
 
   const stopRecording = useCallback(() => {
     recogRef.current?.stop();

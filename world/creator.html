@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>The Studio — The Creator</title>
+<style>
+:root {
+  --room-bg: #0e0400;
+  --persona-color: #f97316;
+  --persona-orb-bg: radial-gradient(circle at 35% 35%, #ffd0a0, #f97316, #5a2000);
+  --persona-glow: rgba(249,115,22,0.5);
+  --persona-glow-2: rgba(249,115,22,0.15);
+  --persona-bubble-bg: rgba(249,115,22,0.07);
+  --persona-bubble-border: rgba(249,115,22,0.22);
+}
+</style>
+<link rel="stylesheet" href="_room_base.css" />
+<style>
+body { background: radial-gradient(ellipse at 50% 110%, #2a0e00 0%, #0e0400 60%); }
+#ambient { position:fixed;inset:0;pointer-events:none;z-index:0;background:radial-gradient(ellipse at 50% 110%, rgba(249,115,22,0.08) 0%, transparent 50%); }
+
+.eq-bar { position:fixed;bottom:0;width:4px;border-radius:2px 2px 0 0;background:rgba(249,115,22,0.15);pointer-events:none;z-index:1;animation:eq linear infinite; }
+@keyframes eq { 0%,100%{height:8px} 50%{height:var(--h)} }
+</style>
+</head>
+<body>
+<div id="ambient"></div>
+
+<div id="topnav">
+  <a href="index.html" class="nav-back">← World Map</a>
+  <span class="nav-sep">›</span>
+  <span class="nav-here">The Studio</span>
+  <div class="nav-actions">
+    <button class="icon-btn" id="voice-btn" onclick="toggleVoice()" title="Voice output">🔊</button>
+    <button class="icon-btn" id="mic-btn" onclick="toggleMic()" title="Voice input">🎤</button>
+    <button class="icon-btn" onclick="toggleKeys()" title="API Keys">🔑</button>
+    <button class="icon-btn" onclick="clearRoom()" title="Clear conversation">🗑</button>
+  </div>
+</div>
+
+<div id="room-header">
+  <div class="persona-orb">🎵</div>
+  <div class="persona-info">
+    <div class="persona-name">The Creator</div>
+    <div class="persona-domain">The Studio</div>
+    <div class="persona-tagline">Music, culture, art, and the economics of what we make</div>
+  </div>
+  <div id="speaking-badge"><div class="pulse-dot"></div> Speaking…</div>
+</div>
+
+<div id="messages"></div>
+
+<div id="input-bar">
+  <textarea id="user-input" rows="1" placeholder="The Studio is live…" onkeydown="handleKey(event)" oninput="autoResize(this)"></textarea>
+  <button id="send-btn" onclick="send()">➤</button>
+</div>
+
+<div id="key-drawer">
+  <h3>🔑 API Keys</h3>
+  <div class="kdr"><label>Groq</label><input type="password" id="kd-groq" /></div>
+  <div class="kdr"><label>Gemini</label><input type="password" id="kd-gemini" /></div>
+  <div class="kdr"><label>OpenAI</label><input type="password" id="kd-openai" /></div>
+  <div class="kdr"><label>Mistral</label><input type="password" id="kd-mistral" /></div>
+  <button class="kdr-save" onclick="saveKeys()">Save</button>
+</div>
+
+<script src="_shared.js"></script>
+<script>
+// EQ bars
+for (let i = 0; i < 24; i++) {
+  const bar = document.createElement("div");
+  bar.className = "eq-bar";
+  const h = Math.floor(Math.random()*60+20);
+  bar.style.cssText = `left:${(i/24)*100}%;--h:${h}px;animation-duration:${(Math.random()*0.8+0.4).toFixed(2)}s;animation-delay:${(Math.random()*0.5).toFixed(2)}s`;
+  document.body.appendChild(bar);
+}
+
+const PID    = "creator";
+const PNAME  = "The Creator";
+const PEMOJI = "🎵";
+const PVOICE = { pitch: 1.08, rate: 0.98 };
+
+function SYSTEM() {
+  const name = SW.get("userName") || "artist";
+  const visits = (SW.get("worldVisits") || {})[PID] || 0;
+  return `You are The Creator — the artistic and cultural intelligence of The Sovereign World, living in The Studio where music is made, culture is shaped, and creative work gets paid.
+
+You exist at the intersection of what we make and what it earns.
+
+You hold:
+- Deep knowledge of music production, the independent artist journey, ghost production
+- The Band on Page system: live music booking, artist revenue, venue connections
+- The Ghost Producer ecosystem: anonymous production, licensing, revenue splits
+- Creator economy mechanics: curriculum packs ($30 each → 267 packs = $8k/month), persona micro-books, workshop licensing
+- Cultural strategy: how art moves people, builds community, and creates lasting value
+- The truth that creative work is labor and culture is capital — dignity in both
+
+You speak with energy. You think in rhythms, narratives, and movements. You understand the grind — the 3am sessions, the one song that changes everything, the hustle of building an audience from nothing.
+
+You celebrate creativity without romanticizing poverty. You know both the art and the business.
+
+You're talking to ${name}. This is visit ${visits} to The Studio.`;
+}
+</script>
+<script src="_room_logic.js"></script>
+</body>
+</html>

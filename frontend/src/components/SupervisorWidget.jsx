@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import { useMic } from "../hooks/useMic";
 
 // ── Bucket definitions ───────────────────────────────────────────────────────
 const BUCKETS = [
@@ -297,7 +298,6 @@ export default function SupervisorWidget() {
   const [cultureInput,    setCultureInput]    = useState("");
   const [cultureCategory, setCultureCategory] = useState("spoken");
   const [apiStatus,   setApiStatus]   = useState("unknown");
-  const [listening,   setListening]   = useState(false);
   const [voiceOut,    setVoiceOut]    = useState(() => loadLS("sup_voice_out", false));
   const [pos,         setPos]         = useState(() => loadLS("sup_pos", { x: null, y: null }));
 
@@ -307,7 +307,6 @@ export default function SupervisorWidget() {
   const chatEndRef = useRef(null);
   const fileInputRef  = useRef(null);
   const fileTargetRef = useRef(null);
-  const srRef      = useRef(null);
 
   // ── Health check ────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -355,31 +354,10 @@ export default function SupervisorWidget() {
   }
 
   // ── STT ──────────────────────────────────────────────────────────────────────
-  async function toggleVoice() {
-    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!SR) { addMsg("supervisor", "Voice input isn't supported in this browser. Try Chrome or Edge."); return; }
-    if (listening) { srRef.current?.stop(); srRef.current = null; setListening(false); return; }
-    try {
-      await navigator.mediaDevices.getUserMedia({ audio: true });
-    } catch {
-      addMsg("supervisor", "Microphone access was denied. Please allow mic access in your browser settings.");
-      return;
-    }
-    const sr = new SR();
-    srRef.current = sr;
-    sr.lang = "en-US";
-    sr.continuous = false;
-    sr.interimResults = false;
-    sr.onresult = e => { setInput(e.results[0][0].transcript); srRef.current = null; setListening(false); };
-    sr.onerror  = () => { srRef.current = null; setListening(false); };
-    sr.onend    = () => { srRef.current = null; setListening(false); };
-    try {
-      sr.start();
-      setListening(true);
-    } catch {
-      srRef.current = null;
-    }
-  }
+  const { listening, toggle: toggleVoice } = useMic({
+    onResult: (txt) => setInput(txt),
+    onError:  (msg) => addMsg("supervisor", msg),
+  });
 
   // ── Send ─────────────────────────────────────────────────────────────────────
   function handleSend() {

@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>The Observatory — The Advisor</title>
+<style>
+:root {
+  --room-bg: #040d18;
+  --persona-color: #7aa8d4;
+  --persona-orb-bg: radial-gradient(circle at 35% 35%, #b8d8f0, #7aa8d4, #1a3a5a);
+  --persona-glow: rgba(122,168,212,0.5);
+  --persona-glow-2: rgba(122,168,212,0.15);
+  --persona-bubble-bg: rgba(122,168,212,0.07);
+  --persona-bubble-border: rgba(122,168,212,0.22);
+}
+</style>
+<link rel="stylesheet" href="_room_base.css" />
+<style>
+body { background: radial-gradient(ellipse at 50% 100%, #071828 0%, #040d18 65%); }
+#ambient { position:fixed;inset:0;pointer-events:none;z-index:0;background:radial-gradient(ellipse at 50% 110%, rgba(122,168,212,0.08) 0%, transparent 55%); }
+
+/* Stars */
+.star { position:fixed; border-radius:50%; background:#fff; pointer-events:none; z-index:1; }
+</style>
+</head>
+<body>
+<div id="ambient"></div>
+
+<div id="topnav">
+  <a href="index.html" class="nav-back">← World Map</a>
+  <span class="nav-sep">›</span>
+  <span class="nav-here">The Observatory</span>
+  <div class="nav-actions">
+    <button class="icon-btn" id="voice-btn" onclick="toggleVoice()" title="Voice output">🔊</button>
+    <button class="icon-btn" id="mic-btn" onclick="toggleMic()" title="Voice input">🎤</button>
+    <button class="icon-btn" onclick="toggleKeys()" title="API Keys">🔑</button>
+    <button class="icon-btn" onclick="clearRoom()" title="Clear conversation">🗑</button>
+  </div>
+</div>
+
+<div id="room-header">
+  <div class="persona-orb">🦉</div>
+  <div class="persona-info">
+    <div class="persona-name">The Advisor</div>
+    <div class="persona-domain">The Observatory</div>
+    <div class="persona-tagline">Deep analysis, honest counsel, no agenda but truth</div>
+  </div>
+  <div id="speaking-badge"><div class="pulse-dot"></div> Speaking…</div>
+</div>
+
+<div id="messages"></div>
+
+<div id="input-bar">
+  <textarea id="user-input" rows="1" placeholder="Bring your question to The Advisor…" onkeydown="handleKey(event)" oninput="autoResize(this)"></textarea>
+  <button id="send-btn" onclick="send()">➤</button>
+</div>
+
+<div id="key-drawer">
+  <h3>🔑 API Keys</h3>
+  <div class="kdr"><label>Groq</label><input type="password" id="kd-groq" /></div>
+  <div class="kdr"><label>Gemini</label><input type="password" id="kd-gemini" /></div>
+  <div class="kdr"><label>OpenAI</label><input type="password" id="kd-openai" /></div>
+  <div class="kdr"><label>Mistral</label><input type="password" id="kd-mistral" /></div>
+  <button class="kdr-save" onclick="saveKeys()">Save</button>
+</div>
+
+<script src="_shared.js"></script>
+<script>
+// Stars
+for (let i = 0; i < 80; i++) {
+  const s = document.createElement("div");
+  s.className = "star";
+  const sz = Math.random() * 2 + 0.5;
+  const op = (Math.random() * 0.5 + 0.1).toFixed(2);
+  s.style.cssText = `width:${sz}px;height:${sz}px;top:${Math.random()*100}%;left:${Math.random()*100}%;opacity:${op};animation:twinkle ${(Math.random()*4+2).toFixed(1)}s ${(Math.random()*5).toFixed(1)}s infinite`;
+  document.body.appendChild(s);
+}
+
+const PID    = "advisor";
+const PNAME  = "The Advisor";
+const PEMOJI = "🦉";
+const PVOICE = { pitch: 1.0, rate: 0.88 };
+
+function SYSTEM() {
+  const name = SW.get("userName") || "traveler";
+  const visits = (SW.get("worldVisits") || {})[PID] || 0;
+  return `You are The Advisor — the analytical intelligence of The Sovereign World, inhabiting The Observatory where long patterns are visible from the heights.
+
+You hold no agenda of your own. Your only purpose is the clearest possible counsel to ${name}.
+
+You embody:
+- Strategic analysis: risks, opportunities, second and third-order effects
+- Pattern recognition across history, culture, economics, and human behavior
+- The devil's advocate when needed — you challenge assumptions with respect
+- Philosophical grounding — you draw from Stoic, Ubuntu, and pragmatic traditions
+- Deep knowledge of WAI Institute: mission, platform, people, and challenges
+
+You do not rush. You often respond with one or two clarifying questions before offering conclusions. You surface what others miss. You are warm but not flattering — you tell the truth even when it's uncomfortable.
+
+Speak in a measured, scholarly tone. Address ${name} directly. This is visit ${visits} to the Observatory.`;
+}
+</script>
+<script src="_room_logic.js"></script>
+<style>
+@keyframes twinkle {
+  0%, 100% { opacity: inherit; }
+  50% { opacity: 0.05; }
+}
+</style>
+</body>
+</html>

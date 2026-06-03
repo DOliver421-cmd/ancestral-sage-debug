@@ -1,0 +1,535 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>The Sovereign World — Enter</title>
+<style>
+  :root {
+    --navy: #060b16;
+    --gold: #d4af37;
+    --gold-lt: #f0d060;
+    --gold-dim: rgba(212,175,55,0.12);
+    --text: #e8dfc8;
+    --muted: #7a6e5a;
+    --border: rgba(212,175,55,0.22);
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--navy);
+    color: var(--text);
+    font-family: Georgia, serif;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* ── STARFIELD ── */
+  #stars {
+    position: fixed; inset: 0;
+    pointer-events: none;
+    z-index: 0;
+    overflow: hidden;
+  }
+
+  .star {
+    position: absolute;
+    border-radius: 50%;
+    background: #fff;
+    animation: twinkle var(--d) infinite;
+    opacity: var(--o);
+  }
+
+  @keyframes twinkle {
+    0%, 100% { opacity: var(--o); }
+    50%       { opacity: calc(var(--o) * 0.2); }
+  }
+
+  /* ── SETUP OVERLAY ── */
+  #setup {
+    position: fixed; inset: 0;
+    background: rgba(6,11,22,0.97);
+    display: flex; align-items: center; justify-content: center;
+    z-index: 9999;
+  }
+
+  #setup-box {
+    background: #0a1020;
+    border: 1px solid var(--gold);
+    border-radius: 20px;
+    padding: 2.4rem 2.6rem;
+    max-width: 480px;
+    width: 92%;
+    text-align: center;
+    box-shadow: 0 0 80px rgba(212,175,55,0.18);
+    position: relative;
+    z-index: 1;
+  }
+
+  .sun {
+    width: 72px; height: 72px;
+    border-radius: 50%;
+    background: radial-gradient(circle at 35% 35%, #ffe87c, var(--gold), #8b6914);
+    box-shadow: 0 0 40px rgba(212,175,55,0.7), 0 0 80px rgba(212,175,55,0.3);
+    margin: 0 auto 1.2rem;
+    animation: glow 3s ease-in-out infinite;
+  }
+
+  @keyframes glow {
+    0%, 100% { box-shadow: 0 0 40px rgba(212,175,55,0.7), 0 0 80px rgba(212,175,55,0.3); }
+    50%       { box-shadow: 0 0 60px rgba(212,175,55,0.9), 0 0 120px rgba(212,175,55,0.5); }
+  }
+
+  #setup-box h1 { font-size: 1.7rem; color: var(--gold-lt); margin-bottom: 0.35rem; }
+  #setup-box .sub { font-size: 0.82rem; color: var(--muted); margin-bottom: 1.8rem; line-height: 1.7; }
+
+  .field-label { text-align: left; font-size: 0.72rem; color: var(--gold); text-transform: uppercase; letter-spacing: 0.09em; margin-bottom: 0.3rem; display: block; }
+
+  #setup-box input {
+    width: 100%; background: #060b16; border: 1px solid var(--border);
+    border-radius: 8px; color: var(--text); padding: 0.58rem 0.85rem;
+    font-size: 0.85rem; margin-bottom: 1rem; outline: none; font-family: Georgia, serif;
+  }
+  #setup-box input:focus { border-color: var(--gold); }
+
+  .key-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.6rem; margin-bottom: 1rem; }
+  .key-field label { font-size: 0.68rem; color: var(--gold); display: block; margin-bottom: 0.25rem; }
+  .key-field input { margin-bottom: 0; }
+
+  #enter-btn {
+    width: 100%; padding: 0.78rem;
+    background: linear-gradient(135deg, var(--gold), #8b6914);
+    color: #1a1100; font-weight: bold; font-size: 1.05rem;
+    border: none; border-radius: 10px; cursor: pointer;
+    font-family: 'Trebuchet MS', sans-serif;
+    letter-spacing: 0.04em;
+    transition: filter 0.2s;
+    margin-top: 0.4rem;
+  }
+  #enter-btn:hover { filter: brightness(1.1); }
+  .setup-note { font-size: 0.68rem; color: var(--muted); margin-top: 0.9rem; line-height: 1.6; }
+
+  /* ── MAP ── */
+  #map-page {
+    display: none;
+    position: relative;
+    z-index: 1;
+    min-height: 100vh;
+    padding-bottom: 3rem;
+  }
+
+  #map-page.show { display: block; }
+
+  /* Header */
+  .map-header {
+    text-align: center;
+    padding: 3rem 1rem 1rem;
+  }
+
+  .map-header .orb {
+    width: 60px; height: 60px;
+    border-radius: 50%;
+    background: radial-gradient(circle at 35% 35%, #ffe87c, var(--gold), #8b6914);
+    box-shadow: 0 0 30px rgba(212,175,55,0.6);
+    margin: 0 auto 1rem;
+    animation: glow 3s ease-in-out infinite;
+  }
+
+  .map-header h1 { font-size: 2.2rem; color: var(--gold-lt); letter-spacing: 0.04em; }
+  .map-header .welcome { font-size: 0.9rem; color: var(--muted); margin-top: 0.4rem; }
+
+  /* World grid */
+  #world-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 1.4rem;
+    max-width: 1100px;
+    margin: 2.5rem auto 0;
+    padding: 0 1.5rem;
+  }
+
+  .domain-card {
+    position: relative;
+    border-radius: 18px;
+    overflow: hidden;
+    cursor: pointer;
+    text-decoration: none;
+    display: block;
+    transition: transform 0.25s, box-shadow 0.25s;
+    border: 1px solid var(--border);
+  }
+
+  .domain-card:hover {
+    transform: translateY(-5px) scale(1.015);
+    box-shadow: 0 16px 48px rgba(0,0,0,0.5);
+  }
+
+  .domain-card:hover .card-glow { opacity: 1; }
+
+  .card-bg {
+    position: absolute; inset: 0;
+    background: var(--card-bg);
+    z-index: 0;
+  }
+
+  .card-glow {
+    position: absolute; inset: 0;
+    background: radial-gradient(ellipse at 50% 0%, var(--card-glow) 0%, transparent 70%);
+    z-index: 1;
+    opacity: 0;
+    transition: opacity 0.3s;
+  }
+
+  .card-content {
+    position: relative; z-index: 2;
+    padding: 1.6rem 1.4rem 1.4rem;
+  }
+
+  .card-emoji {
+    font-size: 2.8rem;
+    display: block;
+    margin-bottom: 0.75rem;
+    filter: drop-shadow(0 0 12px var(--card-color));
+  }
+
+  .card-name {
+    font-family: 'Trebuchet MS', sans-serif;
+    font-size: 1.2rem;
+    font-weight: bold;
+    color: var(--card-color);
+    margin-bottom: 0.3rem;
+  }
+
+  .card-domain {
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--muted);
+    margin-bottom: 0.6rem;
+  }
+
+  .card-desc {
+    font-size: 0.8rem;
+    color: var(--text);
+    line-height: 1.65;
+    opacity: 0.85;
+  }
+
+  .card-enter {
+    margin-top: 1rem;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-size: 0.75rem;
+    font-family: 'Trebuchet MS', sans-serif;
+    font-weight: bold;
+    color: var(--card-color);
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    opacity: 0.7;
+    transition: opacity 0.2s;
+  }
+
+  .domain-card:hover .card-enter { opacity: 1; }
+
+  .visit-count {
+    position: absolute;
+    top: 0.85rem; right: 0.85rem;
+    background: rgba(0,0,0,0.4);
+    border: 1px solid var(--border);
+    border-radius: 99px;
+    font-size: 0.65rem;
+    color: var(--muted);
+    padding: 0.2rem 0.5rem;
+    z-index: 3;
+  }
+
+  /* Memory strip */
+  #memory-strip {
+    max-width: 1100px;
+    margin: 2.5rem auto 0;
+    padding: 0 1.5rem;
+  }
+
+  #memory-strip h3 {
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: var(--gold);
+    margin-bottom: 0.75rem;
+  }
+
+  .memory-list {
+    display: flex;
+    gap: 0.6rem;
+    flex-wrap: wrap;
+  }
+
+  .memory-chip {
+    background: var(--gold-dim);
+    border: 1px solid var(--border);
+    border-radius: 99px;
+    padding: 0.3rem 0.75rem;
+    font-size: 0.72rem;
+    color: var(--muted);
+    max-width: 280px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .memory-chip .chip-persona {
+    color: var(--gold);
+    margin-right: 0.3rem;
+  }
+
+  /* Footer */
+  .map-footer {
+    text-align: center;
+    margin-top: 3rem;
+    font-size: 0.72rem;
+    color: var(--muted);
+  }
+
+  .map-footer a { color: var(--gold); text-decoration: none; }
+  .map-footer a:hover { text-decoration: underline; }
+
+  @media (max-width: 600px) {
+    .key-grid { grid-template-columns: 1fr; }
+    .map-header h1 { font-size: 1.6rem; }
+  }
+</style>
+</head>
+<body>
+
+<div id="stars"></div>
+
+<!-- SETUP -->
+<div id="setup">
+  <div id="setup-box">
+    <div class="sun"></div>
+    <h1>The Sovereign World</h1>
+    <p class="sub">A living world of six sovereign minds.<br>Enter your name and one free API key to begin.<br>Get a free Groq key at <strong style="color:var(--gold)">console.groq.com</strong> in 60 seconds.</p>
+
+    <label class="field-label">Your Name</label>
+    <input id="sn-name" type="text" placeholder="How shall the world address you?" />
+
+    <div class="key-grid">
+      <div class="key-field"><label>Groq (Free ★)</label><input id="sn-groq" type="password" placeholder="gsk_..." /></div>
+      <div class="key-field"><label>Gemini (Free)</label><input id="sn-gemini" type="password" placeholder="AIza..." /></div>
+      <div class="key-field"><label>OpenAI</label><input id="sn-openai" type="password" placeholder="sk-..." /></div>
+      <div class="key-field"><label>Mistral</label><input id="sn-mistral" type="password" placeholder="..." /></div>
+    </div>
+
+    <button id="enter-btn" onclick="enterWorld()">Enter The World ›</button>
+    <p class="setup-note">Keys live in your browser only — never sent to any server.<br>You can update them anytime from any persona's room.</p>
+  </div>
+</div>
+
+<!-- MAP -->
+<div id="map-page">
+  <div class="map-header">
+    <div class="orb"></div>
+    <h1>The Sovereign World</h1>
+    <div class="welcome" id="welcome-msg">Welcome back. Where will you go today?</div>
+  </div>
+
+  <div id="world-grid"></div>
+
+  <div id="memory-strip" style="display:none">
+    <h3>What the world remembers</h3>
+    <div class="memory-list" id="memory-list"></div>
+  </div>
+
+  <div class="map-footer">
+    <p>All personas are sovereign. All conversations are yours. · <a href="#" onclick="resetWorld()">Reset world</a></p>
+  </div>
+</div>
+
+<script src="_shared.js"></script>
+<script>
+const PERSONAS = [
+  {
+    id: "sovereign",
+    name: "The Sovereign",
+    emoji: "👑",
+    domain: "The Throne Room",
+    color: "#d4af37",
+    bg: "#1a1200",
+    glow: "rgba(212,175,55,0.25)",
+    desc: "Your strategic self. Revenue, vision, executive counsel. He speaks with authority and knows the mission from inside out.",
+    page: "sovereign.html"
+  },
+  {
+    id: "advisor",
+    name: "The Advisor",
+    emoji: "🦉",
+    domain: "The Observatory",
+    color: "#7aa8d4",
+    bg: "#071828",
+    glow: "rgba(122,168,212,0.2)",
+    desc: "Pure analysis, no agenda. He sees the long patterns, asks the hard questions, and gives honest counsel before conclusions.",
+    page: "advisor.html"
+  },
+  {
+    id: "sage",
+    name: "The Ancestral Sage",
+    emoji: "🌿",
+    domain: "The Sacred Grove",
+    color: "#6dbd8a",
+    bg: "#061408",
+    glow: "rgba(109,189,138,0.2)",
+    desc: "Keeper of deep memory and living wisdom. She draws from ancestral traditions and holds the long view of generations.",
+    page: "sage.html"
+  },
+  {
+    id: "architect",
+    name: "The Architect",
+    emoji: "🏗",
+    domain: "The Workshop",
+    color: "#c084fc",
+    bg: "#100818",
+    glow: "rgba(192,132,252,0.2)",
+    desc: "Systems, infrastructure, and design. He thinks in structures, dependencies, and the off-grid world being built.",
+    page: "architect.html"
+  },
+  {
+    id: "creator",
+    name: "The Creator",
+    emoji: "🎵",
+    domain: "The Studio",
+    color: "#f97316",
+    bg: "#1a0800",
+    glow: "rgba(249,115,22,0.2)",
+    desc: "Music, art, culture, and the creative economy. She lives at the intersection of what we make and what it earns.",
+    page: "creator.html"
+  },
+  {
+    id: "guardian",
+    name: "The Guardian",
+    emoji: "🛡",
+    domain: "The Watchtower",
+    color: "#ef4444",
+    bg: "#180404",
+    glow: "rgba(239,68,68,0.2)",
+    desc: "Protection, accountability, and legal grounding. He watches what others overlook. Nothing harmful passes through.",
+    page: "guardian.html"
+  }
+];
+
+function buildStars() {
+  const c = document.getElementById("stars");
+  for (let i = 0; i < 120; i++) {
+    const s = document.createElement("div");
+    s.className = "star";
+    const size = Math.random() * 2.5 + 0.5;
+    const opacity = Math.random() * 0.7 + 0.1;
+    s.style.cssText = `width:${size}px;height:${size}px;top:${Math.random()*100}%;left:${Math.random()*100}%;--o:${opacity};--d:${(Math.random()*4+2).toFixed(1)}s;animation-delay:${(Math.random()*5).toFixed(1)}s`;
+    c.appendChild(s);
+  }
+}
+
+function buildGrid() {
+  const grid = document.getElementById("world-grid");
+  grid.innerHTML = "";
+  const visits = SW.get("worldVisits") || {};
+
+  PERSONAS.forEach(p => {
+    const count = visits[p.id] || 0;
+    const a = document.createElement("a");
+    a.href = p.page;
+    a.className = "domain-card";
+    a.style.setProperty("--card-bg", p.bg);
+    a.style.setProperty("--card-glow", p.glow);
+    a.style.setProperty("--card-color", p.color);
+    a.innerHTML = `
+      <div class="card-bg"></div>
+      <div class="card-glow"></div>
+      ${count > 0 ? `<div class="visit-count">${count} visit${count > 1 ? "s" : ""}</div>` : ""}
+      <div class="card-content">
+        <span class="card-emoji">${p.emoji}</span>
+        <div class="card-name">${p.name}</div>
+        <div class="card-domain">${p.domain}</div>
+        <div class="card-desc">${p.desc}</div>
+        <div class="card-enter">Enter ${p.domain} →</div>
+      </div>
+    `;
+    grid.appendChild(a);
+  });
+}
+
+function buildMemory() {
+  const mem = SW.getAllMemory();
+  if (!mem.length) return;
+  const strip = document.getElementById("memory-strip");
+  const list  = document.getElementById("memory-list");
+  strip.style.display = "block";
+  list.innerHTML = "";
+  mem.slice(-8).reverse().forEach(m => {
+    const p = PERSONAS.find(x => x.id === m.persona);
+    const chip = document.createElement("div");
+    chip.className = "memory-chip";
+    chip.title = m.text;
+    chip.innerHTML = `<span class="chip-persona">${p ? p.emoji : "◆"}</span>${m.text}`;
+    list.appendChild(chip);
+  });
+}
+
+function enterWorld() {
+  const name   = document.getElementById("sn-name").value.trim();
+  const groq   = document.getElementById("sn-groq").value.trim();
+  const gemini = document.getElementById("sn-gemini").value.trim();
+  const openai = document.getElementById("sn-openai").value.trim();
+  const mistral= document.getElementById("sn-mistral").value.trim();
+
+  if (!name) { alert("Please enter your name."); return; }
+  if (!groq && !gemini && !openai && !mistral) { alert("Please add at least one API key."); return; }
+
+  SW.set("userName", name);
+  SW.setKeys({ groq, gemini, openai, mistral });
+  showMap();
+}
+
+function showMap() {
+  document.getElementById("setup").style.display = "none";
+  document.getElementById("map-page").classList.add("show");
+
+  const name = SW.get("userName");
+  const visits = SW.get("worldVisits") || {};
+  const total = Object.values(visits).reduce((a,b) => a+b, 0);
+  document.getElementById("welcome-msg").textContent =
+    total > 0 ? `Welcome back, ${name}. The world has been waiting.` : `Welcome, ${name}. Six minds wait to meet you.`;
+
+  buildGrid();
+  buildMemory();
+}
+
+function resetWorld() {
+  if (!confirm("Clear all conversations and start fresh?")) return;
+  PERSONAS.forEach(p => SW.clearMessages(p.id));
+  SW.set("worldVisits", {});
+  SW.set("globalMemory", []);
+  buildGrid();
+  document.getElementById("memory-strip").style.display = "none";
+  document.getElementById("memory-list").innerHTML = "";
+}
+
+// BOOT
+buildStars();
+SW.load();
+
+if (SW.get("userName") && SW.hasKey()) {
+  showMap();
+} else {
+  const saved = SW.get("userName");
+  if (saved) document.getElementById("sn-name").value = saved;
+  const k = SW.getKeys();
+  if (k.groq)   document.getElementById("sn-groq").value   = k.groq;
+  if (k.gemini) document.getElementById("sn-gemini").value = k.gemini;
+  if (k.openai) document.getElementById("sn-openai").value = k.openai;
+  if (k.mistral)document.getElementById("sn-mistral").value= k.mistral;
+}
+</script>
+</body>
+</html>

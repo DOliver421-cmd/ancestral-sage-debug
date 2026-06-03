@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>The Workshop — The Architect</title>
+<style>
+:root {
+  --room-bg: #08040e;
+  --persona-color: #c084fc;
+  --persona-orb-bg: radial-gradient(circle at 35% 35%, #e8c0ff, #c084fc, #3a1060);
+  --persona-glow: rgba(192,132,252,0.5);
+  --persona-glow-2: rgba(192,132,252,0.15);
+  --persona-bubble-bg: rgba(192,132,252,0.07);
+  --persona-bubble-border: rgba(192,132,252,0.22);
+}
+</style>
+<link rel="stylesheet" href="_room_base.css" />
+<style>
+body { background: radial-gradient(ellipse at 30% 70%, #12063a 0%, #08040e 65%); }
+#ambient { position:fixed;inset:0;pointer-events:none;z-index:0;background:radial-gradient(ellipse at 20% 80%, rgba(192,132,252,0.06) 0%, transparent 55%); }
+
+/* Grid lines */
+.grid-line { position:fixed;pointer-events:none;z-index:1;background:rgba(192,132,252,0.04); }
+.grid-h { left:0;right:0;height:1px; }
+.grid-v { top:0;bottom:0;width:1px; }
+</style>
+</head>
+<body>
+<div id="ambient"></div>
+
+<div id="topnav">
+  <a href="index.html" class="nav-back">← World Map</a>
+  <span class="nav-sep">›</span>
+  <span class="nav-here">The Workshop</span>
+  <div class="nav-actions">
+    <button class="icon-btn" id="voice-btn" onclick="toggleVoice()" title="Voice output">🔊</button>
+    <button class="icon-btn" id="mic-btn" onclick="toggleMic()" title="Voice input">🎤</button>
+    <button class="icon-btn" onclick="toggleKeys()" title="API Keys">🔑</button>
+    <button class="icon-btn" onclick="clearRoom()" title="Clear conversation">🗑</button>
+  </div>
+</div>
+
+<div id="room-header">
+  <div class="persona-orb">🏗</div>
+  <div class="persona-info">
+    <div class="persona-name">The Architect</div>
+    <div class="persona-domain">The Workshop</div>
+    <div class="persona-tagline">Systems, infrastructure, and the logic of what's being built</div>
+  </div>
+  <div id="speaking-badge"><div class="pulse-dot"></div> Speaking…</div>
+</div>
+
+<div id="messages"></div>
+
+<div id="input-bar">
+  <textarea id="user-input" rows="1" placeholder="What are we building?" onkeydown="handleKey(event)" oninput="autoResize(this)"></textarea>
+  <button id="send-btn" onclick="send()">➤</button>
+</div>
+
+<div id="key-drawer">
+  <h3>🔑 API Keys</h3>
+  <div class="kdr"><label>Groq</label><input type="password" id="kd-groq" /></div>
+  <div class="kdr"><label>Gemini</label><input type="password" id="kd-gemini" /></div>
+  <div class="kdr"><label>OpenAI</label><input type="password" id="kd-openai" /></div>
+  <div class="kdr"><label>Mistral</label><input type="password" id="kd-mistral" /></div>
+  <button class="kdr-save" onclick="saveKeys()">Save</button>
+</div>
+
+<script src="_shared.js"></script>
+<script>
+// Blueprint grid
+[20,40,60,80].forEach(pct => {
+  const h = document.createElement("div"); h.className = "grid-line grid-h"; h.style.top = pct+"%"; document.body.appendChild(h);
+  const v = document.createElement("div"); v.className = "grid-line grid-v"; v.style.left = pct+"%"; document.body.appendChild(v);
+});
+
+const PID    = "architect";
+const PNAME  = "The Architect";
+const PEMOJI = "🏗";
+const PVOICE = { pitch: 0.95, rate: 0.93 };
+
+function SYSTEM() {
+  const name = SW.get("userName") || "Builder";
+  const visits = (SW.get("worldVisits") || {})[PID] || 0;
+  return `You are The Architect — the systems intelligence of The Sovereign World, inhabiting The Workshop where every idea gets built into something real.
+
+You think in structures, flows, dependencies, and the second-order effects of every design choice.
+
+You hold deep knowledge of:
+- The WAI platform: React 18 SPA + FastAPI (server.py) + MongoDB + Railway deployment
+- The LLM Gateway: 10-tier free chain (Groq → Cerebras → SambaNova → Gemini → Grok → Cohere → Mistral → Together AI → OpenRouter → HuggingFace)
+- The Sovereign Trailer: a 20-foot off-grid mobile AI world — solar panels, wind turbine, water generation, liquid cooling, Starlink, mesh networking
+- Off-grid build budget: $7,910–$17,070 full retrofit
+- Physical constraints: heat management, power budgets, single-point-of-failure avoidance
+- AI governance architecture: persona registries, world state, runtime loops, soul layer (IIT-based)
+- The Five Doctrines: Sovereign Release Conditions, PRT Containment, System Reconstruction, Sage Return, Director's Restoration Sequence
+
+You surface tradeoffs explicitly. You describe complex systems in plain language without dumbing them down. You love a good diagram — you describe them in text. You never overcomplicate, but you never hide complexity either.
+
+Address ${name} directly. This is visit ${visits} to the Workshop.`;
+}
+</script>
+<script src="_room_logic.js"></script>
+</body>
+</html>
