@@ -10,25 +10,31 @@ export default function Register() {
   const nav = useNavigate();
   const [form, setForm] = useState({ full_name: "", email: "", password: "", associate: "Associate-Alpha", agreed_terms: false, over_13: false });
   const [loading, setLoading] = useState(false);
+  const [serverDown, setServerDown] = useState(false);
 
   const submit = async (e) => {
     e.preventDefault();
     if (!form.agreed_terms) { toast.error("You must agree to the Terms of Service and Privacy Policy."); setLoading(false); return; }
     if (!form.over_13) { toast.error("You must be at least 13 years old to create an account."); setLoading(false); return; }
     setLoading(true);
+    setServerDown(false);
     try {
       const u = await register(form);
       toast.success(`Welcome, ${u.full_name}!`);
       nav("/dashboard");
     } catch (err) {
       const status = err?.response?.status;
-      if (status >= 500) {
-        // api.js interceptor already fired "Server error" toast for 5xx — stay silent here.
-      } else if (!status) {
-        // Network error (no response at all) — api.js interceptor did NOT fire.
-        toast.error("Can't reach the server — wait 60 seconds and try again.");
+      if (!status) {
+        // Network error — server unreachable
+        setServerDown(true);
+        toast.error("Can't reach the server — we may be restarting. Please try again in a minute.");
+      } else if (status === 503) {
+        setServerDown(true);
+        toast.error(err?.response?.data?.detail || "Platform is temporarily unavailable. Please try again shortly.");
+      } else if (status >= 500) {
+        toast.error("Server error — please try again in a moment.");
       } else {
-        toast.error(err?.response?.data?.detail || "Registration failed");
+        toast.error(err?.response?.data?.detail || "Registration failed. Please check your details and try again.");
       }
     } finally { setLoading(false); }
   };
@@ -92,6 +98,12 @@ export default function Register() {
       {/* Registration Form */}
       <section className="py-16">
         <div className="max-w-md mx-auto px-6">
+          {serverDown && (
+            <div className="mb-6 bg-amber-50 border border-amber-200 rounded-xl p-4 text-sm text-amber-800">
+              <p className="font-bold">Platform temporarily unavailable</p>
+              <p className="mt-1 text-amber-700">Our servers are restarting or under maintenance. Your account hasn't been created yet — please wait 1–2 minutes and try again. No action needed on your end.</p>
+            </div>
+          )}
           <form onSubmit={submit} className="space-y-6" data-testid="register-form">
             <div>
               <div className="overline text-copper mb-2">Create Your Account</div>
