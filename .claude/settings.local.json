@@ -218,7 +218,9 @@
       "Bash(cp /root/.claude/uploads/8da14145-635f-4a67-bb4b-e2faa9213c36/932e84be-electrical_courses.html /home/user/ancestral-sage-debug/frontend/public/tools/electrical-courses.html)",
       "Bash(cp /root/.claude/uploads/8da14145-635f-4a67-bb4b-e2faa9213c36/0d49647b-media_strategist.html /home/user/ancestral-sage-debug/frontend/public/tools/media-strategist.html)",
       "Bash(cp /root/.claude/uploads/8da14145-635f-4a67-bb4b-e2faa9213c36/09d356a2-publisher.html /home/user/ancestral-sage-debug/frontend/public/tools/publisher-prime.html)",
-      "Bash(cp /root/.claude/uploads/8da14145-635f-4a67-bb4b-e2faa9213c36/aad27775-Creators_Sanctuary.html /home/user/ancestral-sage-debug/frontend/public/tools/creators-sanctuary.html)"
+      "Bash(cp /root/.claude/uploads/8da14145-635f-4a67-bb4b-e2faa9213c36/aad27775-Creators_Sanctuary.html /home/user/ancestral-sage-debug/frontend/public/tools/creators-sanctuary.html)",
+      "Bash(cp \"/root/.claude/uploads/0929874b-6d67-4f83-a090-5909ec61b4e6/73880e1c-The_Ghost_In_The_Machine.mp3\" /home/user/ancestral-sage-debug/public/ghost-track.mp3)",
+      "Bash(mkdir -p /home/user/ancestral-sage-debug/public)"
     ]
   }
 }
