@@ -220,7 +220,8 @@
       "Bash(cp /root/.claude/uploads/8da14145-635f-4a67-bb4b-e2faa9213c36/09d356a2-publisher.html /home/user/ancestral-sage-debug/frontend/public/tools/publisher-prime.html)",
       "Bash(cp /root/.claude/uploads/8da14145-635f-4a67-bb4b-e2faa9213c36/aad27775-Creators_Sanctuary.html /home/user/ancestral-sage-debug/frontend/public/tools/creators-sanctuary.html)",
       "Bash(cp \"/root/.claude/uploads/0929874b-6d67-4f83-a090-5909ec61b4e6/73880e1c-The_Ghost_In_The_Machine.mp3\" /home/user/ancestral-sage-debug/public/ghost-track.mp3)",
-      "Bash(mkdir -p /home/user/ancestral-sage-debug/public)"
+      "Bash(mkdir -p /home/user/ancestral-sage-debug/public)",
+      "Bash(cp \"/root/.claude/uploads/043f5fb7-82fc-471b-a2fc-7398e71ee62a/0cb99acf-M.O.R.E_2.mp3\" /home/user/ancestral-sage-debug/public/more-2.mp3 && echo \"copied\")"
     ]
   }
 }
