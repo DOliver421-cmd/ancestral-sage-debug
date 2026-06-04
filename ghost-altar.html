@@ -77,11 +77,10 @@
       width: 100%;
     }
 
-    .audio-wrapper iframe {
+    .audio-wrapper audio {
       width: 100%;
-      border: none;
-      border-radius: 0;
-      filter: hue-rotate(160deg) brightness(0.85) saturate(2);
+      filter: invert(1) hue-rotate(150deg) saturate(3) brightness(0.85);
+      border: 1px solid #ff00ff44;
     }
 
     /* ── title ── */
@@ -284,14 +283,9 @@
 
   <!-- ── audio ── -->
   <div class="audio-wrapper">
-    <!-- SoundCloud embed — replace YOUR_TRACK_URL with the actual track URL -->
-    <iframe
-      id="ghost-track"
-      scrolling="no"
-      allow="autoplay"
-      height="120"
-      src="https://w.soundcloud.com/player/?url=https%3A//soundcloud.com/delon-oliver&color=%23ff00ff&auto_play=true&hide_related=true&show_comments=false&show_user=false&show_reposts=false&show_teaser=false">
-    </iframe>
+    <audio id="ghost-track" autoplay loop controls>
+      <source src="public/ghost-track.mp3" type="audio/mpeg" />
+    </audio>
   </div>
 
   <!-- ── title ── -->
