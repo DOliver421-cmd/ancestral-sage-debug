@@ -630,6 +630,7 @@ async def more_department_chat(body: MoreDeptChatReq, user: User = Depends(curre
     persona = "Department AI"
     department = "M.O.R.E."
     mode = "Balanced"
+    is_decline = False
     first_line = reply.split("\n")[0].strip()
     if first_line.startswith("**") and "|" in first_line:
         parts = first_line.strip("*").split("|")
@@ -640,6 +641,34 @@ async def more_department_chat(body: MoreDeptChatReq, user: User = Depends(curre
         if len(parts) >= 3:
             mode_raw = parts[2].strip()
             mode = mode_raw.replace("Mode:", "").strip()
+        # Detect decline responses (4th segment or mode segment contains "Declining")
+        is_decline = any("declining" in p.lower() for p in parts)
+
+    # Log decline to persona public record
+    if is_decline:
+        try:
+            from app.routes.personas import log_decline, PERSONA_BY_SLUG
+            import re as _re
+            # Find persona slug by matching name
+            slug = next(
+                (s for s, p in PERSONA_BY_SLUG.items()
+                 if p["name"].lower() in persona.lower()),
+                persona.lower().replace(" ", "-"),
+            )
+            # Extract decline reason from response body (everything after the header line)
+            body_lines = [l for l in reply.split("\n")[1:] if l.strip()]
+            decline_reason = " ".join(body_lines)[:1000]
+            await log_decline(
+                persona_name=persona,
+                persona_slug=slug,
+                department=department,
+                request_summary=body.message,
+                decline_reason=decline_reason,
+                requested_by_user_id=user.id,
+                session_id=body.session_id,
+            )
+        except Exception:
+            logger.exception("Failed to log persona decline")
 
     await db.chat_history.insert_one({
         "id": str(uuid.uuid4()),
@@ -652,6 +681,7 @@ async def more_department_chat(body: MoreDeptChatReq, user: User = Depends(curre
         "persona": persona,
         "department": department,
         "active_mode": mode,
+        "is_decline": is_decline,
         "department_hint": body.department_hint,
         "role_at_time": user.role,
         "created_at": datetime.now(timezone.utc).isoformat(),
@@ -663,6 +693,7 @@ async def more_department_chat(body: MoreDeptChatReq, user: User = Depends(curre
         "persona": persona,
         "department": department,
         "mode": mode,
+        "is_decline": is_decline,
     }
 
 

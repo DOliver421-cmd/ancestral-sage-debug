@@ -68,7 +68,16 @@ function MessageBubble({ msg, onSpeak }) {
     <div className="flex justify-start">
       <div className="max-w-[80%]">
         <PersonaHeader persona={msg.persona} department={msg.department} mode={msg.mode} />
-        <div className="bg-white border border-ink/10 rounded-2xl rounded-tl-sm px-4 py-3 text-sm whitespace-pre-wrap text-ink leading-relaxed">
+        <div className={`rounded-2xl rounded-tl-sm px-4 py-3 text-sm whitespace-pre-wrap leading-relaxed ${
+          msg.isDecline
+            ? "bg-amber-50 border border-amber-200 text-ink"
+            : "bg-white border border-ink/10 text-ink"
+        }`}>
+          {msg.isDecline && (
+            <div className="text-xs font-bold text-amber-700 uppercase tracking-wide mb-2">
+              Declined — this is a recorded response
+            </div>
+          )}
           {msg.displayContent}
           {onSpeak && (
             <button
@@ -194,6 +203,7 @@ export default function MoreOps() {
           persona: data.persona,
           department: data.department,
           mode: data.mode,
+          isDecline: data.is_decline || false,
         },
       ]);
       speak(displayContent);
