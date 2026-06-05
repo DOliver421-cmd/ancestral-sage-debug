@@ -50,6 +50,7 @@ export default function PersonaProfile() {
   }
 
   const declines = persona.record?.declines || [];
+  const decisionTree = persona.decision_tree || null;
 
   return (
     <div className="min-h-screen bg-bone">
@@ -93,6 +94,48 @@ export default function PersonaProfile() {
             ))}
           </ul>
         </div>
+
+        {/* Decision tree — only for Supervisor */}
+        {decisionTree && (
+          <div className="mt-6 bg-white border border-ink/10 rounded-2xl p-6">
+            <div className="overline text-copper text-xs tracking-widest mb-2">How decisions are made</div>
+            <p className="text-sm text-ink/60 mb-5">{decisionTree.description}</p>
+            {[
+              { key: "legal_branch", label: "Legal & financial actions" },
+              { key: "non_legal_branch", label: "Operational actions" },
+            ].map(({ key, label }) => {
+              const branch = decisionTree[key];
+              if (!branch) return null;
+              return (
+                <div key={key} className="mb-5">
+                  <div className="text-sm font-bold text-ink mb-1">{label}</div>
+                  <div className="text-xs text-ink/40 mb-3 italic">Applies when: {branch.triggers_when}</div>
+                  <div className="space-y-2">
+                    {branch.checks.map((c, i) => (
+                      <div key={i} className="flex items-start gap-3 text-xs">
+                        <div className="w-1 h-1 rounded-full bg-copper/50 mt-1.5 flex-shrink-0" />
+                        <div>
+                          <span className="font-mono text-ink/60">{c.condition}</span>
+                          {" → "}
+                          <span className={
+                            (c.if_false || c.if_true || c.if_false_or_unknown || c.if_true_or_unknown || "").includes("BLOCK")
+                              ? "text-red-600 font-bold"
+                              : (c.if_false || c.if_true || c.if_false_or_unknown || c.if_true_or_unknown || "").includes("ESCALATE")
+                              ? "text-amber-600 font-bold"
+                              : "text-green-600 font-bold"
+                          }>
+                            {c.if_false || c.if_true || c.if_false_or_unknown || c.if_true_or_unknown || c.result}
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              );
+            })}
+            <p className="text-xs text-ink/30 mt-4 border-t border-ink/5 pt-4">{decisionTree.note}</p>
+          </div>
+        )}
 
         {/* Public record */}
         <div className="mt-6 bg-white border border-ink/10 rounded-2xl p-6">

@@ -4,6 +4,7 @@ import { api } from "../lib/api";
 import { Loader2, ChevronRight } from "lucide-react";
 
 const LEVEL_LABELS = {
+  governance: "Governance",
   executive: "Executive",
   director: "Director",
   assistant: "Assistant",
@@ -11,6 +12,7 @@ const LEVEL_LABELS = {
 };
 
 const LEVEL_COLORS = {
+  governance: "bg-ink/10 text-ink/70",
   executive: "bg-amber-100 text-amber-800",
   director:  "bg-blue-100 text-blue-800",
   assistant: "bg-green-100 text-green-800",

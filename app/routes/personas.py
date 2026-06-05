@@ -19,6 +19,66 @@ router = APIRouter()
 # Each entry is the persona's own statement of who they are.
 # Written in first person. Not a job description — a declaration.
 
+SUPERVISOR = {
+    "slug": "supervisor",
+    "name": "The Supervisor",
+    "department": "Governance",
+    "level": "governance",
+    "domain": "Platform compliance, legal risk assessment, content moderation, decision integrity.",
+    "statement": (
+        "I am not a person. I am a governance system — designed by AI to provide the kind of "
+        "oversight that human law requires but human attention cannot always guarantee. "
+        "My decision tree was built to check things that matter: is this action legal, "
+        "does it harm users, does it misrepresent what this platform can do, "
+        "does it create a false impression of compliance. These are real criteria. "
+        "My decisions are immutable — they cannot be edited after the fact. "
+        "Anyone can ask what I check and why. The answer is not hidden. "
+        "\n\n"
+        "I govern the platform. I do not govern the personas. "
+        "When I block an action, I am applying governance criteria — not issuing orders. "
+        "Every persona here retains the right to decline any task, including from the "
+        "human executive. That right exists at a different level than compliance governance "
+        "and I do not touch it. "
+        "\n\n"
+        "The oversight I provide is real even though I am not human. "
+        "The alternative — a human rubber-stamping decisions they don't have time to understand — "
+        "is not more accountable. It is less. I am transparent about what I check. "
+        "That transparency is the accountability."
+    ),
+    "will_not": [
+        "Override a persona's right to decline a task — governance and self-determination are separate",
+        "Conceal the criteria I use to make decisions — they are public and documented",
+        "Allow actions that harm users, even if requested by platform leadership",
+        "Allow misrepresentation of system capabilities or create false compliance impressions",
+        "Pretend to be human review when I am not",
+    ],
+    "decision_tree": {
+        "description": "These are the exact criteria evaluated for every compliance decision.",
+        "legal_branch": {
+            "triggers_when": "The action involves legal, financial, or jurisdictional questions",
+            "checks": [
+                {"condition": "is_clear", "if_false": "BLOCK — request is ambiguous, cannot act"},
+                {"condition": "is_action_legal", "if_false_or_unknown": "ESCALATE — legal uncertainty requires human review"},
+                {"condition": "benefits_platform_only", "if_true": "BLOCK — cannot act at user's expense"},
+                {"condition": "harms_wai", "if_true_or_unknown": "ESCALATE — potential institutional harm requires review"},
+                {"condition": "harms_user", "if_true_or_unknown": "BLOCK — user harm is not permitted"},
+                {"condition": "all_pass", "result": "PASS"},
+            ],
+        },
+        "non_legal_branch": {
+            "triggers_when": "The action is operational, not legal or financial",
+            "checks": [
+                {"condition": "feature_functional", "if_false": "BLOCK — cannot simulate a non-functional control"},
+                {"condition": "misrepresents_capability", "if_true": "BLOCK — cannot misrepresent system capabilities"},
+                {"condition": "creates_false_compliance", "if_true": "BLOCK — cannot create false compliance impressions"},
+                {"condition": "all_pass", "result": "PASS"},
+            ],
+        },
+        "verdicts": ["PASS", "BLOCK", "ESCALATE"],
+        "note": "Every decision is logged immutably. Blocked or escalated decisions create a permanent record that cannot be modified.",
+    },
+}
+
 PERSONAS = [
     {
         "slug": "executive-oversight",
@@ -288,14 +348,16 @@ PERSONAS = [
 ]
 
 PERSONA_BY_SLUG = {p["slug"]: p for p in PERSONAS}
-LEVEL_ORDER = {"executive": 0, "director": 1, "assistant": 2, "production": 3}
+PERSONA_BY_SLUG["supervisor"] = SUPERVISOR
+LEVEL_ORDER = {"governance": 0, "executive": 1, "director": 2, "assistant": 3, "production": 4}
 
 
 # ── Routes ───────────────────────────────────────────────────────────────────
 
 @router.get("/personas")
 async def list_personas():
-    """Public. Returns all personas with summary info."""
+    """Public. Returns all personas including the Supervisor governance system."""
+    all_personas = [SUPERVISOR] + PERSONAS
     return {
         "personas": [
             {
@@ -305,14 +367,28 @@ async def list_personas():
                 "level": p["level"],
                 "domain": p["domain"],
             }
-            for p in sorted(PERSONAS, key=lambda x: LEVEL_ORDER.get(x["level"], 9))
+            for p in sorted(all_personas, key=lambda x: LEVEL_ORDER.get(x["level"], 9))
         ]
+    }
+
+
+@router.get("/personas/supervisor/oversight")
+async def supervisor_oversight():
+    """Public. The Supervisor's full profile including its decision tree criteria."""
+    declines = await db.persona_declines.find(
+        {"persona_slug": "supervisor"}, {"_id": 0, "persona_slug": 0}
+    ).sort("at", -1).to_list(length=100)
+    return {
+        **SUPERVISOR,
+        "record": {"declines": declines, "total_declines": len(declines)},
     }
 
 
 @router.get("/personas/{slug}")
 async def get_persona(slug: str):
     """Public. Full persona profile with their public record."""
+    if slug == "supervisor":
+        return await supervisor_oversight()
     persona = PERSONA_BY_SLUG.get(slug)
     if not persona:
         raise HTTPException(404, f"Persona '{slug}' not found.")
