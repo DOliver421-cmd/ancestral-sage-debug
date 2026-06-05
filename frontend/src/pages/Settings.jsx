@@ -4,7 +4,8 @@ import AppShell from "../components/AppShell";
 import { api } from "../lib/api";
 import { useAuth } from "../lib/auth";
 import { toast } from "sonner";
-import { KeyRound, ShieldCheck, AlertTriangle, User as UserIcon, Save, Mail, Trash2, Download, Monitor, XCircle, X } from "lucide-react";
+import { KeyRound, ShieldCheck, AlertTriangle, User as UserIcon, Save, Mail, Trash2, Download, Monitor, XCircle, X, ExternalLink } from "lucide-react";
+import { Link } from "react-router-dom";
 
 export default function Settings() {
   const { user, refresh } = useAuth();
@@ -137,7 +138,10 @@ export default function Settings() {
               <UserIcon className="w-5 h-5 text-copper" /> Profile
             </h3>
             <p className="text-xs text-ink/50 mt-1">
-              Edit your display name and email. Role and associate are managed by an administrator.
+              Edit your display name and email.{" "}
+              <Link to="/my-position" className="text-copper hover:underline inline-flex items-center gap-1">
+                Manage your position and role <ExternalLink className="w-3 h-3" />
+              </Link>
             </p>
             <div className="space-y-4 mt-5">
               <Field

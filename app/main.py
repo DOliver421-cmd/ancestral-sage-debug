@@ -47,6 +47,7 @@ from app.routes import exec as exec_routes
 from app.routes import executive_control, legal
 from app.routes import providers, billing, supervisor_v2, site_editor
 from app.routes import partnership, playlist, social
+from app.routes import position
 from app.security.enforcement import TierEnforcementMiddleware
 from app.config import APP_ENV, _DOCS_ENABLED as _DOCS_ENABLED_CFG
 from app.utils.alerting import init_sentry
@@ -240,6 +241,7 @@ app.include_router(billing.router,             prefix=_PREFIX)
 app.include_router(supervisor_v2.router,       prefix=_PREFIX)
 app.include_router(site_editor.router,        prefix=_PREFIX)
 app.include_router(partnership.router,        prefix=_PREFIX)
+app.include_router(position.router,          prefix=_PREFIX)
 app.include_router(playlist.router)   # prefix="/api/playlist" built-in
 app.include_router(social.router)     # prefix="/api/social" built-in
 

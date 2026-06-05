@@ -99,6 +99,7 @@ import ExecControlPanel from "./pages/ExecControlPanel";
 import CreatorLounge from "./pages/CreatorLounge";
 import BandOnPage from "./pages/BandOnPage";
 import AccountControls from "./pages/AccountControls";
+import MyPosition from "./pages/MyPosition";
 
 // Role hierarchy must mirror backend ROLE_RANK in /app/backend/server.py.
 // Higher rank = more authority; a higher-rank role passes any check meant
@@ -257,6 +258,7 @@ function App() {
           <Route path="/attendance" element={<Protected roles={["instructor", "admin"]}><Attendance /></Protected>} />
           <Route path="/incidents" element={<Protected><Incidents /></Protected>} />
           <Route path="/settings" element={<Protected><Settings /></Protected>} />
+          <Route path="/my-position" element={<Protected><MyPosition /></Protected>} />
           <Route path="/admin/system" element={<BoundedAdmin roles={["executive_admin"]} label="Exec System" backTo="/admin/control"><ExecSystem /></BoundedAdmin>} />
           {/* Site Control Panel — executive_admin only, not linked from any nav */}
           <Route path="/admin/control" element={<BoundedAdmin roles={["executive_admin"]} label="Site Control Panel" backTo="/admin"><SiteControlPanel /></BoundedAdmin>} />
