@@ -1,13 +1,15 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import AppShell from "../components/AppShell";
-import { api } from "../lib/api";
+import { api, BACKEND_URL } from "../lib/api";
 import { useAuth } from "../lib/auth";
 import { toast } from "sonner";
 import {
   Send, Bot, RefreshCw, Crown, TrendingUp, DollarSign,
   Video, Users, ChevronRight, Loader2, Trash2,
+  Mic, MicOff, Volume2, VolumeX,
 } from "lucide-react";
 import { v4 as uuidv4 } from "uuid";
+import { useMic } from "../hooks/useMic";
 
 const DEPARTMENTS = [
   { id: "",               label: "Auto-Route",       icon: Bot,         desc: "Let the AI choose the right department" },
@@ -51,7 +53,7 @@ function PersonaHeader({ persona, department, mode }) {
   );
 }
 
-function MessageBubble({ msg }) {
+function MessageBubble({ msg, onSpeak }) {
   if (msg.role === "user") {
     return (
       <div className="flex justify-end">
@@ -68,6 +70,16 @@ function MessageBubble({ msg }) {
         <PersonaHeader persona={msg.persona} department={msg.department} mode={msg.mode} />
         <div className="bg-white border border-ink/10 rounded-2xl rounded-tl-sm px-4 py-3 text-sm whitespace-pre-wrap text-ink leading-relaxed">
           {msg.displayContent}
+          {onSpeak && (
+            <button
+              onClick={() => onSpeak(msg.displayContent)}
+              title="Read aloud"
+              className="ml-2 opacity-40 hover:opacity-70 transition-opacity align-middle"
+              style={{ background: "none", border: "none", cursor: "pointer", fontSize: 13, padding: 0 }}
+            >
+              🔊
+            </button>
+          )}
         </div>
       </div>
     </div>
@@ -83,6 +95,57 @@ export default function MoreOps() {
   const [busy, setBusy] = useState(false);
   const bottomRef = useRef(null);
   const inputRef = useRef(null);
+
+  // Audio state
+  const [audioOn, setAudioOn] = useState(false);
+  const speakAudioRef = useRef(null);
+  const speakAbortRef = useRef(null);
+
+  const stopAudio = useCallback(() => {
+    speakAbortRef.current?.abort();
+    if (speakAudioRef.current) { speakAudioRef.current.pause(); speakAudioRef.current = null; }
+    if ("speechSynthesis" in window) window.speechSynthesis.cancel();
+  }, []);
+
+  const speak = useCallback(async (text) => {
+    if (!audioOn || !text) return;
+    stopAudio();
+    const controller = new AbortController();
+    speakAbortRef.current = controller;
+    try {
+      const token = localStorage.getItem("lce_token");
+      const r = await fetch(`${BACKEND_URL}/api/ai/sage/tts`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ text: text.slice(0, 1500), voice: "onyx", speed: 1.0, session_id: sessionId }),
+        signal: controller.signal,
+      });
+      if (!r.ok) throw new Error("tts-fail");
+      const blob = await r.blob();
+      if (!blob.size) throw new Error("empty");
+      const url = URL.createObjectURL(blob);
+      const audio = new Audio(url);
+      speakAudioRef.current = audio;
+      audio.onended = () => { URL.revokeObjectURL(url); speakAudioRef.current = null; };
+      audio.play().catch(() => { URL.revokeObjectURL(url); speakAudioRef.current = null; _browserSpeak(text); });
+    } catch (e) {
+      if (e?.name !== "AbortError") { speakAudioRef.current = null; _browserSpeak(text); }
+    }
+  }, [audioOn, sessionId, stopAudio]);
+
+  function _browserSpeak(text) {
+    if (!("speechSynthesis" in window)) return;
+    window.speechSynthesis.cancel();
+    const utt = new SpeechSynthesisUtterance(text.slice(0, 500));
+    utt.rate = 0.95;
+    window.speechSynthesis.speak(utt);
+  }
+
+  // STT
+  const { listening: recording, toggle: toggleMic } = useMic({
+    onResult: (txt) => setInput((cur) => cur ? `${cur} ${txt}` : txt),
+    onError: (msg) => toast.error(msg),
+  });
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -133,6 +196,7 @@ export default function MoreOps() {
           mode: data.mode,
         },
       ]);
+      speak(displayContent);
     } catch (err) {
       const detail = err?.response?.data?.detail;
       toast.error(typeof detail === "string" ? detail : "Department AI unavailable");
@@ -207,13 +271,26 @@ export default function MoreOps() {
                 <span className="text-ink/40 text-sm ml-2">— {activeDept.desc}</span>
               </div>
             </div>
-            <button
-              onClick={clearSession}
-              disabled={messages.length === 0}
-              className="flex items-center gap-1.5 text-xs text-ink/40 hover:text-ink/70 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
-            >
-              <RefreshCw className="w-3.5 h-3.5" /> New session
-            </button>
+            <div className="flex items-center gap-2">
+              {/* Speaker / TTS toggle */}
+              <button
+                onClick={() => { setAudioOn((v) => !v); if (audioOn) stopAudio(); }}
+                title={audioOn ? "Voice output ON — click to mute" : "Voice output OFF — click to enable"}
+                aria-label={audioOn ? "Mute voice output" : "Enable voice output"}
+                className={`flex items-center justify-center w-8 h-8 rounded-full transition-colors ${
+                  audioOn ? "bg-copper text-bone" : "bg-ink/10 text-ink/40 hover:text-ink/70"
+                }`}
+              >
+                {audioOn ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
+              </button>
+              <button
+                onClick={clearSession}
+                disabled={messages.length === 0}
+                className="flex items-center gap-1.5 text-xs text-ink/40 hover:text-ink/70 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+              >
+                <RefreshCw className="w-3.5 h-3.5" /> New session
+              </button>
+            </div>
           </div>
 
           {/* Messages */}
@@ -232,7 +309,7 @@ export default function MoreOps() {
               </div>
             )}
             {messages.map((msg, i) => (
-              <MessageBubble key={i} msg={msg} />
+              <MessageBubble key={i} msg={msg} onSpeak={msg.role === "assistant" ? speak : null} />
             ))}
             {busy && (
               <div className="flex justify-start">
@@ -247,6 +324,20 @@ export default function MoreOps() {
           {/* Input */}
           <div className="flex-shrink-0 border-t border-ink/10 bg-white px-6 py-4">
             <div className="flex items-end gap-3">
+              {/* Mic button */}
+              <button
+                type="button"
+                onClick={toggleMic}
+                title={recording ? "Stop dictation" : "Voice input"}
+                aria-label={recording ? "Stop dictation" : "Dictate message"}
+                className={`flex-shrink-0 flex items-center justify-center w-11 h-11 rounded-xl transition-colors ${
+                  recording
+                    ? "bg-red-500 text-white"
+                    : "bg-ink/10 text-ink/50 hover:bg-ink/15 hover:text-ink/80"
+                }`}
+              >
+                {recording ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
+              </button>
               <textarea
                 ref={inputRef}
                 value={input}
@@ -257,7 +348,7 @@ export default function MoreOps() {
                     send();
                   }
                 }}
-                placeholder={`Message ${activeDept.label} department…`}
+                placeholder={recording ? "Listening…" : `Message ${activeDept.label} department…`}
                 rows={2}
                 className="flex-1 resize-none px-4 py-3 bg-bone border border-ink/20 rounded-xl focus:outline-none focus:ring-2 focus:ring-copper/30 focus:border-copper text-sm placeholder:text-ink/30"
               />
@@ -269,7 +360,7 @@ export default function MoreOps() {
                 {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
               </button>
             </div>
-            <p className="text-xs text-ink/50 mt-2">Enter to send · Shift+Enter for new line</p>
+            <p className="text-xs text-ink/50 mt-2">Enter to send · Shift+Enter for new line · Mic for voice input</p>
           </div>
         </div>
       </div>
