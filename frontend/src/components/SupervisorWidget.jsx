@@ -96,14 +96,22 @@ function pseudoReply(text, activeBuckets, kb, mode) {
 function loadLS(key, fallback) { try { const v = localStorage.getItem(key); return v ? JSON.parse(v) : fallback; } catch { return fallback; } }
 function saveLS(key, val)       { try { localStorage.setItem(key, JSON.stringify(val)); } catch {} }
 
+// ── Color constants — all contrast-checked on dark bg ────────────────────────
+const C = {
+  textPrimary: "#f0f2ff",          // near-white — main readable text
+  textMuted:   "#c4c8de",          // light blue-grey — secondary text, ~7:1 contrast
+  textSubtle:  "#a0a8c0",          // medium blue-grey — hints/captions, ~5:1 contrast
+  accent:      "#4af2c5",          // cyan — interactive / active
+};
+
 // ── Shared micro-styles ──────────────────────────────────────────────────────
 const S = {
-  chip: { fontSize: 9, padding: "3px 8px", borderRadius: 999, cursor: "pointer", border: "1px solid rgba(139,146,181,0.5)", background: "rgba(5,8,20,0.9)", color: "rgba(139,146,181,0.9)", display: "inline-flex", alignItems: "center", gap: 4 },
-  chipOn: { borderColor: "rgba(74,242,197,0.8)", color: "#4af2c5", background: "radial-gradient(circle at 0 0, rgba(74,242,197,0.2), #050814)" },
-  iconBtn: { background: "none", border: "none", color: "rgba(139,146,181,0.7)", cursor: "pointer", fontSize: 14, padding: "2px 5px", lineHeight: 1 },
-  input: { background: "rgba(5,8,20,0.9)", border: "1px solid rgba(74,242,197,0.4)", borderRadius: 999, padding: "6px 12px", fontSize: 12, color: "#f5f7ff", outline: "none", width: "100%" },
-  sendBtn: { borderRadius: 999, border: "1px solid rgba(74,242,197,0.8)", background: "radial-gradient(circle at 0 0, rgba(74,242,197,0.4), #050814)", color: "#f5f7ff", fontSize: 11, padding: "6px 14px", cursor: "pointer", fontWeight: 700, whiteSpace: "nowrap" },
-  label: { fontSize: 10, textTransform: "uppercase", letterSpacing: "0.08em", color: "rgba(139,146,181,0.7)", marginBottom: 6 },
+  chip: { fontSize: 11, padding: "3px 10px", borderRadius: 999, cursor: "pointer", border: `1px solid rgba(160,168,192,0.5)`, background: "rgba(5,8,20,0.9)", color: C.textMuted, display: "inline-flex", alignItems: "center", gap: 4 },
+  chipOn: { borderColor: "rgba(74,242,197,0.8)", color: C.accent, background: "radial-gradient(circle at 0 0, rgba(74,242,197,0.2), #050814)" },
+  iconBtn: { background: "none", border: "none", color: C.textMuted, cursor: "pointer", fontSize: 15, padding: "2px 5px", lineHeight: 1 },
+  input: { background: "rgba(5,8,20,0.9)", border: "1px solid rgba(74,242,197,0.4)", borderRadius: 999, padding: "6px 12px", fontSize: 13, color: C.textPrimary, outline: "none", width: "100%" },
+  sendBtn: { borderRadius: 999, border: "1px solid rgba(74,242,197,0.8)", background: "radial-gradient(circle at 0 0, rgba(74,242,197,0.4), #050814)", color: C.textPrimary, fontSize: 12, padding: "6px 16px", cursor: "pointer", fontWeight: 700, whiteSpace: "nowrap" },
+  label: { fontSize: 11, textTransform: "uppercase", letterSpacing: "0.08em", color: C.textMuted, marginBottom: 6 },
   card: { borderRadius: 10, border: "1px solid rgba(74,242,197,0.2)", background: "rgba(5,8,20,0.9)", padding: "10px 12px", marginBottom: 8 },
 };
 
@@ -111,7 +119,7 @@ const S = {
 function TrainingTab({ kb, activeBuckets, toggleBucket, triggerFile, setPasteTarget, pasteTarget, pasteText, setPasteText, savePaste, clearBucket }) {
   return (
     <div style={{ flex: 1, overflowY: "auto", padding: "12px 14px" }}>
-      <div style={{ fontSize: 12, color: "rgba(139,146,181,0.8)", marginBottom: 14, lineHeight: 1.6 }}>
+      <div style={{ fontSize: 12, color: C.textMuted, marginBottom: 14, lineHeight: 1.6 }}>
         Load your knowledge into buckets. The Supervisor reads only what you give her — nothing is sent anywhere.
         Activate a bucket to use it in chat.
       </div>
@@ -128,11 +136,11 @@ function TrainingTab({ kb, activeBuckets, toggleBucket, triggerFile, setPasteTar
               <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                 <div style={{ width: 8, height: 8, borderRadius: "50%", background: b.color, boxShadow: `0 0 6px ${b.color}`, flexShrink: 0 }} />
                 <span style={{ fontSize: 12, fontWeight: 700, color: b.color }}>{b.label}</span>
-                <span style={{ fontSize: 10, color: "rgba(139,146,181,0.6)" }}>{b.desc}</span>
+                <span style={{ fontSize: 11, color: C.textMuted }}>{b.desc}</span>
               </div>
               <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                 {wordCount > 0 && (
-                  <span style={{ fontSize: 9, padding: "2px 6px", borderRadius: 999, background: `${b.color}22`, color: b.color, border: `1px solid ${b.color}44` }}>
+                  <span style={{ fontSize: 11, padding: "2px 6px", borderRadius: 999, background: `${b.color}22`, color: b.color, border: `1px solid ${b.color}44` }}>
                     {wordCount.toLocaleString()} words
                   </span>
                 )}
@@ -170,14 +178,14 @@ function TrainingTab({ kb, activeBuckets, toggleBucket, triggerFile, setPasteTar
 
             {/* Content preview */}
             {content && !isPasting && (
-              <div style={{ marginTop: 6, fontSize: 10, color: "rgba(139,146,181,0.5)", lineHeight: 1.4, overflow: "hidden", maxHeight: 32, maskImage: "linear-gradient(to bottom, black 50%, transparent)" }}>
+              <div style={{ marginTop: 6, fontSize: 11, color: C.textSubtle, lineHeight: 1.4, overflow: "hidden", maxHeight: 32, maskImage: "linear-gradient(to bottom, black 50%, transparent)" }}>
                 {content.slice(0, 120)}
               </div>
             )}
           </div>
         );
       })}
-      <div style={{ fontSize: 10, color: "rgba(139,146,181,0.4)", textAlign: "center", marginTop: 8 }}>
+      <div style={{ fontSize: 11, color: C.textSubtle, textAlign: "center", marginTop: 8 }}>
         Supports .txt · .md · .html · .htm · PDF (text layer)
       </div>
     </div>
@@ -199,7 +207,7 @@ function CultureTab({ culture, cultureInput, setCultureInput, cultureCategory, s
             <span style={{ fontSize: 13, flexShrink: 0 }}>{item.emoji}</span>
             <div>
               <div style={{ fontSize: 11, fontWeight: 500, color: "#e8e4f0" }}>{item.headline}</div>
-              <div style={{ fontSize: 9, color: "rgba(139,146,181,0.6)", textTransform: "uppercase", letterSpacing: "0.06em" }}>{item.category}</div>
+              <div style={{ fontSize: 11, color: C.textSubtle, textTransform: "uppercase", letterSpacing: "0.06em" }}>{item.category}</div>
             </div>
           </div>
         ))}
@@ -211,7 +219,7 @@ function CultureTab({ culture, cultureInput, setCultureInput, cultureCategory, s
           <button onClick={addCultureItem} style={{ ...S.chip, borderColor: "rgba(74,242,197,0.7)", color: "#4af2c5" }}>＋</button>
         </div>
         <select value={cultureCategory} onChange={e => setCultureCategory(e.target.value)}
-          style={{ width: "100%", background: "rgba(5,8,20,0.9)", border: "1px solid rgba(74,242,197,0.2)", borderRadius: 999, padding: "3px 8px", fontSize: 10, color: "rgba(139,146,181,0.8)", outline: "none" }}>
+          style={{ width: "100%", background: "rgba(5,8,20,0.9)", border: "1px solid rgba(74,242,197,0.2)", borderRadius: 999, padding: "3px 8px", fontSize: 11, color: C.textMuted, outline: "none" }}>
           {CULTURE_CATS.map(c => <option key={c} value={c}>{c.charAt(0).toUpperCase()+c.slice(1)}</option>)}
         </select>
       </div>
@@ -227,18 +235,18 @@ function SystemTab({ apiStatus, mode, activeBuckets, onClear }) {
     <div style={{ flex: 1, overflowY: "auto", padding: "12px 14px" }}>
       <div style={S.card}>
         <div style={{ fontSize: 11, fontWeight: 700, color: statusColor, marginBottom: 4 }}>{statusLabel}</div>
-        <div style={{ fontSize: 10, color: "rgba(139,146,181,0.7)" }}>
+        <div style={{ fontSize: 11, color: C.textMuted }}>
           Supervisor works fully offline. Chat, voice, file upload, and culture stream require no backend.
         </div>
       </div>
       <div style={S.card}>
         <div style={{ fontSize: 11, fontWeight: 700, color: "#f5f7ff", marginBottom: 4 }}>Current session</div>
-        <div style={{ fontSize: 10, color: "rgba(139,146,181,0.7)", marginBottom: 6 }}>Mode: <span style={{ color: "#4af2c5" }}>{mode}</span> · Active buckets: <span style={{ color: "#4af2c5" }}>{activeBuckets.length || "none"}</span></div>
+        <div style={{ fontSize: 11, color: C.textMuted, marginBottom: 6 }}>Mode: <span style={{ color: C.accent }}>{mode}</span> · Active buckets: <span style={{ color: C.accent }}>{activeBuckets.length || "none"}</span></div>
         <button onClick={onClear} style={{ ...S.chip, color: "#ff4b81", borderColor: "rgba(255,75,129,0.4)" }}>🧹 Clear chat memory</button>
       </div>
       <div style={S.card}>
         <div style={{ fontSize: 11, fontWeight: 700, color: "#f5f7ff", marginBottom: 4 }}>Privacy</div>
-        <div style={{ fontSize: 10, color: "rgba(139,146,181,0.7)", lineHeight: 1.6 }}>
+        <div style={{ fontSize: 11, color: C.textMuted, lineHeight: 1.6 }}>
           Everything stored in this browser only. Knowledge buckets, chat, and culture stream are never transmitted to any server or external service. Clearing browser data removes everything.
         </div>
       </div>
@@ -261,8 +269,8 @@ function StaffPanel({ activeBuckets, toggleBucket, kb, triggerFile, setPasteTarg
           <div style={S.label}>Publishing & Creative</div>
           <div style={S.card}>
             <div style={{ fontSize: 11, fontWeight: 700, color: "#4af2c5", marginBottom: 4 }}>Book Publishing Flow</div>
-            <div style={{ fontSize: 11, color: "rgba(139,146,181,0.8)", marginBottom: 6 }}>Tell The Supervisor: "Help me publish this book" and she will outline chapters, refine titles, draft sections, and generate metadata.</div>
-            <div style={{ fontSize: 10, color: "rgba(139,146,181,0.5)" }}>Load the Books bucket first for best results.</div>
+            <div style={{ fontSize: 11, color: C.textMuted, marginBottom: 6 }}>Tell The Supervisor: "Help me publish this book" and she will outline chapters, refine titles, draft sections, and generate metadata.</div>
+            <div style={{ fontSize: 11, color: C.textSubtle }}>Load the Books bucket first for best results.</div>
           </div>
           <div style={S.card}>
             <div style={{ fontSize: 11, fontWeight: 700, color: "#4af2c5", marginBottom: 4 }}>Linked Tools</div>
@@ -470,7 +478,7 @@ export default function SupervisorWidget() {
         onClick={() => setOpen(true)}>
         <div style={{ width:8, height:8, borderRadius:"50%", background:statusColor, boxShadow:`0 0 8px ${statusColor}` }} />
         <span style={{ fontSize:11, fontWeight:700, letterSpacing:"0.1em", color:"#f5f7ff", textTransform:"uppercase" }}>The Supervisor</span>
-        <span style={{ fontSize:10, color:"rgba(139,146,181,0.7)", borderLeft:"1px solid rgba(74,242,197,0.2)", paddingLeft:8 }}>{mode}</span>
+        <span style={{ fontSize:11, color:C.textMuted, borderLeft:"1px solid rgba(74,242,197,0.2)", paddingLeft:8 }}>{mode}</span>
       </div>
     );
   }
@@ -507,16 +515,16 @@ export default function SupervisorWidget() {
             <div style={{ width:8, height:8, borderRadius:"50%", background:statusColor, boxShadow:`0 0 8px ${statusColor}`, flexShrink:0 }} />
             <div>
               <div style={{ fontSize:12, fontWeight:700, letterSpacing:"0.1em", color:"#f5f7ff", textTransform:"uppercase" }}>The Supervisor</div>
-              <div style={{ fontSize:10, color:"rgba(139,146,181,0.7)" }}>Fused persona · PRT + The 9 · Director · Sage · Ops</div>
+              <div style={{ fontSize:11, color:C.textMuted }}>Governance · PRT · The 9 · Brief · Sage · Ops</div>
             </div>
           </div>
           <div style={{ display:"flex", gap:5, alignItems:"center" }}>
             {MODES.map(m => (
               <button key={m} onClick={() => { setMode(m); addMsg("supervisor", `${m} Mode. What do you need?`); }}
-                style={{ fontSize:9, padding:"3px 8px", borderRadius:999, cursor:"pointer", fontWeight:600,
-                  border: mode===m ? "1px solid rgba(74,242,197,0.8)" : "1px solid rgba(139,146,181,0.35)",
+                style={{ fontSize:11, padding:"3px 8px", borderRadius:999, cursor:"pointer", fontWeight:600,
+                  border: mode===m ? "1px solid rgba(74,242,197,0.8)" : `1px solid rgba(160,168,192,0.4)`,
                   background: mode===m ? "radial-gradient(circle,rgba(74,242,197,0.25),#050814)" : "rgba(5,8,20,0.9)",
-                  color: mode===m ? "#4af2c5" : "rgba(139,146,181,0.7)" }}>{m}</button>
+                  color: mode===m ? C.accent : C.textMuted }}>{m}</button>
             ))}
             <button onClick={() => setFullscreen(f=>!f)} style={S.iconBtn} title={fullscreen?"Exit fullscreen":"Fullscreen"}>{fullscreen?"⊡":"⛶"}</button>
             <button onClick={() => setOpen(false)} style={S.iconBtn} title="Minimize">─</button>
@@ -527,10 +535,10 @@ export default function SupervisorWidget() {
         <div style={{ display:"flex", gap:4, padding:"5px 12px", borderBottom:"1px solid rgba(74,242,197,0.1)", flexShrink:0, flexWrap:"wrap" }}>
           {[["chat","Chat"],["training","Training"],...(!fullscreen?[["culture","Culture"]]:[]),["system","System"]].map(([k,l]) => (
             <button key={k} onClick={() => setTab(k)}
-              style={{ fontSize:10, padding:"3px 10px", borderRadius:999, cursor:"pointer",
-                border: tab===k ? "1px solid rgba(74,242,197,0.8)" : "1px solid rgba(139,146,181,0.25)",
+              style={{ fontSize:11, padding:"3px 10px", borderRadius:999, cursor:"pointer",
+                border: tab===k ? "1px solid rgba(74,242,197,0.8)" : `1px solid rgba(160,168,192,0.3)`,
                 background: tab===k ? "radial-gradient(circle,rgba(74,242,197,0.2),#050814)" : "transparent",
-                color: tab===k ? "#4af2c5" : "rgba(139,146,181,0.6)" }}>{l}</button>
+                color: tab===k ? C.accent : C.textMuted }}>{l}</button>
           ))}
           {/* Active bucket chips */}
           <div style={{ flex:1, display:"flex", gap:4, justifyContent:"flex-end", flexWrap:"wrap", alignItems:"center" }}>
@@ -538,7 +546,7 @@ export default function SupervisorWidget() {
               const meta = BUCKETS.find(b=>b.key===bKey);
               return (
                 <span key={bKey} onClick={() => toggleBucket(bKey)}
-                  style={{ fontSize:9, padding:"2px 7px", borderRadius:999, cursor:"pointer",
+                  style={{ fontSize:11, padding:"2px 7px", borderRadius:999, cursor:"pointer",
                     border:`1px solid ${meta?.color}66`, color:meta?.color, background:"rgba(5,8,20,0.9)" }}>
                   {meta?.label} ×
                 </span>
@@ -555,10 +563,10 @@ export default function SupervisorWidget() {
             <div style={{ flex:1, overflowY:"auto", padding:"10px 12px", fontSize:13, lineHeight:1.55 }}>
               {chat.map((m, i) => (
                 <div key={i} style={{ marginBottom:10, maxWidth:"88%", marginLeft:m.role==="user"?"auto":0, textAlign:m.role==="user"?"right":"left" }}>
-                  <div style={{ fontSize:10, color:"rgba(139,146,181,0.6)", marginBottom:2, textTransform:"uppercase", letterSpacing:"0.06em" }}>
+                  <div style={{ fontSize:11, color:C.textSubtle, marginBottom:2, textTransform:"uppercase", letterSpacing:"0.06em" }}>
                     {m.role==="user" ? "You" : "The Supervisor"}
                   </div>
-                  <div style={{ padding:"7px 10px", borderRadius:10, whiteSpace:"pre-wrap",
+                  <div style={{ padding:"7px 10px", borderRadius:10, whiteSpace:"pre-wrap", color:C.textPrimary,
                     background:m.role==="user" ? "radial-gradient(circle at 100% 0,rgba(74,242,197,0.28),#050814)" : "rgba(11,16,36,0.95)",
                     border:`1px solid ${m.role==="user"?"rgba(74,242,197,0.55)":"rgba(74,242,197,0.18)"}` }}>
                     {m.text}
