@@ -1,329 +1,308 @@
-/**
- * Provider Gateway — executive dashboard for managing AI providers and API keys.
- * Routes: GET/POST /providers, PATCH /providers/{id}/status
- *         GET/POST /providers/keys, DELETE /providers/keys/{id}, POST /providers/keys/{id}/test
- *         GET /providers/usage-log
- */
 import { useState, useEffect, useCallback } from "react";
 import { api } from "../lib/api";
-import { useAuth } from "../lib/auth";
 import { toast } from "sonner";
-import {
-  Plus, Trash2, FlaskConical, CheckCircle, XCircle,
-  RefreshCw, ChevronDown, ChevronUp, Activity,
-} from "lucide-react";
+import { CheckCircle, XCircle, ExternalLink, Key, RefreshCw, Activity, Loader2 } from "lucide-react";
 
-const STATUS_COLORS = {
-  active:   "bg-green-100 text-green-800",
-  inactive: "bg-gray-100 text-gray-600",
-  error:    "bg-red-100 text-red-700",
-};
+// ── 6 preset free providers ────────────────────────────────────────────────────
+const PRESETS = [
+  {
+    type:     "groq",
+    name:     "Groq",
+    model:    "Llama 3.3 70B",
+    badge:    "Tier 1 · Fastest",
+    cost:     "Free",
+    note:     "Best starting point. Fastest inference, no rate limits in practice.",
+    signup:   "https://console.groq.com",
+    signupLabel: "Get free key at console.groq.com",
+    color:    "#f97316",
+  },
+  {
+    type:     "cerebras",
+    name:     "Cerebras",
+    model:    "Llama 3.3 70B",
+    badge:    "Tier 1 · Very Fast",
+    cost:     "Free",
+    note:     "Hardware-accelerated inference. Free with account.",
+    signup:   "https://cloud.cerebras.ai",
+    signupLabel: "Get free key at cloud.cerebras.ai",
+    color:    "#8b5cf6",
+  },
+  {
+    type:     "gemini",
+    name:     "Google Gemini",
+    model:    "Gemini 2.0 Flash",
+    badge:    "Tier 2 · 1M context",
+    cost:     "Free — 15 RPM",
+    note:     "Large context window. Rate-limited to 15 requests/minute.",
+    signup:   "https://aistudio.google.com/apikey",
+    signupLabel: "Get free key at aistudio.google.com",
+    color:    "#3b82f6",
+  },
+  {
+    type:     "mistral",
+    name:     "Mistral",
+    model:    "Mistral Small",
+    badge:    "Tier 5 · 1M tokens/mo",
+    cost:     "Free — 1M tokens/month",
+    note:     "European model. 1 million free tokens per month.",
+    signup:   "https://console.mistral.ai",
+    signupLabel: "Get free key at console.mistral.ai",
+    color:    "#06b6d4",
+  },
+  {
+    type:     "cohere",
+    name:     "Cohere",
+    model:    "Command R+",
+    badge:    "Tier 4 · Tool-capable",
+    cost:     "Free tier",
+    note:     "Strong reasoning and tool-calling on the free tier.",
+    signup:   "https://dashboard.cohere.com/api-keys",
+    signupLabel: "Get free key at dashboard.cohere.com",
+    color:    "#10b981",
+  },
+  {
+    type:     "together",
+    name:     "Together AI",
+    model:    "Llama 3.3 70B Free",
+    badge:    "Tier 6 · $25 credit",
+    cost:     "Free $25 credit",
+    note:     "Free credit on signup. Llama 3.3 70B free model always available.",
+    signup:   "https://api.together.xyz/settings/api-keys",
+    signupLabel: "Get free key at api.together.xyz",
+    color:    "#f59e0b",
+  },
+];
+
+function StatusPill({ status }) {
+  if (!status) return (
+    <span className="flex items-center gap-1 text-xs font-bold px-2 py-0.5 rounded-full bg-ink/8 text-ink/30">
+      <span className="w-1.5 h-1.5 rounded-full bg-ink/20 inline-block" /> No key
+    </span>
+  );
+  if (status.configured) return (
+    <span className="flex items-center gap-1 text-xs font-bold px-2 py-0.5 rounded-full bg-green-50 text-green-700 border border-green-200">
+      <span className="w-1.5 h-1.5 rounded-full bg-green-500 inline-block animate-pulse" /> Active
+      {status.source === "env" && <span className="font-normal text-green-500">(env)</span>}
+    </span>
+  );
+  return (
+    <span className="flex items-center gap-1 text-xs font-bold px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200">
+      <span className="w-1.5 h-1.5 rounded-full bg-amber-400 inline-block" /> No key
+    </span>
+  );
+}
+
+function ProviderCard({ preset, status, onSave, saving }) {
+  const [key, setKey] = useState("");
+  const [showInput, setShowInput] = useState(false);
+  const configured = status?.configured;
+
+  const handleSave = async () => {
+    if (!key.trim()) { toast.error("Paste your API key first"); return; }
+    await onSave(preset.type, key.trim());
+    setKey("");
+    setShowInput(false);
+  };
+
+  return (
+    <div className={`bg-white rounded-2xl p-5 flex flex-col gap-3 border-2 transition-all ${
+      configured ? "border-green-200 shadow-sm" : "border-ink/8"
+    }`}>
+      {/* Header */}
+      <div className="flex items-start justify-between gap-2">
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: preset.color }} />
+            <span className="font-heading font-bold text-ink">{preset.name}</span>
+            <span className="text-xs text-ink/40">{preset.model}</span>
+          </div>
+          <div className="flex items-center gap-2 mt-1.5 flex-wrap">
+            <span className="text-xs font-semibold px-2 py-0.5 rounded-full"
+              style={{ background: preset.color + "18", color: preset.color }}>
+              {preset.badge}
+            </span>
+            <span className="text-xs text-ink/40">{preset.cost}</span>
+          </div>
+        </div>
+        <StatusPill status={status} />
+      </div>
+
+      <p className="text-xs text-ink/55 leading-relaxed">{preset.note}</p>
+
+      {/* Active state */}
+      {configured && !showInput && (
+        <div className="flex items-center justify-between bg-green-50 rounded-lg px-3 py-2">
+          <span className="text-xs text-green-700 font-mono">{status.key_masked}</span>
+          <button onClick={() => setShowInput(true)}
+            className="text-xs text-ink/40 hover:text-copper transition-colors ml-3">
+            Replace
+          </button>
+        </div>
+      )}
+
+      {/* Key input */}
+      {(!configured || showInput) && (
+        <div className="space-y-2">
+          {!configured && (
+            <a href={preset.signup} target="_blank" rel="noopener noreferrer"
+              className="flex items-center gap-1.5 text-xs font-semibold text-copper hover:underline">
+              <ExternalLink className="w-3 h-3" /> {preset.signupLabel}
+            </a>
+          )}
+          <div className="flex gap-2">
+            <input
+              value={key}
+              onChange={e => setKey(e.target.value)}
+              placeholder="Paste API key…"
+              type="password"
+              className="flex-1 text-xs border border-ink/20 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-copper/30 focus:border-copper font-mono bg-bone"
+            />
+            <button onClick={handleSave} disabled={saving || !key.trim()}
+              className="flex items-center gap-1.5 bg-copper text-bone text-xs font-bold px-3 py-2 rounded-lg hover:bg-copper/90 disabled:opacity-40 disabled:cursor-not-allowed whitespace-nowrap">
+              {saving ? <Loader2 className="w-3 h-3 animate-spin" /> : <Key className="w-3 h-3" />}
+              {saving ? "Saving…" : "Activate"}
+            </button>
+          </div>
+          {showInput && (
+            <button onClick={() => { setShowInput(false); setKey(""); }}
+              className="text-xs text-ink/40 hover:text-ink/70 transition-colors">
+              Cancel
+            </button>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
 
 export default function ProviderGateway() {
-  const { user } = useAuth();
-  const [tab, setTab]               = useState("providers");
-  const [providers, setProviders]   = useState([]);
-  const [keys, setKeys]             = useState([]);
-  const [usageLog, setUsageLog]     = useState([]);
-  const [loading, setLoading]       = useState(true);
-  const [expanded, setExpanded]     = useState(null);
-  const [testing, setTesting]       = useState({});
+  const [status, setStatus]     = useState({});
+  const [usageLog, setUsageLog] = useState([]);
+  const [tab, setTab]           = useState("setup");
+  const [saving, setSaving]     = useState(null);
+  const [loadingUsage, setLoadingUsage] = useState(false);
 
-  // new provider form
-  const [newProvider, setNewProvider] = useState({ name: "", provider_type: "openai", base_url: "", notes: "" });
-  const [addingProvider, setAddingProvider] = useState(false);
-  const [savingProvider, setSavingProvider] = useState(false);
-
-  // new key form
-  const [newKey, setNewKey] = useState({ provider_id: "", label: "", plaintext_key: "", scope: "chat" });
-  const [addingKey, setAddingKey] = useState(false);
-  const [savingKey, setSavingKey] = useState(false);
-  const [deleteTarget, setDeleteTarget] = useState(null);
-
-  const load = useCallback(async () => {
-    setLoading(true);
+  const loadStatus = useCallback(async () => {
     try {
-      const [p, k] = await Promise.all([
-        api.get("/providers").then(r => r.data),
-        api.get("/providers/keys").then(r => r.data),
-      ]);
-      setProviders(Array.isArray(p) ? p : p.providers || []);
-      setKeys(Array.isArray(k) ? k : k.keys || []);
-    } catch (e) {
-      toast.error("Failed to load providers");
-    } finally {
-      setLoading(false);
-    }
+      const r = await api.get("/providers/quick-setup/status");
+      setStatus(r.data);
+    } catch { setStatus({}); }
   }, []);
 
   const loadUsage = useCallback(async () => {
+    setLoadingUsage(true);
     try {
-      const r = await api.get("/providers/usage-log");
+      const r = await api.get("/providers/usage-log?limit=50");
       setUsageLog(Array.isArray(r.data) ? r.data : r.data.logs || []);
     } catch { setUsageLog([]); }
+    finally { setLoadingUsage(false); }
   }, []);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => { loadStatus(); }, [loadStatus]);
   useEffect(() => { if (tab === "usage") loadUsage(); }, [tab, loadUsage]);
 
-  const toggleStatus = async (p) => {
-    const next = p.status === "active" ? "inactive" : "active";
+  const handleSave = async (providerType, apiKey) => {
+    setSaving(providerType);
     try {
-      await api.patch(`/providers/${p._id || p.id}/status`, { status: next });
-      toast.success(`${p.name} set to ${next}`);
-      load();
-    } catch (e) {
-      toast.error(e?.response?.data?.detail || "Failed to update status");
-    }
-  };
-
-  const addProvider = async (e) => {
-    e.preventDefault();
-    setSavingProvider(true);
-    try {
-      await api.post("/providers", newProvider);
-      toast.success("Provider added");
-      setNewProvider({ name: "", provider_type: "openai", base_url: "", notes: "" });
-      setAddingProvider(false);
-      load();
-    } catch (e) {
-      toast.error(e?.response?.data?.detail || "Failed to add provider");
-    } finally { setSavingProvider(false); }
-  };
-
-  const addKey = async (e) => {
-    e.preventDefault();
-    setSavingKey(true);
-    try {
-      await api.post("/providers/keys", newKey);
-      toast.success("API key saved (encrypted at rest)");
-      setNewKey({ provider_id: "", label: "", plaintext_key: "", scope: "chat" });
-      setAddingKey(false);
-      load();
+      await api.post("/providers/quick-setup", { provider_type: providerType, api_key: apiKey });
+      toast.success(`${providerType} key saved and active`);
+      await loadStatus();
     } catch (e) {
       toast.error(e?.response?.data?.detail || "Failed to save key");
-    } finally { setSavingKey(false); }
-  };
-
-  const deleteKey = async (keyId) => {
-    try {
-      await api.delete(`/providers/keys/${keyId}`);
-      toast.success("Key deleted");
-      setDeleteTarget(null);
-      load();
-    } catch (e) {
-      toast.error(e?.response?.data?.detail || "Failed to delete key");
-    }
-  };
-
-  const testKey = async (keyId) => {
-    setTesting(t => ({ ...t, [keyId]: true }));
-    try {
-      const r = await api.post(`/providers/keys/${keyId}/test`);
-      if (r.data.ok) {
-        toast.success(`Key OK — ${r.data.latency_ms}ms`);
-      } else {
-        toast.error(`Key failed: ${r.data.error || "unknown error"}`);
-      }
-    } catch (e) {
-      toast.error(e?.response?.data?.detail || "Test failed");
     } finally {
-      setTesting(t => ({ ...t, [keyId]: false }));
+      setSaving(null);
     }
   };
 
-  const inp = "w-full border border-ink/20 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gold";
+  const configuredCount = Object.values(status).filter(s => s?.configured).length;
 
   return (
     <div className="min-h-screen bg-bone">
-      <div className="max-w-5xl mx-auto px-6 py-10">
-        <div className="mb-8">
+      <div className="max-w-4xl mx-auto px-6 py-10">
+
+        {/* Header */}
+        <div className="mb-6">
           <h1 className="font-heading text-3xl font-bold text-ink">Provider Gateway</h1>
-          <p className="text-ink/60 mt-1 text-sm">Manage AI providers and encrypted API keys. Executive access only.</p>
+          <p className="text-ink/60 mt-1 text-sm">
+            Add free API keys to power the team. Each provider is a fallback — the gateway tries them in order.
+          </p>
+          {configuredCount > 0 && (
+            <div className="mt-3 inline-flex items-center gap-2 text-sm font-semibold text-green-700 bg-green-50 border border-green-200 rounded-full px-3 py-1">
+              <CheckCircle className="w-4 h-4" />
+              {configuredCount} of {PRESETS.length} providers active
+            </div>
+          )}
         </div>
 
         {/* Tabs */}
         <div className="flex gap-1 mb-6 border-b border-ink/10">
-          {[["providers","Providers"], ["keys","API Keys"], ["usage","Usage Log"]].map(([id, label]) => (
+          {[["setup", "API Keys"], ["usage", "Usage Log"]].map(([id, label]) => (
             <button key={id} onClick={() => setTab(id)}
-              className={`px-4 py-2 text-sm font-semibold border-b-2 transition ${tab === id ? "border-gold text-ink" : "border-transparent text-ink/50 hover:text-ink"}`}>
+              className={`px-4 py-2 text-sm font-semibold border-b-2 transition ${tab === id ? "border-copper text-ink" : "border-transparent text-ink/50 hover:text-ink"}`}>
               {label}
             </button>
           ))}
+          <button onClick={loadStatus} className="ml-auto flex items-center gap-1.5 text-xs text-ink/40 hover:text-ink/70 pb-2">
+            <RefreshCw className="w-3 h-3" /> Refresh
+          </button>
         </div>
 
-        {loading && <p className="text-ink/50 text-sm py-8 text-center">Loading…</p>}
-
-        {/* ── PROVIDERS TAB ── */}
-        {!loading && tab === "providers" && (
-          <div className="space-y-4">
-            <div className="flex justify-end">
-              <button onClick={() => setAddingProvider(!addingProvider)}
-                className="flex items-center gap-2 bg-gold text-white text-sm font-semibold px-4 py-2 rounded-lg hover:bg-gold/90">
-                <Plus className="w-4 h-4" /> Add Provider
-              </button>
-            </div>
-
-            {addingProvider && (
-              <form onSubmit={addProvider} className="bg-white border border-ink/10 rounded-xl p-5 space-y-3">
-                <h3 className="font-bold text-sm">New Provider</h3>
-                <div className="grid grid-cols-2 gap-3">
-                  <div><label className="text-xs font-medium text-ink/60 mb-1 block">Name *</label>
-                    <input required value={newProvider.name} onChange={e => setNewProvider(p => ({...p, name: e.target.value}))} className={inp} placeholder="e.g. OpenAI Primary" /></div>
-                  <div><label className="text-xs font-medium text-ink/60 mb-1 block">Type</label>
-                    <select value={newProvider.provider_type} onChange={e => setNewProvider(p => ({...p, provider_type: e.target.value}))} className={inp}>
-                      {["openai","anthropic","elevenlabs","groq","cohere","custom"].map(t => <option key={t}>{t}</option>)}
-                    </select></div>
-                </div>
-                <div><label className="text-xs font-medium text-ink/60 mb-1 block">Base URL (optional)</label>
-                  <input value={newProvider.base_url} onChange={e => setNewProvider(p => ({...p, base_url: e.target.value}))} className={inp} placeholder="https://api.openai.com/v1" /></div>
-                <div><label className="text-xs font-medium text-ink/60 mb-1 block">Notes</label>
-                  <input value={newProvider.notes} onChange={e => setNewProvider(p => ({...p, notes: e.target.value}))} className={inp} /></div>
-                <div className="flex gap-2">
-                  <button type="submit" disabled={savingProvider} className="bg-gold text-white text-sm font-semibold px-4 py-2 rounded-lg disabled:opacity-50">
-                    {savingProvider ? "Saving…" : "Save Provider"}
-                  </button>
-                  <button type="button" onClick={() => setAddingProvider(false)} className="text-sm px-4 py-2 rounded-lg border border-ink/20">Cancel</button>
-                </div>
-              </form>
-            )}
-
-            {providers.length === 0 && <p className="text-ink/50 text-sm text-center py-10">No providers yet. Add one above.</p>}
-            {providers.map(p => (
-              <div key={p._id || p.id} className="bg-white border border-ink/10 rounded-xl overflow-hidden">
-                <div className="flex items-center justify-between px-5 py-4 cursor-pointer" onClick={() => setExpanded(expanded === p._id ? null : p._id)}>
-                  <div className="flex items-center gap-3">
-                    <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${STATUS_COLORS[p.status] || STATUS_COLORS.inactive}`}>{p.status || "inactive"}</span>
-                    <div>
-                      <p className="font-semibold text-ink">{p.name}</p>
-                      <p className="text-xs text-ink/50">{p.provider_type}</p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <button onClick={e => { e.stopPropagation(); toggleStatus(p); }}
-                      className={`text-xs font-semibold px-3 py-1 rounded-full border transition ${p.status === "active" ? "border-red-200 text-red-600 hover:bg-red-50" : "border-green-200 text-green-700 hover:bg-green-50"}`}>
-                      {p.status === "active" ? "Deactivate" : "Activate"}
-                    </button>
-                    {expanded === p._id ? <ChevronUp className="w-4 h-4 text-ink/40" /> : <ChevronDown className="w-4 h-4 text-ink/40" />}
-                  </div>
-                </div>
-                {expanded === p._id && (
-                  <div className="border-t border-ink/5 px-5 py-4 text-sm text-ink/70 space-y-1">
-                    {p.base_url && <p><span className="font-medium text-ink">URL:</span> {p.base_url}</p>}
-                    {p.notes    && <p><span className="font-medium text-ink">Notes:</span> {p.notes}</p>}
-                    <p><span className="font-medium text-ink">Keys:</span> {keys.filter(k => k.provider_id === (p._id || p.id)).length} registered</p>
-                    <p><span className="font-medium text-ink">Created:</span> {p.created_at ? new Date(p.created_at).toLocaleDateString() : "—"}</p>
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
-        )}
-
-        {/* ── API KEYS TAB ── */}
-        {!loading && tab === "keys" && (
-          <div className="space-y-4">
-            <div className="flex justify-end">
-              <button onClick={() => setAddingKey(!addingKey)}
-                className="flex items-center gap-2 bg-gold text-white text-sm font-semibold px-4 py-2 rounded-lg hover:bg-gold/90">
-                <Plus className="w-4 h-4" /> Add Key
-              </button>
-            </div>
-
-            {addingKey && (
-              <form onSubmit={addKey} className="bg-white border border-ink/10 rounded-xl p-5 space-y-3">
-                <h3 className="font-bold text-sm">New API Key <span className="font-normal text-ink/50">(stored encrypted — plaintext never returned)</span></h3>
-                <div className="grid grid-cols-2 gap-3">
-                  <div><label className="text-xs font-medium text-ink/60 mb-1 block">Provider *</label>
-                    <select required value={newKey.provider_id} onChange={e => setNewKey(k => ({...k, provider_id: e.target.value}))} className={inp}>
-                      <option value="">Select provider…</option>
-                      {providers.map(p => <option key={p._id || p.id} value={p._id || p.id}>{p.name}</option>)}
-                    </select></div>
-                  <div><label className="text-xs font-medium text-ink/60 mb-1 block">Label *</label>
-                    <input required value={newKey.label} onChange={e => setNewKey(k => ({...k, label: e.target.value}))} className={inp} placeholder="e.g. Production key" /></div>
-                </div>
-                <div><label className="text-xs font-medium text-ink/60 mb-1 block">API Key *</label>
-                  <input required type="password" value={newKey.plaintext_key} onChange={e => setNewKey(k => ({...k, plaintext_key: e.target.value}))} className={inp} placeholder="sk-…" /></div>
-                <div><label className="text-xs font-medium text-ink/60 mb-1 block">Scope</label>
-                  <select value={newKey.scope} onChange={e => setNewKey(k => ({...k, scope: e.target.value}))} className={inp}>
-                    {["chat","tts","embeddings","images","all"].map(s => <option key={s}>{s}</option>)}
-                  </select></div>
-                <div className="flex gap-2">
-                  <button type="submit" disabled={savingKey} className="bg-gold text-white text-sm font-semibold px-4 py-2 rounded-lg disabled:opacity-50">
-                    {savingKey ? "Saving…" : "Save Key"}
-                  </button>
-                  <button type="button" onClick={() => setAddingKey(false)} className="text-sm px-4 py-2 rounded-lg border border-ink/20">Cancel</button>
-                </div>
-              </form>
-            )}
-
-            {keys.length === 0 && <p className="text-ink/50 text-sm text-center py-10">No keys registered.</p>}
-            {keys.map(k => {
-              const provider = providers.find(p => (p._id || p.id) === k.provider_id);
-              return (
-                <div key={k._id || k.id} className="bg-white border border-ink/10 rounded-xl px-5 py-4 flex items-center justify-between gap-4">
-                  <div>
-                    <p className="font-semibold text-ink">{k.label}</p>
-                    <p className="text-xs text-ink/50">{provider?.name || k.provider_id} · scope: {k.scope} · added {k.created_at ? new Date(k.created_at).toLocaleDateString() : "—"}</p>
-                  </div>
-                  <div className="flex items-center gap-2 shrink-0">
-                    <button onClick={() => testKey(k._id || k.id)} disabled={testing[k._id || k.id]}
-                      className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg border border-ink/20 hover:bg-ink/5 disabled:opacity-50">
-                      {testing[k._id || k.id] ? <RefreshCw className="w-3 h-3 animate-spin" /> : <FlaskConical className="w-3 h-3" />}
-                      Test
-                    </button>
-                    <button onClick={() => setDeleteTarget(k)}
-                      className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg border border-red-200 text-red-600 hover:bg-red-50">
-                      <Trash2 className="w-3 h-3" /> Delete
-                    </button>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        )}
-
-        {/* ── USAGE LOG TAB ── */}
-        {tab === "usage" && (
-          <div className="bg-white border border-ink/10 rounded-xl overflow-hidden">
-            <div className="px-5 py-4 border-b border-ink/5 flex items-center justify-between">
-              <h2 className="font-bold text-sm flex items-center gap-2"><Activity className="w-4 h-4" /> Usage Log</h2>
-              <button onClick={loadUsage} className="text-xs text-ink/50 hover:text-ink flex items-center gap-1"><RefreshCw className="w-3 h-3" /> Refresh</button>
-            </div>
-            <div className="divide-y divide-ink/5 max-h-[600px] overflow-y-auto">
-              {usageLog.length === 0 && <p className="text-center py-8 text-ink/50 text-sm">No usage recorded yet.</p>}
-              {usageLog.map((entry, i) => (
-                <div key={i} className="px-5 py-3 flex items-start justify-between gap-4 text-sm">
-                  <div>
-                    <p className="font-medium text-ink">{entry.action || entry.provider_id || "—"}</p>
-                    <p className="text-xs text-ink/50 mt-0.5">{entry.actor_id || entry.user_id || "system"} · {entry.model || ""}</p>
-                  </div>
-                  <div className="text-right shrink-0">
-                    {entry.tokens_used && <p className="text-xs font-mono text-ink/70">{entry.tokens_used} tokens</p>}
-                    <p className="text-xs text-ink/40">{entry.created_at ? new Date(entry.created_at).toLocaleString() : "—"}</p>
-                  </div>
-                </div>
+        {/* Setup tab — 6 preset cards */}
+        {tab === "setup" && (
+          <div>
+            <p className="text-xs text-ink/50 mb-5 leading-relaxed">
+              Register for a free account at each service, copy the API key they give you, and paste it below.
+              You don't need all 6 — one is enough to get started. Groq is recommended first.
+            </p>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {PRESETS.map(preset => (
+                <ProviderCard
+                  key={preset.type}
+                  preset={preset}
+                  status={status[preset.type]}
+                  onSave={handleSave}
+                  saving={saving === preset.type}
+                />
               ))}
             </div>
+            <p className="text-xs text-ink/30 mt-8 leading-relaxed">
+              Keys are encrypted at rest. They are never returned in any API response.
+              The gateway tries Groq first, then Cerebras, Gemini, Mistral, Cohere, Together in order.
+            </p>
+          </div>
+        )}
+
+        {/* Usage tab */}
+        {tab === "usage" && (
+          <div>
+            {loadingUsage
+              ? <div className="flex justify-center py-12"><Loader2 className="w-5 h-5 animate-spin text-copper" /></div>
+              : usageLog.length === 0
+              ? <p className="text-center text-ink/40 text-sm py-12">No usage logged yet.</p>
+              : (
+                <div className="space-y-2">
+                  {usageLog.map((log, i) => (
+                    <div key={i} className="bg-white border border-ink/10 rounded-xl px-4 py-3 flex items-center justify-between gap-4 text-sm">
+                      <div className="flex items-center gap-3">
+                        <Activity className="w-4 h-4 text-copper flex-shrink-0" />
+                        <div>
+                          <span className="font-mono text-xs text-ink/60">{log.provider_id}</span>
+                          <span className={`ml-2 text-xs font-bold ${log.result === "success" ? "text-green-600" : "text-red-500"}`}>
+                            {log.result}
+                          </span>
+                        </div>
+                      </div>
+                      <span className="text-xs text-ink/30 flex-shrink-0">
+                        {log.created_at ? new Date(log.created_at).toLocaleString() : ""}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )
+            }
           </div>
         )}
       </div>
-
-      {deleteTarget && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
-          <div className="bg-white rounded-2xl p-6 max-w-sm w-full shadow-xl">
-            <p className="font-bold text-ink text-sm mb-1">Delete provider key?</p>
-            <p className="text-xs text-ink/60 mb-4">"{deleteTarget.label}" — this cannot be undone.</p>
-            <div className="flex gap-2 justify-end">
-              <button onClick={() => setDeleteTarget(null)} className="text-sm px-4 py-2 text-ink/60 hover:text-ink">Cancel</button>
-              <button onClick={() => deleteKey(deleteTarget._id || deleteTarget.id)}
-                className="text-sm font-bold bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg">
-                Delete Key
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

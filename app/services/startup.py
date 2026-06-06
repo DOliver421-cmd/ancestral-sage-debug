@@ -429,6 +429,14 @@ async def _on_startup_impl(app=None):
     asyncio.create_task(_memory_consolidation_loop())
     logger.info("STARTUP: Memory consolidation cron launched (24h interval)")
 
+    # Load provider keys from DB into llm_gateway globals
+    try:
+        from ai.llm_gateway import reload_provider_keys
+        n = await reload_provider_keys(db)
+        logger.info("STARTUP: loaded %d provider key(s) from DB into llm_gateway", n)
+    except Exception as _pk_err:
+        logger.warning("STARTUP: provider key reload failed (non-fatal): %s", _pk_err)
+
     logger.info(
         "STARTUP COMPLETE — Version: %s | DB: %s | Frontend: %s",
         APP_VERSION, _db_module._DB_SOURCE, "served" if SERVE_FRONTEND else "railway-nginx"
