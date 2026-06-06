@@ -55,6 +55,8 @@ function recordToMessages(r) {
     },
   ];
 }
+
+const DEPARTMENTS = [
   { id: "",               label: "Auto-Route",       icon: Bot,         desc: "Let the AI choose the right department" },
   { id: "Executive",      label: "Executive",         icon: Crown,       desc: "Governance, crisis, system oversight" },
   { id: "Revenue",        label: "Revenue",           icon: TrendingUp,  desc: "Strategy, pipeline, offers, forecasting" },
