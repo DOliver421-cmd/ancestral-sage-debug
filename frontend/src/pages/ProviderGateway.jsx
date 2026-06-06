@@ -71,6 +71,17 @@ const PRESETS = [
     signupLabel: "Get free key at api.together.xyz",
     color:    "#f59e0b",
   },
+  {
+    type:     "xai",
+    name:     "xAI / Grok",
+    model:    "Grok 3 Mini",
+    badge:    "Tier 3 · Fast",
+    cost:     "Free tier",
+    note:     "Grok 3 Mini on the free API tier. Strong reasoning.",
+    signup:   "https://console.x.ai",
+    signupLabel: "Get key at console.x.ai",
+    color:    "#6366f1",
+  },
 ];
 
 function StatusPill({ status }) {

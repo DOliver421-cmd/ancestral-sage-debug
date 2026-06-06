@@ -108,6 +108,9 @@ async def ensure_indexes():
         await db.api_key_usage_log.create_index(
             "created_at", expireAfterSeconds=90 * 24 * 3600
         )
+        await db.team_actions.create_index([("at", -1)])
+        await db.team_actions.create_index([("actor", 1), ("at", -1)])
+        await db.team_actions.create_index("human_initiated")
         await db.billing_events.create_index([("user_id", 1), ("created_at", -1)])
         await db.credits.create_index([("user_id", 1), ("created_at", -1)])
         await db.refunds.create_index([("user_id", 1), ("created_at", -1)])
@@ -436,6 +439,14 @@ async def _on_startup_impl(app=None):
         logger.info("STARTUP: loaded %d provider key(s) from DB into llm_gateway", n)
     except Exception as _pk_err:
         logger.warning("STARTUP: provider key reload failed (non-fatal): %s", _pk_err)
+
+    # Team monitor — autonomous provider health loop
+    try:
+        from app.services.team_monitor import run_monitor_loop
+        asyncio.create_task(run_monitor_loop())
+        logger.info("STARTUP: Team monitor launched (interval=300s, threshold=3 failures)")
+    except Exception as _tm_err:
+        logger.warning("STARTUP: Team monitor launch failed (non-fatal): %s", _tm_err)
 
     logger.info(
         "STARTUP COMPLETE — Version: %s | DB: %s | Frontend: %s",

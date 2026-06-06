@@ -90,6 +90,7 @@ import Landing from "./pages/Landing";
 import PlatformPrices from "./pages/PlatformPrices";
 import AuditorDashboard from "./pages/AuditorDashboard";
 import ProviderGateway from "./pages/ProviderGateway";
+import TeamOps from "./pages/TeamOps";
 import BillingAdmin from "./pages/BillingAdmin";
 import CreatorCourses from "./pages/CreatorCourses";
 import CreatorEarnings from "./pages/CreatorEarnings";
@@ -326,6 +327,7 @@ function App() {
           <Route path="/auditor" element={<BoundedAdmin roles={["admin"]} label="Auditor Dashboard"><AuditorDashboard /></BoundedAdmin>} />
           {/* Provider Gateway — executive only */}
           <Route path="/admin/providers" element={<BoundedAdmin roles={["executive_admin"]} label="Provider Gateway" backTo="/admin/control"><ProviderGateway /></BoundedAdmin>} />
+          <Route path="/team/ops" element={<BoundedAdmin roles={["executive_admin"]} label="Team Operations" backTo="/admin/control"><TeamOps /></BoundedAdmin>} />
           {/* Billing Admin — exec/admin */}
           <Route path="/admin/billing" element={<BoundedAdmin roles={["admin"]} label="Billing Admin"><BillingAdmin /></BoundedAdmin>} />
           {/* Original landing page (alternate entry point) */}

@@ -201,7 +201,7 @@ async def quick_setup_status(user: User = Depends(require_role("executive_admin"
         "huggingface":["HUGGINGFACE_API_KEY", "HF_API_KEY"],
     }
 
-    preset_types = ["groq", "cerebras", "gemini", "mistral", "cohere", "together"]
+    preset_types = ["groq", "cerebras", "gemini", "mistral", "cohere", "together", "xai"]
     result = {}
     for pt in preset_types:
         # Check env var first
