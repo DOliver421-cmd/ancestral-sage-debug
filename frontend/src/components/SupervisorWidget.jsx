@@ -366,8 +366,10 @@ export default function SupervisorWidget() {
 
   // ── STT ──────────────────────────────────────────────────────────────────────
   const { listening, toggle: toggleVoice } = useMic({
-    onResult: (txt) => setInput(txt),
+    onResult: (txt) => setInput(prev => prev + (prev ? " " : "") + txt),
     onError:  (msg) => addMsg("supervisor", msg),
+    continuous: true,
+    silenceMs: 1800,
   });
 
   // ── Send ─────────────────────────────────────────────────────────────────────
@@ -495,6 +497,9 @@ export default function SupervisorWidget() {
         display:"flex", flexDirection: fullscreen ? "row" : "column",
         boxShadow:"0 0 48px rgba(0,0,0,0.85)", overflow:"hidden", userSelect:"none" }}>
 
+      {/* Mic pulse animation */}
+      <style>{`@keyframes micPulse { 0%,100%{box-shadow:0 0 8px rgba(74,242,197,0.4)} 50%{box-shadow:0 0 18px rgba(74,242,197,0.8)} }`}</style>
+
       {/* Hidden file input */}
       <input ref={fileInputRef} type="file" accept=".txt,.md,.html,.htm,.pdf" style={{ display:"none" }} onChange={handleFileUpload} />
 
@@ -576,15 +581,25 @@ export default function SupervisorWidget() {
               <div ref={chatEndRef} />
             </div>
             <div style={{ padding:"8px 10px", borderTop:"1px solid rgba(74,242,197,0.15)", display:"flex", flexDirection:"column", gap:6, flexShrink:0 }}>
-              <div style={{ display:"flex", gap:6 }}>
+              <div style={{ display:"flex", gap:6, alignItems:"center" }}>
+                {/* Mic button — inline with input */}
+                <button onClick={toggleVoice} title={listening ? "Stop listening" : "Voice input"}
+                  style={{ flexShrink:0, width:34, height:34, borderRadius:"50%", cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", fontSize:16,
+                    border: listening ? "1px solid rgba(74,242,197,0.9)" : "1px solid rgba(160,168,192,0.4)",
+                    background: listening ? "radial-gradient(circle,rgba(74,242,197,0.3),#050814)" : "rgba(5,8,20,0.9)",
+                    color: listening ? C.accent : C.textMuted,
+                    boxShadow: listening ? "0 0 10px rgba(74,242,197,0.4)" : "none",
+                    animation: listening ? "micPulse 1.2s ease-in-out infinite" : "none",
+                  }}>
+                  {listening ? "⏹" : "🎙"}
+                </button>
                 <input value={input} onChange={e=>setInput(e.target.value)}
                   onKeyDown={e=>e.key==="Enter"&&!e.shiftKey&&(e.preventDefault(),handleSend())}
-                  placeholder="Ask The Supervisor…"
-                  style={{ flex:1, background:"rgba(5,8,20,0.9)", border:"1px solid rgba(74,242,197,0.4)", borderRadius:999, padding:"6px 12px", fontSize:12, color:"#f5f7ff", outline:"none" }} />
+                  placeholder={listening ? "Listening… speak now" : "Ask The Supervisor…"}
+                  style={{ flex:1, background:"rgba(5,8,20,0.9)", border:`1px solid ${listening?"rgba(74,242,197,0.7)":"rgba(74,242,197,0.4)"}`, borderRadius:999, padding:"6px 12px", fontSize:12, color:C.textPrimary, outline:"none", transition:"border-color 0.2s" }} />
                 <button onClick={handleSend} style={S.sendBtn}>Send</button>
               </div>
               <div style={{ display:"flex", gap:5, flexWrap:"wrap" }}>
-                <button onClick={toggleVoice} style={{ ...S.chip, ...(listening?S.chipOn:{}) }}>{listening?"⏹ Listening…":"🎙 Voice"}</button>
                 <button onClick={()=>setVoiceOut(v=>!v)} style={{ ...S.chip, ...(voiceOut?S.chipOn:{}) }}>{voiceOut?"🔊 On":"🔇 Off"}</button>
                 <button onClick={()=>setTab("training")} style={S.chip}>📚 Train me</button>
                 {BUCKETS.slice(0,3).map(b=>(
