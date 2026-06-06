@@ -117,13 +117,24 @@ async def add_api_key(
     """Encrypt and store an API key for a provider."""
     provider = await db.api_providers.find_one({"id": provider_id})
     if not provider:
+        # Fallback: some legacy docs use only _id (ObjectId) — try string match
+        from bson import ObjectId
+        try:
+            provider = await db.api_providers.find_one({"_id": ObjectId(provider_id)})
+        except Exception:
+            pass
+    if not provider:
         from fastapi import HTTPException
         raise HTTPException(404, f"Provider '{provider_id}' not found.")
+    # Ensure provider_id is the UUID "id" field, not the ObjectId string
+    provider_id = provider.get("id") or provider_id
+    masked = f"***{plaintext_key[-4:]}" if len(plaintext_key) >= 4 else "***"
     doc = {
         "id": str(uuid.uuid4()),
         "provider_id": provider_id,
         "label": label,
         "encrypted_key": _encrypt(plaintext_key),
+        "key_masked": masked,
         "created_by_user_id": actor_id,
         "status": "active",
         "scope": scope,          # "primary" | "backup" | "test"
@@ -133,7 +144,6 @@ async def add_api_key(
     await db.api_keys.insert_one(doc)
     doc.pop("_id", None)
     doc.pop("encrypted_key", None)  # never return raw (even encrypted) in API
-    doc["key_masked"] = f"***{plaintext_key[-4:]}" if len(plaintext_key) >= 4 else "***"
     return doc
 
 

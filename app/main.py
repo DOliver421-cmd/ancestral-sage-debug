@@ -45,7 +45,7 @@ from app.routes import (
 )
 from app.routes import exec as exec_routes
 from app.routes import executive_control, legal
-from app.routes import providers, billing, supervisor_v2, site_editor
+from app.routes import providers, billing, supervisor_v2, site_editor, team_ops
 from app.routes import partnership, playlist, social
 from app.routes import position, personas as personas_routes
 from app.security.enforcement import TierEnforcementMiddleware
@@ -242,6 +242,7 @@ app.include_router(supervisor_v2.router,       prefix=_PREFIX)
 app.include_router(site_editor.router,        prefix=_PREFIX)
 app.include_router(partnership.router,        prefix=_PREFIX)
 app.include_router(position.router,          prefix=_PREFIX)
+app.include_router(team_ops.router,          prefix=_PREFIX)
 app.include_router(personas_routes.router,   prefix=_PREFIX)
 app.include_router(playlist.router)   # prefix="/api/playlist" built-in
 app.include_router(social.router)     # prefix="/api/social" built-in

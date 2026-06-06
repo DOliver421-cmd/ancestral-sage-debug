@@ -155,7 +155,15 @@ async def quick_setup_provider(body: QuickSetupReq, user: User = Depends(require
     from app.database import db as _db
     existing = await _db.api_providers.find_one({"name": meta["name"]})
     if existing:
-        provider_id = existing.get("id", str(existing.get("_id", "")))
+        # If no UUID "id" field, backfill it so future lookups work
+        if not existing.get("id"):
+            import uuid as _uuid
+            new_id = str(_uuid.uuid4())
+            await _db.api_providers.update_one(
+                {"_id": existing["_id"]}, {"$set": {"id": new_id}}
+            )
+            existing["id"] = new_id
+        provider_id = existing["id"]
     else:
         p = await register_provider(
             meta["name"], meta["display_name"], body.provider_type.lower(), {}, actor_id=user.id
@@ -201,7 +209,7 @@ async def quick_setup_status(user: User = Depends(require_role("executive_admin"
         "huggingface":["HUGGINGFACE_API_KEY", "HF_API_KEY"],
     }
 
-    preset_types = ["groq", "cerebras", "gemini", "mistral", "cohere", "together"]
+    preset_types = ["groq", "cerebras", "gemini", "mistral", "cohere", "together", "xai"]
     result = {}
     for pt in preset_types:
         # Check env var first
