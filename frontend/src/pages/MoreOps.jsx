@@ -95,13 +95,21 @@ function MessageBubble({ msg, onSpeak }) {
   );
 }
 
+function getStableSessionId() {
+  const key = "more_ops_session_id";
+  let id = localStorage.getItem(key);
+  if (!id) { id = uuidv4(); localStorage.setItem(key, id); }
+  return id;
+}
+
 export default function MoreOps() {
   const { user } = useAuth();
-  const [sessionId] = useState(() => uuidv4());
+  const [sessionId] = useState(getStableSessionId);
   const [dept, setDept] = useState("");
   const [input, setInput] = useState("");
   const [messages, setMessages] = useState([]);
   const [busy, setBusy] = useState(false);
+  const [historyLoaded, setHistoryLoaded] = useState(false);
   const bottomRef = useRef(null);
   const inputRef = useRef(null);
 
@@ -159,6 +167,39 @@ export default function MoreOps() {
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
+
+  // Restore conversation history from backend on mount
+  useEffect(() => {
+    api.get("/more/department/history?limit=60")
+      .then(({ data }) => {
+        const records = data.history || [];
+        if (!records.length) return;
+        const restored = [];
+        records.forEach((r) => {
+          restored.push({ role: "user", content: r.user_msg });
+          const raw = r.assistant_msg || "";
+          const lines = raw.split("\n");
+          const firstLine = lines[0].trim();
+          const displayContent =
+            firstLine.startsWith("**") && firstLine.includes("|")
+              ? lines.slice(1).join("\n").trimStart()
+              : raw;
+          restored.push({
+            role: "assistant",
+            rawReply: raw,
+            displayContent,
+            persona: r.persona || "Department AI",
+            department: r.department || "M.O.R.E.",
+            mode: r.active_mode || "Balanced",
+            isDecline: r.is_decline || false,
+          });
+        });
+        setMessages(restored);
+      })
+      .catch(() => {})
+      .finally(() => setHistoryLoaded(true));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Build history array for API (alternating user/assistant)
   const buildHistory = () => {
@@ -220,6 +261,8 @@ export default function MoreOps() {
   };
 
   const clearSession = () => {
+    const newId = uuidv4();
+    localStorage.setItem("more_ops_session_id", newId);
     setMessages([]);
     setInput("");
   };
