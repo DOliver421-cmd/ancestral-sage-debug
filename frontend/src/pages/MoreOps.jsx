@@ -6,7 +6,7 @@ import { toast } from "sonner";
 import {
   Send, Bot, RefreshCw, Crown, TrendingUp, DollarSign,
   Video, Users, ChevronRight, Loader2, Trash2,
-  Mic, MicOff, Volume2, VolumeX, CheckCircle2,
+  Mic, MicOff, Volume2, VolumeX, CheckCircle,
 } from "lucide-react";
 import { v4 as uuidv4 } from "uuid";
 import { useMic } from "../hooks/useMic";
@@ -456,7 +456,7 @@ export default function MoreOps() {
               </p>
               {savedAt && (
                 <span className="text-xs text-ink/30 flex items-center gap-1">
-                  <CheckCircle2 className="w-3 h-3 text-green-400" />
+                  <CheckCircle className="w-3 h-3 text-green-400" />
                   Saved {savedAt.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
                 </span>
               )}
