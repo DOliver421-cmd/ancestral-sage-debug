@@ -23,32 +23,52 @@ from app.config import (
 )
 from app.database import db, client, _DB_SOURCE, _backup_db
 from app.security.rate_limit import _RATE
-from app.routes import (
-    adaptive,
-    admin,
-    ai,
-    analytics,
-    attendance,
-    auth,
-    auditor,
-    community,
-    compliance,
-    credentials,
-    incidents,
-    labs,
-    misc,
-    modules,
-    notifications,
-    payments,
-    supervisor,
-    system,
-)
-from app.routes import exec as exec_routes
-from app.routes import executive_control, legal
-from app.routes import providers, billing, supervisor_v2, site_editor, team_ops
-from app.routes import partnership, playlist, social
-from app.routes import position, personas as personas_routes
-from app.security.enforcement import TierEnforcementMiddleware
+
+# ── Route imports (fault-tolerant) ────────────────────────────────────────────
+# Any single import failure is logged but does NOT crash the server.
+# /api/version and /api/health always remain available.
+import importlib as _importlib
+
+_failed_routes: list = []
+
+def _load(mod_path: str, attr: str = "router"):
+    """Import a route module; return its router or None on failure."""
+    try:
+        m = _importlib.import_module(mod_path)
+        return getattr(m, attr, None)
+    except Exception as _e:
+        import logging as _log
+        _log.getLogger("lcewai").error("STARTUP route import failed — %s: %s", mod_path, _e)
+        _failed_routes.append(mod_path)
+        return None
+
+# Critical — always load these first (health, auth, version)
+from app.routes import system, auth   # noqa: E402 (after _load definition)
+
+# All other routes loaded fault-tolerantly
+_route_mods = [
+    "app.routes.modules", "app.routes.labs", "app.routes.credentials",
+    "app.routes.compliance", "app.routes.notifications", "app.routes.attendance",
+    "app.routes.incidents", "app.routes.analytics", "app.routes.community",
+    "app.routes.admin", "app.routes.supervisor", "app.routes.auditor",
+    "app.routes.payments", "app.routes.adaptive", "app.routes.ai",
+    "app.routes.exec", "app.routes.executive_control", "app.routes.legal",
+    "app.routes.misc", "app.routes.providers", "app.routes.billing",
+    "app.routes.supervisor_v2", "app.routes.site_editor", "app.routes.team_ops",
+    "app.routes.partnership", "app.routes.playlist", "app.routes.social",
+    "app.routes.position", "app.routes.personas",
+]
+_loaded_routers: dict = {}  # mod_path -> router
+for _mp in _route_mods:
+    _r = _load(_mp)
+    if _r is not None:
+        _loaded_routers[_mp] = _r
+
+try:
+    from app.security.enforcement import TierEnforcementMiddleware as _TEM
+    TierEnforcementMiddleware = _TEM
+except Exception as _e:
+    TierEnforcementMiddleware = None  # type: ignore
 from app.config import APP_ENV, _DOCS_ENABLED as _DOCS_ENABLED_CFG
 from app.utils.alerting import init_sentry
 from app.utils.logging_config import (
@@ -214,38 +234,21 @@ async def enforce_ip_whitelist(request: Request, call_next):
 # ── Include all routers ───────────────────────────────────────────────────────
 _PREFIX = "/api"
 
-app.include_router(system.router,        prefix=_PREFIX)
-app.include_router(auth.router,          prefix=_PREFIX)
-app.include_router(modules.router,       prefix=_PREFIX)
-app.include_router(labs.router,          prefix=_PREFIX)
-app.include_router(credentials.router,   prefix=_PREFIX)
-app.include_router(compliance.router,    prefix=_PREFIX)
-app.include_router(notifications.router, prefix=_PREFIX)
-app.include_router(attendance.router,    prefix=_PREFIX)
-app.include_router(incidents.router,     prefix=_PREFIX)
-app.include_router(analytics.router,     prefix=_PREFIX)
-app.include_router(community.router,     prefix=_PREFIX)
-app.include_router(admin.router,         prefix=_PREFIX)
-app.include_router(supervisor.router,    prefix=_PREFIX)
-app.include_router(auditor.router,       prefix=_PREFIX)
-app.include_router(payments.router,      prefix=_PREFIX)
-app.include_router(adaptive.router,      prefix=_PREFIX)
-app.include_router(ai.router,                  prefix=_PREFIX)
-app.include_router(exec_routes.router,         prefix=_PREFIX)
-app.include_router(executive_control.router,   prefix=_PREFIX)
-app.include_router(legal.router,               prefix=_PREFIX)
-app.include_router(misc.router,                prefix=_PREFIX)
-# Phase 2–3: Supervisor reconstruction modules
-app.include_router(providers.router,           prefix=_PREFIX)
-app.include_router(billing.router,             prefix=_PREFIX)
-app.include_router(supervisor_v2.router,       prefix=_PREFIX)
-app.include_router(site_editor.router,        prefix=_PREFIX)
-app.include_router(partnership.router,        prefix=_PREFIX)
-app.include_router(position.router,          prefix=_PREFIX)
-app.include_router(team_ops.router,          prefix=_PREFIX)
-app.include_router(personas_routes.router,   prefix=_PREFIX)
-app.include_router(playlist.router)   # prefix="/api/playlist" built-in
-app.include_router(social.router)     # prefix="/api/social" built-in
+# Critical routes always included
+app.include_router(system.router, prefix=_PREFIX)
+app.include_router(auth.router,   prefix=_PREFIX)
+
+# Playlist and social have built-in prefixes
+_BUILTIN_PREFIX = {"app.routes.playlist", "app.routes.social"}
+
+for _mp, _router in _loaded_routers.items():
+    try:
+        if _mp in _BUILTIN_PREFIX:
+            app.include_router(_router)
+        else:
+            app.include_router(_router, prefix=_PREFIX)
+    except Exception as _re:
+        logger.error("STARTUP: failed to register router %s: %s", _mp, _re)
 
 # Revenue operations routers (wired at startup)
 try:
@@ -257,7 +260,8 @@ except Exception as _rev_err:
 
 
 # ── Middleware: Tier + Role enforcement (second line of defence) ──────────────
-app.add_middleware(TierEnforcementMiddleware)
+if TierEnforcementMiddleware is not None:
+    app.add_middleware(TierEnforcementMiddleware)
 
 # ── Middleware: Structured request logging (innermost — runs last, sees status) ─
 app.add_middleware(RequestLoggingMiddleware, app_env=APP_ENV)
