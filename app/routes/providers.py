@@ -93,6 +93,13 @@ async def add_key(body: KeyCreate, user: User = Depends(require_role("executive_
     )
     await audit(user.id, "provider.key.added",
                 meta={"provider_id": body.provider_id, "label": body.label, "scope": body.scope})
+    # Reload gateway globals so the new key is available immediately
+    try:
+        from ai.llm_gateway import reload_provider_keys
+        from app.database import db as _db
+        await reload_provider_keys(_db)
+    except Exception:
+        pass
     return key_doc
 
 

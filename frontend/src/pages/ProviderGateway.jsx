@@ -172,7 +172,25 @@ export default function ProviderGateway() {
                     <input required value={newProvider.name} onChange={e => setNewProvider(p => ({...p, name: e.target.value}))} className={inp} placeholder="e.g. OpenAI Primary" /></div>
                   <div><label className="text-xs font-medium text-ink/60 mb-1 block">Type</label>
                     <select value={newProvider.provider_type} onChange={e => setNewProvider(p => ({...p, provider_type: e.target.value}))} className={inp}>
-                      {["openai","anthropic","elevenlabs","groq","cohere","custom"].map(t => <option key={t}>{t}</option>)}
+                      <optgroup label="Free Tier (Primary)">
+                        <option value="groq">groq — Llama 3.3 70B (free, fastest)</option>
+                        <option value="cerebras">cerebras — Llama 3.3 70B (free, fast)</option>
+                        <option value="sambanova">sambanova — Llama 3.3 70B (free, fast)</option>
+                      </optgroup>
+                      <optgroup label="Free Tier (Fallback)">
+                        <option value="gemini">gemini — Gemini 2.0 Flash (free, 15 RPM)</option>
+                        <option value="xai">xai — Grok 3 Mini (free credits)</option>
+                        <option value="cohere">cohere — Command R+ (free tier)</option>
+                        <option value="mistral">mistral — Mistral Small (free, 1M/mo)</option>
+                        <option value="together">together — Llama 3.3 70B (free $25 credit)</option>
+                        <option value="openrouter">openrouter — Gemini Free (free models)</option>
+                        <option value="huggingface">huggingface — Mistral 7B (free, slow)</option>
+                      </optgroup>
+                      <optgroup label="Paid (disabled by default)">
+                        <option value="anthropic">anthropic — Claude (requires ANTHROPIC_IS_ENABLED=true)</option>
+                        <option value="elevenlabs">elevenlabs — TTS only</option>
+                      </optgroup>
+                      <option value="custom">custom</option>
                     </select></div>
                 </div>
                 <div><label className="text-xs font-medium text-ink/60 mb-1 block">Base URL (optional)</label>

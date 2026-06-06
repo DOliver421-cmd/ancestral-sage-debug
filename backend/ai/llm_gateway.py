@@ -74,36 +74,33 @@ async def reload_provider_keys(db) -> int:
     """Read active provider keys from MongoDB and update module globals.
     Env vars always win — DB keys only fill gaps where env var is empty.
     Returns the number of keys loaded from DB."""
-    import sys
+    import sys, base64
     enc_secret = os.environ.get("PROVIDER_KEY_ENCRYPTION_SECRET", "")
-    if not enc_secret:
-        return 0
-    try:
-        from cryptography.fernet import Fernet
-        fernet = Fernet(enc_secret.encode() if isinstance(enc_secret, str) else enc_secret)
-    except Exception:
-        return 0
+
+    fernet = None
+    if enc_secret:
+        try:
+            from cryptography.fernet import Fernet
+            # Must match provider_gateway.py padding: pad to 32 bytes, then b64encode
+            _kb = (enc_secret.encode() * 3)[:32]
+            fernet = Fernet(base64.urlsafe_b64encode(_kb))
+        except Exception:
+            pass
 
     loaded = 0
     module = sys.modules[__name__]
     try:
-        # Join provider_keys with providers to get provider_type
-        keys = await db.ai_provider_keys.find({}).to_list(200)
+        # Use the same collections as provider_gateway.py: api_keys + api_providers
+        keys = await db.api_keys.find({"status": "active"}).to_list(200)
         provider_ids = list({k.get("provider_id") for k in keys if k.get("provider_id")})
         providers = {}
         if provider_ids:
-            from bson import ObjectId
-            oids = []
-            for pid in provider_ids:
-                try: oids.append(ObjectId(pid))
-                except Exception: pass
-            if oids:
-                async for p in db.ai_providers.find({"_id": {"$in": oids}}):
-                    providers[str(p["_id"])] = p.get("provider_type", "")
+            async for p in db.api_providers.find({"id": {"$in": provider_ids}}):
+                providers[p["id"]] = p.get("provider_type", p.get("type", ""))
 
         for key_doc in keys:
-            provider_type = providers.get(str(key_doc.get("provider_id", "")), "")
-            global_name = _PROVIDER_TYPE_TO_GLOBAL.get(provider_type.lower(), "")
+            provider_type = providers.get(key_doc.get("provider_id", ""), "").lower()
+            global_name = _PROVIDER_TYPE_TO_GLOBAL.get(provider_type, "")
             if not global_name:
                 continue
             # Only fill if env var is currently empty
@@ -113,7 +110,10 @@ async def reload_provider_keys(db) -> int:
             if not encrypted:
                 continue
             try:
-                plaintext = fernet.decrypt(encrypted.encode() if isinstance(encrypted, str) else encrypted).decode()
+                if fernet:
+                    plaintext = fernet.decrypt(encrypted.encode() if isinstance(encrypted, str) else encrypted).decode()
+                else:
+                    plaintext = encrypted  # stored unencrypted (no secret set)
                 setattr(module, global_name, plaintext)
                 loaded += 1
                 logger.info("llm_gateway: loaded %s from DB (provider_type=%s)", global_name, provider_type)
