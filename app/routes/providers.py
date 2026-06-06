@@ -183,18 +183,49 @@ async def quick_setup_provider(body: QuickSetupReq, user: User = Depends(require
 
 @router.get("/providers/quick-setup/status")
 async def quick_setup_status(user: User = Depends(require_role("executive_admin"))):
-    """Return which of the 6 preset providers have an active key configured."""
+    """Return which of the 6 preset providers have an active key — checks env vars AND DB."""
+    import os
     from app.database import db as _db
+
+    # Env var names per provider type
+    _ENV = {
+        "groq":       ["GROQ_API_KEY"],
+        "cerebras":   ["CEREBRAS_API_KEY"],
+        "gemini":     ["GEMINI_API_KEY"],
+        "mistral":    ["MISTRAL_API_KEY"],
+        "cohere":     ["COHERE_API_KEY"],
+        "together":   ["TOGETHER_API_KEY"],
+        "sambanova":  ["SAMBANOVA_API_KEY"],
+        "xai":        ["XAI_API_KEY", "GROK_API_KEY"],
+        "openrouter": ["OPENROUTER_API_KEY"],
+        "huggingface":["HUGGINGFACE_API_KEY", "HF_API_KEY"],
+    }
+
     preset_types = ["groq", "cerebras", "gemini", "mistral", "cohere", "together"]
     result = {}
     for pt in preset_types:
+        # Check env var first
+        env_key = next((os.environ.get(k, "") for k in _ENV.get(pt, []) if os.environ.get(k)), "")
+        if env_key:
+            result[pt] = {
+                "configured": True,
+                "source": "env",
+                "key_masked": f"***{env_key[-4:]}",
+            }
+            continue
+
+        # Check DB
         provider = await _db.api_providers.find_one({"name": pt})
         if provider:
             pid = provider.get("id", str(provider.get("_id", "")))
             key = await _db.api_keys.find_one({"provider_id": pid, "status": "active", "scope": "primary"})
-            result[pt] = {"configured": bool(key), "key_masked": key.get("key_masked") if key else None}
+            result[pt] = {
+                "configured": bool(key),
+                "source": "db" if key else None,
+                "key_masked": key.get("key_masked") if key else None,
+            }
         else:
-            result[pt] = {"configured": False, "key_masked": None}
+            result[pt] = {"configured": False, "source": None, "key_masked": None}
     return result
 
 
