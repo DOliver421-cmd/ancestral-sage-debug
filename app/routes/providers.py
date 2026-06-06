@@ -123,6 +123,81 @@ async def test_key(key_id: str, user: User = Depends(require_role("executive_adm
     return result
 
 
+class QuickSetupReq(BaseModel):
+    provider_type: str   # groq | cerebras | gemini | mistral | cohere | together | etc.
+    api_key: str
+
+
+@router.post("/providers/quick-setup")
+async def quick_setup_provider(body: QuickSetupReq, user: User = Depends(require_role("executive_admin"))):
+    """Create provider + primary key in one step. Idempotent — safe to call again with a new key."""
+    from app.services.provider_gateway import register_provider, add_api_key, list_providers
+
+    _META = {
+        "groq":        {"name": "groq",        "display_name": "Groq / Llama 3.3 70B"},
+        "cerebras":    {"name": "cerebras",     "display_name": "Cerebras / Llama 3.3 70B"},
+        "sambanova":   {"name": "sambanova",    "display_name": "SambaNova / Llama 3.3 70B"},
+        "gemini":      {"name": "gemini",       "display_name": "Google Gemini 2.0 Flash"},
+        "xai":         {"name": "xai",          "display_name": "xAI / Grok 3 Mini"},
+        "cohere":      {"name": "cohere",       "display_name": "Cohere Command R+"},
+        "mistral":     {"name": "mistral",      "display_name": "Mistral Small"},
+        "together":    {"name": "together",     "display_name": "Together AI / Llama 3.3 70B"},
+        "openrouter":  {"name": "openrouter",   "display_name": "OpenRouter (free models)"},
+        "huggingface": {"name": "huggingface",  "display_name": "HuggingFace Inference"},
+    }
+    meta = _META.get(body.provider_type.lower())
+    if not meta:
+        raise HTTPException(400, f"Unknown provider_type: {body.provider_type}")
+    if not body.api_key.strip():
+        raise HTTPException(400, "api_key is required")
+
+    # Find or create provider
+    from app.database import db as _db
+    existing = await _db.api_providers.find_one({"name": meta["name"]})
+    if existing:
+        provider_id = existing.get("id", str(existing.get("_id", "")))
+    else:
+        p = await register_provider(
+            meta["name"], meta["display_name"], body.provider_type.lower(), {}, actor_id=user.id
+        )
+        provider_id = p["id"]
+
+    # Revoke existing primary keys for this provider (replacing with new one)
+    await _db.api_keys.update_many(
+        {"provider_id": provider_id, "scope": "primary", "status": "active"},
+        {"$set": {"status": "revoked"}},
+    )
+
+    key_doc = await add_api_key(provider_id, f"{meta['name']} key", body.api_key.strip(), "primary", actor_id=user.id)
+    await audit(user.id, "provider.quick_setup", meta={"provider": meta["name"]})
+
+    # Reload llm_gateway immediately
+    try:
+        from ai.llm_gateway import reload_provider_keys
+        await reload_provider_keys(_db)
+    except Exception:
+        pass
+
+    return {"ok": True, "provider": meta["name"], "provider_id": provider_id, "key_id": key_doc["id"]}
+
+
+@router.get("/providers/quick-setup/status")
+async def quick_setup_status(user: User = Depends(require_role("executive_admin"))):
+    """Return which of the 6 preset providers have an active key configured."""
+    from app.database import db as _db
+    preset_types = ["groq", "cerebras", "gemini", "mistral", "cohere", "together"]
+    result = {}
+    for pt in preset_types:
+        provider = await _db.api_providers.find_one({"name": pt})
+        if provider:
+            pid = provider.get("id", str(provider.get("_id", "")))
+            key = await _db.api_keys.find_one({"provider_id": pid, "status": "active", "scope": "primary"})
+            result[pt] = {"configured": bool(key), "key_masked": key.get("key_masked") if key else None}
+        else:
+            result[pt] = {"configured": False, "key_masked": None}
+    return result
+
+
 @router.get("/providers/usage-log")
 async def provider_usage_log(
     provider_id: Optional[str] = None,
