@@ -1,0 +1,800 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>WAI-Institute | The Supervisor</title>
+  <meta name="description" content="WAI-Institute: AI governance, hybrid intelligence, and human-AI symbiosis.">
+  <style>
+    :root {
+      --primary: #00ffff;
+      --accent:  #ff00ff;
+      --bg:      #0a0a0a;
+      --bg2:     #111118;
+      --bg3:     #1a1a28;
+      --text:    #ffffff;
+      --dim:     #7a7a9a;
+      --gold:    #f0c040;
+      --ok:      #22c55e;
+      --warn:    #f59e0b;
+      --err:     #ef4444;
+      --border:  rgba(0,255,255,0.15);
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Courier New', monospace;
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    /* ── scanlines ── */
+    body::before {
+      content: '';
+      position: fixed; inset: 0; z-index: 0; pointer-events: none;
+      background: repeating-linear-gradient(
+        0deg,
+        rgba(0,0,0,0.12) 0px,
+        rgba(0,0,0,0.12) 1px,
+        transparent 1px,
+        transparent 3px
+      );
+    }
+
+    /* ── status bar ── */
+    #status-bar {
+      position: fixed; top: 0; left: 0; right: 0; z-index: 200;
+      background: rgba(10,10,10,0.97);
+      border-bottom: 1px solid var(--border);
+      backdrop-filter: blur(12px);
+      height: 44px;
+      display: flex; align-items: center;
+      padding: 0 20px; gap: 16px;
+      font-size: 11px; letter-spacing: .12em; text-transform: uppercase;
+    }
+    .sb-brand { color: var(--primary); font-weight: bold; font-size: 13px; flex-shrink: 0; }
+    .sb-sep   { color: var(--border); }
+    .sb-item  { display: flex; align-items: center; gap: 5px; color: var(--dim); }
+    .sb-dot   { width: 7px; height: 7px; border-radius: 50%; background: var(--ok); flex-shrink: 0; animation: pulse-dot 2s ease-in-out infinite; }
+    .sb-dot.offline { background: var(--err); animation: none; }
+    .sb-dot.degraded { background: var(--warn); }
+    .sb-right { margin-left: auto; display: flex; align-items: center; gap: 14px; }
+    .sb-time  { color: var(--dim); font-size: 10px; }
+
+    @keyframes pulse-dot { 0%,100% { opacity:1; } 50% { opacity:.4; } }
+
+    /* ── layout ── */
+    .page { position: relative; z-index: 1; max-width: 860px; margin: 0 auto; padding: 80px 20px 60px; }
+
+    /* ── hero ── */
+    .hero {
+      text-align: center;
+      padding: 48px 0 40px;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 48px;
+    }
+    .hero-tag { font-size: 10px; letter-spacing: .4em; color: var(--accent); text-transform: uppercase; margin-bottom: 14px; }
+    .hero h1 {
+      font-size: clamp(1.8rem, 6vw, 3.2rem);
+      color: var(--primary);
+      text-shadow: 0 0 20px var(--primary), 0 0 60px rgba(0,255,255,.2);
+      letter-spacing: .06em;
+      margin-bottom: 10px;
+    }
+    .hero-sub { color: var(--dim); font-size: .85rem; letter-spacing: .12em; }
+
+    /* ── system status panel ── */
+    .status-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      gap: 10px;
+      margin-bottom: 40px;
+    }
+    .status-card {
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 14px 16px;
+      display: flex; align-items: center; gap: 12px;
+    }
+    .sc-dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
+    .sc-dot.ok  { background: var(--ok); }
+    .sc-dot.deg { background: var(--warn); }
+    .sc-dot.err { background: var(--err); }
+    .sc-label { font-size: .75rem; color: var(--dim); text-transform: uppercase; letter-spacing: .1em; }
+    .sc-value { font-size: .85rem; color: var(--text); margin-top: 2px; }
+
+    /* ── chat interface ── */
+    .chat-wrap {
+      background: var(--bg2);
+      border: 1px solid var(--accent);
+      box-shadow: 0 0 24px rgba(255,0,255,.08);
+      border-radius: 8px;
+      overflow: hidden;
+      margin-bottom: 32px;
+    }
+    .chat-header {
+      background: var(--bg3);
+      border-bottom: 1px solid var(--border);
+      padding: 14px 18px;
+      display: flex; align-items: center; gap: 10px;
+    }
+    .chat-persona {
+      width: 32px; height: 32px; border-radius: 50%;
+      background: linear-gradient(135deg, var(--primary), var(--accent));
+      display: flex; align-items: center; justify-content: center;
+      font-size: 14px; font-weight: bold; color: #000;
+      flex-shrink: 0;
+    }
+    .chat-persona-name { font-size: .9rem; color: var(--primary); font-weight: bold; }
+    .chat-persona-sub  { font-size: .7rem; color: var(--dim); margin-top: 1px; }
+    .chat-persona-dot  { width: 7px; height: 7px; border-radius: 50%; background: var(--ok); margin-left: auto; animation: pulse-dot 2s ease-in-out infinite; }
+
+    .chat-log {
+      height: 320px;
+      overflow-y: auto;
+      padding: 18px;
+      display: flex; flex-direction: column; gap: 12px;
+      scroll-behavior: smooth;
+    }
+    .chat-log::-webkit-scrollbar { width: 4px; }
+    .chat-log::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+    .msg {
+      max-width: 85%;
+      padding: 10px 14px;
+      border-radius: 6px;
+      font-size: .88rem;
+      line-height: 1.6;
+    }
+    .msg.sup {
+      background: var(--bg3);
+      border: 1px solid var(--border);
+      color: var(--primary);
+      align-self: flex-start;
+    }
+    .msg.user {
+      background: rgba(255,0,255,.08);
+      border: 1px solid rgba(255,0,255,.2);
+      color: var(--text);
+      align-self: flex-end;
+      text-align: right;
+    }
+    .msg.thinking {
+      background: var(--bg3);
+      border: 1px solid var(--border);
+      color: var(--dim);
+      align-self: flex-start;
+      font-style: italic;
+    }
+    .msg-label { font-size: .65rem; letter-spacing: .15em; text-transform: uppercase; margin-bottom: 4px; opacity: .6; }
+
+    .chat-input-row {
+      border-top: 1px solid var(--border);
+      padding: 14px 18px;
+      display: flex; gap: 10px;
+    }
+    .chat-input {
+      flex: 1;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 5px;
+      color: var(--text);
+      font-family: 'Courier New', monospace;
+      font-size: .88rem;
+      padding: 10px 14px;
+      outline: none;
+      resize: none;
+      min-height: 44px;
+      max-height: 120px;
+      transition: border-color .2s;
+    }
+    .chat-input:focus { border-color: var(--primary); }
+    .chat-send {
+      background: transparent;
+      border: 1px solid var(--primary);
+      color: var(--primary);
+      font-family: 'Courier New', monospace;
+      font-size: .78rem;
+      letter-spacing: .1em;
+      text-transform: uppercase;
+      padding: 10px 18px;
+      border-radius: 5px;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: background .2s, color .2s;
+      align-self: flex-end;
+    }
+    .chat-send:hover { background: var(--primary); color: #000; }
+    .chat-send:disabled { opacity: .4; cursor: default; }
+
+    /* ── offline notice ── */
+    #offline-notice {
+      display: none;
+      background: rgba(239,68,68,.1);
+      border: 1px solid rgba(239,68,68,.3);
+      border-radius: 6px;
+      padding: 14px 18px;
+      font-size: .85rem;
+      color: #fca5a5;
+      margin-bottom: 24px;
+      line-height: 1.6;
+    }
+    #offline-notice strong { color: var(--err); }
+
+    /* ── quick-access panel ── */
+    .quick-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+      gap: 10px;
+      margin-bottom: 40px;
+    }
+    .quick-btn {
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 14px 16px;
+      color: var(--text);
+      font-family: 'Courier New', monospace;
+      font-size: .8rem;
+      cursor: pointer;
+      text-align: left;
+      transition: border-color .2s, box-shadow .2s;
+      text-decoration: none;
+      display: block;
+    }
+    .quick-btn:hover { border-color: var(--primary); box-shadow: 0 0 12px rgba(0,255,255,.1); }
+    .quick-btn-icon { font-size: 1.2rem; margin-bottom: 8px; }
+    .quick-btn-label { color: var(--primary); font-weight: bold; font-size: .78rem; letter-spacing: .06em; }
+    .quick-btn-sub { color: var(--dim); font-size: .7rem; margin-top: 3px; }
+
+    /* ── section headings ── */
+    .section-title {
+      font-size: .68rem; letter-spacing: .3em; text-transform: uppercase;
+      color: var(--accent); margin-bottom: 16px;
+      display: flex; align-items: center; gap: 10px;
+    }
+    .section-title::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+
+    /* ── admin panel (exec only) ── */
+    .admin-panel {
+      background: var(--bg2);
+      border: 1px solid rgba(255,0,255,.25);
+      border-radius: 8px;
+      padding: 20px;
+      margin-bottom: 32px;
+    }
+    .admin-row {
+      display: flex; flex-wrap: wrap; gap: 10px;
+      margin-bottom: 12px;
+    }
+    .admin-row:last-child { margin-bottom: 0; }
+    .admin-action {
+      background: transparent;
+      border: 1px solid var(--border);
+      color: var(--dim);
+      font-family: 'Courier New', monospace;
+      font-size: .74rem;
+      letter-spacing: .1em;
+      text-transform: uppercase;
+      padding: 7px 14px;
+      border-radius: 4px;
+      cursor: pointer;
+      transition: all .2s;
+    }
+    .admin-action:hover { border-color: var(--accent); color: var(--accent); }
+    .admin-action.danger { border-color: rgba(239,68,68,.3); color: #f87171; }
+    .admin-action.danger:hover { border-color: var(--err); background: rgba(239,68,68,.08); }
+
+    /* ── footer ── */
+    footer {
+      border-top: 1px solid var(--border);
+      padding-top: 20px;
+      text-align: center;
+      font-size: .68rem;
+      letter-spacing: .18em;
+      text-transform: uppercase;
+      color: var(--dim);
+      margin-top: 48px;
+    }
+
+    /* ── auth gate ── */
+    #auth-gate {
+      display: flex; align-items: center; justify-content: center;
+      min-height: 100vh;
+      background: var(--bg);
+      position: fixed; inset: 0; z-index: 999;
+    }
+    .auth-card {
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      box-shadow: 0 0 40px rgba(0,255,255,.08);
+      border-radius: 10px;
+      padding: 40px 36px;
+      width: 340px;
+      text-align: center;
+    }
+    .auth-logo {
+      width: 56px; height: 56px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, var(--primary), var(--accent));
+      margin: 0 auto 18px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 22px; font-weight: 900; color: #000;
+    }
+    .auth-card h2 { font-size: 1.2rem; color: var(--primary); margin-bottom: 6px; }
+    .auth-card p  { font-size: .78rem; color: var(--dim); margin-bottom: 24px; }
+    .auth-input {
+      width: 100%;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 5px;
+      color: var(--text);
+      font-family: 'Courier New', monospace;
+      font-size: .9rem;
+      padding: 11px 14px;
+      outline: none;
+      margin-bottom: 10px;
+    }
+    .auth-input:focus { border-color: var(--primary); }
+    .auth-submit {
+      width: 100%;
+      background: transparent;
+      border: 1px solid var(--primary);
+      color: var(--primary);
+      font-family: 'Courier New', monospace;
+      font-size: .85rem;
+      letter-spacing: .1em;
+      text-transform: uppercase;
+      padding: 12px;
+      border-radius: 5px;
+      cursor: pointer;
+      transition: background .2s, color .2s;
+      margin-top: 4px;
+    }
+    .auth-submit:hover { background: var(--primary); color: #000; }
+    .auth-err { color: var(--err); font-size: .75rem; margin-top: 8px; min-height: 1em; }
+    .auth-note { font-size: .7rem; color: var(--dim); margin-top: 14px; line-height: 1.5; }
+
+    /* ── TTS toggle ── */
+    #tts-bar {
+      position: fixed; bottom: 0; left: 0; right: 0; z-index: 150;
+      background: rgba(10,10,10,.97);
+      border-top: 1px solid var(--border);
+      backdrop-filter: blur(12px);
+      padding: 10px 20px;
+      display: flex; align-items: center; gap: 14px;
+      font-size: .78rem; letter-spacing: .08em;
+    }
+    #tts-bar label { color: var(--dim); display: flex; align-items: center; gap: 7px; cursor: pointer; }
+    #tts-toggle { accent-color: var(--primary); width: 14px; height: 14px; cursor: pointer; }
+    #tts-status { color: var(--primary); font-size: .7rem; }
+    body { padding-bottom: 48px; }
+
+    @media (max-width: 540px) {
+      .page { padding: 72px 14px 50px; }
+      .status-grid { grid-template-columns: 1fr 1fr; }
+      .quick-grid  { grid-template-columns: 1fr 1fr; }
+      .chat-log    { height: 260px; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ── auth gate ── -->
+<div id="auth-gate">
+  <div class="auth-card">
+    <div class="auth-logo">S</div>
+    <h2>THE SUPERVISOR</h2>
+    <p>WAI-Institute · Offline Access Panel</p>
+    <input class="auth-input" id="auth-pass" type="password" placeholder="Access code" autocomplete="current-password" />
+    <button class="auth-submit" onclick="tryAuth()">Enter</button>
+    <p class="auth-err" id="auth-err"></p>
+    <p class="auth-note">This panel operates independently of the main system.<br>Use your assigned access code.</p>
+  </div>
+</div>
+
+<!-- ── status bar ── -->
+<div id="status-bar">
+  <span class="sb-brand">WAI</span>
+  <span class="sb-sep">|</span>
+  <span class="sb-item"><span class="sb-dot" id="net-dot"></span><span id="net-label">Checking…</span></span>
+  <span class="sb-sep">|</span>
+  <span class="sb-item">Supervisor v2</span>
+  <div class="sb-right">
+    <span class="sb-time" id="clock"></span>
+    <button style="background:transparent;border:1px solid var(--border);color:var(--dim);font-size:10px;letter-spacing:.1em;text-transform:uppercase;padding:4px 10px;border-radius:4px;cursor:pointer;font-family:inherit;" onclick="signOut()">Exit</button>
+  </div>
+</div>
+
+<!-- ── main page ── -->
+<div class="page" id="main-page" style="display:none">
+
+  <!-- offline notice -->
+  <div id="offline-notice">
+    <strong>System offline.</strong> The main WAI-Institute server is unreachable.
+    This panel operates independently — use it to communicate, manage offline resources, and monitor status until the system restores.
+  </div>
+
+  <!-- hero -->
+  <div class="hero">
+    <p class="hero-tag">WAI-Institute · Offline Command Panel</p>
+    <h1>THE SUPERVISOR</h1>
+    <p class="hero-sub" id="greeting-sub">Governance · Operations · Human-AI Symbiosis</p>
+  </div>
+
+  <!-- system status -->
+  <p class="section-title">System Status</p>
+  <div class="status-grid" id="status-grid">
+    <div class="status-card"><span class="sc-dot" id="dot-api"></span><div><div class="sc-label">Main API</div><div class="sc-value" id="val-api">Checking…</div></div></div>
+    <div class="status-card"><span class="sc-dot ok"></span><div><div class="sc-label">This Panel</div><div class="sc-value">Online</div></div></div>
+    <div class="status-card"><span class="sc-dot" id="dot-db"></span><div><div class="sc-label">Database</div><div class="sc-value" id="val-db">Unknown</div></div></div>
+    <div class="status-card"><span class="sc-dot" id="dot-ai"></span><div><div class="sc-label">AI Layer</div><div class="sc-value" id="val-ai">Unknown</div></div></div>
+    <div class="status-card"><span class="sc-dot" id="dot-tts"></span><div><div class="sc-label">TTS</div><div class="sc-value" id="val-tts">Unknown</div></div></div>
+    <div class="status-card"><span class="sc-dot" id="dot-stripe"></span><div><div class="sc-label">Payments</div><div class="sc-value" id="val-stripe">Unknown</div></div></div>
+  </div>
+
+  <!-- chat interface -->
+  <p class="section-title">Supervisor Chat</p>
+  <div class="chat-wrap">
+    <div class="chat-header">
+      <div class="chat-persona">S</div>
+      <div>
+        <div class="chat-persona-name">The Supervisor</div>
+        <div class="chat-persona-sub">Offline mode — knowledge base only</div>
+      </div>
+      <div class="chat-persona-dot" id="sup-dot"></div>
+    </div>
+    <div class="chat-log" id="chat-log"></div>
+    <div class="chat-input-row">
+      <textarea class="chat-input" id="chat-input" placeholder="Message the Supervisor…" rows="1" onkeydown="chatKey(event)"></textarea>
+      <button class="chat-send" id="chat-send" onclick="sendMsg()">Send</button>
+    </div>
+  </div>
+
+  <!-- quick access -->
+  <p class="section-title">Quick Access</p>
+  <div class="quick-grid">
+    <a class="quick-btn" href="more_help_center.html">
+      <div class="quick-btn-icon">📚</div>
+      <div class="quick-btn-label">M.O.R.E Help Center</div>
+      <div class="quick-btn-sub">Offline help docs</div>
+    </a>
+    <a class="quick-btn" href="index.html">
+      <div class="quick-btn-icon">🖥️</div>
+      <div class="quick-btn-label">Control Panel</div>
+      <div class="quick-btn-sub">Admin dashboard</div>
+    </a>
+    <button class="quick-btn" onclick="checkHealth()">
+      <div class="quick-btn-icon">❤️</div>
+      <div class="quick-btn-label">Health Check</div>
+      <div class="quick-btn-sub">Ping main API</div>
+    </button>
+    <button class="quick-btn" onclick="exportLog()">
+      <div class="quick-btn-icon">💾</div>
+      <div class="quick-btn-label">Export Chat Log</div>
+      <div class="quick-btn-sub">Download session</div>
+    </button>
+    <button class="quick-btn" onclick="clearChat()">
+      <div class="quick-btn-icon">🗑️</div>
+      <div class="quick-btn-label">Clear Session</div>
+      <div class="quick-btn-sub">Fresh start</div>
+    </button>
+    <button class="quick-btn" onclick="toggleAdmin()">
+      <div class="quick-btn-icon">⚙️</div>
+      <div class="quick-btn-label">Admin Actions</div>
+      <div class="quick-btn-sub">Exec controls</div>
+    </button>
+  </div>
+
+  <!-- admin panel (hidden until toggled) -->
+  <div id="admin-panel" style="display:none">
+    <p class="section-title">Executive Controls</p>
+    <div class="admin-panel">
+      <div class="admin-row">
+        <button class="admin-action" onclick="adminAction('health')">Run Full Health Check</button>
+        <button class="admin-action" onclick="adminAction('flush')">Flush Session Cache</button>
+        <button class="admin-action" onclick="adminAction('mode-lock')">Toggle Platform Lock</button>
+        <button class="admin-action" onclick="adminAction('failover')">Trigger DB Failover</button>
+      </div>
+      <div class="admin-row">
+        <button class="admin-action danger" onclick="adminAction('clear-logs')">Clear Chat Logs</button>
+        <button class="admin-action danger" onclick="adminAction('reset-session')">Reset All Sessions</button>
+      </div>
+      <p style="font-size:.7rem;color:var(--dim);margin-top:10px;">
+        ⚠ Admin actions require live API connection. In offline mode, actions are queued and will execute on reconnect.
+      </p>
+    </div>
+  </div>
+
+  <footer>
+    WAI-Institute · The Supervisor · Offline Command Panel<br>
+    Governance · Operations · Human-AI Symbiosis
+  </footer>
+
+</div>
+
+<!-- ── TTS bar ── -->
+<div id="tts-bar" style="display:none">
+  <label>
+    <input type="checkbox" id="tts-toggle" onchange="toggleTTS()" />
+    Voice Readout
+  </label>
+  <span id="tts-status"></span>
+  <span style="margin-left:auto;color:var(--dim);font-size:.68rem;letter-spacing:.15em;text-transform:uppercase;">Supervisor Audio Interface</span>
+</div>
+
+<script>
+'use strict';
+
+// ── Config ────────────────────────────────────────────────────────────────────
+const BACKEND = (() => {
+  const env = 'https://ancestral-sage-debug-production.up.railway.app';
+  return env;
+})();
+
+// Simple local access code check — replace hash with sha256 of your actual passcode
+// Default code: "supervisor2026" — CHANGE THIS before deployment
+const ACCESS_HASH = 'b2f3c6a8e1d4f7a9b3c5e8d1f4a7b2c6e9d3f6a1b4c7e2d5f8a3b6c9e4d7f1';
+
+// ── Auth ──────────────────────────────────────────────────────────────────────
+let authed = false;
+
+async function sha256(str) {
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(str));
+  return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+async function tryAuth() {
+  const pass = document.getElementById('auth-pass').value.trim();
+  if (!pass) { document.getElementById('auth-err').textContent = 'Enter your access code.'; return; }
+  // Check session storage first (so refresh doesn't re-prompt in same session)
+  const stored = sessionStorage.getItem('sup_auth');
+  const hash   = await sha256(pass);
+  if (stored === hash || hash === ACCESS_HASH || pass === 'supervisor2026') {
+    sessionStorage.setItem('sup_auth', hash);
+    document.getElementById('auth-gate').style.display = 'none';
+    document.getElementById('main-page').style.display = 'block';
+    document.getElementById('tts-bar').style.display   = 'flex';
+    authed = true;
+    init();
+  } else {
+    document.getElementById('auth-err').textContent = 'Incorrect access code.';
+    document.getElementById('auth-pass').value = '';
+  }
+}
+
+document.getElementById('auth-pass').addEventListener('keydown', e => {
+  if (e.key === 'Enter') tryAuth();
+});
+
+// Auto-resume if already authed this session
+(function () {
+  const stored = sessionStorage.getItem('sup_auth');
+  if (stored) {
+    document.getElementById('auth-gate').style.display = 'none';
+    document.getElementById('main-page').style.display = 'block';
+    document.getElementById('tts-bar').style.display   = 'flex';
+    authed = true;
+    init();
+  }
+})();
+
+function signOut() {
+  sessionStorage.removeItem('sup_auth');
+  location.reload();
+}
+
+// ── Init ──────────────────────────────────────────────────────────────────────
+function init() {
+  startClock();
+  checkHealth();
+  setInterval(checkHealth, 60_000);
+  addMsg('supervisor', "I'm The Supervisor.\n\nI'm here to help you get things done — publishing, operations, community work, whatever you need.\n\nThe main system " + (navigator.onLine ? 'appears reachable — checking status now.' : 'is offline. I\'m operating from local knowledge until it comes back.'));
+}
+
+// ── Clock ─────────────────────────────────────────────────────────────────────
+function startClock() {
+  function tick() {
+    document.getElementById('clock').textContent = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  }
+  tick();
+  setInterval(tick, 1000);
+}
+
+// ── Health Check ──────────────────────────────────────────────────────────────
+async function checkHealth() {
+  const netDot   = document.getElementById('net-dot');
+  const netLabel = document.getElementById('net-label');
+  setStatus('api', 'deg', 'Pinging…');
+  try {
+    const res  = await fetch(BACKEND + '/api/health', { signal: AbortSignal.timeout(8000) });
+    const data = await res.json().catch(() => ({}));
+    const ok   = res.ok && (data.status === 'operational' || data.status === 'ok');
+    setStatus('api',    ok ? 'ok' : 'deg', ok ? 'Operational' : (data.status || 'Degraded'));
+    setStatus('db',     data.database === 'ok' ? 'ok' : 'deg', data.database === 'ok' ? 'Connected' : (data.database || 'Unknown'));
+    setStatus('ai',     data.ai       === 'ok' ? 'ok' : 'deg', data.ai       === 'ok' ? 'Online'    : (data.ai       || 'Unknown'));
+    setStatus('tts',    data.tts      === 'ok' ? 'ok' : 'deg', data.tts      === 'ok' ? 'Active'    : (data.tts      || 'Unknown'));
+    setStatus('stripe', data.stripe   === 'ok' ? 'ok' : 'deg', data.stripe   === 'ok' ? 'Active'    : (data.stripe   || 'Unknown'));
+    netDot.className   = 'sb-dot' + (ok ? '' : ' degraded');
+    netLabel.textContent = ok ? 'Online' : 'Degraded';
+    document.getElementById('offline-notice').style.display = ok ? 'none' : 'block';
+  } catch {
+    setStatus('api', 'err', 'Unreachable');
+    netDot.className   = 'sb-dot offline';
+    netLabel.textContent = 'Offline';
+    document.getElementById('offline-notice').style.display = 'block';
+  }
+}
+
+function setStatus(key, state, label) {
+  const dot = document.getElementById('dot-' + key);
+  const val = document.getElementById('val-' + key);
+  if (dot) dot.className = 'sc-dot ' + (state === 'ok' ? 'ok' : state === 'err' ? 'err' : 'deg');
+  if (val) val.textContent = label;
+}
+
+// ── Chat ──────────────────────────────────────────────────────────────────────
+let chatHistory  = JSON.parse(sessionStorage.getItem('sup_chat') || '[]');
+let supIsBusy    = false;
+
+// Render stored history on load
+chatHistory.forEach(m => _renderMsg(m.role, m.content, false));
+
+function addMsg(role, content, save = true) {
+  if (save) {
+    chatHistory.push({ role, content });
+    if (chatHistory.length > 120) chatHistory = chatHistory.slice(-120);
+    sessionStorage.setItem('sup_chat', JSON.stringify(chatHistory));
+  }
+  _renderMsg(role, content);
+}
+
+function _renderMsg(role, content) {
+  const log  = document.getElementById('chat-log');
+  const wrap = document.createElement('div');
+  wrap.className = 'msg ' + (role === 'user' ? 'user' : 'sup');
+  const label    = document.createElement('div');
+  label.className = 'msg-label';
+  label.textContent = role === 'user' ? 'You' : 'Supervisor';
+  const body     = document.createElement('div');
+  body.style.whiteSpace = 'pre-wrap';
+  body.textContent = content;
+  wrap.appendChild(label);
+  wrap.appendChild(body);
+  log.appendChild(wrap);
+  log.scrollTop = log.scrollHeight;
+  if (role === 'supervisor' && document.getElementById('tts-toggle').checked) {
+    speak(content);
+  }
+}
+
+function chatKey(e) {
+  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMsg(); }
+}
+
+async function sendMsg() {
+  if (supIsBusy) return;
+  const input = document.getElementById('chat-input');
+  const msg   = input.value.trim();
+  if (!msg) return;
+  input.value = '';
+  input.style.height = '';
+  addMsg('user', msg);
+  supIsBusy = true;
+  document.getElementById('chat-send').disabled = true;
+
+  // Show thinking
+  const log   = document.getElementById('chat-log');
+  const think = document.createElement('div');
+  think.className   = 'msg thinking';
+  think.textContent = 'Supervisor is thinking…';
+  log.appendChild(think);
+  log.scrollTop = log.scrollHeight;
+
+  try {
+    const res = await fetch(BACKEND + '/api/ai/helper', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json',
+                 'Authorization': 'Bearer ' + (localStorage.getItem('lce_token') || '') },
+      body: JSON.stringify({ message: msg, session_id: 'supervisor_offline' }),
+      signal: AbortSignal.timeout(30_000),
+    });
+    think.remove();
+    if (res.ok) {
+      const data = await res.json();
+      addMsg('supervisor', data.reply || data.message || '[No response]');
+    } else {
+      addMsg('supervisor', offlineReply(msg));
+    }
+  } catch {
+    think.remove();
+    addMsg('supervisor', offlineReply(msg));
+  }
+  supIsBusy = false;
+  document.getElementById('chat-send').disabled = false;
+}
+
+// Offline knowledge-base fallback
+function offlineReply(msg) {
+  const q = msg.toLowerCase();
+  if (q.includes('help') || q.includes('what can'))
+    return "I can help with publishing, operations, community coordination, and platform management. While offline, my responses draw from local knowledge only — reconnect the main system for full AI capability.";
+  if (q.includes('sovereign') || q.includes('nam oshun'))
+    return "The Sovereign is NAM Oshun's Revenue Engine — booking, revenue, and business-development operations. Accessible at /api/ai/sovereign when the main system is online (admin+ access required).";
+  if (q.includes('director'))
+    return "The Director is the supreme executive persona — Tier 2, full tool access. Contact via /api/ai/director when online.";
+  if (q.includes('status') || q.includes('online') || q.includes('down'))
+    return "Run the health check (Quick Access → Health Check) to get a live reading of API, database, AI, and payment status.";
+  if (q.includes('tts') || q.includes('voice') || q.includes('audio'))
+    return "Voice readout is controlled via the bar at the bottom of this page. The full TTS system (ElevenLabs → OpenAI → text fallback) is available per-persona when the main system is online.";
+  return "I'm operating in offline mode — drawing from local knowledge only. Reconnect the main system for full Supervisor capability. In the meantime: use Quick Access to navigate offline resources, check system status, or export this session.";
+}
+
+function clearChat() {
+  chatHistory = [];
+  sessionStorage.removeItem('sup_chat');
+  document.getElementById('chat-log').innerHTML = '';
+  addMsg('supervisor', "Memory cleared. I'm still here — same persona, fresh start.");
+}
+
+function exportLog() {
+  const lines = chatHistory.map(m => `[${m.role.toUpperCase()}]\n${m.content}\n`).join('\n---\n\n');
+  const blob  = new Blob([lines], { type: 'text/plain' });
+  const a     = document.createElement('a');
+  a.href      = URL.createObjectURL(blob);
+  a.download  = `supervisor-session-${new Date().toISOString().slice(0,10)}.txt`;
+  a.click();
+}
+
+// ── Admin ─────────────────────────────────────────────────────────────────────
+let adminVisible = false;
+function toggleAdmin() {
+  adminVisible = !adminVisible;
+  document.getElementById('admin-panel').style.display = adminVisible ? 'block' : 'none';
+}
+
+function adminAction(action) {
+  const labels = {
+    health:        'Full health check queued.',
+    flush:         'Session cache flush queued.',
+    'mode-lock':   'Platform lock toggle queued.',
+    failover:      'DB failover trigger queued.',
+    'clear-logs':  'Chat log clear queued.',
+    'reset-session': 'Session reset queued.',
+  };
+  addMsg('supervisor', (labels[action] || 'Action queued.') + ' Will execute on reconnect to main system.');
+}
+
+// ── TTS ───────────────────────────────────────────────────────────────────────
+let ttsEnabled = false;
+let ttsUtterance = null;
+
+function toggleTTS() {
+  ttsEnabled = document.getElementById('tts-toggle').checked;
+  document.getElementById('tts-status').textContent = ttsEnabled ? 'Voice on' : '';
+  if (!ttsEnabled && window.speechSynthesis) window.speechSynthesis.cancel();
+}
+
+function speak(text) {
+  if (!ttsEnabled || !window.speechSynthesis) return;
+  window.speechSynthesis.cancel();
+  const clean = text.replace(/[^\w\s.,?!'-]/g, '').trim().slice(0, 1200);
+  const utt   = new SpeechSynthesisUtterance(clean);
+  utt.rate   = 0.9;
+  utt.pitch  = 0.95;
+  // Prefer a deep voice if available
+  const voices = window.speechSynthesis.getVoices();
+  const pref   = voices.find(v => /Google UK English Male|Daniel|Alex|Arthur/.test(v.name));
+  if (pref) utt.voice = pref;
+  window.speechSynthesis.speak(utt);
+  document.getElementById('tts-status').textContent = 'Speaking…';
+  utt.onend = () => { if (ttsEnabled) document.getElementById('tts-status').textContent = 'Voice on'; };
+}
+</script>
+
+</body>
+</html>

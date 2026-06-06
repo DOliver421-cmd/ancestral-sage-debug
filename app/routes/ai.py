@@ -1675,6 +1675,109 @@ async def cipher_tts(body: dict, user: User = Depends(gate("admin", "executive",
 
 # ─── Chat History ─────────────────────────────────────────────────────────────
 
+# ─── The Sovereign (NAM Oshun Revenue Engine) ────────────────────────────────
+
+@router.post("/ai/sovereign")
+async def ai_sovereign(body: dict, user: User = Depends(gate("admin", "executive", "ai_sovereign"))):
+    from app.security.auth import assert_role
+    assert_role(user, "admin")
+    try:
+        from sovereign.sovereign_loader import build_sovereign_prompt
+    except ImportError:
+        raise HTTPException(503, "Sovereign module unavailable")
+
+    message    = (body.get("message") or "").strip()
+    session_id = body.get("session_id", "sovereign")
+    if not message:
+        raise HTTPException(400, "message is required")
+    if len(message) > 8000:
+        raise HTTPException(400, "message too long (max 8000 chars)")
+
+    await check_rate(f"ai_sovereign:{user.id}", max_calls=20, window_sec=60)
+    prompt_guard.assert_message_safe(message, user.role, "/ai/sovereign", user.id)
+
+    system = await build_sovereign_prompt(db, user.id)
+    history = await db.conversations.find(
+        {"user_id": user.id, "session_id": session_id, "persona": "sovereign"},
+        {"_id": 0, "role": 1, "content": 1}
+    ).sort("created_at", 1).to_list(40)
+
+    messages = [{"role": r["role"], "content": r["content"]} for r in history]
+    messages.append({"role": "user", "content": message})
+
+    import anthropic as _anthropic
+    import datetime as _dt
+    client = _anthropic.AsyncAnthropic(api_key=os.environ.get("ANTHROPIC_API_KEY", ""))
+    resp = await client.messages.create(
+        model="claude-opus-4-8",
+        max_tokens=1500,
+        system=system,
+        messages=messages,
+    )
+    reply = resp.content[0].text.strip() if resp.content else ""
+
+    now = _dt.datetime.utcnow()
+    await db.conversations.insert_many([
+        {"user_id": user.id, "session_id": session_id, "persona": "sovereign",
+         "role": "user",      "content": message, "created_at": now},
+        {"user_id": user.id, "session_id": session_id, "persona": "sovereign",
+         "role": "assistant", "content": reply,   "created_at": now},
+    ])
+    return {"reply": reply, "persona": "sovereign", "mode": "nam_oshun_revenue_engine"}
+
+
+@router.post("/ai/sovereign/tts")
+async def sovereign_tts(body: dict, user: User = Depends(gate("admin", "executive", "tts_sovereign"))):
+    from app.security.auth import assert_role
+    assert_role(user, "admin")
+    from ai.persona_tts import persona_speak, PERSONA_VOICE_CONFIG as _PVC
+
+    text = (body.get("text") or "").strip()
+    if not text:
+        raise HTTPException(400, "text is required")
+    if len(text) > 5000:
+        text = text[:5000]
+    force_tier = (body.get("force_tier") or "").lower().strip()
+    if force_tier not in ("", "elevenlabs", "openai", "text"):
+        force_tier = ""
+
+    await check_rate(f"ai_sovereign_tts:{user.id}", max_calls=20, window_sec=60)
+    try:
+        result = await persona_speak("sovereign", text, force_tier=force_tier, db=db)
+    except Exception as _e:
+        logger.warning("sovereign_tts error: %s", _e)
+        cfg = _PVC.get("sovereign", {})
+        result = {"tier": "text", "audio": None, "clean_text": text, "display_text": text,
+                  "voice_settings": {}, "budget_remaining": cfg.get("monthly_cap", 12_000)}
+
+    tier             = result.get("tier", "text")
+    budget_remaining = result.get("budget_remaining", 12_000)
+    soft_warning     = _PVC.get("sovereign", {}).get("soft_warning", 9_600)
+    budget_warning   = budget_remaining < soft_warning
+    audio            = result.get("audio")
+    hdrs = {"X-Tier": tier, "X-Budget-Remaining": str(budget_remaining),
+            "X-Budget-Warning": "true" if budget_warning else "false"}
+
+    if tier in ("elevenlabs", "elevenlabs_cached") and audio:
+        hdrs["X-Audio-Len"] = str(len(audio))
+        return StreamingResponse(io.BytesIO(audio), media_type="audio/mpeg", headers=hdrs)
+    if tier == "openai":
+        return _JSONResponse(content={
+            "tier": "openai", "clean_text": result.get("clean_text", text),
+            "display_text": result.get("display_text", text),
+            "voice_settings": result.get("voice_settings", {}),
+            "budget_remaining": budget_remaining,
+            "fallback_voice": result.get("fallback_voice", "fable"),
+            "fallback_endpoint": "/api/ai/sovereign/tts",
+        }, headers=hdrs)
+    return _JSONResponse(content={
+        "tier": "text", "clean_text": result.get("clean_text", text),
+        "display_text": result.get("display_text", text),
+        "voice_settings": result.get("voice_settings", {}),
+        "budget_remaining": budget_remaining,
+    }, headers=hdrs)
+
+
 @router.get("/ai/history/{session_id}")
 async def ai_history(session_id: str, user: User = Depends(gate("student", "premium", "ai_chat"))):
     return await db.chat_history.find(

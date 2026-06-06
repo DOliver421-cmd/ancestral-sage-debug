@@ -69,6 +69,15 @@ PERSONA_VOICE_CONFIG = {
         "budget_doc_id":       "cipher_elevenlabs_budget",
         "cache_collection":    "cipher_tts_cache",
     },
+    "sovereign": {
+        # The Sovereign — NAM Oshun Revenue Engine, executive-only
+        "elevenlabs_voice_id": os.environ.get("SOVEREIGN_VOICE_ID", ""),
+        "openai_voice":        os.environ.get("SOVEREIGN_BACKUP_VOICE", "fable"),
+        "monthly_cap":         12_000,   # Sovereign speaks counseling cadence — fewer, weightier words
+        "soft_warning":        9_600,
+        "budget_doc_id":       "sovereign_tts_budget",
+        "cache_collection":    "sovereign_tts_cache",
+    },
 }
 
 # ── Default ElevenLabs Voice Settings (per persona type) ─────────────────────
@@ -97,6 +106,14 @@ PERSONA_VOICE_SETTINGS = {
         "style":             0.15,
         "use_speaker_boost": True,
         "speed":             0.85,
+    },
+    "sovereign": {
+        # Counseling cadence — grounded, unhurried, revenue-ethical
+        "stability":         0.82,
+        "similarity_boost":  0.72,
+        "style":             0.18,
+        "use_speaker_boost": True,
+        "speed":             0.90,
     },
 }
 
