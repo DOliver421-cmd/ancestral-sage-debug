@@ -6,12 +6,55 @@ import { toast } from "sonner";
 import {
   Send, Bot, RefreshCw, Crown, TrendingUp, DollarSign,
   Video, Users, ChevronRight, Loader2, Trash2,
-  Mic, MicOff, Volume2, VolumeX,
+  Mic, MicOff, Volume2, VolumeX, CheckCircle2,
 } from "lucide-react";
 import { v4 as uuidv4 } from "uuid";
 import { useMic } from "../hooks/useMic";
 
-const DEPARTMENTS = [
+const LS_SESSION_KEY  = "more_ops_session_id";
+const LS_MESSAGES_KEY = "more_ops_messages";
+const MAX_LOCAL_MSGS  = 120; // keep last 120 messages in localStorage
+
+function getStableSessionId() {
+  let id = localStorage.getItem(LS_SESSION_KEY);
+  if (!id) { id = uuidv4(); localStorage.setItem(LS_SESSION_KEY, id); }
+  return id;
+}
+
+function loadLocalMessages() {
+  try {
+    const raw = localStorage.getItem(LS_MESSAGES_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch { return []; }
+}
+
+function saveLocalMessages(msgs) {
+  try {
+    localStorage.setItem(LS_MESSAGES_KEY, JSON.stringify(msgs.slice(-MAX_LOCAL_MSGS)));
+  } catch {}
+}
+
+function recordToMessages(r) {
+  const raw = r.assistant_msg || "";
+  const lines = raw.split("\n");
+  const firstLine = lines[0].trim();
+  const displayContent =
+    firstLine.startsWith("**") && firstLine.includes("|")
+      ? lines.slice(1).join("\n").trimStart()
+      : raw;
+  return [
+    { role: "user", content: r.user_msg },
+    {
+      role: "assistant",
+      rawReply: raw,
+      displayContent,
+      persona: r.persona || "Department AI",
+      department: r.department || "M.O.R.E.",
+      mode: r.active_mode || "Balanced",
+      isDecline: r.is_decline || false,
+    },
+  ];
+}
   { id: "",               label: "Auto-Route",       icon: Bot,         desc: "Let the AI choose the right department" },
   { id: "Executive",      label: "Executive",         icon: Crown,       desc: "Governance, crisis, system oversight" },
   { id: "Revenue",        label: "Revenue",           icon: TrendingUp,  desc: "Strategy, pipeline, offers, forecasting" },
@@ -97,11 +140,13 @@ function MessageBubble({ msg, onSpeak }) {
 
 export default function MoreOps() {
   const { user } = useAuth();
-  const [sessionId] = useState(() => uuidv4());
+  const [sessionId] = useState(getStableSessionId);
   const [dept, setDept] = useState("");
   const [input, setInput] = useState("");
-  const [messages, setMessages] = useState([]);
+  // Load from localStorage immediately — instant, no network wait
+  const [messages, setMessages] = useState(loadLocalMessages);
   const [busy, setBusy] = useState(false);
+  const [savedAt, setSavedAt] = useState(null);
   const bottomRef = useRef(null);
   const inputRef = useRef(null);
 
@@ -150,15 +195,38 @@ export default function MoreOps() {
     window.speechSynthesis.speak(utt);
   }
 
-  // STT
-  const { listening: recording, toggle: toggleMic } = useMic({
+  // STT — continuous mode, appends to input
+  const { listening: recording, toggle: toggleMic, supported: micSupported } = useMic({
     onResult: (txt) => setInput((cur) => cur ? `${cur} ${txt}` : txt),
-    onError: (msg) => toast.error(msg),
+    onError:  (msg) => toast.error(msg),
+    continuous: true,
+    silenceMs: 2000,
   });
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
+
+  // Auto-save to localStorage on every message change
+  useEffect(() => {
+    if (!messages.length) return;
+    saveLocalMessages(messages);
+    setSavedAt(new Date());
+  }, [messages]);
+
+  // Background sync from backend — fills in history if localStorage was empty or stale
+  useEffect(() => {
+    api.get("/more/department/history?limit=60")
+      .then(({ data }) => {
+        const records = data.history || [];
+        if (!records.length) return;
+        const restored = records.flatMap(recordToMessages);
+        // Only replace if backend has more messages than local (don't overwrite newer local state)
+        setMessages(prev => restored.length > prev.length ? restored : prev);
+      })
+      .catch(() => {});
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Build history array for API (alternating user/assistant)
   const buildHistory = () => {
@@ -220,8 +288,12 @@ export default function MoreOps() {
   };
 
   const clearSession = () => {
+    const newId = uuidv4();
+    localStorage.setItem(LS_SESSION_KEY, newId);
+    localStorage.removeItem(LS_MESSAGES_KEY);
     setMessages([]);
     setInput("");
+    setSavedAt(null);
   };
 
   const activeDept = DEPARTMENTS.find((d) => d.id === dept) || DEPARTMENTS[0];
@@ -337,13 +409,15 @@ export default function MoreOps() {
               {/* Mic button */}
               <button
                 type="button"
-                onClick={toggleMic}
-                title={recording ? "Stop dictation" : "Voice input"}
+                onClick={micSupported ? toggleMic : () => toast.error("Voice input requires Chrome or Edge.")}
+                title={!micSupported ? "Voice input not supported in this browser" : recording ? "Stop listening (click or wait for silence)" : "Start voice input"}
                 aria-label={recording ? "Stop dictation" : "Dictate message"}
-                className={`flex-shrink-0 flex items-center justify-center w-11 h-11 rounded-xl transition-colors ${
-                  recording
-                    ? "bg-red-500 text-white"
-                    : "bg-ink/10 text-ink/50 hover:bg-ink/15 hover:text-ink/80"
+                className={`flex-shrink-0 flex items-center justify-center w-11 h-11 rounded-xl transition-all ${
+                  !micSupported
+                    ? "bg-ink/5 text-ink/25 cursor-not-allowed"
+                    : recording
+                    ? "bg-red-500 text-white shadow-lg shadow-red-500/30 animate-pulse"
+                    : "bg-ink/10 text-ink/50 hover:bg-copper/10 hover:text-copper"
                 }`}
               >
                 {recording ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
@@ -358,9 +432,13 @@ export default function MoreOps() {
                     send();
                   }
                 }}
-                placeholder={recording ? "Listening…" : `Message ${activeDept.label} department…`}
+                placeholder={recording ? "Listening — speak now…" : `Message ${activeDept.label} department…`}
                 rows={2}
-                className="flex-1 resize-none px-4 py-3 bg-bone border border-ink/20 rounded-xl focus:outline-none focus:ring-2 focus:ring-copper/30 focus:border-copper text-sm placeholder:text-ink/30"
+                className={`flex-1 resize-none px-4 py-3 bg-bone border rounded-xl focus:outline-none focus:ring-2 text-sm placeholder:text-ink/30 transition-colors ${
+                  recording
+                    ? "border-red-400 focus:ring-red-300 focus:border-red-400"
+                    : "border-ink/20 focus:ring-copper/30 focus:border-copper"
+                }`}
               />
               <button
                 onClick={send}
@@ -370,7 +448,19 @@ export default function MoreOps() {
                 {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
               </button>
             </div>
-            <p className="text-xs text-ink/50 mt-2">Enter to send · Shift+Enter for new line · Mic for voice input</p>
+            <div className="flex items-center justify-between mt-2">
+              <p className="text-xs text-ink/40">
+                {recording
+                  ? <span className="text-red-500 font-medium">● Recording — speak now. Click mic or wait 2s to stop.</span>
+                  : "Enter to send · Shift+Enter for new line · Mic for voice input"}
+              </p>
+              {savedAt && (
+                <span className="text-xs text-ink/30 flex items-center gap-1">
+                  <CheckCircle2 className="w-3 h-3 text-green-400" />
+                  Saved {savedAt.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                </span>
+              )}
+            </div>
           </div>
         </div>
       </div>

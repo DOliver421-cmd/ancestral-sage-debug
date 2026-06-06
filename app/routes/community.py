@@ -697,7 +697,27 @@ async def more_department_chat(body: MoreDeptChatReq, user: User = Depends(curre
     }
 
 
-@router.get("/more/department/integrity")
+@router.get("/more/department/history")
+async def more_department_history(
+    limit: int = 60,
+    user: User = Depends(current_user),
+):
+    """Return recent department chat history for the authenticated user, newest-first."""
+    if ROLE_RANK.get(user.role, 0) < ROLE_RANK.get("admin", 3):
+        raise HTTPException(403, "Department AI requires admin access")
+
+    cursor = db.chat_history.find(
+        {"user_id": user.id, "mode": "more_department"},
+        {"_id": 0, "user_msg": 1, "assistant_msg": 1, "persona": 1, "department": 1,
+         "active_mode": 1, "is_decline": 1, "session_id": 1, "created_at": 1},
+    ).sort("created_at", -1).limit(limit)
+    records = await cursor.to_list(limit)
+    # Return oldest-first so frontend can rebuild in order
+    records.reverse()
+    return {"history": records}
+
+
+
 async def more_department_integrity(user: User = Depends(current_user)):
     from ai.more_department import compute_more_department_hash
     if ROLE_RANK.get(user.role, 0) < ROLE_RANK.get("admin", 3):
