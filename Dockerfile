@@ -22,6 +22,7 @@ WORKDIR /app
 
 COPY backend/ /app/backend/
 COPY src/ /app/src/
+COPY app/ /app/app/
 
 # Copy the built React app into the location server.py checks first
 COPY --from=frontend-builder /frontend/build /app/frontend/build
@@ -36,4 +37,4 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 EXPOSE 8080
 
-CMD uvicorn server:app --host 0.0.0.0 --port ${PORT:-8080}
+CMD uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8080}
