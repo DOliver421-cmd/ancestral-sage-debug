@@ -1372,6 +1372,14 @@ async def _on_startup_impl():
     except Exception as _pk_err:
         logger.warning("STARTUP: provider key reload failed (non-fatal): %s", _pk_err)
 
+    # ── Team monitor — autonomous provider health loop ────────────────────────
+    try:
+        from app.services.team_monitor import run_monitor_loop as _run_monitor
+        asyncio.create_task(_run_monitor())
+        logger.info("STARTUP: Team monitor launched (interval=300s, threshold=3 failures)")
+    except Exception as _tm_err:
+        logger.warning("STARTUP: Team monitor launch failed (non-fatal): %s", _tm_err)
+
     # ── Serve built React frontend (home/backup server only) ─────────────────
     if SERVE_FRONTEND:
         _build_paths = [
@@ -10533,6 +10541,147 @@ try:
         return docs
 
     logger.info("Provider gateway routes registered")
+
+    # ── Quick-setup endpoints (preset cards UI) ────────────────────────────────
+    # These use db.api_providers / db.api_keys (new modular collections) and the
+    # correct Fernet key derivation that matches app/services/provider_gateway.py.
+
+    import base64 as _b64, uuid as _uuid2
+    _PFERNET2 = None
+    _pfk2 = os.environ.get("PROVIDER_KEY_ENCRYPTION_SECRET", "")
+    if _pfk2:
+        try:
+            _kb2 = (_pfk2.encode() * 3)[:32]
+            _PFERNET2 = _PFernet(_b64.urlsafe_b64encode(_kb2))
+        except Exception:
+            pass
+
+    def _qs_encrypt(plaintext: str) -> str:
+        if _PFERNET2:
+            return _PFERNET2.encrypt(plaintext.encode()).decode()
+        return plaintext  # no secret — store unencrypted
+
+    _QS_META = {
+        "groq":        {"name": "groq",        "display_name": "Groq / Llama 3.3 70B"},
+        "cerebras":    {"name": "cerebras",     "display_name": "Cerebras / Llama 3.3 70B"},
+        "sambanova":   {"name": "sambanova",    "display_name": "SambaNova / Llama 3.3 70B"},
+        "gemini":      {"name": "gemini",       "display_name": "Google Gemini 2.0 Flash"},
+        "xai":         {"name": "xai",          "display_name": "xAI / Grok 3 Mini"},
+        "grok":        {"name": "xai",          "display_name": "xAI / Grok 3 Mini"},
+        "cohere":      {"name": "cohere",       "display_name": "Cohere Command R+"},
+        "mistral":     {"name": "mistral",      "display_name": "Mistral Small"},
+        "together":    {"name": "together",     "display_name": "Together AI / Llama 3.3 70B"},
+        "openrouter":  {"name": "openrouter",   "display_name": "OpenRouter (free models)"},
+        "huggingface": {"name": "huggingface",  "display_name": "HuggingFace Inference"},
+    }
+
+    class _QuickSetupReq(BaseModel):
+        provider_type: str
+        api_key: str
+
+    @api_router.post("/providers/quick-setup")
+    async def quick_setup_provider(body: _QuickSetupReq, user: User = Depends(require_role("executive_admin"))):
+        meta = _QS_META.get(body.provider_type.lower())
+        if not meta:
+            raise HTTPException(400, f"Unknown provider_type: {body.provider_type}")
+        if not body.api_key.strip():
+            raise HTTPException(400, "api_key is required")
+        _now = lambda: datetime.utcnow().isoformat()
+        existing = await db.api_providers.find_one({"name": meta["name"]})
+        if existing:
+            if not existing.get("id"):
+                new_id = str(_uuid2.uuid4())
+                await db.api_providers.update_one({"_id": existing["_id"]}, {"$set": {"id": new_id}})
+                existing["id"] = new_id
+            provider_id = existing["id"]
+        else:
+            provider_doc = {"id": str(_uuid2.uuid4()), "name": meta["name"],
+                            "display_name": meta["display_name"], "type": body.provider_type.lower(),
+                            "status": "active", "created_by": user.id, "created_at": _now()}
+            await db.api_providers.insert_one(provider_doc)
+            provider_id = provider_doc["id"]
+        # Revoke old primary keys
+        await db.api_keys.update_many(
+            {"provider_id": provider_id, "scope": "primary", "status": "active"},
+            {"$set": {"status": "revoked"}})
+        masked = f"***{body.api_key.strip()[-4:]}" if len(body.api_key.strip()) >= 4 else "***"
+        key_doc = {"id": str(_uuid2.uuid4()), "provider_id": provider_id,
+                   "label": f"{meta['name']} key", "encrypted_key": _qs_encrypt(body.api_key.strip()),
+                   "key_masked": masked, "status": "active", "scope": "primary",
+                   "created_by_user_id": user.id, "created_at": _now(), "last_used_at": None}
+        await db.api_keys.insert_one(key_doc)
+        try:
+            from ai.llm_gateway import reload_provider_keys as _rlk2
+            await _rlk2(db)
+        except Exception:
+            pass
+        return {"ok": True, "provider": meta["name"], "provider_id": provider_id, "key_id": key_doc["id"]}
+
+    _QS_ENV = {
+        "groq": ["GROQ_API_KEY"], "cerebras": ["CEREBRAS_API_KEY"],
+        "gemini": ["GEMINI_API_KEY"], "mistral": ["MISTRAL_API_KEY"],
+        "cohere": ["COHERE_API_KEY"], "together": ["TOGETHER_API_KEY"],
+        "xai": ["XAI_API_KEY", "GROK_API_KEY"],
+    }
+
+    @api_router.get("/providers/quick-setup/status")
+    async def quick_setup_status(user: User = Depends(require_role("executive_admin"))):
+        preset_types = ["groq", "cerebras", "gemini", "mistral", "cohere", "together", "xai"]
+        result = {}
+        for pt in preset_types:
+            env_key = next((os.environ.get(k, "") for k in _QS_ENV.get(pt, []) if os.environ.get(k)), "")
+            if env_key:
+                result[pt] = {"configured": True, "source": "env", "key_masked": f"***{env_key[-4:]}"}
+                continue
+            provider = await db.api_providers.find_one({"name": pt})
+            if provider:
+                pid = provider.get("id", str(provider.get("_id", "")))
+                key = await db.api_keys.find_one({"provider_id": pid, "status": "active", "scope": "primary"})
+                result[pt] = {"configured": bool(key), "source": "db" if key else None,
+                              "key_masked": key.get("key_masked") if key else None}
+            else:
+                result[pt] = {"configured": False, "source": None, "key_masked": None}
+        return result
+
+    @api_router.get("/providers/usage-log")
+    async def provider_usage_log_v2(
+        provider_id: Optional[str] = None,
+        limit: int = 100,
+        user: User = Depends(require_role("executive_admin")),
+    ):
+        filt = {}
+        if provider_id:
+            filt["provider_id"] = provider_id
+        logs = await db.api_key_usage_log.find(filt, {"_id": 0}).sort("created_at", -1).limit(min(limit, 500)).to_list(500)
+        return {"logs": logs, "total": len(logs)}
+
+except Exception as _pgw_err:
+    logger.warning("Provider gateway routes skipped: %s", _pgw_err)
+
+# ── Team Operations routes ─────────────────────────────────────────────────────
+try:
+    @api_router.get("/team/actions")
+    async def team_actions_list(
+        limit: int = 100,
+        user: User = Depends(require_role("executive_admin")),
+    ):
+        docs = await db.team_actions.find({"actor": "team.supervisor"}, {"_id": 0}).sort("at", -1).limit(min(limit, 500)).to_list(500)
+        human_count = await db.team_actions.count_documents({"human_initiated": True})
+        auto_count  = await db.team_actions.count_documents({"human_initiated": False})
+        return {"actions": docs, "total": len(docs), "human_count": human_count, "auto_count": auto_count}
+
+    @api_router.get("/team/monitor/status")
+    async def team_monitor_status(user: User = Depends(require_role("executive_admin"))):
+        try:
+            from app.services.team_monitor import _failure_counts, _degraded, MONITOR_INTERVAL_SEC, FAILURE_THRESHOLD
+            return {"interval_sec": MONITOR_INTERVAL_SEC, "failure_threshold": FAILURE_THRESHOLD,
+                    "failure_counts": dict(_failure_counts), "degraded": list(_degraded)}
+        except Exception:
+            return {"interval_sec": 300, "failure_threshold": 3, "failure_counts": {}, "degraded": []}
+
+    logger.info("Team operations routes registered")
+except Exception as _tops_err:
+    logger.warning("Team operations routes skipped: %s", _tops_err)
 except Exception as _provider_routes_err:
     logger.warning(f"Provider gateway routes unavailable: {_provider_routes_err}")
 
