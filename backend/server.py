@@ -543,6 +543,7 @@ class Module(BaseModel):
     competencies: List[str]
     hours: int
     quiz: List[QuizQ] = []
+    free: Optional[bool] = False
 
 
 class ProgressEntry(BaseModel):
