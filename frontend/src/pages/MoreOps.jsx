@@ -6,7 +6,7 @@ import { toast } from "sonner";
 import {
   Send, Bot, RefreshCw, Crown, TrendingUp, DollarSign,
   Video, Users, ChevronRight, Loader2, Trash2,
-  Mic, MicOff, Volume2, VolumeX, CheckCircle,
+  Mic, MicOff, Volume2, VolumeX, CheckCircle, Music, Play, Pause, X,
 } from "lucide-react";
 import { v4 as uuidv4 } from "uuid";
 import { useMic } from "../hooks/useMic";
@@ -152,10 +152,74 @@ export default function MoreOps() {
   const bottomRef = useRef(null);
   const inputRef = useRef(null);
 
-  // Audio state
+  // TTS state
   const [audioOn, setAudioOn] = useState(false);
   const speakAudioRef = useRef(null);
   const speakAbortRef = useRef(null);
+
+  // Track player state
+  const [trackOpen,      setTrackOpen]      = useState(false);
+  const [trackOrigUrl,   setTrackOrigUrl]   = useState("");
+  const [trackAiUrl,     setTrackAiUrl]     = useState("");
+  const [trackVersion,   setTrackVersion]   = useState("original"); // "original" | "ai"
+  const [trackPlaying,   setTrackPlaying]   = useState(false);
+  const [trackProgress,  setTrackProgress]  = useState(0);
+  const [trackDuration,  setTrackDuration]  = useState(0);
+  const trackOrigRef = useRef(null);
+  const trackAiRef   = useRef(null);
+
+  const activeTrackRef  = trackVersion === "original" ? trackOrigRef : trackAiRef;
+  const passiveTrackRef = trackVersion === "original" ? trackAiRef   : trackOrigRef;
+
+  const trackTogglePlay = () => {
+    const el = activeTrackRef.current;
+    if (!el || !el.src) return;
+    if (trackPlaying) { el.pause(); setTrackPlaying(false); }
+    else { el.play().catch(() => {}); setTrackPlaying(true); }
+  };
+
+  const trackSwitchVersion = (v) => {
+    if (v === trackVersion) return;
+    const from = activeTrackRef.current;
+    const to   = passiveTrackRef.current;
+    if (!from || !to) return;
+    const pos = from.currentTime;
+    const was = trackPlaying;
+    from.pause();
+    to.currentTime = Math.min(pos, to.duration || 0);
+    if (was) to.play().catch(() => {});
+    setTrackVersion(v);
+  };
+
+  const trackSeek = (e) => {
+    const el = activeTrackRef.current;
+    if (!el || !el.duration) return;
+    const rect = e.currentTarget.getBoundingClientRect();
+    const pct  = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+    el.currentTime = pct * el.duration;
+    setTrackProgress(pct * 100);
+  };
+
+  const trackFmt = (s) => {
+    if (!s || isNaN(s)) return "0:00";
+    return `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, "0")}`;
+  };
+
+  // Load track URLs into audio elements when user enters them
+  const applyTrackUrls = () => {
+    if (trackOrigRef.current && trackOrigUrl) {
+      trackOrigRef.current.src = trackOrigUrl;
+      trackOrigRef.current.load();
+    }
+    if (trackAiRef.current && trackAiUrl) {
+      trackAiRef.current.src = trackAiUrl;
+      trackAiRef.current.load();
+    }
+    setTrackVersion("original");
+    setTrackPlaying(false);
+    setTrackProgress(0);
+    setTrackDuration(0);
+  };
 
   const stopAudio = useCallback(() => {
     speakAbortRef.current?.abort();
@@ -356,6 +420,18 @@ export default function MoreOps() {
               </div>
             </div>
             <div className="flex items-center gap-2">
+              {/* Track player toggle */}
+              <button
+                onClick={() => setTrackOpen(v => !v)}
+                title="Track player — preview original + AI version"
+                aria-label="Open track player"
+                className={`flex items-center justify-center w-8 h-8 rounded-full transition-colors ${
+                  trackOpen ? "bg-violet-600 text-white" : "bg-ink/10 text-ink/40 hover:text-ink/70"
+                }`}
+              >
+                <Music className="w-4 h-4" />
+              </button>
+
               {/* Speaker / TTS toggle */}
               <button
                 onClick={() => { setAudioOn((v) => !v); if (audioOn) stopAudio(); }}
@@ -404,6 +480,117 @@ export default function MoreOps() {
             )}
             <div ref={bottomRef} />
           </div>
+
+          {/* Hidden audio elements for track player — mounted once, never remounted */}
+          <audio ref={trackOrigRef} preload="auto" style={{ display: "none" }}
+            onTimeUpdate={() => {
+              const el = trackOrigRef.current;
+              if (trackVersion === "original" && el?.duration)
+                setTrackProgress((el.currentTime / el.duration) * 100);
+            }}
+            onDurationChange={() => {
+              if (trackVersion === "original") setTrackDuration(trackOrigRef.current?.duration || 0);
+            }}
+            onEnded={() => { setTrackPlaying(false); setTrackProgress(0); }}
+          />
+          <audio ref={trackAiRef} preload="auto" style={{ display: "none" }}
+            onTimeUpdate={() => {
+              const el = trackAiRef.current;
+              if (trackVersion === "ai" && el?.duration)
+                setTrackProgress((el.currentTime / el.duration) * 100);
+            }}
+            onDurationChange={() => {
+              if (trackVersion === "ai") setTrackDuration(trackAiRef.current?.duration || 0);
+            }}
+            onEnded={() => { setTrackPlaying(false); setTrackProgress(0); }}
+          />
+
+          {/* Track player panel */}
+          {trackOpen && (
+            <div className="flex-shrink-0 border-t border-violet-200 bg-violet-50 px-6 py-4 space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold text-violet-700 uppercase tracking-widest flex items-center gap-1.5">
+                  <Music className="w-3.5 h-3.5" /> Track Preview
+                </span>
+                <button onClick={() => setTrackOpen(false)} className="text-ink/30 hover:text-ink/60 transition-colors">
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              {/* URL inputs */}
+              <div className="grid sm:grid-cols-2 gap-2">
+                <div>
+                  <label className="block text-xs font-bold text-violet-700/70 mb-1">🎤 Original voice URL</label>
+                  <input
+                    value={trackOrigUrl}
+                    onChange={e => setTrackOrigUrl(e.target.value)}
+                    onBlur={applyTrackUrls}
+                    placeholder="https://…/vonn-original.mp3"
+                    className="w-full text-xs px-3 py-2 bg-white border border-violet-200 rounded-lg focus:outline-none focus:border-violet-400"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-violet-700/70 mb-1">🤖 AI version URL (Suno)</label>
+                  <input
+                    value={trackAiUrl}
+                    onChange={e => setTrackAiUrl(e.target.value)}
+                    onBlur={applyTrackUrls}
+                    placeholder="https://…/suno-version.mp3"
+                    className="w-full text-xs px-3 py-2 bg-white border border-violet-200 rounded-lg focus:outline-none focus:border-violet-400"
+                  />
+                </div>
+              </div>
+
+              {/* Controls */}
+              {(trackOrigUrl || trackAiUrl) && (
+                <div className="bg-white border border-violet-200 rounded-xl p-3 space-y-2">
+                  <div className="flex items-center gap-3">
+                    <button
+                      onClick={trackTogglePlay}
+                      className="w-9 h-9 rounded-full bg-violet-600 hover:bg-violet-500 text-white flex items-center justify-center shrink-0 transition-colors active:scale-95"
+                    >
+                      {trackPlaying
+                        ? <Pause className="w-3.5 h-3.5 fill-white" />
+                        : <Play  className="w-3.5 h-3.5 fill-white ml-0.5" />}
+                    </button>
+
+                    {/* Seek bar */}
+                    <div className="flex-1 h-1.5 bg-violet-100 rounded-full cursor-pointer relative overflow-hidden" onClick={trackSeek}>
+                      <div className="absolute inset-y-0 left-0 bg-violet-500 rounded-full" style={{ width: `${trackProgress}%` }} />
+                    </div>
+
+                    <span className="text-xs text-ink/40 shrink-0 tabular-nums">
+                      {trackFmt(activeTrackRef.current?.currentTime)} / {trackFmt(trackDuration)}
+                    </span>
+                  </div>
+
+                  {/* Version toggle */}
+                  <div className="flex items-center gap-1 bg-violet-50 rounded-lg p-0.5">
+                    <button
+                      onClick={() => trackSwitchVersion("original")}
+                      disabled={!trackOrigUrl}
+                      className="flex-1 text-xs font-bold py-1.5 px-2 rounded-md transition-all disabled:opacity-30"
+                      style={trackVersion === "original"
+                        ? { background: "#fff", color: "#7c3aed", boxShadow: "0 1px 3px rgba(0,0,0,0.08)" }
+                        : { color: "rgba(0,0,0,0.35)" }}
+                    >
+                      🎤 Original
+                    </button>
+                    <button
+                      onClick={() => trackSwitchVersion("ai")}
+                      disabled={!trackAiUrl}
+                      className="flex-1 text-xs font-bold py-1.5 px-2 rounded-md transition-all disabled:opacity-30"
+                      style={trackVersion === "ai"
+                        ? { background: "#fff", color: "#7c3aed", boxShadow: "0 1px 3px rgba(0,0,0,0.08)" }
+                        : { color: "rgba(0,0,0,0.35)" }}
+                    >
+                      🤖 AI Version
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Input */}
           <div className="flex-shrink-0 border-t border-ink/10 bg-white px-6 py-4">
