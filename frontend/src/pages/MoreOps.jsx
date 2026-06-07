@@ -7,7 +7,9 @@ import {
   Send, Bot, RefreshCw, Crown, TrendingUp, DollarSign,
   Video, Users, ChevronRight, Loader2, Trash2,
   Mic, MicOff, Volume2, VolumeX, CheckCircle, Music, Play, Pause, X,
+  LayoutDashboard, MessageSquare, Upload,
 } from "lucide-react";
+import PlatformDashboard from "../components/PlatformDashboard";
 import { v4 as uuidv4 } from "uuid";
 import { useMic } from "../hooks/useMic";
 
@@ -145,6 +147,9 @@ export default function MoreOps() {
   const [sessionId] = useState(getStableSessionId);
   const [dept, setDept] = useState("");
   const [input, setInput] = useState("");
+  // Main tab state
+  const [mainTab, setMainTab] = useState("chat"); // "chat" | "dashboard"
+
   // Load from localStorage immediately — instant, no network wait
   const [messages, setMessages] = useState(loadLocalMessages);
   const [busy, setBusy] = useState(false);
@@ -165,8 +170,10 @@ export default function MoreOps() {
   const [trackPlaying,   setTrackPlaying]   = useState(false);
   const [trackProgress,  setTrackProgress]  = useState(0);
   const [trackDuration,  setTrackDuration]  = useState(0);
-  const trackOrigRef = useRef(null);
-  const trackAiRef   = useRef(null);
+  const trackOrigRef    = useRef(null);
+  const trackAiRef      = useRef(null);
+  const fileOrigRef     = useRef(null);
+  const fileAiRef       = useRef(null);
 
   const activeTrackRef  = trackVersion === "original" ? trackOrigRef : trackAiRef;
   const passiveTrackRef = trackVersion === "original" ? trackAiRef   : trackOrigRef;
@@ -203,6 +210,24 @@ export default function MoreOps() {
   const trackFmt = (s) => {
     if (!s || isNaN(s)) return "0:00";
     return `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, "0")}`;
+  };
+
+  // Handle local file upload → object URL
+  const handleFileUpload = (e, slot) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const url = URL.createObjectURL(file);
+    if (slot === "original") {
+      setTrackOrigUrl(file.name);
+      if (trackOrigRef.current) { trackOrigRef.current.src = url; trackOrigRef.current.load(); }
+    } else {
+      setTrackAiUrl(file.name);
+      if (trackAiRef.current) { trackAiRef.current.src = url; trackAiRef.current.load(); }
+    }
+    setTrackVersion(slot === "original" ? "original" : "ai");
+    setTrackPlaying(false);
+    setTrackProgress(0);
+    setTrackDuration(0);
   };
 
   // Load track URLs into audio elements when user enters them
@@ -413,11 +438,32 @@ export default function MoreOps() {
           {/* Header */}
           <div className="flex items-center justify-between px-6 py-3 border-b border-ink/10 bg-white/50 flex-shrink-0">
             <div className="flex items-center gap-3">
-              <activeDept.icon className="w-5 h-5 text-copper" />
-              <div>
-                <span className="font-heading font-bold">{activeDept.label}</span>
-                <span className="text-ink/40 text-sm ml-2">— {activeDept.desc}</span>
+              {/* Tab switcher */}
+              <div className="flex items-center gap-1 bg-ink/5 rounded-xl p-1">
+                <button
+                  onClick={() => setMainTab("chat")}
+                  className={`flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-lg transition-all ${
+                    mainTab === "chat" ? "bg-white text-ink shadow-sm" : "text-ink/40 hover:text-ink/70"
+                  }`}
+                >
+                  <MessageSquare className="w-3.5 h-3.5" /> Chat
+                </button>
+                <button
+                  onClick={() => setMainTab("dashboard")}
+                  className={`flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-lg transition-all ${
+                    mainTab === "dashboard" ? "bg-white shadow-sm" : "text-ink/40 hover:text-ink/70"
+                  }`}
+                  style={mainTab === "dashboard" ? { color: "#e879a0" } : {}}
+                >
+                  <LayoutDashboard className="w-3.5 h-3.5" /> Dashboard
+                </button>
               </div>
+              {mainTab === "chat" && (
+                <div className="flex items-center gap-2">
+                  <activeDept.icon className="w-4 h-4 text-copper" />
+                  <span className="text-ink/60 text-sm hidden sm:block">{activeDept.label}</span>
+                </div>
+              )}
             </div>
             <div className="flex items-center gap-2">
               {/* Track player toggle */}
@@ -453,8 +499,15 @@ export default function MoreOps() {
             </div>
           </div>
 
+          {/* Dashboard tab */}
+          {mainTab === "dashboard" && (
+            <div className="flex-1 overflow-y-auto">
+              <PlatformDashboard />
+            </div>
+          )}
+
           {/* Messages */}
-          <div className="flex-1 overflow-y-auto px-6 py-6 space-y-5">
+          {mainTab === "chat" && <div className="flex-1 overflow-y-auto px-6 py-6 space-y-5">
             {messages.length === 0 && (
               <div className="flex flex-col items-center justify-center h-full text-center space-y-3">
                 <Bot className="w-12 h-12 text-copper/50" />
@@ -479,7 +532,7 @@ export default function MoreOps() {
               </div>
             )}
             <div ref={bottomRef} />
-          </div>
+          </div>}
 
           {/* Hidden audio elements for track player — mounted once, never remounted */}
           <audio ref={trackOrigRef} preload="auto" style={{ display: "none" }}
@@ -505,8 +558,8 @@ export default function MoreOps() {
             onEnded={() => { setTrackPlaying(false); setTrackProgress(0); }}
           />
 
-          {/* Track player panel */}
-          {trackOpen && (
+          {/* Track player panel + input — chat tab only */}
+          {mainTab === "chat" && trackOpen && (
             <div className="flex-shrink-0 border-t border-violet-200 bg-violet-50 px-6 py-4 space-y-3">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-bold text-violet-700 uppercase tracking-widest flex items-center gap-1.5">
@@ -517,27 +570,51 @@ export default function MoreOps() {
                 </button>
               </div>
 
-              {/* URL inputs */}
+              {/* URL inputs + file upload */}
+              {/* Hidden file inputs */}
+              <input ref={fileOrigRef} type="file" accept="audio/*" className="hidden"
+                onChange={e => handleFileUpload(e, "original")} />
+              <input ref={fileAiRef}   type="file" accept="audio/*" className="hidden"
+                onChange={e => handleFileUpload(e, "ai")} />
+
               <div className="grid sm:grid-cols-2 gap-2">
                 <div>
-                  <label className="block text-xs font-bold text-violet-700/70 mb-1">🎤 Original voice URL</label>
-                  <input
-                    value={trackOrigUrl}
-                    onChange={e => setTrackOrigUrl(e.target.value)}
-                    onBlur={applyTrackUrls}
-                    placeholder="https://…/vonn-original.mp3"
-                    className="w-full text-xs px-3 py-2 bg-white border border-violet-200 rounded-lg focus:outline-none focus:border-violet-400"
-                  />
+                  <label className="block text-xs font-bold text-violet-700/70 mb-1">🎤 Original voice</label>
+                  <div className="flex gap-1">
+                    <input
+                      value={trackOrigUrl}
+                      onChange={e => setTrackOrigUrl(e.target.value)}
+                      onBlur={applyTrackUrls}
+                      placeholder="Paste URL or upload file…"
+                      className="flex-1 text-xs px-3 py-2 bg-white border border-violet-200 rounded-lg focus:outline-none focus:border-violet-400 min-w-0"
+                    />
+                    <button
+                      onClick={() => fileOrigRef.current?.click()}
+                      title="Upload audio file"
+                      className="flex items-center justify-center w-9 h-9 rounded-lg bg-violet-100 hover:bg-violet-200 text-violet-700 transition-colors shrink-0"
+                    >
+                      <Upload className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
                 </div>
                 <div>
-                  <label className="block text-xs font-bold text-violet-700/70 mb-1">🤖 AI version URL (Suno)</label>
-                  <input
-                    value={trackAiUrl}
-                    onChange={e => setTrackAiUrl(e.target.value)}
-                    onBlur={applyTrackUrls}
-                    placeholder="https://…/suno-version.mp3"
-                    className="w-full text-xs px-3 py-2 bg-white border border-violet-200 rounded-lg focus:outline-none focus:border-violet-400"
-                  />
+                  <label className="block text-xs font-bold text-violet-700/70 mb-1">🤖 AI version (Suno)</label>
+                  <div className="flex gap-1">
+                    <input
+                      value={trackAiUrl}
+                      onChange={e => setTrackAiUrl(e.target.value)}
+                      onBlur={applyTrackUrls}
+                      placeholder="Paste URL or upload file…"
+                      className="flex-1 text-xs px-3 py-2 bg-white border border-violet-200 rounded-lg focus:outline-none focus:border-violet-400 min-w-0"
+                    />
+                    <button
+                      onClick={() => fileAiRef.current?.click()}
+                      title="Upload audio file"
+                      className="flex items-center justify-center w-9 h-9 rounded-lg bg-violet-100 hover:bg-violet-200 text-violet-700 transition-colors shrink-0"
+                    >
+                      <Upload className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
                 </div>
               </div>
 
@@ -592,8 +669,8 @@ export default function MoreOps() {
             </div>
           )}
 
-          {/* Input */}
-          <div className="flex-shrink-0 border-t border-ink/10 bg-white px-6 py-4">
+          {/* Input — chat tab only */}
+          {mainTab === "chat" && <div className="flex-shrink-0 border-t border-ink/10 bg-white px-6 py-4">
             <div className="flex items-end gap-3">
               {/* Mic button */}
               <button
@@ -650,7 +727,7 @@ export default function MoreOps() {
                 </span>
               )}
             </div>
-          </div>
+          </div>}
         </div>
       </div>
     </AppShell>
