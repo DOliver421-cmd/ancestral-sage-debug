@@ -3,6 +3,7 @@ import { useState, useEffect } from "react";
 import { Heart, Instagram, ExternalLink, ShoppingBag, Music, BookOpen, Users, ArrowRight, Shield, Mic, Star, Pencil } from "lucide-react";
 import { WAI_LOGO, BRAND } from "../lib/brand";
 import BugReportModal from "../components/BugReportModal";
+import TrackPlayer from "../components/TrackPlayer";
 import { api } from "../lib/api";
 import { useAuth } from "../lib/auth";
 
@@ -285,6 +286,71 @@ Nova is not emerging. She is already here. She is just letting you catch up.`,
     _peerAvatar: "🌊",
     _peerTitle: "Poet · Community Organizer · M.O.R.E. Founding Member",
   },
+
+  // ── Vonn Oshun ────────────────────────────────────────────────────────────────
+  "vonn-oshun": {
+    slug: "vonn-oshun",
+    displayName: "Vonn Oshun",
+    title: "Recording Artist · Vocalist · Spiritual Sound Architect",
+    tagline: "The voice carries what words alone cannot hold.",
+    bio: `Vonn Oshun is a vocalist and recording artist whose work sits at the convergence of ancestral memory and modern sound. Drawing from the lineage of Oshun — Yoruba orisha of rivers, sweetness, and emotional truth — Vonn channels something older than genre into every track.
+
+Her music is not simply heard. It moves through you. The original voice recordings carry the full weight of lived experience: breath, vibration, the catches and sustains that AI has not yet learned to fake. Alongside these, Vonn releases AI-assisted versions of selected tracks — created in collaboration with Suno — not to replace the human voice, but to explore the distance between the two.
+
+That space between is where the conversation lives.
+
+Vonn is a core artist in the WAI-Institute ecosystem and a living demonstration of what it looks like when an artist owns the full stack: her voice, her publishing, her platform, and her narrative.`,
+    pronouns: "she/her",
+    location: "Florida, USA",
+    avatar: "🌊",
+    bannerColor: "from-violet-950 via-purple-900 to-ink",
+    accentColor: "violet",
+
+    socials: [
+      {
+        platform: "Instagram",
+        handle: "@vonnoshun",
+        url: "https://www.instagram.com/",
+        icon: "instagram",
+        color: "bg-gradient-to-br from-purple-500 to-violet-700",
+        note: "Music drops, visuals, and the work behind the work",
+      },
+    ],
+
+    moreOfferings: [
+      { icon: "🎤", title: "Vocal Coaching", desc: "One-on-one sessions for artists learning to trust and develop their voice. Technique meets spirit." },
+      { icon: "🎵", title: "Session Vocals", desc: "Original vocal features and collaborations for independent artists in the M.O.R.E. network." },
+      { icon: "🔊", title: "AI-Voice Consultation", desc: "Guidance on how to use AI voice tools ethically — and how to make sure your original always leads." },
+    ],
+
+    commerce: [],
+
+    waiStatus: {
+      tier: "BASIC",
+      role: "Recording Artist · Community Creator",
+      since: "2026",
+      bio: "Vocalist and sound architect. Demonstrating artist-owned publishing in the WAI-Institute ecosystem.",
+    },
+
+    // Tracks — original voice + Suno AI version pairs
+    tracks: [
+      {
+        id: "track-001",
+        title: "On How to Work with AI",
+        artist: "Vonn Oshun",
+        // Replace these URLs with real Suno/CDN URLs when available
+        original_url: null,
+        ai_url: null,
+        tags: ["spoken word", "AI", "education"],
+      },
+    ],
+
+    _peerNote: "Vonn Oshun brings what no API can replicate — the voice that lived through it.",
+    _peerSlug: "nam-oshun",
+    _peerName: "NAM Oshun",
+    _peerAvatar: "🌊",
+    _peerTitle: "Poet · Community Organizer · M.O.R.E. Founding Member",
+  },
 };
 
 const PLACEHOLDER_CREATOR = {
@@ -527,6 +593,26 @@ export default function CreatorProfile() {
                 All skill exchange requests go through the M.O.R.E. Help Center and are protected by Oliver Guardian.
                 No money changes hands — this is community exchange.
               </p>
+            </div>
+          </div>
+        )}
+
+        {/* Music tracks — shown when creator has tracks with at least one URL */}
+        {creator.tracks?.filter(t => t.original_url || t.ai_url).length > 0 && (
+          <div>
+            <div className="flex items-center gap-3 mb-6">
+              <div className="w-8 h-8 rounded-full bg-violet-100 border border-violet-300 flex items-center justify-center">
+                <Music className="w-4 h-4 text-violet-600" />
+              </div>
+              <div>
+                <h2 className="font-heading font-extrabold text-2xl leading-none">Music</h2>
+                <p className="text-ink/50 text-sm">Original voice recordings + AI-assisted versions — toggle between them</p>
+              </div>
+            </div>
+            <div className="grid sm:grid-cols-2 gap-4">
+              {creator.tracks.filter(t => t.original_url || t.ai_url).map(track => (
+                <TrackPlayer key={track.id} track={track} accentColor={creator.accentColor} />
+              ))}
             </div>
           </div>
         )}

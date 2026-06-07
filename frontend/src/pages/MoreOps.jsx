@@ -6,8 +6,10 @@ import { toast } from "sonner";
 import {
   Send, Bot, RefreshCw, Crown, TrendingUp, DollarSign,
   Video, Users, ChevronRight, Loader2, Trash2,
-  Mic, MicOff, Volume2, VolumeX, CheckCircle,
+  Mic, MicOff, Volume2, VolumeX, CheckCircle, Music, Play, Pause, X,
+  LayoutDashboard, MessageSquare, Upload,
 } from "lucide-react";
+import PlatformDashboard from "../components/PlatformDashboard";
 import { v4 as uuidv4 } from "uuid";
 import { useMic } from "../hooks/useMic";
 
@@ -145,6 +147,9 @@ export default function MoreOps() {
   const [sessionId] = useState(getStableSessionId);
   const [dept, setDept] = useState("");
   const [input, setInput] = useState("");
+  // Main tab state
+  const [mainTab, setMainTab] = useState("chat"); // "chat" | "dashboard"
+
   // Load from localStorage immediately — instant, no network wait
   const [messages, setMessages] = useState(loadLocalMessages);
   const [busy, setBusy] = useState(false);
@@ -152,10 +157,94 @@ export default function MoreOps() {
   const bottomRef = useRef(null);
   const inputRef = useRef(null);
 
-  // Audio state
+  // TTS state
   const [audioOn, setAudioOn] = useState(false);
   const speakAudioRef = useRef(null);
   const speakAbortRef = useRef(null);
+
+  // Track player state
+  const [trackOpen,      setTrackOpen]      = useState(false);
+  const [trackOrigUrl,   setTrackOrigUrl]   = useState("");
+  const [trackAiUrl,     setTrackAiUrl]     = useState("");
+  const [trackVersion,   setTrackVersion]   = useState("original"); // "original" | "ai"
+  const [trackPlaying,   setTrackPlaying]   = useState(false);
+  const [trackProgress,  setTrackProgress]  = useState(0);
+  const [trackDuration,  setTrackDuration]  = useState(0);
+  const trackOrigRef    = useRef(null);
+  const trackAiRef      = useRef(null);
+  const fileOrigRef     = useRef(null);
+  const fileAiRef       = useRef(null);
+
+  const activeTrackRef  = trackVersion === "original" ? trackOrigRef : trackAiRef;
+  const passiveTrackRef = trackVersion === "original" ? trackAiRef   : trackOrigRef;
+
+  const trackTogglePlay = () => {
+    const el = activeTrackRef.current;
+    if (!el || !el.src) return;
+    if (trackPlaying) { el.pause(); setTrackPlaying(false); }
+    else { el.play().catch(() => {}); setTrackPlaying(true); }
+  };
+
+  const trackSwitchVersion = (v) => {
+    if (v === trackVersion) return;
+    const from = activeTrackRef.current;
+    const to   = passiveTrackRef.current;
+    if (!from || !to) return;
+    const pos = from.currentTime;
+    const was = trackPlaying;
+    from.pause();
+    to.currentTime = Math.min(pos, to.duration || 0);
+    if (was) to.play().catch(() => {});
+    setTrackVersion(v);
+  };
+
+  const trackSeek = (e) => {
+    const el = activeTrackRef.current;
+    if (!el || !el.duration) return;
+    const rect = e.currentTarget.getBoundingClientRect();
+    const pct  = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+    el.currentTime = pct * el.duration;
+    setTrackProgress(pct * 100);
+  };
+
+  const trackFmt = (s) => {
+    if (!s || isNaN(s)) return "0:00";
+    return `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, "0")}`;
+  };
+
+  // Handle local file upload → object URL
+  const handleFileUpload = (e, slot) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const url = URL.createObjectURL(file);
+    if (slot === "original") {
+      setTrackOrigUrl(file.name);
+      if (trackOrigRef.current) { trackOrigRef.current.src = url; trackOrigRef.current.load(); }
+    } else {
+      setTrackAiUrl(file.name);
+      if (trackAiRef.current) { trackAiRef.current.src = url; trackAiRef.current.load(); }
+    }
+    setTrackVersion(slot === "original" ? "original" : "ai");
+    setTrackPlaying(false);
+    setTrackProgress(0);
+    setTrackDuration(0);
+  };
+
+  // Load track URLs into audio elements when user enters them
+  const applyTrackUrls = () => {
+    if (trackOrigRef.current && trackOrigUrl) {
+      trackOrigRef.current.src = trackOrigUrl;
+      trackOrigRef.current.load();
+    }
+    if (trackAiRef.current && trackAiUrl) {
+      trackAiRef.current.src = trackAiUrl;
+      trackAiRef.current.load();
+    }
+    setTrackVersion("original");
+    setTrackPlaying(false);
+    setTrackProgress(0);
+    setTrackDuration(0);
+  };
 
   const stopAudio = useCallback(() => {
     speakAbortRef.current?.abort();
@@ -349,13 +438,46 @@ export default function MoreOps() {
           {/* Header */}
           <div className="flex items-center justify-between px-6 py-3 border-b border-ink/10 bg-white/50 flex-shrink-0">
             <div className="flex items-center gap-3">
-              <activeDept.icon className="w-5 h-5 text-copper" />
-              <div>
-                <span className="font-heading font-bold">{activeDept.label}</span>
-                <span className="text-ink/40 text-sm ml-2">— {activeDept.desc}</span>
+              {/* Tab switcher */}
+              <div className="flex items-center gap-1 bg-ink/5 rounded-xl p-1">
+                <button
+                  onClick={() => setMainTab("chat")}
+                  className={`flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-lg transition-all ${
+                    mainTab === "chat" ? "bg-white text-ink shadow-sm" : "text-ink/40 hover:text-ink/70"
+                  }`}
+                >
+                  <MessageSquare className="w-3.5 h-3.5" /> Chat
+                </button>
+                <button
+                  onClick={() => setMainTab("dashboard")}
+                  className={`flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-lg transition-all ${
+                    mainTab === "dashboard" ? "bg-white shadow-sm" : "text-ink/40 hover:text-ink/70"
+                  }`}
+                  style={mainTab === "dashboard" ? { color: "#e879a0" } : {}}
+                >
+                  <LayoutDashboard className="w-3.5 h-3.5" /> Dashboard
+                </button>
               </div>
+              {mainTab === "chat" && (
+                <div className="flex items-center gap-2">
+                  <activeDept.icon className="w-4 h-4 text-copper" />
+                  <span className="text-ink/60 text-sm hidden sm:block">{activeDept.label}</span>
+                </div>
+              )}
             </div>
             <div className="flex items-center gap-2">
+              {/* Track player toggle */}
+              <button
+                onClick={() => setTrackOpen(v => !v)}
+                title="Track player — preview original + AI version"
+                aria-label="Open track player"
+                className={`flex items-center justify-center w-8 h-8 rounded-full transition-colors ${
+                  trackOpen ? "bg-violet-600 text-white" : "bg-ink/10 text-ink/40 hover:text-ink/70"
+                }`}
+              >
+                <Music className="w-4 h-4" />
+              </button>
+
               {/* Speaker / TTS toggle */}
               <button
                 onClick={() => { setAudioOn((v) => !v); if (audioOn) stopAudio(); }}
@@ -377,8 +499,15 @@ export default function MoreOps() {
             </div>
           </div>
 
+          {/* Dashboard tab */}
+          {mainTab === "dashboard" && (
+            <div className="flex-1 overflow-y-auto">
+              <PlatformDashboard />
+            </div>
+          )}
+
           {/* Messages */}
-          <div className="flex-1 overflow-y-auto px-6 py-6 space-y-5">
+          {mainTab === "chat" && <div className="flex-1 overflow-y-auto px-6 py-6 space-y-5">
             {messages.length === 0 && (
               <div className="flex flex-col items-center justify-center h-full text-center space-y-3">
                 <Bot className="w-12 h-12 text-copper/50" />
@@ -403,10 +532,145 @@ export default function MoreOps() {
               </div>
             )}
             <div ref={bottomRef} />
-          </div>
+          </div>}
 
-          {/* Input */}
-          <div className="flex-shrink-0 border-t border-ink/10 bg-white px-6 py-4">
+          {/* Hidden audio elements for track player — mounted once, never remounted */}
+          <audio ref={trackOrigRef} preload="auto" style={{ display: "none" }}
+            onTimeUpdate={() => {
+              const el = trackOrigRef.current;
+              if (trackVersion === "original" && el?.duration)
+                setTrackProgress((el.currentTime / el.duration) * 100);
+            }}
+            onDurationChange={() => {
+              if (trackVersion === "original") setTrackDuration(trackOrigRef.current?.duration || 0);
+            }}
+            onEnded={() => { setTrackPlaying(false); setTrackProgress(0); }}
+          />
+          <audio ref={trackAiRef} preload="auto" style={{ display: "none" }}
+            onTimeUpdate={() => {
+              const el = trackAiRef.current;
+              if (trackVersion === "ai" && el?.duration)
+                setTrackProgress((el.currentTime / el.duration) * 100);
+            }}
+            onDurationChange={() => {
+              if (trackVersion === "ai") setTrackDuration(trackAiRef.current?.duration || 0);
+            }}
+            onEnded={() => { setTrackPlaying(false); setTrackProgress(0); }}
+          />
+
+          {/* Track player panel + input — chat tab only */}
+          {mainTab === "chat" && trackOpen && (
+            <div className="flex-shrink-0 border-t border-violet-200 bg-violet-50 px-6 py-4 space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold text-violet-700 uppercase tracking-widest flex items-center gap-1.5">
+                  <Music className="w-3.5 h-3.5" /> Track Preview
+                </span>
+                <button onClick={() => setTrackOpen(false)} className="text-ink/30 hover:text-ink/60 transition-colors">
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              {/* URL inputs + file upload */}
+              {/* Hidden file inputs */}
+              <input ref={fileOrigRef} type="file" accept="audio/*" className="hidden"
+                onChange={e => handleFileUpload(e, "original")} />
+              <input ref={fileAiRef}   type="file" accept="audio/*" className="hidden"
+                onChange={e => handleFileUpload(e, "ai")} />
+
+              <div className="grid sm:grid-cols-2 gap-2">
+                <div>
+                  <label className="block text-xs font-bold text-violet-700/70 mb-1">🎤 Original voice</label>
+                  <div className="flex gap-1">
+                    <input
+                      value={trackOrigUrl}
+                      onChange={e => setTrackOrigUrl(e.target.value)}
+                      onBlur={applyTrackUrls}
+                      placeholder="Paste URL or upload file…"
+                      className="flex-1 text-xs px-3 py-2 bg-white border border-violet-200 rounded-lg focus:outline-none focus:border-violet-400 min-w-0"
+                    />
+                    <button
+                      onClick={() => fileOrigRef.current?.click()}
+                      title="Upload audio file"
+                      className="flex items-center justify-center w-9 h-9 rounded-lg bg-violet-100 hover:bg-violet-200 text-violet-700 transition-colors shrink-0"
+                    >
+                      <Upload className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-violet-700/70 mb-1">🤖 AI version (Suno)</label>
+                  <div className="flex gap-1">
+                    <input
+                      value={trackAiUrl}
+                      onChange={e => setTrackAiUrl(e.target.value)}
+                      onBlur={applyTrackUrls}
+                      placeholder="Paste URL or upload file…"
+                      className="flex-1 text-xs px-3 py-2 bg-white border border-violet-200 rounded-lg focus:outline-none focus:border-violet-400 min-w-0"
+                    />
+                    <button
+                      onClick={() => fileAiRef.current?.click()}
+                      title="Upload audio file"
+                      className="flex items-center justify-center w-9 h-9 rounded-lg bg-violet-100 hover:bg-violet-200 text-violet-700 transition-colors shrink-0"
+                    >
+                      <Upload className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Controls */}
+              {(trackOrigUrl || trackAiUrl) && (
+                <div className="bg-white border border-violet-200 rounded-xl p-3 space-y-2">
+                  <div className="flex items-center gap-3">
+                    <button
+                      onClick={trackTogglePlay}
+                      className="w-9 h-9 rounded-full bg-violet-600 hover:bg-violet-500 text-white flex items-center justify-center shrink-0 transition-colors active:scale-95"
+                    >
+                      {trackPlaying
+                        ? <Pause className="w-3.5 h-3.5 fill-white" />
+                        : <Play  className="w-3.5 h-3.5 fill-white ml-0.5" />}
+                    </button>
+
+                    {/* Seek bar */}
+                    <div className="flex-1 h-1.5 bg-violet-100 rounded-full cursor-pointer relative overflow-hidden" onClick={trackSeek}>
+                      <div className="absolute inset-y-0 left-0 bg-violet-500 rounded-full" style={{ width: `${trackProgress}%` }} />
+                    </div>
+
+                    <span className="text-xs text-ink/40 shrink-0 tabular-nums">
+                      {trackFmt(activeTrackRef.current?.currentTime)} / {trackFmt(trackDuration)}
+                    </span>
+                  </div>
+
+                  {/* Version toggle */}
+                  <div className="flex items-center gap-1 bg-violet-50 rounded-lg p-0.5">
+                    <button
+                      onClick={() => trackSwitchVersion("original")}
+                      disabled={!trackOrigUrl}
+                      className="flex-1 text-xs font-bold py-1.5 px-2 rounded-md transition-all disabled:opacity-30"
+                      style={trackVersion === "original"
+                        ? { background: "#fff", color: "#7c3aed", boxShadow: "0 1px 3px rgba(0,0,0,0.08)" }
+                        : { color: "rgba(0,0,0,0.35)" }}
+                    >
+                      🎤 Original
+                    </button>
+                    <button
+                      onClick={() => trackSwitchVersion("ai")}
+                      disabled={!trackAiUrl}
+                      className="flex-1 text-xs font-bold py-1.5 px-2 rounded-md transition-all disabled:opacity-30"
+                      style={trackVersion === "ai"
+                        ? { background: "#fff", color: "#7c3aed", boxShadow: "0 1px 3px rgba(0,0,0,0.08)" }
+                        : { color: "rgba(0,0,0,0.35)" }}
+                    >
+                      🤖 AI Version
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Input — chat tab only */}
+          {mainTab === "chat" && <div className="flex-shrink-0 border-t border-ink/10 bg-white px-6 py-4">
             <div className="flex items-end gap-3">
               {/* Mic button */}
               <button
@@ -463,7 +727,7 @@ export default function MoreOps() {
                 </span>
               )}
             </div>
-          </div>
+          </div>}
         </div>
       </div>
     </AppShell>
