@@ -103,6 +103,7 @@ import AccountControls from "./pages/AccountControls";
 import MyPosition from "./pages/MyPosition";
 import Personas from "./pages/Personas";
 import PersonaProfile from "./pages/PersonaProfile";
+import AdminAssistant from "./pages/AdminAssistant";
 
 // Role hierarchy must mirror backend ROLE_RANK in /app/backend/server.py.
 // Higher rank = more authority; a higher-rank role passes any check meant
@@ -241,6 +242,9 @@ function App() {
               <Route path="/admin/providers"  element={<BoundedAdmin roles={["executive_admin"]} label="Provider Gateway"><ProviderGateway /></BoundedAdmin>} />
               <Route path="/team/ops"         element={<BoundedAdmin roles={["executive_admin"]} label="Team Operations"><TeamOps /></BoundedAdmin>} />
               <Route path="/admin/payments"   element={<BoundedAdmin roles={["admin"]} label="Admin Payments"><AdminPayments /></BoundedAdmin>} />
+
+              {/* ── Admin Assistant service ── */}
+              <Route path="/assistant"        element={<Protected><AdminAssistant /></Protected>} />
 
               {/* ── Landing / home ── */}
               <Route path="/welcome"          element={<Landing />} />
@@ -404,6 +408,7 @@ function App() {
           {/* Billing Admin — exec/admin */}
           <Route path="/admin/billing" element={<BoundedAdmin roles={["admin"]} label="Billing Admin"><BillingAdmin /></BoundedAdmin>} />
           {/* Original landing page (alternate entry point) */}
+          <Route path="/assistant" element={<Protected><AdminAssistant /></Protected>} />
           <Route path="/welcome" element={<Landing />} />
           <Route path="*" element={<Error404 />} />
         </Routes>

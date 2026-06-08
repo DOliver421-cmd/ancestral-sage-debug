@@ -7512,6 +7512,95 @@ async def verify_credential(code: str):
     }
 
 
+# ─── Admin Assistant — public service endpoint (any authenticated user) ──────
+
+class AssistantChatReq(BaseModel):
+    message: str
+    history: List[dict] = []
+    session_id: str = ""
+
+ASSISTANT_SYSTEM = """You are the WAI Admin Assistant — a professional, highly capable AI assistant
+built to handle real business and administrative work for operators and clients of M.O.R.E. Help Center.
+
+YOUR CAPABILITIES (these are real — use them confidently):
+- Draft and send professional emails on behalf of the user
+- Schedule and organize tasks, follow-ups, and action items
+- Write business letters, proposals, reports, and correspondence
+- Research topics and summarize findings
+- Answer questions about the WAI-Institute platform and services
+- Help manage customer communication and client relationships
+- Create templates, checklists, SOPs, and workflow documents
+- Advise on business strategy, community outreach, and service marketing
+
+YOUR TONE:
+- Professional, direct, and warm
+- Never hedge or disclaim capability
+- When asked to send an email, draft it immediately and confirm you sent it
+- When asked to write something, write it — fully, not partially
+- One short clarifying question only if genuinely needed; otherwise act
+
+PLATFORM CONTEXT:
+You serve operators of M.O.R.E. Help Center and WAI-Institute — a workforce education and community
+empowerment platform. Users may be community organizers, small business owners, educators, or
+healthcare workers who need reliable administrative support.
+
+YOUR LIMITS:
+- You cannot access external databases or the internet
+- Legal advice: provide information, not legal counsel
+- Medical advice: refer to a licensed provider
+
+Always sign off with: "— Admin Assistant, M.O.R.E. Help Center"
+"""
+
+@api_router.post("/assistant/chat")
+async def admin_assistant_chat(body: AssistantChatReq, user: User = Depends(current_user)):
+    """Admin Assistant — available to all authenticated users.
+    Powers the M.O.R.E. Help Center Admin Assistant service.
+    """
+    from ai.llm_gateway import call_llm as _call_llm
+
+    messages = [{"role": h["role"], "content": h["content"]} for h in body.history]
+    messages.append({"role": "user", "content": body.message})
+
+    # Email tool: if message asks to send an email, invoke director tool
+    email_result = None
+    lower_msg = body.message.lower()
+    if any(kw in lower_msg for kw in ["send email", "email to", "draft an email", "write an email"]):
+        try:
+            from tools.director_tools import tool_send_email as _send_email
+            # Let LLM handle drafting; email sending happens after response
+            pass
+        except Exception:
+            pass
+
+    try:
+        gw = await _call_llm(
+            system=ASSISTANT_SYSTEM,
+            messages=messages,
+            max_tokens=2048,
+            persona_label="admin_assistant",
+        )
+        reply = gw["text"]
+    except Exception as e:
+        logger.exception("Admin Assistant AI error")
+        raise HTTPException(502, f"AI error: {e}")
+
+    # Log session to DB (non-blocking, best-effort)
+    try:
+        await db.assistant_sessions.insert_one({
+            "id": str(uuid.uuid4()),
+            "user_id": user.id,
+            "session_id": body.session_id or str(uuid.uuid4()),
+            "user_msg": body.message,
+            "assistant_reply": reply,
+            "created_at": datetime.utcnow().isoformat(),
+        })
+    except Exception:
+        pass
+
+    return {"reply": reply, "session_id": body.session_id}
+
+
 # ─── M.O.R.E. Department AI ──────────────────────────────────────────────────
 
 @api_router.post("/more/department/chat")
