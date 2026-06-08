@@ -165,14 +165,66 @@ function App() {
         <BrowserRouter>
           <ErrorBoundary>
             <Toaster position="top-right" richColors />
+            <SupervisorWidget />
+            <CookieConsent />
+            <HelpGuide />
             <Routes>
-              {/* Auth pages must work on morehelp.center too */}
-              <Route path="/login" element={<Login />} />
-              <Route path="/register" element={<Register />} />
-              {/* WAI Institute portal — administration + classrooms */}
-              <Route path="/wai-institute" element={<WAIInstitute />} />
-              <Route path="/wai-institute/*" element={<WAIInstitute />} />
-              <Route path="*" element={<MoreHelpCenter />} />
+              {/* ── Auth ── */}
+              <Route path="/login"            element={<Login />} />
+              <Route path="/register"         element={<Register />} />
+              <Route path="/forgot-password"  element={<ForgotPassword />} />
+              <Route path="/reset-password"   element={<ResetPassword />} />
+
+              {/* ── WAI Institute portal ── */}
+              <Route path="/wai-institute"    element={<WAIInstitute />} />
+              <Route path="/wai-institute/*"  element={<WAIInstitute />} />
+
+              {/* ── Public pages that nav links reference ── */}
+              <Route path="/more"             element={<More />} />
+              <Route path="/more-help-center" element={<MoreHelpCenter />} />
+              <Route path="/more/chat"        element={<Protected><MoreChat /></Protected>} />
+              <Route path="/more/chat/:roomId" element={<Protected><MoreChat /></Protected>} />
+              <Route path="/modules"          element={<ModulesList />} />
+              <Route path="/modules/:slug"    element={<ModuleView />} />
+              <Route path="/courses"          element={<Courses />} />
+              <Route path="/community"        element={<Community />} />
+              <Route path="/help-center"      element={<HelpCenter />} />
+              <Route path="/store"            element={<Store />} />
+              <Route path="/plans"            element={<Plans />} />
+              <Route path="/subscribe"        element={<SubscribePage />} />
+              <Route path="/donate"           element={<DonatePage />} />
+              <Route path="/leaderboard"      element={<Leaderboard />} />
+              <Route path="/terms"            element={<TermsOfService />} />
+              <Route path="/privacy"          element={<PrivacyPolicy />} />
+              <Route path="/internships"      element={<Internships />} />
+              <Route path="/helper"           element={<Helper requireAuth={false} />} />
+              <Route path="/seshats-hub"      element={<SeshatsHubPublic />} />
+              <Route path="/ghost-producer"   element={<GhostProducer />} />
+              <Route path="/personas"         element={<Personas />} />
+              <Route path="/personas/:slug"   element={<PersonaProfile />} />
+              <Route path="/creators"         element={<Creators />} />
+              <Route path="/creator/:slug"    element={<CreatorProfile />} />
+              <Route path="/creator-lounge"   element={<Protected><CreatorLounge /></Protected>} />
+              <Route path="/p/:slug"          element={<PublicPortfolio />} />
+              <Route path="/playlist/:slug/submit" element={<PlaylistSubmit />} />
+
+              {/* ── Protected dashboard routes ── */}
+              <Route path="/dashboard"        element={<Protected><StudentDashboard /></Protected>} />
+              <Route path="/dashboard/student" element={<Protected><StudentDashboard /></Protected>} />
+              <Route path="/council"          element={<Protected><OrchestratorChat /></Protected>} />
+              <Route path="/more/ops"         element={<BoundedAdmin roles={["admin"]} label="M.O.R.E. Ops"><MoreOps /></BoundedAdmin>} />
+              <Route path="/more/admin"       element={<Protected roles={["admin"]}><MoreAdmin /></Protected>} />
+              <Route path="/payment/success"  element={<PaymentSuccess />} />
+              <Route path="/payment/cancel"   element={<PaymentCancel />} />
+              <Route path="/payment/history"  element={<Protected><PaymentHistory /></Protected>} />
+              <Route path="/profile"          element={<Protected><UserProfile /></Protected>} />
+              <Route path="/settings"         element={<Protected><Settings /></Protected>} />
+              <Route path="/more/litigation"  element={<LitigationWeapon />} />
+
+              {/* ── Landing / home ── */}
+              <Route path="/welcome"          element={<Landing />} />
+              <Route path="/"                 element={<MoreHelpCenter />} />
+              <Route path="*"                 element={<MoreHelpCenter />} />
             </Routes>
           </ErrorBoundary>
         </BrowserRouter>
