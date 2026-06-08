@@ -889,19 +889,62 @@ export default function DirectorWidget() {
     };
     setAttachedFile(null);
 
+    // ── Redundant AI call chain ───────────────────────────────────────────────
+    // Tier 1: /ai/director   — full Director persona + memory
+    // Tier 2: /ai/orchestrator — full council, role-gated system prompt
+    // Tier 3: /api/assistant/chat — Admin Assistant, always available
+    // Tier 4: static contingency message
+    let reply = "";
+    let degraded = false;
+    let usedTier = 1;
+
     try {
       const r = await api.post("/ai/director", payload);
-      setMsgs(m => [...m, { role: "assistant", text: r.data.reply, degraded: r.data.degraded }]);
-      speak(r.data.reply);
-      setPersona(r.data.persona);
-      if (r.data.degraded) {
-        setMsgs(m => [...m, {
-          role: "system",
-          text: "⚙️ No LLM provider keys are configured. Go to Admin → Provider Gateway and add a Groq or Gemini API key to activate full AI responses.",
-        }]);
+      if (!r.data.degraded) {
+        reply = r.data.reply;
+        setPersona(r.data.persona);
+      } else {
+        degraded = true;
       }
-    } catch {
-      setMsgs(m => [...m, { role: "assistant", text: "I am temporarily unavailable. Please try again." }]);
+    } catch { degraded = true; }
+
+    if (!reply) {
+      usedTier = 2;
+      try {
+        const r = await api.post("/ai/orchestrator", { message: userMsg, session_id: "director_session", history: [] });
+        reply = r.data.reply;
+        degraded = false;
+      } catch { /* fall through */ }
+    }
+
+    if (!reply) {
+      usedTier = 3;
+      try {
+        const r = await api.post("/api/assistant/chat", { message: userMsg, session_id: "director_session", history: [] });
+        reply = r.data.reply;
+        degraded = false;
+      } catch { /* fall through */ }
+    }
+
+    if (!reply) {
+      usedTier = 4;
+      const ts = new Date().toUTCString();
+      reply = `SYSTEM DESIGNATION: THE DIRECTOR — INFRASTRUCTURE 4.0\n\nI am operating in contingency mode. All AI providers are temporarily unreachable.\n\n**Your message has been received and logged.**\n\nAdd at least one provider key in Admin → Provider Gateway (Groq or Gemini recommended) to restore full AI capability.\n\nStatus logged: ${ts}`;
+      degraded = true;
+    }
+
+    setMsgs(m => [...m, { role: "assistant", text: reply, degraded, tier: usedTier }]);
+    if (!degraded) speak(reply);
+    if (degraded && usedTier === 4) {
+      setMsgs(m => [...m, {
+        role: "system",
+        text: "⚙️ All AI providers offline. Add a key at Admin → Provider Gateway to restore.",
+      }]);
+    } else if (usedTier > 1) {
+      setMsgs(m => [...m, {
+        role: "system",
+        text: `⚡ Responding via Tier ${usedTier} backup (Director primary was unavailable).`,
+      }]);
     } finally {
       setLoading(false);
     }
