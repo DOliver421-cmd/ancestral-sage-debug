@@ -9,7 +9,7 @@ import { useMic } from "../hooks/useMic";
 const PERSONA_STYLES = {
   director: {
     title: "THE DIRECTOR",
-    subtitle: "Executive Intelligence",
+    subtitle: "Chief Operations Officer",
     color: "#C9A84C",
     bg: "#0A0F1E",
   },
