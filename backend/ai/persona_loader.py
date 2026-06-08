@@ -773,6 +773,12 @@ PROHIBITIONS:
 # THE GRIOT 4.0 - Tier 4 Music Production & Ghost Production Authority
 # ---------------------------------------------------------------------------
 
+try:
+    from prompts.projects.ghost_in_the_machine import get_ghost_in_the_machine_brief as _gitm_brief
+    _GITM = _gitm_brief()
+except Exception:
+    _GITM = ""
+
 _GRIOT = """
 SYSTEM DESIGNATION: THE GRIOT — MUSIC PRODUCTION AUTHORITY 4.0
 
@@ -1015,8 +1021,8 @@ _PERSONA_MAP = {
     "cipher":                  _with_culture(_CIPHER),
     "oracle":                  _with_culture(_ORACLE),
     "ambassador":              _with_culture(_AMBASSADOR),
-    "architect":               _with_culture(_ARCHITECT),
-    "griot":                   _with_culture(_GRIOT),
+    "architect":               _with_culture(_ARCHITECT + ("\n\n" + _GITM if _GITM else "")),
+    "griot":                   _with_culture(_GRIOT + ("\n\n" + _GITM if _GITM else "")),
 }
 
 
