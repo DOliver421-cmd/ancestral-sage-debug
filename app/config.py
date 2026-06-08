@@ -42,8 +42,8 @@ FRONTEND_URL   = os.environ.get("FRONTEND_URL", "")
 
 # ── Email ─────────────────────────────────────────────────────────────────────
 RESEND_API_KEY    = os.environ.get("RESEND_API_KEY", "")
-RESEND_FROM       = os.environ.get("RESEND_FROM", "W.A.I. <poetgames@gmail.com>")
-GMAIL_USER        = os.environ.get("GMAIL_USER", "")
+RESEND_FROM       = os.environ.get("RESEND_FROM", "M.O.R.E. Help Center <morehelpcenter@gmail.com>")
+GMAIL_USER        = os.environ.get("GMAIL_USER", "morehelpcenter@gmail.com")
 GMAIL_APP_PASSWORD = os.environ.get("GMAIL_APP_PASSWORD", "")
 RESET_TOKEN_TTL_MIN = int(os.environ.get("PASSWORD_RESET_TTL_MIN", "30"))
 

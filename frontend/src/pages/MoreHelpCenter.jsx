@@ -70,12 +70,13 @@ const ROLE_LANES = [
 ];
 
 const NAV_LINKS = [
-  { label: "Free Modules", to: "/modules" },
-  { label: "Community",    to: "/community" },
-  { label: "Courses",      to: "/courses" },
-  { label: "Help Center",  to: "/help-center" },
-  { label: "Store",        to: "/store" },
-  { label: "Plans",        to: "/plans" },
+  { label: "Admin Assistant", to: "/assistant" },
+  { label: "Free Modules",    to: "/modules" },
+  { label: "Community",       to: "/community" },
+  { label: "Courses",         to: "/courses" },
+  { label: "Help Center",     to: "/help-center" },
+  { label: "Store",           to: "/store" },
+  { label: "Plans",           to: "/plans" },
 ];
 
 const SUPERVISOR_TOGGLES = [
