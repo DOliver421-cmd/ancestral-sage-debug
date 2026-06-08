@@ -527,7 +527,7 @@ function ConsentModal({ intensity, safety, onClose, onGranted }) {
   const [d1, setD1] = useState(false);
   const [d2, setD2] = useState(false);
   const [d3, setD3] = useState(false);
-  const [contentType, setContentType] = useState("personalization");
+  const [contentType, setContentType] = useState("general");
   const [requestReview, setRequestReview] = useState(false);
   const [storeAudio, setStoreAudio] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -675,7 +675,22 @@ function ConsentModal({ intensity, safety, onClose, onGranted }) {
           to halt a practice and receive grounding/aftercare. Consent expires after 2 hours.
         </div>
 
-        <div className="flex gap-3 mt-6 justify-end">
+        {/* Checklist — shows exactly what's still needed */}
+        <div className="mt-4 space-y-1 text-xs">
+          <div className={`flex items-center gap-2 ${yesOk ? "text-emerald-600" : "text-ink/40"}`}>
+            <span>{yesOk ? "✓" : "○"}</span> Typed YES
+          </div>
+          <div className={`flex items-center gap-2 ${compOk ? "text-emerald-600" : "text-ink/40"}`}>
+            <span>{compOk ? "✓" : "○"}</span> Typed the comprehension phrase exactly
+          </div>
+          {contentType !== "general" && (
+            <div className={`flex items-center gap-2 ${disclaimersOk ? "text-emerald-600" : "text-ink/40"}`}>
+              <span>{disclaimersOk ? "✓" : "○"}</span> All 3 disclaimers checked
+            </div>
+          )}
+        </div>
+
+        <div className="flex gap-3 mt-4 justify-end">
           <button
             onClick={onClose}
             className="btn-secondary"
