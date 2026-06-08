@@ -10493,13 +10493,23 @@ try:
     async def sovereign_chat(body: _SovereignChatBody, user: User = Depends(require_role("executive_admin"))):
         """Talk to The Sovereign — executive-only, Director-supervised, memory-aware."""
         system = await _build_sovereign_prompt(db, user.id)
+        reply = ""
         try:
             from ai.llm_gateway import call_llm as _call_llm
             _gw = await _call_llm(system=system, messages=[{"role": "user", "content": body.message}], max_tokens=2048, persona_label="sovereign")
-            reply = _gw["text"]
+            if _gw.get("provider") != "kb_fallback":
+                reply = _gw.get("text", "")
         except Exception as e:
             logger.exception("Sovereign AI error")
-            raise HTTPException(502, f"Sovereign AI error: {e}")
+
+        if not reply:
+            reply = (
+                "The Sovereign is present — but operating without AI connectivity right now. "
+                "Your session and memory are intact. "
+                "Add a GROQ_API_KEY or GEMINI_API_KEY to Railway and he will speak fully. "
+                "— The Sovereign"
+            )
+
         try:
             await _sovereign_memory.save_memory(db, user.id, f"Asked: {body.message[:200]}", kind="note")
         except Exception:
