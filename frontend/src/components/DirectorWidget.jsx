@@ -595,9 +595,8 @@ function NotesPanel({ style }) {
 export default function DirectorWidget() {
   const { user } = useAuth();
 
-  const [open, setOpen] = useState(() => {
-    try { return localStorage.getItem("director_widget_open") !== "false"; } catch { return true; }
-  });
+  // Director is a background figure — hidden by default, surfaces only for emergencies.
+  const [open, setOpen] = useState(false);
   const [persona, setPersona]       = useState("assistant_director");
   const [msgs, setMsgs]             = useState([]);
   const [input, setInput]           = useState("");
@@ -743,29 +742,23 @@ export default function DirectorWidget() {
     if (!roleTabs.includes(activeTab)) setActiveTab("chat");
   }, [user?.role]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ── Greeting ──────────────────────────────────────────────────────────────
+  // ── Background init — silent, no auto-open ───────────────────────────────
 
   useEffect(() => {
     if (!user) { setOpen(false); setMsgs([]); setPulse(null); return; }
     const isExec = user.role === "admin" || user.role === "executive_admin";
     setPersona(isExec ? "director" : "assistant_director");
-    const fallback = isExec
-      ? `Welcome back, ${user.full_name}. I am The Director. Initiating monitoring scan…`
-      : `Welcome back, ${user.full_name}. I am the Assistant Director. How can I guide you today?`;
-    setMsgs([{ role: "assistant", text: fallback }]);
-    // Always show widget on login — clear any stale "closed" state from localStorage
-    try { localStorage.removeItem("director_widget_open"); } catch {}
-    setOpen(true);
-
+    // Pre-load greeting silently so it's ready if user opens manually
     api.get("/ai/director/greeting")
       .then(r => { setPersona(r.data.persona); setMsgs([{ role: "assistant", text: r.data.greeting }]); })
-      .catch(() => {});
+      .catch(() => {
+        const fallback = isExec
+          ? `I am The Director — COO. Monitoring active. I will surface if action is required.`
+          : `Assistant Director standing by.`;
+        setMsgs([{ role: "assistant", text: fallback }]);
+      });
+    // Do NOT open — Director stays hidden until an emergency surfaces him
   }, [user]);
-
-  // Persist open state
-  useEffect(() => {
-    try { localStorage.setItem("director_widget_open", open ? "true" : "false"); } catch {}
-  }, [open]);
 
   // ── Pulse monitoring ──────────────────────────────────────────────────────
 
@@ -779,10 +772,16 @@ export default function DirectorWidget() {
       prevPulseRef.current = data;
       if (alertMsg) {
         setMsgs(m => [...m, { role: "assistant", text: alertMsg, isAlert: true, health: data.health, pulse: data }]);
-        if (minimized) setUnread(u => u + 1);
+        // Surface the Director automatically only on critical or warning — his job is to appear when needed
+        if (data.health === "critical" || data.health === "warning") {
+          setOpen(true);
+          setMinimized(false);
+        } else {
+          setUnread(u => u + 1);
+        }
       }
     } catch {}
-  }, [isMonitor, minimized]);
+  }, [isMonitor]);
 
   useEffect(() => {
     if (!isMonitor) return;
@@ -983,7 +982,40 @@ export default function DirectorWidget() {
     fullscreen: "480px",
   };
 
-  if (!open) return null;
+  // ── Background indicator — small dot when hidden, lets exec reach Director manually ──
+  if (!open) {
+    if (!user || (user.role !== "admin" && user.role !== "executive_admin")) return null;
+    const dotColor = pulse ? HEALTH_COLORS[pulse.health] : "#C9A84C";
+    const hasBadge = unread > 0;
+    return (
+      <div
+        onClick={() => { setOpen(true); setMinimized(false); setUnread(0); }}
+        title={`Director — ${pulse?.health || "monitoring"} · Click to open`}
+        style={{
+          position: "fixed", bottom: "18px", right: "18px", zIndex: 999,
+          width: "14px", height: "14px", borderRadius: "50%",
+          background: dotColor,
+          boxShadow: pulse?.health === "critical"
+            ? `0 0 0 3px ${dotColor}55, 0 0 8px ${dotColor}`
+            : `0 0 0 2px ${dotColor}33`,
+          cursor: "pointer",
+          animation: pulse?.health !== "nominal" && pulse ? "pulse-dot 1.5s infinite" : "none",
+        }}
+      >
+        {hasBadge && (
+          <span style={{
+            position: "absolute", top: "-6px", right: "-6px",
+            background: "#E53935", color: "#fff",
+            fontSize: "9px", fontWeight: 700,
+            borderRadius: "50%", width: "14px", height: "14px",
+            display: "flex", alignItems: "center", justifyContent: "center",
+          }}>
+            {unread > 9 ? "9+" : unread}
+          </span>
+        )}
+      </div>
+    );
+  }
 
   // ── Minimized orb ─────────────────────────────────────────────────────────
 
