@@ -208,18 +208,39 @@ function App() {
               <Route path="/p/:slug"          element={<PublicPortfolio />} />
               <Route path="/playlist/:slug/submit" element={<PlaylistSubmit />} />
 
+              {/* ── Supervisor ── */}
+              <Route path="/supervisor-login" element={<SupervisorLogin />} />
+              <Route path="/supervisor"       element={<SupervisorProtected><SeshatsHub /></SupervisorProtected>} />
+
               {/* ── Protected dashboard routes ── */}
               <Route path="/dashboard"        element={<Protected><StudentDashboard /></Protected>} />
               <Route path="/dashboard/student" element={<Protected><StudentDashboard /></Protected>} />
+              <Route path="/instructor"       element={<Protected roles={["instructor","admin"]}><InstructorDashboard /></Protected>} />
               <Route path="/council"          element={<Protected><OrchestratorChat /></Protected>} />
+              <Route path="/social/publish"   element={<Protected><SocialPublish /></Protected>} />
               <Route path="/more/ops"         element={<BoundedAdmin roles={["admin"]} label="M.O.R.E. Ops"><MoreOps /></BoundedAdmin>} />
               <Route path="/more/admin"       element={<Protected roles={["admin"]}><MoreAdmin /></Protected>} />
+              <Route path="/more/litigation"  element={<LitigationWeapon />} />
               <Route path="/payment/success"  element={<PaymentSuccess />} />
               <Route path="/payment/cancel"   element={<PaymentCancel />} />
               <Route path="/payment/history"  element={<Protected><PaymentHistory /></Protected>} />
               <Route path="/profile"          element={<Protected><UserProfile /></Protected>} />
               <Route path="/settings"         element={<Protected><Settings /></Protected>} />
-              <Route path="/more/litigation"  element={<LitigationWeapon />} />
+              <Route path="/creator/courses"  element={<Protected><CreatorCourses /></Protected>} />
+              <Route path="/creator/earnings" element={<Protected><CreatorEarnings /></Protected>} />
+              <Route path="/creator/profile/edit" element={<Protected><CreatorProfileEdit /></Protected>} />
+              <Route path="/playlist/dashboard" element={<Protected><PlaylistDashboard /></Protected>} />
+
+              {/* ── Admin / exec routes — redirect to login if not authenticated ── */}
+              <Route path="/admin"            element={<BoundedAdmin roles={["admin"]} label="Admin Dashboard"><AdminDashboard /></BoundedAdmin>} />
+              <Route path="/admin/system"     element={<BoundedAdmin roles={["executive_admin"]} label="Exec System"><ExecSystem /></BoundedAdmin>} />
+              <Route path="/admin/audit"      element={<BoundedAdmin roles={["admin"]} label="Audit Log"><AuditLog /></BoundedAdmin>} />
+              <Route path="/admin/health"     element={<BoundedAdmin roles={["admin"]} label="System Health"><SystemHealth /></BoundedAdmin>} />
+              <Route path="/admin/moderation" element={<BoundedAdmin roles={["admin"]} label="Moderation"><ModerationAnalytics /></BoundedAdmin>} />
+              <Route path="/admin/control"    element={<BoundedAdmin roles={["executive_admin"]} label="Site Control"><SiteControlPanel /></BoundedAdmin>} />
+              <Route path="/admin/providers"  element={<BoundedAdmin roles={["executive_admin"]} label="Provider Gateway"><ProviderGateway /></BoundedAdmin>} />
+              <Route path="/team/ops"         element={<BoundedAdmin roles={["executive_admin"]} label="Team Operations"><TeamOps /></BoundedAdmin>} />
+              <Route path="/admin/payments"   element={<BoundedAdmin roles={["admin"]} label="Admin Payments"><AdminPayments /></BoundedAdmin>} />
 
               {/* ── Landing / home ── */}
               <Route path="/welcome"          element={<Landing />} />
