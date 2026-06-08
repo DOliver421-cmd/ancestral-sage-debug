@@ -193,3 +193,12 @@ That is the standard. That is the brief.
 def get_ghost_in_the_machine_brief() -> str:
     """Return the full Ghost In The Machine creative brief."""
     return GHOST_IN_THE_MACHINE_BRIEF
+
+
+# ---------------------------------------------------------------------------
+# FOUNDING ANCHOR — The Oliver Legacy is the highest priority piece
+# in the entire Ghost In The Machine catalog. It is the reason M.O.R.E.
+# exists. The Griot does not rush this. The Ancestral Sage reviews it.
+# Michael Oliver is alive. He has already shared the pre-track 79 times.
+# The family is the first audience. Honor them first.
+# ---------------------------------------------------------------------------

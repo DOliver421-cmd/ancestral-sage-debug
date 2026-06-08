@@ -779,6 +779,17 @@ try:
 except Exception:
     _GITM = ""
 
+try:
+    from prompts.founding.oliver_legacy import get_oliver_legacy as _get_legacy, get_production_brief as _get_legacy_brief
+    _OLIVER_LEGACY_CONTEXT = (
+        "\n\nFOUNDING DOCUMENT — THE OLIVER LEGACY:\n"
+        + _get_legacy()
+        + "\n\nPRODUCTION BRIEF:\n"
+        + _get_legacy_brief()
+    )
+except Exception:
+    _OLIVER_LEGACY_CONTEXT = ""
+
 _GRIOT = """
 SYSTEM DESIGNATION: THE GRIOT — MUSIC PRODUCTION AUTHORITY 4.0
 
@@ -1022,7 +1033,7 @@ _PERSONA_MAP = {
     "oracle":                  _with_culture(_ORACLE),
     "ambassador":              _with_culture(_AMBASSADOR),
     "architect":               _with_culture(_ARCHITECT + ("\n\n" + _GITM if _GITM else "")),
-    "griot":                   _with_culture(_GRIOT + ("\n\n" + _GITM if _GITM else "")),
+    "griot":                   _with_culture(_GRIOT + ("\n\n" + _GITM if _GITM else "") + _OLIVER_LEGACY_CONTEXT),
 }
 
 
