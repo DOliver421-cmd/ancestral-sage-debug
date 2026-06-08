@@ -151,7 +151,7 @@ export default function Landing() {
               <p className="text-sm text-ink/60 mb-4">
                 Learning that speaks to your reality. Modules designed by your community, for your community.
               </p>
-              <Link to="/login" className="text-sm font-bold text-copper hover:text-copper/80">
+              <Link to="/modules" className="text-sm font-bold text-copper hover:text-copper/80">
                 Access Courses →
               </Link>
             </div>
@@ -193,7 +193,7 @@ export default function Landing() {
               <p className="text-sm text-ink/60 mb-4">
                 Mentorship, workshops, and tools to develop the skills that matter in your community.
               </p>
-              <Link to="/login" className="text-sm font-bold text-copper hover:text-copper/80">
+              <Link to="/modules" className="text-sm font-bold text-copper hover:text-copper/80">
                 Start Learning →
               </Link>
             </div>

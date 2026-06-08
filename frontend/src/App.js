@@ -165,14 +165,87 @@ function App() {
         <BrowserRouter>
           <ErrorBoundary>
             <Toaster position="top-right" richColors />
+            <SupervisorWidget />
+            <CookieConsent />
+            <HelpGuide />
             <Routes>
-              {/* Auth pages must work on morehelp.center too */}
-              <Route path="/login" element={<Login />} />
-              <Route path="/register" element={<Register />} />
-              {/* WAI Institute portal — administration + classrooms */}
-              <Route path="/wai-institute" element={<WAIInstitute />} />
-              <Route path="/wai-institute/*" element={<WAIInstitute />} />
-              <Route path="*" element={<MoreHelpCenter />} />
+              {/* ── Auth ── */}
+              <Route path="/login"            element={<Login />} />
+              <Route path="/register"         element={<Register />} />
+              <Route path="/forgot-password"  element={<ForgotPassword />} />
+              <Route path="/reset-password"   element={<ResetPassword />} />
+
+              {/* ── WAI Institute portal ── */}
+              <Route path="/wai-institute"    element={<WAIInstitute />} />
+              <Route path="/wai-institute/*"  element={<WAIInstitute />} />
+
+              {/* ── Public pages that nav links reference ── */}
+              <Route path="/more"             element={<More />} />
+              <Route path="/more-help-center" element={<MoreHelpCenter />} />
+              <Route path="/more/chat"        element={<Protected><MoreChat /></Protected>} />
+              <Route path="/more/chat/:roomId" element={<Protected><MoreChat /></Protected>} />
+              <Route path="/modules"          element={<ModulesList />} />
+              <Route path="/modules/:slug"    element={<ModuleView />} />
+              <Route path="/courses"          element={<Courses />} />
+              <Route path="/community"        element={<Community />} />
+              <Route path="/help-center"      element={<HelpCenter />} />
+              <Route path="/store"            element={<Store />} />
+              <Route path="/plans"            element={<Plans />} />
+              <Route path="/subscribe"        element={<SubscribePage />} />
+              <Route path="/donate"           element={<DonatePage />} />
+              <Route path="/leaderboard"      element={<Leaderboard />} />
+              <Route path="/terms"            element={<TermsOfService />} />
+              <Route path="/privacy"          element={<PrivacyPolicy />} />
+              <Route path="/internships"      element={<Internships />} />
+              <Route path="/helper"           element={<Helper requireAuth={false} />} />
+              <Route path="/seshats-hub"      element={<SeshatsHubPublic />} />
+              <Route path="/ghost-producer"   element={<GhostProducer />} />
+              <Route path="/personas"         element={<Personas />} />
+              <Route path="/personas/:slug"   element={<PersonaProfile />} />
+              <Route path="/creators"         element={<Creators />} />
+              <Route path="/creator/:slug"    element={<CreatorProfile />} />
+              <Route path="/creator-lounge"   element={<Protected><CreatorLounge /></Protected>} />
+              <Route path="/p/:slug"          element={<PublicPortfolio />} />
+              <Route path="/playlist/:slug/submit" element={<PlaylistSubmit />} />
+
+              {/* ── Supervisor ── */}
+              <Route path="/supervisor-login" element={<SupervisorLogin />} />
+              <Route path="/supervisor"       element={<SupervisorProtected><SeshatsHub /></SupervisorProtected>} />
+
+              {/* ── Protected dashboard routes ── */}
+              <Route path="/dashboard"        element={<Protected><StudentDashboard /></Protected>} />
+              <Route path="/dashboard/student" element={<Protected><StudentDashboard /></Protected>} />
+              <Route path="/instructor"       element={<Protected roles={["instructor","admin"]}><InstructorDashboard /></Protected>} />
+              <Route path="/council"          element={<Protected><OrchestratorChat /></Protected>} />
+              <Route path="/social/publish"   element={<Protected><SocialPublish /></Protected>} />
+              <Route path="/more/ops"         element={<BoundedAdmin roles={["admin"]} label="M.O.R.E. Ops"><MoreOps /></BoundedAdmin>} />
+              <Route path="/more/admin"       element={<Protected roles={["admin"]}><MoreAdmin /></Protected>} />
+              <Route path="/more/litigation"  element={<LitigationWeapon />} />
+              <Route path="/payment/success"  element={<PaymentSuccess />} />
+              <Route path="/payment/cancel"   element={<PaymentCancel />} />
+              <Route path="/payment/history"  element={<Protected><PaymentHistory /></Protected>} />
+              <Route path="/profile"          element={<Protected><UserProfile /></Protected>} />
+              <Route path="/settings"         element={<Protected><Settings /></Protected>} />
+              <Route path="/creator/courses"  element={<Protected><CreatorCourses /></Protected>} />
+              <Route path="/creator/earnings" element={<Protected><CreatorEarnings /></Protected>} />
+              <Route path="/creator/profile/edit" element={<Protected><CreatorProfileEdit /></Protected>} />
+              <Route path="/playlist/dashboard" element={<Protected><PlaylistDashboard /></Protected>} />
+
+              {/* ── Admin / exec routes — redirect to login if not authenticated ── */}
+              <Route path="/admin"            element={<BoundedAdmin roles={["admin"]} label="Admin Dashboard"><AdminDashboard /></BoundedAdmin>} />
+              <Route path="/admin/system"     element={<BoundedAdmin roles={["executive_admin"]} label="Exec System"><ExecSystem /></BoundedAdmin>} />
+              <Route path="/admin/audit"      element={<BoundedAdmin roles={["admin"]} label="Audit Log"><AuditLog /></BoundedAdmin>} />
+              <Route path="/admin/health"     element={<BoundedAdmin roles={["admin"]} label="System Health"><SystemHealth /></BoundedAdmin>} />
+              <Route path="/admin/moderation" element={<BoundedAdmin roles={["admin"]} label="Moderation"><ModerationAnalytics /></BoundedAdmin>} />
+              <Route path="/admin/control"    element={<BoundedAdmin roles={["executive_admin"]} label="Site Control"><SiteControlPanel /></BoundedAdmin>} />
+              <Route path="/admin/providers"  element={<BoundedAdmin roles={["executive_admin"]} label="Provider Gateway"><ProviderGateway /></BoundedAdmin>} />
+              <Route path="/team/ops"         element={<BoundedAdmin roles={["executive_admin"]} label="Team Operations"><TeamOps /></BoundedAdmin>} />
+              <Route path="/admin/payments"   element={<BoundedAdmin roles={["admin"]} label="Admin Payments"><AdminPayments /></BoundedAdmin>} />
+
+              {/* ── Landing / home ── */}
+              <Route path="/welcome"          element={<Landing />} />
+              <Route path="/"                 element={<MoreHelpCenter />} />
+              <Route path="*"                 element={<MoreHelpCenter />} />
             </Routes>
           </ErrorBoundary>
         </BrowserRouter>
