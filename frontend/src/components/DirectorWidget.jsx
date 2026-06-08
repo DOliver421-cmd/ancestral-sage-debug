@@ -891,9 +891,15 @@ export default function DirectorWidget() {
 
     try {
       const r = await api.post("/ai/director", payload);
-      setMsgs(m => [...m, { role: "assistant", text: r.data.reply }]);
+      setMsgs(m => [...m, { role: "assistant", text: r.data.reply, degraded: r.data.degraded }]);
       speak(r.data.reply);
       setPersona(r.data.persona);
+      if (r.data.degraded) {
+        setMsgs(m => [...m, {
+          role: "system",
+          text: "⚙️ No LLM provider keys are configured. Go to Admin → Provider Gateway and add a Groq or Gemini API key to activate full AI responses.",
+        }]);
+      }
     } catch {
       setMsgs(m => [...m, { role: "assistant", text: "I am temporarily unavailable. Please try again." }]);
     } finally {
@@ -1161,13 +1167,15 @@ export default function DirectorWidget() {
                     maxWidth: "92%",
                     background: m.isAlert
                       ? (m.health === "critical" ? "#2A0A0A" : m.health === "warning" ? "#1A1500" : "#0A1A0A")
+                      : m.role === "system" ? "#1A1200"
                       : m.role === "user" ? style.color + "18" : "#1A1A1A",
                     border: `1px solid ${
                       m.isAlert
                         ? HEALTH_COLORS[m.health] + "45"
+                        : m.role === "system" ? "#F5A62345"
                         : m.role === "user" ? style.color + "35" : "#2A2A2A"
                     }`,
-                    borderLeft: m.isAlert ? `3px solid ${HEALTH_COLORS[m.health]}` : undefined,
+                    borderLeft: m.isAlert ? `3px solid ${HEALTH_COLORS[m.health]}` : m.role === "system" ? "3px solid #F5A623" : undefined,
                     borderRadius: "4px", padding: "8px 10px",
                     fontSize: "11.5px", color: "#E0E0E0",
                     lineHeight: "1.65", whiteSpace: "pre-wrap",

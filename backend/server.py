@@ -4474,6 +4474,7 @@ async def ai_director(body: dict, user: User = Depends(current_user)):
     from ai.llm_gateway import call_llm as _call_llm
 
     reply = ""
+    _degraded = False
     try:
         _result = await _call_llm(
             system        = system,
@@ -4481,12 +4482,17 @@ async def ai_director(body: dict, user: User = Depends(current_user)):
             max_tokens    = 2048,
             persona_label = "director",
         )
-        reply = _result.get("text", "")
+        # kb_fallback means all LLM providers are unconfigured — treat as no reply
+        # so the Director-voice static fallback fires instead of the generic KB message.
+        if _result.get("provider") != "kb_fallback":
+            reply = _result.get("text", "")
+        else:
+            _degraded = True
     except Exception as _gateway_err:
         logger.warning("Director AI: free gateway failed (%s)", _gateway_err)
-        reply = ""
+        _degraded = True
 
-    # ── Tier 3: Static Director-voice fallback ────────────────────────────────
+    # ── Static Director-voice fallback (no LLM providers configured) ─────────
     if not reply:
         from datetime import datetime as _dt
         _ts = _dt.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
@@ -4531,7 +4537,7 @@ async def ai_director(body: dict, user: User = Depends(current_user)):
         "cost_usd": 0.0,
         "created_at": datetime.now(timezone.utc).isoformat(),
     })
-    return {"reply": reply, "persona": persona}
+    return {"reply": reply, "persona": persona, "degraded": _degraded}
 
 
 @api_router.get("/ai/director/greeting")
