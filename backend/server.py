@@ -4487,88 +4487,20 @@ async def ai_director(body: dict, user: User = Depends(current_user)):
         f"- Address them appropriately by role.\n"
     ) + memory_ctx
 
-    import anthropic as _anthropic_module
-    from ai.retry_utils import async_retry
-    _client = _anthropic_module.AsyncAnthropic(api_key=ANTHROPIC_API_KEY)
+    from ai.llm_gateway import call_llm as _call_llm
 
-    messages = [{"role": "user", "content": message}]
-    tools    = DIRECTOR_TOOLS if is_exec else []
-    reply    = ""
-    MAX_TOOL_TURNS = 6  # prevent runaway loops
-
-    # ── Agentic loop — runs through REDUNDANCY CHAIN on full failure ──────────
-    # Tier 1: claude-sonnet-4-6  (full capability)
-    # Tier 2: claude-haiku-4-5   (lighter, same API key, same tools)
-    # Tier 3: Static Director-voice response (proven language, no AI cost)
-
-    _DIRECTOR_MODELS = [
-        ("claude-sonnet-4-6", 2048),   # Tier 1 — primary
-        ("claude-haiku-4-5",  1536),   # Tier 2 — backup (lighter, faster)
-    ]
-
-    async def _run_agentic_loop(model_name: str, max_tok: int) -> str:
-        """Run the full Director agentic loop on a given model."""
-        _msgs = [{"role": "user", "content": message}]
-        _reply = ""
-        for _turn in range(MAX_TOOL_TURNS + 1):
-            _kwargs = dict(
-                model      = model_name,
-                max_tokens = max_tok,
-                system     = system,
-                messages   = _msgs,
-            )
-            if tools:
-                _kwargs["tools"] = tools
-
-            # Retry transient errors (429 rate-limit, 529 overload, timeout)
-            _msg = await async_retry(
-                _client.messages.create,
-                max_attempts=3, base_delay=2.0,
-                **_kwargs,
-            )
-
-            if _msg.stop_reason != "tool_use":
-                for block in _msg.content:
-                    if hasattr(block, "text"):
-                        _reply += block.text
-                break
-
-            tool_use_blocks = [b for b in _msg.content if b.type == "tool_use"]
-            if not tool_use_blocks:
-                for block in _msg.content:
-                    if hasattr(block, "text"):
-                        _reply += block.text
-                break
-
-            _msgs.append({"role": "assistant", "content": _msg.content})
-            tool_results = await asyncio.gather(*[
-                dispatch_tool(b.name, b.input, db=db)
-                for b in tool_use_blocks
-            ])
-            result_content = [
-                {
-                    "type":        "tool_result",
-                    "tool_use_id": b.id,
-                    "content":     result,
-                }
-                for b, result in zip(tool_use_blocks, tool_results)
-            ]
-            _msgs.append({"role": "user", "content": result_content})
-        else:
-            _reply = _reply or "[Director tool loop exceeded limit — partial response above]"
-        return _reply
-
-    for _model, _max_tok in _DIRECTOR_MODELS:
-        try:
-            reply = await _run_agentic_loop(_model, _max_tok)
-            if reply:
-                break
-        except Exception as _model_err:
-            logger.warning(
-                "Director AI: model %s failed (%s) — trying next tier",
-                _model, _model_err
-            )
-            reply = ""
+    reply = ""
+    try:
+        _result = await _call_llm(
+            system        = system,
+            messages      = [{"role": "user", "content": message}],
+            max_tokens    = 2048,
+            persona_label = "director",
+        )
+        reply = _result.get("text", "")
+    except Exception as _gateway_err:
+        logger.warning("Director AI: free gateway failed (%s)", _gateway_err)
+        reply = ""
 
     # ── Tier 3: Static Director-voice fallback ────────────────────────────────
     if not reply:
@@ -4610,8 +4542,8 @@ async def ai_director(body: dict, user: User = Depends(current_user)):
         "user_id": user.id,
         "endpoint": "/ai/director",
         "persona": persona,
-        "model": "claude-sonnet-4-6",
-        "provider": "anthropic",
+        "model": "free-gateway",
+        "provider": "free-gateway",
         "cost_usd": 0.0,
         "created_at": datetime.now(timezone.utc).isoformat(),
     })
