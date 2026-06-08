@@ -162,12 +162,35 @@ function App() {
           <ErrorBoundary>
             <Toaster position="top-right" richColors />
             <Routes>
-              {/* Auth pages must work on morehelp.center too */}
+              {/* Auth */}
               <Route path="/login" element={<Login />} />
               <Route path="/register" element={<Register />} />
-              {/* WAI Institute portal — administration + classrooms */}
+              <Route path="/forgot-password" element={<ForgotPassword />} />
+              <Route path="/reset-password" element={<ResetPassword />} />
+              {/* Post-login destinations — students/instructors/admins land here */}
+              <Route path="/dashboard" element={<Protected><StudentDashboard /></Protected>} />
+              <Route path="/dashboard/student" element={<Protected><StudentDashboard /></Protected>} />
+              <Route path="/settings" element={<Protected><Settings /></Protected>} />
+              <Route path="/modules" element={<ModulesList />} />
+              <Route path="/modules/:slug" element={<ModuleView />} />
+              <Route path="/courses" element={<Courses />} />
+              <Route path="/community" element={<Community />} />
+              <Route path="/store" element={<Store />} />
+              <Route path="/plans" element={<Plans />} />
+              <Route path="/help-center" element={<HelpCenter />} />
+              <Route path="/more" element={<More />} />
+              <Route path="/more/*" element={<More />} />
+              <Route path="/creator/:slug" element={<CreatorProfile />} />
+              <Route path="/terms" element={<TermsOfService />} />
+              <Route path="/privacy" element={<PrivacyPolicy />} />
+              {/* Admin routes accessible from morehelp.center */}
+              <Route path="/admin" element={<Protected roles={["admin","executive_admin"]}><AdminDashboard /></Protected>} />
+              <Route path="/admin/system" element={<Protected roles={["executive_admin"]}><ExecSystem /></Protected>} />
+              <Route path="/instructor" element={<Protected roles={["instructor","admin","executive_admin"]}><InstructorDashboard /></Protected>} />
+              {/* WAI Institute portal */}
               <Route path="/wai-institute" element={<WAIInstitute />} />
               <Route path="/wai-institute/*" element={<WAIInstitute />} />
+              <Route path="/" element={<MoreHelpCenter />} />
               <Route path="*" element={<MoreHelpCenter />} />
             </Routes>
           </ErrorBoundary>
