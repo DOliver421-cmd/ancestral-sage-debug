@@ -3,7 +3,7 @@ import AppShell from "../components/AppShell";
 import { api } from "../lib/api";
 import { Link } from "react-router-dom";
 import { useAuth } from "../lib/auth";
-import { ArrowRight, Award, BookOpen, Clock, Flame, Zap } from "lucide-react";
+import { ArrowRight, Award, BookOpen, Clock, Flame, Zap, AlertTriangle, RefreshCw } from "lucide-react";
 import PuzzleCard from "../components/PuzzleCard";
 import PartnershipProgress from "../components/PartnershipProgress";
 import SovereignAvatar from "../components/SovereignAvatar";
@@ -23,29 +23,55 @@ export default function StudentDashboard() {
   const [certs, setCerts] = useState([]);
   const [xp, setXp] = useState(null);
   const [partnership, setPartnership] = useState(null);
+  const [loadError, setLoadError] = useState(false);
+  const [loading, setLoading] = useState(true);
 
   const refreshPartnership = useCallback(() => {
     api.get("/partnership/status").then((r) => setPartnership(r.data)).catch(() => {});
   }, []);
 
-  useEffect(() => {
-    api.get("/modules").then((r) => setModules(r.data)).catch(() => {});
-    api.get("/progress/me").then((r) => setProgress(r.data)).catch(() => {});
-    api.get("/certificates/me").then((r) => setCerts(r.data)).catch(() => {});
-    api.get("/xp/me").then((r) => setXp(r.data)).catch(() => {});
+  const loadData = useCallback(() => {
+    setLoadError(false);
+    setLoading(true);
+    Promise.all([
+      api.get("/modules").then((r) => setModules(Array.isArray(r.data) ? r.data : [])),
+      api.get("/progress/me").then((r) => setProgress(Array.isArray(r.data) ? r.data : [])),
+      api.get("/certificates/me").then((r) => setCerts(Array.isArray(r.data) ? r.data : [])),
+      api.get("/xp/me").then((r) => setXp(r.data)).catch(() => {}),
+    ])
+      .catch(() => setLoadError(true))
+      .finally(() => setLoading(false));
     refreshPartnership();
   }, [refreshPartnership]);
+
+  useEffect(() => { loadData(); }, [loadData]);
 
   const verse = DAILY_VERSES[new Date().getDate() % DAILY_VERSES.length];
   const completed = progress.filter((p) => p.status === "completed").length;
   const hours = progress.filter((p) => p.status === "completed").reduce((a, p) => a + (p.hours_logged || 0), 0);
   const pct = modules.length ? Math.round((completed / modules.length) * 100) : 0;
   const progressBySlug = Object.fromEntries(progress.map((p) => [p.module_slug, p]));
-  const nextModule = modules.find((m) => progressBySlug[m.slug]?.status !== "completed");
+  // Guard: only show next module button when slug is valid
+  const nextModule = modules.find((m) => m?.slug && progressBySlug[m.slug]?.status !== "completed");
 
   return (
     <AppShell>
       <div className="px-10 py-10 max-w-6xl">
+        {loadError && (
+          <div className="mb-8 flex items-center gap-4 p-4 rounded-xl border border-destructive/30 bg-destructive/5 text-destructive">
+            <AlertTriangle className="w-5 h-5 flex-shrink-0" />
+            <div className="flex-1 text-sm font-medium">Couldn't load your dashboard data. Check your connection.</div>
+            <button onClick={loadData} className="flex items-center gap-2 text-sm font-bold underline">
+              <RefreshCw className="w-4 h-4" /> Retry
+            </button>
+          </div>
+        )}
+        {loading && !loadError && modules.length === 0 && (
+          <div className="flex items-center gap-3 text-ink/40 py-12">
+            <RefreshCw className="w-5 h-5 animate-spin" />
+            <span className="text-sm">Loading your dashboard…</span>
+          </div>
+        )}
         <div className="flex items-end justify-between mb-10">
           <div>
             <div className="overline text-copper">Workforce Trainee</div>

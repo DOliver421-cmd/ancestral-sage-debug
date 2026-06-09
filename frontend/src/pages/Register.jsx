@@ -10,6 +10,7 @@ export default function Register() {
   const nav = useNavigate();
   const [form, setForm] = useState({ full_name: "", email: "", password: "", associate: "Associate-Alpha", agreed_terms: false, over_13: false });
   const [loading, setLoading] = useState(false);
+  const isValid = form.full_name.trim() && form.email.trim() && form.password.length >= 8 && form.agreed_terms && form.over_13;
 
   const submit = async (e) => {
     e.preventDefault();
@@ -181,7 +182,7 @@ export default function Register() {
             {/* Submit */}
             <button
               type="submit"
-              disabled={loading}
+              disabled={loading || !isValid}
               className="w-full py-3 px-4 bg-copper text-white font-bold uppercase tracking-widest hover:bg-copper/90 disabled:bg-copper/50 transition-colors rounded flex items-center justify-center gap-2"
               data-testid="btn-submit"
             >

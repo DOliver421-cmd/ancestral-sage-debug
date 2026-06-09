@@ -5,25 +5,37 @@ import { LoadingState } from "../components/LoadingState";
 import { api, BACKEND_URL } from "../lib/api";
 import { useAuth } from "../lib/auth";
 import { toast } from "sonner";
-import { BookOpen, ShieldAlert, Wrench, CheckSquare, FileImage, Sparkles, ArrowLeft } from "lucide-react";
+import { BookOpen, ShieldAlert, Wrench, CheckSquare, FileImage, Sparkles, ArrowLeft, ArrowRight, Award, LayoutList } from "lucide-react";
 
 export default function ModuleView() {
   const { slug } = useParams();
   const [mod, setMod] = useState(null);
+  const [allModules, setAllModules] = useState([]);
   const [progress, setProgress] = useState(null);
   const [answers, setAnswers] = useState({});
   const [result, setResult] = useState(null);
+  const [loadFailed, setLoadFailed] = useState(false);
   const { user } = useAuth();
 
   useEffect(() => {
     fetch(`${BACKEND_URL}/api/modules/${slug}`)
       .then((r) => r.ok ? r.json() : null)
-      .then((data) => { if (data) setMod(data); })
+      .then((data) => { if (data) setMod(data); else setLoadFailed(true); })
+      .catch(() => setLoadFailed(true));
+    fetch(`${BACKEND_URL}/api/modules`)
+      .then((r) => r.ok ? r.json() : [])
+      .then((data) => setAllModules(Array.isArray(data) ? data : []))
       .catch(() => {});
     if (user) {
       api.post("/progress/start", { module_slug: slug }).then((r) => setProgress(r.data)).catch(() => {});
     }
   }, [slug, user]);
+
+  // Next module in sequence (by order, skipping current)
+  const nextModule = allModules
+    .filter((m) => m.slug !== slug)
+    .sort((a, b) => a.order - b.order)
+    .find((m) => (mod?.order ?? 0) < m.order) || null;
 
   const submitQuiz = async () => {
     if (!mod) return;
@@ -42,6 +54,18 @@ export default function ModuleView() {
     }
   };
 
+  if (loadFailed) return (
+    <AppShell>
+      <div className="px-10 py-20 text-center max-w-lg mx-auto">
+        <BookOpen className="w-10 h-10 text-ink/20 mx-auto mb-4" />
+        <h2 className="font-heading text-2xl font-bold mb-2">Module not found</h2>
+        <p className="text-ink/60 mb-6">This module couldn't be loaded. It may have moved or there's a connection issue.</p>
+        <Link to="/modules" className="btn-copper inline-flex items-center gap-2">
+          <LayoutList className="w-4 h-4" /> Back to Curriculum
+        </Link>
+      </div>
+    </AppShell>
+  );
   if (!mod) return <LoadingState label="Module" />;
 
   return (
@@ -147,7 +171,28 @@ export default function ModuleView() {
               ? <button onClick={submitQuiz} className="btn-primary" data-testid="btn-submit-quiz">Submit Quiz</button>
               : <Link to="/register" className="btn-primary" data-testid="btn-submit-quiz">Sign up to take quiz</Link>}
             {result?.status === "completed" && (
-              <Link to="/certificates" className="btn-copper ml-3 inline-block" data-testid="btn-view-cert">View Certificate</Link>
+              <div className="mt-6 p-5 rounded-xl border border-signal/30 bg-signal/5 space-y-3" data-testid="completion-panel">
+                <div className="flex items-center gap-2 font-heading font-bold text-signal">
+                  <Award className="w-5 h-5" /> Module Complete — {result.score?.toFixed(0)}%
+                </div>
+                <div className="flex flex-wrap gap-3">
+                  <Link to="/certificates" className="btn-copper inline-flex items-center gap-2" data-testid="btn-view-cert">
+                    <Award className="w-4 h-4" /> View Certificate
+                  </Link>
+                  {nextModule ? (
+                    <Link to={`/modules/${nextModule.slug}`} className="btn-primary inline-flex items-center gap-2" data-testid="btn-next-module">
+                      Next: {nextModule.title} <ArrowRight className="w-4 h-4" />
+                    </Link>
+                  ) : (
+                    <Link to="/dashboard" className="btn-primary inline-flex items-center gap-2">
+                      Back to Dashboard <ArrowRight className="w-4 h-4" />
+                    </Link>
+                  )}
+                  <Link to="/modules" className="inline-flex items-center gap-2 text-sm font-bold text-ink/60 hover:text-copper px-3 py-2">
+                    <LayoutList className="w-4 h-4" /> All Modules
+                  </Link>
+                </div>
+              </div>
             )}
           </div>
         </div>
