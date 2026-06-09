@@ -1,5 +1,5 @@
-import { useState, useEffect } from "react";
-import { Link } from "react-router-dom";
+import { useState, useEffect, useRef } from "react";
+import { Link, useSearchParams } from "react-router-dom";
 import PublicNav from "../components/PublicNav";
 import BackButton from "../components/BackButton";
 import { api } from "../lib/api";
@@ -25,6 +25,9 @@ function PriceBadge({ cents }) {
 
 export default function Courses() {
   const { user } = useAuth();
+  const [searchParams] = useSearchParams();
+  const highlightId = searchParams.get("highlight");
+  const highlightRef = useRef(null);
   const [courses, setCourses] = useState([]);
   const [enrolledIds, setEnrolledIds] = useState(new Set());
   const [loading, setLoading] = useState(true);
@@ -127,8 +130,13 @@ export default function Courses() {
               const enrolled = enrolledIds.has(course.course_id);
               const isOwn = user && course.creator_id === user.id;
               const isBuying = buying === course.course_id;
+              const isHighlighted = course.course_id === highlightId;
               return (
-                <div key={course.course_id} className="card-flat p-5 flex flex-col gap-3">
+                <div
+                  key={course.course_id}
+                  ref={isHighlighted ? (el => { highlightRef.current = el; if (el) setTimeout(() => el.scrollIntoView({ behavior: "smooth", block: "center" }), 300); }) : null}
+                  className={`card-flat p-5 flex flex-col gap-3 transition-all ${isHighlighted ? "ring-2 ring-copper shadow-lg" : ""}`}
+                >
                   <div className="flex items-start justify-between gap-2">
                     <span className="text-xs text-ink/40 font-medium">
                       {CATEGORY_LABELS[course.category] || course.category}
