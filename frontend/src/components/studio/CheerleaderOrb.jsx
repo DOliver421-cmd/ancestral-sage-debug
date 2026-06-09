@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { api } from "../../lib/api";
 
 const HYPE_LINES = [
-  "Let's cook today. 🔥",
+  "Let's cook today.",
   "That idea is fire — clarify the hook.",
   "You're on a roll. Keep going.",
   "Pause. Breathe. You're overthinking.",
@@ -17,9 +17,18 @@ const HYPE_LINES = [
   "You're closer than you think.",
   "Big energy today. Let's channel it.",
   "I see what you're building. It's real.",
+  "Oh we COOKING today.",
+  "That idea is fire — but tighten the hook.",
+  "Let's build something legendary.",
+  "You're one session away from a breakthrough.",
+  "The greats didn't stop here.",
+  "Save that. That's gold.",
+  "Keep going. The world needs this.",
+  "This chamber holds your power.",
+  "Don't sleep on your own vision.",
 ];
 
-export default function CheerleaderOrb({ chamber }) {
+export default function CheerleaderOrb({ chamber, isFocused = false, isStuck = false, isDoingWell = false }) {
   const [message, setMessage] = useState(HYPE_LINES[Math.floor(Math.random() * HYPE_LINES.length)]);
   const [visible, setVisible] = useState(false);
   const [thinking, setThinking] = useState(false);
@@ -99,20 +108,33 @@ export default function CheerleaderOrb({ chamber }) {
           borderRadius: "50%",
           border: "none",
           cursor: "pointer",
-          background: "radial-gradient(circle at 35% 35%, #ffe066, #f59e0b, #b45309)",
-          boxShadow: pulse
+          background: isStuck
+            ? "radial-gradient(circle at 35% 35%, #fff, #f59e0b, #ef4444)"
+            : isDoingWell
+            ? "radial-gradient(circle at 35% 35%, #fff700, #ffd700, #b45309)"
+            : "radial-gradient(circle at 35% 35%, #ffe066, #f59e0b, #b45309)",
+          boxShadow: isFocused
+            ? "0 0 0 2px rgba(251,191,36,0.1)"
+            : isStuck
+            ? "0 0 0 12px rgba(239,68,68,0.15), 0 0 30px rgba(239,68,68,0.5), 0 0 60px rgba(239,68,68,0.3)"
+            : pulse
             ? "0 0 0 12px rgba(251,191,36,0.12), 0 0 30px rgba(251,191,36,0.6), 0 0 60px rgba(251,191,36,0.3)"
+            : isDoingWell
+            ? "0 0 0 6px rgba(255,215,0,0.2), 0 0 30px rgba(255,215,0,0.7)"
             : "0 0 0 4px rgba(251,191,36,0.15), 0 0 20px rgba(251,191,36,0.4)",
-          transition: "box-shadow 0.4s ease",
-          transform: pulse ? "scale(1.08)" : "scale(1)",
+          transition: "box-shadow 0.4s ease, transform 0.4s ease, opacity 0.4s ease",
+          transform: isStuck ? (pulse ? "scale(1.14)" : "scale(1.05)") : pulse ? "scale(1.08)" : "scale(1)",
+          opacity: isFocused ? 0.4 : 1,
           fontSize: 22,
           display: "flex", alignItems: "center", justifyContent: "center",
+          animation: isStuck ? "stuckSpark 0.2s ease-in-out infinite alternate" : "none",
         }}
         title="Your creative spirit guide"
         aria-label="Creative spirit guide"
       >
         ✦
       </button>
+      <style>{`@keyframes stuckSpark { from{filter:brightness(1)} to{filter:brightness(1.6)} }`}</style>
     </div>
   );
 }

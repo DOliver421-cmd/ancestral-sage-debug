@@ -5598,6 +5598,105 @@ async def studio_cheer(body: CheerBody):
     except Exception:
         return {"message": "Let's build something real today."}
 
+
+@api_router.post("/studio/altar")
+async def studio_altar(body: dict, user: User = Depends(current_user)):
+    descriptions = body.get("descriptions", [])
+    colors = body.get("colors", [])
+    notes = body.get("notes", "")
+    prompt = (
+        f"You are a visual creative director. Given these image descriptions: {descriptions} "
+        f"and color palette: {colors}, provide a visual direction paragraph (3-4 sentences) "
+        f"describing the aesthetic, mood, and visual language for this project. "
+        f"Be specific and evocative."
+        + (f" Additional notes: {notes}" if notes else "")
+    )
+    try:
+        from ai.llm_gateway import call_llm
+        result = await call_llm(
+            messages=[{"role": "user", "content": prompt}],
+            system="You are a world-class visual creative director. Give vivid, specific visual direction.",
+            persona_label="VisualDirector",
+        )
+        return {"direction": result.get("text", "A bold, cinematic visual identity awaits.")}
+    except Exception:
+        raise HTTPException(503, "Visual direction unavailable")
+
+
+@api_router.post("/studio/script")
+async def studio_script(body: dict, user: User = Depends(current_user)):
+    doc_type = body.get("type", "script")
+    title = body.get("title", "Untitled")
+    content = body.get("content", "")
+    if not content.strip():
+        raise HTTPException(400, "Content is required")
+    prompt = (
+        f'Polish this {doc_type} titled "{title}". '
+        f"Improve clarity, flow, and impact while preserving the creator's voice. "
+        f"Return ONLY the polished version, no commentary.\n\n{content}"
+    )
+    try:
+        from ai.llm_gateway import call_llm
+        result = await call_llm(
+            messages=[{"role": "user", "content": prompt}],
+            system="You are a professional script editor and literary polisher. Return only the improved text.",
+            persona_label="ScriptEditor",
+        )
+        return {"polished": result.get("text", content)}
+    except Exception:
+        raise HTTPException(503, "Script polish unavailable")
+
+
+@api_router.post("/studio/sound")
+async def studio_sound_blueprint(body: dict, user: User = Depends(current_user)):
+    bpm = body.get("bpm", 90)
+    key = body.get("key", "C")
+    mood = body.get("mood", [])
+    reference = body.get("reference", "")
+    prompt = (
+        f"You are a music producer. Create a sonic blueprint for a track with: "
+        f"BPM {bpm}, key {key}, mood {mood}, reference artist {reference}. "
+        f"Describe: drums pattern, bass style, melody approach, texture/atmosphere, sample suggestions. "
+        f"Be specific and technical. 200 words max."
+    )
+    try:
+        from ai.llm_gateway import call_llm
+        result = await call_llm(
+            messages=[{"role": "user", "content": prompt}],
+            system="You are a seasoned music producer with deep knowledge of beats, sound design, and arrangement.",
+            persona_label="SoundProducer",
+        )
+        return {"blueprint": result.get("text", "Sonic blueprint unavailable — try again.")}
+    except Exception:
+        raise HTTPException(503, "Sound blueprint unavailable")
+
+
+@api_router.post("/studio/sovereign")
+async def studio_sovereign(body: dict, user: User = Depends(current_user)):
+    chamber = body.get("chamber", "map")
+    message = body.get("message", "")
+    context = body.get("context", {})
+    if not message.strip():
+        raise HTTPException(400, "Message is required")
+    system = (
+        f"You are Sovereign, a wise and efficient AI assistant in the Creator's Sanctuary. "
+        f"You speak like a trusted advisor and general — direct, respectful, occasionally motivating. "
+        f"You reference the creator's current chamber ({chamber}) and context when relevant. "
+        f"Keep responses under 100 words. Address the user as 'Creator' or 'Boss'."
+    )
+    prompt = f"Context: {context}\nCreator says: {message}"
+    try:
+        from ai.llm_gateway import call_llm
+        result = await call_llm(
+            messages=[{"role": "user", "content": prompt}],
+            system=system,
+            persona_label="Sovereign",
+        )
+        return {"response": result.get("text", "I'm on it, Boss.")}
+    except Exception:
+        return {"response": "Give me a moment — I'll be right back."}
+
+
 # ─── VIRTUAL ARCADE ──────────────────────────────────────────────────────────
 
 ARCADE_CATALOG = [
