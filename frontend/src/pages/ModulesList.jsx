@@ -38,7 +38,7 @@ export default function ModulesList() {
             return (
               <div key={m.slug} className="card-flat p-6 group relative" data-testid={`mod-card-${m.slug}`}>
                 {isLocked && (
-                  <div className="absolute inset-0 bg-white/60 backdrop-blur-[1px] rounded-2xl z-10 flex items-center justify-center">
+                  <div className="absolute inset-0 bg-white/60 backdrop-blur-[1px] rounded-2xl z-10 flex items-center justify-center pointer-events-none">
                     <div className="text-center">
                       <Lock className="w-6 h-6 text-ink/30 mx-auto mb-2" />
                       <div className="text-sm font-bold text-ink/50">Sign up to unlock</div>
