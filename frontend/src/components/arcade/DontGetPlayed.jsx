@@ -93,7 +93,7 @@ export default function DontGetPlayed({ onGameEnd }) {
         <div style={{ color: "white", marginBottom: "0.5rem" }}>Smart choices: <span style={{ color: "#22c55e" }}>{good}/{SCENARIOS.length}</span></div>
         <div style={{ color: "white", marginBottom: "0.5rem" }}>Money saved: <span style={{ color: "#ffd700" }}>${money}</span></div>
         <div style={{ color: "#ffd700", fontSize: "1.8rem", fontWeight: 900, marginTop: "1rem" }}>SCORE: {finalScore.toLocaleString()}</div>
-        <p style={{ color: "rgba(255,255,255,0.5)", fontSize: "0.75rem", marginTop: "1rem", lineHeight: 1.6 }}>
+        <p style={{ color: "rgba(255,255,255,0.85)", fontSize: "0.75rem", marginTop: "1rem", lineHeight: 1.6 }}>
           Predatory financial products cost Black and Brown families billions annually. Knowledge is the first defense. Share this game.
         </p>
       </div>
@@ -112,7 +112,7 @@ export default function DontGetPlayed({ onGameEnd }) {
       {/* Scenario */}
       <div style={{ background: "rgba(184,134,11,0.05)", border: "1px solid rgba(184,134,11,0.3)", padding: "1.5rem" }}>
         <div style={{ color: "#ffd700", fontWeight: 900, marginBottom: "0.75rem" }}>▶ {scenario.title}</div>
-        <p style={{ color: "rgba(255,255,255,0.8)", lineHeight: 1.7, fontSize: "0.9rem" }}>{scenario.situation}</p>
+        <p style={{ color: "rgba(255,255,255,0.95)", lineHeight: 1.7, fontSize: "0.9rem" }}>{scenario.situation}</p>
       </div>
 
       {/* Options */}
@@ -147,7 +147,7 @@ export default function DontGetPlayed({ onGameEnd }) {
                 {showResult ? (opt.good ? "✓ " : "✗ ") : `${String.fromCharCode(65 + i)}. `}{opt.text}
               </div>
               {showResult && (
-                <div style={{ color: "rgba(255,255,255,0.6)", fontSize: "0.75rem", marginTop: "0.5rem", lineHeight: 1.6 }}>
+                <div style={{ color: "rgba(255,255,255,0.9)", fontSize: "0.75rem", marginTop: "0.5rem", lineHeight: 1.6 }}>
                   {opt.explanation}
                   {opt.moneyEffect !== 0 && (
                     <span style={{ color: opt.moneyEffect > 0 ? "#22c55e" : "#ef4444", fontWeight: 700, marginLeft: "0.5rem" }}>

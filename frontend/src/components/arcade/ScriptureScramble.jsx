@@ -106,7 +106,7 @@ export default function ScriptureScramble({ onGameEnd }) {
       </div>
 
       {/* Instruction */}
-      <div style={{ color: "rgba(255,255,255,0.5)", fontSize: "0.75rem" }}>
+      <div style={{ color: "rgba(255,255,255,0.85)", fontSize: "0.75rem" }}>
         Build the verse in order — tap words to move them between bank and answer.
       </div>
 
@@ -143,7 +143,7 @@ export default function ScriptureScramble({ onGameEnd }) {
               {word}
             </button>
           ))}
-          {tray.length === 0 && <span style={{ color: "rgba(255,255,255,0.2)", fontSize: "0.75rem" }}>Tap words below to build the verse...</span>}
+          {tray.length === 0 && <span style={{ color: "rgba(255,255,255,0.65)", fontSize: "0.75rem" }}>Tap words below to build the verse...</span>}
         </div>
         {correct !== null && (
           <div style={{ color: correct ? "#22c55e" : "#ef4444", fontSize: "0.8rem", marginTop: "0.5rem", fontWeight: 700 }}>
@@ -161,9 +161,9 @@ export default function ScriptureScramble({ onGameEnd }) {
               key={`${word}-${i}`}
               onClick={() => moveToTray(word, i)}
               style={{
-                background: "rgba(255,255,255,0.07)",
-                color: "rgba(255,255,255,0.8)",
-                border: "1px solid rgba(255,255,255,0.15)",
+                background: "rgba(255,255,255,0.14)",
+                color: "#ffffff",
+                border: "1px solid rgba(255,255,255,0.4)",
                 padding: "0.3rem 0.6rem",
                 fontFamily: "monospace",
                 fontWeight: 600,

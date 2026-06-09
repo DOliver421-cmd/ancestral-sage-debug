@@ -116,7 +116,7 @@ export default function DrumBuilder({ onGameEnd }) {
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "1.5rem", flexWrap: "wrap", gap: "1rem" }}>
         <div>
           <div style={{ color: "#ffd700", fontWeight: 900, fontSize: "1.1rem" }}>🥁 DRUM BUILDER</div>
-          <div style={{ color: "rgba(255,255,255,0.4)", fontSize: "0.7rem", marginTop: "0.25rem" }}>West African 8-Step Sequencer</div>
+          <div style={{ color: "rgba(255,255,255,0.8)", fontSize: "0.7rem", marginTop: "0.25rem" }}>West African 8-Step Sequencer</div>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
           <div>
@@ -140,7 +140,7 @@ export default function DrumBuilder({ onGameEnd }) {
           <div key={i} style={{
             textAlign: "center",
             fontSize: "0.6rem",
-            color: currentStep === i ? "#ffd700" : "rgba(255,255,255,0.2)",
+            color: currentStep === i ? "#ffd700" : "rgba(255,255,255,0.6)",
             fontWeight: currentStep === i ? 900 : 400,
             transition: "color 0.05s",
           }}>
@@ -197,7 +197,7 @@ export default function DrumBuilder({ onGameEnd }) {
         )}
         <button
           onClick={clearGrid}
-          style={{ background: "transparent", color: "rgba(255,255,255,0.4)", border: "1px solid rgba(255,255,255,0.15)", padding: "0.6rem 1rem", fontFamily: "monospace", fontWeight: 700, fontSize: "0.8rem", cursor: "pointer" }}
+          style={{ background: "transparent", color: "rgba(255,255,255,0.8)", border: "1px solid rgba(255,255,255,0.15)", padding: "0.6rem 1rem", fontFamily: "monospace", fontWeight: 700, fontSize: "0.8rem", cursor: "pointer" }}
         >
           CLEAR
         </button>
@@ -210,7 +210,7 @@ export default function DrumBuilder({ onGameEnd }) {
         </button>
       </div>
 
-      <p style={{ color: "rgba(255,255,255,0.25)", fontSize: "0.65rem", marginTop: "1rem", lineHeight: 1.6 }}>
+      <p style={{ color: "rgba(255,255,255,0.7)", fontSize: "0.65rem", marginTop: "1rem", lineHeight: 1.6 }}>
         The djembe originated in West Africa. Rhythm is language — these patterns have been passed down for thousands of years.
       </p>
     </div>

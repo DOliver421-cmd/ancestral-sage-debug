@@ -88,7 +88,7 @@ export default function BlackWallStreet({ onGameEnd }) {
           <div style={{ color: "white", marginBottom: "0.5rem" }}>Community Treasury: <span style={{ color: "#ffd700" }}>${state.money}</span></div>
           <div style={{ color: "white", marginBottom: "1.5rem" }}>Community Trust: <span style={{ color: "#22c55e" }}>{state.trust}%</span></div>
           <div style={{ color: "#ffd700", fontSize: "2rem", fontWeight: 900 }}>SCORE: {finalScore.toLocaleString()}</div>
-          <p style={{ color: "rgba(255,255,255,0.5)", fontSize: "0.75rem", marginTop: "1rem", lineHeight: 1.6 }}>
+          <p style={{ color: "rgba(255,255,255,0.85)", fontSize: "0.75rem", marginTop: "1rem", lineHeight: 1.6 }}>
             "On May 31, 1921, the Greenwood District of Tulsa, Oklahoma — the wealthiest Black community in America — was burned to the ground by a white mob. Over 35 blocks destroyed. 300 lives lost. 10,000 left homeless. They could not burn the memory."
           </p>
         </div>
@@ -138,10 +138,10 @@ export default function BlackWallStreet({ onGameEnd }) {
                   transition: "all 0.2s",
                 }}
               >
-                <div style={{ color: owned ? "#22c55e" : canAfford ? "#ffd700" : "rgba(255,255,255,0.3)", fontWeight: 900, fontSize: "0.85rem" }}>
+                <div style={{ color: owned ? "#22c55e" : canAfford ? "#ffd700" : "rgba(255,255,255,0.55)", fontWeight: 900, fontSize: "0.85rem" }}>
                   {owned ? "✓ " : ""}{b.name}
                 </div>
-                <div style={{ color: "rgba(255,255,255,0.5)", fontSize: "0.7rem", marginTop: "0.25rem" }}>{b.desc}</div>
+                <div style={{ color: "rgba(255,255,255,0.85)", fontSize: "0.7rem", marginTop: "0.25rem" }}>{b.desc}</div>
                 <div style={{ marginTop: "0.5rem", fontSize: "0.7rem", display: "flex", gap: "1rem" }}>
                   <span style={{ color: "#ef4444" }}>Cost: ${b.cost}</span>
                   <span style={{ color: "#22c55e" }}>+${b.income}/turn</span>
@@ -157,7 +157,7 @@ export default function BlackWallStreet({ onGameEnd }) {
       {state.eventLog.length > 0 && (
         <div style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.08)", padding: "1rem" }}>
           <div style={{ color: "#b8860b", fontSize: "0.7rem", marginBottom: "0.5rem" }}>LAST EVENT</div>
-          <div style={{ color: "rgba(255,255,255,0.7)", fontSize: "0.8rem", lineHeight: 1.5 }}>{state.eventLog[0].text}</div>
+          <div style={{ color: "rgba(255,255,255,0.9)", fontSize: "0.8rem", lineHeight: 1.5 }}>{state.eventLog[0].text}</div>
           <div style={{ marginTop: "0.5rem", fontSize: "0.7rem", display: "flex", gap: "1rem" }}>
             <span style={{ color: "#22c55e" }}>Income: +${state.eventLog[0].income}</span>
             <span style={{ color: state.eventLog[0].moneyEffect >= 0 ? "#22c55e" : "#ef4444" }}>
@@ -194,8 +194,8 @@ export default function BlackWallStreet({ onGameEnd }) {
             onClick={handleEnd}
             style={{
               background: "transparent",
-              color: "rgba(255,255,255,0.4)",
-              border: "1px solid rgba(255,255,255,0.2)",
+              color: "rgba(255,255,255,0.75)",
+              border: "1px solid rgba(255,255,255,0.4)",
               padding: "0.75rem 1.5rem",
               fontFamily: "monospace",
               fontWeight: 700,
