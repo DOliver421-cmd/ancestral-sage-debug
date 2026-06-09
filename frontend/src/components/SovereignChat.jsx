@@ -1,27 +1,69 @@
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 import { useAuth } from "../lib/auth";
 import { api, BACKEND_URL } from "../lib/api";
 import SovereignAvatar from "./SovereignAvatar";
-import { Send, X, Mic, MicOff, Volume2, VolumeX } from "lucide-react";
+import { Send, X, Mic, MicOff, Volume2, VolumeX, Paperclip, Music, FileText, Image, Trash2 } from "lucide-react";
 import { useMic } from "../hooks/useMic";
+import { toast } from "sonner";
 
-// Executive-only "Summon The Sovereign" launcher + resizable chat panel.
-// Wired to POST /api/sovereign/chat (exec-gated on the backend). Renders nothing
-// for non-exec users — members use the AI Tutor instead. Floats bottom-left so it
-// never collides with the bottom-anchored Director widget.
+const STORAGE_KEY = "sovereign_chat_history";
+const MAX_STORED  = 40;
+
+function loadHistory() {
+  try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]"); } catch { return []; }
+}
+function saveHistory(msgs) {
+  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(msgs.slice(-MAX_STORED))); } catch (_e) {}
+}
+
+function FileChip({ file, onRemove, onPlay, playing }) {
+  const isAudio = file.is_audio || file.content_type?.startsWith("audio/");
+  return (
+    <div style={{
+      display: "flex", alignItems: "center", gap: 6, padding: "4px 10px",
+      background: "rgba(212,175,55,0.12)", border: "1px solid var(--wai-gold)",
+      borderRadius: 20, fontSize: 12, color: "var(--wai-gold-light)", maxWidth: "100%",
+    }}>
+      {isAudio ? <Music style={{ width: 12, height: 12, flexShrink: 0 }} />
+        : file.content_type?.startsWith("image/") ? <Image style={{ width: 12, height: 12, flexShrink: 0 }} />
+        : <FileText style={{ width: 12, height: 12, flexShrink: 0 }} />}
+      <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 140 }}>{file.filename}</span>
+      {isAudio && (
+        <button type="button" onClick={() => onPlay(file)}
+          style={{ background: "none", border: "none", cursor: "pointer", color: "var(--wai-gold)", padding: 0, fontSize: 13 }}
+          title={playing ? "Pause" : "Play"}>
+          {playing ? "⏸" : "▶"}
+        </button>
+      )}
+      <button type="button" onClick={() => onRemove(file.file_id)}
+        style={{ background: "none", border: "none", cursor: "pointer", color: "rgba(255,255,255,0.4)", padding: 0 }}>
+        <X style={{ width: 11, height: 11 }} />
+      </button>
+    </div>
+  );
+}
+
 export default function SovereignChat() {
   const { user } = useAuth();
-  const [open, setOpen]       = useState(false);
-  const [messages, setMessages] = useState([]);
-  const [input, setInput]     = useState("");
-  const [sending, setSending] = useState(false);
+  const [open, setOpen]         = useState(false);
+  const [messages, setMessages] = useState(loadHistory);
+  const [input, setInput]       = useState("");
+  const [sending, setSending]   = useState(false);
+  const [audioOn, setAudioOn]   = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [attachedFiles, setAttachedFiles] = useState([]);
+  const [playingId, setPlayingId] = useState(null);
 
-  // Audio state
-  const [audioOn, setAudioOn] = useState(false);
+  const speakAudioRef  = useRef(null);
+  const speakAbortRef  = useRef(null);
+  const trackAudioRef  = useRef(null);
+  const fileInputRef   = useRef(null);
+  const messagesEndRef = useRef(null);
 
-  // Refs
-  const speakAudioRef = useRef(null);
-  const speakAbortRef = useRef(null);
+  useEffect(() => { saveHistory(messages); }, [messages]);
+  useEffect(() => {
+    if (open) messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages, open]);
 
   // ── TTS ─────────────────────────────────────────────────────────────────────
   const speak = useCallback(async (text) => {
@@ -38,13 +80,10 @@ export default function SovereignChat() {
         body: JSON.stringify({ text: text.slice(0, 1500), voice: "onyx", speed: 1.0, session_id: "sovereign" }),
         signal: controller.signal,
       });
-      if (!r.ok) {
-        _browserSpeak(text);
-        return;
-      }
+      if (!r.ok) { _browserSpeak(text); return; }
       const blob = await r.blob();
       if (!blob.size) { _browserSpeak(text); return; }
-      const url  = URL.createObjectURL(blob);
+      const url = URL.createObjectURL(blob);
       const audio = new Audio(url);
       speakAudioRef.current = audio;
       audio.onended = () => { URL.revokeObjectURL(url); speakAudioRef.current = null; };
@@ -67,11 +106,63 @@ export default function SovereignChat() {
     if (speakAudioRef.current) { speakAudioRef.current.pause(); speakAudioRef.current = null; }
   }, []);
 
+  // ── Track playback ───────────────────────────────────────────────────────────
+  const playTrack = useCallback((file) => {
+    if (playingId === file.file_id) {
+      trackAudioRef.current?.pause();
+      setPlayingId(null);
+      return;
+    }
+    if (trackAudioRef.current) { trackAudioRef.current.pause(); trackAudioRef.current = null; }
+    if (!file.objectUrl) { toast.error("Track URL not available — re-upload to play."); return; }
+    const audio = new Audio(file.objectUrl);
+    trackAudioRef.current = audio;
+    setPlayingId(file.file_id);
+    audio.onended = () => setPlayingId(null);
+    audio.onerror = () => { setPlayingId(null); toast.error("Could not play track."); };
+    audio.play().catch(() => setPlayingId(null));
+  }, [playingId]);
+
   // ── STT ─────────────────────────────────────────────────────────────────────
   const { listening: recording, toggle: toggleMic } = useMic({
     onResult: (txt) => setInput((cur) => cur ? `${cur} ${txt}` : txt),
     onError:  () => {},
   });
+
+  // ── File upload ──────────────────────────────────────────────────────────────
+  const handleFileChange = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploading(true);
+    try {
+      const form = new FormData();
+      form.append("file", file);
+      const r = await api.post("/sovereign/upload", form, {
+        headers: { "Content-Type": "multipart/form-data" },
+      });
+      const data = r.data;
+      const fileEntry = { ...data };
+      if (data.is_audio) {
+        fileEntry.objectUrl = URL.createObjectURL(file);
+      }
+      setAttachedFiles((prev) => [...prev, fileEntry]);
+      toast.success(`${data.filename} attached`);
+    } catch (err) {
+      toast.error(err?.response?.data?.detail || "Upload failed");
+    } finally {
+      setUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  };
+
+  const removeFile = (file_id) => {
+    setAttachedFiles((prev) => {
+      const f = prev.find(x => x.file_id === file_id);
+      if (f?.objectUrl) URL.revokeObjectURL(f.objectUrl);
+      return prev.filter(x => x.file_id !== file_id);
+    });
+    if (playingId === file_id) { trackAudioRef.current?.pause(); setPlayingId(null); }
+  };
 
   if (user?.role !== "executive_admin") return null;
 
@@ -80,18 +171,39 @@ export default function SovereignChat() {
     e.preventDefault();
     const msg = input.trim();
     if (!msg || sending) return;
-    setMessages((m) => [...m, { role: "user", text: msg }]);
+
+    const fileNote = attachedFiles.length
+      ? `\n\n[Attached: ${attachedFiles.map(f => f.filename).join(", ")}]`
+      : "";
+    const displayMsg = msg + fileNote;
+
+    setMessages((m) => [...m, { role: "user", text: displayMsg }]);
     setInput("");
     setSending(true);
+
+    const payload = {
+      message: attachedFiles.length
+        ? `${msg}\n\n[FILES: ${attachedFiles.map(f => `${f.filename} (id:${f.file_id}${f.is_audio ? ", AUDIO TRACK" : ""})`).join("; ")}]`
+        : msg,
+    };
+    setAttachedFiles([]);
+
     try {
-      const r = await api.post("/sovereign/chat", { message: msg });
+      const r = await api.post("/sovereign/chat", payload);
       const reply = r.data?.reply || "…";
       setMessages((m) => [...m, { role: "sovereign", text: reply }]);
       speak(reply);
-    } catch {
+    } catch (_e) {
       setMessages((m) => [...m, { role: "sovereign", text: "(The Sovereign is unavailable right now — try again shortly.)" }]);
     } finally {
       setSending(false);
+    }
+  };
+
+  const clearHistory = () => {
+    if (window.confirm("Clear conversation history?")) {
+      setMessages([]);
+      localStorage.removeItem(STORAGE_KEY);
     }
   };
 
@@ -113,8 +225,8 @@ export default function SovereignChat() {
       className="fixed bottom-6 left-6 flex flex-col rounded-2xl overflow-hidden shadow-2xl"
       style={{
         zIndex: 1400,
-        width: "min(420px, calc(100vw - 3rem))",
-        height: "min(560px, calc(100vh - 3rem))",
+        width: "min(460px, calc(100vw - 3rem))",
+        height: "min(620px, calc(100vh - 3rem))",
         background: "var(--wai-navy)",
         border: "1px solid var(--wai-gold)",
         resize: "both",
@@ -122,33 +234,23 @@ export default function SovereignChat() {
       data-testid="sovereign-panel"
     >
       {/* Header */}
-      <div className="flex items-center justify-between px-4 py-3" style={{ background: "var(--wai-emerald)" }}>
+      <div className="flex items-center justify-between px-4 py-3" style={{ background: "var(--wai-emerald)", flexShrink: 0 }}>
         <div className="flex items-center gap-2" style={{ color: "var(--wai-gold-light)" }}>
           <SovereignAvatar size={32} />
           <span className="font-heading font-bold">The Sovereign</span>
         </div>
         <div className="flex items-center gap-2">
-          {/* Voice output toggle */}
+          <button onClick={clearHistory} title="Clear history"
+            style={{ background: "rgba(255,255,255,0.1)", border: "none", borderRadius: "50%", width: 30, height: 30, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "var(--wai-gold-light)" }}>
+            <Trash2 style={{ width: 13, height: 13 }} />
+          </button>
           <button
             onClick={() => { setAudioOn((v) => !v); if (audioOn) stopAudio(); }}
-            title={audioOn ? "Voice ON — click to mute" : "Voice OFF — click to unmute"}
-            aria-label={audioOn ? "Mute voice output" : "Enable voice output"}
-            style={{
-              background: audioOn ? "var(--wai-gold)" : "rgba(255,255,255,0.15)",
-              border: "none",
-              borderRadius: "50%",
-              width: 30,
-              height: 30,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              cursor: "pointer",
-              color: audioOn ? "#1a1100" : "var(--wai-gold-light)",
-            }}
-          >
+            title={audioOn ? "Voice ON — click to mute" : "Voice OFF"}
+            style={{ background: audioOn ? "var(--wai-gold)" : "rgba(255,255,255,0.15)", border: "none", borderRadius: "50%", width: 30, height: 30, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: audioOn ? "#1a1100" : "var(--wai-gold-light)" }}>
             {audioOn ? <Volume2 style={{ width: 14, height: 14 }} /> : <VolumeX style={{ width: 14, height: 14 }} />}
           </button>
-          <button onClick={() => { setOpen(false); stopAudio(); }} aria-label="Close" style={{ color: "var(--wai-gold-light)" }}>
+          <button onClick={() => { setOpen(false); stopAudio(); }} aria-label="Close" style={{ color: "var(--wai-gold-light)", background: "none", border: "none", cursor: "pointer" }}>
             <X className="w-5 h-5" />
           </button>
         </div>
@@ -158,7 +260,7 @@ export default function SovereignChat() {
       <div className="flex-1 overflow-y-auto p-4 space-y-3" style={{ color: "var(--wai-text)" }}>
         {messages.length === 0 && (
           <div className="text-sm" style={{ color: "var(--wai-muted)" }}>
-            Your sovereign self — booking, revenue, and counsel. Speak, and he answers.
+            Your sovereign self — booking, revenue, counsel, and catalog management. Speak or send files.
           </div>
         )}
         {messages.map((m, i) => (
@@ -173,11 +275,8 @@ export default function SovereignChat() {
             >
               {m.text}
               {m.role === "sovereign" && (
-                <button
-                  onClick={() => speak(m.text)}
-                  title="Read aloud"
-                  style={{ background: "none", border: "none", cursor: "pointer", fontSize: 12, opacity: 0.5, marginLeft: 6, padding: 0, verticalAlign: "middle" }}
-                >
+                <button onClick={() => speak(m.text)} title="Read aloud"
+                  style={{ background: "none", border: "none", cursor: "pointer", fontSize: 12, opacity: 0.5, marginLeft: 6, padding: 0, verticalAlign: "middle" }}>
                   🔊
                 </button>
               )}
@@ -185,29 +284,44 @@ export default function SovereignChat() {
           </div>
         ))}
         {sending && <div className="text-xs" style={{ color: "var(--wai-muted)" }}>The Sovereign is considering…</div>}
+        <div ref={messagesEndRef} />
       </div>
 
+      {/* Attached files */}
+      {attachedFiles.length > 0 && (
+        <div style={{ padding: "6px 12px", borderTop: "1px solid var(--wai-border)", display: "flex", flexWrap: "wrap", gap: 6, flexShrink: 0 }}>
+          {attachedFiles.map((f) => (
+            <FileChip key={f.file_id} file={f} onRemove={removeFile} onPlay={playTrack} playing={playingId === f.file_id} />
+          ))}
+        </div>
+      )}
+
       {/* Input bar */}
-      <form onSubmit={send} className="p-3 flex gap-2" style={{ borderTop: "1px solid var(--wai-border)" }}>
-        {/* Mic button */}
+      <form onSubmit={send} className="p-3 flex gap-2" style={{ borderTop: "1px solid var(--wai-border)", flexShrink: 0 }}>
+        {/* File upload */}
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept=".pdf,.txt,.md,.jpg,.jpeg,.png,.webp,.mp3,.m4a,.wav,.ogg"
+          style={{ display: "none" }}
+          onChange={handleFileChange}
+        />
+        <button
+          type="button"
+          onClick={() => fileInputRef.current?.click()}
+          disabled={uploading}
+          title="Attach file (PDF, TXT, image, MP3)"
+          style={{ background: uploading ? "rgba(212,175,55,0.3)" : "rgba(255,255,255,0.1)", border: "none", borderRadius: 8, padding: "0 10px", cursor: "pointer", color: "var(--wai-gold-light)", flexShrink: 0 }}>
+          {uploading ? "⏳" : <Paperclip style={{ width: 15, height: 15 }} />}
+        </button>
+
+        {/* Mic */}
         <button
           type="button"
           onClick={toggleMic}
           title={recording ? "Stop dictation" : "Voice input"}
-          aria-label={recording ? "Stop dictation" : "Dictate message"}
-          style={{
-            background: recording ? "#dc2626" : "rgba(255,255,255,0.1)",
-            border: "none",
-            borderRadius: 8,
-            padding: "0 10px",
-            cursor: "pointer",
-            color: recording ? "#fff" : "var(--wai-gold-light)",
-            flexShrink: 0,
-          }}
-        >
-          {recording
-            ? <MicOff style={{ width: 15, height: 15 }} />
-            : <Mic    style={{ width: 15, height: 15 }} />}
+          style={{ background: recording ? "#dc2626" : "rgba(255,255,255,0.1)", border: "none", borderRadius: 8, padding: "0 10px", cursor: "pointer", color: recording ? "#fff" : "var(--wai-gold-light)", flexShrink: 0 }}>
+          {recording ? <MicOff style={{ width: 15, height: 15 }} /> : <Mic style={{ width: 15, height: 15 }} />}
         </button>
 
         <input
@@ -215,15 +329,14 @@ export default function SovereignChat() {
           onChange={(e) => setInput(e.target.value)}
           placeholder={recording ? "Listening…" : "Ask The Sovereign…"}
           data-testid="sovereign-input"
-          style={{ background: "var(--wai-dark)", color: "var(--wai-text)", border: "1px solid var(--wai-border)", borderRadius: 8, padding: "0.5rem 0.75rem", flex: 1 }}
+          style={{ background: "var(--wai-dark)", color: "var(--wai-text)", border: "1px solid var(--wai-border)", borderRadius: 8, padding: "0.5rem 0.75rem", flex: 1, minWidth: 0 }}
         />
         <button
           type="submit"
           disabled={sending}
           data-testid="sovereign-send"
           className="px-3 rounded-lg font-bold disabled:opacity-50"
-          style={{ background: "var(--wai-gold)", color: "#1a1100" }}
-        >
+          style={{ background: "var(--wai-gold)", color: "#1a1100", flexShrink: 0 }}>
           <Send className="w-4 h-4" />
         </button>
       </form>

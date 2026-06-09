@@ -10489,6 +10489,59 @@ try:
         puzzle_id: str
         answer: str
 
+    @api_router.post("/sovereign/upload")
+    async def sovereign_upload_file(
+        file: UploadFile = File(...),
+        user: User = Depends(require_role("executive_admin")),
+    ):
+        """Accept a file upload for The Sovereign — PDF, TXT, images, MP3.
+        Stores content/metadata in MongoDB with 24-hour TTL.
+        Returns file_id + filename for use in subsequent chat messages.
+        """
+        import os as _os
+        MAX_SIZE = 10 * 1024 * 1024  # 10 MB for audio files
+        raw = await file.read()
+        if len(raw) > MAX_SIZE:
+            raise HTTPException(413, "File too large. Maximum 10 MB.")
+
+        file_id = str(uuid.uuid4())
+        filename = file.filename or "upload"
+        filename = _os.path.basename(filename)
+        filename = "".join(c for c in filename if c.isalnum() or c in ".-_ ")
+        filename = filename.strip() or "upload"
+        ct = file.content_type or "application/octet-stream"
+
+        is_audio = ct.startswith("audio/") or filename.lower().endswith(".mp3")
+        is_binary = False
+        content = ""
+        audio_b64 = ""
+
+        if is_audio:
+            import base64 as _b64
+            audio_b64 = _b64.b64encode(raw).decode("utf-8")
+            is_binary = True
+        else:
+            try:
+                content = raw.decode("utf-8")
+            except UnicodeDecodeError:
+                import base64 as _b64
+                content = _b64.b64encode(raw).decode("utf-8")
+                is_binary = True
+
+        expires_at = datetime.now(timezone.utc) + timedelta(hours=24)
+        await db.sovereign_uploads.insert_one({
+            "id":           file_id,
+            "user_id":      user.id,
+            "filename":     filename,
+            "content_type": ct,
+            "content":      content,
+            "audio_b64":    audio_b64,
+            "is_binary":    is_binary,
+            "is_audio":     is_audio,
+            "expires_at":   expires_at,
+        })
+        return {"file_id": file_id, "filename": filename, "is_audio": is_audio, "content_type": ct}
+
     @api_router.post("/sovereign/chat")
     async def sovereign_chat(body: _SovereignChatBody, user: User = Depends(require_role("executive_admin"))):
         """Talk to The Sovereign — executive-only, Director-supervised, memory-aware."""
