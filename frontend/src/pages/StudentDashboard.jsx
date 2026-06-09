@@ -3,7 +3,7 @@ import AppShell from "../components/AppShell";
 import { api } from "../lib/api";
 import { Link } from "react-router-dom";
 import { useAuth } from "../lib/auth";
-import { ArrowRight, Award, BookOpen, Clock, Flame, Zap, AlertTriangle, RefreshCw } from "lucide-react";
+import { ArrowRight, Award, BookOpen, Clock, Flame, Zap, AlertTriangle, RefreshCw, Gamepad2 } from "lucide-react";
 import PuzzleCard from "../components/PuzzleCard";
 import PartnershipProgress from "../components/PartnershipProgress";
 import SovereignAvatar from "../components/SovereignAvatar";
@@ -84,6 +84,31 @@ export default function StudentDashboard() {
             </Link>
           )}
         </div>
+
+        {/* Arcade button */}
+        <Link
+          to="/arcade"
+          data-testid="btn-arcade"
+          className="flex items-center gap-4 mb-8 px-6 py-4 no-underline transition-all hover:opacity-90"
+          style={{
+            background: "linear-gradient(135deg, #0a0a0f, #1a0800)",
+            border: "2px solid #b8860b",
+            boxShadow: "0 0 20px rgba(184,134,11,0.35), inset 0 0 30px rgba(184,134,11,0.05)",
+          }}
+        >
+          <Gamepad2 style={{ color: "#ffd700", width: 28, height: 28, flexShrink: 0, filter: "drop-shadow(0 0 6px rgba(255,215,0,0.6))" }} />
+          <div>
+            <div style={{ fontFamily: "monospace", fontSize: "1.1rem", fontWeight: 900, color: "#ffd700", letterSpacing: "0.1em", textShadow: "0 0 10px rgba(255,215,0,0.5)", lineHeight: 1.2 }}>
+              ▶ THE ARCADE
+            </div>
+            <div style={{ fontFamily: "monospace", fontSize: "0.7rem", color: "rgba(184,134,11,0.8)", letterSpacing: "0.05em", marginTop: 2 }}>
+              FREE · MISSION-ALIGNED GAMES · EARN XP
+            </div>
+          </div>
+          <div style={{ marginLeft: "auto", fontFamily: "monospace", fontSize: "0.7rem", color: "rgba(255,215,0,0.5)", letterSpacing: "0.05em" }}>
+            INSERT COIN ▶
+          </div>
+        </Link>
 
         {/* Stats */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-5 mb-10">

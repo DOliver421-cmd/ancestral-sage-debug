@@ -1,7 +1,7 @@
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../lib/auth";
 import { WAI_LOGO, BRAND } from "../lib/brand";
-import { LayoutDashboard, BookOpen, Award, Users, Settings, Sparkles, LogOut, FlaskConical, Target, ClipboardCheck, Briefcase, BadgeCheck, Brain, ShieldCheck, Shield, Building2, TrendingUp, ScrollText, Calendar, ShieldAlert, KeyRound, Crown, Compass, HelpCircle, Layers, HandHelping, Scale, Trophy, Network, ShoppingBag, Heart, Receipt, Video, DollarSign, UserCircle, WifiOff } from "lucide-react";
+import { LayoutDashboard, BookOpen, Award, Users, Settings, Sparkles, LogOut, FlaskConical, Target, ClipboardCheck, Briefcase, BadgeCheck, Brain, ShieldCheck, Shield, Building2, TrendingUp, ScrollText, Calendar, ShieldAlert, KeyRound, Crown, Compass, HelpCircle, Layers, HandHelping, Scale, Trophy, Network, ShoppingBag, Heart, Receipt, Video, DollarSign, UserCircle, WifiOff, Gamepad2 } from "lucide-react";
 import NotificationBell from "./NotificationBell";
 import { useEffect, useState } from "react";
 
@@ -22,6 +22,7 @@ const studentNav = [
   { to: "/portfolio", label: "Portfolio", icon: Briefcase, testid: "nav-portfolio" },
   { to: "/incidents", label: "Report Incident", icon: ShieldAlert, testid: "nav-incidents" },
   { to: "/leaderboard", label: "XP Leaderboard", icon: Trophy, testid: "nav-leaderboard" },
+  { to: "/arcade", label: "The Arcade", icon: Gamepad2, testid: "nav-arcade" },
   { to: "/ai", label: "AI Tutor", icon: Sparkles, testid: "nav-ai" },
   { to: "/council", label: "Council (Sage)", icon: Layers, testid: "nav-council" },
   { to: "/app/more", label: "M.O.R.E. Hub", icon: HandHelping, testid: "nav-more" },
@@ -43,6 +44,7 @@ const instructorNav = [
   { to: "/attendance", label: "Attendance", icon: Calendar, testid: "nav-attendance" },
   { to: "/incidents", label: "Incidents", icon: ShieldAlert, testid: "nav-incidents" },
   { to: "/leaderboard", label: "XP Leaderboard", icon: Trophy, testid: "nav-leaderboard" },
+  { to: "/arcade", label: "The Arcade", icon: Gamepad2, testid: "nav-arcade" },
   { to: "/modules", label: "Curriculum", icon: BookOpen, testid: "nav-modules" },
   { to: "/compliance", label: "Compliance", icon: ShieldCheck, testid: "nav-compliance" },
   { to: "/labs", label: "Workforce Labs", icon: FlaskConical, testid: "nav-labs" },
@@ -143,6 +145,27 @@ export default function AppShell({ children }) {
         </nav>
 
         <div className="px-4 pb-2">
+          <Link
+            to="/arcade"
+            data-testid="nav-arcade-btn"
+            className="flex items-center gap-3 w-full mb-2 px-4 py-3 no-underline transition-all hover:opacity-90"
+            style={{
+              background: "linear-gradient(135deg, #0a0a0f, #1a0800)",
+              border: "2px solid #b8860b",
+              boxShadow: "0 0 12px rgba(184,134,11,0.4), inset 0 0 20px rgba(184,134,11,0.05)",
+              textDecoration: "none",
+            }}
+          >
+            <Gamepad2 style={{ color: "#ffd700", width: 18, height: 18, flexShrink: 0 }} />
+            <div>
+              <div style={{ fontSize: 13, fontWeight: 900, color: "#ffd700", fontFamily: "monospace", letterSpacing: "0.08em", textShadow: "0 0 8px rgba(255,215,0,0.5)", lineHeight: 1.2 }}>
+                THE ARCADE
+              </div>
+              <div style={{ fontSize: 10, color: "rgba(184,134,11,0.8)", fontFamily: "monospace", letterSpacing: "0.05em" }}>
+                FREE · EARN XP · PLAY NOW
+              </div>
+            </div>
+          </Link>
           <Link
             to="/wai-institute"
             data-testid="nav-wai-institute"

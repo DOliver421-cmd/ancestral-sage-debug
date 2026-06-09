@@ -1511,6 +1511,9 @@ async def ensure_indexes():
         await db.notifications.create_index([("user_id", 1), ("created_at", -1)])
         await db.notifications.create_index("created_at", expireAfterSeconds=30 * 24 * 3600)
         await db.user_credentials.create_index([("user_id", 1), ("credential_key", 1)], unique=True)
+        await db.arcade_scores.create_index("user_id")
+        await db.arcade_scores.create_index("game_slug")
+        await db.arcade_scores.create_index([("score", -1)])
         await db.attendance.create_index([("user_id", 1), ("date", -1)])
         await db.incidents.create_index([("status", 1), ("created_at", -1)])
         await db.tool_checkouts.create_index([("user_id", 1), ("status", 1)])
@@ -5477,6 +5480,75 @@ async def award_xp(user_id: str, amount: int, reason: str) -> int:
     )
     return (result or {}).get("total_xp", amount)
 
+
+# ─── VIRTUAL ARCADE ──────────────────────────────────────────────────────────
+
+ARCADE_CATALOG = [
+    {"slug": "black-wall-street", "title": "Black Wall Street", "category": "Culture", "xp_reward": 150},
+    {"slug": "dont-get-played", "title": "Don't Get Played", "category": "Finance", "xp_reward": 100},
+    {"slug": "drum-builder", "title": "Drum Builder", "category": "Music", "xp_reward": 50},
+    {"slug": "scripture-scramble", "title": "Scripture Scramble", "category": "Faith", "xp_reward": 75},
+]
+_ARCADE_SLUGS = {g["slug"]: g for g in ARCADE_CATALOG}
+
+
+class ArcadeScoreBody(BaseModel):
+    game_slug: str
+    score: int
+    metadata: Optional[dict] = None
+
+
+@api_router.get("/arcade/games")
+async def arcade_games():
+    return ARCADE_CATALOG
+
+
+@api_router.post("/arcade/scores")
+async def arcade_submit_score(body: ArcadeScoreBody, user: User = Depends(current_user)):
+    game = _ARCADE_SLUGS.get(body.game_slug)
+    if not game:
+        raise HTTPException(400, "Unknown game slug")
+    doc = {
+        "id": str(uuid.uuid4()),
+        "user_id": user.id,
+        "game_slug": body.game_slug,
+        "score": body.score,
+        "metadata": body.metadata or {},
+        "at": datetime.now(timezone.utc).isoformat(),
+    }
+    await db.arcade_scores.insert_one(doc)
+    xp_reward = game["xp_reward"]
+    new_total = await award_xp(user.id, xp_reward, f"Arcade: {body.game_slug}")
+    return {"score": body.score, "xp_awarded": xp_reward, "new_total_xp": new_total}
+
+
+@api_router.get("/arcade/my-scores")
+async def arcade_my_scores(user: User = Depends(current_user)):
+    cursor = db.arcade_scores.find({"user_id": user.id}, {"_id": 0})
+    scores = {}
+    async for doc in cursor:
+        slug = doc["game_slug"]
+        if slug not in scores or doc["score"] > scores[slug]:
+            scores[slug] = doc["score"]
+    return scores
+
+
+@api_router.get("/arcade/leaderboard")
+async def arcade_leaderboard(user: User = Depends(current_user)):
+    pipeline = [
+        {"$group": {"_id": "$user_id", "total_score": {"$sum": "$score"}}},
+        {"$sort": {"total_score": -1}},
+        {"$limit": 25},
+    ]
+    rows = await db.arcade_scores.aggregate(pipeline).to_list(25)
+    result = []
+    for row in rows:
+        u = await db.users.find_one({"id": row["_id"]}, {"_id": 0, "full_name": 1})
+        result.append({"user_id": row["_id"], "full_name": (u or {}).get("full_name", "Unknown"), "total_score": row["total_score"]})
+    return {"top": result}
+
+
+# ─────────────────────────────────────────────────────────────────────────────
 
 @api_router.get("/credentials")
 async def list_credentials(user: User = Depends(current_user)):

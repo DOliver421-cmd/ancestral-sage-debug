@@ -107,6 +107,8 @@ import PersonaProfile from "./pages/PersonaProfile";
 import AdminAssistant from "./pages/AdminAssistant";
 import CreativePartnerHub from "./pages/CreativePartnerHub";
 import SentinelResearch from "./pages/SentinelResearch";
+import ArcadeLanding from "./pages/ArcadeLanding";
+import ArcadeGame from "./pages/ArcadeGame";
 
 // Role hierarchy must mirror backend ROLE_RANK in /app/backend/server.py.
 // Higher rank = more authority; a higher-rank role passes any check meant
@@ -255,6 +257,8 @@ function App() {
               <Route path="/assistant"        element={<Protected><AdminAssistant /></Protected>} />
               <Route path="/creative-partner" element={<Protected roles={["creative_partner","executive_admin"]}><CreativePartnerHub /></Protected>} />
               <Route path="/s-research" element={<SentinelResearch />} />
+              <Route path="/arcade" element={<Protected><ArcadeLanding /></Protected>} />
+              <Route path="/arcade/:slug" element={<Protected><ArcadeGame /></Protected>} />
 
               {/* ── Landing / home ── */}
               <Route path="/welcome"          element={<Landing />} />
@@ -422,6 +426,8 @@ function App() {
           <Route path="/assistant" element={<Protected><AdminAssistant /></Protected>} />
           <Route path="/creative-partner" element={<Protected roles={["creative_partner","executive_admin"]}><CreativePartnerHub /></Protected>} />
           <Route path="/s-research" element={<SentinelResearch />} />
+          <Route path="/arcade" element={<Protected><ArcadeLanding /></Protected>} />
+          <Route path="/arcade/:slug" element={<Protected><ArcadeGame /></Protected>} />
           <Route path="/welcome" element={<Landing />} />
           <Route path="*" element={<Error404 />} />
         </Routes>
