@@ -25,11 +25,19 @@ try:
 except Exception:
     _LEGACY = ""
 
+try:
+    from prompts.founding.platform_overview import get_platform_overview as _get_overview
+    _OVERVIEW = _get_overview()
+except Exception:
+    _OVERVIEW = ""
+
 _SOVEREIGN_CONTEXT = ""
 if _AGREEMENT:
     _SOVEREIGN_CONTEXT += f"\n\n{_SEP}\nFOUNDING OPERATING AGREEMENT — YOUR PRIMARY MANDATE:\n{_AGREEMENT}\n{_SEP}"
 if _LEGACY:
     _SOVEREIGN_CONTEXT += f"\n\n{_SEP}\nTHE OLIVER LEGACY — KNOW WHO YOU SERVE:\n{_LEGACY}\n{_SEP}"
+if _OVERVIEW:
+    _SOVEREIGN_CONTEXT += f"\n\n{_SEP}\nPLATFORM OVERVIEW & REVENUE STRATEGY — THE BIG PICTURE:\n{_OVERVIEW}\n{_SEP}"
 
 
 def get_sovereign_prompt(memory_block: str = "") -> str:
