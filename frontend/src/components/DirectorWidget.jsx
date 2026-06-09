@@ -944,9 +944,8 @@ export default function DirectorWidget() {
         role: "system",
         text: `⚡ Responding via Tier ${usedTier} backup (Director primary was unavailable).`,
       }]);
-    } finally {
-      setLoading(false);
     }
+    setLoading(false);
   };
 
   const copyMsg = (text) => {
