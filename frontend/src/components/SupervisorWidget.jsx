@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useMic } from "../hooks/useMic";
 import { api } from "../lib/api";
+import { useAuth } from "../lib/auth";
 
 // ── Bucket definitions ───────────────────────────────────────────────────────
 const BUCKETS = [
@@ -292,6 +293,8 @@ function StaffPanel({ activeBuckets, toggleBucket, kb, triggerFile, setPasteTarg
 
 // ── Main component ───────────────────────────────────────────────────────────
 export default function SupervisorWidget() {
+  const { user } = useAuth();
+  const isPublic = !user;
   const [open,        setOpen]        = useState(false);
   const [fullscreen,  setFullscreen]  = useState(false);
   const [tab,         setTab]         = useState("chat");
@@ -397,9 +400,9 @@ export default function SupervisorWidget() {
         message: messageWithContext,
         history: [],
       });
-      addMsg("supervisor", r.data?.reply || pseudoReply(text, activeBuckets, kb, mode));
+      addMsg("supervisor", r.data?.reply || pseudoReply(text, activeBuckets, kb, "Decoy"));
     } catch (_e) {
-      addMsg("supervisor", pseudoReply(text, activeBuckets, kb, mode));
+      addMsg("supervisor", pseudoReply(text, activeBuckets, kb, "Decoy"));
     }
   }
 
@@ -502,7 +505,7 @@ export default function SupervisorWidget() {
         onClick={() => setOpen(true)}>
         <div style={{ width:8, height:8, borderRadius:"50%", background:statusColor, boxShadow:`0 0 8px ${statusColor}` }} />
         <span style={{ fontSize:11, fontWeight:700, letterSpacing:"0.1em", color:"#f5f7ff", textTransform:"uppercase" }}>The Supervisor</span>
-        <span style={{ fontSize:11, color:C.textMuted, borderLeft:"1px solid rgba(74,242,197,0.2)", paddingLeft:8 }}>{mode}</span>
+        {!isPublic && <span style={{ fontSize:11, color:C.textMuted, borderLeft:"1px solid rgba(74,242,197,0.2)", paddingLeft:8 }}>{mode}</span>}
       </div>
     );
   }
@@ -546,41 +549,42 @@ export default function SupervisorWidget() {
             </div>
           </div>
           <div style={{ display:"flex", gap:5, alignItems:"center" }}>
-            {MODES.map(m => (
+            {!isPublic && MODES.map(m => (
               <button key={m} onClick={() => { setMode(m); addMsg("supervisor", `${m} Mode. What do you need?`); }}
                 style={{ fontSize:11, padding:"3px 8px", borderRadius:999, cursor:"pointer", fontWeight:600,
                   border: mode===m ? "1px solid rgba(74,242,197,0.8)" : `1px solid rgba(160,168,192,0.4)`,
                   background: mode===m ? "radial-gradient(circle,rgba(74,242,197,0.25),#050814)" : "rgba(5,8,20,0.9)",
                   color: mode===m ? C.accent : C.textMuted }}>{m}</button>
             ))}
-            <button onClick={() => setFullscreen(f=>!f)} style={S.iconBtn} title={fullscreen?"Exit fullscreen":"Fullscreen"}>{fullscreen?"⊡":"⛶"}</button>
+            {!isPublic && <button onClick={() => setFullscreen(f=>!f)} style={S.iconBtn} title={fullscreen?"Exit fullscreen":"Fullscreen"}>{fullscreen?"⊡":"⛶"}</button>}
             <button onClick={() => setOpen(false)} style={S.iconBtn} title="Minimize">─</button>
           </div>
         </div>
 
-        {/* Tab bar */}
-        <div style={{ display:"flex", gap:4, padding:"5px 12px", borderBottom:"1px solid rgba(74,242,197,0.1)", flexShrink:0, flexWrap:"wrap" }}>
-          {[["chat","Chat"],["training","Training"],...(!fullscreen?[["culture","Culture"]]:[]),["system","System"]].map(([k,l]) => (
-            <button key={k} onClick={() => setTab(k)}
-              style={{ fontSize:11, padding:"3px 10px", borderRadius:999, cursor:"pointer",
-                border: tab===k ? "1px solid rgba(74,242,197,0.8)" : `1px solid rgba(160,168,192,0.3)`,
-                background: tab===k ? "radial-gradient(circle,rgba(74,242,197,0.2),#050814)" : "transparent",
-                color: tab===k ? C.accent : C.textMuted }}>{l}</button>
-          ))}
-          {/* Active bucket chips */}
-          <div style={{ flex:1, display:"flex", gap:4, justifyContent:"flex-end", flexWrap:"wrap", alignItems:"center" }}>
-            {activeBuckets.map(bKey => {
-              const meta = BUCKETS.find(b=>b.key===bKey);
-              return (
-                <span key={bKey} onClick={() => toggleBucket(bKey)}
-                  style={{ fontSize:11, padding:"2px 7px", borderRadius:999, cursor:"pointer",
-                    border:`1px solid ${meta?.color}66`, color:meta?.color, background:"rgba(5,8,20,0.9)" }}>
-                  {meta?.label} ×
-                </span>
-              );
-            })}
+        {/* Tab bar — hidden for public visitors */}
+        {!isPublic && (
+          <div style={{ display:"flex", gap:4, padding:"5px 12px", borderBottom:"1px solid rgba(74,242,197,0.1)", flexShrink:0, flexWrap:"wrap" }}>
+            {[["chat","Chat"],["training","Training"],...(!fullscreen?[["culture","Culture"]]:[]),["system","System"]].map(([k,l]) => (
+              <button key={k} onClick={() => setTab(k)}
+                style={{ fontSize:11, padding:"3px 10px", borderRadius:999, cursor:"pointer",
+                  border: tab===k ? "1px solid rgba(74,242,197,0.8)" : `1px solid rgba(160,168,192,0.3)`,
+                  background: tab===k ? "radial-gradient(circle,rgba(74,242,197,0.2),#050814)" : "transparent",
+                  color: tab===k ? C.accent : C.textMuted }}>{l}</button>
+            ))}
+            <div style={{ flex:1, display:"flex", gap:4, justifyContent:"flex-end", flexWrap:"wrap", alignItems:"center" }}>
+              {activeBuckets.map(bKey => {
+                const meta = BUCKETS.find(b=>b.key===bKey);
+                return (
+                  <span key={bKey} onClick={() => toggleBucket(bKey)}
+                    style={{ fontSize:11, padding:"2px 7px", borderRadius:999, cursor:"pointer",
+                      border:`1px solid ${meta?.color}66`, color:meta?.color, background:"rgba(5,8,20,0.9)" }}>
+                    {meta?.label} ×
+                  </span>
+                );
+              })}
+            </div>
           </div>
-        </div>
+        )}
 
         {/* Tab bodies */}
         <div style={{ flex:1, overflow:"hidden", display:"flex", flexDirection:"column" }}>
