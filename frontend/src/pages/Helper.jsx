@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import { useAuth } from "../lib/auth";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { BACKEND_URL } from "../lib/api";
 
 function useKeepAlive() {
@@ -277,6 +277,7 @@ function useMobileKeyboardFix(endRef) {
 // PUBLIC HELPER - colorful, full-featured
 // ===========================================================================
 function PublicHelper() {
+  const [searchParams] = useSearchParams();
   const [msgs, setMsgs] = useState([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
@@ -292,6 +293,26 @@ function PublicHelper() {
   const navigate = useNavigate();
   const { speaking, speak, stop: stopSpeech } = useTTS("nova");
   useMobileKeyboardFix(endRef);
+
+  // Pre-load topic from query param e.g. ?topic=housing
+  useEffect(() => {
+    const topic = searchParams.get("topic");
+    if (!topic) return;
+    const topicMap = {
+      "housing": { key: "housing", greeting: "I'm here to help with housing — rent notices, eviction letters, applications, and shelter resources. What do you need help with today?" },
+      "health and wellness": { key: "health", greeting: "I can help you understand medical bills, insurance paperwork, benefits letters, and connect you to wellness resources. What's going on?" },
+      "food and essentials": { key: "food", greeting: "I can help you find food assistance, clothing, and everyday support resources in your area. What do you need?" },
+      "legal": { key: "legal", greeting: "I can help you understand legal letters, court notices, and your rights in plain language. What did you receive?" },
+    };
+    const matched = Object.entries(topicMap).find(([k]) => topic.toLowerCase().includes(k));
+    if (matched) {
+      const [, { key, greeting }] = matched;
+      setActiveTopic(key);
+      const time = new Date().toLocaleTimeString([], { hour:"numeric", minute:"2-digit" });
+      setMsgs([{ role: "helper", text: greeting, time }]);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const LANGS = ["English","Espanol","Kreyol Ayisyen","Yoruba","Af-Soomaali","Tagalog","Tieng Viet"];
 

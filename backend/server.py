@@ -1805,6 +1805,20 @@ async def register(body: RegisterReq):
     return TokenResp(access_token=make_token(user.id, user.role), user=user)
 
 
+@api_router.post("/users/accept-terms")
+async def accept_terms(body: dict, user: User = Depends(current_user)):
+    """Record explicit terms acceptance on the user's account."""
+    await db.users.update_one(
+        {"id": user.id},
+        {"$set": {
+            "terms_accepted_at": datetime.now(timezone.utc).isoformat(),
+            "terms_version": body.get("version", "v1"),
+        }}
+    )
+    await audit(user.id, "auth.terms.accepted", meta={"version": body.get("version", "v1")})
+    return {"ok": True}
+
+
 @api_router.post("/auth/login", response_model=TokenResp)
 async def login(body: LoginReq, request: Request):
     # Hard rate cap: 5 attempts per minute per email (in-memory, first line of defense).
