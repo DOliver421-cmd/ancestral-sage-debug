@@ -6,6 +6,7 @@ COPY package*.json ./
 
 RUN npm ci --legacy-peer-deps
 
+ARG CACHE_BUST=20260609b
 COPY . .
 
 # Bake the backend URL into the React bundle at build time.
