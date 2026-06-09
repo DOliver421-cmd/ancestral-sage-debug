@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { api } from "../../lib/api";
 import { Send, ChevronRight, ChevronLeft } from "lucide-react";
 
@@ -9,7 +9,28 @@ const GREETINGS = [
   "I've got everything prepped. Your call.",
 ];
 
-export default function SovereignVoice({ activeChamber }) {
+const CHAMBER_NOTES = {
+  "lyric-forge": "Lyric Forge is open. What are we writing — hook, verse, or bridge?",
+  "visual-altar": "Boss, the Visual Altar is lit. Moodboard first, then we'll align the palette.",
+  "script": "Script Scriptorium is ready. Tell me the format and I'll help shape the structure.",
+  "sound-lab": "Sound Lab is live. Lock in your BPM and I'll build the blueprint.",
+  "vault": "Vault of Versions pulled up. Seal a version before any major changes.",
+  "publishing-gate": "Publishing Gate open. Let's handle metadata and socials.",
+  "marketplace": "Marketplace Forge is coming. You're already ahead by being here.",
+  "collaboration": "Collaboration Chamber — when it drops, your co-creators step through this door.",
+};
+
+/**
+ * Sovereign is the single AI the creator talks to.
+ * All chamber actions (generate lyrics, metadata, scripts, blueprints, visual direction)
+ * dispatch through Sovereign — he routes internally and delivers in his own voice.
+ *
+ * Props:
+ *   activeChamber  — current chamber id (string)
+ *   onArtifact     — callback(artifact_type, artifact_text) — lets the active chamber receive AI output
+ *   dispatchRef    — ref that chambers use to trigger a Sovereign action without the user typing
+ */
+export default function SovereignVoice({ activeChamber, onArtifact, dispatchRef }) {
   const [collapsed, setCollapsed] = useState(false);
   const [messages, setMessages] = useState([
     { role: "sovereign", text: GREETINGS[Math.floor(Math.random() * GREETINGS.length)] }
@@ -22,41 +43,49 @@ export default function SovereignVoice({ activeChamber }) {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
+  // Greet creator on chamber change
   useEffect(() => {
-    if (activeChamber) {
-      const notes = {
-        "lyric-forge": "Lyric Forge is open. What are we writing — hook, verse, or bridge?",
-        "visual-altar": "Boss, the Visual Altar is lit. Moodboard first, then we'll align the palette.",
-        "script": "Script Scriptorium is ready. Tell me the format and I'll help shape the structure.",
-        "sound-lab": "Sound Lab is live. Lock in your BPM and I'll help you build the blueprint.",
-        "vault": "Vault of Versions pulled up. I can see your project history — seal a version before any major changes.",
-        "publishing-gate": "Publishing Gate open. Two deadlines approaching — let's handle metadata and socials now.",
-        "marketplace": "Marketplace Forge is coming. You're getting ahead of the curve just by being here.",
-        "collaboration": "Collaboration Chamber — when it drops, your co-creators will step through this door.",
-      };
-      if (notes[activeChamber]) {
-        setMessages(m => [...m, { role: "sovereign", text: notes[activeChamber] }]);
-      }
+    if (activeChamber && CHAMBER_NOTES[activeChamber]) {
+      setMessages(m => [...m, { role: "sovereign", text: CHAMBER_NOTES[activeChamber] }]);
     }
   }, [activeChamber]);
 
-  const send = async () => {
-    const msg = input.trim();
-    if (!msg || loading) return;
-    setInput("");
-    setMessages(m => [...m, { role: "user", text: msg }]);
+  const callSovereign = useCallback(async ({ action = "chat", context = {}, message = "", silent = false }) => {
+    if (!silent) {
+      setMessages(m => [...m, { role: "user", text: message || `[${action}]` }]);
+    }
     setLoading(true);
+    // Auto-open when Sovereign has something to say
+    setCollapsed(false);
     try {
-      const r = await api.post("/sovereign/chat", {
-        message: msg,
-        context: activeChamber ? `User is in the ${activeChamber} chamber of the Creator's Sanctuary.` : "User is in the Creator's Sanctuary.",
+      const r = await api.post("/studio/sovereign", {
+        chamber: activeChamber || "map",
+        action,
+        context,
+        message: message || "",
       });
-      setMessages(m => [...m, { role: "sovereign", text: r.data.reply || r.data.response || "I'm on it." }]);
+      const { response, artifact, artifact_type } = r.data;
+      setMessages(m => [...m, { role: "sovereign", text: response || "Done.", artifact: artifact ? true : false }]);
+      if (artifact && artifact_type && onArtifact) {
+        onArtifact(artifact_type, artifact);
+      }
     } catch {
       setMessages(m => [...m, { role: "sovereign", text: "Give me a moment — I'll be right back." }]);
     } finally {
       setLoading(false);
     }
+  }, [activeChamber, onArtifact]);
+
+  // Expose callSovereign to chambers via ref
+  useEffect(() => {
+    if (dispatchRef) dispatchRef.current = callSovereign;
+  }, [dispatchRef, callSovereign]);
+
+  const send = () => {
+    const msg = input.trim();
+    if (!msg || loading) return;
+    setInput("");
+    callSovereign({ action: "chat", message: msg });
   };
 
   return (
@@ -82,6 +111,9 @@ export default function SovereignVoice({ activeChamber }) {
           <div style={{ color: "rgba(255,255,255,0.9)", fontSize: 13, fontWeight: 700 }}>
             Your Studio Manager
           </div>
+          <div style={{ color: "rgba(255,255,255,0.35)", fontSize: 10, marginTop: 3 }}>
+            All tools report to him.
+          </div>
         </div>
 
         {/* Messages */}
@@ -89,7 +121,7 @@ export default function SovereignVoice({ activeChamber }) {
           {messages.map((m, i) => (
             <div key={i} style={{ display: "flex", justifyContent: m.role === "user" ? "flex-end" : "flex-start" }}>
               <div style={{
-                maxWidth: "85%",
+                maxWidth: "88%",
                 padding: "8px 12px",
                 borderRadius: m.role === "user" ? "12px 12px 2px 12px" : "12px 12px 12px 2px",
                 fontSize: 12,
@@ -99,6 +131,11 @@ export default function SovereignVoice({ activeChamber }) {
                 color: m.role === "user" ? "#ffd700" : "rgba(255,255,255,0.88)",
               }}>
                 {m.text}
+                {m.artifact && (
+                  <div style={{ marginTop: 6, fontSize: 10, color: "rgba(184,134,11,0.7)", fontFamily: "monospace", letterSpacing: "0.08em" }}>
+                    ↳ RESULT SENT TO CHAMBER
+                  </div>
+                )}
               </div>
             </div>
           ))}

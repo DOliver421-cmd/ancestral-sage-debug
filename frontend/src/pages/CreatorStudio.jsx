@@ -271,6 +271,17 @@ export default function CreatorStudio() {
     try { return JSON.parse(localStorage.getItem('studio_sessions') || '[]'); } catch { return []; }
   });
 
+  // Sovereign dispatch ref — chambers call this to trigger AI via Sovereign
+  const sovereignDispatch = useRef(null);
+  // Artifact state — Sovereign sends results here, active chamber picks them up
+  const [artifactType, setArtifactType] = useState(null);
+  const [artifactText, setArtifactText] = useState(null);
+
+  const handleArtifact = useCallback((type, text) => {
+    setArtifactType(type);
+    setArtifactText(text);
+  }, []);
+
   // UI state
   const [showProjectRitual, setShowProjectRitual] = useState(false);
   const [showCustomization, setShowCustomization] = useState(false);
@@ -330,7 +341,7 @@ export default function CreatorStudio() {
       {!entered && <EntryScreen onEnter={() => setEntered(true)} />}
 
       {/* Sovereign voice sidebar */}
-      {entered && <SovereignVoice activeChamber={activeChamber?.id} />}
+      {entered && <SovereignVoice activeChamber={activeChamber?.id} onArtifact={handleArtifact} dispatchRef={sovereignDispatch} />}
 
       {/* Creative Stats panel — sits between SovereignVoice and main */}
       {entered && (
@@ -501,12 +512,12 @@ export default function CreatorStudio() {
 
               {/* Chamber content */}
               <div style={{ padding: 24 }}>
-                {activeChamber.id === 'lyric-forge'   && <LyricForge tier={USER_TIER} />}
-                {activeChamber.id === 'visual-altar'  && <VisualAltar tier={USER_TIER} />}
-                {activeChamber.id === 'script'        && <ScriptScriptorium tier={USER_TIER} />}
-                {activeChamber.id === 'sound-lab'     && <SoundLab tier={USER_TIER} />}
+                {activeChamber.id === 'lyric-forge'   && <LyricForge tier={USER_TIER} sovereignDispatch={sovereignDispatch} artifact={artifactType === 'lyrics' ? artifactText : null} />}
+                {activeChamber.id === 'visual-altar'  && <VisualAltar tier={USER_TIER} sovereignDispatch={sovereignDispatch} artifact={artifactType === 'visual_direction' ? artifactText : null} />}
+                {activeChamber.id === 'script'        && <ScriptScriptorium tier={USER_TIER} sovereignDispatch={sovereignDispatch} artifact={artifactType === 'polished_script' ? artifactText : null} />}
+                {activeChamber.id === 'sound-lab'     && <SoundLab tier={USER_TIER} sovereignDispatch={sovereignDispatch} artifact={artifactType === 'sonic_blueprint' ? artifactText : null} />}
                 {activeChamber.id === 'vault'         && <VaultOfVersions projects={projects} />}
-                {activeChamber.id === 'publishing-gate' && <PublishingGate tier={USER_TIER} />}
+                {activeChamber.id === 'publishing-gate' && <PublishingGate tier={USER_TIER} sovereignDispatch={sovereignDispatch} artifact={artifactType === 'metadata' ? artifactText : null} />}
               </div>
             </div>
           )}

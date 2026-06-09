@@ -1,11 +1,10 @@
-import { useState, useCallback } from "react";
-import { api } from "../../../lib/api";
+import { useState, useCallback, useEffect } from "react";
 import { toast } from "sonner";
 import { Wand2, RefreshCw, Copy, Check } from "lucide-react";
 
 const DOC_TYPES = ['Script', 'Treatment', 'Outline', 'Synopsis', 'Press Release'];
 
-export default function ScriptScriptorium({ tier = 'base' }) {
+export default function ScriptScriptorium({ tier = 'base', sovereignDispatch, artifact }) {
   const [docType, setDocType] = useState('Script');
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
@@ -17,22 +16,24 @@ export default function ScriptScriptorium({ tier = 'base' }) {
 
   const wordCount = content.trim() ? content.trim().split(/\s+/).length : 0;
 
+  // Receive polished result from Sovereign
+  useEffect(() => {
+    if (artifact) { setPolished(artifact); setShowDiff(true); setLoading(false); }
+  }, [artifact]);
+
   const polish = useCallback(async () => {
     if (!content.trim()) { toast.error('Write something first.'); return; }
+    if (!sovereignDispatch?.current) { toast.error('Sovereign is not connected.'); return; }
     setLoading(true);
     setPolished('');
     setShowDiff(false);
     setAccepted(false);
-    try {
-      const r = await api.post('/studio/script', { type: docType, title, content });
-      setPolished(r.data.polished);
-      setShowDiff(true);
-    } catch {
-      toast.error('The Scriptorium hit a block — try again.');
-    } finally {
-      setLoading(false);
-    }
-  }, [docType, title, content]);
+    await sovereignDispatch.current({
+      action: 'polish_script',
+      context: { doc_type: docType, title, content },
+      message: `Polish my ${docType.toLowerCase()} — tighten structure, keep my voice.`,
+    });
+  }, [docType, title, content, sovereignDispatch]);
 
   const accept = () => {
     setContent(polished);

@@ -1,12 +1,11 @@
-import { useState, useCallback } from "react";
-import { api } from "../../../lib/api";
+import { useState, useCallback, useEffect } from "react";
 import { toast } from "sonner";
 import { Wand2, RefreshCw } from "lucide-react";
 
 const KEYS = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
 const MOODS = ['Melancholy', 'Hype', 'Spiritual', 'Trap', 'Lo-fi', 'Jazz', 'Gospel', 'R&B', 'Pop', 'Boom Bap'];
 
-export default function SoundLab({ tier = 'base' }) {
+export default function SoundLab({ tier = 'base', sovereignDispatch, artifact }) {
   const [bpm, setBpm] = useState(90);
   const [key, setKey] = useState('C');
   const [activeMoods, setActiveMoods] = useState([]);
@@ -14,22 +13,23 @@ export default function SoundLab({ tier = 'base' }) {
   const [blueprint, setBlueprint] = useState('');
   const [loading, setLoading] = useState(false);
 
+  // Receive blueprint from Sovereign
+  useEffect(() => { if (artifact) { setBlueprint(artifact); setLoading(false); } }, [artifact]);
+
   const toggleMood = (mood) => {
     setActiveMoods(m => m.includes(mood) ? m.filter(x => x !== mood) : [...m, mood]);
   };
 
   const generate = useCallback(async () => {
+    if (!sovereignDispatch?.current) { toast.error('Sovereign is not connected.'); return; }
     setLoading(true);
     setBlueprint('');
-    try {
-      const r = await api.post('/studio/sound', { bpm, key, mood: activeMoods, reference });
-      setBlueprint(r.data.blueprint);
-    } catch {
-      toast.error('The lab went silent — try again.');
-    } finally {
-      setLoading(false);
-    }
-  }, [bpm, key, activeMoods, reference]);
+    await sovereignDispatch.current({
+      action: 'sonic_blueprint',
+      context: { bpm, key, mood: activeMoods, reference },
+      message: `Build me a sonic blueprint — ${bpm} BPM, key of ${key}, ${activeMoods.join('/')} mood.`,
+    });
+  }, [bpm, key, activeMoods, reference, sovereignDispatch]);
 
   return (
     <div style={{ fontFamily: 'inherit', color: 'rgba(255,255,255,0.9)', display: 'flex', flexDirection: 'column', gap: 22 }}>

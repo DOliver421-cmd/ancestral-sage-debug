@@ -1,5 +1,4 @@
 import { useState, useEffect, useRef } from "react";
-import { api } from "../../lib/api";
 
 const HYPE_LINES = [
   "Let's cook today.",
@@ -103,16 +102,8 @@ export default function CheerleaderOrb({ chamber, isFocused = false, isStuck = f
     return () => clearTimeout(timeoutRef.current);
   }, [chamber]);
 
-  const askCheerleader = async () => {
-    setThinking(true);
-    try {
-      const r = await api.post("/studio/cheer", { chamber: chamber || "studio" });
-      setMessage(r.data.message);
-    } catch {
-      setMessage(HYPE_LINES[Math.floor(Math.random() * HYPE_LINES.length)]);
-    } finally {
-      setThinking(false);
-    }
+  const askCheerleader = () => {
+    setMessage(HYPE_LINES[Math.floor(Math.random() * HYPE_LINES.length)]);
   };
 
   return (

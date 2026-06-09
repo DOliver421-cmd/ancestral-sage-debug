@@ -1,5 +1,4 @@
-import { useState } from "react";
-import { api } from "../../../lib/api";
+import { useState, useEffect } from "react";
 import { toast } from "sonner";
 import { Globe, Copy, Check, RefreshCw, Wand2 } from "lucide-react";
 import SharePanel from "../../SharePanel";
@@ -7,24 +6,36 @@ import SharePanel from "../../SharePanel";
 const CONTENT_TYPES = ["Single", "Album / EP", "Course", "Ebook / Guide", "Beat / Instrumental", "Podcast Episode", "Video / Reel", "Merch Drop"];
 const GENRES = ["Hip-Hop", "R&B", "Gospel", "Afrobeats", "Neo-Soul", "Reggae", "Jazz", "Pop", "Spoken Word", "Educational", "Other"];
 
-export default function PublishingGate({ tier = "base" }) {
+export default function PublishingGate({ tier = "base", sovereignDispatch, artifact }) {
   const [tab, setTab] = useState("metadata");
-  const [form, setForm] = useState({ title: "", artist: "", type: "Single", genre: "Hip-Hop", description: "", release_date: "", tags: "" });
+  const [form, setForm] = useState({ title: "", artist: "", content_type: "Single", genre: "Hip-Hop", description: "", tags: "" });
   const [meta, setMeta] = useState(null);
   const [loading, setLoading] = useState(false);
   const [copied, setCopied] = useState({});
 
-  const generate = async () => {
-    if (!form.title.trim()) { toast.error("Title is required."); return; }
-    setLoading(true);
-    try {
-      const r = await api.post("/studio/metadata", form);
-      setMeta(r.data);
-    } catch {
-      toast.error("Metadata generation failed — try again.");
-    } finally {
+  // Receive metadata JSON from Sovereign
+  useEffect(() => {
+    if (artifact) {
+      try {
+        const parsed = JSON.parse(artifact.replace(/```json\n?|```/g, "").trim());
+        setMeta(parsed);
+      } catch {
+        setMeta({ raw: artifact });
+      }
       setLoading(false);
     }
+  }, [artifact]);
+
+  const generate = async () => {
+    if (!form.title.trim()) { toast.error("Title is required."); return; }
+    if (!sovereignDispatch?.current) { toast.error("Sovereign is not connected."); return; }
+    setLoading(true);
+    setMeta(null);
+    await sovereignDispatch.current({
+      action: "generate_metadata",
+      context: { title: form.title, content_type: form.content_type, genre: form.genre, description: form.description },
+      message: `Generate release metadata for "${form.title}" — ${form.content_type}, ${form.genre} genre.`,
+    });
   };
 
   const copyField = (key, value) => {
@@ -71,7 +82,7 @@ export default function PublishingGate({ tier = "base" }) {
             </div>
             <div>
               <label style={labelStyle}>Content Type</label>
-              <select style={selectStyle} value={form.type} onChange={e => setForm(f => ({ ...f, type: e.target.value }))}>
+              <select style={selectStyle} value={form.content_type} onChange={e => setForm(f => ({ ...f, content_type: e.target.value }))}>
                 {CONTENT_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
               </select>
             </div>
@@ -160,7 +171,7 @@ export default function PublishingGate({ tier = "base" }) {
 
       {/* Release checklist tab */}
       {tab === "checklist" && (
-        <ReleaseChecklist type={form.type} />
+        <ReleaseChecklist type={form.content_type} />
       )}
     </div>
   );
@@ -169,7 +180,7 @@ export default function PublishingGate({ tier = "base" }) {
 function buildSocialTemplates(form) {
   const title = form.title || "New Release";
   const artist = form.artist ? ` by ${form.artist}` : "";
-  const type = form.type.toLowerCase();
+  const type = form.content_type.toLowerCase();
   return [
     {
       platform: "Instagram", icon: "◎", color: "#e1306c",

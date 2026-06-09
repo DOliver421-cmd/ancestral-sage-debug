@@ -1,17 +1,19 @@
-import { useState, useCallback } from "react";
-import { api } from "../../../lib/api";
+import { useState, useCallback, useEffect } from "react";
 import { toast } from "sonner";
 import { Wand2, RefreshCw } from "lucide-react";
 
 const PRESET_COLORS = ['#ffd700', '#c084fc', '#34d399', '#f87171', '#67e8f9', '#fb923c', '#a78bfa', '#f59e0b', '#ec4899', '#22d3ee'];
 
-export default function VisualAltar({ tier = 'base' }) {
+export default function VisualAltar({ tier = 'base', sovereignDispatch, artifact }) {
   const [descriptions, setDescriptions] = useState(['']);
   const [colors, setColors] = useState(['#ffd700', '#0a0a14', '#c084fc', '#34d399', '#f87171']);
   const [notes, setNotes] = useState('');
   const [direction, setDirection] = useState('');
   const [loading, setLoading] = useState(false);
   const [dragOver, setDragOver] = useState(false);
+
+  // Receive AI result from Sovereign
+  useEffect(() => { if (artifact) { setDirection(artifact); setLoading(false); } }, [artifact]);
 
   const addDescription = () => setDescriptions(d => [...d, '']);
   const updateDesc = (i, val) => setDescriptions(d => d.map((x, idx) => idx === i ? val : x));
@@ -22,17 +24,15 @@ export default function VisualAltar({ tier = 'base' }) {
   const blessVision = useCallback(async () => {
     const filled = descriptions.filter(d => d.trim());
     if (!filled.length) { toast.error('Add at least one image description.'); return; }
+    if (!sovereignDispatch?.current) { toast.error('Sovereign is not connected.'); return; }
     setLoading(true);
     setDirection('');
-    try {
-      const r = await api.post('/studio/altar', { descriptions: filled, colors, notes });
-      setDirection(r.data.direction);
-    } catch {
-      toast.error('The Altar went dark — try again.');
-    } finally {
-      setLoading(false);
-    }
-  }, [descriptions, colors, notes]);
+    await sovereignDispatch.current({
+      action: 'visual_direction',
+      context: { descriptions: filled, colors, notes },
+      message: 'Bless this vision — give me visual direction.',
+    });
+  }, [descriptions, colors, notes, sovereignDispatch]);
 
   return (
     <div style={{ fontFamily: 'inherit', color: 'rgba(255,255,255,0.9)', display: 'flex', flexDirection: 'column', gap: 24 }}>

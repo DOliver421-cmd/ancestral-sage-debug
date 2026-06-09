@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { api } from "../../../lib/api";
 import { toast } from "sonner";
 import { Wand2, Copy, Check, RefreshCw } from "lucide-react";
 
@@ -7,19 +6,29 @@ const STYLES = ["Hip-Hop", "R&B", "Gospel", "Spoken Word", "Trap", "Neo-Soul", "
 const MOODS = ["Triumphant", "Reflective", "Angry", "Joyful", "Melancholic", "Spiritual", "Romantic", "Raw", "Peaceful"];
 const STRUCTURES = ["Verse", "Hook / Chorus", "Bridge", "Full Song (V/C/V/C/B/C)", "Freestyle Bars", "Intro / Outro"];
 
-export default function LyricForge({ tier = "base" }) {
-  const [form, setForm] = useState({ topic: "", style: "Hip-Hop", mood: "Triumphant", structure: "Verse", notes: "" });
+export default function LyricForge({ tier = "base", sovereignDispatch, onResult }) {
+  const [form, setForm] = useState({ topic: "", genre: "Hip-Hop", mood: "Triumphant", structure: "Verse", notes: "" });
   const [result, setResult] = useState("");
   const [loading, setLoading] = useState(false);
   const [copied, setCopied] = useState(false);
 
+  // Sovereign delivers the AI output back here via onResult / artifact callback
+  // But also accept direct result prop for when Sovereign sends artifact
+  useState(() => { if (onResult) onResult(setResult); }, []);
+
   const generate = async () => {
     if (!form.topic.trim()) { toast.error("Give me a topic or concept to write about."); return; }
+    if (!sovereignDispatch?.current) { toast.error("Sovereign is not connected."); return; }
     setLoading(true);
     setResult("");
     try {
-      const r = await api.post("/studio/lyric", form);
-      setResult(r.data.lyrics);
+      await sovereignDispatch.current({
+        action: "generate_lyrics",
+        context: { genre: form.genre, mood: form.mood, structure: form.structure, topic: form.topic, notes: form.notes },
+        message: `Forge ${form.structure} lyrics — ${form.genre}, ${form.mood} mood, topic: ${form.topic}`,
+        silent: false,
+      });
+      // result arrives via onArtifact → setResult in CreatorStudio
     } catch {
       toast.error("The Forge went cold — try again.");
     } finally {
@@ -42,7 +51,7 @@ export default function LyricForge({ tier = "base" }) {
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12 }}>
         <div>
           <label style={labelStyle}>Genre / Style</label>
-          <select style={selectStyle} value={form.style} onChange={e => setForm(f => ({ ...f, style: e.target.value }))}>
+          <select style={selectStyle} value={form.genre} onChange={e => setForm(f => ({ ...f, genre: e.target.value }))}>
             {STYLES.map(s => <option key={s} value={s}>{s}</option>)}
           </select>
         </div>
@@ -95,7 +104,7 @@ export default function LyricForge({ tier = "base" }) {
         }}
       >
         {loading ? <RefreshCw style={{ width: 14, height: 14, animation: "spin 1s linear infinite" }} /> : <Wand2 style={{ width: 14, height: 14 }} />}
-        {loading ? "Forging..." : "Forge Lyrics"}
+        {loading ? "Sovereign is forging..." : "Send to Sovereign → Forge"}
       </button>
 
       {/* Output */}

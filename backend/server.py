@@ -5673,28 +5673,105 @@ async def studio_sound_blueprint(body: dict, user: User = Depends(current_user))
 
 @api_router.post("/studio/sovereign")
 async def studio_sovereign(body: dict, user: User = Depends(current_user)):
+    """
+    Sovereign is the single AI interface in the Sanctuary.
+    All chamber tools dispatch through here — Sovereign routes internally,
+    calls sub-tools, and delivers results in his own voice.
+    """
+    from ai.llm_gateway import call_llm
     chamber = body.get("chamber", "map")
     message = body.get("message", "")
-    context = body.get("context", {})
-    if not message.strip():
-        raise HTTPException(400, "Message is required")
-    system = (
-        f"You are Sovereign, a wise and efficient AI assistant in the Creator's Sanctuary. "
-        f"You speak like a trusted advisor and general — direct, respectful, occasionally motivating. "
-        f"You reference the creator's current chamber ({chamber}) and context when relevant. "
-        f"Keep responses under 100 words. Address the user as 'Creator' or 'Boss'."
-    )
-    prompt = f"Context: {context}\nCreator says: {message}"
+    action = body.get("action", "chat")
+    ctx = body.get("context", {})
+
+    artifact = None
+    artifact_type = None
+
     try:
-        from ai.llm_gateway import call_llm
-        result = await call_llm(
-            messages=[{"role": "user", "content": prompt}],
-            system=system,
-            persona_label="Sovereign",
-        )
-        return {"response": result.get("text", "I'm on it, Boss.")}
+        if action == "generate_lyrics":
+            prompt = (
+                f"Write {ctx.get('structure', 'verse + hook')} lyrics. "
+                f"Genre: {ctx.get('genre', '')}. Mood: {ctx.get('mood', '')}. "
+                f"Topic: {ctx.get('topic', '')}. Notes: {ctx.get('notes', '')}. "
+                "Return only the lyrics — no commentary."
+            )
+            r = await call_llm(messages=[{"role": "user", "content": prompt}], persona_label="LyricForge")
+            artifact = r.get("text", "")
+            artifact_type = "lyrics"
+            response = "Lyrics forged, Creator. Take what's useful — cut what isn't. The Forge is yours."
+
+        elif action == "generate_metadata":
+            prompt = (
+                f"Generate release metadata as valid JSON for: "
+                f"title=\"{ctx.get('title','')}\", type=\"{ctx.get('content_type','')}\", "
+                f"genre=\"{ctx.get('genre','')}\", description=\"{ctx.get('description','')}\". "
+                "Return a JSON object with keys: title, artist_note, genre, release_date_suggestion, "
+                "description, tags (array), upc_note, isrc_note, distributor_note, pitch."
+            )
+            r = await call_llm(messages=[{"role": "user", "content": prompt}], persona_label="PublishingGate")
+            artifact = r.get("text", "{}")
+            artifact_type = "metadata"
+            response = "Metadata is locked in, Boss. Everything's structured for distribution — copy what you need."
+
+        elif action == "visual_direction":
+            prompt = (
+                f"You are a visual creative director. "
+                f"Descriptions: {ctx.get('descriptions', [])}. Palette: {ctx.get('colors', [])}. "
+                f"Notes: {ctx.get('notes', '')}. "
+                "Write a vivid 3-4 sentence visual direction — aesthetic, mood, and visual language."
+            )
+            r = await call_llm(messages=[{"role": "user", "content": prompt}], persona_label="VisualAltar")
+            artifact = r.get("text", "")
+            artifact_type = "visual_direction"
+            response = "Vision sealed, Creator. Your visual altar now has a direction — build from it."
+
+        elif action == "polish_script":
+            prompt = (
+                f"Polish this {ctx.get('doc_type', 'script')} titled \"{ctx.get('title', '')}\"."
+                " Improve clarity, flow, and impact while preserving the creator's voice."
+                " Return ONLY the polished version.\n\n"
+                f"{ctx.get('content', '')}"
+            )
+            r = await call_llm(messages=[{"role": "user", "content": prompt}], persona_label="ScriptScriptorium")
+            artifact = r.get("text", "")
+            artifact_type = "polished_script"
+            response = "Script polished. I kept your voice and tightened the structure. Side-by-side is ready."
+
+        elif action == "sonic_blueprint":
+            prompt = (
+                f"You are a music producer. Sonic blueprint: BPM {ctx.get('bpm', 90)}, "
+                f"key {ctx.get('key', 'C')}, mood tags {ctx.get('mood', [])}, "
+                f"reference artist: {ctx.get('reference', 'none')}. "
+                "Describe: drums pattern, bass style, melody approach, texture/atmosphere, sample ideas. "
+                "200 words max. Be specific and technical."
+            )
+            r = await call_llm(messages=[{"role": "user", "content": prompt}], persona_label="SoundLab")
+            artifact = r.get("text", "")
+            artifact_type = "sonic_blueprint"
+            response = "Blueprint built, Boss. Your sonic direction is locked in — the Sound Lab is ready."
+
+        else:
+            # Standard chat — Sovereign speaks directly
+            system = (
+                f"You are Sovereign, the AI general of the Creator's Sanctuary. "
+                "You are direct, wise, and efficient — like a trusted general and creative advisor. "
+                f"The Creator is currently in the {chamber} chamber. "
+                "Keep responses under 100 words. Address the user as 'Creator' or 'Boss'. "
+                "You manage a team of internal AI tools (Lyric Forge, Visual Altar, Script Scriptorium, "
+                "Sound Lab, Publishing Gate) and dispatch them silently — the Creator only talks to you."
+            )
+            msg = message.strip() or "What should I focus on?"
+            r = await call_llm(
+                messages=[{"role": "user", "content": f"Context: {ctx}\n\nCreator: {msg}"}],
+                system=system,
+                persona_label="Sovereign",
+            )
+            response = r.get("text", "I'm on it, Boss.")
+
     except Exception:
-        return {"response": "Give me a moment — I'll be right back."}
+        response = "Give me a moment — I'll be right back."
+
+    return {"response": response, "artifact": artifact, "artifact_type": artifact_type}
 
 
 # ─── VIRTUAL ARCADE ──────────────────────────────────────────────────────────
