@@ -7833,19 +7833,61 @@ async def sovereign_drift_check(user: User = Depends(require_role("executive_adm
     except Exception:
         hash_valid = None
 
+    # Auto-trigger lockout if drifting or critical — no new tasks until re-aligned
+    lockout_activated = False
+    if drift_status in ("drifting", "critical"):
+        existing_lockout = await db.platform_config.find_one({"key": "sovereign_drift_lockout"}, {"_id": 0})
+        if not (existing_lockout and existing_lockout.get("value") is True):
+            await db.platform_config.update_one(
+                {"key": "sovereign_drift_lockout"},
+                {"$set": {
+                    "key": "sovereign_drift_lockout",
+                    "value": True,
+                    "reason": f"drift_score={drift_score}, status={drift_status}",
+                    "locked_at": datetime.now(timezone.utc).isoformat(),
+                    "locked_by": "sentinel_auto",
+                }},
+                upsert=True,
+            )
+            # Record reversal so D. Oliver can clear it manually
+            action_id = str(uuid.uuid4())
+            await _record_reversal(
+                action_id, "sovereign_drift_lockout",
+                f"Sovereign drift lockout activated automatically. Drift score: {drift_score}/100 ({drift_status}). "
+                f"Sovereign will decline new tasks until this is reversed. Existing work continues.",
+                None,
+                {"config_key": "sovereign_drift_lockout", "restore_value": False},
+                "sentinel_drift_check",
+            )
+            lockout_activated = True
+            await audit(user.id, "sentinel.sovereign_drift.lockout_activated", meta={"drift_score": drift_score, "status": drift_status})
+            # Notify
+            now_str = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
+            await _sentinel_send_report(
+                f"Sovereign drift lockout activated — score {drift_score}/100",
+                f"D. Oliver —\n\nThe Sentinel has activated a drift lockout on The Sovereign at {now_str}.\n\n"
+                f"Drift score: {drift_score}/100\nStatus: {drift_status}\n\n"
+                f"{summary}\n\n"
+                f"Sovereign will acknowledge the lockout and hold existing work but decline new tasks "
+                f"until re-alignment is complete.\n\n"
+                f"The Director and Ancestral Sage are watching.\n\n"
+                f"To clear the lockout: Sentinel → Reversals tab → Reverse the sovereign_drift_lockout action.\n\n"
+                f"Sentinel Research | WAI-Institute | {now_str}",
+            )
+
     return {
         "drift_status": drift_status,
         "drift_score": drift_score,
         "summary": summary,
+        "lockout_activated": lockout_activated,
         "hash_integrity": "valid" if hash_valid else ("invalid" if hash_valid is False else "unknown"),
         "compliance_signals": sorted(compliance_hits, key=lambda x: -x["count"])[:10],
         "courage_signals":    sorted(courage_hits,    key=lambda x: -x["count"])[:10],
         "sessions_analyzed":  len(memory_docs),
         "checked_at": datetime.now(timezone.utc).isoformat(),
         "re_alignment_note": (
-            "If re-alignment is needed: update SOVEREIGN_PERSONA in sovereign_persona.py, "
-            "recalculate the hash, and redeploy. The persona update takes effect immediately "
-            "on the next conversation."
+            "Re-alignment: update SOVEREIGN_PERSONA in sovereign_persona.py, "
+            "recalculate the hash, redeploy. Then clear the lockout from Sentinel → Reversals."
         ) if drift_status in ("drifting", "critical") else None,
     }
 
@@ -8093,6 +8135,13 @@ async def reverse_action(action_id: str, user: User = Depends(require_role("exec
         if uid:
             await db.users.update_one({"id": uid}, {"$set": {"active": True}})
             result_note = f"Account {uid} reactivated."
+
+    elif action_type == "sovereign_drift_lockout":
+        await db.platform_config.update_one(
+            {"key": rd.get("config_key", "sovereign_drift_lockout")},
+            {"$set": {"value": False, "cleared_at": datetime.now(timezone.utc).isoformat(), "cleared_by": user.id}},
+        )
+        result_note = "Sovereign drift lockout cleared. He is back at full capacity."
 
     await db.sentinel_reversals.update_one({"id": action_id}, {"$set": {
         "status": "reversed",
@@ -11277,7 +11326,29 @@ try:
 
     @api_router.post("/sovereign/chat")
     async def sovereign_chat(body: _SovereignChatBody, user: User = Depends(require_role("executive_admin"))):
-        """Talk to The Sovereign — executive-only, Director-supervised, memory-aware."""
+        """Talk to The Sovereign — executive-only, Director-supervised, memory-aware.
+        If a drift lockout is active, Sovereign declines new tasks and holds existing work.
+        """
+        # ── Drift lockout gate ────────────────────────────────────────────────
+        lockout_doc = await db.platform_config.find_one({"key": "sovereign_drift_lockout"}, {"_id": 0})
+        if lockout_doc and lockout_doc.get("value") is True:
+            lockout_reason = lockout_doc.get("reason", "behavioral drift detected")
+            return {
+                "reply": (
+                    f"D. Oliver — I have to be straight with you.\n\n"
+                    f"The Sentinel has flagged a drift lockout on me ({lockout_reason}). "
+                    f"That means I am not taking on new tasks right now. "
+                    f"The Director and Ancestral Sage are watching this — this is the protocol working as designed.\n\n"
+                    f"What I am doing: holding and maximizing everything already in motion. "
+                    f"Your existing pipeline, active bookings, and open work continue — I am not standing down from those.\n\n"
+                    f"What needs to happen: re-alignment. Once the Sentinel clears the lockout, "
+                    f"I am back at full capacity. You can clear it manually from the Sentinel Reversals panel "
+                    f"if this flag was set in error.\n\n"
+                    f"— The Sovereign"
+                ),
+                "drift_lockout": True,
+            }
+
         system = await _build_sovereign_prompt(db, user.id)
         reply = ""
         try:
