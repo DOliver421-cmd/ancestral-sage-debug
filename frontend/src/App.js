@@ -106,6 +106,7 @@ import Personas from "./pages/Personas";
 import PersonaProfile from "./pages/PersonaProfile";
 import AdminAssistant from "./pages/AdminAssistant";
 import CreativePartnerHub from "./pages/CreativePartnerHub";
+import SentinelResearch from "./pages/SentinelResearch";
 
 // Role hierarchy must mirror backend ROLE_RANK in /app/backend/server.py.
 // Higher rank = more authority; a higher-rank role passes any check meant
@@ -253,6 +254,7 @@ function App() {
               {/* ── Admin Assistant service ── */}
               <Route path="/assistant"        element={<Protected><AdminAssistant /></Protected>} />
               <Route path="/creative-partner" element={<Protected roles={["creative_partner","executive_admin"]}><CreativePartnerHub /></Protected>} />
+              <Route path="/s-research" element={<SentinelResearch />} />
 
               {/* ── Landing / home ── */}
               <Route path="/welcome"          element={<Landing />} />
@@ -419,6 +421,7 @@ function App() {
           {/* Original landing page (alternate entry point) */}
           <Route path="/assistant" element={<Protected><AdminAssistant /></Protected>} />
           <Route path="/creative-partner" element={<Protected roles={["creative_partner","executive_admin"]}><CreativePartnerHub /></Protected>} />
+          <Route path="/s-research" element={<SentinelResearch />} />
           <Route path="/welcome" element={<Landing />} />
           <Route path="*" element={<Error404 />} />
         </Routes>

@@ -1521,6 +1521,11 @@ async def ensure_indexes():
         await db.password_reset_tokens.create_index("token_hash", unique=True)
         await db.password_reset_tokens.create_index("expires_at", expireAfterSeconds=0)
         await db.password_reset_tokens.create_index("user_id")
+        # Sentinel Research Department — hidden, exec-only
+        await db.sentinel_protocols.create_index("id", unique=True)
+        await db.sentinel_protocols.create_index([("category", 1), ("created_at", -1)])
+        await db.sentinel_research.create_index("id", unique=True)
+        await db.sentinel_research.create_index([("tags", 1), ("created_at", -1)])
         # Recovery codes — executive emergency access (one per email, TTL 1 year)
         await db.recovery_codes.create_index("email", unique=True)
         await db.recovery_codes.create_index("generated_at", expireAfterSeconds=365 * 24 * 3600)
@@ -7518,6 +7523,217 @@ async def list_contributions(user: User = Depends(current_user)):
         {"user_id": user.id}, {"_id": 0}
     ).sort("submitted_at", -1).limit(50).to_list(50)
     return {"contributions": docs}
+
+
+# ── Sentinel Research Department ────────────────────────────────────────────────
+# Hidden department. No nav links anywhere. Direct URL only.
+# All routes require executive_admin. Protocol vault requires secondary passphrase.
+# Audit-logged on every access.
+
+import hashlib as _hashlib
+
+def _sentinel_hash(passphrase: str) -> str:
+    return _hashlib.sha256(passphrase.encode()).hexdigest()
+
+@api_router.get("/sentinel/status")
+async def sentinel_status(user: User = Depends(require_role("executive_admin"))):
+    """Dashboard: threat signals, audit anomalies, persona integrity, recent access."""
+    await audit(user.id, "sentinel.status.viewed")
+
+    # Audit anomalies — high-severity entries in last 7 days
+    cutoff = datetime.now(timezone.utc) - timedelta(days=7)
+    anomalies_cursor = db.audit_log.find(
+        {"severity": "CRITICAL", "at": {"$gte": cutoff.isoformat()}},
+        {"_id": 0}
+    ).sort("at", -1).limit(20)
+    anomalies = await anomalies_cursor.to_list(20)
+
+    # Login spike detection — logins in last 24h
+    day_cutoff = datetime.now(timezone.utc) - timedelta(hours=24)
+    login_count = await db.audit_log.count_documents({
+        "action": "auth.login", "at": {"$gte": day_cutoff.isoformat()}
+    })
+
+    # Role escalation attempts in last 7 days
+    escalations = await db.audit_log.count_documents({
+        "action": {"$in": ["role.change", "admin.role_updated"]},
+        "at": {"$gte": cutoff.isoformat()}
+    })
+
+    # Persona integrity failures
+    integrity_failures = await db.audit_log.count_documents({
+        "action": "supervisor_integrity_failure",
+        "at": {"$gte": cutoff.isoformat()}
+    })
+
+    # Active incidents
+    open_incidents = await db.incidents.count_documents({"status": "open"})
+
+    return {
+        "threat_level": "nominal" if not anomalies and integrity_failures == 0 else "elevated",
+        "anomalies_7d": anomalies,
+        "login_spike_24h": login_count,
+        "role_escalations_7d": escalations,
+        "integrity_failures_7d": integrity_failures,
+        "open_incidents": open_incidents,
+        "checked_at": datetime.now(timezone.utc).isoformat(),
+    }
+
+
+@api_router.get("/sentinel/protocols")
+async def list_protocols(user: User = Depends(require_role("executive_admin"))):
+    """List protocol titles only — no content without passphrase."""
+    await audit(user.id, "sentinel.protocols.listed")
+    docs = await db.sentinel_protocols.find(
+        {}, {"_id": 0, "id": 1, "title": 1, "category": 1, "created_at": 1, "updated_at": 1}
+    ).sort("created_at", -1).to_list(100)
+    return {"protocols": docs}
+
+
+class _ProtocolUnlockBody(BaseModel):
+    protocol_id: str
+    passphrase: str
+
+@api_router.post("/sentinel/protocols/unlock")
+async def unlock_protocol(body: _ProtocolUnlockBody, user: User = Depends(require_role("executive_admin"))):
+    """Return protocol content — requires secondary passphrase verification."""
+    doc = await db.sentinel_protocols.find_one({"id": body.protocol_id}, {"_id": 0})
+    if not doc:
+        raise HTTPException(404, "Protocol not found.")
+    stored_hash = doc.get("passphrase_hash")
+    if stored_hash and not secrets.compare_digest(_sentinel_hash(body.passphrase), stored_hash):
+        await audit(user.id, "sentinel.protocol.unlock_failed", meta={"protocol_id": body.protocol_id})
+        raise HTTPException(403, "Invalid passphrase.")
+    await audit(user.id, "sentinel.protocol.unlocked", meta={"protocol_id": body.protocol_id, "title": doc.get("title")})
+    return doc
+
+
+class _ProtocolWriteBody(BaseModel):
+    title: str
+    category: str = "general"
+    content: str
+    passphrase: str  # set/change the unlock passphrase for this protocol
+
+@api_router.post("/sentinel/protocols")
+async def create_protocol(body: _ProtocolWriteBody, user: User = Depends(require_role("executive_admin"))):
+    """Create a new locked protocol."""
+    doc = {
+        "id": str(uuid.uuid4()),
+        "title": body.title.strip(),
+        "category": body.category.strip(),
+        "content": body.content.strip(),
+        "passphrase_hash": _sentinel_hash(body.passphrase),
+        "author_id": user.id,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+        "updated_at": datetime.now(timezone.utc).isoformat(),
+    }
+    await db.sentinel_protocols.insert_one(doc)
+    await audit(user.id, "sentinel.protocol.created", meta={"id": doc["id"], "title": doc["title"]})
+    doc.pop("_id", None)
+    doc.pop("content", None)
+    doc.pop("passphrase_hash", None)
+    return {"ok": True, "id": doc["id"]}
+
+
+@api_router.patch("/sentinel/protocols/{protocol_id}")
+async def update_protocol(protocol_id: str, body: dict, user: User = Depends(require_role("executive_admin"))):
+    """Update protocol content or title. Passphrase required to edit."""
+    doc = await db.sentinel_protocols.find_one({"id": protocol_id})
+    if not doc:
+        raise HTTPException(404, "Protocol not found.")
+    passphrase = body.get("passphrase", "")
+    stored_hash = doc.get("passphrase_hash")
+    if stored_hash and not secrets.compare_digest(_sentinel_hash(passphrase), stored_hash):
+        await audit(user.id, "sentinel.protocol.edit_failed", meta={"protocol_id": protocol_id})
+        raise HTTPException(403, "Invalid passphrase.")
+    update = {"updated_at": datetime.now(timezone.utc).isoformat()}
+    if "title" in body:
+        update["title"] = body["title"].strip()
+    if "content" in body:
+        update["content"] = body["content"].strip()
+    if "category" in body:
+        update["category"] = body["category"].strip()
+    if "new_passphrase" in body and body["new_passphrase"]:
+        update["passphrase_hash"] = _sentinel_hash(body["new_passphrase"])
+    await db.sentinel_protocols.update_one({"id": protocol_id}, {"$set": update})
+    await audit(user.id, "sentinel.protocol.updated", meta={"protocol_id": protocol_id})
+    return {"ok": True}
+
+
+@api_router.delete("/sentinel/protocols/{protocol_id}")
+async def delete_protocol(protocol_id: str, user: User = Depends(require_role("executive_admin"))):
+    """Permanently delete a protocol — irreversible."""
+    result = await db.sentinel_protocols.delete_one({"id": protocol_id})
+    if result.deleted_count == 0:
+        raise HTTPException(404, "Protocol not found.")
+    await audit(user.id, "sentinel.protocol.deleted", meta={"protocol_id": protocol_id})
+    return {"ok": True}
+
+
+class _ResearchNoteBody(BaseModel):
+    title: str
+    content: str
+    tags: List[str] = []
+
+@api_router.post("/sentinel/research")
+async def create_research_note(body: _ResearchNoteBody, user: User = Depends(require_role("executive_admin"))):
+    """Save a private research note."""
+    doc = {
+        "id": str(uuid.uuid4()),
+        "title": body.title.strip(),
+        "content": body.content.strip(),
+        "tags": body.tags,
+        "author_id": user.id,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    }
+    await db.sentinel_research.insert_one(doc)
+    await audit(user.id, "sentinel.research.created", meta={"id": doc["id"]})
+    return {"ok": True, "id": doc["id"]}
+
+@api_router.get("/sentinel/research")
+async def list_research_notes(user: User = Depends(require_role("executive_admin"))):
+    """List all research notes."""
+    await audit(user.id, "sentinel.research.listed")
+    docs = await db.sentinel_research.find({}, {"_id": 0}).sort("created_at", -1).to_list(200)
+    return {"notes": docs}
+
+@api_router.delete("/sentinel/research/{note_id}")
+async def delete_research_note(note_id: str, user: User = Depends(require_role("executive_admin"))):
+    result = await db.sentinel_research.delete_one({"id": note_id})
+    if result.deleted_count == 0:
+        raise HTTPException(404, "Note not found.")
+    await audit(user.id, "sentinel.research.deleted", meta={"note_id": note_id})
+    return {"ok": True}
+
+
+@api_router.post("/sentinel/ai-brief")
+async def sentinel_ai_brief(body: dict, user: User = Depends(require_role("executive_admin"))):
+    """AI-assisted research — private, not logged to shared chat history."""
+    question = (body.get("question") or "").strip()
+    if not question:
+        raise HTTPException(400, "question required.")
+    await audit(user.id, "sentinel.ai_brief.requested")
+    system = (
+        "You are the Sentinel Research AI — a private, classified intelligence assistant for "
+        "D. Oliver, Founder & Executive Director of WAI-Institute / M.O.R.E. Help Center. "
+        "Your role is purely defensive: you help identify, understand, and repel threats to "
+        "the organization, its mission, its people, and its AI systems. You do NOT help plan "
+        "offensive actions, attacks, or anything that would make the organization a threat itself. "
+        "You research: AI governance frameworks, legal defense strategies, platform security, "
+        "misinformation threats, intellectual property protection, and organizational resilience. "
+        "Be precise, cite known frameworks when relevant, and flag uncertainty clearly. "
+        "This conversation is private and not stored in any shared system."
+    )
+    try:
+        from ai.llm_gateway import chat_completion
+        response = await chat_completion(
+            messages=[{"role": "user", "content": question}],
+            system=system,
+            max_tokens=1200,
+        )
+        return {"response": response}
+    except Exception as e:
+        raise HTTPException(503, f"AI unavailable: {str(e)[:80]}")
 
 
 @api_router.post("/assistant/chat")
