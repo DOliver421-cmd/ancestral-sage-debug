@@ -89,9 +89,9 @@ function AIAssistantPanel({ user, status }) {
     onError: () => {},
   });
 
-  const endpoint = canAccess(user, status, "sovereign")
-    ? "/sovereign/chat"
-    : "/supervisor/public-chat";
+  // Sovereign is private — accessible only through his dedicated widget, not here.
+  // Profile AI assistant always uses the public supervisor endpoint.
+  const endpoint = "/supervisor/public-chat";
 
   useEffect(() => { endRef.current?.scrollIntoView({ behavior: "smooth" }); }, [msgs]);
 

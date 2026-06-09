@@ -44,7 +44,7 @@ function FileChip({ file, onRemove, onPlay, playing }) {
 }
 
 export default function SovereignChat() {
-  const { user } = useAuth();
+  const { user, loading } = useAuth();
   const [open, setOpen]         = useState(false);
   const [messages, setMessages] = useState(loadHistory);
   const [input, setInput]       = useState("");
@@ -137,9 +137,8 @@ export default function SovereignChat() {
     try {
       const form = new FormData();
       form.append("file", file);
-      const r = await api.post("/sovereign/upload", form, {
-        headers: { "Content-Type": "multipart/form-data" },
-      });
+      // Do NOT set Content-Type manually — browser must set it with the multipart boundary
+      const r = await api.post("/sovereign/upload", form);
       const data = r.data;
       const fileEntry = { ...data };
       if (data.is_audio) {
@@ -164,7 +163,8 @@ export default function SovereignChat() {
     if (playingId === file_id) { trackAudioRef.current?.pause(); setPlayingId(null); }
   };
 
-  if (user?.role !== "executive_admin") return null;
+  // Not rendered until auth is confirmed — prevents flash-of-null on load
+  if (loading || user?.role !== "executive_admin") return null;
 
   // ── Send ─────────────────────────────────────────────────────────────────────
   const send = async (e) => {
