@@ -317,7 +317,7 @@ function MorePanel({ style, onAction, pulse }) {
           recentPosts: posts.posts  || [],
           recentNeeds: needs.needs  || [],
         });
-      } catch {
+      } catch (_e) {
         setMoreStats({ postsTotal: 0, needsTotal: 0, recentPosts: [], recentNeeds: [] });
       } finally {
         setLoadingMore(false);
@@ -525,7 +525,7 @@ function StudentsPanel({ pulse, style, onAction }) {
 function NotesPanel({ style }) {
   const STORAGE_KEY = "director_widget_notes";
   const [notes, setNotes] = useState(() => {
-    try { return localStorage.getItem(STORAGE_KEY) || ""; } catch { return ""; }
+    try { return localStorage.getItem(STORAGE_KEY) || ""; } catch (_e) { return ""; }
   });
   const [saved, setSaved] = useState(false);
   const timerRef = useRef(null);
@@ -535,14 +535,14 @@ function NotesPanel({ style }) {
     setSaved(false);
     clearTimeout(timerRef.current);
     timerRef.current = setTimeout(() => {
-      try { localStorage.setItem(STORAGE_KEY, val); setSaved(true); } catch {}
+      try { localStorage.setItem(STORAGE_KEY, val); setSaved(true); } catch (_e) {}
     }, 800);
   };
 
   const clearNotes = () => {
     if (window.confirm("Clear all notes?")) {
       setNotes("");
-      try { localStorage.removeItem(STORAGE_KEY); } catch {}
+      try { localStorage.removeItem(STORAGE_KEY); } catch (_e) {}
     }
   };
 
@@ -620,7 +620,7 @@ export default function DirectorWidget() {
     try {
       const saved = localStorage.getItem("director_widget_pos");
       if (saved) return JSON.parse(saved);
-    } catch {}
+    } catch (_e) {}
     return getDefaultPos();
   });
   const [widgetSize, setWidgetSize] = useState("normal");
@@ -686,7 +686,7 @@ export default function DirectorWidget() {
         setPos(snapped);
         posRef.current = snapped;
       }
-      try { localStorage.setItem("director_widget_pos", JSON.stringify(posRef.current)); } catch {}
+      try { localStorage.setItem("director_widget_pos", JSON.stringify(posRef.current)); } catch (_e) {}
     };
 
     const onMove     = e => { if (dragging.current) moveWidget(e.clientX, e.clientY); };
@@ -780,7 +780,7 @@ export default function DirectorWidget() {
           setUnread(u => u + 1);
         }
       }
-    } catch {}
+    } catch (_e) {}
   }, [isMonitor]);
 
   useEffect(() => {
@@ -905,7 +905,7 @@ export default function DirectorWidget() {
       } else {
         degraded = true;
       }
-    } catch { degraded = true; }
+    } catch (_e) { degraded = true; }
 
     if (!reply) {
       usedTier = 2;
@@ -913,7 +913,7 @@ export default function DirectorWidget() {
         const r = await api.post("/ai/orchestrator", { message: userMsg, session_id: "director_session", history: [] });
         reply = r.data.reply;
         degraded = false;
-      } catch { /* fall through */ }
+      } catch (_e) { /* fall through */ }
     }
 
     if (!reply) {
@@ -922,7 +922,7 @@ export default function DirectorWidget() {
         const r = await api.post("/api/assistant/chat", { message: userMsg, session_id: "director_session", history: [] });
         reply = r.data.reply;
         degraded = false;
-      } catch { /* fall through */ }
+      } catch (_e) { /* fall through */ }
     }
 
     if (!reply) {

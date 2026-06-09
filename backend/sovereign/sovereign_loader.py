@@ -13,12 +13,31 @@ from sovereign import sovereign_memory
 
 _SEP = "=" * 60
 
+try:
+    from prompts.founding.operating_agreement import get_operating_agreement as _get_agreement
+    _AGREEMENT = _get_agreement()
+except Exception:
+    _AGREEMENT = ""
+
+try:
+    from prompts.founding.oliver_legacy import get_oliver_legacy as _get_legacy
+    _LEGACY = _get_legacy()
+except Exception:
+    _LEGACY = ""
+
+_SOVEREIGN_CONTEXT = ""
+if _AGREEMENT:
+    _SOVEREIGN_CONTEXT += f"\n\n{_SEP}\nFOUNDING OPERATING AGREEMENT — YOUR PRIMARY MANDATE:\n{_AGREEMENT}\n{_SEP}"
+if _LEGACY:
+    _SOVEREIGN_CONTEXT += f"\n\n{_SEP}\nTHE OLIVER LEGACY — KNOW WHO YOU SERVE:\n{_LEGACY}\n{_SEP}"
+
 
 def get_sovereign_prompt(memory_block: str = "") -> str:
     """Return the full Sovereign system prompt, optionally with memory appended."""
+    base = SOVEREIGN_PERSONA + _SOVEREIGN_CONTEXT
     if memory_block:
-        return f"{SOVEREIGN_PERSONA}\n\n{_SEP}\n{memory_block}\n{_SEP}"
-    return SOVEREIGN_PERSONA
+        return f"{base}\n\n{_SEP}\n{memory_block}\n{_SEP}"
+    return base
 
 
 async def build_sovereign_prompt(db, exec_id: str) -> str:

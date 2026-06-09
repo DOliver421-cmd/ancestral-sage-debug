@@ -8086,6 +8086,77 @@ async def ai_architect(body: dict, user: User = Depends(current_user)):
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
+# THE GRIOT 4.0 — Music Production & Ghost Production endpoint
+# ═══════════════════════════════════════════════════════════════════════════════
+
+@api_router.post("/ai/griot")
+async def ai_griot(body: dict, user: User = Depends(current_user)):
+    """THE GRIOT — Music Production Authority, Ghost Producer, Label Intelligence.
+
+    Handles: ghost production briefs, beat architecture, artist development,
+    sonic identity, WAI Records label coordination, music publishing guides,
+    and audiobook production direction.
+
+    Coordinates: Cipher (lyrics), Oracle (cultural timing), Architect (cover art),
+    Ambassador (release campaigns), Revenue Director (pricing/royalties).
+
+    Access: admin, executive_admin
+    """
+    from ai.persona_loader import get_persona
+    from ai.prompt_guard import prompt_guard
+    from ai.memory import get_memory_context, log_episode
+
+    if user.role not in ("admin", "executive_admin"):
+        raise HTTPException(403, "THE GRIOT is available to admin and executive accounts.")
+
+    message    = body.get("message", "")
+    session_id = body.get("session_id", "default")
+    if not message:
+        raise HTTPException(400, "Message is required")
+
+    check_rate(f"ai_griot:{user.id}", max_calls=15, window_sec=60)
+    try:
+        prompt_guard.assert_message_safe(message, user.role, "/ai/griot", user.id)
+    except ValueError as _e:
+        raise HTTPException(400, str(_e))
+
+    memory_ctx = await get_memory_context(db, "griot", user.id)
+
+    system = get_persona("griot") + (
+        f"\n\nEXECUTIVE CONTEXT:\n"
+        f"- Operating for: {user.full_name} ({user.role})\n"
+        f"- Institution: WAI-Institute / M.O.R.E. Help Center\n"
+        f"- Label: WAI Records\n"
+        f"- GUMROAD_API_KEY: {'SET — direct sales active' if GUMROAD_API_KEY else 'NOT SET — catalog mode active'}\n"
+    ) + memory_ctx
+
+    reply = ""
+    try:
+        from ai.llm_gateway import call_llm as _call_llm
+        _gw = await _call_llm(
+            system=system,
+            messages=[{"role": "user", "content": message}],
+            max_tokens=2048,
+            persona_label="griot",
+        )
+        reply = _gw["text"]
+    except Exception:
+        reply = (
+            "THE GRIOT is temporarily without AI connectivity. "
+            "The production catalog and label operations remain intact. Retry in a moment."
+        )
+
+    await log_episode(db, session_id, "griot", user.id, message, reply, [])
+    await db.ai_usage_log.insert_one({
+        "user_id": user.id, "endpoint": "/ai/griot", "persona": "griot",
+        "model": "free_gateway", "provider": "gateway", "cost_usd": 0.0,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    })
+    logger.info("ai_griot: responded for user %s", user.id)
+    return {"reply": reply, "persona": "griot", "mode": "music_production"}
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
 # THE CIPHER 4.0 — Spoken Word AI Influencer endpoint
 # ═══════════════════════════════════════════════════════════════════════════════
 
@@ -10422,13 +10493,23 @@ try:
     async def sovereign_chat(body: _SovereignChatBody, user: User = Depends(require_role("executive_admin"))):
         """Talk to The Sovereign — executive-only, Director-supervised, memory-aware."""
         system = await _build_sovereign_prompt(db, user.id)
+        reply = ""
         try:
             from ai.llm_gateway import call_llm as _call_llm
             _gw = await _call_llm(system=system, messages=[{"role": "user", "content": body.message}], max_tokens=2048, persona_label="sovereign")
-            reply = _gw["text"]
+            if _gw.get("provider") != "kb_fallback":
+                reply = _gw.get("text", "")
         except Exception as e:
             logger.exception("Sovereign AI error")
-            raise HTTPException(502, f"Sovereign AI error: {e}")
+
+        if not reply:
+            reply = (
+                "The Sovereign is present — but operating without AI connectivity right now. "
+                "Your session and memory are intact. "
+                "Add a GROQ_API_KEY or GEMINI_API_KEY to Railway and he will speak fully. "
+                "— The Sovereign"
+            )
+
         try:
             await _sovereign_memory.save_memory(db, user.id, f"Asked: {body.message[:200]}", kind="note")
         except Exception:
