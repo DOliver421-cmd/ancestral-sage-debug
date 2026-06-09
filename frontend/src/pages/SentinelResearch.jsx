@@ -2,7 +2,7 @@ import { useEffect, useState, useRef, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { api } from "../lib/api";
 import { useAuth } from "../lib/auth";
-import { Shield, Lock, Unlock, AlertTriangle, FileText, Brain, Plus, Trash2, Eye, ChevronDown, ChevronUp, Send } from "lucide-react";
+import { Shield, Lock, Unlock, AlertTriangle, FileText, Brain, Plus, Trash2, Eye, ChevronDown, ChevronUp, Send, Zap, RotateCcw, CheckCircle } from "lucide-react";
 
 // ── Palette ──────────────────────────────────────────────────────────────────
 const BG      = "#0a0a0f";
@@ -355,12 +355,145 @@ function AIBrief() {
   );
 }
 
+// ── Autonomous Response + Reversals ─────────────────────────────────────────
+function ResponsePanel() {
+  const [running, setRunning] = useState(false);
+  const [lastResult, setLastResult] = useState(null);
+  const [reversals, setReversals] = useState([]);
+  const [reversing, setReversing] = useState({});
+
+  const loadReversals = useCallback(async () => {
+    try { const r = await api.get("/sentinel/reversals"); setReversals(r.data.reversals || []); } catch {}
+  }, []);
+
+  useEffect(() => { loadReversals(); }, [loadReversals]);
+
+  async function runResponse() {
+    setRunning(true);
+    setLastResult(null);
+    try {
+      const r = await api.post("/sentinel/respond");
+      setLastResult(r.data);
+      loadReversals();
+    } catch (e) {
+      setLastResult({ error: e?.response?.data?.detail || e.message });
+    }
+    setRunning(false);
+  }
+
+  async function reverse(id) {
+    if (!window.confirm("Reverse this action? This will undo the protective measure.")) return;
+    setReversing(r => ({ ...r, [id]: true }));
+    try {
+      await api.post(`/sentinel/reverse/${id}`);
+      loadReversals();
+    } catch (e) {
+      alert(e?.response?.data?.detail || "Reversal failed.");
+    }
+    setReversing(r => ({ ...r, [id]: false }));
+  }
+
+  const typeColor = {
+    lock_protocols: AMBER,
+    vault_lockout: RED,
+    revert_role: COPPER,
+    suspend_account: RED,
+  };
+
+  const activeCount = reversals.filter(r => r.status === "active").length;
+
+  return (
+    <div>
+      {/* Run engine */}
+      <div style={{ ...s.card, borderColor: activeCount > 0 ? RED + "55" : BORDER }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 14 }}>
+          <Zap size={14} color={activeCount > 0 ? RED : GREEN} />
+          <div>
+            <div style={{ fontSize: 13, fontWeight: 700, color: WHITE }}>Autonomous Response Engine</div>
+            <div style={{ fontSize: 11, color: MUTED, marginTop: 2 }}>
+              Scans for active threats and takes the minimum reversible protective action. Sends email report after each run.
+            </div>
+          </div>
+          <div style={{ marginLeft: "auto" }}>
+            {activeCount > 0 && <span style={s.badge(RED)}>{activeCount} active action{activeCount !== 1 ? "s" : ""}</span>}
+          </div>
+        </div>
+
+        <button onClick={runResponse} disabled={running} style={{ ...s.btn(running ? MUTED : COPPER), display: "flex", alignItems: "center", gap: 6 }}>
+          <Zap size={11} />{running ? "Scanning…" : "Run Threat Response"}
+        </button>
+
+        {lastResult && (
+          <div style={{ marginTop: 14, background: "#0d0d14", borderRadius: 6, padding: "12px 14px" }}>
+            {lastResult.error ? (
+              <div style={{ color: RED, fontSize: 12 }}>Error: {lastResult.error}</div>
+            ) : lastResult.actions_taken === 0 ? (
+              <div style={{ color: GREEN, fontSize: 12, display: "flex", alignItems: "center", gap: 6 }}>
+                <CheckCircle size={12} /> No active threats detected. No actions taken.
+              </div>
+            ) : (
+              <>
+                <div style={{ color: AMBER, fontSize: 12, fontWeight: 700, marginBottom: 10 }}>
+                  {lastResult.actions_taken} action(s) taken — report sent to your email.
+                </div>
+                {(lastResult.actions || []).map((a, i) => (
+                  <div key={i} style={{ padding: "6px 0", borderBottom: `1px solid ${BORDER}`, fontSize: 11 }}>
+                    <span style={s.badge(typeColor[a.type] || MUTED)}>{a.type?.replace(/_/g," ")}</span>
+                    <span style={{ color: MUTED, marginLeft: 8 }}>{a.reason}</span>
+                  </div>
+                ))}
+              </>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* Reversals list */}
+      <div style={{ ...s.label, marginTop: 8 }}>Action History &amp; Human Override</div>
+      {reversals.length === 0 && (
+        <div style={{ color: MUTED, fontSize: 12, padding: "14px 0" }}>No autonomous actions recorded.</div>
+      )}
+      {reversals.map(r => (
+        <div key={r.id} style={{ ...s.card, borderColor: r.status === "active" ? (typeColor[r.action_type] || BORDER) + "55" : BORDER, opacity: r.status === "reversed" ? 0.6 : 1 }}>
+          <div style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
+            <div style={{ flex: 1 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
+                <span style={s.badge(typeColor[r.action_type] || MUTED)}>{r.action_type?.replace(/_/g," ")}</span>
+                <span style={s.badge(r.status === "active" ? RED : GREEN)}>{r.status}</span>
+                <span style={{ color: MUTED, fontSize: 10, marginLeft: "auto" }}>
+                  {r.created_at ? new Date(r.created_at).toLocaleString() : ""}
+                </span>
+              </div>
+              <div style={{ fontSize: 12, color: WHITE, lineHeight: 1.6 }}>{r.description}</div>
+              {r.status === "reversed" && r.result_note && (
+                <div style={{ fontSize: 11, color: GREEN, marginTop: 6 }}>
+                  <CheckCircle size={10} style={{ marginRight: 4 }} />{r.result_note}
+                </div>
+              )}
+            </div>
+            {r.status === "active" && (
+              <button
+                onClick={() => reverse(r.id)}
+                disabled={reversing[r.id]}
+                style={{ ...s.btn(AMBER), whiteSpace: "nowrap", display: "flex", alignItems: "center", gap: 5, flexShrink: 0 }}
+              >
+                <RotateCcw size={11} />{reversing[r.id] ? "…" : "Reverse"}
+              </button>
+            )}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 // ── Main Page ────────────────────────────────────────────────────────────────
 const TABS = [
-  { id: "monitor",   label: "Threat Monitor",   icon: AlertTriangle },
-  { id: "protocols", label: "Protocol Vault",   icon: Lock },
-  { id: "research",  label: "Research Notes",   icon: FileText },
-  { id: "brief",     label: "AI Brief",         icon: Brain },
+  { id: "monitor",   label: "Threat Monitor",  icon: AlertTriangle },
+  { id: "response",  label: "Response",        icon: Zap },
+  { id: "protocols", label: "Protocol Vault",  icon: Lock },
+  { id: "research",  label: "Research Notes",  icon: FileText },
+  { id: "brief",     label: "AI Brief",        icon: Brain },
 ];
 
 export default function SentinelResearch() {
@@ -401,6 +534,7 @@ export default function SentinelResearch() {
         </div>
 
         {tab === "monitor"   && <ThreatMonitor />}
+        {tab === "response"  && <ResponsePanel />}
         {tab === "protocols" && <ProtocolVault />}
         {tab === "research"  && <ResearchNotes />}
         {tab === "brief"     && <AIBrief />}
