@@ -25,8 +25,14 @@ export default function SovereignVoice({ activeChamber }) {
   useEffect(() => {
     if (activeChamber) {
       const notes = {
-        lyric: "Lyric Forge is open. What are we writing — hook, verse, bridge?",
-        publishing: "Publishing Gate is ready. Drop the title and I'll build the metadata.",
+        "lyric-forge": "Lyric Forge is open. What are we writing — hook, verse, or bridge?",
+        "visual-altar": "Boss, the Visual Altar is lit. Moodboard first, then we'll align the palette.",
+        "script": "Script Scriptorium is ready. Tell me the format and I'll help shape the structure.",
+        "sound-lab": "Sound Lab is live. Lock in your BPM and I'll help you build the blueprint.",
+        "vault": "Vault of Versions pulled up. I can see your project history — seal a version before any major changes.",
+        "publishing-gate": "Publishing Gate open. Two deadlines approaching — let's handle metadata and socials now.",
+        "marketplace": "Marketplace Forge is coming. You're getting ahead of the curve just by being here.",
+        "collaboration": "Collaboration Chamber — when it drops, your co-creators will step through this door.",
       };
       if (notes[activeChamber]) {
         setMessages(m => [...m, { role: "sovereign", text: notes[activeChamber] }]);
