@@ -13,13 +13,13 @@
  */
 
 import { useState, useRef, useEffect } from "react";
-import { Share2, Copy, Check, X } from "lucide-react";
+import { Share2, Copy, Check, X, ClipboardCopy } from "lucide-react";
 import { toast } from "sonner";
 
 const PLATFORMS = [
   {
     key: "x",
-    label: "X / Twitter",
+    label: "X",
     icon: "𝕏",
     color: "#000",
     build: (url, title) =>
@@ -49,6 +49,42 @@ const PLATFORMS = [
     build: (url, title) =>
       `https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(url)}&title=${encodeURIComponent(title)}`,
   },
+  {
+    key: "threads",
+    label: "Threads",
+    icon: "@",
+    color: "#000",
+    build: (url, title) =>
+      `https://www.threads.net/intent/post?text=${encodeURIComponent(`${title} ${url}`)}`,
+  },
+];
+
+// Copy-only platforms (no share URL — require mobile app or paste workflow)
+const COPY_PLATFORMS = [
+  {
+    key: "youtube",
+    label: "YouTube Desc",
+    icon: "▶",
+    color: "#ff0000",
+    buildText: (url, title, description) =>
+      `📚 ${title} | Free on WAI Institute\n\n${description || "Join the community, learn real skills, and earn certificates."}\n\n👉 Enroll free: ${url}\n\n#WAIInstitute #FreeEducation #WorkforceTraining`,
+  },
+  {
+    key: "instagram",
+    label: "Instagram",
+    icon: "◎",
+    color: "#e1306c",
+    buildText: (url, title) =>
+      `${title} — free on WAI Institute 🎓\n\nReal skills. Real community. Real certificates.\n\nLink in bio 👉 ${url}\n\n#WAIInstitute #FreeEducation #Community`,
+  },
+  {
+    key: "tiktok",
+    label: "TikTok",
+    icon: "♪",
+    color: "#010101",
+    buildText: (url, title) =>
+      `${title} 🎓 FREE on WAI Institute — link in bio!\n${url}`,
+  },
 ];
 
 function buildAbsoluteUrl(url) {
@@ -61,10 +97,11 @@ function buildEmbedSnippet(absUrl, title) {
   return `<a href="${absUrl}" target="_blank" rel="noopener" style="display:inline-block;padding:10px 18px;background:#c87941;color:#fff;font-weight:bold;border-radius:6px;text-decoration:none;">${title}</a>`;
 }
 
-export default function SharePanel({ url, title = "Check this out", embed = false, compact = false }) {
+export default function SharePanel({ url, title = "Check this out", description = "", embed = false, compact = false }) {
   const [open, setOpen] = useState(false);
   const [copied, setCopied] = useState(false);
   const [embedCopied, setEmbedCopied] = useState(false);
+  const [copiedPlatform, setCopiedPlatform] = useState(null);
   const panelRef = useRef(null);
 
   const absUrl = buildAbsoluteUrl(url);
@@ -103,6 +140,17 @@ export default function SharePanel({ url, title = "Check this out", embed = fals
     window.open(platform.build(absUrl, title), "_blank", "noopener,width=600,height=500");
   }
 
+  function copyCaptionForPlatform(platform) {
+    const text = platform.buildText(absUrl, title, description);
+    navigator.clipboard?.writeText(text).then(() => {
+      setCopiedPlatform(platform.key);
+      toast.success(`${platform.label} caption copied — paste it in!`);
+      setTimeout(() => setCopiedPlatform(null), 2500);
+    }).catch(() => {
+      prompt(`Copy this ${platform.label} caption:`, text);
+    });
+  }
+
   if (compact) {
     return (
       <div ref={panelRef} style={{ position: "relative", display: "inline-block" }}>
@@ -128,8 +176,9 @@ export default function SharePanel({ url, title = "Check this out", embed = fals
             </div>
             <PanelBody
               absUrl={absUrl} title={title} embed={embed}
-              copied={copied} embedCopied={embedCopied}
+              copied={copied} embedCopied={embedCopied} copiedPlatform={copiedPlatform}
               copyLink={copyLink} copyEmbed={copyEmbed} openPlatform={openPlatform}
+              copyCaptionForPlatform={copyCaptionForPlatform}
             />
           </div>
         )}
@@ -141,14 +190,15 @@ export default function SharePanel({ url, title = "Check this out", embed = fals
     <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
       <PanelBody
         absUrl={absUrl} title={title} embed={embed}
-        copied={copied} embedCopied={embedCopied}
+        copied={copied} embedCopied={embedCopied} copiedPlatform={copiedPlatform}
         copyLink={copyLink} copyEmbed={copyEmbed} openPlatform={openPlatform}
+        copyCaptionForPlatform={copyCaptionForPlatform}
       />
     </div>
   );
 }
 
-function PanelBody({ absUrl, title, embed, copied, embedCopied, copyLink, copyEmbed, openPlatform }) {
+function PanelBody({ absUrl, title, embed, copied, embedCopied, copiedPlatform, copyLink, copyEmbed, openPlatform, copyCaptionForPlatform }) {
   return (
     <>
       {/* Copy link row */}
@@ -168,7 +218,8 @@ function PanelBody({ absUrl, title, embed, copied, embedCopied, copyLink, copyEm
         </button>
       </div>
 
-      {/* Social platforms */}
+      {/* Share-link platforms (open in new tab) */}
+      <div style={{ fontSize: 10, color: "#9ca3af", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em" }}>Share link</div>
       <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
         {PLATFORMS.map(p => (
           <button
@@ -184,6 +235,29 @@ function PanelBody({ absUrl, title, embed, copied, embedCopied, copyLink, copyEm
             <span style={{ fontWeight: 900 }}>{p.icon}</span> {p.label}
           </button>
         ))}
+      </div>
+
+      {/* Copy-caption platforms (YouTube, Instagram, TikTok) */}
+      <div style={{ fontSize: 10, color: "#9ca3af", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", marginTop: 2 }}>Copy caption / description</div>
+      <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+        {COPY_PLATFORMS.map(p => {
+          const isCopied = copiedPlatform === p.key;
+          return (
+            <button
+              key={p.key}
+              onClick={() => copyCaptionForPlatform(p)}
+              title={`Copy ${p.label} caption`}
+              style={{
+                background: isCopied ? "#16a34a" : p.color, color: "#fff", border: "none", borderRadius: 6,
+                padding: "5px 10px", cursor: "pointer", fontSize: 11, fontWeight: 700,
+                display: "flex", alignItems: "center", gap: 4,
+              }}
+            >
+              {isCopied ? <Check style={{ width: 11, height: 11 }} /> : <ClipboardCopy style={{ width: 11, height: 11 }} />}
+              {isCopied ? "Copied!" : p.label}
+            </button>
+          );
+        })}
       </div>
 
       {/* Embed code (profile/page embeds) */}

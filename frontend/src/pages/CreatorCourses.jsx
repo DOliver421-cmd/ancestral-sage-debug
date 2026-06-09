@@ -340,7 +340,7 @@ export default function CreatorCourses() {
                   </div>
                 </div>
                 {expandedId === course.course_id && (
-                  <div className="border-t border-ink/10 px-5 py-4 space-y-3 bg-bone/30">
+                  <div className="border-t border-ink/10 px-5 py-4 space-y-4 bg-bone/30">
                     {course.description && (
                       <p className="text-sm text-ink/70">{course.description}</p>
                     )}
@@ -357,6 +357,22 @@ export default function CreatorCourses() {
                         </ol>
                       </div>
                     )}
+                    {/* Share section — always visible in expanded view */}
+                    <div className="pt-2 border-t border-ink/10">
+                      <div className="overline text-xs text-ink/40 mb-3">Share this course</div>
+                      {course.status === "published" ? (
+                        <SharePanel
+                          url={`/courses?highlight=${course.course_id}`}
+                          title={course.title}
+                          description={course.description}
+                        />
+                      ) : (
+                        <div className="text-xs text-ink/40 flex items-center gap-2">
+                          <Eye className="w-3.5 h-3.5" />
+                          Publish this course to unlock sharing to X, Facebook, YouTube, Instagram, TikTok, and more.
+                        </div>
+                      )}
+                    </div>
                     <div className="text-xs text-ink/40">
                       Created {new Date(course.created_at).toLocaleDateString()} ·
                       Updated {new Date(course.updated_at).toLocaleDateString()} ·
