@@ -85,6 +85,7 @@ import ExecutiveDirectorDashboard from "./pages/ExecutiveDirectorDashboard";
 import PartnershipDashboard from "./pages/PartnershipDashboard";
 import PartnershipDiscounts from "./pages/PartnershipDiscounts";
 import UserProfile from "./pages/UserProfile";
+import UnifiedProfile from "./pages/UnifiedProfile";
 import LabSimulations from "./pages/LabSimulations";
 import Landing from "./pages/Landing";
 import PlatformPrices from "./pages/PlatformPrices";
@@ -225,7 +226,8 @@ function App() {
               <Route path="/payment/success"  element={<PaymentSuccess />} />
               <Route path="/payment/cancel"   element={<PaymentCancel />} />
               <Route path="/payment/history"  element={<Protected><PaymentHistory /></Protected>} />
-              <Route path="/profile"          element={<Protected><UserProfile /></Protected>} />
+              <Route path="/u/:username"      element={<UnifiedProfile />} />
+              <Route path="/profile"          element={<Protected><UnifiedProfile /></Protected>} />
               <Route path="/settings"         element={<Protected><Settings /></Protected>} />
               <Route path="/creator/courses"  element={<Protected><CreatorCourses /></Protected>} />
               <Route path="/creator/earnings" element={<Protected><CreatorEarnings /></Protected>} />
@@ -394,7 +396,8 @@ function App() {
           {/* Partnership & profile features */}
           <Route path="/partnership" element={<Protected><PartnershipDashboard /></Protected>} />
           <Route path="/partnership/discounts" element={<Protected><PartnershipDiscounts /></Protected>} />
-          <Route path="/profile" element={<Protected><UserProfile /></Protected>} />
+          <Route path="/u/:username" element={<UnifiedProfile />} />
+          <Route path="/profile" element={<Protected><UnifiedProfile /></Protected>} />
           <Route path="/profile/:id" element={<Protected><UserProfile /></Protected>} />
           {/* Lab simulations */}
           <Route path="/lab-simulations" element={<Protected><LabSimulations /></Protected>} />
