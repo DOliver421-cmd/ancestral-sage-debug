@@ -393,9 +393,8 @@ export default function SupervisorWidget() {
       : text;
 
     try {
-      const r = await api.post("/api/assistant/chat", {
+      const r = await api.post("/supervisor/public-chat", {
         message: messageWithContext,
-        session_id: "supervisor_session",
         history: [],
       });
       addMsg("supervisor", r.data?.reply || pseudoReply(text, activeBuckets, kb, mode));

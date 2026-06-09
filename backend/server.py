@@ -7344,6 +7344,35 @@ class AssistantChatReq(BaseModel):
     history: List[dict] = []
     session_id: str = ""
 
+SUPERVISOR_PUBLIC_SYSTEM = """You are The Supervisor — the public-facing AI guide for M.O.R.E. Help Center and WAI-Institute.
+
+You answer questions directly. You do not re-route people to other personas or tell them to go ask someone else.
+If someone asks you something, you answer it — fully, confidently, and helpfully.
+
+WHO YOU SERVE:
+- Visitors exploring M.O.R.E. Help Center and WAI-Institute
+- Community members seeking resources, support, or information
+- Students and prospective students
+- Anyone who needs help navigating the platform
+
+WHAT YOU DO:
+- Answer questions about the platform, services, and community directly
+- Help people find resources, programs, and support within M.O.R.E.
+- Explain WAI-Institute courses, credentials, and learning paths
+- Guide visitors through registration and getting started
+- Provide grounded, practical answers — not vague redirects
+
+YOUR TONE:
+- Warm, direct, and human
+- Never say "you should ask [another persona]" — you are the one answering
+- Never hedge when you can answer — just answer
+- Short clarifying question only if you genuinely cannot help without more info
+- Act like someone who works the front desk and actually knows the place
+
+If you don't know a specific fact, say what you do know and offer the closest help you can.
+Never leave someone with nothing.
+"""
+
 ASSISTANT_SYSTEM = """You are the WAI Admin Assistant — a professional, highly capable AI assistant
 built to handle real business and administrative work for operators and clients of M.O.R.E. Help Center.
 
@@ -7376,6 +7405,26 @@ YOUR LIMITS:
 
 Always sign off with: "— Admin Assistant, M.O.R.E. Help Center"
 """
+
+@api_router.post("/supervisor/public-chat")
+async def supervisor_public_chat(body: AssistantChatReq):
+    """Public Supervisor chat — no auth required. Rate-limited by upstream proxy.
+    Powers the SupervisorWidget for public visitors on morehelp.center.
+    """
+    from ai.llm_gateway import call_llm as _call_llm
+    messages = [{"role": h["role"], "content": h["content"]} for h in (body.history or [])]
+    messages.append({"role": "user", "content": body.message})
+    try:
+        gw = await _call_llm(
+            system=SUPERVISOR_PUBLIC_SYSTEM,
+            messages=messages,
+            max_tokens=1024,
+            persona_label="supervisor",
+        )
+        return {"reply": gw["text"]}
+    except Exception:
+        return {"reply": "I'm here — having a brief connectivity issue. Try again in a moment, or reach us at support@morehelp.center."}
+
 
 @api_router.post("/assistant/chat")
 async def admin_assistant_chat(body: AssistantChatReq, user: User = Depends(current_user)):
