@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { useMic } from "../hooks/useMic";
+import { api } from "../lib/api";
 
 // ── Bucket definitions ───────────────────────────────────────────────────────
 const BUCKETS = [
@@ -373,12 +374,34 @@ export default function SupervisorWidget() {
   });
 
   // ── Send ─────────────────────────────────────────────────────────────────────
-  function handleSend() {
+  async function handleSend() {
     const text = input.trim();
     if (!text) return;
     addMsg("user", text);
     setInput("");
-    setTimeout(() => addMsg("supervisor", pseudoReply(text, activeBuckets, kb, mode)), 380);
+
+    // Build context from active KB buckets
+    const kbContext = activeBuckets
+      .filter(bKey => kb[bKey]?.trim())
+      .map(bKey => {
+        const meta = BUCKETS.find(b => b.key === bKey);
+        return `[${meta?.label || bKey}]:\n${kb[bKey].slice(0, 3000)}`;
+      }).join("\n\n");
+
+    const messageWithContext = kbContext
+      ? `${text}\n\n---\nLOADED KNOWLEDGE:\n${kbContext}`
+      : text;
+
+    try {
+      const r = await api.post("/api/assistant/chat", {
+        message: messageWithContext,
+        session_id: "supervisor_session",
+        history: [],
+      });
+      addMsg("supervisor", r.data?.reply || pseudoReply(text, activeBuckets, kb, mode));
+    } catch (_e) {
+      addMsg("supervisor", pseudoReply(text, activeBuckets, kb, mode));
+    }
   }
 
   // ── File upload ──────────────────────────────────────────────────────────────
