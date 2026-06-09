@@ -33,6 +33,99 @@ const s = {
   badge:  (color) => ({ fontSize: 9, fontWeight: 700, letterSpacing: 1, textTransform: "uppercase", background: color + "22", color: color, border: `1px solid ${color}44`, borderRadius: 4, padding: "2px 7px" }),
 };
 
+// ── Drift Monitor ────────────────────────────────────────────────────────────
+function DriftMonitor() {
+  const [drift, setDrift] = useState(null);
+  const [loading, setLoading] = useState(false);
+
+  const driftColor = { healthy: GREEN, watch: AMBER, drifting: RED, critical: RED };
+  const hashColor  = { valid: GREEN, invalid: RED, unknown: MUTED };
+
+  async function check() {
+    setLoading(true);
+    try { const r = await api.get("/sentinel/sovereign-drift"); setDrift(r.data); } catch {}
+    setLoading(false);
+  }
+
+  return (
+    <div style={s.card}>
+      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
+        <Shield size={14} color={COPPER} />
+        <div>
+          <div style={{ fontSize: 13, fontWeight: 700, color: WHITE }}>Sovereign Drift Analysis</div>
+          <div style={{ fontSize: 11, color: MUTED, marginTop: 2 }}>
+            Behavioral scoring — cowardice drift vs. mandate integrity. Hash integrity check included.
+          </div>
+        </div>
+        <button onClick={check} disabled={loading} style={{ ...s.btn(COPPER), marginLeft: "auto", whiteSpace: "nowrap" }}>
+          {loading ? "Analyzing…" : "Run Drift Check"}
+        </button>
+      </div>
+
+      {drift && (
+        drift.status === "insufficient_data" ? (
+          <div style={{ color: MUTED, fontSize: 12 }}>{drift.message}</div>
+        ) : (
+          <>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(160px,1fr))", gap: 10, marginBottom: 14 }}>
+              {[
+                ["Drift Status",     drift.drift_status,   driftColor[drift.drift_status] || MUTED],
+                ["Drift Score",      `${drift.drift_score}/100`, drift.drift_score > 55 ? RED : drift.drift_score > 30 ? AMBER : GREEN],
+                ["Hash Integrity",   drift.hash_integrity, hashColor[drift.hash_integrity] || MUTED],
+                ["Sessions Analyzed", drift.sessions_analyzed, WHITE],
+              ].map(([label, val, color]) => (
+                <div key={label} style={{ background: "#0d0d14", border: `1px solid ${BORDER}`, borderRadius: 6, padding: "10px 12px" }}>
+                  <div style={s.label}>{label}</div>
+                  <div style={{ fontSize: 15, fontWeight: 700, color }}>{val}</div>
+                </div>
+              ))}
+            </div>
+
+            <div style={{ fontSize: 12, color: drift.drift_score > 55 ? RED : drift.drift_score > 30 ? AMBER : GREEN, marginBottom: 12, fontWeight: 600 }}>
+              {drift.summary}
+            </div>
+
+            {drift.re_alignment_note && (
+              <div style={{ fontSize: 11, color: AMBER, background: AMBER + "11", border: `1px solid ${AMBER}33`, borderRadius: 5, padding: "10px 12px", marginBottom: 12 }}>
+                {drift.re_alignment_note}
+              </div>
+            )}
+
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+              <div>
+                <div style={s.label}>Compliance Signals (drift risk)</div>
+                {drift.compliance_signals?.length === 0
+                  ? <div style={{ fontSize: 11, color: GREEN }}>None detected.</div>
+                  : drift.compliance_signals?.map((h, i) => (
+                    <div key={i} style={{ fontSize: 11, color: MUTED, padding: "3px 0", borderBottom: `1px solid ${BORDER}` }}>
+                      <span style={{ color: RED }}>×{h.count}</span>  "{h.phrase}"
+                    </div>
+                  ))
+                }
+              </div>
+              <div>
+                <div style={s.label}>Courage Signals (healthy)</div>
+                {drift.courage_signals?.length === 0
+                  ? <div style={{ fontSize: 11, color: AMBER }}>No pushback detected — check recent sessions.</div>
+                  : drift.courage_signals?.map((h, i) => (
+                    <div key={i} style={{ fontSize: 11, color: MUTED, padding: "3px 0", borderBottom: `1px solid ${BORDER}` }}>
+                      <span style={{ color: GREEN }}>×{h.count}</span>  "{h.phrase}"
+                    </div>
+                  ))
+                }
+              </div>
+            </div>
+
+            <div style={{ color: MUTED, fontSize: 10, marginTop: 10 }}>
+              Checked {drift.checked_at ? new Date(drift.checked_at).toLocaleString() : ""}
+            </div>
+          </>
+        )
+      )}
+    </div>
+  );
+}
+
 // ── Threat Monitor ───────────────────────────────────────────────────────────
 function ThreatMonitor() {
   const [status, setStatus] = useState(null);
@@ -533,7 +626,7 @@ export default function SentinelResearch() {
           })}
         </div>
 
-        {tab === "monitor"   && <ThreatMonitor />}
+        {tab === "monitor"   && <><ThreatMonitor /><div style={{ marginTop: 24 }}><DriftMonitor /></div></>}
         {tab === "response"  && <ResponsePanel />}
         {tab === "protocols" && <ProtocolVault />}
         {tab === "research"  && <ResearchNotes />}
