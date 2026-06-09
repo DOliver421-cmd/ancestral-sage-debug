@@ -109,6 +109,7 @@ import CreativePartnerHub from "./pages/CreativePartnerHub";
 import SentinelResearch from "./pages/SentinelResearch";
 import ArcadeLanding from "./pages/ArcadeLanding";
 import ArcadeGame from "./pages/ArcadeGame";
+import CreatorStudio from "./pages/CreatorStudio";
 
 // Role hierarchy must mirror backend ROLE_RANK in /app/backend/server.py.
 // Higher rank = more authority; a higher-rank role passes any check meant
@@ -259,6 +260,7 @@ function App() {
               <Route path="/s-research" element={<SentinelResearch />} />
               <Route path="/arcade" element={<Protected><ArcadeLanding /></Protected>} />
               <Route path="/arcade/:slug" element={<Protected><ArcadeGame /></Protected>} />
+              <Route path="/studio" element={<Protected><CreatorStudio /></Protected>} />
 
               {/* ── Landing / home ── */}
               <Route path="/welcome"          element={<Landing />} />
@@ -428,6 +430,7 @@ function App() {
           <Route path="/s-research" element={<SentinelResearch />} />
           <Route path="/arcade" element={<Protected><ArcadeLanding /></Protected>} />
           <Route path="/arcade/:slug" element={<Protected><ArcadeGame /></Protected>} />
+          <Route path="/studio" element={<Protected><CreatorStudio /></Protected>} />
           <Route path="/welcome" element={<Landing />} />
           <Route path="*" element={<Error404 />} />
         </Routes>

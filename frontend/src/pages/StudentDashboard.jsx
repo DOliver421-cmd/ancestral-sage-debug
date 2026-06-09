@@ -85,11 +85,33 @@ export default function StudentDashboard() {
           )}
         </div>
 
-        {/* Arcade button */}
+        {/* Studio + Arcade buttons */}
+        <div className="grid sm:grid-cols-2 gap-4 mb-8">
+        <Link
+          to="/studio"
+          data-testid="btn-studio"
+          className="flex items-center gap-4 px-6 py-4 no-underline transition-all hover:opacity-90"
+          style={{
+            background: "linear-gradient(135deg, #0d0818, #180d30)",
+            border: "2px solid rgba(168,85,247,0.6)",
+            boxShadow: "0 0 20px rgba(168,85,247,0.25), inset 0 0 30px rgba(168,85,247,0.05)",
+          }}
+        >
+          <span style={{ fontSize: 24, filter: "drop-shadow(0 0 8px rgba(168,85,247,0.8))" }}>⬡</span>
+          <div>
+            <div style={{ fontFamily: "monospace", fontSize: "1rem", fontWeight: 900, color: "#c084fc", letterSpacing: "0.08em", textShadow: "0 0 10px rgba(192,132,252,0.5)", lineHeight: 1.2 }}>
+              CREATOR'S SANCTUARY
+            </div>
+            <div style={{ fontFamily: "monospace", fontSize: "0.65rem", color: "rgba(168,85,247,0.7)" }}>
+              LYRIC FORGE · PUBLISHING · AI TOOLS
+            </div>
+          </div>
+          <div style={{ marginLeft: "auto", fontFamily: "monospace", fontSize: "0.65rem", color: "rgba(192,132,252,0.5)" }}>ENTER ▶</div>
+        </Link>
         <Link
           to="/arcade"
           data-testid="btn-arcade"
-          className="flex items-center gap-4 mb-8 px-6 py-4 no-underline transition-all hover:opacity-90"
+          className="flex items-center gap-4 px-6 py-4 no-underline transition-all hover:opacity-90"
           style={{
             background: "linear-gradient(135deg, #0a0a0f, #1a0800)",
             border: "2px solid #b8860b",
@@ -98,17 +120,16 @@ export default function StudentDashboard() {
         >
           <Gamepad2 style={{ color: "#ffd700", width: 28, height: 28, flexShrink: 0, filter: "drop-shadow(0 0 6px rgba(255,215,0,0.6))" }} />
           <div>
-            <div style={{ fontFamily: "monospace", fontSize: "1.1rem", fontWeight: 900, color: "#ffd700", letterSpacing: "0.1em", textShadow: "0 0 10px rgba(255,215,0,0.5)", lineHeight: 1.2 }}>
+            <div style={{ fontFamily: "monospace", fontSize: "1rem", fontWeight: 900, color: "#ffd700", letterSpacing: "0.1em", textShadow: "0 0 10px rgba(255,215,0,0.5)", lineHeight: 1.2 }}>
               ▶ THE ARCADE
             </div>
-            <div style={{ fontFamily: "monospace", fontSize: "0.7rem", color: "rgba(184,134,11,0.8)", letterSpacing: "0.05em", marginTop: 2 }}>
+            <div style={{ fontFamily: "monospace", fontSize: "0.65rem", color: "rgba(184,134,11,0.8)" }}>
               FREE · MISSION-ALIGNED GAMES · EARN XP
             </div>
           </div>
-          <div style={{ marginLeft: "auto", fontFamily: "monospace", fontSize: "0.7rem", color: "rgba(255,215,0,0.5)", letterSpacing: "0.05em" }}>
-            INSERT COIN ▶
-          </div>
+          <div style={{ marginLeft: "auto", fontFamily: "monospace", fontSize: "0.65rem", color: "rgba(255,215,0,0.5)" }}>INSERT COIN ▶</div>
         </Link>
+        </div>
 
         {/* Stats */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-5 mb-10">

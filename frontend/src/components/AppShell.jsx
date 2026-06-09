@@ -23,6 +23,7 @@ const studentNav = [
   { to: "/incidents", label: "Report Incident", icon: ShieldAlert, testid: "nav-incidents" },
   { to: "/leaderboard", label: "XP Leaderboard", icon: Trophy, testid: "nav-leaderboard" },
   { to: "/arcade", label: "The Arcade", icon: Gamepad2, testid: "nav-arcade" },
+  { to: "/studio", label: "Creator's Sanctuary", icon: Sparkles, testid: "nav-studio" },
   { to: "/ai", label: "AI Tutor", icon: Sparkles, testid: "nav-ai" },
   { to: "/council", label: "Council (Sage)", icon: Layers, testid: "nav-council" },
   { to: "/app/more", label: "M.O.R.E. Hub", icon: HandHelping, testid: "nav-more" },

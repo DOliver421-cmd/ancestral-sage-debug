@@ -5481,6 +5481,123 @@ async def award_xp(user_id: str, amount: int, reason: str) -> int:
     return (result or {}).get("total_xp", amount)
 
 
+# ─── CREATOR'S SANCTUARY ─────────────────────────────────────────────────────
+
+class LyricBody(BaseModel):
+    topic: str
+    style: Optional[str] = "Hip-Hop"
+    mood: Optional[str] = "Triumphant"
+    structure: Optional[str] = "Verse"
+    notes: Optional[str] = ""
+
+class MetadataBody(BaseModel):
+    title: str
+    artist: Optional[str] = ""
+    type: Optional[str] = "Single"
+    genre: Optional[str] = "Hip-Hop"
+    description: Optional[str] = ""
+    release_date: Optional[str] = ""
+    tags: Optional[str] = ""
+
+class CheerBody(BaseModel):
+    chamber: Optional[str] = "studio"
+
+@api_router.post("/studio/lyric")
+async def studio_lyric(body: LyricBody, user: User = Depends(current_user)):
+    if not body.topic.strip():
+        raise HTTPException(400, "Topic is required")
+    prompt = f"""Write {body.structure} lyrics in the {body.style} style with a {body.mood} mood.
+Topic / concept: {body.topic}
+{f'Additional notes: {body.notes}' if body.notes else ''}
+
+Rules:
+- Write only the lyrics, no explanations or labels
+- Match the structure requested ({body.structure})
+- Keep it authentic, culturally grounded, and purposeful
+- Use vivid imagery and real emotion"""
+    try:
+        from ai.llm_gateway import call_llm
+        result = await call_llm(
+            messages=[{"role": "user", "content": prompt}],
+            system="You are a master lyricist and poet. You write authentic, culturally resonant lyrics across all genres. You understand flow, rhyme scheme, metaphor, and the emotional truth of Black American music and storytelling.",
+            persona_label="Lyric Forge",
+        )
+        return {"lyrics": result.get("text", ""), "provider": result.get("provider", "free")}
+    except Exception as e:
+        logger.warning("Studio lyric error: %s", e)
+        raise HTTPException(503, "Lyric generation unavailable")
+
+@api_router.post("/studio/metadata")
+async def studio_metadata(body: MetadataBody, user: User = Depends(current_user)):
+    if not body.title.strip():
+        raise HTTPException(400, "Title is required")
+    prompt = f"""Generate professional release metadata for this creative work.
+
+Title: {body.title}
+Artist: {body.artist or "Independent Artist"}
+Type: {body.type}
+Genre: {body.genre}
+Description: {body.description or "Not provided"}
+Release date: {body.release_date or "TBD"}
+Tags/keywords: {body.tags or "Not provided"}
+
+Return ONLY a JSON object with these exact keys (no markdown, no extra text):
+{{
+  "title": "official title",
+  "artist": "artist name",
+  "genre": "primary genre",
+  "subgenre": "secondary genre if applicable",
+  "short_description": "1-2 sentence description for streaming platforms",
+  "long_description": "3-4 sentence description for YouTube/website",
+  "hashtags": ["tag1", "tag2", "tag3", "tag4", "tag5"],
+  "keywords": ["kw1", "kw2", "kw3"],
+  "mood_tags": ["mood1", "mood2"],
+  "suggested_playlist_pitches": "2-3 playlist types this fits"
+}}"""
+    try:
+        from ai.llm_gateway import call_llm
+        import json as _json
+        result = await call_llm(
+            messages=[{"role": "user", "content": prompt}],
+            system="You are a music metadata specialist and digital distribution expert. You produce accurate, platform-optimized metadata for independent artists.",
+            persona_label="Publishing Gate",
+        )
+        text = result.get("text", "{}").strip()
+        # Strip markdown code fences if present
+        if text.startswith("```"):
+            text = text.split("```")[1]
+            if text.startswith("json"):
+                text = text[4:]
+        try:
+            data = _json.loads(text)
+        except Exception:
+            data = {"raw": text}
+        return data
+    except Exception as e:
+        logger.warning("Studio metadata error: %s", e)
+        raise HTTPException(503, "Metadata generation unavailable")
+
+@api_router.post("/studio/cheer")
+async def studio_cheer(body: CheerBody):
+    chamber_context = {
+        "lyric": "user is writing lyrics in the Lyric Forge",
+        "publishing": "user is preparing a release in the Publishing Gate",
+        "visual": "user is working on visuals",
+        "sound": "user is building beats or sound concepts",
+        "studio": "user just entered the Creator's Sanctuary",
+    }
+    context = chamber_context.get(body.chamber or "studio", "user is creating")
+    try:
+        from ai.llm_gateway import call_llm
+        result = await call_llm(
+            messages=[{"role": "user", "content": f"Give me one short motivational or hype message. Context: {context}"}],
+            system="You are the Creative Spirit — an enthusiastic, slightly chaotic, always supportive AI presence in a creator's studio. You give SHORT punchy hype lines (1-2 sentences max). Be real, be fun, occasionally philosophical but never preachy. Like a hype man who actually understands the creative process.",
+            persona_label="Cheerleader",
+        )
+        return {"message": result.get("text", "Let's build something real today.")}
+    except Exception:
+        return {"message": "Let's build something real today."}
+
 # ─── VIRTUAL ARCADE ──────────────────────────────────────────────────────────
 
 ARCADE_CATALOG = [
