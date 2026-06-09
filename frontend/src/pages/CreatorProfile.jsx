@@ -4,6 +4,7 @@ import { Heart, Instagram, ExternalLink, ShoppingBag, Music, BookOpen, Users, Ar
 import { WAI_LOGO, BRAND } from "../lib/brand";
 import BugReportModal from "../components/BugReportModal";
 import TrackPlayer from "../components/TrackPlayer";
+import SharePanel from "../components/SharePanel";
 import { api } from "../lib/api";
 import { useAuth } from "../lib/auth";
 
@@ -559,6 +560,17 @@ export default function CreatorProfile() {
               </Link>
             </div>
           </div>
+        </div>
+
+        {/* Share this profile */}
+        <div className="bg-amber-50 border border-amber-200 rounded-2xl p-6">
+          <h2 className="font-heading font-extrabold text-xl mb-1">Share This Profile</h2>
+          <p className="text-ink/50 text-sm mb-4">Copy a link, share to social, or embed anywhere.</p>
+          <SharePanel
+            url={`/creators/${creator.slug}`}
+            title={`${creator.displayName} — WAI-Institute Creator`}
+            embed
+          />
         </div>
 
         {/* M.O.R.E. Skill Offerings */}

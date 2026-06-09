@@ -1,5 +1,6 @@
 import { useRef, useState, useEffect, useCallback } from "react";
 import { Play, Pause, Volume2, VolumeX, Music } from "lucide-react";
+import SharePanel from "./SharePanel";
 
 /**
  * TrackPlayer — glitch-free audio player for original + AI version tracks.
@@ -145,6 +146,9 @@ export default function TrackPlayer({ track, accentColor = "amber" }) {
           <button onClick={toggleMute} className="p-1.5 text-ink/30 hover:text-ink/60 transition-colors">
             {muted ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
           </button>
+          {track.share_url && (
+            <SharePanel compact url={track.share_url} title={track.title || "Track"} />
+          )}
         </div>
 
         {/* Seek bar */}

@@ -4,6 +4,7 @@ import { api, BACKEND_URL } from "../lib/api";
 import { useAuth } from "../lib/auth";
 import { Link } from "react-router-dom";
 import { Lock, Zap } from "lucide-react";
+import SharePanel from "../components/SharePanel";
 
 export default function ModulesList() {
   const { user } = useAuth();
@@ -35,7 +36,7 @@ export default function ModulesList() {
             const badge = p?.status === "completed" ? "badge-signal" : p?.status === "in_progress" ? "badge-copper" : isFree ? "badge-signal" : "badge-outline";
             const label = p?.status === "completed" ? "Completed" : p?.status === "in_progress" ? "In Progress" : isFree ? "FREE" : user ? "Not Started" : "Enroll to Unlock";
             return (
-              <Link to={isLocked ? "/register" : `/modules/${m.slug}`} key={m.slug} className="card-flat p-6 group relative" data-testid={`mod-card-${m.slug}`}>
+              <div key={m.slug} className="card-flat p-6 group relative" data-testid={`mod-card-${m.slug}`}>
                 {isLocked && (
                   <div className="absolute inset-0 bg-white/60 backdrop-blur-[1px] rounded-2xl z-10 flex items-center justify-center">
                     <div className="text-center">
@@ -58,7 +59,18 @@ export default function ModulesList() {
                   {m.points && <span className="text-amber-600">+{m.points} pts</span>}
                   {m.leads_to && <span className="text-copper">Leads into full program</span>}
                 </div>
-              </Link>
+                <div className="mt-4 flex items-center justify-between">
+                  <Link
+                    to={isLocked ? "/register" : `/modules/${m.slug}`}
+                    className="text-sm font-bold text-copper hover:underline"
+                  >
+                    {isLocked ? "Enroll to unlock →" : "Start module →"}
+                  </Link>
+                  {isFree && (
+                    <SharePanel compact url={`/modules/${m.slug}`} title={m.title} />
+                  )}
+                </div>
+              </div>
             );
           })}
         </div>

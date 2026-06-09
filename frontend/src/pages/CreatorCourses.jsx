@@ -3,16 +3,8 @@ import AppShell from "../components/AppShell";
 import BackButton from "../components/BackButton";
 import { api } from "../lib/api";
 import { toast } from "sonner";
-import { PlusCircle, BookOpen, Eye, EyeOff, Pencil, Trash2, X, CheckCircle, ChevronDown, ChevronUp, Share2 } from "lucide-react";
-
-function shareCourse(course) {
-  const url = `${window.location.origin}/courses?highlight=${course.course_id}`;
-  navigator.clipboard?.writeText(url)
-    .then(() => toast.success("Share link copied to clipboard"))
-    .catch(() => {
-      prompt("Copy this link:", url);
-    });
-}
+import { PlusCircle, BookOpen, Eye, EyeOff, Pencil, Trash2, X, CheckCircle, ChevronDown, ChevronUp } from "lucide-react";
+import SharePanel from "../components/SharePanel";
 
 const CATEGORIES = ["general", "electrical", "ai-tech", "arts-music", "workforce", "wellness", "publishing", "business"];
 
@@ -322,13 +314,13 @@ export default function CreatorCourses() {
                       {course.status === "published" ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                     </button>
                     {course.status === "published" && (
-                      <button
-                        onClick={e => { e.stopPropagation(); shareCourse(course); }}
-                        title="Copy share link"
-                        className="p-2 text-ink/40 hover:text-copper transition-colors"
-                      >
-                        <Share2 className="w-4 h-4" />
-                      </button>
+                      <span onClick={e => e.stopPropagation()}>
+                        <SharePanel
+                          compact
+                          url={`/courses?highlight=${course.course_id}`}
+                          title={course.title}
+                        />
+                      </span>
                     )}
                     <button
                       onClick={e => { e.stopPropagation(); openEdit(course); }}
