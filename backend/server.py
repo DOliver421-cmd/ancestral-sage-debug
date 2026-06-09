@@ -4388,7 +4388,8 @@ async def director_upload_file(
     """
     MAX_SIZE = 5 * 1024 * 1024  # 5 MB hard cap
 
-    raw = await file.read()
+    # Read with cap — avoids loading a multi-GB malicious file into memory
+    raw = await file.read(MAX_SIZE + 1)
     if len(raw) > MAX_SIZE:
         raise HTTPException(413, "File too large. Maximum size is 5 MB.")
 
@@ -6335,7 +6336,7 @@ async def view_audit(
 ):
     query: dict = {}
     if action:
-        query["action"] = {"$regex": action, "$options": "i"}
+        query["action"] = {"$regex": re.escape(action), "$options": "i"}
     if actor_id:
         query["actor_id"] = actor_id
     docs = await db.audit_log.find(query, {"_id": 0}).sort("at", -1).to_list(min(limit, 1000))
@@ -11258,7 +11259,8 @@ async def sovereign_upload_file(
     """
     import os as _os
     MAX_SIZE = 10 * 1024 * 1024
-    raw = await file.read()
+    # Read with cap — avoids loading a multi-GB malicious file into memory
+    raw = await file.read(MAX_SIZE + 1)
     if len(raw) > MAX_SIZE:
         raise HTTPException(413, "File too large. Maximum 10 MB.")
 
@@ -11967,8 +11969,7 @@ async def export_audit_log(
     """Export full audit log as JSON or CSV (exec-only)."""
     filt: dict = {}
     if action:
-        import re as _re
-        filt["action"] = {"$regex": action, "$options": "i"}
+        filt["action"] = {"$regex": re.escape(action), "$options": "i"}
     if actor_id:
         filt["actor_id"] = actor_id
     entries = await db.audit_log.find(filt, {"_id": 0}).sort("at", -1).limit(min(limit, 5000)).to_list(length=5000)
@@ -13792,7 +13793,7 @@ async def ec_audit_log(limit: int = 50, actor_id: Optional[str] = None,
     limit = min(max(limit, 1), 200)
     q: dict = {}
     if actor_id: q["actor_id"] = actor_id
-    if action:   q["action"]   = {"$regex": action, "$options": "i"}
+    if action:   q["action"]   = {"$regex": re.escape(action), "$options": "i"}
     records = await db.exec_audit_log.find(q, {"_id": 0}).sort("created_at", -1).limit(limit).to_list(limit)
     return {"count": len(records), "records": records}
 
@@ -14200,8 +14201,8 @@ app.add_middleware(
     CORSMiddleware,
     allow_credentials=_allow_creds,
     allow_origins=_cors_origins,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
+    allow_headers=["Content-Type", "Authorization", "X-Requested-With"],
 )
 
 
