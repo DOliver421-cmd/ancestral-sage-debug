@@ -105,20 +105,24 @@ import MyPosition from "./pages/MyPosition";
 import Personas from "./pages/Personas";
 import PersonaProfile from "./pages/PersonaProfile";
 import AdminAssistant from "./pages/AdminAssistant";
+import CreativePartnerHub from "./pages/CreativePartnerHub";
 
 // Role hierarchy must mirror backend ROLE_RANK in /app/backend/server.py.
 // Higher rank = more authority; a higher-rank role passes any check meant
 // for a lower-rank role (executive_admin passes every check).
-const ROLE_RANK = { student: 1, instructor: 2, admin: 3, executive_admin: 4 };
+// creative_partner is a lateral access level, not a promotion of student.
+const ROLE_RANK = { student: 1, creative_partner: 1, instructor: 2, admin: 3, executive_admin: 4 };
 
 function Protected({ children, roles }) {
   const { user, loading } = useAuth();
   if (loading) return <div className="p-12 text-ink font-heading">Loading…</div>;
   if (!user) return <Navigate to="/login" replace />;
   if (roles && roles.length > 0) {
+    // Exact role match first (for lateral roles like creative_partner), then rank check
+    const exactMatch = roles.includes(user.role);
     const needed = Math.min(...roles.map((r) => ROLE_RANK[r] ?? 99));
     const have = ROLE_RANK[user.role] ?? 0;
-    if (have < needed) return <Navigate to="/dashboard" replace />;
+    if (!exactMatch && have < needed) return <Navigate to="/dashboard" replace />;
   }
   return children;
 }
@@ -151,6 +155,7 @@ function Home() {
   if (user.role === "executive_admin") return <Navigate to="/admin/system" replace />;
   if (user.role === "admin") return <Navigate to="/admin" replace />;
   if (user.role === "instructor") return <Navigate to="/instructor" replace />;
+  if (user.role === "creative_partner") return <Navigate to="/creative-partner" replace />;
   return <Navigate to="/dashboard" replace />;
 }
 
@@ -247,6 +252,7 @@ function App() {
 
               {/* ── Admin Assistant service ── */}
               <Route path="/assistant"        element={<Protected><AdminAssistant /></Protected>} />
+              <Route path="/creative-partner" element={<Protected roles={["creative_partner","executive_admin"]}><CreativePartnerHub /></Protected>} />
 
               {/* ── Landing / home ── */}
               <Route path="/welcome"          element={<Landing />} />
@@ -412,6 +418,7 @@ function App() {
           <Route path="/admin/billing" element={<BoundedAdmin roles={["admin"]} label="Billing Admin"><BillingAdmin /></BoundedAdmin>} />
           {/* Original landing page (alternate entry point) */}
           <Route path="/assistant" element={<Protected><AdminAssistant /></Protected>} />
+          <Route path="/creative-partner" element={<Protected roles={["creative_partner","executive_admin"]}><CreativePartnerHub /></Protected>} />
           <Route path="/welcome" element={<Landing />} />
           <Route path="*" element={<Error404 />} />
         </Routes>

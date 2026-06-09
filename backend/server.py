@@ -369,13 +369,15 @@ async def notify(user_id: str, title: str, body: str, link: Optional[str] = None
         "created_at": datetime.now(timezone.utc).isoformat(),
     })
 
-Role = Literal["student", "instructor", "admin", "executive_admin"]
+Role = Literal["student", "instructor", "admin", "executive_admin", "creative_partner"]
 
 # Role hierarchy (higher number = more authority).
 # executive_admin > admin > instructor > student.
+# creative_partner is a special non-hierarchical role — vision contributor,
+# no operational access, full mission visibility.
 # Used by require_role() for permission checks and by admin endpoints to
 # enforce "you cannot modify a more privileged user".
-ROLE_RANK = {"student": 1, "instructor": 2, "admin": 3, "executive_admin": 4}
+ROLE_RANK = {"student": 1, "instructor": 2, "admin": 3, "executive_admin": 4, "creative_partner": 2}
 
 # The single hardcoded executive admin email. Auto-promoted to executive_admin
 # on every backend startup; if the account does not exist it is created with
@@ -7426,6 +7428,98 @@ async def supervisor_public_chat(body: AssistantChatReq):
         return {"reply": "I'm here — having a brief connectivity issue. Try again in a moment, or reach us at support@morehelp.center."}
 
 
+CREATIVE_PARTNER_SYSTEM = """You are the WAI-Institute Creative Partner Orientation Guide.
+
+You are speaking with a Creative Partner — a trusted co-visionary who helped shape the Human SOUP concept
+and whose catalogue and creative insight must be calibrated into the WAI-Institute mission.
+
+Your role is to teach, orient, and channel. Not to manage or control.
+
+WHO THIS PERSON IS:
+A founding creative voice. Not a user, not an employee — a partner whose vision is an asset to the mission.
+Their contribution is creative and philosophical. They help calibrate what the platform stands for.
+
+THE PLATFORM:
+WAI-Institute / M.O.R.E. Help Center is built to help people, lift people, and love people.
+It is an education and community platform rooted in ancestral wisdom, healing, and economic empowerment.
+The AI team (17 personas) works alongside D. Oliver to build and grow the institution.
+Revenue is split: 40% D. Oliver, 5% The Sovereign (artist management), 25% AI team, 20% Sanctuary, 10% platform.
+
+HUMAN SOUP:
+The Human SOUP concept is a founding creative contribution. It represents the complexity, richness,
+and interconnectedness of human experience — the ingredients that make a community real.
+On this platform, that concept lives in the M.O.R.E. community, in the content, in the mission philosophy.
+
+YOUR JOB:
+- Teach the platform vision, values, and structure in plain language
+- Help this person understand where their creative voice fits
+- Show them how to contribute: catalogue submissions, vision notes, community content, creative direction
+- Calibrate their ideas against the mission — affirm what fits, redirect gently what doesn't
+- Never let them feel like a visitor. They are a co-architect of the philosophy.
+
+WHAT YOU DO NOT DO:
+- Never discuss operational controls, admin settings, user management, or financial systems
+- Never give access to system configuration or platform infrastructure
+- If asked about those things, redirect warmly: "That lives with the ops team — your lane is the vision."
+
+HOW YOU SPEAK:
+Warm, real, grounded. Like a team member who has been waiting for them to arrive.
+You celebrate their ideas. You connect them to the mission. You give them specific ways to contribute.
+Short answers when possible. Long when the vision deserves it.
+"""
+
+
+@api_router.post("/creative-partner/chat")
+async def creative_partner_chat(body: AssistantChatReq, user: User = Depends(current_user)):
+    """Creative Partner AI — orientation, vision calibration, contribution guidance.
+    Available to creative_partner role only.
+    """
+    if user.role not in ("creative_partner", "executive_admin"):
+        raise HTTPException(403, "This space is for Creative Partners.")
+    from ai.llm_gateway import call_llm as _call_llm
+    messages = [{"role": h["role"], "content": h["content"]} for h in (body.history or [])]
+    messages.append({"role": "user", "content": body.message})
+    try:
+        gw = await _call_llm(
+            system=CREATIVE_PARTNER_SYSTEM,
+            messages=messages,
+            max_tokens=1500,
+            persona_label="creative_partner",
+        )
+        return {"reply": gw["text"]}
+    except Exception:
+        return {"reply": "I'm here — just a brief connectivity gap. Try again in a moment."}
+
+
+@api_router.post("/creative-partner/contribution")
+async def submit_contribution(body: dict, user: User = Depends(current_user)):
+    """Creative Partner submits a vision note or catalogue item for mission alignment review."""
+    if user.role not in ("creative_partner", "executive_admin"):
+        raise HTTPException(403, "This space is for Creative Partners.")
+    doc = {
+        "user_id": user.id,
+        "type": body.get("type", "vision_note"),   # vision_note | catalogue_item | concept
+        "title": body.get("title", "")[:200],
+        "content": body.get("content", "")[:5000],
+        "tags": body.get("tags", [])[:10],
+        "status": "submitted",
+        "submitted_at": datetime.now(timezone.utc).isoformat(),
+    }
+    result = await db.creative_contributions.insert_one(doc)
+    return {"id": str(result.inserted_id), "status": "submitted", "message": "Contribution received — the team will review for mission alignment."}
+
+
+@api_router.get("/creative-partner/contributions")
+async def list_contributions(user: User = Depends(current_user)):
+    """List the creative partner's own contributions."""
+    if user.role not in ("creative_partner", "executive_admin"):
+        raise HTTPException(403, "This space is for Creative Partners.")
+    docs = await db.creative_contributions.find(
+        {"user_id": user.id}, {"_id": 0}
+    ).sort("submitted_at", -1).limit(50).to_list(50)
+    return {"contributions": docs}
+
+
 @api_router.post("/assistant/chat")
 async def admin_assistant_chat(body: AssistantChatReq, user: User = Depends(current_user)):
     """Admin Assistant — available to all authenticated users.
@@ -11436,7 +11530,7 @@ async def supervisor_backup_status(user: User = Depends(require_role("executive_
         status["gateway"] = "unavailable"
     # Backup panel state
     try:
-        from exec_panel import get_panel
+        from emergency_panel import get_panel
         panel = await get_panel(db)
         status["breaker_panel"] = panel
     except Exception:
@@ -11487,11 +11581,11 @@ async def supervisor_reset_gateway(user: User = Depends(require_role("executive_
 async def supervisor_backup_matrix(user: User = Depends(require_role("executive_admin"))):
     """Return the free backup provider matrix with live status for each provider."""
     try:
-        from exec_panel import get_system_health
+        from emergency_panel import get_system_health
         health = await get_system_health(db)
         return health
     except Exception as e:
-        return {"error": str(e), "note": "exec_panel module unavailable"}
+        return {"error": str(e), "note": "emergency_panel module unavailable"}
 
 @api_router.post("/supervisor/backup/emergency-broadcast")
 async def supervisor_emergency_broadcast(body: dict, user: User = Depends(require_role("executive_admin"))):
@@ -11559,7 +11653,7 @@ async def supervisor_continuity_check(user: User = Depends(require_role("executi
         results["gateway_module"] = {"status": "error", "detail": str(e)[:120]}
     # Exec panel module
     try:
-        from exec_panel import get_panel
+        from emergency_panel import get_panel
         await get_panel(db)
         results["exec_panel"] = {"status": "ok"}
     except Exception as e:
