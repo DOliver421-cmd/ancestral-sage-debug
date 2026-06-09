@@ -7,8 +7,9 @@ import { useEffect, useState } from "react";
 
 const studentNav = [
   { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard, testid: "nav-dashboard" },
+  { to: "/studio", label: "Creator's Sanctuary", icon: Sparkles, testid: "nav-sanctuary-top" },
   { to: "/creator/profile/edit", label: "Creator Profile", icon: UserCircle, testid: "nav-creator-profile" },
-  { to: "/creator/courses", label: "Creator Studio", icon: Video, testid: "nav-creator-courses" },
+  { to: "/creator/courses", label: "Course Manager", icon: Video, testid: "nav-creator-courses" },
   { to: "/creator/earnings", label: "My Earnings", icon: DollarSign, testid: "nav-creator-earnings" },
   { to: "/palace", label: "Members' Palace", icon: Crown, testid: "nav-palace" },
   { to: "/elder-council", label: "Elder Council", icon: Layers, testid: "nav-elder-council" },
@@ -37,8 +38,9 @@ const studentNav = [
 ];
 
 const instructorNav = [
+  { to: "/studio", label: "Creator's Sanctuary", icon: Sparkles, testid: "nav-sanctuary-inst" },
   { to: "/creator/profile/edit", label: "Creator Profile", icon: UserCircle, testid: "nav-creator-profile" },
-  { to: "/creator/courses", label: "Creator Studio", icon: Video, testid: "nav-creator-courses" },
+  { to: "/creator/courses", label: "Course Manager", icon: Video, testid: "nav-creator-courses" },
   { to: "/creator/earnings", label: "My Earnings", icon: DollarSign, testid: "nav-creator-earnings" },
   { to: "/instructor", label: "Roster", icon: Users, testid: "nav-instructor" },
   { to: "/instructor/labs", label: "Lab Approvals", icon: ClipboardCheck, testid: "nav-lab-approvals" },
@@ -62,7 +64,7 @@ const instructorNav = [
 const adminNav = [
   { to: "/admin", label: "Overview", icon: Settings, testid: "nav-admin" },
   { to: "/admin/accounts", label: "Account Controls", icon: Users, testid: "nav-accounts" },
-  { to: "/creator/courses", label: "Creator Studio", icon: Video, testid: "nav-creator-courses" },
+  { to: "/creator/courses", label: "Course Manager", icon: Video, testid: "nav-creator-courses" },
   { to: "/creator/earnings", label: "My Earnings", icon: DollarSign, testid: "nav-creator-earnings" },
   { to: "/admin/users", label: "Users", icon: Users, testid: "nav-admin-users" },
   { to: "/admin/analytics", label: "Analytics", icon: TrendingUp, testid: "nav-analytics" },
