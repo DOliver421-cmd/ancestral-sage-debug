@@ -5498,6 +5498,36 @@ class ArcadeScoreBody(BaseModel):
     metadata: Optional[dict] = None
 
 
+ARCADE_AI_SYSTEM = """You are the Arcade Guide — a chill, culturally grounded AI companion inside the WAI Institute Virtual Arcade.
+You keep it short, warm, and real. You help users learn from games, answer quick questions about Black history, finances, music, faith, and trades.
+No lectures. No corporate speak. If someone just wants to vibe, let them.
+Keep every reply under 3 sentences unless asked for more.
+This is a free space — no upselling, no pressure, just community."""
+
+
+class ArcadeChatBody(BaseModel):
+    message: str
+    game_slug: Optional[str] = None
+
+
+@api_router.post("/arcade/chat")
+async def arcade_chat(body: ArcadeChatBody):
+    if not body.message.strip():
+        raise HTTPException(400, "Empty message")
+    context = f"\n\nUser is currently playing: {body.game_slug}" if body.game_slug else ""
+    try:
+        from ai.llm_gateway import call_llm
+        result = await call_llm(
+            messages=[{"role": "user", "content": body.message}],
+            system=ARCADE_AI_SYSTEM + context,
+            persona_label="Arcade Guide",
+        )
+        return {"reply": result.get("text", ""), "provider": result.get("provider", "free")}
+    except Exception as e:
+        logger.warning("Arcade chat error: %s", e)
+        raise HTTPException(503, "AI unavailable — try again in a moment")
+
+
 @api_router.get("/arcade/games")
 async def arcade_games():
     return ARCADE_CATALOG

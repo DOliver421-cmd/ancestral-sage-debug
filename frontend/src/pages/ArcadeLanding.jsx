@@ -5,6 +5,7 @@ import { api } from "../lib/api";
 import { useAuth } from "../lib/auth";
 import { ARCADE_GAMES, CATEGORY_COLORS } from "../lib/arcadeGames";
 import { Trophy, Zap } from "lucide-react";
+import ArcadeGuide from "../components/arcade/ArcadeGuide";
 
 const CATEGORIES = ["All", "Culture", "Finance", "Music", "Faith", "Trades"];
 
@@ -201,6 +202,8 @@ export default function ArcadeLanding() {
                 </ol>
               )}
             </div>
+
+            <ArcadeGuide />
 
             <div
               className="p-5"

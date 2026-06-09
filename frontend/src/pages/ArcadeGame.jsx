@@ -7,6 +7,7 @@ import { useAuth } from "../lib/auth";
 import { toast } from "sonner";
 import { ARCADE_GAMES, CATEGORY_COLORS, GAME_COMPONENT_MAP } from "../lib/arcadeGames";
 import { ArrowLeft, Zap } from "lucide-react";
+import ArcadeGuide from "../components/arcade/ArcadeGuide";
 
 export default function ArcadeGame() {
   const { slug } = useParams();
@@ -86,9 +87,16 @@ export default function ArcadeGame() {
           </div>
         )}
 
-        <Suspense fallback={<LoadingState label="Game" />}>
-          <GameComponent onGameEnd={handleGameEnd} />
-        </Suspense>
+        <div className="grid lg:grid-cols-3 gap-6 mt-2">
+          <div className="lg:col-span-2">
+            <Suspense fallback={<LoadingState label="Game" />}>
+              <GameComponent onGameEnd={handleGameEnd} />
+            </Suspense>
+          </div>
+          <div>
+            <ArcadeGuide gameSlug={slug} />
+          </div>
+        </div>
       </div>
     </AppShell>
   );
