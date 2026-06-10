@@ -14729,7 +14729,7 @@ app.add_middleware(
     allow_credentials=_allow_creds,
     allow_origins=_cors_origins,
     allow_methods=["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
-    allow_headers=["Content-Type", "Authorization", "X-Requested-With"],
+    allow_headers=["Content-Type", "Authorization", "X-Requested-With", "Accept", "Accept-Language", "Cache-Control"],
 )
 
 
