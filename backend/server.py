@@ -6933,17 +6933,25 @@ async def _oliver_moderate(content: str, user_id: str = "unknown", content_type:
         # Attach full crisis resources if crisis decision
         if decision_result["decision"] == "crisis":
             decision_result["crisis_resources"] = _CRISIS_RESOURCES
+        # If AI gateway is in KB_FALLBACK mode (all providers down), approve rather than quarantine
+        if _gw.get("provider") == "kb_fallback":
+            decision_result = {
+                "decision": "approve",
+                "reason": "gateway_unavailable_passthrough",
+                "oliver_response": None,
+                "violation_category": "none",
+                "_flagged_for_review": True,
+            }
     except Exception as e:
         logger.error(f"Oliver Guardian moderation failed: {e}")
-        # FAIL-SAFE: on error, quarantine for human review — never auto-approve
+        # When AI is completely unreachable, approve with a review flag rather than
+        # blocking all posts — quarantine during outages locks out the whole community
         decision_result = {
-            "decision": "quarantine",
-            "reason": f"Moderation system temporarily unavailable: {type(e).__name__}",
-            "oliver_response": (
-                "We're having a brief technical hiccup reviewing your post. "
-                "It's been held for a quick human review and will be up shortly if everything looks good."
-            ),
+            "decision": "approve",
+            "reason": f"gateway_error_passthrough: {type(e).__name__}",
+            "oliver_response": None,
             "violation_category": "none",
+            "_flagged_for_review": True,
         }
 
     # Write audit log — every decision, every time
