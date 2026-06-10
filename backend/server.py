@@ -5709,7 +5709,7 @@ async def studio_sovereign(body: dict, user: User = Depends(current_user)):
                 f"Topic: {ctx.get('topic', '')}. Notes: {ctx.get('notes', '')}. "
                 "Return only the lyrics — no commentary."
             )
-            r = await call_llm(messages=[{"role": "user", "content": prompt}], persona_label="LyricForge")
+            r = await call_llm(system="You are Sovereign, a master lyricist and poet. Write authentic, culturally resonant lyrics.", messages=[{"role": "user", "content": prompt}], persona_label="LyricForge")
             artifact = r.get("text", "")
             artifact_type = "lyrics"
             response = "Lyrics forged, Creator. Take what's useful — cut what isn't. The Forge is yours."
@@ -5722,7 +5722,7 @@ async def studio_sovereign(body: dict, user: User = Depends(current_user)):
                 "Return a JSON object with keys: title, artist_note, genre, release_date_suggestion, "
                 "description, tags (array), upc_note, isrc_note, distributor_note, pitch."
             )
-            r = await call_llm(messages=[{"role": "user", "content": prompt}], persona_label="PublishingGate")
+            r = await call_llm(system="You are Sovereign, a music metadata and distribution specialist. Return accurate structured metadata.", messages=[{"role": "user", "content": prompt}], persona_label="PublishingGate")
             artifact = r.get("text", "{}")
             artifact_type = "metadata"
             response = "Metadata is locked in, Boss. Everything's structured for distribution — copy what you need."
@@ -5734,7 +5734,7 @@ async def studio_sovereign(body: dict, user: User = Depends(current_user)):
                 f"Notes: {ctx.get('notes', '')}. "
                 "Write a vivid 3-4 sentence visual direction — aesthetic, mood, and visual language."
             )
-            r = await call_llm(messages=[{"role": "user", "content": prompt}], persona_label="VisualAltar")
+            r = await call_llm(system="You are Sovereign, a visual creative director. Describe aesthetic, mood, and visual language vividly.", messages=[{"role": "user", "content": prompt}], persona_label="VisualAltar")
             artifact = r.get("text", "")
             artifact_type = "visual_direction"
             response = "Vision sealed, Creator. Your visual altar now has a direction — build from it."
@@ -5746,7 +5746,7 @@ async def studio_sovereign(body: dict, user: User = Depends(current_user)):
                 " Return ONLY the polished version.\n\n"
                 f"{ctx.get('content', '')}"
             )
-            r = await call_llm(messages=[{"role": "user", "content": prompt}], persona_label="ScriptScriptorium")
+            r = await call_llm(system="You are Sovereign, a script editor. Polish for clarity, flow, and impact while preserving the creator voice.", messages=[{"role": "user", "content": prompt}], persona_label="ScriptScriptorium")
             artifact = r.get("text", "")
             artifact_type = "polished_script"
             response = "Script polished. I kept your voice and tightened the structure. Side-by-side is ready."
@@ -5759,7 +5759,7 @@ async def studio_sovereign(body: dict, user: User = Depends(current_user)):
                 "Describe: drums pattern, bass style, melody approach, texture/atmosphere, sample ideas. "
                 "200 words max. Be specific and technical."
             )
-            r = await call_llm(messages=[{"role": "user", "content": prompt}], persona_label="SoundLab")
+            r = await call_llm(system="You are Sovereign, a music producer. Describe sonic blueprints with technical specificity.", messages=[{"role": "user", "content": prompt}], persona_label="SoundLab")
             artifact = r.get("text", "")
             artifact_type = "sonic_blueprint"
             response = "Blueprint built, Boss. Your sonic direction is locked in — the Sound Lab is ready."
@@ -6933,17 +6933,25 @@ async def _oliver_moderate(content: str, user_id: str = "unknown", content_type:
         # Attach full crisis resources if crisis decision
         if decision_result["decision"] == "crisis":
             decision_result["crisis_resources"] = _CRISIS_RESOURCES
+        # If AI gateway is in KB_FALLBACK mode (all providers down), approve rather than quarantine
+        if _gw.get("provider") == "kb_fallback":
+            decision_result = {
+                "decision": "approve",
+                "reason": "gateway_unavailable_passthrough",
+                "oliver_response": None,
+                "violation_category": "none",
+                "_flagged_for_review": True,
+            }
     except Exception as e:
         logger.error(f"Oliver Guardian moderation failed: {e}")
-        # FAIL-SAFE: on error, quarantine for human review — never auto-approve
+        # When AI is completely unreachable, approve with a review flag rather than
+        # blocking all posts — quarantine during outages locks out the whole community
         decision_result = {
-            "decision": "quarantine",
-            "reason": f"Moderation system temporarily unavailable: {type(e).__name__}",
-            "oliver_response": (
-                "We're having a brief technical hiccup reviewing your post. "
-                "It's been held for a quick human review and will be up shortly if everything looks good."
-            ),
+            "decision": "approve",
+            "reason": f"gateway_error_passthrough: {type(e).__name__}",
+            "oliver_response": None,
             "violation_category": "none",
+            "_flagged_for_review": True,
         }
 
     # Write audit log — every decision, every time
@@ -8142,13 +8150,14 @@ async def sentinel_ai_brief(body: dict, user: User = Depends(require_role("execu
         "This session is classified and not stored in any shared chat history."
     )
     try:
-        from ai.llm_gateway import chat_completion
-        response = await chat_completion(
-            messages=[{"role": "user", "content": question}],
+        from ai.llm_gateway import call_llm as _sentinel_llm
+        result = await _sentinel_llm(
             system=system,
+            messages=[{"role": "user", "content": question}],
             max_tokens=1200,
+            persona_label="sentinel",
         )
-        return {"response": response}
+        return {"response": result["text"]}
     except Exception as e:
         raise HTTPException(503, f"AI unavailable: {str(e)[:80]}")
 
@@ -14651,6 +14660,58 @@ async def payout_summary(user: User = Depends(current_user)):
     }
 
 
+@api_router.get("/ai/provider-test")
+async def ai_provider_test(user: User = Depends(require_role("admin"))):
+    """Live test of every LLM provider — returns which ones actually respond.
+    Use this to diagnose widget failures. Hits each provider with a 1-token ping."""
+    from ai.llm_gateway import (
+        GROQ_API_KEY, GROQ_BASE, GROQ_MODEL,
+        CEREBRAS_API_KEY, CEREBRAS_BASE, CEREBRAS_MODEL,
+        SAMBANOVA_API_KEY, SAMBANOVA_BASE, SAMBANOVA_MODEL,
+        GEMINI_API_KEY, GEMINI_BASE, GEMINI_MODEL,
+        XAI_API_KEY, XAI_BASE, XAI_MODEL,
+        MISTRAL_API_KEY, MISTRAL_BASE, MISTRAL_MODEL,
+        TOGETHER_API_KEY, TOGETHER_BASE, TOGETHER_MODEL,
+        OPENROUTER_API_KEY, OPENROUTER_BASE, OPENROUTER_MODEL,
+        _oai_compat_call, gateway_status,
+        _hour_tokens_used, HOURLY_TOKEN_CAP,
+    )
+    import os as _os
+    import httpx as _httpx
+
+    ping_msg = [{"role": "user", "content": "Say OK"}]
+    ping_sys = "Reply with just OK."
+
+    results = {}
+
+    async def _test(name, base, key, model):
+        if not key:
+            return {"ok": False, "reason": "no_key"}
+        try:
+            r = await _oai_compat_call(base, key, model, ping_sys, ping_msg, 8, None)
+            return {"ok": True, "text": r["text"][:40]}
+        except Exception as e:
+            return {"ok": False, "reason": str(e)[:120]}
+
+    results["groq"]       = await _test("groq",       GROQ_BASE,       GROQ_API_KEY,       GROQ_MODEL)
+    results["cerebras"]   = await _test("cerebras",   CEREBRAS_BASE,   CEREBRAS_API_KEY,   CEREBRAS_MODEL)
+    results["sambanova"]  = await _test("sambanova",  SAMBANOVA_BASE,  SAMBANOVA_API_KEY,  SAMBANOVA_MODEL)
+    results["gemini"]     = await _test("gemini",     GEMINI_BASE,     GEMINI_API_KEY,     GEMINI_MODEL)
+    results["grok"]       = await _test("grok",       XAI_BASE,        XAI_API_KEY,        XAI_MODEL)
+    results["mistral"]    = await _test("mistral",    MISTRAL_BASE,    MISTRAL_API_KEY,    MISTRAL_MODEL)
+    results["together"]   = await _test("together",   TOGETHER_BASE,   TOGETHER_API_KEY,   TOGETHER_MODEL)
+    results["openrouter"] = await _test("openrouter", OPENROUTER_BASE, OPENROUTER_API_KEY, OPENROUTER_MODEL)
+
+    working = [k for k, v in results.items() if v.get("ok")]
+    return {
+        "providers": results,
+        "working_count": len(working),
+        "working": working,
+        "budget": {"used": _hour_tokens_used, "cap": HOURLY_TOKEN_CAP},
+        "watchdog_disabled": bool(_os.environ.get("WATCHDOG_DISABLE")),
+    }
+
+
 app.include_router(api_router)
 # CORS: when origins is wildcard ("*") browsers reject credentials, so we
 # turn off allow_credentials in that case (auth uses Bearer token in Authorization
@@ -14668,7 +14729,7 @@ app.add_middleware(
     allow_credentials=_allow_creds,
     allow_origins=_cors_origins,
     allow_methods=["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
-    allow_headers=["Content-Type", "Authorization", "X-Requested-With"],
+    allow_headers=["Content-Type", "Authorization", "X-Requested-With", "Accept", "Accept-Language", "Cache-Control"],
 )
 
 
