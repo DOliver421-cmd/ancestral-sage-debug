@@ -102,6 +102,157 @@ function PersonaHeader({ persona, department, mode }) {
   );
 }
 
+// ── Upload & Sell Panel ───────────────────────────────────────────────────────
+function UploadSellPanel() {
+  const [file, setFile]             = useState(null);
+  const [title, setTitle]           = useState("");
+  const [price, setPrice]           = useState("");
+  const [fileType, setFileType]     = useState("track");
+  const [uploading, setUploading]   = useState(false);
+  const [uploadedId, setUploadedId] = useState(null);
+  const [publishing, setPublishing] = useState(false);
+  const [products, setProducts]     = useState([]);
+  const [progress, setProgress]     = useState(0);
+  const fileRef = useRef(null);
+
+  useEffect(() => {
+    api.get("/media/products/mine").then(r => setProducts(r.data?.products || r.data || [])).catch(() => {});
+  }, []);
+
+  const handleUploadAndPublish = async () => {
+    if (!file) return toast.error("Pick a file first");
+    if (!title.trim()) return toast.error("Add a title");
+    setUploading(true);
+    setProgress(10);
+    try {
+      // Step 1 — upload file
+      const form = new FormData();
+      form.append("file", file);
+      form.append("title", title.trim());
+      form.append("file_type", fileType);
+      form.append("is_public", "false");
+      setProgress(40);
+      const upRes = await api.post("/media/upload", form, {
+        headers: { "Content-Type": "multipart/form-data" },
+      });
+      const fileId = upRes.data?.id;
+      setUploadedId(fileId);
+      setProgress(70);
+      // Step 2 — create product listing
+      const priceCents = price ? Math.round(parseFloat(price) * 100) : 0;
+      const prodRes = await api.post("/media/products", {
+        title: title.trim(),
+        price_cents: priceCents,
+        file_id: fileId,
+        product_type: fileType,
+        published: true,
+      });
+      setProgress(100);
+      toast.success(`"${title}" published to store!`);
+      setFile(null); setTitle(""); setPrice(""); setUploadedId(null); setProgress(0);
+      if (fileRef.current) fileRef.current.value = "";
+      // Refresh products list
+      api.get("/media/products/mine").then(r => setProducts(r.data?.products || r.data || [])).catch(() => {});
+    } catch (e) {
+      toast.error(e?.response?.data?.detail || "Upload failed — try again");
+      setProgress(0);
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const togglePublish = async (prod) => {
+    try {
+      await api.patch(`/media/products/${prod.id}`, { published: !prod.published });
+      setProducts(ps => ps.map(p => p.id === prod.id ? { ...p, published: !p.published } : p));
+    } catch { toast.error("Update failed"); }
+  };
+
+  const inputCls = "w-full text-sm px-3 py-2 rounded-lg border border-ink/15 bg-white focus:outline-none focus:border-copper";
+
+  return (
+    <div className="flex-1 overflow-y-auto px-6 py-6 space-y-6">
+      <div className="card-flat p-5 space-y-4">
+        <div className="font-heading font-bold text-base">Upload & Sell</div>
+        <p className="text-xs text-ink/50">Upload a track, album, PDF, or any file and publish it to the store instantly.</p>
+
+        {/* File picker */}
+        <div>
+          <label className="block text-xs font-bold text-ink/50 mb-1">File</label>
+          <input ref={fileRef} type="file" className="hidden"
+            onChange={e => { setFile(e.target.files?.[0] || null); if (!title && e.target.files?.[0]) setTitle(e.target.files[0].name.replace(/\.[^.]+$/, "")); }} />
+          <button type="button" onClick={() => fileRef.current?.click()}
+            className="w-full border-2 border-dashed border-ink/20 rounded-xl py-6 text-sm text-ink/40 hover:border-copper hover:text-copper transition-colors flex flex-col items-center gap-2">
+            <Upload className="w-6 h-6" />
+            {file ? <span className="text-copper font-bold">{file.name} ({(file.size / 1024 / 1024).toFixed(1)} MB)</span> : "Click to choose file"}
+          </button>
+        </div>
+
+        {/* Title */}
+        <div>
+          <label className="block text-xs font-bold text-ink/50 mb-1">Title</label>
+          <input value={title} onChange={e => setTitle(e.target.value)} className={inputCls} placeholder="Track or product name" />
+        </div>
+
+        {/* Type + Price */}
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className="block text-xs font-bold text-ink/50 mb-1">Type</label>
+            <select value={fileType} onChange={e => setFileType(e.target.value)} className={inputCls}>
+              <option value="track">Track</option>
+              <option value="album">Album</option>
+              <option value="pdf">PDF / Book</option>
+              <option value="video">Video</option>
+              <option value="other">Other</option>
+            </select>
+          </div>
+          <div>
+            <label className="block text-xs font-bold text-ink/50 mb-1">Price (USD)</label>
+            <input value={price} onChange={e => setPrice(e.target.value)} className={inputCls} placeholder="0.00 = free" type="number" min="0" step="0.01" />
+          </div>
+        </div>
+
+        {/* Progress bar */}
+        {uploading && (
+          <div className="h-2 bg-ink/10 rounded-full overflow-hidden">
+            <div className="h-full bg-copper rounded-full transition-all duration-500" style={{ width: `${progress}%` }} />
+          </div>
+        )}
+
+        <button onClick={handleUploadAndPublish} disabled={uploading || !file || !title.trim()}
+          className="w-full btn-copper disabled:opacity-40 flex items-center justify-center gap-2">
+          {uploading ? "Uploading…" : <><Upload className="w-4 h-4" /> Upload & Publish to Store</>}
+        </button>
+
+        <a href="/store" className="block text-center text-xs text-copper hover:underline font-bold">
+          Manage all products in the full store →
+        </a>
+      </div>
+
+      {/* Recent products */}
+      {products.length > 0 && (
+        <div className="card-flat p-5">
+          <div className="font-heading font-bold text-sm mb-3">Your Products</div>
+          <div className="space-y-2">
+            {products.slice(0, 8).map(p => (
+              <div key={p.id} className="flex items-center justify-between gap-3 py-2 border-b border-ink/5 last:border-0">
+                <div className="min-w-0">
+                  <div className="text-sm font-bold truncate">{p.title}</div>
+                  <div className="text-xs text-ink/40">{p.product_type} · {p.price_cents === 0 ? "Free" : `$${(p.price_cents/100).toFixed(2)}`} · {p.sales_count || 0} sales</div>
+                </div>
+                <button onClick={() => togglePublish(p)}
+                  className={`text-xs font-bold px-3 py-1 rounded-full border shrink-0 ${p.published ? "bg-green-50 border-green-300 text-green-700" : "bg-ink/5 border-ink/20 text-ink/40"}`}>
+                  {p.published ? "Live" : "Draft"}
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function MessageBubble({ msg, onSpeak }) {
   if (msg.role === "user") {
     return (
@@ -307,7 +458,7 @@ export default function MoreOps() {
   const [dept, setDept] = useState("");
   const [input, setInput] = useState("");
   // Main tab state
-  const [mainTab, setMainTab] = useState("chat"); // "chat" | "dashboard"
+  const [mainTab, setMainTab] = useState("chat"); // "chat" | "dashboard" | "upload"
 
   // Load from localStorage immediately — instant, no network wait
   const [messages, setMessages] = useState(loadLocalMessages);
