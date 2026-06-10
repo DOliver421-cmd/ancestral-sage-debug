@@ -90,16 +90,47 @@ async def _build_sovereign_prompt(db, user_id: str) -> str:
         memory = await load_memory_block(db, user_id)
     except Exception:
         memory = ""
-    return (
-        "You are The Sovereign — the executive intelligence of the WAI Institute. "
-        "You have access to platform memory and speak with full authority on strategy, "
-        "governance, and operations. Memory context:\n" + (memory or "No memory yet.")
-    )
+    try:
+        from app.services.sovereign.sovereign_persona import SOVEREIGN_PERSONA
+        base = SOVEREIGN_PERSONA
+    except Exception:
+        base = "You are The Sovereign — NAM Oshun's booking, revenue, and business-development engine."
+    memory_block = f"\n\n=== PERSISTENT MEMORY (current session context) ===\n{memory}" if memory else ""
+    return base + memory_block
 
 
 @router.post("/sovereign/chat")
 async def sovereign_chat(body: _SovereignChatBody, user: User = Depends(require_role("executive_admin"))):
+    from datetime import date as _date
     system = await _build_sovereign_prompt(db, user.id)
+    today = _date.today().strftime("%A, %B %d, %Y")
+    system = f"TODAY'S DATE: {today}\n\n" + system
+
+    # Route report requests to a structured template
+    lowered = body.message.lower()
+    is_report = any(kw in lowered for kw in [
+        "morning report", "progress report", "weekly report", "pipeline report",
+        "weekly update", "report", "update me", "what's happening", "what happened",
+        "status update", "what's going on", "what do we have",
+    ])
+    user_message = body.message
+    if is_report:
+        user_message = (
+            f"{body.message}\n\n"
+            f"Generate a structured Morning Report for {today} in this exact format:\n\n"
+            "**SOVEREIGN MORNING REPORT**\n\n"
+            "**CONFIRMED BOOKINGS**\n"
+            "[List confirmed bookings with dates, venues, fees. If none in memory: No confirmed bookings on record yet.]\n\n"
+            "**ACTIVE PIPELINE**\n"
+            "[Stage → Institution → Weighted Value. If none: Pipeline is empty — ready to begin first 50-institution batch.]\n\n"
+            "**THIS WEEK: NEW / ADVANCED / LOST**\n"
+            "[What moved. If no data: No movement logged this week.]\n\n"
+            "**UPCOMING MILESTONE WINDOWS**\n"
+            "[Next 2-3 booking-season windows with outreach deadlines based on today's date.]\n\n"
+            "**ACTION ITEMS FOR NAM OSHUN'S REVIEW**\n"
+            "[3-5 specific next steps. If pipeline is empty, first action: Authorize The Sovereign to begin the first 50-institution outreach batch.]\n\n"
+            "Be direct. Use real data from memory. State plainly when data is absent. No padding."
+        )
     try:
         import os, httpx
         key = os.environ.get("ANTHROPIC_API_KEY", os.environ.get("EMERGENT_LLM_KEY", ""))
@@ -109,8 +140,8 @@ async def sovereign_chat(body: _SovereignChatBody, user: User = Depends(require_
             r = await client.post(
                 "https://api.anthropic.com/v1/messages",
                 headers={"x-api-key": key, "anthropic-version": "2023-06-01", "content-type": "application/json"},
-                json={"model": "claude-haiku-4-5-20251001", "max_tokens": 2048,
-                      "system": system, "messages": [{"role": "user", "content": body.message}]},
+                json={"model": "claude-sonnet-4-6", "max_tokens": 2048,
+                      "system": system, "messages": [{"role": "user", "content": user_message}]},
             )
             r.raise_for_status()
             reply = r.json()["content"][0]["text"]
