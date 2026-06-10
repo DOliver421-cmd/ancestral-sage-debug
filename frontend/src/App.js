@@ -100,6 +100,8 @@ import SiteControlPanel from "./pages/SiteControlPanel";
 import ExecControlPanel from "./pages/ExecControlPanel";
 import CreatorLounge from "./pages/CreatorLounge";
 import BandOnPage from "./pages/BandOnPage";
+import TrashPantheon from "./pages/TrashPantheon";
+import CreatorPayoutDashboard from "./pages/CreatorPayoutDashboard";
 import AccountControls from "./pages/AccountControls";
 import MyPosition from "./pages/MyPosition";
 import Personas from "./pages/Personas";
@@ -261,6 +263,8 @@ function App() {
               <Route path="/arcade" element={<Protected><ArcadeLanding /></Protected>} />
               <Route path="/arcade/:slug" element={<Protected><ArcadeGame /></Protected>} />
               <Route path="/studio" element={<Protected><CreatorStudio /></Protected>} />
+              <Route path="/trash" element={<TrashPantheon />} />
+              <Route path="/creator/payouts" element={<Protected><CreatorPayoutDashboard /></Protected>} />
 
               {/* ── Landing / home ── */}
               <Route path="/welcome"          element={<Landing />} />
@@ -431,6 +435,8 @@ function App() {
           <Route path="/arcade" element={<Protected><ArcadeLanding /></Protected>} />
           <Route path="/arcade/:slug" element={<Protected><ArcadeGame /></Protected>} />
           <Route path="/studio" element={<Protected><CreatorStudio /></Protected>} />
+          <Route path="/trash" element={<TrashPantheon />} />
+          <Route path="/creator/payouts" element={<Protected><CreatorPayoutDashboard /></Protected>} />
           <Route path="/welcome" element={<Landing />} />
           <Route path="*" element={<Error404 />} />
         </Routes>
