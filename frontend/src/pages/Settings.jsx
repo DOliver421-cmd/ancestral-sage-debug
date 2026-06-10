@@ -4,7 +4,7 @@ import AppShell from "../components/AppShell";
 import { api } from "../lib/api";
 import { useAuth } from "../lib/auth";
 import { toast } from "sonner";
-import { KeyRound, ShieldCheck, AlertTriangle, User as UserIcon, Save, Mail, Trash2, Download, Monitor, XCircle, X, ExternalLink } from "lucide-react";
+import { KeyRound, ShieldCheck, AlertTriangle, User as UserIcon, Save, Mail, Trash2, Download, Monitor, XCircle, X, ExternalLink, Share2 } from "lucide-react";
 import { Link } from "react-router-dom";
 
 export default function Settings() {
@@ -13,6 +13,31 @@ export default function Settings() {
   const forced = params.get("force") === "1" || user?.must_change_password;
   const [tab, setTab] = useState(forced ? "password" : "profile");
   const [showDeleteModal, setShowDeleteModal] = useState(false);
+
+  // ---- Social accounts tab state ----------------------------------------
+  const [social, setSocial] = useState({ twitter: "", instagram: "", facebook: "", tiktok: "", threads: "", linkedin: "" });
+  const [socialBusy, setSocialBusy] = useState(false);
+  const [socialDirty, setSocialDirty] = useState(false);
+
+  useEffect(() => {
+    if (user?.social_handles) {
+      setSocial({ twitter: "", instagram: "", facebook: "", tiktok: "", threads: "", linkedin: "", ...user.social_handles });
+      setSocialDirty(false);
+    }
+  }, [user]);
+
+  const saveSocial = async (e) => {
+    e.preventDefault();
+    setSocialBusy(true);
+    try {
+      await api.patch("/auth/me", { social_handles: social });
+      toast.success("Social accounts saved");
+      setSocialDirty(false);
+      if (refresh) await refresh();
+    } catch (err) {
+      toast.error(err?.response?.data?.detail || "Save failed");
+    } finally { setSocialBusy(false); }
+  };
 
   // ---- Profile tab state -------------------------------------------------
   const [profile, setProfile] = useState({ full_name: "", email: "" });
@@ -129,6 +154,9 @@ export default function Settings() {
           <TabBtn id="sessions" active={tab === "sessions"} onClick={() => setTab("sessions")} icon={Monitor}>
             Sessions
           </TabBtn>
+          <TabBtn id="social" active={tab === "social"} onClick={() => setTab("social")} icon={Share2}>
+            Social
+          </TabBtn>
         </div>
 
         {/* PROFILE */}
@@ -214,6 +242,45 @@ export default function Settings() {
         {/* SESSIONS */}
         {tab === "sessions" && (
           <SessionManager />
+        )}
+
+        {/* SOCIAL ACCOUNTS */}
+        {tab === "social" && (
+          <form onSubmit={saveSocial} className="card-flat p-6 mt-6">
+            <h3 className="font-heading text-xl font-bold flex items-center gap-2">
+              <Share2 className="w-5 h-5 text-copper" /> Social Accounts
+            </h3>
+            <p className="text-xs text-ink/50 mt-1 mb-5">
+              Your handles are stored in your profile — used by the Social Publisher to pre-fill links. No platform passwords stored here.
+            </p>
+            <div className="space-y-4">
+              {[
+                { id: "twitter",   label: "Twitter / X",  placeholder: "@yourhandle" },
+                { id: "instagram", label: "Instagram",     placeholder: "@yourhandle" },
+                { id: "facebook",  label: "Facebook",      placeholder: "Page name or URL" },
+                { id: "tiktok",    label: "TikTok",        placeholder: "@yourhandle" },
+                { id: "threads",   label: "Threads",       placeholder: "@yourhandle" },
+                { id: "linkedin",  label: "LinkedIn",      placeholder: "linkedin.com/in/yourname" },
+              ].map(({ id, label, placeholder }) => (
+                <div key={id}>
+                  <label className="block text-xs font-bold uppercase tracking-wider text-ink/60 mb-1.5">{label}</label>
+                  <input
+                    value={social[id] || ""}
+                    onChange={e => { setSocial(s => ({ ...s, [id]: e.target.value })); setSocialDirty(true); }}
+                    placeholder={placeholder}
+                    className="w-full px-3 py-2.5 border border-ink/20 rounded-lg text-sm bg-white focus:outline-none focus:border-copper transition-colors"
+                  />
+                </div>
+              ))}
+            </div>
+            <button
+              type="submit"
+              disabled={socialBusy || !socialDirty}
+              className="btn-primary mt-6 inline-flex items-center gap-2"
+            >
+              <Save className="w-4 h-4" /> {socialBusy ? "Saving…" : "Save Social Accounts"}
+            </button>
+          </form>
         )}
 
         {/* PRIVACY / GDPR */}
