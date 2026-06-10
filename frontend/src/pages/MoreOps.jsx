@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from "react";
+import { Link } from "react-router-dom";
 import AppShell from "../components/AppShell";
 import { api, BACKEND_URL } from "../lib/api";
 import { useAuth } from "../lib/auth";
@@ -7,7 +8,8 @@ import {
   Send, Bot, RefreshCw, Crown, TrendingUp, DollarSign,
   Video, Users, ChevronRight, Loader2, Trash2,
   Mic, MicOff, Volume2, VolumeX, CheckCircle, Music, Play, Pause, X,
-  LayoutDashboard, MessageSquare, Upload,
+  LayoutDashboard, MessageSquare, Upload, Eye, EyeOff, ShoppingBag,
+  CheckCircle2, ExternalLink,
 } from "lucide-react";
 import PlatformDashboard from "../components/PlatformDashboard";
 import { v4 as uuidv4 } from "uuid";
@@ -138,6 +140,163 @@ function MessageBubble({ msg, onSpeak }) {
           )}
         </div>
       </div>
+    </div>
+  );
+}
+
+// ── Upload & Sell Panel (compact quick-access) ────────────────────────────────
+function UploadSellPanel({ user }) {
+  const [file, setFile] = useState(null);
+  const [title, setTitle] = useState("");
+  const [price, setPrice] = useState("");
+  const [uploading, setUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [uploadedFileId, setUploadedFileId] = useState(null);
+  const [myProducts, setMyProducts] = useState([]);
+  const [loadingProducts, setLoadingProducts] = useState(true);
+  const fileRef = useRef();
+
+  useEffect(() => {
+    if (!user) return;
+    api.get("/media/products/mine")
+      .then(r => setMyProducts(r.data.slice(0, 10)))
+      .catch(() => {})
+      .finally(() => setLoadingProducts(false));
+  }, [user]);
+
+  async function handleUploadAndCreate() {
+    if (!file) { toast.error("Choose a file first"); return; }
+    if (!title.trim()) { toast.error("Title required"); return; }
+    setUploading(true);
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+      fd.append("title", title);
+      fd.append("description", "");
+      fd.append("file_type", "other");
+      fd.append("is_public", "false");
+      const uploadRes = await api.post("/media/upload", fd, {
+        headers: { "Content-Type": "multipart/form-data" },
+        onUploadProgress: e => setUploadProgress(Math.round(e.loaded / e.total * 100)),
+      });
+      const fileId = uploadRes.data.id;
+
+      const priceCents = Math.round(parseFloat(price || "0") * 100);
+      await api.post("/media/products", {
+        title,
+        description: "",
+        price_cents: priceCents,
+        file_id: fileId,
+        product_type: "track",
+        published: true,
+      });
+      toast.success("Uploaded and published!");
+      setFile(null); setTitle(""); setPrice(""); setUploadProgress(0);
+      const r = await api.get("/media/products/mine");
+      setMyProducts(r.data.slice(0, 10));
+    } catch (e) {
+      toast.error(e?.response?.data?.detail || "Failed");
+    } finally {
+      setUploading(false);
+    }
+  }
+
+  async function togglePublish(prod) {
+    try {
+      await api.patch(`/media/products/${prod.id}`, { published: !prod.published });
+      const r = await api.get("/media/products/mine");
+      setMyProducts(r.data.slice(0, 10));
+    } catch { toast.error("Update failed"); }
+  }
+
+  if (!user) return (
+    <div className="text-center py-8 text-ink/40 text-sm">Sign in to upload and sell.</div>
+  );
+
+  return (
+    <div className="space-y-6 max-w-lg">
+      {/* Quick upload form */}
+      <div className="bg-bone rounded-xl border border-copper/20 p-5">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="font-bold text-ink text-sm">Quick Upload &amp; Sell</h3>
+          <Link to="/store" className="text-copper text-xs flex items-center gap-1 hover:underline">
+            Full store <ExternalLink size={11} />
+          </Link>
+        </div>
+
+        <div className="space-y-3">
+          <label className="block cursor-pointer border-2 border-dashed border-copper/25 rounded-lg p-4 text-center hover:border-copper/50 transition-colors text-sm text-ink/50"
+            onClick={() => fileRef.current?.click()}
+          >
+            {file ? (
+              <span className="text-emerald-700 flex items-center justify-center gap-1.5">
+                <CheckCircle2 size={14} /> {file.name}
+              </span>
+            ) : (
+              <span><Upload size={14} className="inline mr-1.5" />Choose file (any format, max 500 MB)</span>
+            )}
+            <input ref={fileRef} type="file" className="hidden" onChange={e => setFile(e.target.files[0])} />
+          </label>
+
+          <input
+            type="text"
+            value={title}
+            onChange={e => setTitle(e.target.value)}
+            placeholder="Title *"
+            className="w-full border border-copper/20 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:border-copper"
+          />
+          <div className="relative">
+            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-ink/40 text-sm">$</span>
+            <input
+              type="number"
+              min="0"
+              step="0.01"
+              value={price}
+              onChange={e => setPrice(e.target.value)}
+              placeholder="0.00  (leave 0 for free)"
+              className="w-full border border-copper/20 rounded-lg pl-7 pr-3 py-2 text-sm bg-white focus:outline-none focus:border-copper"
+            />
+          </div>
+
+          {uploading && (
+            <div className="w-full bg-copper/10 rounded-full h-1.5">
+              <div className="bg-copper h-1.5 rounded-full transition-all" style={{ width: `${uploadProgress}%` }} />
+            </div>
+          )}
+
+          <button
+            onClick={handleUploadAndCreate}
+            disabled={uploading || !file}
+            className="w-full bg-copper text-white py-2 rounded-lg text-sm font-bold hover:bg-[#9a5418] transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+          >
+            {uploading ? <><Loader2 size={14} className="animate-spin" /> Uploading {uploadProgress}%</> : <><ShoppingBag size={14} /> Upload &amp; Publish</>}
+          </button>
+        </div>
+      </div>
+
+      {/* Recent products */}
+      {!loadingProducts && myProducts.length > 0 && (
+        <div>
+          <p className="text-xs font-bold text-ink/50 uppercase tracking-wide mb-2">Your Recent Products</p>
+          <div className="space-y-1.5">
+            {myProducts.map(p => (
+              <div key={p.id} className="flex items-center gap-2 bg-white rounded-lg border border-copper/10 px-3 py-2 text-sm">
+                <span className="flex-1 text-ink truncate font-medium">{p.title}</span>
+                <span className="text-ink/40 text-xs">{p.price_cents ? `$${(p.price_cents / 100).toFixed(2)}` : "Free"}</span>
+                <button
+                  onClick={() => togglePublish(p)}
+                  className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium transition-colors ${
+                    p.published ? "bg-emerald-100 text-emerald-700" : "bg-ink/5 text-ink/40"
+                  }`}
+                >
+                  {p.published ? <Eye size={10} /> : <EyeOff size={10} />}
+                  {p.published ? "Live" : "Draft"}
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -457,6 +616,14 @@ export default function MoreOps() {
                 >
                   <LayoutDashboard className="w-3.5 h-3.5" /> Dashboard
                 </button>
+                <button
+                  onClick={() => setMainTab("upload")}
+                  className={`flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-lg transition-all ${
+                    mainTab === "upload" ? "bg-white shadow-sm text-copper" : "text-ink/40 hover:text-ink/70"
+                  }`}
+                >
+                  <Upload className="w-3.5 h-3.5" /> Upload &amp; Sell
+                </button>
               </div>
               {mainTab === "chat" && (
                 <div className="flex items-center gap-2">
@@ -503,6 +670,12 @@ export default function MoreOps() {
           {mainTab === "dashboard" && (
             <div className="flex-1 overflow-y-auto">
               <PlatformDashboard />
+            </div>
+          )}
+
+          {mainTab === "upload" && (
+            <div className="flex-1 overflow-y-auto px-6 py-6">
+              <UploadSellPanel user={user} />
             </div>
           )}
 
