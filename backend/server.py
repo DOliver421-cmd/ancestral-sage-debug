@@ -14650,6 +14650,7 @@ async def payout_summary(user: User = Depends(current_user)):
         "next_tier": _next_tier_info(split["tier"]),
     }
 
+
 app.include_router(api_router)
 # CORS: when origins is wildcard ("*") browsers reject credentials, so we
 # turn off allow_credentials in that case (auth uses Bearer token in Authorization
