@@ -178,7 +178,9 @@ function App() {
         <BrowserRouter>
           <ErrorBoundary>
             <Toaster position="top-right" richColors />
+            <DirectorWidget />
             <SupervisorWidget />
+            <SovereignChat />
             <CookieConsent />
             <HelpGuide />
             <Routes>
