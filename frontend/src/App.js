@@ -221,7 +221,6 @@ function App() {
               <Route path="/p/:slug"          element={<PublicPortfolio />} />
               <Route path="/playlist/:slug/submit" element={<PlaylistSubmit />} />
               <Route path="/trash-pantheon" element={<TrashPantheon />} />
-              <Route path="/creator/payouts" element={<Protected><CreatorPayoutDashboard /></Protected>} />
 
               {/* ── Supervisor ── */}
               <Route path="/supervisor-login" element={<SupervisorLogin />} />
@@ -388,7 +387,6 @@ function App() {
           <Route path="/creator-lounge" element={<Protected><CreatorLounge /></Protected>} />
           <Route path="/band" element={<Protected><BandOnPage /></Protected>} />
           <Route path="/trash-pantheon" element={<TrashPantheon />} />
-          <Route path="/creator/payouts" element={<Protected><CreatorPayoutDashboard /></Protected>} />
           {/* Public pages */}
           <Route path="/internships" element={<Internships />} />
           {/* Social publisher — authenticated */}
