@@ -157,59 +157,190 @@ function AIAssistantPanel({ user, status }) {
   );
 }
 
-function MassPostPanel() {
-  const [text, setText] = useState("");
-  const [platforms, setPlatforms] = useState({ x: true, facebook: false, instagram: false, linkedin: false });
-  const [posting, setPosting] = useState(false);
+// ── Inline Social Publisher ───────────────────────────────────────────────────
+const SOCIAL_PLATFORMS = [
+  { id: "twitter",   label: "𝕏 Twitter",   limit: 280,   shareUrl: (t) => `https://twitter.com/intent/tweet?text=${encodeURIComponent(t)}` },
+  { id: "threads",   label: "🧵 Threads",   limit: 500,   shareUrl: (t) => `https://www.threads.net/intent/post?text=${encodeURIComponent(t)}` },
+  { id: "linkedin",  label: "💼 LinkedIn",  limit: 3000,  shareUrl: (t, l) => `https://www.linkedin.com/feed/?shareActive=true&text=${encodeURIComponent(t)}` },
+  { id: "facebook",  label: "👥 Facebook",  limit: 63000, shareUrl: (t, l) => l ? `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(l)}&quote=${encodeURIComponent(t)}` : `https://www.facebook.com/sharer/sharer.php?quote=${encodeURIComponent(t)}` },
+  { id: "instagram", label: "📸 Instagram", limit: 2200,  shareUrl: null },
+  { id: "tiktok",    label: "🎵 TikTok",    limit: 2200,  shareUrl: null },
+];
 
-  const toggle = (p) => setPlatforms(prev => ({ ...prev, [p]: !prev[p] }));
-  const selectedCount = Object.values(platforms).filter(Boolean).length;
+function InlineSocialPublisher() {
+  const [text, setText]       = useState("");
+  const [link, setLink]       = useState("");
+  const [selected, setSelected] = useState(["twitter", "instagram"]);
+  const [results, setResults] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [copied, setCopied]   = useState(null);
 
-  async function post() {
-    if (!text.trim() || !selectedCount) return;
-    setPosting(true);
+  const toggle = (id) => setSelected(p => p.includes(id) ? p.filter(x => x !== id) : [...p, id]);
+
+  async function generate() {
+    if (!text.trim() || !selected.length) return;
+    setLoading(true); setResults(null);
+    const platforms = SOCIAL_PLATFORMS.filter(p => selected.includes(p.id));
     try {
-      await api.post("/social/publish", { content: text, platforms: Object.keys(platforms).filter(p => platforms[p]) });
-      toast.success(`Posted to ${selectedCount} platform${selectedCount > 1 ? "s" : ""}`);
-      setText("");
-    } catch {
-      toast.error("Post failed — check your connected accounts in Settings.");
-    } finally {
-      setPosting(false);
-    }
+      const res = await api.post("/ai/chat", {
+        messages: [{ role: "user", content: `Base post: ${text}${link ? `\nLink: ${link}` : ""}\nPlatforms: ${selected.join(", ")}\nReturn JSON only.` }],
+        system: `You are a social media manager. Rewrite the post for each platform: ${platforms.map(p => `${p.id} (${p.hint || "adapt for platform"}, max ${p.limit < 10000 ? p.limit + " chars" : "unlimited"})`).join("; ")}. Return ONLY a JSON object with platform IDs as keys.`,
+        persona_label: "social_publisher",
+        max_tokens: 1200,
+      });
+      const raw = res.data?.response || res.data?.text || "";
+      const match = raw.match(/\{[\s\S]*\}/);
+      if (match) setResults(JSON.parse(match[0]));
+      else toast.error("Try again — format issue");
+    } catch { toast.error("Generation failed"); }
+    finally { setLoading(false); }
+  }
+
+  function copy(id, txt) {
+    navigator.clipboard?.writeText(txt);
+    setCopied(id); setTimeout(() => setCopied(null), 2000);
+    toast.success("Copied!");
   }
 
   return (
-    <div className="card-flat p-4 space-y-3">
-      <div className="flex items-center gap-2 mb-1">
+    <div className="card-flat p-5 space-y-4">
+      <div className="flex items-center gap-2">
         <Megaphone className="w-4 h-4 text-copper" />
-        <span className="font-heading font-bold text-sm">Post Everywhere</span>
+        <span className="font-heading font-bold">Social Publisher</span>
       </div>
-      <textarea
-        value={text}
-        onChange={e => setText(e.target.value)}
-        rows={3}
-        placeholder="Write once, post everywhere…"
-        className="w-full text-sm px-3 py-2 rounded-lg border border-ink/15 bg-white focus:outline-none focus:border-copper resize-none"
-        maxLength={280}
-      />
+
+      <textarea value={text} onChange={e => setText(e.target.value)} rows={3}
+        placeholder="Write your post — AI will adapt it for each platform…"
+        className="w-full text-sm px-3 py-2.5 rounded-lg border border-ink/15 bg-white focus:outline-none focus:border-copper resize-none" />
+
+      <input value={link} onChange={e => setLink(e.target.value)}
+        placeholder="Optional link to include (https://…)"
+        className="w-full text-sm px-3 py-2 rounded-lg border border-ink/15 bg-white focus:outline-none focus:border-copper" />
+
       <div className="flex gap-2 flex-wrap">
-        {Object.keys(platforms).map(p => (
-          <button key={p} onClick={() => toggle(p)}
-            className={`text-xs font-bold px-3 py-1 rounded-full border transition-colors ${
-              platforms[p] ? "border-copper bg-copper text-white" : "border-ink/20 text-ink/40 hover:border-copper"
-            }`}>
-            {p === "x" ? "𝕏" : p.charAt(0).toUpperCase() + p.slice(1)}
-          </button>
+        {SOCIAL_PLATFORMS.map(p => (
+          <button key={p.id} onClick={() => toggle(p.id)}
+            className={`text-xs font-bold px-3 py-1.5 rounded-full border transition-colors ${
+              selected.includes(p.id) ? "border-copper bg-copper text-white" : "border-ink/15 text-ink/40 hover:border-copper"
+            }`}>{p.label}</button>
         ))}
       </div>
-      <div className="flex items-center justify-between">
-        <span className="text-xs text-ink/40">{text.length}/280</span>
-        <button onClick={post} disabled={posting || !text.trim() || !selectedCount}
-          className="btn-copper text-xs disabled:opacity-40">
-          {posting ? "Posting…" : `Post to ${selectedCount || "0"} platform${selectedCount !== 1 ? "s" : ""}`}
-        </button>
+
+      <button onClick={generate} disabled={loading || !text.trim() || !selected.length}
+        className="w-full btn-copper text-sm disabled:opacity-40 flex items-center justify-center gap-2">
+        {loading ? "Formatting…" : `✦ Format for ${selected.length} Platform${selected.length !== 1 ? "s" : ""}`}
+      </button>
+
+      {results && (
+        <div className="space-y-3 pt-2">
+          {SOCIAL_PLATFORMS.filter(p => selected.includes(p.id) && results[p.id]).map(p => (
+            <div key={p.id} className="border border-ink/10 rounded-xl overflow-hidden">
+              <div className="flex items-center justify-between px-3 py-2 bg-ink/3 border-b border-ink/8">
+                <span className="text-xs font-bold text-ink/60">{p.label}</span>
+                <span className="text-xs text-ink/30">{results[p.id]?.length}{p.limit < 10000 ? `/${p.limit}` : ""}</span>
+              </div>
+              <pre className="px-3 py-2.5 text-sm leading-relaxed whitespace-pre-wrap break-words font-inherit text-ink/80 max-h-32 overflow-y-auto">{results[p.id]}</pre>
+              <div className="flex gap-2 px-3 py-2 border-t border-ink/8">
+                <button onClick={() => copy(p.id, results[p.id])}
+                  className="flex-1 text-xs font-bold py-1.5 border border-ink/15 rounded-lg hover:border-copper transition-colors">
+                  {copied === p.id ? "✓ Copied" : "Copy"}
+                </button>
+                {p.shareUrl && (
+                  <a href={p.shareUrl(results[p.id], link)} target="_blank" rel="noopener noreferrer"
+                    className="flex-1 text-xs font-bold py-1.5 bg-ink text-white rounded-lg text-center hover:bg-ink/80 transition-colors">
+                    Open {p.label.split(" ")[1]}
+                  </a>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Inline Ghost Clone launcher ───────────────────────────────────────────────
+const GHOST_CLONES = [
+  { id: "editor",    icon: "📝", label: "Ghost Editor",    color: "#00ffcc", system: "You are the Ghost Editor — fix grammar, sharpen prose, improve flow, cut dead weight. Return the edited version then briefly note key changes.", placeholder: "Paste your text, lyrics, or script…", btn: "Edit This" },
+  { id: "publicist", icon: "📢", label: "Ghost Publicist", color: "#a855f7", system: "You are the Ghost Publicist. Generate: a press release, social post package (X, Instagram, TikTok, LinkedIn), and a playlist/blog pitch email. Make the artist sound legendary.", placeholder: "Describe your release or project…", btn: "Generate Press Kit" },
+  { id: "legal",     icon: "⚖️", label: "Ghost Legal",     color: "#ffaa00", system: "You are the Ghost Legal advisor. Give clear practical guidance on music copyright, publishing rights, sampling, and contract basics. Remind user this is informational, not legal representation.", placeholder: "Describe your situation — ownership, samples, contracts…", btn: "Get Guidance" },
+  { id: "marketer",  icon: "📈", label: "Ghost Marketer",  color: "#ff0066", system: "You are the Ghost Marketer. Create a release strategy, rollout timeline, visual art direction brief, and audience targeting plan. Think 3 moves ahead.", placeholder: "Describe your music, brand, and goals…", btn: "Build Strategy" },
+];
+
+function InlineGhostProducer({ canUse }) {
+  const [activeClone, setActiveClone] = useState(null);
+  const [input, setInput]   = useState("");
+  const [output, setOutput] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  function selectClone(c) { setActiveClone(c); setInput(""); setOutput(""); }
+
+  async function run() {
+    if (!input.trim()) return;
+    setLoading(true); setOutput("");
+    try {
+      const res = await api.post("/ai/chat", {
+        messages: [{ role: "user", content: input }],
+        system: activeClone.system,
+        persona_label: `ghost_${activeClone.id}`,
+        max_tokens: 1200,
+      });
+      setOutput(res.data?.response || res.data?.text || "No response.");
+    } catch (e) { setOutput("⚠️ " + (e?.response?.data?.detail || "Request failed")); }
+    finally { setLoading(false); }
+  }
+
+  if (!canUse) return (
+    <div className="card-flat p-5 flex flex-col items-center text-center gap-3">
+      <Lock className="w-7 h-7 text-ink/20" />
+      <div className="font-heading font-bold text-ink/40">Ghost Producer</div>
+      <p className="text-xs text-ink/30">Unlock with Pro plan</p>
+      <Link to="/plans" className="btn-copper text-xs">Upgrade</Link>
+    </div>
+  );
+
+  return (
+    <div className="card-flat p-5 space-y-4">
+      <div className="flex items-center gap-2">
+        <Music className="w-4 h-4 text-copper" />
+        <span className="font-heading font-bold">Ghost Producer</span>
       </div>
+
+      {!activeClone ? (
+        <div className="grid grid-cols-2 gap-3">
+          {GHOST_CLONES.map(c => (
+            <button key={c.id} onClick={() => selectClone(c)}
+              className="text-left p-3 rounded-xl border border-ink/10 hover:border-copper transition-all bg-white hover:bg-bone">
+              <div className="text-xl mb-1.5">{c.icon}</div>
+              <div className="font-bold text-sm" style={{ color: c.color }}>{c.label}</div>
+            </button>
+          ))}
+        </div>
+      ) : (
+        <div className="space-y-3">
+          <div className="flex items-center gap-2">
+            <button onClick={() => { setActiveClone(null); setOutput(""); }}
+              className="text-xs text-ink/40 hover:text-copper">← Back</button>
+            <span className="text-sm font-bold" style={{ color: activeClone.color }}>{activeClone.icon} {activeClone.label}</span>
+          </div>
+          <textarea value={input} onChange={e => setInput(e.target.value)} rows={4}
+            placeholder={activeClone.placeholder}
+            className="w-full text-sm px-3 py-2.5 rounded-lg border border-ink/15 bg-white focus:outline-none focus:border-copper resize-none" />
+          <button onClick={run} disabled={loading || !input.trim()}
+            className="w-full text-sm font-bold py-2.5 rounded-lg border transition-colors disabled:opacity-40"
+            style={{ background: loading ? "#f5f5f5" : activeClone.color, color: loading ? "#999" : "#000" }}>
+            {loading ? "Working…" : activeClone.btn}
+          </button>
+          {output && (
+            <div className="bg-ink/3 rounded-xl p-4 border border-ink/8">
+              <pre className="text-sm leading-relaxed whitespace-pre-wrap break-words font-inherit text-ink/80 max-h-60 overflow-y-auto">{output}</pre>
+              <button onClick={() => navigator.clipboard?.writeText(output)}
+                className="mt-3 text-xs font-bold text-copper hover:underline">📋 Copy output</button>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
@@ -317,10 +448,9 @@ export default function UnifiedProfile() {
   const isExec = ["admin", "executive_admin"].includes(user?.role);
 
   const TABS = [
-    { key: "home",     label: "Home" },
-    { key: "content",  label: "Content" },
-    { key: "services", label: "Services" },
-    ...(isOwner ? [{ key: "publish", label: "Publish" }] : []),
+    { key: "home",    label: "Home" },
+    { key: "content", label: "Content" },
+    ...(isOwner ? [{ key: "creator", label: "Create & Publish" }] : []),
     ...(isOwner && isExec ? [
       { key: "team",     label: "Team" },
       { key: "revenue",  label: "Revenue" },
@@ -499,51 +629,11 @@ export default function UnifiedProfile() {
               </div>
             )}
 
-            {/* SERVICES tab */}
-            {activeTab === "services" && (
-              <div className="space-y-4">
-                <div className="font-heading font-bold text-lg">Services</div>
-                <div className="grid sm:grid-cols-2 gap-3">
-                  <ServiceCard icon={Radio} title="Ghost Producer" desc="AI-assisted music production"
-                    to="/ghost-producer" locked={!canAccess(user, viewerStatus, "ghost")} requiredTier="Pro" />
-                  <ServiceCard icon={Music} title="Band on a Page" desc="Full band, zero overhead"
-                    to="/band" locked={!canAccess(user, viewerStatus, "band")} requiredTier="Pro" />
-                  <ServiceCard icon={ShoppingBag} title="Publisher" desc="Publish, distribute, sell"
-                    to="/creator/courses" locked={!canAccess(user, viewerStatus, "publisher")} requiredTier="Pro" />
-                  <ServiceCard icon={BarChart2} title="Artist Management" desc="Booking, pipeline, revenue"
-                    to="/revenue" locked={!canAccess(user, viewerStatus, "artist_mgmt")} requiredTier="Patron" />
-                  <ServiceCard icon={Megaphone} title="Mass Posting" desc="One post, all platforms"
-                    to="#publish" locked={!canAccess(user, viewerStatus, "mass_post")} requiredTier="Patron" />
-                  <ServiceCard icon={Globe} title="Gumroad Store" desc="Sell books, downloads, merch"
-                    to="/store" locked={false} requiredTier="" />
-                </div>
-              </div>
-            )}
-
-            {/* PUBLISH tab (owner only) */}
-            {activeTab === "publish" && isOwner && (
-              <div className="space-y-4">
-                <div className="font-heading font-bold text-lg">Publish & Promote</div>
-                {canAccess(user, viewerStatus, "mass_post")
-                  ? <MassPostPanel />
-                  : <LockedFeature name="Mass Social Posting" requiredTier="Patron" />
-                }
-                <div className="grid sm:grid-cols-2 gap-3 mt-2">
-                  <Link to="/creator/courses" className="card-flat p-4 flex items-center gap-3 hover:border-copper transition-colors group">
-                    <BookOpen className="w-5 h-5 text-copper" />
-                    <div>
-                      <div className="font-bold text-sm">Manage Courses</div>
-                      <div className="text-xs text-ink/40">Create, edit, publish</div>
-                    </div>
-                  </Link>
-                  <Link to="/social" className="card-flat p-4 flex items-center gap-3 hover:border-copper transition-colors group">
-                    <Megaphone className="w-5 h-5 text-copper" />
-                    <div>
-                      <div className="font-bold text-sm">Social Publish</div>
-                      <div className="text-xs text-ink/40">Schedule & manage posts</div>
-                    </div>
-                  </Link>
-                </div>
+            {/* CREATOR tab (was services + publish combined) */}
+            {activeTab === "creator" && isOwner && (
+              <div className="space-y-6">
+                <InlineSocialPublisher />
+                <InlineGhostProducer canUse={canAccess(user, viewerStatus, "ghost")} />
               </div>
             )}
 
