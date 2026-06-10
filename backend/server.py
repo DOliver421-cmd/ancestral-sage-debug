@@ -14594,6 +14594,62 @@ async def revenue_exec_overview(user: User = Depends(require_role("executive_adm
     }
 
 
+
+# ── Creator Revenue Split Tiers ─────────────────────────────────────────────
+
+async def get_creator_split(user_id: str) -> dict:
+    user_doc = await db.users.find_one({"id": user_id})
+    if not user_doc:
+        return {"creator_pct": 70, "platform_pct": 30, "tier": "base", "tier_label": "Base Creator"}
+    is_certified = user_doc.get("creator_certified", False)
+    course = await db.courses.find_one({"instructor_id": user_id, "published": True})
+    has_students = False
+    if course:
+        enrollment = await db.enrollments.find_one({"course_id": str(course.get("_id", ""))})
+        has_students = enrollment is not None
+    instructor_rating = user_doc.get("instructor_rating", 0)
+    if is_certified and has_students and instructor_rating >= 4.0:
+        return {"creator_pct": 85, "platform_pct": 15, "tier": "certified_instructor", "tier_label": "Certified Instructor"}
+    elif has_students:
+        return {"creator_pct": 80, "platform_pct": 20, "tier": "active_instructor", "tier_label": "Active Instructor"}
+    elif is_certified:
+        return {"creator_pct": 75, "platform_pct": 25, "tier": "certified", "tier_label": "Certified Creator"}
+    else:
+        return {"creator_pct": 70, "platform_pct": 30, "tier": "base", "tier_label": "Base Creator"}
+
+def _next_tier_info(current_tier: str) -> dict:
+    tiers = {
+        "base": {"label": "Certified Creator (75%)", "action": "Complete Creator Certification", "link": "/certification"},
+        "certified": {"label": "Active Instructor (80%)", "action": "Publish a course and get your first student", "link": "/creator/courses"},
+        "active_instructor": {"label": "Certified Instructor (85%)", "action": "Get Creator Certified and maintain 4.0+ rating", "link": "/certification"},
+        "certified_instructor": {"label": "You're at the top! 85%", "action": "Keep creating and teaching.", "link": "/studio"},
+    }
+    return tiers.get(current_tier, tiers["base"])
+
+@api_router.get("/creator/split")
+async def get_my_split(user: User = Depends(current_user)):
+    return await get_creator_split(user.id)
+
+@api_router.get("/creator/payout-summary")
+async def payout_summary(user: User = Depends(current_user)):
+    split = await get_creator_split(user.id)
+    bookings = await db.band_bookings.find(
+        {"artist_user_id": user.id, "status": "accepted"}
+    ).sort("created_at", -1).limit(20).to_list(length=20)
+    total_earned = 0
+    for b in bookings:
+        offer = b.get("offer_cents", 0) or 0
+        b["creator_cut_cents"] = int(offer * split["creator_pct"] / 100)
+        b["platform_cut_cents"] = offer - b["creator_cut_cents"]
+        total_earned += b["creator_cut_cents"]
+        b["id"] = str(b.pop("_id", ""))
+    return {
+        "split": split,
+        "total_earned_cents": total_earned,
+        "recent_bookings": bookings[:10],
+        "next_tier": _next_tier_info(split["tier"]),
+    }
+
 app.include_router(api_router)
 # CORS: when origins is wildcard ("*") browsers reject credentials, so we
 # turn off allow_credentials in that case (auth uses Bearer token in Authorization
