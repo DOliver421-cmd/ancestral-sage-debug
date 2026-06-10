@@ -112,6 +112,7 @@ import SentinelResearch from "./pages/SentinelResearch";
 import ArcadeLanding from "./pages/ArcadeLanding";
 import ArcadeGame from "./pages/ArcadeGame";
 import CreatorStudio from "./pages/CreatorStudio";
+import UnifiedGateway from "./pages/UnifiedGateway";
 
 // Role hierarchy must mirror backend ROLE_RANK in /app/backend/server.py.
 // Higher rank = more authority; a higher-rank role passes any check meant
@@ -271,8 +272,9 @@ function App() {
 
               {/* ── Landing / home ── */}
               <Route path="/welcome"          element={<Landing />} />
-              <Route path="/"                 element={<MoreHelpCenter />} />
-              <Route path="*"                 element={<MoreHelpCenter />} />
+              <Route path="/more-help-center" element={<MoreHelpCenter />} />
+              <Route path="/"                 element={<UnifiedGateway />} />
+              <Route path="*"                 element={<UnifiedGateway />} />
             </Routes>
           </ErrorBoundary>
         </BrowserRouter>
@@ -301,7 +303,7 @@ function App() {
         {/* Routes wrapped with main-content anchor */}
         <div id="main-content">
         <Routes>
-          <Route path="/" element={<Home />} />
+          <Route path="/" element={<UnifiedGateway />} />
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
           <Route path="/forgot-password" element={<ForgotPassword />} />
