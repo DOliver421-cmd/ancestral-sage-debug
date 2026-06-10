@@ -30,7 +30,7 @@ const CHAMBERS = [
 ];
 
 const TIER_RANK = { base: 0, mid: 1, top: 2 };
-const USER_TIER = "mid"; // TODO: pull from subscription
+const ROLE_RANK_MAP = { student: 0, creative_partner: 0, instructor: 1, admin: 2, executive_admin: 2 };
 
 // ─── Entry Screen ─────────────────────────────────────────────────────────────
 function EntryScreen({ onEnter }) {
@@ -287,7 +287,8 @@ export default function CreatorStudio() {
   const [showCustomization, setShowCustomization] = useState(false);
   const [showRitualSave, setShowRitualSave] = useState(false);
 
-  const userTierRank = TIER_RANK[USER_TIER] ?? 0;
+  // Admin/exec bypass all tier locks; others default to "mid" until subscription is wired
+  const userTierRank = ROLE_RANK_MAP[user?.role] ?? 0;
 
   // Save session on unmount
   useEffect(() => {
@@ -438,7 +439,7 @@ export default function CreatorStudio() {
             </button>
 
             <div style={{ fontSize: 11, fontFamily: "monospace", color: "rgba(255,255,255,0.3)", background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", padding: "3px 10px", borderRadius: 20 }}>
-              {USER_TIER.toUpperCase()} TIER
+              {userTierRank >= 2 ? "TOP" : userTierRank >= 1 ? "MID" : "BASE"} TIER
             </div>
           </div>
         </div>
@@ -512,12 +513,12 @@ export default function CreatorStudio() {
 
               {/* Chamber content */}
               <div style={{ padding: 24 }}>
-                {activeChamber.id === 'lyric-forge'   && <LyricForge tier={USER_TIER} sovereignDispatch={sovereignDispatch} artifact={artifactType === 'lyrics' ? artifactText : null} />}
-                {activeChamber.id === 'visual-altar'  && <VisualAltar tier={USER_TIER} sovereignDispatch={sovereignDispatch} artifact={artifactType === 'visual_direction' ? artifactText : null} />}
-                {activeChamber.id === 'script'        && <ScriptScriptorium tier={USER_TIER} sovereignDispatch={sovereignDispatch} artifact={artifactType === 'polished_script' ? artifactText : null} />}
-                {activeChamber.id === 'sound-lab'     && <SoundLab tier={USER_TIER} sovereignDispatch={sovereignDispatch} artifact={artifactType === 'sonic_blueprint' ? artifactText : null} />}
+                {activeChamber.id === 'lyric-forge'   && <LyricForge tier={userTierRank >= 2 ? "top" : userTierRank >= 1 ? "mid" : "base"} sovereignDispatch={sovereignDispatch} artifact={artifactType === 'lyrics' ? artifactText : null} />}
+                {activeChamber.id === 'visual-altar'  && <VisualAltar tier={userTierRank >= 2 ? "top" : userTierRank >= 1 ? "mid" : "base"} sovereignDispatch={sovereignDispatch} artifact={artifactType === 'visual_direction' ? artifactText : null} />}
+                {activeChamber.id === 'script'        && <ScriptScriptorium tier={userTierRank >= 2 ? "top" : userTierRank >= 1 ? "mid" : "base"} sovereignDispatch={sovereignDispatch} artifact={artifactType === 'polished_script' ? artifactText : null} />}
+                {activeChamber.id === 'sound-lab'     && <SoundLab tier={userTierRank >= 2 ? "top" : userTierRank >= 1 ? "mid" : "base"} sovereignDispatch={sovereignDispatch} artifact={artifactType === 'sonic_blueprint' ? artifactText : null} />}
                 {activeChamber.id === 'vault'         && <VaultOfVersions projects={projects} />}
-                {activeChamber.id === 'publishing-gate' && <PublishingGate tier={USER_TIER} sovereignDispatch={sovereignDispatch} artifact={artifactType === 'metadata' ? artifactText : null} />}
+                {activeChamber.id === 'publishing-gate' && <PublishingGate tier={userTierRank >= 2 ? "top" : userTierRank >= 1 ? "mid" : "base"} sovereignDispatch={sovereignDispatch} artifact={artifactType === 'metadata' ? artifactText : null} />}
               </div>
             </div>
           )}
