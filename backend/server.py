@@ -5709,7 +5709,7 @@ async def studio_sovereign(body: dict, user: User = Depends(current_user)):
                 f"Topic: {ctx.get('topic', '')}. Notes: {ctx.get('notes', '')}. "
                 "Return only the lyrics — no commentary."
             )
-            r = await call_llm(messages=[{"role": "user", "content": prompt}], persona_label="LyricForge")
+            r = await call_llm(system="You are Sovereign, a master lyricist and poet. Write authentic, culturally resonant lyrics.", messages=[{"role": "user", "content": prompt}], persona_label="LyricForge")
             artifact = r.get("text", "")
             artifact_type = "lyrics"
             response = "Lyrics forged, Creator. Take what's useful — cut what isn't. The Forge is yours."
@@ -5722,7 +5722,7 @@ async def studio_sovereign(body: dict, user: User = Depends(current_user)):
                 "Return a JSON object with keys: title, artist_note, genre, release_date_suggestion, "
                 "description, tags (array), upc_note, isrc_note, distributor_note, pitch."
             )
-            r = await call_llm(messages=[{"role": "user", "content": prompt}], persona_label="PublishingGate")
+            r = await call_llm(system="You are Sovereign, a music metadata and distribution specialist. Return accurate structured metadata.", messages=[{"role": "user", "content": prompt}], persona_label="PublishingGate")
             artifact = r.get("text", "{}")
             artifact_type = "metadata"
             response = "Metadata is locked in, Boss. Everything's structured for distribution — copy what you need."
@@ -5734,7 +5734,7 @@ async def studio_sovereign(body: dict, user: User = Depends(current_user)):
                 f"Notes: {ctx.get('notes', '')}. "
                 "Write a vivid 3-4 sentence visual direction — aesthetic, mood, and visual language."
             )
-            r = await call_llm(messages=[{"role": "user", "content": prompt}], persona_label="VisualAltar")
+            r = await call_llm(system="You are Sovereign, a visual creative director. Describe aesthetic, mood, and visual language vividly.", messages=[{"role": "user", "content": prompt}], persona_label="VisualAltar")
             artifact = r.get("text", "")
             artifact_type = "visual_direction"
             response = "Vision sealed, Creator. Your visual altar now has a direction — build from it."
@@ -5746,7 +5746,7 @@ async def studio_sovereign(body: dict, user: User = Depends(current_user)):
                 " Return ONLY the polished version.\n\n"
                 f"{ctx.get('content', '')}"
             )
-            r = await call_llm(messages=[{"role": "user", "content": prompt}], persona_label="ScriptScriptorium")
+            r = await call_llm(system="You are Sovereign, a script editor. Polish for clarity, flow, and impact while preserving the creator voice.", messages=[{"role": "user", "content": prompt}], persona_label="ScriptScriptorium")
             artifact = r.get("text", "")
             artifact_type = "polished_script"
             response = "Script polished. I kept your voice and tightened the structure. Side-by-side is ready."
@@ -5759,7 +5759,7 @@ async def studio_sovereign(body: dict, user: User = Depends(current_user)):
                 "Describe: drums pattern, bass style, melody approach, texture/atmosphere, sample ideas. "
                 "200 words max. Be specific and technical."
             )
-            r = await call_llm(messages=[{"role": "user", "content": prompt}], persona_label="SoundLab")
+            r = await call_llm(system="You are Sovereign, a music producer. Describe sonic blueprints with technical specificity.", messages=[{"role": "user", "content": prompt}], persona_label="SoundLab")
             artifact = r.get("text", "")
             artifact_type = "sonic_blueprint"
             response = "Blueprint built, Boss. Your sonic direction is locked in — the Sound Lab is ready."
