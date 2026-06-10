@@ -1,106 +1,56 @@
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../lib/auth";
 import { WAI_LOGO, BRAND } from "../lib/brand";
-import { LayoutDashboard, BookOpen, Award, Users, Settings, Sparkles, LogOut, FlaskConical, Target, ClipboardCheck, Briefcase, BadgeCheck, Brain, ShieldCheck, Shield, Building2, TrendingUp, ScrollText, Calendar, ShieldAlert, KeyRound, Crown, Compass, HelpCircle, Layers, HandHelping, Scale, Trophy, Network, ShoppingBag, Heart, Receipt, Video, DollarSign, UserCircle, WifiOff, Gamepad2 } from "lucide-react";
+import {
+  LayoutDashboard, BookOpen, Award, Users, Settings, Sparkles, LogOut,
+  FlaskConical, Target, ClipboardCheck, Briefcase, BadgeCheck, Brain,
+  ShieldCheck, Shield, Building2, TrendingUp, ScrollText, Calendar,
+  ShieldAlert, KeyRound, Crown, Compass, HelpCircle, Layers, HandHelping,
+  Scale, Trophy, Network, ShoppingBag, Heart, Receipt, Video, DollarSign,
+  UserCircle, WifiOff, Music, Mic, Palette, FileText,
+  Gamepad2, Star, Radio, Globe,
+} from "lucide-react";
 import NotificationBell from "./NotificationBell";
 import { useEffect, useState } from "react";
 
-const studentNav = [
-  { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard, testid: "nav-dashboard" },
-  { to: "/studio", label: "Creator's Sanctuary", icon: Sparkles, testid: "nav-sanctuary-top" },
-  { to: "/creator/profile/edit", label: "Creator Profile", icon: UserCircle, testid: "nav-creator-profile" },
-  { to: "/creator/courses", label: "Course Manager", icon: Video, testid: "nav-creator-courses" },
-  { to: "/creator/earnings", label: "My Earnings", icon: DollarSign, testid: "nav-creator-earnings" },
-  { to: "/palace", label: "Members' Palace", icon: Crown, testid: "nav-palace" },
-  { to: "/elder-council", label: "Elder Council", icon: Layers, testid: "nav-elder-council" },
-  { to: "/plans", label: "Plans & Pricing", icon: Receipt, testid: "nav-plans" },
-  { to: "/modules", label: "Curriculum", icon: BookOpen, testid: "nav-modules" },
-  { to: "/labs", label: "Workforce Labs", icon: FlaskConical, testid: "nav-labs" },
-  { to: "/compliance", label: "Compliance", icon: ShieldCheck, testid: "nav-compliance" },
-  { to: "/adaptive", label: "Learning Path", icon: Brain, testid: "nav-adaptive" },
-  { to: "/competencies", label: "Competencies", icon: Target, testid: "nav-competencies" },
-  { to: "/credentials", label: "Credentials", icon: BadgeCheck, testid: "nav-credentials" },
-  { to: "/portfolio", label: "Portfolio", icon: Briefcase, testid: "nav-portfolio" },
-  { to: "/incidents", label: "Report Incident", icon: ShieldAlert, testid: "nav-incidents" },
-  { to: "/leaderboard", label: "XP Leaderboard", icon: Trophy, testid: "nav-leaderboard" },
-  { to: "/arcade", label: "The Arcade", icon: Gamepad2, testid: "nav-arcade" },
-  { to: "/studio", label: "Creator's Sanctuary", icon: Sparkles, testid: "nav-studio" },
-  { to: "/ai", label: "AI Tutor", icon: Sparkles, testid: "nav-ai" },
-  { to: "/council", label: "Council (Sage)", icon: Layers, testid: "nav-council" },
-  { to: "/app/more", label: "M.O.R.E. Hub", icon: HandHelping, testid: "nav-more" },
-  { to: "/more/litigation", label: "Legal Help Tool", icon: Scale, testid: "nav-litigation" },
-  { to: "/certificates", label: "Certificates", icon: Award, testid: "nav-certs" },
-  { to: "/store", label: "Store", icon: ShoppingBag, testid: "nav-store" },
-  { to: "/subscribe", label: "M.O.R.E. Membership", icon: HandHelping, testid: "nav-subscribe" },
-  { to: "/donate", label: "Donate", icon: Heart, testid: "nav-donate" },
-  { to: "/payment/history", label: "Payment History", icon: Receipt, testid: "nav-payment-history" },
-  { to: "/settings", label: "Settings", icon: KeyRound, testid: "nav-settings" },
-];
+// ── Section header ────────────────────────────────────────────────────────────
+function NavSection({ label, children }) {
+  return (
+    <div className="mt-4">
+      <div className="px-3 mb-1 text-[10px] font-black uppercase tracking-widest text-white/30">{label}</div>
+      {children}
+    </div>
+  );
+}
 
-const instructorNav = [
-  { to: "/studio", label: "Creator's Sanctuary", icon: Sparkles, testid: "nav-sanctuary-inst" },
-  { to: "/creator/profile/edit", label: "Creator Profile", icon: UserCircle, testid: "nav-creator-profile" },
-  { to: "/creator/courses", label: "Course Manager", icon: Video, testid: "nav-creator-courses" },
-  { to: "/creator/earnings", label: "My Earnings", icon: DollarSign, testid: "nav-creator-earnings" },
-  { to: "/instructor", label: "Roster", icon: Users, testid: "nav-instructor" },
-  { to: "/instructor/labs", label: "Lab Approvals", icon: ClipboardCheck, testid: "nav-lab-approvals" },
-  { to: "/attendance", label: "Attendance", icon: Calendar, testid: "nav-attendance" },
-  { to: "/incidents", label: "Incidents", icon: ShieldAlert, testid: "nav-incidents" },
-  { to: "/leaderboard", label: "XP Leaderboard", icon: Trophy, testid: "nav-leaderboard" },
-  { to: "/arcade", label: "The Arcade", icon: Gamepad2, testid: "nav-arcade" },
-  { to: "/modules", label: "Curriculum", icon: BookOpen, testid: "nav-modules" },
-  { to: "/compliance", label: "Compliance", icon: ShieldCheck, testid: "nav-compliance" },
-  { to: "/labs", label: "Workforce Labs", icon: FlaskConical, testid: "nav-labs" },
-  { to: "/ai", label: "AI Tutor", icon: Sparkles, testid: "nav-ai" },
-  { to: "/council", label: "Council (Sage)", icon: Layers, testid: "nav-council" },
-  { to: "/app/more", label: "M.O.R.E. Hub", icon: HandHelping, testid: "nav-more" },
-  { to: "/more/litigation", label: "Legal Help Tool", icon: Scale, testid: "nav-litigation" },
-  { to: "/store", label: "Store", icon: ShoppingBag, testid: "nav-store" },
-  { to: "/subscribe", label: "M.O.R.E. Membership", icon: HandHelping, testid: "nav-subscribe" },
-  { to: "/donate", label: "Donate", icon: Heart, testid: "nav-donate" },
-  { to: "/settings", label: "Settings", icon: KeyRound, testid: "nav-settings" },
-];
-
-const adminNav = [
-  { to: "/admin", label: "Overview", icon: Settings, testid: "nav-admin" },
-  { to: "/admin/accounts", label: "Account Controls", icon: Users, testid: "nav-accounts" },
-  { to: "/creator/courses", label: "Course Manager", icon: Video, testid: "nav-creator-courses" },
-  { to: "/creator/earnings", label: "My Earnings", icon: DollarSign, testid: "nav-creator-earnings" },
-  { to: "/admin/users", label: "Users", icon: Users, testid: "nav-admin-users" },
-  { to: "/admin/analytics", label: "Analytics", icon: TrendingUp, testid: "nav-analytics" },
-  { to: "/admin/audit", label: "Audit Log", icon: ScrollText, testid: "nav-audit" },
-  { to: "/admin/tools", label: "Sites & Inventory", icon: Building2, testid: "nav-admin-tools" },
-  { to: "/instructor", label: "Roster", icon: Users, testid: "nav-instructor" },
-  { to: "/instructor/labs", label: "Lab Approvals", icon: ClipboardCheck, testid: "nav-lab-approvals" },
-  { to: "/attendance", label: "Attendance", icon: Calendar, testid: "nav-attendance" },
-  { to: "/incidents", label: "Incidents", icon: ShieldAlert, testid: "nav-incidents" },
-  { to: "/modules", label: "Curriculum", icon: BookOpen, testid: "nav-modules" },
-  { to: "/labs", label: "Workforce Labs", icon: FlaskConical, testid: "nav-labs" },
-  { to: "/ai", label: "AI Tutor", icon: Sparkles, testid: "nav-ai" },
-  { to: "/council", label: "Council (Sage)", icon: Layers, testid: "nav-council" },
-  { to: "/more", label: "M.O.R.E.", icon: HandHelping, testid: "nav-more" },
-  { to: "/app/more", label: "M.O.R.E. Hub", icon: HandHelping, testid: "nav-more-hub" },
-  { to: "/more/admin", label: "M.O.R.E. Admin", icon: Scale, testid: "nav-more-admin" },
-  { to: "/more/ops", label: "Dept. AI Ops", icon: Network, testid: "nav-more-ops" },
-  { to: "/store", label: "Store", icon: ShoppingBag, testid: "nav-store" },
-  { to: "/donate", label: "Donate", icon: Heart, testid: "nav-donate" },
-  { to: "/admin/payments", label: "Revenue", icon: Receipt, testid: "nav-admin-payments" },
-  { to: "/settings", label: "Settings", icon: KeyRound, testid: "nav-settings" },
-];
-
-const execAdminNav = [
-  { to: "/admin/control", label: "Control Panel", icon: Shield, testid: "nav-control-panel" },
-  { to: "/admin/system", label: "System", icon: Crown, testid: "nav-exec-system" },
-  { to: "/admin/accounts", label: "Account Controls", icon: Users, testid: "nav-accounts-exec" },
-  { to: "/admin/sage-audit", label: "Sage Sessions", icon: Compass, testid: "nav-sage-audit" },
-  ...adminNav,
-];
+// ── Single nav link ───────────────────────────────────────────────────────────
+function NavLink({ to, label, icon: Icon, testid, loc }) {
+  const active = to === "/admin"
+    ? loc.pathname === "/admin"
+    : loc.pathname === to || loc.pathname.startsWith(to + "/");
+  return (
+    <Link key={to} to={to} data-testid={testid}
+      className={`flex items-center gap-3 px-3 py-2 text-sm font-medium border-l-2 transition-all rounded-r-md ${
+        active
+          ? "bg-white/8 border-signal text-signal"
+          : "border-transparent text-white/65 hover:text-white hover:bg-white/5"
+      }`}>
+      <Icon className="w-4 h-4 shrink-0" />
+      {label}
+    </Link>
+  );
+}
 
 export default function AppShell({ children }) {
   const { user, logout } = useAuth();
   const loc = useLocation();
   const nav = useNavigate();
   const [backendDown, setBackendDown] = useState(false);
+
+  const role = user?.role || "student";
+  const isAdmin  = role === "admin" || role === "executive_admin";
+  const isExec   = role === "executive_admin";
+  const isInstructor = role === "instructor" || isAdmin;
 
   useEffect(() => {
     const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || "https://ancestral-sage-debug-production.up.railway.app";
@@ -112,16 +62,13 @@ export default function AppShell({ children }) {
     return () => { clearTimeout(timer); ctrl.abort(); };
   }, []);
 
-  const items = user?.role === "executive_admin" ? execAdminNav
-    : user?.role === "admin" ? adminNav
-    : user?.role === "instructor" ? instructorNav
-    : studentNav;
-  const isExec = user?.role === "executive_admin";
-
   return (
     <div className="min-h-screen flex bg-bone">
-      <aside className="w-64 shrink-0 bg-ink text-white flex flex-col" data-testid="sidebar">
-        <div className="px-6 py-7 border-b border-white/10 flex items-center justify-between">
+      {/* ── Sidebar ─────────────────────────────────────────────────────── */}
+      <aside className="w-64 shrink-0 bg-ink text-white flex flex-col overflow-y-auto" data-testid="sidebar">
+
+        {/* Brand */}
+        <div className="px-6 py-6 border-b border-white/10 flex items-center justify-between shrink-0">
           <Link to="/dashboard" className="flex items-center gap-3" data-testid="sidebar-brand">
             <img src={WAI_LOGO} alt="W.A.I." className="w-10 h-10 object-contain" style={{ mixBlendMode: "screen" }} />
             <div>
@@ -131,92 +78,159 @@ export default function AppShell({ children }) {
           </Link>
           <NotificationBell />
         </div>
-        <nav className="flex-1 px-3 py-6 space-y-1">
-          {items.map((i) => {
-            const active = i.to === "/admin"
-              ? loc.pathname === "/admin"
-              : loc.pathname === i.to || loc.pathname.startsWith(i.to + "/");
-            const Icon = i.icon;
-            return (
-              <Link key={i.to} to={i.to} data-testid={i.testid}
-                className={`flex items-center gap-3 px-3 py-2.5 text-sm font-medium border-l-2 transition-all ${active ? "bg-white/5 border-signal text-signal" : "border-transparent text-white/70 hover:text-white hover:bg-white/5"}`}>
-                <Icon className="w-4 h-4" />
-                {i.label}
-              </Link>
-            );
-          })}
+
+        {/* Nav */}
+        <nav className="flex-1 px-2 py-4">
+
+          {/* ── CORE (everyone) ───────────────────────────────────────── */}
+          <NavSection label="Home">
+            <NavLink loc={loc} to="/dashboard"       label="Dashboard"       icon={LayoutDashboard} testid="nav-dashboard" />
+            <NavLink loc={loc} to="/profile"         label="My Profile"      icon={UserCircle}      testid="nav-profile" />
+            <NavLink loc={loc} to="/my-position"     label="My Position"     icon={Compass}         testid="nav-my-position" />
+            <NavLink loc={loc} to="/settings"        label="Settings"        icon={KeyRound}        testid="nav-settings" />
+          </NavSection>
+
+          <NavSection label="Learn">
+            <NavLink loc={loc} to="/ai"              label="AI Tutor"        icon={Sparkles}        testid="nav-ai" />
+            <NavLink loc={loc} to="/council"         label="Council (Sage)"  icon={Layers}          testid="nav-council" />
+            <NavLink loc={loc} to="/modules"         label="Curriculum"      icon={BookOpen}        testid="nav-modules" />
+            <NavLink loc={loc} to="/labs"            label="Workforce Labs"  icon={FlaskConical}    testid="nav-labs" />
+            <NavLink loc={loc} to="/lab-simulations" label="Lab Simulations" icon={FlaskConical}    testid="nav-lab-sims" />
+            <NavLink loc={loc} to="/compliance"      label="Compliance"      icon={ShieldCheck}     testid="nav-compliance" />
+            <NavLink loc={loc} to="/adaptive"        label="Learning Path"   icon={Brain}           testid="nav-adaptive" />
+            <NavLink loc={loc} to="/competencies"    label="Competencies"    icon={Target}          testid="nav-competencies" />
+          </NavSection>
+
+          <NavSection label="Credentials">
+            <NavLink loc={loc} to="/credentials"    label="Credentials"      icon={BadgeCheck}      testid="nav-credentials" />
+            <NavLink loc={loc} to="/certificates"   label="Certificates"     icon={Award}           testid="nav-certs" />
+            <NavLink loc={loc} to="/portfolio"      label="Portfolio"        icon={Briefcase}       testid="nav-portfolio" />
+          </NavSection>
+
+          <NavSection label="Community">
+            <NavLink loc={loc} to="/palace"         label="Members' Palace"  icon={Crown}           testid="nav-palace" />
+            <NavLink loc={loc} to="/elder-council"  label="Elder Council"    icon={Layers}          testid="nav-elder-council" />
+            <NavLink loc={loc} to="/leaderboard"    label="XP Leaderboard"   icon={Trophy}          testid="nav-leaderboard" />
+            <NavLink loc={loc} to="/incidents"      label="Report Incident"  icon={ShieldAlert}     testid="nav-incidents" />
+          </NavSection>
+
+          <NavSection label="M.O.R.E.">
+            <NavLink loc={loc} to="/app/more"       label="M.O.R.E. Hub"     icon={HandHelping}     testid="nav-more" />
+            <NavLink loc={loc} to="/more/chat"      label="Community Chat"   icon={Radio}           testid="nav-more-chat" />
+            <NavLink loc={loc} to="/more/litigation" label="Legal Tools"     icon={Scale}           testid="nav-litigation" />
+            <NavLink loc={loc} to="/app/helper"     label="Personal Helper"  icon={HelpCircle}      testid="nav-helper" />
+          </NavSection>
+
+          {/* ── CREATOR'S SANCTUARY (all roles — page handles tier locks) ── */}
+          <NavSection label="Creator's Sanctuary">
+            <NavLink loc={loc} to="/studio"               label="Creator Studio"    icon={Music}        testid="nav-creator-studio" />
+            <NavLink loc={loc} to="/creator/courses"      label="Course Manager"    icon={Video}        testid="nav-creator-courses" />
+            <NavLink loc={loc} to="/creator/earnings"     label="My Earnings"       icon={DollarSign}   testid="nav-creator-earnings" />
+            <NavLink loc={loc} to="/creator/payouts"      label="Payout Dashboard"  icon={Receipt}      testid="nav-creator-payouts" />
+            <NavLink loc={loc} to="/creator/profile/edit" label="Creator Profile"   icon={UserCircle}   testid="nav-creator-profile" />
+            <NavLink loc={loc} to="/creator-lounge"       label="Creator Lounge"    icon={Mic}          testid="nav-creator-lounge" />
+            <NavLink loc={loc} to="/ghost-producer"       label="Ghost Producer"    icon={Palette}      testid="nav-ghost-producer" />
+            <NavLink loc={loc} to="/band"                 label="Band on a Page"    icon={Music}        testid="nav-band" />
+            <NavLink loc={loc} to="/social/publish"       label="Social Publisher"  icon={Globe}        testid="nav-social-publish" />
+            <NavLink loc={loc} to="/playlist/dashboard"   label="Playlist Manager"  icon={Radio}        testid="nav-playlist" />
+            <NavLink loc={loc} to="/arcade"               label="Virtual Arcade"    icon={Gamepad2}     testid="nav-arcade" />
+          </NavSection>
+
+          <NavSection label="Commerce">
+            <NavLink loc={loc} to="/store"           label="Store"            icon={ShoppingBag}    testid="nav-store" />
+            <NavLink loc={loc} to="/plans"           label="Plans & Pricing"  icon={Star}           testid="nav-plans" />
+            <NavLink loc={loc} to="/subscribe"       label="Membership"       icon={HandHelping}    testid="nav-subscribe" />
+            <NavLink loc={loc} to="/donate"          label="Donate"           icon={Heart}          testid="nav-donate" />
+            <NavLink loc={loc} to="/payment/history" label="Payment History"  icon={Receipt}        testid="nav-payment-history" />
+            <NavLink loc={loc} to="/partnership"     label="Partnerships"     icon={Network}        testid="nav-partnership" />
+          </NavSection>
+
+          {/* ── INSTRUCTOR ────────────────────────────────────────────── */}
+          {isInstructor && (
+            <NavSection label="Instructor">
+              <NavLink loc={loc} to="/instructor"      label="My Roster"       icon={Users}           testid="nav-instructor" />
+              <NavLink loc={loc} to="/instructor/labs" label="Lab Approvals"   icon={ClipboardCheck}  testid="nav-lab-approvals" />
+              <NavLink loc={loc} to="/attendance"      label="Attendance"      icon={Calendar}        testid="nav-attendance" />
+            </NavSection>
+          )}
+
+          {/* ── ADMIN ─────────────────────────────────────────────────── */}
+          {isAdmin && (
+            <NavSection label="Administration">
+              <NavLink loc={loc} to="/admin"           label="Admin Overview"  icon={Settings}        testid="nav-admin" />
+              <NavLink loc={loc} to="/admin/users"     label="Users"           icon={Users}           testid="nav-admin-users" />
+              <NavLink loc={loc} to="/admin/accounts"  label="Accounts"        icon={Users}           testid="nav-accounts" />
+              <NavLink loc={loc} to="/admin/tools"     label="Sites & Inventory" icon={Building2}     testid="nav-admin-tools" />
+              <NavLink loc={loc} to="/admin/analytics" label="Analytics"       icon={TrendingUp}      testid="nav-analytics" />
+              <NavLink loc={loc} to="/admin/audit"     label="Audit Log"       icon={ScrollText}      testid="nav-audit" />
+              <NavLink loc={loc} to="/admin/payments"  label="Payments"        icon={Receipt}         testid="nav-admin-payments" />
+              <NavLink loc={loc} to="/admin/billing"   label="Billing"         icon={DollarSign}      testid="nav-billing" />
+              <NavLink loc={loc} to="/admin/prices"    label="Prices"          icon={Star}            testid="nav-prices" />
+              <NavLink loc={loc} to="/admin/health"    label="System Health"   icon={ShieldCheck}     testid="nav-health" />
+              <NavLink loc={loc} to="/admin/moderation" label="Moderation"     icon={Shield}          testid="nav-moderation" />
+              <NavLink loc={loc} to="/revenue"         label="Revenue"         icon={DollarSign}      testid="nav-revenue" />
+              <NavLink loc={loc} to="/auditor"         label="Auditor"         icon={FileText}        testid="nav-auditor" />
+              <NavLink loc={loc} to="/more/admin"      label="M.O.R.E. Admin"  icon={HandHelping}     testid="nav-more-admin" />
+              <NavLink loc={loc} to="/more/ops"        label="Dept. AI Ops"    icon={Network}         testid="nav-more-ops" />
+              <NavLink loc={loc} to="/assistant"       label="Admin Assistant" icon={Sparkles}        testid="nav-assistant" />
+            </NavSection>
+          )}
+
+          {/* ── EXECUTIVE ─────────────────────────────────────────────── */}
+          {isExec && (
+            <NavSection label="Executive">
+              <NavLink loc={loc} to="/admin/system"      label="Exec System"      icon={Crown}        testid="nav-exec-system" />
+              <NavLink loc={loc} to="/admin/control"     label="Site Control"     icon={Shield}       testid="nav-control-panel" />
+              <NavLink loc={loc} to="/admin/exec-control" label="Sovereign Command" icon={Layers}     testid="nav-exec-control" />
+              <NavLink loc={loc} to="/admin/director"    label="Director Dash"    icon={Compass}      testid="nav-exec-director" />
+              <NavLink loc={loc} to="/admin/sage-audit"  label="Sage Audit"       icon={ScrollText}   testid="nav-sage-audit" />
+              <NavLink loc={loc} to="/admin/staff-meetings" label="Staff Meetings" icon={Users}       testid="nav-staff-meetings" />
+              <NavLink loc={loc} to="/admin/providers"   label="Provider Gateway" icon={Network}      testid="nav-providers" />
+              <NavLink loc={loc} to="/team/ops"          label="Team Ops"         icon={Settings}     testid="nav-team-ops" />
+              <NavLink loc={loc} to="/supervisor"        label="Supervisor Hub"   icon={Radio}        testid="nav-supervisor" />
+              <NavLink loc={loc} to="/creative-partner"  label="Creative Partner" icon={Palette}      testid="nav-creative-partner" />
+            </NavSection>
+          )}
+
         </nav>
 
-        <div className="px-4 pb-2">
-          <Link
-            to="/arcade"
-            data-testid="nav-arcade-btn"
-            className="flex items-center gap-3 w-full mb-2 px-4 py-3 no-underline transition-all hover:opacity-90"
-            style={{
-              background: "linear-gradient(135deg, #0a0a0f, #1a0800)",
-              border: "2px solid #b8860b",
-              boxShadow: "0 0 12px rgba(184,134,11,0.4), inset 0 0 20px rgba(184,134,11,0.05)",
-              textDecoration: "none",
-            }}
-          >
-            <Gamepad2 style={{ color: "#ffd700", width: 18, height: 18, flexShrink: 0 }} />
-            <div>
-              <div style={{ fontSize: 13, fontWeight: 900, color: "#ffd700", fontFamily: "monospace", letterSpacing: "0.08em", textShadow: "0 0 8px rgba(255,215,0,0.5)", lineHeight: 1.2 }}>
-                THE ARCADE
-              </div>
-              <div style={{ fontSize: 10, color: "rgba(184,134,11,0.8)", fontFamily: "monospace", letterSpacing: "0.05em" }}>
-                FREE · EARN XP · PLAY NOW
-              </div>
-            </div>
-          </Link>
-          <Link
-            to="/wai-institute"
-            data-testid="nav-wai-institute"
-            className="flex flex-col gap-1 w-full rounded-xl p-4 text-white no-underline transition-all hover:opacity-90 mb-2"
-            style={{ background: "linear-gradient(135deg,#1B4332,#2D6A4F)", textDecoration: "none", border: "1.5px solid #E8A51E", boxShadow: "0 4px 16px rgba(27,67,50,0.40)" }}
-          >
+        {/* WAI Institute card */}
+        <div className="px-4 pb-2 shrink-0">
+          <Link to="/wai-institute" data-testid="nav-wai-institute"
+            className="flex flex-col gap-1 w-full rounded-xl p-4 text-white no-underline transition-all hover:opacity-90"
+            style={{ background: "linear-gradient(135deg,#1B4332,#2D6A4F)", border: "1.5px solid #E8A51E", boxShadow: "0 4px 16px rgba(27,67,50,0.40)" }}>
             <div className="flex items-center gap-2">
               <span style={{ fontSize: 16 }}>🏛️</span>
-              <span style={{ fontSize: 14, fontWeight: 900, lineHeight: 1.2, color: "#E8A51E", letterSpacing: "0.02em" }}>WAI Institute</span>
+              <span style={{ fontSize: 14, fontWeight: 900, color: "#E8A51E" }}>WAI Institute</span>
             </div>
-            <span style={{ fontSize: 11, opacity: 0.85, lineHeight: 1.4, color: "#fff", paddingLeft: 26 }}>
+            <span style={{ fontSize: 11, opacity: 0.85, color: "#fff", paddingLeft: 26 }}>
               Administration · Classrooms · Credentials
-            </span>
-          </Link>
-          <Link
-            to="/app/helper"
-            data-testid="nav-helper"
-            className="flex flex-col gap-1 w-full rounded-xl p-4 text-white no-underline transition-all hover:opacity-90"
-            style={{ background: "linear-gradient(135deg,#2563eb,#7c3aed)", textDecoration: "none", boxShadow: "0 4px 16px rgba(37,99,235,0.30)" }}
-          >
-            <div className="flex items-center gap-2">
-              <HelpCircle className="w-5 h-5 shrink-0" style={{ color: "#fde68a" }} />
-              <span style={{ fontSize: 15, fontWeight: 800, lineHeight: 1.2, color: "#fff" }}>Personal Help Center</span>
-            </div>
-            <span style={{ fontSize: 11, opacity: 0.85, lineHeight: 1.4, color: "#fff", paddingLeft: 28 }}>
-              Understand letters, bills, legal papers, housing notices and more — in plain words
             </span>
           </Link>
         </div>
 
-        <div className="px-4 py-5 border-t border-white/10">
+        {/* User footer */}
+        <div className="px-4 py-5 border-t border-white/10 shrink-0">
           <div className="text-xs text-white/50 uppercase tracking-widest">Signed in as</div>
           <div className="font-heading text-white font-semibold mt-1 truncate flex items-center gap-2">
             {user?.full_name}
             {isExec && <span className="bg-signal text-ink text-[9px] font-black px-1.5 py-0.5" title="Executive Admin" data-testid="exec-badge">EXEC</span>}
+            {role === "admin" && <span className="bg-copper text-white text-[9px] font-black px-1.5 py-0.5">ADMIN</span>}
           </div>
-          <div className="text-xs text-white/50 capitalize">{(user?.role || "").replace("_", " ")} {user?.associate ? `• ${user.associate}` : ""}</div>
+          <div className="text-xs text-white/50 capitalize">{role.replace("_", " ")}{user?.associate ? ` · ${user.associate}` : ""}</div>
           <button onClick={() => { logout(); nav("/"); }} data-testid="btn-logout"
             className="mt-4 w-full flex items-center justify-center gap-2 border border-white/20 py-2 text-xs uppercase tracking-widest font-bold hover:bg-white hover:text-ink transition-colors">
             <LogOut className="w-3.5 h-3.5" /> Log Out
           </button>
         </div>
       </aside>
+
+      {/* ── Main content ─────────────────────────────────────────────────── */}
       <div className="flex-1 min-w-0 flex flex-col">
         {backendDown && (
           <div className="flex items-center gap-3 px-6 py-3 bg-destructive/10 border-b border-destructive/20" data-testid="backend-offline-banner">
             <WifiOff className="w-4 h-4 text-destructive shrink-0" />
-            <span className="text-sm font-semibold text-destructive">Backend offline — data cannot load. Check Railway service status or contact support.</span>
+            <span className="text-sm font-semibold text-destructive">Backend offline — data cannot load. Check Railway service status.</span>
           </div>
         )}
         <main className="flex-1 min-w-0">{children}</main>
