@@ -145,6 +145,21 @@ async def ensure_indexes():
         await db.creator_settings.create_index("creator_user_id", unique=True)
         await db.student_settings.create_index("student_user_id", unique=True)
         await db.system_config.create_index("key", unique=True)
+
+        # Media store indexes
+        await db.media_files.create_index([("user_id", 1), ("created_at", -1)])
+        await db.media_files.create_index("id", unique=True)
+        await db.media_products.create_index("id", unique=True)
+        await db.media_products.create_index([("published", 1), ("created_at", -1)])
+        await db.media_products.create_index([("seller_user_id", 1), ("created_at", -1)])
+        await db.media_purchases.create_index([("buyer_user_id", 1), ("product_id", 1)], unique=True)
+        await db.media_purchases.create_index([("product_id", 1), ("created_at", -1)])
+
+        # Sovereign pipeline indexes
+        await db.sovereign_pipeline.create_index("id", unique=True)
+        await db.sovereign_pipeline.create_index([("user_id", 1), ("stage", 1)])
+        await db.sovereign_pipeline.create_index([("user_id", 1), ("hos_score", -1)])
+
         logger.info("Indexes ensured")
     except Exception:
         logger.exception("ensure_indexes failed (non-fatal)")

@@ -34,6 +34,43 @@ def _gridfs_bucket():
     return AsyncIOMotorGridFSBucket(db, bucket_name="media")
 
 
+async def _send_purchase_receipt(to_email: str, product_title: str, download_url: str):
+    """Send a purchase confirmation email with download link via Gmail SMTP."""
+    import smtplib
+    from email.mime.multipart import MIMEMultipart
+    from email.mime.text import MIMEText
+    gmail_user = os.environ.get("GMAIL_USER", "")
+    gmail_pass = os.environ.get("GMAIL_APP_PASSWORD", "")
+    if not gmail_user or not gmail_pass:
+        return
+    msg = MIMEMultipart("alternative")
+    msg["Subject"] = f"Your purchase is ready — {product_title}"
+    msg["From"] = f"NAM Oshun · M.O.R.E. <{gmail_user}>"
+    msg["To"] = to_email
+    html = f"""
+    <div style="font-family:Georgia,serif;max-width:520px;margin:0 auto;padding:32px 24px;color:#1a1a1a;">
+      <div style="font-size:22px;font-weight:900;color:#b5651d;margin-bottom:8px;">Thank you.</div>
+      <p style="font-size:16px;line-height:1.7;margin-bottom:24px;">
+        Your purchase of <strong>{product_title}</strong> is confirmed.
+        Click below to access your download.
+      </p>
+      <a href="{download_url}"
+         style="display:inline-block;background:#1a1a1a;color:#fff;padding:14px 28px;
+                border-radius:8px;font-weight:700;text-decoration:none;font-size:15px;">
+        Go to My Library →
+      </a>
+      <p style="font-size:12px;color:#9ca3af;margin-top:32px;line-height:1.6;">
+        NAM Oshun · M.O.R.E. Help Center<br>
+        This email confirms your purchase. Reply if you need anything.
+      </p>
+    </div>
+    """
+    msg.attach(MIMEText(html, "html"))
+    with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server:
+        server.login(gmail_user, gmail_pass)
+        server.sendmail(gmail_user, to_email, msg.as_string())
+
+
 def _now():
     return datetime.now(timezone.utc)
 
@@ -278,15 +315,20 @@ async def create_checkout(product_id: str, user: User = Depends(current_user)):
                 "product_data": {
                     "name": prod["title"],
                     "description": prod.get("description") or "",
+                    **({"images": [prod["cover_url"]]} if prod.get("cover_url") else {}),
                 },
             },
             "quantity": 1,
         }],
+        allow_promotion_codes=True,  # lets NAM Oshun create discount codes in Stripe dashboard
+        customer_email=user.email if hasattr(user, "email") else None,
         success_url=f"{FRONTEND_URL}/store?success=1&session_id={{CHECKOUT_SESSION_ID}}",
         cancel_url=f"{FRONTEND_URL}/store",
         metadata={
             "product_id": product_id,
             "buyer_user_id": str(user.id),
+            "buyer_email": user.email if hasattr(user, "email") else "",
+            "product_title": prod["title"],
         },
     )
     return {"checkout_url": session.url}
@@ -333,6 +375,16 @@ async def stripe_webhook(request: Request):
                     {"id": product_id}, {"$inc": {"sales_count": 1}}
                 )
             logger.info("media_purchase: product=%s buyer=%s", product_id, buyer_user_id)
+
+            # Send purchase receipt email with download link
+            try:
+                buyer_email = meta.get("buyer_email") or ""
+                product_title = meta.get("product_title") or (prod.get("title") if prod else "your purchase")
+                if buyer_email and prod and prod.get("file_id"):
+                    download_url = f"{FRONTEND_URL}/store/library"
+                    await _send_purchase_receipt(buyer_email, product_title, download_url)
+            except Exception as _mail_err:
+                logger.warning("Purchase receipt email failed (non-fatal): %s", _mail_err)
 
     return {"received": True}
 
