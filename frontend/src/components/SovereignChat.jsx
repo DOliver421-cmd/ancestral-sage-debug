@@ -259,8 +259,28 @@ export default function SovereignChat() {
       {/* Messages */}
       <div className="flex-1 overflow-y-auto p-4 space-y-3" style={{ color: "var(--wai-text)" }}>
         {messages.length === 0 && (
-          <div className="text-sm" style={{ color: "var(--wai-muted)" }}>
-            Your sovereign self — booking, revenue, counsel, and catalog management. Speak or send files.
+          <div>
+            <div className="text-sm mb-3" style={{ color: "var(--wai-muted)" }}>
+              Your sovereign self — booking, revenue, counsel, and catalog management. Speak or send files.
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {[
+                { label: "📊 Morning Report", msg: "Morning report" },
+                { label: "💼 Pipeline Status", msg: "Give me the full pipeline status" },
+                { label: "📅 Next Actions", msg: "What are my action items this week?" },
+                { label: "💰 Revenue Summary", msg: "Revenue summary — confirmed and projected" },
+              ].map(({ label, msg }) => (
+                <button key={msg} type="button"
+                  onClick={() => setInput(msg)}
+                  style={{
+                    background: "rgba(212,175,55,0.12)", border: "1px solid var(--wai-gold)",
+                    borderRadius: 20, padding: "4px 12px", fontSize: 12,
+                    color: "var(--wai-gold-light)", cursor: "pointer",
+                  }}>
+                  {label}
+                </button>
+              ))}
+            </div>
           </div>
         )}
         {messages.map((m, i) => (
