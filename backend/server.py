@@ -8150,13 +8150,14 @@ async def sentinel_ai_brief(body: dict, user: User = Depends(require_role("execu
         "This session is classified and not stored in any shared chat history."
     )
     try:
-        from ai.llm_gateway import chat_completion
-        response = await chat_completion(
-            messages=[{"role": "user", "content": question}],
+        from ai.llm_gateway import call_llm as _sentinel_llm
+        result = await _sentinel_llm(
             system=system,
+            messages=[{"role": "user", "content": question}],
             max_tokens=1200,
+            persona_label="sentinel",
         )
-        return {"response": response}
+        return {"response": result["text"]}
     except Exception as e:
         raise HTTPException(503, f"AI unavailable: {str(e)[:80]}")
 
