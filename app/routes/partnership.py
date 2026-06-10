@@ -115,8 +115,50 @@ async def sovereign_chat(body: _SovereignChatBody, user: User = Depends(require_
     ])
     user_message = body.message
     if is_report:
+        # Inject live pipeline data
+        try:
+            from datetime import date as _date2
+            from app.routes.sovereign_pipeline import COLLECTION, STAGE_PROBABILITY, CLOSED_STAGES, STAGE_ORDER
+            pipeline_docs = await db[COLLECTION].find({"user_id": user.id}, {"_id": 0}).to_list(1000)
+            if pipeline_docs:
+                confirmed_rev = sum(
+                    (d.get("fee_offered") or 0) for d in pipeline_docs
+                    if d.get("stage") in CLOSED_STAGES
+                )
+                weighted = sum(
+                    (d.get("fee_offered") or 0) * (d.get("close_probability") or STAGE_PROBABILITY.get(d.get("stage", "Prospecting"), 0.0))
+                    for d in pipeline_docs
+                    if d.get("stage") not in CLOSED_STAGES
+                )
+                by_stage: dict = {}
+                for d in pipeline_docs:
+                    s = d.get("stage", "Prospecting")
+                    by_stage.setdefault(s, []).append(d)
+                stage_lines = []
+                for s in STAGE_ORDER:
+                    recs = by_stage.get(s, [])
+                    if not recs:
+                        continue
+                    items = ", ".join(
+                        f"{r['institution']} (${(r.get('fee_offered') or 0) / 100:,.0f})" for r in recs
+                    )
+                    stage_lines.append(f"  {s} ({len(recs)}): {items}")
+                _today_str = _date2.today().isoformat()
+                pipeline_prefix = (
+                    f"LIVE PIPELINE DATA (as of {_today_str}):\n"
+                    f"Confirmed: {sum(1 for d in pipeline_docs if d.get('stage') in CLOSED_STAGES)} booking(s) — ${confirmed_rev / 100:,.0f} total\n"
+                    f"Active pipeline weighted value: ${weighted / 100:,.0f}\n"
+                    "By stage:\n"
+                    + "\n".join(stage_lines)
+                    + "\n\n"
+                )
+            else:
+                pipeline_prefix = "LIVE PIPELINE DATA: No institutions in pipeline yet.\n\n"
+            user_message = pipeline_prefix + user_message
+        except Exception:
+            logger.exception("Pipeline data injection failed")
         user_message = (
-            f"{body.message}\n\n"
+            f"{user_message}\n\n"
             f"Generate a structured Morning Report for {today} in this exact format:\n\n"
             "**SOVEREIGN MORNING REPORT**\n\n"
             "**CONFIRMED BOOKINGS**\n"
@@ -155,6 +197,31 @@ async def sovereign_chat(body: _SovereignChatBody, user: User = Depends(require_
         await save_memory(db, user.id, f"Asked: {body.message[:200]}", kind="note")
     except Exception:
         pass
+
+    # ── NL pipeline command detection ─────────────────────────────────────────
+    _pipeline_keywords = [
+        "add ", " to pipeline", " to prospecting", " to outreach", " to conversation",
+        " to proposal", " to negotiation", " confirmed", " lost", "move ", "mark ",
+        "set fee for", "remove ", " from pipeline", "drop ",
+    ]
+    msg_lower = body.message.lower()
+    if any(kw in msg_lower for kw in _pipeline_keywords):
+        try:
+            from app.routes.sovereign_pipeline import parse_pipeline_command, ParseCommandBody
+            parse_body = ParseCommandBody(message=body.message)
+            parse_result = await parse_pipeline_command(parse_body, user=user)
+            if parse_result.get("executed"):
+                action = parse_result.get("action", "updated")
+                institution = parse_result.get("institution", "")
+                stage = parse_result.get("stage", "")
+                confirmation = f"\n\n---\n*Pipeline {action}: **{institution}**"
+                if stage:
+                    confirmation += f" → {stage}"
+                confirmation += ".*"
+                reply = reply + confirmation
+        except Exception:
+            logger.exception("Pipeline NL command execution failed")
+
     return {"reply": reply}
 
 
