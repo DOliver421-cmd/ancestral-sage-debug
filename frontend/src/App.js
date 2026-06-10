@@ -46,8 +46,6 @@ import SocialPublish from "./pages/SocialPublish";
 import Internships from "./pages/Internships";
 import PlaylistSubmit from "./pages/PlaylistSubmit";
 import PlaylistDashboard from "./pages/PlaylistDashboard";
-import DirectorWidget from "./components/DirectorWidget";
-import SupervisorWidget from "./components/SupervisorWidget";
 import ErrorBoundary from "./components/ErrorBoundary";
 import Helper from "./pages/Helper";
 import Leaderboard from "./pages/Leaderboard";
@@ -59,7 +57,7 @@ import PaymentCancel from "./pages/PaymentCancel";
 import PaymentHistory from "./pages/PaymentHistory";
 import AdminPayments from "./pages/AdminPayments";
 import AvatarSetup from "./pages/AvatarSetup";
-import SovereignChat from "./components/SovereignChat";
+import MediaStore from "./pages/MediaStore";
 import Palace from "./pages/Palace";
 import ElderCouncil from "./pages/ElderCouncil";
 import Plans from "./pages/Plans";
@@ -179,9 +177,6 @@ function App() {
         <BrowserRouter>
           <ErrorBoundary>
             <Toaster position="top-right" richColors />
-            <DirectorWidget />
-            <SupervisorWidget />
-            <SovereignChat />
             <CookieConsent />
             <HelpGuide />
             <Routes>
@@ -205,7 +200,8 @@ function App() {
               <Route path="/courses"          element={<Courses />} />
               <Route path="/community"        element={<Community />} />
               <Route path="/help-center"      element={<HelpCenter />} />
-              <Route path="/store"            element={<Store />} />
+              <Route path="/store"            element={<MediaStore />} />
+              <Route path="/merch"            element={<Store />} />
               <Route path="/plans"            element={<Plans />} />
               <Route path="/subscribe"        element={<SubscribePage />} />
               <Route path="/donate"           element={<DonatePage />} />
@@ -293,9 +289,6 @@ function App() {
         </a>
 
         {/* Global widgets */}
-        <DirectorWidget />
-        <SupervisorWidget />
-        <SovereignChat />
         <CookieConsent />
         <HelpGuide />
         <WelcomeWizard />
@@ -409,7 +402,8 @@ function App() {
           <Route path="/more/ops" element={<Protected roles={["admin"]}><MoreOps /></Protected>} />
           {/* Payments */}
           {/* Store & subscribe — public browsing, gated checkout */}
-          <Route path="/store" element={<Store />} />
+          <Route path="/store" element={<MediaStore />} />
+          <Route path="/merch" element={<Store />} />
           <Route path="/subscribe" element={<SubscribePage />} />
           <Route path="/donate" element={<DonatePage />} />
           <Route path="/payment/success" element={<PaymentSuccess />} />
