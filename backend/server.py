@@ -14651,6 +14651,58 @@ async def payout_summary(user: User = Depends(current_user)):
     }
 
 
+@api_router.get("/ai/provider-test")
+async def ai_provider_test(user: User = Depends(require_role("admin"))):
+    """Live test of every LLM provider — returns which ones actually respond.
+    Use this to diagnose widget failures. Hits each provider with a 1-token ping."""
+    from ai.llm_gateway import (
+        GROQ_API_KEY, GROQ_BASE, GROQ_MODEL,
+        CEREBRAS_API_KEY, CEREBRAS_BASE, CEREBRAS_MODEL,
+        SAMBANOVA_API_KEY, SAMBANOVA_BASE, SAMBANOVA_MODEL,
+        GEMINI_API_KEY, GEMINI_BASE, GEMINI_MODEL,
+        XAI_API_KEY, XAI_BASE, XAI_MODEL,
+        MISTRAL_API_KEY, MISTRAL_BASE, MISTRAL_MODEL,
+        TOGETHER_API_KEY, TOGETHER_BASE, TOGETHER_MODEL,
+        OPENROUTER_API_KEY, OPENROUTER_BASE, OPENROUTER_MODEL,
+        _oai_compat_call, gateway_status,
+        _hour_tokens_used, HOURLY_TOKEN_CAP,
+    )
+    import os as _os
+    import httpx as _httpx
+
+    ping_msg = [{"role": "user", "content": "Say OK"}]
+    ping_sys = "Reply with just OK."
+
+    results = {}
+
+    async def _test(name, base, key, model):
+        if not key:
+            return {"ok": False, "reason": "no_key"}
+        try:
+            r = await _oai_compat_call(base, key, model, ping_sys, ping_msg, 8, None)
+            return {"ok": True, "text": r["text"][:40]}
+        except Exception as e:
+            return {"ok": False, "reason": str(e)[:120]}
+
+    results["groq"]       = await _test("groq",       GROQ_BASE,       GROQ_API_KEY,       GROQ_MODEL)
+    results["cerebras"]   = await _test("cerebras",   CEREBRAS_BASE,   CEREBRAS_API_KEY,   CEREBRAS_MODEL)
+    results["sambanova"]  = await _test("sambanova",  SAMBANOVA_BASE,  SAMBANOVA_API_KEY,  SAMBANOVA_MODEL)
+    results["gemini"]     = await _test("gemini",     GEMINI_BASE,     GEMINI_API_KEY,     GEMINI_MODEL)
+    results["grok"]       = await _test("grok",       XAI_BASE,        XAI_API_KEY,        XAI_MODEL)
+    results["mistral"]    = await _test("mistral",    MISTRAL_BASE,    MISTRAL_API_KEY,    MISTRAL_MODEL)
+    results["together"]   = await _test("together",   TOGETHER_BASE,   TOGETHER_API_KEY,   TOGETHER_MODEL)
+    results["openrouter"] = await _test("openrouter", OPENROUTER_BASE, OPENROUTER_API_KEY, OPENROUTER_MODEL)
+
+    working = [k for k, v in results.items() if v.get("ok")]
+    return {
+        "providers": results,
+        "working_count": len(working),
+        "working": working,
+        "budget": {"used": _hour_tokens_used, "cap": HOURLY_TOKEN_CAP},
+        "watchdog_disabled": bool(_os.environ.get("WATCHDOG_DISABLE")),
+    }
+
+
 app.include_router(api_router)
 # CORS: when origins is wildcard ("*") browsers reject credentials, so we
 # turn off allow_credentials in that case (auth uses Bearer token in Authorization

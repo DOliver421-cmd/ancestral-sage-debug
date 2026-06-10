@@ -24,7 +24,7 @@ logger = logging.getLogger("failover_watchdog")
 
 CHECK_INTERVAL = int(os.environ.get("WATCHDOG_CHECK_INTERVAL", "60"))       # seconds
 FAILURE_THRESHOLD = int(os.environ.get("WATCHDOG_FAILURE_THRESHOLD", "3"))  # consecutive failures
-PRIMARY_URL = os.environ.get("WATCHDOG_PRIMARY_URL", "http://localhost:8000")
+PRIMARY_URL = os.environ.get("WATCHDOG_PRIMARY_URL", os.environ.get("RAILWAY_PUBLIC_DOMAIN", "http://localhost:8080"))
 BACKUP_URL = os.environ.get("BACKUP_ORIGIN", "")  # optional home server
 
 _HEALTH_PATH = "/api/health"
