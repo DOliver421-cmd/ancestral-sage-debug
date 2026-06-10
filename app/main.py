@@ -57,6 +57,7 @@ _route_mods = [
     "app.routes.supervisor_v2", "app.routes.site_editor", "app.routes.team_ops",
     "app.routes.partnership", "app.routes.playlist", "app.routes.social",
     "app.routes.position", "app.routes.personas",
+    "app.routes.sovereign_pipeline",
 ]
 _loaded_routers: dict = {}  # mod_path -> router
 for _mp in _route_mods:
