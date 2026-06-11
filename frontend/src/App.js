@@ -264,6 +264,7 @@ function App() {
               <Route path="/arcade" element={<Protected><ArcadeLanding /></Protected>} />
               <Route path="/arcade/:slug" element={<Protected><ArcadeGame /></Protected>} />
               <Route path="/studio" element={<Protected><CreatorStudio /></Protected>} />
+              <Route path="/arena" element={<BoundedAdmin roles={["admin"]} label="The Arena"><CompetitionArena /></BoundedAdmin>} />
               <Route path="/trash" element={<TrashPantheon />} />
               <Route path="/creator/payouts" element={<Protected><CreatorPayoutDashboard /></Protected>} />
 
