@@ -83,7 +83,7 @@ SENTRY_DSN         = os.environ.get("SENTRY_DSN", "")
 SLACK_ALERT_WEBHOOK = os.environ.get("SLACK_ALERT_WEBHOOK", "")
 
 # ── App version ───────────────────────────────────────────────────────────────
-APP_VERSION = "4.0.1"
+APP_VERSION = "4.1.0"
 
 # ── Ancestral Sage ────────────────────────────────────────────────────────────
 ANCESTRAL_SAGE_CONSENT_TTL_MIN = int(
