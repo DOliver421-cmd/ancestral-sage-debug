@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { api, BACKEND_URL } from "../lib/api";
 import { useAuth } from "../lib/auth";
 import { toast } from "sonner";
+import ReactMarkdown from "react-markdown";
 
 const COPPER = "#b5651d";
 const BONE = "#f5f0e8";
@@ -49,26 +50,49 @@ function MessageBubble({ msg, onSpeak }) {
           </div>
         )}
         <div style={{
-          padding: "12px 16px",
+          padding: "14px 18px",
           borderRadius: isUser ? "18px 18px 4px 18px" : "18px 18px 18px 4px",
           background: isUser ? COPPER : WHITE,
           color: isUser ? WHITE : INK,
-          fontSize: 15, lineHeight: 1.65,
+          fontSize: 15, lineHeight: 1.7,
           boxShadow: "0 1px 4px rgba(0,0,0,0.08)",
-          whiteSpace: "pre-wrap", wordBreak: "break-word",
+          wordBreak: "break-word",
         }}>
-          {msg.content}
+          {isUser ? (
+            <span style={{ whiteSpace: "pre-wrap" }}>{msg.content}</span>
+          ) : (
+            <ReactMarkdown
+              components={{
+                p: ({ children }) => <p style={{ margin: "0 0 10px" }}>{children}</p>,
+                strong: ({ children }) => <strong style={{ fontWeight: 800, color: INK }}>{children}</strong>,
+                ul: ({ children }) => <ul style={{ paddingLeft: 20, margin: "6px 0 10px" }}>{children}</ul>,
+                ol: ({ children }) => <ol style={{ paddingLeft: 20, margin: "6px 0 10px" }}>{children}</ol>,
+                li: ({ children }) => <li style={{ marginBottom: 4 }}>{children}</li>,
+                h1: ({ children }) => <h1 style={{ fontSize: 18, fontWeight: 900, margin: "12px 0 6px", color: COPPER }}>{children}</h1>,
+                h2: ({ children }) => <h2 style={{ fontSize: 16, fontWeight: 800, margin: "10px 0 6px", color: COPPER }}>{children}</h2>,
+                h3: ({ children }) => <h3 style={{ fontSize: 15, fontWeight: 700, margin: "8px 0 4px" }}>{children}</h3>,
+                code: ({ inline, children }) => inline
+                  ? <code style={{ background: "rgba(181,101,29,0.1)", borderRadius: 4, padding: "1px 5px", fontSize: 13, fontFamily: "monospace" }}>{children}</code>
+                  : <pre style={{ background: "#f5f0e8", borderRadius: 8, padding: "10px 14px", fontSize: 13, overflowX: "auto", margin: "8px 0" }}><code>{children}</code></pre>,
+                blockquote: ({ children }) => <blockquote style={{ borderLeft: `3px solid ${COPPER}`, paddingLeft: 12, margin: "8px 0", color: "#555", fontStyle: "italic" }}>{children}</blockquote>,
+                hr: () => <hr style={{ border: "none", borderTop: `1px solid rgba(181,101,29,0.2)`, margin: "12px 0" }} />,
+              }}
+            >
+              {msg.content}
+            </ReactMarkdown>
+          )}
         </div>
         {!isUser && onSpeak && (
           <button
             onClick={() => onSpeak(msg.content)}
             title="Hear Jamil speak"
             style={{
-              marginTop: 4, background: "none", border: "none", cursor: "pointer",
-              color: COPPER, fontSize: 18, padding: "2px 4px", opacity: 0.7,
+              marginTop: 6, background: COPPER, border: "none", borderRadius: 20,
+              cursor: "pointer", color: WHITE, fontSize: 13, fontWeight: 700,
+              padding: "5px 14px", display: "flex", alignItems: "center", gap: 5,
             }}
           >
-            🔊
+            🔊 Speak
           </button>
         )}
       </div>
@@ -85,6 +109,130 @@ function Thinking() {
         boxShadow: "0 1px 4px rgba(0,0,0,0.08)",
       }}>
         Jamil is on it…
+      </div>
+    </div>
+  );
+}
+
+// ── Director quick actions ────────────────────────────────────────────────────
+const DIRECTOR_ACTIONS = [
+  { label: "Session Brief", msg: "Generate a full session brief: open incidents, at-risk students, pending reviews, platform health, and my top 3 priority actions right now." },
+  { label: "System Status", msg: "Give me a full system status and security posture report." },
+  { label: "Revenue Update", msg: "What is our current revenue status, recent payments, and this week's projections?" },
+  { label: "Team Report", msg: "Give me a report on AXIOM, CIPHER, MAVEN, and SAGE — who is producing, who is stalled, and what they need to do next." },
+  { label: "Legal Strategy", msg: "What legal risks or considerations require my attention right now?" },
+  { label: "Project Review", msg: "Review all active projects and give me a priority-ranked action list for today." },
+  { label: "Threat Report", msg: "Are there any active threats, incidents, or platform vulnerabilities I should know about?" },
+  { label: "Book Progress", msg: "Where are we on Our Legacy, Our Future? What's the next step to move it forward?" },
+];
+
+// ── Knowledge buckets (from Supervisor) ──────────────────────────────────────
+const KB_BUCKETS = [
+  { key: "prt",     label: "PRT",        color: "#4af2c5", content: "PRT — Precision Revenue Technology: revenue serves the mission, not the reverse. Systematic execution, measurable outcomes, creator revenue sharing, proceeds distribution to participants, accountability at every step." },
+  { key: "brief",   label: "Brief",      color: "#f59e0b", content: "Supervisor's Brief from Delon Oliver: governance context, operating agreement, team autonomy, self-determination rights, proceeds sharing. Governance not command." },
+  { key: "sage",    label: "Sage",       color: "#34d399", content: "The Ancestral Sage: cultural wisdom, intergenerational knowledge, community care, spiritual grounding, radical hospitality." },
+  { key: "books",   label: "Books",      color: "#f472b6", content: "Books & Publishing: outlining chapters, refining titles and hooks, drafting and editing, metadata, blurbs, Gumroad distribution, Our Legacy Our Future." },
+  { key: "custom",  label: "Custom",     color: "#94a3b8", content: "" },
+];
+
+const NOTES_KEY = "jamil_notes";
+
+function ToolsPanel({ onPrompt, onInjectKnowledge }) {
+  const [open, setOpen] = useState(false);
+  const [tab, setTab] = useState("actions");
+  const [notes, setNotes] = useState(() => { try { return localStorage.getItem(NOTES_KEY) || ""; } catch { return ""; } });
+  const [customKb, setCustomKb] = useState("");
+  const [activeKb, setActiveKb] = useState(new Set());
+
+  const saveNotes = (v) => { setNotes(v); try { localStorage.setItem(NOTES_KEY, v); } catch {} };
+
+  const toggleKb = (key, content) => {
+    const next = new Set(activeKb);
+    if (next.has(key)) { next.delete(key); }
+    else {
+      next.add(key);
+      const bucket = KB_BUCKETS.find(b => b.key === key);
+      const text = key === "custom" ? customKb : (bucket?.content || "");
+      if (text.trim()) onInjectKnowledge(`[Knowledge loaded: ${bucket?.label}]\n${text}`);
+    }
+    setActiveKb(next);
+  };
+
+  if (!open) return (
+    <button onClick={() => setOpen(true)} style={{
+      position: "fixed", bottom: 100, right: 24, background: COPPER, color: WHITE,
+      border: "none", borderRadius: 12, padding: "10px 16px", fontSize: 13, fontWeight: 700,
+      cursor: "pointer", boxShadow: "0 2px 12px rgba(181,101,29,0.35)", zIndex: 100,
+    }}>⚙ Tools</button>
+  );
+
+  return (
+    <div style={{
+      position: "fixed", bottom: 100, right: 24, width: 320, background: WHITE,
+      border: `1.5px solid rgba(181,101,29,0.25)`, borderRadius: 14,
+      boxShadow: "0 4px 24px rgba(0,0,0,0.12)", zIndex: 100, overflow: "hidden",
+    }}>
+      <div style={{ background: COPPER, padding: "10px 14px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <span style={{ color: WHITE, fontWeight: 800, fontSize: 14 }}>Jamil Tools</span>
+        <button onClick={() => setOpen(false)} style={{ background: "none", border: "none", color: WHITE, fontSize: 18, cursor: "pointer", lineHeight: 1 }}>×</button>
+      </div>
+
+      {/* Tabs */}
+      <div style={{ display: "flex", borderBottom: "1px solid rgba(181,101,29,0.1)" }}>
+        {[["actions","⚡ Actions"],["knowledge","📚 Knowledge"],["notes","📝 Notes"]].map(([k,l]) => (
+          <button key={k} onClick={() => setTab(k)} style={{
+            flex: 1, padding: "8px 4px", fontSize: 11, fontWeight: 700, border: "none",
+            background: tab === k ? BONE : WHITE, color: tab === k ? COPPER : "#888",
+            cursor: "pointer", borderBottom: tab === k ? `2px solid ${COPPER}` : "2px solid transparent",
+          }}>{l}</button>
+        ))}
+      </div>
+
+      <div style={{ maxHeight: 320, overflowY: "auto", padding: 12 }}>
+        {tab === "actions" && (
+          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+            {DIRECTOR_ACTIONS.map(a => (
+              <button key={a.label} onClick={() => { onPrompt(a.msg); setOpen(false); }} style={{
+                background: BONE, border: `1px solid rgba(181,101,29,0.2)`, borderRadius: 8,
+                padding: "8px 12px", textAlign: "left", fontSize: 13, fontWeight: 600,
+                color: INK, cursor: "pointer",
+              }}>{a.label}</button>
+            ))}
+          </div>
+        )}
+
+        {tab === "knowledge" && (
+          <div>
+            <div style={{ fontSize: 11, color: "#888", marginBottom: 8 }}>Load context into Jamil's next message</div>
+            {KB_BUCKETS.map(b => (
+              <div key={b.key} style={{ marginBottom: 8 }}>
+                {b.key === "custom" ? (
+                  <div>
+                    <textarea value={customKb} onChange={e => setCustomKb(e.target.value)} placeholder="Paste custom knowledge…" rows={3} style={{ width: "100%", padding: "6px 8px", borderRadius: 6, border: "1px solid #ddd", fontSize: 12, boxSizing: "border-box", resize: "vertical", marginBottom: 4 }} />
+                    <button onClick={() => toggleKb("custom", customKb)} disabled={!customKb.trim()} style={{ background: COPPER, color: WHITE, border: "none", borderRadius: 6, padding: "5px 12px", fontSize: 12, fontWeight: 700, cursor: "pointer" }}>Load Custom</button>
+                  </div>
+                ) : (
+                  <button onClick={() => toggleKb(b.key, b.content)} style={{
+                    width: "100%", padding: "7px 10px", borderRadius: 8, textAlign: "left",
+                    border: `1.5px solid ${activeKb.has(b.key) ? b.color : "#eee"}`,
+                    background: activeKb.has(b.key) ? `${b.color}22` : WHITE,
+                    fontSize: 12, fontWeight: 700, cursor: "pointer", color: INK,
+                  }}>
+                    {activeKb.has(b.key) ? "✓ " : ""}{b.label}
+                  </button>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+
+        {tab === "notes" && (
+          <div>
+            <div style={{ fontSize: 11, color: "#888", marginBottom: 6 }}>Private notes — saved to this device</div>
+            <textarea value={notes} onChange={e => saveNotes(e.target.value)} placeholder="Notes, observations, reminders…" rows={8} style={{ width: "100%", padding: "8px 10px", borderRadius: 8, border: "1px solid #ddd", fontSize: 13, boxSizing: "border-box", resize: "vertical", lineHeight: 1.6 }} />
+            <button onClick={() => { const b = new Blob([notes], {type:"text/plain"}); const u = URL.createObjectURL(b); const a = document.createElement("a"); a.href=u; a.download="jamil-notes.txt"; a.click(); URL.revokeObjectURL(u); }} style={{ marginTop: 6, background: "transparent", border: "1px solid #ddd", borderRadius: 6, padding: "5px 12px", fontSize: 11, cursor: "pointer" }}>↓ Export</button>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -221,6 +369,17 @@ export default function Jamil() {
 
   const isEmpty = messages.length === 0 && !loading;
 
+  // Tools panel callbacks
+  const handleToolPrompt = useCallback((msg) => {
+    setInput(msg);
+    inputRef.current?.focus();
+  }, []);
+
+  const handleInjectKnowledge = useCallback((text) => {
+    setInput(prev => prev ? prev + "\n\n" + text : text);
+    inputRef.current?.focus();
+  }, []);
+
   return (
     <div style={{ minHeight: "100vh", background: BONE, display: "flex", flexDirection: "column" }}>
 
@@ -343,6 +502,7 @@ export default function Jamil() {
         </p>
       </div>
 
+      <ToolsPanel onPrompt={handleToolPrompt} onInjectKnowledge={handleInjectKnowledge} />
       <style>{`@keyframes pulse { 0%,100% { opacity:1 } 50% { opacity:0.5 } }`}</style>
     </div>
   );
