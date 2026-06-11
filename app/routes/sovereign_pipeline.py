@@ -194,11 +194,6 @@ async def parse_pipeline_command(
     user: User = Depends(require_role("executive_admin")),
 ):
     """Parse a natural-language pipeline command via AI and execute it."""
-    import httpx
-    key = os.environ.get("ANTHROPIC_API_KEY", os.environ.get("EMERGENT_LLM_KEY", ""))
-    if not key:
-        raise HTTPException(503, "No AI key configured")
-
     parse_system = (
         "You are a pipeline command parser. Given a user message, extract the pipeline action.\n"
         "Return JSON only — no other text.\n"
@@ -215,19 +210,8 @@ async def parse_pipeline_command(
     )
 
     try:
-        async with httpx.AsyncClient(timeout=20) as client:
-            r = await client.post(
-                "https://api.anthropic.com/v1/messages",
-                headers={"x-api-key": key, "anthropic-version": "2023-06-01", "content-type": "application/json"},
-                json={
-                    "model": "claude-haiku-4-5",
-                    "max_tokens": 256,
-                    "system": parse_system,
-                    "messages": [{"role": "user", "content": body.message}],
-                },
-            )
-            r.raise_for_status()
-            raw = r.json()["content"][0]["text"].strip()
+        from app.services.llm import chat as _llm_chat
+        raw = (await _llm_chat(system=parse_system, user=body.message, max_tokens=256)).strip()
     except Exception as e:
         raise HTTPException(502, f"AI parse error: {e}")
 

@@ -13,7 +13,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from app.database import db
 from app.models.user import User
 from app.security.auth import current_user, require_role
-from app.config import ANTHROPIC_API_KEY
+from app.config import GROQ_API_KEY, CEREBRAS_API_KEY, MISTRAL_API_KEY
 
 logger = logging.getLogger("lcewai")
 

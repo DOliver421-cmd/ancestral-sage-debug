@@ -29,7 +29,7 @@ async def health():
     """
     from datetime import datetime, timezone
     import app.database as _db_module
-    from app.config import ANTHROPIC_API_KEY, STRIPE_SECRET_KEY
+    from app.config import GROQ_API_KEY, CEREBRAS_API_KEY, MISTRAL_API_KEY, STRIPE_SECRET_KEY
 
     now = datetime.now(timezone.utc).isoformat()
     checks: dict = {}
@@ -96,7 +96,8 @@ async def health():
         checks["rate_limiter"] = {"status": "local_only", "tracked_keys": len(_RATE), "error": str(_rle)[:80]}
 
     # ── AI provider reachability ──────────────────────────────────────────────
-    if ANTHROPIC_API_KEY:
+    _ai_configured = bool(GROQ_API_KEY or CEREBRAS_API_KEY or MISTRAL_API_KEY)
+    if _ai_configured:
         checks["ai_api"] = {"status": "configured", "key_present": True}
     else:
         checks["ai_api"] = {"status": "unconfigured", "key_present": False}

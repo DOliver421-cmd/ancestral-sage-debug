@@ -21,7 +21,7 @@ from app.security.auth import current_user, require_role
 logger = logging.getLogger("lcewai")
 router = APIRouter()
 
-ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY", os.environ.get("EMERGENT_LLM_KEY", ""))
+ANTHROPIC_API_KEY = ""  # Removed — using Groq/Cerebras/Mistral via app.services.llm
 
 _DOMAIN_ROLES = {
     "poor_righteous_teacher": "Cultural integrity and doctrinal alignment review.",
@@ -524,17 +524,16 @@ async def exec_staff_meeting(body: StaffMeetingRequest, user: User = Depends(req
                 _gw = await _call_llm(system=system_prompt, messages=[{"role": "user", "content": user_message}], max_tokens=1024, persona_label=persona_id)
                 response = _gw["text"].strip()
             except Exception:
-                import anthropic as _anth
-                _c = _anth.AsyncAnthropic(api_key=ANTHROPIC_API_KEY)
-                _msg = await _c.messages.create(model="claude-haiku-4-5", max_tokens=1024, system=system_prompt, messages=[{"role": "user", "content": user_message}])
-                response = _msg.content[0].text.strip()
+                from app.services.llm import chat as _llm_chat
+                response = (await _llm_chat(system=system_prompt, user=user_message, max_tokens=1024)).strip()
             return persona_id, response
         except Exception as exc:
             logger.warning("staff_meeting: persona %s LLM call failed: %s", persona_id, exc)
             return persona_id, ""
 
     _llm_personas = [pid for pid in meeting_participants if pid not in ("the_9", "poor_righteous_teacher")]
-    if _llm_personas and ANTHROPIC_API_KEY:
+    _any_llm_key = bool(os.environ.get("GROQ_API_KEY") or os.environ.get("CEREBRAS_API_KEY") or os.environ.get("MISTRAL_API_KEY"))
+    if _llm_personas and _any_llm_key:
         _results = await _asyncio.gather(*[_call_persona(pid, domain_briefs[pid]["question"]) for pid in _llm_personas])
         for pid, resp in _results:
             if resp:
