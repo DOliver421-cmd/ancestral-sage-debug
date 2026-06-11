@@ -11,11 +11,11 @@ MongoDB collection: competition_rounds
 import json
 import logging
 import os
+import uuid
 from datetime import datetime, timezone
 from typing import Optional
 
 import httpx
-from bson import ObjectId
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
@@ -170,7 +170,7 @@ async def assign_task(
     if not body.task.strip():
         raise HTTPException(status_code=400, detail="Task cannot be empty.")
 
-    project_id = body.project_id or str(ObjectId())
+    project_id = body.project_id or str(uuid.uuid4())
     now = datetime.now(timezone.utc)
 
     # Determine round number for this project
@@ -211,8 +211,10 @@ async def assign_task(
             "timestamp": now,
             "created_by": str(user.id) if hasattr(user, "id") else user.get("_id", ""),
         }
-        insert_result = await db.competition_rounds.insert_one(doc)
-        inserted_ids.append(str(insert_result.inserted_id))
+        round_id = str(uuid.uuid4())
+        doc["round_id"] = round_id
+        await db.competition_rounds.insert_one(doc)
+        inserted_ids.append(round_id)
 
     # Build response with round IDs for subsequent scoring
     response_results = []
@@ -241,12 +243,7 @@ async def submit_user_scores(
         if not (1 <= entry.user_score <= 100):
             raise HTTPException(status_code=400, detail=f"Score must be 1-100, got {entry.user_score}.")
 
-        try:
-            oid = ObjectId(entry.round_id)
-        except Exception:
-            raise HTTPException(status_code=400, detail=f"Invalid round_id: {entry.round_id}")
-
-        doc = await db.competition_rounds.find_one({"_id": oid})
+        doc = await db.competition_rounds.find_one({"round_id": entry.round_id})
         if not doc:
             raise HTTPException(status_code=404, detail=f"Round {entry.round_id} not found.")
 
