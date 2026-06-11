@@ -195,6 +195,7 @@ export default function AppShell({ children }) {
               <NavLink collapsed={collapsed} loc={loc} to="/auditor"         label="Auditor"         icon={FileText}        testid="nav-auditor" />
               <NavLink collapsed={collapsed} loc={loc} to="/more/admin"      label="M.O.R.E. Admin"  icon={HandHelping}     testid="nav-more-admin" />
               <NavLink collapsed={collapsed} loc={loc} to="/more/ops"        label="Dept. AI Ops"    icon={Network}         testid="nav-more-ops" />
+              <NavLink collapsed={collapsed} loc={loc} to="/arena"           label="The Arena"       icon={Swords}          testid="nav-arena-admin" />
               <NavLink collapsed={collapsed} loc={loc} to="/assistant"       label="Admin Assistant" icon={Sparkles}        testid="nav-assistant" />
             </NavSection>
           )}
@@ -212,7 +213,6 @@ export default function AppShell({ children }) {
               <NavLink collapsed={collapsed} loc={loc} to="/team/ops"          label="Team Ops"         icon={Settings}     testid="nav-team-ops" />
               <NavLink collapsed={collapsed} loc={loc} to="/supervisor"        label="Supervisor Hub"   icon={Radio}        testid="nav-supervisor" />
               <NavLink collapsed={collapsed} loc={loc} to="/creative-partner"  label="Creative Partner" icon={Palette}      testid="nav-creative-partner" />
-              <NavLink collapsed={collapsed} loc={loc} to="/arena"             label="The Arena"        icon={Swords}          testid="nav-arena" />
               <NavLink collapsed={collapsed} loc={loc} to="/jamil"             label="Jamil"            icon={Sparkles}        testid="nav-jamil" />
               <NavLink collapsed={collapsed} loc={loc} to="/projects"          label="Projects"         icon={ClipboardCheck}  testid="nav-projects" />
             </NavSection>
