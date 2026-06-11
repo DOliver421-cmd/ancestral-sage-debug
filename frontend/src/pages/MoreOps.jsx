@@ -103,6 +103,48 @@ function PersonaHeader({ persona, department, mode }) {
 }
 
 
+// ── Message Bubble ────────────────────────────────────────────────────────────
+function MessageBubble({ msg, onSpeak }) {
+  if (msg.role === "user") {
+    return (
+      <div className="flex justify-end">
+        <div className="max-w-[75%] bg-copper text-bone rounded-2xl rounded-br-sm px-4 py-3 text-sm whitespace-pre-wrap">
+          {msg.content}
+        </div>
+      </div>
+    );
+  }
+  return (
+    <div className="flex justify-start">
+      <div className="max-w-[80%]">
+        <PersonaHeader persona={msg.persona} department={msg.department} mode={msg.mode} />
+        <div className={`rounded-2xl rounded-tl-sm px-4 py-3 text-sm whitespace-pre-wrap leading-relaxed ${
+          msg.isDecline
+            ? "bg-amber-50 border border-amber-200 text-ink"
+            : "bg-white border border-ink/10 text-ink"
+        }`}>
+          {msg.isDecline && (
+            <div className="text-xs font-bold text-amber-700 uppercase tracking-wide mb-2">
+              Declined — this is a recorded response
+            </div>
+          )}
+          {msg.displayContent}
+          {onSpeak && (
+            <button
+              onClick={() => onSpeak(msg.displayContent)}
+              title="Read aloud"
+              className="ml-2 opacity-40 hover:opacity-70 transition-opacity align-middle"
+              style={{ background: "none", border: "none", cursor: "pointer", fontSize: 13, padding: 0 }}
+            >
+              🔊
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── Upload & Sell Panel (compact quick-access) ────────────────────────────────
 function UploadSellPanel({ user }) {
   const [file, setFile] = useState(null);
