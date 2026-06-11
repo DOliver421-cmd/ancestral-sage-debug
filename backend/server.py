@@ -14776,31 +14776,25 @@ async def jamil_chat_server(
 
     user_message = "\n\n".join(parts)
 
-    from ai.llm_gateway import (
-        GROQ_API_KEY, GROQ_BASE, GROQ_MODEL,
-        CEREBRAS_API_KEY, CEREBRAS_BASE, CEREBRAS_MODEL,
-        MISTRAL_API_KEY, MISTRAL_BASE, MISTRAL_MODEL,
-        _oai_compat_call,
+    # Route through the full 9-tier free gateway — Groq → Cerebras → SambaNova →
+    # Gemini → Grok → Cohere → Mistral → Together → OpenRouter → HuggingFace → KB
+    from ai.llm_gateway import call_llm as _gateway_call
+    result = await _gateway_call(
+        system=system,
+        messages=[{"role": "user", "content": user_message}],
+        max_tokens=4096,
+        persona_label="jamil",
     )
-    msgs = [{"role": "user", "content": user_message}]
-    reply = None
-    for name, base, key, model in [
-        ("groq",     GROQ_BASE,     GROQ_API_KEY,     GROQ_MODEL),
-        ("cerebras", CEREBRAS_BASE, CEREBRAS_API_KEY, CEREBRAS_MODEL),
-        ("mistral",  MISTRAL_BASE,  MISTRAL_API_KEY,  MISTRAL_MODEL),
-    ]:
-        if not key:
-            continue
-        try:
-            r = await _oai_compat_call(base_url=base, api_key=key, model=model,
-                                        system_prompt=system, messages=msgs, max_tokens=4096, tools=None)
-            reply = r.get("text", "")
-            break
-        except Exception as _le:
-            logger.warning("Jamil provider %s failed: %s", name, _le)
+    reply = result.get("text", "").strip()
 
-    if not reply:
-        raise HTTPException(status_code=503, detail="No AI provider available. Set GROQ_API_KEY, CEREBRAS_API_KEY, or MISTRAL_API_KEY in Railway Variables.")
+    if not reply or result.get("provider") == "kb_fallback":
+        if not reply:
+            raise HTTPException(
+                status_code=503,
+                detail="No AI provider available. Add at least one free API key in Railway Variables: GROQ_API_KEY, CEREBRAS_API_KEY, SAMBANOVA_API_KEY, GEMINI_API_KEY, MISTRAL_API_KEY, or TOGETHER_API_KEY.",
+            )
+        # KB fallback returned something — pass it through rather than 503
+        logger.warning("Jamil routed to KB fallback — all AI providers unavailable")
 
     try:
         await db.jamil_history.insert_one({
@@ -14859,10 +14853,17 @@ async def jamil_transcribe_server(audio: UploadFile = File(...), user: User = De
 
 @api_router.get("/jamil/status")
 async def jamil_status_server():
+    from ai.llm_gateway import gateway_status as _gw_status
+    gw = _gw_status()
+    active = [k for k, v in gw["providers"].items() if v.get("available") and k != "kb_fallback"]
     return {
-        "name": "Jamil", "status": "active",
+        "name": "Jamil",
+        "status": "active" if active else "degraded",
+        "active_providers": active,
+        "provider_count": len(active),
         "voice": "elevenlabs" if _os_jamil.environ.get("ELEVENLABS_API_KEY") else "unavailable",
         "transcription": "groq-whisper" if _os_jamil.environ.get("GROQ_API_KEY") else "unavailable",
+        "gateway": gw,
     }
 
 # ── END JAMIL ─────────────────────────────────────────────────────────────────
