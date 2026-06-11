@@ -1383,6 +1383,14 @@ async def _on_startup_impl():
     except Exception as _tm_err:
         logger.warning("STARTUP: Team monitor launch failed (non-fatal): %s", _tm_err)
 
+    # ── Jamil Knowledge Digest — 12-hour automatic scheduler ─────────────────
+    try:
+        from ai.knowledge_digest import start_digest_scheduler as _start_kd
+        _start_kd(db)
+        logger.info("STARTUP: Jamil knowledge digest scheduler started (interval=12h)")
+    except Exception as _kd_err:
+        logger.warning("STARTUP: Knowledge digest scheduler failed (non-fatal): %s", _kd_err)
+
     # ── Serve built React frontend (home/backup server only) ─────────────────
     if SERVE_FRONTEND:
         _build_paths = [
@@ -14726,6 +14734,41 @@ def _jamil_system_prompt() -> str:
     except Exception:
         return f"You are Jamil. The Director. Supervisor. Sovereign. PRT. You run this operation. Today is {today}. Named after a son. Built to carry it. Cape and all."
 
+# Start the 12-hour knowledge digest scheduler at import time (server startup)
+try:
+    from ai.knowledge_digest import start_digest_scheduler as _start_digest
+    import asyncio as _asyncio_kd
+    async def _schedule_digest_on_startup():
+        _start_digest(db)
+    _asyncio_kd.get_event_loop().run_until_complete(_schedule_digest_on_startup()) if False else None
+    # Actual start happens via the startup event below
+    _DIGEST_READY = True
+except Exception as _de:
+    logger.warning("Knowledge digest scheduler unavailable: %s", _de)
+    _DIGEST_READY = False
+
+@api_router.post("/jamil/digest")
+async def jamil_digest_trigger(user: User = Depends(require_role("admin"))):
+    """Manually trigger a knowledge digest immediately — admin only."""
+    try:
+        from ai.knowledge_digest import run_digest as _run_digest
+        result = await _run_digest(db)
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@api_router.get("/jamil/knowledge")
+async def jamil_knowledge_list(user: User = Depends(require_role("admin"))):
+    """List all knowledge base entries — admin only."""
+    try:
+        entries = await db.jamil_knowledge.find(
+            {}, {"_id": 0},
+            sort=[("created_at", -1)],
+        ).to_list(length=50)
+        return {"entries": entries, "count": len(entries)}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 @api_router.get("/jamil/ping")
 async def jamil_ping():
     return {"status": "ok", "route": "jamil"}
@@ -14740,6 +14783,15 @@ async def jamil_chat_server(
         raise HTTPException(status_code=400, detail="Send a message or attach a file.")
 
     system = _jamil_system_prompt()
+
+    # Inject knowledge base context (last 12 digested knowledge entries)
+    try:
+        from ai.knowledge_digest import get_knowledge_context as _get_kb
+        kb_context = await _get_kb(db)
+        if kb_context:
+            system += kb_context
+    except Exception:
+        pass
 
     # Inject active project context
     try:
