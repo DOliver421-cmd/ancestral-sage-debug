@@ -24,8 +24,12 @@ JWT_EXPIRE_HOURS = int(os.environ.get("JWT_EXPIRE_HOURS", "168"))
 
 # ── AI / LLM ─────────────────────────────────────────────────────────────────
 EMERGENT_LLM_KEY   = os.environ.get("EMERGENT_LLM_KEY", "")
-ANTHROPIC_API_KEY  = os.environ.get("ANTHROPIC_API_KEY", EMERGENT_LLM_KEY)
 OPENAI_API_KEY     = os.environ.get("OPENAI_API_KEY", EMERGENT_LLM_KEY)
+GROQ_API_KEY       = os.environ.get("GROQ_API_KEY", "")
+CEREBRAS_API_KEY   = os.environ.get("CEREBRAS_API_KEY", "")
+MISTRAL_API_KEY    = os.environ.get("MISTRAL_API_KEY", "")
+# Kept as empty string so any code that reads it won't crash (Anthropic removed)
+ANTHROPIC_API_KEY  = ""
 
 # ── Stripe ───────────────────────────────────────────────────────────────────
 STRIPE_SECRET_KEY       = os.environ.get("STRIPE_SECRET_KEY", "")
