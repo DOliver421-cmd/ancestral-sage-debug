@@ -21,7 +21,7 @@ from app.security.auth import current_user, require_role
 logger = logging.getLogger("lcewai")
 router = APIRouter()
 
-ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY", os.environ.get("EMERGENT_LLM_KEY", ""))
+ANTHROPIC_API_KEY = ""  # Removed — using Groq/Cerebras/Mistral via app.services.llm
 
 _DOMAIN_ROLES = {
     "poor_righteous_teacher": "Cultural integrity and doctrinal alignment review.",
@@ -283,11 +283,10 @@ async def exec_dashboard(user: User = Depends(require_role("executive_admin"))):
     from ai.publishing import LEMON_SQUEEZY_API_KEY, LEMON_SQUEEZY_STORE_ID, GUMROAD_API_KEY
     elevenlabs_key = bool(os.environ.get("ELEVENLABS_API_KEY", ""))
     openai_key     = bool(os.environ.get("OPENAI_API_KEY", ""))
-    anthropic_key  = bool(os.environ.get("ANTHROPIC_API_KEY", ""))
     ls_ready       = bool(LEMON_SQUEEZY_API_KEY and LEMON_SQUEEZY_STORE_ID)
     gumroad_ready  = bool(GUMROAD_API_KEY)
     platform_status = {
-        "anthropic_api": anthropic_key, "elevenlabs": elevenlabs_key, "openai_tts": openai_key,
+        "elevenlabs": elevenlabs_key, "openai_tts": openai_key,
         "lemon_squeezy": ls_ready, "lemon_squeezy_key_set": bool(LEMON_SQUEEZY_API_KEY),
         "lemon_squeezy_store_set": bool(LEMON_SQUEEZY_STORE_ID), "gumroad": gumroad_ready,
         "publishing_tier": "lemon_squeezy" if ls_ready else "gumroad" if gumroad_ready else "mongodb_archive",
@@ -524,17 +523,16 @@ async def exec_staff_meeting(body: StaffMeetingRequest, user: User = Depends(req
                 _gw = await _call_llm(system=system_prompt, messages=[{"role": "user", "content": user_message}], max_tokens=1024, persona_label=persona_id)
                 response = _gw["text"].strip()
             except Exception:
-                import anthropic as _anth
-                _c = _anth.AsyncAnthropic(api_key=ANTHROPIC_API_KEY)
-                _msg = await _c.messages.create(model="claude-haiku-4-5", max_tokens=1024, system=system_prompt, messages=[{"role": "user", "content": user_message}])
-                response = _msg.content[0].text.strip()
+                from app.services.llm import chat as _llm_chat
+                response = (await _llm_chat(system=system_prompt, user=user_message, max_tokens=1024)).strip()
             return persona_id, response
         except Exception as exc:
             logger.warning("staff_meeting: persona %s LLM call failed: %s", persona_id, exc)
             return persona_id, ""
 
     _llm_personas = [pid for pid in meeting_participants if pid not in ("the_9", "poor_righteous_teacher")]
-    if _llm_personas and ANTHROPIC_API_KEY:
+    _any_llm_key = bool(os.environ.get("GROQ_API_KEY") or os.environ.get("CEREBRAS_API_KEY") or os.environ.get("MISTRAL_API_KEY"))
+    if _llm_personas and _any_llm_key:
         _results = await _asyncio.gather(*[_call_persona(pid, domain_briefs[pid]["question"]) for pid in _llm_personas])
         for pid, resp in _results:
             if resp:
@@ -553,7 +551,7 @@ async def exec_staff_meeting(body: StaffMeetingRequest, user: User = Depends(req
                     prt_directive=prt_directive, sender="executive", activation_reason="executive_command",
                 )
                 synthesis = fusion.to_dict()
-                if synthesis.get("status") == "fused" and ANTHROPIC_API_KEY:
+                if synthesis.get("status") == "fused" and _any_llm_key:
                     try:
                         _responses_text = "\n\n".join(f"=== {pid} ===\n{resp}" for pid, resp in _persona_responses.items()) if _persona_responses else "(no responses)"
                         _the9_system = "You are THE 9 — the unified intelligence of the WAI-Institute. Synthesize all persona inputs into a unified strategic response."

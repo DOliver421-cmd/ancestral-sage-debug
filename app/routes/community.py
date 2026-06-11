@@ -12,7 +12,7 @@ from typing import List, Literal, Optional
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
-from app.config import ANTHROPIC_API_KEY, ROLE_RANK
+from app.config import ROLE_RANK
 from app.database import db
 from app.models.ai import OrchestratorHistoryItem
 from app.models.user import User
@@ -143,19 +143,16 @@ async def _oliver_check_rate_limit(user_id: str) -> bool:
 
 
 async def _oliver_moderate(content: str, user_id: str = "unknown", content_type: str = "post") -> dict:
-    import anthropic
+    from app.services.llm import chat as _llm_chat
     import json as _json
 
     decision_result = None
     try:
-        aclient = anthropic.AsyncAnthropic(api_key=ANTHROPIC_API_KEY)
-        resp = await aclient.messages.create(
-            model="claude-haiku-4-5-20251001",
-            max_tokens=512,
+        raw = (await _llm_chat(
             system=_OLIVER_GUARDIAN_PROMPT,
-            messages=[{"role": "user", "content": f"Content to moderate:\n\n{content}"}],
-        )
-        raw = resp.content[0].text.strip()
+            user=f"Content to moderate:\n\n{content}",
+            max_tokens=512,
+        )).strip()
         if raw.startswith("```"):
             raw = raw.split("```")[1]
             if raw.startswith("json"):
@@ -601,11 +598,6 @@ async def more_department_chat(body: MoreDeptChatReq, user: User = Depends(curre
 
     if ROLE_RANK.get(user.role, 0) < ROLE_RANK.get("admin", 3):
         raise HTTPException(403, "Department AI requires admin access")
-
-    try:
-        import anthropic as _anthropic_module
-    except Exception as e:
-        raise HTTPException(500, f"AI library unavailable: {e}")
 
     system = get_more_department_system()
 

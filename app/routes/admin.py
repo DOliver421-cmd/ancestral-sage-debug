@@ -1168,7 +1168,7 @@ async def reset_gateway_budget(user: User = Depends(require_role("executive_admi
 
 _PROVIDER_RANKING_KEY = "gateway_provider_ranking"
 _DEFAULT_PROVIDER_RANKING = [
-    "groq", "cerebras", "gemini", "grok", "cohere", "openrouter", "huggingface", "anthropic",
+    "groq", "cerebras", "mistral", "gemini", "grok", "cohere", "openrouter", "huggingface",
 ]
 
 

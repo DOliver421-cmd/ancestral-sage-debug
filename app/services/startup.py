@@ -12,7 +12,7 @@ from pathlib import Path
 from app.database import db, client, _get_prt_engine, _get_the9_engine
 from app.config import (
     APP_VERSION, MONGO_BACKUP_URL, MONGO_BACKUP_DB, SERVE_FRONTEND,
-    ANTHROPIC_API_KEY,
+    GROQ_API_KEY, CEREBRAS_API_KEY, MISTRAL_API_KEY,
 )
 from app.security.rate_limit import _RATE
 
@@ -324,8 +324,8 @@ async def _on_startup_impl(app=None):
     try:
         from src.agents.pipeline_manager import PipelineManager as _PipelineManager
         import app.database as _db_mod2
-        _db_mod2._pipeline_manager = _PipelineManager(db=db, anthropic_api_key=ANTHROPIC_API_KEY)
-        _mode = "llm" if ANTHROPIC_API_KEY else "keyword_fallback"
+        _db_mod2._pipeline_manager = _PipelineManager(db=db, anthropic_api_key="")
+        _mode = "llm" if (GROQ_API_KEY or CEREBRAS_API_KEY or MISTRAL_API_KEY) else "keyword_fallback"
         logger.info("STARTUP: PipelineManager ready — analyzer=%s", _mode)
     except Exception as _pm_err:
         logger.warning("STARTUP: PipelineManager init failed (non-fatal): %s", _pm_err)

@@ -182,13 +182,6 @@ async def test_api_key(key_id: str) -> dict:
                                 headers={"Authorization": f"Bearer {raw_key}"})
                 if r.status_code != 200:
                     error = f"HTTP {r.status_code}"
-        elif "anthropic" in provider_name:
-            import httpx
-            async with httpx.AsyncClient(timeout=5) as c:
-                r = await c.get("https://api.anthropic.com/v1/models",
-                                headers={"x-api-key": raw_key, "anthropic-version": "2023-06-01"})
-                if r.status_code not in (200, 400):  # 400 = auth ok but bad request is fine
-                    error = f"HTTP {r.status_code}"
         elif "elevenlabs" in provider_name:
             import httpx
             async with httpx.AsyncClient(timeout=5) as c:

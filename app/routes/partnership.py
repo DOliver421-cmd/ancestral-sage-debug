@@ -174,19 +174,8 @@ async def sovereign_chat(body: _SovereignChatBody, user: User = Depends(require_
             "Be direct. Use real data from memory. State plainly when data is absent. No padding."
         )
     try:
-        import os, httpx
-        key = os.environ.get("ANTHROPIC_API_KEY", os.environ.get("EMERGENT_LLM_KEY", ""))
-        if not key:
-            raise HTTPException(503, "No AI key configured")
-        async with httpx.AsyncClient(timeout=30) as client:
-            r = await client.post(
-                "https://api.anthropic.com/v1/messages",
-                headers={"x-api-key": key, "anthropic-version": "2023-06-01", "content-type": "application/json"},
-                json={"model": "claude-sonnet-4-6", "max_tokens": 2048,
-                      "system": system, "messages": [{"role": "user", "content": user_message}]},
-            )
-            r.raise_for_status()
-            reply = r.json()["content"][0]["text"]
+        from app.services.llm import chat as _llm_chat
+        reply = await _llm_chat(system=system, user=user_message, max_tokens=2048)
     except HTTPException:
         raise
     except Exception as e:

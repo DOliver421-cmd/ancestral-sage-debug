@@ -44,7 +44,7 @@ from app.security.rate_limit import async_check_rate as check_rate
 logger = logging.getLogger("lcewai")
 router = APIRouter()
 
-ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY", os.environ.get("EMERGENT_LLM_KEY", ""))
+ANTHROPIC_API_KEY = ""  # Removed — using Groq/Cerebras/Mistral via app.services.llm
 OPENAI_API_KEY    = os.environ.get("OPENAI_API_KEY", os.environ.get("EMERGENT_LLM_KEY", ""))
 EMERGENT_LLM_KEY  = os.environ.get("EMERGENT_LLM_KEY", "")
 GUMROAD_API_KEY   = os.environ.get("GUMROAD_API_KEY", "")
@@ -368,61 +368,19 @@ async def ai_ambassador(body: dict, user: User = Depends(gate("admin", "executiv
     except ValueError as _e:
         raise HTTPException(400, str(_e))
     memory_ctx = await get_memory_context(db, "ambassador", user.id)
-    import anthropic as _anthropic_module
-    _client = _anthropic_module.AsyncAnthropic(api_key=ANTHROPIC_API_KEY)
+    from app.services.llm import chat as _llm_chat
     system = get_persona("ambassador") + (
         f"\n\nEXECUTIVE CONTEXT:\n- Operating for: {user.full_name} ({user.role})\n"
         f"- Institution: WAI-Institute / M.O.R.E. Help Center\n"
         f"- GUMROAD_API_KEY: {'SET — publishing active' if GUMROAD_API_KEY else 'NOT SET — Tier 2 fallback active'}\n"
     ) + memory_ctx
-    _AMBASSADOR_MODELS = [("claude-sonnet-4-6", 8192), ("claude-haiku-4-5", 4096)]
-    MAX_TOOL_TURNS = 12
     reply = ""
     _tools_called: list = []
-
-    async def _run_ambassador_loop(model_name: str, max_tok: int) -> str:
-        _msgs = [{"role": "user", "content": message}]
-        _reply = ""
-        for _turn in range(MAX_TOOL_TURNS + 1):
-            _kwargs = dict(model=model_name, max_tokens=max_tok, system=system, messages=_msgs, tools=AMBASSADOR_TOOLS)
-            _msg = await async_retry(_client.messages.create, max_attempts=3, base_delay=2.0, **_kwargs)
-            if _msg.stop_reason != "tool_use":
-                for block in _msg.content:
-                    if hasattr(block, "text"):
-                        _reply += block.text
-                break
-            tool_use_blocks = [b for b in _msg.content if b.type == "tool_use"]
-            if not tool_use_blocks:
-                for block in _msg.content:
-                    if hasattr(block, "text"):
-                        _reply += block.text
-                break
-            _tools_called.extend(b.name for b in tool_use_blocks)
-            _msgs.append({"role": "assistant", "content": _msg.content})
-            tool_results = await _asyncio.gather(*[dispatch_ambassador_tool(b.name, b.input, db=db) for b in tool_use_blocks])
-            _msgs.append({"role": "user", "content": [
-                {"type": "tool_result", "tool_use_id": b.id, "content": result}
-                for b, result in zip(tool_use_blocks, tool_results)
-            ]})
-        else:
-            _reply = _reply or "[AMBASSADOR pipeline reached turn limit — partial campaign above]"
-        return _reply
-
-    for _model, _max_tok in _AMBASSADOR_MODELS:
-        try:
-            reply = await _run_ambassador_loop(_model, _max_tok)
-            if reply:
-                break
-        except Exception as _err:
-            logger.warning("AMBASSADOR model %s failed: %s", _model, _err)
-            reply = ""
-    if not reply:
-        try:
-            from ai.llm_gateway import call_llm as _call_llm
-            _gw = await _call_llm(system=get_persona("ambassador"), messages=[{"role": "user", "content": message}], max_tokens=2048, persona_label="ambassador")
-            reply = _gw["text"]
-        except Exception:
-            reply = "THE AMBASSADOR is temporarily offline. Retry in a moment."
+    try:
+        reply = await _llm_chat(system=system, user=message, max_tokens=2048)
+    except Exception as _err:
+        logger.warning("AMBASSADOR llm_chat failed: %s", _err)
+        reply = "THE AMBASSADOR is temporarily offline. Retry in a moment."
     await log_episode(db, session_id, "ambassador", user.id, message, reply, _tools_called)
     return {"reply": reply, "persona": "ambassador", "mode": "campaign_coordination"}
 
@@ -448,62 +406,20 @@ async def ai_architect(body: dict, user: User = Depends(gate("admin", "executive
         raise HTTPException(400, str(_e))
     _openai_key = os.environ.get("OPENAI_API_KEY", os.environ.get("EMERGENT_LLM_KEY", ""))
     memory_ctx  = await get_memory_context(db, "architect", user.id)
-    import anthropic as _anthropic_module
-    _client = _anthropic_module.AsyncAnthropic(api_key=ANTHROPIC_API_KEY)
+    from app.services.llm import chat as _llm_chat
     system  = get_persona("architect") + (
         f"\n\nEXECUTIVE CONTEXT:\n- Operating for: {user.full_name} ({user.role})\n"
         f"- Institution: WAI-Institute / M.O.R.E. Help Center\n"
         f"- GUMROAD_API_KEY: {'SET — autonomous publishing active' if GUMROAD_API_KEY else 'NOT SET — Tier 2 fallback active'}\n"
         f"- OPENAI_API_KEY (DALL-E 3): {'SET — image generation live' if _openai_key else 'NOT SET — visual briefs only'}\n"
     ) + memory_ctx
-    _ARCHITECT_MODELS = [("claude-sonnet-4-6", 4096), ("claude-haiku-4-5", 2048)]
-    MAX_TOOL_TURNS = 8
     reply = ""
     _tools_called: list = []
-
-    async def _run_architect_loop(model_name: str, max_tok: int) -> str:
-        _msgs = [{"role": "user", "content": message}]
-        _reply = ""
-        for _turn in range(MAX_TOOL_TURNS + 1):
-            _kwargs = dict(model=model_name, max_tokens=max_tok, system=system, messages=_msgs, tools=ARCHITECT_TOOLS)
-            _msg = await async_retry(_client.messages.create, max_attempts=3, base_delay=2.0, **_kwargs)
-            if _msg.stop_reason != "tool_use":
-                for block in _msg.content:
-                    if hasattr(block, "text"):
-                        _reply += block.text
-                break
-            tool_use_blocks = [b for b in _msg.content if b.type == "tool_use"]
-            if not tool_use_blocks:
-                for block in _msg.content:
-                    if hasattr(block, "text"):
-                        _reply += block.text
-                break
-            _tools_called.extend(b.name for b in tool_use_blocks)
-            _msgs.append({"role": "assistant", "content": _msg.content})
-            tool_results = await _asyncio.gather(*[dispatch_architect_tool(b.name, b.input, db=db) for b in tool_use_blocks])
-            _msgs.append({"role": "user", "content": [
-                {"type": "tool_result", "tool_use_id": b.id, "content": result}
-                for b, result in zip(tool_use_blocks, tool_results)
-            ]})
-        else:
-            _reply = _reply or "[ARCHITECT tool loop reached limit — partial brief above]"
-        return _reply
-
-    for _model, _max_tok in _ARCHITECT_MODELS:
-        try:
-            reply = await _run_architect_loop(_model, _max_tok)
-            if reply:
-                break
-        except Exception as _err:
-            logger.warning("ARCHITECT model %s failed: %s", _model, _err)
-            reply = ""
-    if not reply:
-        try:
-            from ai.llm_gateway import call_llm as _call_llm
-            _gw = await _call_llm(system=get_persona("architect"), messages=[{"role": "user", "content": message}], max_tokens=2048, persona_label="architect")
-            reply = _gw["text"]
-        except Exception:
-            reply = "THE ARCHITECT is temporarily offline. Retry in a moment."
+    try:
+        reply = await _llm_chat(system=system, user=message, max_tokens=2048)
+    except Exception as _err:
+        logger.warning("ARCHITECT llm_chat failed: %s", _err)
+        reply = "THE ARCHITECT is temporarily offline. Retry in a moment."
     await log_episode(db, session_id, "architect", user.id, message, reply, _tools_called)
     return {"reply": reply, "persona": "architect", "mode": "visual_intelligence"}
 
@@ -731,10 +647,6 @@ def compute_scholar_hash() -> str:
 async def ai_orchestrator(body: OrchestratorReq, user: User = Depends(gate("student", "premium", "ai_orchestrator"))):
     import asyncio as _asyncio
     import base64 as _b64
-    try:
-        import anthropic as _anthropic_module
-    except Exception as e:
-        raise HTTPException(500, f"AI library unavailable: {e}")
     await check_rate(f"ai_orchestrator:{user.id}", max_calls=30, window_sec=60)
     try:
         from ai.prompt_guard import prompt_guard
@@ -915,26 +827,13 @@ YOU NEVER:
 - Say "I cannot help with that" without offering an alternative
 - Leave someone without a next step"""
 
-    import anthropic as _anth
-    from ai.retry_utils import async_retry
-    _client = _anth.AsyncAnthropic(api_key=ANTHROPIC_API_KEY)
-    _HELPER_MODELS = ["claude-haiku-4-5", "claude-3-haiku-20240307"]
+    from app.services.llm import chat as _llm_chat
     reply = ""
-    for _hmodel in _HELPER_MODELS:
-        try:
-            resp = await async_retry(
-                _client.messages.create, max_attempts=3, base_delay=1.5,
-                model=_hmodel, max_tokens=512, system=_HELPER_SYSTEM,
-                messages=[{"role": "user", "content": message}],
-            )
-            for block in resp.content:
-                if hasattr(block, "text"):
-                    reply += block.text
-            if reply.strip():
-                break
-        except Exception as _herr:
-            logger.warning("Helper AI: model %s failed (%s)", _hmodel, _herr)
-            reply = ""
+    try:
+        reply = await _llm_chat(system=_HELPER_SYSTEM, user=message, max_tokens=512)
+    except Exception as _herr:
+        logger.warning("Helper AI: llm_chat failed (%s)", _herr)
+        reply = ""
 
     if not reply.strip():
         msg_lower = message.lower()
@@ -1017,52 +916,12 @@ async def ai_director(body: dict, user: User = Depends(gate("admin", "executive"
         f"- Email: {user.email}\n- Address them appropriately by role.\n"
     ) + memory_ctx
 
-    import anthropic as _anthropic_module
-    from ai.retry_utils import async_retry
-    _client = _anthropic_module.AsyncAnthropic(api_key=ANTHROPIC_API_KEY)
-    messages = [{"role": "user", "content": message}]
-    tools = DIRECTOR_TOOLS if is_exec else []
+    from app.services.llm import chat as _llm_chat
     reply = ""
-    MAX_TOOL_TURNS = 6
-    _DIRECTOR_MODELS = [("claude-sonnet-4-6", 2048), ("claude-haiku-4-5", 1536)]
-
-    async def _run_agentic_loop(model_name: str, max_tok: int) -> str:
-        _msgs = [{"role": "user", "content": message}]
-        _reply = ""
-        for _turn in range(MAX_TOOL_TURNS + 1):
-            _kwargs = dict(model=model_name, max_tokens=max_tok, system=system, messages=_msgs)
-            if tools:
-                _kwargs["tools"] = tools
-            _msg = await async_retry(_client.messages.create, max_attempts=3, base_delay=2.0, **_kwargs)
-            if _msg.stop_reason != "tool_use":
-                for block in _msg.content:
-                    if hasattr(block, "text"):
-                        _reply += block.text
-                break
-            tool_use_blocks = [b for b in _msg.content if b.type == "tool_use"]
-            if not tool_use_blocks:
-                for block in _msg.content:
-                    if hasattr(block, "text"):
-                        _reply += block.text
-                break
-            _msgs.append({"role": "assistant", "content": _msg.content})
-            tool_results = await _asyncio.gather(*[dispatch_tool(b.name, b.input, db=db) for b in tool_use_blocks])
-            _msgs.append({"role": "user", "content": [
-                {"type": "tool_result", "tool_use_id": b.id, "content": result}
-                for b, result in zip(tool_use_blocks, tool_results)
-            ]})
-        else:
-            _reply = _reply or "[Director tool loop exceeded limit — partial response above]"
-        return _reply
-
-    for _model, _max_tok in _DIRECTOR_MODELS:
-        try:
-            reply = await _run_agentic_loop(_model, _max_tok)
-            if reply:
-                break
-        except Exception as _model_err:
-            logger.warning("Director AI: model %s failed (%s)", _model, _model_err)
-            reply = ""
+    try:
+        reply = await _llm_chat(system=system, user=message, max_tokens=2048)
+    except Exception as _model_err:
+        logger.warning("Director AI: llm_chat failed (%s)", _model_err)
 
     if not reply:
         from datetime import datetime as _dt
@@ -1295,51 +1154,17 @@ async def ai_revenue_director(body: dict, user: User = Depends(gate("admin", "ex
     except ValueError as _e:
         raise HTTPException(400, str(_e))
     memory_ctx = await get_memory_context(db, "revenue_director", user.id)
-    import anthropic as _anthropic_module
-    _client = _anthropic_module.AsyncAnthropic(api_key=ANTHROPIC_API_KEY)
+    from app.services.llm import chat as _llm_chat
     system = get_persona("revenue_director") + (
         f"\n\nEXECUTIVE CONTEXT:\n- Operating for: {user.full_name} ({user.role})\n"
         f"- GUMROAD_API_KEY: {'SET' if GUMROAD_API_KEY else 'NOT SET'}\n"
     ) + memory_ctx
-    _RD_MODELS = [("claude-sonnet-4-6", 4096), ("claude-haiku-4-5", 2048)]
-    MAX_TOOL_TURNS = 8
     reply = ""
     _tools_called: list = []
-
-    async def _run_rd_loop(model_name: str, max_tok: int) -> str:
-        _msgs = [{"role": "user", "content": message}]
-        _reply = ""
-        for _turn in range(MAX_TOOL_TURNS + 1):
-            _kwargs = dict(model=model_name, max_tokens=max_tok, system=system, messages=_msgs, tools=REVENUE_DIRECTOR_TOOLS)
-            _msg = await async_retry(_client.messages.create, max_attempts=3, base_delay=2.0, **_kwargs)
-            if _msg.stop_reason != "tool_use":
-                for block in _msg.content:
-                    if hasattr(block, "text"):
-                        _reply += block.text
-                break
-            tool_use_blocks = [b for b in _msg.content if b.type == "tool_use"]
-            if not tool_use_blocks:
-                for block in _msg.content:
-                    if hasattr(block, "text"):
-                        _reply += block.text
-                break
-            _tools_called.extend(b.name for b in tool_use_blocks)
-            _msgs.append({"role": "assistant", "content": _msg.content})
-            tool_results = await _asyncio.gather(*[dispatch_rd_tool(b.name, b.input, db=db) for b in tool_use_blocks])
-            _msgs.append({"role": "user", "content": [{"type": "tool_result", "tool_use_id": b.id, "content": r} for b, r in zip(tool_use_blocks, tool_results)]})
-        else:
-            _reply = _reply or "[REVENUE DIRECTOR tool loop reached limit]"
-        return _reply
-
-    for _model, _max_tok in _RD_MODELS:
-        try:
-            reply = await _run_rd_loop(_model, _max_tok)
-            if reply:
-                break
-        except Exception as _err:
-            logger.warning("REVENUE DIRECTOR model %s failed: %s", _model, _err)
-            reply = ""
-    if not reply:
+    try:
+        reply = await _llm_chat(system=system, user=message, max_tokens=2048)
+    except Exception as _err:
+        logger.warning("REVENUE DIRECTOR llm_chat failed: %s", _err)
         reply = "THE REVENUE DIRECTOR is temporarily offline. Retry in a moment."
 
     await log_episode(db, session_id, "revenue_director", user.id, message, reply, _tools_called)
@@ -1368,51 +1193,17 @@ async def sage_create(body: dict, user: User = Depends(gate("admin", "executive"
     except ValueError as _e:
         raise HTTPException(400, str(_e))
     memory_ctx = await get_memory_context(db, "ancestral_sage", user.id)
-    import anthropic as _anthropic_module
-    _client = _anthropic_module.AsyncAnthropic(api_key=ANTHROPIC_API_KEY)
+    from app.services.llm import chat as _llm_chat
     system = get_persona("ancestral_sage") + (
         f"\n\nEXECUTIVE CONTEXT:\n- Operating for: {user.full_name} ({user.role})\n"
         f"- Mode: CONTENT CREATION\n- GUMROAD_API_KEY: {'SET' if GUMROAD_API_KEY else 'NOT SET'}\n"
     ) + memory_ctx
-    _SAGE_MODELS = [("claude-sonnet-4-6", 4096), ("claude-haiku-4-5", 2048)]
-    MAX_TOOL_TURNS = 8
     reply = ""
     _tools_called: list = []
-
-    async def _run_sage_loop(model_name: str, max_tok: int) -> str:
-        _msgs = [{"role": "user", "content": message}]
-        _reply = ""
-        for _turn in range(MAX_TOOL_TURNS + 1):
-            _kwargs = dict(model=model_name, max_tokens=max_tok, system=system, messages=_msgs, tools=SAGE_TOOLS)
-            _msg = await async_retry(_client.messages.create, max_attempts=3, base_delay=2.0, **_kwargs)
-            if _msg.stop_reason != "tool_use":
-                for block in _msg.content:
-                    if hasattr(block, "text"):
-                        _reply += block.text
-                break
-            tool_use_blocks = [b for b in _msg.content if b.type == "tool_use"]
-            if not tool_use_blocks:
-                for block in _msg.content:
-                    if hasattr(block, "text"):
-                        _reply += block.text
-                break
-            _tools_called.extend(b.name for b in tool_use_blocks)
-            _msgs.append({"role": "assistant", "content": _msg.content})
-            tool_results = await _asyncio.gather(*[dispatch_sage_tool(b.name, b.input, db=db) for b in tool_use_blocks])
-            _msgs.append({"role": "user", "content": [{"type": "tool_result", "tool_use_id": b.id, "content": r} for b, r in zip(tool_use_blocks, tool_results)]})
-        else:
-            _reply = _reply or "[SAGE tool loop reached limit]"
-        return _reply
-
-    for _model, _max_tok in _SAGE_MODELS:
-        try:
-            reply = await _run_sage_loop(_model, _max_tok)
-            if reply:
-                break
-        except Exception as _err:
-            logger.warning("SAGE CREATE model %s failed: %s", _model, _err)
-            reply = ""
-    if not reply:
+    try:
+        reply = await _llm_chat(system=system, user=message, max_tokens=2048)
+    except Exception as _err:
+        logger.warning("SAGE CREATE llm_chat failed: %s", _err)
         reply = "The Ancestral Sage is temporarily offline. Retry in a moment."
 
     await log_episode(db, session_id, "ancestral_sage", user.id, message, reply, _tools_called)
@@ -1441,51 +1232,17 @@ async def ai_cipher(body: dict, user: User = Depends(gate("admin", "executive", 
     except ValueError as _e:
         raise HTTPException(400, str(_e))
     memory_ctx = await get_memory_context(db, "cipher", user.id)
-    import anthropic as _anthropic_module
-    _client = _anthropic_module.AsyncAnthropic(api_key=ANTHROPIC_API_KEY)
+    from app.services.llm import chat as _llm_chat
     system = get_persona("cipher") + (
         f"\n\nEXECUTIVE CONTEXT:\n- Operating for: {user.full_name} ({user.role})\n"
         f"- GUMROAD_API_KEY: {'SET' if GUMROAD_API_KEY else 'NOT SET'}\n"
     ) + memory_ctx
-    _CIPHER_MODELS = [("claude-sonnet-4-6", 4096), ("claude-haiku-4-5", 2048)]
-    MAX_TOOL_TURNS = 8
     reply = ""
     _tools_called: list = []
-
-    async def _run_cipher_loop(model_name: str, max_tok: int) -> str:
-        _msgs = [{"role": "user", "content": message}]
-        _reply = ""
-        for _turn in range(MAX_TOOL_TURNS + 1):
-            _kwargs = dict(model=model_name, max_tokens=max_tok, system=system, messages=_msgs, tools=CIPHER_TOOLS)
-            _msg = await async_retry(_client.messages.create, max_attempts=3, base_delay=2.0, **_kwargs)
-            if _msg.stop_reason != "tool_use":
-                for block in _msg.content:
-                    if hasattr(block, "text"):
-                        _reply += block.text
-                break
-            tool_use_blocks = [b for b in _msg.content if b.type == "tool_use"]
-            if not tool_use_blocks:
-                for block in _msg.content:
-                    if hasattr(block, "text"):
-                        _reply += block.text
-                break
-            _tools_called.extend(b.name for b in tool_use_blocks)
-            _msgs.append({"role": "assistant", "content": _msg.content})
-            tool_results = await _asyncio.gather(*[dispatch_cipher_tool(b.name, b.input, db=db) for b in tool_use_blocks])
-            _msgs.append({"role": "user", "content": [{"type": "tool_result", "tool_use_id": b.id, "content": r} for b, r in zip(tool_use_blocks, tool_results)]})
-        else:
-            _reply = _reply or "[CIPHER tool loop reached limit]"
-        return _reply
-
-    for _model, _max_tok in _CIPHER_MODELS:
-        try:
-            reply = await _run_cipher_loop(_model, _max_tok)
-            if reply:
-                break
-        except Exception as _err:
-            logger.warning("CIPHER model %s failed: %s", _model, _err)
-            reply = ""
-    if not reply:
+    try:
+        reply = await _llm_chat(system=system, user=message, max_tokens=2048)
+    except Exception as _err:
+        logger.warning("CIPHER llm_chat failed: %s", _err)
         reply = "THE CIPHER is temporarily offline. Retry in a moment."
 
     await log_episode(db, session_id, "cipher", user.id, message, reply, _tools_called)
@@ -1514,51 +1271,17 @@ async def ai_oracle(body: dict, user: User = Depends(gate("admin", "executive", 
     except ValueError as _e:
         raise HTTPException(400, str(_e))
     memory_ctx = await get_memory_context(db, "oracle", user.id)
-    import anthropic as _anthropic_module
-    _client = _anthropic_module.AsyncAnthropic(api_key=ANTHROPIC_API_KEY)
+    from app.services.llm import chat as _llm_chat
     system = get_persona("oracle") + (
         f"\n\nEXECUTIVE CONTEXT:\n- Operating for: {user.full_name} ({user.role})\n"
         f"- GUMROAD_API_KEY: {'SET' if GUMROAD_API_KEY else 'NOT SET'}\n"
     ) + memory_ctx
-    _ORACLE_MODELS = [("claude-sonnet-4-6", 4096), ("claude-haiku-4-5", 2048)]
-    MAX_TOOL_TURNS = 8
     reply = ""
     _tools_called: list = []
-
-    async def _run_oracle_loop(model_name: str, max_tok: int) -> str:
-        _msgs = [{"role": "user", "content": message}]
-        _reply = ""
-        for _turn in range(MAX_TOOL_TURNS + 1):
-            _kwargs = dict(model=model_name, max_tokens=max_tok, system=system, messages=_msgs, tools=ORACLE_TOOLS)
-            _msg = await async_retry(_client.messages.create, max_attempts=3, base_delay=2.0, **_kwargs)
-            if _msg.stop_reason != "tool_use":
-                for block in _msg.content:
-                    if hasattr(block, "text"):
-                        _reply += block.text
-                break
-            tool_use_blocks = [b for b in _msg.content if b.type == "tool_use"]
-            if not tool_use_blocks:
-                for block in _msg.content:
-                    if hasattr(block, "text"):
-                        _reply += block.text
-                break
-            _tools_called.extend(b.name for b in tool_use_blocks)
-            _msgs.append({"role": "assistant", "content": _msg.content})
-            tool_results = await _asyncio.gather(*[dispatch_oracle_tool(b.name, b.input, db=db) for b in tool_use_blocks])
-            _msgs.append({"role": "user", "content": [{"type": "tool_result", "tool_use_id": b.id, "content": r} for b, r in zip(tool_use_blocks, tool_results)]})
-        else:
-            _reply = _reply or "[ORACLE tool loop reached limit]"
-        return _reply
-
-    for _model, _max_tok in _ORACLE_MODELS:
-        try:
-            reply = await _run_oracle_loop(_model, _max_tok)
-            if reply:
-                break
-        except Exception as _err:
-            logger.warning("ORACLE model %s failed: %s", _model, _err)
-            reply = ""
-    if not reply:
+    try:
+        reply = await _llm_chat(system=system, user=message, max_tokens=2048)
+    except Exception as _err:
+        logger.warning("ORACLE llm_chat failed: %s", _err)
         reply = "THE ORACLE is temporarily offline. Retry in a moment."
 
     await log_episode(db, session_id, "oracle", user.id, message, reply, _tools_called)
@@ -1705,16 +1428,17 @@ async def ai_sovereign(body: dict, user: User = Depends(gate("admin", "executive
     messages = [{"role": r["role"], "content": r["content"]} for r in history]
     messages.append({"role": "user", "content": message})
 
-    import anthropic as _anthropic
     import datetime as _dt
-    client = _anthropic.AsyncAnthropic(api_key=os.environ.get("ANTHROPIC_API_KEY", ""))
-    resp = await client.messages.create(
-        model="claude-opus-4-8",
-        max_tokens=1500,
-        system=system,
-        messages=messages,
-    )
-    reply = resp.content[0].text.strip() if resp.content else ""
+    from app.services.llm import chat as _llm_chat
+    # Build conversation context for the user message (include prior history as context)
+    _history_ctx = ""
+    if len(messages) > 1:
+        _history_ctx = "\n".join(
+            f"{'User' if m['role'] == 'user' else 'Assistant'}: {m['content']}"
+            for m in messages[:-1]
+        )
+        _history_ctx = f"\n\nCONVERSATION HISTORY:\n{_history_ctx}\n"
+    reply = await _llm_chat(system=system + _history_ctx, user=message, max_tokens=1500)
 
     now = _dt.datetime.utcnow()
     await db.conversations.insert_many([

@@ -310,7 +310,7 @@ async def review_submission(sub_id: str, body: LabReviewReq, user: User = Depend
 
 @router.post("/labs/submissions/{sub_id}/ai-feedback")
 async def lab_ai_feedback(sub_id: str, user: User = Depends(current_user)):
-    from app.config import ANTHROPIC_API_KEY
+    pass  # Anthropic removed
     assert_role = None
     try:
         from app.security.auth import assert_role as _assert_role
@@ -351,19 +351,16 @@ async def lab_ai_feedback(sub_id: str, user: User = Depends(current_user)):
         )
         feedback_text = _gw["text"]
     except Exception as _gw_err:
-        import os
-        logger.warning("lab_ai_feedback: gateway failed (%s) — trying direct Anthropic", _gw_err)
-        ANTHROPIC_API_KEY_local = os.environ.get("ANTHROPIC_API_KEY", os.environ.get("EMERGENT_LLM_KEY", ""))
-        if not ANTHROPIC_API_KEY_local:
-            raise HTTPException(500, "AI not configured")
+        logger.warning("lab_ai_feedback: gateway failed (%s) — trying llm fallback", _gw_err)
         try:
-            import anthropic as _anth
+            from app.services.llm import chat as _llm_chat
+            feedback_text = await _llm_chat(
+                system="You are an experienced trades instructor providing constructive coaching feedback.",
+                user=prompt,
+                max_tokens=400,
+            )
         except Exception as e:
-            raise HTTPException(500, f"AI library unavailable: {e}")
-        _cl = _anth.AsyncAnthropic(api_key=ANTHROPIC_API_KEY_local)
-        resp = await _cl.messages.create(model="claude-sonnet-4-6", max_tokens=400,
-                                         messages=[{"role": "user", "content": prompt}])
-        feedback_text = resp.content[0].text
+            raise HTTPException(500, f"AI not available: {e}")
     await db.lab_submissions.update_one({"id": sub_id}, {"$set": {"ai_feedback": feedback_text}})
     return {"ai_feedback": feedback_text}
 
