@@ -29,6 +29,12 @@ _MAX_FILE_BYTES = 50 * 1024 * 1024  # 50 MB per file
 _MAX_FILES = 10
 
 
+@router.get("/jamil/ping")
+async def jamil_ping():
+    """No-auth smoke test — confirms Jamil route is registered."""
+    return {"status": "ok", "route": "jamil"}
+
+
 def _build_system_prompt() -> str:
     today = datetime.now(timezone.utc).strftime("%B %d, %Y")
     return JAMIL_SYSTEM_PROMPT.replace("{today}", today)
