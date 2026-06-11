@@ -14712,6 +14712,161 @@ async def ai_provider_test(user: User = Depends(require_role("admin"))):
     }
 
 
+# ── JAMIL — Director-class AI persona ────────────────────────────────────────
+import os as _os_jamil
+
+def _jamil_system_prompt() -> str:
+    from datetime import datetime, timezone
+    today = datetime.now(timezone.utc).strftime("%B %d, %Y")
+    try:
+        import sys as _sys
+        _sys.path.insert(0, "/app")
+        from app.services.jamil.persona import JAMIL_SYSTEM_PROMPT as _JP
+        return _JP.replace("{today}", today)
+    except Exception:
+        return f"You are Jamil. The Director. Supervisor. Sovereign. PRT. You run this operation. Today is {today}. Named after a son. Built to carry it. Cape and all."
+
+@api_router.get("/jamil/ping")
+async def jamil_ping():
+    return {"status": "ok", "route": "jamil"}
+
+@api_router.post("/jamil/chat")
+async def jamil_chat_server(
+    message: str = Form(""),
+    files: List[UploadFile] = File(default=[]),
+    user: User = Depends(current_user),
+):
+    if not message.strip() and not files:
+        raise HTTPException(status_code=400, detail="Send a message or attach a file.")
+
+    system = _jamil_system_prompt()
+
+    # Inject active project context
+    try:
+        docs = await db.projects.find(
+            {"status": {"$ne": "archived"}, "archived": {"$ne": True}},
+            {"_id": 0, "title": 1, "status": 1, "priority": 1, "owner": 1, "milestones": 1}
+        ).sort("updated_at", -1).to_list(length=20)
+        if docs:
+            lines = ["\n--- ACTIVE PROJECTS ---"]
+            for d in docs:
+                ms = d.get("milestones", [])
+                done = sum(1 for m in ms if m.get("complete"))
+                lines.append(f"• {d['title']} [{d['status']}] owner:{d.get('owner','-')} milestones:{done}/{len(ms)}")
+            lines.append("--- END PROJECTS ---\n")
+            system += "\n".join(lines)
+    except Exception:
+        pass
+
+    parts = [message.strip()] if message.strip() else []
+    for upload in files[:10]:
+        content = await upload.read()
+        if len(content) > 50 * 1024 * 1024:
+            parts.append(f"[{upload.filename} skipped — exceeds 50 MB]")
+            continue
+        try:
+            from app.services.jamil.extractor import extract as _extract
+            extracted = await _extract(upload.filename or "file", content, upload.content_type or "")
+            parts.append(f"\n---\nFile: {upload.filename}\n{extracted}\n---")
+        except Exception as _fe:
+            try:
+                parts.append(f"\n---\nFile: {upload.filename}\n{content.decode('utf-8', errors='replace')[:4000]}\n---")
+            except Exception:
+                parts.append(f"[{upload.filename} — could not be read]")
+
+    user_message = "\n\n".join(parts)
+
+    from ai.llm_gateway import (
+        GROQ_API_KEY, GROQ_BASE, GROQ_MODEL,
+        CEREBRAS_API_KEY, CEREBRAS_BASE, CEREBRAS_MODEL,
+        MISTRAL_API_KEY, MISTRAL_BASE, MISTRAL_MODEL,
+        _oai_compat_call,
+    )
+    msgs = [{"role": "user", "content": user_message}]
+    reply = None
+    for name, base, key, model in [
+        ("groq",     GROQ_BASE,     GROQ_API_KEY,     GROQ_MODEL),
+        ("cerebras", CEREBRAS_BASE, CEREBRAS_API_KEY, CEREBRAS_MODEL),
+        ("mistral",  MISTRAL_BASE,  MISTRAL_API_KEY,  MISTRAL_MODEL),
+    ]:
+        if not key:
+            continue
+        try:
+            r = await _oai_compat_call(base_url=base, api_key=key, model=model,
+                                        system_prompt=system, messages=msgs, max_tokens=4096, tools=None)
+            reply = r.get("text", "")
+            break
+        except Exception as _le:
+            logger.warning("Jamil provider %s failed: %s", name, _le)
+
+    if not reply:
+        raise HTTPException(status_code=503, detail="No AI provider available. Set GROQ_API_KEY, CEREBRAS_API_KEY, or MISTRAL_API_KEY in Railway Variables.")
+
+    try:
+        await db.jamil_history.insert_one({
+            "user_id": str(getattr(user, "id", "") or getattr(user, "_id", "")),
+            "message": message.strip(),
+            "files": [f.filename for f in files],
+            "reply": reply,
+            "timestamp": __import__("datetime").datetime.now(__import__("datetime").timezone.utc).isoformat(),
+        })
+    except Exception:
+        pass
+
+    return {"reply": reply}
+
+@api_router.post("/jamil/speak")
+async def jamil_speak_server(body: dict, user: User = Depends(current_user)):
+    text = (body.get("text") or "").strip()[:5000]
+    if not text:
+        raise HTTPException(status_code=400, detail="No text provided.")
+    el_key = _os_jamil.environ.get("ELEVENLABS_API_KEY", "")
+    if not el_key:
+        raise HTTPException(status_code=503, detail="ElevenLabs not configured.")
+    voice_id = body.get("voice_id") or _os_jamil.environ.get("JAMIL_VOICE_ID", "pNInz6obpgDQGcFmaJgB")
+    import httpx as _hx
+    from fastapi.responses import Response as _Resp
+    async with _hx.AsyncClient(timeout=30) as c:
+        r = await c.post(
+            f"https://api.elevenlabs.io/v1/text-to-speech/{voice_id}",
+            headers={"xi-api-key": el_key, "Content-Type": "application/json", "Accept": "audio/mpeg"},
+            json={"text": text, "model_id": "eleven_turbo_v2_5",
+                  "voice_settings": {"stability": 0.5, "similarity_boost": 0.75}},
+        )
+        if r.status_code == 200:
+            return _Resp(content=r.content, media_type="audio/mpeg")
+        raise HTTPException(status_code=502, detail=f"ElevenLabs error: {r.status_code}")
+
+@api_router.post("/jamil/transcribe")
+async def jamil_transcribe_server(audio: UploadFile = File(...), user: User = Depends(current_user)):
+    content = await audio.read()
+    if len(content) > 25 * 1024 * 1024:
+        raise HTTPException(status_code=400, detail="Audio must be under 25 MB.")
+    key = _os_jamil.environ.get("GROQ_API_KEY", "")
+    if not key:
+        raise HTTPException(status_code=503, detail="Transcription not configured — GROQ_API_KEY missing.")
+    import io as _io, httpx as _hx2
+    async with _hx2.AsyncClient(timeout=60) as c:
+        r = await c.post(
+            "https://api.groq.com/openai/v1/audio/transcriptions",
+            headers={"Authorization": f"Bearer {key}"},
+            files={"file": (audio.filename or "recording.webm", _io.BytesIO(content), audio.content_type or "audio/webm")},
+            data={"model": "whisper-large-v3", "response_format": "text"},
+        )
+        if r.status_code == 200:
+            return {"text": r.text.strip()}
+        raise HTTPException(status_code=502, detail=f"Transcription error: {r.status_code}")
+
+@api_router.get("/jamil/status")
+async def jamil_status_server():
+    return {
+        "name": "Jamil", "status": "active",
+        "voice": "elevenlabs" if _os_jamil.environ.get("ELEVENLABS_API_KEY") else "unavailable",
+        "transcription": "groq-whisper" if _os_jamil.environ.get("GROQ_API_KEY") else "unavailable",
+    }
+
+# ── END JAMIL ─────────────────────────────────────────────────────────────────
+
 app.include_router(api_router)
 # CORS: when origins is wildcard ("*") browsers reject credentials, so we
 # turn off allow_credentials in that case (auth uses Bearer token in Authorization
