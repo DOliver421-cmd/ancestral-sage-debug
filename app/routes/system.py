@@ -174,3 +174,16 @@ async def health():
 @router.get("/version")
 async def version():
     return {"version": APP_VERSION, "name": "W.A.I. Training Platform"}
+
+
+@router.get("/routes/debug")
+async def routes_debug():
+    """Lists which optional route modules failed to load at startup."""
+    try:
+        from app.main import _failed_routes, _loaded_routers
+        return {
+            "loaded": list(_loaded_routers.keys()),
+            "failed": list(_failed_routes),
+        }
+    except Exception as e:
+        return {"error": str(e)}
