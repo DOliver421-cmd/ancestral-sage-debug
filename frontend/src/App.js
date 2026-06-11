@@ -112,6 +112,7 @@ import ArcadeGame from "./pages/ArcadeGame";
 import CreatorStudio from "./pages/CreatorStudio";
 import UnifiedGateway from "./pages/UnifiedGateway";
 import CompetitionArena from "./pages/CompetitionArena";
+import MissingKameron from "./pages/MissingKameron";
 
 // Role hierarchy must mirror backend ROLE_RANK in /app/backend/server.py.
 // Higher rank = more authority; a higher-rank role passes any check meant
@@ -221,6 +222,7 @@ function App() {
               <Route path="/p/:slug"          element={<PublicPortfolio />} />
               <Route path="/playlist/:slug/submit" element={<PlaylistSubmit />} />
               <Route path="/trash-pantheon" element={<TrashPantheon />} />
+              <Route path="/missing/kameron" element={<MissingKameron />} />
 
               {/* ── Supervisor ── */}
               <Route path="/supervisor-login" element={<SupervisorLogin />} />
@@ -386,6 +388,7 @@ function App() {
           <Route path="/creator-lounge" element={<Protected><CreatorLounge /></Protected>} />
           <Route path="/band" element={<Protected><BandOnPage /></Protected>} />
           <Route path="/trash-pantheon" element={<TrashPantheon />} />
+          <Route path="/missing/kameron" element={<MissingKameron />} />
           {/* Public pages */}
           <Route path="/internships" element={<Internships />} />
           {/* Social publisher — authenticated */}
