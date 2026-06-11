@@ -11,9 +11,10 @@ export default function HelpGuide() {
   const { user } = useAuth();
   const location = useLocation();
 
-  if (SUPPRESS_PATHS.some(p => location.pathname === p || location.pathname.startsWith(p + "/"))) {
-    return null;
-  }
+  const suppressed = SUPPRESS_PATHS.some(
+    p => location.pathname === p || location.pathname.startsWith(p + "/")
+  );
+
   const [open, setOpen] = useState(false);
   const [help, setHelp] = useState(null);
   const [query, setQuery] = useState("");
@@ -56,6 +57,8 @@ export default function HelpGuide() {
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
   }, [open]);
+
+  if (suppressed) return null;
 
   return (
     <>
