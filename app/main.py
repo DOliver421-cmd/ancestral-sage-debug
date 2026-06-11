@@ -45,6 +45,12 @@ def _load(mod_path: str, attr: str = "router"):
 # Critical — always load these first (health, auth, version)
 from app.routes import system, auth   # noqa: E402 (after _load definition)
 
+# Priority routes — loaded directly (not fault-tolerant) so errors are visible
+from app.routes import jamil as _jamil_mod
+from app.routes import competition as _competition_mod
+from app.routes import projects as _projects_mod
+from app.routes import missing as _missing_mod
+
 # All other routes loaded fault-tolerantly
 _route_mods = [
     "app.routes.modules", "app.routes.labs", "app.routes.credentials",
@@ -58,8 +64,6 @@ _route_mods = [
     "app.routes.partnership", "app.routes.playlist", "app.routes.social",
     "app.routes.position", "app.routes.personas",
     "app.routes.sovereign_pipeline", "app.routes.media_store",
-    "app.routes.competition", "app.routes.missing",
-    "app.routes.jamil", "app.routes.projects",
 ]
 _loaded_routers: dict = {}  # mod_path -> router
 for _mp in _route_mods:
@@ -238,8 +242,12 @@ async def enforce_ip_whitelist(request: Request, call_next):
 _PREFIX = "/api"
 
 # Critical routes always included
-app.include_router(system.router, prefix=_PREFIX)
-app.include_router(auth.router,   prefix=_PREFIX)
+app.include_router(system.router,             prefix=_PREFIX)
+app.include_router(auth.router,               prefix=_PREFIX)
+app.include_router(_jamil_mod.router,         prefix=_PREFIX)
+app.include_router(_competition_mod.router,   prefix=_PREFIX)
+app.include_router(_projects_mod.router,      prefix=_PREFIX)
+app.include_router(_missing_mod.router,       prefix=_PREFIX)
 
 # Playlist and social have built-in prefixes
 _BUILTIN_PREFIX = {"app.routes.playlist", "app.routes.social"}
