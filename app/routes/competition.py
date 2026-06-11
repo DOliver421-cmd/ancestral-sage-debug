@@ -180,6 +180,12 @@ async def _run_persona(persona_name: str, task: str) -> dict:
 
 # ── Routes ────────────────────────────────────────────────────────────────────
 
+@router.get("/competition/ping")
+async def competition_ping():
+    """Public liveness check — confirms competition routes are registered."""
+    return {"status": "ok", "module": "competition"}
+
+
 @router.post("/competition/task")
 async def assign_task(
     body: TaskRequest,
@@ -270,7 +276,7 @@ async def submit_user_scores(
         average_score = (commissioner_score + entry.user_score) / 2
 
         await db.competition_rounds.update_one(
-            {"_id": oid},
+            {"_id": doc["_id"]},
             {"$set": {
                 "user_score": entry.user_score,
                 "average_score": average_score,
