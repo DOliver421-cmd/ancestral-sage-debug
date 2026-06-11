@@ -178,12 +178,18 @@ async def version():
 
 @router.get("/routes/debug")
 async def routes_debug():
-    """Lists which optional route modules failed to load at startup."""
+    """Lists loaded/failed route modules and all registered API paths."""
     try:
-        from app.main import _failed_routes, _loaded_routers
+        from app.main import _failed_routes, _loaded_routers, app as _app
+        paths = sorted(
+            f"{list(r.methods)[0] if r.methods else 'ANY'} {r.path}"
+            for r in _app.routes
+            if hasattr(r, "path") and hasattr(r, "methods")
+        )
         return {
             "loaded": list(_loaded_routers.keys()),
             "failed": list(_failed_routes),
+            "registered_paths": paths,
         }
     except Exception as e:
         return {"error": str(e)}

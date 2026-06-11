@@ -91,6 +91,7 @@ export default function AppShell({ children }) {
               <img src={WAI_LOGO} alt="W.A.I." className="w-8 h-8 object-contain" style={{ mixBlendMode: "screen" }} />
             </Link>
           )}
+          {!collapsed && <NotificationBell />}
           <button
             onClick={() => setCollapsed(c => !c)}
             className="shrink-0 ml-1 text-white/40 hover:text-white transition-colors"
