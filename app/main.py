@@ -45,23 +45,23 @@ def _load(mod_path: str, attr: str = "router"):
 # Critical — always load these first (health, auth, version)
 from app.routes import system, auth   # noqa: E402 (after _load definition)
 
-# Priority routes — fault-tolerant with critical logging so Railway shows the real error
-import logging as _boot_log
-_boot_logger = _boot_log.getLogger("lcewai")
+# Priority routes — direct imports with stderr output so Railway always shows errors
+import sys as _sys
+import traceback as _tb
 
-def _load_priority(mod_path: str, attr: str = "router"):
-    """Like _load() but logs at CRITICAL level so errors appear in Railway deploy logs."""
+def _load_priority(mod_path: str):
+    """Import a priority route module. Prints to stderr so errors appear in Railway logs."""
     try:
         import importlib as _il
         m = _il.import_module(mod_path)
-        r = getattr(m, attr, None)
-        if r is not None:
-            _boot_logger.critical("PRIORITY ROUTE LOADED OK: %s — routes: %s", mod_path, [getattr(ro, 'path', '?') for ro in getattr(r, 'routes', [])])
-        else:
-            _boot_logger.critical("PRIORITY ROUTE LOADED BUT NO ROUTER ATTR: %s", mod_path)
+        r = getattr(m, "router", None)
+        paths = [getattr(ro, "path", "?") for ro in getattr(r, "routes", [])] if r else []
+        print(f"[STARTUP] LOADED {mod_path}: {paths}", file=_sys.stderr, flush=True)
         return m
     except Exception as _e:
-        _boot_logger.critical("PRIORITY ROUTE IMPORT FAILED: %s — %s", mod_path, _e, exc_info=True)
+        print(f"[STARTUP] FAILED {mod_path}: {_e}", file=_sys.stderr, flush=True)
+        _tb.print_exc(file=_sys.stderr)
+        _sys.stderr.flush()
         return None
 
 _jamil_mod = _load_priority("app.routes.jamil")
