@@ -19,7 +19,6 @@ from app.database import db
 from app.models.user import User
 from app.security.auth import current_user
 from app.services.jamil.persona import JAMIL_DOMAINS, JAMIL_SYSTEM_PROMPT
-from app.services.jamil.extractor import extract as extract_file
 from app.services.llm import chat as _llm_chat
 
 logger = logging.getLogger("lcewai")
@@ -106,6 +105,7 @@ async def jamil_chat(
             parts.append(f"[File {upload.filename} skipped — exceeds 50 MB limit]")
             continue
         try:
+            from app.services.jamil.extractor import extract as extract_file
             extracted = await extract_file(
                 upload.filename or "file",
                 content,
