@@ -267,7 +267,7 @@ export default function AppShell({ children }) {
             <span className="text-sm font-semibold text-destructive">Backend offline — data cannot load. Check Railway service status.</span>
           </div>
         )}
-        <main className="flex-1 min-w-0 overflow-hidden">{children}</main>
+        <main className="flex-1 min-w-0 overflow-hidden flex flex-col">{children}</main>
       </div>
     </div>
   );
