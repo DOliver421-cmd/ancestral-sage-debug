@@ -85,12 +85,6 @@ export default function MissingKameron() {
 
       <div style={{ maxWidth: 680, margin: "0 auto", padding: "28px 20px" }}>
 
-        {/* Header */}
-        <div style={{ textAlign: "center", marginBottom: 28 }}>
-          <div style={{ fontSize: 38, fontWeight: 900, color: "#cc0000", lineHeight: 1.1 }}>MISSING</div>
-          <div style={{ fontSize: 22, fontWeight: 800, color: "#111", marginTop: 4 }}>Special Needs Adult</div>
-        </div>
-
         {/* Photos */}
         <div style={{ marginBottom: 28 }}>
           {photos.length > 0 ? (
@@ -127,7 +121,7 @@ export default function MissingKameron() {
             >
               {uploading ? "Uploading…" : "📷 Upload Photos"}
             </button>
-            {photos.length > 0 && <div style={{ fontSize: 12, color: "#888", marginTop: 6 }}>{photos.length} photo{photos.length !== 1 ? "s" : ""} uploaded — photos save to this device</div>}
+            {photos.length > 0 && <div style={{ fontSize: 12, color: "#888", marginTop: 6 }}>{photos.length} photo{photos.length !== 1 ? "s" : ""} — visible to everyone who visits this page</div>}
           </div>
         </div>
 
