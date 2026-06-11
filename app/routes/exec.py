@@ -283,11 +283,10 @@ async def exec_dashboard(user: User = Depends(require_role("executive_admin"))):
     from ai.publishing import LEMON_SQUEEZY_API_KEY, LEMON_SQUEEZY_STORE_ID, GUMROAD_API_KEY
     elevenlabs_key = bool(os.environ.get("ELEVENLABS_API_KEY", ""))
     openai_key     = bool(os.environ.get("OPENAI_API_KEY", ""))
-    anthropic_key  = bool(os.environ.get("ANTHROPIC_API_KEY", ""))
     ls_ready       = bool(LEMON_SQUEEZY_API_KEY and LEMON_SQUEEZY_STORE_ID)
     gumroad_ready  = bool(GUMROAD_API_KEY)
     platform_status = {
-        "anthropic_api": anthropic_key, "elevenlabs": elevenlabs_key, "openai_tts": openai_key,
+        "elevenlabs": elevenlabs_key, "openai_tts": openai_key,
         "lemon_squeezy": ls_ready, "lemon_squeezy_key_set": bool(LEMON_SQUEEZY_API_KEY),
         "lemon_squeezy_store_set": bool(LEMON_SQUEEZY_STORE_ID), "gumroad": gumroad_ready,
         "publishing_tier": "lemon_squeezy" if ls_ready else "gumroad" if gumroad_ready else "mongodb_archive",
@@ -552,7 +551,7 @@ async def exec_staff_meeting(body: StaffMeetingRequest, user: User = Depends(req
                     prt_directive=prt_directive, sender="executive", activation_reason="executive_command",
                 )
                 synthesis = fusion.to_dict()
-                if synthesis.get("status") == "fused" and ANTHROPIC_API_KEY:
+                if synthesis.get("status") == "fused" and _any_llm_key:
                     try:
                         _responses_text = "\n\n".join(f"=== {pid} ===\n{resp}" for pid, resp in _persona_responses.items()) if _persona_responses else "(no responses)"
                         _the9_system = "You are THE 9 — the unified intelligence of the WAI-Institute. Synthesize all persona inputs into a unified strategic response."

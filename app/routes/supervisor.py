@@ -229,7 +229,7 @@ async def supervisor_backup_status(user: User = Depends(require_role("executive_
 @router.post("/supervisor/backup/switch-provider")
 async def supervisor_switch_provider(body: dict, user: User = Depends(require_role("executive_admin"))):
     provider = body.get("provider", "").strip()
-    _DEFAULT = ["groq","cerebras","gemini","xai","cohere","openrouter","huggingface","anthropic"]
+    _DEFAULT = ["groq","cerebras","mistral","gemini","xai","cohere","openrouter","huggingface"]
     if provider not in _DEFAULT:
         raise HTTPException(400, f"Unknown provider: {provider}. Valid: {_DEFAULT}")
     doc = await db.platform_config.find_one({"key": "gateway_provider_ranking"}, {"_id": 0})
