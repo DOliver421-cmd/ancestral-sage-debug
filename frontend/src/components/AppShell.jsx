@@ -8,7 +8,7 @@ import {
   ShieldAlert, KeyRound, Crown, Compass, HelpCircle, Layers, HandHelping,
   Scale, Trophy, Network, ShoppingBag, Heart, Receipt, Video, DollarSign,
   UserCircle, WifiOff, Music, Mic, Palette, FileText,
-  Gamepad2, Star, Radio, Globe,
+  Gamepad2, Star, Radio, Globe, Swords,
 } from "lucide-react";
 import NotificationBell from "./NotificationBell";
 import { useEffect, useState } from "react";
@@ -189,6 +189,7 @@ export default function AppShell({ children }) {
               <NavLink loc={loc} to="/team/ops"          label="Team Ops"         icon={Settings}     testid="nav-team-ops" />
               <NavLink loc={loc} to="/supervisor"        label="Supervisor Hub"   icon={Radio}        testid="nav-supervisor" />
               <NavLink loc={loc} to="/creative-partner"  label="Creative Partner" icon={Palette}      testid="nav-creative-partner" />
+              <NavLink loc={loc} to="/arena"             label="The Arena"        icon={Swords}       testid="nav-arena" />
             </NavSection>
           )}
 
