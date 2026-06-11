@@ -61,8 +61,8 @@ function EmptyState() {
         margin: 0,
         fontStyle: "italic",
       }}>
-        I&apos;m Jamil. Named to carry purpose. Ask me anything — strategy,
-        creative, finance, music, legal, wellness, or anything else you need.
+        I&apos;m Jamil. I&apos;m in charge of making sure everything gets done.
+        Bring me a project, a problem, or a gap — I&apos;ll handle it.
       </p>
     </div>
   );
