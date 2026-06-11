@@ -34,9 +34,24 @@ from app.services.competition.personas import (
 logger = logging.getLogger("lcewai")
 router = APIRouter()
 
-ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY", "")
-ANTHROPIC_API_URL = "https://api.anthropic.com/v1/messages"
-ANTHROPIC_MODEL = "claude-sonnet-4-6"
+# ── Provider config — uses Groq (Llama 3.3 70B) with Mistral fallback ─────────
+_PROVIDERS = [
+    {
+        "key_env": "GROQ_API_KEY",
+        "url": "https://api.groq.com/openai/v1/chat/completions",
+        "model": "llama-3.3-70b-versatile",
+    },
+    {
+        "key_env": "CEREBRAS_API_KEY",
+        "url": "https://api.cerebras.ai/v1/chat/completions",
+        "model": "llama3.1-70b",
+    },
+    {
+        "key_env": "MISTRAL_API_KEY",
+        "url": "https://api.mistral.ai/v1/chat/completions",
+        "model": "mistral-large-latest",
+    },
+]
 
 
 # ── Pydantic models ───────────────────────────────────────────────────────────
@@ -59,29 +74,33 @@ class UserScoreRequest(BaseModel):
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
 async def _call_ai(system_prompt: str, user_message: str) -> str:
-    """Call Anthropic API and return the text response."""
-    if not ANTHROPIC_API_KEY:
-        raise HTTPException(status_code=503, detail="ANTHROPIC_API_KEY not configured.")
-
-    headers = {
-        "x-api-key": ANTHROPIC_API_KEY,
-        "anthropic-version": "2023-06-01",
-        "content-type": "application/json",
-    }
-    payload = {
-        "model": ANTHROPIC_MODEL,
-        "max_tokens": 4096,
-        "system": system_prompt,
-        "messages": [{"role": "user", "content": user_message}],
-    }
-
-    async with httpx.AsyncClient(timeout=120.0) as client:
-        resp = await client.post(ANTHROPIC_API_URL, headers=headers, json=payload)
-        if resp.status_code != 200:
-            logger.error("Anthropic API error %s: %s", resp.status_code, resp.text[:500])
-            raise HTTPException(status_code=502, detail=f"AI API error: {resp.status_code}")
-        data = resp.json()
-        return data["content"][0]["text"]
+    """Call AI using first available provider (Groq → Cerebras → Mistral). OpenAI-compatible."""
+    for provider in _PROVIDERS:
+        api_key = os.environ.get(provider["key_env"], "")
+        if not api_key:
+            continue
+        headers = {
+            "Authorization": f"Bearer {api_key}",
+            "Content-Type": "application/json",
+        }
+        payload = {
+            "model": provider["model"],
+            "max_tokens": 4096,
+            "messages": [
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_message},
+            ],
+        }
+        try:
+            async with httpx.AsyncClient(timeout=120.0) as client:
+                resp = await client.post(provider["url"], headers=headers, json=payload)
+                if resp.status_code == 200:
+                    return resp.json()["choices"][0]["message"]["content"]
+                logger.warning("Provider %s returned %s", provider["key_env"], resp.status_code)
+        except Exception as e:
+            logger.warning("Provider %s failed: %s", provider["key_env"], e)
+            continue
+    raise HTTPException(status_code=503, detail="No AI provider available. Check GROQ_API_KEY, CEREBRAS_API_KEY, or MISTRAL_API_KEY in Railway.")
 
 
 async def _score_output(persona_name: str, task: str, output: str) -> dict:
