@@ -351,7 +351,13 @@ export default function Jamil() {
       const reply = data?.reply || "(no response)";
       setMessages(prev => [...prev, { role: "jamil", content: reply, id: Date.now() + 1 }]);
     } catch (err) {
-      const msg = err?.response?.data?.detail || err?.message || "Something went wrong.";
+      const detail = err?.response?.data?.detail || err?.message || "Something went wrong.";
+      const status = err?.response?.status;
+      const msg = status === 503 && detail?.includes("No AI provider")
+        ? "No AI provider is configured. Set GROQ_API_KEY, CEREBRAS_API_KEY, or MISTRAL_API_KEY in Railway Variables and redeploy."
+        : status === 401 || status === 403
+        ? "Session expired. Please log in again."
+        : detail;
       setError(msg);
       setMessages(prev => prev.filter(m => m.id !== userMsg.id));
       setInput(text);

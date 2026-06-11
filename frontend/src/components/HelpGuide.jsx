@@ -4,9 +4,16 @@ import { api } from "../lib/api";
 import { useAuth } from "../lib/auth";
 import { HelpCircle, X, Search, ArrowRight, ExternalLink } from "lucide-react";
 
+// Routes that have their own tool panels — HelpGuide is suppressed here
+const SUPPRESS_PATHS = ["/jamil", "/arena", "/projects"];
+
 export default function HelpGuide() {
   const { user } = useAuth();
   const location = useLocation();
+
+  if (SUPPRESS_PATHS.some(p => location.pathname === p || location.pathname.startsWith(p + "/"))) {
+    return null;
+  }
   const [open, setOpen] = useState(false);
   const [help, setHelp] = useState(null);
   const [query, setQuery] = useState("");
