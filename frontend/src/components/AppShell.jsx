@@ -189,8 +189,9 @@ export default function AppShell({ children }) {
               <NavLink loc={loc} to="/team/ops"          label="Team Ops"         icon={Settings}     testid="nav-team-ops" />
               <NavLink loc={loc} to="/supervisor"        label="Supervisor Hub"   icon={Radio}        testid="nav-supervisor" />
               <NavLink loc={loc} to="/creative-partner"  label="Creative Partner" icon={Palette}      testid="nav-creative-partner" />
-              <NavLink loc={loc} to="/arena"             label="The Arena"        icon={Swords}       testid="nav-arena" />
-              <NavLink loc={loc} to="/jamil"             label="Jamil"            icon={Sparkles}     testid="nav-jamil" />
+              <NavLink loc={loc} to="/arena"             label="The Arena"        icon={Swords}          testid="nav-arena" />
+              <NavLink loc={loc} to="/jamil"             label="Jamil"            icon={Sparkles}        testid="nav-jamil" />
+              <NavLink loc={loc} to="/projects"          label="Projects"         icon={ClipboardCheck}  testid="nav-projects" />
             </NavSection>
           )}
 

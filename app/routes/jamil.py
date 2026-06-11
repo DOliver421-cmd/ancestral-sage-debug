@@ -35,6 +35,47 @@ def _build_system_prompt() -> str:
     return JAMIL_SYSTEM_PROMPT.replace("{today}", today)
 
 
+async def _get_project_context() -> str:
+    """Pull active projects from DB and format for Jamil's LLM context."""
+    if db is None:
+        return ""
+    try:
+        docs = await db.projects.find(
+            {"status": {"$ne": "archived"}, "archived": {"$ne": True}},
+            {"_id": 0, "project_id": 1, "title": 1, "status": 1, "priority": 1,
+             "owner": 1, "due_date": 1, "notes": 1, "milestones": 1, "description": 1}
+        ).sort("updated_at", -1).to_list(length=30)
+
+        if not docs:
+            return "\n[No active projects in the dashboard at this time.]\n"
+
+        lines = ["\n--- ACTIVE PROJECT DASHBOARD ---"]
+        for d in docs:
+            lines.append(f"\nPROJECT: {d['title']} | Status: {d['status']} | Priority: {d.get('priority','normal')}")
+            lines.append(f"  ID: {d['project_id']}")
+            if d.get("owner"):
+                lines.append(f"  Owner: {d['owner']}")
+            if d.get("due_date"):
+                lines.append(f"  Due: {d['due_date']}")
+            if d.get("description"):
+                lines.append(f"  {d['description']}")
+            if d.get("notes"):
+                lines.append(f"  Notes: {d['notes']}")
+            milestones = d.get("milestones", [])
+            if milestones:
+                done = sum(1 for m in milestones if m.get("complete"))
+                lines.append(f"  Milestones: {done}/{len(milestones)} done")
+                for m in milestones:
+                    mark = "✓" if m.get("complete") else "○"
+                    assigned = f" [{m['assigned_to']}]" if m.get("assigned_to") else ""
+                    lines.append(f"    {mark} {m['title']}{assigned}")
+        lines.append("--- END PROJECT DASHBOARD ---\n")
+        return "\n".join(lines)
+    except Exception as e:
+        logger.warning("Could not load project context: %s", e)
+        return ""
+
+
 # ── Chat (text + optional files) ─────────────────────────────────────────────
 
 @router.post("/jamil/chat")
@@ -48,6 +89,11 @@ async def jamil_chat(
         raise HTTPException(status_code=400, detail="Send a message or attach a file.")
 
     system_prompt = _build_system_prompt()
+
+    # Inject live project dashboard into system prompt
+    project_context = await _get_project_context()
+    if project_context:
+        system_prompt = system_prompt + project_context
 
     # Build user context — message + extracted file contents
     parts = []
