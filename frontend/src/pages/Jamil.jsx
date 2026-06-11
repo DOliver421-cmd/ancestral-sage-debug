@@ -381,7 +381,7 @@ export default function Jamil() {
   }, []);
 
   return (
-    <div style={{ minHeight: "100vh", background: BONE, display: "flex", flexDirection: "column" }}>
+    <div style={{ height: "100vh", background: BONE, display: "flex", flexDirection: "column", overflow: "hidden" }}>
 
       {/* Header */}
       <header style={{
