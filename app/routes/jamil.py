@@ -13,7 +13,7 @@ from pydantic import BaseModel
 
 from app.database import db
 from app.models.user import User
-from app.security.auth import require_role
+from app.security.auth import current_user
 from app.services.jamil.persona import JAMIL_DOMAINS, JAMIL_SYSTEM_PROMPT
 from app.services.llm import chat as _llm_chat
 
@@ -43,7 +43,7 @@ def _build_system_prompt() -> str:
 @router.post("/jamil/chat", response_model=ChatResponse)
 async def jamil_chat(
     body: ChatRequest,
-    user: User = Depends(require_role("executive_admin")),
+    user: User = Depends(current_user),
 ):
     """Send a message to Jamil and receive his response."""
     if not body.message or not body.message.strip():

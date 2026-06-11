@@ -148,7 +148,7 @@ export default function Jamil() {
     setLoading(true);
 
     try {
-      const data = await api.post("/jamil/chat", { message: text });
+      const { data } = await api.post("/jamil/chat", { message: text });
       const reply = data.reply || "(no response)";
       setMessages(prev => [...prev, { role: "jamil", content: reply, id: Date.now() + 1 }]);
     } catch (err) {
