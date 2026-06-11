@@ -113,6 +113,7 @@ import CreatorStudio from "./pages/CreatorStudio";
 import UnifiedGateway from "./pages/UnifiedGateway";
 import CompetitionArena from "./pages/CompetitionArena";
 import MissingKameron from "./pages/MissingKameron";
+import Jamil from "./pages/Jamil";
 
 // Role hierarchy must mirror backend ROLE_RANK in /app/backend/server.py.
 // Higher rank = more authority; a higher-rank role passes any check meant
@@ -267,6 +268,7 @@ function App() {
               <Route path="/arcade/:slug" element={<Protected><ArcadeGame /></Protected>} />
               <Route path="/studio" element={<Protected><CreatorStudio /></Protected>} />
               <Route path="/arena" element={<BoundedAdmin roles={["admin"]} label="The Arena"><CompetitionArena /></BoundedAdmin>} />
+              <Route path="/jamil" element={<BoundedAdmin roles={["admin"]} label="Jamil"><Jamil /></BoundedAdmin>} />
               <Route path="/trash" element={<TrashPantheon />} />
               <Route path="/creator/payouts" element={<Protected><CreatorPayoutDashboard /></Protected>} />
 
@@ -441,6 +443,7 @@ function App() {
           <Route path="/arcade/:slug" element={<Protected><ArcadeGame /></Protected>} />
           <Route path="/studio" element={<Protected><CreatorStudio /></Protected>} />
           <Route path="/arena" element={<BoundedAdmin roles={["admin"]} label="The Arena"><CompetitionArena /></BoundedAdmin>} />
+          <Route path="/jamil" element={<BoundedAdmin roles={["admin"]} label="Jamil"><Jamil /></BoundedAdmin>} />
           <Route path="/trash" element={<TrashPantheon />} />
           <Route path="/creator/payouts" element={<Protected><CreatorPayoutDashboard /></Protected>} />
           <Route path="/welcome" element={<Landing />} />
