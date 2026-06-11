@@ -45,11 +45,29 @@ def _load(mod_path: str, attr: str = "router"):
 # Critical — always load these first (health, auth, version)
 from app.routes import system, auth   # noqa: E402 (after _load definition)
 
-# Priority routes — loaded directly (not fault-tolerant) so errors are visible
-from app.routes import jamil as _jamil_mod
-from app.routes import competition as _competition_mod
-from app.routes import projects as _projects_mod
-from app.routes import missing as _missing_mod
+# Priority routes — fault-tolerant with critical logging so Railway shows the real error
+import logging as _boot_log
+_boot_logger = _boot_log.getLogger("lcewai")
+
+def _load_priority(mod_path: str, attr: str = "router"):
+    """Like _load() but logs at CRITICAL level so errors appear in Railway deploy logs."""
+    try:
+        import importlib as _il
+        m = _il.import_module(mod_path)
+        r = getattr(m, attr, None)
+        if r is not None:
+            _boot_logger.critical("PRIORITY ROUTE LOADED OK: %s — routes: %s", mod_path, [getattr(ro, 'path', '?') for ro in getattr(r, 'routes', [])])
+        else:
+            _boot_logger.critical("PRIORITY ROUTE LOADED BUT NO ROUTER ATTR: %s", mod_path)
+        return m
+    except Exception as _e:
+        _boot_logger.critical("PRIORITY ROUTE IMPORT FAILED: %s — %s", mod_path, _e, exc_info=True)
+        return None
+
+_jamil_mod = _load_priority("app.routes.jamil")
+_competition_mod = _load_priority("app.routes.competition")
+_projects_mod = _load_priority("app.routes.projects")
+_missing_mod = _load_priority("app.routes.missing")
 
 # All other routes loaded fault-tolerantly
 _route_mods = [
@@ -244,10 +262,14 @@ _PREFIX = "/api"
 # Critical routes always included
 app.include_router(system.router,             prefix=_PREFIX)
 app.include_router(auth.router,               prefix=_PREFIX)
-app.include_router(_jamil_mod.router,         prefix=_PREFIX)
-app.include_router(_competition_mod.router,   prefix=_PREFIX)
-app.include_router(_projects_mod.router,      prefix=_PREFIX)
-app.include_router(_missing_mod.router,       prefix=_PREFIX)
+if _jamil_mod is not None:
+    app.include_router(_jamil_mod.router,     prefix=_PREFIX)
+if _competition_mod is not None:
+    app.include_router(_competition_mod.router, prefix=_PREFIX)
+if _projects_mod is not None:
+    app.include_router(_projects_mod.router,  prefix=_PREFIX)
+if _missing_mod is not None:
+    app.include_router(_missing_mod.router,   prefix=_PREFIX)
 
 # Playlist and social have built-in prefixes
 _BUILTIN_PREFIX = {"app.routes.playlist", "app.routes.social"}
