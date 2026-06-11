@@ -249,6 +249,7 @@ for _mp, _router in _loaded_routers.items():
             app.include_router(_router)
         else:
             app.include_router(_router, prefix=_PREFIX)
+        logger.info("STARTUP: registered router %s", _mp)
     except Exception as _re:
         logger.error("STARTUP: failed to register router %s: %s", _mp, _re)
 
