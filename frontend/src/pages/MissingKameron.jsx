@@ -4,24 +4,23 @@ import { toast } from "sonner";
 
 const SHARE_URL = "https://www.morehelp.center/missing/kameron";
 const TIP_LINE = "859-955-0421";
-const STORAGE_KEY = "kameron_photo_ids";
-
-function getStoredPhotos() {
-  try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]"); } catch { return []; }
-}
+const CASE_ID = "kameron-mcmullen";
 
 export default function MissingKameron() {
   const [tip, setTip] = useState("");
   const [contact, setContact] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
-  const [photos, setPhotos] = useState(getStoredPhotos);
+  const [photos, setPhotos] = useState([]);
   const [uploading, setUploading] = useState(false);
   const fileRef = useRef();
 
+  // Load photos from server on mount
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(photos));
-  }, [photos]);
+    api.get(`/missing/photos/${CASE_ID}`)
+      .then(r => { if (r.data?.photos?.length) setPhotos(r.data.photos); })
+      .catch(() => {});
+  }, []);
 
   const shareText = `MISSING: Kameron McMullen, 28, special needs adult. Missing since 6/06/2026. Last seen on skateboard near 131st Ave & Fletcher & Bruce B Downs Blvd, Tampa FL. 6'2", 180 lbs. If you have seen him call ${TIP_LINE}`;
 
@@ -44,17 +43,15 @@ export default function MissingKameron() {
       try {
         const fd = new FormData();
         fd.append("file", file);
-        fd.append("title", `Kameron McMullen - ${file.name}`);
-        fd.append("file_type", "other");
-        fd.append("is_public", "true");
-        const res = await api.post("/media/upload", fd, { headers: { "Content-Type": "multipart/form-data" } });
+        fd.append("case_id", CASE_ID);
+        const res = await api.post("/missing/photo", fd, { headers: { "Content-Type": "multipart/form-data" } });
         newIds.push(res.data.id);
-        toast.success("Photo uploaded");
+        toast.success("Photo uploaded — thank you");
       } catch {
         toast.error(`Failed to upload ${file.name}`);
       }
     }
-    if (newIds.length) setPhotos(prev => [...prev, ...newIds].slice(-6));
+    if (newIds.length) setPhotos(prev => [...prev, ...newIds].slice(-10));
     setUploading(false);
     if (fileRef.current) fileRef.current.value = "";
   };
@@ -101,7 +98,7 @@ export default function MissingKameron() {
               {photos.map(id => (
                 <div key={id} style={{ position: "relative" }}>
                   <img
-                    src={`${BACKEND_URL}/api/media/file/${id}`}
+                    src={`${BACKEND_URL}/api/missing/photo/${id}`}
                     alt="Kameron McMullen"
                     style={{ width: 280, height: 340, objectFit: "cover", borderRadius: 8, border: "3px solid #cc0000" }}
                     onError={e => { e.target.style.display = "none"; }}
