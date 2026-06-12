@@ -24,6 +24,7 @@ import {
   Zap, Lock, Globe, Radio, Megaphone, BarChart2, ShoppingBag,
   Upload, Image, FileText, Award, CheckCircle, Eye, EyeOff,
   Twitter, Instagram, Facebook, Linkedin, Youtube,
+  DollarSign, Heart, TrendingUp, Receipt, Network, Star, Crown,
 } from "lucide-react";
 import { useMic } from "../hooks/useMic";
 
@@ -1088,6 +1089,31 @@ export default function UnifiedProfile() {
                     </div>
                   )}
 
+                  {/* ── Commerce / Products ── always displayed when set */}
+                  {profile.commerce?.length > 0 && (
+                    <div>
+                      <div className="flex items-center gap-2 mb-3">
+                        <ShoppingBag className="w-4 h-4 text-copper" />
+                        <span className="font-heading font-bold">Products & Links</span>
+                      </div>
+                      <div className="grid sm:grid-cols-2 gap-3">
+                        {profile.commerce.map((c, i) => (
+                          <a key={i} href={c.url} target="_blank" rel="noopener noreferrer"
+                            className="card-flat p-4 flex items-center gap-3 hover:border-copper transition-colors group no-underline">
+                            <div className="w-9 h-9 rounded-lg bg-copper/10 flex items-center justify-center shrink-0 group-hover:bg-copper/20 transition-colors">
+                              <DollarSign className="w-4 h-4 text-copper" />
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <div className="font-bold text-sm text-ink truncate">{c.label}</div>
+                              {c.desc && <div className="text-xs text-ink/50 truncate">{c.desc}</div>}
+                            </div>
+                            <ExternalLink className="w-3.5 h-3.5 text-ink/20 group-hover:text-copper shrink-0 transition-colors" />
+                          </a>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
                   {/* Socials on home (mobile friendly) */}
                   {profile.socials?.length > 0 && (
                     <div className="lg:hidden card-flat p-4 space-y-2">
@@ -1193,26 +1219,84 @@ export default function UnifiedProfile() {
                 <SharePanel url={`/u/${profile.slug}`} title={`${profile.display_name} — WAI-Institute`} embed />
               </div>
 
-              {/* Quick nav for owner */}
+              {/* ── Revenue Hub (owner only) ── */}
               {isOwner && (
-                <div className="card-flat p-4 space-y-2">
-                  <div className="text-xs font-bold uppercase tracking-widest text-ink/40 mb-2">Quick Nav</div>
-                  <button onClick={() => setActiveTab("settings")}
-                    className="flex items-center justify-between w-full text-sm text-ink/50 hover:text-copper transition-colors py-0.5">
-                    <span>Edit Profile</span><Edit3 className="w-3 h-3" />
-                  </button>
+                <div className="card-flat p-4 space-y-1">
+                  <div className="text-xs font-bold uppercase tracking-widest text-ink/40 mb-3">Revenue Hub</div>
                   {[
-                    { label: "My Courses",   to: "/creator/courses" },
-                    { label: "Modules",      to: "/modules" },
-                    { label: "Certificates", to: "/certificates" },
-                    { label: "Credentials",  to: "/credentials" },
-                  ].map(({ label, to }) => (
+                    { label: "My Earnings",      to: "/creator/earnings",     icon: TrendingUp,  desc: "Track your income" },
+                    { label: "Payout Dashboard", to: "/creator/payouts",      icon: Receipt,     desc: "Withdraw funds" },
+                    { label: "Course Manager",   to: "/creator/courses",      icon: BookOpen,    desc: "Sell your courses" },
+                    { label: "Store",            to: "/store",                icon: ShoppingBag, desc: "Your storefront" },
+                    { label: "Memberships",      to: "/subscribe",            icon: Crown,       desc: "Subscription tiers" },
+                    { label: "Plans & Pricing",  to: "/plans",                icon: Star,        desc: "Compare plans" },
+                    { label: "Partnerships",     to: "/partnership",          icon: Network,     desc: "Commission & referrals" },
+                    { label: "Payment History",  to: "/payment/history",      icon: DollarSign,  desc: "All transactions" },
+                  ].map(({ label, to, icon: Icon, desc }) => (
                     <Link key={to} to={to}
-                      className="flex items-center justify-between text-sm text-ink/50 hover:text-copper transition-colors py-0.5">
-                      <span>{label}</span>
-                      <ExternalLink className="w-3 h-3" />
+                      className="flex items-center gap-3 py-2 px-2 rounded-lg hover:bg-copper/5 transition-colors group">
+                      <Icon className="w-4 h-4 text-copper/60 group-hover:text-copper shrink-0 transition-colors" />
+                      <div className="flex-1 min-w-0">
+                        <div className="text-sm font-bold text-ink/70 group-hover:text-ink transition-colors truncate">{label}</div>
+                        <div className="text-xs text-ink/30 truncate">{desc}</div>
+                      </div>
+                      <ExternalLink className="w-3 h-3 text-ink/15 group-hover:text-copper shrink-0 transition-colors" />
                     </Link>
                   ))}
+                  <div className="pt-2 border-t border-ink/8">
+                    <button onClick={() => setActiveTab("settings")}
+                      className="flex items-center gap-3 py-2 px-2 rounded-lg hover:bg-copper/5 transition-colors group w-full text-left">
+                      <Edit3 className="w-4 h-4 text-copper/60 group-hover:text-copper shrink-0 transition-colors" />
+                      <span className="text-sm font-bold text-ink/70 group-hover:text-ink transition-colors">Edit Profile & Commerce</span>
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* ── Upgrade nudge for free-tier owners ── */}
+              {isOwner && (!user?.feature_tier || user.feature_tier === "free") && (
+                <div className="rounded-2xl p-4 space-y-3"
+                  style={{ background: "linear-gradient(135deg,#1B4332,#2D6A4F)", border: "1.5px solid #E8A51E" }}>
+                  <div className="flex items-center gap-2">
+                    <Zap className="w-4 h-4 text-signal" />
+                    <span className="font-heading font-bold text-white text-sm">Unlock Premium</span>
+                  </div>
+                  <p className="text-xs text-white/70 leading-relaxed">
+                    AI-formatted social blasts, Ghost Producer, course publishing, and full creator tools.
+                  </p>
+                  <Link to="/plans" className="block text-center text-xs font-black py-2 px-4 rounded-xl"
+                    style={{ background: "#E8A51E", color: "#0a0a0a" }}>
+                    See Plans →
+                  </Link>
+                </div>
+              )}
+
+              {/* ── Support this creator (non-owner public view) ── */}
+              {!isOwner && (profile.commerce?.length > 0 || true) && (
+                <div className="card-flat p-4 space-y-3">
+                  <div className="text-xs font-bold uppercase tracking-widest text-ink/40 mb-1">
+                    Support {profile.display_name?.split(" ")[0] || "This Creator"}
+                  </div>
+                  {profile.commerce?.map((c, i) => (
+                    <a key={i} href={c.url} target="_blank" rel="noopener noreferrer"
+                      className="flex items-center gap-2 py-2 px-3 rounded-xl border border-copper/20 bg-copper/5 hover:bg-copper/10 transition-colors group no-underline">
+                      <DollarSign className="w-3.5 h-3.5 text-copper shrink-0" />
+                      <span className="text-sm font-bold text-ink/70 group-hover:text-ink flex-1 truncate">{c.label}</span>
+                      <ExternalLink className="w-3 h-3 text-ink/20 group-hover:text-copper shrink-0" />
+                    </a>
+                  ))}
+                  <Link to="/donate"
+                    className="flex items-center gap-2 py-2 px-3 rounded-xl border border-copper/20 hover:bg-copper/5 transition-colors group no-underline">
+                    <Heart className="w-3.5 h-3.5 text-copper shrink-0" />
+                    <span className="text-sm font-bold text-ink/70 group-hover:text-ink flex-1">Donate to WAI</span>
+                    <ExternalLink className="w-3 h-3 text-ink/20 group-hover:text-copper shrink-0" />
+                  </Link>
+                  <Link to="/subscribe"
+                    className="flex items-center gap-2 py-2 px-3 rounded-xl border border-copper/20 hover:bg-copper/5 transition-colors group no-underline">
+                    <Crown className="w-3.5 h-3.5 text-copper shrink-0" />
+                    <span className="text-sm font-bold text-ink/70 group-hover:text-ink flex-1">Join as a Member</span>
+                    <ExternalLink className="w-3 h-3 text-ink/20 group-hover:text-copper shrink-0" />
+                  </Link>
                 </div>
               )}
             </div>
