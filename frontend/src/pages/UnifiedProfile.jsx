@@ -37,23 +37,24 @@ const FEATURE_TIER_LABEL = { free: "Free", premium: "Premium", executive: "Execu
 function canAccess(user, _status, feature) {
   if (!user) return false;
   const role = user.role || "student";
-  const isAdmin = ["admin", "executive_admin"].includes(role);
+  // Admins and executive admins own the platform — never locked out
+  if (role === "admin" || role === "executive_admin") return true;
   const isInstructor = role === "instructor";
   const tierIdx = FEATURE_TIER_RANK[user.feature_tier] ?? 0;
 
   switch (feature) {
     case "profile":       return true;
     case "ai_chat":       return true;
-    case "posts":         return tierIdx >= 1 || isAdmin;
-    case "courses":       return tierIdx >= 2 || isInstructor || isAdmin;
-    case "tracks":        return tierIdx >= 2 || isInstructor || isAdmin;
-    case "ghost":         return tierIdx >= 2 || isAdmin;
-    case "band":          return tierIdx >= 2 || isAdmin;
-    case "publisher":     return tierIdx >= 2 || isAdmin;
-    case "publisher_ai":  return tierIdx >= 1 || isAdmin;
-    case "artist_mgmt":   return tierIdx >= 4 || isAdmin;
-    case "mass_post":     return tierIdx >= 4 || isAdmin;
-    case "sovereign":     return isAdmin;
+    case "posts":         return tierIdx >= 1;
+    case "courses":       return tierIdx >= 2 || isInstructor;
+    case "tracks":        return tierIdx >= 2 || isInstructor;
+    case "ghost":         return tierIdx >= 2;
+    case "band":          return tierIdx >= 2;
+    case "publisher":     return tierIdx >= 2;
+    case "publisher_ai":  return tierIdx >= 1;
+    case "artist_mgmt":   return tierIdx >= 4;
+    case "mass_post":     return tierIdx >= 4;
+    case "sovereign":     return false; // only admins, handled above
     default:              return false;
   }
 }
@@ -860,27 +861,32 @@ export default function UnifiedProfile() {
   const [activeTab, setActiveTab] = useState("home");
 
   // Determine if viewer is the owner
-  const isOwner = user && profile && profile.is_owner === true;
+  const isOwner = user && (profile?.is_owner === true || (!username && !!user));
   const viewerStatus = status;
   const isAdmin = ["admin", "executive_admin"].includes(user?.role);
 
   // Reload profile after settings save
   const reloadProfile = useCallback(async () => {
-    if (!username) return;
     try {
-      const r = await api.get(`/creator/profile/${username}`);
+      const slug = username || profile?.slug;
+      if (!slug) return;
+      const r = await api.get(`/creator/profile/${slug}`);
       setProfile(r.data.profile);
     } catch (_) {}
-  }, [username]);
+  }, [username, profile?.slug]);
 
   useEffect(() => {
     if (!username) {
       if (user) {
+        // Try to find existing profile and redirect to it
+        // If not found, stay here in setup mode — never redirect to a dead route
         api.get("/creator/profile/me").then(r => {
           const p = r.data?.profile;
           if (p?.slug) navigate(`/u/${p.slug}`, { replace: true });
-          else navigate("/creator/profile/edit", { replace: true });
-        }).catch(() => navigate("/creator/profile/edit", { replace: true }));
+          else setLoading(false); // no profile yet → show setup mode
+        }).catch(() => setLoading(false)); // error → show setup mode
+      } else {
+        setLoading(false);
       }
       return;
     }
@@ -908,8 +914,6 @@ export default function UnifiedProfile() {
     load();
   }, [username, user, navigate]);
 
-  if (!username) return null;
-
   if (loading) return (
     <AppShell>
       <div className="min-h-[60vh] flex items-center justify-center">
@@ -918,12 +922,107 @@ export default function UnifiedProfile() {
     </AppShell>
   );
 
+  // No creator profile yet — show tools + setup form (never a dead end)
+  if (!profile && user) return (
+    <AppShell>
+      <div className="min-h-screen bg-bone">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 py-10">
+          <div className="mb-8">
+            <div className="overline text-copper mb-1">Your Dashboard</div>
+            <h1 className="font-heading font-extrabold text-3xl text-ink">{user.full_name}</h1>
+            <p className="text-sm text-ink/50 mt-1 capitalize">{(user.role || "student").replace("_", " ")} · {FEATURE_TIER_LABEL[user.feature_tier] || "Free"} tier</p>
+          </div>
+
+          <div className="grid lg:grid-cols-3 gap-6">
+            <div className="lg:col-span-2 space-y-6">
+
+              {/* Feature launcher — based on role/tier, no creator profile required */}
+              <div>
+                <div className="font-heading font-bold mb-3">Your Tools</div>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                  {[
+                    { feature: "ai_chat",     label: "AI Tutor",        icon: Zap,       to: "/ai",                 desc: "Ask anything" },
+                    { feature: "profile",     label: "Social Blast",    icon: Megaphone, to: "/social/publish",     desc: "Post to all platforms" },
+                    { feature: "profile",     label: "Curriculum",      icon: BookOpen,  to: "/modules",            desc: "Browse all courses" },
+                    { feature: "profile",     label: "Certificates",    icon: Award,     to: "/certificates",       desc: "Your earned certs" },
+                    { feature: "posts",       label: "Creator Lounge",  icon: Mic,       to: "/creator-lounge",     desc: "Community stage" },
+                    { feature: "ghost",       label: "Ghost Producer",  icon: Music,     to: "/ghost-producer",     desc: "AI production suite" },
+                    { feature: "ghost",       label: "Creator Studio",  icon: Radio,     to: "/studio",             desc: "Build & publish" },
+                    { feature: "band",        label: "Band on a Page",  icon: Globe,     to: "/band",               desc: "Your group page" },
+                    { feature: "courses",     label: "Course Manager",  icon: FileText,  to: "/creator/courses",    desc: "Sell your knowledge" },
+                    { feature: "artist_mgmt", label: "My Earnings",     icon: BarChart2, to: "/creator/earnings",   desc: "Track income" },
+                    { feature: "artist_mgmt", label: "Payouts",         icon: Settings,  to: "/creator/payouts",    desc: "Withdraw funds" },
+                    { feature: "sovereign",   label: "Admin Control",   icon: Shield,    to: "/admin",              desc: "Platform management" },
+                  ].map(({ feature, label, icon: Icon, to, desc }) => {
+                    const accessible = canAccess(user, null, feature);
+                    if (!accessible) return (
+                      <Link key={label} to="/plans" className="card-flat p-4 flex flex-col gap-1 opacity-40 hover:opacity-60 transition-opacity group">
+                        <div className="flex items-center gap-2">
+                          <Lock className="w-3.5 h-3.5 text-ink/30" />
+                          <span className="font-bold text-sm text-ink/40 truncate">{label}</span>
+                        </div>
+                        <div className="text-xs text-ink/25 truncate">{desc}</div>
+                        <div className="text-xs text-copper font-bold mt-1 opacity-0 group-hover:opacity-100 transition-opacity">Upgrade →</div>
+                      </Link>
+                    );
+                    return (
+                      <Link key={label} to={to} className="card-flat p-4 flex flex-col gap-1 hover:border-copper transition-colors group">
+                        <div className="flex items-center gap-2">
+                          <Icon className="w-3.5 h-3.5 text-copper shrink-0" />
+                          <span className="font-bold text-sm truncate">{label}</span>
+                        </div>
+                        <div className="text-xs text-ink/50 truncate">{desc}</div>
+                        <div className="text-xs text-copper font-bold mt-1 opacity-0 group-hover:opacity-100 transition-opacity">Open →</div>
+                      </Link>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Profile setup prompt */}
+              <div className="card-flat p-6 border-copper/30 border-dashed">
+                <div className="font-heading font-bold mb-1">Set Up Your Public Profile</div>
+                <p className="text-sm text-ink/50 mb-4">Claim your URL at <span className="text-copper font-bold">/u/your-name</span> and make your tools, offerings, and products visible to the community.</p>
+                <button onClick={() => setActiveTab("settings")} className="btn-copper text-sm">
+                  Create Profile →
+                </button>
+              </div>
+
+              {/* Settings tab inline when no profile */}
+              {activeTab === "settings" && (
+                <SettingsTab profile={null} onSaved={reloadProfile} />
+              )}
+            </div>
+
+            <div className="space-y-5">
+              <AIAssistantPanel user={user} status={null} />
+              {!isAdmin && (
+                <div className="rounded-2xl p-4 space-y-3"
+                  style={{ background: "linear-gradient(135deg,#1B4332,#2D6A4F)", border: "1.5px solid #E8A51E" }}>
+                  <div className="flex items-center gap-2">
+                    <Zap className="w-4 h-4 text-signal" />
+                    <span className="font-heading font-bold text-white text-sm">Unlock Premium</span>
+                  </div>
+                  <p className="text-xs text-white/70 leading-relaxed">AI social blasts, Ghost Producer, course publishing, and full creator tools.</p>
+                  <Link to="/plans" className="block text-center text-xs font-black py-2 px-4 rounded-xl" style={{ background: "#E8A51E", color: "#0a0a0a" }}>
+                    See Plans →
+                  </Link>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+    </AppShell>
+  );
+
+  // No profile and not logged in
   if (!profile) return (
     <AppShell>
       <div className="min-h-[60vh] flex flex-col items-center justify-center gap-4">
         <div className="font-heading text-2xl font-bold text-ink/40">Profile not found</div>
         <p className="text-sm text-ink/30">@{username} hasn't published their profile yet.</p>
-        {user && <Link to="/creator/profile/edit" className="btn-copper text-sm">Set up your profile</Link>}
+        <Link to="/register" className="btn-copper text-sm">Join WAI Institute</Link>
       </div>
     </AppShell>
   );
@@ -1023,8 +1122,8 @@ export default function UnifiedProfile() {
               {/* ══ HOME tab ══ */}
               {activeTab === "home" && (
                 <>
-                  {/* ── Feature launcher (owner view) ── */}
-                  {isOwner && (
+                  {/* ── Feature launcher: own profile, or admin visiting any profile ── */}
+                  {(isOwner || isAdmin) && (
                     <div>
                       <div className="flex items-center justify-between mb-3">
                         <span className="font-heading font-bold">Your Tools</span>
@@ -1303,8 +1402,8 @@ export default function UnifiedProfile() {
                 </div>
               )}
 
-              {/* ── Upgrade nudge for free-tier owners ── */}
-              {isOwner && (!user?.feature_tier || user.feature_tier === "free") && (
+              {/* ── Upgrade nudge for free-tier owners (never shown to admins) ── */}
+              {isOwner && !isAdmin && (!user?.feature_tier || user.feature_tier === "free") && (
                 <div className="rounded-2xl p-4 space-y-3"
                   style={{ background: "linear-gradient(135deg,#1B4332,#2D6A4F)", border: "1.5px solid #E8A51E" }}>
                   <div className="flex items-center gap-2">
