@@ -7885,6 +7885,59 @@ async def supervisor_public_chat(body: AssistantChatReq):
         return {"reply": "I'm here — having a brief connectivity issue. Try again in a moment, or reach us at support@morehelp.center."}
 
 
+# ── Social Blast ──────────────────────────────────────────────────────────────
+class _SocialBlastReq(BaseModel):
+    content: str = Field(..., min_length=1, max_length=5000)
+    link_url: str = ""
+    platforms: List[str] = ["twitter", "instagram", "facebook"]
+
+_SOCIAL_BLAST_SYSTEM = """You are a professional social media manager for WAI-Institute — a platform serving creators, educators, and community builders.
+
+Rewrite the user's post for each requested platform, following each platform's conventions strictly.
+Return ONLY a valid JSON object with platform IDs as keys and the adapted post text as values.
+
+Platform guidelines:
+- twitter: Short, punchy. Hook first. Under 280 chars. No hashtag spam.
+- instagram: Story-style caption. 3-5 relevant hashtags at end. Can be up to 2200 chars.
+- facebook: Conversational, longer OK. Include the link if provided. Up to 500 words.
+- tiktok: Hook in first 3 words. Energetic. Mention trending audio if relevant. Under 2200 chars.
+- threads: Conversational hot take. Under 500 chars.
+- linkedin: Professional insight. Value-first. Can be longer. No hashtag spam.
+
+Include the link_url naturally in platform text if provided. Return JSON only — no explanation, no markdown."""
+
+@api_router.post("/ai/social-blast")
+async def ai_social_blast(body: _SocialBlastReq, user: User = Depends(current_user)):
+    """Reformat a post for multiple social platforms using AI."""
+    check_rate(f"social_blast:{user.id}", max_calls=30, window_sec=60)
+    platform_labels = ", ".join(body.platforms)
+    user_msg = f"Post: {body.content}"
+    if body.link_url:
+        user_msg += f"\nLink: {body.link_url}"
+    user_msg += f"\nPlatforms needed: {platform_labels}\nReturn JSON only."
+    try:
+        from ai.llm_gateway import call_llm as _call_llm
+        gw = await _call_llm(
+            system=_SOCIAL_BLAST_SYSTEM,
+            messages=[{"role": "user", "content": user_msg}],
+            max_tokens=2000,
+            persona_label="social_blast",
+        )
+        if gw.get("provider") == "kb_fallback":
+            raise HTTPException(503, "AI service temporarily unavailable — no provider keys configured. Contact admin.")
+        raw = gw["text"]
+        import json as _json
+        match = __import__("re").search(r"\{[\s\S]*\}", raw)
+        if not match:
+            raise HTTPException(502, "AI returned invalid format — try again.")
+        return {"results": _json.loads(match.group()), "provider": gw.get("provider")}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.exception("social_blast error")
+        raise HTTPException(502, f"Social Blast AI error: {e}")
+
+
 CREATIVE_PARTNER_SYSTEM = """You are the WAI-Institute Creative Partner Orientation Guide.
 
 You are speaking with a Creative Partner — a trusted co-visionary who helped shape the Human SOUP concept

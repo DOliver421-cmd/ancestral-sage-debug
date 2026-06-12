@@ -127,29 +127,15 @@ export default function SocialPublish() {
     setLoading(true);
     setResults(null);
 
-    const platformList = PLATFORMS.filter(p => selected.includes(p.id));
-    const systemPrompt = `You are a professional social media manager.
-Rewrite the user's post for each platform specified, following each platform's conventions strictly.
-Return ONLY a valid JSON object — no markdown, no explanation — with platform IDs as keys and the adapted post text as values.
-Platform guidelines:
-${platformList.map(p => `- ${p.id}: ${p.hint} Max ${p.limit < 63206 ? p.limit + " chars" : "unlimited"}.`).join("\n")}`;
-
-    const userMessage = `Base post: ${content.trim()}${linkUrl ? `\nLink to include: ${linkUrl}` : ""}
-Platforms needed: ${selected.join(", ")}
-Return JSON only.`;
-
     try {
-      const res = await api.post("/ai/chat", {
-        messages: [{ role: "user", content: userMessage }],
-        system: systemPrompt,
-        persona_label: "social_publisher",
-        max_tokens: 1500,
+      const res = await api.post("/ai/social-blast", {
+        content: content.trim(),
+        link_url: linkUrl,
+        platforms: selected,
       });
 
-      const raw = res.data?.response || res.data?.text || "";
-      const match = raw.match(/\{[\s\S]*\}/);
-      if (!match) throw new Error("AI did not return valid JSON");
-      const parsed = JSON.parse(match[0]);
+      const parsed = res.data?.results;
+      if (!parsed || typeof parsed !== "object") throw new Error("Unexpected response from server");
       setResults(parsed);
       toast.success("Posts formatted for all platforms!");
     } catch (e) {
