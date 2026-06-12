@@ -546,6 +546,8 @@ class Module(BaseModel):
     hours: int
     quiz: List[QuizQ] = []
     free: Optional[bool] = False
+    video_url: Optional[str] = None
+    diagram_url: Optional[str] = None
 
 
 class ProgressEntry(BaseModel):
@@ -4021,7 +4023,7 @@ async def ai_tool_chat(body: ToolChatReq, user: User = Depends(current_user)):
         "model": gw.get("model", "unknown"),
         "provider": gw.get("provider", "anthropic"),
         "cost_usd": gw.get("cost_usd", 0.0),
-        "created_at": datetime.now(timezone.utc).isoformat(),
+        "created_at": datetime.now(timezone.utc),
     })
     return {"reply": reply, "session_id": body.session_id}
 
@@ -4570,7 +4572,7 @@ async def ai_director(body: dict, user: User = Depends(current_user)):
         "model": "free-gateway",
         "provider": "free-gateway",
         "cost_usd": 0.0,
-        "created_at": datetime.now(timezone.utc).isoformat(),
+        "created_at": datetime.now(timezone.utc),
     })
     return {"reply": reply, "persona": persona, "degraded": _degraded}
 
@@ -9213,6 +9215,7 @@ async def ai_ambassador(body: dict, user: User = Depends(current_user)):
 
     reply = ""
     _tools_called: list[str] = []
+    _gw: dict = {}
     try:
         from ai.llm_gateway import call_llm as _call_llm
         _gw = await _call_llm(system=system, messages=[{"role": "user", "content": message}], max_tokens=2048, persona_label="ambassador")
@@ -9223,8 +9226,8 @@ async def ai_ambassador(body: dict, user: User = Depends(current_user)):
     await log_episode(db, session_id, "ambassador", user.id, message, reply, _tools_called)
     await db.ai_usage_log.insert_one({
         "user_id": user.id, "endpoint": "/ai/ambassador", "persona": "ambassador",
-        "model": "claude-sonnet-4-6", "provider": "anthropic", "cost_usd": 0.0,
-        "created_at": datetime.now(timezone.utc).isoformat(),
+        "model": _gw.get("model", "unknown"), "provider": _gw.get("provider", "unknown"), "cost_usd": _gw.get("cost_usd", 0.0),
+        "created_at": datetime.now(timezone.utc),
     })
     logger.info("ai_ambassador: responded for user %s", user.id)
     return {"reply": reply, "persona": "ambassador", "mode": "campaign_coordination"}
@@ -9282,6 +9285,7 @@ async def ai_architect(body: dict, user: User = Depends(current_user)):
 
     reply = ""
     _tools_called: list[str] = []
+    _gw: dict = {}
     try:
         from ai.llm_gateway import call_llm as _call_llm
         _gw = await _call_llm(system=system, messages=[{"role": "user", "content": message}], max_tokens=2048, persona_label="architect")
@@ -9292,8 +9296,8 @@ async def ai_architect(body: dict, user: User = Depends(current_user)):
     await log_episode(db, session_id, "architect", user.id, message, reply, _tools_called)
     await db.ai_usage_log.insert_one({
         "user_id": user.id, "endpoint": "/ai/architect", "persona": "architect",
-        "model": "claude-sonnet-4-6", "provider": "anthropic", "cost_usd": 0.0,
-        "created_at": datetime.now(timezone.utc).isoformat(),
+        "model": _gw.get("model", "unknown"), "provider": _gw.get("provider", "unknown"), "cost_usd": _gw.get("cost_usd", 0.0),
+        "created_at": datetime.now(timezone.utc),
     })
     logger.info("ai_architect: responded for user %s", user.id)
     return {"reply": reply, "persona": "architect", "mode": "visual_intelligence"}
@@ -9345,6 +9349,7 @@ async def ai_griot(body: dict, user: User = Depends(current_user)):
     ) + memory_ctx
 
     reply = ""
+    _gw: dict = {}
     try:
         from ai.llm_gateway import call_llm as _call_llm
         _gw = await _call_llm(
@@ -9363,8 +9368,8 @@ async def ai_griot(body: dict, user: User = Depends(current_user)):
     await log_episode(db, session_id, "griot", user.id, message, reply, [])
     await db.ai_usage_log.insert_one({
         "user_id": user.id, "endpoint": "/ai/griot", "persona": "griot",
-        "model": "free_gateway", "provider": "gateway", "cost_usd": 0.0,
-        "created_at": datetime.now(timezone.utc).isoformat(),
+        "model": _gw.get("model", "unknown"), "provider": _gw.get("provider", "unknown"), "cost_usd": _gw.get("cost_usd", 0.0),
+        "created_at": datetime.now(timezone.utc),
     })
     logger.info("ai_griot: responded for user %s", user.id)
     return {"reply": reply, "persona": "griot", "mode": "music_production"}
@@ -9416,6 +9421,7 @@ async def ai_cipher(body: dict, user: User = Depends(current_user)):
 
     reply = ""
     _tools_called: list[str] = []
+    _gw: dict = {}
     try:
         from ai.llm_gateway import call_llm as _call_llm
         _gw = await _call_llm(system=system, messages=[{"role": "user", "content": message}], max_tokens=2048, persona_label="cipher")
@@ -9426,8 +9432,8 @@ async def ai_cipher(body: dict, user: User = Depends(current_user)):
     await log_episode(db, session_id, "cipher", user.id, message, reply, _tools_called)
     await db.ai_usage_log.insert_one({
         "user_id": user.id, "endpoint": "/ai/cipher", "persona": "cipher",
-        "model": "claude-sonnet-4-6", "provider": "anthropic", "cost_usd": 0.0,
-        "created_at": datetime.now(timezone.utc).isoformat(),
+        "model": _gw.get("model", "unknown"), "provider": _gw.get("provider", "unknown"), "cost_usd": _gw.get("cost_usd", 0.0),
+        "created_at": datetime.now(timezone.utc),
     })
     logger.info("ai_cipher: responded for user %s", user.id)
     return {"reply": reply, "persona": "cipher", "mode": "creative_authority"}
@@ -9478,6 +9484,7 @@ async def ai_oracle(body: dict, user: User = Depends(current_user)):
 
     reply = ""
     _tools_called: list[str] = []
+    _gw: dict = {}
     try:
         from ai.llm_gateway import call_llm as _call_llm
         _gw = await _call_llm(system=system, messages=[{"role": "user", "content": message}], max_tokens=2048, persona_label="oracle")
@@ -9488,8 +9495,8 @@ async def ai_oracle(body: dict, user: User = Depends(current_user)):
     await log_episode(db, session_id, "oracle", user.id, message, reply, _tools_called)
     await db.ai_usage_log.insert_one({
         "user_id": user.id, "endpoint": "/ai/oracle", "persona": "oracle",
-        "model": "claude-sonnet-4-6", "provider": "anthropic", "cost_usd": 0.0,
-        "created_at": datetime.now(timezone.utc).isoformat(),
+        "model": _gw.get("model", "unknown"), "provider": _gw.get("provider", "unknown"), "cost_usd": _gw.get("cost_usd", 0.0),
+        "created_at": datetime.now(timezone.utc),
     })
     logger.info("ai_oracle: responded for user %s", user.id)
     return {"reply": reply, "persona": "oracle", "mode": "cultural_intelligence"}

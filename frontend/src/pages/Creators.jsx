@@ -7,8 +7,8 @@ import { api } from "../lib/api";
 // Fallback list — only entries with real profile pages in the hardcoded registry.
 // Nova Highborn was removed: no DB profile and no hardcoded entry → caused 404s.
 const FALLBACK_CREATORS = [
-  { slug: "nam-oshun", displayName: "NAM Oshun", title: "Poet · Community Organizer", bio: "Founding voice of the M.O.R.E. Help Center. Words that heal. Community that holds.", avatar: "🌊" },
-  { slug: "royal-black-falcon", displayName: "Royal Black Falcon", title: "Poet · Cultural Warrior", bio: "A griot in the tradition that doesn't need to announce itself.", avatar: "🦅" },
+  { slug: "nam-oshun", display_name: "NAM Oshun", title: "Poet · Community Organizer", bio: "Founding voice of the M.O.R.E. Help Center. Words that heal. Community that holds.", avatar: "🌊" },
+  { slug: "royal-black-falcon", display_name: "Royal Black Falcon", title: "Poet · Cultural Warrior", bio: "A griot in the tradition that doesn't need to announce itself.", avatar: "🦅" },
 ];
 
 export default function Creators() {
@@ -55,7 +55,7 @@ export default function Creators() {
             {list.map((c) => (
               <Link key={c.slug} to={`/creator/${c.slug}`} className="card-flat p-6 block text-center hover:border-copper transition-colors">
                 <div style={{ fontSize: 48 }}>{c.avatar || "🎨"}</div>
-                <div className="font-heading font-bold text-ink text-lg mt-2">{c.display_name || c.displayName || c.name}</div>
+                <div className="font-heading font-bold text-ink text-lg mt-2">{c.display_name || c.name}</div>
                 <div className="overline text-copper mt-1">{c.title || c.role}</div>
                 <div className="text-sm text-ink/60 mt-2 line-clamp-3">{c.bio}</div>
                 <div className="text-sm font-bold text-copper mt-3">View Profile →</div>
