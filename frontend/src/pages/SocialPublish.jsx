@@ -1,11 +1,6 @@
 /**
- * Social Publisher
- *
- * Two modes:
- *  1. AI Format — write once, AI adapts for each platform's style/limits,
- *     one-click copy + native share deep-link (zero API keys required)
- *  2. Direct Post — uses per-user OAuth tokens stored in their own profile
- *     (not Railway env vars). Users connect accounts in Settings → Social.
+ * Social Blast — write once, AI adapts for every platform.
+ * Dark atmospheric design matching Creator's Sanctuary aesthetic.
  */
 
 import { useState } from "react";
@@ -14,74 +9,30 @@ import { api } from "../lib/api";
 import { toast } from "sonner";
 import AppShell from "../components/AppShell";
 import CreatorContextBar from "../components/CreatorContextBar";
-import { Copy, ExternalLink, Sparkles, Loader, CheckCircle, Settings } from "lucide-react";
+import { Copy, ExternalLink, Sparkles, Loader, CheckCircle, Settings, Zap } from "lucide-react";
 import { Link } from "react-router-dom";
 
+/* ── design tokens ── */
+const T = {
+  bg:      "#08060f",
+  card:    "#100e1a",
+  border:  "rgba(74,222,128,0.2)",
+  green:   "#4ade80",
+  greenDim:"#22c55e",
+  gold:    "#d4af37",
+  purple:  "#a855f7",
+  text:    "#e0d8f0",
+  muted:   "#6b6480",
+  input:   "#060410",
+};
+
 const PLATFORMS = [
-  {
-    id: "twitter",
-    label: "Twitter / X",
-    limit: 280,
-    color: "#000",
-    bg: "#f7f7f7",
-    emoji: "🐦",
-    hint: "Short, punchy. Under 280 chars. Hook first.",
-    shareUrl: (text) => `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}`,
-  },
-  {
-    id: "instagram",
-    label: "Instagram",
-    limit: 2200,
-    color: "#c13584",
-    bg: "#fdf0f7",
-    emoji: "📸",
-    hint: "Story-style caption. End with hashtags.",
-    shareUrl: null, // Instagram has no web share URL — show copy only
-  },
-  {
-    id: "facebook",
-    label: "Facebook",
-    limit: 63206,
-    color: "#1877f2",
-    bg: "#f0f4ff",
-    emoji: "👥",
-    hint: "Conversational, longer OK. Include a link or image.",
-    shareUrl: (text, link) => link
-      ? `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(link)}&quote=${encodeURIComponent(text)}`
-      : `https://www.facebook.com/sharer/sharer.php?quote=${encodeURIComponent(text)}`,
-  },
-  {
-    id: "tiktok",
-    label: "TikTok",
-    limit: 2200,
-    color: "#ff0050",
-    bg: "#fff0f3",
-    emoji: "🎵",
-    hint: "Hook in first 3 words. Energetic. Trending audio mention.",
-    shareUrl: null,
-  },
-  {
-    id: "threads",
-    label: "Threads",
-    limit: 500,
-    color: "#000",
-    bg: "#f5f5f5",
-    emoji: "🧵",
-    hint: "Conversational. Under 500 chars. Opinion or hot take.",
-    shareUrl: (text) => `https://www.threads.net/intent/post?text=${encodeURIComponent(text)}`,
-  },
-  {
-    id: "linkedin",
-    label: "LinkedIn",
-    limit: 3000,
-    color: "#0077b5",
-    bg: "#f0f7ff",
-    emoji: "💼",
-    hint: "Professional insight. Value-first. Can be longer.",
-    shareUrl: (text, link) => link
-      ? `https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(link)}&summary=${encodeURIComponent(text)}`
-      : `https://www.linkedin.com/feed/?shareActive=true&text=${encodeURIComponent(text)}`,
-  },
+  { id: "twitter",   label: "𝕏 Twitter",  limit: 280,   color: "#e2e8f0", neon: "#94a3b8", emoji: "𝕏", hint: "Short, punchy. Hook first. Under 280 chars.", shareUrl: (t) => `https://twitter.com/intent/tweet?text=${encodeURIComponent(t)}` },
+  { id: "instagram", label: "Instagram",  limit: 2200,  color: "#f0abfc", neon: "#c084fc", emoji: "📸", hint: "Story-style. End with hashtags.", shareUrl: null },
+  { id: "facebook",  label: "Facebook",   limit: 63206, color: "#93c5fd", neon: "#60a5fa", emoji: "👥", hint: "Conversational, longer OK. Include a link.", shareUrl: (t, l) => l ? `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(l)}&quote=${encodeURIComponent(t)}` : `https://www.facebook.com/sharer/sharer.php?quote=${encodeURIComponent(t)}` },
+  { id: "tiktok",    label: "TikTok",     limit: 2200,  color: "#fca5a5", neon: "#f87171", emoji: "🎵", hint: "Hook in first 3 words. Energetic. Trending.", shareUrl: null },
+  { id: "threads",   label: "Threads",    limit: 500,   color: "#d1d5db", neon: "#9ca3af", emoji: "🧵", hint: "Conversational. Under 500 chars. Hot take.", shareUrl: (t) => `https://www.threads.net/intent/post?text=${encodeURIComponent(t)}` },
+  { id: "linkedin",  label: "LinkedIn",   limit: 3000,  color: "#7dd3fc", neon: "#38bdf8", emoji: "💼", hint: "Professional insight. Value-first. Can go long.", shareUrl: (t, l) => l ? `https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(l)}&summary=${encodeURIComponent(t)}` : `https://www.linkedin.com/feed/?shareActive=true&text=${encodeURIComponent(t)}` },
 ];
 
 function PlatformCard({ platform, result, linkUrl, copied, onCopy }) {
@@ -90,82 +41,66 @@ function PlatformCard({ platform, result, linkUrl, copied, onCopy }) {
 
   return (
     <div style={{
-      border: `1.5px solid ${platform.color}25`,
+      background: T.card,
+      border: `1px solid ${platform.neon}30`,
       borderRadius: 14,
       overflow: "hidden",
-      background: "#fff",
+      boxShadow: `0 0 16px ${platform.neon}08`,
     }}>
-      {/* Header */}
       <div style={{
-        background: platform.bg,
         padding: "10px 16px",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "space-between",
-        borderBottom: `1px solid ${platform.color}15`,
+        display: "flex", alignItems: "center", justifyContent: "space-between",
+        borderBottom: `1px solid ${platform.neon}20`,
+        background: `linear-gradient(135deg, ${platform.neon}08, transparent)`,
       }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          <span style={{ fontSize: 18 }}>{platform.emoji}</span>
-          <span style={{ fontWeight: 700, fontSize: 13, color: platform.color }}>{platform.label}</span>
+          <span style={{ fontSize: 16 }}>{platform.emoji}</span>
+          <span style={{ fontWeight: 700, fontSize: 12, color: platform.neon, fontFamily: "monospace", letterSpacing: "0.05em" }}>{platform.label}</span>
         </div>
-        <span style={{
-          fontSize: 11, fontWeight: 700,
-          color: overLimit ? "#ef4444" : "#9ca3af",
-        }}>
+        <span style={{ fontSize: 10, fontWeight: 700, color: overLimit ? "#f87171" : T.muted, fontFamily: "monospace" }}>
           {result.length}{platform.limit < 63206 ? `/${platform.limit}` : ""}
         </span>
       </div>
 
-      {/* Content */}
       <div style={{ padding: "14px 16px" }}>
         <pre style={{
           whiteSpace: "pre-wrap", wordBreak: "break-word",
-          fontSize: "0.88rem", lineHeight: 1.7, color: "#1a1a1a",
+          fontSize: "0.82rem", lineHeight: 1.7, color: T.text,
           margin: 0, fontFamily: "inherit", minHeight: 60,
-          maxHeight: 180, overflowY: "auto",
+          maxHeight: 160, overflowY: "auto",
         }}>
           {result}
         </pre>
         {overLimit && (
-          <p style={{ color: "#ef4444", fontSize: 11, marginTop: 8, fontWeight: 600 }}>
-            Over {platform.label} character limit — trim before posting.
+          <p style={{ color: "#f87171", fontSize: 11, marginTop: 8, fontWeight: 600 }}>
+            Over {platform.label} limit — trim before posting.
           </p>
         )}
       </div>
 
-      {/* Actions */}
-      <div style={{
-        padding: "10px 16px",
-        borderTop: `1px solid ${platform.color}10`,
-        display: "flex",
-        gap: 8,
-      }}>
+      <div style={{ padding: "10px 16px", borderTop: `1px solid ${platform.neon}15`, display: "flex", gap: 8 }}>
         <button
           onClick={() => onCopy(platform.id, result)}
           style={{
             flex: 1, display: "flex", alignItems: "center", justifyContent: "center",
-            gap: 6, padding: "8px", border: `1px solid ${platform.color}30`,
-            borderRadius: 8, background: "transparent", color: platform.color,
-            fontSize: 12, fontWeight: 600, cursor: "pointer",
+            gap: 6, padding: "8px", border: `1px solid ${platform.neon}40`,
+            borderRadius: 8, background: "transparent", color: platform.neon,
+            fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "monospace",
           }}
         >
-          {copied === platform.id
-            ? <><CheckCircle size={13} /> Copied!</>
-            : <><Copy size={13} /> Copy</>}
+          {copied === platform.id ? <><CheckCircle size={12} /> Copied!</> : <><Copy size={12} /> Copy</>}
         </button>
         {shareUrl && (
-          <a
-            href={shareUrl}
-            target="_blank"
-            rel="noopener noreferrer"
+          <a href={shareUrl} target="_blank" rel="noopener noreferrer"
             style={{
               flex: 1, display: "flex", alignItems: "center", justifyContent: "center",
-              gap: 6, padding: "8px", background: platform.color,
-              color: "#fff", borderRadius: 8, fontSize: 12, fontWeight: 600,
-              textDecoration: "none",
+              gap: 6, padding: "8px", background: `${platform.neon}20`,
+              border: `1px solid ${platform.neon}50`,
+              color: platform.neon, borderRadius: 8, fontSize: 12, fontWeight: 600,
+              textDecoration: "none", fontFamily: "monospace",
             }}
           >
-            <ExternalLink size={13} /> Open {platform.label}
+            <ExternalLink size={12} /> Open
           </a>
         )}
       </div>
@@ -175,12 +110,12 @@ function PlatformCard({ platform, result, linkUrl, copied, onCopy }) {
 
 export default function SocialPublish() {
   const { user } = useAuth();
-  const [content, setContent]       = useState("");
-  const [linkUrl, setLinkUrl]       = useState("");
-  const [selected, setSelected]     = useState(["twitter", "instagram", "facebook"]);
-  const [results, setResults]       = useState(null);
-  const [loading, setLoading]       = useState(false);
-  const [copied, setCopied]         = useState(null);
+  const [content, setContent]   = useState("");
+  const [linkUrl, setLinkUrl]   = useState("");
+  const [selected, setSelected] = useState(["twitter", "instagram", "facebook"]);
+  const [results, setResults]   = useState(null);
+  const [loading, setLoading]   = useState(false);
+  const [copied, setCopied]     = useState(null);
 
   function togglePlatform(id) {
     setSelected(prev => prev.includes(id) ? prev.filter(p => p !== id) : [...prev, id]);
@@ -212,14 +147,13 @@ Return JSON only.`;
       });
 
       const raw = res.data?.response || res.data?.text || "";
-      // Extract JSON from response
       const match = raw.match(/\{[\s\S]*\}/);
       if (!match) throw new Error("AI did not return valid JSON");
       const parsed = JSON.parse(match[0]);
       setResults(parsed);
       toast.success("Posts formatted for all platforms!");
     } catch (e) {
-      toast.error("Format failed: " + (e?.message || "Try again"));
+      toast.error("Format failed — " + (e?.message || "try again"));
     } finally {
       setLoading(false);
     }
@@ -235,135 +169,148 @@ Return JSON only.`;
   return (
     <AppShell>
       <CreatorContextBar current="blast" />
-      <div style={{ maxWidth: 820, margin: "0 auto", padding: "40px 24px 80px" }}>
+      <div style={{ background: T.bg, minHeight: "100vh", color: T.text }}>
+        <div style={{ maxWidth: 860, margin: "0 auto", padding: "40px 24px 80px" }}>
 
-        {/* Header */}
-        <div style={{ marginBottom: 32 }}>
-          <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.15em", color: "#b5651d", marginBottom: 6 }}>
-            Creator Feature · Available to all members
+          {/* Hero header */}
+          <div style={{ marginBottom: 36, position: "relative" }}>
+            <div style={{ fontSize: "0.65rem", fontFamily: "monospace", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.15em", color: T.greenDim, marginBottom: 8 }}>
+              ◈ CREATOR FEATURE · ALL TIERS
+            </div>
+            <h1 style={{ fontFamily: "monospace", fontSize: "clamp(1.6rem,4vw,2.8rem)", fontWeight: 900, color: T.green, textShadow: `0 0 30px rgba(74,222,128,0.4)`, margin: 0, lineHeight: 1.1, marginBottom: 8 }}>
+              SOCIAL BLAST
+            </h1>
+            <p style={{ color: T.muted, fontSize: 14, margin: 0, maxWidth: 560, lineHeight: 1.6 }}>
+              Write once — AI adapts your post for every platform. Copy the text or click to open each platform directly. One voice, everywhere you need to be.
+            </p>
           </div>
-          <h1 style={{ fontSize: "1.9rem", fontWeight: 900, color: "#1a1a1a", margin: 0, marginBottom: 8 }}>Social Blast</h1>
-          <p style={{ color: "#6b7280", fontSize: 14, margin: 0 }}>
-            Write your post once — AI reformats it for Twitter/X, Instagram, Facebook, TikTok, Threads, and LinkedIn automatically.
-            No extra accounts needed. Copy the text or click to open each platform directly.
-          </p>
-        </div>
 
-        {/* Platform selector */}
-        <div style={{ marginBottom: 24 }}>
-          <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.12em", color: "#6b7280", marginBottom: 10 }}>
-            Select Platforms
+          {/* Platform selector */}
+          <div style={{ marginBottom: 28, padding: "20px 22px", background: T.card, border: `1px solid ${T.border}`, borderRadius: 14 }}>
+            <div style={{ fontSize: "0.65rem", fontFamily: "monospace", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.12em", color: T.gold, marginBottom: 14 }}>
+              SELECT PLATFORMS
+            </div>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+              {PLATFORMS.map(p => {
+                const on = selected.includes(p.id);
+                return (
+                  <button key={p.id}
+                    onClick={() => togglePlatform(p.id)}
+                    style={{
+                      padding: "7px 16px", borderRadius: 99, fontSize: 12, fontWeight: 700, cursor: "pointer",
+                      border: `1.5px solid ${on ? p.neon : "rgba(255,255,255,0.1)"}`,
+                      background: on ? `${p.neon}15` : "transparent",
+                      color: on ? p.neon : T.muted,
+                      fontFamily: "monospace", letterSpacing: "0.04em",
+                      transition: "all 0.15s",
+                      boxShadow: on ? `0 0 10px ${p.neon}20` : "none",
+                    }}
+                  >
+                    {p.emoji} {p.label}
+                  </button>
+                );
+              })}
+            </div>
           </div>
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-            {PLATFORMS.map(p => (
-              <button key={p.id}
-                onClick={() => togglePlatform(p.id)}
+
+          {/* Compose area */}
+          <div style={{ padding: "22px", background: T.card, border: `1px solid ${T.border}`, borderRadius: 14, marginBottom: 20 }}>
+            <div style={{ fontSize: "0.65rem", fontFamily: "monospace", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.12em", color: T.gold, marginBottom: 10 }}>
+              YOUR POST
+            </div>
+            <textarea
+              value={content}
+              onChange={e => setContent(e.target.value)}
+              placeholder="Write your message here — the AI will adapt the tone, format, and length for each platform…"
+              rows={5}
+              style={{
+                width: "100%", padding: "14px 16px",
+                background: T.input, border: `1px solid rgba(74,222,128,0.2)`,
+                borderRadius: 10, fontSize: 14, lineHeight: 1.7,
+                color: T.text, resize: "vertical", outline: "none",
+                boxSizing: "border-box", fontFamily: "inherit",
+                transition: "border-color 0.15s",
+              }}
+              onFocus={e => e.target.style.borderColor = T.green}
+              onBlur={e => e.target.style.borderColor = "rgba(74,222,128,0.2)"}
+            />
+            <div style={{ marginTop: 14 }}>
+              <div style={{ fontSize: "0.65rem", fontFamily: "monospace", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.12em", color: T.muted, marginBottom: 8 }}>
+                LINK (OPTIONAL)
+              </div>
+              <input
+                value={linkUrl}
+                onChange={e => setLinkUrl(e.target.value)}
+                placeholder="https://your-link.com"
                 style={{
-                  padding: "8px 16px", borderRadius: 99, fontSize: 13, fontWeight: 600, cursor: "pointer",
-                  border: `1.5px solid ${selected.includes(p.id) ? p.color : "#e5e7eb"}`,
-                  background: selected.includes(p.id) ? p.bg : "#fff",
-                  color: selected.includes(p.id) ? p.color : "#6b7280",
-                  transition: "all 0.15s",
+                  width: "100%", padding: "10px 14px",
+                  background: T.input, border: `1px solid rgba(74,222,128,0.15)`,
+                  borderRadius: 8, fontSize: 13, color: T.text,
+                  outline: "none", boxSizing: "border-box", fontFamily: "inherit",
                 }}
-              >
-                {p.emoji} {p.label}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Content input */}
-        <div style={{ marginBottom: 16 }}>
-          <label style={{ display: "block", fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.12em", color: "#6b7280", marginBottom: 8 }}>
-            Your Post
-          </label>
-          <textarea
-            value={content}
-            onChange={e => setContent(e.target.value)}
-            placeholder="Write your base post here — the AI will adapt it for each platform…"
-            rows={5}
-            style={{
-              width: "100%", padding: "14px 16px", border: "1.5px solid #e5e7eb",
-              borderRadius: 12, fontSize: 14, lineHeight: 1.7, resize: "vertical",
-              outline: "none", boxSizing: "border-box", fontFamily: "inherit",
-              transition: "border-color 0.15s",
-            }}
-            onFocus={e => e.target.style.borderColor = "#b5651d"}
-            onBlur={e => e.target.style.borderColor = "#e5e7eb"}
-          />
-        </div>
-
-        {/* Link */}
-        <div style={{ marginBottom: 24 }}>
-          <label style={{ display: "block", fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.12em", color: "#6b7280", marginBottom: 8 }}>
-            Link to include (optional)
-          </label>
-          <input
-            value={linkUrl}
-            onChange={e => setLinkUrl(e.target.value)}
-            placeholder="https://…"
-            style={{
-              width: "100%", padding: "10px 14px", border: "1.5px solid #e5e7eb",
-              borderRadius: 10, fontSize: 13, outline: "none", boxSizing: "border-box", fontFamily: "inherit",
-            }}
-          />
-        </div>
-
-        {/* Generate button */}
-        <button
-          onClick={generate}
-          disabled={loading || !content.trim() || selected.length === 0}
-          style={{
-            width: "100%", padding: "14px", background: loading ? "#9ca3af" : "#1a1a1a",
-            color: "#fff", border: "none", borderRadius: 12, fontSize: 15, fontWeight: 700,
-            cursor: loading ? "default" : "pointer", display: "flex", alignItems: "center",
-            justifyContent: "center", gap: 8, marginBottom: 32, transition: "background 0.2s",
-          }}
-        >
-          {loading
-            ? <><Loader size={16} style={{ animation: "spin 1s linear infinite" }} /> Formatting for {selected.length} platforms…</>
-            : <><Sparkles size={16} /> Format for {selected.length} Platform{selected.length !== 1 ? "s" : ""}</>}
-        </button>
-
-        {/* Results */}
-        {results && (
-          <div>
-            <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.12em", color: "#6b7280", marginBottom: 16 }}>
-              ✦ Formatted Posts — copy or click to open platform
-            </div>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(340px, 1fr))", gap: 16 }}>
-              {PLATFORMS.filter(p => selected.includes(p.id) && results[p.id]).map(p => (
-                <PlatformCard
-                  key={p.id}
-                  platform={p}
-                  result={results[p.id]}
-                  linkUrl={linkUrl}
-                  copied={copied}
-                  onCopy={copyText}
-                />
-              ))}
+              />
             </div>
           </div>
-        )}
 
-        {/* Footer note */}
-        <div style={{
-          marginTop: 40, padding: "16px 20px",
-          background: "#f9fafb", border: "1px solid #e5e7eb",
-          borderRadius: 12, fontSize: 13, color: "#6b7280",
-          display: "flex", alignItems: "flex-start", gap: 10,
-        }}>
-          <Settings size={15} style={{ marginTop: 2, flexShrink: 0 }} />
-          <div>
-            Want to post directly without copying?{" "}
-            <Link to="/settings" style={{ color: "#b5651d", fontWeight: 600 }}>
-              Connect your own social accounts in Settings
-            </Link>
-            {" "}— your tokens are stored privately in your profile, not shared platform-wide.
+          {/* Blast button */}
+          <button
+            onClick={generate}
+            disabled={loading || !content.trim() || selected.length === 0}
+            style={{
+              width: "100%", padding: "16px",
+              background: loading ? "rgba(74,222,128,0.15)" : "linear-gradient(135deg, #16a34a, #15803d)",
+              color: T.green, border: `1.5px solid ${T.green}`,
+              borderRadius: 12, fontSize: 15, fontWeight: 900,
+              cursor: loading ? "default" : "pointer",
+              display: "flex", alignItems: "center", justifyContent: "center", gap: 10,
+              marginBottom: 32, fontFamily: "monospace", letterSpacing: "0.08em",
+              boxShadow: loading ? "none" : `0 0 24px rgba(74,222,128,0.25)`,
+              opacity: (!content.trim() || selected.length === 0) ? 0.5 : 1,
+              transition: "all 0.2s",
+            }}
+          >
+            {loading
+              ? <><Loader size={16} style={{ animation: "spin 1s linear infinite" }} /> FORMATTING FOR {selected.length} PLATFORMS…</>
+              : <><Zap size={16} /> BLAST TO {selected.length} PLATFORM{selected.length !== 1 ? "S" : ""}</>}
+          </button>
+
+          {/* Results */}
+          {results && (
+            <div>
+              <div style={{ fontSize: "0.65rem", fontFamily: "monospace", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.12em", color: T.gold, marginBottom: 16 }}>
+                ✦ FORMATTED POSTS — COPY OR CLICK TO OPEN
+              </div>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(340px, 1fr))", gap: 14 }}>
+                {PLATFORMS.filter(p => selected.includes(p.id) && results[p.id]).map(p => (
+                  <PlatformCard
+                    key={p.id}
+                    platform={p}
+                    result={results[p.id]}
+                    linkUrl={linkUrl}
+                    copied={copied}
+                    onCopy={copyText}
+                  />
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Footer note */}
+          <div style={{
+            marginTop: 40, padding: "16px 20px",
+            background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)",
+            borderRadius: 12, fontSize: 13, color: T.muted,
+            display: "flex", alignItems: "flex-start", gap: 10,
+          }}>
+            <Settings size={14} style={{ marginTop: 2, flexShrink: 0, color: T.greenDim }} />
+            <div>
+              Want to post directly without copying?{" "}
+              <Link to="/settings" style={{ color: T.green, fontWeight: 600 }}>Connect your accounts in Settings → Social</Link>
+              {" "}to enable one-click direct posting.
+            </div>
           </div>
-        </div>
 
-        <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
+        </div>
       </div>
     </AppShell>
   );
