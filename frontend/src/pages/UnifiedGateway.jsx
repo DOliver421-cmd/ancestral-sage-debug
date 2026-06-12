@@ -1,214 +1,270 @@
-/**
- * M.O.R.E. Help Center — Unified Gateway
- * Dark theme, four-district layout, role-adaptive CTAs.
- */
-
 import { Link } from "react-router-dom";
 import { useAuth } from "../lib/auth";
-
-const ROLE_RANK = { student: 1, creative_partner: 1, instructor: 2, admin: 3, executive_admin: 4 };
-function rank(user) { return ROLE_RANK[user?.role] ?? 0; }
-
-// ── Districts ──────────────────────────────────────────────────────────────────
-const DISTRICTS = [
-  {
-    id: "learn", title: "Learn", color: "#3b82f6", btnClass: "btn-learn",
-    subtitle: "Courses, modules, labs, and adaptive learning for students and professionals.",
-    cta: "Enter Learning Hub", ctaHref: "/modules",
-    links: ["AI Tutor → /ai", "Modules & Labs → /labs", "Adaptive Path → /adaptive", "Credentials & Certificates → /credentials", "Lab Simulations → /lab-simulations", "Compliance → /compliance"],
-  },
-  {
-    id: "create", title: "Create", color: "#a855f7", btnClass: "btn-create",
-    subtitle: "Tools for creators — courses, music, content, and production workflows.",
-    cta: "Enter Creator Hub", ctaHref: "/studio",
-    links: ["Creator Studio → /studio", "Courses You Teach → /creator/courses", "Ghost Producer → /ghost-producer", "Band on a Page → /band", "Creator Lounge → /creator-lounge", "Playlist Manager → /playlist/dashboard"],
-  },
-  {
-    id: "community", title: "Community", color: "#22c55e", btnClass: "btn-community",
-    subtitle: "Connect with others, join councils, and explore public profiles.",
-    cta: "Enter Community", ctaHref: "/palace",
-    links: ["Members' Palace → /palace", "Elder Council → /elder-council", "Creators Directory → /creators", "Personas → /personas", "XP Leaderboard → /leaderboard", "Internships → /internships"],
-  },
-  {
-    id: "more", title: "M.O.R.E. System", color: "#eab308", btnClass: "btn-more",
-    subtitle: "Advanced tools, AI partners, legal support, and partnership dashboards.",
-    cta: "Enter M.O.R.E. Hub", ctaHref: "/app/more",
-    links: ["M.O.R.E. Hub → /app/more", "Community Chat → /more/chat", "Personal Helper → /app/helper", "Legal Tools → /more/litigation", "Partnership Dashboard → /partnership", "Report Incident → /incidents"],
-  },
-];
-
-// ── Features ───────────────────────────────────────────────────────────────────
-const FEATURES = [
-  { title: "AI Tutor",               desc: "Personalized AI-powered tutoring that adapts to your pace.",                   status: "included",  href: "/ai" },
-  { title: "Creator Sanctuary",      desc: "A dedicated space for creators to build and manage content.",                   status: "included",  href: "/studio" },
-  { title: "Ghost Producer",         desc: "AI-assisted music and content production tool.",                                status: "alacarte",  href: "/ghost-producer" },
-  { title: "Lab Simulations",        desc: "Hands-on virtual labs for technical and scientific learning.",                  status: "included",  href: "/lab-simulations" },
-  { title: "Advanced M.O.R.E. Tools",desc: "Deep system access for power users and administrators.",                        status: "tier2",     href: "/app/more" },
-  { title: "Revenue Dashboard",      desc: "Track earnings, payouts, and financial performance.",                           status: "admin",     href: "/creator/earnings" },
-  { title: "Virtual Arcade",         desc: "Mission-aligned games — learn through play and earn XP.",                      status: "included",  href: "/arcade" },
-  { title: "Adaptive Learning Path", desc: "Personalized curriculum that evolves with your progress.",                     status: "tier1",     href: "/adaptive" },
-  { title: "Legal Tools",            desc: "Governance guidance and community-safe compliance procedures.",                 status: "tier2",     href: "/more/litigation" },
-  { title: "Credentials & Badges",   desc: "Verified professional credentials and achievement badges.",                    status: "included",  href: "/credentials" },
-  { title: "Sovereign Command",      desc: "Executive system control — full platform visibility.",                          status: "admin",     href: "/admin/system" },
-  { title: "Partnership Network",    desc: "Business partnership dashboard and discount management.",                       status: "tier2",     href: "/partnership" },
-];
-
-const STATUS_META = {
-  included: { label: "Included",       cls: "status-included" },
-  tier1:    { label: "Requires Tier 1", cls: "status-tier2" },
-  tier2:    { label: "Requires Tier 2", cls: "status-tier2" },
-  alacarte: { label: "À La Carte",     cls: "status-alacarte" },
-  admin:    { label: "Admin / Exec",   cls: "status-admin" },
-};
-
-const PUBLIC_LINKS = [
-  ["Browse Courses",      "/courses"],
-  ["Meet Creators",       "/creators"],
-  ["Explore Personas",    "/personas"],
-  ["Plans & Pricing",     "/plans"],
-  ["Donate",              "/donate"],
-  ["Trash Pantheon",      "/trash"],
-  ["Internships",         "/internships"],
-  ["WAI Institute",       "/wai-institute"],
-];
-
-// ── Parse "Label → /path" helper ──────────────────────────────────────────────
-function parseLink(s) {
-  const [label, path] = s.split(" → ");
-  return { label, path };
-}
+import { BRAND, WAI_LOGO } from "../lib/brand";
+import PublicNav from "../components/PublicNav";
 
 export default function UnifiedGateway() {
   const { user } = useAuth();
-  const r = rank(user);
-  const isAdmin  = r >= 3;
-  const isExec   = r >= 4;
-  const loggedIn = !!user;
 
   return (
-    <div style={S.page}>
-      <style>{CSS}</style>
+    <div className="min-h-screen bg-bone font-body">
+      <PublicNav />
 
-      {/* ── HERO ────────────────────────────────────────────────────────── */}
-      <header style={S.hero}>
-        <div style={S.container}>
-          <p style={S.heroEyebrow}>WAI INSTITUTE · M.O.R.E. HELP CENTER</p>
-          <h1 style={S.heroH1}>Welcome to the M.O.R.E. Help Center</h1>
-          <p style={S.heroSub}>Your gateway to learning, creating, community, and system tools.</p>
-          <div className="hero-buttons">
-            <Link className="btn btn-learn" to="/modules">Start Learning</Link>
-            <Link className="btn btn-create" to="/creators">Explore Creators</Link>
-            <Link className="btn btn-community" to="/palace">Visit Community</Link>
-            {!loggedIn && <Link className="btn btn-ghost" to="/login">Log In / Continue</Link>}
-            {loggedIn && !isAdmin && <Link className="btn btn-ghost" to="/dashboard">Go to Dashboard</Link>}
-            {isAdmin  && <Link className="btn btn-more" to="/admin">Enter Admin System</Link>}
-            {isExec   && <Link className="btn btn-more" to="/admin/system">Sovereign Command</Link>}
+      {/* ── HERO ─────────────────────────────────────────────────────────── */}
+      <section className="relative overflow-hidden"
+        style={{ background: "linear-gradient(160deg, #0a0a0f 0%, #1a0a00 50%, #0d1a0a 100%)", minHeight: "90vh" }}>
+
+        {/* Grain texture overlay */}
+        <div className="absolute inset-0 opacity-20"
+          style={{ backgroundImage: "url(\"data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.4'/%3E%3C/svg%3E\")" }} />
+
+        {/* Accent glow */}
+        <div className="absolute top-0 left-1/3 w-96 h-96 rounded-full opacity-10 blur-3xl"
+          style={{ background: "#E8A51E" }} />
+        <div className="absolute bottom-0 right-1/4 w-80 h-80 rounded-full opacity-8 blur-3xl"
+          style={{ background: "#2D6A4F" }} />
+
+        <div className="relative max-w-6xl mx-auto px-6 pt-24 pb-20 flex flex-col items-start">
+
+          <div className="inline-flex items-center gap-2 mb-6 px-3 py-1.5 rounded-full border"
+            style={{ borderColor: "rgba(232,165,30,0.3)", background: "rgba(232,165,30,0.08)" }}>
+            <span className="w-1.5 h-1.5 rounded-full bg-signal animate-pulse" />
+            <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.2em", textTransform: "uppercase", color: "#E8A51E" }}>
+              W.A.I. Institute
+            </span>
           </div>
-        </div>
-      </header>
 
-      <main>
-        {/* ── FOUR DISTRICTS ──────────────────────────────────────────── */}
-        <section style={S.section}>
-          <div style={S.container}>
-            <h2 className="section-title">Explore the Four Districts</h2>
-            <p className="section-subtitle">
-              M.O.R.E. is built around four core districts. Each one serves a distinct purpose
-              in the ecosystem — learning, creating, community, and system operations.
-            </p>
-            <div className="districts-grid">
-              {DISTRICTS.map((d) => (
-                <div key={d.id} className={`district-card card-${d.id}`} style={{ "--accent": d.color }}>
-                  <h3 style={{ color: d.color }}>{d.title}</h3>
-                  <p>{d.subtitle}</p>
-                  <ul>
-                    {d.links.map((l) => {
-                      const { label, path } = parseLink(l);
-                      return <li key={path}><Link to={path}>{label}</Link></li>;
-                    })}
-                  </ul>
-                  <Link className={`btn ${d.btnClass}`} to={d.ctaHref}>{d.cta}</Link>
-                </div>
-              ))}
-            </div>
+          <h1 style={{
+            fontFamily: "'Cabinet Grotesk', 'Plus Jakarta Sans', sans-serif",
+            fontSize: "clamp(2.8rem, 7vw, 5.5rem)",
+            fontWeight: 900, lineHeight: 1.05,
+            color: "#fff", marginBottom: "1.5rem", maxWidth: 800,
+          }}>
+            Creator economy.<br />
+            <span style={{ color: "#E8A51E" }}>Cultural expression.</span><br />
+            Economic dignity.
+          </h1>
+
+          <p style={{ fontSize: "clamp(1rem, 2.2vw, 1.25rem)", color: "rgba(255,255,255,0.6)", maxWidth: 560, lineHeight: 1.7, marginBottom: "2.5rem" }}>
+            A platform built for invisible communities — artists, poets, builders, and
+            workers who deserve real tools, real ownership, and real support.
+          </p>
+
+          <div className="flex flex-wrap gap-4">
+            {!user ? (
+              <>
+                <Link to="/register"
+                  className="font-black text-sm px-8 py-4 rounded-xl"
+                  style={{ background: "#E8A51E", color: "#0a0a0a", fontSize: 15 }}>
+                  Join Free →
+                </Link>
+                <Link to="/subscribe?plan=sanctuary_trial"
+                  className="font-bold text-sm px-8 py-4 rounded-xl border"
+                  style={{ borderColor: "rgba(232,165,30,0.4)", color: "#E8A51E", background: "rgba(232,165,30,0.08)", fontSize: 15 }}>
+                  Try Everything — $3 for 3 Days
+                </Link>
+                <Link to="/login"
+                  style={{ color: "rgba(255,255,255,0.4)", fontSize: 14, fontWeight: 600, display: "flex", alignItems: "center", paddingTop: 14 }}>
+                  Log in →
+                </Link>
+              </>
+            ) : (
+              <>
+                <Link to="/profile"
+                  className="font-black text-sm px-8 py-4 rounded-xl"
+                  style={{ background: "#E8A51E", color: "#0a0a0a", fontSize: 15 }}>
+                  My Profile →
+                </Link>
+                <Link to="/dashboard"
+                  className="font-bold text-sm px-8 py-4 rounded-xl border"
+                  style={{ borderColor: "rgba(255,255,255,0.15)", color: "rgba(255,255,255,0.8)", fontSize: 15 }}>
+                  Dashboard
+                </Link>
+              </>
+            )}
           </div>
-        </section>
 
-        {/* ── FEATURE GRID ────────────────────────────────────────────── */}
-        <section style={{ ...S.section, background: "var(--bg-secondary)" }}>
-          <div style={S.container}>
-            <h2 className="section-title">Key Features at a Glance</h2>
-            <p className="section-subtitle">
-              {isAdmin
-                ? "All features unlocked — admin and exec bypass all tier restrictions."
-                : "A quick look at what's available across the platform. Check the status badge."}
-            </p>
-            <div className="features-grid">
-              {FEATURES.map((f) => {
-                const meta = STATUS_META[isAdmin ? "included" : f.status];
-                return (
-                  <Link key={f.href} to={f.href} className="feature-tile">
-                    <h4>{f.title}</h4>
-                    <p>{f.desc}</p>
-                    <span className={`feature-status ${meta.cls}`}>{isAdmin && f.status === "admin" ? "Unlocked" : meta.label}</span>
-                  </Link>
-                );
-              })}
-            </div>
-          </div>
-        </section>
-
-        {/* ── ROLE GATEWAYS ───────────────────────────────────────────── */}
-        <section style={S.section}>
-          <div style={S.container}>
-            <h2 className="section-title">Who Is This For?</h2>
-            <p className="section-subtitle">M.O.R.E. serves many roles. Find yours and get started.</p>
-            <div className="roles-grid">
-              {!loggedIn ? (
-                <>
-                  <RoleCard title="Students & Learners"  desc="Log in or register to access your dashboard."    href="/login"            btn="Go to Login"    btnCls="btn-ghost" />
-                  <RoleCard title="Creators"              desc="Manage courses, earnings, and creative tools."    href="/login"            btn="Go to Login"    btnCls="btn-ghost" />
-                  <RoleCard title="Instructors"           desc="Approve labs, manage rosters, track attendance."  href="/login"            btn="Go to Login"    btnCls="btn-ghost" />
-                  <RoleCard title="Admins & Executives"   desc="Enter the admin system to manage users and tools." href="/admin"           btn="Enter Admin"    btnCls="btn-more" />
-                  <RoleCard title="Supervisor"            desc="Supervisor portal — separate login required."     href="/supervisor-login" btn="Supervisor Login" btnCls="btn-ghost" />
-                </>
-              ) : (
-                <>
-                  <RoleCard title="Dashboard"         desc="Your personal overview."                href="/dashboard"    btn="Go to Dashboard"  btnCls="btn-learn" />
-                  <RoleCard title="Creator Studio"    desc="Build, publish, and earn."              href="/studio"       btn="Open Studio"      btnCls="btn-create" />
-                  {r >= 2 && <RoleCard title="Instructor Panel" desc="Rosters, labs, attendance." href="/instructor"   btn="Open Panel"       btnCls="btn-ghost" />}
-                  {isAdmin  && <RoleCard title="Admin System"   desc="Manage users and platform." href="/admin"        btn="Enter Admin"      btnCls="btn-more" />}
-                  {isExec   && <RoleCard title="Exec Command"   desc="Full platform control."     href="/admin/system" btn="Sovereign Command" btnCls="btn-more" />}
-                </>
-              )}
-            </div>
-          </div>
-        </section>
-
-        {/* ── PUBLIC DISCOVERY ────────────────────────────────────────── */}
-        <section style={{ ...S.section, background: "var(--bg-secondary)" }}>
-          <div style={S.container}>
-            <h2 className="section-title">Public Discovery</h2>
-            <p className="section-subtitle">Not logged in? No problem. Explore what M.O.R.E. has to offer.</p>
-            <div className="discovery-links">
-              {PUBLIC_LINKS.map(([label, href]) => (
-                <Link key={href} className="btn btn-ghost" to={href}>{label}</Link>
-              ))}
-            </div>
-          </div>
-        </section>
-      </main>
-
-      {/* ── FOOTER ──────────────────────────────────────────────────────── */}
-      <footer style={S.footer}>
-        <div style={S.container}>
-          <div className="footer-links">
-            {[["Terms of Service","/terms"],["Privacy Policy","/privacy"],["Help Center","/more-help-center"],["Contact","mailto:support@wai-institute.org"],["Public Profiles","/creators"],["Internships","/internships"]].map(([label, href]) => (
-              <a key={label} href={href}>{label}</a>
+          {/* Stats row */}
+          <div className="flex flex-wrap gap-8 mt-16 pt-8 border-t w-full"
+            style={{ borderColor: "rgba(255,255,255,0.08)" }}>
+            {[
+              { n: "5",       label: "Membership tiers"         },
+              { n: "$3",      label: "All-access trial"         },
+              { n: "6",       label: "Social platforms, one post" },
+              { n: "100%",    label: "Creator-owned content"    },
+            ].map(({ n, label }) => (
+              <div key={label}>
+                <div style={{ fontFamily: "'Cabinet Grotesk',sans-serif", fontSize: "2rem", fontWeight: 900, color: "#E8A51E", lineHeight: 1 }}>{n}</div>
+                <div style={{ fontSize: 12, color: "rgba(255,255,255,0.4)", marginTop: 4, textTransform: "uppercase", letterSpacing: "0.1em" }}>{label}</div>
+              </div>
             ))}
           </div>
-          <div className="footer-bottom">
-            <p>&copy; {new Date().getFullYear()} WAI Institute — M.O.R.E. Help Center. All rights reserved.</p>
+        </div>
+      </section>
+
+      {/* ── WHAT IT IS ───────────────────────────────────────────────────── */}
+      <section className="py-24 px-6" style={{ background: "#faf9f7" }}>
+        <div className="max-w-6xl mx-auto">
+          <div className="overline text-copper mb-3 text-center">The Platform</div>
+          <h2 className="font-heading font-black text-4xl text-ink text-center mb-4">
+            Everything a creator needs.<br />Nothing they don't.
+          </h2>
+          <p className="text-ink/50 text-center max-w-2xl mx-auto mb-16 text-lg leading-relaxed">
+            Learn, create, publish, earn, and connect — all from one profile.
+            Your dashboard. Your tools. Your tier.
+          </p>
+
+          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
+            {[
+              { icon: "🎓", title: "Learn & Certify",       desc: "Curriculum, AI tutor, compliance courses, lab simulations, and verifiable credentials.",          to: "/modules" },
+              { icon: "🎨", title: "Create & Publish",      desc: "Ghost Producer AI, Creator Studio, Social Blast to 6 platforms, Band on a Page, Lyric Forge.",   to: "/studio" },
+              { icon: "💰", title: "Earn & Get Paid",       desc: "Sell courses, manage earnings, request payouts. 70% creator / 30% platform split.",               to: "/creator/earnings" },
+              { icon: "🤝", title: "Community & M.O.R.E.",  desc: "Members' Palace, Elder Council, legal tools, mutual aid matching, community chat.",               to: "/app/more" },
+              { icon: "🤖", title: "AI Tools Suite",        desc: "AI Tutor, Sovereign Chat, Ghost Publicist, Ghost Legal, Ghost Marketer — all on platform.",       to: "/ai" },
+              { icon: "🏛️", title: "WAI Institute",         desc: "Accredited-track courses, workforce credentials, instructor-led labs, and placement support.",   to: "/wai-institute" },
+            ].map(({ icon, title, desc, to }) => (
+              <Link key={title} to={to}
+                className="card-flat p-6 flex flex-col gap-3 hover:border-copper transition-all group no-underline">
+                <div style={{ fontSize: 32 }}>{icon}</div>
+                <div className="font-heading font-bold text-lg text-ink group-hover:text-copper transition-colors">{title}</div>
+                <div className="text-ink/55 text-sm leading-relaxed flex-1">{desc}</div>
+                <div className="text-copper text-xs font-bold opacity-0 group-hover:opacity-100 transition-opacity">Explore →</div>
+              </Link>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ── $3 TRIAL BANNER ──────────────────────────────────────────────── */}
+      {!user && (
+        <section className="py-16 px-6" style={{ background: "#0a0a0f" }}>
+          <div className="max-w-4xl mx-auto text-center">
+            <div style={{ fontSize: 48, marginBottom: 16 }}>⚡</div>
+            <h2 style={{ fontFamily: "'Cabinet Grotesk',sans-serif", fontSize: "clamp(1.8rem,4vw,3rem)", fontWeight: 900, color: "#fff", marginBottom: 12 }}>
+              Try the whole platform for{" "}
+              <span style={{ color: "#E8A51E" }}>$3</span>
+            </h2>
+            <p style={{ color: "rgba(255,255,255,0.55)", fontSize: "1.1rem", marginBottom: 32, lineHeight: 1.7 }}>
+              3 days · 33 minutes · 33 seconds of full Pro access.<br />
+              Every tool. Every course. Every AI feature. No recurring charge unless you choose a plan.
+            </p>
+            <Link to="/subscribe?plan=sanctuary_trial"
+              className="inline-block font-black text-base px-10 py-4 rounded-xl"
+              style={{ background: "#E8A51E", color: "#0a0a0a" }}>
+              Start My $3 Trial →
+            </Link>
+            <div className="mt-4">
+              <Link to="/plans" style={{ color: "rgba(255,255,255,0.3)", fontSize: 13, textDecoration: "none" }}>
+                See all membership plans
+              </Link>
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* ── CREATOR PROFILES ─────────────────────────────────────────────── */}
+      <section className="py-24 px-6 bg-bone">
+        <div className="max-w-6xl mx-auto">
+          <div className="overline text-copper mb-3">Creators & Partners</div>
+          <div className="flex items-end justify-between mb-12">
+            <h2 className="font-heading font-black text-4xl text-ink">The voices of<br />the movement</h2>
+            <Link to="/creators" className="text-copper font-bold text-sm hover:underline">
+              View all creators →
+            </Link>
+          </div>
+          <CreatorPreview />
+        </div>
+      </section>
+
+      {/* ── MEMBERSHIP TIERS ─────────────────────────────────────────────── */}
+      <section className="py-24 px-6" style={{ background: "#faf9f7" }}>
+        <div className="max-w-6xl mx-auto">
+          <div className="overline text-copper mb-3 text-center">Membership</div>
+          <h2 className="font-heading font-black text-4xl text-ink text-center mb-4">Start free.<br />Grow on your terms.</h2>
+          <p className="text-ink/50 text-center mb-12 max-w-xl mx-auto">Every tier keeps the doors open for someone who can't pay yet.</p>
+
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 mb-8">
+            {[
+              { name: "Free",    price: "$0",   color: "#6b7280", features: ["Community access", "Browse courses", "Daily XP puzzle"] },
+              { name: "Member",  price: "$9",   color: "#3b82f6", features: ["Full M.O.R.E.", "AI Tutor", "Creator basics"] },
+              { name: "Plus",    price: "$15",  color: "#8b5cf6", features: ["Ghost Producer", "Creator Studio", "Course selling"] },
+              { name: "Pro",     price: "$29",  color: "#b5651d", features: ["Full AI suite", "Advanced labs", "Earnings dashboard"], highlight: true },
+              { name: "Patron",  price: "$59",  color: "#E8A51E", features: ["Founder's circle", "Fund free access", "Direct line"] },
+            ].map(({ name, price, color, features, highlight }) => (
+              <div key={name}
+                className="card-flat p-5 flex flex-col"
+                style={highlight ? { borderColor: color, borderWidth: 2 } : {}}>
+                {highlight && <div className="text-xs font-black uppercase tracking-widest mb-2" style={{ color }}>Most Popular</div>}
+                <div className="font-heading font-black text-2xl text-ink">{price}<span className="text-sm font-medium text-ink/40">/mo</span></div>
+                <div className="font-bold text-sm mt-1 mb-3" style={{ color }}>{name}</div>
+                <ul className="space-y-1 flex-1">
+                  {features.map(f => (
+                    <li key={f} className="text-xs text-ink/60 flex items-start gap-1.5">
+                      <span style={{ color, marginTop: 2 }}>✓</span> {f}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ))}
+          </div>
+
+          <div className="text-center">
+            <Link to="/plans" className="btn-copper inline-block px-8 py-3 text-sm font-bold">
+              Compare all plans →
+            </Link>
+          </div>
+        </div>
+      </section>
+
+      {/* ── MISSION STATEMENT ────────────────────────────────────────────── */}
+      <section className="py-24 px-6"
+        style={{ background: "linear-gradient(135deg, #1B4332 0%, #0a0a0f 60%)" }}>
+        <div className="max-w-4xl mx-auto text-center">
+          <img src={WAI_LOGO} alt="WAI" className="w-16 h-16 object-contain mx-auto mb-8"
+            style={{ mixBlendMode: "screen" }} />
+          <h2 style={{ fontFamily: "'Cabinet Grotesk',sans-serif", fontSize: "clamp(1.6rem,4vw,2.8rem)", fontWeight: 900, color: "#fff", lineHeight: 1.2, marginBottom: 20 }}>
+            "{BRAND.tagline}"
+          </h2>
+          <p style={{ color: "rgba(255,255,255,0.55)", fontSize: "1.05rem", lineHeight: 1.8, maxWidth: 560, margin: "0 auto 40px" }}>
+            WAI Institute was built because the tools of the creator economy were never
+            designed for us. We changed that. Every feature, every tier, every dollar
+            — built to serve communities that were meant to be invisible.
+          </p>
+          <div className="flex flex-wrap gap-4 justify-center">
+            <Link to="/register"
+              className="font-black text-sm px-8 py-3 rounded-xl"
+              style={{ background: "#E8A51E", color: "#0a0a0a" }}>
+              Join the Movement
+            </Link>
+            <Link to="/donate"
+              className="font-bold text-sm px-8 py-3 rounded-xl border"
+              style={{ borderColor: "rgba(232,165,30,0.3)", color: "#E8A51E" }}>
+              Support the Mission
+            </Link>
+          </div>
+        </div>
+      </section>
+
+      {/* ── FOOTER ───────────────────────────────────────────────────────── */}
+      <footer className="py-12 px-6 bg-ink text-white/40">
+        <div className="max-w-6xl mx-auto">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6 mb-8 pb-8 border-b border-white/8">
+            <div className="flex items-center gap-3">
+              <img src={WAI_LOGO} alt="WAI" className="w-8 h-8 object-contain" style={{ mixBlendMode: "screen" }} />
+              <div>
+                <div className="text-xs font-black uppercase tracking-widest text-signal">{BRAND.short}</div>
+                <div className="font-heading font-bold text-sm text-white">{BRAND.name}</div>
+              </div>
+            </div>
+            <div className="flex flex-wrap gap-6 text-xs">
+              {[["Plans", "/plans"], ["Creators", "/creators"], ["WAI Institute", "/wai-institute"], ["Donate", "/donate"], ["Privacy", "/privacy"], ["Terms", "/terms"]].map(([l, h]) => (
+                <Link key={l} to={h} className="hover:text-white transition-colors">{l}</Link>
+              ))}
+            </div>
+          </div>
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-2 text-xs">
+            <p>© {new Date().getFullYear()} {BRAND.name}. All rights reserved.</p>
+            <p style={{ color: "rgba(255,255,255,0.25)" }}>{BRAND.mission}</p>
           </div>
         </div>
       </footer>
@@ -216,102 +272,47 @@ export default function UnifiedGateway() {
   );
 }
 
-function RoleCard({ title, desc, href, btn, btnCls }) {
+// ── Live creator preview — pulls from DB ──────────────────────────────────────
+import { useEffect, useState } from "react";
+import { api } from "../lib/api";
+
+function CreatorPreview() {
+  const [creators, setCreators] = useState([]);
+
+  useEffect(() => {
+    api.get("/creator/profiles/public")
+      .then(r => setCreators((r.data.profiles || []).slice(0, 3)))
+      .catch(() => {});
+  }, []);
+
+  if (creators.length === 0) return (
+    <div className="grid sm:grid-cols-3 gap-4">
+      {[1,2,3].map(i => (
+        <div key={i} className="card-flat p-6 animate-pulse">
+          <div className="w-12 h-12 rounded-full bg-ink/10 mx-auto mb-3" />
+          <div className="h-4 bg-ink/10 rounded w-3/4 mx-auto mb-2" />
+          <div className="h-3 bg-ink/5 rounded w-1/2 mx-auto" />
+        </div>
+      ))}
+    </div>
+  );
+
   return (
-    <div className="role-card">
-      <h4>{title}</h4>
-      <p>{desc}</p>
-      <Link className={`btn ${btnCls} btn-sm`} to={href}>{btn}</Link>
+    <div className="grid sm:grid-cols-3 gap-4">
+      {creators.map(c => (
+        <Link key={c.slug} to={`/u/${c.slug}`}
+          className="card-flat p-6 text-center hover:border-copper transition-colors group no-underline block">
+          <div style={{ fontSize: 44, marginBottom: 12 }}>{c.avatar || "🎨"}</div>
+          <div className="font-heading font-bold text-ink text-lg group-hover:text-copper transition-colors">
+            {c.display_name || c.name}
+          </div>
+          <div className="overline text-copper mt-1">{c.title || c.role}</div>
+          {c.bio && <div className="text-xs text-ink/50 mt-2 line-clamp-2">{c.bio}</div>}
+          <div className="text-xs font-bold text-copper mt-3 opacity-0 group-hover:opacity-100 transition-opacity">
+            View Profile →
+          </div>
+        </Link>
+      ))}
     </div>
   );
 }
-
-// ── Inline styles (layout / non-class) ────────────────────────────────────────
-const S = {
-  page: { fontFamily: "system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif", background: "var(--bg-primary)", color: "var(--text-primary)", lineHeight: 1.6, minHeight: "100vh" },
-  hero: { minHeight: "65vh", display: "flex", flexDirection: "column", justifyContent: "center", alignItems: "center", textAlign: "center", padding: "4rem 1.5rem", background: "radial-gradient(ellipse at 20% 50%,rgba(59,130,246,.08) 0%,transparent 50%),radial-gradient(ellipse at 80% 50%,rgba(168,85,247,.08) 0%,transparent 50%),#0d1117" },
-  container: { width: "100%", maxWidth: 1200, margin: "0 auto", padding: "0 1.5rem" },
-  heroEyebrow: { fontSize: 11, letterSpacing: "0.25em", textTransform: "uppercase", color: "#eab308", marginBottom: 16, fontWeight: 700 },
-  heroH1: { fontFamily: "Georgia,'Times New Roman',serif", fontSize: "clamp(2rem,5vw,3.25rem)", fontWeight: 700, lineHeight: 1.2, marginBottom: "1rem", color: "#e6edf3" },
-  heroSub: { fontSize: "clamp(1rem,2.5vw,1.2rem)", color: "#8b949e", maxWidth: 560, margin: "0 auto 2rem" },
-  section: { padding: "4rem 0" },
-  footer: { background: "#161b22", borderTop: "1px solid rgba(255,255,255,.06)", padding: "2.5rem 0 1.5rem" },
-};
-
-// ── CSS injected once (mirrors the HTML spec faithfully) ──────────────────────
-const CSS = `
-  :root {
-    --bg-primary: #0d1117; --bg-secondary: #161b22; --bg-card: #1c2333; --bg-card-hover: #242d3f;
-    --text-primary: #e6edf3; --text-secondary: #8b949e; --text-muted: #6e7681;
-    --accent-learn: #3b82f6; --accent-create: #a855f7; --accent-community: #22c55e; --accent-more: #eab308;
-    --status-included: #22c55e; --status-tier2: #f59e0b; --status-alacarte: #3b82f6; --status-admin: #ef4444;
-  }
-  .btn {
-    display: inline-block; padding: .75rem 1.75rem; font-size: 1rem; font-weight: 600;
-    font-family: inherit; border: none; border-radius: 8px; cursor: pointer;
-    transition: background-color .2s,transform .15s; text-align: center; line-height: 1.4; text-decoration: none;
-  }
-  .btn:hover { transform: translateY(-1px); }
-  .btn-sm { padding: .5rem 1.25rem; font-size: .9rem; }
-  .btn-learn     { background: #3b82f6; color:#fff; }
-  .btn-learn:hover { background: #2563eb; }
-  .btn-create    { background: #a855f7; color:#fff; }
-  .btn-create:hover { background: #9333ea; }
-  .btn-community { background: #22c55e; color:#fff; }
-  .btn-community:hover { background: #16a34a; }
-  .btn-more      { background: #eab308; color:#111; }
-  .btn-more:hover { background: #ca8a04; }
-  .btn-ghost     { background: transparent; color:#e6edf3; border:1.5px solid rgba(255,255,255,.15); }
-  .btn-ghost:hover { background:rgba(255,255,255,.08); border-color:rgba(255,255,255,.3); }
-
-  .section-title { font-family:Georgia,'Times New Roman',serif; font-size:1.75rem; font-weight:600; margin-bottom:1rem; text-align:center; color:#e6edf3; }
-  .section-subtitle { text-align:center; color:#8b949e; max-width:600px; margin:0 auto 2.5rem; font-size:1.05rem; }
-
-  .hero-buttons { display:flex; flex-wrap:wrap; gap:1rem; justify-content:center; max-width:900px; margin:0 auto; }
-  .hero-buttons .btn { flex:1 1 200px; min-width:180px; }
-
-  .districts-grid { display:grid; grid-template-columns:repeat(2,1fr); gap:1.5rem; }
-  .district-card { background:#1c2333; border:1px solid rgba(255,255,255,.06); border-radius:12px; padding:1.5rem; transition:background .2s,border-color .2s,transform .15s; display:flex; flex-direction:column; }
-  .district-card:hover { background:#242d3f; border-color:rgba(255,255,255,.12); transform:translateY(-2px); }
-  .district-card h3 { font-family:Georgia,'Times New Roman',serif; font-size:1.5rem; font-weight:700; margin-bottom:.5rem; }
-  .district-card p { color:#8b949e; font-size:.95rem; margin-bottom:1rem; }
-  .district-card ul { list-style:none; margin-bottom:1.5rem; flex:1; }
-  .district-card ul li { color:#e6edf3; font-size:.92rem; padding:.25rem 0 .25rem 1.25rem; position:relative; }
-  .district-card ul li::before { content:"— "; position:absolute; left:0; color:#6e7681; font-weight:700; }
-  .district-card ul li a { color:inherit; text-decoration:none; }
-  .district-card ul li a:hover { text-decoration:underline; }
-
-  .features-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(260px,1fr)); gap:1rem; }
-  .feature-tile { background:#1c2333; border:1px solid rgba(255,255,255,.06); border-radius:8px; padding:1.5rem; transition:background .2s; text-decoration:none; display:block; }
-  .feature-tile:hover { background:#242d3f; }
-  .feature-tile h4 { font-size:1.05rem; font-weight:600; margin-bottom:.25rem; color:#e6edf3; }
-  .feature-tile p { font-size:.88rem; color:#8b949e; margin-bottom:.75rem; }
-  .feature-status { display:inline-block; font-size:.8rem; font-weight:700; padding:.2rem .6rem; border-radius:999px; text-transform:uppercase; letter-spacing:.03em; }
-  .status-included { background:rgba(34,197,94,.15); color:#22c55e; }
-  .status-tier2    { background:rgba(245,158,11,.15); color:#f59e0b; }
-  .status-alacarte { background:rgba(59,130,246,.15); color:#3b82f6; }
-  .status-admin    { background:rgba(239,68,68,.15);  color:#ef4444; }
-
-  .roles-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(220px,1fr)); gap:1rem; }
-  .role-card { background:#1c2333; border:1px solid rgba(255,255,255,.06); border-radius:8px; padding:1.5rem; text-align:center; transition:background .2s; }
-  .role-card:hover { background:#242d3f; }
-  .role-card h4 { font-size:1.1rem; font-weight:600; margin-bottom:.5rem; color:#e6edf3; }
-  .role-card p { font-size:.88rem; color:#8b949e; margin-bottom:1rem; }
-
-  .discovery-links { display:flex; flex-wrap:wrap; gap:1rem; justify-content:center; }
-  .discovery-links .btn { min-width:160px; }
-
-  .footer-links { display:flex; flex-wrap:wrap; gap:1.5rem; justify-content:center; margin-bottom:1.5rem; }
-  .footer-links a { color:#8b949e; font-size:.9rem; text-decoration:none; transition:color .2s; }
-  .footer-links a:hover { color:#e6edf3; }
-  .footer-bottom { text-align:center; color:#6e7681; font-size:.82rem; padding-top:1.5rem; border-top:1px solid rgba(255,255,255,.04); }
-
-  @media (max-width:768px) {
-    .districts-grid { grid-template-columns:1fr; }
-    .hero-buttons .btn { flex:1 1 100%; }
-    .features-grid { grid-template-columns:1fr; }
-    .roles-grid { grid-template-columns:1fr; }
-    .discovery-links { flex-direction:column; align-items:center; }
-    .discovery-links .btn { width:100%; max-width:300px; }
-  }
-`;
