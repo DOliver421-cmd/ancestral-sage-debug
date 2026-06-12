@@ -378,7 +378,12 @@ function ExecPanel({ apiOnline, visibility, setVisibility, superExec }) {
   }
 
   async function deleteUser(u) {
-    if (!window.confirm(`Permanently delete ${u.full_name || u.email}? Cannot be undone.`)) return;
+    setConfirmDeleteUser(u);
+  }
+
+  async function doDeleteUser() {
+    const u = confirmDeleteUser;
+    setConfirmDeleteUser(null);
     try {
       await api.delete(`/admin/users/${u.id}`);
       setUsers(prev => prev.filter(x => x.id !== u.id));
@@ -501,9 +506,17 @@ function ExecPanel({ apiOnline, visibility, setVisibility, superExec }) {
   };
 
   const [keyEnabled, setKeyEnabled] = useState({});
+  const [confirmDeleteUser, setConfirmDeleteUser] = useState(null);
+  const [confirmRevokeKey, setConfirmRevokeKey]   = useState(null);
+  const [confirmResetBudget, setConfirmResetBudget] = useState(false);
 
   const revokeApiKey = async (envKey) => {
-    if (!window.confirm(`Revoke ${envKey}? This clears the key from the live gateway immediately.`)) return;
+    setConfirmRevokeKey(envKey);
+  };
+
+  const doRevokeApiKey = async () => {
+    const envKey = confirmRevokeKey;
+    setConfirmRevokeKey(null);
     try {
       await api.delete(`/admin/gateway/keys/${envKey}`);
       notify(`${envKey} revoked from gateway`);
@@ -531,7 +544,11 @@ function ExecPanel({ apiOnline, visibility, setVisibility, superExec }) {
   };
 
   const resetBudgetCounter = async () => {
-    if (!window.confirm("Zero out the current-hour token counter? This lets the gateway accept new calls immediately.")) return;
+    setConfirmResetBudget(true);
+  };
+
+  const doResetBudgetCounter = async () => {
+    setConfirmResetBudget(false);
     try {
       const r = await api.post("/admin/gateway/reset-budget");
       notify(`Token counter reset (was ${r.data.previous_tokens_used?.toLocaleString()})`);
@@ -1602,6 +1619,45 @@ function VisibilityTab({ visibility, setVisibility }) {
         </div>
       ))}
     </div>
+
+    {confirmDeleteUser && (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+        <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6">
+          <h2 className="font-heading font-bold text-lg text-slate-900 mb-2">Delete User</h2>
+          <p className="text-sm text-slate-600 mb-6">Permanently delete <strong>{confirmDeleteUser.full_name || confirmDeleteUser.email}</strong>? Cannot be undone.</p>
+          <div className="flex justify-end gap-3">
+            <button onClick={() => setConfirmDeleteUser(null)} className="text-sm px-4 py-2 rounded-lg text-slate-600 hover:bg-slate-50">Cancel</button>
+            <button onClick={doDeleteUser} className="text-sm px-4 py-2 rounded-lg bg-red-600 text-white font-bold hover:bg-red-700">Delete</button>
+          </div>
+        </div>
+      </div>
+    )}
+
+    {confirmRevokeKey && (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+        <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6">
+          <h2 className="font-heading font-bold text-lg text-slate-900 mb-2">Revoke API Key</h2>
+          <p className="text-sm text-slate-600 mb-6">Revoke <strong>{confirmRevokeKey}</strong>? This clears the key from the live gateway immediately.</p>
+          <div className="flex justify-end gap-3">
+            <button onClick={() => setConfirmRevokeKey(null)} className="text-sm px-4 py-2 rounded-lg text-slate-600 hover:bg-slate-50">Cancel</button>
+            <button onClick={doRevokeApiKey} className="text-sm px-4 py-2 rounded-lg bg-red-600 text-white font-bold hover:bg-red-700">Revoke</button>
+          </div>
+        </div>
+      </div>
+    )}
+
+    {confirmResetBudget && (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+        <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6">
+          <h2 className="font-heading font-bold text-lg text-slate-900 mb-2">Reset Token Counter</h2>
+          <p className="text-sm text-slate-600 mb-6">Zero out the current-hour token counter? This lets the gateway accept new calls immediately.</p>
+          <div className="flex justify-end gap-3">
+            <button onClick={() => setConfirmResetBudget(false)} className="text-sm px-4 py-2 rounded-lg text-slate-600 hover:bg-slate-50">Cancel</button>
+            <button onClick={doResetBudgetCounter} className="text-sm px-4 py-2 rounded-lg bg-red-600 text-white font-bold hover:bg-red-700">Reset</button>
+          </div>
+        </div>
+      </div>
+    )}
   );
 }
 

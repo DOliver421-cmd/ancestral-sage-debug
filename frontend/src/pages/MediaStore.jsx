@@ -288,6 +288,7 @@ function SellTab({ user }) {
   const [uploading, setUploading] = useState(false);
   const [myProducts, setMyProducts] = useState([]);
   const [loadingProducts, setLoadingProducts] = useState(true);
+  const [confirmDeleteProduct, setConfirmDeleteProduct] = useState(null);
   const [form, setForm] = useState({
     title: "", description: "", price: "", cover_url: "",
     product_type: "track", published: false,
@@ -376,7 +377,12 @@ function SellTab({ user }) {
   }
 
   async function handleDelete(product) {
-    if (!window.confirm(`Delete "${product.title}"?`)) return;
+    setConfirmDeleteProduct(product);
+  }
+
+  async function doDeleteProduct() {
+    const product = confirmDeleteProduct;
+    setConfirmDeleteProduct(null);
     try {
       await api.delete(`/media/products/${product.id}`);
       fetchMyProducts();
@@ -614,6 +620,19 @@ function SellTab({ user }) {
           </div>
         )}
       </div>
+
+      {confirmDeleteProduct && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6">
+            <h2 className="font-heading font-bold text-lg text-slate-900 mb-2">Delete Product</h2>
+            <p className="text-sm text-slate-600 mb-6">Delete &ldquo;{confirmDeleteProduct.title}&rdquo;? This cannot be undone.</p>
+            <div className="flex justify-end gap-3">
+              <button onClick={() => setConfirmDeleteProduct(null)} className="text-sm px-4 py-2 rounded-lg text-slate-600 hover:bg-slate-50">Cancel</button>
+              <button onClick={doDeleteProduct} className="text-sm px-4 py-2 rounded-lg bg-red-600 text-white font-bold hover:bg-red-700">Delete</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

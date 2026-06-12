@@ -46,6 +46,16 @@ export default function ExecutiveDirectorDashboard() {
   const [flags, setFlags]         = useState({});
   const [platformLocked, setPlatformLocked] = useState(false);
 
+  // --- modal state ---
+  const [resolveTarget, setResolveTarget]     = useState(null); // { id }
+  const [resolveNote, setResolveNote]         = useState("");
+  const [deactivateTarget, setDeactivateTarget] = useState(null); // { uid, name }
+  const [deleteTarget, setDeleteTarget]       = useState(null); // { uid, name }
+  const [lockReason, setLockReason]           = useState("");
+  const [confirmLock, setConfirmLock]         = useState(false);
+  const [disableFlagTarget, setDisableFlagTarget] = useState(null); // { flagKey, label }
+  const [disableFlagReason, setDisableFlagReason] = useState("");
+
   // --- broadcast state ---
   const [bcTarget, setBcTarget]   = useState("all");
   const [bcTitle, setBcTitle]     = useState("");
@@ -80,10 +90,15 @@ export default function ExecutiveDirectorDashboard() {
 
   // ── INCIDENT ACTIONS ──────────────────────────────────────────────────────
   async function resolveIncident(id) {
-    const note = window.prompt("Resolution note (required):");
-    if (!note?.trim()) return;
+    setResolveTarget({ id });
+    setResolveNote("");
+  }
+
+  async function doResolveIncident() {
+    const { id } = resolveTarget;
+    setResolveTarget(null);
     try {
-      await api.post(`/incidents/${id}/resolve`, { resolution_notes: note });
+      await api.post(`/incidents/${id}/resolve`, { resolution_notes: resolveNote });
       toast.success("Incident resolved");
       setIncidents(prev => prev.filter(i => i.id !== id));
     } catch (e) {
@@ -93,7 +108,12 @@ export default function ExecutiveDirectorDashboard() {
 
   // ── USER ACTIONS ──────────────────────────────────────────────────────────
   async function deactivateUser(uid, name) {
-    if (!window.confirm(`Deactivate ${name}?`)) return;
+    setDeactivateTarget({ uid, name });
+  }
+
+  async function doDeactivateUser() {
+    const { uid, name } = deactivateTarget;
+    setDeactivateTarget(null);
     try {
       await api.patch(`/admin/users/${uid}/active`, { is_active: false });
       toast.success(`${name} deactivated`);
@@ -114,7 +134,12 @@ export default function ExecutiveDirectorDashboard() {
   }
 
   async function deleteUser(uid, name) {
-    if (!window.confirm(`PERMANENTLY DELETE ${name}? This cannot be undone.`)) return;
+    setDeleteTarget({ uid, name });
+  }
+
+  async function doDeleteUser() {
+    const { uid, name } = deleteTarget;
+    setDeleteTarget(null);
     try {
       await api.delete(`/admin/users/${uid}`);
       toast.success(`${name} deleted`);
@@ -127,10 +152,16 @@ export default function ExecutiveDirectorDashboard() {
   // ── PLATFORM LOCK ─────────────────────────────────────────────────────────
   async function togglePlatformLock() {
     const next = !platformLocked;
-    const reason = next
-      ? window.prompt("Reason for locking the platform (required):")
-      : "Lock removed by executive";
-    if (next && !reason?.trim()) return;
+    if (next) {
+      setLockReason("");
+      setConfirmLock(true);
+    } else {
+      await applyPlatformLock(false, "Lock removed by executive");
+    }
+  }
+
+  async function applyPlatformLock(next, reason) {
+    setConfirmLock(false);
     try {
       await api.post("/admin/platform/flags/platform_locked", { value: next, reason });
       setPlatformLocked(next);
@@ -144,10 +175,16 @@ export default function ExecutiveDirectorDashboard() {
   async function toggleFeature(flagKey, label) {
     const current = !!flags[flagKey]?.enabled;
     const next = !current;
-    const reason = next
-      ? window.prompt(`Reason for disabling ${label} (required):`)
-      : `${label} re-enabled by executive`;
-    if (next && !reason?.trim()) return;
+    if (next) {
+      setDisableFlagTarget({ flagKey, label });
+      setDisableFlagReason("");
+    } else {
+      await applyFeatureFlag(flagKey, label, false, `${label} re-enabled by executive`);
+    }
+  }
+
+  async function applyFeatureFlag(flagKey, label, next, reason) {
+    setDisableFlagTarget(null);
     try {
       await api.post(`/admin/platform/flags/${flagKey}`, { value: next, reason });
       setFlags(prev => ({
@@ -601,6 +638,79 @@ export default function ExecutiveDirectorDashboard() {
           </div>
         )}
       </div>
+
+      {/* Resolve incident modal */}
+      {resolveTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6">
+            <h2 className="font-heading font-bold text-lg text-slate-900 mb-2">Resolve Incident</h2>
+            <p className="text-sm text-slate-600 mb-3">Enter a resolution note (required):</p>
+            <textarea value={resolveNote} onChange={e => setResolveNote(e.target.value)} rows={3} placeholder="What was done to resolve this?" className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm mb-4 resize-none focus:outline-none focus:border-green-500" />
+            <div className="flex justify-end gap-3">
+              <button onClick={() => setResolveTarget(null)} className="text-sm px-4 py-2 rounded-lg text-slate-600 hover:bg-slate-50">Cancel</button>
+              <button onClick={doResolveIncident} disabled={!resolveNote.trim()} className="text-sm px-4 py-2 rounded-lg bg-green-600 text-white font-bold hover:bg-green-700 disabled:opacity-40">Resolve</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Deactivate user modal */}
+      {deactivateTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6">
+            <h2 className="font-heading font-bold text-lg text-slate-900 mb-2">Deactivate User</h2>
+            <p className="text-sm text-slate-600 mb-6">Deactivate <strong>{deactivateTarget.name}</strong>? They will lose platform access.</p>
+            <div className="flex justify-end gap-3">
+              <button onClick={() => setDeactivateTarget(null)} className="text-sm px-4 py-2 rounded-lg text-slate-600 hover:bg-slate-50">Cancel</button>
+              <button onClick={doDeactivateUser} className="text-sm px-4 py-2 rounded-lg bg-red-600 text-white font-bold hover:bg-red-700">Deactivate</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete user modal */}
+      {deleteTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6">
+            <h2 className="font-heading font-bold text-lg text-slate-900 mb-2">Permanently Delete User</h2>
+            <p className="text-sm text-slate-600 mb-6">Permanently delete <strong>{deleteTarget.name}</strong>? This cannot be undone.</p>
+            <div className="flex justify-end gap-3">
+              <button onClick={() => setDeleteTarget(null)} className="text-sm px-4 py-2 rounded-lg text-slate-600 hover:bg-slate-50">Cancel</button>
+              <button onClick={doDeleteUser} className="text-sm px-4 py-2 rounded-lg bg-red-600 text-white font-bold hover:bg-red-700">Delete</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Lock platform modal */}
+      {confirmLock && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6">
+            <h2 className="font-heading font-bold text-lg text-slate-900 mb-2">Lock Platform</h2>
+            <p className="text-sm text-slate-600 mb-3">Enter the reason for locking the platform (required):</p>
+            <input value={lockReason} onChange={e => setLockReason(e.target.value)} placeholder="Reason…" className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm mb-4 focus:outline-none focus:border-red-400" />
+            <div className="flex justify-end gap-3">
+              <button onClick={() => setConfirmLock(false)} className="text-sm px-4 py-2 rounded-lg text-slate-600 hover:bg-slate-50">Cancel</button>
+              <button onClick={() => applyPlatformLock(true, lockReason)} disabled={!lockReason.trim()} className="text-sm px-4 py-2 rounded-lg bg-red-600 text-white font-bold hover:bg-red-700 disabled:opacity-40">Lock</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Disable feature flag modal */}
+      {disableFlagTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6">
+            <h2 className="font-heading font-bold text-lg text-slate-900 mb-2">Disable {disableFlagTarget.label}</h2>
+            <p className="text-sm text-slate-600 mb-3">Enter the reason for disabling {disableFlagTarget.label} (required):</p>
+            <input value={disableFlagReason} onChange={e => setDisableFlagReason(e.target.value)} placeholder="Reason…" className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm mb-4 focus:outline-none focus:border-red-400" />
+            <div className="flex justify-end gap-3">
+              <button onClick={() => setDisableFlagTarget(null)} className="text-sm px-4 py-2 rounded-lg text-slate-600 hover:bg-slate-50">Cancel</button>
+              <button onClick={() => applyFeatureFlag(disableFlagTarget.flagKey, disableFlagTarget.label, true, disableFlagReason)} disabled={!disableFlagReason.trim()} className="text-sm px-4 py-2 rounded-lg bg-red-600 text-white font-bold hover:bg-red-700 disabled:opacity-40">Disable</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

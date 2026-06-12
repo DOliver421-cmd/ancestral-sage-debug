@@ -25,6 +25,7 @@ export default function PlatformPrices() {
   const [form, setForm]         = useState({ key: "", value: "", description: "" });
   const [saving, setSaving]     = useState(false);
   const [deleting, setDeleting] = useState(null);
+  const [confirmDeletePrice, setConfirmDeletePrice] = useState(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -85,8 +86,13 @@ export default function PlatformPrices() {
     } finally { setSaving(false); }
   };
 
-  const confirmDelete = async (p) => {
-    if (!window.confirm(`Delete price key "${p.key}"? This cannot be undone.`)) return;
+  const confirmDelete = (p) => {
+    setConfirmDeletePrice(p);
+  };
+
+  const doDeletePrice = async () => {
+    const p = confirmDeletePrice;
+    setConfirmDeletePrice(null);
     setDeleting(p.id);
     try {
       await api.delete(`/admin/prices/${p.id}`);
@@ -257,6 +263,19 @@ export default function PlatformPrices() {
               >
                 {saving ? "Saving…" : creating ? "Create" : "Save Changes"}
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {confirmDeletePrice && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6">
+            <h2 className="font-heading font-bold text-lg text-slate-900 mb-2">Delete Price Key</h2>
+            <p className="text-sm text-slate-600 mb-6">Delete price key <strong>{confirmDeletePrice.key}</strong>? This cannot be undone.</p>
+            <div className="flex justify-end gap-3">
+              <button onClick={() => setConfirmDeletePrice(null)} className="text-sm px-4 py-2 rounded-lg text-slate-600 hover:bg-slate-50">Cancel</button>
+              <button onClick={doDeletePrice} className="text-sm px-4 py-2 rounded-lg bg-red-600 text-white font-bold hover:bg-red-700">Delete</button>
             </div>
           </div>
         </div>
