@@ -15145,6 +15145,432 @@ async def jamil_status_server():
 
 # ── END JAMIL ─────────────────────────────────────────────────────────────────
 
+# ── MY POSITION (/me/position*) ───────────────────────────────────────────────
+
+@api_router.get("/me/position")
+async def get_my_position(user: User = Depends(current_user)):
+    u = await db.users.find_one({"id": user.id}, {"_id": 0})
+    if not u:
+        raise HTTPException(404, "User not found")
+    return {
+        "id": u["id"],
+        "full_name": u.get("full_name", ""),
+        "email": u.get("email", ""),
+        "role": u.get("role", "student"),
+        "feature_tier": u.get("feature_tier", "free"),
+        "status": u.get("status", "active"),
+        "exit_requested": u.get("exit_requested", False),
+        "exit_reason": u.get("exit_reason", ""),
+        "exit_requested_at": u.get("exit_requested_at"),
+        "more_member": u.get("more_member", False),
+    }
+
+@api_router.get("/me/position/history")
+async def get_position_history(user: User = Depends(current_user)):
+    log = await db.audit_log.find(
+        {"actor_id": user.id, "action": {"$in": ["role_change", "tier_change", "step_down", "exit_request"]}},
+        {"_id": 0}
+    ).sort("at", -1).limit(50).to_list(50)
+    return {"history": log}
+
+@api_router.get("/me/proceeds-preference")
+async def get_proceeds_preference(user: User = Depends(current_user)):
+    u = await db.users.find_one({"id": user.id}, {"proceeds_preference": 1})
+    return {"preference": (u or {}).get("proceeds_preference", "platform")}
+
+@api_router.post("/me/proceeds-preference")
+async def set_proceeds_preference(body: dict, user: User = Depends(current_user)):
+    pref = body.get("preference", "platform")
+    if pref not in ("platform", "personal", "split", "donate"):
+        raise HTTPException(400, "Invalid preference value")
+    await db.users.update_one({"id": user.id}, {"$set": {"proceeds_preference": pref}})
+    await audit(db, user.id, "proceeds_preference_set", {"preference": pref})
+    return {"preference": pref}
+
+@api_router.post("/me/step-down")
+async def step_down(body: dict, user: User = Depends(current_user)):
+    reason = (body.get("reason") or "").strip()
+    if not reason:
+        raise HTTPException(400, "Reason required")
+    role_rank = {"student": 1, "instructor": 2, "admin": 3, "executive_admin": 4}
+    if role_rank.get(user.role, 1) <= 1:
+        raise HTTPException(400, "Already at base role")
+    roles = list(role_rank.keys())
+    new_role = roles[role_rank.get(user.role, 2) - 2]
+    await db.users.update_one({"id": user.id}, {"$set": {"role": new_role}})
+    await audit(db, user.id, "step_down", {"from_role": user.role, "to_role": new_role, "reason": reason})
+    return {"role": new_role, "message": f"Stepped down to {new_role}"}
+
+@api_router.post("/me/request-exit")
+async def request_exit(body: dict, user: User = Depends(current_user)):
+    reason = (body.get("reason") or "").strip()
+    if not reason:
+        raise HTTPException(400, "Reason required")
+    await db.users.update_one({"id": user.id}, {"$set": {
+        "exit_requested": True,
+        "exit_reason": reason,
+        "exit_requested_at": _now(),
+        "exit_type": "standard",
+    }})
+    await audit(db, user.id, "exit_requested", {"reason": reason})
+    return {"exit_requested": True, "message": "Exit request submitted. Account remains active for 30 days."}
+
+@api_router.post("/me/emergency-exit")
+async def emergency_exit(body: dict, user: User = Depends(current_user)):
+    reason = (body.get("reason") or "").strip()
+    if not reason:
+        raise HTTPException(400, "Reason required")
+    await db.users.update_one({"id": user.id}, {"$set": {
+        "exit_requested": True,
+        "exit_reason": reason,
+        "exit_requested_at": _now(),
+        "exit_type": "emergency",
+        "is_active": False,
+    }})
+    await audit(db, user.id, "emergency_exit", {"reason": reason})
+    return {"exit_requested": True, "message": "Emergency exit initiated. Account suspended pending review."}
+
+@api_router.post("/me/cancel-exit")
+async def cancel_exit(user: User = Depends(current_user)):
+    await db.users.update_one({"id": user.id}, {"$unset": {
+        "exit_requested": "", "exit_reason": "", "exit_requested_at": "", "exit_type": ""
+    }, "$set": {"is_active": True}})
+    await audit(db, user.id, "exit_cancelled", {})
+    return {"exit_requested": False, "message": "Exit request cancelled."}
+
+@api_router.post("/me/leave-more")
+async def leave_more(user: User = Depends(current_user)):
+    await db.users.update_one({"id": user.id}, {"$set": {"more_member": False}})
+    await audit(db, user.id, "left_more", {})
+    return {"more_member": False, "message": "Removed from M.O.R.E. community."}
+
+
+# ── PROJECTS (/projects*) ─────────────────────────────────────────────────────
+
+def _new_project_id():
+    import uuid
+    return "proj_" + str(uuid.uuid4())[:8]
+
+@api_router.get("/projects")
+async def list_projects(user: User = Depends(current_user)):
+    docs = await db.projects.find(
+        {"$or": [{"owner_id": user.id}, {"collaborators": user.id}, {"visibility": "public"}]},
+        {"_id": 0}
+    ).sort("created_at", -1).limit(100).to_list(100)
+    return docs
+
+@api_router.get("/projects/{project_id}")
+async def get_project(project_id: str, user: User = Depends(current_user)):
+    doc = await db.projects.find_one({"project_id": project_id}, {"_id": 0})
+    if not doc:
+        raise HTTPException(404, "Project not found")
+    if doc.get("visibility") != "public" and doc.get("owner_id") != user.id and user.id not in doc.get("collaborators", []):
+        raise HTTPException(403, "Access denied")
+    return doc
+
+@api_router.post("/projects")
+async def create_project(body: dict, user: User = Depends(current_user)):
+    pid = _new_project_id()
+    doc = {
+        "project_id": pid,
+        "owner_id": user.id,
+        "owner_name": user.full_name,
+        "title": (body.get("title") or "Untitled Project").strip(),
+        "description": (body.get("description") or "").strip(),
+        "status": body.get("status", "active"),
+        "visibility": body.get("visibility", "private"),
+        "tags": body.get("tags", []),
+        "collaborators": [],
+        "milestones": [],
+        "created_at": _now(),
+        "updated_at": _now(),
+    }
+    await db.projects.insert_one(doc)
+    doc.pop("_id", None)
+    await audit(db, user.id, "project_created", {"project_id": pid, "title": doc["title"]})
+    return doc
+
+@api_router.patch("/projects/{project_id}")
+async def update_project(project_id: str, body: dict, user: User = Depends(current_user)):
+    doc = await db.projects.find_one({"project_id": project_id})
+    if not doc:
+        raise HTTPException(404, "Project not found")
+    if doc.get("owner_id") != user.id and ROLE_RANK.get(user.role, 0) < ROLE_RANK.get("admin", 3):
+        raise HTTPException(403, "Only owner can update")
+    allowed = {"title", "description", "status", "visibility", "tags", "milestones"}
+    updates = {k: v for k, v in body.items() if k in allowed}
+    updates["updated_at"] = _now()
+    await db.projects.update_one({"project_id": project_id}, {"$set": updates})
+    doc.update(updates)
+    doc.pop("_id", None)
+    return doc
+
+@api_router.post("/projects/{project_id}/milestone")
+async def add_milestone(project_id: str, body: dict, user: User = Depends(current_user)):
+    doc = await db.projects.find_one({"project_id": project_id})
+    if not doc:
+        raise HTTPException(404, "Project not found")
+    if doc.get("owner_id") != user.id and user.id not in doc.get("collaborators", []):
+        raise HTTPException(403, "Access denied")
+    import uuid
+    milestone = {
+        "milestone_id": str(uuid.uuid4())[:8],
+        "title": (body.get("title") or "").strip(),
+        "due_date": body.get("due_date"),
+        "completed": False,
+        "created_at": _now(),
+    }
+    await db.projects.update_one({"project_id": project_id}, {"$push": {"milestones": milestone}, "$set": {"updated_at": _now()}})
+    return milestone
+
+@api_router.patch("/projects/{project_id}/milestone/{milestone_id}")
+async def update_milestone(project_id: str, milestone_id: str, body: dict, user: User = Depends(current_user)):
+    doc = await db.projects.find_one({"project_id": project_id})
+    if not doc:
+        raise HTTPException(404, "Project not found")
+    if doc.get("owner_id") != user.id and user.id not in doc.get("collaborators", []):
+        raise HTTPException(403, "Access denied")
+    milestones = doc.get("milestones", [])
+    for m in milestones:
+        if m.get("milestone_id") == milestone_id:
+            m.update({k: v for k, v in body.items() if k in {"title", "due_date", "completed"}})
+    await db.projects.update_one({"project_id": project_id}, {"$set": {"milestones": milestones, "updated_at": _now()}})
+    return {"updated": True}
+
+@api_router.delete("/projects/{project_id}")
+async def delete_project(project_id: str, user: User = Depends(current_user)):
+    doc = await db.projects.find_one({"project_id": project_id})
+    if not doc:
+        raise HTTPException(404, "Project not found")
+    if doc.get("owner_id") != user.id and ROLE_RANK.get(user.role, 0) < ROLE_RANK.get("admin", 3):
+        raise HTTPException(403, "Only owner can delete")
+    await db.projects.delete_one({"project_id": project_id})
+    await audit(db, user.id, "project_deleted", {"project_id": project_id})
+    return {"deleted": True}
+
+
+# ── MEDIA STORE (/media/*) ────────────────────────────────────────────────────
+
+@api_router.get("/media/products")
+async def list_media_products(user: User = Depends(current_user)):
+    docs = await db.media_products.find({"published": True}, {"_id": 0}).sort("created_at", -1).limit(100).to_list(100)
+    return docs
+
+@api_router.get("/media/products/mine")
+async def my_media_products(user: User = Depends(current_user)):
+    docs = await db.media_products.find({"owner_id": user.id}, {"_id": 0}).sort("created_at", -1).limit(100).to_list(100)
+    return docs
+
+@api_router.post("/media/products")
+async def create_media_product(body: dict, user: User = Depends(current_user)):
+    import uuid
+    pid = "mp_" + str(uuid.uuid4())[:8]
+    doc = {
+        "id": pid,
+        "owner_id": user.id,
+        "owner_name": user.full_name,
+        "title": (body.get("title") or "").strip(),
+        "description": (body.get("description") or "").strip(),
+        "price_cents": int(body.get("price_cents", 0)),
+        "type": body.get("type", "file"),
+        "tags": body.get("tags", []),
+        "file_url": body.get("file_url", ""),
+        "cover_url": body.get("cover_url", ""),
+        "published": body.get("published", False),
+        "created_at": _now(),
+        "updated_at": _now(),
+    }
+    await db.media_products.insert_one(doc)
+    doc.pop("_id", None)
+    await audit(db, user.id, "media_product_created", {"id": pid, "title": doc["title"]})
+    return doc
+
+@api_router.patch("/media/products/{product_id}")
+async def update_media_product(product_id: str, body: dict, user: User = Depends(current_user)):
+    doc = await db.media_products.find_one({"id": product_id})
+    if not doc:
+        raise HTTPException(404, "Product not found")
+    if doc.get("owner_id") != user.id and ROLE_RANK.get(user.role, 0) < ROLE_RANK.get("admin", 3):
+        raise HTTPException(403, "Only owner can update")
+    allowed = {"title", "description", "price_cents", "type", "tags", "file_url", "cover_url", "published"}
+    updates = {k: v for k, v in body.items() if k in allowed}
+    updates["updated_at"] = _now()
+    await db.media_products.update_one({"id": product_id}, {"$set": updates})
+    return {**{k: v for k, v in doc.items() if k != "_id"}, **updates}
+
+@api_router.delete("/media/products/{product_id}")
+async def delete_media_product(product_id: str, user: User = Depends(current_user)):
+    doc = await db.media_products.find_one({"id": product_id})
+    if not doc:
+        raise HTTPException(404, "Product not found")
+    if doc.get("owner_id") != user.id and ROLE_RANK.get(user.role, 0) < ROLE_RANK.get("admin", 3):
+        raise HTTPException(403, "Only owner can delete")
+    await db.media_products.delete_one({"id": product_id})
+    await audit(db, user.id, "media_product_deleted", {"id": product_id})
+    return {"deleted": True}
+
+@api_router.get("/media/purchases")
+async def my_media_purchases(user: User = Depends(current_user)):
+    docs = await db.media_purchases.find({"buyer_id": user.id}, {"_id": 0}).sort("purchased_at", -1).limit(100).to_list(100)
+    return docs
+
+@api_router.post("/media/products/{product_id}/checkout")
+async def checkout_media_product(product_id: str, user: User = Depends(current_user)):
+    doc = await db.media_products.find_one({"id": product_id}, {"_id": 0})
+    if not doc:
+        raise HTTPException(404, "Product not found")
+    if not doc.get("published"):
+        raise HTTPException(400, "Product not available")
+    existing = await db.media_purchases.find_one({"buyer_id": user.id, "product_id": product_id})
+    if existing:
+        return {"already_purchased": True, "file_url": doc.get("file_url", "")}
+    if doc.get("price_cents", 0) > 0:
+        raise HTTPException(402, "Payment required — use Stripe checkout for paid products")
+    import uuid
+    purchase = {
+        "id": str(uuid.uuid4())[:8],
+        "buyer_id": user.id,
+        "product_id": product_id,
+        "title": doc.get("title", ""),
+        "file_url": doc.get("file_url", ""),
+        "purchased_at": _now(),
+        "price_cents": 0,
+    }
+    await db.media_purchases.insert_one(purchase)
+    purchase.pop("_id", None)
+    return purchase
+
+@api_router.get("/media/products/{product_id}/download")
+async def download_media_product(product_id: str, user: User = Depends(current_user)):
+    doc = await db.media_products.find_one({"id": product_id}, {"_id": 0})
+    if not doc:
+        raise HTTPException(404, "Product not found")
+    if doc.get("price_cents", 0) > 0:
+        existing = await db.media_purchases.find_one({"buyer_id": user.id, "product_id": product_id})
+        if not existing and doc.get("owner_id") != user.id:
+            raise HTTPException(403, "Purchase required")
+    file_url = doc.get("file_url", "")
+    if not file_url:
+        raise HTTPException(404, "No file attached to this product")
+    return {"file_url": file_url, "title": doc.get("title", "")}
+
+@api_router.post("/media/upload")
+async def upload_media_file(file: UploadFile = File(...), user: User = Depends(current_user)):
+    max_mb = 50
+    contents = await file.read()
+    if len(contents) > max_mb * 1024 * 1024:
+        raise HTTPException(413, f"File too large (max {max_mb}MB)")
+    import gridfs
+    from motor.motor_asyncio import AsyncIOMotorGridFSBucket
+    bucket = AsyncIOMotorGridFSBucket(db)
+    gfs_id = await bucket.upload_from_stream(file.filename, contents, metadata={"uploader": user.id, "content_type": file.content_type})
+    file_url = f"/api/media/file/{gfs_id}"
+    await audit(db, user.id, "media_file_uploaded", {"filename": file.filename, "size": len(contents)})
+    return {"file_url": file_url, "filename": file.filename, "size": len(contents)}
+
+@api_router.get("/media/file/{file_id}")
+async def get_media_file(file_id: str):
+    from bson import ObjectId
+    from motor.motor_asyncio import AsyncIOMotorGridFSBucket
+    from fastapi.responses import StreamingResponse
+    try:
+        oid = ObjectId(file_id)
+    except Exception:
+        raise HTTPException(400, "Invalid file ID")
+    bucket = AsyncIOMotorGridFSBucket(db)
+    try:
+        stream = await bucket.open_download_stream(oid)
+    except Exception:
+        raise HTTPException(404, "File not found")
+    async def iter_file():
+        while True:
+            chunk = await stream.read(65536)
+            if not chunk:
+                break
+            yield chunk
+    return StreamingResponse(iter_file(), media_type=stream.metadata.get("content_type", "application/octet-stream"))
+
+
+# ── MISSING KAMERON (/missing/*) ─────────────────────────────────────────────
+
+_KAMERON_CASE_ID = "kameron-mcmullen"
+
+@api_router.get("/missing/photos/{case_id}")
+async def get_missing_photos(case_id: str):
+    photos = await db.missing_photos.find({"case_id": case_id}, {"_id": 0}).sort("uploaded_at", -1).to_list(100)
+    return {"photos": photos, "case_id": case_id}
+
+@api_router.post("/missing/photo")
+async def upload_missing_photo(
+    file: UploadFile = File(...),
+    case_id: str = Form(default=_KAMERON_CASE_ID),
+    user: User = Depends(current_user),
+):
+    contents = await file.read()
+    if len(contents) > 20 * 1024 * 1024:
+        raise HTTPException(413, "File too large (max 20MB)")
+    from motor.motor_asyncio import AsyncIOMotorGridFSBucket
+    import uuid
+    bucket = AsyncIOMotorGridFSBucket(db)
+    gfs_id = await bucket.upload_from_stream(file.filename, contents, metadata={"content_type": file.content_type, "case_id": case_id})
+    photo_url = f"/api/missing/file/{gfs_id}"
+    doc = {
+        "id": str(uuid.uuid4())[:8],
+        "case_id": case_id,
+        "photo_url": photo_url,
+        "filename": file.filename,
+        "uploaded_by": user.id,
+        "uploaded_at": _now(),
+    }
+    await db.missing_photos.insert_one(doc)
+    doc.pop("_id", None)
+    return doc
+
+@api_router.post("/missing/tip")
+async def submit_missing_tip(body: dict):
+    name = (body.get("name") or "").strip()
+    tip_text = (body.get("tip") or "").strip()
+    contact = (body.get("contact") or "").strip()
+    case_id = body.get("case_id", _KAMERON_CASE_ID)
+    if not tip_text:
+        raise HTTPException(400, "Tip content is required")
+    import uuid
+    doc = {
+        "id": str(uuid.uuid4())[:8],
+        "case_id": case_id,
+        "case_name": name,
+        "tip": tip_text,
+        "contact": contact,
+        "submitted_at": _now(),
+        "reviewed": False,
+    }
+    await db.missing_tips.insert_one(doc)
+    doc.pop("_id", None)
+    logger.info("MISSING TIP submitted for case %s", case_id)
+    return {"submitted": True, "id": doc["id"], "message": "Thank you. Your tip has been submitted anonymously and will be reviewed."}
+
+@api_router.get("/missing/file/{file_id}")
+async def get_missing_file(file_id: str):
+    from bson import ObjectId
+    from motor.motor_asyncio import AsyncIOMotorGridFSBucket
+    from fastapi.responses import StreamingResponse
+    try:
+        oid = ObjectId(file_id)
+    except Exception:
+        raise HTTPException(400, "Invalid file ID")
+    bucket = AsyncIOMotorGridFSBucket(db)
+    try:
+        stream = await bucket.open_download_stream(oid)
+    except Exception:
+        raise HTTPException(404, "File not found")
+    async def iter_file():
+        while True:
+            chunk = await stream.read(65536)
+            if not chunk:
+                break
+            yield chunk
+    return StreamingResponse(iter_file(), media_type=stream.metadata.get("content_type", "image/jpeg"))
+
 app.include_router(api_router)
 # CORS: when origins is wildcard ("*") browsers reject credentials, so we
 # turn off allow_credentials in that case (auth uses Bearer token in Authorization

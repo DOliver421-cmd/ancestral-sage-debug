@@ -202,6 +202,7 @@ function ProtocolVault() {
   const [creating, setCreating] = useState(false);
   const [form, setForm] = useState({ title: "", category: "incident_response", content: "", passphrase: "" });
   const [unlockForm, setUnlockForm] = useState({});
+  const [confirmDeleteProtocol, setConfirmDeleteProtocol] = useState(null);
 
   const CATEGORIES = ["incident_response", "legal_defense", "technical_defense", "governance", "reputation", "general"];
 
@@ -232,8 +233,9 @@ function ProtocolVault() {
     } catch { alert("Invalid passphrase."); }
   }
 
-  async function handleDelete(id) {
-    if (!window.confirm("Permanently delete this protocol?")) return;
+  async function doDeleteProtocol() {
+    const id = confirmDeleteProtocol;
+    setConfirmDeleteProtocol(null);
     try { await api.delete(`/sentinel/protocols/${id}`); load(); } catch {}
   }
 
@@ -267,6 +269,19 @@ function ProtocolVault() {
         <div style={{ color: MUTED, fontSize: 12, padding: "20px 0" }}>No protocols yet. Create the first one.</div>
       )}
 
+      {confirmDeleteProtocol && (
+        <div style={{ position:"fixed", inset:0, zIndex:1000, display:"flex", alignItems:"center", justifyContent:"center", background:"rgba(0,0,0,0.7)", padding:16 }}>
+          <div style={{ background:"#131620", border:"1px solid rgba(74,242,197,0.15)", borderRadius:12, padding:28, maxWidth:380, width:"100%" }}>
+            <div style={{ color:"#f0f4ff", fontWeight:700, fontSize:15, marginBottom:10 }}>Delete Protocol</div>
+            <div style={{ color:"rgba(200,210,230,0.45)", fontSize:12, marginBottom:20 }}>Permanently delete this protocol? This cannot be undone.</div>
+            <div style={{ display:"flex", justifyContent:"flex-end", gap:10 }}>
+              <button onClick={() => setConfirmDeleteProtocol(null)} style={{ border:"1px solid rgba(200,210,230,0.45)", background:"transparent", color:"rgba(200,210,230,0.45)", borderRadius:6, padding:"5px 14px", fontSize:11, fontWeight:700, cursor:"pointer" }}>Cancel</button>
+              <button onClick={doDeleteProtocol} style={{ border:"1px solid #f87171", background:"transparent", color:"#f87171", borderRadius:6, padding:"5px 14px", fontSize:11, fontWeight:700, cursor:"pointer" }}>Delete</button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {protocols.map(p => (
         <div key={p.id} style={s.card}>
           <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
@@ -274,7 +289,7 @@ function ProtocolVault() {
             <span style={{ fontSize: 13, fontWeight: 700, color: WHITE, flex: 1 }}>{p.title}</span>
             <span style={s.badge(catColor[p.category] || MUTED)}>{p.category?.replace(/_/g, " ")}</span>
             <span style={{ color: MUTED, fontSize: 10 }}>{p.created_at ? new Date(p.created_at).toLocaleDateString() : ""}</span>
-            <button onClick={() => handleDelete(p.id)} style={{ background: "none", border: "none", cursor: "pointer", color: MUTED, padding: 2 }}>
+            <button onClick={() => setConfirmDeleteProtocol(p.id)} style={{ background: "none", border: "none", cursor: "pointer", color: MUTED, padding: 2 }}>
               <Trash2 size={11} />
             </button>
           </div>
@@ -315,6 +330,7 @@ function ResearchNotes() {
   const [expanded, setExpanded] = useState({});
   const [form, setForm] = useState({ title: "", content: "", tags: "" });
   const [creating, setCreating] = useState(false);
+  const [confirmDeleteNote, setConfirmDeleteNote] = useState(null);
 
   const load = useCallback(async () => {
     try { const r = await api.get("/sentinel/research"); setNotes(r.data.notes || []); } catch {}
@@ -334,8 +350,9 @@ function ResearchNotes() {
     } catch {}
   }
 
-  async function handleDelete(id) {
-    if (!window.confirm("Delete this research note?")) return;
+  async function doDeleteNote() {
+    const id = confirmDeleteNote;
+    setConfirmDeleteNote(null);
     try { await api.delete(`/sentinel/research/${id}`); load(); } catch {}
   }
 
@@ -359,6 +376,19 @@ function ResearchNotes() {
         </form>
       )}
 
+      {confirmDeleteNote && (
+        <div style={{ position:"fixed", inset:0, zIndex:1000, display:"flex", alignItems:"center", justifyContent:"center", background:"rgba(0,0,0,0.7)", padding:16 }}>
+          <div style={{ background:"#131620", border:"1px solid rgba(74,242,197,0.15)", borderRadius:12, padding:28, maxWidth:380, width:"100%" }}>
+            <div style={{ color:"#f0f4ff", fontWeight:700, fontSize:15, marginBottom:10 }}>Delete Research Note</div>
+            <div style={{ color:"rgba(200,210,230,0.45)", fontSize:12, marginBottom:20 }}>Delete this research note? This cannot be undone.</div>
+            <div style={{ display:"flex", justifyContent:"flex-end", gap:10 }}>
+              <button onClick={() => setConfirmDeleteNote(null)} style={{ border:"1px solid rgba(200,210,230,0.45)", background:"transparent", color:"rgba(200,210,230,0.45)", borderRadius:6, padding:"5px 14px", fontSize:11, fontWeight:700, cursor:"pointer" }}>Cancel</button>
+              <button onClick={doDeleteNote} style={{ border:"1px solid #f87171", background:"transparent", color:"#f87171", borderRadius:6, padding:"5px 14px", fontSize:11, fontWeight:700, cursor:"pointer" }}>Delete</button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {notes.length === 0 && !creating && (
         <div style={{ color: MUTED, fontSize: 12, padding: "20px 0" }}>No notes yet.</div>
       )}
@@ -370,7 +400,7 @@ function ResearchNotes() {
             <span style={{ fontSize: 13, fontWeight: 700, color: WHITE, flex: 1 }}>{n.title}</span>
             {(n.tags || []).map(t => <span key={t} style={s.badge(MUTED)}>{t}</span>)}
             <span style={{ color: MUTED, fontSize: 10 }}>{n.created_at ? new Date(n.created_at).toLocaleDateString() : ""}</span>
-            <button onClick={e => { e.stopPropagation(); handleDelete(n.id); }} style={{ background: "none", border: "none", cursor: "pointer", color: MUTED, padding: 2 }}>
+            <button onClick={e => { e.stopPropagation(); setConfirmDeleteNote(n.id); }} style={{ background: "none", border: "none", cursor: "pointer", color: MUTED, padding: 2 }}>
               <Trash2 size={11} />
             </button>
             {expanded[n.id] ? <ChevronUp size={12} color={MUTED} /> : <ChevronDown size={12} color={MUTED} />}
@@ -454,6 +484,7 @@ function ResponsePanel() {
   const [lastResult, setLastResult] = useState(null);
   const [reversals, setReversals] = useState([]);
   const [reversing, setReversing] = useState({});
+  const [confirmReverse, setConfirmReverse] = useState(null);
 
   const loadReversals = useCallback(async () => {
     try { const r = await api.get("/sentinel/reversals"); setReversals(r.data.reversals || []); } catch {}
@@ -474,8 +505,9 @@ function ResponsePanel() {
     setRunning(false);
   }
 
-  async function reverse(id) {
-    if (!window.confirm("Reverse this action? This will undo the protective measure.")) return;
+  async function doReverse() {
+    const id = confirmReverse;
+    setConfirmReverse(null);
     setReversing(r => ({ ...r, [id]: true }));
     try {
       await api.post(`/sentinel/reverse/${id}`);
@@ -541,6 +573,19 @@ function ResponsePanel() {
         )}
       </div>
 
+      {confirmReverse && (
+        <div style={{ position:"fixed", inset:0, zIndex:1000, display:"flex", alignItems:"center", justifyContent:"center", background:"rgba(0,0,0,0.7)", padding:16 }}>
+          <div style={{ background:"#131620", border:"1px solid rgba(74,242,197,0.15)", borderRadius:12, padding:28, maxWidth:380, width:"100%" }}>
+            <div style={{ color:"#f0f4ff", fontWeight:700, fontSize:15, marginBottom:10 }}>Reverse Action</div>
+            <div style={{ color:"rgba(200,210,230,0.45)", fontSize:12, marginBottom:20 }}>This will undo the protective measure. Are you sure?</div>
+            <div style={{ display:"flex", justifyContent:"flex-end", gap:10 }}>
+              <button onClick={() => setConfirmReverse(null)} style={{ border:"1px solid rgba(200,210,230,0.45)", background:"transparent", color:"rgba(200,210,230,0.45)", borderRadius:6, padding:"5px 14px", fontSize:11, fontWeight:700, cursor:"pointer" }}>Cancel</button>
+              <button onClick={doReverse} style={{ border:"1px solid #f87171", background:"transparent", color:"#f87171", borderRadius:6, padding:"5px 14px", fontSize:11, fontWeight:700, cursor:"pointer" }}>Reverse</button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Reversals list */}
       <div style={{ ...s.label, marginTop: 8 }}>Action History &amp; Human Override</div>
       {reversals.length === 0 && (
@@ -566,7 +611,7 @@ function ResponsePanel() {
             </div>
             {r.status === "active" && (
               <button
-                onClick={() => reverse(r.id)}
+                onClick={() => setConfirmReverse(r.id)}
                 disabled={reversing[r.id]}
                 style={{ ...s.btn(AMBER), whiteSpace: "nowrap", display: "flex", alignItems: "center", gap: 5, flexShrink: 0 }}
               >

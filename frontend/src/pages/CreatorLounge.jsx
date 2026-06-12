@@ -50,6 +50,7 @@ export default function CreatorLounge() {
   const [showForm,  setShowForm]  = useState(false);
   const [collab,    setCollab]    = useState(null); // project to collab request
   const [collabMsg, setCollabMsg] = useState("");
+  const [confirmDeleteProject, setConfirmDeleteProject] = useState(null);
 
   const [form, setForm] = useState({
     title: "", description: "", genre: "", looking_for_text: "", open: true
@@ -117,8 +118,9 @@ export default function CreatorLounge() {
     } catch(e) { toast.error("Failed"); }
   }
 
-  async function deleteProj(id) {
-    if (!window.confirm("Delete this project?")) return;
+  async function doDeleteProj() {
+    const id = confirmDeleteProject;
+    setConfirmDeleteProject(null);
     try {
       await api.delete(`/creator-lounge/projects/${id}`);
       toast.success("Deleted");
@@ -178,7 +180,7 @@ export default function CreatorLounge() {
                   <p>No projects yet. Be the first to post one.</p>
                   <button onClick={() => setTab("post")} style={{ ...S.btnGold, marginTop: "1rem" }}>Post a Project</button>
                 </div>
-              : projects.map(p => <ProjectCard key={p.id} project={p} currentUserId={user?.id} onCollab={setCollab} onToggle={toggleOpen} onDelete={deleteProj} />)
+              : projects.map(p => <ProjectCard key={p.id} project={p} currentUserId={user?.id} onCollab={setCollab} onToggle={toggleOpen} onDelete={setConfirmDeleteProject} />)
         )}
 
         {/* ── MY PROJECTS ── */}
@@ -190,7 +192,7 @@ export default function CreatorLounge() {
               </div>
             : myProjects.map(p => (
                 <ProjectCard key={p.id} project={p} currentUserId={user?.id} isOwner
-                  onCollab={setCollab} onToggle={toggleOpen} onDelete={deleteProj} />
+                  onCollab={setCollab} onToggle={toggleOpen} onDelete={setConfirmDeleteProject} />
               ))
         )}
 
