@@ -1,156 +1,190 @@
-# WAI Institute — Agent Handoff Document
-**Date:** June 1 2026
-**Repo:** DOliver421-cmd/ancestral-sage-debug
-**Deploy:** Railway — two services (frontend nginx + backend uvicorn)
-**Domains:** wai-institute.org (main) · morehelp.center (M.O.R.E. subdomain)
-**Last merged PR:** #34 (PR #35 open, not merged)
+# Handoff: ancestral-sage-debug
+
+## Project Overview
+
+**WAI Training Platform** — a full-stack learning and operations platform for Lightning City Electric / WAI Institute. Combines a student LMS with internal operations tools (AI personas, project management, competition system, content moderation, financial tracking).
+
+**Live URL:** https://ancestral-sage-debug-production.up.railway.app
+
+**Stack:**
+- Frontend: React 18 + TailwindCSS, built with craco, served as a static build embedded in the Docker image
+- Backend: FastAPI + Motor (async MongoDB), entry point `app.main:app`
+- Database: MongoDB (primary + optional backup), collection name `ancestral_sage`
+- Deployment: Railway, single service, Docker build, auto-deploys from `main` branch
+
+**Design tokens:**
+- Copper: `#b5651d`
+- Ink: `#1a1a1a`
+- Bone: `#f5f0e8`
 
 ---
 
-## HONEST SESSION ASSESSMENT
+## Current State (as of handoff)
 
-The last session spent the majority of its time on cosmetic changes — replacing `window.confirm` / `window.prompt` with inline modals. These changes do not fix anything broken for a real user or visitor. They improve polish on admin-only screens that users never see. A significant number of PRs (#33, #34, #35 partial) were consumed by this.
+### What is working
+- Backend starts successfully via `app.main:app` (railway.toml is correct)
+- All priority routes register: `jamil`, `competition`, `projects`, `missing`
+- Auth (`app.routes.auth`) and system routes (`app.routes.system`) always load first
+- Jamil persona: chat, TTS (ElevenLabs), STT (Groq Whisper), file extraction, history to MongoDB
+- AppShell sidebar with Executive section (Arena, Jamil, Projects visible to executive_admin/admin)
+- Frontend reverted to pre-session baseline (commit `5b30096`) — no broken layout changes remain
 
-One real functional bug was introduced and not caught until an end-of-session audit:
-- **Creators.jsx line 58** reads `c.displayName || c.name` but the backend returns `display_name` (snake_case). Every real creator profile fetched from the DB renders with a **blank name** on the public `/creators` page. This is user-visible and was caused by this session's PR #34 rewrite of Creators.jsx.
+### What is NOT working / was the original task
+- **Arena (The Arena) was not working** before this session. The competition route had an undefined `oid` bug that caused 500 errors on task submission. The route was not registered as a priority route (fault-tolerant loading meant a silent import failure would hide it). See "The Original Task" section below.
 
----
-
-## PERMANENT MANDATES (must survive every session)
-
-1. **Never call Anthropic/LLMs directly** — always use `call_llm()` from `backend/ai/llm_gateway.py`
-2. **API keys encrypted at rest** via Fernet (`PROVIDER_KEY_ENCRYPTION_SECRET`). `encrypted_key` field **NEVER** returned in any API response.
-3. **Cash refunds require ALL 5 conditions**: `is_extreme_violation`, `user_not_at_fault`, `is_legal`, `no_harm_to_wai`, `supervisor_approved`
-4. **Sequential commits** — one unit of work per PR, wait for merge before starting next
-5. **No accumulation** — never let more than one PR sit open without user merge approval
-6. **Never remove any site control/feature** without explicit instruction to remove that specific feature
-7. **No cosmetic mocks** — every metric, control, and display must be real and functional
+### What was broken by this session and then restored
+- **railway.toml startCommand** was changed from `app.main:app` to `server:app` in commit `771557f`, which broke the backend (server.py does not exist at that path). Reverted in `4f630f0`.
+- **Frontend (AppShell + other components)** was modified during the session (collapsible sidebar, layout tweaks, CookieConsent changes, HelpGuide hooks violation). All frontend changes were reverted to pre-session baseline in commit `51c1b5a`.
 
 ---
 
-## ARCHITECTURE
+## Critical Rules (must follow in every session)
 
-- **Frontend**: React 18 SPA, React Router v6, Tailwind CSS, Vite/CRA + Craco, served by nginx
-- **Backend**: FastAPI + Motor (async MongoDB), ~12,400 lines in `backend/server.py`
-- **Auth**: JWT Bearer token (`lce_token` in localStorage), roles: `student < instructor < admin < executive_admin`
-- **Payments**: Stripe checkout + webhooks + subscriptions
-- **AI**: `call_llm()` gateway in `backend/ai/llm_gateway.py` — all LLM calls go through here
-- **Static tools**: `frontend/public/tools/` — standalone HTML pages using `hub_client.js` shared state
-
-**API routing**: `api_router = APIRouter(prefix="/api")` — frontend axios baseURL is `${BACKEND_URL}/api`. So `api.post("/foo")` hits `/api/foo`.
-
----
-
-## WHAT ACTUALLY WORKS (end-to-end verified, field names traced)
-
-| Feature | Status | Notes |
-|---------|--------|-------|
-| Plans → Stripe checkout | ✅ Works | `product_key` matches; backend returns `url`; all 5 plan keys valid |
-| Creator course publishing (CRUD) | ✅ Works | POST/GET/PATCH/DELETE all wired; field names match |
-| Creator earnings dashboard | ✅ Works | All response fields match what frontend reads |
-| Creator profile self-edit | ✅ Works | `PUT /creator/profile` with `display_name` (snake_case) |
-| Landing page live course cards | ✅ Works | Reads `price_cents`/`enrollment_count` — matches backend |
-| Tool-page AI via WAI backend | ✅ Works | `callWAI()` in hub_client.js → `/api/ai/tool-chat` → `call_llm()` |
-| GhostProducer TTS | ✅ Works | Calls `/ai/sage/tts`, blob response, plays via Web Audio API |
-| FlagModal → /more/flag | ✅ Works | Field names match; auth attached |
-| Stripe webhook → creator_enrollments | ✅ Works | Branches on `product_key=="creator_course"`, upserts with `paid:True` |
-| SiteControlPanel data | ✅ Works | All keys from `/admin/control-panel` match what frontend destructures |
-| Creator profile is_owner flag | ✅ Works | JWT vs `user_id` comparison; Edit button shows correctly |
+1. **Never use the word "tools" for AI** — use Partners, Teammates, or Friends. Hard rule from owner.
+2. **No Anthropic references anywhere** — `ANTHROPIC_API_KEY` is hardcoded to `""` in `app/config.py`. The gateway has Anthropic hard-disabled. Do not re-enable without explicit instruction from D. Oliver.
+3. **LLM provider chain: Groq → Cerebras → SambaNova → Gemini → Grok → Cohere → Mistral → Together → OpenRouter → HuggingFace → Keyword KB.** NO Anthropic ever.
+4. **ALL changes must be committed and pushed immediately** — do not accumulate local changes.
+5. **Branch: `claude/stoic-brown-c9ICA` → PRs to `main` → Railway auto-deploys.**
+6. **NEVER change `railway.toml` startCommand** without verifying the new entry point loads and passes `/api/version` first.
+7. **NEVER add `overflow-hidden` to AppShell's main container** — it breaks page scrolling for every page.
+8. **NEVER put return statements before React hooks in a component** — causes a React hooks violation that will crash the Railway build.
 
 ---
 
-## KNOWN BUGS — MUST FIX BEFORE ANYTHING ELSE
+## Architecture
 
-### 🔴 BUG 1 — Creators.jsx: real creator names are blank (introduced PR #34)
-**File**: `frontend/src/pages/Creators.jsx` line 58
-**Problem**: `c.displayName || c.name` — backend returns `display_name` (snake_case). Real DB profiles render with blank name.
-**Fix**: Change to `c.display_name || c.displayName || c.name`
-**Impact**: Every real creator on the public `/creators` directory is nameless.
+### Backend entry point
+- `railway.toml` says: `exec uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8080}`
+- `Dockerfile` CMD says: `uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8080}`
+- Both agree. The application object is `app` in `app/main.py`.
 
-### 🔴 BUG 2 — CreatorProfile.jsx: Nova Highborn still hardcoded with no real DB profile
-**File**: `frontend/src/pages/CreatorProfile.jsx` lines 197–239
-**Problem**: Nova Highborn (`slug: "nova-highborn"`) is fully hardcoded in the frontend registry. If a user navigates to `/creator/nova-highborn`, it renders from this hardcoded data — but there is no real DB profile and no backend endpoint for this creator. If the hardcoded registry is ever cleaned, the page 404s. This is a ticking bomb.
-**Fix**: Either create a real DB profile for Nova Highborn (`/creator/profile` PUT), or remove the hardcoded entry and accept the 404.
+### How routes are registered in app/main.py
+Two tiers:
 
-### 🟡 BUG 3 — /ai/tool-chat calls invisible to AI spend dashboard
-**File**: `backend/server.py` ~line 3867
-**Problem**: `ai_usage_log` insert for tool-chat writes only `{user_id, endpoint, skill, created_at}`. Missing `cost_usd`, `provider`, `model`. The SiteControlPanel AI spend widget sums `cost_usd` by provider — tool-chat calls never appear. You are flying blind on this cost center.
-**Fix**: After `gw = await _call_llm(...)`, read `gw.get("cost_usd", 0)` and `gw.get("provider", "")` and write them to the log.
+**Priority routes** (direct imports, stderr output, errors always visible in Railway logs):
+- `app.routes.jamil`
+- `app.routes.competition`
+- `app.routes.projects`
+- `app.routes.missing`
 
-### 🟡 BUG 4 — ModuleView has video/diagram placeholder divs in production
-**File**: `frontend/src/pages/ModuleView.jsx` lines ~72–79
-**Problem**: `data-testid="video-placeholder"` and `data-testid="diagram-placeholder"` divs are rendered. Learners see empty boxes where video content should be.
-**Fix**: Audit whether the backend serves `video_url` and `diagram_url` fields on modules; wire or hide appropriately.
+If any of these fail to import, the error prints to stderr with a full traceback. The server still starts.
 
----
+**Fault-tolerant routes** (30+ modules loaded via `_load()`): any single failure is logged but does not crash the server. `/api/version` and `/api/health` always remain available regardless of route failures.
 
-## REMAINING WINDOW.CONFIRM DIALOGS (cosmetic — low priority, do last)
+### Frontend routing: App.js
+- `Protected({ children, roles })` — redirects to `/login` if not authenticated; checks role rank if `roles` is specified
+- `BoundedAdmin({ children, roles, label })` — wraps admin/exec routes in their own `ErrorBoundary` + `Protected`; a crash in one page does not bring down the whole app
+- `SupervisorProtected` — redirects to `/supervisor-login` (not main login) if not `executive_admin`
+- `Home` component handles role-based redirect on `/`: `executive_admin` → `/admin/system`, `admin` → `/admin`, `instructor` → `/instructor`, `creative_partner` → `/creative-partner`, `student` → `/dashboard`
 
-These are all on admin-only pages. Real users never see them. Do NOT work on these until all functional bugs above are fixed.
+### Role hierarchy
+```
+student (1) = creative_partner (1, lateral) → instructor (2) → admin (3) → executive_admin (4)
+```
+Higher rank passes all lower-rank checks. `executive_admin` passes every role check.
 
-| File | Dialog | Priority |
-|------|--------|---------|
-| `AdminDashboard.jsx` | Delete user, resolve incident, force logout, `window.prompt` for reset link | Admin only |
-| `ExecutiveDirectorDashboard.jsx` | Resolve refund, deactivate/delete user, lock platform, disable feature toggle | Exec only |
-| `MoreHelpCenter.jsx` | Delete user, revoke env key, reset token counter | Admin only |
-| `SeshatsHub.jsx` | Failover, emergency broadcast, reset counter | Exec only |
-| `PlatformPrices.jsx` | Delete price key | Admin only |
-| `Settings.jsx` | Log out all other devices | User-facing but non-destructive |
+### LLM gateway location and how to call it
+- Gateway: `backend/ai/llm_gateway.py`
+- Service wrapper used by routes: `app/services/llm.py` — `from app.services.llm import chat as _llm_chat`
+- Call: `await _llm_chat(system=..., user=..., max_tokens=4096)`
+- The gateway tries providers in tier order, skips degraded ones (5-min recovery window), and falls back to Keyword KB if all fail.
+- Keys are loaded from env vars at startup and reloaded from MongoDB via `reload_provider_keys(db)` when the Provider Gateway UI saves a key.
 
-PR #35 (ExecSystem, RevenueDivision, ProviderGateway modals) is open and unmerged. If merged, it addresses 3 more admin dialogs but still leaves 6 files untouched.
-
----
-
-## REAL VISITOR/USER VALUE — WHAT TO BUILD NEXT
-
-These are ordered by actual user/visitor impact. Do these before any more cosmetic work.
-
-### Priority 1 — Fix the blank name bug (15 min)
-`Creators.jsx` line 58: `c.display_name || c.displayName || c.name`
-This is the only user-visible regression from the entire session.
-
-### Priority 2 — Nova Highborn resolution (30 min)
-Decide: create a real DB profile via `PUT /creator/profile` (requires a real user account), or remove the hardcoded entry. Currently a maintenance trap.
-
-### Priority 3 — AI spend logging for tool-chat (20 min)
-Add `cost_usd`, `provider`, `model` to the `ai_usage_log` insert in the tool-chat endpoint. Without this, the platform owner has no visibility into what AI tools are costing.
-
-### Priority 4 — ModuleView content delivery (unknown)
-Audit whether paid courses actually deliver video/diagram content to enrolled students. If the content fields are empty in DB, learners are paying for nothing.
-
-### Priority 5 — End-to-end student flow test
-A new student should be able to: register → buy a plan → enroll in a creator course → access module content → pass a quiz → receive a certificate. Trace this entire flow in code and find where it breaks.
+### MongoDB collections of note
+- `users` — user accounts and roles
+- `jamil_history` — Jamil chat history (user_id, message, files, reply, timestamp)
+- `competition_rounds` — Arena competition rounds and scores
+- `projects` — project dashboard entries (pulled live into Jamil's system prompt context)
+- `provider_keys` — LLM API keys stored via Provider Gateway UI
 
 ---
 
-## FILE MAP (key files by role)
+## Key Files
 
-| File | Role |
-|------|------|
-| `backend/server.py` | Entire backend — ~12,400 lines |
-| `backend/ai/llm_gateway.py` | **Only** way to call any LLM |
-| `frontend/src/App.js` | All routes |
-| `frontend/src/lib/api.js` | Axios instance — auto-attaches JWT |
-| `frontend/src/lib/auth.js` | `useAuth()` hook, `current_user` dependency |
-| `frontend/public/tools/hub_client.js` | Shared state for all standalone tool HTML pages |
-| `frontend/public/tools/*.html` | Standalone tool pages (djedi-oracle, electrical-courses, media-strategist, publisher-prime, creators-sanctuary, litigation-weapon) |
-
----
-
-## ENVIRONMENT
-
-- `MONGO_URL` — MongoDB Atlas connection string
-- `JWT_SECRET` — JWT signing key
-- `STRIPE_SECRET_KEY` — Stripe API key
-- `STRIPE_WEBHOOK_SECRET` — Stripe webhook signing secret
-- `PROVIDER_KEY_ENCRYPTION_SECRET` — Fernet key for encrypting stored API keys
-- `EXEC_EMAIL` / `EXEC_PASSWORD` — executive admin seed account
-- `PORT` — injected by Railway (default 8080)
+| Path | Description |
+|------|-------------|
+| `railway.toml` | Railway build + deploy config; healthcheck path, restart policy, and `startCommand` (must stay `app.main:app`) |
+| `Dockerfile` | Two-stage build: Node 18 builds React frontend, Python 3.11 runs FastAPI; frontend build baked into image |
+| `app/main.py` | FastAPI app object, all route registration (priority + fault-tolerant), CORS, startup/shutdown |
+| `app/config.py` | All env vars and constants; Anthropic key is hardcoded `""` here |
+| `app/routes/jamil.py` | Jamil persona endpoints: `/jamil/chat`, `/jamil/speak`, `/jamil/transcribe`, `/jamil/status`, `/jamil/ping` |
+| `frontend/src/App.js` | All React routes, role-based `Protected`/`BoundedAdmin` wrappers, role hierarchy constant |
+| `frontend/src/components/AppShell.jsx` | Sidebar navigation, backend health check, role-gated nav sections; do not add overflow-hidden |
+| `frontend/src/pages/MoreOps.jsx` | M.O.R.E. Ops chat UI — department selector, mic, voice output, message history in localStorage |
+| `frontend/src/pages/Jamil.jsx` | Jamil chat UI — file upload, speak button, voice input, message history in localStorage |
+| `frontend/src/pages/SeshatsHub.jsx` | Supervisor Control Panel at `/supervisor`; 8 tabs including BackupTab for provider management |
+| `backend/ai/llm_gateway.py` | 10-tier LLM provider fallback chain; Anthropic hard-disabled; keys reloaded from DB at startup |
+| `backend/ai/knowledge_digest.py` | 12-hour knowledge digest background task injected into AI context |
+| `app/services/jamil/persona.py` | `JAMIL_SYSTEM_PROMPT` and `JAMIL_DOMAINS` constants — defines Jamil's character and capabilities |
 
 ---
 
-## OPEN PR
+## The Original Task (what still needs to be done)
 
-**PR #35** — Replace `window.confirm` on destructive admin actions with modals (ExecSystem, RevenueDivision, ProviderGateway)
-Branch: `claude/gracious-gauss-xbJ8e`
-Status: Open, not merged. Cosmetic value only — no functional fix.
+**Arena was not working.**
+
+- **What Arena is:** A 5-persona AI competition system where a Commissioner assigns a task and four AI personas (AXIOM, CIPHER, MAVEN, SAGE) each respond independently. Users score each response; results accumulate to a leaderboard with role assignments (lead, support, competitor).
+- **Where it lives in the nav:** Executive section of AppShell sidebar → "The Arena" (Swords icon), visible to `isExec` users. The route itself allows `admin` role via `BoundedAdmin roles={["admin"]}`.
+- **Route:** `/arena` → `CompetitionArena` component → calls `POST /competition/task`, `GET /competition/leaderboard`
+- **Backend route:** `app/routes/competition.py`, registered as a priority route as of commit `a64d93f`
+- **What was wrong before this session:** The competition route had an `undefined oid` bug that caused 500 errors on task submission (fixed in `f15c4d4`). The route was also not a priority route, so a silent import failure would have hidden it entirely with no error in logs.
+
+**What still needs verification:** Whether the Arena end-to-end flow (task submission → 4 persona responses → scoring → leaderboard) works correctly with a real LLM key configured. This was the original task and was never confirmed working end-to-end.
+
+---
+
+## What Was Done This Session (and should NOT be redone)
+
+PRs #110–#112 were merged. Subsequent commits were made directly to the branch.
+
+| PR / Commit | What it did | Outcome |
+|-------------|-------------|---------|
+| **#110** `41ea59a` | Added `/jamil/ping` smoke-test (no auth) | Helpful — confirms route registration without login |
+| **#111** `8e96fe5` | CRITICAL-level startup logging for priority route imports | Helpful — surfaces Railway startup errors |
+| **#112** `b484775` | Collapsible sidebar + Jamil chat layout fix | Mixed — layout fix worked, collapsible sidebar introduced risk |
+| `d0dcb2c` | Fix startup crash — removed undefined `ANCESTRAL_SAGE_PROMPT_HASH_EXPECTED` import | Fixed a real bug |
+| `9fdd6d5` | Jamil system prompt — full org structure (Director, Supervisor, PRT, 8 support staff) | Helpful |
+| `b768cd1` | Suppress HelpGuide on Jamil/Arena/Projects; clear 503 error message | Helpful intent; introduced hooks risk in HelpGuide |
+| `771557f` | **BROKE backend** — changed `railway.toml` to `server:app` | Harmful — reverted by `4f630f0` |
+| `e6bff65` | Wire Jamil through 9-tier free gateway | Helpful |
+| `11741da` | Switch Railway entry point to `app.main:app` (correct fix) | Correct — later overridden by the harmful commit above |
+| `1115951` | 12-hour knowledge digest + Arena in sidebar below M.O.R.E. Ops | Helpful |
+| `6802842` | Fix CookieConsent banner blocking admin interfaces | Fixed a real bug |
+| `3345f60` | Fix HelpGuide conditional hooks violation crashing Railway build | Fixed a real build crash |
+| `19db54d` | Add Jamil to M.O.R.E. Ops department selector | Helpful |
+| `4f630f0` | **Revert `railway.toml` to `app.main:app`** | Restored correct backend |
+| `51c1b5a` | **Revert frontend to pre-session baseline** (commit `5b30096`) | Restored working frontend state |
+
+---
+
+## API Keys Situation
+
+- No API keys configured by default = no AI responses from any persona.
+- **How to add keys:** Log in as `executive_admin` → go to `/admin/providers` (Provider Gateway UI) → add key for desired provider → save. Keys are stored in MongoDB `provider_keys` collection.
+- The gateway calls `reload_provider_keys(db)` at startup to pull keys from MongoDB into memory. **No Railway redeploy needed** after adding a key via the UI.
+- **Recommended first key:** `GROQ_API_KEY` — free at [console.groq.com](https://console.groq.com), fastest provider, tier 1 in the chain. Also enables Jamil STT (Groq Whisper).
+- Can also set keys as Railway environment variables directly; env vars take priority over DB keys.
+
+---
+
+## Supervisor Hub
+
+- **Route:** `/supervisor`
+- **Auth:** `SupervisorProtected` — requires `executive_admin` role; redirects to `/supervisor-login` otherwise
+- **Component:** `frontend/src/pages/SeshatsHub.jsx`
+- **Tabs (8):** overview, moderation, escalations, greeter, sage, backup, rbac, audit
+- **BackupTab** — provider switching, gateway reset, breaker panel, free provider matrix, emergency broadcast
+- **Nav link:** AppShell Executive section, "Supervisor Hub" (Radio icon), `isExec` only
+
+---
+
+## DO NOT TOUCH list
+
+These files are in a working state. Do not modify without a clear, verified reason and a rollback plan:
+
+- `app/main.py` — route registration order and fault-tolerant loading pattern are correct
+- `app/routes/auth.py` — auth is working; any breakage locks everyone out
+- `railway.toml` — currently correct (`app.main:app`); changing startCommand without testing first broke the backend once already this session
+- `Dockerfile` — two-stage build works; `PYTHONPATH` and file copy paths are correct
+- `frontend/src/App.js` — route definitions, role hierarchy, and `Protected`/`BoundedAdmin` wrappers are correct
+- `frontend/src/components/AppShell.jsx` — just restored to working state; do not add `overflow-hidden` to the main container, do not reorder hooks
