@@ -298,6 +298,14 @@ export default function AdminDashboard() {
   const [viewSessions, setViewSessions] = useState(null);
   const [viewAudit,  setViewAudit]  = useState(null);
   const [banTarget,  setBanTarget]  = useState(null);
+  const [deleteTarget, setDeleteTarget] = useState(null);
+  const [unbanTarget, setUnbanTarget] = useState(null);
+  const [bulkConfirm, setBulkConfirm] = useState(null); // { action, role, msg }
+  const [moderateTarget, setModerateTarget] = useState(null); // { course, action }
+  const [moderateReason, setModerateReason] = useState("");
+  const [resolveTarget, setResolveTarget] = useState(null);
+  const [resolveNote, setResolveNote] = useState("");
+  const [resetLinkData, setResetLinkData] = useState(null); // { email, link }
   const [courses,    setCourses]    = useState([]);
   const [coursesLoading, setCoursesLoading] = useState(false);
   const [courseStatusFilter, setCourseStatusFilter] = useState("published");
@@ -379,27 +387,37 @@ export default function AdminDashboard() {
     try {
       const r = await api.post(`/admin/users/${u.id}/reset-link`);
       const link = r.data?.reset_link || r.data?.link || "(no link returned)";
-      window.prompt(`Password reset link for ${u.email}:`, link);
+      setResetLinkData({ email: u.email, link });
     } catch (e) { notify(e?.response?.data?.detail || "Failed", true); }
   }
 
   async function deleteUser(u) {
-    if (!window.confirm(`Permanently delete ${u.full_name}? This cannot be undone.`)) return;
+    setDeleteTarget(u);
+  }
+
+  async function confirmDeleteUser() {
+    if (!deleteTarget) return;
     try {
-      await api.delete(`/admin/users/${u.id}`);
-      setUsers(prev => prev.filter(x => x.id !== u.id));
-      notify(`${u.full_name} deleted`);
+      await api.delete(`/admin/users/${deleteTarget.id}`);
+      setUsers(prev => prev.filter(x => x.id !== deleteTarget.id));
+      notify(`${deleteTarget.full_name} deleted`);
     } catch (e) { notify(e?.response?.data?.detail || "Failed", true); }
+    finally { setDeleteTarget(null); }
   }
 
   async function handleBulk(action, role) {
     if (!selected.length) return;
-    const confirm_msg = action === "role"
+    const msg = action === "role"
       ? `Set ${selected.length} users to ${ROLE_LABEL[role]}?`
       : action === "suspend"
         ? `Suspend ${selected.length} users?`
         : `Unsuspend ${selected.length} users?`;
-    if (!window.confirm(confirm_msg)) return;
+    setBulkConfirm({ action, role, msg });
+  }
+
+  async function confirmBulk() {
+    if (!bulkConfirm) return;
+    const { action, role } = bulkConfirm;
     try {
       const body = { action, uids: selected, ...(action === "role" ? { role } : {}) };
       const r = await api.post("/admin/users/bulk", body);
@@ -407,6 +425,7 @@ export default function AdminDashboard() {
       setSelected([]);
       loadAll();
     } catch (e) { notify(e?.response?.data?.detail || "Bulk action failed", true); }
+    finally { setBulkConfirm(null); }
   }
 
   async function banUser(uid) {
@@ -416,12 +435,17 @@ export default function AdminDashboard() {
   }
 
   async function unbanUser(u) {
-    if (!window.confirm(`Remove ban for ${u.full_name} and reactivate their account?`)) return;
+    setUnbanTarget(u);
+  }
+
+  async function confirmUnban() {
+    if (!unbanTarget) return;
     try {
-      await api.post(`/admin/users/${u.id}/unban`);
-      setUsers(prev => prev.map(x => x.id === u.id ? { ...x, is_active: true, banned: false, ban_reason: undefined } : x));
-      notify(`${u.full_name} unbanned.`);
+      await api.post(`/admin/users/${unbanTarget.id}/unban`);
+      setUsers(prev => prev.map(x => x.id === unbanTarget.id ? { ...x, is_active: true, banned: false, ban_reason: undefined } : x));
+      notify(`${unbanTarget.full_name} unbanned.`);
     } catch (e) { notify(e?.response?.data?.detail || "Unban failed.", true); }
+    finally { setUnbanTarget(null); }
   }
 
   async function loadCourses() {
@@ -434,23 +458,34 @@ export default function AdminDashboard() {
   }
 
   async function moderateCourse(course, action) {
-    const reason = window.prompt(`Reason for ${action}ing "${course.title}"? (optional)`);
-    if (reason === null) return;
+    setModerateTarget({ course, action });
+    setModerateReason("");
+  }
+
+  async function confirmModerate() {
+    if (!moderateTarget) return;
+    const { course, action } = moderateTarget;
     try {
-      await api.post(`/admin/courses/${course.course_id}/moderate`, { action, reason: reason.trim() });
+      await api.post(`/admin/courses/${course.course_id}/moderate`, { action, reason: moderateReason.trim() });
       notify(`Course ${action}d.`);
       loadCourses();
     } catch (e) { notify(e?.response?.data?.detail || "Moderation failed.", true); }
+    finally { setModerateTarget(null); setModerateReason(""); }
   }
 
   async function resolveIncident(iid) {
-    const resolution = window.prompt("Enter resolution note:");
-    if (!resolution) return;
+    setResolveTarget(iid);
+    setResolveNote("");
+  }
+
+  async function confirmResolve() {
+    if (!resolveTarget || !resolveNote.trim()) return;
     try {
-      await api.post(`/incidents/${iid}/resolve`, { resolution });
+      await api.post(`/incidents/${resolveTarget}/resolve`, { resolution: resolveNote.trim() });
       notify("Incident resolved");
-      setIncidents(prev => prev.map(i => i.id === iid ? { ...i, status: "resolved", resolution } : i));
+      setIncidents(prev => prev.map(i => i.id === resolveTarget ? { ...i, status: "resolved", resolution: resolveNote.trim() } : i));
     } catch (e) { notify(e?.response?.data?.detail || "Failed", true); }
+    finally { setResolveTarget(null); setResolveNote(""); }
   }
 
   function toggleSelect(uid) {
@@ -506,6 +541,100 @@ export default function AdminDashboard() {
         {viewSessions && <SessionsModal user={viewSessions} onClose={() => setViewSessions(null)} onForceLogout={() => forceLogout(viewSessions.id, viewSessions.full_name)} />}
         {viewAudit  && <UserAuditModal user={viewAudit} onClose={() => setViewAudit(null)} />}
         {banTarget  && <BanModal user={banTarget} onBan={banUser} onClose={() => setBanTarget(null)} />}
+
+        {/* Delete user confirmation */}
+        {deleteTarget && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6">
+              <h2 className="font-heading font-bold text-lg text-slate-900 mb-2">Delete User</h2>
+              <p className="text-sm text-slate-600 mb-6">Permanently delete <strong>{deleteTarget.full_name}</strong>? This cannot be undone.</p>
+              <div className="flex justify-end gap-3">
+                <button onClick={() => setDeleteTarget(null)} className="text-sm px-4 py-2 rounded-lg text-slate-600 hover:bg-slate-50">Cancel</button>
+                <button onClick={confirmDeleteUser} className="text-sm px-4 py-2 rounded-lg bg-red-600 text-white font-bold hover:bg-red-700">Delete</button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Unban confirmation */}
+        {unbanTarget && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6">
+              <h2 className="font-heading font-bold text-lg text-slate-900 mb-2">Unban User</h2>
+              <p className="text-sm text-slate-600 mb-6">Restore access for <strong>{unbanTarget.full_name}</strong>?</p>
+              <div className="flex justify-end gap-3">
+                <button onClick={() => setUnbanTarget(null)} className="text-sm px-4 py-2 rounded-lg text-slate-600 hover:bg-slate-50">Cancel</button>
+                <button onClick={confirmUnban} className="text-sm px-4 py-2 rounded-lg bg-emerald-600 text-white font-bold hover:bg-emerald-700">Unban</button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Bulk action confirmation */}
+        {bulkConfirm && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6">
+              <h2 className="font-heading font-bold text-lg text-slate-900 mb-2">Bulk Action</h2>
+              <p className="text-sm text-slate-600 mb-6">{bulkConfirm.msg}</p>
+              <div className="flex justify-end gap-3">
+                <button onClick={() => setBulkConfirm(null)} className="text-sm px-4 py-2 rounded-lg text-slate-600 hover:bg-slate-50">Cancel</button>
+                <button onClick={confirmBulk} className="text-sm px-4 py-2 rounded-lg bg-copper text-white font-bold hover:bg-copper/90">Confirm</button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Course moderate confirmation */}
+        {moderateTarget && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6">
+              <h2 className="font-heading font-bold text-lg text-slate-900 mb-2">Moderate Course</h2>
+              <p className="text-sm text-slate-600 mb-3"><strong>{moderateTarget.course.title}</strong> — {moderateTarget.action}</p>
+              <textarea value={moderateReason} onChange={e => setModerateReason(e.target.value)}
+                placeholder="Reason (required)" rows={3}
+                className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm mb-4 focus:outline-none focus:ring-2 focus:ring-copper resize-none" />
+              <div className="flex justify-end gap-3">
+                <button onClick={() => { setModerateTarget(null); setModerateReason(""); }} className="text-sm px-4 py-2 rounded-lg text-slate-600 hover:bg-slate-50">Cancel</button>
+                <button onClick={confirmModerate} disabled={!moderateReason.trim()} className="text-sm px-4 py-2 rounded-lg bg-amber-600 text-white font-bold hover:bg-amber-700 disabled:opacity-40">Apply</button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Resolve incident confirmation */}
+        {resolveTarget && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6">
+              <h2 className="font-heading font-bold text-lg text-slate-900 mb-2">Resolve Incident</h2>
+              <p className="text-sm text-slate-600 mb-3">Enter resolution note:</p>
+              <textarea value={resolveNote} onChange={e => setResolveNote(e.target.value)}
+                placeholder="Resolution details…" rows={3}
+                className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm mb-4 focus:outline-none focus:ring-2 focus:ring-copper resize-none" />
+              <div className="flex justify-end gap-3">
+                <button onClick={() => { setResolveTarget(null); setResolveNote(""); }} className="text-sm px-4 py-2 rounded-lg text-slate-600 hover:bg-slate-50">Cancel</button>
+                <button onClick={confirmResolve} disabled={!resolveNote.trim()} className="text-sm px-4 py-2 rounded-lg bg-emerald-600 text-white font-bold hover:bg-emerald-700 disabled:opacity-40">Resolve</button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Reset link display */}
+        {resetLinkData && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6">
+              <h2 className="font-heading font-bold text-lg text-slate-900 mb-1">Password Reset Link</h2>
+              <p className="text-xs text-slate-400 mb-4">{resetLinkData.email}</p>
+              <div className="bg-slate-50 border border-slate-200 rounded-lg px-3 py-3 mb-4">
+                <p className="text-xs font-mono text-slate-700 break-all select-all">{resetLinkData.link}</p>
+              </div>
+              <p className="text-xs text-slate-400 mb-4">Copy and send this link to the user. It expires after first use.</p>
+              <div className="flex justify-end gap-3">
+                <button onClick={() => { navigator.clipboard?.writeText(resetLinkData.link); }} className="text-sm px-4 py-2 rounded-lg bg-slate-100 text-slate-700 font-bold hover:bg-slate-200">Copy</button>
+                <button onClick={() => setResetLinkData(null)} className="text-sm px-4 py-2 rounded-lg bg-copper text-white font-bold hover:bg-copper/90">Done</button>
+              </div>
+            </div>
+          </div>
+        )}
 
         <div className="max-w-7xl mx-auto px-6 lg:px-10 py-6">
           {/* Tabs */}
@@ -644,7 +773,7 @@ export default function AdminDashboard() {
                                   </button>
                                 )}
                                 {isExec && u.id !== user?.id && (
-                                  <button onClick={() => { if(window.confirm(`Force logout ${u.full_name}?`)) forceLogout(u.id, u.full_name); }}
+                                  <button onClick={() => forceLogout(u.id, u.full_name)}
                                     className="text-xs font-bold px-2 py-1 border border-orange-200 text-orange-600 hover:bg-orange-50 rounded-lg transition-colors">
                                     Logout
                                   </button>
