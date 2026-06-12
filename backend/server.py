@@ -439,6 +439,7 @@ class User(BaseModel):
     must_change_password: bool = False
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     avatar_url: Optional[str] = None
+    feature_tier: str = "free"
 
 
 class RegisterReq(BaseModel):
