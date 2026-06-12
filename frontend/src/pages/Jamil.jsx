@@ -99,6 +99,7 @@ export default function Jamil() {
   const [recording, setRecording] = useState(false);
   const [playing, setPlaying] = useState(false);
   const [error, setError] = useState("");
+  const [confirmClear, setConfirmClear] = useState(false);
   const bottomRef = useRef(null);
   const inputRef = useRef(null);
   const fileRef = useRef(null);
@@ -213,10 +214,13 @@ export default function Jamil() {
   };
 
   const clearHistory = () => {
-    if (window.confirm("Clear all conversation history with Jamil?")) {
-      setMessages([]);
-      localStorage.removeItem(STORAGE_KEY);
-    }
+    setConfirmClear(true);
+  };
+
+  const doClearHistory = () => {
+    setConfirmClear(false);
+    setMessages([]);
+    localStorage.removeItem(STORAGE_KEY);
   };
 
   const isEmpty = messages.length === 0 && !loading;
@@ -344,6 +348,19 @@ export default function Jamil() {
       </div>
 
       <style>{`@keyframes pulse { 0%,100% { opacity:1 } 50% { opacity:0.5 } }`}</style>
+
+      {confirmClear && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6">
+            <h2 className="font-heading font-bold text-lg text-slate-900 mb-2">Clear History</h2>
+            <p className="text-sm text-slate-600 mb-6">Clear all conversation history with Jamil? This cannot be undone.</p>
+            <div className="flex justify-end gap-3">
+              <button onClick={() => setConfirmClear(false)} className="text-sm px-4 py-2 rounded-lg text-slate-600 hover:bg-slate-50">Cancel</button>
+              <button onClick={doClearHistory} className="text-sm px-4 py-2 rounded-lg bg-red-600 text-white font-bold hover:bg-red-700">Clear</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

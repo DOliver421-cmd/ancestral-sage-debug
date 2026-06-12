@@ -38,6 +38,11 @@ function ControlPanel({ user: target, actorRole, onUpdated, onDeleted }) {
 
   const [saving, setSaving] = useState(false);
   const [msg,    setMsg]    = useState(null);
+  const [banReason, setBanReason] = useState("");
+  const [confirmBan, setConfirmBan] = useState(false);
+  const [confirmUnban, setConfirmUnban] = useState(false);
+  const [confirmLogout, setConfirmLogout] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
 
   // Sync when target changes
   useEffect(() => {
@@ -113,7 +118,13 @@ function ControlPanel({ user: target, actorRole, onUpdated, onDeleted }) {
   }
 
   async function banUser() {
-    const reason = window.prompt("Document the reason for this ban (required):");
+    setBanReason("");
+    setConfirmBan(true);
+  }
+
+  async function doBanUser() {
+    const reason = banReason;
+    setConfirmBan(false);
     if (!reason || reason.trim().length < 5) { notify("Ban reason is required (min 5 chars)", true); return; }
     setSaving(true);
     try {
@@ -126,7 +137,11 @@ function ControlPanel({ user: target, actorRole, onUpdated, onDeleted }) {
   }
 
   async function unbanUser() {
-    if (!window.confirm(`Remove ban for ${target.full_name || target.email} and reactivate their account?`)) return;
+    setConfirmUnban(true);
+  }
+
+  async function doUnbanUser() {
+    setConfirmUnban(false);
     setSaving(true);
     try {
       await api.post(`/admin/users/${target.id}/unban`);
@@ -138,7 +153,11 @@ function ControlPanel({ user: target, actorRole, onUpdated, onDeleted }) {
   }
 
   async function forceLogout() {
-    if (!window.confirm(`Force log out all sessions for ${target.full_name || target.email}?`)) return;
+    setConfirmLogout(true);
+  }
+
+  async function doForceLogout() {
+    setConfirmLogout(false);
     setSaving(true);
     try {
       await api.delete(`/admin/users/${target.id}/sessions`);
@@ -149,7 +168,11 @@ function ControlPanel({ user: target, actorRole, onUpdated, onDeleted }) {
   }
 
   async function deleteUser() {
-    if (!window.confirm(`Permanently delete ${target.full_name || target.email}? This cannot be undone.`)) return;
+    setConfirmDelete(true);
+  }
+
+  async function doDeleteUser() {
+    setConfirmDelete(false);
     setSaving(true);
     try {
       await api.delete(`/admin/users/${target.id}`);
@@ -406,6 +429,59 @@ function ControlPanel({ user: target, actorRole, onUpdated, onDeleted }) {
           </section>
         )}
       </div>
+
+      {confirmBan && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6">
+            <h2 className="font-heading font-bold text-lg text-slate-900 mb-2">Permanently Ban User</h2>
+            <p className="text-sm text-slate-600 mb-3">Document the reason for this ban (required, min 5 chars):</p>
+            <input value={banReason} onChange={e => setBanReason(e.target.value)} placeholder="Ban reason…" className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm mb-4 focus:outline-none focus:border-red-400" />
+            <div className="flex justify-end gap-3">
+              <button onClick={() => setConfirmBan(false)} className="text-sm px-4 py-2 rounded-lg text-slate-600 hover:bg-slate-50">Cancel</button>
+              <button onClick={doBanUser} disabled={banReason.trim().length < 5} className="text-sm px-4 py-2 rounded-lg bg-red-600 text-white font-bold hover:bg-red-700 disabled:opacity-40">Ban</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {confirmUnban && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6">
+            <h2 className="font-heading font-bold text-lg text-slate-900 mb-2">Remove Ban</h2>
+            <p className="text-sm text-slate-600 mb-6">Remove ban for <strong>{target.full_name || target.email}</strong> and reactivate their account?</p>
+            <div className="flex justify-end gap-3">
+              <button onClick={() => setConfirmUnban(false)} className="text-sm px-4 py-2 rounded-lg text-slate-600 hover:bg-slate-50">Cancel</button>
+              <button onClick={doUnbanUser} className="text-sm px-4 py-2 rounded-lg bg-red-600 text-white font-bold hover:bg-red-700">Remove Ban</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {confirmLogout && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6">
+            <h2 className="font-heading font-bold text-lg text-slate-900 mb-2">Force Logout</h2>
+            <p className="text-sm text-slate-600 mb-6">Force log out all sessions for <strong>{target.full_name || target.email}</strong>?</p>
+            <div className="flex justify-end gap-3">
+              <button onClick={() => setConfirmLogout(false)} className="text-sm px-4 py-2 rounded-lg text-slate-600 hover:bg-slate-50">Cancel</button>
+              <button onClick={doForceLogout} className="text-sm px-4 py-2 rounded-lg bg-red-600 text-white font-bold hover:bg-red-700">Log Out</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {confirmDelete && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6">
+            <h2 className="font-heading font-bold text-lg text-slate-900 mb-2">Delete Account</h2>
+            <p className="text-sm text-slate-600 mb-6">Permanently delete <strong>{target.full_name || target.email}</strong>? This cannot be undone.</p>
+            <div className="flex justify-end gap-3">
+              <button onClick={() => setConfirmDelete(false)} className="text-sm px-4 py-2 rounded-lg text-slate-600 hover:bg-slate-50">Cancel</button>
+              <button onClick={doDeleteUser} className="text-sm px-4 py-2 rounded-lg bg-red-600 text-white font-bold hover:bg-red-700">Delete</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

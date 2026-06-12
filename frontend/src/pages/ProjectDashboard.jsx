@@ -57,6 +57,7 @@ function ProjectCard({ project, onUpdate, onMilestoneUpdate, onAddMilestone, onA
   const [newMilestone, setNewMilestone] = useState("");
   const [milestoneAssign, setMilestoneAssign] = useState("");
   const [saving, setSaving] = useState(false);
+  const [confirmArchive, setConfirmArchive] = useState(false);
 
   const save = async () => {
     setSaving(true);
@@ -140,7 +141,7 @@ function ProjectCard({ project, onUpdate, onMilestoneUpdate, onAddMilestone, onA
               <div style={{ display: "flex", gap: 8 }}>
                 <button onClick={save} disabled={saving} style={{ background: COPPER, color: WHITE, border: "none", borderRadius: 8, padding: "8px 20px", fontSize: 13, fontWeight: 700, cursor: "pointer" }}>{saving ? "Saving…" : "Save"}</button>
                 <button onClick={() => setEditing(false)} style={{ background: "transparent", border: "1px solid #ddd", borderRadius: 8, padding: "8px 16px", fontSize: 13, cursor: "pointer" }}>Cancel</button>
-                <button onClick={() => { if (window.confirm("Archive this project?")) onArchive(project.project_id); }} style={{ marginLeft: "auto", background: "transparent", border: "1px solid #fca5a5", color: "#dc2626", borderRadius: 8, padding: "8px 14px", fontSize: 12, cursor: "pointer" }}>Archive</button>
+                <button onClick={() => setConfirmArchive(true)} style={{ marginLeft: "auto", background: "transparent", border: "1px solid #fca5a5", color: "#dc2626", borderRadius: 8, padding: "8px 14px", fontSize: 12, cursor: "pointer" }}>Archive</button>
               </div>
             </div>
           ) : (
@@ -188,6 +189,19 @@ function ProjectCard({ project, onUpdate, onMilestoneUpdate, onAddMilestone, onA
               ))}
             </div>
           )}
+        </div>
+      )}
+
+      {confirmArchive && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6">
+            <h2 className="font-heading font-bold text-lg text-slate-900 mb-2">Archive Project</h2>
+            <p className="text-sm text-slate-600 mb-6">Archive this project? It will no longer appear in the active list.</p>
+            <div className="flex justify-end gap-3">
+              <button onClick={() => setConfirmArchive(false)} className="text-sm px-4 py-2 rounded-lg text-slate-600 hover:bg-slate-50">Cancel</button>
+              <button onClick={() => { setConfirmArchive(false); onArchive(project.project_id); }} className="text-sm px-4 py-2 rounded-lg bg-red-600 text-white font-bold hover:bg-red-700">Archive</button>
+            </div>
+          </div>
         </div>
       )}
     </div>

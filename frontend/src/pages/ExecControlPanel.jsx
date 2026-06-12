@@ -217,14 +217,23 @@ export default function ExecControlPanel() {
   /* ── Break Glass ── */
   const [bgForm, setBgForm] = useState({ reason: "", scope: "sage_pipeline", target_uid: "", duration_minutes: 60 });
   const [bgBusy, setBgBusy] = useState(false);
+  const [confirmBreakGlass, setConfirmBreakGlass] = useState(false);
+  const [revokeTarget, setRevokeTarget] = useState(null);
+  const [revokeReason, setRevokeReason] = useState("");
+
   async function activateBreakGlass() {
     if (bgForm.reason.length < 20) return toast.error("Reason must be at least 20 characters");
-    if (!window.confirm("BREAK GLASS: This activates an executive override and is fully audited. Proceed?")) return;
+    setConfirmBreakGlass(true);
+  }
+
+  async function doActivateBreakGlass() {
+    setConfirmBreakGlass(false);
     setBgBusy(true);
     try {
       const body = { ...bgForm };
       if (!body.target_uid) delete body.target_uid;
       const r = await api.post("/exec/control/break-glass/activate", body);
+
       toast.success(`Override activated: ${r.data.override_id.slice(0, 8)}… expires in ${bgForm.duration_minutes}m`);
       setBgForm(f => ({ ...f, reason: "" }));
       load();
@@ -233,8 +242,16 @@ export default function ExecControlPanel() {
   }
 
   async function revokeGlass(id) {
-    const reason = window.prompt("Reason for revoking this override:");
-    if (!reason) return;
+    setRevokeTarget(id);
+    setRevokeReason("");
+  }
+
+  async function doRevokeGlass() {
+    const id = revokeTarget;
+    const reason = revokeReason;
+    setRevokeTarget(null);
+    setRevokeReason("");
+    if (!reason?.trim()) return;
     try {
       await api.post("/exec/control/break-glass/revoke", { override_id: id, reason });
       toast.success("Override revoked");
@@ -535,6 +552,39 @@ export default function ExecControlPanel() {
         </Section>
 
       </div>
+
+      {confirmBreakGlass && (
+        <div style={{ position:"fixed", inset:0, zIndex:1000, display:"flex", alignItems:"center", justifyContent:"center", background:"rgba(0,0,0,0.7)", padding:16 }}>
+          <div style={{ background:"#131620", border:"1px solid rgba(74,242,197,0.15)", borderRadius:12, padding:28, maxWidth:380, width:"100%" }}>
+            <div style={{ color:"#f0f4ff", fontWeight:700, fontSize:15, marginBottom:10 }}>Break Glass Override</div>
+            <div style={{ color:"rgba(200,210,230,0.45)", fontSize:12, marginBottom:20 }}>This activates an executive override and is fully audited. Proceed?</div>
+            <div style={{ display:"flex", justifyContent:"flex-end", gap:10 }}>
+              <button onClick={() => setConfirmBreakGlass(false)} style={{ border:"1px solid rgba(200,210,230,0.45)", background:"transparent", color:"rgba(200,210,230,0.45)", borderRadius:6, padding:"5px 14px", fontSize:11, fontWeight:700, cursor:"pointer" }}>Cancel</button>
+              <button onClick={doActivateBreakGlass} style={{ border:"1px solid #f87171", background:"transparent", color:"#f87171", borderRadius:6, padding:"5px 14px", fontSize:11, fontWeight:700, cursor:"pointer" }}>Activate</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {revokeTarget && (
+        <div style={{ position:"fixed", inset:0, zIndex:1000, display:"flex", alignItems:"center", justifyContent:"center", background:"rgba(0,0,0,0.7)", padding:16 }}>
+          <div style={{ background:"#131620", border:"1px solid rgba(74,242,197,0.15)", borderRadius:12, padding:28, maxWidth:380, width:"100%" }}>
+            <div style={{ color:"#f0f4ff", fontWeight:700, fontSize:15, marginBottom:10 }}>Revoke Override</div>
+            <div style={{ color:"rgba(200,210,230,0.45)", fontSize:12, marginBottom:12 }}>Enter the reason for revoking this override:</div>
+            <input
+              value={revokeReason}
+              onChange={e => setRevokeReason(e.target.value)}
+              placeholder="Reason (required)"
+              style={{ background:"#0d0d14", border:"1px solid rgba(200,210,230,0.2)", borderRadius:6, color:"#f0f4ff", fontSize:12, padding:"8px 12px", width:"100%", boxSizing:"border-box", marginBottom:20 }}
+            />
+            <div style={{ display:"flex", justifyContent:"flex-end", gap:10 }}>
+              <button onClick={() => { setRevokeTarget(null); setRevokeReason(""); }} style={{ border:"1px solid rgba(200,210,230,0.45)", background:"transparent", color:"rgba(200,210,230,0.45)", borderRadius:6, padding:"5px 14px", fontSize:11, fontWeight:700, cursor:"pointer" }}>Cancel</button>
+              <button onClick={doRevokeGlass} disabled={!revokeReason.trim()} style={{ border:"1px solid #f87171", background:"transparent", color:"#f87171", borderRadius:6, padding:"5px 14px", fontSize:11, fontWeight:700, cursor:"pointer", opacity: revokeReason.trim() ? 1 : 0.4 }}>Revoke</button>
+            </div>
+          </div>
+        </div>
+      )}
+
     </AppShell>
   );
 }

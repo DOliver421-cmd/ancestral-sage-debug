@@ -18,6 +18,7 @@ export default function RevenueDivision() {
   const [busy, setBusy] = useState(false);
   const [freshKey, setFreshKey] = useState(null);
   const [revokeTarget, setRevokeTarget] = useState(null);
+  const [confirmPayouts, setConfirmPayouts] = useState(false);
 
   const [licenses, setLicenses] = useState([]);
   const [publicCourses, setPublicCourses] = useState([]);
@@ -64,8 +65,12 @@ export default function RevenueDivision() {
     finally { setOverviewBusy(false); }
   };
 
-  const processPayouts = async () => {
-    if (!window.confirm("Process all pending creator payouts now?")) return;
+  const processPayouts = () => {
+    setConfirmPayouts(true);
+  };
+
+  const doProcessPayouts = async () => {
+    setConfirmPayouts(false);
     setPayoutBusy(true);
     try {
       const r = await api.post("/admin/creator-payouts/process");
@@ -694,6 +699,18 @@ export default function RevenueDivision() {
                 className="text-sm font-bold bg-destructive hover:bg-destructive/90 text-white px-4 py-2 rounded-lg">
                 Revoke Key
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {confirmPayouts && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6">
+            <h2 className="font-heading font-bold text-lg text-slate-900 mb-2">Process Payouts</h2>
+            <p className="text-sm text-slate-600 mb-6">Process all pending creator payouts now?</p>
+            <div className="flex justify-end gap-3">
+              <button onClick={() => setConfirmPayouts(false)} className="text-sm px-4 py-2 rounded-lg text-slate-600 hover:bg-slate-50">Cancel</button>
+              <button onClick={doProcessPayouts} className="text-sm px-4 py-2 rounded-lg bg-red-600 text-white font-bold hover:bg-red-700">Process</button>
             </div>
           </div>
         </div>

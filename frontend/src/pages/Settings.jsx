@@ -425,6 +425,7 @@ function ReadOnly({ label, value, testid }) {
 function SessionManager() {
   const [sessions, setSessions] = useState([]);
   const [busy, setBusy] = useState(false);
+  const [confirmRevokeAll, setConfirmRevokeAll] = useState(false);
 
   const load = async () => {
     setBusy(true);
@@ -441,14 +442,13 @@ function SessionManager() {
   useEffect(() => { load(); }, []);
 
   const revokeAll = async () => {
-    if (!window.confirm("Log out all other devices? You will need to sign in again on those devices.")) return;
     try {
       await api.delete("/auth/sessions");
       toast.success("Other sessions revoked.");
       setSessions([]);
     } catch {
       toast.error("Failed to revoke sessions.");
-    }
+    } finally { setConfirmRevokeAll(false); }
   };
 
   const revokeOne = async (sid) => {
@@ -497,12 +497,25 @@ function SessionManager() {
             ))}
           </div>
           <button
-            onClick={revokeAll}
+            onClick={() => setConfirmRevokeAll(true)}
             className="mt-4 px-4 py-2 text-sm border border-destructive text-destructive rounded-lg hover:bg-destructive/10 transition-colors"
           >
             Log out all other devices
           </button>
         </>
+      )}
+
+      {confirmRevokeAll && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6">
+            <h2 className="font-heading font-bold text-lg text-slate-900 mb-2">Log Out All Other Devices?</h2>
+            <p className="text-sm text-slate-600 mb-6">You will need to sign in again on those devices.</p>
+            <div className="flex justify-end gap-3">
+              <button onClick={() => setConfirmRevokeAll(false)} className="text-sm px-4 py-2 rounded-lg text-slate-600 hover:bg-slate-50">Cancel</button>
+              <button onClick={revokeAll} className="text-sm px-4 py-2 rounded-lg bg-red-600 text-white font-bold hover:bg-red-700">Log Out All</button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

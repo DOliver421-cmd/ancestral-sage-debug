@@ -184,6 +184,7 @@ function NewNeedModal({ onClose, onSuccess }) {
 // ── Admin Panel ───────────────────────────────────────────────────────────────
 function AdminPanel({ hasFeature }) {
   const [flags,setFlags]=useState([]); const [flagTotal,setFlagTotal]=useState(0); const [purging,setPurging]=useState(false); const [loading,setLoading]=useState(false);
+  const [confirmPurge,setConfirmPurge]=useState(false);
   const loadFlags=useCallback(async()=>{
     if(!hasFeature("flag_view"))return; setLoading(true);
     try{const r=await api.get("/more/admin/flags");setFlags(r.data.flags||[]);setFlagTotal(r.data.total||0);}
@@ -191,7 +192,7 @@ function AdminPanel({ hasFeature }) {
   },[hasFeature]);
   useEffect(()=>{loadFlags();},[loadFlags]);
   const purge=async()=>{
-    if(!window.confirm("Run manual purge? Deletes all expired M.O.R.E. content now."))return;
+    setConfirmPurge(false);
     setPurging(true);
     try{const r=await api.post("/more/purge");const{posts,chats,flags:f}=r.data.purged;toast.success(`Purged: ${posts} posts · ${chats} chats · ${f} flags`);loadFlags();}
     catch{toast.error("Purge failed");}finally{setPurging(false);}
@@ -202,7 +203,7 @@ function AdminPanel({ hasFeature }) {
         <div className="flex items-center gap-2 font-heading font-bold text-white"><Shield className="w-5 h-5 text-signal"/>Moderation Panel</div>
         <div className="flex gap-3">
           <button onClick={loadFlags} className="text-xs text-white/40 hover:text-white flex items-center gap-1"><RefreshCw className="w-3.5 h-3.5"/>Refresh</button>
-          {hasFeature("purge")&&<button onClick={purge} disabled={purging} className="text-xs text-red-400 hover:text-red-300 flex items-center gap-1 disabled:opacity-50"><Trash2 className="w-3.5 h-3.5"/>Run Purge</button>}
+          {hasFeature("purge")&&<button onClick={()=>setConfirmPurge(true)} disabled={purging} className="text-xs text-red-400 hover:text-red-300 flex items-center gap-1 disabled:opacity-50"><Trash2 className="w-3.5 h-3.5"/>Run Purge</button>}
         </div>
       </div>
       <div className="p-6">
@@ -223,6 +224,18 @@ function AdminPanel({ hasFeature }) {
             </div>
           )}
       </div>
+      {confirmPurge && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6">
+            <h2 className="font-heading font-bold text-lg text-slate-900 mb-2">Run Manual Purge</h2>
+            <p className="text-sm text-slate-600 mb-6">Deletes all expired M.O.R.E. content now. This cannot be undone.</p>
+            <div className="flex justify-end gap-3">
+              <button onClick={() => setConfirmPurge(false)} className="text-sm px-4 py-2 rounded-lg text-slate-600 hover:bg-slate-50">Cancel</button>
+              <button onClick={purge} className="text-sm px-4 py-2 rounded-lg bg-red-600 text-white font-bold hover:bg-red-700">Run Purge</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

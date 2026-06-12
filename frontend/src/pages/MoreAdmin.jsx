@@ -10,6 +10,7 @@ export default function MoreAdmin() {
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(false);
   const [purging, setPurging] = useState(false);
+  const [confirmPurge, setConfirmPurge] = useState(false);
 
   const load = async () => {
     setLoading(true);
@@ -24,8 +25,8 @@ export default function MoreAdmin() {
     }
   };
 
-  const purge = async () => {
-    if (!window.confirm("Run manual purge? This deletes all expired content now.")) return;
+  const doPurge = async () => {
+    setConfirmPurge(false);
     setPurging(true);
     try {
       const r = await api.post("/more/purge");
@@ -57,7 +58,7 @@ export default function MoreAdmin() {
               <RefreshCw className="w-4 h-4" /> Refresh
             </button>
             <button
-              onClick={purge}
+              onClick={() => setConfirmPurge(true)}
               disabled={purging}
               className="btn-primary text-sm flex items-center gap-2 disabled:opacity-50"
             >
@@ -112,6 +113,18 @@ export default function MoreAdmin() {
           )}
         </div>
       </div>
+      {confirmPurge && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6">
+            <h2 className="font-heading font-bold text-lg text-slate-900 mb-2">Run Manual Purge</h2>
+            <p className="text-sm text-slate-600 mb-6">This deletes all expired content now. This cannot be undone.</p>
+            <div className="flex justify-end gap-3">
+              <button onClick={() => setConfirmPurge(false)} className="text-sm px-4 py-2 rounded-lg text-slate-600 hover:bg-slate-50">Cancel</button>
+              <button onClick={doPurge} className="text-sm px-4 py-2 rounded-lg bg-red-600 text-white font-bold hover:bg-red-700">Run Purge</button>
+            </div>
+          </div>
+        </div>
+      )}
     </AppShell>
   );
 }
