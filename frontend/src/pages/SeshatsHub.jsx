@@ -686,6 +686,9 @@ function BackupTab({ notify }) {
   const [panel,     setPanel]    = useState(null);
   const [broadcast, setBroadcast] = useState({ title:"", message:"", target:"all" });
   const [switching, setSwitching] = useState("");
+  const [confirmReset,     setConfirmReset]     = useState(false);
+  const [confirmFailover,  setConfirmFailover]  = useState(null); // target string
+  const [confirmBroadcast, setConfirmBroadcast] = useState(false);
 
   const load = useCallback(async () => {
     try { const r = await api.get("/supervisor/backup/status");     setStatus(r.data); } catch {}
@@ -706,12 +709,12 @@ function BackupTab({ notify }) {
   }
 
   async function resetGateway() {
-    if (!window.confirm("Reset gateway token counter? This clears the current hour window.")) return;
     try {
       const r = await api.post("/supervisor/backup/reset-gateway");
       notify(`Gateway reset. Previous: ${r.data.previous_tokens_used} tokens`);
       load();
     } catch (e) { notify(e?.response?.data?.detail || "Reset failed", true); }
+    finally { setConfirmReset(false); }
   }
 
   async function toggleBreaker(breakerId) {
@@ -730,23 +733,24 @@ function BackupTab({ notify }) {
     } catch (e) { notify(e?.response?.data?.detail || "Reset failed", true); }
   }
 
-  async function triggerFailover(target) {
-    if (!window.confirm(`Trigger failover to ${target}?`)) return;
+  async function triggerFailover() {
+    if (!confirmFailover) return;
     try {
-      await api.post("/exec/failover", { target });
+      await api.post("/exec/failover", { target: confirmFailover });
       notify("Failover triggered");
       load();
     } catch (e) { notify(e?.response?.data?.detail || "Failover failed", true); }
+    finally { setConfirmFailover(null); }
   }
 
   async function sendBroadcast() {
     if (!broadcast.message.trim()) { notify("Message is required", true); return; }
-    if (!window.confirm(`Send emergency broadcast to ${broadcast.target}?`)) return;
     try {
       await api.post("/supervisor/backup/emergency-broadcast", broadcast);
       notify("Emergency broadcast sent");
       setBroadcast({ title:"", message:"", target:"all" });
     } catch (e) { notify(e?.response?.data?.detail || "Broadcast failed", true); }
+    finally { setConfirmBroadcast(false); }
   }
 
   return (
@@ -765,8 +769,8 @@ function BackupTab({ notify }) {
              (status.gateway?.percent||0) > 80 ? ERR : OK],
           ]} />
           <div style={{ marginTop:12, display:"flex", gap:8, flexWrap:"wrap" }}>
-            <button onClick={resetGateway} style={btn(WARN)}>Reset Gateway Counter</button>
-            <button onClick={() => triggerFailover("backup")} style={btn(ERR)}>Trigger Failover</button>
+            <button onClick={() => setConfirmReset(true)} style={btn(WARN)}>Reset Gateway Counter</button>
+            <button onClick={() => setConfirmFailover("backup")} style={btn(ERR)}>Trigger Failover</button>
           </div>
         </div>
       )}
@@ -853,7 +857,8 @@ function BackupTab({ notify }) {
               ))}
             </select>
           </div>
-          <button onClick={sendBroadcast} style={{ ...btn(ERR), alignSelf:"flex-start", borderColor:ERR }}>
+          <button onClick={() => { if (!broadcast.message.trim()) { notify("Message is required", true); return; } setConfirmBroadcast(true); }}
+            style={{ ...btn(ERR), alignSelf:"flex-start", borderColor:ERR }}>
             Send Emergency Broadcast
           </button>
         </div>
@@ -862,6 +867,52 @@ function BackupTab({ notify }) {
       <div style={{ textAlign:"right" }}>
         <button onClick={load} style={btn(MUTED)}>↻ Refresh All</button>
       </div>
+
+      {/* Reset gateway confirmation */}
+      {confirmReset && (
+        <div style={{ position:"fixed", inset:0, zIndex:1000, display:"flex", alignItems:"center", justifyContent:"center", background:"rgba(0,0,0,0.7)", padding:16 }}>
+          <div style={{ background:PANEL, border:`1px solid ${BORDER}`, borderRadius:12, padding:28, maxWidth:360, width:"100%" }}>
+            <div style={{ color:WHITE, fontWeight:700, fontSize:15, marginBottom:10 }}>Reset Gateway Counter?</div>
+            <div style={{ color:MUTED, fontSize:12, marginBottom:20 }}>This clears the current hour token window. The hourly cap resets immediately.</div>
+            <div style={{ display:"flex", justifyContent:"flex-end", gap:10 }}>
+              <button onClick={() => setConfirmReset(false)} style={btn(MUTED)}>Cancel</button>
+              <button onClick={resetGateway} style={btn(WARN)}>Reset</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Failover confirmation */}
+      {confirmFailover && (
+        <div style={{ position:"fixed", inset:0, zIndex:1000, display:"flex", alignItems:"center", justifyContent:"center", background:"rgba(0,0,0,0.7)", padding:16 }}>
+          <div style={{ background:PANEL, border:`1px solid ${BORDER}`, borderRadius:12, padding:28, maxWidth:360, width:"100%" }}>
+            <div style={{ color:ERR, fontWeight:700, fontSize:15, marginBottom:10 }}>Trigger Failover?</div>
+            <div style={{ color:MUTED, fontSize:12, marginBottom:20 }}>Trigger failover to <strong style={{ color:WHITE }}>{confirmFailover}</strong>? This immediately switches active systems.</div>
+            <div style={{ display:"flex", justifyContent:"flex-end", gap:10 }}>
+              <button onClick={() => setConfirmFailover(null)} style={btn(MUTED)}>Cancel</button>
+              <button onClick={triggerFailover} style={btn(ERR)}>Confirm Failover</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Emergency broadcast confirmation */}
+      {confirmBroadcast && (
+        <div style={{ position:"fixed", inset:0, zIndex:1000, display:"flex", alignItems:"center", justifyContent:"center", background:"rgba(0,0,0,0.7)", padding:16 }}>
+          <div style={{ background:PANEL, border:`1px solid ${BORDER}`, borderRadius:12, padding:28, maxWidth:360, width:"100%" }}>
+            <div style={{ color:ERR, fontWeight:700, fontSize:15, marginBottom:10 }}>Send Emergency Broadcast?</div>
+            <div style={{ color:MUTED, fontSize:12, marginBottom:8 }}>Send to: <strong style={{ color:WHITE }}>{broadcast.target}</strong></div>
+            <div style={{ color:WHITE, fontSize:12, background:"rgba(255,255,255,0.05)", borderRadius:6, padding:"8px 12px", marginBottom:20 }}>
+              {broadcast.title && <div style={{ fontWeight:700, marginBottom:4 }}>{broadcast.title}</div>}
+              <div>{broadcast.message}</div>
+            </div>
+            <div style={{ display:"flex", justifyContent:"flex-end", gap:10 }}>
+              <button onClick={() => setConfirmBroadcast(false)} style={btn(MUTED)}>Cancel</button>
+              <button onClick={sendBroadcast} style={btn(ERR)}>Send Broadcast</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
