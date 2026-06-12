@@ -175,7 +175,7 @@ function App() {
     window.location.replace("https://www.morehelp.center/wai-institute");
     return null;
   }
-  if (hostname.includes("morehelp.center")) {
+  if (hostname.includes("morehelp.center") && false) {
     return (
       <AuthProvider>
         <BrowserRouter>
