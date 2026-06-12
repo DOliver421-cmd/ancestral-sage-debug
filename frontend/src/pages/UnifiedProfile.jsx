@@ -24,7 +24,7 @@ import {
   Zap, Lock, Globe, Radio, Megaphone, BarChart2, ShoppingBag,
   Upload, Image, FileText, Award, CheckCircle, Eye, EyeOff,
   Twitter, Instagram, Facebook, Linkedin, Youtube,
-  DollarSign, Heart, TrendingUp, Receipt, Network, Star, Crown,
+  DollarSign, Heart, TrendingUp, Receipt, Network, Star, Crown, Shield,
 } from "lucide-react";
 import { useMic } from "../hooks/useMic";
 
