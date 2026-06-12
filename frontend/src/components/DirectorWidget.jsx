@@ -524,6 +524,7 @@ function StudentsPanel({ pulse, style, onAction }) {
 
 function NotesPanel({ style }) {
   const STORAGE_KEY = "director_widget_notes";
+  const [confirmClearNotes, setConfirmClearNotes] = useState(false);
   const [notes, setNotes] = useState(() => {
     try { return localStorage.getItem(STORAGE_KEY) || ""; } catch (_e) { return ""; }
   });
@@ -540,10 +541,9 @@ function NotesPanel({ style }) {
   };
 
   const clearNotes = () => {
-    if (window.confirm("Clear all notes?")) {
-      setNotes("");
-      try { localStorage.removeItem(STORAGE_KEY); } catch (_e) {}
-    }
+    setNotes("");
+    try { localStorage.removeItem(STORAGE_KEY); } catch (_e) {}
+    setConfirmClearNotes(false);
   };
 
   const exportNotes = () => {
@@ -567,7 +567,7 @@ function NotesPanel({ style }) {
             color: "#999", padding: "2px 6px", fontSize: "8px",
             cursor: "pointer", borderRadius: "2px",
           }}>↓ export</button>
-          <button onClick={clearNotes} style={{
+          <button onClick={() => setConfirmClearNotes(true)} style={{
             background: "transparent", border: "1px solid #333",
             color: "#999", padding: "2px 6px", fontSize: "8px",
             cursor: "pointer", borderRadius: "2px",
@@ -587,6 +587,18 @@ function NotesPanel({ style }) {
         }}
       />
     </div>
+    {confirmClearNotes && (
+      <div style={{ position:"fixed", inset:0, zIndex:2000, display:"flex", alignItems:"center", justifyContent:"center", background:"rgba(0,0,0,0.75)", padding:16 }}>
+        <div style={{ background:"#111", border:"1px solid #333", borderRadius:10, padding:22, maxWidth:300, width:"100%" }}>
+          <div style={{ color:"#ccc", fontWeight:700, fontSize:13, marginBottom:8 }}>Clear all notes?</div>
+          <div style={{ color:"#666", fontSize:11, marginBottom:16 }}>This cannot be undone.</div>
+          <div style={{ display:"flex", justifyContent:"flex-end", gap:8 }}>
+            <button onClick={() => setConfirmClearNotes(false)} style={{ border:"1px solid #333", background:"transparent", color:"#888", borderRadius:5, padding:"4px 12px", fontSize:11, cursor:"pointer" }}>Cancel</button>
+            <button onClick={clearNotes} style={{ border:"1px solid #f87171", background:"transparent", color:"#f87171", borderRadius:5, padding:"4px 12px", fontSize:11, fontWeight:700, cursor:"pointer" }}>Clear</button>
+          </div>
+        </div>
+      </div>
+    )}
   );
 }
 
@@ -599,6 +611,7 @@ export default function DirectorWidget() {
   const [open, setOpen] = useState(false);
   const [persona, setPersona]       = useState("assistant_director");
   const [msgs, setMsgs]             = useState([]);
+  const [confirmClearChat, setConfirmClearChat] = useState(false);
   const [input, setInput]           = useState("");
   const [loading, setLoading]       = useState(false);
   const [minimized, setMinimized]   = useState(false);
@@ -955,7 +968,8 @@ export default function DirectorWidget() {
   };
 
   const clearChat = () => {
-    if (window.confirm("Clear the conversation?")) setMsgs([]);
+    setMsgs([]);
+    setConfirmClearChat(false);
   };
 
   const exportChat = () => {
@@ -1321,7 +1335,7 @@ export default function DirectorWidget() {
             </button>
           ))}
           <div style={{ marginLeft: "auto", display: "flex", gap: "3px" }}>
-            <button onClick={clearChat} title="Clear conversation" style={{
+            <button onClick={() => setConfirmClearChat(true)} title="Clear conversation" style={{
               background: "transparent", border: "1px solid #2A2A2A",
               color: "#aaa", padding: "3px 6px", fontSize: "11px",
               cursor: "pointer", borderRadius: "2px",
@@ -1406,6 +1420,19 @@ export default function DirectorWidget() {
       )}
 
       <style>{`@keyframes pulse-dot{0%,100%{opacity:1}50%{opacity:0.3}}`}</style>
+
+      {confirmClearChat && (
+        <div style={{ position:"fixed", inset:0, zIndex:2000, display:"flex", alignItems:"center", justifyContent:"center", background:"rgba(0,0,0,0.75)", padding:16 }}>
+          <div style={{ background:"#111", border:"1px solid #333", borderRadius:10, padding:22, maxWidth:300, width:"100%" }}>
+            <div style={{ color:"#ccc", fontWeight:700, fontSize:13, marginBottom:8 }}>Clear conversation?</div>
+            <div style={{ color:"#666", fontSize:11, marginBottom:16 }}>All messages will be removed.</div>
+            <div style={{ display:"flex", justifyContent:"flex-end", gap:8 }}>
+              <button onClick={() => setConfirmClearChat(false)} style={{ border:"1px solid #333", background:"transparent", color:"#888", borderRadius:5, padding:"4px 12px", fontSize:11, cursor:"pointer" }}>Cancel</button>
+              <button onClick={clearChat} style={{ border:"1px solid #f87171", background:"transparent", color:"#f87171", borderRadius:5, padding:"4px 12px", fontSize:11, fontWeight:700, cursor:"pointer" }}>Clear</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

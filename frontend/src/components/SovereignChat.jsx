@@ -60,6 +60,7 @@ function PipelineTab({ userId }) {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(false);
   const [showAdd, setShowAdd] = useState(false);
+  const [confirmLost, setConfirmLost] = useState(null);
   const [addForm, setAddForm] = useState({
     institution: "", vertical: "Corporate", stage: "Prospecting",
     fee_offered: "", contact_name: "",
@@ -113,15 +114,15 @@ function PipelineTab({ userId }) {
     }
   };
 
-  const markLost = async (record) => {
-    if (!window.confirm(`Mark ${record.institution} as Lost?`)) return;
+  const markLost = async () => {
+    if (!confirmLost) return;
     try {
-      await api.patch(`/sovereign/pipeline/${record.id}`, { stage: "Lost" });
-      toast.success(`${record.institution} marked Lost`);
+      await api.patch(`/sovereign/pipeline/${confirmLost.id}`, { stage: "Lost" });
+      toast.success(`${confirmLost.institution} marked Lost`);
       fetchPipeline();
     } catch (e) {
       toast.error("Update failed");
-    }
+    } finally { setConfirmLost(null); }
   };
 
   const summary = data?.summary;
@@ -275,7 +276,7 @@ function PipelineTab({ userId }) {
                           <ChevronRight style={{ width: 11, height: 11 }} /> Next
                         </button>
                         <button
-                          onClick={() => markLost(r)}
+                          onClick={() => setConfirmLost(r)}
                           title="Mark as Lost"
                           style={{ background: "rgba(255,100,100,0.1)", border: "1px solid rgba(255,100,100,0.3)", borderRadius: 5, padding: "3px 6px", cursor: "pointer", color: "#f87171", fontSize: 11 }}>
                           Lost
@@ -289,6 +290,18 @@ function PipelineTab({ userId }) {
           );
         })}
       </div>
+      {confirmLost && (
+        <div style={{ position:"fixed", inset:0, zIndex:2000, display:"flex", alignItems:"center", justifyContent:"center", background:"rgba(0,0,0,0.7)", padding:16 }}>
+          <div style={{ background:"#131620", border:"1px solid rgba(74,242,197,0.15)", borderRadius:12, padding:24, maxWidth:340, width:"100%" }}>
+            <div style={{ color:"#f0f4ff", fontWeight:700, fontSize:14, marginBottom:8 }}>Mark as Lost?</div>
+            <div style={{ color:"rgba(200,210,230,0.55)", fontSize:12, marginBottom:18 }}>{confirmLost.institution} will be moved to Lost stage.</div>
+            <div style={{ display:"flex", justifyContent:"flex-end", gap:10 }}>
+              <button onClick={() => setConfirmLost(null)} style={{ border:"1px solid rgba(200,210,230,0.3)", background:"transparent", color:"rgba(200,210,230,0.55)", borderRadius:6, padding:"5px 14px", fontSize:11, cursor:"pointer" }}>Cancel</button>
+              <button onClick={markLost} style={{ border:"1px solid #f87171", background:"transparent", color:"#f87171", borderRadius:6, padding:"5px 14px", fontSize:11, fontWeight:700, cursor:"pointer" }}>Mark Lost</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -298,6 +311,7 @@ export default function SovereignChat() {
   const [open, setOpen]         = useState(false);
   const [activeTab, setActiveTab] = useState("chat");
   const [messages, setMessages] = useState(loadHistory);
+  const [confirmClear, setConfirmClear] = useState(false);
   const [input, setInput]       = useState("");
   const [sending, setSending]   = useState(false);
   const [audioOn, setAudioOn]   = useState(false);
@@ -452,10 +466,9 @@ export default function SovereignChat() {
   };
 
   const clearHistory = () => {
-    if (window.confirm("Clear conversation history?")) {
-      setMessages([]);
-      localStorage.removeItem(STORAGE_KEY);
-    }
+    setMessages([]);
+    localStorage.removeItem(STORAGE_KEY);
+    setConfirmClear(false);
   };
 
   if (!open) {
@@ -491,7 +504,7 @@ export default function SovereignChat() {
           <span className="font-heading font-bold">The Sovereign</span>
         </div>
         <div className="flex items-center gap-2">
-          <button onClick={clearHistory} title="Clear history"
+          <button onClick={() => setConfirmClear(true)} title="Clear history"
             style={{ background: "rgba(255,255,255,0.1)", border: "none", borderRadius: "50%", width: 30, height: 30, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "var(--wai-gold-light)" }}>
             <Trash2 style={{ width: 13, height: 13 }} />
           </button>
@@ -641,6 +654,19 @@ export default function SovereignChat() {
             </button>
           </form>
         </>
+      )}
+
+      {confirmClear && (
+        <div style={{ position:"fixed", inset:0, zIndex:2000, display:"flex", alignItems:"center", justifyContent:"center", background:"rgba(0,0,0,0.7)", padding:16 }}>
+          <div style={{ background:"var(--wai-card,#131620)", border:"1px solid var(--wai-border,rgba(74,242,197,0.15))", borderRadius:12, padding:24, maxWidth:320, width:"100%" }}>
+            <div style={{ color:"var(--wai-text,#f0f4ff)", fontWeight:700, fontSize:14, marginBottom:8 }}>Clear Conversation?</div>
+            <div style={{ color:"var(--wai-muted,rgba(200,210,230,0.55))", fontSize:12, marginBottom:18 }}>This will permanently delete all conversation history with The Sovereign.</div>
+            <div style={{ display:"flex", justifyContent:"flex-end", gap:10 }}>
+              <button onClick={() => setConfirmClear(false)} style={{ border:"1px solid rgba(200,210,230,0.3)", background:"transparent", color:"rgba(200,210,230,0.55)", borderRadius:6, padding:"5px 14px", fontSize:11, cursor:"pointer" }}>Cancel</button>
+              <button onClick={clearHistory} style={{ border:"1px solid #f87171", background:"transparent", color:"#f87171", borderRadius:6, padding:"5px 14px", fontSize:11, fontWeight:700, cursor:"pointer" }}>Clear All</button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
