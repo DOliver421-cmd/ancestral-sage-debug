@@ -371,13 +371,20 @@ export default function CreatorStudio() {
           position: "sticky", top: 0, zIndex: 20,
         }}>
           <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
-            <Link to="/dashboard" style={{ color: "rgba(255,255,255,0.4)", textDecoration: "none", display: "flex", alignItems: "center", gap: 6, fontSize: 12, fontFamily: "monospace", letterSpacing: "0.05em" }}>
-              <ArrowLeft style={{ width: 14, height: 14 }} /> Exit Sanctuary
+            <Link to="/profile" style={{ color: "rgba(255,255,255,0.4)", textDecoration: "none", display: "flex", alignItems: "center", gap: 6, fontSize: 12, fontFamily: "monospace", letterSpacing: "0.05em" }}>
+              <ArrowLeft style={{ width: 14, height: 14 }} /> My Profile
             </Link>
             <div style={{ width: 1, height: 16, background: "rgba(255,255,255,0.1)" }} />
-            <div style={{ fontSize: 11, fontFamily: "monospace", letterSpacing: "0.15em", textTransform: "uppercase", color: `${colors.primary}b3` }}>
-              The Creator's Sanctuary
-            </div>
+            {[
+              { label: "Social Blast", to: "/social/publish" },
+              { label: "Ghost Producer", to: "/ghost-producer" },
+              { label: "Earnings", to: "/creator/earnings" },
+              { label: "Lounge", to: "/creator-lounge" },
+            ].map(f => (
+              <Link key={f.to} to={f.to} style={{ color: "rgba(255,255,255,0.25)", textDecoration: "none", fontSize: 11, fontFamily: "monospace", letterSpacing: "0.06em", padding: "2px 8px", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 4 }}>
+                {f.label}
+              </Link>
+            ))}
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
             {activeChamber && (

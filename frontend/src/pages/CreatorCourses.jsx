@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import AppShell from "../components/AppShell";
+import CreatorContextBar from "../components/CreatorContextBar";
 import BackButton from "../components/BackButton";
 import { api } from "../lib/api";
 import { toast } from "sonner";
@@ -136,6 +137,7 @@ export default function CreatorCourses() {
 
   return (
     <AppShell>
+      <CreatorContextBar current="courses" />
       <div className="px-6 py-10 max-w-5xl">
         <BackButton className="mb-4" />
         <div className="flex items-center justify-between mb-2">

@@ -13,6 +13,7 @@ import { useAuth } from "../lib/auth";
 import { api } from "../lib/api";
 import { toast } from "sonner";
 import AppShell from "../components/AppShell";
+import CreatorContextBar from "../components/CreatorContextBar";
 import { Copy, ExternalLink, Sparkles, Loader, CheckCircle, Settings } from "lucide-react";
 import { Link } from "react-router-dom";
 
@@ -233,6 +234,7 @@ Return JSON only.`;
 
   return (
     <AppShell>
+      <CreatorContextBar current="blast" />
       <div style={{ maxWidth: 820, margin: "0 auto", padding: "40px 24px 80px" }}>
 
         {/* Header */}

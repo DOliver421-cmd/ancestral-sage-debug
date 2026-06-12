@@ -1023,6 +1023,56 @@ export default function UnifiedProfile() {
               {/* ══ HOME tab ══ */}
               {activeTab === "home" && (
                 <>
+                  {/* ── Feature launcher (owner view) ── */}
+                  {isOwner && (
+                    <div>
+                      <div className="flex items-center justify-between mb-3">
+                        <span className="font-heading font-bold">Your Tools</span>
+                        <span className="text-xs text-ink/30 uppercase tracking-widest">{FEATURE_TIER_LABEL[user?.feature_tier] || "Free"} tier</span>
+                      </div>
+                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                        {[
+                          { feature: "ai_chat",      label: "AI Tutor",        icon: Zap,         to: "/ai",                  desc: "Ask anything",           free: true  },
+                          { feature: "profile",      label: "Social Blast",    icon: Megaphone,   to: "/social/publish",      desc: "Post to all platforms",  free: true  },
+                          { feature: "profile",      label: "Curriculum",      icon: BookOpen,    to: "/modules",             desc: "Browse all courses",     free: true  },
+                          { feature: "profile",      label: "Certificates",    icon: Award,       to: "/certificates",        desc: "Your earned certs",      free: true  },
+                          { feature: "posts",        label: "Creator Lounge",  icon: Mic,         to: "/creator-lounge",      desc: "Community stage",        free: false },
+                          { feature: "ghost",        label: "Ghost Producer",  icon: Music,       to: "/ghost-producer",      desc: "AI production suite",    free: false },
+                          { feature: "ghost",        label: "Creator Studio",  icon: Radio,       to: "/studio",              desc: "Build & publish",        free: false },
+                          { feature: "band",         label: "Band on a Page",  icon: Globe,       to: "/band",                desc: "Your group page",        free: false },
+                          { feature: "courses",      label: "Course Manager",  icon: FileText,    to: "/creator/courses",     desc: "Sell your knowledge",    free: false },
+                          { feature: "artist_mgmt",  label: "My Earnings",     icon: BarChart2,   to: "/creator/earnings",    desc: "Track income",           free: false },
+                          { feature: "artist_mgmt",  label: "Payouts",         icon: Settings,    to: "/creator/payouts",     desc: "Withdraw funds",         free: false },
+                          { feature: "sovereign",    label: "Admin Control",   icon: Shield,      to: "/admin",               desc: "Platform management",    free: false },
+                        ].map(({ feature, label, icon: Icon, to, desc, free }) => {
+                          const accessible = canAccess(user, viewerStatus, feature);
+                          if (!accessible) return (
+                            <Link key={label} to="/plans"
+                              className="card-flat p-4 flex flex-col gap-1 opacity-40 hover:opacity-60 transition-opacity group">
+                              <div className="flex items-center gap-2">
+                                <Lock className="w-3.5 h-3.5 text-ink/30" />
+                                <span className="font-bold text-sm text-ink/40 truncate">{label}</span>
+                              </div>
+                              <div className="text-xs text-ink/25 truncate">{desc}</div>
+                              <div className="text-xs text-copper font-bold mt-1 opacity-0 group-hover:opacity-100 transition-opacity">Upgrade →</div>
+                            </Link>
+                          );
+                          return (
+                            <Link key={label} to={to}
+                              className="card-flat p-4 flex flex-col gap-1 hover:border-copper transition-colors group">
+                              <div className="flex items-center gap-2">
+                                <Icon className="w-3.5 h-3.5 text-copper shrink-0" />
+                                <span className="font-bold text-sm truncate">{label}</span>
+                              </div>
+                              <div className="text-xs text-ink/50 truncate">{desc}</div>
+                              <div className="text-xs text-copper font-bold mt-1 opacity-0 group-hover:opacity-100 transition-opacity">Open →</div>
+                            </Link>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+
                   {/* Tracks */}
                   {profile.tracks?.length > 0 && (
                     <div>
