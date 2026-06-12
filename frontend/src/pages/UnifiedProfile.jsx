@@ -29,10 +29,14 @@ import {
 import { useMic } from "../hooks/useMic";
 
 // ── Tier gate logic ───────────────────────────────────────────────────────────
-// feature_tier is set by admin via ExecControlPanel → /exec/control/user/tier
-// Values: free (0) · premium (2) · executive (4)
-const FEATURE_TIER_RANK = { free: 0, premium: 2, executive: 4 };
-const FEATURE_TIER_LABEL = { free: "Free", premium: "Premium", executive: "Executive" };
+// feature_tier is set by payment (auto) or admin override (one-time).
+// Free → Member → Plus → Pro → Patron → Executive
+// Admins/exec_admins bypass all gates regardless of feature_tier.
+const FEATURE_TIER_RANK = { free: 0, member: 1, plus: 2, pro: 3, patron: 4, executive: 5 };
+const FEATURE_TIER_LABEL = {
+  free: "Free", member: "Member", plus: "Plus",
+  pro: "Pro", patron: "Patron", executive: "Executive",
+};
 
 function canAccess(user, _status, feature) {
   if (!user) return false;
@@ -45,16 +49,16 @@ function canAccess(user, _status, feature) {
   switch (feature) {
     case "profile":       return true;
     case "ai_chat":       return true;
-    case "posts":         return tierIdx >= 1;
-    case "courses":       return tierIdx >= 2 || isInstructor;
-    case "tracks":        return tierIdx >= 2 || isInstructor;
-    case "ghost":         return tierIdx >= 2;
-    case "band":          return tierIdx >= 2;
-    case "publisher":     return tierIdx >= 2;
-    case "publisher_ai":  return tierIdx >= 1;
-    case "artist_mgmt":   return tierIdx >= 4;
-    case "mass_post":     return tierIdx >= 4;
-    case "sovereign":     return false; // only admins, handled above
+    case "posts":         return tierIdx >= 1;             // Member+
+    case "publisher_ai":  return tierIdx >= 1;             // Member+
+    case "courses":       return tierIdx >= 2 || isInstructor; // Plus+
+    case "tracks":        return tierIdx >= 2 || isInstructor; // Plus+
+    case "ghost":         return tierIdx >= 2;             // Plus+
+    case "band":          return tierIdx >= 2;             // Plus+
+    case "publisher":     return tierIdx >= 2;             // Plus+
+    case "artist_mgmt":   return tierIdx >= 3;             // Pro+
+    case "mass_post":     return tierIdx >= 4;             // Patron+
+    case "sovereign":     return false;                    // admin role only, handled above
     default:              return false;
   }
 }

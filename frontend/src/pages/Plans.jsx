@@ -2,7 +2,7 @@ import { Link } from "react-router-dom";
 import { useAuth } from "../lib/auth";
 import AppShell from "../components/AppShell";
 import BackButton from "../components/BackButton";
-import { Check } from "lucide-react";
+import { Check, Zap, Clock } from "lucide-react";
 
 // Public membership plans — the corrected 5-tier monthly ladder ($0/9/15/29/59).
 // Free tier is fully actionable (register); paid tiers route to the existing
@@ -67,6 +67,27 @@ export default function Plans() {
             Start free and earn your way up — or become a member and help fund the mission. Every tier keeps the doors
             open for someone who can't pay yet.
           </p>
+        </div>
+
+        {/* ── $3 Trial Banner ── highest conversion CTA, shown first ── */}
+        <div className="mt-8 rounded-2xl p-6 flex flex-col sm:flex-row items-center gap-5"
+          style={{ background: "linear-gradient(135deg,#1B4332,#2D6A4F)", border: "2px solid #E8A51E" }}>
+          <div className="flex items-center gap-3 shrink-0">
+            <span style={{ fontSize: 36 }}>⚡</span>
+            <div>
+              <div className="font-heading font-black text-2xl text-signal">$3 All-Access Trial</div>
+              <div className="text-white/70 text-sm">3 days · 33 minutes · 33 seconds of everything</div>
+            </div>
+          </div>
+          <div className="flex-1 text-sm text-white/80 leading-relaxed">
+            Unlock every feature on the platform — Creator Studio, Ghost Producer, AI tools, all courses — for one low trial price.
+            No recurring charge unless you choose a plan after.
+          </div>
+          <Link to="/subscribe?plan=sanctuary_trial"
+            className="shrink-0 font-black text-sm px-6 py-3 rounded-xl whitespace-nowrap"
+            style={{ background: "#E8A51E", color: "#0a0a0a" }}>
+            Try Everything for $3 →
+          </Link>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mt-10">
