@@ -3,7 +3,7 @@ import AppShell from "../components/AppShell";
 import { api } from "../lib/api";
 import { Link } from "react-router-dom";
 import { useAuth } from "../lib/auth";
-import { ArrowRight, Award, BookOpen, Clock, Flame, Zap, AlertTriangle, RefreshCw, Gamepad2 } from "lucide-react";
+import { ArrowRight, Award, BookOpen, Clock, Flame, Zap, AlertTriangle, RefreshCw, Gamepad2, Share2 } from "lucide-react";
 import PuzzleCard from "../components/PuzzleCard";
 import PartnershipProgress from "../components/PartnershipProgress";
 import SovereignAvatar from "../components/SovereignAvatar";
@@ -85,8 +85,8 @@ export default function StudentDashboard() {
           )}
         </div>
 
-        {/* Studio + Arcade buttons */}
-        <div className="grid sm:grid-cols-2 gap-4 mb-8">
+        {/* Studio + Arcade + Social Blast buttons */}
+        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
         <Link
           to="/studio"
           data-testid="btn-studio"
@@ -128,6 +128,27 @@ export default function StudentDashboard() {
             </div>
           </div>
           <div style={{ marginLeft: "auto", fontFamily: "monospace", fontSize: "0.65rem", color: "rgba(255,215,0,0.5)" }}>INSERT COIN ▶</div>
+        </Link>
+        <Link
+          to="/social/publish"
+          data-testid="btn-social-publish"
+          className="flex items-center gap-4 px-6 py-4 no-underline transition-all hover:opacity-90"
+          style={{
+            background: "linear-gradient(135deg, #0a1628, #0f2d1a)",
+            border: "2px solid rgba(0,200,100,0.5)",
+            boxShadow: "0 0 20px rgba(0,200,100,0.2), inset 0 0 30px rgba(0,200,100,0.04)",
+          }}
+        >
+          <Share2 style={{ color: "#4ade80", width: 26, height: 26, flexShrink: 0, filter: "drop-shadow(0 0 6px rgba(74,222,128,0.7))" }} />
+          <div>
+            <div style={{ fontFamily: "monospace", fontSize: "1rem", fontWeight: 900, color: "#4ade80", letterSpacing: "0.08em", textShadow: "0 0 10px rgba(74,222,128,0.5)", lineHeight: 1.2 }}>
+              SOCIAL BLAST
+            </div>
+            <div style={{ fontFamily: "monospace", fontSize: "0.65rem", color: "rgba(74,222,128,0.65)" }}>
+              ONE POST · ALL PLATFORMS · AI-FORMATTED
+            </div>
+          </div>
+          <div style={{ marginLeft: "auto", fontFamily: "monospace", fontSize: "0.65rem", color: "rgba(74,222,128,0.4)" }}>BLAST ▶</div>
         </Link>
         </div>
 

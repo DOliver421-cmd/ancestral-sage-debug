@@ -238,12 +238,12 @@ Return JSON only.`;
         {/* Header */}
         <div style={{ marginBottom: 32 }}>
           <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.15em", color: "#b5651d", marginBottom: 6 }}>
-            One post. All platforms.
+            Creator Feature · Available to all members
           </div>
-          <h1 style={{ fontSize: "1.9rem", fontWeight: 900, color: "#1a1a1a", margin: 0, marginBottom: 8 }}>Social Publisher</h1>
+          <h1 style={{ fontSize: "1.9rem", fontWeight: 900, color: "#1a1a1a", margin: 0, marginBottom: 8 }}>Social Blast</h1>
           <p style={{ color: "#6b7280", fontSize: 14, margin: 0 }}>
-            Write your base post — AI adapts it for each platform's style and limits.
-            No API keys required. Copy or click to open the platform directly.
+            Write your post once — AI reformats it for Twitter/X, Instagram, Facebook, TikTok, Threads, and LinkedIn automatically.
+            No extra accounts needed. Copy the text or click to open each platform directly.
           </p>
         </div>
 
