@@ -4,13 +4,6 @@ import PublicNav from "../components/PublicNav";
 import BackButton from "../components/BackButton";
 import { api } from "../lib/api";
 
-// Fallback list — only entries with real profile pages in the hardcoded registry.
-// Nova Highborn was removed: no DB profile and no hardcoded entry → caused 404s.
-const FALLBACK_CREATORS = [
-  { slug: "nam-oshun", display_name: "NAM Oshun", title: "Poet · Community Organizer", bio: "Founding voice of the M.O.R.E. Help Center. Words that heal. Community that holds.", avatar: "🌊" },
-  { slug: "royal-black-falcon", display_name: "Royal Black Falcon", title: "Poet · Cultural Warrior", bio: "A griot in the tradition that doesn't need to announce itself.", avatar: "🦅" },
-];
-
 export default function Creators() {
   const [creators, setCreators] = useState(null);
 
@@ -20,7 +13,7 @@ export default function Creators() {
       .catch(() => setCreators([]));
   }, []);
 
-  const list = creators && creators.length > 0 ? creators : (creators === null ? null : FALLBACK_CREATORS);
+  const list = creators;
 
   return (
     <div className="min-h-screen bg-bone">
