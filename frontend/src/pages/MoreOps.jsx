@@ -9,7 +9,7 @@ import {
   Video, Users, ChevronRight, Loader2, Trash2,
   Mic, MicOff, Volume2, VolumeX, CheckCircle, Music, Play, Pause, X,
   LayoutDashboard, MessageSquare, Upload, Eye, EyeOff, ShoppingBag,
-  CheckCircle2, ExternalLink, Shield,
+  CheckCircle2, ExternalLink,
 } from "lucide-react";
 import PlatformDashboard from "../components/PlatformDashboard";
 import { v4 as uuidv4 } from "uuid";
@@ -62,7 +62,6 @@ function recordToMessages(r) {
 
 const DEPARTMENTS = [
   { id: "",               label: "Auto-Route",       icon: Bot,         desc: "Let the AI choose the right department" },
-  { id: "jamil",          label: "Jamil",             icon: Shield,      desc: "Director · Supervisor · Sovereign · PRT" },
   { id: "Executive",      label: "Executive",         icon: Crown,       desc: "Governance, crisis, system oversight" },
   { id: "Revenue",        label: "Revenue",           icon: TrendingUp,  desc: "Strategy, pipeline, offers, forecasting" },
   { id: "Finance",        label: "Finance",           icon: DollarSign,  desc: "Budgets, compliance, approvals, risk" },
@@ -498,30 +497,15 @@ export default function MoreOps() {
     setBusy(true);
 
     try {
-      let raw, persona, department, mode;
-
-      if (dept === "jamil") {
-        const fd = new FormData();
-        fd.append("message", text);
-        const { data } = await api.post("/jamil/chat", fd);
-        raw = data.reply || "";
-        persona = "Jamil";
-        department = "Director";
-        mode = "Sovereign";
-      } else {
-        const { data } = await api.post("/more/department/chat", {
-          session_id: sessionId,
-          message: text,
-          history: buildHistory(),
-          department_hint: dept || undefined,
-        });
-        raw = data.reply || "";
-        persona = data.persona;
-        department = data.department;
-        mode = data.mode;
-      }
+      const { data } = await api.post("/more/department/chat", {
+        session_id: sessionId,
+        message: text,
+        history: buildHistory(),
+        department_hint: dept || undefined,
+      });
 
       // Strip the **[PERSONA | DEPT | Mode: X]** header line from display
+      const raw = data.reply || "";
       const lines = raw.split("\n");
       const firstLine = lines[0].trim();
       const displayContent =
@@ -535,10 +519,10 @@ export default function MoreOps() {
           role: "assistant",
           rawReply: raw,
           displayContent,
-          persona,
-          department,
-          mode,
-          isDecline: false,
+          persona: data.persona,
+          department: data.department,
+          mode: data.mode,
+          isDecline: data.is_decline || false,
         },
       ]);
       speak(displayContent);

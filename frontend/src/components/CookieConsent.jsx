@@ -1,32 +1,25 @@
 import { useState, useEffect } from "react";
-import { useLocation } from "react-router-dom";
 import { api } from "../lib/api";
 
 const CONSENT_KEY = "cookie_consent_v1";
 
-// Admin/tool routes where the banner must not block the interface
-const SUPPRESS_PATHS = ["/jamil", "/arena", "/projects", "/admin", "/store", "/studio",
-  "/ghost-producer", "/band", "/creator", "/more/ops", "/supervisor"];
-
 export default function CookieConsent() {
   const [visible, setVisible] = useState(false);
-  const location = useLocation();
-
-  const suppressed = SUPPRESS_PATHS.some(
-    p => location.pathname === p || location.pathname.startsWith(p + "/")
-  );
 
   useEffect(() => {
-    if (suppressed) return;
     const stored = localStorage.getItem(CONSENT_KEY);
     if (!stored) {
       const timer = setTimeout(() => setVisible(true), 500);
       return () => clearTimeout(timer);
     }
-  }, [suppressed]);
+  }, []);
 
   const record = async (choice) => {
-    try { await api.post("/consent/cookie", { choice }); } catch {}
+    try {
+      await api.post("/consent/cookie", { choice });
+    } catch {
+      // silent — non-critical
+    }
   };
 
   const accept = () => {
@@ -41,7 +34,7 @@ export default function CookieConsent() {
     setVisible(false);
   };
 
-  if (!visible || suppressed) return null;
+  if (!visible) return null;
 
   return (
     <div className="fixed bottom-0 left-0 right-0 z-50 bg-ink text-white p-4 shadow-2xl border-t border-copper/30">
