@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import AppShell from "../components/AppShell";
+import CreatorContextBar from "../components/CreatorContextBar";
 import BackButton from "../components/BackButton";
 import { api } from "../lib/api";
 import { toast } from "sonner";
@@ -62,6 +63,7 @@ export default function CreatorEarnings() {
 
   return (
     <AppShell>
+      <CreatorContextBar current="earnings" />
       <div className="px-6 py-10 max-w-4xl">
         <BackButton className="mb-4" />
         <div className="overline text-copper mb-1">Creator Studio</div>

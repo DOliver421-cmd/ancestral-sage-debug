@@ -24,33 +24,41 @@ import {
   Zap, Lock, Globe, Radio, Megaphone, BarChart2, ShoppingBag,
   Upload, Image, FileText, Award, CheckCircle, Eye, EyeOff,
   Twitter, Instagram, Facebook, Linkedin, Youtube,
+  DollarSign, Heart, TrendingUp, Receipt, Network, Star, Crown,
 } from "lucide-react";
 import { useMic } from "../hooks/useMic";
 
 // ── Tier gate logic ───────────────────────────────────────────────────────────
-const TIER_ORDER = ["Public", "Member", "Plus", "Pro", "Patron"];
+// feature_tier is set by payment (auto) or admin override (one-time).
+// Free → Member → Plus → Pro → Patron → Executive
+// Admins/exec_admins bypass all gates regardless of feature_tier.
+const FEATURE_TIER_RANK = { free: 0, member: 1, plus: 2, pro: 3, patron: 4, executive: 5 };
+const FEATURE_TIER_LABEL = {
+  free: "Free", member: "Member", plus: "Plus",
+  pro: "Pro", patron: "Patron", executive: "Executive",
+};
 
-function canAccess(user, status, feature) {
+function canAccess(user, _status, feature) {
   if (!user) return false;
   const role = user.role || "student";
-  const tier = status?.tier || "Public";
-  const isAdmin = ["admin", "executive_admin"].includes(role);
+  // Admins and executive admins own the platform — never locked out
+  if (role === "admin" || role === "executive_admin") return true;
   const isInstructor = role === "instructor";
-  const tierIdx = TIER_ORDER.indexOf(tier);
+  const tierIdx = FEATURE_TIER_RANK[user.feature_tier] ?? 0;
 
   switch (feature) {
     case "profile":       return true;
     case "ai_chat":       return true;
-    case "posts":         return tierIdx >= 1 || isAdmin;
-    case "courses":       return tierIdx >= 2 || isInstructor || isAdmin;
-    case "tracks":        return tierIdx >= 2 || isInstructor || isAdmin;
-    case "ghost":         return tierIdx >= 3 || isAdmin;
-    case "band":          return tierIdx >= 3 || isAdmin;
-    case "publisher":     return tierIdx >= 3 || isAdmin;
-    case "publisher_ai":  return tierIdx >= 1 || isAdmin;  // member+ gets AI formatting
-    case "artist_mgmt":   return tierIdx >= 4 || isAdmin;
-    case "mass_post":     return tierIdx >= 4 || isAdmin;
-    case "sovereign":     return isAdmin;
+    case "posts":         return tierIdx >= 1;             // Member+
+    case "publisher_ai":  return tierIdx >= 1;             // Member+
+    case "courses":       return tierIdx >= 2 || isInstructor; // Plus+
+    case "tracks":        return tierIdx >= 2 || isInstructor; // Plus+
+    case "ghost":         return tierIdx >= 2;             // Plus+
+    case "band":          return tierIdx >= 2;             // Plus+
+    case "publisher":     return tierIdx >= 2;             // Plus+
+    case "artist_mgmt":   return tierIdx >= 3;             // Pro+
+    case "mass_post":     return tierIdx >= 4;             // Patron+
+    case "sovereign":     return false;                    // admin role only, handled above
     default:              return false;
   }
 }
@@ -477,46 +485,56 @@ function ServiceCard({ icon: Icon, title, desc, to, locked, requiredTier }) {
 }
 
 // ── Settings Tab ──────────────────────────────────────────────────────────────
-function SettingsTab({ user, onSaved }) {
+function SettingsTab({ profile, onSaved }) {
+  const EMPTY_SOCIAL   = { platform: "", handle: "", url: "", note: "" };
+  const EMPTY_OFFERING = { icon: "✨", title: "", desc: "" };
+  const EMPTY_COMMERCE = { label: "", desc: "", url: "" };
+
   const [form, setForm] = useState({
-    display_name: user?.display_name || "",
-    bio: user?.bio || "",
-    avatar: user?.avatar || "",
-    twitter:   user?.socials?.twitter   || "",
-    instagram: user?.socials?.instagram || "",
-    facebook:  user?.socials?.facebook  || "",
-    tiktok:    user?.socials?.tiktok    || "",
-    threads:   user?.socials?.threads   || "",
-    linkedin:  user?.socials?.linkedin  || "",
+    slug:           profile?.slug          || "",
+    display_name:   profile?.display_name  || "",
+    title:          profile?.title         || "",
+    tagline:        profile?.tagline       || "",
+    bio:            profile?.bio           || "",
+    pronouns:       profile?.pronouns      || "",
+    location:       profile?.location      || "",
+    avatar:         profile?.avatar        || "✨",
+    socials:        profile?.socials       || [],
+    more_offerings: profile?.more_offerings || [],
+    commerce:       profile?.commerce      || [],
   });
   const [saving, setSaving]     = useState(false);
   const [pwForm, setPwForm]     = useState({ current: "", next: "", confirm: "" });
   const [savingPw, setSavingPw] = useState(false);
   const [showPw, setShowPw]     = useState(false);
 
-  function field(key) {
-    return {
-      value: form[key],
-      onChange: e => setForm(p => ({ ...p, [key]: e.target.value })),
-    };
+  const inputClass = "w-full text-sm px-3 py-2.5 rounded-lg border border-ink/15 bg-white focus:outline-none focus:border-copper";
+  const f = (key) => ({ value: form[key], onChange: e => setForm(p => ({ ...p, [key]: e.target.value })) });
+
+  function updateList(field, idx, key, val) {
+    setForm(p => { const a = [...p[field]]; a[idx] = { ...a[idx], [key]: val }; return { ...p, [field]: a }; });
   }
+  function addItem(field, empty)    { setForm(p => ({ ...p, [field]: [...p[field], { ...empty }] })); }
+  function removeItem(field, idx)   { setForm(p => ({ ...p, [field]: p[field].filter((_, i) => i !== idx) })); }
 
   async function saveProfile(e) {
     e.preventDefault();
+    if (!form.slug.trim() || !form.display_name.trim()) { toast.error("Profile URL and display name are required"); return; }
+    if (!/^[a-z0-9-]+$/.test(form.slug)) { toast.error("Profile URL: lowercase letters, numbers, and hyphens only"); return; }
     setSaving(true);
     try {
-      await api.patch("/auth/me", {
-        display_name: form.display_name,
-        bio: form.bio,
-        avatar: form.avatar,
-        socials: {
-          twitter:   form.twitter,
-          instagram: form.instagram,
-          facebook:  form.facebook,
-          tiktok:    form.tiktok,
-          threads:   form.threads,
-          linkedin:  form.linkedin,
-        },
+      await api.put("/creator/profile", {
+        slug:           form.slug.trim(),
+        display_name:   form.display_name.trim(),
+        title:          form.title.trim(),
+        tagline:        form.tagline.trim(),
+        bio:            form.bio.trim(),
+        pronouns:       form.pronouns.trim(),
+        location:       form.location.trim(),
+        avatar:         form.avatar.trim() || "✨",
+        socials:        form.socials.filter(s => s.platform && s.url),
+        more_offerings: form.more_offerings.filter(o => o.title),
+        commerce:       form.commerce.filter(c => c.label && c.url),
       });
       toast.success("Profile saved!");
       onSaved?.();
@@ -530,7 +548,7 @@ function SettingsTab({ user, onSaved }) {
   async function changePassword(e) {
     e.preventDefault();
     if (pwForm.next !== pwForm.confirm) { toast.error("Passwords don't match"); return; }
-    if (pwForm.next.length < 8) { toast.error("Password must be at least 8 characters"); return; }
+    if (pwForm.next.length < 8) { toast.error("Minimum 8 characters"); return; }
     setSavingPw(true);
     try {
       await api.post("/auth/change-password", { current_password: pwForm.current, new_password: pwForm.next });
@@ -543,56 +561,141 @@ function SettingsTab({ user, onSaved }) {
     }
   }
 
-  const inputClass = "w-full text-sm px-3 py-2.5 rounded-lg border border-ink/15 bg-white focus:outline-none focus:border-copper";
-
   return (
     <div className="space-y-6 max-w-2xl">
-      {/* Profile info */}
-      <form onSubmit={saveProfile} className="card-flat p-5 space-y-4">
-        <div className="font-heading font-bold text-base mb-1">Profile Info</div>
 
-        <div className="space-y-1">
-          <label className="text-xs font-bold text-ink/50">Display Name</label>
-          <input {...field("display_name")} placeholder="Your display name" className={inputClass} />
+      <form onSubmit={saveProfile} className="space-y-6">
+
+        {/* ── Identity ── */}
+        <div className="card-flat p-5 space-y-4">
+          <div className="font-heading font-bold text-base">Identity</div>
+
+          <div className="grid sm:grid-cols-2 gap-3">
+            <div className="space-y-1">
+              <label className="text-xs font-bold text-ink/50">Profile URL <span className="text-copper">*</span></label>
+              <div className="flex items-center">
+                <span className="text-xs text-ink/40 mr-1">/u/</span>
+                <input {...f("slug")} placeholder="your-name" className={inputClass} />
+              </div>
+            </div>
+            <div className="space-y-1">
+              <label className="text-xs font-bold text-ink/50">Display Name <span className="text-copper">*</span></label>
+              <input {...f("display_name")} placeholder="Your name" className={inputClass} />
+            </div>
+          </div>
+
+          <div className="grid sm:grid-cols-2 gap-3">
+            <div className="space-y-1">
+              <label className="text-xs font-bold text-ink/50">Title / Role</label>
+              <input {...f("title")} placeholder="Poet · Artist · Builder" className={inputClass} />
+            </div>
+            <div className="space-y-1">
+              <label className="text-xs font-bold text-ink/50">Pronouns</label>
+              <input {...f("pronouns")} placeholder="they/them" className={inputClass} />
+            </div>
+          </div>
+
+          <div className="grid sm:grid-cols-2 gap-3">
+            <div className="space-y-1">
+              <label className="text-xs font-bold text-ink/50">Location</label>
+              <input {...f("location")} placeholder="City, State" className={inputClass} />
+            </div>
+            <div className="space-y-1">
+              <label className="text-xs font-bold text-ink/50">Avatar (emoji or image URL)</label>
+              <input {...f("avatar")} placeholder="✨ or https://…" className={inputClass} />
+            </div>
+          </div>
+
+          <div className="space-y-1">
+            <label className="text-xs font-bold text-ink/50">Tagline</label>
+            <input {...f("tagline")} placeholder="One sentence that says everything" className={inputClass} />
+          </div>
+
+          <div className="space-y-1">
+            <label className="text-xs font-bold text-ink/50">Bio</label>
+            <textarea {...f("bio")} rows={4} placeholder="Your story in your words…"
+              className={`${inputClass} resize-none`} />
+          </div>
         </div>
 
-        <div className="space-y-1">
-          <label className="text-xs font-bold text-ink/50">Bio</label>
-          <textarea {...field("bio")} rows={3} placeholder="A short bio visible on your profile…"
-            className={`${inputClass} resize-none`} />
-        </div>
-
-        <div className="space-y-1">
-          <label className="text-xs font-bold text-ink/50">Avatar URL</label>
-          <input {...field("avatar")} placeholder="https://…" className={inputClass} />
-          {form.avatar && (
-            <img src={form.avatar} alt="preview" className="w-14 h-14 rounded-full object-cover border-2 border-ink/10 mt-1" />
-          )}
-        </div>
-
-        <div className="grid sm:grid-cols-2 gap-3 pt-1">
-          {[
-            { key: "twitter",   label: "𝕏 Twitter handle",   ph: "@handle" },
-            { key: "instagram", label: "📸 Instagram handle", ph: "@handle" },
-            { key: "facebook",  label: "👥 Facebook URL",     ph: "https://facebook.com/…" },
-            { key: "tiktok",    label: "🎵 TikTok handle",    ph: "@handle" },
-            { key: "threads",   label: "🧵 Threads handle",   ph: "@handle" },
-            { key: "linkedin",  label: "💼 LinkedIn URL",     ph: "https://linkedin.com/in/…" },
-          ].map(({ key, label, ph }) => (
-            <div key={key} className="space-y-1">
-              <label className="text-xs font-bold text-ink/50">{label}</label>
-              <input {...field(key)} placeholder={ph} className={inputClass} />
+        {/* ── Social Links ── */}
+        <div className="card-flat p-5 space-y-3">
+          <div className="flex items-center justify-between">
+            <div className="font-heading font-bold text-base">Social Links</div>
+            <button type="button" onClick={() => addItem("socials", EMPTY_SOCIAL)}
+              className="text-xs font-bold text-copper hover:text-copper/70">+ Add</button>
+          </div>
+          {form.socials.map((s, i) => (
+            <div key={i} className="grid grid-cols-2 sm:grid-cols-4 gap-2 items-end">
+              <input value={s.platform} onChange={e => updateList("socials", i, "platform", e.target.value)}
+                placeholder="Platform" className={inputClass} />
+              <input value={s.handle} onChange={e => updateList("socials", i, "handle", e.target.value)}
+                placeholder="@handle" className={inputClass} />
+              <input value={s.url} onChange={e => updateList("socials", i, "url", e.target.value)}
+                placeholder="URL" className={inputClass} />
+              <button type="button" onClick={() => removeItem("socials", i)}
+                className="text-xs text-red-400 hover:text-red-600 font-bold">Remove</button>
             </div>
           ))}
+          {form.socials.length === 0 && <p className="text-xs text-ink/30">No social links yet. Add one above.</p>}
         </div>
 
-        <button type="submit" disabled={saving}
-          className="btn-copper w-full text-sm disabled:opacity-50">
+        {/* ── M.O.R.E. Offerings ── */}
+        <div className="card-flat p-5 space-y-3">
+          <div className="flex items-center justify-between">
+            <div className="font-heading font-bold text-base">M.O.R.E. Offerings</div>
+            <button type="button" onClick={() => addItem("more_offerings", EMPTY_OFFERING)}
+              className="text-xs font-bold text-copper hover:text-copper/70">+ Add</button>
+          </div>
+          {form.more_offerings.map((o, i) => (
+            <div key={i} className="space-y-2 pb-3 border-b border-ink/5 last:border-0">
+              <div className="grid grid-cols-2 gap-2">
+                <input value={o.icon} onChange={e => updateList("more_offerings", i, "icon", e.target.value)}
+                  placeholder="Icon (emoji)" className={inputClass} />
+                <input value={o.title} onChange={e => updateList("more_offerings", i, "title", e.target.value)}
+                  placeholder="Title" className={inputClass} />
+              </div>
+              <div className="flex gap-2">
+                <textarea value={o.desc} onChange={e => updateList("more_offerings", i, "desc", e.target.value)}
+                  placeholder="Description" rows={2} className={`${inputClass} resize-none flex-1`} />
+                <button type="button" onClick={() => removeItem("more_offerings", i)}
+                  className="text-xs text-red-400 hover:text-red-600 font-bold self-start mt-1">✕</button>
+              </div>
+            </div>
+          ))}
+          {form.more_offerings.length === 0 && <p className="text-xs text-ink/30">No offerings yet. Add what you offer the community.</p>}
+        </div>
+
+        {/* ── Products & Links ── */}
+        <div className="card-flat p-5 space-y-3">
+          <div className="flex items-center justify-between">
+            <div className="font-heading font-bold text-base">Products & Links</div>
+            <button type="button" onClick={() => addItem("commerce", EMPTY_COMMERCE)}
+              className="text-xs font-bold text-copper hover:text-copper/70">+ Add</button>
+          </div>
+          {form.commerce.map((c, i) => (
+            <div key={i} className="grid sm:grid-cols-3 gap-2 items-end">
+              <input value={c.label} onChange={e => updateList("commerce", i, "label", e.target.value)}
+                placeholder="Label" className={inputClass} />
+              <input value={c.url} onChange={e => updateList("commerce", i, "url", e.target.value)}
+                placeholder="URL" className={inputClass} />
+              <div className="flex gap-2">
+                <input value={c.desc} onChange={e => updateList("commerce", i, "desc", e.target.value)}
+                  placeholder="Description" className={`${inputClass} flex-1`} />
+                <button type="button" onClick={() => removeItem("commerce", i)}
+                  className="text-xs text-red-400 hover:text-red-600 font-bold">✕</button>
+              </div>
+            </div>
+          ))}
+          {form.commerce.length === 0 && <p className="text-xs text-ink/30">No products or links yet.</p>}
+        </div>
+
+        <button type="submit" disabled={saving} className="btn-copper w-full text-sm disabled:opacity-50">
           {saving ? "Saving…" : "Save Profile"}
         </button>
       </form>
 
-      {/* Password change */}
+      {/* ── Password ── */}
       <form onSubmit={changePassword} className="card-flat p-5 space-y-4">
         <div className="flex items-center justify-between">
           <div className="font-heading font-bold text-base">Change Password</div>
@@ -603,19 +706,15 @@ function SettingsTab({ user, onSaved }) {
           </button>
         </div>
         {[
-          { key: "current", label: "Current password",  ph: "Current password" },
-          { key: "next",    label: "New password",       ph: "At least 8 characters" },
-          { key: "confirm", label: "Confirm new password", ph: "Repeat new password" },
+          { key: "current", label: "Current password",      ph: "Current password" },
+          { key: "next",    label: "New password",           ph: "At least 8 characters" },
+          { key: "confirm", label: "Confirm new password",   ph: "Repeat new password" },
         ].map(({ key, label, ph }) => (
           <div key={key} className="space-y-1">
             <label className="text-xs font-bold text-ink/50">{label}</label>
-            <input
-              type={showPw ? "text" : "password"}
-              value={pwForm[key]}
+            <input type={showPw ? "text" : "password"} value={pwForm[key]}
               onChange={e => setPwForm(p => ({ ...p, [key]: e.target.value }))}
-              placeholder={ph}
-              className={inputClass}
-            />
+              placeholder={ph} className={inputClass} />
           </div>
         ))}
         <button type="submit" disabled={savingPw || !pwForm.current || !pwForm.next}
@@ -766,27 +865,32 @@ export default function UnifiedProfile() {
   const [activeTab, setActiveTab] = useState("home");
 
   // Determine if viewer is the owner
-  const isOwner = user && profile && (profile.user_id === user.id || profile.slug === username);
+  const isOwner = user && (profile?.is_owner === true || (!username && !!user));
   const viewerStatus = status;
   const isAdmin = ["admin", "executive_admin"].includes(user?.role);
 
   // Reload profile after settings save
   const reloadProfile = useCallback(async () => {
-    if (!username) return;
     try {
-      const r = await api.get(`/creator/profile/${username}`);
+      const slug = username || profile?.slug;
+      if (!slug) return;
+      const r = await api.get(`/creator/profile/${slug}`);
       setProfile(r.data.profile);
     } catch (_) {}
-  }, [username]);
+  }, [username, profile?.slug]);
 
   useEffect(() => {
     if (!username) {
       if (user) {
+        // Try to find existing profile and redirect to it
+        // If not found, stay here in setup mode — never redirect to a dead route
         api.get("/creator/profile/me").then(r => {
           const p = r.data?.profile;
           if (p?.slug) navigate(`/u/${p.slug}`, { replace: true });
-          else navigate("/creator/profile/edit", { replace: true });
-        }).catch(() => navigate("/creator/profile/edit", { replace: true }));
+          else setLoading(false); // no profile yet → show setup mode
+        }).catch(() => setLoading(false)); // error → show setup mode
+      } else {
+        setLoading(false);
       }
       return;
     }
@@ -814,8 +918,6 @@ export default function UnifiedProfile() {
     load();
   }, [username, user, navigate]);
 
-  if (!username) return null;
-
   if (loading) return (
     <AppShell>
       <div className="min-h-[60vh] flex items-center justify-center">
@@ -824,12 +926,107 @@ export default function UnifiedProfile() {
     </AppShell>
   );
 
+  // No creator profile yet — show tools + setup form (never a dead end)
+  if (!profile && user) return (
+    <AppShell>
+      <div className="min-h-screen bg-bone">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 py-10">
+          <div className="mb-8">
+            <div className="overline text-copper mb-1">Your Dashboard</div>
+            <h1 className="font-heading font-extrabold text-3xl text-ink">{user.full_name}</h1>
+            <p className="text-sm text-ink/50 mt-1 capitalize">{(user.role || "student").replace("_", " ")} · {FEATURE_TIER_LABEL[user.feature_tier] || "Free"} tier</p>
+          </div>
+
+          <div className="grid lg:grid-cols-3 gap-6">
+            <div className="lg:col-span-2 space-y-6">
+
+              {/* Feature launcher — based on role/tier, no creator profile required */}
+              <div>
+                <div className="font-heading font-bold mb-3">Your Tools</div>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                  {[
+                    { feature: "ai_chat",     label: "AI Tutor",        icon: Zap,       to: "/ai",                 desc: "Ask anything" },
+                    { feature: "profile",     label: "Social Blast",    icon: Megaphone, to: "/social/publish",     desc: "Post to all platforms" },
+                    { feature: "profile",     label: "Curriculum",      icon: BookOpen,  to: "/modules",            desc: "Browse all courses" },
+                    { feature: "profile",     label: "Certificates",    icon: Award,     to: "/certificates",       desc: "Your earned certs" },
+                    { feature: "posts",       label: "Creator Lounge",  icon: Mic,       to: "/creator-lounge",     desc: "Community stage" },
+                    { feature: "ghost",       label: "Ghost Producer",  icon: Music,     to: "/ghost-producer",     desc: "AI production suite" },
+                    { feature: "ghost",       label: "Creator Studio",  icon: Radio,     to: "/studio",             desc: "Build & publish" },
+                    { feature: "band",        label: "Band on a Page",  icon: Globe,     to: "/band",               desc: "Your group page" },
+                    { feature: "courses",     label: "Course Manager",  icon: FileText,  to: "/creator/courses",    desc: "Sell your knowledge" },
+                    { feature: "artist_mgmt", label: "My Earnings",     icon: BarChart2, to: "/creator/earnings",   desc: "Track income" },
+                    { feature: "artist_mgmt", label: "Payouts",         icon: Settings,  to: "/creator/payouts",    desc: "Withdraw funds" },
+                    { feature: "sovereign",   label: "Admin Control",   icon: Shield,    to: "/admin",              desc: "Platform management" },
+                  ].map(({ feature, label, icon: Icon, to, desc }) => {
+                    const accessible = canAccess(user, null, feature);
+                    if (!accessible) return (
+                      <Link key={label} to="/plans" className="card-flat p-4 flex flex-col gap-1 opacity-40 hover:opacity-60 transition-opacity group">
+                        <div className="flex items-center gap-2">
+                          <Lock className="w-3.5 h-3.5 text-ink/30" />
+                          <span className="font-bold text-sm text-ink/40 truncate">{label}</span>
+                        </div>
+                        <div className="text-xs text-ink/25 truncate">{desc}</div>
+                        <div className="text-xs text-copper font-bold mt-1 opacity-0 group-hover:opacity-100 transition-opacity">Upgrade →</div>
+                      </Link>
+                    );
+                    return (
+                      <Link key={label} to={to} className="card-flat p-4 flex flex-col gap-1 hover:border-copper transition-colors group">
+                        <div className="flex items-center gap-2">
+                          <Icon className="w-3.5 h-3.5 text-copper shrink-0" />
+                          <span className="font-bold text-sm truncate">{label}</span>
+                        </div>
+                        <div className="text-xs text-ink/50 truncate">{desc}</div>
+                        <div className="text-xs text-copper font-bold mt-1 opacity-0 group-hover:opacity-100 transition-opacity">Open →</div>
+                      </Link>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Profile setup prompt */}
+              <div className="card-flat p-6 border-copper/30 border-dashed">
+                <div className="font-heading font-bold mb-1">Set Up Your Public Profile</div>
+                <p className="text-sm text-ink/50 mb-4">Claim your URL at <span className="text-copper font-bold">/u/your-name</span> and make your tools, offerings, and products visible to the community.</p>
+                <button onClick={() => setActiveTab("settings")} className="btn-copper text-sm">
+                  Create Profile →
+                </button>
+              </div>
+
+              {/* Settings tab inline when no profile */}
+              {activeTab === "settings" && (
+                <SettingsTab profile={null} onSaved={reloadProfile} />
+              )}
+            </div>
+
+            <div className="space-y-5">
+              <AIAssistantPanel user={user} status={null} />
+              {!isAdmin && (
+                <div className="rounded-2xl p-4 space-y-3"
+                  style={{ background: "linear-gradient(135deg,#1B4332,#2D6A4F)", border: "1.5px solid #E8A51E" }}>
+                  <div className="flex items-center gap-2">
+                    <Zap className="w-4 h-4 text-signal" />
+                    <span className="font-heading font-bold text-white text-sm">Unlock Premium</span>
+                  </div>
+                  <p className="text-xs text-white/70 leading-relaxed">AI social blasts, Ghost Producer, course publishing, and full creator tools.</p>
+                  <Link to="/plans" className="block text-center text-xs font-black py-2 px-4 rounded-xl" style={{ background: "#E8A51E", color: "#0a0a0a" }}>
+                    See Plans →
+                  </Link>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+    </AppShell>
+  );
+
+  // No profile and not logged in
   if (!profile) return (
     <AppShell>
       <div className="min-h-[60vh] flex flex-col items-center justify-center gap-4">
         <div className="font-heading text-2xl font-bold text-ink/40">Profile not found</div>
         <p className="text-sm text-ink/30">@{username} hasn't published their profile yet.</p>
-        {user && <Link to="/creator/profile/edit" className="btn-copper text-sm">Set up your profile</Link>}
+        <Link to="/register" className="btn-copper text-sm">Join WAI Institute</Link>
       </div>
     </AppShell>
   );
@@ -884,18 +1081,18 @@ export default function UnifiedProfile() {
             </div>
             <div className="pb-2 flex items-center gap-2 shrink-0">
               {isOwner && (
-                <Link to="/creator/profile/edit" className="flex items-center gap-1.5 text-xs font-bold border border-ink/20 px-3 py-1.5 rounded-full hover:border-copper transition-colors">
+                <button onClick={() => setActiveTab("settings")} className="flex items-center gap-1.5 text-xs font-bold border border-ink/20 px-3 py-1.5 rounded-full hover:border-copper transition-colors">
                   <Edit3 className="w-3.5 h-3.5" /> Edit
-                </Link>
+                </button>
               )}
               <SharePanel compact url={`/u/${profile.slug}`} title={`${profile.display_name} — WAI-Institute`} embed />
             </div>
           </div>
 
-          {/* Tier badge */}
-          {viewerStatus?.tier && (
+          {/* Tier badge — shows the admin-controlled feature tier */}
+          {profile.feature_tier && profile.feature_tier !== "free" && (
             <div className="inline-flex items-center gap-1.5 text-xs font-bold bg-copper/10 text-copper border border-copper/20 px-3 py-1 rounded-full mb-4">
-              <Zap className="w-3 h-3" /> {viewerStatus.tier} Member
+              <Zap className="w-3 h-3" /> {FEATURE_TIER_LABEL[profile.feature_tier] || profile.feature_tier} Member
             </div>
           )}
 
@@ -929,6 +1126,56 @@ export default function UnifiedProfile() {
               {/* ══ HOME tab ══ */}
               {activeTab === "home" && (
                 <>
+                  {/* ── Feature launcher: own profile, or admin visiting any profile ── */}
+                  {(isOwner || isAdmin) && (
+                    <div>
+                      <div className="flex items-center justify-between mb-3">
+                        <span className="font-heading font-bold">Your Tools</span>
+                        <span className="text-xs text-ink/30 uppercase tracking-widest">{FEATURE_TIER_LABEL[user?.feature_tier] || "Free"} tier</span>
+                      </div>
+                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                        {[
+                          { feature: "ai_chat",      label: "AI Tutor",        icon: Zap,         to: "/ai",                  desc: "Ask anything",           free: true  },
+                          { feature: "profile",      label: "Social Blast",    icon: Megaphone,   to: "/social/publish",      desc: "Post to all platforms",  free: true  },
+                          { feature: "profile",      label: "Curriculum",      icon: BookOpen,    to: "/modules",             desc: "Browse all courses",     free: true  },
+                          { feature: "profile",      label: "Certificates",    icon: Award,       to: "/certificates",        desc: "Your earned certs",      free: true  },
+                          { feature: "posts",        label: "Creator Lounge",  icon: Mic,         to: "/creator-lounge",      desc: "Community stage",        free: false },
+                          { feature: "ghost",        label: "Ghost Producer",  icon: Music,       to: "/ghost-producer",      desc: "AI production suite",    free: false },
+                          { feature: "ghost",        label: "Creator Studio",  icon: Radio,       to: "/studio",              desc: "Build & publish",        free: false },
+                          { feature: "band",         label: "Band on a Page",  icon: Globe,       to: "/band",                desc: "Your group page",        free: false },
+                          { feature: "courses",      label: "Course Manager",  icon: FileText,    to: "/creator/courses",     desc: "Sell your knowledge",    free: false },
+                          { feature: "artist_mgmt",  label: "My Earnings",     icon: BarChart2,   to: "/creator/earnings",    desc: "Track income",           free: false },
+                          { feature: "artist_mgmt",  label: "Payouts",         icon: Settings,    to: "/creator/payouts",     desc: "Withdraw funds",         free: false },
+                          { feature: "sovereign",    label: "Admin Control",   icon: Shield,      to: "/admin",               desc: "Platform management",    free: false },
+                        ].map(({ feature, label, icon: Icon, to, desc, free }) => {
+                          const accessible = canAccess(user, viewerStatus, feature);
+                          if (!accessible) return (
+                            <Link key={label} to="/plans"
+                              className="card-flat p-4 flex flex-col gap-1 opacity-40 hover:opacity-60 transition-opacity group">
+                              <div className="flex items-center gap-2">
+                                <Lock className="w-3.5 h-3.5 text-ink/30" />
+                                <span className="font-bold text-sm text-ink/40 truncate">{label}</span>
+                              </div>
+                              <div className="text-xs text-ink/25 truncate">{desc}</div>
+                              <div className="text-xs text-copper font-bold mt-1 opacity-0 group-hover:opacity-100 transition-opacity">Upgrade →</div>
+                            </Link>
+                          );
+                          return (
+                            <Link key={label} to={to}
+                              className="card-flat p-4 flex flex-col gap-1 hover:border-copper transition-colors group">
+                              <div className="flex items-center gap-2">
+                                <Icon className="w-3.5 h-3.5 text-copper shrink-0" />
+                                <span className="font-bold text-sm truncate">{label}</span>
+                              </div>
+                              <div className="text-xs text-ink/50 truncate">{desc}</div>
+                              <div className="text-xs text-copper font-bold mt-1 opacity-0 group-hover:opacity-100 transition-opacity">Open →</div>
+                            </Link>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+
                   {/* Tracks */}
                   {profile.tracks?.length > 0 && (
                     <div>
@@ -995,6 +1242,31 @@ export default function UnifiedProfile() {
                     </div>
                   )}
 
+                  {/* ── Commerce / Products ── always displayed when set */}
+                  {profile.commerce?.length > 0 && (
+                    <div>
+                      <div className="flex items-center gap-2 mb-3">
+                        <ShoppingBag className="w-4 h-4 text-copper" />
+                        <span className="font-heading font-bold">Products & Links</span>
+                      </div>
+                      <div className="grid sm:grid-cols-2 gap-3">
+                        {profile.commerce.map((c, i) => (
+                          <a key={i} href={c.url} target="_blank" rel="noopener noreferrer"
+                            className="card-flat p-4 flex items-center gap-3 hover:border-copper transition-colors group no-underline">
+                            <div className="w-9 h-9 rounded-lg bg-copper/10 flex items-center justify-center shrink-0 group-hover:bg-copper/20 transition-colors">
+                              <DollarSign className="w-4 h-4 text-copper" />
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <div className="font-bold text-sm text-ink truncate">{c.label}</div>
+                              {c.desc && <div className="text-xs text-ink/50 truncate">{c.desc}</div>}
+                            </div>
+                            <ExternalLink className="w-3.5 h-3.5 text-ink/20 group-hover:text-copper shrink-0 transition-colors" />
+                          </a>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
                   {/* Socials on home (mobile friendly) */}
                   {profile.socials?.length > 0 && (
                     <div className="lg:hidden card-flat p-4 space-y-2">
@@ -1054,7 +1326,7 @@ export default function UnifiedProfile() {
 
               {/* ══ SETTINGS tab ══ */}
               {activeTab === "settings" && isOwner && (
-                <SettingsTab user={user} onSaved={reloadProfile} />
+                <SettingsTab profile={profile} onSaved={reloadProfile} />
               )}
 
               {/* ══ CONTROL tab (admin/exec only) ══ */}
@@ -1100,23 +1372,84 @@ export default function UnifiedProfile() {
                 <SharePanel url={`/u/${profile.slug}`} title={`${profile.display_name} — WAI-Institute`} embed />
               </div>
 
-              {/* Quick nav for owner */}
+              {/* ── Revenue Hub (owner only) ── */}
               {isOwner && (
-                <div className="card-flat p-4 space-y-2">
-                  <div className="text-xs font-bold uppercase tracking-widest text-ink/40 mb-2">Quick Nav</div>
+                <div className="card-flat p-4 space-y-1">
+                  <div className="text-xs font-bold uppercase tracking-widest text-ink/40 mb-3">Revenue Hub</div>
                   {[
-                    { label: "Edit Profile",    to: "/creator/profile/edit" },
-                    { label: "My Courses",      to: "/creator/courses" },
-                    { label: "Modules",         to: "/modules" },
-                    { label: "Certificates",    to: "/certificates" },
-                    { label: "Credentials",     to: "/credentials" },
-                  ].map(({ label, to }) => (
+                    { label: "My Earnings",      to: "/creator/earnings",     icon: TrendingUp,  desc: "Track your income" },
+                    { label: "Payout Dashboard", to: "/creator/payouts",      icon: Receipt,     desc: "Withdraw funds" },
+                    { label: "Course Manager",   to: "/creator/courses",      icon: BookOpen,    desc: "Sell your courses" },
+                    { label: "Store",            to: "/store",                icon: ShoppingBag, desc: "Your storefront" },
+                    { label: "Memberships",      to: "/subscribe",            icon: Crown,       desc: "Subscription tiers" },
+                    { label: "Plans & Pricing",  to: "/plans",                icon: Star,        desc: "Compare plans" },
+                    { label: "Partnerships",     to: "/partnership",          icon: Network,     desc: "Commission & referrals" },
+                    { label: "Payment History",  to: "/payment/history",      icon: DollarSign,  desc: "All transactions" },
+                  ].map(({ label, to, icon: Icon, desc }) => (
                     <Link key={to} to={to}
-                      className="flex items-center justify-between text-sm text-ink/50 hover:text-copper transition-colors py-0.5">
-                      <span>{label}</span>
-                      <ExternalLink className="w-3 h-3" />
+                      className="flex items-center gap-3 py-2 px-2 rounded-lg hover:bg-copper/5 transition-colors group">
+                      <Icon className="w-4 h-4 text-copper/60 group-hover:text-copper shrink-0 transition-colors" />
+                      <div className="flex-1 min-w-0">
+                        <div className="text-sm font-bold text-ink/70 group-hover:text-ink transition-colors truncate">{label}</div>
+                        <div className="text-xs text-ink/30 truncate">{desc}</div>
+                      </div>
+                      <ExternalLink className="w-3 h-3 text-ink/15 group-hover:text-copper shrink-0 transition-colors" />
                     </Link>
                   ))}
+                  <div className="pt-2 border-t border-ink/8">
+                    <button onClick={() => setActiveTab("settings")}
+                      className="flex items-center gap-3 py-2 px-2 rounded-lg hover:bg-copper/5 transition-colors group w-full text-left">
+                      <Edit3 className="w-4 h-4 text-copper/60 group-hover:text-copper shrink-0 transition-colors" />
+                      <span className="text-sm font-bold text-ink/70 group-hover:text-ink transition-colors">Edit Profile & Commerce</span>
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* ── Upgrade nudge for free-tier owners (never shown to admins) ── */}
+              {isOwner && !isAdmin && (!user?.feature_tier || user.feature_tier === "free") && (
+                <div className="rounded-2xl p-4 space-y-3"
+                  style={{ background: "linear-gradient(135deg,#1B4332,#2D6A4F)", border: "1.5px solid #E8A51E" }}>
+                  <div className="flex items-center gap-2">
+                    <Zap className="w-4 h-4 text-signal" />
+                    <span className="font-heading font-bold text-white text-sm">Unlock Premium</span>
+                  </div>
+                  <p className="text-xs text-white/70 leading-relaxed">
+                    AI-formatted social blasts, Ghost Producer, course publishing, and full creator tools.
+                  </p>
+                  <Link to="/plans" className="block text-center text-xs font-black py-2 px-4 rounded-xl"
+                    style={{ background: "#E8A51E", color: "#0a0a0a" }}>
+                    See Plans →
+                  </Link>
+                </div>
+              )}
+
+              {/* ── Support this creator (non-owner public view) ── */}
+              {!isOwner && (profile.commerce?.length > 0 || true) && (
+                <div className="card-flat p-4 space-y-3">
+                  <div className="text-xs font-bold uppercase tracking-widest text-ink/40 mb-1">
+                    Support {profile.display_name?.split(" ")[0] || "This Creator"}
+                  </div>
+                  {profile.commerce?.map((c, i) => (
+                    <a key={i} href={c.url} target="_blank" rel="noopener noreferrer"
+                      className="flex items-center gap-2 py-2 px-3 rounded-xl border border-copper/20 bg-copper/5 hover:bg-copper/10 transition-colors group no-underline">
+                      <DollarSign className="w-3.5 h-3.5 text-copper shrink-0" />
+                      <span className="text-sm font-bold text-ink/70 group-hover:text-ink flex-1 truncate">{c.label}</span>
+                      <ExternalLink className="w-3 h-3 text-ink/20 group-hover:text-copper shrink-0" />
+                    </a>
+                  ))}
+                  <Link to="/donate"
+                    className="flex items-center gap-2 py-2 px-3 rounded-xl border border-copper/20 hover:bg-copper/5 transition-colors group no-underline">
+                    <Heart className="w-3.5 h-3.5 text-copper shrink-0" />
+                    <span className="text-sm font-bold text-ink/70 group-hover:text-ink flex-1">Donate to WAI</span>
+                    <ExternalLink className="w-3 h-3 text-ink/20 group-hover:text-copper shrink-0" />
+                  </Link>
+                  <Link to="/subscribe"
+                    className="flex items-center gap-2 py-2 px-3 rounded-xl border border-copper/20 hover:bg-copper/5 transition-colors group no-underline">
+                    <Crown className="w-3.5 h-3.5 text-copper shrink-0" />
+                    <span className="text-sm font-bold text-ink/70 group-hover:text-ink flex-1">Join as a Member</span>
+                    <ExternalLink className="w-3 h-3 text-ink/20 group-hover:text-copper shrink-0" />
+                  </Link>
                 </div>
               )}
             </div>

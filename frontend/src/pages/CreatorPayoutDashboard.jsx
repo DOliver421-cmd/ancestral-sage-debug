@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import AppShell from "../components/AppShell";
+import CreatorContextBar from "../components/CreatorContextBar";
 import { api } from "../lib/api";
 import CreatorSplitBadge from "../components/studio/CreatorSplitBadge";
 
@@ -34,6 +35,7 @@ export default function CreatorPayoutDashboard() {
 
   return (
     <AppShell>
+      <CreatorContextBar current="payouts" />
       <div style={{ background: T.bg, minHeight: "100vh", color: T.text, fontFamily: "monospace", padding: "2rem 1.5rem", maxWidth: 900, margin: "0 auto" }}>
         <h1 style={{ color: T.copper, fontSize: "1.4rem", fontWeight: 900, letterSpacing: "0.1em", marginBottom: 24 }}>💰 CREATOR PAYOUTS</h1>
 

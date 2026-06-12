@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import AppShell from "../components/AppShell";
+import CreatorContextBar from "../components/CreatorContextBar";
 import { api } from "../lib/api";
 import { useAuth } from "../lib/auth";
 import { toast } from "sonner";
@@ -129,6 +130,7 @@ export default function CreatorLounge() {
 
   return (
     <AppShell>
+      <CreatorContextBar current="lounge" />
       <div style={S.page}>
 
         {/* Header */}

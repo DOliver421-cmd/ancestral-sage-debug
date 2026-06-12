@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate, useLocation, useParams } from "react-router-dom";
 import { Toaster } from "sonner";
 import "./App.css";
 import { AuthProvider, useAuth } from "./lib/auth";
@@ -41,7 +41,7 @@ import MoreChat from "./pages/MoreChat";
 import MoreAdmin from "./pages/MoreAdmin";
 import MoreOps from "./pages/MoreOps";
 import LitigationWeapon from "./pages/LitigationWeapon";
-import CreatorProfile from "./pages/CreatorProfile";
+function CreatorSlugRedirect() { const { slug } = useParams(); return <Navigate to={`/u/${slug}`} replace />; }
 import SocialPublish from "./pages/SocialPublish";
 import Internships from "./pages/Internships";
 import PlaylistSubmit from "./pages/PlaylistSubmit";
@@ -93,7 +93,7 @@ import TeamOps from "./pages/TeamOps";
 import BillingAdmin from "./pages/BillingAdmin";
 import CreatorCourses from "./pages/CreatorCourses";
 import CreatorEarnings from "./pages/CreatorEarnings";
-import CreatorProfileEdit from "./pages/CreatorProfileEdit";
+// CreatorProfileEdit is retired — editing lives in /profile Settings tab
 import SiteControlPanel from "./pages/SiteControlPanel";
 import ExecControlPanel from "./pages/ExecControlPanel";
 import CreatorLounge from "./pages/CreatorLounge";
@@ -219,7 +219,7 @@ function App() {
               <Route path="/personas"         element={<Personas />} />
               <Route path="/personas/:slug"   element={<PersonaProfile />} />
               <Route path="/creators"         element={<Creators />} />
-              <Route path="/creator/:slug"    element={<CreatorProfile />} />
+              <Route path="/creator/:slug"    element={<CreatorSlugRedirect />} />
               <Route path="/creator-lounge"   element={<Protected><CreatorLounge /></Protected>} />
               <Route path="/p/:slug"          element={<PublicPortfolio />} />
               <Route path="/playlist/:slug/submit" element={<PlaylistSubmit />} />
@@ -247,7 +247,7 @@ function App() {
               <Route path="/settings"         element={<Protected><Settings /></Protected>} />
               <Route path="/creator/courses"  element={<Protected><CreatorCourses /></Protected>} />
               <Route path="/creator/earnings" element={<Protected><CreatorEarnings /></Protected>} />
-              <Route path="/creator/profile/edit" element={<Protected><CreatorProfileEdit /></Protected>} />
+              <Route path="/creator/profile/edit" element={<Navigate to="/profile" replace />} />
               <Route path="/playlist/dashboard" element={<Protected><PlaylistDashboard /></Protected>} />
 
               {/* ── Admin / exec routes — redirect to login if not authenticated ── */}
@@ -384,10 +384,10 @@ function App() {
           <Route path="/creator/courses" element={<Protected><CreatorCourses /></Protected>} />
           {/* Creator earnings & payouts */}
           <Route path="/creator/earnings" element={<Protected><CreatorEarnings /></Protected>} />
-          {/* Creator profile editor */}
-          <Route path="/creator/profile/edit" element={<Protected><CreatorProfileEdit /></Protected>} />
-          {/* Creator profiles — public, slug-based */}
-          <Route path="/creator/:slug" element={<CreatorProfile />} />
+          {/* Creator profile editor → now lives in /profile Settings tab */}
+          <Route path="/creator/profile/edit" element={<Navigate to="/profile" replace />} />
+          {/* Creator slug → unified profile */}
+          <Route path="/creator/:slug" element={<CreatorSlugRedirect />} />
           <Route path="/ghost-producer" element={<GhostProducer />} />
           <Route path="/creator-lounge" element={<Protected><CreatorLounge /></Protected>} />
           <Route path="/band" element={<Protected><BandOnPage /></Protected>} />

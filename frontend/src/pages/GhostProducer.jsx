@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { Link } from "react-router-dom";
 import { api } from "../lib/api";
 import { useAuth } from "../lib/auth";
 
@@ -311,6 +312,24 @@ export default function GhostProducer() {
 
   return (
     <>
+      {/* Context bar */}
+      <div style={{ position: "sticky", top: 0, zIndex: 50, background: "#0d0818", borderBottom: "1px solid rgba(255,255,255,0.08)", padding: "0 24px", height: 40, display: "flex", alignItems: "center", gap: 16 }}>
+        <Link to="/profile" style={{ color: "#ff0066", textDecoration: "none", fontSize: 12, fontFamily: "monospace", fontWeight: 700, display: "flex", alignItems: "center", gap: 6 }}>
+          ← My Profile
+        </Link>
+        <div style={{ width: 1, height: 16, background: "rgba(255,255,255,0.1)" }} />
+        {[
+          { label: "Social Blast", to: "/social/publish" },
+          { label: "Studio", to: "/studio" },
+          { label: "Earnings", to: "/creator/earnings" },
+          { label: "Lounge", to: "/creator-lounge" },
+        ].map(f => (
+          <Link key={f.to} to={f.to} style={{ color: "rgba(255,255,255,0.3)", textDecoration: "none", fontSize: 11, fontFamily: "monospace", letterSpacing: "0.06em" }}>
+            {f.label}
+          </Link>
+        ))}
+      </div>
+
       {activeClone && <ClonePanel clone={activeClone} onClose={() => setActiveClone(null)} />}
 
       <div style={S.page}>

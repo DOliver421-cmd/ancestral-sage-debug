@@ -439,6 +439,7 @@ class User(BaseModel):
     must_change_password: bool = False
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     avatar_url: Optional[str] = None
+    feature_tier: str = "free"
 
 
 class RegisterReq(BaseModel):
@@ -546,6 +547,8 @@ class Module(BaseModel):
     hours: int
     quiz: List[QuizQ] = []
     free: Optional[bool] = False
+    video_url: Optional[str] = None
+    diagram_url: Optional[str] = None
 
 
 class ProgressEntry(BaseModel):
@@ -1909,7 +1912,28 @@ async def login(body: LoginReq, request: Request):
 
 @api_router.get("/auth/me", response_model=User)
 async def me(user: User = Depends(current_user)):
-    # Get visible fields for own profile
+    # Check if a time-limited trial has expired and revert feature_tier automatically
+    user_doc = await db.users.find_one({"id": user.id},
+        {"feature_tier_expires_at": 1, "feature_tier_revert_to": 1, "feature_tier": 1})
+    if user_doc:
+        expires_str = user_doc.get("feature_tier_expires_at")
+        if expires_str:
+            try:
+                from dateutil.parser import parse as _parse_dt
+                expires_dt = _parse_dt(expires_str)
+                if expires_dt.tzinfo is None:
+                    expires_dt = expires_dt.replace(tzinfo=timezone.utc)
+                if datetime.now(timezone.utc) > expires_dt:
+                    revert_to = user_doc.get("feature_tier_revert_to", "free")
+                    await db.users.update_one({"id": user.id}, {"$set": {
+                        "feature_tier": revert_to,
+                        "feature_tier_source": "trial_expired",
+                        "feature_tier_updated_at": datetime.now(timezone.utc).isoformat(),
+                    }, "$unset": {"feature_tier_expires_at": "", "feature_tier_revert_to": ""}})
+                    user = user.model_copy(update={"feature_tier": revert_to})
+            except Exception:
+                pass
+
     visible_fields = FieldAuthorization.get_visible_fields(
         viewer_role=user.role,
         target_role=user.role,
@@ -4021,7 +4045,7 @@ async def ai_tool_chat(body: ToolChatReq, user: User = Depends(current_user)):
         "model": gw.get("model", "unknown"),
         "provider": gw.get("provider", "anthropic"),
         "cost_usd": gw.get("cost_usd", 0.0),
-        "created_at": datetime.now(timezone.utc).isoformat(),
+        "created_at": datetime.now(timezone.utc),
     })
     return {"reply": reply, "session_id": body.session_id}
 
@@ -4570,7 +4594,7 @@ async def ai_director(body: dict, user: User = Depends(current_user)):
         "model": "free-gateway",
         "provider": "free-gateway",
         "cost_usd": 0.0,
-        "created_at": datetime.now(timezone.utc).isoformat(),
+        "created_at": datetime.now(timezone.utc),
     })
     return {"reply": reply, "persona": persona, "degraded": _degraded}
 
@@ -8765,6 +8789,23 @@ PAYMENT_PRODUCTS = {
     "sanctuary_paid":    {"name": "Creators Sanctuary – Paid Creator",    "amount":  700, "mode": "subscription", "interval": "month", "description": "Paid Beginning Creator tier — $7/mo"},
     "sanctuary_creator": {"name": "Creators Sanctuary – Advanced Creator","amount": 1100, "mode": "subscription", "interval": "month", "description": "Advanced Creator tier — $11/mo"},
     "sanctuary_mod":     {"name": "Creators Sanctuary – Certified Mod",   "amount": 1500, "mode": "subscription", "interval": "month", "description": "Certified Moderator tier — $15/mo"},
+
+# Maps every purchasable product key → the feature_tier it grants.
+# Admin can still manually override via ExecControlPanel (one-time setup or special cases).
+# After that, subscriptions/payments drive tier automatically.
+# Cancellation of the last active subscription reverts to "free".
+_PRODUCT_TIER_MAP: dict[str, str] = {
+    "more_monthly":       "member",
+    "more_annual":        "member",
+    "member_monthly":     "member",
+    "plus_monthly":       "plus",
+    "pro_monthly":        "pro",
+    "patron_monthly":     "patron",
+    "sanctuary_trial":    "pro",      # $3 all-access trial → pro tier for the trial window
+    "sanctuary_paid":     "member",
+    "sanctuary_creator":  "plus",
+    "sanctuary_mod":      "pro",
+}
 }
 
 
@@ -8820,7 +8861,7 @@ async def create_checkout_session(req: CheckoutReq, user=Depends(current_user)):
         customer_id = customer.id
         await db.users.update_one({"id": user.id}, {"$set": {"stripe_customer_id": customer_id}})
 
-    session = _stripe.checkout.Session.create(
+    session_kwargs: dict = dict(
         mode=mode,
         customer=customer_id,
         line_items=[{"price_data": price_data, "quantity": req.quantity}],
@@ -8828,6 +8869,12 @@ async def create_checkout_session(req: CheckoutReq, user=Depends(current_user)):
         cancel_url=f"{FRONTEND_URL}/payment/cancel",
         metadata={"wai_user_id": user.id, "product_key": req.product_key, **(req.extra_meta or {})},
     )
+    # Propagate product_key into subscription metadata so webhook events carry it
+    if mode == "subscription":
+        session_kwargs["subscription_data"] = {
+            "metadata": {"wai_user_id": user.id, "product_key": req.product_key}
+        }
+    session = _stripe.checkout.Session.create(**session_kwargs)
 
     await audit(user.id, "payment_checkout_created", meta={"product": req.product_key, "session_id": session.id})
     return {"url": session.url, "session_id": session.id}
@@ -8918,6 +8965,27 @@ async def _stripe_checkout_done(session):
                          f"Someone enrolled in your course. You earned ${creator_share/100:.2f}.",
                          link="/creator/earnings", kind="success")
 
+    # Auto-upgrade feature_tier when a paying product grants one
+    granted_tier = _PRODUCT_TIER_MAP.get(product_key)
+    if uid and granted_tier:
+        tier_rank = {"free": 0, "member": 1, "plus": 2, "pro": 3, "patron": 4, "executive": 5}
+        user_doc = await db.users.find_one({"id": uid}, {"feature_tier": 1})
+        current_tier = (user_doc or {}).get("feature_tier", "free")
+        if tier_rank.get(granted_tier, 0) > tier_rank.get(current_tier, 0):
+            tier_set: dict = {
+                "feature_tier": granted_tier,
+                "feature_tier_source": "payment",
+                "feature_tier_product": product_key,
+                "feature_tier_updated_at": datetime.now(timezone.utc).isoformat(),
+            }
+            # $3 trial: 3 days + 33 minutes + 33 seconds, then auto-revert
+            if product_key == "sanctuary_trial":
+                from datetime import timedelta
+                expires = datetime.now(timezone.utc) + timedelta(days=3, minutes=33, seconds=33)
+                tier_set["feature_tier_expires_at"] = expires.isoformat()
+                tier_set["feature_tier_revert_to"] = "free"
+            await db.users.update_one({"id": uid}, {"$set": tier_set})
+
     if uid:
         await notify(uid, "Payment Confirmed",
                      f"Thank you! Your payment of ${amount/100:.2f} has been received.",
@@ -8943,19 +9011,35 @@ async def _stripe_sub_upsert(sub):
     )
 
     if uid and sub.get("status") == "active":
-        await db.users.update_one(
-            {"id": uid},
-            {"$set": {"more_member": True, "more_subscription_id": sub["id"],
-                      "more_member_since": datetime.now(timezone.utc).isoformat()}},
-        )
-        await notify(uid, "M.O.R.E. Membership Active",
-                     "Your M.O.R.E. membership is now active. Welcome to the community!",
-                     link="/app/more", kind="success")
+        # Determine feature_tier from subscription metadata product_key (set at checkout)
+        sub_meta = sub.get("metadata") or {}
+        product_key = sub_meta.get("product_key", "")
+        granted_tier = _PRODUCT_TIER_MAP.get(product_key)
+
+        tier_update: dict = {
+            "more_member": True,
+            "more_subscription_id": sub["id"],
+            "more_member_since": datetime.now(timezone.utc).isoformat(),
+        }
+        if granted_tier:
+            tier_rank = {"free": 0, "member": 1, "plus": 2, "pro": 3, "patron": 4, "executive": 5}
+            user_doc2 = await db.users.find_one({"id": uid}, {"feature_tier": 1})
+            current_tier = (user_doc2 or {}).get("feature_tier", "free")
+            if tier_rank.get(granted_tier, 0) >= tier_rank.get(current_tier, 0):
+                tier_update["feature_tier"] = granted_tier
+                tier_update["feature_tier_source"] = "subscription"
+                tier_update["feature_tier_product"] = product_key
+                tier_update["feature_tier_updated_at"] = datetime.now(timezone.utc).isoformat()
+
+        await db.users.update_one({"id": uid}, {"$set": tier_update})
+        await notify(uid, "Subscription Active",
+                     "Your WAI membership is active — your features are now unlocked.",
+                     link="/profile", kind="success")
 
 
 async def _stripe_sub_deleted(sub):
     customer_id = sub.get("customer")
-    user_doc = await db.users.find_one({"stripe_customer_id": customer_id}, {"id": 1})
+    user_doc = await db.users.find_one({"stripe_customer_id": customer_id}, {"id": 1, "feature_tier_source": 1})
     uid = user_doc["id"] if user_doc else None
 
     await db.subscriptions.update_one(
@@ -8963,9 +9047,29 @@ async def _stripe_sub_deleted(sub):
         {"$set": {"status": "canceled", "updated_at": datetime.now(timezone.utc).isoformat()}},
     )
     if uid:
-        await db.users.update_one({"id": uid}, {"$unset": {"more_member": "", "more_subscription_id": ""}})
+        unset_fields: dict = {"more_member": "", "more_subscription_id": ""}
+
+        # Only revert feature_tier to "free" if it was set by a payment (not by admin override)
+        tier_source = (user_doc or {}).get("feature_tier_source", "")
+        if tier_source in ("payment", "subscription"):
+            # Check if any other active subscription remains before downgrading
+            other_active = await db.subscriptions.find_one({
+                "user_id": uid,
+                "stripe_subscription_id": {"$ne": sub["id"]},
+                "status": "active",
+            })
+            if not other_active:
+                await db.users.update_one(
+                    {"id": uid},
+                    {"$set": {"feature_tier": "free",
+                               "feature_tier_source": "canceled",
+                               "feature_tier_updated_at": datetime.now(timezone.utc).isoformat()}},
+                )
+
+        await db.users.update_one({"id": uid}, {"$unset": unset_fields})
         await notify(uid, "Subscription Canceled",
-                     "Your M.O.R.E. membership has been canceled.", kind="warning")
+                     "Your subscription has ended. Your features have been adjusted. Visit /plans to resubscribe.",
+                     link="/plans", kind="warning")
 
 
 async def _stripe_invoice_paid(invoice):
@@ -9213,6 +9317,7 @@ async def ai_ambassador(body: dict, user: User = Depends(current_user)):
 
     reply = ""
     _tools_called: list[str] = []
+    _gw: dict = {}
     try:
         from ai.llm_gateway import call_llm as _call_llm
         _gw = await _call_llm(system=system, messages=[{"role": "user", "content": message}], max_tokens=2048, persona_label="ambassador")
@@ -9223,8 +9328,8 @@ async def ai_ambassador(body: dict, user: User = Depends(current_user)):
     await log_episode(db, session_id, "ambassador", user.id, message, reply, _tools_called)
     await db.ai_usage_log.insert_one({
         "user_id": user.id, "endpoint": "/ai/ambassador", "persona": "ambassador",
-        "model": "claude-sonnet-4-6", "provider": "anthropic", "cost_usd": 0.0,
-        "created_at": datetime.now(timezone.utc).isoformat(),
+        "model": _gw.get("model", "unknown"), "provider": _gw.get("provider", "unknown"), "cost_usd": _gw.get("cost_usd", 0.0),
+        "created_at": datetime.now(timezone.utc),
     })
     logger.info("ai_ambassador: responded for user %s", user.id)
     return {"reply": reply, "persona": "ambassador", "mode": "campaign_coordination"}
@@ -9282,6 +9387,7 @@ async def ai_architect(body: dict, user: User = Depends(current_user)):
 
     reply = ""
     _tools_called: list[str] = []
+    _gw: dict = {}
     try:
         from ai.llm_gateway import call_llm as _call_llm
         _gw = await _call_llm(system=system, messages=[{"role": "user", "content": message}], max_tokens=2048, persona_label="architect")
@@ -9292,8 +9398,8 @@ async def ai_architect(body: dict, user: User = Depends(current_user)):
     await log_episode(db, session_id, "architect", user.id, message, reply, _tools_called)
     await db.ai_usage_log.insert_one({
         "user_id": user.id, "endpoint": "/ai/architect", "persona": "architect",
-        "model": "claude-sonnet-4-6", "provider": "anthropic", "cost_usd": 0.0,
-        "created_at": datetime.now(timezone.utc).isoformat(),
+        "model": _gw.get("model", "unknown"), "provider": _gw.get("provider", "unknown"), "cost_usd": _gw.get("cost_usd", 0.0),
+        "created_at": datetime.now(timezone.utc),
     })
     logger.info("ai_architect: responded for user %s", user.id)
     return {"reply": reply, "persona": "architect", "mode": "visual_intelligence"}
@@ -9345,6 +9451,7 @@ async def ai_griot(body: dict, user: User = Depends(current_user)):
     ) + memory_ctx
 
     reply = ""
+    _gw: dict = {}
     try:
         from ai.llm_gateway import call_llm as _call_llm
         _gw = await _call_llm(
@@ -9363,8 +9470,8 @@ async def ai_griot(body: dict, user: User = Depends(current_user)):
     await log_episode(db, session_id, "griot", user.id, message, reply, [])
     await db.ai_usage_log.insert_one({
         "user_id": user.id, "endpoint": "/ai/griot", "persona": "griot",
-        "model": "free_gateway", "provider": "gateway", "cost_usd": 0.0,
-        "created_at": datetime.now(timezone.utc).isoformat(),
+        "model": _gw.get("model", "unknown"), "provider": _gw.get("provider", "unknown"), "cost_usd": _gw.get("cost_usd", 0.0),
+        "created_at": datetime.now(timezone.utc),
     })
     logger.info("ai_griot: responded for user %s", user.id)
     return {"reply": reply, "persona": "griot", "mode": "music_production"}
@@ -9416,6 +9523,7 @@ async def ai_cipher(body: dict, user: User = Depends(current_user)):
 
     reply = ""
     _tools_called: list[str] = []
+    _gw: dict = {}
     try:
         from ai.llm_gateway import call_llm as _call_llm
         _gw = await _call_llm(system=system, messages=[{"role": "user", "content": message}], max_tokens=2048, persona_label="cipher")
@@ -9426,8 +9534,8 @@ async def ai_cipher(body: dict, user: User = Depends(current_user)):
     await log_episode(db, session_id, "cipher", user.id, message, reply, _tools_called)
     await db.ai_usage_log.insert_one({
         "user_id": user.id, "endpoint": "/ai/cipher", "persona": "cipher",
-        "model": "claude-sonnet-4-6", "provider": "anthropic", "cost_usd": 0.0,
-        "created_at": datetime.now(timezone.utc).isoformat(),
+        "model": _gw.get("model", "unknown"), "provider": _gw.get("provider", "unknown"), "cost_usd": _gw.get("cost_usd", 0.0),
+        "created_at": datetime.now(timezone.utc),
     })
     logger.info("ai_cipher: responded for user %s", user.id)
     return {"reply": reply, "persona": "cipher", "mode": "creative_authority"}
@@ -9478,6 +9586,7 @@ async def ai_oracle(body: dict, user: User = Depends(current_user)):
 
     reply = ""
     _tools_called: list[str] = []
+    _gw: dict = {}
     try:
         from ai.llm_gateway import call_llm as _call_llm
         _gw = await _call_llm(system=system, messages=[{"role": "user", "content": message}], max_tokens=2048, persona_label="oracle")
@@ -9488,8 +9597,8 @@ async def ai_oracle(body: dict, user: User = Depends(current_user)):
     await log_episode(db, session_id, "oracle", user.id, message, reply, _tools_called)
     await db.ai_usage_log.insert_one({
         "user_id": user.id, "endpoint": "/ai/oracle", "persona": "oracle",
-        "model": "claude-sonnet-4-6", "provider": "anthropic", "cost_usd": 0.0,
-        "created_at": datetime.now(timezone.utc).isoformat(),
+        "model": _gw.get("model", "unknown"), "provider": _gw.get("provider", "unknown"), "cost_usd": _gw.get("cost_usd", 0.0),
+        "created_at": datetime.now(timezone.utc),
     })
     logger.info("ai_oracle: responded for user %s", user.id)
     return {"reply": reply, "persona": "oracle", "mode": "cultural_intelligence"}
@@ -13876,9 +13985,17 @@ class _ExecSetUserRoleReq(BaseModel):
 
 class _ExecSetUserTierReq(BaseModel):
     user_id:          str
-    new_feature_tier: Literal["free", "premium", "executive"]
+    new_feature_tier: str = Field(..., min_length=1, max_length=64)  # exec can define custom tiers
     new_sage_tier:    Optional[Literal["basic", "advanced"]] = None
     reason:           str = Field(..., min_length=1, max_length=500)
+
+class _ExecTierDefReq(BaseModel):
+    tier_id:     str   = Field(..., min_length=1, max_length=64, pattern=r"^[a-z0-9_-]+$")
+    label:       str   = Field(..., min_length=1, max_length=100)
+    rank:        int   = Field(..., ge=0, le=100)   # higher = more access
+    description: str   = ""
+    color:       str   = "#b5651d"                 # hex for UI badge
+    price_hint:  str   = ""                        # e.g. "$9/mo" for display
 
 class _ExecFeatureFlagReq(BaseModel):
     flag_name: str  = Field(..., min_length=1, max_length=200)
@@ -14013,11 +14130,61 @@ async def ec_set_user_tier(body: _ExecSetUserTierReq, request: Request,
     await _exec_audit(actor, "exec.user.tier_changed", target_id=body.user_id,
         before={"feature_tier": old_ft, "sage_tier": old_st}, after=upd,
         request=request, note=body.reason)
+    await db.users.update_one(
+        {"id": body.user_id},
+        {"$set": {"feature_tier_source": "admin_override", "feature_tier_updated_at": datetime.now(timezone.utc).isoformat()}},
+    )
     await notify(body.user_id, "Account Plan Updated",
-        f"Your plan has been updated to {body.new_feature_tier}.", link="/dashboard", kind="success")
+        f"Your plan has been updated to {body.new_feature_tier}.", link="/profile", kind="success")
     return {"ok": True, "user_id": body.user_id,
             "old_feature_tier": old_ft, "new_feature_tier": body.new_feature_tier,
             "old_sage_tier": old_st, "new_sage_tier": body.new_sage_tier or old_st}
+
+
+# ── Exec: list, create, edit, delete custom tier definitions ──────────────────
+_BUILTIN_TIERS = [
+    {"tier_id": "free",      "label": "Free",      "rank": 0, "description": "Default tier — community access",               "color": "#6b7280", "price_hint": "Free"},
+    {"tier_id": "member",    "label": "Member",    "rank": 1, "description": "Full M.O.R.E. + AI Tutor + creator basics",      "color": "#3b82f6", "price_hint": "$9/mo"},
+    {"tier_id": "plus",      "label": "Plus",      "rank": 2, "description": "Priority matching + expanded courses + studio",  "color": "#8b5cf6", "price_hint": "$15/mo"},
+    {"tier_id": "pro",       "label": "Pro",       "rank": 3, "description": "Advanced courses, labs, full AI suite",          "color": "#b5651d", "price_hint": "$29/mo"},
+    {"tier_id": "patron",    "label": "Patron",    "rank": 4, "description": "Founders circle + funds free access for others", "color": "#E8A51E", "price_hint": "$59/mo"},
+    {"tier_id": "executive", "label": "Executive", "rank": 5, "description": "Admin-granted — all features unlocked",          "color": "#ef4444", "price_hint": "Admin grant"},
+]
+
+@api_router.get("/exec/control/tiers")
+async def ec_list_tiers(actor: User = Depends(require_role("admin"))):
+    custom = await db.tier_definitions.find({}, {"_id": 0}).to_list(100)
+    return {"tiers": _BUILTIN_TIERS + custom}
+
+@api_router.post("/exec/control/tiers")
+async def ec_upsert_tier(body: _ExecTierDefReq, request: Request,
+                         actor: User = Depends(require_role("executive_admin"))):
+    builtin_ids = {t["tier_id"] for t in _BUILTIN_TIERS}
+    if body.tier_id in builtin_ids:
+        raise HTTPException(400, "Cannot overwrite a built-in tier via this endpoint")
+    doc = body.model_dump()
+    doc["created_by"] = actor.id
+    doc["updated_at"] = datetime.now(timezone.utc).isoformat()
+    await db.tier_definitions.update_one(
+        {"tier_id": body.tier_id},
+        {"$set": doc, "$setOnInsert": {"created_at": datetime.now(timezone.utc).isoformat()}},
+        upsert=True,
+    )
+    await _exec_audit(actor, "exec.tier_definition.upserted", request=request,
+                      note=f"tier={body.tier_id} rank={body.rank}")
+    return {"ok": True, "tier": doc}
+
+@api_router.delete("/exec/control/tiers/{tier_id}")
+async def ec_delete_tier(tier_id: str, request: Request,
+                         actor: User = Depends(require_role("executive_admin"))):
+    builtin_ids = {t["tier_id"] for t in _BUILTIN_TIERS}
+    if tier_id in builtin_ids:
+        raise HTTPException(400, "Cannot delete a built-in tier")
+    result = await db.tier_definitions.delete_one({"tier_id": tier_id})
+    if result.deleted_count == 0:
+        raise HTTPException(404, "Tier not found")
+    await _exec_audit(actor, "exec.tier_definition.deleted", request=request, note=f"tier={tier_id}")
+    return {"ok": True}
 
 
 @api_router.post("/exec/control/feature-flag")
