@@ -8842,6 +8842,7 @@ PAYMENT_PRODUCTS = {
     "sanctuary_paid":    {"name": "Creators Sanctuary – Paid Creator",    "amount":  700, "mode": "subscription", "interval": "month", "description": "Paid Beginning Creator tier — $7/mo"},
     "sanctuary_creator": {"name": "Creators Sanctuary – Advanced Creator","amount": 1100, "mode": "subscription", "interval": "month", "description": "Advanced Creator tier — $11/mo"},
     "sanctuary_mod":     {"name": "Creators Sanctuary – Certified Mod",   "amount": 1500, "mode": "subscription", "interval": "month", "description": "Certified Moderator tier — $15/mo"},
+}
 
 # Maps every purchasable product key → the feature_tier it grants.
 # Admin can still manually override via ExecControlPanel (one-time setup or special cases).
@@ -8854,11 +8855,10 @@ _PRODUCT_TIER_MAP: dict[str, str] = {
     "plus_monthly":       "plus",
     "pro_monthly":        "pro",
     "patron_monthly":     "patron",
-    "sanctuary_trial":    "pro",      # $3 all-access trial → pro tier for the trial window
+    "sanctuary_trial":    "pro",
     "sanctuary_paid":     "member",
     "sanctuary_creator":  "plus",
     "sanctuary_mod":      "pro",
-}
 }
 
 
