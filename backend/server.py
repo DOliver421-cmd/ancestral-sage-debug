@@ -11527,7 +11527,12 @@ try:
         try:
             _PFERNET = _PFernet(_pfk.encode() if isinstance(_pfk, str) else _pfk)
         except Exception:
-            pass
+            try:
+                import base64 as _pfb64
+                _pfkb = (_pfk.encode() * 3)[:32]
+                _PFERNET = _PFernet(_pfb64.urlsafe_b64encode(_pfkb))
+            except Exception:
+                pass
 
     def _encrypt_key(plaintext: str) -> str:
         if not _PFERNET:

@@ -81,11 +81,18 @@ async def reload_provider_keys(db) -> int:
     if enc_secret:
         try:
             from cryptography.fernet import Fernet
-            # Must match provider_gateway.py padding: pad to 32 bytes, then b64encode
-            _kb = (enc_secret.encode() * 3)[:32]
-            fernet = Fernet(base64.urlsafe_b64encode(_kb))
+            # Must match server.py _encrypt_key: Fernet(secret.encode()) directly.
+            # This requires PROVIDER_KEY_ENCRYPTION_SECRET to be a valid 32-byte
+            # URL-safe base64 Fernet key (generate with Fernet.generate_key()).
+            fernet = Fernet(enc_secret.encode() if isinstance(enc_secret, str) else enc_secret)
         except Exception:
-            pass
+            try:
+                # Fallback: derive a valid Fernet key from an arbitrary string
+                import base64 as _b64
+                _kb = (enc_secret.encode() * 3)[:32]
+                fernet = Fernet(_b64.urlsafe_b64encode(_kb))
+            except Exception:
+                pass
 
     loaded = 0
     module = sys.modules[__name__]
