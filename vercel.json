@@ -1,14 +1,8 @@
 {
-  "builds": [
+  "rewrites": [
     {
-      "src": "app_init.py",
-      "use": "@vercel/python"
-    }
-  ],
-  "routes": [
-    {
-      "src": "/(.*)",
-      "dest": "app_init.py"
+      "source": "/api/:path*",
+      "destination": "https://railway.app*"
     }
   ]
 }
