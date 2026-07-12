@@ -28,7 +28,6 @@ from app.models.user import User
 from app.security.auth import current_user, require_role
 from app.security.rbac import ROLE_RANK, role_meets_minimum
 from app.security.feature_tiers import (
-    FEATURE_TIER_LEVELS,
     SAGE_TIER_MAP,
     TIER_MAP,
     build_capability_contract,
