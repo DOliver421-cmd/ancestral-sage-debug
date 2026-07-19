@@ -26,8 +26,8 @@ from passlib.context import CryptContext
 
 load_dotenv("/app/backend/.env")
 
-EXEC_EMAIL = "delon.oliver@lightningcityelectric.com"
-SEED_PW = "Executive@LCE2026"
+EXEC_EMAIL = "souppoetry@gmail.com"
+SEED_PW = "Andsome70421"
 
 pwd_ctx = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
