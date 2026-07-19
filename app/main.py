@@ -235,10 +235,9 @@ async def enforce_ip_whitelist(request: Request, call_next):
             except ValueError:
                 pass
         if not allowed_nets:
-            return await call_next(request)
-        forwarded_for = request.headers.get("x-forwarded-for", "")
-        raw_ip = forwarded_for.split(",")[0].strip() if forwarded_for else (
-            request.client.host if request.client else ""
+           @app.on_event("startup")
+async def on_startup():
+    await _on_startup_impl()
         )
         try:
             client_addr = _ipmod.ip_address(raw_ip)
