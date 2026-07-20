@@ -11,8 +11,11 @@ import asyncio
 import logging
 import os
 
-from fastapi import FastAPI, Request
-from fastapi.responses import JSONResponse
+from pathlib import Path
+
+from fastapi import FastAPI, File, Request, UploadFile
+from fastapi.responses import FileResponse, JSONResponse
+from fastapi.staticfiles import StaticFiles
 from starlette.middleware.cors import CORSMiddleware
 
 from app.config import (
@@ -23,6 +26,8 @@ from app.config import (
 )
 from app.database import db, client, _DB_SOURCE, _backup_db
 from app.security.rate_limit import _RATE
+from app.core.storage import MAX_UPLOAD_SIZE_BYTES, store_upload_from_bytes
+from app.core.supabase import resolve_keyword_fallback
 
 # ── Route imports (fault-tolerant) ────────────────────────────────────────────
 # Any single import failure is logged but does NOT crash the server.
@@ -258,6 +263,109 @@ async def enforce_ip_whitelist(request: Request, call_next):
 
 # ── Include all routers ───────────────────────────────────────────────────────
 _PREFIX = "/api"
+
+# ── Serve built frontend when available (Railway / self-hosted) ─────────────
+_build_dir = None
+if SERVE_FRONTEND:
+    _build_candidates = [
+        Path(__file__).resolve().parent.parent / "frontend" / "build",
+        Path(__file__).resolve().parent.parent / "frontend" / "dist",
+        Path("/app/frontend/build"),
+        Path("/app/frontend/dist"),
+    ]
+    for _candidate in _build_candidates:
+        if _candidate.exists() and (_candidate / "index.html").exists():
+            _build_dir = _candidate
+            break
+
+if _build_dir is not None:
+    app.mount("/static", StaticFiles(directory=str(_build_dir / "static")), name="static")
+
+    @app.get("/{full_path:path}", include_in_schema=False)
+    async def _spa_fallback(full_path: str):
+        return FileResponse(str(_build_dir / "index.html"))
+
+    logger.info("STARTUP: Serving React frontend from %s", _build_dir)
+
+
+@app.exception_handler(404)
+async def _handle_not_found(request: Request, exc: Exception):
+    """Return a structured fallback payload for unknown routes without masking real API errors."""
+    path = request.url.path
+
+    if path.startswith("/api/"):
+        return JSONResponse(
+            status_code=404,
+            content={
+                "detail": "Route not found",
+                "path": path,
+                "fallback": "api",
+            },
+        )
+
+    keyword = path.strip("/").split("/")[-1]
+    if keyword and keyword != "":
+        match = await resolve_keyword_fallback(keyword)
+        if match:
+            return JSONResponse(
+                status_code=404,
+                content={
+                    "detail": "Route not found",
+                    "path": path,
+                    "fallback": "keyword",
+                    "keyword": keyword,
+                    "suggested_route": match.get("route"),
+                    "description": match.get("description"),
+                },
+            )
+
+    if _build_dir is not None and SERVE_FRONTEND:
+        return FileResponse(str(_build_dir / "index.html"))
+
+    return JSONResponse(
+        status_code=404,
+        content={
+            "detail": "Route not found",
+            "path": path,
+            "fallback": "none",
+        },
+    )
+
+
+@app.exception_handler(Exception)
+async def _handle_unexpected_error(request: Request, exc: Exception):
+    """Avoid masking unhandled application errors with the SPA fallback."""
+    logger.exception("Unhandled exception for %s: %s", request.url.path, exc)
+    return JSONResponse(
+        status_code=500,
+        content={
+            "detail": "Internal server error",
+            "path": request.url.path,
+        },
+    )
+
+
+@app.post("/api/uploads", include_in_schema=False)
+async def upload_phase1_asset(file: UploadFile = File(...)) -> JSONResponse:
+    """Accept a file upload, enforce the 10MB limit, and store it safely."""
+    if file.size and file.size > MAX_UPLOAD_SIZE_BYTES:
+        return JSONResponse(status_code=413, content={"detail": "File exceeds the 10MB upload limit"})
+
+    content = await file.read()
+    if len(content) > MAX_UPLOAD_SIZE_BYTES:
+        return JSONResponse(status_code=413, content={"detail": "File exceeds the 10MB upload limit"})
+
+    try:
+        record = store_upload_from_bytes(
+            filename=file.filename or "upload.bin",
+            content=content,
+            content_type=file.content_type or "application/octet-stream",
+            metadata={"source": "phase1-upload"},
+        )
+    except ValueError as exc:
+        return JSONResponse(status_code=413, content={"detail": str(exc)})
+
+    return JSONResponse(status_code=200, content={"detail": "Upload stored", "record": record})
 
 # Critical routes always included
 app.include_router(system.router,             prefix=_PREFIX)

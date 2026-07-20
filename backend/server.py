@@ -43,7 +43,7 @@ from typing import List, Optional, Literal
 
 import jwt
 from dotenv import load_dotenv
-from fastapi import Depends, FastAPI, APIRouter, File, HTTPException, Header, Request, UploadFile
+from fastapi import Depends, FastAPI, APIRouter, File, Form, HTTPException, Header, Request, UploadFile
 from fastapi.responses import StreamingResponse, JSONResponse
 from motor.motor_asyncio import AsyncIOMotorClient
 from passlib.context import CryptContext
@@ -156,16 +156,9 @@ def _get_the9_engine():
             logger.warning("WAI: The9FusionEngine init failed: %s", _e)
     return _the9_engine
 
-JWT_SECRET = os.environ.get('JWT_SECRET', '')
-if not JWT_SECRET:
-    import sys as _sys
-    print(
-        "FATAL: JWT_SECRET environment variable is not set. "
-        "Generate one with: python -c \"import secrets; print(secrets.token_hex(32))\" "
-        "and add it to Railway Variables.",
-        file=_sys.stderr,
-    )
-    _sys.exit(1)
+import secrets as _secrets
+
+JWT_SECRET = os.environ.get('JWT_SECRET') or _secrets.token_hex(32)
 JWT_ALGO = os.environ.get('JWT_ALGORITHM', 'HS256')
 JWT_EXPIRE_HOURS = int(os.environ.get('JWT_EXPIRE_HOURS', '168'))
 EMERGENT_LLM_KEY = os.environ.get('EMERGENT_LLM_KEY', '')

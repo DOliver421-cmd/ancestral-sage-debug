@@ -84,6 +84,7 @@ regex==2026.4.4
 tqdm==4.67.3
 propcache==0.4.1
 attrs==26.1.0
+supabase==2.9.1
 
 # Jamil file extraction
 pypdf==4.3.1
