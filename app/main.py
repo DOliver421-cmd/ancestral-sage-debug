@@ -457,3 +457,19 @@ if __name__ == "__main__":
     import uvicorn
     port = int(os.environ.get("PORT", 8000))
     uvicorn.run("app.main:app", host="0.0.0.0", port=port)
+# ======================================================================
+# PLATFORM HEALTHCHECK ENDPOINT
+# ======================================================================
+@app.get("/api/version")
+def railway_healthcheck_endpoint():
+    """
+    Directly satisfies Railway's automated healthcheck ping.
+    Returns a clean 200 OK status to verify the server is breathing.
+    """
+    return {
+        "status": "healthy",
+        "version": "1.0.0",
+        "engine": "9-sphere-governance",
+        "fallback_matrix": "8-tier-active"
+    }
+
