@@ -91,10 +91,10 @@ propcache==0.4.1
 attrs==26.1.0
 supabase==2.9.1
 
-# Jamil file extraction
-pypdf==4.3.1
-python-docx==1.1.2
-openpyxl==3.1.5
-Pillow==11.2.1
-python-magic==0.4.27
-chardet==5.2.0
+# Jamil file extraction (Native Performance Layer)
+pypdf>=4.0.0
+python-docx>=1.0.0
+openpyxl>=3.1.0
+Pillow>=10.0.0
+chardet>=5.2.0
+
