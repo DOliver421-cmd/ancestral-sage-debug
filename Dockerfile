@@ -28,13 +28,23 @@ COPY app/ /app/app/
 # Copy the built React app into the location server.py checks first
 COPY --from=frontend-builder /frontend/build /app/frontend/build
 
+# Copy entrypoint script for proper signal handling and PORT variable substitution
+COPY docker-entrypoint.sh /app/docker-entrypoint.sh
+RUN chmod +x /app/docker-entrypoint.sh
+
 ENV PYTHONPATH=/app/backend:/app
 
-RUN apt-get update && apt-get install -y build-essential && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    libc-dev \
+    libpq-dev \
+    curl \
+    git \
+    && rm -rf /var/lib/apt/lists/*
 RUN pip install --no-cache-dir -r /app/backend/requirements.txt
 
 WORKDIR /app
 
 EXPOSE 8080
 
-CMD uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8080}
+ENTRYPOINT ["/app/docker-entrypoint.sh"]
