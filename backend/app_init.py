@@ -1,4 +1,3 @@
-// trigger gitar scan
 """
 WAI Institute FastAPI Application Initialization (ALTERNATIVE ENTRY POINT)
 
@@ -29,6 +28,7 @@ from .database import init_database, close_database, db_manager
 from .billing.stripe_service import StripeService, CreatorPayoutService
 from .billing.financial_reporting import FinancialReportingService
 from .billing import routes as billing_routes
+from .ai.controller import router as ai_dispatcher_router
 
 logger = logging.getLogger(__name__)
 
@@ -128,6 +128,11 @@ def create_app() -> FastAPI:
 
     # Billing routes
     app.include_router(billing_routes.router)
+
+    # =====================================================================
+    # HEADLESS MODE ENGINE ROUTER REGISTRATION
+    # =====================================================================
+    app.include_router(ai_dispatcher_router)
 
     # API documentation
     @app.get("/api/docs")
