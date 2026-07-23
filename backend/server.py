@@ -188,15 +188,6 @@ app = FastAPI(
     openapi_url="/api/openapi.json" if _DOCS_ENABLED else None,
 )
 
-try:
-    from routers import ai
-    app.include_router(ai.router, prefix="/api/ai")
-except Exception as _ai_router_err:
-    logging.getLogger("server").warning(
-        "Optional 'routers.ai' package not present (%s) — the inline /api/ai handlers "
-        "below remain active. NOTE: 'routers' is an unfinished local refactor; the "
-        "committed/deployed server.py does not import it.", _ai_router_err)
-
 # Security headers middleware
 @app.middleware("http")
 async def add_security_headers(request: Request, call_next):

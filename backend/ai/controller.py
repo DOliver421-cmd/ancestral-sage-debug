@@ -13,7 +13,7 @@ manifest_lock = threading.Lock()
 _REPO_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 MANIFEST_PATH = os.path.join(_REPO_ROOT, "memory", "project_state.json")
 
-router = APIRouter(prefix="/ai", tags=["AI Dispatcher"])
+router = APIRouter(prefix="/api/ai", tags=["AI Dispatcher"])
 
 class DispatchRequest(BaseModel):
     command: str = Field(..., description="The architectural command string from Jamil")

@@ -22,7 +22,7 @@ from .course_multilingual import (
     get_ui_string,
 )
 
-router = APIRouter(prefix="/api/courses", tags=["courses"])
+router = APIRouter(prefix="/courses", tags=["courses"])
 
 
 @router.get("/tiers")

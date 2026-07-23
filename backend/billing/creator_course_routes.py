@@ -22,7 +22,7 @@ from .creator_courses import (
     CreatorCourse,
 )
 
-router = APIRouter(prefix="/api/creator-courses", tags=["creator-courses"])
+router = APIRouter(prefix="/creator-courses", tags=["creator-courses"])
 
 
 class CourseCreateRequest(BaseModel):

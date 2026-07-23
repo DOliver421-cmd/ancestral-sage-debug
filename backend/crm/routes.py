@@ -15,7 +15,7 @@ from .models import (
     DecisionMaker
 )
 
-router = APIRouter(prefix="/api/crm", tags=["crm"])
+router = APIRouter(prefix="/crm", tags=["crm"])
 
 
 # ============================================================================

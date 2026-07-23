@@ -64,7 +64,7 @@ async def get_current_user(
         raise HTTPException(status_code=403, detail="Account deactivated")
     return user_doc
 
-router = APIRouter(prefix="/api/billing", tags=["billing"])
+router = APIRouter(prefix="/billing", tags=["billing"])
 
 
 # ============================================================================
