@@ -8,9 +8,10 @@ from pydantic import BaseModel, Field
 
 manifest_lock = threading.Lock()
 
-# Dynamically resolve manifest path to project root safely
-BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-MANIFEST_PATH = os.path.join(os.path.dirname(BASE_DIR), "memory", "project_state.json")
+# Resolve manifest path relative to the repo root (/app in container, project root locally)
+# controller.py lives at backend/ai/controller.py — go up two levels to reach repo root
+_REPO_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+MANIFEST_PATH = os.path.join(_REPO_ROOT, "memory", "project_state.json")
 
 router = APIRouter(prefix="/ai", tags=["AI Dispatcher"])
 
@@ -33,15 +34,15 @@ def update_manifest_state(action_name: str, status_str: str, details: str, reven
                     "revenue_targets": {"currency": "USD", "current_mrr": 0.0},
                     "action_logs": []
                 }
-            
+
             data["last_updated"] = datetime.utcnow().isoformat() + "Z"
             data["project_state"]["system_status"] = status_str
             if current_task:
                 data["project_state"]["active_agent_task"] = current_task
-                
+
             if revenue_delta != 0.0:
                 data["revenue_targets"]["current_mrr"] = max(0.0, data["revenue_targets"].get("current_mrr", 0.0) + revenue_delta)
-            
+
             log_fragment = {
                 "timestamp": data["last_updated"],
                 "action": action_name,
@@ -52,7 +53,7 @@ def update_manifest_state(action_name: str, status_str: str, details: str, reven
                 data["action_logs"] = []
             data["action_logs"].append(log_fragment)
             data["action_logs"] = data["action_logs"][-100:]
-            
+
             temp_path = f"{MANIFEST_PATH}.tmp"
             with open(temp_path, "w") as f:
                 json.dump(data, f, indent=2)
@@ -68,7 +69,7 @@ async def dispatch_command(payload: DispatchRequest):
     if "override" in payload.command.lower() and payload.priority < 4:
         log = update_manifest_state(action_name, "SECURITY_VIOLATION", "Rejected unauthorized override command restriction.")
         raise HTTPException(status_code=403, detail={"error": "RBAC rejection", "log": log})
-        
+
     try:
         revenue_delta = payload.context_update.get("revenue_delta", 0.0) if payload.context_update else 0.0
         execution_details = f"Successfully prioritized logic stream layer [{payload.priority}]."
