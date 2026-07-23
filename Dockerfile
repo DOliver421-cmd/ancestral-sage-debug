@@ -24,6 +24,7 @@ WORKDIR /app
 COPY backend/ /app/backend/
 COPY src/ /app/src/
 COPY app/ /app/app/
+COPY memory/ /app/memory/
 
 # Copy the built React app into the location server.py checks first
 COPY --from=frontend-builder /frontend/build /app/frontend/build
