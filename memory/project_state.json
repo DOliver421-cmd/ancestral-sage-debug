@@ -1,0 +1,17 @@
+{
+  "manifest_version": "1.0.0",
+  "last_updated": "2026-07-22T21:00:00Z",
+  "project_state": {
+    "current_branch": "main",
+    "system_status": "OPERATIONAL",
+    "active_agents": ["claude", "bolt-agent"],
+    "active_agent_task": "IDLE"
+  },
+  "revenue_targets": {
+    "currency": "USD",
+    "monthly_recurring_revenue_target": 10000.0,
+    "current_mrr": 0.0,
+    "billing_integration_status": "active"
+  },
+  "action_logs": []
+}
