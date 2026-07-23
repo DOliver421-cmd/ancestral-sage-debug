@@ -20,6 +20,11 @@ class DispatchRequest(BaseModel):
     priority: int = Field(default=1, ge=1, le=5, description="Priority execution layer (1-5)")
     context_update: Optional[Dict[str, Any]] = Field(default_factory=dict, description="Payload updates")
 
+class CheckoutPreHookRequest(BaseModel):
+    asset_id: str = Field(..., description="Product key from PAYMENT_PRODUCTS (e.g. 'workbook', 'kit')")
+    price: int = Field(..., ge=50, description="Amount in cents (minimum 50 = $0.50)")
+    quantity: int = Field(default=1, ge=1, description="Number of items")
+
 def update_manifest_state(action_name: str, status_str: str, details: str, revenue_delta: float = 0.0, current_task: str = ""):
     with manifest_lock:
         try:
@@ -89,3 +94,79 @@ async def dispatch_command(payload: DispatchRequest):
             current_task="ERROR_HALT"
         )
         return {"status": "failure", "system_status": "RECOVERY_REQUIRED", "action_log": log_entry}
+
+@router.post("/dispatch/checkout-prehook")
+async def checkout_prehook(payload: CheckoutPreHookRequest):
+    """Pre-Hook bridge: allows Jamil to request a Stripe checkout session for a digital asset
+    by passing asset_id (product_key) and price (amount_cents).
+
+    Returns a checkout URL from Stripe by calling the same logic as
+    POST /api/payments/checkout in backend/server.py.
+    """
+    import stripe as _stripe
+
+    STRIPE_SECRET_KEY = os.environ.get("STRIPE_SECRET_KEY", "")
+    FRONTEND_URL = os.environ.get("FRONTEND_URL", "https://wai-institute.org")
+
+    if not STRIPE_SECRET_KEY:
+        raise HTTPException(503, "Payment system not configured — STRIPE_SECRET_KEY missing")
+
+    _stripe.api_key = STRIPE_SECRET_KEY
+
+    # Import the PAYMENT_PRODUCTS catalog from server.py
+    # We reference it lazily to avoid a circular import at module load time
+    try:
+        from backend.server import PAYMENT_PRODUCTS
+    except Exception:
+        # Fallback: inline the catalog if server.py can't be imported in this context
+        PAYMENT_PRODUCTS = {}
+
+    product = PAYMENT_PRODUCTS.get(payload.asset_id)
+    if not product:
+        raise HTTPException(400, f"Unknown product key: {payload.asset_id}")
+
+    amount = payload.price
+    if not amount or amount < 50:
+        raise HTTPException(400, "Amount must be at least 50 cents ($0.50)")
+
+    mode = product["mode"]
+
+    price_data: dict = {
+        "currency": "usd",
+        "product_data": {"name": product["name"], "description": product.get("description", "")},
+        "unit_amount": amount,
+    }
+    if mode == "subscription":
+        price_data["recurring"] = {"interval": product["interval"]}
+
+    session_kwargs: dict = dict(
+        mode=mode,
+        line_items=[{"price_data": price_data, "quantity": payload.quantity}],
+        success_url=f"{FRONTEND_URL}/payment/success?session_id={{CHECKOUT_SESSION_ID}}",
+        cancel_url=f"{FRONTEND_URL}/payment/cancel",
+        metadata={"asset_id": payload.asset_id, "source": "ai_dispatch_prehook"},
+    )
+    if mode == "subscription":
+        session_kwargs["subscription_data"] = {
+            "metadata": {"asset_id": payload.asset_id, "source": "ai_dispatch_prehook"}
+        }
+
+    try:
+        session = _stripe.checkout.Session.create(**session_kwargs)
+    except _stripe.error.StripeError as e:
+        update_manifest_state(
+            action_name="checkout_prehook",
+            status_str="RECOVERY_REQUIRED",
+            details=f"Stripe checkout creation failed for asset {payload.asset_id}: {str(e)}",
+            current_task="ERROR_HALT"
+        )
+        raise HTTPException(502, f"Stripe error: {str(e)}")
+
+    update_manifest_state(
+        action_name="checkout_prehook",
+        status_str="OPERATIONAL",
+        details=f"Checkout session created for asset {payload.asset_id} at {amount} cents x{payload.quantity}",
+        current_task="IDLE"
+    )
+
+    return {"url": session.url, "session_id": session.id, "asset_id": payload.asset_id, "amount_cents": amount}
