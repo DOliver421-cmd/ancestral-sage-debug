@@ -15565,6 +15565,9 @@ async def get_missing_file(file_id: str):
     return StreamingResponse(iter_file(), media_type=stream.metadata.get("content_type", "image/jpeg"))
 
 app.include_router(api_router)
+# --- Register Headless Mode AI Dispatcher Router ---
+from backend.ai.controller import router as ai_dispatcher_router
+app.include_router(ai_dispatcher_router)
 # CORS: when origins is wildcard ("*") browsers reject credentials, so we
 # turn off allow_credentials in that case (auth uses Bearer token in Authorization
 # header anyway). If a specific origin list is supplied, credentials are allowed.
