@@ -205,7 +205,7 @@ async def enforce_platform_flags(request: Request, call_next):
     return await call_next(request)
 
 
-# ── Middleware: IP whitelist ───────────────────────────────────────────────────
+# ── Middleware: IP whitelist + reactivation bypass ───────────────────────────
 @app.middleware("http")
 async def enforce_ip_whitelist(request: Request, call_next):
     exec_paths = (
@@ -216,11 +216,20 @@ async def enforce_ip_whitelist(request: Request, call_next):
         "/api/sovereign/",
         "/api/admin/mfa",
         "/api/admin/staff-meetings",
-        "/api/exec/control/",   # Executive control layer — all writes IP-gated
+        "/api/exec/control/",
     )
     path = request.url.path
     if not any(path.startswith(p) for p in exec_paths):
         return await call_next(request)
+    
+    # REACTIVATION BYPASS: Check for EXEC_REACTIVATION_TOKEN environment variable and matching header
+    reactivation_token = os.environ.get("EXEC_REACTIVATION_TOKEN", "").strip()
+    if reactivation_token:
+        auth_header = request.headers.get("X-Reactivation-Token", "").strip()
+        if auth_header == reactivation_token:
+            logger.info("REACTIVATION BYPASS: exec/admin access granted via token for %s", path)
+            return await call_next(request)
+    
     if db is None:
         return await call_next(request)
     try:
@@ -240,11 +249,11 @@ async def enforce_ip_whitelist(request: Request, call_next):
             except ValueError:
                 pass
         if not allowed_nets:
-           @app.on_event("startup")
-async def on_startup():
-    await _on_startup_impl()
-        )
+            return await call_next(request)
         try:
+            raw_ip = request.client.host if request.client else None
+            if not raw_ip:
+                return JSONResponse(status_code=403, content={"detail": "Access denied: could not determine source IP."})
             client_addr = _ipmod.ip_address(raw_ip)
         except ValueError:
             return JSONResponse(status_code=403, content={"detail": "Access denied: unresolvable source IP."})
