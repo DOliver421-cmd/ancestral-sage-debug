@@ -410,3 +410,10 @@ def build_capability_contract(
         # ── Permissions (flat set for quick frontend checks)
         "permissions": sorted(perms),
     }
+
+# ── Export tier map for executive_control.py
+FEATURE_TIER_LEVELS = {
+    "free": FREE_TIER,
+    "premium": PREMIUM_TIER,
+    "executive": EXECUTIVE_TIER,
+}

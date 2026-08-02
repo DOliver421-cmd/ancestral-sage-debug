@@ -467,3 +467,7 @@ async def _on_startup_impl(app=None):
         "STARTUP COMPLETE — Version: %s | DB: %s | Frontend: %s",
         APP_VERSION, _db_module._DB_SOURCE, "served" if SERVE_FRONTEND else "railway-nginx"
     )
+
+# Alias for main.py import
+run_startup = _on_startup_impl
+
