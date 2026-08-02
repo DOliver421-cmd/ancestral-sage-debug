@@ -43,7 +43,7 @@ from typing import List, Optional, Literal
 
 import jwt
 from dotenv import load_dotenv
-from fastapi import Depends, FastAPI, APIRouter, File, HTTPException, Header, Request, UploadFile
+from fastapi import Depends, FastAPI, APIRouter, File, Form, HTTPException, Header, Request, UploadFile
 from fastapi.responses import StreamingResponse, JSONResponse
 from motor.motor_asyncio import AsyncIOMotorClient
 from passlib.context import CryptContext
@@ -156,16 +156,9 @@ def _get_the9_engine():
             logger.warning("WAI: The9FusionEngine init failed: %s", _e)
     return _the9_engine
 
-JWT_SECRET = os.environ.get('JWT_SECRET', '')
-if not JWT_SECRET:
-    import sys as _sys
-    print(
-        "FATAL: JWT_SECRET environment variable is not set. "
-        "Generate one with: python -c \"import secrets; print(secrets.token_hex(32))\" "
-        "and add it to Railway Variables.",
-        file=_sys.stderr,
-    )
-    _sys.exit(1)
+import secrets as _secrets
+
+JWT_SECRET = os.environ.get('JWT_SECRET') or _secrets.token_hex(32)
 JWT_ALGO = os.environ.get('JWT_ALGORITHM', 'HS256')
 JWT_EXPIRE_HOURS = int(os.environ.get('JWT_EXPIRE_HOURS', '168'))
 EMERGENT_LLM_KEY = os.environ.get('EMERGENT_LLM_KEY', '')
@@ -194,15 +187,6 @@ app = FastAPI(
     redoc_url="/api/redoc" if _DOCS_ENABLED else None,
     openapi_url="/api/openapi.json" if _DOCS_ENABLED else None,
 )
-
-try:
-    from routers import ai
-    app.include_router(ai.router, prefix="/api/ai")
-except Exception as _ai_router_err:
-    logging.getLogger("server").warning(
-        "Optional 'routers.ai' package not present (%s) — the inline /api/ai handlers "
-        "below remain active. NOTE: 'routers' is an unfinished local refactor; the "
-        "committed/deployed server.py does not import it.", _ai_router_err)
 
 # Security headers middleware
 @app.middleware("http")
@@ -15572,6 +15556,9 @@ async def get_missing_file(file_id: str):
     return StreamingResponse(iter_file(), media_type=stream.metadata.get("content_type", "image/jpeg"))
 
 app.include_router(api_router)
+# --- Register Headless Mode AI Dispatcher Router ---
+from backend.ai.controller import router as ai_dispatcher_router
+app.include_router(ai_dispatcher_router)
 # CORS: when origins is wildcard ("*") browsers reject credentials, so we
 # turn off allow_credentials in that case (auth uses Bearer token in Authorization
 # header anyway). If a specific origin list is supplied, credentials are allowed.

@@ -18,8 +18,10 @@ MONGO_BACKUP_URL = os.environ.get("MONGO_BACKUP_URL", "")
 MONGO_BACKUP_DB  = os.environ.get("MONGO_BACKUP_DB", "")
 
 # ── JWT / Auth ────────────────────────────────────────────────────────────────
-JWT_SECRET       = os.environ["JWT_SECRET"]
-JWT_ALGO         = os.environ.get("JWT_ALGORITHM", "HS256")
+import secrets
+
+JWT_SECRET = os.environ.get("JWT_SECRET") or secrets.token_hex(32)
+JWT_ALGO = os.environ.get("JWT_ALGORITHM", "HS256")
 JWT_EXPIRE_HOURS = int(os.environ.get("JWT_EXPIRE_HOURS", "168"))
 
 # ── AI / LLM ─────────────────────────────────────────────────────────────────
