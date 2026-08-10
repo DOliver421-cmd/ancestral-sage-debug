@@ -325,8 +325,8 @@ async def on_startup():
 
 
 async def _on_startup_impl():
-    from app.services.startup import run_startup
-    await run_startup(app)
+    from app.services.startup import _on_startup_impl as _run_startup
+    await _run_startup(app)
 
 
 # ── Shutdown ──────────────────────────────────────────────────────────────────
