@@ -45,7 +45,7 @@ _OWN_PROFILE_BASE = {
 _OWN_PROFILE_CREATOR = _OWN_PROFILE_BASE | {
     "totalEarnings", "monthlyRevenue", "payoutMethod",
     "courses_created", "students_enrolled",
-    "bankAccount", "stripeConnectId", "paypalEmail",
+    "bankAccount", "payoutAccountId", "paypalEmail",
 }
 
 _OWN_PROFILE_BY_ROLE: Dict[str, Set[str]] = {
@@ -134,7 +134,7 @@ class FieldAuthorization:
     def requires_sensitive_audit(cls, accessed_fields: Set[str]) -> bool:
         _sensitive = {
             "totalEarnings", "monthlyRevenue", "payoutMethod",
-            "bankAccount", "stripeConnectId", "paypalEmail",
+            "bankAccount", "payoutAccountId", "paypalEmail",
             "taxId", "ssn", "bankRoutingNumber",
         }
         return bool(accessed_fields & _sensitive)

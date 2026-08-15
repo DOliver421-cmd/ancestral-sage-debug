@@ -115,7 +115,7 @@ class EncryptedFields:
 
     PAYOUT_ACCOUNTS = {"bankAccount", "bankRoutingNumber", "accountHolderName"}
     USERS = {"ssn", "taxId"}
-    API_KEYS = {"stripeSecretKey", "paypalSecret", "apiToken"}
+    API_KEYS = {"lemonSqueezyKey", "gumroadKey", "paypalSecret", "apiToken"}
     CONFIG = {"databasePassword", "emailPassword", "slackToken"}
 
 

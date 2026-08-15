@@ -97,21 +97,13 @@ async def dispatch_command(payload: DispatchRequest):
 
 @router.post("/dispatch/checkout-prehook")
 async def checkout_prehook(payload: CheckoutPreHookRequest):
-    """Pre-Hook bridge: allows Jamil to request a Stripe checkout session for a digital asset
+    """Pre-Hook bridge: allows Jamil to request a checkout session for a digital asset
     by passing asset_id (product_key) and price (amount_cents).
 
-    Returns a checkout URL from Stripe by calling the same logic as
+    Creates a Lemon Squeezy → Gumroad checkout URL via the same pipeline as
     POST /api/payments/checkout in backend/server.py.
     """
-    import stripe as _stripe
-
-    STRIPE_SECRET_KEY = os.environ.get("STRIPE_SECRET_KEY", "")
-    FRONTEND_URL = os.environ.get("FRONTEND_URL", "https://wai-institute.org")
-
-    if not STRIPE_SECRET_KEY:
-        raise HTTPException(503, "Payment system not configured — STRIPE_SECRET_KEY missing")
-
-    _stripe.api_key = STRIPE_SECRET_KEY
+    from ai.publishing import _publish_lemon_squeezy, _publish_gumroad
 
     # Import the PAYMENT_PRODUCTS catalog from server.py
     # We reference it lazily to avoid a circular import at module load time
@@ -129,44 +121,45 @@ async def checkout_prehook(payload: CheckoutPreHookRequest):
     if not amount or amount < 50:
         raise HTTPException(400, "Amount must be at least 50 cents ($0.50)")
 
-    mode = product["mode"]
+    if product.get("physical"):
+        raise HTTPException(501, "Physical merchandise is not available for online purchase yet.")
 
-    price_data: dict = {
-        "currency": "usd",
-        "product_data": {"name": product["name"], "description": product.get("description", "")},
-        "unit_amount": amount,
-    }
-    if mode == "subscription":
-        price_data["recurring"] = {"interval": product["interval"]}
+    is_subscription = product["mode"] == "subscription"
 
-    session_kwargs: dict = dict(
-        mode=mode,
-        line_items=[{"price_data": price_data, "quantity": payload.quantity}],
-        success_url=f"{FRONTEND_URL}/payment/success?session_id={{CHECKOUT_SESSION_ID}}",
-        cancel_url=f"{FRONTEND_URL}/payment/cancel",
-        metadata={"asset_id": payload.asset_id, "source": "ai_dispatch_prehook"},
+    # Tier 1 — Lemon Squeezy (digital products + subscriptions)
+    ls_result = await _publish_lemon_squeezy(
+        name=product["name"],
+        description=product.get("description", ""),
+        price_cents=amount,
+        persona="ai_dispatch",
+        is_subscription=is_subscription,
+        interval=product.get("interval", "month"),
     )
-    if mode == "subscription":
-        session_kwargs["subscription_data"] = {
-            "metadata": {"asset_id": payload.asset_id, "source": "ai_dispatch_prehook"}
-        }
-
-    try:
-        session = _stripe.checkout.Session.create(**session_kwargs)
-    except _stripe.error.StripeError as e:
+    if ls_result and ls_result.get("url"):
         update_manifest_state(
             action_name="checkout_prehook",
-            status_str="RECOVERY_REQUIRED",
-            details=f"Stripe checkout creation failed for asset {payload.asset_id}: {str(e)}",
-            current_task="ERROR_HALT"
+            status_str="OPERATIONAL",
+            details=f"Checkout URL created for asset {payload.asset_id} at {amount} cents x{payload.quantity} (lemon_squeezy)",
+            current_task="IDLE"
         )
-        raise HTTPException(502, f"Stripe error: {str(e)}")
+        return {"url": ls_result["url"], "asset_id": payload.asset_id, "amount_cents": amount, "provider": "lemon_squeezy"}
+
+    # Tier 2 — Gumroad (one-time digital purchases only)
+    if not is_subscription:
+        gr_result = await _publish_gumroad(product["name"], product.get("description", ""), amount)
+        if gr_result and gr_result.get("url"):
+            update_manifest_state(
+                action_name="checkout_prehook",
+                status_str="OPERATIONAL",
+                details=f"Checkout URL created for asset {payload.asset_id} at {amount} cents x{payload.quantity} (gumroad)",
+                current_task="IDLE"
+            )
+            return {"url": gr_result["url"], "asset_id": payload.asset_id, "amount_cents": amount, "provider": "gumroad"}
 
     update_manifest_state(
         action_name="checkout_prehook",
-        status_str="OPERATIONAL",
-        details=f"Checkout session created for asset {payload.asset_id} at {amount} cents x{payload.quantity}",
-        current_task="IDLE"
+        status_str="RECOVERY_REQUIRED",
+        details=f"Checkout creation failed for asset {payload.asset_id}: no payment provider configured",
+        current_task="ERROR_HALT"
     )
-
-    return {"url": session.url, "session_id": session.id, "asset_id": payload.asset_id, "amount_cents": amount}
+    raise HTTPException(501, "Payments are not configured yet. Add LEMON_SQUEEZY_API_KEY + LEMON_SQUEEZY_STORE_ID or GUMROAD_API_KEY.")

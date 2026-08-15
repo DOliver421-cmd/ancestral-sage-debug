@@ -58,8 +58,6 @@ tenacity==9.1.4
 rich==15.0.0
 jiter==0.14.0
 distro==1.9.0
-# Stripe
-stripe>=9.0.0
 # Scheduling & Config
 apscheduler==3.10.4
 pydantic-settings>=2.1.0

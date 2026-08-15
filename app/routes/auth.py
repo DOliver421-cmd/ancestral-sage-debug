@@ -601,13 +601,25 @@ async def exec_unlock(request: Request):
         await asyncio.sleep(2)
         raise HTTPException(403, "Invalid secret")
 
+    import secrets as _secrets
+    from app.security.passwords import _send_via_gmail
+    from app.config import PLATFORM_NOTIFY_EMAIL
+
+    def _gen_pw() -> str:
+        alpha = "abcdefghjkmnpqrstuvwxyzABCDEFGHJKMNPQRSTUVWXYZ23456789!@#$%^&*"
+        return "".join(_secrets.choice(alpha) for _ in range(20))
+
     _seats = [
-        (EXEC_ADMIN_EMAIL,  EXEC_DEFAULT_PASSWORD),
-        (BACKUP_EXEC_EMAIL, BACKUP_EXEC_DEFAULT_PASSWORD),
-        (NAM_EXEC_EMAIL,    NAM_EXEC_DEFAULT_PASSWORD),
+        (EXEC_ADMIN_EMAIL,  "Delon Oliver",  EXEC_DEFAULT_PASSWORD),
+        (BACKUP_EXEC_EMAIL, "Delon Oliver",  BACKUP_EXEC_DEFAULT_PASSWORD),
+        (NAM_EXEC_EMAIL,    "NAM Oshun",     NAM_EXEC_DEFAULT_PASSWORD),
     ]
     reset = []
-    for _email, _pw in _seats:
+    for _email, _name, _pw in _seats:
+        _auto = False
+        if not _pw:
+            _pw = _gen_pw()
+            _auto = True
         await db.users.update_one(
             {"email": _email},
             {
@@ -615,16 +627,34 @@ async def exec_unlock(request: Request):
                     "password_hash": hash_pw(_pw),
                     "role": "executive_admin",
                     "is_active": True,
-                    "must_change_password": False,
+                    "must_change_password": True,
                 },
                 "$unset": {"login_locked_until": "", "login_failed_attempts": ""},
             },
             upsert=False,
         )
-        reset.append(_email)
+        reset.append({"email": _email, "auto_password": _auto})
+        if _auto:
+            try:
+                _subject = f"WAI-Institute: Exec account unlocked — {_email}"
+                _html = (
+                    f"<p>Your executive account was reset via the exec-unlock endpoint.</p>"
+                    f"<p><b>Account:</b> {_email} ({_name})<br>"
+                    f"<b>Temporary password:</b> <code>{_pw}</code></p>"
+                    f"<p>Log in and change this password immediately.</p>"
+                )
+                await _send_via_gmail(PLATFORM_NOTIFY_EMAIL, _subject, _html)
+            except Exception:
+                logger.warning("exec-unlock: email failed for %s — TEMP PASSWORD (change immediately): %s", _email, _pw)
+    # A stale executive IP whitelist can block the very routes exec needs after
+    # recovery — clear it so the unlocked accounts can actually reach the panel.
+    try:
+        await db.ip_whitelist.delete_many({"role": "executive_admin"})
+    except Exception:
+        pass
     await audit(None, "exec.unlock.via_secret", meta={"ip": request.client.host if request.client else "unknown"})
     logger.warning("exec-unlock: all exec seats reset via secret key")
-    return {"ok": True, "reset": reset, "message": "All exec seats unlocked. Log in with default passwords."}
+    return {"ok": True, "reset": reset, "message": "All exec seats unlocked. Check logs/email for auto-generated passwords."}
 
 
 @router.post("/auth/recovery-codes-generate")

@@ -37,8 +37,8 @@ The WAI backend runs 17 AI personas across 5 tiers. These personas handle curric
 Stored in `backend/.env` (gitignored). Critical vars:
 
 - `OPENAI_API_KEY` — Powers all AI personas
-- `GUMROAD_API_KEY` — Digital product sales
-- `STRIPE_SECRET_KEY` — Payment processing
+- `GUMROAD_API_KEY` — Digital product sales (Tier 2)
+- `LEMON_SQUEEZY_API_KEY` + `LEMON_SQUEEZY_STORE_ID` — Checkout + subscriptions (Tier 1)
 - `ANTHROPIC_API_KEY` — Additional AI models
 
 Never commit these to version control.
@@ -63,7 +63,7 @@ python scripts/tools/deploy_sim.py          # Deploy simulation data
 - Check server logs for persona errors
 - Monitor API response times
 - Track student enrollment and revenue data
-- Verify Stripe webhook delivery
+- Verify Lemon Squeezy webhook delivery (LEMON_SQUEEZY_WEBHOOK_SECRET)
 
 ---
 
@@ -117,7 +117,7 @@ Each T4 persona has specific tools and produces sellable digital products ($9.99
 |----------|----------|----------|
 | Server down | Restart service | < 5 min |
 | API errors | Check logs, rollback if needed | < 15 min |
-| Payment failure | Check Stripe dashboard | < 1 hr |
+| Payment failure | Check Lemon Squeezy / Gumroad dashboard | < 1 hr |
 | Security breach | Revoke keys, notify Director | Immediate |
 | Student complaint | Escalate to Customer Success | < 24 hrs |
 

@@ -276,7 +276,8 @@ DEPLOYED FEATURES (you know these and can advise on all of them):
     - Community membership model — mutual aid, earn-your-way, creator/elder access
 
   Commerce:
-    - Stripe-integrated store (physical products), subscription tiers, donation flow
+    - Lemon Squeezy / Gumroad-integrated store (digital products), subscription tiers,
+      donation flow — physical products are not sold online yet
     - Partnership pricing model (5 tiers: Public/Member/Plus/Pro/Patron)
     - Payment history, admin payment management
 

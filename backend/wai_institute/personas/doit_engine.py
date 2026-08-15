@@ -145,19 +145,19 @@ class DoItEngine:
                 "Students cannot prove they can pay. Revenue is theoretical."
             ),
             severity=GapSeverity.CRITICAL,
-            system_areas=["billing", "stripe", "frontend"],
+            system_areas=["billing", "payments", "frontend"],
             status=GapStatus.IDENTIFIED,
             finder_notes=(
-                "Stripe test mode is configured but never tested with real student flow. "
-                "No subscriber data in production database. No invoice generated. "
-                "No payout processed."
+                "Payment pipeline (Lemon Squeezy → Gumroad) is configured but never tested "
+                "with real student flow. No subscriber data in production database. "
+                "No invoice generated. No payout processed."
             ),
             fix_proposal=(
                 "1. Create test student account\n"
-                "2. Add test payment method\n"
+                "2. Configure Lemon Squeezy store + API key\n"
                 "3. Subscribe to BASIC tier ($9.99/mo)\n"
                 "4. Verify invoice created in MongoDB\n"
-                "5. Verify Stripe charge succeeded\n"
+                "5. Verify checkout order recorded via webhook\n"
                 "6. Verify creator payout tracked\n"
                 "7. Cancel subscription and test refund\n"
                 "8. Document entire flow + create runbook"

@@ -1366,7 +1366,7 @@ function updateTierBadge() {
 
 // ===================== TRIAL SYSTEM =====================
 function startTrial() {
-  // Route to real $3 Stripe checkout — trial activates after payment
+  // Route to real $3 checkout (Lemon Squeezy / Gumroad) — trial activates after payment
   showNotification('Starting $3 All-Access Trial checkout…', 'info');
   setTimeout(() => { window.location.href = '/subscribe?plan=sanctuary_trial'; }, 800);
 }

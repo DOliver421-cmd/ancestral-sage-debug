@@ -228,7 +228,7 @@ _GUEST_PERMISSIONS: FrozenSet[str] = frozenset({
     Permission.AI_HELPER,          # public helper is free
     Permission.COMMUNITY_READ,     # read-only M.O.R.E.
     Permission.CREDENTIALS_VERIFY, # public credential verify
-    Permission.PAYMENTS_WEBHOOK,   # Stripe webhook (system)
+    Permission.PAYMENTS_WEBHOOK,   # payments webhook (system)
 })
 
 _STUDENT_PERMISSIONS: FrozenSet[str] = frozenset({

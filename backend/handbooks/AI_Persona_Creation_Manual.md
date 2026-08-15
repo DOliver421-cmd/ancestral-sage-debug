@@ -85,7 +85,7 @@ Personas can generate sellable content:
 - Tiered access (basic / premium)
 - Weekly personalized content
 
-**Platform:** Stripe recurring billing
+**Platform:** Lemon Squeezy recurring billing (free tier)
 
 ### Model 3: Course Bundles ($49-$349)
 - Bundle persona-generated content into courses
@@ -112,14 +112,14 @@ Personas can generate sellable content:
 - **API access** — OpenAI API key ($5-20/mo for small scale)
 - **A backend** — A simple Python or Node.js server
 - **A frontend** — Chat interface or landing page
-- **Payment processor** — Stripe or Gumroad account
+- **Payment processor** — Lemon Squeezy (free tier) or Gumroad account
 
 ### One-Person Tech Stack
 | Component | Recommended |
 |-----------|-------------|
 | Server | Python (FastAPI) or Node.js (Express) |
 | Hosting | Railway, Render, or Fly.io |
-| Payments | Stripe + Gumroad |
+| Payments | Lemon Squeezy + Gumroad |
 | AI | OpenAI API |
 | Frontend | Simple React or HTML/JS |
 
@@ -129,7 +129,7 @@ Personas can generate sellable content:
 | OpenAI API | $10-50 |
 | Server hosting | $5-25 |
 | Domain + email | $10-15 |
-| Stripe fees | 2.9% + $0.30 per transaction |
+| Lemon Squeezy fees | 5% + 50¢ per transaction (free tier: 0%) |
 | **Total** | **$25-90/mo** |
 
 ---
@@ -173,7 +173,7 @@ Revenue projection at moderate demand: $71K/yr
 
 ### Day 3
 - Deploy a simple chat interface
-- Connect Stripe for payments
+- Connect Lemon Squeezy (or Gumroad) for payments
 - Share with 5 trusted testers
 
 ### Day 4
@@ -192,7 +192,7 @@ Revenue projection at moderate demand: $71K/yr
 
 - OpenAI API documentation: https://platform.openai.com
 - Gumroad: https://gumroad.com
-- Stripe: https://stripe.com
+- Lemon Squeezy: https://lemonsqueezy.com
 - WAI Institute: https://wai-institute.org (coming soon)
 
 ---

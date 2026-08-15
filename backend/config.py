@@ -21,12 +21,6 @@ class Settings(BaseSettings):
     DATABASE_NAME: str = "wai_institute"
 
     # =====================================================================
-    # STRIPE
-    # =====================================================================
-    STRIPE_API_KEY: str = os.getenv("STRIPE_API_KEY", "")
-    STRIPE_WEBHOOK_SECRET: str = os.getenv("STRIPE_WEBHOOK_SECRET", "")
-
-    # =====================================================================
     # JWT & AUTH
     # =====================================================================
     JWT_SECRET: str = os.getenv("JWT_SECRET", "dev-secret-change-in-production")
@@ -72,8 +66,9 @@ class Settings(BaseSettings):
     # =====================================================================
     # FEATURE FLAGS
     # =====================================================================
-    ENABLE_STRIPE: bool = bool(STRIPE_API_KEY)  # Only enable if key is set
-    ENABLE_PAYOUTS: bool = ENABLE_STRIPE and os.getenv("ENABLE_PAYOUTS", "False").lower() == "true"
+    # Payments run through Lemon Squeezy → Gumroad (no Stripe). Payouts are
+    # processed manually / via the payout schedule when the flag is on.
+    ENABLE_PAYOUTS: bool = os.getenv("ENABLE_PAYOUTS", "False").lower() == "true"
     ENABLE_EMAILS: bool = bool(SENDGRID_API_KEY)
     ENABLE_SLACK_ALERTS: bool = bool(SLACK_WEBHOOK_URL)
 
@@ -96,9 +91,6 @@ def validate_config():
     """Validate critical configuration"""
     errors = []
 
-    if not settings.STRIPE_API_KEY:
-        errors.append("STRIPE_API_KEY not set")
-
     if settings.ENVIRONMENT == "production":
         if settings.DEBUG:
             errors.append("DEBUG cannot be True in production")
@@ -117,7 +109,7 @@ if __name__ == "__main__":
     print("=" * 50)
     print(f"Environment: {settings.ENVIRONMENT}")
     print(f"Database: {settings.MONGODB_URI[:50]}...")
-    print(f"Stripe: {'Enabled' if settings.ENABLE_STRIPE else 'Disabled'}")
+    print(f"Payouts: {'Enabled' if settings.ENABLE_PAYOUTS else 'Disabled'}")
     print(f"Emails: {'Enabled' if settings.ENABLE_EMAILS else 'Disabled'}")
     print(f"Slack: {'Enabled' if settings.ENABLE_SLACK_ALERTS else 'Disabled'}")
     print("=" * 50)

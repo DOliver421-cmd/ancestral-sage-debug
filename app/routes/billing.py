@@ -1,6 +1,6 @@
 """app/routes/billing.py — BillingModule API: credits, refunds, Sage sessions.
 
-Separate from payments.py (which handles Stripe). This module handles:
+Separate from payments.py (which handles online checkout). This module handles:
   - Site credits ledger (add, deduct, balance)
   - Refund requests (site credits default; cash requires Supervisor approval)
   - Sage Counseling sessions (conduct-triggered)

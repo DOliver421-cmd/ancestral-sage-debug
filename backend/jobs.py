@@ -10,7 +10,6 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
 
 from database import db_manager
-from billing.stripe_service import CreatorPayoutService
 from billing.financial_reporting import RevenueRecognitionService
 from config import settings
 
@@ -93,10 +92,10 @@ async def process_creator_payouts():
             logger.error("Database not initialized")
             return
 
-        creator_payout_service = CreatorPayoutService(db_manager.db, settings.STRIPE_API_KEY)
-
-        # Process monthly payouts
-        stats = await creator_payout_service.process_monthly_payouts()
+        # Payouts are processed manually via Lemon Squeezy / bank transfer.
+        # This job snapshots each creator's available balance into a pending
+        # payout record so the ops team can pay them out from the admin panel.
+        stats = await _snapshot_monthly_payouts()
 
         logger.info(f"✅ Creator payouts processed: {stats['processed']} successful, {stats['failed']} failed")
 
@@ -119,6 +118,43 @@ async def process_creator_payouts():
             f"Creator payout job failed: {e}",
             "critical"
         )
+
+
+async def _snapshot_monthly_payouts() -> dict:
+    """Snapshot creator available balances into pending manual payout records.
+
+    Stripe Connect auto-payouts were removed; payouts are settled manually
+    (Lemon Squeezy / PayPal / bank transfer) from the pending records.
+    """
+    processed = 0
+    failed = 0
+    try:
+        balances = db_manager.db.creator_balances
+        payouts = db_manager.db.creator_payouts
+        async for bal in balances.find({"amount_available": {"$gt": 0}}):
+            creator_id = bal["creator_id"]
+            amount = float(bal.get("amount_available", 0))
+            if amount <= 0:
+                continue
+            now = datetime.utcnow()
+            await payouts.insert_one({
+                "creator_id": creator_id,
+                "amount_requested": amount,
+                "amount_paid": 0.0,
+                "status": "pending_manual",
+                "requested_date": now,
+                "paid_date": None,
+                "failure_reason": None,
+            })
+            await balances.update_one(
+                {"creator_id": creator_id},
+                {"$set": {"amount_available": 0.0, "amount_pending": amount, "updated_at": now}},
+            )
+            processed += 1
+    except Exception as e:
+        logger.error(f"Payout snapshot error: {e}")
+        failed += 1
+    return {"processed": processed, "failed": failed}
 
 
 async def recognize_monthly_revenue():

@@ -138,27 +138,42 @@ async def seed_users():
                 else:
                     logger.error("EXEC_FORCE_RESET: email not found: %s", force_reset_email)
             else:
-                logger.warning("EXEC_FORCE_RESET (Mode A): resetting all exec seats to default passwords")
+                logger.warning("EXEC_FORCE_RESET (Mode A): resetting all exec seats")
                 _reset_seats = [
-                    (EXEC_ADMIN_EMAIL,  EXEC_DEFAULT_PASSWORD),
-                    (BACKUP_EXEC_EMAIL, BACKUP_EXEC_DEFAULT_PASSWORD),
-                    (NAM_EXEC_EMAIL,    NAM_EXEC_DEFAULT_PASSWORD),
+                    (EXEC_ADMIN_EMAIL,  "Delon Oliver",  EXEC_DEFAULT_PASSWORD),
+                    (BACKUP_EXEC_EMAIL, "Delon Oliver",  BACKUP_EXEC_DEFAULT_PASSWORD),
+                    (NAM_EXEC_EMAIL,    "NAM Oshun",     NAM_EXEC_DEFAULT_PASSWORD),
                 ]
-                for _r_email, _r_pw in _reset_seats:
+                for _r_email, _r_name, _r_pw in _reset_seats:
+                    _auto = False
+                    if not _r_pw:
+                        # Never hash an empty string as a password — generate and
+                        # email/log a fresh random one instead.
+                        _r_pw = _gen_pw()
+                        _auto = True
                     await db.users.update_one(
                         {"email": _r_email},
                         {"$set": {
                             "password_hash": hash_pw(_r_pw),
-                            "must_change_password": False,
+                            "must_change_password": True,
                             "is_active": True,
                             "force_reset_at": datetime.now(timezone.utc).isoformat(),
                         },
                         "$unset": {"login_locked_until": "", "login_failed_attempts": ""}},
                         upsert=False,
                     )
-                    logger.warning("EXEC_FORCE_RESET (Mode A): reset %s to default", _r_email)
+                    logger.warning("EXEC_FORCE_RESET (Mode A): reset %s (auto_pw=%s)", _r_email, _auto)
+                    if _auto:
+                        await _email_new_pw(_r_email, _r_name, _r_pw)
                 from app.utils.audit import audit
                 await audit(None, "exec.force_reset.all_seats", meta={"reason": "EXEC_FORCE_RESET=1, no email specified"})
+            # A stale executive IP whitelist can keep exec routes blocked even
+            # after a successful reset — clear it so the panel is reachable.
+            try:
+                await db.ip_whitelist.delete_many({"role": "executive_admin"})
+                logger.warning("EXEC_FORCE_RESET: cleared executive IP whitelist")
+            except Exception:
+                pass
     except Exception as _exc:
         logger.error("EXEC_FORCE_RESET failed: %s", _exc)
 

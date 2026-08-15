@@ -8,7 +8,6 @@ from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 from .config import settings, validate_config
 from .database import init_database, close_database, db_manager
-from .billing.stripe_service import StripeService, CreatorPayoutService
 from .billing.financial_reporting import FinancialReportingService
 from .billing import routes as billing_routes
 # Standard absolute import layout definition
@@ -25,15 +24,10 @@ async def lifespan(app: FastAPI):
         validate_config()
         logger.info(" Initializing database...")
         await init_database()
-        logger.info(" Initializing Stripe service...")
-        stripe_service = StripeService(db_manager.db, settings.STRIPE_API_KEY)
-        creator_payout_service = CreatorPayoutService(db_manager.db, settings.STRIPE_API_KEY)
         logger.info(" Initializing financial reporting...")
         financial_reporting = FinancialReportingService(db_manager.db)
         app.state.db = db_manager.db
-        app.state.stripe_service = stripe_service
-        app.state.creator_payout_service = creator_payout_service
-        app.state.financial_reporting = financial_reporting
+        app.state.financial_service = financial_reporting
         app.state.settings = settings
         logger.info(" All services initialized successfully")
         logger.info("=" * 60)
@@ -64,8 +58,7 @@ def create_app() -> FastAPI:
     async def health_check():
         return {
             "status": "healthy", 
-            "environment": settings.ENVIRONMENT, 
-            "stripe_enabled": settings.ENABLE_STRIPE
+            "environment": settings.ENVIRONMENT
         }
         
     app.include_router(billing_routes.router)
