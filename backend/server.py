@@ -2557,6 +2557,15 @@ async def forgot_password(body: ForgotPasswordReq, request: Request):
         email_sent = await _send_reset_email(
             user_doc["email"], raw, user_doc.get("full_name", "there"), base_url=_req_base,
         )
+        if not email_sent:
+            # Owner escape hatch: no email provider configured (or delivery failed) —
+            # surface the one-time recovery link in the server log so the operator
+            # can complete the flow from Railway logs. Link expires in
+            # RESET_TOKEN_TTL_MIN minutes and is single-use.
+            logger.warning(
+                "PASSWORD RESET: email could not be delivered to %s — one-time recovery link (expires in %s min): %s",
+                user_doc["email"], RESET_TOKEN_TTL_MIN, _build_reset_url(raw, base=_req_base),
+            )
         # Dev/admin convenience: when explicitly enabled, return the raw
         # token so the requester (or curl-based tests) can complete the
         # flow without an email provider.  Defaults to OFF in production.
