@@ -119,9 +119,9 @@ async def _send_via_gmail(to_email: str, subject: str, html: str) -> bool:
         return False
 
 
-async def _send_reset_email(to_email: str, raw_token: str, full_name: str = "there") -> bool:
+async def _send_reset_email(to_email: str, raw_token: str, full_name: str = "there", base_url: str = "") -> bool:
     """Send password reset email. Tries Resend first, falls back to Gmail SMTP."""
-    reset_url = _build_reset_url(raw_token)
+    reset_url = _build_reset_url(raw_token, base=base_url or None)
     if reset_url.startswith("/"):
         logger.warning("PUBLIC_APP_URL not set — cannot build absolute reset URL for email.")
         return False

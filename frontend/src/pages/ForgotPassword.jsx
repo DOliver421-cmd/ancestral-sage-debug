@@ -19,13 +19,17 @@ export default function ForgotPassword() {
       await api.post("/auth/forgot-password", { email });
       setSubmitted(true);
     } catch (err) {
-      // Only ratelimit/validation errors land here (4xx/5xx). Show the
-      // backend message but treat the form as still submitted to avoid
-      // probing user-existence patterns.
-      const detail = err?.response?.data?.detail;
-      if (typeof detail === "string") toast.error(detail);
-      else toast.error("Could not submit. Please try again in a moment.");
-      setSubmitted(true);
+      if (err?.response) {
+        // Server answered (4xx/5xx, e.g. rate limit): show the backend message
+        // but still show the submitted state so account existence isn't leaked.
+        const detail = err?.response?.data?.detail;
+        if (typeof detail === "string") toast.error(detail);
+        setSubmitted(true);
+      } else {
+        // Network / CORS failure — the request never reached the server.
+        // Do NOT claim it was received; tell the user plainly to retry.
+        toast.error("Could not reach the server. Check your connection and try again.");
+      }
     } finally {
       setBusy(false);
     }

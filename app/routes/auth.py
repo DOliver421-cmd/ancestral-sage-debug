@@ -456,9 +456,25 @@ async def forgot_password(body: ForgotPasswordReq, request: Request):
         })
         await audit(user_doc["id"], "auth.password_reset.requested",
                     target=user_doc["id"], meta={"ip": ip})
+        # Derive base URL from request if PUBLIC_APP_URL is not explicitly set,
+        # so the emailed link points at the origin the user is actually on.
+        _req_base = os.environ.get("PUBLIC_APP_URL", "")
+        if not _req_base:
+            _scheme = request.headers.get("x-forwarded-proto", "https")
+            _host = request.headers.get("host", "")
+            if _host:
+                _req_base = f"{_scheme}://{_host}"
         email_sent = await _send_reset_email(
-            user_doc["email"], raw, user_doc.get("full_name", "there"),
+            user_doc["email"], raw, user_doc.get("full_name", "there"), base_url=_req_base,
         )
+        if not email_sent:
+            # Owner escape hatch: no email provider configured (or delivery failed) —
+            # surface the one-time recovery link in the server log so the operator
+            # can complete the flow from logs. Link is single-use and expires.
+            logger.warning(
+                "PASSWORD RESET: email could not be delivered to %s — one-time recovery link (expires in %s min): %s",
+                user_doc["email"], RESET_TOKEN_TTL_MIN, _build_reset_url(raw, base=_req_base),
+            )
         if os.environ.get("DEV_RETURN_RESET_TOKEN") == "1":
             return {"ok": True, "email_sent": email_sent,
                     "_dev_token": raw, "_dev_url": _build_reset_url(raw)}
