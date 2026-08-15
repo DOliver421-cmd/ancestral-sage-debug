@@ -178,7 +178,8 @@ export default function AppShell({ children }) {
           </NavSection>
 
           <NavSection label="Commerce" collapsed={collapsed}>
-            {nl("/store",           "Store",            ShoppingBag,    "nav-store")}
+            {nl("/merch",           "Store",            ShoppingBag,    "nav-store")}
+            {nl("/store",           "Media Store",      Music,          "nav-media-store")}
             {nl("/plans",           "Plans & Pricing",  Star,           "nav-plans")}
             {nl("/subscribe",       "Membership",       HandHelping,    "nav-subscribe")}
             {nl("/donate",          "Donate",           Heart,          "nav-donate")}

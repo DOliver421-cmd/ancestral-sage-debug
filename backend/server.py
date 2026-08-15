@@ -201,14 +201,14 @@ async def add_security_headers(request: Request, call_next):
     # Strict transport security (force HTTPS)
     response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
     # Content Security Policy (restrict resource loading)
-    response.headers["Content-Security-Policy"] = "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self' https:; frame-ancestors 'none'; base-uri 'self'; form-action 'self'"
+    response.headers["Content-Security-Policy"] = "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self' https:; frame-src https://namoshun.gumroad.com https://gumroad.com; frame-ancestors 'none'; base-uri 'self'; form-action 'self'"
     # Referrer policy (limit referrer disclosure)
     response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
     # Permissions policy — allow microphone for voice input surfaces (Director, Supervisor, AI Tutor,
     # Sovereign, Orchestrator, Helper). Camera and geolocation remain blocked.
     response.headers["Permissions-Policy"] = "geolocation=(), microphone=(self), camera=()"
     # CSP: media-src includes blob: for TTS audio (createObjectURL) and data: for inline assets
-    response.headers["Content-Security-Policy"] = "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self' https:; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; media-src 'self' blob:"
+    response.headers["Content-Security-Policy"] = "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self' https:; frame-src https://namoshun.gumroad.com https://gumroad.com; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; media-src 'self' blob:"
     return response
 
 
@@ -15414,6 +15414,23 @@ app.include_router(ai_dispatcher_router)
 # BACKUP_ORIGIN (e.g. https://your-tunnel.trycloudflare.com) is auto-appended
 # so the home/backup server is always allowed without touching CORS_ORIGINS.
 _cors_origins = [o.strip() for o in os.environ.get('CORS_ORIGINS', '*').split(',') if o.strip()]
+# First-party origins are ALWAYS allowed (mirrors the BACKUP_ORIGIN auto-append).
+# This keeps www.morehelp.center / morehelp.center / wai-institute.org and the
+# Railway origin working even when CORS_ORIGINS is set to a partial list.
+_AUTO_CORS_ORIGINS = [
+    "https://www.morehelp.center",
+    "https://morehelp.center",
+    "https://wai-institute.org",
+    "https://www.wai-institute.org",
+    "https://ancestral-sage-debug-production.up.railway.app",
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+    "http://localhost:8001",
+]
+if "*" not in _cors_origins:
+    for _origin in _AUTO_CORS_ORIGINS:
+        if _origin not in _cors_origins:
+            _cors_origins.append(_origin)
 if BACKUP_ORIGIN and BACKUP_ORIGIN not in _cors_origins and '*' not in _cors_origins:
     _cors_origins.append(BACKUP_ORIGIN)
     logger.info("CORS: Backup origin added: %s", BACKUP_ORIGIN)
