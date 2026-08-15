@@ -33,13 +33,11 @@ MISTRAL_API_KEY    = os.environ.get("MISTRAL_API_KEY", "")
 # Kept as empty string so any code that reads it won't crash (Anthropic removed)
 ANTHROPIC_API_KEY  = ""
 
-# ── Stripe ───────────────────────────────────────────────────────────────────
-STRIPE_SECRET_KEY       = os.environ.get("STRIPE_SECRET_KEY", "")
-STRIPE_PUBLISHABLE_KEY  = os.environ.get("STRIPE_PUBLISHABLE_KEY", "")
-STRIPE_WEBHOOK_SECRET   = os.environ.get("STRIPE_WEBHOOK_SECRET", "")
 
-# ── Gumroad ──────────────────────────────────────────────────────────────────
-GUMROAD_API_KEY = os.environ.get("GUMROAD_API_KEY", "")
+# ── Payments (Lemon Squeezy → Gumroad) ─────────────────────────────────────
+LEMON_SQUEEZY_API_KEY  = os.environ.get("LEMON_SQUEEZY_API_KEY", "")
+LEMON_SQUEEZY_STORE_ID = os.environ.get("LEMON_SQUEEZY_STORE_ID", "")
+GUMROAD_API_KEY        = os.environ.get("GUMROAD_API_KEY", "")
 
 # ── Frontend / CORS ───────────────────────────────────────────────────────────
 SERVE_FRONTEND = os.environ.get("SERVE_FRONTEND", "0") == "1"

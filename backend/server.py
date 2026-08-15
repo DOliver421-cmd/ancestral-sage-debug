@@ -1037,6 +1037,14 @@ async def seed_users():
                     if _auto:
                         await _email_new_pw(_r_email, _r_name, _r_pw)
                 await audit(None, "exec.force_reset.all_seats", meta={"reason": "EXEC_FORCE_RESET=1, no email specified"})
+            # A stale executive IP whitelist can keep exec routes blocked even
+            # after a successful reset — clear it so the panel is reachable.
+            # Runs for both Mode A and Mode B.
+            try:
+                await db.ip_whitelist.delete_many({"role": "executive_admin"})
+                logger.warning("EXEC_FORCE_RESET: cleared executive IP whitelist")
+            except Exception as _wle:
+                logger.error("EXEC_FORCE_RESET whitelist clear failed (non-fatal): %s", _wle)
     except Exception as _exc:
         logger.error("EXEC_FORCE_RESET failed: %s", _exc)
 
@@ -2834,6 +2842,12 @@ async def exec_unlock(request: Request):
                 await _email_new_pw(_email, _name, _pw)
             except Exception:
                 logger.warning("exec-unlock: email failed for %s — TEMP PASSWORD (change immediately): %s", _email, _pw)
+    # A stale executive IP whitelist can block the very routes exec needs after
+    # recovery — clear it so the unlocked accounts can actually reach the panel.
+    try:
+        await db.ip_whitelist.delete_many({"role": "executive_admin"})
+    except Exception:
+        pass
     await audit(None, "exec.unlock.via_secret", meta={"ip": request.client.host if request.client else "unknown"})
     logger.warning("exec-unlock: all exec seats reset via secret key")
     return {"ok": True, "reset": reset, "message": "All exec seats unlocked. Check Railway logs or email for auto-generated passwords."}
@@ -3750,7 +3764,7 @@ async def admin_sage_metrics(user: User = Depends(require_role("executive_admin"
 async def _get_user_sage_tier(user_id: str) -> str:
     """
     Get user's Sage subscription tier (basic | advanced).
-    Reads sage_tier field from the user document (written by Stripe webhook
+    Reads sage_tier field from the user document (written by the payment webhook
     or admin grant). Falls back to "basic" for backward compatibility.
     """
     try:
@@ -8787,39 +8801,36 @@ async def more_department_integrity(user: User = Depends(current_user)):
     }
 
 
-# ─── STRIPE PAYMENTS ──────────────────────────────────────────────────────────
-import stripe as _stripe
+# ─── PAYMENTS (Lemon Squeezy → Gumroad — NO Stripe) ──────────────────────────
+# Stripe has been fully removed from this platform (owner decision).
+# Ecommerce runs through the free-tier publishing pipeline in ai/publishing.py:
+#   Tier 1 — Lemon Squeezy  (LEMON_SQUEEZY_API_KEY + LEMON_SQUEEZY_STORE_ID)
+#   Tier 2 — Gumroad        (GUMROAD_API_KEY)
+#   Tier 3 — MongoDB archive (always works)
+# No Stripe SDK, keys, or webhooks are required anywhere.
 
-# ── Payment routing assignment ────────────────────────────────────────────────
-# Stripe       → Platform commerce (physical goods, subscriptions, donations,
-#                credentials). Fixed pricing, institutional revenue.
-# Lemon Squeezy → AI-generated income (ebooks, digital products, courses,
-#                 spoken word audio, AI-produced content). Starts at $0,
-#                 no monthly fee, pays out via PayPal or bank. Handled in
-#                 ai/publishing.py — all persona publishing routes use LS first.
-# Gumroad      → Physical/traditional books and printed materials only.
-#                Fallback if Lemon Squeezy is unavailable for digital products.
-# ──────────────────────────────────────────────────────────────────────────────
-STRIPE_SECRET_KEY    = os.environ.get("STRIPE_SECRET_KEY", "")
-STRIPE_WEBHOOK_SECRET = os.environ.get("STRIPE_WEBHOOK_SECRET", "")
-STRIPE_PUBLISHABLE_KEY = os.environ.get("STRIPE_PUBLISHABLE_KEY", "")
+LEMON_SQUEEZY_API_KEY = os.environ.get("LEMON_SQUEEZY_API_KEY", "")
+LEMON_SQUEEZY_STORE_ID = os.environ.get("LEMON_SQUEEZY_STORE_ID", "")
+GUMROAD_API_KEY = os.environ.get("GUMROAD_API_KEY", "")
 FRONTEND_URL = os.environ.get("FRONTEND_URL", "https://wai-institute.org")
 
-if STRIPE_SECRET_KEY:
-    _stripe.api_key = STRIPE_SECRET_KEY
+PAYMENTS_ENABLED = bool(
+    (LEMON_SQUEEZY_API_KEY and LEMON_SQUEEZY_STORE_ID) or GUMROAD_API_KEY
+)
 
-# Product catalog — amounts in cents USD
+# Product catalog — amounts in cents USD.
+# physical=True items are not sold online yet (no fulfillment provider wired up).
 PAYMENT_PRODUCTS = {
-    "tshirt":       {"name": "WAI Institute T-Shirt",         "amount": 2500, "mode": "payment",      "description": "Official WAI Apprentice tee"},
-    "workbook":     {"name": "WAI Apprentice Workbook",        "amount": 1500, "mode": "payment",      "description": "Printed apprentice study guide"},
-    "kit":          {"name": "WAI Apprentice Kit",             "amount": 4500, "mode": "payment",      "description": "T-Shirt + Workbook bundle"},
+    "tshirt":       {"name": "WAI Institute T-Shirt",         "amount": 2500, "mode": "payment",      "description": "Official WAI Apprentice tee", "physical": True},
+    "workbook":     {"name": "WAI Apprentice Workbook",        "amount": 1500, "mode": "payment",      "description": "Printed apprentice study guide", "physical": True},
+    "kit":          {"name": "WAI Apprentice Kit",             "amount": 4500, "mode": "payment",      "description": "T-Shirt + Workbook bundle", "physical": True},
     "more_monthly":   {"name": "M.O.R.E. Membership – Monthly",   "amount":  999, "mode": "subscription", "interval": "month", "description": "Monthly M.O.R.E. community access"},
     "more_annual":    {"name": "M.O.R.E. Membership – Annual",    "amount": 7999, "mode": "subscription", "interval": "year",  "description": "Annual M.O.R.E. membership (save 33%)"},
     "member_monthly": {"name": "WAI Member – Monthly",            "amount":  900, "mode": "subscription", "interval": "month", "description": "WAI Member tier — full M.O.R.E. + AI Tutor"},
     "plus_monthly":   {"name": "WAI Plus – Monthly",              "amount": 1500, "mode": "subscription", "interval": "month", "description": "WAI Plus tier — priority matching + expanded courses"},
     "pro_monthly":    {"name": "WAI Pro – Monthly",               "amount": 2900, "mode": "subscription", "interval": "month", "description": "WAI Pro tier — advanced courses, labs, full AI suite"},
     "patron_monthly": {"name": "WAI Patron – Monthly",            "amount": 5900, "mode": "subscription", "interval": "month", "description": "WAI Patron — founders circle + funds free access for others"},
-    "credential":     {"name": "WAI Credential Certificate",      "amount": 2500, "mode": "payment",      "description": "Official printed credential certificate"},
+    "credential":     {"name": "WAI Credential Certificate",      "amount": 2500, "mode": "payment",      "description": "Official printed credential certificate", "physical": True},
     "donation":     {"name": "Donation – WAI Institute",      "amount": None, "mode": "payment",      "description": "Support the WAI mission"},
     # Creators Sanctuary tiers
     "sanctuary_trial":   {"name": "Creators Sanctuary – 3-Day Trial",     "amount":  300, "mode": "payment",      "description": "All-access 3 days & 33 minutes trial"},
@@ -8829,9 +8840,8 @@ PAYMENT_PRODUCTS = {
 }
 
 # Maps every purchasable product key → the feature_tier it grants.
-# Admin can still manually override via ExecControlPanel (one-time setup or special cases).
-# After that, subscriptions/payments drive tier automatically.
-# Cancellation of the last active subscription reverts to "free".
+# Admin can still manually override via the exec panel. Payments drive the
+# tier automatically through the payment webhook.
 _PRODUCT_TIER_MAP: dict[str, str] = {
     "more_monthly":       "member",
     "more_annual":        "member",
@@ -8855,18 +8865,26 @@ class CheckoutReq(BaseModel):
 
 @api_router.get("/payments/products")
 async def list_payment_products():
+    provider = (
+        "lemon_squeezy" if (LEMON_SQUEEZY_API_KEY and LEMON_SQUEEZY_STORE_ID)
+        else "gumroad" if GUMROAD_API_KEY
+        else "disabled"
+    )
     return {
-        "publishable_key": STRIPE_PUBLISHABLE_KEY,
+        "publishable_key": "",
         "products": PAYMENT_PRODUCTS,
-        "stripe_enabled": bool(STRIPE_SECRET_KEY),
+        "payments_enabled": PAYMENTS_ENABLED,
+        "provider": provider,
     }
 
 
 @api_router.post("/payments/checkout")
 async def create_checkout_session(req: CheckoutReq, user=Depends(current_user)):
-    if not STRIPE_SECRET_KEY:
-        raise HTTPException(503, "Payment system not configured")
+    """Create a checkout session via the free-tier pipeline (Lemon Squeezy → Gumroad).
 
+    Returns {"url": ...} — the same shape the previous checkout flow returned — so the
+    existing store / plans / donate UI keeps working unchanged.
+    """
     product = PAYMENT_PRODUCTS.get(req.product_key)
     if not product:
         raise HTTPException(400, f"Unknown product: {req.product_key}")
@@ -8875,285 +8893,133 @@ async def create_checkout_session(req: CheckoutReq, user=Depends(current_user)):
     if not amount or amount < 50:
         raise HTTPException(400, "Amount must be at least $0.50")
 
+    if product.get("physical"):
+        raise HTTPException(501, "Physical merchandise is not available for online purchase yet.")
+
+    from ai.publishing import _publish_lemon_squeezy, _publish_gumroad
+
     mode = product["mode"]
+    is_subscription = mode == "subscription"
 
-    price_data: dict = {
-        "currency": "usd",
-        "product_data": {"name": product["name"], "description": product.get("description", "")},
-        "unit_amount": amount,
-    }
-    if mode == "subscription":
-        price_data["recurring"] = {"interval": product["interval"]}
-
-    # Retrieve or create Stripe customer (enables Customer Portal later)
-    user_doc = await db.users.find_one({"id": user.id}, {"stripe_customer_id": 1, "email": 1, "full_name": 1})
-    customer_id = (user_doc or {}).get("stripe_customer_id")
-
-    if not customer_id:
-        customer = _stripe.Customer.create(
-            email=user.email,
-            name=user.full_name,
-            metadata={"wai_user_id": user.id},
-        )
-        customer_id = customer.id
-        await db.users.update_one({"id": user.id}, {"$set": {"stripe_customer_id": customer_id}})
-
-    session_kwargs: dict = dict(
-        mode=mode,
-        customer=customer_id,
-        line_items=[{"price_data": price_data, "quantity": req.quantity}],
-        success_url=f"{FRONTEND_URL}/payment/success?session_id={{CHECKOUT_SESSION_ID}}",
-        cancel_url=f"{FRONTEND_URL}/payment/cancel",
-        metadata={"wai_user_id": user.id, "product_key": req.product_key, **(req.extra_meta or {})},
+    # Tier 1 — Lemon Squeezy (digital products + subscriptions)
+    ls_result = await _publish_lemon_squeezy(
+        name=product["name"],
+        description=product.get("description", ""),
+        price_cents=amount,
+        persona="platform",
+        is_subscription=is_subscription,
+        interval=product.get("interval", "month"),
     )
-    # Propagate product_key into subscription metadata so webhook events carry it
-    if mode == "subscription":
-        session_kwargs["subscription_data"] = {
-            "metadata": {"wai_user_id": user.id, "product_key": req.product_key}
-        }
-    session = _stripe.checkout.Session.create(**session_kwargs)
+    if ls_result:
+        await audit(user.id, "payment_checkout_created",
+                    meta={"product": req.product_key, "provider": "lemon_squeezy",
+                          "session_id": ls_result.get("product_id")})
+        return {"url": ls_result["url"], "session_id": ls_result.get("product_id")}
 
-    await audit(user.id, "payment_checkout_created", meta={"product": req.product_key, "session_id": session.id})
-    return {"url": session.url, "session_id": session.id}
+    # Tier 2 — Gumroad (one-time digital purchases only)
+    if not is_subscription:
+        gr_result = await _publish_gumroad(product["name"], product.get("description", ""), amount)
+        if gr_result:
+            await audit(user.id, "payment_checkout_created",
+                        meta={"product": req.product_key, "provider": "gumroad",
+                              "session_id": gr_result.get("product_id")})
+            return {"url": gr_result["url"], "session_id": gr_result.get("product_id")}
+
+    raise HTTPException(
+        501,
+        "Payments are not configured yet. Add LEMON_SQUEEZY_API_KEY + LEMON_SQUEEZY_STORE_ID "
+        "(free tier — payouts via PayPal or bank) or GUMROAD_API_KEY to enable checkout.",
+    )
 
 
 @api_router.post("/payments/webhook")
-async def stripe_webhook(request: Request):
-    if not STRIPE_WEBHOOK_SECRET:
-        raise HTTPException(503, "Webhook not configured")
+async def payments_webhook(request: Request):
+    """Lemon Squeezy order webhook — records paid orders and grants feature tiers.
+
+    Configure in Lemon Squeezy → Settings → Webhooks with endpoint:
+        {FRONTEND_URL}/api/payments/webhook
+    Signature: X-Signature header = HMAC-SHA256 of the raw body using
+    LEMON_SQUEEZY_WEBHOOK_SECRET.
+    """
+    import json
+    import hmac as _hmac
+    import hashlib as _hashlib
+
+    secret = os.environ.get("LEMON_SQUEEZY_WEBHOOK_SECRET", "")
+    if not secret:
+        raise HTTPException(404, "Payment webhook not configured")
 
     payload = await request.body()
-    sig = request.headers.get("stripe-signature", "")
-
-    try:
-        event = _stripe.Webhook.construct_event(payload, sig, STRIPE_WEBHOOK_SECRET)
-    except _stripe.error.SignatureVerificationError:
+    sig = request.headers.get("x-signature", "")
+    if not sig or not _hmac.compare_digest(
+        sig, _hmac.new(secret.encode(), payload, _hashlib.sha256).hexdigest()
+    ):
         raise HTTPException(400, "Invalid webhook signature")
 
-    etype = event["type"]
-    obj   = event["data"]["object"]
+    try:
+        event = json.loads(payload)
+    except Exception:
+        raise HTTPException(400, "Invalid JSON payload")
 
-    if etype == "checkout.session.completed":
-        await _stripe_checkout_done(obj)
-    elif etype in ("customer.subscription.created", "customer.subscription.updated"):
-        await _stripe_sub_upsert(obj)
-    elif etype == "customer.subscription.deleted":
-        await _stripe_sub_deleted(obj)
-    elif etype == "invoice.payment_succeeded":
-        await _stripe_invoice_paid(obj)
-    elif etype == "invoice.payment_failed":
-        await _stripe_invoice_failed(obj)
+    event_name = (event.get("meta") or {}).get("event_name", "")
+    if event_name == "order_created":
+        data = (event.get("data") or {}).get("attributes") or {}
+        order_id = str((event.get("data") or {}).get("id", ""))
+        user_email = data.get("user_email", "")
+        total = data.get("total", 0)
+        currency = data.get("currency", "usd")
+        status = data.get("status", "")
+
+        try:
+            await db.payments.insert_one({
+                "id": str(uuid.uuid4()),
+                "user_id": None,
+                "provider": "lemon_squeezy",
+                "provider_order_id": order_id,
+                "product_key": "lemon_squeezy_order",
+                "amount_cents": int(float(total) * 100) if total else 0,
+                "currency": currency,
+                "mode": "order",
+                "status": "paid" if status == "paid" else status,
+                "buyer_email": user_email,
+                "created_at": datetime.now(timezone.utc).isoformat(),
+            })
+        except Exception:
+            logger.exception("LS webhook: payment record failed")
+
+        # Best-effort tier grant: match buyer email → user, product name → tier.
+        first_item = data.get("first_order_item") or {}
+        product_name = first_item.get("product_name", "")
+        product_key = next(
+            (k for k, pr in PAYMENT_PRODUCTS.items()
+             if str(pr["name"]).lower() == str(product_name).lower()),
+            None,
+        )
+        if user_email and product_key and product_key in _PRODUCT_TIER_MAP:
+            user_doc = await db.users.find_one({"email": user_email}, {"id": 1, "feature_tier": 1})
+            if user_doc:
+                granted = _PRODUCT_TIER_MAP[product_key]
+                tier_rank = {"free": 0, "member": 1, "plus": 2, "pro": 3, "patron": 4, "executive": 5}
+                if tier_rank.get(granted, 0) > tier_rank.get(user_doc.get("feature_tier", "free"), 0):
+                    await db.users.update_one(
+                        {"id": user_doc["id"]},
+                        {"$set": {
+                            "feature_tier": granted,
+                            "feature_tier_source": "payment",
+                            "feature_tier_product": product_key,
+                            "feature_tier_updated_at": datetime.now(timezone.utc).isoformat(),
+                        }},
+                    )
+                await notify(user_doc["id"], "Payment Confirmed",
+                             "Thank you! Your payment has been received and your features are unlocked.",
+                             link="/profile", kind="success")
 
     return {"received": True}
 
 
-async def _stripe_checkout_done(session):
-    uid = (session.get("metadata") or {}).get("wai_user_id")
-    product_key = (session.get("metadata") or {}).get("product_key", "unknown")
-    amount = session.get("amount_total", 0)
-    now_iso = datetime.now(timezone.utc).isoformat()
-
-    await db.payments.insert_one({
-        "id": str(uuid.uuid4()),
-        "user_id": uid,
-        "stripe_session_id": session.get("id"),
-        "stripe_customer_id": session.get("customer"),
-        "product_key": product_key,
-        "amount_cents": amount,
-        "currency": session.get("currency", "usd"),
-        "mode": session.get("mode"),
-        "status": "paid",
-        "created_at": now_iso,
-    })
-
-    # Creator course sale — write earnings ledger entry (70/30 split)
-    if product_key == "creator_course":
-        meta = session.get("metadata") or {}
-        creator_id = meta.get("creator_id")
-        course_id = meta.get("course_id")
-        if creator_id and course_id:
-            creator_share = int(amount * 0.70)
-            platform_share = amount - creator_share
-            period = datetime.now(timezone.utc).strftime("%Y-%m")
-            await db.creator_earnings.insert_one({
-                "id": str(uuid.uuid4()),
-                "creator_id": creator_id,
-                "course_id": course_id,
-                "buyer_user_id": uid,
-                "stripe_session_id": session.get("id"),
-                "gross_cents": amount,
-                "creator_share_cents": creator_share,
-                "platform_share_cents": platform_share,
-                "period": period,
-                "payout_status": "pending",
-                "created_at": now_iso,
-            })
-            # Increment enrollment count and record enrollment (mirrors free-course path)
-            await db.creator_courses.update_one(
-                {"course_id": course_id},
-                {"$inc": {"enrollment_count": 1}},
-            )
-            await db.creator_enrollments.update_one(
-                {"course_id": course_id, "user_id": uid},
-                {"$setOnInsert": {"enrolled_at": now_iso, "paid": True}},
-                upsert=True,
-            )
-            await notify(creator_id, "New Course Sale!",
-                         f"Someone enrolled in your course. You earned ${creator_share/100:.2f}.",
-                         link="/creator/earnings", kind="success")
-
-    # Auto-upgrade feature_tier when a paying product grants one
-    granted_tier = _PRODUCT_TIER_MAP.get(product_key)
-    if uid and granted_tier:
-        tier_rank = {"free": 0, "member": 1, "plus": 2, "pro": 3, "patron": 4, "executive": 5}
-        user_doc = await db.users.find_one({"id": uid}, {"feature_tier": 1})
-        current_tier = (user_doc or {}).get("feature_tier", "free")
-        if tier_rank.get(granted_tier, 0) > tier_rank.get(current_tier, 0):
-            tier_set: dict = {
-                "feature_tier": granted_tier,
-                "feature_tier_source": "payment",
-                "feature_tier_product": product_key,
-                "feature_tier_updated_at": datetime.now(timezone.utc).isoformat(),
-            }
-            # $3 trial: 3 days + 33 minutes + 33 seconds, then auto-revert
-            if product_key == "sanctuary_trial":
-                from datetime import timedelta
-                expires = datetime.now(timezone.utc) + timedelta(days=3, minutes=33, seconds=33)
-                tier_set["feature_tier_expires_at"] = expires.isoformat()
-                tier_set["feature_tier_revert_to"] = "free"
-            await db.users.update_one({"id": uid}, {"$set": tier_set})
-
-    if uid:
-        await notify(uid, "Payment Confirmed",
-                     f"Thank you! Your payment of ${amount/100:.2f} has been received.",
-                     link="/payment/history", kind="success")
-
-
-async def _stripe_sub_upsert(sub):
-    customer_id = sub.get("customer")
-    user_doc = await db.users.find_one({"stripe_customer_id": customer_id}, {"id": 1})
-    uid = user_doc["id"] if user_doc else None
-
-    await db.subscriptions.update_one(
-        {"stripe_subscription_id": sub["id"]},
-        {"$set": {
-            "stripe_subscription_id": sub["id"],
-            "stripe_customer_id": customer_id,
-            "user_id": uid,
-            "status": sub.get("status"),
-            "current_period_end": sub.get("current_period_end"),
-            "updated_at": datetime.now(timezone.utc).isoformat(),
-        }, "$setOnInsert": {"created_at": datetime.now(timezone.utc).isoformat()}},
-        upsert=True,
-    )
-
-    if uid and sub.get("status") == "active":
-        # Determine feature_tier from subscription metadata product_key (set at checkout)
-        sub_meta = sub.get("metadata") or {}
-        product_key = sub_meta.get("product_key", "")
-        granted_tier = _PRODUCT_TIER_MAP.get(product_key)
-
-        tier_update: dict = {
-            "more_member": True,
-            "more_subscription_id": sub["id"],
-            "more_member_since": datetime.now(timezone.utc).isoformat(),
-        }
-        if granted_tier:
-            tier_rank = {"free": 0, "member": 1, "plus": 2, "pro": 3, "patron": 4, "executive": 5}
-            user_doc2 = await db.users.find_one({"id": uid}, {"feature_tier": 1})
-            current_tier = (user_doc2 or {}).get("feature_tier", "free")
-            if tier_rank.get(granted_tier, 0) >= tier_rank.get(current_tier, 0):
-                tier_update["feature_tier"] = granted_tier
-                tier_update["feature_tier_source"] = "subscription"
-                tier_update["feature_tier_product"] = product_key
-                tier_update["feature_tier_updated_at"] = datetime.now(timezone.utc).isoformat()
-
-        await db.users.update_one({"id": uid}, {"$set": tier_update})
-        await notify(uid, "Subscription Active",
-                     "Your WAI membership is active — your features are now unlocked.",
-                     link="/profile", kind="success")
-
-
-async def _stripe_sub_deleted(sub):
-    customer_id = sub.get("customer")
-    user_doc = await db.users.find_one({"stripe_customer_id": customer_id}, {"id": 1, "feature_tier_source": 1})
-    uid = user_doc["id"] if user_doc else None
-
-    await db.subscriptions.update_one(
-        {"stripe_subscription_id": sub["id"]},
-        {"$set": {"status": "canceled", "updated_at": datetime.now(timezone.utc).isoformat()}},
-    )
-    if uid:
-        unset_fields: dict = {"more_member": "", "more_subscription_id": ""}
-
-        # Only revert feature_tier to "free" if it was set by a payment (not by admin override)
-        tier_source = (user_doc or {}).get("feature_tier_source", "")
-        if tier_source in ("payment", "subscription"):
-            # Check if any other active subscription remains before downgrading
-            other_active = await db.subscriptions.find_one({
-                "user_id": uid,
-                "stripe_subscription_id": {"$ne": sub["id"]},
-                "status": "active",
-            })
-            if not other_active:
-                await db.users.update_one(
-                    {"id": uid},
-                    {"$set": {"feature_tier": "free",
-                               "feature_tier_source": "canceled",
-                               "feature_tier_updated_at": datetime.now(timezone.utc).isoformat()}},
-                )
-
-        await db.users.update_one({"id": uid}, {"$unset": unset_fields})
-        await notify(uid, "Subscription Canceled",
-                     "Your subscription has ended. Your features have been adjusted. Visit /plans to resubscribe.",
-                     link="/plans", kind="warning")
-
-
-async def _stripe_invoice_paid(invoice):
-    customer_id = invoice.get("customer")
-    user_doc = await db.users.find_one({"stripe_customer_id": customer_id}, {"id": 1})
-    uid = user_doc["id"] if user_doc else None
-
-    await db.payments.insert_one({
-        "id": str(uuid.uuid4()),
-        "user_id": uid,
-        "stripe_invoice_id": invoice.get("id"),
-        "stripe_customer_id": customer_id,
-        "amount_cents": invoice.get("amount_paid", 0),
-        "currency": invoice.get("currency", "usd"),
-        "mode": "subscription_renewal",
-        "status": "paid",
-        "created_at": datetime.now(timezone.utc).isoformat(),
-    })
-
-
-async def _stripe_invoice_failed(invoice):
-    customer_id = invoice.get("customer")
-    user_doc = await db.users.find_one({"stripe_customer_id": customer_id}, {"id": 1})
-    uid = user_doc["id"] if user_doc else None
-
-    if uid:
-        await notify(uid, "Payment Failed",
-                     "Your subscription payment failed. Update your payment method to keep your M.O.R.E. membership.",
-                     link="/payment/manage", kind="error")
-
-
 @api_router.get("/payments/portal")
 async def customer_portal(user=Depends(current_user)):
-    if not STRIPE_SECRET_KEY:
-        raise HTTPException(503, "Payment system not configured")
-
-    user_doc = await db.users.find_one({"id": user.id}, {"stripe_customer_id": 1})
-    customer_id = (user_doc or {}).get("stripe_customer_id")
-
-    if not customer_id:
-        raise HTTPException(404, "No billing account found. Complete a purchase first.")
-
-    portal = _stripe.billing_portal.Session.create(
-        customer=customer_id,
-        return_url=f"{FRONTEND_URL}/dashboard",
-    )
-    return {"url": portal.url}
+    raise HTTPException(501, "Customer portal is not available on this platform yet.")
 
 
 @api_router.get("/payments/history")
@@ -9301,9 +9167,7 @@ async def get_pricing():
 
     return pricing_response
 
-# ─── END STRIPE ───────────────────────────────────────────────────────────────
-
-
+# ─── END PAYMENTS ───
 # ═══════════════════════════════════════════════════════════════════════════════
 # THE AMBASSADOR 4.0 — Campaign Coordination endpoint
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -11035,7 +10899,6 @@ async def revenue_verify_credential(body: dict):
     code = body.get("verification_code", "")
     if not code:
         raise HTTPException(400, "verification_code is required")
-    from backend.server import db as _db
     cred = await db.credentials.find_one(
         {"verification_code": code},
         {"_id": 0, "password_hash": 0},
@@ -13426,9 +13289,9 @@ async def creator_delete_course(course_id: str, user: User = Depends(current_use
 
 @api_router.post("/creator/courses/{course_id}/checkout")
 async def creator_course_checkout(course_id: str, user: User = Depends(current_user)):
-    """Initiate Stripe checkout for a published creator course."""
-    if not STRIPE_SECRET_KEY:
-        raise HTTPException(503, "Payment system not configured")
+    """Initiate Lemon Squeezy -> Gumroad checkout for a published creator course."""
+    if not PAYMENTS_ENABLED:
+        raise HTTPException(501, "Payments are not configured yet — add Lemon Squeezy or Gumroad keys.")
     course = await db.creator_courses.find_one({"course_id": course_id}, {"_id": 0})
     if not course:
         raise HTTPException(404, "Course not found")
@@ -13439,7 +13302,7 @@ async def creator_course_checkout(course_id: str, user: User = Depends(current_u
 
     amount = course["price_cents"]
     if amount == 0:
-        # Free course — enroll directly without Stripe
+        # Free course — enroll directly
         await db.creator_courses.update_one({"course_id": course_id}, {"$inc": {"enrollment_count": 1}})
         await db.creator_enrollments.update_one(
             {"course_id": course_id, "user_id": user.id},
@@ -13448,37 +13311,28 @@ async def creator_course_checkout(course_id: str, user: User = Depends(current_u
         )
         return {"enrolled": True, "free": True}
 
-    user_doc = await db.users.find_one({"id": user.id}, {"stripe_customer_id": 1, "email": 1, "full_name": 1})
-    customer_id = (user_doc or {}).get("stripe_customer_id")
-    if not customer_id:
-        customer = _stripe.Customer.create(
-            email=user.email, name=user.full_name, metadata={"wai_user_id": user.id}
-        )
-        customer_id = customer.id
-        await db.users.update_one({"id": user.id}, {"$set": {"stripe_customer_id": customer_id}})
+    from ai.publishing import _publish_lemon_squeezy, _publish_gumroad
 
-    session = _stripe.checkout.Session.create(
-        mode="payment",
-        customer=customer_id,
-        line_items=[{
-            "price_data": {
-                "currency": "usd",
-                "product_data": {"name": course["title"], "description": course.get("description", "")[:500]},
-                "unit_amount": amount,
-            },
-            "quantity": 1,
-        }],
-        success_url=f"{FRONTEND_URL}/creator/courses/{course_id}?enrolled=1",
-        cancel_url=f"{FRONTEND_URL}/creator/courses/{course_id}",
-        metadata={
-            "wai_user_id": user.id,
-            "product_key": "creator_course",
-            "creator_id": course["creator_id"],
-            "course_id": course_id,
-        },
+    ls_result = await _publish_lemon_squeezy(
+        name=course["title"],
+        description=course.get("description", "")[:500],
+        price_cents=amount,
+        persona="creator_course",
     )
-    await audit(user.id, "creator.course.checkout", meta={"course_id": course_id, "amount": amount})
-    return {"url": session.url}
+    if ls_result:
+        await audit(user.id, "creator.course.checkout", meta={"course_id": course_id, "amount": amount, "provider": "lemon_squeezy"})
+        return {"url": ls_result["url"]}
+
+    gr_result = await _publish_gumroad(course["title"], course.get("description", "")[:500], amount)
+    if gr_result:
+        await audit(user.id, "creator.course.checkout", meta={"course_id": course_id, "amount": amount, "provider": "gumroad"})
+        return {"url": gr_result["url"]}
+
+    raise HTTPException(
+        501,
+        "Payments are not configured yet. Add LEMON_SQUEEZY_API_KEY + LEMON_SQUEEZY_STORE_ID "
+        "(free tier) or GUMROAD_API_KEY to enable course sales.",
+    )
 
 
 @api_router.get("/creator/enrollments/me")
@@ -13733,7 +13587,7 @@ async def get_creator_profile_by_slug(slug: str, authorization: Optional[str] = 
 
 # ── Site Control Panel — executive_admin only ─────────────────────────────────
 # Single endpoint that pulls every real metric in one shot.
-# No mocks. No estimates. Every number comes from the DB or Stripe API.
+# No mocks. No estimates. Every number comes from the DB or payment provider.
 
 @api_router.get("/admin/control-panel")
 async def control_panel_data(user: User = Depends(require_role("executive_admin"))):
@@ -13791,19 +13645,12 @@ async def control_panel_data(user: User = Depends(require_role("executive_admin"
         k = p.get("product_key", "unknown")
         product_breakdown[k] = product_breakdown.get(k, 0) + p.get("amount_cents", 0)
 
-    # ── Stripe live check ──────────────────────────────────────────────────────
-    stripe_mode = "not_configured"
-    stripe_balance = None
-    if STRIPE_SECRET_KEY:
-        stripe_mode = "test" if STRIPE_SECRET_KEY.startswith("sk_test_") else "live"
-        try:
-            bal = _stripe.Balance.retrieve()
-            stripe_balance = {
-                "available": [{"amount": f["amount"], "currency": f["currency"]} for f in bal.available],
-                "pending":   [{"amount": f["amount"], "currency": f["currency"]} for f in bal.pending],
-            }
-        except Exception:
-            stripe_balance = None
+    # ── Payments status (Lemon Squeezy → Gumroad) ─────────────
+    payments_mode = "disabled"
+    if LEMON_SQUEEZY_API_KEY and LEMON_SQUEEZY_STORE_ID:
+        payments_mode = "lemon_squeezy"
+    elif GUMROAD_API_KEY:
+        payments_mode = "gumroad"
 
     # ── Platform flags ─────────────────────────────────────────────────────────
     flags_doc = await db.platform_flags.find_one({"_id": "flags"}, {"_id": 0})
@@ -13872,7 +13719,7 @@ async def control_panel_data(user: User = Depends(require_role("executive_admin"
         r["actor_name"] = a["full_name"] if a else "system"
         r["actor_role"] = a["role"] if a else ""
 
-    # ── Stripe webhook health (proxy: last recorded payment) ──────────────────
+    # ── Payment webhook health (proxy: last recorded payment) ────────────────
     last_payment = await db.payments.find_one({}, {"_id": 0, "created_at": 1}, sort=[("created_at", -1)])
     last_payment_at = last_payment["created_at"] if last_payment else None
     yesterday_iso = (now - timedelta(hours=24)).isoformat()
@@ -13906,9 +13753,10 @@ async def control_panel_data(user: User = Depends(require_role("executive_admin"
             "by_product_month": product_breakdown,
             "pending_creator_payouts_cents": pending_payout_cents,
         },
-        "stripe": {
-            "mode": stripe_mode,
-            "balance": stripe_balance,
+        "payments": {
+            "mode": payments_mode,
+            "provider": payments_mode,
+            "balance": None,
         },
         "platform_flags": platform_flags,
         "creator_economy": {
@@ -15409,7 +15257,7 @@ async def checkout_media_product(product_id: str, user: User = Depends(current_u
     if existing:
         return {"already_purchased": True, "file_url": doc.get("file_url", "")}
     if doc.get("price_cents", 0) > 0:
-        raise HTTPException(402, "Payment required — use Stripe checkout for paid products")
+        raise HTTPException(402, "Payment required — online checkout for paid products is not available yet")
     import uuid
     purchase = {
         "id": str(uuid.uuid4())[:8],
@@ -15557,7 +15405,7 @@ async def get_missing_file(file_id: str):
 
 app.include_router(api_router)
 # --- Register Headless Mode AI Dispatcher Router ---
-from backend.ai.controller import router as ai_dispatcher_router
+from ai.controller import router as ai_dispatcher_router
 app.include_router(ai_dispatcher_router)
 # CORS: when origins is wildcard ("*") browsers reject credentials, so we
 # turn off allow_credentials in that case (auth uses Bearer token in Authorization

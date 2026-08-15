@@ -53,21 +53,21 @@ class DatabaseManager:
         # Subscriptions
         await self._ensure_collection("subscriptions")
         await self.db.subscriptions.create_index("user_id")
-        await self.db.subscriptions.create_index("stripe_subscription_id", unique=True, sparse=True)
+        await self.db.subscriptions.create_index("provider_subscription_id", unique=True, sparse=True)
         await self.db.subscriptions.create_index([("status", 1), ("billing_period_end", 1)])
         logger.info("✅ Subscriptions collection ready")
 
         # Invoices
         await self._ensure_collection("invoices")
         await self.db.invoices.create_index("subscription_id")
-        await self.db.invoices.create_index("stripe_invoice_id", unique=True, sparse=True)
+        await self.db.invoices.create_index("provider_invoice_id", unique=True, sparse=True)
         await self.db.invoices.create_index([("status", 1), ("due_date", 1)])
         logger.info("✅ Invoices collection ready")
 
         # Payment Methods
         await self._ensure_collection("payment_methods")
         await self.db.payment_methods.create_index("user_id")
-        await self.db.payment_methods.create_index("stripe_payment_method_id", unique=True)
+        await self.db.payment_methods.create_index("provider_payment_method_id", unique=True)
         logger.info("✅ Payment methods collection ready")
 
         # Usage Events (for usage-based billing)

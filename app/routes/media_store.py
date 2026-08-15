@@ -1,6 +1,7 @@
 """app/routes/media_store.py — Upload-and-sell system for NAM Oshun.
 
-GridFS-backed file storage + Stripe checkout for albums, tracks, PDFs, etc.
+GridFS-backed file storage + free-tier checkout (Lemon Squeezy → Gumroad)
+for albums, tracks, PDFs, etc. Stripe was fully removed from this platform.
 """
 import logging
 import os
@@ -8,7 +9,6 @@ import uuid
 from datetime import datetime, timezone
 from typing import Optional
 
-import stripe as _stripe
 from bson import ObjectId
 from fastapi import APIRouter, Depends, Form, HTTPException, Request, UploadFile
 from fastapi.responses import StreamingResponse
@@ -22,12 +22,10 @@ from app.security.auth import current_user
 logger = logging.getLogger("lcewai")
 router = APIRouter()
 
-STRIPE_SECRET_KEY = os.environ.get("STRIPE_SECRET_KEY", "")
-STRIPE_WEBHOOK_SECRET = os.environ.get("STRIPE_WEBHOOK_SECRET", "")
+LEMON_SQUEEZY_API_KEY = os.environ.get("LEMON_SQUEEZY_API_KEY", "")
+LEMON_SQUEEZY_STORE_ID = os.environ.get("LEMON_SQUEEZY_STORE_ID", "")
+GUMROAD_API_KEY = os.environ.get("GUMROAD_API_KEY", "")
 FRONTEND_URL = os.environ.get("FRONTEND_URL", "https://morehelp.center")
-
-if STRIPE_SECRET_KEY:
-    _stripe.api_key = STRIPE_SECRET_KEY
 
 
 def _gridfs_bucket():
@@ -291,13 +289,10 @@ async def delete_product(product_id: str, user: User = Depends(current_user)):
     return {"deleted": True}
 
 
-# ── Stripe Checkout ───────────────────────────────────────────────────────────
+# ── Checkout (Lemon Squeezy → Gumroad) ───────────────────────────────────────
 
 @router.post("/media/products/{product_id}/checkout")
 async def create_checkout(product_id: str, user: User = Depends(current_user)):
-    if not STRIPE_SECRET_KEY:
-        raise HTTPException(503, "Stripe not configured")
-
     prod = await db.media_products.find_one({"id": product_id}, {"_id": 0})
     if not prod:
         raise HTTPException(404, "Product not found")
@@ -306,83 +301,105 @@ async def create_checkout(product_id: str, user: User = Depends(current_user)):
     if prod.get("price_cents", 0) <= 0:
         raise HTTPException(400, "Use free download for price=0 products")
 
-    session = _stripe.checkout.Session.create(
-        mode="payment",
-        line_items=[{
-            "price_data": {
-                "currency": "usd",
-                "unit_amount": prod["price_cents"],
-                "product_data": {
-                    "name": prod["title"],
-                    "description": prod.get("description") or "",
-                    **({"images": [prod["cover_url"]]} if prod.get("cover_url") else {}),
-                },
-            },
-            "quantity": 1,
-        }],
-        allow_promotion_codes=True,  # lets NAM Oshun create discount codes in Stripe dashboard
-        customer_email=user.email if hasattr(user, "email") else None,
-        success_url=f"{FRONTEND_URL}/store?success=1&session_id={{CHECKOUT_SESSION_ID}}",
-        cancel_url=f"{FRONTEND_URL}/store",
-        metadata={
+    from ai.publishing import _publish_lemon_squeezy, _publish_gumroad
+
+    # Tier 1 — Lemon Squeezy
+    ls_result = await _publish_lemon_squeezy(
+        name=prod["title"],
+        description=prod.get("description") or "",
+        price_cents=prod["price_cents"],
+        persona="media",
+        is_subscription=False,
+    )
+    if ls_result and ls_result.get("url"):
+        await db.media_checkout_events.insert_one({
+            "id": str(uuid.uuid4()),
             "product_id": product_id,
             "buyer_user_id": str(user.id),
             "buyer_email": user.email if hasattr(user, "email") else "",
-            "product_title": prod["title"],
-        },
+            "provider": "lemon_squeezy",
+            "created_at": _now(),
+        })
+        return {"checkout_url": ls_result["url"]}
+
+    # Tier 2 — Gumroad (one-time digital purchases only)
+    gr_result = await _publish_gumroad(prod["title"], prod.get("description") or "", prod["price_cents"])
+    if gr_result and gr_result.get("url"):
+        await db.media_checkout_events.insert_one({
+            "id": str(uuid.uuid4()),
+            "product_id": product_id,
+            "buyer_user_id": str(user.id),
+            "buyer_email": user.email if hasattr(user, "email") else "",
+            "provider": "gumroad",
+            "created_at": _now(),
+        })
+        return {"checkout_url": gr_result["url"]}
+
+    raise HTTPException(
+        501,
+        "Payments are not configured yet. Add LEMON_SQUEEZY_API_KEY + LEMON_SQUEEZY_STORE_ID "
+        "(free tier — payouts via PayPal or bank) or GUMROAD_API_KEY to enable checkout.",
     )
-    return {"checkout_url": session.url}
 
 
-# ── Stripe Webhook ────────────────────────────────────────────────────────────
+# ── Lemon Squeezy Webhook ─────────────────────────────────────────────────────
 
 @router.post("/media/webhook")
-async def stripe_webhook(request: Request):
+async def media_webhook(request: Request):
+    import json
+    import hmac as _hmac
+    import hashlib as _hashlib
+
+    secret = os.environ.get("LEMON_SQUEEZY_WEBHOOK_SECRET", "")
+    if not secret:
+        raise HTTPException(404, "Payment webhook not configured")
+
     payload = await request.body()
-    sig = request.headers.get("stripe-signature", "")
+    sig = request.headers.get("x-signature", "")
+    if not sig or not _hmac.compare_digest(
+        sig, _hmac.new(secret.encode(), payload, _hashlib.sha256).hexdigest()
+    ):
+        raise HTTPException(400, "Invalid webhook signature")
 
-    if STRIPE_WEBHOOK_SECRET:
-        try:
-            event = _stripe.Webhook.construct_event(payload, sig, STRIPE_WEBHOOK_SECRET)
-        except _stripe.error.SignatureVerificationError:
-            raise HTTPException(400, "Invalid webhook signature")
-    else:
-        import json
+    try:
         event = json.loads(payload)
+    except Exception:
+        raise HTTPException(400, "Invalid JSON payload")
 
-    if event["type"] == "checkout.session.completed":
-        session = event["data"]["object"]
-        meta = session.get("metadata", {})
-        product_id = meta.get("product_id")
-        buyer_user_id = meta.get("buyer_user_id")
+    event_name = (event.get("meta") or {}).get("event_name", "")
+    if event_name == "order_created":
+        data = (event.get("data") or {}).get("attributes") or {}
+        first_item = data.get("first_order_item") or {}
+        product_name = first_item.get("product_name", "")
+        buyer_email = data.get("user_email", "")
 
-        if product_id and buyer_user_id:
-            # Look up product to get file_id
-            prod = await db.media_products.find_one({"id": product_id}, {"_id": 0})
+        # Match the purchased product by title; grant download access to the
+        # matching WAI account (buyer email).
+        prod = await db.media_products.find_one({"title": product_name}, {"_id": 0})
+        if prod:
+            buyer = await db.users.find_one({"email": buyer_email}, {"id": 1}) if buyer_email else None
             now = _now()
             purchase_doc = {
                 "id": str(uuid.uuid4()),
-                "product_id": product_id,
-                "buyer_user_id": buyer_user_id,
-                "file_id": prod.get("file_id") if prod else None,
-                "stripe_session_id": session.get("id"),
-                "amount_paid": session.get("amount_total", 0),
+                "product_id": prod["id"],
+                "buyer_user_id": buyer["id"] if buyer else None,
+                "buyer_email": buyer_email,
+                "file_id": prod.get("file_id"),
+                "provider_order_id": str((event.get("data") or {}).get("id", "")),
+                "amount_paid": int(float(data.get("total", 0) or 0) * 100),
                 "created_at": now,
             }
             await db.media_purchases.insert_one(purchase_doc)
-            if prod:
-                await db.media_products.update_one(
-                    {"id": product_id}, {"$inc": {"sales_count": 1}}
-                )
-            logger.info("media_purchase: product=%s buyer=%s", product_id, buyer_user_id)
+            await db.media_products.update_one(
+                {"id": prod["id"]}, {"$inc": {"sales_count": 1}}
+            )
+            logger.info("media_purchase: product=%s buyer=%s", prod["id"], buyer_email)
 
             # Send purchase receipt email with download link
             try:
-                buyer_email = meta.get("buyer_email") or ""
-                product_title = meta.get("product_title") or (prod.get("title") if prod else "your purchase")
-                if buyer_email and prod and prod.get("file_id"):
+                if buyer_email and prod.get("file_id"):
                     download_url = f"{FRONTEND_URL}/store/library"
-                    await _send_purchase_receipt(buyer_email, product_title, download_url)
+                    await _send_purchase_receipt(buyer_email, product_name, download_url)
             except Exception as _mail_err:
                 logger.warning("Purchase receipt email failed (non-fatal): %s", _mail_err)
 

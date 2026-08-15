@@ -434,7 +434,7 @@
     <div class="status-card"><span class="sc-dot" id="dot-db"></span><div><div class="sc-label">Database</div><div class="sc-value" id="val-db">Unknown</div></div></div>
     <div class="status-card"><span class="sc-dot" id="dot-ai"></span><div><div class="sc-label">AI Layer</div><div class="sc-value" id="val-ai">Unknown</div></div></div>
     <div class="status-card"><span class="sc-dot" id="dot-tts"></span><div><div class="sc-label">TTS</div><div class="sc-value" id="val-tts">Unknown</div></div></div>
-    <div class="status-card"><span class="sc-dot" id="dot-stripe"></span><div><div class="sc-label">Payments</div><div class="sc-value" id="val-stripe">Unknown</div></div></div>
+    <div class="status-card"><span class="sc-dot" id="dot-payments"></span><div><div class="sc-label">Payments</div><div class="sc-value" id="val-payments">Unknown</div></div></div>
   </div>
 
   <!-- chat interface -->
@@ -618,7 +618,7 @@ async function checkHealth() {
     setStatus('db',     data.database === 'ok' ? 'ok' : 'deg', data.database === 'ok' ? 'Connected' : (data.database || 'Unknown'));
     setStatus('ai',     data.ai       === 'ok' ? 'ok' : 'deg', data.ai       === 'ok' ? 'Online'    : (data.ai       || 'Unknown'));
     setStatus('tts',    data.tts      === 'ok' ? 'ok' : 'deg', data.tts      === 'ok' ? 'Active'    : (data.tts      || 'Unknown'));
-    setStatus('stripe', data.stripe   === 'ok' ? 'ok' : 'deg', data.stripe   === 'ok' ? 'Active'    : (data.stripe   || 'Unknown'));
+    setStatus('payments', data.payments === 'ok' ? 'ok' : 'deg', data.payments === 'ok' ? 'Active' : (data.payments || 'Unknown'));
     netDot.className   = 'sb-dot' + (ok ? '' : ' degraded');
     netLabel.textContent = ok ? 'Online' : 'Degraded';
     document.getElementById('offline-notice').style.display = ok ? 'none' : 'block';

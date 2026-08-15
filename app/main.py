@@ -240,10 +240,7 @@ async def enforce_ip_whitelist(request: Request, call_next):
             except ValueError:
                 pass
         if not allowed_nets:
-           @app.on_event("startup")
-async def on_startup():
-    await _on_startup_impl()
-        )
+            return await call_next(request)
         try:
             client_addr = _ipmod.ip_address(raw_ip)
         except ValueError:

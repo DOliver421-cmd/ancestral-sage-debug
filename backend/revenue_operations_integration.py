@@ -5,7 +5,6 @@ Called from server.py on_startup/on_shutdown.
 """
 
 import logging
-import os
 from fastapi import FastAPI
 from motor.motor_asyncio import AsyncIOMotorDatabase
 from jobs import job_scheduler
@@ -25,16 +24,16 @@ async def init_revenue_operations(db: AsyncIOMotorDatabase) -> dict:
     try:
         # ── Billing Collections ──────────────────────────────────────────────────
         await db.subscriptions.create_index([("user_id", 1), ("status", 1)])
-        await db.subscriptions.create_index("stripe_subscription_id", unique=True, sparse=True)
+        await db.subscriptions.create_index("provider_subscription_id", unique=True, sparse=True)
         await db.subscriptions.create_index([("created_at", -1)])
 
         await db.invoices.create_index([("user_id", 1), ("status", 1)])
-        await db.invoices.create_index("stripe_invoice_id", unique=True, sparse=True)
+        await db.invoices.create_index("provider_invoice_id", unique=True, sparse=True)
         await db.invoices.create_index([("created_at", -1)])
         await db.invoices.create_index("due_date")
 
         await db.payment_methods.create_index([("user_id", 1)])
-        await db.payment_methods.create_index("stripe_payment_method_id", unique=True)
+        await db.payment_methods.create_index("provider_payment_method_id", unique=True)
         await db.payment_methods.create_index([("created_at", -1)])
 
         # ── Usage & Creator Finance ──────────────────────────────────────────────
@@ -130,14 +129,9 @@ def stop_revenue_operations() -> None:
 def init_revenue_services(app: FastAPI, db: AsyncIOMotorDatabase) -> None:
     """Initialize revenue operations services and attach to app.state"""
     try:
-        from billing.stripe_service import StripeService, CreatorPayoutService
         from billing.financial_reporting import FinancialReportingService
 
-        # server.py uses STRIPE_SECRET_KEY; fall back to STRIPE_API_KEY for compat
-        stripe_key = os.environ.get("STRIPE_SECRET_KEY", "") or os.environ.get("STRIPE_API_KEY", "")
-
-        app.state.stripe_service = StripeService(db, stripe_key)
-        app.state.creator_payout_service = CreatorPayoutService(db, stripe_key)
+        # Payments run through Lemon Squeezy → Gumroad; no Stripe services exist.
         app.state.financial_service = FinancialReportingService(db)
 
         logger.info("✅ Revenue services initialized")

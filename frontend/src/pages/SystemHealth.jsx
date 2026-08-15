@@ -43,7 +43,7 @@ export default function SystemHealth() {
     { label: "API Status", value: health.status || health.app || "ok", good: true },
     { label: "Database", value: health.db || "ok", good: health.db !== "error" },
     { label: "AI Services", value: health.ai || "unknown", good: health.ai !== "error" },
-    { label: "Stripe", value: health.stripe || "unknown", good: health.stripe !== "error" },
+    { label: "Payments", value: health.payments || "disabled", good: health.payments !== "error" },
     { label: "Email", value: health.email || "unknown", good: health.email !== "error" },
   ] : [];
 

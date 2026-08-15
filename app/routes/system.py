@@ -29,7 +29,7 @@ async def health():
     """
     from datetime import datetime, timezone
     import app.database as _db_module
-    from app.config import GROQ_API_KEY, CEREBRAS_API_KEY, MISTRAL_API_KEY, STRIPE_SECRET_KEY
+    from app.config import GROQ_API_KEY, CEREBRAS_API_KEY, MISTRAL_API_KEY
 
     now = datetime.now(timezone.utc).isoformat()
     checks: dict = {}
@@ -103,20 +103,12 @@ async def health():
         checks["ai_api"] = {"status": "unconfigured", "key_present": False}
         issues.append("ai_api_key_missing")
 
-    # ── Stripe connectivity ───────────────────────────────────────────────────
-    if STRIPE_SECRET_KEY:
-        _t4 = time.perf_counter()
-        try:
-            import stripe as _stripe
-            _stripe.api_key = STRIPE_SECRET_KEY
-            _stripe.Balance.retrieve()
-            checks["stripe"] = {"status": "up", "latency_ms": int((time.perf_counter() - _t4) * 1000)}
-        except Exception as _se:
-            _se_str = str(_se)[:120]
-            checks["stripe"] = {"status": "error", "error": _se_str}
-            issues.append("stripe_error")
+    # ── Payments provider connectivity (Lemon Squeezy → Gumroad) ──────────────
+    from app.config import LEMON_SQUEEZY_API_KEY, GUMROAD_API_KEY
+    if LEMON_SQUEEZY_API_KEY or GUMROAD_API_KEY:
+        checks["payments"] = {"status": "configured", "provider": "lemon_squeezy" if LEMON_SQUEEZY_API_KEY else "gumroad"}
     else:
-        checks["stripe"] = {"status": "unconfigured"}
+        checks["payments"] = {"status": "unconfigured"}
 
     # ── Director 4.0 subsystems ───────────────────────────────────────────────
     try:

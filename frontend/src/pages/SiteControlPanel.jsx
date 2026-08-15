@@ -146,11 +146,15 @@ export default function SiteControlPanel() {
     </AppShell>
   );
 
-  const { users, revenue, stripe, platform_flags, creator_economy, learning, ai_spend, community, governance, recent_failures, recent_audit, active_broadcast, webhook_health } = data;
+  const { users, revenue, payments, platform_flags, creator_economy, learning, ai_spend, community, governance, recent_failures, recent_audit, active_broadcast, webhook_health } = data;
+
+  // Payments run through Lemon Squeezy → Gumroad; "disabled" means no provider
+  // keys are configured yet.
+  const paymentsDisabled = !payments || !payments.mode || payments.mode === "disabled" || payments.mode === "not_configured";
+  const paymentsProvider = payments?.provider || "disabled";
 
   // Determine critical alerts
   const alerts = [];
-  if (stripe.mode === "test") alerts.push({ level: "warning", msg: "Stripe is in TEST mode — no real money is moving" });
   if (revenue.failed_payments > 0) alerts.push({ level: "error", msg: `${revenue.failed_payments} failed payment${revenue.failed_payments > 1 ? "s" : ""} on record` });
   if (governance.pending_refunds > 0) alerts.push({ level: "warning", msg: `${governance.pending_refunds} pending refund${governance.pending_refunds > 1 ? "s" : ""}` });
   if (governance.pending_escalations > 0) alerts.push({ level: "error", msg: `${governance.pending_escalations} open escalation${governance.pending_escalations > 1 ? "s" : ""}` });
@@ -158,10 +162,10 @@ export default function SiteControlPanel() {
   if (learning.incidents_open > 0) alerts.push({ level: "warning", msg: `${learning.incidents_open} open incident report${learning.incidents_open > 1 ? "s" : ""}` });
   if (platform_flags?.platform_locked?.enabled) alerts.push({ level: "error", msg: "PLATFORM IS LOCKED — public access blocked" });
   if (recent_failures?.length > 5) alerts.push({ level: "warning", msg: `${recent_failures.length} failure/denial events in the last 24 hours` });
-  if (webhook_health) {
+  if (webhook_health && !paymentsDisabled) {
     const lastMs = webhook_health.last_payment_at ? Date.now() - new Date(webhook_health.last_payment_at).getTime() : Infinity;
-    if (lastMs > 48 * 3600000) alerts.push({ level: "error", msg: "No Stripe payment recorded in 48h+ — webhook may be down" });
-    else if (lastMs > 24 * 3600000) alerts.push({ level: "warning", msg: "No Stripe payment recorded in 24h — verify webhook is receiving events" });
+    if (lastMs > 48 * 3600000) alerts.push({ level: "error", msg: "No payment recorded in 48h+ — webhook may be down" });
+    else if (lastMs > 24 * 3600000) alerts.push({ level: "warning", msg: "No payment recorded in 24h — verify webhook is receiving events" });
   }
   if (ai_spend?.monthly_budget_usd && ai_spend.month_usd >= ai_spend.monthly_budget_usd * 0.8) {
     const pct = Math.round((ai_spend.month_usd / ai_spend.monthly_budget_usd) * 100);
@@ -210,16 +214,14 @@ export default function SiteControlPanel() {
           </div>
         )}
 
-        {/* Stripe mode pill */}
+        {/* Payments provider pill */}
         <div className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-black mb-6 ${
-          stripe.mode === "live" ? "bg-green-100 text-green-800" :
-          stripe.mode === "test" ? "bg-amber-100 text-amber-800" :
-          "bg-ink/10 text-ink/60"
+          paymentsDisabled ? "bg-ink/10 text-ink/60" : "bg-green-100 text-green-800"
         }`}>
           <CreditCard className="w-3 h-3" />
-          Stripe: {stripe.mode.toUpperCase()}
-          {stripe.balance && stripe.balance.available?.[0] && (
-            <span className="ml-1 font-normal">· available {fmt(stripe.balance.available[0].amount)}</span>
+          Payments: {(paymentsDisabled ? "disabled" : paymentsProvider).toUpperCase()}
+          {paymentsDisabled && (
+            <span className="ml-1 font-normal">— no payment provider configured</span>
           )}
         </div>
 
@@ -318,13 +320,13 @@ export default function SiteControlPanel() {
               )}
             </div>
 
-            {webhook_health && (
+            {webhook_health && !paymentsDisabled && (
               <div className="card-flat p-5">
                 <div className="flex items-center gap-2 mb-3">
                   {webhook_health.payments_24h > 0
                     ? <Wifi className="w-4 h-4 text-green-600" />
                     : <WifiOff className="w-4 h-4 text-red-500" />}
-                  <span className="font-bold text-sm">Stripe Webhook Health</span>
+                  <span className="font-bold text-sm">Payment Webhook Health</span>
                   <span className={`ml-auto text-xs font-bold px-2 py-0.5 rounded-full ${
                     webhook_health.payments_24h > 0 ? "bg-green-100 text-green-700" :
                     webhook_health.last_payment_at && Date.now() - new Date(webhook_health.last_payment_at).getTime() < 48 * 3600000
@@ -340,26 +342,16 @@ export default function SiteControlPanel() {
               </div>
             )}
 
-            {stripe.balance && (
+            {!paymentsDisabled && (
               <div className="card-flat p-5">
                 <div className="flex items-center gap-2 mb-3">
                   <CreditCard className="w-4 h-4 text-copper" />
-                  <span className="font-bold text-sm">Stripe Account Balance</span>
-                  <span className={`ml-2 text-xs font-black px-2 py-0.5 rounded-full ${stripe.mode === "live" ? "bg-green-100 text-green-800" : "bg-amber-100 text-amber-800"}`}>{stripe.mode.toUpperCase()}</span>
+                  <span className="font-bold text-sm">Payments Provider</span>
+                  <span className="ml-2 text-xs font-black px-2 py-0.5 rounded-full bg-green-100 text-green-800">{paymentsProvider.toUpperCase()}</span>
                 </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <div className="overline text-xs text-ink/40 mb-1">Available</div>
-                    {stripe.balance.available.map((b, i) => (
-                      <div key={i} className="font-bold text-green-700">{fmt(b.amount)} <span className="text-xs text-ink/40 font-normal">{b.currency.toUpperCase()}</span></div>
-                    ))}
-                  </div>
-                  <div>
-                    <div className="overline text-xs text-ink/40 mb-1">Pending</div>
-                    {stripe.balance.pending.map((b, i) => (
-                      <div key={i} className="font-bold text-amber-600">{fmt(b.amount)} <span className="text-xs text-ink/40 font-normal">{b.currency.toUpperCase()}</span></div>
-                    ))}
-                  </div>
+                <div className="text-sm text-ink/60">
+                  Checkout is live via {paymentsProvider === "lemon_squeezy" ? "Lemon Squeezy" : "Gumroad"}. Orders are recorded
+                  through the payment webhook; balances and payouts are settled directly with the provider.
                 </div>
               </div>
             )}

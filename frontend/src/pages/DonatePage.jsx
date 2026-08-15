@@ -99,7 +99,7 @@ export default function DonatePage() {
       </div>
 
       <p className="text-xs text-ink/40 text-center mt-4">
-        Payments are processed securely by Stripe. WAI Institute / LCE is a registered organization.
+        WAI Institute / LCE is a registered organization.
       </p>
     </div>
     </AppShell>

@@ -148,7 +148,7 @@ export default function SubscribePage() {
                     : `Subscribe — $${plan.price}${plan.period}`}
               </button>
               <p style={{ fontSize: 11, color: "#6b6480", textAlign: "center", marginTop: 14 }}>
-                Secure checkout via Stripe. Cancel anytime from your account.
+                Manage or cancel anytime from your account.
               </p>
             </div>
           </div>
