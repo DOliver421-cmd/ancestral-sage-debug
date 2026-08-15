@@ -146,6 +146,7 @@ _CSP_PRODUCTION = (
     "img-src 'self' data: https:; "
     "font-src 'self' data:; "
     "connect-src 'self' https:; "
+    "frame-src https://namoshun.gumroad.com https://gumroad.com; "
     "frame-ancestors 'none'; "
     "base-uri 'self'; "
     "form-action 'self'; "
@@ -159,6 +160,7 @@ _CSP_DEVELOPMENT = (
     "img-src 'self' data: https: blob:; "
     "font-src 'self' data:; "
     "connect-src 'self' ws: wss: https:; "
+    "frame-src https://namoshun.gumroad.com https://gumroad.com; "
     "frame-ancestors 'none'; "
     "base-uri 'self'; "
     "form-action 'self'; "
@@ -409,6 +411,23 @@ app.add_middleware(CorrelationIdMiddleware)
 
 # ── CORS ──────────────────────────────────────────────────────────────────────
 _cors_origins = [o.strip() for o in os.environ.get("CORS_ORIGINS", "*").split(",") if o.strip()]
+# First-party origins are ALWAYS allowed (mirrors the BACKUP_ORIGIN auto-append).
+# Keeps www.morehelp.center / morehelp.center / wai-institute.org working even
+# when CORS_ORIGINS is set to a partial list.
+_AUTO_CORS_ORIGINS = [
+    "https://www.morehelp.center",
+    "https://morehelp.center",
+    "https://wai-institute.org",
+    "https://www.wai-institute.org",
+    "https://ancestral-sage-debug-production.up.railway.app",
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+    "http://localhost:8001",
+]
+if "*" not in _cors_origins:
+    for _origin in _AUTO_CORS_ORIGINS:
+        if _origin not in _cors_origins:
+            _cors_origins.append(_origin)
 if BACKUP_ORIGIN and BACKUP_ORIGIN not in _cors_origins and "*" not in _cors_origins:
     _cors_origins.append(BACKUP_ORIGIN)
     logger.info("CORS: Backup origin added: %s", BACKUP_ORIGIN)
