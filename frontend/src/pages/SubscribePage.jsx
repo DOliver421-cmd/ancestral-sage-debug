@@ -76,7 +76,19 @@ export default function SubscribePage() {
       const { data } = await api.post("/payments/checkout", { product_key: key, quantity: 1 });
       window.location.href = data.url;
     } catch (e) {
-      toast.error(e?.response?.data?.detail || "Could not start checkout.");
+      const detail = e?.response?.data?.detail || "";
+      // Payments not configured yet (no Lemon Squeezy / Gumroad API keys):
+      // don't leave the visitor at a dead 501 — route them to the live
+      // Gumroad storefront so the purchase can actually happen.
+      if (
+        e?.response?.status === 501 ||
+        /not configured|payments are not configured/i.test(String(detail))
+      ) {
+        toast.info("Checkout is being set up — redirected to our live storefront.");
+        window.location.href = "/merch";
+        return;
+      }
+      toast.error(detail || "Could not start checkout.");
       setLoading(null);
     }
   }

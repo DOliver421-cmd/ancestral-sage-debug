@@ -1,4 +1,5 @@
 import { Link, useLocation, useNavigate } from "react-router-dom";
+import { API } from "../lib/api";
 import { useAuth } from "../lib/auth";
 import { WAI_LOGO, BRAND } from "../lib/brand";
 import {
@@ -69,10 +70,11 @@ export default function AppShell({ children }) {
   };
 
   useEffect(() => {
-    const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || "https://ancestral-sage-debug-production.up.railway.app";
+    // Same resolution as lib/api.js — same-origin by default, so this stays in
+    // sync with every other API call (no stale hardcoded host).
     const ctrl = new AbortController();
     const timer = setTimeout(() => ctrl.abort(), 6000);
-    fetch(`${BACKEND_URL}/api/version`, { signal: ctrl.signal })
+    fetch(`${API}/version`, { signal: ctrl.signal })
       .then(r => { clearTimeout(timer); setBackendDown(!r.ok); })
       .catch(() => { clearTimeout(timer); setBackendDown(true); });
     return () => { clearTimeout(timer); ctrl.abort(); };

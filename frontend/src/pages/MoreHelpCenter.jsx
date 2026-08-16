@@ -75,7 +75,7 @@ const NAV_LINKS = [
   { label: "Community",       to: "/community" },
   { label: "Courses",         to: "/courses" },
   { label: "Help Center",     to: "/help-center" },
-  { label: "Store",           to: "/store" },
+  { label: "Store",           to: "/merch" },
   { label: "Plans",           to: "/plans" },
 ];
 
