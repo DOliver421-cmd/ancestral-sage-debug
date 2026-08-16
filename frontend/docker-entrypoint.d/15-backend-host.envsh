@@ -13,8 +13,10 @@
 # explicitly when the backend's public hostname differs from its URL host.
 
 if [ -z "${BACKEND_HOST:-}" ]; then
-  BACKEND_HOST="$(printf '%s' "${BACKEND_URL:-http://backend:8080}" | sed -E 's#^[a-zA-Z][a-zA-Z0-9+.-]*://##; s#[:/].*$##')"
+  # Mirror the Dockerfile default so the fallback stays consistent (an IP
+  # literal — never a hostname, so nginx can't die on startup DNS resolution).
+  BACKEND_HOST="$(printf '%s' "${BACKEND_URL:-http://127.0.0.1:9}" | sed -E 's#^[a-zA-Z][a-zA-Z0-9+.-]*://##; s#[:/].*$##')"
   # Safety net: never let the template render an empty Host header.
-  [ -n "$BACKEND_HOST" ] || BACKEND_HOST="backend"
+  [ -n "$BACKEND_HOST" ] || BACKEND_HOST="127.0.0.1"
   export BACKEND_HOST
 fi
