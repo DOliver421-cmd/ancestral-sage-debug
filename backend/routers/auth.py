@@ -63,6 +63,7 @@ BACKUP_EXEC_DEFAULT_PASSWORD = os.environ.get("BACKUP_EXEC_DEFAULT_PASSWORD", ""
 NAM_EXEC_EMAIL = os.environ.get("NAM_EXEC_EMAIL", "souppoetry@gmail.com")
 NAM_EXEC_DEFAULT_PASSWORD = os.environ.get("NAM_EXEC_DEFAULT_PASSWORD", "")
 EXEC_RESET_SECRET = os.environ.get("EXEC_RESET_SECRET", "")
+RESEND_API_KEY = os.environ.get("RESEND_API_KEY", "")
 RESET_TOKEN_TTL_MIN = int(os.environ.get("PASSWORD_RESET_TTL_MIN", "30"))
 # Mirrors server.py's role hierarchy for runtime require_role checks.
 ROLE_RANK = {"student": 1, "instructor": 2, "admin": 3, "executive_admin": 4, "creative_partner": 2}
@@ -261,8 +262,13 @@ async def register(body: RegisterReq):
         raise HTTPException(400, "You must be at least 13 years old to create an account. If you are under 13, please ask a parent or guardian to contact us.")
 
     # Public self-registration is always a student. Higher-privilege accounts
-    # must be created by an admin (POST /api/admin/users).
-    user = UserOut(email=body.email, full_name=body.full_name, role="student")
+    # must be created by an admin (POST /api/admin/users). Exception: the very
+    # FIRST account ever registered (empty users collection — e.g. immediately
+    # after a factory reset) becomes the executive_admin bootstrap owner, so a
+    # fresh instance can be stood up without manual DB access.
+    existing_users = await db.users.count_documents({})
+    role = "executive_admin" if existing_users == 0 else "student"
+    user = UserOut(email=body.email, full_name=body.full_name, role=role)
     doc = user.model_dump()
     doc["created_at"] = doc["created_at"].isoformat()
     doc["password_hash"] = hash_pw(body.password)
@@ -818,6 +824,50 @@ async def exec_unlock(request: Request):
     await audit(None, "exec.unlock.via_secret", meta={"ip": request.client.host if request.client else "unknown"})
     logger.warning("exec-unlock: all exec seats reset via secret key")
     return {"ok": True, "reset": reset, "message": "All exec seats unlocked. Check Railway logs or email for auto-generated passwords."}
+
+
+@router.post("/auth/factory-reset")
+async def factory_reset(request: Request):
+    """Wipe ALL user accounts and user-owned data — full factory reset.
+
+    Gated by a break-glass secret: either EXEC_RESET_SECRET or RESEND_API_KEY
+    (both are owner-only secrets; accepting either means the wipe works even
+    when only one of them has reached the running process).
+
+    POST {"secret": "<secret>", "confirm": "DELETE ALL"}
+
+    After the wipe the users collection is empty, so the NEXT registration
+    becomes the executive_admin bootstrap owner (see /auth/register).
+    """
+    gate = EXEC_RESET_SECRET or RESEND_API_KEY
+    if not gate:
+        raise HTTPException(404, "Not found")
+    try:
+        body = await request.json()
+    except Exception:
+        raise HTTPException(400, "JSON body required")
+    if body.get("secret") != gate:
+        await asyncio.sleep(2)
+        raise HTTPException(403, "Invalid secret")
+    if body.get("confirm") != "DELETE ALL":
+        raise HTTPException(400, 'Send {"confirm": "DELETE ALL"} to confirm this destructive action.')
+
+    deleted = {}
+    for coll in ["users", "password_reset_tokens", "progress", "lab_submissions",
+                 "portfolio", "ai_consents", "certificates", "sessions"]:
+        try:
+            r = await db[coll].delete_many({})
+            deleted[coll] = r.deleted_count
+        except Exception as exc:
+            deleted[coll] = f"error: {exc}"
+    try:
+        await db.ip_whitelist.delete_many({"role": "executive_admin"})
+    except Exception:
+        pass
+    await audit(None, "factory.reset.performed", meta={"ip": request.client.host if request.client else "unknown"})
+    logger.warning("FACTORY RESET: all accounts and user data deleted: %s", deleted)
+    return {"ok": True, "deleted": deleted,
+            "message": "All accounts deleted. The next registration becomes the executive_admin (owner) account."}
 
 
 @router.post("/auth/recovery-codes-generate")
