@@ -10,12 +10,16 @@ export default function Register() {
   const nav = useNavigate();
   const [form, setForm] = useState({ full_name: "", email: "", password: "", associate: "Associate-Alpha", agreed_terms: false, over_13: false });
   const [loading, setLoading] = useState(false);
-  const isValid = form.full_name.trim() && form.email.trim() && form.password.length >= 8 && form.agreed_terms && form.over_13;
 
   const submit = async (e) => {
     e.preventDefault();
-    if (!form.agreed_terms) { toast.error("You must agree to the Terms of Service and Privacy Policy."); setLoading(false); return; }
-    if (!form.over_13) { toast.error("You must be at least 13 years old to create an account."); setLoading(false); return; }
+    // Validate step-by-step so the button never silently does nothing:
+    // every click produces specific, actionable feedback.
+    if (!form.full_name.trim()) { toast.error("Please enter your full name."); return; }
+    if (!form.email.trim()) { toast.error("Please enter your email address."); return; }
+    if (form.password.length < 8) { toast.error("Password must be at least 8 characters."); return; }
+    if (!form.agreed_terms) { toast.error("You must agree to the Terms of Service and Privacy Policy."); return; }
+    if (!form.over_13) { toast.error("You must be at least 13 years old to create an account."); return; }
     setLoading(true);
     try {
       const u = await register(form);
@@ -183,7 +187,7 @@ export default function Register() {
             {/* Submit */}
             <button
               type="submit"
-              disabled={loading || !isValid}
+              disabled={loading}
               className="w-full py-3 px-4 bg-copper text-white font-bold uppercase tracking-widest hover:bg-copper/90 disabled:bg-copper/50 transition-colors rounded flex items-center justify-center gap-2"
               data-testid="btn-submit"
             >

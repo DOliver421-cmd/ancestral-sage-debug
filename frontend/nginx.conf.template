@@ -31,6 +31,29 @@ server {
         proxy_send_timeout     30s;
     }
 
+    # ── Cache policy ──────────────────────────────────────────────────────────
+    # index.html must NEVER be cached: it references hashed bundles, and a
+    # stale copy is exactly how users end up stuck on an old build (broken
+    # auth, dead logo, dead API URLs). Always revalidate it.
+    location = /index.html {
+        add_header Cache-Control "no-cache, no-store, must-revalidate";
+        expires -1;
+        try_files /index.html =404;
+    }
+
+    # The service worker must also revalidate so updated sw.js installs.
+    location = /sw.js {
+        add_header Cache-Control "no-cache";
+        try_files /sw.js =404;
+    }
+
+    # Hashed build assets (/static/js/main.<hash>.js) are immutable —
+    # they can never change at the same URL, so cache them hard.
+    location /static/ {
+        add_header Cache-Control "public, max-age=31536000, immutable";
+        try_files $uri =404;
+    }
+
     # ── React SPA ─────────────────────────────────────────────────────────────
     location / {
         try_files $uri $uri/ /index.html;

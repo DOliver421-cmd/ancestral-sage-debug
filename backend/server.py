@@ -606,8 +606,8 @@ def _reset_email_html(full_name: str, reset_url: str) -> tuple[str, str]:
     return subject, html
 
 
-async def _send_via_resend(to_email: str, subject: str, html: str) -> bool:
-    """Send via Resend API. Returns True on success."""
+async def _send_via_resend(to_email: str, subject: str, html: str) -> tuple[bool, str]:
+    """Send via Resend API. Returns (True, "") on success or (False, reason)."""
     try:
         import httpx
         async with httpx.AsyncClient(timeout=10.0) as cx:
@@ -619,19 +619,21 @@ async def _send_via_resend(to_email: str, subject: str, html: str) -> bool:
                       "subject": subject, "html": html},
             )
         if r.status_code >= 400:
-            logger.warning("Resend send failed %s: %s", r.status_code, r.text[:300])
-            return False
-        return True
-    except Exception:
+            reason = f"Resend HTTP {r.status_code}: {r.text[:200]}"
+            logger.warning("Resend send failed: %s", reason)
+            return False, reason
+        return True, ""
+    except Exception as exc:
         logger.exception("Resend send raised")
-        return False
+        return False, f"Resend request raised: {exc}"
 
 
-async def _send_via_gmail(to_email: str, subject: str, html: str) -> bool:
-    """Send via Gmail SMTP using an App Password. Returns True on success.
-    Requires GMAIL_USER and GMAIL_APP_PASSWORD set in Railway environment."""
+async def _send_via_gmail(to_email: str, subject: str, html: str) -> tuple[bool, str]:
+    """Send via Gmail SMTP using an App Password. Returns (True, "") on
+    success or (False, reason). Requires GMAIL_USER and GMAIL_APP_PASSWORD
+    set in the Railway environment."""
     if not GMAIL_USER or not GMAIL_APP_PASSWORD:
-        return False
+        return False, "GMAIL_USER / GMAIL_APP_PASSWORD not configured"
     import smtplib
     from email.mime.multipart import MIMEMultipart
     from email.mime.text import MIMEText
@@ -650,35 +652,41 @@ async def _send_via_gmail(to_email: str, subject: str, html: str) -> bool:
         loop = asyncio.get_event_loop()
         await loop.run_in_executor(None, _send)
         logger.info("Gmail SMTP: sent reset email to %s", to_email)
-        return True
-    except Exception:
+        return True, ""
+    except Exception as exc:
         logger.exception("Gmail SMTP send raised")
-        return False
+        return False, f"Gmail SMTP raised: {exc}"
 
 
-async def _send_reset_email(to_email: str, raw_token: str, full_name: str = "there", base_url: str = "") -> bool:
+async def _send_reset_email(to_email: str, raw_token: str, full_name: str = "there", base_url: str = "") -> tuple[bool, str]:
     """Send password reset email. Tries Resend first, falls back to Gmail SMTP.
-    Returns True if sent by either provider, False if neither is configured."""
+    Returns (True, "") when sent, or (False, reason) so the API response can
+    surface the exact failure instead of failing silently."""
     reset_url = _build_reset_url(raw_token, base=base_url or None)
     if reset_url.startswith("/"):
-        logger.error(
-            "PUBLIC_APP_URL not set and no request origin available — "
-            "cannot send password reset email. Set PUBLIC_APP_URL in Railway variables."
-        )
-        return False
+        reason = "PUBLIC_APP_URL is not set on the server (and no request origin was available)"
+        logger.error("Password reset email blocked: %s", reason)
+        return False, reason
     subject, html = _reset_email_html(full_name, reset_url)
 
     if RESEND_API_KEY:
-        sent = await _send_via_resend(to_email, subject, html)
+        sent, resend_reason = await _send_via_resend(to_email, subject, html)
         if sent:
-            return True
-        logger.warning("Resend failed — falling back to Gmail SMTP")
+            return True, ""
+        logger.warning("Resend failed (%s) — falling back to Gmail SMTP", resend_reason)
+    else:
+        resend_reason = "RESEND_API_KEY is not set on the server"
 
     if GMAIL_USER and GMAIL_APP_PASSWORD:
-        return await _send_via_gmail(to_email, subject, html)
+        sent, gmail_reason = await _send_via_gmail(to_email, subject, html)
+        if sent:
+            return True, ""
+        return False, f"Resend failed ({resend_reason}); Gmail also failed ({gmail_reason})"
 
-    logger.warning("No email provider configured (RESEND_API_KEY or GMAIL_USER+GMAIL_APP_PASSWORD).")
-    return False
+    if RESEND_API_KEY:
+        return False, f"Resend rejected the send: {resend_reason}"
+
+    return False, "No email provider configured on the server (set RESEND_API_KEY, or GMAIL_USER + GMAIL_APP_PASSWORD)"
 
 
 async def _send_welcome_email(to_email: str, full_name: str) -> bool:
@@ -700,11 +708,12 @@ async def _send_welcome_email(to_email: str, full_name: str) -> bool:
       <p style="color:#9ca3af;font-size:11px;text-align:center;">WAI-Institute · MORE Help Center</p>
     </div>"""
     if RESEND_API_KEY:
-        sent = await _send_via_resend(to_email, subject, html)
+        sent, _reason = await _send_via_resend(to_email, subject, html)
         if sent:
             return True
     if GMAIL_USER and GMAIL_APP_PASSWORD:
-        return await _send_via_gmail(to_email, subject, html)
+        sent, _reason = await _send_via_gmail(to_email, subject, html)
+        return sent
     logger.warning("Welcome email not sent — no email provider configured.")
     return False
 # ----------------------------------------------------------------------------
@@ -1317,6 +1326,16 @@ async def _on_startup_impl():
             "will return raw reset tokens in the response. THIS IS UNSAFE "
             "FOR PRODUCTION. Remove DEV_RETURN_RESET_TOKEN from .env "
             "before deploying to a public environment."
+        )
+
+    # If the exec break-glass secret is unset, /api/auth/exec-unlock returns
+    # 404 and "exec reset" is impossible from the UI. Make that state visible
+    # at boot so the operator knows the recovery lever is off.
+    if not os.environ.get("EXEC_RESET_SECRET"):
+        logger.warning(
+            "EXEC_RESET_SECRET is not set — /api/auth/exec-unlock break-glass "
+            "reset is DISABLED (returns 404). Set EXEC_RESET_SECRET in Railway "
+            "variables to enable executive account recovery."
         )
 
     # ── Auto-failover watchdog ────────────────────────────────────────────────
