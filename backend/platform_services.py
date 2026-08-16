@@ -62,14 +62,37 @@ async def security_headers(request: Request, call_next):
     # Strict transport security (force HTTPS)
     response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
     # Content Security Policy (restrict resource loading)
-    response.headers["Content-Security-Policy"] = "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self' https:; frame-src https://namoshun.gumroad.com https://gumroad.com; frame-ancestors 'none'; base-uri 'self'; form-action 'self'"
+    # Font CDNs (Google Fonts, Fontshare) must be allowed or the custom brand
+    # fonts never load and the site falls back to system fonts. Self-hosting
+    # the fonts (audit item) will let us remove these hosts later.
+    _FONT_HOSTS = "https://fonts.gstatic.com https://cdn.fontshare.com"
+    _STYLE_HOSTS = "https://fonts.googleapis.com https://api.fontshare.com"
+    response.headers["Content-Security-Policy"] = (
+        "default-src 'self'; script-src 'self'; "
+        f"style-src 'self' 'unsafe-inline' {_STYLE_HOSTS}; "
+        "img-src 'self' data: https:; "
+        f"font-src 'self' data: {_FONT_HOSTS}; "
+        "connect-src 'self' https:; "
+        "frame-src https://namoshun.gumroad.com https://gumroad.com; "
+        "frame-ancestors 'none'; base-uri 'self'; form-action 'self'"
+    )
     # Referrer policy (limit referrer disclosure)
     response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
     # Permissions policy — allow microphone for voice input surfaces (Director, Supervisor, AI Tutor,
     # Sovereign, Orchestrator, Helper). Camera and geolocation remain blocked.
     response.headers["Permissions-Policy"] = "geolocation=(), microphone=(self), camera=()"
     # CSP: media-src includes blob: for TTS audio (createObjectURL) and data: for inline assets
-    response.headers["Content-Security-Policy"] = "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self' https:; frame-src https://namoshun.gumroad.com https://gumroad.com; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; media-src 'self' blob:"
+    # CSP: media-src includes blob: for TTS audio (createObjectURL) and data: for inline assets
+    response.headers["Content-Security-Policy"] = (
+        "default-src 'self'; script-src 'self'; "
+        f"style-src 'self' 'unsafe-inline' {_STYLE_HOSTS}; "
+        "img-src 'self' data: https:; "
+        f"font-src 'self' data: {_FONT_HOSTS}; "
+        "connect-src 'self' https:; "
+        "frame-src https://namoshun.gumroad.com https://gumroad.com; "
+        "frame-ancestors 'none'; base-uri 'self'; form-action 'self'; "
+        "media-src 'self' blob:"
+    )
     return response
 
 

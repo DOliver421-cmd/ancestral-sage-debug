@@ -86,6 +86,26 @@ export default function AITutor() {
     setAudioPlaying(false);
   }, []);
 
+  const speakViaBrowser = useCallback((text) => {
+    if (!text) return;
+    if (!("speechSynthesis" in window)) {
+      toast.error("Couldn't play audio. Text remains visible.");
+      return;
+    }
+    try {
+      window.speechSynthesis.cancel();
+      const utt = new SpeechSynthesisUtterance(text.slice(0, 500));
+      utt.rate = audioSpeed;
+      utt.volume = audioVolume;
+      utt.onstart = () => setAudioPlaying(true);
+      utt.onend = () => { setAudioPlaying(false); };
+      utt.onerror = () => { setAudioPlaying(false); };
+      window.speechSynthesis.speak(utt);
+    } catch (err) {
+      toast.error("Couldn't play audio. Text remains visible.");
+    }
+  }, [audioSpeed, audioVolume]);
+
   const speak = useCallback(async (text) => {
     if (!audioOn || !text) return;
     cancelAudio();
@@ -115,7 +135,13 @@ export default function AITutor() {
         toast.error("Voice provider is temporarily unavailable. Falling back to text only.");
         return;
       }
-      if (!r.ok) throw new Error(`TTS ${r.status}`);
+      if (!r.ok) {
+        // Backend TTS unavailable (no AI key configured, or provider error) —
+        // fall back to the browser's built-in speech synthesis so voice
+        // output still works with zero configuration and zero cost.
+        speakViaBrowser(text);
+        return;
+      }
       const blob = await r.blob();
       const url = URL.createObjectURL(blob);
       const audio = new Audio(url);
@@ -132,10 +158,11 @@ export default function AITutor() {
       audio.load();
     } catch (e) {
       if (e?.name !== "AbortError") {
-        toast.error("Couldn't play audio. Text remains visible.");
+        // Network failure or other error — same free fallback as above.
+        speakViaBrowser(text);
       }
     }
-  }, [audioOn, audioSpeed, audioVolume, sessionId, mode, cancelAudio]);
+  }, [audioOn, audioSpeed, audioVolume, sessionId, mode, cancelAudio, speakViaBrowser]);
 
   const downloadTranscript = useCallback(() => {
     const lines = msgs.map((m) => `[${m.role}] ${m.text}`).join("\n\n");
