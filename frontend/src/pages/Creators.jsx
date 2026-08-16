@@ -39,8 +39,12 @@ export default function Creators() {
         ) : list.length === 0 ? (
           <div className="text-center py-16 border border-dashed border-copper/30 rounded-2xl mt-8">
             <p className="text-ink/50 mb-4">No creator profiles published yet.</p>
+            <p className="text-sm text-ink/40 mb-4">
+              Creator is a tier inside the community — create your free account first, then
+              set up your profile from your dashboard.
+            </p>
             <Link to="/register" className="btn-primary inline-flex items-center gap-2">
-              Become a Creator
+              Create Account
             </Link>
           </div>
         ) : (
