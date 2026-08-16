@@ -35,12 +35,14 @@ COPY nginx.conf.template /etc/nginx/templates/default.conf.template
 # backend service's URL (e.g. https://backend-production.up.railway.app).
 ENV BACKEND_URL=http://backend:8080
 
-# 15-backend-host.sh derives BACKEND_HOST from BACKEND_URL (when not
-# explicitly set) BEFORE the image's envsubst step, so the template never
-# renders an undefined variable. The chmod guards against non-executable
-# bits from the git checkout.
+# 15-backend-host.envsh derives BACKEND_HOST from BACKEND_URL (when not
+# explicitly set) BEFORE the image's envsubst step. It must be an .envsh
+# (sourced) rather than .sh (executed as a child process) — the image's
+# entrypoint sources .envsh files into its own shell, so the export actually
+# reaches 20-envsubst-on-templates.sh. The chmod guards against
+# non-executable bits from the git checkout (both kinds require +x).
 COPY docker-entrypoint.d/ /docker-entrypoint.d/
-RUN chmod +x /docker-entrypoint.d/*.sh
+RUN chmod +x /docker-entrypoint.d/*.sh /docker-entrypoint.d/*.envsh
 
 EXPOSE 8080
 
