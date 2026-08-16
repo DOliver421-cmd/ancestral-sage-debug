@@ -61,6 +61,7 @@ from reportlab.lib.pagesizes import landscape, letter
 from reportlab.lib.units import inch
 from reportlab.pdfgen import canvas
 from starlette.middleware.cors import CORSMiddleware
+import platform_services
 
 from seed import MODULES, quiz_for
 from seed_labs import ONLINE_LABS, IN_PERSON_LABS, COMPETENCIES
@@ -188,28 +189,8 @@ app = FastAPI(
     openapi_url="/api/openapi.json" if _DOCS_ENABLED else None,
 )
 
-# Security headers middleware
-@app.middleware("http")
-async def add_security_headers(request: Request, call_next):
-    response = await call_next(request)
-    # Prevent clickjacking attacks
-    response.headers["X-Frame-Options"] = "DENY"
-    # Prevent MIME type sniffing
-    response.headers["X-Content-Type-Options"] = "nosniff"
-    # Enable XSS protection (supported by older browsers)
-    response.headers["X-XSS-Protection"] = "1; mode=block"
-    # Strict transport security (force HTTPS)
-    response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
-    # Content Security Policy (restrict resource loading)
-    response.headers["Content-Security-Policy"] = "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self' https:; frame-src https://namoshun.gumroad.com https://gumroad.com; frame-ancestors 'none'; base-uri 'self'; form-action 'self'"
-    # Referrer policy (limit referrer disclosure)
-    response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
-    # Permissions policy — allow microphone for voice input surfaces (Director, Supervisor, AI Tutor,
-    # Sovereign, Orchestrator, Helper). Camera and geolocation remain blocked.
-    response.headers["Permissions-Policy"] = "geolocation=(), microphone=(self), camera=()"
-    # CSP: media-src includes blob: for TTS audio (createObjectURL) and data: for inline assets
-    response.headers["Content-Security-Policy"] = "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self' https:; frame-src https://namoshun.gumroad.com https://gumroad.com; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; media-src 'self' blob:"
-    return response
+# Security headers middleware (extracted to platform_services.py)
+app.middleware("http")(platform_services.security_headers)
 
 
 @app.middleware("http")
@@ -1394,24 +1375,7 @@ async def _on_startup_impl():
             Path("/app/frontend/build"),
             Path("/app/frontend/dist"),
         ]
-        _served = False
-        for _bp in _build_paths:
-            if _bp.exists() and (_bp / "index.html").exists():
-                from fastapi.staticfiles import StaticFiles
-                from fastapi.responses import FileResponse
-
-                # Serve static assets
-                app.mount("/static", StaticFiles(directory=str(_bp / "static")), name="static")
-
-                # SPA catch-all — must come AFTER api_router is included
-                @app.get("/{full_path:path}", include_in_schema=False)
-                async def _spa_catchall(full_path: str):
-                    return FileResponse(str(_bp / "index.html"))
-
-                logger.info("STARTUP: Serving React frontend from %s", _bp)
-                _served = True
-                break
-        if not _served:
+        if not platform_services.mount_frontend(app, _build_paths):
             logger.warning(
                 "STARTUP: SERVE_FRONTEND=1 but no built frontend found. "
                 "Run 'npm run build' in the frontend directory first."
@@ -14040,30 +14004,9 @@ app.include_router(ai_dispatcher_router)
 # CORS: when origins is wildcard ("*") browsers reject credentials, so we
 # turn off allow_credentials in that case (auth uses Bearer token in Authorization
 # header anyway). If a specific origin list is supplied, credentials are allowed.
-#
-# BACKUP_ORIGIN (e.g. https://your-tunnel.trycloudflare.com) is auto-appended
-# so the home/backup server is always allowed without touching CORS_ORIGINS.
-_cors_origins = [o.strip() for o in os.environ.get('CORS_ORIGINS', '*').split(',') if o.strip()]
-# First-party origins are ALWAYS allowed (mirrors the BACKUP_ORIGIN auto-append).
-# This keeps www.morehelp.center / morehelp.center / wai-institute.org and the
-# Railway origin working even when CORS_ORIGINS is set to a partial list.
-_AUTO_CORS_ORIGINS = [
-    "https://www.morehelp.center",
-    "https://morehelp.center",
-    "https://wai-institute.org",
-    "https://www.wai-institute.org",
-    "https://ancestral-sage-debug-production.up.railway.app",
-    "http://localhost:3000",
-    "http://127.0.0.1:3000",
-    "http://localhost:8001",
-]
-if "*" not in _cors_origins:
-    for _origin in _AUTO_CORS_ORIGINS:
-        if _origin not in _cors_origins:
-            _cors_origins.append(_origin)
-if BACKUP_ORIGIN and BACKUP_ORIGIN not in _cors_origins and '*' not in _cors_origins:
-    _cors_origins.append(BACKUP_ORIGIN)
-    logger.info("CORS: Backup origin added: %s", BACKUP_ORIGIN)
+# Origin policy (first-party auto-append + BACKUP_ORIGIN) lives in platform_services.py.
+_cors_origins = platform_services.build_cors_origins(
+    os.environ.get('CORS_ORIGINS', '*'), BACKUP_ORIGIN)
 _allow_creds = _cors_origins != ['*']
 app.add_middleware(
     CORSMiddleware,
