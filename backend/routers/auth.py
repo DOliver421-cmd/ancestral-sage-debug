@@ -73,7 +73,7 @@ def _require_rank(*roles):
     because require_role is bound after this module loads (no import-time call)."""
     needed_rank = min(ROLE_RANK[r] for r in roles)
 
-    def dep(user: UserOut = Depends(current_user)) -> UserOut:
+    def dep(user: UserOut = Depends(_dep_current_user)) -> UserOut:
         if ROLE_RANK.get(user.role, 0) < needed_rank:
             logger.warning("Unauthorized access attempt — insufficient privileges (user=%s, role=%s)", user.id, user.role)
             raise HTTPException(403, "Insufficient permissions to access this resource.")
@@ -141,6 +141,11 @@ class UserOut(BaseModel):
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     avatar_url: Optional[str] = None
     feature_tier: str = "free"
+
+
+async def _dep_current_user(authorization: Optional[str] = Header(None)) -> UserOut:
+    """Resolve the real current_user at REQUEST time (bind() sets it after import)."""
+    return await current_user(authorization)
 
 
 class TokenResp(BaseModel):
@@ -352,7 +357,7 @@ async def login(body: LoginReq, request: Request):
 
 
 @router.get("/auth/me", response_model=UserOut)
-async def me(user: UserOut = Depends(current_user)):
+async def me(user: UserOut = Depends(_dep_current_user)):
     # Check if a time-limited trial has expired and revert feature_tier automatically
     user_doc = await db.users.find_one({"id": user.id},
         {"feature_tier_expires_at": 1, "feature_tier_revert_to": 1, "feature_tier": 1})
@@ -386,7 +391,7 @@ async def me(user: UserOut = Depends(current_user)):
 
 
 @router.delete("/auth/account")
-async def gdpr_delete_account(user: UserOut = Depends(current_user)):
+async def gdpr_delete_account(user: UserOut = Depends(_dep_current_user)):
     """GDPR Article 17 — Right to erasure. Self-service account deletion.
     Anonymizes all personal data and marks the account for hard deletion
     after a 30-day grace period.  Executive_admin accounts cannot be
@@ -418,7 +423,7 @@ async def gdpr_delete_account(user: UserOut = Depends(current_user)):
 
 
 @router.get("/auth/account/export")
-async def gdpr_export_data(user: UserOut = Depends(current_user)):
+async def gdpr_export_data(user: UserOut = Depends(_dep_current_user)):
     """GDPR Article 20 — Right to data portability.
     Returns all personal data the platform holds about you in JSON format."""
     export = {"exported_at": datetime.now(timezone.utc).isoformat(), "user_id": user.id}
@@ -458,7 +463,7 @@ async def gdpr_export_data(user: UserOut = Depends(current_user)):
 
 
 @router.post("/auth/reconsent")
-async def gdpr_reconsent(body: dict, user: UserOut = Depends(current_user)):
+async def gdpr_reconsent(body: dict, user: UserOut = Depends(_dep_current_user)):
     """Re-affirm terms of service / privacy policy consent.
     Used when terms are updated.  Body: {"agreed_terms": true, "over_13": true}"""
     if not body.get("agreed_terms"):
@@ -477,7 +482,7 @@ async def gdpr_reconsent(body: dict, user: UserOut = Depends(current_user)):
 
 
 @router.post("/auth/change-password")
-async def change_password(body: ChangePasswordReq, user: UserOut = Depends(current_user)):
+async def change_password(body: ChangePasswordReq, user: UserOut = Depends(_dep_current_user)):
     """Any authenticated user can change their own password.
     Returns a fresh token + updated user so the client can update its cache
     immediately without relying on a follow-up /auth/me call."""
@@ -504,7 +509,7 @@ async def change_password(body: ChangePasswordReq, user: UserOut = Depends(curre
 
 
 @router.patch("/auth/me", response_model=UserOut)
-async def edit_self(body: SelfEditMeReq, user: UserOut = Depends(current_user)):
+async def edit_self(body: SelfEditMeReq, user: UserOut = Depends(_dep_current_user)):
     """Self-service profile edit: name and/or email.  Role and associate
     can ONLY be changed by an admin via /api/admin/users/{uid}.  This
     endpoint guards against email collisions and emits an audit row."""
@@ -837,7 +842,7 @@ async def generate_recovery_codes_endpoint(user: UserOut = Depends(_require_rank
 
 # ── Session management ───────────────────────────────────────────────────────
 @router.get("/auth/sessions")
-async def list_sessions(user: UserOut = Depends(current_user)):
+async def list_sessions(user: UserOut = Depends(_dep_current_user)):
     """List active login sessions for the current user."""
     sessions = await db.auth_sessions.find(
         {"user_id": user.id},
@@ -847,7 +852,7 @@ async def list_sessions(user: UserOut = Depends(current_user)):
 
 
 @router.delete("/auth/sessions/{session_id}")
-async def revoke_session(session_id: str, user: UserOut = Depends(current_user)):
+async def revoke_session(session_id: str, user: UserOut = Depends(_dep_current_user)):
     """Revoke a specific session (log out that device)."""
     result = await db.auth_sessions.delete_one({"user_id": user.id, "session_id": session_id})
     if result.deleted_count == 0:
@@ -856,7 +861,7 @@ async def revoke_session(session_id: str, user: UserOut = Depends(current_user))
 
 
 @router.delete("/auth/sessions")
-async def revoke_all_sessions(user: UserOut = Depends(current_user)):
+async def revoke_all_sessions(user: UserOut = Depends(_dep_current_user)):
     """Revoke all sessions except the current one (log out other devices)."""
     # Increment token version to invalidate all existing JWTs
     await db.users.update_one({"id": user.id}, {"$inc": {"token_version": 1}})

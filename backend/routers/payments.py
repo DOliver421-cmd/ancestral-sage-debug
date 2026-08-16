@@ -11,11 +11,17 @@ import logging
 from datetime import datetime, timezone
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import Header, APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
 
 logger = logging.getLogger("lcewai")
 router = APIRouter(prefix="/payments", tags=["payments"])
+
+async def _dep_current_user(authorization: Optional[str] = Header(None)):
+    """Resolve the real current_user at REQUEST time (bind() sets it after import)."""
+    return await current_user(authorization)
+
+
 
 # ── Shared state, bound by server.py via bind() ──────────────────────────────
 db = audit = notify = current_user = None
@@ -105,7 +111,7 @@ async def list_payment_products():
 
 
 @router.post("/checkout")
-async def create_checkout_session(req: CheckoutReq, user=Depends(current_user)):
+async def create_checkout_session(req: CheckoutReq, user=Depends(_dep_current_user)):
     """Create a checkout session via the free-tier pipeline (Lemon Squeezy → Gumroad).
 
     Returns {"url": ...} — the same shape the previous checkout flow returned — so the
@@ -244,11 +250,11 @@ async def payments_webhook(request: Request):
 
 
 @router.get("/portal")
-async def customer_portal(user=Depends(current_user)):
+async def customer_portal(user=Depends(_dep_current_user)):
     raise HTTPException(501, "Customer portal is not available on this platform yet.")
 
 
 @router.get("/history")
-async def payment_history(user=Depends(current_user)):
+async def payment_history(user=Depends(_dep_current_user)):
     cursor = db.payments.find({"user_id": user.id}, {"_id": 0}).sort("created_at", -1).limit(50)
     return {"payments": await cursor.to_list(50)}
