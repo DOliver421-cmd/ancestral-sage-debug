@@ -31,6 +31,7 @@ import Incidents from "./pages/Incidents";
 import Settings from "./pages/Settings";
 import ExecSystem from "./pages/ExecSystem";
 import ForgotPassword from "./pages/ForgotPassword";
+import FactoryReset from "./pages/FactoryReset";
 import ResetPassword from "./pages/ResetPassword";
 import { Error404 } from "./pages/ErrorPages";
 import SageAudit from "./pages/SageAudit";
@@ -197,6 +198,7 @@ function App() {
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
           <Route path="/forgot-password" element={<ForgotPassword />} />
+          <Route path="/factory-reset" element={<FactoryReset />} />
           <Route path="/reset-password" element={<ResetPassword />} />
           {/* Helper routes — /helper is public, /app/helper requires auth */}
           <Route path="/helper" element={<Helper requireAuth={false} />} />
