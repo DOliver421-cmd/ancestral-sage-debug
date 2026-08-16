@@ -59,10 +59,11 @@ export default function Register() {
       <section className="bg-gradient-to-b from-copper/10 to-bone border-b border-copper/20 py-16">
         <div className="max-w-3xl mx-auto px-6 text-center">
           <h1 className="font-heading text-5xl font-bold mb-4">
-            Join the Community
+            Create your free account
           </h1>
           <p className="text-xl text-ink/60 mb-8">
-            Creator. Learner. Healer. Artist. Community member. Whatever brings you here — this is for you.
+            Learner. Healer. Artist. Community member. Whatever brings you here — this is for you.
+            (Creator is a tier you unlock inside the community — everyone starts here.)
           </p>
           <div className="grid md:grid-cols-3 gap-4 max-w-2xl mx-auto">
             <div className="flex items-start gap-3">
@@ -188,7 +189,7 @@ export default function Register() {
             >
               {loading ? "Creating account…" : (
                 <>
-                  Join Us <ArrowRight className="w-4 h-4" />
+                  Create Account <ArrowRight className="w-4 h-4" />
                 </>
               )}
             </button>

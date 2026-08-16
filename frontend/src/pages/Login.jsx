@@ -144,14 +144,15 @@ export default function Login() {
               </div>
             </div>
 
-            {/* Sign Up */}
+            {/* Sign Up — account creation is for everyone; creator is a tier you
+                select inside the community, not the registration path itself. */}
             <Link
               to="/register"
               className="w-full py-3 px-4 border-2 border-copper text-copper font-bold uppercase tracking-widest hover:bg-copper hover:text-white transition-colors rounded flex items-center justify-center gap-2"
               data-testid="btn-register"
             >
               <Heart className="w-4 h-4" />
-              Join as Creator
+              Create Account
             </Link>
           </form>
 
