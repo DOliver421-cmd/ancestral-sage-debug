@@ -30,10 +30,17 @@ COPY --from=builder /app/build /usr/share/nginx/html
 COPY nginx.conf.template /etc/nginx/templates/default.conf.template
 
 # nginx runs envsubst on /etc/nginx/templates/*.template at boot.
-# BACKEND_URL — full URL of the backend service. The default fits the
-# home-server compose (`backend` service); on Railway set this to the
-# backend service's URL (e.g. https://backend-production.up.railway.app).
-ENV BACKEND_URL=http://backend:8080
+# BACKEND_URL — full URL of the backend service (e.g. https://foo.up.railway.app).
+#
+# The DEFAULT is deliberately an unreachable IP literal (127.0.0.1:9), NOT a
+# hostname. nginx resolves proxy_pass hostnames at STARTUP and aborts with
+# "host not found in upstream" if they don't resolve — the compose-only name
+# `backend:8080` used to be the default, which killed every Railway deploy the
+# moment BACKEND_URL wasn't set. An IP literal needs no DNS, so nginx ALWAYS
+# starts, the healthcheck always passes, and the SPA is always served; /api
+# calls return 502 until you set BACKEND_URL to the real backend.
+# Home-server compose users: set BACKEND_URL=http://backend:8080 explicitly.
+ENV BACKEND_URL=http://127.0.0.1:9
 
 # 15-backend-host.envsh derives BACKEND_HOST from BACKEND_URL (when not
 # explicitly set) BEFORE the image's envsubst step. It must be an .envsh
