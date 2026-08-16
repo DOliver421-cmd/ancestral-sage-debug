@@ -5,30 +5,40 @@ import { WAI_LOGO, BRAND } from "../lib/brand";
 import { toast } from "sonner";
 import { ArrowLeft, MailCheck, KeyRound } from "lucide-react";
 
+// status: "form" | "sent" | "notdelivered" | "error"
+//  - sent:         backend confirmed the email was handed to a provider
+//  - notdelivered: backend answered 200 but email_sent=false (provider missing
+//                  or send failed). Same response shape for unknown emails, so
+//                  this card never leaks whether an account exists.
+//  - error:        network failure or server error — honest retry path.
 export default function ForgotPassword() {
   const [email, setEmail] = useState("");
   const [busy, setBusy] = useState(false);
-  const [submitted, setSubmitted] = useState(false);
+  const [status, setStatus] = useState("form");
+  const [errorMsg, setErrorMsg] = useState("");
 
   const submit = async (e) => {
     e.preventDefault();
     setBusy(true);
+    setStatus("form");
+    setErrorMsg("");
     try {
-      // Backend always returns 200 (no enumeration). We treat any 2xx as
-      // submitted from the user's perspective.
-      await api.post("/auth/forgot-password", { email });
-      setSubmitted(true);
+      // Backend always returns 200 for valid requests (no enumeration),
+      // with email_sent indicating whether delivery actually completed.
+      const r = await api.post("/auth/forgot-password", { email });
+      setStatus(r?.data?.email_sent === true ? "sent" : "notdelivered");
     } catch (err) {
       if (err?.response) {
-        // Server answered (4xx/5xx, e.g. rate limit): show the backend message
-        // but still show the submitted state so account existence isn't leaked.
+        // Server answered (4xx/5xx — rate limit, validation, outage). Show the
+        // backend message; never claim a link was sent.
         const detail = err?.response?.data?.detail;
         if (typeof detail === "string") toast.error(detail);
-        setSubmitted(true);
+        setStatus("error");
+        setErrorMsg(typeof detail === "string" ? detail : "The server hit an error. Please try again in a moment.");
       } else {
         // Network / CORS failure — the request never reached the server.
-        // Do NOT claim it was received; tell the user plainly to retry.
-        toast.error("Could not reach the server. Check your connection and try again.");
+        setStatus("error");
+        setErrorMsg("Could not reach the server. Check your connection and try again.");
       }
     } finally {
       setBusy(false);
@@ -64,7 +74,7 @@ export default function ForgotPassword() {
 
       <div className="flex items-center justify-center p-8">
         <div className="w-full max-w-md">
-          {submitted ? (
+          {status === "sent" ? (
             <div data-testid="forgot-submitted-card">
               <div className="overline text-copper">Check your email</div>
               <h2 className="font-heading text-3xl font-bold mt-2 flex items-center gap-3">
@@ -84,6 +94,41 @@ export default function ForgotPassword() {
               <Link to="/login" className="btn-secondary mt-6 inline-flex items-center gap-2" data-testid="forgot-back-to-login">
                 <ArrowLeft className="w-4 h-4" /> Back to sign in
               </Link>
+            </div>
+          ) : status === "notdelivered" ? (
+            <div data-testid="forgot-notdelivered-card">
+              <div className="overline text-copper">Almost there</div>
+              <h2 className="font-heading text-3xl font-bold mt-2 flex items-center gap-3">
+                <MailCheck className="w-7 h-7 text-signal" /> Request received.
+              </h2>
+              <p className="text-ink/60 mt-3">
+                If <span className="font-mono font-semibold">{email}</span> is associated with a W.A.I. account,
+                we attempted to send a reset link &mdash; but our email service did not confirm delivery.
+              </p>
+              <div className="card-flat p-4 mt-6 bg-white border-l-4 border-l-signal">
+                <p className="text-sm text-ink/70">
+                  <strong>No email arrived?</strong> Please <strong>contact your program administrator</strong> &mdash;
+                  they can mint a working reset link for you directly. (Administrators: check the backend logs for the
+                  one-time recovery link, or use the &ldquo;reset link&rdquo; action in the admin panel.)
+                </p>
+              </div>
+              <Link to="/login" className="btn-secondary mt-6 inline-flex items-center gap-2" data-testid="forgot-back-to-login">
+                <ArrowLeft className="w-4 h-4" /> Back to sign in
+              </Link>
+            </div>
+          ) : status === "error" ? (
+            <div data-testid="forgot-error-card">
+              <div className="overline text-destructive">Something went wrong</div>
+              <h2 className="font-heading text-3xl font-bold mt-2">We couldn't submit your request.</h2>
+              <p className="text-ink/60 mt-3">{errorMsg}</p>
+              <div className="mt-6 flex flex-col gap-3">
+                <button type="button" onClick={() => setStatus("form")} className="btn-primary w-full" data-testid="forgot-retry">
+                  Try again
+                </button>
+                <Link to="/login" className="btn-secondary w-full inline-flex items-center justify-center gap-2" data-testid="forgot-back-to-login">
+                  <ArrowLeft className="w-4 h-4" /> Back to sign in
+                </Link>
+              </div>
             </div>
           ) : (
             <form onSubmit={submit} data-testid="forgot-form">
