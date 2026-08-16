@@ -290,8 +290,13 @@ def test_send_reset_email_returns_false_without_key(monkeypatch):
     monkeypatch.setattr(server, "RESEND_API_KEY", "")
 
     async def go():
-        sent = await _send_reset_email("anyone@example.com", "rawtoken", "Anyone")
+        # Explicit base URL bypasses the PUBLIC_APP_URL guard so the test
+        # reaches the provider check.
+        sent, reason = await _send_reset_email(
+            "anyone@example.com", "rawtoken", "Anyone", base_url="https://example.test"
+        )
         assert sent is False
+        assert "provider" in reason  # helpful for the API response / admin UI
 
     asyncio.run(go())
 
@@ -304,7 +309,8 @@ def test_send_reset_email_returns_false_when_key_set_but_no_public_url(monkeypat
     monkeypatch.delenv("PUBLIC_APP_URL", raising=False)
 
     async def go():
-        sent = await _send_reset_email("anyone@example.com", "rawtoken", "Anyone")
+        sent, reason = await _send_reset_email("anyone@example.com", "rawtoken", "Anyone")
         assert sent is False
+        assert "PUBLIC_APP_URL" in reason
 
     asyncio.run(go())

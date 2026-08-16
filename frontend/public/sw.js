@@ -1,4 +1,7 @@
-const CACHE = "wai-v1";
+// Bump this version whenever the app shell changes so the browser is forced
+// to reinstall the service worker (a byte-different sw.js always re-fetches).
+// Stale service workers + cached index.html are how users stay stuck on old builds.
+const CACHE = "wai-v2";
 const PRECACHE = ["/", "/login", "/help-center", "/offline"];
 
 self.addEventListener("install", (event) => {

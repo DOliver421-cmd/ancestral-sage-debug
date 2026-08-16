@@ -27,6 +27,9 @@ export default function ForgotPassword() {
       // with email_sent indicating whether delivery actually completed.
       const r = await api.post("/auth/forgot-password", { email });
       setStatus(r?.data?.email_sent === true ? "sent" : "notdelivered");
+      // Backend now reports the exact delivery failure reason when it can't
+      // send (no provider, unverified sender, etc.) — surface it for admins.
+      if (r?.data?.email_error) setErrorMsg(r.data.email_error);
     } catch (err) {
       if (err?.response) {
         // Server answered (4xx/5xx — rate limit, validation, outage). Show the
@@ -111,6 +114,11 @@ export default function ForgotPassword() {
                   they can mint a working reset link for you directly. (Administrators: check the backend logs for the
                   one-time recovery link, or use the &ldquo;reset link&rdquo; action in the admin panel.)
                 </p>
+                {errorMsg && (
+                  <p className="mt-3 text-xs font-mono text-ink/60 bg-ink/5 p-3 break-words">
+                    Delivery status: {errorMsg}
+                  </p>
+                )}
               </div>
               <Link to="/login" className="btn-secondary mt-6 inline-flex items-center gap-2" data-testid="forgot-back-to-login">
                 <ArrowLeft className="w-4 h-4" /> Back to sign in

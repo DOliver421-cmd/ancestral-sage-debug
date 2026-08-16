@@ -557,6 +557,7 @@ async def forgot_password(body: ForgotPasswordReq, request: Request):
 
     user_doc = await db.users.find_one({"email": body.email}, {"_id": 0})
     email_sent = False
+    email_reason = ""
     if user_doc and user_doc.get("is_active") is not False:
         raw, hashed = _make_reset_token()
         now = datetime.now(timezone.utc)
@@ -585,7 +586,7 @@ async def forgot_password(body: ForgotPasswordReq, request: Request):
             _host = request.headers.get("host", "")
             if _host:
                 _req_base = f"{_scheme}://{_host}"
-        email_sent = await _send_reset_email(
+        email_sent, email_reason = await _send_reset_email(
             user_doc["email"], raw, user_doc.get("full_name", "there"), base_url=_req_base,
         )
         if not email_sent:
@@ -594,8 +595,8 @@ async def forgot_password(body: ForgotPasswordReq, request: Request):
             # can complete the flow from Railway logs. Link expires in
             # RESET_TOKEN_TTL_MIN minutes and is single-use.
             logger.warning(
-                "PASSWORD RESET: email could not be delivered to %s — one-time recovery link (expires in %s min): %s",
-                user_doc["email"], RESET_TOKEN_TTL_MIN, _build_reset_url(raw, base=_req_base),
+                "PASSWORD RESET: email could not be delivered to %s (%s) — one-time recovery link (expires in %s min): %s",
+                user_doc["email"], email_reason, RESET_TOKEN_TTL_MIN, _build_reset_url(raw, base=_req_base),
             )
         # Dev/admin convenience: when explicitly enabled, return the raw
         # token so the requester (or curl-based tests) can complete the
@@ -603,7 +604,7 @@ async def forgot_password(body: ForgotPasswordReq, request: Request):
         if os.environ.get("DEV_RETURN_RESET_TOKEN") == "1":
             return {"ok": True, "email_sent": email_sent,
                     "_dev_token": raw, "_dev_url": _build_reset_url(raw)}
-    return {"ok": True, "email_sent": email_sent}
+    return {"ok": True, "email_sent": email_sent, "email_error": email_reason if not email_sent else ""}
 
 
 @router.post("/admin/users/{uid}/reset-link")
@@ -636,7 +637,7 @@ async def admin_create_reset_link(uid: str, request: Request,
         "ip": (request.client.host if request.client else "admin"),
         "issued_by": user.id,
     })
-    email_sent = await _send_reset_email(
+    email_sent, email_reason = await _send_reset_email(
         target["email"], raw, target.get("full_name", "there"),
     )
     await audit(user.id, "admin.password_reset.link_issued", target=target["id"],
@@ -645,6 +646,7 @@ async def admin_create_reset_link(uid: str, request: Request,
         "ok": True,
         "email": target["email"],
         "email_sent": email_sent,
+        "email_error": email_reason if not email_sent else "",
         "token": raw,
         "url": _build_reset_url(raw),
         "expires_at": expires_at.isoformat(),
