@@ -1,13 +1,23 @@
 import axios from "axios";
 import { toast } from "sonner";
 
-// Always use REACT_APP_BACKEND_URL if set (build-time env var).
-// Otherwise, always point at the Railway backend — never use window.location.origin
-// because morehelp.center and wai-institute.org have no backend of their own.
+// ── Backend URL resolution ──────────────────────────────────────────────────
+// Priority order (highest wins):
+//   1. window.__WAI_BACKEND__  — runtime-injected by the deployment (nginx
+//      entrypoint or hosting config), no rebuild needed.
+//   2. REACT_APP_BACKEND_URL   — build-time env var (split frontend/backend
+//      deployments bake the API origin here).
+//   3. Same-origin ("")       — the single-service deployment: the backend
+//      serves the built React SPA and the API lives at /api on this origin.
+//      This is the default so a backend that serves the frontend "just works"
+//      with zero configuration and zero CORS.
+//
+// There is deliberately NO hardcoded fallback host: a dead baked URL silently
+// broke every API call on the live site. Same-origin is always the safe floor.
 const ENV_URL = process.env.REACT_APP_BACKEND_URL;
-const FALLBACK_BACKEND = "https://ancestral-sage-debug-production.up.railway.app";
+const RUNTIME_URL = (typeof window !== "undefined" && window.__WAI_BACKEND__) || "";
 
-export const BACKEND_URL = ENV_URL || FALLBACK_BACKEND;
+export const BACKEND_URL = RUNTIME_URL || ENV_URL || "";
 export const API = `${BACKEND_URL}/api`;
 
 export const api = axios.create({ baseURL: API });

@@ -35,6 +35,11 @@ RUN chmod +x /app/docker-entrypoint.sh
 
 ENV PYTHONPATH=/app/backend:/app
 
+# Serve the baked React SPA from the backend (single-service topology) so the
+# frontend's same-origin /api calls reach this server without CORS or a
+# separate frontend deployment. Override with SERVE_FRONTEND=0 for API-only.
+ENV SERVE_FRONTEND=1
+
 RUN apt-get update && apt-get install -y \
     build-essential \
     libc-dev \

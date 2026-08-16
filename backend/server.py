@@ -167,10 +167,13 @@ ANTHROPIC_API_KEY = os.environ.get('ANTHROPIC_API_KEY', EMERGENT_LLM_KEY)
 OPENAI_API_KEY = os.environ.get('OPENAI_API_KEY', EMERGENT_LLM_KEY)
 
 # ── Backup server / home server config ───────────────────────────────────────
-# Set SERVE_FRONTEND=1 on your home server to serve the built React app too.
+# SERVE_FRONTEND defaults ON (unless explicitly set to 0): the deployment
+# Dockerfile bakes the React build into /app/frontend/build, so the backend
+# serves the SPA and the frontend calls the API same-origin at /api — the
+# single-service topology. Set SERVE_FRONTEND=0 only for API-only hosts.
 # Set BACKUP_ORIGIN=https://your-cloudflare-tunnel.trycloudflare.com so the
 # home server URL is automatically allowed by CORS.
-SERVE_FRONTEND  = os.environ.get('SERVE_FRONTEND', '0') == '1'
+SERVE_FRONTEND  = os.environ.get('SERVE_FRONTEND', '1') != '0'
 BACKUP_ORIGIN   = os.environ.get('BACKUP_ORIGIN', '').strip()
 GUMROAD_API_KEY = os.environ.get('GUMROAD_API_KEY', '')
 

@@ -1,3 +1,12 @@
+# Frontend image — used ONLY for a split frontend/backend deployment.
+# The primary deployment (root Dockerfile) builds the React app into the
+# backend image, where the backend serves the SPA and /api same-origin —
+# in that topology this image is not used.
+#
+# When split mode IS used, nginx serves the SPA and proxies /api/* to the
+# backend service so the React app can call same-origin URLs (no CORS, no
+# baked-in dead host). BACKEND_URL defaults to the home-server compose
+# backend service; override for other topologies (e.g. a Railway backend).
 FROM node:18-alpine AS builder
 
 WORKDIR /app
@@ -6,13 +15,10 @@ COPY package*.json ./
 
 RUN npm ci --legacy-peer-deps
 
-ARG CACHE_BUST=20260609b
+ARG CACHE_BUST=20260816
 COPY . .
 
-# Bake the backend URL into the React bundle at build time.
-# Railway injects service variables as Docker build args automatically.
-# REACT_APP_BACKEND_URL is already set in the Arts and Tech service Variables.
-# Once baked in, the React app calls the backend directly — no nginx proxy needed.
+# Build-time URL for any code that reads REACT_APP_BACKEND_URL directly.
 ARG REACT_APP_BACKEND_URL
 ENV REACT_APP_BACKEND_URL=$REACT_APP_BACKEND_URL
 
@@ -21,15 +27,10 @@ RUN npm run build
 FROM nginx:alpine
 
 COPY --from=builder /app/build /usr/share/nginx/html
+COPY nginx.conf.template /etc/nginx/templates/default.conf.template
 
-# Simple static file server — no proxy needed because the React app
-# calls the backend directly via the baked-in REACT_APP_BACKEND_URL.
-RUN echo 'server { \
-    listen 8080; \
-    root /usr/share/nginx/html; \
-    index index.html; \
-    location / { try_files $uri $uri/ /index.html; } \
-}' > /etc/nginx/conf.d/default.conf
+# nginx runs envsubst on /etc/nginx/templates/*.template at boot.
+ENV BACKEND_URL=http://backend:8080
 
 EXPOSE 8080
 
