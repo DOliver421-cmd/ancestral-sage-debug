@@ -30,7 +30,17 @@ COPY --from=builder /app/build /usr/share/nginx/html
 COPY nginx.conf.template /etc/nginx/templates/default.conf.template
 
 # nginx runs envsubst on /etc/nginx/templates/*.template at boot.
+# BACKEND_URL — full URL of the backend service. The default fits the
+# home-server compose (`backend` service); on Railway set this to the
+# backend service's URL (e.g. https://backend-production.up.railway.app).
 ENV BACKEND_URL=http://backend:8080
+
+# 15-backend-host.sh derives BACKEND_HOST from BACKEND_URL (when not
+# explicitly set) BEFORE the image's envsubst step, so the template never
+# renders an undefined variable. The chmod guards against non-executable
+# bits from the git checkout.
+COPY docker-entrypoint.d/ /docker-entrypoint.d/
+RUN chmod +x /docker-entrypoint.d/*.sh
 
 EXPOSE 8080
 

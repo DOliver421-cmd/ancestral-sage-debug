@@ -6,8 +6,9 @@ server {
     # ── API proxy ─────────────────────────────────────────────────────────────
     # Forwards /api/* to the FastAPI backend service.
     # BACKEND_URL  — full URL of the backend (e.g. https://foo.up.railway.app)
-    # BACKEND_HOST — hostname extracted from BACKEND_URL by docker-entrypoint.sh
-    #                Used as the Host header so Railway's load balancer accepts it.
+    # BACKEND_HOST — hostname derived from BACKEND_URL by
+    #                docker-entrypoint.d/15-backend-host.sh (or set explicitly).
+    #                Used as the Host header so Railway's load balancer routes it.
     location /api/ {
         proxy_pass ${BACKEND_URL}/api/;
         proxy_http_version 1.1;
