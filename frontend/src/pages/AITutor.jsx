@@ -1,7 +1,7 @@
 // v2.1 - expanded cultural focus
 import { useEffect, useRef, useState, useCallback } from "react";
 import AppShell from "../components/AppShell";
-import { api, API } from "../lib/api";
+import { api } from "../lib/api";
 import { Sparkles, Send, Compass, ShieldAlert, Lock, Mic, MicOff, Volume2, VolumeX, Loader2, Square, Download } from "lucide-react";
 import { toast } from "sonner";
 
@@ -55,8 +55,6 @@ export default function AITutor() {
   const [audioSpeed, setAudioSpeed] = useState(1.0);
   const [audioVolume, setAudioVolume] = useState(1.0);
   const [audioPlaying, setAudioPlaying] = useState(false);
-  const audioElRef = useRef(null);
-  const audioAbortRef = useRef(null);
 
   const [restricted, setRestricted] = useState(false);
   const [resolvedMode, setResolvedMode] = useState(null);
@@ -78,11 +76,7 @@ export default function AITutor() {
   }, [intensity, safety]);
 
   const cancelAudio = useCallback(() => {
-    audioAbortRef.current?.abort();
-    if (audioElRef.current) {
-      audioElRef.current.pause();
-      audioElRef.current = null;
-    }
+    if ("speechSynthesis" in window) window.speechSynthesis.cancel();
     setAudioPlaying(false);
   }, []);
 
@@ -106,63 +100,13 @@ export default function AITutor() {
     }
   }, [audioSpeed, audioVolume]);
 
-  const speak = useCallback(async (text) => {
+  const speak = useCallback((text) => {
     if (!audioOn || !text) return;
     cancelAudio();
-    const controller = new AbortController();
-    audioAbortRef.current = controller;
-    try {
-      const token = localStorage.getItem("lce_token");
-      const r = await fetch(`${API}/ai/sage/tts`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
-        body: JSON.stringify({
-          text,
-          voice: mode === "ancestral_sage" ? "sage" :
-            mode === "tutor" ? "nova" :
-            mode === "scripture" ? "fable" :
-            mode === "electrician" ? "echo" : "alloy",
-          speed: audioSpeed,
-          session_id: sessionId
-        }),
-        signal: controller.signal,
-      });
-      if (r.status === 429) {
-        toast.error("Voice budget for today is reached. Text remains visible.");
-        return;
-      }
-      if (r.status === 503) {
-        toast.error("Voice provider is temporarily unavailable. Falling back to text only.");
-        return;
-      }
-      if (!r.ok) {
-        // Backend TTS unavailable (no AI key configured, or provider error) —
-        // fall back to the browser's built-in speech synthesis so voice
-        // output still works with zero configuration and zero cost.
-        speakViaBrowser(text);
-        return;
-      }
-      const blob = await r.blob();
-      const url = URL.createObjectURL(blob);
-      const audio = new Audio(url);
-      audio.volume = audioVolume;
-      audio.preload = "auto";
-      audioElRef.current = audio;
-      audio.onended = () => { URL.revokeObjectURL(url); setAudioPlaying(false); };
-      audio.onpause = () => setAudioPlaying(false);
-      audio.onplay = () => setAudioPlaying(true);
-      audio.oncanplaythrough = () => {
-        if (audioElRef.current !== audio) return;
-        audio.play().catch(() => setAudioPlaying(false));
-      };
-      audio.load();
-    } catch (e) {
-      if (e?.name !== "AbortError") {
-        // Network failure or other error — same free fallback as above.
-        speakViaBrowser(text);
-      }
-    }
-  }, [audioOn, audioSpeed, audioVolume, sessionId, mode, cancelAudio, speakViaBrowser]);
+    // Native browser TTS — free, no keys, works everywhere. Replaces the old
+    // paid per-persona voice system (/ai/sage/tts → OpenAI/ElevenLabs).
+    speakViaBrowser(text);
+  }, [audioOn, cancelAudio, speakViaBrowser]);
 
   const downloadTranscript = useCallback(() => {
     const lines = msgs.map((m) => `[${m.role}] ${m.text}`).join("\n\n");

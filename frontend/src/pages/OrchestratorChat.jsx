@@ -127,50 +127,39 @@ export default function OrchestratorChat() {
   const [threatHint, setThreatHint] = useState("");
   const [protocol, setProtocol] = useState("");
 
-  // Audio
+  // Audio — native browser TTS (free, no keys)
   const [audioOn, setAudioOn] = useState(false);
   const [audioPlaying, setAudioPlaying] = useState(false);
-  const audioElRef = useRef(null);
-  const audioAbortRef = useRef(null);
   const endRef = useRef(null);
 
   useEffect(() => { endRef.current?.scrollIntoView({ behavior: "smooth" }); }, [msgs]);
 
-  // ── TTS ──────────────────────────────────────────────────────────────────
+  // ── TTS — native browser speech synthesis (free, no keys) ──────────────────
   const stopAudio = useCallback(() => {
-    if (audioElRef.current) { audioElRef.current.pause(); audioElRef.current.src = ""; }
-    if (audioAbortRef.current) audioAbortRef.current.abort();
+    if ("speechSynthesis" in window) window.speechSynthesis.cancel();
     setAudioPlaying(false);
   }, []);
 
-  const playTTS = useCallback(async (text) => {
+  const playTTS = useCallback((text) => {
     if (!audioOn || !text) return;
+    if (!("speechSynthesis" in window)) {
+      toast.error("Voice playback unavailable.");
+      return;
+    }
     try {
       stopAudio();
-      const ctrl = new AbortController();
-      audioAbortRef.current = ctrl;
-      const r = await api.post(
-        "/ai/sage/tts",
-        { text: text.slice(0, 2000), voice: "sage", speed: 1.0, session_id: sessionId },
-        { responseType: "arraybuffer", signal: ctrl.signal }
-      );
-      const blob = new Blob([r.data], { type: "audio/mpeg" });
-      const url = URL.createObjectURL(blob);
-      if (audioElRef.current) {
-        audioElRef.current.src = url;
-        setAudioPlaying(true);
-        audioElRef.current.play().catch(() => { URL.revokeObjectURL(url); setAudioPlaying(false); });
-        audioElRef.current.onended = () => { URL.revokeObjectURL(url); setAudioPlaying(false); };
-      } else {
-        URL.revokeObjectURL(url);
-      }
+      const utt = new SpeechSynthesisUtterance(String(text).slice(0, 500));
+      utt.rate = 0.95;
+      utt.onstart = () => setAudioPlaying(true);
+      utt.onend = () => setAudioPlaying(false);
+      utt.onerror = () => setAudioPlaying(false);
+      window.speechSynthesis.speak(utt);
+      setAudioPlaying(true);
     } catch (e) {
-      if (e?.code !== "ERR_CANCELED") {
-        toast.error("Voice playback unavailable.");
-      }
+      toast.error("Voice playback unavailable.");
       setAudioPlaying(false);
     }
-  }, [audioOn, sessionId, stopAudio]);
+  }, [audioOn, stopAudio]);
 
   // ── STT ──────────────────────────────────────────────────────────────────
   const { listening: recording, toggle: startRecording } = useMic({
@@ -275,7 +264,6 @@ export default function OrchestratorChat() {
 
   return (
     <AppShell>
-      <audio ref={audioElRef} style={{ display: "none" }} />
       <div className="flex flex-col h-screen max-h-screen">
 
         {/* ─── Header ─── */}

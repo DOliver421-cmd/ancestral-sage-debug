@@ -224,9 +224,23 @@ export default function GhostProducer() {
   const [activeClone, setActiveClone] = useState(null);
   const [ttsOutput, setTtsOutput]   = useState("");
   const [ttsText, setTtsText]       = useState("");
-  const [ttsVoice, setTtsVoice]     = useState("sage");
+  const [ttsVoice, setTtsVoice]     = useState(""); // browser voice name ("" = default)
+  const [browserVoices, setBrowserVoices] = useState([]);
   const [ttsLoading, setTtsLoading] = useState(false);
-  const ttsAudioRef = useRef(null);
+
+  // Load the browser's built-in voices (Chrome loads them asynchronously)
+  useEffect(() => {
+    const load = () => {
+      if (!("speechSynthesis" in window)) return;
+      const vs = window.speechSynthesis.getVoices().filter(v => v.lang?.toLowerCase().startsWith("en"));
+      setBrowserVoices(vs);
+    };
+    load();
+    if (window.speechSynthesis?.onvoiceschanged !== undefined) {
+      window.speechSynthesis.onvoiceschanged = load;
+    }
+    return () => { if (window.speechSynthesis) window.speechSynthesis.onvoiceschanged = null; };
+  }, []);
 
   const canvasRef  = useRef(null);
   const rafRef     = useRef(null);
@@ -295,19 +309,30 @@ export default function GhostProducer() {
   function handleMode(m) { setMode(m); modeRef.current = m; if (!isPlaying) drawFrame(); }
   function handleTrack(track) { setActiveTrack(track.name); modeRef.current = track.mode; setMode(track.mode); }
 
-  async function puterTTS() {
+  function puterTTS() {
     const text = ttsText.trim();
     if (!text) { setTtsOutput("⚠️ Enter text above to convert."); return; }
-    setTtsLoading(true); setTtsOutput("🔄 Generating audio…");
+    if (!("speechSynthesis" in window)) {
+      setTtsOutput("⚠️ Speech synthesis is not supported in this browser.");
+      return;
+    }
+    setTtsLoading(true); setTtsOutput("🔊 Speaking…");
     try {
-      const resp = await api.post("/ai/sage/tts", { text, voice: ttsVoice, speed: 1.0, session_id: "ghost_producer" }, { responseType: "blob" });
-      const url = URL.createObjectURL(resp.data);
-      if (ttsAudioRef.current) { ttsAudioRef.current.pause(); URL.revokeObjectURL(ttsAudioRef.current.src); }
-      const audio = new Audio(url); ttsAudioRef.current = audio; audio.play();
-      setTtsOutput("🔊 Playing — voice: " + ttsVoice);
+      window.speechSynthesis.cancel();
+      const utt = new SpeechSynthesisUtterance(text.slice(0, 500));
+      if (ttsVoice) {
+        const match = window.speechSynthesis.getVoices().find(v => v.name === ttsVoice);
+        if (match) utt.voice = match;
+      }
+      utt.rate = 0.95;
+      utt.onend = () => setTtsLoading(false);
+      utt.onerror = () => setTtsLoading(false);
+      window.speechSynthesis.speak(utt);
+      setTtsOutput("🔊 Speaking — native browser voice");
     } catch (e) {
-      setTtsOutput("⚠️ " + (e?.response?.data?.detail || e?.message || "TTS failed"));
-    } finally { setTtsLoading(false); }
+      setTtsOutput("⚠️ " + (e?.message || "TTS failed"));
+      setTtsLoading(false);
+    }
   }
 
   return (
@@ -460,8 +485,9 @@ export default function GhostProducer() {
               <div style={{ display: "flex", gap: 12, alignItems: "center", marginBottom: 16, flexWrap: "wrap" }}>
                 <select value={ttsVoice} onChange={e => setTtsVoice(e.target.value)}
                   style={{ background: "#1a1a2a", border: "1px solid #333", borderRadius: 8, padding: "8px 12px", color: T.gold, fontFamily: "monospace", fontSize: "0.85rem" }}>
-                  {["alloy","ash","coral","echo","fable","nova","onyx","sage","shimmer"].map(v => (
-                    <option key={v} value={v}>{v}</option>
+                  <option value="">Default voice</option>
+                  {browserVoices.map(v => (
+                    <option key={v.name} value={v.name}>{v.name}</option>
                   ))}
                 </select>
                 <button style={{ ...vizBtnStyle(ttsLoading, true), flex: 1 }} onClick={puterTTS} disabled={ttsLoading}>

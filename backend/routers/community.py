@@ -609,6 +609,26 @@ async def more_department_chat(body: MoreDeptChatReq, user: User = Depends(_dep_
     }
 
 
+@router.get("/more/department/history")
+async def more_department_history(user: User = Depends(_dep_current_user), limit: int = 60):
+    """M.O.R.E. Department AI conversation history for the current operator.
+
+    Returns the operator's past more_department chat records (chronological)
+    so the Dept. AI Ops page can restore context across sessions. Admin+ only,
+    matching the chat endpoint.
+    """
+    if ROLE_RANK.get(user.role, 0) < ROLE_RANK.get("admin", 3):
+        raise HTTPException(403, "Department AI requires admin access")
+    limit = max(1, min(int(limit), 200))
+    records = await db.chat_history.find(
+        {"user_id": user.id, "mode": "more_department"},
+        {"_id": 0, "user_msg": 1, "assistant_msg": 1, "persona": 1, "department": 1,
+         "active_mode": 1, "is_decline": 1, "created_at": 1, "session_id": 1},
+    ).sort("created_at", -1).limit(limit).to_list(limit)
+    records.reverse()  # chronological order for the chat UI
+    return {"history": records}
+
+
 @router.get("/more/department/integrity")
 async def more_department_integrity(user: User = Depends(_dep_current_user)):
     """SHA-256 hash of the M.O.R.E. Department system prompt for integrity auditing."""

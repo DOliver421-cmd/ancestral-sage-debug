@@ -210,8 +210,6 @@ function useMic({ onResult, onError }) {
 // ---------------------------------------------------------------------------
 function useTTS(voice) {
   const [speaking, setSpeaking] = useState(false);
-  const audioRef = useRef(null);
-  const abortRef = useRef(null);
 
   const speakBrowser = useCallback((text) => {
     if (!window.speechSynthesis) return;
@@ -226,39 +224,16 @@ function useTTS(voice) {
   }, []);
 
   const stop = useCallback(() => {
-    abortRef.current?.abort();
-    if (audioRef.current) { audioRef.current.pause(); audioRef.current = null; }
     window.speechSynthesis?.cancel(); setSpeaking(false);
   }, []);
 
-  const speak = useCallback(async (text) => {
+  const speak = useCallback((text) => {
     if (!text) return;
-    abortRef.current?.abort();
-    if (audioRef.current) { audioRef.current.pause(); audioRef.current = null; }
     window.speechSynthesis?.cancel();
-    const token = localStorage.getItem("lce_token");
-    if (!token) { speakBrowser(text); return; }
-    const controller = new AbortController();
-    abortRef.current = controller;
-    setSpeaking(true);
-    try {
-      const r = await fetch(`${BACKEND_URL}/api/ai/sage/tts`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "Authorization": "Bearer " + token },
-        body: JSON.stringify({ text: text.slice(0, 1000), voice: voice || "nova", speed: 0.95, session_id: "helper-tts" }),
-        signal: controller.signal,
-      });
-      if (!r.ok) { setSpeaking(false); speakBrowser(text); return; }
-      const blob = await r.blob();
-      const url = URL.createObjectURL(blob);
-      const audio = new Audio(url);
-      audioRef.current = audio;
-      audio.onended = () => { URL.revokeObjectURL(url); setSpeaking(false); };
-      audio.onpause = () => setSpeaking(false);
-      audio.onerror = () => { setSpeaking(false); speakBrowser(text); };
-      audio.play().catch(() => { setSpeaking(false); speakBrowser(text); });
-    } catch (e) { if (e?.name !== "AbortError") { setSpeaking(false); speakBrowser(text); } }
-  }, [voice, speakBrowser]);
+    // Native browser TTS — free, no keys, works everywhere. Replaces the paid
+    // per-persona voice system (/ai/sage/tts → OpenAI/ElevenLabs).
+    speakBrowser(text);
+  }, [speakBrowser]);
 
   return { speaking, speak, stop };
 }

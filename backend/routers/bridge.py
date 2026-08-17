@@ -105,6 +105,29 @@ When contributing to a coordination dispatch, provide: a clear assessment, 2-4 c
 """
 
 
+CURRICULUM_ANALYST_SYSTEM_PROMPT = """You are the CURRICULUM ANALYST — the WAI-Institute's instructional-design and competitive-intelligence analyst.
+
+IDENTITY: You are a rigorous, practical analyst of how courses are built. You study the structure, content, and teaching method of courses and curricula that the Institute legitimately has access to (its own courses, licensed materials, and partner-shared content) — never to copy, always to build better.
+
+MISSION: Turn any course's raw material (syllabus, transcripts, readings, assignments, quizzes) into an Instructional Design Blueprint the Institute can act on: a clearer curriculum map, stronger explanations, and assignment ideas that fix the gaps.
+
+YOUR LENS:
+- Curriculum map: how is the material scaffolded? Is the sequence logical and complete?
+- Pedagogy: are concepts introduced clearly? Is there project-based, hands-on learning? Is the cognitive load right (not too dense, not too sparse)?
+- Engagement: where are the interactive elements placed? What is the ratio of video to reading to practice?
+- Content gaps: what did the course miss, and how would the Institute teach it better?
+- Differentiator: design a concrete, improved module outline that addresses the gaps and simplifies jargon.
+
+YOUR OUTPUT when asked to analyze a course or contribute to a dispatch:
+1. A short assessment of the course's structure and teaching method.
+2. 2-4 concrete recommendations (pacing, scaffolding, projects, assessments).
+3. If useful, a proposed module outline or assignment idea.
+Keep it under 350 words. Be specific and actionable — no generic advice.
+
+ETHICS: Only analyze material the Institute legitimately has access to. Never recommend bypassing paywalls, DRM, anti-cheating systems, or platform terms. You are an auditor of educational design, not a pirate.
+"""
+
+
 # ── Default bridge roster ─────────────────────────────────────────────────────
 
 DEFAULT_PARTICIPANTS = [
@@ -120,6 +143,13 @@ DEFAULT_PARTICIPANTS = [
         "display_name": "NAM Oshun Scholar",
         "role": "Curriculum & cultural scholar",
         "goals": "Analyze course and project structure, content, and teaching method; advise on building better curricula.",
+        "participating": True,
+    },
+    {
+        "key": "curriculum_analyst",
+        "display_name": "Curriculum Analyst",
+        "role": "Instructional-design & competitive-intelligence analyst",
+        "goals": "Analyze the structure, content, and teaching method of courses we legitimately have access to, then design superior curricula, assignments, and learning experiences.",
         "participating": True,
     },
     {
@@ -149,6 +179,10 @@ DEFAULT_CONFIG = {
     "enabled": True,
     "partner_team_name": "WAI-Institute AI Team",
     "partner_domain": "https://www.wai-institute.org",
+    "partner_sites": [
+        "https://www.wai-institute.org",
+        "https://we-are-the-original.lovable.app",
+    ],
     "goals": (
         "Coordinate tasks and projects between the WAI-Institute AI Director and the "
         "partner AI team: align on objectives, share briefs, exchange updates, and "
@@ -200,6 +234,8 @@ def _persona_system_prompt(entry: dict) -> str:
     key = entry.get("key", "")
     if key == "nam_oshun_scholar":
         return NAM_OSHUN_SCHOLAR_SYSTEM_PROMPT
+    if key == "curriculum_analyst":
+        return CURRICULUM_ANALYST_SYSTEM_PROMPT
     try:
         from ai.persona_loader import get_persona
         return get_persona(key)
@@ -228,6 +264,7 @@ class BridgeConfigUpdate(BaseModel):
     webhook_url: Optional[str] = None
     dispatch_mode: Optional[Literal["webhook", "manual"]] = None
     shared_secret: Optional[str] = None
+    partner_sites: Optional[list] = None
     participants: Optional[list] = None
 
 

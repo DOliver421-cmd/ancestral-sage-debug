@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { api, BACKEND_URL } from "../lib/api";
+import { api } from "../lib/api";
 import { useAuth } from "../lib/auth";
 import { toast } from "sonner";
 
@@ -104,7 +104,6 @@ export default function Jamil() {
   const inputRef = useRef(null);
   const fileRef = useRef(null);
   const mediaRef = useRef(null);
-  const audioRef = useRef(null);
   const chunksRef = useRef([]);
 
   useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages, loading]);
@@ -154,27 +153,25 @@ export default function Jamil() {
     setRecording(false);
   };
 
-  // ── Voice output ────────────────────────────────────────────────────────────
-  const speak = useCallback(async (text) => {
+  // ── Voice output — native browser TTS (free, no keys) ───────────────────────
+  const speak = useCallback((text) => {
+    if (!("speechSynthesis" in window)) {
+      toast.error("Voice output is not supported in this browser.");
+      return;
+    }
     if (playing) {
-      audioRef.current?.pause();
+      window.speechSynthesis.cancel();
       setPlaying(false);
       return;
     }
-    try {
-      setPlaying(true);
-      const { data } = await api.post("/jamil/speak", { text }, { responseType: "arraybuffer" });
-      const blob = new Blob([data], { type: "audio/mpeg" });
-      const url = URL.createObjectURL(blob);
-      const audio = new Audio(url);
-      audioRef.current = audio;
-      audio.onended = () => { setPlaying(false); URL.revokeObjectURL(url); };
-      audio.onerror = () => { setPlaying(false); toast.error("Audio playback failed"); };
-      audio.play();
-    } catch {
-      setPlaying(false);
-      toast.error("Voice unavailable — check ELEVENLABS_API_KEY");
-    }
+    window.speechSynthesis.cancel();
+    const utt = new SpeechSynthesisUtterance(String(text).slice(0, 500));
+    utt.rate = 0.95;
+    utt.onstart = () => setPlaying(true);
+    utt.onend = () => setPlaying(false);
+    utt.onerror = () => setPlaying(false);
+    window.speechSynthesis.speak(utt);
+    setPlaying(true);
   }, [playing]);
 
   // ── Send ────────────────────────────────────────────────────────────────────

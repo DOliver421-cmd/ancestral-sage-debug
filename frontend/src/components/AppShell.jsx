@@ -203,7 +203,6 @@ export default function AppShell({ children }) {
             <NavSection label="Administration" collapsed={collapsed}>
               {nl("/admin",           "Admin Overview",  Settings,       "nav-admin")}
               {nl("/admin/users",     "Users",           Users,          "nav-admin-users")}
-              {nl("/admin/accounts",  "Accounts",        Users,          "nav-accounts")}
               {nl("/admin/tools",     "Sites & Inventory", Building2,   "nav-admin-tools")}
               {nl("/admin/analytics", "Analytics",       TrendingUp,     "nav-analytics")}
               {nl("/admin/audit",     "Audit Log",       ScrollText,     "nav-audit")}
