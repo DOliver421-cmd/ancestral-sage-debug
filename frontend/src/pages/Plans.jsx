@@ -2,56 +2,14 @@ import { Link } from "react-router-dom";
 import { useAuth } from "../lib/auth";
 import AppShell from "../components/AppShell";
 import BackButton from "../components/BackButton";
-import { Check, Zap, Clock } from "lucide-react";
+import { MEMBERSHIP_PLANS, CREATOR_PLANS } from "../lib/plans";
+import { Check, Zap, Crown } from "lucide-react";
 
-// Public membership plans — the corrected 5-tier monthly ladder ($0/9/15/29/59).
-// Free tier is fully actionable (register); paid tiers route to the existing
-// /subscribe checkout. Honest note below re: tier billing rollout (no dead ends,
-// no fake checkout — every CTA goes somewhere real).
-const PLANS = [
-  {
-    name: "Public",
-    price: 0,
-    tagline: "Explore freely",
-    features: ["Free public resources", "Browse the M.O.R.E. community", "Daily puzzle — earn points", "One free basic course"],
-    cta: "Start Free",
-    to: "/register",
-  },
-  {
-    name: "Member",
-    price: 9,
-    tagline: "Join in fully",
-    features: ["Everything in Public", "Full M.O.R.E. — post & connect", "AI Tutor (standard)", "Member badge"],
-    cta: "Choose Member",
-    to: "/subscribe?plan=member_monthly",
-  },
-  {
-    name: "Plus",
-    price: 15,
-    tagline: "More tools",
-    features: ["Everything in Member", "Priority resource matching", "Expanded course library", "Portfolio tools"],
-    cta: "Choose Plus",
-    to: "/subscribe?plan=plus_monthly",
-    highlight: true,
-  },
-  {
-    name: "Pro",
-    price: 29,
-    tagline: "Go further",
-    features: ["Everything in Plus", "Advanced courses + labs", "Full AI tools suite", "Mentor support hours"],
-    cta: "Choose Pro",
-    to: "/subscribe?plan=pro_monthly",
-  },
-  {
-    name: "Patron",
-    price: 59,
-    tagline: "Fund the mission",
-    features: ["Everything in Pro", "Founder's circle", "You fund free access for others", "Direct line to the team"],
-    cta: "Become a Patron",
-    to: "/subscribe?plan=patron_monthly",
-  },
-];
-
+/**
+ * /plans — the five-level membership ladder (free/member/plus/pro/patron),
+ * the $3 trial, and the Creator's Sanctuary lane. Every CTA routes to the
+ * real /subscribe checkout for that exact product key — no dead ends.
+ */
 export default function Plans() {
   const { user } = useAuth();
   return (
@@ -76,12 +34,13 @@ export default function Plans() {
             <span style={{ fontSize: 36 }}>⚡</span>
             <div>
               <div className="font-heading font-black text-2xl text-signal">$3 All-Access Trial</div>
-              <div className="text-white/70 text-sm">3 days · 33 minutes · 33 seconds of everything</div>
+              <div className="text-white/70 text-sm">3 days · 33 minutes · 33 seconds</div>
             </div>
           </div>
           <div className="flex-1 text-sm text-white/80 leading-relaxed">
-            Unlock every feature on the platform — Creator Studio, Ghost Producer, AI tools, all courses — for one low trial price.
-            No recurring charge unless you choose a plan after.
+            Unlock everything through Pro — Creator Studio, Ghost Producer, the full AI suite, and every course —
+            for one low trial price. It reverts automatically when the trial ends; no recurring charge unless you
+            choose a plan after.
           </div>
           <Link to="/subscribe?plan=sanctuary_trial"
             className="shrink-0 font-black text-sm px-6 py-3 rounded-xl whitespace-nowrap"
@@ -91,13 +50,13 @@ export default function Plans() {
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mt-10">
-          {PLANS.map((p) => (
-            <div key={p.name} className={`card-flat p-6 flex flex-col ${p.highlight ? "border-copper" : ""}`}>
+          {MEMBERSHIP_PLANS.map((p) => (
+            <div key={p.key} className={`card-flat p-6 flex flex-col ${p.highlight ? "border-copper" : ""}`}>
               {p.highlight && <span className="badge-copper self-start mb-2">Popular</span>}
               <div className="overline text-ink/40">{p.name}</div>
               <div className="flex items-end gap-1 mt-1">
                 <span className="font-heading font-black text-4xl text-ink">${p.price}</span>
-                <span className="text-ink/50 text-sm mb-1">/mo</span>
+                <span className="text-ink/50 text-sm mb-1">{p.period}</span>
               </div>
               <div className="text-sm text-ink/60 mt-1">{p.tagline}</div>
               <ul className="space-y-2 mt-4 flex-1">
@@ -118,9 +77,61 @@ export default function Plans() {
           ))}
         </div>
 
+        {/* ── Creator's Sanctuary ── */}
+        <div className="mt-14 rounded-2xl p-8"
+          style={{ background: "linear-gradient(160deg,#14101f,#0d0818)", border: "1px solid rgba(168,85,247,0.25)" }}>
+          <div className="flex items-center gap-2.5 mb-1">
+            <Crown className="w-5 h-5 text-purple-400" />
+            <h2 className="font-heading font-black text-2xl" style={{ color: "#d8b4fe" }}>Creator's Sanctuary</h2>
+          </div>
+          <p className="text-sm text-white/60 max-w-2xl">
+            Specialized creator lanes — each includes the matching membership level plus higher payouts,
+            course publishing, advanced tools, and moderation rights.
+          </p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mt-6">
+            {CREATOR_PLANS.map((p) => (
+              <div key={p.key} className="rounded-2xl p-5 flex flex-col"
+                style={{ background: "rgba(168,85,247,0.07)", border: "1px solid rgba(168,85,247,0.25)" }}>
+                {p.trial ? (
+                  <span className="self-start text-[10px] font-black tracking-widest uppercase px-2 py-1 rounded-full mb-2"
+                    style={{ background: "rgba(232,165,30,0.15)", color: "#E8A51E", border: "1px solid rgba(232,165,30,0.4)" }}>
+                    ⚡ Best value
+                  </span>
+                ) : (
+                  <span className="self-start text-[10px] font-bold tracking-widest uppercase text-white/40 mb-2">
+                    {p.name.includes("Certified") ? "Moderation lane" : "Creator lane"}
+                  </span>
+                )}
+                <div className="font-heading font-bold text-lg text-white">{p.name}</div>
+                <div className="flex items-end gap-1 mt-1">
+                  <span className="font-heading font-black text-3xl text-white">{p.price}</span>
+                  <span className="text-white/40 text-sm mb-1">{p.period}</span>
+                </div>
+                <div className="text-xs text-white/50 mt-1">{p.tagline}</div>
+                <ul className="space-y-2 mt-4 flex-1">
+                  {p.features.map((f) => (
+                    <li key={f} className="flex items-start gap-2 text-xs text-white/75">
+                      <Check className="w-3.5 h-3.5 text-purple-400 mt-0.5 shrink-0" /> {f}
+                    </li>
+                  ))}
+                </ul>
+                <Link
+                  to={p.to}
+                  className="mt-5 text-center text-sm font-black py-2.5 rounded-xl"
+                  style={p.trial
+                    ? { background: "#E8A51E", color: "#0a0a0a" }
+                    : { background: "rgba(168,85,247,0.15)", color: "#c4b5fd", border: "1px solid rgba(168,85,247,0.4)" }}
+                >
+                  {p.trial ? "Start $3 Trial" : `Choose ${p.name}`}
+                </Link>
+              </div>
+            ))}
+          </div>
+        </div>
+
         <p className="text-xs text-ink/40 text-center mt-8 max-w-2xl mx-auto">
-          Paid tiers are rolling out — at checkout you'll be guided to our current membership option while full monthly
-          billing for every tier comes online. Program enrollees may qualify for complimentary membership.
+          Every tier above is a real monthly subscription. The $3 trial never auto-charges and reverts when it ends.
+          Program enrollees may qualify for complimentary membership.
         </p>
       </div>
     </div>

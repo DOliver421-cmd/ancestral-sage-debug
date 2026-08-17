@@ -3,57 +3,14 @@ import { useSearchParams, Link } from "react-router-dom";
 import AppShell from "../components/AppShell";
 import { api } from "../lib/api";
 import { useAuth } from "../lib/auth";
+import { MEMBERSHIP_PLANS, CREATOR_PLANS, planByKey } from "../lib/plans";
+import { tierRank } from "../lib/tiers";
 import { CheckCircle, ExternalLink, ArrowLeft, Zap, Crown } from "lucide-react";
 import { toast } from "sonner";
 
-/* ── All purchasable plans ── */
-const PLANS = [
-  {
-    key: "member_monthly",
-    name: "Member",
-    price: 9,
-    period: "/mo",
-    tagline: "Join the community",
-    color: "#94a3b8",
-    features: ["Full M.O.R.E. — post & connect", "AI Tutor (standard)", "Member badge", "Cancel anytime"],
-  },
-  {
-    key: "plus_monthly",
-    name: "Plus",
-    price: 15,
-    period: "/mo",
-    tagline: "More tools",
-    color: "#d4af37",
-    features: ["Everything in Member", "Priority resource matching", "Expanded course library", "Portfolio tools"],
-  },
-  {
-    key: "pro_monthly",
-    name: "Pro",
-    price: 29,
-    period: "/mo",
-    tagline: "Go further",
-    color: "#4ade80",
-    highlight: true,
-    features: ["Everything in Plus", "Advanced courses + labs", "Full AI tools suite", "Mentor support hours"],
-  },
-  {
-    key: "patron_monthly",
-    name: "Patron",
-    price: 59,
-    period: "/mo",
-    tagline: "Fund the mission",
-    color: "#f97316",
-    features: ["Everything in Pro", "Founder's circle", "You fund free access for others", "Direct line to the team"],
-  },
-];
-
-/* Sanctuary add-ons shown separately */
-const SANCTUARY_PLANS = {
-  sanctuary_trial:   { name: "3-Day All-Access Trial", price: "$3",  period: " once",  features: ["Every feature unlocked", "3 days + 33 min + 33 sec", "No auto-charge unless you choose a plan", "Cancel before expiry — no cost"] },
-  sanctuary_paid:    { name: "Paid Creator",            price: "$7",  period: "/mo",    features: ["Full Sanctuary access", "Course publishing", "90% payout on tips & courses", "Cancel anytime"] },
-  sanctuary_creator: { name: "Advanced Creator",        price: "$11", period: "/mo",    features: ["Everything in Paid Creator", "Advanced tools suite", "80% payout rate", "Priority support"] },
-  sanctuary_mod:     { name: "Certified Moderator",     price: "$15", period: "/mo",    features: ["Everything in Advanced Creator", "Moderator privileges", "85% payout + 1.5% mod bonus", "Governance voting rights"] },
-};
+function priceLabel(price) {
+  return typeof price === "number" ? `$${price}` : price;
+}
 
 export default function SubscribePage() {
   const { user } = useAuth();
@@ -62,11 +19,11 @@ export default function SubscribePage() {
   const [portalLoading, setPortalLoading] = useState(false);
 
   const planParam = searchParams.get("plan");
-  const sanctuaryPlan = planParam && SANCTUARY_PLANS[planParam]
-    ? { key: planParam, ...SANCTUARY_PLANS[planParam] }
+  const sanctuaryPlan = planParam && CREATOR_PLANS.find(p => p.key === planParam)
+    ? planByKey(planParam)
     : null;
   const tierPlan = planParam && !sanctuaryPlan
-    ? PLANS.find(p => p.key === planParam) || null
+    ? MEMBERSHIP_PLANS.find(p => p.key === planParam) || null
     : null;
 
   async function subscribe(key) {
@@ -79,7 +36,7 @@ export default function SubscribePage() {
       const detail = e?.response?.data?.detail || "";
       // Payments not configured yet (no Lemon Squeezy / Gumroad API keys):
       // don't leave the visitor at a dead 501 — route them to the live
-      // Gumroad storefront so the purchase can actually happen.
+      // storefront so the purchase can actually happen.
       if (
         e?.response?.status === 501 ||
         /not configured|payments are not configured/i.test(String(detail))
@@ -120,7 +77,7 @@ export default function SubscribePage() {
               <div style={{ background: "linear-gradient(135deg,#1B4332,#2D6A4F)", border: "2px solid #E8A51E", borderRadius: 16, padding: "16px 20px", marginBottom: 24, display: "flex", alignItems: "center", gap: 12 }}>
                 <Zap size={20} style={{ color: "#E8A51E", flexShrink: 0 }} />
                 <div style={{ fontSize: 13, color: "rgba(255,255,255,0.85)", lineHeight: 1.5 }}>
-                  <strong style={{ color: "#E8A51E" }}>$3 All-Access Trial</strong> — 3 days, 33 minutes, 33 seconds of everything. No recurring charge unless you choose a plan after.
+                  <strong style={{ color: "#E8A51E" }}>$3 All-Access Trial</strong> — everything through Pro for 3 days, 33 minutes, 33 seconds. It reverts automatically; no recurring charge unless you choose a plan after.
                 </div>
               </div>
             )}
@@ -131,7 +88,7 @@ export default function SubscribePage() {
               </div>
               <div style={{ display: "flex", alignItems: "flex-end", gap: 4, marginBottom: 24 }}>
                 <span style={{ fontFamily: "monospace", fontSize: "3rem", fontWeight: 900, color: "#e0d8f0", lineHeight: 1 }}>
-                  {typeof plan.price === "number" ? `$${plan.price}` : plan.price}
+                  {priceLabel(plan.price)}
                 </span>
                 <span style={{ fontSize: 13, color: "#6b6480", marginBottom: 8 }}>{plan.period}</span>
               </div>
@@ -156,8 +113,8 @@ export default function SubscribePage() {
                 {loading === plan.key
                   ? "Redirecting to checkout…"
                   : isTrial
-                    ? `Start $3 Trial →`
-                    : `Subscribe — $${plan.price}${plan.period}`}
+                    ? "Start $3 Trial →"
+                    : `Subscribe — ${priceLabel(plan.price)}${plan.period}`}
               </button>
               <p style={{ fontSize: 11, color: "#6b6480", textAlign: "center", marginTop: 14 }}>
                 Manage or cancel anytime from your account.
@@ -171,6 +128,7 @@ export default function SubscribePage() {
 
   /* ── Full membership page ── */
   const currentTier = user?.feature_tier || "free";
+  const isActiveMember = tierRank(currentTier) > 0 || user?.more_member;
 
   return (
     <AppShell>
@@ -196,11 +154,11 @@ export default function SubscribePage() {
               <span style={{ fontSize: 36 }}>⚡</span>
               <div>
                 <div style={{ fontFamily: "monospace", fontWeight: 900, fontSize: "1.4rem", color: "#E8A51E" }}>$3 All-Access Trial</div>
-                <div style={{ color: "rgba(255,255,255,0.6)", fontSize: 12 }}>3 days · 33 minutes · 33 seconds of everything</div>
+                <div style={{ color: "rgba(255,255,255,0.6)", fontSize: 12 }}>3 days · 33 minutes · 33 seconds</div>
               </div>
             </div>
             <div style={{ flex: 1, minWidth: 200, fontSize: 13, color: "rgba(255,255,255,0.75)", lineHeight: 1.6 }}>
-              Unlock every feature — Creator Studio, Ghost Producer, AI tools, all courses — for one low trial price. No recurring charge unless you choose a plan.
+              Everything through Pro — Creator Studio, Ghost Producer, the full AI suite, and every course — for one low trial price. It reverts automatically when the trial ends; no recurring charge unless you choose a plan.
             </div>
             <button
               onClick={() => subscribe("sanctuary_trial")}
@@ -212,11 +170,13 @@ export default function SubscribePage() {
           </div>
 
           {/* Active member banner */}
-          {user?.more_member && (
+          {isActiveMember && (
             <div style={{ background: "rgba(74,222,128,0.08)", border: "1px solid rgba(74,222,128,0.3)", borderRadius: 14, padding: "16px 22px", display: "flex", alignItems: "center", gap: 14, marginBottom: 32 }}>
               <CheckCircle size={20} style={{ color: "#4ade80", flexShrink: 0 }} />
               <div style={{ flex: 1 }}>
-                <div style={{ fontWeight: 700, color: "#4ade80" }}>You're an active member — {currentTier} tier</div>
+                <div style={{ fontWeight: 700, color: "#4ade80" }}>
+                  {currentTier === "free" ? "You're in the M.O.R.E. community" : `You're a member — ${currentTier} tier`}
+                </div>
                 <div style={{ fontSize: 13, color: "#6b6480" }}>Upgrade, downgrade, or manage billing below.</div>
               </div>
               <button
@@ -231,7 +191,7 @@ export default function SubscribePage() {
 
           {/* 5-tier grid */}
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 16, marginBottom: 48 }}>
-            {PLANS.map(plan => {
+            {MEMBERSHIP_PLANS.filter(p => p.key !== "free").map(plan => {
               const isCurrent = currentTier === plan.key.replace("_monthly", "");
               return (
                 <div key={plan.key} style={{
@@ -294,14 +254,15 @@ export default function SubscribePage() {
               </div>
             </div>
             <p style={{ fontSize: 13, color: "#6b6480", marginBottom: 20, maxWidth: 600 }}>
-              Specialized tiers for active creators — higher payouts, advanced tools, moderation rights.
+              Specialized lanes for active creators — each includes the matching membership level plus higher payouts,
+              course publishing, advanced tools, and moderation rights.
             </p>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 14 }}>
-              {Object.entries(SANCTUARY_PLANS).map(([key, plan]) => (
-                <div key={key} style={{ background: "#100e1a", border: "1px solid rgba(168,85,247,0.2)", borderRadius: 14, padding: "18px 16px", display: "flex", flexDirection: "column" }}>
+              {CREATOR_PLANS.map(plan => (
+                <div key={plan.key} style={{ background: "#100e1a", border: "1px solid rgba(168,85,247,0.2)", borderRadius: 14, padding: "18px 16px", display: "flex", flexDirection: "column" }}>
                   <div style={{ fontSize: "0.6rem", fontFamily: "monospace", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.1em", color: "#a855f7", marginBottom: 6 }}>{plan.name}</div>
                   <div style={{ display: "flex", alignItems: "flex-end", gap: 4, marginBottom: 12 }}>
-                    <span style={{ fontFamily: "monospace", fontSize: "1.6rem", fontWeight: 900, color: "#e0d8f0", lineHeight: 1 }}>{plan.price}</span>
+                    <span style={{ fontFamily: "monospace", fontSize: "1.6rem", fontWeight: 900, color: "#e0d8f0", lineHeight: 1 }}>{priceLabel(plan.price)}</span>
                     <span style={{ fontSize: 11, color: "#6b6480", marginBottom: 4 }}>{plan.period}</span>
                   </div>
                   <ul style={{ listStyle: "none", padding: 0, margin: "0 0 16px", flex: 1, display: "flex", flexDirection: "column", gap: 7 }}>
@@ -312,18 +273,18 @@ export default function SubscribePage() {
                     ))}
                   </ul>
                   <button
-                    onClick={() => subscribe(key)}
+                    onClick={() => subscribe(plan.key)}
                     disabled={!!loading}
                     style={{
                       width: "100%", padding: "9px", border: "1px solid rgba(168,85,247,0.4)",
-                      borderRadius: 8, background: key === "sanctuary_trial" ? "rgba(232,165,30,0.15)" : "transparent",
-                      color: key === "sanctuary_trial" ? "#E8A51E" : "#a855f7",
-                      borderColor: key === "sanctuary_trial" ? "rgba(232,165,30,0.5)" : "rgba(168,85,247,0.4)",
+                      borderRadius: 8, background: plan.trial ? "rgba(232,165,30,0.15)" : "transparent",
+                      color: plan.trial ? "#E8A51E" : "#a855f7",
+                      borderColor: plan.trial ? "rgba(232,165,30,0.5)" : "rgba(168,85,247,0.4)",
                       fontSize: 11, fontWeight: 900, fontFamily: "monospace", cursor: "pointer",
-                      opacity: loading && loading !== key ? 0.5 : 1,
+                      opacity: loading && loading !== plan.key ? 0.5 : 1,
                     }}
                   >
-                    {loading === key ? "Redirecting…" : key === "sanctuary_trial" ? "Start $3 Trial →" : `Choose ${plan.name}`}
+                    {loading === plan.key ? "Redirecting…" : plan.trial ? "Start $3 Trial →" : `Choose ${plan.name}`}
                   </button>
                 </div>
               ))}
@@ -340,7 +301,7 @@ export default function SubscribePage() {
               {portalLoading ? "Loading…" : "Manage existing subscription"}
             </button>
             <p style={{ fontSize: 11, color: "#6b6480", marginTop: 12 }}>
-              Paid tiers are rolling out — at checkout you'll be guided to our current membership option.
+              Every tier above is a real monthly subscription. The $3 trial never auto-charges and reverts when it ends.
               Program enrollees may qualify for complimentary membership.
             </p>
           </div>

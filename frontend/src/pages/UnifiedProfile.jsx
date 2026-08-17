@@ -17,6 +17,7 @@ import { useAuth } from "../lib/auth";
 import { api, BACKEND_URL } from "../lib/api";
 import { toast } from "sonner";
 import AppShell from "../components/AppShell";
+import { FEATURE_TIER_RANK, FEATURE_TIER_LABEL, canAccess } from "../lib/tiers";
 import SharePanel from "../components/SharePanel";
 import {
   Music, BookOpen, Users, Edit3, Camera, Send, Mic, MicOff,
@@ -27,41 +28,6 @@ import {
   DollarSign, Heart, TrendingUp, Receipt, Network, Star, Crown, Shield,
 } from "lucide-react";
 import { useMic } from "../hooks/useMic";
-
-// ── Tier gate logic ───────────────────────────────────────────────────────────
-// feature_tier is set by payment (auto) or admin override (one-time).
-// Free → Member → Plus → Pro → Patron → Executive
-// Admins/exec_admins bypass all gates regardless of feature_tier.
-const FEATURE_TIER_RANK = { free: 0, member: 1, plus: 2, pro: 3, patron: 4, executive: 5 };
-const FEATURE_TIER_LABEL = {
-  free: "Free", member: "Member", plus: "Plus",
-  pro: "Pro", patron: "Patron", executive: "Executive",
-};
-
-function canAccess(user, _status, feature) {
-  if (!user) return false;
-  const role = user.role || "student";
-  // Admins and executive admins own the platform — never locked out
-  if (role === "admin" || role === "executive_admin") return true;
-  const isInstructor = role === "instructor";
-  const tierIdx = FEATURE_TIER_RANK[user.feature_tier] ?? 0;
-
-  switch (feature) {
-    case "profile":       return true;
-    case "ai_chat":       return true;
-    case "posts":         return tierIdx >= 1;             // Member+
-    case "publisher_ai":  return tierIdx >= 1;             // Member+
-    case "courses":       return tierIdx >= 2 || isInstructor; // Plus+
-    case "tracks":        return tierIdx >= 2 || isInstructor; // Plus+
-    case "ghost":         return tierIdx >= 2;             // Plus+
-    case "band":          return tierIdx >= 2;             // Plus+
-    case "publisher":     return tierIdx >= 2;             // Plus+
-    case "artist_mgmt":   return tierIdx >= 3;             // Pro+
-    case "mass_post":     return tierIdx >= 4;             // Patron+
-    case "sovereign":     return false;                    // admin role only, handled above
-    default:              return false;
-  }
-}
 
 // ── Sub-components ────────────────────────────────────────────────────────────
 
@@ -1290,7 +1256,7 @@ export default function UnifiedProfile() {
                   {canUseGhost ? (
                     <InlineGhostProducer />
                   ) : (
-                    <LockedFeature name="Ghost Producer" requiredTier="Pro">
+                    <LockedFeature name="Ghost Producer" requiredTier="Plus">
                       {/* Blurred preview */}
                       <div className="card-flat p-5 space-y-4 pointer-events-none">
                         <div className="flex items-center gap-2">

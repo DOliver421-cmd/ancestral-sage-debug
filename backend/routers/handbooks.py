@@ -22,8 +22,8 @@ _HANDBOOKS_DIR = Path(__file__).resolve().parent.parent / "handbooks" / "html"
 
 # name -> (filename, display title)
 HANDBOOKS = {
-    "instructor": ("WAI_Instructor_Handbook.html", "WAI Institute — Instructor Handbook"),
-    "student":    ("WAI_Student_Handbook.html",    "WAI Institute — Student Handbook"),
+    "instructor": ("WAI_Instructor_Handbook.html", "M.O.R.E. Help Center — Instructor Handbook"),
+    "student":    ("WAI_Student_Handbook.html",    "M.O.R.E. Help Center — Student Handbook"),
     "admin":      ("WAI_Admin_Handbook.html",      "WAI Institute — Admin Handbook"),
     "persona":    ("AI_Persona_Creation_Manual.html", "WAI Institute — AI Persona Creation Manual"),
 }

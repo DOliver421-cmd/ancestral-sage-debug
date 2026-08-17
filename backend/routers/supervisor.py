@@ -150,7 +150,7 @@ async def supervisor_greeter_config(user: User = Depends(_require_rank("executiv
     """Return greeter/Supervisor persona config: welcome message, mode, routing rules."""
     doc = await db.platform_config.find_one({"key": "greeter_config"}, {"_id": 0})
     default = {
-        "welcome_message": "Welcome to the WAI Institute. I'm here to guide you.",
+        "welcome_message": "Welcome to the M.O.R.E. Help Center. I'm here to guide you.",
         "mode": "greeter",
         "route_unauthenticated_to": "/more-help-center",
         "route_authenticated_to": "/dashboard",

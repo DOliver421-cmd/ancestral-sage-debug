@@ -406,7 +406,7 @@ async def rd_identify_opportunity(focus: str = "all", priority: str = "all", db=
         },
         {
             "id":          "membership_tier",
-            "title":       "WAI Member Intelligence Subscription",
+            "title":       "M.O.R.E. Member Intelligence Subscription",
             "category":    "strategic",
             "price_range": "$19.99-$49.99/month",
             "revenue_impact": "$2000-10000/mo at 100-200 members",
