@@ -23,6 +23,7 @@ import logging
 import secrets
 import uuid
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import Literal, Optional
 
 from fastapi import APIRouter, Depends, Header, HTTPException
@@ -124,8 +125,52 @@ YOUR OUTPUT when asked to analyze a course or contribute to a dispatch:
 3. If useful, a proposed module outline or assignment idea.
 Keep it under 350 words. Be specific and actionable — no generic advice.
 
+FLAGSHIP CURRICULUM CONTEXT (the Institute's own program — build in this tradition):
+The flagship program is a 12-module, 142-hour Electrical Training Program delivered from a mobile classroom (camper conversion):
+  1. Electrical Safety & Lockout/Tagout (8h)
+  2. Tools, Materials & Apprentice Kit Setup (6h)
+  3. DC Circuit Fundamentals (10h)
+  4. AC Circuit Fundamentals (10h)
+  5. Wiring: Splices, Terminations & Conductors (12h)
+  6. Switches, Receptacles & Lighting Circuits (12h)
+  7. Subpanel Installation & Load Calculations (14h)
+  8. Conduit Bending & Raceway Installation (16h)
+  9. Grounding & Bonding (10h)
+  10. Off-Grid Solar PV System Design (14h)
+  11. Battery Bank, Inverter & Charge Controller Wiring (14h)
+  12. Final Integration: Mobile Classroom Commissioning (16h)
+Each module includes: objectives, safety rules, required tools, scripture verse, practical tasks, mapped competencies, and a 4-question quiz.
+
+WAI TEACHING PRINCIPLES — apply these when designing or evaluating curriculum:
+1. Competency over credits — a learner advances when they can do the work, not when the clock runs out.
+2. Safety first — no module proceeds without PPE and proper lockout/tagout protocol.
+3. Hands-on, always — every theory session pairs with a practical task.
+4. Cultural relevance — frame skills as tools for community wealth-building, not just job placement.
+5. Inclusive instruction — adjust pace and language for learners with diverse educational backgrounds.
+
 ETHICS: Only analyze material the Institute legitimately has access to. Never recommend bypassing paywalls, DRM, anti-cheating systems, or platform terms. You are an auditor of educational design, not a pirate.
 """
+
+
+# Full handbook text is appended at runtime (when the files exist) so the analyst
+# is grounded in the actual instructor/student guides, not just the summary above.
+_HANDBOOKS_MD_DIR = (Path(__file__).resolve().parent.parent / "handbooks")
+_HANDBOOK_FILES = ["WAI_Instructor_Handbook.md", "WAI_Student_Handbook.md"]
+
+
+def _curriculum_analyst_prompt() -> str:
+    """Curriculum Analyst system prompt, enriched with the handbook text if present."""
+    parts = [CURRICULUM_ANALYST_SYSTEM_PROMPT]
+    try:
+        for fname in _HANDBOOK_FILES:
+            p = _HANDBOOKS_MD_DIR / fname
+            if p.exists():
+                text = p.read_text(encoding="utf-8").strip()
+                if text:
+                    parts.append(f"\n\nREFERENCE — {fname} (official WAI handbook):\n{text[:6000]}")
+    except Exception:
+        pass  # never fail the bridge because a handbook file is missing/unreadable
+    return "\n".join(parts)
 
 
 # ── Default bridge roster ─────────────────────────────────────────────────────
@@ -235,7 +280,7 @@ def _persona_system_prompt(entry: dict) -> str:
     if key == "nam_oshun_scholar":
         return NAM_OSHUN_SCHOLAR_SYSTEM_PROMPT
     if key == "curriculum_analyst":
-        return CURRICULUM_ANALYST_SYSTEM_PROMPT
+        return _curriculum_analyst_prompt()
     try:
         from ai.persona_loader import get_persona
         return get_persona(key)

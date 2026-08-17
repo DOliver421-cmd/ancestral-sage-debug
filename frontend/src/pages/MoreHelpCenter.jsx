@@ -1751,6 +1751,8 @@ export default function MoreHelpCenter() {
               <Link key={to} to={to} style={{ fontSize: 10, fontWeight: 800, textTransform: "uppercase", letterSpacing: 2, color: "white", textDecoration: "none", background: TERRACOTTA, padding: "4px 11px", borderRadius: 4 }}>{label}</Link>
             ))}
             {/* WAI Institute — prominent entry point to administration + classrooms */}
+            <a href={`${BACKEND_URL}/api/handbooks/instructor`} target="_blank" rel="noopener noreferrer" style={{ fontSize: 10, fontWeight: 800, textTransform: "uppercase", letterSpacing: 2, color: "white", textDecoration: "none", background: TERRACOTTA, padding: "4px 11px", borderRadius: 4 }}>📘 Instructor Handbook</a>
+            <a href={`${BACKEND_URL}/api/handbooks/student`} target="_blank" rel="noopener noreferrer" style={{ fontSize: 10, fontWeight: 800, textTransform: "uppercase", letterSpacing: 2, color: "white", textDecoration: "none", background: TERRACOTTA, padding: "4px 11px", borderRadius: 4 }}>📕 Student Handbook</a>
             <Link to="/wai-institute" style={{ fontSize: 11, fontWeight: 900, textTransform: "uppercase", letterSpacing: 2, color: "#fff", textDecoration: "none", background: GROVE, padding: "6px 14px", borderRadius: 4, border: `1.5px solid ${AMBER}`, display: "flex", alignItems: "center", gap: 5 }}>
               🏛️ WAI Institute
             </Link>

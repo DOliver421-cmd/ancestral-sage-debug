@@ -180,6 +180,21 @@ The sidebar (`frontend/src/components/AppShell.jsx`) groups the site into sectio
 | Legal | `/terms`, `/privacy`, `/factory-reset` |
 | Internships | `/internships` |
 
+### 2.12 Handbooks (public reference documents)
+
+The flagship curriculum documents are served as public HTML pages from `backend/handbooks/html/` via `backend/routers/handbooks.py`:
+
+| Route | Document |
+|---|---|
+| `GET /api/handbooks` | List available handbooks. |
+| `GET /api/handbooks/instructor` | Instructor Handbook — mission, role, the 12-module/142-hour program, teaching principles, classroom management, escalation. |
+| `GET /api/handbooks/student` | Student Handbook — welcome, what you'll learn, competency assessment, M.O.R.E., code of conduct. |
+| `GET /api/handbooks/admin` | Admin Handbook. |
+| `GET /api/handbooks/persona` | AI Persona Creation Manual. |
+| `GET /api/handbooks/{name}/raw` | Raw HTML body (for embedding/tools). |
+
+Links to the Instructor and Student handbooks appear on the **Curriculum** page (`/modules`) and in the **M.O.R.E. help center** nav. The **Curriculum Analyst** (AI Team Bridge) is seeded with the handbook content so its curriculum work is grounded in the flagship program.
+
 ---
 
 ## 3. The Executive Deck
