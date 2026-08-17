@@ -2260,6 +2260,12 @@ from routers import competition as _competition_mod
 _competition_mod.bind(db, current_user, audit, assert_role, xp_level)
 api_router.include_router(_competition_mod.router)
 
+# --- Cross-Domain AI Team Bridge router ---
+from routers import bridge as _bridge_mod
+_bridge_mod.bind(db, current_user, audit, assert_role, xp_level)
+api_router.include_router(_bridge_mod.router)
+
+
 
 
 
