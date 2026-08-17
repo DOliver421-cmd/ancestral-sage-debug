@@ -1,6 +1,6 @@
 import { useState, useRef, useCallback, useEffect } from "react";
 import { useAuth } from "../lib/auth";
-import { api, BACKEND_URL } from "../lib/api";
+import { api } from "../lib/api";
 import SovereignAvatar from "./SovereignAvatar";
 import { Send, X, Mic, MicOff, Volume2, VolumeX, Paperclip, Music, FileText, Image, Trash2, RefreshCw, Plus, ChevronRight } from "lucide-react";
 import { useMic } from "../hooks/useMic";
@@ -319,8 +319,6 @@ export default function SovereignChat() {
   const [attachedFiles, setAttachedFiles] = useState([]);
   const [playingId, setPlayingId] = useState(null);
 
-  const speakAudioRef  = useRef(null);
-  const speakAbortRef  = useRef(null);
   const trackAudioRef  = useRef(null);
   const fileInputRef   = useRef(null);
   const messagesEndRef = useRef(null);
@@ -330,32 +328,10 @@ export default function SovereignChat() {
     if (open) messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, open]);
 
-  // ── TTS ─────────────────────────────────────────────────────────────────────
-  const speak = useCallback(async (text) => {
+  // ── TTS — native browser speech synthesis (free, no keys) ───────────────────
+  const speak = useCallback((text) => {
     if (!audioOn || !text) return;
-    speakAbortRef.current?.abort();
-    if (speakAudioRef.current) { speakAudioRef.current.pause(); speakAudioRef.current = null; }
-    const controller = new AbortController();
-    speakAbortRef.current = controller;
-    try {
-      const token = localStorage.getItem("lce_token");
-      const r = await fetch(`${BACKEND_URL}/api/ai/sage/tts`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ text: text.slice(0, 1500), voice: "onyx", speed: 1.0, session_id: "sovereign" }),
-        signal: controller.signal,
-      });
-      if (!r.ok) { _browserSpeak(text); return; }
-      const blob = await r.blob();
-      if (!blob.size) { _browserSpeak(text); return; }
-      const url = URL.createObjectURL(blob);
-      const audio = new Audio(url);
-      speakAudioRef.current = audio;
-      audio.onended = () => { URL.revokeObjectURL(url); speakAudioRef.current = null; };
-      audio.play().catch(() => { URL.revokeObjectURL(url); speakAudioRef.current = null; _browserSpeak(text); });
-    } catch (e) {
-      if (e?.name !== "AbortError") { speakAudioRef.current = null; _browserSpeak(text); }
-    }
+    _browserSpeak(text);
   }, [audioOn]);
 
   function _browserSpeak(text) {
@@ -367,8 +343,7 @@ export default function SovereignChat() {
   }
 
   const stopAudio = useCallback(() => {
-    speakAbortRef.current?.abort();
-    if (speakAudioRef.current) { speakAudioRef.current.pause(); speakAudioRef.current = null; }
+    if ("speechSynthesis" in window) window.speechSynthesis.cancel();
   }, []);
 
   // ── Track playback ───────────────────────────────────────────────────────────

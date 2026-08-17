@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { Link } from "react-router-dom";
 import AppShell from "../components/AppShell";
-import { api, BACKEND_URL } from "../lib/api";
+import { api } from "../lib/api";
 import { useAuth } from "../lib/auth";
 import { toast } from "sonner";
 import {
@@ -317,10 +317,8 @@ export default function MoreOps() {
   const bottomRef = useRef(null);
   const inputRef = useRef(null);
 
-  // TTS state
+  // TTS state — native browser speech synthesis (free, no keys)
   const [audioOn, setAudioOn] = useState(false);
-  const speakAudioRef = useRef(null);
-  const speakAbortRef = useRef(null);
 
   // Track player state
   const [trackOpen,      setTrackOpen]      = useState(false);
@@ -407,36 +405,14 @@ export default function MoreOps() {
   };
 
   const stopAudio = useCallback(() => {
-    speakAbortRef.current?.abort();
-    if (speakAudioRef.current) { speakAudioRef.current.pause(); speakAudioRef.current = null; }
     if ("speechSynthesis" in window) window.speechSynthesis.cancel();
   }, []);
 
-  const speak = useCallback(async (text) => {
+  const speak = useCallback((text) => {
     if (!audioOn || !text) return;
-    stopAudio();
-    const controller = new AbortController();
-    speakAbortRef.current = controller;
-    try {
-      const token = localStorage.getItem("lce_token");
-      const r = await fetch(`${BACKEND_URL}/api/ai/sage/tts`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ text: text.slice(0, 1500), voice: "onyx", speed: 1.0, session_id: sessionId }),
-        signal: controller.signal,
-      });
-      if (!r.ok) throw new Error("tts-fail");
-      const blob = await r.blob();
-      if (!blob.size) throw new Error("empty");
-      const url = URL.createObjectURL(blob);
-      const audio = new Audio(url);
-      speakAudioRef.current = audio;
-      audio.onended = () => { URL.revokeObjectURL(url); speakAudioRef.current = null; };
-      audio.play().catch(() => { URL.revokeObjectURL(url); speakAudioRef.current = null; _browserSpeak(text); });
-    } catch (e) {
-      if (e?.name !== "AbortError") { speakAudioRef.current = null; _browserSpeak(text); }
-    }
-  }, [audioOn, sessionId, stopAudio]);
+    // Native browser TTS — free, no keys. Replaces the paid /ai/sage/tts path.
+    _browserSpeak(text);
+  }, [audioOn]);
 
   function _browserSpeak(text) {
     if (!("speechSynthesis" in window)) return;
