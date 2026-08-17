@@ -217,6 +217,7 @@ export default function AppShell({ children }) {
               {nl("/more/admin",      "M.O.R.E. Admin",  HandHelping,    "nav-more-admin")}
               {nl("/more/ops",        "Dept. AI Ops",    Network,        "nav-more-ops")}
               {nl("/assistant",       "Admin Assistant", Sparkles,       "nav-assistant")}
+              {nl("/admin/bridge",    "AI Team Bridge",  Network,        "nav-bridge")}
             </NavSection>
           )}
 
