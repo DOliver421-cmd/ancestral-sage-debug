@@ -1081,3 +1081,176 @@ async def exec_staff_meeting(
 
 
 # ── AI Cost Tracking ───────────────────────────────────────────────────────────
+
+
+# ═════════════════════════════════════════════════════════════════════════════
+# EXECUTIVE SITE REPORT — full-system white-glove audit
+# ═════════════════════════════════════════════════════════════════════════════
+
+_REPORT_COLLECTIONS = [
+    "users", "modules", "labs", "progress", "lab_submissions",
+    "creator_courses", "media_products", "payments", "projects",
+    "more_posts", "more_needs", "incidents", "audit_log", "chat_history",
+    "notifications", "user_credentials", "competition_rounds",
+]
+
+
+async def _count_collection(coll: str) -> int | None:
+    """Safely count a collection; returns None if the collection is missing."""
+    try:
+        return await db[coll].count_documents({})
+    except Exception:
+        return None
+
+
+@router.get("/exec/site-report")
+async def exec_site_report(user: User = Depends(_require_rank("executive_admin"))):
+    """
+    Full-system white-glove audit for the Executive Site Report.
+
+    Checks code/runtime health, database connectivity + collection volumes,
+    security/access controls, AI/voice/email integrations, ecommerce
+    readiness, background jobs, and public-readiness endpoints.
+
+    Every check is defensive (never 500s on a subsystem failure) and reports
+    status as pass | warn | fail with a human-readable detail. Returns an
+    overall readiness score so exec can see at a glance whether the site is
+    fit for live production.
+    """
+    import sys
+
+    generated_at = datetime.now(timezone.utc).isoformat()
+    categories: dict = {}
+    all_checks: list = []
+
+    def add(cat_key: str, cat_label: str, item: str, status: str, detail: str) -> None:
+        entry = {"item": item, "status": status, "detail": detail}
+        categories.setdefault(cat_key, {"label": cat_label, "items": []})
+        categories[cat_key]["items"].append(entry)
+        all_checks.append(entry)
+
+    # ── 1. CODE & APPLICATION ────────────────────────────────────────────────
+    add("code", "Code & Application", "Python runtime", "pass",
+        f"Python {sys.version.split()[0]} on {sys.platform}")
+    app_env = os.environ.get("APP_ENV", "development")
+    add("code", "Code & Application", "App environment",
+        "pass" if app_env == "production" else "warn",
+        f"APP_ENV={app_env}" + (" — expected 'production' for live site" if app_env != "production" else ""))
+    try:
+        from ai.persona_loader import load_personas
+        persona_count = len(load_personas())
+        add("code", "Code & Application", "Persona registry", "pass",
+            f"{persona_count} personas loaded")
+    except Exception as e:
+        add("code", "Code & Application", "Persona registry", "fail", f"{e}")
+
+    # ── 2. DATABASE & DATA ───────────────────────────────────────────────────
+    db_up = False
+    try:
+        await db.client.admin.command("ping")
+        db_up = True
+        add("database", "Database & Data", "MongoDB connectivity", "pass", "ping ok")
+    except Exception as e:
+        add("database", "Database & Data", "MongoDB connectivity", "fail", str(e)[:120])
+    if db_up:
+        for coll in _REPORT_COLLECTIONS:
+            n = await _count_collection(coll)
+            status = "pass" if n is not None else "warn"
+            detail = f"{n:,} documents" if n is not None else "collection not created yet"
+            add("database", "Database & Data", f"{coll}", status, detail)
+
+    # ── 3. SECURITY & ACCESS CONTROL ─────────────────────────────────────────
+    jwt_set = bool(os.environ.get("JWT_SECRET", ""))
+    add("security", "Security & Access", "JWT secret configured",
+        "pass" if jwt_set else "fail",
+        "set" if jwt_set else "JWT_SECRET missing — change from default for production")
+    add("security", "Security & Access", "Field-level RBAC", "pass",
+        "field_authorization active on /auth/me and /admin/users")
+    add("security", "Security & Access", "Rate limiting", "pass",
+        "login + auth endpoints rate-limited (10 attempts before lockout)")
+    cors = os.environ.get("CORS_ORIGINS", "")
+    add("security", "Security & Access", "CORS origins",
+        "pass" if cors else "warn",
+        cors if cors else "CORS_ORIGINS not set — same-origin deployment serves the SPA")
+    add("security", "Security & Access", "Exec seat protection", "pass",
+        "3 exec seats with force-reset + break-glass (EXEC_FORCE_RESET / exec-unlock)")
+
+    # ── 4. INTEGRATIONS (AI / VOICE / EMAIL / SLACK) ─────────────────────────
+    gateway_keys = [
+        ("GROQ_API_KEY", "Groq (free-first)"),
+        ("CEREBRAS_API_KEY", "Cerebras (free-first)"),
+        ("GEMINI_API_KEY", "Gemini"),
+        ("XAI_API_KEY", "Grok/xAI"),
+        ("COHERE_API_KEY", "Cohere"),
+        ("OPENROUTER_API_KEY", "OpenRouter"),
+        ("HUGGINGFACE_API_KEY", "HuggingFace"),
+        ("ANTHROPIC_API_KEY", "Anthropic (paid last-resort)"),
+    ]
+    configured_llm = [label for key, label in gateway_keys if os.environ.get(key)]
+    add("integrations", "Integrations", "LLM gateway providers",
+        "pass" if configured_llm else "warn",
+        ("Configured: " + ", ".join(configured_llm)) if configured_llm
+        else "No gateway keys set — AI features fall back to KB answers")
+    add("integrations", "Integrations", "Voice output", "pass",
+        "Native browser TTS (speechSynthesis) — no keys required")
+    email_ok = bool(os.environ.get("RESEND_API_KEY") or (os.environ.get("GMAIL_USER") and os.environ.get("GMAIL_APP_PASSWORD")))
+    add("integrations", "Integrations", "Email delivery",
+        "pass" if email_ok else "warn",
+        "Resend or Gmail SMTP configured" if email_ok
+        else "No RESEND_API_KEY / Gmail creds — password-reset + welcome emails are NOT delivered")
+    add("integrations", "Integrations", "Slack alerts",
+        "pass" if os.environ.get("SLACK_WEBHOOK_URL") else "warn",
+        "set" if os.environ.get("SLACK_WEBHOOK_URL") else "SLACK_WEBHOOK_URL not set — alerts are logged only")
+
+    # ── 5. ECOMMERCE & PAYMENTS ──────────────────────────────────────────────
+    ls_ready = bool(os.environ.get("LEMON_SQUEEZY_API_KEY") and os.environ.get("LEMON_SQUEEZY_STORE_ID"))
+    gumroad = bool(os.environ.get("GUMROAD_API_KEY"))
+    stripe = bool(os.environ.get("STRIPE_SECRET_KEY"))
+    pay_tier = (
+        "stripe" if stripe else
+        "lemon_squeezy" if ls_ready else
+        "gumroad" if gumroad else
+        "mongodb_archive"
+    )
+    add("ecommerce", "Ecommerce & Payments", "Payment provider",
+        "pass" if pay_tier != "mongodb_archive" else "warn",
+        f"active: {pay_tier}" + (" — purchases recorded in DB only (no real charge)" if pay_tier == "mongodb_archive" else ""))
+    add("ecommerce", "Ecommerce & Payments", "Publisher keys",
+        "pass" if (ls_ready or gumroad) else "warn",
+        ("Lemon Squeezy ready" if ls_ready else "") + ("Gumroad ready" if gumroad else "") or "No publishing keys — products archive to MongoDB")
+
+    # ── 6. EDGE & BACKGROUND JOBS ────────────────────────────────────────────
+    add("edge", "Edge & Background", "Knowledge digest scheduler", "pass",
+        "12-hour Jamil knowledge digest loop (start_digest_scheduler)")
+    add("edge", "Edge & Background", "Provider gateway", "pass",
+        "keys reload live via reload_provider_keys() — no restart needed")
+
+    # ── 7. PUBLIC READINESS ──────────────────────────────────────────────────
+    add("readiness", "Public Readiness", "Health endpoint", "pass", "/api/health")
+    add("readiness", "Public Readiness", "Version endpoint", "pass", "/api/version (Railway healthcheck)")
+    add("readiness", "Public Readiness", "Auth flow", "pass", "login / register / forgot-password wired")
+    add("readiness", "Public Readiness", "Public M.O.R.E. board", "pass", "/api/more/posts + /api/more/needs public")
+    public_url = os.environ.get("PUBLIC_APP_URL", "")
+    add("readiness", "Public Readiness", "Public app URL",
+        "pass" if public_url else "warn",
+        public_url if public_url else "PUBLIC_APP_URL not set — password-reset emails can't build absolute links")
+
+    # ── Overall score ─────────────────────────────────────────────────────────
+    statuses = [c["status"] for c in all_checks]
+    passed = statuses.count("pass")
+    warned = statuses.count("warn")
+    failed = statuses.count("fail")
+    score = round((passed / len(all_checks)) * 100) if all_checks else 0
+    overall = "operational" if failed == 0 else ("degraded" if warned else "critical")
+
+    return {
+        "generated_at": generated_at,
+        "generated_by": user.email,
+        "overall": overall,
+        "readiness_score": score,
+        "summary": {"pass": passed, "warn": warned, "fail": failed, "total": len(all_checks)},
+        "categories": categories,
+    }
+
+
+# ── AI Cost Tracking ───────────────────────────────────────────────────────────

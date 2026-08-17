@@ -229,6 +229,7 @@ export default function AppShell({ children }) {
               {nl("/admin/director",     "Director Dash",     Compass,        "nav-exec-director")}
               {nl("/admin/sage-audit",   "Sage Audit",        ScrollText,     "nav-sage-audit")}
               {nl("/admin/staff-meetings","Staff Meetings",   Users,          "nav-staff-meetings")}
+              {nl("/admin/exec-report",  "Site Report",       ClipboardCheck, "nav-exec-report")}
               {nl("/admin/providers",    "Provider Gateway",  Network,        "nav-providers")}
               {nl("/team/ops",           "Team Ops",          Settings,       "nav-team-ops")}
               {nl("/supervisor",         "Supervisor Hub",    Radio,          "nav-supervisor")}

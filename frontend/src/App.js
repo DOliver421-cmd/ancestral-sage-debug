@@ -90,6 +90,7 @@ import Landing from "./pages/Landing";
 import PlatformPrices from "./pages/PlatformPrices";
 import AuditorDashboard from "./pages/AuditorDashboard";
 import ProviderGateway from "./pages/ProviderGateway";
+import ExecutiveSiteReport from "./pages/ExecutiveSiteReport";
 import TeamOps from "./pages/TeamOps";
 import BillingAdmin from "./pages/BillingAdmin";
 import CreatorCourses from "./pages/CreatorCourses";
@@ -266,6 +267,7 @@ function App() {
           <Route path="/admin/director" element={<BoundedAdmin roles={["executive_admin"]} label="Director Dashboard" backTo="/admin"><ExecutiveDirectorDashboard /></BoundedAdmin>} />
           <Route path="/admin/sage-audit" element={<BoundedAdmin roles={["executive_admin"]} label="Sage Audit" backTo="/admin"><SageAudit /></BoundedAdmin>} />
           <Route path="/admin/staff-meetings" element={<BoundedAdmin roles={["executive_admin"]} label="Staff Meetings" backTo="/admin"><StaffMeetingHistory /></BoundedAdmin>} />
+          <Route path="/admin/exec-report" element={<BoundedAdmin roles={["executive_admin"]} label="Executive Site Report" backTo="/admin"><ExecutiveSiteReport /></BoundedAdmin>} />
           <Route path="/admin/health" element={<BoundedAdmin roles={["admin"]} label="System Health"><SystemHealth /></BoundedAdmin>} />
           <Route path="/admin/moderation" element={<BoundedAdmin roles={["admin"]} label="Moderation Analytics"><ModerationAnalytics /></BoundedAdmin>} />
           <Route path="/revenue" element={<BoundedAdmin roles={["admin", "executive_admin"]} label="Revenue Division"><RevenueDivision /></BoundedAdmin>} />
