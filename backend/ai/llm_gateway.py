@@ -347,6 +347,7 @@ async def call_llm(
     max_tokens:    int           = 2048,
     tools:         Optional[list] = None,
     persona_label: str           = "unknown",
+    user_id:       Optional[str]  = None,
 ) -> dict:
     """
     Unified LLM call with 6-tier fallback chain.
@@ -369,6 +370,42 @@ async def call_llm(
             HOURLY_TOKEN_CAP, _hour_tokens_used, persona_label,
         )
         return _KB_RESULT
+
+    # ── $3 BYOK (Bring Your Own Key) — user's own free key first ─────────────
+    # If the caller is an authenticated user with an active BYOK entitlement
+    # and key, route through THEIR key so the platform spends nothing for that
+    # user. Only the three approved free providers are ever used here.
+    if user_id:
+        try:
+            from byok import provider_route as _byok_route
+            from byok import resolve_byok as _resolve_byok
+
+            _byok = await _resolve_byok(user_id)
+            if _byok:
+                _route = _byok_route(_byok["provider"])
+                if _route:
+                    _base, _model = _route
+                    try:
+                        _r = await _oai_compat_call(
+                            base_url=_base, api_key=_byok["key"], model=_model,
+                            system=system, messages=messages, max_tokens=max_tokens, tools=tools,
+                        )
+                        _record_tokens(_r["in_tok"] + _r["out_tok"])
+                        return {
+                            "text": _r["text"],
+                            "provider": f"byok:{_byok['provider']}",
+                            "model": _model,
+                            "input_tokens": _r["in_tok"],
+                            "output_tokens": _r["out_tok"],
+                            "degraded": False,
+                        }
+                    except Exception as _e:
+                        logger.warning(
+                            "LLM Gateway BYOK %s failed (%s): %s — falling through to platform chain",
+                            _byok["provider"], persona_label, _e,
+                        )
+        except Exception as _e:
+            logger.warning("LLM Gateway BYOK resolution failed (%s): %s", persona_label, _e)
 
     # ── Tier 1a: Groq / Llama 3.3 70B (FREE — primary, fastest) ─────────────
     if GROQ_API_KEY:

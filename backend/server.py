@@ -2269,6 +2269,11 @@ api_router.include_router(_bridge_mod.router)
 from routers import handbooks as _handbooks_mod
 api_router.include_router(_handbooks_mod.router)
 
+# --- $3 BYOK (Bring Your Own Key) router ---
+from routers import byok as _byok_mod
+_byok_mod.bind(db, current_user, audit, assert_role)
+api_router.include_router(_byok_mod.router)
+
 
 
 
