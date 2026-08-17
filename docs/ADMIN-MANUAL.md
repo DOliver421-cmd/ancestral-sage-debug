@@ -44,6 +44,7 @@ The sidebar (`frontend/src/components/AppShell.jsx`) groups the site into sectio
 | My Profile | `/profile`, `/u/:username`, `/profile/:id` | Personal profile, public profile, user profiles. |
 | My Position | `/my-position` | Current role/position card. |
 | Settings | `/settings` | Account settings, password change, session management. |
+| My AI (BYOK) | `/byok` | $3 Bring-Your-Own-Key unlock + key management (§7). |
 | Avatar Setup | `/avatar-setup` | Avatar creation. |
 
 ### 2.2 Learn
@@ -332,6 +333,8 @@ Two-stage build:
 - `PROVIDER_KEY_ENCRYPTION_SECRET` — Fernet secret for Keys-tab encryption.
 - `PUBLIC_APP_URL` — public origin (needed for absolute links in emails).
 
+**BYOK:** `BYOK_PRICE_USD` (default `3`).
+
 **AI gateway (free-first):** `GROQ_API_KEY`, `CEREBRAS_API_KEY`, `GEMINI_API_KEY`, `XAI_API_KEY` (or `GROK_API_KEY`), `COHERE_API_KEY`, `OPENROUTER_API_KEY`, `HUGGINGFACE_API_KEY`, `ANTHROPIC_API_KEY` (paid last resort), `HOURLY_TOKEN_CAP`.
 
 **Email:** `RESEND_API_KEY` (preferred) or `GMAIL_USER` + `GMAIL_APP_PASSWORD`. Without these, password-reset and welcome emails are not delivered.
@@ -346,13 +349,34 @@ Two-stage build:
 
 ---
 
-## 7. Voice output (recent change)
+## 7. BYOK — $3 Bring Your Own Key
+
+**Route:** `/byok` (all authenticated users) · **Endpoints:** `/api/byok/*`
+
+BYOK is the platform's $3 Bring-Your-Own-Key unlock. A user activates the one-time $3 entitlement, then attaches their own key from one of three free providers (Groq, Cerebras, Google Gemini — none require a credit card). The LLM gateway then routes that user's AI requests through **their own key first**, so the platform spends nothing for that user's generation.
+
+| Endpoint | Auth | Purpose |
+|---|---|---|
+| `GET /api/byok/status` | student+ | Entitlement + configured providers (masked keys only). |
+| `POST /api/byok/activate` | student+ | Enable the $3 entitlement (post-payment hook). |
+| `POST /api/byok/key` | student+ | Attach/replace a key for one provider. |
+| `POST /api/byok/key/{provider}/test` | student+ | 1-token connectivity test. |
+| `DELETE /api/byok/key/{provider}` | student+ | Remove a key. |
+| `GET /api/byok/admin` | admin+ | Adoption stats (activated profiles, active keys). |
+
+**Payment wiring:** `/api/byok/activate` currently sets `byok_enabled=true` directly and writes an audit row. Before public launch, route this through the existing commerce layer (Stripe / Lemon Squeezy) so the $3 is collected before the flag is set. Keys are stored encrypted in `db.user_byok_keys` with `PROVIDER_KEY_ENCRYPTION_SECRET` (same Fernet scheme as §5); raw keys are never returned to the frontend. Price is configurable via `BYOK_PRICE_USD` (default `3`).
+
+**Gateway integration:** `backend/ai/llm_gateway.py` `call_llm()` accepts an optional `user_id`; when a BYOK user's request passes `user_id`, the gateway tries the user's key (Groq → Cerebras → Gemini) before the platform key chain, then falls back to the platform chain on failure. The primary chat (`/ai/chat`) and orchestrator (`/ai/orchestrator`) endpoints already pass `user_id`; other personas can be wired by adding `user_id=user.id` at their `call_llm(...)` call sites.
+
+---
+
+## 8. Voice output (recent change)
 
 As of v1.0, **all voice output uses native browser text-to-speech** (`window.speechSynthesis`) with a per-surface on/off toggle. The old per-persona paid voice system (ElevenLabs / OpenAI `/ai/sage/tts`) is **dormant** and no longer called by the UI. No voice keys are required; voice works on every device with zero cost. Voice **input** (microphone transcription) still uses the Web Speech API / backend transcription endpoints and is unchanged.
 
 ---
 
-## 8. How to keep this manual accurate
+## 9. How to keep this manual accurate
 
 Whenever you change the platform:
 

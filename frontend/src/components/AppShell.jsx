@@ -131,6 +131,7 @@ export default function AppShell({ children }) {
             {nl("/profile",         "My Profile",      UserCircle,      "nav-profile")}
             {nl("/my-position",     "My Position",     Compass,         "nav-my-position")}
             {nl("/settings",        "Settings",        KeyRound,        "nav-settings")}
+            {nl("/byok",            "My AI (BYOK)",    KeyRound,        "nav-byok")}
           </NavSection>
 
           <NavSection label="Learn" collapsed={collapsed}>

@@ -1145,7 +1145,7 @@ async def ai_chat(body: AIChatReq, user: User = Depends(_dep_current_user)):
     _gw_provider = "unknown"
     try:
         from ai.llm_gateway import call_llm as _call_llm
-        _gw = await _call_llm(system=system, messages=[{"role": "user", "content": body.message}], max_tokens=2048, persona_label="ai_chat")
+        _gw = await _call_llm(system=system, messages=[{"role": "user", "content": body.message}], max_tokens=2048, persona_label="ai_chat", user_id=user.id)
         reply = _gw["text"]
         _gw_degraded = _gw.get("degraded", False)
         _gw_provider = _gw.get("provider", "unknown")
@@ -1386,7 +1386,7 @@ async def ai_orchestrator(body: OrchestratorReq, user: User = Depends(_dep_curre
 
     try:
         from ai.llm_gateway import call_llm as _call_llm
-        _gw = await _call_llm(system=system, messages=claude_messages, max_tokens=4096, persona_label="orchestrator")
+        _gw = await _call_llm(system=system, messages=claude_messages, max_tokens=4096, persona_label="orchestrator", user_id=user.id)
         reply = _gw["text"]
     except Exception as e:
         logger.exception("Orchestrator AI error")

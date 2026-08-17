@@ -118,6 +118,7 @@ import MissingKameron from "./pages/MissingKameron";
 import Jamil from "./pages/Jamil";
 import ProjectDashboard from "./pages/ProjectDashboard";
 import AITeamBridge from "./pages/AITeamBridge";
+import BYOK from "./pages/BYOK";
 
 // Role hierarchy must mirror backend ROLE_RANK in /app/backend/server.py.
 // Higher rank = more authority; a higher-rank role passes any check meant
@@ -333,6 +334,7 @@ function App() {
           <Route path="/admin/billing" element={<BoundedAdmin roles={["admin"]} label="Billing Admin"><BillingAdmin /></BoundedAdmin>} />
           {/* Original landing page (alternate entry point) */}
           <Route path="/assistant" element={<Protected><AdminAssistant /></Protected>} />
+          <Route path="/byok" element={<Protected><BYOK /></Protected>} />
           <Route path="/creative-partner" element={<Protected roles={["creative_partner","executive_admin"]}><CreativePartnerHub /></Protected>} />
           <Route path="/s-research" element={<SentinelResearch />} />
           <Route path="/arcade" element={<Protected><ArcadeLanding /></Protected>} />
