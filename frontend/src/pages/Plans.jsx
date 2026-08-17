@@ -2,13 +2,14 @@ import { Link } from "react-router-dom";
 import { useAuth } from "../lib/auth";
 import AppShell from "../components/AppShell";
 import BackButton from "../components/BackButton";
-import { MEMBERSHIP_PLANS, CREATOR_PLANS } from "../lib/plans";
-import { Check, Zap, Crown } from "lucide-react";
+import { MEMBERSHIP_PLANS } from "../lib/plans";
+import { Check, Zap } from "lucide-react";
 
 /**
- * /plans — the five-level membership ladder (free/member/plus/pro/patron),
- * the $3 trial, and the Creator's Sanctuary lane. Every CTA routes to the
- * real /subscribe checkout for that exact product key — no dead ends.
+ * /plans — the five-level membership ladder (free/member/plus/pro/patron)
+ * plus the $3 all-access trial. Every CTA routes to the real /subscribe
+ * checkout for that exact product key — no dead ends. Creator perks
+ * (course publishing, payouts, moderation) are built into the tiers above.
  */
 export default function Plans() {
   const { user } = useAuth();
@@ -77,61 +78,10 @@ export default function Plans() {
           ))}
         </div>
 
-        {/* ── Creator's Sanctuary ── */}
-        <div className="mt-14 rounded-2xl p-8"
-          style={{ background: "linear-gradient(160deg,#14101f,#0d0818)", border: "1px solid rgba(168,85,247,0.25)" }}>
-          <div className="flex items-center gap-2.5 mb-1">
-            <Crown className="w-5 h-5 text-purple-400" />
-            <h2 className="font-heading font-black text-2xl" style={{ color: "#d8b4fe" }}>Creator's Sanctuary</h2>
-          </div>
-          <p className="text-sm text-white/60 max-w-2xl">
-            Specialized creator lanes — each includes the matching membership level plus higher payouts,
-            course publishing, advanced tools, and moderation rights.
-          </p>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mt-6">
-            {CREATOR_PLANS.map((p) => (
-              <div key={p.key} className="rounded-2xl p-5 flex flex-col"
-                style={{ background: "rgba(168,85,247,0.07)", border: "1px solid rgba(168,85,247,0.25)" }}>
-                {p.trial ? (
-                  <span className="self-start text-[10px] font-black tracking-widest uppercase px-2 py-1 rounded-full mb-2"
-                    style={{ background: "rgba(232,165,30,0.15)", color: "#E8A51E", border: "1px solid rgba(232,165,30,0.4)" }}>
-                    ⚡ Best value
-                  </span>
-                ) : (
-                  <span className="self-start text-[10px] font-bold tracking-widest uppercase text-white/40 mb-2">
-                    {p.name.includes("Certified") ? "Moderation lane" : "Creator lane"}
-                  </span>
-                )}
-                <div className="font-heading font-bold text-lg text-white">{p.name}</div>
-                <div className="flex items-end gap-1 mt-1">
-                  <span className="font-heading font-black text-3xl text-white">{p.price}</span>
-                  <span className="text-white/40 text-sm mb-1">{p.period}</span>
-                </div>
-                <div className="text-xs text-white/50 mt-1">{p.tagline}</div>
-                <ul className="space-y-2 mt-4 flex-1">
-                  {p.features.map((f) => (
-                    <li key={f} className="flex items-start gap-2 text-xs text-white/75">
-                      <Check className="w-3.5 h-3.5 text-purple-400 mt-0.5 shrink-0" /> {f}
-                    </li>
-                  ))}
-                </ul>
-                <Link
-                  to={p.to}
-                  className="mt-5 text-center text-sm font-black py-2.5 rounded-xl"
-                  style={p.trial
-                    ? { background: "#E8A51E", color: "#0a0a0a" }
-                    : { background: "rgba(168,85,247,0.15)", color: "#c4b5fd", border: "1px solid rgba(168,85,247,0.4)" }}
-                >
-                  {p.trial ? "Start $3 Trial" : `Choose ${p.name}`}
-                </Link>
-              </div>
-            ))}
-          </div>
-        </div>
-
         <p className="text-xs text-ink/40 text-center mt-8 max-w-2xl mx-auto">
-          Every tier above is a real monthly subscription. The $3 trial never auto-charges and reverts when it ends.
-          Program enrollees may qualify for complimentary membership.
+          Creator perks — course publishing, creator payouts, advanced tools, and moderation rights — are built
+          into the tiers above. Every tier is a real monthly subscription; the $3 trial never auto-charges and
+          reverts when it ends. Program enrollees may qualify for complimentary membership.
         </p>
       </div>
     </div>
