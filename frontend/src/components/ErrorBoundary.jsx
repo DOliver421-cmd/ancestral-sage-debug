@@ -72,7 +72,7 @@ export default class ErrorBoundary extends Component {
           <div className="max-w-2xl w-full">
             <div className="text-center">
               <div className="mb-8">
-                <img src={WAI_LOGO} alt="W.A.I." className="w-16 h-16 mx-auto mb-4 opacity-60" />
+                <img src={WAI_LOGO} alt="M.O.R.E." className="w-16 h-16 mx-auto mb-4 opacity-60" />
                 <h1 className="text-6xl font-bold text-ink mb-2">⚠️</h1>
                 <p className="text-xl text-copper font-bold">Something unexpected happened.</p>
               </div>

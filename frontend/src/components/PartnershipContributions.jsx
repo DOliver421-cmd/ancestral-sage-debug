@@ -111,7 +111,7 @@ export default function PartnershipContributions({
         </div>
 
         <p className="text-center text-sm text-ink/70 mt-6 border-t border-copper/30 pt-6">
-          You're not just using WAI—you're building it. Keep going. 💪
+          You're not just using M.O.R.E.—you're building it. Keep going. 💪
         </p>
       </div>
 

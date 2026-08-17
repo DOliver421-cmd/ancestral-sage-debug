@@ -20,7 +20,7 @@ export default function PaymentSuccess() {
         </div>
         <h1 className="font-heading text-2xl font-bold text-ink mb-2">Payment Confirmed!</h1>
         <p className="text-ink/60 mb-2">
-          Thank you for supporting the WAI Institute. Your transaction was successful.
+          Thank you for supporting the M.O.R.E. Help Center. Your transaction was successful.
         </p>
         {sessionId && (
           <p className="text-xs text-ink/30 font-mono mb-6 break-all">Ref: {sessionId}</p>

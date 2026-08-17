@@ -123,7 +123,7 @@ function AIAssistantPanel({ user, status }) {
     }
   }
 
-  const aiName = canAccess(user, status, "sovereign") ? "The Sovereign" : "WAI Assistant";
+  const aiName = canAccess(user, status, "sovereign") ? "The Sovereign" : "M.O.R.E. Assistant";
 
   return (
     <div className="card-flat overflow-hidden flex flex-col" style={{ height: 320 }}>
@@ -1026,7 +1026,7 @@ export default function UnifiedProfile() {
       <div className="min-h-[60vh] flex flex-col items-center justify-center gap-4">
         <div className="font-heading text-2xl font-bold text-ink/40">Profile not found</div>
         <p className="text-sm text-ink/30">@{username} hasn't published their profile yet.</p>
-        <Link to="/register" className="btn-copper text-sm">Join WAI Institute</Link>
+        <Link to="/register" className="btn-copper text-sm">Join M.O.R.E. Help Center</Link>
       </div>
     </AppShell>
   );
@@ -1085,7 +1085,7 @@ export default function UnifiedProfile() {
                   <Edit3 className="w-3.5 h-3.5" /> Edit
                 </button>
               )}
-              <SharePanel compact url={`/u/${profile.slug}`} title={`${profile.display_name} — WAI-Institute`} embed />
+              <SharePanel compact url={`/u/${profile.slug}`} title={`${profile.display_name} — M.O.R.E.`} embed />
             </div>
           </div>
 
@@ -1369,7 +1369,7 @@ export default function UnifiedProfile() {
               {/* Share */}
               <div className="card-flat p-4">
                 <div className="text-xs font-bold uppercase tracking-widest text-ink/40 mb-3">Share Profile</div>
-                <SharePanel url={`/u/${profile.slug}`} title={`${profile.display_name} — WAI-Institute`} embed />
+                <SharePanel url={`/u/${profile.slug}`} title={`${profile.display_name} — M.O.R.E.`} embed />
               </div>
 
               {/* ── Revenue Hub (owner only) ── */}
@@ -1441,7 +1441,7 @@ export default function UnifiedProfile() {
                   <Link to="/donate"
                     className="flex items-center gap-2 py-2 px-3 rounded-xl border border-copper/20 hover:bg-copper/5 transition-colors group no-underline">
                     <Heart className="w-3.5 h-3.5 text-copper shrink-0" />
-                    <span className="text-sm font-bold text-ink/70 group-hover:text-ink flex-1">Donate to WAI</span>
+                    <span className="text-sm font-bold text-ink/70 group-hover:text-ink flex-1">Donate to M.O.R.E.</span>
                     <ExternalLink className="w-3 h-3 text-ink/20 group-hover:text-copper shrink-0" />
                   </Link>
                   <Link to="/subscribe"

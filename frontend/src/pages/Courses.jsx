@@ -87,7 +87,7 @@ export default function Courses() {
           <div className="overline text-copper">Creator Catalog</div>
           <h1 className="font-heading text-4xl font-bold text-ink mt-2">Courses from the community.</h1>
           <p className="text-ink/60 mt-3 max-w-2xl">
-            Real courses by real creators in the WAI network. Creators keep 70% of every sale.
+            Real courses by real creators in the M.O.R.E. network. Creators keep 70% of every sale.
           </p>
         </div>
 

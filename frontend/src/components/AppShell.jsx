@@ -96,7 +96,7 @@ export default function AppShell({ children }) {
         <div className={`py-5 border-b border-white/10 flex items-center shrink-0 ${collapsed ? "justify-center px-2 flex-col gap-2" : "px-4 justify-between"}`}>
           {!collapsed && (
             <Link to="/dashboard" className="flex items-center gap-3" data-testid="sidebar-brand">
-              <img src={WAI_LOGO} alt="W.A.I." className="w-9 h-9 object-contain" style={{ mixBlendMode: "screen" }} />
+              <img src={WAI_LOGO} alt="M.O.R.E." className="w-9 h-9 object-contain" />
               <div>
                 <div className="overline text-signal">{BRAND.short}</div>
                 <div className="font-heading font-bold text-sm leading-tight">{BRAND.name}</div>
@@ -105,7 +105,7 @@ export default function AppShell({ children }) {
           )}
           {collapsed && (
             <Link to="/dashboard" data-testid="sidebar-brand" title="Dashboard">
-              <img src={WAI_LOGO} alt="W.A.I." className="w-8 h-8 object-contain" style={{ mixBlendMode: "screen" }} />
+              <img src={WAI_LOGO} alt="M.O.R.E." className="w-8 h-8 object-contain" />
             </Link>
           )}
           <div className={`flex items-center ${collapsed ? "flex-col gap-1" : "gap-1"}`}>
@@ -243,7 +243,7 @@ export default function AppShell({ children }) {
 
         </nav>
 
-        {/* WAI Institute card */}
+        {/* M.O.R.E. Institute card */}
         {!collapsed && (
           <div className="px-4 pb-2 shrink-0">
             <Link to="/wai-institute" data-testid="nav-wai-institute"
@@ -251,7 +251,7 @@ export default function AppShell({ children }) {
               style={{ background: "linear-gradient(135deg,#1B4332,#2D6A4F)", border: "1.5px solid #E8A51E", boxShadow: "0 4px 16px rgba(27,67,50,0.40)" }}>
               <div className="flex items-center gap-2">
                 <span style={{ fontSize: 16 }}>🏛️</span>
-                <span style={{ fontSize: 14, fontWeight: 900, color: "#E8A51E" }}>WAI Institute</span>
+                <span style={{ fontSize: 14, fontWeight: 900, color: "#E8A51E" }}>M.O.R.E. Institute</span>
               </div>
               <span style={{ fontSize: 11, opacity: 0.85, color: "#fff", paddingLeft: 26 }}>
                 Administration · Classrooms · Credentials
@@ -261,7 +261,7 @@ export default function AppShell({ children }) {
         )}
         {collapsed && (
           <div className="px-1 pb-2 shrink-0 flex justify-center">
-            <Link to="/wai-institute" data-testid="nav-wai-institute" title="WAI Institute"
+            <Link to="/wai-institute" data-testid="nav-wai-institute" title="M.O.R.E. Help Center"
               className="p-2 rounded-xl hover:opacity-90 transition-all"
               style={{ background: "linear-gradient(135deg,#1B4332,#2D6A4F)", border: "1.5px solid #E8A51E" }}>
               <span style={{ fontSize: 18 }}>🏛️</span>

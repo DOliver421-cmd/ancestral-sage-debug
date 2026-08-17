@@ -94,7 +94,7 @@ export default function TermsOfService() {
                   ? <CheckSquare className="w-5 h-5 text-copper shrink-0 mt-0.5" />
                   : <Square className="w-5 h-5 text-ink/40 shrink-0 mt-0.5" />}
                 <span className="text-sm text-ink/80 leading-relaxed">
-                  I have read and agree to the WAI Institute Terms of Service. I understand that my use of the platform constitutes acceptance of these terms.
+                  I have read and agree to the M.O.R.E. Help Center Terms of Service. I understand that my use of the platform constitutes acceptance of these terms.
                 </span>
               </button>
               <button

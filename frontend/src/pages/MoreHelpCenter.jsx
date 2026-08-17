@@ -1,5 +1,5 @@
 /**
- * MORE Help Center — unified entry point
+ * M.O.R.E. Help Center — unified entry point
  *
  * Three render modes, determined automatically:
  *   greeter — unauthenticated or student/instructor (public-facing welcome)
@@ -59,7 +59,7 @@ const WAYPOINTS = [
   { icon: MapPin,     title: "Entrance Atrium",      desc: "Step in like a mall visitor and find the main path to finance, legal, and community services." },
   { icon: Users,      title: "Service Lanes",         desc: "Move through themed lanes for support, training, production, and marketplace discovery." },
   { icon: BadgeCheck, title: "Human Oversight Desk", desc: "Every AI-driven direction is backed by human review, audit, and executive supervision." },
-  { icon: Globe,      title: "WAI Infrastructure",   desc: "This hub is connected to the full WAI system, from course catalogs to executive controls." },
+  { icon: Globe,      title: "M.O.R.E. Infrastructure", desc: "This hub is connected to the full M.O.R.E. system, from course catalogs to executive controls." },
 ];
 
 const ROLE_LANES = [
@@ -81,7 +81,7 @@ const NAV_LINKS = [
 
 const SUPERVISOR_TOGGLES = [
   { label: "Visitor Access",   href: "/more-help-center", description: "Browse public help resources and community support without signing in.", bg: "#f6d06d", color: "#1a1a2e" },
-  { label: "Supervisor Login", href: "/supervisor-login", description: "Authenticate as an executive supervisor to access secure MORE Help Center controls.", bg: GROVE, color: "white" },
+  { label: "Supervisor Login", href: "/supervisor-login", description: "Authenticate as an executive supervisor to access secure M.O.R.E. Help Center controls.", bg: GROVE, color: "white" },
 ];
 
 const PANEL_MODES = [
@@ -106,9 +106,9 @@ const MODE_DETAILS = {
   greeter: {
     title: "Greeter / Visitor Mode",
     summary: "Use this mode to welcome visitors, route them to help resources, and keep the page calm and clear.",
-    action: "Guide people to the MORE Help Center, community support, and public learning paths.",
+    action: "Guide people to the M.O.R.E. Help Center, community support, and public learning paths.",
     links: [
-      { label: "MORE Help Center", to: "/more-help-center" },
+      { label: "M.O.R.E. Help Center", to: "/more-help-center" },
       { label: "Courses",          to: "/courses" },
       { label: "Community",        to: "/community" },
     ],
@@ -118,7 +118,7 @@ const MODE_DETAILS = {
     summary: "Activate this mode when the main experience is unavailable so the page still looks alive and helpful.",
     action: "Offer a credible fallback experience, point users to core resources, and preserve trust.",
     links: [
-      { label: "MORE Help Center", to: "/more-help-center" },
+      { label: "M.O.R.E. Help Center", to: "/more-help-center" },
       { label: "Help Desk",        to: "/help-center" },
       { label: "Login",            to: "/login" },
     ],
@@ -139,7 +139,7 @@ function DecoyMode() {
   return (
     <div style={{ minHeight: "100vh", background: GROVE, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: 32, textAlign: "center" }}>
       <div style={{ width: 64, height: 64, borderRadius: "50%", background: AMBER, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 28, fontWeight: 900, color: BARK, marginBottom: 24 }}>M</div>
-      <h1 style={{ color: "white", fontSize: 36, fontWeight: 900, marginBottom: 12, fontFamily: "Georgia, serif" }}>MORE Help Center</h1>
+      <h1 style={{ color: "white", fontSize: 36, fontWeight: 900, marginBottom: 12, fontFamily: "Georgia, serif" }}>M.O.R.E. Help Center</h1>
       <p style={{ color: "#c8e6c9", fontSize: 18, maxWidth: 480, lineHeight: 1.6, marginBottom: 8 }}>
         We're temporarily offline for maintenance. Our team is working on it.
       </p>
@@ -149,7 +149,7 @@ function DecoyMode() {
       <a href={`mailto:${SUPPORT_EMAIL}`} style={{ background: AMBER, color: BARK, padding: "12px 28px", borderRadius: 4, fontWeight: 700, fontSize: 14, textDecoration: "none", display: "inline-block" }}>
         Email Support
       </a>
-      <p style={{ color: "rgba(255,255,255,0.3)", marginTop: 40, fontSize: 12 }}>WAI-Institute · MORE Help Center</p>
+      <p style={{ color: "rgba(255,255,255,0.3)", marginTop: 40, fontSize: 12 }}>M.O.R.E. Help Center — Michael Oliver Resource Exchange</p>
     </div>
   );
 }
@@ -594,7 +594,7 @@ function ExecPanel({ apiOnline, visibility, setVisibility, superExec }) {
           <div style={{ width: 36, height: 36, borderRadius: "50%", background: SIG, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 900, fontSize: 14, color: INK }}>S</div>
           <div>
             <div style={{ color: "white", fontWeight: 800, fontSize: 15 }}>Supervisor Panel</div>
-            <div style={{ color: "rgba(255,255,255,0.45)", fontSize: 11 }}>Executive Control — MORE Help Center</div>
+            <div style={{ color: "rgba(255,255,255,0.45)", fontSize: 11 }}>Executive Control — M.O.R.E. Help Center</div>
           </div>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
@@ -1706,7 +1706,7 @@ export default function MoreHelpCenter() {
   if (apiOnline === null) {
     return (
       <div style={{ minHeight: "100vh", background: MARKET_BG, display: "flex", alignItems: "center", justifyContent: "center" }}>
-        <div style={{ color: COPPER, fontSize: 14, fontFamily: "Georgia, serif" }}>Loading MORE Help Center…</div>
+        <div style={{ color: COPPER, fontSize: 14, fontFamily: "Georgia, serif" }}>Loading M.O.R.E. Help Center…</div>
       </div>
     );
   }
@@ -1739,7 +1739,7 @@ export default function MoreHelpCenter() {
           <Link to="/more-help-center" style={{ display: "flex", alignItems: "center", gap: 10, textDecoration: "none" }}>
             <div style={{ width: 36, height: 36, borderRadius: 8, background: FOREST, display: "flex", alignItems: "center", justifyContent: "center", color: "white", fontWeight: 900, fontSize: 18 }}>M</div>
             <div>
-              <div style={{ fontWeight: 800, fontSize: 14, color: FOREST, lineHeight: 1.2, fontFamily: "Georgia, serif" }}>MORE Help Center</div>
+              <div style={{ fontWeight: 800, fontSize: 14, color: FOREST, lineHeight: 1.2, fontFamily: "Georgia, serif" }}>M.O.R.E. Help Center</div>
               <div style={{ fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: 3, color: COPPER }}>
                 {execMode ? (superExec ? "Exec · Supervisor Mode" : "Admin Mode") : "Goodwill Wing"}
               </div>
@@ -1750,11 +1750,11 @@ export default function MoreHelpCenter() {
             {NAV_LINKS.map(({ label, to }) => (
               <Link key={to} to={to} style={{ fontSize: 10, fontWeight: 800, textTransform: "uppercase", letterSpacing: 2, color: "white", textDecoration: "none", background: TERRACOTTA, padding: "4px 11px", borderRadius: 4 }}>{label}</Link>
             ))}
-            {/* WAI Institute — prominent entry point to administration + classrooms */}
+            {/* M.O.R.E. Institute — prominent entry point to administration + classrooms */}
             <a href={`${BACKEND_URL}/api/handbooks/instructor`} target="_blank" rel="noopener noreferrer" style={{ fontSize: 10, fontWeight: 800, textTransform: "uppercase", letterSpacing: 2, color: "white", textDecoration: "none", background: TERRACOTTA, padding: "4px 11px", borderRadius: 4 }}>📘 Instructor Handbook</a>
             <a href={`${BACKEND_URL}/api/handbooks/student`} target="_blank" rel="noopener noreferrer" style={{ fontSize: 10, fontWeight: 800, textTransform: "uppercase", letterSpacing: 2, color: "white", textDecoration: "none", background: TERRACOTTA, padding: "4px 11px", borderRadius: 4 }}>📕 Student Handbook</a>
             <Link to="/wai-institute" style={{ fontSize: 11, fontWeight: 900, textTransform: "uppercase", letterSpacing: 2, color: "#fff", textDecoration: "none", background: GROVE, padding: "6px 14px", borderRadius: 4, border: `1.5px solid ${AMBER}`, display: "flex", alignItems: "center", gap: 5 }}>
-              🏛️ WAI Institute
+              🏛️ M.O.R.E. Institute
             </Link>
             {execMode && (
               <Link to="/admin/system" style={{ fontSize: 10, fontWeight: 800, textTransform: "uppercase", letterSpacing: 2, color: AMBER, textDecoration: "none", background: BARK, padding: "4px 11px", borderRadius: 4, display: "flex", alignItems: "center", gap: 4 }}>
@@ -1800,7 +1800,7 @@ export default function MoreHelpCenter() {
               </div>
               <div>
                 <div style={{ fontWeight: 700, fontSize: 14, color: BARK }}>Welcome back, {user.full_name?.split(" ")[0] || "there"}.</div>
-                <div style={{ fontSize: 11, color: COPPER, textTransform: "capitalize" }}>{(user.role || "").replace("_", " ")} · WAI-Institute</div>
+                <div style={{ fontSize: 11, color: COPPER, textTransform: "capitalize" }}>{(user.role || "").replace("_", " ")} · M.O.R.E.</div>
               </div>
             </div>
             <Link to={USER_DASHBOARD[user.role].to} style={{ background: USER_DASHBOARD[user.role].color, color: "white", padding: "8px 18px", borderRadius: 6, fontWeight: 700, fontSize: 12, textDecoration: "none", display: "flex", alignItems: "center", gap: 6 }}>
@@ -1831,7 +1831,7 @@ export default function MoreHelpCenter() {
           </div>
           <div style={{ display: "flex", gap: 16, flexWrap: "wrap" }}>
             {[
-              { label: "WAI Help Center",    to: "/help-center" },
+              { label: "M.O.R.E. Help Center",    to: "/help-center" },
               { label: "Explore M.O.R.E.",   to: "/more" },
               { label: "Plans & Programs",   to: "/plans" },
               ...(execMode ? [{ label: "Executive Corridor", to: "/admin/system" }] : []),
@@ -1847,7 +1847,7 @@ export default function MoreHelpCenter() {
             <CarvedHeader label="Supervisor Controls" />
             <h2 style={{ fontSize: 28, fontWeight: 900, color: BARK, fontFamily: "Georgia, serif", marginTop: 8 }}>Choose your permission level</h2>
             <p style={{ color: EARTH, marginTop: 8, maxWidth: 560, margin: "8px auto 0" }}>
-              Public users can browse help resources. Supervisors may sign in and access secure executive controls inside the same MORE Help Center.
+              Public users can browse help resources. Supervisors may sign in and access secure executive controls inside the same M.O.R.E. Help Center.
             </p>
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(240px,1fr))", gap: 20, marginBottom: superExec ? 32 : 0 }}>
@@ -1869,7 +1869,7 @@ export default function MoreHelpCenter() {
                   <CarvedHeader label="Executive mode" />
                   <h3 style={{ fontSize: 24, fontWeight: 900, color: BARK, fontFamily: "Georgia, serif", marginTop: 8 }}>Supervisor mode controls</h3>
                   <p style={{ color: EARTH, marginTop: 6, maxWidth: 480, fontSize: 14, lineHeight: 1.7 }}>
-                    Switch between the MORE Help Center's display modes: public greeting, executive oversight, or fallback support.
+                    Switch between the M.O.R.E. Help Center's display modes: public greeting, executive oversight, or fallback support.
                   </p>
                 </div>
                 <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
@@ -2186,7 +2186,7 @@ export default function MoreHelpCenter() {
             </div>
             <h2 style={{ fontSize: 28, fontWeight: 900, color: BARK, fontFamily: "Georgia, serif", marginTop: 10, marginBottom: 10 }}>Creator's Sanctuary</h2>
             <p style={{ color: EARTH, fontSize: 15, maxWidth: 520, margin: "0 auto", lineHeight: 1.7 }}>
-              A protected space for artists, educators, authors, and storytellers building inside the WAI ecosystem.
+              A protected space for artists, educators, authors, and storytellers building inside the M.O.R.E. ecosystem.
             </p>
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(220px,1fr))", gap: 16, marginBottom: 28 }}>
@@ -2226,7 +2226,7 @@ export default function MoreHelpCenter() {
                 { icon: BookOpen,      title: "Free Modules",  desc: "Hands-on training free forever.",             to: "/modules",      internal: true },
                 { icon: MessageSquare, title: "Community",     desc: "Real answers from real people.",              to: "/community",    internal: true },
                 { icon: Shield,        title: "Support Line",  desc: "Email us — no bots, no runaround.",           to: `mailto:${SUPPORT_EMAIL}`, internal: false },
-                { icon: Globe,         title: "Full Program",  desc: "Enroll in the complete WAI curriculum.",      to: "/courses",      internal: true },
+                { icon: Globe,         title: "Full Program",  desc: "Enroll in the complete M.O.R.E. curriculum.",      to: "/courses",      internal: true },
                 { icon: BadgeCheck,    title: "Help Center",   desc: "Core support and community navigation.",      to: "/help-center",  internal: true },
                 { icon: Activity,      title: "Plans",         desc: "Training, services, and subscriptions.",      to: "/plans",        internal: true },
               ].map(r => {
@@ -2304,14 +2304,14 @@ export default function MoreHelpCenter() {
         <div style={{ maxWidth: 1200, margin: "0 auto", display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "space-between", gap: 16, fontSize: 12 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
             <Heart style={{ width: 13, height: 13 }} />
-            <span>MORE Help Center — Goodwill Wing of WAI Institute</span>
+            <span>M.O.R.E. Help Center — Community Services of the Michael Oliver Resource Exchange</span>
           </div>
           <div style={{ display: "flex", gap: 20, flexWrap: "wrap" }}>
             <Link to="/privacy"   style={{ color: "#c8b896", textDecoration: "none" }}>Privacy</Link>
             <Link to="/terms"     style={{ color: "#c8b896", textDecoration: "none" }}>Terms</Link>
             <Link to="/modules"   style={{ color: "#c8b896", textDecoration: "none" }}>Modules</Link>
             <Link to="/community" style={{ color: "#c8b896", textDecoration: "none" }}>Community</Link>
-            <Link to="/register"  style={{ color: AMBER, fontWeight: 700, textDecoration: "none" }}>Join WAI →</Link>
+            <Link to="/register"  style={{ color: AMBER, fontWeight: 700, textDecoration: "none" }}>Join M.O.R.E. →</Link>
             <a href={`mailto:${SUPPORT_EMAIL}`} style={{ color: "#c8b896", textDecoration: "none" }}>Contact</a>
           </div>
         </div>

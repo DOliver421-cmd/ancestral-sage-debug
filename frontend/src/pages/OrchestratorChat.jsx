@@ -272,7 +272,7 @@ export default function OrchestratorChat() {
             <div>
               <div className="overline text-copper flex items-center gap-2">
                 <MetaIcon className={`w-4 h-4 ${meta.color}`} />
-                WAI-Institute Council
+                M.O.R.E. Help Center Council
               </div>
               <h1 className="font-heading text-2xl font-bold text-ink mt-1 flex items-center gap-2">
                 <Layers className="w-6 h-6 text-signal" />

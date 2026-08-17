@@ -844,7 +844,7 @@ export default function ExecSystem() {
               <span className="text-xs font-bold uppercase tracking-widest" style={{ color: "var(--wai-gold-light)" }}>Sovereign Command · Zamunda</span>
             </div>
             <h1 className="font-heading text-3xl lg:text-4xl font-extrabold" style={{ color: "var(--wai-gold-light)" }}>
-              WAI-Institute Platform
+              M.O.R.E. Help Center Platform
             </h1>
             <p className="text-sm mt-1" style={{ color: "rgba(241,240,251,0.9)" }}>
               {lastSync

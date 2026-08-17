@@ -438,7 +438,7 @@ function PublicHelper() {
             {speaking && <button onClick={stopSpeech} style={{ borderRadius:999, border:"1px solid #d1d5db", padding:"6px 12px", fontSize:12, background:"#fff", cursor:"pointer" }}>⏹ Stop audio</button>}
           </div>
           <div style={{ marginTop:10, fontSize:11, color:"#c4c9d4", textAlign:"center" }}>
-            WAI-Institute members get saved notes, more tools, and a private workspace.
+            M.O.R.E. members get saved notes, more tools, and a private workspace.
           </div>
         </div>
         <div style={{ height:20 }} />
@@ -524,7 +524,7 @@ function AuthHelper({ user }) {
   });
 
   useEffect(() => {
-    addMsg("helper", "Welcome back, " + (user?.full_name?.split(" ")[0] || "there") + ". I am your private helper inside WAI-Institute. Choose a tool from the sidebar or just type your question.");
+    addMsg("helper", "Welcome back, " + (user?.full_name?.split(" ")[0] || "there") + ". I am your private helper inside M.O.R.E. Help Center. Choose a tool from the sidebar or just type your question.");
   }, [addMsg, user?.full_name]);
 
   useEffect(() => { endRef.current?.scrollIntoView({ behavior:"smooth" }); }, [msgs]);
@@ -796,7 +796,7 @@ function AuthHelper({ user }) {
               </div>
               <div style={{ background:"#fff", borderRadius:14, padding:"20px", border:"1px solid #e2e8f0" }}>
                 <div style={{ fontSize:10, fontWeight:800, color:"#94a3b8", textTransform:"uppercase", letterSpacing:"0.06em", marginBottom:10 }}>Privacy Note</div>
-                <div style={{ fontSize:13, color:"#374151", lineHeight:1.65 }}>This helper is part of WAI-Institute. Conversations may be logged for safety and quality improvement. No information is shared outside the institute without your consent.</div>
+                <div style={{ fontSize:13, color:"#374151", lineHeight:1.65 }}>This helper is part of M.O.R.E. Help Center. Conversations may be logged for safety and quality improvement. No information is shared outside the help center without your consent.</div>
               </div>
             </div>
           )}

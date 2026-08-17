@@ -30,7 +30,7 @@ export default function UnifiedGateway() {
             style={{ borderColor: "rgba(232,165,30,0.3)", background: "rgba(232,165,30,0.08)" }}>
             <span className="w-1.5 h-1.5 rounded-full bg-signal animate-pulse" />
             <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.2em", textTransform: "uppercase", color: "#E8A51E" }}>
-              W.A.I. Institute
+              M.O.R.E. Help Center
             </span>
           </div>
 
@@ -121,7 +121,7 @@ export default function UnifiedGateway() {
               { icon: "💰", title: "Earn & Get Paid",       desc: "Sell courses, manage earnings, request payouts. 70% creator / 30% platform split.",               to: "/creator/earnings" },
               { icon: "🤝", title: "Community & M.O.R.E.",  desc: "Members' Palace, Elder Council, legal tools, mutual aid matching, community chat.",               to: "/app/more" },
               { icon: "🤖", title: "AI Tools Suite",        desc: "AI Tutor, Sovereign Chat, Ghost Publicist, Ghost Legal, Ghost Marketer — all on platform.",       to: "/ai" },
-              { icon: "🏛️", title: "WAI Institute",         desc: "Accredited-track courses, workforce credentials, instructor-led labs, and placement support.",   to: "/wai-institute" },
+              { icon: "🏛️", title: "M.O.R.E. Institute",    desc: "Accredited-track courses, workforce credentials, instructor-led labs, and placement support.",   to: "/wai-institute" },
             ].map(({ icon, title, desc, to }) => (
               <Link key={title} to={to}
                 className="card-flat p-6 flex flex-col gap-3 hover:border-copper transition-all group no-underline">
@@ -220,13 +220,12 @@ export default function UnifiedGateway() {
       <section className="py-24 px-6"
         style={{ background: "linear-gradient(135deg, #1B4332 0%, #0a0a0f 60%)" }}>
         <div className="max-w-4xl mx-auto text-center">
-          <img src={WAI_LOGO} alt="WAI" className="w-16 h-16 object-contain mx-auto mb-8"
-            style={{ mixBlendMode: "screen" }} />
+          <img src={WAI_LOGO} alt="M.O.R.E." className="w-16 h-16 object-contain mx-auto mb-8" />
           <h2 style={{ fontFamily: "'Cabinet Grotesk',sans-serif", fontSize: "clamp(1.6rem,4vw,2.8rem)", fontWeight: 900, color: "#fff", lineHeight: 1.2, marginBottom: 20 }}>
             "{BRAND.tagline}"
           </h2>
           <p style={{ color: "rgba(255,255,255,0.55)", fontSize: "1.05rem", lineHeight: 1.8, maxWidth: 560, margin: "0 auto 40px" }}>
-            WAI Institute was built because the tools of the creator economy were never
+            M.O.R.E. Help Center was built because the tools of the creator economy were never
             designed for us. We changed that. Every feature, every tier, every dollar
             — built to serve communities that were meant to be invisible.
           </p>
@@ -250,20 +249,20 @@ export default function UnifiedGateway() {
         <div className="max-w-6xl mx-auto">
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6 mb-8 pb-8 border-b border-white/8">
             <div className="flex items-center gap-3">
-              <img src={WAI_LOGO} alt="WAI" className="w-8 h-8 object-contain" style={{ mixBlendMode: "screen" }} />
+              <img src={WAI_LOGO} alt="M.O.R.E." className="w-8 h-8 object-contain" />
               <div>
                 <div className="text-xs font-black uppercase tracking-widest text-signal">{BRAND.short}</div>
                 <div className="font-heading font-bold text-sm text-white">{BRAND.name}</div>
               </div>
             </div>
             <div className="flex flex-wrap gap-6 text-xs">
-              {[["Plans", "/plans"], ["Creators", "/creators"], ["WAI Institute", "/wai-institute"], ["Donate", "/donate"], ["Privacy", "/privacy"], ["Terms", "/terms"]].map(([l, h]) => (
+              {[["Plans", "/plans"], ["Creators", "/creators"], ["M.O.R.E. Institute", "/wai-institute"], ["Donate", "/donate"], ["Privacy", "/privacy"], ["Terms", "/terms"]].map(([l, h]) => (
                 <Link key={l} to={h} className="hover:text-white transition-colors">{l}</Link>
               ))}
             </div>
           </div>
           <div className="flex flex-col sm:flex-row items-center justify-between gap-2 text-xs">
-            <p>© {new Date().getFullYear()} {BRAND.name}. All rights reserved.</p>
+            <p>© {new Date().getFullYear()} {BRAND.legal}. All rights reserved.</p>
             <p style={{ color: "rgba(255,255,255,0.25)" }}>{BRAND.mission}</p>
           </div>
         </div>

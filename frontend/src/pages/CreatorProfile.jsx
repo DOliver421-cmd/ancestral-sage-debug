@@ -91,7 +91,7 @@ export default function CreatorProfile() {
       <header className="border-b border-ink/10 bg-bone sticky top-0 z-40">
         <div className="max-w-5xl mx-auto px-6 py-3 flex items-center justify-between">
           <Link to="/" className="flex items-center gap-2">
-            <img src={WAI_LOGO} alt="W.A.I." className="w-9 h-9 object-contain" style={{ mixBlendMode: "multiply" }} />
+            <img src={WAI_LOGO} alt="M.O.R.E." className="w-9 h-9 object-contain" />
             <span className="font-heading font-bold text-sm hidden sm:block">{BRAND.name}</span>
           </Link>
           <div className="flex items-center gap-3">
@@ -135,7 +135,7 @@ export default function CreatorProfile() {
             {/* WAI badge */}
             {creator.waiStatus && (
               <div className="shrink-0 bg-white/10 border border-white/20 rounded-2xl px-5 py-4 text-right">
-                <div className="text-white/50 text-xs uppercase tracking-widest mb-1">WAI-Institute</div>
+                <div className="text-white/50 text-xs uppercase tracking-widest mb-1">M.O.R.E.</div>
                 <div className="text-white font-bold text-sm">{creator.waiStatus.role}</div>
                 <div className="text-amber-300 text-xs font-bold mt-0.5">{creator.waiStatus.tier} Member</div>
               </div>
@@ -188,7 +188,7 @@ export default function CreatorProfile() {
                   <img src={WAI_LOGO} alt="WAI" className="w-6 h-6 object-contain" style={{ mixBlendMode: "multiply" }} />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <div className="font-bold text-sm text-amber-800">WAI-Institute Profile</div>
+                  <div className="font-bold text-sm text-amber-800">M.O.R.E. Profile</div>
                   <div className="text-amber-700/60 text-xs">Join to connect & collaborate</div>
                 </div>
                 <ArrowRight className="w-3.5 h-3.5 text-amber-400 group-hover:text-amber-600 transition-colors shrink-0" />
@@ -203,7 +203,7 @@ export default function CreatorProfile() {
           <p className="text-ink/50 text-sm mb-4">Copy a link, share to social, or embed anywhere.</p>
           <SharePanel
             url={`/creators/${creator.slug}`}
-            title={`${creator.displayName} — WAI-Institute Creator`}
+            title={`${creator.displayName} — M.O.R.E. Creator`}
             embed
           />
         </div>
@@ -371,7 +371,7 @@ export default function CreatorProfile() {
                 Your artist profile<br />lives here too.
               </h2>
               <p className="text-white/70 text-sm leading-relaxed mb-6">
-                Every creator, poet, musician, organizer, and healer in the WAI-Institute community can have a public-facing profile like this one — linking your store, your social media, your M.O.R.E. offerings, all in one place. No algorithm. No extraction. Your page, your terms.
+                Every creator, poet, musician, organizer, and healer in the M.O.R.E. community can have a public-facing profile like this one — linking your store, your social media, your M.O.R.E. offerings, all in one place. No algorithm. No extraction. Your page, your terms.
               </p>
               <Link to="/register" className="inline-flex items-center gap-2 bg-amber-500 hover:bg-amber-400 text-ink font-bold px-6 py-3 rounded-xl transition-all hover:scale-105">
                 Claim Your Profile <ArrowRight className="w-4 h-4" />

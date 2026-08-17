@@ -69,7 +69,7 @@ export default function CreatorEarnings() {
         <div className="overline text-copper mb-1">Creator Studio</div>
         <h1 className="font-heading text-4xl font-bold text-ink">Earnings & Payouts</h1>
         <p className="text-ink/60 mt-1 mb-8">
-          You keep <span className="font-bold text-copper">70%</span> of every sale. WAI keeps 30%. Payouts on the 1st of each month.
+          You keep <span className="font-bold text-copper">70%</span> of every sale. M.O.R.E. keeps 30%. Payouts on the 1st of each month.
         </p>
 
         {loading ? (

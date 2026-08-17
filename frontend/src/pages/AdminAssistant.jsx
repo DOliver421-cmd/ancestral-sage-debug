@@ -414,7 +414,7 @@ export default function AdminAssistant() {
           <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
             <div className="text-center sm:text-left">
               <div className="font-bold text-sm">M.O.R.E. Help Center</div>
-              <div className="text-xs text-ink/50">Admin Assistant · Powered by WAI-Institute AI</div>
+              <div className="text-xs text-ink/50">Admin Assistant · Powered by M.O.R.E. AI</div>
             </div>
             <div className="flex items-center gap-4 text-xs text-ink/40">
               <a href="mailto:morehelpcenter@gmail.com" className="hover:text-copper transition-colors">

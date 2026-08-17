@@ -127,7 +127,7 @@ export default function SubscribePage() {
 
             <div style={{ background: "#100e1a", border: "1.5px solid rgba(255,255,255,0.1)", borderRadius: 18, padding: 32 }}>
               <div style={{ fontSize: "0.65rem", fontFamily: "monospace", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.15em", color: "#6b6480", marginBottom: 8 }}>
-                WAI Institute — {plan.name}
+                M.O.R.E. Help Center — {plan.name}
               </div>
               <div style={{ display: "flex", alignItems: "flex-end", gap: 4, marginBottom: 24 }}>
                 <span style={{ fontFamily: "monospace", fontSize: "3rem", fontWeight: 900, color: "#e0d8f0", lineHeight: 1 }}>
@@ -180,7 +180,7 @@ export default function SubscribePage() {
           {/* Header */}
           <div style={{ textAlign: "center", marginBottom: 48 }}>
             <div style={{ fontSize: "0.65rem", fontFamily: "monospace", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.15em", color: "#d4af37", marginBottom: 10 }}>
-              WAI Institute Membership
+              M.O.R.E. Help Center Membership
             </div>
             <h1 style={{ fontFamily: "monospace", fontSize: "clamp(1.8rem,4vw,3rem)", fontWeight: 900, color: "#e0d8f0", margin: "0 0 12px", lineHeight: 1.1 }}>
               Choose your level of partnership
