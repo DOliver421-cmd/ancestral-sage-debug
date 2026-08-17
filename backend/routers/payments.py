@@ -8,7 +8,7 @@ via bind() at include time, so this module has no circular imports.
 import os
 import uuid
 import logging
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from typing import Optional
 
 from fastapi import Header, APIRouter, Depends, HTTPException, Request
@@ -53,39 +53,67 @@ PAYMENTS_ENABLED = bool(
 # Product catalog — amounts in cents USD.
 # physical=True items are not sold online yet (no fulfillment provider wired up).
 PAYMENT_PRODUCTS = {
-    "tshirt":       {"name": "WAI Institute T-Shirt",         "amount": 2500, "mode": "payment",      "description": "Official WAI Apprentice tee", "physical": True},
-    "workbook":     {"name": "WAI Apprentice Workbook",        "amount": 1500, "mode": "payment",      "description": "Printed apprentice study guide", "physical": True},
-    "kit":          {"name": "WAI Apprentice Kit",             "amount": 4500, "mode": "payment",      "description": "T-Shirt + Workbook bundle", "physical": True},
+    "tshirt":       {"name": "M.O.R.E. Help Center T-Shirt",         "amount": 2500, "mode": "payment",      "description": "Official M.O.R.E. apprentice tee", "physical": True},
+    "workbook":     {"name": "M.O.R.E. Help Center Workbook",        "amount": 1500, "mode": "payment",      "description": "Printed apprentice study guide", "physical": True},
+    "kit":          {"name": "M.O.R.E. Help Center Apprentice Kit",  "amount": 4500, "mode": "payment",      "description": "T-Shirt + Workbook bundle", "physical": True},
     "more_monthly":   {"name": "M.O.R.E. Membership – Monthly",   "amount":  999, "mode": "subscription", "interval": "month", "description": "Monthly M.O.R.E. community access"},
     "more_annual":    {"name": "M.O.R.E. Membership – Annual",    "amount": 7999, "mode": "subscription", "interval": "year",  "description": "Annual M.O.R.E. membership (save 33%)"},
-    "member_monthly": {"name": "WAI Member – Monthly",            "amount":  900, "mode": "subscription", "interval": "month", "description": "WAI Member tier — full M.O.R.E. + AI Tutor"},
-    "plus_monthly":   {"name": "WAI Plus – Monthly",              "amount": 1500, "mode": "subscription", "interval": "month", "description": "WAI Plus tier — priority matching + expanded courses"},
-    "pro_monthly":    {"name": "WAI Pro – Monthly",               "amount": 2900, "mode": "subscription", "interval": "month", "description": "WAI Pro tier — advanced courses, labs, full AI suite"},
-    "patron_monthly": {"name": "WAI Patron – Monthly",            "amount": 5900, "mode": "subscription", "interval": "month", "description": "WAI Patron — founders circle + funds free access for others"},
-    "credential":     {"name": "WAI Credential Certificate",      "amount": 2500, "mode": "payment",      "description": "Official printed credential certificate", "physical": True},
-    "donation":     {"name": "Donation – WAI Institute",      "amount": None, "mode": "payment",      "description": "Support the WAI mission"},
-    # Creators Sanctuary tiers
-    "sanctuary_trial":   {"name": "Creators Sanctuary – 3-Day Trial",     "amount":  300, "mode": "payment",      "description": "All-access 3 days & 33 minutes trial"},
-    "sanctuary_paid":    {"name": "Creators Sanctuary – Paid Creator",    "amount":  700, "mode": "subscription", "interval": "month", "description": "Paid Beginning Creator tier — $7/mo"},
-    "sanctuary_creator": {"name": "Creators Sanctuary – Advanced Creator","amount": 1100, "mode": "subscription", "interval": "month", "description": "Advanced Creator tier — $11/mo"},
-    "sanctuary_mod":     {"name": "Creators Sanctuary – Certified Mod",   "amount": 1500, "mode": "subscription", "interval": "month", "description": "Certified Moderator tier — $15/mo"},
+    "member_monthly": {"name": "M.O.R.E. Member – Monthly",            "amount":  900, "mode": "subscription", "interval": "month", "description": "M.O.R.E. Member tier — full community + AI Tutor"},
+    "plus_monthly":   {"name": "M.O.R.E. Plus – Monthly",              "amount": 1500, "mode": "subscription", "interval": "month", "description": "M.O.R.E. Plus tier — priority matching + expanded courses"},
+    "pro_monthly":    {"name": "M.O.R.E. Pro – Monthly",               "amount": 2900, "mode": "subscription", "interval": "month", "description": "M.O.R.E. Pro tier — advanced courses, labs, full AI suite"},
+    "patron_monthly": {"name": "M.O.R.E. Patron – Monthly",            "amount": 5900, "mode": "subscription", "interval": "month", "description": "M.O.R.E. Patron — founders circle + funds free access for others"},
+    "credential":     {"name": "M.O.R.E. Credential Certificate",      "amount": 2500, "mode": "payment",      "description": "Physical credential certificate", "physical": True},
+    "donation":       {"name": "Donation – M.O.R.E. Help Center",      "amount": None, "mode": "payment",      "description": "Support the M.O.R.E. Help Center mission"},
+    # Creator's Sanctuary tiers (creator lane — see _PRODUCT_TIER_MAP)
+    "sanctuary_trial":   {"name": "M.O.R.E. Creator's Sanctuary – 3-Day Trial",     "amount":  300, "mode": "payment",      "description": "All-access 3 days & 33 minutes trial — everything through Pro"},
+    "sanctuary_paid":    {"name": "M.O.R.E. Creator's Sanctuary – Paid Creator",    "amount":  700, "mode": "subscription", "interval": "month", "description": "Member-level creator lane — $7/mo"},
+    "sanctuary_creator": {"name": "M.O.R.E. Creator's Sanctuary – Advanced Creator","amount": 1100, "mode": "subscription", "interval": "month", "description": "Plus-level creator lane — $11/mo"},
+    "sanctuary_mod":     {"name": "M.O.R.E. Creator's Sanctuary – Certified Mod",   "amount": 1500, "mode": "subscription", "interval": "month", "description": "Pro-level creator lane — $15/mo"},
 }
 
+# Legacy names (pre-rebrand) → product key, so webhook matching keeps working
+# for orders made under the old names. Current names match by exact string;
+# aliases are checked only when the exact match fails.
+_LEGACY_PRODUCT_NAMES = {
+    "WAI Institute T-Shirt": "tshirt",
+    "WAI Apprentice Workbook": "workbook",
+    "WAI Apprentice Kit": "kit",
+    "WAI Member – Monthly": "member_monthly",
+    "WAI Plus – Monthly": "plus_monthly",
+    "WAI Pro – Monthly": "pro_monthly",
+    "WAI Patron – Monthly": "patron_monthly",
+    "WAI Credential Certificate": "credential",
+    "Donation – WAI Institute": "donation",
+    "Creators Sanctuary – 3-Day Trial": "sanctuary_trial",
+    "Creators Sanctuary – Paid Creator": "sanctuary_paid",
+    "Creators Sanctuary – Advanced Creator": "sanctuary_creator",
+    "Creators Sanctuary – Certified Mod": "sanctuary_mod",
+}
+
+# Trial window: 3 days · 33 minutes · 33 seconds (matches marketing copy).
+TRIAL_DELTA = {"days": 3, "minutes": 33, "seconds": 33}
+
 # Maps every purchasable product key → the feature_tier it grants.
-# Admin can still manually override via the exec panel. Payments drive the
+# Admins can still manually override via the exec panel. Payments drive the
 # tier automatically through the payment webhook.
 _PRODUCT_TIER_MAP: dict[str, str] = {
+    # Main membership ladder
     "more_monthly":       "member",
     "more_annual":        "member",
     "member_monthly":     "member",
     "plus_monthly":       "plus",
     "pro_monthly":        "pro",
     "patron_monthly":     "patron",
+    # Creator's Sanctuary lane — a purchase grants the matching membership
+    # level (so creator perks sit on top of a real membership) plus the
+    # creator-specific privileges managed by the Sanctuary surface.
     "sanctuary_trial":    "pro",
     "sanctuary_paid":     "member",
     "sanctuary_creator":  "plus",
     "sanctuary_mod":      "pro",
 }
+
+TIER_RANK = {"free": 0, "member": 1, "plus": 2, "pro": 3, "patron": 4, "executive": 5}
 
 
 class CheckoutReq(BaseModel):
@@ -219,29 +247,51 @@ async def payments_webhook(request: Request):
         except Exception:
             logger.exception("LS webhook: payment record failed")
 
-        # Best-effort tier grant: match buyer email → user, product name → tier.
+        # Best-effort tier grant: match buyer email → user, product name → key.
+        # Exact current name first, then legacy (pre-rebrand) aliases so
+        # existing subscribers keep counting on renewals.
         first_item = data.get("first_order_item") or {}
-        product_name = first_item.get("product_name", "")
+        product_name = str(first_item.get("product_name", ""))
         product_key = next(
             (k for k, pr in PAYMENT_PRODUCTS.items()
-             if str(pr["name"]).lower() == str(product_name).lower()),
+             if str(pr["name"]).lower() == product_name.lower()),
             None,
         )
+        if not product_key:
+            product_key = _LEGACY_PRODUCT_NAMES.get(product_name)
         if user_email and product_key and product_key in _PRODUCT_TIER_MAP:
-            user_doc = await db.users.find_one({"email": user_email}, {"id": 1, "feature_tier": 1})
+            user_doc = await db.users.find_one(
+                {"email": user_email},
+                {"id": 1, "feature_tier": 1, "feature_tier_expires_at": 1},
+            )
             if user_doc:
                 granted = _PRODUCT_TIER_MAP[product_key]
-                tier_rank = {"free": 0, "member": 1, "plus": 2, "pro": 3, "patron": 4, "executive": 5}
-                if tier_rank.get(granted, 0) > tier_rank.get(user_doc.get("feature_tier", "free"), 0):
-                    await db.users.update_one(
-                        {"id": user_doc["id"]},
-                        {"$set": {
-                            "feature_tier": granted,
-                            "feature_tier_source": "payment",
-                            "feature_tier_product": product_key,
-                            "feature_tier_updated_at": datetime.now(timezone.utc).isoformat(),
-                        }},
-                    )
+                prev_tier = user_doc.get("feature_tier", "free")
+                now = datetime.now(timezone.utc)
+                # Upgrade-only grant (never downgrade an active tier).
+                if TIER_RANK.get(granted, 0) > TIER_RANK.get(prev_tier, 0):
+                    set_fields = {
+                        "feature_tier": granted,
+                        "feature_tier_source": "trial" if product_key == "sanctuary_trial" else "payment",
+                        "feature_tier_product": product_key,
+                        "feature_tier_updated_at": now.isoformat(),
+                    }
+                    unset_fields = {}
+                    if product_key == "sanctuary_trial":
+                        # Time-boxed all-access: revert to their previous tier
+                        # after 3 days · 33 minutes · 33 seconds.
+                        set_fields["feature_tier_expires_at"] = (now + timedelta(**TRIAL_DELTA)).isoformat()
+                        set_fields["feature_tier_revert_to"] = (
+                            prev_tier if TIER_RANK.get(prev_tier, 0) > 0 else "free"
+                        )
+                    elif user_doc.get("feature_tier_expires_at"):
+                        # A real (recurring) purchase clears any pending trial clock.
+                        unset_fields = {"feature_tier_expires_at": "", "feature_tier_revert_to": ""}
+
+                    update = {"$set": set_fields}
+                    if unset_fields:
+                        update["$unset"] = unset_fields
+                    await db.users.update_one({"id": user_doc["id"]}, update)
                 await notify(user_doc["id"], "Payment Confirmed",
                              "Thank you! Your payment has been received and your features are unlocked.",
                              link="/profile", kind="success")

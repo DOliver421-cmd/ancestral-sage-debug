@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route, Navigate, useLocation, useParams } from "
 import { Toaster } from "sonner";
 import "./App.css";
 import { AuthProvider, useAuth } from "./lib/auth";
+import { TierGate } from "./lib/tiers";
 import LandingMarketplace from "./pages/LandingMarketplace";
 import SupervisorLogin from "./pages/SupervisorLogin";
 import Login from "./pages/Login";
@@ -249,7 +250,7 @@ function App() {
           <Route path="/credentials" element={<Protected><Credentials /></Protected>} />
           <Route path="/portfolio" element={<Protected><Portfolio /></Protected>} />
           <Route path="/p/:slug" element={<PublicPortfolio />} />
-          <Route path="/adaptive" element={<Protected><Adaptive /></Protected>} />
+          <Route path="/adaptive" element={<Protected><TierGate feature="tracks"><Adaptive /></TierGate></Protected>} />
           <Route path="/compliance" element={<Protected><ComplianceList /></Protected>} />
           <Route path="/compliance/:slug" element={<Protected><ComplianceDetail /></Protected>} />
           <Route path="/admin/tools" element={<BoundedAdmin roles={["admin"]} label="Admin Tools"><AdminTools /></BoundedAdmin>} />
@@ -276,22 +277,22 @@ function App() {
           {/* Leaderboard — public read-only */}
           <Route path="/leaderboard" element={<Leaderboard />} />
           {/* Creator Studio — publish & manage courses */}
-          <Route path="/creator/courses" element={<Protected><CreatorCourses /></Protected>} />
+          <Route path="/creator/courses" element={<Protected><TierGate feature="courses"><CreatorCourses /></TierGate></Protected>} />
           {/* Creator earnings & payouts */}
-          <Route path="/creator/earnings" element={<Protected><CreatorEarnings /></Protected>} />
+          <Route path="/creator/earnings" element={<Protected><TierGate feature="earnings"><CreatorEarnings /></TierGate></Protected>} />
           {/* Creator profile editor → now lives in /profile Settings tab */}
           <Route path="/creator/profile/edit" element={<Navigate to="/profile" replace />} />
           {/* Creator slug → unified profile */}
           <Route path="/creator/:slug" element={<CreatorSlugRedirect />} />
-          <Route path="/ghost-producer" element={<GhostProducer />} />
-          <Route path="/creator-lounge" element={<Protected><CreatorLounge /></Protected>} />
-          <Route path="/band" element={<Protected><BandOnPage /></Protected>} />
+          <Route path="/ghost-producer" element={<TierGate feature="ghost"><GhostProducer /></TierGate>} />
+          <Route path="/creator-lounge" element={<Protected><TierGate feature="lounge"><CreatorLounge /></TierGate></Protected>} />
+          <Route path="/band" element={<Protected><TierGate feature="band"><BandOnPage /></TierGate></Protected>} />
           <Route path="/trash-pantheon" element={<TrashPantheon />} />
           <Route path="/missing/kameron" element={<MissingKameron />} />
           {/* Public pages */}
           <Route path="/internships" element={<Internships />} />
           {/* Social publisher — authenticated */}
-          <Route path="/social/publish" element={<Protected><SocialPublish /></Protected>} />
+          <Route path="/social/publish" element={<Protected><TierGate feature="publisher_ai"><SocialPublish /></TierGate></Protected>} />
           {/* Playlist curation — public submission form, private dashboard */}
           <Route path="/playlist/:slug/submit" element={<PlaylistSubmit />} />
           <Route path="/playlist/dashboard" element={<Protected><PlaylistDashboard /></Protected>} />
@@ -339,13 +340,13 @@ function App() {
           <Route path="/s-research" element={<SentinelResearch />} />
           <Route path="/arcade" element={<Protected><ArcadeLanding /></Protected>} />
           <Route path="/arcade/:slug" element={<Protected><ArcadeGame /></Protected>} />
-          <Route path="/studio" element={<Protected><CreatorStudio /></Protected>} />
+          <Route path="/studio" element={<Protected><TierGate feature="studio"><CreatorStudio /></TierGate></Protected>} />
           <Route path="/arena" element={<BoundedAdmin roles={["admin"]} label="The Arena"><CompetitionArena /></BoundedAdmin>} />
           <Route path="/admin/bridge" element={<BoundedAdmin roles={["admin"]} label="AI Team Bridge" backTo="/admin"><AITeamBridge /></BoundedAdmin>} />
           <Route path="/jamil" element={<BoundedAdmin roles={["admin"]} label="Jamil"><Jamil /></BoundedAdmin>} />
           <Route path="/projects" element={<BoundedAdmin roles={["admin"]} label="Projects"><ProjectDashboard /></BoundedAdmin>} />
           <Route path="/trash" element={<TrashPantheon />} />
-          <Route path="/creator/payouts" element={<Protected><CreatorPayoutDashboard /></Protected>} />
+          <Route path="/creator/payouts" element={<Protected><TierGate feature="payouts"><CreatorPayoutDashboard /></TierGate></Protected>} />
           <Route path="/welcome" element={<Landing />} />
           <Route path="*" element={<Error404 />} />
         </Routes>

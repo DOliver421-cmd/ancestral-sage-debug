@@ -59,7 +59,7 @@ class TransactionNode:
         Returns:
             {checkout_url, type, product_name, price, checkout_id}
         """
-        product_name = product.get("name", "WAI Product")
+        product_name = product.get("name", "M.O.R.E. Product")
         price_cents  = custom_price if custom_price is not None else product.get("price_cents", 0)
         platform_url = product.get("platform_url", "")
         platform_id  = product.get("platform_id", "")
