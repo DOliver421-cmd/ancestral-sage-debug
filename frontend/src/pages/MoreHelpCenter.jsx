@@ -96,6 +96,7 @@ const MODE_DETAILS = {
     summary: "This mode surfaces executive oversight workflows, live status, and privileged admin actions.",
     action: "Review platform health, audit pipelines, and secure escalation workflows.",
     links: [
+      { label: "Executive Site Report", to: "/admin/exec-report" },
       { label: "Admin System",  to: "/admin/system" },
       { label: "M.O.R.E. Admin", to: "/more/admin" },
       { label: "M.O.R.E. Ops", to: "/more/ops" },
