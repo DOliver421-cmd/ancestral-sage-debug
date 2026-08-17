@@ -6,7 +6,7 @@ const WIZARD_KEY = "welcome_wizard_seen_v1";
 
 const STEPS = {
   student: [
-    { title: "Welcome to W.A.I.!", body: "You're now part of the Workforce Apprentice Institute. Let's get you started.", icon: "🎓" },
+    { title: "Welcome to M.O.R.E.!", body: "You're now part of the M.O.R.E. Help Center. Let's get you started.", icon: "🎓" },
     { title: "Explore Courses", body: "Head to Courses to find training modules. Complete them at your own pace.", icon: "📚", link: "/courses" },
     { title: "Hands-On Labs", body: "Put your knowledge into practice with real-world lab exercises.", icon: "🔧", link: "/labs" },
     { title: "Earn Credentials", body: "Complete modules and labs to earn certificates and digital credentials.", icon: "🏆", link: "/certificates" },
@@ -30,7 +30,7 @@ const STEPS = {
     { title: "Welcome, Executive!", body: "Full system oversight and command capabilities.", icon: "⚡" },
     { title: "Executive System", body: "Staff meetings, pipeline processing, and system commands.", icon: "🖥️", link: "/admin/system" },
     { title: "Sage Sessions", body: "Monitor and audit AI interactions across the platform.", icon: "👁️", link: "/admin/sage-audit" },
-    { title: "Staff Meetings", body: "Convene the WAI persona network to delegate complex tasks.", icon: "🤝" },
+    { title: "Staff Meetings", body: "Convene the M.O.R.E. persona network to delegate complex tasks.", icon: "🤝" },
     { title: "Get Help", body: "Use the Sage Guide (bottom-right ? button) anytime for help with any page.", icon: "💡" },
   ],
 };

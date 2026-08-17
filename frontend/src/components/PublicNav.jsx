@@ -16,7 +16,7 @@ export default function PublicNav() {
     <header style={{ background: "linear-gradient(135deg, var(--wai-purple), #4c1d95)", borderBottom: "3px solid var(--wai-gold)" }}>
       <div className="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between flex-wrap gap-3">
         <Link to="/" className="font-heading text-lg" style={{ textDecoration: "none", color: "var(--wai-gold-light)", fontWeight: 800 }}>
-          W.A.I. · M.O.R.E.
+          M.O.R.E. Help Center
         </Link>
         <nav className="flex items-center gap-4 flex-wrap">
           {LINKS.map((l) => (

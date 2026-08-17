@@ -92,7 +92,7 @@ function EntryScreen({ onEnter }) {
         transition: "all 0.8s ease",
       }}>
         <div style={{ fontFamily: "monospace", fontSize: 11, letterSpacing: "0.3em", textTransform: "uppercase", color: "rgba(184,134,11,0.7)", marginBottom: 16 }}>
-          WAI INSTITUTE
+          M.O.R.E. HELP CENTER
         </div>
         <h1 style={{
           fontFamily: "Georgia, serif",

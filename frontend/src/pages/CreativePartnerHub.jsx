@@ -24,12 +24,12 @@ const MISSION_PILLARS = [
   {
     icon: Users,
     title: "M.O.R.E. Community",
-    desc: "Michael Oliver Resource Exchange — multiply resources and support within underserved communities.",
+    desc: "Skills, support, and community resources — free and open to all.",
     color: "text-copper",
   },
   {
     icon: BookOpen,
-    title: "WAI-Institute",
+    title: "M.O.R.E. Institute",
     desc: "Education, skills, credentials. Built for communities systematically excluded from access.",
     color: "text-blue-500",
   },
@@ -95,7 +95,7 @@ function PartnerChat() {
       {/* Header */}
       <div className="px-5 py-3 border-b border-ink/10 flex items-center justify-between bg-gradient-to-r from-amber-950/20 to-transparent">
         <div>
-          <div className="font-heading font-bold text-base">WAI Vision Guide</div>
+          <div className="font-heading font-bold text-base">M.O.R.E. Vision Guide</div>
           <div className="text-xs text-ink/40">Your orientation AI — ask anything about the platform</div>
         </div>
         <button onClick={() => setAudioOn(v => !v)} className="text-ink/30 hover:text-copper transition-colors p-1">

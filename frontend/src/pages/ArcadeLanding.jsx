@@ -44,7 +44,7 @@ export default function ArcadeLanding() {
           }} />
           <div className="relative z-10">
             <div className="font-mono text-xs tracking-widest mb-3" style={{ color: "#b8860b" }}>
-              ▶ INSERT COIN · FREE TO PLAY · WAI INSTITUTE
+              ▶ INSERT COIN · FREE TO PLAY · M.O.R.E. HELP CENTER
             </div>
             <h1
               className="font-heading font-black leading-none mb-3"

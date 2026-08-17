@@ -24,7 +24,7 @@ const PORTALS = [
   {
     icon: Sparkles,
     label: "AI Tutor",
-    desc: "The on-demand learning guide. Powered by the WAI LLM gateway — always free, always available.",
+    desc: "The on-demand learning guide. Powered by the M.O.R.E. gateway — always free, always available.",
     to: "/login",
     cta: "Open AI Tutor",
     color: "border-signal",
@@ -48,7 +48,7 @@ export default function WAIInstitute() {
       <header className="bg-ink text-white">
         <div className="max-w-6xl mx-auto px-6 py-6 flex items-center justify-between">
           <Link to="https://www.morehelp.center" className="flex items-center gap-3">
-            <img src={WAI_LOGO} alt="W.A.I." className="w-10 h-10 object-contain" style={{ mixBlendMode: "screen" }} />
+            <img src={WAI_LOGO} alt="M.O.R.E." className="w-10 h-10 object-contain" />
             <div>
               <div className="text-[10px] font-black uppercase tracking-widest text-signal">{BRAND.short}</div>
               <div className="font-heading font-bold text-sm leading-tight">{BRAND.name}</div>
@@ -68,7 +68,7 @@ export default function WAIInstitute() {
       {/* Hero */}
       <section className="bg-ink text-white pb-16 pt-10">
         <div className="max-w-6xl mx-auto px-6">
-          <div className="overline text-signal mb-3">W.A.I. Institute</div>
+          <div className="overline text-signal mb-3">M.O.R.E. Help Center</div>
           <h1 className="font-heading text-5xl font-bold leading-tight max-w-3xl">
             The Administration Building & Classrooms
           </h1>
@@ -119,7 +119,7 @@ export default function WAIInstitute() {
             <Users className="w-8 h-8 text-copper" />
             <div>
               <div className="font-heading font-bold text-ink">Part of the M.O.R.E. Community</div>
-              <div className="text-sm text-ink/60">The WAI Institute operates within the Michael Oliver Resource Exchange.</div>
+              <div className="text-sm text-ink/60">M.O.R.E. Help Center connects people to skills, support, and community care — free and open to all.</div>
             </div>
           </div>
           <a href="https://www.morehelp.center" className="btn-copper inline-flex items-center gap-2 whitespace-nowrap">
@@ -129,7 +129,7 @@ export default function WAIInstitute() {
       </section>
 
       <footer className="bg-ink text-white/40 text-xs text-center py-6">
-        © {new Date().getFullYear()} {BRAND.name} · Part of M.O.R.E. Help Center · <a href="https://www.morehelp.center" className="hover:text-white">www.morehelp.center</a>
+        © {new Date().getFullYear()} {BRAND.name} · A division of {BRAND.legal} · <a href="https://www.morehelp.center" className="hover:text-white">www.morehelp.center</a>
       </footer>
     </div>
   );

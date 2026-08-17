@@ -47,7 +47,7 @@ api.interceptors.response.use(
       // Avoid redirect loop — only redirect if we're not already on an auth page
       const onAuthPage = ["/login", "/register", "/forgot-password"].some(p => window.location.pathname.startsWith(p));
       if (!onAuthPage) {
-        toast.error("This account has been deactivated. Contact support at support@wai-institute.org to restore access.");
+        toast.error("This account has been deactivated. Contact support at morehelpcenter@gmail.com to restore access.");
         setTimeout(() => { window.location.href = "/login"; }, 2500);
       }
     } else if (status === 429) {

@@ -79,7 +79,7 @@ export default function PartnershipPricing({
                 <span className="font-bold text-green-600">${pricing.breakdown.creatorEarnings.toFixed(2)}</span>
               </div>
               <div className="flex justify-between items-center">
-                <span className="text-ink/70">WAI receives ({pricing.breakdown.waiPercent}%)</span>
+                <span className="text-ink/70">M.O.R.E. receives ({pricing.breakdown.waiPercent}%)</span>
                 <span className="font-bold text-ink">${pricing.breakdown.waiEarnings.toFixed(2)}</span>
               </div>
             </div>
@@ -155,7 +155,7 @@ export default function PartnershipPricing({
             <span className="font-bold text-green-600">${pricing.breakdown.creatorEarnings.toFixed(2)}</span>
           </div>
           <div className="flex justify-between">
-            <span className="text-ink/60">WAI earns ({pricing.breakdown.waiPercent}%)</span>
+            <span className="text-ink/60">M.O.R.E. earns ({pricing.breakdown.waiPercent}%)</span>
             <span className="font-bold text-ink">${pricing.breakdown.waiEarnings.toFixed(2)}</span>
           </div>
         </div>

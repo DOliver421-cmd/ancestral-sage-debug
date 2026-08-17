@@ -651,7 +651,7 @@ export default function SentinelResearch() {
         <Shield size={18} color={COPPER} />
         <div>
           <div style={s.title}>Sentinel Research</div>
-          <div style={s.sub}>Defensive Intelligence · WAI-Institute / M.O.R.E. — Executive Access Only</div>
+          <div style={s.sub}>Defensive Intelligence · M.O.R.E. Help Center — Executive Access Only</div>
         </div>
         <div style={{ marginLeft: "auto", display: "flex", gap: 8, alignItems: "center" }}>
           <Eye size={12} color={MUTED} />

@@ -22,7 +22,7 @@ export default function HelpCenter() {
         <BackButton to="/" />
         <div className="mt-6">
           <div className="overline" style={{ color: "var(--wai-purple)" }}>M.O.R.E. Help Center</div>
-          <h1 className="font-heading text-4xl font-bold text-ink mt-2">Michael Oliver Resource Exchange</h1>
+          <h1 className="font-heading text-4xl font-bold text-ink mt-2">M.O.R.E. Help Center</h1>
           <p className="text-ink/60 mt-3 max-w-2xl">
             Ordinary people, given the right structure, take extraordinary care of each other. Find help — or offer it.
           </p>

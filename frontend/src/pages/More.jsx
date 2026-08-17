@@ -460,13 +460,13 @@ export default function More() {
       <header className="sticky top-0 z-30 bg-white/95 backdrop-blur border-b border-ink/10 shadow-sm">
         <div className="max-w-6xl mx-auto px-5 py-3 flex items-center justify-between gap-4">
           <Link to="/" className="flex items-center gap-2.5">
-            <img src={WAI_LOGO} alt="W.A.I." className="w-8 h-8 object-contain" style={{ mixBlendMode: "multiply" }} />
+            <img src={WAI_LOGO} alt="M.O.R.E." className="w-8 h-8 object-contain" />
             <span className="font-heading font-bold text-sm hidden sm:block">{BRAND.short}</span>
           </Link>
           <div className="flex items-center gap-2 font-heading font-extrabold text-base">
             <HandHelping className="w-5 h-5 text-amber-500" />
             <span>M.O.R.E.</span>
-            <span className="hidden sm:inline text-ink/40 font-normal text-sm">Michael Oliver Resource Exchange</span>
+            <span className="hidden sm:inline text-ink/40 font-normal text-sm">Help Center</span>
           </div>
           <nav className="flex items-center gap-2">
             <Link to="/helper" className="hidden sm:flex items-center gap-1.5 text-sm font-semibold text-ink/60 hover:text-amber-600 transition-colors px-3 py-1.5 rounded-lg hover:bg-amber-50">

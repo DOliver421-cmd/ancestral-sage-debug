@@ -29,7 +29,7 @@ export default function NotFound() {
         <div className="absolute inset-0 grid-paper opacity-10" />
         <div className="relative h-full flex flex-col justify-between p-12 text-white">
           <Link to="/" className="flex items-center gap-3" data-testid="not-found-brand">
-            <img src={WAI_LOGO} alt="W.A.I." className="w-12 h-12 object-contain bg-white p-1" />
+            <img src={WAI_LOGO} alt="M.O.R.E." className="w-12 h-12 object-contain bg-white p-1" />
             <div>
               <div className="overline text-signal">{BRAND.short}</div>
               <div className="font-heading font-bold">{BRAND.name}</div>

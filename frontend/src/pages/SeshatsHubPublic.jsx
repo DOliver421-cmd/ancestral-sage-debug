@@ -73,16 +73,16 @@ const WAYPOINTS = [
   },
   {
     icon: Globe2,
-    title: "WAI Infrastructure",
-    desc: "This hub is connected to the full WAI system, from course catalogs to executive controls.",
+    title: "M.O.R.E. Infrastructure",
+    desc: "This hub is connected to the full M.O.R.E. system, from course catalogs to executive controls.",
   },
 ];
 
 const INFRASTRUCTURE_LINKS = [
-  { label: "WAI Help Center", to: "/help-center", description: "Core support and community navigation." },
+  { label: "M.O.R.E. Help Center", to: "/help-center", description: "Core support and community navigation." },
   { label: "M.O.R.E. Hub", to: "/more", description: "Community marketplace, free resources, and living systems." },
   { label: "Executive Corridor", to: "/admin/system", description: "Human oversight, audit, and executive review paths." },
-  { label: "Plans & Programs", to: "/plans", description: "The broader WAI infrastructure of training and services." },
+  { label: "Plans & Programs", to: "/plans", description: "The broader M.O.R.E. infrastructure of training and services." },
 ];
 
 const ROLE_LANES = [
@@ -314,10 +314,10 @@ export default function SeshatsHubPublic() {
         <section className="mt-16 rounded-[32px] border border-[#ded1be] bg-[#f9f3e8] p-10 shadow-[0_24px_60px_rgba(104,73,34,0.08)]">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
             <div>
-              <div className="overline" style={{ color: "#8d5a33" }}>WAI Institute Infrastructure</div>
+              <div className="overline" style={{ color: "#8d5a33" }}>M.O.R.E. Infrastructure</div>
               <h2 className="font-heading text-3xl font-black text-[#2b1f15]">Connected to the wider platform</h2>
               <p className="mt-4 max-w-2xl text-sm leading-7 text-[#5c4c41]">
-                This hub is not isolated. It is part of the broader WAI Institute infrastructure, with links to community resources, learning, compliance, and executive oversight.
+                This hub is not isolated. It is part of the broader M.O.R.E. Help Center infrastructure, with links to community resources, learning, compliance, and executive oversight.
               </p>
             </div>
             <div className="rounded-full border border-[#d7b290] bg-[#fff5e5] px-5 py-3 text-sm font-semibold text-[#5c422c]">

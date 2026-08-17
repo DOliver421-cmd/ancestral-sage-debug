@@ -54,7 +54,7 @@ export default function ForgotPassword() {
         <div className="absolute inset-0 grid-paper opacity-10" />
         <div className="relative h-full flex flex-col justify-between p-12 text-white">
           <Link to="/" className="flex items-center gap-3" data-testid="forgot-brand">
-            <img src={WAI_LOGO} alt="W.A.I." className="w-12 h-12 object-contain bg-white p-1" />
+            <img src={WAI_LOGO} alt="M.O.R.E." className="w-12 h-12 object-contain bg-white p-1" />
             <div>
               <div className="overline text-signal">{BRAND.short}</div>
               <div className="font-heading font-bold">{BRAND.name}</div>
@@ -84,7 +84,7 @@ export default function ForgotPassword() {
                 <MailCheck className="w-7 h-7 text-signal" /> Request received.
               </h2>
               <p className="text-ink/60 mt-3">
-                If <span className="font-mono font-semibold">{email}</span> is associated with a W.A.I. account,
+                If <span className="font-mono font-semibold">{email}</span> is associated with a M.O.R.E. account,
                 a password-reset link is on its way. The link is valid for <strong>30 minutes</strong> and can
                 only be used once.
               </p>
@@ -105,7 +105,7 @@ export default function ForgotPassword() {
                 <MailCheck className="w-7 h-7 text-signal" /> Request received.
               </h2>
               <p className="text-ink/60 mt-3">
-                If <span className="font-mono font-semibold">{email}</span> is associated with a W.A.I. account,
+                If <span className="font-mono font-semibold">{email}</span> is associated with a M.O.R.E. account,
                 we attempted to send a reset link &mdash; but our email service did not confirm delivery.
               </p>
               <div className="card-flat p-4 mt-6 bg-white border-l-4 border-l-signal">
@@ -145,7 +145,7 @@ export default function ForgotPassword() {
                 <KeyRound className="w-7 h-7 text-copper" /> Reset password.
               </h2>
               <p className="text-ink/60 text-sm mt-2">
-                Enter the email tied to your W.A.I. account. We'll send a one-shot reset link.
+                Enter the email tied to your M.O.R.E. account. We'll send a one-shot reset link.
               </p>
 
               <div className="mt-8 space-y-4">

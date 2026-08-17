@@ -81,8 +81,8 @@ const DEFAULT_PROJECTS = [
     note: "Register original works. Catalog all published and unpublished poems.",
     tasks: ["Catalog all works", "File copyright registration", "Document publication dates"] },
   { id: "l3", area: "Legal", priority: "medium", status: "pending",
-    title: "Trademark — W.A.I. Institute / M.O.R.E.",
-    note: "Brand protection for W.A.I. Institute, M.O.R.E. Help Center, and Oliver Guardian names.",
+    title: "Trademark — M.O.R.E. Help Center",
+    note: "Brand protection for M.O.R.E. Help Center and Oliver Guardian names.",
     tasks: ["Search existing marks", "File applications", "Monitor for infringement"] },
 
   // Community
@@ -96,11 +96,11 @@ const DEFAULT_PROJECTS = [
     tasks: ["Add real social URLs", "Add portfolio pieces", "Add Vonn Oshun audio URLs when ready"] },
   { id: "c3", area: "Community", priority: "medium", status: "in-progress",
     title: "Poets Got To Eat Too — Feeder Pipeline",
-    note: "Facebook community → WAI-Institute pipeline. Add one-line WAI bio to group description.",
-    tasks: ["Post WAI bio in group description", "Pin WAI link in group", "Track referral signups"] },
+    note: "Facebook community → M.O.R.E. pipeline. Add one-line M.O.R.E. bio to group description.",
+    tasks: ["Post M.O.R.E. bio in group description", "Pin M.O.R.E. link in group", "Track referral signups"] },
   { id: "c4", area: "Community", priority: "low", status: "pending",
     title: "S.O.U.P. — Society of Unified Poets",
-    note: "Spoken word collective. Partner org. Route interested members to WAI creator pipeline.",
+    note: "Spoken word collective. Partner org. Route interested members to the M.O.R.E. creator pipeline.",
     tasks: ["Connect with group admins", "Share creator profile link", "Track sign-ups"] },
 
   // Business
@@ -123,7 +123,7 @@ const DEFAULT_PROJECTS = [
     note: "Public access enabled. No login required. Share URL: /modules/how-to-work-with-ai",
     tasks: ["✅ Deploy free field fix", "Share on social media", "Add more free lesson modules", "Track anonymous views"] },
   { id: "e2", area: "Education", priority: "medium", status: "in-progress",
-    title: "WAI-Institute Course Catalog",
+    title: "M.O.R.E. Course Catalog",
     note: "Community development, healing arts, and workforce training modules. Expand catalog.",
     tasks: ["Audit existing modules", "Write 2 new modules this month", "Add quiz questions", "Assign instructors"] },
   { id: "e3", area: "Education", priority: "low", status: "pending",
@@ -480,7 +480,7 @@ export default function PlatformDashboard() {
         <div>
           <div className="flex items-center gap-2 mb-0.5">
             <Sparkles size={16} style={{ color: T.rose }} />
-            <span className="text-xs font-bold uppercase tracking-widest" style={{ color: T.rose }}>W.A.I. Institute</span>
+            <span className="text-xs font-bold uppercase tracking-widest" style={{ color: T.rose }}>M.O.R.E. Help Center</span>
           </div>
           <h1 className="text-xl font-bold" style={{ color: T.text }}>Project Tracker</h1>
           <p className="text-xs mt-0.5" style={{ color: T.muted }}>Music · Legal · Community · Business · Education · Platform · Personal</p>
@@ -554,7 +554,7 @@ export default function PlatformDashboard() {
 
       {/* ── Footer ─────────────────────────────────────────────────────── */}
       <p className="text-center text-xs pb-2" style={{ color: T.muted }}>
-        Projects saved locally · Data owned by W.A.I. Institute & M.O.R.E.
+        Projects saved locally · Data owned by M.O.R.E. Help Center
       </p>
 
       {/* ── Add project modal ───────────────────────────────────────────── */}

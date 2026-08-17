@@ -248,7 +248,7 @@ export default function BillingAdmin() {
                 {chk("is_extreme_violation",  cashForm.is_extreme_violation,  setCashForm, "This is an extreme platform violation")}
                 {chk("user_not_at_fault",     cashForm.user_not_at_fault,     setCashForm, "User was not at fault")}
                 {chk("is_legal",              cashForm.is_legal,              setCashForm, "Refund is legally appropriate")}
-                {chk("no_harm_to_wai",        cashForm.no_harm_to_wai,        setCashForm, "Refund causes no harm to WAI")}
+                {chk("no_harm_to_wai",        cashForm.no_harm_to_wai,        setCashForm, "Refund causes no harm to M.O.R.E.")}
                 {chk("supervisor_approved",   cashForm.supervisor_approved,   setCashForm, "Supervisor has approved this refund")}
               </div>
               <button type="submit" disabled={cashBusy} className="bg-red-600 text-white text-sm font-semibold px-4 py-2 rounded-lg disabled:opacity-50">
