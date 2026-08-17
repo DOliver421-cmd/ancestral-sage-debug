@@ -2265,6 +2265,10 @@ from routers import bridge as _bridge_mod
 _bridge_mod.bind(db, current_user, audit, assert_role, xp_level)
 api_router.include_router(_bridge_mod.router)
 
+# --- WAI Handbooks router (public static handbook docs) ---
+from routers import handbooks as _handbooks_mod
+api_router.include_router(_handbooks_mod.router)
+
 
 
 

@@ -27,6 +27,10 @@ export default function ModulesList() {
         <div className="overline text-copper">The Curriculum</div>
         <h1 className="font-heading text-4xl font-bold mt-2">Camper-to-Classroom</h1>
         <p className="text-ink/60 mt-2 max-w-2xl">Start with free intro modules — no sign-up needed. Enroll to unlock the full 12-module program and earn your certificate.</p>
+        <div className="mt-3 flex flex-wrap gap-5 text-sm">
+          <a href={`${BACKEND_URL}/api/handbooks/instructor`} target="_blank" rel="noopener noreferrer" className="font-bold text-copper hover:underline">📘 Instructor Handbook →</a>
+          <a href={`${BACKEND_URL}/api/handbooks/student`} target="_blank" rel="noopener noreferrer" className="font-bold text-copper hover:underline">📕 Student Handbook →</a>
+        </div>
 
         <div className="grid md:grid-cols-2 gap-5 mt-10">
           {modules.map((m) => {
