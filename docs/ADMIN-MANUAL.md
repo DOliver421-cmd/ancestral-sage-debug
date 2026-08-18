@@ -40,7 +40,8 @@ The sidebar (`frontend/src/components/AppShell.jsx`) groups the site into sectio
 
 | Area | Route(s) | Purpose |
 |---|---|---|
-| Dashboard | `/dashboard` | Role-aware landing after login. |
+| Home / Landing | `/` | **Every visit (including after login/registration) lands here** — users choose where to go from the landing page. Role dashboards stay linked in the sidebar. |
+| Dashboard | `/dashboard` | Student dashboard (and role aliases: `/dashboard/student`, `/dashboard/admin`, `/dashboard/exec`, `/dashboard/instructor`). |
 | My Profile | `/profile`, `/u/:username`, `/profile/:id` | Personal profile, public profile, user profiles. |
 | My Position | `/my-position` | Current role/position card. |
 | Settings | `/settings` | Account settings, password change, session management. |
@@ -136,8 +137,7 @@ The sidebar (`frontend/src/components/AppShell.jsx`) groups the site into sectio
 
 | Area | Route(s) | Purpose |
 |---|---|---|
-| Admin Overview | `/admin`, `/dashboard/admin` | Admin dashboard (users, incidents, stats). |
-| Users | `/admin/users` | Full user management (create, edit, roles, tiers, sessions). |
+| Admin Overview | `/admin`, `/dashboard/admin`, `/admin/users` | Admin dashboard — full user management (create, edit, roles, tiers, sessions). `/admin/users` is an alias of the same page; the sidebar lists only Admin Overview. |
 | Sites & Inventory | `/admin/tools` | Sites and inventory. |
 | Analytics | `/admin/analytics` | Program analytics + benchmarks. |
 | Audit Log | `/admin/audit` | Auditable action log. |
@@ -151,10 +151,10 @@ The sidebar (`frontend/src/components/AppShell.jsx`) groups the site into sectio
 | Admin Assistant | `/assistant` | Admin assistant chat (native browser voice). |
 | AI Team Bridge | `/admin/bridge` | Cross-domain AI team bridge (Director + NAM Oshun Scholar + Curriculum Analyst). |
 | AAWAB Admin | `/admin/aawab` | Agent Wellness & Certification Bureau — platform-wide agent health, badge revocation, isolation overrides (§2.13). |
-| AI Business Office | `/business-office` · `/admin/business-office` | Revenue engine command center — owner-first P&L waterfall, mission runway, revenue KPIs, tools dock (the capabilities AI runs for income), 16 business divisions, the A2A economy (Workforce Exchange + Red-Teaming Bureau), B2B service deals pipeline, performance-linked workforce ledger (§2.14). |
+| AI Business Office | `/business-office` (sidebar) · `/admin/business-office` (alias) | Revenue engine command center — owner-first P&L waterfall, mission runway, revenue KPIs, tools dock (the capabilities AI runs for income), 16 business divisions, the A2A economy (Workforce Exchange + Red-Teaming Bureau), B2B service deals pipeline, performance-linked workforce ledger (§2.14). One sidebar entry under Business Office (everyone); the admin route is an alias. |
 | Office Control (no-code) | `/admin/office-control` | **Exec Control** — edit every office number and text string (goal, infra cost, owner draw %, fees, prices, all division/tool copy) without code (§2.15). |
 
-> **Note:** `/admin/accounts` (Account Controls) is a legacy duplicate of user management. The route still works, but the sidebar points to **Users** for all user administration.
+> **Note:** `/admin/accounts` (Account Controls) is a legacy duplicate of user management. The route still works, but the sidebar points to **Admin Overview** for all user administration. `/creator/profile/edit` is likewise a legacy redirect — the sidebar points to **My Profile** (`/profile`).
 
 ### 2.10 Executive (executive_admin only — the Executive Deck)
 

@@ -24,7 +24,8 @@ export default function Register() {
     try {
       const u = await register(form);
       toast.success(`Welcome, ${u.full_name}!`);
-      nav("/dashboard");
+      // Land on the landing page after sign-up — they choose where to go from there.
+      nav("/");
     } catch (err) {
       const status = err?.response?.status;
       if (status >= 500) {
