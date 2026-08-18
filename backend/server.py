@@ -1822,6 +1822,20 @@ api_router.include_router(_media_mod.router)
 from routers import missing as _missing_mod
 _missing_mod.bind(db, current_user)
 api_router.include_router(_missing_mod.router)
+# --- Site Guide + site-wide search router (routers/site_guide.py) ---
+from routers import site_guide as _site_guide_mod
+_site_guide_mod.bind(db, current_user, check_rate)
+api_router.include_router(_site_guide_mod.router)
+# --- AAWAB — Agent Wellness & Certification Bureau (routers/aawab.py) ---
+from routers import aawab as _aawab_mod
+_aawab_mod.bind(db, current_user, audit, check_rate, JWT_SECRET)
+api_router.include_router(_aawab_mod.router)
+# --- AI Business Office (routers/abo.py) — revenue engine command center ---
+from routers import abo as _abo_mod
+_abo_mod.bind(db, current_user, audit, check_rate)
+api_router.include_router(_abo_mod.router)
+
+
 
 # ── Pipeline: LLM intent routing ──────────────────────────────────────────────
 
@@ -2220,6 +2234,16 @@ else:
 from routers import payments as _payments_mod
 _payments_mod.bind(db, audit, notify, current_user)
 api_router.include_router(_payments_mod.router)
+
+# --- Sponsor a Scholarship (routers/scholarships.py) ---
+from routers import scholarships as _scholarships_mod
+_scholarships_mod.bind(db, audit, notify, current_user, check_rate)
+api_router.include_router(_scholarships_mod.router)
+
+# --- Executive Command Center (routers/exec_command.py) ---
+from routers import exec_command as _exec_command_mod
+_exec_command_mod.bind(db, current_user)
+api_router.include_router(_exec_command_mod.router)
 # Re-export names other modules / later code in this file reference.
 PAYMENT_PRODUCTS = _payments_mod.PAYMENT_PRODUCTS
 PAYMENTS_ENABLED = _payments_mod.PAYMENTS_ENABLED

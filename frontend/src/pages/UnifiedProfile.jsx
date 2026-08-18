@@ -17,6 +17,7 @@ import { useAuth } from "../lib/auth";
 import { api, BACKEND_URL } from "../lib/api";
 import { toast } from "sonner";
 import AppShell from "../components/AppShell";
+import { FEATURE_TIER_RANK, FEATURE_TIER_LABEL, canAccess } from "../lib/tiers";
 import SharePanel from "../components/SharePanel";
 import {
   Music, BookOpen, Users, Edit3, Camera, Send, Mic, MicOff,
@@ -27,41 +28,6 @@ import {
   DollarSign, Heart, TrendingUp, Receipt, Network, Star, Crown, Shield,
 } from "lucide-react";
 import { useMic } from "../hooks/useMic";
-
-// ── Tier gate logic ───────────────────────────────────────────────────────────
-// feature_tier is set by payment (auto) or admin override (one-time).
-// Free → Member → Plus → Pro → Patron → Executive
-// Admins/exec_admins bypass all gates regardless of feature_tier.
-const FEATURE_TIER_RANK = { free: 0, member: 1, plus: 2, pro: 3, patron: 4, executive: 5 };
-const FEATURE_TIER_LABEL = {
-  free: "Free", member: "Member", plus: "Plus",
-  pro: "Pro", patron: "Patron", executive: "Executive",
-};
-
-function canAccess(user, _status, feature) {
-  if (!user) return false;
-  const role = user.role || "student";
-  // Admins and executive admins own the platform — never locked out
-  if (role === "admin" || role === "executive_admin") return true;
-  const isInstructor = role === "instructor";
-  const tierIdx = FEATURE_TIER_RANK[user.feature_tier] ?? 0;
-
-  switch (feature) {
-    case "profile":       return true;
-    case "ai_chat":       return true;
-    case "posts":         return tierIdx >= 1;             // Member+
-    case "publisher_ai":  return tierIdx >= 1;             // Member+
-    case "courses":       return tierIdx >= 2 || isInstructor; // Plus+
-    case "tracks":        return tierIdx >= 2 || isInstructor; // Plus+
-    case "ghost":         return tierIdx >= 2;             // Plus+
-    case "band":          return tierIdx >= 2;             // Plus+
-    case "publisher":     return tierIdx >= 2;             // Plus+
-    case "artist_mgmt":   return tierIdx >= 3;             // Pro+
-    case "mass_post":     return tierIdx >= 4;             // Patron+
-    case "sovereign":     return false;                    // admin role only, handled above
-    default:              return false;
-  }
-}
 
 // ── Sub-components ────────────────────────────────────────────────────────────
 
@@ -123,7 +89,7 @@ function AIAssistantPanel({ user, status }) {
     }
   }
 
-  const aiName = canAccess(user, status, "sovereign") ? "The Sovereign" : "WAI Assistant";
+  const aiName = canAccess(user, status, "sovereign") ? "The Sovereign" : "M.O.R.E. Assistant";
 
   return (
     <div className="card-flat overflow-hidden flex flex-col" style={{ height: 320 }}>
@@ -1026,7 +992,7 @@ export default function UnifiedProfile() {
       <div className="min-h-[60vh] flex flex-col items-center justify-center gap-4">
         <div className="font-heading text-2xl font-bold text-ink/40">Profile not found</div>
         <p className="text-sm text-ink/30">@{username} hasn't published their profile yet.</p>
-        <Link to="/register" className="btn-copper text-sm">Join WAI Institute</Link>
+        <Link to="/register" className="btn-copper text-sm">Join M.O.R.E. Help Center</Link>
       </div>
     </AppShell>
   );
@@ -1085,7 +1051,7 @@ export default function UnifiedProfile() {
                   <Edit3 className="w-3.5 h-3.5" /> Edit
                 </button>
               )}
-              <SharePanel compact url={`/u/${profile.slug}`} title={`${profile.display_name} — WAI-Institute`} embed />
+              <SharePanel compact url={`/u/${profile.slug}`} title={`${profile.display_name} — M.O.R.E.`} embed />
             </div>
           </div>
 
@@ -1290,7 +1256,7 @@ export default function UnifiedProfile() {
                   {canUseGhost ? (
                     <InlineGhostProducer />
                   ) : (
-                    <LockedFeature name="Ghost Producer" requiredTier="Pro">
+                    <LockedFeature name="Ghost Producer" requiredTier="Plus">
                       {/* Blurred preview */}
                       <div className="card-flat p-5 space-y-4 pointer-events-none">
                         <div className="flex items-center gap-2">
@@ -1369,7 +1335,7 @@ export default function UnifiedProfile() {
               {/* Share */}
               <div className="card-flat p-4">
                 <div className="text-xs font-bold uppercase tracking-widest text-ink/40 mb-3">Share Profile</div>
-                <SharePanel url={`/u/${profile.slug}`} title={`${profile.display_name} — WAI-Institute`} embed />
+                <SharePanel url={`/u/${profile.slug}`} title={`${profile.display_name} — M.O.R.E.`} embed />
               </div>
 
               {/* ── Revenue Hub (owner only) ── */}
@@ -1441,7 +1407,7 @@ export default function UnifiedProfile() {
                   <Link to="/donate"
                     className="flex items-center gap-2 py-2 px-3 rounded-xl border border-copper/20 hover:bg-copper/5 transition-colors group no-underline">
                     <Heart className="w-3.5 h-3.5 text-copper shrink-0" />
-                    <span className="text-sm font-bold text-ink/70 group-hover:text-ink flex-1">Donate to WAI</span>
+                    <span className="text-sm font-bold text-ink/70 group-hover:text-ink flex-1">Donate to M.O.R.E.</span>
                     <ExternalLink className="w-3 h-3 text-ink/20 group-hover:text-copper shrink-0" />
                   </Link>
                   <Link to="/subscribe"

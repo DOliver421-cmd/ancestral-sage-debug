@@ -150,7 +150,7 @@ export default function CreatorCourses() {
           </button>
         </div>
         <p className="text-ink/60 mb-8">
-          Publish courses to the WAI catalog. You keep 70% of every sale. Payouts on the 1st.
+          Publish courses to the M.O.R.E. catalog. You keep 70% of every sale. Payouts on the 1st.
         </p>
 
         {/* Stats bar */}

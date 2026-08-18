@@ -209,7 +209,7 @@ function ReleaseChecklist({ type }) {
   const CHECKLIST = {
     "Single": ["✅ Final master file (WAV/MP3)", "✅ Cover art (3000×3000px min)", "✅ Metadata filled (title, artist, ISRC)", "✅ Distribution platform selected", "✅ Social posts drafted", "✅ Release date set", "✅ Pre-save link created", "✅ YouTube lyric/visualizer video", "✅ Playlisting pitch sent"],
     "Album / EP": ["✅ All tracks mastered", "✅ Track listing finalized", "✅ Album art front + back", "✅ Credits documented", "✅ UPC code registered", "✅ Distribution submitted (2-3 weeks early)", "✅ Press kit / bio updated", "✅ Rollout plan: singles → album", "✅ Merchandise ready"],
-    "Course": ["✅ Course outline complete", "✅ All sections written", "✅ Thumbnail image created", "✅ Promo video recorded", "✅ Price set", "✅ Published on Creator Studio", "✅ Social posts scheduled", "✅ Email list notified", "✅ WAI Arcade promoted alongside"],
+    "Course": ["✅ Course outline complete", "✅ All sections written", "✅ Thumbnail image created", "✅ Promo video recorded", "✅ Price set", "✅ Published on Creator Studio", "✅ Social posts scheduled", "✅ Email list notified", "✅ M.O.R.E. Arcade promoted alongside"],
     "default": ["✅ Content finalized", "✅ Title and description ready", "✅ Cover/thumbnail created", "✅ Distribution or upload ready", "✅ Social posts drafted", "✅ Links ready to share"],
   };
   const items = CHECKLIST[type] || CHECKLIST.default;

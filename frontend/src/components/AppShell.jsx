@@ -12,6 +12,7 @@ import {
   Gamepad2, Star, Radio, Globe, Swords, ChevronLeft, ChevronRight, Share2,
 } from "lucide-react";
 import NotificationBell from "./NotificationBell";
+import { Search, HeartPulse, Landmark, Archive } from "lucide-react";
 import { useEffect, useState } from "react";
 
 // ── Section header ────────────────────────────────────────────────────────────
@@ -96,7 +97,7 @@ export default function AppShell({ children }) {
         <div className={`py-5 border-b border-white/10 flex items-center shrink-0 ${collapsed ? "justify-center px-2 flex-col gap-2" : "px-4 justify-between"}`}>
           {!collapsed && (
             <Link to="/dashboard" className="flex items-center gap-3" data-testid="sidebar-brand">
-              <img src={WAI_LOGO} alt="W.A.I." className="w-9 h-9 object-contain" style={{ mixBlendMode: "screen" }} />
+              <img src={WAI_LOGO} alt="M.O.R.E." className="w-9 h-9 object-contain" />
               <div>
                 <div className="overline text-signal">{BRAND.short}</div>
                 <div className="font-heading font-bold text-sm leading-tight">{BRAND.name}</div>
@@ -105,7 +106,7 @@ export default function AppShell({ children }) {
           )}
           {collapsed && (
             <Link to="/dashboard" data-testid="sidebar-brand" title="Dashboard">
-              <img src={WAI_LOGO} alt="W.A.I." className="w-8 h-8 object-contain" style={{ mixBlendMode: "screen" }} />
+              <img src={WAI_LOGO} alt="M.O.R.E." className="w-8 h-8 object-contain" />
             </Link>
           )}
           <div className={`flex items-center ${collapsed ? "flex-col gap-1" : "gap-1"}`}>
@@ -125,11 +126,25 @@ export default function AppShell({ children }) {
         {/* Nav */}
         <nav className={`flex-1 py-4 ${collapsed ? "px-1" : "px-2"}`}>
 
+          {/* Site search — opens the global command palette (Ctrl+K) */}
+          <button
+            onClick={() => window.dispatchEvent(new CustomEvent("open-site-search"))}
+            data-testid="nav-search"
+            title={collapsed ? "Search (Ctrl+K)" : undefined}
+            className={`flex items-center gap-3 px-3 py-2 text-sm font-medium border-l-2 border-transparent text-white/65 hover:text-white hover:bg-white/5 rounded-r-md transition-all ${collapsed ? "justify-center px-0" : ""}`}
+          >
+            <Search className="w-4 h-4 shrink-0" />
+            {!collapsed && <span className="flex-1 text-left">Search</span>}
+            {!collapsed && <kbd className="text-[10px] font-black text-white/30 border border-white/15 rounded px-1.5 py-0.5">⌘K</kbd>}
+          </button>
+
           {/* ── CORE (everyone) ───────────────────────────────────────── */}
           <NavSection label="Home" collapsed={collapsed}>
+            {nl("/",                "Home / Landing",  Globe,            "nav-home")}
             {nl("/dashboard",       "Dashboard",       LayoutDashboard, "nav-dashboard")}
             {nl("/profile",         "My Profile",      UserCircle,      "nav-profile")}
             {nl("/my-position",     "My Position",     Compass,         "nav-my-position")}
+            {nl("/site-guide",      "Site Guide",      Compass,         "nav-site-guide")}
             {nl("/settings",        "Settings",        KeyRound,        "nav-settings")}
             {nl("/byok",            "My AI (BYOK)",    KeyRound,        "nav-byok")}
           </NavSection>
@@ -163,6 +178,27 @@ export default function AppShell({ children }) {
             {nl("/more/chat",      "Community Chat",   Radio,           "nav-more-chat")}
             {nl("/more/litigation","Legal Tools",       Scale,           "nav-litigation")}
             {nl("/app/helper",     "Personal Helper",  HelpCircle,      "nav-helper")}
+          </NavSection>
+
+          {/* ── CLASSIC TOOLS (the preserved original HTML apps) ──────── */}
+          <NavSection label="Classic Tools" collapsed={collapsed}>
+            {nl("/classic-tools",  "All Originals",     Archive,         "nav-classic-tools")}
+            {nl("/classic/creators-sanctuary", "Creator's Sanctuary", Music, "nav-classic-sanctuary")}
+            {nl("/classic/djedi-oracle", "DJEDI Oracle", Star,         "nav-classic-djedi")}
+            {nl("/classic/litigation-weapon", "Litigation Weapon", Scale, "nav-classic-litigation")}
+            {nl("/classic/more-help-center", "Help Center (original)", HelpCircle, "nav-classic-more")}
+          </NavSection>
+
+          {/* ── AGENT WELLNESS (AAWAB — everyone) ─────────────────────── */}
+          {/* ── AGENT WELLNESS (AAWAB — everyone) ─────────────────────── */}
+          <NavSection label="Agent Wellness" collapsed={collapsed}>
+            {nl("/aawab",          "Agent Registry",  HeartPulse,      "nav-aawab")}
+            {nl("/aawab/chamber",  "Certification",   Award,           "nav-aawab-chamber")}
+          </NavSection>
+
+          {/* ── AI BUSINESS OFFICE (everyone — mission funding) ──────── */}
+          <NavSection label="Business Office" collapsed={collapsed}>
+            {nl("/business-office", "AI Business Office", Landmark,     "nav-business-office")}
           </NavSection>
 
           {/* ── CREATOR'S SANCTUARY (all roles — page handles tier locks) ── */}
@@ -218,6 +254,9 @@ export default function AppShell({ children }) {
               {nl("/more/ops",        "Dept. AI Ops",    Network,        "nav-more-ops")}
               {nl("/assistant",       "Admin Assistant", Sparkles,       "nav-assistant")}
               {nl("/admin/bridge",    "AI Team Bridge",  Network,        "nav-bridge")}
+              {nl("/admin/aawab",     "AAWAB Admin",     HeartPulse,     "nav-aawab-admin")}
+              {nl("/admin/business-office", "Business Office", Landmark, "nav-abo-admin")}
+              {nl("/admin/office-control", "Office Control (no-code)", Settings, "nav-abo-control")}
               {nl("/arena",           "The Arena",       Swords,         "nav-arena")}
             </NavSection>
           )}
@@ -243,7 +282,7 @@ export default function AppShell({ children }) {
 
         </nav>
 
-        {/* WAI Institute card */}
+        {/* M.O.R.E. Institute card */}
         {!collapsed && (
           <div className="px-4 pb-2 shrink-0">
             <Link to="/wai-institute" data-testid="nav-wai-institute"
@@ -251,7 +290,7 @@ export default function AppShell({ children }) {
               style={{ background: "linear-gradient(135deg,#1B4332,#2D6A4F)", border: "1.5px solid #E8A51E", boxShadow: "0 4px 16px rgba(27,67,50,0.40)" }}>
               <div className="flex items-center gap-2">
                 <span style={{ fontSize: 16 }}>🏛️</span>
-                <span style={{ fontSize: 14, fontWeight: 900, color: "#E8A51E" }}>WAI Institute</span>
+                <span style={{ fontSize: 14, fontWeight: 900, color: "#E8A51E" }}>M.O.R.E. Institute</span>
               </div>
               <span style={{ fontSize: 11, opacity: 0.85, color: "#fff", paddingLeft: 26 }}>
                 Administration · Classrooms · Credentials
@@ -261,7 +300,7 @@ export default function AppShell({ children }) {
         )}
         {collapsed && (
           <div className="px-1 pb-2 shrink-0 flex justify-center">
-            <Link to="/wai-institute" data-testid="nav-wai-institute" title="WAI Institute"
+            <Link to="/wai-institute" data-testid="nav-wai-institute" title="M.O.R.E. Help Center"
               className="p-2 rounded-xl hover:opacity-90 transition-all"
               style={{ background: "linear-gradient(135deg,#1B4332,#2D6A4F)", border: "1.5px solid #E8A51E" }}>
               <span style={{ fontSize: 18 }}>🏛️</span>

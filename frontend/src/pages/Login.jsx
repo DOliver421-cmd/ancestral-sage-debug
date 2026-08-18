@@ -39,7 +39,7 @@ export default function Login() {
         <div className="absolute inset-0 grid-paper opacity-10 pointer-events-none" />
         <div className="relative">
           <Link to="/" className="flex items-center gap-3 inline-block" data-testid="login-brand">
-            <img src={WAI_LOGO} alt="W.A.I." className="w-12 h-12 object-contain bg-white p-1 rounded" />
+            <img src={WAI_LOGO} alt="M.O.R.E." className="w-12 h-12 object-contain bg-white p-1 rounded" />
             <div>
               <div className="overline text-copper leading-none">{BRAND.short}</div>
               <div className="font-heading font-bold text-sm">{BRAND.name}</div>
@@ -70,7 +70,7 @@ export default function Login() {
           {/* Mobile Header */}
           <div className="lg:hidden mb-8 text-center">
             <Link to="/" className="inline-flex items-center gap-3 mb-6" data-testid="login-brand-mobile">
-              <img src={WAI_LOGO} alt="W.A.I." className="w-10 h-10 object-contain" style={{ mixBlendMode: "multiply" }} />
+              <img src={WAI_LOGO} alt="M.O.R.E." className="w-10 h-10 object-contain" />
               <div>
                 <div className="overline text-copper leading-none text-xs">{BRAND.short}</div>
                 <div className="font-heading font-bold text-sm">{BRAND.name}</div>

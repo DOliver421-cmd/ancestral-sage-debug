@@ -169,9 +169,15 @@ function useHelperAPI() {
         headers,
         body: JSON.stringify({ message: question }),
       });
-      if (r.ok) { const d = await r.json(); if (d.reply) return d.reply; }
+      if (r.ok) {
+        const d = await r.json();
+        // If the gateway is down or quota-exhausted the backend may still return
+        // its generic "restricted mode" notice — treat that as a miss so the
+        // local knowledge base (free, offline, zero cost) answers instead.
+        if (d.reply && !d.reply.includes("restricted mode")) return d.reply;
+      }
     } catch {}
-    // Fallback: local knowledge base (offline / backend down)
+    // Fallback: local knowledge base (offline / backend down / quota exhausted)
     return getSmartFallback(question);
   }, []);
 }
@@ -250,8 +256,9 @@ function useMobileKeyboardFix(endRef) {
 
 // ===========================================================================
 // PUBLIC HELPER - colorful, full-featured
+// (embedded=true renders inside a bounded container, e.g. the landing page)
 // ===========================================================================
-function PublicHelper() {
+export function PublicHelper({ embedded = false }) {
   const [searchParams] = useSearchParams();
   const [msgs, setMsgs] = useState([]);
   const [input, setInput] = useState("");
@@ -356,46 +363,50 @@ function PublicHelper() {
   const activeTitle = TOPICS.find(t => t.key === activeTopic)?.title;
 
   return (
-    <div style={{ display:"flex", flexDirection:"column", height:"100dvh", background:"#f5f7fb", fontFamily:"'IBM Plex Sans', -apple-system, sans-serif", color:"#1f2933", overflow:"hidden" }}>
+    <div style={{ display:"flex", flexDirection:"column", height: embedded ? "100%" : "100dvh", background:"#f5f7fb", fontFamily:"'IBM Plex Sans', -apple-system, sans-serif", color:"#1f2933", overflow:"hidden", ...(embedded ? { borderRadius:20, border:"1px solid rgba(232,165,30,0.4)", boxShadow:"0 24px 60px rgba(0,0,0,0.35)" } : {}) }}>
       {/* COLORFUL GRADIENT HEADER */}
-      <div style={{ background:"linear-gradient(135deg,#4b7cff,#7b5cff)", padding:"14px 16px", flexShrink:0, color:"#fff" }}>
-        <div style={{ display:"flex", alignItems:"center", gap:12, marginBottom:10 }}>
-          <div style={{ width:52, height:52, borderRadius:"50%", background:"radial-gradient(circle at 30% 20%,#fde68a,#facc15 40%,#f97316 80%)", display:"flex", alignItems:"center", justifyContent:"center", fontWeight:800, fontSize:24, flexShrink:0, boxShadow:"0 0 0 3px rgba(255,255,255,0.3)" }}>H</div>
+      <div style={{ background:"linear-gradient(135deg,#4b7cff,#7b5cff)", padding: embedded ? "10px 12px" : "14px 16px", flexShrink:0, color:"#fff" }}>
+        <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:8 }}>
+          {embedded ? (
+            <img src="/WAI_Logo.jpg" alt="M.O.R.E." style={{ width:40, height:40, borderRadius:"50%", objectFit:"cover", flexShrink:0, background:"#fff", boxShadow:"0 0 0 3px rgba(255,255,255,0.3)" }} />
+          ) : (
+            <div style={{ width:52, height:52, borderRadius:"50%", background:"radial-gradient(circle at 30% 20%,#fde68a,#facc15 40%,#f97316 80%)", display:"flex", alignItems:"center", justifyContent:"center", fontWeight:800, fontSize:24, flexShrink:0, boxShadow:"0 0 0 3px rgba(255,255,255,0.3)" }}>H</div>
+          )}
           <div style={{ flex:1 }}>
-            <div style={{ fontSize:20, fontWeight:800, lineHeight:1.2 }}>I am here to be your HELPER.</div>
-            <div style={{ fontSize:13, opacity:0.9, marginTop:2 }}>I can help you understand mail, bills, legal papers, housing and more — in plain, simple words.</div>
-            <div style={{ display:"inline-flex", alignItems:"center", gap:4, marginTop:5, background:"rgba(255,255,255,0.15)", borderRadius:999, padding:"2px 10px", fontSize:11, fontWeight:700, letterSpacing:"0.5px" }}>⚡ AI-Powered — Real answers, not scripts</div>
+            <div style={{ fontSize: embedded ? 17 : 20, fontWeight:800, lineHeight:1.2 }}>I am here to be your HELPER.</div>
+            <div style={{ fontSize: embedded ? 12 : 13, opacity:0.9, marginTop:2, lineHeight:1.35 }}>{embedded ? "Mail, bills, legal papers, housing, medicines — in plain words." : "I can help you understand mail, bills, legal papers, housing and more — in plain, simple words."}</div>
+            <div style={{ display:"inline-flex", alignItems:"center", gap:4, marginTop:4, background:"rgba(255,255,255,0.15)", borderRadius:999, padding:"1px 8px", fontSize: embedded ? 10 : 11, fontWeight:700, letterSpacing:"0.5px" }}>⚡ AI-Powered — Real answers, not scripts</div>
           </div>
         </div>
         {/* BIG ACTION BUTTONS */}
-        <div style={{ display:"flex", flexWrap:"wrap", gap:8, marginBottom:8 }}>
-          <button onClick={toggleMic} style={{ flex:1, minWidth:120, borderRadius:999, border:listening?"3px solid #fff":"none", padding:"10px 12px", fontSize:14, fontWeight:700, background:listening?"#dc2626":"#2563eb", color:"#fff", cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", gap:6 }}>
+        <div style={{ display:"flex", flexWrap:"wrap", gap:6, marginBottom:6 }}>
+          <button onClick={toggleMic} style={{ flex:1, minWidth: embedded ? 100 : 120, borderRadius:999, border:listening?"3px solid #fff":"none", padding: embedded ? "8px 10px" : "10px 12px", fontSize: embedded ? 13 : 14, fontWeight:700, background:listening?"#dc2626":"#2563eb", color:"#fff", cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", gap:6 }}>
             <span>{listening ? "🔴" : "🎙️"}</span>{listening ? "Listening..." : "Speak to me"}
           </button>
-          <button onClick={() => showToast("Type or paste what the document says and I will explain it.")} style={{ flex:1, minWidth:120, borderRadius:999, border:"none", padding:"10px 12px", fontSize:14, fontWeight:700, background:"#facc15", color:"#78350f", cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", gap:6 }}>
+          <button onClick={() => showToast("Type or paste what the document says and I will explain it.")} style={{ flex:1, minWidth: embedded ? 100 : 120, borderRadius:999, border:"none", padding: embedded ? "8px 10px" : "10px 12px", fontSize: embedded ? 13 : 14, fontWeight:700, background:"#facc15", color:"#78350f", cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", gap:6 }}>
             <span>📷</span>Scan and read
           </button>
-          <button onClick={() => sendText("Is this a scam? Help me check.", "scam")} style={{ flex:1, minWidth:120, borderRadius:999, border:"none", padding:"10px 12px", fontSize:14, fontWeight:700, background:"#ef4444", color:"#fff", cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", gap:6 }}>
+          <button onClick={() => sendText("Is this a scam? Help me check.", "scam")} style={{ flex:1, minWidth: embedded ? 100 : 120, borderRadius:999, border:"none", padding: embedded ? "8px 10px" : "10px 12px", fontSize: embedded ? 13 : 14, fontWeight:700, background:"#ef4444", color:"#fff", cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", gap:6 }}>
             <span>🛡️</span>Scam check
           </button>
         </div>
-        <div style={{ display:"flex", flexWrap:"wrap", gap:8 }}>
-          <button onClick={cycleLang} style={{ flex:1, minWidth:120, borderRadius:999, border:"none", padding:"9px 12px", fontSize:13, fontWeight:700, background:"#7c3aed", color:"#ede9fe", cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", gap:6 }}>
+        <div style={{ display:"flex", flexWrap:"wrap", gap:6 }}>
+          <button onClick={cycleLang} style={{ flex:1, minWidth: embedded ? 100 : 120, borderRadius:999, border:"none", padding: embedded ? "6px 10px" : "9px 12px", fontSize: embedded ? 12 : 13, fontWeight:700, background:"#7c3aed", color:"#ede9fe", cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", gap:6 }}>
             <span>🌎</span>Language: {lang}
           </button>
-          <button onClick={() => { setAudioEnabled(a => !a); if (speaking) stopSpeech(); }} style={{ flex:1, minWidth:120, borderRadius:999, border:"none", padding:"9px 12px", fontSize:13, fontWeight:700, background:audioEnabled?"#059669":"rgba(255,255,255,0.2)", color:"#fff", cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", gap:6 }}>
+          <button onClick={() => { setAudioEnabled(a => !a); if (speaking) stopSpeech(); }} style={{ flex:1, minWidth: embedded ? 100 : 120, borderRadius:999, border:"none", padding: embedded ? "6px 10px" : "9px 12px", fontSize: embedded ? 12 : 13, fontWeight:700, background:audioEnabled?"#059669":"rgba(255,255,255,0.2)", color:"#fff", cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", gap:6 }}>
             <span>{audioEnabled ? "🔊" : "🔇"}</span>{audioEnabled ? "Audio: ON" : "Audio: OFF"}
           </button>
-          <button onClick={() => window.print()} style={{ flex:1, minWidth:100, borderRadius:999, border:"none", padding:"9px 12px", fontSize:13, fontWeight:700, background:"rgba(255,255,255,0.15)", color:"#fff", cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", gap:6 }}>
+          <button onClick={() => window.print()} style={{ flex:1, minWidth: embedded ? 90 : 100, borderRadius:999, border:"none", padding: embedded ? "6px 10px" : "9px 12px", fontSize: embedded ? 12 : 13, fontWeight:700, background:"rgba(255,255,255,0.15)", color:"#fff", cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", gap:6 }}>
             <span>🖨️</span>Print
           </button>
         </div>
         {/* NAME ROW */}
-        <div style={{ display:"flex", gap:8, alignItems:"center", marginTop:10, flexWrap:"wrap" }}>
-          <span style={{ fontSize:15, fontWeight:700 }}>Hello, {name}!</span>
+        <div style={{ display:"flex", gap:8, alignItems:"center", marginTop: embedded ? 8 : 10, flexWrap:"wrap" }}>
+          <span style={{ fontSize: embedded ? 14 : 15, fontWeight:700 }}>Hello, {name}!</span>
           <input value={nameInput} onChange={e => setNameInput(e.target.value)}
             onKeyDown={e => { if (e.key==="Enter" && nameInput.trim()) { setName(nameInput.trim()); setNameInput(""); }}}
-            placeholder="Tell me your name..." style={{ padding:"6px 12px", borderRadius:999, border:"none", fontSize:13, width:160, background:"rgba(255,255,255,0.2)", color:"#fff", outline:"none" }} />
+            placeholder="Tell me your name..." style={{ padding:"6px 12px", borderRadius:999, border:"none", fontSize:13, width: embedded ? 130 : 160, background:"rgba(255,255,255,0.2)", color:"#fff", outline:"none" }} />
           {nameInput.trim() && <button onClick={() => { setName(nameInput.trim()); setNameInput(""); }} style={{ borderRadius:999, border:"none", padding:"6px 12px", fontSize:12, background:"#22c55e", color:"#064e3b", cursor:"pointer", fontWeight:700 }}>Save</button>}
         </div>
       </div>
@@ -403,16 +414,16 @@ function PublicHelper() {
       {/* SCROLLABLE AREA */}
       <div style={{ flex:1, overflowY:"auto", padding:"0 10px 8px", WebkitOverflowScrolling:"touch" }}>
         {/* TOPIC GRID */}
-        <div style={{ background:"#fff", borderRadius:14, padding:"12px", margin:"10px 0", boxShadow:"0 2px 12px rgba(15,23,42,.08)" }}>
+        <div style={{ background:"#fff", borderRadius:14, padding: embedded ? "10px" : "12px", margin: embedded ? "8px 0" : "10px 0", boxShadow:"0 2px 12px rgba(15,23,42,.08)" }}>
           <div style={{ fontSize:13, fontWeight:700, color:"#374151", marginBottom:8 }}>
             {activeTopic ? "Topic: " + activeTitle + " — tap another to switch" : "Choose a topic to get started, or just type your question below"}
           </div>
-          <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill,minmax(130px,1fr))", gap:8 }}>
+          <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill,minmax(" + (embedded ? "104px" : "130px") + ",1fr))", gap: embedded ? 6 : 8 }}>
             {TOPICS.map(({ key, icon, title, prompt }) => (
               <button key={key} onClick={() => startTopic(key, title, prompt)}
-                style={{ borderRadius:10, border:"2px solid " + (activeTopic===key?"#2563eb":"#e5e7eb"), background:activeTopic===key?"#eff6ff":"#f9fafb", padding:"10px 8px", cursor:"pointer", display:"flex", flexDirection:"column", gap:4, textAlign:"left", transition:"all 0.15s" }}>
-                <span style={{ fontSize:22 }}>{icon}</span>
-                <span style={{ fontSize:12, fontWeight:600, color:"#1f2933" }}>{title}</span>
+                style={{ borderRadius:10, border:"2px solid " + (activeTopic===key?"#2563eb":"#e5e7eb"), background:activeTopic===key?"#eff6ff":"#f9fafb", padding: embedded ? "8px 6px" : "10px 8px", cursor:"pointer", display:"flex", flexDirection:"column", gap:4, textAlign:"left", transition:"all 0.15s" }}>
+                <span style={{ fontSize: embedded ? 20 : 22 }}>{icon}</span>
+                <span style={{ fontSize: embedded ? 11 : 12, fontWeight:600, color:"#1f2933", lineHeight:1.25 }}>{title}</span>
               </button>
             ))}
           </div>
@@ -438,7 +449,7 @@ function PublicHelper() {
             {speaking && <button onClick={stopSpeech} style={{ borderRadius:999, border:"1px solid #d1d5db", padding:"6px 12px", fontSize:12, background:"#fff", cursor:"pointer" }}>⏹ Stop audio</button>}
           </div>
           <div style={{ marginTop:10, fontSize:11, color:"#c4c9d4", textAlign:"center" }}>
-            WAI-Institute members get saved notes, more tools, and a private workspace.
+            M.O.R.E. members get saved notes, more tools, and a private workspace.
           </div>
         </div>
         <div style={{ height:20 }} />
@@ -464,7 +475,7 @@ function PublicHelper() {
         />
         <button onClick={() => sendText(input, activeTopic)} disabled={loading} style={{ borderRadius:12, border:"none", padding:"12px 16px", fontSize:14, fontWeight:700, background:"#2563eb", color:"#fff", cursor:"pointer", flexShrink:0 }}>Send</button>
       </div>
-      {toast && <div style={{ position:"fixed", top:16, left:"50%", transform:"translateX(-50%)", background:"#111827", color:"#f9fafb", padding:"10px 18px", borderRadius:999, fontSize:13, zIndex:9999, whiteSpace:"nowrap", boxShadow:"0 4px 20px rgba(0,0,0,.3)" }}>{toast}</div>}
+      {toast && <div style={{ position:"fixed", top:16, left:"50%", transform:"translateX(-50%)", background:"#111827", color:"#f9fafb", padding:"10px 18px", borderRadius:999, fontSize:13, zIndex:9999, maxWidth:"min(92vw, 420px)", textAlign:"center", lineHeight:1.4, boxShadow:"0 4px 20px rgba(0,0,0,.3)" }}>{toast}</div>}
     </div>
   );
 }
@@ -524,7 +535,7 @@ function AuthHelper({ user }) {
   });
 
   useEffect(() => {
-    addMsg("helper", "Welcome back, " + (user?.full_name?.split(" ")[0] || "there") + ". I am your private helper inside WAI-Institute. Choose a tool from the sidebar or just type your question.");
+    addMsg("helper", "Welcome back, " + (user?.full_name?.split(" ")[0] || "there") + ". I am your private helper inside M.O.R.E. Help Center. Choose a tool from the sidebar or just type your question.");
   }, [addMsg, user?.full_name]);
 
   useEffect(() => { endRef.current?.scrollIntoView({ behavior:"smooth" }); }, [msgs]);
@@ -796,7 +807,7 @@ function AuthHelper({ user }) {
               </div>
               <div style={{ background:"#fff", borderRadius:14, padding:"20px", border:"1px solid #e2e8f0" }}>
                 <div style={{ fontSize:10, fontWeight:800, color:"#94a3b8", textTransform:"uppercase", letterSpacing:"0.06em", marginBottom:10 }}>Privacy Note</div>
-                <div style={{ fontSize:13, color:"#374151", lineHeight:1.65 }}>This helper is part of WAI-Institute. Conversations may be logged for safety and quality improvement. No information is shared outside the institute without your consent.</div>
+                <div style={{ fontSize:13, color:"#374151", lineHeight:1.65 }}>This helper is part of M.O.R.E. Help Center. Conversations may be logged for safety and quality improvement. No information is shared outside the help center without your consent.</div>
               </div>
             </div>
           )}

@@ -2,6 +2,11 @@ import { Link } from "react-router-dom";
 import { useAuth } from "../lib/auth";
 import { BRAND, WAI_LOGO } from "../lib/brand";
 import PublicNav from "../components/PublicNav";
+import { PublicHelper } from "./Helper";
+
+// The logo D. Oliver provided — kept as a direct public asset reference so it
+// is actually placed on the page instead of only the generated SVG mark.
+const FOUNDER_LOGO = "/WAI_Logo.jpg";
 
 export default function UnifiedGateway() {
   const { user } = useAuth();
@@ -28,9 +33,11 @@ export default function UnifiedGateway() {
 
           <div className="inline-flex items-center gap-2 mb-6 px-3 py-1.5 rounded-full border"
             style={{ borderColor: "rgba(232,165,30,0.3)", background: "rgba(232,165,30,0.08)" }}>
+            <img src={FOUNDER_LOGO} alt="M.O.R.E."
+              style={{ width: 26, height: 26, borderRadius: "50%", objectFit: "cover", border: "1px solid rgba(232,165,30,0.4)" }} />
             <span className="w-1.5 h-1.5 rounded-full bg-signal animate-pulse" />
             <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.2em", textTransform: "uppercase", color: "#E8A51E" }}>
-              W.A.I. Institute
+              M.O.R.E. Help Center
             </span>
           </div>
 
@@ -102,6 +109,67 @@ export default function UnifiedGateway() {
         </div>
       </section>
 
+      {/* ── MY HELPER — THE WORKING MODULE, BELOW M.O.R.E. HELP CENTER ───── */}
+      <section className="relative overflow-hidden"
+        style={{ background: "linear-gradient(160deg, #14120a 0%, #241a08 55%, #0d1a0a 100%)", borderBottom: "1px solid rgba(232,165,30,0.25)" }}>
+        <div className="relative max-w-6xl mx-auto px-4 sm:px-6 py-8 sm:py-12">
+          {/* Header row: founder logo + copy + full-page link */}
+          <div className="flex flex-col lg:flex-row lg:items-center gap-4 sm:gap-5 mb-5 sm:mb-8">
+            <img src={FOUNDER_LOGO} alt="M.O.R.E. Logo"
+              className="w-12 h-12 sm:w-16 sm:h-16 rounded-2xl object-cover shrink-0"
+              style={{ border: "2px solid rgba(232,165,30,0.35)", boxShadow: "0 8px 24px rgba(0,0,0,0.35)" }} />
+            <div className="flex-1">
+              <div className="overline" style={{ color: "#E8A51E" }}>My Helper — built for our elders</div>
+              <h2 style={{
+                fontFamily: "'Cabinet Grotesk', 'Plus Jakarta Sans', sans-serif",
+                fontSize: "clamp(1.35rem, 3.5vw, 2.4rem)", fontWeight: 900,
+                color: "#fff", lineHeight: 1.15, margin: "4px 0 6px",
+              }}>
+                I am here to be your <span style={{ color: "#E8A51E" }}>HELPER.</span>
+              </h2>
+              <p style={{ color: "rgba(255,255,255,0.6)", maxWidth: 640, lineHeight: 1.6, fontSize: "0.95rem", margin: 0 }}>
+                Read mail, understand bills, explain legal papers, check for scams, and remember
+                appointments — in plain, simple words, in your own language. Free, no login required.
+                Named in honor of <strong style={{ color: "#fff" }}>Michael Oliver</strong> — the M.O.R.E. in M.O.R.E. Help Center.
+              </p>
+            </div>
+            <Link to="/helper"
+              className="inline-flex items-center gap-2 font-bold text-sm px-5 sm:px-6 py-2.5 sm:py-3 rounded-xl border shrink-0 self-start"
+              style={{ borderColor: "rgba(232,165,30,0.4)", color: "#E8A51E", background: "rgba(232,165,30,0.08)", fontSize: 14 }}>
+              Open full page →
+            </Link>
+          </div>
+
+          {/* The actual working helper — all functions, live right on the landing page */}
+          <div className="rounded-2xl overflow-hidden" style={{ height: "min(88dvh, 760px)", boxShadow: "0 30px 80px rgba(0,0,0,0.45)" }}>
+            <PublicHelper embedded />
+          </div>
+
+          {user ? (
+            <div className="mt-5 flex flex-wrap justify-center gap-3">
+              <Link to="/app/helper"
+                className="inline-flex items-center gap-2 font-bold text-sm px-6 py-3 rounded-xl"
+                style={{ background: "#E8A51E", color: "#0a0a0a", fontSize: 14 }}>
+                Open My Personal Helper
+              </Link>
+            </div>
+          ) : (
+            <div className="mt-5 flex flex-wrap justify-center gap-3">
+              <Link to="/helper"
+                className="inline-flex items-center gap-2 font-bold text-sm px-6 py-3 rounded-xl"
+                style={{ background: "#E8A51E", color: "#0a0a0a", fontSize: 14 }}>
+                Try My Helper on its own page — Free
+              </Link>
+              <Link to="/register"
+                className="inline-flex items-center gap-2 font-bold text-sm px-6 py-3 rounded-xl border"
+                style={{ borderColor: "rgba(255,255,255,0.25)", color: "rgba(255,255,255,0.85)", fontSize: 14 }}>
+                Join free for saved notes
+              </Link>
+            </div>
+          )}
+        </div>
+      </section>
+
       {/* ── WHAT IT IS ───────────────────────────────────────────────────── */}
       <section className="py-24 px-6" style={{ background: "#faf9f7" }}>
         <div className="max-w-6xl mx-auto">
@@ -121,7 +189,7 @@ export default function UnifiedGateway() {
               { icon: "💰", title: "Earn & Get Paid",       desc: "Sell courses, manage earnings, request payouts. 70% creator / 30% platform split.",               to: "/creator/earnings" },
               { icon: "🤝", title: "Community & M.O.R.E.",  desc: "Members' Palace, Elder Council, legal tools, mutual aid matching, community chat.",               to: "/app/more" },
               { icon: "🤖", title: "AI Tools Suite",        desc: "AI Tutor, Sovereign Chat, Ghost Publicist, Ghost Legal, Ghost Marketer — all on platform.",       to: "/ai" },
-              { icon: "🏛️", title: "WAI Institute",         desc: "Accredited-track courses, workforce credentials, instructor-led labs, and placement support.",   to: "/wai-institute" },
+              { icon: "🏛️", title: "M.O.R.E. Institute",    desc: "Accredited-track courses, workforce credentials, instructor-led labs, and placement support.",   to: "/wai-institute" },
             ].map(({ icon, title, desc, to }) => (
               <Link key={title} to={to}
                 className="card-flat p-6 flex flex-col gap-3 hover:border-copper transition-all group no-underline">
@@ -220,13 +288,12 @@ export default function UnifiedGateway() {
       <section className="py-24 px-6"
         style={{ background: "linear-gradient(135deg, #1B4332 0%, #0a0a0f 60%)" }}>
         <div className="max-w-4xl mx-auto text-center">
-          <img src={WAI_LOGO} alt="WAI" className="w-16 h-16 object-contain mx-auto mb-8"
-            style={{ mixBlendMode: "screen" }} />
+          <img src={WAI_LOGO} alt="M.O.R.E." className="w-16 h-16 object-contain mx-auto mb-8" />
           <h2 style={{ fontFamily: "'Cabinet Grotesk',sans-serif", fontSize: "clamp(1.6rem,4vw,2.8rem)", fontWeight: 900, color: "#fff", lineHeight: 1.2, marginBottom: 20 }}>
             "{BRAND.tagline}"
           </h2>
           <p style={{ color: "rgba(255,255,255,0.55)", fontSize: "1.05rem", lineHeight: 1.8, maxWidth: 560, margin: "0 auto 40px" }}>
-            WAI Institute was built because the tools of the creator economy were never
+            M.O.R.E. Help Center was built because the tools of the creator economy were never
             designed for us. We changed that. Every feature, every tier, every dollar
             — built to serve communities that were meant to be invisible.
           </p>
@@ -250,20 +317,20 @@ export default function UnifiedGateway() {
         <div className="max-w-6xl mx-auto">
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6 mb-8 pb-8 border-b border-white/8">
             <div className="flex items-center gap-3">
-              <img src={WAI_LOGO} alt="WAI" className="w-8 h-8 object-contain" style={{ mixBlendMode: "screen" }} />
+              <img src={WAI_LOGO} alt="M.O.R.E." className="w-8 h-8 object-contain" />
               <div>
                 <div className="text-xs font-black uppercase tracking-widest text-signal">{BRAND.short}</div>
                 <div className="font-heading font-bold text-sm text-white">{BRAND.name}</div>
               </div>
             </div>
             <div className="flex flex-wrap gap-6 text-xs">
-              {[["Plans", "/plans"], ["Creators", "/creators"], ["WAI Institute", "/wai-institute"], ["Donate", "/donate"], ["Privacy", "/privacy"], ["Terms", "/terms"]].map(([l, h]) => (
+              {[["Plans", "/plans"], ["Creators", "/creators"], ["M.O.R.E. Institute", "/wai-institute"], ["Donate", "/donate"], ["Privacy", "/privacy"], ["Terms", "/terms"]].map(([l, h]) => (
                 <Link key={l} to={h} className="hover:text-white transition-colors">{l}</Link>
               ))}
             </div>
           </div>
           <div className="flex flex-col sm:flex-row items-center justify-between gap-2 text-xs">
-            <p>© {new Date().getFullYear()} {BRAND.name}. All rights reserved.</p>
+            <p>© {new Date().getFullYear()} {BRAND.legal}. All rights reserved.</p>
             <p style={{ color: "rgba(255,255,255,0.25)" }}>{BRAND.mission}</p>
           </div>
         </div>

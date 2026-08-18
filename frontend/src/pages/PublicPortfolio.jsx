@@ -20,7 +20,7 @@ export default function PublicPortfolio() {
       <div className="card-flat p-12 text-center">
         <div className="font-heading text-2xl font-bold">Portfolio not found</div>
         <div className="text-ink/60 mt-2">This portfolio is private or the link is invalid.</div>
-        <Link to="/" className="btn-primary mt-6 inline-block">Back to W.A.I.</Link>
+        <Link to="/" className="btn-primary mt-6 inline-block">Back to M.O.R.E.</Link>
       </div>
     </div>
   );
@@ -35,7 +35,7 @@ export default function PublicPortfolio() {
       <header className="bg-ink text-white">
         <div className="max-w-5xl mx-auto px-6 py-6 flex items-center justify-between">
           <Link to="/" className="flex items-center gap-3" data-testid="public-brand">
-            <img src={WAI_LOGO} alt="W.A.I." className="w-12 h-12 object-contain bg-white p-1" />
+            <img src={WAI_LOGO} alt="M.O.R.E." className="w-12 h-12 object-contain bg-white p-1" />
             <div>
               <div className="overline text-signal">{BRAND.short}</div>
               <div className="font-heading font-bold">{BRAND.name}</div>

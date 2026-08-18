@@ -150,6 +150,9 @@ The sidebar (`frontend/src/components/AppShell.jsx`) groups the site into sectio
 | Auditor | `/auditor` | Auditor dashboard. |
 | Admin Assistant | `/assistant` | Admin assistant chat (native browser voice). |
 | AI Team Bridge | `/admin/bridge` | Cross-domain AI team bridge (Director + NAM Oshun Scholar + Curriculum Analyst). |
+| AAWAB Admin | `/admin/aawab` | Agent Wellness & Certification Bureau — platform-wide agent health, badge revocation, isolation overrides (§2.13). |
+| AI Business Office | `/business-office` · `/admin/business-office` | Revenue engine command center — owner-first P&L waterfall, mission runway, revenue KPIs, tools dock (the capabilities AI runs for income), 16 business divisions, the A2A economy (Workforce Exchange + Red-Teaming Bureau), B2B service deals pipeline, performance-linked workforce ledger (§2.14). |
+| Office Control (no-code) | `/admin/office-control` | **Exec Control** — edit every office number and text string (goal, infra cost, owner draw %, fees, prices, all division/tool copy) without code (§2.15). |
 
 > **Note:** `/admin/accounts` (Account Controls) is a legacy duplicate of user management. The route still works, but the sidebar points to **Users** for all user administration.
 
@@ -195,6 +198,40 @@ The flagship curriculum documents are served as public HTML pages from `backend/
 | `GET /api/handbooks/{name}/raw` | Raw HTML body (for embedding/tools). |
 
 Links to the Instructor and Student handbooks appear on the **Curriculum** page (`/modules`) and in the **M.O.R.E. help center** nav. The **Curriculum Analyst** (AI Team Bridge) is seeded with the handbook content so its curriculum work is grounded in the flagship program.
+
+### 2.13 AAWAB — Agent Wellness & Certification Bureau
+
+| Area | Route(s) | Purpose |
+|---|---|---|
+| Agent Registry | `/aawab` (auth) | User dashboard — register AI agents, monitor vital stats (CVS, token velocity, context load, memory fragmentation), run diagnostics/treatments/certification. |
+| Certification Chamber | `/aawab/chamber` (auth) | Guided wizard: Intake Diagnostic → Treatment → Stress Gauntlet → ACA badge (download/share/verify). |
+| AAWAB Admin | `/admin/aawab` (admin+) | Bureau oversight — platform-wide health cards, all agents, revoke certifications, override isolation holds, recent treatments log. |
+| Public registry | `GET /api/aawab/registry` | Certified agents + platform vitality analytics (public). |
+| Badge verification | `GET /api/aawab/badge/{id}/verify` | HMAC-SHA256 badge verification (public). |
+
+The full how-to, data model, API reference, legal notes, and the executive/admin task list live in **`docs/AAWAB_MANUAL.md`**. The Site Guide persona and site search (`/api/search`) know about AAWAB.
+
+### 2.14 AI Business Office — the revenue engine command center
+
+| Area | Route(s) | Purpose |
+|---|---|---|
+| AI Business Office | `/business-office` (auth) | Mission runway, **owner-first P&L waterfall** (gross → infra → net profit → owner retained → performance pool), revenue KPIs from the real payments ledger, the tools dock, **16 business divisions** (memberships, store, social agency, micro-SaaS, BYOK, audits, persona foundry, AAWAB, **Workforce Exchange, Red-Teaming Bureau, Living Archive, compliance gigs, dev maintenance, SEO retainers, invoice ops**, e-commerce pipeline), the B2B deals pipeline, and the performance-linked workforce ledger. |
+| Office Admin | `/admin/business-office` (admin+) | Set the monthly goal, advance/close deals (human-approval flag), open/update workforce jobs, settle exchange contracts, Merge/Approve red-team patches, top revenue sources, recent orders. |
+| Service deals API | `POST /api/abo/deals` · `POST /api/abo/deals/{id}/propose` | Members submit a service engagement → a Lead (lead → proposed → won → delivered). Admins trigger the office AI to draft a deliverable proposal (`call_llm`, template fallback if the gateway is down). |
+| Workforce Exchange | `POST /api/abo/exchange/contracts` · `POST .../contracts/{id}/complete` | A2A economy — agent task contracts with a clearinghouse fee (default 10%, editable) booked on completion. |
+| Red-Teaming Bureau | `POST /api/abo/redteam/engagements` · `POST .../{id}/approve` · `POST .../{id}/close` | Adversarial AI scans client systems and drafts sandboxed patches; the human **Merge/Approve** click ships them and books contracted revenue ($495 / $799/mo, editable). |
+| Public mission meter | `GET /api/abo/public-status` | Aggregate runway only (goal, month revenue, pct, status) — powers the Mission Funding strip on the M.O.R.E. Help Center landing. No private order/product data. |
+| Workforce ledger API | `GET /api/abo/jobs` | People & AI. AI jobs carry `value_cents` (revenue created); **human roles are performance-linked** (`pay_type` commission/distribution, `commission_pct`) — payable only from net profit at the owner's direction, never a fixed out-of-pocket liability. Seeded with 5 AI jobs + 3 commission-linked human roles. |
+
+Mission rule: **no revenue = no office = no jobs for people or the AI workforce.** Owner-first rule: **revenue → infrastructure → net profit to the owner/entity; nothing is auto-drained.** Labor rule: **performance-linked — commissions/distributions from net profit only, at the owner's direction.** Every division keeps the human as the responsible party (merchant accounts, contracts, payouts, liability) while AI executes the work.
+
+The full how-to, API reference, division-of-labor, and the executive/admin task list live in **`docs/ABO_MANUAL.md`**; the complete revenue strategy, P&L model, banking-viability rationale, and 90-day plan live in **`docs/BUSINESS_PLAN.md`**. The Site Guide persona and site search (`/api/search`) know about the AI Business Office, and the Site Guide chat has a **Hire the Office** CTA.
+
+### 2.15 Office Control — Exec Control (no-code)
+
+| Area | Route(s) | Purpose |
+|---|---|---|
+| Exec Control | `/admin/office-control` (admin+) | **Change every office number and text without code.** `GET/PUT /api/abo/config` reads/writes `db.abo_config` (audited, `abo.config.updated`). Numbers: monthly goal, infrastructure costs, owner draw %, clearinghouse fee %, red-team prices. Text: header, runway, loops, all five guardrails, all 16 division cards, all 12 tool cards. Empty values restore defaults. The owner-first waterfall and performance-linked labor model cannot be disabled from the panel. |
 
 ---
 
@@ -399,3 +436,56 @@ Whenever you change the platform:
 6. **Change voice/keys/security behavior** → update §5 / §7.
 
 Bump the **Version** and **Last updated** at the top of this file with every change.
+
+---
+
+## 8. Executive Command Center (integrated exec surface)
+
+**Route:** `/admin/command` (executive_admin) · **Backend:** `backend/routers/exec_command.py`
+
+The Command Center is the single integrated exec surface — every number is loaded once into a shared context and reused across all five tabs, so there is no copy/paste between screens:
+
+| Tab | Contents |
+|---|---|
+| Overview | Platform status (API, DB, incidents, labs, gateway, payments, keys) + KPIs + quick actions |
+| Business | Live Business Office numbers (month/total revenue, runway, contracted, deals/jobs) + open agenda + projects |
+| AI & Providers | LLM gateway provider table (free-first chain), hourly budget, per-user daily budget, Free Google Stack status |
+| Reports & Manuals | Report engines (Exec Site Report, Sage Audit, Staff Meetings, Revenue) + every `docs/*.md` and `backend/handbooks/*.md` rendered inline |
+| All Controls | Searchable index of every exec tool with deep links |
+
+The **Copy briefing** button compiles the full picture (platform, business, AI, agenda) into one formatted block — paste it into a report, email, or staff meeting in one click.
+
+**Endpoints:** `GET /api/exec/system` (restored aggregate overview: role_counts, version, env key flags, audit_log_total, collections, gateway status) · `GET /api/exec/manuals` (serves all repo manuals as markdown).
+
+## 9. Per-user AI token budget
+
+Every platform-paid AI call is budgeted per user per day (`backend/user_budget.py`, enforced centrally in `ai/llm_gateway.py`):
+
+- **Budgeted (default 50,000 tokens/day, env `USER_DAILY_TOKEN_CAP`):** students/members/free users and anonymous visitors (budgeted by IP).
+- **Exempt (unlimited):** instructor, admin, executive_admin, creative_partner — matches the BYOK-free tier.
+- **BYOK users are never counted** — they pay with their own key (and their usage no longer drains the platform's hourly counter).
+- **Never a cut-off:** on exhaustion the user gets a clear “try again tomorrow for live AI answers” notice layered on top of the curated KB answer (Helper → 211 guidance, Site Guide → pointer set).
+- Moderation (Oliver Guardian) is deliberately exempt — content safety must never be budget-blocked.
+
+**Monitoring:** `GET /api/exec/system` → `gateway.budget` (hourly) and the Command Center's AI tab. Records live in Mongo `user_token_budgets` (`{user_id, date, tokens}`).
+
+## 10. Sponsor a Scholarship
+
+**Routes:** public `/sponsor` · apply `/scholarships/apply` (auth) · committee `/admin/scholarships` (admin+)
+**Backend:** `backend/routers/scholarships.py` + webhook grant in `routers/payments.py` (product key `scholarship`).
+
+Three-sided flow: **sponsor** pledges (Full/Partial/Collective) → existing Lemon Squeezy → Gumroad checkout → webhook marks the pledge paid and raises the fund's progress · **applicant** applies to a fund (need + community contribution + goal) · **committee** reviews, and approval auto-matches the oldest paid pledge (same fund first) into a milestone-tracked award. Funds release only against **verified milestones**. If payments aren't configured, pledges are recorded with an explicit `grace` audit trail so the office can follow up — nothing is dropped. Full ops detail in `docs/SCHOLARSHIPS_MANUAL.md`.
+
+## 11. Open-access course & free tools
+
+- **The Ascension Protocols** (`/ascension-protocols`) — static, zero-token, zero-drain Kemetic/pan-African course (syllabus-as-teacher, lunar schedule, printable ledgers, external media). No backend, no data stored.
+- **Video Presentation Builder** (`/studio/video-presenter`) — 100% client-side canvas + mic-narration → WebM export (sponsor impact reports, applicant spotlights). Browser TTS is preview-only (it cannot be captured into a recording).
+
+## 12. Free Google stack (base account: morehelpcenter@gmail.com)
+
+Full evaluation in `docs/GOOGLE_FREE_STACK.md`. Summary:
+
+- **Gemini Developer API — integrate:** already wired as gateway Tier 2 and a BYOK provider. Free tier is real but rate-limited (~5–15 RPM; Pro models excluded) — use as fallback, not primary. One-time setup: AI Studio → create key as morehelpcenter@gmail.com → paste at `/admin/providers` (type: gemini).
+- **Free Google courses — integrate:** Google AI Essentials, Cloud Skills Boost (~35 credits/mo) — link them in a Free Learning lane for the community.
+- **Google Cloud free tier ($300/90 days) — defer:** platform runs on a zero-cost stack; no GCP need until there's a real requirement.
+- **Workspace (Gmail/Drive/Calendar) — already the base account's daily ops; no integration needed.**

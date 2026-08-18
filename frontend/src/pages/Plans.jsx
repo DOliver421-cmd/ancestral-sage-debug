@@ -2,56 +2,15 @@ import { Link } from "react-router-dom";
 import { useAuth } from "../lib/auth";
 import AppShell from "../components/AppShell";
 import BackButton from "../components/BackButton";
-import { Check, Zap, Clock } from "lucide-react";
+import { MEMBERSHIP_PLANS } from "../lib/plans";
+import { Check, Zap } from "lucide-react";
 
-// Public membership plans — the corrected 5-tier monthly ladder ($0/9/15/29/59).
-// Free tier is fully actionable (register); paid tiers route to the existing
-// /subscribe checkout. Honest note below re: tier billing rollout (no dead ends,
-// no fake checkout — every CTA goes somewhere real).
-const PLANS = [
-  {
-    name: "Public",
-    price: 0,
-    tagline: "Explore freely",
-    features: ["Free public resources", "Browse the M.O.R.E. community", "Daily puzzle — earn points", "One free basic course"],
-    cta: "Start Free",
-    to: "/register",
-  },
-  {
-    name: "Member",
-    price: 9,
-    tagline: "Join in fully",
-    features: ["Everything in Public", "Full M.O.R.E. — post & connect", "AI Tutor (standard)", "Member badge"],
-    cta: "Choose Member",
-    to: "/subscribe?plan=member_monthly",
-  },
-  {
-    name: "Plus",
-    price: 15,
-    tagline: "More tools",
-    features: ["Everything in Member", "Priority resource matching", "Expanded course library", "Portfolio tools"],
-    cta: "Choose Plus",
-    to: "/subscribe?plan=plus_monthly",
-    highlight: true,
-  },
-  {
-    name: "Pro",
-    price: 29,
-    tagline: "Go further",
-    features: ["Everything in Plus", "Advanced courses + labs", "Full AI tools suite", "Mentor support hours"],
-    cta: "Choose Pro",
-    to: "/subscribe?plan=pro_monthly",
-  },
-  {
-    name: "Patron",
-    price: 59,
-    tagline: "Fund the mission",
-    features: ["Everything in Pro", "Founder's circle", "You fund free access for others", "Direct line to the team"],
-    cta: "Become a Patron",
-    to: "/subscribe?plan=patron_monthly",
-  },
-];
-
+/**
+ * /plans — the five-level membership ladder (free/member/plus/pro/patron)
+ * plus the $3 all-access trial. Every CTA routes to the real /subscribe
+ * checkout for that exact product key — no dead ends. Creator perks
+ * (course publishing, payouts, moderation) are built into the tiers above.
+ */
 export default function Plans() {
   const { user } = useAuth();
   return (
@@ -76,12 +35,13 @@ export default function Plans() {
             <span style={{ fontSize: 36 }}>⚡</span>
             <div>
               <div className="font-heading font-black text-2xl text-signal">$3 All-Access Trial</div>
-              <div className="text-white/70 text-sm">3 days · 33 minutes · 33 seconds of everything</div>
+              <div className="text-white/70 text-sm">3 days · 33 minutes · 33 seconds</div>
             </div>
           </div>
           <div className="flex-1 text-sm text-white/80 leading-relaxed">
-            Unlock every feature on the platform — Creator Studio, Ghost Producer, AI tools, all courses — for one low trial price.
-            No recurring charge unless you choose a plan after.
+            Unlock everything through Pro — Creator Studio, Ghost Producer, the full AI suite, and every course —
+            for one low trial price. It reverts automatically when the trial ends; no recurring charge unless you
+            choose a plan after.
           </div>
           <Link to="/subscribe?plan=sanctuary_trial"
             className="shrink-0 font-black text-sm px-6 py-3 rounded-xl whitespace-nowrap"
@@ -91,13 +51,13 @@ export default function Plans() {
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mt-10">
-          {PLANS.map((p) => (
-            <div key={p.name} className={`card-flat p-6 flex flex-col ${p.highlight ? "border-copper" : ""}`}>
+          {MEMBERSHIP_PLANS.map((p) => (
+            <div key={p.key} className={`card-flat p-6 flex flex-col ${p.highlight ? "border-copper" : ""}`}>
               {p.highlight && <span className="badge-copper self-start mb-2">Popular</span>}
               <div className="overline text-ink/40">{p.name}</div>
               <div className="flex items-end gap-1 mt-1">
                 <span className="font-heading font-black text-4xl text-ink">${p.price}</span>
-                <span className="text-ink/50 text-sm mb-1">/mo</span>
+                <span className="text-ink/50 text-sm mb-1">{p.period}</span>
               </div>
               <div className="text-sm text-ink/60 mt-1">{p.tagline}</div>
               <ul className="space-y-2 mt-4 flex-1">
@@ -119,8 +79,9 @@ export default function Plans() {
         </div>
 
         <p className="text-xs text-ink/40 text-center mt-8 max-w-2xl mx-auto">
-          Paid tiers are rolling out — at checkout you'll be guided to our current membership option while full monthly
-          billing for every tier comes online. Program enrollees may qualify for complimentary membership.
+          Creator perks — course publishing, creator payouts, advanced tools, and moderation rights — are built
+          into the tiers above. Every tier is a real monthly subscription; the $3 trial never auto-charges and
+          reverts when it ends. Program enrollees may qualify for complimentary membership.
         </p>
       </div>
     </div>

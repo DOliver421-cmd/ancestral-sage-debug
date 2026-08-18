@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route, Navigate, useLocation, useParams } from "
 import { Toaster } from "sonner";
 import "./App.css";
 import { AuthProvider, useAuth } from "./lib/auth";
+import { TierGate } from "./lib/tiers";
 import LandingMarketplace from "./pages/LandingMarketplace";
 import SupervisorLogin from "./pages/SupervisorLogin";
 import Login from "./pages/Login";
@@ -43,6 +44,7 @@ import MoreAdmin from "./pages/MoreAdmin";
 import MoreOps from "./pages/MoreOps";
 import LitigationWeapon from "./pages/LitigationWeapon";
 function CreatorSlugRedirect() { const { slug } = useParams(); return <Navigate to={`/u/${slug}`} replace />; }
+function ClassicToolRoute() { const { slug } = useParams(); return <LegacyTool slug={slug} />; }
 import SocialPublish from "./pages/SocialPublish";
 import Internships from "./pages/Internships";
 import PlaylistSubmit from "./pages/PlaylistSubmit";
@@ -77,6 +79,12 @@ import SystemHealth from "./pages/SystemHealth";
 import ModerationAnalytics from "./pages/ModerationAnalytics";
 import RevenueDivision from "./pages/RevenueDivision";
 import Courses from "./pages/Courses";
+import AscensionProtocols from "./pages/AscensionProtocols";
+import SponsorScholarship from "./pages/SponsorScholarship";
+import ScholarshipApply from "./pages/ScholarshipApply";
+import AdminScholarships from "./pages/AdminScholarships";
+import VideoPresenter from "./pages/VideoPresenter";
+import ExecutiveCommandCenter from "./pages/ExecutiveCommandCenter";
 import Community from "./pages/Community";
 import Creators from "./pages/Creators";
 import GhostProducer from "./pages/GhostProducer";
@@ -119,6 +127,15 @@ import Jamil from "./pages/Jamil";
 import ProjectDashboard from "./pages/ProjectDashboard";
 import AITeamBridge from "./pages/AITeamBridge";
 import BYOK from "./pages/BYOK";
+import SiteGuide from "./pages/SiteGuide";
+import SiteSearch, { SiteSearchModal } from "./components/SiteSearch";
+import BusinessOffice from "./pages/BusinessOffice";
+import ExecControl from "./pages/ExecControl";
+import ClassicTools from "./pages/ClassicTools";
+import LegacyTool from "./pages/LegacyTool";
+import AgentRegistryView from "./pages/aawab/AgentRegistryView";
+import CertificationChamber from "./pages/aawab/CertificationChamber";
+import AdminAawabDashboard from "./pages/aawab/AdminAawabDashboard";
 
 // Role hierarchy must mirror backend ROLE_RANK in /app/backend/server.py.
 // Higher rank = more authority; a higher-rank role passes any check meant
@@ -192,6 +209,7 @@ function App() {
         {/* Global widgets */}
         <CookieConsent />
         <HelpGuide />
+        <SiteSearchModal />
         <WelcomeWizard />
 
         {/* Routes wrapped with main-content anchor */}
@@ -220,15 +238,38 @@ function App() {
           {/* Public funnel pages */}
           <Route path="/help-center" element={<HelpCenter />} />
           <Route path="/seshats-hub" element={<SeshatsHubPublic />} />
-          {/* MORE Help Center — unified entry point (greeter / exec / decoy modes) */}
+          {/* M.O.R.E. Help Center — unified entry point (greeter / exec / decoy modes) */}
           <Route path="/more-help-center" element={<MoreHelpCenter />} />
+          {/* Classic Tools — the preserved original HTML applications */}
+          <Route path="/classic-tools" element={<ClassicTools />} />
+          <Route path="/classic/:slug" element={<ClassicToolRoute />} />
+          {/* Site search + Site Guide persona */}
+          <Route path="/search" element={<SiteSearch />} />
+          <Route path="/site-guide" element={<SiteGuide />} />
+          {/* AI Business Office — the revenue engine command center */}
+          <Route path="/business-office" element={<Protected><BusinessOffice /></Protected>} />
+          <Route path="/admin/business-office" element={<BoundedAdmin roles={["admin"]} label="AI Business Office" backTo="/admin"><BusinessOffice /></BoundedAdmin>} />
+          {/* Exec Control — change every office number and text without code */}
+          <Route path="/admin/office-control" element={<BoundedAdmin roles={["admin"]} label="Exec Control — Business Office" backTo="/admin/business-office"><ExecControl /></BoundedAdmin>} />
+          {/* AAWAB — Agent Wellness & Certification Bureau */}
+          <Route path="/aawab" element={<Protected><AgentRegistryView /></Protected>} />
+          <Route path="/aawab/chamber" element={<Protected><CertificationChamber /></Protected>} />
+          <Route path="/admin/aawab" element={<BoundedAdmin roles={["admin"]} label="AAWAB Admin" backTo="/admin"><AdminAawabDashboard /></BoundedAdmin>} />
           <Route path="/landing" element={<LandingMarketplace />} />
+          {/* WAI Institute — accredited-track portal (also the redirect target for wai-institute.org) */}
+          <Route path="/wai-institute" element={<WAIInstitute />} />
           {/* Supervisor — executive_admin only; separate login at /supervisor-login */}
           <Route path="/supervisor-login" element={<SupervisorLogin />} />
           <Route path="/supervisor" element={<SupervisorProtected><SeshatsHub /></SupervisorProtected>} />
           <Route path="/terms" element={<TermsOfService />} />
           <Route path="/privacy" element={<PrivacyPolicy />} />
           <Route path="/courses" element={<Courses />} />
+          <Route path="/ascension-protocols" element={<AscensionProtocols />} />
+          <Route path="/sponsor" element={<SponsorScholarship />} />
+          <Route path="/scholarships/apply" element={<Protected><ScholarshipApply /></Protected>} />
+          <Route path="/admin/scholarships" element={<BoundedAdmin roles={["admin"]} label="Scholarship Committee" backTo="/admin"><AdminScholarships /></BoundedAdmin>} />
+          <Route path="/studio/video-presenter" element={<VideoPresenter />} />
+          <Route path="/admin/command" element={<BoundedAdmin roles={["executive_admin"]} label="Executive Command Center" backTo="/admin"><ExecutiveCommandCenter /></BoundedAdmin>} />
           <Route path="/community" element={<Community />} />
           <Route path="/creators" element={<Creators />} />
           <Route path="/instructor" element={<Protected roles={["instructor", "admin"]}><InstructorDashboard /></Protected>} />
@@ -249,7 +290,7 @@ function App() {
           <Route path="/credentials" element={<Protected><Credentials /></Protected>} />
           <Route path="/portfolio" element={<Protected><Portfolio /></Protected>} />
           <Route path="/p/:slug" element={<PublicPortfolio />} />
-          <Route path="/adaptive" element={<Protected><Adaptive /></Protected>} />
+          <Route path="/adaptive" element={<Protected><TierGate feature="tracks"><Adaptive /></TierGate></Protected>} />
           <Route path="/compliance" element={<Protected><ComplianceList /></Protected>} />
           <Route path="/compliance/:slug" element={<Protected><ComplianceDetail /></Protected>} />
           <Route path="/admin/tools" element={<BoundedAdmin roles={["admin"]} label="Admin Tools"><AdminTools /></BoundedAdmin>} />
@@ -276,22 +317,22 @@ function App() {
           {/* Leaderboard — public read-only */}
           <Route path="/leaderboard" element={<Leaderboard />} />
           {/* Creator Studio — publish & manage courses */}
-          <Route path="/creator/courses" element={<Protected><CreatorCourses /></Protected>} />
+          <Route path="/creator/courses" element={<Protected><TierGate feature="courses"><CreatorCourses /></TierGate></Protected>} />
           {/* Creator earnings & payouts */}
-          <Route path="/creator/earnings" element={<Protected><CreatorEarnings /></Protected>} />
+          <Route path="/creator/earnings" element={<Protected><TierGate feature="earnings"><CreatorEarnings /></TierGate></Protected>} />
           {/* Creator profile editor → now lives in /profile Settings tab */}
           <Route path="/creator/profile/edit" element={<Navigate to="/profile" replace />} />
           {/* Creator slug → unified profile */}
           <Route path="/creator/:slug" element={<CreatorSlugRedirect />} />
-          <Route path="/ghost-producer" element={<GhostProducer />} />
-          <Route path="/creator-lounge" element={<Protected><CreatorLounge /></Protected>} />
-          <Route path="/band" element={<Protected><BandOnPage /></Protected>} />
+          <Route path="/ghost-producer" element={<TierGate feature="ghost"><GhostProducer /></TierGate>} />
+          <Route path="/creator-lounge" element={<Protected><TierGate feature="lounge"><CreatorLounge /></TierGate></Protected>} />
+          <Route path="/band" element={<Protected><TierGate feature="band"><BandOnPage /></TierGate></Protected>} />
           <Route path="/trash-pantheon" element={<TrashPantheon />} />
           <Route path="/missing/kameron" element={<MissingKameron />} />
           {/* Public pages */}
           <Route path="/internships" element={<Internships />} />
           {/* Social publisher — authenticated */}
-          <Route path="/social/publish" element={<Protected><SocialPublish /></Protected>} />
+          <Route path="/social/publish" element={<Protected><TierGate feature="publisher_ai"><SocialPublish /></TierGate></Protected>} />
           {/* Playlist curation — public submission form, private dashboard */}
           <Route path="/playlist/:slug/submit" element={<PlaylistSubmit />} />
           <Route path="/playlist/dashboard" element={<Protected><PlaylistDashboard /></Protected>} />
@@ -339,13 +380,13 @@ function App() {
           <Route path="/s-research" element={<SentinelResearch />} />
           <Route path="/arcade" element={<Protected><ArcadeLanding /></Protected>} />
           <Route path="/arcade/:slug" element={<Protected><ArcadeGame /></Protected>} />
-          <Route path="/studio" element={<Protected><CreatorStudio /></Protected>} />
+          <Route path="/studio" element={<Protected><TierGate feature="studio"><CreatorStudio /></TierGate></Protected>} />
           <Route path="/arena" element={<BoundedAdmin roles={["admin"]} label="The Arena"><CompetitionArena /></BoundedAdmin>} />
           <Route path="/admin/bridge" element={<BoundedAdmin roles={["admin"]} label="AI Team Bridge" backTo="/admin"><AITeamBridge /></BoundedAdmin>} />
           <Route path="/jamil" element={<BoundedAdmin roles={["admin"]} label="Jamil"><Jamil /></BoundedAdmin>} />
           <Route path="/projects" element={<BoundedAdmin roles={["admin"]} label="Projects"><ProjectDashboard /></BoundedAdmin>} />
           <Route path="/trash" element={<TrashPantheon />} />
-          <Route path="/creator/payouts" element={<Protected><CreatorPayoutDashboard /></Protected>} />
+          <Route path="/creator/payouts" element={<Protected><TierGate feature="payouts"><CreatorPayoutDashboard /></TierGate></Protected>} />
           <Route path="/welcome" element={<Landing />} />
           <Route path="*" element={<Error404 />} />
         </Routes>

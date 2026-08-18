@@ -44,7 +44,7 @@ export default function Register() {
       <header className="border-b border-ink/10 bg-bone">
         <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
           <Link to="/" className="flex items-center gap-3">
-            <img src={WAI_LOGO} alt="W.A.I." className="w-10 h-10 object-contain" style={{ mixBlendMode: "multiply" }} />
+            <img src={WAI_LOGO} alt="M.O.R.E." className="w-10 h-10 object-contain" />
             <div>
               <div className="overline text-copper leading-none text-xs">{BRAND.short}</div>
               <div className="font-heading font-bold text-sm">{BRAND.name}</div>

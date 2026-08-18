@@ -81,7 +81,7 @@ async def byok_status(user: User = Depends(_dep_current_user)):
     """Entitlement + configured-provider status. Never returns raw keys."""
     from byok import get_byok_status
 
-    return await get_byok_status(db, user.id)
+    return await get_byok_status(db, user.id, user.role)
 
 
 @router.post("/byok/activate")
@@ -89,14 +89,66 @@ async def byok_activate(user: User = Depends(_dep_current_user)):
     """Activate the $3 BYOK entitlement.
 
     This is the post-payment hook — production wires it to a successful
-    Stripe/Lemon Squeezy checkout (see docs/ADMIN-MANUAL.md §7). Until then it
-    enables the entitlement directly and records an audit row.
+    checkout (see docs/ADMIN-MANUAL.md §7). Instructor tier and above
+    activate free (price 0); the endpoint still works directly so the
+    entitlement can be granted post-payment or by an admin.
     """
     from byok import activate_byok, BYOK_PRICE_USD
 
-    result = await activate_byok(db, user.id)
-    await audit(user.id, "byok.activated", meta={"price_usd": BYOK_PRICE_USD})
+    result = await activate_byok(db, user.id, user.role)
+    await audit(user.id, "byok.activated", meta={"price_usd": result.get("price_usd", BYOK_PRICE_USD)})
     return result
+
+
+@router.post("/byok/checkout")
+async def byok_checkout(user: User = Depends(_dep_current_user)):
+    """Start the BYOK unlock for the current user.
+
+    Instructor tier and above activate FREE immediately (price 0) — no
+    checkout needed. Users below instructor tier get a $3 checkout session
+    through the existing payments pipeline; the payment webhook flips
+    byok_enabled once paid. When payments are not configured, falls back to
+    direct activation (documented dev/grace path) so the feature never breaks
+    — the audit row records the price either way.
+    """
+    from byok import activate_byok, byok_price_for, BYOK_PRICE_USD
+
+    price = byok_price_for(user.role)
+    if price == 0:
+        result = await activate_byok(db, user.id, user.role)
+        await audit(user.id, "byok.activated", meta={"price_usd": 0, "path": "checkout", "free": True})
+        return {**result, "activated": True, "url": None}
+
+    # Below instructor tier → $3 one-time fee via the payments pipeline.
+    try:
+        from routers.payments import CheckoutReq, create_checkout_session, PAYMENTS_ENABLED
+
+        if PAYMENTS_ENABLED:
+            checkout = await create_checkout_session(
+                CheckoutReq(product_key="byok", quantity=1), user=user
+            )
+            url = checkout.get("url") if isinstance(checkout, dict) else None
+            if url:
+                await audit(user.id, "byok.checkout_created", meta={"price_usd": price})
+                return {
+                    "activated": False,
+                    "price_usd": price,
+                    "url": url,
+                    "session_id": checkout.get("session_id"),
+                }
+    except Exception as _ce:
+        # Payment provider unavailable — fall through to the grace path below
+        # rather than leaving below-instructor users locked out.
+        logger.warning("byok: checkout unavailable (%s) — using direct activation", _ce)
+
+    # Grace path: payments not configured yet. Keep the feature working and
+    # record the price in the audit trail so the ledger stays honest.
+    result = await activate_byok(db, user.id, user.role)
+    await audit(user.id, "byok.activated", meta={
+        "price_usd": price, "path": "checkout", "grace": True,
+        "note": "payments_not_configured — direct activation",
+    })
+    return {**result, "activated": True, "url": None, "grace": True}
 
 
 @router.post("/byok/key")

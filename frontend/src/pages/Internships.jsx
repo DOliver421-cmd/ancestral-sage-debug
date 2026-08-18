@@ -69,7 +69,7 @@ export default function Internships() {
       <header className="border-b border-ink/10 bg-bone sticky top-0 z-40">
         <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
           <Link to="/" className="flex items-center gap-3">
-            <img src={WAI_LOGO} alt="W.A.I." className="w-10 h-10 object-contain" style={{ mixBlendMode: "multiply" }} />
+            <img src={WAI_LOGO} alt="M.O.R.E." className="w-10 h-10 object-contain" />
             <div>
               <div className="overline text-copper leading-none text-xs">{BRAND.short}</div>
               <div className="font-heading font-bold text-sm">{BRAND.name}</div>
@@ -89,7 +89,7 @@ export default function Internships() {
         <div className="max-w-3xl mx-auto px-6 text-center">
           <p className="text-amber-400 text-xs uppercase tracking-widest font-bold mb-4">Grow With Us</p>
           <h1 className="font-heading text-5xl sm:text-6xl font-extrabold mb-6 leading-tight">
-            Internships at<br />WAI-Institute
+            Internships at<br />M.O.R.E. Help Center
           </h1>
           <p className="text-xl text-white/75 leading-relaxed mb-8 max-w-2xl mx-auto">
             Community-based internships for people who want to do real work that matters.

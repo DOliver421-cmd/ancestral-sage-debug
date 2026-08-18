@@ -1,11 +1,15 @@
-// Self-hosted copy of public/WAI_Logo.jpg (frontend/public/WAI_Logo.jpg). The
-// previous Google Cloud Storage URL (storage.googleapis.com/wai-institute/...) no
-// longer exists and 404'd on every page that rendered the logo.
-export const WAI_LOGO = "/WAI_Logo.jpg";
+// M.O.R.E. Help Center — the social-service virtual help center of the
+// Michael Oliver Resource Exchange (the community-services arm of WAI).
+export const MORE_LOGO = "/MORE_Logo.svg";
+
+// Backwards-compatible alias kept while the legacy WAI mark is retired.
+export const WAI_LOGO = MORE_LOGO;
+
 export const BRAND = {
-  short: "W.A.I.",
-  name: "Workforce And Arts Institute",
-  full: "W.A.I. — Workforce And Arts Institute",
-  tagline: "Social support and education for invisible communities",
-  mission: "Creator economy. Cultural expression. Economic dignity.",
+  short: "M.O.R.E.",
+  name: "M.O.R.E. Help Center",
+  legal: "Michael Oliver Resource Exchange",
+  full: "M.O.R.E. Help Center — Michael Oliver Resource Exchange",
+  tagline: "A social-service virtual help center — skills, support, and solidarity.",
+  mission: "Help people. Lift people. Love people.",
 };

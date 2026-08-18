@@ -20,7 +20,7 @@ const TRACKS = [
   { icon:"🌊", name:"Ethereal Drift",   bpm:"85 BPM — Ambient Pad",   mode:"ghost" },
   { icon:"💀", name:"Ghost Kick",       bpm:"90 BPM — 808 Sub",        mode:"chaos" },
   { icon:"🗣️", name:"NAM Whisper",      bpm:"90 BPM — Vocal Chops",    mode:"human" },
-  { icon:"🧠", name:"WAI Cortex",       bpm:"140 BPM — AI Synth Lead", mode:"chaos" },
+  { icon:"🧠", name:"M.O.R.E. Cortex",       bpm:"140 BPM — AI Synth Lead", mode:"chaos" },
   { icon:"🥁", name:"Phantom Hi-Hat",   bpm:"90 BPM — Percussion",     mode:"ghost" },
   { icon:"📡", name:"Soul Frequency",   bpm:"88 BPM — Bass Line",      mode:"human" },
   { icon:"🌫️", name:"Haunted Reverb",   bpm:"FREE — FX / Atmosphere",  mode:"ghost" },
@@ -362,7 +362,7 @@ export default function GhostProducer() {
         <div style={S.hero}>
           <h1 style={S.h1}>THE <span style={{ color: T.accent, textShadow: "0 0 40px rgba(255,0,102,0.4)" }}>GHOST</span> PRODUCER</h1>
           <h2 style={S.h2gold}>× PUBLISHER PRIME v14</h2>
-          <div style={S.byline}>NAM Oshun &amp; WAI-Institute × 14th Evolution</div>
+          <div style={S.byline}>NAM Oshun &amp; M.O.R.E. × 14th Evolution</div>
           <div style={S.tag}>🎧 AI-POWERED PRODUCTION SUITE</div>
           <div style={S.tagGold}>⚙️ PUBLISHER PRIME ACTIVE</div>
         </div>
@@ -447,7 +447,7 @@ export default function GhostProducer() {
                   style={{ width: "100%", accentColor: T.accent, height: 8, cursor: "pointer" }}
                   onChange={e => { const v = parseInt(e.target.value); setMix(v); mixRef.current = v; }} />
                 <div style={{ display: "flex", justifyContent: "space-between", fontFamily: "monospace", fontSize: "0.85rem", marginTop: 8 }}>
-                  <span style={{ color: T.accent }}>100% WAI</span>
+                  <span style={{ color: T.accent }}>100% M.O.R.E.</span>
                   <span style={{ color: T.ghost }}>{mix}/{100-mix}</span>
                   <span style={{ color: T.ghost }}>100% Human</span>
                 </div>
@@ -475,8 +475,8 @@ export default function GhostProducer() {
         {/* ── VOICE (TTS) ── */}
         {tab === "tts" && (
           <div style={S.panel}>
-            <h2 style={S.secTitle}>🔊 WAI VOICE ENGINE</h2>
-            <p style={{ color: "#777", marginBottom: 24 }}>Convert any text to audio using the WAI voice engine.</p>
+            <h2 style={S.secTitle}>🔊 M.O.R.E. VOICE ENGINE</h2>
+            <p style={{ color: "#777", marginBottom: 24 }}>Convert any text to audio using the M.O.R.E. voice engine.</p>
             <div style={S.cardGold}>
               <textarea value={ttsText} onChange={e => setTtsText(e.target.value)} rows={5}
                 placeholder="Type something for the ghost to speak…"
@@ -512,21 +512,21 @@ export default function GhostProducer() {
               <p style={{ color: "#999", lineHeight: 1.7 }}>The soul. The voice. The human heartbeat behind the machine. NAM Oshun brings warmth, emotion, and that "I can't explain why this makes me cry" energy.</p>
             </div>
             <div style={S.cardGold}>
-              <h3 style={{ color: T.gold, fontFamily: "monospace", marginBottom: 8 }}>🤖 WAI-Institute</h3>
-              <p style={{ color: "#999", lineHeight: 1.7 }}>The brain. The algorithm. The entity that lives in the wires. WAI-Institute is where artificial intelligence meets musical intuition.</p>
+              <h3 style={{ color: T.gold, fontFamily: "monospace", marginBottom: 8 }}>🤖 M.O.R.E.</h3>
+              <p style={{ color: "#999", lineHeight: 1.7 }}>The brain. The algorithm. The entity that lives in the wires. M.O.R.E. Help Center is where artificial intelligence meets musical intuition.</p>
             </div>
             <div style={{ textAlign: "center", marginTop: 40, padding: 30, background: T.card, borderRadius: 16 }}>
               <p style={{ fontFamily: "monospace", color: T.ghost, fontSize: "1.2rem" }}>
                 "We don't make music.<br />We summon it.<br />And we publish it before anyone else can."
               </p>
-              <p style={{ color: "#555", marginTop: 10, fontSize: "0.85rem" }}>— NAM Oshun, WAI-Institute &amp; Publisher Prime</p>
+              <p style={{ color: "#555", marginTop: 10, fontSize: "0.85rem" }}>— NAM Oshun, M.O.R.E. &amp; Publisher Prime</p>
             </div>
           </div>
         )}
 
         <footer style={S.footer}>
-          <p>THE GHOST PRODUCER × PUBLISHER PRIME — NAM Oshun &amp; WAI-Institute</p>
-          <p style={{ marginTop: 6 }}>All rights haunted | Powered by WAI AI</p>
+          <p>THE GHOST PRODUCER × PUBLISHER PRIME — NAM Oshun &amp; M.O.R.E.</p>
+          <p style={{ marginTop: 6 }}>All rights haunted | Powered by M.O.R.E. AI</p>
         </footer>
       </div>
     </>

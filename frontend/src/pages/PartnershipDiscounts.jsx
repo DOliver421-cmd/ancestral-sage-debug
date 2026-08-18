@@ -110,7 +110,7 @@ export default function PartnershipDiscounts() {
                       </div>
                     </div>
                     <div>
-                      <p className="text-sm text-ink/60 font-bold uppercase mb-2">WAI Takes</p>
+                      <p className="text-sm text-ink/60 font-bold uppercase mb-2">M.O.R.E. Takes</p>
                       <div className="flex items-baseline gap-2">
                         <span className="text-3xl font-heading font-bold text-ink">{(level.waiMargin * 100).toFixed(0)}%</span>
                         <span className="text-ink/60">of course price</span>
@@ -130,7 +130,7 @@ export default function PartnershipDiscounts() {
                     <p className="text-sm text-ink/70">
                       <strong>What this means:</strong> At {level.name}, you pay{" "}
                       {level.discount > 0 ? `only ${((1 - level.discount) * 100).toFixed(0)}% of course price` : "full price"}.
-                      Creators still get 70%+ of what you pay. WAI takes the smallest share—{(level.waiMargin * 100).toFixed(0)}%.
+                      Creators still get 70%+ of what you pay. M.O.R.E. takes the smallest share—{(level.waiMargin * 100).toFixed(0)}%.
                     </p>
                   </div>
                 </div>
@@ -198,7 +198,7 @@ export default function PartnershipDiscounts() {
                 <DollarSign className="w-5 h-5 text-copper" />
                 Shares The Win
               </h3>
-              <p className="text-ink/70">As you invest in us, we invest back in you. Smaller margins for WAI = bigger savings for partners.</p>
+              <p className="text-ink/70">As you invest in us, we invest back in you. Smaller margins for M.O.R.E. = bigger savings for partners.</p>
             </div>
             <div>
               <h3 className="font-bold text-lg mb-3 flex items-center gap-2">

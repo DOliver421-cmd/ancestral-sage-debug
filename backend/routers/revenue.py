@@ -309,7 +309,7 @@ async def revenue_workspace_chat(ws_id: str, body: dict, user: User = Depends(_d
     if memory_context:
         system_prompt += f"\n\nRecent workspace memory:\n{memory_context}"
     from ai.llm_gateway import call_llm as _call_llm
-    _gw = await _call_llm(system=system_prompt, messages=[{"role": "user", "content": message}], max_tokens=2048, persona_label="revenue_workspace")
+    _gw = await _call_llm(system=system_prompt, messages=[{"role": "user", "content": message}], max_tokens=2048, persona_label="revenue_workspace", user_id=user.id)
     reply = _gw["text"].strip()
     # Store in workspace memory
     await db.sovereign_memory.insert_one({

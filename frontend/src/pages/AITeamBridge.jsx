@@ -181,7 +181,7 @@ export default function AITeamBridge() {
               <Network color={COPPER} size={28} /> AI Team Bridge
             </h1>
             <p style={{ margin: "6px 0 0", color: "#666", fontSize: 14, maxWidth: 620 }}>
-              Direct communication & coordination between the WAI-Institute AI Director (with NAM Oshun Scholar)
+              Direct communication & coordination between the M.O.R.E. AI Director (with NAM Oshun Scholar)
               and the partner AI team at wai-institute.org — for tasks and projects.
             </p>
           </div>

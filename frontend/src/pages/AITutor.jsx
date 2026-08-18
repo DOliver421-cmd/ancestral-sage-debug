@@ -1,8 +1,10 @@
 // v2.1 - expanded cultural focus
 import { useEffect, useRef, useState, useCallback } from "react";
+import { Link } from "react-router-dom";
 import AppShell from "../components/AppShell";
+import { useAuth } from "../lib/auth";
 import { api } from "../lib/api";
-import { Sparkles, Send, Compass, ShieldAlert, Lock, Mic, MicOff, Volume2, VolumeX, Loader2, Square, Download } from "lucide-react";
+import { Sparkles, Send, Compass, ShieldAlert, Lock, Mic, MicOff, Volume2, VolumeX, Loader2, Square, Download, KeyRound } from "lucide-react";
 import { toast } from "sonner";
 
 const MODES = [
@@ -36,11 +38,13 @@ function needsConsent(intensity, safety) {
 import { useMic } from "../hooks/useMic";
 
 export default function AITutor() {
+  const { user } = useAuth();
   const [mode, setMode] = useState("tutor");
   const [msgs, setMsgs] = useState([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [sessionId] = useState(() => `${Date.now()}`);
+  const [restrictedHit, setRestrictedHit] = useState(false);
   const endRef = useRef(null);
 
   const [depth, setDepth] = useState("beginner");
@@ -163,6 +167,8 @@ export default function AITutor() {
       const r = await api.post("/ai/chat", payload);
       const reply = r.data.reply;
       setMsgs((m) => [...m, { role: "assistant", text: reply }]);
+      // The gateway's quota-exhaustion notice means the site's free keys ran out.
+      if (/restricted mode/i.test(reply)) setRestrictedHit(true);
       if (mode === "ancestral_sage" && audioOn) speak(reply);
     } catch (e) {
       const detail = e?.response?.data?.detail;
@@ -175,6 +181,7 @@ export default function AITutor() {
       } else {
         toast.error("AI unavailable. Check configuration or try again.");
         setMsgs((m) => [...m, { role: "assistant", text: "Sorry — I couldn't reach the tutor service. Try again in a moment." }]);
+        setRestrictedHit(true);
       }
     } finally { setLoading(false); }
   }, [input, loading, mode, intensity, safety, consentLogId, sessionId, depth, culture, divMode, audioOn, speak]);
@@ -199,6 +206,38 @@ export default function AITutor() {
         <div className="overline text-copper">Powered by Claude Sonnet 4.5</div>
         <h1 className="font-heading text-4xl font-bold mt-2 flex items-center gap-3"><Sparkles className="w-8 h-8 text-copper" /> AI Tutor</h1>
         <p className="text-ink/60 mt-2">Ask questions. Request explanations. Request scripture. Generate a practice quiz.</p>
+
+        {/* AI runs on API keys — tell users up front, point them to BYOK */}
+        <div className={"mt-4 rounded-xl border flex items-start gap-3 px-4 py-3 " + (restrictedHit ? "bg-amber-50 border-amber-300" : "bg-white border-ink/10")}>
+          <KeyRound className={"w-4 h-4 shrink-0 mt-0.5 " + (restrictedHit ? "text-amber-600" : "text-copper")} />
+          <div className="text-xs leading-relaxed">
+            {restrictedHit ? (
+              <>
+                <span className="font-bold text-amber-900">The site's free AI quota just ran out.</span>{" "}
+                <span className="text-amber-900/80">
+                  This feature runs on API keys. Activate BYOK and attach a free key (Groq, Cerebras, or Gemini) to keep
+                  your AI working on your own key —{" "}
+                  {user && ["instructor", "admin", "executive_admin", "creative_partner"].includes(user.role)
+                    ? <strong>free for instructors and above.</strong>
+                    : <>a one-time <strong>$3</strong> fee (free for instructors and above).</>}
+                </span>{" "}
+                <Link to="/byok" className="font-bold text-amber-900 underline hover:text-amber-700">Activate BYOK →</Link>
+              </>
+            ) : (
+              <>
+                <span className="font-bold text-ink/70">AI features run on API keys.</span>{" "}
+                <span className="text-ink/50">
+                  When the site's free quota is exhausted, activate BYOK and attach a free key (Groq, Cerebras, or Gemini)
+                  to keep your AI working on your own key —{" "}
+                  {user && ["instructor", "admin", "executive_admin", "creative_partner"].includes(user.role)
+                    ? <strong className="text-ink/70">free for instructors and above.</strong>
+                    : <>a one-time <strong className="text-ink/70">$3</strong> fee (free for instructors and above).</>}
+                </span>{" "}
+                <Link to="/byok" className="font-bold text-copper underline hover:text-ink">Bring your own key →</Link>
+              </>
+            )}
+          </div>
+        </div>
 
         <div className="flex gap-2 mt-6 flex-wrap" data-testid="mode-switcher">
           {MODES.map((m) => {

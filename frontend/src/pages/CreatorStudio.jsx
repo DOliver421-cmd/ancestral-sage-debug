@@ -92,7 +92,7 @@ function EntryScreen({ onEnter }) {
         transition: "all 0.8s ease",
       }}>
         <div style={{ fontFamily: "monospace", fontSize: 11, letterSpacing: "0.3em", textTransform: "uppercase", color: "rgba(184,134,11,0.7)", marginBottom: 16 }}>
-          WAI INSTITUTE
+          M.O.R.E. HELP CENTER
         </div>
         <h1 style={{
           fontFamily: "Georgia, serif",
@@ -292,8 +292,9 @@ export default function CreatorStudio() {
 
   // Save session on unmount
   useEffect(() => {
+    const startTime = sessionStartRef.current; // capture ref at mount time
     return () => {
-      const session = { start: sessionStartRef.current, end: Date.now(), chambers: chamberHistory };
+      const session = { start: startTime, end: Date.now(), chambers: chamberHistory };
       const updated = [...sessions, session];
       try { localStorage.setItem('studio_sessions', JSON.stringify(updated)); } catch {}
     };

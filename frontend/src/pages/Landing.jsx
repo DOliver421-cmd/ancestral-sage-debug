@@ -52,7 +52,7 @@ export default function Landing() {
       <header className="border-b border-ink/10 bg-bone sticky top-0 z-40">
         <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
           <Link to="/" className="flex items-center gap-3">
-            <img src={WAI_LOGO} alt="W.A.I." className="w-12 h-12 object-contain" style={{ mixBlendMode: "multiply" }} />
+            <img src={WAI_LOGO} alt="M.O.R.E." className="w-12 h-12 object-contain" />
             <div>
               <div className="overline text-copper leading-none">{BRAND.short}</div>
               <div className="font-heading font-bold text-sm leading-tight">{BRAND.name}</div>
@@ -433,10 +433,10 @@ export default function Landing() {
           <div className="grid md:grid-cols-4 gap-8 mb-12">
             <div>
               <div className="flex items-center gap-2 mb-4">
-                <img src={WAI_LOGO} alt="W.A.I." className="w-8 h-8 object-contain" style={{ mixBlendMode: "screen" }} />
+                <img src={WAI_LOGO} alt="M.O.R.E." className="w-8 h-8 object-contain" />
                 <span className="font-bold text-white">{BRAND.short}</span>
               </div>
-              <p className="text-sm">Social support and education for invisible communities.</p>
+              <p className="text-sm">Skills, support, and solidarity — free for the community.</p>
             </div>
             <div>
               <h4 className="font-bold text-white mb-4">Community</h4>
@@ -463,7 +463,7 @@ export default function Landing() {
           </div>
 
           <div className="border-t border-white/10 pt-8 text-sm text-center">
-            <p>&copy; 2026 WAI Institute. Built with love for community.</p>
+            <p>&copy; 2026 Michael Oliver Resource Exchange. Built with love for community.</p>
           </div>
         </div>
       </footer>

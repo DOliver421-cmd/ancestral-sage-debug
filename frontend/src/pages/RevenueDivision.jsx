@@ -42,6 +42,7 @@ export default function RevenueDivision() {
     api.get("/revenue/courses/my-licenses").then(r => setLicenses(r.data.licenses || [])).catch(() => {});
     loadWorkspaces();
     loadResume();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const loadKeys = async () => {
@@ -507,7 +508,7 @@ export default function RevenueDivision() {
           <div className="mt-6 grid grid-cols-1 lg:grid-cols-2 gap-6">
             <div className="bg-white rounded-xl border border-ink/10 p-6">
               <h2 className="font-heading text-xl font-bold flex items-center gap-2"><BookOpen className="w-5 h-5 text-copper" /> License Courses</h2>
-              <p className="text-sm text-ink/60 mt-1">License WAI curriculum for your organization.</p>
+              <p className="text-sm text-ink/60 mt-1">License M.O.R.E. curriculum for your organization.</p>
               <form onSubmit={createLicense} className="mt-4 space-y-4">
                 <div>
                   <label className="block text-xs text-ink/50 uppercase mb-1">Organization</label>

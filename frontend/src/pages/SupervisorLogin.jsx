@@ -51,7 +51,7 @@ export default function SupervisorLogin() {
         <div style={{ width: 56, height: 56, background: INK, borderRadius: "50%", margin: "0 auto 16px", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22, fontWeight: 800, color: SIGNAL }}>S</div>
 
         <h2 style={{ textAlign: "center", fontSize: 22, fontWeight: 800, color: INK, marginBottom: 4 }}>Supervisor Access</h2>
-        <p style={{ textAlign: "center", fontSize: 13, color: "#6b7280", marginBottom: 28 }}>WAI-Institute · Executive Portal</p>
+        <p style={{ textAlign: "center", fontSize: 13, color: "#6b7280", marginBottom: 28 }}>M.O.R.E. Help Center · Executive Portal</p>
 
         {error && (
           <div style={{ background: "#fee2e2", border: "1px solid #fca5a5", borderRadius: 8, padding: "10px 14px", marginBottom: 16, fontSize: 13, color: "#991b1b", textAlign: "center" }}>
@@ -68,7 +68,7 @@ export default function SupervisorLogin() {
             required
             value={email}
             onChange={e => setEmail(e.target.value)}
-            placeholder="exec@wai-institute.org"
+            placeholder="executive@morehelp.center"
             style={{ width: "100%", padding: "11px 14px", border: "1.5px solid #e5e7eb", borderRadius: 7, fontSize: 14, outline: "none", marginBottom: 14, color: "#1a1a2e", boxSizing: "border-box" }}
           />
 

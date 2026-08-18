@@ -9,9 +9,9 @@ export default function Store() {
     <AppShell>
       <div className="p-8 max-w-6xl mx-auto">
         <div className="mb-6">
-          <h1 className="font-heading text-3xl font-bold text-ink mb-2">WAI Store</h1>
+          <h1 className="font-heading text-3xl font-bold text-ink mb-2">M.O.R.E. Store</h1>
           <p className="text-ink/60">
-            Support the mission. Every purchase goes straight to WAI-Institute and the community.
+            Support the mission. Every purchase goes straight to the M.O.R.E. Help Center and the community.
           </p>
         </div>
 

@@ -235,8 +235,15 @@ export default function ProviderGateway() {
         <div className="mb-6">
           <h1 className="font-heading text-3xl font-bold text-ink">Provider Gateway</h1>
           <p className="text-ink/60 mt-1 text-sm">
-            Add free API keys to power the team. Each provider is a fallback — the gateway tries them in order.
+            Add free API keys to power the platform's shared account pool. Each provider is a fallback — the gateway tries them in order.
           </p>
+          <div className="mt-3 rounded-xl border border-ink/10 bg-white px-4 py-3 text-xs leading-relaxed text-ink/60">
+            <strong className="text-ink">This is the platform-wide key store</strong> — keys entered here feed the
+            institution's shared pool (admin, executive, and site-level AI). It is <em>not</em> a per-user setting.
+            Individual members and students bring their <em>own</em> keys at{" "}
+            <a href="/byok" className="font-bold text-copper hover:underline">/byok</a> — a $3 one-time unlock
+            (free for instructors and above) that routes their AI through their own key.
+          </div>
           {configuredCount > 0 && (
             <div className="mt-3 inline-flex items-center gap-2 text-sm font-semibold text-green-700 bg-green-50 border border-green-200 rounded-full px-3 py-1">
               <CheckCircle className="w-4 h-4" />

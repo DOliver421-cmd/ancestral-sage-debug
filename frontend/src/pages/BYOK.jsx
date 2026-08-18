@@ -44,6 +44,10 @@ export default function BYOK() {
   const [keyInputs, setKeyInputs] = useState({});
   const [adminStats, setAdminStats] = useState(null);
 
+  // Instructor tier and above get BYOK free; everyone below pays $3 one-time.
+  const byokPrice = status?.price_usd ?? 3;
+  const byokFree = status?.free_for_role || byokPrice === 0;
+
   const flash = (msg) => {
     setToast(msg);
     setTimeout(() => setToast(null), 4000);
@@ -73,9 +77,19 @@ export default function BYOK() {
   const activate = async () => {
     setBusyProvider("activate");
     try {
-      const { data } = await api.post("/byok/activate");
-      setStatus((s) => ({ ...s, enabled: true, activated_at: data.activated_at }));
-      flash(`BYOK activated — $${data.price_usd} entitlement enabled.`);
+      // Checkout first: instructors activate free; below-instructor users get
+      // a $3 payment session (the webhook flips byok_enabled once paid).
+      const { data } = await api.post("/byok/checkout");
+      if (data?.url) {
+        window.location.href = data.url;
+        return;
+      }
+      setStatus((s) => ({ ...s, enabled: true, activated_at: data.activated_at, price_usd: data.price_usd, free_for_role: data.free_for_role }));
+      flash(data?.free_for_role
+        ? "BYOK activated — included free with your instructor account."
+        : data?.grace
+        ? "BYOK activated — $3 unlock recorded (payments pending setup)."
+        : `BYOK activated — $${data.price_usd} entitlement enabled.`);
     } catch (e) {
       flash(e?.response?.data?.detail || "Activation failed.");
     } finally {
@@ -130,8 +144,18 @@ export default function BYOK() {
               <KeyRound color={COPPER} size={28} /> Bring Your Own Key
             </h1>
             <p style={{ margin: "6px 0 0", color: "#666", fontSize: 14, maxWidth: 620 }}>
-              A one-time <strong style={{ color: INK }}>$3</strong> unlock that gives your profile real AI. Bring a key from one of
-              three free providers — the platform never pays for your generation, and you never hand over a credit card.
+              {byokFree ? (
+                <>
+                  <strong style={{ color: INK }}>Included free</strong> with your instructor account — attach a key from one of
+                  three free providers and your AI runs on your own key. The platform never pays for your generation.
+                </>
+              ) : (
+                <>
+                  A one-time <strong style={{ color: INK }}>$3</strong> unlock that gives your profile real AI. Bring a key from one of
+                  three free providers — the platform never pays for your generation, and you never hand over a credit card.
+                  <span style={{ color: "#888" }}> Instructors and above get BYOK free.</span>
+                </>
+              )}
             </p>
           </div>
           <div style={{
@@ -158,10 +182,16 @@ export default function BYOK() {
           <>
             {/* Activation */}
             {!status?.enabled && (
-              <Card title={`Unlock BYOK — $${status?.price_usd ?? 3}`} icon={CircleDollarSign}>
-                <p style={{ margin: "0 0 4px", color: "#555", fontSize: 14 }}>
-                  Activation is a one-time ${status?.price_usd ?? 3} entitlement. You keep it for the life of your profile.
-                </p>
+              <Card title={byokFree ? "Unlock BYOK — Free (instructor account)" : `Unlock BYOK — $${byokPrice}`} icon={CircleDollarSign}>
+                {byokFree ? (
+                  <p style={{ margin: "0 0 4px", color: "#555", fontSize: 14 }}>
+                    Your instructor account includes BYOK at no charge — no payment needed.
+                  </p>
+                ) : (
+                  <p style={{ margin: "0 0 4px", color: "#555", fontSize: 14 }}>
+                    Activation is a one-time ${byokPrice} entitlement. You keep it for the life of your profile.
+                  </p>
+                )}
                 <p style={{ margin: "0 0 16px", color: "#888", fontSize: 13 }}>
                   Payment is processed through the existing commerce layer. After activation, attach a free provider key below.
                 </p>
@@ -175,7 +205,7 @@ export default function BYOK() {
                   }}
                 >
                   {isBusy("activate") ? <Loader2 size={16} className="animate-spin" /> : <Plug size={16} />}
-                  Activate BYOK — ${status?.price_usd ?? 3}
+                  {byokFree ? "Activate BYOK — Free" : `Activate BYOK — $${byokPrice}`}
                 </button>
               </Card>
             )}
