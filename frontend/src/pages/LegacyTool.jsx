@@ -93,6 +93,14 @@ export default function LegacyTool({ slug }) {
               className="absolute inset-0 w-full h-full border-0"
               sandbox="allow-scripts allow-same-origin allow-forms allow-downloads allow-popups allow-modals allow-top-navigation-by-user-activation"
               onError={() => setBlocked(true)}
+              onLoad={(e) => {
+                // When a CDN/proxy injects X-Frame-Options:DENY the browser
+                // renders a cross-origin error page (e.g. chrome-error://) inside
+                // the frame. Accessing contentDocument from a cross-origin frame
+                // throws a SecurityError, which we use to detect the block.
+                try { void e.target.contentDocument; }
+                catch { setBlocked(true); }
+              }}
             />
           )}
         </div>
