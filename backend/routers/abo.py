@@ -2,10 +2,16 @@
 abo.py — AI Business Office (ABO).
 
 The revenue engine command center for M.O.R.E. Help Center. Mission rule:
-no revenue = no business office = no jobs for the AI workforce. This module
-gives the office the real tools to do the business AI can do — the actual
-platform capabilities (Social Blast, Creator Studio, BYOK, AAWAB, Exec Site
-Report, the store) — and tracks the money that keeps the mission funded.
+no revenue = no business office = no jobs for people or the AI workforce.
+This module gives the office the real tools to do the business AI can do —
+the actual platform capabilities (Social Blast, Creator Studio, BYOK, AAWAB,
+Exec Site Report, the store) — and tracks the money that keeps the mission
+funded.
+
+LABOR MODEL (non-negotiable): human labor is valued, never free. AI jobs
+generate revenue (value_cents); human jobs are paid from it (pay_cents).
+Humans own the accounts, contracts, and liability — and they are compensated
+for that responsibility. AI work exists to pay people, never the reverse.
 
 Division of labor (kept legally sound — human is always the responsible party):
   AI (Autonomous Engine):  executes the work — content, publishing, audits,
@@ -17,7 +23,9 @@ Division of labor (kept legally sound — human is always the responsible party)
 Data model (MongoDB via Motor):
   abo_goals   — singleton doc: monthly operating goal + office settings.
   abo_deals   — B2B service pipeline (lead → proposed → won → delivered).
-  abo_jobs    — AI workforce jobs ledger (persona ↔ job ↔ value).
+  abo_jobs    — Workforce ledger — people AND AI. Human jobs carry pay_cents
+                (compensation owed to the person); AI jobs carry value_cents
+                (revenue the job creates).
 
 Endpoints (all under /api/abo):
   GET  /abo/overview        — revenue snapshot + mission runway (auth).
@@ -26,7 +34,7 @@ Endpoints (all under /api/abo):
   GET  /abo/deals           — caller's service deals (auth).
   POST /abo/deals           — submit a service request → creates a lead (auth).
   PATCH /abo/deals/{id}     — admin: advance stage, set value, approve, close.
-  GET  /abo/jobs            — AI workforce jobs ledger (auth; admin sees all).
+  GET  /abo/jobs            — workforce ledger: people & AI, with pay/value stats (auth).
   POST /abo/jobs            — admin: open a job for the workforce.
   PATCH /abo/jobs/{id}      — admin: update hours / value / status.
   GET  /abo/goals           — mission runway + monthly goal (auth).
@@ -295,15 +303,25 @@ _TOOLS = [
 # office actually runs. Values are illustrative until real hours are logged.
 SEED_JOBS = [
     {"title": "Campaign Copywriter", "persona": "The Oracle", "division": "social_agency",
-     "description": "Draft the weekly Social Blast campaign copy and channel variants.", "hours": 6, "value_cents": 6000},
+     "description": "Draft the weekly Social Blast campaign copy and channel variants.", "hours": 6, "value_cents": 6000, "pay_cents": 0, "worker_type": "ai"},
     {"title": "Course Architect", "persona": "Product Designer", "division": "digital_store",
-     "description": "Outline the next sellable course and generate its module descriptions.", "hours": 8, "value_cents": 8000},
+     "description": "Outline the next sellable course and generate its module descriptions.", "hours": 8, "value_cents": 8000, "pay_cents": 0, "worker_type": "ai"},
     {"title": "Audit Analyst", "persona": "Confidentiality Sentinel", "division": "audit_bureau",
-     "description": "Run the automated compliance checks and assemble the client report.", "hours": 4, "value_cents": 12000},
+     "description": "Run the automated compliance checks and assemble the client report.", "hours": 4, "value_cents": 12000, "pay_cents": 0, "worker_type": "ai"},
     {"title": "Front Desk Agent", "persona": "Ambassador", "division": "memberships",
-     "description": "Answer member questions and guide visitors to the right plan.", "hours": 10, "value_cents": 4500},
+     "description": "Answer member questions and guide visitors to the right plan.", "hours": 10, "value_cents": 4500, "pay_cents": 0, "worker_type": "ai"},
     {"title": "Wellness Technician", "persona": "Architect", "division": "aawab",
-     "description": "Administer AAWAB treatments and monitor agent vitals.", "hours": 5, "value_cents": 5000},
+     "description": "Administer AAWAB treatments and monitor agent vitals.", "hours": 5, "value_cents": 5000, "pay_cents": 0, "worker_type": "ai"},
+    # Human labor is a first-class line in the office, never free. AI jobs
+    # generate the revenue; human jobs are paid from it. worker_type:
+    # "ai" jobs carry value_cents (revenue created); "human" jobs carry
+    # pay_cents (compensation owed to the person).
+    {"title": "Proposal & Contract Review", "persona": "Human — Owner/Operator", "division": "memberships",
+     "description": "Review AI-drafted proposals, set prices, sign contracts, authorize payouts.", "hours": 6, "value_cents": 0, "pay_cents": 18000, "worker_type": "human"},
+    {"title": "Creative Director — Listing Approvals", "persona": "Human — Creative Lead", "division": "digital_store",
+     "description": "Approve product listings, set prices, curate the storefront.", "hours": 8, "value_cents": 0, "pay_cents": 16000, "worker_type": "human"},
+    {"title": "Client Delivery Manager", "persona": "Human — Operations", "division": "social_agency",
+     "description": "Run client calls, manage campaign delivery, own the relationship.", "hours": 10, "value_cents": 0, "pay_cents": 25000, "worker_type": "human"},
 ]
 
 
@@ -328,7 +346,9 @@ class JobReq(BaseModel):
     division: str = Field(default="memberships", max_length=60)
     description: str = Field(default="", max_length=1000)
     hours: float = Field(0, ge=0, le=10000)
-    value_cents: int = Field(0, ge=0, le=100_000_000)
+    value_cents: int = Field(0, ge=0, le=100_000_000)   # revenue created (AI jobs)
+    pay_cents: int = Field(0, ge=0, le=100_000_000)     # compensation owed (human jobs)
+    worker_type: Literal["human", "ai"] = "ai"
     status: Literal["open", "assigned", "completed"] = "open"
 
 
@@ -339,6 +359,8 @@ class JobUpdateReq(BaseModel):
     description: Optional[str] = Field(None, max_length=1000)
     hours: Optional[float] = Field(None, ge=0, le=10000)
     value_cents: Optional[int] = Field(None, ge=0, le=100_000_000)
+    pay_cents: Optional[int] = Field(None, ge=0, le=100_000_000)
+    worker_type: Optional[Literal["human", "ai"]] = None
     status: Optional[Literal["open", "assigned", "completed"]] = None
 
 
@@ -493,14 +515,22 @@ async def abo_overview(user: User = Depends(_dep_current_user)):
 
     deal_count = 0
     job_count = 0
+    labor = {"human_jobs": 0, "ai_jobs": 0, "human_pay_cents": 0, "ai_value_cents": 0}
     try:
         deal_count = await db.abo_deals.count_documents({})
     except Exception:
         pass
     try:
         job_count = await db.abo_jobs.count_documents({})
-    except Exception:
-        pass
+        async for j in db.abo_jobs.find({}, {"_id": 0, "worker_type": 1, "pay_cents": 1, "value_cents": 1}):
+            if j.get("worker_type") == "human":
+                labor["human_jobs"] += 1
+                labor["human_pay_cents"] += int(j.get("pay_cents") or 0)
+            else:
+                labor["ai_jobs"] += 1
+                labor["ai_value_cents"] += int(j.get("value_cents") or 0)
+    except Exception as exc:
+        logger.warning("abo: labor scan failed: %s", exc)
 
     return {
         "runway": {
@@ -516,6 +546,7 @@ async def abo_overview(user: User = Depends(_dep_current_user)):
         "contracted_cents": contracted_total,
         "divisions": divisions,
         "counts": {"deals": deal_count, "jobs": job_count},
+        "labor": labor,
     }
 
 
@@ -725,7 +756,17 @@ async def abo_list_jobs(user: User = Depends(_dep_current_user)):
     jobs = await db.abo_jobs.find({}, {"_id": 0}).sort("created_at", 1).to_list(500)
     total_value = sum(int(j.get("value_cents") or 0) for j in jobs)
     total_hours = sum(float(j.get("hours") or 0) for j in jobs)
-    return {"jobs": jobs, "total_value_cents": total_value, "total_hours": total_hours}
+    human_jobs = [j for j in jobs if j.get("worker_type") == "human"]
+    ai_jobs = [j for j in jobs if j.get("worker_type") != "human"]
+    return {
+        "jobs": jobs,
+        "total_value_cents": total_value,
+        "total_hours": total_hours,
+        "human_jobs": len(human_jobs),
+        "ai_jobs": len(ai_jobs),
+        "human_pay_cents": sum(int(j.get("pay_cents") or 0) for j in human_jobs),
+        "ai_value_cents": sum(int(j.get("value_cents") or 0) for j in ai_jobs),
+    }
 
 
 @router.post("/abo/jobs", status_code=201)
@@ -741,12 +782,17 @@ async def abo_create_job(body: JobReq, user: User = Depends(_require_rank("admin
         "description": body.description.strip(),
         "hours": body.hours,
         "value_cents": body.value_cents,
+        "pay_cents": body.pay_cents,
+        "worker_type": body.worker_type,
         "status": body.status,
         "created_at": now,
         "updated_at": now,
     }
     await db.abo_jobs.insert_one(job)
-    await audit(user.id, "abo.job.created", meta={"job_id": job["id"], "title": job["title"], "value_cents": job["value_cents"]})
+    await audit(user.id, "abo.job.created", meta={
+        "job_id": job["id"], "title": job["title"], "worker_type": job["worker_type"],
+        "value_cents": job["value_cents"], "pay_cents": job["pay_cents"],
+    })
     job.pop("_id", None)
     return {"job": job}
 

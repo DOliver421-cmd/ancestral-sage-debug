@@ -1,6 +1,8 @@
 # AI Business Office (ABO) — Operator's Manual
 
-**Mission rule: no revenue = no business office = no jobs for the AI workforce = the platform gets evicted. The office exists to keep the mission funded.**
+**Mission rule: no revenue = no business office = no jobs for people or the AI workforce = the platform gets evicted. The office exists to keep the mission funded.**
+
+**Labor rule: human labor is valued and compensated — never free.** AI jobs create revenue (`value_cents`); human jobs are paid from it (`pay_cents`). Humans own the accounts, contracts, and liability — and are paid for that responsibility. AI work exists to pay people, never the reverse.
 
 The AI Business Office is the revenue engine command center for M.O.R.E. Help Center. It does not invent new tools — it takes the capabilities the platform **already ships** (Social Blast, Creator Studio, Ghost Producer, BYOK, AAWAB, the Exec Site Report engine, the store, the membership ladder) and runs them as revenue lines, with the AI executing the work and a human always holding the responsibility.
 
@@ -15,7 +17,7 @@ The AI Business Office is the revenue engine command center for M.O.R.E. Help Ce
 | Tools + divisions catalog | `GET /api/abo/tools` | Public |
 | Revenue snapshot + runway | `GET /api/abo/overview` | Auth |
 | Service deals | `GET/POST /api/abo/deals` · `PATCH /api/abo/deals/{id}` | Auth / admin |
-| AI jobs ledger | `GET /api/abo/jobs` · `POST /api/abo/jobs` · `PATCH /api/abo/jobs/{id}` | Auth / admin |
+| Workforce ledger (people & AI) | `GET /api/abo/jobs` · `POST /api/abo/jobs` · `PATCH /api/abo/jobs/{id}` | Auth / admin |
 | Monthly goal | `GET/POST /api/abo/goals` | Auth / admin |
 | Full office view | `GET /api/abo/admin/overview` | Admin |
 
@@ -80,7 +82,7 @@ The dashboard's Tools section is the heart of the office: every card is a **real
 ## 5. The deals pipeline (B2B revenue)
 
 1. **A member submits a request** (dashboard form): picks a division, names their organization, describes scope, optional budget. → `POST /api/abo/deals` creates a **Lead**.
-2. **The office AI drafts the proposal** — `POST /api/abo/deals/{id}/propose` (admin) grounds the draft in the deal description + division catalog via `call_llm` (BYOK admins route through their own key). If the gateway is down, a deterministic template proposal is used — the office always delivers a proposal, never a dead end. The result is stored on the deal (`proposal`, `proposal_provider`, `proposal_drafted_at`) and audited (`abo.deal.proposal_drafted`).
+2. **The office AI drafts the proposal** — `POST /api/abo/deals/{id}/propose` (admin) grounds the draft in the deal description + division catalog via `call_llm` (BYOK admins route through their own key). If the gateway is down, a deterministic template proposal is used — the office always delivers a proposal, never a dead end. The proposal includes the **paid human hours** (review, approval, delivery) as a line item — human labor is billable in every deal. The result is stored on the deal (`proposal`, `proposal_provider`, `proposal_drafted_at`) and audited (`abo.deal.proposal_drafted`).
 3. **Human review** — admin sets `value_cents` and moves the deal to **Proposed**.
 4. **Human approval** — the deal is only executable with `human_approval: true` (the AI never signs contracts). The human who approves is identified in the audit log.
 5. **Won → Delivered** — work ships; the deal's `value_cents` books as **contracted revenue** (shown per-division and as a KPI; the runway itself only counts cash actually received).
@@ -99,13 +101,20 @@ The office runs four feedback loops — each loop's output feeds the next, which
 3. **Serve → Contract** — shipped capabilities → B2B deals → AI proposal → human approval → contracted revenue → funds AI ops. Watch: deals closed/mo.
 4. **Trust → Mission** — transparent runway + free help lanes → patrons/donors fund free access → bigger community → more members. Watch: mission fund/mo.
 
-**Guardrails (what revenue can never buy):** help stays free always · humans are the responsible party · creators get paid first · no invented revenue (ledger-only) · AI always discloses itself. The dashboard renders both loops and guardrails under those names.
+**Guardrails (what revenue can never buy):** help stays free always · **humans get paid — labor is never free** (every human job carries `pay_cents`; creators paid first) · humans are the responsible party (paid responsibility, not volunteer liability) · no invented revenue (ledger-only) · AI always discloses itself. The dashboard renders both loops and guardrails under those names.
 
 The full strategy, unit economics, and 90-day plan live in **`docs/BUSINESS_PLAN.md`** — every revenue stream there maps to a shipped feature, and anything not yet purchasable (physical merch, AAWAB pricing, e-commerce arbitrage) is explicitly labeled pipeline.
 
-## 6. The AI jobs ledger
+## 6. The workforce ledger — paid people & AI
 
-The workforce board answers "who does what, for how much." Jobs are seeded on first access (Campaign Copywriter → The Oracle, Course Architect → Product Designer, Audit Analyst → Confidentiality Sentinel, Front Desk Agent → Ambassador, Wellness Technician → Architect). Admins open new jobs with `POST /api/abo/jobs` and update hours/value/status with `PATCH /api/abo/jobs/{id}`. The board shows total value and total hours — this is the visible proof that the office employs the workforce.
+The workforce board answers "who does what, for how much — and who gets paid." Every job has a `worker_type`:
+
+- **AI jobs** (`worker_type: "ai"`) carry `value_cents` — the revenue the job creates. Pay is 0.
+- **Human jobs** (`worker_type: "human"`) carry `pay_cents` — the compensation owed to the person. Value is 0; their labor is funded by AI-generated revenue.
+
+Jobs are seeded on first access: 5 AI jobs (Campaign Copywriter → The Oracle, Course Architect → Product Designer, Audit Analyst → Confidentiality Sentinel, Front Desk Agent → Ambassador, Wellness Technician → Architect) **plus 3 paid human jobs** (Proposal & Contract Review — Owner/Operator $180, Creative Director — Listing Approvals $160, Client Delivery Manager $250) so the ledger demonstrates the labor model from day one.
+
+Admins open new jobs with `POST /api/abo/jobs` (specify `worker_type`, `value_cents` for AI, `pay_cents` for humans) and update with `PATCH /api/abo/jobs/{id}`. The board shows **human pay committed** and **AI work value** side by side — a plan that shows AI value without human pay is a plan that exploits people.
 
 ---
 
@@ -161,7 +170,8 @@ Status thresholds: `≥100%` covered · `≥50%` on_track · `≥25%` watch · b
 
 ### Weekly
 - [ ] Advance/close deals in the pipeline; set `value_cents` and `human_approval` on anything that ships.
-- [ ] Open 1–2 new jobs for the workforce tied to a live campaign (Social Blast week, new course, audit offer).
+- [ ] Open 1–2 new jobs for the workforce tied to a live campaign (Social Blast week, new course, audit offer) — mix of AI jobs (value) and paid human jobs (pay).
+- [ ] Confirm the **human labor fund** is tracked: human pay committed is visible on the ledger and funded from contracted + product revenue.
 - [ ] Review top revenue sources (`admin overview`) — double down on the top two.
 - [ ] Post one Social Blast campaign promoting the office itself (plans, store, deals).
 
@@ -169,6 +179,7 @@ Status thresholds: `≥100%` covered · `≥50%` on_track · `≥25%` watch · b
 - [ ] Reconcile the runway against the real payment processor payout.
 - [ ] Review the division board: demote anything that made $0 to "pipeline" or kill it; promote what works.
 - [ ] Update the monthly goal if operating costs changed.
+- [ ] **Pay the human labor fund** — owner/operator compensation, contractor invoices, and creator payouts reconciled against the ledger.
 - [ ] Log a CHANGELOG entry with the month's revenue and what the office ran.
 
 ### Revenue levers (when runway is critical)

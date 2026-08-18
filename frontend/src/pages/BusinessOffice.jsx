@@ -112,7 +112,8 @@ export default function BusinessOffice() {
           </div>
           <p className="text-white/80 text-sm mt-2 max-w-2xl">
             This office turns the platform's AI capabilities into mission funding. No revenue — no office —
-            no jobs for the AI workforce. Every tool below is real and already shipped; the office's job is to run them for income.
+            no jobs for people or the AI workforce. Every tool below is real and already shipped; the office's
+            job is to run them for income — and that income pays the people who run the office.
           </p>
           <div className="flex flex-wrap gap-2 mt-4">
             {tools?.tools?.slice(0, 8).map((t) => (
@@ -199,7 +200,7 @@ export default function BusinessOffice() {
               {[
                 { emoji: "🎓", name: "Learn → Member", desc: "Free modules and the AI Tutor prove the value. The $3 All-Access Trial converts learners into $9–$59/mo members.", metric: "Watch: trial → member rate" },
                 { emoji: "🎨", name: "Create → Sell", desc: "Creator Studio, Ghost Producer, and Band on a Page produce digital products for the Media Store. Sales pay creators first, then the platform.", metric: "Watch: products sold / month" },
-                { emoji: "🤝", name: "Serve → Contract", desc: "The office turns shipped capabilities into B2B deals. AI drafts proposals, humans approve, clients pay — contracted revenue is booked at Won.", metric: "Watch: deals closed / month" },
+                { emoji: "🤝", name: "Serve → Contract → Pay", desc: "The office turns shipped capabilities into B2B deals. AI drafts, humans approve and deliver, clients pay — contracted revenue pays the human labor that ran the deal.", metric: "Watch: deals closed / month" },
                 { emoji: "🔄", name: "Trust → Mission", desc: "Transparent runway and free help lanes build trust. Patrons and donors fund free access for others, growing the community that buys.", metric: "Watch: mission fund / month" },
               ].map((loop, i) => (
                 <div key={loop.name} className="card-flat rounded-2xl p-5 border relative" style={{ background: "#fff" }}>
@@ -297,7 +298,7 @@ export default function BusinessOffice() {
             <div className="grid sm:grid-cols-2 lg:grid-cols-5 gap-4 mt-3">
               {[
                 { emoji: "🆓", title: "Help stays free, always", desc: "Core help lanes, free modules, and community never sit behind a paywall. Paid features are additions — never substitutions." },
-                { emoji: "👤", title: "Humans are responsible", desc: "Merchant accounts, contracts, payouts, and liability stay with people. AI executes; people approve." },
+                { emoji: "👤", title: "Humans get paid — labor is never free", desc: "Every human hour in the office is compensated (pay, creator share, or equity). AI work generates revenue that pays people — never the reverse." },
                 { emoji: "🎨", title: "Creators get paid first", desc: "Creator earnings and payouts are priority obligations. The platform's cut never competes with the creator's cut." },
                 { emoji: "🔍", title: "No invented revenue", desc: "The dashboard reads the real payments ledger. Deals count only when closed. Every promise must be deliverable." },
                 { emoji: "🗣️", title: "AI always discloses", desc: "Any AI that talks to people for transactions or support says so, per FTC guidance." },
@@ -325,44 +326,69 @@ export default function BusinessOffice() {
           {/* ── 6. AI Jobs Ledger ────────────────────────────────────── */}
           <section>
             <h2 className="font-heading text-lg font-bold text-ink flex items-center gap-2">
-              <HeartHandshake className="w-5 h-5" style={{ color: COPPER }} /> AI Jobs Ledger — the workforce the mission employs
+              <HeartHandshake className="w-5 h-5" style={{ color: COPPER }} /> Workforce Ledger — paid people & AI
             </h2>
+            <p className="text-xs text-ink/50 mt-1 max-w-3xl">
+              AI jobs create revenue (<b>value</b>). Human jobs — the people who own, approve, and deliver — are paid from it (<b>pay</b>). Labor is never free.
+            </p>
             <div className="card-flat rounded-2xl border mt-3 overflow-hidden" style={{ background: "#fff" }}>
               <table className="w-full text-sm">
                 <thead>
                   <tr className="text-left text-[10px] font-black uppercase tracking-widest text-ink/40 border-b"
                     style={{ background: "#f8f3e8" }}>
                     <th className="px-4 py-3">Job</th>
-                    <th className="px-4 py-3">Persona</th>
+                    <th className="px-4 py-3">Worker</th>
+                    <th className="px-4 py-3">Persona / Role</th>
                     <th className="px-4 py-3">Division</th>
                     <th className="px-4 py-3 text-right">Hours</th>
+                    <th className="px-4 py-3 text-right">Pay</th>
                     <th className="px-4 py-3 text-right">Value</th>
                     <th className="px-4 py-3">Status</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {(jobs?.jobs || []).map((j) => (
-                    <tr key={j.id} className="border-b border-ink/5">
-                      <td className="px-4 py-3 font-semibold text-ink">{j.title}</td>
-                      <td className="px-4 py-3 text-ink/70">{j.persona}</td>
-                      <td className="px-4 py-3 text-ink/60 capitalize">{j.division.replace(/_/g, " ")}</td>
-                      <td className="px-4 py-3 text-right text-ink/70">{j.hours}</td>
-                      <td className="px-4 py-3 text-right font-bold" style={{ color: GREEN }}>{fmt(j.value_cents)}</td>
-                      <td className="px-4 py-3">
-                        <span className="text-[10px] font-black uppercase tracking-widest px-2 py-0.5 rounded"
-                          style={{
-                            background: j.status === "completed" ? "rgba(45,106,79,0.12)" : j.status === "assigned" ? "rgba(232,165,30,0.15)" : "rgba(192,87,45,0.1)",
-                            color: j.status === "completed" ? GREEN : j.status === "assigned" ? "#8a6400" : COPPER,
-                          }}>
-                          {j.status}
-                        </span>
-                      </td>
-                    </tr>
-                  ))}
+                  {(jobs?.jobs || []).map((j) => {
+                    const isHuman = j.worker_type === "human";
+                    return (
+                      <tr key={j.id} className="border-b border-ink/5">
+                        <td className="px-4 py-3 font-semibold text-ink">{j.title}</td>
+                        <td className="px-4 py-3">
+                          <span className="text-[10px] font-black uppercase tracking-widest px-2 py-0.5 rounded"
+                            style={{
+                              background: isHuman ? "rgba(232,165,30,0.18)" : "rgba(27,67,50,0.12)",
+                              color: isHuman ? "#8a6400" : GREEN,
+                            }}>
+                            {isHuman ? "Human" : "AI"}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 text-ink/70">{j.persona}</td>
+                        <td className="px-4 py-3 text-ink/60 capitalize">{j.division.replace(/_/g, " ")}</td>
+                        <td className="px-4 py-3 text-right text-ink/70">{j.hours}</td>
+                        <td className="px-4 py-3 text-right font-bold" style={{ color: isHuman ? COPPER : "#c9bda6" }}>
+                          {isHuman ? fmt(j.pay_cents) : "—"}
+                        </td>
+                        <td className="px-4 py-3 text-right font-bold" style={{ color: isHuman ? "#c9bda6" : GREEN }}>
+                          {isHuman ? "—" : fmt(j.value_cents)}
+                        </td>
+                        <td className="px-4 py-3">
+                          <span className="text-[10px] font-black uppercase tracking-widest px-2 py-0.5 rounded"
+                            style={{
+                              background: j.status === "completed" ? "rgba(45,106,79,0.12)" : j.status === "assigned" ? "rgba(232,165,30,0.15)" : "rgba(192,87,45,0.1)",
+                              color: j.status === "completed" ? GREEN : j.status === "assigned" ? "#8a6400" : COPPER,
+                            }}>
+                            {j.status}
+                          </span>
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
-              <div className="px-4 py-3 text-xs font-bold text-ink/60 flex gap-6" style={{ background: "#f8f3e8" }}>
-                <span>Total value: <span style={{ color: GREEN }}>{fmt(jobs?.total_value_cents)}</span></span>
+              <div className="px-4 py-3 text-xs font-bold text-ink/60 flex flex-wrap gap-x-6 gap-y-1" style={{ background: "#f8f3e8" }}>
+                <span>Human jobs: <span style={{ color: COPPER }}>{jobs?.human_jobs}</span></span>
+                <span>AI jobs: <span style={{ color: GREEN }}>{jobs?.ai_jobs}</span></span>
+                <span>Human pay committed: <span style={{ color: COPPER }}>{fmt(jobs?.human_pay_cents)}</span></span>
+                <span>AI work value: <span style={{ color: GREEN }}>{fmt(jobs?.ai_value_cents)}</span></span>
                 <span>Total hours: <span style={{ color: GREEN }}>{jobs?.total_hours}</span></span>
               </div>
             </div>
@@ -558,7 +584,9 @@ function JobForm({ divisions, onCreated }) {
   const [persona, setPersona] = useState("");
   const [division, setDivision] = useState("memberships");
   const [hours, setHours] = useState("4");
+  const [workerType, setWorkerType] = useState("ai");
   const [value, setValue] = useState("50");
+  const [pay, setPay] = useState("30");
   const [busy, setBusy] = useState(false);
 
   const submit = async (e) => {
@@ -568,12 +596,14 @@ function JobForm({ divisions, onCreated }) {
     try {
       await api.post("/abo/jobs", {
         title,
-        persona: persona || "Platform AI",
+        persona: persona || (workerType === "human" ? "Human — Operator" : "Platform AI"),
         division,
         hours: parseFloat(hours) || 0,
-        value_cents: Math.round((parseFloat(value) || 0) * 100),
+        worker_type: workerType,
+        value_cents: workerType === "ai" ? Math.round((parseFloat(value) || 0) * 100) : 0,
+        pay_cents: workerType === "human" ? Math.round((parseFloat(pay) || 0) * 100) : 0,
       });
-      toast.success("Job opened for the workforce.");
+      toast.success(workerType === "human" ? "Paid human job opened." : "AI job opened — its revenue pays people.");
       setTitle(""); setPersona("");
       onCreated();
     } catch (err) {
@@ -587,11 +617,17 @@ function JobForm({ divisions, onCreated }) {
     <form onSubmit={submit} className="card-flat rounded-2xl p-4 border mt-3 flex flex-wrap items-end gap-2"
       style={{ background: "#fff", borderStyle: "dashed" }}>
       <div className="flex-1 min-w-[180px]">
-        <label className="text-[10px] font-black uppercase tracking-widest text-ink/40">New job for the AI workforce</label>
+        <label className="text-[10px] font-black uppercase tracking-widest text-ink/40">New job — people or AI</label>
         <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Job title"
           className="w-full mt-1 px-3 py-2 rounded-lg border text-sm" style={{ borderColor: "#ddd3bf" }} />
       </div>
-      <input value={persona} onChange={(e) => setPersona(e.target.value)} placeholder="Persona (e.g. The Oracle)"
+      <select value={workerType} onChange={(e) => setWorkerType(e.target.value)}
+        className="px-3 py-2 rounded-lg border text-sm font-bold" style={{ borderColor: "#ddd3bf" }}>
+        <option value="ai">🤖 AI worker</option>
+        <option value="human">👤 Human worker</option>
+      </select>
+      <input value={persona} onChange={(e) => setPersona(e.target.value)}
+        placeholder={workerType === "human" ? "Role (e.g. Owner/Operator)" : "Persona (e.g. The Oracle)"}
         className="flex-1 min-w-[140px] px-3 py-2 rounded-lg border text-sm" style={{ borderColor: "#ddd3bf" }} />
       <select value={division} onChange={(e) => setDivision(e.target.value)}
         className="px-3 py-2 rounded-lg border text-sm" style={{ borderColor: "#ddd3bf" }}>
@@ -599,10 +635,15 @@ function JobForm({ divisions, onCreated }) {
       </select>
       <input value={hours} onChange={(e) => setHours(e.target.value)} type="number" min="0" step="0.5"
         placeholder="Hours" className="w-20 px-3 py-2 rounded-lg border text-sm" style={{ borderColor: "#ddd3bf" }} />
-      <input value={value} onChange={(e) => setValue(e.target.value)} type="number" min="0" step="5"
-        placeholder="$ value" className="w-24 px-3 py-2 rounded-lg border text-sm" style={{ borderColor: "#ddd3bf" }} />
+      {workerType === "ai" ? (
+        <input value={value} onChange={(e) => setValue(e.target.value)} type="number" min="0" step="5"
+          placeholder="$ value" className="w-24 px-3 py-2 rounded-lg border text-sm" style={{ borderColor: "#ddd3bf" }} />
+      ) : (
+        <input value={pay} onChange={(e) => setPay(e.target.value)} type="number" min="0" step="5"
+          placeholder="$ pay/hr" className="w-24 px-3 py-2 rounded-lg border text-sm" style={{ borderColor: COPPER }} />
+      )}
       <button type="submit" disabled={busy} className="px-4 py-2 rounded-lg text-sm font-black text-white disabled:opacity-50"
-        style={{ background: COPPER }}>
+        style={{ background: workerType === "human" ? COPPER : GREEN }}>
         {busy ? "Opening…" : "Open job"}
       </button>
     </form>
