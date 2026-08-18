@@ -84,6 +84,7 @@ import SponsorScholarship from "./pages/SponsorScholarship";
 import ScholarshipApply from "./pages/ScholarshipApply";
 import AdminScholarships from "./pages/AdminScholarships";
 import VideoPresenter from "./pages/VideoPresenter";
+import ExecutiveCommandCenter from "./pages/ExecutiveCommandCenter";
 import Community from "./pages/Community";
 import Creators from "./pages/Creators";
 import GhostProducer from "./pages/GhostProducer";
@@ -266,6 +267,7 @@ function App() {
           <Route path="/scholarships/apply" element={<Protected><ScholarshipApply /></Protected>} />
           <Route path="/admin/scholarships" element={<BoundedAdmin roles={["admin"]} label="Scholarship Committee" backTo="/admin"><AdminScholarships /></BoundedAdmin>} />
           <Route path="/studio/video-presenter" element={<VideoPresenter />} />
+          <Route path="/admin/command" element={<BoundedAdmin roles={["executive_admin"]} label="Executive Command Center" backTo="/admin"><ExecutiveCommandCenter /></BoundedAdmin>} />
           <Route path="/community" element={<Community />} />
           <Route path="/creators" element={<Creators />} />
           <Route path="/instructor" element={<Protected roles={["instructor", "admin"]}><InstructorDashboard /></Protected>} />

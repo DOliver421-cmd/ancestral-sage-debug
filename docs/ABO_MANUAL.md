@@ -230,4 +230,28 @@ The response also includes the **owner-first P&L waterfall** (`pnl`): `gross_cen
 | `backend/routers/site_guide.py` | Site Guide knowledge + search index entries for the office. |
 | `docs/ADMIN-MANUAL.md` | §2.14 summary. |
 | `docs/BUSINESS_PLAN.md` | The full site business plan — revenue streams mapped to shipped features, the four feedback loops, guardrails, unit economics, 90-day execution, deliverable-promise policy. |
+| `docs/SCHOLARSHIPS_MANUAL.md` | Sponsor-a-Scholarship ops — the office's giving engine. |
+| `docs/GOOGLE_FREE_STACK.md` | Free Google AI/Cloud evaluation — base account `morehelpcenter@gmail.com`. |
 | `memory/CHANGELOG.md` | Change report. |
+
+---
+
+## 14. Office agenda (projects → agenda, automatically)
+
+Every project created at `/projects` automatically becomes a **business agenda item** (`db.business_agenda`, source `project`) — no manual step. The office's pending items surface in the Business Office page, the **Executive Command Center** (`/admin/command` → Business tab), and staff meetings.
+
+- `GET /api/abo/agenda` — list (admins: all; others: their own).
+- `PATCH /api/abo/agenda/{id}` — advance `pending → on_agenda → discussed → resolved` (or drop), audited.
+- Deleting a project cleans up its pending agenda item.
+
+## 15. The Truth Test — every office claim, verified
+
+`GET /api/abo/verify` recomputes every number the office displays (runway, revenue, P&L, deals, jobs, exchange fees, red-team, per-division revenue) **directly from the ledger** — zero tokens, deterministic verdicts: `verified` (matches ledger), `mismatch`, `target` (owner-set goal), `copy` (aspirational marketing, never presented as data), `empty`. The Business Office page shows a Truth Test panel; “Run + teach me the business” adds a free-tier AI briefing through the gateway (optional — the audit always runs).
+
+## 16. Scholarships — the office's giving loop
+
+Sponsor-a-Scholarship is a revenue-aligned mission engine: sponsor pledges flow through the same Lemon Squeezy → Gumroad checkout as memberships, the webhook marks them paid and raises fund progress, and the committee (`/admin/scholarships`) approves applications that **auto-match to paid pledges** into milestone-tracked awards — funds release only against verified milestones. Committee review is audited (`scholarship.*` actions). Full ops in `docs/SCHOLARSHIPS_MANUAL.md`.
+
+## 17. Every number is changeable without code
+
+The owner-first law holds across every surface: office config (goals, copy, divisions) → `/admin/office-control` (`GET/PUT /api/abo/config`); scholarship funds → committee Funds tab; exec context → the Command Center. No fixed liability paths exist anywhere — distributions happen only at the owner's recorded direction, out of net profit.
