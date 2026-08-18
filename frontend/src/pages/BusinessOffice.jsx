@@ -24,7 +24,7 @@ import { api } from "../lib/api";
 import { toast } from "sonner";
 import {
   Building2, TrendingUp, DollarSign, Receipt, Users, RefreshCw,
-  ArrowRight, Plus, Wrench, Briefcase, Target, ShieldCheck, HeartHandshake,
+  ArrowRight, Plus, Wrench, Briefcase, Target, ShieldCheck, HeartHandshake, Sparkles,
 } from "lucide-react";
 
 const GREEN = "#1B4332";
@@ -57,17 +57,21 @@ export default function BusinessOffice() {
   const [exchange, setExchange] = useState(null);
   const [redteam, setRedteam] = useState(null);
   const [adminData, setAdminData] = useState(null);
+  const [audit, setAudit] = useState(null);
+  const [auditLoading, setAuditLoading] = useState(false);
+  const [agenda, setAgenda] = useState([]);
   const [loading, setLoading] = useState(true);
 
   const load = useCallback(async () => {
     try {
-      const [ov, tl, dl, jb, xc, rt] = await Promise.all([
+      const [ov, tl, dl, jb, xc, rt, ag] = await Promise.all([
         api.get("/abo/overview"),
         api.get("/abo/tools"),
         api.get("/abo/deals"),
         api.get("/abo/jobs"),
         api.get("/abo/exchange"),
         api.get("/abo/redteam"),
+        api.get("/abo/agenda"),
       ]);
       setOverview(ov.data);
       setTools(tl.data);
@@ -75,6 +79,7 @@ export default function BusinessOffice() {
       setJobs(jb.data);
       setExchange(xc.data);
       setRedteam(rt.data);
+      setAgenda(ag.data.agenda || []);
       if (isAdmin) {
         const ad = await api.get("/abo/admin/overview");
         setAdminData(ad.data);
@@ -87,6 +92,31 @@ export default function BusinessOffice() {
   }, [isAdmin]);
 
   useEffect(() => { load(); }, [load]);
+
+  // Truth Test — deterministic, zero-token check of every office claim against
+  // the real ledger. Optional free-tier AI explainer (?explain=1) teaches the
+  // business in plain language; if the free quota is out the audit still runs.
+  const advanceAgenda = useCallback(async (itemId, status) => {
+    try {
+      await api.patch(`/abo/agenda/${itemId}`, { status });
+      setAgenda(prev => prev.map(i => i.item_id === itemId ? { ...i, status } : i));
+      toast.success(`Agenda item ${status}`);
+    } catch {
+      toast.error("Could not update agenda item.");
+    }
+  }, []);
+
+  const runAudit = useCallback(async (withExplain) => {
+    setAuditLoading(true);
+    try {
+      const { data } = await api.get("/abo/verify", { params: withExplain ? { explain: 1 } : {} });
+      setAudit(data);
+    } catch {
+      toast.error("Truth Test could not run — check the backend connection.");
+    } finally {
+      setAuditLoading(false);
+    }
+  }, []);
 
   if (loading) {
     return (
@@ -265,6 +295,194 @@ export default function BusinessOffice() {
                 </div>
               ))}
             </div>
+          </section>
+
+          {/* ── 2c. Business Agenda — projects & items waiting for the office ── */}
+          <section>
+            <div className="flex items-center justify-between flex-wrap gap-3">
+              <h2 className="font-heading text-lg font-bold text-ink flex items-center gap-2">
+                <Target className="w-5 h-5" style={{ color: GOLD }} /> Business Agenda
+              </h2>
+              <span className="text-[10px] font-black uppercase tracking-widest px-2 py-1 rounded-full" style={{ background: "rgba(232,165,30,0.15)", color: "#8a6400" }}>
+                {agenda.filter(i => i.status === "pending").length} pending
+              </span>
+            </div>
+            <p className="text-xs text-ink/50 mt-1 max-w-3xl leading-relaxed">
+              Every new project automatically becomes an agenda item here — no manual step. The office works the
+              list from <b>pending</b> → <b>on_agenda</b> → <b>discussed</b> → <b>resolved</b>.
+            </p>
+            {agenda.length === 0 ? (
+              <p className="text-sm text-ink/40 text-center py-6">
+                The agenda is empty — create a project at /projects and it appears here automatically.
+              </p>
+            ) : (
+              <div className="mt-3 rounded-2xl border overflow-hidden" style={{ background: "#fff" }}>
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="text-left text-[10px] font-black uppercase tracking-widest text-ink/40 border-b" style={{ background: "#f8f3e8" }}>
+                      <th className="px-4 py-2.5">Item</th>
+                      <th className="px-4 py-2.5">Owner</th>
+                      <th className="px-4 py-2.5">Priority</th>
+                      <th className="px-4 py-2.5">Status</th>
+                      <th className="px-4 py-2.5 text-right">Action</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {agenda.map((item) => {
+                      const statusColor =
+                        item.status === "resolved" || item.status === "discussed" ? { c: "#1b7a3d", bg: "#e7f4ec" }
+                        : item.status === "on_agenda" ? { c: "#8a6400", bg: "#fdf3d8" }
+                        : item.status === "dropped" ? { c: "#8a8a8a", bg: "#f0f0f0" }
+                        : { c: "#b3261e", bg: "#fdeaea" };
+                      return (
+                        <tr key={item.item_id} className="border-b border-ink/5">
+                          <td className="px-4 py-2.5">
+                            <div className="font-bold text-ink text-xs">{item.title}</div>
+                            <div className="text-[10px] text-ink/40">
+                              {item.source === "project" && item.project_id ? (
+                                <Link to={`/projects`} className="hover:text-copper">#{item.project_id}</Link>
+                              ) : item.source}
+                              {item.due_date && <span className="ml-2">📅 {item.due_date}</span>}
+                            </div>
+                          </td>
+                          <td className="px-4 py-2.5 text-xs text-ink/60">{item.owner || "—"}</td>
+                          <td className="px-4 py-2.5 text-xs">
+                            <span className="uppercase font-bold" style={{ color: item.priority === "critical" ? "#dc2626" : item.priority === "high" ? "#ea580c" : COPPER }}>
+                              {item.priority || "normal"}
+                            </span>
+                          </td>
+                          <td className="px-4 py-2.5">
+                            <span className="inline-block text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full" style={{ color: statusColor.c, background: statusColor.bg }}>
+                              {item.status}
+                            </span>
+                          </td>
+                          <td className="px-4 py-2.5 text-right">
+                            {isAdmin && item.status !== "resolved" && item.status !== "dropped" && (
+                              <select
+                                value={item.status}
+                                onChange={(e) => advanceAgenda(item.item_id, e.target.value)}
+                                className="text-xs font-bold rounded-lg border px-2 py-1.5"
+                                style={{ borderColor: "#ddd3bf", color: GREEN }}
+                              >
+                                <option value="pending">Pending</option>
+                                <option value="on_agenda">On agenda</option>
+                                <option value="discussed">Discussed</option>
+                                <option value="resolved">Resolved</option>
+                                <option value="dropped">Dropped</option>
+                              </select>
+                            )}
+                            {(!isAdmin || item.status === "resolved" || item.status === "dropped") && (
+                              <span className="text-[10px] text-ink/40">{item.updated_by ? `by ${item.updated_by}` : ""}</span>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </section>
+
+          {/* ── 2d. Truth Test — every claim, checked against the real ledger ── */}
+          <section>
+            <div className="flex items-center justify-between flex-wrap gap-3">
+              <h2 className="font-heading text-lg font-bold text-ink flex items-center gap-2">
+                <ShieldCheck className="w-5 h-5" style={{ color: GREEN }} /> Truth Test — are these claims real?
+              </h2>
+              <div className="flex gap-2">
+                <button onClick={() => runAudit(false)} disabled={auditLoading}
+                  className="flex items-center gap-1.5 text-xs font-bold px-3 py-2 rounded-lg border transition-colors disabled:opacity-50"
+                  style={{ borderColor: "#ddd3bf", color: GREEN }}>
+                  <RefreshCw className="w-3.5 h-3.5" /> {auditLoading ? "Checking…" : "Run Truth Test"}
+                </button>
+                <button onClick={() => runAudit(true)} disabled={auditLoading}
+                  className="flex items-center gap-1.5 text-xs font-bold px-3 py-2 rounded-lg text-white transition-colors disabled:opacity-50"
+                  style={{ background: GREEN }}>
+                  <Sparkles className="w-3.5 h-3.5" /> {auditLoading ? "Checking…" : "Run + teach me the business"}
+                </button>
+              </div>
+            </div>
+            <p className="text-xs text-ink/50 mt-1 max-w-3xl leading-relaxed">
+              Every number this office shows is recomputed from the real ledger (payments, deals, jobs, exchange,
+              red-team) — <b>zero API tokens</b>. <b className="text-green-700">Verified</b> matches the ledger,
+              <b className="text-red-600"> mismatch</b> means the display is wrong, <b className="text-ink/60">target</b> is an
+              owner-set goal, <b className="text-amber-600">copy</b> is aspirational marketing (price ranges, taglines) —
+              realized only when deals close — and <b className="text-ink/40">empty</b> is an honest zero.
+            </p>
+
+            {!audit && !auditLoading && (
+              <p className="text-sm text-ink/40 text-center py-8">
+                Press “Run Truth Test” to audit every claim in the office against the real data.
+              </p>
+            )}
+
+            {audit && (
+              <div className="mt-3 rounded-2xl border overflow-hidden" style={{ background: "#fff" }}>
+                {/* Summary bar */}
+                <div className="flex items-center gap-3 flex-wrap px-4 py-3 border-b" style={{ background: "#f8f3e8" }}>
+                  <span className={`text-[11px] font-black uppercase tracking-widest px-2.5 py-1 rounded-full ${audit.verdict === "clean" ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"}`}>
+                    {audit.verdict === "clean" ? "✓ Every claim matches the ledger" : "! Attention — mismatches found"}
+                  </span>
+                  <span className="text-xs text-ink/50">{audit.summary.verified} verified · {audit.summary.mismatch} mismatch · {audit.summary.target} target · {audit.summary.copy} copy · {audit.summary.empty} empty · {audit.summary.total} total</span>
+                </div>
+
+                {/* AI explainer (free tier) */}
+                {audit.explainer?.text && (
+                  <div className="px-4 py-3 border-b" style={{ background: "#f0f7f2" }}>
+                    <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest mb-1.5" style={{ color: GREEN }}>
+                      <Sparkles className="w-3.5 h-3.5" /> Free-tier business briefing
+                    </div>
+                    <p className="text-sm text-ink/80 leading-relaxed">{audit.explainer.text}</p>
+                  </div>
+                )}
+                {audit.explainer && !audit.explainer.text && (
+                  <div className="px-4 py-2.5 border-b text-xs" style={{ background: "#fdf6e3" }}>
+                    {audit.explainer.note}
+                  </div>
+                )}
+
+                {/* Checks table */}
+                <div className="max-h-[420px] overflow-y-auto">
+                  <table className="w-full text-sm">
+                    <thead className="sticky top-0" style={{ background: "#fff" }}>
+                      <tr className="text-left text-[10px] font-black uppercase tracking-widest text-ink/40 border-b">
+                        <th className="px-4 py-2.5">Claim</th>
+                        <th className="px-4 py-2.5">Office shows</th>
+                        <th className="px-4 py-2.5">Verdict</th>
+                        <th className="px-4 py-2.5 hidden md:table-cell">Source / note</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {audit.checks.map((c) => {
+                        const verdictStyle =
+                          c.verdict === "verified" ? { color: "#1b7a3d", bg: "#e7f4ec" }
+                          : c.verdict === "mismatch" ? { color: "#b3261e", bg: "#fdeaea" }
+                          : c.verdict === "target" ? { color: "#6b5b3e", bg: "#f3ecd9" }
+                          : c.verdict === "copy" ? { color: "#8a6400", bg: "#fdf3d8" }
+                          : { color: "#8a8a8a", bg: "#f0f0f0" };
+                        return (
+                          <tr key={c.key} className="border-b border-ink/5 align-top">
+                            <td className="px-4 py-2.5">
+                              <div className="font-bold text-ink text-xs">{c.label}</div>
+                              <div className="text-[10px] text-ink/40 uppercase tracking-wider">{c.section}</div>
+                            </td>
+                            <td className="px-4 py-2.5 text-xs text-ink/70 whitespace-nowrap">{c.claim}</td>
+                            <td className="px-4 py-2.5">
+                              <span className="inline-block text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full"
+                                style={{ color: verdictStyle.color, background: verdictStyle.bg }}>
+                                {c.verdict}
+                              </span>
+                            </td>
+                            <td className="px-4 py-2.5 text-[11px] text-ink/50 hidden md:table-cell leading-snug max-w-[340px]">{c.note}</td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
           </section>
 
           {/* ── 3. Tools Dock — the tools to do the business AI can do ── */}

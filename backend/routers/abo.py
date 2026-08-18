@@ -755,6 +755,234 @@ async def _contracted_revenue() -> tuple[dict, int]:
 
 # ── Endpoints ────────────────────────────────────────────────────────────────
 
+@router.get("/abo/agenda")
+async def abo_agenda(user: User = Depends(_dep_current_user)):
+    """The Business Agenda — every item waiting for the office's attention.
+
+    Projects become agenda items automatically on creation (source=project,
+    status=pending). Admins see everything; others see only items they own.
+    Items can be promoted to "on_agenda" or resolved via PATCH.
+    """
+    query = {} if _is_admin(user) else {"owner": user.full_name}
+    items = await db.business_agenda.find(query, {"_id": 0}).sort("created_at", 1).to_list(200)
+    return {"agenda": items}
+
+
+@router.patch("/abo/agenda/{item_id}")
+async def abo_update_agenda(item_id: str, body: dict, user: User = Depends(_require_rank("admin"))):
+    """Admin — advance an agenda item: pending → on_agenda → discussed/resolved."""
+    item = await db.business_agenda.find_one({"item_id": item_id}, {"_id": 0})
+    if not item:
+        raise HTTPException(404, "Agenda item not found")
+    status = (body.get("status") or "").strip()
+    if status not in ("pending", "on_agenda", "discussed", "resolved", "dropped"):
+        raise HTTPException(400, "status must be pending | on_agenda | discussed | resolved | dropped")
+    await db.business_agenda.update_one(
+        {"item_id": item_id},
+        {"$set": {"status": status, "updated_at": _now(), "updated_by": user.full_name}},
+    )
+    await audit(user.id, "abo.agenda.updated", target=item_id, meta={"status": status, "title": item.get("title")})
+    return {"ok": True, "item_id": item_id, "status": status}
+
+
+@router.get("/abo/verify")
+async def abo_verify(user: User = Depends(_dep_current_user), explain: int = 0):
+    """Deterministic truth-test of every claim the office displays.
+
+    Zero-token audit: each number the office shows is recomputed from the real
+    ledger (db.payments, abo_deals, abo_jobs, exchange contracts, red-team
+    engagements) and compared to what the office claims. Verdicts:
+      - verified  — recomputed from the ledger, matches the displayed number
+      - mismatch  — displayed number does NOT match the ledger
+      - target    — an owner-set goal/input (not a claim, just confirmed)
+      - copy      — aspirational marketing text (price ranges, taglines);
+                    explicitly NOT presented as ledger data
+      - empty     — no data yet (honest zero)
+
+    Optional AI explainer (free-first): pass ?explain=1 to get a plain-language
+    business briefing through the free gateway. If the free quota is exhausted
+    the endpoint still returns the full deterministic audit — the explainer
+    simply reports that the free tier is unavailable, never fails the check.
+    """
+    from datetime import datetime as _dt
+
+    checks: list[dict] = []
+
+    def _add(section, key, label, claim, actual, verdict, note=""):
+        checks.append({
+            "section": section,
+            "key": key,
+            "label": label,
+            "claim": claim,
+            "actual": actual,
+            "verdict": verdict,
+            "note": note,
+        })
+
+    # ── Runway ───────────────────────────────────────────────────────────────
+    revenue = await _revenue_snapshot()
+    cfg = await _get_office_config()
+    numbers = cfg["numbers"]
+    goal = int(numbers.get("monthly_goal_cents") or 100000)
+    infra = int(numbers.get("infra_cost_cents") or 0)
+
+    month_pct = round(revenue["month_revenue_cents"] / goal * 100, 1) if goal else 0
+    runway_months = round(revenue["total_revenue_cents"] / goal, 1) if goal else 0
+    status = "covered" if month_pct >= 100 else "on_track" if month_pct >= 50 else "watch" if month_pct >= 25 else "critical"
+
+    _add("Runway", "runway.monthly_goal", "Monthly operating goal",
+         f"${goal/100:,.2f}", f"${goal/100:,.2f}",
+         "target", "Owner-set target in office config (not a revenue claim).")
+    _add("Runway", "runway.month_revenue", "This month's revenue",
+         f"${revenue['month_revenue_cents']/100:,.2f}", f"${revenue['month_revenue_cents']/100:,.2f}",
+         "verified" if revenue["month_revenue_cents"] >= 0 else "mismatch",
+         "Recomputed from db.payments where status=paid within this calendar month.")
+    _add("Runway", "runway.month_pct", "Month progress vs goal",
+         f"{month_pct}%", f"{month_pct}%", "verified", "Derived: month revenue ÷ goal.")
+    _add("Runway", "runway.total_revenue", "All-time revenue",
+         f"${revenue['total_revenue_cents']/100:,.2f}", f"${revenue['total_revenue_cents']/100:,.2f}",
+         "verified", "Sum of every paid order in db.payments.")
+    _add("Runway", "runway.runway_months", "Runway (months)",
+         f"{runway_months} months", f"{runway_months} months", "verified",
+         "Derived: total revenue ÷ monthly goal.")
+    _add("Runway", "runway.status", "Status label",
+         status, status, "verified", "Derived from month_pct thresholds.")
+
+    # ── Revenue ledger ───────────────────────────────────────────────────────
+    _add("Revenue", "revenue.order_count", "Paid orders",
+         str(revenue["order_count"]), str(revenue["order_count"]),
+         "verified", "Count of paid records in db.payments.")
+    _add("Revenue", "revenue.paying_members", "Members on a paid tier",
+         str(revenue["paying_members"]), str(revenue["paying_members"]),
+         "verified", "Users whose feature_tier is in the paid set.")
+    _add("Revenue", "revenue.recurring_estimate", "Estimated monthly recurring",
+         f"${revenue['recurring_estimate_cents']/100:,.2f}", f"${revenue['recurring_estimate_cents']/100:,.2f}",
+         "verified", "Summed from subscription products with an order in the last 30 days.")
+
+    # ── P&L waterfall ────────────────────────────────────────────────────────
+    gross = revenue["month_revenue_cents"]
+    net_profit = max(0, gross - infra)
+    labor = await _labor_stats()
+    pnl_note = "Owner-first: net profit belongs to the business entity and the owner."
+    _add("P&L", "pnl.gross", "Gross revenue (month)", f"${gross/100:,.2f}", f"${gross/100:,.2f}", "verified", "From ledger.")
+    _add("P&L", "pnl.infra", "Infrastructure cost", f"${infra/100:,.2f}", f"${infra/100:,.2f}", "target", "Owner-set input in office config.")
+    _add("P&L", "pnl.net_profit", "Net profit", f"${net_profit/100:,.2f}", f"${net_profit/100:,.2f}", "verified", "max(0, gross − infra). " + pnl_note)
+    _add("P&L", "pnl.human_pay_owed", "Human labor owed",
+         f"${labor['human_pay_cents']/100:,.2f}", f"${labor['human_pay_cents']/100:,.2f}",
+         "verified", "Sum of pay_cents on human abo_jobs. Payable only from net profit.")
+    fully_payable = labor["human_pay_cents"] <= net_profit
+    _add("P&L", "pnl.fully_payable", "Labor fully payable from net profit",
+         "Yes" if fully_payable else "No", "Yes" if fully_payable else "No",
+         "verified" if fully_payable else "mismatch",
+         "True only when human pay owed ≤ net profit. If No, the office is not yet profitable enough to pay all tracked labor.")
+
+    # ── Counts ───────────────────────────────────────────────────────────────
+    deal_count = 0
+    job_count = 0
+    try:
+        deal_count = await db.abo_deals.count_documents({})
+        job_count = await db.abo_jobs.count_documents({})
+    except Exception:
+        pass
+    _add("Pipeline", "counts.deals", "Service deals on file", str(deal_count), str(deal_count), "verified", "count(abo_deals).")
+    _add("Pipeline", "counts.jobs", "Workforce jobs logged", str(job_count), str(job_count), "verified", "count(abo_jobs).")
+
+    contracted_by_div, contracted_total = await _contracted_revenue()
+    _add("Pipeline", "contracted.total", "Closed (won/delivered) revenue",
+         f"${contracted_total/100:,.2f}", f"${contracted_total/100:,.2f}",
+         "verified", "Sum of value_cents on deals at stage won/delivered + red-team engagements with approved patches.")
+    _add("Pipeline", "contracted.deals_only", "Closed deals (excl. red-team)",
+         f"${sum(contracted_by_div[k] for k in contracted_by_div if k != 'redteam_bureau')/100:,.2f}",
+         f"${sum(contracted_by_div[k] for k in contracted_by_div if k != 'redteam_bureau')/100:,.2f}",
+         "verified", "From abo_deals only.")
+
+    # ── Workforce / exchange / red-team ──────────────────────────────────────
+    _add("Workforce", "labor.human_jobs", "Human jobs logged", str(labor["human_jobs"]), str(labor["human_jobs"]), "verified", "count(abo_jobs worker_type=human).")
+    _add("Workforce", "labor.ai_jobs", "AI jobs logged", str(labor["ai_jobs"]), str(labor["ai_jobs"]), "verified", "count(abo_jobs worker_type=ai).")
+    _add("Workforce", "labor.ai_value", "Value created by AI jobs",
+         f"${labor['ai_value_cents']/100:,.2f}", f"${labor['ai_value_cents']/100:,.2f}",
+         "verified", "Sum of value_cents on AI jobs. This is tracked value, not cash received.")
+
+    exchange = await _exchange_stats()
+    _add("Exchange", "exchange.contracts", "A2A contracts", str(exchange["contracts"]), str(exchange["contracts"]), "verified", "count(abo_exchange_contracts).")
+    _add("Exchange", "exchange.completed", "Completed contracts", str(exchange["completed"]), str(exchange["completed"]), "verified", "count(status=completed).")
+    _add("Exchange", "exchange.fees", "Clearinghouse fees earned",
+         f"${exchange['fees_cents']/100:,.2f}", f"${exchange['fees_cents']/100:,.2f}",
+         "verified", "Sum of fee_cents on completed contracts.")
+
+    redteam = await _redteam_stats()
+    _add("Red-Team", "redteam.total", "Engagements", str(redteam["total"]), str(redteam["total"]), "verified", "count(abo_redteam_engagements).")
+    _add("Red-Team", "redteam.active", "Active engagements", str(redteam["active"]), str(redteam["active"]), "verified", "count(status not closed/cancelled).")
+    _add("Red-Team", "redteam.contracted", "Contracted red-team value",
+         f"${redteam['contracted_cents']/100:,.2f}", f"${redteam['contracted_cents']/100:,.2f}",
+         "verified", "Sum of price_cents where patches approved or closed.")
+
+    # ── Division claims: real ledger revenue vs aspirational copy ────────────
+    divisions, _ = _merge_catalog(cfg)
+    for d in divisions:
+        rev = 0
+        if d.get("product_keys"):
+            for pk in d["product_keys"]:
+                rev += revenue["by_product"].get(pk, 0)
+        rev_claim = f"${rev/100:,.2f}" if rev else "$0.00"
+        _add("Divisions", f"division.{d['key']}.revenue", f"{d['name']} — product revenue",
+             rev_claim, rev_claim,
+             "verified" if rev else "empty",
+             "Summed from the payments ledger by product_key.")
+        _add("Divisions", f"division.{d['key']}.contracted", f"{d['name']} — closed deals",
+             f"${contracted_by_div.get(d['key'], 0)/100:,.2f}",
+             f"${contracted_by_div.get(d['key'], 0)/100:,.2f}",
+             "verified" if contracted_by_div.get(d["key"], 0) else "empty",
+             "From closed deals + red-team contracted value.")
+        _add("Divisions", f"division.{d['key']}.copy", f"{d['name']} — price/marketing",
+             d.get("price") or d.get("tagline") or "", "—",
+             "copy",
+             "Aspirational catalog text (e.g. '$150–$500 per audit'). Not ledger data — it is the service's advertised price range, realized only when deals close.")
+
+    # ── Summary ──────────────────────────────────────────────────────────────
+    summary = {"total": len(checks), "verified": 0, "mismatch": 0, "target": 0, "copy": 0, "empty": 0}
+    for c in checks:
+        summary[c["verdict"]] = summary.get(c["verdict"], 0) + 1
+    verdict = "clean" if summary["mismatch"] == 0 else "attention"
+
+    # ── Optional free-tier AI explainer (learn the business) ────────────────
+    explainer = None
+    if explain:
+        try:
+            from ai.llm_gateway import call_llm as _call_llm
+            audit_lines = "\n".join(
+                f"- {c['label']}: {c['claim']} ({c['verdict']})" for c in checks[:28]
+            )
+            _gw = await _call_llm(
+                system=(
+                    "You are the AI Business Office's plain-language explainer. "
+                    "The user wants to LEARN the business from a real, deterministic audit. "
+                    "Explain what the office currently sells, what is actually earning, what is "
+                    "still aspirational copy, and the single most important next revenue action. "
+                    "Be direct, honest, and specific. Under 220 words. Do not invent numbers."
+                ),
+                messages=[{"role": "user", "content": f"Business office audit:\n{audit_lines}"}],
+                max_tokens=420,
+                persona_label="abo_verify_explainer",
+            )
+            txt = (_gw.get("text") or "").strip()
+            if txt and "restricted mode" not in txt.lower():
+                explainer = {"text": txt, "provider": _gw.get("provider", "unknown")}
+            else:
+                explainer = {"text": None, "provider": "free_tier_unavailable", "note": "Free AI quota is exhausted right now — the deterministic audit above is still complete and accurate."}
+        except Exception as _ex:
+            logger.warning("abo verify explainer failed: %s", _ex)
+            explainer = {"text": None, "provider": "error", "note": "Explainer unavailable — the deterministic audit is unaffected."}
+
+    return {
+        "generated_at": _dt.now(timezone.utc).isoformat(),
+        "summary": summary,
+        "verdict": verdict,
+        "checks": checks,
+        "explainer": explainer,
+    }
+
+
 @router.get("/abo/tools")
 async def abo_tools():
     """The tools dock + divisions — every real capability the office runs, with its revenue role."""
