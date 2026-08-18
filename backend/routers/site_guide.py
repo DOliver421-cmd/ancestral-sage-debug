@@ -83,7 +83,8 @@ async def _dep_current_user(authorization: Optional[str] = Header(None)) -> User
 # $3 entitlement flag on the user doc. Admins/exec always pass.
 async def _site_guide_access(user: User) -> tuple[bool, str, str, bool]:
     role = user.role or "student"
-    if role in ("admin", "executive_admin"):
+    # Instructor tier and above never pay for BYOK — treat them like staff.
+    if ROLE_RANK.get(role, 0) >= 2:
         return True, "role", user.feature_tier or "free", False
     user_doc = await db.users.find_one(
         {"id": user.id}, {"_id": 0, "feature_tier": 1, "byok_enabled": 1}
@@ -324,9 +325,14 @@ async def site_guide_chat(body: SiteGuideChatReq, user: User = Depends(_dep_curr
 
     access, reason, tier, byok = await _site_guide_access(user)
     if not access:
+        from byok import byok_price_for
+
+        price = byok_price_for(user.role)
+        fee = "free for instructors and above" if price == 0 else f"a one-time ${price} fee"
         raise HTTPException(
             403,
-            "The Site Guide is a member benefit. Unlock it with any paid plan, the $3 All-Access Trial, or BYOK.",
+            "The Site Guide runs on AI API keys. Unlock it with any paid plan, the $3 All-Access Trial, "
+            f"or BYOK ({fee}) at /byok.",
         )
 
     # ── FREE-FIRST: answer from the curated site KB (zero tokens) ────────────
@@ -409,11 +415,16 @@ async def site_guide_chat(body: SiteGuideChatReq, user: User = Depends(_dep_curr
 async def site_guide_status(user: User = Depends(_dep_current_user)):
     """Return the user's Site Guide access + entitlement state (no raw keys)."""
     access, reason, tier, byok = await _site_guide_access(user)
+    from byok import byok_price_for
+
+    byok_price = byok_price_for(user.role)
     return {
         "access": access,
         "reason": reason,
         "tier": tier,
         "byok_enabled": byok,
+        "byok_price_usd": byok_price,
+        "byok_free_for_role": byok_price == 0,
         "suggestions": SITE_GUIDE_SUGGESTIONS,
     }
 

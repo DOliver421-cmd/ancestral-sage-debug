@@ -101,6 +101,10 @@ export default function SiteGuide() {
   // ── Gate (no access yet) ──────────────────────────────────────────────────
   const showGate = !loadingStatus && !status?.access;
 
+  // Instructor tier and above get BYOK free; everyone below pays $3 one-time.
+  const byokFree = status?.byok_free_for_role || status?.byok_price_usd === 0;
+  const byokLabel = byokFree ? "Unlock with BYOK — free for instructors" : `Unlock with BYOK — $${status?.byok_price_usd ?? 3}`;
+
   const gate = (
     <div className="min-h-[100vh] flex items-center justify-center px-6 py-16 bg-bone">
       <div className="max-w-md w-full bg-white rounded-3xl p-8 text-center shadow-xl border-2"
@@ -111,10 +115,15 @@ export default function SiteGuide() {
         </div>
         <h1 className="font-heading text-2xl font-bold text-ink mt-5">Meet the Site Guide</h1>
         <p className="text-ink/60 text-sm mt-3 leading-relaxed">
-          A member-only AI guide that knows the whole building — where things live, what each
-          plan includes, and how every feature works. Unlocked with any paid plan, the{" "}
+          An AI guide that knows the whole building — where things live, what each plan includes,
+          and how every feature works. It runs on AI API keys: unlock it with any paid plan, the{" "}
           <strong className="text-ink">$3 All-Access Trial</strong>, or{" "}
-          <strong className="text-ink">BYOK</strong>.
+          <strong className="text-ink">BYOK</strong> —{" "}
+          {byokFree ? (
+            <strong className="text-ink">free for instructors and above</strong>
+          ) : (
+            <>a one-time <strong className="text-ink">${status?.byok_price_usd ?? 3}</strong> fee</>
+          )}.
         </p>
 
         <div className="mt-6 flex flex-col gap-2.5">
@@ -132,7 +141,7 @@ export default function SiteGuide() {
               <Link to="/byok"
                 className="w-full text-center text-sm font-bold py-3 rounded-xl border-2"
                 style={{ borderColor: "#1B4332", color: "#1B4332" }}>
-                <KeyRound className="w-3.5 h-3.5 inline mr-1" /> Unlock with BYOK — $3
+                <KeyRound className="w-3.5 h-3.5 inline mr-1" /> {byokLabel}
               </Link>
               <Link to="/plans" className="w-full text-center text-xs text-ink/50 font-semibold py-1 hover:text-copper">
                 Compare all plans →

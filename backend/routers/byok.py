@@ -81,7 +81,7 @@ async def byok_status(user: User = Depends(_dep_current_user)):
     """Entitlement + configured-provider status. Never returns raw keys."""
     from byok import get_byok_status
 
-    return await get_byok_status(db, user.id)
+    return await get_byok_status(db, user.id, user.role)
 
 
 @router.post("/byok/activate")
@@ -94,8 +94,8 @@ async def byok_activate(user: User = Depends(_dep_current_user)):
     """
     from byok import activate_byok, BYOK_PRICE_USD
 
-    result = await activate_byok(db, user.id)
-    await audit(user.id, "byok.activated", meta={"price_usd": BYOK_PRICE_USD})
+    result = await activate_byok(db, user.id, user.role)
+    await audit(user.id, "byok.activated", meta={"price_usd": result.get("price_usd", BYOK_PRICE_USD)})
     return result
 
 

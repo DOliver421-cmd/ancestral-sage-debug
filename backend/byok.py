@@ -35,6 +35,17 @@ logger = logging.getLogger("lcewai.byok")
 # Configurable; defaults to the owner's $3 price point.
 BYOK_PRICE_USD = int(os.environ.get("BYOK_PRICE_USD", "3"))
 
+# BYOK is a $3 one-time fee for users BELOW instructor tier. Instructors and
+# above (instructor, admin, executive_admin, creative_partner) get BYOK free.
+_ROLE_RANK = {"student": 1, "instructor": 2, "admin": 3, "executive_admin": 4, "creative_partner": 2}
+
+
+def byok_price_for(role: Optional[str]) -> int:
+    """$3 for users below instructor tier; free (0) at instructor tier and above."""
+    if role and _ROLE_RANK.get(role, 0) >= 2:
+        return 0
+    return BYOK_PRICE_USD
+
 # ── Approved providers (free tier, no credit card required) ──────────────────
 
 BYOK_PROVIDERS = {
@@ -125,25 +136,31 @@ def provider_route(provider: str):
 
 # ── Entitlement + key store helpers ──────────────────────────────────────────
 
-async def activate_byok(db, user_id: str) -> dict:
+async def activate_byok(db, user_id: str, role: Optional[str] = None) -> dict:
     """Flip the $3 BYOK entitlement on for a user.
+
+    Users below instructor tier pay BYOK_PRICE_USD. Instructor tier and above
+    (instructor, admin, executive_admin, creative_partner) get BYOK free — the
+    entitlement is granted at price 0.
 
     NOTE: this is the post-payment hook. Production should call it only after a
     successful Stripe/Lemon Squeezy checkout (see docs/ADMIN-MANUAL.md §7).
     """
+    price = byok_price_for(role)
     now = datetime.now(timezone.utc).isoformat()
     await db.users.update_one(
         {"id": user_id},
         {"$set": {"byok_enabled": True, "byok_activated_at": now}},
     )
-    return {"enabled": True, "price_usd": BYOK_PRICE_USD, "activated_at": now}
+    return {"enabled": True, "price_usd": price, "free_for_role": price == 0, "activated_at": now}
 
 
-async def get_byok_status(db, user_id: str) -> dict:
+async def get_byok_status(db, user_id: str, role: Optional[str] = None) -> dict:
     """Entitlement + per-provider key status for the current user (no raw keys)."""
     user_doc = await db.users.find_one(
         {"id": user_id}, {"_id": 0, "byok_enabled": 1, "byok_activated_at": 1}
     )
+    price = byok_price_for(role)
     key_docs = await db.user_byok_keys.find(
         {"user_id": user_id}, {"_id": 0, "encrypted_key": 0}
     ).sort("created_at", -1).to_list(length=10)
@@ -166,7 +183,8 @@ async def get_byok_status(db, user_id: str) -> dict:
         })
 
     return {
-        "price_usd": BYOK_PRICE_USD,
+        "price_usd": price,
+        "free_for_role": price == 0,
         "enabled": bool(user_doc.get("byok_enabled")) if user_doc else False,
         "activated_at": (user_doc or {}).get("byok_activated_at"),
         "providers": providers,
