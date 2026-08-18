@@ -10,6 +10,7 @@ const LINKS = [
   { to: "/community", label: "Community" },
   { to: "/creators", label: "Creators" },
   { to: "/plans", label: "Plans" },
+  { to: "/sponsor", label: "Sponsor" },
 ];
 
 export default function PublicNav() {

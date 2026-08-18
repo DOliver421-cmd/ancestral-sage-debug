@@ -2234,6 +2234,11 @@ else:
 from routers import payments as _payments_mod
 _payments_mod.bind(db, audit, notify, current_user)
 api_router.include_router(_payments_mod.router)
+
+# --- Sponsor a Scholarship (routers/scholarships.py) ---
+from routers import scholarships as _scholarships_mod
+_scholarships_mod.bind(db, audit, notify, current_user, check_rate)
+api_router.include_router(_scholarships_mod.router)
 # Re-export names other modules / later code in this file reference.
 PAYMENT_PRODUCTS = _payments_mod.PAYMENT_PRODUCTS
 PAYMENTS_ENABLED = _payments_mod.PAYMENTS_ENABLED
