@@ -120,6 +120,8 @@ import Jamil from "./pages/Jamil";
 import ProjectDashboard from "./pages/ProjectDashboard";
 import AITeamBridge from "./pages/AITeamBridge";
 import BYOK from "./pages/BYOK";
+import SiteGuide from "./pages/SiteGuide";
+import SiteSearch, { SiteSearchModal } from "./components/SiteSearch";
 
 // Role hierarchy must mirror backend ROLE_RANK in /app/backend/server.py.
 // Higher rank = more authority; a higher-rank role passes any check meant
@@ -193,6 +195,7 @@ function App() {
         {/* Global widgets */}
         <CookieConsent />
         <HelpGuide />
+        <SiteSearchModal />
         <WelcomeWizard />
 
         {/* Routes wrapped with main-content anchor */}
@@ -223,6 +226,9 @@ function App() {
           <Route path="/seshats-hub" element={<SeshatsHubPublic />} />
           {/* M.O.R.E. Help Center — unified entry point (greeter / exec / decoy modes) */}
           <Route path="/more-help-center" element={<MoreHelpCenter />} />
+          {/* Site search + Site Guide persona */}
+          <Route path="/search" element={<SiteSearch />} />
+          <Route path="/site-guide" element={<SiteGuide />} />
           <Route path="/landing" element={<LandingMarketplace />} />
           {/* Supervisor — executive_admin only; separate login at /supervisor-login */}
           <Route path="/supervisor-login" element={<SupervisorLogin />} />

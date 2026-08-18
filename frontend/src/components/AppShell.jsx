@@ -12,6 +12,7 @@ import {
   Gamepad2, Star, Radio, Globe, Swords, ChevronLeft, ChevronRight, Share2,
 } from "lucide-react";
 import NotificationBell from "./NotificationBell";
+import { Search } from "lucide-react";
 import { useEffect, useState } from "react";
 
 // ── Section header ────────────────────────────────────────────────────────────
@@ -125,11 +126,24 @@ export default function AppShell({ children }) {
         {/* Nav */}
         <nav className={`flex-1 py-4 ${collapsed ? "px-1" : "px-2"}`}>
 
+          {/* Site search — opens the global command palette (Ctrl+K) */}
+          <button
+            onClick={() => window.dispatchEvent(new CustomEvent("open-site-search"))}
+            data-testid="nav-search"
+            title={collapsed ? "Search (Ctrl+K)" : undefined}
+            className={`flex items-center gap-3 px-3 py-2 text-sm font-medium border-l-2 border-transparent text-white/65 hover:text-white hover:bg-white/5 rounded-r-md transition-all ${collapsed ? "justify-center px-0" : ""}`}
+          >
+            <Search className="w-4 h-4 shrink-0" />
+            {!collapsed && <span className="flex-1 text-left">Search</span>}
+            {!collapsed && <kbd className="text-[10px] font-black text-white/30 border border-white/15 rounded px-1.5 py-0.5">⌘K</kbd>}
+          </button>
+
           {/* ── CORE (everyone) ───────────────────────────────────────── */}
           <NavSection label="Home" collapsed={collapsed}>
             {nl("/dashboard",       "Dashboard",       LayoutDashboard, "nav-dashboard")}
             {nl("/profile",         "My Profile",      UserCircle,      "nav-profile")}
             {nl("/my-position",     "My Position",     Compass,         "nav-my-position")}
+            {nl("/site-guide",      "Site Guide",      Compass,         "nav-site-guide")}
             {nl("/settings",        "Settings",        KeyRound,        "nav-settings")}
             {nl("/byok",            "My AI (BYOK)",    KeyRound,        "nav-byok")}
           </NavSection>

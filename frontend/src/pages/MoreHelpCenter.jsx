@@ -14,7 +14,7 @@ import { Link } from "react-router-dom";
 import {
   Heart, BookOpen, MessageSquare, ArrowRight, Phone, Shield, Users, Globe,
   Activity, BadgeCheck, ShieldCheck, Sparkles, MapPin,
-  Send, Eye, EyeOff, Crown,
+  Send, Eye, EyeOff, Crown, Search,
 } from "lucide-react";
 import { api, BACKEND_URL } from "../lib/api";
 import { useAuth } from "../lib/auth";
@@ -1750,6 +1750,13 @@ export default function MoreHelpCenter() {
             {NAV_LINKS.map(({ label, to }) => (
               <Link key={to} to={to} style={{ fontSize: 10, fontWeight: 800, textTransform: "uppercase", letterSpacing: 2, color: "white", textDecoration: "none", background: TERRACOTTA, padding: "4px 11px", borderRadius: 4 }}>{label}</Link>
             ))}
+            {/* Site search — opens the global command palette (Ctrl+K) */}
+            <button
+              onClick={() => window.dispatchEvent(new CustomEvent("open-site-search"))}
+              style={{ fontSize: 10, fontWeight: 800, textTransform: "uppercase", letterSpacing: 2, color: "#fff", textDecoration: "none", background: FOREST, padding: "4px 11px", borderRadius: 4, border: "none", cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 5 }}>
+              <Search style={{ width: 11, height: 11 }} /> Search
+            </button>
+            <Link to="/site-guide" style={{ fontSize: 10, fontWeight: 800, textTransform: "uppercase", letterSpacing: 2, color: "#fff", textDecoration: "none", background: FOREST, padding: "4px 11px", borderRadius: 4 }}>Site Guide</Link>
             {/* M.O.R.E. Institute — prominent entry point to administration + classrooms */}
             <a href={`${BACKEND_URL}/api/handbooks/instructor`} target="_blank" rel="noopener noreferrer" style={{ fontSize: 10, fontWeight: 800, textTransform: "uppercase", letterSpacing: 2, color: "white", textDecoration: "none", background: TERRACOTTA, padding: "4px 11px", borderRadius: 4 }}>📘 Instructor Handbook</a>
             <a href={`${BACKEND_URL}/api/handbooks/student`} target="_blank" rel="noopener noreferrer" style={{ fontSize: 10, fontWeight: 800, textTransform: "uppercase", letterSpacing: 2, color: "white", textDecoration: "none", background: TERRACOTTA, padding: "4px 11px", borderRadius: 4 }}>📕 Student Handbook</a>

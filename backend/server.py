@@ -1822,6 +1822,11 @@ api_router.include_router(_media_mod.router)
 from routers import missing as _missing_mod
 _missing_mod.bind(db, current_user)
 api_router.include_router(_missing_mod.router)
+# --- Site Guide + site-wide search router (routers/site_guide.py) ---
+from routers import site_guide as _site_guide_mod
+_site_guide_mod.bind(db, current_user, check_rate)
+api_router.include_router(_site_guide_mod.router)
+
 
 # ── Pipeline: LLM intent routing ──────────────────────────────────────────────
 
