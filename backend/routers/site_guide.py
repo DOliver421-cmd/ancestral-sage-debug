@@ -146,6 +146,172 @@ SITE_GUIDE_SUGGESTIONS = [
 ]
 
 
+# ── Zero-cost Site Guide KB (no LLM, no tokens) ───────────────────────────────
+# The Site Guide's job is knowing where things live on this site. The FAQ below
+# plus the curated page index (_SITE_PAGES) already encode that knowledge, so
+# the most common questions are answered with ZERO API cost — no site quota, no
+# user BYOK spend. Only genuinely new questions escalate to the LLM gateway.
+
+_GUIDE_FAQ = [
+    {
+        "terms": ["all-access trial", "all access trial", "trial", "$3", "3 day", "33 minutes", "33 seconds"],
+        "title": "The $3 All-Access Trial",
+        "answer": (
+            "The $3 All-Access Trial unlocks every paid tier and feature on the site for 3 days "
+            "(33 minutes · 33 seconds on the clock). It's the cheapest way to try everything "
+            "before committing — no separate BYOK needed during the trial."
+        ),
+        "link": "/subscribe",
+    },
+    {
+        "terms": ["byok", "bring your own key", "own key", "api key", "groq", "cerebras", "gemini"],
+        "title": "BYOK — Bring Your Own Key",
+        "answer": (
+            "BYOK is a one-time $3 unlock at /byok. You attach a free API key from Groq, Cerebras, "
+            "or Gemini, and your AI requests — including this Site Guide — run through your own "
+            "key, so the platform pays nothing for your usage."
+        ),
+        "link": "/byok",
+    },
+    {
+        "terms": ["member", "plus", "pro", "patron", "plans", "plan", "pricing", "tier", "subscribe", "upgrade", "cost", "price"],
+        "title": "Plans & membership ladder",
+        "answer": (
+            "The membership ladder is Member $9/mo (community, standard AI Tutor), Plus $15/mo "
+            "(priority matching, expanded courses, portfolio tools), Pro $29/mo (advanced courses "
+            "+ labs, full AI suite, mentor hours), and Patron $59/mo (founder's circle, funds free "
+            "access for others, direct line to the team). There's also a $3 All-Access Trial that "
+            "unlocks everything for 3 days. Compare them all at /plans."
+        ),
+        "link": "/plans",
+    },
+    {
+        "terms": ["business office", "hire", "deal", "proposal", "service engagement", "social media", "audit", "micro-saas", "persona build", "seo retainer", "red-team", "invoice"],
+        "title": "Hiring the AI Business Office",
+        "answer": (
+            "The AI Business Office runs the site's revenue services — social media management, "
+            "audits and compliance gigs, micro-SaaS tools and maintenance, persona builds, living "
+            "knowledge archives, SEO retainers, invoice ops, and red-team scans. To hire it, go to "
+            "/business-office and open a deal (\"Start a service engagement\"). The office drafts a "
+            "proposal, a human approves it, and work ships only after sign-off."
+        ),
+        "link": "/business-office",
+    },
+    {
+        "terms": ["housing", "legal", "food", "help", "resources", "jobs", "education", "health", "211"],
+        "title": "Help Center resource lanes",
+        "answer": (
+            "The Help Center at /help-center is the resource hub for housing, legal help, food and "
+            "essentials, jobs and training, education, and health and wellness. The M.O.R.E. hub "
+            "at /more also has the service lanes, community chat, and legal tools. For immediate "
+            "needs, 211 connects you to free local services 24/7."
+        ),
+        "link": "/help-center",
+    },
+    {
+        "terms": ["courses", "modules", "curriculum", "lessons", "learn"],
+        "title": "Courses & learning modules",
+        "answer": (
+            "The course catalog is at /courses and the free curriculum modules are at /modules — "
+            "both free for everyone. Sign in and your progress, credentials, and certificates "
+            "track from your dashboard at /dashboard."
+        ),
+        "link": "/courses",
+    },
+    {
+        "terms": ["creator studio", "studio", "ghost producer", "create", "publish", "music"],
+        "title": "Creator tools",
+        "answer": (
+            "The Creator Studio at /studio is where you create and publish courses, music, and "
+            "creative products. Ghost Producer at /ghost-producer handles AI-assisted music and "
+            "content production. Most creator tools unlock at Plus and above."
+        ),
+        "link": "/studio",
+    },
+    {
+        "terms": ["classic", "original", "tools", "sanctuary", "djedi", "litigation", "supervisor", "sovereign", "ancestral sage"],
+        "title": "Classic Tools — the preserved originals",
+        "answer": (
+            "Every original standalone HTML application is preserved and launchable from "
+            "/classic-tools: the Creator's Sanctuary suite (DJEDI Oracle, Electrical Courses, "
+            "Media Strategist, Publisher), the litigation weapons, the original M.O.R.E. Help "
+            "Center, the original Helper, the Supervisor, the Sovereign, and the Ancestral Sage. "
+            "If a modern page ever feels thin, the original is one click away at /classic/{slug}."
+        ),
+        "link": "/classic-tools",
+    },
+    {
+        "terms": ["aawab", "agent", "wellness", "certification", "chamber", "aca badge", "cvs"],
+        "title": "AAWAB — Agent Wellness & Certification Bureau",
+        "answer": (
+            "AAWAB at /aawab lets you register AI agents and monitor their vital stats (Cognitive "
+            "Vitality Score, token velocity, context load, memory fragmentation), run treatment "
+            "protocols, and certify agents at CVS 98+ for a verifiable ACA badge. The "
+            "Certification Chamber is at /aawab/chamber."
+        ),
+        "link": "/aawab",
+    },
+]
+
+
+def _has_term(q: str, term: str) -> bool:
+    """Word-boundary match so short terms like "pro" don't hit "proposal"."""
+    if term.startswith("$"):
+        return term in q
+    return re.search(r"\b" + re.escape(term) + r"\b", q) is not None
+
+
+def _site_guide_kb(message: str) -> str | None:
+    """Zero-cost answer from the curated FAQ + page index; None escalates to the LLM."""
+    q = (message or "").lower()
+    if len(q) < 3:
+        return None
+
+    # 1) FAQ — exact topics with curated answers (a single specific term is enough).
+    best_faq, best_faq_hits = None, 0
+    for faq in _GUIDE_FAQ:
+        hits = sum(1 for t in faq["terms"] if _has_term(q, t))
+        if hits > best_faq_hits:
+            best_faq_hits, best_faq = hits, faq
+    if best_faq and best_faq_hits >= 1:
+        answer = best_faq["answer"]
+        if "?" in (message or ""):
+            return answer
+        return answer + f" Find it at {best_faq['link']}."
+
+    # 2) Page index — "where do I find X" navigation questions.
+    scored = []
+    for p in _SITE_PAGES:
+        title = (p["title"] or "").lower()
+        kw = " ".join(p.get("keywords", [])).lower()
+        summ = (p.get("summary") or "").lower()
+        score = 0
+        if q in title:
+            score += 4
+        elif title in q:
+            score += 3
+        if q in kw:
+            score += 3
+        for k in p.get("keywords", []):
+            if len(k) >= 4 and k in q:
+                score += 2
+                break
+        if q in summ:
+            score += 1
+        if score:
+            scored.append((score, p))
+    if not scored:
+        return None
+    scored.sort(key=lambda t: (-t[0], t[1]["title"]))
+    best_score, best = scored[0]
+    if best_score < 2:
+        return None
+    return (
+        f"That's the {best['title']} — {best.get('summary', '')} "
+        f"You'll find it at {best['link']}."
+    )
+
+
 class SiteGuideChatReq(BaseModel):
     message: str = Field(..., min_length=1, max_length=4000)
     history: List[dict] = Field(default_factory=list)
@@ -163,6 +329,26 @@ async def site_guide_chat(body: SiteGuideChatReq, user: User = Depends(_dep_curr
             "The Site Guide is a member benefit. Unlock it with any paid plan, the $3 All-Access Trial, or BYOK.",
         )
 
+    # ── FREE-FIRST: answer from the curated site KB (zero tokens) ────────────
+    # The Site Guide's whole job is knowing where things live on this site, and
+    # the FAQ + page index above already encode that. Common questions are
+    # served with ZERO API cost — no site quota, no user BYOK spend. Only
+    # genuinely new questions escalate to the LLM gateway.
+    kb_reply = _site_guide_kb(body.message)
+    if kb_reply:
+        try:
+            await db.site_guide_sessions.insert_one({
+                "id": str(uuid.uuid4()),
+                "user_id": user.id,
+                "user_msg": body.message,
+                "guide_reply": kb_reply,
+                "provider": "kb",
+                "created_at": datetime.now(timezone.utc).isoformat(),
+            })
+        except Exception:
+            pass
+        return {"reply": kb_reply, "access": access, "reason": reason, "provider": "kb"}
+
     from ai.llm_gateway import call_llm as _call_llm
 
     messages = []
@@ -173,6 +359,9 @@ async def site_guide_chat(body: SiteGuideChatReq, user: User = Depends(_dep_curr
         messages.append({"role": role, "content": str(h.get("content", ""))[:4000]})
     messages.append({"role": "user", "content": body.message})
 
+    reply = ""
+    provider = "unknown"
+    degraded = False
     try:
         gw = await _call_llm(
             system=SITE_GUIDE_SYSTEM,
@@ -181,10 +370,24 @@ async def site_guide_chat(body: SiteGuideChatReq, user: User = Depends(_dep_curr
             persona_label="site_guide",
             user_id=user.id,  # BYOK users route through their own key first
         )
-        reply = gw.get("text") or "I'm here — just a brief connectivity gap. Try again in a moment."
+        reply = gw.get("text") or ""
+        provider = gw.get("provider") or "unknown"
+        degraded = bool(gw.get("degraded")) or provider == "kb_fallback"
     except Exception as exc:
         logger.exception("Site Guide AI error")
-        raise HTTPException(502, f"Site Guide AI error: {exc}")
+        degraded = True
+
+    # ── Gateway down or quota exhausted → keep it free and useful ────────────
+    # Never echo the gateway's generic "restricted mode" notice. Give a real
+    # pointer set instead so the guide still helps when the API is exhausted.
+    if degraded or not reply.strip():
+        reply = (
+            "I'm here — just a brief connectivity gap on my end. I can still point you "
+            "around: the M.O.R.E. Help Center is at /more-help-center, courses at /courses, "
+            "modules at /modules, plans at /plans, and the resource lanes at /help-center. "
+            "Try asking me again in a moment."
+        )
+        provider = "kb_fallback"
 
     # Best-effort session log (never blocks the reply).
     try:
@@ -193,13 +396,13 @@ async def site_guide_chat(body: SiteGuideChatReq, user: User = Depends(_dep_curr
             "user_id": user.id,
             "user_msg": body.message,
             "guide_reply": reply,
-            "provider": gw.get("provider"),
+            "provider": provider,
             "created_at": datetime.now(timezone.utc).isoformat(),
         })
     except Exception:
         pass
 
-    return {"reply": reply, "access": access, "reason": reason, "provider": gw.get("provider")}
+    return {"reply": reply, "access": access, "reason": reason, "provider": provider}
 
 
 @router.get("/site-guide/status")
