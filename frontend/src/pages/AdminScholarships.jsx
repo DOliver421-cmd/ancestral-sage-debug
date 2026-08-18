@@ -34,6 +34,7 @@ export default function AdminScholarships() {
     api.get("/scholarships/funds").then((r) => setFunds(r.data.funds || [])).catch(() => {});
   }
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => { if (tab === "applications") loadApps(); }, [tab, filter]);
   useEffect(() => { loadAll(); }, []);
 

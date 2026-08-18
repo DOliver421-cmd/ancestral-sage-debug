@@ -122,6 +122,8 @@ export default function ExecutiveCommandCenter() {
       agenda.slice(0, 6).forEach((a) => lines.push(`  • [${a.priority || "normal"}] ${a.title}${a.owner ? " — " + a.owner : ""}`));
     }
     return lines.join("\n");
+  // gwBudget is derived from sys (already in deps); individual fields don't need separate tracking
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sys, stats, abo, aboCounts, agenda, totalUsers]);
 
   async function copyBriefing() {

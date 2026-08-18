@@ -54,6 +54,9 @@ function ControlPanel({ user: target, actorRole, onUpdated, onDeleted }) {
     setPwLink(null);
     setCopied(false);
     setMsg(null);
+  // Reset form fields when the selected target user changes; we intentionally
+  // seed from target.* only on id change, not on every individual field update.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [target.id]);
 
   const notify = (text, isErr = false) => toast_msg(setMsg, text, isErr);
