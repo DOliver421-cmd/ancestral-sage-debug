@@ -112,17 +112,17 @@ export default function UnifiedGateway() {
       {/* ── MY HELPER — THE WORKING MODULE, BELOW M.O.R.E. HELP CENTER ───── */}
       <section className="relative overflow-hidden"
         style={{ background: "linear-gradient(160deg, #14120a 0%, #241a08 55%, #0d1a0a 100%)", borderBottom: "1px solid rgba(232,165,30,0.25)" }}>
-        <div className="relative max-w-6xl mx-auto px-6 py-14">
+        <div className="relative max-w-6xl mx-auto px-4 sm:px-6 py-8 sm:py-12">
           {/* Header row: founder logo + copy + full-page link */}
-          <div className="flex flex-col lg:flex-row lg:items-center gap-5 mb-8">
+          <div className="flex flex-col lg:flex-row lg:items-center gap-4 sm:gap-5 mb-5 sm:mb-8">
             <img src={FOUNDER_LOGO} alt="M.O.R.E. Logo"
-              className="w-16 h-16 rounded-2xl object-cover shrink-0"
+              className="w-12 h-12 sm:w-16 sm:h-16 rounded-2xl object-cover shrink-0"
               style={{ border: "2px solid rgba(232,165,30,0.35)", boxShadow: "0 8px 24px rgba(0,0,0,0.35)" }} />
             <div className="flex-1">
               <div className="overline" style={{ color: "#E8A51E" }}>My Helper — built for our elders</div>
               <h2 style={{
                 fontFamily: "'Cabinet Grotesk', 'Plus Jakarta Sans', sans-serif",
-                fontSize: "clamp(1.5rem, 3.5vw, 2.4rem)", fontWeight: 900,
+                fontSize: "clamp(1.35rem, 3.5vw, 2.4rem)", fontWeight: 900,
                 color: "#fff", lineHeight: 1.15, margin: "4px 0 6px",
               }}>
                 I am here to be your <span style={{ color: "#E8A51E" }}>HELPER.</span>
@@ -134,14 +134,14 @@ export default function UnifiedGateway() {
               </p>
             </div>
             <Link to="/helper"
-              className="hidden lg:inline-flex items-center gap-2 font-bold text-sm px-6 py-3 rounded-xl border shrink-0"
+              className="inline-flex items-center gap-2 font-bold text-sm px-5 sm:px-6 py-2.5 sm:py-3 rounded-xl border shrink-0 self-start"
               style={{ borderColor: "rgba(232,165,30,0.4)", color: "#E8A51E", background: "rgba(232,165,30,0.08)", fontSize: 14 }}>
               Open full page →
             </Link>
           </div>
 
           {/* The actual working helper — all functions, live right on the landing page */}
-          <div className="rounded-2xl overflow-hidden" style={{ height: "min(76vh, 660px)", boxShadow: "0 30px 80px rgba(0,0,0,0.45)" }}>
+          <div className="rounded-2xl overflow-hidden" style={{ height: "min(88dvh, 760px)", boxShadow: "0 30px 80px rgba(0,0,0,0.45)" }}>
             <PublicHelper embedded />
           </div>
 
