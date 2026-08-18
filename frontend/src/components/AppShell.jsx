@@ -190,7 +190,6 @@ export default function AppShell({ children }) {
           </NavSection>
 
           {/* ── AGENT WELLNESS (AAWAB — everyone) ─────────────────────── */}
-          {/* ── AGENT WELLNESS (AAWAB — everyone) ─────────────────────── */}
           <NavSection label="Agent Wellness" collapsed={collapsed}>
             {nl("/aawab",          "Agent Registry",  HeartPulse,      "nav-aawab")}
             {nl("/aawab/chamber",  "Certification",   Award,           "nav-aawab-chamber")}
