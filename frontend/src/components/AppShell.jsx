@@ -218,6 +218,7 @@ export default function AppShell({ children }) {
               {nl("/more/ops",        "Dept. AI Ops",    Network,        "nav-more-ops")}
               {nl("/assistant",       "Admin Assistant", Sparkles,       "nav-assistant")}
               {nl("/admin/bridge",    "AI Team Bridge",  Network,        "nav-bridge")}
+              {nl("/arena",           "The Arena",       Swords,         "nav-arena")}
             </NavSection>
           )}
 
@@ -235,7 +236,6 @@ export default function AppShell({ children }) {
               {nl("/team/ops",           "Team Ops",          Settings,       "nav-team-ops")}
               {nl("/supervisor",         "Supervisor Hub",    Radio,          "nav-supervisor")}
               {nl("/creative-partner",   "Creative Partner",  Palette,        "nav-creative-partner")}
-              {nl("/arena",              "The Arena",         Swords,         "nav-arena")}
               {nl("/jamil",              "Jamil",             Sparkles,       "nav-jamil")}
               {nl("/projects",           "Projects",          ClipboardCheck, "nav-projects")}
             </NavSection>
