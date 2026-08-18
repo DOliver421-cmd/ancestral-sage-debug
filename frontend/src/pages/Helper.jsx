@@ -169,9 +169,15 @@ function useHelperAPI() {
         headers,
         body: JSON.stringify({ message: question }),
       });
-      if (r.ok) { const d = await r.json(); if (d.reply) return d.reply; }
+      if (r.ok) {
+        const d = await r.json();
+        // If the gateway is down or quota-exhausted the backend may still return
+        // its generic "restricted mode" notice — treat that as a miss so the
+        // local knowledge base (free, offline, zero cost) answers instead.
+        if (d.reply && !d.reply.includes("restricted mode")) return d.reply;
+      }
     } catch {}
-    // Fallback: local knowledge base (offline / backend down)
+    // Fallback: local knowledge base (offline / backend down / quota exhausted)
     return getSmartFallback(question);
   }, []);
 }
@@ -250,8 +256,9 @@ function useMobileKeyboardFix(endRef) {
 
 // ===========================================================================
 // PUBLIC HELPER - colorful, full-featured
+// (embedded=true renders inside a bounded container, e.g. the landing page)
 // ===========================================================================
-function PublicHelper() {
+export function PublicHelper({ embedded = false }) {
   const [searchParams] = useSearchParams();
   const [msgs, setMsgs] = useState([]);
   const [input, setInput] = useState("");
@@ -356,11 +363,15 @@ function PublicHelper() {
   const activeTitle = TOPICS.find(t => t.key === activeTopic)?.title;
 
   return (
-    <div style={{ display:"flex", flexDirection:"column", height:"100dvh", background:"#f5f7fb", fontFamily:"'IBM Plex Sans', -apple-system, sans-serif", color:"#1f2933", overflow:"hidden" }}>
+    <div style={{ display:"flex", flexDirection:"column", height: embedded ? "100%" : "100dvh", background:"#f5f7fb", fontFamily:"'IBM Plex Sans', -apple-system, sans-serif", color:"#1f2933", overflow:"hidden", ...(embedded ? { borderRadius:20, border:"1px solid rgba(232,165,30,0.4)", boxShadow:"0 24px 60px rgba(0,0,0,0.35)" } : {}) }}>
       {/* COLORFUL GRADIENT HEADER */}
       <div style={{ background:"linear-gradient(135deg,#4b7cff,#7b5cff)", padding:"14px 16px", flexShrink:0, color:"#fff" }}>
         <div style={{ display:"flex", alignItems:"center", gap:12, marginBottom:10 }}>
-          <div style={{ width:52, height:52, borderRadius:"50%", background:"radial-gradient(circle at 30% 20%,#fde68a,#facc15 40%,#f97316 80%)", display:"flex", alignItems:"center", justifyContent:"center", fontWeight:800, fontSize:24, flexShrink:0, boxShadow:"0 0 0 3px rgba(255,255,255,0.3)" }}>H</div>
+          {embedded ? (
+            <img src="/WAI_Logo.jpg" alt="M.O.R.E." style={{ width:52, height:52, borderRadius:"50%", objectFit:"cover", flexShrink:0, background:"#fff", boxShadow:"0 0 0 3px rgba(255,255,255,0.3)" }} />
+          ) : (
+            <div style={{ width:52, height:52, borderRadius:"50%", background:"radial-gradient(circle at 30% 20%,#fde68a,#facc15 40%,#f97316 80%)", display:"flex", alignItems:"center", justifyContent:"center", fontWeight:800, fontSize:24, flexShrink:0, boxShadow:"0 0 0 3px rgba(255,255,255,0.3)" }}>H</div>
+          )}
           <div style={{ flex:1 }}>
             <div style={{ fontSize:20, fontWeight:800, lineHeight:1.2 }}>I am here to be your HELPER.</div>
             <div style={{ fontSize:13, opacity:0.9, marginTop:2 }}>I can help you understand mail, bills, legal papers, housing and more — in plain, simple words.</div>

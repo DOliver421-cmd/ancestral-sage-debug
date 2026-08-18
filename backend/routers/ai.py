@@ -1488,6 +1488,87 @@ async def scholar_integrity(user: User = Depends(_dep_current_user)):
     return {"service": "savant_scholar", "hash": compute_scholar_hash()}
 
 
+# ── Server-side KB (zero external dependency) ─────────────────────────────────
+# Curated, pre-written answers for the most common life questions. Matching runs
+# BEFORE any LLM call so these answers cost the platform nothing — this is the
+# Helper's designed free-first mode: it only escalates to the LLM gateway when
+# no curated topic matches the question.
+_HELPER_KB_GENERIC = (
+    "I'm here to help. For many situations — housing, legal, financial, health, or benefits — "
+    "calling 211 is the fastest way to find free local resources. "
+    "It's confidential, available 24/7, and covers most needs. "
+    "You can also visit 211.org to search by ZIP code. "
+    "If you can share a few more details about your situation, I can give you more specific guidance."
+)
+
+
+def _helper_kb(message: str) -> str | None:
+    """Return a curated zero-cost answer for a known topic, or None to escalate."""
+    msg_lower = message.lower()
+    if any(w in msg_lower for w in ["evict", "eviction", "landlord", "lease", "rent", "housing"]):
+        return (
+            "If you received an eviction notice, don't ignore it — you have rights. "
+            "Read the notice carefully for the date and reason. "
+            "Call 211 to find free legal aid in your area right away. "
+            "You usually have a right to a court hearing before you can be removed. "
+            "Document everything in writing and keep copies."
+        )
+    if any(w in msg_lower for w in ["court", "summons", "lawsuit", "sued", "legal", "attorney", "lawyer"]):
+        return (
+            "If you received court papers, respond before the deadline shown — ignoring them can lead to a default judgment against you. "
+            "Call 211 to be connected to free or low-cost legal aid. "
+            "Many courthouses have self-help centers where staff can explain your options. "
+            "Write down all dates and keep every document you receive."
+        )
+    if any(w in msg_lower for w in ["irs", "tax", "debt", "collection", "bill", "owe"]):
+        return (
+            "Debt collectors and IRS letters can feel scary, but you have protections under federal law. "
+            "You have the right to request written verification of any debt. "
+            "Never pay a debt or give banking info over the phone to someone who called you unexpectedly — that's often a scam. "
+            "For real IRS issues, visit IRS.gov or call 1-800-829-1040. "
+            "For debt help, call 211 for a free financial counselor."
+        )
+    if any(w in msg_lower for w in ["snap", "ebt", "food stamp", "wic", "medicaid", "benefits", "assistance"]):
+        return (
+            "You may qualify for food, health, or utility assistance programs. "
+            "Call 211 — it's free, confidential, and available 24/7 — to find programs in your area. "
+            "For SNAP (food stamps), apply at your local DHHS or online at benefits.gov. "
+            "For Medicaid, visit healthcare.gov or your state health department website. "
+            "There's no shame in using programs you've paid into and that exist to help you."
+        )
+    if any(w in msg_lower for w in ["scam", "fraud", "fake", "phishing", "suspicious"]):
+        return (
+            "This sounds like it could be a scam. Real government agencies like the IRS or Social Security Administration never call demanding immediate payment or gift cards. "
+            "Don't share personal information, Social Security numbers, or banking details with anyone who contacted you first. "
+            "Hang up, block the number, and report it to the FTC at ReportFraud.ftc.gov. "
+            "If you already sent money, call your bank immediately."
+        )
+    if any(w in msg_lower for w in ["fired", "terminated", "laid off", "unemployment", "job", "wage"]):
+        return (
+            "Losing a job is stressful, but you likely have options. "
+            "File for unemployment benefits right away — don't wait, there are deadlines. "
+            "Visit your state's Department of Labor website or call 211 for help with the application. "
+            "If you believe you were fired unfairly or weren't paid what you earned, contact your state labor board — it's free to file a complaint. "
+            "Keep any emails, pay stubs, or written communications as evidence."
+        )
+    if any(w in msg_lower for w in ["medicine", "medication", "prescription", "drug", "side effect", "dosage"]):
+        return (
+            "For questions about your medication, your pharmacist is your best free resource — you can call them anytime without an appointment. "
+            "If you're having a serious reaction, call 911 or Poison Control at 1-800-222-1222. "
+            "If you can't afford your prescription, ask the pharmacist about generic versions or patient assistance programs. "
+            "GoodRx (goodrx.com) can also show you lower prices at nearby pharmacies."
+        )
+    if any(w in msg_lower for w in ["crisis", "suicide", "harm", "emergency", "help me", "dangerous"]):
+        return (
+            "You are not alone, and help is available right now. "
+            "Call or text 988 to reach the Suicide and Crisis Lifeline — free, confidential, 24/7. "
+            "If you or someone else is in immediate danger, call 911. "
+            "For domestic violence support, call 1-800-799-7233 (National DV Hotline) — also 24/7 and confidential. "
+            "Please reach out — these lines are staffed by people who care and want to help you."
+        )
+    return None
+
+
 @router.post("/ai/helper")
 async def ai_helper(body: dict, request: Request):
     """Public Helper endpoint — no auth required.
@@ -1556,8 +1637,17 @@ YOU NEVER:
 
 WAI-Institute and M.O.R.E. Help Center exist to multiply resources and empowerment for communities that have been locked out of the institutions that build wealth, opportunity, and influence. Every person who uses this Helper deserves your full effort."""
 
-    # ── LLM via gateway (handles retry, fallback, cost tracking) ─────────────
+    # ── FREE-FIRST: curated KB answers cost zero tokens ──────────────────────
+    # The Helper was designed to answer the most common life questions from its
+    # built-in knowledge base at ZERO API cost. Only escalate to the LLM gateway
+    # when no curated topic matches the question.
+    kb_reply = _helper_kb(message)
+    if kb_reply:
+        return {"reply": kb_reply}
+
+    # ── LLM via gateway (only for questions the KB can't answer) ─────────────
     reply = ""
+    degraded = False
     try:
         from ai.llm_gateway import call_llm as _call_llm
         _gw = await _call_llm(
@@ -1567,81 +1657,17 @@ WAI-Institute and M.O.R.E. Help Center exist to multiply resources and empowerme
             persona_label="helper",
         )
         reply = _gw.get("text", "").strip()
+        degraded = bool(_gw.get("degraded")) or _gw.get("provider") == "kb_fallback"
     except Exception as _herr:
         logger.warning("Helper AI: gateway call failed (%s) — falling through to KB", _herr)
+        degraded = True
 
-    # ── Server-side KB fallback (zero external dependency) ───────────────────
-    if not reply.strip():
-        msg_lower = message.lower()
-        if any(w in msg_lower for w in ["evict", "eviction", "landlord", "lease", "rent", "housing"]):
-            reply = (
-                "If you received an eviction notice, don't ignore it — you have rights. "
-                "Read the notice carefully for the date and reason. "
-                "Call 211 to find free legal aid in your area right away. "
-                "You usually have a right to a court hearing before you can be removed. "
-                "Document everything in writing and keep copies."
-            )
-        elif any(w in msg_lower for w in ["court", "summons", "lawsuit", "sued", "legal", "attorney", "lawyer"]):
-            reply = (
-                "If you received court papers, respond before the deadline shown — ignoring them can lead to a default judgment against you. "
-                "Call 211 to be connected to free or low-cost legal aid. "
-                "Many courthouses have self-help centers where staff can explain your options. "
-                "Write down all dates and keep every document you receive."
-            )
-        elif any(w in msg_lower for w in ["irs", "tax", "debt", "collection", "bill", "owe"]):
-            reply = (
-                "Debt collectors and IRS letters can feel scary, but you have protections under federal law. "
-                "You have the right to request written verification of any debt. "
-                "Never pay a debt or give banking info over the phone to someone who called you unexpectedly — that's often a scam. "
-                "For real IRS issues, visit IRS.gov or call 1-800-829-1040. "
-                "For debt help, call 211 for a free financial counselor."
-            )
-        elif any(w in msg_lower for w in ["snap", "ebt", "food stamp", "wic", "medicaid", "benefits", "assistance"]):
-            reply = (
-                "You may qualify for food, health, or utility assistance programs. "
-                "Call 211 — it's free, confidential, and available 24/7 — to find programs in your area. "
-                "For SNAP (food stamps), apply at your local DHHS or online at benefits.gov. "
-                "For Medicaid, visit healthcare.gov or your state health department website. "
-                "There's no shame in using programs you've paid into and that exist to help you."
-            )
-        elif any(w in msg_lower for w in ["scam", "fraud", "fake", "phishing", "suspicious"]):
-            reply = (
-                "This sounds like it could be a scam. Real government agencies like the IRS or Social Security Administration never call demanding immediate payment or gift cards. "
-                "Don't share personal information, Social Security numbers, or banking details with anyone who contacted you first. "
-                "Hang up, block the number, and report it to the FTC at ReportFraud.ftc.gov. "
-                "If you already sent money, call your bank immediately."
-            )
-        elif any(w in msg_lower for w in ["fired", "terminated", "laid off", "unemployment", "job", "wage"]):
-            reply = (
-                "Losing a job is stressful, but you likely have options. "
-                "File for unemployment benefits right away — don't wait, there are deadlines. "
-                "Visit your state's Department of Labor website or call 211 for help with the application. "
-                "If you believe you were fired unfairly or weren't paid what you earned, contact your state labor board — it's free to file a complaint. "
-                "Keep any emails, pay stubs, or written communications as evidence."
-            )
-        elif any(w in msg_lower for w in ["medicine", "medication", "prescription", "drug", "side effect", "dosage"]):
-            reply = (
-                "For questions about your medication, your pharmacist is your best free resource — you can call them anytime without an appointment. "
-                "If you're having a serious reaction, call 911 or Poison Control at 1-800-222-1222. "
-                "If you can't afford your prescription, ask the pharmacist about generic versions or patient assistance programs. "
-                "GoodRx (goodrx.com) can also show you lower prices at nearby pharmacies."
-            )
-        elif any(w in msg_lower for w in ["crisis", "suicide", "harm", "emergency", "help me", "dangerous"]):
-            reply = (
-                "You are not alone, and help is available right now. "
-                "Call or text 988 to reach the Suicide and Crisis Lifeline — free, confidential, 24/7. "
-                "If you or someone else is in immediate danger, call 911. "
-                "For domestic violence support, call 1-800-799-7233 (National DV Hotline) — also 24/7 and confidential. "
-                "Please reach out — these lines are staffed by people who care and want to help you."
-            )
-        else:
-            reply = (
-                "I'm here to help. For many situations — housing, legal, financial, health, or benefits — "
-                "calling 211 is the fastest way to find free local resources. "
-                "It's confidential, available 24/7, and covers most needs. "
-                "You can also visit 211.org to search by ZIP code. "
-                "If you can share a few more details about your situation, I can give you more specific guidance."
-            )
+    # ── Gateway down or quota exhausted → curated free guidance ──────────────
+    # The gateway's own last-resort reply is a generic "restricted mode" notice.
+    # For the Helper, the designed free answer is the 211 guidance below — never
+    # leave a person with a dead-end message when the free KB can serve them.
+    if degraded or not reply.strip():
+        reply = _HELPER_KB_GENERIC
 
     return {"reply": reply.strip()}
 
