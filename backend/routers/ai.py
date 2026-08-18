@@ -1648,6 +1648,7 @@ WAI-Institute and M.O.R.E. Help Center exist to multiply resources and empowerme
     # ── LLM via gateway (only for questions the KB can't answer) ─────────────
     reply = ""
     degraded = False
+    budget_hit = False
     try:
         from ai.llm_gateway import call_llm as _call_llm
         _gw = await _call_llm(
@@ -1655,32 +1656,39 @@ WAI-Institute and M.O.R.E. Help Center exist to multiply resources and empowerme
             messages=[{"role": "user", "content": message}],
             max_tokens=512,
             persona_label="helper",
+            budget_key=f"ip:{ip}",  # anonymous users are budgeted by IP
         )
         reply = _gw.get("text", "").strip()
+        budget_hit = bool(_gw.get("budget_exceeded"))
         degraded = bool(_gw.get("degraded")) or _gw.get("provider") == "kb_fallback"
     except Exception as _herr:
         logger.warning("Helper AI: gateway call failed (%s) — falling through to KB", _herr)
         degraded = True
 
-    # ── Gateway down or quota exhausted → curated free guidance ──────────────
+    # ── Gateway down, quota exhausted, or user budget used → free guidance ──
     # The gateway's own last-resort reply is a generic "restricted mode" notice.
     # For the Helper, the designed free answer is the 211 guidance below — never
     # leave a person with a dead-end message when the free KB can serve them.
-    if degraded or not reply.strip():
+    if budget_hit:
+        from user_budget import budget_notice
+        reply = budget_notice() + "\n\n" + _HELPER_KB_GENERIC
+    elif degraded or not reply.strip():
         reply = _HELPER_KB_GENERIC
 
     return {"reply": reply.strip()}
 
 
-async def _helper_reply_free_first(message: str) -> str:
+async def _helper_reply_free_first(message: str, budget_key: str = "") -> str:
     """One Helper answer: curated KB first (zero tokens), LLM only on no-match,
-    curated 211 guidance when the gateway is down or quota-exhausted."""
+    curated 211 guidance when the gateway is down, quota-exhausted, or the
+    visitor's daily AI budget is used up."""
     kb_reply = _helper_kb(message)
     if kb_reply:
         return kb_reply
 
     reply = ""
     degraded = True
+    budget_hit = False
     try:
         from ai.llm_gateway import call_llm as _call_llm
         _gw = await _call_llm(
@@ -1688,11 +1696,16 @@ async def _helper_reply_free_first(message: str) -> str:
             messages=[{"role": "user", "content": message}],
             max_tokens=512,
             persona_label="helper",
+            budget_key=budget_key or None,
         )
         reply = _gw.get("text", "").strip()
+        budget_hit = bool(_gw.get("budget_exceeded"))
         degraded = bool(_gw.get("degraded")) or _gw.get("provider") == "kb_fallback"
     except Exception:
         degraded = True
+    if budget_hit:
+        from user_budget import budget_notice
+        return budget_notice() + "\n\n" + _HELPER_KB_GENERIC
     if degraded or not reply.strip():
         return _HELPER_KB_GENERIC
     return reply
@@ -1736,7 +1749,7 @@ async def public_helper_ask(body: dict, request: Request):
     except ValueError as _guard_err:
         raise HTTPException(400, str(_guard_err))
 
-    reply = await _helper_reply_free_first(question)
+    reply = await _helper_reply_free_first(question, budget_key=f"ip:{ip}")
     short, full = _split_short_full(reply)
     return {"short": short, "full": full}
 
@@ -1761,7 +1774,7 @@ async def helper_ask(body: dict, request: Request):
     except ValueError as _guard_err:
         raise HTTPException(400, str(_guard_err))
 
-    reply = await _helper_reply_free_first(question)
+    reply = await _helper_reply_free_first(question, budget_key=f"ip:{ip}")
     short, full = _split_short_full(reply)
     return {"short": short, "full": full}
 
