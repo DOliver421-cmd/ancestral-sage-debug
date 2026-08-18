@@ -3,9 +3,9 @@ import { useSearchParams, Link } from "react-router-dom";
 import AppShell from "../components/AppShell";
 import { api } from "../lib/api";
 import { useAuth } from "../lib/auth";
-import { MEMBERSHIP_PLANS, CREATOR_PLANS, planByKey } from "../lib/plans";
+import { MEMBERSHIP_PLANS, TRIAL_PLAN, planByKey } from "../lib/plans";
 import { tierRank } from "../lib/tiers";
-import { CheckCircle, ExternalLink, ArrowLeft, Zap, Crown } from "lucide-react";
+import { CheckCircle, ExternalLink, ArrowLeft, Zap } from "lucide-react";
 import { toast } from "sonner";
 
 function priceLabel(price) {
@@ -19,9 +19,7 @@ export default function SubscribePage() {
   const [portalLoading, setPortalLoading] = useState(false);
 
   const planParam = searchParams.get("plan");
-  const sanctuaryPlan = planParam && CREATOR_PLANS.find(p => p.key === planParam)
-    ? planByKey(planParam)
-    : null;
+  const sanctuaryPlan = planParam && TRIAL_PLAN.key === planParam ? planByKey(planParam) : null;
   const tierPlan = planParam && !sanctuaryPlan
     ? MEMBERSHIP_PLANS.find(p => p.key === planParam) || null
     : null;
@@ -245,51 +243,6 @@ export default function SubscribePage() {
             })}
           </div>
 
-          {/* Sanctuary section */}
-          <div style={{ borderTop: "1px solid rgba(255,255,255,0.06)", paddingTop: 36, marginBottom: 32 }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 6 }}>
-              <Crown size={18} style={{ color: "#a855f7" }} />
-              <div style={{ fontFamily: "monospace", fontWeight: 900, fontSize: "1rem", color: "#a855f7", letterSpacing: "0.08em" }}>
-                CREATOR'S SANCTUARY
-              </div>
-            </div>
-            <p style={{ fontSize: 13, color: "#6b6480", marginBottom: 20, maxWidth: 600 }}>
-              Specialized lanes for active creators — each includes the matching membership level plus higher payouts,
-              course publishing, advanced tools, and moderation rights.
-            </p>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 14 }}>
-              {CREATOR_PLANS.map(plan => (
-                <div key={plan.key} style={{ background: "#100e1a", border: "1px solid rgba(168,85,247,0.2)", borderRadius: 14, padding: "18px 16px", display: "flex", flexDirection: "column" }}>
-                  <div style={{ fontSize: "0.6rem", fontFamily: "monospace", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.1em", color: "#a855f7", marginBottom: 6 }}>{plan.name}</div>
-                  <div style={{ display: "flex", alignItems: "flex-end", gap: 4, marginBottom: 12 }}>
-                    <span style={{ fontFamily: "monospace", fontSize: "1.6rem", fontWeight: 900, color: "#e0d8f0", lineHeight: 1 }}>{priceLabel(plan.price)}</span>
-                    <span style={{ fontSize: 11, color: "#6b6480", marginBottom: 4 }}>{plan.period}</span>
-                  </div>
-                  <ul style={{ listStyle: "none", padding: 0, margin: "0 0 16px", flex: 1, display: "flex", flexDirection: "column", gap: 7 }}>
-                    {plan.features.map(f => (
-                      <li key={f} style={{ display: "flex", alignItems: "flex-start", gap: 7, fontSize: 11, color: "#c4b5fd", lineHeight: 1.4 }}>
-                        <CheckCircle size={11} style={{ color: "#a855f7", flexShrink: 0, marginTop: 1 }} /> {f}
-                      </li>
-                    ))}
-                  </ul>
-                  <button
-                    onClick={() => subscribe(plan.key)}
-                    disabled={!!loading}
-                    style={{
-                      width: "100%", padding: "9px", border: "1px solid rgba(168,85,247,0.4)",
-                      borderRadius: 8, background: plan.trial ? "rgba(232,165,30,0.15)" : "transparent",
-                      color: plan.trial ? "#E8A51E" : "#a855f7",
-                      borderColor: plan.trial ? "rgba(232,165,30,0.5)" : "rgba(168,85,247,0.4)",
-                      fontSize: 11, fontWeight: 900, fontFamily: "monospace", cursor: "pointer",
-                      opacity: loading && loading !== plan.key ? 0.5 : 1,
-                    }}
-                  >
-                    {loading === plan.key ? "Redirecting…" : plan.trial ? "Start $3 Trial →" : `Choose ${plan.name}`}
-                  </button>
-                </div>
-              ))}
-            </div>
-          </div>
 
           {/* Footer */}
           <div style={{ textAlign: "center" }}>
