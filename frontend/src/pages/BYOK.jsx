@@ -77,10 +77,18 @@ export default function BYOK() {
   const activate = async () => {
     setBusyProvider("activate");
     try {
-      const { data } = await api.post("/byok/activate");
+      // Checkout first: instructors activate free; below-instructor users get
+      // a $3 payment session (the webhook flips byok_enabled once paid).
+      const { data } = await api.post("/byok/checkout");
+      if (data?.url) {
+        window.location.href = data.url;
+        return;
+      }
       setStatus((s) => ({ ...s, enabled: true, activated_at: data.activated_at, price_usd: data.price_usd, free_for_role: data.free_for_role }));
       flash(data?.free_for_role
         ? "BYOK activated — included free with your instructor account."
+        : data?.grace
+        ? "BYOK activated — $3 unlock recorded (payments pending setup)."
         : `BYOK activated — $${data.price_usd} entitlement enabled.`);
     } catch (e) {
       flash(e?.response?.data?.detail || "Activation failed.");
