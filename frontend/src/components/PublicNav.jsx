@@ -1,4 +1,5 @@
 import { Link } from "react-router-dom";
+import { useAuth } from "../lib/auth";
 
 // Shared header for the public funnel pages (festival purple + gold). Keeps the
 // public page set cross-linked without cluttering the authenticated app sidebar.
@@ -14,6 +15,7 @@ const LINKS = [
 ];
 
 export default function PublicNav() {
+  const { user } = useAuth();
   return (
     <header style={{ background: "linear-gradient(135deg, var(--wai-purple), #4c1d95)", borderBottom: "3px solid var(--wai-gold)" }}>
       <div className="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between flex-wrap gap-3">
@@ -30,12 +32,21 @@ export default function PublicNav() {
               {l.label}
             </Link>
           ))}
-          <Link
-            to="/login"
-            style={{ background: "var(--wai-gold)", color: "#1a1100", padding: "0.4rem 0.9rem", borderRadius: 8, textDecoration: "none", fontWeight: 800, fontSize: 13 }}
-          >
-            Sign In
-          </Link>
+          {user ? (
+            <Link
+              to="/profile"
+              style={{ background: "var(--wai-gold)", color: "#1a1100", padding: "0.4rem 0.9rem", borderRadius: 8, textDecoration: "none", fontWeight: 800, fontSize: 13 }}
+            >
+              My Profile
+            </Link>
+          ) : (
+            <Link
+              to="/login"
+              style={{ background: "var(--wai-gold)", color: "#1a1100", padding: "0.4rem 0.9rem", borderRadius: 8, textDecoration: "none", fontWeight: 800, fontSize: 13 }}
+            >
+              Sign In
+            </Link>
+          )}
         </nav>
       </div>
     </header>

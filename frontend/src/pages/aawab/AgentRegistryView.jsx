@@ -244,11 +244,14 @@ export default function AgentRegistryView() {
                       </p>
                     )}
 
-                    {/* Badge link */}
+                    {/* Badge — certification proof. Shown as a chip, NOT a link:
+                        /aawab/badge/:id is not a routed page, and a link to a
+                        404 would be a dead end (route-integrity test enforces). */}
                     {a.badge && (
-                      <Link to={`/aawab/badge/${a.badge.badge_id}`} className="mt-3 inline-flex items-center gap-1.5 text-xs font-black text-emerald-700 hover:underline">
+                      <span className="mt-3 inline-flex items-center gap-1.5 text-xs font-black text-emerald-700"
+                        title={`ACA certification badge ${a.badge.badge_id} — badge detail view is not routed yet`}>
                         <BadgeCheck className="w-4 h-4" /> ACA Certified · {a.badge.badge_id}
-                      </Link>
+                      </span>
                     )}
 
                     {/* Actions */}

@@ -25,6 +25,27 @@ export default function LegacyTool({ slug }) {
 
   if (!tool) return <Navigate to="/classic-tools" replace />;
 
+  // Intentionally retired original — explicit, honest copy instead of a dead end.
+  if (tool.status === "unavailable") {
+    return (
+      <AppShell>
+        <div className="min-h-screen flex flex-col items-center justify-center bg-bone p-8 text-center">
+          <AlertTriangle className="w-10 h-10 text-amber-700 mb-4" />
+          <h1 className="font-heading font-bold text-2xl text-ink mb-2">{tool.title}</h1>
+          <p className="text-ink/60 text-sm max-w-md leading-relaxed mb-6">
+            This original has been retired and is not available right now. The modern
+            pages on the platform remain fully available.
+          </p>
+          <Link to="/classic-tools"
+            className="inline-flex items-center gap-1.5 text-sm font-black px-6 py-3 rounded-xl text-white no-underline"
+            style={{ background: "#1B4332" }}>
+            <ArrowLeft className="w-4 h-4" /> Back to Classic Tools
+          </Link>
+        </div>
+      </AppShell>
+    );
+  }
+
   return (
     <AppShell>
       <div className="min-h-screen flex flex-col bg-bone">

@@ -40,7 +40,8 @@ The sidebar (`frontend/src/components/AppShell.jsx`) groups the site into sectio
 
 | Area | Route(s) | Purpose |
 |---|---|---|
-| Dashboard | `/dashboard` | Role-aware landing after login. |
+| Home / Landing | `/` | **Every visit (including after login/registration) lands here** — users choose where to go from the landing page. Role dashboards stay linked in the sidebar. |
+| Dashboard | `/dashboard` | Student dashboard (and role aliases: `/dashboard/student`, `/dashboard/admin`, `/dashboard/exec`, `/dashboard/instructor`). |
 | My Profile | `/profile`, `/u/:username`, `/profile/:id` | Personal profile, public profile, user profiles. |
 | My Position | `/my-position` | Current role/position card. |
 | Settings | `/settings` | Account settings, password change, session management. |
@@ -136,8 +137,7 @@ The sidebar (`frontend/src/components/AppShell.jsx`) groups the site into sectio
 
 | Area | Route(s) | Purpose |
 |---|---|---|
-| Admin Overview | `/admin`, `/dashboard/admin` | Admin dashboard (users, incidents, stats). |
-| Users | `/admin/users` | Full user management (create, edit, roles, tiers, sessions). |
+| Admin Overview | `/admin`, `/dashboard/admin`, `/admin/users` | Admin dashboard — full user management (create, edit, roles, tiers, sessions). `/admin/users` is an alias of the same page; the sidebar lists only Admin Overview. |
 | Sites & Inventory | `/admin/tools` | Sites and inventory. |
 | Analytics | `/admin/analytics` | Program analytics + benchmarks. |
 | Audit Log | `/admin/audit` | Auditable action log. |
@@ -151,10 +151,10 @@ The sidebar (`frontend/src/components/AppShell.jsx`) groups the site into sectio
 | Admin Assistant | `/assistant` | Admin assistant chat (native browser voice). |
 | AI Team Bridge | `/admin/bridge` | Cross-domain AI team bridge (Director + NAM Oshun Scholar + Curriculum Analyst). |
 | AAWAB Admin | `/admin/aawab` | Agent Wellness & Certification Bureau — platform-wide agent health, badge revocation, isolation overrides (§2.13). |
-| AI Business Office | `/business-office` · `/admin/business-office` | Revenue engine command center — owner-first P&L waterfall, mission runway, revenue KPIs, tools dock (the capabilities AI runs for income), 16 business divisions, the A2A economy (Workforce Exchange + Red-Teaming Bureau), B2B service deals pipeline, performance-linked workforce ledger (§2.14). |
+| AI Business Office | `/business-office` (sidebar) · `/admin/business-office` (alias) | Revenue engine command center — owner-first P&L waterfall, mission runway, revenue KPIs, tools dock (the capabilities AI runs for income), 16 business divisions, the A2A economy (Workforce Exchange + Red-Teaming Bureau), B2B service deals pipeline, performance-linked workforce ledger (§2.14). One sidebar entry under Business Office (everyone); the admin route is an alias. |
 | Office Control (no-code) | `/admin/office-control` | **Exec Control** — edit every office number and text string (goal, infra cost, owner draw %, fees, prices, all division/tool copy) without code (§2.15). |
 
-> **Note:** `/admin/accounts` (Account Controls) is a legacy duplicate of user management. The route still works, but the sidebar points to **Users** for all user administration.
+> **Note:** `/admin/accounts` (Account Controls) is a legacy duplicate of user management. The route still works, but the sidebar points to **Admin Overview** for all user administration. `/creator/profile/edit` is likewise a legacy redirect — the sidebar points to **My Profile** (`/profile`).
 
 ### 2.10 Executive (executive_admin only — the Executive Deck)
 
@@ -489,3 +489,36 @@ Full evaluation in `docs/GOOGLE_FREE_STACK.md`. Summary:
 - **Free Google courses — integrate:** Google AI Essentials, Cloud Skills Boost (~35 credits/mo) — link them in a Free Learning lane for the community.
 - **Google Cloud free tier ($300/90 days) — defer:** platform runs on a zero-cost stack; no GCP need until there's a real requirement.
 - **Workspace (Gmail/Drive/Calendar) — already the base account's daily ops; no integration needed.**
+
+## 13. Route integrity — the "no dead paths" guard
+
+The platform enforces that every link in the app resolves to a real page. A dead link
+(route exists in the nav but not in `App.js`, a redirect target that 404s, a deleted
+original tool) is treated as a **build-blocking bug**, not a cosmetic issue.
+
+**Run it:** `cd frontend && npm run test:routes` (or `node scripts/route-integrity.js`).
+Exit code 1 = dead links found. Wire it into CI so a dead path can never ship.
+
+What it checks:
+
+1. **Registry drift** — every constant in `frontend/src/lib/routes.js` (the canonical
+   registry: `ROUTES.*` for static routes, `ROUTE_BUILDERS.*` for dynamic ones) must
+   resolve against a `<Route>` in `src/App.js`. `App.js` remains the authority on what
+   routes *exist*; `routes.js` is the authority on how code *references* them.
+2. **Link crawl** — every `<Link to>`, `nav()`/`navigate()`, `<Navigate to>`, internal
+   `<a href>` and `window.location` target across `src/` must resolve to a route, a real
+   file under `public/` (static assets like `/tools/*.html` pass), or a backend
+   `/api/*` endpoint (covered by backend tests). The catch-all `*` route (Error404) is
+   not a destination — links matching only it fail.
+3. **Original tools** — every `path` in `frontend/src/lib/originalTools.js` must have a
+   real file under `public/`, unless the tool is deliberately marked
+   `status: "unavailable"` (see below).
+
+**Retiring a legacy module honestly:** set `status: "unavailable"` on its entry in
+`originalTools.js`. The Classic Tools hub (`/classic-tools`) and the tool page
+(`/classic/:slug`) then render an explicit "Not available right now" banner instead of a
+Launch button that would 404, and the test stops requiring the asset file. Nothing ships
+silently broken.
+
+**Adding a route:** add the `<Route>` in `src/App.js` *and* the constant/builder in
+`src/lib/routes.js` — the drift check keeps the two from disagreeing.

@@ -23,10 +23,9 @@ export default function Login() {
         nav("/settings?force=1");
         return;
       }
-      nav(u.role === "executive_admin" ? "/admin/system"
-        : u.role === "admin" ? "/admin"
-        : u.role === "instructor" ? "/instructor"
-        : "/dashboard");
+      // Land everyone on the landing page after sign-in — they choose where
+      // to go from there (dashboards stay linked in the sidebar).
+      nav("/");
     } catch (err) {
       toast.error(err?.response?.data?.detail || "Login failed");
     } finally { setLoading(false); }

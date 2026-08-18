@@ -10,6 +10,7 @@ import {
   Scale, Trophy, Network, ShoppingBag, Heart, Receipt, Video, DollarSign,
   UserCircle, WifiOff, Music, Mic, Palette, FileText,
   Gamepad2, Star, Radio, Globe, Swords, ChevronLeft, ChevronRight, Share2,
+  Map, BrainCircuit, CreditCard, BarChart3, Wrench, Server,
 } from "lucide-react";
 import NotificationBell from "./NotificationBell";
 import { Search, HeartPulse, Landmark, Archive } from "lucide-react";
@@ -96,7 +97,7 @@ export default function AppShell({ children }) {
         {/* Brand */}
         <div className={`py-5 border-b border-white/10 flex items-center shrink-0 ${collapsed ? "justify-center px-2 flex-col gap-2" : "px-4 justify-between"}`}>
           {!collapsed && (
-            <Link to="/dashboard" className="flex items-center gap-3" data-testid="sidebar-brand">
+            <Link to="/" className="flex items-center gap-3" data-testid="sidebar-brand">
               <img src={WAI_LOGO} alt="M.O.R.E." className="w-9 h-9 object-contain" />
               <div>
                 <div className="overline text-signal">{BRAND.short}</div>
@@ -105,7 +106,7 @@ export default function AppShell({ children }) {
             </Link>
           )}
           {collapsed && (
-            <Link to="/dashboard" data-testid="sidebar-brand" title="Dashboard">
+            <Link to="/" data-testid="sidebar-brand" title="Home">
               <img src={WAI_LOGO} alt="M.O.R.E." className="w-8 h-8 object-contain" />
             </Link>
           )}
@@ -144,9 +145,9 @@ export default function AppShell({ children }) {
             {nl("/dashboard",       "Dashboard",       LayoutDashboard, "nav-dashboard")}
             {nl("/profile",         "My Profile",      UserCircle,      "nav-profile")}
             {nl("/my-position",     "My Position",     Compass,         "nav-my-position")}
-            {nl("/site-guide",      "Site Guide",      Compass,         "nav-site-guide")}
+            {nl("/site-guide",      "Site Guide",      Map,             "nav-site-guide")}
             {nl("/settings",        "Settings",        KeyRound,        "nav-settings")}
-            {nl("/byok",            "My AI (BYOK)",    KeyRound,        "nav-byok")}
+            {nl("/byok",            "My AI (BYOK)",    BrainCircuit,    "nav-byok")}
           </NavSection>
 
           <NavSection label="Learn" collapsed={collapsed}>
@@ -207,7 +208,6 @@ export default function AppShell({ children }) {
             {nl("/creator/courses",      "Course Manager",    Video,      "nav-creator-courses")}
             {nl("/creator/earnings",     "My Earnings",       DollarSign, "nav-creator-earnings")}
             {nl("/creator/payouts",      "Payout Dashboard",  Receipt,    "nav-creator-payouts")}
-            {nl("/creator/profile/edit", "Creator Profile",   UserCircle, "nav-creator-profile")}
             {nl("/creator-lounge",       "Creator Lounge",    Mic,        "nav-creator-lounge")}
             {nl("/ghost-producer",       "Ghost Producer",    Palette,    "nav-ghost-producer")}
             {nl("/band",                 "Band on a Page",    Music,      "nav-band")}
@@ -238,23 +238,21 @@ export default function AppShell({ children }) {
           {isAdmin && (
             <NavSection label="Administration" collapsed={collapsed}>
               {nl("/admin",           "Admin Overview",  Settings,       "nav-admin")}
-              {nl("/admin/users",     "Users",           Users,          "nav-admin-users")}
               {nl("/admin/tools",     "Sites & Inventory", Building2,   "nav-admin-tools")}
               {nl("/admin/analytics", "Analytics",       TrendingUp,     "nav-analytics")}
               {nl("/admin/audit",     "Audit Log",       ScrollText,     "nav-audit")}
               {nl("/admin/payments",  "Payments",        Receipt,        "nav-admin-payments")}
-              {nl("/admin/billing",   "Billing",         DollarSign,     "nav-billing")}
+              {nl("/admin/billing",   "Billing",         CreditCard,     "nav-billing")}
               {nl("/admin/prices",    "Prices",          Star,           "nav-prices")}
               {nl("/admin/health",    "System Health",   ShieldCheck,    "nav-health")}
               {nl("/admin/moderation","Moderation",      Shield,         "nav-moderation")}
-              {nl("/revenue",         "Revenue",         DollarSign,     "nav-revenue")}
+              {nl("/revenue",         "Revenue",         BarChart3,      "nav-revenue")}
               {nl("/auditor",         "Auditor",         FileText,       "nav-auditor")}
-              {nl("/more/admin",      "M.O.R.E. Admin",  HandHelping,    "nav-more-admin")}
+              {nl("/more/admin",      "M.O.R.E. Admin",  Wrench,         "nav-more-admin")}
               {nl("/more/ops",        "Dept. AI Ops",    Network,        "nav-more-ops")}
               {nl("/assistant",       "Admin Assistant", Sparkles,       "nav-assistant")}
               {nl("/admin/bridge",    "AI Team Bridge",  Network,        "nav-bridge")}
               {nl("/admin/aawab",     "AAWAB Admin",     HeartPulse,     "nav-aawab-admin")}
-              {nl("/admin/business-office", "Business Office", Landmark, "nav-abo-admin")}
               {nl("/admin/office-control", "Office Control (no-code)", Settings, "nav-abo-control")}
               {nl("/arena",           "The Arena",       Swords,         "nav-arena")}
             </NavSection>
@@ -271,7 +269,7 @@ export default function AppShell({ children }) {
               {nl("/admin/staff-meetings","Staff Meetings",   Users,          "nav-staff-meetings")}
               {nl("/admin/exec-report",  "Site Report",       ClipboardCheck, "nav-exec-report")}
               {nl("/admin/providers",    "Provider Gateway",  Network,        "nav-providers")}
-              {nl("/team/ops",           "Team Ops",          Settings,       "nav-team-ops")}
+              {nl("/team/ops",           "Team Ops",          Server,         "nav-team-ops")}
               {nl("/supervisor",         "Supervisor Hub",    Radio,          "nav-supervisor")}
               {nl("/creative-partner",   "Creative Partner",  Palette,        "nav-creative-partner")}
               {nl("/jamil",              "Jamil",             Sparkles,       "nav-jamil")}
