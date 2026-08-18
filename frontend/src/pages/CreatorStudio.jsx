@@ -292,8 +292,9 @@ export default function CreatorStudio() {
 
   // Save session on unmount
   useEffect(() => {
+    const startTime = sessionStartRef.current; // capture ref at mount time
     return () => {
-      const session = { start: sessionStartRef.current, end: Date.now(), chambers: chamberHistory };
+      const session = { start: startTime, end: Date.now(), chambers: chamberHistory };
       const updated = [...sessions, session];
       try { localStorage.setItem('studio_sessions', JSON.stringify(updated)); } catch {}
     };

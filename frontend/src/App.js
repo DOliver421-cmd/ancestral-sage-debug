@@ -256,6 +256,8 @@ function App() {
           <Route path="/aawab/chamber" element={<Protected><CertificationChamber /></Protected>} />
           <Route path="/admin/aawab" element={<BoundedAdmin roles={["admin"]} label="AAWAB Admin" backTo="/admin"><AdminAawabDashboard /></BoundedAdmin>} />
           <Route path="/landing" element={<LandingMarketplace />} />
+          {/* WAI Institute — accredited-track portal (also the redirect target for wai-institute.org) */}
+          <Route path="/wai-institute" element={<WAIInstitute />} />
           {/* Supervisor — executive_admin only; separate login at /supervisor-login */}
           <Route path="/supervisor-login" element={<SupervisorLogin />} />
           <Route path="/supervisor" element={<SupervisorProtected><SeshatsHub /></SupervisorProtected>} />

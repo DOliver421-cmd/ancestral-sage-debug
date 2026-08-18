@@ -348,6 +348,7 @@ export default function AdminDashboard() {
 
   useEffect(() => { loadAll(); }, [loadAll]);
   useEffect(() => { if (activeTab === "audit") loadAudit(); }, [activeTab, loadAudit]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => { if (activeTab === "courses") loadCourses(); }, [activeTab, courseStatusFilter]);
 
   // ── Filtered user list ──────────────────────────────────────────────────────

@@ -42,6 +42,7 @@ export default function RevenueDivision() {
     api.get("/revenue/courses/my-licenses").then(r => setLicenses(r.data.licenses || [])).catch(() => {});
     loadWorkspaces();
     loadResume();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const loadKeys = async () => {
