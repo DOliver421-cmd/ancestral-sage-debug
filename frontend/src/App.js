@@ -122,6 +122,7 @@ import AITeamBridge from "./pages/AITeamBridge";
 import BYOK from "./pages/BYOK";
 import SiteGuide from "./pages/SiteGuide";
 import SiteSearch, { SiteSearchModal } from "./components/SiteSearch";
+import BusinessOffice from "./pages/BusinessOffice";
 import AgentRegistryView from "./pages/aawab/AgentRegistryView";
 import CertificationChamber from "./pages/aawab/CertificationChamber";
 import AdminAawabDashboard from "./pages/aawab/AdminAawabDashboard";
@@ -232,6 +233,9 @@ function App() {
           {/* Site search + Site Guide persona */}
           <Route path="/search" element={<SiteSearch />} />
           <Route path="/site-guide" element={<SiteGuide />} />
+          {/* AI Business Office — the revenue engine command center */}
+          <Route path="/business-office" element={<Protected><BusinessOffice /></Protected>} />
+          <Route path="/admin/business-office" element={<BoundedAdmin roles={["admin"]} label="AI Business Office" backTo="/admin"><BusinessOffice /></BoundedAdmin>} />
           {/* AAWAB — Agent Wellness & Certification Bureau */}
           <Route path="/aawab" element={<Protected><AgentRegistryView /></Protected>} />
           <Route path="/aawab/chamber" element={<Protected><CertificationChamber /></Protected>} />

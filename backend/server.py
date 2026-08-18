@@ -1830,6 +1830,10 @@ api_router.include_router(_site_guide_mod.router)
 from routers import aawab as _aawab_mod
 _aawab_mod.bind(db, current_user, audit, check_rate, JWT_SECRET)
 api_router.include_router(_aawab_mod.router)
+# --- AI Business Office (routers/abo.py) — revenue engine command center ---
+from routers import abo as _abo_mod
+_abo_mod.bind(db, current_user, audit, check_rate)
+api_router.include_router(_abo_mod.router)
 
 
 
