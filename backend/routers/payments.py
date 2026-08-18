@@ -67,6 +67,9 @@ PAYMENT_PRODUCTS = {
     # BYOK — $3 one-time unlock (below instructor tier). Grants byok_enabled,
     # not a membership tier; instructor tier and above activate free.
     "byok":           {"name": "BYOK – Bring Your Own Key",            "amount":  300, "mode": "payment",      "description": "One-time $3 unlock — attach a free Groq, Cerebras, or Gemini key so your AI runs on your own key"},
+    # Sponsor a Scholarship — milestone-based giving. Amount is set by the
+    # sponsor (like donation); a paid order matches the sponsor's pledge.
+    "scholarship":    {"name": "Sponsor a Scholarship — M.O.R.E. Help Center", "amount": None, "mode": "payment", "description": "Sponsor a scholar — Full, Partial, or Collective. Milestone-based release, fully transparent."},
     # Creator's Sanctuary tiers (creator lane — see _PRODUCT_TIER_MAP)
     "sanctuary_trial":   {"name": "M.O.R.E. Creator's Sanctuary – 3-Day Trial",     "amount":  300, "mode": "payment",      "description": "All-access 3 days & 33 minutes trial — everything through Pro"},
     "sanctuary_paid":    {"name": "M.O.R.E. Creator's Sanctuary – Paid Creator",    "amount":  700, "mode": "subscription", "interval": "month", "description": "Member-level creator lane — $7/mo", "deprecated": True},
@@ -281,6 +284,37 @@ async def payments_webhook(request: Request):
                 await notify(user_doc["id"], "BYOK Activated",
                              "Your $3 BYOK unlock is active — attach a free Groq, Cerebras, or Gemini key at /byok to route your AI through your own key.",
                              link="/byok", kind="success")
+
+        # ── Scholarship sponsorship ─────────────────────────────────────────
+        # A paid scholarship order marks the sponsor's pending pledge as paid.
+        # The committee then matches the pledge to an approved application
+        # (milestone-based release, so funds follow real progress).
+        if user_email and product_key == "scholarship":
+            user_doc = await db.users.find_one({"email": user_email}, {"id": 1})
+            if user_doc:
+                paid_amount = int(float(total) * 100) if total else 0
+                pledge = await db.scholarship_pledges.find_one_and_update(
+                    {"user_id": user_doc["id"], "status": "pending"},
+                    {"$set": {"status": "paid", "paid_at": datetime.now(timezone.utc).isoformat(),
+                              "provider_order_id": order_id,
+                              "paid_amount_cents": paid_amount or None}},
+                    sort=[("created_at", -1)],
+                )
+                if pledge:
+                    # Move the sponsor's money into the chosen fund's raised total.
+                    if pledge.get("fund_id"):
+                        await db.scholarship_funds.update_one(
+                            {"id": pledge["fund_id"]},
+                            {"$inc": {"raised_cents": paid_amount or pledge.get("amount_cents", 0)}},
+                        )
+                    try:
+                        await audit(user_doc["id"], "scholarship.pledge_paid",
+                                    target=pledge.get("id"), meta={"order_id": order_id, "amount_cents": paid_amount or pledge.get("amount_cents", 0)})
+                    except Exception:
+                        pass
+                    await notify(user_doc["id"], "Sponsorship Received",
+                                 "Thank you — your sponsorship is paid and will be matched to a scholar. Track milestones in your sponsor view.",
+                                 link="/sponsor", kind="success")
 
         if user_email and product_key and product_key in _PRODUCT_TIER_MAP:
             user_doc = await db.users.find_one(

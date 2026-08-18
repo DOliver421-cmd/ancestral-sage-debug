@@ -443,8 +443,8 @@ export default function BusinessOffice() {
                 )}
 
                 {/* Checks table */}
-                <div className="max-h-[420px] overflow-y-auto">
-                  <table className="w-full text-sm">
+                <div className="max-h-[420px] overflow-y-auto overflow-x-auto">
+                  <table className="w-full text-sm min-w-[640px]">
                     <thead className="sticky top-0" style={{ background: "#fff" }}>
                       <tr className="text-left text-[10px] font-black uppercase tracking-widest text-ink/40 border-b">
                         <th className="px-4 py-2.5">Claim</th>
