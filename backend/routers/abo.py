@@ -452,6 +452,22 @@ async def abo_overview(user: User = Depends(_dep_current_user)):
     goal_doc = await _get_goal_doc()
     goal = int(goal_doc.get("monthly_goal_cents") or 100000)
 
+    # Contracted revenue from the deals pipeline (won/delivered, closed). This is
+    # the commercial feedback loop made visible: deals → contracted → delivered.
+    contracted_by_div: dict[str, int] = {}
+    contracted_total = 0
+    try:
+        closed = db.abo_deals.find(
+            {"stage": {"$in": ["won", "delivered"]}, "status": "closed"},
+            {"_id": 0, "service_key": 1, "value_cents": 1},
+        )
+        async for d in closed:
+            v = int(d.get("value_cents") or 0)
+            contracted_by_div[d.get("service_key")] = contracted_by_div.get(d.get("service_key"), 0) + v
+            contracted_total += v
+    except Exception as exc:
+        logger.warning("abo: contracted revenue scan failed: %s", exc)
+
     month_pct = round(revenue["month_revenue_cents"] / goal * 100, 1) if goal else 0
     runway_months = round(revenue["total_revenue_cents"] / goal, 1) if goal else 0
     status = "covered" if month_pct >= 100 else "on_track" if month_pct >= 50 else "watch" if month_pct >= 25 else "critical"
@@ -472,6 +488,7 @@ async def abo_overview(user: User = Depends(_dep_current_user)):
             "status": d["status"],
             "tools": d["tools"],
             "revenue_cents": rev,
+            "deals_revenue_cents": contracted_by_div.get(d["key"], 0),
         })
 
     deal_count = 0
@@ -496,8 +513,49 @@ async def abo_overview(user: User = Depends(_dep_current_user)):
             "runway_months": runway_months,
         },
         "revenue": revenue,
+        "contracted_cents": contracted_total,
         "divisions": divisions,
         "counts": {"deals": deal_count, "jobs": job_count},
+    }
+
+
+@router.get("/abo/public-status")
+async def abo_public_status():
+    """Public mission meter — aggregate runway only, no private revenue detail.
+
+    Powers the Mission Funding strip on the M.O.R.E. Help Center landing:
+    a transparent, aggregate look at how the month is going, with no emails,
+    product names, or per-order data.
+    """
+    goal_doc = await _get_goal_doc()
+    goal = int(goal_doc.get("monthly_goal_cents") or 100000)
+
+    month = 0
+    total = 0
+    try:
+        month_start = _month_start()
+        month_iso = month_start.isoformat()
+        async for doc in db.payments.find({"status": "paid"}, {"_id": 0, "amount_cents": 1, "created_at": 1}):
+            amount = int(doc.get("amount_cents") or 0)
+            if amount <= 0:
+                continue
+            total += amount
+            created = doc.get("created_at") or ""
+            if isinstance(created, str) and created >= month_iso:
+                month += amount
+            elif hasattr(created, "isoformat") and created >= month_start:
+                month += amount
+    except Exception as exc:
+        logger.warning("abo: public status scan failed: %s", exc)
+
+    pct = round(month / goal * 100, 1) if goal else 0
+    status = "covered" if pct >= 100 else "on_track" if pct >= 50 else "watch" if pct >= 25 else "critical"
+    return {
+        "monthly_goal_cents": goal,
+        "month_revenue_cents": month,
+        "month_pct": pct,
+        "status": status,
+        "runway_months": round(total / goal, 1) if goal else 0,
     }
 
 
@@ -574,6 +632,82 @@ async def abo_update_deal(deal_id: str, body: DealUpdateReq, user: User = Depend
 
     merged = {**deal, **updates}
     return {"deal": merged}
+
+
+@router.post("/abo/deals/{deal_id}/propose")
+async def abo_draft_proposal(deal_id: str, user: User = Depends(_require_rank("admin"))):
+    """Admin — have the office's AI draft a deliverable proposal for a deal.
+
+    Grounded in the deal description + division catalog. If the LLM gateway is
+    unavailable, a deterministic template proposal is used instead — the office
+    always delivers a proposal, never a dead end. BYOK admins route through
+    their own key (call_llm(user_id=…)).
+    """
+    check_rate(f"abo_propose:{user.id}", max_calls=20, window_sec=60)
+    deal = await db.abo_deals.find_one({"id": deal_id}, {"_id": 0})
+    if not deal:
+        raise HTTPException(404, "Deal not found")
+    division = _division(deal.get("service_key", "memberships"))
+
+    system = (
+        "You are the proposal writer for the AI Business Office at M.O.R.E. Help Center. "
+        "You draft concise, honest, deliverable service proposals. You never promise "
+        "capabilities the platform does not have. Structure: SCOPE (3-6 concrete "
+        "deliverables), DELIVERABLES, TIMELINE (weeks), PRICE RANGE, HUMAN APPROVAL "
+        "(what the client must approve before work ships). Keep it under 350 words."
+    )
+    prompt = (
+        f"Division: {division['name']}.\n"
+        f"What AI does: {division['what_ai_does']}\n"
+        f"Human oversight: {division['human_oversight']}\n"
+        f"Client organization: {deal.get('org_name')}.\n"
+        f"Client request: {deal.get('description')}\n"
+        f"Budget (cents, may be null): {deal.get('budget_cents')}\n"
+        "Draft the proposal now."
+    )
+
+    proposal = None
+    provider = "template_fallback"
+    try:
+        from ai.llm_gateway import call_llm as _call_llm
+        gw = await _call_llm(
+            system=system,
+            messages=[{"role": "user", "content": prompt}],
+            max_tokens=900,
+            persona_label="abo_proposal",
+            user_id=user.id,
+        )
+        text = (gw.get("text") or "").strip()
+        if text:
+            proposal = text
+            provider = gw.get("provider", "gateway")
+    except Exception as exc:
+        logger.warning("abo: proposal LLM failed (%s): %s", deal_id, exc)
+
+    if not proposal:
+        budget_note = f" within the stated budget of ${(deal.get('budget_cents') or 0) / 100:,.0f}" if deal.get("budget_cents") else ""
+        proposal = (
+            f"SCOPE — {division['name']} for {deal.get('org_name')}.\n"
+            f"1. Discovery call to confirm goals and guardrails.\n"
+            f"2. {division['what_ai_does']}\n"
+            f"3. Human review checkpoint before anything ships.\n"
+            f"DELIVERABLES — a documented handoff package and a follow-up review.\n"
+            f"TIMELINE — 2-4 weeks depending on scope.\n"
+            f"PRICE RANGE — $500-$2,500{budget_note}.\n"
+            f"HUMAN APPROVAL — {division['human_oversight']} The client signs off at each checkpoint."
+        )
+
+    updates = {
+        "proposal": proposal,
+        "proposal_provider": provider,
+        "proposal_drafted_at": _now(),
+        "updated_at": _now(),
+    }
+    await db.abo_deals.update_one({"id": deal_id}, {"$set": updates})
+    await audit(user.id, "abo.deal.proposal_drafted", meta={
+        "deal_id": deal_id, "provider": provider,
+    })
+    return {"deal_id": deal_id, "proposal": proposal, "provider": provider}
 
 
 @router.get("/abo/jobs")

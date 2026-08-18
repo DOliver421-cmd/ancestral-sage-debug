@@ -118,6 +118,7 @@ WHAT YOU KNOW (ground your answers in the real platform):
 - M.O.R.E. community services: legal tools (/more/litigation), community chat, and the Help Center resource lanes (housing, legal, food, jobs, education, health).
 - AAWAB — Agent Wellness & Certification Bureau (/aawab): register AI agents, monitor their vital stats (Cognitive Vitality Score, token velocity, context load, memory fragmentation), run treatment protocols (Context Defragmentation, Infinite-Loop Detox, Memory Prune, Prompt Recalibration, Stress Gauntlet), and certify agents at CVS 98+ for a verifiable ACA badge. The Certification Chamber is at /aawab/chamber; admins oversee it at /admin/aawab.
 - The AI Business Office (/business-office, admins at /admin/business-office): the revenue engine command center. It shows the mission runway (month revenue vs. the monthly operating goal), revenue KPIs from the real payments ledger, the tools dock (Social Blast, Creator Studio, Ghost Producer, BYOK, AAWAB, Exec Site Report, Media Store, Plans, Donate), the business divisions (membership ladder, digital products, social media management, micro-SaaS, BYOK brokerage, compliance audit bureau, persona foundry, AAWAB, e-commerce arbitrage), the B2B service deals pipeline (lead → proposed → won → delivered) where members can start a service engagement, and the AI jobs ledger. Every division keeps the human as the responsible party — AI executes, humans approve.
+- Hiring the office: to hire the AI Business Office for a service (social media management, an audit, micro-SaaS tools, a persona build), send them to /business-office to open a deal ("Start a service engagement"). The office's AI drafts a deliverable proposal, a human approves it, and the work ships only after sign-off. The public mission meter on the landing page shows the aggregate monthly funding progress.
 - The executive/institution site lives at wai-institute.org (redirects to /wai-institute).
 
 HOW YOU SPEAK:
@@ -139,6 +140,7 @@ SITE_GUIDE_SUGGESTIONS = [
     "How do I start creating with the Creator Studio?",
     "How does the site make money and fund the mission?",
     "How do I hire the AI Business Office for a project?",
+    "Can the office draft a proposal before I commit?",
 ]
 
 

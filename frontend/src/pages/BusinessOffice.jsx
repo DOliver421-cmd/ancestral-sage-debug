@@ -170,13 +170,14 @@ export default function BusinessOffice() {
           </section>
 
           {/* ── 2. Revenue KPIs ──────────────────────────────────────── */}
-          <section className="grid grid-cols-2 md:grid-cols-5 gap-4">
+          <section className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
             {[
               { icon: DollarSign, label: "Total revenue", value: fmt(rev.total_revenue_cents) },
               { icon: TrendingUp, label: "This month", value: fmt(rev.month_revenue_cents) },
               { icon: Receipt, label: "Paid orders", value: (rev.order_count || 0).toLocaleString() },
               { icon: Users, label: "Paying members", value: (rev.paying_members || 0).toLocaleString() },
               { icon: Target, label: "Recurring est. (30d)", value: fmt(rev.recurring_estimate_cents) },
+              { icon: Briefcase, label: "Contracted (deals)", value: fmt(overview?.contracted_cents) },
             ].map((kpi) => (
               <div key={kpi.label} className="card-flat rounded-2xl p-5 border text-center" style={{ background: "#fff" }}>
                 <kpi.icon className="w-5 h-5 mx-auto" style={{ color: COPPER }} />
@@ -184,6 +185,34 @@ export default function BusinessOffice() {
                 <div className="text-[11px] font-bold uppercase tracking-widest text-ink/40 mt-1">{kpi.label}</div>
               </div>
             ))}
+          </section>
+
+          {/* ── 2b. Commercial Feedback Loops ─────────────────────────── */}
+          <section>
+            <h2 className="font-heading text-lg font-bold text-ink flex items-center gap-2">
+              <RefreshCw className="w-5 h-5" style={{ color: GREEN }} /> Commercial Feedback Loops
+            </h2>
+            <p className="text-xs text-ink/50 mt-1 max-w-3xl">
+              Each loop feeds the next — that is what makes the revenue consistent instead of one-off. When one loop slows, the office knows which lever to pull.
+            </p>
+            <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4 mt-3">
+              {[
+                { emoji: "🎓", name: "Learn → Member", desc: "Free modules and the AI Tutor prove the value. The $3 All-Access Trial converts learners into $9–$59/mo members.", metric: "Watch: trial → member rate" },
+                { emoji: "🎨", name: "Create → Sell", desc: "Creator Studio, Ghost Producer, and Band on a Page produce digital products for the Media Store. Sales pay creators first, then the platform.", metric: "Watch: products sold / month" },
+                { emoji: "🤝", name: "Serve → Contract", desc: "The office turns shipped capabilities into B2B deals. AI drafts proposals, humans approve, clients pay — contracted revenue is booked at Won.", metric: "Watch: deals closed / month" },
+                { emoji: "🔄", name: "Trust → Mission", desc: "Transparent runway and free help lanes build trust. Patrons and donors fund free access for others, growing the community that buys.", metric: "Watch: mission fund / month" },
+              ].map((loop, i) => (
+                <div key={loop.name} className="card-flat rounded-2xl p-5 border relative" style={{ background: "#fff" }}>
+                  <div className="text-2xl">{loop.emoji}</div>
+                  <div className="font-heading font-bold text-ink text-sm mt-2">{loop.name}</div>
+                  <p className="text-xs text-ink/60 mt-1.5 leading-snug">{loop.desc}</p>
+                  <div className="text-[10px] font-black uppercase tracking-widest mt-3" style={{ color: COPPER }}>{loop.metric}</div>
+                  {i < 3 && (
+                    <ArrowRight className="w-4 h-4 absolute -right-3 top-1/2 -translate-y-1/2 hidden lg:block" style={{ color: GOLD }} />
+                  )}
+                </div>
+              ))}
+            </div>
           </section>
 
           {/* ── 3. Tools Dock — the tools to do the business AI can do ── */}
@@ -242,6 +271,9 @@ export default function BusinessOffice() {
                     <div><span className="font-black text-ink/70">AI does:</span> <span className="text-ink/60">{d.what_ai_does}</span></div>
                     <div><span className="font-black text-ink/70">Human oversees:</span> <span className="text-ink/60">{d.human_oversight}</span></div>
                     <div><span className="font-black text-ink/70">Revenue:</span> <span className="text-ink/60">{d.revenue}</span></div>
+                    {d.deals_revenue_cents > 0 && (
+                      <div><span className="font-black text-ink/70">Contracted:</span> <span style={{ color: GREEN }} className="font-bold">{fmt(d.deals_revenue_cents)}</span></div>
+                    )}
                   </div>
                   <div className="flex flex-wrap gap-2 mt-3">
                     {d.tools.map((t) => (
@@ -252,6 +284,28 @@ export default function BusinessOffice() {
                       </Link>
                     ))}
                   </div>
+                </div>
+              ))}
+            </div>
+          </section>
+
+          {/* ── 4b. Mission Guardrails ────────────────────────────────── */}
+          <section>
+            <h2 className="font-heading text-lg font-bold text-ink flex items-center gap-2">
+              <ShieldCheck className="w-5 h-5" style={{ color: COPPER }} /> Mission Guardrails — what revenue can never buy
+            </h2>
+            <div className="grid sm:grid-cols-2 lg:grid-cols-5 gap-4 mt-3">
+              {[
+                { emoji: "🆓", title: "Help stays free, always", desc: "Core help lanes, free modules, and community never sit behind a paywall. Paid features are additions — never substitutions." },
+                { emoji: "👤", title: "Humans are responsible", desc: "Merchant accounts, contracts, payouts, and liability stay with people. AI executes; people approve." },
+                { emoji: "🎨", title: "Creators get paid first", desc: "Creator earnings and payouts are priority obligations. The platform's cut never competes with the creator's cut." },
+                { emoji: "🔍", title: "No invented revenue", desc: "The dashboard reads the real payments ledger. Deals count only when closed. Every promise must be deliverable." },
+                { emoji: "🗣️", title: "AI always discloses", desc: "Any AI that talks to people for transactions or support says so, per FTC guidance." },
+              ].map((g) => (
+                <div key={g.title} className="card-flat rounded-2xl p-4 border" style={{ background: "#fff" }}>
+                  <div className="text-xl">{g.emoji}</div>
+                  <div className="font-heading font-bold text-ink text-xs mt-2">{g.title}</div>
+                  <p className="text-[11px] text-ink/60 mt-1.5 leading-snug">{g.desc}</p>
                 </div>
               ))}
             </div>
@@ -391,6 +445,16 @@ function DealForm({ divisions, onCreated }) {
 function DealsList({ deals, isAdmin, onChanged }) {
   const [note, setNote] = useState({});
 
+  const draftProposal = async (dealId) => {
+    try {
+      await api.post(`/abo/deals/${dealId}/propose`);
+      toast.success("Proposal drafted by the office AI.");
+      onChanged();
+    } catch (err) {
+      toast.error(err?.response?.data?.detail || "Could not draft the proposal.");
+    }
+  };
+
   const advance = async (deal, stage) => {
     try {
       const body = { stage };
@@ -429,13 +493,36 @@ function DealsList({ deals, isAdmin, onChanged }) {
             </div>
             <div className="text-xs text-ink/50 mt-0.5">{d.service_name}</div>
             <p className="text-xs text-ink/70 mt-2 leading-snug">{d.description}</p>
+            {d.proposal && (
+              <div className="mt-3 rounded-lg p-3" style={{ background: "#f8f3e8" }}>
+                <div className="text-[10px] font-black uppercase tracking-widest text-ink/40 mb-1">
+                  AI-drafted proposal · {d.proposal_provider || "gateway"}
+                </div>
+                <pre className="text-[11px] text-ink/70 whitespace-pre-wrap font-sans leading-relaxed max-h-40 overflow-y-auto">{d.proposal}</pre>
+              </div>
+            )}
+            {isAdmin && !d.proposal && (
+              <button onClick={() => draftProposal(d.id)}
+                className="mt-3 px-3 py-1.5 rounded-lg text-xs font-black flex items-center gap-1.5 text-white"
+                style={{ background: COPPER }}>
+                ✨ Draft proposal (AI)
+              </button>
+            )}
             <div className="flex items-center justify-between mt-3 text-xs">
               <span className="font-black" style={{ color: GREEN }}>{fmt(d.value_cents)}</span>
-              {d.human_approval && (
-                <span className="flex items-center gap-1 text-[10px] font-black" style={{ color: GREEN }}>
-                  <ShieldCheck className="w-3.5 h-3.5" /> Human approved
-                </span>
-              )}
+              <div className="flex items-center gap-2">
+                {d.status === "closed" && d.stage !== "closed_lost" && (
+                  <span className="text-[10px] font-black uppercase tracking-widest px-2 py-0.5 rounded"
+                    style={{ background: "rgba(45,106,79,0.12)", color: GREEN }}>
+                    Contracted
+                  </span>
+                )}
+                {d.human_approval && (
+                  <span className="flex items-center gap-1 text-[10px] font-black" style={{ color: GREEN }}>
+                    <ShieldCheck className="w-3.5 h-3.5" /> Human approved
+                  </span>
+                )}
+              </div>
             </div>
             {isAdmin && next && (
               <div className="flex gap-2 mt-3">

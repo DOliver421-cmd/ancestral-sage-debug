@@ -318,6 +318,15 @@ function ExecPanel({ apiOnline, visibility, setVisibility, superExec }) {
     loadGateway();
   }, [loadHealth, loadGateway]);
 
+  // Public mission meter — aggregate runway only (GET /api/abo/public-status).
+  useEffect(() => {
+    let mounted = true;
+    api.get("/abo/public-status")
+      .then((r) => { if (mounted) setMissionFund(r.data); })
+      .catch(() => {});
+    return () => { mounted = false; };
+  }, []);
+
   useEffect(() => {
     if (tab === "users")     loadUsers(userQ, userRoleFilter, userActiveFilter);
     if (tab === "incidents") loadIncidents();
@@ -1667,6 +1676,7 @@ export default function MoreHelpCenter() {
   const [freeModules,  setFreeModules]  = useState([]);
   const [apiOnline,    setApiOnline]    = useState(null);
   const [gwLabel,      setGwLabel]      = useState("Checking…");
+  const [missionFund,  setMissionFund]  = useState(null);
   const [visibility,   setVisibility]   = useState(() => {
     try { const s = localStorage.getItem("mhc_visibility"); return s ? JSON.parse(s) : DEFAULT_VISIBILITY; } catch { return DEFAULT_VISIBILITY; }
   });
@@ -1798,6 +1808,32 @@ export default function MoreHelpCenter() {
             </div>
           </div>
         </section>
+
+        {/* ── Mission funding meter (public, aggregate) ── */}
+        {missionFund && (
+          <div style={{ background: "white", borderRadius: 10, border: `1px solid ${EARTH}44`, padding: "14px 20px", marginBottom: 24, display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 12 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 220 }}>
+              <span style={{ fontSize: 20 }}>🏦</span>
+              <div>
+                <div style={{ fontSize: 12, fontWeight: 800, color: BARK }}>Mission funding — this month</div>
+                <div style={{ fontSize: 10, color: COPPER, marginTop: 1 }}>
+                  Memberships, products, and deals keep M.O.R.E. free, always.
+                </div>
+              </div>
+            </div>
+            <div style={{ flex: 1, minWidth: 180, maxWidth: 300 }}>
+              <div style={{ height: 8, borderRadius: 99, background: `${EARTH}33`, overflow: "hidden" }}>
+                <div style={{ height: "100%", width: `${Math.min(100, missionFund.month_pct || 0)}%`, borderRadius: 99, background: missionFund.status === "critical" ? "#dc2626" : missionFund.status === "watch" ? AMBER : "#22c55e", transition: "width .6s ease" }} />
+              </div>
+              <div style={{ fontSize: 10, fontWeight: 700, color: BARK, marginTop: 4, textAlign: "right" }}>
+                {missionFund.month_pct}% of goal · {missionFund.status === "covered" ? "funded" : missionFund.status === "on_track" ? "on track" : missionFund.status === "watch" ? "watching" : "needs support"}
+              </div>
+            </div>
+            <Link to="/donate" style={{ background: AMBER, color: BARK, padding: "8px 16px", borderRadius: 4, fontSize: 11, fontWeight: 800, textDecoration: "none" }}>
+              Support the mission →
+            </Link>
+          </div>
+        )}
 
         {/* ── Logged-in user card ── */}
         {user && USER_DASHBOARD[user.role] && (
