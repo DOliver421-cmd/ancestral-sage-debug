@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>M.O.R.E. — The Sovereign</title>
+<style>
+  :root{--vibe:#6a2cc9;--vibe2:#4a2690;--gold:#e9c46a;--gold2:#ffe9ad;--ink:#0c0716;--cream:#f7f1e6;--ok:#7fe0a0;--no:#ffb9a0;}
+  *{box-sizing:border-box;}
+  body{margin:0;font-family:system-ui,'Segoe UI',sans-serif;color:var(--cream);min-height:100vh;
+    background:radial-gradient(1100px 650px at 50% -8%,#241246,#160a2b 55%,var(--ink));}
+  a{color:var(--gold);}
+  /* top tricolor */
+  .seam{height:5px;background:linear-gradient(90deg,#c1272d 0 33.33%,#0e0e0e 33.33% 66.66%,#1a7a3c 66.66% 100%);}
+  header{display:flex;align-items:center;gap:12px;padding:14px 22px;border-bottom:1px solid rgba(233,196,106,.28);}
+  header .mark{font-family:'Cinzel',serif;font-weight:900;color:var(--gold);font-size:20px;letter-spacing:2px;}
+  header .sub{opacity:.6;font-size:12px;}
+  header .badge{margin-left:auto;display:none;align-items:center;gap:10px;font-size:13px;
+    background:rgba(233,196,106,.12);border:1px solid rgba(233,196,106,.4);border-radius:30px;padding:6px 14px;color:var(--gold2);}
+  header .badge b{color:var(--gold);}
+  header .logout{display:none;cursor:pointer;background:none;border:1px solid rgba(233,196,106,.4);color:var(--gold);
+    border-radius:20px;padding:6px 12px;font-size:12px;}
+
+  /* LOGIN */
+  #login{max-width:360px;margin:8vh auto;background:linear-gradient(180deg,#1c1036,#120a24);
+    border:2px solid var(--gold);border-radius:18px;padding:30px;box-shadow:0 0 0 6px var(--ink),0 20px 60px rgba(0,0,0,.5);}
+  #login h1{font-size:22px;color:var(--gold2);margin:0 0 2px;}
+  #login p{opacity:.7;font-size:13px;margin:0 0 16px;}
+  input{width:100%;padding:12px;margin:6px 0;border-radius:10px;border:1px solid rgba(233,196,106,.5);
+    background:#0e0820;color:var(--cream);font-size:15px;}
+  .btn{cursor:pointer;border:none;padding:12px 16px;border-radius:10px;font-weight:700;font-size:15px;
+    background:linear-gradient(180deg,var(--gold2),#c9961f);color:var(--ink);}
+  .btn:hover{filter:brightness(1.06);}
+  .btn.ghost{background:transparent;border:1.5px solid var(--gold);color:var(--gold);}
+  .err{color:var(--no);font-size:13px;min-height:18px;}
+
+  /* APP LAYOUT */
+  #app{display:none;max-width:1080px;margin:0 auto;padding:18px;gap:18px;
+    grid-template-columns:300px 1fr;align-items:start;}
+  @media(max-width:840px){#app{grid-template-columns:1fr;}}
+  .card{background:linear-gradient(180deg,rgba(247,241,230,.05),rgba(22,10,43,.6));
+    border:1px solid rgba(233,196,106,.35);border-radius:16px;padding:16px;}
+  .card h3{margin:0 0 10px;color:var(--gold);font-size:16px;}
+
+  /* avatar */
+  .avatar{position:relative;width:150px;height:150px;margin:6px auto 10px;cursor:pointer;}
+  .ring{position:absolute;inset:-7px;border-radius:50%;background:conic-gradient(from 0deg,var(--gold),var(--vibe),var(--gold2),var(--vibe),var(--gold));animation:spin 8s linear infinite;}
+  .ring::after{content:"";position:absolute;inset:6px;border-radius:50%;background:var(--ink);}
+  @keyframes spin{to{transform:rotate(360deg);}}
+  .glow{position:absolute;inset:-20px;border-radius:50%;background:radial-gradient(circle,rgba(106,44,201,.5),transparent 70%);filter:blur(8px);animation:breathe 4s ease-in-out infinite;}
+  @keyframes breathe{0%,100%{opacity:.5;transform:scale(.97);}50%{opacity:1;transform:scale(1.05);}}
+  .disc{position:absolute;inset:5px;border-radius:50%;overflow:hidden;border:2px solid var(--gold);background:linear-gradient(180deg,#3a2a55,#1c1030);z-index:2;transition:transform .35s;}
+  .disc img{width:100%;height:100%;object-fit:cover;}
+  .face{position:absolute;inset:0;}
+  .face .shirt{position:absolute;left:50%;bottom:0;transform:translateX(-50%);width:130%;height:42%;background:linear-gradient(180deg,#e0479a,#c01f7c);border-radius:50% 50% 0 0;}
+  .face .head{position:absolute;left:50%;top:15%;transform:translateX(-50%);width:54%;height:60%;background:radial-gradient(circle at 50% 38%,#7a5740,#5c4030);border-radius:48% 48% 46% 46%;}
+  .face .hair{position:absolute;left:50%;top:12%;transform:translateX(-50%);width:50%;height:15%;background:linear-gradient(180deg,#f3e3a8,#c9a23f);border-radius:50% 50% 30% 30%;}
+  .face .eyes{position:absolute;left:50%;top:37%;transform:translateX(-50%);width:40%;display:flex;justify-content:space-between;}
+  .face .eyes i{width:9px;height:9px;border-radius:50%;background:#1a120c;}
+  .face .goatee{position:absolute;left:50%;top:60%;transform:translateX(-50%);width:24%;height:16%;background:linear-gradient(180deg,#cfcfcf,#9a9a9a);border-radius:0 0 50% 50%;}
+  .avatar.bob .disc{animation:bob 3.2s ease-in-out infinite;}
+  @keyframes bob{0%,100%{transform:translateY(0);}50%{transform:translateY(-4px);}}
+  .avatar.look .disc{transform:translateX(6px) rotate(4deg);}
+  .activity{text-align:center;font-style:italic;font-size:12px;color:var(--gold);opacity:.85;min-height:16px;}
+
+  /* chat */
+  #msgs{height:46vh;min-height:280px;overflow-y:auto;display:flex;flex-direction:column;gap:10px;padding:4px;}
+  .m{padding:11px 14px;border-radius:14px;max-width:85%;line-height:1.5;white-space:pre-wrap;word-wrap:break-word;}
+  .me{align-self:flex-end;background:#3a2a55;}
+  .sov{align-self:flex-start;background:#1c1036;border:1px solid rgba(233,196,106,.35);}
+  .sov b{color:var(--gold);}
+  #bar{display:flex;gap:8px;margin-top:10px;}
+  .tabs{display:flex;gap:8px;margin-bottom:12px;}
+  .tab{cursor:pointer;padding:8px 14px;border-radius:20px;border:1px solid rgba(233,196,106,.4);background:transparent;color:var(--gold);font-size:13px;}
+  .tab.on{background:linear-gradient(180deg,var(--gold2),#c9961f);color:var(--ink);font-weight:700;}
+  .qmeta{font-size:11px;letter-spacing:1px;text-transform:uppercase;color:var(--gold);opacity:.8;}
+  .q{font-size:15px;margin:8px 0;line-height:1.45;}
+  .fb{font-size:13px;min-height:18px;}
+  .pts{color:var(--gold2);font-weight:700;} .ok{color:var(--ok);} .no{color:var(--no);}
+</style>
+</head>
+<body>
+  <div class="seam"></div>
+  <header>
+    <div>
+      <div class="mark">M.O.R.E.</div>
+      <div class="sub">Michael Oliver Resource Exchange · The Sovereign</div>
+    </div>
+    <div class="badge" id="badge"><span id="tier">Seed</span> · <b id="pts">0</b> pts</div>
+    <button class="logout" id="logout" onclick="logout()">Sign out</button>
+  </header>
+
+  <!-- LOGIN -->
+  <div id="login">
+    <h1>Welcome in.</h1>
+    <p>Sign in with your executive account to meet The Sovereign.</p>
+    <input id="email" placeholder="executive email" value="youpickeddoliver@gmail.com" />
+    <input id="pw" type="password" placeholder="password" onkeydown="if(event.key==='Enter')login()" />
+    <div class="err" id="lerr"></div>
+    <button class="btn" style="width:100%" onclick="login()">Enter</button>
+  </div>
+
+  <!-- APP -->
+  <div id="app">
+    <!-- left: the Sovereign avatar -->
+    <div class="card">
+      <h3>The Sovereign</h3>
+      <div class="avatar bob" id="avatar" title="Click to call his attention">
+        <div class="glow"></div><div class="ring"></div>
+        <div class="disc">
+          <img src="/api/sovereign/face" onerror="this.style.display='none';this.nextElementSibling.style.display='block';">
+          <div class="face" style="display:none;">
+            <div class="shirt"></div><div class="head"></div><div class="hair"></div>
+            <div class="eyes"><i></i><i></i></div><div class="goatee"></div>
+          </div>
+        </div>
+      </div>
+      <div class="activity" id="activity">always working…</div>
+      <p style="font-size:12px;opacity:.65;text-align:center;margin:8px 0 0;">Your avatar — his own identity. Click him.</p>
+    </div>
+
+    <!-- right: chat + puzzles -->
+    <div class="card">
+      <div class="tabs">
+        <button class="tab on" id="t-chat" onclick="tab('chat')">Talk to the Sovereign</button>
+        <button class="tab" id="t-puz" onclick="tab('puz')">Puzzles &amp; Points</button>
+      </div>
+
+      <div id="view-chat">
+        <div id="msgs">
+          <div class="m sov"><b>The Sovereign:</b> I'm here. Ask me anything — a booking, a number, a hard call.</div>
+        </div>
+        <div class="fb" id="cerr"></div>
+        <div id="bar">
+          <input id="inp" placeholder="type a message and press Enter…" onkeydown="if(event.key==='Enter')send()" autocomplete="off" />
+          <button class="btn" onclick="send()">Send</button>
+        </div>
+      </div>
+
+      <div id="view-puz" style="display:none;">
+        <div class="qmeta" id="qmeta">—</div>
+        <div class="q" id="qtext">Press "New puzzle" to begin. Solve it to earn partnership points toward membership.</div>
+        <input id="ans" placeholder="your answer…" onkeydown="if(event.key==='Enter')answer()" />
+        <div class="fb" id="pfb"></div>
+        <div style="display:flex;gap:8px;margin-top:8px;">
+          <button class="btn" onclick="answer()">Submit</button>
+          <button class="btn ghost" onclick="getPuzzle()">New puzzle</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+<script>
+  let token=null, pid=null;
+  const $=id=>document.getElementById(id);
+  const esc=s=>(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;');
+  const H=()=>({'Content-Type':'application/json','Authorization':'Bearer '+token});
+
+  async function login(){
+    $('lerr').textContent='signing in…';
+    try{
+      const r=await fetch('/api/auth/login',{method:'POST',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({email:$('email').value.trim(),password:$('pw').value})});
+      const j=await r.json().catch(()=>({}));
+      if(!r.ok){$('lerr').textContent=j.detail||('login failed ('+r.status+')');return;}
+      token=j.access_token||j.token;
+      if(!token){$('lerr').textContent='no token returned';return;}
+      $('login').style.display='none'; $('app').style.display='grid';
+      $('badge').style.display='flex'; $('logout').style.display='block';
+      $('inp').focus(); loadStatus(); idle();
+    }catch(e){$('lerr').textContent='cannot reach the server';}
+  }
+  function logout(){location.reload();}
+
+  async function loadStatus(){
+    try{const r=await fetch('/api/partnership/status',{headers:H()});const j=await r.json();
+      $('tier').textContent=j.tier; $('pts').textContent=j.points;}catch(e){}
+  }
+
+  function tab(which){
+    $('t-chat').classList.toggle('on',which==='chat');
+    $('t-puz').classList.toggle('on',which==='puz');
+    $('view-chat').style.display=which==='chat'?'block':'none';
+    $('view-puz').style.display=which==='puz'?'block':'none';
+  }
+
+  // chat
+  function add(cls,html){const d=document.createElement('div');d.className='m '+cls;d.innerHTML=html;$('msgs').appendChild(d);d.scrollIntoView({behavior:'smooth'});}
+  async function send(){
+    const t=$('inp').value.trim(); if(!t)return; $('inp').value=''; add('me',esc(t)); $('cerr').textContent='The Sovereign is thinking…';
+    try{const r=await fetch('/api/sovereign/chat',{method:'POST',headers:H(),body:JSON.stringify({message:t})});
+      const j=await r.json().catch(()=>({})); $('cerr').textContent='';
+      if(!r.ok){add('sov','<b>(error '+r.status+')</b> '+esc(j.detail||''));return;}
+      add('sov','<b>The Sovereign:</b> '+esc(j.reply||'(no reply)'));
+    }catch(e){$('cerr').textContent='cannot reach the server';}
+  }
+
+  // puzzles
+  async function getPuzzle(){
+    $('pfb').textContent=''; $('ans').value='';
+    try{const r=await fetch('/api/puzzles/next',{headers:H()});const j=await r.json();
+      if(j.done){$('qmeta').textContent='';$('qtext').textContent=j.message||'All solved.';pid=null;return;}
+      pid=j.puzzle.id; $('qmeta').textContent='level '+j.puzzle.level+' · '+j.puzzle.points+' pts';
+      $('qtext').textContent=j.puzzle.question;
+    }catch(e){$('pfb').innerHTML='<span class="no">cannot reach the server</span>';}
+  }
+  async function answer(){
+    if(!pid){getPuzzle();return;}
+    try{const r=await fetch('/api/puzzles/answer',{method:'POST',headers:H(),body:JSON.stringify({puzzle_id:pid,answer:$('ans').value})});
+      const j=await r.json();
+      if(j.correct){$('pfb').innerHTML='<span class="ok">Correct!</span> <span class="pts">+'+(j.points_awarded||0)+' pts</span>';loadStatus();setTimeout(getPuzzle,1200);}
+      else{$('pfb').innerHTML='<span class="no">Not yet.</span> '+(j.hint?('Hint: '+esc(j.hint)):'Try again.');}
+    }catch(e){$('pfb').innerHTML='<span class="no">cannot reach the server</span>';}
+  }
+
+  // avatar idle + attention
+  const ACTS=['always working…','reviewing bookings…','humming a verse…','watching the door…','counting points…'];
+  function idle(){const a=$('avatar');if(!a)return;
+    $('activity').textContent=ACTS[Math.floor(Math.random()*ACTS.length)];
+    a.classList.add('look');setTimeout(()=>a.classList.remove('look'),900);
+    setTimeout(idle,3500+Math.random()*3000);}
+  document.addEventListener('click',e=>{if(e.target.closest('#avatar')){tab('chat');$('inp')&&$('inp').focus();$('activity').textContent='…you have my attention.';}});
+</script>
+</body>
+</html>

@@ -6,12 +6,12 @@ import { ArrowRight, Home, Scale, Utensils, Briefcase, GraduationCap, HeartPulse
 // Public M.O.R.E. Help Center — 6 resource categories, each linking to a real
 // destination (the exchange, the legal tool, the course catalog). No dead ends.
 const CATEGORIES = [
-  { icon: Home,          title: "Housing",          desc: "Get plain-language help with rent notices, eviction letters, housing applications, and shelter resources — free.", to: "/app/helper?topic=housing" },
+  { icon: Home,          title: "Housing",          desc: "Get plain-language help with rent notices, eviction letters, housing applications, and shelter resources — free.", to: "/helper?topic=housing" },
   { icon: Scale,         title: "Legal Help",        desc: "Understand letters, bills, and legal papers in plain words.", to: "/more/litigation" },
-  { icon: Utensils,      title: "Food & Essentials", desc: "Connect to food assistance, clothing, and everyday support resources.", to: "/app/helper?topic=food+and+essentials" },
+  { icon: Utensils,      title: "Food & Essentials", desc: "Connect to food assistance, clothing, and everyday support resources.", to: "/helper?topic=food+and+essentials" },
   { icon: Briefcase,     title: "Jobs & Training",   desc: "Workforce training and job-readiness pathways.", to: "/courses" },
   { icon: GraduationCap, title: "Education",         desc: "Free courses and learning for every level.", to: "/courses" },
-  { icon: HeartPulse,    title: "Health & Wellness", desc: "Get help understanding medical bills, insurance letters, benefits paperwork, and wellness resources — free.", to: "/app/helper?topic=health+and+wellness" },
+  { icon: HeartPulse,    title: "Health & Wellness", desc: "Get help understanding medical bills, insurance letters, benefits paperwork, and wellness resources — free.", to: "/helper?topic=health+and+wellness" },
 ];
 
 export default function HelpCenter() {

@@ -12,7 +12,7 @@ import {
   Gamepad2, Star, Radio, Globe, Swords, ChevronLeft, ChevronRight, Share2,
 } from "lucide-react";
 import NotificationBell from "./NotificationBell";
-import { Search, HeartPulse, Landmark } from "lucide-react";
+import { Search, HeartPulse, Landmark, Archive } from "lucide-react";
 import { useEffect, useState } from "react";
 
 // ── Section header ────────────────────────────────────────────────────────────
@@ -140,6 +140,7 @@ export default function AppShell({ children }) {
 
           {/* ── CORE (everyone) ───────────────────────────────────────── */}
           <NavSection label="Home" collapsed={collapsed}>
+            {nl("/",                "Home / Landing",  Globe,            "nav-home")}
             {nl("/dashboard",       "Dashboard",       LayoutDashboard, "nav-dashboard")}
             {nl("/profile",         "My Profile",      UserCircle,      "nav-profile")}
             {nl("/my-position",     "My Position",     Compass,         "nav-my-position")}
@@ -177,6 +178,15 @@ export default function AppShell({ children }) {
             {nl("/more/chat",      "Community Chat",   Radio,           "nav-more-chat")}
             {nl("/more/litigation","Legal Tools",       Scale,           "nav-litigation")}
             {nl("/app/helper",     "Personal Helper",  HelpCircle,      "nav-helper")}
+          </NavSection>
+
+          {/* ── CLASSIC TOOLS (the preserved original HTML apps) ──────── */}
+          <NavSection label="Classic Tools" collapsed={collapsed}>
+            {nl("/classic-tools",  "All Originals",     Archive,         "nav-classic-tools")}
+            {nl("/classic/creators-sanctuary", "Creator's Sanctuary", Music, "nav-classic-sanctuary")}
+            {nl("/classic/djedi-oracle", "DJEDI Oracle", Star,         "nav-classic-djedi")}
+            {nl("/classic/litigation-weapon", "Litigation Weapon", Scale, "nav-classic-litigation")}
+            {nl("/classic/more-help-center", "Help Center (original)", HelpCircle, "nav-classic-more")}
           </NavSection>
 
           {/* ── AGENT WELLNESS (AAWAB — everyone) ─────────────────────── */}

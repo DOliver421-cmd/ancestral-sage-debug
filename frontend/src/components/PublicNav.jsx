@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 // Shared header for the public funnel pages (festival purple + gold). Keeps the
 // public page set cross-linked without cluttering the authenticated app sidebar.
 const LINKS = [
+  { to: "/helper", label: "My Helper" },
   { to: "/help-center", label: "Help Center" },
   { to: "/store", label: "Store" },
   { to: "/courses", label: "Courses" },
