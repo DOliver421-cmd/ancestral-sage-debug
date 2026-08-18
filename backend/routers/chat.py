@@ -139,11 +139,13 @@ Always sign off with: "— Admin Assistant, M.O.R.E. Help Center"
 """
 
 @router.post("/supervisor/public-chat")
-async def supervisor_public_chat(body: AssistantChatReq):
+async def supervisor_public_chat(body: AssistantChatReq, request: Request):
     """Public Supervisor chat — no auth required. Rate-limited by upstream proxy.
     Powers the SupervisorWidget for public visitors on morehelp.center.
+    Anonymous visitors are budgeted by IP so no single visitor can drain the API.
     """
     from ai.llm_gateway import call_llm as _call_llm
+    ip = request.client.host if request.client else "unknown"
     messages = [{"role": h["role"], "content": h["content"]} for h in (body.history or [])]
     messages.append({"role": "user", "content": body.message})
     try:
@@ -152,6 +154,7 @@ async def supervisor_public_chat(body: AssistantChatReq):
             messages=messages,
             max_tokens=1024,
             persona_label="supervisor",
+            budget_key=f"ip:{ip}",
         )
         return {"reply": gw["text"]}
     except Exception:
@@ -195,6 +198,7 @@ async def ai_social_blast(body: _SocialBlastReq, user: User = Depends(_dep_curre
             messages=[{"role": "user", "content": user_msg}],
             max_tokens=2000,
             persona_label="social_blast",
+            user_id=user.id,
         )
         if gw.get("provider") == "kb_fallback":
             raise HTTPException(503, "AI service temporarily unavailable — no provider keys configured. Contact admin.")
@@ -268,6 +272,7 @@ async def creative_partner_chat(body: AssistantChatReq, user: User = Depends(_de
             messages=messages,
             max_tokens=1500,
             persona_label="creative_partner",
+            user_id=user.id,
         )
         return {"reply": gw["text"]}
     except Exception:
@@ -340,6 +345,7 @@ async def admin_assistant_chat(body: AssistantChatReq, user: User = Depends(_dep
             messages=messages,
             max_tokens=2048,
             persona_label="admin_assistant",
+            user_id=user.id,
         )
         reply = gw["text"]
     except Exception as e:

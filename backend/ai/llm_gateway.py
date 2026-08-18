@@ -338,6 +338,60 @@ _KB_RESULT = {
     "degraded":      True,
 }
 
+# ── Per-user daily budget exhaustion ─────────────────────────────────────────
+# Reached when a non-exec user has used their USER_DAILY_TOKEN_CAP for today.
+# They are NOT cut off — routers layer their curated KB guidance onto this
+# notice. budget_exceeded=True lets routers distinguish budget from outage.
+_BUDGET_RESULT = {
+    "text":           "",  # filled below (avoids importing user_budget at module load)
+    "provider":       "user_budget",
+    "model":          "none",
+    "input_tokens":   0,
+    "output_tokens":  0,
+    "degraded":       True,
+    "budget_exceeded": True,
+}
+
+try:
+    from user_budget import budget_notice as _budget_notice
+    _BUDGET_RESULT["text"] = _budget_notice()
+except Exception:
+    _BUDGET_RESULT["text"] = (
+        "You've reached today's free AI answer budget for your account. "
+        "I'm not cutting you off — I'll still help you right now from my free "
+        "knowledge base. Live AI answers return after midnight — please try again "
+        "then. All other platform features keep working normally."
+    )
+
+
+async def _tier_result(
+    user_id:      Optional[str],
+    budget_key:   Optional[str],
+    result:       dict,
+    provider:     str,
+    model:        str,
+    degraded:     bool,
+) -> dict:
+    """Record a successful platform-paid tier call against the global hourly
+    cap AND the user's daily budget, then shape the gateway result dict."""
+    tokens = int(result.get("in_tok", 0) or 0) + int(result.get("out_tok", 0) or 0)
+    _record_tokens(tokens)
+    _budget_id = user_id or budget_key
+    if _budget_id:
+        try:
+            from user_budget import record_user_tokens
+            await record_user_tokens(_budget_id, tokens)
+        except Exception:
+            pass  # recording never blocks a reply
+    return {
+        "text":          str(result.get("text", "") or ""),
+        "provider":      provider,
+        "model":         model,
+        "input_tokens":  result.get("in_tok", 0),
+        "output_tokens": result.get("out_tok", 0),
+        "degraded":      degraded,
+    }
+
 
 # ── Primary entry point ───────────────────────────────────────────────────────
 async def call_llm(
@@ -348,6 +402,7 @@ async def call_llm(
     tools:         Optional[list] = None,
     persona_label: str           = "unknown",
     user_id:       Optional[str]  = None,
+    budget_key:    Optional[str]  = None,   # anonymous fallback identity (e.g. "ip:1.2.3.4")
 ) -> dict:
     """
     Unified LLM call with 6-tier fallback chain.
@@ -390,7 +445,8 @@ async def call_llm(
                             base_url=_base, api_key=_byok["key"], model=_model,
                             system=system, messages=messages, max_tokens=max_tokens, tools=tools,
                         )
-                        _record_tokens(_r["in_tok"] + _r["out_tok"])
+                        # BYOK users pay with their own key — their tokens are
+                        # never counted against the platform's budgets.
                         return {
                             "text": _r["text"],
                             "provider": f"byok:{_byok['provider']}",
@@ -407,6 +463,26 @@ async def call_llm(
         except Exception as _e:
             logger.warning("LLM Gateway BYOK resolution failed (%s): %s", persona_label, _e)
 
+    # ── Per-user daily budget guard (platform-paid calls only) ──────────────
+    # Prevents any single non-exec account from draining the platform API and
+    # breaking AI features for everyone else. Users are NEVER cut off: on
+    # exhaustion they get the free KB fallback plus a clear "try again
+    # tomorrow for live AI answers" notice.
+    _budget_id = user_id or budget_key
+    if _budget_id:
+        try:
+            from user_budget import check_user_budget
+
+            _budget = await check_user_budget(_budget_id)
+            if _budget.get("exceeded"):
+                logger.info(
+                    "LLM Gateway: %s daily budget exhausted (%s/%s) — KB fallback for %s",
+                    _budget_id, _budget.get("used", 0), _budget.get("cap", 0), persona_label,
+                )
+                return _BUDGET_RESULT
+        except Exception as _be:
+            logger.warning("LLM Gateway: user budget check failed (%s): %s", persona_label, _be)
+
     # ── Tier 1a: Groq / Llama 3.3 70B (FREE — primary, fastest) ─────────────
     if GROQ_API_KEY:
         try:
@@ -414,9 +490,7 @@ async def call_llm(
                 base_url=GROQ_BASE, api_key=GROQ_API_KEY, model=GROQ_MODEL,
                 system=system, messages=messages, max_tokens=max_tokens, tools=tools,
             )
-            _record_tokens(result["in_tok"] + result["out_tok"])
-            return {"text": result["text"], "provider": "groq", "model": GROQ_MODEL,
-                    "input_tokens": result["in_tok"], "output_tokens": result["out_tok"], "degraded": False}
+            return await _tier_result(user_id, budget_key, result, "groq", GROQ_MODEL, False)
         except Exception as e:
             logger.warning("LLM Gateway T1a Groq failed (%s): %s", persona_label, e)
 
@@ -427,9 +501,7 @@ async def call_llm(
                 base_url=CEREBRAS_BASE, api_key=CEREBRAS_API_KEY, model=CEREBRAS_MODEL,
                 system=system, messages=messages, max_tokens=max_tokens, tools=tools,
             )
-            _record_tokens(result["in_tok"] + result["out_tok"])
-            return {"text": result["text"], "provider": "cerebras", "model": CEREBRAS_MODEL,
-                    "input_tokens": result["in_tok"], "output_tokens": result["out_tok"], "degraded": False}
+            return await _tier_result(user_id, budget_key, result, "cerebras", CEREBRAS_MODEL, False)
         except Exception as e:
             logger.warning("LLM Gateway T1b Cerebras failed (%s): %s", persona_label, e)
 
@@ -440,9 +512,7 @@ async def call_llm(
                 base_url=SAMBANOVA_BASE, api_key=SAMBANOVA_API_KEY, model=SAMBANOVA_MODEL,
                 system=system, messages=messages, max_tokens=max_tokens, tools=tools,
             )
-            _record_tokens(result["in_tok"] + result["out_tok"])
-            return {"text": result["text"], "provider": "sambanova", "model": SAMBANOVA_MODEL,
-                    "input_tokens": result["in_tok"], "output_tokens": result["out_tok"], "degraded": False}
+            return await _tier_result(user_id, budget_key, result, "sambanova", SAMBANOVA_MODEL, False)
         except Exception as e:
             logger.warning("LLM Gateway T1c SambaNova failed (%s): %s", persona_label, e)
 
@@ -453,9 +523,7 @@ async def call_llm(
                 base_url=GEMINI_BASE, api_key=GEMINI_API_KEY, model=GEMINI_MODEL,
                 system=system, messages=messages, max_tokens=max_tokens, tools=None,
             )
-            _record_tokens(result["in_tok"] + result["out_tok"])
-            return {"text": result["text"], "provider": "gemini", "model": GEMINI_MODEL,
-                    "input_tokens": result["in_tok"], "output_tokens": result["out_tok"], "degraded": True}
+            return await _tier_result(user_id, budget_key, result, "gemini", GEMINI_MODEL, True)
         except Exception as e:
             logger.warning("LLM Gateway T2 Gemini failed (%s): %s", persona_label, e)
 
@@ -466,9 +534,7 @@ async def call_llm(
                 base_url=XAI_BASE, api_key=XAI_API_KEY, model=XAI_MODEL,
                 system=system, messages=messages, max_tokens=max_tokens, tools=tools,
             )
-            _record_tokens(result["in_tok"] + result["out_tok"])
-            return {"text": result["text"], "provider": "grok", "model": XAI_MODEL,
-                    "input_tokens": result["in_tok"], "output_tokens": result["out_tok"], "degraded": True}
+            return await _tier_result(user_id, budget_key, result, "grok", XAI_MODEL, True)
         except Exception as e:
             logger.warning("LLM Gateway T3 Grok failed (%s): %s", persona_label, e)
 
@@ -476,9 +542,7 @@ async def call_llm(
     if COHERE_API_KEY:
         try:
             result = await _cohere_call(system=system, messages=messages, max_tokens=max_tokens, tools=tools)
-            _record_tokens(result["in_tok"] + result["out_tok"])
-            return {"text": result["text"], "provider": "cohere", "model": COHERE_MODEL,
-                    "input_tokens": result["in_tok"], "output_tokens": result["out_tok"], "degraded": True}
+            return await _tier_result(user_id, budget_key, result, "cohere", COHERE_MODEL, True)
         except Exception as e:
             logger.warning("LLM Gateway T4 Cohere failed (%s): %s", persona_label, e)
 
@@ -489,9 +553,7 @@ async def call_llm(
                 base_url=MISTRAL_BASE, api_key=MISTRAL_API_KEY, model=MISTRAL_MODEL,
                 system=system, messages=messages, max_tokens=max_tokens, tools=tools,
             )
-            _record_tokens(result["in_tok"] + result["out_tok"])
-            return {"text": result["text"], "provider": "mistral", "model": MISTRAL_MODEL,
-                    "input_tokens": result["in_tok"], "output_tokens": result["out_tok"], "degraded": True}
+            return await _tier_result(user_id, budget_key, result, "mistral", MISTRAL_MODEL, True)
         except Exception as e:
             logger.warning("LLM Gateway T5 Mistral failed (%s): %s", persona_label, e)
 
@@ -502,9 +564,7 @@ async def call_llm(
                 base_url=TOGETHER_BASE, api_key=TOGETHER_API_KEY, model=TOGETHER_MODEL,
                 system=system, messages=messages, max_tokens=max_tokens, tools=None,
             )
-            _record_tokens(result["in_tok"] + result["out_tok"])
-            return {"text": result["text"], "provider": "together", "model": TOGETHER_MODEL,
-                    "input_tokens": result["in_tok"], "output_tokens": result["out_tok"], "degraded": True}
+            return await _tier_result(user_id, budget_key, result, "together", TOGETHER_MODEL, True)
         except Exception as e:
             logger.warning("LLM Gateway T6 Together failed (%s): %s", persona_label, e)
 
@@ -516,9 +576,7 @@ async def call_llm(
                 system=system, messages=messages, max_tokens=max_tokens, tools=None,
                 extra_headers={"HTTP-Referer": "https://wai-institute.com", "X-Title": "WAI-Institute"},
             )
-            _record_tokens(result["in_tok"] + result["out_tok"])
-            return {"text": result["text"], "provider": "openrouter", "model": OPENROUTER_MODEL,
-                    "input_tokens": result["in_tok"], "output_tokens": result["out_tok"], "degraded": True}
+            return await _tier_result(user_id, budget_key, result, "openrouter", OPENROUTER_MODEL, True)
         except Exception as e:
             logger.warning("LLM Gateway T7 OpenRouter failed (%s): %s", persona_label, e)
 
@@ -560,11 +618,12 @@ async def call_llm(
             text    = "".join(b.text for b in resp.content if hasattr(b, "text"))
             in_tok  = getattr(resp.usage, "input_tokens",  0)
             out_tok = getattr(resp.usage, "output_tokens", 0)
-            _record_tokens(in_tok + out_tok)
             _mark_anthropic_ok()
             logger.warning("LLM Gateway: %s fell through to Anthropic (PAID — owner-authorized)", persona_label)
-            return {"text": text, "provider": "anthropic", "model": model,
-                    "input_tokens": in_tok, "output_tokens": out_tok, "degraded": True, "_raw": resp}
+            _anth = {"text": text, "in_tok": in_tok, "out_tok": out_tok}
+            _result = await _tier_result(user_id, budget_key, _anth, "anthropic", model, True)
+            _result["_raw"] = resp
+            return _result
         except Exception as e:
             logger.warning("LLM Gateway Anthropic failed (%s): %s", persona_label, e)
             _mark_anthropic_fail()

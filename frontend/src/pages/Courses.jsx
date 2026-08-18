@@ -91,6 +91,25 @@ export default function Courses() {
           </p>
         </div>
 
+        {/* Featured open-access course — static, zero-cost, syllabus-as-teacher */}
+        <Link to="/ascension-protocols"
+          className="mt-6 flex flex-col sm:flex-row sm:items-center gap-4 rounded-2xl p-6 transition-all hover:shadow-lg"
+          style={{ background: "linear-gradient(135deg,#14120a 0%,#241a08 60%,#0d1a0a 100%)", border: "1px solid rgba(232,165,30,0.35)" }}>
+          <div className="w-14 h-14 rounded-2xl flex items-center justify-center shrink-0" style={{ background: "rgba(232,165,30,0.15)", fontSize: 28 }}>𓋹</div>
+          <div className="flex-1">
+            <div className="overline" style={{ color: "#E8A51E" }}>Open-Access · Free · Zero Tokens</div>
+            <div className="font-heading font-extrabold text-white" style={{ fontSize: "1.15rem", lineHeight: 1.25 }}>
+              The Ascension Protocols — Ancestral & Cosmic Remembrance
+            </div>
+            <p className="text-sm mt-1" style={{ color: "rgba(255,255,255,0.65)" }}>
+              A 7/30/90-day Kemetic-grounded course that runs entirely in your browser and your life — the syllabus is the teacher, the moon keeps the schedule.
+            </p>
+          </div>
+          <span className="inline-flex items-center gap-2 font-bold text-sm px-5 py-2.5 rounded-xl shrink-0 self-start sm:self-center" style={{ background: "#E8A51E", color: "#0a0a0a" }}>
+            Begin free →
+          </span>
+        </Link>
+
         {/* Category filter */}
         <div className="flex gap-2 flex-wrap mt-6">
           <button

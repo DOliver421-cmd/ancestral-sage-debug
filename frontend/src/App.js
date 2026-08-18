@@ -79,6 +79,7 @@ import SystemHealth from "./pages/SystemHealth";
 import ModerationAnalytics from "./pages/ModerationAnalytics";
 import RevenueDivision from "./pages/RevenueDivision";
 import Courses from "./pages/Courses";
+import AscensionProtocols from "./pages/AscensionProtocols";
 import Community from "./pages/Community";
 import Creators from "./pages/Creators";
 import GhostProducer from "./pages/GhostProducer";
@@ -256,6 +257,7 @@ function App() {
           <Route path="/terms" element={<TermsOfService />} />
           <Route path="/privacy" element={<PrivacyPolicy />} />
           <Route path="/courses" element={<Courses />} />
+          <Route path="/ascension-protocols" element={<AscensionProtocols />} />
           <Route path="/community" element={<Community />} />
           <Route path="/creators" element={<Creators />} />
           <Route path="/instructor" element={<Protected roles={["instructor", "admin"]}><InstructorDashboard /></Protected>} />

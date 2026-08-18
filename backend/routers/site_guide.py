@@ -368,6 +368,7 @@ async def site_guide_chat(body: SiteGuideChatReq, user: User = Depends(_dep_curr
     reply = ""
     provider = "unknown"
     degraded = False
+    budget_hit = False
     try:
         gw = await _call_llm(
             system=SITE_GUIDE_SYSTEM,
@@ -378,21 +379,27 @@ async def site_guide_chat(body: SiteGuideChatReq, user: User = Depends(_dep_curr
         )
         reply = gw.get("text") or ""
         provider = gw.get("provider") or "unknown"
+        budget_hit = bool(gw.get("budget_exceeded"))
         degraded = bool(gw.get("degraded")) or provider == "kb_fallback"
     except Exception as exc:
         logger.exception("Site Guide AI error")
         degraded = True
 
-    # ── Gateway down or quota exhausted → keep it free and useful ────────────
+    # ── Gateway down, quota exhausted, or daily budget used → free pointers ──
     # Never echo the gateway's generic "restricted mode" notice. Give a real
     # pointer set instead so the guide still helps when the API is exhausted.
-    if degraded or not reply.strip():
-        reply = (
-            "I'm here — just a brief connectivity gap on my end. I can still point you "
-            "around: the M.O.R.E. Help Center is at /more-help-center, courses at /courses, "
-            "modules at /modules, plans at /plans, and the resource lanes at /help-center. "
-            "Try asking me again in a moment."
-        )
+    _POINTERS = (
+        "I'm here — just a brief connectivity gap on my end. I can still point you "
+        "around: the M.O.R.E. Help Center is at /more-help-center, courses at /courses, "
+        "modules at /modules, plans at /plans, and the resource lanes at /help-center. "
+        "Try asking me again in a moment."
+    )
+    if budget_hit:
+        from user_budget import budget_notice
+        reply = budget_notice() + "\n\n" + _POINTERS
+        provider = "user_budget"
+    elif degraded or not reply.strip():
+        reply = _POINTERS
         provider = "kb_fallback"
 
     # Best-effort session log (never blocks the reply).
