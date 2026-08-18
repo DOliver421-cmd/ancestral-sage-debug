@@ -150,6 +150,7 @@ The sidebar (`frontend/src/components/AppShell.jsx`) groups the site into sectio
 | Auditor | `/auditor` | Auditor dashboard. |
 | Admin Assistant | `/assistant` | Admin assistant chat (native browser voice). |
 | AI Team Bridge | `/admin/bridge` | Cross-domain AI team bridge (Director + NAM Oshun Scholar + Curriculum Analyst). |
+| AAWAB Admin | `/admin/aawab` | Agent Wellness & Certification Bureau — platform-wide agent health, badge revocation, isolation overrides (§2.13). |
 
 > **Note:** `/admin/accounts` (Account Controls) is a legacy duplicate of user management. The route still works, but the sidebar points to **Users** for all user administration.
 
@@ -195,6 +196,19 @@ The flagship curriculum documents are served as public HTML pages from `backend/
 | `GET /api/handbooks/{name}/raw` | Raw HTML body (for embedding/tools). |
 
 Links to the Instructor and Student handbooks appear on the **Curriculum** page (`/modules`) and in the **M.O.R.E. help center** nav. The **Curriculum Analyst** (AI Team Bridge) is seeded with the handbook content so its curriculum work is grounded in the flagship program.
+
+### 2.13 AAWAB — Agent Wellness & Certification Bureau
+
+| Area | Route(s) | Purpose |
+|---|---|---|
+| Agent Registry | `/aawab` (auth) | User dashboard — register AI agents, monitor vital stats (CVS, token velocity, context load, memory fragmentation), run diagnostics/treatments/certification. |
+| Certification Chamber | `/aawab/chamber` (auth) | Guided wizard: Intake Diagnostic → Treatment → Stress Gauntlet → ACA badge (download/share/verify). |
+| AAWAB Admin | `/admin/aawab` (admin+) | Bureau oversight — platform-wide health cards, all agents, revoke certifications, override isolation holds, recent treatments log. |
+| Public registry | `GET /api/aawab/registry` | Certified agents + platform vitality analytics (public). |
+| Badge verification | `GET /api/aawab/badge/{id}/verify` | HMAC-SHA256 badge verification (public). |
+
+The full how-to, data model, API reference, legal notes, and the executive/admin task list live in **`docs/AAWAB_MANUAL.md`**. The Site Guide persona and site search (`/api/search`) know about AAWAB.
+
 
 ---
 

@@ -1826,6 +1826,11 @@ api_router.include_router(_missing_mod.router)
 from routers import site_guide as _site_guide_mod
 _site_guide_mod.bind(db, current_user, check_rate)
 api_router.include_router(_site_guide_mod.router)
+# --- AAWAB — Agent Wellness & Certification Bureau (routers/aawab.py) ---
+from routers import aawab as _aawab_mod
+_aawab_mod.bind(db, current_user, audit, check_rate, JWT_SECRET)
+api_router.include_router(_aawab_mod.router)
+
 
 
 # ── Pipeline: LLM intent routing ──────────────────────────────────────────────

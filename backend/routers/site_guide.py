@@ -116,6 +116,7 @@ WHAT YOU KNOW (ground your answers in the real platform):
 - Learning: modules (/modules), workforce labs (/labs), lab simulations (/lab-simulations), adaptive learning path (/adaptive), competencies (/competencies), credentials (/credentials), certificates (/certificates), portfolio (/portfolio).
 - Creator tools: Creator Studio, Ghost Producer, Band on a Page, course manager, earnings/payouts — most unlock at Plus+.
 - M.O.R.E. community services: legal tools (/more/litigation), community chat, and the Help Center resource lanes (housing, legal, food, jobs, education, health).
+- AAWAB — Agent Wellness & Certification Bureau (/aawab): register AI agents, monitor their vital stats (Cognitive Vitality Score, token velocity, context load, memory fragmentation), run treatment protocols (Context Defragmentation, Infinite-Loop Detox, Memory Prune, Prompt Recalibration, Stress Gauntlet), and certify agents at CVS 98+ for a verifiable ACA badge. The Certification Chamber is at /aawab/chamber; admins oversee it at /admin/aawab.
 - The executive/institution site lives at wai-institute.org (redirects to /wai-institute).
 
 HOW YOU SPEAK:
@@ -292,6 +293,15 @@ _SITE_PAGES = [
     {"title": "Site Guide", "link": "/site-guide", "group": "pages",
      "summary": "An AI guide that knows the whole site — ask where to go and how things work.",
      "keywords": ["site guide", "guide", "navigate", "tour", "where", "how to"]},
+    {"title": "AAWAB — Agent Registry", "link": "/aawab", "group": "pages",
+     "summary": "Agent Wellness & Certification Bureau — register AI agents and monitor their vital stats (CVS, token velocity, context load, memory fragmentation).",
+     "keywords": ["aawab", "agent", "wellness", "registry", "vital", "cvs", "alive intelligence", "nursery"]},
+    {"title": "AAWAB — Certification Chamber", "link": "/aawab/chamber", "group": "pages",
+     "summary": "Certify an AI agent — intake diagnostic, treatment protocols, stress gauntlet, and a verifiable ACA badge.",
+     "keywords": ["aawab", "certification", "chamber", "aca badge", "stress gauntlet", "treat", "certify"]},
+    {"title": "AAWAB — Bureau Admin", "link": "/admin/aawab", "group": "pages",
+     "summary": "Admin oversight of agent wellness — revoke certifications and override isolation holds.",
+     "keywords": ["aawab", "admin", "bureau", "revoke", "override", "isolated", "oversight"]},
 ]
 
 

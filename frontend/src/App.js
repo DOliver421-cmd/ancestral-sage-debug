@@ -122,6 +122,9 @@ import AITeamBridge from "./pages/AITeamBridge";
 import BYOK from "./pages/BYOK";
 import SiteGuide from "./pages/SiteGuide";
 import SiteSearch, { SiteSearchModal } from "./components/SiteSearch";
+import AgentRegistryView from "./pages/aawab/AgentRegistryView";
+import CertificationChamber from "./pages/aawab/CertificationChamber";
+import AdminAawabDashboard from "./pages/aawab/AdminAawabDashboard";
 
 // Role hierarchy must mirror backend ROLE_RANK in /app/backend/server.py.
 // Higher rank = more authority; a higher-rank role passes any check meant
@@ -229,6 +232,10 @@ function App() {
           {/* Site search + Site Guide persona */}
           <Route path="/search" element={<SiteSearch />} />
           <Route path="/site-guide" element={<SiteGuide />} />
+          {/* AAWAB — Agent Wellness & Certification Bureau */}
+          <Route path="/aawab" element={<Protected><AgentRegistryView /></Protected>} />
+          <Route path="/aawab/chamber" element={<Protected><CertificationChamber /></Protected>} />
+          <Route path="/admin/aawab" element={<BoundedAdmin roles={["admin"]} label="AAWAB Admin" backTo="/admin"><AdminAawabDashboard /></BoundedAdmin>} />
           <Route path="/landing" element={<LandingMarketplace />} />
           {/* Supervisor — executive_admin only; separate login at /supervisor-login */}
           <Route path="/supervisor-login" element={<SupervisorLogin />} />
