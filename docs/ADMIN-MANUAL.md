@@ -425,3 +425,56 @@ Whenever you change the platform:
 6. **Change voice/keys/security behavior** → update §5 / §7.
 
 Bump the **Version** and **Last updated** at the top of this file with every change.
+
+---
+
+## 8. Executive Command Center (integrated exec surface)
+
+**Route:** `/admin/command` (executive_admin) · **Backend:** `backend/routers/exec_command.py`
+
+The Command Center is the single integrated exec surface — every number is loaded once into a shared context and reused across all five tabs, so there is no copy/paste between screens:
+
+| Tab | Contents |
+|---|---|
+| Overview | Platform status (API, DB, incidents, labs, gateway, payments, keys) + KPIs + quick actions |
+| Business | Live Business Office numbers (month/total revenue, runway, contracted, deals/jobs) + open agenda + projects |
+| AI & Providers | LLM gateway provider table (free-first chain), hourly budget, per-user daily budget, Free Google Stack status |
+| Reports & Manuals | Report engines (Exec Site Report, Sage Audit, Staff Meetings, Revenue) + every `docs/*.md` and `backend/handbooks/*.md` rendered inline |
+| All Controls | Searchable index of every exec tool with deep links |
+
+The **Copy briefing** button compiles the full picture (platform, business, AI, agenda) into one formatted block — paste it into a report, email, or staff meeting in one click.
+
+**Endpoints:** `GET /api/exec/system` (restored aggregate overview: role_counts, version, env key flags, audit_log_total, collections, gateway status) · `GET /api/exec/manuals` (serves all repo manuals as markdown).
+
+## 9. Per-user AI token budget
+
+Every platform-paid AI call is budgeted per user per day (`backend/user_budget.py`, enforced centrally in `ai/llm_gateway.py`):
+
+- **Budgeted (default 50,000 tokens/day, env `USER_DAILY_TOKEN_CAP`):** students/members/free users and anonymous visitors (budgeted by IP).
+- **Exempt (unlimited):** instructor, admin, executive_admin, creative_partner — matches the BYOK-free tier.
+- **BYOK users are never counted** — they pay with their own key (and their usage no longer drains the platform's hourly counter).
+- **Never a cut-off:** on exhaustion the user gets a clear “try again tomorrow for live AI answers” notice layered on top of the curated KB answer (Helper → 211 guidance, Site Guide → pointer set).
+- Moderation (Oliver Guardian) is deliberately exempt — content safety must never be budget-blocked.
+
+**Monitoring:** `GET /api/exec/system` → `gateway.budget` (hourly) and the Command Center's AI tab. Records live in Mongo `user_token_budgets` (`{user_id, date, tokens}`).
+
+## 10. Sponsor a Scholarship
+
+**Routes:** public `/sponsor` · apply `/scholarships/apply` (auth) · committee `/admin/scholarships` (admin+)
+**Backend:** `backend/routers/scholarships.py` + webhook grant in `routers/payments.py` (product key `scholarship`).
+
+Three-sided flow: **sponsor** pledges (Full/Partial/Collective) → existing Lemon Squeezy → Gumroad checkout → webhook marks the pledge paid and raises the fund's progress · **applicant** applies to a fund (need + community contribution + goal) · **committee** reviews, and approval auto-matches the oldest paid pledge (same fund first) into a milestone-tracked award. Funds release only against **verified milestones**. If payments aren't configured, pledges are recorded with an explicit `grace` audit trail so the office can follow up — nothing is dropped. Full ops detail in `docs/SCHOLARSHIPS_MANUAL.md`.
+
+## 11. Open-access course & free tools
+
+- **The Ascension Protocols** (`/ascension-protocols`) — static, zero-token, zero-drain Kemetic/pan-African course (syllabus-as-teacher, lunar schedule, printable ledgers, external media). No backend, no data stored.
+- **Video Presentation Builder** (`/studio/video-presenter`) — 100% client-side canvas + mic-narration → WebM export (sponsor impact reports, applicant spotlights). Browser TTS is preview-only (it cannot be captured into a recording).
+
+## 12. Free Google stack (base account: morehelpcenter@gmail.com)
+
+Full evaluation in `docs/GOOGLE_FREE_STACK.md`. Summary:
+
+- **Gemini Developer API — integrate:** already wired as gateway Tier 2 and a BYOK provider. Free tier is real but rate-limited (~5–15 RPM; Pro models excluded) — use as fallback, not primary. One-time setup: AI Studio → create key as morehelpcenter@gmail.com → paste at `/admin/providers` (type: gemini).
+- **Free Google courses — integrate:** Google AI Essentials, Cloud Skills Boost (~35 credits/mo) — link them in a Free Learning lane for the community.
+- **Google Cloud free tier ($300/90 days) — defer:** platform runs on a zero-cost stack; no GCP need until there's a real requirement.
+- **Workspace (Gmail/Drive/Calendar) — already the base account's daily ops; no integration needed.**
