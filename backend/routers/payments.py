@@ -64,6 +64,9 @@ PAYMENT_PRODUCTS = {
     "patron_monthly": {"name": "M.O.R.E. Patron – Monthly",            "amount": 5900, "mode": "subscription", "interval": "month", "description": "M.O.R.E. Patron — founders circle + funds free access for others"},
     "credential":     {"name": "M.O.R.E. Credential Certificate",      "amount": 2500, "mode": "payment",      "description": "Physical credential certificate", "physical": True},
     "donation":       {"name": "Donation – M.O.R.E. Help Center",      "amount": None, "mode": "payment",      "description": "Support the M.O.R.E. Help Center mission"},
+    # BYOK — $3 one-time unlock (below instructor tier). Grants byok_enabled,
+    # not a membership tier; instructor tier and above activate free.
+    "byok":           {"name": "BYOK – Bring Your Own Key",            "amount":  300, "mode": "payment",      "description": "One-time $3 unlock — attach a free Groq, Cerebras, or Gemini key so your AI runs on your own key"},
     # Creator's Sanctuary tiers (creator lane — see _PRODUCT_TIER_MAP)
     "sanctuary_trial":   {"name": "M.O.R.E. Creator's Sanctuary – 3-Day Trial",     "amount":  300, "mode": "payment",      "description": "All-access 3 days & 33 minutes trial — everything through Pro"},
     "sanctuary_paid":    {"name": "M.O.R.E. Creator's Sanctuary – Paid Creator",    "amount":  700, "mode": "subscription", "interval": "month", "description": "Member-level creator lane — $7/mo", "deprecated": True},
@@ -259,6 +262,26 @@ async def payments_webhook(request: Request):
         )
         if not product_key:
             product_key = _LEGACY_PRODUCT_NAMES.get(product_name)
+        # ── BYOK ($3 one-time unlock, below instructor tier) ────────────────
+        # A paid BYOK product grants byok_enabled directly (not a membership
+        # tier — instructor tier and above activate BYOK free without payment).
+        if user_email and product_key == "byok":
+            user_doc = await db.users.find_one(
+                {"email": user_email}, {"id": 1, "byok_enabled": 1}
+            )
+            if user_doc:
+                await db.users.update_one(
+                    {"id": user_doc["id"]},
+                    {"$set": {"byok_enabled": True, "byok_activated_at": datetime.now(timezone.utc).isoformat()}},
+                )
+                try:
+                    await audit(user_doc["id"], "byok.paid", meta={"product": "byok", "order_id": order_id})
+                except Exception:
+                    pass
+                await notify(user_doc["id"], "BYOK Activated",
+                             "Your $3 BYOK unlock is active — attach a free Groq, Cerebras, or Gemini key at /byok to route your AI through your own key.",
+                             link="/byok", kind="success")
+
         if user_email and product_key and product_key in _PRODUCT_TIER_MAP:
             user_doc = await db.users.find_one(
                 {"email": user_email},
