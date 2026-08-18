@@ -190,7 +190,6 @@ export default function AppShell({ children }) {
           </NavSection>
 
           {/* ── AGENT WELLNESS (AAWAB — everyone) ─────────────────────── */}
-          {/* ── AGENT WELLNESS (AAWAB — everyone) ─────────────────────── */}
           <NavSection label="Agent Wellness" collapsed={collapsed}>
             {nl("/aawab",          "Agent Registry",  HeartPulse,      "nav-aawab")}
             {nl("/aawab/chamber",  "Certification",   Award,           "nav-aawab-chamber")}
@@ -257,6 +256,7 @@ export default function AppShell({ children }) {
               {nl("/admin/aawab",     "AAWAB Admin",     HeartPulse,     "nav-aawab-admin")}
               {nl("/admin/business-office", "Business Office", Landmark, "nav-abo-admin")}
               {nl("/admin/office-control", "Office Control (no-code)", Settings, "nav-abo-control")}
+              {nl("/arena",           "The Arena",       Swords,         "nav-arena")}
             </NavSection>
           )}
 
@@ -274,7 +274,6 @@ export default function AppShell({ children }) {
               {nl("/team/ops",           "Team Ops",          Settings,       "nav-team-ops")}
               {nl("/supervisor",         "Supervisor Hub",    Radio,          "nav-supervisor")}
               {nl("/creative-partner",   "Creative Partner",  Palette,        "nav-creative-partner")}
-              {nl("/arena",              "The Arena",         Swords,         "nav-arena")}
               {nl("/jamil",              "Jamil",             Sparkles,       "nav-jamil")}
               {nl("/projects",           "Projects",          ClipboardCheck, "nav-projects")}
             </NavSection>

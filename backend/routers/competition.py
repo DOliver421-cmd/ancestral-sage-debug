@@ -117,11 +117,33 @@ class UserScoreRequest(BaseModel):
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
+async def _ai_available() -> dict:
+    """Return gateway AI availability. Live only when at least one free provider
+    key is configured AND the hourly budget is not exhausted. The keyword-KB
+    fallback is NOT a real AI provider — using it for Arena rounds would persist
+    canned "service unavailable" text as if it were persona output.
+    """
+    try:
+        from ai.llm_gateway import gateway_status
+        status = gateway_status()
+        providers_active = int(status.get("active_free_providers", 0))
+        over_budget = bool(status.get("budget", {}).get("over_budget", False))
+    except Exception as e:  # noqa: BLE001
+        logger.error("Arena gateway status check failed: %s", e)
+        return {"ai_available": False, "providers_active": 0, "over_budget": False}
+    return {
+        "ai_available": providers_active > 0 and not over_budget,
+        "providers_active": providers_active,
+        "over_budget": over_budget,
+    }
+
+
 async def _call_ai(system_prompt: str, user_message: str) -> str:
     """Call AI through the free-first gateway (Groq → Cerebras → … → KB fallback).
 
-Returns the response text. Raises HTTP 503 only if the gateway yields no usable
-text at all.
+Returns the response text. Raises HTTP 503 when the gateway yields no usable
+text. A KB-fallback result is treated as unavailability — the Arena must never
+persist canned "service unavailable" text as if it were a persona's work.
     """
     try:
         from ai.llm_gateway import call_llm as _call_llm
@@ -136,10 +158,20 @@ text at all.
         raise HTTPException(status_code=503, detail="AI gateway unavailable. Check provider keys in the Provider Gateway.")
 
     text = (result or {}).get("text", "")
+    provider = (result or {}).get("provider", "")
     if not text:
         raise HTTPException(
             status_code=503,
             detail="No AI provider available. Add a free provider key (e.g. GROQ_API_KEY) in the Provider Gateway.",
+        )
+    if provider == "kb_fallback":
+        raise HTTPException(
+            status_code=503,
+            detail=(
+                "The Arena is in standby: no free AI provider key is configured, so rounds would "
+                "produce placeholder text instead of real work. Add a free provider key "
+                "(Groq, Cerebras, or Gemini) in the Provider Gateway, then run the round again."
+            ),
         )
     return text
 
@@ -184,8 +216,20 @@ async def _run_persona(persona_name: str, task: str) -> dict:
             output = await _call_ai(system_prompt, revision_context)
         except HTTPException as e:
             logger.error("AI call failed for %s attempt %d: %s", persona_name, attempts, e.detail)
-            output = f"[{persona_name} failed to produce output after {attempts} attempt(s).]"
-            break
+            # Honest failure: never fabricate a "result" out of an AI outage.
+            return {
+                "persona": persona_name,
+                "tagline": PERSONA_TAGLINES[persona_name],
+                "failed": True,
+                "error": str(e.detail),
+                "output": None,
+                "commissioner_score": 0,
+                "commissioner_verdict": "FAILED",
+                "commissioner_feedback": "",
+                "commissioner_strengths": [],
+                "commissioner_weaknesses": [],
+                "attempts": attempts,
+            }
 
         commissioner_result = await _score_output(persona_name, task, output)
         score = commissioner_result.get("score", 0)
@@ -209,6 +253,8 @@ async def _run_persona(persona_name: str, task: str) -> dict:
     return {
         "persona": persona_name,
         "tagline": PERSONA_TAGLINES[persona_name],
+        "failed": False,
+        "error": None,
         "output": output or "[No output produced.]",
         "commissioner_score": commissioner_result.get("score", 0) if commissioner_result else 0,
         "commissioner_verdict": commissioner_result.get("verdict", "REJECT") if commissioner_result else "REJECT",
@@ -250,15 +296,35 @@ async def assign_task(
     if round_number > TOTAL_ROUNDS:
         raise HTTPException(status_code=400, detail=f"Maximum {TOTAL_ROUNDS} rounds per project reached.")
 
+    # Pre-flight: refuse to run (and persist) a round when no real AI is
+    # configured — the gateway would return canned KB text for every persona.
+    availability = await _ai_available()
+    if not availability["ai_available"]:
+        standby_reason = (
+            "hourly AI budget exhausted" if availability["over_budget"]
+            else "no free AI provider key configured"
+        )
+        raise HTTPException(
+            status_code=503,
+            detail=(
+                f"The Arena is in standby ({standby_reason}). Add a free provider key "
+                "(Groq, Cerebras, or Gemini) in the Provider Gateway, then run the round again."
+            ),
+        )
+
     # Run each persona sequentially to avoid rate limits
     results = []
     for persona_name in ["AXIOM", "CIPHER", "MAVEN", "SAGE"]:
         result = await _run_persona(persona_name, body.task)
         results.append(result)
 
-    # Persist all results to MongoDB
+    # Persist ONLY personas that produced real output. A mid-round AI outage
+    # must never leave fake rounds in the database.
     inserted_ids = []
     for result in results:
+        if result.get("failed"):
+            inserted_ids.append(None)
+            continue
         doc = {
             "project_id": project_id,
             "round_number": round_number,
@@ -282,6 +348,18 @@ async def assign_task(
         await db.competition_rounds.insert_one(doc)
         inserted_ids.append(round_id)
 
+    # If every persona failed mid-round, nothing was persisted — surface an
+    # actionable error instead of an empty/partial round.
+    if all(rid is None for rid in inserted_ids):
+        failed_names = ", ".join(r["persona"] for r in results)
+        raise HTTPException(
+            status_code=503,
+            detail=(
+                f"The AI service went down mid-round ({failed_names} produced no output). "
+                "Nothing was saved — check the Provider Gateway and try the round again."
+            ),
+        )
+
     # Build response with round IDs for subsequent scoring
     response_results = []
     for i, result in enumerate(results):
@@ -290,10 +368,13 @@ async def assign_task(
             **result,
         })
 
+    persisted = sum(1 for rid in inserted_ids if rid is not None)
     return {
         "project_id": project_id,
         "round_number": round_number,
         "task": body.task,
+        "round_complete": persisted == 4,
+        "persisted_results": persisted,
         "results": response_results,
     }
 
@@ -332,6 +413,70 @@ async def submit_user_scores(
         })
 
     return {"updated": updated}
+
+
+@router.get("/competition/status")
+async def get_status(
+    user: User = Depends(_require_rank("admin")),
+):
+    """Arena readiness: is real AI available, or is the Arena in standby?
+    Lets the UI disable round assignment and explain why instead of showing
+    four placeholder cards.
+    """
+    availability = await _ai_available()
+    standby = not availability["ai_available"]
+    reason = (
+        "hourly AI budget exhausted" if availability["over_budget"]
+        else "no free AI provider key configured"
+    )
+    return {
+        "mode": "standby" if standby else "live",
+        "ai_available": availability["ai_available"],
+        "providers_active": availability["providers_active"],
+        "over_budget": availability["over_budget"],
+        "message": (
+            f"The Arena is in standby ({reason}). Add a free provider key "
+            "(Groq, Cerebras, or Gemini) in the Provider Gateway to run rounds."
+            if standby else "AI providers are configured — the Arena is ready to run rounds."
+        ),
+    }
+
+
+@router.get("/competition/projects/{project_id}")
+async def get_project(
+    project_id: str,
+    user: User = Depends(_require_rank("admin")),
+):
+    """Return every saved round for one project — the browsable history of
+    what the Arena actually produced.
+    """
+    docs = await db.competition_rounds.find({"project_id": project_id}).sort("timestamp", 1).to_list(length=200)
+    if not docs:
+        raise HTTPException(status_code=404, detail=f"Project {project_id} not found.")
+
+    rounds = {}
+    for doc in docs:
+        rn = doc.get("round_number", 1)
+        entry = {
+            "round_id": doc.get("round_id"),
+            "persona": doc.get("persona"),
+            "tagline": doc.get("tagline", ""),
+            "output": doc.get("output", ""),
+            "commissioner_score": doc.get("commissioner_score", 0),
+            "commissioner_verdict": doc.get("commissioner_verdict", ""),
+            "commissioner_feedback": doc.get("commissioner_feedback", ""),
+            "user_score": doc.get("user_score"),
+            "average_score": doc.get("average_score"),
+            "timestamp": doc.get("timestamp"),
+        }
+        rounds.setdefault(rn, {"round_number": rn, "task": doc.get("task", ""), "entries": []})
+        rounds[rn]["entries"].append(entry)
+
+    return {
+        "project_id": project_id,
+        "rounds": [rounds[k] for k in sorted(rounds)],
+        "total_rounds": TOTAL_ROUNDS,
+    }
 
 
 @router.get("/competition/leaderboard")
@@ -397,6 +542,8 @@ async def get_projects(
 ):
     """Returns all active projects with current round and status."""
     pipeline = [
+        # Sort chronologically FIRST so $last below picks the newest task text.
+        {"$sort": {"timestamp": 1}},
         {
             "$group": {
                 "_id": "$project_id",

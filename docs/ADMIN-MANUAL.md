@@ -280,7 +280,18 @@ Team operations view with an action log.
 Supervisor control hub (supervisor-gated; exec-only).
 
 ### 3.10 The Arena — `/arena`
-Competition arena — task submission, scoring, leaderboard (`/api/competition/*`).
+Competition arena — task submission, scoring, leaderboard. Admin+ access (route and nav both admin+, including exec).
+
+**Endpoints (all under `/api`):**
+- `GET /competition/status` — Arena readiness: `live` vs `standby`. Standby means no free AI provider key is configured (or the hourly budget is exhausted) and rounds are disabled to prevent placeholder output from being saved.
+- `POST /competition/task` — assign a brief to all 4 personas (AXIOM, CIPHER, MAVEN, SAGE). Refuses to run in standby. Only personas that produced real output are persisted; a mid-round AI outage surfaces as an honest per-persona failure and nothing is saved.
+- `POST /competition/score` — submit your 1–100 score; averaged with the Commissioner's.
+- `GET /competition/leaderboard` — cumulative averages, ranked, with role badges.
+- `GET /competition/projects` — summary of every project (current round, status, latest task).
+- `GET /competition/projects/{project_id}` — full saved round history for one project.
+- `GET /competition/ping` — public liveness check.
+
+**Standby behavior (important):** the Arena never runs through the keyword-KB fallback. If no free provider key (Groq/Cerebras/Gemini) is configured, `/competition/status` reports `standby`, the Assign button is disabled, and the page explains exactly how to enable rounds via the Provider Gateway (exec only). Leaderboard and past-project history remain viewable in standby.
 
 ### 3.11 Jamil — `/jamil`
 Jamil, the Director-class assistant — chat, file upload, transcription, voice (native browser TTS), knowledge base (`/api/jamil/*`, 12-hour knowledge digest).
