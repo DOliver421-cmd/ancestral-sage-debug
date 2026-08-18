@@ -2,7 +2,9 @@
 
 **Mission rule: no revenue = no business office = no jobs for people or the AI workforce = the platform gets evicted. The office exists to keep the mission funded.**
 
-**Labor rule: human labor is valued and compensated — never free.** AI jobs create revenue (`value_cents`); human jobs are paid from it (`pay_cents`). Humans own the accounts, contracts, and liability — and are paid for that responsibility. AI work exists to pay people, never the reverse.
+**Owner-first rule (the law of the office):** the founder took the risk and invested the capital, so the financial engine secures them first. Month revenue → **infrastructure costs** (hosting, API tokens, DB — the only first-priority spend) → **net profit**, which belongs to the business entity and the owner as retained earnings / owner draw. Distributions to any role — human or AI — happen **only when the owner records them, only out of net profit, only tied to performance**. There is no fixed liability path in the code. Until the owner is whole, there is no profit unless the owner says there is.
+
+**Labor rule (performance-linked):** human roles earn **commissions on closed business** (`commission_pct`) and **distributions from net profit** — payable only when net profit covers them, at the owner's direction. AI jobs create revenue (`value_cents`). Nothing is auto-drained from the owner's pocket.
 
 The AI Business Office is the revenue engine command center for M.O.R.E. Help Center. It does not invent new tools — it takes the capabilities the platform **already ships** (Social Blast, Creator Studio, Ghost Producer, BYOK, AAWAB, the Exec Site Report engine, the store, the membership ladder) and runs them as revenue lines, with the AI executing the work and a human always holding the responsibility.
 
@@ -14,10 +16,13 @@ The AI Business Office is the revenue engine command center for M.O.R.E. Help Ce
 |---|---|---|
 | AI Business Office dashboard | `/business-office` | Any signed-in user |
 | Office Admin desk | `/admin/business-office` | Admin+ |
+| **Exec Control (no-code: every number + text)** | `/admin/office-control` → `GET/PUT /api/abo/config` | Admin+ |
 | Tools + divisions catalog | `GET /api/abo/tools` | Public |
-| Revenue snapshot + runway | `GET /api/abo/overview` | Auth |
+| Revenue snapshot + runway + P&L | `GET /api/abo/overview` | Auth |
 | Service deals | `GET/POST /api/abo/deals` · `PATCH /api/abo/deals/{id}` | Auth / admin |
 | Workforce ledger (people & AI) | `GET /api/abo/jobs` · `POST /api/abo/jobs` · `PATCH /api/abo/jobs/{id}` | Auth / admin |
+| Workforce Exchange (A2A) | `GET /api/abo/exchange` · `POST /api/abo/exchange/contracts` · `POST .../contracts/{id}/complete` | Auth / admin |
+| Red-Teaming Bureau | `GET /api/abo/redteam` · `POST /api/abo/redteam/engagements` · `POST .../{id}/approve` · `POST .../{id}/close` | Auth / admin |
 | Monthly goal | `GET/POST /api/abo/goals` | Auth / admin |
 | Full office view | `GET /api/abo/admin/overview` | Admin |
 
@@ -29,9 +34,12 @@ All endpoints live in `backend/routers/abo.py` (mounted under `/api`), registere
 
 | Collection | Purpose |
 |---|---|
-| `abo_goals` | Singleton office doc: `monthly_goal_cents` (+ optional `note`). Default goal: **$1,000/mo** until an admin changes it. |
+| `abo_goals` | Legacy singleton: `monthly_goal_cents` (+ optional `note`), kept in sync with the config. |
+| `abo_config` | **The source of truth.** Singleton `{key: "office"}` holding `numbers` (goal, infra cost, owner draw %, clearinghouse fee %, red-team prices) and `text` (copy + division/tool overrides). Read by every endpoint; written only through `PUT /api/abo/config` (audited). Every number and text string on the office is editable here without code. |
 | `abo_deals` | B2B service pipeline. Fields: `id`, `user_id/user_name/user_email`, `service_key/service_name`, `org_name`, `description`, `budget_cents`, `value_cents`, `stage` (`lead → proposed → won → delivered` or `closed_lost`), `status` (`open` / `closed` / `closed_lost`), `human_approval` (bool), `notes[]` (audited), timestamps. |
-| `abo_jobs` | AI workforce ledger. Fields: `id`, `title`, `persona`, `division`, `description`, `hours`, `value_cents`, `status` (`open` / `assigned` / `completed`), timestamps. Seeded with 5 starter jobs on first access so the board is never empty. |
+| `abo_jobs` | Workforce ledger — people & AI. Fields: `id`, `title`, `persona`, `division`, `description`, `hours`, `value_cents` (AI), `pay_cents` (human milestone commitment), `pay_type` (`fixed` / `commission` / `distribution`), `commission_pct`, `worker_type` (`human` / `ai`), `status` (`open` / `assigned` / `completed`), timestamps. Seeded with 5 AI jobs + 3 performance-linked human roles. |
+| `abo_exchange_contracts` | A2A contracts: `id`, `title`, `description`, `reward_cents`, `fee_pct`, `fee_cents`, `status` (`open` / `completed`), timestamps. Settling a contract books the clearinghouse fee. |
+| `abo_redteam_engagements` | Red-team engagements: `id`, `target_name/url`, `scope_note`, `tier` (`oneshot` / `retainer`), `price_cents`, `status` (`scanning` → `patches_approved` → `closed`), `findings[]`, `patches[]`, timestamps. The human Merge/Approve click books contracted revenue. |
 
 Revenue numbers come from the **real** `payments` collection (the Lemon Squeezy / Gumroad webhook ledger) — the office never fakes the money. `paying_members` comes from `users.feature_tier`.
 
@@ -53,7 +61,14 @@ Every division follows the same legal skeleton:
 | AI-Key Brokerage & BYOK Optimization | live | Tests keys, routes traffic, tracks usage | Gateway policy, platform keys | $3 BYOK + optimization service |
 | Compliance & Regulatory Audit Bureau | live | Runs multi-category audits | Signs reports, invoices clients | Per-audit fees (deals) |
 | AI Persona & Workforce Foundry | live | Builds/hosts personas, tracks learners | Approves briefs, signs contracts | Build fees + retainers (deals) |
-| AAWAB — Agent Wellness & Certification | live | Diagnostics, treatments, certification | Registry oversight, badge revocation | Wellness subs + cert fees |
+| AAWAB — Agent Wellness & Certification | live | Diagnostics, treatments, certification | Registry oversight, badge revocation | $19–$99/mo wellness · $199 cert |
+| **Workforce Arbitrage Exchange** | live | Matches agent task contracts, settles micro-fees | You are the clearinghouse: set fee, approve settlements | Clearinghouse fee (default 10%) |
+| **Shadow IT & Red-Teaming Bureau** | live | Adversarial scans, unit tests, sandboxed patches | One Merge/Approve click ships; you own liability | $495 scan · $799/mo retainer |
+| **Living Archive & Knowledge Synthesis** | live | Synthesizes docs, convenes council reviews, publishes living handbooks | Approve what goes public; own the client | $499–$1,499/mo per hub |
+| **Pre-Bid Compliance & Audit Gigs** | live | Cross-references codes, generates compliance packages | 2-min review before delivery; you invoice | $150–$500 per package |
+| **Micro-SaaS Fixing & Dependency Patching** | live | Scans repos, writes tests, drafts PRs in a sandbox | You review and merge the PR; hold the contract | $300–$1,000/mo per client |
+| **Programmatic SEO & Directory Management** | live | Generates localized content + directories; schedules blasts | You are the editorial publisher | $200–$800/mo per client |
+| **Invoice Reconciliation & Data Parsing** | live | Extracts line items, verifies math, flags discrepancies | Review flagged items before delivery | $75–$250/batch · $199–$499/mo |
 | Autonomous E-Commerce Arbitrage & Fulfillment | **pipeline** | Supplier API monitoring, trend analysis, listings, buyer chat | **Merchant account + supplier contracts required first** | Product margins (not yet transacting) |
 
 **E-commerce arbitrage stays in "pipeline" until a human holds a real merchant account and signs supplier contracts.** The office will not transact through an unverified identity — that is the compliance rule, not a limitation.
@@ -101,20 +116,20 @@ The office runs four feedback loops — each loop's output feeds the next, which
 3. **Serve → Contract** — shipped capabilities → B2B deals → AI proposal → human approval → contracted revenue → funds AI ops. Watch: deals closed/mo.
 4. **Trust → Mission** — transparent runway + free help lanes → patrons/donors fund free access → bigger community → more members. Watch: mission fund/mo.
 
-**Guardrails (what revenue can never buy):** help stays free always · **humans get paid — labor is never free** (every human job carries `pay_cents`; creators paid first) · humans are the responsible party (paid responsibility, not volunteer liability) · no invented revenue (ledger-only) · AI always discloses itself. The dashboard renders both loops and guardrails under those names.
+**Guardrails (what revenue can never buy):** help stays free always · **owner-first — the founder is the ultimate beneficiary** (revenue covers infra, then profit belongs to the owner; no code path pays anyone before the owner's retained position) · **performance-linked labor — no fixed drains** (commissions/distributions from net profit only, at the owner's direction) · creators get paid first · no invented revenue (ledger-only) · AI always discloses itself. The dashboard renders both loops and guardrails under those names.
 
 The full strategy, unit economics, and 90-day plan live in **`docs/BUSINESS_PLAN.md`** — every revenue stream there maps to a shipped feature, and anything not yet purchasable (physical merch, AAWAB pricing, e-commerce arbitrage) is explicitly labeled pipeline.
 
-## 6. The workforce ledger — paid people & AI
+## 6. The workforce ledger — paid people & AI, performance-linked
 
 The workforce board answers "who does what, for how much — and who gets paid." Every job has a `worker_type`:
 
 - **AI jobs** (`worker_type: "ai"`) carry `value_cents` — the revenue the job creates. Pay is 0.
-- **Human jobs** (`worker_type: "human"`) carry `pay_cents` — the compensation owed to the person. Value is 0; their labor is funded by AI-generated revenue.
+- **Human roles** (`worker_type: "human"`) are **performance-linked**: `pay_type` (`commission` / `distribution` / `fixed`-owner-authorized), `commission_pct` (e.g. 5% of closed deals in their division), and a milestone `pay_cents`. They are payable **only when net profit covers them, at the owner's direction**. The ledger returns `net_profit_available_cents` next to `human_pay_cents` so the position is always visible.
 
-Jobs are seeded on first access: 5 AI jobs (Campaign Copywriter → The Oracle, Course Architect → Product Designer, Audit Analyst → Confidentiality Sentinel, Front Desk Agent → Ambassador, Wellness Technician → Architect) **plus 3 paid human jobs** (Proposal & Contract Review — Owner/Operator $180, Creative Director — Listing Approvals $160, Client Delivery Manager $250) so the ledger demonstrates the labor model from day one.
+Jobs are seeded on first access: 5 AI jobs (Campaign Copywriter → The Oracle, Course Architect → Product Designer, Audit Analyst → Confidentiality Sentinel, Front Desk Agent → Ambassador, Wellness Technician → Architect) **plus 3 commission-linked human roles** (Proposal & Contract Review — Owner/Operator 5% of closed deals, Creative Director — Listing Approvals 5% of store revenue, Client Delivery Manager 8% of social-agency deal value).
 
-Admins open new jobs with `POST /api/abo/jobs` (specify `worker_type`, `value_cents` for AI, `pay_cents` for humans) and update with `PATCH /api/abo/jobs/{id}`. The board shows **human pay committed** and **AI work value** side by side — a plan that shows AI value without human pay is a plan that exploits people.
+Admins open new jobs with `POST /api/abo/jobs` (specify `worker_type`; for humans: `pay_type`, `commission_pct`, milestone `pay_cents`) and update with `PATCH /api/abo/jobs/{id}`. **Nothing is auto-drained** — the owner authorizes every distribution from net profit.
 
 ---
 
@@ -140,6 +155,14 @@ Admins open new jobs with `POST /api/abo/jobs` (specify `worker_type`, `value_ce
 
 Status thresholds: `≥100%` covered · `≥50%` on_track · `≥25%` watch · below critical. `runway_months` = total cash ÷ monthly goal — the honest "how long until eviction" number.
 
+The response also includes the **owner-first P&L waterfall** (`pnl`): `gross_cents` (month revenue) → `infra_cents` (editable infrastructure cost) → `net_profit_cents` (max(0, gross − infra)) → `owner_retained_cents` (default = net profit; owner draw % editable) → `distributable_cents` + `fully_payable` (whether net profit covers committed human milestones). No fixed liability exists: if a month is below infrastructure cost, nothing is owed and nothing is paid.
+
+## 7b. Workforce Exchange & Red-Teaming Bureau (A2A economy)
+
+**Workforce Exchange** — the A2A economy: any user posts an agent task contract (`POST /api/abo/exchange/contracts`, `title`, `description`, `reward_cents`). The office is the **clearinghouse**: `fee_cents = reward × clearinghouse_fee_pct` (default 10%, editable in Exec Control). Admin settles a completed contract (`POST .../contracts/{id}/complete`) and the fee is booked — pure margin. Stats flow into the overview (`exchange`).
+
+**Red-Teaming Bureau** — `POST /api/abo/redteam/engagements` starts an engagement (`target_name/url`, `scope_note`, tier `oneshot` $495 / `retainer` $799 — prices editable). The AI generates deterministic findings + sandboxed patches. The human **Merge/Approve** click (`POST .../engagements/{id}/approve`) ships the patches and books the engagement as contracted revenue; `close` marks delivery. Every step audited (`abo.redteam.*`).
+
 ---
 
 ## 8. Legal & compliance notes (read before selling)
@@ -155,7 +178,10 @@ Status thresholds: `≥100%` covered · `≥50%` on_track · `≥25%` watch · b
 ## 9. Executive & Admin task list
 
 ### Launch checklist (once, after deploy)
-- [ ] Open `/admin/business-office` and set the **monthly operating goal** (default $1,000/mo — adjust to real hosting + operating cost).
+- [ ] Open `/admin/office-control` (**Exec Control**) and set the real **monthly operating goal**, **infrastructure costs**, **owner draw %**, **clearinghouse fee %**, and **red-team prices**. Every number and text string on the office is editable there — no code.
+- [ ] Confirm the **owner-first P&L** renders on `/business-office`: gross → infra → net profit → owner retained → performance pool.
+- [ ] Post one **Workforce Exchange** contract and settle it as admin — confirm the clearinghouse fee books.
+- [ ] Start one **red-team engagement**, approve the patches, close it — confirm contracted revenue appears.
 - [ ] Verify the office loads for a normal member: `/business-office` shows runway, tools, divisions, empty deals, seeded jobs.
 - [ ] Test the deal flow end-to-end: submit a deal as a member → **draft the AI proposal** (`abo.deal.proposal_drafted`) → advance it as admin → confirm the audit log (`/admin/audit`) has `abo.deal.created` and `abo.deal.updated`.
 - [ ] Confirm the **public mission meter** on the landing page shows the aggregate monthly funding (no private detail).
@@ -174,12 +200,13 @@ Status thresholds: `≥100%` covered · `≥50%` on_track · `≥25%` watch · b
 - [ ] Confirm the **human labor fund** is tracked: human pay committed is visible on the ledger and funded from contracted + product revenue.
 - [ ] Review top revenue sources (`admin overview`) — double down on the top two.
 - [ ] Post one Social Blast campaign promoting the office itself (plans, store, deals).
+- [ ] Settle open **exchange contracts** and push **red-team engagements** to Merge/Approve (a stalled scan is a stalled invoice).
 
 ### Monthly
 - [ ] Reconcile the runway against the real payment processor payout.
 - [ ] Review the division board: demote anything that made $0 to "pipeline" or kill it; promote what works.
 - [ ] Update the monthly goal if operating costs changed.
-- [ ] **Pay the human labor fund** — owner/operator compensation, contractor invoices, and creator payouts reconciled against the ledger.
+- [ ] **Record the owner's retained earnings** (net profit this month) and authorize any performance distributions — only out of net profit, per the ledger's `fully_payable` flag.
 - [ ] Log a CHANGELOG entry with the month's revenue and what the office ran.
 
 ### Revenue levers (when runway is critical)
@@ -195,10 +222,11 @@ Status thresholds: `≥100%` covered · `≥50%` on_track · `≥25%` watch · b
 
 | File | Role |
 |---|---|
-| `backend/routers/abo.py` | All ABO endpoints + catalog data (`DIVISIONS`, `_TOOLS`, `SEED_JOBS`). |
-| `frontend/src/pages/BusinessOffice.jsx` | The office dashboard (runway, KPIs, tools dock, divisions, deals, jobs, admin desk). |
-| `frontend/src/App.js` | Routes `/business-office` + `/admin/business-office`. |
-| `frontend/src/components/AppShell.jsx` | "Business Office" sidebar section + admin link. |
+| `backend/routers/abo.py` | All ABO endpoints + catalog data (`DIVISIONS`, `_TOOLS`, `SEED_JOBS`) + office config + P&L + exchange + redteam. |
+| `frontend/src/pages/BusinessOffice.jsx` | The office dashboard (runway, P&L waterfall, KPIs, tools dock, divisions, A2A economy, deals, jobs, admin desk). |
+| `frontend/src/pages/ExecControl.jsx` | **Exec Control** — no-code editor for every office number + text (`/admin/office-control`). |
+| `frontend/src/App.js` | Routes `/business-office`, `/admin/business-office`, `/admin/office-control`. |
+| `frontend/src/components/AppShell.jsx` | "Business Office" sidebar section + Office Control admin link. |
 | `backend/routers/site_guide.py` | Site Guide knowledge + search index entries for the office. |
 | `docs/ADMIN-MANUAL.md` | §2.14 summary. |
 | `docs/BUSINESS_PLAN.md` | The full site business plan — revenue streams mapped to shipped features, the four feedback loops, guardrails, unit economics, 90-day execution, deliverable-promise policy. |

@@ -246,6 +246,7 @@ export default function AppShell({ children }) {
               {nl("/admin/bridge",    "AI Team Bridge",  Network,        "nav-bridge")}
               {nl("/admin/aawab",     "AAWAB Admin",     HeartPulse,     "nav-aawab-admin")}
               {nl("/admin/business-office", "Business Office", Landmark, "nav-abo-admin")}
+              {nl("/admin/office-control", "Office Control (no-code)", Settings, "nav-abo-control")}
             </NavSection>
           )}
 

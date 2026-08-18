@@ -151,7 +151,8 @@ The sidebar (`frontend/src/components/AppShell.jsx`) groups the site into sectio
 | Admin Assistant | `/assistant` | Admin assistant chat (native browser voice). |
 | AI Team Bridge | `/admin/bridge` | Cross-domain AI team bridge (Director + NAM Oshun Scholar + Curriculum Analyst). |
 | AAWAB Admin | `/admin/aawab` | Agent Wellness & Certification Bureau — platform-wide agent health, badge revocation, isolation overrides (§2.13). |
-| AI Business Office | `/business-office` · `/admin/business-office` | Revenue engine command center — mission runway, revenue KPIs, tools dock (the capabilities AI runs for income), B2B service deals pipeline, AI jobs ledger (§2.14). |
+| AI Business Office | `/business-office` · `/admin/business-office` | Revenue engine command center — owner-first P&L waterfall, mission runway, revenue KPIs, tools dock (the capabilities AI runs for income), 16 business divisions, the A2A economy (Workforce Exchange + Red-Teaming Bureau), B2B service deals pipeline, performance-linked workforce ledger (§2.14). |
+| Office Control (no-code) | `/admin/office-control` | **Exec Control** — edit every office number and text string (goal, infra cost, owner draw %, fees, prices, all division/tool copy) without code (§2.15). |
 
 > **Note:** `/admin/accounts` (Account Controls) is a legacy duplicate of user management. The route still works, but the sidebar points to **Users** for all user administration.
 
@@ -214,16 +215,23 @@ The full how-to, data model, API reference, legal notes, and the executive/admin
 
 | Area | Route(s) | Purpose |
 |---|---|---|
-| AI Business Office | `/business-office` (auth) | Mission runway (month revenue vs. monthly operating goal), revenue KPIs from the real payments ledger, the tools dock (Social Blast, Creator Studio, Ghost Producer, BYOK, AAWAB, Exec Site Report, Media Store, Plans, Donate), business divisions with division-of-labor, the B2B service deals pipeline, and the AI jobs ledger. |
-| Office Admin | `/admin/business-office` (admin+) | Set the monthly operating goal, advance/close service deals (with human-approval flag), open/update AI workforce jobs, top revenue sources, recent orders. |
-| Service deals API | `POST /api/abo/deals` · `POST /api/abo/deals/{id}/propose` | Members submit a service engagement → a Lead in the pipeline (lead → proposed → won → delivered). Admins trigger the office AI to draft a deliverable proposal (`call_llm`, template fallback if the gateway is down). |
+| AI Business Office | `/business-office` (auth) | Mission runway, **owner-first P&L waterfall** (gross → infra → net profit → owner retained → performance pool), revenue KPIs from the real payments ledger, the tools dock, **16 business divisions** (memberships, store, social agency, micro-SaaS, BYOK, audits, persona foundry, AAWAB, **Workforce Exchange, Red-Teaming Bureau, Living Archive, compliance gigs, dev maintenance, SEO retainers, invoice ops**, e-commerce pipeline), the B2B deals pipeline, and the performance-linked workforce ledger. |
+| Office Admin | `/admin/business-office` (admin+) | Set the monthly goal, advance/close deals (human-approval flag), open/update workforce jobs, settle exchange contracts, Merge/Approve red-team patches, top revenue sources, recent orders. |
+| Service deals API | `POST /api/abo/deals` · `POST /api/abo/deals/{id}/propose` | Members submit a service engagement → a Lead (lead → proposed → won → delivered). Admins trigger the office AI to draft a deliverable proposal (`call_llm`, template fallback if the gateway is down). |
+| Workforce Exchange | `POST /api/abo/exchange/contracts` · `POST .../contracts/{id}/complete` | A2A economy — agent task contracts with a clearinghouse fee (default 10%, editable) booked on completion. |
+| Red-Teaming Bureau | `POST /api/abo/redteam/engagements` · `POST .../{id}/approve` · `POST .../{id}/close` | Adversarial AI scans client systems and drafts sandboxed patches; the human **Merge/Approve** click ships them and books contracted revenue ($495 / $799/mo, editable). |
 | Public mission meter | `GET /api/abo/public-status` | Aggregate runway only (goal, month revenue, pct, status) — powers the Mission Funding strip on the M.O.R.E. Help Center landing. No private order/product data. |
-| Workforce ledger API | `GET /api/abo/jobs` | The workforce board — people & AI. AI jobs carry `value_cents` (revenue created); **human jobs carry `pay_cents` (compensation owed)**. Seeded with 5 AI jobs + 3 paid human jobs on first access. |
+| Workforce ledger API | `GET /api/abo/jobs` | People & AI. AI jobs carry `value_cents` (revenue created); **human roles are performance-linked** (`pay_type` commission/distribution, `commission_pct`) — payable only from net profit at the owner's direction, never a fixed out-of-pocket liability. Seeded with 5 AI jobs + 3 commission-linked human roles. |
 
-Mission rule: **no revenue = no office = no jobs for people or the AI workforce.** Labor rule: **human labor is valued and compensated — never free** (human jobs carry `pay_cents` in the ledger; creators are paid first). The office exists to convert the platform's shipped AI capabilities into mission funding. Every division keeps the human as the responsible party (merchant accounts, contracts, payouts, liability) while AI executes the work.
+Mission rule: **no revenue = no office = no jobs for people or the AI workforce.** Owner-first rule: **revenue → infrastructure → net profit to the owner/entity; nothing is auto-drained.** Labor rule: **performance-linked — commissions/distributions from net profit only, at the owner's direction.** Every division keeps the human as the responsible party (merchant accounts, contracts, payouts, liability) while AI executes the work.
 
-The full how-to, API reference, division-of-labor, and the executive/admin task list live in **`docs/ABO_MANUAL.md`**; the complete revenue strategy, feedback loops, guardrails, unit economics, and 90-day plan live in **`docs/BUSINESS_PLAN.md`**. The Site Guide persona and site search (`/api/search`) know about the AI Business Office, and the Site Guide chat has a **Hire the Office** CTA.
+The full how-to, API reference, division-of-labor, and the executive/admin task list live in **`docs/ABO_MANUAL.md`**; the complete revenue strategy, P&L model, banking-viability rationale, and 90-day plan live in **`docs/BUSINESS_PLAN.md`**. The Site Guide persona and site search (`/api/search`) know about the AI Business Office, and the Site Guide chat has a **Hire the Office** CTA.
 
+### 2.15 Office Control — Exec Control (no-code)
+
+| Area | Route(s) | Purpose |
+|---|---|---|
+| Exec Control | `/admin/office-control` (admin+) | **Change every office number and text without code.** `GET/PUT /api/abo/config` reads/writes `db.abo_config` (audited, `abo.config.updated`). Numbers: monthly goal, infrastructure costs, owner draw %, clearinghouse fee %, red-team prices. Text: header, runway, loops, all five guardrails, all 16 division cards, all 12 tool cards. Empty values restore defaults. The owner-first waterfall and performance-linked labor model cannot be disabled from the panel. |
 
 ---
 

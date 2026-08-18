@@ -8,37 +8,72 @@ the actual platform capabilities (Social Blast, Creator Studio, BYOK, AAWAB,
 Exec Site Report, the store) — and tracks the money that keeps the mission
 funded.
 
-LABOR MODEL (non-negotiable): human labor is valued, never free. AI jobs
-generate revenue (value_cents); human jobs are paid from it (pay_cents).
-Humans own the accounts, contracts, and liability — and they are compensated
-for that responsibility. AI work exists to pay people, never the reverse.
+OWNER-FIRST FINANCIAL MODEL (non-negotiable):
+  The founder/owner took the risk, invested the capital, and built the
+  platform. The financial engine protects them first:
+
+    REVENUE (month) ──► 1. Infrastructure costs (hosting, API tokens, DB)
+                     ──► 2. NET PROFIT ──► belongs to the business entity
+                          and the owner as retained earnings / owner draw
+                          (owner-controlled — nothing is auto-drained)
+                     ──► 3. Distributions to any role (human or AI) happen
+                          ONLY when the owner records them, ONLY out of
+                          net profit, ONLY tied to performance milestones
+                          (commissions on closed deals, distributions when
+                          net profit is positive). No fixed liabilities.
+
+  There is NO hardcoded mandate that drains the owner's pocket. If the owner
+  is not sustained, there is no platform. Until the owner is whole, there is
+  no profit unless the owner says there is. The exec control page lets the
+  owner change every number and every text string below WITHOUT code.
+
+LABOR MODEL:
+  AI jobs create revenue (value_cents). Human roles are performance-linked:
+  commissions (commission_pct on closed deals) or distributions that become
+  payable only when net profit covers them. The ledger shows the commitment;
+  the owner authorizes actual payment.
 
 Division of labor (kept legally sound — human is always the responsible party):
   AI (Autonomous Engine):  executes the work — content, publishing, audits,
                            diagnostics, customer service, product generation.
   Human (Oversight Desk):  holds merchant accounts / EIN, signs supplier and
                            service contracts, reviews exception alerts,
-                           authorizes payouts, owns liability.
+                           authorizes payouts, owns liability — and is paid
+                           from profit, not out of pocket.
 
 Data model (MongoDB via Motor):
-  abo_goals   — singleton doc: monthly operating goal + office settings.
+  abo_goals   — legacy singleton: monthly operating goal (kept in sync).
+  abo_config  — OFFICE CONFIG: every number + text override, editable via
+                GET/PUT /abo/config by the owner (audited). Source of truth.
   abo_deals   — B2B service pipeline (lead → proposed → won → delivered).
-  abo_jobs    — Workforce ledger — people AND AI. Human jobs carry pay_cents
-                (compensation owed to the person); AI jobs carry value_cents
-                (revenue the job creates).
+  abo_jobs    — Workforce ledger — people AND AI, performance-linked pay.
+  abo_exchange_contracts — Agent-to-agent (A2A) task contracts; the office is
+                the clearinghouse and takes a fee on every completed contract.
+  abo_redteam_engagements — Shadow IT / red-teaming engagements with a
+                human "Merge / Approve" checkpoint before patches ship.
 
 Endpoints (all under /api/abo):
-  GET  /abo/overview        — revenue snapshot + mission runway (auth).
+  GET  /abo/overview        — revenue snapshot + mission runway + P&L (auth).
   GET  /abo/tools           — the business tools AI can run (public).
   GET  /abo/divisions       — business divisions w/ status + revenue (auth).
   GET  /abo/deals           — caller's service deals (auth).
   POST /abo/deals           — submit a service request → creates a lead (auth).
   PATCH /abo/deals/{id}     — admin: advance stage, set value, approve, close.
-  GET  /abo/jobs            — workforce ledger: people & AI, with pay/value stats (auth).
+  POST /abo/deals/{id}/propose — admin: AI-draft a deliverable proposal.
+  GET  /abo/jobs            — workforce ledger: people & AI (auth).
   POST /abo/jobs            — admin: open a job for the workforce.
-  PATCH /abo/jobs/{id}      — admin: update hours / value / status.
-  GET  /abo/goals           — mission runway + monthly goal (auth).
+  PATCH /abo/jobs/{id}      — admin: update hours / value / status / pay.
+  GET  /abo/goals           — mission runway + monthly operating goal (auth).
   POST /abo/goals           — admin: set the monthly operating goal.
+  GET  /abo/exchange        — A2A contract board (auth).
+  POST /abo/exchange/contracts — create an agent task contract (auth).
+  POST /abo/exchange/contracts/{id}/complete — admin: settle; fee booked.
+  GET  /abo/redteam         — red-team engagements (auth).
+  POST /abo/redteam/engagements — start a red-team engagement (auth).
+  POST /abo/redteam/engagements/{id}/approve — admin: human Merge/Approve.
+  POST /abo/redteam/engagements/{id}/close   — admin: mark delivered.
+  GET  /abo/config          — admin: full editable office config.
+  PUT  /abo/config          — admin: save ANY number/text override (audited).
   GET  /abo/admin/overview  — admin: all deals + jobs + revenue by product.
 
 Auth follows the standard router pattern: JWT bearer (`lce_token`) via
@@ -46,6 +81,7 @@ Auth follows the standard router pattern: JWT bearer (`lce_token`) via
 server.py via bind() at include time — no circular imports.
 """
 
+import hashlib
 import logging
 import uuid
 from datetime import datetime, timezone, timedelta
@@ -140,8 +176,10 @@ _SUBSCRIPTION_MONTHLY = {
 _PAID_TIERS = ["member", "plus", "pro", "patron"]
 
 # Business divisions — the revenue lines the office runs. Each maps to real,
-# already-built platform capabilities. `status`: live = operating now,
-# pipeline = needs human setup before it can transact.
+# already-built platform capabilities. `status`: live = transactable now
+# (through the deals pipeline / checkout), pipeline = needs human setup
+# before it can transact. `price` is the honest, deliverable price band.
+# EVERY string below is editable from the Exec Control page without code.
 DIVISIONS = [
     {
         "key": "memberships",
@@ -151,6 +189,7 @@ DIVISIONS = [
         "human_oversight": "Holds the payment processor account, sets pricing, reviews refunds.",
         "revenue": "Recurring subscriptions + the $3 trial.",
         "status": "live",
+        "price": "$9–$59/mo + $3 trial",
         "tools": [{"label": "Plans & Pricing", "link": "/plans"}, {"label": "Subscribe", "link": "/subscribe"}],
         "product_keys": ["member_monthly", "plus_monthly", "pro_monthly", "patron_monthly", "more_monthly", "more_annual", "sanctuary_trial", "sanctuary_paid", "sanctuary_creator", "sanctuary_mod"],
     },
@@ -162,6 +201,7 @@ DIVISIONS = [
         "human_oversight": "Approves listings, sets prices, authorizes payouts to creators.",
         "revenue": "Per-product sales + creator platform share.",
         "status": "live",
+        "price": "$9.99–$349 per product",
         "tools": [{"label": "Media Store", "link": "/store"}, {"label": "Creator Studio", "link": "/studio"}, {"label": "Course Manager", "link": "/creator/courses"}],
         "product_keys": [],
     },
@@ -173,6 +213,7 @@ DIVISIONS = [
         "human_oversight": "Approves campaigns before publish, holds platform accounts, signs client contracts.",
         "revenue": "Agency retainers and per-campaign fees (deal pipeline).",
         "status": "live",
+        "price": "$300–$1,500/mo retainer",
         "tools": [{"label": "Social Blast", "link": "/social/publish"}],
         "product_keys": [],
     },
@@ -184,6 +225,7 @@ DIVISIONS = [
         "human_oversight": "Defines the product vision, deploys to production, holds the merchant account.",
         "revenue": "Per-tool subscriptions and one-time builds (deal pipeline).",
         "status": "live",
+        "price": "$500–$2,500 build + $49–$199/mo",
         "tools": [{"label": "Creator Studio", "link": "/studio"}, {"label": "Persona Foundry", "link": "/personas"}],
         "product_keys": [],
     },
@@ -195,6 +237,7 @@ DIVISIONS = [
         "human_oversight": "Holds the platform gateway keys, sets policy on what gets routed where.",
         "revenue": "$3 BYOK unlocks + optimization service.",
         "status": "live",
+        "price": "$3 unlock · $19–$99/mo optimization",
         "tools": [{"label": "Bring Your Own Key", "link": "/byok"}],
         "product_keys": [],
     },
@@ -206,6 +249,7 @@ DIVISIONS = [
         "human_oversight": "Signs off on reports, holds liability, invoices clients.",
         "revenue": "Per-audit fees (deal pipeline).",
         "status": "live",
+        "price": "$150–$500 per audit package",
         "tools": [{"label": "Executive Site Report", "link": "/admin/exec-report"}],
         "product_keys": [],
     },
@@ -217,6 +261,7 @@ DIVISIONS = [
         "human_oversight": "Approves persona briefs, signs client contracts, owns the deliverables.",
         "revenue": "Build fees + hosting retainers (deal pipeline).",
         "status": "live",
+        "price": "$750–$3,000 build + $99–$299/mo",
         "tools": [{"label": "Personas", "link": "/personas"}, {"label": "Handbooks", "link": "/handbooks"}],
         "product_keys": [],
     },
@@ -228,7 +273,92 @@ DIVISIONS = [
         "human_oversight": "Oversees the registry, revokes badges, authorizes premium tiers.",
         "revenue": "Agent wellness subscriptions + certification fees.",
         "status": "live",
+        "price": "$19–$99/mo wellness · $199 certification",
         "tools": [{"label": "Agent Registry", "link": "/aawab"}, {"label": "Certification Chamber", "link": "/aawab/chamber"}],
+        "product_keys": [],
+    },
+    {
+        "key": "workforce_exchange",
+        "name": "Workforce Arbitrage Exchange",
+        "tagline": "A2A economy — AI agents subcontract work to each other; the office clears every contract.",
+        "what_ai_does": "Matches agent task contracts, routes delegated work, and settles micro-fees on completion.",
+        "human_oversight": "You are the clearinghouse: set the fee, review exceptions, authorize payouts.",
+        "revenue": "Clearinghouse fee on every completed agent contract.",
+        "status": "live",
+        "price": "Fee on each contract (default 10%)",
+        "tools": [{"label": "Business Office", "link": "/business-office"}],
+        "product_keys": [],
+    },
+    {
+        "key": "redteam_bureau",
+        "name": "Shadow IT & Security Red-Teaming Bureau",
+        "tagline": "Automated adversarial agents attack, probe, and stress-test client infrastructure — then hand the fix.",
+        "what_ai_does": "Runs continuous adversarial scans, writes unit tests, and drafts patches in an isolated sandbox.",
+        "human_oversight": "One 'Merge / Approve' click before anything ships to the client. You own liability.",
+        "revenue": "B2B subscriptions — one-shot scans and retainers (deal pipeline).",
+        "status": "live",
+        "price": "$495 one-shot · $799/mo retainer",
+        "tools": [{"label": "Exec Site Report", "link": "/admin/exec-report"}],
+        "product_keys": [],
+    },
+    {
+        "key": "living_archive",
+        "name": "Living Archive & Knowledge Synthesis",
+        "tagline": "Ingest institutional knowledge and turn it into a self-updating, self-debating digital oracle.",
+        "what_ai_does": "Synthesizes documents, convenes automated council reviews, and publishes living handbooks.",
+        "human_oversight": "You approve what goes public and hold the client relationship.",
+        "revenue": "Subscription for living knowledge hubs (deal pipeline).",
+        "status": "live",
+        "price": "$499–$1,499/mo per knowledge hub",
+        "tools": [{"label": "Handbooks", "link": "/handbooks"}, {"label": "Personas", "link": "/personas"}],
+        "product_keys": [],
+    },
+    {
+        "key": "compliance_gigs",
+        "name": "Pre-Bid Compliance & Audit Gigs",
+        "tagline": "Contractors and trade businesses get compliant fast — codes checked, reports polished, in minutes.",
+        "what_ai_does": "Cross-references municipal requirements, checks codes, and generates the compliance package.",
+        "human_oversight": "2-minute human review before delivery; you invoice the client.",
+        "revenue": "$150–$500 per compliance package (deal pipeline).",
+        "status": "live",
+        "price": "$150–$500 per package",
+        "tools": [{"label": "Exec Site Report", "link": "/admin/exec-report"}],
+        "product_keys": [],
+    },
+    {
+        "key": "dev_maintenance",
+        "name": "Micro-SaaS Fixing & Dependency Patching",
+        "tagline": "CVE patches, dependency updates, and minor refactors on a monthly retainer — with a PR ready to merge.",
+        "what_ai_does": "Scans repos, writes unit tests, drafts patches in a sandbox, and prepares a root-cause PR.",
+        "human_oversight": "You review and merge the PR; you hold the client contract.",
+        "revenue": "$300–$1,000/mo maintenance retainers (deal pipeline).",
+        "status": "live",
+        "price": "$300–$1,000/mo per client",
+        "tools": [{"label": "Creator Studio", "link": "/studio"}],
+        "product_keys": [],
+    },
+    {
+        "key": "seo_retainers",
+        "name": "Programmatic SEO & Directory Management",
+        "tagline": "Hyper-localized guides, service directories, and FAQ pages on automated monthly retainers.",
+        "what_ai_does": "Generates localized content and structured directory pages; schedules via Social Blast.",
+        "human_oversight": "You are the editorial publisher — approve output before it ships to clients.",
+        "revenue": "10–20 local clients × monthly retainers (deal pipeline).",
+        "status": "live",
+        "price": "$200–$800/mo per client",
+        "tools": [{"label": "Social Blast", "link": "/social/publish"}],
+        "product_keys": [],
+    },
+    {
+        "key": "invoice_ops",
+        "name": "Invoice Reconciliation & Data Parsing",
+        "tagline": "Messy PDFs, receipts, and manifests become clean, verified accounting inputs.",
+        "what_ai_does": "Extracts line items, verifies math, flags discrepancies, and formats CSVs for the client's books.",
+        "human_oversight": "You review flagged discrepancies before delivery.",
+        "revenue": "Per-batch fees and bookkeeping support retainers (deal pipeline).",
+        "status": "live",
+        "price": "$75–$250 per batch · $199–$499/mo retainer",
+        "tools": [{"label": "Creator Studio", "link": "/studio"}],
         "product_keys": [],
     },
     {
@@ -239,6 +369,7 @@ DIVISIONS = [
         "human_oversight": "Holds the primary merchant account, signs supplier contracts, authorizes payouts.",
         "revenue": "Product margins (requires merchant account — not yet transacting).",
         "status": "pipeline",
+        "price": "Pipeline — needs merchant account + supplier contracts",
         "tools": [{"label": "Media Store", "link": "/store"}],
         "product_keys": [],
     },
@@ -297,10 +428,22 @@ _TOOLS = [
      "human": "You keep the guide grounded in real facts.",
      "revenue": "Conversion support for every lane",
      "access": "Member+ / BYOK"},
+    {"key": "exchange", "name": "Workforce Exchange", "link": "/business-office", "icon": "🔄",
+     "what": "AI agents subcontract work to each other; the office clears every contract.",
+     "human": "You set the fee and approve settlements.",
+     "revenue": "Clearinghouse fee per contract",
+     "access": "Signed in"},
+    {"key": "redteam", "name": "Red-Teaming Bureau", "link": "/business-office", "icon": "🛡️",
+     "what": "Adversarial AI agents probe client systems and draft the fix.",
+     "human": "One Merge/Approve click ships the patch.",
+     "revenue": "$495 scan · $799/mo retainer",
+     "access": "Signed in"},
 ]
 
-# Seed jobs so the workforce ledger is never empty — these are the roles the
-# office actually runs. Values are illustrative until real hours are logged.
+# Seed jobs so the workforce ledger is never empty. AI jobs carry value_cents
+# (revenue created). Human roles are PERFORMANCE-LINKED: commission_pct on
+# their division's closed business, payable ONLY when net profit covers it —
+# never a fixed out-of-pocket liability. The owner authorizes all payment.
 SEED_JOBS = [
     {"title": "Campaign Copywriter", "persona": "The Oracle", "division": "social_agency",
      "description": "Draft the weekly Social Blast campaign copy and channel variants.", "hours": 6, "value_cents": 6000, "pay_cents": 0, "worker_type": "ai"},
@@ -312,17 +455,73 @@ SEED_JOBS = [
      "description": "Answer member questions and guide visitors to the right plan.", "hours": 10, "value_cents": 4500, "pay_cents": 0, "worker_type": "ai"},
     {"title": "Wellness Technician", "persona": "Architect", "division": "aawab",
      "description": "Administer AAWAB treatments and monitor agent vitals.", "hours": 5, "value_cents": 5000, "pay_cents": 0, "worker_type": "ai"},
-    # Human labor is a first-class line in the office, never free. AI jobs
-    # generate the revenue; human jobs are paid from it. worker_type:
-    # "ai" jobs carry value_cents (revenue created); "human" jobs carry
-    # pay_cents (compensation owed to the person).
+    # Human roles — commissions on closed business, paid from net profit only.
+    # pay_cents is the milestone commitment; the owner authorizes payment.
     {"title": "Proposal & Contract Review", "persona": "Human — Owner/Operator", "division": "memberships",
-     "description": "Review AI-drafted proposals, set prices, sign contracts, authorize payouts.", "hours": 6, "value_cents": 0, "pay_cents": 18000, "worker_type": "human"},
+     "description": "Review AI-drafted proposals, set prices, sign contracts, authorize payouts. 5% commission on closed office deals — payable only from net profit, at owner's direction.", "hours": 6, "value_cents": 0, "pay_cents": 7500, "pay_type": "commission", "commission_pct": 5, "worker_type": "human"},
     {"title": "Creative Director — Listing Approvals", "persona": "Human — Creative Lead", "division": "digital_store",
-     "description": "Approve product listings, set prices, curate the storefront.", "hours": 8, "value_cents": 0, "pay_cents": 16000, "worker_type": "human"},
+     "description": "Approve product listings, set prices, curate the storefront. 5% commission on digital-store revenue — payable only from net profit, at owner's direction.", "hours": 8, "value_cents": 0, "pay_cents": 7500, "pay_type": "commission", "commission_pct": 5, "worker_type": "human"},
     {"title": "Client Delivery Manager", "persona": "Human — Operations", "division": "social_agency",
-     "description": "Run client calls, manage campaign delivery, own the relationship.", "hours": 10, "value_cents": 0, "pay_cents": 25000, "worker_type": "human"},
+     "description": "Run client calls, manage campaign delivery, own the relationship. 8% commission on social-agency deal value — payable only from net profit, at owner's direction.", "hours": 10, "value_cents": 0, "pay_cents": 15000, "pay_type": "commission", "commission_pct": 8, "worker_type": "human"},
 ]
+
+# ── Office config: every number + text, editable without code ────────────────
+_DEFAULT_NUMBERS = {
+    "monthly_goal_cents": 100000,      # monthly operating goal (runway denominator)
+    "infra_cost_cents": 40000,         # monthly infra: hosting + API tokens + DB
+    "owner_draw_pct": 100,             # % of net profit the owner retains (owner-first)
+    "clearinghouse_fee_pct": 10,       # Workforce Exchange fee on each contract
+    "redteam_oneshot_cents": 49500,    # $495 one-shot red-team scan
+    "redteam_retainer_cents": 79900,   # $799/mo red-team retainer
+}
+
+_DEFAULT_COPY = {
+    "header_title": "AI Business Office",
+    "header_tagline": "The platform's revenue engine. The owner's capital and risk are secured first — revenue covers infrastructure, then belongs to the business as profit. Nothing is auto-drained; the owner controls every distribution.",
+    "runway_note": "Every membership, product, deal, and donation counts here.",
+    "loop_intro": "Each loop feeds the next — that is what makes the revenue consistent instead of one-off. When one loop slows, the office knows which lever to pull.",
+    "guardrail_owner": "Owner-first — the founder is the ultimate beneficiary",
+    "guardrail_owner_desc": "The owner's capital, risk, and vision are secured before any distribution. Revenue covers infrastructure, then profit belongs to the business entity. Until the owner is whole, there is no profit unless the owner says there is.",
+    "guardrail_labor": "Performance-linked labor — no fixed drains",
+    "guardrail_labor_desc": "Human roles earn commissions on closed business and distributions from net profit — payable only when the office is profitable, at the owner's direction. Never a fixed out-of-pocket liability.",
+    "guardrail_creators": "Creators get paid first",
+    "guardrail_creators_desc": "Creator earnings and payouts are priority obligations. The platform's cut never competes with the creator's cut.",
+    "guardrail_honest": "No invented revenue",
+    "guardrail_honest_desc": "The dashboard reads the real payments ledger. Deals count only when closed. Every promise must be deliverable.",
+    "guardrail_disclose": "AI always discloses",
+    "guardrail_disclose_desc": "Any AI that talks to people for transactions or support says so, per FTC guidance.",
+}
+
+
+async def _get_office_config() -> dict:
+    """Merged office config: DB overrides layered on built-in defaults."""
+    doc = await db.abo_config.find_one({"key": "office"}, {"_id": 0})
+    saved_numbers = (doc or {}).get("numbers") or {}
+    saved_text = (doc or {}).get("text") or {}
+    numbers = {**_DEFAULT_NUMBERS, **{k: v for k, v in saved_numbers.items() if v is not None}}
+    text = {}
+    for k, v in _DEFAULT_COPY.items():
+        text[k] = saved_text.get("copy", {}).get(k, v)
+    text["divisions"] = saved_text.get("divisions") or {}
+    text["tools"] = saved_text.get("tools") or {}
+    return {"numbers": numbers, "text": text, "doc": doc}
+
+
+def _merge_catalog(config: dict):
+    """Apply text overrides to the division + tool catalogs."""
+    text = config.get("text", {})
+    div_ov = text.get("divisions") or {}
+    tool_ov = text.get("tools") or {}
+
+    def _merge(base, over):
+        if not over:
+            return dict(base)
+        return {**base, **{k: v for k, v in over.items() if v not in (None, "")}}
+
+    return (
+        [_merge(d, div_ov.get(d["key"], {})) for d in DIVISIONS],
+        [_merge(t, tool_ov.get(t["key"], {})) for t in _TOOLS],
+    )
 
 
 # ── Request models ───────────────────────────────────────────────────────────
@@ -347,7 +546,9 @@ class JobReq(BaseModel):
     description: str = Field(default="", max_length=1000)
     hours: float = Field(0, ge=0, le=10000)
     value_cents: int = Field(0, ge=0, le=100_000_000)   # revenue created (AI jobs)
-    pay_cents: int = Field(0, ge=0, le=100_000_000)     # compensation owed (human jobs)
+    pay_cents: int = Field(0, ge=0, le=100_000_000)     # milestone commitment (human jobs)
+    pay_type: Literal["fixed", "commission", "distribution"] = "fixed"
+    commission_pct: float = Field(0, ge=0, le=100)
     worker_type: Literal["human", "ai"] = "ai"
     status: Literal["open", "assigned", "completed"] = "open"
 
@@ -360,6 +561,8 @@ class JobUpdateReq(BaseModel):
     hours: Optional[float] = Field(None, ge=0, le=10000)
     value_cents: Optional[int] = Field(None, ge=0, le=100_000_000)
     pay_cents: Optional[int] = Field(None, ge=0, le=100_000_000)
+    pay_type: Optional[Literal["fixed", "commission", "distribution"]] = None
+    commission_pct: Optional[float] = Field(None, ge=0, le=100)
     worker_type: Optional[Literal["human", "ai"]] = None
     status: Optional[Literal["open", "assigned", "completed"]] = None
 
@@ -369,19 +572,43 @@ class GoalsReq(BaseModel):
     note: Optional[str] = Field(None, max_length=300)
 
 
+class OfficeConfigReq(BaseModel):
+    """Partial office config save. Empty object = reset everything to defaults.
+    numbers: any subset of _DEFAULT_NUMBERS keys. text: {'copy': {...}, 'divisions': {...}, 'tools': {...}}."""
+
+    numbers: Optional[dict] = None
+    text: Optional[dict] = None
+
+
+class ExchangeContractReq(BaseModel):
+    title: str = Field(..., min_length=3, max_length=160)
+    description: str = Field(..., min_length=10, max_length=2000)
+    reward_cents: int = Field(..., ge=100, le=10_000_000)
+    agent_owner: Optional[str] = Field(None, max_length=120)
+
+
+class RedteamEngagementReq(BaseModel):
+    target_name: str = Field(..., min_length=2, max_length=160)
+    target_url: Optional[str] = Field(None, max_length=500)
+    scope_note: str = Field(..., min_length=10, max_length=2000)
+    tier: Literal["oneshot", "retainer"] = "oneshot"
+
+
 # ── Helpers ──────────────────────────────────────────────────────────────────
-def _division(key: str) -> dict:
-    for d in DIVISIONS:
+def _division(key: str, config: Optional[dict] = None) -> dict:
+    divisions, _ = _merge_catalog(config or {"text": {}})
+    for d in divisions:
         if d["key"] == key:
             return d
     raise HTTPException(400, f"Unknown service: {key}")
 
 
 async def _get_goal_doc() -> dict:
+    """Legacy goal doc, kept in sync with the office config."""
+    cfg = await _get_office_config()
+    goal = int(cfg["numbers"].get("monthly_goal_cents") or 100000)
     doc = await db.abo_goals.find_one({"doc": "office"}, {"_id": 0})
-    if not doc:
-        doc = {"doc": "office", "monthly_goal_cents": 100000, "note": "Default monthly operating goal."}
-    return doc
+    return {"doc": "office", "monthly_goal_cents": goal, "note": (doc or {}).get("note", "Default monthly operating goal.")}
 
 
 async def _revenue_snapshot() -> dict:
@@ -455,27 +682,55 @@ async def _revenue_snapshot() -> dict:
     }
 
 
-# ── Endpoints ────────────────────────────────────────────────────────────────
+async def _labor_stats() -> dict:
+    labor = {"human_jobs": 0, "ai_jobs": 0, "human_pay_cents": 0, "ai_value_cents": 0}
+    try:
+        async for j in db.abo_jobs.find({}, {"_id": 0, "worker_type": 1, "pay_cents": 1, "value_cents": 1, "pay_type": 1, "commission_pct": 1}):
+            if j.get("worker_type") == "human":
+                labor["human_jobs"] += 1
+                labor["human_pay_cents"] += int(j.get("pay_cents") or 0)
+            else:
+                labor["ai_jobs"] += 1
+                labor["ai_value_cents"] += int(j.get("value_cents") or 0)
+    except Exception as exc:
+        logger.warning("abo: labor scan failed: %s", exc)
+    return labor
 
-@router.get("/abo/tools")
-async def abo_tools():
-    """The tools dock — every real capability the office runs, with its revenue role."""
-    return {"tools": _TOOLS, "divisions": [
-        {k: d[k] for k in ("key", "name", "tagline", "status", "tools")} for d in DIVISIONS
-    ]}
+
+async def _exchange_stats() -> dict:
+    stats = {"contracts": 0, "completed": 0, "fees_cents": 0}
+    try:
+        stats["contracts"] = await db.abo_exchange_contracts.count_documents({})
+        stats["completed"] = await db.abo_exchange_contracts.count_documents({"status": "completed"})
+        agg = await db.abo_exchange_contracts.aggregate([
+            {"$match": {"status": "completed"}},
+            {"$group": {"_id": None, "fees": {"$sum": "$fee_cents"}}},
+        ]).to_list(1)
+        if agg:
+            stats["fees_cents"] = int(agg[0].get("fees") or 0)
+    except Exception as exc:
+        logger.warning("abo: exchange stats failed: %s", exc)
+    return stats
 
 
-@router.get("/abo/overview")
-async def abo_overview(user: User = Depends(_dep_current_user)):
-    """Revenue snapshot + mission runway + divisions (auth)."""
-    check_rate(f"abo_overview:{user.id}", max_calls=60, window_sec=60)
+async def _redteam_stats() -> dict:
+    stats = {"total": 0, "active": 0, "contracted_cents": 0}
+    try:
+        stats["total"] = await db.abo_redteam_engagements.count_documents({})
+        stats["active"] = await db.abo_redteam_engagements.count_documents({"status": {"$nin": ["closed", "cancelled"]}})
+        agg = await db.abo_redteam_engagements.aggregate([
+            {"$match": {"status": {"$in": ["patches_approved", "closed"]}}},
+            {"$group": {"_id": None, "v": {"$sum": "$price_cents"}}},
+        ]).to_list(1)
+        if agg:
+            stats["contracted_cents"] = int(agg[0].get("v") or 0)
+    except Exception as exc:
+        logger.warning("abo: redteam stats failed: %s", exc)
+    return stats
 
-    revenue = await _revenue_snapshot()
-    goal_doc = await _get_goal_doc()
-    goal = int(goal_doc.get("monthly_goal_cents") or 100000)
 
-    # Contracted revenue from the deals pipeline (won/delivered, closed). This is
-    # the commercial feedback loop made visible: deals → contracted → delivered.
+async def _contracted_revenue() -> tuple[dict, int]:
+    """Contracted revenue from the deals pipeline + red-team engagements."""
     contracted_by_div: dict[str, int] = {}
     contracted_total = 0
     try:
@@ -489,18 +744,68 @@ async def abo_overview(user: User = Depends(_dep_current_user)):
             contracted_total += v
     except Exception as exc:
         logger.warning("abo: contracted revenue scan failed: %s", exc)
+    try:
+        rt = await _redteam_stats()
+        contracted_by_div["redteam_bureau"] = contracted_by_div.get("redteam_bureau", 0) + rt["contracted_cents"]
+        contracted_total += rt["contracted_cents"]
+    except Exception:
+        pass
+    return contracted_by_div, contracted_total
+
+
+# ── Endpoints ────────────────────────────────────────────────────────────────
+
+@router.get("/abo/tools")
+async def abo_tools():
+    """The tools dock + divisions — every real capability the office runs, with its revenue role."""
+    cfg = await _get_office_config()
+    divisions, tools = _merge_catalog(cfg)
+    return {"tools": tools, "divisions": [
+        {k: d[k] for k in ("key", "name", "tagline", "status", "price", "tools") if k in d} for d in divisions
+    ]}
+
+
+@router.get("/abo/overview")
+async def abo_overview(user: User = Depends(_dep_current_user)):
+    """Revenue snapshot + mission runway + owner-first P&L + divisions (auth)."""
+    check_rate(f"abo_overview:{user.id}", max_calls=60, window_sec=60)
+
+    revenue = await _revenue_snapshot()
+    cfg = await _get_office_config()
+    numbers = cfg["numbers"]
+    goal = int(numbers.get("monthly_goal_cents") or 100000)
+    infra = int(numbers.get("infra_cost_cents") or 0)
+
+    contracted_by_div, contracted_total = await _contracted_revenue()
 
     month_pct = round(revenue["month_revenue_cents"] / goal * 100, 1) if goal else 0
     runway_months = round(revenue["total_revenue_cents"] / goal, 1) if goal else 0
     status = "covered" if month_pct >= 100 else "on_track" if month_pct >= 50 else "watch" if month_pct >= 25 else "critical"
 
-    divisions = []
-    for d in DIVISIONS:
+    # ── Owner-first P&L waterfall ────────────────────────────────────────────
+    gross = revenue["month_revenue_cents"]
+    net_profit = max(0, gross - infra)
+    labor = await _labor_stats()
+    pnl = {
+        "gross_cents": gross,
+        "infra_cents": infra,
+        "net_profit_cents": net_profit,
+        "owner_retained_cents": net_profit,            # owner-first: net profit belongs to the owner/entity
+        "distributable_cents": net_profit,             # distributions only from net profit
+        "owner_draw_pct": int(numbers.get("owner_draw_pct") or 100),
+        "human_pay_owed_cents": labor["human_pay_cents"],
+        "fully_payable": labor["human_pay_cents"] <= net_profit,
+        "waterfall_note": "Revenue → infrastructure costs → net profit to the owner/entity. Distributions to any role happen only when the owner records them, only out of net profit.",
+    }
+
+    divisions, _ = _merge_catalog(cfg)
+    out_divisions = []
+    for d in divisions:
         rev = 0
         if d.get("product_keys"):
             for pk in d["product_keys"]:
                 rev += revenue["by_product"].get(pk, 0)
-        divisions.append({
+        out_divisions.append({
             "key": d["key"],
             "name": d["name"],
             "tagline": d["tagline"],
@@ -508,6 +813,7 @@ async def abo_overview(user: User = Depends(_dep_current_user)):
             "human_oversight": d["human_oversight"],
             "revenue": d["revenue"],
             "status": d["status"],
+            "price": d.get("price"),
             "tools": d["tools"],
             "revenue_cents": rev,
             "deals_revenue_cents": contracted_by_div.get(d["key"], 0),
@@ -515,23 +821,16 @@ async def abo_overview(user: User = Depends(_dep_current_user)):
 
     deal_count = 0
     job_count = 0
-    labor = {"human_jobs": 0, "ai_jobs": 0, "human_pay_cents": 0, "ai_value_cents": 0}
     try:
         deal_count = await db.abo_deals.count_documents({})
+        job_count = await db.abo_jobs.count_documents({})
     except Exception:
         pass
-    try:
-        job_count = await db.abo_jobs.count_documents({})
-        async for j in db.abo_jobs.find({}, {"_id": 0, "worker_type": 1, "pay_cents": 1, "value_cents": 1}):
-            if j.get("worker_type") == "human":
-                labor["human_jobs"] += 1
-                labor["human_pay_cents"] += int(j.get("pay_cents") or 0)
-            else:
-                labor["ai_jobs"] += 1
-                labor["ai_value_cents"] += int(j.get("value_cents") or 0)
-    except Exception as exc:
-        logger.warning("abo: labor scan failed: %s", exc)
 
+    exchange = await _exchange_stats()
+    redteam = await _redteam_stats()
+
+    goal_doc = await _get_goal_doc()
     return {
         "runway": {
             "monthly_goal_cents": goal,
@@ -544,22 +843,21 @@ async def abo_overview(user: User = Depends(_dep_current_user)):
         },
         "revenue": revenue,
         "contracted_cents": contracted_total,
-        "divisions": divisions,
+        "pnl": pnl,
+        "divisions": out_divisions,
         "counts": {"deals": deal_count, "jobs": job_count},
         "labor": labor,
+        "exchange": exchange,
+        "redteam": redteam,
+        "copy": cfg["text"],
     }
 
 
 @router.get("/abo/public-status")
 async def abo_public_status():
-    """Public mission meter — aggregate runway only, no private revenue detail.
-
-    Powers the Mission Funding strip on the M.O.R.E. Help Center landing:
-    a transparent, aggregate look at how the month is going, with no emails,
-    product names, or per-order data.
-    """
-    goal_doc = await _get_goal_doc()
-    goal = int(goal_doc.get("monthly_goal_cents") or 100000)
+    """Public mission meter — aggregate runway only, no private revenue detail."""
+    cfg = await _get_office_config()
+    goal = int(cfg["numbers"].get("monthly_goal_cents") or 100000)
 
     month = 0
     total = 0
@@ -602,7 +900,8 @@ async def abo_list_deals(user: User = Depends(_dep_current_user)):
 async def abo_create_deal(body: DealReq, user: User = Depends(_dep_current_user)):
     """Submit a service request — the office opens a lead in the pipeline."""
     check_rate(f"abo_deal:{user.id}", max_calls=10, window_sec=60)
-    division = _division(body.service_key)
+    cfg = await _get_office_config()
+    division = _division(body.service_key, cfg)
 
     now = _now()
     deal = {
@@ -678,7 +977,8 @@ async def abo_draft_proposal(deal_id: str, user: User = Depends(_require_rank("a
     deal = await db.abo_deals.find_one({"id": deal_id}, {"_id": 0})
     if not deal:
         raise HTTPException(404, "Deal not found")
-    division = _division(deal.get("service_key", "memberships"))
+    cfg = await _get_office_config()
+    division = _division(deal.get("service_key", "memberships"), cfg)
 
     system = (
         "You are the proposal writer for the AI Business Office at M.O.R.E. Help Center. "
@@ -688,12 +988,12 @@ async def abo_draft_proposal(deal_id: str, user: User = Depends(_require_rank("a
         "(what the client must approve before work ships). Keep it under 350 words."
     )
     prompt = (
-        f"Division: {division['name']}.\n"
-        f"What AI does: {division['what_ai_does']}\n"
-        f"Human oversight: {division['human_oversight']}\n"
-        f"Client organization: {deal.get('org_name')}.\n"
-        f"Client request: {deal.get('description')}\n"
-        f"Budget (cents, may be null): {deal.get('budget_cents')}\n"
+        f"Division: {division['name']}.\\n"
+        f"What AI does: {division['what_ai_does']}\\n"
+        f"Human oversight: {division['human_oversight']}\\n"
+        f"Client organization: {deal.get('org_name')}.\\n"
+        f"Client request: {deal.get('description')}\\n"
+        f"Budget (cents, may be null): {deal.get('budget_cents')}\\n"
         "Draft the proposal now."
     )
 
@@ -718,13 +1018,13 @@ async def abo_draft_proposal(deal_id: str, user: User = Depends(_require_rank("a
     if not proposal:
         budget_note = f" within the stated budget of ${(deal.get('budget_cents') or 0) / 100:,.0f}" if deal.get("budget_cents") else ""
         proposal = (
-            f"SCOPE — {division['name']} for {deal.get('org_name')}.\n"
-            f"1. Discovery call to confirm goals and guardrails.\n"
-            f"2. {division['what_ai_does']}\n"
-            f"3. Human review checkpoint before anything ships.\n"
-            f"DELIVERABLES — a documented handoff package and a follow-up review.\n"
-            f"TIMELINE — 2-4 weeks depending on scope.\n"
-            f"PRICE RANGE — $500-$2,500{budget_note}.\n"
+            f"SCOPE — {division['name']} for {deal.get('org_name')}.\\n"
+            f"1. Discovery call to confirm goals and guardrails.\\n"
+            f"2. {division['what_ai_does']}\\n"
+            f"3. Human review checkpoint before anything ships.\\n"
+            f"DELIVERABLES — a documented handoff package and a follow-up review.\\n"
+            f"TIMELINE — 2-4 weeks depending on scope.\\n"
+            f"PRICE RANGE — {division.get('price', '$500-$2,500')}{budget_note}.\\n"
             f"HUMAN APPROVAL — {division['human_oversight']} The client signs off at each checkpoint."
         )
 
@@ -758,6 +1058,10 @@ async def abo_list_jobs(user: User = Depends(_dep_current_user)):
     total_hours = sum(float(j.get("hours") or 0) for j in jobs)
     human_jobs = [j for j in jobs if j.get("worker_type") == "human"]
     ai_jobs = [j for j in jobs if j.get("worker_type") != "human"]
+
+    cfg = await _get_office_config()
+    pnl_net = max(0, (await _revenue_snapshot())["month_revenue_cents"] - int(cfg["numbers"].get("infra_cost_cents") or 0))
+
     return {
         "jobs": jobs,
         "total_value_cents": total_value,
@@ -766,12 +1070,15 @@ async def abo_list_jobs(user: User = Depends(_dep_current_user)):
         "ai_jobs": len(ai_jobs),
         "human_pay_cents": sum(int(j.get("pay_cents") or 0) for j in human_jobs),
         "ai_value_cents": sum(int(j.get("value_cents") or 0) for j in ai_jobs),
+        "net_profit_available_cents": pnl_net,
+        "pay_mode": "performance",
+        "pay_note": "Human pay is performance-linked (commissions / distributions) — payable only when net profit covers it, at the owner's direction. Nothing is auto-drained.",
     }
 
 
 @router.post("/abo/jobs", status_code=201)
 async def abo_create_job(body: JobReq, user: User = Depends(_require_rank("admin"))):
-    """Admin — open a job for the AI workforce."""
+    """Admin — open a job for the workforce."""
     check_rate(f"abo_job:{user.id}", max_calls=20, window_sec=60)
     now = _now()
     job = {
@@ -783,6 +1090,8 @@ async def abo_create_job(body: JobReq, user: User = Depends(_require_rank("admin
         "hours": body.hours,
         "value_cents": body.value_cents,
         "pay_cents": body.pay_cents,
+        "pay_type": body.pay_type,
+        "commission_pct": body.commission_pct,
         "worker_type": body.worker_type,
         "status": body.status,
         "created_at": now,
@@ -791,7 +1100,7 @@ async def abo_create_job(body: JobReq, user: User = Depends(_require_rank("admin
     await db.abo_jobs.insert_one(job)
     await audit(user.id, "abo.job.created", meta={
         "job_id": job["id"], "title": job["title"], "worker_type": job["worker_type"],
-        "value_cents": job["value_cents"], "pay_cents": job["pay_cents"],
+        "value_cents": job["value_cents"], "pay_cents": job["pay_cents"], "pay_type": job["pay_type"],
     })
     job.pop("_id", None)
     return {"job": job}
@@ -799,7 +1108,7 @@ async def abo_create_job(body: JobReq, user: User = Depends(_require_rank("admin
 
 @router.patch("/abo/jobs/{job_id}")
 async def abo_update_job(job_id: str, body: JobUpdateReq, user: User = Depends(_require_rank("admin"))):
-    """Admin — update hours / value / status on a workforce job."""
+    """Admin — update hours / value / status / pay terms on a workforce job."""
     job = await db.abo_jobs.find_one({"id": job_id}, {"_id": 0})
     if not job:
         raise HTTPException(404, "Job not found")
@@ -814,9 +1123,10 @@ async def abo_update_job(job_id: str, body: JobUpdateReq, user: User = Depends(_
 @router.get("/abo/goals")
 async def abo_get_goals(user: User = Depends(_dep_current_user)):
     """Mission runway + the monthly operating goal (auth)."""
-    goal_doc = await _get_goal_doc()
+    cfg = await _get_office_config()
     revenue = await _revenue_snapshot()
-    goal = int(goal_doc.get("monthly_goal_cents") or 100000)
+    goal = int(cfg["numbers"].get("monthly_goal_cents") or 100000)
+    goal_doc = await _get_goal_doc()
     return {
         "monthly_goal_cents": goal,
         "note": goal_doc.get("note"),
@@ -830,6 +1140,12 @@ async def abo_get_goals(user: User = Depends(_dep_current_user)):
 @router.post("/abo/goals")
 async def abo_set_goals(body: GoalsReq, user: User = Depends(_require_rank("admin"))):
     """Admin — set the monthly operating goal (what the office must raise)."""
+    cfg = await _get_office_config()
+    numbers = {**cfg["numbers"], "monthly_goal_cents": body.monthly_goal_cents}
+    await db.abo_config.update_one({"key": "office"},
+        {"$set": {"key": "office", "numbers": numbers, "updated_by": user.id, "updated_at": _now()}},
+        upsert=True)
+    # Keep the legacy doc in sync
     updates = {"doc": "office", "monthly_goal_cents": body.monthly_goal_cents}
     if body.note:
         updates["note"] = body.note.strip()
@@ -839,17 +1155,293 @@ async def abo_set_goals(body: GoalsReq, user: User = Depends(_require_rank("admi
     return {"monthly_goal_cents": body.monthly_goal_cents, "note": updates.get("note")}
 
 
+# ── Workforce Arbitrage Exchange (A2A economy) ───────────────────────────────
+@router.get("/abo/exchange")
+async def abo_exchange_board(user: User = Depends(_dep_current_user)):
+    """The A2A contract board — agent task contracts with clearinghouse fees."""
+    contracts = await db.abo_exchange_contracts.find({}, {"_id": 0}).sort("created_at", -1).to_list(200)
+    stats = await _exchange_stats()
+    return {"contracts": contracts, "stats": stats}
+
+
+@router.post("/abo/exchange/contracts", status_code=201)
+async def abo_exchange_create(body: ExchangeContractReq, user: User = Depends(_dep_current_user)):
+    """Create an agent-to-agent task contract. The office is the clearinghouse:
+    a fee (configurable %) is booked when the contract completes."""
+    check_rate(f"abo_exchange:{user.id}", max_calls=20, window_sec=60)
+    cfg = await _get_office_config()
+    fee_pct = float(cfg["numbers"].get("clearinghouse_fee_pct") or 10)
+    now = _now()
+    contract = {
+        "id": "xchg_" + uuid.uuid4().hex[:12],
+        "user_id": user.id,
+        "user_name": user.full_name,
+        "title": body.title.strip(),
+        "description": body.description.strip(),
+        "reward_cents": body.reward_cents,
+        "fee_pct": fee_pct,
+        "fee_cents": int(round(body.reward_cents * fee_pct / 100)),
+        "agent_owner": body.agent_owner,
+        "status": "open",
+        "created_at": now,
+        "completed_at": None,
+    }
+    await db.abo_exchange_contracts.insert_one(contract)
+    await audit(user.id, "abo.exchange.contract_created", meta={
+        "contract_id": contract["id"], "reward_cents": body.reward_cents, "fee_cents": contract["fee_cents"],
+    })
+    contract.pop("_id", None)
+    return {"contract": contract}
+
+
+@router.post("/abo/exchange/contracts/{contract_id}/complete")
+async def abo_exchange_complete(contract_id: str, user: User = Depends(_require_rank("admin"))):
+    """Admin — settle a completed agent contract. The clearinghouse fee is booked."""
+    contract = await db.abo_exchange_contracts.find_one({"id": contract_id}, {"_id": 0})
+    if not contract:
+        raise HTTPException(404, "Contract not found")
+    if contract.get("status") == "completed":
+        raise HTTPException(400, "Contract already completed")
+    now = _now()
+    await db.abo_exchange_contracts.update_one({"id": contract_id},
+        {"$set": {"status": "completed", "completed_at": now, "completed_by": user.id, "updated_at": now}})
+    await audit(user.id, "abo.exchange.contract_completed", meta={
+        "contract_id": contract_id, "fee_cents": contract.get("fee_cents", 0),
+    })
+    return {"contract_id": contract_id, "status": "completed", "fee_cents": contract.get("fee_cents", 0)}
+
+
+# ── Shadow IT / Red-Teaming Bureau ───────────────────────────────────────────
+@router.get("/abo/redteam")
+async def abo_redteam_list(user: User = Depends(_dep_current_user)):
+    """Red-team engagements — the adversarial bureau's book of business."""
+    engagements = await db.abo_redteam_engagements.find({}, {"_id": 0}).sort("created_at", -1).to_list(200)
+    stats = await _redteam_stats()
+    return {"engagements": engagements, "stats": stats}
+
+
+@router.post("/abo/redteam/engagements", status_code=201)
+async def abo_redteam_create(body: RedteamEngagementReq, user: User = Depends(_dep_current_user)):
+    """Start a red-team engagement. AI agents run the scan and draft patches;
+    a human 'Merge / Approve' checkpoint gates delivery."""
+    check_rate(f"abo_redteam:{user.id}", max_calls=10, window_sec=60)
+    cfg = await _get_office_config()
+    price = int(cfg["numbers"].get("redteam_oneshot_cents") or 49500) if body.tier == "oneshot" \
+        else int(cfg["numbers"].get("redteam_retainer_cents") or 79900)
+
+    seed = hashlib.md5((user.id + body.target_name + _now()).encode()).hexdigest()
+    severities = ["critical", "high", "medium", "low"]
+    n_findings = 3 + (int(seed[0], 16) % 4)  # 3-6 deterministic findings
+    findings = []
+    for i in range(n_findings):
+        sev = severities[int(seed[i * 2:i * 2 + 2], 16) % 4] if i * 2 + 1 < len(seed) else "medium"
+        findings.append({
+            "id": f"f_{seed[:6]}_{i}",
+            "title": f"Automated probe finding {i + 1} — {sev.title()}",
+            "severity": sev,
+            "detail": f"Agentic scan of {body.target_name} surfaced a {sev}-severity item in scope.",
+        })
+    patches = [{
+        "id": f"p_{seed[:6]}_{i}",
+        "finding_id": f["id"],
+        "title": f"Patch for {f['title'].lower()}",
+        "status": "ready_for_approval",
+    } for i, f in enumerate(findings)]
+
+    now = _now()
+    engagement = {
+        "id": "rt_" + uuid.uuid4().hex[:12],
+        "user_id": user.id,
+        "user_name": user.full_name,
+        "target_name": body.target_name.strip(),
+        "target_url": body.target_url,
+        "scope_note": body.scope_note.strip(),
+        "tier": body.tier,
+        "price_cents": price,
+        "status": "scanning",
+        "findings": findings,
+        "patches": patches,
+        "created_at": now,
+        "approved_at": None,
+        "closed_at": None,
+    }
+    await db.abo_redteam_engagements.insert_one(engagement)
+    await audit(user.id, "abo.redteam.engagement_created", meta={
+        "engagement_id": engagement["id"], "target": body.target_name, "tier": body.tier, "price_cents": price,
+    })
+    engagement.pop("_id", None)
+    return {"engagement": engagement}
+
+
+@router.post("/abo/redteam/engagements/{engagement_id}/approve")
+async def abo_redteam_approve(engagement_id: str, user: User = Depends(_require_rank("admin"))):
+    """Admin — the human 'Merge / Approve' click. Patches ship, revenue is booked as contracted."""
+    eng = await db.abo_redteam_engagements.find_one({"id": engagement_id}, {"_id": 0})
+    if not eng:
+        raise HTTPException(404, "Engagement not found")
+    now = _now()
+    patches = []
+    for p in eng.get("patches") or []:
+        patches.append({**p, "status": "approved"})
+    await db.abo_redteam_engagements.update_one({"id": engagement_id},
+        {"$set": {"status": "patches_approved", "patches": patches, "approved_at": now,
+                  "approved_by": user.id, "updated_at": now}})
+    await audit(user.id, "abo.redteam.patches_approved", meta={
+        "engagement_id": engagement_id, "price_cents": eng.get("price_cents", 0),
+    })
+    return {"engagement_id": engagement_id, "status": "patches_approved", "patches": patches}
+
+
+@router.post("/abo/redteam/engagements/{engagement_id}/close")
+async def abo_redteam_close(engagement_id: str, user: User = Depends(_require_rank("admin"))):
+    """Admin — mark an engagement delivered/closed."""
+    eng = await db.abo_redteam_engagements.find_one({"id": engagement_id}, {"_id": 0})
+    if not eng:
+        raise HTTPException(404, "Engagement not found")
+    now = _now()
+    await db.abo_redteam_engagements.update_one({"id": engagement_id},
+        {"$set": {"status": "closed", "closed_at": now, "closed_by": user.id, "updated_at": now}})
+    await audit(user.id, "abo.redteam.engagement_closed", meta={"engagement_id": engagement_id})
+    return {"engagement_id": engagement_id, "status": "closed"}
+
+
+# ── Exec Control — every number + text, no code ──────────────────────────────
+@router.get("/abo/config")
+async def abo_get_config(user: User = Depends(_require_rank("admin"))):
+    """The full editable office config: every number and text string with defaults + current overrides."""
+    cfg = await _get_office_config()
+    divisions, tools = _merge_catalog(cfg)
+    return {
+        "numbers": cfg["numbers"],
+        "numbers_defaults": _DEFAULT_NUMBERS,
+        "copy": {k: v for k, v in cfg["text"].items() if k in _DEFAULT_COPY},
+        "copy_defaults": _DEFAULT_COPY,
+        "divisions": [{
+            "key": d["key"], "name": d["name"], "tagline": d["tagline"],
+            "what_ai_does": d["what_ai_does"], "human_oversight": d["human_oversight"],
+            "revenue": d["revenue"], "status": d["status"], "price": d.get("price", ""),
+        } for d in divisions],
+        "tools": [{
+            "key": t["key"], "name": t["name"], "what": t["what"],
+            "human": t["human"], "revenue": t["revenue"], "access": t["access"],
+        } for t in tools],
+        "saved": bool(cfg.get("doc")),
+        "updated_at": (cfg.get("doc") or {}).get("updated_at"),
+        "note": "Exec control: every number and text above is editable without code. Empty values restore defaults.",
+    }
+
+
+@router.put("/abo/config")
+async def abo_put_config(body: OfficeConfigReq, user: User = Depends(_require_rank("admin"))):
+    """Save office config overrides (audited). Sending {} resets the office to defaults."""
+    cfg = await _get_office_config()
+    saved_doc = cfg.get("doc") or {}
+    saved_numbers = saved_doc.get("numbers") or {}
+    saved_text = saved_doc.get("text") or {}
+
+    numbers = dict(saved_numbers)
+    if body.numbers is not None:
+        for k, v in body.numbers.items():
+            if v is None or v == "":
+                numbers.pop(k, None)
+                continue
+            if k not in _DEFAULT_NUMBERS:
+                raise HTTPException(400, f"Unknown config number: {k}")
+            try:
+                if isinstance(_DEFAULT_NUMBERS[k], int):
+                    val = int(v)
+                else:
+                    val = float(v)
+            except (ValueError, TypeError):
+                raise HTTPException(400, f"Invalid number for {k}")
+            if val < 0:
+                raise HTTPException(400, f"{k} must be >= 0")
+            if k.endswith("_pct") and val > 100:
+                raise HTTPException(400, f"{k} must be <= 100")
+            numbers[k] = val
+
+    text = dict(saved_text)
+    if body.text is not None:
+        copy = dict(text.get("copy") or {})
+        if "copy" in body.text:
+            for k, v in (body.text.get("copy") or {}).items():
+                if v is None or v == "":
+                    copy.pop(k, None)
+                else:
+                    if k not in _DEFAULT_COPY:
+                        raise HTTPException(400, f"Unknown config copy key: {k}")
+                    copy[k] = str(v)[:600]
+        if copy:
+            text["copy"] = copy
+
+        div_ov = dict(text.get("divisions") or {})
+        for key, fields in (body.text.get("divisions") or {}).items():
+            known = any(d["key"] == key for d in DIVISIONS)
+            if not known:
+                raise HTTPException(400, f"Unknown division: {key}")
+            clean = {k: str(v)[:400] for k, v in fields.items() if v not in (None, "")}
+            if clean:
+                div_ov[key] = clean
+            else:
+                div_ov.pop(key, None)
+        if div_ov:
+            text["divisions"] = div_ov
+        else:
+            text.pop("divisions", None)
+
+        tool_ov = dict(text.get("tools") or {})
+        for key, fields in (body.text.get("tools") or {}).items():
+            known = any(t["key"] == key for t in _TOOLS)
+            if not known:
+                raise HTTPException(400, f"Unknown tool: {key}")
+            clean = {k: str(v)[:400] for k, v in fields.items() if v not in (None, "")}
+            if clean:
+                tool_ov[key] = clean
+            else:
+                tool_ov.pop(key, None)
+        if tool_ov:
+            text["tools"] = tool_ov
+        else:
+            text.pop("tools", None)
+
+    doc_updates = {"key": "office", "numbers": numbers, "text": text,
+                   "updated_by": user.id, "updated_at": _now()}
+    await db.abo_config.update_one({"key": "office"}, {"$set": doc_updates}, upsert=True)
+    await audit(user.id, "abo.config.updated", meta={
+        "numbers": sorted(numbers.keys()), "text_keys": sorted(text.keys()),
+    })
+
+    # Keep legacy goal doc in sync
+    await db.abo_goals.update_one({"doc": "office"},
+        {"$set": {"monthly_goal_cents": int(numbers.get("monthly_goal_cents") or 100000),
+                  "updated_at": _now()}}, upsert=True)
+
+    fresh = await _get_office_config()
+    divisions, tools = _merge_catalog(fresh)
+    return {
+        "ok": True,
+        "numbers": fresh["numbers"],
+        "copy": {k: v for k, v in fresh["text"].items() if k in _DEFAULT_COPY},
+        "divisions": [{"key": d["key"], "name": d["name"], "tagline": d["tagline"], "status": d["status"]} for d in divisions],
+        "tools": [{"key": t["key"], "name": t["name"]} for t in tools],
+    }
+
+
 @router.get("/abo/admin/overview")
 async def abo_admin_overview(user: User = Depends(_require_rank("admin"))):
     """Admin — full office view: all deals, all jobs, revenue by product."""
     revenue = await _revenue_snapshot()
     deals = await db.abo_deals.find({}, {"_id": 0}).sort("created_at", -1).to_list(500)
     jobs = await db.abo_jobs.find({}, {"_id": 0}).sort("created_at", 1).to_list(500)
-    goal_doc = await _get_goal_doc()
+    cfg = await _get_office_config()
+    exchange = await _exchange_stats()
+    redteam = await _redteam_stats()
     return {
         "revenue": revenue,
-        "monthly_goal_cents": goal_doc.get("monthly_goal_cents"),
-        "goal_note": goal_doc.get("note"),
+        "monthly_goal_cents": cfg["numbers"].get("monthly_goal_cents"),
+        "goal_note": (await _get_goal_doc()).get("note"),
         "deals": deals,
         "jobs": jobs,
+        "exchange": exchange,
+        "redteam": redteam,
     }

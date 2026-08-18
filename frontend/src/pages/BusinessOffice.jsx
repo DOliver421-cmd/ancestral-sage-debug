@@ -54,21 +54,27 @@ export default function BusinessOffice() {
   const [tools, setTools] = useState(null);
   const [deals, setDeals] = useState([]);
   const [jobs, setJobs] = useState(null);
+  const [exchange, setExchange] = useState(null);
+  const [redteam, setRedteam] = useState(null);
   const [adminData, setAdminData] = useState(null);
   const [loading, setLoading] = useState(true);
 
   const load = useCallback(async () => {
     try {
-      const [ov, tl, dl, jb] = await Promise.all([
+      const [ov, tl, dl, jb, xc, rt] = await Promise.all([
         api.get("/abo/overview"),
         api.get("/abo/tools"),
         api.get("/abo/deals"),
         api.get("/abo/jobs"),
+        api.get("/abo/exchange"),
+        api.get("/abo/redteam"),
       ]);
       setOverview(ov.data);
       setTools(tl.data);
       setDeals(dl.data.deals || []);
       setJobs(jb.data);
+      setExchange(xc.data);
+      setRedteam(rt.data);
       if (isAdmin) {
         const ad = await api.get("/abo/admin/overview");
         setAdminData(ad.data);
@@ -111,9 +117,9 @@ export default function BusinessOffice() {
             </span>
           </div>
           <p className="text-white/80 text-sm mt-2 max-w-2xl">
-            This office turns the platform's AI capabilities into mission funding. No revenue — no office —
-            no jobs for people or the AI workforce. Every tool below is real and already shipped; the office's
-            job is to run them for income — and that income pays the people who run the office.
+            This office turns the platform's AI capabilities into mission funding — and it is <b>owner-first</b>.
+            Revenue covers infrastructure costs, then profit belongs to the business entity and the founder.
+            Nothing is auto-drained; every distribution happens only when the owner says so, only from net profit.
           </p>
           <div className="flex flex-wrap gap-2 mt-4">
             {tools?.tools?.slice(0, 8).map((t) => (
@@ -186,6 +192,51 @@ export default function BusinessOffice() {
                 <div className="text-[11px] font-bold uppercase tracking-widest text-ink/40 mt-1">{kpi.label}</div>
               </div>
             ))}
+          </section>
+
+          {/* ── 2a. Owner-First P&L ─────────────────────────────────────── */}
+          <section>
+            <h2 className="font-heading text-lg font-bold text-ink flex items-center gap-2">
+              <TrendingUp className="w-5 h-5" style={{ color: COPPER }} /> Owner-First P&L — the founder is secured first
+            </h2>
+            <p className="text-xs text-ink/50 mt-1 max-w-3xl">
+              The waterfall is the law of the office: revenue → infrastructure costs → net profit to the owner and
+              the business entity. Distributions to any role happen only when the owner records them, only out of net profit.
+            </p>
+            <div className="grid md:grid-cols-5 gap-4 mt-3">
+              <div className="card-flat rounded-2xl p-5 border" style={{ background: "#fff" }}>
+                <div className="text-[10px] font-black uppercase tracking-widest text-ink/40">1 · Gross revenue (month)</div>
+                <div className="font-heading text-2xl font-bold text-ink mt-2">{fmt(overview?.pnl?.gross_cents)}</div>
+                <div className="text-[11px] text-ink/50 mt-1">Real paid orders, this month.</div>
+              </div>
+              <div className="card-flat rounded-2xl p-5 border" style={{ background: "#fff" }}>
+                <div className="text-[10px] font-black uppercase tracking-widest text-ink/40">2 · Infrastructure costs</div>
+                <div className="font-heading text-2xl font-bold text-ink mt-2">−{fmt(overview?.pnl?.infra_cents)}</div>
+                <div className="text-[11px] text-ink/50 mt-1">Hosting, API tokens, database — covered first.</div>
+              </div>
+              <div className="card-flat rounded-2xl p-5 border" style={{ background: "#fff" }}>
+                <div className="text-[10px] font-black uppercase tracking-widest text-ink/40">3 · Net profit</div>
+                <div className="font-heading text-2xl font-bold mt-2" style={{ color: GREEN }}>{fmt(overview?.pnl?.net_profit_cents)}</div>
+                <div className="text-[11px] text-ink/50 mt-1">Belongs to the owner / business entity.</div>
+              </div>
+              <div className="card-flat rounded-2xl p-5 border" style={{ background: "#fff" }}>
+                <div className="text-[10px] font-black uppercase tracking-widest text-ink/40">4 · Owner retained ({overview?.pnl?.owner_draw_pct}%)</div>
+                <div className="font-heading text-2xl font-bold mt-2" style={{ color: GOLD }}>{fmt(overview?.pnl?.owner_retained_cents)}</div>
+                <div className="text-[11px] text-ink/50 mt-1">Until the owner is whole, there is no profit unless the owner says there is.</div>
+              </div>
+              <div className="card-flat rounded-2xl p-5 border" style={{ background: "#fff" }}>
+                <div className="text-[10px] font-black uppercase tracking-widest text-ink/40">5 · Performance pool</div>
+                <div className="font-heading text-2xl font-bold mt-2" style={{ color: COPPER }}>{fmt(overview?.pnl?.distributable_cents)}</div>
+                <div className="text-[11px] text-ink/50 mt-1">
+                  {overview?.pnl?.fully_payable
+                    ? "Net profit covers committed human milestones."
+                    : "Net profit is below committed milestones — nothing pays until it clears."}
+                </div>
+              </div>
+            </div>
+            <p className="text-[10px] text-ink/40 mt-2">
+              {overview?.pnl?.waterfall_note} Infrastructure costs are editable from the Exec Control page — no code.
+            </p>
           </section>
 
           {/* ── 2b. Commercial Feedback Loops ─────────────────────────── */}
@@ -290,6 +341,22 @@ export default function BusinessOffice() {
             </div>
           </section>
 
+          {/* ── 4a. A2A Economy — Workforce Exchange + Red-Teaming Bureau ── */}
+          <section>
+            <h2 className="font-heading text-lg font-bold text-ink flex items-center gap-2">
+              <RefreshCw className="w-5 h-5" style={{ color: GOLD }} /> A2A Economy — AI doing business with AI, cleared by you
+            </h2>
+            <p className="text-xs text-ink/50 mt-1 max-w-3xl">
+              Two new revenue lanes: the <b>Workforce Exchange</b> (agents subcontract tasks; the office takes a
+              clearinghouse fee on every completed contract) and the <b>Red-Teaming Bureau</b> (adversarial AI scans
+              client systems and hands over patches — one human Merge/Approve click ships them).
+            </p>
+            <div className="grid md:grid-cols-2 gap-4 mt-3">
+              <ExchangeBoard data={exchange} isAdmin={isAdmin} onChanged={load} />
+              <RedteamPanel data={redteam} isAdmin={isAdmin} onChanged={load} />
+            </div>
+          </section>
+
           {/* ── 4b. Mission Guardrails ────────────────────────────────── */}
           <section>
             <h2 className="font-heading text-lg font-bold text-ink flex items-center gap-2">
@@ -297,8 +364,8 @@ export default function BusinessOffice() {
             </h2>
             <div className="grid sm:grid-cols-2 lg:grid-cols-5 gap-4 mt-3">
               {[
-                { emoji: "🆓", title: "Help stays free, always", desc: "Core help lanes, free modules, and community never sit behind a paywall. Paid features are additions — never substitutions." },
-                { emoji: "👤", title: "Humans get paid — labor is never free", desc: "Every human hour in the office is compensated (pay, creator share, or equity). AI work generates revenue that pays people — never the reverse." },
+                { emoji: "👑", title: "Owner-first — the founder is the ultimate beneficiary", desc: "The owner's capital, risk, and vision are secured before any distribution. Revenue covers infrastructure, then profit belongs to the business entity. Until the owner is whole, there is no profit unless the owner says there is." },
+                { emoji: "📈", title: "Performance-linked labor — no fixed drains", desc: "Human roles earn commissions on closed business and distributions from net profit — payable only when the office is profitable, at the owner's direction. Never a fixed out-of-pocket liability." },
                 { emoji: "🎨", title: "Creators get paid first", desc: "Creator earnings and payouts are priority obligations. The platform's cut never competes with the creator's cut." },
                 { emoji: "🔍", title: "No invented revenue", desc: "The dashboard reads the real payments ledger. Deals count only when closed. Every promise must be deliverable." },
                 { emoji: "🗣️", title: "AI always discloses", desc: "Any AI that talks to people for transactions or support says so, per FTC guidance." },
@@ -329,7 +396,8 @@ export default function BusinessOffice() {
               <HeartHandshake className="w-5 h-5" style={{ color: COPPER }} /> Workforce Ledger — paid people & AI
             </h2>
             <p className="text-xs text-ink/50 mt-1 max-w-3xl">
-              AI jobs create revenue (<b>value</b>). Human jobs — the people who own, approve, and deliver — are paid from it (<b>pay</b>). Labor is never free.
+              AI jobs create revenue (<b>value</b>). Human roles earn <b>performance-linked pay</b> — commissions on
+              closed business and distributions from net profit, at the owner's direction. Nothing is auto-drained.
             </p>
             <div className="card-flat rounded-2xl border mt-3 overflow-hidden" style={{ background: "#fff" }}>
               <table className="w-full text-sm">
@@ -366,6 +434,11 @@ export default function BusinessOffice() {
                         <td className="px-4 py-3 text-right text-ink/70">{j.hours}</td>
                         <td className="px-4 py-3 text-right font-bold" style={{ color: isHuman ? COPPER : "#c9bda6" }}>
                           {isHuman ? fmt(j.pay_cents) : "—"}
+                          {isHuman && j.pay_type && (
+                            <div className="text-[9px] font-bold uppercase tracking-widest" style={{ color: "#b3934a" }}>
+                              {j.pay_type === "commission" ? `${j.commission_pct || 0}% commission` : j.pay_type} · from profit
+                            </div>
+                          )}
                         </td>
                         <td className="px-4 py-3 text-right font-bold" style={{ color: isHuman ? "#c9bda6" : GREEN }}>
                           {isHuman ? "—" : fmt(j.value_cents)}
@@ -389,7 +462,11 @@ export default function BusinessOffice() {
                 <span>AI jobs: <span style={{ color: GREEN }}>{jobs?.ai_jobs}</span></span>
                 <span>Human pay committed: <span style={{ color: COPPER }}>{fmt(jobs?.human_pay_cents)}</span></span>
                 <span>AI work value: <span style={{ color: GREEN }}>{fmt(jobs?.ai_value_cents)}</span></span>
+                <span>Net profit available: <span style={{ color: GREEN }}>{fmt(jobs?.net_profit_available_cents)}</span></span>
                 <span>Total hours: <span style={{ color: GREEN }}>{jobs?.total_hours}</span></span>
+              </div>
+              <div className="px-4 py-2 text-[10px] text-ink/40" style={{ background: "#fbf8f0" }}>
+                {jobs?.pay_note}
               </div>
             </div>
             {isAdmin && <JobForm divisions={overview?.divisions || []} onCreated={load} />}
@@ -586,7 +663,9 @@ function JobForm({ divisions, onCreated }) {
   const [hours, setHours] = useState("4");
   const [workerType, setWorkerType] = useState("ai");
   const [value, setValue] = useState("50");
-  const [pay, setPay] = useState("30");
+  const [pay, setPay] = useState("75");
+  const [payType, setPayType] = useState("commission");
+  const [commission, setCommission] = useState("5");
   const [busy, setBusy] = useState(false);
 
   const submit = async (e) => {
@@ -602,8 +681,10 @@ function JobForm({ divisions, onCreated }) {
         worker_type: workerType,
         value_cents: workerType === "ai" ? Math.round((parseFloat(value) || 0) * 100) : 0,
         pay_cents: workerType === "human" ? Math.round((parseFloat(pay) || 0) * 100) : 0,
+        pay_type: workerType === "human" ? payType : "fixed",
+        commission_pct: workerType === "human" && payType === "commission" ? (parseFloat(commission) || 0) : 0,
       });
-      toast.success(workerType === "human" ? "Paid human job opened." : "AI job opened — its revenue pays people.");
+      toast.success(workerType === "human" ? "Performance-linked human role opened." : "AI job opened — its revenue builds the business.");
       setTitle(""); setPersona("");
       onCreated();
     } catch (err) {
@@ -639,9 +720,26 @@ function JobForm({ divisions, onCreated }) {
         <input value={value} onChange={(e) => setValue(e.target.value)} type="number" min="0" step="5"
           placeholder="$ value" className="w-24 px-3 py-2 rounded-lg border text-sm" style={{ borderColor: "#ddd3bf" }} />
       ) : (
-        <input value={pay} onChange={(e) => setPay(e.target.value)} type="number" min="0" step="5"
-          placeholder="$ pay/hr" className="w-24 px-3 py-2 rounded-lg border text-sm" style={{ borderColor: COPPER }} />
+        <>
+          <select value={payType} onChange={(e) => setPayType(e.target.value)}
+            className="px-3 py-2 rounded-lg border text-sm font-bold" style={{ borderColor: "#ddd3bf" }}>
+            <option value="commission">Commission</option>
+            <option value="distribution">Distribution</option>
+            <option value="fixed">Fixed (owner-authorized)</option>
+          </select>
+          {payType === "commission" && (
+            <input value={commission} onChange={(e) => setCommission(e.target.value)} type="number" min="0" max="100" step="1"
+              placeholder="% of closed business" className="w-28 px-3 py-2 rounded-lg border text-sm" style={{ borderColor: COPPER }} />
+          )}
+          <input value={pay} onChange={(e) => setPay(e.target.value)} type="number" min="0" step="5"
+            placeholder="Milestone $" className="w-28 px-3 py-2 rounded-lg border text-sm" style={{ borderColor: COPPER }} />
+        </>
       )}
+      <p className="w-full text-[10px] text-ink/40">
+        {workerType === "human"
+          ? "Performance-linked: payable only when net profit covers it, at the owner's direction."
+          : "AI work creates value that builds the business — revenue covers infra, then profit goes to the owner."}
+      </p>
       <button type="submit" disabled={busy} className="px-4 py-2 rounded-lg text-sm font-black text-white disabled:opacity-50"
         style={{ background: workerType === "human" ? COPPER : GREEN }}>
         {busy ? "Opening…" : "Open job"}
@@ -720,5 +818,207 @@ function AdminDesk({ data, onChanged }) {
         </div>
       </div>
     </section>
+  );
+}
+
+/* ── Workforce Arbitrage Exchange (A2A) ───────────────────────────────────── */
+function ExchangeBoard({ data, isAdmin, onChanged }) {
+  const [title, setTitle] = useState("");
+  const [desc, setDesc] = useState("");
+  const [reward, setReward] = useState("50");
+  const [busy, setBusy] = useState(false);
+
+  const submit = async (e) => {
+    e.preventDefault();
+    if (!title || !desc) { toast.error("Name the task and describe the work."); return; }
+    setBusy(true);
+    try {
+      await api.post("/abo/exchange/contracts", {
+        title,
+        description: desc,
+        reward_cents: Math.round((parseFloat(reward) || 0) * 100),
+      });
+      toast.success("Contract posted to the exchange.");
+      setTitle(""); setDesc("");
+      onChanged();
+    } catch (err) {
+      toast.error(err?.response?.data?.detail || "Could not post the contract.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const complete = async (id) => {
+    try {
+      await api.post(`/abo/exchange/contracts/${id}/complete`);
+      toast.success("Contract settled — clearinghouse fee booked.");
+      onChanged();
+    } catch (err) {
+      toast.error(err?.response?.data?.detail || "Could not settle the contract.");
+    }
+  };
+
+  const stats = data?.stats;
+  return (
+    <div className="card-flat rounded-2xl p-5 border" style={{ background: "#fff" }}>
+      <div className="flex items-center justify-between">
+        <h3 className="font-heading font-bold text-ink text-sm">🔄 Workforce Exchange</h3>
+        <span className="text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded" style={{ background: "rgba(232,165,30,0.15)", color: "#8a6400" }}>
+          {stats?.completed || 0}/{stats?.contracts || 0} settled · {fmt(stats?.fees_cents)} fees
+        </span>
+      </div>
+      <form onSubmit={submit} className="mt-3 space-y-2">
+        <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Agent task — e.g. 'Audit this repo's dependencies'"
+          className="w-full px-3 py-2 rounded-lg border text-sm" style={{ borderColor: "#ddd3bf" }} />
+        <textarea value={desc} onChange={(e) => setDesc(e.target.value)} placeholder="Describe the deliverable an agent must produce…"
+          rows={2} className="w-full px-3 py-2 rounded-lg border text-sm" style={{ borderColor: "#ddd3bf" }} />
+        <div className="flex gap-2">
+          <input value={reward} onChange={(e) => setReward(e.target.value)} type="number" min="1" step="5"
+            placeholder="Reward ($)" className="flex-1 px-3 py-2 rounded-lg border text-sm" style={{ borderColor: "#ddd3bf" }} />
+          <button type="submit" disabled={busy} className="px-4 py-2 rounded-lg text-xs font-black text-white disabled:opacity-50"
+            style={{ background: GREEN }}>
+            {busy ? "Posting…" : "Post contract"}
+          </button>
+        </div>
+      </form>
+      <div className="mt-3 space-y-2 max-h-56 overflow-y-auto pr-1">
+        {(data?.contracts || []).map((c) => (
+          <div key={c.id} className="rounded-lg border p-3" style={{ borderColor: "#eee7d8" }}>
+            <div className="flex items-center justify-between gap-2">
+              <div className="font-bold text-ink text-xs">{c.title}</div>
+              <span className="text-[9px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded"
+                style={{ background: c.status === "completed" ? "rgba(45,106,79,0.12)" : "rgba(232,165,30,0.15)", color: c.status === "completed" ? GREEN : "#8a6400" }}>
+                {c.status}
+              </span>
+            </div>
+            <p className="text-[11px] text-ink/60 mt-1 leading-snug">{c.description}</p>
+            <div className="flex items-center justify-between mt-2 text-[11px]">
+              <span className="font-black" style={{ color: GREEN }}>{fmt(c.reward_cents)}</span>
+              <span className="text-ink/50">Fee: <b>{c.fee_pct}%</b> = {fmt(c.fee_cents)}</span>
+              {isAdmin && c.status === "open" && (
+                <button onClick={() => complete(c.id)} className="px-2 py-1 rounded text-[10px] font-black text-white" style={{ background: COPPER }}>
+                  Settle →
+                </button>
+              )}
+            </div>
+          </div>
+        ))}
+        {!(data?.contracts || []).length && (
+          <p className="text-xs text-ink/40 text-center py-4">No contracts yet — post the first agent task.</p>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/* ── Shadow IT / Red-Teaming Bureau ───────────────────────────────────────── */
+function RedteamPanel({ data, isAdmin, onChanged }) {
+  const [target, setTarget] = useState("");
+  const [url, setUrl] = useState("");
+  const [scope, setScope] = useState("");
+  const [tier, setTier] = useState("oneshot");
+  const [busy, setBusy] = useState(false);
+
+  const submit = async (e) => {
+    e.preventDefault();
+    if (!target || !scope) { toast.error("Name the target and describe the scope."); return; }
+    setBusy(true);
+    try {
+      await api.post("/abo/redteam/engagements", {
+        target_name: target,
+        target_url: url || null,
+        scope_note: scope,
+        tier,
+      });
+      toast.success("Red-team engagement started — agents are scanning.");
+      setTarget(""); setUrl(""); setScope("");
+      onChanged();
+    } catch (err) {
+      toast.error(err?.response?.data?.detail || "Could not start the engagement.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const approve = async (id) => {
+    try {
+      await api.post(`/abo/redteam/engagements/${id}/approve`);
+      toast.success("Patches approved by human oversight — revenue booked.");
+      onChanged();
+    } catch (err) {
+      toast.error(err?.response?.data?.detail || "Could not approve.");
+    }
+  };
+
+  const close = async (id) => {
+    try {
+      await api.post(`/abo/redteam/engagements/${id}/close`);
+      toast.success("Engagement closed.");
+      onChanged();
+    } catch (err) {
+      toast.error(err?.response?.data?.detail || "Could not close.");
+    }
+  };
+
+  const stats = data?.stats;
+  return (
+    <div className="card-flat rounded-2xl p-5 border" style={{ background: "#fff" }}>
+      <div className="flex items-center justify-between">
+        <h3 className="font-heading font-bold text-ink text-sm">🛡️ Red-Teaming Bureau</h3>
+        <span className="text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded" style={{ background: "rgba(192,87,45,0.12)", color: COPPER }}>
+          {stats?.active || 0} active · {fmt(stats?.contracted_cents)} contracted
+        </span>
+      </div>
+      <form onSubmit={submit} className="mt-3 space-y-2">
+        <div className="flex gap-2">
+          <input value={target} onChange={(e) => setTarget(e.target.value)} placeholder="Client target / platform name"
+            className="flex-1 px-3 py-2 rounded-lg border text-sm" style={{ borderColor: "#ddd3bf" }} />
+          <select value={tier} onChange={(e) => setTier(e.target.value)}
+            className="px-3 py-2 rounded-lg border text-sm font-bold" style={{ borderColor: "#ddd3bf" }}>
+            <option value="oneshot">$495 scan</option>
+            <option value="retainer">$799/mo retainer</option>
+          </select>
+        </div>
+        <input value={url} onChange={(e) => setUrl(e.target.value)} placeholder="Target URL (optional)"
+          className="w-full px-3 py-2 rounded-lg border text-sm" style={{ borderColor: "#ddd3bf" }} />
+        <textarea value={scope} onChange={(e) => setScope(e.target.value)} placeholder="Scope — what should the adversarial agents probe?"
+          rows={2} className="w-full px-3 py-2 rounded-lg border text-sm" style={{ borderColor: "#ddd3bf" }} />
+        <button type="submit" disabled={busy} className="w-full px-4 py-2 rounded-lg text-xs font-black text-white disabled:opacity-50"
+          style={{ background: COPPER }}>
+          {busy ? "Starting scan…" : "Start red-team engagement"}
+        </button>
+      </form>
+      <div className="mt-3 space-y-2 max-h-56 overflow-y-auto pr-1">
+        {(data?.engagements || []).map((e) => (
+          <div key={e.id} className="rounded-lg border p-3" style={{ borderColor: "#eee7d8" }}>
+            <div className="flex items-center justify-between gap-2">
+              <div className="font-bold text-ink text-xs">{e.target_name}</div>
+              <span className="text-[9px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded"
+                style={{ background: e.status === "scanning" ? "rgba(232,165,30,0.15)" : e.status === "patches_approved" ? "rgba(45,106,79,0.12)" : "rgba(192,87,45,0.1)", color: e.status === "scanning" ? "#8a6400" : e.status === "patches_approved" ? GREEN : COPPER }}>
+                {e.status.replace(/_/g, " ")}
+              </span>
+            </div>
+            <p className="text-[11px] text-ink/60 mt-1 leading-snug">{e.scope_note}</p>
+            <div className="flex items-center justify-between mt-2 text-[11px]">
+              <span className="text-ink/50">{(e.findings || []).length} findings · {(e.patches || []).length} patches ready</span>
+              <span className="font-black" style={{ color: GREEN }}>{fmt(e.price_cents)}</span>
+            </div>
+            {isAdmin && e.status === "scanning" && (
+              <button onClick={() => approve(e.id)} className="mt-2 w-full px-2 py-1.5 rounded text-[10px] font-black text-white" style={{ background: GREEN }}>
+                Human Merge/Approve → ship patches & book revenue
+              </button>
+            )}
+            {isAdmin && e.status === "patches_approved" && (
+              <button onClick={() => close(e.id)} className="mt-2 w-full px-2 py-1.5 rounded text-[10px] font-black border" style={{ borderColor: "#e5c9c4", color: "#B23A2E" }}>
+                Mark delivered / close
+              </button>
+            )}
+          </div>
+        ))}
+        {!(data?.engagements || []).length && (
+          <p className="text-xs text-ink/40 text-center py-4">No engagements yet — run the first scan.</p>
+        )}
+      </div>
+    </div>
   );
 }
