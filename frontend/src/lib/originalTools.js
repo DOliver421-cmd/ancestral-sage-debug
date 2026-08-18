@@ -8,6 +8,12 @@
  * and the routes below.
  *
  * `path` must be a static asset inside frontend/public (baked into the build).
+ *
+ * Optional `status: "unavailable"` retires a tool honestly: the Classic Tools
+ * hub and LegacyTool show an explicit availability banner instead of a Launch
+ * button that would 404, and the route-integrity test (`npm run test:routes`)
+ * skips the asset check for retired tools. No tool is unavailable today — the
+ * state exists so retiring one never becomes a silent dead end.
  */
 
 export const ORIGINAL_TOOLS = [

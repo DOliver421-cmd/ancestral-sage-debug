@@ -489,3 +489,36 @@ Full evaluation in `docs/GOOGLE_FREE_STACK.md`. Summary:
 - **Free Google courses — integrate:** Google AI Essentials, Cloud Skills Boost (~35 credits/mo) — link them in a Free Learning lane for the community.
 - **Google Cloud free tier ($300/90 days) — defer:** platform runs on a zero-cost stack; no GCP need until there's a real requirement.
 - **Workspace (Gmail/Drive/Calendar) — already the base account's daily ops; no integration needed.**
+
+## 13. Route integrity — the "no dead paths" guard
+
+The platform enforces that every link in the app resolves to a real page. A dead link
+(route exists in the nav but not in `App.js`, a redirect target that 404s, a deleted
+original tool) is treated as a **build-blocking bug**, not a cosmetic issue.
+
+**Run it:** `cd frontend && npm run test:routes` (or `node scripts/route-integrity.js`).
+Exit code 1 = dead links found. Wire it into CI so a dead path can never ship.
+
+What it checks:
+
+1. **Registry drift** — every constant in `frontend/src/lib/routes.js` (the canonical
+   registry: `ROUTES.*` for static routes, `ROUTE_BUILDERS.*` for dynamic ones) must
+   resolve against a `<Route>` in `src/App.js`. `App.js` remains the authority on what
+   routes *exist*; `routes.js` is the authority on how code *references* them.
+2. **Link crawl** — every `<Link to>`, `nav()`/`navigate()`, `<Navigate to>`, internal
+   `<a href>` and `window.location` target across `src/` must resolve to a route, a real
+   file under `public/` (static assets like `/tools/*.html` pass), or a backend
+   `/api/*` endpoint (covered by backend tests). The catch-all `*` route (Error404) is
+   not a destination — links matching only it fail.
+3. **Original tools** — every `path` in `frontend/src/lib/originalTools.js` must have a
+   real file under `public/`, unless the tool is deliberately marked
+   `status: "unavailable"` (see below).
+
+**Retiring a legacy module honestly:** set `status: "unavailable"` on its entry in
+`originalTools.js`. The Classic Tools hub (`/classic-tools`) and the tool page
+(`/classic/:slug`) then render an explicit "Not available right now" banner instead of a
+Launch button that would 404, and the test stops requiring the asset file. Nothing ships
+silently broken.
+
+**Adding a route:** add the `<Route>` in `src/App.js` *and* the constant/builder in
+`src/lib/routes.js` — the drift check keeps the two from disagreeing.

@@ -12,7 +12,7 @@
 import { Link } from "react-router-dom";
 import AppShell from "../components/AppShell";
 import { ORIGINAL_TOOLS, ORIGINAL_SUITES } from "../lib/originalTools";
-import { ExternalLink, Archive, ArrowRight } from "lucide-react";
+import { ExternalLink, Archive, ArrowRight, AlertTriangle } from "lucide-react";
 
 const GREEN = "#1B4332";
 const GOLD = "#E8A51E";
@@ -58,18 +58,27 @@ export default function ClassicTools() {
                     </div>
                     <div className="font-heading font-bold text-ink mt-3">{t.title}</div>
                     <p className="text-xs text-ink/60 mt-1.5 leading-snug flex-1">{t.desc}</p>
-                    <div className="flex items-center gap-2 mt-4">
-                      <Link to={`/classic/${t.slug}`}
-                        className="flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-xs font-black text-white no-underline"
-                        style={{ background: GREEN }}>
-                        Launch in-app <ArrowRight className="w-3.5 h-3.5" />
-                      </Link>
-                      <a href={t.path} target="_blank" rel="noopener noreferrer"
-                        className="inline-flex items-center gap-1 px-3 py-2 rounded-lg text-xs font-bold border no-underline"
-                        style={{ borderColor: "#ddd3bf", color: COPPER }}>
-                        <ExternalLink className="w-3.5 h-3.5" /> Full screen
-                      </a>
-                    </div>
+                    {t.status === "unavailable" ? (
+                      <div className="mt-4 rounded-lg px-3 py-2.5 border text-xs leading-relaxed"
+                        style={{ background: "#FDF3EC", borderColor: "#E8C9B8", color: "#9a3b1a" }}>
+                        <AlertTriangle className="w-3.5 h-3.5 inline mr-1.5 -mt-0.5" />
+                        <b>Not available right now.</b> This original has been retired —
+                        the modern pages on the platform remain fully available.
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-2 mt-4">
+                        <Link to={`/classic/${t.slug}`}
+                          className="flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-xs font-black text-white no-underline"
+                          style={{ background: GREEN }}>
+                          Launch in-app <ArrowRight className="w-3.5 h-3.5" />
+                        </Link>
+                        <a href={t.path} target="_blank" rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1 px-3 py-2 rounded-lg text-xs font-bold border no-underline"
+                          style={{ borderColor: "#ddd3bf", color: COPPER }}>
+                          <ExternalLink className="w-3.5 h-3.5" /> Full screen
+                        </a>
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>
