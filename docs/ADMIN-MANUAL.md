@@ -151,6 +151,7 @@ The sidebar (`frontend/src/components/AppShell.jsx`) groups the site into sectio
 | Admin Assistant | `/assistant` | Admin assistant chat (native browser voice). |
 | AI Team Bridge | `/admin/bridge` | Cross-domain AI team bridge (Director + NAM Oshun Scholar + Curriculum Analyst). |
 | AAWAB Admin | `/admin/aawab` | Agent Wellness & Certification Bureau — platform-wide agent health, badge revocation, isolation overrides (§2.13). |
+| AI Business Office | `/business-office` · `/admin/business-office` | Revenue engine command center — mission runway, revenue KPIs, tools dock (the capabilities AI runs for income), B2B service deals pipeline, AI jobs ledger (§2.14). |
 
 > **Note:** `/admin/accounts` (Account Controls) is a legacy duplicate of user management. The route still works, but the sidebar points to **Users** for all user administration.
 
@@ -208,6 +209,19 @@ Links to the Instructor and Student handbooks appear on the **Curriculum** page 
 | Badge verification | `GET /api/aawab/badge/{id}/verify` | HMAC-SHA256 badge verification (public). |
 
 The full how-to, data model, API reference, legal notes, and the executive/admin task list live in **`docs/AAWAB_MANUAL.md`**. The Site Guide persona and site search (`/api/search`) know about AAWAB.
+
+### 2.14 AI Business Office — the revenue engine command center
+
+| Area | Route(s) | Purpose |
+|---|---|---|
+| AI Business Office | `/business-office` (auth) | Mission runway (month revenue vs. monthly operating goal), revenue KPIs from the real payments ledger, the tools dock (Social Blast, Creator Studio, Ghost Producer, BYOK, AAWAB, Exec Site Report, Media Store, Plans, Donate), business divisions with division-of-labor, the B2B service deals pipeline, and the AI jobs ledger. |
+| Office Admin | `/admin/business-office` (admin+) | Set the monthly operating goal, advance/close service deals (with human-approval flag), open/update AI workforce jobs, top revenue sources, recent orders. |
+| Service deals API | `POST /api/abo/deals` | Members submit a service engagement → a Lead in the pipeline (lead → proposed → won → delivered). |
+| Jobs ledger API | `GET /api/abo/jobs` | The AI workforce board — persona ↔ job ↔ hours ↔ value. Seeded with 5 starter jobs on first access. |
+
+Mission rule: **no revenue = no office = no jobs for the AI workforce.** The office exists to convert the platform's shipped AI capabilities into mission funding. Every division keeps the human as the responsible party (merchant accounts, contracts, payouts, liability) while AI executes the work.
+
+The full how-to, API reference, division-of-labor, and the executive/admin task list live in **`docs/ABO_MANUAL.md`**. The Site Guide persona and site search (`/api/search`) know about the AI Business Office.
 
 
 ---

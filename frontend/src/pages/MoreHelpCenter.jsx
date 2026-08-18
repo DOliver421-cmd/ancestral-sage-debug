@@ -77,6 +77,7 @@ const NAV_LINKS = [
   { label: "Help Center",     to: "/help-center" },
   { label: "Store",           to: "/merch" },
   { label: "Plans",           to: "/plans" },
+  { label: "AI Business Office", to: "/business-office" },
 ];
 
 const SUPERVISOR_TOGGLES = [

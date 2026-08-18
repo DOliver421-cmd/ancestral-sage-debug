@@ -12,7 +12,7 @@ import {
   Gamepad2, Star, Radio, Globe, Swords, ChevronLeft, ChevronRight, Share2,
 } from "lucide-react";
 import NotificationBell from "./NotificationBell";
-import { Search, HeartPulse } from "lucide-react";
+import { Search, HeartPulse, Landmark } from "lucide-react";
 import { useEffect, useState } from "react";
 
 // ── Section header ────────────────────────────────────────────────────────────
@@ -180,9 +180,15 @@ export default function AppShell({ children }) {
           </NavSection>
 
           {/* ── AGENT WELLNESS (AAWAB — everyone) ─────────────────────── */}
+          {/* ── AGENT WELLNESS (AAWAB — everyone) ─────────────────────── */}
           <NavSection label="Agent Wellness" collapsed={collapsed}>
             {nl("/aawab",          "Agent Registry",  HeartPulse,      "nav-aawab")}
             {nl("/aawab/chamber",  "Certification",   Award,           "nav-aawab-chamber")}
+          </NavSection>
+
+          {/* ── AI BUSINESS OFFICE (everyone — mission funding) ──────── */}
+          <NavSection label="Business Office" collapsed={collapsed}>
+            {nl("/business-office", "AI Business Office", Landmark,     "nav-business-office")}
           </NavSection>
 
           {/* ── CREATOR'S SANCTUARY (all roles — page handles tier locks) ── */}
@@ -239,6 +245,7 @@ export default function AppShell({ children }) {
               {nl("/assistant",       "Admin Assistant", Sparkles,       "nav-assistant")}
               {nl("/admin/bridge",    "AI Team Bridge",  Network,        "nav-bridge")}
               {nl("/admin/aawab",     "AAWAB Admin",     HeartPulse,     "nav-aawab-admin")}
+              {nl("/admin/business-office", "Business Office", Landmark, "nav-abo-admin")}
             </NavSection>
           )}
 
