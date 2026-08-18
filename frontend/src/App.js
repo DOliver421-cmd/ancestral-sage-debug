@@ -44,6 +44,7 @@ import MoreAdmin from "./pages/MoreAdmin";
 import MoreOps from "./pages/MoreOps";
 import LitigationWeapon from "./pages/LitigationWeapon";
 function CreatorSlugRedirect() { const { slug } = useParams(); return <Navigate to={`/u/${slug}`} replace />; }
+function ClassicToolRoute() { const { slug } = useParams(); return <LegacyTool slug={slug} />; }
 import SocialPublish from "./pages/SocialPublish";
 import Internships from "./pages/Internships";
 import PlaylistSubmit from "./pages/PlaylistSubmit";
@@ -124,6 +125,8 @@ import SiteGuide from "./pages/SiteGuide";
 import SiteSearch, { SiteSearchModal } from "./components/SiteSearch";
 import BusinessOffice from "./pages/BusinessOffice";
 import ExecControl from "./pages/ExecControl";
+import ClassicTools from "./pages/ClassicTools";
+import LegacyTool from "./pages/LegacyTool";
 import AgentRegistryView from "./pages/aawab/AgentRegistryView";
 import CertificationChamber from "./pages/aawab/CertificationChamber";
 import AdminAawabDashboard from "./pages/aawab/AdminAawabDashboard";
@@ -231,6 +234,9 @@ function App() {
           <Route path="/seshats-hub" element={<SeshatsHubPublic />} />
           {/* M.O.R.E. Help Center — unified entry point (greeter / exec / decoy modes) */}
           <Route path="/more-help-center" element={<MoreHelpCenter />} />
+          {/* Classic Tools — the preserved original HTML applications */}
+          <Route path="/classic-tools" element={<ClassicTools />} />
+          <Route path="/classic/:slug" element={<ClassicToolRoute />} />
           {/* Site search + Site Guide persona */}
           <Route path="/search" element={<SiteSearch />} />
           <Route path="/site-guide" element={<SiteGuide />} />

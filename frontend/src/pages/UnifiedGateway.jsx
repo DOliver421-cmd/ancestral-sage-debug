@@ -10,6 +10,70 @@ export default function UnifiedGateway() {
     <div className="min-h-screen bg-bone font-body">
       <PublicNav />
 
+      {/* ── MY HELPER — LEAD-IN ──────────────────────────────────────────── */}
+      <section className="relative overflow-hidden"
+        style={{ background: "linear-gradient(135deg, #1e1b0e 0%, #2a1d07 55%, #0d1a0a 100%)", borderBottom: "1px solid rgba(232,165,30,0.25)" }}>
+        <div className="relative max-w-6xl mx-auto px-6 py-14">
+          <div className="flex flex-col lg:flex-row lg:items-center gap-8">
+            {/* Helper avatar + copy */}
+            <div className="flex items-center gap-5 lg:flex-1">
+              <div style={{
+                width: 84, height: 84, borderRadius: "50%", flexShrink: 0,
+                background: "radial-gradient(circle at 30% 20%, #fde68a, #facc15 40%, #f97316 80%)",
+                display: "flex", alignItems: "center", justifyContent: "center",
+                fontWeight: 900, fontSize: 40, color: "#1f2933",
+                boxShadow: "0 0 0 4px rgba(232,165,30,0.35)",
+              }}>H</div>
+              <div>
+                <div className="overline" style={{ color: "#E8A51E" }}>My Helper — built for our elders</div>
+                <h1 style={{
+                  fontFamily: "'Cabinet Grotesk', 'Plus Jakarta Sans', sans-serif",
+                  fontSize: "clamp(1.8rem, 4vw, 2.8rem)", fontWeight: 900,
+                  color: "#fff", lineHeight: 1.1, margin: "8px 0 10px",
+                }}>
+                  I am here to be your <span style={{ color: "#E8A51E" }}>HELPER.</span>
+                </h1>
+                <p style={{ color: "rgba(255,255,255,0.65)", maxWidth: 560, lineHeight: 1.7, fontSize: "1rem", margin: 0 }}>
+                  Read mail, understand bills, explain legal papers, check for scams, and remember
+                  appointments — in plain, simple words, in your own language. Free, no login required.
+                  Named in honor of <strong style={{ color: "#fff" }}>Michael Oliver</strong> — the M.O.R.E. in M.O.R.E. Help Center.
+                </p>
+              </div>
+            </div>
+            {/* CTAs */}
+            <div className="flex flex-col gap-3 lg:items-end">
+              <Link to="/helper"
+                className="inline-flex items-center gap-2 font-black text-sm px-8 py-4 rounded-xl"
+                style={{ background: "#E8A51E", color: "#0a0a0a", fontSize: 15 }}>
+                Try My Helper — Free
+              </Link>
+              {user ? (
+                <Link to="/app/helper"
+                  className="inline-flex items-center gap-2 font-bold text-sm px-8 py-4 rounded-xl border"
+                  style={{ borderColor: "rgba(255,255,255,0.25)", color: "rgba(255,255,255,0.85)", fontSize: 15 }}>
+                  Open My Personal Helper
+                </Link>
+              ) : (
+                <Link to="/register"
+                  className="inline-flex items-center gap-2 font-bold text-sm px-8 py-4 rounded-xl border"
+                  style={{ borderColor: "rgba(255,255,255,0.25)", color: "rgba(255,255,255,0.85)", fontSize: 15 }}>
+                  Join free for saved notes
+                </Link>
+              )}
+            </div>
+          </div>
+          {/* Feature chips */}
+          <div className="flex flex-wrap gap-2.5 mt-8">
+            {["📬 Read my mail", "💡 Explain my bills", "⚖️ Plain-language legal help", "💊 Understand medicines", "🛡️ Is this a scam?", "🌎 7 languages", "🔊 Read it to me out loud"].map((chip) => (
+              <span key={chip} className="text-xs font-bold px-3 py-1.5 rounded-full"
+                style={{ background: "rgba(232,165,30,0.08)", border: "1px solid rgba(232,165,30,0.25)", color: "#E8A51E" }}>
+                {chip}
+              </span>
+            ))}
+          </div>
+        </div>
+      </section>
+
       {/* ── HERO ─────────────────────────────────────────────────────────── */}
       <section className="relative overflow-hidden"
         style={{ background: "linear-gradient(160deg, #0a0a0f 0%, #1a0a00 50%, #0d1a0a 100%)", minHeight: "90vh" }}>

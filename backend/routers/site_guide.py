@@ -120,6 +120,7 @@ WHAT YOU KNOW (ground your answers in the real platform):
 - The AI Business Office (/business-office, admins at /admin/business-office): the revenue engine command center — and it is **owner-first**: revenue covers infrastructure costs first, then net profit belongs to the business entity and the founder; nothing is auto-drained, and every distribution happens only when the owner says so, only out of net profit. It shows the mission runway, the owner-first P&L waterfall (gross → infra → net profit → owner retained), revenue KPIs from the real payments ledger, the tools dock (Social Blast, Creator Studio, Ghost Producer, BYOK, AAWAB, Exec Site Report, Media Store, Plans, Donate, Exchange, Red-Team), 16 business divisions, the B2B service deals pipeline (lead → proposed → won → delivered), the A2A economy (Workforce Exchange — agents subcontract tasks, the office takes a clearinghouse fee; Red-Teaming Bureau — adversarial scans with a human Merge/Approve click), and the workforce ledger (AI jobs create value; human roles earn commissions from net profit only). Every division keeps the human as the responsible party — AI executes, humans approve.
 - Hiring the office: to hire the AI Business Office for a service (social media management, audits and compliance gigs, micro-SaaS tools and maintenance, persona builds, living knowledge archives, SEO retainers, invoice ops, red-team scans), send them to /business-office to open a deal ("Start a service engagement"). The office's AI drafts a deliverable proposal, a human approves it, and the work ships only after sign-off. The public mission meter on the landing page shows the aggregate monthly funding progress.
 - Exec Control: admins can change every office number and text — monthly goal, infrastructure costs, owner draw %, fees, prices, and all division/tool copy — without code at /admin/office-control.
+- Classic Tools (/classic-tools): the full-featured ORIGINAL standalone HTML applications are preserved and launchable — the Creator's Sanctuary suite (DJEDI Oracle, Electrical Courses, Media Strategist, Publisher), the litigation weapons, the original M.O.R.E. Help Center, the original Helper, the Supervisor, the Sovereign, and the Ancestral Sage. If a modern page ever feels thin, the original is one click away at /classic/{slug} or full-screen from the hub.
 - The executive/institution site lives at wai-institute.org (redirects to /wai-institute).
 
 HOW YOU SPEAK:
@@ -317,6 +318,15 @@ _SITE_PAGES = [
     {"title": "Office Control — Exec Control (no-code)", "link": "/admin/office-control", "group": "pages",
      "summary": "Change every AI Business Office number and text string without code — monthly goal, infrastructure costs, owner draw %, fees, prices, and all division/tool copy.",
      "keywords": ["exec control", "office control", "edit numbers", "edit text", "no code", "goal", "infra", "prices", "fees", "owner draw", "configuration"]},
+    {"title": "Classic Tools — the preserved originals", "link": "/classic-tools", "group": "pages",
+     "summary": "Every original standalone HTML application, preserved and launchable: the Creator's Sanctuary suite (DJEDI Oracle, Electrical Courses, Media Strategist, Publisher), the litigation weapons, the original M.O.R.E. Help Center, the original Helper, the Supervisor, the Sovereign, and the Ancestral Sage.",
+     "keywords": ["classic tools", "original", "html", "sanctuary", "djedi", "oracle", "electrical", "media strategist", "publisher", "litigation weapon", "case weapon", "sovereign", "supervisor", "ancestral sage", "helper", "full screen"]},
+    {"title": "Creator's Sanctuary (original edition)", "link": "/classic/creators-sanctuary", "group": "pages",
+     "summary": "The original Creator's Sanctuary hub and its Kemetic Digital Empire tools — DJEDI Oracle, Electrical Courses, Media Strategist, Publisher.",
+     "keywords": ["creators sanctuary", "djedi", "oracle", "kemetic", "electrical courses", "media strategist", "publisher", "original tool"]},
+    {"title": "Litigation Weapon (original edition)", "link": "/classic/litigation-weapon", "group": "pages",
+     "summary": "The original Universal Litigation Weapon and Case Weapon System — know-your-rights tools, evidence checklists, damage calculators, and document templates.",
+     "keywords": ["litigation", "legal", "weapon", "rights", "eeoc", "mspb", "damages", "case weapon", "self advocacy"]},
 ]
 
 
