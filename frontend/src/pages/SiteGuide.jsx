@@ -18,7 +18,7 @@ import { useAuth } from "../lib/auth";
 import { api } from "../lib/api";
 import {
   Compass, Send, Loader2, Sparkles, KeyRound, ArrowRight,
-  Bot, RefreshCw, ShieldCheck, Zap,
+  Bot, RefreshCw, ShieldCheck, Zap, Landmark,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -239,6 +239,29 @@ export default function SiteGuide() {
                 </div>
               </div>
             )}
+            {/* Hire the Office — the revenue loop the mission runs on */}
+            <div className="pt-3">
+              <div className="rounded-2xl p-4 flex items-center justify-between gap-3 flex-wrap"
+                style={{ background: "linear-gradient(135deg,#1B4332,#2D6A4F)", border: "1.5px solid #E8A51E" }}>
+                <div className="flex items-center gap-3 min-w-[220px] flex-1">
+                  <div className="w-9 h-9 rounded-xl shrink-0 flex items-center justify-center" style={{ background: "#E8A51E" }}>
+                    <Landmark className="w-4 h-4" style={{ color: "#0a0a0a" }} />
+                  </div>
+                  <div>
+                    <div className="font-heading font-bold text-white text-sm">Hire the AI Business Office</div>
+                    <div className="text-white/70 text-xs mt-0.5 leading-snug">
+                      Social media management, audits, micro-SaaS tools, persona builds — the AI drafts the plan,
+                      a human approves it, and you approve before anything ships.
+                    </div>
+                  </div>
+                </div>
+                <Link to="/business-office"
+                  className="shrink-0 flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-xs font-black no-underline"
+                  style={{ background: "#E8A51E", color: "#0a0a0a" }}>
+                  Open a deal <ArrowRight className="w-3.5 h-3.5" />
+                </Link>
+              </div>
+            </div>
             <div ref={bottomRef} />
           </div>
         </div>

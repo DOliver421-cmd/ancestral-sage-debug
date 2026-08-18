@@ -216,12 +216,13 @@ The full how-to, data model, API reference, legal notes, and the executive/admin
 |---|---|---|
 | AI Business Office | `/business-office` (auth) | Mission runway (month revenue vs. monthly operating goal), revenue KPIs from the real payments ledger, the tools dock (Social Blast, Creator Studio, Ghost Producer, BYOK, AAWAB, Exec Site Report, Media Store, Plans, Donate), business divisions with division-of-labor, the B2B service deals pipeline, and the AI jobs ledger. |
 | Office Admin | `/admin/business-office` (admin+) | Set the monthly operating goal, advance/close service deals (with human-approval flag), open/update AI workforce jobs, top revenue sources, recent orders. |
-| Service deals API | `POST /api/abo/deals` | Members submit a service engagement → a Lead in the pipeline (lead → proposed → won → delivered). |
+| Service deals API | `POST /api/abo/deals` · `POST /api/abo/deals/{id}/propose` | Members submit a service engagement → a Lead in the pipeline (lead → proposed → won → delivered). Admins trigger the office AI to draft a deliverable proposal (`call_llm`, template fallback if the gateway is down). |
+| Public mission meter | `GET /api/abo/public-status` | Aggregate runway only (goal, month revenue, pct, status) — powers the Mission Funding strip on the M.O.R.E. Help Center landing. No private order/product data. |
 | Jobs ledger API | `GET /api/abo/jobs` | The AI workforce board — persona ↔ job ↔ hours ↔ value. Seeded with 5 starter jobs on first access. |
 
 Mission rule: **no revenue = no office = no jobs for the AI workforce.** The office exists to convert the platform's shipped AI capabilities into mission funding. Every division keeps the human as the responsible party (merchant accounts, contracts, payouts, liability) while AI executes the work.
 
-The full how-to, API reference, division-of-labor, and the executive/admin task list live in **`docs/ABO_MANUAL.md`**. The Site Guide persona and site search (`/api/search`) know about the AI Business Office.
+The full how-to, API reference, division-of-labor, and the executive/admin task list live in **`docs/ABO_MANUAL.md`**; the complete revenue strategy, feedback loops, guardrails, unit economics, and 90-day plan live in **`docs/BUSINESS_PLAN.md`**. The Site Guide persona and site search (`/api/search`) know about the AI Business Office, and the Site Guide chat has a **Hire the Office** CTA.
 
 
 ---

@@ -80,14 +80,28 @@ The dashboard's Tools section is the heart of the office: every card is a **real
 ## 5. The deals pipeline (B2B revenue)
 
 1. **A member submits a request** (dashboard form): picks a division, names their organization, describes scope, optional budget. → `POST /api/abo/deals` creates a **Lead**.
-2. **The office (AI) drafts the plan** — scope, deliverables, price. Admin sets `value_cents` and moves the deal to **Proposed**.
-3. **Human approval** — the deal is only executable with `human_approval: true` (the AI never signs contracts). Note: the flag is recorded per-deal; the human who approves is identified in the audit log.
-4. **Won → Delivered** — work ships, revenue is recorded against the office.
-5. **Closed lost** — logged for learning, never deleted (audit trail).
+2. **The office AI drafts the proposal** — `POST /api/abo/deals/{id}/propose` (admin) grounds the draft in the deal description + division catalog via `call_llm` (BYOK admins route through their own key). If the gateway is down, a deterministic template proposal is used — the office always delivers a proposal, never a dead end. The result is stored on the deal (`proposal`, `proposal_provider`, `proposal_drafted_at`) and audited (`abo.deal.proposal_drafted`).
+3. **Human review** — admin sets `value_cents` and moves the deal to **Proposed**.
+4. **Human approval** — the deal is only executable with `human_approval: true` (the AI never signs contracts). The human who approves is identified in the audit log.
+5. **Won → Delivered** — work ships; the deal's `value_cents` books as **contracted revenue** (shown per-division and as a KPI; the runway itself only counts cash actually received).
+6. **Closed lost** — logged for learning, never deleted (audit trail).
 
 Every stage change is audited (`abo.deal.updated`) with the deal id, stage, and value.
 
 ---
+
+## 5b. Commercial feedback loops & mission guardrails
+
+The office runs four feedback loops — each loop's output feeds the next, which is what makes revenue consistent instead of one-off:
+
+1. **Learn → Member** — free modules + AI Tutor + $3 trial → members ($9–$59/mo). Watch: trial→member rate.
+2. **Create → Sell** — Creator Studio / Ghost Producer / Band → Media Store + course sales → creator payouts → more creators. Watch: products sold/mo.
+3. **Serve → Contract** — shipped capabilities → B2B deals → AI proposal → human approval → contracted revenue → funds AI ops. Watch: deals closed/mo.
+4. **Trust → Mission** — transparent runway + free help lanes → patrons/donors fund free access → bigger community → more members. Watch: mission fund/mo.
+
+**Guardrails (what revenue can never buy):** help stays free always · humans are the responsible party · creators get paid first · no invented revenue (ledger-only) · AI always discloses itself. The dashboard renders both loops and guardrails under those names.
+
+The full strategy, unit economics, and 90-day plan live in **`docs/BUSINESS_PLAN.md`** — every revenue stream there maps to a shipped feature, and anything not yet purchasable (physical merch, AAWAB pricing, e-commerce arbitrage) is explicitly labeled pipeline.
 
 ## 6. The AI jobs ledger
 
@@ -134,7 +148,8 @@ Status thresholds: `≥100%` covered · `≥50%` on_track · `≥25%` watch · b
 ### Launch checklist (once, after deploy)
 - [ ] Open `/admin/business-office` and set the **monthly operating goal** (default $1,000/mo — adjust to real hosting + operating cost).
 - [ ] Verify the office loads for a normal member: `/business-office` shows runway, tools, divisions, empty deals, seeded jobs.
-- [ ] Test the deal flow end-to-end: submit a deal as a member → advance it as admin → confirm the audit log (`/admin/audit`) has `abo.deal.created` and `abo.deal.updated`.
+- [ ] Test the deal flow end-to-end: submit a deal as a member → **draft the AI proposal** (`abo.deal.proposal_drafted`) → advance it as admin → confirm the audit log (`/admin/audit`) has `abo.deal.created` and `abo.deal.updated`.
+- [ ] Confirm the **public mission meter** on the landing page shows the aggregate monthly funding (no private detail).
 - [ ] Confirm payments are wired: a paid order in Lemon Squeezy/Gumroad appears in "Recent orders" and moves the runway.
 - [ ] Confirm the Site Guide knows the office: ask `/site-guide` "how does the site make money?" — it should answer with the office and its real tools.
 - [ ] Confirm search finds it: `GET /api/search?q=business office` returns the office pages.
@@ -175,4 +190,5 @@ Status thresholds: `≥100%` covered · `≥50%` on_track · `≥25%` watch · b
 | `frontend/src/components/AppShell.jsx` | "Business Office" sidebar section + admin link. |
 | `backend/routers/site_guide.py` | Site Guide knowledge + search index entries for the office. |
 | `docs/ADMIN-MANUAL.md` | §2.14 summary. |
+| `docs/BUSINESS_PLAN.md` | The full site business plan — revenue streams mapped to shipped features, the four feedback loops, guardrails, unit economics, 90-day execution, deliverable-promise policy. |
 | `memory/CHANGELOG.md` | Change report. |
