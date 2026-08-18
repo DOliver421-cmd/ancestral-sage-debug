@@ -123,6 +123,7 @@ import BYOK from "./pages/BYOK";
 import SiteGuide from "./pages/SiteGuide";
 import SiteSearch, { SiteSearchModal } from "./components/SiteSearch";
 import BusinessOffice from "./pages/BusinessOffice";
+import ExecControl from "./pages/ExecControl";
 import AgentRegistryView from "./pages/aawab/AgentRegistryView";
 import CertificationChamber from "./pages/aawab/CertificationChamber";
 import AdminAawabDashboard from "./pages/aawab/AdminAawabDashboard";
@@ -236,6 +237,8 @@ function App() {
           {/* AI Business Office — the revenue engine command center */}
           <Route path="/business-office" element={<Protected><BusinessOffice /></Protected>} />
           <Route path="/admin/business-office" element={<BoundedAdmin roles={["admin"]} label="AI Business Office" backTo="/admin"><BusinessOffice /></BoundedAdmin>} />
+          {/* Exec Control — change every office number and text without code */}
+          <Route path="/admin/office-control" element={<BoundedAdmin roles={["admin"]} label="Exec Control — Business Office" backTo="/admin/business-office"><ExecControl /></BoundedAdmin>} />
           {/* AAWAB — Agent Wellness & Certification Bureau */}
           <Route path="/aawab" element={<Protected><AgentRegistryView /></Protected>} />
           <Route path="/aawab/chamber" element={<Protected><CertificationChamber /></Protected>} />
