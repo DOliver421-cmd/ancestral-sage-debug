@@ -49,6 +49,7 @@ export default function LitigationWeapon() {
                   <li>• This is an educational tool, not legal advice.</li>
                   <li>• Always consult a licensed attorney for your specific situation.</li>
                   <li>• Content is for informational and self-advocacy purposes only.</li>
+                  <li>• No API key or AI required — the tool runs entirely in your browser, offline-friendly.</li>
                   <li>• Your data stays on your device — nothing is sent to our servers.</li>
                 </ul>
               </div>
@@ -62,7 +63,14 @@ export default function LitigationWeapon() {
                   <p className="text-white/70 text-sm leading-relaxed">
                     This tool helps you understand federal discrimination law, build evidence checklists,
                     calculate damages, and generate document templates for EEOC, MSPB, and federal court filings.
+                    It works fully on its own — no AI, no API keys, nothing sent to a server.
                   </p>
+                  <div className="mt-3 pt-3 border-t border-white/15">
+                    <Link to="/helper" className="inline-flex items-center gap-1.5 text-xs font-bold text-signal hover:text-white transition-colors">
+                      <HelpCircle className="w-3.5 h-3.5" />
+                      Want AI help reading a letter or notice? Ask the Helper — optional, on your key or the free tier.
+                    </Link>
+                  </div>
                 </div>
               </div>
             </div>

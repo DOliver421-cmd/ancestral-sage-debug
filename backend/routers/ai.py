@@ -1672,6 +1672,100 @@ WAI-Institute and M.O.R.E. Help Center exist to multiply resources and empowerme
     return {"reply": reply.strip()}
 
 
+async def _helper_reply_free_first(message: str) -> str:
+    """One Helper answer: curated KB first (zero tokens), LLM only on no-match,
+    curated 211 guidance when the gateway is down or quota-exhausted."""
+    kb_reply = _helper_kb(message)
+    if kb_reply:
+        return kb_reply
+
+    reply = ""
+    degraded = True
+    try:
+        from ai.llm_gateway import call_llm as _call_llm
+        _gw = await _call_llm(
+            system=_HELPER_SYSTEM,
+            messages=[{"role": "user", "content": message}],
+            max_tokens=512,
+            persona_label="helper",
+        )
+        reply = _gw.get("text", "").strip()
+        degraded = bool(_gw.get("degraded")) or _gw.get("provider") == "kb_fallback"
+    except Exception:
+        degraded = True
+    if degraded or not reply.strip():
+        return _HELPER_KB_GENERIC
+    return reply
+
+
+def _split_short_full(reply: str) -> tuple[str, str]:
+    """Split a helper answer into {short, full} for the ORIGINAL HTML apps.
+    short = first two sentences; full = the whole answer."""
+    reply = reply.strip()
+    parts = [p.strip() for p in reply.replace("\n", " ").split(". ") if p.strip()]
+    if len(parts) <= 2:
+        return reply, reply
+    short = ". ".join(parts[:2]).strip()
+    if not short.endswith("."):
+        short += "."
+    return short, reply
+
+
+@router.post("/public/helper/ask")
+async def public_helper_ask(body: dict, request: Request):
+    """Compatibility endpoint for the ORIGINAL helper HTML apps.
+
+    The original standalone helper (public/helper/index.html,
+    originals/helper-public.html) calls POST /api/public/helper/ask with
+    {question, language} and expects {short, full}. FREE-FIRST like
+    /ai/helper: curated KB answers cost zero tokens; the LLM only fires
+    for questions the KB can't answer, and quota-exhaustion returns the
+    curated 211 guidance — never a resource-draining dead end.
+    """
+    question = (body.get("question") or body.get("message") or "").strip()
+    if not question:
+        raise HTTPException(400, "Question is required")
+    if len(question) > 4000:
+        raise HTTPException(400, "Question too long (max 4000 characters)")
+
+    ip = request.client.host if request.client else "unknown"
+    check_rate(f"public_helper:ip:{ip}", max_calls=15, window_sec=60)
+    try:
+        from ai.prompt_guard import prompt_guard
+        prompt_guard.assert_message_safe(question, "public", "/public/helper/ask", ip)
+    except ValueError as _guard_err:
+        raise HTTPException(400, str(_guard_err))
+
+    reply = await _helper_reply_free_first(question)
+    short, full = _split_short_full(reply)
+    return {"short": short, "full": full}
+
+
+@router.post("/helper/ask")
+async def helper_ask(body: dict, request: Request):
+    """Compatibility endpoint for the ORIGINAL authenticated helper HTML app
+    (originals/helper.html) — same {question, language} → {short, full}
+    contract as /public/helper/ask, same free-first KB logic. No auth is
+    required so the original file keeps working as designed."""
+    question = (body.get("question") or body.get("message") or "").strip()
+    if not question:
+        raise HTTPException(400, "Question is required")
+    if len(question) > 4000:
+        raise HTTPException(400, "Question too long (max 4000 characters)")
+
+    ip = request.client.host if request.client else "unknown"
+    check_rate(f"helper_ask:ip:{ip}", max_calls=15, window_sec=60)
+    try:
+        from ai.prompt_guard import prompt_guard
+        prompt_guard.assert_message_safe(question, "public", "/helper/ask", ip)
+    except ValueError as _guard_err:
+        raise HTTPException(400, str(_guard_err))
+
+    reply = await _helper_reply_free_first(question)
+    short, full = _split_short_full(reply)
+    return {"short": short, "full": full}
+
+
 @router.post("/ai/director/upload")
 async def director_upload_file(
     file: UploadFile = File(...),
