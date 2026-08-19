@@ -237,7 +237,7 @@ async def view_audit(
     limit: int = 200,
     action: Optional[str] = None,
     actor_id: Optional[str] = None,
-    user: User = Depends(_require_rank("admin")),
+    user: User = Depends(_require_rank("site_support", "admin")),
 ):
     query: dict = {}
     if action:

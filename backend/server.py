@@ -345,7 +345,15 @@ Role = Literal["student", "instructor", "admin", "executive_admin", "creative_pa
 # no operational access, full mission visibility.
 # Used by require_role() for permission checks and by admin endpoints to
 # enforce "you cannot modify a more privileged user".
-ROLE_RANK = {"student": 1, "instructor": 2, "admin": 3, "executive_admin": 4, "creative_partner": 2}
+ROLE_RANK = {
+    "student": 1,
+    "priority_member": 2,
+    "instructor": 2,
+    "creative_partner": 2,
+    "site_support": 3,
+    "admin": 4,
+    "executive_admin": 5,
+}
 
 # The single hardcoded executive admin email. Auto-promoted to executive_admin
 # on every backend startup; if the account does not exist it is created with
@@ -1271,6 +1279,17 @@ async def _on_startup_impl():
             logger.info("STARTUP: Loaded %d provider key(s) from DB into LLM gateway.", _n)
     except Exception as _pk_err:
         logger.warning("STARTUP: provider key reload failed (non-fatal): %s", _pk_err)
+
+    # ── Load shared site-support BYOK keys into the LLM gateway ──────────────
+    # Site Support team members share their free BYOK key with the platform:
+    # the gateway uses the pool as a free tier when every provider fails.
+    try:
+        from ai.llm_gateway import reload_shared_byok as _reload_shared
+        _ns = await _reload_shared(db)
+        if _ns:
+            logger.info("STARTUP: Loaded %d shared site-support BYOK provider(s) into LLM gateway.", _ns)
+    except Exception as _sb_err:
+        logger.warning("STARTUP: shared site-support BYOK reload failed (non-fatal): %s", _sb_err)
 
     # ── Team monitor — autonomous provider health loop ────────────────────────
     try:

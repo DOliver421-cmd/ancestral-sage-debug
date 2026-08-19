@@ -62,6 +62,7 @@ export default function AppShell({ children }) {
   const isAdmin  = role === "admin" || role === "executive_admin";
   const isExec   = role === "executive_admin";
   const isInstructor = role === "instructor" || isAdmin;
+  const isSupport = role === "site_support" || isAdmin;
 
   const toggleCollapsed = () => {
     setCollapsed(c => {
@@ -254,7 +255,14 @@ export default function AppShell({ children }) {
               {nl("/admin/bridge",    "AI Team Bridge",  Network,        "nav-bridge")}
               {nl("/admin/aawab",     "AAWAB Admin",     HeartPulse,     "nav-aawab-admin")}
               {nl("/admin/office-control", "Office Control (no-code)", Settings, "nav-abo-control")}
-              {nl("/arena",           "The Arena",       Swords,         "nav-arena")}
+            </NavSection>
+          )}
+
+          {/* ── SITE SUPPORT (support the site and admin) ────────────── */}
+          {isSupport && (
+            <NavSection label="Site Support" collapsed={collapsed}>
+              {nl("/admin/audit",       "Audit Log",       ScrollText,     "nav-support-audit")}
+              {nl("/admin/moderation",  "Moderation",      Shield,         "nav-support-moderation")}
             </NavSection>
           )}
 
@@ -274,6 +282,7 @@ export default function AppShell({ children }) {
               {nl("/creative-partner",   "Creative Partner",  Palette,        "nav-creative-partner")}
               {nl("/jamil",              "Jamil",             Sparkles,       "nav-jamil")}
               {nl("/projects",           "Projects",          ClipboardCheck, "nav-projects")}
+              {nl("/arena",              "The Arena",         Swords,         "nav-arena")}
             </NavSection>
           )}
 
@@ -314,6 +323,8 @@ export default function AppShell({ children }) {
                 {user?.full_name}
                 {isExec && <span className="bg-signal text-ink text-[9px] font-black px-1.5 py-0.5" title="Executive Admin" data-testid="exec-badge">EXEC</span>}
                 {role === "admin" && <span className="bg-copper text-white text-[9px] font-black px-1.5 py-0.5">ADMIN</span>}
+                {role === "site_support" && <span style={{ background: "#E8A51E", color: "#0a0a0a" }} className="text-[9px] font-black px-1.5 py-0.5" title="Site Support">SUPPORT</span>}
+                {role === "priority_member" && <span style={{ background: "#E8A51E", color: "#0a0a0a" }} className="text-[9px] font-black px-1.5 py-0.5" title="Priority Member">PRIORITY</span>}
               </div>
               <div className="text-xs text-white/50 capitalize">{role.replace("_", " ")}{user?.associate ? ` · ${user.associate}` : ""}</div>
             </>

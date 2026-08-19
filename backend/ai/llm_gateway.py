@@ -280,6 +280,10 @@ async def _oai_compat_call(
     text    = data["choices"][0]["message"].get("content") or ""
     in_tok  = data.get("usage", {}).get("prompt_tokens",     0)
     out_tok = data.get("usage", {}).get("completion_tokens", 0)
+    # An empty reply is a provider failure, not a success — raise so the
+    # tier chain advances to the next free provider instead of serving "".
+    if not str(text).strip():
+        raise ValueError("empty provider response")
     return {"text": text, "in_tok": in_tok, "out_tok": out_tok}
 
 
@@ -319,7 +323,52 @@ async def _cohere_call(
     text    = resp.message.content[0].text if resp.message.content else ""
     in_tok  = getattr(resp.usage.billed_units, "input_tokens",  0) if resp.usage else 0
     out_tok = getattr(resp.usage.billed_units, "output_tokens", 0) if resp.usage else 0
+    if not str(text).strip():
+        raise ValueError("empty provider response")
     return {"text": text, "in_tok": in_tok, "out_tok": out_tok}
+
+
+# ── Shared site-support BYOK pool ────────────────────────────────────────────
+# Site Support team members run the platform for free and share their BYOK key
+# with the platform: when every free provider fails, the gateway can serve the
+# request on a shared site-support key before falling to the static KB. The
+# pool is loaded at startup and refreshed after every BYOK key save/remove.
+_SHARED_BYOK_POOL: list = []
+
+
+async def reload_shared_byok(db) -> int:
+    """Load active BYOK keys of site_support users into the shared pool.
+    Returns the number of providers in the pool (0 when empty)."""
+    global _SHARED_BYOK_POOL
+    _SHARED_BYOK_POOL = []
+    try:
+        from byok import BYOK_PROVIDERS, decrypt_key, _PROVIDER_PRIORITY
+
+        support_ids = []
+        async for u in db.users.find({"role": "site_support"}, {"_id": 0, "id": 1}):
+            if u.get("id"):
+                support_ids.append(u["id"])
+        if not support_ids:
+            return 0
+
+        keys = await db.user_byok_keys.find(
+            {"user_id": {"$in": support_ids}, "active": True}, {"_id": 0}
+        ).to_list(500)
+        by_provider = {}
+        for k in keys:
+            p = k.get("provider")
+            if p not in BYOK_PROVIDERS or p in by_provider:
+                continue
+            plain = decrypt_key(k.get("encrypted_key", ""))
+            if plain:
+                by_provider[p] = {"provider": p, "key": plain}
+        _SHARED_BYOK_POOL = [by_provider[p] for p in _PROVIDER_PRIORITY if p in by_provider]
+        if _SHARED_BYOK_POOL:
+            logger.info("llm_gateway: shared site-support BYOK pool loaded (%d provider(s))", len(_SHARED_BYOK_POOL))
+        return len(_SHARED_BYOK_POOL)
+    except Exception as e:
+        logger.warning("llm_gateway: reload_shared_byok failed (non-fatal): %s", e)
+        return 0
 
 
 # ── KB fallback ───────────────────────────────────────────────────────────────
@@ -639,6 +688,37 @@ async def call_llm(
             logger.warning("LLM Gateway Anthropic failed (%s): %s", persona_label, e)
             _mark_anthropic_fail()
 
+    # ── Shared site-support BYOK pool — free keys the platform may use ──────
+    # Site Support team members share their free BYOK key with the platform:
+    # when every free provider fails, the gateway serves the request on a
+    # shared key before falling back to the static KB. Their tokens run on
+    # their own free quota — the platform pays nothing.
+    if _SHARED_BYOK_POOL:
+        try:
+            from byok import provider_route as _byok_route
+            for _shared in _SHARED_BYOK_POOL:
+                _route = _byok_route(_shared["provider"])
+                if not _route:
+                    continue
+                _base, _model = _route
+                try:
+                    _r = await _oai_compat_call(
+                        base_url=_base, api_key=_shared["key"], model=_model,
+                        system=system, messages=messages, max_tokens=max_tokens, tools=tools,
+                    )
+                    return {
+                        "text": _r["text"],
+                        "provider": f"byok_shared:{_shared['provider']}",
+                        "model": _model,
+                        "input_tokens": _r["in_tok"],
+                        "output_tokens": _r["out_tok"],
+                        "degraded": False,
+                    }
+                except Exception as _se:
+                    logger.warning("LLM Gateway shared BYOK %s failed (%s): %s", _shared["provider"], persona_label, _se)
+        except Exception as _sbe:
+            logger.warning("LLM Gateway shared BYOK pool error (%s): %s", persona_label, _sbe)
+
     # ── Tier 9: Keyword KB — always available, zero cost ─────────────────────
     logger.error("LLM Gateway: ALL providers failed for %s — KB fallback", persona_label)
     return _KB_RESULT
@@ -663,6 +743,8 @@ def gateway_status() -> dict:
             "anthropic":    {"tier": "OFF","primary": False, "available": False,                       "key_set": bool(ANTHROPIC_API_KEY),    "cost": "PAID_DISABLED", "tool_calling": True,
                              "note": "Disabled by owner directive. Set ANTHROPIC_IS_ENABLED=true to re-enable."},
             "kb_fallback":  {"tier": 9,    "primary": False, "available": True,                       "key_set": True,                       "cost": "zero",          "tool_calling": False},
+            "byok_shared":  {"tier": "shared", "primary": False, "available": bool(_SHARED_BYOK_POOL), "key_set": bool(_SHARED_BYOK_POOL), "cost": "free_shared", "tool_calling": True,
+                             "note": "Site support team keys shared with the platform (used when all free providers fail)"},
         },
         "anthropic_enabled": _ANTHROPIC_IS_ENABLED,
         "budget": {
