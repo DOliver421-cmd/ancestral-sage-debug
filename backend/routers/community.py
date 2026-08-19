@@ -442,8 +442,8 @@ async def more_admin_reject(content_type: str, content_id: str, reason: str = ""
 
 @router.get("/more/admin/moderation-log")
 async def more_moderation_log(user=Depends(_dep_current_user), skip: int = 0, limit: int = 100, decision: Optional[str] = None):
-    """Full Oliver Guardian moderation audit log — admin only."""
-    assert_role(user, "admin")
+    """Full Oliver Guardian moderation audit log — admin and site support."""
+    assert_role(user, "site_support", "admin")
     query = {}
     if decision:
         query["decision"] = decision
@@ -455,8 +455,8 @@ async def more_moderation_log(user=Depends(_dep_current_user), skip: int = 0, li
 
 @router.get("/more/admin/moderation-stats")
 async def more_moderation_stats(user=Depends(_dep_current_user)):
-    """Oliver Guardian moderation summary statistics — admin only."""
-    assert_role(user, "admin")
+    """Oliver Guardian moderation summary statistics — admin and site support."""
+    assert_role(user, "site_support", "admin")
     total_moderated = await db.more_moderation_log.count_documents({})
     approved = await db.more_moderation_log.count_documents({"decision": "approve"})
     blocked = await db.more_moderation_log.count_documents({"decision": "block"})

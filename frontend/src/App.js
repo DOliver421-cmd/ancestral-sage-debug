@@ -141,7 +141,7 @@ import AdminAawabDashboard from "./pages/aawab/AdminAawabDashboard";
 // Higher rank = more authority; a higher-rank role passes any check meant
 // for a lower-rank role (executive_admin passes every check).
 // creative_partner is a lateral access level, not a promotion of student.
-const ROLE_RANK = { student: 1, creative_partner: 1, instructor: 2, admin: 3, executive_admin: 4 };
+const ROLE_RANK = { student: 1, creative_partner: 1, priority_member: 2, instructor: 2, site_support: 3, admin: 4, executive_admin: 5 };
 
 function Protected({ children, roles }) {
   const { user, loading } = useAuth();
@@ -295,7 +295,7 @@ function App() {
           <Route path="/compliance/:slug" element={<Protected><ComplianceDetail /></Protected>} />
           <Route path="/admin/tools" element={<BoundedAdmin roles={["admin"]} label="Admin Tools"><AdminTools /></BoundedAdmin>} />
           <Route path="/admin/analytics" element={<BoundedAdmin roles={["admin"]} label="Analytics"><Analytics /></BoundedAdmin>} />
-          <Route path="/admin/audit" element={<BoundedAdmin roles={["admin"]} label="Audit Log"><AuditLog /></BoundedAdmin>} />
+          <Route path="/admin/audit" element={<BoundedAdmin roles={["site_support", "admin"]} label="Audit Log"><AuditLog /></BoundedAdmin>} />
           <Route path="/attendance" element={<Protected roles={["instructor", "admin"]}><Attendance /></Protected>} />
           <Route path="/incidents" element={<Protected><Incidents /></Protected>} />
           <Route path="/settings" element={<Protected><Settings /></Protected>} />
@@ -311,7 +311,7 @@ function App() {
           <Route path="/admin/staff-meetings" element={<BoundedAdmin roles={["executive_admin"]} label="Staff Meetings" backTo="/admin"><StaffMeetingHistory /></BoundedAdmin>} />
           <Route path="/admin/exec-report" element={<BoundedAdmin roles={["executive_admin"]} label="Executive Site Report" backTo="/admin"><ExecutiveSiteReport /></BoundedAdmin>} />
           <Route path="/admin/health" element={<BoundedAdmin roles={["admin"]} label="System Health"><SystemHealth /></BoundedAdmin>} />
-          <Route path="/admin/moderation" element={<BoundedAdmin roles={["admin"]} label="Moderation Analytics"><ModerationAnalytics /></BoundedAdmin>} />
+          <Route path="/admin/moderation" element={<BoundedAdmin roles={["site_support", "admin"]} label="Moderation Analytics"><ModerationAnalytics /></BoundedAdmin>} />
           <Route path="/revenue" element={<BoundedAdmin roles={["admin", "executive_admin"]} label="Revenue Division"><RevenueDivision /></BoundedAdmin>} />
           <Route path="/council" element={<Protected><OrchestratorChat /></Protected>} />
           {/* Leaderboard — public read-only */}
@@ -381,7 +381,7 @@ function App() {
           <Route path="/arcade" element={<Protected><ArcadeLanding /></Protected>} />
           <Route path="/arcade/:slug" element={<Protected><ArcadeGame /></Protected>} />
           <Route path="/studio" element={<Protected><TierGate feature="studio"><CreatorStudio /></TierGate></Protected>} />
-          <Route path="/arena" element={<BoundedAdmin roles={["admin"]} label="The Arena"><CompetitionArena /></BoundedAdmin>} />
+          <Route path="/arena" element={<BoundedAdmin roles={["executive_admin"]} label="The Arena"><CompetitionArena /></BoundedAdmin>} />
           <Route path="/admin/bridge" element={<BoundedAdmin roles={["admin"]} label="AI Team Bridge" backTo="/admin"><AITeamBridge /></BoundedAdmin>} />
           <Route path="/jamil" element={<BoundedAdmin roles={["admin"]} label="Jamil"><Jamil /></BoundedAdmin>} />
           <Route path="/projects" element={<BoundedAdmin roles={["admin"]} label="Projects"><ProjectDashboard /></BoundedAdmin>} />

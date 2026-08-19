@@ -169,6 +169,13 @@ async def byok_save_key(body: ByokKeyReq, user: User = Depends(_dep_current_user
         raise HTTPException(400, str(exc))
 
     await audit(user.id, "byok.key.saved", meta={"provider": body.provider})
+    # Site support keys join the platform's shared free pool immediately.
+    if getattr(user, "role", None) == "site_support":
+        try:
+            from ai.llm_gateway import reload_shared_byok as _rl_shared
+            await _rl_shared(db)
+        except Exception:
+            pass
     return result
 
 
@@ -199,6 +206,13 @@ async def byok_remove_key(provider: str, user: User = Depends(_dep_current_user)
         raise HTTPException(400, str(exc))
 
     await audit(user.id, "byok.key.removed", meta={"provider": provider})
+    # A removed site support key leaves the platform's shared free pool now.
+    if getattr(user, "role", None) == "site_support":
+        try:
+            from ai.llm_gateway import reload_shared_byok as _rl_shared
+            await _rl_shared(db)
+        except Exception:
+            pass
     return {"removed": removed}
 
 

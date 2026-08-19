@@ -58,8 +58,16 @@ def bind(_db, _current_user, _audit, _assert_role, _xp_level):
 
 
 # Mirrors server.py's role hierarchy for runtime require_role checks.
-ROLE_RANK = {"student": 1, "instructor": 2, "admin": 3, "executive_admin": 4, "creative_partner": 2}
-Role = Literal["student", "instructor", "admin", "executive_admin", "creative_partner"]
+ROLE_RANK = {
+    "student": 1,
+    "priority_member": 2,
+    "instructor": 2,
+    "creative_partner": 2,
+    "site_support": 3,
+    "admin": 4,
+    "executive_admin": 5,
+}
+Role = Literal["student", "priority_member", "instructor", "creative_partner", "site_support", "admin", "executive_admin"]
 
 
 class User(BaseModel):
@@ -276,7 +284,7 @@ async def competition_ping():
 @router.post("/competition/task")
 async def assign_task(
     body: TaskRequest,
-    user: User = Depends(_require_rank("admin")),
+    user: User = Depends(_require_rank("executive_admin")),
 ):
     """Commissioner assigns a task to all 4 personas sequentially. Returns all results."""
     if not body.task.strip():
@@ -382,7 +390,7 @@ async def assign_task(
 @router.post("/competition/score")
 async def submit_user_scores(
     body: UserScoreRequest,
-    user: User = Depends(_require_rank("admin")),
+    user: User = Depends(_require_rank("executive_admin")),
 ):
     """User submits scores (1-100) for each result. Averages with Commissioner score."""
     updated = []
@@ -417,7 +425,7 @@ async def submit_user_scores(
 
 @router.get("/competition/status")
 async def get_status(
-    user: User = Depends(_require_rank("admin")),
+    user: User = Depends(_require_rank("executive_admin")),
 ):
     """Arena readiness: is real AI available, or is the Arena in standby?
     Lets the UI disable round assignment and explain why instead of showing
@@ -445,7 +453,7 @@ async def get_status(
 @router.get("/competition/projects/{project_id}")
 async def get_project(
     project_id: str,
-    user: User = Depends(_require_rank("admin")),
+    user: User = Depends(_require_rank("executive_admin")),
 ):
     """Return every saved round for one project — the browsable history of
     what the Arena actually produced.
@@ -481,7 +489,7 @@ async def get_project(
 
 @router.get("/competition/leaderboard")
 async def get_leaderboard(
-    user: User = Depends(_require_rank("admin")),
+    user: User = Depends(_require_rank("executive_admin")),
 ):
     """Returns cumulative average scores for all personas, ranked, with role badges."""
     personas = list(PERSONA_PROMPTS.keys())
@@ -538,7 +546,7 @@ async def get_leaderboard(
 
 @router.get("/competition/projects")
 async def get_projects(
-    user: User = Depends(_require_rank("admin")),
+    user: User = Depends(_require_rank("executive_admin")),
 ):
     """Returns all active projects with current round and status."""
     pipeline = [

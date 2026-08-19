@@ -21,12 +21,14 @@ _BLACKLIST = {"password_hash", "_id", "recovery_codes", "last_recovery_reset"}
 ROLE_RANK: Dict[str, int] = {
     "guest":            0,
     "student":          1,
+    "priority_member":  2,   # Member tier: above student, still a member
     "instructor":       2,   # Core platform: teaches courses, views student data
     "creator":          2,   # Community: publishes courses, earns revenue
     "mentor":           3,   # Community: mentors users, additional access
     "moderator":        4,   # Community: moderates content and posts
     "steward":          5,   # Community: governance + financial visibility
     "elder":            6,   # Community: board-level, full analytics
+    "site_support":     6,   # Supports the site and admin: audit + moderation
     "admin":            7,   # Platform admin
     "executive_admin":  8,   # Owner — unrestricted
 }
@@ -57,6 +59,8 @@ _OWN_PROFILE_BY_ROLE: Dict[str, Set[str]] = {
     "moderator":        _OWN_PROFILE_BASE | {"reports_against", "warning_count"},
     "steward":          _OWN_PROFILE_CREATOR | {"mentee_count", "vote_weight"},
     "elder":            _OWN_PROFILE_CREATOR | {"mentee_count", "vote_weight", "board_access"},
+    "priority_member":  _OWN_PROFILE_BASE,
+    "site_support":     _OWN_PROFILE_BASE | {"reports_against", "warning_count"},
     "admin":            None,   # None = all fields (password_hash still stripped)
     "executive_admin":  None,
 }
@@ -71,6 +75,8 @@ _PEER_BY_VIEWER_ROLE: Dict[str, Optional[Set[str]]] = {
     "creator":          _PEER_PUBLIC | {"courses_created", "students_enrolled", "total_points"},
     "mentor":           _PEER_PUBLIC | {"courses_created", "students_enrolled", "total_points", "email"},
     "moderator":        _PEER_PUBLIC | {"email", "is_active", "last_login", "reports_against", "warning_count", "ip_address"},
+    "priority_member":  _PEER_PUBLIC,
+    "site_support":     _PEER_PUBLIC | {"email", "is_active", "last_login", "reports_against", "warning_count", "ip_address"},
     "steward":          _PEER_PUBLIC | {
         "email", "is_active", "last_login",
         "totalEarnings", "monthlyRevenue", "payoutMethod",

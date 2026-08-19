@@ -35,14 +35,27 @@ logger = logging.getLogger("lcewai.byok")
 # Configurable; defaults to the owner's $3 price point.
 BYOK_PRICE_USD = int(os.environ.get("BYOK_PRICE_USD", "3"))
 
-# BYOK is a $3 one-time fee for users BELOW instructor tier. Instructors and
-# above (instructor, admin, executive_admin, creative_partner) get BYOK free.
-_ROLE_RANK = {"student": 1, "instructor": 2, "admin": 3, "executive_admin": 4, "creative_partner": 2}
+# BYOK is a $3 one-time fee for member/student roles. Staff and partner roles
+# get BYOK free — including the Site Support team, whose keys are ALSO shared
+# with the platform for platform features (the shared pool tier in the LLM
+# gateway). Priority members are a member tier, so they pay the standard $3.
+_ROLE_RANK = {
+    "student": 1,
+    "priority_member": 2,
+    "instructor": 2,
+    "creative_partner": 2,
+    "site_support": 3,
+    "admin": 4,
+    "executive_admin": 5,
+}
+
+# Roles whose BYOK is free (staff / partner / support). Everyone else pays.
+_FREE_BYOK_ROLES = {"instructor", "creative_partner", "site_support", "admin", "executive_admin"}
 
 
 def byok_price_for(role: Optional[str]) -> int:
-    """$3 for users below instructor tier; free (0) at instructor tier and above."""
-    if role and _ROLE_RANK.get(role, 0) >= 2:
+    """$3 for member/student roles; free (0) for staff, partner, and support roles."""
+    if role and role in _FREE_BYOK_ROLES:
         return 0
     return BYOK_PRICE_USD
 
@@ -139,9 +152,11 @@ def provider_route(provider: str):
 async def activate_byok(db, user_id: str, role: Optional[str] = None) -> dict:
     """Flip the $3 BYOK entitlement on for a user.
 
-    Users below instructor tier pay BYOK_PRICE_USD. Instructor tier and above
-    (instructor, admin, executive_admin, creative_partner) get BYOK free — the
-    entitlement is granted at price 0.
+    Member/student roles pay BYOK_PRICE_USD. Staff, partner, and support roles
+    (instructor, creative_partner, site_support, admin, executive_admin) get
+    BYOK free — the entitlement is granted at price 0. Site support keys are
+    additionally shared with the platform's free pool (see
+    ai.llm_gateway.reload_shared_byok).
 
     NOTE: this is the post-payment hook. Production should call it only after a
     successful Stripe/Lemon Squeezy checkout (see docs/ADMIN-MANUAL.md §7).
@@ -266,6 +281,36 @@ async def test_byok_key(provider: str, plaintext_key: str) -> dict:
         return {"ok": True, "latency_ms": latency_ms, "model": model}
     except Exception as exc:
         return {"ok": False, "error": str(exc)[:300]}
+
+
+async def list_shared_byok_keys(db) -> list:
+    """Active BYOK keys of site_support users, decrypted, in provider order.
+
+    These keys form the platform's shared free pool: the LLM gateway may use
+    them for platform features when every free provider fails (site support
+    runs the platform for free). Returns a list of {"provider", "key"} dicts.
+    """
+    try:
+        support_ids = []
+        async for u in db.users.find({"role": "site_support"}, {"_id": 0, "id": 1}):
+            if u.get("id"):
+                support_ids.append(u["id"])
+        if not support_ids:
+            return []
+        keys = await db.user_byok_keys.find(
+            {"user_id": {"$in": support_ids}, "active": True}, {"_id": 0}
+        ).to_list(500)
+        by_provider = {}
+        for k in keys:
+            p = k.get("provider")
+            if p not in BYOK_PROVIDERS or p in by_provider:
+                continue
+            plain = decrypt_key(k.get("encrypted_key", ""))
+            if plain:
+                by_provider[p] = {"provider": p, "key": plain}
+        return [by_provider[p] for p in _PROVIDER_PRIORITY if p in by_provider]
+    except Exception:
+        return []
 
 
 async def resolve_byok(user_id: Optional[str]) -> Optional[dict]:
