@@ -22,6 +22,7 @@ import AppShell from "../components/AppShell";
 import { useAuth } from "../lib/auth";
 import { api } from "../lib/api";
 import { toast } from "sonner";
+import SourceProtocolPanel from "../components/SourceProtocolPanel";
 import {
   Building2, TrendingUp, DollarSign, Receipt, Users, RefreshCw,
   ArrowRight, Plus, Wrench, Briefcase, Target, ShieldCheck, HeartHandshake, Sparkles,
@@ -61,6 +62,7 @@ export default function BusinessOffice() {
   const [auditLoading, setAuditLoading] = useState(false);
   const [agenda, setAgenda] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [tab, setTab] = useState("office");
 
   const load = useCallback(async () => {
     try {
@@ -131,6 +133,14 @@ export default function BusinessOffice() {
   const status = STATUS_COLOR[runway?.status] || STATUS_COLOR.watch;
   const pct = Math.min(100, Math.max(0, runway?.month_pct || 0));
 
+  if (tab === "source") {
+    return (
+      <AppShell>
+        <SourceProtocolPanel onOpenOffice={() => setTab("office")} />
+      </AppShell>
+    );
+  }
+
   return (
     <AppShell>
       <div style={{ background: BONE, minHeight: "100vh" }}>
@@ -145,6 +155,13 @@ export default function BusinessOffice() {
               style={{ background: GOLD, color: "#0a0a0a" }}>
               Revenue Engine
             </span>
+            <button onClick={() => setTab("source")}
+              className="ml-2 text-[10px] font-black uppercase tracking-widest px-2 py-1 rounded cursor-pointer transition-opacity"
+              style={{ background: "#fff", color: GREEN, opacity: 0.92 }}
+              onMouseEnter={(e) => { e.currentTarget.style.opacity = 1; }}
+              onMouseLeave={(e) => { e.currentTarget.style.opacity = 0.92; }}>
+              ◉ The Source
+            </button>
           </div>
           <p className="text-white/80 text-sm mt-2 max-w-2xl">
             This office turns the platform's AI capabilities into mission funding — and it is <b>owner-first</b>.
