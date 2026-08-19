@@ -5,7 +5,15 @@ Usage:
     python reset_exec_accounts.py
 
 Requires MONGO_URL and DB_NAME in your .env or environment.
-Clears lockouts and resets all 3 exec seats to their default passwords.
+Clears lockouts and resets all 3 exec seats to the passwords supplied
+via environment variables:
+
+    EXEC_PASSWORD_1 / EXEC_PASSWORD_2 / EXEC_PASSWORD_3   (one per seat, in order)
+    -- or --
+    EXEC_RESET_PASSWORD                                    (applied to all three seats)
+
+The script refuses to run when any seat is missing a password.
+Passwords are NEVER stored in this file or committed to the repo.
 """
 import asyncio
 import os
@@ -27,13 +35,36 @@ if not MONGO_URL or not DB_NAME:
 pwd_ctx = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 EXEC_SEATS = [
-    ("delon.oliver@lightningcityelectric.com", "Executive@LCE2026",  "Delon Oliver"),
-    ("youpickeddoliver@gmail.com",             "NamOshun@WAI2026",   "Delon Oliver"),
-    ("souppoetry@gmail.com",                   "NamOshun@WAI2026",   "NAM Oshun"),
+    ("delon.oliver@lightningcityelectric.com", "Delon Oliver"),
+    ("youpickeddoliver@gmail.com",             "Delon Oliver"),
+    ("souppoetry@gmail.com",                   "NAM Oshun"),
 ]
 
 
+def seat_passwords() -> list:
+    """Resolve per-seat passwords from the environment (never hardcoded)."""
+    shared = os.environ.get("EXEC_RESET_PASSWORD", "").strip()
+    if shared:
+        return [shared] * len(EXEC_SEATS)
+    return [os.environ.get(f"EXEC_PASSWORD_{i + 1}", "").strip() for i in range(len(EXEC_SEATS))]
+
+
 async def main():
+    passwords = seat_passwords()
+    missing = [
+        EXEC_SEATS[i][0]
+        for i in range(len(EXEC_SEATS))
+        if not passwords[i]
+    ]
+    if missing:
+        print("ERROR: No password supplied for exec seat(s):")
+        for email in missing:
+            print(f"  - {email}")
+        print()
+        print("Set EXEC_PASSWORD_1/2/3 (per seat) or EXEC_RESET_PASSWORD (all seats)")
+        print("in your .env or environment, then re-run.")
+        raise SystemExit(1)
+
     client = AsyncIOMotorClient(MONGO_URL, serverSelectionTimeoutMS=8000)
     db = client[DB_NAME]
 
@@ -44,7 +75,7 @@ async def main():
         print(f"ERROR: Cannot connect to MongoDB: {e}")
         raise SystemExit(1)
 
-    for email, password, name in EXEC_SEATS:
+    for (email, name), password in zip(EXEC_SEATS, passwords):
         existing = await db.users.find_one({"email": email})
         if existing:
             result = await db.users.update_one(
