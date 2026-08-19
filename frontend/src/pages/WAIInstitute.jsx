@@ -1,6 +1,6 @@
 import { Link } from "react-router-dom";
 import { WAI_LOGO, BRAND } from "../lib/brand";
-import { BookOpen, Settings, Sparkles, Award, Users, LogIn, UserPlus, ArrowRight } from "lucide-react";
+import { BookOpen, Settings, Sparkles, Award, Users, LogIn, UserPlus, ArrowRight, HelpCircle } from "lucide-react";
 
 const PORTALS = [
   {
@@ -47,7 +47,7 @@ export default function WAIInstitute() {
       {/* Header */}
       <header className="bg-ink text-white">
         <div className="max-w-6xl mx-auto px-6 py-6 flex items-center justify-between">
-          <Link to="https://www.morehelp.center" className="flex items-center gap-3">
+          <Link to="/" className="flex items-center gap-3">
             <img src={WAI_LOGO} alt="M.O.R.E." className="w-10 h-10 object-contain" />
             <div>
               <div className="text-[10px] font-black uppercase tracking-widest text-signal">{BRAND.short}</div>
@@ -55,6 +55,9 @@ export default function WAIInstitute() {
             </div>
           </Link>
           <div className="flex items-center gap-3">
+            <a href="https://www.morehelp.center/help-center" target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-sm font-bold text-white/70 hover:text-white transition-colors">
+              <HelpCircle className="w-4 h-4" /> Help & Support
+            </a>
             <Link to="/login" className="flex items-center gap-2 text-sm font-bold text-white/70 hover:text-white transition-colors">
               <LogIn className="w-4 h-4" /> Sign In
             </Link>

@@ -10,8 +10,9 @@ import {
   Scale, Trophy, Network, ShoppingBag, Heart, Receipt, Video, DollarSign,
   UserCircle, WifiOff, Music, Mic, Palette, FileText,
   Gamepad2, Star, Radio, Globe, Swords, ChevronLeft, ChevronRight, Share2,
-  Map, BrainCircuit, CreditCard, BarChart3, Wrench, Server,
+  Map, BrainCircuit, CreditCard, BarChart3, Wrench, Server, ExternalLink,
 } from "lucide-react";
+import { isWaiDoor, MORE_HOME } from "../lib/domain";
 import NotificationBell from "./NotificationBell";
 import { Search, HeartPulse, Landmark, Archive } from "lucide-react";
 import { useEffect, useState } from "react";
@@ -59,6 +60,10 @@ export default function AppShell({ children }) {
     try { return localStorage.getItem("sidebar_collapsed") === "true"; } catch { return false; }
   });
 
+  // Domain-aware sidebar: on the wai-institute.org door, education stays in-app
+  // and every support/billing/creative item becomes an outbound link to MORE.
+  const waiDoor = isWaiDoor();
+
   const role = user?.role || "student";
   const isAdmin  = role === "admin" || role === "executive_admin";
   const isExec   = role === "executive_admin";
@@ -88,6 +93,25 @@ export default function AppShell({ children }) {
   const nl = (to, label, icon, testid) => {
     if (!isPageEnabled(to)) return null;
     return <NavLink loc={loc} to={to} label={label} icon={icon} testid={testid} collapsed={collapsed} />;
+  };
+
+  // Outbound link to the M.O.R.E. Help Center (used on the WAI door for
+  // support/billing/creative items that live on morehelp.center).
+  const out = (to, label, icon, testid) => {
+    if (!isPageEnabled(to)) return null;
+    return (
+      <a key={to} href={MORE_HOME + to} target="_blank" rel="noopener noreferrer"
+        data-testid={testid} title={collapsed ? label : undefined}
+        className={`flex items-center gap-3 px-3 py-2 text-sm font-medium border-l-2 border-transparent text-white/65 hover:text-white hover:bg-white/5 transition-all rounded-r-md ${collapsed ? "justify-center px-0" : ""}`}>
+        <Icon className="w-4 h-4 shrink-0" />
+        {!collapsed && (
+          <>
+            <span className="flex-1">{label}</span>
+            <ExternalLink className="w-3 h-3 opacity-50 shrink-0" />
+          </>
+        )}
+      </a>
+    );
   };
 
   useEffect(() => { loadGates(); }, []);
@@ -149,11 +173,23 @@ export default function AppShell({ children }) {
           <NavSection label="Home" collapsed={collapsed}>
             {nl("/",                "Home / Landing",  Globe,            "nav-home")}
             {nl("/dashboard",       "Dashboard",       LayoutDashboard, "nav-dashboard")}
-            {nl("/profile",         "My Profile",      UserCircle,      "nav-profile")}
-            {nl("/my-position",     "My Position",     Compass,         "nav-my-position")}
-            {nl("/site-guide",      "Site Guide",      Map,             "nav-site-guide")}
-            {nl("/settings",        "Settings",        KeyRound,        "nav-settings")}
-            {nl("/byok",            "My AI (BYOK)",    BrainCircuit,    "nav-byok")}
+            {waiDoor ? (
+              <>
+                {out("/profile",        "My Profile",      UserCircle,      "nav-profile")}
+                {out("/my-position",    "My Position",     Compass,         "nav-my-position")}
+                {out("/site-guide",     "Site Guide",      Map,             "nav-site-guide")}
+                {out("/settings",       "Settings",        KeyRound,        "nav-settings")}
+                {out("/byok",           "My AI (BYOK)",    BrainCircuit,    "nav-byok")}
+              </>
+            ) : (
+              <>
+                {nl("/profile",         "My Profile",      UserCircle,      "nav-profile")}
+                {nl("/my-position",     "My Position",     Compass,         "nav-my-position")}
+                {nl("/site-guide",      "Site Guide",      Map,             "nav-site-guide")}
+                {nl("/settings",        "Settings",        KeyRound,        "nav-settings")}
+                {nl("/byok",            "My AI (BYOK)",    BrainCircuit,    "nav-byok")}
+              </>
+            )}
           </NavSection>
 
           <NavSection label="Learn" collapsed={collapsed}>
@@ -174,26 +210,60 @@ export default function AppShell({ children }) {
           </NavSection>
 
           <NavSection label="Community" collapsed={collapsed}>
-            {nl("/palace",         "Members' Palace",  Crown,           "nav-palace")}
-            {nl("/elder-council",  "Elder Council",    Layers,          "nav-elder-council")}
-            {nl("/leaderboard",    "XP Leaderboard",   Trophy,          "nav-leaderboard")}
-            {nl("/incidents",      "Report Incident",  ShieldAlert,     "nav-incidents")}
+            {waiDoor ? (
+              <>
+                {out("/palace",        "Members' Palace",  Crown,           "nav-palace")}
+                {out("/elder-council", "Elder Council",    Layers,          "nav-elder-council")}
+                {out("/leaderboard",   "XP Leaderboard",   Trophy,          "nav-leaderboard")}
+                {out("/incidents",     "Report Incident",  ShieldAlert,     "nav-incidents")}
+              </>
+            ) : (
+              <>
+                {nl("/palace",         "Members' Palace",  Crown,           "nav-palace")}
+                {nl("/elder-council",  "Elder Council",    Layers,          "nav-elder-council")}
+                {nl("/leaderboard",    "XP Leaderboard",   Trophy,          "nav-leaderboard")}
+                {nl("/incidents",      "Report Incident",  ShieldAlert,     "nav-incidents")}
+              </>
+            )}
           </NavSection>
 
           <NavSection label="M.O.R.E." collapsed={collapsed}>
-            {nl("/app/more",       "M.O.R.E. Hub",     HandHelping,     "nav-more")}
-            {nl("/more/chat",      "Community Chat",   Radio,           "nav-more-chat")}
-            {nl("/more/litigation","Legal Tools",       Scale,           "nav-litigation")}
-            {nl("/app/helper",     "Personal Helper",  HelpCircle,      "nav-helper")}
+            {waiDoor ? (
+              <>
+                {out("/app/more",       "M.O.R.E. Hub",     HandHelping,     "nav-more")}
+                {out("/more/chat",      "Community Chat",   Radio,           "nav-more-chat")}
+                {out("/more/litigation","Legal Tools",      Scale,           "nav-litigation")}
+                {out("/app/helper",     "Personal Helper",  HelpCircle,      "nav-helper")}
+              </>
+            ) : (
+              <>
+                {nl("/app/more",       "M.O.R.E. Hub",     HandHelping,     "nav-more")}
+                {nl("/more/chat",      "Community Chat",   Radio,           "nav-more-chat")}
+                {nl("/more/litigation","Legal Tools",      Scale,           "nav-litigation")}
+                {nl("/app/helper",     "Personal Helper",  HelpCircle,      "nav-helper")}
+              </>
+            )}
           </NavSection>
 
           {/* ── CLASSIC TOOLS (the preserved original HTML apps) ──────── */}
           <NavSection label="Classic Tools" collapsed={collapsed}>
-            {nl("/classic-tools",  "All Originals",     Archive,         "nav-classic-tools")}
-            {nl("/classic/creators-sanctuary", "M.O.R.E. Creators (classic)", Music, "nav-classic-sanctuary")}
-            {nl("/classic/djedi-oracle", "DJEDI Oracle", Star,         "nav-classic-djedi")}
-            {nl("/classic/litigation-weapon", "Litigation Weapon", Scale, "nav-classic-litigation")}
-            {nl("/classic/more-help-center", "Help Center (original)", HelpCircle, "nav-classic-more")}
+            {waiDoor ? (
+              <>
+                {out("/classic-tools",  "All Originals",     Archive,         "nav-classic-tools")}
+                {out("/classic/creators-sanctuary", "M.O.R.E. Creators (classic)", Music, "nav-classic-sanctuary")}
+                {out("/classic/djedi-oracle", "DJEDI Oracle", Star,         "nav-classic-djedi")}
+                {out("/classic/litigation-weapon", "Litigation Weapon", Scale, "nav-classic-litigation")}
+                {out("/classic/more-help-center", "Help Center (original)", HelpCircle, "nav-classic-more")}
+              </>
+            ) : (
+              <>
+                {nl("/classic-tools",  "All Originals",     Archive,         "nav-classic-tools")}
+                {nl("/classic/creators-sanctuary", "M.O.R.E. Creators (classic)", Music, "nav-classic-sanctuary")}
+                {nl("/classic/djedi-oracle", "DJEDI Oracle", Star,         "nav-classic-djedi")}
+                {nl("/classic/litigation-weapon", "Litigation Weapon", Scale, "nav-classic-litigation")}
+                {nl("/classic/more-help-center", "Help Center (original)", HelpCircle, "nav-classic-more")}
+              </>
+            )}
           </NavSection>
 
           {/* ── AGENT WELLNESS (AAWAB — everyone) ─────────────────────── */}
@@ -209,27 +279,59 @@ export default function AppShell({ children }) {
 
           {/* ── M.O.R.E. CREATORS (all roles — page handles tier locks) ── */}
           <NavSection label="M.O.R.E. Creators" collapsed={collapsed}>
+            {/* Social Blast (media strategy) stays on the WAI door; the rest of the creative suite lives on MORE. */}
             {nl("/social/publish",       "Social Blast",      Share2,     "nav-social-publish")}
-            {nl("/studio",               "Creator Studio",    Music,      "nav-creator-studio")}
-            {nl("/creator/courses",      "Course Manager",    Video,      "nav-creator-courses")}
-            {nl("/creator/earnings",     "My Earnings",       DollarSign, "nav-creator-earnings")}
-            {nl("/creator/payouts",      "Payout Dashboard",  Receipt,    "nav-creator-payouts")}
-            {nl("/creator-lounge",       "Creator Lounge",    Mic,        "nav-creator-lounge")}
-            {nl("/ghost-producer",       "Ghost Producer",    Palette,    "nav-ghost-producer")}
-            {nl("/band",                 "Band on a Page",    Music,      "nav-band")}
-            {nl("/playlist/dashboard",   "Playlist Manager",  Radio,      "nav-playlist")}
-            {nl("/arcade",               "Virtual Arcade",    Gamepad2,   "nav-arcade")}
-            {nl("/trash",                "M.O.R.E. Pantheon", Star,       "nav-trash")}
+            {waiDoor ? (
+              <>
+                {out("/studio",             "Creator Studio",    Music,      "nav-creator-studio")}
+                {out("/creator/courses",    "Course Manager",    Video,      "nav-creator-courses")}
+                {out("/creator/earnings",   "My Earnings",       DollarSign, "nav-creator-earnings")}
+                {out("/creator/payouts",    "Payout Dashboard",  Receipt,    "nav-creator-payouts")}
+                {out("/creator-lounge",     "Creator Lounge",    Mic,        "nav-creator-lounge")}
+                {out("/ghost-producer",     "Ghost Producer",    Palette,    "nav-ghost-producer")}
+                {out("/band",               "Band on a Page",    Music,      "nav-band")}
+                {out("/playlist/dashboard", "Playlist Manager",  Radio,      "nav-playlist")}
+                {out("/arcade",             "Virtual Arcade",    Gamepad2,   "nav-arcade")}
+                {out("/trash",              "M.O.R.E. Pantheon", Star,       "nav-trash")}
+              </>
+            ) : (
+              <>
+                {nl("/studio",             "Creator Studio",    Music,      "nav-creator-studio")}
+                {nl("/creator/courses",    "Course Manager",    Video,      "nav-creator-courses")}
+                {nl("/creator/earnings",   "My Earnings",       DollarSign, "nav-creator-earnings")}
+                {nl("/creator/payouts",    "Payout Dashboard",  Receipt,    "nav-creator-payouts")}
+                {nl("/creator-lounge",     "Creator Lounge",    Mic,        "nav-creator-lounge")}
+                {nl("/ghost-producer",     "Ghost Producer",    Palette,    "nav-ghost-producer")}
+                {nl("/band",               "Band on a Page",    Music,      "nav-band")}
+                {nl("/playlist/dashboard", "Playlist Manager",  Radio,      "nav-playlist")}
+                {nl("/arcade",             "Virtual Arcade",    Gamepad2,   "nav-arcade")}
+                {nl("/trash",              "M.O.R.E. Pantheon", Star,       "nav-trash")}
+              </>
+            )}
           </NavSection>
 
           <NavSection label="Commerce" collapsed={collapsed}>
-            {nl("/merch",           "Store",            ShoppingBag,    "nav-store")}
-            {nl("/store",           "Media Store",      Music,          "nav-media-store")}
-            {nl("/plans",           "Plans & Pricing",  Star,           "nav-plans")}
-            {nl("/subscribe",       "Membership",       HandHelping,    "nav-subscribe")}
-            {nl("/donate",          "Donate",           Heart,          "nav-donate")}
-            {nl("/payment/history", "Payment History",  Receipt,        "nav-payment-history")}
-            {nl("/partnership",     "Partnerships",     Network,        "nav-partnership")}
+            {waiDoor ? (
+              <>
+                {out("/merch",           "Store",            ShoppingBag,    "nav-store")}
+                {out("/store",           "Media Store",      Music,          "nav-media-store")}
+                {out("/plans",           "Plans & Pricing",  Star,           "nav-plans")}
+                {out("/subscribe",       "Membership",       HandHelping,    "nav-subscribe")}
+                {out("/donate",          "Donate",           Heart,          "nav-donate")}
+                {out("/payment/history", "Payment History",  Receipt,        "nav-payment-history")}
+                {out("/partnership",     "Partnerships",     Network,        "nav-partnership")}
+              </>
+            ) : (
+              <>
+                {nl("/merch",           "Store",            ShoppingBag,    "nav-store")}
+                {nl("/store",           "Media Store",      Music,          "nav-media-store")}
+                {nl("/plans",           "Plans & Pricing",  Star,           "nav-plans")}
+                {nl("/subscribe",       "Membership",       HandHelping,    "nav-subscribe")}
+                {nl("/donate",          "Donate",           Heart,          "nav-donate")}
+                {nl("/payment/history", "Payment History",  Receipt,        "nav-payment-history")}
+                {nl("/partnership",     "Partnerships",     Network,        "nav-partnership")}
+              </>
+            )}
           </NavSection>
 
           {/* ── INSTRUCTOR ────────────────────────────────────────────── */}
@@ -294,9 +396,22 @@ export default function AppShell({ children }) {
 
         </nav>
 
-        {/* M.O.R.E. Institute card */}
+        {/* M.O.R.E. Institute card — on the WAI door the sidebar already IS the institute, so this links out to the MORE hub instead. */}
         {!collapsed && (
           <div className="px-4 pb-2 shrink-0">
+            {waiDoor ? (
+              <a href={MORE_HOME} target="_blank" rel="noopener noreferrer" data-testid="nav-wai-institute"
+                className="flex flex-col gap-1 w-full rounded-xl p-4 text-white no-underline transition-all hover:opacity-90"
+                style={{ background: "linear-gradient(135deg,#1B4332,#2D6A4F)", border: "1.5px solid #E8A51E", boxShadow: "0 4px 16px rgba(27,67,50,0.40)" }}>
+                <div className="flex items-center gap-2">
+                  <span style={{ fontSize: 16 }}>🏛️</span>
+                  <span style={{ fontSize: 14, fontWeight: 900, color: "#E8A51E" }}>M.O.R.E. Hub</span>
+                </div>
+                <span style={{ fontSize: 11, opacity: 0.85, color: "#fff", paddingLeft: 26 }}>
+                  Support · Billing · Community
+                </span>
+              </a>
+            ) : (
             <Link to="/wai-institute" data-testid="nav-wai-institute"
               className="flex flex-col gap-1 w-full rounded-xl p-4 text-white no-underline transition-all hover:opacity-90"
               style={{ background: "linear-gradient(135deg,#1B4332,#2D6A4F)", border: "1.5px solid #E8A51E", boxShadow: "0 4px 16px rgba(27,67,50,0.40)" }}>
@@ -308,15 +423,24 @@ export default function AppShell({ children }) {
                 Administration · Classrooms · Credentials
               </span>
             </Link>
+            )}
           </div>
         )}
         {collapsed && (
           <div className="px-1 pb-2 shrink-0 flex justify-center">
-            <Link to="/wai-institute" data-testid="nav-wai-institute" title="M.O.R.E. Help Center"
-              className="p-2 rounded-xl hover:opacity-90 transition-all"
-              style={{ background: "linear-gradient(135deg,#1B4332,#2D6A4F)", border: "1.5px solid #E8A51E" }}>
-              <span style={{ fontSize: 18 }}>🏛️</span>
-            </Link>
+            {waiDoor ? (
+              <a href={MORE_HOME} target="_blank" rel="noopener noreferrer" data-testid="nav-wai-institute" title="M.O.R.E. Help Center"
+                className="p-2 rounded-xl hover:opacity-90 transition-all"
+                style={{ background: "linear-gradient(135deg,#1B4332,#2D6A4F)", border: "1.5px solid #E8A51E" }}>
+                <span style={{ fontSize: 18 }}>🏛️</span>
+              </a>
+            ) : (
+              <Link to="/wai-institute" data-testid="nav-wai-institute" title="M.O.R.E. Help Center"
+                className="p-2 rounded-xl hover:opacity-90 transition-all"
+                style={{ background: "linear-gradient(135deg,#1B4332,#2D6A4F)", border: "1.5px solid #E8A51E" }}>
+                <span style={{ fontSize: 18 }}>🏛️</span>
+              </Link>
+            )}
           </div>
         )}
 

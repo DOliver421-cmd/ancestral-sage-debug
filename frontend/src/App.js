@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route, Navigate, useLocation, useParams } from "
 import { Toaster } from "sonner";
 import "./App.css";
 import { AuthProvider, useAuth } from "./lib/auth";
+import { isWaiDoor } from "./lib/domain";
 import { TierGate } from "./lib/tiers";
 import AccessGate from "./components/AccessGate";
 import LandingMarketplace from "./pages/LandingMarketplace";
@@ -191,12 +192,10 @@ function Home() {
 }
 
 function App() {
-  const hostname = window.location.hostname;
-  // wai-institute.org is the institution portal (admin + classrooms) — redirect to the WAI Institute hub on morehelp.center
-  if (hostname.includes("wai-institute.org")) {
-    window.location.replace("https://www.morehelp.center/wai-institute");
-    return null;
-  }
+  // Domain-aware front door (see docs/morehelp-migration-blueprint.md):
+  //   wai-institute.org  → focused WAI institution landing (same build)
+  //   morehelp.center    → M.O.R.E. hub landing
+  const waiDoor = isWaiDoor();
   return (
     <AuthProvider>
       <BrowserRouter>
@@ -209,7 +208,8 @@ function App() {
 
         {/* Global widgets */}
         <CookieConsent />
-        <HelpGuide />
+        {/* On the WAI door, support links OUT to the M.O.R.E. Help Center instead of opening the in-app widget. */}
+        {!waiDoor && <HelpGuide />}
         <SiteSearchModal />
         <WelcomeWizard />
 
@@ -217,7 +217,7 @@ function App() {
         <div id="main-content">
         <AccessGate>
         <Routes>
-          <Route path="/" element={<UnifiedGateway />} />
+          <Route path="/" element={waiDoor ? <WAIInstitute /> : <UnifiedGateway />} />
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
           <Route path="/forgot-password" element={<ForgotPassword />} />
