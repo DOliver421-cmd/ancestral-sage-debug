@@ -6,186 +6,69 @@ Manages user roles, permissions, and partnership-based access
 from enum import Enum
 from typing import List, Set
 from datetime import datetime
+from roles import normalize_role, role_rank, ALL_ROLES
 
 class UserRole(str, Enum):
-    """User roles in WAI platform"""
-    GUEST = "guest"
+    """User roles in WAI platform (8-tier system)"""
     STUDENT = "student"
-    CREATOR = "creator"
-    MENTOR = "mentor"
-    MODERATOR = "moderator"
-    STEWARD = "steward"
-    ELDER = "elder"
+    TRIAL_PASS = "trial_pass"
+    INSTRUCTOR = "instructor"
+    SUPPORT_STAFF = "support_staff"
+    OVERSIGHT = "oversight"
     ADMIN = "admin"
+    EXECUTIVE_ADMIN = "executive_admin"
 
 class PartnershipLevel(str, Enum):
     """Partnership levels tied to milestones"""
     SEED = "seed"
     ROOTED = "rooted"
     BUILDER = "builder"
-    STEWARD = "steward"
-    ELDER = "elder"
+    STEWARD = "oversight"
+    ELDER = "oversight"
 
 # Permission mapping: what each role can do
+# 8-tier role permissions (cumulative — each tier inherits lower tiers)
+_STUDENT_PERMS = {
+    "browse_courses", "enroll_courses", "view_progress", "write_reviews",
+    "view_public_profiles", "join_community", "comment_on_posts",
+}
+_TRIAL_PASS_PERMS = _STUDENT_PERMS | {
+    "view_marketplace", "early_access",
+}
+_INSTRUCTOR_PERMS = _TRIAL_PASS_PERMS | {
+    "create_course", "publish_course", "edit_own_courses",
+    "view_earnings", "request_payout", "access_creator_dashboard",
+    "create_posts", "upload_media", "moderate_posts",
+    "delete_harmful_content", "issue_warnings", "mentor_users",
+    "access_mentee_data", "create_mentorship_program",
+}
+_SUPPORT_STAFF_PERMS = _INSTRUCTOR_PERMS | {
+    "ban_users", "pin_discussions", "feature_content",
+    "view_reports", "view_audit_logs",
+}
+_OVERSIGHT_PERMS = _SUPPORT_STAFF_PERMS | {
+    "vote_on_decisions", "propose_changes", "allocate_creator_fund",
+    "access_governance_dashboard", "review_proposals",
+    "board_advisory_access", "approve_major_changes",
+    "shape_platform_direction", "access_all_analytics",
+}
+_ADMIN_PERMS = _OVERSIGHT_PERMS | {
+    "admin_access", "manage_users", "manage_roles",
+    "view_all_data", "modify_system_settings", "access_database",
+    "view_financial_reports", "manage_payments", "create_admin_users",
+}
+_EXEC_PERMS = _ADMIN_PERMS | {
+    "system_override", "executive_broadcast",
+}
+
 ROLE_PERMISSIONS = {
-    UserRole.GUEST: {
-        "browse_courses",
-        "view_public_profiles",
-        "view_marketplace",
-    },
-    UserRole.STUDENT: {
-        "browse_courses",
-        "enroll_courses",
-        "view_progress",
-        "write_reviews",
-        "view_public_profiles",
-        "join_community",
-        "comment_on_posts",
-    },
-    UserRole.CREATOR: {
-        # All student permissions
-        *{
-            "browse_courses",
-            "enroll_courses",
-            "view_progress",
-            "write_reviews",
-            "view_public_profiles",
-            "join_community",
-            "comment_on_posts",
-        },
-        # Creator-specific
-        "create_course",
-        "publish_course",
-        "edit_own_courses",
-        "view_earnings",
-        "request_payout",
-        "access_creator_dashboard",
-        "create_posts",
-        "upload_media",
-    },
-    UserRole.MENTOR: {
-        # All creator permissions
-        *{
-            "browse_courses",
-            "enroll_courses",
-            "view_progress",
-            "write_reviews",
-            "view_public_profiles",
-            "join_community",
-            "comment_on_posts",
-            "create_course",
-            "publish_course",
-            "edit_own_courses",
-            "view_earnings",
-            "request_payout",
-            "access_creator_dashboard",
-            "create_posts",
-            "upload_media",
-        },
-        # Mentor-specific
-        "mentor_users",
-        "access_mentee_data",
-        "create_mentorship_program",
-    },
-    UserRole.MODERATOR: {
-        # Community moderation
-        "moderate_posts",
-        "delete_harmful_content",
-        "ban_users",
-        "pin_discussions",
-        "feature_content",
-        "view_reports",
-        "issue_warnings",
-    },
-    UserRole.STEWARD: {
-        # All creator + moderator permissions
-        *{
-            "browse_courses",
-            "enroll_courses",
-            "view_progress",
-            "write_reviews",
-            "view_public_profiles",
-            "join_community",
-            "comment_on_posts",
-            "create_course",
-            "publish_course",
-            "edit_own_courses",
-            "view_earnings",
-            "request_payout",
-            "access_creator_dashboard",
-            "create_posts",
-            "upload_media",
-            "mentor_users",
-            "access_mentee_data",
-            "create_mentorship_program",
-            "moderate_posts",
-            "delete_harmful_content",
-            "ban_users",
-            "pin_discussions",
-            "feature_content",
-            "view_reports",
-            "issue_warnings",
-        },
-        # Governance
-        "vote_on_decisions",
-        "propose_changes",
-        "allocate_creator_fund",
-        "access_governance_dashboard",
-        "review_proposals",
-    },
-    UserRole.ELDER: {
-        # All steward permissions
-        *{
-            "browse_courses",
-            "enroll_courses",
-            "view_progress",
-            "write_reviews",
-            "view_public_profiles",
-            "join_community",
-            "comment_on_posts",
-            "create_course",
-            "publish_course",
-            "edit_own_courses",
-            "view_earnings",
-            "request_payout",
-            "access_creator_dashboard",
-            "create_posts",
-            "upload_media",
-            "mentor_users",
-            "access_mentee_data",
-            "create_mentorship_program",
-            "moderate_posts",
-            "delete_harmful_content",
-            "ban_users",
-            "pin_discussions",
-            "feature_content",
-            "view_reports",
-            "issue_warnings",
-            "vote_on_decisions",
-            "propose_changes",
-            "allocate_creator_fund",
-            "access_governance_dashboard",
-            "review_proposals",
-        },
-        # Board-level
-        "board_advisory_access",
-        "approve_major_changes",
-        "shape_platform_direction",
-        "review_annual_goals",
-        "access_all_analytics",
-    },
-    UserRole.ADMIN: {
-        # All permissions (unrestricted)
-        "admin_access",
-        "manage_users",
-        "manage_roles",
-        "view_all_data",
-        "modify_system_settings",
-        "access_database",
-        "view_financial_reports",
-        "manage_payments",
-        "create_admin_users",
-    },
+    UserRole.STUDENT: _STUDENT_PERMS,
+    UserRole.TRIAL_PASS: _TRIAL_PASS_PERMS,
+    UserRole.INSTRUCTOR: _INSTRUCTOR_PERMS,
+    UserRole.SUPPORT_STAFF: _SUPPORT_STAFF_PERMS,
+    UserRole.OVERSIGHT: _OVERSIGHT_PERMS,
+    UserRole.ADMIN: _ADMIN_PERMS,
+    UserRole.EXECUTIVE_ADMIN: _EXEC_PERMS,
 }
 
 # Partnership-based permission unlocks
@@ -262,8 +145,8 @@ class AccessControl:
         # Users can view their own earnings
         if viewer_user_id == target_user_id:
             return True
-        # Only admins and stewards/elders (for moderation) can view others'
-        if viewer_role in [UserRole.ADMIN, UserRole.STEWARD, UserRole.ELDER]:
+        # Only admin+ can view others' earnings
+        if role_rank(viewer_role.value) >= role_rank("oversight"):
             return True
         return False
 
@@ -279,27 +162,18 @@ class AccessControl:
 
     @staticmethod
     def can_moderate_content(user_role: UserRole) -> bool:
-        """Check if user can moderate/delete content"""
-        moderator_roles = {UserRole.MODERATOR, UserRole.STEWARD, UserRole.ELDER, UserRole.ADMIN}
-        return user_role in moderator_roles
+        """Check if user can moderate/delete content (instructor+)"""
+        return role_rank(user_role.value) >= role_rank("instructor")
 
     @staticmethod
     def can_publish_course(user_role: UserRole) -> bool:
-        """Check if user can publish courses"""
-        creator_roles = {UserRole.CREATOR, UserRole.MENTOR, UserRole.STEWARD, UserRole.ELDER, UserRole.ADMIN}
-        return user_role in creator_roles
+        """Check if user can publish courses (instructor+)"""
+        return role_rank(user_role.value) >= role_rank("instructor")
 
     @staticmethod
     def can_vote_on_governance(user_role: UserRole, partnership_points: int) -> bool:
-        """Check if user can vote on platform decisions"""
-        # Steward+ can vote
-        steward_roles = {UserRole.STEWARD, UserRole.ELDER, UserRole.ADMIN}
-        if user_role in steward_roles:
-            return True
-        # Builder+ with enough points can vote
-        if user_role == UserRole.CREATOR and partnership_points >= 400:
-            return True
-        return False
+        """Check if user can vote on platform decisions (oversight+)"""
+        return role_rank(user_role.value) >= role_rank("oversight")
 
     @staticmethod
     def get_visible_profile_fields(
@@ -331,14 +205,11 @@ class AccessControl:
                 }
             )
 
-        # Creator profiles show public stats
-        if target_role in {UserRole.CREATOR, UserRole.MENTOR}:
+        # Instructor+ profiles show public stats
+        if role_rank(target_role.value) >= role_rank("instructor"):
             base_fields = base_fields | {
-                "courses_published",
-                "students_enrolled",
-                "avg_rating",
-                "total_earnings_public",  # Aggregated only
-                "mentee_count",
+                "courses_published", "students_enrolled", "avg_rating",
+                "total_earnings_public", "mentee_count",
             }
 
         # Admins see everything

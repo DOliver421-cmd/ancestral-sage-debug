@@ -37,8 +37,8 @@ def bind(_db, _current_user, _audit, _notify):
 
 
 # Mirrors server.py's role hierarchy for runtime require_role checks.
-ROLE_RANK = {"student": 1, "priority_member": 2, "instructor": 2, "creative_partner": 2, "site_support": 3, "admin": 3, "executive_admin": 4}
-Role = Literal["student", "priority_member", "instructor", "creative_partner", "site_support", "admin", "executive_admin"]
+# ROLE_RANK imported from roles.py
+# Role imported from roles.py
 
 
 class User(BaseModel):
@@ -73,6 +73,7 @@ def _require_rank(*roles):
 
 
 from routers.payments import GUMROAD_API_KEY, LEMON_SQUEEZY_API_KEY, LEMON_SQUEEZY_STORE_ID
+from roles import Role, ROLE_RANK, role_rank, LEGACY_ROLE_MAP, normalize_role, FREE_BYOK_ROLES
 # ── Site Control Panel — executive_admin only ─────────────────────────────────
 # Single endpoint that pulls every real metric in one shot.
 # No mocks. No estimates. Every number comes from the DB or payment provider.
@@ -357,8 +358,8 @@ async def control_panel_set_broadcast(
 
 class _ExecSetUserRoleReq(BaseModel):
     user_id:  str
-    new_role: Literal["guest", "student", "instructor", "creator", "mentor",
-                      "moderator", "steward", "elder", "admin", "executive_admin"]
+    new_role: Literal["student", "trial_pass", "instructor", "support_staff",
+                      "oversight", "admin", "executive_admin"]
     reason:   str = Field(..., min_length=1, max_length=500)
 
 class _ExecSetUserTierReq(BaseModel):

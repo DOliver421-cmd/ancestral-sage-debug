@@ -29,6 +29,7 @@ from typing import List, Literal, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Header, Query
 from pydantic import BaseModel, ConfigDict, Field
+from roles import Role, ROLE_RANK, role_rank, LEGACY_ROLE_MAP, normalize_role, FREE_BYOK_ROLES
 
 logger = logging.getLogger("lcewai")
 router = APIRouter(tags=["site_guide", "search"])
@@ -52,8 +53,8 @@ def bind(_db, _current_user, _check_rate):
 
 
 # Mirrors server.py's role hierarchy for runtime require_role checks.
-ROLE_RANK = {"student": 1, "priority_member": 2, "instructor": 2, "creative_partner": 2, "site_support": 3, "admin": 3, "executive_admin": 4}
-Role = Literal["student", "priority_member", "instructor", "creative_partner", "site_support", "admin", "executive_admin"]
+# ROLE_RANK imported from roles.py
+# Role imported from roles.py
 
 # Same ladder as backend/routers/payments.py + frontend/src/lib/tiers.js.
 TIER_RANK = {"free": 0, "member": 1, "plus": 2, "pro": 3, "patron": 4, "executive": 5}
@@ -475,7 +476,7 @@ _SITE_PAGES = [
      "keywords": ["byok", "bring your own key", "api key", "groq", "cerebras", "gemini", "ai key", "$3"]},
     {"title": "Creator Studio", "link": "/studio", "group": "pages",
      "summary": "Create and publish courses, music, and creative products.",
-     "keywords": ["creator", "studio", "create", "publish", "music", "course"]},
+     "keywords": ["instructor", "studio", "create", "publish", "music", "course"]},
     {"title": "Ghost Producer", "link": "/ghost-producer", "group": "pages",
      "summary": "AI-assisted music and content production tools.",
      "keywords": ["ghost", "producer", "music", "production", "beat"]},
@@ -676,7 +677,7 @@ async def site_search(
             name = (d.get("display_name") or "").lower()
             score = 2 if needle in name else 1
             results.append({
-                "type": "creator",
+                "type": "instructor",
                 "title": d.get("display_name") or d.get("slug") or "Creator",
                 "description": d.get("tagline") or d.get("title") or "Creator profile",
                 "link": f"/u/{d.get('slug', '')}",

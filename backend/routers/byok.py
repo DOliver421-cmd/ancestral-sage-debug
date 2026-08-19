@@ -15,6 +15,7 @@ from typing import Literal, Optional
 
 from fastapi import APIRouter, Depends, Header, HTTPException
 from pydantic import BaseModel, ConfigDict, Field
+from roles import Role, ROLE_RANK, role_rank, LEGACY_ROLE_MAP, normalize_role, FREE_BYOK_ROLES
 
 logger = logging.getLogger("lcewai")
 router = APIRouter(tags=["byok"])
@@ -34,8 +35,8 @@ def bind(_db, _current_user, _audit, _assert_role):
 
 
 # Mirrors server.py's role hierarchy for runtime require_role checks.
-ROLE_RANK = {"student": 1, "priority_member": 2, "instructor": 2, "creative_partner": 2, "site_support": 3, "admin": 3, "executive_admin": 4}
-Role = Literal["student", "priority_member", "instructor", "creative_partner", "site_support", "admin", "executive_admin"]
+# ROLE_RANK imported from roles.py
+# Role imported from roles.py
 
 
 class User(BaseModel):
@@ -170,7 +171,7 @@ async def byok_save_key(body: ByokKeyReq, user: User = Depends(_dep_current_user
 
     await audit(user.id, "byok.key.saved", meta={"provider": body.provider})
     # Site support keys join the platform's shared free pool immediately.
-    if getattr(user, "role", None) == "site_support":
+    if getattr(user, "role", None) == "support_staff":
         try:
             from ai.llm_gateway import reload_shared_byok as _rl_shared
             await _rl_shared(db)
@@ -207,7 +208,7 @@ async def byok_remove_key(provider: str, user: User = Depends(_dep_current_user)
 
     await audit(user.id, "byok.key.removed", meta={"provider": provider})
     # A removed site support key leaves the platform's shared free pool now.
-    if getattr(user, "role", None) == "site_support":
+    if getattr(user, "role", None) == "support_staff":
         try:
             from ai.llm_gateway import reload_shared_byok as _rl_shared
             await _rl_shared(db)

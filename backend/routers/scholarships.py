@@ -69,7 +69,7 @@ DEFAULT_FUNDS = [
     {
         "id": "creator-tools",
         "title": "Creator Tools & Studio Fund",
-        "category": "creator",
+        "category": "instructor",
         "description": "Grants creators the equipment, software, and course access they need to turn their craft into income.",
         "goal_cents": 45000,
         "status": "open",

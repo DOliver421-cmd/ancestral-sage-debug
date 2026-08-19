@@ -58,7 +58,7 @@ async def create_lead(
     }
     """
     # Verify authorization (admin/steward only)
-    allowed_roles = ["admin", "steward", "elder", "executive_admin"]
+    allowed_roles = ["admin", "oversight", "oversight", "executive_admin"]
     if current_user.get("role") not in allowed_roles:
         raise HTTPException(status_code=403, detail="CRM access requires admin or steward role")
 
@@ -110,7 +110,7 @@ async def list_leads(
     - skip: Pagination offset (default 0)
     """
     # Verify authorization (admin/steward only)
-    allowed_roles = ["admin", "steward", "elder", "executive_admin"]
+    allowed_roles = ["admin", "oversight", "oversight", "executive_admin"]
     if current_user.get("role") not in allowed_roles:
         raise HTTPException(status_code=403, detail="CRM access requires admin or steward role")
 

@@ -30,6 +30,7 @@ Usage:
 """
 
 from typing import Dict
+from roles import ROLE_PERSONA_DEFAULTS, normalize_role, role_rank
 
 # All valid persona keys in the Director 4.0 ecosystem
 VALID_PERSONAS = frozenset({
@@ -47,13 +48,7 @@ VALID_PERSONAS = frozenset({
     "elder_council",
 })
 
-# Role-based defaults (Director 4.0 chain of command)
-ROLE_DEFAULTS: Dict[str, str] = {
-    "student":         "assistant_director",
-    "instructor":      "assistant_director",
-    "admin":           "director",
-    "executive_admin": "director",
-}
+# Role-based defaults imported from roles.py (ROLE_PERSONA_DEFAULTS)
 
 
 def route_request(user_role: str, context: Dict) -> str:
@@ -77,19 +72,22 @@ def route_request(user_role: str, context: Dict) -> str:
             return requested
         # Unknown persona requested — fall through to defaults
 
+    # Normalize legacy role strings
+    canonical = normalize_role(user_role)
+
     # Threat detected → escalate to Director regardless of role
-    if context.get("threat_detected") and user_role in {"admin", "executive_admin"}:
+    if context.get("threat_detected") and role_rank(canonical) >= role_rank("admin"):
         return "director"
 
     # Specialist routing (content-based)
     specialist = context.get("specialist")
     if specialist and specialist in VALID_PERSONAS:
         # Only allow specialist routing for admin+ users
-        if user_role in {"admin", "executive_admin"}:
+        if role_rank(canonical) >= role_rank("admin"):
             return specialist
 
     # Role-based defaults
-    return ROLE_DEFAULTS.get(user_role, "director")
+    return ROLE_PERSONA_DEFAULTS.get(canonical, "director")
 
 
 def get_valid_personas() -> frozenset:
@@ -99,4 +97,5 @@ def get_valid_personas() -> frozenset:
 
 def get_role_default(user_role: str) -> str:
     """Return the default persona key for a given role."""
-    return ROLE_DEFAULTS.get(user_role, "director")
+    canonical = normalize_role(user_role)
+    return ROLE_PERSONA_DEFAULTS.get(canonical, "director")

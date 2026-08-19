@@ -318,7 +318,7 @@ export default function CreativePartnerHub() {
   const [refreshKey, setRefreshKey] = useState(0);
 
   useEffect(() => {
-    if (user && !["creative_partner", "executive_admin"].includes(user.role)) {
+    if (user && !["instructor", "executive_admin"].includes(user.role)) {
       navigate("/", { replace: true });
     }
   }, [user, navigate]);

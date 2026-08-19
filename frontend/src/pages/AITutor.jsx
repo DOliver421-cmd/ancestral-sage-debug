@@ -217,7 +217,7 @@ export default function AITutor() {
                 <span className="text-amber-900/80">
                   This feature runs on API keys. Activate BYOK and attach a free key (Groq, Cerebras, or Gemini) to keep
                   your AI working on your own key —{" "}
-                  {user && ["instructor", "admin", "executive_admin", "creative_partner"].includes(user.role)
+                  {user && ["instructor", "admin", "executive_admin", "instructor"].includes(user.role)
                     ? <strong>free for instructors and above.</strong>
                     : <>a one-time <strong>$3</strong> fee (free for instructors and above).</>}
                 </span>{" "}
@@ -229,7 +229,7 @@ export default function AITutor() {
                 <span className="text-ink/50">
                   When the site's free quota is exhausted, activate BYOK and attach a free key (Groq, Cerebras, or Gemini)
                   to keep your AI working on your own key —{" "}
-                  {user && ["instructor", "admin", "executive_admin", "creative_partner"].includes(user.role)
+                  {user && ["instructor", "admin", "executive_admin", "instructor"].includes(user.role)
                     ? <strong className="text-ink/70">free for instructors and above.</strong>
                     : <>a one-time <strong className="text-ink/70">$3</strong> fee (free for instructors and above).</>}
                 </span>{" "}

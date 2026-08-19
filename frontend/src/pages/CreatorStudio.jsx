@@ -30,7 +30,7 @@ const CHAMBERS = [
 ];
 
 const TIER_RANK = { base: 0, mid: 1, top: 2 };
-const ROLE_RANK_MAP = { student: 0, creative_partner: 0, instructor: 1, admin: 2, executive_admin: 2 };
+const ROLE_RANK_MAP = { student: 1, trial_pass: 2, instructor: 3, support_staff: 4, oversight: 5, admin: 6, executive_admin: 7 };
 
 // ─── Entry Screen ─────────────────────────────────────────────────────────────
 function EntryScreen({ onEnter }) {

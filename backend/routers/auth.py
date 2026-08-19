@@ -66,7 +66,7 @@ EXEC_RESET_SECRET = os.environ.get("EXEC_RESET_SECRET", "")
 RESEND_API_KEY = os.environ.get("RESEND_API_KEY", "")
 RESET_TOKEN_TTL_MIN = int(os.environ.get("PASSWORD_RESET_TTL_MIN", "30"))
 # Mirrors server.py's role hierarchy for runtime require_role checks.
-ROLE_RANK = {"student": 1, "priority_member": 2, "instructor": 2, "creative_partner": 2, "site_support": 3, "admin": 3, "executive_admin": 4}
+# ROLE_RANK imported from roles.py
 
 
 def _require_rank(*roles):
@@ -158,6 +158,7 @@ class TokenResp(BaseModel):
 # ── Password-reset helpers (extracted verbatim from server.py) ───────────────
 import hashlib  # noqa: E402
 import secrets  # noqa: E402
+from roles import Role, ROLE_RANK, role_rank, LEGACY_ROLE_MAP, normalize_role, FREE_BYOK_ROLES
 
 
 def _hash_token(raw: str) -> str:

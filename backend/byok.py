@@ -29,6 +29,7 @@ import logging
 import os
 from datetime import datetime, timezone
 from typing import Optional
+from roles import FREE_BYOK_ROLES, role_rank, normalize_role
 
 logger = logging.getLogger("lcewai.byok")
 
@@ -37,25 +38,14 @@ BYOK_PRICE_USD = int(os.environ.get("BYOK_PRICE_USD", "3"))
 
 # BYOK is a $3 one-time fee for member/student roles. Staff and partner roles
 # get BYOK free — including the Site Support team, whose keys are ALSO shared
-# with the platform for platform features (the shared pool tier in the LLM
-# gateway). Priority members are a member tier, so they pay the standard $3.
-_ROLE_RANK = {
-    "student": 1,
-    "priority_member": 2,
-    "instructor": 2,
-    "creative_partner": 2,
-    "site_support": 3,
-    "admin": 4,
-    "executive_admin": 5,
-}
-
-# Roles whose BYOK is free (staff / partner / support). Everyone else pays.
-_FREE_BYOK_ROLES = {"instructor", "creative_partner", "site_support", "admin", "executive_admin"}
+# Role hierarchy imported from roles.py
+# Roles whose BYOK is free — imported from FREE_BYOK_ROLES in roles.py
 
 
 def byok_price_for(role: Optional[str]) -> int:
     """$3 for member/student roles; free (0) for staff, partner, and support roles."""
-    if role and role in _FREE_BYOK_ROLES:
+    canonical = normalize_role(role) if role else role
+    if canonical in FREE_BYOK_ROLES:
         return 0
     return BYOK_PRICE_USD
 
@@ -292,7 +282,7 @@ async def list_shared_byok_keys(db) -> list:
     """
     try:
         support_ids = []
-        async for u in db.users.find({"role": "site_support"}, {"_id": 0, "id": 1}):
+        async for u in db.users.find({"role": "support_staff"}, {"_id": 0, "id": 1}):
             if u.get("id"):
                 support_ids.append(u["id"])
         if not support_ids:

@@ -68,7 +68,7 @@ export default function AppShell({ children }) {
   const isAdmin  = role === "admin" || role === "executive_admin";
   const isExec   = role === "executive_admin";
   const isInstructor = role === "instructor" || isAdmin;
-  const isSupport = role === "site_support" || isAdmin;
+  const isSupport = role === "support_staff" || isAdmin;
 
   const toggleCollapsed = () => {
     setCollapsed(c => {
@@ -455,8 +455,8 @@ export default function AppShell({ children }) {
                 {user?.full_name}
                 {isExec && <span className="bg-signal text-ink text-[9px] font-black px-1.5 py-0.5" title="Executive Admin" data-testid="exec-badge">EXEC</span>}
                 {role === "admin" && <span className="bg-copper text-white text-[9px] font-black px-1.5 py-0.5">ADMIN</span>}
-                {role === "site_support" && <span style={{ background: "#E8A51E", color: "#0a0a0a" }} className="text-[9px] font-black px-1.5 py-0.5" title="Site Support">SUPPORT</span>}
-                {role === "priority_member" && <span style={{ background: "#E8A51E", color: "#0a0a0a" }} className="text-[9px] font-black px-1.5 py-0.5" title="Priority Member">PRIORITY</span>}
+                {role === "support_staff" && <span style={{ background: "#E8A51E", color: "#0a0a0a" }} className="text-[9px] font-black px-1.5 py-0.5" title="Site Support">SUPPORT</span>}
+                {role === "trial_pass" && <span style={{ background: "#E8A51E", color: "#0a0a0a" }} className="text-[9px] font-black px-1.5 py-0.5" title="Priority Member">PRIORITY</span>}
               </div>
               <div className="text-xs text-white/50 capitalize">{role.replace("_", " ")}{user?.associate ? ` · ${user.associate}` : ""}</div>
             </>

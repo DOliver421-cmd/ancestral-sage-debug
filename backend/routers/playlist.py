@@ -37,9 +37,7 @@ def bind(_db, _current_user):
     current_user = _current_user
 
 
-# Mirrors server.py's role hierarchy for runtime require_role checks.
-ROLE_RANK = {"student": 1, "instructor": 2, "creative_partner": 2, "priority_member": 2,
-             "site_support": 3, "admin": 3, "executive_admin": 4}
+# ROLE_RANK imported from roles.py
 
 
 class User(BaseModel):

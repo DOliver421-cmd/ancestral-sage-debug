@@ -2,36 +2,18 @@
 Field-Level Authorization Module
 
 Controls which fields are visible based on the viewer's role.
-
-Two overlapping role systems on this platform:
-  Core auth:       student | instructor | admin | executive_admin
-  Community/creator: guest | student | creator | mentor | moderator | steward | elder | admin
-
-Both are real. This module handles all of them.
+8-tier system: student(1) | trial_pass(2) | instructor(3) | support_staff(4)
+              | oversight(5) | admin(6) | executive_admin(7)
 """
 
 from typing import Set, Dict, Optional
+from roles import role_rank, normalize_role, ROLE_RANK as CANONICAL_ROLE_RANK
 
 
 # Fields ALWAYS stripped — never returned in any response
 _BLACKLIST = {"password_hash", "_id", "recovery_codes", "last_recovery_reset"}
 
-# Unified role hierarchy — higher rank = more visibility
-# instructor sits between student and creator (core platform teacher role)
-ROLE_RANK: Dict[str, int] = {
-    "guest":            0,
-    "student":          1,
-    "priority_member":  2,   # Member tier: above student, still a member
-    "instructor":       2,   # Core platform: teaches courses, views student data
-    "creator":          2,   # Community: publishes courses, earns revenue
-    "mentor":           3,   # Community: mentors users, additional access
-    "moderator":        4,   # Community: moderates content and posts
-    "steward":          5,   # Community: governance + financial visibility
-    "elder":            6,   # Community: board-level, full analytics
-    "site_support":     6,   # Supports the site and admin: audit + moderation
-    "admin":            7,   # Platform admin
-    "executive_admin":  8,   # Owner — unrestricted
-}
+# Role hierarchy imported from roles.py (canonical source of truth)
 
 # Fields each role can see on their OWN profile
 _OWN_PROFILE_BASE = {
@@ -51,16 +33,11 @@ _OWN_PROFILE_CREATOR = _OWN_PROFILE_BASE | {
 }
 
 _OWN_PROFILE_BY_ROLE: Dict[str, Set[str]] = {
-    "guest":            {"id", "full_name", "role", "created_at"},
     "student":          _OWN_PROFILE_BASE,
+    "trial_pass":       _OWN_PROFILE_BASE,
     "instructor":       _OWN_PROFILE_BASE | {"associate", "must_change_password"},
-    "creator":          _OWN_PROFILE_CREATOR,
-    "mentor":           _OWN_PROFILE_CREATOR | {"mentee_count"},
-    "moderator":        _OWN_PROFILE_BASE | {"reports_against", "warning_count"},
-    "steward":          _OWN_PROFILE_CREATOR | {"mentee_count", "vote_weight"},
-    "elder":            _OWN_PROFILE_CREATOR | {"mentee_count", "vote_weight", "board_access"},
-    "priority_member":  _OWN_PROFILE_BASE,
-    "site_support":     _OWN_PROFILE_BASE | {"reports_against", "warning_count"},
+    "support_staff":    _OWN_PROFILE_BASE | {"reports_against", "warning_count"},
+    "oversight":        _OWN_PROFILE_CREATOR | {"mentee_count", "vote_weight", "board_access"},
     "admin":            None,   # None = all fields (password_hash still stripped)
     "executive_admin":  None,
 }
@@ -69,28 +46,15 @@ _OWN_PROFILE_BY_ROLE: Dict[str, Set[str]] = {
 _PEER_PUBLIC = {"id", "full_name", "role", "created_at", "avatar_url", "bio", "partnership_level"}
 
 _PEER_BY_VIEWER_ROLE: Dict[str, Optional[Set[str]]] = {
-    "guest":            _PEER_PUBLIC - {"bio"},
     "student":          _PEER_PUBLIC,
+    "trial_pass":       _PEER_PUBLIC,
     "instructor":       _PEER_PUBLIC | {"email", "associate", "is_active", "last_login", "must_change_password"},
-    "creator":          _PEER_PUBLIC | {"courses_created", "students_enrolled", "total_points"},
-    "mentor":           _PEER_PUBLIC | {"courses_created", "students_enrolled", "total_points", "email"},
-    "moderator":        _PEER_PUBLIC | {"email", "is_active", "last_login", "reports_against", "warning_count", "ip_address"},
-    "priority_member":  _PEER_PUBLIC,
-    "site_support":     _PEER_PUBLIC | {"email", "is_active", "last_login", "reports_against", "warning_count", "ip_address"},
-    "steward":          _PEER_PUBLIC | {
+    "support_staff":    _PEER_PUBLIC | {"email", "is_active", "last_login", "reports_against", "warning_count", "ip_address"},
+    "oversight":        _PEER_PUBLIC | {
         "email", "is_active", "last_login",
         "totalEarnings", "monthlyRevenue", "payoutMethod",
         "courses_created", "students_enrolled",
         "reports_against", "warning_count",
-    },
-    "elder":            _PEER_PUBLIC | {
-        "email", "is_active", "last_login",
-        "totalEarnings", "monthlyRevenue", "payoutMethod",
-        "bankAccount",  # masked to last 4 digits in filter_response
-        "courses_created", "students_enrolled",
-        "reports_against", "warning_count",
-        "ip_address", "user_agent",
-        "associate", "must_change_password",
     },
     "admin":            None,
     "executive_admin":  None,
@@ -109,11 +73,13 @@ class FieldAuthorization:
         """
         Return the set of fields the viewer may see.
         None = unrestricted (admin / executive_admin) — password_hash still stripped.
+        Legacy role strings are normalized before lookup.
         """
+        canonical = normalize_role(viewer_role)
         if is_own_profile:
-            return _OWN_PROFILE_BY_ROLE.get(viewer_role, _OWN_PROFILE_BASE)
+            return _OWN_PROFILE_BY_ROLE.get(canonical, _OWN_PROFILE_BASE)
 
-        return _PEER_BY_VIEWER_ROLE.get(viewer_role, _PEER_PUBLIC)
+        return _PEER_BY_VIEWER_ROLE.get(canonical, _PEER_PUBLIC)
 
     @classmethod
     def filter_response(
@@ -153,7 +119,7 @@ def get_visible_fields(
 ) -> Optional[Set[str]]:
     """Convenience wrapper for FastAPI endpoints."""
     return FieldAuthorization.get_visible_fields(
-        viewer_role=viewer.get("role", "guest"),
-        target_role=target.get("role", "guest"),
+        viewer_role=viewer.get("role", "student"),
+        target_role=target.get("role", "student"),
         is_own_profile=is_own,
     )
