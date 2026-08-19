@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>M.O.R.E. Help Center — Platform Migration Blueprint</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,600;0,700;1,400&display=swap');
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Cormorant Garamond', Georgia, 'Times New Roman', serif;
+    color: #1a1a1a;
+    line-height: 1.6;
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 60px 40px;
+    background: #faf8f5;
+  }
+  h1 {
+    font-size: 32px;
+    font-weight: 700;
+    color: #1a1a1a;
+    border-bottom: 3px solid #D4AF37;
+    padding-bottom: 12px;
+    margin-bottom: 8px;
+    text-align: center;
+  }
+  .subtitle {
+    text-align: center;
+    font-size: 15px;
+    color: #666;
+    margin-bottom: 40px;
+    font-style: italic;
+  }
+  h2 {
+    font-size: 22px;
+    font-weight: 600;
+    color: #1a1a1a;
+    margin-top: 36px;
+    margin-bottom: 12px;
+    border-bottom: 1px solid #e0d5c0;
+    padding-bottom: 4px;
+  }
+  h3 {
+    font-size: 18px;
+    font-weight: 600;
+    color: #333;
+    margin-top: 24px;
+    margin-bottom: 8px;
+  }
+  p { margin-bottom: 12px; }
+  ul, ol { margin: 0 0 16px 24px; }
+  li { margin-bottom: 6px; }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 16px 0 24px;
+    font-size: 15px;
+  }
+  th, td {
+    border: 1px solid #ddd;
+    padding: 10px 12px;
+    text-align: left;
+    vertical-align: top;
+  }
+  th { background: #f0e9da; font-weight: 700; }
+  .tag {
+    display: inline-block;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    padding: 2px 10px;
+    border-radius: 999px;
+    margin-right: 6px;
+  }
+  .tag-stay { background: #e7f4ec; color: #1b7a3d; border: 1px solid #b8dcc8; }
+  .tag-move { background: #fdf3d7; color: #9a6b00; border: 1px solid #ecd9a0; }
+  .note {
+    background: #fff8e6;
+    border-left: 4px solid #D4AF37;
+    padding: 14px 18px;
+    margin: 20px 0;
+    font-size: 15px;
+  }
+  .code {
+    font-family: 'Courier New', monospace;
+    font-size: 13px;
+    background: #f0ece3;
+    padding: 2px 6px;
+    border-radius: 4px;
+  }
+  hr { border: none; border-top: 1px solid #e0d5c0; margin: 32px 0; }
+</style>
+</head>
+<body>
+
+<h1>Platform Migration Blueprint</h1>
+<p class="subtitle">Approved by Executive Meeting · NAM Oshun Edutainment LLC · One codebase, two focused doors</p>
+
+<h2>The Decision</h2>
+<p>
+  <strong>www.morehelp.center</strong> is the single hub for support, billing, account administration,
+  and the SOUP Poetry / creative community. <strong>www.wai-institute.org</strong> becomes the focused
+  institution site: electrical education, professional education, and media strategy — no distractions,
+  no mixed messaging, clean SEO.
+</p>
+
+<h2>How This Is Possible</h2>
+<p>
+  The platform is <strong>one codebase serving both domains</strong>. Every feature named below already
+  runs on morehelp.center today. Transferring a feature means changing <em>which domain shows it, where
+  its links point, and how it is framed</em> — not rebuilding it. No new backend, no data migration,
+  no second database.
+</p>
+
+<div class="note">
+  <strong>One honest constraint:</strong> sign-in state is per-domain. A member signed into
+  morehelp.center will sign in again on wai-institute.org. Both doors share the same account
+  database — this is normal for separate domains.
+</div>
+
+<h2>What Stays on WAI Institute (the focused mission)</h2>
+<table>
+  <tr><th>Feature</th><th>Location</th></tr>
+  <tr><td><span class="tag tag-stay">Stay</span> Electrical education (NFPA 70 / NEC 2023)</td><td>/modules · /labs · /compliance</td></tr>
+  <tr><td><span class="tag tag-stay">Stay</span> Credentials &amp; certificates</td><td>/credentials · /certificates</td></tr>
+  <tr><td><span class="tag tag-stay">Stay</span> AI Tutor learning companion</td><td>/ai · /council</td></tr>
+  <tr><td><span class="tag tag-stay">Stay</span> Classrooms &amp; dashboards</td><td>/dashboard</td></tr>
+  <tr><td><span class="tag tag-stay">Stay</span> Media strategy</td><td>/social/publish + media curriculum</td></tr>
+  <tr><td><span class="tag tag-stay">Stay</span> Legal resources (documents)</td><td>/privacy · /terms · /more/litigation</td></tr>
+</table>
+
+<h2>What Moves to M.O.R.E. Help Center</h2>
+
+<h3>1. Customer Support &amp; Ticketing</h3>
+<ul>
+  <li>Support / Help Center pages: <span class="code">/help-center</span>, <span class="code">/more-help-center</span></li>
+  <li>Bug report widget — re-targeted to resolve on morehelp.center</li>
+  <li>Live chat / helper: <span class="code">/helper</span>, <span class="code">/app/helper</span>, <span class="code">/more/chat</span></li>
+  <li>Knowledge base &amp; help articles: <span class="code">/site-guide</span>, <span class="code">/handbooks</span></li>
+  <li>System status card (public health indicator)</li>
+</ul>
+
+<h3>2. Billing &amp; Account Administration</h3>
+<ul>
+  <li>Plans &amp; checkout: <span class="code">/plans</span>, <span class="code">/subscribe</span></li>
+  <li>Payment history: <span class="code">/payment/history</span></li>
+  <li>Store &amp; merch: <span class="code">/store</span>, <span class="code">/merch</span> · Donate/sponsor: <span class="code">/donate</span>, <span class="code">/sponsor</span></li>
+  <li>Account recovery &amp; MFA: <span class="code">/settings</span>, <span class="code">/forgot-password</span></li>
+  <li>Admin billing: <span class="code">/admin/billing</span>, <span class="code">/admin/payments</span>, <span class="code">/admin/prices</span></li>
+</ul>
+
+<h3>3. Technical &amp; LMS Troubleshooting</h3>
+<ul>
+  <li>Student / instructor / admin handbooks → the MORE Knowledge Base</li>
+  <li>Browser &amp; device compatibility guide (new article)</li>
+  <li>Certificate &amp; credential delivery support (FAQ articles)</li>
+  <li>BYOK / AI key management: <span class="code">/byok</span></li>
+</ul>
+
+<h3>4. SOUP Poetry &amp; the Creative Community</h3>
+<ul>
+  <li>M.O.R.E. Pantheon (poetry + comedy): <span class="code">/trash</span></li>
+  <li>M.O.R.E. Creators suite: <span class="code">/studio</span>, <span class="code">/creator/*</span>, <span class="code">/creator-lounge</span></li>
+  <li>Ghost Producer · Band on a Page · Playlist · Arcade</li>
+  <li>Community chat &amp; boards: <span class="code">/community</span>, <span class="code">/more/chat</span>, <span class="code">/creators</span></li>
+  <li>Workshop registration, poetry submission, and publication intake (build when the schedule launches)</li>
+</ul>
+
+<h2>Execution Plan</h2>
+<ol>
+  <li><strong>Domain-aware front door</strong> — replace the wai-institute.org redirect in <span class="code">frontend/src/App.js</span> with a focused WAI landing rendered for that hostname. Same build, same deployment.</li>
+  <li><strong>Domain-aware navigation</strong> — the sidebar filters by hostname; support/billing/creative items become outbound links to <span class="code">www.morehelp.center</span>.</li>
+  <li><strong>DNS &amp; CORS</strong> — both domains point at the same host; verify CORS allows both origins.</li>
+  <li><strong>Footer &amp; help routing</strong> — WAI footer gains a permanent <em>Help &amp; Support → morehelp.center</em> link; support widgets link out instead of opening in-app.</li>
+  <li><strong>Content audit</strong> — handbooks/FAQs rebranded as the MORE Knowledge Base; add missing articles (browser requirements, certificate delivery, refunds).</li>
+  <li><strong>SEO isolation</strong> — WAI owns NFPA 70 / NEC 2023 / electrical safety terms; MORE owns support + creative + community terms.</li>
+</ol>
+
+<h2>What This Does NOT Require</h2>
+<ul>
+  <li>No new backend, no data migration, no new database</li>
+  <li>No rebuilding of support, billing, or creative features — they run on MORE today</li>
+  <li>No changes to payment processing or the account system</li>
+</ul>
+
+<hr>
+<p style="text-align:center; font-size:13px; color:#888;">
+  M.O.R.E. Help Center · NAM Oshun Edutainment LLC · This blueprint is a living document — approved at executive meeting, updated by the technical team.
+</p>
+
+</body>
+</html>

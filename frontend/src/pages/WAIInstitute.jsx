@@ -68,12 +68,13 @@ export default function WAIInstitute() {
       {/* Hero */}
       <section className="bg-ink text-white pb-16 pt-10">
         <div className="max-w-6xl mx-auto px-6">
-          <div className="overline text-signal mb-3">M.O.R.E. Help Center</div>
+          <div className="overline text-signal mb-3">WAI Institute · NAM Oshun Edutainment LLC</div>
           <h1 className="font-heading text-5xl font-bold leading-tight max-w-3xl">
-            The Administration Building & Classrooms
+            Electrical Education & Media Strategy
           </h1>
           <p className="text-white/60 mt-4 max-w-2xl text-lg leading-relaxed">
-            {BRAND.tagline}. Education, credentials, and program management — all in one place.
+            Trade training that pays, credentials that verify, and media skills that move the
+            message — focused, professional, and built to survive the storm.
           </p>
           <div className="flex items-center gap-4 mt-8">
             <Link to="/register" className="inline-flex items-center gap-2 px-6 py-3 bg-signal text-ink font-bold hover:bg-signal/80 transition-colors">
@@ -109,6 +110,30 @@ export default function WAIInstitute() {
               </Link>
             );
           })}
+        </div>
+      </section>
+
+      {/* Support — everything outside the classroom lives on M.O.R.E. */}
+      <section className="border-t border-ink/10 bg-bone py-12">
+        <div className="max-w-6xl mx-auto px-6">
+          <div className="overline text-copper mb-3">Help, billing & the creative community</div>
+          <h2 className="font-heading text-2xl font-bold text-ink mb-6">Everything else lives at the M.O.R.E. Help Center</h2>
+          <div className="grid md:grid-cols-3 gap-4">
+            {[
+              { title: "Help & Support", desc: "Tickets, troubleshooting, LMS guides, and the knowledge base.", href: "https://www.morehelp.center/help-center", cta: "Get Help" },
+              { title: "Billing & Account", desc: "Subscriptions, payment history, refunds, and account recovery.", href: "https://www.morehelp.center/plans", cta: "Manage Billing" },
+              { title: "M.O.R.E. Creators & Pantheon", desc: "The creative suite, community chat, and the M.O.R.E. Pantheon.", href: "https://www.morehelp.center/creators", cta: "Explore Creators" },
+            ].map((c) => (
+              <a key={c.title} href={c.href} target="_blank" rel="noopener noreferrer"
+                className="card-flat p-6 border border-ink/10 bg-white hover:border-copper transition-all group">
+                <div className="font-heading font-bold text-ink group-hover:text-copper transition-colors">{c.title}</div>
+                <p className="text-sm text-ink/60 mt-2 leading-relaxed">{c.desc}</p>
+                <div className="mt-4 text-sm font-bold uppercase tracking-widest text-copper flex items-center gap-1 group-hover:gap-2 transition-all">
+                  {c.cta} <ArrowRight className="w-3.5 h-3.5" />
+                </div>
+              </a>
+            ))}
+          </div>
         </div>
       </section>
 
