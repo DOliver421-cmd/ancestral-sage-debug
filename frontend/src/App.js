@@ -141,22 +141,18 @@ import AgentRegistryView from "./pages/aawab/AgentRegistryView";
 import CertificationChamber from "./pages/aawab/CertificationChamber";
 import AdminAawabDashboard from "./pages/aawab/AdminAawabDashboard";
 
-// Role hierarchy must mirror backend ROLE_RANK in /app/backend/server.py.
-// Higher rank = more authority; a higher-rank role passes any check meant
-// for a lower-rank role (executive_admin passes every check).
-// creative_partner is a lateral access level, not a promotion of student.
-const ROLE_RANK = { student: 1, creative_partner: 1, priority_member: 2, instructor: 2, site_support: 3, admin: 4, executive_admin: 5 };
+// 8-tier role hierarchy mirroring backend/roles.py.
+// Higher rank = more authority; executive_admin passes every check.
+const ROLE_RANK = { student: 1, trial_pass: 2, instructor: 3, support_staff: 4, oversight: 5, admin: 6, executive_admin: 7 };
 
 function Protected({ children, roles }) {
   const { user, loading } = useAuth();
   if (loading) return <div className="p-12 text-ink font-heading">Loading…</div>;
   if (!user) return <Navigate to="/login" replace />;
   if (roles && roles.length > 0) {
-    // Exact role match first (for lateral roles like creative_partner), then rank check
-    const exactMatch = roles.includes(user.role);
     const needed = Math.min(...roles.map((r) => ROLE_RANK[r] ?? 99));
     const have = ROLE_RANK[user.role] ?? 0;
-    if (!exactMatch && have < needed) return <Navigate to="/dashboard" replace />;
+    if (have < needed) return <Navigate to="/dashboard" replace />;
   }
   return children;
 }
@@ -188,8 +184,7 @@ function Home() {
   // executive_admin and admin both land on the admin overview
   if (user.role === "executive_admin") return <Navigate to="/admin/system" replace />;
   if (user.role === "admin") return <Navigate to="/admin" replace />;
-  if (user.role === "instructor") return <Navigate to="/instructor" replace />;
-  if (user.role === "creative_partner") return <Navigate to="/creative-partner" replace />;
+  if (user.role === "instructor" || user.role === "trial_pass") return <Navigate to="/instructor" replace />;
   return <Navigate to="/dashboard" replace />;
 }
 
@@ -308,7 +303,7 @@ function App() {
           <Route path="/compliance/:slug" element={<Protected><ComplianceDetail /></Protected>} />
           <Route path="/admin/tools" element={<BoundedAdmin roles={["admin"]} label="Admin Tools"><AdminTools /></BoundedAdmin>} />
           <Route path="/admin/analytics" element={<BoundedAdmin roles={["admin"]} label="Analytics"><Analytics /></BoundedAdmin>} />
-          <Route path="/admin/audit" element={<BoundedAdmin roles={["site_support", "admin"]} label="Audit Log"><AuditLog /></BoundedAdmin>} />
+          <Route path="/admin/audit" element={<BoundedAdmin roles={["support_staff", "admin"]} label="Audit Log"><AuditLog /></BoundedAdmin>} />
           <Route path="/attendance" element={<Protected roles={["instructor", "admin"]}><Attendance /></Protected>} />
           <Route path="/incidents" element={<Protected><Incidents /></Protected>} />
           <Route path="/settings" element={<Protected><Settings /></Protected>} />
@@ -324,7 +319,7 @@ function App() {
           <Route path="/admin/staff-meetings" element={<BoundedAdmin roles={["executive_admin"]} label="Staff Meetings" backTo="/admin"><StaffMeetingHistory /></BoundedAdmin>} />
           <Route path="/admin/exec-report" element={<BoundedAdmin roles={["executive_admin"]} label="Executive Site Report" backTo="/admin"><ExecutiveSiteReport /></BoundedAdmin>} />
           <Route path="/admin/health" element={<BoundedAdmin roles={["admin"]} label="System Health"><SystemHealth /></BoundedAdmin>} />
-          <Route path="/admin/moderation" element={<BoundedAdmin roles={["site_support", "admin"]} label="Moderation Analytics"><ModerationAnalytics /></BoundedAdmin>} />
+          <Route path="/admin/moderation" element={<BoundedAdmin roles={["support_staff", "admin"]} label="Moderation Analytics"><ModerationAnalytics /></BoundedAdmin>} />
           <Route path="/revenue" element={<BoundedAdmin roles={["admin", "executive_admin"]} label="Revenue Division"><RevenueDivision /></BoundedAdmin>} />
           <Route path="/council" element={<Protected><OrchestratorChat /></Protected>} />
           {/* Leaderboard — public read-only */}
@@ -389,7 +384,7 @@ function App() {
           {/* Original landing page (alternate entry point) */}
           <Route path="/assistant" element={<Protected><AdminAssistant /></Protected>} />
           <Route path="/byok" element={<Protected><BYOK /></Protected>} />
-          <Route path="/creative-partner" element={<Protected roles={["creative_partner","executive_admin"]}><CreativePartnerHub /></Protected>} />
+          <Route path="/creative-partner" element={<Protected roles={["instructor","executive_admin"]}><CreativePartnerHub /></Protected>} />
           <Route path="/s-research" element={<SentinelResearch />} />
           <Route path="/arcade" element={<Protected><ArcadeLanding /></Protected>} />
           <Route path="/arcade/:slug" element={<Protected><ArcadeGame /></Protected>} />

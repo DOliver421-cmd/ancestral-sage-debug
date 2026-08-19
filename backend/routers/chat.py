@@ -34,8 +34,8 @@ def bind(_db, _current_user, _check_rate):
 
 
 # Mirrors server.py's role hierarchy for runtime require_role checks.
-ROLE_RANK = {"student": 1, "priority_member": 2, "instructor": 2, "creative_partner": 2, "site_support": 3, "admin": 3, "executive_admin": 4}
-Role = Literal["student", "priority_member", "instructor", "creative_partner", "site_support", "admin", "executive_admin"]
+# ROLE_RANK imported from roles.py
+# Role imported from roles.py
 
 
 class User(BaseModel):
@@ -261,7 +261,7 @@ async def creative_partner_chat(body: AssistantChatReq, user: User = Depends(_de
     """Creative Partner AI — orientation, vision calibration, contribution guidance.
     Available to creative_partner role only.
     """
-    if user.role not in ("creative_partner", "executive_admin"):
+    if user.role not in ("instructor", "executive_admin"):
         raise HTTPException(403, "This space is for Creative Partners.")
     from ai.llm_gateway import call_llm as _call_llm
     messages = [{"role": h["role"], "content": h["content"]} for h in (body.history or [])]
@@ -271,7 +271,7 @@ async def creative_partner_chat(body: AssistantChatReq, user: User = Depends(_de
             system=CREATIVE_PARTNER_SYSTEM,
             messages=messages,
             max_tokens=1500,
-            persona_label="creative_partner",
+            persona_label="instructor",
             user_id=user.id,
         )
         return {"reply": gw["text"]}
@@ -282,7 +282,7 @@ async def creative_partner_chat(body: AssistantChatReq, user: User = Depends(_de
 @router.post("/creative-partner/contribution")
 async def submit_contribution(body: dict, user: User = Depends(_dep_current_user)):
     """Creative Partner submits a vision note or catalogue item for mission alignment review."""
-    if user.role not in ("creative_partner", "executive_admin"):
+    if user.role not in ("instructor", "executive_admin"):
         raise HTTPException(403, "This space is for Creative Partners.")
     doc = {
         "user_id": user.id,
@@ -300,7 +300,7 @@ async def submit_contribution(body: dict, user: User = Depends(_dep_current_user
 @router.get("/creative-partner/contributions")
 async def list_contributions(user: User = Depends(_dep_current_user)):
     """List the creative partner's own contributions."""
-    if user.role not in ("creative_partner", "executive_admin"):
+    if user.role not in ("instructor", "executive_admin"):
         raise HTTPException(403, "This space is for Creative Partners.")
     docs = await db.creative_contributions.find(
         {"user_id": user.id}, {"_id": 0}
@@ -314,6 +314,7 @@ async def list_contributions(user: User = Depends(_dep_current_user)):
 # Audit-logged on every access.
 
 import hashlib as _hashlib
+from roles import Role, ROLE_RANK, role_rank, LEGACY_ROLE_MAP, normalize_role, FREE_BYOK_ROLES
 
 def _sentinel_hash(passphrase: str) -> str:
     return _hashlib.sha256(passphrase.encode()).hexdigest()

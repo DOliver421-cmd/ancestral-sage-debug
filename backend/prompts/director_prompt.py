@@ -1598,6 +1598,9 @@ DIRECTOR_PROMPT_BY_ROLE = {
     "instructor": ASSISTANT_DIRECTOR_PROMPT,
     "admin": DIRECTOR_PROMPT,
     "executive_admin": DIRECTOR_PROMPT,
+    "trial_pass": ASSISTANT_DIRECTOR_PROMPT,
+    "support_staff": ASSISTANT_DIRECTOR_PROMPT,
+    "oversight": DIRECTOR_PROMPT,
 }
 
 def _temporal_block() -> str:

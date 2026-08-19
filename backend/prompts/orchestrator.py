@@ -267,6 +267,9 @@ _PERSONA_STACK = {
         _STRATEGIC_NAVIGATOR_PERSONA,
         _ASSISTANT_DIRECTOR_PERSONA,
     ],
+    "trial_pass": [],
+    "support_staff": [],
+    "oversight": [],
     "executive_admin": [
         _ANCESTRAL_SAGE_PERSONA,
         _SAVANT_SCHOLAR_PERSONA,

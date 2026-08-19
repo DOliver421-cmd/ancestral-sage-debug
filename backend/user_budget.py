@@ -27,20 +27,12 @@ Usage from the LLM gateway:
 import logging
 import os
 from datetime import datetime, timezone
+from roles import role_rank
 
 logger = logging.getLogger("lcewai.user_budget")
 
-# Same rank table as routers/admin.py and byok.py.
-ROLE_RANK = {
-    "student": 1,
-    "instructor": 2,
-    "admin": 3,
-    "executive_admin": 4,
-    "creative_partner": 2,
-}
-
-# Roles at or above this rank are exempt from the daily budget.
-UNLIMITED_ROLE_RANK = 2  # instructor, admin, executive_admin, creative_partner
+# Roles at or above instructor rank (3) are exempt from the daily budget.
+UNLIMITED_ROLE_RANK = 3  # instructor (3) and above
 
 # Daily token cap for budgeted roles (students / members / anonymous IPs).
 DEFAULT_DAILY_CAP = int(os.environ.get("USER_DAILY_TOKEN_CAP", "50000"))
@@ -52,7 +44,7 @@ def daily_cap_for(role: str):
     """Daily token cap for a role; None means unlimited (trusted/exec tiers)."""
     if not role:
         return DEFAULT_DAILY_CAP
-    if ROLE_RANK.get(role, 0) >= UNLIMITED_ROLE_RANK:
+    if role_rank(role) >= UNLIMITED_ROLE_RANK:
         return None
     return DEFAULT_DAILY_CAP
 

@@ -15,6 +15,7 @@ from fastapi import APIRouter, Depends, HTTPException, Header
 from pydantic import BaseModel, ConfigDict, EmailStr, Field
 
 from security.field_authorization import FieldAuthorization
+from roles import Role, ROLE_RANK, role_rank, LEGACY_ROLE_MAP, normalize_role, FREE_BYOK_ROLES
 
 logger = logging.getLogger("lcewai")
 router = APIRouter(tags=["users"])
@@ -32,8 +33,8 @@ def bind(_db, _audit, _notify, _current_user, _can_modify, _hash_pw):
 
 
 # Mirrors server.py's role hierarchy for runtime require_role checks.
-ROLE_RANK = {"student": 1, "priority_member": 2, "instructor": 2, "creative_partner": 2, "site_support": 3, "admin": 3, "executive_admin": 4}
-Role = Literal["student", "priority_member", "instructor", "creative_partner", "site_support", "admin", "executive_admin"]
+# ROLE_RANK imported from roles.py
+# Role imported from roles.py
 
 
 class User(BaseModel):

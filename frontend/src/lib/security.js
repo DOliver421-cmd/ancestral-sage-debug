@@ -4,13 +4,13 @@
  */
 
 export const USER_ROLES = {
-  GUEST: "guest",
+  GUEST: "student",
   STUDENT: "student",
-  CREATOR: "creator",
-  MENTOR: "mentor",
-  MODERATOR: "moderator",
-  STEWARD: "steward",
-  ELDER: "elder",
+  CREATOR: "instructor",
+  MENTOR: "instructor",
+  MODERATOR: "instructor",
+  STEWARD: "oversight",
+  ELDER: "oversight",
   ADMIN: "admin",
 };
 
@@ -18,8 +18,8 @@ export const PARTNERSHIP_LEVELS = {
   SEED: "seed",
   ROOTED: "rooted",
   BUILDER: "builder",
-  STEWARD: "steward",
-  ELDER: "elder",
+  STEWARD: "oversight",
+  ELDER: "oversight",
 };
 
 /**

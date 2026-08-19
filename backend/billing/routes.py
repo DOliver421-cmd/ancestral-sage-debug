@@ -168,7 +168,7 @@ async def get_financial_dashboard(
     ✅ Audit logged for sensitive data access
     """
     # Only admins, stewards, and executives can access financial reporting
-    allowed_roles = ["admin", "steward", "elder", "executive_admin"]
+    allowed_roles = ["admin", "oversight", "oversight", "executive_admin"]
     if current_user.get("role") not in allowed_roles:
         raise HTTPException(status_code=403, detail="Financial reporting access denied")
 
@@ -198,7 +198,7 @@ async def get_monthly_recurring_revenue(
 
     ✅ Authorization: Admin/steward only
     """
-    allowed_roles = ["admin", "steward", "elder", "executive_admin"]
+    allowed_roles = ["admin", "oversight", "oversight", "executive_admin"]
     if current_user.get("role") not in allowed_roles:
         raise HTTPException(status_code=403, detail="Financial reporting access denied")
 
@@ -224,7 +224,7 @@ async def get_revenue_summary(
 
     ✅ Authorization: Admin/steward only
     """
-    allowed_roles = ["admin", "steward", "elder", "executive_admin"]
+    allowed_roles = ["admin", "oversight", "oversight", "executive_admin"]
     if current_user.get("role") not in allowed_roles:
         raise HTTPException(status_code=403, detail="Financial reporting access denied")
 
@@ -252,7 +252,7 @@ async def get_ltv_metrics(
 
     ✅ Authorization: Admin/steward only
     """
-    allowed_roles = ["admin", "steward", "elder", "executive_admin"]
+    allowed_roles = ["admin", "oversight", "oversight", "executive_admin"]
     if current_user.get("role") not in allowed_roles:
         raise HTTPException(status_code=403, detail="Financial reporting access denied")
 
@@ -276,7 +276,7 @@ async def get_net_revenue_retention(
 
     ✅ Authorization: Admin/steward only
     """
-    allowed_roles = ["admin", "steward", "elder", "executive_admin"]
+    allowed_roles = ["admin", "oversight", "oversight", "executive_admin"]
     if current_user.get("role") not in allowed_roles:
         raise HTTPException(status_code=403, detail="Financial reporting access denied")
 
@@ -300,7 +300,7 @@ async def get_retention_cohorts(
 
     ✅ Authorization: Admin/steward only
     """
-    allowed_roles = ["admin", "steward", "elder", "executive_admin"]
+    allowed_roles = ["admin", "oversight", "oversight", "executive_admin"]
     if current_user.get("role") not in allowed_roles:
         raise HTTPException(status_code=403, detail="Financial reporting access denied")
 
@@ -325,7 +325,7 @@ async def get_cash_flow_forecast(
 
     ✅ Authorization: Admin/steward only
     """
-    allowed_roles = ["admin", "steward", "elder", "executive_admin"]
+    allowed_roles = ["admin", "oversight", "oversight", "executive_admin"]
     if current_user.get("role") not in allowed_roles:
         raise HTTPException(status_code=403, detail="Financial reporting access denied")
 

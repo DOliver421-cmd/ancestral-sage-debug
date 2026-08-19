@@ -26,6 +26,7 @@ from reportlab.pdfgen import canvas
 from seed import MODULES
 from seed_credentials import CREDENTIALS
 from seed_labs import COMPETENCIES
+from roles import Role, ROLE_RANK, role_rank, LEGACY_ROLE_MAP, normalize_role, FREE_BYOK_ROLES
 
 logger = logging.getLogger("lcewai")
 router = APIRouter(tags=["lms"])
@@ -49,8 +50,8 @@ JWT_SECRET = os.environ.get('JWT_SECRET') or secrets.token_hex(32)
 JWT_ALGO = os.environ.get('JWT_ALGORITHM', 'HS256')
 
 # Mirrors server.py's role hierarchy for runtime require_role checks.
-ROLE_RANK = {"student": 1, "priority_member": 2, "instructor": 2, "creative_partner": 2, "site_support": 3, "admin": 3, "executive_admin": 4}
-Role = Literal["student", "priority_member", "instructor", "creative_partner", "site_support", "admin", "executive_admin"]
+# ROLE_RANK imported from roles.py
+# Role imported from roles.py
 
 
 class User(BaseModel):

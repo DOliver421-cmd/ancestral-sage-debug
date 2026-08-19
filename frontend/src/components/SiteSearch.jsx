@@ -38,7 +38,7 @@ const TYPE_LABEL = {
 };
 
 function groupResults(results) {
-  const order = ["page", "course", "module", "lab", "product", "creator"];
+  const order = ["page", "course", "module", "lab", "product", "instructor"];
   const groups = new Map();
   for (const r of results || []) {
     if (!groups.has(r.type)) groups.set(r.type, []);

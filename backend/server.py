@@ -40,6 +40,7 @@ import uuid
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import List, Optional, Literal
+from roles import Role, ROLE_RANK, LEGACY_ROLE_MAP, normalize_role, role_rank, ALL_ROLES
 
 import jwt
 from dotenv import load_dotenv
@@ -337,23 +338,9 @@ async def notify(user_id: str, title: str, body: str, link: Optional[str] = None
         "created_at": datetime.now(timezone.utc).isoformat(),
     })
 
-Role = Literal["student", "priority_member", "instructor", "creative_partner", "site_support", "admin", "executive_admin"]
-
-# Role hierarchy (higher number = more authority).
-# executive_admin > admin > instructor > student.
-# creative_partner is a special non-hierarchical role — vision contributor,
-# no operational access, full mission visibility.
-# Used by require_role() for permission checks and by admin endpoints to
-# enforce "you cannot modify a more privileged user".
-ROLE_RANK = {
-    "student": 1,
-    "priority_member": 2,
-    "instructor": 2,
-    "creative_partner": 2,
-    "site_support": 3,
-    "admin": 4,
-    "executive_admin": 5,
-}
+# Role hierarchy imported from roles.py (canonical source of truth).
+# 8-tier: public(0) < student(1) < trial_pass(2) < instructor(3) <
+#         support_staff(4) < oversight(5) < admin(6) < executive_admin(7)
 
 # The single hardcoded executive admin email. Auto-promoted to executive_admin
 # on every backend startup; if the account does not exist it is created with
@@ -755,14 +742,12 @@ def require_role(*roles):
     """Authorize the current user against a hierarchy.
 
     Pass if the user's role rank is >= the LOWEST rank among the requested
-    roles. This preserves backward compatibility (existing
-    `require_role("admin")` calls keep working exactly the same — admins still
-    pass) AND adds god-mode for executive_admin (passes every check).
+    roles.  Uses role_rank() which normalizes legacy role strings via
+    LEGACY_ROLE_MAP so old MongoDB documents still pass correctly.
     """
-    needed_rank = min(ROLE_RANK[r] for r in roles)
+    needed_rank = min(role_rank(r) for r in roles)
     async def dep(user: User = Depends(current_user)) -> User:
-        if ROLE_RANK.get(user.role, 0) < needed_rank:
-            # Don't reveal required roles to prevent attackers from understanding the role hierarchy
+        if role_rank(user.role) < needed_rank:
             logger.warning("Unauthorized access attempt — insufficient privileges (user=%s, role=%s)", user.id, user.role)
             raise HTTPException(403, "Insufficient permissions to access this resource.")
         return user
@@ -770,14 +755,9 @@ def require_role(*roles):
 
 
 def assert_role(user: User, *roles) -> None:
-    """Inline authorization check (raises 403 if the user lacks the rank).
-
-    Use this INSIDE an endpoint body. `require_role(...)` is a dependency
-    factory for `Depends(...)` — calling it with a User instance raises
-    'unhashable type: User'. This is the inline equivalent.
-    """
-    needed_rank = min(ROLE_RANK[r] for r in roles)
-    if ROLE_RANK.get(user.role, 0) < needed_rank:
+    """Inline authorization check (raises 403 if the user lacks the rank)."""
+    needed_rank = min(role_rank(r) for r in roles)
+    if role_rank(user.role) < needed_rank:
         raise HTTPException(403, "Insufficient permissions to access this resource.")
 
 
@@ -785,9 +765,7 @@ def can_modify(actor: User, target_role: str) -> bool:
     """Returns True iff `actor` is allowed to modify a user whose role is
     `target_role`. Admins cannot touch executive_admin accounts; only an
     executive_admin can modify another executive_admin."""
-    actor_rank = ROLE_RANK.get(actor.role, 0)
-    target_rank = ROLE_RANK.get(target_role, 0)
-    return actor_rank >= target_rank
+    return role_rank(actor.role) >= role_rank(target_role)
 
 
 async def seed_modules():
@@ -813,6 +791,14 @@ async def seed_users():
     for u in legacy_users:
         new_val = u["associate"].replace("Cohort-", "Associate-", 1)
         await db.users.update_one({"id": u["id"]}, {"$set": {"associate": new_val}})
+    # ── Role migration: rename legacy role strings to canonical 8-tier names ──
+    for old_role, (new_role, _) in LEGACY_ROLE_MAP.items():
+        result = await db.users.update_many(
+            {"role": old_role}, {"$set": {"role": new_role}},
+        )
+        if result.modified_count:
+            logger.info("Role migration: %d user(s) role '%s' → '%s'", result.modified_count, old_role, new_role)
+
     # Demo accounts removed — platform is live. Delete any that still exist in DB.
     _demo_emails = ["admin@lcewai.org", "instructor@lcewai.org", "student@lcewai.org"]
     result = await db.users.delete_many({"email": {"$in": _demo_emails}})
