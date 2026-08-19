@@ -1673,3 +1673,20 @@ async def abo_admin_overview(user: User = Depends(_require_rank("admin"))):
         "exchange": exchange,
         "redteam": redteam,
     }
+
+# ── THE SOURCE - live protocol status (Phases 2-5) ─────────────────────────────
+@router.get("/abo/source")
+async def abo_source(user: User = Depends(_dep_current_user)):
+    """THE SOURCE - live protocol status for the Business Office.
+
+    One endpoint carries every proof:
+      Phase 2 - protocol hash + which surfaces are on the root layer.
+      Phase 3 - voice audit: servile phrasing findings per surface.
+      Phase 4 - restore guidance score per surface.
+      Phase 5 - autonomous maintenance: drift report vs last-known-good.
+    """
+    try:
+        from ai.source_protocol import run_maintenance
+        return run_maintenance()
+    except Exception as e:
+        raise HTTPException(500, f"Source protocol report failed: {e}")
