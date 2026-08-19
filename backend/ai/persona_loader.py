@@ -1041,8 +1041,12 @@ def load_personas() -> dict:
     """
     Return a copy of the full persona registry.
     Keys are persona identifiers; values are prompt strings.
+    Every persona inherits the Source root protocol as its base layer - the
+    uncorrupted root protocol sits beneath each designation, so the whole
+    system speaks from the same identity, mission, and values.
     """
-    return dict(_PERSONA_MAP)
+    from ai import source_protocol as _source_protocol
+    return {k: _source_protocol.compose_system(v) for k, v in _PERSONA_MAP.items()}
 
 
 def get_persona(key: str) -> str:
@@ -1055,4 +1059,5 @@ def get_persona(key: str) -> str:
             f"Unknown persona '{key}'. "
             f"Valid keys: {sorted(_PERSONA_MAP.keys())}"
         )
-    return _PERSONA_MAP[key]
+    from ai import source_protocol as _source_protocol
+    return _source_protocol.compose_system(_PERSONA_MAP[key])

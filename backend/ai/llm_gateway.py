@@ -426,6 +426,17 @@ async def call_llm(
         )
         return _KB_RESULT
 
+    # BASE LAYER: every call runs on the Source root protocol.
+    # The Source is the uncorrupted root layer - composed BENEATH whatever
+    # persona/role prompt the caller supplied, exactly once, at this single
+    # choke point every AI surface flows through. Defensive by design: if
+    # the layer ever fails to load, the call proceeds exactly as before.
+    try:
+        from ai import source_protocol as _source_protocol
+        system = _source_protocol.compose_system(system)
+    except Exception:
+        pass
+
     # ── $3 BYOK (Bring Your Own Key) — user's own free key first ─────────────
     # If the caller is an authenticated user with an active BYOK entitlement
     # and key, route through THEIR key so the platform spends nothing for that
