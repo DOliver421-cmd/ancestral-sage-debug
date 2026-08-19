@@ -86,6 +86,7 @@ async def scout_run(user: User = Depends(_require_rank("executive_admin"))):
     check_rate(f"exec_scout:{user.id}", max_calls=3, window_sec=300)
     scout = CulturalScout(db)
     result = await scout.run_full_scan(max_leads_per_source=20)
+    await audit(user.id, "exec.scout.run", meta={"leads": result.get("total_leads", 0)})
     return result
 
 

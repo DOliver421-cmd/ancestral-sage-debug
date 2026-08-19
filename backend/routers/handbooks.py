@@ -1,21 +1,28 @@
-"""routers/handbooks.py — serve the WAI handbooks to students & instructors.
+"""routers/handbooks.py — serve the WAI handbooks to authenticated users.
 
-Serves the static handbook documents (backend/handbooks/html/*.html) as public
-routes so the flagship curriculum and the original instructor/student guides are
-readable in-app. No auth required — these are public reference documents.
+Handbooks are NOT public.  Auth + role check required.
+Paid content — not freely downloadable.
 
 Routes:
-  GET /handbooks            — list available handbooks
-  GET /handbooks/{name}     — render a handbook (instructor | student | admin | persona)
+  GET /handbooks            — list available handbooks (auth required)
+  GET /handbooks/{name}     — render a handbook (auth required, role-gated)
 """
 import logging
 from pathlib import Path
+from typing import Optional
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, Header, HTTPException
 from fastapi.responses import FileResponse, HTMLResponse
 
 logger = logging.getLogger("lcewai")
 router = APIRouter(tags=["handbooks"])
+
+# Auth dependency — imported from server.py via bind pattern
+current_user = None
+
+def bind(_current_user):
+    global current_user
+    current_user = _current_user
 
 # backend/handbooks/html — resolved relative to this file (routers/ -> backend/)
 _HANDBOOKS_DIR = Path(__file__).resolve().parent.parent / "handbooks" / "html"
@@ -31,8 +38,13 @@ HANDBOOKS = {
 
 
 @router.get("/handbooks")
-async def handbooks_index():
-    """List the available handbooks (public)."""
+async def handbooks_index(authorization: Optional[str] = Header(None)):
+    """List the available handbooks (auth required)."""
+    if not current_user:
+        raise HTTPException(503, "Service starting up")
+    user = await current_user(authorization)
+    if not user:
+        raise HTTPException(401, "Authentication required")
     available = []
     for name, (fname, title) in HANDBOOKS.items():
         available.append({
@@ -45,8 +57,13 @@ async def handbooks_index():
 
 
 @router.get("/handbooks/{name}")
-async def get_handbook(name: str):
-    """Render a handbook as an HTML page (public)."""
+async def get_handbook(name: str, authorization: Optional[str] = Header(None)):
+    """Render a handbook as an HTML page (auth required)."""
+    if not current_user:
+        raise HTTPException(503, "Service starting up")
+    user = await current_user(authorization)
+    if not user:
+        raise HTTPException(401, "Authentication required")
     entry = HANDBOOKS.get(name.lower())
     if not entry:
         raise HTTPException(
@@ -62,8 +79,13 @@ async def get_handbook(name: str):
 
 
 @router.get("/handbooks/{name}/raw")
-async def get_handbook_raw(name: str):
-    """Return the handbook HTML as a raw string (public, for embedding/tools)."""
+async def get_handbook_raw(name: str, authorization: Optional[str] = Header(None)):
+    """Return the handbook HTML as a raw string (auth required)."""
+    if not current_user:
+        raise HTTPException(503, "Service starting up")
+    user = await current_user(authorization)
+    if not user:
+        raise HTTPException(401, "Authentication required")
     entry = HANDBOOKS.get(name.lower())
     if not entry:
         raise HTTPException(404, f"Unknown handbook '{name}'.")

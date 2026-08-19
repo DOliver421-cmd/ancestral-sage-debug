@@ -921,3 +921,84 @@ async def revoke_all_sessions(user: UserOut = Depends(_dep_current_user)):
     # Clear session records
     await db.auth_sessions.delete_many({"user_id": user.id})
     return {"ok": True, "message": "All other sessions revoked. Please re-authenticate."}
+
+
+# ── Cross-site SSO ──────────────────────────────────────────────────────────
+
+@router.get("/auth/cross-site-token")
+async def generate_cross_site_token(user: UserOut = Depends(_dep_current_user)):
+    """Generate a short-lived token for cross-site login.
+
+    The caller (frontend) passes this token to the partner site's
+    /auth/cross-site-login endpoint to establish a session there.
+    """
+    from cross_site_auth import generate_cross_site_token as _gen_token
+    token = _gen_token(
+        user_id=user.id,
+        email=user.email,
+        full_name=user.full_name,
+        role=user.role,
+    )
+    return {"token": token, "expires_in": 300}
+
+
+@router.post("/auth/cross-site-login")
+async def cross_site_login(body: dict, request: Request):
+    """Exchange a cross-site token for a local session.
+
+    Accepts {"token": "<cross-site-token>"} and returns a local JWT
+    if the token is valid and the user exists (or is auto-created).
+    """
+    from cross_site_auth import validate_cross_site_token
+    from roles import normalize_role
+    
+    token = body.get("token", "")
+    if not token:
+        raise HTTPException(400, "Token is required")
+    
+    payload = validate_cross_site_token(token)
+    if not payload:
+        raise HTTPException(401, "Invalid or expired cross-site token")
+    
+    email = payload.get("email", "")
+    user_id = payload.get("uid", "")
+    full_name = payload.get("name", "Student")
+    role = normalize_role(payload.get("role", "student"))
+    
+    # Find or create the local user
+    existing = await db.users.find_one({"email": email})
+    if existing:
+        # Update role if the partner site has a higher privilege
+        from roles import role_rank
+        if role_rank(role) > role_rank(existing.get("role", "student")):
+            await db.users.update_one({"email": email}, {"$set": {"role": role}})
+            existing["role"] = role
+        user_doc = existing
+    else:
+        # Auto-create the user on this site
+        user_doc = {
+            "id": user_id or str(uuid.uuid4()),
+            "email": email,
+            "full_name": full_name,
+            "role": role,
+            "is_active": True,
+            "must_change_password": False,
+            "created_at": datetime.now(timezone.utc).isoformat(),
+            "avatar_url": None,
+            "feature_tier": "free",
+            "token_version": 0,
+        }
+        await db.users.insert_one(user_doc)
+        logger.info("Cross-site: auto-created user %s (%s)", email, role)
+    
+    # Issue a local JWT
+    token_raw = make_token(user_doc["id"], user_doc.get("role", "student"))
+    
+    # Audit the cross-site login
+    await audit(user_doc["id"], "cross_site.login", meta={
+        "source": "partner_site",
+        "source_uid": user_id,
+        "role": role,
+    })
+    
+    return {"token": token_raw, "role": user_doc.get("role", "student")}

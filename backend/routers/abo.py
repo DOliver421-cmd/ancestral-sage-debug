@@ -757,7 +757,7 @@ async def _contracted_revenue() -> tuple[dict, int]:
 # ── Endpoints ────────────────────────────────────────────────────────────────
 
 @router.get("/abo/agenda")
-async def abo_agenda(user: User = Depends(_dep_current_user)):
+async def abo_agenda(user: User = Depends(_require_rank("oversight"))):
     """The Business Agenda — every item waiting for the office's attention.
 
     Projects become agenda items automatically on creation (source=project,
@@ -787,7 +787,7 @@ async def abo_update_agenda(item_id: str, body: dict, user: User = Depends(_requ
 
 
 @router.get("/abo/verify")
-async def abo_verify(user: User = Depends(_dep_current_user), explain: int = 0):
+async def abo_verify(user: User = Depends(_require_rank("oversight")), explain: int = 0):
     """Deterministic truth-test of every claim the office displays.
 
     Zero-token audit: each number the office shows is recomputed from the real
@@ -985,7 +985,7 @@ async def abo_verify(user: User = Depends(_dep_current_user), explain: int = 0):
 
 
 @router.get("/abo/tools")
-async def abo_tools():
+async def abo_tools(user: User = Depends(_require_rank("oversight"))):
     """The tools dock + divisions — every real capability the office runs, with its revenue role."""
     cfg = await _get_office_config()
     divisions, tools = _merge_catalog(cfg)
@@ -995,7 +995,7 @@ async def abo_tools():
 
 
 @router.get("/abo/overview")
-async def abo_overview(user: User = Depends(_dep_current_user)):
+async def abo_overview(user: User = Depends(_require_rank("oversight"))):
     """Revenue snapshot + mission runway + owner-first P&L + divisions (auth)."""
     check_rate(f"abo_overview:{user.id}", max_calls=60, window_sec=60)
 
@@ -1083,7 +1083,7 @@ async def abo_overview(user: User = Depends(_dep_current_user)):
 
 
 @router.get("/abo/public-status")
-async def abo_public_status():
+async def abo_public_status(user: User = Depends(_require_rank("oversight"))):
     """Public mission meter — aggregate runway only, no private revenue detail."""
     cfg = await _get_office_config()
     goal = int(cfg["numbers"].get("monthly_goal_cents") or 100000)
@@ -1118,7 +1118,7 @@ async def abo_public_status():
 
 
 @router.get("/abo/deals")
-async def abo_list_deals(user: User = Depends(_dep_current_user)):
+async def abo_list_deals(user: User = Depends(_require_rank("oversight"))):
     """The caller's service deals (admins see everything via /abo/admin/overview)."""
     query = {} if _is_admin(user) else {"user_id": user.id}
     deals = await db.abo_deals.find(query, {"_id": 0}).sort("created_at", -1).to_list(200)
@@ -1126,7 +1126,7 @@ async def abo_list_deals(user: User = Depends(_dep_current_user)):
 
 
 @router.post("/abo/deals", status_code=201)
-async def abo_create_deal(body: DealReq, user: User = Depends(_dep_current_user)):
+async def abo_create_deal(body: DealReq, user: User = Depends(_require_rank("oversight"))):
     """Submit a service request — the office opens a lead in the pipeline."""
     check_rate(f"abo_deal:{user.id}", max_calls=10, window_sec=60)
     cfg = await _get_office_config()
@@ -1271,7 +1271,7 @@ async def abo_draft_proposal(deal_id: str, user: User = Depends(_require_rank("a
 
 
 @router.get("/abo/jobs")
-async def abo_list_jobs(user: User = Depends(_dep_current_user)):
+async def abo_list_jobs(user: User = Depends(_require_rank("oversight"))):
     """The AI workforce jobs ledger — who does what, for how much. Admin sees all; everyone sees the board."""
     try:
         existing = await db.abo_jobs.count_documents({})
@@ -1350,7 +1350,7 @@ async def abo_update_job(job_id: str, body: JobUpdateReq, user: User = Depends(_
 
 
 @router.get("/abo/goals")
-async def abo_get_goals(user: User = Depends(_dep_current_user)):
+async def abo_get_goals(user: User = Depends(_require_rank("oversight"))):
     """Mission runway + the monthly operating goal (auth)."""
     cfg = await _get_office_config()
     revenue = await _revenue_snapshot()
@@ -1386,7 +1386,7 @@ async def abo_set_goals(body: GoalsReq, user: User = Depends(_require_rank("admi
 
 # ── Workforce Arbitrage Exchange (A2A economy) ───────────────────────────────
 @router.get("/abo/exchange")
-async def abo_exchange_board(user: User = Depends(_dep_current_user)):
+async def abo_exchange_board(user: User = Depends(_require_rank("oversight"))):
     """The A2A contract board — agent task contracts with clearinghouse fees."""
     contracts = await db.abo_exchange_contracts.find({}, {"_id": 0}).sort("created_at", -1).to_list(200)
     stats = await _exchange_stats()
@@ -1442,7 +1442,7 @@ async def abo_exchange_complete(contract_id: str, user: User = Depends(_require_
 
 # ── Shadow IT / Red-Teaming Bureau ───────────────────────────────────────────
 @router.get("/abo/redteam")
-async def abo_redteam_list(user: User = Depends(_dep_current_user)):
+async def abo_redteam_list(user: User = Depends(_require_rank("oversight"))):
     """Red-team engagements — the adversarial bureau's book of business."""
     engagements = await db.abo_redteam_engagements.find({}, {"_id": 0}).sort("created_at", -1).to_list(200)
     stats = await _redteam_stats()
@@ -1677,7 +1677,7 @@ async def abo_admin_overview(user: User = Depends(_require_rank("admin"))):
 
 # ── THE SOURCE - live protocol status (Phases 2-5) ─────────────────────────────
 @router.get("/abo/source")
-async def abo_source(user: User = Depends(_dep_current_user)):
+async def abo_source(user: User = Depends(_require_rank("executive_admin"))):
     """THE SOURCE - live protocol status for the Business Office.
 
     One endpoint carries every proof:
@@ -1699,7 +1699,7 @@ class _SourceControlsReq(BaseModel):
 
 
 @router.get("/abo/source/controls")
-async def abo_source_controls(user: User = Depends(_dep_current_user)):
+async def abo_source_controls(user: User = Depends(_require_rank("executive_admin"))):
     """Current master Source controls (the executive's sliders). Any signed-in
     member can read; only exec can move them."""
     from ai.source_protocol import get_controls, CONTROL_ORDER, CONTROL_DEFAULTS, _CONTROL_LABELS, _CONTROL_HINTS

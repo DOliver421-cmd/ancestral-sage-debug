@@ -140,6 +140,7 @@ import LegacyTool from "./pages/LegacyTool";
 import AgentRegistryView from "./pages/aawab/AgentRegistryView";
 import CertificationChamber from "./pages/aawab/CertificationChamber";
 import AdminAawabDashboard from "./pages/aawab/AdminAawabDashboard";
+import CrossSiteLogin from "./pages/CrossSiteLogin";
 
 // 8-tier role hierarchy mirroring backend/roles.py.
 // Higher rank = more authority; executive_admin passes every check.
@@ -239,7 +240,7 @@ function App() {
           <Route path="/avatar-setup" element={<Protected><AvatarSetup /></Protected>} />
           {/* Themed member spaces */}
           <Route path="/palace" element={<Protected><Palace /></Protected>} />
-          <Route path="/elder-council" element={<Protected><ElderCouncil /></Protected>} />
+          <Route path="/elder-council" element={<BoundedAdmin roles={["admin"]} label="Elder Council" backTo="/dashboard"><ElderCouncil /></BoundedAdmin>} />
           <Route path="/plans" element={<Plans />} />
           {/* Public funnel pages */}
           <Route path="/help-center" element={<HelpCenter />} />
@@ -255,13 +256,13 @@ function App() {
           <Route path="/search" element={<SiteSearch />} />
           <Route path="/site-guide" element={<SiteGuide />} />
           {/* AI Business Office — the revenue engine command center */}
-          <Route path="/business-office" element={<Protected><BusinessOffice /></Protected>} />
+          <Route path="/business-office" element={<BoundedAdmin roles={["admin"]} label="AI Business Office" backTo="/admin"><BusinessOffice /></BoundedAdmin>} />
           <Route path="/admin/business-office" element={<BoundedAdmin roles={["admin"]} label="AI Business Office" backTo="/admin"><BusinessOffice /></BoundedAdmin>} />
           {/* Exec Control — change every office number and text without code */}
           <Route path="/admin/office-control" element={<BoundedAdmin roles={["admin"]} label="Exec Control — Business Office" backTo="/admin/business-office"><ExecControl /></BoundedAdmin>} />
           {/* AAWAB — Agent Wellness & Certification Bureau */}
-          <Route path="/aawab" element={<Protected><AgentRegistryView /></Protected>} />
-          <Route path="/aawab/chamber" element={<Protected><CertificationChamber /></Protected>} />
+          <Route path="/aawab" element={<BoundedAdmin roles={["admin"]} label="Agent Wellness" backTo="/admin"><AgentRegistryView /></BoundedAdmin>} />
+          <Route path="/aawab/chamber" element={<BoundedAdmin roles={["admin"]} label="Certification Chamber" backTo="/aawab"><CertificationChamber /></BoundedAdmin>} />
           <Route path="/admin/aawab" element={<BoundedAdmin roles={["admin"]} label="AAWAB Admin" backTo="/admin"><AdminAawabDashboard /></BoundedAdmin>} />
           <Route path="/landing" element={<LandingMarketplace />} />
           {/* WAI Institute — accredited-track portal (also the redirect target for wai-institute.org) */}
@@ -269,6 +270,7 @@ function App() {
           {/* Supervisor — executive_admin only; separate login at /supervisor-login */}
           <Route path="/supervisor-login" element={<SupervisorLogin />} />
           <Route path="/supervisor" element={<SupervisorProtected><SeshatsHub /></SupervisorProtected>} />
+          <Route path="/auth/cross-site" element={<CrossSiteLogin />} />
           <Route path="/terms" element={<TermsOfService />} />
           <Route path="/privacy" element={<PrivacyPolicy />} />
           <Route path="/courses" element={<Courses />} />
