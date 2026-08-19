@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { X, Bug, CheckCircle, ArrowRight } from "lucide-react";
+import { X, Bug, CheckCircle, ArrowRight, HelpCircle } from "lucide-react";
+import { isWaiDoor, MORE_HOME } from "../lib/domain";
 
 // ── Steps the tester follows — shown before the form ──────────────────────────
 const STEPS = [
@@ -9,6 +10,11 @@ const STEPS = [
 ];
 
 export default function BugReportModal() {
+  // On the WAI door, the bug-bounty tester flow is a M.O.R.E. community feature:
+  // the floating button links OUT to the M.O.R.E. Help Center instead of opening
+  // the in-app report form (see docs/morehelp-migration-blueprint.md §2.1).
+  const waiDoor = isWaiDoor();
+
   const [isOpen, setIsOpen]       = useState(false);
   const [step, setStep]           = useState("instructions"); // "instructions" | "form" | "done"
   const [loading, setLoading]     = useState(false);
@@ -52,14 +58,27 @@ export default function BugReportModal() {
   return (
     <>
       {/* ── Floating trigger button — always visible ─────────────────────────── */}
-      <button
-        onClick={open}
-        className="fixed bottom-5 right-5 z-50 flex items-center gap-2 bg-ink text-white font-bold text-sm px-4 py-3 rounded-full shadow-2xl hover:bg-copper hover:scale-105 transition-all border-2 border-copper/50"
-        title="Bug Bounty — Get $1"
-      >
-        <Bug className="w-4 h-4" />
-        <span>🐛 Report Bug — Get $1</span>
-      </button>
+      {waiDoor ? (
+        <a
+          href={`${MORE_HOME}/help-center`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="fixed bottom-5 right-5 z-50 flex items-center gap-2 bg-ink text-white font-bold text-sm px-4 py-3 rounded-full shadow-2xl hover:bg-copper hover:scale-105 transition-all border-2 border-copper/50"
+          title="Help & Support — M.O.R.E. Help Center"
+        >
+          <HelpCircle className="w-4 h-4" />
+          <span>Get Help — M.O.R.E.</span>
+        </a>
+      ) : (
+        <button
+          onClick={open}
+          className="fixed bottom-5 right-5 z-50 flex items-center gap-2 bg-ink text-white font-bold text-sm px-4 py-3 rounded-full shadow-2xl hover:bg-copper hover:scale-105 transition-all border-2 border-copper/50"
+          title="Bug Bounty — Get $1"
+        >
+          <Bug className="w-4 h-4" />
+          <span>🐛 Report Bug — Get $1</span>
+        </button>
+      )}
 
       {/* ── Modal ────────────────────────────────────────────────────────────── */}
       {isOpen && (

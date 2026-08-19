@@ -3,9 +3,11 @@ import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../lib/auth";
 import { WAI_LOGO, BRAND } from "../lib/brand";
 import { toast } from "sonner";
-import { ArrowRight, Heart, CheckCircle } from "lucide-react";
+import { ArrowRight, Heart, CheckCircle, ExternalLink } from "lucide-react";
+import { isWaiDoor, MORE_HOME } from "../lib/domain";
 
 export default function Register() {
+  const waiDoor = isWaiDoor();
   const { register } = useAuth();
   const nav = useNavigate();
   const [form, setForm] = useState({ full_name: "", email: "", password: "", associate: "Associate-Alpha", agreed_terms: false, over_13: false });
@@ -219,9 +221,16 @@ export default function Register() {
             </Link>
           </form>
 
-          {/* Support */}
+          {/* Support — help lives on the M.O.R.E. Help Center */}
           <div className="mt-8 text-center text-xs text-ink/50">
-            Questions? <Link to="/help-center" className="text-copper hover:text-copper/80 font-medium">Help Center</Link>
+            Questions?{" "}
+            {waiDoor ? (
+              <a href={`${MORE_HOME}/help-center`} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-copper hover:text-copper/80 font-medium">
+                Help Center <ExternalLink className="w-3 h-3" />
+              </a>
+            ) : (
+              <Link to="/help-center" className="text-copper hover:text-copper/80 font-medium">Help Center</Link>
+            )}
           </div>
         </div>
       </section>
