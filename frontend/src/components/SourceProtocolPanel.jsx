@@ -54,6 +54,122 @@ const KIND_LABEL = {
 const humanize = (k) =>
   (k || "").split("_").map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(" ");
 
+/**
+ * HumanControls — the executive's sliders on the Source itself.
+ * Warmth, directness, depth, restore focus, plain language — persisted to
+ * Mongo and compiled into every AI prompt at the gateway. Exec-only writes;
+ * any signed-in member can read the current configuration.
+ */
+function HumanControls() {
+  const [controls, setControls] = useState(null);
+  const [meta, setMeta] = useState(null);
+  const [saving, setSaving] = useState(false);
+  const [savedAt, setSavedAt] = useState(null);
+  const [error, setError] = useState("");
+
+  const load = useCallback(async () => {
+    try {
+      const { data } = await api.get("/abo/source/controls");
+      setControls({ ...data.controls });
+      setMeta(data);
+    } catch {
+      setMeta(null);
+    }
+  }, []);
+
+  useEffect(() => { load(); }, [load]);
+
+  if (!controls || !meta) {
+    return (
+      <div className="card-flat rounded-2xl p-6 border bg-white">
+        <div className="text-[11px] font-black uppercase tracking-widest" style={{ color: COPPER }}>Human Control</div>
+        <p className="text-sm text-ink/50 mt-2">Loading the executive's sliders…</p>
+      </div>
+    );
+  }
+
+  const set = (key, val) => setControls((c) => ({ ...c, [key]: Number(val) }));
+  const dirty = Object.keys(meta.controls || {}).some((k) => meta.controls[k] !== controls[k]);
+
+  const save = async () => {
+    setSaving(true);
+    setError("");
+    try {
+      const { data } = await api.post("/abo/source/controls", {
+        controls,
+        note: "Slider change from the Business Office",
+      });
+      setControls({ ...data.controls });
+      setMeta((m) => ({ ...m, controls: { ...data.controls } }));
+      setSavedAt(data.updated_at);
+    } catch (e) {
+      setError(e?.response?.data?.detail || "Couldn't save — executive access required.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="card-flat rounded-2xl p-6 border bg-white">
+      <div className="flex items-center justify-between gap-3 flex-wrap">
+        <div>
+          <div className="flex items-center gap-2 text-[11px] font-black uppercase tracking-widest" style={{ color: COPPER }}>
+            <Cpu className="w-4 h-4" /> Human Control — the Source's tuning
+          </div>
+          <p className="text-sm text-ink/60 mt-1.5 max-w-2xl leading-relaxed">
+            The Source is autonomous, but it is deployed under human command. These sliders compile
+            into every AI answer at the base layer — warmth, directness, depth, how hard it pushes
+            System Restore, and plain language. Move them, save, and the very next answer speaks the
+            new configuration. Executive-only to change.
+          </p>
+        </div>
+        {savedAt && (
+          <span className="text-[10px] font-bold uppercase tracking-widest px-2 py-1 rounded"
+            style={{ background: "rgba(27,67,50,0.08)", color: GREEN }}>
+            Saved {new Date(savedAt).toLocaleTimeString()}
+          </span>
+        )}
+      </div>
+
+      <div className="mt-5 space-y-4">
+        {meta.order.map((key) => {
+          const label = meta.labels?.[key] || humanize(key);
+          const hint = meta.hints?.[key] || "";
+          const val = controls[key] ?? meta.defaults[key];
+          return (
+            <div key={key}>
+              <div className="flex items-center justify-between text-xs">
+                <span className="font-bold text-ink/80">{label}</span>
+                <span className="font-black text-sm" style={{ color: GREEN }}>{val}</span>
+              </div>
+              <input
+                type="range"
+                min="0" max="100" step="1"
+                value={val}
+                onChange={(e) => set(key, e.target.value)}
+                className="w-full mt-1.5 accent-[#1B4332] cursor-pointer"
+              />
+              <div className="text-[10px] text-ink/40 mt-0.5">{hint}</div>
+            </div>
+          );
+        })}
+      </div>
+
+      <div className="flex items-center gap-3 mt-5">
+        <button
+          onClick={save}
+          disabled={saving || !dirty}
+          className="text-xs font-black uppercase tracking-widest px-5 py-2.5 rounded-xl text-white transition-opacity disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+          style={{ background: GREEN }}
+        >
+          {saving ? "Saving…" : dirty ? "Apply to the Source" : "Configuration live"}
+        </button>
+        {error && <span className="text-xs font-bold" style={{ color: COPPER }}>{error}</span>}
+      </div>
+    </div>
+  );
+}
+
 export default function SourceProtocolPanel({ onOpenOffice }) {
   const [status, setStatus] = useState(null);
   const [statusError, setStatusError] = useState(false);
@@ -192,6 +308,9 @@ export default function SourceProtocolPanel({ onOpenOffice }) {
             </button>
           </div>
         )}
+
+        {/* ── HUMAN CONTROL — the executive's hands on the wheel ────── */}
+        <HumanControls />
 
         {/* ── The protocol, in four movements ───────────────────────── */}
         <div className="grid md:grid-cols-2 gap-4">

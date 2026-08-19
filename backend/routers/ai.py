@@ -48,8 +48,8 @@ def bind(_db, _current_user, _audit, _assert_role, _check_rate):
 
 
 # Mirrors server.py's role hierarchy for runtime require_role checks.
-ROLE_RANK = {"student": 1, "instructor": 2, "admin": 3, "executive_admin": 4, "creative_partner": 2}
-Role = Literal["student", "instructor", "admin", "executive_admin", "creative_partner"]
+ROLE_RANK = {"student": 1, "priority_member": 2, "instructor": 2, "creative_partner": 2, "site_support": 3, "admin": 3, "executive_admin": 4}
+Role = Literal["student", "priority_member", "instructor", "creative_partner", "site_support", "admin", "executive_admin"]
 
 # ── AI request models (moved verbatim from server.py) ────────────────────
 class AIChatReq(BaseModel):
@@ -3136,3 +3136,120 @@ async def persona_profile(slug: str):
         "record": {"declines": []},
         "decision_tree": None,
     }
+
+
+# ═════════════════════════════════════════════════════════════════════════════
+# Persona chat + tuning — the team pages lead somewhere, with voice-capable
+# frontends (mic + browser TTS) and real per-persona sliders.
+# ═════════════════════════════════════════════════════════════════════════════
+
+PERSONA_CONTROL_ORDER = ["warmth", "directness", "depth", "restore_focus", "plain_language"]
+PERSONA_CONTROL_DEFAULTS = {"warmth": 70, "directness": 60, "depth": 65,
+                            "restore_focus": 75, "plain_language": 85}
+
+
+class _PersonaChatReq(BaseModel):
+    message: str = Field(..., min_length=1, max_length=4000)
+    session_id: str = "default"
+
+
+class _PersonaControlsReq(BaseModel):
+    controls: dict
+
+
+async def _clamp_controls(controls: dict) -> dict:
+    from ai.source_protocol import _clamp
+    return {k: _clamp(controls.get(k)) for k in PERSONA_CONTROL_ORDER if k in controls}
+
+
+@router.post("/personas/{slug}/chat")
+async def persona_chat(slug: str, body: _PersonaChatReq, user: User = Depends(_dep_current_user)):
+    """Talk to any persona in the registry — unified model included.
+
+    Voice frontends send the spoken transcript here; the reply is plain text
+    the browser reads aloud. Applies the Source root layer, the master human
+    controls, and the user's own per-persona slider tuning.
+    """
+    from ai.persona_loader import load_personas
+    if slug not in load_personas():
+        raise HTTPException(404, "Persona not found")
+    check_rate(f"persona_chat:{user.id}", max_calls=30, window_sec=60)
+
+    system = load_personas()[slug]
+    from ai import source_protocol as _sp
+    system = _sp.compose_system(system)
+    # Master controls, then this user's persona tuning (persona wins).
+    system = _sp.apply_controls(system, _sp.get_controls())
+    doc = await db.persona_controls.find_one(
+        {"user_id": user.id, "slug": slug}, {"_id": 0, "controls": 1})
+    if doc and isinstance(doc.get("controls"), dict) and doc["controls"]:
+        system = _sp.apply_controls(system, doc["controls"],
+                                    marker=f"PERSONA TUNING — {slug.upper()}")
+
+    reply = ""
+    provider = None
+    try:
+        from ai.llm_gateway import call_llm as _call_llm
+        _gw = await _call_llm(
+            system=system,
+            messages=[{"role": "user", "content": body.message}],
+            max_tokens=1024,
+            persona_label=f"persona:{slug}",
+        )
+        provider = _gw.get("provider")
+        reply = _gw.get("text", "") or ""
+    except Exception as e:
+        logger.exception("persona_chat AI error")
+
+    if not reply:
+        reply = (f"{PERSONA_META.get(slug, {}).get('name', slug)} is present — "
+                 "but operating without AI connectivity right now. Try again shortly.")
+
+    try:
+        await db.chat_history.insert_one({
+            "id": str(uuid.uuid4()),
+            "user_id": user.id,
+            "session_id": body.session_id,
+            "mode": f"persona:{slug}",
+            "user_msg": body.message,
+            "assistant_msg": reply,
+            "provider": provider,
+            "created_at": datetime.now(timezone.utc).isoformat(),
+        })
+    except Exception:
+        pass
+    return {"reply": reply, "persona": slug, "provider": provider}
+
+
+@router.get("/personas/{slug}/controls")
+async def persona_controls_get(slug: str, user: User = Depends(_dep_current_user)):
+    """This member's per-persona slider settings (their own tuning)."""
+    from ai.persona_loader import load_personas
+    if slug not in load_personas():
+        raise HTTPException(404, "Persona not found")
+    doc = await db.persona_controls.find_one(
+        {"user_id": user.id, "slug": slug}, {"_id": 0, "controls": 1, "updated_at": 1})
+    return {
+        "controls": (doc or {}).get("controls") or dict(PERSONA_CONTROL_DEFAULTS),
+        "defaults": dict(PERSONA_CONTROL_DEFAULTS),
+        "order": PERSONA_CONTROL_ORDER,
+        "updated_at": (doc or {}).get("updated_at"),
+    }
+
+
+@router.post("/personas/{slug}/controls")
+async def persona_controls_set(slug: str, body: _PersonaControlsReq,
+                               user: User = Depends(_dep_current_user)):
+    """Save this member's per-persona sliders — takes effect on their next chat."""
+    from ai.persona_loader import load_personas
+    if slug not in load_personas():
+        raise HTTPException(404, "Persona not found")
+    clean = await _clamp_controls(body.controls)
+    if not clean:
+        raise HTTPException(400, "No valid control keys supplied")
+    now_iso = datetime.now(timezone.utc).isoformat()
+    await db.persona_controls.update_one(
+        {"user_id": user.id, "slug": slug},
+        {"$set": {"controls": clean, "updated_at": now_iso}},
+        upsert=True)
+    return {"ok": True, "controls": clean, "updated_at": now_iso}

@@ -110,8 +110,8 @@ def bind(_db, _current_user, _audit, _check_rate):
 
 
 # Mirrors server.py's role hierarchy for runtime require_role checks.
-ROLE_RANK = {"student": 1, "instructor": 2, "admin": 3, "executive_admin": 4, "creative_partner": 2}
-Role = Literal["student", "instructor", "admin", "executive_admin", "creative_partner"]
+ROLE_RANK = {"student": 1, "priority_member": 2, "instructor": 2, "creative_partner": 2, "site_support": 3, "admin": 3, "executive_admin": 4}
+Role = Literal["student", "priority_member", "instructor", "creative_partner", "site_support", "admin", "executive_admin"]
 
 
 class User(BaseModel):
@@ -1690,3 +1690,52 @@ async def abo_source(user: User = Depends(_dep_current_user)):
         return run_maintenance()
     except Exception as e:
         raise HTTPException(500, f"Source protocol report failed: {e}")
+
+
+class _SourceControlsReq(BaseModel):
+    controls: dict
+    note: Optional[str] = ""
+
+
+@router.get("/abo/source/controls")
+async def abo_source_controls(user: User = Depends(_dep_current_user)):
+    """Current master Source controls (the executive's sliders). Any signed-in
+    member can read; only exec can move them."""
+    from ai.source_protocol import get_controls, CONTROL_ORDER, CONTROL_DEFAULTS, _CONTROL_LABELS, _CONTROL_HINTS
+    live = get_controls()
+    doc = await db.source_controls.find_one({"_id": "master"}, {"_id": 0})
+    stored = (doc or {}).get("controls") or {}
+    return {
+        "controls": live,
+        "defaults": dict(CONTROL_DEFAULTS),
+        "order": CONTROL_ORDER,
+        "labels": _CONTROL_LABELS,
+        "hints": _CONTROL_HINTS,
+        "stored": stored,
+        "updated_by": (doc or {}).get("updated_by"),
+        "updated_at": (doc or {}).get("updated_at"),
+    }
+
+
+@router.post("/abo/source/controls")
+async def abo_source_controls_set(body: _SourceControlsReq, request: Request,
+                                  user: User = Depends(_require_rank("executive_admin"))):
+    """Move the master sliders. Persists to Mongo and refreshes the live
+    module state so the very next AI call speaks with the new configuration."""
+    from ai import source_protocol as _sp
+    from ai.source_protocol import CONTROL_ORDER
+    clean = {k: _sp._clamp(body.controls.get(k)) for k in CONTROL_ORDER if k in body.controls}
+    if not clean:
+        raise HTTPException(400, "No valid control keys supplied")
+    live = _sp.set_controls(clean)
+    now_iso = datetime.now(timezone.utc).isoformat()
+    await db.source_controls.update_one(
+        {"_id": "master"},
+        {"$set": {"controls": live, "updated_by": user.id, "updated_at": now_iso,
+                  "note": body.note or ""}},
+        upsert=True)
+    try:
+        await audit(user.id, "source.controls.updated", meta={"controls": live, "note": body.note})
+    except Exception:
+        pass
+    return {"ok": True, "controls": live, "updated_at": now_iso}

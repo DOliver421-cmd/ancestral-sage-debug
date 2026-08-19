@@ -48,8 +48,8 @@ def bind(_db, _current_user, _audit, _assert_role, _xp_level):
 
 
 # Mirrors server.py's role hierarchy for runtime require_role checks.
-ROLE_RANK = {"student": 1, "instructor": 2, "admin": 3, "executive_admin": 4, "creative_partner": 2}
-Role = Literal["student", "instructor", "admin", "executive_admin", "creative_partner"]
+ROLE_RANK = {"student": 1, "priority_member": 2, "instructor": 2, "creative_partner": 2, "site_support": 3, "admin": 3, "executive_admin": 4}
+Role = Literal["student", "priority_member", "instructor", "creative_partner", "site_support", "admin", "executive_admin"]
 
 
 class User(BaseModel):

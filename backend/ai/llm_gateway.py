@@ -483,6 +483,12 @@ async def call_llm(
     try:
         from ai import source_protocol as _source_protocol
         system = _source_protocol.compose_system(system)
+        # HUMAN CONTROLS: the executive's master sliders compile into every
+        # prompt at this single choke point. Persona chats carry their own
+        # tuning block (PERSONA TUNING) and are skipped here so the persona's
+        # sliders win for that persona. Never fails the call.
+        if "PERSONA TUNING" not in system:
+            system = _source_protocol.apply_controls(system, _source_protocol.get_controls())
     except Exception:
         pass
 
