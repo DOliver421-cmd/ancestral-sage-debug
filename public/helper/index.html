@@ -527,7 +527,7 @@
       <div class="header-actions">
         <button class="btn-primary" id="startBtn">Let’s Get Started</button>
         <button class="btn-ghost" id="skipBtn">Skip setup — go straight to the menu</button>
-        <a href="/help-center" class="help-link">Open the Public Help Center</a>
+        <a href="https://ancestral-sage-debug-production.up.railway.app/help-center" class="help-link">Open the Public Help Center</a>
       </div>
     </section>
 
@@ -855,19 +855,29 @@
       };
     }
 
-    function handleSend() {
+    // API helper for the public endpoint (no auth needed)
+    async function callPublicAPI(endpoint, body) {
+      try {
+        const response = await fetch("/api/public/helper/" + endpoint, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body)
+        });
+        if (!response.ok) throw new Error("API error");
+        return await response.json();
+      } catch (err) {
+        showToast("Could not reach the helper service. Please try again.", "⚠️", 3000);
+        return null;
+      }
+    }
+
+    async function handleSend() {
       const text = userInputEl.value.trim();
       if (!text) return;
       addMessage("user", text);
       userInputEl.value = "";
 
-      const apiResult = await callPublicAPI('ask', { question: text, language: currentLanguage });
-      if (apiResult && apiResult.short) {
-        lastShortAnswer = apiResult.short;
-        lastFullAnswer = apiResult.full || apiResult.short;
-        addMessage("helper", apiResult.short);
-      } else {
-        const apiResult = await callPublicAPI('ask', { question: text, language: currentLanguage });
+      const apiResult = await callPublicAPI("ask", { question: text, language: currentLanguage });
       if (apiResult && apiResult.short) {
         lastShortAnswer = apiResult.short;
         lastFullAnswer = apiResult.full || apiResult.short;
@@ -877,7 +887,6 @@
         lastShortAnswer = short;
         lastFullAnswer = full;
         addMessage("helper", short);
-      }
       }
     }
 
@@ -979,6 +988,16 @@
 
     // Voice input (simple stub)
     let recognition = null;
+    // BCP-47 codes so the mic listens in the language the user picked
+    const SPEECH_LANG = {
+      en: "en-US",
+      es: "es-US",
+      ht: "ht-HT",
+      yo: "yo-NG",
+      so: "so-SO",
+      tl: "tl-PH",
+      vi: "vi-VN"
+    };
     if ("webkitSpeechRecognition" in window || "SpeechRecognition" in window) {
       const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
       recognition = new SR();
@@ -1018,7 +1037,7 @@
       if (isListening) {
         recognition.stop();
       } else {
-        recognition.lang = currentLanguage === "en" ? "en-US" : "en-US";
+        recognition.lang = SPEECH_LANG[currentLanguage] || "en-US";
         recognition.start();
       }
     });
@@ -1047,20 +1066,4 @@
   </script>
 </body>
 </html>
-
-    // API helper for public endpoints
-    async function callPublicAPI(endpoint, body) {
-      try {
-        const response = await fetch(\"/api/public/helper/\"+endpoint, {
-          method: \"POST\",
-          headers: {\"Content-Type\": \"application/json\"},
-          body: JSON.stringify(body)
-        });
-        if (!response.ok) throw new Error(\"API error\");
-        return await response.json();
-      } catch (err) {
-        showToast(\"Could not reach the helper service. Please try again.\", \"⚠️\", 3000);
-        return null;
-      }
-    }
 
