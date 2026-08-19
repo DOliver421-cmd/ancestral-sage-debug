@@ -282,7 +282,7 @@ export default function ExecControlPanel() {
   }
 
   const ROW = { display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.75rem" };
-  const ROLES = ["guest","student","instructor","creator","mentor","moderator","steward","elder","admin","executive_admin"];
+  const ROLES = ["guest","student","priority_member","instructor","creator","mentor","moderator","steward","elder","site_support","admin","executive_admin"];
 
   return (
     <AppShell>

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "../lib/auth";
 import { WAI_LOGO, BRAND } from "../lib/brand";
 import { toast } from "sonner";
@@ -8,6 +8,8 @@ import { ArrowRight, Heart } from "lucide-react";
 export default function Login() {
   const { login } = useAuth();
   const nav = useNavigate();
+  const [params] = useSearchParams();
+  const returnTo = params.get("returnTo");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -23,9 +25,9 @@ export default function Login() {
         nav("/settings?force=1");
         return;
       }
-      // Land everyone on the landing page after sign-in — they choose where
-      // to go from there (dashboards stay linked in the sidebar).
-      nav("/");
+      // Honor a returnTo destination (e.g. persona pages), otherwise land on
+      // the landing page — they choose where to go from there.
+      nav(returnTo && returnTo.startsWith("/") ? returnTo : "/");
     } catch (err) {
       toast.error(err?.response?.data?.detail || "Login failed");
     } finally { setLoading(false); }

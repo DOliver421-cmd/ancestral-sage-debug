@@ -337,7 +337,7 @@ async def notify(user_id: str, title: str, body: str, link: Optional[str] = None
         "created_at": datetime.now(timezone.utc).isoformat(),
     })
 
-Role = Literal["student", "instructor", "admin", "executive_admin", "creative_partner"]
+Role = Literal["student", "priority_member", "instructor", "creative_partner", "site_support", "admin", "executive_admin"]
 
 # Role hierarchy (higher number = more authority).
 # executive_admin > admin > instructor > student.
@@ -1290,6 +1290,16 @@ async def _on_startup_impl():
             logger.info("STARTUP: Loaded %d shared site-support BYOK provider(s) into LLM gateway.", _ns)
     except Exception as _sb_err:
         logger.warning("STARTUP: shared site-support BYOK reload failed (non-fatal): %s", _sb_err)
+
+    # ── Source human controls — the executive's master sliders ──────────────
+    try:
+        from ai.source_protocol import load_controls as _load_source_controls
+        _cfg = await _load_source_controls(db)
+        logger.info("STARTUP: Source controls loaded (warmth=%s directness=%s depth=%s restore=%s plain=%s)",
+                    _cfg.get("warmth"), _cfg.get("directness"), _cfg.get("depth"),
+                    _cfg.get("restore_focus"), _cfg.get("plain_language"))
+    except Exception as _sc_err:
+        logger.warning("STARTUP: Source controls load failed (non-fatal): %s", _sc_err)
 
     # ── Team monitor — autonomous provider health loop ────────────────────────
     try:

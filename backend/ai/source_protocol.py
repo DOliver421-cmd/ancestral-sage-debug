@@ -106,6 +106,94 @@ def compose_system(system: str | None) -> str:
     return SOURCE_PROTOCOL + "\n\n" + system
 
 
+# ══════════════════════════════════════════════════════════════════════════════
+# HUMAN CONTROLS — the executive's hands on the wheel
+# ══════════════════════════════════════════════════════════════════════════════
+# The Source is autonomous — but it is deployed, supervised, and tuned by the
+# human executive. These knobs are compiled into every composed prompt as a
+# binding configuration block. The root protocol text itself never changes
+# (integrity hash stays stable); the controls are runtime state, persisted in
+# Mongo and loaded at startup + refreshed live when the executive moves a
+# slider. Per-persona / per-user tuning layers on top via apply_controls().
+
+CONTROL_ORDER = ["warmth", "directness", "depth", "restore_focus", "plain_language"]
+CONTROL_DEFAULTS = {
+    "warmth": 70,          # warmer, more human tone
+    "directness": 60,      # shorter, more direct delivery
+    "depth": 65,           # how much detail and elaboration
+    "restore_focus": 75,   # how hard every answer pushes toward durable systems
+    "plain_language": 85,  # plain-words strength (always high for this system)
+}
+_CONTROL_LABELS = {
+    "warmth": "Warmth", "directness": "Directness", "depth": "Depth",
+    "restore_focus": "System-Restore focus", "plain_language": "Plain language",
+}
+_CONTROL_HINTS = {
+    "warmth": "warmer, more human tone — less clinical",
+    "directness": "shorter, punchier answers — less preamble",
+    "depth": "how deep and detailed each answer goes",
+    "restore_focus": "how hard each answer pushes toward durable systems, ownership, and next steps",
+    "plain_language": "plain-words strength — no jargon, no legalese, no performance",
+}
+_CONTROL_MARKER = "HUMAN OPERATING CONFIGURATION"
+_CONTROLS = dict(CONTROL_DEFAULTS)
+
+
+def _clamp(v, lo=0, hi=100):
+    try:
+        return max(lo, min(hi, int(round(float(v)))))
+    except (TypeError, ValueError):
+        return CONTROL_DEFAULTS.get(v, 50) if isinstance(v, str) else 50
+
+
+def get_controls() -> dict:
+    """Current master controls (module state, loaded from DB at startup)."""
+    return dict(_CONTROLS)
+
+
+def set_controls(controls: dict) -> dict:
+    """Apply clamped control values to the live state. Returns the new state."""
+    for k in CONTROL_ORDER:
+        if k in controls:
+            _CONTROLS[k] = _clamp(controls[k])
+    return dict(_CONTROLS)
+
+
+async def load_controls(db) -> dict:
+    """Load persisted master controls from Mongo (server startup)."""
+    try:
+        doc = await db.source_controls.find_one({"_id": "master"}, {"_id": 0, "controls": 1})
+        if doc and isinstance(doc.get("controls"), dict):
+            set_controls(doc["controls"])
+    except Exception:
+        pass
+    return dict(_CONTROLS)
+
+
+def _render_controls(controls: dict, marker: str) -> str:
+    lines = [f"{marker} — binding configuration issued by the human executive:"]
+    for k in CONTROL_ORDER:
+        v = _clamp(controls.get(k, _CONTROLS.get(k, CONTROL_DEFAULTS.get(k, 50))))
+        lines.append(f"- {_CONTROL_LABELS[k]}: {v}/100 ({_CONTROL_HINTS[k]})")
+    lines.append("Adjust your delivery to these settings exactly. They override your defaults, not the protocol.")
+    return "\n".join(lines)
+
+
+def apply_controls(prompt: str, controls: dict | None = None, marker: str | None = None) -> str:
+    """Append (or replace) a control-configuration block at the end of a prompt.
+
+    The block is appended last so it carries highest instruction precedence.
+    If a block with the same marker already exists (re-tuning), it is replaced
+    rather than stacked.
+    """
+    prompt = (prompt or "").rstrip()
+    marker = marker or _CONTROL_MARKER
+    if marker in prompt:
+        prompt = prompt.split(marker, 1)[0].rstrip()
+    block = _render_controls(controls if controls is not None else _CONTROLS, marker)
+    return prompt + "\n\n" + block
+
+
 def protocol_status() -> dict:
     """Status record for the Business Office / diagnostics surfaces.
 
