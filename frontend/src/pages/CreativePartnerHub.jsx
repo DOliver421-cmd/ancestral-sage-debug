@@ -41,7 +41,7 @@ const MISSION_PILLARS = [
   },
   {
     icon: Lightbulb,
-    title: "Human SOUP",
+    title: "Human M.O.R.E.",
     desc: "Your concept. The richness and complexity of human ingredients — alive in everything we build.",
     color: "text-amber-500",
   },
@@ -231,7 +231,7 @@ function ContributionForm({ onSubmitted }) {
         <input
           value={tags}
           onChange={e => setTags(e.target.value)}
-          placeholder="e.g. music, healing, community, Human SOUP"
+          placeholder="e.g. music, healing, community, Human M.O.R.E."
           className="w-full text-sm px-3 py-2 rounded-xl border border-ink/15 bg-white focus:outline-none focus:border-copper"
         />
       </div>
@@ -344,7 +344,7 @@ export default function CreativePartnerHub() {
           </h1>
           <p className="text-ink/60 mt-2 max-w-2xl leading-relaxed">
             You helped start this. This space is yours — to learn where the platform is now,
-            contribute your vision and catalogue, and see how Human SOUP lives in everything we're building.
+            contribute your vision and catalogue, and see how Human M.O.R.E. lives in everything we're building.
           </p>
         </div>
 
@@ -385,7 +385,7 @@ export default function CreativePartnerHub() {
               <div className="card-flat p-4">
                 <div className="text-xs font-bold uppercase tracking-widest text-ink/40 mb-3">Quick Start</div>
                 <div className="space-y-2 text-sm text-ink/60">
-                  <div className="flex items-start gap-2"><CheckCircle className="w-4 h-4 text-copper shrink-0 mt-0.5" /> Ask the guide: "What is Human SOUP's role here?"</div>
+                  <div className="flex items-start gap-2"><CheckCircle className="w-4 h-4 text-copper shrink-0 mt-0.5" /> Ask the guide: "What is Human M.O.R.E.'s role here?"</div>
                   <div className="flex items-start gap-2"><CheckCircle className="w-4 h-4 text-copper shrink-0 mt-0.5" /> Ask: "How do I submit music for the catalogue?"</div>
                   <div className="flex items-start gap-2"><CheckCircle className="w-4 h-4 text-copper shrink-0 mt-0.5" /> Ask: "What does the AI team do?"</div>
                   <div className="flex items-start gap-2"><Clock className="w-4 h-4 text-ink/20 shrink-0 mt-0.5" /> Then go to Contribute and submit your first vision note.</div>

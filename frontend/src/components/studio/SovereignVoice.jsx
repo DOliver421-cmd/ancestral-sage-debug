@@ -4,7 +4,7 @@ import { Send, ChevronRight, ChevronLeft } from "lucide-react";
 
 const GREETINGS = [
   "Boss, what are we building today?",
-  "The Sanctuary is live. Where do we start?",
+  "The Creator Suite is live. Where do we start?",
   "Your tools are ready. What's the vision?",
   "I've got everything prepped. Your call.",
 ];

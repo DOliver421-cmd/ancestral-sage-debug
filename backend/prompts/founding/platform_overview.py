@@ -245,9 +245,9 @@ but to know which direction we are already walking.
    Events create community, community creates subscribers,
    subscribers create recurring revenue.
 
-9. HUMAN SOUP — CREATIVE IP EXPANSION
+9. HUMAN M.O.R.E. — CREATIVE IP EXPANSION
    ───────────────────────────────────────
-   Human SOUP is a founding creative concept with
+   Human M.O.R.E. is a founding creative concept with
    untapped commercial potential.
    Performance art. Multimedia. Curriculum.
    Potentially its own product line, event series,

@@ -5,7 +5,7 @@
  * and the checkout flow can never drift apart again. Product keys here match
  * PAYMENT_PRODUCTS in backend/routers/payments.py — keep them in sync.
  *
- * The old "Creator's Sanctuary" lanes (sanctuary_paid / sanctuary_creator /
+ * The old "M.O.R.E. Creators" lanes (sanctuary_paid / sanctuary_creator /
  * sanctuary_mod) have been FOLDED into the main ladder: their creator perks
  * (course publishing, payouts, advanced tools, moderation rights) now sit on
  * the matching basic tiers below. Those product keys remain server-side as

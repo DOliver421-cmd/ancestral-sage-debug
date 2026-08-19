@@ -100,7 +100,7 @@ export default function StudentDashboard() {
           <span style={{ fontSize: 24, filter: "drop-shadow(0 0 8px rgba(168,85,247,0.8))" }}>⬡</span>
           <div>
             <div style={{ fontFamily: "monospace", fontSize: "1rem", fontWeight: 900, color: "#c084fc", letterSpacing: "0.08em", textShadow: "0 0 10px rgba(192,132,252,0.5)", lineHeight: 1.2 }}>
-              CREATOR'S SANCTUARY
+              M.O.R.E. CREATORS
             </div>
             <div style={{ fontFamily: "monospace", fontSize: "0.65rem", color: "rgba(168,85,247,0.7)" }}>
               LYRIC FORGE · PUBLISHING · AI TOOLS

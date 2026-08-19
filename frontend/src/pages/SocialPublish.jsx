@@ -1,6 +1,6 @@
 /**
  * Social Blast — write once, AI adapts for every platform.
- * Dark atmospheric design matching Creator's Sanctuary aesthetic.
+ * Dark atmospheric design matching the M.O.R.E. Creator Suite aesthetic.
  */
 
 import { useState } from "react";

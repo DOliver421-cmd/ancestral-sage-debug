@@ -137,8 +137,9 @@ export default function TrashPantheon() {
         {/* Hero */}
         <div style={{ textAlign: "center", padding: "80px 20px 40px", position: "relative", zIndex: 2 }}>
           <div style={{ fontSize: "clamp(2rem,8vw,5rem)", lineHeight: 1 }}>🗑️</div>
-          <h1 style={{ fontFamily: "monospace", fontSize: "clamp(1.5rem,5vw,3.5rem)", color: "#39ff14", animation: "flickerGlow 2s ease-in-out infinite", margin: "16px 0 8px", letterSpacing: "0.1em" }}>THE TRASH PANTHEON</h1>
+          <h1 style={{ fontFamily: "monospace", fontSize: "clamp(1.5rem,5vw,3.5rem)", color: "#39ff14", animation: "flickerGlow 2s ease-in-out infinite", margin: "16px 0 8px", letterSpacing: "0.1em" }}>THE M.O.R.E. PANTHEON</h1>
           <p style={{ color: "#c8620a", fontSize: "clamp(0.8rem,2vw,1.1rem)", letterSpacing: "0.2em", textTransform: "uppercase" }}>Where bad ideas come to be celebrated.</p>
+          <p style={{ color: "rgba(57,255,20,0.45)", fontSize: "clamp(0.65rem,1.5vw,0.8rem)", letterSpacing: "0.15em", textTransform: "uppercase", marginTop: 6 }}>A M.O.R.E. Help Center production · edutainment, zero quality control</p>
           <div style={{ marginTop: 20, display: "flex", gap: 12, justifyContent: "center", flexWrap: "wrap" }}>
             <span style={{ background: "rgba(57,255,20,0.08)", border: "1px solid rgba(57,255,20,0.2)", padding: "6px 14px", borderRadius: 20, fontSize: 11, color: "#39ff14" }}>Est. in a dumpster, 2024</span>
             <span style={{ background: "rgba(200,98,10,0.08)", border: "1px solid rgba(200,98,10,0.2)", padding: "6px 14px", borderRadius: 20, fontSize: 11, color: "#c8620a" }}>No quality control</span>
@@ -205,7 +206,7 @@ export default function TrashPantheon() {
               <div style={{ color: "#39ff14", fontSize: 13, lineHeight: 1.7, marginBottom: 8 }}>You weren't trashy enough.</div>
               <div style={{ color: "rgba(255,255,255,0.7)", fontSize: 12, lineHeight: 1.6, marginBottom: 20 }}>We're disappointed. Go on… back to the people with talent.</div>
               <div style={{ display: "flex", gap: 10, justifyContent: "center" }}>
-                <Link to="/studio" style={{ background: "#39ff14", color: "#0a0805", padding: "9px 18px", fontFamily: "monospace", fontWeight: 900, fontSize: 11, textDecoration: "none", borderRadius: 4 }}>Return to Sanctuary</Link>
+                <Link to="/studio" style={{ background: "#39ff14", color: "#0a0805", padding: "9px 18px", fontFamily: "monospace", fontWeight: 900, fontSize: 11, textDecoration: "none", borderRadius: 4 }}>Return to the Suite</Link>
                 <button onClick={() => setExitOpen(false)} style={{ background: "transparent", color: "rgba(57,255,20,0.5)", border: "1px solid rgba(57,255,20,0.3)", padding: "9px 18px", fontFamily: "monospace", fontSize: 11, cursor: "pointer", borderRadius: 4 }}>Stay Trash</button>
               </div>
             </div>

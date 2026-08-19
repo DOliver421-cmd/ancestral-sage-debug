@@ -1,7 +1,7 @@
 /**
  * ClassicTools — the hub for the ORIGINAL standalone HTML applications.
  *
- * Every full-featured original (the Creator's Sanctuary suite, the original
+ * Every full-featured original (the M.O.R.E. Creators suite, the original
  * M.O.R.E. Help Center, the Supervisor, the Sovereign, the litigation weapons,
  * the original helper, the Ancestral Sage) is preserved and served by the
  * build. This page launches them in-app or full-screen. Nothing original has
