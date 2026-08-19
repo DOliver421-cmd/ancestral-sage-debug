@@ -66,7 +66,7 @@ export default function CustomizationPanel({ onClose }) {
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 28 }}>
           <div>
             <div style={{ fontFamily: 'monospace', fontSize: 9, letterSpacing: '0.3em', textTransform: 'uppercase', color: `${colors.primary}99`, marginBottom: 4 }}>
-              Sanctuary Customization
+              Creator Suite Customization
             </div>
             <h2 style={{ margin: 0, fontSize: 18, fontWeight: 900, color: colors.primary, fontFamily: 'Georgia, serif' }}>
               Shape Your Space

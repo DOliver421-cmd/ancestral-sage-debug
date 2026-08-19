@@ -2222,15 +2222,15 @@ export default function MoreHelpCenter() {
           </div>
         </section>
 
-        {/* ── Creator's Sanctuary ── */}
+        {/* ── M.O.R.E. Creators ── */}
         <section style={{ marginBottom: 48, background: SAND, borderRadius: 12, border: `2px solid ${FOREST}55`, padding: "40px 36px" }}>
           <div style={{ marginBottom: 28, textAlign: "center" }}>
             <div style={{ fontSize: 11, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.2em", color: FOREST, marginBottom: 6, fontFamily: "Georgia, serif", borderBottom: `2px solid ${FOREST}`, paddingBottom: 4, display: "inline-block" }}>
-              ✦ Protected Space
+              ✦ Edutainment · Create while you learn
             </div>
-            <h2 style={{ fontSize: 28, fontWeight: 900, color: BARK, fontFamily: "Georgia, serif", marginTop: 10, marginBottom: 10 }}>Creator's Sanctuary</h2>
+            <h2 style={{ fontSize: 28, fontWeight: 900, color: BARK, fontFamily: "Georgia, serif", marginTop: 10, marginBottom: 10 }}>M.O.R.E. Creators</h2>
             <p style={{ color: EARTH, fontSize: 15, maxWidth: 520, margin: "0 auto", lineHeight: 1.7 }}>
-              A protected space for artists, educators, authors, and storytellers building inside the M.O.R.E. ecosystem.
+              The creative engine of the M.O.R.E. Help Center — artists, educators, authors, and storytellers building while the community learns and laughs.
             </p>
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(220px,1fr))", gap: 16, marginBottom: 28 }}>
@@ -2238,6 +2238,7 @@ export default function MoreHelpCenter() {
               { icon: Sparkles,  title: "Course Builder",       desc: "Build and publish your own training modules with instructor tools." },
               { icon: Activity,  title: "Media Production",     desc: "Video, audio, and written content tools keep the community vibrant." },
               { icon: BookOpen,  title: "Publishing Pipeline",  desc: "From manuscript to Gumroad listing — the full book pipeline is here." },
+              { icon: Sparkles, title: "M.O.R.E. Pantheon",     desc: "Comedy, poetry, and proudly bad ideas — the edutainment hall of the Help Center." },
             ].map(card => {
               const Icon = card.icon;
               return (
@@ -2251,9 +2252,12 @@ export default function MoreHelpCenter() {
               );
             })}
           </div>
-          <div style={{ textAlign: "center" }}>
-            <Link to="/social/publish" style={{ display: "inline-flex", alignItems: "center", gap: 8, background: GROVE, color: AMBER, padding: "11px 28px", borderRadius: 4, fontWeight: 800, fontSize: 13, textDecoration: "none", textTransform: "uppercase", letterSpacing: 1, fontFamily: "Georgia, serif" }}>
-              Enter the Sanctuary <ArrowRight style={{ width: 14, height: 14 }} />
+          <div style={{ textAlign: "center", display: "flex", gap: 12, justifyContent: "center", flexWrap: "wrap" }}>
+            <Link to="/studio" style={{ display: "inline-flex", alignItems: "center", gap: 8, background: GROVE, color: AMBER, padding: "11px 28px", borderRadius: 4, fontWeight: 800, fontSize: 13, textDecoration: "none", textTransform: "uppercase", letterSpacing: 1, fontFamily: "Georgia, serif" }}>
+              Enter the Creator Suite <ArrowRight style={{ width: 14, height: 14 }} />
+            </Link>
+            <Link to="/trash" style={{ display: "inline-flex", alignItems: "center", gap: 8, background: "transparent", color: FOREST, padding: "11px 28px", borderRadius: 4, fontWeight: 800, fontSize: 13, textDecoration: "none", textTransform: "uppercase", letterSpacing: 1, border: `2px solid ${FOREST}55`, fontFamily: "Georgia, serif" }}>
+              Laugh at the Pantheon <ArrowRight style={{ width: 14, height: 14 }} />
             </Link>
           </div>
         </section>

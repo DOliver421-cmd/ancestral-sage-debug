@@ -19,16 +19,16 @@
 export const ORIGINAL_TOOLS = [
   {
     slug: "creators-sanctuary",
-    title: "Creator's Sanctuary",
-    suite: "Creator's Sanctuary",
+    title: "M.O.R.E. Creators",
+    suite: "M.O.R.E. Creators",
     icon: "🎨",
     path: "/tools/creators-sanctuary.html",
-    desc: "The original sanctuary hub — publishers, media strategists, oracle work, and electrical courses in one place.",
+    desc: "The original M.O.R.E. Creators hub — publishers, media strategists, oracle work, and electrical courses in one place.",
   },
   {
     slug: "djedi-oracle",
     title: "WA DJEDI — Kemetic AI Oracle",
-    suite: "Creator's Sanctuary",
+    suite: "M.O.R.E. Creators",
     icon: "𓂀",
     path: "/tools/djedi-oracle.html",
     desc: "The Kemetic AI Oracle — divination and guidance in the ancestral tradition.",
@@ -36,7 +36,7 @@ export const ORIGINAL_TOOLS = [
   {
     slug: "electrical-courses",
     title: "Electrical Courses",
-    suite: "Creator's Sanctuary",
+    suite: "M.O.R.E. Creators",
     icon: "⚡",
     path: "/tools/electrical-courses.html",
     desc: "Circuit design, wiring, solar, and safety — the trade-skill course suite.",
@@ -44,7 +44,7 @@ export const ORIGINAL_TOOLS = [
   {
     slug: "media-strategist",
     title: "Media Strategist",
-    suite: "Creator's Sanctuary",
+    suite: "M.O.R.E. Creators",
     icon: "🎬",
     path: "/tools/media-strategist.html",
     desc: "The media strategy workbench — planning and publishing for creators.",
@@ -52,7 +52,7 @@ export const ORIGINAL_TOOLS = [
   {
     slug: "publisher-prime",
     title: "Publisher — Book & Content Publishing",
-    suite: "Creator's Sanctuary",
+    suite: "M.O.R.E. Creators",
     icon: "📚",
     path: "/tools/publisher-prime.html",
     desc: "Book and content publishing engine for the creator economy.",

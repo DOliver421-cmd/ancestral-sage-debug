@@ -104,7 +104,7 @@ function EntryScreen({ onEnter }) {
           letterSpacing: "0.03em",
           margin: 0,
         }}>
-          The Creator's<br />Sanctuary
+          The M.O.R.E.<br />Creator Suite
         </h1>
         <p style={{
           color: "rgba(255,255,255,0.65)",
@@ -115,7 +115,7 @@ function EntryScreen({ onEnter }) {
           maxWidth: 440,
           lineHeight: 1.6,
         }}>
-          You are stepping into the Creator's Sanctuary — a sacred chamber of invention, learning, and mastery. Your mission begins here.
+          You are stepping into the M.O.R.E. Creator Suite — a sacred chamber of invention, learning, and mastery. Your mission begins here.
         </p>
       </div>
 
@@ -135,7 +135,7 @@ function EntryScreen({ onEnter }) {
           animation: "fadeInUp 0.5s ease",
           boxShadow: "0 0 20px rgba(255,215,0,0.1)",
         }}>
-          ✦ Welcome, Creator. The Sanctuary is open. Where shall we begin?
+          ✦ Welcome, Creator. The Suite is open. Where shall we begin?
         </div>
       )}
 
@@ -157,7 +157,7 @@ function EntryScreen({ onEnter }) {
             animation: "entryPulse 2s ease-in-out infinite",
           }}
         >
-          Enter the Sanctuary
+          Enter the Suite
         </button>
       )}
 
@@ -415,7 +415,7 @@ export default function CreatorStudio() {
             {/* Palette / Customization */}
             <button
               onClick={() => setShowCustomization(true)}
-              title="Customize Sanctuary"
+              title="Customize Suite"
               style={{
                 background: "rgba(255,255,255,0.05)",
                 border: "1px solid rgba(255,255,255,0.1)",

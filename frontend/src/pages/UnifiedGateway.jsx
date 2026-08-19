@@ -233,12 +233,25 @@ export default function UnifiedGateway() {
       {/* ── CREATOR PROFILES ─────────────────────────────────────────────── */}
       <section className="py-24 px-6 bg-bone">
         <div className="max-w-6xl mx-auto">
-          <div className="overline text-copper mb-3">Creators & Partners</div>
-          <div className="flex items-end justify-between mb-12">
+          <div className="overline text-copper mb-3">M.O.R.E. Creators — learn, help, and laugh</div>
+          <div className="flex items-end justify-between mb-6">
             <h2 className="font-heading font-black text-4xl text-ink">The voices of<br />the movement</h2>
             <Link to="/creators" className="text-copper font-bold text-sm hover:underline">
               View all creators →
             </Link>
+          </div>
+          <div className="flex flex-wrap gap-2 mb-8">
+            {[
+              ["Enter the Creator Suite", "/studio"],
+              ["Social Blast", "/social/publish"],
+              ["Ghost Producer", "/ghost-producer"],
+              ["M.O.R.E. Pantheon — bad ideas welcome", "/trash"],
+            ].map(([label, href]) => (
+              <Link key={href} to={href}
+                className="text-xs font-bold px-4 py-2 rounded-full border border-ink/15 text-ink/70 hover:border-copper hover:text-copper transition-colors">
+                {label} →
+              </Link>
+            ))}
           </div>
           <CreatorPreview />
         </div>

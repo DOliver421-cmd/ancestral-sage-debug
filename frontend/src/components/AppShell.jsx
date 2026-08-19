@@ -190,7 +190,7 @@ export default function AppShell({ children }) {
           {/* ── CLASSIC TOOLS (the preserved original HTML apps) ──────── */}
           <NavSection label="Classic Tools" collapsed={collapsed}>
             {nl("/classic-tools",  "All Originals",     Archive,         "nav-classic-tools")}
-            {nl("/classic/creators-sanctuary", "Creator's Sanctuary", Music, "nav-classic-sanctuary")}
+            {nl("/classic/creators-sanctuary", "M.O.R.E. Creators (classic)", Music, "nav-classic-sanctuary")}
             {nl("/classic/djedi-oracle", "DJEDI Oracle", Star,         "nav-classic-djedi")}
             {nl("/classic/litigation-weapon", "Litigation Weapon", Scale, "nav-classic-litigation")}
             {nl("/classic/more-help-center", "Help Center (original)", HelpCircle, "nav-classic-more")}
@@ -207,8 +207,8 @@ export default function AppShell({ children }) {
             {nl("/business-office", "AI Business Office", Landmark,     "nav-business-office")}
           </NavSection>
 
-          {/* ── CREATOR'S SANCTUARY (all roles — page handles tier locks) ── */}
-          <NavSection label="Creator's Sanctuary" collapsed={collapsed}>
+          {/* ── M.O.R.E. CREATORS (all roles — page handles tier locks) ── */}
+          <NavSection label="M.O.R.E. Creators" collapsed={collapsed}>
             {nl("/social/publish",       "Social Blast",      Share2,     "nav-social-publish")}
             {nl("/studio",               "Creator Studio",    Music,      "nav-creator-studio")}
             {nl("/creator/courses",      "Course Manager",    Video,      "nav-creator-courses")}
@@ -219,6 +219,7 @@ export default function AppShell({ children }) {
             {nl("/band",                 "Band on a Page",    Music,      "nav-band")}
             {nl("/playlist/dashboard",   "Playlist Manager",  Radio,      "nav-playlist")}
             {nl("/arcade",               "Virtual Arcade",    Gamepad2,   "nav-arcade")}
+            {nl("/trash",                "M.O.R.E. Pantheon", Star,       "nav-trash")}
           </NavSection>
 
           <NavSection label="Commerce" collapsed={collapsed}>

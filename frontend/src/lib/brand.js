@@ -8,8 +8,8 @@ export const WAI_LOGO = MORE_LOGO;
 export const BRAND = {
   short: "M.O.R.E.",
   name: "M.O.R.E. Help Center",
-  legal: "Michael Oliver Resource Exchange",
-  full: "M.O.R.E. Help Center — Michael Oliver Resource Exchange",
+  legal: "NAM Oshun Edutainment LLC",
+  full: "M.O.R.E. Help Center — a division of NAM Oshun Edutainment LLC",
   tagline: "A social-service virtual help center — skills, support, and solidarity.",
   mission: "Help people. Lift people. Love people.",
 };
