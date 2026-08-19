@@ -556,7 +556,7 @@
           <div class="header-actions">
             <button class="btn-primary" id="focusTodayBtn">Focus on today’s tasks</button>
             <button class="btn-ghost" id="quickScanBtn">Quick scan &amp; read</button>
-            <a href="/help-center" class="help-link">Open Help Center Manual</a>
+            <a href="https://ancestral-sage-debug-production.up.railway.app/help-center" class="help-link">Open Help Center Manual</a>
           </div>
         </div>
         <div>
@@ -999,25 +999,410 @@
       if (context === "letter-draft") {
         return {
           short:
-            "You are drafting a letter. I can help you write it in plain, respectful
+            "You are drafting a letter. I can help you write it in plain, respectful words.",
+          full:
+            "You are using the letter drafting tool. Tell me who the letter is for and what you need to say, " +
+            "and I will help you write it in plain, respectful words. " +
+            "I can help you ask for what you need, explain your situation, or respond to a letter you received. " +
+            "A staff member can review it with you before you send it if you want a second pair of eyes."
+        };
+      }
+
+      if (context === "upload-review") {
+        return {
+          short:
+            "You chose Upload for review. In the full system you can attach a document for staff to review with you.",
+          full:
+            "The upload review tool lets you attach a document (letter, bill, form) so a staff member or instructor " +
+            "can go through it with you. Right now, you can type or paste the important parts and I will explain them. " +
+            "Ask a staff member if you would like to upload the original document for review."
+        };
+      }
+
+      if (context === "scam-check") {
+        return {
+          short:
+            "You chose Scam check. Paste or type the message or letter and I will flag common scam signs.",
+          full:
+            "I can check a message, email, or letter for common scam signs: pressure to act right away, threats about " +
+            "jail or police, demands for gift cards or wire transfers, requests for your passwords or full Social " +
+            "Security number, and strange links. Real agencies almost never ask for gift cards or secret payments. " +
+            "If you are unsure, call the real number from their official website before doing anything."
+        };
+      }
+
+      if (context === "medicines") {
+        return {
+          short:
+            "You chose My medicines. I can help you read labels and instructions, but I am not a doctor.",
+          full:
+            "Medicine labels show the name, strength, how much to take, how often, and warnings. " +
+            "Follow the directions exactly and do not stop or change a medicine without talking to your doctor or pharmacist. " +
+            "Keep a list of everything you take and bring it to every appointment."
+        };
+      }
+
+      if (context === "food") {
+        return {
+          short:
+            "You chose food help. I can give simple food ideas and help you find food assistance, but this is not medical advice.",
+          full:
+            "For everyday food questions I can give simple, balanced ideas. " +
+            "If you need help getting food, look for food pantries, SNAP benefits, and community meal programs in your area. " +
+            "For medical questions about what you should eat, talk to your doctor or a dietitian."
+        };
+      }
+
+      if (context === "housing") {
+        return {
+          short:
+            "You chose Housing. I can help you read rent, lease, and housing letters.",
+          full:
+            "Rent and housing letters usually include your name, the address, the reason for writing, and important dates. " +
+            "If you receive an eviction notice, do not ignore it — you may have rights and a short time to respond. " +
+            "Contact local legal aid or a tenant help group as soon as you can."
+        };
+      }
+
+      if (context === "employment") {
+        return {
+          short:
+            "You chose Employment. I can help you understand job offers, pay stubs, and work papers.",
+          full:
+            "Job papers like offers and pay stubs should show your pay rate, hours, and what is taken out. " +
+            "Before you sign anything, make sure you understand the pay, the schedule, and any rules. " +
+            "If a job asks you to pay money to start, that is usually a warning sign."
+        };
+      }
+
+      if (context === "trusted-contacts") {
+        return {
+          short:
+            "You chose Trusted contacts. These are the people you trust to help you with important things.",
+          full:
+            "A trusted contact is a person you choose who can help you with decisions, appointments, or paperwork. " +
+            "Choose people who know you well and whom you trust. " +
+            "You can ask staff to help you set or update your trusted contacts."
+        };
+      }
+
+      if (context === "caregiver-mode") {
+        return {
+          short:
+            "You chose Caregiver mode. A caregiver can work with you in this space when you invite them.",
+          full:
+            "Caregiver mode lets a trusted caregiver sit with you and help you read documents, fill forms, and manage tasks. " +
+            "You stay in control — the caregiver helps, you decide. " +
+            "Ask a staff member if you want to set up caregiver access."
+        };
+      }
+
+      if (context === "saved-conversations") {
+        return {
+          short:
+            "You chose Saved conversations. Use “Save this chat” to keep chats on this device, then review them here.",
+          full:
+            "Your saved conversations are kept on this device so you can look back at what we discussed. " +
+            "Use “Save this chat” to keep the current conversation. Use “Clear this chat” to start fresh. " +
+            "Nothing is shared without your permission."
+        };
+      }
+
+      if (context === "emergency") {
+        return {
+          short:
+            "You chose Emergency. If you are in danger, call 911 now. Poison: 1-800-222-1222. Mental health: call or text 988.",
+          full:
+            "In an emergency, call 911 right away if you or someone else is in danger. " +
+            "Poison Control: 1-800-222-1222. Mental health crisis: call or text 988. " +
+            "Domestic violence help: 1-800-799-7233. Local resources: call 211. " +
+            "You can also text HOME to 741741 for crisis support."
+        };
+      }
+
+      if (context === "read-mail" || context === "bills" || context === "appointments") {
+        return {
+          short:
+            "You chose a daily tool. Tell me what the paper says and I will explain it in plain words.",
+          full:
+            "I can help with mail, bills, and appointments. " +
+            "Type or paste what the letter or bill says, or tell me about your appointment, and I will explain each part clearly " +
+            "and tell you what (if anything) you need to do next."
+        };
+      }
+
+      // General knowledge fallbacks
+      if (lower.includes("social security")) {
+        return {
+          short:
+            "Social Security letters explain your payments or changes. I can help you read and understand them.",
+          full:
+            "Social Security letters explain your payments, changes, or questions about your record. " +
+            "A real letter usually has your full name, part of your Social Security number, and a clear reason for writing. " +
+            "If someone calls and demands money or threatens you, that is usually a scam. " +
+            "You can hang up and call the real Social Security number from their official website."
+        };
+      }
+      if (lower.includes("scam")) {
+        return {
+          short:
+            "If someone asks for money right now, threatens you, or wants gift cards, it may be a scam.",
+          full:
+            "If someone asks for money right now, threatens jail, police, or court, or demands gift cards or wire transfers, " +
+            "it may be a scam. Real agencies almost never demand gift cards, wire transfers, or secret payments. " +
+            "Do not send money, do not share personal numbers, and do not click strange links. " +
+            "If you are unsure, call the real number on the back of your card or on the official website."
+        };
+      }
+      return {
+        short:
+          "I hear your question. I’ll give you a short, simple answer first. You can ask for more if you like.",
+        full:
+          "I hear your question and I want to give you a clear, calm answer. " +
+          "I will explain the main idea in simple words, and if you want more detail, you can tap “Tell me more” and I will go deeper."
+      };
+    }
 
     // API helper for authenticated endpoints
     async function callAuthAPI(endpoint, body) {
       try {
-        const response = await fetch(\"/api/helper/\"+endpoint, {
-          method: \"POST\",
-          headers: {\"Content-Type\": \"application/json\"},
-          credentials: \"include\",
+        const response = await fetch("/api/helper/" + endpoint, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
           body: JSON.stringify(body)
         });
         if (!response.ok) {
-          if (response.status === 401) { showToast(\"Session expired. Please log in again.\", \"🔒\", 3500); setTimeout(() => window.location.href = \"/login\", 2000); return null; }
-          throw new Error(\"API error\");
+          if (response.status === 401) {
+            showToast("Session expired. Please log in again.", "🔒", 3500);
+            setTimeout(() => { window.location.href = "/login"; }, 2000);
+            return null;
+          }
+          throw new Error("API error");
         }
         return await response.json();
       } catch (err) {
-        showToast(\"Could not reach the helper service. Please try again.\", \"⚠️\", 3000);
+        showToast("Could not reach the helper service. Please try again.", "⚠️", 3000);
         return null;
       }
     }
+
+    async function handleSend() {
+      const text = userInputEl.value.trim();
+      if (!text) return;
+      addMessage("user", text);
+      userInputEl.value = "";
+
+      const apiResult = await callAuthAPI("ask", { question: text, language: currentLanguage });
+      if (apiResult && apiResult.short) {
+        lastShortAnswer = apiResult.short;
+        lastFullAnswer = apiResult.full || apiResult.short;
+        addMessage("helper", apiResult.short);
+      } else {
+        const { short, full } = generateAnswer(text, currentContext);
+        lastShortAnswer = short;
+        lastFullAnswer = full;
+        addMessage("helper", short);
+      }
+    }
+
+    sendBtn.addEventListener("click", handleSend);
+    userInputEl.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" && !e.shiftKey) {
+        e.preventDefault();
+        handleSend();
+      }
+    });
+
+    tellMeMoreBtn.addEventListener("click", () => {
+      if (!lastFullAnswer) {
+        showToast("Ask me something first, then I can tell you more.", "ℹ️");
+        return;
+      }
+      addMessage("helper", lastFullAnswer);
+    });
+
+    clearChatBtn.addEventListener("click", () => {
+      conversationEl.innerHTML = "";
+      lastShortAnswer = "";
+      lastFullAnswer = "";
+      initialGreeting();
+      showToast("Chat cleared. Starting fresh.", "🧹");
+    });
+
+    saveChatBtn.addEventListener("click", () => {
+      const lines = [];
+      conversationEl.querySelectorAll(".message").forEach((m) => {
+        const role = m.classList.contains("user") ? "You" : "Helper";
+        const bubble = m.querySelector(".bubble");
+        if (bubble) lines.push(role + ": " + bubble.textContent);
+      });
+      if (!lines.length) {
+        showToast("There is nothing to save yet.", "ℹ️");
+        return;
+      }
+      try {
+        const saved = JSON.parse(localStorage.getItem("helper_saved_chats") || "[]");
+        saved.push({ savedAt: new Date().toISOString(), lines });
+        localStorage.setItem("helper_saved_chats", JSON.stringify(saved.slice(-20)));
+        showToast("This conversation was saved on this device.", "💾");
+      } catch {
+        showToast("Could not save this chat right now.", "⚠️");
+      }
+    });
+
+    backHomeBtn.addEventListener("click", () => {
+      currentContext = "general";
+      contextTag.textContent = "Context: General";
+      toolsCard.style.display = "";
+      conversationCard.style.display = "";
+      showToast("You are back at the main menu.", "🏠");
+      conversationEl.innerHTML = "";
+      initialGreeting();
+    });
+
+    // Tool buttons
+    const TOOL_PROMPTS = {
+      "read-mail": "You chose Read my mail. Type or paste what the letter says and I will read it and explain it in plain words.",
+      "bills": "You chose My bills. Tell me who the bill is from and what it says. I will explain what you owe and why.",
+      "appointments": "You chose My appointments. Tell me the appointment, the date, and what you need to bring. I will help you prepare.",
+      "legal-draft": "You chose Draft legal form. I can help you find calm, clear words for your form, but I am not your lawyer.",
+      "letter-draft": "You chose Draft a letter. Tell me who the letter is for and what you need to say.",
+      "upload-review": "You chose Upload for review. In the full system, staff can review a document with you. For now, paste the important parts and I will explain them.",
+      "scam-check": "You chose Scam check. Paste or type the message or letter and I will flag common scam signs.",
+      "medicines": "You chose My medicines. I can help you read labels and instructions, but I am not a doctor.",
+      "food": "You chose Food & nutrition. I can give simple food ideas, but this is not medical advice.",
+      "housing": "You chose Housing. I can help you read rent, lease, and housing letters.",
+      "employment": "You chose Employment & school. I can help you understand job offers, school forms, and training papers.",
+      "trusted-contacts": "You chose Trusted contacts. These are the people you trust to help you with important things.",
+      "caregiver-mode": "You chose Caregiver mode. A caregiver can work with you in this space when you invite them.",
+      "saved-conversations": "You chose Saved conversations. Use “Save this chat” to keep chats on this device, then review them here.",
+      "emergency": "You chose Emergency info. If you are in danger call 911. Poison: 1-800-222-1222. Mental health: 988."
+    };
+
+    toolButtons.forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const tool = btn.getAttribute("data-tool");
+        if (!tool) return;
+        currentContext = tool;
+        contextTag.textContent = "Context: " + (TOOL_PROMPTS[tool] ? tool.replace(/-/g, " ") : "General");
+        addMessage("helper", TOOL_PROMPTS[tool] || "Tell me what you need help with and I will guide you step by step.");
+        userInputEl.focus();
+      });
+    });
+
+    // Language cycle
+    const languageCycle = [
+      { code: "en", label: "English" },
+      { code: "es", label: "Español" },
+      { code: "ht", label: "Kreyòl Ayisyen" },
+      { code: "yo", label: "Yorùbá" },
+      { code: "so", label: "Af‑Soomaali" },
+      { code: "tl", label: "Tagalog" },
+      { code: "vi", label: "Tiếng Việt" }
+    ];
+
+    languageBtn.addEventListener("click", () => {
+      const idx = languageCycle.findIndex((l) => l.code === currentLanguage);
+      const next = languageCycle[(idx + 1) % languageCycle.length];
+      currentLanguage = next.code;
+      languageLabel.textContent = "Language: " + next.label;
+      showToast("I will try to speak in " + next.label + " as best I can.", "🌎", 3000);
+    });
+
+    // Voice input
+    let recognition = null;
+    const SPEECH_LANG = {
+      en: "en-US",
+      es: "es-US",
+      ht: "ht-HT",
+      yo: "yo-NG",
+      so: "so-SO",
+      tl: "tl-PH",
+      vi: "vi-VN"
+    };
+    if ("webkitSpeechRecognition" in window || "SpeechRecognition" in window) {
+      const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+      recognition = new SR();
+      recognition.continuous = false;
+      recognition.interimResults = false;
+      recognition.lang = "en-US";
+
+      recognition.onstart = () => {
+        isListening = true;
+        micLabel.textContent = "Listening…";
+        showToast("I am listening. Speak slowly and clearly.", "🎙️", 3000);
+      };
+
+      recognition.onend = () => {
+        isListening = false;
+        micLabel.textContent = "Speak to me";
+      };
+
+      recognition.onresult = (event) => {
+        const transcript = event.results[0][0].transcript;
+        userInputEl.value = transcript;
+        handleSend();
+      };
+
+      recognition.onerror = () => {
+        isListening = false;
+        micLabel.textContent = "Speak to me";
+        showToast("I could not hear you clearly. Please try again.", "🔇");
+      };
+    }
+
+    micBtn.addEventListener("click", () => {
+      if (!recognition) {
+        showToast("Voice is not supported on this device. You can still type.", "🔇", 3000);
+        return;
+      }
+      if (isListening) {
+        recognition.stop();
+      } else {
+        recognition.lang = SPEECH_LANG[currentLanguage] || "en-US";
+        recognition.start();
+      }
+    });
+
+    readBtn.addEventListener("click", () => {
+      showToast("In this preview I cannot use your camera yet. You can type or paste what it says.", "📷", 3500);
+    });
+
+    scamBtn.addEventListener("click", () => {
+      const short = "If someone asks for money right now, threatens you, or wants gift cards, it may be a scam.";
+      const full =
+        "If someone asks for money right now, threatens jail, police, or court, or demands gift cards or wire transfers, " +
+        "it may be a scam. Real agencies almost never demand gift cards, wire transfers, or secret payments. " +
+        "Do not send money, do not share personal numbers, and do not click strange links. " +
+        "If you are unsure, call the real number on the back of your card or on the official website.";
+      lastShortAnswer = short;
+      lastFullAnswer = full;
+      addMessage("helper", short);
+    });
+
+    printBtn.addEventListener("click", () => {
+      window.print();
+    });
+
+    focusTodayBtn.addEventListener("click", () => {
+      handleNav("tasks");
+      showToast("Today’s focus: mail, bills, and appointments. Tap a tool to start.", "✅", 3500);
+    });
+
+    quickScanBtn.addEventListener("click", () => {
+      currentContext = "scan-read";
+      contextTag.textContent = "Context: scan-read";
+      addMessage(
+        "helper",
+        "You chose Quick scan & read. In the full system you can upload a photo or PDF. For now, type or paste what the document says and I will explain it."
+      );
+      userInputEl.focus();
+    });
+
+    // Initial
+    initialGreeting();
+  </script>
+</body>
+</html>
 
