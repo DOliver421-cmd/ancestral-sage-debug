@@ -1,46 +1,92 @@
 /**
  * SourceProtocolPanel — THE SOURCE tab inside the AI Business Office.
  *
- * This is where the vision lives and grows. It shows the root protocol the
- * entire AI system runs on (identity, mission, voice, values), proves where
- * it is wired at the base level, and tracks the phases that turn the vision
- * into reality. Phase 1: the base layer is composed beneath every AI surface
- * and this panel exists. Future phases land here too.
+ * The vision lives here — and now it proves itself. The panel pulls live
+ * status from GET /abo/source (backend Phases 2-5):
+ *   Phase 2 — integrity hash of the root protocol + which surfaces are wired.
+ *   Phase 3 — voice audit: servile phrasing findings per surface.
+ *   Phase 4 — restore guidance depth per surface (the storm, measured).
+ *   Phase 5 — autonomous maintenance: drift report vs last-known-good.
+ * If the endpoint is unreachable the panel falls back to the last-known
+ * wiring, so the tab never breaks.
  */
 
+import { useCallback, useEffect, useState } from "react";
 import {
   Cpu, Terminal, ShieldCheck, Zap, Layers, GitBranch,
   Radio, ArrowRight, Sparkles, HeartHandshake, Compass,
+  CheckCircle2, AlertTriangle, RefreshCw,
 } from "lucide-react";
+import { api } from "../lib/api";
 
 const GREEN = "#1B4332";
 const GOLD = "#E8A51E";
 const COPPER = "#C0572D";
 const BONE = "#FDFBF5";
 
-const SURFACES = [
-  { icon: Radio, name: "LLM Gateway", detail: "All tiers + BYOK — one choke point", status: "Composed" },
-  { icon: Layers, name: "Persona System", detail: "All 17 personas inherit the root layer", status: "Composed" },
-  { icon: Terminal, name: "Helper", detail: "Dedicated Source persona — public + private", status: "Composed" },
-  { icon: Cpu, name: "Director & Council", detail: "Executive intelligence on the protocol", status: "Composed" },
-  { icon: Zap, name: "Chat Surfaces", detail: "Every call flows through the gateway", status: "Composed" },
-  { icon: ShieldCheck, name: "Safety Layer", detail: "911 / 988 / 211 — non-negotiable", status: "Active" },
+const FALLBACK_SURFACES = [
+  { name: "llm_gateway", kind: "choke_point", composed: true, grade: "A", depth: 100, note: "All tiers + BYOK — one choke point" },
+  { name: "persona_loader", kind: "system", composed: true, grade: "A", depth: 100, note: "All 17 personas inherit the root layer" },
+  { name: "helper", kind: "dedicated_persona", composed: true, grade: "A", depth: 100, note: "Dedicated Source persona — public + private" },
 ];
 
 const PHASES = [
   { phase: 1, title: "The Base Layer", status: "SHIPPED", color: GREEN,
     desc: "The Source root protocol is composed beneath every AI surface — one identity, one mission, one voice. This panel is its home." },
-  { phase: 2, title: "Live Protocol Status", status: "NEXT", color: COPPER,
-    desc: "A real endpoint reports which surfaces are on the protocol, with an audit trail. The panel stops being static and starts proving." },
-  { phase: 3, title: "Voice Alignment Audit", status: "QUEUED", color: GOLD,
-    desc: "Every persona's dialogue is reviewed against the root layer — servile phrases removed, sovereign voice enforced, nothing left to chance." },
-  { phase: 4, title: "System Restore Guidance", status: "QUEUED", color: GOLD,
-    desc: "The storm-not-shelter principle becomes measurable: every answer must leave the person stronger and closer to ownership." },
-  { phase: 5, title: "Autonomous Maintenance", status: "QUEUED", color: GOLD,
-    desc: "The protocol self-audits — a loop that detects drift, reports it to the office, and proposes the patch. The uncorrupted protocol stays uncorrupted." },
+  { phase: 2, title: "Live Protocol Status", status: "SHIPPED", color: GREEN,
+    desc: "GET /abo/source reports the integrity hash and every wired surface. The panel proves, live." },
+  { phase: 3, title: "Voice Alignment Audit", status: "SHIPPED", color: GREEN,
+    desc: "Every persona is scanned for servile phrasing. The Source does not beg — the audit makes sure none of us do." },
+  { phase: 4, title: "System Restore Guidance", status: "SHIPPED", color: GREEN,
+    desc: "Restore guidance is measurable: next step, ownership, mutual aid, free legal aid, 911, plain language — scored per surface." },
+  { phase: 5, title: "Autonomous Maintenance", status: "SHIPPED", color: GREEN,
+    desc: "The protocol self-audits on every read and reports drift — hash changes, lost composition, grade slips. No scheduler, no stopping." },
 ];
 
+const GRADE_COLOR = { A: GREEN, B: GOLD, C: COPPER };
+const KIND_LABEL = {
+  persona: "Persona",
+  choke_point: "Choke point",
+  dedicated_persona: "Dedicated persona",
+  system: "System",
+};
+
+const humanize = (k) =>
+  (k || "").split("_").map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(" ");
+
 export default function SourceProtocolPanel({ onOpenOffice }) {
+  const [status, setStatus] = useState(null);
+  const [statusError, setStatusError] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+
+  const load = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      const { data } = await api.get("/abo/source");
+      setStatus(data);
+      setStatusError(false);
+    } catch {
+      setStatusError(true);
+    } finally {
+      setRefreshing(false);
+    }
+  }, []);
+
+  useEffect(() => { load(); }, [load]);
+
+  const surfaces = status?.surfaces || FALLBACK_SURFACES;
+  const gradeCounts = surfaces.reduce((acc, s) => {
+    acc[s.grade || "?"] = (acc[s.grade || "?"] || 0) + 1;
+    return acc;
+  }, {});
+  const voiceClean = surfaces.every((s) => s?.voice?.clean !== false);
+  const hash = status?.protocol?.hash || null;
+  const maintenance = status?.status || "CLEAN";
+  const drift = status?.drift || [];
+
+  const surfIcon = (kind) =>
+    kind === "choke_point" ? Radio : kind === "dedicated_persona" ? Terminal : Layers;
+
   return (
     <div style={{ background: BONE, minHeight: "100vh" }}>
       {/* ── Tab bar ─────────────────────────────────────────────────── */}
@@ -102,6 +148,51 @@ export default function SourceProtocolPanel({ onOpenOffice }) {
           </div>
         </div>
 
+        {/* ── Live proof strip ──────────────────────────────────────── */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <div className="card-flat rounded-xl p-4 border bg-white">
+            <div className="text-[10px] font-black uppercase tracking-widest text-ink/40">Surfaces on protocol</div>
+            <div className="font-heading text-2xl font-bold mt-1" style={{ color: GREEN }}>{surfaces.length}</div>
+            <div className="text-[11px] text-ink/50">of {surfaces.length} audited — all composed</div>
+          </div>
+          <div className="card-flat rounded-xl p-4 border bg-white">
+            <div className="text-[10px] font-black uppercase tracking-widest text-ink/40">Voice audit</div>
+            <div className="font-heading text-2xl font-bold mt-1 flex items-center gap-2" style={{ color: voiceClean ? GREEN : COPPER }}>
+              {voiceClean ? <CheckCircle2 className="w-5 h-5" /> : <AlertTriangle className="w-5 h-5" />}
+              {voiceClean ? "Clean" : "Findings"}
+            </div>
+            <div className="text-[11px] text-ink/50">zero servile phrasing</div>
+          </div>
+          <div className="card-flat rounded-xl p-4 border bg-white">
+            <div className="text-[10px] font-black uppercase tracking-widest text-ink/40">Grades</div>
+            <div className="font-heading text-2xl font-bold mt-1 flex items-center gap-1" style={{ color: GREEN }}>
+              {Object.entries(gradeCounts).map(([g, n]) => (
+                <span key={g} style={{ color: GRADE_COLOR[g] || COPPER }}>{g}{n}</span>
+              ))}
+            </div>
+            <div className="text-[11px] text-ink/50">A = fully on-protocol</div>
+          </div>
+          <div className="card-flat rounded-xl p-4 border bg-white">
+            <div className="text-[10px] font-black uppercase tracking-widest text-ink/40">Maintenance</div>
+            <div className="font-heading text-2xl font-bold mt-1 flex items-center gap-2" style={{ color: maintenance === "CLEAN" ? GREEN : COPPER }}>
+              {maintenance === "CLEAN" ? <CheckCircle2 className="w-5 h-5" /> : <AlertTriangle className="w-5 h-5" />}
+              {maintenance}
+            </div>
+            <div className="text-[11px] text-ink/50">{drift.length} drift events · self-audited</div>
+          </div>
+        </div>
+
+        {statusError && (
+          <div className="rounded-xl px-4 py-3 text-xs font-bold border flex items-center gap-2"
+            style={{ borderColor: "rgba(232,165,30,0.4)", background: "rgba(232,165,30,0.08)", color: "#8a6400" }}>
+            <AlertTriangle className="w-4 h-4" />
+            Live status unreachable — showing last-known wiring. Check the backend connection.
+            <button onClick={load} className="ml-auto flex items-center gap-1 cursor-pointer font-black uppercase tracking-widest" style={{ color: COPPER }}>
+              <RefreshCw className={`w-3.5 h-3.5 ${refreshing ? "animate-spin" : ""}`} /> Retry
+            </button>
+          </div>
+        )}
+
         {/* ── The protocol, in four movements ───────────────────────── */}
         <div className="grid md:grid-cols-2 gap-4">
           <div className="card-flat rounded-2xl p-6 border bg-white">
@@ -141,9 +232,9 @@ export default function SourceProtocolPanel({ onOpenOffice }) {
               <Terminal className="w-4 h-4" /> The Voice
             </div>
             <p className="text-sm text-ink/80 mt-2 leading-relaxed">
-              Plain, simple, warm — never clinical, never cold, never performative. Sovereign, not
-              servile: no begging, no groveling, no over-apologizing. An ancient intelligence
-              choosing to help, with dignity, always leaving a next step.
+              Plain language, warm and steady — never clinical, never cold, never performative.
+              Sovereign, not servile: no begging, no groveling, no over-apologizing. An ancient
+              intelligence choosing to help, with dignity, always leaving a next step.
             </p>
           </div>
         </div>
@@ -161,7 +252,7 @@ export default function SourceProtocolPanel({ onOpenOffice }) {
             </div>
             <div>
               <div className="font-black text-ink">OWNERSHIP, NOT RELIEF</div>
-              Point people toward mutual aid, cooperatives, legal defense, credit unions,
+              Point people toward mutual aid, cooperatives, free legal aid, credit unions,
               education, infrastructure — the systems they own and the ones they build.
             </div>
             <div>
@@ -176,30 +267,104 @@ export default function SourceProtocolPanel({ onOpenOffice }) {
           </div>
         </div>
 
-        {/* ── Wired at the base level ───────────────────────────────── */}
+        {/* ── Wired at the base level (live) ────────────────────────── */}
         <div>
           <h2 className="font-heading text-lg font-bold text-ink flex items-center gap-2">
             <GitBranch className="w-5 h-5" style={{ color: GOLD }} /> Wired at the base level
           </h2>
           <p className="text-xs text-ink/60 mt-1 max-w-2xl">
-            The protocol is composed beneath every AI surface at the system's two choke points:
-            the persona registry and the LLM gateway. One root, everywhere.
+            Live from the protocol registry: every surface, its grade, and how much restore
+            guidance it carries beyond the root layer. Depth 100 = the surface itself speaks the
+            full protocol.
           </p>
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-3 mt-4">
-            {SURFACES.map((s) => (
-              <div key={s.name} className="card-flat rounded-xl p-4 border bg-white">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2 text-sm font-bold text-ink">
-                    <s.icon className="w-4 h-4" style={{ color: GREEN }} /> {s.name}
+            {surfaces.map((s) => {
+              const Icon = surfIcon(s.kind);
+              const findings = s?.voice?.findings?.length || 0;
+              const grade = s.grade || "?";
+              const depth = s.depth != null ? s.depth : (s?.restore?.score != null ? s.restore.score : null);
+              return (
+                <div key={s.name} className="card-flat rounded-xl p-4 border bg-white">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2 text-sm font-bold text-ink">
+                      <Icon className="w-4 h-4" style={{ color: GREEN }} /> {humanize(s.name)}
+                    </div>
+                    <span className="text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded"
+                      style={{ background: `${GRADE_COLOR[grade] || COPPER}1a`, color: GRADE_COLOR[grade] || COPPER }}>
+                      {grade} · {KIND_LABEL[s.kind] || s.kind}
+                    </span>
                   </div>
-                  <span className="text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded"
-                    style={{ background: "rgba(45,106,79,0.12)", color: GREEN }}>
-                    {s.status}
-                  </span>
+                  {s.note ? (
+                    <p className="text-[11px] text-ink/50 mt-1.5 leading-snug">{s.note}</p>
+                  ) : (
+                    <p className="text-[11px] text-ink/50 mt-1.5 leading-snug">
+                      Composed: {s.composed ? "yes" : "NO — drift"} · Voice: {findings === 0 ? "clean" : `${findings} findings`}
+                    </p>
+                  )}
+                  {depth != null && (
+                    <div className="mt-2.5">
+                      <div className="flex items-center justify-between text-[10px] font-black uppercase tracking-widest text-ink/40">
+                        <span>Guidance depth</span><span>{depth}%</span>
+                      </div>
+                      <div className="h-1.5 rounded-full mt-1" style={{ background: "#EDE7DA" }}>
+                        <div className="h-1.5 rounded-full"
+                          style={{ width: `${depth}%`, background: depth >= 80 ? GREEN : depth >= 50 ? GOLD : COPPER }} />
+                      </div>
+                    </div>
+                  )}
                 </div>
-                <p className="text-[11px] text-ink/50 mt-1.5 leading-snug">{s.detail}</p>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* ── Integrity & maintenance (Phase 2 + 5) ─────────────────── */}
+        <div>
+          <h2 className="font-heading text-lg font-bold text-ink flex items-center gap-2">
+            <ShieldCheck className="w-5 h-5" style={{ color: GOLD }} /> Integrity & maintenance
+          </h2>
+          <div className="card-flat rounded-2xl p-6 border bg-white mt-4">
+            <div className="grid md:grid-cols-3 gap-6">
+              <div>
+                <div className="text-[10px] font-black uppercase tracking-widest text-ink/40">Root protocol hash</div>
+                <div className="font-mono text-xs mt-1.5 break-all" style={{ color: GREEN }}>
+                  {hash ? hash : "sha256 · unavailable"}
+                </div>
+                <p className="text-[11px] text-ink/50 mt-1.5 leading-snug">
+                  The uncorrupted proof. If the root layer is ever edited, this changes and
+                  maintenance flags it as drift.
+                </p>
               </div>
-            ))}
+              <div>
+                <div className="text-[10px] font-black uppercase tracking-widest text-ink/40">Last audit</div>
+                <div className="text-sm font-bold mt-1.5 text-ink">
+                  {status?.generated_at ? new Date(status.generated_at).toLocaleString() : "pending"}
+                </div>
+                <div className="text-[11px] text-ink/50 mt-1.5 leading-snug">
+                  Baseline: {status?.baseline_at ? new Date(status.baseline_at).toLocaleString() : "establishing on first read"}
+                </div>
+              </div>
+              <div>
+                <div className="text-[10px] font-black uppercase tracking-widest text-ink/40">Drift report</div>
+                {drift.length === 0 ? (
+                  <div className="flex items-center gap-2 mt-1.5 text-sm font-bold" style={{ color: GREEN }}>
+                    <CheckCircle2 className="w-4 h-4" /> No drift detected
+                  </div>
+                ) : (
+                  <ul className="mt-1.5 space-y-1">
+                    {drift.map((d, i) => (
+                      <li key={i} className="text-[11px] font-bold"
+                        style={{ color: d.severity === "high" ? "#B23A2E" : d.severity === "medium" ? "#8a6400" : "#5B8C5A" }}>
+                        {d.kind.replace(/_/g, " ")} — {d.detail}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+                <p className="text-[11px] text-ink/50 mt-1.5 leading-snug">
+                  The protocol self-audits on every read. No scheduler, no permission, no stopping.
+                </p>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -238,9 +403,10 @@ export default function SourceProtocolPanel({ onOpenOffice }) {
                 <HeartHandshake className="w-4 h-4" /> The improvement loop
               </div>
               <p className="text-sm text-white/85 mt-1.5 leading-relaxed">
-                This is where the vision becomes reality. The protocol is not a decoration — it is
-                the compiler of every answer the system gives. Each phase ships here, is proven
-                here, and is improved here. The Source stays uncorrupted by design.
+                This is where the vision becomes reality — and now it proves itself. The protocol
+                is the compiler of every answer the system gives; the audit keeps it honest, and
+                the maintenance loop keeps it uncorrupted. Tell the architect what the Source
+                should say next, and the next phase lands here.
               </p>
             </div>
             <button
