@@ -2307,6 +2307,7 @@ api_router.include_router(_bridge_mod.router)
 
 # --- WAI Handbooks router (public static handbook docs) ---
 from routers import handbooks as _handbooks_mod
+_handbooks_mod.bind(current_user)
 api_router.include_router(_handbooks_mod.router)
 
 # --- $3 BYOK (Bring Your Own Key) router ---

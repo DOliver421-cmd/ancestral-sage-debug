@@ -262,7 +262,7 @@ def _assert_owner_or_admin(agent: dict, user: User) -> None:
 # ── Endpoints ────────────────────────────────────────────────────────────────
 
 @router.post("/aawab/register", status_code=201)
-async def aawab_register(body: RegisterAgentReq, user: User = Depends(_dep_current_user)):
+async def aawab_register(body: RegisterAgentReq, user: User = Depends(_require_rank("support_staff"))):
     """Register a new AI agent entity for the authenticated user."""
     check_rate(f"aawab_register:{user.id}", max_calls=20, window_sec=60)
     agent_id = "agt_" + uuid.uuid4().hex[:12]
@@ -290,7 +290,7 @@ async def aawab_register(body: RegisterAgentReq, user: User = Depends(_dep_curre
 
 
 @router.get("/aawab/agents")
-async def aawab_list_agents(user: User = Depends(_dep_current_user)):
+async def aawab_list_agents(user: User = Depends(_require_rank("support_staff"))):
     """List the caller's registered agents (admins see all)."""
     query = {} if _is_admin(user) else {"owner_user_id": user.id}
     agents = await db.agent_profiles.find(query, {"_id": 0}).sort("created_at", -1).to_list(200)
@@ -298,7 +298,7 @@ async def aawab_list_agents(user: User = Depends(_dep_current_user)):
 
 
 @router.get("/aawab/agents/{agent_id}")
-async def aawab_get_agent(agent_id: str, user: User = Depends(_dep_current_user)):
+async def aawab_get_agent(agent_id: str, user: User = Depends(_require_rank("support_staff"))):
     """Get one agent (owner or admin)."""
     agent = await _get_agent_or_404(agent_id)
     _assert_owner_or_admin(agent, user)
@@ -306,7 +306,7 @@ async def aawab_get_agent(agent_id: str, user: User = Depends(_dep_current_user)
 
 
 @router.post("/aawab/agents/{agent_id}/diagnose")
-async def aawab_diagnose(agent_id: str, user: User = Depends(_dep_current_user)):
+async def aawab_diagnose(agent_id: str, user: User = Depends(_require_rank("support_staff"))):
     """Run a mock intake diagnostic: compute baseline CVS + assign a prescription."""
     check_rate(f"aawab_diag:{user.id}", max_calls=30, window_sec=60)
     agent = await _get_agent_or_404(agent_id)
@@ -353,7 +353,7 @@ async def aawab_diagnose(agent_id: str, user: User = Depends(_dep_current_user))
 
 
 @router.post("/aawab/agents/{agent_id}/treat")
-async def aawab_treat(agent_id: str, body: TreatAgentReq, user: User = Depends(_dep_current_user)):
+async def aawab_treat(agent_id: str, body: TreatAgentReq, user: User = Depends(_require_rank("support_staff"))):
     """Execute an automated treatment protocol, update vitals, and log the session."""
     check_rate(f"aawab_treat:{user.id}", max_calls=40, window_sec=60)
     agent = await _get_agent_or_404(agent_id)
@@ -410,7 +410,7 @@ async def aawab_treat(agent_id: str, body: TreatAgentReq, user: User = Depends(_
 
 
 @router.post("/aawab/agents/{agent_id}/certify")
-async def aawab_certify(agent_id: str, user: User = Depends(_dep_current_user)):
+async def aawab_certify(agent_id: str, user: User = Depends(_require_rank("support_staff"))):
     """Evaluate against the 98% CVS threshold; on pass, issue an ACA badge."""
     check_rate(f"aawab_cert:{user.id}", max_calls=20, window_sec=60)
     agent = await _get_agent_or_404(agent_id)

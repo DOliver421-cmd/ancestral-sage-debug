@@ -96,3 +96,27 @@ def role_rank(role: str) -> int:
 def has_rank(user_role: str, min_role: str) -> bool:
     """True iff user_role's rank >= min_role's rank."""
     return role_rank(user_role) >= role_rank(min_role)
+
+
+# ── Feature-tier gating ─────────────────────────────────────────────────────
+# Maps feature tiers to the minimum role rank required.
+# Tiers not listed here default to rank 0 (public).
+TIER_MIN_RANK: dict[str, int] = {
+    "free":    1,   # any logged-in user
+    "basic":   2,   # trial_pass+
+    "premium": 3,   # instructor+
+    "staff":   4,   # support_staff+
+    "oversight": 5, # oversight+
+    "admin":   6,   # admin+
+    "exec":    7,   # executive_admin only
+}
+
+
+def tier_min_rank(tier: str) -> int:
+    """Minimum role rank required for a given feature tier."""
+    return TIER_MIN_RANK.get(tier.lower(), 0)
+
+
+def user_can_access_tier(user_role: str, required_tier: str) -> bool:
+    """True iff the user's role rank meets the minimum for the tier."""
+    return role_rank(user_role) >= tier_min_rank(required_tier)
