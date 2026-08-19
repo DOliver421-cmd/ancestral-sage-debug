@@ -30,8 +30,8 @@ from typing import Literal, Optional
 from fastapi import APIRouter, Depends, HTTPException, Header
 from pydantic import BaseModel, ConfigDict, Field
 
-from competition_personas import (
 from roles import Role, ROLE_RANK, role_rank, LEGACY_ROLE_MAP, normalize_role, FREE_BYOK_ROLES
+from competition_personas import (
     COMMISSIONER_SYSTEM_PROMPT,
     MAX_RETRIES,
     PASS_THRESHOLD,
