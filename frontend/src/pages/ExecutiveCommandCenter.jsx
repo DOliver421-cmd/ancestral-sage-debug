@@ -19,6 +19,8 @@ const TABS = [
   { key: "overview", label: "🏛️ Overview" },
   { key: "business", label: "💼 Business" },
   { key: "ai", label: "⚡ AI & Providers" },
+  { key: "flags", label: "🚩 Site Flags" },
+  { key: "users", label: "👤 User Controls" },
   { key: "reports", label: "📚 Reports & Manuals" },
   { key: "controls", label: "🎛️ All Controls" },
 ];
@@ -73,10 +75,19 @@ export default function ExecutiveCommandCenter() {
   const [loading, setLoading] = useState(true);
   const [controlQuery, setControlQuery] = useState("");
   const [openManual, setOpenManual] = useState(null);
+  const [flags, setFlags] = useState(null);
+  const [flagBusy, setFlagBusy] = useState({});
+  const [flagReason, setFlagReason] = useState("");
+  const [flagReasonTarget, setFlagReasonTarget] = useState(null);
+  const [siteUsers, setSiteUsers] = useState([]);
+  const [roleForm, setRoleForm] = useState({ user_id: "", new_role: "student", reason: "" });
+  const [roleBusy, setRoleBusy] = useState(false);
+  const [tierForm, setTierForm] = useState({ user_id: "", new_feature_tier: "free", reason: "" });
+  const [tierBusy, setTierBusy] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
-    const [sR, stR, hR, aR, agR, pR, mR] = await Promise.allSettled([
+    const [sR, stR, hR, aR, agR, pR, mR, fR, uR] = await Promise.allSettled([
       api.get("/exec/system"),
       api.get("/admin/stats"),
       api.get("/health"),
@@ -84,6 +95,8 @@ export default function ExecutiveCommandCenter() {
       api.get("/abo/agenda"),
       api.get("/projects"),
       api.get("/exec/manuals"),
+      api.get("/admin/control-panel"),
+      api.get("/admin/users?limit=200"),
     ]);
     if (sR.status === "fulfilled") setSys(sR.value.data);
     if (stR.status === "fulfilled") setStats(stR.value.data);
@@ -92,6 +105,8 @@ export default function ExecutiveCommandCenter() {
     if (agR.status === "fulfilled") setAgenda((agR.value.data || []).filter((x) => x.status === "pending" || x.status === "on_agenda"));
     if (pR.status === "fulfilled") setProjects(Array.isArray(pR.value.data) ? pR.value.data.slice(0, 8) : []);
     if (mR.status === "fulfilled") setManuals(mR.value.data.manuals || []);
+    if (fR.status === "fulfilled") setFlags(fR.value.data);
+    if (uR.status === "fulfilled") setSiteUsers(uR.value.data?.users || uR.value.data || []);
     setLoading(false);
   }, []);
 
@@ -136,6 +151,55 @@ export default function ExecutiveCommandCenter() {
   }
 
   const filteredTools = TOOLS.filter((t) => (t.name + " " + t.desc).toLowerCase().includes(controlQuery.toLowerCase()));
+
+  // Flag toggle handlers
+  async function toggleFlag(flag, currentEnabled) {
+    const newVal = !currentEnabled;
+    if (newVal) {
+      setFlagReasonTarget({ flag, value: newVal });
+      return;
+    }
+    await applyFlagDirect(flag, newVal, "");
+  }
+
+  async function applyFlagDirect(flag, value, reason) {
+    setFlagBusy(b => ({ ...b, [flag]: true }));
+    try {
+      await api.post(`/admin/platform/flags/${flag}`, { value, reason });
+      toast.success(`${flag}: ${value ? "ENABLED" : "DISABLED"}`);
+      const { data } = await api.get("/admin/control-panel");
+      setFlags(data);
+    } catch (e) {
+      toast.error(e?.response?.data?.detail || "Flag update failed.");
+    } finally {
+      setFlagBusy(b => ({ ...b, [flag]: false }));
+      setFlagReasonTarget(null);
+      setFlagReason("");
+    }
+  }
+
+  // User role/tier handlers
+  async function applyUserRole() {
+    if (!roleForm.user_id || !roleForm.reason.trim()) return toast.error("Fill all fields");
+    setRoleBusy(true);
+    try {
+      await api.post("/exec/control/user/role", roleForm);
+      toast.success("Role updated");
+      setRoleForm(f => ({ ...f, reason: "" }));
+    } catch (e) { toast.error(e?.response?.data?.detail || "Failed"); }
+    finally { setRoleBusy(false); }
+  }
+
+  async function applyUserTier() {
+    if (!tierForm.user_id || !tierForm.reason.trim()) return toast.error("Fill all fields");
+    setTierBusy(true);
+    try {
+      await api.post("/exec/control/user/tier", tierForm);
+      toast.success("Tier updated");
+      setTierForm(f => ({ ...f, reason: "" }));
+    } catch (e) { toast.error(e?.response?.data?.detail || "Failed"); }
+    finally { setTierBusy(false); }
+  }
 
   return (
     <AppShell>
@@ -388,6 +452,132 @@ export default function ExecutiveCommandCenter() {
                     <li><strong className="text-ink">Verdict:</strong> integrate Gemini key (fallback AI) + free courses (mission education). Skip GCP cloud spend.</li>
                   </ul>
                 </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ── SITE FLAGS ──────────────────────────────────────────────── */}
+        {tab === "flags" && !loading && (
+          <div className="space-y-5">
+            {flagReasonTarget && (
+              <div className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm text-slate-900">
+                <div className="text-sm font-bold text-ink mb-2">Reason for enabling {flagReasonTarget.flag}:</div>
+                <input value={flagReason} onChange={(e) => setFlagReason(e.target.value)}
+                  className="w-full rounded-xl px-4 py-2 text-sm border border-slate-200 mb-3"
+                  placeholder="Justify this change…" />
+                <div className="flex gap-2">
+                  <button onClick={() => applyFlagDirect(flagReasonTarget.flag, flagReasonTarget.value, flagReason)}
+                    className="text-xs font-bold px-4 py-2 rounded-lg bg-red-600 text-white">Confirm Enable</button>
+                  <button onClick={() => { setFlagReasonTarget(null); setFlagReason(""); }}
+                    className="text-xs font-bold px-4 py-2 rounded-lg border border-slate-200 text-ink">Cancel</button>
+                </div>
+              </div>
+            )}
+            <div className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm text-slate-900">
+              <div className="text-xs font-bold uppercase tracking-widest text-slate-600 mb-3">Platform Feature Flags</div>
+              <p className="text-sm text-slate-500 mb-4">Toggle platform-wide features. Dangerous flags require a reason.</p>
+              <div className="space-y-3">
+                {[
+                  ["platform_locked", "🔒 Platform Lock", "Locks ALL non-exec access", true],
+                  ["marketplace_disabled", "🛒 Store Disabled", "Disables checkout and store", true],
+                  ["ai_disabled", "🤖 AI Services Off", "Disables all AI endpoints", false],
+                  ["community_disabled", "👥 Community Off", "Disables M.O.R.E. hub", false],
+                  ["labs_disabled", "🔬 Labs Disabled", "Disables lab submissions", false],
+                ].map(([flag, label, desc, danger]) => {
+                  const enabled = flags?.platform_flags?.[flag]?.enabled || false;
+                  return (
+                    <div key={flag} className="flex items-center justify-between gap-4 rounded-xl px-4 py-3" style={{ background: enabled ? (danger ? "#fef2f2" : "#f0fdf4") : "#faf9f7", border: `1px solid ${enabled ? (danger ? "#fecaca" : "#bbf7d0") : "#f0eadf"}` }}>
+                      <div>
+                        <div className="text-sm font-bold text-ink">{label}</div>
+                        <div className="text-xs text-slate-500">{desc}</div>
+                      </div>
+                      <button onClick={() => toggleFlag(flag, enabled)} disabled={flagBusy[flag]}
+                        className="text-xs font-bold px-4 py-2 rounded-lg transition-colors"
+                        style={{ background: enabled ? (danger ? "#dc2626" : "#16a34a") : "#e5e7eb", color: enabled ? "#fff" : "#6b7280" }}>
+                        {flagBusy[flag] ? "…" : enabled ? "ON" : "OFF"}
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+            {flags?.active_broadcast && (
+              <div className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm text-slate-900">
+                <div className="text-xs font-bold uppercase tracking-widest text-slate-600 mb-2">Active Broadcast</div>
+                <div className="text-sm text-ink">{flags.active_broadcast.message}</div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ── USER CONTROLS ───────────────────────────────────────────── */}
+        {tab === "users" && !loading && (
+          <div className="space-y-5">
+            <div className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm text-slate-900">
+              <div className="text-xs font-bold uppercase tracking-widest text-slate-600 mb-3">Change User Role</div>
+              <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
+                <input value={roleForm.user_id} onChange={(e) => setRoleForm(f => ({ ...f, user_id: e.target.value }))}
+                  className="rounded-xl px-4 py-2 text-sm border border-slate-200" placeholder="User ID" />
+                <select value={roleForm.new_role} onChange={(e) => setRoleForm(f => ({ ...f, new_role: e.target.value }))}
+                  className="rounded-xl px-4 py-2 text-sm border border-slate-200">
+                  <option value="student">Student (1)</option>
+                  <option value="trial_pass">Trial Pass (2)</option>
+                  <option value="instructor">Instructor (3)</option>
+                  <option value="support_staff">Support Staff (4)</option>
+                  <option value="oversight">Oversight (5)</option>
+                  <option value="admin">Admin (6)</option>
+                  <option value="executive_admin">Exec Admin (7)</option>
+                </select>
+                <input value={roleForm.reason} onChange={(e) => setRoleForm(f => ({ ...f, reason: e.target.value }))}
+                  className="rounded-xl px-4 py-2 text-sm border border-slate-200" placeholder="Reason (required)" />
+                <button onClick={applyUserRole} disabled={roleBusy}
+                  className="text-xs font-bold px-4 py-2 rounded-lg" style={{ background: "var(--wai-gold)", color: "#1a1100" }}>
+                  {roleBusy ? "…" : "Apply Role"}
+                </button>
+              </div>
+            </div>
+            <div className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm text-slate-900">
+              <div className="text-xs font-bold uppercase tracking-widest text-slate-600 mb-3">Change User Feature Tier</div>
+              <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
+                <input value={tierForm.user_id} onChange={(e) => setTierForm(f => ({ ...f, user_id: e.target.value }))}
+                  className="rounded-xl px-4 py-2 text-sm border border-slate-200" placeholder="User ID" />
+                <select value={tierForm.new_feature_tier} onChange={(e) => setTierForm(f => ({ ...f, new_feature_tier: e.target.value }))}
+                  className="rounded-xl px-4 py-2 text-sm border border-slate-200">
+                  <option value="free">Free</option>
+                  <option value="starter">Starter</option>
+                  <option value="pro">Pro</option>
+                  <option value="enterprise">Enterprise</option>
+                </select>
+                <input value={tierForm.reason} onChange={(e) => setTierForm(f => ({ ...f, reason: e.target.value }))}
+                  className="rounded-xl px-4 py-2 text-sm border border-slate-200" placeholder="Reason (required)" />
+                <button onClick={applyUserTier} disabled={tierBusy}
+                  className="text-xs font-bold px-4 py-2 rounded-lg" style={{ background: "var(--wai-gold)", color: "#1a1100" }}>
+                  {tierBusy ? "…" : "Apply Tier"}
+                </button>
+              </div>
+            </div>
+            <div className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm text-slate-900">
+              <div className="flex items-center justify-between mb-3">
+                <div className="text-xs font-bold uppercase tracking-widest text-slate-600">Recent Users ({siteUsers.length})</div>
+                <Link to="/admin/accounts" className="text-xs font-bold" style={{ color: "#8a5a00" }}>Full account controls →</Link>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead><tr className="text-left text-[10px] uppercase tracking-widest text-slate-400 border-b">
+                    <th className="py-2 pr-4">Name</th><th className="py-2 pr-4">Role</th><th className="py-2 pr-4">Email</th><th className="py-2 pr-4">Joined</th>
+                  </tr></thead>
+                  <tbody>
+                    {siteUsers.slice(0, 15).map((u) => (
+                      <tr key={u.id} className="border-b border-slate-50">
+                        <td className="py-2 pr-4 font-bold text-ink text-xs">{u.display_name || u.name || u.email}</td>
+                        <td className="py-2 pr-4"><span className="text-[10px] font-bold px-2 py-0.5 rounded-full" style={{ background: "#e0e7ff", color: "#3730a3" }}>{u.role}</span></td>
+                        <td className="py-2 pr-4 text-slate-500 text-xs">{u.email}</td>
+                        <td className="py-2 pr-4 text-slate-400 text-xs">{u.created_at ? new Date(u.created_at).toLocaleDateString() : "—"}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
             </div>
           </div>

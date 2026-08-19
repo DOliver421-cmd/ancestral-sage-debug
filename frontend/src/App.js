@@ -53,6 +53,7 @@ import Internships from "./pages/Internships";
 import PlaylistSubmit from "./pages/PlaylistSubmit";
 import PlaylistDashboard from "./pages/PlaylistDashboard";
 import ErrorBoundary from "./components/ErrorBoundary";
+import AppShell from "./components/AppShell";
 import Helper from "./pages/Helper";
 import Leaderboard from "./pages/Leaderboard";
 import Store from "./pages/Store";
@@ -195,6 +196,11 @@ function SeoManager() {
   return null;
 }
 
+// Wraps pages that forgot to include AppShell — gives them the sidebar nav
+function AdminPage({ children }) {
+  return <AppShell>{children}</AppShell>;
+}
+
 function App() {
   // Domain-aware front door (see docs/morehelp-migration-blueprint.md):
   //   wai-institute.org  → focused WAI institution landing (same build)
@@ -275,7 +281,7 @@ function App() {
           <Route path="/privacy" element={<PrivacyPolicy />} />
           <Route path="/courses" element={<Courses />} />
           <Route path="/ascension-protocols" element={<AscensionProtocols />} />
-          <Route path="/sponsor" element={<SponsorScholarship />} />
+          <Route path="/sponsor" element={<AdminPage><SponsorScholarship /></AdminPage>} />
           <Route path="/scholarships/apply" element={<Protected><ScholarshipApply /></Protected>} />
           <Route path="/admin/scholarships" element={<BoundedAdmin roles={["admin"]} label="Scholarship Committee" backTo="/admin"><AdminScholarships /></BoundedAdmin>} />
           <Route path="/studio/video-presenter" element={<VideoPresenter />} />
@@ -310,13 +316,13 @@ function App() {
           <Route path="/incidents" element={<Protected><Incidents /></Protected>} />
           <Route path="/settings" element={<Protected><Settings /></Protected>} />
           <Route path="/my-position" element={<Protected><MyPosition /></Protected>} />
-          <Route path="/personas" element={<Personas />} />
-          <Route path="/personas/:slug" element={<PersonaProfile />} />
+          <Route path="/personas" element={<AdminPage><Personas /></AdminPage>} />
+          <Route path="/personas/:slug" element={<AdminPage><PersonaProfile /></AdminPage>} />
           <Route path="/admin/system" element={<BoundedAdmin roles={["executive_admin"]} label="Exec System" backTo="/admin/control"><ExecSystem /></BoundedAdmin>} />
           {/* Site Control Panel — executive_admin only, not linked from any nav */}
           <Route path="/admin/control" element={<BoundedAdmin roles={["executive_admin"]} label="Site Control Panel" backTo="/admin"><SiteControlPanel /></BoundedAdmin>} />
           <Route path="/admin/exec-control" element={<BoundedAdmin roles={["executive_admin"]} label="Sovereign Command" backTo="/admin"><ExecControlPanel /></BoundedAdmin>} />
-          <Route path="/admin/director" element={<BoundedAdmin roles={["executive_admin"]} label="Director Dashboard" backTo="/admin"><ExecutiveDirectorDashboard /></BoundedAdmin>} />
+          <Route path="/admin/director" element={<BoundedAdmin roles={["executive_admin"]} label="Director Dashboard" backTo="/admin"><AdminPage><ExecutiveDirectorDashboard /></AdminPage></BoundedAdmin>} />
           <Route path="/admin/sage-audit" element={<BoundedAdmin roles={["executive_admin"]} label="Sage Audit" backTo="/admin"><SageAudit /></BoundedAdmin>} />
           <Route path="/admin/staff-meetings" element={<BoundedAdmin roles={["executive_admin"]} label="Staff Meetings" backTo="/admin"><StaffMeetingHistory /></BoundedAdmin>} />
           <Route path="/admin/exec-report" element={<BoundedAdmin roles={["executive_admin"]} label="Executive Site Report" backTo="/admin"><ExecutiveSiteReport /></BoundedAdmin>} />
@@ -345,7 +351,7 @@ function App() {
           <Route path="/social/publish" element={<Protected><TierGate feature="publisher_ai"><SocialPublish /></TierGate></Protected>} />
           {/* Playlist curation — public submission form, private dashboard */}
           <Route path="/playlist/:slug/submit" element={<PlaylistSubmit />} />
-          <Route path="/playlist/dashboard" element={<Protected><PlaylistDashboard /></Protected>} />
+          <Route path="/playlist/dashboard" element={<Protected><AdminPage><PlaylistDashboard /></AdminPage></Protected>} />
           {/* M.O.R.E. — public tier */}
           <Route path="/more" element={<More />} />
           <Route path="/more/litigation" element={<LitigationWeapon />} />
@@ -367,24 +373,24 @@ function App() {
           <Route path="/payment/manage" element={<Protected><PaymentHistory /></Protected>} />
           <Route path="/admin/payments" element={<BoundedAdmin roles={["admin"]} label="Admin Payments"><AdminPayments /></BoundedAdmin>} />
           {/* Partnership & profile features */}
-          <Route path="/partnership" element={<Protected><PartnershipDashboard /></Protected>} />
-          <Route path="/partnership/discounts" element={<Protected><PartnershipDiscounts /></Protected>} />
+          <Route path="/partnership" element={<Protected><AdminPage><PartnershipDashboard /></AdminPage></Protected>} />
+          <Route path="/partnership/discounts" element={<Protected><AdminPage><PartnershipDiscounts /></AdminPage></Protected>} />
           <Route path="/u/:username" element={<UnifiedProfile />} />
           <Route path="/profile" element={<Protected><UnifiedProfile /></Protected>} />
-          <Route path="/profile/:id" element={<Protected><UserProfile /></Protected>} />
+          <Route path="/profile/:id" element={<Protected><AdminPage><UserProfile /></AdminPage></Protected>} />
           {/* Lab simulations */}
           <Route path="/lab-simulations" element={<Protected><LabSimulations /></Protected>} />
           {/* Platform Prices — admin manage, exec delete */}
-          <Route path="/admin/prices" element={<BoundedAdmin roles={["admin"]} label="Platform Prices"><PlatformPrices /></BoundedAdmin>} />
+          <Route path="/admin/prices" element={<BoundedAdmin roles={["admin"]} label="Platform Prices"><AdminPage><PlatformPrices /></AdminPage></BoundedAdmin>} />
           {/* The Auditor — read-only ledger and reporting, admin+ */}
           <Route path="/auditor" element={<BoundedAdmin roles={["admin"]} label="Auditor Dashboard"><AuditorDashboard /></BoundedAdmin>} />
           {/* Provider Gateway — executive only */}
-          <Route path="/admin/providers" element={<BoundedAdmin roles={["executive_admin"]} label="Provider Gateway" backTo="/admin/control"><ProviderGateway /></BoundedAdmin>} />
-          <Route path="/team/ops" element={<BoundedAdmin roles={["executive_admin"]} label="Team Operations" backTo="/admin/control"><TeamOps /></BoundedAdmin>} />
+          <Route path="/admin/providers" element={<BoundedAdmin roles={["executive_admin"]} label="Provider Gateway" backTo="/admin/control"><AdminPage><ProviderGateway /></AdminPage></BoundedAdmin>} />
+          <Route path="/team/ops" element={<BoundedAdmin roles={["executive_admin"]} label="Team Operations" backTo="/admin/control"><AdminPage><TeamOps /></AdminPage></BoundedAdmin>} />
           {/* Billing Admin — exec/admin */}
-          <Route path="/admin/billing" element={<BoundedAdmin roles={["admin"]} label="Billing Admin"><BillingAdmin /></BoundedAdmin>} />
+          <Route path="/admin/billing" element={<BoundedAdmin roles={["admin"]} label="Billing Admin"><AdminPage><BillingAdmin /></AdminPage></BoundedAdmin>} />
           {/* Original landing page (alternate entry point) */}
-          <Route path="/assistant" element={<Protected><AdminAssistant /></Protected>} />
+          <Route path="/assistant" element={<Protected><AdminPage><AdminAssistant /></AdminPage></Protected>} />
           <Route path="/byok" element={<Protected><BYOK /></Protected>} />
           <Route path="/creative-partner" element={<Protected roles={["instructor","executive_admin"]}><CreativePartnerHub /></Protected>} />
           <Route path="/s-research" element={<SentinelResearch />} />

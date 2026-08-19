@@ -3,13 +3,31 @@ import AppShell from "../components/AppShell";
 import { api, BACKEND_URL } from "../lib/api";
 import { useAuth } from "../lib/auth";
 import { Link } from "react-router-dom";
-import { Lock, Zap } from "lucide-react";
+import { Lock, Zap, BookOpen, ShoppingBag, CheckCircle, Loader2, Award, FlaskConical, ShieldCheck } from "lucide-react";
 import SharePanel from "../components/SharePanel";
+
+const COURSE_CATEGORIES = {
+  general: "General",
+  electrical: "Electrical & Trades",
+  "ai-tech": "AI & Tech",
+  "arts-music": "Arts & Music",
+  workforce: "Workforce",
+  wellness: "Wellness",
+  publishing: "Publishing",
+  business: "Business",
+};
 
 export default function ModulesList() {
   const { user } = useAuth();
   const [modules, setModules] = useState([]);
   const [progress, setProgress] = useState([]);
+  const [creatorCourses, setCreatorCourses] = useState([]);
+  const [enrolledIds, setEnrolledIds] = useState(new Set());
+  const [tab, setTab] = useState("core");
+  const [category, setCategory] = useState("");
+  const [buying, setBuying] = useState(null);
+  const [loadingCourses, setLoadingCourses] = useState(false);
+
   useEffect(() => {
     fetch(`${BACKEND_URL}/api/modules`)
       .then((r) => r.ok ? r.json() : [])
@@ -19,18 +37,67 @@ export default function ModulesList() {
       api.get("/progress/me").then((r) => setProgress(r.data)).catch(() => {});
     }
   }, [user]);
+
+  useEffect(() => {
+    if (tab !== "community") return;
+    setLoadingCourses(true);
+    Promise.allSettled([
+      api.get("/creator/courses/published", { params: { limit: 48, category } }),
+      user ? api.get("/creator/enrollments/me") : Promise.resolve(null),
+    ]).then(([catalogRes, enrollRes]) => {
+      if (catalogRes.status === "fulfilled") setCreatorCourses(catalogRes.value.data.courses || []);
+      if (enrollRes.status === "fulfilled" && enrollRes.value) setEnrolledIds(new Set(enrollRes.value.data.enrolled_course_ids || []));
+    }).finally(() => setLoadingCourses(false));
+  }, [tab, category, user]);
+
+  async function handleEnrollOrBuy(course) {
+    if (!user) { window.location.href = "/login"; return; }
+    setBuying(course.course_id);
+    try {
+      const { data } = await api.post(`/creator/courses/${course.course_id}/checkout`);
+      if (data.enrolled) { setEnrolledIds(prev => new Set([...prev, course.course_id])); }
+      else if (data.url) { window.location.href = data.url; }
+    } catch { /* toast handled elsewhere */ }
+    finally { setBuying(null); }
+  }
+
   const bySlug = Object.fromEntries(progress.map((p) => [p.module_slug, p]));
+  const completedCount = modules.filter((m) => bySlug[m.slug]?.status === "completed").length;
 
   return (
     <AppShell>
       <div className="px-10 py-10 max-w-6xl">
-        <div className="overline text-copper">The Curriculum</div>
-        <h1 className="font-heading text-4xl font-bold mt-2">Camper-to-Classroom</h1>
-        <p className="text-ink/60 mt-2 max-w-2xl">Start with free intro modules — no sign-up needed. Enroll to unlock the full 12-module program and earn your certificate.</p>
-        <div className="mt-3 flex flex-wrap gap-5 text-sm">
-          <a href={`${BACKEND_URL}/api/handbooks/instructor`} target="_blank" rel="noopener noreferrer" className="font-bold text-copper hover:underline">📘 Instructor Handbook →</a>
-          <a href={`${BACKEND_URL}/api/handbooks/student`} target="_blank" rel="noopener noreferrer" className="font-bold text-copper hover:underline">📕 Student Handbook →</a>
+        {/* HEADER */}
+        <div className="overline text-copper">Course Catalogue</div>
+        <h1 className="font-heading text-4xl font-bold mt-2">Learn. Build. Credential.</h1>
+        <p className="text-ink/60 mt-2 max-w-2xl">Core electrical training, creator-published courses, compliance certifications, and open-access learning — all in one place.</p>
+
+        {/* TABS */}
+        <div className="flex gap-2 flex-wrap mt-6">
+          {[
+            { key: "core", label: "Core Program", icon: Award, sub: `${modules.length} modules · ${completedCount} done` },
+            { key: "community", label: "Creator Courses", icon: BookOpen, sub: `${creatorCourses.length} courses` },
+            { key: "compliance", label: "Compliance", icon: ShieldCheck, sub: "OSHA · NFPA 70E" },
+          ].map((t) => (
+            <button key={t.key} onClick={() => setTab(t.key)}
+              className={`flex items-center gap-2 text-sm font-bold px-5 py-3 rounded-xl border transition-colors ${tab === t.key ? "bg-ink text-bone border-ink" : "border-ink/20 text-ink/60 hover:border-ink/40"}`}>
+              <t.icon className="w-4 h-4" />
+              <div className="text-left">
+                <div>{t.label}</div>
+                <div className="text-[10px] font-normal opacity-60">{t.sub}</div>
+              </div>
+            </button>
+          ))}
         </div>
+
+        {/* CORE PROGRAM TAB */}
+        {tab === "core" && (
+          <>
+            <div className="mt-3 flex flex-wrap gap-5 text-sm">
+              <a href={`${BACKEND_URL}/api/handbooks/instructor`} target="_blank" rel="noopener noreferrer" className="font-bold text-copper hover:underline">📘 Instructor Handbook →</a>
+              <a href={`${BACKEND_URL}/api/handbooks/student`} target="_blank" rel="noopener noreferrer" className="font-bold text-copper hover:underline">📕 Student Handbook →</a>
+              <Link to="/ascension-protocols" className="font-bold text-copper hover:underline">🌱 Ascension Protocols (free) →</Link>
+            </div>
 
         <div className="grid md:grid-cols-2 gap-5 mt-10">
           {modules.map((m) => {
@@ -78,6 +145,91 @@ export default function ModulesList() {
             );
           })}
         </div>
+        <div className="text-center mt-8">
+          <Link to="/courses" className="text-sm font-bold text-copper hover:underline">Browse all creator courses →</Link>
+        </div>
+          </>
+        )}
+
+        {/* COMMUNITY COURSES TAB */}
+        {tab === "community" && (
+          <>
+            <div className="flex gap-2 flex-wrap mt-4">
+              <button onClick={() => setCategory("")} className={`text-xs font-bold px-3 py-1.5 rounded-full border transition-colors ${category === "" ? "bg-ink text-bone border-ink" : "border-ink/20 text-ink/60 hover:border-ink/40"}`}>All</button>
+              {Object.entries(COURSE_CATEGORIES).map(([key, label]) => (
+                <button key={key} onClick={() => setCategory(key)}
+                  className={`text-xs font-bold px-3 py-1.5 rounded-full border transition-colors ${category === key ? "bg-ink text-bone border-ink" : "border-ink/20 text-ink/60 hover:border-ink/40"}`}>{label}</button>
+              ))}
+            </div>
+            {loadingCourses ? (
+              <div className="flex items-center justify-center py-24 text-ink/40"><Loader2 className="w-6 h-6 animate-spin mr-2" /> Loading courses…</div>
+            ) : creatorCourses.length === 0 ? (
+              <div className="text-center py-24">
+                <BookOpen className="w-10 h-10 text-ink/20 mx-auto mb-3" />
+                <p className="text-ink/40 text-sm">No published courses yet in this category.</p>
+                {user && <Link to="/creator/courses" className="text-copper text-sm font-bold mt-2 inline-block">Publish your own →</Link>}
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mt-6">
+                {creatorCourses.map((course) => {
+                  const enrolled = enrolledIds.has(course.course_id);
+                  const isBuying = buying === course.course_id;
+                  return (
+                    <div key={course.course_id} className="card-flat p-5 flex flex-col gap-3">
+                      <div className="flex items-start justify-between gap-2">
+                        <span className="text-xs text-ink/40 font-medium">{COURSE_CATEGORIES[course.category] || course.category}</span>
+                        <span className="text-xs font-bold text-copper bg-amber-100 px-2 py-0.5 rounded-full">
+                          {course.price_cents === 0 ? "Free" : `$${(course.price_cents / 100).toFixed(2)}`}
+                        </span>
+                      </div>
+                      <div className="font-heading font-bold text-ink text-base leading-snug">{course.title}</div>
+                      {course.description && <p className="text-xs text-ink/60 line-clamp-2">{course.description}</p>}
+                      <div className="flex items-center justify-between mt-auto pt-2 border-t border-ink/10">
+                        <span className="text-xs text-ink/40">{course.enrollment_count || 0} enrolled</span>
+                        {enrolled ? (
+                          <span className="flex items-center gap-1 text-xs font-bold text-green-600"><CheckCircle className="w-3.5 h-3.5" /> Enrolled</span>
+                        ) : (
+                          <button onClick={() => handleEnrollOrBuy(course)} disabled={isBuying}
+                            className="flex items-center gap-1.5 text-xs font-bold bg-copper hover:bg-amber-600 text-bone px-3 py-1.5 rounded-full transition-colors disabled:opacity-50">
+                            {isBuying ? <Loader2 className="w-3 h-3 animate-spin" /> : <ShoppingBag className="w-3 h-3" />}
+                            {course.price_cents === 0 ? "Enroll Free" : "Buy Now"}
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </>
+        )}
+
+        {/* COMPLIANCE TAB */}
+        {tab === "compliance" && (
+          <div className="mt-6 space-y-4">
+            <p className="text-sm text-ink/60 max-w-2xl">Industry compliance certifications — OSHA 10, NFPA 70E, PPE, and LOTO. These modules expire and must be renewed.</p>
+            <div className="grid md:grid-cols-2 gap-4">
+              {[
+                { slug: "osha-10-electrical", title: "OSHA 10 — Electrical Industry Awareness", hours: 10, expires: "36 months" },
+                { slug: "nfpa-70e-awareness", title: "NFPA 70E — Workplace Electrical Safety", hours: 6, expires: "12 months" },
+                { slug: "ppe-fitting", title: "PPE Selection, Fit & Maintenance", hours: 4, expires: "12 months" },
+                { slug: "loto-procedure", title: "Lockout/Tagout Procedure Certification", hours: 4, expires: "12 months" },
+              ].map((c) => (
+                <div key={c.slug} className="card-flat p-5">
+                  <div className="flex items-center gap-2 mb-2">
+                    <ShieldCheck className="w-4 h-4 text-copper" />
+                    <span className="font-heading font-bold text-ink text-sm">{c.title}</span>
+                  </div>
+                  <div className="flex gap-4 text-xs text-ink/50 mt-1">
+                    <span>{c.hours}h</span>
+                    <span>Expires: {c.expires}</span>
+                  </div>
+                  <Link to={`/compliance/${c.slug}`} className="text-sm font-bold text-copper hover:underline mt-3 inline-block">Start →</Link>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
     </AppShell>
   );
