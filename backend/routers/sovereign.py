@@ -250,3 +250,105 @@ try:
     logger.info("Sovereign + puzzle/points endpoints registered")
 except Exception as _sov_err:
     logger.warning(f"Could not register Sovereign/puzzle endpoints: {_sov_err}")
+
+
+# ═════════════════════════════════════════════════════════════════════════════
+# Sovereign revenue pipeline — institution deals, stages, weighted forecast.
+# Contract matches frontend/components/SovereignChat.jsx:
+#   GET  /sovereign/pipeline          -> { summary, records }
+#   POST /sovereign/pipeline          -> { institution, vertical, stage, fee_offered, contact_name }
+#   PATCH /sovereign/pipeline/{id}    -> { stage }
+# ═════════════════════════════════════════════════════════════════════════════
+
+PIPELINE_STAGES = ["Prospecting", "Outreach", "Conversation", "Proposal",
+                   "Negotiation", "Confirmed", "Delivered", "Lost"]
+PIPELINE_WEIGHTS = {
+    "Prospecting": 0.10, "Outreach": 0.20, "Conversation": 0.30,
+    "Proposal": 0.50, "Negotiation": 0.70, "Confirmed": 0.90,
+    "Delivered": 1.00, "Lost": 0.00,
+}
+PIPELINE_COLLECTION = "sovereign_pipeline"
+
+
+class _PipelineAddReq(BaseModel):
+    institution: str = Field(..., min_length=1, max_length=300)
+    vertical: Optional[str] = "Corporate"
+    stage: str = Field("Prospecting", max_length=50)
+    fee_offered: int = Field(0, ge=0)          # cents
+    contact_name: Optional[str] = ""
+
+
+class _PipelinePatchReq(BaseModel):
+    stage: str = Field(..., max_length=50)
+
+
+async def _pipeline_summary(records: list) -> dict:
+    confirmed = 0
+    weighted = 0
+    for r in records:
+        fee = int(r.get("fee_offered") or 0)
+        stage = r.get("stage", "")
+        if stage in ("Confirmed", "Delivered"):
+            confirmed += fee
+        weighted += int(round(fee * PIPELINE_WEIGHTS.get(stage, 0.0)))
+    return {
+        "confirmed_revenue": confirmed,
+        "weighted_pipeline": weighted,
+        "total_count": len(records),
+    }
+
+
+@router.get("/sovereign/pipeline")
+async def sovereign_pipeline_list(user: User = Depends(_require_rank("executive_admin"))):
+    """All institution pipeline records + revenue summary."""
+    docs = await db[PIPELINE_COLLECTION].find({}).sort("created_at", -1).to_list(500)
+    records = []
+    for d in docs:
+        records.append({
+            "id": str(d["_id"]),
+            "institution": d.get("institution", ""),
+            "vertical": d.get("vertical", "Corporate"),
+            "stage": d.get("stage", "Prospecting"),
+            "fee_offered": int(d.get("fee_offered") or 0),
+            "contact_name": d.get("contact_name", ""),
+            "created_at": d.get("created_at").isoformat() if hasattr(d.get("created_at"), "isoformat") else None,
+            "updated_at": d.get("updated_at").isoformat() if hasattr(d.get("updated_at"), "isoformat") else None,
+        })
+    return {"summary": await _pipeline_summary(records), "records": records}
+
+
+@router.post("/sovereign/pipeline")
+async def sovereign_pipeline_add(body: _PipelineAddReq,
+                                 user: User = Depends(_require_rank("executive_admin"))):
+    stage = body.stage if body.stage in PIPELINE_STAGES else "Prospecting"
+    now = datetime.now(timezone.utc)
+    doc = {
+        "institution": body.institution.strip(),
+        "vertical": (body.vertical or "Corporate").strip(),
+        "stage": stage,
+        "fee_offered": int(body.fee_offered or 0),
+        "contact_name": (body.contact_name or "").strip(),
+        "created_by": user.id,
+        "created_at": now,
+        "updated_at": now,
+    }
+    res = await db[PIPELINE_COLLECTION].insert_one(doc)
+    return {"ok": True, "id": str(res.inserted_id), "stage": stage}
+
+
+@router.patch("/sovereign/pipeline/{record_id}")
+async def sovereign_pipeline_update(record_id: str, body: _PipelinePatchReq,
+                                    user: User = Depends(_require_rank("executive_admin"))):
+    if body.stage not in PIPELINE_STAGES:
+        raise HTTPException(400, f"Unknown stage '{body.stage}'. Valid: {PIPELINE_STAGES}")
+    from bson import ObjectId
+    try:
+        oid = ObjectId(record_id)
+    except Exception:
+        raise HTTPException(404, "Pipeline record not found")
+    res = await db[PIPELINE_COLLECTION].update_one(
+        {"_id": oid},
+        {"$set": {"stage": body.stage, "updated_by": user.id, "updated_at": datetime.now(timezone.utc)}})
+    if res.modified_count == 0 and res.matched_count == 0:
+        raise HTTPException(404, "Pipeline record not found")
+    return {"ok": True, "id": record_id, "stage": body.stage}

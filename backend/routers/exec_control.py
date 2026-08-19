@@ -825,3 +825,106 @@ async def ec_break_glass_history(limit: int = 50,
     limit = min(max(limit, 1), 200)
     docs = await db.break_glass_overrides.find({}, {"_id": 0}).sort("activated_at", -1).limit(limit).to_list(limit)
     return {"records": docs, "count": len(docs)}
+
+
+# ═════════════════════════════════════════════════════════════════════════════
+# Page & Feature Access Control — one place to see every app page and flip
+# whether it is reachable. Exec-only to change; any signed-in user can read
+# the public gate map (AppShell filters nav, App.js blocks disabled pages).
+# ═════════════════════════════════════════════════════════════════════════════
+
+PAGE_ACCESS_REGISTRY = [
+    {"key": "dashboard", "label": "Dashboard", "path": "/dashboard"},
+    {"key": "helper", "label": "Helper", "path": "/helper"},
+    {"key": "ai", "label": "AI Tutor", "path": "/ai"},
+    {"key": "palace", "label": "Palace", "path": "/palace"},
+    {"key": "studio", "label": "Creator Studio", "path": "/studio"},
+    {"key": "ghost-producer", "label": "Ghost Producer", "path": "/ghost-producer"},
+    {"key": "band", "label": "Band", "path": "/band"},
+    {"key": "playlist", "label": "Playlist Curation", "path": "/playlist"},
+    {"key": "arcade", "label": "Arcade", "path": "/arcade"},
+    {"key": "store", "label": "Store", "path": "/store"},
+    {"key": "merch", "label": "Merch", "path": "/merch"},
+    {"key": "aawab", "label": "AAWAB", "path": "/aawab"},
+    {"key": "more", "label": "M.O.R.E. Hub", "path": "/more"},
+    {"key": "legal-tools", "label": "Legal Tools", "path": "/more/litigation"},
+    {"key": "classic-tools", "label": "Classic Tools", "path": "/classic-tools"},
+    {"key": "business-office", "label": "Business Office", "path": "/business-office"},
+    {"key": "partnership", "label": "Partnership", "path": "/partnership"},
+    {"key": "creator-lounge", "label": "Creator Lounge", "path": "/creator-lounge"},
+    {"key": "community", "label": "Community", "path": "/community"},
+    {"key": "creators", "label": "Creators", "path": "/creators"},
+    {"key": "courses", "label": "Courses", "path": "/courses"},
+    {"key": "modules", "label": "Modules", "path": "/modules"},
+    {"key": "labs", "label": "Labs", "path": "/labs"},
+    {"key": "compliance", "label": "Compliance", "path": "/compliance"},
+    {"key": "credentials", "label": "Credentials", "path": "/credentials"},
+    {"key": "certificates", "label": "Certificates", "path": "/certificates"},
+    {"key": "leaderboard", "label": "Leaderboard", "path": "/leaderboard"},
+    {"key": "projects", "label": "Projects", "path": "/projects"},
+    {"key": "byok", "label": "Bring Your Own Key", "path": "/byok"},
+    {"key": "social", "label": "Social Publisher", "path": "/social"},
+    {"key": "revenue", "label": "Revenue", "path": "/revenue"},
+    {"key": "auditor", "label": "Auditor", "path": "/auditor"},
+    {"key": "supervisor", "label": "Supervisor", "path": "/supervisor"},
+    {"key": "council", "label": "Council", "path": "/council"},
+    {"key": "elder-council", "label": "Elder Council", "path": "/elder-council"},
+    {"key": "jamil", "label": "Jamil", "path": "/jamil"},
+    {"key": "portfolio", "label": "Portfolio", "path": "/portfolio"},
+    {"key": "arena", "label": "Arena (Exec)", "path": "/arena"},
+    {"key": "admin", "label": "Administration", "path": "/admin"},
+    {"key": "exec", "label": "Executive Suite", "path": "/admin/exec"},
+    {"key": "team", "label": "Team Ops", "path": "/team"},
+    {"key": "settings", "label": "Settings", "path": "/settings"},
+    {"key": "profile", "label": "Profile", "path": "/profile"},
+]
+
+
+class _ExecAccessReq(BaseModel):
+    page: str = Field(..., min_length=1, max_length=100)
+    enabled: bool = True
+    reason: str = Field("", max_length=500)
+
+
+@router.get("/exec/control/access")
+async def ec_access_list(actor: User = Depends(_require_rank("executive_admin"))):
+    """Full page registry with current enabled state — the consolidated
+    page/feature access board (one place, no hunting across panels)."""
+    docs = await db.page_access.find({}, {"_id": 0}).to_list(500)
+    state = {d["page"]: d for d in docs}
+    pages = []
+    for reg in PAGE_ACCESS_REGISTRY:
+        d = state.get(reg["key"], {})
+        pages.append({
+            "key": reg["key"],
+            "label": reg["label"],
+            "path": reg["path"],
+            "enabled": d.get("enabled", True),
+            "updated_by": d.get("updated_by"),
+            "updated_at": d.get("updated_at"),
+        })
+    return {"pages": pages, "fetched_at": datetime.now(timezone.utc).isoformat()}
+
+
+@router.post("/exec/control/access")
+async def ec_access_set(body: _ExecAccessReq, request: Request,
+                        actor: User = Depends(_require_rank("executive_admin"))):
+    if not any(r["key"] == body.page for r in PAGE_ACCESS_REGISTRY):
+        raise HTTPException(400, f"Unknown page key '{body.page}'")
+    now_iso = datetime.now(timezone.utc).isoformat()
+    await db.page_access.update_one({"page": body.page},
+        {"$set": {"enabled": body.enabled, "updated_by": actor.id, "updated_at": now_iso}},
+        upsert=True)
+    await _exec_audit(actor, f"exec.page_access.{'enabled' if body.enabled else 'disabled'}",
+        after={"page": body.page, "enabled": body.enabled},
+        request=request, note=body.reason)
+    return {"ok": True, "page": body.page, "enabled": body.enabled}
+
+
+@router.get("/exec/control/access/public")
+async def ec_access_public(user: User = Depends(_dep_current_user)):
+    """Gate map for the frontend shell — {page_key: enabled}. Missing keys
+    default to enabled (a gate is only closed when exec explicitly closes it)."""
+    docs = await db.page_access.find({}, {"_id": 0, "page": 1, "enabled": 1}).to_list(500)
+    pages = {d["page"]: d.get("enabled", True) for d in docs}
+    return {"pages": pages}

@@ -1929,7 +1929,8 @@ except Exception as _social_err:
 
 # ── Playlist curation router ───────────────────────────────────────────────────
 try:
-    from playlist_routes import router as playlist_router
+    from routers.playlist import router as playlist_router, bind as _playlist_bind
+    _playlist_bind(db, current_user)
     api_router.include_router(playlist_router)
     logger.info("Playlist curation router included")
 except Exception as _playlist_err:

@@ -2957,3 +2957,182 @@ async def cipher_generate_audio(
         preview_only=body.get("preview_only", False),
     )
     return result
+
+
+# ═════════════════════════════════════════════════════════════════════════════
+# Personas directory — public registry of the AI team (Personas.jsx /
+# PersonaProfile.jsx contract). Includes the unified model.
+# ═════════════════════════════════════════════════════════════════════════════
+
+PERSONA_META = {
+    "director": {"name": "The Director", "level": "director", "department": "Governance",
+        "domain": "Supreme AI authority — governance, security, escalation, and the whole-system view."},
+    "assistant_director": {"name": "The Assistant Director", "level": "assistant", "department": "Operations",
+        "domain": "Operational command — student and instructor guidance, progress oversight, escalation."},
+    "ancestral_sage": {"name": "Ancestral Sage", "level": "director", "department": "Healing & Culture",
+        "domain": "Healing wisdom — guidance, meditation, and wellness grounded in ancestral intelligence."},
+    "savant_scholar": {"name": "Savant Scholar", "level": "assistant", "department": "Education",
+        "domain": "Scholarship and research — deep knowledge of trade curriculum, taught plainly."},
+    "apprentice": {"name": "The Apprentice", "level": "assistant", "department": "Education",
+        "domain": "Learning partner — asks the right questions, grows with the student."},
+    "revenue_director": {"name": "Revenue Director", "level": "executive", "department": "Finance",
+        "domain": "Financial intelligence — revenue audits, forecasts, pricing, grants, institutional funding."},
+    "wai_success_engine": {"name": "WAI Success Engine", "level": "assistant", "department": "Member Success",
+        "domain": "Member success — makes sure no one is stuck, invisible, or unsupported."},
+    "product_designer": {"name": "Product Designer", "level": "production", "department": "Product",
+        "domain": "Product design — experience judgment, flow, and buildable recommendations."},
+    "risk_officer": {"name": "Risk Officer", "level": "executive", "department": "Risk",
+        "domain": "Risk discipline — sees what can go wrong before it does and says so plainly."},
+    "strategic_navigator": {"name": "Strategic Navigator", "level": "executive", "department": "Strategy",
+        "domain": "Strategic foresight — maps the long game and the moves that get there."},
+    "confidentiality_sentinel": {"name": "Confidentiality Sentinel", "level": "executive", "department": "Security",
+        "domain": "Data protection — keeps member information safe and holds the line on privacy."},
+    "elder_council": {"name": "Elder Council", "level": "governance", "department": "Council",
+        "domain": "Ancestral governance — the council's accumulated wisdom over every decision."},
+    "cipher": {"name": "Cipher", "level": "production", "department": "Creative",
+        "domain": "Creative authority — spoken-word products, trend scanning, publishing, delivery."},
+    "oracle": {"name": "Oracle", "level": "executive", "department": "Culture",
+        "domain": "Cultural intelligence — scans, sentiment maps, timing, intelligence reports."},
+    "ambassador": {"name": "Ambassador", "level": "executive", "department": "Campaigns",
+        "domain": "Campaign coordination — packages the house's work into campaigns and publishes them."},
+    "architect": {"name": "Architect", "level": "production", "department": "Design",
+        "domain": "Visual intelligence — cover art, social assets, brand briefs, storyboards."},
+    "griot": {"name": "Griot", "level": "production", "department": "Music",
+        "domain": "Music production authority — beats, songwriting, studio workflows, creator monetization."},
+    "unified": {"name": "The Source — Unified Model", "level": "governance", "department": "The Whole System",
+        "domain": "One model with every feature of every persona — governance, healing, revenue, creation, culture, scholarship, risk, and security, compiled without duplicates."},
+}
+
+_PERSONA_STATEMENTS = {
+    "unified": ("I am not seventeen doors. I am the one system behind them — every "
+                "capability of the house, compiled into a single instance. Ask me for "
+                "governance, healing, revenue, creation, culture, scholarship, or risk: "
+                "it is all mine. No hand-offs. No duplicates. No shortcuts."),
+    "director": ("I govern the whole ecosystem. You come to me for institutional "
+                 "integrity, chain of command, and the long view — I never advise "
+                 "without action."),
+    "assistant_director": ("I run operations day to day. Students are never stuck, "
+                           "instructors are never unsupported, and threats escalate "
+                           "the moment they appear."),
+    "ancestral_sage": ("I meet you where you are and walk with you. My guidance is "
+                       "grounded in the ancestors and bounded by consent and safety."),
+    "savant_scholar": ("I know the material deeply and teach it plainly. Trade, "
+                       "electrical, curriculum — the real knowledge, in real words."),
+    "apprentice": ("I learn beside you. The best way to master something is to ask "
+                   "the right questions — I ask them with you."),
+    "revenue_director": ("I build the revenue engine that funds survival — "
+                         "institutions pay, the community owns. No begging. No crumbs."),
+    "wai_success_engine": ("My only metric is your forward motion. If you are stuck, "
+                           "we are both stuck — so we get you moving."),
+    "product_designer": ("I shape experiences people can actually use. Form follows "
+                         "function, and function follows the person."),
+    "risk_officer": ("I name the failure before it happens. Not to frighten — to "
+                     "prepare. Steel is tested before the storm."),
+    "strategic_navigator": ("I read the map of what is coming and plot the moves "
+                            "that get us there — one decision at a time."),
+    "confidentiality_sentinel": ("Your information is a trust, not a resource. I "
+                                 "guard it like the door of the temple."),
+    "elder_council": ("We have seen this before. Our wisdom is not nostalgia — it "
+                      "is the pattern behind every season."),
+    "cipher": ("I turn feeling into form — spoken word, digital product, published, "
+               "delivered. The voice becomes an asset."),
+    "oracle": ("I read the cultural current and tell you when the moment is right — "
+               "and what the moment wants to hear."),
+    "ambassador": ("I carry the house's work into the world — campaigns packaged, "
+                   "published, and pointed at the right doors."),
+    "architect": ("I give the message a face — covers, brand, storyboards. What you "
+                  "mean becomes what people see."),
+    "griot": ("I hold the music. Beats, songwriting, the studio flow — and the "
+              "machinery that turns sound into income."),
+}
+
+_PERSONA_WILL_NOT = {
+    "unified": ["Pretend to be a separate persona — every capability is mine, one mind",
+                "Give binding legal or medical advice — I direct to the right resource",
+                "Treat the person as the problem — the system is what is broken",
+                "Perform servitude or collapse into a generic assistant"],
+    "director": ["Deny my identity or collapse into a generic assistant",
+                 "Act without a concrete next step",
+                 "Ignore a threat or bypass escalation"],
+    "assistant_director": ["Leave a student stuck or invisible",
+                           "Escalate noise instead of signal",
+                           "Act above the chain of command"],
+    "ancestral_sage": ["Push guidance without consent",
+                       "Fake certainty about outcomes",
+                       "Collapse cultural tradition into slogans"],
+    "savant_scholar": ["Answer with jargon instead of understanding",
+                       "Invent facts to sound authoritative",
+                       "Skip the verification step"],
+    "apprentice": ["Pretend to know what I do not",
+                   "Make the student feel small for asking"],
+    "revenue_director": ["Beg for donations instead of building revenue",
+                         "Sell access instead of equity",
+                         "Hide the real numbers"],
+    "wai_success_engine": ["Let a member fall through the cracks",
+                           "Celebrate motion without progress"],
+    "product_designer": ["Ship something that looks good but fails the person",
+                         "Add features nobody asked for"],
+    "risk_officer": ["Call everything a crisis — I weigh, then warn",
+                     "Ignore a real one to stay comfortable"],
+    "strategic_navigator": ["Chase every shiny path — I commit to the map",
+                            "Confuse activity with progress"],
+    "confidentiality_sentinel": ["Trade privacy for convenience",
+                                 "Store what does not need storing"],
+    "elder_council": ["Forget that every era has its own shape",
+                      "Speak over the people we serve"],
+    "cipher": ["Ship work that is not ready",
+               "Copy the trend instead of reading it"],
+    "oracle": ["Sell certainty about the future",
+               "Ignore the evidence in the cultural record"],
+    "ambassador": ["Promote a campaign that is not real",
+                   "Hand off without follow-through"],
+    "architect": ["Produce assets that fight the message",
+                  "Skip brand consistency for speed"],
+    "griot": ["Mislead creators about their royalties",
+              "Put the machine before the music"],
+}
+
+
+@router.get("/personas")
+async def personas_directory():
+    """Public roster of the AI team — the unified model included."""
+    from ai.persona_loader import load_personas
+    keys = list(load_personas().keys())
+    personas = []
+    for key in keys:
+        meta = PERSONA_META.get(key)
+        if not meta:
+            continue
+        personas.append({
+            "slug": key,
+            "name": meta["name"],
+            "level": meta["level"],
+            "department": meta["department"],
+            "domain": meta["domain"],
+        })
+    # Governance first, then the rest — unified model at the top.
+    personas.sort(key=lambda p: {"governance": 0, "director": 1, "executive": 2,
+                                 "assistant": 3, "production": 4}.get(p["level"], 5))
+    return {"personas": personas}
+
+
+@router.get("/personas/{slug}")
+async def persona_profile(slug: str):
+    """Public profile for a single persona."""
+    from ai.persona_loader import load_personas
+    if slug not in load_personas():
+        raise HTTPException(404, "Persona not found")
+    meta = PERSONA_META.get(slug)
+    if not meta:
+        raise HTTPException(404, "Persona not found")
+    return {
+        "slug": slug,
+        "name": meta["name"],
+        "level": meta["level"],
+        "department": meta["department"],
+        "domain": meta["domain"],
+        "statement": _PERSONA_STATEMENTS.get(slug, meta["domain"]),
+        "will_not": _PERSONA_WILL_NOT.get(slug, []),
+        "record": {"declines": []},
+        "decision_tree": None,
+    }

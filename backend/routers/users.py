@@ -567,3 +567,29 @@ async def set_user_sage_tier(uid: str, body: dict, user: User = Depends(_require
     await db.users.update_one({"id": uid}, {"$set": {"sage_tier": tier}})
     await audit(user.id, "admin.sage.tier_updated", target=uid, meta={"tier": tier})
     return {"ok": True, "uid": uid, "sage_tier": tier}
+
+
+class _AcceptTermsReq(BaseModel):
+    version: str = "v1"
+    timestamp: Optional[str] = None
+
+
+@router.post("/users/accept-terms")
+async def users_accept_terms(body: _AcceptTermsReq, user: User = Depends(_dep_current_user)):
+    """Record the current user's acceptance of the terms version.
+    Idempotent upsert — re-accepting a version just refreshes the timestamp.
+    The frontend (TermsOfService.jsx) fires this on page load; before this
+    endpoint existed the call silently 404'd and acceptance was never stored.
+    """
+    now = datetime.now(timezone.utc)
+    record = {
+        "version": body.version,
+        "client_timestamp": body.timestamp,
+        "accepted_at": now.isoformat(),
+    }
+    await db.terms_acceptance.update_one(
+        {"user_id": user.id},
+        {"$set": record},
+        upsert=True)
+    await audit(user.id, "user.terms_accepted", meta={"version": body.version})
+    return {"ok": True, "version": body.version, "accepted_at": now.isoformat()}
