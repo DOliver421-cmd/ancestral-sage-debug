@@ -98,20 +98,24 @@ export default function ExecControlPanel() {
   const [glass,   setGlass]   = useState([]);
   const [loading, setLoading] = useState(true);
   const [users,   setUsers]   = useState([]);
+  const [accessPages, setAccessPages] = useState([]);
+  const [accessBusy, setAccessBusy] = useState(null);
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const [sR, aR, gR, uR] = await Promise.allSettled([
+      const [sR, aR, gR, uR, xR] = await Promise.allSettled([
         api.get("/exec/control/state"),
         api.get("/exec/control/audit?limit=30"),
         api.get("/exec/control/break-glass/active"),
         api.get("/admin/users?limit=200"),
+        api.get("/exec/control/access"),
       ]);
       if (sR.status === "fulfilled") setState(sR.value.data);
       if (aR.status === "fulfilled") setAudit(aR.value.data?.records || []);
       if (gR.status === "fulfilled") setGlass(gR.value.data?.active_overrides || []);
       if (uR.status === "fulfilled") setUsers(uR.value.data?.users || uR.value.data || []);
+      if (xR.status === "fulfilled") setAccessPages(xR.value.data?.pages || []);
     } catch (e) {
       toast.error("Failed to load exec state");
     } finally {
@@ -212,6 +216,24 @@ export default function ExecControlPanel() {
       load();
     } catch(e) { toast.error(e?.response?.data?.detail || "Failed"); }
     finally { setVisBusy(false); }
+  }
+
+  /* ── Page & Feature Access ── */
+  async function toggleAccess(page, currentEnabled) {
+    setAccessBusy(page.key);
+    try {
+      await api.post("/exec/control/access", {
+        page: page.key,
+        enabled: !currentEnabled,
+        reason: "Toggled from Sovereign Command",
+      });
+      toast.success(`${page.label} ${!currentEnabled ? "enabled" : "disabled"}`);
+      load();
+    } catch (e) {
+      toast.error(e?.response?.data?.detail || "Failed to update access");
+    } finally {
+      setAccessBusy(null);
+    }
   }
 
   /* ── Break Glass ── */
@@ -459,6 +481,42 @@ export default function ExecControlPanel() {
               ))}
             </div>
           )}
+        </Section>
+
+        {/* ── PAGE & FEATURE ACCESS ── */}
+        <Section icon={Lock} title="Page & Feature Access" defaultOpen={true}>
+          <p style={{ fontSize: "0.78rem", color: "#7a6e5a", marginBottom: "0.75rem", lineHeight: 1.6 }}>
+            One board for the whole site. Flipping a page OFF hides it from every sidebar and
+            blocks the route immediately — exec-only pages stay exec-only, and any page can be
+            closed without touching code. Every change is audited.
+          </p>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(250px, 1fr))", gap: "0.5rem" }}>
+            {accessPages.map(p => (
+              <button
+                key={p.key}
+                onClick={() => toggleAccess(p, p.enabled)}
+                disabled={accessBusy === p.key}
+                title={`${p.label} — click to ${p.enabled ? "disable" : "enable"}`}
+                style={{
+                  display: "flex", alignItems: "center", justifyContent: "space-between", gap: "0.5rem",
+                  padding: "0.5rem 0.7rem", borderRadius: 8, cursor: "pointer", textAlign: "left",
+                  border: p.enabled ? "1px solid rgba(109,189,138,0.3)" : "1px solid rgba(239,68,68,0.3)",
+                  background: p.enabled ? "rgba(109,189,138,0.08)" : "rgba(239,68,68,0.08)",
+                }}
+              >
+                <span style={{ fontSize: "0.78rem", color: "#e8dfc8" }}>
+                  <span style={{ display: "block", fontWeight: "bold" }}>{p.label}</span>
+                  <span style={{ fontSize: "0.65rem", color: "#7a6e5a" }}>{p.path}</span>
+                </span>
+                <span style={{ fontSize: "0.68rem", fontWeight: "bold", color: p.enabled ? "#6dbd8a" : "#ef4444", flexShrink: 0 }}>
+                  {accessBusy === p.key ? "…" : p.enabled ? "ON" : "OFF"}
+                </span>
+              </button>
+            ))}
+            {accessPages.length === 0 && (
+              <p style={{ fontSize: "0.78rem", color: "#7a6e5a" }}>Loading registry…</p>
+            )}
+          </div>
         </Section>
 
         {/* ── BREAK GLASS ── */}

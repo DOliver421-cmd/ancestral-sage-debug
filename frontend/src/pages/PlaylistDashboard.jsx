@@ -47,7 +47,7 @@ export default function PlaylistDashboard() {
 
   const load = async () => {
     try {
-      const { data: d } = await api.get("/api/playlist/dashboard");
+      const { data: d } = await api.get("/playlist/dashboard");
       setData(d);
       if (d.gateways.length > 0 && expandedGw === null) {
         setExpandedGw(d.gateways[0]._id);
@@ -65,7 +65,7 @@ export default function PlaylistDashboard() {
   const createGateway = async (e) => {
     e.preventDefault();
     try {
-      await api.post("/api/playlist/gateway/create", newGw);
+      await api.post("/playlist/gateway/create", newGw);
       toast.success("Gateway created!");
       setShowCreate(false);
       setNewGw({ ...newGw, playlist_name: "", playlist_spotify_url: "", target_song_name: "", target_song_url: "", notes: "" });
@@ -77,7 +77,7 @@ export default function PlaylistDashboard() {
 
   const approve = async (subId) => {
     try {
-      await api.post("/api/playlist/approve", { submission_id: subId, note: reviewNote });
+      await api.post("/playlist/approve", { submission_id: subId, note: reviewNote });
       toast.success("Approved! Add their song to your playlist.");
       setReviewTarget(null);
       setReviewNote("");
@@ -89,7 +89,7 @@ export default function PlaylistDashboard() {
 
   const reject = async (subId) => {
     try {
-      await api.post("/api/playlist/reject", { submission_id: subId, note: reviewNote });
+      await api.post("/playlist/reject", { submission_id: subId, note: reviewNote });
       toast.success("Submission rejected.");
       setReviewTarget(null);
       setReviewNote("");
@@ -102,7 +102,7 @@ export default function PlaylistDashboard() {
   const toggleGateway = async (gwId) => {
     setToggling(gwId);
     try {
-      await api.patch(`/api/playlist/gateway/${gwId}/status`);
+      await api.patch(`/playlist/gateway/${gwId}/status`);
       load();
     } catch {
       toast.error("Couldn't update gateway status");

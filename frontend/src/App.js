@@ -3,6 +3,7 @@ import { Toaster } from "sonner";
 import "./App.css";
 import { AuthProvider, useAuth } from "./lib/auth";
 import { TierGate } from "./lib/tiers";
+import AccessGate from "./components/AccessGate";
 import LandingMarketplace from "./pages/LandingMarketplace";
 import SupervisorLogin from "./pages/SupervisorLogin";
 import Login from "./pages/Login";
@@ -212,8 +213,9 @@ function App() {
         <SiteSearchModal />
         <WelcomeWizard />
 
-        {/* Routes wrapped with main-content anchor */}
+        {/* Routes wrapped with main-content anchor + exec page-access gates */}
         <div id="main-content">
+        <AccessGate>
         <Routes>
           <Route path="/" element={<UnifiedGateway />} />
           <Route path="/login" element={<Login />} />
@@ -390,6 +392,7 @@ function App() {
           <Route path="/welcome" element={<Landing />} />
           <Route path="*" element={<Error404 />} />
         </Routes>
+        </AccessGate>
         </div>
         </ErrorBoundary>
       </BrowserRouter>

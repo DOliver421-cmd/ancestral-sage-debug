@@ -15,6 +15,7 @@ import {
 import NotificationBell from "./NotificationBell";
 import { Search, HeartPulse, Landmark, Archive } from "lucide-react";
 import { useEffect, useState } from "react";
+import { isPageEnabled, loadGates } from "../lib/accessGates";
 
 // ── Section header ────────────────────────────────────────────────────────────
 function NavSection({ label, children, collapsed }) {
@@ -83,9 +84,13 @@ export default function AppShell({ children }) {
     return () => { clearTimeout(timer); ctrl.abort(); };
   }, []);
 
-  const nl = (to, label, icon, testid) => (
-    <NavLink loc={loc} to={to} label={label} icon={icon} testid={testid} collapsed={collapsed} />
-  );
+  // Exec-controlled page access: a disabled page disappears from the sidebar.
+  const nl = (to, label, icon, testid) => {
+    if (!isPageEnabled(to)) return null;
+    return <NavLink loc={loc} to={to} label={label} icon={icon} testid={testid} collapsed={collapsed} />;
+  };
+
+  useEffect(() => { loadGates(); }, []);
 
   return (
     <div className="min-h-screen flex bg-bone">

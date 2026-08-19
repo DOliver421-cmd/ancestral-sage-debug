@@ -81,7 +81,7 @@ export default function PlaylistSubmit() {
   useEffect(() => {
     (async () => {
       try {
-        const { data } = await api.get(`/api/playlist/gateways/${slug}`);
+        const { data } = await api.get(`/playlist/gateways/${slug}`);
         const open = (data.gateways || []);
         setGateways(open);
         if (open.length === 0) setPhase("closed");
@@ -99,7 +99,7 @@ export default function PlaylistSubmit() {
     e.preventDefault();
     setSubmitting(true);
     try {
-      const { data } = await api.post("/api/playlist/submit", {
+      const { data } = await api.post("/playlist/submit", {
         gateway_id: selectedGateway._id,
         ...form,
       });
@@ -119,7 +119,7 @@ export default function PlaylistSubmit() {
       return;
     }
     try {
-      const { data } = await api.post("/api/playlist/complete-step", {
+      const { data } = await api.post("/playlist/complete-step", {
         submission_id: submissionId,
         step: stepId,
         share_url: stepId === "share" ? shareUrl : "",
