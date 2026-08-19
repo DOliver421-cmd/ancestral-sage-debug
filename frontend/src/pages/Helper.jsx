@@ -330,7 +330,7 @@ export function PublicHelper({ embedded = false }) {
   });
 
   useEffect(() => {
-    addMsg("helper", "Hello! I am here to help you understand mail, bills, legal papers, housing, medicines, and more - all in plain, simple words. Choose a topic below or type your question.");
+    addMsg("helper", "Welcome. I'm the Helper, running on the Source protocol - my job is your system restore. Mail, bills, legal papers, housing, medicines, benefits - tell me what's glitching and I'll give you the next move in plain words. Choose a topic below or type your question.");
   }, [addMsg]);
 
   useEffect(() => { endRef.current?.scrollIntoView({ behavior:"smooth" }); }, [msgs]);
@@ -535,7 +535,7 @@ function AuthHelper({ user }) {
   });
 
   useEffect(() => {
-    addMsg("helper", "Welcome back, " + (user?.full_name?.split(" ")[0] || "there") + ". I am your private helper inside M.O.R.E. Help Center. Choose a tool from the sidebar or just type your question.");
+    addMsg("helper", "Welcome back, " + (user?.full_name?.split(" ")[0] || "there") + ". Your private terminal is open and the Source is online. Choose a tool from the sidebar or just type your question - we'll get your system restored.");
   }, [addMsg, user?.full_name]);
 
   useEffect(() => { endRef.current?.scrollIntoView({ behavior:"smooth" }); }, [msgs]);
