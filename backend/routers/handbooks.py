@@ -26,6 +26,7 @@ HANDBOOKS = {
     "student":    ("WAI_Student_Handbook.html",    "M.O.R.E. Help Center — Student Handbook"),
     "admin":      ("WAI_Admin_Handbook.html",      "WAI Institute — Admin Handbook"),
     "persona":    ("AI_Persona_Creation_Manual.html", "WAI Institute — AI Persona Creation Manual"),
+    "blueprint":  ("Platform_Migration_Blueprint.html", "M.O.R.E. Help Center — Platform Migration Blueprint"),
 }
 
 
