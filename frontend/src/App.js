@@ -3,6 +3,7 @@ import { Toaster } from "sonner";
 import "./App.css";
 import { AuthProvider, useAuth } from "./lib/auth";
 import { isWaiDoor } from "./lib/domain";
+import { useSeoManager } from "./lib/seo";
 import { TierGate } from "./lib/tiers";
 import AccessGate from "./components/AccessGate";
 import LandingMarketplace from "./pages/LandingMarketplace";
@@ -67,6 +68,7 @@ import Palace from "./pages/Palace";
 import ElderCouncil from "./pages/ElderCouncil";
 import Plans from "./pages/Plans";
 import HelpCenter from "./pages/HelpCenter";
+import KnowledgeBase from "./pages/KnowledgeBase";
 import SeshatsHub from "./pages/SeshatsHub";
 import SeshatsHubPublic from "./pages/SeshatsHubPublic";
 import TermsOfService from "./pages/TermsOfService";
@@ -191,6 +193,12 @@ function Home() {
   return <Navigate to="/dashboard" replace />;
 }
 
+// Sets per-route, per-door title/meta (see lib/seo.js). Must live inside the Router.
+function SeoManager() {
+  useSeoManager();
+  return null;
+}
+
 function App() {
   // Domain-aware front door (see docs/morehelp-migration-blueprint.md):
   //   wai-institute.org  → focused WAI institution landing (same build)
@@ -199,6 +207,7 @@ function App() {
   return (
     <AuthProvider>
       <BrowserRouter>
+        <SeoManager />
         <ErrorBoundary>
         <Toaster position="top-right" richColors />
         {/* Skip-to-content link for accessibility */}
@@ -239,6 +248,8 @@ function App() {
           <Route path="/plans" element={<Plans />} />
           {/* Public funnel pages */}
           <Route path="/help-center" element={<HelpCenter />} />
+          {/* Knowledge Base — handbooks + top support articles (Phase C) */}
+          <Route path="/knowledge-base" element={<KnowledgeBase />} />
           <Route path="/seshats-hub" element={<SeshatsHubPublic />} />
           {/* M.O.R.E. Help Center — unified entry point (greeter / exec / decoy modes) */}
           <Route path="/more-help-center" element={<MoreHelpCenter />} />

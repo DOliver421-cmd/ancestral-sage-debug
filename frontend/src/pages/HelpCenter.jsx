@@ -1,7 +1,7 @@
 import { Link } from "react-router-dom";
 import PublicNav from "../components/PublicNav";
 import BackButton from "../components/BackButton";
-import { ArrowRight, Home, Scale, Utensils, Briefcase, GraduationCap, HeartPulse } from "lucide-react";
+import { ArrowRight, Home, Scale, Utensils, Briefcase, GraduationCap, HeartPulse, BookOpen } from "lucide-react";
 
 // Public M.O.R.E. Help Center — 6 resource categories, each linking to a real
 // destination (the exchange, the legal tool, the course catalog). No dead ends.
@@ -39,6 +39,19 @@ export default function HelpCenter() {
             );
           })}
         </div>
+        <div className="mt-10 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 rounded-2xl border border-copper/20 bg-white p-6">
+          <div className="flex items-start gap-4">
+            <BookOpen className="w-7 h-7 text-copper shrink-0 mt-0.5" />
+            <div>
+              <div className="font-heading font-bold text-ink">Platform help? Use the Knowledge Base</div>
+              <p className="text-sm text-ink/60 mt-1">Handbooks, browser requirements, certificate delivery, and billing answers — all in one place.</p>
+            </div>
+          </div>
+          <Link to="/knowledge-base" className="btn-copper inline-flex items-center gap-2 whitespace-nowrap">
+            Open Knowledge Base <ArrowRight className="w-4 h-4" />
+          </Link>
+        </div>
+
         <div className="mt-12 rounded-[28px] border border-[#e6d0ae] bg-[#fff8ee] p-8 shadow-[0_18px_45px_rgba(97,60,20,0.08)]">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>

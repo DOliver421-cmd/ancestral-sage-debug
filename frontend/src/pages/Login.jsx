@@ -3,9 +3,11 @@ import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "../lib/auth";
 import { WAI_LOGO, BRAND } from "../lib/brand";
 import { toast } from "sonner";
-import { ArrowRight, Heart } from "lucide-react";
+import { ArrowRight, Heart, ExternalLink } from "lucide-react";
+import { isWaiDoor, MORE_HOME } from "../lib/domain";
 
 export default function Login() {
+  const waiDoor = isWaiDoor();
   const { login } = useAuth();
   const nav = useNavigate();
   const [params] = useSearchParams();
@@ -114,11 +116,22 @@ export default function Login() {
               />
             </div>
 
-            {/* Forgot Password */}
+            {/* Forgot Password — account recovery is self-service on the M.O.R.E. door */}
             <div className="text-right">
-              <Link to="/forgot-password" className="text-sm text-copper hover:text-copper/80 font-medium">
-                Forgot password?
-              </Link>
+              {waiDoor ? (
+                <a
+                  href={`${MORE_HOME}/forgot-password`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1 text-sm text-copper hover:text-copper/80 font-medium"
+                >
+                  Forgot password? <ExternalLink className="w-3 h-3" />
+                </a>
+              ) : (
+                <Link to="/forgot-password" className="text-sm text-copper hover:text-copper/80 font-medium">
+                  Forgot password?
+                </Link>
+              )}
             </div>
 
             {/* Submit */}
@@ -157,10 +170,17 @@ export default function Login() {
             </Link>
           </form>
 
-          {/* Footer Link */}
+          {/* Footer Link — support lives on the M.O.R.E. Help Center */}
           <div className="mt-8 text-center">
             <p className="text-xs text-ink/50">
-              Need help? <Link to="/help-center" className="text-copper hover:text-copper/80 font-medium">Help Center</Link>
+              Need help?{" "}
+              {waiDoor ? (
+                <a href={`${MORE_HOME}/help-center`} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-copper hover:text-copper/80 font-medium">
+                  Help Center <ExternalLink className="w-3 h-3" />
+                </a>
+              ) : (
+                <Link to="/help-center" className="text-copper hover:text-copper/80 font-medium">Help Center</Link>
+              )}
             </p>
           </div>
         </div>
