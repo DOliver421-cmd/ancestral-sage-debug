@@ -1,6 +1,7 @@
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { API } from "../lib/api";
 import { useAuth } from "../lib/auth";
+import { ROLE_RANK } from "../lib/roles";
 import { WAI_LOGO, BRAND } from "../lib/brand";
 import {
   LayoutDashboard, BookOpen, Award, Users, Settings, Sparkles, LogOut,
@@ -95,8 +96,7 @@ export default function AppShell({ children }) {
   // and every support/billing/creative item becomes an outbound link to MORE.
   const waiDoor = isWaiDoor();
 
-  // 8-tier role hierarchy (mirrors backend/roles.py)
-  const ROLE_RANK = { public: 0, student: 1, trial_pass: 2, instructor: 3, support_staff: 4, oversight: 5, admin: 6, executive_admin: 7 };
+  // Role hierarchy comes from lib/roles.js (mirrors backend/roles.py).
   const role = user?.role || "student";
   const rank = ROLE_RANK[role] ?? 0;
   const hasRank = (min) => rank >= (ROLE_RANK[min] ?? 0);

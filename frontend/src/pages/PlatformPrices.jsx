@@ -3,8 +3,7 @@ import { api } from "../lib/api";
 import { useAuth } from "../lib/auth";
 import { toast } from "sonner";
 import { Navigate } from "react-router-dom";
-
-const ROLE_RANK = { student: 1, instructor: 2, admin: 3, executive_admin: 4 };
+import { ROLE_RANK } from "../lib/roles";
 
 function fmt(val) {
   if (val === null || val === undefined) return "—";
@@ -14,8 +13,8 @@ function fmt(val) {
 
 export default function PlatformPrices() {
   const { user } = useAuth();
-  const isAdmin = ROLE_RANK[user?.role] >= 3;
-  const isExec  = ROLE_RANK[user?.role] >= 4;
+  const isAdmin = ROLE_RANK[user?.role] >= ROLE_RANK["admin"];
+  const isExec  = ROLE_RANK[user?.role] >= ROLE_RANK["executive_admin"];
 
   const [prices, setPrices]     = useState([]);
   const [loading, setLoading]   = useState(true);

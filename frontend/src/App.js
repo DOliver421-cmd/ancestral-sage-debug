@@ -142,10 +142,7 @@ import AgentRegistryView from "./pages/aawab/AgentRegistryView";
 import CertificationChamber from "./pages/aawab/CertificationChamber";
 import AdminAawabDashboard from "./pages/aawab/AdminAawabDashboard";
 import CrossSiteLogin from "./pages/CrossSiteLogin";
-
-// 8-tier role hierarchy mirroring backend/roles.py.
-// Higher rank = more authority; executive_admin passes every check.
-const ROLE_RANK = { student: 1, trial_pass: 2, instructor: 3, support_staff: 4, oversight: 5, admin: 6, executive_admin: 7 };
+import { ROLE_RANK } from "./lib/roles";
 
 function Protected({ children, roles }) {
   const { user, loading } = useAuth();

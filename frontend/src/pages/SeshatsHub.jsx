@@ -60,6 +60,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { api } from "../lib/api";
 import { useAuth } from "../lib/auth";
+import { ROLES_ALL as ALL_ROLES } from "../lib/roles";
 
 // ── Palette (African marketplace, supervisor dark theme) ──────────────────────
 const BG     = "#0d0f1a";
@@ -85,7 +86,7 @@ const TABS = [
   { key: "audit",       label: "Audit Log" },
 ];
 
-const ALL_ROLES  = ["student","instructor","admin","executive_admin"];
+// ALL_ROLES comes from lib/roles.js — canonical 7-role RBAC (backend/roles.py).
 const ROLE_LABEL = { student:"Student", instructor:"Instructor", admin:"Admin", executive_admin:"Executive Admin" };
 const PROVIDERS  = ["groq","cerebras","gemini","xai","cohere","openrouter","huggingface","anthropic"];
 const PERM_KEYS  = ["content_read","content_create","content_edit_own","content_delete_own","user_warn","user_mute","user_ban","api_access","billing_view","export_data"];

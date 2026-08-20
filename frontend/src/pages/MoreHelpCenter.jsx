@@ -1,3 +1,5 @@
+import { ROLE_RANK, ROLES_ALL as PANEL_ROLES, ROLE_LABELS as PANEL_ROLE_LABELS } from "../lib/roles";
+
 /**
  * M.O.R.E. Help Center — unified entry point
  *
@@ -40,10 +42,9 @@ const SAND        = "#F5DEB3";   // card backgrounds
 const CARVED_BG   = "#FFF1DC";   // organic card fill
 
 // ── Role helpers ───────────────────────────────────────────────────────────────
-const ROLE_RANK = { student: 1, instructor: 2, admin: 3, executive_admin: 4 };
 function hasRank(user, min) { return (ROLE_RANK[user?.role] ?? 0) >= min; }
-const isExec    = (u) => hasRank(u, 3);
-const isSupExec = (u) => hasRank(u, 4);
+const isExec    = (u) => hasRank(u, ROLE_RANK["admin"]);
+const isSupExec = (u) => hasRank(u, ROLE_RANK["executive_admin"]);
 
 // ── Static content ─────────────────────────────────────────────────────────────
 const FEATURES = [
@@ -156,8 +157,7 @@ function DecoyMode() {
 }
 
 // ── Role constants for user DB inside panel ────────────────────────────────────
-const PANEL_ROLES      = ["student", "instructor", "admin", "executive_admin"];
-const PANEL_ROLE_LABELS= { student:"Student", instructor:"Instructor", admin:"Admin", executive_admin:"Exec Admin" };
+// Canonical 7-role RBAC from lib/roles.js (mirrors backend/roles.py).
 
 // ── Exec Supervisor Control Panel ──────────────────────────────────────────────
 function ExecPanel({ apiOnline, visibility, setVisibility, superExec }) {
