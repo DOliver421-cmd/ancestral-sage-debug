@@ -18,15 +18,45 @@ import { Search, HeartPulse, Landmark, Archive } from "lucide-react";
 import { useEffect, useState } from "react";
 import { isPageEnabled, loadGates } from "../lib/accessGates";
 
-// ── Section header ────────────────────────────────────────────────────────────
-function NavSection({ label, children, collapsed }) {
+// ── Section header (collapsible) ──────────────────────────────────────────────
+function NavSection({ label, children, collapsed, defaultOpen = true }) {
+  const [open, setOpen] = useState(defaultOpen);
+  if (collapsed) {
+    return (
+      <div className="mt-4">
+        <div className="mb-1 border-t border-white/10 mx-2" />
+        {children}
+      </div>
+    );
+  }
   return (
     <div className="mt-4">
-      {!collapsed && (
-        <div className="px-3 mb-1 text-[10px] font-black uppercase tracking-widest text-white/30">{label}</div>
-      )}
-      {collapsed && <div className="mb-1 border-t border-white/10 mx-2" />}
-      {children}
+      <button
+        onClick={() => setOpen(o => !o)}
+        className="w-full flex items-center justify-between px-3 mb-1 text-[10px] font-black uppercase tracking-widest text-white/30 hover:text-white/50 transition-colors"
+      >
+        <span>{label}</span>
+        <svg className={`w-3 h-3 transition-transform ${open ? "rotate-180" : ""}`} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M19 9l-7 7-7-7" /></svg>
+      </button>
+      {open && children}
+    </div>
+  );
+}
+
+// ── Collapsible sub-group within a section ───────────────────────────────────
+function NavSubGroup({ label, children, collapsed, defaultOpen = false }) {
+  const [open, setOpen] = useState(defaultOpen);
+  if (collapsed) return children;
+  return (
+    <div className="ml-2">
+      <button
+        onClick={() => setOpen(o => !o)}
+        className="w-full flex items-center gap-2 px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-white/25 hover:text-white/45 transition-colors"
+      >
+        <svg className={`w-2.5 h-2.5 transition-transform ${open ? "rotate-90" : ""}`} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M9 5l7 7-7 7" /></svg>
+        <span>{label}</span>
+      </button>
+      {open && <div className="ml-1">{children}</div>}
     </div>
   );
 }
@@ -199,14 +229,22 @@ export default function AppShell({ children }) {
 
           {hasRank("student") && (
           <NavSection label="Learn" collapsed={collapsed}>
-            {nl("/ai",              "AI Tutor",        Sparkles,        "nav-ai")}
-            {nl("/council",         "Council (Sage)",  Layers,          "nav-council")}
-            {nl("/modules",         "Curriculum",      BookOpen,        "nav-modules")}
-            {nl("/labs",            "Workforce Labs",  FlaskConical,    "nav-labs")}
-            {nl("/lab-simulations", "Lab Simulations", FlaskConical,    "nav-lab-sims")}
-            {nl("/compliance",      "Compliance",      ShieldCheck,     "nav-compliance")}
-            {nl("/adaptive",        "Learning Path",   Brain,           "nav-adaptive")}
-            {nl("/competencies",    "Competencies",    Target,          "nav-competencies")}
+            <NavSubGroup label="AI & Tutoring" collapsed={collapsed}>
+              {nl("/ai",              "AI Tutor",        Sparkles,        "nav-ai")}
+              {nl("/council",         "Council (Sage)",  Layers,          "nav-council")}
+            </NavSubGroup>
+            <NavSubGroup label="Curriculum" collapsed={collapsed} defaultOpen={true}>
+              {nl("/modules",         "Modules",         BookOpen,        "nav-modules")}
+              {nl("/adaptive",        "Learning Path",   Brain,           "nav-adaptive")}
+              {nl("/competencies",    "Competencies",    Target,          "nav-competencies")}
+            </NavSubGroup>
+            <NavSubGroup label="Labs & Practice" collapsed={collapsed}>
+              {nl("/labs",            "Workforce Labs",  FlaskConical,    "nav-labs")}
+              {nl("/lab-simulations", "Lab Simulations", FlaskConical,    "nav-lab-sims")}
+            </NavSubGroup>
+            <NavSubGroup label="Compliance" collapsed={collapsed}>
+              {nl("/compliance",      "Compliance",      ShieldCheck,     "nav-compliance")}
+            </NavSubGroup>
           </NavSection>
           )}
 
@@ -300,35 +338,23 @@ export default function AppShell({ children }) {
           {/* ── CREATORS (instructor+) */}
           {hasRank("instructor") && (
           <NavSection label="Creators" collapsed={collapsed}>
-            {/* Social Blast (media strategy) stays on the WAI door; the rest of the creative suite lives on MORE. */}
-            {nl("/social/publish",       "Social Blast",      Share2,     "nav-social-publish")}
-            {waiDoor ? (
-              <>
-                {out("/studio",             "Creator Studio",    Music,      "nav-creator-studio")}
-                {out("/creator/courses",    "Course Manager",    Video,      "nav-creator-courses")}
-                {out("/creator/earnings",   "My Earnings",       DollarSign, "nav-creator-earnings")}
-                {out("/creator/payouts",    "Payout Dashboard",  Receipt,    "nav-creator-payouts")}
-                {out("/creator-lounge",     "Creator Lounge",    Mic,        "nav-creator-lounge")}
-                {out("/ghost-producer",     "Ghost Producer",    Palette,    "nav-ghost-producer")}
-                {out("/band",               "Band on a Page",    Music,      "nav-band")}
-                {out("/playlist/dashboard", "Playlist Manager",  Radio,      "nav-playlist")}
-                {out("/arcade",             "Virtual Arcade",    Gamepad2,   "nav-arcade")}
-                {out("/trash",              "M.O.R.E. Pantheon", Star,       "nav-trash")}
-              </>
-            ) : (
-              <>
-                {nl("/studio",             "Creator Studio",    Music,      "nav-creator-studio")}
-                {nl("/creator/courses",    "Course Manager",    Video,      "nav-creator-courses")}
-                {nl("/creator/earnings",   "My Earnings",       DollarSign, "nav-creator-earnings")}
-                {nl("/creator/payouts",    "Payout Dashboard",  Receipt,    "nav-creator-payouts")}
-                {nl("/creator-lounge",     "Creator Lounge",    Mic,        "nav-creator-lounge")}
-                {nl("/ghost-producer",     "Ghost Producer",    Palette,    "nav-ghost-producer")}
-                {nl("/band",               "Band on a Page",    Music,      "nav-band")}
-                {nl("/playlist/dashboard", "Playlist Manager",  Radio,      "nav-playlist")}
-                {nl("/arcade",             "Virtual Arcade",    Gamepad2,   "nav-arcade")}
-                {nl("/trash",              "M.O.R.E. Pantheon", Star,       "nav-trash")}
-              </>
-            )}
+            <NavSubGroup label="Content" collapsed={collapsed} defaultOpen={true}>
+              {nl("/social/publish",       "Social Blast",      Share2,     "nav-social-publish")}
+              {waiDoor ? out("/studio", "Creator Studio", Music, "nav-creator-studio") : nl("/studio", "Creator Studio", Music, "nav-creator-studio")}
+              {waiDoor ? out("/creator/courses", "Course Manager", Video, "nav-creator-courses") : nl("/creator/courses", "Course Manager", Video, "nav-creator-courses")}
+              {waiDoor ? out("/ghost-producer", "Ghost Producer", Palette, "nav-ghost-producer") : nl("/ghost-producer", "Ghost Producer", Palette, "nav-ghost-producer")}
+            </NavSubGroup>
+            <NavSubGroup label="Earnings" collapsed={collapsed}>
+              {waiDoor ? out("/creator/earnings", "My Earnings", DollarSign, "nav-creator-earnings") : nl("/creator/earnings", "My Earnings", DollarSign, "nav-creator-earnings")}
+              {waiDoor ? out("/creator/payouts", "Payout Dashboard", Receipt, "nav-creator-payouts") : nl("/creator/payouts", "Payout Dashboard", Receipt, "nav-creator-payouts")}
+            </NavSubGroup>
+            <NavSubGroup label="Media & Fun" collapsed={collapsed}>
+              {waiDoor ? out("/creator-lounge", "Creator Lounge", Mic, "nav-creator-lounge") : nl("/creator-lounge", "Creator Lounge", Mic, "nav-creator-lounge")}
+              {waiDoor ? out("/band", "Band on a Page", Music, "nav-band") : nl("/band", "Band on a Page", Music, "nav-band")}
+              {waiDoor ? out("/playlist/dashboard", "Playlist Manager", Radio, "nav-playlist") : nl("/playlist/dashboard", "Playlist Manager", Radio, "nav-playlist")}
+              {waiDoor ? out("/arcade", "Virtual Arcade", Gamepad2, "nav-arcade") : nl("/arcade", "Virtual Arcade", Gamepad2, "nav-arcade")}
+              {waiDoor ? out("/trash", "M.O.R.E. Pantheon", Star, "nav-trash") : nl("/trash", "M.O.R.E. Pantheon", Star, "nav-trash")}
+            </NavSubGroup>
           </NavSection>
           )}
 
@@ -368,24 +394,32 @@ export default function AppShell({ children }) {
 
           {/* ── ADMIN ─────────────────────────────────────────────────── */}
           {isAdmin && (
-            <NavSection label="Administration" collapsed={collapsed}>
-              {nl("/admin",           "Admin Overview",  Settings,       "nav-admin")}
-              {nl("/admin/tools",     "Sites & Inventory", Building2,   "nav-admin-tools")}
-              {nl("/admin/analytics", "Analytics",       TrendingUp,     "nav-analytics")}
-              {nl("/admin/audit",     "Audit Log",       ScrollText,     "nav-audit")}
-              {nl("/admin/payments",  "Payments",        Receipt,        "nav-admin-payments")}
-              {nl("/admin/billing",   "Billing",         CreditCard,     "nav-billing")}
-              {nl("/admin/prices",    "Prices",          Star,           "nav-prices")}
-              {nl("/admin/health",    "System Health",   ShieldCheck,    "nav-health")}
-              {nl("/admin/moderation","Moderation",      Shield,         "nav-moderation")}
-              {nl("/revenue",         "Revenue",         BarChart3,      "nav-revenue")}
-              {nl("/auditor",         "Auditor",         FileText,       "nav-auditor")}
-              {nl("/more/admin",      "M.O.R.E. Admin",  Wrench,         "nav-more-admin")}
-              {nl("/more/ops",        "Dept. AI Ops",    Network,        "nav-more-ops")}
-              {nl("/assistant",       "Admin Assistant", Sparkles,       "nav-assistant")}
-              {nl("/admin/bridge",    "AI Team Bridge",  Network,        "nav-bridge")}
-              {nl("/admin/aawab",     "AAWAB Admin",     HeartPulse,     "nav-aawab-admin")}
-              {nl("/admin/office-control", "Office Control (no-code)", Settings, "nav-abo-control")}
+            <NavSection label="Administration" collapsed={collapsed} defaultOpen={false}>
+              <NavSubGroup label="Overview" collapsed={collapsed} defaultOpen={true}>
+                {nl("/admin",           "Admin Overview",  Settings,       "nav-admin")}
+                {nl("/admin/tools",     "Sites & Inventory", Building2,   "nav-admin-tools")}
+                {nl("/admin/health",    "System Health",   ShieldCheck,    "nav-health")}
+              </NavSubGroup>
+              <NavSubGroup label="Finance" collapsed={collapsed}>
+                {nl("/admin/payments",  "Payments",        Receipt,        "nav-admin-payments")}
+                {nl("/admin/billing",   "Billing",         CreditCard,     "nav-billing")}
+                {nl("/admin/prices",    "Prices",          Star,           "nav-prices")}
+                {nl("/revenue",         "Revenue",         BarChart3,      "nav-revenue")}
+              </NavSubGroup>
+              <NavSubGroup label="Operations" collapsed={collapsed}>
+                {nl("/admin/analytics", "Analytics",       TrendingUp,     "nav-analytics")}
+                {nl("/admin/audit",     "Audit Log",       ScrollText,     "nav-audit")}
+                {nl("/admin/moderation","Moderation",      Shield,         "nav-moderation")}
+                {nl("/auditor",         "Auditor",         FileText,       "nav-auditor")}
+              </NavSubGroup>
+              <NavSubGroup label="AI & Tools" collapsed={collapsed}>
+                {nl("/more/admin",      "M.O.R.E. Admin",  Wrench,         "nav-more-admin")}
+                {nl("/more/ops",        "Dept. AI Ops",    Network,        "nav-more-ops")}
+                {nl("/assistant",       "Admin Assistant", Sparkles,       "nav-assistant")}
+                {nl("/admin/bridge",    "AI Team Bridge",  Network,        "nav-bridge")}
+                {nl("/admin/aawab",     "AAWAB Admin",     HeartPulse,     "nav-aawab-admin")}
+                {nl("/admin/office-control", "Office Control (no-code)", Settings, "nav-abo-control")}
+              </NavSubGroup>
             </NavSection>
           )}
 
@@ -399,21 +433,29 @@ export default function AppShell({ children }) {
 
           {/* ── EXECUTIVE ─────────────────────────────────────────────── */}
           {isExec && (
-            <NavSection label="Executive" collapsed={collapsed}>
-              {nl("/admin/system",       "Exec System",       Crown,          "nav-exec-system")}
-              {nl("/admin/control",      "Site Control",      Shield,         "nav-control-panel")}
-              {nl("/admin/exec-control", "Command Center", Layers,         "nav-exec-control")}
-              {nl("/admin/director",     "Director Dash",     Compass,        "nav-exec-director")}
-              {nl("/admin/sage-audit",   "Sage Audit",        ScrollText,     "nav-sage-audit")}
-              {nl("/admin/staff-meetings","Staff Meetings",   Users,          "nav-staff-meetings")}
-              {nl("/admin/exec-report",  "Site Report",       ClipboardCheck, "nav-exec-report")}
-              {nl("/admin/providers",    "Provider Gateway",  Network,        "nav-providers")}
-              {nl("/team/ops",           "Team Ops",          Server,         "nav-team-ops")}
-              {nl("/supervisor",         "Supervisor Hub",    Radio,          "nav-supervisor")}
-              {nl("/creative-partner",   "Creative Partner",  Palette,        "nav-creative-partner")}
-              {nl("/jamil",              "Jamil",             Sparkles,       "nav-jamil")}
-              {nl("/projects",           "Projects",          ClipboardCheck, "nav-projects")}
-              {nl("/arena",              "The Arena",         Swords,         "nav-arena")}
+            <NavSection label="Executive" collapsed={collapsed} defaultOpen={false}>
+              <NavSubGroup label="Command" collapsed={collapsed} defaultOpen={true}>
+                {nl("/admin/system",       "Exec System",       Crown,          "nav-exec-system")}
+                {nl("/admin/control",      "Site Control",      Shield,         "nav-control-panel")}
+                {nl("/admin/exec-control", "Command Center", Layers,         "nav-exec-control")}
+                {nl("/admin/director",     "Director Dash",     Compass,        "nav-exec-director")}
+              </NavSubGroup>
+              <NavSubGroup label="Reports & Audit" collapsed={collapsed}>
+                {nl("/admin/sage-audit",   "Sage Audit",        ScrollText,     "nav-sage-audit")}
+                {nl("/admin/exec-report",  "Site Report",       ClipboardCheck, "nav-exec-report")}
+                {nl("/admin/staff-meetings","Staff Meetings",   Users,          "nav-staff-meetings")}
+              </NavSubGroup>
+              <NavSubGroup label="Team & AI" collapsed={collapsed}>
+                {nl("/admin/providers",    "Provider Gateway",  Network,        "nav-providers")}
+                {nl("/team/ops",           "Team Ops",          Server,         "nav-team-ops")}
+                {nl("/supervisor",         "Supervisor Hub",    Radio,          "nav-supervisor")}
+                {nl("/jamil",              "Jamil",             Sparkles,       "nav-jamil")}
+              </NavSubGroup>
+              <NavSubGroup label="Projects" collapsed={collapsed}>
+                {nl("/projects",           "Projects",          ClipboardCheck, "nav-projects")}
+                {nl("/creative-partner",   "Creative Partner",  Palette,        "nav-creative-partner")}
+                {nl("/arena",              "The Arena",         Swords,         "nav-arena")}
+              </NavSubGroup>
             </NavSection>
           )}
 
