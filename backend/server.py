@@ -1747,8 +1747,8 @@ api_router.include_router(_ai_mod.router)
 
 # --- Commerce + governance router (extracted to routers/commerce.py) ---
 from routers import commerce as _commerce_mod
-from routers.ops import run_escalation_check as _run_escalation_check
-_commerce_mod.bind(db, current_user, audit, _run_escalation_check, run_engagement_check, _discount_manager)
+from routers.ops import run_escalation_check
+_commerce_mod.bind(db, current_user, audit, run_escalation_check, run_engagement_check, _discount_manager)
 api_router.include_router(_commerce_mod.router)
 
 # --- Sovereign/puzzle/partnership router (extracted to routers/sovereign.py) ---
