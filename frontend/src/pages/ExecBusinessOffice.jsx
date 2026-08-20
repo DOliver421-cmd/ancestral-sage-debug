@@ -108,23 +108,31 @@ export default function ExecBusinessOffice() {
   const [glass, setGlass] = useState([]);
   const [users, setUsers] = useState([]);
   const [accessPages, setAccessPages] = useState([]);
+  const [matrix, setMatrix] = useState(null);
+  const [matrixEdits, setMatrixEdits] = useState({});
+  const [prices, setPrices] = useState([]);
   const [loading, setLoading] = useState(true);
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const [st, au, gl, us, ac] = await Promise.all([
+      const [st, au, gl, us, ac, mx, pr] = await Promise.all([
         api.get("/exec/control/state"),
         api.get("/exec/control/audit?limit=30"),
         api.get("/exec/control/break-glass/active"),
         api.get("/admin/users?limit=200"),
         api.get("/exec/control/access"),
+        api.get("/exec/control/authz-matrix"),
+        api.get("/admin/prices"),
       ]);
       setState(st.data);
       setAudit(au.data?.records || au.data || []);
       setGlass(gl.data?.active_overrides || gl.data || []);
       setUsers(us.data?.users || us.data || []);
       setAccessPages(ac.data?.pages || ac.data || []);
+      setMatrix(mx.data);
+      setMatrixEdits((mx.data?.features || []).reduce((a, f) => ({ ...a, [f.key]: f.min_tier }), {}));
+      setPrices(pr.data?.prices || []);
     } catch (e) {
       toast.error(e?.response?.data?.detail || "Failed to load executive state");
     } finally {
@@ -197,6 +205,59 @@ export default function ExecBusinessOffice() {
       load();
     } catch (e) { toast.error(e?.response?.data?.detail || "Failed"); }
     finally { setUserFlagBusy(false); }
+  }
+
+  // ── Authorization matrix (editable feature↔tier map) ─────────────────────
+  const [matrixBusy, setMatrixBusy] = useState(false);
+  const [matrixReason, setMatrixReason] = useState("");
+  async function saveMatrix() {
+    if (!matrixReason.trim()) return toast.error("Add a reason (audit trail)");
+    setMatrixBusy(true);
+    try {
+      await api.post("/exec/control/authz-matrix", {
+        requirements: matrixEdits, reason: matrixReason,
+      });
+      toast.success("Authorization matrix saved — enforced server-side now");
+      setMatrixReason("");
+      load();
+    } catch (e) { toast.error(e?.response?.data?.detail || "Failed"); }
+    finally { setMatrixBusy(false); }
+  }
+
+  // ── Prices & products (no code changes needed) ────────────────────────────
+  const [priceForm, setPriceForm] = useState({ key: "", value: "", description: "" });
+  const [priceBusy, setPriceBusy] = useState(false);
+  const [priceEdit, setPriceEdit] = useState(null);
+  async function addPrice() {
+    if (!priceForm.key || priceForm.value === "") return toast.error("Key and value are required");
+    setPriceBusy(true);
+    try {
+      await api.post("/admin/prices", { key: priceForm.key, value: parseFloat(priceForm.value), description: priceForm.description });
+      toast.success("Price created — live without code");
+      setPriceForm({ key: "", value: "", description: "" });
+      load();
+    } catch (e) { toast.error(e?.response?.data?.detail || "Failed"); }
+    finally { setPriceBusy(false); }
+  }
+  async function updatePrice(p) {
+    setPriceBusy(true);
+    try {
+      await api.patch(`/admin/prices/${p.id}`, { value: p.value, description: p.description });
+      toast.success("Price updated — live");
+      setPriceEdit(null);
+      load();
+    } catch (e) { toast.error(e?.response?.data?.detail || "Failed"); }
+    finally { setPriceBusy(false); }
+  }
+  async function deletePrice(p) {
+    if (!window.confirm(`Delete price "${p.key}"? This is audited and immediate.`)) return;
+    setPriceBusy(true);
+    try {
+      await api.delete(`/admin/prices/${p.id}`);
+      toast.success("Price deleted");
+      load();
+    } catch (e) { toast.error(e?.response?.data?.detail || "Failed"); }
+    finally { setPriceBusy(false); }
   }
 
   // ── AI access (all-persona revoke/grant — enforced) ───────────────────────
@@ -485,6 +546,44 @@ export default function ExecBusinessOffice() {
           </div>
         </Section>
 
+        {/* ── Authorization Matrix (editable — no code) ────────────────── */}
+        <Section icon="🧩" title="Authorization Matrix" sub="Pick which tier can use each feature. Saved server-side and enforced within seconds — no code, no deploy. Defaults match current behavior until you change them.">
+          {!matrix ? (
+            <p className="text-sm text-ink/50">Loading matrix…</p>
+          ) : (
+            <div>
+              <div className="space-y-3">
+                {(matrix.features || []).map(f => (
+                  <div key={f.key} className="grid md:grid-cols-[1fr_180px_240px] gap-3 items-center border border-ink/10 rounded-lg px-4 py-3 bg-white">
+                    <div>
+                      <div className="text-sm font-bold text-ink">{f.label}</div>
+                      <div className="text-[13px] text-ink/50 font-mono">{f.api}</div>
+                      <div className="text-[13px] text-ink/50">{f.detail}</div>
+                    </div>
+                    <div className="text-[13px] text-ink/40 font-semibold">minimum tier</div>
+                    <select
+                      className={inputCls}
+                      value={matrixEdits[f.key] ?? f.min_tier}
+                      onChange={e => setMatrixEdits(m => ({ ...m, [f.key]: e.target.value }))}
+                    >
+                      {(matrix.tiers || []).map(t => <option key={t} value={t}>{t}</option>)}
+                    </select>
+                  </div>
+                ))}
+              </div>
+              <div className="grid md:grid-cols-[1fr_auto] gap-3 items-end mt-4">
+                <Field label="Reason (audit trail)">
+                  <input className={inputCls} value={matrixReason} onChange={e => setMatrixReason(e.target.value)} placeholder="Why is this matrix changing?" />
+                </Field>
+                <Btn onClick={saveMatrix} busy={matrixBusy}>Save Matrix</Btn>
+              </div>
+              <p className="text-[13px] text-ink/50 mt-3">
+                Enforcement: backend/security/feature_control.py reads db.authz_matrix on every request. Freeing a gate is instant; raising one blocks immediately. Instructors bypass course gates; admins bypass all tier gates.
+              </p>
+            </div>
+          )}
+        </Section>
+
         {/* ── Page & Feature Access board ───────────────────────────────── */}
         <Section icon="🗂️" title="Page & Feature Access Board" sub="One board for the whole site. Disabling a page hides it everywhere; the ai page is also blocked at the API. Every change is audited.">
           {accessPages.length === 0 ? (
@@ -562,6 +661,49 @@ export default function ExecBusinessOffice() {
                 </div>
               )}
             </div>
+          </div>
+        </Section>
+
+        {/* ── Prices & Products (no code) ───────────────────────────────── */}
+        <Section icon="🏷️" title="Prices & Products" sub="Change any platform price from here — it takes effect immediately, no code, no deploy. Every change is audited.">
+          <div className="space-y-2 mb-5">
+            {prices.length === 0 && <p className="text-sm text-ink/50">No prices configured yet — add the first one below.</p>}
+            {prices.map(p => (
+              <div key={p.id} className="flex items-center justify-between gap-3 border border-ink/10 rounded-lg px-4 py-2.5 bg-white">
+                {priceEdit === p.id ? (
+                  <div className="flex items-center gap-2 flex-1 flex-wrap">
+                    <input className={inputCls + " !w-28"} type="number" step="0.01" value={p.value} onChange={e => { p.value = parseFloat(e.target.value) || 0; setPrices([...prices]); }} />
+                    <input className={inputCls + " !flex-1 min-w-[180px]"} value={p.description || ""} onChange={e => { p.description = e.target.value; setPrices([...prices]); }} placeholder="description" />
+                    <button onClick={() => updatePrice(p)} className="text-sm font-bold px-3 py-1.5 rounded-lg bg-ink text-white hover:bg-ink/85">Save</button>
+                    <button onClick={() => setPriceEdit(null)} className="text-sm font-bold px-3 py-1.5 rounded-lg border border-ink/15">Cancel</button>
+                  </div>
+                ) : (
+                  <>
+                    <div className="flex-1">
+                      <span className="text-sm font-bold text-ink">{p.key}</span>
+                      {p.description && <span className="text-[13px] text-ink/50 ml-2">{p.description}</span>}
+                    </div>
+                    <span className="text-sm font-bold text-ink">${typeof p.value === "number" ? p.value.toFixed(2) : p.value}</span>
+                    <div className="flex gap-2">
+                      <button onClick={() => { setPriceEdit(p.id); }} className="text-sm font-bold px-3 py-1.5 rounded-lg border border-ink/15 hover:bg-ink/5">Edit</button>
+                      <button onClick={() => deletePrice(p)} className="text-sm font-bold px-3 py-1.5 rounded-lg border border-red-300 text-red-600 hover:bg-red-50">Delete</button>
+                    </div>
+                  </>
+                )}
+              </div>
+            ))}
+          </div>
+          <div className="grid md:grid-cols-[1fr_140px_1fr_auto] gap-3 items-end">
+            <Field label="Key">
+              <input className={inputCls} value={priceForm.key} onChange={e => setPriceForm(f => ({ ...f, key: e.target.value }))} placeholder="e.g. monthly_member" />
+            </Field>
+            <Field label="Value (USD)">
+              <input className={inputCls} type="number" step="0.01" value={priceForm.value} onChange={e => setPriceForm(f => ({ ...f, value: e.target.value }))} placeholder="9.99" />
+            </Field>
+            <Field label="Description">
+              <input className={inputCls} value={priceForm.description} onChange={e => setPriceForm(f => ({ ...f, description: e.target.value }))} placeholder="what this price is for" />
+            </Field>
+            <Btn onClick={addPrice} busy={priceBusy}>Add Price</Btn>
           </div>
         </Section>
 

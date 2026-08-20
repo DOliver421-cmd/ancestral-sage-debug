@@ -11,6 +11,7 @@ import {
   CheckCircle2, XCircle, Clock, MessageSquare,
   HandHelping, Siren, Search, ChevronDown, ShieldAlert,
   UserPlus, Trash2, ArrowUpCircle, ArrowDownCircle, Copy, KeyRound, Eye, EyeOff,
+  Headset, Hourglass, Flame,
 } from "lucide-react";
 
 // ── small helpers ─────────────────────────────────────────────────────────────
@@ -47,6 +48,14 @@ function KPI({ icon: Icon, label, value, alert, sub, accent }) {
     </div>
   );
 }
+
+// ── Server-side enforcement contract — mirrors backend/security/feature_control.py.
+// feature -> { min feature_tier, API surface blocked when disabled, note }
+const ENFORCED_FEATURES = {
+  ai_chat:  { tier: "free",   api: "/api/ai/*",     detail: "Revocable per-user" },
+  posts:    { tier: "member", api: "/api/more/*",   detail: "Free users blocked server-side" },
+  courses:  { tier: "plus",   api: "/api/modules*", detail: "Instructors bypass" },
+};
 
 // ── User Database panel ───────────────────────────────────────────────────────
 // Role constants come from the single canonical module (lib/roles.js) which
@@ -789,23 +798,26 @@ export default function ExecSystem() {
   const [lastSync, setLastSync] = useState(null);
   const [loading,  setLoading]  = useState(true);
   const [showPanel, setShowPanel] = useState(false);
+  const [flags,     setFlags]    = useState({});
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const [sysR, statsR, actR, cohR, postsR, needsR] = await Promise.allSettled([
+      const [sysR, statsR, actR, cohR, postsR, needsR, flR] = await Promise.allSettled([
         api.get("/exec/system"),
         api.get("/admin/stats"),
         api.get("/admin/recent-activity?limit=12"),
         api.get("/admin/cohorts"),
         fetch(`${BACKEND_URL}/api/more/posts?limit=1`).then(r => r.json()),
         fetch(`${BACKEND_URL}/api/more/needs?limit=1`).then(r => r.json()),
+        api.get("/exec/control/state"),
       ]);
       if (sysR.status === "fulfilled")   setSys(sysR.value.data);
       else                               setErr("System endpoint unavailable");
       if (statsR.status === "fulfilled") setStats(statsR.value.data);
       if (actR.status === "fulfilled")   setActivity(actR.value.data || []);
       if (cohR.status === "fulfilled")   setCohorts(cohR.value.data || []);
+      if (flR.status === "fulfilled")    setFlags(flR.value.data?.platform_flags?.flags || {});
       setMore({
         posts: postsR.status === "fulfilled" ? (postsR.value.total ?? 0) : 0,
         needs: needsR.status === "fulfilled" ? (needsR.value.total ?? 0) : 0,
@@ -820,12 +832,21 @@ export default function ExecSystem() {
 
   useEffect(() => { load(); }, [load]);
 
-  const ROLE_MAP = {
-    executive_admin: { label: "Executive Admins", color: "#f59e0b", icon: Crown },
-    admin:           { label: "Admins",            color: "#0b1f3a", icon: Shield },
-    instructor:      { label: "Instructors",       color: "#b5501a", icon: GraduationCap },
-    student:         { label: "Students",          color: "#1d4ed8", icon: Users },
+  // All 7 canonical roles — never a partial copy. Mirrors lib/roles.js + backend/roles.py.
+  const ROLE_META = {
+    executive_admin: { color: "#f59e0b", icon: Crown },
+    admin:           { color: "#0b1f3a", icon: Shield },
+    oversight:       { color: "#7c3aed", icon: Eye },
+    support_staff:   { color: "#0891b2", icon: Headset },
+    instructor:      { color: "#b5501a", icon: GraduationCap },
+    trial_pass:      { color: "#65a30d", icon: Hourglass },
+    student:         { color: "#1d4ed8", icon: Users },
   };
+  const ROLE_MAP = ROLES_ALL.reduce((acc, r) => {
+    const meta = ROLE_META[r] || { color: "#64748b", icon: Users };
+    acc[r] = { label: ROLE_LABELS[r] || r, color: meta.color, icon: meta.icon };
+    return acc;
+  }, {});
 
   const totalUsers = Object.values(sys?.role_counts || {}).reduce((a, b) => a + b, 0);
   const hasIncidents = (stats?.incidents_open || 0) > 0;
@@ -905,6 +926,45 @@ export default function ExecSystem() {
           <KPI icon={Clock}       label="Labs Pending"      value={stats?.labs_pending}         alert={(stats?.labs_pending || 0) > 5} sub="awaiting review" />
           <KPI icon={HandHelping} label="M.O.R.E. Posts"   value={more.posts}                  sub="community exchange" accent="#7c3aed" />
           <KPI icon={MessageSquare} label="M.O.R.E. Needs" value={more.needs}                  sub="active requests" accent="#0891b2" />
+        </div>
+
+        {/* ── Server-side enforcement status (live firewall board) ──────── */}
+        <div className="bg-white rounded-2xl p-6 border border-slate-100 shadow-sm text-slate-900 mb-6">
+          <div className="flex items-center justify-between mb-1">
+            <h2 className="font-heading font-extrabold text-base text-slate-900 flex items-center gap-2">
+              <Flame className="w-4 h-4 text-amber-500" /> Server-Side Enforcement Status
+            </h2>
+            <span className="text-xs text-slate-400">live from /exec/control/state · backend/security/feature_control.py</span>
+          </div>
+          <p className="text-xs text-slate-500 mb-4">
+            Every control below is enforced by the server middleware — a disabled flag blocks its API surface for everyone;
+            per-user overrides and feature_tier gates are applied per request. This is the firewall status of the platform.
+          </p>
+          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            {Object.entries(ENFORCED_FEATURES).map(([key, info]) => {
+              const off = flags[key] && flags[key].enabled === false;
+              return (
+                <div key={key} className={`rounded-xl border px-4 py-3 ${off ? "bg-red-50 border-red-200" : "bg-emerald-50/60 border-emerald-200"}`}>
+                  <div className="flex items-center justify-between">
+                    <span className="font-bold text-sm text-slate-800">{key}</span>
+                    <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${off ? "bg-red-100 text-red-700" : "bg-emerald-100 text-emerald-700"}`}>
+                      {off ? "FIREWALLED" : "OPEN"}
+                    </span>
+                  </div>
+                  <div className="text-xs text-slate-600 mt-1 font-mono">{info.api}</div>
+                  <div className="text-xs text-slate-500 mt-0.5">Min tier: {info.tier} · {info.detail}</div>
+                </div>
+              );
+            })}
+            <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
+              <div className="flex items-center justify-between">
+                <span className="font-bold text-sm text-slate-800">RBAC roles</span>
+                <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-slate-200 text-slate-600">7 ACTIVE</span>
+              </div>
+              <div className="text-xs text-slate-600 mt-1 font-mono">student → executive_admin</div>
+              <div className="text-xs text-slate-500 mt-0.5">Enforced per-route by the access gateway</div>
+            </div>
+          </div>
         </div>
 
         {/* ── Main content: 3 columns ───────────────────────────────────── */}

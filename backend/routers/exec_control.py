@@ -382,6 +382,10 @@ class _ExecFeatureFlagReq(BaseModel):
     user_id:   Optional[str] = None
     reason:    str  = Field(..., min_length=1, max_length=500)
 
+class _ExecAuthzMatrixReq(BaseModel):
+    requirements: dict[str, str] = Field(..., description="feature key -> minimum feature_tier")
+    reason:       str = Field(..., min_length=1, max_length=500)
+
 class _ExecAIAccessReq(BaseModel):
     user_id: str
     persona: str
@@ -586,6 +590,59 @@ async def ec_feature_flag(body: _ExecFeatureFlagReq, request: Request,
             target_id=body.user_id, after={"flag": body.flag_name, "enabled": body.enabled},
             request=request, note=body.reason)
     return {"ok": True, "flag": body.flag_name, "enabled": body.enabled, "scope": body.scope}
+
+
+# ── Authorization Matrix (editable feature↔tier map) ─────────────────────────
+# The enforcement contract the server actually applies.  Defaults mirror
+# security/feature_control.py FEATURE_MIN_TIER; the DB matrix (db.authz_matrix)
+# overrides them per feature.  Executives edit this from the console — no code.
+AUTHZ_FEATURES = [
+    {"key": "ai_chat", "label": "AI Chat",        "api": "/api/ai/*",     "detail": "Revocable per-user"},
+    {"key": "posts",   "label": "Posts (M.O.R.E.)", "api": "/api/more/*", "detail": "Free users blocked server-side"},
+    {"key": "courses", "label": "Courses",        "api": "/api/modules*", "detail": "Instructors bypass course gates"},
+]
+AUTHZ_FEATURE_KEYS = {f["key"] for f in AUTHZ_FEATURES}
+
+
+@router.get("/exec/control/authz-matrix")
+async def ec_get_authz_matrix(actor: User = Depends(_require_rank("executive_admin"))):
+    from security.feature_control import (
+        FEATURE_MIN_TIER, TIER_RANK, load_feature_tier_requirements,
+    )
+    effective = await load_feature_tier_requirements(db)
+    features = [
+        {**f, "min_tier": effective.get(f["key"], FEATURE_MIN_TIER.get(f["key"], "free"))}
+        for f in AUTHZ_FEATURES
+    ]
+    return {
+        "features": features,
+        "tiers": [k for k, _ in sorted(TIER_RANK.items(), key=lambda kv: kv[1])],
+        "effective": effective,
+        "fetched_at": datetime.now(timezone.utc).isoformat(),
+    }
+
+
+@router.post("/exec/control/authz-matrix")
+async def ec_set_authz_matrix(body: _ExecAuthzMatrixReq, request: Request,
+                              actor: User = Depends(_require_rank("executive_admin"))):
+    from security.feature_control import TIER_RANK, load_feature_tier_requirements
+    unknown = set(body.requirements) - AUTHZ_FEATURE_KEYS
+    if unknown:
+        raise HTTPException(400, f"Unknown feature key(s): {sorted(unknown)}")
+    bad_tiers = [t for t in body.requirements.values() if t not in TIER_RANK]
+    if bad_tiers:
+        raise HTTPException(400, f"Unknown tier(s): {sorted(set(bad_tiers))} — valid: {sorted(TIER_RANK)}")
+    now_iso = datetime.now(timezone.utc).isoformat()
+    await db.authz_matrix.update_one(
+        {"_id": "matrix"},
+        {"$set": {"requirements": dict(body.requirements), "updated_by": actor.id,
+                  "updated_at": now_iso}},
+        upsert=True,
+    )
+    await _exec_audit(actor, "exec.authz_matrix.updated", request=request,
+                      after={"requirements": dict(body.requirements)}, note=body.reason)
+    effective = await load_feature_tier_requirements(db)
+    return {"ok": True, "effective": effective, "updated_at": now_iso}
 
 
 @router.post("/exec/control/ai-access")

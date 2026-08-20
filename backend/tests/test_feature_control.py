@@ -24,6 +24,7 @@ from security.feature_control import (  # noqa: E402
     check_request_config,
     check_user_feature_access,
     feature_for_path,
+    load_feature_tier_requirements,
     page_access_enabled,
     platform_flag_enabled,
 )
@@ -122,19 +123,23 @@ def test_db_error_fails_open():
 
 # ── Per-user enforcement (user_feature_overrides + feature_tier) ──────────────
 class _UserDB:
-    """Fake db with user_feature_overrides + tier_definitions collections."""
+    """Fake db with user_feature_overrides + tier_definitions + authz_matrix."""
 
-    def __init__(self, overrides=None, custom_tiers=None):
+    def __init__(self, overrides=None, custom_tiers=None, authz=None):
         self._overrides = overrides  # dict: user_id -> doc, or None
         self._tiers = custom_tiers or []
+        self._authz = authz  # dict or None (absent = code defaults)
         self.user_feature_overrides = self
         self.tier_definitions = self
+        self.authz_matrix = self
 
     async def find_one(self, query, projection=None):
         if "user_id" in query:
             if self._overrides is None:
                 return None
             return self._overrides.get(query["user_id"])
+        if query.get("_id") == "matrix":
+            return {"requirements": self._authz} if self._authz is not None else None
         return None
 
     def find(self, query, projection=None):
@@ -240,6 +245,52 @@ def test_per_user_db_error_fails_open():
             raise RuntimeError("mongo down")
 
     assert _check(_BrokenDB(), _u(), "/api/ai/chat") == ("pass", None)
+
+
+# ── Editable authorization matrix (db.authz_matrix) ───────────────────────────
+def test_authz_matrix_absent_defaults_to_code():
+    # No matrix doc -> exactly the code defaults, for every enforced feature.
+    req = asyncio.run(load_feature_tier_requirements(_UserDB()))
+    assert req == FEATURE_MIN_TIER
+    assert req["ai_chat"] == "free" and req["posts"] == "member" and req["courses"] == "plus"
+
+
+def test_authz_matrix_stored_overrides_defaults():
+    db = _UserDB(authz={"posts": "pro", "courses": "free"})
+    req = asyncio.run(load_feature_tier_requirements(db))
+    assert req["posts"] == "pro"
+    assert req["courses"] == "free"  # can also relax a gate
+    assert req["ai_chat"] == "free"  # untouched key keeps default
+
+
+def test_authz_matrix_ignores_unknown_keys_and_tiers():
+    # A bad write can never create a gate for an unmapped feature or an
+    # unknown tier — unknown entries are dropped, known keys keep defaults.
+    db = _UserDB(authz={"posts": "pro", "ghost_feature": "plus", "courses": "platinum"})
+    req = asyncio.run(load_feature_tier_requirements(db))
+    assert req["posts"] == "pro"
+    assert req["courses"] == "plus"      # platinum dropped -> default
+    assert "ghost_feature" not in req
+
+
+def test_authz_matrix_db_error_fails_open():
+    class _BrokenDB:
+        async def find_one(self, query, projection=None):
+            raise RuntimeError("mongo down")
+
+    assert asyncio.run(load_feature_tier_requirements(_BrokenDB())) == FEATURE_MIN_TIER
+
+
+def test_authz_matrix_changes_enforcement_live():
+    # Raise the posts gate to pro: a member is now blocked server-side.
+    db = _UserDB(authz={"posts": "pro"})
+    action, detail = _check(db, _u(feature_tier="member"), "/api/more/posts")
+    assert action == "block" and "Pro plan" in detail
+    # Pro passes.
+    assert _check(db, _u(feature_tier="pro"), "/api/more/posts") == ("pass", None)
+    # Relax courses to free: a free user now passes (default was plus).
+    db2 = _UserDB(authz={"courses": "free"})
+    assert _check(db2, _u(feature_tier="free"), "/api/modules/x") == ("pass", None)
 
 
 def test_tier_map_mirrors_frontend_contract():
