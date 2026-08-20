@@ -576,13 +576,10 @@ def test_real_app_handler_derived_never_stricter_than_handler():
         _params_to_wildcard,
         _route_has_auth_dep,
     )
-    orig = None
-    for cell in (getattr(server.app, "__closure__", None) or ()):
-        v = cell.cell_contents
-        if getattr(v, "routes", None) is not None:
-            orig = v
-            break
-    assert orig is not None, "could not unwrap the real FastAPI app"
+    # server.app is the FastAPI instance itself (the gate is registered via
+    # app.add_middleware — never rebound to a wrapper function).
+    orig = getattr(server.app, "routes", None) and server.app
+    assert orig is not None, "server.app is not a FastAPI instance"
     for route in _flatten_routes(getattr(orig, "routes", [])):
         dependant = getattr(route, "dependant", None)
         if dependant is None or not _route_has_auth_dep(dependant):
@@ -601,6 +598,81 @@ def test_real_app_handler_derived_never_stricter_than_handler():
             for m in methods or {"GET"}:
                 assert find_control(sample, m) is None, \
                     f"route {m} {pat} has no handler-derivable rank but lies inside the gated control surface"
+
+
+# ── 10. Wrap must NOT rebind app (the production 404 regression) ─────────────
+def test_wrap_keeps_app_a_fastapi_instance():
+    """Regression: wrap() used to rebind the module-level app to an ASGI
+    function, so startup's SPA mount crashed with
+    AttributeError: 'function' object has no attribute 'mount' and / 404'd.
+    The gate must register via app.add_middleware and return the same app.
+    """
+    try:
+        from fastapi import FastAPI
+        from starlette.testclient import TestClient
+    except ImportError:  # pragma: no cover - stdlib-only runner
+        print("SKIP test_wrap_keeps_app_a_fastapi_instance (fastapi/starlette not installed)")
+        return
+
+    gw = _make_gw()
+    app = FastAPI()
+    returned = gw.wrap(app)
+    assert returned is app, "wrap() must return the SAME FastAPI instance"
+    assert hasattr(app, "mount") and hasattr(app, "routes"), "app must stay a FastAPI app"
+    # The gate is live through the standard middleware stack.
+
+    @app.get("/api/health")
+    async def health():
+        return {"ok": True}
+
+    @app.get("/api/exec/control/state")
+    async def control():
+        return {"ok": True}
+
+    client = TestClient(app)
+    assert client.get("/api/health").status_code == 200
+    assert client.get("/api/exec/control/state").status_code == 401  # gate live
+    assert client.get(
+        "/api/exec/control/state", headers={"Authorization": "token:admin"}
+    ).status_code == 200
+    assert client.get(
+        "/api/exec/control/state", headers={"Authorization": "token:student"}
+    ).status_code == 403
+
+
+def test_middleware_class_gates_like_raw_asgi():
+    """The Starlette middleware class and the raw-ASGI adapter share the same
+    gate decision (_check) — behavior must be identical."""
+    try:
+        from fastapi import FastAPI
+        from starlette.testclient import TestClient
+    except ImportError:  # pragma: no cover
+        print("SKIP test_middleware_class_gates_like_raw_asgi (fastapi not installed)")
+        return
+
+    gw = _make_gw()
+    app = FastAPI()
+    app.add_middleware(gw.middleware_class())
+
+    @app.get("/api/exec/control/state")
+    async def control():
+        return {"ok": True}
+
+    @app.get("/api/prices/public")
+    async def public():
+        return {"ok": True}
+
+    client = TestClient(app)
+    # Same outcomes as the raw-ASGI adapter tests: 401 unauthenticated,
+    # 200 executive, 403 student, passthrough for public paths.
+    assert client.get("/api/exec/control/state").status_code == 401
+    assert client.get(
+        "/api/exec/control/state", headers={"Authorization": "token:admin"}
+    ).status_code == 200
+    assert client.get(
+        "/api/exec/control/state", headers={"Authorization": "token:student"}
+    ).status_code == 403
+    assert client.get("/api/prices/public").status_code == 200
 
 
 # ── Runner (works without pytest installed) ───────────────────────────────────
