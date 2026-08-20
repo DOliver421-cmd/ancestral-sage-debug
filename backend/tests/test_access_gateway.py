@@ -355,6 +355,79 @@ def test_matcher_index_groups_by_segment():
             assert pattern.split("/")[2] == seg, f"pattern {pattern} indexed under wrong segment"
 
 
+# ── 8. Intentionally-public routes must NEVER be gated ────────────────────────
+def test_matcher_excludes_known_public_routes_from_registry():
+    # Public widget, shared-secret heartbeat, and inbound bridge webhook.
+    assert find_control("/api/supervisor/public-chat", "POST") is None
+    assert find_control("/api/exec/panel/heartbeat", "POST") is None
+    assert find_control("/api/bridge/receive", "POST") is None
+    # Sibling control routes in the same prefixes stay gated.
+    assert find_control("/api/supervisor/dashboard", "GET") is not None
+    assert find_control("/api/exec/panel/health", "GET") is not None
+    assert find_control("/api/bridge/config", "GET") is not None
+
+
+def test_route_auth_dep_detection_and_public_discovery():
+    from security.access_control.gateway import (
+        _discover_public_route_patterns,
+        _params_to_wildcard,
+        _route_has_auth_dep,
+    )
+    SimpleNS = SimpleNamespace
+
+    def dep(call):
+        return SimpleNS(call=call, dependencies=[])
+
+    async def current_user():
+        pass
+
+    def require_role(role):
+        async def closure():
+            pass
+        return closure
+
+    def _require_rank(role):
+        async def dep_closure():
+            pass
+        return dep_closure
+
+    assert _route_has_auth_dep(SimpleNS(dependencies=[dep(current_user)])) is True
+    assert _route_has_auth_dep(SimpleNS(dependencies=[dep(_require_rank("admin"))])) is True
+    nested = SimpleNS(call=None, dependencies=[dep(require_role("admin"))])
+    assert _route_has_auth_dep(SimpleNS(dependencies=[nested])) is True
+    assert _route_has_auth_dep(SimpleNS(dependencies=[dep(None)])) is False
+    assert _route_has_auth_dep(SimpleNS(dependencies=[])) is False
+
+    assert _params_to_wildcard("/api/incidents/{iid}/resolve") == "/api/incidents/*/resolve"
+
+    public = SimpleNS(path="/supervisor/public-chat", dependant=SimpleNS(dependencies=[]), methods={"POST"})
+    authed = SimpleNS(path="/admin/users", dependant=SimpleNS(dependencies=[dep(current_user)]), methods={"GET"})
+    patterns = _discover_public_route_patterns(SimpleNS(routes=[public, authed]))
+    public_paths = [p for _m, p in patterns]
+    assert "/api/supervisor/public-chat" in public_paths
+    assert not any(p.startswith("/api/admin") for p in public_paths), "authed routes must not be public"
+
+    # Method-awareness: a public GET on a path never un-gates an authed POST.
+    get_only = SimpleNS(path="/band/listings", dependant=SimpleNS(dependencies=[]), methods={"GET"})
+    post_only = SimpleNS(path="/band/listings", dependant=SimpleNS(dependencies=[dep(current_user)]), methods={"POST"})
+    mixed = _discover_public_route_patterns(SimpleNS(routes=[get_only, post_only]))
+    mixed_methods = {m for m, _p in mixed if _p == "/api/band/listings"}
+    assert any("GET" in m for m in mixed_methods)
+    assert not any("POST" in m for m in mixed_methods), "authed POST must not be excluded"
+
+
+def test_middleware_skips_discovered_public_routes():
+    gw = _make_gw()
+    gw._public_route_patterns = [(frozenset({"POST"}), "/api/supervisor/public-chat")]
+    # Public route inside a gated prefix passes straight through, no audit noise.
+    status, body, audit_calls = _run_middleware(gw, "/api/supervisor/public-chat", "POST")
+    assert status == 200 and body == b"inner-ok"
+    assert not audit_calls
+    # Sibling control routes in the same prefix remain hard-gated.
+    status, _, _ = _run_middleware(gw, "/api/supervisor/dashboard", "GET", "token:student")
+    assert status == 403
+
+
 # ── Runner (works without pytest installed) ───────────────────────────────────
 if __name__ == "__main__":
     failures = 0

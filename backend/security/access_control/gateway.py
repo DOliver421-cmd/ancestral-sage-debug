@@ -33,6 +33,87 @@ from .tiers import (
 
 logger = logging.getLogger("lcewai.access_control")
 
+# Callables that identify a route as user-authenticated (FastAPI deps). A route
+# carrying any of these must go through the gate; a route carrying NONE of them
+# is intentionally public (webhooks, shared-secret endpoints, public widgets)
+# and must never be gated by the middleware.
+_AUTH_MARKERS = (
+    "current_user", "require_user", "_dep_current_user",
+    "_require_rank", "require_role", "assert_role", "require_tier",
+    "_require_executive", "authorize",
+)
+
+
+def _route_has_auth_dep(dependant, _seen=None) -> bool:
+    """True iff the route's FastAPI dependency tree resolves the user."""
+    if dependant is None:
+        return False
+    _seen = _seen if _seen is not None else set()
+    for d in getattr(dependant, "dependencies", []) or []:
+        call = getattr(d, "call", None)
+        q = (getattr(call, "__qualname__", "") or "") + (getattr(call, "__name__", "") or "")
+        if any(m in q for m in _AUTH_MARKERS):
+            return True
+        sub = getattr(d, "dependencies", None)
+        if sub and id(sub) not in _seen:
+            _seen.add(id(sub))
+            if _route_has_auth_dep(d, _seen):
+                return True
+    return False
+
+
+def _flatten_routes(routes) -> list:
+    """Flatten FastAPI/Starlette route tables (nested routers included)."""
+    out = []
+    for r in routes or []:
+        if getattr(r, "path", None):
+            out.append(r)
+        elif hasattr(r, "original_router"):
+            out.extend(_flatten_routes(r.original_router.routes))
+        elif hasattr(r, "routes"):
+            out.extend(_flatten_routes(r.routes))
+    return out
+
+
+def _discover_public_route_patterns(app) -> list:
+    """(method, request-path-pattern) pairs of routes that resolve NO user.
+
+    Method-aware so a public GET on a path never un-gates an authenticated POST
+    on the same path.  Paths are fnmatch patterns ({param} segments become
+    wildcards); both raw and /api-prefixed forms are recorded because nested
+    routers keep unprefixed paths but the /api prefix is applied at request time.
+    """
+    patterns = set()
+    for route in _flatten_routes(getattr(app, "routes", [])):
+        dependant = getattr(route, "dependant", None)
+        if dependant is None or _route_has_auth_dep(dependant):
+            continue
+        raw = getattr(route, "path", "") or ""
+        if not raw:
+            continue
+        methods = set(getattr(route, "methods", []) or [])
+        methods.discard("HEAD")
+        methods.discard("OPTIONS")
+        methods = methods or {"GET"}
+        for p in {raw, "/api" + raw}:
+            if not p.startswith("/api"):
+                continue
+            patterns.add((frozenset(methods), _params_to_wildcard(p)))
+    return sorted(patterns, key=lambda t: (t[1], sorted(t[0])))
+
+
+def _params_to_wildcard(path: str) -> str:
+    """/api/x/{uid}/y -> /api/x/*/y (fnmatch-compatible)."""
+    out = []
+    for seg in path.split("/"):
+        out.append("*" if seg.startswith("{") and seg.endswith("}") else seg)
+    return "/".join(out)
+
+
+def _matches_public(path: str, pattern: str) -> bool:
+    from fnmatch import fnmatchcase
+    return fnmatchcase(path, pattern)
+
 
 class AccessGateway:
     """Centralized access-control gateway. Bound to shared deps by server.py."""
@@ -42,6 +123,7 @@ class AccessGateway:
         self._audit_fn = None
         self._current_user_fn = None
         self._denial_buffer: DenialAuditBuffer | None = None
+        self._public_route_patterns: list = []
         self.active = False
 
     # ── Wiring (called by server.py at startup) ────────────────────────────────
@@ -205,6 +287,14 @@ class AccessGateway:
             if spec is None:
                 return await app(scope, receive, send)
 
+            # Intentionally-public routes (no user-auth dependency on the route)
+            # are excluded from gating — e.g. /api/supervisor/public-chat,
+            # /api/exec/panel/heartbeat, /api/bridge/receive. Method-aware: a
+            # public GET never un-gates an authenticated POST on the same path.
+            if any(method in methods and _matches_public(path, p)
+                   for methods, p in self._public_route_patterns):
+                return await app(scope, receive, send)
+
             # ── Registered control route: hard gate before the handler ──
             auth_header = None
             for key, value in (scope.get("headers") or []):
@@ -241,7 +331,18 @@ class AccessGateway:
         return dispatch
 
     def wrap(self, app):
-        """Wrap a Starlette/FastAPI app so the middleware runs for every request."""
+        """Wrap a Starlette/FastAPI app so the middleware runs for every request.
+
+        Discovers the app's intentionally-unauthenticated routes (public
+        widgets, shared-secret webhooks, heartbeat endpoints) so the gate never
+        blocks them — the gate only ever enforces on routes that resolve a user.
+        """
+        self._public_route_patterns = _discover_public_route_patterns(app)
+        if self._public_route_patterns:
+            logger.info(
+                "AccessGateway: %d intentionally-public route(s) excluded from gating",
+                len(self._public_route_patterns),
+            )
         return self.middleware(app)
 
     @staticmethod
