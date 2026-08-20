@@ -84,7 +84,11 @@ from recovery import (
     ensure_recovery_codes_exist,
 )
 from security.field_authorization import FieldAuthorization
-from security.feature_control import check_request_config
+from security.feature_control import (
+    check_request_config,
+    check_user_feature_access,
+    feature_for_path,
+)
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env', override=True)  # .env is source of truth (overrides empty/stale shell vars; no .env in Docker image so prod is unaffected)
@@ -218,7 +222,24 @@ async def enforce_platform_flags(request: Request, call_next):
                     status_code=503,
                     content={"detail": "Platform is currently locked by the executive team. Please check back shortly."},
                 )
-            # Enforce the exec panel's real controls (feature flags + page
+            # ── Per-user enforcement (feature overrides + feature_tier) ─────────
+            # Only runs on mapped feature surfaces and only when a valid session
+            # resolves; the route's own auth still produces the 401 for missing
+            # tokens.  An explicit per-user grant skips the platform checks.
+            if feature_for_path(path):
+                user = None
+                authz = request.headers.get("authorization")
+                if authz:
+                    try:
+                        user = await current_user(authz)
+                    except Exception:
+                        user = None  # let the route handler raise the 401/403
+                action, detail = await check_user_feature_access(db, user, path)
+                if action == "block":
+                    return JSONResponse(status_code=403, content={"detail": detail})
+                if action == "allow":
+                    return await call_next(request)
+            # Enforce the exec panel's platform controls (feature flags + page
             # access).  Safe default: only blocks when an executive explicitly
             # disabled a mapped flag/page — absent config == allow.
             decision = await check_request_config(db, path, doc)

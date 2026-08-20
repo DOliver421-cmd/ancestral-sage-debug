@@ -27,9 +27,12 @@ Anything not in the maps below is not enforced by this module yet — that is
 deliberate: the maps are the enforcement contract, and every entry must be
 verified against the real route table before it is added.
 
-Per-user feature overrides (user_feature_overrides) are still write-only and
-are the known next phase: they need the user identity at the point of the
-feature check (handler-level), so they are NOT part of this middleware.
+Per-user enforcement (user_feature_overrides + feature_tier) lives in
+check_user_feature_access() and runs in the same middleware, but only for
+requests that carry a valid session: an explicit per-user revoke/grant wins
+over the platform checks, and the user's feature_tier is compared against
+FEATURE_MIN_TIER (the exact mirror of frontend/src/lib/tiers.js).  Absent
+override == no verdict == behave exactly as before this module existed.
 """
 
 from __future__ import annotations
@@ -71,6 +74,118 @@ def page_access_enabled(page_doc: Optional[dict]) -> bool:
 
 def _path_in(path: str, prefixes) -> bool:
     return any(path.startswith(p) for p in prefixes)
+
+
+# ── Feature tiers (canonical contract — mirrors frontend/src/lib/tiers.js, ────
+# ── routers/payments.py TIER_RANK and routers/exec_control.py _BUILTIN_TIERS) ─
+TIER_RANK: dict = {
+    "free": 0, "member": 1, "plus": 2, "pro": 3, "patron": 4, "executive": 5,
+}
+
+# Minimum feature_tier required per feature.  Only features with a mapped API
+# surface (FEATURE_API_PATHS) can be enforced here — every other key from the
+# frontend map is UI-only until its routes are mapped.  "free" means no gate
+# (every account qualifies).  Instructors bypass course access; admin roles
+# bypass tier requirements entirely (staff, not paying customers).
+FEATURE_MIN_TIER: dict = {
+    "ai_chat": "free",   # no gate — but revocable per-user via flags/ai_access
+    "posts": "member",
+    "courses": "plus",
+}
+
+TIER_EXEMPT_ROLES = ("admin", "executive_admin")
+
+# Instructors get course/track access regardless of tier (they teach).
+FEATURE_INSTRUCTOR_BYPASS = {"courses"}
+
+TIER_LABELS: dict = {
+    "free": "Free", "member": "Member", "plus": "Plus",
+    "pro": "Pro", "patron": "Patron", "executive": "Executive",
+}
+
+
+def feature_for_path(path: str):
+    """Return the feature key governing *path*, or None if not a feature surface."""
+    for feature, prefixes in FEATURE_API_PATHS.items():
+        if _path_in(path, prefixes):
+            return feature
+    return None
+
+
+def _tier_rank_of(feature_tier, custom_tiers) -> int:
+    """Rank of a user's feature_tier; unknown/custom tiers resolve via
+    tier_definitions (exec-defined), unknown values fall back to 0 (free)."""
+    rank = TIER_RANK.get(feature_tier)
+    if rank is not None:
+        return rank
+    for t in custom_tiers or []:
+        if t.get("tier_id") == feature_tier:
+            try:
+                return int(t.get("rank", 0))
+            except (TypeError, ValueError):
+                return 0
+    return 0
+
+
+async def check_user_feature_access(db, user, path: str):
+    """Per-user verdict for *path* — the read side of user_feature_overrides and
+    feature_tier.
+
+    Returns (action, detail):
+      ("block", msg)  — deny the request (403 with msg)
+      ("allow", None) — explicit per-user grant; skip the platform checks
+      ("pass", None)  — no per-user verdict; continue to platform checks
+
+    Precedence: an explicit per-user revoke/grant (flags.<feature> or
+    ai_access_override.all) wins over everything.  Only then is the user's
+    feature_tier compared against FEATURE_MIN_TIER.  Absent config == allow;
+    db/user None or DB errors fail open.
+    """
+    feature = feature_for_path(path)
+    if feature is None or db is None or user is None:
+        return ("pass", None)
+
+    overrides = None
+    try:
+        overrides = await db.user_feature_overrides.find_one(
+            {"user_id": user.id}, {"_id": 0}
+        )
+    except Exception:
+        overrides = None  # fail-open on DB errors (never block the site)
+
+    # ── 1. Per-user flag override (explicit revoke/grant wins over everything) ──
+    flags = (overrides or {}).get("flags") or {}
+    if feature in flags:
+        if flags[feature] is False:
+            return ("block", "Your access to this feature has been revoked by the executive team.")
+        return ("allow", None)  # explicit grant — even if the platform flag is off
+
+    # ── 2. AI access override (the exec panel's "revoke AI" control) ───────────
+    if feature == "ai_chat" and overrides:
+        ai_all = (overrides.get("ai_access_override") or {}).get("all")
+        if ai_all is False:
+            return ("block", "Your access to the AI suite has been revoked by the executive team.")
+
+    # ── 3. Feature-tier requirement (mirrors the frontend TierGate) ────────────
+    required = FEATURE_MIN_TIER.get(feature)
+    if required:
+        if user.role in TIER_EXEMPT_ROLES:
+            return ("pass", None)  # staff bypass tier gates
+        if feature in FEATURE_INSTRUCTOR_BYPASS and user.role == "instructor":
+            return ("pass", None)
+        custom_tiers = []
+        if user.feature_tier not in TIER_RANK:
+            try:
+                custom_tiers = await db.tier_definitions.find(
+                    {}, {"_id": 0, "tier_id": 1, "rank": 1}
+                ).to_list(100)
+            except Exception:
+                custom_tiers = []
+        if _tier_rank_of(user.feature_tier, custom_tiers) < TIER_RANK[required]:
+            label = TIER_LABELS.get(required, required)
+            return ("block", f"This feature requires the {label} plan or higher. Please upgrade to continue.")
+
+    return ("pass", None)
 
 
 async def check_request_config(db, path: str, flags_doc: Optional[dict] = None) -> Optional[tuple]:
