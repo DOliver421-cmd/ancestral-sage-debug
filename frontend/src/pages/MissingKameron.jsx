@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from "react";
+import BackButton from "../components/BackButton";
 import { api, BACKEND_URL } from "../lib/api";
 import { toast } from "sonner";
 
@@ -76,6 +77,7 @@ export default function MissingKameron() {
 
   return (
     <div style={{ background: "#fff", minHeight: "100vh", fontFamily: "system-ui, sans-serif" }}>
+        <div className="max-w-4xl mx-auto px-4 pt-4"><BackButton to="/" /></div>
 
       {/* ALERT BANNER */}
       <div style={{ background: "#cc0000", color: "#fff", textAlign: "center", padding: "14px 20px" }}>

@@ -1,4 +1,5 @@
 import { Link } from "react-router-dom";
+import BackButton from "../components/BackButton";
 import { WAI_LOGO, BRAND } from "../lib/brand";
 import { ArrowRight, Heart, CheckCircle } from "lucide-react";
 import BugReportModal from "../components/BugReportModal";
@@ -64,6 +65,7 @@ const WHY = [
 export default function Internships() {
   return (
     <div className="min-h-screen bg-bone text-ink">
+        <div className="max-w-5xl mx-auto px-4 pt-4"><BackButton to="/" /></div>
 
       {/* Nav */}
       <header className="border-b border-ink/10 bg-bone sticky top-0 z-40">

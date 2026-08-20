@@ -211,25 +211,11 @@ async def jamil_chat_server(
 
 @router.post("/jamil/speak")
 async def jamil_speak_server(body: dict, user: User = Depends(_dep_current_user)):
+    """Server-side TTS disabled. Returns text for browser TTS (free, zero cost)."""
     text = (body.get("text") or "").strip()[:5000]
     if not text:
         raise HTTPException(status_code=400, detail="No text provided.")
-    el_key = _os_jamil.environ.get("ELEVENLABS_API_KEY", "")
-    if not el_key:
-        raise HTTPException(status_code=503, detail="ElevenLabs not configured.")
-    voice_id = body.get("voice_id") or _os_jamil.environ.get("JAMIL_VOICE_ID", "pNInz6obpgDQGcFmaJgB")
-    import httpx as _hx
-    from fastapi.responses import Response as _Resp
-    async with _hx.AsyncClient(timeout=30) as c:
-        r = await c.post(
-            f"https://api.elevenlabs.io/v1/text-to-speech/{voice_id}",
-            headers={"xi-api-key": el_key, "Content-Type": "application/json", "Accept": "audio/mpeg"},
-            json={"text": text, "model_id": "eleven_turbo_v2_5",
-                  "voice_settings": {"stability": 0.5, "similarity_boost": 0.75}},
-        )
-        if r.status_code == 200:
-            return _Resp(content=r.content, media_type="audio/mpeg")
-        raise HTTPException(status_code=502, detail=f"ElevenLabs error: {r.status_code}")
+    return {"text": text, "voice": "browser", "note": "Use browser speechSynthesis for free TTS"}
 
 @router.post("/jamil/transcribe")
 async def jamil_transcribe_server(audio: UploadFile = File(...), user: User = Depends(_dep_current_user)):
@@ -261,7 +247,7 @@ async def jamil_status_server():
         "status": "active" if active else "degraded",
         "active_providers": active,
         "provider_count": len(active),
-        "voice": "elevenlabs" if _os_jamil.environ.get("ELEVENLABS_API_KEY") else "unavailable",
+        "voice": "browser_tts",
         "transcription": "groq-whisper" if _os_jamil.environ.get("GROQ_API_KEY") else "unavailable",
         "gateway": gw,
     }
