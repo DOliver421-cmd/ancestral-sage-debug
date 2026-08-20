@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { BrowserRouter, Routes, Route, Navigate, useLocation, useParams } from "react-router-dom";
 import { Toaster } from "sonner";
 import "./App.css";
@@ -112,6 +113,7 @@ import CreatorEarnings from "./pages/CreatorEarnings";
 // CreatorProfileEdit is retired — editing lives in /profile Settings tab
 import SiteControlPanel from "./pages/SiteControlPanel";
 import ExecControlPanel from "./pages/ExecControlPanel";
+import ExecBusinessOffice from "./pages/ExecBusinessOffice";
 import CreatorLounge from "./pages/CreatorLounge";
 import BandOnPage from "./pages/BandOnPage";
 import TrashPantheon from "./pages/TrashPantheon";
@@ -198,6 +200,18 @@ function AdminPage({ children }) {
   return <AppShell>{children}</AppShell>;
 }
 
+// Scrolls the window to the top on every route change.  Without this, React
+// Router keeps the previous page's scroll offset, so navigating from a long
+// page lands you mid-screen on the new page — the "stuck at an empty area"
+// behavior across the whole site.
+function ScrollToTop() {
+  const { pathname } = useLocation();
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [pathname]);
+  return null;
+}
+
 function App() {
   // Domain-aware front door (see docs/morehelp-migration-blueprint.md):
   //   wai-institute.org  → focused WAI institution landing (same build)
@@ -206,6 +220,7 @@ function App() {
   return (
     <AuthProvider>
       <BrowserRouter>
+        <ScrollToTop />
         <SeoManager />
         <ErrorBoundary>
         <Toaster position="top-right" richColors />
@@ -318,6 +333,7 @@ function App() {
           <Route path="/admin/system" element={<BoundedAdmin roles={["executive_admin"]} label="Exec System" backTo="/admin/control"><ExecSystem /></BoundedAdmin>} />
           {/* Site Control Panel — executive_admin only, not linked from any nav */}
           <Route path="/admin/control" element={<BoundedAdmin roles={["executive_admin"]} label="Site Control Panel" backTo="/admin"><SiteControlPanel /></BoundedAdmin>} />
+          <Route path="/admin/office" element={<BoundedAdmin roles={["executive_admin"]} label="Business Office" backTo="/admin"><ExecBusinessOffice /></BoundedAdmin>} />
           <Route path="/admin/exec-control" element={<BoundedAdmin roles={["executive_admin"]} label="Sovereign Command" backTo="/admin"><ExecControlPanel /></BoundedAdmin>} />
           <Route path="/admin/director" element={<BoundedAdmin roles={["executive_admin"]} label="Director Dashboard" backTo="/admin"><AdminPage><ExecutiveDirectorDashboard /></AdminPage></BoundedAdmin>} />
           <Route path="/admin/sage-audit" element={<BoundedAdmin roles={["executive_admin"]} label="Sage Audit" backTo="/admin"><SageAudit /></BoundedAdmin>} />

@@ -437,7 +437,7 @@ export default function AppShell({ children }) {
               <NavSubGroup label="Command" collapsed={collapsed} defaultOpen={true}>
                 {nl("/admin/system",       "Exec System",       Crown,          "nav-exec-system")}
                 {nl("/admin/control",      "Site Control",      Shield,         "nav-control-panel")}
-                {nl("/admin/exec-control", "Command Center", Layers,         "nav-exec-control")}
+                {nl("/admin/office",       "Business Office", Layers,         "nav-exec-office")}
                 {nl("/admin/director",     "Director Dash",     Compass,        "nav-exec-director")}
               </NavSubGroup>
               <NavSubGroup label="Reports & Audit" collapsed={collapsed}>
