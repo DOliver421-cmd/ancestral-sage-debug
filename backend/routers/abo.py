@@ -87,7 +87,7 @@ import uuid
 from datetime import datetime, timezone, timedelta
 from typing import List, Literal, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Header, Query
+from fastapi import APIRouter, Depends, HTTPException, Header, Query, Request
 from pydantic import BaseModel, ConfigDict, Field
 from roles import Role, ROLE_RANK, role_rank, LEGACY_ROLE_MAP, normalize_role, FREE_BYOK_ROLES
 
