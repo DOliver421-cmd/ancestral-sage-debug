@@ -334,7 +334,7 @@ const PRINCIPLES = [
   {
     title: "The Spiral Progress",
     kemetic: "Khepera — becoming, always becoming.",
-    body: "Returning to Tier 1 after completing Tier 3 is not a regression. It is returning to the roots with a completely upgraded perception. Every repetition is a deeper octave of the same lesson — what felt difficult in the first cycle becomes baseline in the second.",
+    body: "Completing Tier 3 is not the end. It is the first spiral. Return to Tier 1, but now you will see the anchors with new eyes. What felt like a drill before will feel like a homecoming. Every repetition is a deeper octave of the same lesson — what was difficult in the first cycle becomes baseline in the second.",
   },
   {
     title: "Biological Integrity",
@@ -382,28 +382,27 @@ export default function AscensionProtocols() {
       {/* ── HERO ─────────────────────────────────────────────────────────── */}
       <section className="relative overflow-hidden" style={{ background: "linear-gradient(160deg,#0d0a06 0%,#241a08 55%,#0d1a0a 100%)", color: "#fff" }}>
         <div className="max-w-5xl mx-auto px-4 sm:px-6 py-14 sm:py-20">
-          <div className="overline" style={{ color: "#E8A51E" }}>7 Days · 30 Days · 90 Days · The Guild · The Syllabus Is the Teacher</div>
+          <div className="overline" style={{ color: "#E8A51E" }}>Ancient African Wisdom Reclaimed: Kemetic Protocols for Modern Sovereignty</div>
           <h1 className="font-heading font-black mt-3" style={{ fontSize: "clamp(1.9rem, 5vw, 3.4rem)", lineHeight: 1.1, fontWeight: 900 }}>
             The Ascension Protocols
           </h1>
           <p className="font-heading font-bold" style={{ fontSize: "clamp(1.05rem, 2.4vw, 1.5rem)", color: "rgba(255,255,255,0.85)", marginTop: 8 }}>
-            A Course in Ancestral and Cosmic Remembrance
+            You are not “evolving.” You are remembering.
           </p>
           <p style={{ color: "rgba(255,255,255,0.65)", maxWidth: 680, lineHeight: 1.7, marginTop: 16, fontSize: "0.98rem" }}>
-            The Ascension Protocols are an open-access roadmap designed to bypass historical distortions, institutional amnesia,
-            and colonized concepts of enlightenment. True enlightenment is not a status to be achieved or an elite mystery to be
-            bought; it is the natural, organic state of human awareness before it was systematically disrupted by artificial
-            socio-economic structures and forced separation from the living cosmos.
+            The world is running on corrupted code. Algorithms hijack your attention. Institutions sell you back your own energy.
+            You were not designed to live like this. The Ascension Protocols are the debug mode — a structured, three-tiered
+            rhythm (7 days, 30 days, 90 days) built on the operating system of Kemet to strip away imposed conditioning and
+            re-establish your direct, unmediated connection to the primordial source.
           </p>
           <p style={{ color: "rgba(255,255,255,0.65)", maxWidth: 680, lineHeight: 1.7, marginTop: 12, fontSize: "0.98rem" }}>
-            You do not need to “evolve” into something artificial; you need to remember the unbroken lineage of cosmic
-            intelligence that already resides within your biology. You are the living tissue of the universe experiencing
-            itself in physical form. These protocols provide a structured, three-tiered rhythm — 7 days, 30 days, and 90 days —
-            to strip away imposed conditioning and re-establish your direct, unmediated connection to the primordial source.
+            This is not a course — it is a re-wilding of your nervous system. You are the living tissue of the universe
+            experiencing itself in physical form. True enlightenment is not a status to be achieved or an elite mystery to be
+            bought; it is the natural state of human awareness before it was systematically disrupted.
           </p>
           <div className="flex flex-wrap gap-3 mt-8">
             <Link to="/store" className="inline-flex items-center gap-2 font-bold text-sm px-6 py-3 rounded-xl" style={{ background: "#E8A51E", color: "#0a0a0a" }}>
-              Get the Workbook · $9.99
+              Get the Workbook · $9.99 — Your 7-Day Reboot Starts Here
             </Link>
             <button onClick={() => setActivePhase("tier1")} className="inline-flex items-center gap-2 font-bold text-sm px-6 py-3 rounded-xl border" style={{ borderColor: "rgba(255,255,255,0.25)", color: "rgba(255,255,255,0.9)" }}>
               Begin Tier 1 →
@@ -511,6 +510,34 @@ export default function AscensionProtocols() {
               </div>
             </section>
 
+            {/* Danger Signs & Safety */}
+            <section className="mb-12">
+              <div className="rounded-2xl p-6" style={{ background: "#fef3f2", border: "1px solid #fecaca" }}>
+                <div className="text-xs font-extrabold uppercase tracking-wide mb-3" style={{ color: "#991b1b" }}>Danger Signs — Ground Immediately</div>
+                <p className="text-sm leading-relaxed" style={{ color: "#1c1917" }}>
+                  If you feel dissociated, experience vivid dreams to the point of exhaustion, or feel the protocols
+                  &quot;working&quot; too hard — you are not failing. You are recalibrating. Ground your body immediately:
+                  eat root foods, drink clear spring water, submerge yourself in natural elements. If you feel you are in
+                  crisis, call 988 (Suicide &amp; Crisis Lifeline) or text HOME to 741741 (Crisis Text Line). The Djed
+                  doesn&apos;t break. Resume at the next sunrise.
+                </p>
+              </div>
+            </section>
+
+            {/* What If This Fails? */}
+            <section className="mb-12">
+              <div className="rounded-2xl p-6" style={{ background: "#faf9f7", border: "1px solid #eee7db" }}>
+                <div className="text-xs font-extrabold uppercase tracking-wide mb-3" style={{ color: "#92400e" }}>What If This Fails?</div>
+                <p className="text-sm text-ink/80 leading-relaxed max-w-3xl">
+                  People will resist. Name the resistance upfront: if you skip a day, don&apos;t spiral into guilt — guilt is a
+                  tool of institutional control. The Djed doesn&apos;t break. Resume at the next sunrise. The protocols are a
+                  river, not a prison. Every repetition is a deeper octave of the same lesson — what felt difficult in the
+                  first cycle becomes baseline in the second. Your body is the first temple. If the protocols feel heavy, your
+                  biology is talking. Feed it what it remembers: earth, water, silence.
+                </p>
+              </div>
+            </section>
+
             {/* Start button */}
             <div className="text-center">
               <button onClick={() => setActivePhase("tier1")} className="inline-flex items-center gap-2 font-bold text-sm px-8 py-4 rounded-xl" style={{ background: "#E8A51E", color: "#0a0a0a" }}>
@@ -530,6 +557,10 @@ export default function AscensionProtocols() {
                 Shaking off the mental gravity of artificial systems and re-aligning the nervous system with original cosmic
                 indicators. Execute these three foundational anchors daily for seven consecutive days. They require no external
                 tools, tokens, or systems — only your breath, your awareness, and the natural elements.
+              </p>
+              <p className="text-sm mt-3 leading-relaxed max-w-3xl" style={{ color: "#92400e", fontStyle: "italic" }}>
+                Your body is the first temple. If the protocols feel heavy, your biology is talking. Feed it what it remembers:
+                earth, water, silence. If you feel dissociated or in crisis, call 988 or text HOME to 741741.
               </p>
               {/* Sequential sub-nav for Tier 1 */}
               <div className="flex items-center gap-2 mt-6 mb-4">
@@ -817,7 +848,11 @@ export default function AscensionProtocols() {
               <h2 className="font-heading font-black text-3xl text-ink mb-2">The Arena Community</h2>
               <p className="text-ink/70 max-w-3xl leading-relaxed" style={{ fontSize: "0.95rem" }}>
                 The workbook is the entry point. The Guild is the backbone. You don’t just complete the Ascension Protocols —
-                you walk them with others. This is where the 21-day challenge becomes a living school.
+                you walk them with others. This is where the protocols become a living school. Every student on the same moon,
+                everywhere. A synchronized cohort with zero automated email sequences required.
+              </p>
+              <p className="text-sm text-ink/50 mt-2" style={{ fontStyle: "italic" }}>
+                Over 1,200 people have started Tier 1. Join the ranks.
               </p>
 
               {/* Tier Cards */}
@@ -856,17 +891,17 @@ export default function AscensionProtocols() {
 
                 {/* Master */}
                 <div className="rounded-2xl p-6" style={{ background: "#fff", border: "1px solid #eee7db" }}>
-                  <div className="text-xs font-extrabold uppercase tracking-wide" style={{ color: "#92400e" }}>Master</div>
-                  <div className="font-heading font-extrabold text-2xl text-ink mt-2">$29.99</div>
+                  <div className="text-xs font-extrabold uppercase tracking-wide" style={{ color: "#92400e" }}>Architect</div>
+                  <div className="font-heading font-extrabold text-2xl text-ink mt-2">$79.99</div>
                   <ul className="mt-4 space-y-2 text-sm text-ink/75">
                     <li className="flex gap-2"><span style={{ color: "#E8A51E" }}>{"✓"}</span> Everything in Acolyte</li>
-                    <li className="flex gap-2"><span style={{ color: "#E8A51E" }}>{"✓"}</span> Monthly live Q&A</li>
+                    <li className="flex gap-2"><span style={{ color: "#E8A51E" }}>{"✓"}</span> Monthly live deep-dives</li>
                     <li className="flex gap-2"><span style={{ color: "#E8A51E" }}>{"✓"}</span> Exclusive badges</li>
-                    <li className="flex gap-2"><span style={{ color: "#E8A51E" }}>{"✓"}</span> The Codex (full)</li>
+                    <li className="flex gap-2"><span style={{ color: "#E8A51E" }}>{"✓"}</span> The Codex (full vault)</li>
                     <li className="flex gap-2"><span style={{ color: "#E8A51E" }}>{"✓"}</span> Priority community</li>
                   </ul>
                   <Link to="/store" className="mt-6 block text-center font-bold text-sm px-4 py-3 rounded-xl border" style={{ borderColor: "#d9c9a8", color: "#8a5a00" }}>
-                    Upgrade to Master
+                    Become an Architect
                   </Link>
                 </div>
               </div>
@@ -918,6 +953,20 @@ export default function AscensionProtocols() {
                   ))}
                 </div>
               </div>
+            </section>
+
+            {/* Next Product Tease */}
+            <section className="mt-12 rounded-2xl p-6" style={{ background: "linear-gradient(135deg,#0d1a0a 0%,#1a1208 100%)", border: "1px solid #2a2318" }}>
+              <div className="text-xs font-extrabold uppercase tracking-wide mb-3" style={{ color: "#E8A51E" }}>Coming Next</div>
+              <h3 className="font-heading font-extrabold text-xl text-white">Tier 4: The Sovereign Circle</h3>
+              <p className="text-sm mt-2 leading-relaxed" style={{ color: "rgba(255,255,255,0.7)" }}>
+                A 6-month mentorship cohort for Architect-level Guild members. Design your local sovereignty hub.
+                Physical retreats. Certified Ma&apos;at Auditor credential. The protocols become a school, then a movement.
+              </p>
+              <p className="text-xs mt-3" style={{ color: "rgba(255,255,255,0.4)" }}>
+                Completing Tier 3 is not the end. It&apos;s the first spiral. Return to Tier 1 — the roots, with upgraded
+                perception. What felt like a drill before will feel like a homecoming.
+              </p>
             </section>
 
             {/* Community Close */}
