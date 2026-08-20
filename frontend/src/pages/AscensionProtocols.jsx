@@ -259,7 +259,7 @@ export default function AscensionProtocols() {
       {/* ── HERO ─────────────────────────────────────────────────────────── */}
       <section className="relative overflow-hidden" style={{ background: "linear-gradient(160deg,#0d0a06 0%,#241a08 55%,#0d1a0a 100%)", color: "#fff" }}>
         <div className="max-w-5xl mx-auto px-4 sm:px-6 py-14 sm:py-20">
-          <div className="overline" style={{ color: "#E8A51E" }}>Open-Access Course · Zero Cost · The Syllabus Is the Teacher</div>
+          <div className="overline" style={{ color: "#E8A51E" }}>7 Days · 30 Days · 90 Days · $9.99 All Phases · The Syllabus Is the Teacher</div>
           <h1 className="font-heading font-black mt-3" style={{ fontSize: "clamp(1.9rem, 5vw, 3.4rem)", lineHeight: 1.1, fontWeight: 900 }}>
             The Ascension Protocols
           </h1>
@@ -279,7 +279,10 @@ export default function AscensionProtocols() {
             to strip away imposed conditioning and re-establish your direct, unmediated connection to the primordial source.
           </p>
           <div className="flex flex-wrap gap-3 mt-8">
-            <a href="#calendar" className="inline-flex items-center gap-2 font-bold text-sm px-6 py-3 rounded-xl" style={{ background: "#E8A51E", color: "#0a0a0a" }}>
+            <Link to="/store" className="inline-flex items-center gap-2 font-bold text-sm px-6 py-3 rounded-xl" style={{ background: "#E8A51E", color: "#0a0a0a" }}>
+              Get the Workbook · $9.99
+            </Link>
+            <a href="#calendar" className="inline-flex items-center gap-2 font-bold text-sm px-6 py-3 rounded-xl border" style={{ borderColor: "rgba(255,255,255,0.25)", color: "rgba(255,255,255,0.9)" }}>
               Start at the New Moon
             </a>
             <a href="#tier1" className="inline-flex items-center gap-2 font-bold text-sm px-6 py-3 rounded-xl border" style={{ borderColor: "rgba(255,255,255,0.25)", color: "rgba(255,255,255,0.9)" }}>
@@ -518,6 +521,93 @@ export default function AscensionProtocols() {
         </div>
       </section>
 
+      {/* ── VIDEO LIBRARY ─────────────────────────────────────────────── */}
+      <section id="videos" className="py-14 sm:py-16 px-4 sm:px-6" style={{ background: "#fff" }}>
+        <div className="max-w-5xl mx-auto">
+          <div className="overline text-copper mb-2">The Companion Library · Curated Practice Videos</div>
+          <h2 className="font-heading font-black text-3xl text-ink mb-2">Watch. Breathe. Practice.</h2>
+          <p className="text-ink/70 max-w-3xl leading-relaxed" style={{ fontSize: "0.95rem" }}>
+            Each practice below links to a curated YouTube search — free, publicly accessible, hosted externally.
+            The platform hosts the curriculum; the videos host the experience. No data stored. No tokens spent.
+          </p>
+          <div className="grid md:grid-cols-2 gap-5 mt-8">
+            {/* Tier 1 videos */}
+            {TIER1.map((a) => (
+              <a key={a.n} href={SUPPORT_LINK(a.support)} target="_blank" rel="noreferrer"
+                className="rounded-2xl p-5 flex flex-col gap-2 group"
+                style={{ background: "#faf9f7", border: "1px solid #eee7db", transition: "border-color 0.2s" }}
+                onMouseEnter={(e) => e.currentTarget.style.borderColor = "#E8A51E"}
+                onMouseLeave={(e) => e.currentTarget.style.borderColor = "#eee7db"}
+              >
+                <div className="flex items-center gap-2">
+                  <span className="text-lg">▶</span>
+                  <span className="text-xs font-bold" style={{ color: "#92400e" }}>TIER 1 · ANCHOR {a.n}</span>
+                </div>
+                <div className="font-heading font-extrabold text-ink group-hover:text-copper" style={{ fontSize: "0.98rem" }}>{a.support}</div>
+                <div className="text-xs text-ink/50">{a.name} · {a.time} practice</div>
+              </a>
+            ))}
+            {/* Tier 2 videos */}
+            {TIER2.map((w) => (
+              <a key={w.week} href={SUPPORT_LINK(w.support)} target="_blank" rel="noreferrer"
+                className="rounded-2xl p-5 flex flex-col gap-2 group"
+                style={{ background: "#faf9f7", border: "1px solid #eee7db", transition: "border-color 0.2s" }}
+                onMouseEnter={(e) => e.currentTarget.style.borderColor = "#E8A51E"}
+                onMouseLeave={(e) => e.currentTarget.style.borderColor = "#eee7db"}
+              >
+                <div className="flex items-center gap-2">
+                  <span className="text-lg">▶</span>
+                  <span className="text-xs font-bold" style={{ color: "#92400e" }}>TIER 2 · WEEK {w.week}</span>
+                </div>
+                <div className="font-heading font-extrabold text-ink group-hover:text-copper" style={{ fontSize: "0.98rem" }}>{w.support}</div>
+                <div className="text-xs text-ink/50">{w.theme}</div>
+              </a>
+            ))}
+            {/* Tier 3 videos */}
+            {TIER3.map((m) => (
+              <a key={m.month} href={SUPPORT_LINK(m.support)} target="_blank" rel="noreferrer"
+                className="rounded-2xl p-5 flex flex-col gap-2 group"
+                style={{ background: "#faf9f7", border: "1px solid #eee7db", transition: "border-color 0.2s" }}
+                onMouseEnter={(e) => e.currentTarget.style.borderColor = "#E8A51E"}
+                onMouseLeave={(e) => e.currentTarget.style.borderColor = "#eee7db"}
+              >
+                <div className="flex items-center gap-2">
+                  <span className="text-lg">▶</span>
+                  <span className="text-xs font-bold" style={{ color: "#92400e" }}>TIER 3 · MONTH {m.month}</span>
+                </div>
+                <div className="font-heading font-extrabold text-ink group-hover:text-copper" style={{ fontSize: "0.98rem" }}>{m.support}</div>
+                <div className="text-xs text-ink/50">{m.season}</div>
+              </a>
+            ))}
+          </div>
+          {/* Supplementary wisdom lectures */}
+          <div className="mt-8 rounded-2xl p-6" style={{ background: "#faf9f7", border: "1px solid #eee7db" }}>
+            <div className="text-xs font-extrabold uppercase tracking-wide mb-3" style={{ color: "#92400e" }}>Supplementary · Ancestral Wisdom Lectures</div>
+            <div className="grid sm:grid-cols-2 gap-3">
+              {[
+                ["Ma'at: The Ancient Egyptian Concept of Truth and Justice", "Foundation for the Freedom Audit"],
+                ["Kemetic Yoga and Pranayama — Breath as Life", "Context for the Ankh practice"],
+                ["Scarab Symbolism and Khepera — Becoming, Always Becoming", "Why Tier 1 returns — deeper octave"],
+                ["Sankofa — Return and Recover African Wisdom", "Beyond the Nile — pan-African continuum"],
+                ["The Kongo Cosmogram Dikenga — Spiral of Birth, Life, Death, Rebirth", "The spiral of the Protocols"],
+              ].map(([title, why]) => (
+                <a key={title} href={SUPPORT_LINK(title)} target="_blank" rel="noreferrer"
+                  className="flex gap-3 p-3 rounded-xl group"
+                  style={{ background: "#fff", border: "1px solid #f0eadf" }}
+                >
+                  <span className="text-sm mt-0.5" style={{ color: "#E8A51E" }}>▶</span>
+                  <div>
+                    <div className="text-sm font-bold text-ink group-hover:text-copper" style={{ transition: "color 0.2s" }}>{title}</div>
+                    <div className="text-xs text-ink/50 mt-0.5">{why}</div>
+                  </div>
+                </a>
+              ))}
+            </div>
+            <p className="text-xs text-ink/40 mt-4">All videos are publicly accessible on YouTube. No paywalls. The platform curates; the external host delivers.</p>
+          </div>
+        </div>
+      </section>
+
       {/* ── PRINCIPLES ───────────────────────────────────────────────────── */}
       <section className="py-14 sm:py-16 px-4 sm:px-6" style={{ background: "#fff" }}>
         <div className="max-w-5xl mx-auto">
@@ -550,11 +640,14 @@ export default function AscensionProtocols() {
             each other.
           </p>
           <div className="flex flex-wrap justify-center gap-3 mt-8">
-            <Link to="/courses" className="inline-flex items-center gap-2 font-bold text-sm px-6 py-3 rounded-xl" style={{ background: "#E8A51E", color: "#0a0a0a" }}>
+            <Link to="/store" className="inline-flex items-center gap-2 font-bold text-sm px-6 py-3 rounded-xl" style={{ background: "#E8A51E", color: "#0a0a0a" }}>
+              Get the Workbook · $9.99
+            </Link>
+            <Link to="/courses" className="inline-flex items-center gap-2 font-bold text-sm px-6 py-3 rounded-xl border" style={{ borderColor: "rgba(255,255,255,0.25)", color: "rgba(255,255,255,0.9)" }}>
               See all courses
             </Link>
             <Link to="/helper" className="inline-flex items-center gap-2 font-bold text-sm px-6 py-3 rounded-xl border" style={{ borderColor: "rgba(255,255,255,0.25)", color: "rgba(255,255,255,0.9)" }}>
-              Need help with something today? Ask the Helper
+              Need help? Ask the Helper
             </Link>
           </div>
           <p className="text-xs mt-8" style={{ color: "rgba(255,255,255,0.4)" }}>
