@@ -12,6 +12,7 @@ Run:  cd backend && python3 tests/test_access_gateway.py   (or pytest)
 """
 
 import asyncio
+import json
 import os
 import sys
 from types import SimpleNamespace
@@ -224,9 +225,14 @@ def _make_current_user(role):
     return current_user
 
 
+def _make_gw(role="student", denial_buffer=None):
+    gw = AccessGateway()
+    gw.bind(None, None, _make_current_user(role), denial_buffer=denial_buffer)
+    return gw
+
+
 def _run_middleware(gw, path, method="GET", auth=None):
     audit_calls = []
-    gw.bind(None, lambda *a, **k: audit_calls.append((a, k)), _make_current_user("student"))
 
     async def audit_fn(actor_id, action, target=None, meta=None):
         audit_calls.append((actor_id, action, target, meta))
@@ -256,33 +262,97 @@ def _run_middleware(gw, path, method="GET", auth=None):
 
 
 def test_middleware_blocks_low_tier_with_403_and_audit():
-    status, body, audit_calls = _run_middleware(_gw(), "/api/exec/control/state", "GET", "token:student")
+    status, body, audit_calls = _run_middleware(_make_gw(), "/api/exec/control/state", "GET", "token:student")
     assert status == 403
     assert b"ACCESS_DENIED" in body
     assert any(call[1] == "access_denied" for call in audit_calls), "denial must be audit-logged"
 
 
 def test_middleware_allows_executive():
-    status, body, audit_calls = _run_middleware(_gw(), "/api/exec/control/state", "GET", "token:admin")
+    status, body, audit_calls = _run_middleware(_make_gw(), "/api/exec/control/state", "GET", "token:admin")
     assert status == 200 and body == b"inner-ok"
     assert not audit_calls, "no denial should be logged for authorized access"
 
 
 def test_middleware_rejects_unauthenticated_with_401_and_audit():
-    status, body, audit_calls = _run_middleware(_gw(), "/api/admin/users", "GET")
+    status, body, audit_calls = _run_middleware(_make_gw(), "/api/admin/users", "GET")
     assert status == 401
     assert any(call[1] == "access_denied" for call in audit_calls)
 
 
 def test_middleware_passes_through_non_control_paths():
-    status, body, _ = _run_middleware(_gw(), "/api/health", "GET")
+    status, body, _ = _run_middleware(_make_gw(), "/api/health", "GET")
     assert status == 200 and body == b"inner-ok"
-    status, body, _ = _run_middleware(_gw(), "/api/prices/public", "GET")
+    status, body, _ = _run_middleware(_make_gw(), "/api/prices/public", "GET")
     assert status == 200
-    status, body, _ = _run_middleware(_gw(), "/api/exec/audio/asset-1", "GET")
+    status, body, _ = _run_middleware(_make_gw(), "/api/exec/audio/asset-1", "GET")
     assert status == 200
-    status, _, _ = _run_middleware(_gw(), "/api/exec/control/state", "OPTIONS")
+    status, _, _ = _run_middleware(_make_gw(), "/api/exec/control/state", "OPTIONS")
     assert status == 200  # preflight passes through
+
+
+# ── 7. Encrypted write-only denial buffer + indexed matcher ───────────────────
+def _record(entry, tmp_dir, key=None):
+    from security.access_control.audit import DenialAuditBuffer
+    buf = DenialAuditBuffer(file_path=os.path.join(tmp_dir, "denials.log"))
+    buf.bind(None, encryption_key=key)
+    asyncio.run(buf.record(entry))
+    with open(os.path.join(tmp_dir, "denials.log"), encoding="utf-8") as fh:
+        return buf, json.loads(fh.read().strip())
+
+
+def test_denial_buffer_plaintext_without_key():
+    import tempfile
+    with tempfile.TemporaryDirectory() as d:
+        buf, rec = _record({"control": "x", "reason": "insufficient_tier", "actor_id": None, "path": "/p"}, d)
+        assert buf.encrypted is False
+        assert rec["encrypted"] is False
+        assert rec["control"] == "x"
+        assert "insufficient_tier" in rec["payload"]
+
+
+def test_denial_buffer_encrypts_with_fernet():
+    import tempfile
+    try:
+        from cryptography.fernet import Fernet
+    except ImportError:  # pragma: no cover - stdlib-only runner without cryptography
+        print("SKIP test_denial_buffer_encrypts_with_fernet (cryptography not installed)")
+        return
+    key = Fernet.generate_key().decode()
+    with tempfile.TemporaryDirectory() as d:
+        buf, rec = _record({"control": "x", "reason": "insufficient_tier", "actor_id": "u1", "path": "/api/admin/users"}, d, key=key)
+        assert buf.encrypted is True
+        assert rec["encrypted"] is True
+        assert "insufficient_tier" not in rec["payload"], "payload must be ciphertext"
+        # Read-back decrypts the payload (file fallback path).
+        rows = asyncio.run(buf.recent(10))
+        assert rows[0]["control"] == "x"
+        assert rows[0]["reason"] == "insufficient_tier"
+        assert rows[0]["path"] == "/api/admin/users"
+
+
+def test_gateway_writes_denial_to_buffer():
+    import tempfile
+    from security.access_control.audit import DenialAuditBuffer
+    with tempfile.TemporaryDirectory() as d:
+        buf = DenialAuditBuffer(file_path=os.path.join(d, "denials.log"))
+        buf.bind(None, encryption_key=None)
+        gw = _make_gw(denial_buffer=buf)
+        status, body, _ = _run_middleware(gw, "/api/exec/control/state", "GET", "token:student")
+        assert status == 403
+        with open(os.path.join(d, "denials.log"), encoding="utf-8") as fh:
+            rec = json.loads(fh.read().strip())
+        assert rec["control"] == "exec_control_layer"
+        assert rec["reason"] == "insufficient_tier"
+
+
+def test_matcher_index_groups_by_segment():
+    from security.access_control.tiers import _CONTROL_INDEX
+    assert "admin" in _CONTROL_INDEX and "exec" in _CONTROL_INDEX
+    assert "sentinel" in _CONTROL_INDEX and "supervisor" in _CONTROL_INDEX
+    for seg, entries in _CONTROL_INDEX.items():
+        for _key, _spec, _methods, pattern in entries:
+            assert pattern.split("/")[2] == seg, f"pattern {pattern} indexed under wrong segment"
 
 
 # ── Runner (works without pytest installed) ───────────────────────────────────

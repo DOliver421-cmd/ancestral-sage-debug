@@ -22,6 +22,7 @@ import json
 import logging
 from typing import Optional
 
+from .audit import DenialAuditBuffer
 from .tiers import (
     ACCESS_TIERS,
     CONTROL_REGISTRY,
@@ -40,15 +41,23 @@ class AccessGateway:
         self._db = None
         self._audit_fn = None
         self._current_user_fn = None
+        self._denial_buffer: DenialAuditBuffer | None = None
         self.active = False
 
     # ── Wiring (called by server.py at startup) ────────────────────────────────
-    def bind(self, db, audit_fn, current_user_fn) -> None:
-        """Inject shared dependencies: db, audit() and current_user()."""
+    def bind(self, db, audit_fn, current_user_fn, denial_buffer: DenialAuditBuffer | None = None) -> None:
+        """Inject shared dependencies: db, audit(), current_user() and the
+        encrypted write-only denial buffer (see security/access_control/audit.py)."""
         self._db = db
         self._audit_fn = audit_fn
         self._current_user_fn = current_user_fn
+        self._denial_buffer = denial_buffer
         self.active = True
+        if denial_buffer is not None:
+            logger.info(
+                "AccessGateway denial buffer attached (encryption=%s)",
+                "ON" if denial_buffer.encrypted else "OFF - AUDIT_ENCRYPTION_KEY missing",
+            )
         logger.info(
             "AccessGateway active: %d controls monitored across %d tiers",
             len(CONTROL_REGISTRY), len(ACCESS_TIERS),
@@ -112,6 +121,11 @@ class AccessGateway:
                 await self._audit_fn(actor, "access_denied", target=control_key, meta=meta)
             except Exception:  # pragma: no cover - audit must never break the gate
                 logger.exception("access_denied audit write failed")
+        if self._denial_buffer is not None:
+            try:
+                await self._denial_buffer.record({"actor_id": actor, **meta})
+            except Exception:  # pragma: no cover - buffer must never break the gate
+                logger.exception("access_denied buffer write failed")
         logger.warning(
             "ACCESS_DENIED control=%s path=%s method=%s actor=%s reason=%s",
             control_key, path, method, actor, reason,
@@ -134,6 +148,11 @@ class AccessGateway:
                 await self._audit_fn(None, "access_denied", target=control_key, meta=meta)
             except Exception:  # pragma: no cover
                 logger.exception("access_denied audit write failed")
+        if self._denial_buffer is not None:
+            try:
+                await self._denial_buffer.record({"actor_id": None, **meta})
+            except Exception:  # pragma: no cover
+                logger.exception("access_denied buffer write failed")
         logger.warning(
             "ACCESS_DENIED control=%s path=%s method=%s actor=None reason=%s",
             control_key, path, method, reason,
@@ -238,7 +257,13 @@ class AccessGateway:
 
     # ── Dashboard data helpers ─────────────────────────────────────────────────
     async def denial_stats(self, limit: int = 500) -> dict:
-        """Per-control denial counts + last-denied timestamps from the audit log."""
+        """Per-control denial counts + last-denied timestamps.
+
+        Prefers the encrypted write-only buffer (access_control_denials),
+        falls back to the legacy audit_log collection.
+        """
+        if self._denial_buffer is not None:
+            return await self._denial_buffer.stats(limit=limit)
         stats: dict = {}
         if self._db is None:
             return stats
@@ -260,7 +285,12 @@ class AccessGateway:
         return stats
 
     async def recent_denials(self, limit: int = 50) -> list:
-        """Most recent access-denied audit entries (executive dashboard feed)."""
+        """Most recent access-denied audit entries (executive dashboard feed).
+
+        Prefers the encrypted write-only buffer, falls back to audit_log.
+        """
+        if self._denial_buffer is not None:
+            return await self._denial_buffer.recent(limit=limit)
         if self._db is None:
             return []
         try:

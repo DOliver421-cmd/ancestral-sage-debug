@@ -2265,10 +2265,18 @@ api_router.include_router(_exec_command_mod.router)
 # Single module (backend/security/access_control) bundling the 7-role RBAC
 # registry, the hard gatekeeper middleware, and the Tier-3 Executive dashboard.
 from security.access_control import AccessGateway, CONTROL_REGISTRY
+from security.access_control.audit import DenialAuditBuffer
 from security.access_control.dashboard import router as access_control_router, bind as bind_access_control
 
+# Encrypted, write-only denial audit buffer (compliance trail). Set
+# AUDIT_ENCRYPTION_KEY to a Fernet key (see security/access_control/audit.py)
+# to enable at-rest encryption; without it records are stored plaintext and
+# flagged as such at startup.
+denial_buffer = DenialAuditBuffer()
+denial_buffer.bind(db, encryption_key=os.environ.get("AUDIT_ENCRYPTION_KEY"))
+
 access_gateway = AccessGateway()
-access_gateway.bind(db, audit, current_user)
+access_gateway.bind(db, audit, current_user, denial_buffer=denial_buffer)
 bind_access_control(access_gateway)
 api_router.include_router(access_control_router)
 logger.info("Access Control Gateway + Executive dashboard registered (%d controls)", len(CONTROL_REGISTRY))
