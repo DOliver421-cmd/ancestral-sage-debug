@@ -127,7 +127,6 @@ import ArcadeGame from "./pages/ArcadeGame";
 import CreatorStudio from "./pages/CreatorStudio";
 import UnifiedGateway from "./pages/UnifiedGateway";
 import CompetitionArena from "./pages/CompetitionArena";
-import MissingKameron from "./pages/MissingKameron";
 import Jamil from "./pages/Jamil";
 import ProjectDashboard from "./pages/ProjectDashboard";
 import AITeamBridge from "./pages/AITeamBridge";
@@ -344,7 +343,6 @@ function App() {
           <Route path="/creator-lounge" element={<Protected><TierGate feature="lounge"><CreatorLounge /></TierGate></Protected>} />
           <Route path="/band" element={<Protected><TierGate feature="band"><BandOnPage /></TierGate></Protected>} />
           <Route path="/trash-pantheon" element={<TrashPantheon />} />
-          <Route path="/missing/kameron" element={<MissingKameron />} />
           {/* Public pages */}
           <Route path="/internships" element={<Internships />} />
           {/* Social publisher — authenticated */}
