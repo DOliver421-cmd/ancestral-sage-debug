@@ -19,8 +19,8 @@
 export const ORIGINAL_TOOLS = [
   {
     slug: "creators-sanctuary",
-    title: "M.O.R.E. Creators",
-    suite: "M.O.R.E. Creators",
+    title: "Creator Studio",
+    suite: "Creator Studio",
     icon: "🎨",
     path: "/tools/creators-sanctuary.html",
     desc: "The original M.O.R.E. Creators hub — publishers, media strategists, oracle work, and electrical courses in one place.",

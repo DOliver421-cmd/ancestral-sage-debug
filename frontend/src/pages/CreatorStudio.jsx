@@ -372,6 +372,10 @@ export default function CreatorStudio() {
           position: "sticky", top: 0, zIndex: 20,
         }}>
           <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+            <Link to="/dashboard" style={{ color: "rgba(255,255,255,0.4)", textDecoration: "none", fontSize: 12, fontFamily: "monospace", letterSpacing: "0.05em" }}>
+              Home
+            </Link>
+            <div style={{ width: 1, height: 16, background: "rgba(255,255,255,0.1)" }} />
             <Link to="/profile" style={{ color: "rgba(255,255,255,0.4)", textDecoration: "none", display: "flex", alignItems: "center", gap: 6, fontSize: 12, fontFamily: "monospace", letterSpacing: "0.05em" }}>
               <ArrowLeft style={{ width: 14, height: 14 }} /> My Profile
             </Link>
