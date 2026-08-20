@@ -3,9 +3,8 @@ import { Search, RefreshCw, UserCheck, UserX, Key, Shield, Ban, LogOut, Eye, Eye
 import AppShell from "../components/AppShell";
 import { api } from "../lib/api";
 import { useAuth } from "../lib/auth";
+import { ROLE_RANK, ROLES_ALL as ALL_ROLES } from "../lib/roles";
 
-const ROLE_RANK  = { student: 1, instructor: 2, admin: 3, executive_admin: 4 };
-const ALL_ROLES  = ["student", "instructor", "admin", "executive_admin"];
 const ROLE_LABEL = { student: "Student", instructor: "Instructor", admin: "Admin", executive_admin: "Exec Admin" };
 const ROLE_COLOR = {
   student:         "bg-slate-100 text-slate-700",
@@ -64,7 +63,7 @@ function ControlPanel({ user: target, actorRole, onUpdated, onDeleted }) {
   const canEdit = isExec || target.role !== "executive_admin";
   const availableRoles = isExec
     ? ALL_ROLES
-    : ALL_ROLES.filter(r => r !== "executive_admin" && ROLE_RANK[target.role] < 4);
+    : ALL_ROLES.filter(r => r !== "executive_admin" && ROLE_RANK[target.role] <= ROLE_RANK["admin"]);
 
   async function saveIdentity() {
     if (!name.trim()) { notify("Name cannot be empty", true); return; }

@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import AppShell from "../components/AppShell";
 import { api } from "../lib/api";
+import { ROLES_ALL } from "../lib/roles";
 import { toast } from "sonner";
 import {
   Shield, Users, Cpu, DollarSign, Lock, Globe, Eye, EyeOff,
@@ -282,7 +283,8 @@ export default function ExecControlPanel() {
   }
 
   const ROW = { display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.75rem" };
-  const ROLES = ["student","student","trial_pass","instructor","instructor","instructor","instructor","oversight","oversight","support_staff","admin","executive_admin"];
+  // Canonical 7-role RBAC from lib/roles.js (mirrors backend/roles.py).
+  const ROLES = ROLES_ALL;
 
   return (
     <AppShell>

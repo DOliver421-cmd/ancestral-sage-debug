@@ -3,9 +3,8 @@ import { RefreshCw, Search, ChevronDown, X, UserCheck, UserX, Key, Clock, Shield
 import { api } from "../lib/api";
 import { useAuth } from "../lib/auth";
 import AppShell from "../components/AppShell";
+import { ROLE_RANK, ROLES_ALL as ALL_ROLES } from "../lib/roles";
 
-const ROLE_RANK  = { student: 1, instructor: 2, admin: 3, executive_admin: 4 };
-const ALL_ROLES  = ["student", "instructor", "admin", "executive_admin"];
 const ROLE_LABEL = { student: "Student", instructor: "Instructor", admin: "Admin", executive_admin: "Executive Admin" };
 const ROLE_COLOR = {
   student:         "bg-slate-100 text-slate-600",
@@ -51,7 +50,7 @@ function EditUserModal({ user: target, actorRole, onSave, onClose }) {
   // Only exec can set executive_admin role; non-exec cannot touch exec accounts
   const availableRoles = isExec
     ? ALL_ROLES
-    : ALL_ROLES.filter(r => r !== "executive_admin" && ROLE_RANK[target.role] < 4);
+    : ALL_ROLES.filter(r => r !== "executive_admin" && ROLE_RANK[target.role] <= ROLE_RANK["admin"]);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">

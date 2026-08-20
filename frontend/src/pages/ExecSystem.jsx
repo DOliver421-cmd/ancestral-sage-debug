@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback, useRef } from "react";
 import { Link } from "react-router-dom";
 import AppShell from "../components/AppShell";
 import { api, BACKEND_URL } from "../lib/api";
+import { ROLES_ALL, ROLE_LABELS, ROLE_COLORS, ROLE_RANK } from "../lib/roles";
 import EmergencyPanel from "../components/EmergencyPanel";
 import {
   Crown, Database, Users, Shield,
@@ -48,11 +49,9 @@ function KPI({ icon: Icon, label, value, alert, sub, accent }) {
 }
 
 // ── User Database panel ───────────────────────────────────────────────────────
-const ROLES_ALL    = ["student", "instructor", "admin", "executive_admin"];
+// Role constants come from the single canonical module (lib/roles.js) which
+// mirrors backend/roles.py — all 7 stored roles, never a partial copy.
 const ROLES_FILTER = ["", ...ROLES_ALL];
-const ROLE_LABELS  = { "": "All Roles", student: "Student", instructor: "Instructor", admin: "Admin", executive_admin: "Exec Admin" };
-const ROLE_COLORS  = { executive_admin: "bg-amber-100 text-amber-800", admin: "bg-slate-100 text-slate-700", instructor: "bg-blue-100 text-blue-800", student: "bg-emerald-100 text-emerald-800" };
-const ROLE_RANK    = { student: 1, instructor: 2, admin: 3, executive_admin: 4 };
 
 function fmtJoined(iso) {
   if (!iso) return "—";

@@ -84,6 +84,7 @@ from recovery import (
     ensure_recovery_codes_exist,
 )
 from security.field_authorization import FieldAuthorization
+from security.feature_control import check_request_config
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env', override=True)  # .env is source of truth (overrides empty/stale shell vars; no .env in Docker image so prod is unaffected)
@@ -211,12 +212,18 @@ async def enforce_platform_flags(request: Request, call_next):
     )
     if not exempt and db is not None:
         try:
-            doc = await db.platform_flags.find_one({"_id": "flags"}, {"_id": 0, "flags.platform_locked": 1})
+            doc = await db.platform_flags.find_one({"_id": "flags"}, {"_id": 0})
             if doc and doc.get("flags", {}).get("platform_locked", {}).get("enabled"):
                 return JSONResponse(
                     status_code=503,
                     content={"detail": "Platform is currently locked by the executive team. Please check back shortly."},
                 )
+            # Enforce the exec panel's real controls (feature flags + page
+            # access).  Safe default: only blocks when an executive explicitly
+            # disabled a mapped flag/page — absent config == allow.
+            decision = await check_request_config(db, path, doc)
+            if decision:
+                return JSONResponse(status_code=decision[0], content={"detail": decision[1]})
         except Exception:
             pass
     return await call_next(request)
