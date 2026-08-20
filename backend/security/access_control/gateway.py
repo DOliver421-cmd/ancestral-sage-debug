@@ -2,10 +2,13 @@
 
 Two enforcement layers, both driven by the single registry in tiers.py:
 
-1. ASGI middleware  (AccessGateway.wrap) — intercepts EVERY request whose path
-   belongs to the monitored control surface BEFORE any handler runs.  A user
-   with insufficient clearance gets a 403 (or 401 when unauthenticated) and
-   the denial is written to the audit log.
+1. Starlette middleware (AccessGateway.wrap) — registered via
+   app.add_middleware(...) so the module-level `app` REMAINS the FastAPI
+   instance (startup handlers that mount the SPA, static files and any route
+   tooling keep working).  It intercepts every request whose path belongs to
+   the monitored control surface BEFORE any handler runs.  A user with
+   insufficient clearance gets a 403 (or 401 when unauthenticated) and the
+   denial is written to the audit log.
 
 2. FastAPI dependency (AccessGateway.guard / authorize) — the per-route gate
    used by the executive dashboard itself and available for any future route.
@@ -413,9 +416,90 @@ class AccessGateway:
 
         return dep
 
-    # ── ASGI middleware (defense-in-depth for the whole control surface) ──────
+    # ── Middleware (defense-in-depth for the whole control surface) ───────────
+    async def _check(self, path: str, method: str, auth_header: Optional[str], spec) -> Optional[tuple]:
+        """Core gate decision, shared by the Starlette and raw-ASGI adapters.
+
+        Returns (status_code, detail) to reject with — after audit-logging the
+        denial — or None to let the request through.
+        """
+        # Intentionally-public routes (no user-auth dependency on the route)
+        # are excluded from gating — e.g. /api/supervisor/public-chat,
+        # /api/exec/panel/heartbeat, /api/bridge/receive. Method-aware: a
+        # public GET never un-gates an authenticated POST on the same path.
+        if any(method in methods and _matches_public(path, p)
+               for methods, p in self._public_route_patterns):
+            return None
+
+        try:
+            user = await self._current_user_fn(auth_header)
+        except Exception as exc:
+            status = getattr(exc, "status_code", None)
+            if status == 401:
+                await self._log_anonymous_denial(spec, path, method, "unauthenticated")
+                return (401, "Authentication required for this control.")
+            if status == 403:
+                await self._log_anonymous_denial(spec, path, method, "account_deactivated")
+                return (403, "Account deactivated.")
+            # Fail closed: if we cannot verify clearance, the control stays shut.
+            logger.exception("AccessGateway could not resolve user for %s", path)
+            return (503, "Access control unavailable — request rejected.")
+
+        # Enforce at EXACTLY the rank the route's own handler enforces
+        # (derived at wrap time).  Registry values only apply when no rank
+        # is derivable — the gate can never be stricter than the handler.
+        allowed, reason, detail = self._enforce(
+            user, spec, effective_rank=self._lookup_handler_rank(method, path)
+        )
+        if not allowed:
+            await self._log_denial(user, spec, path, method, reason, detail)
+            req = ACCESS_TIERS[spec["required_tier"]]
+            return (403, f"Access denied — {spec['label']} requires {req['label']} clearance.")
+        return None
+
+    def middleware_class(self):
+        """A Starlette middleware class for ``app.add_middleware(...)``.
+
+        Registering the gate THIS way — instead of rebinding the module-level
+        app to a wrapped ASGI function — keeps ``app`` the FastAPI instance, so
+        startup handlers (SPA mount, static files) and any route tooling keep
+        working.  The gate still runs before every handler.
+        """
+        from starlette.middleware.base import BaseHTTPMiddleware
+        from fastapi.responses import JSONResponse
+
+        gateway = self
+
+        class AccessGatewayMiddleware(BaseHTTPMiddleware):
+            async def dispatch(self, request, call_next):
+                method = (request.method or "GET").upper()
+                if method == "OPTIONS":  # CORS preflight passes through
+                    return await call_next(request)
+                path = request.url.path
+                spec = find_control(path, method)
+                if spec is None:
+                    return await call_next(request)
+                result = await gateway._check(
+                    path, method, request.headers.get("authorization"), spec
+                )
+                if result is None:
+                    return await call_next(request)
+                status, detail = result
+                return JSONResponse(
+                    status_code=status,
+                    content={"detail": detail, "error": "ACCESS_DENIED"},
+                    headers={"cache-control": "no-store"},
+                )
+
+        return AccessGatewayMiddleware
+
     def middleware(self, app):
-        """Return an ASGI callable that gates the registered control surface."""
+        """Return an ASGI callable that gates the registered control surface.
+
+        Dependency-free adapter (no Starlette import) so the stdlib-only test
+        runner can exercise the gate end-to-end.  Production uses
+        ``middleware_class()`` via ``app.add_middleware`` instead.
+        """
 
         async def dispatch(scope, receive, send):
             if scope.get("type") != "http":
@@ -430,60 +514,28 @@ class AccessGateway:
             if spec is None:
                 return await app(scope, receive, send)
 
-            # Intentionally-public routes (no user-auth dependency on the route)
-            # are excluded from gating — e.g. /api/supervisor/public-chat,
-            # /api/exec/panel/heartbeat, /api/bridge/receive. Method-aware: a
-            # public GET never un-gates an authenticated POST on the same path.
-            if any(method in methods and _matches_public(path, p)
-                   for methods, p in self._public_route_patterns):
-                return await app(scope, receive, send)
-
-            # ── Registered control route: hard gate before the handler ──
             auth_header = None
             for key, value in (scope.get("headers") or []):
                 if key.lower() == b"authorization":
                     auth_header = value.decode("latin-1")
                     break
 
-            try:
-                user = await self._current_user_fn(auth_header)
-            except Exception as exc:
-                status = getattr(exc, "status_code", None)
-                if status == 401:
-                    await self._log_anonymous_denial(spec, path, method, "unauthenticated")
-                    return await self._reject(send, 401, "Authentication required for this control.")
-                if status == 403:
-                    await self._log_anonymous_denial(spec, path, method, "account_deactivated")
-                    return await self._reject(send, 403, "Account deactivated.")
-                # Fail closed: if we cannot verify clearance, the control stays shut.
-                logger.exception("AccessGateway could not resolve user for %s", path)
-                return await self._reject(send, 503, "Access control unavailable — request rejected.")
-
-            # Enforce at EXACTLY the rank the route's own handler enforces
-            # (derived at wrap time).  Registry values only apply when no rank
-            # is derivable — the gate can never be stricter than the handler.
-            allowed, reason, detail = self._enforce(
-                user, spec, effective_rank=self._lookup_handler_rank(method, path)
-            )
-            if not allowed:
-                await self._log_denial(user, spec, path, method, reason, detail)
-                req = ACCESS_TIERS[spec["required_tier"]]
-                return await self._reject(
-                    send,
-                    403,
-                    f"Access denied — {spec['label']} requires {req['label']} clearance.",
-                )
-
-            return await app(scope, receive, send)
+            result = await self._check(path, method, auth_header, spec)
+            if result is None:
+                return await app(scope, receive, send)
+            return await self._reject(send, *result)
 
         return dispatch
 
     def wrap(self, app):
-        """Wrap a Starlette/FastAPI app so the middleware runs for every request.
+        """Register the gate as a Starlette middleware on a FastAPI app.
 
         Discovers the app's intentionally-unauthenticated routes (public
-        widgets, shared-secret webhooks, heartbeat endpoints) so the gate never
-        blocks them — the gate only ever enforces on routes that resolve a user.
+        widgets, shared-secret webhooks, heartbeat endpoints) and the
+        handler-derived rank of every route, then registers the gate via
+        ``app.add_middleware``.  Returns the SAME app object — never a wrapper
+        function — so ``server.app`` stays the FastAPI instance and startup
+        handlers (SPA mount) keep working.
         """
         self._public_route_patterns = _discover_public_route_patterns(app)
         self._handler_requirements = _derive_handler_requirements(app)
@@ -496,7 +548,8 @@ class AccessGateway:
             "AccessGateway: %d route(s) carry handler-derived requirements (never stricter than the handler)",
             len(self._handler_requirements),
         )
-        return self.middleware(app)
+        app.add_middleware(self.middleware_class())
+        return app
 
     @staticmethod
     async def _reject(send, status: int, detail: str) -> None:
