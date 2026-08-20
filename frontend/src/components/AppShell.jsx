@@ -303,7 +303,7 @@ export default function AppShell({ children }) {
             {waiDoor ? (
               <>
                 {out("/classic-tools",  "All Originals",     Archive,         "nav-classic-tools")}
-                {out("/classic/creators-sanctuary", "M.O.R.E. Creators (classic)", Music, "nav-classic-sanctuary")}
+                {out("/classic/creators-sanctuary", "Creator Studio (classic)", Music, "nav-classic-sanctuary")}
                 {out("/classic/djedi-oracle", "DJEDI Oracle", Star,         "nav-classic-djedi")}
                 {out("/classic/litigation-weapon", "Litigation Weapon", Scale, "nav-classic-litigation")}
                 {out("/classic/more-help-center", "Help Center (original)", HelpCircle, "nav-classic-more")}
@@ -311,7 +311,7 @@ export default function AppShell({ children }) {
             ) : (
               <>
                 {nl("/classic-tools",  "All Originals",     Archive,         "nav-classic-tools")}
-                {nl("/classic/creators-sanctuary", "M.O.R.E. Creators (classic)", Music, "nav-classic-sanctuary")}
+                {nl("/classic/creators-sanctuary", "Creator Studio (classic)", Music, "nav-classic-sanctuary")}
                 {nl("/classic/djedi-oracle", "DJEDI Oracle", Star,         "nav-classic-djedi")}
                 {nl("/classic/litigation-weapon", "Litigation Weapon", Scale, "nav-classic-litigation")}
                 {nl("/classic/more-help-center", "Help Center (original)", HelpCircle, "nav-classic-more")}

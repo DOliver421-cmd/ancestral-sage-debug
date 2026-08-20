@@ -379,6 +379,21 @@ export default function AscensionProtocols() {
     <div style={{ background: "#faf9f7", minHeight: "100dvh" }}>
       <PublicNav />
 
+      {/* Back / Home nav */}
+      <div className="max-w-5xl mx-auto px-4 sm:px-6 pt-4 flex items-center gap-3">
+        <Link to="/dashboard" className="inline-flex items-center gap-1.5 text-sm font-bold" style={{ color: "#8a5a00", textDecoration: "none" }}>
+          ← Home
+        </Link>
+        <span style={{ color: "#d9c9a8" }}>|</span>
+        <Link to="/courses" className="inline-flex items-center gap-1.5 text-sm font-bold" style={{ color: "#8a5a00", textDecoration: "none" }}>
+          All Courses
+        </Link>
+        <span style={{ color: "#d9c9a8" }}>|</span>
+        <Link to="/profile" className="inline-flex items-center gap-1.5 text-sm font-bold" style={{ color: "#8a5a00", textDecoration: "none" }}>
+          My Profile
+        </Link>
+      </div>
+
       {/* ── HERO ─────────────────────────────────────────────────────────── */}
       <section className="relative overflow-hidden" style={{ background: "linear-gradient(160deg,#0d0a06 0%,#241a08 55%,#0d1a0a 100%)", color: "#fff" }}>
         <div className="max-w-5xl mx-auto px-4 sm:px-6 py-14 sm:py-20">
