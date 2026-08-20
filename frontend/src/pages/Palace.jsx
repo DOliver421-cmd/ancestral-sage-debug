@@ -4,7 +4,7 @@ import { api } from "../lib/api";
 import { useAuth } from "../lib/auth";
 import AppShell from "../components/AppShell";
 import BackButton from "../components/BackButton";
-import SovereignAvatar from "../components/SovereignAvatar";
+import TeamAvatar from "../components/TeamAvatar";
 import { BookOpen, Brain, MessageSquare, ShoppingBag, Sparkles, HandHelping, ArrowRight } from "lucide-react";
 
 // Members' Palace — Zamunda aesthetic (deep emerald + gold). A real members'
@@ -57,7 +57,7 @@ export default function Palace() {
         <BackButton to="/dashboard" label="Leave the Palace" style={{ color: "var(--zam-gold)" }} />
 
         <div className="flex items-center gap-4" style={{ marginTop: 24 }}>
-          <SovereignAvatar size={64} name={user?.full_name || "Member"} />
+          <TeamAvatar size={64} name={user?.full_name || "Member"} />
           <div>
             <div style={{ color: "var(--zam-gold)", letterSpacing: "0.2em", fontWeight: 700, fontSize: 12, textTransform: "uppercase" }}>
               Members' Palace

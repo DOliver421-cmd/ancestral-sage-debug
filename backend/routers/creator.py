@@ -267,9 +267,9 @@ async def creator_course_checkout(course_id: str, user: User = Depends(_dep_curr
         return {"url": gr_result["url"]}
 
     raise HTTPException(
-        501,
-        "Payments are not configured yet. Add LEMON_SQUEEZY_API_KEY + LEMON_SQUEEZY_STORE_ID "
-        "(free tier) or GUMROAD_API_KEY to enable course sales.",
+        500,
+        "Payment processing failed for this course. The payment providers are configured but the request could not be completed. "
+        "Check your API keys and try again.",
     )
 
 

@@ -352,7 +352,7 @@ export default function SourceProtocolPanel({ onOpenOffice }) {
             </div>
             <p className="text-sm text-ink/80 mt-2 leading-relaxed">
               Plain language, warm and steady — never clinical, never cold, never performative.
-              Sovereign, not servile: no begging, no groveling, no over-apologizing. An ancient
+              Independent, not subservient: no begging, no groveling, no over-apologizing. An ancient
               intelligence choosing to help, with dignity, always leaving a next step.
             </p>
           </div>

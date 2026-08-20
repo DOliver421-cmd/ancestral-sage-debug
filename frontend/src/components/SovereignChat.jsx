@@ -1,7 +1,7 @@
 import { useState, useRef, useCallback, useEffect } from "react";
 import { useAuth } from "../lib/auth";
 import { api } from "../lib/api";
-import SovereignAvatar from "./SovereignAvatar";
+import TeamAvatar from "./TeamAvatar";
 import { Send, X, Mic, MicOff, Volume2, VolumeX, Paperclip, Music, FileText, Image, Trash2, RefreshCw, Plus, ChevronRight } from "lucide-react";
 import { useMic } from "../hooks/useMic";
 import { toast } from "sonner";
@@ -431,10 +431,10 @@ export default function SovereignChat() {
     try {
       const r = await api.post("/sovereign/chat", payload);
       const reply = r.data?.reply || "…";
-      setMessages((m) => [...m, { role: "sovereign", text: reply }]);
+      setMessages((m) => [...m, { role: "director", text: reply }]);
       speak(reply);
     } catch (_e) {
-      setMessages((m) => [...m, { role: "sovereign", text: "(The Sovereign is unavailable right now — try again shortly.)" }]);
+      setMessages((m) => [...m, { role: "director", text: "(The Director is unavailable right now — try again shortly.)" }]);
     } finally {
       setSending(false);
     }
@@ -454,7 +454,7 @@ export default function SovereignChat() {
         className="fixed bottom-6 left-6 flex items-center gap-2 px-4 py-3 rounded-full font-bold shadow-lg"
         style={{ zIndex: 1400, background: "var(--wai-emerald)", color: "var(--wai-gold-light)", border: "1px solid var(--wai-gold)" }}
       >
-        <SovereignAvatar size={28} /> Summon The Sovereign
+        <TeamAvatar size={28} /> Summon The Director
       </button>
     );
   }
@@ -475,8 +475,8 @@ export default function SovereignChat() {
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3" style={{ background: "var(--wai-emerald)", flexShrink: 0 }}>
         <div className="flex items-center gap-2" style={{ color: "var(--wai-gold-light)" }}>
-          <SovereignAvatar size={32} />
-          <span className="font-heading font-bold">The Sovereign</span>
+          <TeamAvatar size={32} />
+          <span className="font-heading font-bold">The Director</span>
         </div>
         <div className="flex items-center gap-2">
           <button onClick={() => setConfirmClear(true)} title="Clear history"
@@ -562,7 +562,7 @@ export default function SovereignChat() {
                   }
                 >
                   {m.text}
-                  {m.role === "sovereign" && (
+                  {m.role === "director" && (
                     <button onClick={() => speak(m.text)} title="Read aloud"
                       style={{ background: "none", border: "none", cursor: "pointer", fontSize: 12, opacity: 0.5, marginLeft: 6, padding: 0, verticalAlign: "middle" }}>
                       🔊
@@ -571,7 +571,7 @@ export default function SovereignChat() {
                 </div>
               </div>
             ))}
-            {sending && <div className="text-xs" style={{ color: "var(--wai-muted)" }}>The Sovereign is considering…</div>}
+            {sending && <div className="text-xs" style={{ color: "var(--wai-muted)" }}>The Director is considering…</div>}
             <div ref={messagesEndRef} />
           </div>
 
@@ -615,7 +615,7 @@ export default function SovereignChat() {
             <input
               value={input}
               onChange={(e) => setInput(e.target.value)}
-              placeholder={recording ? "Listening…" : "Ask The Sovereign…"}
+              placeholder={recording ? "Listening…" : "Ask The Director…"}
               data-testid="sovereign-input"
               style={{ background: "var(--wai-dark)", color: "var(--wai-text)", border: "1px solid var(--wai-border)", borderRadius: 8, padding: "0.5rem 0.75rem", flex: 1, minWidth: 0 }}
             />
@@ -635,7 +635,7 @@ export default function SovereignChat() {
         <div style={{ position:"fixed", inset:0, zIndex:2000, display:"flex", alignItems:"center", justifyContent:"center", background:"rgba(0,0,0,0.7)", padding:16 }}>
           <div style={{ background:"var(--wai-card,#131620)", border:"1px solid var(--wai-border,rgba(74,242,197,0.15))", borderRadius:12, padding:24, maxWidth:320, width:"100%" }}>
             <div style={{ color:"var(--wai-text,#f0f4ff)", fontWeight:700, fontSize:14, marginBottom:8 }}>Clear Conversation?</div>
-            <div style={{ color:"var(--wai-muted,rgba(200,210,230,0.55))", fontSize:12, marginBottom:18 }}>This will permanently delete all conversation history with The Sovereign.</div>
+            <div style={{ color:"var(--wai-muted,rgba(200,210,230,0.55))", fontSize:12, marginBottom:18 }}>This will permanently delete all conversation history with The Director.</div>
             <div style={{ display:"flex", justifyContent:"flex-end", gap:10 }}>
               <button onClick={() => setConfirmClear(false)} style={{ border:"1px solid rgba(200,210,230,0.3)", background:"transparent", color:"rgba(200,210,230,0.55)", borderRadius:6, padding:"5px 14px", fontSize:11, cursor:"pointer" }}>Cancel</button>
               <button onClick={clearHistory} style={{ border:"1px solid #f87171", background:"transparent", color:"#f87171", borderRadius:6, padding:"5px 14px", fontSize:11, fontWeight:700, cursor:"pointer" }}>Clear All</button>

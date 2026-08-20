@@ -38,6 +38,7 @@ function NavLink({ to, label, icon: Icon, testid, loc, collapsed }) {
     : loc.pathname === to || loc.pathname.startsWith(to + "/");
   return (
     <Link key={to} to={to} data-testid={testid} title={collapsed ? label : undefined}
+      onClick={() => window.scrollTo(0, 0)}
       className={`flex items-center gap-3 px-3 py-2 text-sm font-medium border-l-2 transition-all rounded-r-md ${
         collapsed ? "justify-center px-0" : ""
       } ${
@@ -64,11 +65,15 @@ export default function AppShell({ children }) {
   // and every support/billing/creative item becomes an outbound link to MORE.
   const waiDoor = isWaiDoor();
 
+  // 8-tier role hierarchy (mirrors backend/roles.py)
+  const ROLE_RANK = { public: 0, student: 1, trial_pass: 2, instructor: 3, support_staff: 4, oversight: 5, admin: 6, executive_admin: 7 };
   const role = user?.role || "student";
-  const isAdmin  = role === "admin" || role === "executive_admin";
-  const isExec   = role === "executive_admin";
-  const isInstructor = role === "instructor" || isAdmin;
-  const isSupport = role === "support_staff" || isAdmin;
+  const rank = ROLE_RANK[role] ?? 0;
+  const hasRank = (min) => rank >= (ROLE_RANK[min] ?? 0);
+  const isAdmin  = hasRank("admin");
+  const isExec   = hasRank("executive_admin");
+  const isInstructor = hasRank("instructor");
+  const isSupport = hasRank("support_staff");
 
   const toggleCollapsed = () => {
     setCollapsed(c => {
@@ -192,6 +197,7 @@ export default function AppShell({ children }) {
             )}
           </NavSection>
 
+          {hasRank("student") && (
           <NavSection label="Learn" collapsed={collapsed}>
             {nl("/ai",              "AI Tutor",        Sparkles,        "nav-ai")}
             {nl("/council",         "Council (Sage)",  Layers,          "nav-council")}
@@ -202,13 +208,17 @@ export default function AppShell({ children }) {
             {nl("/adaptive",        "Learning Path",   Brain,           "nav-adaptive")}
             {nl("/competencies",    "Competencies",    Target,          "nav-competencies")}
           </NavSection>
+          )}
 
+          {hasRank("student") && (
           <NavSection label="Credentials" collapsed={collapsed}>
             {nl("/credentials",    "Credentials",      BadgeCheck,      "nav-credentials")}
             {nl("/certificates",   "Certificates",     Award,           "nav-certs")}
             {nl("/portfolio",      "Portfolio",        Briefcase,       "nav-portfolio")}
           </NavSection>
+          )}
 
+          {hasRank("student") && (
           <NavSection label="Community" collapsed={collapsed}>
             {waiDoor ? (
               <>
@@ -220,13 +230,14 @@ export default function AppShell({ children }) {
             ) : (
               <>
                 {nl("/palace",         "Members' Palace",  Crown,           "nav-palace")}
-                {nl("/elder-council",  "Elder Council",    Layers,          "nav-elder-council")}
                 {nl("/leaderboard",    "XP Leaderboard",   Trophy,          "nav-leaderboard")}
                 {nl("/incidents",      "Report Incident",  ShieldAlert,     "nav-incidents")}
               </>
             )}
           </NavSection>
+          )}
 
+          {hasRank("student") && (
           <NavSection label="M.O.R.E." collapsed={collapsed}>
             {waiDoor ? (
               <>
@@ -246,8 +257,10 @@ export default function AppShell({ children }) {
               </>
             )}
           </NavSection>
+          )}
 
-          {/* ── CLASSIC TOOLS (the preserved original HTML apps) ──────── */}
+          {/* ── CLASSIC TOOLS (admin+) */}
+          {hasRank("admin") && (
           <NavSection label="Classic Tools" collapsed={collapsed}>
             {waiDoor ? (
               <>
@@ -267,20 +280,26 @@ export default function AppShell({ children }) {
               </>
             )}
           </NavSection>
+          )}
 
-          {/* ── AGENT WELLNESS (AAWAB — everyone) ─────────────────────── */}
+          {/* ── AGENT WELLNESS (oversight+) */}
+          {hasRank("oversight") && (
           <NavSection label="Agent Wellness" collapsed={collapsed}>
             {nl("/aawab",          "Agent Registry",  HeartPulse,      "nav-aawab")}
             {nl("/aawab/chamber",  "Certification",   Award,           "nav-aawab-chamber")}
           </NavSection>
+          )}
 
-          {/* ── AI BUSINESS OFFICE (everyone — mission funding) ──────── */}
+          {/* ── BUSINESS OFFICE (oversight+) */}
+          {hasRank("oversight") && (
           <NavSection label="Business Office" collapsed={collapsed}>
             {nl("/business-office", "AI Business Office", Landmark,     "nav-business-office")}
           </NavSection>
+          )}
 
-          {/* ── M.O.R.E. CREATORS (all roles — page handles tier locks) ── */}
-          <NavSection label="M.O.R.E. Creators" collapsed={collapsed}>
+          {/* ── CREATORS (instructor+) */}
+          {hasRank("instructor") && (
+          <NavSection label="Creators" collapsed={collapsed}>
             {/* Social Blast (media strategy) stays on the WAI door; the rest of the creative suite lives on MORE. */}
             {nl("/social/publish",       "Social Blast",      Share2,     "nav-social-publish")}
             {waiDoor ? (
@@ -311,7 +330,9 @@ export default function AppShell({ children }) {
               </>
             )}
           </NavSection>
+          )}
 
+          {hasRank("student") && (
           <NavSection label="Commerce" collapsed={collapsed}>
             {waiDoor ? (
               <>
@@ -325,7 +346,6 @@ export default function AppShell({ children }) {
               </>
             ) : (
               <>
-                {nl("/merch",           "Store",            ShoppingBag,    "nav-store")}
                 {nl("/store",           "Media Store",      Music,          "nav-media-store")}
                 {nl("/plans",           "Plans & Pricing",  Star,           "nav-plans")}
                 {nl("/subscribe",       "Membership",       HandHelping,    "nav-subscribe")}
@@ -335,6 +355,7 @@ export default function AppShell({ children }) {
               </>
             )}
           </NavSection>
+          )}
 
           {/* ── INSTRUCTOR ────────────────────────────────────────────── */}
           {isInstructor && (
@@ -381,7 +402,7 @@ export default function AppShell({ children }) {
             <NavSection label="Executive" collapsed={collapsed}>
               {nl("/admin/system",       "Exec System",       Crown,          "nav-exec-system")}
               {nl("/admin/control",      "Site Control",      Shield,         "nav-control-panel")}
-              {nl("/admin/exec-control", "Sovereign Command", Layers,         "nav-exec-control")}
+              {nl("/admin/exec-control", "Command Center", Layers,         "nav-exec-control")}
               {nl("/admin/director",     "Director Dash",     Compass,        "nav-exec-director")}
               {nl("/admin/sage-audit",   "Sage Audit",        ScrollText,     "nav-sage-audit")}
               {nl("/admin/staff-meetings","Staff Meetings",   Users,          "nav-staff-meetings")}
