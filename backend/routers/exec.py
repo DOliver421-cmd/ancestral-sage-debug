@@ -477,16 +477,21 @@ async def exec_dashboard(user: User = Depends(_require_rank("executive_admin")))
     from ai.publishing import LEMON_SQUEEZY_API_KEY, LEMON_SQUEEZY_STORE_ID, GUMROAD_API_KEY
 
     # ── Env / platform status ─────────────────────────────────────────────────
-    elevenlabs_key   = bool(os.environ.get("ELEVENLABS_API_KEY", ""))
     openai_key       = bool(os.environ.get("OPENAI_API_KEY", ""))
     anthropic_key    = bool(os.environ.get("ANTHROPIC_API_KEY", ""))
+    groq_key         = bool(os.environ.get("GROQ_API_KEY", ""))
+    cerebras_key     = bool(os.environ.get("CEREBRAS_API_KEY", ""))
+    gemini_key       = bool(os.environ.get("GEMINI_API_KEY", ""))
     ls_ready         = bool(LEMON_SQUEEZY_API_KEY and LEMON_SQUEEZY_STORE_ID)
     gumroad_ready    = bool(GUMROAD_API_KEY)
 
     platform_status = {
         "anthropic_api":         anthropic_key,
-        "elevenlabs":            elevenlabs_key,
-        "openai_tts":            openai_key,
+        "openai":                openai_key,
+        "groq":                  groq_key,
+        "cerebras":              cerebras_key,
+        "gemini":                gemini_key,
+        "free_llm_providers":    sum([groq_key, cerebras_key, gemini_key]),
         "lemon_squeezy":         ls_ready,
         "lemon_squeezy_key_set": bool(LEMON_SQUEEZY_API_KEY),
         "lemon_squeezy_store_set": bool(LEMON_SQUEEZY_STORE_ID),
@@ -501,16 +506,16 @@ async def exec_dashboard(user: User = Depends(_require_rank("executive_admin")))
     # ── Persona registry ──────────────────────────────────────────────────────
     personas = [
         # ── Authority layer ───────────────────────────────────────────────────
-        {"id": "the_9",                  "name": "THE 9 — UNIFIED MIND",         "tools": 16, "voice": "elevenlabs", "tier": 0, "authority": "unified_mind"},
-        {"id": "poor_righteous_teacher", "name": "THE POOR RIGHTEOUS TEACHER",   "tools": 6,  "voice": "elevenlabs", "tier": 1, "authority": "doctrinal_guardian"},
+        {"id": "the_9",                  "name": "THE 9 — UNIFIED MIND",         "tools": 16, "voice": "browser_tts", "tier": 0, "authority": "unified_mind"},
+        {"id": "poor_righteous_teacher", "name": "THE POOR RIGHTEOUS TEACHER",   "tools": 6,  "voice": "browser_tts", "tier": 1, "authority": "doctrinal_guardian"},
         # ── Core personas ─────────────────────────────────────────────────────
-        {"id": "director",               "name": "THE DIRECTOR 4.0",             "tools": 8,  "voice": "elevenlabs", "tier": 2},
-        {"id": "revenue_director",       "name": "THE REVENUE DIRECTOR 4.0",     "tools": 9,  "voice": "elevenlabs", "tier": 3},
-        {"id": "ancestral_sage",         "name": "THE ANCESTRAL SAGE 4.0",       "tools": 7,  "voice": "elevenlabs", "tier": 3},
-        {"id": "ambassador",             "name": "THE AMBASSADOR 4.0",           "tools": 9,  "voice": "openai",     "tier": 4},
-        {"id": "cipher",                 "name": "THE CIPHER 4.0",               "tools": 8,  "voice": "elevenlabs", "tier": 4},
-        {"id": "oracle",                 "name": "THE ORACLE 4.0",               "tools": 7,  "voice": "openai",     "tier": 4},
-        {"id": "architect",              "name": "THE ARCHITECT 4.0",            "tools": 8,  "voice": "openai",     "tier": 4},
+        {"id": "director",               "name": "THE DIRECTOR 4.0",             "tools": 8,  "voice": "browser_tts", "tier": 2},
+        {"id": "revenue_director",       "name": "THE REVENUE DIRECTOR 4.0",     "tools": 9,  "voice": "browser_tts", "tier": 3},
+        {"id": "ancestral_sage",         "name": "THE ANCESTRAL SAGE 4.0",       "tools": 7,  "voice": "browser_tts", "tier": 3},
+        {"id": "ambassador",             "name": "THE AMBASSADOR 4.0",           "tools": 9,  "voice": "browser_tts", "tier": 4},
+        {"id": "cipher",                 "name": "THE CIPHER 4.0",               "tools": 8,  "voice": "browser_tts", "tier": 4},
+        {"id": "oracle",                 "name": "THE ORACLE 4.0",               "tools": 7,  "voice": "browser_tts", "tier": 4},
+        {"id": "architect",              "name": "THE ARCHITECT 4.0",            "tools": 8,  "voice": "browser_tts", "tier": 4},
     ]
 
     # ── MongoDB queries ───────────────────────────────────────────────────────
