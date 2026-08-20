@@ -186,6 +186,9 @@ CONTROL_REGISTRY: Dict[str, dict] = {
         "required_tier": "executive",
         "min_role": "executive_admin",
         "routes": ["/api/exec/panel", "/api/exec/panel/", "/api/exec/failover"],
+        # /api/exec/panel/heartbeat is intentionally unauthenticated (shared-secret
+        # heartbeat from the backup/emergency server) and must stay open.
+        "exclude": ["/api/exec/panel/heartbeat"],
     },
     "gateway_key_management": {
         "label": "Gateway API Key Management",
@@ -354,6 +357,9 @@ CONTROL_REGISTRY: Dict[str, dict] = {
         "required_tier": "executive",
         "min_role": "executive_admin",
         "routes": ["/api/supervisor/"],
+        # /api/supervisor/public-chat is the PUBLIC visitor chat widget (no auth)
+        # and must stay open — the dashboard/control endpoints are the gated ones.
+        "exclude": ["/api/supervisor/public-chat"],
     },
     "bridge_governance": {
         "label": "Cross-Domain AI Bridge",
@@ -363,6 +369,9 @@ CONTROL_REGISTRY: Dict[str, dict] = {
         "required_tier": "executive",
         "min_role": "admin",
         "routes": ["/api/bridge/"],
+        # /api/bridge/receive is an inbound webhook guarded by the X-Bridge-Secret
+        # shared secret (not a user session) and must stay open.
+        "exclude": ["/api/bridge/receive"],
     },
     "program_analytics_admin": {
         "label": "Program Analytics (admin)",
