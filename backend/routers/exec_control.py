@@ -460,6 +460,8 @@ class _BreakGlassRevokeReq(BaseModel):
     reason:      Optional[str] = None
 
 
+import hashlib as _hashlib
+
 async def _exec_audit(actor: User, action: str, target_id: Optional[str] = None,
                       before: Optional[dict] = None, after: Optional[dict] = None,
                       request: Optional[Request] = None, note: str = ""):
@@ -467,10 +469,29 @@ async def _exec_audit(actor: User, action: str, target_id: Optional[str] = None,
     if request:
         fwd = request.headers.get("x-forwarded-for", "")
         ip  = fwd.split(",")[0].strip() if fwd else (request.client.host if request.client else None)
+    now_iso = datetime.now(timezone.utc).isoformat()
+    record_id = str(uuid.uuid4())
+    # ── Tamper-evident hash chain ───────────────────────────────────────────
+    # Each record stores the hash of the previous record plus its own canonical
+    # fields, so altering any historical record breaks every hash after it.
+    # True WORM requires detached/immutable storage (S3 Object Lock / append-
+    # only log service) — that is a hosting decision, not code; this chain
+    # makes tampering detectable by verification.
+    prev_hash = ""
+    try:
+        last = await db.exec_audit_log.find_one(
+            {}, {"_id": 0, "hash": 1}
+        ).sort("created_at", -1)
+        prev_hash = (last or {}).get("hash") or ""
+    except Exception:
+        prev_hash = ""  # chain restarts — first record of a new chain
+    canon = "|".join([record_id, actor.id, action, target_id or "", now_iso, note or ""])
+    record_hash = _hashlib.sha256((prev_hash + "|" + canon).encode("utf-8")).hexdigest()
     await db.exec_audit_log.insert_one({
-        "id": str(uuid.uuid4()), "actor_id": actor.id, "actor_role": actor.role,
+        "id": record_id, "actor_id": actor.id, "actor_role": actor.role,
         "action": action, "target_id": target_id, "before": before, "after": after,
-        "note": note, "ip": ip, "created_at": datetime.now(timezone.utc).isoformat(),
+        "note": note, "ip": ip, "created_at": now_iso,
+        "prev_hash": prev_hash, "hash": record_hash,
     })
     await audit(actor.id, action, target=target_id, meta={"note": note})
 
@@ -487,7 +508,8 @@ async def ec_set_user_role(body: _ExecSetUserRoleReq, request: Request,
     if actor.id == body.user_id and ROLE_RANK.get(body.new_role, 0) < ROLE_RANK.get("admin", 3):
         raise HTTPException(400, "Cannot demote your own account below admin.")
     await db.users.update_one({"id": body.user_id},
-        {"$set": {"role": body.new_role, "updated_at": datetime.now(timezone.utc).isoformat()}})
+        {"$set": {"role": body.new_role, "updated_at": datetime.now(timezone.utc).isoformat()},
+         "$inc": {"token_version": 1}})  # force re-auth: role change revokes all JWTs
     await _exec_audit(actor, "exec.user.role_changed", target_id=body.user_id,
         before={"role": old_role}, after={"role": body.new_role}, request=request, note=body.reason)
     if body.user_id != actor.id:
@@ -508,7 +530,8 @@ async def ec_set_user_tier(body: _ExecSetUserTierReq, request: Request,
     upd = {"feature_tier": body.new_feature_tier, "updated_at": datetime.now(timezone.utc).isoformat()}
     if body.new_sage_tier:
         upd["sage_tier"] = body.new_sage_tier
-    await db.users.update_one({"id": body.user_id}, {"$set": upd})
+    await db.users.update_one({"id": body.user_id},
+        {"$set": upd, "$inc": {"token_version": 1}})  # force re-auth: tier change revokes all JWTs
     await _exec_audit(actor, "exec.user.tier_changed", target_id=body.user_id,
         before={"feature_tier": old_ft, "sage_tier": old_st}, after=upd,
         request=request, note=body.reason)

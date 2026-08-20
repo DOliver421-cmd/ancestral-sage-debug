@@ -230,10 +230,13 @@ async def _apply_password_reset(target_id: str, new_password: str,
     rejected by `_load_reset_token`, so this helper assumes preconditions
     have already been validated."""
     now = datetime.now(timezone.utc)
-    await db.users.update_one({"id": target_id}, {"$set": {
-        "password_hash": hash_pw(new_password),
-        "must_change_password": False,
-    }})
+    await db.users.update_one({"id": target_id}, {
+        "$set": {
+            "password_hash": hash_pw(new_password),
+            "must_change_password": False,
+        },
+        "$inc": {"token_version": 1},  # credential rotation revokes all prior JWTs
+    })
     await db.password_reset_tokens.update_one(
         {"token_hash": token_hash},
         {"$set": {"used_at": now, "used_ip": ip}},
@@ -498,10 +501,13 @@ async def change_password(body: ChangePasswordReq, user: UserOut = Depends(_dep_
     doc = await db.users.find_one({"id": user.id}, {"_id": 0})
     if not doc or not verify_pw(body.current_password, doc["password_hash"]):
         raise HTTPException(401, "Current password is incorrect")
-    await db.users.update_one({"id": user.id}, {"$set": {
-        "password_hash": hash_pw(body.new_password),
-        "must_change_password": False,
-    }})
+    await db.users.update_one({"id": user.id}, {
+        "$set": {
+            "password_hash": hash_pw(body.new_password),
+            "must_change_password": False,
+        },
+        "$inc": {"token_version": 1},  # credential rotation revokes ALL sessions (fresh token issued below)
+    })
     await audit(user.id, "auth.password_changed")
     # Fetch fresh user doc (must_change_password now False) and issue new token
     fresh_doc = await db.users.find_one({"id": user.id}, {"_id": 0, "password_hash": 0})
