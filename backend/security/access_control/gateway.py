@@ -4,16 +4,19 @@ Two enforcement layers, both driven by the single registry in tiers.py:
 
 1. ASGI middleware  (AccessGateway.wrap) — intercepts EVERY request whose path
    belongs to the monitored control surface BEFORE any handler runs.  A user
-   with insufficient tier gets a 403 (or 401 when unauthenticated) and the
-   denial is written to the audit log.  This severs public access to all
-   scattered control endpoints in one place — no handler edit required.
+   with insufficient clearance gets a 403 (or 401 when unauthenticated) and
+   the denial is written to the audit log.
 
 2. FastAPI dependency (AccessGateway.guard / authorize) — the per-route gate
    used by the executive dashboard itself and available for any future route.
 
-The gateway never loosens an existing handler guard: where a control's
-required tier is lower than its handler's own check, the handler still
-enforces the stricter rule.
+NEVER STRICTER THAN THE HANDLER: at wrap time the gateway reads each route's
+OWN guard out of its FastAPI dependency tree (the *_require_rank / require_rank
+closures capture the exact roles they enforce).  Every gated request is then
+enforced at exactly that handler-derived rank — a public route is discovered
+and never gated, an admin-required route is enforced at admin, never at a
+hand-maintained registry guess.  Where no rank is derivable the registry's
+documented tier + min_role is the fallback.
 """
 
 from __future__ import annotations
@@ -22,16 +25,37 @@ import json
 import logging
 from typing import Optional
 
+from roles import ROLE_RANK
+
 from .audit import DenialAuditBuffer
 from .tiers import (
     ACCESS_TIERS,
     CONTROL_REGISTRY,
+    ROLE_HIERARCHY,
     find_control,
     tier_key_for_role,
     tier_level_for_role,
 )
 
 logger = logging.getLogger("lcewai.access_control")
+
+# Rank -> role label (for audit detail on handler-derived gates).
+_RANK_TO_ROLE: dict = {rank: role for role, rank in ROLE_HIERARCHY}
+
+# Callables that identify a route as user-authenticated (FastAPI deps). A route
+# carrying any of these must go through the gate; a route carrying NONE of them
+# is intentionally public (webhooks, shared-secret endpoints, public widgets)
+# and must never be gated by the middleware.
+_AUTH_MARKERS = (
+    "current_user", "require_user", "_dep_current_user",
+    "_require_rank", "require_role", "assert_role", "require_tier",
+    "_require_executive", "authorize",
+)
+
+# Rank-guard FACTORIES whose returned closures capture the roles they enforce.
+# The closure cells hold the required role names (tuple) or the precomputed
+# needed_rank (int) — reading them yields the handler's own requirement.
+_RANK_GUARD_MARKERS = ("_require_rank", "require_rank", "require_role", "assert_role")
 
 # Callables that identify a route as user-authenticated (FastAPI deps). A route
 # carrying any of these must go through the gate; a route carrying NONE of them
@@ -110,6 +134,93 @@ def _params_to_wildcard(path: str) -> str:
     return "/".join(out)
 
 
+def _closure_required_rank(call) -> Optional[int]:
+    """Extract the minimum rank a rank-guard closure enforces, else None.
+
+    Both guard styles used in this codebase build closures that capture the
+    required role names (a tuple, e.g. exec_control.py's _require_rank) or the
+    precomputed needed_rank (an int, e.g. exec.py's _require_rank and
+    server.py's require_role).  Reading those cells gives the handler's OWN
+    requirement — the single source of truth for the gate.
+    """
+    qname = (getattr(call, "__qualname__", "") or "") + (getattr(call, "__name__", "") or "")
+    # dashboard._require_executive is a plain function (not a factory) that
+    # delegates to authorize("executive_access_control") — executive_admin.
+    if "_require_executive" in qname:
+        return ROLE_RANK["executive_admin"]
+    if not any(m in qname for m in _RANK_GUARD_MARKERS):
+        return None
+    for cell in (getattr(call, "__closure__", None) or ()):
+        value = cell.cell_contents
+        if isinstance(value, (tuple, list, set, frozenset)):
+            roles = [r for r in value if isinstance(r, str)]
+            if roles and len(roles) == len(value) and all(r in ROLE_RANK for r in roles):
+                return min(ROLE_RANK[r] for r in roles)
+        elif isinstance(value, int) and 0 < value <= ROLE_RANK["executive_admin"]:
+            return value
+    return None
+
+
+def _derive_route_min_rank(dependant) -> Optional[int]:
+    """Strictest rank the route's dependency tree enforces, else None.
+
+    None means either the route resolves no user at all (intentionally
+    public — never gated) or a user is resolved but no rank is derivable
+    (the caller falls back to the registry).  Same traversal semantics as
+    _route_has_auth_dep so the two views of the route table can't disagree.
+    """
+    if dependant is None:
+        return None
+    best = None
+    found_auth = False
+    stack = [dependant]
+    seen = set()
+    while stack:
+        node = stack.pop()
+        for d in getattr(node, "dependencies", []) or []:
+            call = getattr(d, "call", None)
+            if call is not None:
+                q = (getattr(call, "__qualname__", "") or "") + (getattr(call, "__name__", "") or "")
+                if any(m in q for m in _AUTH_MARKERS):
+                    found_auth = True
+                rank = _closure_required_rank(call)
+                if rank is not None:
+                    best = rank if best is None else max(best, rank)
+            sub = getattr(d, "dependencies", None)
+            if sub and id(sub) not in seen:
+                seen.add(id(sub))
+                stack.append(d)
+    return best if found_auth else None
+
+
+def _derive_handler_requirements(app) -> dict:
+    """(method, /api-wildcard-pattern) -> the handler's own minimum rank.
+
+    Built once at wrap time from the app's real route table, method-aware
+    (a public GET on a path never supplies a rank for an authed POST).
+    """
+    reqs: dict = {}
+    for route in _flatten_routes(getattr(app, "routes", [])):
+        rank = _derive_route_min_rank(getattr(route, "dependant", None))
+        if rank is None:
+            continue
+        raw = getattr(route, "path", "") or ""
+        if not raw:
+            continue
+        methods = set(getattr(route, "methods", []) or [])
+        methods.discard("HEAD")
+        methods.discard("OPTIONS")
+        methods = methods or {"GET"}
+        for p in {raw, "/api" + raw}:
+            if not p.startswith("/api"):
+                continue
+            pat = _params_to_wildcard(p)
+            for m in methods:
+                key = (m, pat)
+                reqs[key] = max(rank, reqs.get(key, 0))
+    return reqs
+
+
 def _matches_public(path: str, pattern: str) -> bool:
     from fnmatch import fnmatchcase
     return fnmatchcase(path, pattern)
@@ -124,6 +235,7 @@ class AccessGateway:
         self._current_user_fn = None
         self._denial_buffer: DenialAuditBuffer | None = None
         self._public_route_patterns: list = []
+        self._handler_requirements: dict = {}
         self.active = False
 
     # ── Wiring (called by server.py at startup) ────────────────────────────────
@@ -146,13 +258,37 @@ class AccessGateway:
         )
 
     # ── Core decision ──────────────────────────────────────────────────────────
-    def _enforce(self, user, spec) -> tuple:
-        """Return (allowed: bool, reason: str, detail: dict)."""
+    def _enforce(self, user, spec, effective_rank: Optional[int] = None) -> tuple:
+        """Return (allowed: bool, reason: str, detail: dict).
+
+        *effective_rank* is the handler's OWN minimum rank, derived from the
+        route's dependency tree at wrap time — when present it is the single
+        source of truth and the gate is exactly as strict as the handler (no
+        more, no less).  When absent (rank not derivable), the registry's
+        documented tier + min_role gate is applied as the fallback.
+        """
         user_role = getattr(user, "role", "") or ""
         user_tier = tier_key_for_role(user_role)
         user_level = tier_level_for_role(user_role)
-        req_level = ACCESS_TIERS[spec["required_tier"]]["level"]
 
+        if effective_rank is not None:
+            from roles import role_rank
+            if role_rank(user_role) < effective_rank:
+                return (
+                    False,
+                    "insufficient_role",
+                    {
+                        "user_role": user_role,
+                        "user_tier": user_tier,
+                        "user_tier_level": user_level,
+                        "required_tier": spec["required_tier"],
+                        "handler_required_rank": effective_rank,
+                        "handler_required_role": _RANK_TO_ROLE.get(effective_rank),
+                    },
+                )
+            return True, "", {}
+
+        req_level = ACCESS_TIERS[spec["required_tier"]]["level"]
         if user_level < req_level:
             return (
                 False,
@@ -182,6 +318,13 @@ class AccessGateway:
                 )
 
         return True, "", {}
+
+    def _lookup_handler_rank(self, method: str, path: str) -> Optional[int]:
+        """Handler-derived rank for (method, path), or None (registry fallback)."""
+        for (m, pat), rank in self._handler_requirements.items():
+            if method == m and _matches_public(path, pat):
+                return rank
+        return None
 
     # ── Audit logging (compliance trail) ───────────────────────────────────────
     async def _log_denial(self, user, spec, path, method, reason, detail) -> None:
@@ -316,7 +459,12 @@ class AccessGateway:
                 logger.exception("AccessGateway could not resolve user for %s", path)
                 return await self._reject(send, 503, "Access control unavailable — request rejected.")
 
-            allowed, reason, detail = self._enforce(user, spec)
+            # Enforce at EXACTLY the rank the route's own handler enforces
+            # (derived at wrap time).  Registry values only apply when no rank
+            # is derivable — the gate can never be stricter than the handler.
+            allowed, reason, detail = self._enforce(
+                user, spec, effective_rank=self._lookup_handler_rank(method, path)
+            )
             if not allowed:
                 await self._log_denial(user, spec, path, method, reason, detail)
                 req = ACCESS_TIERS[spec["required_tier"]]
@@ -338,11 +486,16 @@ class AccessGateway:
         blocks them — the gate only ever enforces on routes that resolve a user.
         """
         self._public_route_patterns = _discover_public_route_patterns(app)
+        self._handler_requirements = _derive_handler_requirements(app)
         if self._public_route_patterns:
             logger.info(
                 "AccessGateway: %d intentionally-public route(s) excluded from gating",
                 len(self._public_route_patterns),
             )
+        logger.info(
+            "AccessGateway: %d route(s) carry handler-derived requirements (never stricter than the handler)",
+            len(self._handler_requirements),
+        )
         return self.middleware(app)
 
     @staticmethod
