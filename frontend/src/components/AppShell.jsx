@@ -14,7 +14,7 @@ import {
 } from "lucide-react";
 import { isWaiDoor, MORE_HOME } from "../lib/domain";
 import NotificationBell from "./NotificationBell";
-import { Search, HeartPulse, Landmark, Archive } from "lucide-react";
+import { Search, HeartPulse, Landmark, Archive, Activity } from "lucide-react";
 import { useEffect, useState } from "react";
 import { isPageEnabled, loadGates } from "../lib/accessGates";
 
@@ -443,6 +443,7 @@ export default function AppShell({ children }) {
               <NavSubGroup label="Reports & Audit" collapsed={collapsed}>
                 {nl("/admin/sage-audit",   "Sage Audit",        ScrollText,     "nav-sage-audit")}
                 {nl("/admin/exec-report",  "Site Report",       ClipboardCheck, "nav-exec-report")}
+                {nl("/admin/health-report","Health Report",     Activity,        "nav-health-report")}
                 {nl("/admin/staff-meetings","Staff Meetings",   Users,          "nav-staff-meetings")}
               </NavSubGroup>
               <NavSubGroup label="Team & AI" collapsed={collapsed}>
