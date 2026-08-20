@@ -50,8 +50,7 @@ JWT_SECRET = os.environ.get('JWT_SECRET') or secrets.token_hex(32)
 JWT_ALGO = os.environ.get('JWT_ALGORITHM', 'HS256')
 
 # Mirrors server.py's role hierarchy for runtime require_role checks.
-# ROLE_RANK imported from roles.py
-# Role imported from roles.py
+from routers.roles import ROLE_RANK, Role
 
 
 class User(BaseModel):

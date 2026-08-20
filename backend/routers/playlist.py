@@ -37,7 +37,7 @@ def bind(_db, _current_user):
     current_user = _current_user
 
 
-# ROLE_RANK imported from roles.py
+from roles import ROLE_RANK
 
 
 class User(BaseModel):
