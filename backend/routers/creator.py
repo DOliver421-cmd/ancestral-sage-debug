@@ -41,8 +41,7 @@ def bind(_db, _current_user, _audit, _notify, _jwt_secret, _jwt_algo):
 
 
 # Mirrors server.py's role hierarchy for runtime require_role checks.
-# ROLE_RANK imported from roles.py
-# Role imported from roles.py
+from routers.roles import ROLE_RANK, Role
 
 
 class User(BaseModel):

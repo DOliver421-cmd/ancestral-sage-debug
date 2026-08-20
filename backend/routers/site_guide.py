@@ -53,8 +53,7 @@ def bind(_db, _current_user, _check_rate):
 
 
 # Mirrors server.py's role hierarchy for runtime require_role checks.
-# ROLE_RANK imported from roles.py
-# Role imported from roles.py
+from routers.roles import ROLE_RANK, Role
 
 # Same ladder as backend/routers/payments.py + frontend/src/lib/tiers.js.
 TIER_RANK = {"free": 0, "member": 1, "plus": 2, "pro": 3, "patron": 4, "executive": 5}

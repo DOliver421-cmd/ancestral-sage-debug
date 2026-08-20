@@ -58,8 +58,7 @@ def bind(_db, _current_user, _audit, _assert_role, _xp_level):
     xp_level = _xp_level
 
 
-# ROLE_RANK imported from roles.py
-# Role imported from roles.py
+from routers.roles import ROLE_RANK, Role
 
 
 class User(BaseModel):

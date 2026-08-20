@@ -66,7 +66,7 @@ EXEC_RESET_SECRET = os.environ.get("EXEC_RESET_SECRET", "")
 RESEND_API_KEY = os.environ.get("RESEND_API_KEY", "")
 RESET_TOKEN_TTL_MIN = int(os.environ.get("PASSWORD_RESET_TTL_MIN", "30"))
 # Mirrors server.py's role hierarchy for runtime require_role checks.
-# ROLE_RANK imported from roles.py
+
 
 
 def _require_rank(*roles):

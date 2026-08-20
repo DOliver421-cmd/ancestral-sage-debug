@@ -35,7 +35,7 @@ router = APIRouter(tags=["exec_command"])
 # ── Shared state, bound by server.py via bind() ──────────────────────────────
 db = current_user = None
 
-# ROLE_RANK imported from roles.py
+
 
 
 def bind(_db, _current_user):

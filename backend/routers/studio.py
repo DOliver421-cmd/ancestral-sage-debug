@@ -33,8 +33,7 @@ def bind(_db, _current_user, _award_xp, _award_credentials):
 
 
 # Mirrors server.py's role hierarchy (not used by these routes, kept for parity).
-# ROLE_RANK imported from roles.py
-# Role imported from roles.py
+from routers.roles import ROLE_RANK, Role
 
 
 class User(BaseModel):
