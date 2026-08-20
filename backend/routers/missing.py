@@ -7,6 +7,15 @@ from fastapi import APIRouter
 
 router = APIRouter(tags=['missing'])
 
+# Shared state, bound by server.py via bind()
+db = current_user = None
+
+
+def bind(_db, _current_user):
+    global db, current_user
+    db = _db
+    current_user = _current_user
+
 
 @router.get("/missing/photos/{case_id}")
 async def get_missing_photos(case_id: str):
