@@ -458,8 +458,26 @@ def _pattern_matches(pattern: str, path: str) -> bool:
     return path == pattern
 
 
+# ── Matching index ────────────────────────────────────────────────────────────
+# Every request passes through the gateway's find_control(), so the lookup must
+# be near-zero cost.  All control patterns live under /api/<segment>/..., so we
+# index by the second path segment: only the handful of patterns in that group
+# are ever scanned (a dict get + 1-3 pattern checks instead of ~80 pattern
+# comparisons per request).
+_CONTROL_INDEX: Dict[str, list] = {}
+for _key, _spec in CONTROL_REGISTRY.items():
+    for _entry in _spec.get("routes", []):
+        _methods, _pattern = _entry if isinstance(_entry, tuple) else (None, _entry)
+        _parts = _pattern.split("/")
+        _seg = _parts[2] if len(_parts) > 2 else ""
+        _CONTROL_INDEX.setdefault(_seg, []).append((_key, _spec, _methods, _pattern))
+
+
 def find_control(path: str, method: str = "GET") -> Optional[dict]:
     """Return the first control spec whose route patterns match *path*.
+
+    Indexed by the second path segment so the common case (an unregistered
+    path such as /api/health) costs a single dict lookup.
 
     Public/user-facing paths that happen to share a control's prefix (e.g.
     /api/exec/control/access/public, /api/prices/public, /api/exec/audio/{id})
@@ -467,19 +485,15 @@ def find_control(path: str, method: str = "GET") -> Optional[dict]:
     not match any registered pattern (exact-match semantics).
     """
     method = (method or "GET").upper()
-    for key, spec in CONTROL_REGISTRY.items():
-        excluded = spec.get("exclude") or []
-        if path in excluded:
+    parts = path.split("/")
+    seg = parts[2] if len(parts) > 2 else ""
+    for key, spec, methods, pattern in _CONTROL_INDEX.get(seg, ()):
+        if path in (spec.get("exclude") or []):
             continue
-        for entry in spec.get("routes", []):
-            if isinstance(entry, tuple):
-                methods, pattern = entry
-                if method not in methods:
-                    continue
-            else:
-                pattern = entry
-            if _pattern_matches(pattern, path):
-                return {**spec, "key": key}
+        if methods is not None and method not in methods:
+            continue
+        if _pattern_matches(pattern, path):
+            return {**spec, "key": key}
     return None
 
 
