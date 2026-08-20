@@ -75,6 +75,11 @@ PAYMENT_PRODUCTS = {
     "sanctuary_paid":    {"name": "M.O.R.E. Creator's Sanctuary – Paid Creator",    "amount":  700, "mode": "subscription", "interval": "month", "description": "Member-level creator lane — $7/mo", "deprecated": True},
     "sanctuary_creator": {"name": "M.O.R.E. Creator's Sanctuary – Advanced Creator","amount": 1100, "mode": "subscription", "interval": "month", "description": "Plus-level creator lane — $11/mo", "deprecated": True},
     "sanctuary_mod":     {"name": "M.O.R.E. Creator's Sanctuary – Certified Mod",   "amount": 1500, "mode": "subscription", "interval": "month", "description": "Pro-level creator lane — $15/mo", "deprecated": True},
+    # The Arena — self-improvement digital products (no comparison, only personal bests)
+    "arena_workbook":    {"name": "The Arena Workbook: 21-Day Self-Challenge",       "amount": 2700, "mode": "payment",      "description": "Digital workbook + tracking sheets — outcompete your past self in 21 days"},
+    "arena_peer_guide":  {"name": "The Peer Guide: Group Accountability Workbook",    "amount": 4700, "mode": "payment",      "description": "Structured 12-week group challenges + facilitator scripts"},
+    "arena_license":     {"name": "The Arena License Kit (Coaches & Employers)",       "amount": 19700,"mode": "payment",      "description": "Editable slides, email templates, and facilitator guides for teams"},
+    "arena_album":       {"name": "Everyone Wins: Reflection Album",                   "amount": 999,  "mode": "payment",      "description": "Spoken word album — lyrics, liner notes, reflection guide"},
 }
 
 # Legacy names (pre-rebrand) → product key, so webhook matching keeps working
