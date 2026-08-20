@@ -32,6 +32,7 @@ logger = logging.getLogger("lcewai.deps")
 _current_user_fn = None
 _audit_fn = None
 _check_rate_fn = None
+_db = None
 
 
 def bind(current_user_fn, audit_fn=None, check_rate_fn=None):
@@ -40,6 +41,17 @@ def bind(current_user_fn, audit_fn=None, check_rate_fn=None):
     _current_user_fn = current_user_fn
     _audit_fn = audit_fn
     _check_rate_fn = check_rate_fn
+
+
+def set_db(db_ref):
+    """Called by server.py startup to inject the shared db reference."""
+    global _db
+    _db = db_ref
+
+
+def get_db():
+    """Return the shared db reference (set by set_db at startup)."""
+    return _db
 
 
 async def dep_current_user(authorization: Optional[str] = Header(None)):
@@ -108,6 +120,10 @@ async def audit_log(actor_id, action, target=None, meta=None):
     """Write an audit log entry.  Wraps server.py's audit() for router use."""
     if _audit_fn:
         await _audit_fn(actor_id, action, target=target, meta=meta)
+
+
+# Re-export for routers that import require_user expecting the canonical dep.
+require_user = dep_current_user
 
 
 def check_rate(key: str, max_calls: int = 60, window_sec: int = 60):
