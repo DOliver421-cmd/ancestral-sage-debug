@@ -127,6 +127,27 @@ def _tier_rank_of(feature_tier, custom_tiers) -> int:
     return 0
 
 
+async def load_feature_tier_requirements(db):
+    """Effective feature->min-tier map: the DB authorization matrix over code defaults.
+
+    Only keys that exist in the code defaults are honored — the enforcement
+    contract is the code map, so a bad write can never create a gate for an
+    unmapped feature.  Absent doc / DB error -> code defaults (identical to
+    today's behavior: deploy changes nothing until an executive edits the
+    matrix in the console).
+    """
+    req = dict(FEATURE_MIN_TIER)
+    try:
+        doc = await db.authz_matrix.find_one({"_id": "matrix"}, {"_id": 0, "requirements": 1})
+    except Exception:
+        return req
+    stored = (doc or {}).get("requirements") or {}
+    for key, tier in stored.items():
+        if key in req and tier in TIER_RANK:
+            req[key] = tier
+    return req
+
+
 async def check_user_feature_access(db, user, path: str):
     """Per-user verdict for *path* — the read side of user_feature_overrides and
     feature_tier.
@@ -166,8 +187,16 @@ async def check_user_feature_access(db, user, path: str):
         if ai_all is False:
             return ("block", "Your access to the AI suite has been revoked by the executive team.")
 
-    # ── 3. Feature-tier requirement (mirrors the frontend TierGate) ────────────
-    required = FEATURE_MIN_TIER.get(feature)
+    # ── 3. Feature-tier requirement (editable authorization matrix) ────────────
+    # The matrix is DB-backed (db.authz_matrix, edited from the exec console);
+    # code defaults apply until an executive changes it.  Absent config == allow.
+    requirements = FEATURE_MIN_TIER
+    if db is not None:
+        try:
+            requirements = await load_feature_tier_requirements(db)
+        except Exception:
+            requirements = FEATURE_MIN_TIER
+    required = requirements.get(feature)
     if required:
         if user.role in TIER_EXEMPT_ROLES:
             return ("pass", None)  # staff bypass tier gates
