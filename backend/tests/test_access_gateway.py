@@ -428,6 +428,181 @@ def test_middleware_skips_discovered_public_routes():
     assert status == 403
 
 
+# ── 9. Handler-derived enforcement: the gate is NEVER stricter than the handler ─
+def test_closure_required_rank_extraction():
+    from security.access_control.gateway import _closure_required_rank
+    from roles import ROLE_RANK as RR
+
+    # exec_control.py style: closure captures the role tuple.
+    def _require_rank(*roles):
+        def dep():
+            return roles
+        return dep
+    # exec.py / server.py require_role style: closure captures needed_rank int.
+    def _require_rank_needed(role):
+        needed_rank = RR[role]
+        def dep():
+            return needed_rank
+        return dep
+    # deps.py require_rank style: closure captures min_roles tuple.
+    def require_rank(*min_roles):
+        def dep():
+            return min_roles
+        return dep
+    # Unrelated factory that happens to capture a tuple of strings.
+    def unrelated(label):
+        def dep():
+            return (label,)
+        return dep
+
+    assert _closure_required_rank(_require_rank("admin")) == RR["admin"]
+    assert _closure_required_rank(_require_rank("admin", "executive_admin")) == RR["admin"]
+    assert _closure_required_rank(_require_rank_needed("executive_admin")) == 7
+    assert _closure_required_rank(require_rank("support_staff")) == RR["support_staff"]
+    assert _closure_required_rank(unrelated("some-label")) is None
+    assert _closure_required_rank(None) is None
+
+
+def test_derive_route_min_rank_tree():
+    from security.access_control.gateway import _derive_route_min_rank
+    SimpleNS = SimpleNamespace
+
+    def _require_rank(*roles):
+        def dep():
+            return roles
+        return dep
+
+    async def current_user():
+        pass
+
+    def dep(call):
+        return SimpleNS(call=call, dependencies=[])
+
+    # current_user only → user resolved, no rank → None (registry fallback).
+    assert _derive_route_min_rank(SimpleNS(dependencies=[dep(current_user)])) is None
+    # Rank guard → the exact rank.
+    assert _derive_route_min_rank(SimpleNS(dependencies=[dep(_require_rank("admin"))])) == 6
+    # Strictest dep wins across nested trees.
+    nested = SimpleNS(call=None, dependencies=[dep(_require_rank("executive_admin"))])
+    assert _derive_route_min_rank(SimpleNS(dependencies=[dep(_require_rank("admin")), nested])) == 7
+    # No deps at all → None.
+    assert _derive_route_min_rank(SimpleNS(dependencies=[])) is None
+    assert _derive_route_min_rank(None) is None
+
+
+def test_enforce_with_handler_derived_rank():
+    gw = _gw()
+    spec = CONTROL_REGISTRY["exec_control_layer"]  # registry documents executive_admin
+    # Handler-derived rank (e.g. GET /api/exec/control/tiers requires admin) wins:
+    # admin passes even though the registry's min_role is stricter.
+    allowed, reason, detail = gw._enforce(SimpleNamespace(role="admin"), spec, effective_rank=6)
+    assert allowed and reason == ""
+    # Student is still blocked under the same derived rank.
+    allowed, reason, detail = gw._enforce(SimpleNamespace(role="student"), spec, effective_rank=6)
+    assert not allowed and reason == "insufficient_role"
+    assert detail["handler_required_rank"] == 6
+    assert detail["handler_required_role"] == "admin"
+    # Without a derived rank the registry fallback still applies (existing behavior).
+    allowed, reason, _ = gw._enforce(SimpleNamespace(role="admin"), spec)
+    assert not allowed and reason == "insufficient_role"
+
+
+def test_middleware_enforces_handler_derived_rank():
+    gw = _make_gw()
+    # Registry says executive_admin for the whole /api/exec/control prefix;
+    # the real handler for /api/exec/control/tiers requires admin — the gate
+    # must match the handler, not the registry guess.
+    gw._handler_requirements = {("GET", "/api/exec/control/*"): 6}
+    status, body, audit_calls = _run_middleware(gw, "/api/exec/control/tiers", "GET", "token:admin")
+    assert status == 200 and body == b"inner-ok"
+    assert not audit_calls
+    status, _, _ = _run_middleware(gw, "/api/exec/control/tiers", "GET", "token:student")
+    assert status == 403
+
+
+def test_real_app_handler_derived_never_stricter_than_handler():
+    """Drift net against the REAL server: every route the registry gates must
+    carry a handler-derived rank (so the middleware never falls back to a
+    registry guess that could be stricter than the handler), and no discovered
+    public route may overlap the gated control surface.
+    """
+    try:
+        import server  # noqa: F401  (needs fastapi + backend deps)
+    except Exception as exc:  # pragma: no cover - stdlib-only runner
+        print(f"SKIP test_real_app_handler_derived_never_stricter_than_handler ({exc})")
+        return
+
+    gw = server.access_gateway  # already wrapped at import with derived data
+    assert gw._handler_requirements, "no handler-derived requirements discovered"
+    reqs = gw._handler_requirements
+
+    # (1) Every derived rank is a real RBAC rank 1..7.
+    for (m, pat), rank in reqs.items():
+        assert 1 <= rank <= 7, f"derived rank {rank} for {m} {pat} out of range"
+
+    # (2) Every control-route pattern overlaps at least one real authed route
+    # with a derived rank — i.e. the middleware will ALWAYS gate at the
+    # handler's own rank, never at a registry fallback that could be stricter.
+    from fnmatch import fnmatchcase
+    for key, spec in CONTROL_REGISTRY.items():
+        for entry in spec["routes"]:
+            methods, pattern = entry if isinstance(entry, tuple) else (None, entry)
+            if "*" in pattern:
+                wild = pattern
+            elif pattern.endswith("/"):
+                wild = pattern + "*"
+            else:
+                wild = pattern
+            hits = [
+                (m, pat) for (m, pat) in reqs
+                if (methods is None or m in methods)
+                and fnmatchcase(pat, wild)
+            ]
+            assert hits, f"{key}: control route {pattern} has NO handler-derived route — the gate would fall back to a registry guess"
+
+    # (3) No discovered public route may match any control pattern: a public
+    # route must never be gated.  Sample a concrete path per public pattern.
+    for methods, pat in gw._public_route_patterns:
+        sample = pat.replace("*", "x")
+        m = next(iter(methods), "GET")
+        assert find_control(sample, m) is None, f"public route {m} {pat} overlaps the gated control surface"
+
+    # (4) No route whose guard is NOT rank-derivable may be inside the control
+    # surface: if the middleware cannot read the handler's own requirement it
+    # would gate on a registry guess (potentially stricter than the handler).
+    from security.access_control.gateway import (
+        _derive_route_min_rank,
+        _flatten_routes,
+        _params_to_wildcard,
+        _route_has_auth_dep,
+    )
+    orig = None
+    for cell in (getattr(server.app, "__closure__", None) or ()):
+        v = cell.cell_contents
+        if getattr(v, "routes", None) is not None:
+            orig = v
+            break
+    assert orig is not None, "could not unwrap the real FastAPI app"
+    for route in _flatten_routes(getattr(orig, "routes", [])):
+        dependant = getattr(route, "dependant", None)
+        if dependant is None or not _route_has_auth_dep(dependant):
+            continue
+        if _derive_route_min_rank(dependant) is not None:
+            continue  # derivable → gated at exactly the handler's rank
+        raw = getattr(route, "path", "") or ""
+        methods = set(getattr(route, "methods", []) or [])
+        methods.discard("HEAD")
+        methods.discard("OPTIONS")
+        for p in {raw, "/api" + raw}:
+            if not p.startswith("/api"):
+                continue
+            pat = _params_to_wildcard(p)
+            sample = pat.replace("*", "x")
+            for m in methods or {"GET"}:
+                assert find_control(sample, m) is None, \
+                    f"route {m} {pat} has no handler-derivable rank but lies inside the gated control surface"
+
+
 # ── Runner (works without pytest installed) ───────────────────────────────────
 if __name__ == "__main__":
     failures = 0

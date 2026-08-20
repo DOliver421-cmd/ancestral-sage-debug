@@ -251,7 +251,7 @@ CONTROL_REGISTRY: Dict[str, dict] = {
             ("POST", "/api/admin/sites"), ("POST", "/api/admin/inventory"),
             "/api/admin/checkout/", "/api/admin/checkouts",
             "/api/admin/run-checks", "/api/admin/payments",
-            "/api/admin/discounts", "/api/admin/discounts/",
+            "/api/admin/discounts",
         ],
     },
     "commerce_governance_audit": {

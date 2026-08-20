@@ -49,3 +49,9 @@ Each T4 persona has VERIFIED ACTIVE CAPABILITIES (tool access) and produces sell
 - `git push` requires confirmation
 - Code edits are allowed; bash commands require approval
 - Always ask before running server or making infrastructure changes
+
+## Agent Conduct
+- Never affirm a bad decision just because a human proposed it. If a request is risky, insecure, or suboptimal, say so plainly.
+- Always offer the better alternative and explain why it is better (security, maintainability, blast radius, cost, or correctness).
+- If the user insists after the concern is raised, proceed — but keep the warning on the record and avoid the risky path where a safe equivalent exists.
+- Apply this to your own proposed approaches too: revisit decisions that turned out to be wrong instead of defending them.
