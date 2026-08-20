@@ -364,7 +364,28 @@ async def payments_webhook(request: Request):
 
 @router.get("/portal")
 async def customer_portal(user=Depends(_dep_current_user)):
-    raise HTTPException(501, "Customer portal is not available on this platform yet.")
+    """Redirect to Lemon Squeezy customer portal for subscription management."""
+    if not PAYMENTS_ENABLED:
+        raise HTTPException(501, "Payments are not configured.")
+    sub = await db.payments.find_one({"user_id": user.id, "type": "subscription", "status": {"$in": ["active", "trialing"]}}, {"_id": 0})
+    if not sub:
+        raise HTTPException(404, "No active subscription found.")
+    ls_id = sub.get("lemon_squeezy_subscription_id") or sub.get("session_id")
+    if not ls_id:
+        raise HTTPException(404, "Subscription ID not found.")
+    import httpx
+    async with httpx.AsyncClient() as client:
+        resp = await client.get(
+            f"https://api.lemonsqueezy.com/v1/subscriptions/{ls_id}",
+            headers={"Authorization": f"Bearer {LEMON_SQUEEZY_API_KEY}"},
+            timeout=10,
+        )
+        if resp.status_code == 200:
+            data = resp.json().get("data", {}).get("attributes", {})
+            portal_url = data.get("urls", {}).get("customer_portal")
+            if portal_url:
+                return {"url": portal_url}
+    raise HTTPException(500, "Could not retrieve customer portal URL. Try again later.")
 
 
 @router.get("/history")

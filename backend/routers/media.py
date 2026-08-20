@@ -146,7 +146,19 @@ async def checkout_media_product(product_id: str, user: User = Depends(_dep_curr
     if existing:
         return {"already_purchased": True, "file_url": doc.get("file_url", "")}
     if doc.get("price_cents", 0) > 0:
-        raise HTTPException(402, "Payment required — online checkout for paid products is not available yet")
+        from ai.publishing import _publish_lemon_squeezy, _publish_gumroad
+        amount = doc["price_cents"]
+        title = doc.get("title", "Media product")
+        desc = doc.get("description", "")[:500]
+        ls_result = await _publish_lemon_squeezy(name=title, description=desc, price_cents=amount, persona="platform")
+        if ls_result:
+            await audit(db, user.id, "media.checkout_created", {"product_id": product_id, "provider": "lemon_squeezy"})
+            return {"url": ls_result["url"]}
+        gr_result = await _publish_gumroad(title, desc, amount)
+        if gr_result:
+            await audit(db, user.id, "media.checkout_created", {"product_id": product_id, "provider": "gumroad"})
+            return {"url": gr_result["url"]}
+        raise HTTPException(500, "Payment processing failed. Payment providers are configured but the request could not be completed.")
     import uuid
     purchase = {
         "id": str(uuid.uuid4())[:8],
