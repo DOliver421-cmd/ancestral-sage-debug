@@ -381,7 +381,7 @@ async def program_analytics(user: User = Depends(_require_rank("admin"))):
 # ─────────────────────────────────────────────────────────────────────────────
 
 from prompts.oliver_guardian_prompt import OLIVER_GUARDIAN_PROMPT as _OLIVER_GUARDIAN_PROMPT  # noqa: E402
-from roles import Role, ROLE_RANK, role_rank, LEGACY_ROLE_MAP, normalize_role, FREE_BYOK_ROLES
+from roles import role_rank, LEGACY_ROLE_MAP, normalize_role, FREE_BYOK_ROLES  # Role + ROLE_RANK already imported from routers.roles above
 
 
 # Crisis resources — kept in sync with the prompt above
