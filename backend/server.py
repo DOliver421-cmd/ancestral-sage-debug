@@ -2260,6 +2260,18 @@ api_router.include_router(_scholarships_mod.router)
 from routers import exec_command as _exec_command_mod
 _exec_command_mod.bind(db, current_user)
 api_router.include_router(_exec_command_mod.router)
+
+# ---- Unified Access Control Gateway - centralized enforcement + exec dashboard ----
+# Single module (backend/security/access_control) bundling the 7-role RBAC
+# registry, the hard gatekeeper middleware, and the Tier-3 Executive dashboard.
+from security.access_control import AccessGateway, CONTROL_REGISTRY
+from security.access_control.dashboard import router as access_control_router, bind as bind_access_control
+
+access_gateway = AccessGateway()
+access_gateway.bind(db, audit, current_user)
+bind_access_control(access_gateway)
+api_router.include_router(access_control_router)
+logger.info("Access Control Gateway + Executive dashboard registered (%d controls)", len(CONTROL_REGISTRY))
 # Re-export names other modules / later code in this file reference.
 PAYMENT_PRODUCTS = _payments_mod.PAYMENT_PRODUCTS
 PAYMENTS_ENABLED = _payments_mod.PAYMENTS_ENABLED
@@ -2357,6 +2369,14 @@ async def shutdown_db_client():
     except Exception:
         pass
     client.close()
+
+
+# ---- Hard Access Control middleware: gate the ENTIRE registered control surface ----
+# Wraps after every route is registered so the gate sees the full surface.
+# Any request to a monitored control route runs the RBAC tier check BEFORE the
+# handler; insufficient clearance -> 403 + audit_log entry (action=access_denied).
+app = access_gateway.wrap(app)
+logger.info("Access Control middleware wrapping app - %d controls monitored", len(CONTROL_REGISTRY))
 
 
 if __name__ == "__main__":
