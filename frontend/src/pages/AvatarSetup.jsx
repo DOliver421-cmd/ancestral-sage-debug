@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import AppShell from "../components/AppShell";
 import BackButton from "../components/BackButton";
-import SovereignAvatar, { SOVEREIGN_AVATAR_KEY } from "../components/SovereignAvatar";
+import TeamAvatar, { TEAM_AVATAR_KEY } from "../components/TeamAvatar";
 import { Crown, Upload } from "lucide-react";
 import { api } from "../lib/api";
 
@@ -11,7 +11,7 @@ import { api } from "../lib/api";
 export default function AvatarSetup() {
   const [preview, setPreview] = useState(() => {
     try {
-      return localStorage.getItem(SOVEREIGN_AVATAR_KEY) || "";
+      return localStorage.getItem(TEAM_AVATAR_KEY) || "";
     } catch {
       return "";
     }
@@ -22,12 +22,12 @@ export default function AvatarSetup() {
 
   // On mount: if localStorage is empty, try to restore from backend profile
   useEffect(() => {
-    const local = localStorage.getItem(SOVEREIGN_AVATAR_KEY);
+    const local = localStorage.getItem(TEAM_AVATAR_KEY);
     if (local) return;
     api.get("/auth/me").then(res => {
       const url = res.data?.avatar_url;
       if (url) {
-        try { localStorage.setItem(SOVEREIGN_AVATAR_KEY, url); } catch {}
+        try { localStorage.setItem(TEAM_AVATAR_KEY, url); } catch {}
         setPreview(url);
         window.dispatchEvent(new Event("sovereign-avatar-changed"));
       }
@@ -54,7 +54,7 @@ export default function AvatarSetup() {
 
   const save = async () => {
     try {
-      localStorage.setItem(SOVEREIGN_AVATAR_KEY, preview);
+      localStorage.setItem(TEAM_AVATAR_KEY, preview);
       window.dispatchEvent(new Event("sovereign-avatar-changed"));
       setSyncing(true);
       await api.patch("/auth/me", { avatar_url: preview });
@@ -70,7 +70,7 @@ export default function AvatarSetup() {
 
   const clear = async () => {
     try {
-      localStorage.removeItem(SOVEREIGN_AVATAR_KEY);
+      localStorage.removeItem(TEAM_AVATAR_KEY);
     } catch {
       /* ignore */
     }
@@ -95,7 +95,7 @@ export default function AvatarSetup() {
         </p>
 
         <div className="card-flat p-8 mt-8 flex items-center gap-8">
-          <SovereignAvatar size={96} name="The Sovereign" />
+          <TeamAvatar size={96} name="The Sovereign" />
           <div className="flex-1">
             <label className="btn-primary text-sm inline-flex items-center gap-2 cursor-pointer">
               <Upload className="w-4 h-4" /> Choose Photo

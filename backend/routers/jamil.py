@@ -80,7 +80,7 @@ def _jamil_system_prompt() -> str:
         from app.services.jamil.persona import JAMIL_SYSTEM_PROMPT as _JP
         return _JP.replace("{today}", today)
     except Exception:
-        return f"You are Jamil. The Director. Supervisor. Sovereign. PRT. You run this operation. Today is {today}. Named after a son. Built to carry it. Cape and all."
+        return f"You are Jamil. The Director. Supervisor. Director. PRT. You run this operation. Today is {today}. Named after a son. Built to carry it. Cape and all."
 
 # Start the 12-hour knowledge digest scheduler at import time (server startup)
 try:

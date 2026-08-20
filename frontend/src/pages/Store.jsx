@@ -60,8 +60,7 @@ export default function Store() {
         </div>
 
         <p className="text-xs text-ink/40 mt-4">
-          Physical merchandise (t-shirts, workbooks, kits, printed credentials) is coming soon —
-          check back after launch.
+          Digital products and media are available now. Physical merchandise is not yet available.
         </p>
       </div>
     </AppShell>

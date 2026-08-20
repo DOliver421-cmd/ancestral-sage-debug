@@ -21,9 +21,9 @@ const CHAMBER_NOTES = {
 };
 
 /**
- * Sovereign is the single AI the creator talks to.
+ * Director is the single AI the creator talks to.
  * All chamber actions (generate lyrics, metadata, scripts, blueprints, visual direction)
- * dispatch through Sovereign — he routes internally and delivers in his own voice.
+ * dispatch through Director — he routes internally and delivers in his own voice.
  *
  * Props:
  *   activeChamber  — current chamber id (string)

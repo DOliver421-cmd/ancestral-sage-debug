@@ -290,12 +290,12 @@ function MediaUploadSection() {
     try {
       const fd = new FormData();
       fd.append("file", preview.file);
-      await api.post("/upload/media", fd, { headers: { "Content-Type": "multipart/form-data" } });
+      await api.post("/media/upload", fd, { headers: { "Content-Type": "multipart/form-data" } });
       toast.success("Media uploaded!");
       setPreview(null);
     } catch (err) {
       if (err?.response?.status === 404) {
-        toast.info("Media hosting coming soon — file not uploaded");
+        toast.error("Media upload endpoint not found — please try again");
       } else {
         toast.error("Upload failed — try again");
       }

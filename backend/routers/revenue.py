@@ -256,43 +256,43 @@ async def revenue_employer_compliance(
     }
 
 
-# ── Sovereign AI Team Seats ────────────────────────────────────────────────────
+# ── Team AI Seats ────────────────────────────────────────────────────
 
-@router.post("/revenue/sovereign/workspace")
+@router.post("/revenue/team/workspace")
 async def revenue_create_workspace(body: dict, user: User = Depends(_require_rank("admin"))):
-    """Create a Sovereign AI workspace for a team. Admin+.
+    """Create a Team AI workspace for a team. Admin+.
     Body: {"name": "...", "member_ids": ["uid1","uid2"]}"""
     name = body.get("name", "").strip()
     member_ids = body.get("member_ids", [])
     if not name:
         raise HTTPException(400, "workspace name is required")
     ws_id = str(uuid.uuid4())
-    await db.sovereign_workspaces.insert_one({
+    await db.team_workspaces.insert_one({
         "workspace_id": ws_id,
         "name": name,
         "owner_id": user.id,
         "member_ids": member_ids,
         "created_at": datetime.now(timezone.utc).isoformat(),
     })
-    await audit(user.id, "revenue.sovereign.workspace_created", meta={"name": name, "members": len(member_ids)})
+    await audit(user.id, "revenue.team.workspace_created", meta={"name": name, "members": len(member_ids)})
     return {"workspace_id": ws_id, "name": name}
 
 
-@router.get("/revenue/sovereign/workspaces")
+@router.get("/revenue/team/workspaces")
 async def revenue_list_workspaces(user: User = Depends(_require_rank("admin"))):
     """List Sovereign workspaces accessible to the current user."""
-    workspaces = await db.sovereign_workspaces.find(
+    workspaces = await db.team_workspaces.find(
         {"$or": [{"owner_id": user.id}, {"member_ids": user.id}]},
         {"_id": 0},
     ).sort("created_at", -1).to_list(length=50)
     return {"workspaces": workspaces}
 
 
-@router.post("/revenue/sovereign/workspace/{ws_id}/chat")
+@router.post("/revenue/team/workspace/{ws_id}/chat")
 async def revenue_workspace_chat(ws_id: str, body: dict, user: User = Depends(_dep_current_user)):
     """Chat within a Sovereign workspace. All workspace members share context."""
     from bson.objectid import ObjectId
-    ws = await db.sovereign_workspaces.find_one({"workspace_id": ws_id})
+    ws = await db.team_workspaces.find_one({"workspace_id": ws_id})
     if not ws:
         raise HTTPException(404, "Workspace not found")
     if user.id != ws["owner_id"] and user.id not in ws.get("member_ids", []):

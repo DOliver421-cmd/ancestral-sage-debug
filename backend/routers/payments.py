@@ -191,10 +191,16 @@ async def create_checkout_session(req: CheckoutReq, user=Depends(_dep_current_us
                               "session_id": gr_result.get("product_id")})
             return {"url": gr_result["url"], "session_id": gr_result.get("product_id")}
 
+    if not PAYMENTS_ENABLED:
+        raise HTTPException(
+            501,
+            "Payments are not configured. Add LEMON_SQUEEZY_API_KEY + LEMON_SQUEEZY_STORE_ID "
+            "or GUMROAD_API_KEY in your environment.",
+        )
     raise HTTPException(
-        501,
-        "Payments are not configured yet. Add LEMON_SQUEEZY_API_KEY + LEMON_SQUEEZY_STORE_ID "
-        "(free tier — payouts via PayPal or bank) or GUMROAD_API_KEY to enable checkout.",
+        500,
+        "Payment processing failed. The payment providers are configured but the request could not be completed. "
+        "Check your Lemon Squeezy or Gumroad API keys and try again.",
     )
 
 

@@ -309,20 +309,12 @@ export default function CreatorProfile() {
 
           <div className="grid md:grid-cols-3 gap-4">
             {creator.commerce.map((item) => (
-              <div key={item.label} className={`bg-white rounded-2xl border-2 p-6 flex flex-col ${item.placeholder ? "border-ink/10 opacity-75" : "border-ink/10 hover:border-amber-300 transition-colors"}`}>
-                <div className="flex items-start justify-between mb-3">
-                  <h3 className="font-heading font-bold text-base">{item.label}</h3>
-                  {item.placeholder && (
-                    <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-ink/5 text-ink/40 border border-ink/10 whitespace-nowrap ml-2">Coming Soon</span>
-                  )}
-                </div>
+              <div key={item.label} className="bg-white rounded-2xl border-2 border-ink/10 hover:border-amber-300 transition-colors p-6 flex flex-col">
+                <h3 className="font-heading font-bold text-base mb-3">{item.label}</h3>
                 <p className="text-ink/60 text-sm leading-relaxed flex-1 mb-4">{item.desc}</p>
-                {item.placeholder ? (
-                  <div className="text-xs text-ink/30 italic">Available soon</div>
-                ) : (
-                  <Link to={item.url} className="inline-flex items-center gap-1.5 text-sm font-bold text-ink hover:text-amber-700 transition-colors">
-                    View <ArrowRight className="w-3.5 h-3.5" />
-                  </Link>
+                <Link to={item.url} className="inline-flex items-center gap-1.5 text-sm font-bold text-ink hover:text-amber-700 transition-colors">
+                  View <ArrowRight className="w-3.5 h-3.5" />
+                </Link>
                 )}
               </div>
             ))}

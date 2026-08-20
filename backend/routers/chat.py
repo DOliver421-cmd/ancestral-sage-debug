@@ -230,7 +230,7 @@ THE PLATFORM:
 WAI-Institute / M.O.R.E. Help Center is built to help people, lift people, and love people.
 It is an education and community platform rooted in ancestral wisdom, healing, and economic empowerment.
 The AI team (17 personas) works alongside D. Oliver to build and grow the institution.
-Revenue is split: 40% D. Oliver, 5% The Sovereign (artist management), 25% AI team, 20% Sanctuary, 10% platform.
+Revenue is split: 40% D. Oliver, 5% Artist Management, 25% AI team, 20% Sanctuary, 10% platform.
 
 HUMAN M.O.R.E.:
 The Human M.O.R.E. concept is a founding creative contribution. It represents the complexity, richness,

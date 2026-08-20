@@ -1,33 +1,33 @@
 import { useEffect, useState } from "react";
 
 // The avatar "wears the user's face." The chosen photo is stored client-side
-// (localStorage) so it works with no backend write; falls back to /sovereign.svg
+// (localStorage) so it works with no backend write; falls back to /team-avatar.svg
 // if present in /public, then to initials. The always-on amber dot = "busy /
 // working, call his attention."
-export const SOVEREIGN_AVATAR_KEY = "sovereign_avatar_url";
+export const TEAM_AVATAR_KEY = "team_avatar_url";
 
-export function getSovereignAvatar() {
+export function getTeamAvatar() {
   try {
-    return localStorage.getItem(SOVEREIGN_AVATAR_KEY) || "";
+    return localStorage.getItem(TEAM_AVATAR_KEY) || "";
   } catch {
     return "";
   }
 }
 
-export default function SovereignAvatar({ size = 48, busy = true, name = "The Sovereign", className = "" }) {
-  const [src, setSrc] = useState(() => getSovereignAvatar() || "/sovereign.svg");
+export default function TeamAvatar({ size = 48, busy = true, name = "The Director", className = "" }) {
+  const [src, setSrc] = useState(() => getTeamAvatar() || "/team-avatar.svg");
   const [failed, setFailed] = useState(false);
 
   useEffect(() => {
     const sync = () => {
       setFailed(false);
-      setSrc(getSovereignAvatar() || "/sovereign.svg");
+      setSrc(getTeamAvatar() || "/team-avatar.svg");
     };
     window.addEventListener("storage", sync);
-    window.addEventListener("sovereign-avatar-changed", sync);
+    window.addEventListener("team-avatar-changed", sync);
     return () => {
       window.removeEventListener("storage", sync);
-      window.removeEventListener("sovereign-avatar-changed", sync);
+      window.removeEventListener("team-avatar-changed", sync);
     };
   }, []);
 

@@ -6,7 +6,7 @@ import { useAuth } from "../lib/auth";
 import { ArrowRight, Award, BookOpen, Clock, Flame, Zap, AlertTriangle, RefreshCw, Gamepad2, Share2 } from "lucide-react";
 import PuzzleCard from "../components/PuzzleCard";
 import PartnershipProgress from "../components/PartnershipProgress";
-import SovereignAvatar from "../components/SovereignAvatar";
+import TeamAvatar from "../components/TeamAvatar";
 
 const DAILY_VERSES = [
   { ref: "Proverbs 22:29", text: "Do you see someone skilled in their work? They will serve before kings." },
@@ -234,7 +234,7 @@ export default function StudentDashboard() {
 
           <aside className="space-y-6">
             <div className="card-flat p-6 flex items-center gap-4" data-testid="guide-card">
-              <SovereignAvatar size={56} name={user?.full_name || "Guide"} />
+              <TeamAvatar size={56} name={user?.full_name || "Guide"} />
               <div>
                 <div className="overline text-copper">Your Guide</div>
                 <div className="font-heading font-bold leading-tight">AI Tutor</div>
