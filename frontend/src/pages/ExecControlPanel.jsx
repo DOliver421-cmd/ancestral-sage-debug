@@ -190,7 +190,7 @@ export default function ExecControlPanel() {
       });
       if (lifecycleForm.new_password.trim()) {
         if (lifecycleForm.new_password.trim().length < 8) throw new Error("Password must be at least 8 characters");
-        await api.post(`/admin/users/${lifecycleForm.user_id}/password`, { new_password: lifecycleForm.new_password.trim() });
+        await api.post(`/admin/users/${lifecycleForm.user_id}/reset-password`, { new_password: lifecycleForm.new_password.trim() });
       }
       toast.success("Identity and credentials updated; prior sessions were revoked");
       setLifecycleForm((form) => ({ ...form, new_password: "" }));
@@ -359,14 +359,14 @@ export default function ExecControlPanel() {
   /* ── Live route authorization matrix ── */
   const visibleRoutes = routeAccess.filter(r => {
     const q = routeSearch.trim().toLowerCase();
-    return !q || r.route_key.toLowerCase().includes(q);
+    return !q || (r.path || r.route_key || '').toLowerCase().includes(q);
   });
 
   async function setRoutePolicy(row, patch) {
-    setAccessBusy(`route:${row.route_key}`);
+    setAccessBusy(`route:${row.path || row.route_key}`);
     try {
-      await api.patch("/exec/control/route-access", { route_key: row.route_key, ...patch });
-      toast.success(`Policy updated for ${row.route_key}`);
+      await api.post("/exec/control/route-access", { path: row.path || row.route_key, ...patch, reason: "Updated from Sovereign Command" });
+      toast.success(`Policy updated for ${row.path || row.route_key}`);
       load();
     } catch (e) {
       toast.error(e?.response?.data?.detail || "Failed to update route policy");
@@ -399,7 +399,14 @@ export default function ExecControlPanel() {
     }
     setUserRouteBusy(true);
     try {
-      await api.patch("/exec/control/user-route-access", userRouteForm);
+      // Per-user AI/feature access override via the feature-flag endpoint (user scope)
+      await api.post("/exec/control/feature-flag", {
+        flag_name: `route:${userRouteForm.route_key}`,
+        enabled: userRouteForm.enabled,
+        scope: "user",
+        user_id: userRouteForm.user_id,
+        reason: userRouteForm.reason,
+      });
       toast.success("Per-user route override saved");
       setUserRouteForm(f => ({ ...f, reason: "" }));
     } catch (e) {
@@ -784,16 +791,17 @@ export default function ExecControlPanel() {
           <Input value={routeSearch} onChange={e => setRouteSearch(e.target.value)} placeholder="Search method, path, or feature…" style={{ marginBottom: "0.75rem" }} />
           <div style={{ maxHeight: 520, overflowY: "auto", border: "1px solid rgba(212,175,55,0.12)", borderRadius: 8 }}>
             {visibleRoutes.slice(0, 250).map(row => {
-              const selected = row.allowed_roles || ROLES.filter(role => (row.handler_min_rank || 0) <= (ROLE_RANK[role] || 0));
-              const busy = accessBusy === `route:${row.route_key}`;
+              const routeLabel = row.path || row.route_key;
+              const selected = row.allowed_roles || ROLES.filter(role => (ROLE_RANK[row.role] || 0) <= (ROLE_RANK[role] || 0));
+              const busy = accessBusy === `route:${routeLabel}`;
               return (
-                <div key={row.route_key} style={{ display: "grid", gridTemplateColumns: "minmax(220px, 1.8fr) 0.8fr 1.4fr auto", gap: "0.6rem", alignItems: "center", padding: "0.55rem 0.65rem", borderBottom: "1px solid rgba(212,175,55,0.08)" }}>
-                  <span style={{ color: "#e8dfc8", fontSize: "0.7rem", fontFamily: "monospace", overflowWrap: "anywhere" }}>{row.route_key}</span>
-                  <span style={{ color: "#d4af37", fontSize: "0.68rem" }}>min {row.handler_min_role}</span>
-                  <Select multiple value={selected} onChange={e => setRoutePolicy(row, { allowed_roles: Array.from(e.target.selectedOptions).map(o => o.value), enabled: row.enabled })} style={{ minHeight: 42, fontSize: "0.68rem" }} aria-label={`Allowed roles for ${row.route_key}`}>
+                <div key={routeLabel} style={{ display: "grid", gridTemplateColumns: "minmax(220px, 1.8fr) 0.8fr 1.4fr auto", gap: "0.6rem", alignItems: "center", padding: "0.55rem 0.65rem", borderBottom: "1px solid rgba(212,175,55,0.08)" }}>
+                  <span style={{ color: "#e8dfc8", fontSize: "0.7rem", fontFamily: "monospace", overflowWrap: "anywhere" }}><span style={{ color: "#d4af37" }}>{row.method}</span> {routeLabel}</span>
+                  <span style={{ color: "#d4af37", fontSize: "0.68rem" }}>min {row.role}</span>
+                  <Select multiple value={selected} onChange={e => setRoutePolicy(row, { allowed_roles: Array.from(e.target.selectedOptions).map(o => o.value), enabled: row.enforced !== false })} style={{ minHeight: 42, fontSize: "0.68rem" }} aria-label={`Allowed roles for ${routeLabel}`}>
                     {ROLES.map(role => <option key={role} value={role}>{role}</option>)}
                   </Select>
-                  <button onClick={() => setRoutePolicy(row, { enabled: !row.enabled, allowed_roles: row.allowed_roles })} disabled={busy} style={{ border: `1px solid ${row.enabled ? "rgba(109,189,138,0.35)" : "rgba(239,68,68,0.35)"}`, background: "transparent", color: row.enabled ? "#6dbd8a" : "#ef4444", borderRadius: 6, padding: "0.35rem 0.5rem", fontSize: "0.65rem", cursor: "pointer" }}>{busy ? "…" : row.enabled ? "ON" : "OFF"}</button>
+                  <button onClick={() => setRoutePolicy(row, { enforced: !(row.enforced !== false), allowed_roles: row.allowed_roles })} disabled={busy} style={{ border: `1px solid ${row.enforced !== false ? "rgba(109,189,138,0.35)" : "rgba(239,68,68,0.35)"}`, background: "transparent", color: row.enforced !== false ? "#6dbd8a" : "#ef4444", borderRadius: 6, padding: "0.35rem 0.5rem", fontSize: "0.65rem", cursor: "pointer" }}>{busy ? "…" : row.enforced !== false ? "ON" : "OFF"}</button>
                 </div>
               );
             })}
@@ -808,7 +816,7 @@ export default function ExecControlPanel() {
               </Select>
               <Select value={userRouteForm.route_key} onChange={e => setUserRouteForm(f => ({ ...f, route_key: e.target.value }))}>
                 <option value="">— choose route —</option>
-                {routeAccess.map(r => <option key={r.route_key} value={r.route_key}>{r.route_key}</option>)}
+                {routeAccess.map(r => <option key={r.path || r.route_key} value={r.path || r.route_key}>{r.method} {r.path || r.route_key}</option>)}
               </Select>
             </div>
             <div style={{ ...ROW, marginTop: "0.65rem" }}>

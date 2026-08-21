@@ -1,45 +1,15 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="M.O.R.E. Help Center">
-  <defs>
-    <linearGradient id="grove" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="#2D6A4F"/>
-      <stop offset="1" stop-color="#1B4332"/>
-    </linearGradient>
-    <linearGradient id="amber" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#FFD27A"/>
-      <stop offset="1" stop-color="#E8A51E"/>
-    </linearGradient>
-  </defs>
-
-  <!-- Tile -->
-  <rect width="512" height="512" rx="64" fill="url(#grove)"/>
-
-  <!-- Exchange rings -->
-  <circle cx="256" cy="234" r="150" fill="none" stroke="#FFFFFF" stroke-opacity="0.16" stroke-width="3"/>
-  <circle cx="256" cy="234" r="180" fill="none" stroke="#E8A51E" stroke-opacity="0.5" stroke-width="10"/>
-
-  <!-- Two raised arms forming the M: mutual aid / hands reaching up -->
-  <path d="M 138 190 L 188 254 L 256 176 L 324 254 L 374 190"
-        fill="none" stroke="url(#amber)" stroke-width="42"
-        stroke-linecap="round" stroke-linejoin="round"/>
-
-  <!-- Heart-knot dot between the arms -->
-  <circle cx="256" cy="218" r="12" fill="#FFD27A"/>
-
-  <!-- Wordmark: M.O.R.E. (inlined vector letters) -->
-  <g transform="translate(138 388)" stroke="#FFFFFF" fill="none" stroke-width="7" stroke-linecap="round" stroke-linejoin="round">
-    <!-- M -->
-    <path transform="translate(0 0)" d="M0 46 L5 0 L17 28 L29 0 L34 46"/>
-    <!-- . -->
-    <circle transform="translate(41 0)" cx="12" cy="23" r="4.5" fill="#FFFFFF" stroke="none"/>
-    <!-- O -->
-    <circle transform="translate(65 0)" cx="17" cy="23" r="13" stroke="#FFFFFF"/>
-    <!-- . -->
-    <circle transform="translate(106 0)" cx="12" cy="23" r="4.5" fill="#FFFFFF" stroke="none"/>
-    <!-- R -->
-    <path transform="translate(130 0)" d="M5 0 L5 46 M5 12 A13 13 0 0 0 31 12 M18 24 L29 46"/>
-    <!-- . -->
-    <circle transform="translate(171 0)" cx="12" cy="23" r="4.5" fill="#FFFFFF" stroke="none"/>
-    <!-- E -->
-    <path transform="translate(195 0)" d="M2 0 L2 46 M2 4 L31 4 M2 23 L28 23 M2 42 L31 42"/>
-  </g>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" fill="none">
+  <!-- Background circle -->
+  <circle cx="100" cy="100" r="96" fill="#1B4332" stroke="#E8A51E" stroke-width="4"/>
+  <!-- Inner ring -->
+  <circle cx="100" cy="100" r="78" fill="none" stroke="#E8A51E" stroke-width="1.5" opacity="0.4"/>
+  <!-- MORE text -->
+  <text x="100" y="92" text-anchor="middle" font-family="Georgia, serif" font-weight="900" font-size="44" fill="#E8A51E" letter-spacing="3">MORE</text>
+  <!-- Decorative line -->
+  <line x1="40" y1="106" x2="160" y2="106" stroke="#E8A51E" stroke-width="2" opacity="0.6"/>
+  <!-- Subtitle -->
+  <text x="100" y="128" text-anchor="middle" font-family="Georgia, serif" font-weight="400" font-size="13" fill="#ffffff" letter-spacing="4" opacity="0.85">HELP CENTER</text>
+  <!-- Small decorative dots -->
+  <circle cx="70" cy="106" r="2" fill="#E8A51E" opacity="0.5"/>
+  <circle cx="130" cy="106" r="2" fill="#E8A51E" opacity="0.5"/>
 </svg>

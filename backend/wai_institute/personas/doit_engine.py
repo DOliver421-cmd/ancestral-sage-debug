@@ -457,7 +457,7 @@ class DoItEngine:
             fix_proposal=(
                 "Create REVENUE_FORECAST.md with:\n"
                 "1. Current revenue (subscriptions by tier)\n"
-                "2. Creator course revenue (70% creator, 30% platform)\n"
+                "2. Creator course revenue (90% creator, 10% platform)\n"
                 "3. Corporate training ($5K/cohort, 4/year)\n"
                 "4. Certification exam fees ($49/attempt)\n"
                 "5. Premium support ($99/mo)\n"
