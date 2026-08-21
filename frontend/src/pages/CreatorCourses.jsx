@@ -5,6 +5,7 @@ import BackButton from "../components/BackButton";
 import { api } from "../lib/api";
 import { toast } from "sonner";
 import { PlusCircle, BookOpen, Eye, EyeOff, Pencil, Trash2, X, CheckCircle, ChevronDown, ChevronUp } from "lucide-react";
+import { FeatureGate } from '../components/FeatureGate';
 import SharePanel from "../components/SharePanel";
 
 const CATEGORIES = ["general", "electrical", "ai-tech", "arts-music", "workforce", "wellness", "publishing", "business"];
@@ -138,6 +139,7 @@ export default function CreatorCourses() {
   return (
     <AppShell>
       <CreatorContextBar current="courses" />
+      <FeatureGate feature="learn.create_courses">
       <div className="px-6 py-10 max-w-5xl">
         <BackButton className="mb-4" />
         <div className="flex items-center justify-between mb-2">
@@ -411,6 +413,7 @@ export default function CreatorCourses() {
           </div>
         </div>
       )}
+      </FeatureGate>
     </AppShell>
   );
 }

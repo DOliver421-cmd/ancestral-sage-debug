@@ -171,9 +171,10 @@ if not _jwt_raw:
         'FATAL: JWT_SECRET is not set. Sessions will not work and auth will fail. '
         'Set a persistent JWT_SECRET in your deploy environment (e.g. Railway Variables).'
     )
-JWT_SECRET = _secrets.token_hex(32)
-JWT_SECRET_IS_EPHEMERAL = True
+    JWT_SECRET = _secrets.token_hex(32)
+    JWT_SECRET_IS_EPHEMERAL = True
 else:
+    JWT_SECRET = _jwt_raw
     JWT_SECRET_IS_EPHEMERAL = False
 JWT_ALGO = os.environ.get('JWT_ALGORITHM', 'HS256')
 JWT_EXPIRE_HOURS = int(os.environ.get('JWT_EXPIRE_HOURS', '168'))
@@ -2470,6 +2471,14 @@ try:
     logger.info("Hybrid NAM API routes registered at /api/nam")
 except Exception as _nam_err:
     logger.warning("Hybrid NAM routes failed to load: %s", _nam_err)
+
+# ---- Vonns Saga API Routes (tracks, images, videos) ----
+try:
+    from routers.saga import router as saga_router
+    app.include_router(saga_router)
+    logger.info("Vonns Saga API routes registered at /api/saga")
+except Exception as _saga_err:
+    logger.warning("Saga routes failed to load: %s", _saga_err)
 
 
 if __name__ == "__main__":

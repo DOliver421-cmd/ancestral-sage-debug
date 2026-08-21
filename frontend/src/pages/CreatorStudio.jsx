@@ -16,6 +16,8 @@ import ScriptScriptorium from "../components/studio/chambers/ScriptScriptorium";
 import SoundLab from "../components/studio/chambers/SoundLab";
 import VaultOfVersions from "../components/studio/chambers/VaultOfVersions";
 import { ArrowLeft, Lock, Palette } from "lucide-react";
+import { useEntitlements } from '../hooks/useEntitlements';
+import { FeatureGate } from '../components/FeatureGate';
 
 // ─── Chamber definitions ──────────────────────────────────────────────────────
 const CHAMBERS = [
@@ -31,6 +33,13 @@ const CHAMBERS = [
 
 const TIER_RANK = { base: 0, mid: 1, top: 2 };
 const ROLE_RANK_MAP = { student: 1, trial_pass: 2, instructor: 3, support_staff: 4, oversight: 5, admin: 6, executive_admin: 7 };
+
+// Map chamber tiers to entitlement capabilities
+const CHAMBER_ENTITLEMENTS = {
+  base: 'create.advanced_formatting',
+  mid: 'create.ai_assist',
+  top: 'create.collaboration',
+};
 
 // ─── Entry Screen ─────────────────────────────────────────────────────────────
 function EntryScreen({ onEnter }) {
@@ -287,8 +296,10 @@ export default function CreatorStudio() {
   const [showCustomization, setShowCustomization] = useState(false);
   const [showRitualSave, setShowRitualSave] = useState(false);
 
-  // Admin/exec bypass all tier locks; others default to "mid" until subscription is wired
-  const userTierRank = ROLE_RANK_MAP[user?.role] ?? 0;
+  // Entitlements-based tier system
+  const { tier, hasTier } = useEntitlements();
+  const TIER_LEVELS = { free: 0, creator: 1, pro: 2, studio: 3, director: 4 };
+  const userTierRank = TIER_LEVELS[tier] ?? 0;
 
   // Save session on unmount
   useEffect(() => {
@@ -451,7 +462,7 @@ export default function CreatorStudio() {
             </button>
 
             <div style={{ fontSize: 11, fontFamily: "monospace", color: "rgba(255,255,255,0.3)", background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", padding: "3px 10px", borderRadius: 20 }}>
-              {userTierRank >= 2 ? "TOP" : userTierRank >= 1 ? "MID" : "BASE"} TIER
+              {tier?.toUpperCase() || 'FREE'} TIER
             </div>
           </div>
         </div>
@@ -483,7 +494,7 @@ export default function CreatorStudio() {
             </div>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))", gap: 12, maxWidth: 900 }}>
               {CHAMBERS.map(chamber => {
-                const locked = TIER_RANK[chamber.tier] > userTierRank;
+                const locked = TIER_RANK[chamber.tier] > userTierRank && !hasTier('studio');
                 return (
                   <ChamberCard
                     key={chamber.id}

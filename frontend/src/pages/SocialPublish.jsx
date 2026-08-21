@@ -10,6 +10,7 @@ import { toast } from "sonner";
 import AppShell from "../components/AppShell";
 import CreatorContextBar from "../components/CreatorContextBar";
 import { Copy, ExternalLink, Sparkles, Loader, CheckCircle, Settings, Zap } from "lucide-react";
+import { FeatureGate } from '../components/FeatureGate';
 import { Link } from "react-router-dom";
 
 /* ── design tokens ── */
@@ -155,13 +156,14 @@ export default function SocialPublish() {
   return (
     <AppShell>
       <CreatorContextBar current="blast" />
+      <FeatureGate feature="publish.create">
       <div style={{ background: T.bg, minHeight: "100vh", color: T.text }}>
         <div style={{ maxWidth: 860, margin: "0 auto", padding: "40px 24px 80px" }}>
 
           {/* Hero header */}
           <div style={{ marginBottom: 36, position: "relative" }}>
             <div style={{ fontSize: "0.65rem", fontFamily: "monospace", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.15em", color: T.greenDim, marginBottom: 8 }}>
-              ◈ CREATOR FEATURE · ALL TIERS
+              ◈ CREATOR FEATURE
             </div>
             <h1 style={{ fontFamily: "monospace", fontSize: "clamp(1.6rem,4vw,2.8rem)", fontWeight: 900, color: T.green, textShadow: `0 0 30px rgba(74,222,128,0.4)`, margin: 0, lineHeight: 1.1, marginBottom: 8 }}>
               SOCIAL BLAST
@@ -298,6 +300,7 @@ export default function SocialPublish() {
 
         </div>
       </div>
+      </FeatureGate>
     </AppShell>
   );
 }
