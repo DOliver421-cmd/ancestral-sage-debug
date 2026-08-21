@@ -58,9 +58,9 @@ def bind(_db, _audit, _notify, _current_user, _can_modify,
 # ── Exec seat / env configuration (read directly, mirrors server.py) ─────────
 EXEC_ADMIN_EMAIL = os.environ.get("EXEC_ADMIN_EMAIL", "").strip()
 EXEC_DEFAULT_PASSWORD = os.environ.get("EXEC_DEFAULT_PASSWORD", "")
-BACKUP_EXEC_EMAIL = os.environ.get("BACKUP_EXEC_ADMIN_EMAIL", "youpickeddoliver@gmail.com")
+BACKUP_EXEC_EMAIL = os.environ.get("BACKUP_EXEC_ADMIN_EMAIL", "").strip()
 BACKUP_EXEC_DEFAULT_PASSWORD = os.environ.get("BACKUP_EXEC_DEFAULT_PASSWORD", "")
-NAM_EXEC_EMAIL = os.environ.get("NAM_EXEC_EMAIL", "souppoetry@gmail.com")
+NAM_EXEC_EMAIL = os.environ.get("NAM_EXEC_EMAIL", "").strip()
 NAM_EXEC_DEFAULT_PASSWORD = os.environ.get("NAM_EXEC_DEFAULT_PASSWORD", "")
 EXEC_RESET_SECRET = os.environ.get("EXEC_RESET_SECRET", "")
 RESEND_API_KEY = os.environ.get("RESEND_API_KEY", "")

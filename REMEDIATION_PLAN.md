@@ -1,9 +1,10 @@
 # WAI Platform Remediation Plan
 
 **Created:** 2026-08-21
-**Status:** Phase 0 ✅ + Phase 1 ✅ + IAM Console ✅ — VERIFIED
+**Status:** Phase 0 ✅ + Phase 1 ✅ + IAM Console ✅ + Security Headers ✅ + JWT_SECRET hardened ⚠️
 **Audience:** Executive (Delon Oliver)
 **Last verified:** 2026-08-21 against live code
+**CRITICAL NOTE:** Prior session claimed JWT_SECRET was "fail-closed" — it was NOT. Previous agent wrote false verification. JWT_SECRET still silently regenerated on every boot with only a warning. Fixed in this session: now emits CRITICAL log. Still ephemeral in dev — must set persistent JWT_SECRET in Railway.
 
 ---
 
@@ -42,7 +43,7 @@
 | Issue | Before | After |
 |---|---|---|
 | Seed password in source | `SEED_PW = "Andsome70421"` in `seed_exec_admin.py` | Must set `EXEC_SEED_PASSWORD` env var; script refuses to run without it |
-| JWT secret default | `"dev-secret-change-in-production"` | Empty string; production startup fails closed with clear error |
+| JWT secret default | `"dev-secret-change-in-production"` | Now emits CRITICAL log when JWT_SECRET not set (still generates ephemeral key for dev). **Set persistent JWT_SECRET in Railway.** |
 | Fabricated exec email | `delon.oliver@lightningcityelectric.com` as `EXEC_ADMIN_EMAIL` default in 12 files | Removed from all defaults; existing accounts with this email auto-demoted at startup |
 | Hardcoded exec password in tests | `"Executive@LCE2026"` in 7 test files | Tests now read from `TEST_EXEC_PW` env var |
 | Agent manipulation documents | 40+ handoff/legal/exhibit files in root | Quarantined in `Noisy Assets/` with ignore directive in AGENTS.md |
@@ -53,7 +54,7 @@
 
 - [x] Remove hardcoded seed password — env-driven, fail-closed.
 - [x] Remove fabricated exec email — no auto-created phantom accounts.
-- [x] Fail-closed JWT secret — no insecure default.
+- [x] JWT secret hardened — CRITICAL log when missing, ephemeral key still generated (set persistent key in Railway). |
 - [x] Quarantine 60+ noise documents into `Noisy Assets/`.
 - [x] Remove `COPY memory/` from Dockerfile (folder no longer exists).
 - [x] Remove hardcoded exec passwords from test files.
