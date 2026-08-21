@@ -77,6 +77,7 @@ import TermsOfService from "./pages/TermsOfService";
 import PrivacyPolicy from "./pages/PrivacyPolicy";
 import MoreHelpCenter from "./pages/MoreHelpCenter";
 import WAIInstitute from "./pages/WAIInstitute";
+import VonnsSaga from "./pages/VonnsSaga";
 import CookieConsent from "./components/CookieConsent";
 import HelpGuide from "./components/HelpGuide";
 import WelcomeWizard from "./components/WelcomeWizard";
@@ -285,6 +286,8 @@ function App() {
           <Route path="/landing" element={<LandingMarketplace />} />
           {/* WAI Institute — accredited-track portal (also the redirect target for wai-institute.org) */}
           <Route path="/wai-institute" element={<WAIInstitute />} />
+          {/* Vonns Saga — the multiverse choose-your-own-adventure (public) */}
+          <Route path="/vonns-saga" element={<VonnsSaga />} />
           {/* Supervisor — executive_admin only; separate login at /supervisor-login */}
           <Route path="/supervisor-login" element={<SupervisorLogin />} />
           <Route path="/supervisor" element={<SupervisorProtected><SeshatsHub /></SupervisorProtected>} />
