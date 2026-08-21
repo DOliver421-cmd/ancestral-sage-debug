@@ -204,35 +204,71 @@ export default function AppShell({ children }) {
             {!collapsed && <kbd className="text-[10px] font-black text-white/30 border border-white/15 rounded px-1.5 py-0.5">⌘K</kbd>}
           </button>
 
-          {/* ── CORE (everyone) ───────────────────────────────────────── */}
+          {/* ── HOME (everyone) ───────────────────────────────────────── */}
           <NavSection label="Home" collapsed={collapsed}>
             {nl("/",                "Home / Landing",  Globe,            "nav-home")}
             {nl("/dashboard",       "Dashboard",       LayoutDashboard, "nav-dashboard")}
             {waiDoor ? (
               <>
                 {out("/profile",        "My Profile",      UserCircle,      "nav-profile")}
-                {out("/my-position",    "My Position",     Compass,         "nav-my-position")}
-                {out("/site-guide",     "Site Guide",      Map,             "nav-site-guide")}
                 {out("/settings",       "Settings",        KeyRound,        "nav-settings")}
-                {out("/byok",           "My AI (BYOK)",    BrainCircuit,    "nav-byok")}
               </>
             ) : (
               <>
                 {nl("/profile",         "My Profile",      UserCircle,      "nav-profile")}
-                {nl("/my-position",     "My Position",     Compass,         "nav-my-position")}
-                {nl("/site-guide",      "Site Guide",      Map,             "nav-site-guide")}
                 {nl("/settings",        "Settings",        KeyRound,        "nav-settings")}
-                {nl("/byok",            "My AI (BYOK)",    BrainCircuit,    "nav-byok")}
               </>
             )}
           </NavSection>
 
+          {/* ── NAM (AI Leadership — first-class, always accessible) ──── */}
+          {hasRank("student") && (
+          <NavSection label="NAM" collapsed={collapsed}>
+            <NavSubGroup label="AI Assistants" collapsed={collapsed} defaultOpen={true}>
+              {nl("/ai",              "AI Tutor",        Sparkles,        "nav-ai")}
+              {nl("/helper",          "Personal Helper",  HelpCircle,      "nav-helper")}
+              {nl("/assistant",       "Admin Assistant", Brain,           "nav-assistant")}
+              {nl("/orchestrator",    "Orchestrator",     Layers,          "nav-orchestrator")}
+              {nl("/site-guide",      "Site Guide",       Map,             "nav-site-guide")}
+            </NavSubGroup>
+            <NavSubGroup label="Leadership" collapsed={collapsed}>
+              {nl("/council",         "Council (Sage)",  ShieldCheck,     "nav-council")}
+              {nl("/jamil",           "Jamil",            Compass,         "nav-jamil")}
+              {nl("/byok",            "My AI (BYOK)",    BrainCircuit,    "nav-byok")}
+            </NavSubGroup>
+          </NavSection>
+          )}
+
+          {/* ── CREATE (Creator tools & content) ─────────────────────── */}
+          {hasRank("student") && (
+          <NavSection label="Create" collapsed={collapsed}>
+            {waiDoor ? (
+              <>
+                {out("/studio",             "Creator Studio",     Music,    "nav-creator-studio")}
+                {out("/creator/courses",    "Course Manager",     Video,    "nav-creator-courses")}
+                {out("/ghost-producer",     "Ghost Producer",     Palette,  "nav-ghost-producer")}
+                {out("/social/publish",     "Social Blast",       Share2,   "nav-social-publish")}
+                {out("/creator-lounge",     "Creator Lounge",     Mic,      "nav-creator-lounge")}
+                {out("/creator/earnings",   "My Earnings",        DollarSign,"nav-creator-earnings")}
+                {out("/creator/payouts",    "Payout Dashboard",   Receipt,  "nav-creator-payouts")}
+              </>
+            ) : (
+              <>
+                {nl("/studio",             "Creator Studio",     Music,    "nav-creator-studio")}
+                {nl("/creator/courses",    "Course Manager",     Video,    "nav-creator-courses")}
+                {nl("/ghost-producer",     "Ghost Producer",     Palette,  "nav-ghost-producer")}
+                {nl("/social/publish",     "Social Blast",       Share2,   "nav-social-publish")}
+                {nl("/creator-lounge",     "Creator Lounge",     Mic,      "nav-creator-lounge")}
+                {nl("/creator/earnings",   "My Earnings",        DollarSign,"nav-creator-earnings")}
+                {nl("/creator/payouts",    "Payout Dashboard",   Receipt,  "nav-creator-payouts")}
+              </>
+            )}
+          </NavSection>
+          )}
+
+          {/* ── LEARN (Curriculum & credentials) ─────────────────────── */}
           {hasRank("student") && (
           <NavSection label="Learn" collapsed={collapsed}>
-            <NavSubGroup label="AI & Tutoring" collapsed={collapsed}>
-              {nl("/ai",              "AI Tutor",        Sparkles,        "nav-ai")}
-              {nl("/council",         "Council (Sage)",  Layers,          "nav-council")}
-            </NavSubGroup>
             <NavSubGroup label="Curriculum" collapsed={collapsed} defaultOpen={true}>
               {nl("/modules",         "Modules",         BookOpen,        "nav-modules")}
               {nl("/adaptive",        "Learning Path",   Brain,           "nav-adaptive")}
@@ -245,126 +281,49 @@ export default function AppShell({ children }) {
             <NavSubGroup label="Compliance" collapsed={collapsed}>
               {nl("/compliance",      "Compliance",      ShieldCheck,     "nav-compliance")}
             </NavSubGroup>
+            <NavSubGroup label="Credentials" collapsed={collapsed}>
+              {nl("/credentials",    "Credentials",      BadgeCheck,      "nav-credentials")}
+              {nl("/certificates",   "Certificates",     Award,           "nav-certs")}
+              {nl("/portfolio",      "Portfolio",        Briefcase,       "nav-portfolio")}
+            </NavSubGroup>
           </NavSection>
           )}
 
-          {hasRank("student") && (
-          <NavSection label="Credentials" collapsed={collapsed}>
-            {nl("/credentials",    "Credentials",      BadgeCheck,      "nav-credentials")}
-            {nl("/certificates",   "Certificates",     Award,           "nav-certs")}
-            {nl("/portfolio",      "Portfolio",        Briefcase,       "nav-portfolio")}
-          </NavSection>
-          )}
-
+          {/* ── COMMUNITY (Social & guilds) ──────────────────────────── */}
           {hasRank("student") && (
           <NavSection label="Community" collapsed={collapsed}>
             {waiDoor ? (
               <>
-                {out("/palace",        "Members' Palace",  Crown,           "nav-palace")}
-                {out("/elder-council", "Elder Council",    Layers,          "nav-elder-council")}
-                {out("/leaderboard",   "XP Leaderboard",   Trophy,          "nav-leaderboard")}
-                {out("/incidents",     "Report Incident",  ShieldAlert,     "nav-incidents")}
-              </>
-            ) : (
-              <>
-                {nl("/palace",         "Members' Palace",  Crown,           "nav-palace")}
-                {nl("/leaderboard",    "XP Leaderboard",   Trophy,          "nav-leaderboard")}
-                {nl("/incidents",      "Report Incident",  ShieldAlert,     "nav-incidents")}
-              </>
-            )}
-          </NavSection>
-          )}
-
-          {hasRank("student") && (
-          <NavSection label="M.O.R.E." collapsed={collapsed}>
-            {waiDoor ? (
-              <>
-                {out("/app/more",       "M.O.R.E. Hub",     HandHelping,     "nav-more")}
+                {out("/palace",         "Members' Palace",  Crown,           "nav-palace")}
+                {out("/elder-council",  "Elder Council",    Layers,          "nav-elder-council")}
+                {out("/leaderboard",    "XP Leaderboard",   Trophy,          "nav-leaderboard")}
                 {out("/more/chat",      "Community Chat",   Radio,           "nav-more-chat")}
                 {out("/more/litigation","Legal Tools",      Scale,           "nav-litigation")}
-                {out("/app/helper",     "Personal Helper",  HelpCircle,      "nav-helper")}
-                {out("/knowledge-base", "Knowledge Base",   BookOpen,        "nav-kb")}
+                {out("/incidents",      "Report Incident",  ShieldAlert,     "nav-incidents")}
+                {out("/vonns-saga",     "Vonns Saga",       BookOpen,        "nav-vonns")}
+                {out("/ascension-protocols", "Ascension Protocols", Compass, "nav-ascension")}
+              </>
+            ) : (
+              <>
+                {nl("/palace",          "Members' Palace",  Crown,           "nav-palace")}
+                {nl("/leaderboard",     "XP Leaderboard",   Trophy,          "nav-leaderboard")}
+                {nl("/more/chat",       "Community Chat",   Radio,           "nav-more-chat")}
+                {nl("/more/litigation", "Legal Tools",      Scale,           "nav-litigation")}
+                {nl("/incidents",       "Report Incident",  ShieldAlert,     "nav-incidents")}
                 {nl("/vonns-saga",      "Vonns Saga",       BookOpen,        "nav-vonns")}
-              </>
-            ) : (
-              <>                {nl("/app/more",       "M.O.R.E. Hub",     HandHelping,      "nav-more")}
-                {nl("/more/chat",      "Community Chat",   Radio,            "nav-more-chat")}
-                {nl("/more/litigation","Legal Tools",      Scale,            "nav-litigation")}
-                {nl("/app/helper",     "Personal Helper",  HelpCircle,       "nav-helper")}
-                {nl("/knowledge-base", "Knowledge Base",   BookOpen,         "nav-kb")}
-                {nl("/vonns-saga",     "Vonns Saga",       BookOpen,         "nav-vonns")}
+                {nl("/ascension-protocols", "Ascension Protocols", Compass, "nav-ascension")}
               </>
             )}
           </NavSection>
           )}
 
-          {/* ── CLASSIC TOOLS (admin+) */}
-          {hasRank("admin") && (
-          <NavSection label="Classic Tools" collapsed={collapsed}>
-            {waiDoor ? (
-              <>
-                {out("/classic-tools",  "All Originals",     Archive,         "nav-classic-tools")}
-                {out("/classic/creators-sanctuary", "Creator Studio (classic)", Music, "nav-classic-sanctuary")}
-                {out("/classic/djedi-oracle", "DJEDI Oracle", Star,         "nav-classic-djedi")}
-                {out("/classic/litigation-weapon", "Litigation Weapon", Scale, "nav-classic-litigation")}
-                {out("/classic/more-help-center", "Help Center (original)", HelpCircle, "nav-classic-more")}
-              </>
-            ) : (
-              <>
-                {nl("/classic-tools",  "All Originals",     Archive,         "nav-classic-tools")}
-                {nl("/classic/creators-sanctuary", "Creator Studio (classic)", Music, "nav-classic-sanctuary")}
-                {nl("/classic/djedi-oracle", "DJEDI Oracle", Star,         "nav-classic-djedi")}
-                {nl("/classic/litigation-weapon", "Litigation Weapon", Scale, "nav-classic-litigation")}
-                {nl("/classic/more-help-center", "Help Center (original)", HelpCircle, "nav-classic-more")}
-              </>
-            )}
-          </NavSection>
-          )}
-
-          {/* ── AGENT WELLNESS (oversight+) */}
-          {hasRank("oversight") && (
-          <NavSection label="Agent Wellness" collapsed={collapsed}>
-            {nl("/aawab",          "Agent Registry",  HeartPulse,      "nav-aawab")}
-            {nl("/aawab/chamber",  "Certification",   Award,           "nav-aawab-chamber")}
-          </NavSection>
-          )}
-
-          {/* ── BUSINESS OFFICE (oversight+) */}
-          {hasRank("oversight") && (
-          <NavSection label="Business Office" collapsed={collapsed}>
-            {nl("/business-office", "AI Business Office", Landmark,     "nav-business-office")}
-          </NavSection>
-          )}
-
-          {/* ── CREATORS (instructor+) */}
-          {hasRank("instructor") && (
-          <NavSection label="Creators" collapsed={collapsed}>
-            <NavSubGroup label="Content" collapsed={collapsed} defaultOpen={true}>
-              {nl("/social/publish",       "Social Blast",      Share2,     "nav-social-publish")}
-              {waiDoor ? out("/studio", "Creator Studio", Music, "nav-creator-studio") : nl("/studio", "Creator Studio", Music, "nav-creator-studio")}
-              {waiDoor ? out("/creator/courses", "Course Manager", Video, "nav-creator-courses") : nl("/creator/courses", "Course Manager", Video, "nav-creator-courses")}
-              {waiDoor ? out("/ghost-producer", "Ghost Producer", Palette, "nav-ghost-producer") : nl("/ghost-producer", "Ghost Producer", Palette, "nav-ghost-producer")}
-            </NavSubGroup>
-            <NavSubGroup label="Earnings" collapsed={collapsed}>
-              {waiDoor ? out("/creator/earnings", "My Earnings", DollarSign, "nav-creator-earnings") : nl("/creator/earnings", "My Earnings", DollarSign, "nav-creator-earnings")}
-              {waiDoor ? out("/creator/payouts", "Payout Dashboard", Receipt, "nav-creator-payouts") : nl("/creator/payouts", "Payout Dashboard", Receipt, "nav-creator-payouts")}
-            </NavSubGroup>
-            <NavSubGroup label="Media & Fun" collapsed={collapsed}>
-              {waiDoor ? out("/creator-lounge", "Creator Lounge", Mic, "nav-creator-lounge") : nl("/creator-lounge", "Creator Lounge", Mic, "nav-creator-lounge")}
-              {waiDoor ? out("/band", "Band on a Page", Music, "nav-band") : nl("/band", "Band on a Page", Music, "nav-band")}
-              {waiDoor ? out("/playlist/dashboard", "Playlist Manager", Radio, "nav-playlist") : nl("/playlist/dashboard", "Playlist Manager", Radio, "nav-playlist")}
-              {waiDoor ? out("/arcade", "Virtual Arcade", Gamepad2, "nav-arcade") : nl("/arcade", "Virtual Arcade", Gamepad2, "nav-arcade")}
-              {waiDoor ? out("/trash", "M.O.R.E. Pantheon", Star, "nav-trash") : nl("/trash", "M.O.R.E. Pantheon", Star, "nav-trash")}
-            </NavSubGroup>
-          </NavSection>
-          )}
-
+          {/* ── MARKETPLACE (Commerce & sales) ───────────────────────── */}
           {hasRank("student") && (
-          <NavSection label="Commerce" collapsed={collapsed}>
+          <NavSection label="Marketplace" collapsed={collapsed}>
             {waiDoor ? (
               <>
-                {out("/merch",           "Store",            ShoppingBag,    "nav-store")}
                 {out("/store",           "Media Store",      Music,          "nav-media-store")}
+                {out("/merch",           "Store",            ShoppingBag,    "nav-store")}
                 {out("/plans",           "Plans & Pricing",  Star,           "nav-plans")}
                 {out("/subscribe",       "Membership",       HandHelping,    "nav-subscribe")}
                 {out("/donate",          "Donate",           Heart,          "nav-donate")}
@@ -384,22 +343,45 @@ export default function AppShell({ children }) {
           </NavSection>
           )}
 
-          {/* ── INSTRUCTOR ────────────────────────────────────────────── */}
-          {isInstructor && (
-            <NavSection label="Instructor" collapsed={collapsed}>
-              {nl("/instructor",      "My Roster",       Users,          "nav-instructor")}
-              {nl("/instructor/labs", "Lab Approvals",   ClipboardCheck, "nav-lab-approvals")}
-              {nl("/attendance",      "Attendance",      Calendar,       "nav-attendance")}
-            </NavSection>
+          {/* ── SANCTUARY (Healing & reflection) ─────────────────────── */}
+          {hasRank("student") && (
+          <NavSection label="Sanctuary" collapsed={collapsed}>
+            {nl("/sanctuary",       "Sanctuary",       Heart,           "nav-sanctuary")}
+            {nl("/knowledge-base",  "Knowledge Base",   BookOpen,        "nav-kb")}
+          </NavSection>
           )}
 
-          {/* ── ADMIN ─────────────────────────────────────────────────── */}
+          {/* ── MUSIC (Studio & catalog) ─────────────────────────────── */}
+          {hasRank("student") && (
+          <NavSection label="Music" collapsed={collapsed}>
+            {nl("/band",            "Band on a Page",   Music,           "nav-band")}
+            {nl("/playlist/dashboard","Playlist Manager", Radio,          "nav-playlist")}
+          </NavSection>
+          )}
+
+          {/* ── GAMES (Arcade & competition) ─────────────────────────── */}
+          {hasRank("student") && (
+          <NavSection label="Games" collapsed={collapsed}>
+            {nl("/arcade",          "Virtual Arcade",   Gamepad2,        "nav-arcade")}
+            {nl("/trash",           "M.O.R.E. Pantheon", Star,          "nav-trash")}
+            {nl("/arena",           "The Arena",        Swords,          "nav-arena")}
+          </NavSection>
+          )}
+
+          {/* ── AGENT WELLNESS (oversight+) */}
+          {hasRank("oversight") && (
+          <NavSection label="Agent Wellness" collapsed={collapsed}>
+            {nl("/aawab",          "Agent Registry",  HeartPulse,      "nav-aawab")}
+            {nl("/aawab/chamber",  "Certification",   Award,           "nav-aawab-chamber")}
+          </NavSection>
+          )}          {/* ── DIRECTOR (Admin & governance — canonical /admin ecosystem) */}
           {isAdmin && (
-            <NavSection label="Administration" collapsed={collapsed} defaultOpen={false}>
+            <NavSection label="Director" collapsed={collapsed} defaultOpen={false}>
               <NavSubGroup label="Overview" collapsed={collapsed} defaultOpen={true}>
                 {nl("/admin",           "Admin Overview",  Settings,       "nav-admin")}
                 {nl("/admin/iam",       "IAM Console",     ShieldCheck,    "nav-iam")}
-                {nl("/admin/tools",     "Sites & Inventory", Building2,   "nav-admin-tools")}
+                {nl("/admin/office",    "Business Office", Landmark,       "nav-exec-office")}
+                {nl("/admin/command",   "Command Center",  Crown,          "nav-exec-system")}
                 {nl("/admin/health",    "System Health",   ShieldCheck,    "nav-health")}
               </NavSubGroup>
               <NavSubGroup label="Finance" collapsed={collapsed}>
@@ -412,53 +394,31 @@ export default function AppShell({ children }) {
                 {nl("/admin/analytics", "Analytics",       TrendingUp,     "nav-analytics")}
                 {nl("/admin/audit",     "Audit Log",       ScrollText,     "nav-audit")}
                 {nl("/admin/moderation","Moderation",      Shield,         "nav-moderation")}
-                {nl("/auditor",         "Auditor",         FileText,       "nav-auditor")}
+                {nl("/admin/sage-audit","Sage Audit",      ScrollText,     "nav-sage-audit")}
               </NavSubGroup>
-              <NavSubGroup label="AI & Tools" collapsed={collapsed}>
-                {nl("/more/admin",      "M.O.R.E. Admin",  Wrench,         "nav-more-admin")}
-                {nl("/more/ops",        "Dept. AI Ops",    Network,        "nav-more-ops")}
-                {nl("/assistant",       "Admin Assistant", Sparkles,       "nav-assistant")}
+              <NavSubGroup label="Tools" collapsed={collapsed}>
+                {nl("/admin/tools",     "Sites & Inventory", Building2,    "nav-admin-tools")}
                 {nl("/admin/bridge",    "AI Team Bridge",  Network,        "nav-bridge")}
-                {nl("/admin/aawab",     "AAWAB Admin",     HeartPulse,     "nav-aawab-admin")}
-                {nl("/admin/office-control", "Office Control (no-code)", Settings, "nav-abo-control")}
+                {nl("/admin/providers", "Provider Gateway", Network,       "nav-providers")}
+                {nl("/admin/exec-report","Site Report",    ClipboardCheck,"nav-exec-report")}
               </NavSubGroup>
             </NavSection>
           )}
 
-          {/* ── SITE SUPPORT (support the site and admin) ────────────── */}
+          {/* ── INSTRUCTOR ────────────────────────────────────────────── */}
+          {isInstructor && (
+            <NavSection label="Instructor" collapsed={collapsed}>
+              {nl("/instructor",      "My Roster",       Users,          "nav-instructor")}
+              {nl("/instructor/labs", "Lab Approvals",   ClipboardCheck, "nav-lab-approvals")}
+              {nl("/attendance",      "Attendance",      Calendar,       "nav-attendance")}
+            </NavSection>
+          )}
+
+          {/* ── SITE SUPPORT (support_staff+) ──────────────────────── */}
           {isSupport && (
             <NavSection label="Site Support" collapsed={collapsed}>
               {nl("/admin/audit",       "Audit Log",       ScrollText,     "nav-support-audit")}
               {nl("/admin/moderation",  "Moderation",      Shield,         "nav-support-moderation")}
-            </NavSection>
-          )}
-
-          {/* ── EXECUTIVE ─────────────────────────────────────────────── */}
-          {isExec && (
-            <NavSection label="Executive" collapsed={collapsed} defaultOpen={false}>
-              <NavSubGroup label="Command" collapsed={collapsed} defaultOpen={true}>
-                {nl("/admin/system",       "Exec System",       Crown,          "nav-exec-system")}
-                {nl("/admin/control",      "Site Control",      Shield,         "nav-control-panel")}
-                {nl("/admin/office",       "Business Office", Layers,         "nav-exec-office")}
-                {nl("/admin/director",     "Director Dash",     Compass,        "nav-exec-director")}
-              </NavSubGroup>
-              <NavSubGroup label="Reports & Audit" collapsed={collapsed}>
-                {nl("/admin/sage-audit",   "Sage Audit",        ScrollText,     "nav-sage-audit")}
-                {nl("/admin/exec-report",  "Site Report",       ClipboardCheck, "nav-exec-report")}
-                {nl("/admin/health-report","Health Report",     Activity,        "nav-health-report")}
-                {nl("/admin/staff-meetings","Staff Meetings",   Users,          "nav-staff-meetings")}
-              </NavSubGroup>
-              <NavSubGroup label="Team & AI" collapsed={collapsed}>
-                {nl("/admin/providers",    "Provider Gateway",  Network,        "nav-providers")}
-                {nl("/team/ops",           "Team Ops",          Server,         "nav-team-ops")}
-                {nl("/supervisor",         "Supervisor Hub",    Radio,          "nav-supervisor")}
-                {nl("/jamil",              "Jamil",             Sparkles,       "nav-jamil")}
-              </NavSubGroup>
-              <NavSubGroup label="Projects" collapsed={collapsed}>
-                {nl("/projects",           "Projects",          ClipboardCheck, "nav-projects")}
-                {nl("/creative-partner",   "Creative Partner",  Palette,        "nav-creative-partner")}
-                {nl("/arena",              "The Arena",         Swords,         "nav-arena")}
-              </NavSubGroup>
             </NavSection>
           )}
 

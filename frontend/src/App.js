@@ -416,6 +416,26 @@ function App() {
           <Route path="/trash" element={<TrashPantheon />} />
           <Route path="/creator/payouts" element={<Protected><TierGate feature="payouts"><CreatorPayoutDashboard /></TierGate></Protected>} />
           <Route path="/welcome" element={<Landing />} />
+
+          {/* ── CANONICAL ECOSYSTEM ROUTES (Step 8 — Route Migration) ── */}
+          <Route path="/nam" element={<Navigate to="/ai" replace />} />
+          <Route path="/creator" element={<Navigate to="/studio" replace />} />
+          <Route path="/publish" element={<Navigate to="/social/publish" replace />} />
+          <Route path="/community/hub" element={<Navigate to="/community" replace />} />
+          <Route path="/marketplace" element={<Navigate to="/store" replace />} />
+          <Route path="/sanctuary" element={<Navigate to="/helper" replace />} />
+          <Route path="/music" element={<Navigate to="/band" replace />} />
+          <Route path="/games" element={<Navigate to="/arcade" replace />} />
+
+          {/* ── LEGACY REDIRECTS (Step 8 — remaining from prior merges) ── */}
+          <Route path="/admin/exec-control" element={<Navigate to="/admin/office" replace />} />
+          <Route path="/admin/system" element={<Navigate to="/admin/command" replace />} />
+          <Route path="/admin/director" element={<Navigate to="/admin/command" replace />} />
+          <Route path="/dashboard/exec" element={<Navigate to="/admin/command" replace />} />
+          <Route path="/admin/health-report" element={<Navigate to="/admin/health" replace />} />
+          <Route path="/admin/tools" element={<Navigate to="/admin" replace />} />
+          <Route path="/store" element={<Protected><MediaStore /></Protected>} />
+
           <Route path="*" element={<Error404 />} />
         </Routes>
         </AccessGate>
