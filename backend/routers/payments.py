@@ -118,7 +118,7 @@ _PRODUCT_TIER_MAP: dict[str, str] = {
     # Creator's Sanctuary lane — a purchase grants the matching membership
     # level (so creator perks sit on top of a real membership) plus the
     # creator-specific privileges managed by the Sanctuary surface.
-    "sanctuary_trial":    "pro",
+    "sanctuary_trial":    "plus",
     "sanctuary_paid":     "member",
     "sanctuary_creator":  "plus",
     "sanctuary_mod":      "pro",

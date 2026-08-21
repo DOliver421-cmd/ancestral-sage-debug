@@ -1050,3 +1050,140 @@ async def ec_access_public():
         for d in docs
     }
     return {"pages": pages}
+
+
+# ── Route Access Overview — every API route and its required role ───────────
+# The frontend calls GET /exec/control/route-access to populate the
+# "Route Access" tab in the executive console.  This builds a snapshot
+# from the live FastAPI app's route table + our PAGE_ACCESS_REGISTRY.
+
+ROUTE_ACCESS_REGISTRY = [
+    # (route_path, method, required_role, feature_area)
+    {"path": "/api/auth/me",              "method": "GET",    "role": "any",         "area": "auth",          "label": "Current user profile"},
+    {"path": "/api/auth/me",              "method": "PATCH",  "role": "any",         "area": "auth",          "label": "Edit own profile"},
+    {"path": "/api/admin/users",          "method": "GET",    "role": "admin",       "area": "users",         "label": "List/search all users"},
+    {"path": "/api/admin/users",          "method": "POST",   "role": "admin",       "area": "users",         "label": "Create new user"},
+    {"path": "/api/admin/users/{uid}",    "method": "PATCH",  "role": "admin",       "area": "users",         "label": "Edit user name/email"},
+    {"path": "/api/admin/users/{uid}/role","method": "PATCH",  "role": "admin",       "area": "users",         "label": "Change user role"},
+    {"path": "/api/admin/users/{uid}/active","method": "PATCH","role": "admin",       "area": "users",         "label": "Activate/deactivate"},
+    {"path": "/api/admin/users/{uid}/ban", "method": "POST",  "role": "exec",        "area": "users",         "label": "Ban user"},
+    {"path": "/api/admin/users/{uid}/reset-password","method":"POST","role": "exec",    "area": "users",         "label": "Reset password"},
+    {"path": "/api/admin/users/{uid}/sessions","method":"GET", "role": "exec",       "area": "users",         "label": "View user sessions"},
+    {"path": "/api/admin/users/{uid}/sessions","method":"DELETE","role": "exec",      "area": "users",         "label": "Revoke all sessions"},
+    {"path": "/api/admin/users/{uid}/audit","method":"GET",   "role": "exec",        "area": "users",         "label": "User audit history"},
+    {"path": "/api/admin/users/{uid}",    "method": "DELETE", "role": "exec",        "area": "users",         "label": "Delete user"},
+    {"path": "/api/exec/control/state",    "method": "GET",    "role": "exec",        "area": "executive",     "label": "Full platform state"},
+    {"path": "/api/exec/control/tiers",    "method": "GET",    "role": "admin",       "area": "tiers",         "label": "List feature tiers"},
+    {"path": "/api/exec/control/tiers",    "method": "POST",   "role": "exec",        "area": "tiers",         "label": "Create/update tier"},
+    {"path": "/api/exec/control/user/role","method": "POST",  "role": "exec",        "area": "users",         "label": "Set user role"},
+    {"path": "/api/exec/control/user/tier","method": "POST",  "role": "admin",       "area": "users",         "label": "Set user tier"},
+    {"path": "/api/exec/control/feature-flag","method":"POST", "role": "exec",       "area": "flags",         "label": "Toggle feature flag"},
+    {"path": "/api/exec/control/authz-matrix","method":"GET", "role": "exec",        "area": "authorization", "label": "View authz matrix"},
+    {"path": "/api/exec/control/authz-matrix","method":"POST","role": "exec",        "area": "authorization", "label": "Update authz matrix"},
+    {"path": "/api/exec/control/ai-access",  "method": "POST", "role": "exec",        "area": "ai",            "label": "Per-user AI access"},
+    {"path": "/api/exec/control/legal-access","method": "POST","role": "exec",        "area": "legal",         "label": "Per-user legal access"},
+    {"path": "/api/exec/control/price",      "method": "POST", "role": "exec",        "area": "billing",       "label": "Update pricing"},
+    {"path": "/api/exec/control/budget",     "method": "POST", "role": "exec",        "area": "budgets",       "label": "Update budget"},
+    {"path": "/api/exec/control/provider-ranking","method":"POST","role": "exec",     "area": "providers",     "label": "AI provider ranking"},
+    {"path": "/api/exec/control/ip-whitelist","method":"POST", "role": "exec",       "area": "security",      "label": "IP whitelist"},
+    {"path": "/api/exec/control/mfa",        "method": "POST", "role": "exec",        "area": "security",      "label": "MFA configuration"},
+    {"path": "/api/exec/control/failover",   "method": "POST", "role": "exec",        "area": "providers",     "label": "Failover config"},
+    {"path": "/api/exec/control/page-mode",  "method": "POST", "role": "exec",        "area": "pages",         "label": "Page mode"},
+    {"path": "/api/exec/control/visibility", "method": "POST", "role": "exec",        "area": "pages",         "label": "Visibility toggle"},
+    {"path": "/api/exec/control/access",     "method": "GET",  "role": "exec",        "area": "pages",         "label": "Page access board"},
+    {"path": "/api/exec/control/access",     "method": "POST", "role": "exec",        "area": "pages",         "label": "Set page access"},
+    {"path": "/api/exec/control/audit",      "method": "GET",  "role": "exec",        "area": "audit",         "label": "Audit log"},
+    {"path": "/api/exec/control/break-glass/activate","method":"POST","role": "exec", "area": "security",    "label": "Activate break glass"},
+    {"path": "/api/exec/control/break-glass/revoke",  "method":"POST","role": "exec", "area": "security",    "label": "Revoke break glass"},
+    {"path": "/api/exec/control/break-glass/active",  "method":"GET", "role": "exec",  "area": "security",    "label": "Active overrides"},
+    {"path": "/api/exec/control/sage-cap",   "method": "POST", "role": "admin",       "area": "ai",            "label": "Sage capability cap"},
+    {"path": "/api/admin/control-panel",     "method": "GET",  "role": "exec",        "area": "executive",     "label": "Control panel data"},
+    {"path": "/api/admin/ai-spend-budget",   "method": "POST", "role": "exec",        "area": "budgets",       "label": "AI spend budget"},
+    {"path": "/api/admin/control-panel/broadcast","method":"POST","role": "exec",    "area": "executive",     "label": "Site broadcast"},
+    {"path": "/api/media/products",          "method": "GET",  "role": "any",         "area": "media",         "label": "Media products"},
+    {"path": "/api/media/file/{id}",         "method": "GET",  "role": "any",         "area": "media",         "label": "Download/preview media"},
+    {"path": "/api/payments/checkout",       "method": "POST", "role": "any",         "area": "billing",       "label": "Payment checkout"},
+    {"path": "/api/modules",                 "method": "GET",  "role": "any",         "area": "courses",       "label": "Course modules"},
+    {"path": "/api/labs",                    "method": "GET",  "role": "any",         "area": "courses",       "label": "Lab simulations"},
+    {"path": "/api/credentials",             "method": "GET",  "role": "any",         "area": "courses",       "label": "Credentials"},
+    {"path": "/api/more/posts",              "method": "GET",  "role": "any",         "area": "community",     "label": "M.O.R.E. posts"},
+    {"path": "/api/more/post",               "method": "POST", "role": "member",      "area": "community",     "label": "Create post"},
+    {"path": "/api/search",                  "method": "GET",  "role": "any",         "area": "search",        "label": "Site search"},
+    {"path": "/api/ai/sage/chat",            "method": "POST", "role": "any",         "area": "ai",            "label": "AI Sage chat"},
+    {"path": "/api/ai/sage/tts",             "method": "POST", "role": "any",         "area": "ai",            "label": "AI Sage TTS"},
+    {"path": "/api/partnership/status",       "method": "GET",  "role": "any",         "area": "partnership",   "label": "Partnership status"},
+    {"path": "/api/progress/me",              "method": "GET",  "role": "any",         "area": "learning",      "label": "My progress"},
+    {"path": "/api/xp/me",                    "method": "GET",  "role": "any",         "area": "learning",      "label": "My XP"},
+]
+
+
+@router.get("/exec/control/route-access")
+async def ec_route_access(actor: User = Depends(_require_rank("executive_admin"))):
+    """Route access overview — every API route, its required role, and
+    its current enforcement status.  The executive console renders this
+    as a table so the exec can see at a glance which routes are locked
+    and which are open.
+    """
+    # Fetch current access overrides from DB
+    overrides = {}
+    try:
+        docs = await db.route_access_overrides.find({}, {"_id": 0}).to_list(500)
+        overrides = {d["path"]: d for d in docs}
+    except Exception:
+        pass
+    routes = []
+    for reg in ROUTE_ACCESS_REGISTRY:
+        ov = overrides.get(reg["path"], {})
+        routes.append({
+            **reg,
+            "enforced": ov.get("enforced", True),
+            "override_role": ov.get("override_role"),
+            "updated_by": ov.get("updated_by"),
+            "updated_at": ov.get("updated_at"),
+        })
+    # Group by area for the UI
+    areas = {}
+    for r in routes:
+        area = r["area"]
+        if area not in areas:
+            areas[area] = []
+        areas[area].append(r)
+    return {
+        "routes": routes,
+        "areas": areas,
+        "total": len(routes),
+        "fetched_at": datetime.now(timezone.utc).isoformat(),
+    }
+
+
+class _RouteAccessOverrideReq(BaseModel):
+    path: str = Field(..., min_length=1, max_length=200)
+    enforced: bool = True
+    override_role: Optional[str] = None  # None = use default from registry
+    reason: str = Field("", max_length=500)
+
+
+@router.post("/exec/control/route-access")
+async def ec_set_route_access(body: _RouteAccessOverrideReq, request: Request,
+                              actor: User = Depends(_require_rank("executive_admin"))):
+    """Override a route's access level.
+    Can mark a route as enforced/not-enforced, or override its required role.
+    executive_admin only.
+    """
+    if not any(r["path"] == body.path for r in ROUTE_ACCESS_REGISTRY):
+        raise HTTPException(400, f"Unknown route path '{body.path}'")
+    now_iso = datetime.now(timezone.utc).isoformat()
+    update = {
+        "path": body.path,
+        "enforced": body.enforced,
+        "override_role": body.override_role,
+        "updated_by": actor.id,
+        "updated_at": now_iso,
+    }
+    await db.route_access_overrides.update_one(
+        {"path": body.path}, {"$set": update}, upsert=True)
+    await _exec_audit(actor, "exec.route_access.updated", request=request,
+                      after={"path": body.path, "enforced": body.enforced,
+                             "override_role": body.override_role},
+                      note=body.reason)
+    return {"ok": True, "path": body.path, "enforced": body.enforced}

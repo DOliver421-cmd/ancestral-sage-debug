@@ -711,4 +711,183 @@ async def users_accept_terms(body: _AcceptTermsReq, user: User = Depends(_dep_cu
         {"$set": record},
         upsert=True)
     await audit(user.id, "user.terms_accepted", meta={"version": body.version})
+
+
+# ═════════════════════════════════════════════════════════════════════════════
+# USER LIFECYCLE — password reset, session management, deletion, audit trail
+# All executive_admin only.  These were the missing pieces that made the
+# exec console look like a shell — the forms existed but the endpoints did not.
+# ═════════════════════════════════════════════════════════════════════════════
+
+class _AdminResetPasswordReq(BaseModel):
+    new_password: str = Field(..., min_length=8, max_length=128)
+
+
+@router.post("/admin/users/{uid}/reset-password")
+async def admin_reset_password(uid: str, body: _AdminResetPasswordReq,
+                                request,
+                                user: User = Depends(_require_rank("executive_admin"))):
+    """Reset a user's password and revoke all their sessions.
+    executive_admin only — this is a sensitive identity operation.
+    The target user will need to use the new password on next login.
+    """
+    target = await db.users.find_one({"id": uid}, {"_id": 0, "role": 1, "full_name": 1, "email": 1})
+    if not target:
+        raise HTTPException(404, "User not found")
+    if target.get("role") == "executive_admin" and uid != user.id:
+        raise HTTPException(403, "Cannot reset another executive_admin's password.")
+    new_hash = hash_pw(body.new_password)
+    now_iso = datetime.now(timezone.utc).isoformat()
+    await db.users.update_one(
+        {"id": uid},
+        {"$set": {"password_hash": new_hash, "must_change_password": True,
+                   "updated_at": now_iso},
+         "$inc": {"token_version": 1}},
+    )
+    await db.auth_sessions.delete_many({"user_id": uid})
+    await audit(user.id, "admin.user.password_reset", target=uid,
+                meta={"reset_by": user.id})
+    try:
+        await notify(uid, "Password Reset",
+                     "Your password has been reset by an administrator. "
+                     "You will be prompted to change it on next login.",
+                     kind="warning")
+    except Exception:
+        pass
+    return {"ok": True, "user_id": uid, "sessions_revoked": True}
+
+
+@router.get("/admin/users/{uid}/sessions")
+async def admin_list_sessions(uid: str,
+                              user: User = Depends(_require_rank("executive_admin"))):
+    """List active sessions for a user.
+    Shows device info, creation time, and last-used time.
+    executive_admin only.
+    """
+    target = await db.users.find_one({"id": uid}, {"_id": 0, "full_name": 1})
+    if not target:
+        raise HTTPException(404, "User not found")
+    sessions = await db.auth_sessions.find(
+        {"user_id": uid},
+        {"_id": 0, "jti": 1, "created_at": 1, "last_seen_at": 1, "user_agent": 1, "ip": 1}
+    ).sort("created_at", -1).to_list(100)
+    return {
+        "user_id": uid,
+        "user_name": target.get("full_name", ""),
+        "sessions": sessions,
+        "count": len(sessions),
+    }
+
+
+@router.delete("/admin/users/{uid}/sessions")
+async def admin_revoke_sessions(uid: str, request,
+                                 user: User = Depends(_require_rank("executive_admin"))):
+    """Revoke ALL active sessions for a user (force logout on every device).
+    executive_admin only. Increments token_version so existing JWTs are rejected.
+    """
+    target = await db.users.find_one({"id": uid}, {"_id": 0, "role": 1, "full_name": 1})
+    if not target:
+        raise HTTPException(404, "User not found")
+    if target.get("role") == "executive_admin" and uid != user.id:
+        raise HTTPException(403, "Cannot revoke another executive_admin's sessions.")
+    await db.users.update_one({"id": uid}, {"$inc": {"token_version": 1}})
+    result = await db.auth_sessions.delete_many({"user_id": uid})
+    await _exec_audit_safe(user, "admin.user.sessions_revoked", target_id=uid,
+                           meta={"deleted_count": result.deleted_count})
+    try:
+        await notify(uid, "Sessions Revoked",
+                     "All your active sessions have been ended by an administrator.",
+                     kind="warning")
+    except Exception:
+        pass
+    return {"ok": True, "user_id": uid, "sessions_revoked": result.deleted_count}
+
+
+@router.delete("/admin/users/{uid}")
+async def admin_delete_user(uid: str, request,
+                             user: User = Depends(_require_rank("executive_admin"))):
+    """Permanently delete a user account.
+    executive_admin only. Cannot delete yourself or another executive_admin.
+    Purges: user record, sessions, audit trail, feature overrides, progress,
+    credentials, partnership data.  This is irreversible.
+    """
+    target = await db.users.find_one({"id": uid}, {"_id": 0, "role": 1, "full_name": 1, "email": 1})
+    if not target:
+        raise HTTPException(404, "User not found")
+    if uid == user.id:
+        raise HTTPException(400, "Cannot delete your own account.")
+    if target.get("role") == "executive_admin":
+        raise HTTPException(403, "Cannot delete an executive_admin account.")
+    # Cascading purge
+    deleted = {}
+    for coll_name in ["auth_sessions", "user_feature_overrides", "progress",
+                      "user_credentials", "terms_acceptance", "xp_entries"]:
+        try:
+            r = await db[coll_name].delete_many({"user_id": uid})
+            deleted[coll_name] = r.deleted_count
+        except Exception:
+            deleted[coll_name] = 0
+    # Partnership data
+    try:
+        r = await db.partnership_points_ledger.delete_many({"user_id": uid})
+        deleted["partnership_points_ledger"] = r.deleted_count
+    except Exception:
+        pass
+    # Final: delete the user record
+    await db.users.delete_one({"id": uid})
+    await _exec_audit_safe(user, "admin.user.deleted", target_id=uid,
+                           before={"email": target.get("email"), "role": target.get("role")},
+                           meta={"purged_collections": deleted})
+    return {"ok": True, "user_id": uid, "purged": deleted}
+
+
+async def _exec_audit_safe(actor, action, target_id=None, before=None, meta=None):
+    """Thin wrapper that never fails — audit log errors must not break user ops."""
+    try:
+        now_iso = datetime.now(timezone.utc).isoformat()
+        await db.exec_audit_log.insert_one({
+            "id": str(uuid.uuid4()), "actor_id": actor.id,
+            "actor_role": getattr(actor, "role", ""),
+            "action": action, "target_id": target_id,
+            "before": before, "meta": meta or {},
+            "created_at": now_iso,
+        })
+    except Exception:
+        pass
+    try:
+        await audit(actor.id, action, target=target_id, meta=meta)
+    except Exception:
+        pass
+
+
+@router.get("/admin/users/{uid}/audit")
+async def admin_user_audit(uid: str, limit: int = 50,
+                           user: User = Depends(_require_rank("executive_admin"))):
+    """Per-user audit history.
+    Returns all exec audit log entries targeting this user, newest first.
+    executive_admin only.
+    """
+    limit = min(max(limit, 1), 200)
+    target = await db.users.find_one({"id": uid}, {"_id": 0, "full_name": 1})
+    if not target:
+        raise HTTPException(404, "User not found")
+    records = await db.exec_audit_log.find(
+        {"target_id": uid},
+        {"_id": 0, "actor_id": 1, "actor_role": 1, "action": 1,
+         "before": 1, "after": 1, "note": 1, "ip": 1, "created_at": 1}
+    ).sort("created_at", -1).limit(limit).to_list(limit)
+    # Enrich actor names
+    actor_ids = list({r["actor_id"] for r in records if r.get("actor_id")})
+    actor_map = {}
+    if actor_ids:
+        async for u in db.users.find({"id": {"$in": actor_ids}}, {"_id": 0, "id": 1, "full_name": 1}):
+            actor_map[u["id"]] = u.get("full_name", "unknown")
+    for r in records:
+        r["actor_name"] = actor_map.get(r.get("actor_id"), "system")
+    return {
+        "user_id": uid,
+        "user_name": target.get("full_name", ""),
+        "records": records,
+        "count": len(records),
+    }
     return {"ok": True, "version": body.version, "accepted_at": now.isoformat()}
