@@ -164,7 +164,17 @@ def _get_the9_engine():
 
 import secrets as _secrets
 
-JWT_SECRET = os.environ.get('JWT_SECRET') or _secrets.token_hex(32)
+_jwt_raw = os.environ.get('JWT_SECRET', '').strip()
+if not _jwt_raw:
+    import logging as _log
+    _log.getLogger('lcewai').critical(
+        'FATAL: JWT_SECRET is not set. Sessions will not work and auth will fail. '
+        'Set a persistent JWT_SECRET in your deploy environment (e.g. Railway Variables).'
+    )
+JWT_SECRET = _secrets.token_hex(32)
+JWT_SECRET_IS_EPHEMERAL = True
+else:
+    JWT_SECRET_IS_EPHEMERAL = False
 JWT_ALGO = os.environ.get('JWT_ALGORITHM', 'HS256')
 JWT_EXPIRE_HOURS = int(os.environ.get('JWT_EXPIRE_HOURS', '168'))
 EMERGENT_LLM_KEY = os.environ.get('EMERGENT_LLM_KEY', '')
@@ -2417,6 +2427,19 @@ app.add_middleware(
     allow_methods=["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
     allow_headers=["Content-Type", "Authorization", "X-Requested-With", "Accept", "Accept-Language", "Cache-Control"],
 )
+
+# ── Security headers middleware ───────────────────────────────────────────
+@app.middleware("http")
+async def _security_headers(request: Request, call_next):
+    response = await call_next(request)
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["X-XSS-Protection"] = "1; mode=block"
+    response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+    response.headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()"
+    if request.url.scheme == "https":
+        response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
+    return response
 
 
 @app.on_event("shutdown")
