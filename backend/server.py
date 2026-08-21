@@ -2463,6 +2463,14 @@ async def shutdown_db_client():
 app = access_gateway.wrap(app)
 logger.info("Access Control middleware wrapping app - %d controls monitored", len(CONTROL_REGISTRY))
 
+# ---- NAM API Routes (Hybrid NAM Leadership Intelligence) ----
+try:
+    from routers.nam import router as nam_router
+    app.include_router(nam_router)
+    logger.info("Hybrid NAM API routes registered at /api/nam")
+except Exception as _nam_err:
+    logger.warning("Hybrid NAM routes failed to load: %s", _nam_err)
+
 
 if __name__ == "__main__":
     import uvicorn
