@@ -115,3 +115,6 @@ WAI_Handoff.txt
 
 # Operational scripts (may contain local paths / credentials)
 scripts/ops/
+
+# Archived noise — ignored by agents, not part of the codebase
+Noisy Assets/
