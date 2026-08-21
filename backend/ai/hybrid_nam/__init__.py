@@ -29,7 +29,7 @@ The Source remains untouched. NAM is a designation above it.
 
 from ai.hybrid_nam.designation import HybridNAMDesignation
 from ai.hybrid_nam.soul_kernel import SoulKernel
-from ai.hybrid_nam.knowledge_forge import KnowledgeForge, KnowledgeItem
+from ai.hybrid_nam.knowledge_forge import KnowledgeForge
 from ai.hybrid_nam.knowledge_graph import retrieve, classify_domains, assemble_context
 from ai.hybrid_nam.memory_engine import (
     create_memory, create_autobiographical_event, create_intention,
@@ -45,7 +45,7 @@ from ai.hybrid_nam.jamil_protocol import (
 
 __all__ = [
     "HybridNAMDesignation", "SoulKernel",
-    "KnowledgeForge", "KnowledgeItem",
+    "KnowledgeForge",
     "retrieve", "classify_domains", "assemble_context",
     "create_memory", "create_autobiographical_event", "create_intention",
     "retrieve_memories", "detect_drift", "analyze_team_context",
