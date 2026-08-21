@@ -5,6 +5,7 @@ import BackButton from "../components/BackButton";
 import { api } from "../lib/api";
 import { toast } from "sonner";
 import { DollarSign, TrendingUp, Clock, CheckCircle, Building, AlertCircle, ChevronDown, ChevronUp } from "lucide-react";
+import { FeatureGate } from '../components/FeatureGate';
 
 export default function CreatorEarnings() {
   const [summary, setSummary] = useState(null);
@@ -64,6 +65,7 @@ export default function CreatorEarnings() {
   return (
     <AppShell>
       <CreatorContextBar current="earnings" />
+      <FeatureGate feature="marketplace.analytics">
       <div className="px-6 py-10 max-w-4xl">
         <BackButton className="mb-4" />
         <div className="overline text-copper mb-1">Creator Studio</div>
@@ -281,6 +283,7 @@ export default function CreatorEarnings() {
           </>
         )}
       </div>
+      </FeatureGate>
     </AppShell>
   );
 }

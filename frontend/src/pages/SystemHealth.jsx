@@ -30,14 +30,14 @@ export default function SystemHealth() {
   useEffect(() => { load(); }, [load]);
 
   const StatCard = ({ label, value, icon: Icon, good }) => (
-    <div className="bg-white rounded-xl border border-ink/10 p-5">
-      <div className="flex items-center gap-3">
-        <div className={`p-2 rounded-lg ${good !== false ? "bg-green-50" : "bg-red-50"}`}>
-          <Icon className={`w-5 h-5 ${good !== false ? "text-green-600" : "text-red-600"}`} />
+    <div style={{ background: '#fff', border: '1px solid #e5e1ed', borderRadius: 12, padding: 20 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+        <div style={{ padding: 8, borderRadius: 8, background: good !== false ? '#f0fdf4' : '#fef2f2' }}>
+          <Icon style={{ width: 20, height: 20, color: good !== false ? '#16a34a' : '#dc2626' }} />
         </div>
         <div>
-          <p className="text-xs text-ink/50 uppercase tracking-wider">{label}</p>
-          <p className="text-lg font-bold font-mono text-ink">{value ?? "—"}</p>
+          <p style={{ fontSize: 11, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.1em', fontWeight: 700 }}>{label}</p>
+          <p style={{ fontSize: 18, fontWeight: 700, fontFamily: 'monospace', color: '#2e1065' }}>{value ?? "—"}</p>
         </div>
       </div>
     </div>
@@ -63,8 +63,8 @@ export default function SystemHealth() {
               <Activity className="w-6 h-6 text-copper" />
               <span className="overline text-copper">Operations</span>
             </div>
-            <h1 className="font-heading text-4xl font-bold">System Health</h1>
-            <p className="text-ink/60 mt-2">Verified status — not aspirational. Real-time platform health and cost overview.</p>
+            <h1 style={{ fontFamily: "'Cabinet Grotesk', 'Plus Jakarta Sans', sans-serif", fontSize: '2.25rem', fontWeight: 900, color: '#2e1065' }}>System Health</h1>
+            <p style={{ color: '#6b7280', marginTop: 8, fontSize: 14 }}>Verified status — not aspirational. Real-time platform health and cost overview.</p>
           </div>
           <button onClick={load} disabled={busy}
             className="flex items-center gap-1.5 px-4 py-2 border border-copper text-copper text-xs font-black uppercase tracking-widest rounded-lg hover:bg-copper/5 transition-colors disabled:opacity-50">

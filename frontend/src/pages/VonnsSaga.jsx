@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { BookOpen, ChevronLeft, RotateCcw, Layers, Sparkles, Volume2, VolumeX, Brain, Shuffle, Square, Music2 } from "lucide-react";
 import { STORY, START_NODE, TOTAL_NODES } from "../story/vonnsSaga";
 import { api, getToken } from "../lib/api";
+import VonnsSagaAdmin from "../components/VonnsSagaAdmin";
 
 const SAVE_KEY = "vonns_saga_v1";
 
@@ -622,6 +623,9 @@ export default function VonnsSaga() {
           <div className="mt-3 text-[11px]" style={{ color: C.dim }}>
             Vonns Saga · written by Nam Oshun · built into the M.O.R.E. tapestry · © NAM Oshun Edutainment LLC
           </div>
+
+          {/* Admin panel — tracks, images, videos */}
+          <VonnsSagaAdmin nodeId={state.nodeId} />
         </footer>
       </main>
 
