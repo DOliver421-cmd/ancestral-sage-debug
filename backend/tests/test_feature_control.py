@@ -63,15 +63,21 @@ class _FakeDB:
 
 
 def _run(path, flags_doc=None, db=None):
+    # A supplied flags document is the policy-store fixture for these tests;
+    # use a DB stub as well so the independent page-access check can remain
+    # available without turning every platform-flag assertion into a 503.
+    if db is None and flags_doc is not None:
+        db = _FakeDB()
     return asyncio.run(check_request_config(db, path, flags_doc))
 
 
-def test_absent_config_allows_everything():
-    # No flags doc, no page docs, no db at all -> never block.
-    assert _run("/api/ai/chat") is None
-    assert _run("/api/more/posts") is None
+def test_absent_config_preserves_defaults_but_missing_policy_store_fails_closed():
+    # Missing documents preserve the existing available behavior. A missing
+    # policy store is different: the server cannot prove authorization.
+    assert _run("/api/ai/chat", db=_FakeDB()) is None
+    assert _run("/api/more/posts", db=_FakeDB()) is None
     assert _run("/api/modules", db=_FakeDB()) is None
-    assert _run("/api/ai/chat", db=None) is None
+    assert _run("/api/ai/chat") == (503, "Feature authorization unavailable — request rejected.")
 
 
 def test_disabled_platform_flag_blocks_mapped_paths_only():
@@ -113,12 +119,13 @@ def test_disabled_page_access_blocks_mapped_api():
     assert _run("/api/ai/chat", db=_FakeDB()) is None
 
 
-def test_db_error_fails_open():
+def test_db_error_fails_closed():
     class _BrokenDB:
         async def find_one(self, query, projection=None):
             raise RuntimeError("mongo down")
 
-    assert _run("/api/ai/chat", db=_BrokenDB()) is None
+    result = _run("/api/ai/chat", db=_BrokenDB())
+    assert result is not None and result[0] == 503
 
 
 # ── Per-user enforcement (user_feature_overrides + feature_tier) ──────────────
@@ -168,8 +175,9 @@ def test_feature_for_path_maps_exact_prefixes():
 def test_per_user_absent_override_is_pass():
     # No override doc at all -> no verdict -> platform checks decide.
     assert _check(_UserDB(), _u(), "/api/ai/chat") == ("pass", None)
-    # No db / no user -> fail open.
-    assert _check(None, _u(), "/api/ai/chat") == ("pass", None)
+    # A missing policy store is unavailable; a missing user is left for the
+    # route's own authentication dependency to reject.
+    assert _check(None, _u(), "/api/ai/chat")[0] == "unavailable"
     assert _check(_UserDB(), None, "/api/ai/chat") == ("pass", None)
 
 
@@ -239,12 +247,12 @@ def test_custom_tier_rank_is_respected():
     assert _check(_UserDB(), _u(feature_tier="ghost_tier"), "/api/more/posts")[0] == "block"
 
 
-def test_per_user_db_error_fails_open():
+def test_per_user_db_error_fails_closed():
     class _BrokenDB:
         async def find_one(self, query, projection=None):
             raise RuntimeError("mongo down")
 
-    assert _check(_BrokenDB(), _u(), "/api/ai/chat") == ("pass", None)
+    assert _check(_BrokenDB(), _u(), "/api/ai/chat")[0] == "unavailable"
 
 
 # ── Editable authorization matrix (db.authz_matrix) ───────────────────────────

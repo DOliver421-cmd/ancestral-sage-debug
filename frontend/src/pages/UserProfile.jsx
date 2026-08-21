@@ -307,8 +307,8 @@ function DealsFinder() {
         </div>
 
         <div className="mt-4 text-center">
-          <Link to="/deals" className="inline-flex items-center gap-2 text-xs font-bold text-copper hover:underline">
-            View all deals <ExternalLink className="w-3 h-3" />
+          <Link to="/partnership/discounts" className="inline-flex items-center gap-2 text-xs font-bold text-copper hover:underline">
+            View partnership discounts <ExternalLink className="w-3 h-3" />
           </Link>
         </div>
       </div>

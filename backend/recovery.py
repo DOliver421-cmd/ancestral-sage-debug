@@ -131,9 +131,20 @@ async def emergency_password_reset(
                 "must_change_password": True,
                 "last_recovery_reset": datetime.now(timezone.utc).isoformat(),
                 "recovery_reason": reason,
-            }
+            },
+            "$inc": {"token_version": 1},
         }
     )
+
+    # Credential recovery invalidates every previously issued device session.
+    # The caller creates one fresh session only after this update succeeds.
+    try:
+        await db.auth_sessions.delete_many({"user_id": (await db.users.find_one({"email": email}, {"_id": 0, "id": 1}) or {}).get("id")})
+    except Exception:
+        # The password update is already committed; callers must fail closed
+        # rather than claim that session revocation completed when the cleanup
+        # store is unavailable.
+        raise
 
     # Log recovery action
     if result.modified_count > 0:

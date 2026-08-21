@@ -510,6 +510,7 @@ async def ec_set_user_role(body: _ExecSetUserRoleReq, request: Request,
     await db.users.update_one({"id": body.user_id},
         {"$set": {"role": body.new_role, "updated_at": datetime.now(timezone.utc).isoformat()},
          "$inc": {"token_version": 1}})  # force re-auth: role change revokes all JWTs
+    await db.auth_sessions.delete_many({"user_id": body.user_id})
     await _exec_audit(actor, "exec.user.role_changed", target_id=body.user_id,
         before={"role": old_role}, after={"role": body.new_role}, request=request, note=body.reason)
     if body.user_id != actor.id:
@@ -532,6 +533,7 @@ async def ec_set_user_tier(body: _ExecSetUserTierReq, request: Request,
         upd["sage_tier"] = body.new_sage_tier
     await db.users.update_one({"id": body.user_id},
         {"$set": upd, "$inc": {"token_version": 1}})  # force re-auth: tier change revokes all JWTs
+    await db.auth_sessions.delete_many({"user_id": body.user_id})
     await _exec_audit(actor, "exec.user.tier_changed", target_id=body.user_id,
         before={"feature_tier": old_ft, "sage_tier": old_st}, after=upd,
         request=request, note=body.reason)
@@ -652,9 +654,11 @@ async def ec_set_authz_matrix(body: _ExecAuthzMatrixReq, request: Request,
     unknown = set(body.requirements) - AUTHZ_FEATURE_KEYS
     if unknown:
         raise HTTPException(400, f"Unknown feature key(s): {sorted(unknown)}")
-    bad_tiers = [t for t in body.requirements.values() if t not in TIER_RANK]
+    custom = await db.tier_definitions.find({}, {"_id": 0, "tier_id": 1}).to_list(100)
+    valid_tiers = set(TIER_RANK) | {t.get("tier_id") for t in custom if t.get("tier_id")}
+    bad_tiers = [t for t in body.requirements.values() if t not in valid_tiers]
     if bad_tiers:
-        raise HTTPException(400, f"Unknown tier(s): {sorted(set(bad_tiers))} — valid: {sorted(TIER_RANK)}")
+        raise HTTPException(400, f"Unknown tier(s): {sorted(set(bad_tiers))} — valid: {sorted(valid_tiers)}")
     now_iso = datetime.now(timezone.utc).isoformat()
     await db.authz_matrix.update_one(
         {"_id": "matrix"},

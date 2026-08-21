@@ -478,8 +478,8 @@ def test_derive_route_min_rank_tree():
     def dep(call):
         return SimpleNS(call=call, dependencies=[])
 
-    # current_user only → user resolved, no rank → None (registry fallback).
-    assert _derive_route_min_rank(SimpleNS(dependencies=[dep(current_user)])) is None
+    # current_user only → authenticated route with the canonical student minimum.
+    assert _derive_route_min_rank(SimpleNS(dependencies=[dep(current_user)])) == 1
     # Rank guard → the exact rank.
     assert _derive_route_min_rank(SimpleNS(dependencies=[dep(_require_rank("admin"))])) == 6
     # Strictest dep wins across nested trees.

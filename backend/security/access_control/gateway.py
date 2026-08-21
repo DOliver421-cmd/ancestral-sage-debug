@@ -60,16 +60,6 @@ _AUTH_MARKERS = (
 # needed_rank (int) — reading them yields the handler's own requirement.
 _RANK_GUARD_MARKERS = ("_require_rank", "require_rank", "require_role", "assert_role")
 
-# Callables that identify a route as user-authenticated (FastAPI deps). A route
-# carrying any of these must go through the gate; a route carrying NONE of them
-# is intentionally public (webhooks, shared-secret endpoints, public widgets)
-# and must never be gated by the middleware.
-_AUTH_MARKERS = (
-    "current_user", "require_user", "_dep_current_user",
-    "_require_rank", "require_role", "assert_role", "require_tier",
-    "_require_executive", "authorize",
-)
-
 
 def _route_has_auth_dep(dependant, _seen=None) -> bool:
     """True iff the route's FastAPI dependency tree resolves the user."""
@@ -193,7 +183,13 @@ def _derive_route_min_rank(dependant) -> Optional[int]:
             if sub and id(sub) not in seen:
                 seen.add(id(sub))
                 stack.append(d)
-    return best if found_auth else None
+    # A plain authenticated route has a real minimum even when it has no
+    # separate role dependency: the established lowest stored role is student.
+    # This makes it governable from the route matrix without inventing a role
+    # or making the gateway stricter than the handler.
+    if found_auth:
+        return best if best is not None else ROLE_RANK["student"]
+    return None
 
 
 def _derive_handler_requirements(app) -> dict:
@@ -322,12 +318,88 @@ class AccessGateway:
 
         return True, "", {}
 
-    def _lookup_handler_rank(self, method: str, path: str) -> Optional[int]:
-        """Handler-derived rank for (method, path), or None (registry fallback)."""
+    def _lookup_handler_entry(self, method: str, path: str) -> Optional[dict]:
+        """Return the registered authenticated route matched by a request."""
         for (m, pat), rank in self._handler_requirements.items():
             if method == m and _matches_public(path, pat):
-                return rank
+                return {"method": m, "path_pattern": pat, "rank": rank}
         return None
+
+    def _lookup_handler_rank(self, method: str, path: str) -> Optional[int]:
+        """Handler-derived rank for (method, path), or None (registry fallback)."""
+        entry = self._lookup_handler_entry(method, path)
+        return entry["rank"] if entry else None
+
+    def _route_spec(self, method: str, path: str, registry_spec=None) -> Optional[dict]:
+        """Build a truthful synthetic registry entry for an authenticated route.
+
+        The static registry remains the named control catalogue. Every other
+        authenticated FastAPI route is still a real gateway surface, keyed by
+        its method and discovered path pattern, so the executive matrix can
+        govern it without pretending an unregistered route is protected.
+        """
+        if registry_spec is not None:
+            return registry_spec
+        entry = self._lookup_handler_entry(method, path)
+        if entry is None:
+            return None
+        required_role = _RANK_TO_ROLE.get(entry["rank"], "student")
+        return {
+            "key": f"route:{entry['method']}:{entry['path_pattern']}",
+            "label": f"{entry['method']} {entry['path_pattern']}",
+            "category": "Authenticated application route",
+            "source": "FastAPI route table",
+            "description": "Discovered from the deployed route dependency graph.",
+            "required_tier": tier_key_for_role(required_role),
+            "min_role": required_role,
+            "routes": [entry["path_pattern"]],
+        }
+
+    async def _load_route_policy(self, method: str, path: str, user=None) -> Optional[dict]:
+        """Read the effective route policy for a request.
+
+        A per-user override is evaluated first, then the executive role policy.
+        Both are additional restrictions; neither can loosen the handler's
+        own dependency-derived minimum rank.
+        """
+        entry = self._lookup_handler_entry(method, path)
+        if entry is None or self._db is None:
+            return None
+        route_key = f"{entry['method']} {entry['path_pattern']}"
+        if user is not None:
+            user_policy = await self._db.user_route_access.find_one(
+                {"user_id": user.id, "route_key": route_key}, {"_id": 0}
+            )
+            if user_policy:
+                return user_policy
+        return await self._db.route_access.find_one(
+            {"route_key": route_key}, {"_id": 0}
+        )
+
+    async def route_access_snapshot(self) -> list:
+        """Return every authenticated route and its live executive policy."""
+        policies = {}
+        if self._db is not None:
+            docs = await self._db.route_access.find({}, {"_id": 0}).to_list(length=10000)
+            policies = {d.get("route_key"): d for d in docs if d.get("route_key")}
+        rows = []
+        for (method, pattern), rank in sorted(self._handler_requirements.items()):
+            route_key = f"{method} {pattern}"
+            policy = policies.get(route_key) or {}
+            role = _RANK_TO_ROLE.get(rank, "student")
+            rows.append({
+                "route_key": route_key,
+                "method": method,
+                "path_pattern": pattern,
+                "handler_min_role": role,
+                "handler_min_rank": rank,
+                "handler_required_tier": tier_key_for_role(role),
+                "enabled": policy.get("enabled", True),
+                "allowed_roles": policy.get("allowed_roles"),
+                "policy_source": "executive_override" if policy else "handler_default",
+                "control": find_control(pattern, method),
+            })
+        return rows
 
     # ── Audit logging (compliance trail) ───────────────────────────────────────
     async def _log_denial(self, user, spec, path, method, reason, detail) -> None:
@@ -445,9 +517,29 @@ class AccessGateway:
             logger.exception("AccessGateway could not resolve user for %s", path)
             return (503, "Access control unavailable — request rejected.")
 
+        # Executive route policy is an additional restriction, never a way to
+        # loosen the handler's own dependency. Missing policy = current behavior.
+        try:
+            policy = await self._load_route_policy(method, path, user)
+        except Exception:
+            logger.exception("Route access policy unavailable for %s %s", method, path)
+            return (503, "Access control unavailable — request rejected.")
+        if policy:
+            allowed_roles = policy.get("allowed_roles")
+            if policy.get("enabled") is False or (
+                isinstance(allowed_roles, list)
+                and user.role not in allowed_roles
+            ):
+                detail = {
+                    "route_key": policy.get("route_key"),
+                    "allowed_roles": allowed_roles or [],
+                }
+                await self._log_denial(user, spec, path, method, "route_policy_denied", detail)
+                return (403, "Access denied — this route is disabled for your role.")
+
         # Enforce at EXACTLY the rank the route's own handler enforces
-        # (derived at wrap time).  Registry values only apply when no rank
-        # is derivable — the gate can never be stricter than the handler.
+        # (derived at wrap time). Registry values apply only when no rank is
+        # derivable — the gateway can never loosen the handler.
         allowed, reason, detail = self._enforce(
             user, spec, effective_rank=self._lookup_handler_rank(method, path)
         )
@@ -476,7 +568,7 @@ class AccessGateway:
                 if method == "OPTIONS":  # CORS preflight passes through
                     return await call_next(request)
                 path = request.url.path
-                spec = find_control(path, method)
+                spec = gateway._route_spec(method, path, find_control(path, method))
                 if spec is None:
                     return await call_next(request)
                 result = await gateway._check(
@@ -510,7 +602,7 @@ class AccessGateway:
             if method == "OPTIONS":  # let CORS preflight through
                 return await app(scope, receive, send)
 
-            spec = find_control(path, method)
+            spec = self._route_spec(path=path, method=method, registry_spec=find_control(path, method))
             if spec is None:
                 return await app(scope, receive, send)
 

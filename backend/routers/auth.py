@@ -237,6 +237,7 @@ async def _apply_password_reset(target_id: str, new_password: str,
         },
         "$inc": {"token_version": 1},  # credential rotation revokes all prior JWTs
     })
+    await db.auth_sessions.delete_many({"user_id": target_id})
     await db.password_reset_tokens.update_one(
         {"token_hash": token_hash},
         {"$set": {"used_at": now, "used_ip": ip}},
@@ -252,7 +253,8 @@ async def _apply_password_reset(target_id: str, new_password: str,
 
 # ── Endpoints (extracted verbatim from server.py) ────────────────────────────
 @router.post("/auth/register", response_model=TokenResp)
-async def register(body: RegisterReq):
+async def register(body: RegisterReq, request: Request):
+
     # Anti-spam: max 5 registrations per email-prefix per minute (very generous,
     # but stops the trivial "for i in range(10000): register" attack).
     check_rate(f"register:{body.email}", max_calls=5, window_sec=60)
@@ -276,14 +278,36 @@ async def register(body: RegisterReq):
     doc = user.model_dump()
     doc["created_at"] = doc["created_at"].isoformat()
     doc["password_hash"] = hash_pw(body.password)
+    doc["token_version"] = 0
     # Record consent timestamp for GDPR audit trail
     doc["terms_accepted_at"] = datetime.now(timezone.utc).isoformat()
     doc["over_13_confirmed"] = True
     await db.users.insert_one(doc)
+    # Registration tokens are session-bound just like login tokens. If the
+    # session record cannot be created, do not issue an untracked token.
+    session_id = str(uuid.uuid4())
+    try:
+        await db.auth_sessions.insert_one({
+            "session_id": session_id,
+            "user_id": user.id,
+            "user_agent": request.headers.get("user-agent", "")[:200],
+            "ip": request.client.host if request.client else None,
+            "created_at": datetime.now(timezone.utc).isoformat(),
+            "last_seen": datetime.now(timezone.utc).isoformat(),
+        })
+    except Exception:
+        logger.exception("register: session recording failed")
+        # Do not leave an account that can neither authenticate nor be
+        # deterministically resumed after a session-store failure.
+        await db.users.delete_one({"id": user.id})
+        raise HTTPException(503, "Unable to establish a secure session. Please try again.")
     await audit(user.id, "auth.register.success", meta={"consent_terms": True, "over_13": True})
     # Send welcome email — fire-and-forget, never blocks registration
     asyncio.create_task(_send_welcome_email(user.email, user.full_name))
-    return TokenResp(access_token=make_token(user.id, user.role), user=user)
+    return TokenResp(
+        access_token=make_token(user.id, user.role, extra={"tv": 0, "session_id": session_id}),
+        user=user,
+    )
 
 
 @router.post("/auth/login", response_model=TokenResp)
@@ -361,8 +385,9 @@ async def login(body: LoginReq, request: Request):
             "last_seen": datetime.now(timezone.utc).isoformat(),
         })
     except Exception:
-        logger.warning("login: session recording failed (non-fatal)")
-    _extra = {"session_id": _session_id} if _session_id else None
+        logger.exception("login: session recording failed")
+        raise HTTPException(503, "Unable to establish a secure session. Please try again.")
+    _extra = {"tv": int(doc.get("token_version", 0)), "session_id": _session_id}
     return TokenResp(access_token=make_token(user.id, user.role, extra=_extra), user=user)
 
 
@@ -492,7 +517,8 @@ async def gdpr_reconsent(body: dict, user: UserOut = Depends(_dep_current_user))
 
 
 @router.post("/auth/change-password")
-async def change_password(body: ChangePasswordReq, user: UserOut = Depends(_dep_current_user)):
+async def change_password(body: ChangePasswordReq, request: Request,
+                          user: UserOut = Depends(_dep_current_user)):
     """Any authenticated user can change their own password.
     Returns a fresh token + updated user so the client can update its cache
     immediately without relying on a follow-up /auth/me call."""
@@ -508,6 +534,23 @@ async def change_password(body: ChangePasswordReq, user: UserOut = Depends(_dep_
         },
         "$inc": {"token_version": 1},  # credential rotation revokes ALL sessions (fresh token issued below)
     })
+    # Password rotation revokes every prior session. Establish one fresh,
+    # tracked session for the response token so single-session logout remains
+    # meaningful after a password change.
+    await db.auth_sessions.delete_many({"user_id": user.id})
+    fresh_session_id = str(uuid.uuid4())
+    try:
+        await db.auth_sessions.insert_one({
+            "session_id": fresh_session_id,
+            "user_id": user.id,
+            "user_agent": request.headers.get("user-agent", "")[:200],
+            "ip": request.client.host if request.client else None,
+            "created_at": datetime.now(timezone.utc).isoformat(),
+            "last_seen": datetime.now(timezone.utc).isoformat(),
+        })
+    except Exception:
+        logger.exception("change-password: session recording failed")
+        raise HTTPException(503, "Password changed, but a secure session could not be created. Please sign in again.")
     await audit(user.id, "auth.password_changed")
     # Fetch fresh user doc (must_change_password now False) and issue new token
     fresh_doc = await db.users.find_one({"id": user.id}, {"_id": 0, "password_hash": 0})
@@ -516,7 +559,14 @@ async def change_password(body: ChangePasswordReq, user: UserOut = Depends(_dep_
     fresh_user = UserOut(**(fresh_doc or {}))
     return {
         "ok": True,
-        "access_token": make_token(fresh_user.id, fresh_user.role),
+        "access_token": make_token(
+            fresh_user.id,
+            fresh_user.role,
+            extra={
+                "tv": int(fresh_doc.get("token_version", 0)) if fresh_doc else 0,
+                "session_id": fresh_session_id,
+            },
+        ),
         "user": fresh_user.model_dump(),
     }
 
@@ -755,8 +805,29 @@ async def emergency_recovery(body: EmergencyRecoveryReq, request: Request):
         logger.error("Recovery password reset failed for %s: %s", body.email, exc)
         raise HTTPException(500, "Password reset failed — contact administrator")
 
+    # Recovery rotates credentials and invalidates every prior session. Issue
+    # one new tracked session using the incremented token generation.
+    await db.auth_sessions.delete_many({"user_id": user_doc["id"]})
+    recovery_session_id = str(uuid.uuid4())
+    try:
+        await db.auth_sessions.insert_one({
+            "session_id": recovery_session_id,
+            "user_id": user_doc["id"],
+            "user_agent": request.headers.get("user-agent", "")[:200],
+            "ip": request.client.host if request.client else None,
+            "created_at": datetime.now(timezone.utc).isoformat(),
+            "last_seen": datetime.now(timezone.utc).isoformat(),
+        })
+    except Exception:
+        logger.exception("emergency-recovery: session recording failed")
+        raise HTTPException(503, "Password reset succeeded, but a secure session could not be created. Please sign in again.")
+    user_doc["token_version"] = int(user_doc.get("token_version", 0)) + 1
     # Issue JWT token for immediate login
-    token = make_token(user_doc["id"], user_doc.get("role", "student"))
+    token = make_token(
+        user_doc["id"],
+        user_doc.get("role", "student"),
+        extra={"tv": int(user_doc.get("token_version", 0)), "session_id": recovery_session_id},
+    )
     await audit(user_doc["id"], "auth.emergency_recovery.completed",
                 target=user_doc["id"], meta={"ip": ip, "recovery_used": True})
 
@@ -997,8 +1068,29 @@ async def cross_site_login(body: dict, request: Request):
         await db.users.insert_one(user_doc)
         logger.info("Cross-site: auto-created user %s (%s)", email, role)
     
+    # Bind the local token to a tracked session just like password login.
+    cross_site_session_id = str(uuid.uuid4())
+    try:
+        now_iso = datetime.now(timezone.utc).isoformat()
+        await db.auth_sessions.insert_one({
+            "session_id": cross_site_session_id,
+            "user_id": user_doc["id"],
+            "user_agent": request.headers.get("user-agent", "")[:200],
+            "ip": request.client.host if request.client else None,
+            "created_at": now_iso,
+            "last_seen": now_iso,
+            "source": "partner_site",
+        })
+    except Exception:
+        logger.exception("cross-site-login: session recording failed")
+        raise HTTPException(503, "Unable to establish a secure session. Please try again.")
+
     # Issue a local JWT
-    token_raw = make_token(user_doc["id"], user_doc.get("role", "student"))
+    token_raw = make_token(
+        user_doc["id"],
+        user_doc.get("role", "student"),
+        extra={"tv": int(user_doc.get("token_version", 0)), "session_id": cross_site_session_id},
+    )
     
     # Audit the cross-site login
     await audit(user_doc["id"], "cross_site.login", meta={

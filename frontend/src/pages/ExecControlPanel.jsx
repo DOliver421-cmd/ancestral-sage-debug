@@ -101,22 +101,50 @@ export default function ExecControlPanel() {
   const [users,   setUsers]   = useState([]);
   const [accessPages, setAccessPages] = useState([]);
   const [accessBusy, setAccessBusy] = useState(null);
+  const [routeAccess, setRouteAccess] = useState([]);
+  const [routeSearch, setRouteSearch] = useState("");
+  const [authzMatrix, setAuthzMatrix] = useState(null);
+  const [authzBusy, setAuthzBusy] = useState(false);
+  const [userRouteForm, setUserRouteForm] = useState({ user_id: "", route_key: "", enabled: false, reason: "" });
+  const [userRouteBusy, setUserRouteBusy] = useState(false);
+
+  // One executive surface for real user provisioning and lifecycle CRUD.
+  const [provisionForm, setProvisionForm] = useState({ email: "", full_name: "", password: "", role: "student", associate: "" });
+  const [provisionBusy, setProvisionBusy] = useState(false);
+  const [lifecycleForm, setLifecycleForm] = useState({ user_id: "", full_name: "", email: "", associate: "", new_password: "", ban_reason: "" });
+  const [lifecycleBusy, setLifecycleBusy] = useState(false);
+
+  const selectLifecycleUser = (userId) => {
+    const target = users.find((candidate) => candidate.id === userId);
+    setLifecycleForm({
+      user_id: userId,
+      full_name: target?.full_name || "",
+      email: target?.email || "",
+      associate: target?.associate || "",
+      new_password: "",
+      ban_reason: target?.ban_reason || "",
+    });
+  };
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const [sR, aR, gR, uR, xR] = await Promise.allSettled([
+      const [sR, aR, gR, uR, xR, rR, mR] = await Promise.allSettled([
         api.get("/exec/control/state"),
         api.get("/exec/control/audit?limit=30"),
         api.get("/exec/control/break-glass/active"),
         api.get("/admin/users?limit=200"),
         api.get("/exec/control/access"),
+        api.get("/exec/control/route-access"),
+        api.get("/exec/control/authz-matrix"),
       ]);
       if (sR.status === "fulfilled") setState(sR.value.data);
       if (aR.status === "fulfilled") setAudit(aR.value.data?.records || []);
       if (gR.status === "fulfilled") setGlass(gR.value.data?.active_overrides || []);
       if (uR.status === "fulfilled") setUsers(uR.value.data?.users || uR.value.data || []);
       if (xR.status === "fulfilled") setAccessPages(xR.value.data?.pages || []);
+      if (rR.status === "fulfilled") setRouteAccess(rR.value.data?.routes || []);
+      if (mR.status === "fulfilled") setAuthzMatrix(mR.value.data || null);
     } catch (e) {
       toast.error("Failed to load exec state");
     } finally {
@@ -125,6 +153,75 @@ export default function ExecControlPanel() {
   }, []);
 
   useEffect(() => { load(); }, [load]);
+
+  async function provisionUser() {
+    if (!provisionForm.email.trim() || !provisionForm.full_name.trim() || provisionForm.password.length < 8) {
+      return toast.error("Email, full name, and an 8-character password are required");
+    }
+    setProvisionBusy(true);
+    try {
+      await api.post("/admin/users", {
+        email: provisionForm.email.trim().toLowerCase(),
+        full_name: provisionForm.full_name.trim(),
+        password: provisionForm.password,
+        role: provisionForm.role,
+        ...(provisionForm.associate.trim() ? { associate: provisionForm.associate.trim() } : {}),
+      });
+      toast.success("User provisioned");
+      setProvisionForm({ email: "", full_name: "", password: "", role: "student", associate: "" });
+      load();
+    } catch (e) { toast.error(e?.response?.data?.detail || "Failed to provision user"); }
+    finally { setProvisionBusy(false); }
+  }
+
+  async function saveLifecycleIdentity() {
+    if (!lifecycleForm.user_id || !lifecycleForm.full_name.trim() || !lifecycleForm.email.trim()) {
+      return toast.error("Choose a user and provide a name and email");
+    }
+    setLifecycleBusy(true);
+    try {
+      await api.patch(`/admin/users/${lifecycleForm.user_id}`, {
+        full_name: lifecycleForm.full_name.trim(),
+        email: lifecycleForm.email.trim().toLowerCase(),
+        associate: lifecycleForm.associate.trim() || null,
+      });
+      if (lifecycleForm.new_password.trim()) {
+        if (lifecycleForm.new_password.trim().length < 8) throw new Error("Password must be at least 8 characters");
+        await api.post(`/admin/users/${lifecycleForm.user_id}/password`, { new_password: lifecycleForm.new_password.trim() });
+      }
+      toast.success("Identity and credentials updated; prior sessions were revoked");
+      setLifecycleForm((form) => ({ ...form, new_password: "" }));
+      load();
+    } catch (e) { toast.error(e?.response?.data?.detail || e.message || "Failed to update identity"); }
+    finally { setLifecycleBusy(false); }
+  }
+
+  async function lifecycleAction(action) {
+    const uid = lifecycleForm.user_id;
+    if (!uid) return toast.error("Choose a user first");
+    const target = users.find((candidate) => candidate.id === uid);
+    if (!target) return toast.error("Selected user is no longer available");
+    if (action === "delete" && !window.confirm(`Permanently delete ${target.email}? This cannot be undone.`)) return;
+    if (action === "ban" && lifecycleForm.ban_reason.trim().length < 5) return toast.error("Ban reason must be at least 5 characters");
+    setLifecycleBusy(true);
+    try {
+      if (action === "active") {
+        await api.patch(`/admin/users/${uid}/active`, { is_active: target.is_active === false });
+      } else if (action === "ban") {
+        await api.post(`/admin/users/${uid}/ban`, { reason: lifecycleForm.ban_reason.trim() });
+      } else if (action === "unban") {
+        await api.post(`/admin/users/${uid}/unban`);
+      } else if (action === "logout") {
+        await api.delete(`/admin/users/${uid}/sessions`);
+      } else if (action === "delete") {
+        await api.delete(`/admin/users/${uid}`);
+        setLifecycleForm({ user_id: "", full_name: "", email: "", associate: "", new_password: "", ban_reason: "" });
+      }
+      toast.success(action === "active" ? "Account status updated" : action === "logout" ? "All sessions revoked" : `User ${action} complete`);
+      load();
+    } catch (e) { toast.error(e?.response?.data?.detail || `Failed to ${action} user`); }
+    finally { setLifecycleBusy(false); }
+  }
 
   /* ── User Role ── */
   const [roleForm, setRoleForm] = useState({ user_id: "", new_role: "student", reason: "" });
@@ -237,6 +334,59 @@ export default function ExecControlPanel() {
     }
   }
 
+  /* ── Live route authorization matrix ── */
+  const visibleRoutes = routeAccess.filter(r => {
+    const q = routeSearch.trim().toLowerCase();
+    return !q || r.route_key.toLowerCase().includes(q);
+  });
+
+  async function setRoutePolicy(row, patch) {
+    setAccessBusy(`route:${row.route_key}`);
+    try {
+      await api.patch("/exec/control/route-access", { route_key: row.route_key, ...patch });
+      toast.success(`Policy updated for ${row.route_key}`);
+      load();
+    } catch (e) {
+      toast.error(e?.response?.data?.detail || "Failed to update route policy");
+    } finally {
+      setAccessBusy(null);
+    }
+  }
+
+  async function saveAuthzMatrix() {
+    if (!authzMatrix) return;
+    setAuthzBusy(true);
+    try {
+      const requirements = Object.fromEntries((authzMatrix.features || []).map(f => [f.key, f.min_tier]));
+      const r = await api.post("/exec/control/authz-matrix", {
+        requirements,
+        reason: "Updated from Sovereign Command authorization matrix",
+      });
+      setAuthzMatrix(m => ({ ...m, effective: r.data?.effective || requirements }));
+      toast.success("Feature tier matrix saved and enforced server-side");
+    } catch (e) {
+      toast.error(e?.response?.data?.detail || "Failed to save authorization matrix");
+    } finally {
+      setAuthzBusy(false);
+    }
+  }
+
+  async function saveUserRouteOverride() {
+    if (!userRouteForm.user_id || !userRouteForm.route_key || !userRouteForm.reason.trim()) {
+      return toast.error("Choose a user, route, and provide a reason");
+    }
+    setUserRouteBusy(true);
+    try {
+      await api.patch("/exec/control/user-route-access", userRouteForm);
+      toast.success("Per-user route override saved");
+      setUserRouteForm(f => ({ ...f, reason: "" }));
+    } catch (e) {
+      toast.error(e?.response?.data?.detail || "Failed to save per-user override");
+    } finally {
+      setUserRouteBusy(false);
+    }
+  }
+
   /* ── Break Glass ── */
   const [bgForm, setBgForm] = useState({ reason: "", scope: "sage_pipeline", target_uid: "", duration_minutes: 60 });
   const [bgBusy, setBgBusy] = useState(false);
@@ -314,6 +464,53 @@ export default function ExecControlPanel() {
         )}
 
         {/* ── USER CONTROLS ── */}
+        <Section icon={Users} title="Provisioning & Identity Lifecycle" defaultOpen={true}>
+          <p style={{ fontSize: "0.78rem", color: "#7a6e5a", marginBottom: "0.9rem", lineHeight: 1.6 }}>
+            These controls write to the live users collection. Credential, role, tier, activation, ban, deletion, and logout mutations are server-authorized and revoke affected sessions.
+          </p>
+          <div style={{ color: "#d4af37", fontSize: "0.7rem", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "0.45rem" }}>Create user</div>
+          <div style={ROW}>
+            <Input value={provisionForm.full_name} onChange={e => setProvisionForm(f => ({ ...f, full_name: e.target.value }))} placeholder="Full name" aria-label="New user's full name" />
+            <Input type="email" value={provisionForm.email} onChange={e => setProvisionForm(f => ({ ...f, email: e.target.value }))} placeholder="Email" aria-label="New user's email" />
+          </div>
+          <div style={{ ...ROW, marginTop: "0.65rem" }}>
+            <Input type="password" value={provisionForm.password} onChange={e => setProvisionForm(f => ({ ...f, password: e.target.value }))} placeholder="Temporary password (8+ chars)" aria-label="Temporary password" />
+            <Select value={provisionForm.role} onChange={e => setProvisionForm(f => ({ ...f, role: e.target.value }))} aria-label="New user's role">
+              {ROLES.map(role => <option key={role} value={role}>{role}</option>)}
+            </Select>
+          </div>
+          <Input value={provisionForm.associate} onChange={e => setProvisionForm(f => ({ ...f, associate: e.target.value }))} placeholder="Associate / cohort (optional)" style={{ marginTop: "0.65rem" }} />
+          <div style={{ marginTop: "0.65rem" }}><Btn onClick={provisionUser} busy={provisionBusy}>Create Account</Btn></div>
+
+          <div style={{ marginTop: "1.2rem", paddingTop: "1rem", borderTop: "1px solid rgba(212,175,55,0.12)" }}>
+            <div style={{ color: "#d4af37", fontSize: "0.7rem", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "0.45rem" }}>Edit identity, credentials, and status</div>
+            <Select value={lifecycleForm.user_id} onChange={e => selectLifecycleUser(e.target.value)} aria-label="Select user for lifecycle controls">
+              <option value="">— choose user —</option>
+              {users.map(u => <option key={u.id} value={u.id}>{u.email} ({u.role})</option>)}
+            </Select>
+            {lifecycleForm.user_id && (
+              <>
+                <div style={{ ...ROW, marginTop: "0.65rem" }}>
+                  <Input value={lifecycleForm.full_name} onChange={e => setLifecycleForm(f => ({ ...f, full_name: e.target.value }))} placeholder="Full name" />
+                  <Input type="email" value={lifecycleForm.email} onChange={e => setLifecycleForm(f => ({ ...f, email: e.target.value }))} placeholder="Email" />
+                </div>
+                <div style={{ ...ROW, marginTop: "0.65rem" }}>
+                  <Input value={lifecycleForm.associate} onChange={e => setLifecycleForm(f => ({ ...f, associate: e.target.value }))} placeholder="Associate / cohort" />
+                  <Input type="password" value={lifecycleForm.new_password} onChange={e => setLifecycleForm(f => ({ ...f, new_password: e.target.value }))} placeholder="New password (optional)" />
+                </div>
+                <Input value={lifecycleForm.ban_reason} onChange={e => setLifecycleForm(f => ({ ...f, ban_reason: e.target.value }))} placeholder="Ban reason (required only to ban)" style={{ marginTop: "0.65rem" }} />
+                <div style={{ display: "flex", flexWrap: "wrap", gap: "0.5rem", marginTop: "0.7rem" }}>
+                  <Btn onClick={saveLifecycleIdentity} busy={lifecycleBusy}>Save Identity</Btn>
+                  <Btn onClick={() => lifecycleAction("active")} busy={lifecycleBusy}>{users.find(u => u.id === lifecycleForm.user_id)?.is_active === false ? "Activate" : "Deactivate"}</Btn>
+                  {users.find(u => u.id === lifecycleForm.user_id)?.banned ? <Btn onClick={() => lifecycleAction("unban")} busy={lifecycleBusy}>Unban</Btn> : <Btn onClick={() => lifecycleAction("ban")} busy={lifecycleBusy} danger>Ban</Btn>}
+                  <Btn onClick={() => lifecycleAction("logout")} busy={lifecycleBusy}>Revoke Sessions</Btn>
+                  <Btn onClick={() => lifecycleAction("delete")} busy={lifecycleBusy} danger>Delete User</Btn>
+                </div>
+              </>
+            )}
+          </div>
+        </Section>
+
         <Section icon={Users} title="User Role" defaultOpen={true}>
           <div style={ROW}>
             <Field label="Select User">
@@ -518,6 +715,70 @@ export default function ExecControlPanel() {
             {accessPages.length === 0 && (
               <p style={{ fontSize: "0.78rem", color: "#7a6e5a" }}>Loading registry…</p>
             )}
+          </div>
+        </Section>
+
+        {/* ── AUTHORIZATION MATRIX ── */}
+        <Section icon={Shield} title="Feature Tier Authorization Matrix" defaultOpen={true}>
+          <p style={{ fontSize: "0.78rem", color: "#7a6e5a", marginBottom: "0.75rem", lineHeight: 1.6 }}>
+            These are the feature gates the backend actually evaluates. Changing a row writes the live authorization policy; it is not a frontend-only label.
+          </p>
+          {authzMatrix?.features?.map(feature => (
+            <div key={feature.key} style={{ display: "grid", gridTemplateColumns: "1.2fr 1fr 1.6fr auto", gap: "0.65rem", alignItems: "center", padding: "0.55rem 0", borderBottom: "1px solid rgba(212,175,55,0.1)" }}>
+              <span style={{ color: "#e8dfc8", fontSize: "0.8rem", fontWeight: "bold" }}>{feature.label}</span>
+              <Select value={feature.min_tier} onChange={e => setAuthzMatrix(m => ({ ...m, features: m.features.map(f => f.key === feature.key ? { ...f, min_tier: e.target.value } : f) }))}>
+                {(authzMatrix.tiers || []).map(t => <option key={t} value={t}>{t}</option>)}
+              </Select>
+              <span style={{ color: "#aaa08f", fontSize: "0.7rem" }}>{feature.api} · {feature.detail}</span>
+              <span style={{ color: "#6dbd8a", fontSize: "0.68rem", fontWeight: "bold" }}>LIVE</span>
+            </div>
+          ))}
+          <div style={{ marginTop: "0.8rem" }}><Btn onClick={saveAuthzMatrix} busy={authzBusy}>Save Feature Matrix</Btn></div>
+        </Section>
+
+        {/* ── LIVE ROUTE MATRIX ── */}
+        <Section icon={Lock} title={`Live API Route Matrix (${routeAccess.length})`} defaultOpen={false}>
+          <p style={{ fontSize: "0.78rem", color: "#7a6e5a", marginBottom: "0.75rem", lineHeight: 1.6 }}>
+            Every authenticated FastAPI route is discovered from its real dependency graph. Handler minimums cannot be loosened; executive policies can further restrict which stored roles may use a route.
+          </p>
+          <Input value={routeSearch} onChange={e => setRouteSearch(e.target.value)} placeholder="Search method, path, or feature…" style={{ marginBottom: "0.75rem" }} />
+          <div style={{ maxHeight: 520, overflowY: "auto", border: "1px solid rgba(212,175,55,0.12)", borderRadius: 8 }}>
+            {visibleRoutes.slice(0, 250).map(row => {
+              const selected = row.allowed_roles || [];
+              const busy = accessBusy === `route:${row.route_key}`;
+              return (
+                <div key={row.route_key} style={{ display: "grid", gridTemplateColumns: "minmax(220px, 1.8fr) 0.8fr 1.4fr auto", gap: "0.6rem", alignItems: "center", padding: "0.55rem 0.65rem", borderBottom: "1px solid rgba(212,175,55,0.08)" }}>
+                  <span style={{ color: "#e8dfc8", fontSize: "0.7rem", fontFamily: "monospace", overflowWrap: "anywhere" }}>{row.route_key}</span>
+                  <span style={{ color: "#d4af37", fontSize: "0.68rem" }}>min {row.handler_min_role}</span>
+                  <Select multiple value={selected} onChange={e => setRoutePolicy(row, { allowed_roles: Array.from(e.target.selectedOptions).map(o => o.value), enabled: row.enabled })} style={{ minHeight: 42, fontSize: "0.68rem" }} aria-label={`Allowed roles for ${row.route_key}`}>
+                    {ROLES.map(role => <option key={role} value={role}>{role}</option>)}
+                  </Select>
+                  <button onClick={() => setRoutePolicy(row, { enabled: !row.enabled, allowed_roles: row.allowed_roles })} disabled={busy} style={{ border: `1px solid ${row.enabled ? "rgba(109,189,138,0.35)" : "rgba(239,68,68,0.35)"}`, background: "transparent", color: row.enabled ? "#6dbd8a" : "#ef4444", borderRadius: 6, padding: "0.35rem 0.5rem", fontSize: "0.65rem", cursor: "pointer" }}>{busy ? "…" : row.enabled ? "ON" : "OFF"}</button>
+                </div>
+              );
+            })}
+          </div>
+          {visibleRoutes.length > 250 && <div style={{ color: "#7a6e5a", fontSize: "0.7rem", marginTop: "0.5rem" }}>Showing 250 of {visibleRoutes.length}; search to narrow.</div>}
+          <div style={{ marginTop: "1rem", paddingTop: "0.8rem", borderTop: "1px solid rgba(212,175,55,0.12)" }}>
+            <div style={{ color: "#d4af37", fontSize: "0.7rem", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "0.45rem" }}>Per-user route exception</div>
+            <div style={ROW}>
+              <Select value={userRouteForm.user_id} onChange={e => setUserRouteForm(f => ({ ...f, user_id: e.target.value }))}>
+                <option value="">— choose user —</option>
+                {users.map(u => <option key={u.id} value={u.id}>{u.email} ({u.role})</option>)}
+              </Select>
+              <Select value={userRouteForm.route_key} onChange={e => setUserRouteForm(f => ({ ...f, route_key: e.target.value }))}>
+                <option value="">— choose route —</option>
+                {routeAccess.map(r => <option key={r.route_key} value={r.route_key}>{r.route_key}</option>)}
+              </Select>
+            </div>
+            <div style={{ ...ROW, marginTop: "0.65rem" }}>
+              <Select value={userRouteForm.enabled ? "true" : "false"} onChange={e => setUserRouteForm(f => ({ ...f, enabled: e.target.value === "true" }))}>
+                <option value="false">Deny this user</option>
+                <option value="true">Allow this user</option>
+              </Select>
+              <Input value={userRouteForm.reason} onChange={e => setUserRouteForm(f => ({ ...f, reason: e.target.value }))} placeholder="Reason (required)" />
+            </div>
+            <div style={{ marginTop: "0.65rem" }}><Btn onClick={saveUserRouteOverride} busy={userRouteBusy}>Save Per-User Override</Btn></div>
           </div>
         </Section>
 

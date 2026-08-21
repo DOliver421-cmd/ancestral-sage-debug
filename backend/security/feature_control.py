@@ -25,14 +25,13 @@ Current enforcement surface (paths are API prefixes, not frontend routes):
 
 Anything not in the maps below is not enforced by this module yet — that is
 deliberate: the maps are the enforcement contract, and every entry must be
-verified against the real route table before it is added.
-
-Per-user enforcement (user_feature_overrides + feature_tier) lives in
+verified against the real route table before it is added.    Per-user enforcement (user_feature_overrides + feature_tier) lives in
 check_user_feature_access() and runs in the same middleware, but only for
 requests that carry a valid session: an explicit per-user revoke/grant wins
 over the platform checks, and the user's feature_tier is compared against
 FEATURE_MIN_TIER (the exact mirror of frontend/src/lib/tiers.js).  Absent
-override == no verdict == behave exactly as before this module existed.
+configuration remains available; inability to verify a mapped feature is a
+503, never an allow.
 """
 
 from __future__ import annotations
@@ -127,23 +126,36 @@ def _tier_rank_of(feature_tier, custom_tiers) -> int:
     return 0
 
 
-async def load_feature_tier_requirements(db):
-    """Effective feature->min-tier map: the DB authorization matrix over code defaults.
+async def load_feature_tier_requirements(db, *, fail_closed: bool = False):
+    """Load the effective feature->minimum-tier authorization matrix.
 
-    Only keys that exist in the code defaults are honored — the enforcement
-    contract is the code map, so a bad write can never create a gate for an
-    unmapped feature.  Absent doc / DB error -> code defaults (identical to
-    today's behavior: deploy changes nothing until an executive edits the
-    matrix in the console).
+    Missing configuration is safe and keeps the code defaults.  A database
+    failure is different: callers enforcing a mapped request must reject it
+    rather than silently treating an unavailable policy store as permission.
+    Dashboard/reporting callers may retain the default behavior by leaving
+    ``fail_closed`` false.
     """
     req = dict(FEATURE_MIN_TIER)
     try:
         doc = await db.authz_matrix.find_one({"_id": "matrix"}, {"_id": 0, "requirements": 1})
     except Exception:
+        if fail_closed:
+            raise
         return req
     stored = (doc or {}).get("requirements") or {}
+    custom_ids = set()
+    try:
+        custom_docs = await db.tier_definitions.find(
+            {}, {"_id": 0, "tier_id": 1, "rank": 1}
+        ).to_list(100)
+        custom_ids = {d.get("tier_id") for d in custom_docs if d.get("tier_id")}
+    except Exception:
+        # Custom tiers are optional. Built-in policy remains usable when the
+        # optional definitions collection is absent; enforcement will fail
+        # closed if a request actually needs an unavailable custom tier.
+        custom_ids = set()
     for key, tier in stored.items():
-        if key in req and tier in TIER_RANK:
+        if key in req and (tier in TIER_RANK or tier in custom_ids):
             req[key] = tier
     return req
 
@@ -153,18 +165,21 @@ async def check_user_feature_access(db, user, path: str):
     feature_tier.
 
     Returns (action, detail):
-      ("block", msg)  — deny the request (403 with msg)
-      ("allow", None) — explicit per-user grant; skip the platform checks
-      ("pass", None)  — no per-user verdict; continue to platform checks
+      ("block", msg)       — deny the request (403 with msg)
+      ("allow", None)       — explicit per-user grant; skip platform checks
+      ("pass", None)        — no per-user verdict; continue platform checks
+      ("unavailable", msg) — policy data could not be verified (503)
 
     Precedence: an explicit per-user revoke/grant (flags.<feature> or
     ai_access_override.all) wins over everything.  Only then is the user's
-    feature_tier compared against FEATURE_MIN_TIER.  Absent config == allow;
-    db/user None or DB errors fail open.
+    feature_tier compared against FEATURE_MIN_TIER.  An unmapped path or an
+    absent override document passes; a DB error on a mapped path fails closed.
     """
     feature = feature_for_path(path)
-    if feature is None or db is None or user is None:
+    if feature is None or user is None:
         return ("pass", None)
+    if db is None:
+        return ("unavailable", "Feature authorization unavailable — request rejected.")
 
     overrides = None
     try:
@@ -172,7 +187,7 @@ async def check_user_feature_access(db, user, path: str):
             {"user_id": user.id}, {"_id": 0}
         )
     except Exception:
-        overrides = None  # fail-open on DB errors (never block the site)
+        return ("unavailable", "Feature authorization unavailable — request rejected.")
 
     # ── 1. Per-user flag override (explicit revoke/grant wins over everything) ──
     flags = (overrides or {}).get("flags") or {}
@@ -190,12 +205,10 @@ async def check_user_feature_access(db, user, path: str):
     # ── 3. Feature-tier requirement (editable authorization matrix) ────────────
     # The matrix is DB-backed (db.authz_matrix, edited from the exec console);
     # code defaults apply until an executive changes it.  Absent config == allow.
-    requirements = FEATURE_MIN_TIER
-    if db is not None:
-        try:
-            requirements = await load_feature_tier_requirements(db)
-        except Exception:
-            requirements = FEATURE_MIN_TIER
+    try:
+        requirements = await load_feature_tier_requirements(db, fail_closed=True)
+    except Exception:
+        return ("unavailable", "Feature authorization unavailable — request rejected.")
     required = requirements.get(feature)
     if required:
         if user.role in TIER_EXEMPT_ROLES:
@@ -203,14 +216,18 @@ async def check_user_feature_access(db, user, path: str):
         if feature in FEATURE_INSTRUCTOR_BYPASS and user.role == "instructor":
             return ("pass", None)
         custom_tiers = []
-        if user.feature_tier not in TIER_RANK:
+        if user.feature_tier not in TIER_RANK or required not in TIER_RANK:
             try:
                 custom_tiers = await db.tier_definitions.find(
                     {}, {"_id": 0, "tier_id": 1, "rank": 1}
                 ).to_list(100)
             except Exception:
-                custom_tiers = []
-        if _tier_rank_of(user.feature_tier, custom_tiers) < TIER_RANK[required]:
+                return ("unavailable", "Feature authorization unavailable — request rejected.")
+        user_rank = _tier_rank_of(user.feature_tier, custom_tiers)
+        required_rank = TIER_RANK.get(required)
+        if required_rank is None:
+            required_rank = _tier_rank_of(required, custom_tiers)
+        if required_rank is None or user_rank < required_rank:
             label = TIER_LABELS.get(required, required)
             return ("block", f"This feature requires the {label} plan or higher. Please upgrade to continue.")
 
@@ -218,29 +235,56 @@ async def check_user_feature_access(db, user, path: str):
 
 
 async def check_request_config(db, path: str, flags_doc: Optional[dict] = None) -> Optional[tuple]:
-    """Return (status_code, detail) to reject *path* with, or None to allow.
+    """Return ``(status_code, detail)`` to reject *path*, or ``None``.
 
-    Runs AFTER the existing platform_locked check.  Only blocks when an
-    explicit ``enabled: false`` exists for a mapped flag/page.  db may be None
-    (database disabled) — then nothing is ever blocked.
+    Missing flag/page documents are intentionally available.  A mapped request
+    whose policy database cannot be read is rejected with 503 because the
+    server cannot prove that the executive has permitted it.
     """
-    # ── Platform feature flags ────────────────────────────────────────────────
-    for flag, prefixes in FEATURE_API_PATHS.items():
-        if _path_in(path, prefixes) and not platform_flag_enabled(flags_doc, flag):
-            return (403, f"'{flag}' is currently disabled by the executive team. Please check back later.")
+    mapped_flag = next(
+        (flag for flag, prefixes in FEATURE_API_PATHS.items() if _path_in(path, prefixes)),
+        None,
+    )
+    mapped_page = next(
+        (page for page, prefixes in PAGE_API_PATHS.items() if _path_in(path, prefixes)),
+        None,
+    )
+    if mapped_flag is None and mapped_page is None:
+        return None
 
-    # ── Page access board (server-side, not just hidden in the frontend) ─────
-    for page_key, prefixes in PAGE_API_PATHS.items():
-        if _path_in(path, prefixes):
-            page_doc = None
-            if db is not None:
-                try:
-                    page_doc = await db.page_access.find_one(
-                        {"page": page_key}, {"_id": 0, "enabled": 1}
-                    )
-                except Exception:
-                    page_doc = None  # fail-open on DB errors (never block the site)
-            if not page_access_enabled(page_doc):
-                return (403, f"This feature is currently disabled by the executive team. Please check back later.")
+    # A caller may already have supplied the platform-flags document (the live
+    # middleware does this).  In that case a flag decision is verifiable even
+    # when the small unit-test/fallback caller has no database handle.  If the
+    # document was not supplied, load it from the policy store; an unavailable
+    # store is never treated as permission.
+    if mapped_flag and flags_doc is None:
+        if db is None:
+            return (503, "Feature authorization unavailable — request rejected.")
+        flags_collection = getattr(db, "platform_flags", None)
+        if flags_collection is not None:
+            try:
+                flags_doc = await flags_collection.find_one({"_id": "flags"}, {"_id": 0})
+            except Exception:
+                return (503, "Feature authorization unavailable — request rejected.")
+
+    if mapped_flag and not platform_flag_enabled(flags_doc, mapped_flag):
+        return (403, f"'{mapped_flag}' is currently disabled by the executive team. Please check back later.")
+
+    # Page access is a separate stored policy and always requires a database
+    # lookup when the path is mapped to a page gate.
+    if mapped_page:
+        if db is None:
+            return (503, "Feature authorization unavailable — request rejected.")
+        page_collection = getattr(db, "page_access", None)
+        if page_collection is None:
+            return (503, "Feature authorization unavailable — request rejected.")
+        try:
+            page_doc = await page_collection.find_one(
+                {"page": mapped_page}, {"_id": 0, "enabled": 1}
+            )
+        except Exception:
+            return (503, "Feature authorization unavailable — request rejected.")
+        if not page_access_enabled(page_doc):
+            return (403, "This feature is currently disabled by the executive team. Please check back later.")
 
     return None
