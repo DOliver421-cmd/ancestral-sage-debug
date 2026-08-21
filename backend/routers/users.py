@@ -207,7 +207,9 @@ async def admin_change_role(uid: str, body: AdminRoleReq, user: User = Depends(_
         raise HTTPException(403, "You don't have permission to modify this user.")
     if body.role == "executive_admin" and user.role != "executive_admin":
         raise HTTPException(403, "Only executive_admin can grant the executive_admin role.")
-    await db.users.update_one({"id": uid}, {"$set": {"role": body.role}})
+    await db.users.update_one({"id": uid},
+        {"$set": {"role": body.role},
+         "$inc": {"token_version": 1}})  # role change revokes all of the target's JWTs
     await audit(user.id, "admin.user.role_changed", target=uid,
                 meta={"from": target.get("role"), "to": body.role})
     return {"ok": True, "id": uid, "role": body.role}
@@ -330,6 +332,68 @@ async def admin_delete_user(uid: str, user: User = Depends(_require_rank("admin"
     return {"ok": True}
 
 
+# Collections that store a user identifier and must be purged on erasure.
+# (users is handled separately — it keys on "id", the rest on "user_id".)
+ERASURE_USER_ID_COLLECTIONS = [
+    "auth_sessions", "sessions", "user_feature_overrides", "ai_consents",
+    "password_reset_tokens", "progress", "notifications", "exec_notifications",
+    "audit_log",
+]
+
+
+@router.post("/admin/users/{uid}/erasure")
+async def admin_user_erasure(uid: str, user: User = Depends(_require_rank("admin"))):
+    """Cascading deletion router — GDPR-style erasure for one user id.
+
+    Purges every known collection that references the user, then anonymizes
+    executive audit records (legal-hold logs keep the event, PII is dropped).
+    Returns per-collection deleted counts so the result is auditable and
+    honest — a failed collection is reported, never silently skipped.
+    """
+    if uid == user.id:
+        raise HTTPException(400, "Refusing to erase yourself.")
+    target = await db.users.find_one({"id": uid}, {"_id": 0, "password_hash": 0})
+    if not target:
+        raise HTTPException(404, "User not found")
+    if not can_modify(user, target.get("role", "")):
+        raise HTTPException(403, "You don't have permission to modify this user.")
+    if target.get("role") == "executive_admin":
+        execs = await db.users.count_documents({"role": "executive_admin"})
+        if execs <= 1:
+            raise HTTPException(400, "Cannot erase the last executive_admin.")
+
+    results: dict = {}
+    try:
+        res = await db.users.delete_one({"id": uid})
+        results["users"] = res.deleted_count
+    except Exception as exc:  # noqa: BLE001
+        results["users"] = f"error: {exc}"
+    for coll in ERASURE_USER_ID_COLLECTIONS:
+        col = getattr(db, coll, None)
+        if col is None:
+            results[coll] = "skipped: collection not present"
+            continue
+        try:
+            res = await col.delete_many({"user_id": uid})
+            results[coll] = res.deleted_count
+        except Exception as exc:  # noqa: BLE001
+            results[coll] = f"error: {exc}"
+    # Anonymize executive audit references to the erased user (keep the events,
+    # drop the PII) — best-effort, never fatal.
+    try:
+        await db.exec_audit_log.update_many(
+            {"actor_id": uid}, {"$set": {"actor_id": "erased", "actor_role": "erased"}})
+        await db.exec_audit_log.update_many(
+            {"target_id": uid}, {"$set": {"target_id": "erased"}})
+        results["exec_audit_log"] = "anonymized"
+    except Exception as exc:  # noqa: BLE001
+        results["exec_audit_log"] = f"error: {exc}"
+
+    await audit(user.id, "admin.user.erasure", target=uid,
+                meta={"email": target.get("email"), "purged": results})
+    return {"ok": True, "user_id": uid, "purged": results}
+
+
 @router.post("/admin/users/{uid}/password")
 async def admin_reset_password(uid: str, body: AdminResetPasswordReq,
                                user: User = Depends(_require_rank("admin"))):
@@ -343,10 +407,13 @@ async def admin_reset_password(uid: str, body: AdminResetPasswordReq,
         raise HTTPException(404, "User not found")
     if not can_modify(user, target.get("role", "")):
         raise HTTPException(403, "You don't have permission to reset this user's password.")
-    await db.users.update_one({"id": uid}, {"$set": {
-        "password_hash": hash_pw(body.new_password),
-        "must_change_password": True,  # force rotation on next login
-    }})
+    await db.users.update_one({"id": uid}, {
+        "$set": {
+            "password_hash": hash_pw(body.new_password),
+            "must_change_password": True,  # force rotation on next login
+        },
+        "$inc": {"token_version": 1},  # credential rotation revokes all of the target's JWTs
+    })
     await audit(user.id, "admin.user.password_reset", target=uid)
     return {"ok": True}
 

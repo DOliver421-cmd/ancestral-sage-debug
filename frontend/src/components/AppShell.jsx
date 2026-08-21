@@ -284,14 +284,15 @@ export default function AppShell({ children }) {
                 {out("/more/litigation","Legal Tools",      Scale,           "nav-litigation")}
                 {out("/app/helper",     "Personal Helper",  HelpCircle,      "nav-helper")}
                 {out("/knowledge-base", "Knowledge Base",   BookOpen,        "nav-kb")}
+                {nl("/vonns-saga",      "Vonns Saga",       BookOpen,        "nav-vonns")}
               </>
             ) : (
-              <>
-                {nl("/app/more",       "M.O.R.E. Hub",     HandHelping,     "nav-more")}
-                {nl("/more/chat",      "Community Chat",   Radio,           "nav-more-chat")}
-                {nl("/more/litigation","Legal Tools",      Scale,           "nav-litigation")}
-                {nl("/app/helper",     "Personal Helper",  HelpCircle,      "nav-helper")}
-                {nl("/knowledge-base", "Knowledge Base",   BookOpen,        "nav-kb")}
+              <>                {nl("/app/more",       "M.O.R.E. Hub",     HandHelping,      "nav-more")}
+                {nl("/more/chat",      "Community Chat",   Radio,            "nav-more-chat")}
+                {nl("/more/litigation","Legal Tools",      Scale,            "nav-litigation")}
+                {nl("/app/helper",     "Personal Helper",  HelpCircle,       "nav-helper")}
+                {nl("/knowledge-base", "Knowledge Base",   BookOpen,         "nav-kb")}
+                {nl("/vonns-saga",     "Vonns Saga",       BookOpen,         "nav-vonns")}
               </>
             )}
           </NavSection>
