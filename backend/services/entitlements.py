@@ -83,6 +83,17 @@ CAPABILITIES: Dict[str, Dict[str, str]] = {
     "games.compete": {"category": "games", "description": "Competitive ranking"},
     "games.create": {"category": "games", "description": "Create custom games"},
     
+    # STORY / NARRATIVE
+    "story.vonns_saga": {"category": "story", "description": "Vonn's Saga interactive story"},
+    "story.progress": {"category": "story", "description": "Save and resume story progress"},
+    "story.music": {"category": "story", "description": "Integrated music experience"},
+    
+    # ASCENSION PROTOCOLS
+    "ascension.access": {"category": "ascension", "description": "Access Ascension Protocols course"},
+    "ascension.phases": {"category": "ascension", "description": "Unlock advanced ascension phases"},
+    "ascension.audio": {"category": "ascension", "description": "Audio narration and guided meditation"},
+    "ascension.video": {"category": "ascension", "description": "Embedded video content"},
+    
     # DIRECTOR
     "director.analytics": {"category": "director", "description": "Platform analytics"},
     "director.governance": {"category": "director", "description": "Governance controls"},
@@ -161,6 +172,17 @@ TIER_LIMITS: Dict[str, Dict[str, Any]] = {
         "games.compete": False,
         "games.create": False,
         
+        # STORY / NARRATIVE
+        "story.vonns_saga": True,
+        "story.progress": False,
+        "story.music": False,
+        
+        # ASCENSION PROTOCOLS
+        "ascension.access": True,
+        "ascension.phases": False,
+        "ascension.audio": False,
+        "ascension.video": False,
+        
         # DIRECTOR
         "director.analytics": False,
         "director.governance": False,
@@ -235,6 +257,17 @@ TIER_LIMITS: Dict[str, Dict[str, Any]] = {
         "games.play": True,
         "games.compete": True,
         "games.create": False,
+        
+        # STORY / NARRATIVE
+        "story.vonns_saga": True,
+        "story.progress": True,
+        "story.music": True,
+        
+        # ASCENSION PROTOCOLS
+        "ascension.access": True,
+        "ascension.phases": True,
+        "ascension.audio": True,
+        "ascension.video": False,
         
         # DIRECTOR
         "director.analytics": False,
@@ -311,6 +344,17 @@ TIER_LIMITS: Dict[str, Dict[str, Any]] = {
         "games.compete": True,
         "games.create": False,
         
+        # STORY / NARRATIVE
+        "story.vonns_saga": True,
+        "story.progress": True,
+        "story.music": True,
+        
+        # ASCENSION PROTOCOLS
+        "ascension.access": True,
+        "ascension.phases": True,
+        "ascension.audio": True,
+        "ascension.video": True,
+        
         # DIRECTOR
         "director.analytics": False,
         "director.governance": False,
@@ -386,6 +430,17 @@ TIER_LIMITS: Dict[str, Dict[str, Any]] = {
         "games.compete": True,
         "games.create": True,
         
+        # STORY / NARRATIVE
+        "story.vonns_saga": True,
+        "story.progress": True,
+        "story.music": True,
+        
+        # ASCENSION PROTOCOLS
+        "ascension.access": True,
+        "ascension.phases": True,
+        "ascension.audio": True,
+        "ascension.video": True,
+        
         # DIRECTOR
         "director.analytics": False,
         "director.governance": False,
@@ -460,6 +515,17 @@ TIER_LIMITS: Dict[str, Dict[str, Any]] = {
         "games.play": True,
         "games.compete": True,
         "games.create": True,
+        
+        # STORY / NARRATIVE
+        "story.vonns_saga": True,
+        "story.progress": True,
+        "story.music": True,
+        
+        # ASCENSION PROTOCOLS
+        "ascension.access": True,
+        "ascension.phases": True,
+        "ascension.audio": True,
+        "ascension.video": True,
         
         # DIRECTOR
         "director.analytics": True,
