@@ -237,6 +237,12 @@ async def enforce_platform_flags(request: Request, call_next):
                 action, detail = await check_user_feature_access(db, user, path)
                 if action == "block":
                     return JSONResponse(status_code=403, content={"detail": detail})
+                if action == "unavailable":
+                    return JSONResponse(
+                        status_code=503,
+                        content={"detail": detail},
+                        headers={"cache-control": "no-store"},
+                    )
                 if action == "allow":
                     return await call_next(request)
             # Enforce the exec panel's platform controls (feature flags + page
@@ -246,7 +252,18 @@ async def enforce_platform_flags(request: Request, call_next):
             if decision:
                 return JSONResponse(status_code=decision[0], content={"detail": decision[1]})
         except Exception:
-            pass
+            # A mapped feature cannot be authorized when its policy store is
+            # unavailable.  Fail closed for the sensitive surface; leave
+            # unrelated/public endpoints alone so a database outage does not
+            # turn the whole site into a maintenance page.
+            controlled = feature_for_path(path) is not None or path.startswith("/api/ai/")
+            if controlled:
+                logger.exception("Feature authorization unavailable for %s", path)
+                return JSONResponse(
+                    status_code=503,
+                    content={"detail": "Feature authorization unavailable — request rejected."},
+                    headers={"cache-control": "no-store"},
+                )
     return await call_next(request)
 
 
@@ -743,10 +760,23 @@ async def _send_welcome_email(to_email: str, full_name: str) -> bool:
 
 
 def make_token(user_id: str, role: str, extra: Optional[dict] = None) -> str:
+    """Issue a JWT carrying the user's current revocation generation.
+
+    ``token_version`` is stored on the user document and incremented whenever
+    credentials, role, tier, activation, or sessions change.  The claim is
+    deliberately short (``tv``) to preserve compatibility with existing
+    tokens; tokens created before this claim existed are treated as generation
+    zero and remain valid until their normal expiry.
+    """
     exp = datetime.now(timezone.utc) + timedelta(hours=JWT_EXPIRE_HOURS)
-    payload = {"sub": user_id, "role": role, "exp": exp}
-    if extra:
-        payload.update(extra)
+    extra = dict(extra or {})
+    raw_version = extra.get("tv", 0)
+    try:
+        token_version = int(raw_version)
+    except (TypeError, ValueError):
+        token_version = 0
+    payload = {"sub": user_id, "role": role, "exp": exp, "tv": token_version}
+    payload.update(extra)
     return jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALGO)
 
 
@@ -758,11 +788,43 @@ async def current_user(authorization: Optional[str] = Header(None)) -> User:
         payload = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGO])
     except jwt.PyJWTError:
         raise HTTPException(401, "Invalid or expired token")
-    user_doc = await db.users.find_one({"id": payload["sub"]}, {"_id": 0, "password_hash": 0})
+
+    user_id = payload.get("sub")
+    if not user_id:
+        raise HTTPException(401, "Invalid token subject")
+    user_doc = await db.users.find_one({"id": user_id}, {"_id": 0, "password_hash": 0})
     if not user_doc:
         raise HTTPException(401, "User not found")
     if user_doc.get("is_active") is False:
         raise HTTPException(403, "Account deactivated")
+
+    # Role/credential/session mutations increment this generation.  Comparing
+    # it here makes those existing mutations actually revoke already-issued
+    # JWTs instead of merely updating a field no request ever reads.
+    try:
+        token_version = int(payload.get("tv", 0))
+        current_version = int(user_doc.get("token_version", 0))
+    except (TypeError, ValueError):
+        raise HTTPException(401, "Invalid session generation")
+    if token_version != current_version:
+        raise HTTPException(401, "Session revoked — please sign in again")
+
+    # Login tokens are bound to an auth_sessions row when one was recorded.
+    # Deleting that row (single-device logout or force logout) therefore
+    # invalidates the token immediately, while legacy/sessionless tokens remain
+    # governed by token_version.
+    session_id = payload.get("session_id")
+    if session_id:
+        try:
+            session = await db.auth_sessions.find_one(
+                {"user_id": user_id, "session_id": session_id}, {"_id": 1}
+            )
+        except Exception:
+            logger.exception("Session verification failed for user %s", user_id)
+            raise HTTPException(503, "Session verification unavailable — request rejected")
+        if not session:
+            raise HTTPException(401, "Session revoked — please sign in again")
+
     return User(**user_doc)
 
 

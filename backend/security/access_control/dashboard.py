@@ -20,7 +20,7 @@ from typing import Optional
 from fastapi import APIRouter, Depends, Header, HTTPException, Query
 from fastapi.responses import HTMLResponse
 
-from .tiers import ACCESS_TIERS, registry_snapshot, rbac_hierarchy
+from .tiers import ACCESS_TIERS, registry_snapshot, rbac_hierarchy, _pattern_matches
 
 logger = logging.getLogger("lcewai.access_control")
 
@@ -51,9 +51,33 @@ async def access_control_overview(user=Depends(_require_executive)):
     controls = []
     for c in registry_snapshot():
         s = stats.get(c["key"], {})
+        declared = c.get("routes") or []
+        covered = 0
+        for route in declared:
+            methods, pattern = (route if isinstance(route, tuple) else (None, route))
+            allowed_methods = set(methods) if isinstance(methods, (list, tuple, set, frozenset)) else None
+            if isinstance(methods, str):
+                allowed_methods = {methods}
+            matches = [
+                (method, live_pattern)
+                for (method, live_pattern) in (gw._handler_requirements if gw else {})
+                if (allowed_methods is None or method in allowed_methods)
+                and _pattern_matches(pattern, live_pattern)
+            ]
+            if matches:
+                covered += 1
+        if not (gw and gw.active):
+            firewall_status = "UNPROTECTED"
+        elif not declared or covered == 0:
+            firewall_status = "REGISTERED_UNVERIFIED"
+        elif covered < len(declared):
+            firewall_status = "PARTIAL"
+        else:
+            firewall_status = "ENFORCED"
         controls.append({
             **c,
-            "firewall_status": "ENFORCED" if (gw and gw.active) else "UNPROTECTED",
+            "firewall_status": firewall_status,
+            "route_coverage": {"declared": len(declared), "verified": covered},
             "denials": s.get("denials", 0),
             "last_denied_at": s.get("last_denied_at"),
         })
@@ -86,6 +110,180 @@ async def access_control_overview(user=Depends(_require_executive)):
         },
         "controls": controls,
     }
+
+
+@router.get("/exec/control/route-access")
+async def route_access_overview(user=Depends(_require_executive)):
+    """Return the complete authenticated route matrix from the live app."""
+    if _gateway is None:
+        raise HTTPException(503, "Access control gateway not initialized")
+    return {
+        "ok": True,
+        "routes": await _gateway.route_access_snapshot(),
+        "roles": [role for role, _rank in rbac_hierarchy() if role != "public"],
+        "generated_at": datetime.now(timezone.utc).isoformat(),
+    }
+
+
+@router.patch("/exec/control/route-access")
+async def set_route_access(payload: dict, user=Depends(_require_executive)):
+    """Set or reset one discovered route's exact allowed-role policy.
+
+    The handler's own minimum role can never be loosened. Executive control
+    routes also cannot be delegated below executive_admin, preventing the
+    policy editor from granting away the keys that administer the policy.
+    """
+    if _gateway is None:
+        raise HTTPException(503, "Access control gateway not initialized")
+    route_key = (payload.get("route_key") or "").strip()
+    if not route_key or " " not in route_key:
+        raise HTTPException(400, "route_key must be '<HTTP_METHOD> <path_pattern>'")
+    method, path_pattern = route_key.split(" ", 1)
+    method = method.upper()
+    entry = _gateway._handler_requirements.get((method, path_pattern))
+    if entry is None:
+        raise HTTPException(404, "Route is not in the live authenticated route table")
+
+    allowed_roles = payload.get("allowed_roles")
+    if allowed_roles is not None:
+        if not isinstance(allowed_roles, list) or any(
+            not isinstance(role, str) or role == "public" for role in allowed_roles
+        ):
+            raise HTTPException(400, "allowed_roles must contain stored RBAC role names")
+        valid_roles = {role for role, _rank in rbac_hierarchy() if role != "public"}
+        unknown = set(allowed_roles) - valid_roles
+        if unknown:
+            raise HTTPException(400, f"Unknown role(s): {sorted(unknown)}")
+
+    enabled = payload.get("enabled", True)
+    if not isinstance(enabled, bool):
+        raise HTTPException(400, "enabled must be boolean")
+    protected_admin_route = path_pattern.startswith(("/api/exec/control", "/api/exec/access-control"))
+    if protected_admin_route and (not enabled or "executive_admin" not in (allowed_roles or ["executive_admin"])):
+        raise HTTPException(400, "Executive control routes must remain enabled for executive_admin")
+
+    now = datetime.now(timezone.utc).isoformat()
+    if allowed_roles is None and enabled:
+        result = await _gateway._db.route_access.delete_one({"route_key": route_key})
+        action = "reset"
+    else:
+        result = await _gateway._db.route_access.update_one(
+            {"route_key": route_key},
+            {"$set": {
+                "route_key": route_key,
+                "method": method,
+                "path_pattern": path_pattern,
+                "allowed_roles": allowed_roles,
+                "enabled": enabled,
+                "updated_by": user.id,
+                "updated_at": now,
+            }},
+            upsert=True,
+        )
+        action = "updated"
+    await _gateway._audit_fn(
+        user.id, f"exec.route_access.{action}", target=route_key,
+        meta={"allowed_roles": allowed_roles, "enabled": enabled},
+    )
+    return {"ok": True, "route_key": route_key, "allowed_roles": allowed_roles,
+            "enabled": enabled, "policy_source": "handler_default" if action == "reset" else "executive_override"}
+
+
+@router.get("/exec/control/user-route-access")
+async def user_route_access_overview(
+    user_id: str = Query(..., min_length=1),
+    actor=Depends(_require_executive),
+):
+    """Return per-user route overrides plus the handler defaults.
+
+    The route matrix controls role access; this endpoint is the explicit
+    per-user exception layer.  It is read from the same live route table, not
+    from a hand-maintained feature list.
+    """
+    if _gateway is None or _gateway._db is None:
+        raise HTTPException(503, "Access control gateway not initialized")
+    target = await _gateway._db.users.find_one(
+        {"id": user_id}, {"_id": 0, "id": 1, "email": 1, "full_name": 1, "role": 1, "feature_tier": 1}
+    )
+    if not target:
+        raise HTTPException(404, "User not found")
+    overrides = await _gateway._db.user_route_access.find(
+        {"user_id": user_id}, {"_id": 0}
+    ).to_list(length=10000)
+    return {
+        "ok": True,
+        "user": target,
+        "overrides": overrides,
+        "routes": await _gateway.route_access_snapshot(),
+    }
+
+
+@router.patch("/exec/control/user-route-access")
+async def set_user_route_access(payload: dict, actor=Depends(_require_executive)):
+    """Set or reset one user's access to any discovered authenticated route."""
+    if _gateway is None or _gateway._db is None:
+        raise HTTPException(503, "Access control gateway not initialized")
+    user_id = (payload.get("user_id") or "").strip()
+    route_key = (payload.get("route_key") or "").strip()
+    if not user_id or not route_key or " " not in route_key:
+        raise HTTPException(400, "user_id and route_key '<HTTP_METHOD> <path_pattern>' are required")
+    target = await _gateway._db.users.find_one({"id": user_id}, {"_id": 0, "id": 1})
+    if not target:
+        raise HTTPException(404, "User not found")
+    method, path_pattern = route_key.split(" ", 1)
+    method = method.upper()
+    if (method, path_pattern) not in _gateway._handler_requirements:
+        raise HTTPException(404, "Route is not in the live authenticated route table")
+    protected_admin_route = path_pattern.startswith(("/api/exec/control", "/api/exec/access-control"))
+    if not payload.get("enabled") and protected_admin_route:
+        raise HTTPException(400, "Per-user overrides cannot disable executive control routes")
+    enabled = payload.get("enabled")
+    if not isinstance(enabled, bool):
+        raise HTTPException(400, "enabled must be boolean")
+    reason = (payload.get("reason") or "").strip()
+    if not reason:
+        raise HTTPException(400, "reason is required")
+    now = datetime.now(timezone.utc).isoformat()
+    await _gateway._db.user_route_access.update_one(
+        {"user_id": user_id, "route_key": route_key},
+        {"$set": {
+            "user_id": user_id,
+            "route_key": route_key,
+            "method": method,
+            "path_pattern": path_pattern,
+            "enabled": enabled,
+            "updated_by": actor.id,
+            "updated_at": now,
+            "reason": reason,
+        }},
+        upsert=True,
+    )
+    await _gateway._audit_fn(
+        actor.id, "exec.user_route_access.updated", target=user_id,
+        meta={"route_key": route_key, "enabled": enabled, "reason": reason},
+    )
+    return {"ok": True, "user_id": user_id, "route_key": route_key, "enabled": enabled}
+
+
+@router.delete("/exec/control/user-route-access")
+async def reset_user_route_access(
+    user_id: str = Query(..., min_length=1),
+    route_key: str = Query(..., min_length=3),
+    actor=Depends(_require_executive),
+):
+    """Remove a per-user exception and restore the role/handler policy."""
+    if _gateway is None or _gateway._db is None:
+        raise HTTPException(503, "Access control gateway not initialized")
+    result = await _gateway._db.user_route_access.delete_one(
+        {"user_id": user_id, "route_key": route_key}
+    )
+    if result.deleted_count == 0:
+        raise HTTPException(404, "User route override not found")
+    await _gateway._audit_fn(
+        actor.id, "exec.user_route_access.reset", target=user_id,
+        meta={"route_key": route_key},
+    )
+    return {"ok": True, "user_id": user_id, "route_key": route_key, "policy_source": "role_or_handler_default"}
 
 
 @router.get("/exec/access-control/incidents")

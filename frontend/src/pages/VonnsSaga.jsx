@@ -41,6 +41,37 @@ function persist(s) {
   }
 }
 
+function SceneMedia({ media }) {
+  if (!media) return null;
+  return (
+    <div className="mb-7 space-y-3" aria-label="Scene media">
+      {media.image && (
+        <figure>
+          <img
+            src={media.image.src}
+            alt={media.image.alt || "Vonns Saga scene artwork"}
+            className="w-full rounded-xl"
+            style={{ border: `1px solid ${C.panelLine}`, maxHeight: 520, objectFit: "cover" }}
+          />
+          {media.image.caption && (
+            <figcaption className="mt-2 text-xs text-center" style={{ color: C.muted }}>
+              {media.image.caption}
+            </figcaption>
+          )}
+        </figure>
+      )}
+      {media.audio && (
+        <div className="rounded-xl p-3" style={{ background: C.panel, border: `1px solid ${C.panelLine}` }}>
+          <div className="text-[10px] font-black uppercase tracking-[0.2em] mb-2" style={{ color: C.gold }}>
+            {media.audio.label || "Resonance"}
+          </div>
+          <audio controls preload="none" src={media.audio.src} className="w-full" aria-label={media.audio.label || "Scene music"} />
+        </div>
+      )}
+    </div>
+  );
+}
+
 function Paragraph({ text, kind }) {
   if (kind === "poem") {
     return (
@@ -103,7 +134,7 @@ export default function VonnsSaga() {
   }, [state]);
 
   useEffect(() => {
-    if (topRef.current) topRef.current.scrollIntoView({ behavior: "smooth", block: "start" });
+    if (topRef.current) topRef.current.scrollIntoView({ behavior: "auto", block: "start" });
   }, [state.nodeId, fresh]);
 
   const choose = (to) => {
@@ -115,7 +146,6 @@ export default function VonnsSaga() {
         : s.strands;
       return { nodeId: to, items, visited: [...s.visited, s.nodeId], strands };
     });
-    window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
   const goBack = () => {
@@ -240,7 +270,13 @@ export default function VonnsSaga() {
       )}
 
       {/* ── Scene ──────────────────────────────────────────────────── */}
-      <main className="max-w-3xl mx-auto px-5 py-8" ref={topRef}>
+      <main
+        className="max-w-3xl mx-auto px-5 py-8"
+        ref={topRef}
+        tabIndex={-1}
+        aria-live="polite"
+        aria-label="Vonns Saga scene"
+      >
         <div key={key} className="vs-fade">
           {/* Part / chapter */}
           <div className="mb-5">
@@ -271,6 +307,9 @@ export default function VonnsSaga() {
               {node.quote}
             </blockquote>
           )}
+
+          {/* Optional artwork and music are data-driven per scene; no media is fabricated when a node has none. */}
+          <SceneMedia media={node.media} />
 
           {/* Body */}
           <div className="mb-7">
@@ -422,6 +461,10 @@ export default function VonnsSaga() {
         }
         .vs-choice:hover { border-color: ${C.gold} !important; background: rgba(232,165,30,0.08) !important; }
         .vs-choice:hover span { opacity: 1 !important; }
+        @media (prefers-reduced-motion: reduce) {
+          .vs-fade { animation: none; }
+          .vs-choice { transition: none !important; }
+        }
       `}</style>
     </div>
   );

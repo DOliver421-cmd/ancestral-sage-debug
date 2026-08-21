@@ -263,7 +263,14 @@ async def admin_set_active(uid: str, body: AdminActiveReq, user: User = Depends(
         active_execs = await db.users.count_documents({"role": "executive_admin", "is_active": {"$ne": False}})
         if active_execs <= 1:
             raise HTTPException(400, "Cannot deactivate the last active executive_admin.")
-    await db.users.update_one({"id": uid}, {"$set": {"is_active": body.is_active}})
+    await db.users.update_one(
+        {"id": uid},
+        {"$set": {"is_active": body.is_active}, "$inc": {"token_version": 1}},
+    )
+    # Deactivation/reactivation is an authorization change; remove stale
+    # device records so the session list cannot report revoked devices.
+    if not body.is_active:
+        await db.auth_sessions.delete_many({"user_id": uid})
     await audit(user.id, "admin.user.active_changed", target=uid,
                 meta={"is_active": body.is_active})
     return {"ok": True, "id": uid, "is_active": body.is_active}
@@ -287,8 +294,8 @@ async def admin_ban_user(uid: str, body: BanReq, user: User = Depends(_require_r
         "ban_reason": body.reason,
         "banned_by": user.id,
         "banned_at": now_iso,
-    }})
-    await db.sessions.delete_many({"user_id": uid})
+    }, "$inc": {"token_version": 1}})
+    await db.auth_sessions.delete_many({"user_id": uid})
     await audit(user.id, "admin.user.banned", target=uid, meta={"reason": body.reason})
     return {"ok": True, "id": uid, "banned": True}
 
@@ -302,6 +309,7 @@ async def admin_unban_user(uid: str, user: User = Depends(_require_rank("executi
     await db.users.update_one({"id": uid}, {
         "$set": {"is_active": True},
         "$unset": {"banned": "", "ban_reason": "", "banned_by": "", "banned_at": ""},
+        "$inc": {"token_version": 1},
     })
     await audit(user.id, "admin.user.unbanned", target=uid)
     return {"ok": True, "id": uid, "banned": False}
@@ -327,6 +335,7 @@ async def admin_delete_user(uid: str, user: User = Depends(_require_rank("admin"
         if execs <= 1:
             raise HTTPException(400, "Cannot delete the last executive_admin.")
     await db.users.delete_one({"id": uid})
+    await db.auth_sessions.delete_many({"user_id": uid})
     await audit(user.id, "admin.user.deleted", target=uid,
                 meta={"email": target.get("email"), "role": target.get("role")})
     return {"ok": True}
@@ -335,7 +344,7 @@ async def admin_delete_user(uid: str, user: User = Depends(_require_rank("admin"
 # Collections that store a user identifier and must be purged on erasure.
 # (users is handled separately — it keys on "id", the rest on "user_id".)
 ERASURE_USER_ID_COLLECTIONS = [
-    "auth_sessions", "sessions", "user_feature_overrides", "ai_consents",
+    "auth_sessions", "sessions", "user_feature_overrides", "user_route_access", "ai_consents",
     "password_reset_tokens", "progress", "notifications", "exec_notifications",
     "audit_log",
 ]
@@ -414,6 +423,7 @@ async def admin_reset_password(uid: str, body: AdminResetPasswordReq,
         },
         "$inc": {"token_version": 1},  # credential rotation revokes all of the target's JWTs
     })
+    await db.auth_sessions.delete_many({"user_id": uid})
     await audit(user.id, "admin.user.password_reset", target=uid)
     return {"ok": True}
 
@@ -464,14 +474,25 @@ async def exec_bulk_action(body: dict, user: User = Depends(_require_rank("execu
                 if new_role not in ROLE_RANK:
                     results["err"].append({"uid": uid, "reason": "invalid role"})
                     continue
-                await db.users.update_one({"id": uid}, {"$set": {"role": new_role}})
+                await db.users.update_one(
+                    {"id": uid},
+                    {"$set": {"role": new_role}, "$inc": {"token_version": 1}},
+                )
+                await db.auth_sessions.delete_many({"user_id": uid})
                 await audit(user.id, "exec.bulk.role_changed", target=uid,
                             meta={"from": target["role"], "to": new_role})
             elif action == "suspend":
-                await db.users.update_one({"id": uid}, {"$set": {"is_active": False}})
+                await db.users.update_one(
+                    {"id": uid},
+                    {"$set": {"is_active": False}, "$inc": {"token_version": 1}},
+                )
+                await db.auth_sessions.delete_many({"user_id": uid})
                 await audit(user.id, "exec.bulk.suspended", target=uid)
             elif action == "unsuspend":
-                await db.users.update_one({"id": uid}, {"$set": {"is_active": True}})
+                await db.users.update_one(
+                    {"id": uid},
+                    {"$set": {"is_active": True}, "$inc": {"token_version": 1}},
+                )
                 await audit(user.id, "exec.bulk.unsuspended", target=uid)
             results["ok"].append(uid)
         except Exception as e:
@@ -594,7 +615,12 @@ async def grant_elevated_role(uid: str, body: dict, user: User = Depends(_requir
         "created_at": datetime.now(timezone.utc).isoformat(),
     }
     await db.elevated_roles.insert_one(record)
-    await db.users.update_one({"id": uid}, {"$set": {"role": role, "elevated_until": expires_at, "original_role": target["role"]}})
+    await db.users.update_one(
+        {"id": uid},
+        {"$set": {"role": role, "elevated_until": expires_at, "original_role": target["role"]},
+         "$inc": {"token_version": 1}},
+    )
+    await db.auth_sessions.delete_many({"user_id": uid})
     await audit(user.id, "exec.user.elevated_role", target=uid,
                 meta={"role": role, "expires_at": expires_at, "reason": reason})
     record.pop("_id", None)
@@ -616,7 +642,12 @@ async def revoke_elevated_role(uid: str, user: User = Depends(_require_rank("exe
     if not target or not target.get("original_role"):
         raise HTTPException(404, "No active elevation found")
     original = target["original_role"]
-    await db.users.update_one({"id": uid}, {"$set": {"role": original}, "$unset": {"elevated_until": 1, "original_role": 1}})
+    await db.users.update_one(
+        {"id": uid},
+        {"$set": {"role": original}, "$unset": {"elevated_until": 1, "original_role": 1},
+         "$inc": {"token_version": 1}},
+    )
+    await db.auth_sessions.delete_many({"user_id": uid})
     await db.elevated_roles.delete_many({"user_id": uid})
     await audit(user.id, "exec.user.elevation_revoked", target=uid, meta={"reverted_to": original})
     return {"ok": True, "reverted_to": original}
