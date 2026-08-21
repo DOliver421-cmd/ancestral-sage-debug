@@ -161,6 +161,19 @@ async def all_users(
     return filtered_users
 
 
+@router.get("/admin/users/{uid}")
+async def admin_get_user(uid: str, user: User = Depends(_require_rank("admin"))):
+    """Single-user read. Powers IAM atomic enforcement: after any mutation the
+    console issues a secondary GET here to confirm the persisted DB state, not
+    the optimistic request payload."""
+    target = await db.users.find_one({"id": uid}, {"_id": 0, "password_hash": 0})
+    if not target:
+        raise HTTPException(404, "User not found")
+    if not can_modify(user, target.get("role", "")):
+        raise HTTPException(403, "You don't have permission to view this user.")
+    return target
+
+
 @router.post("/admin/associate")
 async def assign_associate(payload: dict, user: User = Depends(_require_rank("admin"))):
     uid = payload.get("user_id")
@@ -221,9 +234,15 @@ async def admin_change_role(uid: str, body: AdminRoleReq, user: User = Depends(_
         {"$set": {"role": body.role},
          "$inc": {"token_version": 1}})  # role change revokes all of the target's JWTs
     await db.auth_sessions.delete_many({"user_id": uid})
+    # Atomic enforcement: re-read the persisted document so the response proves
+    # the DB state, not just the intent. A mismatch here is a real failure.
+    verified = await db.users.find_one({"id": uid}, {"_id": 0, "role": 1, "is_active": 1, "token_version": 1})
     await audit(user.id, "admin.user.role_changed", target=uid,
                 meta={"from": target.get("role"), "to": body.role})
-    return {"ok": True, "id": uid, "role": body.role}
+    return {"ok": True, "id": uid, "role": body.role,
+            "verified": {"role": verified.get("role") if verified else None,
+                        "is_active": verified.get("is_active") if verified else None,
+                        "token_version": verified.get("token_version") if verified else None}}
 
 
 @router.patch("/admin/users/{uid}")

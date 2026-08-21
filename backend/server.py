@@ -130,7 +130,6 @@ MONGO_BACKUP_URL = os.environ.get("MONGO_BACKUP_URL", "")
 MONGO_BACKUP_DB  = os.environ.get("MONGO_BACKUP_DB", "")
 
 _backup_db = None
-_pipeline_manager = None
 _discount_manager = None
 
 # ── WAI engine singletons ───────────────────────────────────────────────────────
@@ -1333,17 +1332,7 @@ async def _on_startup_impl():
     except Exception as _wai_err:
         logger.warning("WAI autonomous pipeline startup failed (non-fatal): %s", _wai_err)
 
-    # ── PipelineManager (LLM intent routing) ─────────────────────────────────
-    global _pipeline_manager
-    try:
-        from src.agents.pipeline_manager import PipelineManager as _PipelineManager
-        _pipeline_manager = _PipelineManager(db=db, anthropic_api_key=ANTHROPIC_API_KEY)
-        _mode = "llm" if ANTHROPIC_API_KEY else "keyword_fallback"
-        logger.info("STARTUP: PipelineManager ready — analyzer=%s", _mode)
-    except Exception as _pm_err:
-        logger.warning("STARTUP: PipelineManager init failed (non-fatal): %s", _pm_err)
-
-    # ── Discount Management System initialization ─────────────────────────────
+        # ── Discount Management System initialization ─────────────────────────────
     try:
         from billing.discount_service import init_discount_service
         global _discount_manager
@@ -1401,7 +1390,8 @@ async def _on_startup_impl():
 
     # ── Team monitor — autonomous provider health loop ────────────────────────
     try:
-        from app.services.team_monitor import run_monitor_loop as _run_monitor
+        from ai.team_monitor import run_monitor_loop as _run_monitor, bind as _bind_monitor
+        _bind_monitor(db, notify)
         asyncio.create_task(_run_monitor())
         logger.info("STARTUP: Team monitor launched (interval=300s, threshold=3 failures)")
     except Exception as _tm_err:
@@ -1839,9 +1829,6 @@ from routers import exec as _exec_mod
 _exec_mod.bind(db, current_user, check_rate)
 api_router.include_router(_exec_mod.router)
 # Re-export pipeline models — /exec/pipeline/* endpoints stayed in server.py
-# because they depend on _pipeline_manager (initialized at startup).
-PipelineProcessRequest = _exec_mod.PipelineProcessRequest
-PipelineProcessBatchRequest = _exec_mod.PipelineProcessBatchRequest
 
 
 
@@ -1963,51 +1950,6 @@ _abo_mod.bind(db, current_user, audit, check_rate)
 api_router.include_router(_abo_mod.router)
 
 
-
-# ── Pipeline: LLM intent routing ──────────────────────────────────────────────
-
-@api_router.post("/exec/pipeline/process")
-async def exec_pipeline_process(
-    body: PipelineProcessRequest,
-    user: User = Depends(require_role("admin")),
-):
-    """
-    Route a single social media post through the intent pipeline.
-
-    Analyzer:
-        - Claude Haiku when ANTHROPIC_API_KEY is set  (llm mode)
-        - Keyword fallback when key is absent          (offline mode)
-    """
-    if _pipeline_manager is None:
-        raise HTTPException(503, "PipelineManager not initialized — check server logs")
-
-    result = await _pipeline_manager.process(body.text.strip(), source=body.source.strip())
-    return result.to_dict()
-
-
-@api_router.post("/exec/pipeline/process-batch")
-async def exec_pipeline_process_batch(
-    body: PipelineProcessBatchRequest,
-    user: User = Depends(require_role("admin")),
-):
-    """
-    Route a batch of social media posts concurrently (max 50 per call).
-    Returns list of PipelineResult dicts in the same order as input.
-    Semaphore inside PipelineManager limits concurrent LLM calls to 5.
-    """
-    if _pipeline_manager is None:
-        raise HTTPException(503, "PipelineManager not initialized — check server logs")
-
-    texts  = body.texts
-    source = body.source.strip()
-
-    if len(texts) == 0:
-        raise HTTPException(400, "texts must be a non-empty list")
-    if len(texts) > 50:
-        raise HTTPException(400, "Maximum 50 texts per batch call")
-
-    results = await _pipeline_manager.process_batch(texts, source=source)
-    return [r.to_dict() for r in results]
 
 
 # ── Include revenue operations routers ────────────────────────────────────────

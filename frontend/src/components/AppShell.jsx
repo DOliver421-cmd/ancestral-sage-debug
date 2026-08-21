@@ -398,6 +398,7 @@ export default function AppShell({ children }) {
             <NavSection label="Administration" collapsed={collapsed} defaultOpen={false}>
               <NavSubGroup label="Overview" collapsed={collapsed} defaultOpen={true}>
                 {nl("/admin",           "Admin Overview",  Settings,       "nav-admin")}
+                {nl("/admin/iam",       "IAM Console",     ShieldCheck,    "nav-iam")}
                 {nl("/admin/tools",     "Sites & Inventory", Building2,   "nav-admin-tools")}
                 {nl("/admin/health",    "System Health",   ShieldCheck,    "nav-health")}
               </NavSubGroup>

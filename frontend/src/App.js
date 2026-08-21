@@ -14,6 +14,7 @@ import Register from "./pages/Register";
 import StudentDashboard from "./pages/StudentDashboard";
 import InstructorDashboard from "./pages/InstructorDashboard";
 import AdminDashboard from "./pages/AdminDashboard";
+import IAMConsole from "./pages/IAMConsole";
 import ModulesList from "./pages/ModulesList";
 import ModuleView from "./pages/ModuleView";
 import Certificates from "./pages/Certificates";
@@ -306,6 +307,7 @@ function App() {
           <Route path="/instructor" element={<Protected roles={["instructor", "admin"]}><InstructorDashboard /></Protected>} />
           <Route path="/admin" element={<BoundedAdmin roles={["admin"]} label="Admin Dashboard"><AdminDashboard /></BoundedAdmin>} />
           <Route path="/admin/users" element={<BoundedAdmin roles={["admin"]} label="Admin Dashboard"><AdminDashboard /></BoundedAdmin>} />
+          <Route path="/admin/iam" element={<BoundedAdmin roles={["admin"]} label="IAM Console" backTo="/admin"><IAMConsole /></BoundedAdmin>} />
           <Route path="/admin/accounts" element={<BoundedAdmin roles={["admin"]} label="Account Controls" backTo="/admin"><AccountControls /></BoundedAdmin>} />
           <Route path="/admin/associate" element={<BoundedAdmin roles={["admin"]} label="Admin Dashboard"><AdminDashboard /></BoundedAdmin>} />
           {/* Modules — public preview shows free intro modules; full catalog gated */}

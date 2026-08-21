@@ -1,19 +1,25 @@
-"""app/services/team_monitor.py — Team-owned infrastructure monitor.
+"""backend/ai/team_monitor.py — Team-owned infrastructure monitor.
 
 This service runs autonomously in the background. It monitors provider health,
 detects failures, and takes corrective action within its operational scope.
 
 All actions are attributed to the team (actor: "team.supervisor") — not to any
-human administrator. Delon receives FYI notifications when action is taken.
-He does not approve or initiate these actions.
+human administrator. The executive receives FYI notifications when action is
+taken. The executive does not approve or initiate these actions.
 
 The action log is the proof of autonomous operation.
 
 Check interval: every 5 minutes.
 Failure threshold: 3 consecutive failures before action is taken.
+
+Migrated from app/services/team_monitor.py — the app/ tree was dead code.
+The migrated module receives its `db` and `notify` dependencies via `bind()`
+instead of importing from the deleted app/ package.
 """
 import asyncio
+import base64
 import logging
+import os
 import time
 import uuid
 from datetime import datetime, timezone
@@ -29,6 +35,18 @@ _failure_counts: dict = {}        # key: provider_type, value: int
 _last_action_at: dict = {}        # key: action_type, value: timestamp
 _degraded: set  = set()           # provider_types currently marked degraded
 
+# Live dependencies injected at startup (replaces `from app.database import db`
+# and `from app.utils.audit import notify`).
+_db = None
+_notify = None
+
+
+def bind(db, notify) -> None:
+    """Inject the live database and notification callable at startup."""
+    global _db, _notify
+    _db = db
+    _notify = notify
+
 
 def _now() -> str:
     return datetime.now(timezone.utc).isoformat()
@@ -36,9 +54,8 @@ def _now() -> str:
 
 async def log_team_action(action: str, reason: str, outcome: str, meta: dict = None) -> None:
     """Write a team action record. actor is always team.supervisor."""
-    from app.database import db
     try:
-        await db.team_actions.insert_one({
+        await _db.team_actions.insert_one({
             "id": str(uuid.uuid4()),
             "actor": "team.supervisor",
             "action": action,
@@ -52,19 +69,17 @@ async def log_team_action(action: str, reason: str, outcome: str, meta: dict = N
         logger.warning("team_monitor: failed to write action log: %s", e)
 
 
-async def _notify_delon(title: str, body: str) -> None:
+async def _notify_execs(title: str, body: str) -> None:
     """FYI notification to the executive — not a request for approval."""
-    from app.database import db
-    from app.utils.audit import notify
     try:
-        execs = await db.users.find(
+        execs = await _db.users.find(
             {"role": "executive_admin", "is_active": {"$ne": False}},
             {"id": 1}
         ).to_list(10)
         for ex in execs:
-            await notify(ex["id"], title, body, kind="info")
+            await _notify(ex["id"], title, body, kind="info")
     except Exception as e:
-        logger.warning("team_monitor: notify_delon failed: %s", e)
+        logger.warning("team_monitor: notify failed: %s", e)
 
 
 async def _test_provider_key(provider_type: str, raw_key: str) -> tuple[bool, str | None]:
@@ -112,15 +127,12 @@ async def _test_provider_key(provider_type: str, raw_key: str) -> tuple[bool, st
             if r.status_code >= 500:
                 return False, "connectivity"
             return True, None
-    except Exception as e:
+    except Exception:
         return False, "connectivity"
 
 
 async def _run_health_cycle() -> None:
     """One full health check pass across all active provider keys."""
-    from app.database import db
-
-    import os, base64
     enc_secret = os.environ.get("PROVIDER_KEY_ENCRYPTION_SECRET", "")
     fernet = None
     if enc_secret:
@@ -132,7 +144,7 @@ async def _run_health_cycle() -> None:
             pass
 
     try:
-        keys = await db.api_keys.find({"status": "active"}).to_list(50)
+        keys = await _db.api_keys.find({"status": "active"}).to_list(50)
     except Exception as e:
         logger.warning("team_monitor: DB read failed: %s", e)
         return
@@ -144,7 +156,7 @@ async def _run_health_cycle() -> None:
     provider_ids = list({k.get("provider_id") for k in keys if k.get("provider_id")})
     providers = {}
     try:
-        async for p in db.api_providers.find({"id": {"$in": provider_ids}}):
+        async for p in _db.api_providers.find({"id": {"$in": provider_ids}}):
             providers[p["id"]] = p.get("provider_type", p.get("type", "")).lower()
     except Exception:
         pass
@@ -194,7 +206,7 @@ async def _run_health_cycle() -> None:
             # Bad key — revoke immediately
             logger.warning("team_monitor: %s key auth failed — revoking", pt)
             try:
-                await db.api_keys.update_one(
+                await _db.api_keys.update_one(
                     {"id": key_id},
                     {"$set": {"status": "revoked", "revoked_at": _now(),
                               "revoked_by": "team.supervisor"}},
@@ -214,7 +226,7 @@ async def _run_health_cycle() -> None:
             # Reload gateway so this key is no longer used
             try:
                 from ai.llm_gateway import reload_provider_keys
-                await reload_provider_keys(db)
+                await reload_provider_keys(_db)
             except Exception:
                 pass
 
@@ -233,12 +245,11 @@ async def _run_health_cycle() -> None:
                 any_action_taken = True
 
     if any_action_taken:
-        active_count = sum(1 for k, v in _failure_counts.items() if v == 0)
-        await _notify_delon(
+        await _notify_execs(
             "Team monitor took action — FYI",
-            f"The team monitor resolved a provider issue. "
-            f"Check /team/ops for the full action log. "
-            f"No action needed from you unless you want to add a replacement key."
+            "The team monitor resolved a provider issue. "
+            "Check /team/ops for the full action log. "
+            "No action needed from you unless you want to add a replacement key."
         )
 
 

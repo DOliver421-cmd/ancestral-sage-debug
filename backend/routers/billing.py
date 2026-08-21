@@ -491,7 +491,7 @@ try:
     @router.get("/team/monitor/status")
     async def team_monitor_status(user: User = Depends(_require_rank("executive_admin"))):
         try:
-            from app.services.team_monitor import _failure_counts, _degraded, MONITOR_INTERVAL_SEC, FAILURE_THRESHOLD
+            from ai.team_monitor import _failure_counts, _degraded, MONITOR_INTERVAL_SEC, FAILURE_THRESHOLD
             return {"interval_sec": MONITOR_INTERVAL_SEC, "failure_threshold": FAILURE_THRESHOLD,
                     "failure_counts": dict(_failure_counts), "degraded": list(_degraded)}
         except Exception:

@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { Link } from "react-router-dom";
 import { api } from "../lib/api";
 import { Bell, Check, CheckCheck } from "lucide-react";
@@ -42,8 +43,8 @@ export default function NotificationBell() {
           </span>
         )}
       </button>
-      {open && (
-        <div className="fixed lg:absolute right-2 lg:right-0 top-14 lg:top-12 w-80 lg:w-96 bg-white border border-ink/20 shadow-2xl z-50 max-h-[70vh] overflow-y-auto" data-testid="notif-drawer">
+      {open && createPortal(
+        <div className="fixed right-4 top-14 w-80 lg:w-96 bg-white border border-ink/20 shadow-2xl z-[9999] max-h-[70vh] overflow-y-auto" data-testid="notif-drawer">
           <div className="px-4 py-3 bg-ink text-white flex items-center justify-between">
             <span className="overline text-signal">Notifications</span>
             {data.unread > 0 && (
@@ -75,7 +76,8 @@ export default function NotificationBell() {
               ))}
             </div>
           )}
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );
