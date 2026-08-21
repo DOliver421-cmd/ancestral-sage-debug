@@ -56,8 +56,8 @@ function Chip({ ok, label, sub }) {
     <div className="flex items-center gap-2 rounded-xl px-3 py-2" style={{ background: "#faf9f7", border: "1px solid #eee7db" }}>
       <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: ok ? "#16a34a" : "#dc2626" }} />
       <div className="leading-tight">
-        <div className="text-xs font-bold text-ink">{label}</div>
-        {sub && <div className="text-[10px] text-ink/50">{sub}</div>}
+        <div className="text-xs font-bold text-slate-800">{label}</div>
+        {sub && <div className="text-[10px] text-slate-500">{sub}</div>}
       </div>
     </div>
   );
@@ -239,7 +239,7 @@ export default function ExecutiveCommandCenter() {
             ].map(([l, v]) => (
               <div key={l} className="rounded-xl px-3 py-2" style={{ background: "#faf9f7", border: "1px solid #f0eadf" }}>
                 <div className="text-[10px] font-bold uppercase tracking-wide text-slate-400">{l}</div>
-                <div className="font-mono font-bold text-ink" style={{ fontSize: 15 }}>{v ?? "—"}</div>
+                <div className="font-mono font-bold text-slate-800" style={{ fontSize: 15 }}>{v ?? "—"}</div>
               </div>
             ))}
           </div>
@@ -280,13 +280,13 @@ export default function ExecutiveCommandCenter() {
                 ["Completions", stats?.completions],
                 ["Credentials", stats?.credentials_issued],
               ].map(([l, v]) => (
-                <div key={l} className="bg-white rounded-2xl p-4 border border-slate-100 shadow-sm">
+                <div key={l} className="bg-white rounded-2xl p-4 border border-slate-100 shadow-sm text-slate-900">
                   <div className="text-[10px] font-bold uppercase tracking-wide text-slate-400">{l}</div>
-                  <div className="font-mono font-bold text-2xl text-ink">{v ?? "—"}</div>
+                  <div className="font-mono font-bold text-2xl text-slate-800">{v ?? "—"}</div>
                 </div>
               ))}
             </div>
-            <div className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm">
+            <div className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm text-slate-900">
               <div className="text-xs font-bold uppercase tracking-widest text-slate-600 mb-3">Quick actions</div>
               <div className="flex flex-wrap gap-2">
                 {[
@@ -324,7 +324,7 @@ export default function ExecutiveCommandCenter() {
                 ].map(([l, v, s]) => (
                   <div key={l} className="rounded-xl px-3 py-3" style={{ background: "#faf9f7", border: "1px solid #f0eadf" }}>
                     <div className="text-[10px] font-bold uppercase tracking-wide text-slate-400">{l}</div>
-                    <div className="font-mono font-bold text-ink" style={{ fontSize: 16 }}>{v}</div>
+                    <div className="font-mono font-bold text-slate-800" style={{ fontSize: 16 }}>{v}</div>
                     {s && <div className="text-[10px] text-slate-400">{s}</div>}
                   </div>
                 ))}
@@ -339,7 +339,7 @@ export default function ExecutiveCommandCenter() {
                 <div className="space-y-2">
                   {agenda.slice(0, 6).map((a) => (
                     <div key={a.id} className="rounded-xl px-3 py-2 flex items-center justify-between gap-2" style={{ background: "#faf9f7" }}>
-                      <div className="text-sm text-ink">{a.title}</div>
+                      <div className="text-sm text-slate-800">{a.title}</div>
                       <span className="text-[10px] font-bold px-2 py-0.5 rounded-full shrink-0" style={{ background: a.priority === "high" ? "#fee2e2" : "#fef3c7", color: a.priority === "high" ? "#b91c1c" : "#8a5a00" }}>
                         {a.priority || "normal"}
                       </span>
@@ -356,7 +356,7 @@ export default function ExecutiveCommandCenter() {
                 <div className="space-y-2">
                   {projects.map((p) => (
                     <div key={p.project_id} className="rounded-xl px-3 py-2 flex items-center justify-between gap-2" style={{ background: "#faf9f7" }}>
-                      <div className="text-sm text-ink truncate">{p.title}</div>
+                      <div className="text-sm text-slate-800 truncate">{p.title}</div>
                       <span className="text-[10px] font-bold px-2 py-0.5 rounded-full shrink-0" style={{ background: "#e0e7ff", color: "#3730a3" }}>{p.status || "active"}</span>
                     </div>
                   ))}
@@ -385,7 +385,7 @@ export default function ExecutiveCommandCenter() {
                   <tbody>
                     {(Object.entries(sys?.gateway?.providers || {}).filter(([k]) => k !== "kb_fallback")).map(([k, p]) => (
                       <tr key={k} className="border-b border-slate-50">
-                        <td className="py-2 pr-4 font-bold text-ink">{k}</td>
+                        <td className="py-2 pr-4 font-bold text-slate-800">{k}</td>
                         <td className="py-2 pr-4 text-slate-500">{String(p.tier)}</td>
                         <td className="py-2 pr-4 text-slate-500">{p.cost}</td>
                         <td className="py-2 pr-4">
@@ -407,7 +407,7 @@ export default function ExecutiveCommandCenter() {
                 ].map(([l, v, s]) => (
                   <div key={l} className="rounded-xl px-3 py-2" style={{ background: "#faf9f7", border: "1px solid #f0eadf" }}>
                     <div className="text-[10px] font-bold uppercase tracking-wide text-slate-400">{l}</div>
-                    <div className="font-mono font-bold text-ink text-sm">{v}</div>
+                    <div className="font-mono font-bold text-slate-800 text-sm">{v}</div>
                     {s && <div className="text-[10px] text-slate-400">{s}</div>}
                   </div>
                 ))}
@@ -420,7 +420,7 @@ export default function ExecutiveCommandCenter() {
               <div className="grid md:grid-cols-2 gap-4">
                 <div className="rounded-xl p-4" style={{ background: "#faf9f7", border: "1px solid #f0eadf" }}>
                   <div className="flex items-center justify-between">
-                    <div className="font-heading font-extrabold text-ink">Gemini Developer API</div>
+                    <div className="font-heading font-extrabold text-slate-800">Gemini Developer API</div>
                     <span className="text-[10px] font-bold px-2 py-0.5 rounded-full" style={{ background: sys?.env?.gemini_key ? "#d1fae5" : "#fef3c7", color: sys?.env?.gemini_key ? "#065f46" : "#8a5a00" }}>
                       {sys?.env?.gemini_key ? "Key set" : "No key yet"}
                     </span>
@@ -444,12 +444,12 @@ export default function ExecutiveCommandCenter() {
                   </p>
                 </div>
                 <div className="rounded-xl p-4" style={{ background: "#faf9f7", border: "1px solid #f0eadf" }}>
-                  <div className="font-heading font-extrabold text-ink">Other Google free features — evaluated</div>
+                  <div className="font-heading font-extrabold text-slate-800">Other Google free features — evaluated</div>
                   <ul className="text-xs text-slate-500 mt-2 space-y-1.5 leading-relaxed">
-                    <li><strong className="text-ink">Free courses (worth it):</strong> Google AI Essentials, Google Cloud Skills Boost (~35 free credits/mo), grow.google — link them in a Free Learning lane for the community.</li>
-                    <li><strong className="text-ink">Google Cloud free tier ($300/90 days):</strong> not needed now — the platform runs on a zero-cost stack; defer until there's a real need for GCP compute/storage.</li>
-                    <li><strong className="text-ink">Workspace (Gmail/Drive/Calendar):</strong> the base account already provides daily ops — no integration required.</li>
-                    <li><strong className="text-ink">Verdict:</strong> integrate Gemini key (fallback AI) + free courses (mission education). Skip GCP cloud spend.</li>
+                    <li><strong className="text-slate-800">Free courses (worth it):</strong> Google AI Essentials, Google Cloud Skills Boost (~35 free credits/mo), grow.google — link them in a Free Learning lane for the community.</li>
+                    <li><strong className="text-slate-800">Google Cloud free tier ($300/90 days):</strong> not needed now — the platform runs on a zero-cost stack; defer until there's a real need for GCP compute/storage.</li>
+                    <li><strong className="text-slate-800">Workspace (Gmail/Drive/Calendar):</strong> the base account already provides daily ops — no integration required.</li>
+                    <li><strong className="text-slate-800">Verdict:</strong> integrate Gemini key (fallback AI) + free courses (mission education). Skip GCP cloud spend.</li>
                   </ul>
                 </div>
               </div>
@@ -462,7 +462,7 @@ export default function ExecutiveCommandCenter() {
           <div className="space-y-5">
             {flagReasonTarget && (
               <div className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm text-slate-900">
-                <div className="text-sm font-bold text-ink mb-2">Reason for enabling {flagReasonTarget.flag}:</div>
+                <div className="text-sm font-bold text-slate-800 mb-2">Reason for enabling {flagReasonTarget.flag}:</div>
                 <input value={flagReason} onChange={(e) => setFlagReason(e.target.value)}
                   className="w-full rounded-xl px-4 py-2 text-sm border border-slate-200 mb-3"
                   placeholder="Justify this change…" />
@@ -470,7 +470,7 @@ export default function ExecutiveCommandCenter() {
                   <button onClick={() => applyFlagDirect(flagReasonTarget.flag, flagReasonTarget.value, flagReason)}
                     className="text-xs font-bold px-4 py-2 rounded-lg bg-red-600 text-white">Confirm Enable</button>
                   <button onClick={() => { setFlagReasonTarget(null); setFlagReason(""); }}
-                    className="text-xs font-bold px-4 py-2 rounded-lg border border-slate-200 text-ink">Cancel</button>
+                    className="text-xs font-bold px-4 py-2 rounded-lg border border-slate-200 text-slate-800">Cancel</button>
                 </div>
               </div>
             )}
@@ -489,7 +489,7 @@ export default function ExecutiveCommandCenter() {
                   return (
                     <div key={flag} className="flex items-center justify-between gap-4 rounded-xl px-4 py-3" style={{ background: enabled ? (danger ? "#fef2f2" : "#f0fdf4") : "#faf9f7", border: `1px solid ${enabled ? (danger ? "#fecaca" : "#bbf7d0") : "#f0eadf"}` }}>
                       <div>
-                        <div className="text-sm font-bold text-ink">{label}</div>
+                        <div className="text-sm font-bold text-slate-800">{label}</div>
                         <div className="text-xs text-slate-500">{desc}</div>
                       </div>
                       <button onClick={() => toggleFlag(flag, enabled)} disabled={flagBusy[flag]}
@@ -505,7 +505,7 @@ export default function ExecutiveCommandCenter() {
             {flags?.active_broadcast && (
               <div className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm text-slate-900">
                 <div className="text-xs font-bold uppercase tracking-widest text-slate-600 mb-2">Active Broadcast</div>
-                <div className="text-sm text-ink">{flags.active_broadcast.message}</div>
+                <div className="text-sm text-slate-800">{flags.active_broadcast.message}</div>
               </div>
             )}
           </div>
@@ -570,7 +570,7 @@ export default function ExecutiveCommandCenter() {
                   <tbody>
                     {siteUsers.slice(0, 15).map((u) => (
                       <tr key={u.id} className="border-b border-slate-50">
-                        <td className="py-2 pr-4 font-bold text-ink text-xs">{u.display_name || u.name || u.email}</td>
+                        <td className="py-2 pr-4 font-bold text-slate-800 text-xs">{u.display_name || u.name || u.email}</td>
                         <td className="py-2 pr-4"><span className="text-[10px] font-bold px-2 py-0.5 rounded-full" style={{ background: "#e0e7ff", color: "#3730a3" }}>{u.role}</span></td>
                         <td className="py-2 pr-4 text-slate-500 text-xs">{u.email}</td>
                         <td className="py-2 pr-4 text-slate-400 text-xs">{u.created_at ? new Date(u.created_at).toLocaleDateString() : "—"}</td>
@@ -596,7 +596,7 @@ export default function ExecutiveCommandCenter() {
                   ["/revenue", "Revenue Division", "Revenue & projections"],
                 ].map(([p, t, d]) => (
                   <Link key={p} to={p} className="rounded-xl p-4 hover:shadow-md transition-shadow" style={{ background: "#faf9f7", border: "1px solid #f0eadf", textDecoration: "none" }}>
-                    <div className="font-heading font-extrabold text-ink text-sm">{t}</div>
+                    <div className="font-heading font-extrabold text-slate-800 text-sm">{t}</div>
                     <div className="text-[11px] text-slate-400 mt-1">{d}</div>
                     <div className="text-xs font-bold mt-2" style={{ color: "#8a5a00" }}>Open →</div>
                   </Link>
@@ -614,7 +614,7 @@ export default function ExecutiveCommandCenter() {
                 {manuals.map((m) => (
                   <details key={m.slug + m.group} className="rounded-xl" style={{ background: "#faf9f7", border: "1px solid #f0eadf" }}
                     open={openManual === m.slug} onToggle={(e) => e.target.open && setOpenManual(m.slug)}>
-                    <summary className="cursor-pointer px-4 py-3 text-sm font-bold text-ink">
+                    <summary className="cursor-pointer px-4 py-3 text-sm font-bold text-slate-800">
                       {m.group === "handbook" ? "📖 " : "📘 "}{m.title}
                     </summary>
                     <div className="px-4 pb-4 text-sm leading-relaxed text-slate-700 max-h-[60vh] overflow-y-auto prose-headings:mt-3 prose-p:my-2">
@@ -635,7 +635,7 @@ export default function ExecutiveCommandCenter() {
             <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
               {filteredTools.map((t) => (
                 <Link key={t.name + t.path} to={t.path} className="rounded-2xl p-4 hover:shadow-md transition-shadow" style={{ background: "#fff", border: "1px solid #f0eadf", textDecoration: "none" }}>
-                  <div className="font-heading font-extrabold text-ink text-sm">{t.name}</div>
+                  <div className="font-heading font-extrabold text-slate-800 text-sm">{t.name}</div>
                   <div className="text-[11px] text-slate-400 mt-1">{t.desc}</div>
                   <div className="text-[11px] font-mono mt-2" style={{ color: "#8a5a00" }}>{t.path}</div>
                 </Link>
