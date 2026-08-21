@@ -22,10 +22,11 @@ import AppShell from "../components/AppShell";
 import { useAuth } from "../lib/auth";
 import { api } from "../lib/api";
 import { toast } from "sonner";
+import { roleAtLeast, ROLE_LABELS } from "../lib/roles";
 import SourceProtocolPanel from "../components/SourceProtocolPanel";
 import {
   Building2, TrendingUp, DollarSign, Receipt, Users, RefreshCw,
-  ArrowRight, Plus, Wrench, Briefcase, Target, ShieldCheck, HeartHandshake, Sparkles,
+  ArrowRight, Plus, Wrench, Briefcase, Target, ShieldCheck, HeartHandshake, Sparkles, Lock,
 } from "lucide-react";
 
 const GREEN = "#1B4332";
@@ -169,7 +170,7 @@ export default function BusinessOffice() {
             Nothing is auto-drained; every distribution happens only when the owner says so, only from net profit.
           </p>
           <div className="flex flex-wrap gap-2 mt-4">
-            {tools?.tools?.slice(0, 8).map((t) => (
+            {tools?.tools?.slice(0, 12).filter(t => !t.access || t.access === "student" || roleAtLeast(user?.role || "public", t.access)).map((t) => (
               <Link key={t.key} to={t.link}
                 className="flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-full border transition-colors"
                 style={{ borderColor: "rgba(255,255,255,0.35)", color: "#fff" }}
@@ -513,25 +514,51 @@ export default function BusinessOffice() {
               </button>
             </div>
             <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4 mt-3">
-              {(tools?.tools || []).map((t) => (
-                <Link key={t.key} to={t.link}
-                  className="card-flat rounded-2xl p-5 border no-underline transition-all hover:-translate-y-0.5 hover:shadow-lg"
-                  style={{ background: "#fff", borderColor: "#eee7d8" }}>
-                  <div className="flex items-center gap-3">
-                    <span className="w-10 h-10 rounded-xl flex items-center justify-center text-xl"
-                      style={{ background: "linear-gradient(135deg,#1B4332,#2D6A4F)" }}>{t.icon}</span>
-                    <div>
-                      <div className="font-heading font-bold text-ink">{t.name}</div>
-                      <div className="text-[10px] font-black uppercase tracking-widest" style={{ color: COPPER }}>{t.access}</div>
+              {(tools?.tools || []).map((t) => {
+                const hasAccess = !t.access || t.access === "student" || roleAtLeast(user?.role || "public", t.access);
+                const accessLabel = ROLE_LABELS[t.access] || t.access;
+                if (!hasAccess) {
+                  return (
+                    <div key={t.key}
+                      className="card-flat rounded-2xl p-5 border opacity-60 cursor-not-allowed"
+                      style={{ background: "#f9f6f0", borderColor: "#eee7d8" }}>
+                      <div className="flex items-center gap-3">
+                        <span className="w-10 h-10 rounded-xl flex items-center justify-center text-xl"
+                          style={{ background: "#e8e2d4" }}>{t.icon}</span>
+                        <div>
+                          <div className="font-heading font-bold text-ink">{t.name}</div>
+                          <div className="text-[10px] font-black uppercase tracking-widest flex items-center gap-1" style={{ color: "#999" }}>
+                            <Lock className="w-3 h-3" /> {accessLabel} required
+                          </div>
+                        </div>
+                      </div>
+                      <p className="text-sm text-ink/50 mt-3 leading-snug">{t.what}</p>
+                      <div className="mt-3 pt-3 border-t border-ink/5">
+                        <span className="text-[11px] font-bold text-ink/40">{t.revenue}</span>
+                      </div>
                     </div>
-                  </div>
-                  <p className="text-sm text-ink/70 mt-3 leading-snug">{t.what}</p>
-                  <div className="mt-3 pt-3 border-t border-ink/5 flex items-center justify-between">
-                    <span className="text-[11px] font-bold text-ink/50">{t.revenue}</span>
-                    <span className="text-xs font-black" style={{ color: GREEN }}>Open →</span>
-                  </div>
-                </Link>
-              ))}
+                  );
+                }
+                return (
+                  <Link key={t.key} to={t.link}
+                    className="card-flat rounded-2xl p-5 border no-underline transition-all hover:-translate-y-0.5 hover:shadow-lg"
+                    style={{ background: "#fff", borderColor: "#eee7d8" }}>
+                    <div className="flex items-center gap-3">
+                      <span className="w-10 h-10 rounded-xl flex items-center justify-center text-xl"
+                        style={{ background: "linear-gradient(135deg,#1B4332,#2D6A4F)" }}>{t.icon}</span>
+                      <div>
+                        <div className="font-heading font-bold text-ink">{t.name}</div>
+                        <div className="text-[10px] font-black uppercase tracking-widest" style={{ color: COPPER }}>{accessLabel}</div>
+                      </div>
+                    </div>
+                    <p className="text-sm text-ink/70 mt-3 leading-snug">{t.what}</p>
+                    <div className="mt-3 pt-3 border-t border-ink/5 flex items-center justify-between">
+                      <span className="text-[11px] font-bold text-ink/50">{t.revenue}</span>
+                      <span className="text-xs font-black" style={{ color: GREEN }}>Open →</span>
+                    </div>
+                  </Link>
+                );
+              })}
             </div>
           </section>
 
