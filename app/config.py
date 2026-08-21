@@ -52,7 +52,7 @@ GMAIL_APP_PASSWORD = os.environ.get("GMAIL_APP_PASSWORD", "")
 RESET_TOKEN_TTL_MIN = int(os.environ.get("PASSWORD_RESET_TTL_MIN", "30"))
 
 # ── Executive accounts ────────────────────────────────────────────────────────
-EXEC_ADMIN_EMAIL   = os.environ.get("EXEC_ADMIN_EMAIL", "delon.oliver@lightningcityelectric.com")
+EXEC_ADMIN_EMAIL   = os.environ.get("EXEC_ADMIN_EMAIL", "").strip()
 EXEC_DEFAULT_PASSWORD = os.environ.get("EXEC_DEFAULT_PASSWORD", "")
 
 BACKUP_EXEC_EMAIL           = os.environ.get("BACKUP_EXEC_ADMIN_EMAIL", "youpickeddoliver@gmail.com")

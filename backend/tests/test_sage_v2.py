@@ -18,8 +18,8 @@ API = f"{BASE}/api"
 
 STUDENT_EMAIL = "student@lcewai.org"
 STUDENT_PW = "Learn@LCE2026"
-EXEC_EMAIL = "delon.oliver@lightningcityelectric.com"
-EXEC_PW = "Executive@LCE2026"
+EXEC_EMAIL = os.environ.get("TEST_EXEC_EMAIL", "youpickeddoliver@gmail.com")
+EXEC_PW = os.environ.get("TEST_EXEC_PW", "")
 
 COMPREHENSION = "I understand and accept the risks of this practice."
 

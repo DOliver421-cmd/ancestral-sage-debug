@@ -56,7 +56,7 @@ def bind(_db, _audit, _notify, _current_user, _can_modify,
 
 
 # ── Exec seat / env configuration (read directly, mirrors server.py) ─────────
-EXEC_ADMIN_EMAIL = os.environ.get("EXEC_ADMIN_EMAIL", "delon.oliver@lightningcityelectric.com")
+EXEC_ADMIN_EMAIL = os.environ.get("EXEC_ADMIN_EMAIL", "").strip()
 EXEC_DEFAULT_PASSWORD = os.environ.get("EXEC_DEFAULT_PASSWORD", "")
 BACKUP_EXEC_EMAIL = os.environ.get("BACKUP_EXEC_ADMIN_EMAIL", "youpickeddoliver@gmail.com")
 BACKUP_EXEC_DEFAULT_PASSWORD = os.environ.get("BACKUP_EXEC_DEFAULT_PASSWORD", "")
@@ -862,9 +862,11 @@ async def exec_unlock(request: Request):
         raise HTTPException(403, "Invalid secret")
 
     _seats = [
-        (EXEC_ADMIN_EMAIL,  "Delon Oliver",  EXEC_DEFAULT_PASSWORD),
-        (BACKUP_EXEC_EMAIL, "Delon Oliver",  BACKUP_EXEC_DEFAULT_PASSWORD),
-        (NAM_EXEC_EMAIL,    "NAM Oshun",     NAM_EXEC_DEFAULT_PASSWORD),
+        _seat for _seat in [
+            (EXEC_ADMIN_EMAIL,  "Delon Oliver",  EXEC_DEFAULT_PASSWORD),
+            (BACKUP_EXEC_EMAIL, "Delon Oliver",  BACKUP_EXEC_DEFAULT_PASSWORD),
+            (NAM_EXEC_EMAIL,    "NAM Oshun",     NAM_EXEC_DEFAULT_PASSWORD),
+        ] if _seat[0]
     ]
     reset = []
     for _email, _name, _pw in _seats:

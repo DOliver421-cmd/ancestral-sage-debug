@@ -37,7 +37,7 @@ GMAIL_USER          = os.environ.get("GMAIL_USER", "")
 GMAIL_APP_PASSWORD  = os.environ.get("GMAIL_APP_PASSWORD", "")
 OUTLOOK_USER        = os.environ.get("OUTLOOK_USER", "")
 OUTLOOK_APP_PASSWORD= os.environ.get("OUTLOOK_APP_PASSWORD", "")
-EXEC_EMAIL          = os.environ.get("EXEC_ADMIN_EMAIL", "delon.oliver@lightningcityelectric.com")
+EXEC_EMAIL          = os.environ.get("EXEC_ADMIN_EMAIL", "").strip()
 
 _UA = ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
        "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36")

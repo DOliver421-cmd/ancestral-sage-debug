@@ -23,7 +23,7 @@ class Settings(BaseSettings):
     # =====================================================================
     # JWT & AUTH
     # =====================================================================
-    JWT_SECRET: str = os.getenv("JWT_SECRET", "dev-secret-change-in-production")
+    JWT_SECRET: str = os.getenv("JWT_SECRET", "")
     JWT_ALGORITHM: str = "HS256"
     JWT_EXPIRATION_HOURS: int = 24
 
@@ -94,8 +94,8 @@ def validate_config():
     if settings.ENVIRONMENT == "production":
         if settings.DEBUG:
             errors.append("DEBUG cannot be True in production")
-        if settings.JWT_SECRET == "dev-secret-change-in-production":
-            errors.append("JWT_SECRET must be changed for production")
+        if not settings.JWT_SECRET or settings.JWT_SECRET == "dev-secret-change-in-production":
+            errors.append("JWT_SECRET must be set to a strong, unique value for production")
 
     if errors:
         raise ValueError("Configuration errors: " + "; ".join(errors))

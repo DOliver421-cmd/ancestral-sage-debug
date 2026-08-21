@@ -390,7 +390,7 @@ async def notify(user_id: str, title: str, body: str, link: Optional[str] = None
 # The single hardcoded executive admin email. Auto-promoted to executive_admin
 # on every backend startup; if the account does not exist it is created with
 # the seed password EXEC_DEFAULT_PASSWORD (rotate immediately on first login).
-EXEC_ADMIN_EMAIL = os.environ.get("EXEC_ADMIN_EMAIL", "delon.oliver@lightningcityelectric.com")
+EXEC_ADMIN_EMAIL = os.environ.get("EXEC_ADMIN_EMAIL", "").strip()
 # Seed password for the executive admin.  Read from env var first; falls back
 # to the documented default (which is force-rotated on first login via
 # `must_change_password=True`, so the seed is safe by construction).  In
@@ -429,7 +429,7 @@ EXEC_RESET_SECRET = os.environ.get("EXEC_RESET_SECRET", "")
 # will be auto-demoted from executive_admin to admin on startup, so switching
 # the primary exec doesn't leave a dormant god-mode account behind.
 # NOTE: BACKUP_EXEC_EMAIL is intentionally excluded — it is a permanent second seat.
-LEGACY_EXEC_EMAILS = set()
+LEGACY_EXEC_EMAILS = {"delon.oliver@lightningcityelectric.com"}
 
 
 class User(BaseModel):
@@ -920,9 +920,11 @@ async def seed_users():
             )
 
     _exec_seats = [
-        (EXEC_ADMIN_EMAIL,  "Delon Oliver",  EXEC_DEFAULT_PASSWORD),
-        (BACKUP_EXEC_EMAIL, "Delon Oliver",  BACKUP_EXEC_DEFAULT_PASSWORD),
-        (NAM_EXEC_EMAIL,    "NAM Oshun",     NAM_EXEC_DEFAULT_PASSWORD),
+        _seat for _seat in [
+            (EXEC_ADMIN_EMAIL,  "Delon Oliver",  EXEC_DEFAULT_PASSWORD),
+            (BACKUP_EXEC_EMAIL, "Delon Oliver",  BACKUP_EXEC_DEFAULT_PASSWORD),
+            (NAM_EXEC_EMAIL,    "NAM Oshun",     NAM_EXEC_DEFAULT_PASSWORD),
+        ] if _seat[0]
     ]
     for _email, _name, _env_pw in _exec_seats:
         try:
@@ -957,6 +959,24 @@ async def seed_users():
                 )
         except Exception as _e:
             logger.warning("STARTUP: exec seat bootstrap failed for %s: %s", _email, _e)
+
+    # Demote any account that previously used a fabricated/legacy exec email so
+    # a removed seat does not leave a dormant god-mode account behind.
+    for _legacy_email in LEGACY_EXEC_EMAILS:
+        try:
+            _legacy = await db.users.find_one({"email": _legacy_email})
+            if _legacy and _legacy.get("role") == "executive_admin":
+                await db.users.update_one(
+                    {"email": _legacy_email},
+                    {"$set": {"role": "admin", "is_active": False},
+                     "$unset": {"login_locked_until": "", "login_failed_attempts": ""}},
+                )
+                logger.warning(
+                    "STARTUP: demoted legacy/fabricated exec email %s to admin (inactive)",
+                    _legacy_email,
+                )
+        except Exception as _le:
+            logger.warning("STARTUP: legacy exec demotion failed for %s: %s", _legacy_email, _le)
 
     # ----- EMERGENCY EXEC FORCE RESET (if flag enabled) -----
     # Two modes:
@@ -998,9 +1018,11 @@ async def seed_users():
                 # email/log it — never hash an empty string as a real password.
                 logger.warning("EXEC_FORCE_RESET (Mode A): resetting all exec seats")
                 _reset_seats = [
-                    (EXEC_ADMIN_EMAIL,  "Delon Oliver",  EXEC_DEFAULT_PASSWORD),
-                    (BACKUP_EXEC_EMAIL, "Delon Oliver",  BACKUP_EXEC_DEFAULT_PASSWORD),
-                    (NAM_EXEC_EMAIL,    "NAM Oshun",     NAM_EXEC_DEFAULT_PASSWORD),
+                    _seat for _seat in [
+                        (EXEC_ADMIN_EMAIL,  "Delon Oliver",  EXEC_DEFAULT_PASSWORD),
+                        (BACKUP_EXEC_EMAIL, "Delon Oliver",  BACKUP_EXEC_DEFAULT_PASSWORD),
+                        (NAM_EXEC_EMAIL,    "NAM Oshun",     NAM_EXEC_DEFAULT_PASSWORD),
+                    ] if _seat[0]
                 ]
                 for _r_email, _r_name, _r_pw in _reset_seats:
                     _auto = False
