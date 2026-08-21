@@ -19,6 +19,18 @@ const LS_SESSION_KEY  = "more_ops_session_id";
 const LS_MESSAGES_KEY = "more_ops_messages";
 const MAX_LOCAL_MSGS  = 120; // keep last 120 messages in localStorage
 
+function readAudioDuration(file) {
+  return new Promise((resolve, reject) => {
+    if (!file?.type?.startsWith("audio/")) return resolve(null);
+    const url = URL.createObjectURL(file);
+    const audio = document.createElement("audio");
+    audio.preload = "metadata";
+    audio.onloadedmetadata = () => { URL.revokeObjectURL(url); resolve(audio.duration); };
+    audio.onerror = () => { URL.revokeObjectURL(url); reject(new Error("Could not read audio duration")); };
+    audio.src = url;
+  });
+}
+
 function getStableSessionId() {
   let id = localStorage.getItem(LS_SESSION_KEY);
   if (!id) { id = uuidv4(); localStorage.setItem(LS_SESSION_KEY, id); }
@@ -172,6 +184,9 @@ function UploadSellPanel({ user }) {
     try {
       const fd = new FormData();
       fd.append("file", file);
+      if (file.size > 50 * 1024 * 1024) throw new Error("File too large (max 50 MB)");
+      const duration = await readAudioDuration(file);
+      if (duration) fd.append("duration_seconds", String(duration));
       fd.append("title", title);
       fd.append("description", "");
       fd.append("file_type", "other");
@@ -180,15 +195,15 @@ function UploadSellPanel({ user }) {
         headers: { "Content-Type": "multipart/form-data" },
         onUploadProgress: e => setUploadProgress(Math.round(e.loaded / e.total * 100)),
       });
-      const fileId = uploadRes.data.id;
+      const fileUrl = uploadRes.data.file_url;
 
       const priceCents = Math.round(parseFloat(price || "0") * 100);
       await api.post("/media/products", {
         title,
         description: "",
         price_cents: priceCents,
-        file_id: fileId,
-        product_type: "track",
+        file_url: fileUrl,
+        type: "track",
         published: true,
       });
       toast.success("Uploaded and published!");
@@ -234,7 +249,7 @@ function UploadSellPanel({ user }) {
                 <CheckCircle2 size={14} /> {file.name}
               </span>
             ) : (
-              <span><Upload size={14} className="inline mr-1.5" />Choose file (any format, max 500 MB)</span>
+              <span><Upload size={14} className="inline mr-1.5" />Choose file (any format, max 50 MB)</span>
             )}
             <input ref={fileRef} type="file" className="hidden" onChange={e => setFile(e.target.files[0])} />
           </label>
@@ -335,10 +350,13 @@ export default function MoreOps() {
 
   const activeTrackRef  = trackVersion === "original" ? trackOrigRef : trackAiRef;
   const passiveTrackRef = trackVersion === "original" ? trackAiRef   : trackOrigRef;
+  const uploadedPreviewLimit = (el) => el?.src?.includes("/media/file/") ? 33 : null;
 
   const trackTogglePlay = () => {
     const el = activeTrackRef.current;
     if (!el || !el.src) return;
+    const limit = uploadedPreviewLimit(el);
+    if (limit && el.currentTime >= limit) el.currentTime = 0;
     if (trackPlaying) { el.pause(); setTrackPlaying(false); }
     else { el.play().catch(() => {}); setTrackPlaying(true); }
   };
@@ -351,7 +369,8 @@ export default function MoreOps() {
     const pos = from.currentTime;
     const was = trackPlaying;
     from.pause();
-    to.currentTime = Math.min(pos, to.duration || 0);
+    const limit = uploadedPreviewLimit(to);
+    to.currentTime = Math.min(pos, to.duration || 0, limit || Infinity);
     if (was) to.play().catch(() => {});
     setTrackVersion(v);
   };
@@ -361,7 +380,9 @@ export default function MoreOps() {
     if (!el || !el.duration) return;
     const rect = e.currentTarget.getBoundingClientRect();
     const pct  = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
-    el.currentTime = pct * el.duration;
+    const limit = uploadedPreviewLimit(el);
+    const visibleDuration = limit ? Math.min(el.duration, limit) : el.duration;
+    el.currentTime = pct * visibleDuration;
     setTrackProgress(pct * 100);
   };
 
@@ -688,22 +709,38 @@ export default function MoreOps() {
           <audio ref={trackOrigRef} preload="auto" style={{ display: "none" }}
             onTimeUpdate={() => {
               const el = trackOrigRef.current;
-              if (trackVersion === "original" && el?.duration)
-                setTrackProgress((el.currentTime / el.duration) * 100);
+              if (trackVersion === "original" && el?.duration) {
+                const limit = uploadedPreviewLimit(el);
+                if (limit && el.currentTime >= limit) { el.currentTime = limit; el.pause(); setTrackPlaying(false); }
+                const visibleDuration = limit ? Math.min(el.duration, limit) : el.duration;
+                setTrackProgress((el.currentTime / visibleDuration) * 100);
+              }
             }}
             onDurationChange={() => {
-              if (trackVersion === "original") setTrackDuration(trackOrigRef.current?.duration || 0);
+              if (trackVersion === "original") {
+                const el = trackOrigRef.current;
+                const limit = uploadedPreviewLimit(el);
+                setTrackDuration(limit ? Math.min(el.duration || limit, limit) : (el?.duration || 0));
+              }
             }}
             onEnded={() => { setTrackPlaying(false); setTrackProgress(0); }}
           />
           <audio ref={trackAiRef} preload="auto" style={{ display: "none" }}
             onTimeUpdate={() => {
               const el = trackAiRef.current;
-              if (trackVersion === "ai" && el?.duration)
-                setTrackProgress((el.currentTime / el.duration) * 100);
+              if (trackVersion === "ai" && el?.duration) {
+                const limit = uploadedPreviewLimit(el);
+                if (limit && el.currentTime >= limit) { el.currentTime = limit; el.pause(); setTrackPlaying(false); }
+                const visibleDuration = limit ? Math.min(el.duration, limit) : el.duration;
+                setTrackProgress((el.currentTime / visibleDuration) * 100);
+              }
             }}
             onDurationChange={() => {
-              if (trackVersion === "ai") setTrackDuration(trackAiRef.current?.duration || 0);
+              if (trackVersion === "ai") {
+                const el = trackAiRef.current;
+                const limit = uploadedPreviewLimit(el);
+                setTrackDuration(limit ? Math.min(el.duration || limit, limit) : (el?.duration || 0));
+              }
             }}
             onEnded={() => { setTrackPlaying(false); setTrackProgress(0); }}
           />

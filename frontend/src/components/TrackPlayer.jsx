@@ -24,25 +24,39 @@ export default function TrackPlayer({ track, accentColor = "amber" }) {
 
   const active  = version === "original" ? origRef : aiRef;
   const passive = version === "original" ? aiRef   : origRef;
+  const previewSeconds = track.preview_seconds || ((track.product_type || track.type) === "track" ? 33 : null);
+  const fullAccess = Boolean(track.full_access || track.purchased || track.owner_access);
+  const originalUrl = track.original_url || track.file_url || track.url;
+  const aiUrl = track.ai_url || track.ai_file_url;
+  const mediaSrc = (src) => {
+    if (!src || fullAccess || !previewSeconds || !src.includes("/media/file/")) return src;
+    return `${src}${src.includes("?") ? "&" : "?"}preview=true`;
+  };
 
   // Set srcs once on mount
   useEffect(() => {
-    if (origRef.current && track.original_url) {
-      origRef.current.src = track.original_url;
+    if (origRef.current && originalUrl) {
+      origRef.current.src = mediaSrc(originalUrl);
       origRef.current.load();
     }
-    if (aiRef.current && track.ai_url) {
-      aiRef.current.src = track.ai_url;
+    if (aiRef.current && aiUrl) {
+      aiRef.current.src = mediaSrc(aiUrl);
       aiRef.current.load();
     }
-  }, [track.original_url, track.ai_url]);
+  }, [originalUrl, aiUrl, fullAccess, previewSeconds]);
 
   const syncProgress = useCallback(() => {
     const el = active.current;
     if (!el || !el.duration) return;
-    setProgress((el.currentTime / el.duration) * 100);
-    setDuration(el.duration);
-  }, [active]);
+    if (!fullAccess && previewSeconds && el.currentTime >= previewSeconds) {
+      el.currentTime = previewSeconds;
+      el.pause();
+      setPlaying(false);
+    }
+    const visibleDuration = !fullAccess && previewSeconds ? Math.min(el.duration, previewSeconds) : el.duration;
+    setProgress((el.currentTime / visibleDuration) * 100);
+    setDuration(visibleDuration);
+  }, [active, fullAccess, previewSeconds]);
 
   useEffect(() => {
     const el = active.current;
@@ -57,6 +71,7 @@ export default function TrackPlayer({ track, accentColor = "amber" }) {
   const togglePlay = () => {
     const el = active.current;
     if (!el) return;
+    if (!fullAccess && previewSeconds && el.currentTime >= previewSeconds) el.currentTime = 0;
     if (playing) {
       el.pause();
       setPlaying(false);
@@ -110,7 +125,7 @@ export default function TrackPlayer({ track, accentColor = "amber" }) {
     return `${m}:${sec.toString().padStart(2, "0")}`;
   };
 
-  const hasAI = Boolean(track.ai_url);
+  const hasAI = Boolean(aiUrl);
   const accent = accentColor === "amber" ? "#d97706" : accentColor === "indigo" ? "#6366f1" : "#d97706";
 
   return (
@@ -123,8 +138,8 @@ export default function TrackPlayer({ track, accentColor = "amber" }) {
         onCanPlay={() => setLoaded(l => ({ ...l, ai: true }))} />
 
       <div className="p-4">
-        {/* Track header */}
-        <div className="flex items-center gap-3 mb-3">
+        {/* Track header */}          <div className="flex items-center gap-3 mb-3">
+
           <button
             onClick={togglePlay}
             className="w-11 h-11 rounded-full flex items-center justify-center shrink-0 text-white transition-transform active:scale-95"

@@ -40,10 +40,24 @@ from typing import Optional
 
 # Platform feature flag -> API path prefixes it governs.  Keep in sync with the
 # frontend's TIER_FOR_FEATURE keys and the live route table.
+# Specific prefixes come before broad prefixes so an executive can govern a
+# feature such as Social Blast without accidentally changing every AI route.
 FEATURE_API_PATHS: dict = {
-    "ai_chat": ["/api/ai/"],
-    "posts": ["/api/more/"],
+    "publisher_ai": ["/api/ai/social-blast"],
+    "sovereign": ["/api/sovereign/", "/api/puzzles/"],
+    "studio": ["/api/studio/"],
+    "band": ["/api/band/"],
+    "lounge": ["/api/creator-lounge/"],
+    "earnings": ["/api/creator/earnings", "/api/creator/split"],
+    "payouts": ["/api/creator/payouts", "/api/creator/payout-summary", "/api/creator/bank-account"],
+    "publisher": ["/api/playlist/", "/api/portfolio/publish"],
+    "tracks": ["/api/modules/tracks", "/api/progress/tracks"],
+    # The broad modules/progress prefixes intentionally remain courses so the
+    # existing contract continues to govern the live LMS endpoints.
     "courses": ["/api/modules", "/api/progress", "/api/labs", "/api/credentials"],
+    "posts": ["/api/more/"],
+    "ai_chat": ["/api/ai/"],
+    "profile": ["/api/auth/me"],
 }
 
 # Page-access registry key -> API path prefixes it governs.  Keys must match
@@ -87,15 +101,25 @@ TIER_RANK: dict = {
 # (every account qualifies).  Instructors bypass course access; admin roles
 # bypass tier requirements entirely (staff, not paying customers).
 FEATURE_MIN_TIER: dict = {
-    "ai_chat": "free",   # no gate — but revocable per-user via flags/ai_access
+    "profile": "free",
+    "ai_chat": "free",
     "posts": "member",
+    "publisher_ai": "member",
+    "lounge": "member",
     "courses": "plus",
+    "tracks": "plus",
+    "studio": "plus",
+    "band": "plus",
+    "publisher": "plus",
+    "earnings": "plus",
+    "payouts": "plus",
+    "sovereign": "executive",
 }
 
 TIER_EXEMPT_ROLES = ("admin", "executive_admin")
 
 # Instructors get course/track access regardless of tier (they teach).
-FEATURE_INSTRUCTOR_BYPASS = {"courses"}
+FEATURE_INSTRUCTOR_BYPASS = {"courses", "tracks"}
 
 TIER_LABELS: dict = {
     "free": "Free", "member": "Member", "plus": "Plus",
@@ -231,6 +255,51 @@ async def check_user_feature_access(db, user, path: str):
             label = TIER_LABELS.get(required, required)
             return ("block", f"This feature requires the {label} plan or higher. Please upgrade to continue.")
 
+    return ("pass", None)
+
+
+async def check_persona_access(db, user, persona: str):
+    """Read the executive per-user persona override at the AI handler.
+
+    This closes the old write-only ``ai_access.<persona>`` path. ``all`` is
+    the broad override; a persona-specific false value always revokes access.
+    """
+    if db is None or user is None:
+        return ("unavailable", "AI authorization unavailable — request rejected.")
+    try:
+        override = await db.user_feature_overrides.find_one(
+            {"user_id": user.id}, {"_id": 0, "ai_access": 1, "ai_access_override": 1}
+        )
+    except Exception:
+        return ("unavailable", "AI authorization unavailable — request rejected.")
+    if not override:
+        return ("pass", None)
+    all_override = (override.get("ai_access_override") or {}).get("all")
+    if all_override is False:
+        return ("block", "Your access to the AI suite has been revoked by the executive team.")
+    persona_override = (override.get("ai_access") or {}).get(persona)
+    if persona_override is False:
+        return ("block", "Your access to this AI persona has been revoked by the executive team.")
+    if persona_override is True or all_override is True:
+        return ("allow", None)
+    return ("pass", None)
+
+
+async def check_legal_access(db, user, tool_key: str):
+    """Read the executive legal-tool override; missing means no override."""
+    if db is None or user is None:
+        return ("unavailable", "Legal authorization unavailable — request rejected.")
+    try:
+        override = await db.user_feature_overrides.find_one(
+            {"user_id": user.id}, {"_id": 0, "legal_access": 1}
+        )
+    except Exception:
+        return ("unavailable", "Legal authorization unavailable — request rejected.")
+    value = ((override or {}).get("legal_access") or {}).get(tool_key)
+    if value is False:
+        return ("block", "Your access to this legal tool has been revoked by the executive team.")
+    if value is True:
+        return ("allow", None)
     return ("pass", None)
 
 

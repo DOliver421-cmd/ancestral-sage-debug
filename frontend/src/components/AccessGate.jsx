@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useLocation } from "react-router-dom";
 import { loadGates, isPageEnabled } from "../lib/accessGates";
+import { useAuth } from "../lib/auth";
 
 /**
  * AccessGate — wraps <Routes>. When an exec gate disables the current page,
@@ -9,6 +10,7 @@ import { loadGates, isPageEnabled } from "../lib/accessGates";
  */
 export default function AccessGate({ children }) {
   const location = useLocation();
+  const { user } = useAuth();
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
@@ -23,7 +25,7 @@ export default function AccessGate({ children }) {
 
   if (!ready) return children;
 
-  if (!isPageEnabled(location.pathname)) {
+  if (!isPageEnabled(location.pathname, user)) {
     return (
       <div className="min-h-screen bg-bone flex items-center justify-center px-6">
         <div className="text-center max-w-md">

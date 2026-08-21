@@ -528,6 +528,11 @@ async def ec_set_user_tier(body: _ExecSetUserTierReq, request: Request,
         raise HTTPException(404, "User not found")
     old_ft = target.get("feature_tier", "free")
     old_st = target.get("sage_tier", "basic")
+    builtin_tiers = {t["tier_id"] for t in _BUILTIN_TIERS}
+    custom_tiers = await db.tier_definitions.find({}, {"_id": 0, "tier_id": 1}).to_list(100)
+    valid_tiers = builtin_tiers | {t.get("tier_id") for t in custom_tiers if t.get("tier_id")}
+    if body.new_feature_tier not in valid_tiers:
+        raise HTTPException(400, f"Unknown feature tier '{body.new_feature_tier}'. Create it in the tier registry first.")
     upd = {"feature_tier": body.new_feature_tier, "updated_at": datetime.now(timezone.utc).isoformat()}
     if body.new_sage_tier:
         upd["sage_tier"] = body.new_sage_tier
@@ -622,9 +627,19 @@ async def ec_feature_flag(body: _ExecFeatureFlagReq, request: Request,
 # security/feature_control.py FEATURE_MIN_TIER; the DB matrix (db.authz_matrix)
 # overrides them per feature.  Executives edit this from the console — no code.
 AUTHZ_FEATURES = [
-    {"key": "ai_chat", "label": "AI Chat",        "api": "/api/ai/*",     "detail": "Revocable per-user"},
-    {"key": "posts",   "label": "Posts (M.O.R.E.)", "api": "/api/more/*", "detail": "Free users blocked server-side"},
-    {"key": "courses", "label": "Courses",        "api": "/api/modules*", "detail": "Instructors bypass course gates"},
+    {"key": "profile", "label": "Profile & account", "api": "/api/auth/me", "detail": "Authenticated account surface"},
+    {"key": "ai_chat", "label": "AI suite", "api": "/api/ai/*", "detail": "Platform and per-persona revocation"},
+    {"key": "publisher_ai", "label": "AI Social Blast", "api": "/api/ai/social-blast", "detail": "Separate from general AI"},
+    {"key": "posts", "label": "M.O.R.E. posts and needs", "api": "/api/more/*", "detail": "Tier and platform flag enforced"},
+    {"key": "courses", "label": "Courses, labs, credentials", "api": "/api/modules · /api/labs · /api/credentials", "detail": "Instructors bypass course tier"},
+    {"key": "tracks", "label": "Learning tracks", "api": "/api/modules/tracks", "detail": "Reserved for tracked LMS routes"},
+    {"key": "lounge", "label": "Creator Lounge", "api": "/api/creator-lounge/*", "detail": "Collaboration projects"},
+    {"key": "studio", "label": "Creator Studio", "api": "/api/studio/*", "detail": "Creative production tools"},
+    {"key": "band", "label": "Band on a Page", "api": "/api/band/*", "detail": "Listings and bookings"},
+    {"key": "publisher", "label": "Publishing and playlist", "api": "/api/playlist/* · /api/portfolio/publish", "detail": "Publishing tools"},
+    {"key": "earnings", "label": "Creator earnings", "api": "/api/creator/earnings", "detail": "Financial visibility"},
+    {"key": "payouts", "label": "Creator payouts", "api": "/api/creator/payouts", "detail": "Payout and banking surfaces"},
+    {"key": "sovereign", "label": "Sovereign control", "api": "/api/sovereign/*", "detail": "Executive-tier platform control"},
 ]
 AUTHZ_FEATURE_KEYS = {f["key"] for f in AUTHZ_FEATURES}
 
@@ -967,6 +982,10 @@ PAGE_ACCESS_REGISTRY = [
 class _ExecAccessReq(BaseModel):
     page: str = Field(..., min_length=1, max_length=100)
     enabled: bool = True
+    # None preserves the page's existing handler/RBAC behavior. A list is an
+    # explicit role allow-list for the frontend page gate and is mirrored in
+    # the public gate map consumed by AccessGate.
+    allowed_roles: Optional[List[str]] = None
     reason: str = Field("", max_length=500)
 
 
@@ -984,6 +1003,7 @@ async def ec_access_list(actor: User = Depends(_require_rank("executive_admin"))
             "label": reg["label"],
             "path": reg["path"],
             "enabled": d.get("enabled", True),
+            "allowed_roles": d.get("allowed_roles"),
             "updated_by": d.get("updated_by"),
             "updated_at": d.get("updated_at"),
         })
@@ -995,20 +1015,38 @@ async def ec_access_set(body: _ExecAccessReq, request: Request,
                         actor: User = Depends(_require_rank("executive_admin"))):
     if not any(r["key"] == body.page for r in PAGE_ACCESS_REGISTRY):
         raise HTTPException(400, f"Unknown page key '{body.page}'")
+    if body.allowed_roles is not None:
+        valid_roles = set(ROLE_RANK) - {"public"}
+        unknown = set(body.allowed_roles) - valid_roles
+        if unknown:
+            raise HTTPException(400, f"Unknown role(s): {sorted(unknown)}")
+        protected_page_keys = {"admin", "exec", "supervisor", "auditor", "revenue", "team", "jamil", "arena"}
+        if body.page in protected_page_keys and "executive_admin" not in body.allowed_roles:
+            raise HTTPException(400, "Protected executive pages must remain available to executive_admin.")
     now_iso = datetime.now(timezone.utc).isoformat()
+    update = {"enabled": body.enabled, "updated_by": actor.id, "updated_at": now_iso}
+    if body.allowed_roles is not None:
+        update["allowed_roles"] = body.allowed_roles
     await db.page_access.update_one({"page": body.page},
-        {"$set": {"enabled": body.enabled, "updated_by": actor.id, "updated_at": now_iso}},
+        {"$set": update},
         upsert=True)
     await _exec_audit(actor, f"exec.page_access.{'enabled' if body.enabled else 'disabled'}",
         after={"page": body.page, "enabled": body.enabled},
         request=request, note=body.reason)
-    return {"ok": True, "page": body.page, "enabled": body.enabled}
+    return {"ok": True, "page": body.page, "enabled": body.enabled, "allowed_roles": body.allowed_roles}
 
 
 @router.get("/exec/control/access/public")
-async def ec_access_public(user: User = Depends(_dep_current_user)):
-    """Gate map for the frontend shell — {page_key: enabled}. Missing keys
-    default to enabled (a gate is only closed when exec explicitly closes it)."""
-    docs = await db.page_access.find({}, {"_id": 0, "page": 1, "enabled": 1}).to_list(500)
-    pages = {d["page"]: d.get("enabled", True) for d in docs}
+async def ec_access_public():
+    """Public gate map for the frontend shell.
+
+    This endpoint intentionally does not require a session: AccessGate wraps
+    public pages too, and making this read endpoint authenticated would turn a
+    harmless gate lookup into a login redirect for anonymous visitors.
+    """
+    docs = await db.page_access.find({}, {"_id": 0, "page": 1, "enabled": 1, "allowed_roles": 1}).to_list(500)
+    pages = {
+        d["page"]: {"enabled": d.get("enabled", True), "allowed_roles": d.get("allowed_roles")}
+        for d in docs
+    }
     return {"pages": pages}

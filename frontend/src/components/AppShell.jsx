@@ -126,14 +126,14 @@ export default function AppShell({ children }) {
 
   // Exec-controlled page access: a disabled page disappears from the sidebar.
   const nl = (to, label, icon, testid) => {
-    if (!isPageEnabled(to)) return null;
+    if (!isPageEnabled(to, user)) return null;
     return <NavLink loc={loc} to={to} label={label} icon={icon} testid={testid} collapsed={collapsed} />;
   };
 
   // Outbound link to the M.O.R.E. Help Center (used on the WAI door for
   // support/billing/creative items that live on morehelp.center).
   const out = (to, label, icon, testid) => {
-    if (!isPageEnabled(to)) return null;
+    if (!isPageEnabled(to, user)) return null;
     return (
       <a key={to} href={MORE_HOME + to} target="_blank" rel="noopener noreferrer"
         data-testid={testid} title={collapsed ? label : undefined}
