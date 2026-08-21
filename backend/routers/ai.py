@@ -5,6 +5,8 @@ Extracted verbatim from backend/server.py (monolith refactor, slice 11).
 Shared state (db, current_user, audit, assert_role, check_rate) is bound by server.py via bind()
 at include time — no circular imports.
 """
+import hashlib
+import io
 import logging
 import os
 import uuid
@@ -28,6 +30,12 @@ from prompts.orchestrator import (
 
 logger = logging.getLogger("lcewai")
 router = APIRouter(tags=["ai"])
+
+# These values mirror the deployed server configuration.  They are read at
+# import time after server.py has loaded dotenv; no provider is called unless
+# one of the existing configured keys is present.
+EMERGENT_LLM_KEY = os.environ.get("EMERGENT_LLM_KEY", "")
+OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY", EMERGENT_LLM_KEY)
 
 # ── Shared state, bound by server.py via bind() ──────────────────────────────
 db = None
@@ -1033,6 +1041,14 @@ async def _apply_sage_safety_gates(response_text: str, user_tier: str) -> tuple:
 @router.post("/ai/chat")
 async def ai_chat(body: AIChatReq, user: User = Depends(_dep_current_user)):
     check_rate(f"ai_chat:{user.id}", max_calls=20, window_sec=60)
+    # ---- Per-user persona override (runs BEFORE any LLM cost) ------------
+    from security.feature_control import check_persona_access
+    persona_key = "sage" if body.mode == "ancestral_sage" else body.mode
+    persona_action, persona_detail = await check_persona_access(db, user, persona_key)
+    if persona_action == "unavailable":
+        raise HTTPException(503, persona_detail)
+    if persona_action == "block":
+        raise HTTPException(403, persona_detail)
     # ---- Ancestral Sage gating (runs BEFORE any LLM cost) ---------------
     is_sage = body.mode == "ancestral_sage"
 

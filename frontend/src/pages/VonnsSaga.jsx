@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
-import { BookOpen, ChevronLeft, RotateCcw, Layers, Sparkles } from "lucide-react";
+import { BookOpen, ChevronLeft, RotateCcw, Layers, Sparkles, Volume2, VolumeX, Brain, Shuffle, Square, Music2 } from "lucide-react";
 import { STORY, START_NODE, TOTAL_NODES } from "../story/vonnsSaga";
+import { api, getToken } from "../lib/api";
 
 const SAVE_KEY = "vonns_saga_v1";
 
@@ -20,6 +21,98 @@ const C = {
 };
 
 const serif = `'Georgia', 'Times New Roman', serif`;
+
+const BANDCAMP_TRACKS = {
+  opening: {
+    key: "opening",
+    label: "Opening resonance · AM I Dreaming",
+    artist: "VONN",
+    href: "https://vonnsangs.bandcamp.com/track/am-i-dreaming",
+    src: "https://bandcamp.com/EmbeddedPlayer/track=792480361/size=large/bgcol=ffffff/linkcol=0687f5/tracklist=false/artwork=small/transparent=true/",
+    height: 120,
+  },
+  lexington: {
+    key: "lexington",
+    label: "Lexington strand · My Ole Kentucky Roots",
+    artist: "VONN",
+    href: "https://vonnsangs.bandcamp.com/track/my-ole-kentucky-roots",
+    src: "https://bandcamp.com/EmbeddedPlayer/track=2837268270/size=large/bgcol=ffffff/linkcol=0687f5/tracklist=false/transparent=true/",
+    height: 442,
+  },
+};
+
+function BandcampTrack({ track }) {
+  return (
+    <div className="rounded-xl overflow-hidden" style={{ background: "#fff", border: `1px solid ${C.panelLine}` }}>
+      <iframe
+        title={track.label}
+        style={{ border: 0, width: "100%", height: track.height }}
+        src={track.src}
+        seamless
+      />
+      <a href={track.href} target="_blank" rel="noreferrer" className="block px-3 pb-2 text-xs" style={{ color: "#0687f5" }}>
+        {track.label} by {track.artist}
+      </a>
+    </div>
+  );
+}
+
+function SagaMusic({ nodeId, isLexington, isRandomPage, randomTrack, onRandom }) {
+  const opening = nodeId === START_NODE;
+  const track = opening
+    ? BANDCAMP_TRACKS.opening
+    : isLexington
+      ? BANDCAMP_TRACKS.lexington
+      : isRandomPage
+        ? randomTrack
+        : null;
+  const label = opening ? "Opening track" : isLexington ? "Lexington strand" : isRandomPage ? "Random strand" : "Music appears at selected story moments";
+  return (
+    <section className="mb-7 rounded-2xl p-4" style={{ background: "rgba(255,255,255,0.035)", border: `1px solid ${C.panelLine}` }} aria-label="Vonn music">
+      <div className="flex items-center justify-between gap-3 mb-3">
+        <div className="flex items-center gap-2">
+          <Music2 className="w-4 h-4" style={{ color: C.gold }} />
+          <div>
+            <div className="text-[10px] font-black uppercase tracking-[0.2em]" style={{ color: C.gold }}>Vonn's music</div>
+            <div className="text-xs" style={{ color: C.muted }}>{label}</div>
+          </div>
+        </div>
+        {isRandomPage && (
+          <button type="button" onClick={onRandom} className="flex items-center gap-1.5 rounded-lg px-3 py-2 text-xs font-bold" style={{ background: C.panel, border: `1px solid ${C.panelLine}`, color: C.ink }}>
+            <Shuffle className="w-3.5 h-3.5" /> Replay opening track
+          </button>
+        )}
+      </div>
+      {track ? <BandcampTrack track={track} /> : (
+        <p className="text-xs" style={{ color: C.muted }}>The storefront track is held for the opening, Lexington, and one randomly selected strand on this life.</p>
+      )}
+      <p className="mt-2 text-[11px]" style={{ color: C.dim }}>Bandcamp controls are supplied by VONN's storefront. Site-uploaded tracks use the separate 33-second preview rule.</p>
+    </section>
+  );
+}
+
+function ReadingControls({ text, aiBusy, onBrowserRead, onAiRead, onStop, isReading }) {
+  return (
+    <section className="mb-7 rounded-2xl p-4" style={{ background: "rgba(183,138,255,0.07)", border: "1px solid rgba(183,138,255,0.28)" }} aria-label="Reading controls">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex items-center gap-2">
+          <Brain className="w-4 h-4" style={{ color: C.purple }} />
+          <div><div className="text-[10px] font-black uppercase tracking-[0.2em]" style={{ color: C.purple }}>Read this strand</div><div className="text-xs" style={{ color: C.muted }}>Optional. Nothing starts without your click.</div></div>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <button type="button" onClick={onBrowserRead} className="flex items-center gap-1.5 rounded-lg px-3 py-2 text-xs font-bold" style={{ background: C.panel, border: `1px solid ${C.panelLine}`, color: C.ink }}>
+            {isReading ? <VolumeX className="w-3.5 h-3.5" /> : <Volume2 className="w-3.5 h-3.5" />} Browser voice
+          </button>
+          <button type="button" onClick={onAiRead} disabled={aiBusy} className="flex items-center gap-1.5 rounded-lg px-3 py-2 text-xs font-bold" style={{ background: C.gold, color: "#1a1033", opacity: aiBusy ? 0.6 : 1 }}>
+            <Brain className="w-3.5 h-3.5" /> {aiBusy ? "Preparing…" : "AI reading mode"}
+          </button>
+          {isReading && <button type="button" onClick={onStop} className="flex items-center gap-1.5 rounded-lg px-3 py-2 text-xs font-bold" style={{ background: "rgba(220,38,38,0.14)", border: "1px solid rgba(220,38,38,0.35)", color: "#ff9b9b" }}><Square className="w-3 h-3" /> Stop</button>}
+        </div>
+      </div>
+      <p className="mt-2 text-[11px]" style={{ color: C.dim }}>{text.length.toLocaleString()} characters · Browser voice is free; signed-in readers can use the existing server TTS route for AI reading mode.</p>
+    </section>
+  );
+}
 
 function loadSave() {
   try {
@@ -118,10 +211,23 @@ export default function VonnsSaga() {
     );
   });
   const [fresh, setFresh] = useState(false); // used to animate on explicit restart
+  // The opening track is the supplied random-page resonance. The Lexington
+  // track is reserved for scenes explicitly located in Lexington.
+  const [randomTrack, setRandomTrack] = useState(BANDCAMP_TRACKS.opening);
+  const [randomMusicNode] = useState(() => {
+    const candidates = Object.entries(STORY)
+      .filter(([id, candidate]) => id !== START_NODE && candidate.kind !== "end" && candidate.location !== "lexington")
+      .map(([id]) => id);
+    return candidates.length ? candidates[Math.floor(Math.random() * candidates.length)] : null;
+  });
+  const [aiBusy, setAiBusy] = useState(false);
+  const [isReading, setIsReading] = useState(false);
+  const aiAudioRef = useRef(null);
   const node = STORY[state.nodeId] || STORY[START_NODE];
-  const topRef = useRef(null);
-
   const isEnd = node.kind === "end";
+  const sceneText = useMemo(() => [node.title, ...(node.text || [])].join("\n\n"), [node]);
+  const isLexington = node.location === "lexington";
+  const isRandomMusicPage = state.nodeId === randomMusicNode && !isLexington && !isEnd;
 
   // Progress: how many of the tapestry's scenes this Keeper has witnessed
   const progress = useMemo(() => {
@@ -134,8 +240,71 @@ export default function VonnsSaga() {
   }, [state]);
 
   useEffect(() => {
-    if (topRef.current) topRef.current.scrollIntoView({ behavior: "auto", block: "start" });
-  }, [state.nodeId, fresh]);
+    window.speechSynthesis?.cancel();
+    setIsReading(false);
+    if (aiAudioRef.current) {
+      aiAudioRef.current.pause();
+      aiAudioRef.current = null;
+    }
+  }, [state.nodeId]);
+
+  useEffect(() => () => {
+    window.speechSynthesis?.cancel();
+    if (aiAudioRef.current) aiAudioRef.current.pause();
+  }, []);
+
+  const stopReading = () => {
+    window.speechSynthesis?.cancel();
+    if (aiAudioRef.current) {
+      aiAudioRef.current.pause();
+      aiAudioRef.current = null;
+    }
+    setIsReading(false);
+  };
+
+  const readBrowser = () => {
+    if (!window.speechSynthesis) return;
+    if (isReading) return stopReading();
+    const utterance = new SpeechSynthesisUtterance(sceneText);
+    utterance.rate = 0.94;
+    utterance.pitch = 0.92;
+    utterance.onend = () => setIsReading(false);
+    utterance.onerror = () => setIsReading(false);
+    window.speechSynthesis.cancel();
+    window.speechSynthesis.speak(utterance);
+    setIsReading(true);
+  };
+
+  const readWithAi = async () => {
+    // The existing server TTS route is authenticated. Do not send a public
+    // reader into the API interceptor's login redirect; browser voice remains
+    // the immediate no-key option.
+    if (!getToken()) {
+      readBrowser();
+      return;
+    }
+    setAiBusy(true);
+    try {
+      const response = await api.post("/ai/sage/tts", { text: sceneText.slice(0, 4000), session_id: `vonns-${state.nodeId}` }, { responseType: "blob" });
+      const blobUrl = URL.createObjectURL(response.data);
+      const audio = new Audio(blobUrl);
+      aiAudioRef.current = audio;
+      audio.onended = () => { URL.revokeObjectURL(blobUrl); aiAudioRef.current = null; setIsReading(false); };
+      audio.onerror = () => { URL.revokeObjectURL(blobUrl); aiAudioRef.current = null; readBrowser(); };
+      await audio.play();
+      setIsReading(true);
+    } catch {
+      // The authenticated provider route may be unavailable to public readers;
+      // browser speech remains a real no-key fallback, never a fake AI result.
+      readBrowser();
+    } finally {
+      setAiBusy(false);
+    }
+  };
+
+  const chooseRandomTrack = () => {
+    setRandomTrack(BANDCAMP_TRACKS.opening);
+  };
 
   const choose = (to) => {
     setState((s) => {
@@ -272,7 +441,6 @@ export default function VonnsSaga() {
       {/* ── Scene ──────────────────────────────────────────────────── */}
       <main
         className="max-w-3xl mx-auto px-5 py-8"
-        ref={topRef}
         tabIndex={-1}
         aria-live="polite"
         aria-label="Vonns Saga scene"
@@ -308,7 +476,11 @@ export default function VonnsSaga() {
             </blockquote>
           )}
 
-          {/* Optional artwork and music are data-driven per scene; no media is fabricated when a node has none. */}
+          {/* Your supplied VONN tracks are embedded in their story contexts. */}
+          <SagaMusic nodeId={state.nodeId} isLexington={isLexington} isRandomPage={isRandomMusicPage} randomTrack={randomTrack} onRandom={chooseRandomTrack} />
+          <ReadingControls text={sceneText} aiBusy={aiBusy} onBrowserRead={readBrowser} onAiRead={readWithAi} onStop={stopReading} isReading={isReading} />
+
+          {/* Optional artwork and uploaded scene media remain data-driven; no media is fabricated. */}
           <SceneMedia media={node.media} />
 
           {/* Body */}

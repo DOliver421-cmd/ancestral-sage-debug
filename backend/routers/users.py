@@ -76,6 +76,8 @@ class AdminCreateUserReq(BaseModel):
     password: str = Field(..., min_length=8, max_length=128)
     role: Role = "student"
     associate: Optional[str] = Field(None, min_length=1, max_length=200)
+    feature_tier: str = Field("free", min_length=1, max_length=64)
+    sage_tier: Literal["basic", "advanced"] = "basic"
 
 
 class AdminRoleReq(BaseModel):
@@ -182,15 +184,23 @@ async def admin_create_user(body: AdminCreateUserReq, user: User = Depends(_requ
         raise HTTPException(403, "Only executive_admin can create another executive_admin.")
     if await db.users.find_one({"email": body.email}):
         raise HTTPException(400, "Email already registered")
+    builtin_tiers = {"free", "member", "plus", "pro", "patron", "executive"}
+    custom_tiers = await db.tier_definitions.find({}, {"_id": 0, "tier_id": 1}).to_list(100)
+    valid_tiers = builtin_tiers | {t.get("tier_id") for t in custom_tiers if t.get("tier_id")}
+    if body.feature_tier not in valid_tiers:
+        raise HTTPException(400, f"Unknown feature tier '{body.feature_tier}'.")
     new_user = User(email=body.email, full_name=body.full_name, role=body.role,
-                    associate=body.associate, must_change_password=True)
+                    associate=body.associate, must_change_password=True,
+                    feature_tier=body.feature_tier)
     doc = new_user.model_dump()
     doc["created_at"] = doc["created_at"].isoformat()
     doc["password_hash"] = hash_pw(body.password)
+    doc["sage_tier"] = body.sage_tier
     await db.users.insert_one(doc)
     await audit(user.id, "admin.user.created", target=new_user.id,
-                meta={"email": body.email, "role": body.role})
-    return {"ok": True, "user": new_user.model_dump(mode="json")}
+                meta={"email": body.email, "role": body.role,
+                      "feature_tier": body.feature_tier, "sage_tier": body.sage_tier})
+    return {"ok": True, "user": {**new_user.model_dump(mode="json"), "sage_tier": body.sage_tier}}
 
 
 @router.patch("/admin/users/{uid}/role")
@@ -210,6 +220,7 @@ async def admin_change_role(uid: str, body: AdminRoleReq, user: User = Depends(_
     await db.users.update_one({"id": uid},
         {"$set": {"role": body.role},
          "$inc": {"token_version": 1}})  # role change revokes all of the target's JWTs
+    await db.auth_sessions.delete_many({"user_id": uid})
     await audit(user.id, "admin.user.role_changed", target=uid,
                 meta={"from": target.get("role"), "to": body.role})
     return {"ok": True, "id": uid, "role": body.role}
@@ -234,7 +245,13 @@ async def admin_edit_user(uid: str, body: AdminEditUserReq, user: User = Depends
         update["associate"] = body.associate.strip() or None
     if not update:
         return {"ok": True, "noop": True}
-    await db.users.update_one({"id": uid}, {"$set": update})
+    await db.users.update_one(
+        {"id": uid},
+        {"$set": update, "$inc": {"token_version": 1}},
+    )
+    # Identity changes invalidate every device session, not just password
+    # changes. A stale token must never survive an email or identity edit.
+    await db.auth_sessions.delete_many({"user_id": uid})
     await audit(user.id, "admin.user.edited", target=uid, meta=update)
     return {"ok": True, "updated": list(update.keys())}
 
@@ -662,7 +679,11 @@ async def set_user_sage_tier(uid: str, body: dict, user: User = Depends(_require
     target = await db.users.find_one({"id": uid}, {"_id": 0, "id": 1, "email": 1})
     if not target:
         raise HTTPException(404, "User not found")
-    await db.users.update_one({"id": uid}, {"$set": {"sage_tier": tier}})
+    await db.users.update_one(
+        {"id": uid},
+        {"$set": {"sage_tier": tier}, "$inc": {"token_version": 1}},
+    )
+    await db.auth_sessions.delete_many({"user_id": uid})
     await audit(user.id, "admin.sage.tier_updated", target=uid, meta={"tier": tier})
     return {"ok": True, "uid": uid, "sage_tier": tier}
 

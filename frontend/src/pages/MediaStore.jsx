@@ -42,6 +42,18 @@ function formatPrice(cents) {
   return `$${(cents / 100).toFixed(2)}`;
 }
 
+function readAudioDuration(file) {
+  return new Promise((resolve, reject) => {
+    if (!file?.type?.startsWith("audio/")) return resolve(null);
+    const url = URL.createObjectURL(file);
+    const audio = document.createElement("audio");
+    audio.preload = "metadata";
+    audio.onloadedmetadata = () => { URL.revokeObjectURL(url); resolve(audio.duration); };
+    audio.onerror = () => { URL.revokeObjectURL(url); reject(new Error("Could not read audio duration")); };
+    audio.src = url;
+  });
+}
+
 function formatBytes(bytes) {
   if (!bytes) return "";
   if (bytes < 1024) return `${bytes} B`;
@@ -68,7 +80,8 @@ function BrowseTab({ user }) {
     setCheckingOut(product.id);
     try {
       const r = await api.post(`/media/products/${product.id}/checkout`);
-      window.location.href = r.data.checkout_url;
+      if (r.data.url) window.location.href = r.data.url;
+      else throw new Error("Checkout URL was not returned");
     } catch (e) {
       toast.error(e?.response?.data?.detail || "Checkout failed");
       setCheckingOut(null);
@@ -78,7 +91,9 @@ function BrowseTab({ user }) {
   async function handleFreeDownload(product) {
     if (!user) { toast.error("Sign in to download"); return; }
     try {
-      const r = await api.get(`/media/products/${product.id}/download`, { responseType: "blob" });
+      const access = await api.get(`/media/products/${product.id}/download`);
+      const filePath = (access.data.file_url || "").replace(/^\/api/, "");
+      const r = await api.get(filePath, { responseType: "blob", params: { preview: false } });
       const url = URL.createObjectURL(r.data);
       const a = document.createElement("a");
       a.href = url;
@@ -206,7 +221,9 @@ function LibraryTab({ user }) {
   async function handleDownload(purchase) {
     setDownloading(purchase.id);
     try {
-      const r = await api.get(`/media/products/${purchase.product_id}/download`, { responseType: "blob" });
+      const access = await api.get(`/media/products/${purchase.product_id}/download`);
+      const filePath = (access.data.file_url || "").replace(/^\/api/, "");
+      const r = await api.get(filePath, { responseType: "blob", params: { preview: false } });
       const url = URL.createObjectURL(r.data);
       const a = document.createElement("a");
       a.href = url;
@@ -313,8 +330,8 @@ function SellTab({ user }) {
   async function handleFileUpload(e) {
     const file = e.target.files[0];
     if (!file) return;
-    if (file.size > 500 * 1024 * 1024) {
-      toast.error("File too large (max 500 MB)");
+    if (file.size > 50 * 1024 * 1024) {
+      toast.error("File too large (max 50 MB)");
       return;
     }
     setUploading(true);
@@ -326,6 +343,8 @@ function SellTab({ user }) {
     fd.append("file_type", "other");
     fd.append("is_public", "false");
     try {
+      const duration = await readAudioDuration(file);
+      if (duration) fd.append("duration_seconds", String(duration));
       const r = await api.post("/media/upload", fd, {
         headers: { "Content-Type": "multipart/form-data" },
         onUploadProgress: (ev) => {
@@ -333,7 +352,7 @@ function SellTab({ user }) {
         },
       });
       setUploadedFile(r.data);
-      setForm(f => ({ ...f, title: r.data.title || file.name }));
+      setForm(f => ({ ...f, title: file.name }));
       toast.success("File uploaded!");
       setStep(2);
     } catch (err) {
@@ -352,8 +371,8 @@ function SellTab({ user }) {
         description: form.description,
         price_cents: Math.round(parseFloat(form.price || "0") * 100),
         cover_url: form.cover_url || null,
-        product_type: form.product_type,
-        file_id: uploadedFile?.id || null,
+        type: form.product_type,
+        file_url: uploadedFile?.file_url || "",
         published: publish,
       };
       await api.post("/media/products", payload);
@@ -423,7 +442,7 @@ function SellTab({ user }) {
         <div className="p-6">
           {step === 1 && (
             <div>
-              <p className="text-[#1a1a1a]/60 text-sm mb-4">Upload a track, album, PDF, or any file. Max 500 MB.</p>
+              <p className="text-[#1a1a1a]/60 text-sm mb-4">Upload a track, album, PDF, or any file. Max 50 MB. Audio previews are capped at 33 seconds until purchased.</p>
               {uploading ? (
                 <div className="space-y-3">
                   <div className="flex items-center gap-3">
@@ -448,7 +467,7 @@ function SellTab({ user }) {
               {uploadedFile && (
                 <div className="mt-3 flex items-center gap-2 text-emerald-700 text-sm">
                   <CheckCircle2 size={16} />
-                  <span>{uploadedFile.original_filename} ({formatBytes(uploadedFile.size_bytes)}) — uploaded</span>
+                  <span>{uploadedFile.filename || uploadedFile.original_filename} ({formatBytes(uploadedFile.size || uploadedFile.size_bytes)}) — uploaded</span>
                   <button onClick={() => setStep(2)} className="ml-auto text-[#b5651d] font-medium hover:underline">
                     Create listing →
                   </button>
@@ -462,7 +481,7 @@ function SellTab({ user }) {
               {uploadedFile && (
                 <div className="flex items-center gap-2 text-emerald-700 text-sm bg-emerald-50 rounded-lg px-3 py-2">
                   <CheckCircle2 size={15} />
-                  <span>{uploadedFile.original_filename} ({formatBytes(uploadedFile.size_bytes)})</span>
+                  <span>{uploadedFile.filename || uploadedFile.original_filename} ({formatBytes(uploadedFile.size || uploadedFile.size_bytes)})</span>
                 </div>
               )}
 

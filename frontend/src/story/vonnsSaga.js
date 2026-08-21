@@ -66,6 +66,7 @@ export const STORY = {
     title: "The Echo and the Drift",
     quote: "Most archivists saw cold, dead objects. Vonn saw echoes — emotional imprints left behind by people long gone.",
     kind: "scene",
+    location: "lexington",
     text: [
       "Vonn Ellison never trusted quiet rooms. They always felt too still, too staged, too disconnected from the pulse of the world. But the archive basement at the Lexington Cultural Memory Institute was different. It hummed. It breathed. It whispered.",
       "And Vonn could hear every whisper.",
@@ -179,6 +180,7 @@ export const STORY = {
     title: "The First Memory",
     quote: "She didn't recall a fact — she accessed muscle memory.",
     kind: "scene",
+    location: "lexington",
     text: [
       "Cornered by an unseen, encroaching threat that smelled of ozone and static, Vonn didn't panic. She didn't pause to recall a fact — she accessed pure muscle memory.",
       "Her hand dropped the silver comb and snatched a heavy, rusted railroad spike from the adjacent preservation tray. With the fluid, terrifying skill of a manual laborer from 150 years ago, she hurled the iron spike into the dim light.",
@@ -200,6 +202,7 @@ export const STORY = {
     title: "The Escape",
     quote: "He grabbed Vonn's hand. The comb's echo surged.",
     kind: "scene",
+    location: "lexington",
     text: [
       "There is no time to fight. There is only the door.",
       "Leo grabbed Vonn's hand. The comb's echo surged through her palm like a second heartbeat. They hit the service corridor at a dead sprint while the Officers' dampeners whined behind them, severing memory in waves that made the walls flicker and the floor shift beneath their feet.",
@@ -219,6 +222,7 @@ export const STORY = {
     title: "The Echo Fights Back",
     quote: "They built weapons against joy. They did not build weapons against joy that knew it was being hunted.",
     kind: "scene",
+    location: "lexington",
     text: [
       "Vonn doesn't run. She stands, and she holds up the comb.",
       "She doesn't recall a fact — she opens a door. She lets the full weight of Melanie's erased joy flood out of her like a frequency, the sovereign warmth that no dampener was ever designed to meet. The echo of a life torn from the record hits the Compliance Officers like a physical wave — joy, deep, unbothered, ancestral — and their machines, calibrated to sever memory, cannot process the memory that refuses to be severed.",
@@ -239,6 +243,7 @@ export const STORY = {
     title: "The Last Anchor on the Road",
     quote: "\"Those are… beautiful,\" she whispered. \"They're death,\" Leo said. \"And they're hunting you.\"",
     kind: "scene",
+    location: "lexington",
     text: [
       "They drove through the night, leaving Lexington behind, following coordinates Leo had memorized but never dared to visit. The Rifts pulsed in the sky like distant lightning, each one a tear in time.",
       "Vonn watched them through the window. \"Those are… beautiful,\" she whispered.",

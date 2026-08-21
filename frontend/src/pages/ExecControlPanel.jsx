@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import AppShell from "../components/AppShell";
 import { api } from "../lib/api";
-import { ROLES_ALL } from "../lib/roles";
+import { ROLES_ALL, ROLE_RANK } from "../lib/roles";
 import { toast } from "sonner";
 import {
   Shield, Users, Cpu, DollarSign, Lock, Globe, Eye, EyeOff,
@@ -104,6 +104,7 @@ export default function ExecControlPanel() {
   const [routeAccess, setRouteAccess] = useState([]);
   const [routeSearch, setRouteSearch] = useState("");
   const [authzMatrix, setAuthzMatrix] = useState(null);
+  const [featureTiers, setFeatureTiers] = useState([]);
   const [authzBusy, setAuthzBusy] = useState(false);
   const [userRouteForm, setUserRouteForm] = useState({ user_id: "", route_key: "", enabled: false, reason: "" });
   const [userRouteBusy, setUserRouteBusy] = useState(false);
@@ -129,7 +130,7 @@ export default function ExecControlPanel() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const [sR, aR, gR, uR, xR, rR, mR] = await Promise.allSettled([
+      const [sR, aR, gR, uR, xR, rR, mR, tR] = await Promise.allSettled([
         api.get("/exec/control/state"),
         api.get("/exec/control/audit?limit=30"),
         api.get("/exec/control/break-glass/active"),
@@ -137,6 +138,7 @@ export default function ExecControlPanel() {
         api.get("/exec/control/access"),
         api.get("/exec/control/route-access"),
         api.get("/exec/control/authz-matrix"),
+        api.get("/exec/control/tiers"),
       ]);
       if (sR.status === "fulfilled") setState(sR.value.data);
       if (aR.status === "fulfilled") setAudit(aR.value.data?.records || []);
@@ -145,6 +147,7 @@ export default function ExecControlPanel() {
       if (xR.status === "fulfilled") setAccessPages(xR.value.data?.pages || []);
       if (rR.status === "fulfilled") setRouteAccess(rR.value.data?.routes || []);
       if (mR.status === "fulfilled") setAuthzMatrix(mR.value.data || null);
+      if (tR.status === "fulfilled") setFeatureTiers(tR.value.data?.tiers || []);
     } catch (e) {
       toast.error("Failed to load exec state");
     } finally {
@@ -329,6 +332,25 @@ export default function ExecControlPanel() {
       load();
     } catch (e) {
       toast.error(e?.response?.data?.detail || "Failed to update access");
+    } finally {
+      setAccessBusy(null);
+    }
+  }
+
+  async function setPageRoles(page, event) {
+    const allowed_roles = Array.from(event.target.selectedOptions).map(option => option.value);
+    setAccessBusy(`roles:${page.key}`);
+    try {
+      await api.post("/exec/control/access", {
+        page: page.key,
+        enabled: page.enabled,
+        allowed_roles,
+        reason: "Updated page role policy from Sovereign Command",
+      });
+      toast.success(`Role policy updated for ${page.label}`);
+      load();
+    } catch (e) {
+      toast.error(e?.response?.data?.detail || "Failed to update page role policy");
     } finally {
       setAccessBusy(null);
     }
@@ -539,9 +561,9 @@ export default function ExecControlPanel() {
             </Field>
             <Field label="Feature Tier">
               <Select value={tierForm.new_feature_tier} onChange={e => setTierForm(f => ({ ...f, new_feature_tier: e.target.value }))}>
-                <option value="free">Free</option>
-                <option value="premium">Premium</option>
-                <option value="executive">Executive</option>
+                {(featureTiers.length ? featureTiers : [{ tier_id: "free", label: "Free" }]).map(tier => (
+                  <option key={tier.tier_id} value={tier.tier_id}>{tier.label || tier.tier_id}</option>
+                ))}
               </Select>
             </Field>
           </div>
@@ -691,26 +713,44 @@ export default function ExecControlPanel() {
           </p>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(250px, 1fr))", gap: "0.5rem" }}>
             {accessPages.map(p => (
-              <button
+              <div
                 key={p.key}
-                onClick={() => toggleAccess(p, p.enabled)}
-                disabled={accessBusy === p.key}
-                title={`${p.label} — click to ${p.enabled ? "disable" : "enable"}`}
                 style={{
-                  display: "flex", alignItems: "center", justifyContent: "space-between", gap: "0.5rem",
-                  padding: "0.5rem 0.7rem", borderRadius: 8, cursor: "pointer", textAlign: "left",
+                  padding: "0.65rem 0.7rem", borderRadius: 8,
                   border: p.enabled ? "1px solid rgba(109,189,138,0.3)" : "1px solid rgba(239,68,68,0.3)",
                   background: p.enabled ? "rgba(109,189,138,0.08)" : "rgba(239,68,68,0.08)",
                 }}
               >
-                <span style={{ fontSize: "0.78rem", color: "#e8dfc8" }}>
-                  <span style={{ display: "block", fontWeight: "bold" }}>{p.label}</span>
-                  <span style={{ fontSize: "0.65rem", color: "#7a6e5a" }}>{p.path}</span>
-                </span>
-                <span style={{ fontSize: "0.68rem", fontWeight: "bold", color: p.enabled ? "#6dbd8a" : "#ef4444", flexShrink: 0 }}>
-                  {accessBusy === p.key ? "…" : p.enabled ? "ON" : "OFF"}
-                </span>
-              </button>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "0.5rem" }}>
+                  <button
+                    onClick={() => toggleAccess(p, p.enabled)}
+                    disabled={accessBusy === p.key}
+                    title={`${p.label} — click to ${p.enabled ? "disable" : "enable"}`}
+                    style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "space-between", gap: "0.5rem", background: "transparent", border: "none", cursor: "pointer", textAlign: "left", padding: 0 }}
+                  >
+                    <span style={{ fontSize: "0.78rem", color: "#e8dfc8" }}>
+                      <span style={{ display: "block", fontWeight: "bold" }}>{p.label}</span>
+                      <span style={{ fontSize: "0.65rem", color: "#7a6e5a" }}>{p.path}</span>
+                    </span>
+                    <span style={{ fontSize: "0.68rem", fontWeight: "bold", color: p.enabled ? "#6dbd8a" : "#ef4444", flexShrink: 0 }}>
+                      {accessBusy === p.key ? "…" : p.enabled ? "ON" : "OFF"}
+                    </span>
+                  </button>
+                </div>
+                <div style={{ marginTop: "0.45rem" }}>
+                  <div style={{ fontSize: "0.62rem", color: "#d4af37", marginBottom: "0.25rem", textTransform: "uppercase" }}>Allowed roles</div>
+                  <Select
+                    multiple
+                    defaultValue={p.allowed_roles ?? ROLES}
+                    onChange={e => setPageRoles(p, e)}
+                    disabled={accessBusy === `roles:${p.key}`}
+                    aria-label={`Allowed roles for ${p.label}`}
+                    style={{ minHeight: 52, fontSize: "0.68rem" }}
+                  >
+                    {ROLES.map(role => <option key={role} value={role}>{role}</option>)}
+                  </Select>
+                </div>
+              </div>
             ))}
             {accessPages.length === 0 && (
               <p style={{ fontSize: "0.78rem", color: "#7a6e5a" }}>Loading registry…</p>
@@ -744,7 +784,7 @@ export default function ExecControlPanel() {
           <Input value={routeSearch} onChange={e => setRouteSearch(e.target.value)} placeholder="Search method, path, or feature…" style={{ marginBottom: "0.75rem" }} />
           <div style={{ maxHeight: 520, overflowY: "auto", border: "1px solid rgba(212,175,55,0.12)", borderRadius: 8 }}>
             {visibleRoutes.slice(0, 250).map(row => {
-              const selected = row.allowed_roles || [];
+              const selected = row.allowed_roles || ROLES.filter(role => (row.handler_min_rank || 0) <= (ROLE_RANK[role] || 0));
               const busy = accessBusy === `route:${row.route_key}`;
               return (
                 <div key={row.route_key} style={{ display: "grid", gridTemplateColumns: "minmax(220px, 1.8fr) 0.8fr 1.4fr auto", gap: "0.6rem", alignItems: "center", padding: "0.55rem 0.65rem", borderBottom: "1px solid rgba(212,175,55,0.08)" }}>
