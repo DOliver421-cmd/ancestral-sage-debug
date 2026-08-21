@@ -28,11 +28,21 @@ MEMORY_TYPES = [
     "prospective",   # Intended future states
     "relational",    # Knowledge about relationships
     "emotional",     # Emotional associations (behavioral, not literal)
-]
+]# ── Global Memory Store ────────────────────────────────────────────────────────
+_MEMORY_STORE: list[dict] = []
+
+
+def get_all_memories() -> list[dict]:
+    """Return all stored memories."""
+    return _MEMORY_STORE
+
+
+def clear_memories() -> None:
+    """Clear all stored memories (testing only)."""
+    _MEMORY_STORE.clear()
 
 
 # ── Memory Object ─────────────────────────────────────────────────────────────
-
 def create_memory(
     memory_type: str,
     content: str,
@@ -45,7 +55,7 @@ def create_memory(
     Create a new memory with full provenance.
     Every memory MUST have a source — no unattributed memories.
     """
-    return {
+    mem = {
         "memory_id": f"MEM-{uuid.uuid4().hex[:8].upper()}",
         "memory_type": memory_type,
         "content": content,
@@ -55,10 +65,9 @@ def create_memory(
         "participants": participants or [],
         "created_at": datetime.utcnow().isoformat(),
         "last_accessed": datetime.utcnow().isoformat(),
-        "access_count": 0,
-        "consolidated": False,
-        "confidence": 0.8,
     }
+    _MEMORY_STORE.append(mem)
+    return mem
 
 
 # ── Autobiographical Memory ──────────────────────────────────────────────────
@@ -174,7 +183,7 @@ def consolidate_memory(memory: dict) -> dict:
 # ── Memory Retrieval ──────────────────────────────────────────────────────────
 
 def retrieve_memories(
-    memories: list[dict],
+    memories: Optional[list[dict]] = None,
     query: str = "",
     memory_type: Optional[str] = None,
     participants: Optional[list[str]] = None,
@@ -184,7 +193,7 @@ def retrieve_memories(
     """
     Retrieve memories matching criteria, sorted by relevance.
     """
-    results = memories.copy()
+    results = (memories or _MEMORY_STORE).copy()
     
     # Filter by type
     if memory_type:
