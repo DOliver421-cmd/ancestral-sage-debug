@@ -667,6 +667,7 @@ export default function MediaStore() {
     { id: "browse", label: "Browse", icon: ShoppingBag },
     { id: "library", label: "My Library", icon: Library },
     { id: "sell", label: "Sell", icon: Upload },
+    { id: "storefront", label: "Storefront", icon: ExternalLink },
   ];
 
   return (
@@ -724,8 +725,49 @@ export default function MediaStore() {
           {activeTab === "browse" && <BrowseTab user={user} />}
           {activeTab === "library" && <LibraryTab user={user} />}
           {activeTab === "sell" && <SellTab user={user} />}
+          {activeTab === "storefront" && <StorefrontTab />}
         </div>
       </div>
     </AppShell>
+  );
+}
+
+/* ── Storefront Tab (Gumroad embed) ──────────────────────────────────────── */
+const GUMROAD_PROFILE = "https://namoshun.gumroad.com/";
+
+function StorefrontTab() {
+  return (
+    <div className="space-y-6">
+      <div>
+        <h2 className="font-heading text-xl font-bold text-[#1a1a1a]">NAM Oshun&apos;s Storefront</h2>
+        <p className="text-sm text-[#1a1a1a]/60 mt-1">
+          Support the mission. Every purchase goes straight to the M.O.R.E. Help Center and the community.
+        </p>
+        <div className="flex flex-wrap gap-3 mt-3">
+          <Link to="/subscribe" className="inline-flex items-center gap-2 bg-[#1a1a1a] text-white text-sm font-bold px-4 py-2 rounded-lg hover:bg-[#1a1a1a]/80 transition-colors">
+            Memberships
+          </Link>
+          <Link to="/donate" className="inline-flex items-center gap-2 border-2 border-[#1a1a1a]/20 hover:border-[#1a1a1a] font-bold text-sm px-4 py-2 rounded-lg transition-colors text-[#1a1a1a]">
+            Make a Donation
+          </Link>
+        </div>
+      </div>
+      <div className="bg-white border border-[#1a1a1a]/10 rounded-2xl overflow-hidden shadow-sm">
+        <div className="flex items-center justify-between gap-3 px-5 py-3 border-b border-[#1a1a1a]/10">
+          <div className="text-sm font-bold text-[#1a1a1a] flex items-center gap-2">
+            NAM Oshun&apos;s Storefront
+            <span className="text-[10px] font-black uppercase tracking-widest bg-green-100 text-green-800 px-2 py-0.5 rounded-full">Live · Gumroad</span>
+          </div>
+          <a href={GUMROAD_PROFILE} target="_blank" rel="noreferrer"
+            className="inline-flex items-center gap-1.5 text-xs font-bold text-[#b5651d] hover:text-[#b5651d]/70 transition-colors">
+            Open in new tab <ExternalLink className="w-3.5 h-3.5" />
+          </a>
+        </div>
+        <iframe src={GUMROAD_PROFILE} title="NAM Oshun Gumroad storefront"
+          className="w-full h-[75vh] min-h-[600px] border-0" loading="lazy"
+          referrerPolicy="no-referrer-when-downgrade" allow="payment" />
+      </div>
+      <p className="text-xs text-[#1a1a1a]/40">Digital products and media are available now. Physical merchandise is not yet available.</p>
+    </div>
   );
 }

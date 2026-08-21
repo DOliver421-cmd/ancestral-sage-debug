@@ -770,10 +770,81 @@ export default function ExecBusinessOffice() {
           )}
         </Section>
 
+        <Section icon="🏦" title="ABO Configuration" sub="Edit the AI Business Office numbers and copy — no code, fully audited.">
+          <ABOConfigSection user={user} />
+        </Section>
+
         <p className="text-center text-[13px] text-ink/40 mt-8">
           Signed in as {user?.email || user?.id} · All actions audited · Enforcement: backend/security/feature_control.py
         </p>
       </div>
     </AppShell>
+  );
+}
+
+// ── ABO Config Section ─────────────────────────────────────────────────────
+function ABOConfigSection({ user }) {
+  const [config, setConfig] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    api.get("/abo/config")
+      .then(r => setConfig(r.data))
+      .catch(() => toast.error("Could not load ABO config"))
+      .finally(() => setLoading(false));
+  }, []);
+
+  const update = async (key, value) => {
+    setSaving(true);
+    try {
+      await api.put("/abo/config", { [key]: value });
+      setConfig(prev => ({ ...prev, [key]: value }));
+      toast.success(`${key} updated`);
+    } catch (e) {
+      toast.error(e?.response?.data?.detail || "Save failed");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (loading) return <div className="text-ink/40 text-sm">Loading config…</div>;
+  if (!config) return <div className="text-ink/40 text-sm">Could not load config.</div>;
+
+  const NumberField = ({ label, hint, keyName, unit }) => (
+    <div className="flex items-center justify-between py-2 border-b border-ink/5">
+      <div><span className="text-sm font-medium text-ink">{label}</span>{hint && <div className="text-xs text-ink/40">{hint}</div>}</div>
+      <div className="flex items-center gap-2">
+        <input type="number" defaultValue={config[keyName] || 0} onBlur={e => update(keyName, Number(e.target.value))}
+          className="w-28 px-2 py-1 border border-ink/20 rounded text-sm text-right" disabled={saving} />
+        {unit && <span className="text-xs text-ink/40 w-8">{unit}</span>}
+      </div>
+    </div>
+  );
+
+  const TextField = ({ label, keyName }) => (
+    <div className="py-2 border-b border-ink/5">
+      <div className="text-sm font-medium text-ink mb-1">{label}</div>
+      <input type="text" defaultValue={config[keyName] || ""} onBlur={e => update(keyName, e.target.value)}
+        className="w-full px-2 py-1 border border-ink/20 rounded text-sm" disabled={saving} />
+    </div>
+  );
+
+  return (
+    <div className="space-y-1">
+      <NumberField label="Monthly operating goal" hint="What the office must raise each month" keyName="monthly_goal_cents" unit="¢" />
+      <NumberField label="Infrastructure costs" hint="Hosting, API tokens, database" keyName="infra_cost_cents" unit="¢" />
+      <NumberField label="Owner draw %" hint="Share of net profit retained by owner" keyName="owner_draw_pct" unit="%" />
+      <NumberField label="Clearinghouse fee %" hint="Fee on agent-to-agent contracts" keyName="clearinghouse_fee_pct" unit="%" />
+      <NumberField label="Red-team one-shot price" hint="Single scan price" keyName="redteam_oneshot_cents" unit="¢" />
+      <NumberField label="Red-team retainer" hint="Monthly retainer price" keyName="redteam_retainer_cents" unit="¢" />
+      <TextField label="Office title" keyName="header_title" />
+      <TextField label="Header tagline" keyName="header_tagline" />
+      <TextField label="Runway note" keyName="runway_note" />
+      <TextField label="Guardrail 1 — title" keyName="guardrail_owner" />
+      <TextField label="Guardrail 1 — description" keyName="guardrail_owner_desc" />
+      <TextField label="Guardrail 2 — title" keyName="guardrail_labor" />
+      <TextField label="Guardrail 2 — description" keyName="guardrail_labor_desc" />
+    </div>
   );
 }

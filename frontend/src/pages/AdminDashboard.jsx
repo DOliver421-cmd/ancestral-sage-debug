@@ -4,6 +4,7 @@ import { api } from "../lib/api";
 import { useAuth } from "../lib/auth";
 import AppShell from "../components/AppShell";
 import { ROLE_RANK, ROLES_ALL as ALL_ROLES } from "../lib/roles";
+import { toast } from "sonner";
 
 const ROLE_LABEL = { student: "Student", instructor: "Instructor", admin: "Admin", executive_admin: "Executive Admin" };
 const ROLE_COLOR = {
@@ -638,15 +639,18 @@ export default function AdminDashboard() {
 
         <div className="max-w-7xl mx-auto px-6 lg:px-10 py-6">
           {/* Tabs */}
-          <div className="flex gap-6 border-b border-ink/10 mb-6">
+          <div className="flex gap-6 border-b border-ink/10 mb-6 overflow-x-auto">
             {[
               { key: "users",     label: `Users (${users.length})` },
               { key: "incidents", label: `Incidents (${incidents.filter(i=>i.status==="open").length} open)` },
               { key: "courses",   label: "Course Moderation" },
+              { key: "sites",     label: "Sites" },
+              { key: "inventory", label: "Inventory" },
+              { key: "checkout",  label: "Tool Checkout" },
               { key: "audit",     label: "Audit Log" },
             ].map(t => (
               <button key={t.key} onClick={() => setActiveTab(t.key)}
-                className={`pb-3 text-sm font-bold border-b-2 transition-colors ${activeTab === t.key ? "border-copper text-copper" : "border-transparent text-ink/80 hover:text-ink"}`}>
+                className={`pb-3 text-sm font-bold border-b-2 transition-colors whitespace-nowrap ${activeTab === t.key ? "border-copper text-copper" : "border-transparent text-ink/80 hover:text-ink"}`}>
                 {t.label}
               </button>
             ))}
@@ -966,6 +970,27 @@ export default function AdminDashboard() {
             </div>
           )}
 
+          {/* ── SITES TAB ── */}
+          {activeTab === "sites" && (
+            <div>
+              <SitesTab />
+            </div>
+          )}
+
+          {/* ── INVENTORY TAB ── */}
+          {activeTab === "inventory" && (
+            <div>
+              <InventoryTab />
+            </div>
+          )}
+
+          {/* ── CHECKOUT TAB ── */}
+          {activeTab === "checkout" && (
+            <div>
+              <CheckoutTab />
+            </div>
+          )}
+
           {/* ── AUDIT LOG TAB ── */}
           {activeTab === "audit" && (
             <div>
@@ -1018,5 +1043,189 @@ export default function AdminDashboard() {
         </div>
       </div>
     </AppShell>
+  );
+}
+
+// ── Sites Tab ───────────────────────────────────────────────────────────────
+function SitesTab() {
+  const [sites, setSites] = useState([]);
+  const [form, setForm] = useState({ slug: "", name: "", address: "", capacity: 0 });
+  const [loading, setLoading] = useState(true);
+
+  const load = async () => {
+    setLoading(true);
+    try { const r = await api.get("/admin/sites"); setSites(r.data); } catch {} finally { setLoading(false); }
+  };
+  useEffect(() => { load(); }, []);
+
+  const create = async () => {
+    if (!form.slug || !form.name) { toast.error("Slug + name required"); return; }
+    try { await api.post("/admin/sites", form); toast.success("Site created"); setForm({ slug: "", name: "", address: "", capacity: 0 }); load(); }
+    catch (e) { toast.error(e?.response?.data?.detail || "Failed"); }
+  };
+
+  return (
+    <div className="space-y-6">
+      <div className="bg-white rounded-xl border border-ink/10 p-6">
+        <h3 className="font-heading text-xl font-bold mb-4">All Sites ({sites.length})</h3>
+        <div className="grid md:grid-cols-3 gap-4">
+          {sites.map(s => (
+            <div key={s.id} className="p-4 border border-ink/10 rounded-lg bg-bone/50">
+              <div className="overline text-copper">{s.slug}</div>
+              <div className="font-heading font-bold mt-1">{s.name}</div>
+              <div className="text-xs text-ink/60 mt-1">{s.address}</div>
+              <div className="text-xs text-ink/50 mt-2">Capacity: {s.capacity}</div>
+            </div>
+          ))}
+          {sites.length === 0 && <p className="text-ink/40 text-sm col-span-3">No sites configured.</p>}
+        </div>
+      </div>
+      <div className="bg-white rounded-xl border border-ink/10 p-6">
+        <h3 className="font-heading text-xl font-bold mb-4">New Site</h3>
+        <div className="grid sm:grid-cols-2 gap-3">
+          <label className="block"><span className="text-xs font-bold text-ink/60 uppercase">Slug</span>
+            <input value={form.slug} onChange={e => setForm({...form, slug: e.target.value})} className="w-full mt-1 px-3 py-2 border border-ink/20 rounded-lg text-sm" /></label>
+          <label className="block"><span className="text-xs font-bold text-ink/60 uppercase">Name</span>
+            <input value={form.name} onChange={e => setForm({...form, name: e.target.value})} className="w-full mt-1 px-3 py-2 border border-ink/20 rounded-lg text-sm" /></label>
+          <label className="block"><span className="text-xs font-bold text-ink/60 uppercase">Address</span>
+            <input value={form.address} onChange={e => setForm({...form, address: e.target.value})} className="w-full mt-1 px-3 py-2 border border-ink/20 rounded-lg text-sm" /></label>
+          <label className="block"><span className="text-xs font-bold text-ink/60 uppercase">Capacity</span>
+            <input type="number" value={form.capacity} onChange={e => setForm({...form, capacity: parseInt(e.target.value) || 0})} className="w-full mt-1 px-3 py-2 border border-ink/20 rounded-lg text-sm" /></label>
+        </div>
+        <button onClick={create} className="mt-4 px-4 py-2 bg-copper text-white text-sm font-bold rounded-lg hover:bg-copper/90">Create Site</button>
+      </div>
+    </div>
+  );
+}
+
+// ── Inventory Tab ───────────────────────────────────────────────────────────
+function InventoryTab() {
+  const [inv, setInv] = useState([]);
+  const [sites, setSites] = useState([]);
+  const [filter, setFilter] = useState("");
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const [i, s] = await Promise.allSettled([api.get("/admin/inventory"), api.get("/admin/sites")]);
+        if (i.status === "fulfilled") setInv(i.value.data);
+        if (s.status === "fulfilled") setSites(s.value.data);
+      } catch {} finally { setLoading(false); }
+    })();
+  }, []);
+
+  const filtered = filter ? inv.filter(i => i.site_slug === filter) : inv;
+
+  return (
+    <div className="bg-white rounded-xl border border-ink/10 overflow-hidden">
+      <div className="flex items-center justify-between p-4 border-b border-ink/10">
+        <h3 className="font-heading text-xl font-bold">Inventory ({filtered.length})</h3>
+        <select value={filter} onChange={e => setFilter(e.target.value)} className="px-3 py-2 border border-ink/20 text-sm rounded-lg">
+          <option value="">All sites</option>
+          {sites.map(s => <option key={s.slug} value={s.slug}>{s.name}</option>)}
+        </select>
+      </div>
+      <div className="overflow-x-auto">
+        <table className="w-full text-sm">
+          <thead className="bg-bone/60">
+            <tr><th className="text-left px-4 py-3 text-xs uppercase tracking-wider text-ink/60">SKU</th><th className="text-left px-4 py-3 text-xs uppercase tracking-wider text-ink/60">Name</th><th className="text-left px-4 py-3 text-xs uppercase tracking-wider text-ink/60">Category</th><th className="text-left px-4 py-3 text-xs uppercase tracking-wider text-ink/60">Site</th><th className="text-left px-4 py-3 text-xs uppercase tracking-wider text-ink/60">Avail / Total</th></tr>
+          </thead>
+          <tbody>
+            {filtered.map(i => (
+              <tr key={i.id} className="border-b border-ink/5 hover:bg-bone/30">
+                <td className="px-4 py-3 font-mono text-xs">{i.sku}</td>
+                <td className="px-4 py-3 font-bold">{i.name}</td>
+                <td className="px-4 py-3"><span className="text-xs bg-ink/5 px-2 py-0.5 rounded">{i.category}</span></td>
+                <td className="px-4 py-3 text-ink/60">{i.site_slug}</td>
+                <td className={`px-4 py-3 font-mono ${i.quantity_available === 0 ? 'text-red-600' : ''}`}>{i.quantity_available} / {i.quantity_total}</td>
+              </tr>
+            ))}
+            {filtered.length === 0 && <tr><td colSpan={5} className="px-4 py-8 text-center text-ink/40">No inventory items.</td></tr>}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+// ── Checkout Tab ────────────────────────────────────────────────────────────
+function CheckoutTab() {
+  const [inv, setInv] = useState([]);
+  const [users, setUsers] = useState([]);
+  const [checkouts, setCheckouts] = useState([]);
+  const [sku, setSku] = useState("");
+  const [userId, setUserId] = useState("");
+  const [qty, setQty] = useState(1);
+  const [loading, setLoading] = useState(true);
+
+  const load = async () => {
+    setLoading(true);
+    try {
+      const [i, u, c] = await Promise.allSettled([
+        api.get("/admin/inventory"),
+        api.get("/admin/users"),
+        api.get("/admin/checkouts"),
+      ]);
+      if (i.status === "fulfilled") setInv(i.value.data);
+      if (u.status === "fulfilled") setUsers(u.value.data.filter(u => u.role === "student"));
+      if (c.status === "fulfilled") setCheckouts(c.value.data);
+    } catch {} finally { setLoading(false); }
+  };
+  useEffect(() => { load(); }, []);
+
+  const checkout = async () => {
+    if (!sku || !userId) { toast.error("Pick item and student"); return; }
+    try { await api.post("/admin/checkout", { sku, user_id: userId, quantity: qty }); toast.success("Checked out"); load(); }
+    catch (e) { toast.error(e?.response?.data?.detail || "Failed"); }
+  };
+  const returnTool = async (id) => {
+    try { await api.post(`/admin/checkout/${id}/return`, {}); toast.success("Returned"); load(); }
+    catch { toast.error("Return failed"); }
+  };
+
+  return (
+    <div className="space-y-6">
+      <div className="bg-white rounded-xl border border-ink/10 p-6">
+        <h3 className="font-heading text-xl font-bold mb-4">New Checkout</h3>
+        <div className="grid sm:grid-cols-3 gap-3">
+          <select value={sku} onChange={e => setSku(e.target.value)} className="px-3 py-2 border border-ink/20 text-sm rounded-lg">
+            <option value="">Select item</option>
+            {inv.filter(i => i.quantity_available > 0).map(i => <option key={i.sku} value={i.sku}>{i.sku} — {i.name} ({i.quantity_available})</option>)}
+          </select>
+          <select value={userId} onChange={e => setUserId(e.target.value)} className="px-3 py-2 border border-ink/20 text-sm rounded-lg">
+            <option value="">Select student</option>
+            {users.map(u => <option key={u.id} value={u.id}>{u.full_name}</option>)}
+          </select>
+          <input type="number" value={qty} onChange={e => setQty(parseInt(e.target.value) || 1)} min={1} className="px-3 py-2 border border-ink/20 text-sm rounded-lg" placeholder="Qty" />
+        </div>
+        <button onClick={checkout} className="mt-4 px-4 py-2 bg-copper text-white text-sm font-bold rounded-lg hover:bg-copper/90">Check Out</button>
+      </div>
+      <div className="bg-white rounded-xl border border-ink/10 overflow-hidden">
+        <div className="p-4 border-b border-ink/10"><h3 className="font-heading text-xl font-bold">Active & Recent ({checkouts.length})</h3></div>
+        <table className="w-full text-sm">
+          <thead className="bg-bone/60">
+            <tr><th className="text-left px-4 py-3 text-xs uppercase tracking-wider text-ink/60">Item</th><th className="text-left px-4 py-3 text-xs uppercase tracking-wider text-ink/60">Student</th><th className="text-left px-4 py-3 text-xs uppercase tracking-wider text-ink/60">Qty</th><th className="text-left px-4 py-3 text-xs uppercase tracking-wider text-ink/60">Date</th><th className="text-left px-4 py-3 text-xs uppercase tracking-wider text-ink/60">Status</th><th /></tr>
+          </thead>
+          <tbody>
+            {checkouts.length === 0 && <tr><td colSpan={6} className="px-4 py-8 text-center text-ink/40">No checkouts yet.</td></tr>}
+            {checkouts.map(c => (
+              <tr key={c.id} className="border-b border-ink/5">
+                <td className="px-4 py-3"><span className="font-bold">{c.item?.name}</span><div className="text-xs text-ink/50 font-mono">{c.sku}</div></td>
+                <td className="px-4 py-3">{c.user?.full_name}</td>
+                <td className="px-4 py-3">{c.quantity}</td>
+                <td className="px-4 py-3 text-xs text-ink/50">{new Date(c.checked_out_at).toLocaleDateString()}</td>
+                <td className="px-4 py-3"><span className={`text-xs font-bold px-2 py-0.5 rounded ${c.status === 'out' ? 'bg-amber-100 text-amber-700' : 'bg-green-100 text-green-700'}`}>{c.status}</span></td>
+                <td className="px-4 py-3">
+                  {c.status === 'out' && (
+                    <button onClick={() => returnTool(c.id)} className="text-xs font-bold text-copper hover:underline">Return</button>
+                  )}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
   );
 }
