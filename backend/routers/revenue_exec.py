@@ -207,20 +207,20 @@ async def get_creator_split(user_id: str) -> dict:
         has_students = enrollment is not None
     instructor_rating = user_doc.get("instructor_rating", 0)
     if is_certified and has_students and instructor_rating >= 4.0:
-        return {"creator_pct": 85, "platform_pct": 15, "tier": "certified_instructor", "tier_label": "Certified Instructor"}
+        return {"creator_pct": 95, "platform_pct": 5, "tier": "certified_instructor", "tier_label": "Certified Instructor"}
     elif has_students:
-        return {"creator_pct": 80, "platform_pct": 20, "tier": "active_instructor", "tier_label": "Active Instructor"}
+        return {"creator_pct": 93, "platform_pct": 7, "tier": "active_instructor", "tier_label": "Active Instructor"}
     elif is_certified:
-        return {"creator_pct": 75, "platform_pct": 25, "tier": "certified", "tier_label": "Certified Creator"}
+        return {"creator_pct": 91, "platform_pct": 9, "tier": "certified", "tier_label": "Certified Creator"}
     else:
-        return {"creator_pct": 70, "platform_pct": 30, "tier": "base", "tier_label": "Base Creator"}
+        return {"creator_pct": 90, "platform_pct": 10, "tier": "base", "tier_label": "Base Creator"}
 
 def _next_tier_info(current_tier: str) -> dict:
     tiers = {
-        "base": {"label": "Certified Creator (75%)", "action": "Complete Creator Certification", "link": "/certification"},
-        "certified": {"label": "Active Instructor (80%)", "action": "Publish a course and get your first student", "link": "/creator/courses"},
-        "active_instructor": {"label": "Certified Instructor (85%)", "action": "Get Creator Certified and maintain 4.0+ rating", "link": "/certification"},
-        "certified_instructor": {"label": "You're at the top! 85%", "action": "Keep creating and teaching.", "link": "/studio"},
+        "base": {"label": "Certified Creator (91%)", "action": "Complete Creator Certification", "link": "/certification"},
+        "certified": {"label": "Active Instructor (93%)", "action": "Publish a course and get your first student", "link": "/creator/courses"},
+        "active_instructor": {"label": "Certified Instructor (95%)", "action": "Get Creator Certified and maintain 4.0+ rating", "link": "/certification"},
+        "certified_instructor": {"label": "You're at the top! 95%", "action": "Keep creating and teaching.", "link": "/studio"},
     }
     return tiers.get(current_tier, tiers["base"])
 

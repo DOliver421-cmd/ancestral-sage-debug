@@ -1,7 +1,7 @@
 """
 Creator Course System
 Allow creators to build, price, and sell their own courses at tiered, affordable rates.
-Revenue sharing: Creator gets 70%, WAI gets 30%
+Revenue sharing: Creator gets 90%, WAI gets 10%
 """
 
 import logging

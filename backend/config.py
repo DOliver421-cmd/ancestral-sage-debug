@@ -58,8 +58,8 @@ class Settings(BaseSettings):
     # =====================================================================
     # BUSINESS SETTINGS
     # =====================================================================
-    CREATOR_REVENUE_SHARE: float = 0.7  # Creator gets 70%
-    PLATFORM_COMMISSION: float = 0.3  # Platform takes 30%
+    CREATOR_REVENUE_SHARE: float = 0.9  # Creator gets 90%
+    PLATFORM_COMMISSION: float = 0.1  # Platform takes 10%
     CREATOR_PAYOUT_MINIMUM: float = 50.0  # Minimum $50 payout
     MONTHLY_PAYOUT_DAY: int = 1  # Pay creators on 1st of month
 
