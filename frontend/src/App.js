@@ -29,13 +29,11 @@ import PublicPortfolio from "./pages/PublicPortfolio";
 import Adaptive from "./pages/Adaptive";
 import ComplianceList from "./pages/ComplianceList";
 import ComplianceDetail from "./pages/ComplianceDetail";
-import AdminTools from "./pages/AdminTools";
 import Analytics from "./pages/Analytics";
 import AuditLog from "./pages/AuditLog";
 import Attendance from "./pages/Attendance";
 import Incidents from "./pages/Incidents";
 import Settings from "./pages/Settings";
-import ExecSystem from "./pages/ExecSystem";
 import ForgotPassword from "./pages/ForgotPassword";
 import FactoryReset from "./pages/FactoryReset";
 import ResetPassword from "./pages/ResetPassword";
@@ -96,7 +94,6 @@ import ExecutiveCommandCenter from "./pages/ExecutiveCommandCenter";
 import Community from "./pages/Community";
 import Creators from "./pages/Creators";
 import GhostProducer from "./pages/GhostProducer";
-import ExecutiveDirectorDashboard from "./pages/ExecutiveDirectorDashboard";
 import PartnershipDashboard from "./pages/PartnershipDashboard";
 import PartnershipDiscounts from "./pages/PartnershipDiscounts";
 import UserProfile from "./pages/UserProfile";
@@ -107,14 +104,12 @@ import PlatformPrices from "./pages/PlatformPrices";
 import AuditorDashboard from "./pages/AuditorDashboard";
 import ProviderGateway from "./pages/ProviderGateway";
 import ExecutiveSiteReport from "./pages/ExecutiveSiteReport";
-import SiteHealthReport from "./pages/SiteHealthReport";
 import TeamOps from "./pages/TeamOps";
 import BillingAdmin from "./pages/BillingAdmin";
 import CreatorCourses from "./pages/CreatorCourses";
 import CreatorEarnings from "./pages/CreatorEarnings";
 // CreatorProfileEdit is retired — editing lives in /profile Settings tab
 import SiteControlPanel from "./pages/SiteControlPanel";
-import ExecControlPanel from "./pages/ExecControlPanel";
 import ExecBusinessOffice from "./pages/ExecBusinessOffice";
 import CreatorLounge from "./pages/CreatorLounge";
 import BandOnPage from "./pages/BandOnPage";
@@ -139,7 +134,6 @@ import BYOK from "./pages/BYOK";
 import SiteGuide from "./pages/SiteGuide";
 import SiteSearch, { SiteSearchModal } from "./components/SiteSearch";
 import BusinessOffice from "./pages/BusinessOffice";
-import ExecControl from "./pages/ExecControl";
 import ClassicTools from "./pages/ClassicTools";
 import LegacyTool from "./pages/LegacyTool";
 import AgentRegistryView from "./pages/aawab/AgentRegistryView";
@@ -254,7 +248,7 @@ function App() {
           <Route path="/dashboard" element={<Protected><StudentDashboard /></Protected>} />
           {/* Dashboard aliases (handoff routing scheme) — same pages, role-gated */}
           <Route path="/dashboard/student" element={<Protected><StudentDashboard /></Protected>} />
-          <Route path="/dashboard/exec" element={<BoundedAdmin roles={["executive_admin"]} label="Exec Dashboard" backTo="/admin"><ExecSystem /></BoundedAdmin>} />
+          <Route path="/dashboard/exec" element={<Navigate to="/admin/command" replace />} />
           <Route path="/dashboard/admin" element={<BoundedAdmin roles={["admin"]} label="Admin Dashboard"><AdminDashboard /></BoundedAdmin>} />
           <Route path="/dashboard/instructor" element={<Protected roles={["instructor", "admin"]}><InstructorDashboard /></Protected>} />
           <Route path="/avatar-setup" element={<Protected><AvatarSetup /></Protected>} />
@@ -279,7 +273,7 @@ function App() {
           <Route path="/business-office" element={<BoundedAdmin roles={["admin"]} label="AI Business Office" backTo="/admin"><BusinessOffice /></BoundedAdmin>} />
           <Route path="/admin/business-office" element={<BoundedAdmin roles={["admin"]} label="AI Business Office" backTo="/admin"><BusinessOffice /></BoundedAdmin>} />
           {/* Exec Control — change every office number and text without code */}
-          <Route path="/admin/office-control" element={<BoundedAdmin roles={["admin"]} label="Exec Control — Business Office" backTo="/admin/business-office"><ExecControl /></BoundedAdmin>} />
+          <Route path="/admin/office-control" element={<Navigate to="/admin/office" replace />} />
           {/* AAWAB — Agent Wellness & Certification Bureau */}
           <Route path="/aawab" element={<BoundedAdmin roles={["admin"]} label="Agent Wellness" backTo="/admin"><AgentRegistryView /></BoundedAdmin>} />
           <Route path="/aawab/chamber" element={<BoundedAdmin roles={["admin"]} label="Certification Chamber" backTo="/aawab"><CertificationChamber /></BoundedAdmin>} />
@@ -326,7 +320,7 @@ function App() {
           <Route path="/adaptive" element={<Protected><TierGate feature="tracks"><Adaptive /></TierGate></Protected>} />
           <Route path="/compliance" element={<Protected><ComplianceList /></Protected>} />
           <Route path="/compliance/:slug" element={<Protected><ComplianceDetail /></Protected>} />
-          <Route path="/admin/tools" element={<BoundedAdmin roles={["admin"]} label="Admin Tools"><AdminTools /></BoundedAdmin>} />
+          <Route path="/admin/tools" element={<Navigate to="/admin" replace />} />
           <Route path="/admin/analytics" element={<BoundedAdmin roles={["admin"]} label="Analytics"><Analytics /></BoundedAdmin>} />
           <Route path="/admin/audit" element={<BoundedAdmin roles={["support_staff", "admin"]} label="Audit Log"><AuditLog /></BoundedAdmin>} />
           <Route path="/attendance" element={<Protected roles={["instructor", "admin"]}><Attendance /></Protected>} />
@@ -335,16 +329,16 @@ function App() {
           <Route path="/my-position" element={<Protected><MyPosition /></Protected>} />
           <Route path="/personas" element={<AdminPage><Personas /></AdminPage>} />
           <Route path="/personas/:slug" element={<AdminPage><PersonaProfile /></AdminPage>} />
-          <Route path="/admin/system" element={<BoundedAdmin roles={["executive_admin"]} label="Exec System" backTo="/admin/control"><ExecSystem /></BoundedAdmin>} />
+          <Route path="/admin/system" element={<Navigate to="/admin/command" replace />} />
           {/* Site Control Panel — executive_admin only, not linked from any nav */}
           <Route path="/admin/control" element={<BoundedAdmin roles={["executive_admin"]} label="Site Control Panel" backTo="/admin"><SiteControlPanel /></BoundedAdmin>} />
           <Route path="/admin/office" element={<BoundedAdmin roles={["executive_admin"]} label="Business Office" backTo="/admin"><ExecBusinessOffice /></BoundedAdmin>} />
-          <Route path="/admin/exec-control" element={<BoundedAdmin roles={["executive_admin"]} label="Sovereign Command" backTo="/admin"><ExecControlPanel /></BoundedAdmin>} />
-          <Route path="/admin/director" element={<BoundedAdmin roles={["executive_admin"]} label="Director Dashboard" backTo="/admin"><AdminPage><ExecutiveDirectorDashboard /></AdminPage></BoundedAdmin>} />
+          <Route path="/admin/exec-control" element={<Navigate to="/admin/office" replace />} />
+          <Route path="/admin/director" element={<Navigate to="/admin/command" replace />} />
           <Route path="/admin/sage-audit" element={<BoundedAdmin roles={["executive_admin"]} label="Sage Audit" backTo="/admin"><SageAudit /></BoundedAdmin>} />
           <Route path="/admin/staff-meetings" element={<BoundedAdmin roles={["executive_admin"]} label="Staff Meetings" backTo="/admin"><StaffMeetingHistory /></BoundedAdmin>} />
           <Route path="/admin/exec-report" element={<BoundedAdmin roles={["executive_admin"]} label="Executive Site Report" backTo="/admin"><ExecutiveSiteReport /></BoundedAdmin>} />
-          <Route path="/admin/health-report" element={<BoundedAdmin roles={["admin", "executive_admin"]} label="System Health" backTo="/admin"><SiteHealthReport /></BoundedAdmin>} />
+          <Route path="/admin/health-report" element={<BoundedAdmin roles={["admin", "executive_admin"]} label="System Health" backTo="/admin"><SystemHealth /></BoundedAdmin>} />
           <Route path="/admin/health" element={<BoundedAdmin roles={["admin"]} label="System Health"><SystemHealth /></BoundedAdmin>} />
           <Route path="/admin/moderation" element={<BoundedAdmin roles={["support_staff", "admin"]} label="Moderation Analytics"><ModerationAnalytics /></BoundedAdmin>} />
           <Route path="/revenue" element={<BoundedAdmin roles={["admin", "executive_admin"]} label="Revenue Division"><RevenueDivision /></BoundedAdmin>} />
