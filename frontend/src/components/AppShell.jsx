@@ -364,7 +364,6 @@ export default function AppShell({ children }) {
           <NavSection label="Games" collapsed={collapsed}>
             {nl("/arcade",          "Virtual Arcade",   Gamepad2,        "nav-arcade")}
             {nl("/trash",           "M.O.R.E. Pantheon", Star,          "nav-trash")}
-            {nl("/arena",           "The Arena",        Swords,          "nav-arena")}
           </NavSection>
           )}
 
@@ -397,6 +396,7 @@ export default function AppShell({ children }) {
                 {nl("/admin/sage-audit","Sage Audit",      ScrollText,     "nav-sage-audit")}
               </NavSubGroup>
               <NavSubGroup label="Tools" collapsed={collapsed}>
+                {nl("/arena",            "The Arena",        Swords,       "nav-arena")}
                 {nl("/admin/tools",     "Sites & Inventory", Building2,    "nav-admin-tools")}
                 {nl("/admin/bridge",    "AI Team Bridge",  Network,        "nav-bridge")}
                 {nl("/admin/providers", "Provider Gateway", Network,       "nav-providers")}
