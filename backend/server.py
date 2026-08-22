@@ -1898,6 +1898,11 @@ from routers import exec_control as _exec_control_mod
 _exec_control_mod.bind(db, current_user, audit, notify)
 api_router.include_router(_exec_control_mod.router)
 
+# --- Feature Control Center (canonical feature registry + admin API) ---
+from routers import features as _features_mod
+_features_mod.bind(db, current_user)
+api_router.include_router(_features_mod.router)
+
 # --- Admin dashboard router (extracted to routers/admin.py) ---
 from routers import admin as _admin_mod
 _admin_mod.bind(db, current_user, audit, notify)

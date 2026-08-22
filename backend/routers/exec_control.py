@@ -933,9 +933,12 @@ async def ec_break_glass_history(limit: int = 50,
 # ═════════════════════════════════════════════════════════════════════════════
 
 PAGE_ACCESS_REGISTRY = [
-    # ── Free/non-cost pages (open to all authenticated users) ─────────────
     {"key": "dashboard", "label": "Dashboard", "path": "/dashboard"},
+    {"key": "helper", "label": "Helper", "path": "/helper"},
+    {"key": "ai", "label": "AI Tutor", "path": "/ai"},
     {"key": "palace", "label": "Palace", "path": "/palace"},
+    {"key": "studio", "label": "Creator Studio", "path": "/studio"},
+    {"key": "ghost-producer", "label": "Ghost Producer", "path": "/ghost-producer"},
     {"key": "band", "label": "Band", "path": "/band"},
     {"key": "playlist", "label": "Playlist Curation", "path": "/playlist"},
     {"key": "arcade", "label": "Arcade", "path": "/arcade"},
@@ -945,6 +948,9 @@ PAGE_ACCESS_REGISTRY = [
     {"key": "more", "label": "M.O.R.E. Hub", "path": "/more"},
     {"key": "legal-tools", "label": "Legal Tools", "path": "/more/litigation"},
     {"key": "classic-tools", "label": "Classic Tools", "path": "/classic-tools"},
+    {"key": "business-office", "label": "Business Office", "path": "/business-office"},
+    {"key": "partnership", "label": "Partnership", "path": "/partnership"},
+    {"key": "creator-lounge", "label": "Creator Lounge", "path": "/creator-lounge"},
     {"key": "community", "label": "Community", "path": "/community"},
     {"key": "creators", "label": "Creators", "path": "/creators"},
     {"key": "courses", "label": "Courses", "path": "/courses"},
@@ -954,67 +960,24 @@ PAGE_ACCESS_REGISTRY = [
     {"key": "credentials", "label": "Credentials", "path": "/credentials"},
     {"key": "certificates", "label": "Certificates", "path": "/certificates"},
     {"key": "leaderboard", "label": "Leaderboard", "path": "/leaderboard"},
+    {"key": "projects", "label": "Projects", "path": "/projects"},
+    {"key": "byok", "label": "Bring Your Own Key", "path": "/byok"},
+    {"key": "social", "label": "Social Publisher", "path": "/social"},
+    {"key": "revenue", "label": "Revenue", "path": "/revenue"},
+    {"key": "auditor", "label": "Auditor", "path": "/auditor"},
+    {"key": "supervisor", "label": "Supervisor", "path": "/supervisor"},
+    {"key": "council", "label": "Council", "path": "/council"},
+    {"key": "elder-council", "label": "Elder Council", "path": "/elder-council"},
+    {"key": "jamil", "label": "Jamil", "path": "/jamil"},
     {"key": "portfolio", "label": "Portfolio", "path": "/portfolio"},
+    {"key": "arena", "label": "Arena", "path": "/arena",
+     "default_allowed_roles": ["executive_admin"]},
+    {"key": "admin", "label": "Administration", "path": "/admin"},
+    {"key": "exec", "label": "Executive Suite", "path": "/admin/exec"},
+    {"key": "team", "label": "Team Ops", "path": "/team"},
     {"key": "settings", "label": "Settings", "path": "/settings"},
     {"key": "profile", "label": "Profile", "path": "/profile"},
-
-    # ── AI-powered features (cost platform API tokens per request) ────────
-    # default_allowed_roles restricts who can see these unless an exec
-    # explicitly widens access via POST /exec/control/access.
-    {"key": "ai", "label": "AI Tutor", "path": "/ai",
-     "default_allowed_roles": ["admin", "executive_admin"]},
-    {"key": "helper", "label": "Personal Helper", "path": "/helper",
-     "default_allowed_roles": ["admin", "executive_admin"]},
-    {"key": "council", "label": "Council (Sage)", "path": "/council",
-     "default_allowed_roles": ["admin", "executive_admin"]},
-    {"key": "jamil", "label": "Jamil", "path": "/jamil",
-     "default_allowed_roles": ["admin", "executive_admin"]},
-    {"key": "elder-council", "label": "Elder Council", "path": "/elder-council",
-     "default_allowed_roles": ["admin", "executive_admin"]},
-    {"key": "assistant", "label": "Admin Assistant", "path": "/assistant",
-     "default_allowed_roles": ["admin", "executive_admin"]},
-    {"key": "orchestrator", "label": "Orchestrator", "path": "/orchestrator",
-     "default_allowed_roles": ["admin", "executive_admin"]},
-    {"key": "site-guide", "label": "Site Guide", "path": "/site-guide",
-     "default_allowed_roles": ["admin", "executive_admin"]},
-
-    # ── AI creation tools (cost platform API tokens per generation) ───────
-    {"key": "ghost-producer", "label": "Ghost Producer", "path": "/ghost-producer",
-     "default_allowed_roles": ["admin", "executive_admin"]},
-    {"key": "social", "label": "Social Publisher", "path": "/social",
-     "default_allowed_roles": ["admin", "executive_admin"]},
-
-    # ── Creator/business tools (paid membership required) ─────────────────
-    {"key": "studio", "label": "Creator Studio", "path": "/studio",
-     "default_allowed_roles": ["admin", "executive_admin"]},
-    {"key": "business-office", "label": "Business Office", "path": "/business-office",
-     "default_allowed_roles": ["admin", "executive_admin"]},
-    {"key": "partnership", "label": "Partnership", "path": "/partnership",
-     "default_allowed_roles": ["admin", "executive_admin"]},
-    {"key": "creator-lounge", "label": "Creator Lounge", "path": "/creator-lounge",
-     "default_allowed_roles": ["admin", "executive_admin"]},
-
-    # ── Internal/executive-only tools ────────────────────────────────────
-    {"key": "arena", "label": "Arena (Exec)", "path": "/arena",
-     "default_allowed_roles": ["executive_admin"]},
-    {"key": "admin", "label": "Administration", "path": "/admin",
-     "default_allowed_roles": ["admin", "executive_admin"]},
-    {"key": "exec", "label": "Executive Suite", "path": "/admin/exec",
-     "default_allowed_roles": ["executive_admin"]},
-    {"key": "supervisor", "label": "Supervisor", "path": "/supervisor",
-     "default_allowed_roles": ["executive_admin"]},
-    {"key": "revenue", "label": "Revenue", "path": "/revenue",
-     "default_allowed_roles": ["admin", "executive_admin"]},
-    {"key": "auditor", "label": "Auditor", "path": "/auditor",
-     "default_allowed_roles": ["admin", "executive_admin"]},
-    {"key": "team", "label": "Team Ops", "path": "/team",
-     "default_allowed_roles": ["executive_admin"]},
-    {"key": "projects", "label": "Projects", "path": "/projects",
-     "default_allowed_roles": ["admin", "executive_admin"]},
-    {"key": "byok", "label": "Bring Your Own Key", "path": "/byok",
-     "default_allowed_roles": ["admin", "executive_admin"]},
 ]
-
 
 class _ExecAccessReq(BaseModel):
     page: str = Field(..., min_length=1, max_length=100)
