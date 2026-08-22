@@ -17,7 +17,7 @@
  */
 
 import { useMemo } from 'react';
-import { useAuth } from '../context/AuthContext';
+import { useAuth } from '../lib/auth';
 
 // Tier level mapping for comparisons
 const TIER_LEVELS = { free: 0, creator: 1, pro: 2, studio: 3, director: 4 };

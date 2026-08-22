@@ -25,7 +25,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from ai.hybrid_nam.designation import HybridNAMDesignation
 from ai.hybrid_nam.soul_kernel import SoulKernel
-from ai.hybrid_nam.knowledge_forge import KnowledgeForge, KnowledgeItem
+from ai.hybrid_nam.knowledge_forge import KnowledgeForge, KnowledgeObject
 from ai.hybrid_nam.knowledge_graph import retrieve, classify_domains
 from ai.hybrid_nam.memory_engine import (
     create_memory, create_autobiographical_event, create_intention,
@@ -112,18 +112,19 @@ class ActionReview(BaseModel):
 @router.post("/knowledge/ingest")
 async def ingest_knowledge(body: KnowledgeIngest):
     """Ingest new knowledge into the Knowledge Forge."""
-    item = forge.create_knowledge(
+    item = forge.ingest(
         content=body.content,
-        source_type=body.source_type,
-        source_origin=body.source_origin,
-        content_type=body.content_type,
-        title=body.title,
-        domains=body.domains,
-        keywords=body.keywords,
+        source_info={
+            "origin": body.source_origin or "api",
+            "type": body.source_type or "manual",
+            "content_type": body.content_type or "fact",
+            "title": body.title or "",
+            "domains": body.domains or [],
+            "keywords": body.keywords or [],
+        },
     )
-    item["purpose"] = body.purpose
-    _knowledge_base.append(item)
-    return {"status": "ingested", "item": item}
+    _knowledge_base.append(item.to_dict() if hasattr(item, 'to_dict') else item)
+    return {"status": "ingested", "item": item.to_dict() if hasattr(item, 'to_dict') else item}
 
 
 @router.get("/knowledge/search")
@@ -164,18 +165,21 @@ async def approve_knowledge(knowledge_id: str, body: KnowledgeReview):
 @router.post("/knowledge/import")
 async def import_knowledge(body: KnowledgeIngest):
     """Bulk import knowledge (founding archive mode)."""
-    item = forge.create_knowledge(
+    item = forge.ingest(
         content=body.content,
-        source_type=body.source_type,
-        source_origin=body.source_origin,
-        content_type=body.content_type,
-        title=body.title,
-        domains=body.domains,
-        keywords=body.keywords,
+        source_info={
+            "origin": body.source_origin or "founding_archive",
+            "type": body.source_type or "founding_archive",
+            "content_type": body.content_type or "principle",
+            "title": body.title or "",
+            "domains": body.domains or [],
+            "keywords": body.keywords or [],
+        },
     )
-    item["purpose"] = body.purpose
-    item["import_mode"] = "founding_archive"
-    _knowledge_base.append(item)
+    item_dict = item.to_dict() if hasattr(item, 'to_dict') else item
+    item_dict["purpose"] = body.purpose
+    item_dict["import_mode"] = "founding_archive"
+    _knowledge_base.append(item_dict)
     return {"status": "imported", "item": item}
 
 
@@ -185,9 +189,16 @@ async def import_knowledge(body: KnowledgeIngest):
 async def get_identity():
     """Get NAM's identity, designation, and organizational relationships."""
     return {
-        "designation": nam.get_identity(),
-        "relationships": nam.get_relationships(),
-        "authority": nam.authority,
+        "designation": nam.identity,
+        "constitution": nam.constitution,
+        "personality": nam.personality,
+        "authority": {
+            "is_human": nam.identity.get('is_human', False),
+            "is_clone_of_founder": nam.identity.get('is_clone_of_founder', False),
+            "is_legal_authority": nam.identity.get('is_legal_authority', False),
+            "is_operational_director": nam.identity.get('is_operational_director', False),
+            "primary_function": nam.identity.get('primary_function', ''),
+        },
     }
 
 
@@ -202,7 +213,7 @@ async def get_constitution():
     """Get NAM's foundational constitution."""
     return {
         "principles": nam.constitution,
-        "constitutional_hash": nam.constitution_hash,
+        "constitutional_hash": nam.get_hash(),
     }
 
 
