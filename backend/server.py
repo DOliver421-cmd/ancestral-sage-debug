@@ -1242,6 +1242,13 @@ async def _on_startup_impl():
     # Wire shared db reference for sub-routers (social, playlist, etc.)
     import deps as _deps
     _deps.set_db(db)
+    # Wire NAM persistence (Hybrid NAM Leadership Intelligence)
+    try:
+        from ai.hybrid_nam import persistence as _nam_persistence
+        _nam_persistence.init_db(db)
+        logger.info("STARTUP: NAM persistence wired to MongoDB.")
+    except Exception as _nam_persist_err:
+        logger.warning("STARTUP: NAM persistence not wired (in-memory mode): %s", _nam_persist_err)
     if MONGO_BACKUP_URL:
         try:
             _backup_client = AsyncIOMotorClient(
