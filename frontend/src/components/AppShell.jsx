@@ -88,6 +88,7 @@ export default function AppShell({ children }) {
   const loc = useLocation();
   const nav = useNavigate();
   const [backendDown, setBackendDown] = useState(false);
+  const [gatesLoaded, setGatesLoaded] = useState(false);
   const [collapsed, setCollapsed] = useState(() => {
     try { return localStorage.getItem("sidebar_collapsed") === "true"; } catch { return false; }
   });
@@ -125,7 +126,10 @@ export default function AppShell({ children }) {
   }, []);
 
   // Exec-controlled page access: a disabled page disappears from the sidebar.
+  // Until the gate map loads, hide ALL gated nav items to prevent flash-of-content
+  // where restricted features briefly appear before role enforcement kicks in.
   const nl = (to, label, icon, testid) => {
+    if (!gatesLoaded) return null;
     if (!isPageEnabled(to, user)) return null;
     return <NavLink loc={loc} to={to} label={label} icon={icon} testid={testid} collapsed={collapsed} />;
   };
@@ -149,7 +153,7 @@ export default function AppShell({ children }) {
     );
   };
 
-  useEffect(() => { loadGates(); }, []);
+  useEffect(() => { loadGates().then(() => setGatesLoaded(true)); }, []);
 
   return (
     <div className="min-h-screen flex bg-bone">
