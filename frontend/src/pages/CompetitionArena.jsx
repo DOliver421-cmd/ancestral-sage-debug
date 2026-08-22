@@ -476,6 +476,23 @@ function ProjectHistory({ projects, expandedId, projectDetail, onToggle, detailL
 export default function CompetitionArena() {
   const { user } = useAuth();
   const isExec = user?.role === "executive_admin";
+
+  // Defense-in-depth: block non-exec users even if route guard fails
+  if (!isExec) {
+    return (
+      <AppShell>
+        <div style={{ padding: 48, textAlign: "center" }}>
+          <div style={{ fontSize: 48, marginBottom: 16 }}>🔒</div>
+          <h2 style={{ fontWeight: 900, color: INK, fontSize: 20, marginBottom: 8 }}>
+            Executive Access Only
+          </h2>
+          <p style={{ color: "#666", fontSize: 14 }}>
+            The Arena is an internal executive tool and is not accessible to general users.
+          </p>
+        </div>
+      </AppShell>
+    );
+  }
   const [task, setTask] = useState("");
   const [loading, setLoading] = useState(false);
   const [results, setResults] = useState(null);
