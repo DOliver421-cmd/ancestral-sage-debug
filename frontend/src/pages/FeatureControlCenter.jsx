@@ -162,8 +162,9 @@ export default function FeatureControlCenter() {
         <div style={{ display: "flex", gap: 16, marginBottom: 24, flexWrap: "wrap" }}>
           <StatCard label="Total Features" value={features.length} color="#6d28d9" />
           <StatCard label="AI Features" value={features.filter(f => f.category === "ai").length} color="#1d4ed8" />
-          <StatCard label="Platform AI On" value={features.filter(f => f.platform_ai).length} color="#047857" />
-          <StatCard label="Admin/Exec Only" value={features.filter(f => f.allowed_roles?.length <= 2 && f.allowed_roles?.includes("executive_admin")).length} color="#b45309" />
+          <StatCard label="Cost Bearing" value={features.filter(f => f.cost_bearing).length} color="#b45309" />
+          <StatCard label="Internal Only" value={features.filter(f => f.internal_only).length} color="#dc2626" />
+          <StatCard label="Customer Accessible" value={features.filter(f => f.customer_access_allowed !== false).length} color="#047857" />
         </div>
 
         {/* View Toggle + Filters */}
@@ -293,6 +294,22 @@ function FeatureCard({ feature, saving, onToggle, onRoleToggle, onTierToggle }) 
           <div style={{ fontWeight: 800, fontSize: 15 }}>{feature.name}</div>
           <div style={{ fontSize: 12, color: "#999" }}>{feature.description}</div>
         </div>
+        {feature.internal_only && (
+          <span style={{
+            background: "#fee2e2", color: "#dc2626", fontSize: 9, fontWeight: 700,
+            padding: "2px 6px", borderRadius: 4, textTransform: "uppercase",
+          }}>
+            INTERNAL
+          </span>
+        )}
+        {feature.cost_bearing && (
+          <span style={{
+            background: "#fef3c7", color: "#b45309", fontSize: 9, fontWeight: 700,
+            padding: "2px 6px", borderRadius: 4, textTransform: "uppercase",
+          }}>
+            COST
+          </span>
+        )}
         <span style={{
           background: catColor.bg, color: catColor.text, fontSize: 10, fontWeight: 700,
           padding: "2px 8px", borderRadius: 4, textTransform: "uppercase",
@@ -377,6 +394,36 @@ function FeatureCard({ feature, saving, onToggle, onRoleToggle, onTierToggle }) 
                   {feature.allowed_tiers?.includes(tier) ? "☑" : "☐"} {tier}
                 </label>
               ))}
+            </div>
+          </div>
+
+          {/* Classification */}
+          <div style={{ marginBottom: 16 }}>
+            <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", color: "#999", marginBottom: 8 }}>
+              Classification
+            </div>
+            <div style={{ display: "flex", gap: 16, flexWrap: "wrap" }}>
+              <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12 }}>
+                <ToggleSwitch checked={feature.internal_only || false}
+                  onChange={(v) => onToggle(feature.feature_id, "internal_only", v)} disabled={saving} />
+                <span style={{ color: feature.internal_only ? "#dc2626" : "#666" }}>
+                  {feature.internal_only ? "🔴 Internal Only" : "Internal Only"}
+                </span>
+              </label>
+              <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12 }}>
+                <ToggleSwitch checked={feature.customer_access_allowed !== false}
+                  onChange={(v) => onToggle(feature.feature_id, "customer_access_allowed", v)} disabled={saving} />
+                <span style={{ color: feature.customer_access_allowed ? "#047857" : "#666" }}>
+                  {feature.customer_access_allowed ? "✅ Customer Access" : "Customer Access"}
+                </span>
+              </label>
+              <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12 }}>
+                <ToggleSwitch checked={feature.cost_bearing || false}
+                  onChange={(v) => onToggle(feature.feature_id, "cost_bearing", v)} disabled={saving} />
+                <span style={{ color: feature.cost_bearing ? "#b45309" : "#666" }}>
+                  {feature.cost_bearing ? "💰 Cost Bearing" : "Cost Bearing"}
+                </span>
+              </label>
             </div>
           </div>
 
