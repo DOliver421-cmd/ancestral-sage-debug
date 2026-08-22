@@ -42,6 +42,9 @@ FEATURE_REGISTRY = [
         "byok_allowed": True,
         "navigation_group": "NAM",
         "navigation_label": "AI Tutor",
+        "internal_only": False,
+        "customer_access_allowed": True,
+        "cost_bearing": True,
     },
     {
         "feature_id": "nam.helper",
@@ -57,6 +60,9 @@ FEATURE_REGISTRY = [
         "byok_allowed": True,
         "navigation_group": "NAM",
         "navigation_label": "Personal Helper",
+        "internal_only": False,
+        "customer_access_allowed": True,
+        "cost_bearing": True,
     },
     {
         "feature_id": "nam.assistant",
@@ -72,6 +78,9 @@ FEATURE_REGISTRY = [
         "byok_allowed": True,
         "navigation_group": "NAM",
         "navigation_label": "Admin Assistant",
+        "internal_only": True,
+        "customer_access_allowed": False,
+        "cost_bearing": True,
     },
     {
         "feature_id": "nam.orchestrator",
@@ -87,6 +96,9 @@ FEATURE_REGISTRY = [
         "byok_allowed": True,
         "navigation_group": "NAM",
         "navigation_label": "Orchestrator",
+        "internal_only": True,
+        "customer_access_allowed": False,
+        "cost_bearing": True,
     },
     {
         "feature_id": "nam.site_guide",
@@ -102,6 +114,9 @@ FEATURE_REGISTRY = [
         "byok_allowed": False,
         "navigation_group": "NAM",
         "navigation_label": "Site Guide",
+        "internal_only": False,
+        "customer_access_allowed": True,
+        "cost_bearing": True,
     },
     {
         "feature_id": "nam.council",
@@ -117,6 +132,9 @@ FEATURE_REGISTRY = [
         "byok_allowed": True,
         "navigation_group": "NAM",
         "navigation_label": "Council (Sage)",
+        "internal_only": False,
+        "customer_access_allowed": True,
+        "cost_bearing": True,
     },
     {
         "feature_id": "nam.jamil",
@@ -132,6 +150,9 @@ FEATURE_REGISTRY = [
         "byok_allowed": True,
         "navigation_group": "NAM",
         "navigation_label": "Jamil — Director AI",
+        "internal_only": True,
+        "customer_access_allowed": False,
+        "cost_bearing": True,
     },
     {
         "feature_id": "nam.byok",
@@ -164,6 +185,9 @@ FEATURE_REGISTRY = [
         "byok_allowed": True,
         "navigation_group": "Create",
         "navigation_label": "Creator Studio",
+        "internal_only": False,
+        "customer_access_allowed": True,
+        "cost_bearing": True,
     },
     {
         "feature_id": "create.courses",
@@ -179,6 +203,9 @@ FEATURE_REGISTRY = [
         "byok_allowed": False,
         "navigation_group": "Create",
         "navigation_label": "Course Manager",
+        "internal_only": False,
+        "customer_access_allowed": True,
+        "cost_bearing": False,
     },
     {
         "feature_id": "create.ghost",
@@ -194,6 +221,9 @@ FEATURE_REGISTRY = [
         "byok_allowed": True,
         "navigation_group": "Create",
         "navigation_label": "Ghost Producer",
+        "internal_only": False,
+        "customer_access_allowed": True,
+        "cost_bearing": True,
     },
     {
         "feature_id": "create.social",
@@ -209,6 +239,9 @@ FEATURE_REGISTRY = [
         "byok_allowed": True,
         "navigation_group": "Create",
         "navigation_label": "Social Blast",
+        "internal_only": False,
+        "customer_access_allowed": True,
+        "cost_bearing": True,
     },
     {
         "feature_id": "create.lounge",
@@ -224,6 +257,9 @@ FEATURE_REGISTRY = [
         "byok_allowed": False,
         "navigation_group": "Create",
         "navigation_label": "Creator Lounge",
+        "internal_only": False,
+        "customer_access_allowed": True,
+        "cost_bearing": False,
     },
     {
         "feature_id": "create.earnings",
@@ -239,6 +275,9 @@ FEATURE_REGISTRY = [
         "byok_allowed": False,
         "navigation_group": "Create",
         "navigation_label": "My Earnings",
+        "internal_only": False,
+        "customer_access_allowed": True,
+        "cost_bearing": False,
     },
     {
         "feature_id": "create.payouts",
@@ -254,6 +293,9 @@ FEATURE_REGISTRY = [
         "byok_allowed": False,
         "navigation_group": "Create",
         "navigation_label": "Payout Dashboard",
+        "internal_only": False,
+        "customer_access_allowed": True,
+        "cost_bearing": False,
     },
 
     # ── Learn Ecosystem ──────────────────────────────────────────────────
@@ -271,6 +313,9 @@ FEATURE_REGISTRY = [
         "byok_allowed": False,
         "navigation_group": "Learn",
         "navigation_label": "Modules",
+        "internal_only": False,
+        "customer_access_allowed": True,
+        "cost_bearing": False,
     },
     {
         "feature_id": "learn.adaptive",
@@ -286,6 +331,9 @@ FEATURE_REGISTRY = [
         "byok_allowed": False,
         "navigation_group": "Learn",
         "navigation_label": "Learning Path",
+        "internal_only": False,
+        "customer_access_allowed": True,
+        "cost_bearing": True,
     },
     {
         "feature_id": "learn.competencies",
@@ -301,6 +349,9 @@ FEATURE_REGISTRY = [
         "byok_allowed": False,
         "navigation_group": "Learn",
         "navigation_label": "Competencies",
+        "internal_only": False,
+        "customer_access_allowed": True,
+        "cost_bearing": False,
     },
     {
         "feature_id": "learn.labs",
@@ -316,6 +367,9 @@ FEATURE_REGISTRY = [
         "byok_allowed": False,
         "navigation_group": "Learn",
         "navigation_label": "Workforce Labs",
+        "internal_only": False,
+        "customer_access_allowed": True,
+        "cost_bearing": False,
     },
     {
         "feature_id": "learn.simulations",
@@ -331,6 +385,9 @@ FEATURE_REGISTRY = [
         "byok_allowed": False,
         "navigation_group": "Learn",
         "navigation_label": "Lab Simulations",
+        "internal_only": False,
+        "customer_access_allowed": True,
+        "cost_bearing": False,
     },
     {
         "feature_id": "learn.compliance",
@@ -346,6 +403,9 @@ FEATURE_REGISTRY = [
         "byok_allowed": False,
         "navigation_group": "Learn",
         "navigation_label": "Compliance",
+        "internal_only": False,
+        "customer_access_allowed": True,
+        "cost_bearing": False,
     },
     {
         "feature_id": "learn.credentials",
@@ -361,6 +421,9 @@ FEATURE_REGISTRY = [
         "byok_allowed": False,
         "navigation_group": "Learn",
         "navigation_label": "Credentials",
+        "internal_only": False,
+        "customer_access_allowed": True,
+        "cost_bearing": False,
     },
     {
         "feature_id": "learn.certificates",
@@ -376,6 +439,9 @@ FEATURE_REGISTRY = [
         "byok_allowed": False,
         "navigation_group": "Learn",
         "navigation_label": "Certificates",
+        "internal_only": False,
+        "customer_access_allowed": True,
+        "cost_bearing": False,
     },
     {
         "feature_id": "learn.portfolio",
@@ -391,6 +457,9 @@ FEATURE_REGISTRY = [
         "byok_allowed": False,
         "navigation_group": "Learn",
         "navigation_label": "Portfolio",
+        "internal_only": False,
+        "customer_access_allowed": True,
+        "cost_bearing": False,
     },
 
     # ── Community Ecosystem ──────────────────────────────────────────────
@@ -408,6 +477,9 @@ FEATURE_REGISTRY = [
         "byok_allowed": False,
         "navigation_group": "Community",
         "navigation_label": "Members' Palace",
+        "internal_only": False,
+        "customer_access_allowed": True,
+        "cost_bearing": False,
     },
     {
         "feature_id": "community.leaderboard",
@@ -423,6 +495,9 @@ FEATURE_REGISTRY = [
         "byok_allowed": False,
         "navigation_group": "Community",
         "navigation_label": "XP Leaderboard",
+        "internal_only": False,
+        "customer_access_allowed": True,
+        "cost_bearing": False,
     },
     {
         "feature_id": "community.chat",
@@ -438,6 +513,9 @@ FEATURE_REGISTRY = [
         "byok_allowed": False,
         "navigation_group": "Community",
         "navigation_label": "Community Chat",
+        "internal_only": False,
+        "customer_access_allowed": True,
+        "cost_bearing": False,
     },
     {
         "feature_id": "community.legal",
@@ -453,6 +531,9 @@ FEATURE_REGISTRY = [
         "byok_allowed": False,
         "navigation_group": "Community",
         "navigation_label": "Legal Tools",
+        "internal_only": False,
+        "customer_access_allowed": True,
+        "cost_bearing": False,
     },
     {
         "feature_id": "community.incidents",
@@ -468,6 +549,9 @@ FEATURE_REGISTRY = [
         "byok_allowed": False,
         "navigation_group": "Community",
         "navigation_label": "Report Incident",
+        "internal_only": False,
+        "customer_access_allowed": True,
+        "cost_bearing": False,
     },
     {
         "feature_id": "community.saga",
@@ -483,6 +567,9 @@ FEATURE_REGISTRY = [
         "byok_allowed": False,
         "navigation_group": "Community",
         "navigation_label": "Vonns Saga",
+        "internal_only": False,
+        "customer_access_allowed": True,
+        "cost_bearing": False,
     },
     {
         "feature_id": "community.ascension",
@@ -498,6 +585,9 @@ FEATURE_REGISTRY = [
         "byok_allowed": False,
         "navigation_group": "Community",
         "navigation_label": "Ascension Protocols",
+        "internal_only": False,
+        "customer_access_allowed": True,
+        "cost_bearing": False,
     },
 
     # ── Marketplace Ecosystem ────────────────────────────────────────────
@@ -515,6 +605,9 @@ FEATURE_REGISTRY = [
         "byok_allowed": False,
         "navigation_group": "Marketplace",
         "navigation_label": "Media Store",
+        "internal_only": False,
+        "customer_access_allowed": True,
+        "cost_bearing": False,
     },
     {
         "feature_id": "marketplace.plans",
@@ -530,6 +623,9 @@ FEATURE_REGISTRY = [
         "byok_allowed": False,
         "navigation_group": "Marketplace",
         "navigation_label": "Plans & Pricing",
+        "internal_only": False,
+        "customer_access_allowed": True,
+        "cost_bearing": False,
     },
     {
         "feature_id": "marketplace.subscribe",
@@ -545,6 +641,9 @@ FEATURE_REGISTRY = [
         "byok_allowed": False,
         "navigation_group": "Marketplace",
         "navigation_label": "Membership",
+        "internal_only": False,
+        "customer_access_allowed": True,
+        "cost_bearing": False,
     },
     {
         "feature_id": "marketplace.donate",
@@ -560,6 +659,9 @@ FEATURE_REGISTRY = [
         "byok_allowed": False,
         "navigation_group": "Marketplace",
         "navigation_label": "Donate",
+        "internal_only": False,
+        "customer_access_allowed": True,
+        "cost_bearing": False,
     },
     {
         "feature_id": "marketplace.payments",
@@ -575,6 +677,9 @@ FEATURE_REGISTRY = [
         "byok_allowed": False,
         "navigation_group": "Marketplace",
         "navigation_label": "Payment History",
+        "internal_only": False,
+        "customer_access_allowed": True,
+        "cost_bearing": False,
     },
     {
         "feature_id": "marketplace.partnerships",
@@ -590,6 +695,9 @@ FEATURE_REGISTRY = [
         "byok_allowed": False,
         "navigation_group": "Marketplace",
         "navigation_label": "Partnerships",
+        "internal_only": False,
+        "customer_access_allowed": True,
+        "cost_bearing": False,
     },
 
     # ── Sanctuary Ecosystem ──────────────────────────────────────────────
@@ -607,6 +715,9 @@ FEATURE_REGISTRY = [
         "byok_allowed": False,
         "navigation_group": "Sanctuary",
         "navigation_label": "Sanctuary",
+        "internal_only": False,
+        "customer_access_allowed": True,
+        "cost_bearing": True,
     },
     {
         "feature_id": "sanctuary.knowledge",
@@ -622,6 +733,9 @@ FEATURE_REGISTRY = [
         "byok_allowed": False,
         "navigation_group": "Sanctuary",
         "navigation_label": "Knowledge Base",
+        "internal_only": False,
+        "customer_access_allowed": True,
+        "cost_bearing": False,
     },
 
     # ── Music Ecosystem ──────────────────────────────────────────────────
@@ -639,6 +753,9 @@ FEATURE_REGISTRY = [
         "byok_allowed": False,
         "navigation_group": "Music",
         "navigation_label": "Band on a Page",
+        "internal_only": False,
+        "customer_access_allowed": True,
+        "cost_bearing": False,
     },
     {
         "feature_id": "music.playlist",
@@ -654,6 +771,9 @@ FEATURE_REGISTRY = [
         "byok_allowed": False,
         "navigation_group": "Music",
         "navigation_label": "Playlist Manager",
+        "internal_only": False,
+        "customer_access_allowed": True,
+        "cost_bearing": False,
     },
 
     # ── Games Ecosystem ──────────────────────────────────────────────────
@@ -671,6 +791,9 @@ FEATURE_REGISTRY = [
         "byok_allowed": False,
         "navigation_group": "Games",
         "navigation_label": "Virtual Arcade",
+        "internal_only": False,
+        "customer_access_allowed": True,
+        "cost_bearing": False,
     },
     {
         "feature_id": "games.pantheon",
@@ -686,6 +809,9 @@ FEATURE_REGISTRY = [
         "byok_allowed": False,
         "navigation_group": "Games",
         "navigation_label": "M.O.R.E. Pantheon",
+        "internal_only": False,
+        "customer_access_allowed": True,
+        "cost_bearing": False,
     },
     {
         "feature_id": "games.arena",
@@ -701,6 +827,9 @@ FEATURE_REGISTRY = [
         "byok_allowed": False,
         "navigation_group": "Director",
         "navigation_label": "The Arena",
+        "internal_only": True,
+        "customer_access_allowed": False,
+        "cost_bearing": True,
     },
 
     # ── Admin Ecosystem ──────────────────────────────────────────────────
@@ -718,6 +847,9 @@ FEATURE_REGISTRY = [
         "byok_allowed": False,
         "navigation_group": "Director",
         "navigation_label": "Admin Overview",
+        "internal_only": True,
+        "customer_access_allowed": False,
+        "cost_bearing": False,
     },
     {
         "feature_id": "admin.iam",
@@ -733,6 +865,9 @@ FEATURE_REGISTRY = [
         "byok_allowed": False,
         "navigation_group": "Director",
         "navigation_label": "IAM Console",
+        "internal_only": True,
+        "customer_access_allowed": False,
+        "cost_bearing": False,
     },
     {
         "feature_id": "admin.command",
@@ -748,6 +883,9 @@ FEATURE_REGISTRY = [
         "byok_allowed": False,
         "navigation_group": "Director",
         "navigation_label": "Command Center",
+        "internal_only": True,
+        "customer_access_allowed": False,
+        "cost_bearing": False,
     },
     {
         "feature_id": "admin.health",
@@ -763,6 +901,9 @@ FEATURE_REGISTRY = [
         "byok_allowed": False,
         "navigation_group": "Director",
         "navigation_label": "System Health",
+        "internal_only": True,
+        "customer_access_allowed": False,
+        "cost_bearing": False,
     },
 ]
 
@@ -793,6 +934,28 @@ def get_feature_config(feature_id: str) -> Optional[dict]:
         except Exception:
             pass
 
+    # Merge with DB overrides if they exist
+    db_config = None
+    if db is not None:
+        import asyncio
+        try:
+            loop = asyncio.get_event_loop()
+            if loop.is_running():
+                # We're in an async context — use sync fallback
+                pass
+            else:
+                db_config = loop.run_until_complete(
+                    db.feature_configs.find_one({"feature_id": feature_id})
+                )
+        except Exception:
+            pass
+
+    base = {
+        "internal_only": reg.get("internal_only", False),
+        "customer_access_allowed": reg.get("customer_access_allowed", True),
+        "cost_bearing": reg.get("cost_bearing", False),
+    }
+
     if db_config:
         return {
             "feature_id": feature_id,
@@ -802,6 +965,9 @@ def get_feature_config(feature_id: str) -> Optional[dict]:
             "platform_ai": db_config.get("platform_ai", reg["platform_ai"]),
             "byok_allowed": db_config.get("byok_allowed", reg["byok_allowed"]),
             "navigation_visible": db_config.get("navigation_visible", True),
+            "internal_only": db_config.get("internal_only", base["internal_only"]),
+            "customer_access_allowed": db_config.get("customer_access_allowed", base["customer_access_allowed"]),
+            "cost_bearing": db_config.get("cost_bearing", base["cost_bearing"]),
         }
 
     return {
@@ -812,6 +978,7 @@ def get_feature_config(feature_id: str) -> Optional[dict]:
         "platform_ai": reg["platform_ai"],
         "byok_allowed": reg["byok_allowed"],
         "navigation_visible": True,
+        **base,
     }
 
 
@@ -845,6 +1012,9 @@ async def feature_gate_map():
             "navigation_group": reg["navigation_group"],
             "navigation_label": reg["navigation_label"],
             "route": reg["route"],
+            "internal_only": config["internal_only"],
+            "customer_access_allowed": config["customer_access_allowed"],
+            "cost_bearing": config["cost_bearing"],
         }
     return {"features": gate_map}
 
@@ -896,7 +1066,7 @@ async def update_feature(feature_id: str, body: dict, request, actor=Depends(cur
 
     # Build update
     update_fields = {}
-    for key in ["enabled", "allowed_roles", "allowed_tiers", "platform_ai", "byok_allowed", "navigation_visible"]:
+    for key in ["enabled", "allowed_roles", "allowed_tiers", "platform_ai", "byok_allowed", "navigation_visible", "internal_only", "customer_access_allowed", "cost_bearing"]:
         if key in body:
             update_fields[key] = body[key]
 
