@@ -110,6 +110,7 @@ import CreatorCourses from "./pages/CreatorCourses";
 import CreatorEarnings from "./pages/CreatorEarnings";
 // CreatorProfileEdit is retired — editing lives in /profile Settings tab
 import SiteControlPanel from "./pages/SiteControlPanel";
+import FeatureControlCenter from "./pages/FeatureControlCenter";
 import ExecBusinessOffice from "./pages/ExecBusinessOffice";
 import CreatorLounge from "./pages/CreatorLounge";
 import BandOnPage from "./pages/BandOnPage";
@@ -332,6 +333,7 @@ function App() {
           <Route path="/admin/system" element={<Navigate to="/admin/command" replace />} />
           {/* Site Control Panel — executive_admin only, not linked from any nav */}
           <Route path="/admin/control" element={<BoundedAdmin roles={["executive_admin"]} label="Site Control Panel" backTo="/admin"><SiteControlPanel /></BoundedAdmin>} />
+          <Route path="/admin/features" element={<BoundedAdmin roles={["admin"]} label="Feature Control Center" backTo="/admin"><FeatureControlCenter /></BoundedAdmin>} />
           <Route path="/admin/office" element={<BoundedAdmin roles={["executive_admin"]} label="Business Office" backTo="/admin"><ExecBusinessOffice /></BoundedAdmin>} />
           <Route path="/admin/exec-control" element={<Navigate to="/admin/office" replace />} />
           <Route path="/admin/director" element={<Navigate to="/admin/command" replace />} />
