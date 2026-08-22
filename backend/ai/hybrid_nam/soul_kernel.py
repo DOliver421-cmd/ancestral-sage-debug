@@ -133,6 +133,37 @@ class SoulKernel:
         # Integrity
         self._hash: str = self._compute_hash()
     
+    @property
+    def state(self) -> Dict[str, Any]:
+        """Return full state as dict for external access."""
+        return {
+            "identity": self.identity,
+            "origin": self.origin,
+            "constitution": self.constitution,
+            "values": self.values,
+            "personality": self.personality,
+            "goals": self.goals,
+            "relationships": self.relationships,
+            "autobiography": self.autobiography,
+            "memories": self.memories,
+            "reflections": self.reflections,
+            "dreams": self.dreams,
+            "ancestral_narratives": self.ancestral_narratives,
+            "development_stage": self.development_stage,
+            "version": self.version,
+            "created_at": self.created_at,
+            "updated_at": self.updated_at,
+            "institutional_role": self.institutional_role,
+            "future_intentions": self.future_intentions,
+            "open_questions": self.open_questions,
+        }
+    
+    def export_state(self) -> Dict[str, Any]:
+        """Export full state including hash."""
+        s = self.state.copy()
+        s["hash"] = self._hash
+        return s
+    
     def _compute_hash(self) -> str:
         """Compute SHA-256 hash of Soul Kernel state."""
         content = json.dumps({
