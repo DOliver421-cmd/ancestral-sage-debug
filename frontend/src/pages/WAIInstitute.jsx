@@ -1,6 +1,6 @@
 import { Link } from "react-router-dom";
 import { WAI_LOGO, BRAND } from "../lib/brand";
-import { BookOpen, Settings, Sparkles, Award, Users, LogIn, UserPlus, ArrowRight, HelpCircle } from "lucide-react";
+import { BookOpen, BookMarked, Settings, Sparkles, Award, Users, LogIn, UserPlus, ArrowRight, HelpCircle } from "lucide-react";
 
 const PORTALS = [
   {
@@ -38,6 +38,15 @@ const PORTALS = [
     cta: "View Credentials",
     color: "border-amber-500",
     accent: "text-amber-600",
+  },
+  {
+    icon: BookMarked,
+    label: "Our Legacy, Our Future",
+    desc: "The flagship book + campaign — Building Thriving Black Communities with AI, a practical manual for community-aligned AI.",
+    to: "/our-legacy",
+    cta: "Get the Book — $89",
+    color: "border-signal",
+    accent: "text-signal",
   },
 ];
 

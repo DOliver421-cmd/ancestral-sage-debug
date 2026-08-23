@@ -78,6 +78,7 @@ import PrivacyPolicy from "./pages/PrivacyPolicy";
 import RefundPolicy from "./pages/RefundPolicy";
 import MoreHelpCenter from "./pages/MoreHelpCenter";
 import WAIInstitute from "./pages/WAIInstitute";
+import OurLegacy from "./pages/OurLegacy";
 import VonnsSaga from "./pages/VonnsSaga";
 import CookieConsent from "./components/CookieConsent";
 import HelpGuide from "./components/HelpGuide";
@@ -285,6 +286,8 @@ function App() {
           <Route path="/landing" element={<LandingMarketplace />} />
           {/* WAI Institute — accredited-track portal (also the redirect target for wai-institute.org) */}
           <Route path="/wai-institute" element={<WAIInstitute />} />
+          {/* Our Legacy, Our Future — the flagship book + campaign (public) */}
+          <Route path="/our-legacy" element={<OurLegacy />} />
           {/* Vonns Saga — the multiverse choose-your-own-adventure (public) */}
           <Route path="/vonns-saga" element={<VonnsSaga />} />
           {/* Supervisor — executive_admin only; separate login at /supervisor-login */}
