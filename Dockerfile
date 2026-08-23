@@ -48,6 +48,7 @@ RUN apt-get update && apt-get install -y \
     libpq-dev \
     curl \
     git \
+    ffmpeg \
     && rm -rf /var/lib/apt/lists/*
 RUN pip install --no-cache-dir -r /app/backend/requirements.txt
 

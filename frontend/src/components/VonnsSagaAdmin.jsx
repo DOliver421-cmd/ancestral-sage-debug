@@ -99,6 +99,7 @@ function TrackUpload({ onUpload }) {
       formData.append("price_cents", TRACK_PRICE_CENTS);
       formData.append("preview_start", trimStart);
       formData.append("preview_duration", Math.min(duration, MAX_PREVIEW_SECONDS));
+      formData.append("duration_seconds", duration || 0);
       formData.append("type", "track");
       
       await api.post("/saga/tracks", formData, {

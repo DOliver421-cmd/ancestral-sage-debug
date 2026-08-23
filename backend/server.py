@@ -2508,8 +2508,9 @@ except Exception as _nam_err:
 
 # ---- Vonns Saga API Routes (tracks, images, videos) ----
 try:
-    from routers.saga import router as saga_router
-    app.include_router(saga_router)
+    from routers import saga as _saga_mod
+    _saga_mod.bind(db, current_user, audit)
+    app.include_router(_saga_mod.router)
     logger.info("Vonns Saga API routes registered at /api/saga")
 except Exception as _saga_err:
     logger.warning("Saga routes failed to load: %s", _saga_err)
