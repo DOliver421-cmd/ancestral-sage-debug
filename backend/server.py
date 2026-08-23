@@ -2526,6 +2526,15 @@ try:
 except Exception as _ep_err:
     logger.warning("Executive Pipeline routes failed to load: %s", _ep_err)
 
+# ---- Executive Tools (web search, email, fetch, knowledge) ----
+try:
+    from routers import exec_tools as _et_mod
+    _et_mod.bind(db, current_user, audit)
+    app.include_router(_et_mod.router)
+    logger.info("Executive Tools routes registered at /api/exec/tools")
+except Exception as _et_err:
+    logger.warning("Executive Tools routes failed to load: %s", _et_err)
+
 if __name__ == "__main__":
     import uvicorn
     port = int(os.environ.get("PORT", 8000))
