@@ -216,10 +216,22 @@ try:
             except Exception:
                 pass
 
+    def _vault_fernet():
+        """Provider-gateway Fernet: module-level env-derived first, then the
+        shared self-healing keyvault (env → MongoDB-persisted → ephemeral)."""
+        if _PFERNET:
+            return _PFERNET
+        try:
+            import keyvault as _kv
+            return _kv.get_fernet()
+        except Exception:
+            return None
+
     def _encrypt_key(plaintext: str) -> str:
-        if not _PFERNET:
-            raise HTTPException(503, "PROVIDER_KEY_ENCRYPTION_SECRET not configured")
-        return _PFERNET.encrypt(plaintext.encode()).decode()
+        f = _vault_fernet()
+        if not f:
+            raise HTTPException(503, "Key encryption unavailable on this server")
+        return f.encrypt(plaintext.encode()).decode()
 
     class _ProviderBody(BaseModel):
         name: str
@@ -320,10 +332,10 @@ try:
         doc = await db.ai_provider_keys.find_one({"_id": oid})
         if not doc:
             raise HTTPException(404, "Key not found")
-        if not _PFERNET:
-            raise HTTPException(503, "Encryption not configured — cannot decrypt key for test")
+        if not _vault_fernet():
+            raise HTTPException(503, "Encryption unavailable — cannot decrypt key for test")
         try:
-            plaintext = _PFERNET.decrypt(doc["encrypted_key"].encode()).decode()
+            plaintext = _vault_fernet().decrypt(doc["encrypted_key"].encode()).decode()
         except Exception:
             raise HTTPException(500, "Failed to decrypt key")
         # Determine provider type to pick the right test endpoint
@@ -374,9 +386,15 @@ try:
             pass
 
     def _qs_encrypt(plaintext: str) -> str:
-        if _PFERNET2:
-            return _PFERNET2.encrypt(plaintext.encode()).decode()
-        return plaintext  # no secret — store unencrypted
+        f = _PFERNET2 or _vault_fernet()
+        if f:
+            return f.encrypt(plaintext.encode()).decode()
+        # Never store a provider key in plaintext — refuse instead.
+        raise HTTPException(
+            503,
+            "Key storage encryption is not available on this server; key was NOT saved. "
+            "Set PROVIDER_KEY_ENCRYPTION_SECRET (or connect MongoDB so the vault can self-configure).",
+        )
 
     _QS_META = {
         "groq":        {"name": "groq",        "display_name": "Groq / Llama 3.3 70B"},

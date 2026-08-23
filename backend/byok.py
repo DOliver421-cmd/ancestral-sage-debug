@@ -83,29 +83,19 @@ _PROVIDER_PRIORITY = ("groq", "cerebras", "gemini")
 
 # ── Encryption (same secret + scheme as the Provider Gateway) ────────────────
 
-_ENCRYPT_SECRET = os.environ.get("PROVIDER_KEY_ENCRYPTION_SECRET", "")
-_FERNET = None
+# ── Encryption (shared self-healing keyvault — see keyvault.py) ──────────────
 
 
 def _get_fernet():
-    """Return a cached Fernet instance, or False when encryption is unavailable."""
-    global _FERNET
-    if _FERNET is not None:
-        return _FERNET
-    _FERNET = False
-    if _ENCRYPT_SECRET:
-        try:
-            from cryptography.fernet import Fernet
-            # Prefer a valid Fernet key; derive one from an arbitrary string otherwise.
-            try:
-                _FERNET = Fernet(_ENCRYPT_SECRET.encode())
-            except Exception:
-                _kb = (_ENCRYPT_SECRET.encode() * 3)[:32]
-                _FERNET = Fernet(base64.urlsafe_b64encode(_kb))
-        except Exception as _e:
-            logger.warning("byok: Fernet init failed — keys will be stored plaintext: %s", _e)
-            _FERNET = False
-    return _FERNET
+    """Return the shared vault Fernet instance, or False when unavailable.
+
+    The vault resolves its secret automatically: PROVIDER_KEY_ENCRYPTION_SECRET
+    env var → MongoDB-persisted (auto-generated on first boot) → ephemeral.
+    A save is refused only in the truly-unavailable case — the feature never
+    silently stores plaintext and never needs a manual env var to work."""
+    import keyvault
+    f = keyvault.get_fernet()
+    return f if f is not None else False
 
 
 def encrypt_key(plaintext: str) -> str:

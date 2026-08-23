@@ -133,15 +133,13 @@ async def _test_provider_key(provider_type: str, raw_key: str) -> tuple[bool, st
 
 async def _run_health_cycle() -> None:
     """One full health check pass across all active provider keys."""
-    enc_secret = os.environ.get("PROVIDER_KEY_ENCRYPTION_SECRET", "")
-    fernet = None
-    if enc_secret:
-        try:
-            from cryptography.fernet import Fernet
-            kb = (enc_secret.encode() * 3)[:32]
-            fernet = Fernet(base64.urlsafe_b64encode(kb))
-        except Exception:
-            pass
+    # Shared self-healing vault (keyvault.py) — same cipher as every other
+    # key surface, so DB-stored keys decrypt consistently.
+    try:
+        import keyvault as _kv
+        fernet = _kv.get_fernet()
+    except Exception:
+        fernet = None
 
     try:
         keys = await _db.api_keys.find({"status": "active"}).to_list(50)
