@@ -31,11 +31,12 @@ class Settings(BaseSettings):
     # EMAIL & NOTIFICATIONS
     # =====================================================================
     SENDGRID_API_KEY: Optional[str] = os.getenv("SENDGRID_API_KEY")
-    ADMIN_EMAIL: str = os.getenv("ADMIN_EMAIL", "oldthug957@gmail.com")
+    # Env-only — no hardcoded addresses. Alerts fall back to logging when unset.
+    ADMIN_EMAIL: str = os.getenv("ADMIN_EMAIL", "")
 
-    SUPPORT_EMAIL: str = os.getenv("SUPPORT_EMAIL", "souppoetry@gmail.com")
+    SUPPORT_EMAIL: str = os.getenv("SUPPORT_EMAIL", "")
 
-    NOREPLY_EMAIL: str = os.getenv("NOREPLY_EMAIL", "poetgames@gmail.com")
+    NOREPLY_EMAIL: str = os.getenv("NOREPLY_EMAIL", "")
 
     # =====================================================================
     # SLACK (for alerts, logging)

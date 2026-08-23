@@ -393,15 +393,11 @@ CONTROL_REGISTRY: Dict[str, dict] = {
     },
 
     # ── AI & Pipeline Operations ────────────────────────────────────────────
-    "exec_pipeline": {
-        "label": "Exec Pipeline (LLM intent routing)",
-        "category": "AI & Pipeline Operations",
-        "source": "server.py",
-        "description": "Route social media posts through the intent pipeline (single + batch).",
-        "required_tier": "executive",
-        "min_role": "admin",
-        "routes": ["/api/exec/pipeline/"],
-    },
+    # exec_pipeline was REMOVED (2026-08-23): the /api/exec/pipeline/* routes
+    # no longer exist anywhere in the app — the registry entry pointed at a
+    # dead route and the drift test (test_access_gateway) flagged it. The
+    # feature was never re-added; if it is ever re-implemented, register the
+    # real route here with its handler-derived requirement.
     "exec_operations": {
         "label": "Exec Operations",
         "category": "AI & Pipeline Operations",

@@ -452,12 +452,19 @@ async def supervisor_integrity_alert(body: dict):
         "severity": "CRITICAL",
     })
 
-    # Email D. Oliver via the Director's email tool
+    # Email the executive inbox via the Director's email tool
+    to = os.getenv("EXEC_EMAIL", "").strip()
+    if not to:
+        logger.error(
+            "SUPERVISOR INTEGRITY: EXEC_EMAIL not set — integrity alert not emailed "
+            "(prompt hash failure: %s)", ", ".join(failed)
+        )
+        return
     try:
         from ai.email_utils import send_platform_email  # type: ignore
         names = ", ".join(failed)
         send_platform_email(
-            to=os.getenv("EXEC_EMAIL", "morehelpcenter@gmail.com"),
+            to=to,
             subject=f"[GOVERNANCE INTEGRITY] Supervisor prompt hash failure — {names}",
             body=(
                 f"D. Oliver —\n\n"
