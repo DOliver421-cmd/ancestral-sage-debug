@@ -196,6 +196,7 @@ const STAFF_SECTIONS = [
   {
     minRole: "executive_admin", label: "Executive",
     items: [
+      { to: "/executive-suite", label: "Executive Suite", icon: Crown, testid: "nav-executive-suite" },
       { to: "/admin/command", label: "Command Center", icon: Crown, testid: "nav-command-center" },
       { to: "/arena", label: "The Arena", icon: Swords, testid: "nav-arena" },
     ],

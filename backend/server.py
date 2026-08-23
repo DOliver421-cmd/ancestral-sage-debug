@@ -2516,6 +2516,16 @@ except Exception as _saga_err:
     logger.warning("Saga routes failed to load: %s", _saga_err)
 
 
+
+# ---- Executive Pipeline Routes (unified workflow suite) ----
+try:
+    from routers import executive_pipeline as _ep_mod
+    _ep_mod.bind(db, current_user, audit)
+    app.include_router(_ep_mod.router)
+    logger.info("Executive Pipeline routes registered at /api/executive")
+except Exception as _ep_err:
+    logger.warning("Executive Pipeline routes failed to load: %s", _ep_err)
+
 if __name__ == "__main__":
     import uvicorn
     port = int(os.environ.get("PORT", 8000))
