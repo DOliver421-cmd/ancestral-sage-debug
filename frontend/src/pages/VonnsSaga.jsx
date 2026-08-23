@@ -1,8 +1,11 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
-import { BookOpen, ChevronLeft, RotateCcw, Layers, Sparkles, Volume2, VolumeX, Brain, Shuffle, Square, Music2 } from "lucide-react";
+import { BookOpen, ChevronLeft, RotateCcw, Layers, Sparkles, Volume2, VolumeX, Brain, Shuffle, Square, Music2, Music, Film, Ticket, Loader2, ShieldCheck } from "lucide-react";
 import { STORY, START_NODE, TOTAL_NODES } from "../story/vonnsSaga";
 import { api, getToken } from "../lib/api";
+import { toast } from "sonner";
+import { useAuth } from "../lib/auth";
+import { tierRank } from "../lib/tiers";
 import VonnsSagaAdmin from "../components/VonnsSagaAdmin";
 
 const SAVE_KEY = "vonns_saga_v1";
@@ -92,6 +95,158 @@ function SagaMusic({ nodeId, isLexington, isRandomPage, randomTrack, onRandom })
   );
 }
 
+function PreviewAudio({ fileUrl, label }) {
+  // Media files require the JWT header — fetch as blob, then play (same
+  // pattern as the Media Store). Audio is server-capped to 33s until bought.
+  const [src, setSrc] = useState(null);
+  const [loading, setLoading] = useState(false);
+  useEffect(() => {
+    let alive = true;
+    if (!fileUrl) return;
+    setLoading(true);
+    api.get(fileUrl, { responseType: "blob" })
+      .then((r) => { if (alive) setSrc(URL.createObjectURL(r.data)); })
+      .catch(() => { if (alive) setSrc(null); })
+      .finally(() => { if (alive) setLoading(false); });
+    return () => { alive = false; };
+  }, [fileUrl]);
+  if (loading) {
+    return <div className="text-[11px]" style={{ color: C.dim }}>Loading preview…</div>;
+  }
+  if (!src) {
+    return <div className="text-[11px]" style={{ color: C.danger }}>Preview unavailable</div>;
+  }
+  return <audio controls preload="none" src={src} className="w-full" aria-label={label || "Track preview"} />;
+}
+
+function PlatformTracks({ tracks, purchasedIds, onBuy }) {
+  if (!tracks?.length) return null;
+  return (
+    <div className="mt-10">
+      <div className="flex items-center gap-2 mb-3">
+        <Music className="w-4 h-4" style={{ color: C.gold }} />
+        <div className="text-[10px] font-black uppercase tracking-[0.22em]" style={{ color: C.gold }}>
+          The Music of Vonn
+        </div>
+      </div>
+      <div className="space-y-3">
+        {tracks.map((t) => {
+          const bought = purchasedIds.includes(t.id);
+          return (
+            <div key={t.id} className="rounded-xl p-3" style={{ background: C.panel, border: `1px solid ${C.panelLine}` }}>
+              <div className="flex items-center justify-between gap-3 mb-2">
+                <div className="min-w-0">
+                  <div className="text-sm font-bold truncate" style={{ color: C.ink }}>{t.title}</div>
+                  <div className="text-[10px] uppercase tracking-widest" style={{ color: C.dim }}>
+                    {bought ? "Owned — full track" : `33s preview · $${(t.price_cents / 100).toFixed(2)}`}
+                  </div>
+                </div>
+                {!bought && (
+                  <button
+                    onClick={() => onBuy(t.id)}
+                    className="shrink-0 px-3 py-1.5 rounded-lg text-xs font-black"
+                    style={{ background: C.gold, color: "#1a1033" }}
+                  >
+                    Buy — ${(t.price_cents / 100).toFixed(2)}
+                  </button>
+                )}
+              </div>
+              <PreviewAudio fileUrl={t.file_url} label={t.title} />
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function SagaVideos({ videos }) {
+  if (!videos?.length) return null;
+  return (
+    <div className="mt-10">
+      <div className="flex items-center gap-2 mb-3">
+        <Film className="w-4 h-4" style={{ color: C.purple }} />
+        <div className="text-[10px] font-black uppercase tracking-[0.22em]" style={{ color: C.purple }}>
+          Scenes in Motion
+        </div>
+        <span className="flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full" style={{ background: "rgba(74,222,128,0.10)", border: "1px solid rgba(74,222,128,0.35)", color: "#86efac" }}>
+          <ShieldCheck className="w-3 h-3" /> AI-assisted production
+        </span>
+      </div>
+      <div className="space-y-4">
+        {videos.map((v) => (
+          <div key={v.id} className="rounded-xl overflow-hidden" style={{ background: C.panel, border: `1px solid ${C.panelLine}` }}>
+            <div className="flex items-center justify-between gap-3 px-3 py-2">
+              <div className="text-sm font-bold truncate" style={{ color: C.ink }}>{v.title}</div>
+              {v.status === "rendering" && (
+                <span className="flex items-center gap-1 text-[10px] font-bold uppercase tracking-widest" style={{ color: C.gold }}>
+                  <Loader2 className="w-3 h-3" style={{ animation: "spin 1s linear infinite" }} /> Rendering
+                </span>
+              )}
+              {v.status === "render_failed" && (
+                <span className="text-[10px] font-bold uppercase tracking-widest" style={{ color: C.danger }}>
+                  Render failed
+                </span>
+              )}
+            </div>
+            {v.status === "ready" && v.file_url && (
+              <video controls preload="none" className="w-full" src={v.file_url} style={{ maxHeight: 420, background: "#000" }} />
+            )}
+            {v.status === "render_failed" && v.error && (
+              <div className="px-3 pb-3 text-[11px]" style={{ color: C.dim }}>{v.error}</div>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function ConcertSection({ concerts, user, purchasedIds, onBuy }) {
+  if (!concerts?.length) return null;
+  const concert = concerts[0];
+  const isStaff = ["admin", "executive_admin"].includes(user?.role);
+  const tier = user?.feature_tier || "free";
+  const isMember = isStaff || tierRank(tier) >= tierRank("member");
+  const owned = purchasedIds.includes(concert.id);
+  return (
+    <div className="mt-10">
+      <div
+        className="rounded-2xl p-5 sm:p-6"
+        style={{ background: "linear-gradient(150deg, rgba(232,165,30,0.12), rgba(183,138,255,0.10))", border: `1.5px solid ${C.gold}` }}
+      >
+        <div className="flex items-center gap-2 mb-2">
+          <Ticket className="w-4 h-4" style={{ color: C.gold }} />
+          <div className="text-[10px] font-black uppercase tracking-[0.22em]" style={{ color: C.gold }}>
+            Vonn Live — Virtual Concert
+          </div>
+        </div>
+        <div className="font-heading font-bold text-lg mb-1" style={{ color: C.ink }}>{concert.title}</div>
+        <div className="text-xs mb-4 leading-relaxed" style={{ color: C.muted }}>{concert.description}</div>
+        <div className="flex flex-wrap items-center gap-3">
+          {owned ? (
+            <span className="text-xs font-black uppercase tracking-widest" style={{ color: "#86efac" }}>
+              ✓ Ticket owned — enjoy the show
+            </span>
+          ) : isMember ? (
+            <button
+              onClick={() => onBuy(concert.id)}
+              className="px-4 py-2 rounded-lg text-sm font-black"
+              style={{ background: C.gold, color: "#1a1033" }}
+            >
+              Get your ticket — ${(concert.price_cents / 100).toFixed(2)}
+            </button>
+          ) : (
+            <div className="text-xs" style={{ color: C.goldSoft }}>
+              {user ? "Members-only experience — join a membership to unlock this concert." : "Sign in — this virtual concert is members-only."}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function ReadingControls({ text, aiBusy, onBrowserRead, onAiRead, onStop, isReading }) {
   return (
     <section className="mb-7 rounded-2xl p-4" style={{ background: "rgba(183,138,255,0.07)", border: "1px solid rgba(183,138,255,0.28)" }} aria-label="Reading controls">
@@ -135,25 +290,33 @@ function persist(s) {
   }
 }
 
-function SceneMedia({ media }) {
-  if (!media) return null;
+function SceneMedia({ media, liveImages }) {
+  // Live images are the owner's real scene artwork (GridFS) uploaded via the
+  // admin panel; they take precedence over any static story-node media.
+  const images = (liveImages || []).map((im) => ({
+    src: im.file_url,
+    caption: im.caption,
+    alt: `Vonns Saga scene artwork — ${im.node_id}`,
+  }));
+  if (media?.image) images.push(media.image);
+  if (!images.length && !media?.audio) return null;
   return (
     <div className="mb-7 space-y-3" aria-label="Scene media">
-      {media.image && (
-        <figure>
+      {images.map((img, i) => (
+        <figure key={i}>
           <img
-            src={media.image.src}
-            alt={media.image.alt || "Vonns Saga scene artwork"}
+            src={img.src}
+            alt={img.alt || "Vonns Saga scene artwork"}
             className="w-full rounded-xl"
             style={{ border: `1px solid ${C.panelLine}`, maxHeight: 520, objectFit: "cover" }}
           />
-          {media.image.caption && (
+          {img.caption && (
             <figcaption className="mt-2 text-xs text-center" style={{ color: C.muted }}>
-              {media.image.caption}
+              {img.caption}
             </figcaption>
           )}
         </figure>
-      )}
+      ))}
       {media.audio && (
         <div className="rounded-xl p-3" style={{ background: C.panel, border: `1px solid ${C.panelLine}` }}>
           <div className="text-[10px] font-black uppercase tracking-[0.2em] mb-2" style={{ color: C.gold }}>
@@ -224,6 +387,47 @@ export default function VonnsSaga() {
   const [aiBusy, setAiBusy] = useState(false);
   const [isReading, setIsReading] = useState(false);
   const aiAudioRef = useRef(null);
+
+  // ── Live saga assets (real GridFS-backed media) ────────────────────────
+  const { user } = useAuth();
+  const [sagaImages, setSagaImages] = useState([]);
+  const [tracks, setTracks] = useState([]);
+  const [videos, setVideos] = useState([]);
+  const [concerts, setConcerts] = useState([]);
+  const [purchasedIds, setPurchasedIds] = useState([]);
+
+  const loadSagaAssets = useCallback(() => {
+    api.get("/saga/images").then((r) => setSagaImages(r.data?.images || [])).catch(() => {});
+    api.get("/saga/tracks").then((r) => setTracks(r.data?.tracks || [])).catch(() => {});
+    api.get("/saga/videos").then((r) => setVideos(r.data?.videos || [])).catch(() => {});
+    api.get("/saga/concerts").then((r) => setConcerts(r.data?.concerts || [])).catch(() => {});
+    api.get("/media/purchases").then((r) => {
+      const ids = (r.data || []).map((p) => p.product_id);
+      setPurchasedIds(ids);
+    }).catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    loadSagaAssets();
+  }, [loadSagaAssets]);
+
+  const buyMedia = useCallback(async (productId, endpoint) => {
+    try {
+      const { data } = await api.post(endpoint);
+      if (data?.url) {
+        window.location.href = data.url;
+      } else if (data?.already_purchased) {
+        toast.success("You already own this — enjoy!");
+        loadSagaAssets();
+      } else {
+        toast.success("Unlocked!");
+        loadSagaAssets();
+      }
+    } catch (e) {
+      toast.error(e?.response?.data?.detail || "Could not start checkout.");
+    }
+  }, [loadSagaAssets]);
+
   const node = STORY[state.nodeId] || STORY[START_NODE];
   const isEnd = node.kind === "end";
   const sceneText = useMemo(() => [node.title, ...(node.text || [])].join("\n\n"), [node]);
@@ -482,7 +686,10 @@ export default function VonnsSaga() {
           <ReadingControls text={sceneText} aiBusy={aiBusy} onBrowserRead={readBrowser} onAiRead={readWithAi} onStop={stopReading} isReading={isReading} />
 
           {/* Optional artwork and uploaded scene media remain data-driven; no media is fabricated. */}
-          <SceneMedia media={node.media} />
+          <SceneMedia
+            media={node.media}
+            liveImages={sagaImages.filter((i) => i.node_id === state.nodeId)}
+          />
 
           {/* Body */}
           <div className="mb-7">
@@ -607,6 +814,11 @@ export default function VonnsSaga() {
             </div>
           )}
         </div>
+
+        {/* ── The funnel: music → video → concert ──────────────────── */}
+        <ConcertSection concerts={concerts} user={user} purchasedIds={purchasedIds} onBuy={(id) => buyMedia(id, `/saga/concerts/${id}/checkout`)} />
+        <PlatformTracks tracks={tracks} purchasedIds={purchasedIds} onBuy={(id) => buyMedia(id, `/media/products/${id}/checkout`)} />
+        <SagaVideos videos={videos} />
 
         {/* ── Footer / disclaimer ──────────────────────────────────── */}
         <footer className="mt-12 pt-6" style={{ borderTop: `1px solid ${C.panelLine}` }}>
