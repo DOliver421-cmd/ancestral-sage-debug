@@ -59,6 +59,19 @@ export default function TermsOfService() {
           <h2>4. Content</h2>
           <p>Course content is provided for educational purposes. Lab submissions and portfolio content remain your intellectual property. You grant us a license to display your public portfolio.</p>
 
+          <h2>4a. AI-Generated Content</h2>
+          <p>Some features generate content using artificial intelligence. AI output is provided for informational and creative purposes and may contain errors. It is not professional, legal, financial, or medical advice. You are responsible for how you use AI-generated content, including reviewing it before publishing. Content you create using AI features remains governed by Section 4.</p>
+          <p className="text-xs text-ink/50">[DRAFT — REVIEW: add — disclaimers for AI outputs, usage limits, and any AI-specific acceptable-use rules.]</p>
+
+          <h2>4b. Payments, Subscriptions, and Refunds</h2>
+          <p>Paid features (including the $3 BYOK unlock and membership tiers) are purchased through our payment providers. Subscriptions renew automatically until cancelled; you may cancel at any time and cancellation stops future renewals. Access unlocked by a subscription is provided while the subscription is active and may be reverted when it ends or is refunded.</p>
+          <p>Refunds are issued as site credit unless the failure was caused by the platform, as described in our <Link to="/refund-policy" className="text-copper hover:underline">Refund Policy</Link>. We may suspend access to features associated with a disputed, refunded, or unpaid purchase.</p>
+          <p className="text-xs text-ink/50">[DRAFT — REVIEW: add — pricing changes, tax handling, cancellation windows, and governing-law clause.]</p>
+
+          <h2>4c. User-Generated Content and Conduct</h2>
+          <p>Content you post publicly (community posts, comments, profiles, and public portfolios) may be visible to other users and to the public where the feature is public. You are responsible for the content you post and must not post content that is unlawful, infringing, or harmful. We may remove content and suspend accounts that violate these terms. We provide reporting tools for inappropriate content.</p>
+          <p className="text-xs text-ink/50">[DRAFT — REVIEW: add — moderation process description, DMCA/copyright notice procedure, and repeat-infringer policy.]</p>
+
           <h2>5. Termination</h2>
           <p>We may suspend accounts that violate these terms. You may delete your account at any time via Account Settings.</p>
 

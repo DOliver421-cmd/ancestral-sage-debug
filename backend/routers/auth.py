@@ -1042,19 +1042,23 @@ async def cross_site_login(body: dict, request: Request):
     email = payload.get("email", "")
     user_id = payload.get("uid", "")
     full_name = payload.get("name", "Student")
-    role = normalize_role(payload.get("role", "student"))
-    
+
+    # Partner-token roles are NEVER trusted for authorization. A cross-site
+    # token only proves the bearer holds an account on the partner site; it
+    # does not prove staff/executive authority here. All cross-site sessions
+    # are created as least-privilege (student) and an existing local user's
+    # role is never raised by partner claims — role changes are admin-only.
+    role = "student"
+
     # Find or create the local user
     existing = await db.users.find_one({"email": email})
     if existing:
-        # Update role if the partner site has a higher privilege
-        from roles import role_rank
-        if role_rank(role) > role_rank(existing.get("role", "student")):
-            await db.users.update_one({"email": email}, {"$set": {"role": role}})
-            existing["role"] = role
+        # Never elevate: role is unchanged regardless of what the partner
+        # token claimed. (An existing privileged local user keeps their role;
+        # a local student stays a student.)
         user_doc = existing
     else:
-        # Auto-create the user on this site
+        # Auto-create the user on this site — always least-privilege.
         user_doc = {
             "id": user_id or str(uuid.uuid4()),
             "email": email,
@@ -1068,7 +1072,7 @@ async def cross_site_login(body: dict, request: Request):
             "token_version": 0,
         }
         await db.users.insert_one(user_doc)
-        logger.info("Cross-site: auto-created user %s (%s)", email, role)
+        logger.info("Cross-site: auto-created user %s (least-privilege student)", email)
     
     # Bind the local token to a tracked session just like password login.
     cross_site_session_id = str(uuid.uuid4())

@@ -88,12 +88,30 @@ async def byok_status(user: User = Depends(_dep_current_user)):
 async def byok_activate(user: User = Depends(_dep_current_user)):
     """Activate the $3 BYOK entitlement.
 
-    This is the post-payment hook — production wires it to a successful
-    checkout (see docs/ADMIN-MANUAL.md §7). Instructor tier and above
-    activate free (price 0); the endpoint still works directly so the
-    entitlement can be granted post-payment or by an admin.
+    The $3 unlock is a PAID entitlement. It can only be activated when one of
+    these is true:
+      1. The user's role is in FREE_BYOK_ROLES (staff/support/instructor
+         roles that legitimately receive BYOK free), or
+      2. The user holds an admin/executive role (authorized staff grant), or
+      3. A paid BYOK order for this user has been recorded by the payment
+         webhook (byok_paid=True on the user record).
+    Anything else is a 402 — activation is not a free endpoint.
     """
-    from byok import activate_byok, BYOK_PRICE_USD
+    from byok import activate_byok, byok_price_for, BYOK_PRICE_USD
+    from roles import FREE_BYOK_ROLES
+
+    price = byok_price_for(user.role)
+    staff_grant = user.role in ("admin", "executive_admin")
+    if not staff_grant and price > 0:
+        # Non-staff, non-free-role user: require proof of payment.
+        user_doc = await db.users.find_one(
+            {"id": user.id}, {"_id": 0, "byok_paid": 1}
+        )
+        if not user_doc or not user_doc.get("byok_paid"):
+            raise HTTPException(
+                402,
+                "BYOK access is a $3 unlock. Complete the checkout on the BYOK page to activate it.",
+            )
 
     result = await activate_byok(db, user.id, user.role)
     await audit(user.id, "byok.activated", meta={"price_usd": result.get("price_usd", BYOK_PRICE_USD)})
@@ -137,18 +155,20 @@ async def byok_checkout(user: User = Depends(_dep_current_user)):
                     "session_id": checkout.get("session_id"),
                 }
     except Exception as _ce:
-        # Payment provider unavailable — fall through to the grace path below
-        # rather than leaving below-instructor users locked out.
-        logger.warning("byok: checkout unavailable (%s) — using direct activation", _ce)
+        # Payment provider unavailable — the $3 unlock stays locked. It is a
+        # paid entitlement; checkout failure must not silently become a free
+        # grant.
+        logger.warning("byok: checkout unavailable (%s) — entitlement stays locked", _ce)
 
-    # Grace path: payments not configured yet. Keep the feature working and
-    # record the price in the audit trail so the ledger stays honest.
-    result = await activate_byok(db, user.id, user.role)
-    await audit(user.id, "byok.activated", meta={
-        "price_usd": price, "path": "checkout", "grace": True,
-        "note": "payments_not_configured — direct activation",
-    })
-    return {**result, "activated": True, "url": None, "grace": True}
+    # No grace path: the $3 unlock is a paid entitlement and must not be
+    # granted for free when payments are unconfigured. The authorized routes
+    # are a configured checkout, a staff/admin grant via /byok/activate, or a
+    # FREE_BYOK_ROLES role. Anything else stays locked.
+    raise HTTPException(
+        501,
+        "Payments are not configured, so the $3 BYOK unlock cannot be purchased yet. "
+        "Please try again later, or contact support if you believe this is an error.",
+    )
 
 
 @router.post("/byok/key")

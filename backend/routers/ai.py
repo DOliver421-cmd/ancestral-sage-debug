@@ -1652,7 +1652,8 @@ async def ai_helper(body: dict, request: Request):
 
     Serves the M.O.R.E. Help Center community helper for both
     authenticated and anonymous visitors. Rate-limited by IP.
-    Uses a dedicated Helper system prompt (not tutor/director).
+    Answers from the keyword knowledge base ONLY - anonymous and
+    public visitors get no AI (owner policy, August 2026).
     """
     message = (body.get("message") or "").strip()
     if not message:
@@ -1671,82 +1672,24 @@ async def ai_helper(body: dict, request: Request):
     except ValueError as _guard_err:
         raise HTTPException(400, str(_guard_err))
 
-    # _HELPER_SYSTEM is a module-level constant (defined above) so every
-    # Helper endpoint - /ai/helper, /api/public/helper/ask, /api/helper/ask -
-    # runs on the same Source persona. Do not re-declare it here.
-
-    # ── FREE-FIRST: curated KB answers cost zero tokens ──────────────────────
-    # The Helper was designed to answer the most common life questions from its
-    # built-in knowledge base at ZERO API cost. Only escalate to the LLM gateway
-    # when no curated topic matches the question.
-    kb_reply = _helper_kb(message)
-    if kb_reply:
-        return {"reply": kb_reply}
-
-    # ── LLM via gateway (only for questions the KB can't answer) ─────────────
-    reply = ""
-    degraded = False
-    budget_hit = False
-    try:
-        from ai.llm_gateway import call_llm as _call_llm
-        _gw = await _call_llm(
-            system=_HELPER_SYSTEM,
-            messages=[{"role": "user", "content": message}],
-            max_tokens=512,
-            persona_label="helper",
-            budget_key=f"ip:{ip}",  # anonymous users are budgeted by IP
-        )
-        reply = _gw.get("text", "").strip()
-        budget_hit = bool(_gw.get("budget_exceeded"))
-        degraded = bool(_gw.get("degraded")) or _gw.get("provider") == "kb_fallback"
-    except Exception as _herr:
-        logger.warning("Helper AI: gateway call failed (%s) — falling through to KB", _herr)
-        degraded = True
-
-    # ── Gateway down, quota exhausted, or user budget used → free guidance ──
-    # The gateway's own last-resort reply is a generic "restricted mode" notice.
-    # For the Helper, the designed free answer is the 211 guidance below — never
-    # leave a person with a dead-end message when the free KB can serve them.
-    if budget_hit:
-        from user_budget import budget_notice
-        reply = budget_notice() + "\n\n" + _HELPER_KB_GENERIC
-    elif degraded or not reply.strip():
-        reply = _HELPER_KB_GENERIC
-
-    return {"reply": reply.strip()}
+    # Keyword KB ONLY - owner policy (August 2026): anonymous/public
+    # visitors get NO AI. The Helper answers from the multi-layer keyword
+    # knowledge base at zero cost. No LLM/gateway call happens here - this
+    # endpoint cannot consume platform-funded AI tokens.
+    from ai.keyword_kb import reply as _kb_reply
+    return {"reply": _kb_reply(message)}
 
 
 async def _helper_reply_free_first(message: str, budget_key: str = "") -> str:
-    """One Helper answer: curated KB first (zero tokens), LLM only on no-match,
-    curated 211 guidance when the gateway is down, quota-exhausted, or the
-    visitor's daily AI budget is used up."""
-    kb_reply = _helper_kb(message)
-    if kb_reply:
-        return kb_reply
+    """One Helper answer - keyword KB ONLY.
 
-    reply = ""
-    degraded = True
-    budget_hit = False
-    try:
-        from ai.llm_gateway import call_llm as _call_llm
-        _gw = await _call_llm(
-            system=_HELPER_SYSTEM,
-            messages=[{"role": "user", "content": message}],
-            max_tokens=512,
-            persona_label="helper",
-            budget_key=budget_key or None,
-        )
-        reply = _gw.get("text", "").strip()
-        budget_hit = bool(_gw.get("budget_exceeded"))
-        degraded = bool(_gw.get("degraded")) or _gw.get("provider") == "kb_fallback"
-    except Exception:
-        degraded = True
-    if budget_hit:
-        from user_budget import budget_notice
-        return budget_notice() + "\n\n" + _HELPER_KB_GENERIC
-    if degraded or not reply.strip():
-        return _HELPER_KB_GENERIC
-    return reply
+    Owner policy (August 2026): anonymous and public visitors get NO AI. The
+    Helper answers from the multi-layer keyword knowledge base (ai/keyword_kb)
+    which covers life-help and platform topics. No LLM/gateway call happens
+    here, so this endpoint can never consume platform-funded AI tokens.
+    """
+    from ai.keyword_kb import reply as _kb_reply
+    return _kb_reply(message)
 
 
 def _split_short_full(reply: str) -> tuple[str, str]:

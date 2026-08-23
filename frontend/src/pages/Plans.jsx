@@ -39,9 +39,9 @@ export default function Plans() {
             </div>
           </div>
           <div className="flex-1 text-sm text-white/80 leading-relaxed">
-            Unlock everything through Pro — Creator Studio, Ghost Producer, the full AI suite, and every course —
-            for one low trial price. It reverts automatically when the trial ends; no recurring charge unless you
-            choose a plan after.
+            Unlock everything through Pro — Creator Studio, Ghost Producer, every course, and AI-ready tools —
+            for one low trial price. AI runs on your own key via the $3 BYOK unlock (the platform doesn't fund
+            customer AI). It reverts automatically when the trial ends; no recurring charge unless you choose a plan after.
           </div>
           <Link to="/subscribe?plan=sanctuary_trial"
             className="shrink-0 font-black text-sm px-6 py-3 rounded-xl whitespace-nowrap"

@@ -159,6 +159,13 @@ export default function FeatureControlCenter() {
           <p style={{ color: "#666", fontSize: 14 }}>
             Configure access for every platform feature. One feature = one control record.
           </p>
+          <div style={{ marginTop: 12, padding: "12px 16px", background: "#fef3c7", border: "1px solid #f59e0b", borderRadius: 8, fontSize: 13, lineHeight: 1.5 }}>
+            <strong>AI funding policy (owner decision):</strong> platform-funded AI is for{" "}
+            <strong>admin / executive_admin staff only</strong>. Customers at any tier get no platform-funded
+            AI — their AI runs on their own BYOK key, or they receive the keyword knowledge base.
+            The gateway enforces this before any provider call; this toggle configures feature access,
+            not AI funding. See BUSINESS_ACCESS_POLICY.md §7A.
+          </div>
         </div>
 
         {/* Stats */}

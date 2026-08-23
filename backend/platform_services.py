@@ -109,6 +109,15 @@ def mount_frontend(app, build_paths) -> bool:
             # SPA catch-all — must come AFTER api_router is included
             @app.get("/{full_path:path}", include_in_schema=False)
             async def _spa_catchall(full_path: str, _bp=bp):
+                # Unknown /api/* paths are API 404s, not SPA routes. Returning
+                # index.html there masks missing endpoints (and made docs look
+                # "open" because every path answered 200). JSON 404 keeps the
+                # client's error handling honest.
+                if full_path.startswith("api/"):
+                    from fastapi.responses import JSONResponse
+                    return JSONResponse(
+                        {"detail": "API endpoint not found"}, status_code=404
+                    )
                 return FileResponse(str(_bp / "index.html"))
 
             logger.info("STARTUP: Serving React frontend from %s", bp)
