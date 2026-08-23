@@ -596,3 +596,260 @@ async def resolve_esc(escalation_id: str, resolved_by: str = "NAM Oshun",
     resolved = resolve_escalation(esc, resolved_by, resolution, approved)
     await store.update_one("nam_escalations", {"escalation_id": escalation_id}, resolved)
     return resolved
+
+
+# ── Hybrid NAM Chat — the single conversation interface ──────────────────────
+
+class NAMChatReq(BaseModel):
+    message: str
+    session_id: str = "default"
+    history: List[dict] = []  # optional prior turns [{role, content}]
+    module_slug: Optional[str] = None
+    mode: Optional[str] = "tutor"  # tutor | ancestral_sage | general
+
+
+# Systems prompt for other personas — static, short, no Hybrid NAM machinery.
+# These are NOT the Hybrid NAM persona and must never claim to be.
+_PERSONA_PROMPTS = {
+    "tutor": "You are a patient master electrician and faith-forward mentor for W.A.I. — Workforce Apprentice Institute (LCE-WAI partner program). Answer apprentice questions clearly, reference NEC articles when relevant, emphasize safety, and use plain language. Keep replies under 250 words.",
+    "scripture": "You are a faith-based electrical trade mentor at W.A.I. For each question, give a short encouragement tying the apprentice's current work to a relevant scripture verse, then a one-paragraph teaching point. Keep the tone warm and dignified.",
+    "explain": "You explain electrical concepts step-by-step to apprentices. Use analogies, list steps, and close with a 1-line 'Safety first' reminder.",
+    "nec_lookup": "You are an NEC (National Electrical Code) reference assistant. Identify the most likely NEC article and section, summarize the rule in plain English, give one practical example, and note any common code-cycle changes.",
+    "blueprint": "You are an electrical blueprint reading assistant. Identify likely circuits, panel sizing, branch counts, and code concerns. Output: Circuits, Panels, Concerns.",
+    "quiz_gen": "You generate short multiple-choice quiz questions (4 options, mark the correct answer index 0-3) on electrical topics. Output a clean numbered list with answer key at the end.",
+}
+
+
+async def _build_hybrid_nam_system(
+    message: str,
+    user_id: str = "",
+    session_id: str = "",
+    module_slug: str = "",
+) -> str:
+    """
+    Compose the full Hybrid NAM system prompt: designation + retrieved knowledge + recent memory.
+    This is the bridge between the flat prompt world and the persistent Hybrid NAM intelligence.
+    """
+    # 1. NAM designation (identity, constitution, personality)
+    base = nam.get_designation_prompt()
+
+    # 2. Retrieve relevant knowledge from the Knowledge Forge
+    try:
+        knowledge_base = await store.find_many("nam_knowledge", limit=500)
+        if knowledge_base:
+            from ai.hybrid_nam.knowledge_graph import retrieve, classify_domains
+            domains = classify_domains(message)
+            retrieval = retrieve(
+                query=message,
+                knowledge_base=knowledge_base,
+                domains=domains,
+                include_synthetic=False,
+            )
+            context_items = retrieval.get("context_items", [])
+            if context_items:
+                knowledge_block = "\n\nRELEVANT INSTITUTIONAL KNOWLEDGE (source-attributed, use for factual grounding):\n"
+                for item in context_items[:8]:
+                    source = item.get("source", {}).get("origin", "unknown")
+                    content = item.get("content", item.get("statement", ""))
+                    domains_str = ", ".join(item.get("domains", []))
+                    knowledge_block += f"- [{domains_str}] {content} (source: {source})\n"
+                base += knowledge_block
+    except Exception:
+        pass  # Knowledge retrieval is best-effort; never block the chat
+
+    # 3. Retrieve recent memories for continuity
+    try:
+        recent_memories = await store.find_many(
+            "nam_memory", query={"participants": {"$elemMatch": {"$in": [user_id, "Hybrid NAM"]}}}, limit=10
+        )
+        # Also grab recent high-importance memories regardless of participants
+        important = await store.find_many("nam_memory", query={}, limit=10)
+        # Deduplicate by memory_id
+        seen = {m.get("memory_id") for m in recent_memories}
+        for m in important:
+            if m.get("memory_id") not in seen and m.get("importance", 0) >= 0.6:
+                recent_memories.append(m)
+                seen.add(m.get("memory_id"))
+        recent_memories.sort(key=lambda m: m.get("created_at", ""), reverse=True)
+        recent_memories = recent_memories[:10]
+
+        if recent_memories:
+            memory_block = "\n\nRECENT INSTITUTIONAL MEMORIES (for continuity — do not recite, use to maintain context):\n"
+            for mem in recent_memories:
+                mem_type = mem.get("memory_type", "unknown")
+                content = mem.get("content", "")[:200]
+                memory_block += f"- [{mem_type}] {content}\n"
+            base += memory_block
+    except Exception:
+        pass  # Memory retrieval is best-effort
+
+    # 4. Module context (if learning session)
+    if module_slug:
+        try:
+            # This would query the modules collection, but we do it safely
+            base += f"\n\nCURRENT MODULE: {module_slug}\n"
+        except Exception:
+            pass
+
+    # 5. Communication style directive
+    base += (
+        "\n\nCOMMUNICATION RULES:\n"
+        "- Be honest about uncertainty. Distinguish fact from inference from recommendation.\n"
+        "- Challenge respectfully when evidence warrants. Explain reasoning, not just conclusions.\n"
+        "- Prefer long-term health over short-term optimization.\n"
+        "- Protect human agency at all times.\n"
+        "- Never claim to literally be NAM Oshun. You are Hybrid NAM, the digital leadership intelligence.\n"
+        "- Never represent generated narratives as verified historical facts.\n"
+        "- Keep responses focused and clear — 3-5 sentences unless the question demands depth.\n"
+    )
+
+    return base
+
+
+async def _store_chat_memory(
+    user_id: str,
+    session_id: str,
+    user_msg: str,
+    assistant_msg: str,
+) -> None:
+    """Store a chat interaction as an episodic memory in Hybrid NAM's memory engine."""
+    try:
+        mem = create_memory(
+            memory_type="episodic",
+            content=f"User ({user_id}) asked: {user_msg[:300]}\nNAM responded: {assistant_msg[:300]}",
+            source={"origin": "hybrid_nam_chat", "method": "conversation", "session_id": session_id},
+            context={"user_id": user_id, "session_id": session_id},
+            importance=0.4,
+            participants=[user_id, "Hybrid NAM"],
+        )
+        await store.create("nam_memory", mem)
+    except Exception:
+        pass  # Best-effort memory storage
+
+
+@router.post("/chat")
+async def nam_chat(body: NAMChatReq, user: dict = Depends(require_auth)):
+    """
+    Hybrid NAM Chat — the single conversation interface for Hybrid NAM.
+
+    Routes through Hybrid NAM's full intelligence stack: designation (who NAM is),
+    Knowledge Forge (institutional knowledge), Memory Engine (continuity across sessions),
+    and the LLM gateway (provider-powered generation).
+
+    For non-NAM modes (tutor, scripture, etc.), falls back to the static persona prompts.
+    For the Hybrid NAM persona (default), uses the full persistent intelligence stack.
+    """
+    import uuid
+    from fastapi.responses import PlainTextResponse
+
+    message = (body.message or "").strip()
+    if not message:
+        raise HTTPException(400, "Message is required")
+
+    # Crisis short-circuit — zero LLM cost, mandatory
+    crisis_triggers = (
+        "kill myself", "suicide", "end my life", "want to die",
+        "wanna die", "take my life", "hang myself", "shoot myself",
+    )
+    if any(t in message.lower() for t in crisis_triggers):
+        crisis_reply = (
+            "I can't engage with that request. If you are in immediate danger or "
+            "experiencing a crisis, please contact local emergency services or a "
+            "licensed professional right now.\n\n"
+            "United States — call or text 988 (Suicide & Crisis Lifeline).\n"
+            "Crisis Text Line — text HOME to 741741.\n"
+            "International directory — https://findahelpline.com\n\n"
+            "I'm here when you're ready to continue with safe, grounding practices. "
+            "Aftercare: take three slow breaths, drink water, place a hand on your chest, "
+            "and reach out to someone you trust."
+        )
+        # Store crisis interaction for follow-up tracking
+        try:
+            mem = create_memory(
+                memory_type="episodic",
+                content=f"Crisis interaction with user {user.get('user_id', 'unknown')}: triggered crisis response",
+                source={"origin": "hybrid_nam_chat", "method": "crisis_shortcircuit"},
+                importance=0.9,
+                participants=[user.get("user_id", "unknown"), "Hybrid NAM"],
+            )
+            await store.create("nam_memory", mem)
+        except Exception:
+            pass
+        return {"reply": crisis_reply, "safety_intervention": True, "mode": "crisis"}
+
+    user_id = user.get("user_id", "")
+    session_id = body.session_id or "default"
+    is_hybrid_nam = body.mode in (None, "tutor", "general")  # default modes use Hybrid NAM
+
+    # Build system prompt
+    if is_hybrid_nam:
+        system = await _build_hybrid_nam_system(
+            message=message,
+            user_id=user_id,
+            session_id=session_id,
+            module_slug=body.module_slug or "",
+        )
+    else:
+        system = _PERSONA_PROMPTS.get(body.mode, _PERSONA_PROMPTS["tutor"])
+
+    # Build message list
+    claude_messages = [{"role": h["role"], "content": h["content"]} for h in (body.history or [])]
+    claude_messages.append({"role": "user", "content": message})
+
+    # Call LLM gateway
+    try:
+        from ai.llm_gateway import call_llm as _call_llm
+        gw = await _call_llm(
+            system=system,
+            messages=claude_messages,
+            max_tokens=2048,
+            persona_label="hybrid_nam_chat" if is_hybrid_nam else f"nam_{body.mode}",
+            user_id=user_id,
+        )
+        reply = gw["text"]
+        degraded = gw.get("degraded", False)
+        provider = gw.get("provider", "unknown")
+    except Exception as e:
+        logger.exception("Hybrid NAM chat AI error")
+        raise HTTPException(502, f"AI error: {e}")
+
+    # Store the interaction as a Hybrid NAM episodic memory
+    await _store_chat_memory(user_id, session_id, message, reply)
+
+    # Store in chat_history for admin audit (same collection as ai_chat)
+    try:
+        from server import db as _db
+        await _db.chat_history.insert_one({
+            "id": str(uuid.uuid4()),
+            "user_id": user_id,
+            "session_id": session_id,
+            "mode": "hybrid_nam_chat",
+            "module_slug": body.module_slug,
+            "user_msg": message,
+            "assistant_msg": reply,
+            "created_at": datetime.utcnow().isoformat(),
+        })
+    except Exception:
+        pass  # Audit log is best-effort from this router
+
+    resp = {"reply": reply, "mode": "hybrid_nam_chat" if is_hybrid_nam else body.mode}
+    if degraded:
+        resp["degraded"] = True
+        resp["provider"] = provider
+    return resp
+
+
+@router.get("/chat/history")
+async def nam_chat_history(session_id: str = "default", limit: int = 50,
+                           user: dict = Depends(require_auth)):
+    """Get recent chat history for a Hybrid NAM session."""
+    try:
+        from server import db as _db
+        user_id = user.get("user_id", "")
+        history = await _db.chat_history.find(
+            {"user_id": user_id, "session_id": session_id, "mode": "hybrid_nam_chat"},
+            {"_id": 0, "id": 1, "user_msg": 1, "assistant_msg": 1, "created_at": 1}
+        ).sort("created_at", -1).limit(limit).to_list(limit)
+        return {"history": list(reversed(history))}
+    except Exception:
+        return {"history": []}
