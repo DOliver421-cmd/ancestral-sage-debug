@@ -1071,6 +1071,36 @@ async def ec_access_public():
             "allowed_roles": d.get("allowed_roles") or reg.get("default_allowed_roles"),
         }
 
+    # ── Feature Control Center overrides ────────────────────────────────────
+    # The FCC (routers/features.py) is the control plane.  Explicit admin
+    # overrides in db.feature_configs win for enabled/allowed_roles so the
+    # frontend gate map reflects FCC changes without a second write path.
+    # Only DB overrides are merged — registry defaults never gate the nav by
+    # themselves (no surprise lockouts).
+    try:
+        from routers.features import FEATURE_REGISTRY
+        fcc_docs = await db.feature_configs.find({}, {"_id": 0}).to_list(500)
+        for cfg in fcc_docs:
+            reg = next(
+                (r for r in FEATURE_REGISTRY if r.get("feature_id") == cfg.get("feature_id")),
+                None,
+            )
+            if not reg:
+                continue
+            route = (reg.get("route") or "").strip("/")
+            key = route.split("/")[0] if route else None
+            if not key:
+                continue
+            entry = pages.get(key, {"enabled": True, "allowed_roles": None})
+            if "enabled" in cfg:
+                entry["enabled"] = cfg["enabled"]
+            if "allowed_roles" in cfg:
+                entry["allowed_roles"] = cfg["allowed_roles"]
+            pages[key] = entry
+    except Exception:
+        # A gate-map merge failure must never break the public gate map.
+        pass
+
     return {"pages": pages}
 
 
