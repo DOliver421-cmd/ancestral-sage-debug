@@ -160,19 +160,44 @@ async def checkout_media_product(product_id: str, user: User = Depends(_dep_curr
     if existing:
         return {"already_purchased": True, "file_url": doc.get("file_url", "")}
     if doc.get("price_cents", 0) > 0:
+        import uuid
         from ai.publishing import _publish_lemon_squeezy, _publish_gumroad
         amount = doc["price_cents"]
         title = doc.get("title", "Media product")
         desc = doc.get("description", "")[:500]
         ls_result = await _publish_lemon_squeezy(name=title, description=desc, price_cents=amount, persona="platform")
+        provider = None
         if ls_result:
-            await audit(user.id, "media.checkout_created", target=product_id, meta={"provider": "lemon_squeezy"})
-            return {"url": ls_result["url"]}
-        gr_result = await _publish_gumroad(title, desc, amount)
-        if gr_result:
-            await audit(user.id, "media.checkout_created", target=product_id, meta={"provider": "gumroad"})
-            return {"url": gr_result["url"]}
-        raise HTTPException(500, "Payment processing failed. Payment providers are configured but the request could not be completed.")
+            provider = "lemon_squeezy"
+            url = ls_result["url"]
+        else:
+            gr_result = await _publish_gumroad(title, desc, amount)
+            if gr_result:
+                provider = "gumroad"
+                url = gr_result["url"]
+        if not provider:
+            raise HTTPException(500, "Payment processing failed. Payment providers are configured but the request could not be completed.")
+        # Record the pending sale so the payment webhook can grant access when
+        # the order_created event arrives. Without this row the customer pays
+        # but their download stays locked.
+        try:
+            await db.media_checkout_pending.insert_one({
+                "id": str(uuid.uuid4())[:8],
+                "product_id": product_id,
+                "provider": provider,
+                "provider_product_name": title,
+                "price_cents": amount,
+                "buyer_id": user.id,
+                "buyer_email": (user.email or "").lower(),
+                "owner_id": doc.get("owner_id", ""),
+                "status": "pending",
+                "created_at": _now(),
+            })
+        except Exception:
+            import logging
+            logging.getLogger("lcewai").exception("media checkout: failed to record pending sale for %s", product_id)
+        await audit(user.id, "media.checkout_created", target=product_id, meta={"provider": provider})
+        return {"url": url}
     import uuid
     purchase = {
         "id": str(uuid.uuid4())[:8],

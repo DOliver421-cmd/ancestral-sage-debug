@@ -151,6 +151,107 @@ def _match_product_key(name: str):
     return key
 
 
+# Creator share of Media Store sales (Mandate 2: creator-first 70/30 split).
+MEDIA_CREATOR_SHARE = float(os.environ.get("MEDIA_CREATOR_SHARE", "0.70"))
+
+
+async def _fulfill_media_order(buyer_email: str, product_name: str, order_id: str):
+    """Grant a paid Media Store purchase and record the 70/30 revenue split.
+
+    Called from the order_created webhook. Matches the pending-sale row the
+    checkout endpoint wrote (buyer email + provider product name), then:
+      1. inserts media_purchases → download unlocks immediately
+      2. inserts a creator_earnings row (gross / creator share / platform fee)
+         so the split is verifiable by the creator in their earnings dashboard
+      3. marks the pending row fulfilled (audit trail, no double-grant)
+    Idempotent: an already-fulfilled pending row short-circuits.
+    """
+    import re as _re
+    if not (buyer_email and product_name):
+        return
+    email_rx = "^" + _re.escape(buyer_email.strip().lower()) + "$"
+    name_rx = "^" + _re.escape(product_name.strip()) + "$"
+    pending = await db.media_checkout_pending.find_one_and_update(
+        {"buyer_email": {"$regex": email_rx, "$options": "i"},
+         "provider_product_name": {"$regex": name_rx},
+         "status": "pending"},
+        {"$set": {"status": "fulfilled",
+                  "fulfilled_at": datetime.now(timezone.utc).isoformat(),
+                  "provider_order_id": order_id}},
+        sort=[("created_at", -1)],
+    )
+    if not pending:
+        return  # not a store product (or already fulfilled) — nothing to do
+
+    product_id = pending.get("product_id", "")
+    product = await db.media_products.find_one({"id": product_id})
+    if not product:
+        logger.error("media fulfillment: pending sale references missing product %s", product_id)
+        return
+
+    buyer = await db.users.find_one(
+        {"email": {"$regex": email_rx, "$options": "i"}}, {"id": 1}
+    )
+    buyer_id = (buyer or {}).get("id") or pending.get("buyer_id", "")
+    price_cents = int(product.get("price_cents", 0)) or int(pending.get("price_cents", 0))
+
+    # Idempotency guard: never double-record a purchase.
+    existing = await db.media_purchases.find_one(
+        {"buyer_id": buyer_id, "product_id": product_id}
+    ) if buyer_id else None
+    if not existing:
+        await db.media_purchases.insert_one({
+            "id": str(uuid.uuid4())[:8],
+            "buyer_id": buyer_id,
+            "product_id": product_id,
+            "title": product.get("title", ""),
+            "file_url": product.get("file_url", ""),
+            "purchased_at": datetime.now(timezone.utc).isoformat(),
+            "price_cents": price_cents,
+            "provider_order_id": order_id,
+        })
+
+    # 70/30 creator-first split — verifiable ledger row in the creator's own
+    # earnings dashboard (same collection the payout processor reads).
+    owner_id = product.get("owner_id", "")
+    if owner_id and owner_id != buyer_id and price_cents > 0:
+        now = datetime.now(timezone.utc)
+        creator_share = round(price_cents * MEDIA_CREATOR_SHARE)
+        await db.creator_earnings.insert_one({
+            "creator_id": owner_id,
+            "period": now.strftime("%Y-%m"),
+            "source": "media_store",
+            "product_id": product_id,
+            "product_title": product.get("title", ""),
+            "buyer_id": buyer_id,
+            "order_id": order_id,
+            "gross_cents": price_cents,
+            "creator_share_cents": creator_share,
+            "platform_fee_cents": price_cents - creator_share,
+            "payout_status": "pending",
+            "created_at": now.isoformat(),
+        })
+        try:
+            await notify(owner_id, "Store Sale",
+                         f"'{product.get('title', 'Your product')}' just sold — ${creator_share / 100:.2f} added to your pending earnings (70% creator share).",
+                         link="/creator/earnings", kind="success")
+        except Exception:
+            pass
+
+    if buyer_id:
+        try:
+            await audit(buyer_id, "media.purchased",
+                        target=product_id, meta={"order_id": order_id, "price_cents": price_cents})
+            await notify(buyer_id, "Purchase Complete",
+                         f"'{product.get('title', 'Your purchase')}' is ready — download it anytime from My Purchases.",
+                         link="/store", kind="success")
+        except Exception:
+            pass
+    logger.info("media fulfillment OK: %s bought %s (split %d/%d cents)",
+                buyer_email, product_id, creator_share if price_cents else 0,
+                (price_cents - creator_share) if price_cents else 0)
+
+
 async def _grant_tier_by_email(user_email: str, product_key: str, *, reason: str = "payment"):
     """Upgrade-only tier grant matched by buyer email (order + subscription events).
 
@@ -395,6 +496,20 @@ async def payments_webhook(request: Request):
                 await notify(user_doc["id"], "BYOK Activated",
                              "Your $3 BYOK unlock is active — attach a free Groq, Cerebras, or Gemini key at /byok to route your AI through your own key.",
                              link="/byok", kind="success")
+
+        # ── Media Store digital products (prompt packs, templates, files) ───
+        # A paid store order MUST grant the download and record the creator's
+        # 70/30 revenue split. Without this, customers pay and never receive
+        # their product. Matches the pending-sale row written at checkout time.
+        if user_email and status == "paid":
+            try:
+                await _fulfill_media_order(
+                    buyer_email=user_email,
+                    product_name=(first_item.get("product_name") or ""),
+                    order_id=order_id,
+                )
+            except Exception:
+                logger.exception("LS webhook: media fulfillment failed (order %s)", order_id)
 
         # ── Scholarship sponsorship ─────────────────────────────────────────
         # A paid scholarship order marks the sponsor's pending pledge as paid.
