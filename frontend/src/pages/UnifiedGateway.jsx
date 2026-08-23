@@ -3,12 +3,7 @@ import { useAuth } from "../lib/auth";
 import { BRAND, WAI_LOGO } from "../lib/brand";
 import PublicNav from "../components/PublicNav";
 import { PublicHelper } from "./Helper";
-import {
-  BookOpen, Users, MessageSquare, Music, Gamepad2, Shield,
-  Award, Search, Heart, DollarSign, ArrowRight, Globe, Sparkles,
-  HelpCircle, Scale, Radio, Star, ShoppingBag, Mic, Palette,
-  Video, BrainCircuit, FlaskConical, Target, Briefcase, Map, Lock,
-} from "lucide-react";
+import { Lock } from "lucide-react";
 
 // The logo D. Oliver provided — kept as a direct public asset reference so it
 // is actually placed on the page instead of only the generated SVG mark.
@@ -140,63 +135,6 @@ export default function UnifiedGateway() {
         </div>
       </section>
 
-      {/* ── EXPLORE THE PLATFORM ──────────────────────────────────────────── */}
-      <section className="py-20 px-6" style={{ background: "#faf9f7" }}>
-        <div className="max-w-6xl mx-auto">
-          <div className="text-center mb-12">
-            <div className="overline text-copper mb-3">Explore M.O.R.E.</div>
-            <h2 className="font-heading font-black text-4xl text-ink mb-4">Everything that's here — go anywhere.</h2>
-            <p className="text-ink/50 max-w-2xl mx-auto text-lg">
-              Every tool on the platform, tagged with what it takes to unlock it.
-              Free to start — upgrade only when you want more.
-            </p>
-          </div>
-
-          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          {[
-            { icon: BookOpen, title: "Free Courses", tier: "free", desc: "Modules, curriculum, and open-access learning paths.", to: "/courses" },
-            { icon: FlaskConical, title: "Workforce Labs", tier: "free", desc: "Hands-on simulations and competency verification.", to: "/labs" },
-            { icon: Target, title: "Competencies", tier: "free", desc: "Track and prove your trade skills.", to: "/competencies" },
-            { icon: Award, title: "Credentials", tier: "free", desc: "Certificates, portfolios, and verifiable proof.", to: "/credentials" },
-            { icon: Music, title: "Creator Studio", tier: "plus", desc: "Music, video, scripts, and multi-modal production.", to: "/studio" },
-            { icon: Palette, title: "Ghost Producer", tier: "plus", desc: "AI-assisted content creation.", to: "/ghost-producer" },
-            { icon: Radio, title: "Social Blast", tier: "member", desc: "Publish to 6 platforms in one click.", to: "/social/publish" },
-            { icon: Video, title: "Course Manager", tier: "plus", desc: "Build and sell your own courses.", to: "/creator/courses" },
-            { icon: Users, title: "Community", tier: "free", desc: "Exchange, mutual aid, and real connection.", to: "/community" },
-            { icon: MessageSquare, title: "Community Chat", tier: "free", desc: "5 rooms, real-time conversation.", to: "/more/chat" },
-            { icon: HelpCircle, title: "My Helper", tier: "free", desc: "Free AI guidance — read mail, bills, papers.", to: "/helper" },
-            { icon: Scale, title: "Legal Tools", tier: "free", desc: "Know your rights, protect yourself.", to: "/more/litigation" },
-            { icon: ShoppingBag, title: "Media Store", tier: "free", desc: "Browse and buy creator content.", to: "/store" },
-            { icon: Star, title: "Plans & Pricing", tier: "free", desc: "Free, Member, Plus, Pro, Patron.", to: "/plans" },
-            { icon: Gamepad2, title: "Virtual Arcade", tier: "free", desc: "Games, puzzles, and daily XP.", to: "/arcade" },
-            { icon: Search, title: "Knowledge Finder", tier: "free", desc: "Search the platform's own knowledge.", to: "/knowledge" },
-            { icon: BrainCircuit, title: "My AI Keys", tier: "free", desc: "Connect your own AI key (BYOK).", to: "/byok" },
-            { icon: Map, title: "Site Guide", tier: "free", desc: "Navigate like a pro.", to: "/site-guide" },
-            { icon: Globe, title: "WAI Institute", tier: "free", desc: "Accredited-track education.", to: "/wai-institute" },
-            { icon: Sparkles, title: "Ascension Protocols", tier: "free", desc: "Free 90-day growth course.", to: "/ascension-protocols" },
-          ].map(({ icon: Icon, title, desc, to, tier }) => (
-            <Link key={title} to={to}
-              className="p-5 rounded-xl border border-ink/10 bg-white hover:border-copper hover:shadow-md transition-all group no-underline block">
-              <div className="flex items-start justify-between gap-2 mb-3">
-                <Icon className="w-6 h-6 text-copper" />
-                <TierBadge tier={tier} />
-              </div>
-              <div className="font-heading font-bold text-ink group-hover:text-copper transition-colors text-sm">{title}</div>
-              <div className="text-ink/50 text-xs mt-1 leading-relaxed">{desc}</div>
-            </Link>
-          ))}
-          </div>
-
-          <div className="text-center mt-8">
-            <Link to="/register"
-              className="inline-flex items-center gap-2 font-black text-sm px-8 py-3 rounded-xl"
-              style={{ background: "#E8A51E", color: "#0a0a0a" }}>
-              Create your free account — upgrade anytime <ArrowRight className="w-4 h-4" />
-            </Link>
-          </div>
-        </div>
-      </section>
-
       {/* ── MY HELPER — THE WORKING MODULE, BELOW M.O.R.E. HELP CENTER ───── */}
       <section className="relative overflow-hidden"
         style={{ background: "linear-gradient(160deg, #14120a 0%, #241a08 55%, #0d1a0a 100%)", borderBottom: "1px solid rgba(232,165,30,0.25)" }}>
@@ -275,7 +213,7 @@ export default function UnifiedGateway() {
               { icon: "🎓", title: "Learn & Certify",       tier: "free", desc: "Curriculum, AI tutor, compliance courses, lab simulations, and verifiable credentials.",          to: "/modules" },
               { icon: "🎨", title: "Create & Publish",      tier: "plus", desc: "Ghost Producer AI, Creator Studio, Social Blast to 6 platforms, Band on a Page, Lyric Forge.",   to: "/studio" },
               { icon: "💰", title: "Earn & Get Paid",       tier: "plus", desc: "Sell courses, manage earnings, request payouts. 70% creator / 30% platform split.",               to: "/creator/earnings" },
-              { icon: "🤝", title: "Community & M.O.R.E.",  tier: "free", desc: "Members' Palace, Elder Council, legal tools, mutual aid matching, community chat.",               to: "/app/more" },
+              { icon: "🤝", title: "Community & M.O.R.E.",  tier: "free", desc: "Members' Palace, Elder Council, legal tools, mutual aid matching, community chat.",               to: "/more" },
               { icon: "🤖", title: "AI Tools Suite",        tier: "free", desc: "AI Tutor, Ghost Producer, and more — run on your own key via the $3 BYOK unlock. The platform doesn't fund customer AI.",       to: "/byok" },
               { icon: "🏛️", title: "M.O.R.E. Institute",    tier: "free", desc: "Accredited-track courses, workforce credentials, instructor-led labs, and placement support.",   to: "/wai-institute" },
             ].map(({ icon, title, desc, to, tier }) => (
@@ -358,12 +296,12 @@ export default function UnifiedGateway() {
 
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 mb-8">
             {[
-              { name: "Free",    price: "$0",   color: "#6b7280", features: ["Community access", "Browse courses", "Daily XP puzzle"] },
-              { name: "Member",  price: "$9",   color: "#3b82f6", features: ["Full M.O.R.E.", "AI via your own key", "Creator basics"] },
-              { name: "Plus",    price: "$15",  color: "#8b5cf6", features: ["Ghost Producer", "Creator Studio", "Course selling"] },
-              { name: "Pro",     price: "$29",  color: "#b5651d", features: ["AI via your own key", "Advanced labs", "Earnings dashboard"], highlight: true },
-              { name: "Patron",  price: "$59",  color: "#E8A51E", features: ["Founder's circle", "Fund free access", "Direct line"] },
-            ].map(({ name, price, color, features, highlight }) => (
+              { name: "Free",    price: "$0",   color: "#6b7280", to: "/register",                              cta: "Start Free",      features: ["Community access", "Browse courses", "Daily XP puzzle"] },
+              { name: "Member",  price: "$9",   color: "#3b82f6", to: "/subscribe?plan=member_monthly",       cta: "Choose Member — $9",  features: ["Full M.O.R.E.", "AI via your own key", "Creator basics"] },
+              { name: "Plus",    price: "$15",  color: "#8b5cf6", to: "/subscribe?plan=plus_monthly",         cta: "Choose Plus — $15",   features: ["Ghost Producer", "Creator Studio", "Course selling"] },
+              { name: "Pro",     price: "$29",  color: "#b5651d", to: "/subscribe?plan=pro_monthly",          cta: "Choose Pro — $29",    features: ["AI via your own key", "Advanced labs", "Earnings dashboard"], highlight: true },
+              { name: "Patron",  price: "$59",  color: "#E8A51E", to: "/subscribe?plan=patron_monthly",       cta: "Become a Patron — $59", features: ["Founder's circle", "Fund free access", "Direct line"] },
+            ].map(({ name, price, color, to, cta, features, highlight }) => (
               <div key={name}
                 className="card-flat p-5 flex flex-col"
                 style={highlight ? { borderColor: color, borderWidth: 2 } : {}}>
@@ -377,6 +315,11 @@ export default function UnifiedGateway() {
                     </li>
                   ))}
                 </ul>
+                <Link to={to}
+                  className="mt-4 w-full text-center text-xs font-black py-2.5 rounded-xl"
+                  style={{ background: color, color: color === "#E8A51E" ? "#0a0a0a" : "#fff" }}>
+                  {cta}
+                </Link>
               </div>
             ))}
           </div>
