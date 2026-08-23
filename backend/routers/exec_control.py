@@ -1044,79 +1044,102 @@ async def ec_access_public():
     public pages too, and making this read endpoint authenticated would turn a
     harmless gate lookup into a login redirect for anonymous visitors.
     """
+    role_overridden = set()  # FCC explicitly set allowed_roles for these keys
     if db is None:
-        # No database connected — return all pages with default roles from registry
+        # No database connected — build the pure PAGE_ACCESS_REGISTRY view.
+        # The registry classification pass below still runs (it is registry
+        # data only), so nav metadata (tiers, public marking, internal role
+        # gates) survives a DB outage.
         pages = {}
         for reg in PAGE_ACCESS_REGISTRY:
             pages[reg["key"]] = {
                 "enabled": True,
                 "allowed_roles": reg.get("default_allowed_roles"),
             }
-        return {"pages": pages}
+    else:
+        docs = await db.page_access.find({}, {"_id": 0, "page": 1, "enabled": 1, "allowed_roles": 1}).to_list(500)
+        db_state = {d["page"]: d for d in docs}
 
-    docs = await db.page_access.find({}, {"_id": 0, "page": 1, "enabled": 1, "allowed_roles": 1}).to_list(500)
-    db_state = {d["page"]: d for d in docs}
+        # Build pages map: DB overrides take priority; otherwise fall back to
+        # the default_allowed_roles defined in PAGE_ACCESS_REGISTRY.  This
+        # ensures cost-bearing features are restricted by default without
+        # requiring execs to manually lock every page.
+        pages = {}
+        for reg in PAGE_ACCESS_REGISTRY:
+            key = reg["key"]
+            d = db_state.get(key, {})
+            pages[key] = {
+                "enabled": d.get("enabled", True),
+                # DB override wins; else use registry default; else None (all roles)
+                "allowed_roles": d.get("allowed_roles") or reg.get("default_allowed_roles"),
+            }
 
-    # Build pages map: DB overrides take priority; otherwise fall back to
-    # the default_allowed_roles defined in PAGE_ACCESS_REGISTRY.  This
-    # ensures cost-bearing features are restricted by default without
-    # requiring execs to manually lock every page.
-    pages = {}
-    for reg in PAGE_ACCESS_REGISTRY:
-        key = reg["key"]
-        d = db_state.get(key, {})
-        pages[key] = {
-            "enabled": d.get("enabled", True),
-            # DB override wins; else use registry default; else None (all roles)
-            "allowed_roles": d.get("allowed_roles") or reg.get("default_allowed_roles"),
-        }
+        # -- FCC overrides (DB-dependent) - per-field wins over registry ------
+        # The FCC (routers/features.py) is the control plane. Explicit admin
+        # overrides in db.feature_configs win for enabled/allowed_roles/etc so
+        # the frontend gate map reflects FCC changes without a second write
+        # path. Only DB overrides are merged - registry defaults never gate
+        # the nav by themselves (no surprise lockouts).
+        try:
+            from routers.features import FEATURE_REGISTRY, normalize_tiers
+            fcc_docs = await db.feature_configs.find({}, {"_id": 0}).to_list(500)
+            for cfg in fcc_docs:
+                reg = next(
+                    (r for r in FEATURE_REGISTRY if r.get("feature_id") == cfg.get("feature_id")),
+                    None,
+                )
+                if not reg:
+                    continue
+                route = (reg.get("route") or "").strip("/")
+                key = route.split("/")[0] if route else None
+                if not key:
+                    continue
+                entry = pages.get(key, {"enabled": True, "allowed_roles": None})
+                if "enabled" in cfg:
+                    entry["enabled"] = cfg["enabled"]
+                if "allowed_roles" in cfg:
+                    role_overridden.add(key)
+                    entry["allowed_roles"] = cfg["allowed_roles"]
+                if "allowed_tiers" in cfg:
+                    tiers = normalize_tiers(cfg["allowed_tiers"])
+                    if tiers:
+                        entry["allowed_tiers"] = tiers
+                if "public_access" in cfg:
+                    entry["public_access"] = bool(cfg["public_access"])
+                if "navigation_visible" in cfg:
+                    entry["navigation_visible"] = bool(cfg["navigation_visible"])
+                pages[key] = entry
+        except Exception:
+            # A gate-map merge failure must never break the public gate map.
+            pass
 
-    # ── Feature Control Center overrides ────────────────────────────────────
-    # The FCC (routers/features.py) is the control plane.  Explicit admin
-    # overrides in db.feature_configs win for enabled/allowed_roles so the
-    # frontend gate map reflects FCC changes without a second write path.
-    # Only DB overrides are merged — registry defaults never gate the nav by
-    # themselves (no surprise lockouts).
+    # -- Registry classification pass - pure registry data, ALWAYS runs ------
+    # Tier-first metadata (allowed_tiers, public_access) and internal-only
+    # role gates derive from the Feature Registry alone, so the gate map stays
+    # correct even when the DB is unavailable (a DB blip must not strip nav
+    # metadata). setdefault keeps any FCC override that already won above.
     try:
-        from routers.features import FEATURE_REGISTRY
-        fcc_docs = await db.feature_configs.find({}, {"_id": 0}).to_list(500)
-        overridden_keys = set()
-        for cfg in fcc_docs:
-            reg = next(
-                (r for r in FEATURE_REGISTRY if r.get("feature_id") == cfg.get("feature_id")),
-                None,
-            )
-            if not reg:
-                continue
+        from routers.features import FEATURE_REGISTRY, normalize_tiers
+        for reg in FEATURE_REGISTRY:
             route = (reg.get("route") or "").strip("/")
             key = route.split("/")[0] if route else None
             if not key:
                 continue
-            overridden_keys.add(key)
             entry = pages.get(key, {"enabled": True, "allowed_roles": None})
-            if "enabled" in cfg:
-                entry["enabled"] = cfg["enabled"]
-            if "allowed_roles" in cfg:
-                entry["allowed_roles"] = cfg["allowed_roles"]
-            pages[key] = entry
-        # Registry classification pass: INTERNAL-only features (Arena, Jamil,
-        # Orchestrator, Admin Assistant, admin surfaces) are never shown in
-        # customer navigation.  Their registry default roles gate the page key
-        # unless an admin explicitly overrode the feature in the FCC (those
-        # keys were handled above and are skipped).  Non-internal features are
-        # untouched — registry defaults alone never hide a customer feature.
-        for reg in FEATURE_REGISTRY:
-            if not reg.get("internal_only"):
-                continue
-            route = (reg.get("route") or "").strip("/")
-            key = route.split("/")[0] if route else None
-            if not key or key in overridden_keys:
-                continue
-            roles = reg.get("default_roles") or []
-            if not roles:
-                continue
-            entry = pages.get(key, {"enabled": True, "allowed_roles": None})
-            entry["allowed_roles"] = roles
+            # Internal-only features: registry default roles gate the page
+            # (Arena -> exec-only, Jamil/Orchestrator -> admin+).
+            if reg.get("internal_only"):
+                roles = reg.get("default_roles") or []
+                if roles and key not in role_overridden:
+                    entry["allowed_roles"] = roles
+            # Additive classification metadata for tier-first navigation.
+            # public_access and allowed_tiers never hide a page by themselves
+            # (no surprise lockouts) but let the frontend derive tier/public
+            # visibility from the same canonical registry data.
+            if "public_access" in reg:
+                entry.setdefault("public_access", bool(reg["public_access"]))
+            tiers = normalize_tiers(reg.get("default_tiers") or [])
+            entry.setdefault("allowed_tiers", tiers)  # empty = role-gated only
             pages[key] = entry
     except Exception:
         # A gate-map merge failure must never break the public gate map.

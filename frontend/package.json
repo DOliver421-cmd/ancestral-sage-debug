@@ -59,7 +59,8 @@
     "preview": "HOST=0.0.0.0 BROWSER=none DANGEROUSLY_DISABLE_HOST_CHECK=true craco start",
     "build": "craco build",
     "test": "craco test",
-    "test:routes": "node scripts/route-integrity.js"
+    "test:routes": "node scripts/route-integrity.js",
+    "test:nav": "node scripts/nav-integrity.js"
   },
   "browserslist": {
     "production": [

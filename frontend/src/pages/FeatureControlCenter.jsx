@@ -313,6 +313,14 @@ function FeatureCard({ feature, saving, onToggle, onRoleToggle, onTierToggle }) 
             COST
           </span>
         )}
+        {feature.public_access === true && (
+          <span style={{
+            background: "#e0f2fe", color: "#0369a1", fontSize: 9, fontWeight: 700,
+            padding: "2px 6px", borderRadius: 4, textTransform: "uppercase",
+          }}>
+            PUBLIC
+          </span>
+        )}
         <span style={{
           background: catColor.bg, color: catColor.text, fontSize: 10, fontWeight: 700,
           padding: "2px 8px", borderRadius: 4, textTransform: "uppercase",
@@ -425,6 +433,13 @@ function FeatureCard({ feature, saving, onToggle, onRoleToggle, onTierToggle }) 
                   onChange={(v) => onToggle(feature.feature_id, "cost_bearing", v)} disabled={saving} />
                 <span style={{ color: feature.cost_bearing ? "#b45309" : "#666" }}>
                   {feature.cost_bearing ? "💰 Cost Bearing" : "Cost Bearing"}
+                </span>
+              </label>
+              <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12 }}>
+                <ToggleSwitch checked={feature.public_access === true}
+                  onChange={(v) => onToggle(feature.feature_id, "public_access", v)} disabled={saving} />
+                <span style={{ color: feature.public_access ? "#0369a1" : "#666" }}>
+                  {feature.public_access ? "🌐 Public Access" : "Public Access"}
                 </span>
               </label>
             </div>

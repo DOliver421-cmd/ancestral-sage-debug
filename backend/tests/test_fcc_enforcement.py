@@ -241,6 +241,49 @@ def test_ec_access_public_merges_fcc_overrides():
     assert "council" not in pages or pages["council"].get("enabled", True) is not False
 
 
+def test_ec_access_public_tier_and_public_metadata():
+    """Tier-first navigation metadata (allowed_tiers + public_access +
+    navigation_visible) reaches the gate map from registry defaults and from
+    FCC overrides — the frontend nav derives visibility from this payload."""
+    from routers import exec_control as ec
+
+    ec.db = FakeDB(
+        page_access=[],
+        feature_configs=[
+            # FCC overrides: tier lift + public marking + nav hiding.
+            {"feature_id": "create.studio", "allowed_tiers": ["free", "member"]},
+            {"feature_id": "nam.helper", "public_access": True},
+            {"feature_id": "nam.chat", "navigation_visible": False},
+        ],
+    )
+    pages = asyncio.run(ec.ec_access_public())["pages"]
+
+    # Registry defaults are pushed additively (never a surprise lockout):
+    # adaptive plus+, sanctuary plus+, free-tier features carry the full ladder.
+    assert pages["adaptive"]["allowed_tiers"] == ["plus", "pro", "patron"]
+    assert pages["sanctuary"]["allowed_tiers"] == ["plus", "pro", "patron"]
+    assert "free" in pages["ai"]["allowed_tiers"]
+    # Internal-only features keep empty tiers (role gate governs instead).
+    assert pages["arena"]["allowed_tiers"] == []
+    assert pages["jamil"]["allowed_tiers"] == []
+    # Public marking: only registry-public features are flagged for anonymous.
+    assert pages["store"]["public_access"] is True
+    assert pages["leaderboard"]["public_access"] is True
+    assert "public_access" not in pages["ai"]  # not public → anonymous hidden
+    # FCC overrides win over registry defaults.
+    assert pages["studio"]["allowed_tiers"] == ["free", "member"]  # FCC lifted studio down to free
+    assert pages["helper"]["public_access"] is True  # FCC marked public
+    assert pages["ai"]["navigation_visible"] is False  # FCC hid from nav
+    # Every registered feature maps to a gate entry (nav can derive from it).
+    from routers.features import FEATURE_REGISTRY
+
+    for reg in FEATURE_REGISTRY:
+        route = (reg.get("route") or "").strip("/")
+        key = route.split("/")[0] if route else None
+        if key:
+            assert key in pages, f"gate map missing key for {reg['feature_id']} ({key})"
+
+
 # ── Runner (works without pytest installed) ──────────────────────────────────
 if __name__ == "__main__":
     failures = 0
