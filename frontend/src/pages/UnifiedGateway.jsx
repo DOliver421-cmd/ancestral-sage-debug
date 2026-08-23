@@ -126,90 +126,35 @@ export default function UnifiedGateway() {
             </p>
           </div>
 
-          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            {/* Row 1: Learn */}
-            [
-              { icon: BookOpen, title: "Free Courses", desc: "Modules, curriculum, and open-access learning paths.", to: "/courses" },
-              { icon: FlaskConical, title: "Workforce Labs", desc: "Hands-on simulations and competency verification.", to: "/labs" },
-              { icon: Target, title: "Competencies", desc: "Track and prove your trade skills.", to: "/competencies" },
-              { icon: Award, title: "Credentials", desc: "Certificates, portfolios, and verifiable proof.", to: "/credentials" },
-            ].map(({ icon: Icon, title, desc, to }) => (
-              <Link key={title} to={to}
-                className="p-5 rounded-xl border border-ink/10 bg-white hover:border-copper hover:shadow-md transition-all group no-underline block">
-                <Icon className="w-6 h-6 text-copper mb-3" />
-                <div className="font-heading font-bold text-ink group-hover:text-copper transition-colors text-sm">{title}</div>
-                <div className="text-ink/50 text-xs mt-1 leading-relaxed">{desc}</div>
-              </Link>
-            ))}
-          </div>
-
-          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4 mt-4">
-            {/* Row 2: Create */}
-            [
-              { icon: Music, title: "Creator Studio", desc: "Music, video, scripts, and multi-modal production.", to: "/studio" },
-              { icon: Palette, title: "Ghost Producer", desc: "AI-assisted content creation.", to: "/ghost-producer" },
-              { icon: Radio, title: "Social Blast", desc: "Publish to 6 platforms in one click.", to: "/social/publish" },
-              { icon: Video, title: "Course Manager", desc: "Build and sell your own courses.", to: "/creator/courses" },
-            ].map(({ icon: Icon, title, desc, to }) => (
-              <Link key={title} to={to}
-                className="p-5 rounded-xl border border-ink/10 bg-white hover:border-copper hover:shadow-md transition-all group no-underline block">
-                <Icon className="w-6 h-6 text-copper mb-3" />
-                <div className="font-heading font-bold text-ink group-hover:text-copper transition-colors text-sm">{title}</div>
-                <div className="text-ink/50 text-xs mt-1 leading-relaxed">{desc}</div>
-              </Link>
-            ))}
-          </div>
-
-          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4 mt-4">
-            {/* Row 3: Community & Tools */}
-            [
-              { icon: Users, title: "Community", desc: "Exchange, mutual aid, and real connection.", to: "/community" },
-              { icon: MessageSquare, title: "Community Chat", desc: "5 rooms, real-time conversation.", to: "/more/chat" },
-              { icon: HelpCircle, title: "My Helper", desc: "Free AI guidance — read mail, bills, papers.", to: "/helper" },
-              { icon: Scale, title: "Legal Tools", desc: "Know your rights, protect yourself.", to: "/more/litigation" },
-            ].map(({ icon: Icon, title, desc, to }) => (
-              <Link key={title} to={to}
-                className="p-5 rounded-xl border border-ink/10 bg-white hover:border-copper hover:shadow-md transition-all group no-underline block">
-                <Icon className="w-6 h-6 text-copper mb-3" />
-                <div className="font-heading font-bold text-ink group-hover:text-copper transition-colors text-sm">{title}</div>
-                <div className="text-ink/50 text-xs mt-1 leading-relaxed">{desc}</div>
-              </Link>
-            ))}
-          </div>
-
-          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4 mt-4">
-            {/* Row 4: Commerce & Explore */}
-            [
-              { icon: ShoppingBag, title: "Media Store", desc: "Browse and buy creator content.", to: "/store" },
-              { icon: Star, title: "Plans & Pricing", desc: "Free, Member, Plus, Pro, Patron.", to: "/plans" },
-              { icon: Gamepad2, title: "Virtual Arcade", desc: "Games, puzzles, and daily XP.", to: "/arcade" },
-              { icon: Search, title: "Knowledge Finder", desc: "Search the platform's own knowledge.", to: "/knowledge" },
-            ].map(({ icon: Icon, title, desc, to }) => (
-              <Link key={title} to={to}
-                className="p-5 rounded-xl border border-ink/10 bg-white hover:border-copper hover:shadow-md transition-all group no-underline block">
-                <Icon className="w-6 h-6 text-copper mb-3" />
-                <div className="font-heading font-bold text-ink group-hover:text-copper transition-colors text-sm">{title}</div>
-                <div className="text-ink/50 text-xs mt-1 leading-relaxed">{desc}</div>
-              </Link>
-            ))}
-          </div>
-
-          {/* Row 5: Institute + CTA */}
-          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4 mt-4">
-            [
-              { icon: BrainCircuit, title: "My AI Keys", desc: "Connect your own AI key (BYOK).", to: "/byok" },
-              { icon: Map, title: "Site Guide", desc: "Navigate like a pro.", to: "/site-guide" },
-              { icon: Globe, title: "WAI Institute", desc: "Accredited-track education.", to: "/wai-institute" },
-              { icon: Sparkles, title: "Ascension Protocols", desc: "Free 90-day growth course.", to: "/ascension-protocols" },
-            ].map(({ icon: Icon, title, desc, to }) => (
-              <Link key={title} to={to}
-                className="p-5 rounded-xl border border-ink/10 bg-white hover:border-copper hover:shadow-md transition-all group no-underline block">
-                <Icon className="w-6 h-6 text-copper mb-3" />
-                <div className="font-heading font-bold text-ink group-hover:text-copper transition-colors text-sm">{title}</div>
-                <div className="text-ink/50 text-xs mt-1 leading-relaxed">{desc}</div>
-              </Link>
-            ))}
-          </div>
+          {[
+            { icon: BookOpen, title: "Free Courses", desc: "Modules, curriculum, and open-access learning paths.", to: "/courses" },
+            { icon: FlaskConical, title: "Workforce Labs", desc: "Hands-on simulations and competency verification.", to: "/labs" },
+            { icon: Target, title: "Competencies", desc: "Track and prove your trade skills.", to: "/competencies" },
+            { icon: Award, title: "Credentials", desc: "Certificates, portfolios, and verifiable proof.", to: "/credentials" },
+            { icon: Music, title: "Creator Studio", desc: "Music, video, scripts, and multi-modal production.", to: "/studio" },
+            { icon: Palette, title: "Ghost Producer", desc: "AI-assisted content creation.", to: "/ghost-producer" },
+            { icon: Radio, title: "Social Blast", desc: "Publish to 6 platforms in one click.", to: "/social/publish" },
+            { icon: Video, title: "Course Manager", desc: "Build and sell your own courses.", to: "/creator/courses" },
+            { icon: Users, title: "Community", desc: "Exchange, mutual aid, and real connection.", to: "/community" },
+            { icon: MessageSquare, title: "Community Chat", desc: "5 rooms, real-time conversation.", to: "/more/chat" },
+            { icon: HelpCircle, title: "My Helper", desc: "Free AI guidance — read mail, bills, papers.", to: "/helper" },
+            { icon: Scale, title: "Legal Tools", desc: "Know your rights, protect yourself.", to: "/more/litigation" },
+            { icon: ShoppingBag, title: "Media Store", desc: "Browse and buy creator content.", to: "/store" },
+            { icon: Star, title: "Plans & Pricing", desc: "Free, Member, Plus, Pro, Patron.", to: "/plans" },
+            { icon: Gamepad2, title: "Virtual Arcade", desc: "Games, puzzles, and daily XP.", to: "/arcade" },
+            { icon: Search, title: "Knowledge Finder", desc: "Search the platform's own knowledge.", to: "/knowledge" },
+            { icon: BrainCircuit, title: "My AI Keys", desc: "Connect your own AI key (BYOK).", to: "/byok" },
+            { icon: Map, title: "Site Guide", desc: "Navigate like a pro.", to: "/site-guide" },
+            { icon: Globe, title: "WAI Institute", desc: "Accredited-track education.", to: "/wai-institute" },
+            { icon: Sparkles, title: "Ascension Protocols", desc: "Free 90-day growth course.", to: "/ascension-protocols" },
+          ].map(({ icon: Icon, title, desc, to }) => (
+            <Link key={title} to={to}
+              className="p-5 rounded-xl border border-ink/10 bg-white hover:border-copper hover:shadow-md transition-all group no-underline block">
+              <Icon className="w-6 h-6 text-copper mb-3" />
+              <div className="font-heading font-bold text-ink group-hover:text-copper transition-colors text-sm">{title}</div>
+              <div className="text-ink/50 text-xs mt-1 leading-relaxed">{desc}</div>
+            </Link>
+          ))}
 
           <div className="text-center mt-8">
             <Link to="/login"
