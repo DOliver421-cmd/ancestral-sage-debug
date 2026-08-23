@@ -159,6 +159,261 @@ function ProjectCard({ project, onSelect, onAdvance }) {
   );
 }
 
+// ── Working exec tools panel ───────────────────────────────────────────────
+
+function ExecToolsPanel({ project }) {
+  const [toolTab, setToolTab] = useState("search");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchResults, setSearchResults] = useState("");
+  const [searching, setSearching] = useState(false);
+  const [emailTo, setEmailTo] = useState("executive");
+  const [emailSubject, setEmailSubject] = useState("");
+  const [emailBody, setEmailBody] = useState("");
+  const [emailSending, setEmailSending] = useState(false);
+  const [kbQuery, setKbQuery] = useState("");
+  const [kbResults, setKbResults] = useState("");
+  const [kbSearching, setKbSearching] = useState(false);
+  const [healthResult, setHealthResult] = useState("");
+  const [healthLoading, setHealthLoading] = useState(false);
+
+  const doWebSearch = async () => {
+    if (!searchQuery.trim()) return;
+    setSearching(true);
+    setSearchResults("");
+    try {
+      const res = await api.post("/exec/tools/web-search", { query: searchQuery, num_results: 6 });
+      setSearchResults(res.data?.result || "No results");
+    } catch (e) {
+      setSearchResults("Error: " + (e?.response?.data?.detail || e.message));
+    } finally {
+      setSearching(false);
+    }
+  };
+
+  const doSendEmail = async () => {
+    if (!emailSubject.trim() || !emailBody.trim()) {
+      toast.error("Subject and body are required");
+      return;
+    }
+    setEmailSending(true);
+    try {
+      const res = await api.post("/exec/tools/send-email", {
+        to: emailTo || "executive",
+        subject: emailSubject,
+        body: emailBody,
+      });
+      toast.success(res.data?.result || "Email sent");
+      setEmailSubject("");
+      setEmailBody("");
+    } catch (e) {
+      toast.error("Failed: " + (e?.response?.data?.detail || e.message));
+    } finally {
+      setEmailSending(false);
+    }
+  };
+
+  const doKBSearch = async () => {
+    if (!kbQuery.trim()) return;
+    setKbSearching(true);
+    setKbResults("");
+    try {
+      const res = await api.post("/exec/tools/knowledge-search", { query: kbQuery });
+      const items = res.data?.result || [];
+      if (Array.isArray(items) && items.length > 0) {
+        setKbResults(items.map((k, i) => `${i + 1}. **${k.title || k.content?.slice(0, 60) || 'Untitled'}**\n${k.content?.slice(0, 200) || ''}`).join("\n\n"));
+      } else {
+        setKbResults(typeof items === "string" ? items : "No knowledge found for this query.");
+      }
+    } catch (e) {
+      setKbResults("Error: " + (e?.response?.data?.detail || e.message));
+    } finally {
+      setKbSearching(false);
+    }
+  };
+
+  const doHealthCheck = async () => {
+    setHealthLoading(true);
+    setHealthResult("");
+    try {
+      const res = await api.get("/exec/tools/system-health");
+      setHealthResult(res.data?.result || "No health data");
+    } catch (e) {
+      setHealthResult("Error: " + (e?.response?.data?.detail || e.message));
+    } finally {
+      setHealthLoading(false);
+    }
+  };
+
+  const tools = [
+    { id: "search", label: "Web Search", icon: "🔍" },
+    { id: "email", label: "Send Email", icon: "📧" },
+    { id: "kb", label: "Knowledge Search", icon: "📚" },
+    { id: "health", label: "System Health", icon: "💊" },
+    { id: "links", label: "App Shortcuts", icon: "🔗" },
+  ];
+
+  return (
+    <div>
+      <div className="flex gap-1 mb-4 overflow-x-auto">
+        {tools.map((t) => (
+          <button
+            key={t.id}
+            onClick={() => setToolTab(t.id)}
+            className={`flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-bold uppercase tracking-wider rounded-lg whitespace-nowrap transition-all ${
+              toolTab === t.id
+                ? "bg-amber-600 text-white"
+                : "bg-ink/[0.04] text-ink/50 hover:bg-ink/[0.08]"
+            }`}
+          >
+            {t.icon} {t.label}
+          </button>
+        ))}
+      </div>
+
+      {/* Web Search */}
+      {toolTab === "search" && (
+        <div>
+          <div className="flex gap-2 mb-3">
+            <input
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && doWebSearch()}
+              placeholder="Search the live web... (DuckDuckGo + Wikipedia — FREE)"
+              className="flex-1 text-sm border border-ink/10 rounded-lg px-3 py-2 focus:outline-none focus:border-amber-400"
+            />
+            <button
+              onClick={doWebSearch}
+              disabled={searching}
+              className="px-4 py-2 rounded-lg bg-amber-600 text-white text-sm font-bold hover:bg-amber-700 disabled:opacity-50"
+            >
+              {searching ? "Searching..." : "Search"}
+            </button>
+          </div>
+          {searchResults && (
+            <div className="p-3 rounded-lg bg-ink/[0.02] border border-ink/5 text-xs text-ink/80 whitespace-pre-wrap max-h-60 overflow-y-auto">
+              {searchResults}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Send Email */}
+      {toolTab === "email" && (
+        <div className="space-y-3">
+          <div className="flex gap-2">
+            <label className="text-[11px] font-bold uppercase tracking-wider text-ink/40 w-12 pt-2">To:</label>
+            <input
+              value={emailTo}
+              onChange={(e) => setEmailTo(e.target.value)}
+              placeholder="'executive' for D. Oliver, or email address"
+              className="flex-1 text-sm border border-ink/10 rounded-lg px-3 py-2 focus:outline-none focus:border-amber-400"
+            />
+          </div>
+          <div className="flex gap-2">
+            <label className="text-[11px] font-bold uppercase tracking-wider text-ink/40 w-12 pt-2">Subject:</label>
+            <input
+              value={emailSubject}
+              onChange={(e) => setEmailSubject(e.target.value)}
+              placeholder="Subject line"
+              className="flex-1 text-sm border border-ink/10 rounded-lg px-3 py-2 focus:outline-none focus:border-amber-400"
+            />
+          </div>
+          <div>
+            <textarea
+              value={emailBody}
+              onChange={(e) => setEmailBody(e.target.value)}
+              rows={5}
+              placeholder="Email body (markdown ok)"
+              className="w-full text-sm border border-ink/10 rounded-lg px-3 py-2 focus:outline-none focus:border-amber-400"
+            />
+          </div>
+          <button
+            onClick={doSendEmail}
+            disabled={emailSending}
+            className="px-4 py-2 rounded-lg bg-amber-600 text-white text-sm font-bold hover:bg-amber-700 disabled:opacity-50"
+          >
+            {emailSending ? "Sending..." : "Send Email"}
+          </button>
+        </div>
+      )}
+
+      {/* Knowledge Search */}
+      {toolTab === "kb" && (
+        <div>
+          <div className="flex gap-2 mb-3">
+            <input
+              value={kbQuery}
+              onChange={(e) => setKbQuery(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && doKBSearch()}
+              placeholder="Search institutional knowledge... (FREE, no AI cost)"
+              className="flex-1 text-sm border border-ink/10 rounded-lg px-3 py-2 focus:outline-none focus:border-amber-400"
+            />
+            <button
+              onClick={doKBSearch}
+              disabled={kbSearching}
+              className="px-4 py-2 rounded-lg bg-amber-600 text-white text-sm font-bold hover:bg-amber-700 disabled:opacity-50"
+            >
+              {kbSearching ? "Searching..." : "Search"}
+            </button>
+          </div>
+          {kbResults && (
+            <div className="p-3 rounded-lg bg-ink/[0.02] border border-ink/5 text-xs text-ink/80 whitespace-pre-wrap max-h-60 overflow-y-auto">
+              {kbResults}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* System Health */}
+      {toolTab === "health" && (
+        <div>
+          <button
+            onClick={doHealthCheck}
+            disabled={healthLoading}
+            className="px-4 py-2 rounded-lg bg-amber-600 text-white text-sm font-bold hover:bg-amber-700 disabled:opacity-50 mb-3"
+          >
+            {healthLoading ? "Checking..." : "Check System Health"}
+          </button>
+          {healthResult && (
+            <div className="p-3 rounded-lg bg-ink/[0.02] border border-ink/5 text-xs text-ink/80 whitespace-pre-wrap max-h-60 overflow-y-auto">
+              {healthResult}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* App Shortcuts */}
+      {toolTab === "links" && (
+        <div className="grid grid-cols-2 gap-2">
+          {[
+            { label: "Arena — Competitive Analysis", icon: "⚔️", route: "/arena" },
+            { label: "Jamil — Team Coordination", icon: "🤖", route: "/jamil" },
+            { label: "Source Protocol", icon: "🛡️", route: "/business-office" },
+            { label: "Business Office — Revenue", icon: "📊", route: "/business-office" },
+            { label: "M.O.R.E. Ops", icon: "⚙️", route: "/more/ops" },
+            { label: "Studio — Content Creation", icon: "🎨", route: "/studio" },
+            { label: "Ghost Producer", icon: "✍️", route: "/ghost-producer" },
+            { label: "Social Blast", icon: "📢", route: "/social/publish" },
+            { label: "Legal Tools", icon: "⚖️", route: "/more/litigation" },
+          ].map((tool) => (
+            <Link
+              key={tool.label}
+              to={tool.route}
+              className="flex items-center gap-2 p-3 rounded-lg border border-ink/5 hover:border-amber-300 hover:bg-amber-50 transition-all group"
+            >
+              <span className="text-base">{tool.icon}</span>
+              <div className="flex-1 min-w-0">
+                <div className="text-xs font-bold text-ink truncate">{tool.label}</div>
+              </div>
+              <ExternalLink className="w-3 h-3 text-ink/20 group-hover:text-amber-600 shrink-0" />
+            </Link>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── Project detail panel ────────────────────────────────────────────────────
 
 function ProjectDetail({ project, onAdvance, onApprove, onClose, onRefresh }) {
@@ -345,36 +600,7 @@ function ProjectDetail({ project, onAdvance, onApprove, onClose, onRefresh }) {
           )}
 
           {tab === "tools" && (
-            <div>
-              <h4 className="text-xs font-bold uppercase tracking-wider text-ink/40 mb-3">Exec Tools (in project context)</h4>
-              <div className="grid grid-cols-2 gap-2">
-                {[
-                  { label: "Arena — Competitive Analysis", icon: "⚔️", route: "/arena", stage: "intake" },
-                  { label: "Jamil — Team Coordination", icon: "🤖", route: "/jamil", stage: "assign" },
-                  { label: "Source Protocol — Mission Check", icon: "🛡️", route: "/business-office", stage: "review" },
-                  { label: "Business Office — Revenue", icon: "📊", route: "/business-office", stage: "operate" },
-                  { label: "M.O.R.E. Ops — Operations", icon: "⚙️", route: "/more/ops", stage: "operate" },
-                  { label: "Studio — Content Creation", icon: "🎨", route: "/studio", stage: "execute" },
-                  { label: "Ghost Producer — Content Engine", icon: "✍️", route: "/ghost-producer", stage: "execute" },
-                  { label: "Social Blast — Publishing", icon: "📢", route: "/social/publish", stage: "deliver" },
-                  { label: "Legal Tools — Risk & Compliance", icon: "⚖️", route: "/more/litigation", stage: "review" },
-                  { label: "AI Business Office", icon: "🏢", route: "/business-office", stage: "operate" },
-                ].map((tool) => (
-                  <Link
-                    key={tool.label}
-                    to={tool.route}
-                    className="flex items-center gap-2 p-3 rounded-lg border border-ink/5 hover:border-amber-300 hover:bg-amber-50 transition-all group"
-                  >
-                    <span className="text-base">{tool.icon}</span>
-                    <div className="flex-1 min-w-0">
-                      <div className="text-xs font-bold text-ink truncate">{tool.label}</div>
-                      <div className="text-[10px] text-ink/40">Stage: {STAGE_META[tool.stage]?.label}</div>
-                    </div>
-                    <ExternalLink className="w-3 h-3 text-ink/20 group-hover:text-amber-600 shrink-0" />
-                  </Link>
-                ))}
-              </div>
-            </div>
+            <ExecToolsPanel project={project} />
           )}
 
           {tab === "comments" && (
