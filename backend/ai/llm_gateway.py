@@ -383,15 +383,21 @@ async def reload_shared_byok(db) -> int:
 # "restricted mode" notice.
 
 
-def _kb_reply(messages: Optional[list] = None) -> dict:
-    """Message-aware keyword-KB answer for the caller's last user message."""
+def _kb_reply(messages: Optional[list] = None, access=None) -> dict:
+    """Knowledge Finder reply for the caller's last user message.
+
+    Zero-cost and deterministic: a curated answer when the knowledge base has
+    one, otherwise ranked related resources from the platform's indexed
+    content, with an honest AI upgrade prompt when the caller isn't BYOK/staff.
+    ``access`` is a knowledge_finder.Access (None = anonymous/public).
+    """
     question = ""
     for m in messages or []:
         if m and m.get("role") == "user" and str(m.get("content", "")).strip():
             question = str(m["content"]).strip()
     try:
-        from ai.keyword_kb import reply as _kb_answer
-        text = _kb_answer(question)
+        from ai.knowledge_finder import render_reply
+        text = render_reply(question, access)
     except Exception:
         text = (
             "I'm operating in restricted mode — the AI service is temporarily unavailable. "
@@ -567,6 +573,7 @@ async def call_llm(
     # AI: they either use their own BYOK key (handled above) or the keyword KB.
     # The check is fail-closed for authenticated customers: if we cannot verify
     # the caller is authorized staff, they get the KB, never platform tokens.
+    _access = None
     if user_id:
         _is_staff = False
         try:
@@ -575,18 +582,27 @@ async def call_llm(
             _pg_db = _get_db()
             if _pg_db is not None:
                 _u = await _pg_db.users.find_one(
-                    {"id": user_id}, {"_id": 0, "role": 1}
+                    {"id": user_id}, {"_id": 0, "role": 1, "feature_tier": 1, "byok_enabled": 1}
                 )
                 _role = _norm_role((_u or {}).get("role", "student"))
                 _is_staff = _role in ("admin", "executive_admin")
+                try:
+                    from ai.knowledge_finder import Access as _Access
+                    _access = _Access(
+                        role=_role,
+                        feature_tier=(_u or {}).get("feature_tier") or "free",
+                        byok=bool((_u or {}).get("byok_enabled")),
+                    )
+                except Exception:
+                    _access = None
         except Exception:
             _is_staff = False
         if not _is_staff:
             logger.info(
-                "LLM Gateway: %s is not platform-AI-authorized — keyword KB fallback for %s",
+                "LLM Gateway: %s is not platform-AI-authorized — knowledge fallback for %s",
                 user_id, persona_label,
             )
-            return _kb_reply(messages)
+            return _kb_reply(messages, access=_access)
 
     # ── Per-user daily budget guard (platform-paid calls only) ──────────────
     # Prevents any single non-exec account from draining the platform API and
@@ -808,9 +824,9 @@ async def call_llm(
         except Exception as _sbe:
             logger.warning("LLM Gateway shared BYOK pool error (%s): %s", persona_label, _sbe)
 
-    # ── Tier 9: Keyword KB — always available, zero cost ─────────────────────
-    logger.error("LLM Gateway: ALL providers failed for %s — KB fallback", persona_label)
-    return _kb_reply(messages)
+    # ── Tier 9: Knowledge Finder — always available, zero cost ───────────────
+    logger.error("LLM Gateway: ALL providers failed for %s — knowledge fallback", persona_label)
+    return _kb_reply(messages, access=_access)
 
 
 # ── Status report ─────────────────────────────────────────────────────────────

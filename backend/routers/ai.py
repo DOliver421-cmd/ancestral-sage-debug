@@ -13,7 +13,7 @@ import uuid
 from datetime import datetime, timedelta, timezone
 from typing import List, Literal, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Header, Request, UploadFile, File
+from fastapi import APIRouter, Depends, HTTPException, Header, Query, Request, UploadFile, File
 from pydantic import BaseModel, ConfigDict, Field
 from prompts.ancestral_sage_prompt import (
     ANCESTRAL_SAGE_PROMPT,
@@ -287,6 +287,24 @@ class User(BaseModel):
 async def _dep_current_user(authorization: Optional[str] = Header(None)) -> User:
     """Resolve the real current_user at REQUEST time (bind() sets it after import)."""
     return await current_user(authorization)
+
+
+async def _optional_session(authorization: Optional[str] = Header(None)):
+    """Resolve the current user when a session is present, else None (anonymous).
+
+    Used by public discovery surfaces (Knowledge Finder) that serve anonymous
+    visitors a PUBLIC-only index and authenticated users their authorized index.
+    Never raises on a missing/invalid token — anonymous is a first-class state.
+    NOTE: the name deliberately avoids the auth markers (current_user etc.) so
+    the AccessGateway auto-discovery treats this route as public; the endpoint
+    itself applies the optional session itself.
+    """
+    if not authorization:
+        return None
+    try:
+        return await current_user(authorization)
+    except Exception:
+        return None
 
 
 def _require_rank(*roles):
@@ -1676,8 +1694,8 @@ async def ai_helper(body: dict, request: Request):
     # visitors get NO AI. The Helper answers from the multi-layer keyword
     # knowledge base at zero cost. No LLM/gateway call happens here - this
     # endpoint cannot consume platform-funded AI tokens.
-    from ai.keyword_kb import reply as _kb_reply
-    return {"reply": _kb_reply(message)}
+    from ai.knowledge_finder import Access as _Access, render_reply as _render
+    return {"reply": _render(message, _Access())}
 
 
 async def _helper_reply_free_first(message: str, budget_key: str = "") -> str:
@@ -1688,8 +1706,8 @@ async def _helper_reply_free_first(message: str, budget_key: str = "") -> str:
     which covers life-help and platform topics. No LLM/gateway call happens
     here, so this endpoint can never consume platform-funded AI tokens.
     """
-    from ai.keyword_kb import reply as _kb_reply
-    return _kb_reply(message)
+    from ai.knowledge_finder import Access as _Access, render_reply as _render
+    return _render(message, _Access())
 
 
 def _split_short_full(reply: str) -> tuple[str, str]:
@@ -3212,3 +3230,44 @@ async def persona_controls_set(slug: str, body: _PersonaControlsReq,
         {"$set": {"controls": clean, "updated_at": now_iso}},
         upsert=True)
     return {"ok": True, "controls": clean, "updated_at": now_iso}
+
+
+# ═════════════════════════════════════════════════════════════════════════════
+# Knowledge Finder - deterministic zero-cost discovery (first-class capability)
+# ═════════════════════════════════════════════════════════════════════════════
+@router.get("/knowledge/search")
+async def knowledge_search(
+    q: str = Query("", max_length=300),
+    limit: int = Query(8, ge=1, le=20),
+    request: Request = None,
+    user=Depends(_optional_session),
+):
+    """Search the platform's indexed knowledge. Zero LLM, zero provider API.
+
+    Anonymous visitors search the PUBLIC index only; signed-in users search
+    their tier-authorized index. Access filtering happens BEFORE matching
+    (never search-then-hide). AI stays a separately gated entitlement.
+    """
+    from ai.knowledge_finder import Access, search, upgrade_prompt, refresh_with_db
+
+    query = (q or "").strip()
+    if not query:
+        return {"query": "", "results": [], "upgrade_prompt": upgrade_prompt(Access())}
+
+    # Rate limit by IP so the zero-cost endpoint can't be hammered.
+    ip = request.client.host if request is not None and request.client else "unknown"
+    check_rate(f"knowledge_search:ip:{ip}", max_calls=30, window_sec=60)
+
+    await refresh_with_db(db)
+    access = Access(
+        role=getattr(user, "role", "public") if user else "public",
+        feature_tier=getattr(user, "feature_tier", "free") if user else "free",
+        byok=bool(getattr(user, "byok_enabled", False)) if user else False,
+    )
+    results = search(query, access, limit=limit)
+    return {
+        "query": query,
+        "results": results,
+        "access": {"role": access.role, "tier": access.feature_tier, "byok": access.byok},
+        "upgrade_prompt": upgrade_prompt(access),
+    }
