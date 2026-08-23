@@ -10,7 +10,7 @@
 | **M.O.R.E. Help Center** | The community + support hub: help articles, knowledge base, community chat, and human support. First stop for user questions. |
 | **WAI Institute** | The training platform: courses, modules, labs, competencies, compliance training, credentials, certificates, portfolios. |
 | **Our Legacy, Our Future** | The flagship book + campaign: *Building Thriving Black Communities with AI* — a practical manual (16 chapters + AI addendum + speculation section + appendices) for community-aligned AI across food, housing, education, economy, culture, worship, and governance. AI as partner, never replacement. |
-| **Campaign pillars (from the book)** | AI-Powered Agriculture · AI-Enhanced Construction · AI-Enhanced Education · AI-Driven Businesses · AI Music Studio/Creativity · AI-Powered Worship & Outreach · AI Market Logistics — the 8 capability areas promoted to the community. |
+| **Campaign pillars (from the book)** | 7 capability areas promoted to the community — AI-Powered Agriculture · AI-Enhanced Construction · AI-Enhanced Education · AI-Driven Businesses · AI Music Studio/Creativity · AI-Powered Worship & Outreach · AI Market Logistics — plus the book itself as the 8th pillar. |
 
 Everything sits on one account: one login, one profile, one payment history.
 
@@ -49,6 +49,7 @@ Real roles (source: `backend/roles.py`), lowest to highest authority:
 |---|---|
 | **Subscriptions** | Member $9 · Plus $15 · Pro $29 · Patron $59 /mo. Paid tiers stack (higher includes lower). Processed by Lemon Squeezy. |
 | **$3 All-Access Trial** | One-time $3: everything through Pro for 3 days · 33 min · 33 sec, then auto-reverts. |
+| **Book — *Our Legacy, Our Future*** | One-time **$89** digital purchase of the flagship manual. No tier grant — it's a product, not a membership. |
 | **$3 BYOK Unlock** | One-time $3: lets a user connect their **own** AI key (free keys exist) so AI runs on their resources, not the platform's. |
 | **Donations** | One-time giving via the Donate page. |
 | **Creator payouts** | Course publishing + payouts (90% creator share) at Plus and above. |
