@@ -38,6 +38,24 @@ from __future__ import annotations
 
 from typing import Optional
 
+# Feature Control Center (FCC) integration — the canonical registry lives in
+# routers/features.py; this module is the READ side that turns its records
+# into server-side enforcement.  Imported defensively so a registry change
+# can never take down the enforcement middleware.
+try:
+    from routers.features import FEATURE_REGISTRY, normalize_tiers
+except Exception:  # pragma: no cover - import-time safety
+    FEATURE_REGISTRY = []
+
+    def normalize_tiers(tiers):
+        return tiers or []
+
+try:
+    from roles import role_rank
+except Exception:  # pragma: no cover - import-time safety
+    def role_rank(role: str) -> int:
+        return 0
+
 # Platform feature flag -> API path prefixes it governs.  Keep in sync with the
 # frontend's TIER_FOR_FEATURE keys and the live route table.
 # Specific prefixes come before broad prefixes so an executive can govern a
@@ -65,6 +83,78 @@ FEATURE_API_PATHS: dict = {
 PAGE_API_PATHS: dict = {
     "ai": ["/api/ai/"],
 }
+
+# FCC feature_id -> API path prefixes it governs.  Every prefix is verified
+# against the live route table (2026-08-23):
+#   /api/jamil/*         routers/jamil.py
+#   /api/competition/*   routers/competition.py
+#   /api/ai/orchestrator routers/ai.py
+#   /api/ai/helper       routers/ai.py
+#   /api/ai/sage         routers/ai.py
+#   /api/ai/chat         routers/ai.py
+#   /api/nam             routers/nam.py
+#   /api/site-guide      routers/site_guide.py
+FCC_FEATURE_API_PATHS: dict = {
+    "nam.jamil": ["/api/jamil/"],
+    "games.arena": ["/api/competition/"],
+    "nam.orchestrator": ["/api/ai/orchestrator"],
+    "nam.helper": ["/api/ai/helper"],
+    "nam.council": ["/api/ai/sage"],
+    "nam.chat": ["/api/ai/chat", "/api/nam"],
+    "nam.site_guide": ["/api/site-guide"],
+}
+
+
+def fcc_feature_for_path(path: str):
+    """Return the FCC feature_id governing *path*, or None if unmapped."""
+    for feature, prefixes in FCC_FEATURE_API_PATHS.items():
+        if _path_in(path, prefixes):
+            return feature
+    return None
+
+
+async def load_fcc_config(db, feature_id: str):
+    """Effective FCC config for *feature_id*: registry default + DB override.
+
+    Returns None when the feature is not in the canonical registry (the
+    caller treats that as an unavailable policy store).  The registry default
+    is the fail-closed classification; an admin override written through the
+    Feature Control Center binds for enabled/roles/tiers.
+    """
+    reg = next(
+        (r for r in FEATURE_REGISTRY if r.get("feature_id") == feature_id), None
+    )
+    if reg is None:
+        return None
+    override = None
+    try:
+        override = await db.feature_configs.find_one(
+            {"feature_id": feature_id}, {"_id": 0}
+        )
+    except Exception:
+        return None
+    override = override or {}
+    allowed_roles = override.get("allowed_roles")
+    allowed_tiers = override.get("allowed_tiers")
+    return {
+        "enabled": override.get("enabled", True),
+        "internal_only": override.get(
+            "internal_only", reg.get("internal_only", False)
+        ),
+        "customer_access_allowed": override.get(
+            "customer_access_allowed", reg.get("customer_access_allowed", True)
+        ),
+        "allowed_roles": (
+            allowed_roles if allowed_roles is not None else reg.get("default_roles", [])
+        ),
+        "allowed_tiers": (
+            normalize_tiers(allowed_tiers)
+            if allowed_tiers is not None
+            else normalize_tiers(reg.get("default_tiers", []))
+        ),
+        "_override_roles": allowed_roles is not None,
+        "_override_tiers": allowed_tiers is not None,
+    }
 
 
 def platform_flag_enabled(flags_doc: Optional[dict], flag: str) -> bool:
@@ -200,7 +290,8 @@ async def check_user_feature_access(db, user, path: str):
     absent override document passes; a DB error on a mapped path fails closed.
     """
     feature = feature_for_path(path)
-    if feature is None or user is None:
+    fcc_feature = fcc_feature_for_path(path)
+    if (feature is None and fcc_feature is None) or user is None:
         return ("pass", None)
     if db is None:
         return ("unavailable", "Feature authorization unavailable — request rejected.")
@@ -226,7 +317,43 @@ async def check_user_feature_access(db, user, path: str):
         if ai_all is False:
             return ("block", "Your access to the AI suite has been revoked by the executive team.")
 
-    # ── 3. Feature-tier requirement (editable authorization matrix) ────────────
+    # ── 3. Feature Control Center config (canonical registry + overrides) ─────
+    # The FCC is the control plane.  Registry classification binds immediately
+    # (enabled, internal_only); role/tier lists bind only when an admin has
+    # explicitly overridden them in the Feature Control Center, so an untouched
+    # feature behaves exactly as before this block existed (no surprise
+    # lockouts).  This runs BEFORE the tier-requirement check so staff who
+    # bypass tier gates still cannot reach a disabled or internal-only feature.
+    # Role checks are rank-based: a user passes when their rank is at least the
+    # lowest allowed rank, so "admin" also admits executive_admin.
+    if fcc_feature is not None:
+        config = await load_fcc_config(db, fcc_feature)
+        if config is None:
+            return ("unavailable", "Feature authorization unavailable — request rejected.")
+        if config.get("enabled") is False:
+            return ("block", "This feature is currently disabled.")
+        allowed_roles = config.get("allowed_roles") or []
+        if config.get("internal_only"):
+            if allowed_roles and not any(
+                role_rank(user.role) >= role_rank(r) for r in allowed_roles
+            ):
+                return ("block", "This feature is restricted to authorized staff.")
+        elif config.get("_override_roles"):
+            if allowed_roles and not any(
+                role_rank(user.role) >= role_rank(r) for r in allowed_roles
+            ):
+                return ("block", "Your role does not have access to this feature.")
+        if config.get("_override_tiers"):
+            allowed_tiers = config.get("allowed_tiers") or []
+            if allowed_tiers:
+                user_tier = getattr(user, "feature_tier", None) or "free"
+                if not any(
+                    _tier_rank_of(user_tier, []) >= _tier_rank_of(t, [])
+                    for t in allowed_tiers
+                ):
+                    return ("block", "This feature requires a higher membership tier.")
+
+    # ── 4. Feature-tier requirement (editable authorization matrix) ────────────
     # The matrix is DB-backed (db.authz_matrix, edited from the exec console);
     # code defaults apply until an executive changes it.  Absent config == allow.
     try:

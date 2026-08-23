@@ -908,77 +908,97 @@ FEATURE_REGISTRY = [
 ]
 
 
+# ── Canonical tiers & roles ──────────────────────────────────────────────────
+# Must mirror security/feature_control.py TIER_RANK, routers/exec_control.py
+# _BUILTIN_TIERS, frontend/src/lib/tiers.js and frontend/src/lib/roles.js.
+REAL_TIERS = ["free", "member", "plus", "pro", "patron", "executive"]
+REAL_ROLES = [
+    "student", "trial_pass", "instructor", "support_staff",
+    "oversight", "admin", "executive_admin",
+]
+
+# Early Feature Control Center builds used invented tier labels
+# (creator/studio/director).  Normalize them to the real product tiers so a
+# stored config can never reference a tier that does not exist.
+LEGACY_TIER_MAP = {"creator": "member", "studio": "plus", "director": "patron"}
+
+
+def normalize_tiers(tiers) -> list:
+    """Map legacy/invalid tier labels to the real product tiers (deduped)."""
+    if not tiers:
+        return []
+    out = []
+    for t in tiers:
+        t = LEGACY_TIER_MAP.get(t, t)
+        if t in REAL_TIERS and t not in out:
+            out.append(t)
+    return out
+
+
 # ── Access check ─────────────────────────────────────────────────────────────
 
 def get_feature_config(feature_id: str) -> Optional[dict]:
-    """Get feature config: DB override > registry default."""
+    """Registry default for *feature_id* — pure sync helper, no DB read.
+
+    Endpoints use get_feature_config_async() so admin overrides from
+    db.feature_configs are actually reflected; this form is kept for callers
+    that only need the static default.
+    """
     for reg in FEATURE_REGISTRY:
         if reg["feature_id"] == feature_id:
             break
     else:
         return None
 
-    # Merge with DB overrides if they exist
-    db_config = None
-    if db is not None:
-        import asyncio
-        try:
-            loop = asyncio.get_event_loop()
-            if loop.is_running():
-                # We're in an async context — use sync fallback
-                pass
-            else:
-                db_config = loop.run_until_complete(
-                    db.feature_configs.find_one({"feature_id": feature_id})
-                )
-        except Exception:
-            pass
-
-    # Merge with DB overrides if they exist
-    db_config = None
-    if db is not None:
-        import asyncio
-        try:
-            loop = asyncio.get_event_loop()
-            if loop.is_running():
-                # We're in an async context — use sync fallback
-                pass
-            else:
-                db_config = loop.run_until_complete(
-                    db.feature_configs.find_one({"feature_id": feature_id})
-                )
-        except Exception:
-            pass
-
     base = {
         "internal_only": reg.get("internal_only", False),
         "customer_access_allowed": reg.get("customer_access_allowed", True),
         "cost_bearing": reg.get("cost_bearing", False),
     }
-
-    if db_config:
-        return {
-            "feature_id": feature_id,
-            "enabled": db_config.get("enabled", True),
-            "allowed_roles": db_config.get("allowed_roles", reg["default_roles"]),
-            "allowed_tiers": db_config.get("allowed_tiers", reg["default_tiers"]),
-            "platform_ai": db_config.get("platform_ai", reg["platform_ai"]),
-            "byok_allowed": db_config.get("byok_allowed", reg["byok_allowed"]),
-            "navigation_visible": db_config.get("navigation_visible", True),
-            "internal_only": db_config.get("internal_only", base["internal_only"]),
-            "customer_access_allowed": db_config.get("customer_access_allowed", base["customer_access_allowed"]),
-            "cost_bearing": db_config.get("cost_bearing", base["cost_bearing"]),
-        }
-
     return {
         "feature_id": feature_id,
         "enabled": True,
-        "allowed_roles": reg["default_roles"],
-        "allowed_tiers": reg["default_tiers"],
-        "platform_ai": reg["platform_ai"],
-        "byok_allowed": reg["byok_allowed"],
+        "allowed_roles": list(reg.get("default_roles", [])),
+        "allowed_tiers": normalize_tiers(reg.get("default_tiers", [])),
+        "platform_ai": reg.get("platform_ai", False),
+        "byok_allowed": reg.get("byok_allowed", False),
         "navigation_visible": True,
         **base,
+    }
+
+
+async def get_feature_config_async(feature_id: str) -> Optional[dict]:
+    """Effective config: Feature Control Center DB override > registry default."""
+    base = get_feature_config(feature_id)
+    if base is None:
+        return None
+    if db is None:
+        return base
+    try:
+        override = await db.feature_configs.find_one(
+            {"feature_id": feature_id}, {"_id": 0}
+        )
+    except Exception:
+        return base
+    if not override:
+        return base
+    return {
+        **base,
+        "enabled": override.get("enabled", base["enabled"]),
+        "allowed_roles": override.get("allowed_roles", base["allowed_roles"]),
+        "allowed_tiers": normalize_tiers(
+            override.get("allowed_tiers", base["allowed_tiers"])
+        ),
+        "platform_ai": override.get("platform_ai", base["platform_ai"]),
+        "byok_allowed": override.get("byok_allowed", base["byok_allowed"]),
+        "navigation_visible": override.get(
+            "navigation_visible", base["navigation_visible"]
+        ),
+        "internal_only": override.get("internal_only", base["internal_only"]),
+        "customer_access_allowed": override.get(
+            "customer_access_allowed", base["customer_access_allowed"]
+        ),
+        "cost_bearing": override.get("cost_bearing", base["cost_bearing"]),
     }
 
 
@@ -992,7 +1012,7 @@ async def list_features(actor=Depends(current_user)):
 
     configs = []
     for reg in FEATURE_REGISTRY:
-        config = get_feature_config(reg["feature_id"])
+        config = await get_feature_config_async(reg["feature_id"])
         configs.append({**reg, **config})
 
     return {"features": configs, "total": len(configs)}
@@ -1003,7 +1023,7 @@ async def feature_gate_map():
     """Public gate map for frontend nav. No auth required."""
     gate_map = {}
     for reg in FEATURE_REGISTRY:
-        config = get_feature_config(reg["feature_id"])
+        config = await get_feature_config_async(reg["feature_id"])
         gate_map[reg["feature_id"]] = {
             "enabled": config["enabled"],
             "allowed_roles": config["allowed_roles"],
@@ -1025,10 +1045,10 @@ async def tier_matrix(actor=Depends(current_user)):
     if not actor or actor.get("role") not in ("admin", "executive_admin"):
         raise HTTPException(403, "Admin access required")
 
-    all_tiers = ["free", "creator", "pro", "studio", "director"]
+    all_tiers = list(REAL_TIERS)
     matrix = []
     for reg in FEATURE_REGISTRY:
-        config = get_feature_config(reg["feature_id"])
+        config = await get_feature_config_async(reg["feature_id"])
         row = {"feature_id": reg["feature_id"], "name": reg["name"]}
         for tier in all_tiers:
             row[tier] = tier in config["allowed_tiers"]
@@ -1042,10 +1062,10 @@ async def role_matrix(actor=Depends(current_user)):
     if not actor or actor.get("role") not in ("admin", "executive_admin"):
         raise HTTPException(403, "Admin access required")
 
-    all_roles = ["student", "instructor", "support_staff", "admin", "executive_admin"]
+    all_roles = list(REAL_ROLES)
     matrix = []
     for reg in FEATURE_REGISTRY:
-        config = get_feature_config(reg["feature_id"])
+        config = await get_feature_config_async(reg["feature_id"])
         row = {"feature_id": reg["feature_id"], "name": reg["name"]}
         for role in all_roles:
             row[role] = role in config["allowed_roles"]
@@ -1069,6 +1089,15 @@ async def update_feature(feature_id: str, body: dict, request, actor=Depends(cur
     for key in ["enabled", "allowed_roles", "allowed_tiers", "platform_ai", "byok_allowed", "navigation_visible", "internal_only", "customer_access_allowed", "cost_bearing"]:
         if key in body:
             update_fields[key] = body[key]
+
+    # Store only canonical values: legacy tier labels are normalized to real
+    # product tiers and unknown role names are dropped, so a stored config can
+    # never reference a role/tier that does not exist in the platform.
+    if "allowed_tiers" in update_fields:
+        update_fields["allowed_tiers"] = normalize_tiers(update_fields["allowed_tiers"])
+    if "allowed_roles" in update_fields:
+        roles = update_fields["allowed_roles"]
+        update_fields["allowed_roles"] = [r for r in roles if r in REAL_ROLES]
 
     if not update_fields:
         raise HTTPException(400, "No valid fields to update")

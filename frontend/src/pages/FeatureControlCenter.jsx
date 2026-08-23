@@ -3,8 +3,11 @@ import { api } from "../lib/api";
 import { useAuth } from "../lib/auth";
 import AppShell from "../components/AppShell";
 
-const ALL_ROLES = ["student", "instructor", "support_staff", "admin", "executive_admin"];
-const ALL_TIERS = ["free", "creator", "pro", "studio", "director"];
+// Real platform roles (mirror src/lib/roles.js): public is rank 0 (unauthenticated),
+// never a stored role.
+const ALL_ROLES = ["student", "trial_pass", "instructor", "support_staff", "oversight", "admin", "executive_admin"];
+// Real product tiers (mirror src/lib/tiers.js): free → member → plus → pro → patron → executive.
+const ALL_TIERS = ["free", "member", "plus", "pro", "patron", "executive"];
 
 const CATEGORY_COLORS = {
   ai: { bg: "#ede9fe", text: "#6d28d9" },

@@ -88,6 +88,7 @@ from security.feature_control import (
     check_request_config,
     check_user_feature_access,
     feature_for_path,
+    fcc_feature_for_path,
 )
 
 ROOT_DIR = Path(__file__).parent
@@ -236,7 +237,7 @@ async def enforce_platform_flags(request: Request, call_next):
             # Only runs on mapped feature surfaces and only when a valid session
             # resolves; the route's own auth still produces the 401 for missing
             # tokens.  An explicit per-user grant skips the platform checks.
-            if feature_for_path(path):
+            if feature_for_path(path) or fcc_feature_for_path(path):
                 user = None
                 authz = request.headers.get("authorization")
                 if authz:
@@ -266,7 +267,11 @@ async def enforce_platform_flags(request: Request, call_next):
             # unavailable.  Fail closed for the sensitive surface; leave
             # unrelated/public endpoints alone so a database outage does not
             # turn the whole site into a maintenance page.
-            controlled = feature_for_path(path) is not None or path.startswith("/api/ai/")
+            controlled = (
+                feature_for_path(path) is not None
+                or fcc_feature_for_path(path) is not None
+                or path.startswith("/api/ai/")
+            )
             if controlled:
                 logger.exception("Feature authorization unavailable for %s", path)
                 return JSONResponse(
