@@ -122,6 +122,23 @@
       "body": "The Store carries digital products — workbooks, courses, and more. Physical merchandise like t-shirts is listed but not available for online purchase yet. Purchases are processed through our payment provider and delivered to your account automatically."
     },
     {
+      "id": "doc:our-legacy-book",
+      "title": "Our Legacy, Our Future — Building Thriving Black Communities with AI",
+      "description": "The flagship book and campaign: a practical manual for community-aligned AI across food, housing, education, business, music, worship, and markets. A one-time digital purchase at $89.",
+      "keywords": ["book", "our legacy", "our future", "building thriving black communities with ai", "campaign", "manual", "community ai", "agriculture ai", "construction ai", "education ai", "music studio", "business ai", "worship ai", "outreach", "market logistics", "zuri", "buy the book"],
+      "aliases": ["the book", "legacy book", "olof", "bobcai"],
+      "category": "store",
+      "feature": "marketplace.store",
+      "tier": "free",
+      "public_access": true,
+      "roles": null,
+      "internal_only": false,
+      "content_type": "guide",
+      "route": "/our-legacy",
+      "tags": ["book", "campaign", "community", "ai", "store"],
+      "body": "Our Legacy, Our Future — Building Thriving Black Communities with AI is the flagship book and campaign. It is a field guide for communities ready to build, grow, and thrive with AI as a partner and co-creator: clear frameworks for food systems, housing, education, business, creativity, worship, and markets. The book is a one-time digital purchase at $89 from the Our Legacy page; refunds are issued as site credit per the Refund Policy unless the failure was the platform's fault."
+    },
+    {
       "id": "doc:payments",
       "title": "Payments, Subscriptions & Billing",
       "description": "Checkout runs through Lemon Squeezy or Gumroad. Subscriptions renew automatically until cancelled. Payment history and receipts live in your account.",

@@ -5,7 +5,7 @@ import { api } from "../lib/api";
 import { useAuth } from "../lib/auth";
 import { toast } from "sonner";
 import {
-  Music, FileText, Package, PlayCircle, Upload, ShoppingBag,
+  Music, FileText, Package, PlayCircle, Upload, ShoppingBag, BookOpen,
   Library, Plus, Trash2, Eye, EyeOff, CheckCircle2, Loader2,
   Download, RefreshCw, Tag,
 } from "lucide-react";
@@ -745,6 +745,9 @@ function StorefrontTab() {
           Support the mission. Every purchase goes straight to the M.O.R.E. Help Center and the community.
         </p>
         <div className="flex flex-wrap gap-3 mt-3">
+          <Link to="/our-legacy" className="inline-flex items-center gap-2 bg-[#b5651d] text-white text-sm font-bold px-4 py-2 rounded-lg hover:bg-[#9a5418] transition-colors">
+            <BookOpen size={14} /> The Book — $89
+          </Link>
           <Link to="/subscribe" className="inline-flex items-center gap-2 bg-[#1a1a1a] text-white text-sm font-bold px-4 py-2 rounded-lg hover:bg-[#1a1a1a]/80 transition-colors">
             Memberships
           </Link>

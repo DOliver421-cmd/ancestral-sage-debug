@@ -80,6 +80,11 @@ PAYMENT_PRODUCTS = {
     "arena_peer_guide":  {"name": "The Peer Guide: Group Accountability Workbook",    "amount": 4700, "mode": "payment",      "description": "Structured 12-week group challenges + facilitator scripts"},
     "arena_license":     {"name": "The Arena License Kit (Coaches & Employers)",       "amount": 19700,"mode": "payment",      "description": "Editable slides, email templates, and facilitator guides for teams"},
     "arena_album":       {"name": "Everyone Wins: Reflection Album",                   "amount": 999,  "mode": "payment",      "description": "Spoken word album — lyrics, liner notes, reflection guide"},
+    # Our Legacy, Our Future — the flagship book + campaign. One-time digital
+    # purchase (no tier grant — fulfillment/delivery runs through the payment
+    # provider's digital delivery). Refundable as site credit per the Refund
+    # Policy unless the failure was the platform's fault.
+    "book":              {"name": "Our Legacy, Our Future — Building Thriving Black Communities with AI", "amount": 8900, "mode": "payment", "description": "The flagship manual: 16 chapters + AI addendum + appendices on community-aligned AI across food, housing, education, economy, culture, worship, and governance. AI as partner, never replacement."},
 }
 
 # Legacy names (pre-rebrand) → product key, so webhook matching keeps working
