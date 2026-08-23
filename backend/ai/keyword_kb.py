@@ -308,11 +308,15 @@ def best_match(question: str) -> tuple[Optional[dict], int]:
 
 
 _GENERIC_ANSWER = (
-    "I am here to help. For many situations — housing, legal, financial, health, "
-    "or benefits — calling 211 is the fastest way to find free local resources. "
-    "It is confidential, available 24/7, and covers most needs. "
-    "You can also visit 211.org to search by ZIP code. "
-    "If you can share a few more details about your situation, I can give you more specific guidance."
+    "I can't answer that from the free knowledge base, and I won't pretend to. "
+    "Live AI here runs on YOUR key — and free keys exist: Groq (console.groq.com), "
+    "Cerebras (cloud.cerebras.ai), and Google Gemini (aistudio.google.com) all offer "
+    "free API tiers. To unlock live AI: open the BYOK page (/byok), complete the "
+    "one-time $3 unlock, and paste a free key from any of the three providers — "
+    "about 2-3 minutes total. Your AI then runs on your own key, not the platform's. "
+    "For life-help needs (housing, legal, health, benefits), 211 is free and "
+    "confidential 24/7. For account or platform issues, a real person answers at "
+    "the M.O.R.E. Help Center (/help-center)."
 )
 
 

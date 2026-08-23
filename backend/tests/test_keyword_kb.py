@@ -46,11 +46,15 @@ def test_engine_layers():
     # L2 token overlap
     e, layer = kb.best_match("can you help me understand my rights about rent increases")
     ok("L2 overlap: rent increase", e and layer in (1, 2) and e["category"] == "housing")
-    # L4 generic fallback for nonsense
+    # L4 honest boundary for unmatched questions (owner policy: no fake AI).
     e, layer = kb.best_match("zxqwv plkjasd fghjkl")
-    ok("L4 generic: nonsense returns None + generic reply", e is None and layer == 0)
+    ok("L4 boundary: nonsense returns None + boundary reply", e is None and layer == 0)
     reply = kb.reply("zxqwv plkjasd fghjkl")
     ok("reply() always returns a non-empty string", isinstance(reply, str) and len(reply) > 20)
+    ok("boundary never pretends to be AI", "won't pretend" in reply)
+    ok("boundary explains the free path (BYOK + own key)", "BYOK" in reply and "own key" in reply)
+    ok("boundary names free providers", "Groq" in reply and "Cerebras" in reply and "Gemini" in reply)
+    ok("boundary routes to human support", "Help Center" in reply)
 
     # Platform-domain entries exist
     for q, cat in [
