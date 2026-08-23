@@ -270,10 +270,13 @@ async def register(body: RegisterReq, request: Request):
     # Public self-registration is always a student. Higher-privilege accounts
     # must be created by an admin (POST /api/admin/users). Exception: the very
     # FIRST account ever registered (empty users collection — e.g. immediately
-    # after a factory reset) becomes the executive_admin bootstrap owner, so a
-    # fresh instance can be stood up without manual DB access.
+    # after a factory reset) becomes the executive_admin bootstrap owner — but
+    # ONLY when an exec seat email is actually configured. With no seat email,
+    # the bootstrap grant is locked: a stranger registering on a fresh database
+    # must never be able to claim god-mode just by being first.
     existing_users = await db.users.count_documents({})
-    role = "executive_admin" if existing_users == 0 else "student"
+    _exec_seat_configured = bool(EXEC_ADMIN_EMAIL or BACKUP_EXEC_EMAIL or NAM_EXEC_EMAIL)
+    role = "executive_admin" if (existing_users == 0 and _exec_seat_configured) else "student"
     user = UserOut(email=body.email, full_name=body.full_name, role=role)
     doc = user.model_dump()
     doc["created_at"] = doc["created_at"].isoformat()
