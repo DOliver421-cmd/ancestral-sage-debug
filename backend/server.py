@@ -1264,6 +1264,17 @@ async def _on_startup_impl():
     # Wire shared db reference for sub-routers (social, playlist, etc.)
     import deps as _deps
     _deps.set_db(db)
+
+    # ── Key vault — self-healing encryption secret for keys at rest ─────────
+    # env var → MongoDB-persisted (auto-generated on first boot) → ephemeral.
+    # Must run BEFORE provider-key/BYOK loading so decryption uses the same
+    # cipher that encrypted them.
+    try:
+        import keyvault as _keyvault
+        await _keyvault.init(db)
+        logger.info("STARTUP: Key vault ready (source=%s).", _keyvault.source())
+    except Exception as _kv_err:
+        logger.warning("STARTUP: Key vault init failed (non-fatal): %s", _kv_err)
     # Wire NAM persistence (Hybrid NAM Leadership Intelligence)
     try:
         from ai.hybrid_nam import persistence as _nam_persistence
