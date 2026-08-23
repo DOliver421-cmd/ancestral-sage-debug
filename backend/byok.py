@@ -17,7 +17,9 @@ HTTP call path serves every provider.
 
 Key storage: `db.user_byok_keys` — encrypted at rest with the same Fernet secret
 the Provider Gateway uses (`PROVIDER_KEY_ENCRYPTION_SECRET`). Keys are NEVER
-returned to the frontend after save; only a masked suffix is shown.
+returned to the frontend after save; only a masked suffix is shown. If the
+encryption secret is not configured, saving a key is REFUSED — plaintext
+storage is never silently accepted.
 
 Entitlement: stored on the user document as `byok_enabled` + `byok_activated_at`.
 The `POST /api/byok/activate` endpoint flips the flag and is the integration
@@ -110,7 +112,7 @@ def encrypt_key(plaintext: str) -> str:
     fernet = _get_fernet()
     if fernet:
         return fernet.encrypt(plaintext.encode()).decode()
-    return plaintext  # no secret configured — stored plaintext (warned at save)
+    return plaintext  # no secret configured — callers must refuse to save
 
 
 def decrypt_key(ciphertext: str) -> str:
@@ -203,8 +205,16 @@ async def save_byok_key(db, user_id: str, provider: str, plaintext_key: str) -> 
     plaintext_key = (plaintext_key or "").strip()
     if not plaintext_key:
         raise ValueError("empty_key")
+    # Fail-safe: never store a user's API key in plaintext. If the encryption
+    # secret is not configured, refuse the save loudly instead of silently
+    # degrading — the user gets a clear error instead of an unencrypted key
+    # written to MongoDB.
     if not _get_fernet():
-        logger.warning("byok: storing key plaintext for user %s (PROVIDER_KEY_ENCRYPTION_SECRET unset)", user_id)
+        logger.error(
+            "byok: REFUSING to store key for user %s — PROVIDER_KEY_ENCRYPTION_SECRET is unset",
+            user_id,
+        )
+        raise ValueError("encryption_unavailable")
 
     now = datetime.now(timezone.utc).isoformat()
     doc = {

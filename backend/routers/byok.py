@@ -186,6 +186,13 @@ async def byok_save_key(body: ByokKeyReq, user: User = Depends(_dep_current_user
     try:
         result = await save_byok_key(db, user.id, body.provider, body.key)
     except ValueError as exc:
+        if str(exc) == "encryption_unavailable":
+            raise HTTPException(
+                503,
+                "Key storage encryption is not configured on the server, so your key was NOT saved "
+                "(we never store keys unencrypted). The site administrator needs to set "
+                "PROVIDER_KEY_ENCRYPTION_SECRET, then you can save your key.",
+            )
         raise HTTPException(400, str(exc))
 
     await audit(user.id, "byok.key.saved", meta={"provider": body.provider})
