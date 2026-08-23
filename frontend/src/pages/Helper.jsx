@@ -244,14 +244,14 @@ function useTTS(voice) {
   return { speaking, speak, stop };
 }
 
-function useMobileKeyboardFix(endRef) {
+function useMobileKeyboardFix(onViewportChange) {
   useEffect(() => {
     const vv = window.visualViewport;
     if (!vv) return;
-    const handler = () => { if (endRef.current) endRef.current.scrollIntoView({ behavior:"smooth", block:"end" }); };
+    const handler = () => onViewportChange();
     vv.addEventListener("resize", handler); vv.addEventListener("scroll", handler);
     return () => { vv.removeEventListener("resize", handler); vv.removeEventListener("scroll", handler); };
-  }, [endRef]);
+  }, [onViewportChange]);
 }
 
 // ===========================================================================
@@ -271,10 +271,24 @@ export function PublicHelper({ embedded = false }) {
   const [activeTopic, setActiveTopic] = useState(null);
   const endRef = useRef(null);
   const inputRef = useRef(null);
+  const scrollRef = useRef(null);
   const callAPI = useHelperAPI();
   const navigate = useNavigate();
   const { speaking, speak, stop: stopSpeech } = useTTS("nova");
-  useMobileKeyboardFix(endRef);
+  // When embedded on a page (e.g. the landing page), scroll ONLY the helper's
+  // own chat box — never the window. scrollIntoView scrolls every scrollable
+  // ancestor, which used to yank the whole landing page down to the helper
+  // module on every message/focus and made scrolling back to the top feel
+  // impossible.
+  const scrollToEnd = useCallback(() => {
+    if (embedded) {
+      const el = scrollRef.current;
+      if (el) el.scrollTop = el.scrollHeight;
+    } else {
+      endRef.current?.scrollIntoView({ behavior: "smooth" });
+    }
+  }, [embedded]);
+  useMobileKeyboardFix(scrollToEnd);
 
   // Pre-load topic from query param e.g. ?topic=housing
   useEffect(() => {
@@ -312,17 +326,17 @@ export function PublicHelper({ embedded = false }) {
     addMsg("helper", reply);
     if (audioEnabled) speak(reply);
     setLoading(false);
-    setTimeout(() => endRef.current?.scrollIntoView({ behavior:"smooth" }), 100);
+    setTimeout(scrollToEnd, 100);
     inputRef.current?.focus();
-  }, [loading, callAPI, addMsg, audioEnabled, speak, activeTopic]);
+  }, [loading, callAPI, addMsg, audioEnabled, speak, activeTopic, scrollToEnd]);
 
   const startTopic = useCallback((topicKey, title, prompt) => {
     setActiveTopic(topicKey);
     addMsg("helper", prompt);
     if (audioEnabled) speak(prompt);
-    setTimeout(() => endRef.current?.scrollIntoView({ behavior:"smooth" }), 100);
+    setTimeout(scrollToEnd, 100);
     inputRef.current?.focus();
-  }, [addMsg, audioEnabled, speak]);
+  }, [addMsg, audioEnabled, speak, scrollToEnd]);
 
   const { listening, toggle: toggleMic } = useMic({
     onResult: (t) => sendText(t, activeTopic),
@@ -333,7 +347,7 @@ export function PublicHelper({ embedded = false }) {
     addMsg("helper", "Welcome. I'm the Helper, running on the Source protocol - my job is your system restore. Mail, bills, legal papers, housing, medicines, benefits - tell me what's glitching and I'll give you the next move in plain words. Choose a topic below or type your question.");
   }, [addMsg]);
 
-  useEffect(() => { endRef.current?.scrollIntoView({ behavior:"smooth" }); }, [msgs]);
+  useEffect(() => { scrollToEnd(); }, [msgs, scrollToEnd]);
 
   const cycleLang = () => {
     const i = LANGS.indexOf(lang);
@@ -412,7 +426,7 @@ export function PublicHelper({ embedded = false }) {
       </div>
 
       {/* SCROLLABLE AREA */}
-      <div style={{ flex:1, overflowY:"auto", padding:"0 10px 8px", WebkitOverflowScrolling:"touch" }}>
+      <div ref={scrollRef} style={{ flex:1, overflowY:"auto", padding:"0 10px 8px", WebkitOverflowScrolling:"touch" }}>
         {/* TOPIC GRID */}
         <div style={{ background:"#fff", borderRadius:14, padding: embedded ? "10px" : "12px", margin: embedded ? "8px 0" : "10px 0", boxShadow:"0 2px 12px rgba(15,23,42,.08)" }}>
           <div style={{ fontSize:13, fontWeight:700, color:"#374151", marginBottom:8 }}>
@@ -468,7 +482,7 @@ export function PublicHelper({ embedded = false }) {
           value={input}
           onChange={e => setInput(e.target.value)}
           onKeyDown={e => { if (e.key==="Enter" && !e.shiftKey) { e.preventDefault(); sendText(input, activeTopic); }}}
-          onFocus={() => setTimeout(() => endRef.current?.scrollIntoView({ behavior:"smooth" }), 300)}
+          onFocus={() => setTimeout(scrollToEnd, 300)}
           placeholder={listening ? "Listening... speak now" : activeTopic ? "Ask about " + activeTitle + "..." : "Type your question here..."}
           style={{ flex:1, minHeight:44, maxHeight:100, resize:"none", borderRadius:12, border:"1px solid #d1d5db", padding:"10px 12px", fontSize:15, fontFamily:"'IBM Plex Sans', sans-serif", outline:"none", lineHeight:1.4 }}
           rows={1}
@@ -500,7 +514,7 @@ function AuthHelper({ user }) {
   const inputRef = useRef(null);
   const callAPI = useHelperAPI();
   const { speaking, speak, stop: stopSpeech } = useTTS("shimmer");
-  useMobileKeyboardFix(endRef);
+  useMobileKeyboardFix(() => endRef.current?.scrollIntoView({ behavior: "smooth", block: "end" }));
 
   const showToast = useCallback((msg) => { setToast(msg); setTimeout(() => setToast(null), 3000); }, []);
 
