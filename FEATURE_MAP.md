@@ -553,3 +553,17 @@ This is the canonical product map. Every capability appears exactly once.
 | Community | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
 | Leaderboard | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
 | Modules | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+
+---
+
+## PHASE 17 UPDATE (2026-08-23) — CANONICAL FEATURE MAP NOW LIVE
+
+The canonical product map is now generated from the live registry and published in
+**FEATURE_ACCESS_MATRIX.md** (48 features: route → API → internal/customer →
+cost-bearing → roles → tiers → platform AI → BYOK → enforcement layer).
+
+Key deltas since this file was written:
+- Tier names normalized to real tiers (`free/member/plus/pro/patron/executive`).
+- 4 stale registry `api_endpoints` corrected against the real route table.
+- Enforcement is now layered: FCC middleware + exec flags + router rank checks
+  (see ACCESS_CONTROL_ARCHITECTURE.md).

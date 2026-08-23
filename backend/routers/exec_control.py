@@ -1080,6 +1080,7 @@ async def ec_access_public():
     try:
         from routers.features import FEATURE_REGISTRY
         fcc_docs = await db.feature_configs.find({}, {"_id": 0}).to_list(500)
+        overridden_keys = set()
         for cfg in fcc_docs:
             reg = next(
                 (r for r in FEATURE_REGISTRY if r.get("feature_id") == cfg.get("feature_id")),
@@ -1091,11 +1092,31 @@ async def ec_access_public():
             key = route.split("/")[0] if route else None
             if not key:
                 continue
+            overridden_keys.add(key)
             entry = pages.get(key, {"enabled": True, "allowed_roles": None})
             if "enabled" in cfg:
                 entry["enabled"] = cfg["enabled"]
             if "allowed_roles" in cfg:
                 entry["allowed_roles"] = cfg["allowed_roles"]
+            pages[key] = entry
+        # Registry classification pass: INTERNAL-only features (Arena, Jamil,
+        # Orchestrator, Admin Assistant, admin surfaces) are never shown in
+        # customer navigation.  Their registry default roles gate the page key
+        # unless an admin explicitly overrode the feature in the FCC (those
+        # keys were handled above and are skipped).  Non-internal features are
+        # untouched — registry defaults alone never hide a customer feature.
+        for reg in FEATURE_REGISTRY:
+            if not reg.get("internal_only"):
+                continue
+            route = (reg.get("route") or "").strip("/")
+            key = route.split("/")[0] if route else None
+            if not key or key in overridden_keys:
+                continue
+            roles = reg.get("default_roles") or []
+            if not roles:
+                continue
+            entry = pages.get(key, {"enabled": True, "allowed_roles": None})
+            entry["allowed_roles"] = roles
             pages[key] = entry
     except Exception:
         # A gate-map merge failure must never break the public gate map.

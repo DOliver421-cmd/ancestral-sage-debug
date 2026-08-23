@@ -101,3 +101,21 @@ This model requires:
 5. Build Feature Control Center UI
 6. Update frontend to use unified access check (role AND tier)
 7. Deprecate standalone role-based nav checks in favor of capability-based checks
+
+---
+
+## PHASE 17 UPDATE (2026-08-23) — REAL DEFINITIONS VERIFIED
+
+- The real stored roles are `student(1), trial_pass(2), instructor(3), support_staff(4),
+  oversight(5), admin(6), executive_admin(7)` (source: `backend/roles.py` +
+  `frontend/src/lib/roles.js` — they mirror exactly). `public` (0) is the
+  unauthenticated baseline, never a stored role.
+- The real product tiers are `free(0), member(1), plus(2), pro(3), patron(4),
+  executive(5)` (source: `security/feature_control.py TIER_RANK`,
+  `routers/exec_control.py _BUILTIN_TIERS`, `frontend/src/lib/tiers.js`).
+- **There is no `creator`, `studio`, or `director` tier.** Phase 17 normalized every
+  registry `default_tiers` entry to real tiers and verified zero invented labels
+  remain (see FEATURE_ACCESS_MATRIX.md).
+- Role and tier remain independent: internal/proprietary features check ROLE first;
+  commercial entitlements check TIER; funding (platform vs BYOK) is a separate
+  decision enforced after authorization.

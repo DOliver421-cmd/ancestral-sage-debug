@@ -175,3 +175,21 @@ Every nav label was evaluated against: "Can a new user understand what this does
 3. **5 ambiguous labels** need functional descriptions
 4. **Route mismatches** where label doesn't match route name
 5. **Brand names without context** (Vonns Saga, AAWAB, Palace)
+
+---
+
+## PHASE 17 UPDATE (2026-08-23) — CANONICAL HOMES + INTERNAL VISIBILITY
+
+- **Fixed:** internal-only features (Jamil, Admin Assistant, Orchestrator, Arena) no
+  longer appear in customer navigation — the gate map now carries registry
+  internal-only defaults, so `isPageEnabled` hides them for unauthorized users
+  (unit-tested).
+- **Fixed:** dead `/orchestrator` nav link removed (route never existed).
+- **Arena** remains in the admin-only Director section only (never customer nav).
+- Personas stay grouped under the NAM / AI Assistants sections (no new top-level
+  items added).
+- Still pending (documented, not renamed blindly): `/trash` → M.O.R.E. Pantheon;
+  branded labels without descriptors (Vonns Saga, Palace, AAWAB);
+  Ghost Producer roles reconciliation (admin-gated page vs registry `student+`).
+- Rule going forward: no new top-level nav item without a FEATURE_MAP entry + access
+  policy (fail-closed).

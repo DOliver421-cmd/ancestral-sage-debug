@@ -231,6 +231,14 @@ def test_ec_access_public_merges_fcc_overrides():
     assert pages["helper"]["allowed_roles"] == ["admin"]
     # Registry/DB pages untouched by the FCC keep their own values.
     assert "ai" in pages  # PAGE_ACCESS_REGISTRY entry still present
+    # INTERNAL-only registry defaults gate customer nav: Jamil (admin+),
+    # Arena (exec) are hidden from students by the existing isPageEnabled
+    # allowed_roles check — no DB override needed.
+    assert pages["jamil"]["allowed_roles"] == ["admin", "executive_admin"]
+    assert pages["arena"]["allowed_roles"] == ["executive_admin"]
+    # Non-internal features are NOT gated by registry defaults (no lockout).
+    assert pages.get("helper", {}).get("allowed_roles") == ["admin"]  # from DB override only
+    assert "council" not in pages or pages["council"].get("enabled", True) is not False
 
 
 # ── Runner (works without pytest installed) ──────────────────────────────────
