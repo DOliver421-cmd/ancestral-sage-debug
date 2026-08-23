@@ -5,6 +5,8 @@ export const MORE_LOGO = "/MORE_Logo.svg";
 // Backwards-compatible alias kept while the legacy WAI mark is retired.
 export const WAI_LOGO = MORE_LOGO;
 
+export const WAI_INSTITUTE_URL = "https://www.wai-institute.org";
+
 export const BRAND = {
   short: "M.O.R.E.",
   name: "M.O.R.E. Help Center",
@@ -12,4 +14,5 @@ export const BRAND = {
   full: "M.O.R.E. Help Center — a division of NAM Oshun Edutainment LLC",
   tagline: "A social-service virtual help center — skills, support, and solidarity.",
   mission: "Help people. Lift people. Love people.",
+  presentedBy: "Presented by WAI Institute",
 };

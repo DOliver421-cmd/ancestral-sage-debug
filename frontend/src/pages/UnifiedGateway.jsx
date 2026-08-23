@@ -3,6 +3,12 @@ import { useAuth } from "../lib/auth";
 import { BRAND, WAI_LOGO } from "../lib/brand";
 import PublicNav from "../components/PublicNav";
 import { PublicHelper } from "./Helper";
+import {
+  BookOpen, Users, MessageSquare, Music, Gamepad2, Shield,
+  Award, Search, Heart, DollarSign, ArrowRight, Globe, Sparkles,
+  HelpCircle, Scale, Radio, Star, ShoppingBag, Mic, Palette,
+  Video, BrainCircuit, FlaskConical, Target, Briefcase, Map,
+} from "lucide-react";
 
 // The logo D. Oliver provided — kept as a direct public asset reference so it
 // is actually placed on the page instead of only the generated SVG mark.
@@ -17,7 +23,7 @@ export default function UnifiedGateway() {
 
       {/* ── HERO ─────────────────────────────────────────────────────────── */}
       <section className="relative overflow-hidden"
-        style={{ background: "linear-gradient(160deg, #0a0a0f 0%, #1a0a00 50%, #0d1a0a 100%)", minHeight: "90vh" }}>
+        style={{ background: "linear-gradient(160deg, #0a0a0f 0%, #1a0a00 50%, #0d1a0a 100%)", minHeight: "80vh" }}>
 
         {/* Grain texture overlay */}
         <div className="absolute inset-0 opacity-20"
@@ -105,6 +111,112 @@ export default function UnifiedGateway() {
                 <div style={{ fontSize: 12, color: "rgba(255,255,255,0.4)", marginTop: 4, textTransform: "uppercase", letterSpacing: "0.1em" }}>{label}</div>
               </div>
             ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ── EXPLORE THE PLATFORM ──────────────────────────────────────────── */}
+      <section className="py-20 px-6" style={{ background: "#faf9f7" }}>
+        <div className="max-w-6xl mx-auto">
+          <div className="text-center mb-12">
+            <div className="overline text-copper mb-3">Explore M.O.R.E.</div>
+            <h2 className="font-heading font-black text-4xl text-ink mb-4">Everything that's here — go anywhere.</h2>
+            <p className="text-ink/50 max-w-2xl mx-auto text-lg">
+              170+ pages, tools, and features. No walls, no locks. Explore what matters to you.
+            </p>
+          </div>
+
+          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            {/* Row 1: Learn */}
+            [
+              { icon: BookOpen, title: "Free Courses", desc: "Modules, curriculum, and open-access learning paths.", to: "/courses" },
+              { icon: FlaskConical, title: "Workforce Labs", desc: "Hands-on simulations and competency verification.", to: "/labs" },
+              { icon: Target, title: "Competencies", desc: "Track and prove your trade skills.", to: "/competencies" },
+              { icon: Award, title: "Credentials", desc: "Certificates, portfolios, and verifiable proof.", to: "/credentials" },
+            ].map(({ icon: Icon, title, desc, to }) => (
+              <Link key={title} to={to}
+                className="p-5 rounded-xl border border-ink/10 bg-white hover:border-copper hover:shadow-md transition-all group no-underline block">
+                <Icon className="w-6 h-6 text-copper mb-3" />
+                <div className="font-heading font-bold text-ink group-hover:text-copper transition-colors text-sm">{title}</div>
+                <div className="text-ink/50 text-xs mt-1 leading-relaxed">{desc}</div>
+              </Link>
+            ))}
+          </div>
+
+          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4 mt-4">
+            {/* Row 2: Create */}
+            [
+              { icon: Music, title: "Creator Studio", desc: "Music, video, scripts, and multi-modal production.", to: "/studio" },
+              { icon: Palette, title: "Ghost Producer", desc: "AI-assisted content creation.", to: "/ghost-producer" },
+              { icon: Radio, title: "Social Blast", desc: "Publish to 6 platforms in one click.", to: "/social/publish" },
+              { icon: Video, title: "Course Manager", desc: "Build and sell your own courses.", to: "/creator/courses" },
+            ].map(({ icon: Icon, title, desc, to }) => (
+              <Link key={title} to={to}
+                className="p-5 rounded-xl border border-ink/10 bg-white hover:border-copper hover:shadow-md transition-all group no-underline block">
+                <Icon className="w-6 h-6 text-copper mb-3" />
+                <div className="font-heading font-bold text-ink group-hover:text-copper transition-colors text-sm">{title}</div>
+                <div className="text-ink/50 text-xs mt-1 leading-relaxed">{desc}</div>
+              </Link>
+            ))}
+          </div>
+
+          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4 mt-4">
+            {/* Row 3: Community & Tools */}
+            [
+              { icon: Users, title: "Community", desc: "Exchange, mutual aid, and real connection.", to: "/community" },
+              { icon: MessageSquare, title: "Community Chat", desc: "5 rooms, real-time conversation.", to: "/more/chat" },
+              { icon: HelpCircle, title: "My Helper", desc: "Free AI guidance — read mail, bills, papers.", to: "/helper" },
+              { icon: Scale, title: "Legal Tools", desc: "Know your rights, protect yourself.", to: "/more/litigation" },
+            ].map(({ icon: Icon, title, desc, to }) => (
+              <Link key={title} to={to}
+                className="p-5 rounded-xl border border-ink/10 bg-white hover:border-copper hover:shadow-md transition-all group no-underline block">
+                <Icon className="w-6 h-6 text-copper mb-3" />
+                <div className="font-heading font-bold text-ink group-hover:text-copper transition-colors text-sm">{title}</div>
+                <div className="text-ink/50 text-xs mt-1 leading-relaxed">{desc}</div>
+              </Link>
+            ))}
+          </div>
+
+          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4 mt-4">
+            {/* Row 4: Commerce & Explore */}
+            [
+              { icon: ShoppingBag, title: "Media Store", desc: "Browse and buy creator content.", to: "/store" },
+              { icon: Star, title: "Plans & Pricing", desc: "Free, Member, Plus, Pro, Patron.", to: "/plans" },
+              { icon: Gamepad2, title: "Virtual Arcade", desc: "Games, puzzles, and daily XP.", to: "/arcade" },
+              { icon: Search, title: "Knowledge Finder", desc: "Search the platform's own knowledge.", to: "/knowledge" },
+            ].map(({ icon: Icon, title, desc, to }) => (
+              <Link key={title} to={to}
+                className="p-5 rounded-xl border border-ink/10 bg-white hover:border-copper hover:shadow-md transition-all group no-underline block">
+                <Icon className="w-6 h-6 text-copper mb-3" />
+                <div className="font-heading font-bold text-ink group-hover:text-copper transition-colors text-sm">{title}</div>
+                <div className="text-ink/50 text-xs mt-1 leading-relaxed">{desc}</div>
+              </Link>
+            ))}
+          </div>
+
+          {/* Row 5: Institute + CTA */}
+          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4 mt-4">
+            [
+              { icon: BrainCircuit, title: "My AI Keys", desc: "Connect your own AI key (BYOK).", to: "/byok" },
+              { icon: Map, title: "Site Guide", desc: "Navigate like a pro.", to: "/site-guide" },
+              { icon: Globe, title: "WAI Institute", desc: "Accredited-track education.", to: "/wai-institute" },
+              { icon: Sparkles, title: "Ascension Protocols", desc: "Free 90-day growth course.", to: "/ascension-protocols" },
+            ].map(({ icon: Icon, title, desc, to }) => (
+              <Link key={title} to={to}
+                className="p-5 rounded-xl border border-ink/10 bg-white hover:border-copper hover:shadow-md transition-all group no-underline block">
+                <Icon className="w-6 h-6 text-copper mb-3" />
+                <div className="font-heading font-bold text-ink group-hover:text-copper transition-colors text-sm">{title}</div>
+                <div className="text-ink/50 text-xs mt-1 leading-relaxed">{desc}</div>
+              </Link>
+            ))}
+          </div>
+
+          <div className="text-center mt-8">
+            <Link to="/login"
+              className="inline-flex items-center gap-2 font-black text-sm px-8 py-3 rounded-xl"
+              style={{ background: "#E8A51E", color: "#0a0a0a" }}>
+              Sign In to Unlock Everything <ArrowRight className="w-4 h-4" />
+            </Link>
           </div>
         </div>
       </section>
@@ -337,9 +449,22 @@ export default function UnifiedGateway() {
               </div>
             </div>
             <div className="flex flex-wrap gap-6 text-xs">
-              {[["Plans", "/plans"], ["Creators", "/creators"], ["M.O.R.E. Institute", "/wai-institute"], ["Donate", "/donate"], ["Privacy", "/privacy"], ["Terms", "/terms"], ["Refund Policy", "/refund-policy"]].map(([l, h]) => (
+            {[["Plans", "/plans"], ["Creators", "/creators"], ["Courses", "/courses"], ["Community", "/community"], ["Helper", "/helper"], ["Store", "/store"]].map(([l, h]) => (
+              <Link key={l} to={h} className="hover:text-white transition-colors">{l}</Link>
+            ))}
+            {[
+              ["WAI Institute", "https://www.wai-institute.org"],
+              ["Donate", "/donate"],
+              ["Privacy", "/privacy"],
+              ["Terms", "/terms"],
+              ["Refund Policy", "/refund-policy"],
+            ].map(([l, h]) => (
+              h.startsWith("http") ? (
+                <a key={l} href={h} target="_blank" rel="noopener noreferrer" className="hover:text-white transition-colors">{l}</a>
+              ) : (
                 <Link key={l} to={h} className="hover:text-white transition-colors">{l}</Link>
-              ))}
+              )
+            ))}
             </div>
           </div>
           <div className="flex flex-col sm:flex-row items-center justify-between gap-2 text-xs">

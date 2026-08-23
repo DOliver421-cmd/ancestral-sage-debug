@@ -1,6 +1,6 @@
 import { Link } from "react-router-dom";
-import { WAI_LOGO, BRAND } from "../lib/brand";
-import { BookOpen, BookMarked, Settings, Sparkles, Award, Users, LogIn, UserPlus, ArrowRight, HelpCircle } from "lucide-react";
+import { WAI_LOGO, BRAND, WAI_INSTITUTE_URL } from "../lib/brand";
+import { BookOpen, BookMarked, Settings, Sparkles, Award, Users, LogIn, UserPlus, ArrowRight, HelpCircle, Globe } from "lucide-react";
 
 const PORTALS = [
   {
@@ -64,6 +64,9 @@ export default function WAIInstitute() {
             </div>
           </Link>
           <div className="flex items-center gap-3">
+            <a href={WAI_INSTITUTE_URL} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-sm font-bold text-white/70 hover:text-white transition-colors">
+              <Globe className="w-4 h-4" /> WAIInstitute.org
+            </a>
             <a href="https://www.morehelp.center/help-center" target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-sm font-bold text-white/70 hover:text-white transition-colors">
               <HelpCircle className="w-4 h-4" /> Help & Support
             </a>
