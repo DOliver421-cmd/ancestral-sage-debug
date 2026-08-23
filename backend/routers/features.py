@@ -309,6 +309,7 @@ FEATURE_REGISTRY = [
         "category": "learning",
         "ecosystem": "LEARN",
         "route": "/modules",
+        "public_access": True,  # /modules and /courses are public discovery pages
         "api_endpoints": ["/api/lms/modules"],
         "default_roles": ["student", "admin", "executive_admin"],
         "default_tiers": ["free", "member", "plus", "pro", "patron"],  # legacy labels normalized (creator→member, studio→plus, director→patron)
@@ -491,6 +492,7 @@ FEATURE_REGISTRY = [
         "category": "community",
         "ecosystem": "COMMUNITY",
         "route": "/leaderboard",
+        "public_access": True,  # /leaderboard is a public page
         "api_endpoints": ["/api/community/leaderboard"],
         "default_roles": ["student", "admin", "executive_admin"],
         "default_tiers": ["free", "member", "plus", "pro", "patron"],  # legacy labels normalized (creator→member, studio→plus, director→patron)
@@ -563,6 +565,7 @@ FEATURE_REGISTRY = [
         "category": "community",
         "ecosystem": "COMMUNITY",
         "route": "/vonns-saga",
+        "public_access": True,  # /vonns-saga is a public page
         "api_endpoints": ["/api/saga"],
         "default_roles": ["student", "admin", "executive_admin"],
         "default_tiers": ["free", "member", "plus", "pro", "patron"],  # legacy labels normalized (creator→member, studio→plus, director→patron)
@@ -601,6 +604,7 @@ FEATURE_REGISTRY = [
         "category": "commerce",
         "ecosystem": "MARKETPLACE",
         "route": "/store",
+        "public_access": True,  # /store is publicly reachable (public MediaStore route)
         "api_endpoints": ["/api/commerce/store"],
         "default_roles": ["student", "admin", "executive_admin"],
         "default_tiers": ["free", "member", "plus", "pro", "patron"],  # legacy labels normalized (creator→member, studio→plus, director→patron)
@@ -619,6 +623,7 @@ FEATURE_REGISTRY = [
         "category": "commerce",
         "ecosystem": "MARKETPLACE",
         "route": "/plans",
+        "public_access": True,  # /plans is a public page
         "api_endpoints": [],
         "default_roles": ["student", "admin", "executive_admin"],
         "default_tiers": ["free", "member", "plus", "pro", "patron"],  # legacy labels normalized (creator→member, studio→plus, director→patron)
@@ -957,6 +962,7 @@ def get_feature_config(feature_id: str) -> Optional[dict]:
         "internal_only": reg.get("internal_only", False),
         "customer_access_allowed": reg.get("customer_access_allowed", True),
         "cost_bearing": reg.get("cost_bearing", False),
+        "public_access": reg.get("public_access", False),
     }
     return {
         "feature_id": feature_id,
@@ -1002,6 +1008,7 @@ async def get_feature_config_async(feature_id: str) -> Optional[dict]:
             "customer_access_allowed", base["customer_access_allowed"]
         ),
         "cost_bearing": override.get("cost_bearing", base["cost_bearing"]),
+        "public_access": override.get("public_access", base["public_access"]),
     }
 
 
@@ -1038,6 +1045,7 @@ async def feature_gate_map():
             "internal_only": config["internal_only"],
             "customer_access_allowed": config["customer_access_allowed"],
             "cost_bearing": config["cost_bearing"],
+            "public_access": config["public_access"],
         }
     return {"features": gate_map}
 
@@ -1089,7 +1097,7 @@ async def update_feature(feature_id: str, body: dict, request, actor=Depends(cur
 
     # Build update
     update_fields = {}
-    for key in ["enabled", "allowed_roles", "allowed_tiers", "platform_ai", "byok_allowed", "navigation_visible", "internal_only", "customer_access_allowed", "cost_bearing"]:
+    for key in ["enabled", "allowed_roles", "allowed_tiers", "platform_ai", "byok_allowed", "navigation_visible", "internal_only", "customer_access_allowed", "cost_bearing", "public_access"]:
         if key in body:
             update_fields[key] = body[key]
 

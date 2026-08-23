@@ -10,8 +10,9 @@
  * matcher, so a disabled page disappears from navigation AND from the router.
  */
 import { api } from "./api";
+import { isNavItemVisible } from "./navAccess";
 
-let gates = {};      // { pageKey: enabled }
+let gates = {};      // { pageKey: { enabled, allowed_roles, allowed_tiers, public_access, navigation_visible } }
 let loading = null;  // shared in-flight promise
 
 export function getGates() {
@@ -48,19 +49,16 @@ export function pathKey(pathname) {
   return seg || "home";
 }
 
-/** True unless an exec gate explicitly disabled this page. */
+/**
+ * isPageEnabled — one projection of the canonical Feature Registry gate map.
+ *
+ * Resolves the page key and delegates the decision to the pure shared module
+ * (src/lib/navAccess.js) so the sidebar and the node integrity test run the
+ * exact same logic. Navigation visibility is UX only — the backend is
+ * authoritative.
+ */
 export function isPageEnabled(pathname, user = null) {
-  const k = pathKey(pathname);
-  if (k === "home" || k === "login" || k === "register" || k === "forgot-password") return true;
-  const policy = gates[k];
-  if (policy === false) return false;
-  if (!policy || typeof policy !== "object") return true;
-  if (policy.enabled === false) return false;
-  const allowedRoles = policy.allowed_roles;
-  if (Array.isArray(allowedRoles) && allowedRoles.length > 0) {
-    return Boolean(user && allowedRoles.includes(user.role));
-  }
-  return true;
+  return isNavItemVisible(pathKey(pathname), user, gates[pathKey(pathname)]);
 }
 
 /** Fetch the gate map once; safe to call from anywhere. */

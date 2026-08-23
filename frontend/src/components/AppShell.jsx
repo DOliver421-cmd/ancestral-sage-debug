@@ -2,6 +2,7 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 import { API } from "../lib/api";
 import { useAuth } from "../lib/auth";
 import { ROLE_RANK } from "../lib/roles";
+import { tierRank, tierLabel } from "../lib/tiers";
 import { WAI_LOGO, BRAND } from "../lib/brand";
 import {
   LayoutDashboard, BookOpen, Award, Users, Settings, Sparkles, LogOut,
@@ -105,6 +106,14 @@ export default function AppShell({ children }) {
   const isExec   = hasRank("executive_admin");
   const isInstructor = hasRank("instructor");
   const isSupport = hasRank("support_staff");
+
+  // Tier-first customer access (mirrors src/lib/tiers.js ladder). A signed-in
+  // user's feature_tier drives which customer sections/items are visible; the
+  // gate map (Feature Registry + FCC) supplies the per-item allowed_tiers.
+  const isAuthed = !!user;
+  const tier = user?.feature_tier || "free";
+  const hasTier = (min) => tierRank(tier) >= tierRank(min);
+  const byokUnlocked = !!user?.byok_enabled;
 
   const toggleCollapsed = () => {
     setCollapsed(c => {
@@ -211,8 +220,8 @@ export default function AppShell({ children }) {
           {/* ── HOME (everyone) ───────────────────────────────────────── */}
           <NavSection label="Home" collapsed={collapsed}>
             {nl("/",                "Home / Landing",  Globe,            "nav-home")}
-            {nl("/dashboard",       "Dashboard",       LayoutDashboard, "nav-dashboard")}
-            {waiDoor ? (
+            {isAuthed && nl("/dashboard",       "Dashboard",       LayoutDashboard, "nav-dashboard")}
+            {isAuthed && (waiDoor ? (
               <>
                 {out("/profile",        "My Profile",      UserCircle,      "nav-profile")}
                 {out("/settings",       "Settings",        KeyRound,        "nav-settings")}
@@ -222,12 +231,33 @@ export default function AppShell({ children }) {
                 {nl("/profile",         "My Profile",      UserCircle,      "nav-profile")}
                 {nl("/settings",        "Settings",        KeyRound,        "nav-settings")}
               </>
-            )}
+            ))}
           </NavSection>
 
+          {/* PUBLIC — anonymous visitors only (no dashboard, no premium items) */}
+          {!isAuthed && (
+            <NavSection label="Explore" collapsed={collapsed} defaultOpen={true}>
+              {nl("/courses",       "Courses",        BookOpen,        "nav-public-courses")}
+              {nl("/creators",      "Creators",       Users,           "nav-public-creators")}
+              {nl("/community",     "Community",      Radio,           "nav-public-community")}
+              {nl("/store",         "Store",          ShoppingBag,     "nav-public-store")}
+              {nl("/help-center",   "Help",           HelpCircle,      "nav-public-help")}
+            </NavSection>
+          )}
+
+          {/* YOUR ACCESS — tier status so signed-in users see the boundary */}
+          {isAuthed && (
+            <NavSection label="Your Access" collapsed={collapsed} defaultOpen={false}>
+              <div className="px-3 pb-1 text-[10px] font-black uppercase tracking-widest text-white/40">
+                {tierLabel(tier)} access{byokUnlocked ? " · BYOK unlocked" : ""}
+              </div>
+              {nl("/plans", "Plans & Upgrade", Star, "nav-plans-upgrade")}
+            </NavSection>
+          )}
+
           {/* ── NAM (AI Leadership — first-class, always accessible) ──── */}
-          {hasRank("student") && (
-          <NavSection label="NAM" collapsed={collapsed}>
+          {isAuthed && hasRank("student") && (
+          <NavSection label="AI" collapsed={collapsed}>
             <NavSubGroup label="AI Assistants" collapsed={collapsed} defaultOpen={true}>
               {nl("/ai",              "AI Tutor",        Sparkles,        "nav-ai")}
               {nl("/helper",          "Personal Helper",  HelpCircle,      "nav-helper")}
@@ -243,7 +273,7 @@ export default function AppShell({ children }) {
           )}
 
           {/* ── CREATE (Creator tools & content) ─────────────────────── */}
-          {hasRank("student") && (
+          {isAuthed && hasRank("student") && hasTier("member") && (
           <NavSection label="Create" collapsed={collapsed}>
             {waiDoor ? (
               <>
@@ -270,7 +300,7 @@ export default function AppShell({ children }) {
           )}
 
           {/* ── LEARN (Curriculum & credentials) ─────────────────────── */}
-          {hasRank("student") && (
+          {isAuthed && hasRank("student") && (
           <NavSection label="Learn" collapsed={collapsed}>
             <NavSubGroup label="Curriculum" collapsed={collapsed} defaultOpen={true}>
               {nl("/modules",         "Modules",         BookOpen,        "nav-modules")}
@@ -293,7 +323,7 @@ export default function AppShell({ children }) {
           )}
 
           {/* ── COMMUNITY (Social & guilds) ──────────────────────────── */}
-          {hasRank("student") && (
+          {isAuthed && hasRank("student") && (
           <NavSection label="Community" collapsed={collapsed}>
             {waiDoor ? (
               <>
@@ -321,7 +351,7 @@ export default function AppShell({ children }) {
           )}
 
           {/* ── MARKETPLACE (Commerce & sales) ───────────────────────── */}
-          {hasRank("student") && (
+          {isAuthed && hasRank("student") && (
           <NavSection label="Marketplace" collapsed={collapsed}>
             {waiDoor ? (
               <>
@@ -347,7 +377,7 @@ export default function AppShell({ children }) {
           )}
 
           {/* ── SANCTUARY (Healing & reflection) ─────────────────────── */}
-          {hasRank("student") && (
+          {isAuthed && hasRank("student") && (
           <NavSection label="Sanctuary" collapsed={collapsed}>
             {nl("/sanctuary",       "Sanctuary",       Heart,           "nav-sanctuary")}
             {nl("/knowledge-base",  "Knowledge Base",   BookOpen,        "nav-kb")}
@@ -355,7 +385,7 @@ export default function AppShell({ children }) {
           )}
 
           {/* ── MUSIC (Studio & catalog) ─────────────────────────────── */}
-          {hasRank("student") && (
+          {isAuthed && hasRank("student") && (
           <NavSection label="Music" collapsed={collapsed}>
             {nl("/band",            "Band on a Page",   Music,           "nav-band")}
             {nl("/playlist/dashboard","Playlist Manager", Radio,          "nav-playlist")}
@@ -363,7 +393,7 @@ export default function AppShell({ children }) {
           )}
 
           {/* ── GAMES (Arcade & competition) ─────────────────────────── */}
-          {hasRank("student") && (
+          {isAuthed && hasRank("student") && (
           <NavSection label="Games" collapsed={collapsed}>
             {nl("/arcade",          "Virtual Arcade",   Gamepad2,        "nav-arcade")}
             {nl("/trash",           "M.O.R.E. Pantheon", Star,          "nav-trash")}
@@ -383,7 +413,6 @@ export default function AppShell({ children }) {
                 {nl("/admin",           "Admin Overview",  Settings,       "nav-admin")}
                 {nl("/admin/iam",       "IAM Console",     ShieldCheck,    "nav-iam")}
                 {nl("/admin/office",    "Business Office", Landmark,       "nav-exec-office")}
-                {nl("/admin/command",   "Command Center",  Crown,          "nav-exec-system")}
                 {nl("/admin/health",    "System Health",   ShieldCheck,    "nav-health")}
               </NavSubGroup>
               <NavSubGroup label="Finance" collapsed={collapsed}>
@@ -399,13 +428,20 @@ export default function AppShell({ children }) {
                 {nl("/admin/sage-audit","Sage Audit",      ScrollText,     "nav-sage-audit")}
               </NavSubGroup>
               <NavSubGroup label="Tools" collapsed={collapsed}>
-                {nl("/arena",            "The Arena",        Swords,       "nav-arena")}
                 {nl("/admin/features", "Feature Control", Wrench, "nav-features")}
                 {nl("/admin/tools",     "Sites & Inventory", Building2,    "nav-admin-tools")}
                 {nl("/admin/bridge",    "AI Team Bridge",  Network,        "nav-bridge")}
                 {nl("/admin/providers", "Provider Gateway", Network,       "nav-providers")}
                 {nl("/admin/exec-report","Site Report",    ClipboardCheck,"nav-exec-report")}
               </NavSubGroup>
+            </NavSection>
+          )}
+
+          {/* ── EXECUTIVE (exec-only — proprietary internal systems) ───── */}
+          {isExec && (
+            <NavSection label="Executive" collapsed={collapsed} defaultOpen={false}>
+              {nl("/admin/command", "Command Center", Crown, "nav-command-center")}
+              {nl("/arena",         "The Arena",      Swords, "nav-arena")}
             </NavSection>
           )}
 
@@ -478,7 +514,22 @@ export default function AppShell({ children }) {
 
         {/* User footer */}
         <div className={`py-4 border-t border-white/10 shrink-0 ${collapsed ? "px-1" : "px-4"}`}>
-          {!collapsed && (
+          {!isAuthed && !collapsed && (
+            <>
+              <div className="text-xs text-white/50 uppercase tracking-widest">Visitor</div>
+              <div className="flex flex-col gap-2 mt-3">
+                <Link to="/login" data-testid="nav-sign-in"
+                  className="w-full text-center border border-white/25 py-2 text-xs uppercase tracking-widest font-bold hover:bg-white hover:text-ink transition-colors">
+                  Sign In
+                </Link>
+                <Link to="/register" data-testid="nav-register"
+                  className="w-full text-center bg-signal text-ink py-2 text-xs uppercase tracking-widest font-bold hover:opacity-90 transition-opacity">
+                  Create Account
+                </Link>
+              </div>
+            </>
+          )}
+          {isAuthed && !collapsed && (
             <>
               <div className="text-xs text-white/50 uppercase tracking-widest">Signed in as</div>
               <div className="font-heading text-white font-semibold mt-1 truncate flex items-center gap-2">
@@ -491,12 +542,14 @@ export default function AppShell({ children }) {
               <div className="text-xs text-white/50 capitalize">{role.replace("_", " ")}{user?.associate ? ` · ${user.associate}` : ""}</div>
             </>
           )}
-          <button onClick={() => { logout(); nav("/"); }} data-testid="btn-logout"
-            title="Log Out"
-            className={`mt-3 w-full flex items-center justify-center gap-2 border border-white/20 py-2 text-xs uppercase tracking-widest font-bold hover:bg-white hover:text-ink transition-colors ${collapsed ? "px-0" : ""}`}>
-            <LogOut className="w-3.5 h-3.5" />
-            {!collapsed && "Log Out"}
-          </button>
+          {isAuthed && (
+            <button onClick={() => { logout(); nav("/"); }} data-testid="btn-logout"
+              title="Log Out"
+              className={`mt-3 w-full flex items-center justify-center gap-2 border border-white/20 py-2 text-xs uppercase tracking-widest font-bold hover:bg-white hover:text-ink transition-colors ${collapsed ? "px-0" : ""}`}>
+              <LogOut className="w-3.5 h-3.5" />
+              {!collapsed && "Log Out"}
+            </button>
+          )}
         </div>
       </aside>
 

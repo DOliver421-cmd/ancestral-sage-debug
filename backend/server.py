@@ -463,6 +463,9 @@ class User(BaseModel):
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     avatar_url: Optional[str] = None
     feature_tier: str = "free"
+    # $3 BYOK entitlement (flipped by POST /api/byok/activate).  Exposed on
+    # /auth/me so the frontend can show the BYOK-unlock state in navigation.
+    byok_enabled: bool = False
 
 
 class RegisterReq(BaseModel):
