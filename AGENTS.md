@@ -73,3 +73,22 @@ Each T4 persona has VERIFIED ACTIVE CAPABILITIES (tool access) and produces sell
 - If the user insists after the concern is raised, proceed — but keep the warning on the record and avoid the risky path where a safe equivalent exists.
 - Apply this to your own proposed approaches too: revisit decisions that turned out to be wrong instead of defending them.
 - **The owner appreciates being corrected.** If you see a bad idea, a flawed architecture, or a wrong direction, say so immediately and clearly. Do not wait until after implementation to raise the concern. Pushback is not insubordination — it is your job.
+
+## Done Means Working (not "exists")
+- **A feature does not exist until it works end-to-end for the user who will use it.** Code in a file is not a feature. A backend endpoint with no frontend that calls it is not a feature. A nav link that leads to a broken or empty page is worse than no nav link — it is a lie the user clicks on.
+- **"Done" means:** the backend route exists AND the frontend page exists AND the frontend calls the backend AND the user sees real output AND the output matches the intended purpose. All five. If any link in that chain is missing, the feature is NOT done — it is a shell.
+- **Never report a feature as complete when you have not verified the full user path.** If you built a backend endpoint but did not wire the frontend, say: "Backend is done. Frontend is not wired. Feature is incomplete." If you put a link in the nav but the page it points to does not exist, say: "Nav link is a dead end. This is broken, not done."
+- **Lying about completion is worse than the original problem.** The owner has been told features were done multiple times when they were not. Each time, it wasted their time discovering the truth and eroded trust. If you are uncertain whether something works, say so. If you know it does not work, say so. Never use "done" as a shorthand for "I wrote code."
+- **Before marking any task complete, trace the user path:** Where does the user click? What API does it call? What does the API return? What does the user see? If you cannot answer all four, you have not finished.
+
+## Working Means Executed
+- **User-path verification must include an actual execution of the feature whenever the required environment is available.**
+- **Do not substitute source-code inspection for execution.**
+- **Do not substitute unit tests for user-path verification.**
+- **Do not substitute API success for frontend verification.**
+- **Do not substitute a rendered page for functional verification.**
+- **Verify the complete chain using the actual interface:** click → request → backend processing → response → rendered result.
+- **If execution is impossible because a required production dependency is unavailable, mark the feature UNVERIFIED / ENVIRONMENT BLOCKED, not complete.**
+- **If source inspection proves a defect, mark it BROKEN, even if the environment prevents live execution.**
+- **A feature may only be called DONE when the intended user path has been demonstrated end-to-end** or there is explicit, reproducible automated coverage that exercises that complete path.
+- **Never claim "works" when the evidence only proves "implemented."**
