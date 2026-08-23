@@ -493,6 +493,13 @@ export default function CompetitionArena() {
       </AppShell>
     );
   }
+  return <ArenaWorkspace />;
+}
+
+// Exec-only workspace. Kept as a separate component so every hook in it is
+// called unconditionally (React rules-of-hooks) — the wrapper above decides
+// who may render it, the hooks below never run conditionally.
+function ArenaWorkspace() {
   const [task, setTask] = useState("");
   const [loading, setLoading] = useState(false);
   const [results, setResults] = useState(null);
