@@ -45,7 +45,7 @@ export const MEMBERSHIP_PLANS = [
     features: [
       "Everything in Public",
       "Full M.O.R.E. — post & connect",
-      "AI Tutor (standard)",
+      "AI-ready: use your own key (BYOK $3)",
       "Member badge",
       "Cancel anytime",
     ],
@@ -79,7 +79,7 @@ export const MEMBERSHIP_PLANS = [
     features: [
       "Everything in Plus",
       "Advanced courses + labs",
-      "Full AI tools suite",
+      "AI-ready: use your own key (BYOK $3)",
       "Advanced creator tools & priority support",
       "Mentor support hours",
     ],

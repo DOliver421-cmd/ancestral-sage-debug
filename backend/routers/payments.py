@@ -134,6 +134,78 @@ class CheckoutReq(BaseModel):
     extra_meta: Optional[dict] = None
 
 
+def _match_product_key(name: str):
+    """Resolve a Lemon Squeezy product name to a catalog key (current + legacy)."""
+    key = next(
+        (k for k, pr in PAYMENT_PRODUCTS.items()
+         if str(pr["name"]).lower() == str(name).lower()),
+        None,
+    )
+    if not key:
+        key = _LEGACY_PRODUCT_NAMES.get(str(name))
+    return key
+
+
+async def _grant_tier_by_email(user_email: str, product_key: str, *, reason: str = "payment"):
+    """Upgrade-only tier grant matched by buyer email (order + subscription events).
+
+    Shared by order_created and subscription_resumed/unpaused. Never
+    downgrades: a renewal, resume, or a different product's event cannot
+    strip a higher tier granted elsewhere.
+    """
+    if not (user_email and product_key and product_key in _PRODUCT_TIER_MAP):
+        return
+    user_doc = await db.users.find_one(
+        {"email": user_email},
+        {"_id": 0, "id": 1, "feature_tier": 1, "feature_tier_expires_at": 1},
+    )
+    if not user_doc:
+        return
+    granted = _PRODUCT_TIER_MAP[product_key]
+    prev_tier = user_doc.get("feature_tier", "free")
+    now = datetime.now(timezone.utc)
+    if TIER_RANK.get(granted, 0) > TIER_RANK.get(prev_tier, 0):
+        set_fields = {
+            "feature_tier": granted,
+            "feature_tier_source": "trial" if product_key == "sanctuary_trial" else reason,
+            "feature_tier_product": product_key,
+            "feature_tier_updated_at": now.isoformat(),
+        }
+        unset_fields = {}
+        if product_key == "sanctuary_trial":
+            # Time-boxed all-access: revert to their previous tier after the trial window.
+            set_fields["feature_tier_expires_at"] = (now + timedelta(**TRIAL_DELTA)).isoformat()
+            set_fields["feature_tier_revert_to"] = (
+                prev_tier if TIER_RANK.get(prev_tier, 0) > 0 else "free"
+            )
+        elif user_doc.get("feature_tier_expires_at"):
+            # A real (recurring) purchase clears any pending trial clock.
+            unset_fields = {"feature_tier_expires_at": "", "feature_tier_revert_to": ""}
+        update = {"$set": set_fields}
+        if unset_fields:
+            update["$unset"] = unset_fields
+        await db.users.update_one({"id": user_doc["id"]}, update)
+    try:
+        await audit(user_doc["id"], "tier.granted",
+                    meta={"product": product_key, "tier": granted, "reason": reason})
+    except Exception:
+        pass
+    if reason == "resume":
+        try:
+            await notify(user_doc["id"], "Subscription Active",
+                         "Your subscription is active again, so its features are unlocked.",
+                         link="/plans", kind="success")
+        except Exception:
+            pass
+    else:
+        try:
+            await notify(user_doc["id"], "Payment Confirmed",
+                         "Thank you! Your payment has been received and your features are unlocked.",
+                         link="/profile", kind="success")
+        except Exception:
+            pass
+
+
 @router.get("/products")
 async def list_payment_products():
     provider = (
@@ -239,6 +311,31 @@ async def payments_webhook(request: Request):
         raise HTTPException(400, "Invalid JSON payload")
 
     event_name = (event.get("meta") or {}).get("event_name", "")
+
+    # ── Idempotency — process each Lemon Squeezy event exactly once ──────────
+    # Lemon Squeezy retries failed deliveries, so the same event can arrive
+    # more than once. A duplicate must never double-grant or double-revoke an
+    # entitlement. The event id is stored as the _id; a second delivery hits
+    # the unique index and is acknowledged as a no-op.
+    event_id = str(
+        (event.get("meta") or {}).get("event_id")
+        or (event.get("data") or {}).get("id")
+        or ""
+    )
+    if event_id:
+        try:
+            await db.webhook_events.insert_one({
+                "_id": event_id,
+                "event_name": event_name,
+                "received_at": datetime.now(timezone.utc).isoformat(),
+            })
+        except Exception as _dup:
+            if getattr(_dup, "code", None) == 11000:
+                return {"received": True, "duplicate": True}
+            # DB hiccup — the grant/revoke paths below are upgrade-only or
+            # guarded, so a re-delivery remains safe.
+            pass
+
     if event_name == "order_created":
         data = (event.get("data") or {}).get("attributes") or {}
         order_id = str((event.get("data") or {}).get("id", ""))
@@ -268,14 +365,7 @@ async def payments_webhook(request: Request):
         # Exact current name first, then legacy (pre-rebrand) aliases so
         # existing subscribers keep counting on renewals.
         first_item = data.get("first_order_item") or {}
-        product_name = str(first_item.get("product_name", ""))
-        product_key = next(
-            (k for k, pr in PAYMENT_PRODUCTS.items()
-             if str(pr["name"]).lower() == product_name.lower()),
-            None,
-        )
-        if not product_key:
-            product_key = _LEGACY_PRODUCT_NAMES.get(product_name)
+        product_key = _match_product_key(first_item.get("product_name", ""))
         # ── BYOK ($3 one-time unlock, below instructor tier) ────────────────
         # A paid BYOK product grants byok_enabled directly (not a membership
         # tier — instructor tier and above activate BYOK free without payment).
@@ -286,7 +376,12 @@ async def payments_webhook(request: Request):
             if user_doc:
                 await db.users.update_one(
                     {"id": user_doc["id"]},
-                    {"$set": {"byok_enabled": True, "byok_activated_at": datetime.now(timezone.utc).isoformat()}},
+                    {"$set": {
+                        "byok_enabled": True,
+                        "byok_paid": True,
+                        "byok_order_id": order_id,
+                        "byok_activated_at": datetime.now(timezone.utc).isoformat(),
+                    }},
                 )
                 try:
                     await audit(user_doc["id"], "byok.paid", meta={"product": "byok", "order_id": order_id})
@@ -327,42 +422,148 @@ async def payments_webhook(request: Request):
                                  "Thank you — your sponsorship is paid and will be matched to a scholar. Track milestones in your sponsor view.",
                                  link="/sponsor", kind="success")
 
-        if user_email and product_key and product_key in _PRODUCT_TIER_MAP:
-            user_doc = await db.users.find_one(
-                {"email": user_email},
-                {"id": 1, "feature_tier": 1, "feature_tier_expires_at": 1},
-            )
-            if user_doc:
-                granted = _PRODUCT_TIER_MAP[product_key]
-                prev_tier = user_doc.get("feature_tier", "free")
-                now = datetime.now(timezone.utc)
-                # Upgrade-only grant (never downgrade an active tier).
-                if TIER_RANK.get(granted, 0) > TIER_RANK.get(prev_tier, 0):
-                    set_fields = {
-                        "feature_tier": granted,
-                        "feature_tier_source": "trial" if product_key == "sanctuary_trial" else "payment",
-                        "feature_tier_product": product_key,
-                        "feature_tier_updated_at": now.isoformat(),
-                    }
-                    unset_fields = {}
-                    if product_key == "sanctuary_trial":
-                        # Time-boxed all-access: revert to their previous tier
-                        # after 3 days · 33 minutes · 33 seconds.
-                        set_fields["feature_tier_expires_at"] = (now + timedelta(**TRIAL_DELTA)).isoformat()
-                        set_fields["feature_tier_revert_to"] = (
-                            prev_tier if TIER_RANK.get(prev_tier, 0) > 0 else "free"
-                        )
-                    elif user_doc.get("feature_tier_expires_at"):
-                        # A real (recurring) purchase clears any pending trial clock.
-                        unset_fields = {"feature_tier_expires_at": "", "feature_tier_revert_to": ""}
+        # Shared upgrade-only grant (order_created, subscriptions, resumes).
+        await _grant_tier_by_email(user_email, product_key, reason="payment")
 
-                    update = {"$set": set_fields}
-                    if unset_fields:
-                        update["$unset"] = unset_fields
-                    await db.users.update_one({"id": user_doc["id"]}, update)
-                await notify(user_doc["id"], "Payment Confirmed",
-                             "Thank you! Your payment has been received and your features are unlocked.",
-                             link="/profile", kind="success")
+    # ── Subscription lifecycle — revoke the tier a cancelled/expired/paused
+    # subscription granted. Revocation is scoped: it only fires when THIS
+    # product is the one that granted the user's current tier, so an upgrade
+    # or a separate product's renewal is never wrongly reverted.
+    if event_name in ("subscription_cancelled", "subscription_expired", "subscription_paused"):
+        data = (event.get("data") or {}).get("attributes") or {}
+        user_email = data.get("user_email", "")
+        product_key = _match_product_key(data.get("product_name", ""))
+        if not (user_email and product_key and product_key in _PRODUCT_TIER_MAP):
+            return {"received": True}
+        user_doc = await db.users.find_one(
+            {"email": user_email},
+            {"_id": 0, "id": 1, "feature_tier": 1, "feature_tier_product": 1,
+             "feature_tier_revert_to": 1},
+        )
+        if not user_doc or user_doc.get("feature_tier_product") != product_key:
+            return {"received": True}
+        now = datetime.now(timezone.utc)
+        revert_to = user_doc.get("feature_tier_revert_to") or "free"
+        await db.users.update_one(
+            {"id": user_doc["id"]},
+            {
+                "$set": {
+                    "feature_tier": revert_to,
+                    "feature_tier_source": "revoked",
+                    "feature_tier_product": "",
+                    "feature_tier_revoked_at": now.isoformat(),
+                    "feature_tier_updated_at": now.isoformat(),
+                },
+                "$unset": {"feature_tier_expires_at": "", "feature_tier_revert_to": ""},
+            },
+        )
+        try:
+            await audit(user_doc["id"], "subscription.revoked",
+                        meta={"product": product_key, "event": event_name})
+        except Exception:
+            pass
+        try:
+            await notify(user_doc["id"], "Subscription Ended",
+                         "Your subscription has ended, so the features it unlocked were reverted. "
+                         "You can upgrade again anytime from the Plans page.",
+                         link="/plans", kind="warning")
+        except Exception:
+            pass
+        return {"received": True}
+
+    # ── Refunds — a refunded order revokes what it granted. Refunds are
+    # issued as site credit unless the platform caused the failure (see the
+    # Refund Policy page), so the paid capability goes away when the order is
+    # refunded.
+    if event_name == "order_refunded":
+        data = (event.get("data") or {}).get("attributes") or {}
+        user_email = data.get("user_email", "")
+        order_id = str((event.get("data") or {}).get("id", ""))
+        product_key = _match_product_key((data.get("first_order_item") or {}).get("product_name", ""))
+        if not user_email:
+            return {"received": True}
+        user_doc = await db.users.find_one(
+            {"email": user_email},
+            {"_id": 0, "id": 1, "byok_enabled": 1, "feature_tier": 1,
+             "feature_tier_product": 1, "feature_tier_revert_to": 1},
+        )
+        if not user_doc:
+            return {"received": True}
+        now = datetime.now(timezone.utc)
+        set_fields = {}
+        unset_fields = {}
+        if product_key == "byok" and user_doc.get("byok_enabled"):
+            set_fields["byok_enabled"] = False
+            set_fields["byok_revoked_at"] = now.isoformat()
+        if product_key in _PRODUCT_TIER_MAP and user_doc.get("feature_tier_product") == product_key:
+            set_fields["feature_tier"] = user_doc.get("feature_tier_revert_to") or "free"
+            set_fields["feature_tier_source"] = "revoked"
+            set_fields["feature_tier_product"] = ""
+            set_fields["feature_tier_revoked_at"] = now.isoformat()
+            set_fields["feature_tier_updated_at"] = now.isoformat()
+            unset_fields = {"feature_tier_expires_at": "", "feature_tier_revert_to": ""}
+        if set_fields:
+            update = {"$set": set_fields}
+            if unset_fields:
+                update["$unset"] = unset_fields
+            await db.users.update_one({"id": user_doc["id"]}, update)
+            try:
+                await audit(user_doc["id"], "order.refunded_revoked",
+                            meta={"product": product_key, "order_id": order_id})
+            except Exception:
+                pass
+            try:
+                await notify(user_doc["id"], "Refund Processed",
+                             "Your refund has been processed as site credit. The features that order "
+                             "unlocked have been reverted. See the Refund Policy for details.",
+                             link="/refund-policy", kind="warning")
+            except Exception:
+                pass
+        return {"received": True}
+
+    # ── Subscription resumed/unpaused — billing is active again, so the tier
+    # the subscription grants is restored. Upgrade-only and idempotent (a
+    # resume can never strip a higher tier granted by another product).
+    if event_name in ("subscription_resumed", "subscription_unpaused"):
+        data = (event.get("data") or {}).get("attributes") or {}
+        await _grant_tier_by_email(
+            data.get("user_email", ""),
+            _match_product_key(data.get("product_name", "")),
+            reason="resume",
+        )
+        return {"received": True}
+
+    # ── Subscription created — record the subscription so /history and the
+    # customer portal can track it. The tier grant itself arrives via the
+    # order_created event (upgrade-only, idempotent).
+    if event_name == "subscription_created":
+        data = (event.get("data") or {}).get("attributes") or {}
+        user_email = data.get("user_email", "")
+        product_key = _match_product_key(data.get("product_name", ""))
+        sub_id = str((event.get("data") or {}).get("id", ""))
+        if user_email and product_key:
+            user_doc = await db.users.find_one({"email": user_email}, {"_id": 0, "id": 1})
+            if user_doc:
+                try:
+                    await db.payments.update_one(
+                        {"provider_order_id": sub_id},
+                        {"$set": {
+                            "user_id": user_doc["id"],
+                            "provider": "lemon_squeezy",
+                            "provider_order_id": sub_id,
+                            "product_key": product_key,
+                            "mode": "subscription",
+                            "type": "subscription",
+                            "lemon_squeezy_subscription_id": sub_id,
+                            "status": data.get("status", "active"),
+                            "buyer_email": user_email,
+                            "created_at": datetime.now(timezone.utc).isoformat(),
+                        }},
+                        upsert=True,
+                    )
+                except Exception:
+                    logger.exception("LS webhook: subscription record failed")
+        return {"received": True}
 
     return {"received": True}
 

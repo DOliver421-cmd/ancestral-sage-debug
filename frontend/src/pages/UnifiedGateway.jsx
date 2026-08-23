@@ -188,7 +188,7 @@ export default function UnifiedGateway() {
               { icon: "🎨", title: "Create & Publish",      desc: "Ghost Producer AI, Creator Studio, Social Blast to 6 platforms, Band on a Page, Lyric Forge.",   to: "/studio" },
               { icon: "💰", title: "Earn & Get Paid",       desc: "Sell courses, manage earnings, request payouts. 70% creator / 30% platform split.",               to: "/creator/earnings" },
               { icon: "🤝", title: "Community & M.O.R.E.",  desc: "Members' Palace, Elder Council, legal tools, mutual aid matching, community chat.",               to: "/app/more" },
-              { icon: "🤖", title: "AI Tools Suite",        desc: "AI Tutor, Sovereign Chat, Ghost Publicist, Ghost Legal, Ghost Marketer — all on platform.",       to: "/ai" },
+              { icon: "🤖", title: "AI Tools Suite",        desc: "AI Tutor, Ghost Producer, and more — run on your own key via the $3 BYOK unlock. The platform doesn't fund customer AI.",       to: "/byok" },
               { icon: "🏛️", title: "M.O.R.E. Institute",    desc: "Accredited-track courses, workforce credentials, instructor-led labs, and placement support.",   to: "/wai-institute" },
             ].map(({ icon, title, desc, to }) => (
               <Link key={title} to={to}
@@ -267,9 +267,9 @@ export default function UnifiedGateway() {
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 mb-8">
             {[
               { name: "Free",    price: "$0",   color: "#6b7280", features: ["Community access", "Browse courses", "Daily XP puzzle"] },
-              { name: "Member",  price: "$9",   color: "#3b82f6", features: ["Full M.O.R.E.", "AI Tutor", "Creator basics"] },
+              { name: "Member",  price: "$9",   color: "#3b82f6", features: ["Full M.O.R.E.", "AI via your own key", "Creator basics"] },
               { name: "Plus",    price: "$15",  color: "#8b5cf6", features: ["Ghost Producer", "Creator Studio", "Course selling"] },
-              { name: "Pro",     price: "$29",  color: "#b5651d", features: ["Full AI suite", "Advanced labs", "Earnings dashboard"], highlight: true },
+              { name: "Pro",     price: "$29",  color: "#b5651d", features: ["AI via your own key", "Advanced labs", "Earnings dashboard"], highlight: true },
               { name: "Patron",  price: "$59",  color: "#E8A51E", features: ["Founder's circle", "Fund free access", "Direct line"] },
             ].map(({ name, price, color, features, highlight }) => (
               <div key={name}
@@ -337,7 +337,7 @@ export default function UnifiedGateway() {
               </div>
             </div>
             <div className="flex flex-wrap gap-6 text-xs">
-              {[["Plans", "/plans"], ["Creators", "/creators"], ["M.O.R.E. Institute", "/wai-institute"], ["Donate", "/donate"], ["Privacy", "/privacy"], ["Terms", "/terms"]].map(([l, h]) => (
+              {[["Plans", "/plans"], ["Creators", "/creators"], ["M.O.R.E. Institute", "/wai-institute"], ["Donate", "/donate"], ["Privacy", "/privacy"], ["Terms", "/terms"], ["Refund Policy", "/refund-policy"]].map(([l, h]) => (
                 <Link key={l} to={h} className="hover:text-white transition-colors">{l}</Link>
               ))}
             </div>

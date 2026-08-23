@@ -111,6 +111,33 @@ discovery, legal/help, login/register). No platform-funded AI and no proprietary
 persona is exposed to anonymous visitors. `platform_ai` + `customer_access_allowed`
 must both be explicitly configured before any AI reaches an anonymous visitor.
 
+## 7A. AI FUNDING POLICY — OWNER DECISION (AUGUST 2026)
+
+**Platform-funded AI is reserved for `admin` / `executive_admin` staff ONLY.
+Customers never receive platform-funded AI at any tier.**
+
+| Audience | AI funding | What they get |
+|----------|-----------|---------------|
+| Anonymous / public | none | keyword KB only (never an LLM call) |
+| Customer — any tier (free / member / plus / pro / patron / executive) | **their own BYOK key only** | live AI via BYOK; keyword KB when no key |
+| instructor / support_staff / oversight | their own BYOK key (granted free by role) | live AI via BYOK; keyword KB when no key |
+| admin / executive_admin (staff) | **platform-funded** | live AI via the platform gateway (plus BYOK when configured) |
+
+Rules:
+- The gateway (`ai/llm_gateway.py`) enforces this BEFORE any provider invocation:
+  a non-staff authenticated caller with no BYOK key gets the keyword KB answer,
+  never platform tokens. A caller whose staff status cannot be verified is
+  treated as non-staff (fail-closed).
+- Anonymous AI endpoints (`/api/ai/helper`, `/api/public/helper/ask`,
+  `/api/helper/ask`, `/api/supervisor/public-chat`) answer from the keyword KB
+  only — they contain no LLM call path.
+- "If they want more AI, they upgrade their own keys": customers increase
+  capacity by upgrading their own provider key/plan; the platform does not fund
+  customer AI usage at any tier.
+- The zero-cost fallback is the multi-layer keyword KB (`ai/keyword_kb.py` +
+  `ai/kb_entries.json`, dynamically extendable; MongoDB `kb_entries` supported)
+  — every AI surface degrades to a useful answer, never a dead end.
+
 ## 8. BYOK
 
 BYOK = the user supplies provider resources. It is an **access mechanism, not a

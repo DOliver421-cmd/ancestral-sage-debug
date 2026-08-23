@@ -308,11 +308,29 @@ async def get_media_file(
             if remaining is not None:
                 remaining -= len(chunk)
 
+    # ── Safe content-type handling ────────────────────────────────────────
+    # The stored content_type is client-supplied at upload, so it is never
+    # trusted for rendering. Only allowlist types may be served inline; every
+    # other upload is served as an opaque download. This closes the stored-
+    # media XSS vector (an HTML/SVG payload uploaded as "image" can no longer
+    # execute in the viewer's origin) and forces the browser to sniff nothing.
+    _SAFE_INLINE_TYPES = (
+        "image/", "audio/", "video/", "application/pdf", "text/plain",
+        "application/json", "application/octet-stream",
+    )
+    raw_type = (metadata.get("content_type") or "").lower().split(";")[0].strip()
+    safe_inline = any(raw_type.startswith(p) for p in _SAFE_INLINE_TYPES)
+    serve_type = raw_type if safe_inline else "application/octet-stream"
+    disposition = "inline" if safe_inline else "attachment"
+    filename = str(metadata.get("filename") or "download").replace('"', "")
+
     headers = {
         "X-Preview-Max-Seconds": str(preview_seconds),
         "X-Media-Full-Access": "true" if full_access else "false",
         "Accept-Ranges": "bytes",
+        "X-Content-Type-Options": "nosniff",
+        "Content-Disposition": f'{disposition}; filename="{filename}"',
     }
     if duration_seconds and limit_bytes:
         headers["X-Preview-Duration-Seconds"] = str(min(preview_seconds, duration_seconds))
-    return StreamingResponse(iter_file(), media_type=metadata.get("content_type", "application/octet-stream"), headers=headers)
+    return StreamingResponse(iter_file(), media_type=serve_type, headers=headers)

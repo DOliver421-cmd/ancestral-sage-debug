@@ -74,6 +74,7 @@ import SeshatsHub from "./pages/SeshatsHub";
 import SeshatsHubPublic from "./pages/SeshatsHubPublic";
 import TermsOfService from "./pages/TermsOfService";
 import PrivacyPolicy from "./pages/PrivacyPolicy";
+import RefundPolicy from "./pages/RefundPolicy";
 import MoreHelpCenter from "./pages/MoreHelpCenter";
 import WAIInstitute from "./pages/WAIInstitute";
 import VonnsSaga from "./pages/VonnsSaga";
@@ -290,6 +291,7 @@ function App() {
           <Route path="/auth/cross-site" element={<CrossSiteLogin />} />
           <Route path="/terms" element={<TermsOfService />} />
           <Route path="/privacy" element={<PrivacyPolicy />} />
+          <Route path="/refund-policy" element={<RefundPolicy />} />
           <Route path="/courses" element={<Courses />} />
           <Route path="/ascension-protocols" element={<AscensionProtocols />} />
           <Route path="/sponsor" element={<AdminPage><SponsorScholarship /></AdminPage>} />

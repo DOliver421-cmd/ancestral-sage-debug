@@ -183,7 +183,7 @@ FEATURE_REGISTRY = [
         "route": "/studio",
         "api_endpoints": ["/api/studio"],
         "default_roles": ["student", "admin", "executive_admin"],
-        "default_tiers": ["member", "plus", "pro", "patron"],  # legacy labels normalized
+        "default_tiers": ["plus", "pro", "patron"],  # aligns with FEATURE_MIN_TIER/TIER_FOR_FEATURE (studio=plus)
         "platform_ai": True,
         "byok_allowed": True,
         "navigation_group": "Create",
@@ -201,7 +201,7 @@ FEATURE_REGISTRY = [
         "route": "/creator/courses",
         "api_endpoints": ["/api/lms/courses"],
         "default_roles": ["student", "admin", "executive_admin"],
-        "default_tiers": ["member", "plus", "pro", "patron"],  # legacy labels normalized
+        "default_tiers": ["plus", "pro", "patron"],  # aligns with FEATURE_MIN_TIER/TIER_FOR_FEATURE (courses=plus)
         "platform_ai": False,
         "byok_allowed": False,
         "navigation_group": "Create",
@@ -219,7 +219,7 @@ FEATURE_REGISTRY = [
         "route": "/ghost-producer",
         "api_endpoints": ["/api/ai/chat"],  # no /api/studio/ghost route — the page (admin-gated) calls the general AI chat
         "default_roles": ["student", "admin", "executive_admin"],
-        "default_tiers": ["member", "plus", "pro", "patron"],  # legacy labels normalized
+        "default_tiers": ["plus", "pro", "patron"],  # aligns with TIER_FOR_FEATURE (ghost=plus)
         "platform_ai": True,
         "byok_allowed": True,
         "navigation_group": "Create",
@@ -273,7 +273,7 @@ FEATURE_REGISTRY = [
         "route": "/creator/earnings",
         "api_endpoints": ["/api/billing/earnings"],
         "default_roles": ["student", "admin", "executive_admin"],
-        "default_tiers": ["member", "plus", "pro", "patron"],  # legacy labels normalized
+        "default_tiers": ["plus", "pro", "patron"],  # aligns with FEATURE_MIN_TIER (earnings=plus)
         "platform_ai": False,
         "byok_allowed": False,
         "navigation_group": "Create",
@@ -291,7 +291,7 @@ FEATURE_REGISTRY = [
         "route": "/creator/payouts",
         "api_endpoints": ["/api/billing/payouts"],
         "default_roles": ["student", "admin", "executive_admin"],
-        "default_tiers": ["member", "plus", "pro", "patron"],  # legacy labels normalized
+        "default_tiers": ["plus", "pro", "patron"],  # aligns with FEATURE_MIN_TIER (payouts=plus)
         "platform_ai": False,
         "byok_allowed": False,
         "navigation_group": "Create",
@@ -756,7 +756,7 @@ FEATURE_REGISTRY = [
         "route": "/band",
         "api_endpoints": ["/api/band"],
         "default_roles": ["student", "admin", "executive_admin"],
-        "default_tiers": ["member", "plus", "pro", "patron"],  # legacy labels normalized
+        "default_tiers": ["plus", "pro", "patron"],  # aligns with FEATURE_MIN_TIER (band=plus)
         "platform_ai": False,
         "byok_allowed": False,
         "navigation_group": "Music",
@@ -774,7 +774,7 @@ FEATURE_REGISTRY = [
         "route": "/playlist/dashboard",
         "api_endpoints": ["/api/playlist"],
         "default_roles": ["student", "admin", "executive_admin"],
-        "default_tiers": ["free", "member", "plus", "pro", "patron"],  # legacy labels normalized (creator→member, studio→plus, director→patron)
+        "default_tiers": ["plus", "pro", "patron"],  # aligns with FEATURE_MIN_TIER (publisher=plus on /api/playlist)
         "platform_ai": False,
         "byok_allowed": False,
         "navigation_group": "Music",

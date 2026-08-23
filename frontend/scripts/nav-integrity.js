@@ -46,15 +46,15 @@ const GATE = {
   assistant: { enabled: true, allowed_roles: ["admin", "executive_admin"], allowed_tiers: [] },
   admin:     { enabled: true, allowed_roles: ["admin", "executive_admin"], allowed_tiers: [] },
   // customer, tier-gated
-  studio:    { enabled: true, allowed_roles: ["student", "admin", "executive_admin"], allowed_tiers: ["member", "plus", "pro", "patron"] },
-  ghost:     { enabled: true, allowed_roles: ["student", "admin", "executive_admin"], allowed_tiers: ["member", "plus", "pro", "patron"] },
-  band:      { enabled: true, allowed_roles: ["student", "admin", "executive_admin"], allowed_tiers: ["member", "plus", "pro", "patron"] },
+  studio:    { enabled: true, allowed_roles: ["student", "admin", "executive_admin"], allowed_tiers: ["plus", "pro", "patron"] },
+  ghost:     { enabled: true, allowed_roles: ["student", "admin", "executive_admin"], allowed_tiers: ["plus", "pro", "patron"] },
+  band:      { enabled: true, allowed_roles: ["student", "admin", "executive_admin"], allowed_tiers: ["plus", "pro", "patron"] },
   adaptive:  { enabled: true, allowed_roles: ["student", "admin", "executive_admin"], allowed_tiers: ["plus", "pro", "patron"] },
   sanctuary: { enabled: true, allowed_roles: ["student", "admin", "executive_admin"], allowed_tiers: ["plus", "pro", "patron"] },
   council:   { enabled: true, allowed_roles: ["student", "admin", "executive_admin"], allowed_tiers: ["plus", "pro", "patron"] },
   // customer, free-tier
   ai:        { enabled: true, allowed_roles: ["student", "admin", "executive_admin"], allowed_tiers: ["free", "member", "plus", "pro", "patron"] },
-  playlist:  { enabled: true, allowed_roles: ["student", "admin", "executive_admin"], allowed_tiers: ["free", "member", "plus", "pro", "patron"] },
+  playlist:  { enabled: true, allowed_roles: ["student", "admin", "executive_admin"], allowed_tiers: ["plus", "pro", "patron"] },
   byok:      { enabled: true, allowed_roles: ["student", "admin", "executive_admin"], allowed_tiers: ["free", "member", "plus", "pro", "patron"] },
   // public
   store:     { enabled: true, allowed_roles: ["student", "admin", "executive_admin"], allowed_tiers: ["free", "member", "plus", "pro", "patron"], public_access: true },
@@ -112,11 +112,11 @@ ok("Test 12 — Jamil admin+ for all 11 audiences");
 
 // Test 3/7/8 — tier inheritance ladder: free sees free, member adds member, etc.
 const tierMatrix = [
-  ["free",   { studio: false, adaptive: false, sanctuary: false, band: false, playlist: true, ai: true, byok: true }],
-  ["member", { studio: true,  adaptive: false, sanctuary: false, band: true,  playlist: true, ai: true, byok: true }],
-  ["plus",   { studio: true,  adaptive: true,  sanctuary: true,  band: true,  playlist: true, ai: true, byok: true }],
-  ["pro",    { studio: true,  adaptive: true,  sanctuary: true,  band: true,  playlist: true, ai: true, byok: true }],
-  ["patron", { studio: true,  adaptive: true,  sanctuary: true,  band: true,  playlist: true, ai: true, byok: true }],
+  ["free",   { studio: false, adaptive: false, sanctuary: false, band: false, playlist: false, ai: true, byok: true }],
+  ["member", { studio: false, adaptive: false, sanctuary: false, band: false, playlist: false, ai: true, byok: true }],
+  ["plus",   { studio: true,  adaptive: true,  sanctuary: true,  band: true,  playlist: true,  ai: true, byok: true }],
+  ["pro",    { studio: true,  adaptive: true,  sanctuary: true,  band: true,  playlist: true,  ai: true, byok: true }],
+  ["patron", { studio: true,  adaptive: true,  sanctuary: true,  band: true,  playlist: true,  ai: true, byok: true }],
   ["executive", { studio: true, adaptive: true, sanctuary: true, band: true, playlist: true, ai: true, byok: true }],
 ];
 for (const [tier, expectations] of tierMatrix) {

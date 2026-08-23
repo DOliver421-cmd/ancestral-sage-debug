@@ -372,11 +372,43 @@ async def reload_shared_byok(db) -> int:
 
 
 # ── KB fallback ───────────────────────────────────────────────────────────────
-_KB_FALLBACK = (
-    "I'm operating in restricted mode — the AI service is temporarily unavailable. "
-    "Your request has been logged. Platform features (modules, labs, certificates, "
-    "community) are fully operational. For urgent matters contact WAI-Institute directly."
-)
+# ── Zero-cost keyword KB fallback ────────────────────────────────────────────
+# Platform policy (owner decision, August 2026):
+#   - anonymous / public visitors get NO AI
+#   - customers at ANY tier get NO platform-funded AI (their AI runs on their
+#     own BYOK key, or they get the keyword KB)
+#   - platform-funded AI is admin / executive_admin staff only
+# The keyword KB (ai/keyword_kb.py) is message-aware: it answers the actual
+# question from a large curated multi-layer knowledge base instead of a static
+# "restricted mode" notice.
+
+
+def _kb_reply(messages: Optional[list] = None) -> dict:
+    """Message-aware keyword-KB answer for the caller's last user message."""
+    question = ""
+    for m in messages or []:
+        if m and m.get("role") == "user" and str(m.get("content", "")).strip():
+            question = str(m["content"]).strip()
+    try:
+        from ai.keyword_kb import reply as _kb_answer
+        text = _kb_answer(question)
+    except Exception:
+        text = (
+            "I'm operating in restricted mode — the AI service is temporarily unavailable. "
+            "Platform features (modules, labs, certificates, community) are fully operational. "
+            "For urgent matters contact WAI-Institute directly."
+        )
+    return {
+        "text":          text,
+        "provider":      "kb_fallback",
+        "model":         "none",
+        "input_tokens":  0,
+        "output_tokens": 0,
+        "degraded":      True,
+    }
+
+
+_KB_FALLBACK = _kb_reply()["text"]
 
 _KB_RESULT = {
     "text":          _KB_FALLBACK,
@@ -473,7 +505,7 @@ async def call_llm(
             "LLM Gateway: hourly cap %d reached (%d used) — routing %s to KB fallback",
             HOURLY_TOKEN_CAP, _hour_tokens_used, persona_label,
         )
-        return _KB_RESULT
+        return _kb_reply(messages)
 
     # BASE LAYER: every call runs on the Source root protocol.
     # The Source is the uncorrupted root layer - composed BENEATH whatever
@@ -528,6 +560,33 @@ async def call_llm(
                         )
         except Exception as _e:
             logger.warning("LLM Gateway BYOK resolution failed (%s): %s", persona_label, _e)
+
+    # ── Platform-funding policy guard ────────────────────────────────────────
+    # Owner decision (August 2026): platform-funded AI is admin / executive_admin
+    # staff ONLY. Customers at any tier (free → executive) get NO platform-funded
+    # AI: they either use their own BYOK key (handled above) or the keyword KB.
+    # The check is fail-closed for authenticated customers: if we cannot verify
+    # the caller is authorized staff, they get the KB, never platform tokens.
+    if user_id:
+        _is_staff = False
+        try:
+            from deps import get_db as _get_db
+            from roles import normalize_role as _norm_role
+            _pg_db = _get_db()
+            if _pg_db is not None:
+                _u = await _pg_db.users.find_one(
+                    {"id": user_id}, {"_id": 0, "role": 1}
+                )
+                _role = _norm_role((_u or {}).get("role", "student"))
+                _is_staff = _role in ("admin", "executive_admin")
+        except Exception:
+            _is_staff = False
+        if not _is_staff:
+            logger.info(
+                "LLM Gateway: %s is not platform-AI-authorized — keyword KB fallback for %s",
+                user_id, persona_label,
+            )
+            return _kb_reply(messages)
 
     # ── Per-user daily budget guard (platform-paid calls only) ──────────────
     # Prevents any single non-exec account from draining the platform API and
@@ -712,6 +771,30 @@ async def call_llm(
                         base_url=_base, api_key=_shared["key"], model=_model,
                         system=system, messages=messages, max_tokens=max_tokens, tools=tools,
                     )
+                    # Audit: a shared site-support key served this request. The
+                    # record carries the caller identity and provider only —
+                    # never key material — so shared-pool usage is attributable
+                    # without exposing the contributing staff member's key.
+                    try:
+                        from deps import get_db as _get_db
+                        from datetime import datetime as _dt, timezone as _tz
+                        import uuid as _uuid
+                        _audit_db = _get_db()
+                        if _audit_db is not None:
+                            await _audit_db.audit_log.insert_one({
+                                "id": str(_uuid.uuid4()),
+                                "actor_id": user_id or budget_key or "anonymous",
+                                "action": "shared_byok.used",
+                                "target": None,
+                                "meta": {
+                                    "persona": persona_label,
+                                    "provider": _shared["provider"],
+                                    "budget_key": budget_key,
+                                },
+                                "at": _dt.now(_tz.utc).isoformat(),
+                            })
+                    except Exception:
+                        pass  # audit write never blocks a reply
                     return {
                         "text": _r["text"],
                         "provider": f"byok_shared:{_shared['provider']}",
@@ -727,7 +810,7 @@ async def call_llm(
 
     # ── Tier 9: Keyword KB — always available, zero cost ─────────────────────
     logger.error("LLM Gateway: ALL providers failed for %s — KB fallback", persona_label)
-    return _KB_RESULT
+    return _kb_reply(messages)
 
 
 # ── Status report ─────────────────────────────────────────────────────────────
