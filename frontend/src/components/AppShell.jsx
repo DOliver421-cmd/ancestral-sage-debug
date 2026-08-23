@@ -242,6 +242,7 @@ export default function AppShell({ children }) {
               {nl("/community",     "Community",      Radio,           "nav-public-community")}
               {nl("/store",         "Store",          ShoppingBag,     "nav-public-store")}
               {nl("/help-center",   "Help",           HelpCircle,      "nav-public-help")}
+              {nl("/knowledge",      "Knowledge Finder", Search,        "nav-public-knowledge")}
             </NavSection>
           )}
 
@@ -302,6 +303,9 @@ export default function AppShell({ children }) {
           {/* ── LEARN (Curriculum & credentials) ─────────────────────── */}
           {isAuthed && hasRank("student") && (
           <NavSection label="Learn" collapsed={collapsed}>
+            <NavSubGroup label="Discover" collapsed={collapsed} defaultOpen={false}>
+              {nl("/knowledge",      "Knowledge Finder", Search,        "nav-knowledge")}
+            </NavSubGroup>
             <NavSubGroup label="Curriculum" collapsed={collapsed} defaultOpen={true}>
               {nl("/modules",         "Modules",         BookOpen,        "nav-modules")}
               {nl("/adaptive",        "Learning Path",   Brain,           "nav-adaptive")}

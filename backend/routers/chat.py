@@ -146,8 +146,8 @@ async def supervisor_public_chat(body: AssistantChatReq, request: Request):
     endpoint answers from the multi-layer keyword knowledge base only — it
     never calls the LLM gateway, so it cannot consume platform-funded AI.
     """
-    from ai.keyword_kb import reply as _kb_reply
-    return {"reply": _kb_reply(body.message)}
+    from ai.knowledge_finder import Access as _Access, render_reply as _render
+    return {"reply": _render(body.message, _Access())}
 
 
 # ── Social Blast ──────────────────────────────────────────────────────────────

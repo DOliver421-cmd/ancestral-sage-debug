@@ -70,6 +70,7 @@ import ElderCouncil from "./pages/ElderCouncil";
 import Plans from "./pages/Plans";
 import HelpCenter from "./pages/HelpCenter";
 import KnowledgeBase from "./pages/KnowledgeBase";
+import KnowledgeFinder from "./pages/KnowledgeFinder";
 import SeshatsHub from "./pages/SeshatsHub";
 import SeshatsHubPublic from "./pages/SeshatsHubPublic";
 import TermsOfService from "./pages/TermsOfService";
@@ -262,6 +263,7 @@ function App() {
           <Route path="/help-center" element={<HelpCenter />} />
           {/* Knowledge Base — handbooks + top support articles (Phase C) */}
           <Route path="/knowledge-base" element={<KnowledgeBase />} />
+          <Route path="/knowledge" element={<KnowledgeFinder />} />
           <Route path="/seshats-hub" element={<SeshatsHubPublic />} />
           {/* M.O.R.E. Help Center — unified entry point (greeter / exec / decoy modes) */}
           <Route path="/more-help-center" element={<MoreHelpCenter />} />
