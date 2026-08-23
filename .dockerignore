@@ -1,0 +1,31 @@
+# Dependencies — reinstalled inside the image (npm ci / pip install)
+node_modules
+**/node_modules
+
+# Build output — regenerated during the image build
+frontend/build
+build
+dist
+
+# VCS & local tooling
+.git
+.archive
+
+# Secrets — never into an image
+.env
+.env.*
+**/.env
+**/.env.*
+backend/serverpytext.txt
+
+# Python runtime artifacts
+__pycache__
+**/__pycache__
+*.pyc
+.pytest_cache
+*.egg-info
+
+# Logs & local state
+logs
+**/logs
+*.log
