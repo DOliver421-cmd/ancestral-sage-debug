@@ -461,10 +461,9 @@ export default function AscensionProtocols() {
                 These protocols are not “African-themed” wellness content. They are built on the operating system of Kemet —
                 the Nile Valley civilization — because that system already understands what this curriculum does. The practices
                 you will do are the same technologies the Kemetic priesthood used: dawn rites, breath as life, the audit of
-                truth, the unshakeable spine, the spiral return. Naming them is not decoration; it restores the lineage the
-                curriculum was always walking. And this platform already carries that lineage in its architecture:{" "}
-                <strong>The 9</strong> — the unified council mind of WAI-Institute — is the modern name of the{" "}
-                <strong>Pesedjet</strong>, the Great Ennead of Kemet.
+                truth, the unshakeable spine, the spiral return.                Naming them is not decoration; it restores the lineage the
+                curriculum was always walking. These practices walk the same path as the{" "}
+                <strong>Pesedjet</strong> — the Great Ennead of Kemet, the council of nine keepers of Ma'at.
               </p>
               <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4 mt-8">
                 {[
@@ -473,7 +472,7 @@ export default function AscensionProtocols() {
                   ["Khepera", "The self-created scarab. The spiral return to Tier 1 is Khepera: becoming, always becoming, never repeating."],
                   ["Ankh", "Breath is life. Every breathwork practice in these protocols is the Ankh exercised consciously."],
                   ["Sema Tawy", "The uniting of the two lands. Tier 3’s sovereign walk unites spirit and daily life into one body."],
-                  ["The Pesedjet / The 9", "The Great Ennead — the council of nine. The platform’s own unified council mind is its heir."],
+                  ["The Pesedjet / The 9", "The Great Ennead — the council of nine keepers of Ma'at, order, and balance."],
                 ].map(([t, b]) => (
                   <div key={t} className="rounded-2xl p-5" style={{ background: "#fff", border: "1px solid #eee7db" }}>
                     <div className="font-heading font-extrabold text-copper" style={{ fontSize: "1.05rem" }}>{t}</div>
@@ -1007,7 +1006,7 @@ export default function AscensionProtocols() {
               </div>
               <p className="text-xs mt-8" style={{ color: "rgba(255,255,255,0.4)" }}>
                 This course runs entirely in your browser and in your life — zero tokens, zero server cost, zero data stored.
-                On the platform, The 9 (the Pesedjet) stands ready to help you coordinate any project that grows from it.
+                The disciplines of the Pesedjet — the council of nine — give any project that grows from this course its frame.
               </p>
             </section>
           </>

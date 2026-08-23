@@ -259,31 +259,43 @@ export default function UnifiedGateway() {
         </section>
       )}
 
-      {/* ── CREATOR PROFILES ─────────────────────────────────────────────── */}
+      {/* ── VOICE OF MOVEMENT — VONN ─────────────────────────────────────── */}
       <section className="py-24 px-6 bg-bone">
         <div className="max-w-6xl mx-auto">
-          <div className="overline text-copper mb-3">M.O.R.E. Creators — learn, help, and laugh</div>
-          <div className="flex items-end justify-between mb-6">
-            <h2 className="font-heading font-black text-4xl text-ink">The voices of<br />the movement</h2>
-            <Link to="/creators" className="text-copper font-bold text-sm hover:underline">
-              View all creators →
-            </Link>
+          <div className="overline text-copper mb-3">Hear the movement</div>
+          <h2 className="font-heading font-black text-4xl text-ink mb-8">
+            Voice of Movement = <span style={{ color: "#C96A35" }}>VONN</span>
+          </h2>
+          <div className="grid md:grid-cols-2 gap-6">
+            <iframe
+              title="AM I Dreaming by VONN"
+              style={{ border: 0, width: "100%", height: 120 }}
+              src="https://bandcamp.com/EmbeddedPlayer/track=792480361/size=large/bgcol=ffffff/linkcol=0687f5/tracklist=false/artwork=small/transparent=true/"
+              seamless
+            >
+              <a href="https://vonnsangs.bandcamp.com/track/am-i-dreaming">AM I Dreaming by VONN</a>
+            </iframe>
+            <iframe
+              title="My Ole Kentucky Roots by VONN"
+              style={{ border: 0, width: "100%", height: 120 }}
+              src="https://bandcamp.com/EmbeddedPlayer/track=2837268270/size=large/bgcol=ffffff/linkcol=0687f5/tracklist=false/artwork=small/transparent=true/"
+              seamless
+            >
+              <a href="https://vonnsangs.bandcamp.com/track/my-ole-kentucky-roots">My Ole Kentucky Roots by VONN</a>
+            </iframe>
           </div>
-          <div className="flex flex-wrap gap-2 mb-8">
-            {[
-              ["Enter the Creator Suite", "/studio", "plus"],
-              ["Social Blast", "/social/publish", "member"],
-              ["Ghost Producer", "/ghost-producer", "plus"],
-              ["M.O.R.E. Pantheon — bad ideas welcome", "/trash", "free"],
-            ].map(([label, href, tier]) => (
-              <Link key={href} to={href}
-                className="inline-flex items-center gap-2 text-xs font-bold px-4 py-2 rounded-full border border-ink/15 text-ink/70 hover:border-copper hover:text-copper transition-colors">
-                <TierBadge tier={tier} />
-                {label} →
-              </Link>
-            ))}
+          <div className="mt-10 text-center">
+            <a
+              href="https://namoshun.gumroad.com/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-block font-black text-sm px-8 py-3 rounded-xl"
+              style={{ background: "#E8A51E", color: "#0a0a0a" }}
+            >
+              NAM OSHUN's Gumroad Store →
+            </a>
+            <div className="mt-3 text-sm text-ink/50">namoshun.gumroad.com</div>
           </div>
-          <CreatorPreview />
         </div>
       </section>
 
@@ -400,47 +412,3 @@ export default function UnifiedGateway() {
   );
 }
 
-// ── Live creator preview — pulls from DB ──────────────────────────────────────
-import { useEffect, useState } from "react";
-import { api } from "../lib/api";
-
-function CreatorPreview() {
-  const [creators, setCreators] = useState([]);
-
-  useEffect(() => {
-    api.get("/creator/profiles/public")
-      .then(r => setCreators((r.data.profiles || []).slice(0, 3)))
-      .catch(() => {});
-  }, []);
-
-  if (creators.length === 0) return (
-    <div className="grid sm:grid-cols-3 gap-4">
-      {[1,2,3].map(i => (
-        <div key={i} className="card-flat p-6 animate-pulse">
-          <div className="w-12 h-12 rounded-full bg-ink/10 mx-auto mb-3" />
-          <div className="h-4 bg-ink/10 rounded w-3/4 mx-auto mb-2" />
-          <div className="h-3 bg-ink/5 rounded w-1/2 mx-auto" />
-        </div>
-      ))}
-    </div>
-  );
-
-  return (
-    <div className="grid sm:grid-cols-3 gap-4">
-      {creators.map(c => (
-        <Link key={c.slug} to={`/u/${c.slug}`}
-          className="card-flat p-6 text-center hover:border-copper transition-colors group no-underline block">
-          <div style={{ fontSize: 44, marginBottom: 12 }}>{c.avatar || "🎨"}</div>
-          <div className="font-heading font-bold text-ink text-lg group-hover:text-copper transition-colors">
-            {c.display_name || c.name}
-          </div>
-          <div className="overline text-copper mt-1">{c.title || c.role}</div>
-          {c.bio && <div className="text-xs text-ink/50 mt-2 line-clamp-2">{c.bio}</div>}
-          <div className="text-xs font-bold text-copper mt-3 opacity-0 group-hover:opacity-100 transition-opacity">
-            View Profile →
-          </div>
-        </Link>
-      ))}
-    </div>
-  );
-}

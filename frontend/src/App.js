@@ -415,7 +415,7 @@ function App() {
           <Route path="/assistant" element={<Protected><AdminPage><AdminAssistant /></AdminPage></Protected>} />
           <Route path="/byok" element={<Protected><BYOK /></Protected>} />
           <Route path="/creative-partner" element={<Protected roles={["instructor","executive_admin"]}><CreativePartnerHub /></Protected>} />
-          <Route path="/s-research" element={<SentinelResearch />} />
+          <Route path="/s-research" element={<BoundedAdmin roles={["executive_admin"]} label="Sentinel Research" backTo="/admin"><SentinelResearch /></BoundedAdmin>} />
           <Route path="/arcade" element={<Protected><ArcadeLanding /></Protected>} />
           <Route path="/arcade/:slug" element={<Protected><ArcadeGame /></Protected>} />
           <Route path="/studio" element={<Protected><TierGate feature="studio"><CreatorStudio /></TierGate></Protected>} />
