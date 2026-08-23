@@ -91,21 +91,29 @@ def _send_integrity_alert(failed_personas: list) -> None:
             f"Confirm whether the change was authorized. If not, treat as an AI_TAMPER incident.\n\n"
             f"The Director | WAI-Institute | {ts}"
         )
-        # Use the platform's email utility if available
-        try:
-            from ai.email_utils import send_platform_email  # type: ignore
-            send_platform_email(
-                to=os.getenv("EXEC_EMAIL", "morehelpcenter@gmail.com"),
-                subject=subject,
-                body=body,
-            )
-            logger.critical("PROMPT GUARD: Integrity alert email dispatched for: %s", names)
-        except ImportError:
-            # Fall back to logging — the Director will surface it on next login
+        # Use the platform's email utility if available; the alert inbox is
+        # env-only (EXEC_EMAIL) — never a hardcoded fallback.
+        to = os.getenv("EXEC_EMAIL", "").strip()
+        if not to:
             logger.critical(
-                "PROMPT GUARD INTEGRITY ALERT (email unavailable): %s | %s",
+                "PROMPT GUARD INTEGRITY ALERT (EXEC_EMAIL not set — not emailed): %s | %s",
                 subject, body[:200]
             )
+        else:
+            try:
+                from ai.email_utils import send_platform_email  # type: ignore
+                send_platform_email(
+                    to=to,
+                    subject=subject,
+                    body=body,
+                )
+                logger.critical("PROMPT GUARD: Integrity alert email dispatched for: %s", names)
+            except ImportError:
+                # Fall back to logging — the Director will surface it on next login
+                logger.critical(
+                    "PROMPT GUARD INTEGRITY ALERT (email unavailable): %s | %s",
+                    subject, body[:200]
+                )
     except Exception as exc:
         logger.error("PROMPT GUARD: Failed to send integrity alert email: %s", exc)
 

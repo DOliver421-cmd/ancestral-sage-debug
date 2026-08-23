@@ -15,7 +15,7 @@ from datetime import datetime, timedelta, timezone
 from typing import List, Literal, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Header, Request
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field
 from roles import Role, ROLE_RANK, role_rank, LEGACY_ROLE_MAP, normalize_role, FREE_BYOK_ROLES
 
 logger = logging.getLogger("lcewai")
@@ -771,31 +771,6 @@ class StaffMeetingRequest(BaseModel):
     agenda:       List[str]        = Field(default_factory=list, max_length=20)
     participants: List[str]        = Field(default_factory=list, max_length=20)
     priority:     Literal["normal", "high"] = "normal"   # validated enum, not raw string
-
-
-class PipelineProcessRequest(BaseModel):
-    """Validated request body for POST /api/exec/pipeline/process."""
-    text:   str = Field(..., min_length=1, max_length=5000)
-    source: str = Field(default="api", max_length=100)
-
-
-class PipelineProcessBatchRequest(BaseModel):
-    """Validated request body for POST /api/exec/pipeline/process-batch."""
-    texts:  List[str] = Field(..., min_length=1, max_length=50)
-    source: str       = Field(default="api", max_length=100)
-
-    @field_validator("texts")
-    @classmethod
-    def validate_text_item_lengths(cls, v: List[str]) -> List[str]:
-        """Enforce per-item max length at Pydantic parse time.
-        Without this, FastAPI fully deserializes a 50×1MB payload before
-        PipelineManager rejects each item individually — fail fast here."""
-        for i, text in enumerate(v):
-            if len(text) > 5000:
-                raise ValueError(
-                    f"texts[{i}] is {len(text)} chars — maximum is 5000"
-                )
-        return v
 
 
 # Domain role questions — moved to module scope so they're not re-created per request

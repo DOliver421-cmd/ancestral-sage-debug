@@ -402,9 +402,10 @@ async def notify(user_id: str, title: str, body: str, link: Optional[str] = None
 # 8-tier: public(0) < student(1) < trial_pass(2) < instructor(3) <
 #         support_staff(4) < oversight(5) < admin(6) < executive_admin(7)
 
-# The single hardcoded executive admin email. Auto-promoted to executive_admin
-# on every backend startup; if the account does not exist it is created with
-# the seed password EXEC_DEFAULT_PASSWORD (rotate immediately on first login).
+# Executive seat emails come from the environment ONLY — there are no
+# hardcoded fallbacks. A seat is created at startup only when its email is
+# explicitly configured; docker-entrypoint.sh refuses to boot when none are
+# set, so a fresh database can never silently fall to the first registrant.
 EXEC_ADMIN_EMAIL = os.environ.get("EXEC_ADMIN_EMAIL", "").strip()
 # Seed password for the executive admin.  Read from env var first; falls back
 # to the documented default (which is force-rotated on first login via
@@ -413,22 +414,35 @@ EXEC_ADMIN_EMAIL = os.environ.get("EXEC_ADMIN_EMAIL", "").strip()
 # value is operator-controlled.
 # No fallback passwords in source. If EXEC_DEFAULT_PASSWORD is not set in Railway,
 # a cryptographically random password is generated at startup and emailed to
-# PLATFORM_NOTIFY_EMAIL (morehelpcenter@gmail.com) automatically.
+# PLATFORM_NOTIFY_EMAIL (must be explicitly configured) automatically.
 EXEC_DEFAULT_PASSWORD = os.environ.get("EXEC_DEFAULT_PASSWORD", "")
 
-# Executive accounts — both seats always bootstrapped on startup.
-# Seat 1 (Delon Oliver):  youpickeddoliver@gmail.com
-# Seat 2 (NAM Oshun):     souppoetry@gmail.com
-BACKUP_EXEC_EMAIL = os.environ.get("BACKUP_EXEC_ADMIN_EMAIL", "youpickeddoliver@gmail.com")
+# Executive seats — bootstrapped at startup ONLY when the email is explicitly
+# configured (empty env var = seat skipped). No hardcoded addresses.
+BACKUP_EXEC_EMAIL = os.environ.get("BACKUP_EXEC_ADMIN_EMAIL", "").strip()
 BACKUP_EXEC_DEFAULT_PASSWORD = os.environ.get("BACKUP_EXEC_DEFAULT_PASSWORD", "")
 
-NAM_EXEC_EMAIL = os.environ.get("NAM_EXEC_EMAIL", "souppoetry@gmail.com")
+NAM_EXEC_EMAIL = os.environ.get("NAM_EXEC_EMAIL", "").strip()
 NAM_EXEC_DEFAULT_PASSWORD = os.environ.get("NAM_EXEC_DEFAULT_PASSWORD", "")
 
 # Platform notification email — receives auto-generated passwords and system alerts.
-# Defaults to the configured GMAIL_USER (morehelpcenter@gmail.com).
+# Env-only. Falls back to the configured GMAIL_USER if set, otherwise empty
+# (alerts are logged instead of emailed; no mail goes to an unconfigured inbox).
 PLATFORM_NOTIFY_EMAIL = os.environ.get("PLATFORM_NOTIFY_EMAIL",
-                                        os.environ.get("GMAIL_USER", "morehelpcenter@gmail.com"))
+                                        os.environ.get("GMAIL_USER", "")).strip()
+
+# Fail-closed guard: with no exec seat configured, a fresh database has no
+# owner and the first registrant becomes executive_admin (auth.py register).
+# docker-entrypoint.sh refuses to boot in this state; this log makes the
+# condition unmissable on any other boot path too.
+if not (EXEC_ADMIN_EMAIL or BACKUP_EXEC_EMAIL or NAM_EXEC_EMAIL):
+    import logging as _log
+    _log.getLogger("lcewai").critical(
+        "No executive admin email is configured (EXEC_ADMIN_EMAIL / "
+        "BACKUP_EXEC_ADMIN_EMAIL / NAM_EXEC_EMAIL all empty). On a fresh "
+        "database the first registered user would become executive_admin. "
+        "Set at least one seat email before going live."
+    )
 
 # RECOVERY: Set EXEC_FORCE_RESET=1 in Railway env vars, redeploy, log in with
 # the default passwords above, then immediately change password and remove the flag.
@@ -618,7 +632,7 @@ import secrets  # noqa: E402
 
 RESET_TOKEN_TTL_MIN = int(os.environ.get("PASSWORD_RESET_TTL_MIN", "30"))
 RESEND_API_KEY = os.environ.get("RESEND_API_KEY", "")
-RESEND_FROM = os.environ.get("RESEND_FROM", "W.A.I. <poetgames@gmail.com>")
+RESEND_FROM = os.environ.get("RESEND_FROM", "")  # env-only — no hardcoded from-address
 # Gmail SMTP fallback — used when RESEND_API_KEY is not set.
 # In Railway: set GMAIL_USER and GMAIL_APP_PASSWORD (16-char Google App Password).
 GMAIL_USER     = os.environ.get("GMAIL_USER", "")

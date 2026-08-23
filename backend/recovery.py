@@ -3,7 +3,7 @@
 Three layers of recovery:
 1. IMMEDIATE: EXEC_FORCE_RESET=1 in Railway (temporary, one-time use)
 2. PERMANENT: Recovery codes (stored securely, can be used multiple times)
-3. BACKUP: Secondary executive email accounts (youpickeddoliver@gmail.com, souppoetry@gmail.com)
+3. BACKUP: Secondary executive seats — emails come from BACKUP_EXEC_ADMIN_EMAIL / NAM_EXEC_EMAIL env vars (never hardcoded)
 """
 import os
 import secrets

@@ -416,13 +416,13 @@ class DoItEngine:
             system_areas=["auth", "ux", "documentation"],
             status=GapStatus.IDENTIFIED,
             finder_notes=(
-                "3 accounts: delon.oliver@lce, youpickeddoliver@gmail, souppoetry@gmail\n"
+                "3 accounts: delon.oliver@lce + exec seat emails from env vars\n"
                 "2 different passwords in HANDOFF\n"
                 "EXEC_FORCE_RESET is emergency-only\n"
                 "Recovery codes exist but Delon might not know"
             ),
             fix_proposal=(
-                "1. Create unified Delon identity (oldthug957@gmail.com)\n"
+                "1. Create unified Delon identity (EXEC_ADMIN_EMAIL env var)\n"
                 "2. Migrate all 3 old accounts → new identity\n"
                 "3. Document recovery procedure in DELON_QUICK_START.md\n"
                 "4. Print recovery codes for offline backup\n"

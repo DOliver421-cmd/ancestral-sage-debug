@@ -434,10 +434,16 @@ async def sovereign_drift_check(user: User = Depends(_require_rank("executive_ad
 
 async def _sentinel_send_report(subject: str, body_text: str):
     """Deliver a sentinel action report to the executive director."""
+    to = os.getenv("EXEC_EMAIL", "").strip()
+    if not to:
+        # No executive alert inbox configured — log instead of emailing an
+        # unconfigured/random inbox. The alert is still visible in server logs.
+        logger.warning("SENTINEL: EXEC_EMAIL not set — report not emailed (%s)", subject)
+        return
     try:
         from ai.email_utils import send_platform_email  # type: ignore
         send_platform_email(
-            to=os.getenv("EXEC_EMAIL", "morehelpcenter@gmail.com"),
+            to=to,
             subject=f"[SENTINEL] {subject}",
             body=body_text,
         )

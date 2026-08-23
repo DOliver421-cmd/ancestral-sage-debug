@@ -2,7 +2,7 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 import { API } from "../lib/api";
 import { useAuth } from "../lib/auth";
 import { ROLE_RANK } from "../lib/roles";
-import { tierRank, tierLabel } from "../lib/tiers";
+import { tierRank, tierLabel, TIER_FOR_FEATURE } from "../lib/tiers";
 import { WAI_LOGO, BRAND } from "../lib/brand";
 import {
   LayoutDashboard, BookOpen, Award, Users, Settings, Sparkles, LogOut,
@@ -113,6 +113,10 @@ export default function AppShell({ children }) {
   const isAuthed = !!user;
   const tier = user?.feature_tier || "free";
   const hasTier = (min) => tierRank(tier) >= tierRank(min);
+  // Per-item tier gate: a nav item renders only when the user's tier covers
+  // that feature (TIER_FOR_FEATURE is the same contract the routes and the
+  // backend registry use). No teasers — if you can't use it, you don't see it.
+  const canUse = (feature) => hasTier(TIER_FOR_FEATURE[feature] || "member");
   const byokUnlocked = !!user?.byok_enabled;
 
   const toggleCollapsed = () => {
@@ -278,23 +282,23 @@ export default function AppShell({ children }) {
           <NavSection label="Create" collapsed={collapsed}>
             {waiDoor ? (
               <>
-                {out("/studio",             "Creator Studio",     Music,    "nav-creator-studio")}
-                {out("/creator/courses",    "Course Manager",     Video,    "nav-creator-courses")}
-                {out("/ghost-producer",     "Ghost Producer",     Palette,  "nav-ghost-producer")}
-                {out("/social/publish",     "Social Blast",       Share2,   "nav-social-publish")}
-                {out("/creator-lounge",     "Creator Lounge",     Mic,      "nav-creator-lounge")}
-                {out("/creator/earnings",   "My Earnings",        DollarSign,"nav-creator-earnings")}
-                {out("/creator/payouts",    "Payout Dashboard",   Receipt,  "nav-creator-payouts")}
+                {canUse("studio") && out("/studio",             "Creator Studio",     Music,    "nav-creator-studio")}
+                {canUse("courses") && out("/creator/courses",    "Course Manager",     Video,    "nav-creator-courses")}
+                {canUse("ghost") &&   out("/ghost-producer",     "Ghost Producer",     Palette,  "nav-ghost-producer")}
+                {canUse("publisher_ai") && out("/social/publish", "Social Blast",      Share2,   "nav-social-publish")}
+                {canUse("lounge") &&  out("/creator-lounge",     "Creator Lounge",     Mic,      "nav-creator-lounge")}
+                {canUse("earnings") && out("/creator/earnings",  "My Earnings",        DollarSign,"nav-creator-earnings")}
+                {canUse("payouts") &&  out("/creator/payouts",   "Payout Dashboard",   Receipt,  "nav-creator-payouts")}
               </>
             ) : (
               <>
-                {nl("/studio",             "Creator Studio",     Music,    "nav-creator-studio")}
-                {nl("/creator/courses",    "Course Manager",     Video,    "nav-creator-courses")}
-                {nl("/ghost-producer",     "Ghost Producer",     Palette,  "nav-ghost-producer")}
-                {nl("/social/publish",     "Social Blast",       Share2,   "nav-social-publish")}
-                {nl("/creator-lounge",     "Creator Lounge",     Mic,      "nav-creator-lounge")}
-                {nl("/creator/earnings",   "My Earnings",        DollarSign,"nav-creator-earnings")}
-                {nl("/creator/payouts",    "Payout Dashboard",   Receipt,  "nav-creator-payouts")}
+                {canUse("studio") && nl("/studio",             "Creator Studio",     Music,    "nav-creator-studio")}
+                {canUse("courses") && nl("/creator/courses",    "Course Manager",     Video,    "nav-creator-courses")}
+                {canUse("ghost") &&   nl("/ghost-producer",     "Ghost Producer",     Palette,  "nav-ghost-producer")}
+                {canUse("publisher_ai") && nl("/social/publish", "Social Blast",      Share2,   "nav-social-publish")}
+                {canUse("lounge") &&  nl("/creator-lounge",     "Creator Lounge",     Mic,      "nav-creator-lounge")}
+                {canUse("earnings") && nl("/creator/earnings",  "My Earnings",        DollarSign,"nav-creator-earnings")}
+                {canUse("payouts") &&  nl("/creator/payouts",   "Payout Dashboard",   Receipt,  "nav-creator-payouts")}
               </>
             )}
           </NavSection>
