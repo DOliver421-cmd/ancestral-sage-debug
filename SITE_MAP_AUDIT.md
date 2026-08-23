@@ -231,3 +231,18 @@ Components in `frontend/src/pages/` that don't appear in App.js routes:
 - `MissingKameron` — not in routes
 - `NotFound` — likely Error404 replacement
 - `SiteHealthReport` — not in routes
+
+---
+
+## PHASE 17 UPDATE (2026-08-23) — ROUTE/API vs REGISTRY CROSS-CHECK
+
+- All 48 features in `FEATURE_REGISTRY` were cross-checked against the live route
+  table; 4 stale `api_endpoints` were corrected (see PHASE_17_VERIFICATION.md).
+- New findings:
+  - `/orchestrator` route does NOT exist — dead nav link removed; OrchestratorChat
+    component is the Council/Sage page at `/council` (canonical home).
+  - `/sanctuary` redirects to `/helper` — Sanctuary has no canonical page/API.
+  - `/trash` is the route for `games.pantheon` (M.O.R.E. Pantheon) — suspicious
+    legacy label, rename pending.
+  - `/api/adaptive/me` (Learning Path) has no feature gate — auth-only, rule-based.
+- Full route→feature→access mapping: FEATURE_ACCESS_MATRIX.md.

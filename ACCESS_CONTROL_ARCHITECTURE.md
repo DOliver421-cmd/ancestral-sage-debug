@@ -164,3 +164,23 @@ async def nam_chat(user = Depends(current_user)):
 | `<TierGate feature="creator">` | Feature config `allowed_tiers` |
 | `isPageEnabled(path)` from accessGates | Feature config `enabled` + `navigation_visible` |
 | Manual nav visibility checks | Feature config `navigation_visible` |
+
+---
+
+## PHASE 17 UPDATE (2026-08-23) — ENFORCEMENT IS LIVE
+
+- **Read side added:** `security/feature_control.py` now enforces the Feature Control
+  Center (`db.feature_configs`) inside `check_user_feature_access()` — the exact
+  function the HTTP middleware calls. Rules: `enabled=false` → 403 for everyone
+  (runs before staff tier-exemption); `internal_only` → 403 unless role rank ≥
+  allowed; admin role/tier overrides bind (rank-based). Verified by
+  `tests/test_fcc_enforcement.py` (15/15).
+- **Write side fixed:** `get_feature_config_async()` reads DB overrides properly;
+  `update_feature` normalizes roles/tiers on write (no invented labels can be stored).
+- **Frontend gate map:** `ec_access_public` merges FCC DB overrides AND registry
+  internal-only defaults → nav hides internal/proprietary features from
+  unauthorized users (unit-tested).
+- Decision order: per-user exec override → AI-access override → FCC config →
+  tier requirement. Backend remains authoritative; frontend hiding is UX.
+- Safe-default contract preserved: absent config == allow; unknown feature == 503
+  (mapped surface only). No surprise lockouts of customer features.

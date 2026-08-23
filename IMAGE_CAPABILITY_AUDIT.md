@@ -409,3 +409,17 @@ Image generation via DALL-E (~$0.04-0.08 per image). This is already budget-guar
 | CDN/caching | **NOT SUPPORTED** | — | ❌ | ❌ |
 | Image versioning | **NOT SUPPORTED** | — | ❌ | ❌ |
 | Batch generation | **NOT SUPPORTED** | — | ❌ | ❌ |
+
+---
+
+## PHASE 17 UPDATE (2026-08-23) — COST-BEARING CONFIRMATION
+
+- Confirmed: DALL-E 3 exists only inside `backend/tools/architect_tools.py`
+  (`client.images.generate`, model `dall-e-3`) and is dispatched through the
+  feature-gated AI handler in `routers/ai.py` — **no public generate endpoint**,
+  so image generation is already behind feature access + auth.
+- Image generation is classified COST-BEARING in the registry and governed by the
+  FCC. There is no user-facing generate button.
+- Still NOT SUPPORTED (unchanged): responsive component, feature→image mapping,
+  admin asset manager, versioning. See IMAGE_ASSET_PLAN.md for the static-first
+  plan (no generation executed).

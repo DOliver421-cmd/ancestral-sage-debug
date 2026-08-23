@@ -246,3 +246,17 @@ This would:
 Or should we wait for the full Feature Control Center admin UI (Phase C) before generating anything?
 
 **Recommendation:** Phase A first. It's low-risk, low-cost, high-impact. The admin UI can come later.
+
+---
+
+## PHASE 17 UPDATE (2026-08-23) — ASSET PLAN PRODUCED, NO GENERATION
+
+- **IMAGE_ASSET_PLAN.md** now defines 14 purposeful assets mapped to canonical
+  destinations (hero/feature/thumbnail/empty-state/OG), static-first (CSS/SVG = $0,
+  one-time DALL-E masters ~$0.04/img only after exec approval, user uploads via
+  GridFS).
+- Architecture unchanged: Feature Registry → Visual Asset Registry (future) →
+  ResponsiveImage (future) → static file / GridFS. No external image provider, no
+  new accounts, no recurring cost.
+- Roadmap gated on approval: Phase A (P0 landing) → Phase B (heroes/empty states +
+  ResponsiveImage) → Phase C (admin asset manager in Feature Control Center).

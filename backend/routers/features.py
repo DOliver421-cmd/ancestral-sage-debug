@@ -35,9 +35,9 @@ FEATURE_REGISTRY = [
         "category": "ai",
         "ecosystem": "NAM",
         "route": "/ai",
-        "api_endpoints": ["/api/ai/tutor", "/api/nam"],
+        "api_endpoints": ["/api/ai/chat", "/api/nam"],  # /api/ai/tutor does not exist — real surface is /api/ai/chat
         "default_roles": ["student", "admin", "executive_admin"],
-        "default_tiers": ["free", "creator", "pro", "studio", "director"],
+        "default_tiers": ["free", "member", "plus", "pro", "patron"],  # legacy labels normalized (creator→member, studio→plus, director→patron)
         "platform_ai": True,
         "byok_allowed": True,
         "navigation_group": "NAM",
@@ -55,7 +55,7 @@ FEATURE_REGISTRY = [
         "route": "/helper",
         "api_endpoints": ["/api/ai/helper"],
         "default_roles": ["student", "admin", "executive_admin"],
-        "default_tiers": ["free", "creator", "pro", "studio", "director"],
+        "default_tiers": ["free", "member", "plus", "pro", "patron"],  # legacy labels normalized (creator→member, studio→plus, director→patron)
         "platform_ai": True,
         "byok_allowed": True,
         "navigation_group": "NAM",
@@ -109,7 +109,7 @@ FEATURE_REGISTRY = [
         "route": "/site-guide",
         "api_endpoints": ["/api/site-guide"],
         "default_roles": ["student", "admin", "executive_admin"],
-        "default_tiers": ["free", "creator", "pro", "studio", "director"],
+        "default_tiers": ["free", "member", "plus", "pro", "patron"],  # legacy labels normalized (creator→member, studio→plus, director→patron)
         "platform_ai": True,
         "byok_allowed": False,
         "navigation_group": "NAM",
@@ -127,7 +127,7 @@ FEATURE_REGISTRY = [
         "route": "/council",
         "api_endpoints": ["/api/ai/sage", "/api/sovereign"],
         "default_roles": ["student", "admin", "executive_admin"],
-        "default_tiers": ["pro", "studio", "director"],
+        "default_tiers": ["plus", "pro", "patron"],  # legacy labels normalized
         "platform_ai": True,
         "byok_allowed": True,
         "navigation_group": "NAM",
@@ -162,8 +162,11 @@ FEATURE_REGISTRY = [
         "ecosystem": "NAM",
         "route": "/byok",
         "api_endpoints": ["/api/byok"],
+        "internal_only": False,
+        "customer_access_allowed": True,
+        "cost_bearing": False,
         "default_roles": ["student", "admin", "executive_admin"],
-        "default_tiers": ["free", "creator", "pro", "studio", "director"],
+        "default_tiers": ["free", "member", "plus", "pro", "patron"],  # legacy labels normalized (creator→member, studio→plus, director→patron)
         "platform_ai": False,
         "byok_allowed": True,
         "navigation_group": "NAM",
@@ -180,7 +183,7 @@ FEATURE_REGISTRY = [
         "route": "/studio",
         "api_endpoints": ["/api/studio"],
         "default_roles": ["student", "admin", "executive_admin"],
-        "default_tiers": ["creator", "pro", "studio", "director"],
+        "default_tiers": ["member", "plus", "pro", "patron"],  # legacy labels normalized
         "platform_ai": True,
         "byok_allowed": True,
         "navigation_group": "Create",
@@ -198,7 +201,7 @@ FEATURE_REGISTRY = [
         "route": "/creator/courses",
         "api_endpoints": ["/api/lms/courses"],
         "default_roles": ["student", "admin", "executive_admin"],
-        "default_tiers": ["creator", "pro", "studio", "director"],
+        "default_tiers": ["member", "plus", "pro", "patron"],  # legacy labels normalized
         "platform_ai": False,
         "byok_allowed": False,
         "navigation_group": "Create",
@@ -214,9 +217,9 @@ FEATURE_REGISTRY = [
         "category": "creation",
         "ecosystem": "CREATE",
         "route": "/ghost-producer",
-        "api_endpoints": ["/api/studio/ghost"],
+        "api_endpoints": ["/api/ai/chat"],  # no /api/studio/ghost route — the page (admin-gated) calls the general AI chat
         "default_roles": ["student", "admin", "executive_admin"],
-        "default_tiers": ["creator", "pro", "studio", "director"],
+        "default_tiers": ["member", "plus", "pro", "patron"],  # legacy labels normalized
         "platform_ai": True,
         "byok_allowed": True,
         "navigation_group": "Create",
@@ -232,9 +235,9 @@ FEATURE_REGISTRY = [
         "category": "creation",
         "ecosystem": "CREATE",
         "route": "/social/publish",
-        "api_endpoints": ["/api/community/publish"],
+        "api_endpoints": ["/api/ai/social-blast"],  # real Social Blast surface (routers/chat.py)
         "default_roles": ["student", "admin", "executive_admin"],
-        "default_tiers": ["creator", "pro", "studio", "director"],
+        "default_tiers": ["member", "plus", "pro", "patron"],  # legacy labels normalized
         "platform_ai": True,
         "byok_allowed": True,
         "navigation_group": "Create",
@@ -252,7 +255,7 @@ FEATURE_REGISTRY = [
         "route": "/creator-lounge",
         "api_endpoints": ["/api/creator-lounge"],
         "default_roles": ["student", "admin", "executive_admin"],
-        "default_tiers": ["creator", "pro", "studio", "director"],
+        "default_tiers": ["member", "plus", "pro", "patron"],  # legacy labels normalized
         "platform_ai": False,
         "byok_allowed": False,
         "navigation_group": "Create",
@@ -270,7 +273,7 @@ FEATURE_REGISTRY = [
         "route": "/creator/earnings",
         "api_endpoints": ["/api/billing/earnings"],
         "default_roles": ["student", "admin", "executive_admin"],
-        "default_tiers": ["creator", "pro", "studio", "director"],
+        "default_tiers": ["member", "plus", "pro", "patron"],  # legacy labels normalized
         "platform_ai": False,
         "byok_allowed": False,
         "navigation_group": "Create",
@@ -288,7 +291,7 @@ FEATURE_REGISTRY = [
         "route": "/creator/payouts",
         "api_endpoints": ["/api/billing/payouts"],
         "default_roles": ["student", "admin", "executive_admin"],
-        "default_tiers": ["creator", "pro", "studio", "director"],
+        "default_tiers": ["member", "plus", "pro", "patron"],  # legacy labels normalized
         "platform_ai": False,
         "byok_allowed": False,
         "navigation_group": "Create",
@@ -308,7 +311,7 @@ FEATURE_REGISTRY = [
         "route": "/modules",
         "api_endpoints": ["/api/lms/modules"],
         "default_roles": ["student", "admin", "executive_admin"],
-        "default_tiers": ["free", "creator", "pro", "studio", "director"],
+        "default_tiers": ["free", "member", "plus", "pro", "patron"],  # legacy labels normalized (creator→member, studio→plus, director→patron)
         "platform_ai": False,
         "byok_allowed": False,
         "navigation_group": "Learn",
@@ -324,9 +327,9 @@ FEATURE_REGISTRY = [
         "category": "learning",
         "ecosystem": "LEARN",
         "route": "/adaptive",
-        "api_endpoints": ["/api/lms/adaptive"],
+        "api_endpoints": ["/api/adaptive"],  # real surface: /api/adaptive/me (routers/admin.py)
         "default_roles": ["student", "admin", "executive_admin"],
-        "default_tiers": ["pro", "studio", "director"],
+        "default_tiers": ["plus", "pro", "patron"],  # legacy labels normalized
         "platform_ai": True,
         "byok_allowed": False,
         "navigation_group": "Learn",
@@ -344,7 +347,7 @@ FEATURE_REGISTRY = [
         "route": "/competencies",
         "api_endpoints": ["/api/lms/competencies"],
         "default_roles": ["student", "admin", "executive_admin"],
-        "default_tiers": ["free", "creator", "pro", "studio", "director"],
+        "default_tiers": ["free", "member", "plus", "pro", "patron"],  # legacy labels normalized (creator→member, studio→plus, director→patron)
         "platform_ai": False,
         "byok_allowed": False,
         "navigation_group": "Learn",
@@ -362,7 +365,7 @@ FEATURE_REGISTRY = [
         "route": "/labs",
         "api_endpoints": ["/api/lms/labs"],
         "default_roles": ["student", "admin", "executive_admin"],
-        "default_tiers": ["free", "creator", "pro", "studio", "director"],
+        "default_tiers": ["free", "member", "plus", "pro", "patron"],  # legacy labels normalized (creator→member, studio→plus, director→patron)
         "platform_ai": False,
         "byok_allowed": False,
         "navigation_group": "Learn",
@@ -380,7 +383,7 @@ FEATURE_REGISTRY = [
         "route": "/lab-simulations",
         "api_endpoints": ["/api/lms/simulations"],
         "default_roles": ["student", "admin", "executive_admin"],
-        "default_tiers": ["free", "creator", "pro", "studio", "director"],
+        "default_tiers": ["free", "member", "plus", "pro", "patron"],  # legacy labels normalized (creator→member, studio→plus, director→patron)
         "platform_ai": False,
         "byok_allowed": False,
         "navigation_group": "Learn",
@@ -398,7 +401,7 @@ FEATURE_REGISTRY = [
         "route": "/compliance",
         "api_endpoints": ["/api/lms/compliance"],
         "default_roles": ["student", "admin", "executive_admin"],
-        "default_tiers": ["free", "creator", "pro", "studio", "director"],
+        "default_tiers": ["free", "member", "plus", "pro", "patron"],  # legacy labels normalized (creator→member, studio→plus, director→patron)
         "platform_ai": False,
         "byok_allowed": False,
         "navigation_group": "Learn",
@@ -416,7 +419,7 @@ FEATURE_REGISTRY = [
         "route": "/credentials",
         "api_endpoints": ["/api/lms/credentials"],
         "default_roles": ["student", "admin", "executive_admin"],
-        "default_tiers": ["free", "creator", "pro", "studio", "director"],
+        "default_tiers": ["free", "member", "plus", "pro", "patron"],  # legacy labels normalized (creator→member, studio→plus, director→patron)
         "platform_ai": False,
         "byok_allowed": False,
         "navigation_group": "Learn",
@@ -434,7 +437,7 @@ FEATURE_REGISTRY = [
         "route": "/certificates",
         "api_endpoints": ["/api/lms/certificates"],
         "default_roles": ["student", "admin", "executive_admin"],
-        "default_tiers": ["free", "creator", "pro", "studio", "director"],
+        "default_tiers": ["free", "member", "plus", "pro", "patron"],  # legacy labels normalized (creator→member, studio→plus, director→patron)
         "platform_ai": False,
         "byok_allowed": False,
         "navigation_group": "Learn",
@@ -452,7 +455,7 @@ FEATURE_REGISTRY = [
         "route": "/portfolio",
         "api_endpoints": ["/api/lms/portfolio"],
         "default_roles": ["student", "admin", "executive_admin"],
-        "default_tiers": ["free", "creator", "pro", "studio", "director"],
+        "default_tiers": ["free", "member", "plus", "pro", "patron"],  # legacy labels normalized (creator→member, studio→plus, director→patron)
         "platform_ai": False,
         "byok_allowed": False,
         "navigation_group": "Learn",
@@ -472,7 +475,7 @@ FEATURE_REGISTRY = [
         "route": "/palace",
         "api_endpoints": ["/api/community/palace"],
         "default_roles": ["student", "admin", "executive_admin"],
-        "default_tiers": ["free", "creator", "pro", "studio", "director"],
+        "default_tiers": ["free", "member", "plus", "pro", "patron"],  # legacy labels normalized (creator→member, studio→plus, director→patron)
         "platform_ai": False,
         "byok_allowed": False,
         "navigation_group": "Community",
@@ -490,7 +493,7 @@ FEATURE_REGISTRY = [
         "route": "/leaderboard",
         "api_endpoints": ["/api/community/leaderboard"],
         "default_roles": ["student", "admin", "executive_admin"],
-        "default_tiers": ["free", "creator", "pro", "studio", "director"],
+        "default_tiers": ["free", "member", "plus", "pro", "patron"],  # legacy labels normalized (creator→member, studio→plus, director→patron)
         "platform_ai": False,
         "byok_allowed": False,
         "navigation_group": "Community",
@@ -508,7 +511,7 @@ FEATURE_REGISTRY = [
         "route": "/more/chat",
         "api_endpoints": ["/api/chat"],
         "default_roles": ["student", "admin", "executive_admin"],
-        "default_tiers": ["free", "creator", "pro", "studio", "director"],
+        "default_tiers": ["free", "member", "plus", "pro", "patron"],  # legacy labels normalized (creator→member, studio→plus, director→patron)
         "platform_ai": False,
         "byok_allowed": False,
         "navigation_group": "Community",
@@ -526,7 +529,7 @@ FEATURE_REGISTRY = [
         "route": "/more/litigation",
         "api_endpoints": [],
         "default_roles": ["student", "admin", "executive_admin"],
-        "default_tiers": ["free", "creator", "pro", "studio", "director"],
+        "default_tiers": ["free", "member", "plus", "pro", "patron"],  # legacy labels normalized (creator→member, studio→plus, director→patron)
         "platform_ai": False,
         "byok_allowed": False,
         "navigation_group": "Community",
@@ -544,7 +547,7 @@ FEATURE_REGISTRY = [
         "route": "/incidents",
         "api_endpoints": ["/api/community/incidents"],
         "default_roles": ["student", "admin", "executive_admin"],
-        "default_tiers": ["free", "creator", "pro", "studio", "director"],
+        "default_tiers": ["free", "member", "plus", "pro", "patron"],  # legacy labels normalized (creator→member, studio→plus, director→patron)
         "platform_ai": False,
         "byok_allowed": False,
         "navigation_group": "Community",
@@ -562,7 +565,7 @@ FEATURE_REGISTRY = [
         "route": "/vonns-saga",
         "api_endpoints": ["/api/saga"],
         "default_roles": ["student", "admin", "executive_admin"],
-        "default_tiers": ["free", "creator", "pro", "studio", "director"],
+        "default_tiers": ["free", "member", "plus", "pro", "patron"],  # legacy labels normalized (creator→member, studio→plus, director→patron)
         "platform_ai": False,
         "byok_allowed": False,
         "navigation_group": "Community",
@@ -580,7 +583,7 @@ FEATURE_REGISTRY = [
         "route": "/ascension-protocols",
         "api_endpoints": [],
         "default_roles": ["student", "admin", "executive_admin"],
-        "default_tiers": ["free", "creator", "pro", "studio", "director"],
+        "default_tiers": ["free", "member", "plus", "pro", "patron"],  # legacy labels normalized (creator→member, studio→plus, director→patron)
         "platform_ai": False,
         "byok_allowed": False,
         "navigation_group": "Community",
@@ -600,7 +603,7 @@ FEATURE_REGISTRY = [
         "route": "/store",
         "api_endpoints": ["/api/commerce/store"],
         "default_roles": ["student", "admin", "executive_admin"],
-        "default_tiers": ["free", "creator", "pro", "studio", "director"],
+        "default_tiers": ["free", "member", "plus", "pro", "patron"],  # legacy labels normalized (creator→member, studio→plus, director→patron)
         "platform_ai": False,
         "byok_allowed": False,
         "navigation_group": "Marketplace",
@@ -618,7 +621,7 @@ FEATURE_REGISTRY = [
         "route": "/plans",
         "api_endpoints": [],
         "default_roles": ["student", "admin", "executive_admin"],
-        "default_tiers": ["free", "creator", "pro", "studio", "director"],
+        "default_tiers": ["free", "member", "plus", "pro", "patron"],  # legacy labels normalized (creator→member, studio→plus, director→patron)
         "platform_ai": False,
         "byok_allowed": False,
         "navigation_group": "Marketplace",
@@ -636,7 +639,7 @@ FEATURE_REGISTRY = [
         "route": "/subscribe",
         "api_endpoints": ["/api/billing/subscribe"],
         "default_roles": ["student", "admin", "executive_admin"],
-        "default_tiers": ["free", "creator", "pro", "studio", "director"],
+        "default_tiers": ["free", "member", "plus", "pro", "patron"],  # legacy labels normalized (creator→member, studio→plus, director→patron)
         "platform_ai": False,
         "byok_allowed": False,
         "navigation_group": "Marketplace",
@@ -654,7 +657,7 @@ FEATURE_REGISTRY = [
         "route": "/donate",
         "api_endpoints": ["/api/billing/donate"],
         "default_roles": ["student", "admin", "executive_admin"],
-        "default_tiers": ["free", "creator", "pro", "studio", "director"],
+        "default_tiers": ["free", "member", "plus", "pro", "patron"],  # legacy labels normalized (creator→member, studio→plus, director→patron)
         "platform_ai": False,
         "byok_allowed": False,
         "navigation_group": "Marketplace",
@@ -672,7 +675,7 @@ FEATURE_REGISTRY = [
         "route": "/payment/history",
         "api_endpoints": ["/api/billing/history"],
         "default_roles": ["student", "admin", "executive_admin"],
-        "default_tiers": ["free", "creator", "pro", "studio", "director"],
+        "default_tiers": ["free", "member", "plus", "pro", "patron"],  # legacy labels normalized (creator→member, studio→plus, director→patron)
         "platform_ai": False,
         "byok_allowed": False,
         "navigation_group": "Marketplace",
@@ -690,7 +693,7 @@ FEATURE_REGISTRY = [
         "route": "/partnership",
         "api_endpoints": ["/api/billing/partnerships"],
         "default_roles": ["student", "admin", "executive_admin"],
-        "default_tiers": ["free", "creator", "pro", "studio", "director"],
+        "default_tiers": ["free", "member", "plus", "pro", "patron"],  # legacy labels normalized (creator→member, studio→plus, director→patron)
         "platform_ai": False,
         "byok_allowed": False,
         "navigation_group": "Marketplace",
@@ -708,9 +711,9 @@ FEATURE_REGISTRY = [
         "category": "wellness",
         "ecosystem": "SANCTUARY",
         "route": "/sanctuary",
-        "api_endpoints": ["/api/sovereign"],
+        "api_endpoints": [],  # /sanctuary route redirects to /helper — no dedicated backend surface
         "default_roles": ["student", "admin", "executive_admin"],
-        "default_tiers": ["pro", "studio", "director"],
+        "default_tiers": ["plus", "pro", "patron"],  # legacy labels normalized
         "platform_ai": True,
         "byok_allowed": False,
         "navigation_group": "Sanctuary",
@@ -728,7 +731,7 @@ FEATURE_REGISTRY = [
         "route": "/knowledge-base",
         "api_endpoints": [],
         "default_roles": ["student", "admin", "executive_admin"],
-        "default_tiers": ["free", "creator", "pro", "studio", "director"],
+        "default_tiers": ["free", "member", "plus", "pro", "patron"],  # legacy labels normalized (creator→member, studio→plus, director→patron)
         "platform_ai": False,
         "byok_allowed": False,
         "navigation_group": "Sanctuary",
@@ -748,7 +751,7 @@ FEATURE_REGISTRY = [
         "route": "/band",
         "api_endpoints": ["/api/band"],
         "default_roles": ["student", "admin", "executive_admin"],
-        "default_tiers": ["creator", "pro", "studio", "director"],
+        "default_tiers": ["member", "plus", "pro", "patron"],  # legacy labels normalized
         "platform_ai": False,
         "byok_allowed": False,
         "navigation_group": "Music",
@@ -766,7 +769,7 @@ FEATURE_REGISTRY = [
         "route": "/playlist/dashboard",
         "api_endpoints": ["/api/playlist"],
         "default_roles": ["student", "admin", "executive_admin"],
-        "default_tiers": ["free", "creator", "pro", "studio", "director"],
+        "default_tiers": ["free", "member", "plus", "pro", "patron"],  # legacy labels normalized (creator→member, studio→plus, director→patron)
         "platform_ai": False,
         "byok_allowed": False,
         "navigation_group": "Music",
@@ -786,7 +789,7 @@ FEATURE_REGISTRY = [
         "route": "/arcade",
         "api_endpoints": [],
         "default_roles": ["student", "admin", "executive_admin"],
-        "default_tiers": ["free", "creator", "pro", "studio", "director"],
+        "default_tiers": ["free", "member", "plus", "pro", "patron"],  # legacy labels normalized (creator→member, studio→plus, director→patron)
         "platform_ai": False,
         "byok_allowed": False,
         "navigation_group": "Games",
@@ -804,7 +807,7 @@ FEATURE_REGISTRY = [
         "route": "/trash",
         "api_endpoints": [],
         "default_roles": ["student", "admin", "executive_admin"],
-        "default_tiers": ["free", "creator", "pro", "studio", "director"],
+        "default_tiers": ["free", "member", "plus", "pro", "patron"],  # legacy labels normalized (creator→member, studio→plus, director→patron)
         "platform_ai": False,
         "byok_allowed": False,
         "navigation_group": "Games",

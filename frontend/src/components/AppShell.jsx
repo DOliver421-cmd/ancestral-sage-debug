@@ -232,7 +232,6 @@ export default function AppShell({ children }) {
               {nl("/ai",              "AI Tutor",        Sparkles,        "nav-ai")}
               {nl("/helper",          "Personal Helper",  HelpCircle,      "nav-helper")}
               {nl("/assistant",       "Admin Assistant", Brain,           "nav-assistant")}
-              {nl("/orchestrator",    "Orchestrator",     Layers,          "nav-orchestrator")}
               {nl("/site-guide",      "Site Guide",       Map,             "nav-site-guide")}
             </NavSubGroup>
             <NavSubGroup label="Leadership" collapsed={collapsed}>
