@@ -20,14 +20,14 @@ Click a plan → pay real money on the payment page → the account upgrades aut
 **2. One real account, created and used.**
 Register with a real email → sign in → see the member dashboard with real data. Every database-connected flow (sign-up, posts, purchases recorded) is unproven because this workspace has no database. Prove it where the database lives.
 
-**3. Fix or remove the broken music players.**
-The owner reports them broken. A visitor's first impression of the gateway page cannot be two dead players. Diagnose, fix, or take them down.
+**3. ~~Fix or remove the broken music players.~~ DONE August 24.**
+Root cause: our own security policy blocked the music platform from being embedded. The allowlist was corrected and verified against the live server. The players will now load.
 
-**4. Decide the store question.**
-Right now the store is a window into an external website, physical goods are refused, and our own product catalog isn't shown. Pick one honest answer — first-party store, external storefront, or both clearly labeled — before inviting the public.
+**4. ~~Decide the store question.~~ MOSTLY DONE August 24.**
+The store now leads with the platform's own catalog — creators' products with working buy buttons through our own checkout (creators keep 70%), verified by rendering with real data. The external storefront stays as a clearly labeled secondary venue. One decision remains open: physical merchandise is still unavailable by design.
 
-**5. Re-apply the one-line health-page fix.**
-The executive status page calls a broken system "degraded" instead of "critical." It was fixed and reverted; put it back.
+**5. ~~Re-apply the one-line health-page fix.~~ DONE August 24.**
+The status page now reads failures as "critical."
 
 ## Strongly recommended before launch (not blockers)
 
@@ -38,7 +38,7 @@ The executive status page calls a broken system "degraded" instead of "critical.
 
 ## What would change this to GO
 
-Blockers 1–5 done, plus one full walkthrough by a non-technical person: land on the site → sign up → pick a plan → pay → see the upgraded account → use what they paid for — without getting stuck once. When that walkthrough passes, this becomes a **GO**.
+Blockers 1 and 2 — one real purchase and one real account, watched end to end — plus one full walkthrough by a non-technical person: land on the site → sign up → pick a plan → pay → see the upgraded account → use what they paid for — without getting stuck once. When that walkthrough passes, this becomes a **GO**.
 
 ---
 

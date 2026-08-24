@@ -1222,7 +1222,7 @@ async def exec_site_report(user: User = Depends(_require_rank("executive_admin")
     warned = statuses.count("warn")
     failed = statuses.count("fail")
     score = round((passed / len(all_checks)) * 100) if all_checks else 0
-    overall = "operational" if failed == 0 else ("degraded" if warned else "critical")
+    overall = "critical" if failed else ("degraded" if warned else "operational")
 
     return {
         "generated_at": generated_at,

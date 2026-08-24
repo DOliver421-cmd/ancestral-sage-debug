@@ -73,7 +73,7 @@ async def security_headers(request: Request, call_next):
         "img-src 'self' data: https:; "
         f"font-src 'self' data: {_FONT_HOSTS}; "
         "connect-src 'self' https:; "
-        "frame-src https://namoshun.gumroad.com https://gumroad.com; "
+        "frame-src https://namoshun.gumroad.com https://gumroad.com https://bandcamp.com; "
         "frame-ancestors 'none'; base-uri 'self'; form-action 'self'"
     )
     # Referrer policy (limit referrer disclosure)
@@ -89,7 +89,7 @@ async def security_headers(request: Request, call_next):
         "img-src 'self' data: https:; "
         f"font-src 'self' data: {_FONT_HOSTS}; "
         "connect-src 'self' https:; "
-        "frame-src https://namoshun.gumroad.com https://gumroad.com; "
+        "frame-src https://namoshun.gumroad.com https://gumroad.com https://bandcamp.com; "
         "frame-ancestors 'none'; base-uri 'self'; form-action 'self'; "
         "media-src 'self' blob:"
     )

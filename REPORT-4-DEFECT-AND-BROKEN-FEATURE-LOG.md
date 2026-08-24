@@ -34,11 +34,11 @@
 
 ## Unresolved defects (open right now)
 
-**O1. The two music players on the gateway page — reported broken by the owner**
-- The embed code is the music platform's current standard format, so the likely cause is on the music platform's side (removed or changed tracks). **Not yet diagnosed to root cause. Unresolved.**
+**O1. The two music players on the gateway page — FIXED August 24, 2026**
+- **Root cause found: it was our own site.** The security policy that controls which outside pages may be embedded only allowed the storefront host — the music platform was not on the list, so the browser silently blocked both players on every page. The tracks themselves were always live (confirmed directly). The allowlist now includes the music platform, confirmed by reading the live server's response header. The embeds will now load.
 
-**O2. The executive health page mislabels a broken system**
-- A system with failures shows "degraded" instead of "critical" in one case — the check reads backwards. It was fixed earlier today and reverted with the report changes. **Needs re-applying.**
+**O2. The executive health page mislabels a broken system — FIXED August 24, 2026**
+- Re-applied the corrected check: a system with failures now reads "critical," warnings alone read "degraded."
 
 **O3. Physical merchandise cannot be purchased**
 - The system refuses these orders by design. Either wire it up or stop showing physical products. **Open decision.**
@@ -46,8 +46,8 @@
 **O4. 62 of 140 pages have no sidebar navigation**
 - They open as bare pages. A visitor who lands there has no way to navigate the site. **Open.**
 
-**O5. The store is a window into someone else's website**
-- The store page shows an external storefront in a frame. Our own product catalog is not displayed or sold there. **Open design decision.**
+**O5. The store was a window into someone else's website — FIXED August 24, 2026**
+- The store page now leads with the platform's **own catalog**: every product creators publish appears there with a working buy button through our own checkout (creators keep 70%). Verified by rendering the page with real catalog data — products, prices, and creator names all display, and the buy path is wired. The external storefront remains below, now honestly labeled "External." **Still open:** physical merchandise remains unavailable by design — an owner decision, not a defect.
 
 ## False claims and rubber-stamped "green lights" corrected by this audit
 
