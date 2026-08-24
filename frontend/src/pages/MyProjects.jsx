@@ -412,20 +412,13 @@ export default function MyProjects() {
                           <div className="text-xs font-black uppercase tracking-widest mb-2" style={{ color: COPPER }}>
                             Hand the current stage to the team
                           </div>
-                          {!hasBYOK ? (
-                            <div className="rounded-lg p-4 text-center" style={{ background: "rgba(178,58,46,0.06)", border: "1px solid rgba(178,58,46,0.2)" }}>
-                              <KeyRound className="w-6 h-6 mx-auto mb-2" style={{ color: COPPER }} />
-                              <div className="font-heading font-bold text-ink text-sm">BYOK key required</div>
-                              <p className="text-xs text-ink/55 mt-1 max-w-sm mx-auto">
-                                AI runs use your own API key — the platform never funds customer AI.
-                                Activate a free key (Groq, Cerebras, or Gemini) for $3 and your calls route through your key.
-                              </p>
-                              <a href="/byok" className="inline-flex items-center gap-1.5 mt-3 px-4 py-2 rounded-lg text-xs font-black uppercase tracking-widest text-white" style={{ background: GREEN }}>
-                                <KeyRound className="w-3.5 h-3.5" /> Activate BYOK
-                              </a>
+                          {!hasBYOK && (
+                            <div className="rounded-lg px-3 py-2 mb-2 text-xs font-bold flex items-center gap-2 flex-wrap" style={{ background: "rgba(232,165,30,0.08)", color: COPPER }}>
+                              <KeyRound className="w-3.5 h-3.5 shrink-0" />
+                              <span>AI runs use your own key — the platform never funds customer AI.</span>
+                              <a href="/byok" className="underline hover:opacity-80 ml-auto shrink-0">Activate BYOK →</a>
                             </div>
-                          ) : (
-                          <>
+                          )}
                           <select
                             value={run.persona}
                             onChange={(e) => setRun({ ...run, persona: e.target.value })}
@@ -441,18 +434,17 @@ export default function MyProjects() {
                             className="w-full px-3 py-2 bg-bone border border-ink/15 rounded-lg text-sm focus:outline-none focus:border-copper resize-y mb-2"
                           />
                           <div className="flex items-center gap-2 flex-wrap">
-                            <button onClick={runStage} disabled={running}
+                            <button onClick={runStage} disabled={running || !hasBYOK}
+                              title={!hasBYOK ? "Activate BYOK to use AI runs" : "Run the AI team on this stage"}
                               className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-black text-white disabled:opacity-40"
                               style={{ background: COPPER }}>
                               {running ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
-                              {running ? "Working…" : "Run it"}
+                              {running ? "Working…" : hasBYOK ? "Run it" : "BYOK required"}
                             </button>
                             <span className="text-[10px] font-bold uppercase tracking-widest text-ink/40">
-                              {runsLeft} runs left today · your key · result pending your review
+                              {runsLeft} runs left today · {hasBYOK ? "your key" : "need BYOK"} · result pending your review
                             </span>
                           </div>
-                          </>
-                          )}
                         </div>
                       )}
                     </div>
