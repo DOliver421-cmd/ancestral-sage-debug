@@ -29,11 +29,11 @@ import {
   Sparkles, Lock, FileText, Headphones,
 } from "lucide-react";
 
-const COPPER = "#C0572D";
-const GOLD = "#E8A51E";
-const GREEN = "#1B4332";
-const INK = "#1c1917";
-const BONE = "#FDFBF5";
+const COPPER = "#22d3ee";
+const GOLD = "#22d3ee";
+const GREEN = "#0e7490";
+const INK = "#e2e8f0";
+const BONE = "#141824";
 
 const STEPS = 16;
 
@@ -129,10 +129,10 @@ const KITS = {
 };
 
 const DRUM_TRACKS = [
-  { id: "kick", label: "Kick", color: "#B23A2E" },
-  { id: "snare", label: "Snare", color: "#E8A51E" },
-  { id: "hat", label: "Hat", color: "#5B8C5A" },
-  { id: "perc", label: "Perc", color: "#7C6FDE" },
+  { id: "kick", label: "Kick", color: "#f472b6" },
+  { id: "snare", label: "Snare", color: "#22d3ee" },
+  { id: "hat", label: "Hat", color: "#67e8f9" },
+  { id: "perc", label: "Perc", color: "#a78bfa" },
 ];
 
 const KEY_ROWS = 5; // 5-pitch grid for the keys lane
@@ -269,9 +269,9 @@ export function StudioContent({ embedded = false }) {
   });
 
   // Shared project state
-  const [kitId, setKitId] = useState("southern-soul");
-  const [bpm, setBpm] = useState(KITS["southern-soul"].bpm);
-  const [swing, setSwing] = useState(KITS["southern-soul"].swing);
+  const [kitId, setKitId] = useState("boom-bap");
+  const [bpm, setBpm] = useState(KITS["boom-bap"].bpm);
+  const [swing, setSwing] = useState(KITS["boom-bap"].swing);
   const [root, setRoot] = useState("C");
   const [patterns, setPatterns] = useState(() => {
     // patterns[trackId][step] — A and B banks
@@ -608,7 +608,7 @@ export function StudioContent({ embedded = false }) {
   const title = meta.title || "Untitled";
 
   return (
-    <div className={embedded ? "h-full overflow-y-auto bg-bone" : "bg-bone"} style={embedded ? {} : { minHeight: "100vh" }}>
+    <div className={embedded ? "h-full overflow-y-auto bg-[#141824]" : "bg-[#141824]"} style={embedded ? {} : { minHeight: "100vh" }}>
       <div className="max-w-6xl mx-auto px-4 sm:px-6 py-8">
         {/* ── Header ── */}
         <div className="rounded-2xl p-6 mb-6 text-white"
@@ -635,7 +635,7 @@ export function StudioContent({ embedded = false }) {
         </div>
 
         {/* ── Tabs ── */}
-        <div className="flex gap-1 border-b border-ink/10 mb-6 overflow-x-auto">
+        <div className="flex gap-1 border-b border-white/10 mb-6 overflow-x-auto">
           {[
             { id: "beat", label: "Beat", icon: Music2 },
             { id: "keys", label: "Keys", icon: SlidersHorizontal },
@@ -645,44 +645,44 @@ export function StudioContent({ embedded = false }) {
             return (
               <button key={t.id} onClick={() => setTab(t.id)}
                 className={`flex items-center gap-1.5 px-4 py-2.5 text-sm font-bold border-b-2 whitespace-nowrap transition-colors ${
-                  tab === t.id ? "border-copper text-copper" : "border-transparent text-ink/40 hover:text-ink/70"
+                  tab === t.id ? "border-cyan-400 text-cyan-400" : "border-transparent text-slate-500 hover:text-slate-200"
                 }`}>
                 <Icon className="w-4 h-4" /> {t.label}
               </button>
             );
           })}
           <button onClick={() => window.location.href = "/ghost-producer"}
-            className="ml-auto flex items-center gap-1.5 px-4 py-2.5 text-sm font-bold text-ink/40 hover:text-copper transition-colors whitespace-nowrap">
+            className="ml-auto flex items-center gap-1.5 px-4 py-2.5 text-sm font-bold text-slate-500 hover:text-cyan-300 transition-colors whitespace-nowrap">
             <Sparkles className="w-4 h-4" /> Words &amp; Promotion
           </button>
         </div>
 
         {/* ── Transport ── */}
-        <div className="flex flex-wrap items-center gap-3 mb-6 card-flat rounded-2xl p-4 border" style={{ background: "#fff" }}>
+        <div className="flex flex-wrap items-center gap-3 mb-6 card-flat rounded-2xl p-4 border" style={{ background: "#1b2130" }}>
           <button onClick={playing ? stop : play}
             className="w-11 h-11 rounded-full flex items-center justify-center text-white transition-transform active:scale-95"
             style={{ background: playing ? "#B23A2E" : GREEN }}>
             {playing ? <Square className="w-4 h-4 fill-white" /> : <Play className="w-4 h-4 fill-white ml-0.5" />}
           </button>
           <label className="flex items-center gap-2 text-sm">
-            <span className="text-xs font-bold text-ink/50 uppercase tracking-widest">BPM</span>
+            <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">BPM</span>
             <input type="range" min="50" max="160" value={bpm}
               onChange={(e) => setBpm(Number(e.target.value))}
-              className="w-28 accent-[#C0572D]" />
+              className="w-28 accent-[#22d3ee]" />
             <span className="font-mono text-sm w-8">{bpm}</span>
           </label>
           <label className="flex items-center gap-2 text-sm">
-            <span className="text-xs font-bold text-ink/50 uppercase tracking-widest">Swing</span>
+            <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Swing</span>
             <input type="range" min="0" max="0.35" step="0.01" value={swing}
               onChange={(e) => setSwing(Number(e.target.value))}
-              className="w-24 accent-[#C0572D]" />
+              className="w-24 accent-[#22d3ee]" />
             <span className="font-mono text-sm w-8">{(swing * 100).toFixed(0)}%</span>
           </label>
           <div className="flex items-center gap-1 ml-auto flex-wrap">
             {Object.entries(KITS).map(([id, k]) => (
               <button key={id} onClick={() => selectKit(id)}
                 className={`text-[10px] font-black uppercase tracking-wider px-3 py-1.5 rounded-full border transition-colors ${
-                  kitId === id ? "text-white" : "text-ink/50 hover:text-ink"
+                  kitId === id ? "text-white" : "text-slate-400 hover:text-slate-100"
                 }`}
                 style={kitId === id ? { background: GREEN, borderColor: GREEN } : { borderColor: "rgba(28,25,23,0.15)" }}>
                 {k.label}
@@ -693,19 +693,19 @@ export function StudioContent({ embedded = false }) {
 
         {/* ══ BEAT ══ */}
         {tab === "beat" && (
-          <div className="card-flat rounded-2xl border overflow-hidden" style={{ background: "#fff" }}>
+          <div className="card-flat rounded-2xl border overflow-hidden" style={{ background: "#1b2130" }}>
             {DRUM_TRACKS.map((t) => {
               const pat = patterns[kitId][t.id][bank];
               return (
-                <div key={t.id} className="flex items-stretch border-b border-ink/5 last:border-0">
-                  <div className="w-28 shrink-0 flex items-center gap-2 px-4 py-2 border-r border-ink/5">
+                <div key={t.id} className="flex items-stretch border-b border-white/5 last:border-0">
+                  <div className="w-28 shrink-0 flex items-center gap-2 px-4 py-2 border-r border-white/5">
                     <button onClick={() => setMuted((m) => ({ ...m, [t.id]: !m[t.id] }))}
                       title={muted[t.id] ? "Unmute" : "Mute"}
-                      className={`w-7 h-7 rounded flex items-center justify-center text-[9px] font-black transition-colors ${muted[t.id] ? "bg-ink/10 text-ink/30" : "text-white"}`}
+                      className={`w-7 h-7 rounded flex items-center justify-center text-[9px] font-black transition-colors ${muted[t.id] ? "bg-ink/10 text-slate-500" : "text-white"}`}
                       style={!muted[t.id] ? { background: t.color } : {}}>
                       {muted[t.id] ? "OFF" : "ON"}
                     </button>
-                    <span className="text-sm font-bold text-ink">{t.label}</span>
+                    <span className="text-sm font-bold text-slate-100">{t.label}</span>
                   </div>
                   <div className="flex-1 grid gap-1 p-2" style={{ gridTemplateColumns: `repeat(${STEPS}, 1fr)` }}>
                     {pat.map((on, s) => (
@@ -722,17 +722,17 @@ export function StudioContent({ embedded = false }) {
               );
             })}
             {/* Bank switcher */}
-            <div className="flex items-center gap-2 px-4 py-3 bg-bone">
+            <div className="flex items-center gap-2 px-4 py-3 bg-[#141824]">
               {[0, 1].map((b) => (
                 <button key={b} onClick={() => setBank(b)}
                   className={`px-4 py-1.5 rounded-lg text-xs font-black uppercase tracking-widest transition-colors ${
-                    bank === b ? "text-white" : "text-ink/40 bg-white border border-ink/10"
+                    bank === b ? "text-white" : "text-slate-500 bg-[#1b2130] border border-white/10"
                   }`}
                   style={bank === b ? { background: COPPER } : {}}>
                   Pattern {b === 0 ? "A" : "B"}
                 </button>
               ))}
-              <span className="ml-auto text-xs text-ink/40">16 steps · drums synthesized live</span>
+              <span className="ml-auto text-xs text-slate-500">16 steps · drums synthesized live</span>
             </div>
           </div>
         )}
@@ -740,19 +740,19 @@ export function StudioContent({ embedded = false }) {
         {/* ══ KEYS ══ */}
         {tab === "keys" && (
           <div className="space-y-5">
-            <div className="card-flat rounded-2xl border p-5" style={{ background: "#fff" }}>
+            <div className="card-flat rounded-2xl border p-5" style={{ background: "#1b2130" }}>
               <div className="flex flex-wrap items-center gap-3 mb-4">
-                <span className="text-sm font-bold text-ink">Scale lane</span>
-                <span className="text-xs text-ink/50">{scale.label}</span>
+                <span className="text-sm font-bold text-slate-100">Scale lane</span>
+                <span className="text-xs text-slate-400">{scale.label}</span>
                 <label className="flex items-center gap-2 ml-auto text-sm">
-                  <span className="text-xs font-bold text-ink/50 uppercase tracking-widest">Key</span>
+                  <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Key</span>
                   <select value={root} onChange={(e) => setRoot(e.target.value)}
-                    className="px-3 py-1.5 bg-white border border-ink/15 rounded-lg text-sm focus:outline-none focus:border-copper">
+                    className="px-3 py-1.5 bg-[#1b2130] border border-white/15 rounded-lg text-sm focus:outline-none focus:border-cyan-400">
                     {ROOTS.map((r) => <option key={r} value={r}>{r}</option>)}
                   </select>
                 </label>
                 <button onClick={() => setMuted((m) => ({ ...m, keys: !m.keys }))}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-black uppercase tracking-widest ${muted.keys ? "bg-ink/10 text-ink/30" : "text-white"}`}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-black uppercase tracking-widest ${muted.keys ? "bg-ink/10 text-slate-500" : "text-white"}`}
                   style={!muted.keys ? { background: GREEN } : {}}>
                   {muted.keys ? "Keys OFF" : "Keys ON"}
                 </button>
@@ -762,7 +762,7 @@ export function StudioContent({ embedded = false }) {
                   {Array.from({ length: KEY_ROWS }).map((_, r) => {
                     const degree = Math.min(r, scale.offsets.length - 1);
                     return (
-                      <div key={r} className="text-xs font-mono text-ink/50 px-2">
+                      <div key={r} className="text-xs font-mono text-slate-400 px-2">
                         {scale.offsets[degree]} ({r === 0 ? "root" : r === 1 ? "3rd" : r === 2 ? "5th" : r === 3 ? "7th" : "color"})
                       </div>
                     );
@@ -784,7 +784,7 @@ export function StudioContent({ embedded = false }) {
                   ))}
                 </div>
               </div>
-              <p className="text-xs text-ink/45 mt-3">
+              <p className="text-xs text-slate-500 mt-3">
                 Rows map to scale degrees — play the root/3rd/5th/7th/color of the selected scale in {root}.
                 Bass lives one octave down; pads ring longer.
               </p>
@@ -795,70 +795,70 @@ export function StudioContent({ embedded = false }) {
         {/* ══ PUBLISH ══ */}
         {tab === "publish" && (
           <div className="grid lg:grid-cols-2 gap-5">
-            <div className="card-flat rounded-2xl border p-5 space-y-4" style={{ background: "#fff" }}>
+            <div className="card-flat rounded-2xl border p-5 space-y-4" style={{ background: "#1b2130" }}>
               <div className="flex items-center gap-2">
                 <FileText className="w-4 h-4" style={{ color: COPPER }} />
-                <h2 className="font-heading font-bold text-ink">Track Metadata</h2>
+                <h2 className="font-heading font-bold text-slate-100">Track Metadata</h2>
               </div>
               <label className="block">
-                <span className="text-xs font-bold text-ink/60">Title *</span>
+                <span className="text-xs font-bold text-slate-300">Title *</span>
                 <input value={meta.title || ""} onChange={(e) => setMeta({ ...meta, title: e.target.value })}
                   placeholder="My first Ghost Producer track"
-                  className="mt-1 w-full px-3 py-2 bg-white border border-ink/15 rounded-lg text-sm focus:outline-none focus:border-copper" />
+                  className="mt-1 w-full px-3 py-2 bg-[#1b2130] border border-white/15 rounded-lg text-sm focus:outline-none focus:border-cyan-400" />
               </label>
               <div className="grid grid-cols-2 gap-3">
                 <label className="block">
-                  <span className="text-xs font-bold text-ink/60">Artist</span>
+                  <span className="text-xs font-bold text-slate-300">Artist</span>
                   <input value={meta.artist || user?.full_name || ""} onChange={(e) => setMeta({ ...meta, artist: e.target.value })}
-                    className="mt-1 w-full px-3 py-2 bg-white border border-ink/15 rounded-lg text-sm focus:outline-none focus:border-copper" />
+                    className="mt-1 w-full px-3 py-2 bg-[#1b2130] border border-white/15 rounded-lg text-sm focus:outline-none focus:border-cyan-400" />
                 </label>
                 <label className="block">
-                  <span className="text-xs font-bold text-ink/60">Genre</span>
+                  <span className="text-xs font-bold text-slate-300">Genre</span>
                   <input value={meta.genre || kit.label} onChange={(e) => setMeta({ ...meta, genre: e.target.value })}
-                    className="mt-1 w-full px-3 py-2 bg-white border border-ink/15 rounded-lg text-sm focus:outline-none focus:border-copper" />
+                    className="mt-1 w-full px-3 py-2 bg-[#1b2130] border border-white/15 rounded-lg text-sm focus:outline-none focus:border-cyan-400" />
                 </label>
               </div>
               <div className="grid grid-cols-3 gap-3">
                 <div>
-                  <div className="text-xs font-bold text-ink/60">BPM</div>
-                  <div className="mt-1 font-mono text-sm text-ink/80">{bpm}</div>
+                  <div className="text-xs font-bold text-slate-300">BPM</div>
+                  <div className="mt-1 font-mono text-sm text-slate-100">{bpm}</div>
                 </div>
                 <div>
-                  <div className="text-xs font-bold text-ink/60">Key</div>
-                  <div className="mt-1 font-mono text-sm text-ink/80">{root}</div>
+                  <div className="text-xs font-bold text-slate-300">Key</div>
+                  <div className="mt-1 font-mono text-sm text-slate-100">{root}</div>
                 </div>
                 <label className="block">
-                  <span className="text-xs font-bold text-ink/60">Price ($)</span>
+                  <span className="text-xs font-bold text-slate-300">Price ($)</span>
                   <input type="number" min="0" step="0.5" value={(meta.price_cents || 100) / 100}
                     onChange={(e) => setMeta({ ...meta, price_cents: Math.round(Number(e.target.value) * 100) })}
-                    className="mt-1 w-full px-3 py-2 bg-white border border-ink/15 rounded-lg text-sm focus:outline-none focus:border-copper" />
+                    className="mt-1 w-full px-3 py-2 bg-[#1b2130] border border-white/15 rounded-lg text-sm focus:outline-none focus:border-cyan-400" />
                 </label>
               </div>
               <label className="block">
-                <span className="text-xs font-bold text-ink/60">Description</span>
+                <span className="text-xs font-bold text-slate-300">Description</span>
                 <textarea value={meta.description || ""} onChange={(e) => setMeta({ ...meta, description: e.target.value })}
                   rows={2} placeholder="What is this track? What inspired it?"
-                  className="mt-1 w-full px-3 py-2 bg-white border border-ink/15 rounded-lg text-sm focus:outline-none focus:border-copper resize-y" />
+                  className="mt-1 w-full px-3 py-2 bg-[#1b2130] border border-white/15 rounded-lg text-sm focus:outline-none focus:border-cyan-400 resize-y" />
               </label>
               <label className="block">
-                <span className="text-xs font-bold text-ink/60">Credits</span>
+                <span className="text-xs font-bold text-slate-300">Credits</span>
                 <input value={meta.credits || ""} onChange={(e) => setMeta({ ...meta, credits: e.target.value })}
                   placeholder="Who made this? (defaults to you)"
-                  className="mt-1 w-full px-3 py-2 bg-white border border-ink/15 rounded-lg text-sm focus:outline-none focus:border-copper" />
+                  className="mt-1 w-full px-3 py-2 bg-[#1b2130] border border-white/15 rounded-lg text-sm focus:outline-none focus:border-cyan-400" />
               </label>
               <div className="space-y-2 pt-1">
                 <label className="flex items-start gap-2 text-sm cursor-pointer">
                   <input type="checkbox" checked={!!meta.ai_disclosure} onChange={(e) => setMeta({ ...meta, ai_disclosure: e.target.checked })}
-                    className="mt-0.5 accent-[#C0572D]" />
-                  <span className="text-ink/70">
+                    className="mt-0.5 accent-[#22d3ee]" />
+                  <span className="text-slate-200">
                     <b>AI-assisted disclosure</b> — label this track as AI-assisted where platforms require it
-                    <span className="block text-xs text-ink/45">Required by YouTube/Spotify/Apple policies for AI-generated content.</span>
+                    <span className="block text-xs text-slate-500">Required by YouTube/Spotify/Apple policies for AI-generated content.</span>
                   </span>
                 </label>
                 <label className="flex items-start gap-2 text-sm cursor-pointer">
                   <input type="checkbox" checked={!!meta.samples_cleared} onChange={(e) => setMeta({ ...meta, samples_cleared: e.target.checked })}
-                    className="mt-0.5 accent-[#C0572D]" />
-                  <span className="text-ink/70">
+                    className="mt-0.5 accent-[#22d3ee]" />
+                  <span className="text-slate-200">
                     <b>Sample clearance statement</b> — I confirm every sound in this track is either synthesized by this studio or mine to use
                   </span>
                 </label>
@@ -866,12 +866,12 @@ export function StudioContent({ embedded = false }) {
             </div>
 
             <div className="space-y-5">
-              <div className="rounded-2xl border p-5" style={{ background: "#fff", borderColor: "rgba(181,101,29,0.3)" }}>
+              <div className="rounded-2xl border p-5" style={{ background: "#1b2130", borderColor: "rgba(34,211,238,0.3)" }}>
                 <div className="flex items-center gap-2 mb-3">
                   <Lock className="w-4 h-4" style={{ color: GREEN }} />
-                  <h2 className="font-heading font-bold text-ink">Ownership — yours, not ours</h2>
+                  <h2 className="font-heading font-bold text-slate-100">Ownership — yours, not ours</h2>
                 </div>
-                <div className="space-y-2 text-sm text-ink/70">
+                <div className="space-y-2 text-sm text-slate-200">
                   <p className="flex gap-2"><span style={{ color: GREEN }}>✓</span> You keep <b>100% ownership</b> of the copyright in everything made here.</p>
                   <p className="flex gap-2"><span style={{ color: GREEN }}>✓</span> The platform never claims your work — no transfers, no assignments.</p>
                   <p className="flex gap-2"><span style={{ color: GREEN }}>✓</span> When a track sells, the creator keeps <b>70%</b> and the platform retains a <b>30% service fee</b> (Mandate 2).</p>
@@ -879,20 +879,20 @@ export function StudioContent({ embedded = false }) {
                 </div>
               </div>
 
-              <div className="rounded-2xl border p-5" style={{ background: "rgba(232,165,30,0.05)", borderColor: "rgba(232,165,30,0.3)" }}>
+              <div className="rounded-2xl border p-5" style={{ background: "rgba(34,211,238,0.05)", borderColor: "rgba(34,211,238,0.3)" }}>
                 <div className="flex items-center gap-2 mb-3">
                   <Upload className="w-4 h-4" style={{ color: GOLD }} />
-                  <h2 className="font-heading font-bold text-ink">Publish to your store</h2>
+                  <h2 className="font-heading font-bold text-slate-100">Publish to your store</h2>
                 </div>
-                <p className="text-xs text-ink/55 mb-4">
+                <p className="text-xs text-slate-400 mb-4">
                   Generate an 8-bar preview to hear exactly what buyers get, then render &amp; publish to your
                   Media Store as a sellable track. Unpublish or change the price anytime from your creator tools.
                 </p>
                 {projects.length > 0 && (
                   <label className="block mb-3">
-                    <span className="text-xs font-bold text-ink/60">Attach to AI team project (optional)</span>
+                    <span className="text-xs font-bold text-slate-300">Attach to AI team project (optional)</span>
                     <select value={projectId} onChange={(e) => setProjectId(e.target.value)}
-                      className="mt-1 w-full px-3 py-2 bg-white border border-ink/15 rounded-lg text-sm focus:outline-none focus:border-copper">
+                      className="mt-1 w-full px-3 py-2 bg-[#1b2130] border border-white/15 rounded-lg text-sm focus:outline-none focus:border-cyan-400">
                       <option value="">— No project —</option>
                       {projects.map((p) => (
                         <option key={p.id} value={p.id}>
@@ -900,14 +900,14 @@ export function StudioContent({ embedded = false }) {
                         </option>
                       ))}
                     </select>
-                    <span className="block text-[11px] text-ink/45 mt-1">
+                    <span className="block text-[11px] text-slate-500 mt-1">
                       The published track becomes a deliverable the AI team can review and carry forward.
                     </span>
                   </label>
                 )}
                 {previewErr && <p className="text-xs mb-3" style={{ color: "#B23A2E" }}>{previewErr}</p>}
                 {previewUrl && (
-                  <div className="mb-3 p-3 rounded-lg" style={{ border: "1px solid rgba(232,165,30,0.3)", background: "rgba(232,165,30,0.06)" }}>
+                  <div className="mb-3 p-3 rounded-lg" style={{ border: "1px solid rgba(34,211,238,0.3)", background: "rgba(34,211,238,0.06)" }}>
                     <div className="text-[11px] font-black mb-1.5" style={{ color: GOLD }}>
                       8-BAR PREVIEW{previewDur ? ` · ~${previewDur}s` : ""}
                     </div>

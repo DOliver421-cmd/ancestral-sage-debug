@@ -1,42 +1,41 @@
-import { studioSound } from "./SoundSystem";
-
-// The design's workflow: vision → forge → produce → design → write → publish.
+// The workflow timeline: vision → forge → sound → visual → script → publish.
 // Each stage jumps the creator straight into the chamber that does that work.
-const STAGES = ['Vision', 'Lyric Forge', 'Sound Lab', 'Visual Altar', 'Script', 'Publish'];
+const STAGES = ["VISION", "LYRIC FORGE", "SOUND LAB", "VISUAL ALTAR", "SCRIPT", "PUBLISH"];
 
 const STAGE_CHAMBERS = {
-  0: '/studio',
-  1: 'lyric-forge',
-  2: 'sound-lab',
-  3: 'visual-altar',
-  4: 'script',
-  5: 'publishing-gate',
+  0: "/studio",
+  1: "lyric-forge",
+  2: "sound-lab",
+  3: "visual-altar",
+  4: "script",
+  5: "publishing-gate",
 };
+
+const CYAN = "#22d3ee";
 
 export default function CreativeTimeline({ activeStage = 0, onStageClick, onChamberJump }) {
   const handleClick = (index) => {
     if (onStageClick) onStageClick(index);
-    studioSound.play('timeline_advance');
     const chamber = STAGE_CHAMBERS[index];
     if (chamber && onChamberJump) onChamberJump(chamber);
   };
 
   return (
     <div style={{
-      position: 'fixed', bottom: 0, left: 0, right: 0,
+      position: "fixed", bottom: 0, left: 0, right: 0,
       height: 56, zIndex: 80,
-      background: '#0a0a14',
-      borderTop: '1px solid rgba(255,215,0,0.15)',
-      display: 'flex', alignItems: 'center',
-      padding: '0 16px',
-      overflowX: 'auto',
+      background: "#11151f",
+      borderTop: "1px solid rgba(255,255,255,0.07)",
+      display: "flex", alignItems: "center",
+      padding: "0 16px",
+      overflowX: "auto",
     }}>
       {/* Connecting line */}
       <div style={{
-        position: 'absolute', left: 0, right: 0, top: '50%',
-        height: 1, background: 'rgba(255,215,0,0.1)',
-        transform: 'translateY(-50%)',
-        pointerEvents: 'none',
+        position: "absolute", left: 0, right: 0, top: "50%",
+        height: 1, background: "rgba(34,211,238,0.15)",
+        transform: "translateY(-50%)",
+        pointerEvents: "none",
       }} />
 
       {STAGES.map((stage, i) => {
@@ -48,31 +47,31 @@ export default function CreativeTimeline({ activeStage = 0, onStageClick, onCham
             key={stage}
             onClick={() => handleClick(i)}
             style={{
-              display: 'flex', flexDirection: 'column', alignItems: 'center',
-              gap: 4, cursor: 'pointer', flex: '0 0 auto',
-              padding: '0 16px', position: 'relative', zIndex: 1,
-              opacity: isPast ? 0.7 : isActive ? 1 : 0.4,
-              transition: 'all 0.2s ease',
+              display: "flex", flexDirection: "column", alignItems: "center",
+              gap: 4, cursor: "pointer", flex: "0 0 auto",
+              padding: "0 18px", position: "relative", zIndex: 1,
+              opacity: isPast ? 0.65 : isActive ? 1 : 0.45,
+              transition: "all 0.2s ease",
             }}
           >
             {/* Node dot */}
             <div style={{
               width: isActive ? 10 : 7, height: isActive ? 10 : 7,
-              borderRadius: '50%',
-              background: isActive ? '#ffd700' : isPast ? 'rgba(255,215,0,0.5)' : 'rgba(255,255,255,0.2)',
-              boxShadow: isActive ? '0 0 12px rgba(255,215,0,0.8), 0 0 24px rgba(255,215,0,0.4)' : 'none',
-              transition: 'all 0.2s ease',
+              borderRadius: "50%",
+              background: isActive ? CYAN : isPast ? "rgba(34,211,238,0.5)" : "rgba(255,255,255,0.2)",
+              boxShadow: isActive ? `0 0 12px ${CYAN}, 0 0 24px rgba(34,211,238,0.5)` : "none",
+              transition: "all 0.2s ease",
               flexShrink: 0,
             }} />
 
             {/* Label */}
             <div style={{
-              fontSize: 10, fontFamily: 'monospace',
-              letterSpacing: '0.1em', textTransform: 'uppercase',
-              color: isActive ? '#ffd700' : isPast ? 'rgba(255,215,0,0.6)' : 'rgba(255,255,255,0.45)',
-              textShadow: isActive ? '0 0 10px rgba(255,215,0,0.6)' : 'none',
-              whiteSpace: 'nowrap',
-              fontWeight: isActive ? 900 : 400,
+              fontSize: 9.5, fontFamily: "'SF Mono', 'Cascadia Code', Consolas, monospace",
+              letterSpacing: "0.12em", textTransform: "uppercase",
+              color: isActive ? CYAN : isPast ? "rgba(34,211,238,0.6)" : "rgba(255,255,255,0.5)",
+              textShadow: isActive ? `0 0 10px rgba(34,211,238,0.6)` : "none",
+              whiteSpace: "nowrap",
+              fontWeight: isActive ? 900 : 500,
             }}>
               {stage}
             </div>
@@ -80,21 +79,15 @@ export default function CreativeTimeline({ activeStage = 0, onStageClick, onCham
             {/* Active indicator underline */}
             {isActive && (
               <div style={{
-                position: 'absolute', bottom: -1, left: '50%',
-                transform: 'translateX(-50%)',
-                width: '80%', height: 2,
-                background: 'linear-gradient(90deg, transparent, #ffd700, transparent)',
+                position: "absolute", bottom: -1, left: "50%",
+                transform: "translateX(-50%)",
+                width: "85%", height: 2,
+                background: `linear-gradient(90deg, transparent, ${CYAN}, transparent)`,
               }} />
             )}
           </div>
         );
       })}
-
-      <style>{`
-        @media (max-width: 600px) {
-          .creative-timeline { padding: 0 8px; }
-        }
-      `}</style>
     </div>
   );
 }
