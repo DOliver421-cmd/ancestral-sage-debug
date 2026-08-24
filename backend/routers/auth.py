@@ -89,6 +89,7 @@ class RegisterReq(BaseModel):
     password: str
     agreed_terms: bool = False
     over_13: bool = False
+    promo_code: Optional[str] = None
 
 
 class LoginReq(BaseModel):
@@ -267,6 +268,18 @@ async def register(body: RegisterReq, request: Request):
     if not body.over_13:
         raise HTTPException(400, "You must be at least 13 years old to create an account. If you are under 13, please ask a parent or guardian to contact us.")
 
+    # Optional promo code — a valid code grants its stated tier at signup.
+    # The reservation is atomic (find_one_and_update + $inc) so two people can't
+    # redeem the last use simultaneously. If the account is then rolled back,
+    # the reserved use is released.
+    _promo_grant = None
+    if body.promo_code:
+        from routers import promo_codes as _promo_mod
+        _promo_doc = await _promo_mod.reserve_promo(body.promo_code)
+        if not _promo_doc:
+            raise HTTPException(400, "That promo code is invalid, expired, or already fully redeemed.")
+        _promo_grant = _promo_mod.grant_fields_for(_promo_doc)
+
     # Public self-registration is always a student. Higher-privilege accounts
     # must be created by an admin (POST /api/admin/users). Exception: the very
     # FIRST account ever registered (empty users collection — e.g. immediately
@@ -278,6 +291,8 @@ async def register(body: RegisterReq, request: Request):
     _exec_seat_configured = bool(EXEC_ADMIN_EMAIL or BACKUP_EXEC_EMAIL or NAM_EXEC_EMAIL)
     role = "executive_admin" if (existing_users == 0 and _exec_seat_configured) else "student"
     user = UserOut(email=body.email, full_name=body.full_name, role=role)
+    if _promo_grant:
+        user = user.model_copy(update={"feature_tier": _promo_grant["feature_tier"]})
     doc = user.model_dump()
     doc["created_at"] = doc["created_at"].isoformat()
     doc["password_hash"] = hash_pw(body.password)
@@ -285,6 +300,9 @@ async def register(body: RegisterReq, request: Request):
     # Record consent timestamp for GDPR audit trail
     doc["terms_accepted_at"] = datetime.now(timezone.utc).isoformat()
     doc["over_13_confirmed"] = True
+    # Promo tier grant fields (feature_tier already set above via model_copy).
+    if _promo_grant:
+        doc.update({k: v for k, v in _promo_grant.items() if k != "feature_tier"})
     await db.users.insert_one(doc)
     # Registration tokens are session-bound just like login tokens. If the
     # session record cannot be created, do not issue an untracked token.
@@ -302,9 +320,15 @@ async def register(body: RegisterReq, request: Request):
         logger.exception("register: session recording failed")
         # Do not leave an account that can neither authenticate nor be
         # deterministically resumed after a session-store failure.
+        if _promo_grant:
+            from routers import promo_codes as _promo_mod
+            await _promo_mod.release_promo(body.promo_code)
         await db.users.delete_one({"id": user.id})
         raise HTTPException(503, "Unable to establish a secure session. Please try again.")
     await audit(user.id, "auth.register.success", meta={"consent_terms": True, "over_13": True})
+    if _promo_grant:
+        await audit(user.id, "promo.redeemed", target=body.promo_code.strip().upper(),
+                    meta={"tier": _promo_grant["feature_tier"]})
     # Send welcome email — fire-and-forget, never blocks registration
     asyncio.create_task(_send_welcome_email(user.email, user.full_name))
     return TokenResp(

@@ -10,6 +10,7 @@ import {
   Download, RefreshCw, Tag,
 } from "lucide-react";
 import { FeatureGate } from '../components/FeatureGate';
+import SharePanel from "../components/SharePanel";
 
 const TYPE_LABELS = {
   track: "Track",
@@ -163,6 +164,9 @@ function BrowseTab({ user }) {
               )}
               <div className="absolute top-2 left-2">
                 <TypeBadge type={product.product_type} />
+              </div>
+              <div className="absolute top-1.5 right-1.5 bg-white/90 backdrop-blur rounded-lg shadow-sm">
+                <SharePanel compact url={`/store?product=${product.id}`} title={product.title || "Digital product"} />
               </div>
             </div>
 

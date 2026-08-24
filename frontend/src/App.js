@@ -92,6 +92,7 @@ import AscensionProtocols from "./pages/AscensionProtocols";
 import SponsorScholarship from "./pages/SponsorScholarship";
 import ScholarshipApply from "./pages/ScholarshipApply";
 import AdminScholarships from "./pages/AdminScholarships";
+import AdminPromoCodes from "./pages/AdminPromoCodes";
 import VideoPresenter from "./pages/VideoPresenter";
 import ExecutiveCommandCenter from "./pages/ExecutiveCommandCenter";
 import Community from "./pages/Community";
@@ -394,6 +395,7 @@ function App() {
           <Route path="/payment/history" element={<Protected><PaymentHistory /></Protected>} />
           <Route path="/payment/manage" element={<Protected><PaymentHistory /></Protected>} />
           <Route path="/admin/payments" element={<BoundedAdmin roles={["admin"]} label="Admin Payments"><AdminPayments /></BoundedAdmin>} />
+          <Route path="/admin/promo-codes" element={<BoundedAdmin roles={["admin"]} label="Promo Codes" backTo="/admin"><AdminPromoCodes /></BoundedAdmin>} />
           {/* Partnership & profile features */}
           <Route path="/partnership" element={<Protected><AdminPage><PartnershipDashboard /></AdminPage></Protected>} />
           <Route path="/partnership/discounts" element={<Protected><AdminPage><PartnershipDiscounts /></AdminPage></Protected>} />

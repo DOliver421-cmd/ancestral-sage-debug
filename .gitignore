@@ -100,10 +100,11 @@ WAI_Handoff.txt
 *.jpeg
 *.gif
 *.ico
-# Allow required PWA icons, favicon, and the self-hosted brand logo
+# Allow required PWA icons, favicon, self-hosted brand logo, and OG share images
 !frontend/public/logo-*.png
 !frontend/public/favicon.ico
 !frontend/public/WAI_Logo.jpg
+!frontend/public/wai-og-1200x630.png
 *.woff
 *.woff2
 *.ttf

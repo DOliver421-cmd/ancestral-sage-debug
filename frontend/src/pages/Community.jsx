@@ -60,6 +60,25 @@ export default function Community() {
           ))}
         </div>
 
+        {/* WAI Institute Facebook group — the mission's home on Facebook */}
+        <div className="mt-6 flex flex-col sm:flex-row items-center justify-between gap-4 rounded-xl border border-[#1877f2]/25 bg-[#1877f2]/5 p-5">
+          <div className="flex items-center gap-3">
+            <span className="flex items-center justify-center w-10 h-10 rounded-full bg-[#1877f2] text-white font-black text-lg shrink-0">f</span>
+            <div>
+              <div className="font-heading font-bold text-sm text-ink">WAI Institute Facebook Group</div>
+              <div className="text-xs text-ink/55">Continue the conversation, share resources, and meet members on Facebook.</div>
+            </div>
+          </div>
+          <a
+            href="https://www.facebook.com/groups/waiinstitute"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1.5 font-bold text-sm px-5 py-2.5 rounded-xl bg-[#1877f2] text-white hover:bg-[#0f63d4] transition-colors shrink-0"
+          >
+            Join the Group →
+          </a>
+        </div>
+
         {/* Live community posts preview */}
         {!loading && (posts.length > 0 || needs.length > 0) && (
           <div className="mt-10">

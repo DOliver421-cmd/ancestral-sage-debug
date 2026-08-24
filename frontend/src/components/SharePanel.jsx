@@ -57,7 +57,20 @@ const PLATFORMS = [
     build: (url, title) =>
       `https://www.threads.net/intent/post?text=${encodeURIComponent(`${title} ${url}`)}`,
   },
+  {
+    key: "email",
+    label: "Email",
+    icon: "✉",
+    color: "#7c3aed",
+    build: (url, title) =>
+      `mailto:?subject=${encodeURIComponent(title)}&body=${encodeURIComponent(`${title}\n\n${url}`)}`,
+  },
 ];
+
+// Drive / Dropbox / any other app have no public share-intent URLs — the user
+// pastes the copied link into the app they choose (or uses the native share
+// sheet, which lists them automatically). Never publish to a public destination
+// automatically: the user always picks the audience.
 
 // Copy-only platforms (no share URL — require mobile app or paste workflow)
 const COPY_PLATFORMS = [
@@ -97,11 +110,12 @@ function buildEmbedSnippet(absUrl, title) {
   return `<a href="${absUrl}" target="_blank" rel="noopener" style="display:inline-block;padding:10px 18px;background:#c87941;color:#fff;font-weight:bold;border-radius:6px;text-decoration:none;">${title}</a>`;
 }
 
-export default function SharePanel({ url, title = "Check this out", description = "", embed = false, compact = false }) {
+export default function SharePanel({ url, title = "Check this out", description = "", embed = false, compact = false, trigger = null }) {
   const [open, setOpen] = useState(false);
   const [copied, setCopied] = useState(false);
   const [embedCopied, setEmbedCopied] = useState(false);
   const [copiedPlatform, setCopiedPlatform] = useState(null);
+  const [openUp, setOpenUp] = useState(true);
   const panelRef = useRef(null);
 
   const absUrl = buildAbsoluteUrl(url);
@@ -114,6 +128,25 @@ export default function SharePanel({ url, title = "Check this out", description 
     document.addEventListener("mousedown", handleClick);
     return () => document.removeEventListener("mousedown", handleClick);
   }, [open]);
+
+  function nativeShare() {
+    const shareData = { title, text: `${title} — WAI Institute & M.O.R.E. Help Center`, url: absUrl };
+    if (navigator.share) {
+      navigator.share(shareData)
+        .then(() => setOpen(false))
+        .catch((err) => {
+          // User closed the sheet — leave the panel open so they can pick another way.
+          if (err && err.name === "AbortError") return;
+          copyLink();
+          toast.info("Link copied — paste it into Email, Drive, Dropbox, or any app you choose.");
+        });
+      return;
+    }
+    // No native sheet (some desktop browsers) — copy the link; the user pastes
+    // it into the app they choose. Never publish anywhere automatically.
+    copyLink();
+    toast.info("Link copied — paste it into Email, Drive, Dropbox, or any app you choose.");
+  }
 
   function copyLink() {
     navigator.clipboard?.writeText(absUrl).then(() => {
@@ -151,22 +184,36 @@ export default function SharePanel({ url, title = "Check this out", description 
     });
   }
 
+  function toggleOpen(e) {
+    // Open upward when there is room above the trigger, otherwise downward
+    // (hero/share buttons near the top of the viewport would clip otherwise).
+    const r = e.currentTarget.getBoundingClientRect();
+    setOpenUp((r.top || 0) > 320);
+    setOpen(v => !v);
+  }
+
   if (compact) {
     return (
       <div ref={panelRef} style={{ position: "relative", display: "inline-block" }}>
-        <button
-          onClick={() => setOpen(v => !v)}
-          title="Share"
-          className="p-2 text-ink/40 hover:text-copper transition-colors"
-        >
-          <Share2 className="w-4 h-4" />
-        </button>
+        {trigger ? (
+          <span onClick={toggleOpen} style={{ display: "inline-flex", cursor: "pointer" }}>{trigger}</span>
+        ) : (
+          <button
+            onClick={toggleOpen}
+            title="Share"
+            className="p-2 text-ink/40 hover:text-copper transition-colors"
+          >
+            <Share2 className="w-4 h-4" />
+          </button>
+        )}
         {open && (
           <div style={{
-            position: "absolute", bottom: "calc(100% + 6px)", right: 0, zIndex: 200,
+            position: "absolute", right: 0, zIndex: 200,
+            top: openUp ? undefined : "calc(100% + 6px)",
+            bottom: openUp ? "calc(100% + 6px)" : undefined,
             background: "white", border: "1px solid #e5e7eb", borderRadius: 12,
             boxShadow: "0 8px 32px rgba(0,0,0,0.12)", padding: "12px 14px",
-            width: 240, display: "flex", flexDirection: "column", gap: 8,
+            width: 250, display: "flex", flexDirection: "column", gap: 8,
           }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 2 }}>
               <span style={{ fontSize: 12, fontWeight: 700, color: "#374151", textTransform: "uppercase", letterSpacing: "0.05em" }}>Share</span>
@@ -177,6 +224,7 @@ export default function SharePanel({ url, title = "Check this out", description 
             <PanelBody
               absUrl={absUrl} title={title} embed={embed}
               copied={copied} embedCopied={embedCopied} copiedPlatform={copiedPlatform}
+              nativeShare={nativeShare}
               copyLink={copyLink} copyEmbed={copyEmbed} openPlatform={openPlatform}
               copyCaptionForPlatform={copyCaptionForPlatform}
             />
@@ -191,6 +239,7 @@ export default function SharePanel({ url, title = "Check this out", description 
       <PanelBody
         absUrl={absUrl} title={title} embed={embed}
         copied={copied} embedCopied={embedCopied} copiedPlatform={copiedPlatform}
+        nativeShare={nativeShare}
         copyLink={copyLink} copyEmbed={copyEmbed} openPlatform={openPlatform}
         copyCaptionForPlatform={copyCaptionForPlatform}
       />
@@ -198,9 +247,28 @@ export default function SharePanel({ url, title = "Check this out", description 
   );
 }
 
-function PanelBody({ absUrl, title, embed, copied, embedCopied, copiedPlatform, copyLink, copyEmbed, openPlatform, copyCaptionForPlatform }) {
+function PanelBody({ absUrl, title, embed, copied, embedCopied, copiedPlatform, nativeShare, copyLink, copyEmbed, openPlatform, copyCaptionForPlatform }) {
   return (
     <>
+      {/* Native share first — OS sheet lists Email, Drive, Dropbox, Messages, and
+          every installed app. The user picks the audience; nothing is shared
+          publicly by default. */}
+      <button
+        onClick={nativeShare}
+        title="Share with your apps (Email, Drive, Dropbox, Messages…)"
+        style={{
+          background: "#1B4332", color: "#fff", border: "none", borderRadius: 8,
+          padding: "8px 10px", cursor: "pointer", fontSize: 12, fontWeight: 800,
+          display: "flex", alignItems: "center", gap: 6, width: "100%",
+        }}
+      >
+        <Share2 style={{ width: 14, height: 14 }} />
+        Share with your apps — Email, Drive, Dropbox…
+      </button>
+      <div style={{ fontSize: 10, color: "#9ca3af", fontWeight: 600, marginTop: -2 }}>
+        You choose the audience. Nothing is shared publicly by default.
+      </div>
+
       {/* Copy link row */}
       <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
         <input

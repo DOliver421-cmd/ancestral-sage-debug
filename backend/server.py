@@ -1300,6 +1300,13 @@ async def _on_startup_impl():
     except Exception as _e:
         logger.warning("STARTUP: ensure_indexes failed (non-fatal): %s", _e)
 
+    # ── Promo codes — seed the platform's default codes idempotently ──────
+    try:
+        from routers import promo_codes as _promo_mod
+        await _promo_mod.seed_default_promos()
+    except Exception as _e:
+        logger.warning("STARTUP: promo code seeding failed (non-fatal): %s", _e)
+
     try:
         from partnership import points as _pp_idx
         await _pp_idx.ensure_indexes(db)
@@ -2360,6 +2367,11 @@ else:
 from routers import payments as _payments_mod
 _payments_mod.bind(db, audit, notify, current_user)
 api_router.include_router(_payments_mod.router)
+
+# --- Promo codes (tier grants at signup; admin CRUD) ---
+from routers import promo_codes as _promo_mod
+_promo_mod.bind(db, current_user, audit)
+api_router.include_router(_promo_mod.router)
 
 # --- Sponsor a Scholarship (routers/scholarships.py) ---
 from routers import scholarships as _scholarships_mod

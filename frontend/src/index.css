@@ -6,6 +6,24 @@
 
 html {
   scroll-behavior: smooth;
+  /* Mobile-first: never allow a stray fixed-width element to create a
+     horizontal scrollbar. clip (not hidden) so sticky/fixed still work. */
+  overflow-x: clip;
+}
+
+body {
+  overflow-x: clip;
+}
+
+img, video, canvas, svg, iframe {
+  max-width: 100%;
+}
+
+/* Tap targets and text should never shrink to un-tappable sizes on phones. */
+@media (max-width: 640px) {
+  input, select, textarea, button, a {
+    font-size: 16px; /* prevents iOS auto-zoom on focus */
+  }
 }
 
 :root {
