@@ -7,10 +7,11 @@ import { toast } from "sonner";
 import {
   Music, FileText, Package, PlayCircle, Upload, ShoppingBag, BookOpen,
   Library, Plus, Trash2, Eye, EyeOff, CheckCircle2, Loader2,
-  Download, RefreshCw, Tag,
+  Download, RefreshCw, Tag, ExternalLink,
 } from "lucide-react";
 import { FeatureGate } from '../components/FeatureGate';
 import SharePanel from "../components/SharePanel";
+import QRCodeButton from "../components/QRCodeButton";
 
 const TYPE_LABELS = {
   track: "Track",
@@ -69,6 +70,8 @@ function BrowseTab({ user }) {
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState("all");
   const [checkingOut, setCheckingOut] = useState(null);
+  const [searchParams] = useSearchParams();
+  const highlightedProductId = searchParams.get("product");
 
   useEffect(() => {
     api.get("/media/products")
@@ -76,6 +79,12 @@ function BrowseTab({ user }) {
       .catch(() => toast.error("Failed to load store"))
       .finally(() => setLoading(false));
   }, []);
+
+  useEffect(() => {
+    if (!highlightedProductId || !products.length) return;
+    const target = document.getElementById(`store-product-${highlightedProductId}`);
+    if (target) target.scrollIntoView({ behavior: "smooth", block: "center" });
+  }, [highlightedProductId, products]);
 
   async function handleBuy(product) {
     if (!user) { toast.error("Sign in to purchase"); return; }
@@ -145,8 +154,9 @@ function BrowseTab({ user }) {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
         {shown.map(product => (
           <div
+            id={`store-product-${product.id}`}
             key={product.id}
-            className="bg-white rounded-xl border border-[#b5651d]/15 shadow-sm hover:shadow-md transition-shadow overflow-hidden flex flex-col"
+            className={`bg-white rounded-xl border border-[#b5651d]/15 shadow-sm hover:shadow-md transition-shadow overflow-hidden flex flex-col ${highlightedProductId === product.id ? "ring-2 ring-[#b5651d] ring-offset-2" : ""}`}
           >
             {/* Cover */}
             <div className="aspect-square relative overflow-hidden bg-gradient-to-br from-[#b5651d]/20 to-[#1a1a1a]/10">
@@ -630,12 +640,18 @@ function SellTab({ user }) {
                       {prod.sales_count ?? 0}
                     </td>
                     <td className="px-4 py-3 text-right">
-                      <button
-                        onClick={() => handleDelete(prod)}
-                        className="text-[#1a1a1a]/30 hover:text-red-500 transition-colors"
-                      >
-                        <Trash2 size={14} />
-                      </button>
+                      <div className="flex items-center gap-2">
+                        {prod.published && (
+                          <QRCodeButton url={`/store?product=${prod.id}`} label={prod.title} />
+                        )}
+                        <button
+                          onClick={() => handleDelete(prod)}
+                          title="Delete product"
+                          className="text-[#1a1a1a]/30 hover:text-red-500 transition-colors"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}

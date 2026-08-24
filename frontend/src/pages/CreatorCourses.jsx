@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { PlusCircle, BookOpen, Eye, EyeOff, Pencil, Trash2, X, CheckCircle, ChevronDown, ChevronUp } from "lucide-react";
 import { FeatureGate } from '../components/FeatureGate';
 import SharePanel from "../components/SharePanel";
+import QRCodeButton from "../components/QRCodeButton";
 
 const CATEGORIES = ["general", "electrical", "ai-tech", "arts-music", "workforce", "wellness", "publishing", "business"];
 
@@ -318,12 +319,13 @@ export default function CreatorCourses() {
                       {course.status === "published" ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                     </button>
                     {course.status === "published" && (
-                      <span onClick={e => e.stopPropagation()}>
+                      <span onClick={e => e.stopPropagation()} className="flex items-center gap-1">
                         <SharePanel
                           compact
                           url={`/courses?highlight=${course.course_id}`}
                           title={course.title}
                         />
+                        <QRCodeButton url={`/courses?highlight=${course.course_id}`} label={course.title} />
                       </span>
                     )}
                     <button
@@ -365,11 +367,14 @@ export default function CreatorCourses() {
                     <div className="pt-2 border-t border-ink/10">
                       <div className="overline text-xs text-ink/40 mb-3">Share this course</div>
                       {course.status === "published" ? (
-                        <SharePanel
-                          url={`/courses?highlight=${course.course_id}`}
-                          title={course.title}
-                          description={course.description}
-                        />
+                        <div className="space-y-3">
+                          <SharePanel
+                            url={`/courses?highlight=${course.course_id}`}
+                            title={course.title}
+                            description={course.description}
+                          />
+                          <QRCodeButton url={`/courses?highlight=${course.course_id}`} label={course.title} />
+                        </div>
                       ) : (
                         <div className="text-xs text-ink/40 flex items-center gap-2">
                           <Eye className="w-3.5 h-3.5" />
