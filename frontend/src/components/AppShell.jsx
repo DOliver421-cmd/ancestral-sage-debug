@@ -177,6 +177,7 @@ const STAFF_SECTIONS = [
       { to: "/admin", label: "Admin Overview", icon: Settings, testid: "nav-admin" },
       { to: "/admin/iam", label: "IAM Console", icon: ShieldCheck, testid: "nav-iam" },
       { to: "/business-office", label: "AI Business Office", icon: Landmark, testid: "nav-business-office" },
+      { to: "/studio", label: "Creator Studio", icon: Music, testid: "nav-admin-creator-studio" },
       { to: "/nam", label: "Hybrid NAM", icon: BrainCircuit, testid: "nav-hybrid-nam" },
       { to: "/admin/health", label: "System Health", icon: ShieldCheck, testid: "nav-health" },
       { to: "/admin/payments", label: "Payments", icon: Receipt, testid: "nav-admin-payments" },
