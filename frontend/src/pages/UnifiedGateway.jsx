@@ -335,22 +335,28 @@ export default function UnifiedGateway() {
             Voice of Movement = <span style={{ color: "#C96A35" }}>VONN</span>
           </h2>
           <div className="grid md:grid-cols-2 gap-6">
-            <iframe
-              title="AM I Dreaming by VONN"
-              style={{ border: 0, width: "100%", height: 120 }}
-              src="https://bandcamp.com/EmbeddedPlayer/track=792480361/size=large/bgcol=ffffff/linkcol=0687f5/tracklist=false/artwork=small/transparent=true/"
-              seamless
-            >
-              <a href="https://vonnsangs.bandcamp.com/track/am-i-dreaming">AM I Dreaming by VONN</a>
-            </iframe>
-            <iframe
-              title="My Ole Kentucky Roots by VONN"
-              style={{ border: 0, width: "100%", height: 120 }}
-              src="https://bandcamp.com/EmbeddedPlayer/track=2837268270/size=large/bgcol=ffffff/linkcol=0687f5/tracklist=false/artwork=small/transparent=true/"
-              seamless
-            >
-              <a href="https://vonnsangs.bandcamp.com/track/my-ole-kentucky-roots">My Ole Kentucky Roots by VONN</a>
-            </iframe>
+            <div className="flex justify-center">
+              <iframe
+                title="My Ole Kentucky Roots by VONN"
+                className="w-full max-w-[350px]"
+                style={{ border: 0, height: 442 }}
+                src="https://bandcamp.com/EmbeddedPlayer/track=2837268270/size=large/bgcol=ffffff/linkcol=0687f5/tracklist=false/transparent=true/"
+                seamless
+              >
+                <a href="https://vonnsangs.bandcamp.com/track/my-ole-kentucky-roots">My Ole Kentucky Roots by VONN</a>
+              </iframe>
+            </div>
+            <div className="flex justify-center">
+              <iframe
+                title="AM I Dreaming by VONN"
+                className="w-full max-w-[350px]"
+                style={{ border: 0, height: 442 }}
+                src="https://bandcamp.com/EmbeddedPlayer/track=792480361/size=large/bgcol=ffffff/linkcol=0687f5/tracklist=false/transparent=true/"
+                seamless
+              >
+                <a href="https://vonnsangs.bandcamp.com/track/am-i-dreaming">AM I Dreaming by VONN</a>
+              </iframe>
+            </div>
           </div>
           <div className="mt-10 text-center">
             <a
