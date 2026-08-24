@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useState } from "react";
 import AppShell from "../components/AppShell";
+import { useAuth } from "../lib/auth";
 import { api } from "../lib/api";
 import { toast } from "sonner";
 import {
   Plus, Loader2, Send, Check, X, RotateCcw, MessageSquare, Sparkles,
-  Archive, ChevronDown, ChevronUp,
+  Archive, ChevronDown, ChevronUp, KeyRound,
 } from "lucide-react";
 
 const GREEN = "#1B4332";
@@ -75,6 +76,9 @@ function StageDots({ current }) {
 }
 
 export default function MyProjects() {
+  const { user } = useAuth();
+  const hasBYOK = !!user?.byok_enabled;
+
   const [projects, setProjects] = useState([]);
   const [summary, setSummary] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -408,6 +412,13 @@ export default function MyProjects() {
                           <div className="text-xs font-black uppercase tracking-widest mb-2" style={{ color: COPPER }}>
                             Hand the current stage to the team
                           </div>
+                          {!hasBYOK && (
+                            <div className="rounded-lg px-3 py-2 mb-2 text-xs font-bold flex items-center gap-2 flex-wrap" style={{ background: "rgba(232,165,30,0.08)", color: COPPER }}>
+                              <KeyRound className="w-3.5 h-3.5 shrink-0" />
+                              <span>AI runs use your own key — the platform never funds customer AI.</span>
+                              <a href="/byok" className="underline hover:opacity-80 ml-auto shrink-0">Activate BYOK →</a>
+                            </div>
+                          )}
                           <select
                             value={run.persona}
                             onChange={(e) => setRun({ ...run, persona: e.target.value })}
@@ -423,14 +434,15 @@ export default function MyProjects() {
                             className="w-full px-3 py-2 bg-bone border border-ink/15 rounded-lg text-sm focus:outline-none focus:border-copper resize-y mb-2"
                           />
                           <div className="flex items-center gap-2 flex-wrap">
-                            <button onClick={runStage} disabled={running}
+                            <button onClick={runStage} disabled={running || !hasBYOK}
+                              title={!hasBYOK ? "Activate BYOK to use AI runs" : "Run the AI team on this stage"}
                               className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-black text-white disabled:opacity-40"
                               style={{ background: COPPER }}>
                               {running ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
-                              {running ? "Working…" : "Run it"}
+                              {running ? "Working…" : hasBYOK ? "Run it" : "BYOK required"}
                             </button>
                             <span className="text-[10px] font-bold uppercase tracking-widest text-ink/40">
-                              {runsLeft} runs left today · result lands pending for your review
+                              {runsLeft} runs left today · {hasBYOK ? "your key" : "need BYOK"} · result pending your review
                             </span>
                           </div>
                         </div>

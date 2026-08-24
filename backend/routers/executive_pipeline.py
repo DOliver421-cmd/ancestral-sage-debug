@@ -722,6 +722,7 @@ async def run_stage(
             messages=[{"role": "user", "content": _stage_prompt(doc, stage, packet, ctx_lines, prior, body.instructions)}],
             max_tokens=body.max_tokens,
             persona_label="exec_pipeline",
+            user_id=user.id,
         )
     except Exception as e:
         raise HTTPException(status_code=503, detail=f"AI stage execution unavailable: {e}")
