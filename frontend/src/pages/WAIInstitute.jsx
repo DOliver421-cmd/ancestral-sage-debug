@@ -128,11 +128,15 @@ export default function WAIInstitute() {
         </div>
       </section>
 
-      {/* Support — everything outside the classroom lives on M.O.R.E. */}
+      {/* Support — the reverse funnel: after learning, practice and create on M.O.R.E. */}
       <section className="border-t border-ink/10 bg-bone py-12">
         <div className="max-w-6xl mx-auto px-6">
-          <div className="overline text-copper mb-3">Help, billing & the creative community</div>
-          <h2 className="font-heading text-2xl font-bold text-ink mb-6">Everything else lives at the M.O.R.E. Help Center</h2>
+          <div className="overline text-copper mb-3">The M.O.R.E. Help Center — your home base</div>
+          <h2 className="font-heading text-2xl font-bold text-ink mb-2">Put your knowledge to work</h2>
+          <p className="text-ink/60 max-w-2xl mb-6 leading-relaxed">
+            Continue your work, create, collaborate, get assistance, and access the broader
+            M.O.R.E. environment — the community behind everything you learned here.
+          </p>
           <div className="grid md:grid-cols-3 gap-4">
             {[
               { title: "Help & Support", desc: "Tickets, troubleshooting, LMS guides, and the knowledge base.", href: "https://www.morehelp.center/help-center", cta: "Get Help" },

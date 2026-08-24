@@ -4,7 +4,7 @@ import { BRAND, WAI_LOGO } from "../lib/brand";
 import PublicNav from "../components/PublicNav";
 import SharePanel from "../components/SharePanel";
 import { PublicHelper } from "./Helper";
-import { Lock, Share2 } from "lucide-react";
+import { Lock, Share2, ArrowRight } from "lucide-react";
 
 // The WAI Institute community group on Facebook — the mission's home on FB.
 export const FACEBOOK_GROUP_URL = "https://www.facebook.com/groups/waiinstitute";
@@ -247,6 +247,54 @@ export default function UnifiedGateway() {
                 <div className="text-ink/55 text-sm leading-relaxed flex-1">{desc}</div>
                 <div className="text-copper text-xs font-bold opacity-0 group-hover:opacity-100 transition-opacity">Explore →</div>
               </Link>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ── READY TO GO DEEPER? — the WAI pathway (M.O.R.E. funnels to the institution door) ── */}
+      <section className="relative overflow-hidden py-24 px-6"
+        style={{ background: "linear-gradient(150deg, #0b1a12 0%, #11261b 50%, #1b2f1d 100%)" }}>
+        {/* Accent glows — WAI's green/copper identity, distinct from the amber M.O.R.E. hero */}
+        <div className="absolute top-0 left-1/4 w-96 h-96 rounded-full opacity-10 blur-3xl"
+          style={{ background: "#2D6A4F" }} />
+        <div className="absolute bottom-0 right-1/5 w-80 h-80 rounded-full opacity-10 blur-3xl"
+          style={{ background: "#B5651D" }} />
+
+        <div className="relative max-w-6xl mx-auto text-center">
+          <div className="overline mb-4" style={{ color: "#B5651D" }}>The WAI Institute · Electrical Education & Credentials</div>
+          <h2 style={{
+            fontFamily: "'Cabinet Grotesk', 'Plus Jakarta Sans', sans-serif",
+            fontSize: "clamp(1.9rem, 4.5vw, 3.2rem)", fontWeight: 900,
+            color: "#fff", lineHeight: 1.1, margin: "0 0 1.25rem",
+          }}>
+            Ready to go deeper?
+          </h2>
+          <p style={{ fontSize: "clamp(1rem, 2vw, 1.2rem)", color: "rgba(255,255,255,0.75)", maxWidth: 640, margin: "0 auto 0.5rem", lineHeight: 1.6 }}>
+            M.O.R.E. helps you <strong style={{ color: "#fff" }}>do</strong>. WAI Institute helps you become capable of doing more.
+          </p>
+          <p style={{ fontSize: "0.95rem", color: "rgba(255,255,255,0.55)", maxWidth: 600, margin: "0 auto 2.25rem", lineHeight: 1.6 }}>
+            Learn through structured education, develop verified skills, and build toward credentials through WAI Institute.
+          </p>
+          <Link to="/wai-institute"
+            className="inline-flex items-center gap-2 font-black text-sm px-8 py-4 rounded-xl"
+            style={{ background: "#B5651D", color: "#fff", fontSize: 15 }}>
+            Explore WAI Institute <ArrowRight size={16} />
+          </Link>
+
+          <div className="grid sm:grid-cols-3 gap-5 mt-16 text-left">
+            {[
+              { icon: "📘", title: "LEARN", desc: "Build real knowledge — structured electrical curriculum and AI Tutor guidance." },
+              { icon: "🛠️", title: "DEVELOP", desc: "Turn knowledge into capability — labs, simulations, and verified skill practice." },
+              { icon: "🎖️", title: "CREDENTIAL", desc: "Demonstrate what you know and can do — certificates and verified credentials." },
+            ].map(({ icon, title, desc }) => (
+              <div key={title}
+                className="rounded-2xl p-6 border"
+                style={{ borderColor: "rgba(255,255,255,0.12)", background: "rgba(255,255,255,0.04)" }}>
+                <div style={{ fontSize: 30, marginBottom: 10 }}>{icon}</div>
+                <div style={{ fontFamily: "'Cabinet Grotesk',sans-serif", fontWeight: 900, fontSize: "0.95rem", letterSpacing: "0.18em", color: "#E8A51E", marginBottom: 6 }}>{title}</div>
+                <div style={{ fontSize: "0.9rem", color: "rgba(255,255,255,0.6)", lineHeight: 1.6 }}>{desc}</div>
+              </div>
             ))}
           </div>
         </div>
