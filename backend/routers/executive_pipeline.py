@@ -90,6 +90,72 @@ STAGE_META = {
 STAGE_RANK = {s: i for i, s in enumerate(STAGES)}
 
 
+# ── Stage execution (AI runs the stage, human approves the result) ──────────
+# The AI team "runs" a stage the same way a staff member would: it reads the
+# project brief, the packet, and what earlier stages produced, does the work
+# for this stage, and files the output as a pending deliverable. Nothing it
+# produces is approved or published without the owner.
+
+_PERSONA_ROLE = {
+    "Jamil":          "The Director — coordinates the whole AI team and produces executive-grade work across all domains.",
+    "Hybrid NAM":     "The Assistant Director — operations, guidance, and institutional continuity.",
+    "Production":     "The creative production lead — content, copy, packaging, and creative assets.",
+    "Creative Partner": "The creative development partner — concepts, writing, and project development.",
+    "Marketing":      "The campaign lead — audience, positioning, and promotional plans.",
+    "Review":         "The quality reviewer — mission alignment, clarity, and completeness checks.",
+    "Source":         "The Source Protocol — mission and voice integrity review.",
+    "Operations":     "The operations lead — logistics, distribution, and execution plans.",
+    "Analytics":      "The measurement lead — metrics, tracking, and performance analysis.",
+    "Architect":      "The visual intelligence lead — artwork, layouts, and brand assets.",
+    "Ghost Producer": "The music production authority — beats, songwriting, and studio workflows.",
+}
+
+
+def _stage_system(persona: str, stage: str) -> str:
+    """System prompt for a stage run: the persona's role + the stage's task."""
+    role = _PERSONA_ROLE.get(persona, f"The specialist assigned to this task ({persona}).")
+    task = STAGE_META.get(stage, {}).get("desc", f"Execute the {stage} stage of the project.")
+    return (
+        "You are a member of the M.O.R.E. AI team operating inside the executive pipeline. "
+        f"Your role: {role}\n"
+        f"Current stage: {task}\n"
+        "You are working from the project's brief, its packet, and the context earlier stages produced. "
+        "Produce a concrete deliverable FOR THIS STAGE — completed work, not a plan of work. "
+        "Do not invent facts about the platform's live data; ground everything in the brief and context given. "
+        "Be plain, direct, and useful. Flag anything that requires the owner's approval instead of deciding it."
+    )
+
+
+def _stage_prompt(doc: dict, stage: str, packet: dict, ctx_lines: list, prior: str, instructions: str) -> str:
+    """Build the user prompt handed to the persona for this stage run."""
+    parts = [
+        f"PROJECT: {doc.get('title')}",
+        f"TYPE: {doc.get('project_type')}  ·  PRIORITY: {doc.get('priority')}",
+        f"STAGE: {stage} — {STAGE_META.get(stage, {}).get('label', stage)}",
+        f"BRIEF: {doc.get('brief')}",
+    ]
+    if packet.get("objective"):
+        parts.append(f"OBJECTIVE: {packet['objective']}")
+    if packet.get("constraints"):
+        parts.append(f"CONSTRAINTS: {packet['constraints']}")
+    if packet.get("deliverables_summary"):
+        parts.append(f"REQUIRED DELIVERABLES: {packet['deliverables_summary']}")
+    if packet.get("authority"):
+        parts.append(
+            f"AUTHORITY: {packet['authority']} "
+            "(autonomous = complete without asking; approval_required = prepare for owner approval; "
+            "human_only = advise only, never execute)"
+        )
+    if ctx_lines:
+        parts.append("ACCUMULATED CONTEXT:\n" + "\n".join(ctx_lines))
+    if prior:
+        parts.append("PRIOR DELIVERABLES (most recent first):\n" + prior)
+    if instructions:
+        parts.append(f"OWNER'S INSTRUCTIONS FOR THIS RUN: {instructions}")
+    parts.append("YOUR DELIVERABLE:")
+    return "\n\n".join(parts)
+
+
 # ── Models ───────────────────────────────────────────────────────────────────
 
 class ProjectCreate(BaseModel):
@@ -130,6 +196,16 @@ class StageTransition(BaseModel):
     target_stage: Optional[str] = None  # None = advance to next
     context: dict = {}                  # data to pass forward
     notes: str = ""
+
+class StageRun(BaseModel):
+    """Run a stage: hand the project brief + accumulated context to a persona
+    through the LLM gateway, then post the result back into the pipeline as a
+    deliverable. The owner stays the decision-maker — the result lands as a
+    pending deliverable awaiting review, never as an approved action.
+    """
+    persona: str = ""              # empty → packet ai_team[0] or Jamil
+    instructions: str = ""         # optional owner's direction for this run
+    max_tokens: int = 2000
 
 class DeliverableSubmit(BaseModel):
     stage: str
@@ -460,6 +536,107 @@ async def advance_stage(
 
     doc = await db.exec_projects.find_one({"_id": _oid(project_id)})
     return _serialize(doc)
+
+
+# ── STAGE EXECUTION ──────────────────────────────────────────────────────────
+
+@router.post("/projects/{project_id}/run-stage")
+async def run_stage(
+    project_id: str,
+    body: StageRun,
+    user: User = Depends(_require_rank("admin", "executive_admin")),
+    request: Request = None,
+):
+    """
+    Run the current stage: hand the brief + accumulated context to a persona
+    through the LLM gateway, and post the result back as a pending deliverable.
+
+    This is the difference between recording work and the AI team doing work:
+    the persona actually executes the stage. The output lands pending review —
+    the owner approves, rejects, or requests revision exactly as with any other
+    deliverable. On any gateway failure the stage is NOT executed and no fake
+    output is stored.
+    """
+    db = request.app.state.db
+    doc = await db.exec_projects.find_one({"_id": _oid(project_id)})
+    if not doc:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    stage = doc.get("current_stage", "intake")
+    packet = doc.get("packet") or {}
+
+    # Resolve persona: explicit choice → packet ai_team → Jamil
+    persona = body.persona.strip()
+    if not persona:
+        team = packet.get("ai_team") or []
+        persona = team[0] if team else "Jamil"
+
+    # Assemble the context earlier stages produced
+    ctx_lines = [
+        f"{k}: {v}" for k, v in (doc.get("context") or {}).items()
+        if isinstance(v, str) and not k.startswith("_stage_")
+    ]
+    deliverables = doc.get("deliverables", [])
+    prior = "\n".join(
+        f"- [{d.get('stage')}] {d.get('persona')}: {d.get('title')} — {(d.get('content') or '')[:600]}"
+        for d in deliverables[-8:]
+    )
+
+    try:
+        from ai.llm_gateway import call_llm
+        result = await call_llm(
+            system=_stage_system(persona, stage),
+            messages=[{"role": "user", "content": _stage_prompt(doc, stage, packet, ctx_lines, prior, body.instructions)}],
+            max_tokens=body.max_tokens,
+            persona_label="exec_pipeline",
+        )
+    except Exception as e:
+        raise HTTPException(status_code=503, detail=f"AI stage execution unavailable: {e}")
+
+    text = (result.get("text") or "").strip()
+    if not text:
+        raise HTTPException(status_code=503, detail="AI returned no output — stage not executed.")
+
+    now = _now()
+    deliverable = {
+        "_id": ObjectId(),
+        "stage": stage,
+        "persona": persona,
+        "title": f"{STAGE_META.get(stage, {}).get('label', stage)} — {persona} run",
+        "content_type": "text",
+        "content": text,
+        "file_refs": [],
+        "metadata": {
+            "auto": True,
+            "provider": result.get("provider", "unknown"),
+            "instructions": body.instructions,
+        },
+        "submitted_by": user.id,
+        "submitted_at": now,
+        "approval_status": "pending",
+    }
+
+    await db.exec_projects.update_one(
+        {"_id": _oid(project_id)},
+        {"$push": {"deliverables": deliverable}, "$set": {"updated_at": now}}
+    )
+    deliverable["id"] = str(deliverable.pop("_id"))
+
+    try:
+        await db.audit_log.insert_one({
+            "action": "exec_stage_run",
+            "project_id": project_id,
+            "stage": stage,
+            "persona": persona,
+            "provider": result.get("provider", "unknown"),
+            "user_id": user.id,
+            "timestamp": now,
+        })
+    except Exception:
+        pass
+
+    doc = await db.exec_projects.find_one({"_id": _oid(project_id)})
+    return {"status": "success", "deliverable": deliverable, "project": _serialize(doc)}
 
 
 # ── DELIVERABLES ─────────────────────────────────────────────────────────────

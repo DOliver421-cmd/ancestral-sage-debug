@@ -121,6 +121,9 @@ function ExecProjectsPanel() {
   const [form, setForm] = useState({ title: "", brief: "", project_type: "general", priority: "normal" });
   const [deliv, setDeliv] = useState({ title: "", persona: "Jamil", content_type: "text", content: "", file_refs: "" });
   const [comment, setComment] = useState("");
+  const [run, setRun] = useState({ persona: "Jamil", instructions: "" });
+  const [showRun, setShowRun] = useState(false);
+  const [running, setRunning] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -220,6 +223,26 @@ function ExecProjectsPanel() {
       toast.error(e?.response?.data?.detail || "Could not advance.");
     } finally {
       setBusy(false);
+    }
+  };
+
+  const runStage = async () => {
+    if (!selected || !run.persona.trim()) { toast.error("Pick the persona to run this stage."); return; }
+    setRunning(true);
+    try {
+      await api.post(`/executive/projects/${selected.id}/run-stage`, {
+        persona: run.persona,
+        instructions: run.instructions,
+      });
+      toast.success(`${run.persona} executed the stage — result posted as a pending deliverable.`);
+      setShowRun(false);
+      setRun({ persona: "Jamil", instructions: "" });
+      await openProject(selected);
+      await load();
+    } catch (e) {
+      toast.error(e?.response?.data?.detail || "Stage run failed.");
+    } finally {
+      setRunning(false);
     }
   };
 
@@ -441,13 +464,50 @@ function ExecProjectsPanel() {
                         ))}
                       </div>
                     )}
-                    {stageIdx >= 0 && stageIdx < PIPE_STAGE_RANK.length - 1 && (
-                      <button onClick={advance} disabled={busy}
-                        className="mt-4 flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-black text-white disabled:opacity-40 transition-colors"
-                        style={{ background: COPPER }}>
-                        {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <ArrowRight className="w-4 h-4" />}
-                        Advance to {PIPE_STAGE_LABEL[PIPE_STAGE_RANK[stageIdx + 1]]}
+                    <div className="mt-4 flex flex-wrap items-center gap-2">
+                      <button onClick={() => setShowRun((v) => !v)} disabled={running}
+                        className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-black disabled:opacity-40 transition-colors"
+                        style={{ background: GREEN, color: "#fff" }}>
+                        {running ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+                        Run stage
                       </button>
+                      {stageIdx >= 0 && stageIdx < PIPE_STAGE_RANK.length - 1 && (
+                        <button onClick={advance} disabled={busy}
+                          className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-black text-white disabled:opacity-40 transition-colors"
+                          style={{ background: COPPER }}>
+                          <ArrowRight className="w-4 h-4" />
+                          Advance to {PIPE_STAGE_LABEL[PIPE_STAGE_RANK[stageIdx + 1]]}
+                        </button>
+                      )}
+                    </div>
+                    {showRun && (
+                      <div className="mt-3 rounded-xl border p-4" style={{ borderColor: "rgba(27,67,50,0.3)", background: "#f8f6f0" }}>
+                        <div className="text-xs font-black uppercase tracking-widest mb-2" style={{ color: GREEN }}>
+                          AI executes this stage
+                        </div>
+                        <div className="flex flex-wrap gap-2 mb-2">
+                          <select value={run.persona} onChange={(e) => setRun({ ...run, persona: e.target.value })}
+                            className="px-3 py-2 bg-white border border-ink/15 rounded-lg text-sm focus:outline-none focus:border-copper">
+                            {["Jamil", "Hybrid NAM", "Production", "Creative Partner", "Marketing", "Review", "Source", "Operations", "Analytics", "Architect", "Ghost Producer"].map((p) => (
+                              <option key={p} value={p}>{p}</option>
+                            ))}
+                          </select>
+                          <input value={run.instructions} onChange={(e) => setRun({ ...run, instructions: e.target.value })}
+                            placeholder="Optional direction for this run (or let the persona read the brief)"
+                            className="flex-1 min-w-[220px] px-3 py-2 bg-white border border-ink/15 rounded-lg text-sm focus:outline-none focus:border-copper" />
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <button onClick={runStage} disabled={running}
+                            className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-black text-white disabled:opacity-40"
+                            style={{ background: GREEN }}>
+                            {running ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+                            {running ? "Executing…" : `Run with ${run.persona}`}
+                          </button>
+                          <span className="text-[10px] text-ink/45">
+                            Result lands as a pending deliverable — you approve, reject, or request revision.
+                          </span>
+                        </div>
+                      </div>
                     )}
                     {detail?.packet?.packet_status && (
                       <div className="mt-3 flex items-center gap-2 flex-wrap text-[10px] font-black uppercase tracking-widest text-ink/40">
