@@ -505,7 +505,9 @@ export default function CreatorStudio() {
               style={{ background: "none", border: "none", color: "rgba(255,255,255,0.25)", cursor: "pointer", fontSize: 14, marginLeft: 4 }}
             >×</button>
           </div>
-        )}          <div style={{ padding: "28px 28px 20px" }}>
+        )}
+
+        <div style={{ padding: "28px 28px 20px" }}>
           {/* Chamber map */}
           <div style={{ marginBottom: activeChamber ? 24 : 0 }}>
             <div style={{ fontSize: 10, fontFamily: "monospace", letterSpacing: "0.2em", textTransform: "uppercase", color: `${colors.primary}cc`, marginBottom: 14 }}>
