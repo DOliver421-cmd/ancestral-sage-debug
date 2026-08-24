@@ -36,11 +36,11 @@ api.interceptors.request.use((cfg) => {
 // simply navigating, which is exactly the bug we are defending against here.
 const AUTH_PATHS = ["/auth/me", "/auth/login", "/auth/register", "/auth/refresh", "/auth/cross-site-login", "/auth/cross-site-token"];
 
-function sessionRejected(status, url, detail) {
-  if (status !== 401) return false;
-  if (AUTH_PATHS.some((p) => url.includes(p))) return true;
-  const d = String(detail || "");
-  return /invalid.*token|expired.*token|revoked|session.*sign in again|session generation|missing bearer/i.test(d);
+function sessionRejected(status, url) {
+  // Only the canonical auth endpoints can invalidate the browser session.
+  // A protected feature may return 401 for its own policy or legacy auth
+  // adapter; treating that as a global logout traps the owner in a login loop.
+  return status === 401 && AUTH_PATHS.some((p) => url.includes(p));
 }
 
 api.interceptors.response.use(
@@ -54,7 +54,8 @@ api.interceptors.response.use(
       localStorage.removeItem("lce_user");
       if (!window.location.pathname.startsWith("/login")) {
         toast.error("Session expired — please sign in again.");
-        window.location.href = "/login";
+        const returnTo = `${window.location.pathname}${window.location.search}${window.location.hash}`;
+        window.location.href = `/login?returnTo=${encodeURIComponent(returnTo)}`;
       }
     } else if (status === 403 && detail?.includes("deactivated")) {
       localStorage.removeItem("lce_token");
