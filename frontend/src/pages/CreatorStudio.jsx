@@ -508,9 +508,6 @@ export default function CreatorStudio() {
         )}
 
         <div style={{ padding: "28px 28px 20px" }}>
-          <div style={{ marginBottom: 16 }}>
-            <PageBack to="/dashboard" label="Dashboard" />
-          </div>
           {/* Chamber map */}
           <div style={{ marginBottom: activeChamber ? 24 : 0 }}>
             <div style={{ fontSize: 10, fontFamily: "monospace", letterSpacing: "0.2em", textTransform: "uppercase", color: `${colors.primary}cc`, marginBottom: 14 }}>
