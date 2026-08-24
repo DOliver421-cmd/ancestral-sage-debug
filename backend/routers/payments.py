@@ -358,6 +358,7 @@ async def create_checkout_session(req: CheckoutReq, user=Depends(_dep_current_us
         persona="platform",
         is_subscription=is_subscription,
         interval=product.get("interval", "month"),
+        checkout_email=user.email,
     )
     if ls_result:
         await audit(user.id, "payment_checkout_created",
