@@ -1397,13 +1397,14 @@ export default function BusinessOffice() {
                   </div>
                   <p className="text-xs text-ink/60 mt-1">{d.tagline}</p>
                   <div className="mt-3 text-xs space-y-1.5">
-                    <div><span className="font-black text-ink/70">AI does:</span> <span className="text-ink/60">{d.what_ai_does}</span></div>
-                    <div><span className="font-black text-ink/70">Human oversees:</span> <span className="text-ink/60">{d.human_oversight}</span></div>
-                    <div><span className="font-black text-ink/70">Revenue:</span> <span className="text-ink/60">{d.revenue}</span></div>
-                    {d.deals_revenue_cents > 0 && (
+                    <div><span className="font-black text-ink/70">AI does:</span> <span className="text-ink/60">{d.what_ai_does ?? d.ai_role ?? "—"}</span></div>
+                    <div><span className="font-black text-ink/70">Human oversees:</span> <span className="text-ink/60">{d.human_oversight ?? d.human_role ?? "—"}</span></div>
+                    <div><span className="font-black text-ink/70">Revenue:</span> <span className="text-ink/60">{d.revenue ?? d.revenue_desc ?? "—"}</span></div>
+                    {(d.deals_revenue_cents ?? 0) > 0 && (
                       <div><span className="font-black text-ink/70">Contracted:</span> <span style={{ color: GREEN }} className="font-bold">{fmt(d.deals_revenue_cents)}</span></div>
                     )}
                   </div>
+                  {Array.isArray(d.tools) && d.tools.length > 0 && (
                   <div className="flex flex-wrap gap-2 mt-3">
                     {d.tools.map((t) => (
                       <Link key={t.link} to={t.link}
@@ -1413,6 +1414,7 @@ export default function BusinessOffice() {
                       </Link>
                     ))}
                   </div>
+                  )}
                 </div>
               ))}
             </div>
