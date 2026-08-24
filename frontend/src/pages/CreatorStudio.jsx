@@ -221,17 +221,17 @@ function ChamberCard({ chamber, active, locked, onClick }) {
         {chamber.name}
       </div>
       <div style={{ fontSize: 11, color: locked ? "rgba(255,255,255,0.2)" : "rgba(255,255,255,0.45)", lineHeight: 1.5, marginBottom: 10 }}>
-        {locked ? `Unlock with ${chamber.tier} tier` : chamber.desc}
+        {locked ? `Unlock with ${chamber.tier} tier` : chamber.comingSoon ? "Coming soon" : chamber.desc}
       </div>
       <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
         <span style={{
           fontSize: 9, fontFamily: "monospace", fontWeight: 900,
           letterSpacing: "0.08em", textTransform: "uppercase", padding: "2px 8px",
-          color: locked ? "rgba(255,255,255,0.3)" : chamber.color,
-          border: `1px solid ${locked ? "rgba(255,255,255,0.15)" : `${chamber.color}50`}`,
-          background: locked ? "transparent" : `${chamber.color}12`,
+          color: chamber.comingSoon ? "rgba(251,146,60,0.9)" : locked ? "rgba(255,255,255,0.3)" : chamber.color,
+          border: `1px solid ${chamber.comingSoon ? "rgba(251,146,60,0.4)" : locked ? "rgba(255,255,255,0.15)" : `${chamber.color}50`}`,
+          background: chamber.comingSoon ? "rgba(251,146,60,0.08)" : locked ? "transparent" : `${chamber.color}12`,
         }}>
-          {locked ? (chamber.tier === 'top' ? 'Top-Tier' : 'Mid-Tier') : "Unlocked"}
+          {chamber.comingSoon ? "Coming Soon" : locked ? (chamber.tier === 'top' ? 'Top-Tier' : 'Mid-Tier') : "Unlocked"}
         </span>
         {active && <span style={{ fontSize: 9, fontFamily: "monospace", color: chamber.color, letterSpacing: "0.1em" }}>ACTIVE ▶</span>}
       </div>
@@ -608,8 +608,6 @@ export default function CreatorStudio() {
                 {activeChamber.id === 'vault'         && <VaultOfVersions projects={projects} />}
                 {activeChamber.id === 'publishing-gate' && <PublishingGate tier={userTierRank >= 2 ? "top" : userTierRank >= 1 ? "mid" : "base"} sovereignDispatch={sovereignDispatch} artifact={artifactType === 'metadata' ? artifactText : null} />}
                 {activeChamber.id === 'ghost-producer' && <StudioContent embedded />}
-                {activeChamber.id === 'marketplace'   && <MarketplaceForge />}
-                {activeChamber.id === 'collaboration' && <CollaborationChamber activeProject={activeProject} />}
               </div>
             </div>
           )}
