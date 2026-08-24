@@ -29,7 +29,7 @@ import { CompetitionArenaContent } from "./CompetitionArena";
 import { HybridNamContent } from "./HybridNam";
 import {
   Building2, TrendingUp, DollarSign, Receipt, Users, RefreshCw,
-  ArrowRight, Plus, Wrench, Briefcase, Target, ShieldCheck, HeartHandshake, Sparkles, Lock,
+  ArrowRight, Plus, Wrench, Briefcase, Target, ShieldCheck, HeartHandshake, Sparkles, Lock, Loader2,
 } from "lucide-react";
 
 const GREEN = "#1B4332";
@@ -51,16 +51,23 @@ const fmt = (cents) => {
   return "$" + (cents / 100).toLocaleString("en-US", { maximumFractionDigits: 2 });
 };
 
+const fmtDt = (s) => {
+  if (!s) return "—";
+  const d = new Date(s);
+  return isNaN(d) ? String(s) : d.toLocaleString();
+};
+
 // ── AI Business Office hub — the virtual back office of everything M.O.R.E. ──
 // One office: the revenue engine, M.O.R.E. Ops (with Director Jamil inside),
 // the Arena, and the executive control desk. Embedded views share the office
 // shell so nothing is a dead link or a walled-off feature.
 const HUB_TABS = [
-  { id: "office",  label: "Office",  desc: "Revenue engine" },
-  { id: "ops",     label: "More Ops", desc: "Department AI + Director Jamil" },
-  { id: "nam",     label: "NAM",     desc: "Assistant Director" },
-  { id: "arena",   label: "Arena",   desc: "Competition" },
-  { id: "control", label: "Control", desc: "Exec tools" },
+  { id: "office",   label: "Office",   desc: "Revenue engine" },
+  { id: "ops",      label: "More Ops", desc: "Department AI + Director Jamil" },
+  { id: "nam",      label: "NAM",      desc: "Assistant Director" },
+  { id: "projects", label: "Projects", desc: "AI team pipeline" },
+  { id: "arena",    label: "Arena",    desc: "Competition" },
+  { id: "control",  label: "Control",  desc: "Exec tools" },
 ];
 
 function HubBar({ tab, setTab }) {
@@ -85,6 +92,338 @@ function HubBar({ tab, setTab }) {
             </span>
           </button>
         ))}
+      </div>
+    </div>
+  );
+}
+
+// ── AI Team Projects — the executive pipeline, inside the office ─────────────
+// The AI team (Jamil coordinating personas) runs projects through the
+// executive pipeline: intake → assign → execute → review → operate → deliver.
+// This panel gives the office a live project workspace — create, advance,
+// deliver, discuss — without leaving the hub.
+const PIPE_STAGE_RANK = ["intake", "assign", "execute", "review", "operate", "deliver"];
+const PIPE_STAGE_LABEL = { intake: "Intake", assign: "Assign", execute: "Execute", review: "Review", operate: "Operate", deliver: "Deliver" };
+const PRIORITY_COLOR = { low: "#5B8C5A", normal: COPPER, high: "#B5651D", urgent: "#B23A2E" };
+
+function ExecProjectsPanel() {
+  const [projects, setProjects] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [selected, setSelected] = useState(null);
+  const [detail, setDetail] = useState(null);
+  const [comments, setComments] = useState([]);
+  const [showNew, setShowNew] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [form, setForm] = useState({ title: "", brief: "", project_type: "general", priority: "normal" });
+  const [deliv, setDeliv] = useState({ title: "", persona: "Jamil", content_type: "text", content: "", file_refs: "" });
+  const [comment, setComment] = useState("");
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      const { data } = await api.get("/executive/projects");
+      setProjects(data || []);
+    } catch {
+      setProjects([]);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { load(); }, [load]);
+
+  const openProject = async (p) => {
+    setSelected(p);
+    try {
+      const [d, c] = await Promise.all([
+        api.get(`/executive/projects/${p.id}`).then((r) => r.data).catch(() => null),
+        api.get(`/executive/projects/${p.id}/comments`).then((r) => r.data || []).catch(() => []),
+      ]);
+      setDetail(d);
+      setComments(Array.isArray(c) ? c : []);
+    } catch {}
+  };
+
+  const createProject = async () => {
+    if (!form.title.trim() || !form.brief.trim()) { toast.error("Title and brief are required."); return; }
+    setBusy(true);
+    try {
+      await api.post("/executive/projects", form);
+      toast.success("Project created — the AI team starts at Intake.");
+      setShowNew(false);
+      setForm({ title: "", brief: "", project_type: "general", priority: "normal" });
+      await load();
+    } catch (e) {
+      toast.error(e?.response?.data?.detail || "Failed to create project.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const advance = async () => {
+    if (!selected) return;
+    setBusy(true);
+    try {
+      await api.post(`/executive/projects/${selected.id}/advance`, {});
+      toast.success("Advanced to the next stage — context flows forward.");
+      await openProject(selected);
+      await load();
+    } catch (e) {
+      toast.error(e?.response?.data?.detail || "Could not advance.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const submitDeliverable = async () => {
+    if (!selected || !deliv.title.trim()) { toast.error("Deliverable title is required."); return; }
+    setBusy(true);
+    try {
+      await api.post(`/executive/projects/${selected.id}/deliverables`, {
+        stage: detail?.current_stage || "execute",
+        persona: deliv.persona || "Jamil",
+        title: deliv.title,
+        content_type: deliv.content_type,
+        content: deliv.content,
+        file_refs: deliv.file_refs.split("\n").map((s) => s.trim()).filter(Boolean),
+      });
+      toast.success("Deliverable submitted.");
+      setDeliv({ title: "", persona: "Jamil", content_type: "text", content: "", file_refs: "" });
+      await openProject(selected);
+    } catch (e) {
+      toast.error(e?.response?.data?.detail || "Could not submit deliverable.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const addComment = async () => {
+    if (!selected || !comment.trim()) return;
+    try {
+      await api.post(`/executive/projects/${selected.id}/comments`, { text: comment });
+      setComment("");
+      const c = await api.get(`/executive/projects/${selected.id}/comments`).then((r) => r.data || []).catch(() => []);
+      setComments(Array.isArray(c) ? c : []);
+    } catch (e) {
+      toast.error(e?.response?.data?.detail || "Comment failed.");
+    }
+  };
+
+  const stageIdx = detail ? PIPE_STAGE_RANK.indexOf(detail.current_stage) : -1;
+
+  return (
+    <div className="h-full overflow-y-auto">
+      <div className="max-w-6xl mx-auto px-6 py-8">
+        <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
+          <div>
+            <div className="overline text-copper mb-1">AI Team Projects</div>
+            <h2 className="font-heading text-2xl font-bold text-ink">The Pipeline</h2>
+            <p className="text-sm text-ink/55 mt-1 max-w-2xl">
+              Jamil coordinates, personas execute, the Source reviews. Every stage sees what the
+              last produced — nothing is isolated. Give the team work to run.
+            </p>
+          </div>
+          <button onClick={() => setShowNew(true)}
+            className="flex items-center gap-1.5 px-4 py-2.5 rounded-lg text-sm font-black text-white transition-colors"
+            style={{ background: GREEN }}>
+            <Plus className="w-4 h-4" /> New Project
+          </button>
+        </div>
+
+        {showNew && (
+          <div className="card-flat rounded-2xl border p-5 mb-6" style={{ background: "#fff" }}>
+            <div className="font-heading font-bold text-ink mb-4">Give the AI team work</div>
+            <div className="grid sm:grid-cols-2 gap-3 mb-3">
+              <input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })}
+                placeholder="Project title — e.g. Launch my youth program"
+                className="px-3 py-2.5 bg-bone border border-ink/15 rounded-lg text-sm focus:outline-none focus:border-copper" />
+              <div className="flex gap-2">
+                <select value={form.project_type} onChange={(e) => setForm({ ...form, project_type: e.target.value })}
+                  className="px-3 py-2.5 bg-bone border border-ink/15 rounded-lg text-sm focus:outline-none focus:border-copper">
+                  {["general", "release", "campaign", "content", "course"].map((t) => <option key={t} value={t}>{t}</option>)}
+                </select>
+                <select value={form.priority} onChange={(e) => setForm({ ...form, priority: e.target.value })}
+                  className="px-3 py-2.5 bg-bone border border-ink/15 rounded-lg text-sm focus:outline-none focus:border-copper">
+                  {["low", "normal", "high", "urgent"].map((t) => <option key={t} value={t}>{t}</option>)}
+                </select>
+              </div>
+            </div>
+            <textarea value={form.brief} onChange={(e) => setForm({ ...form, brief: e.target.value })}
+              placeholder="Brief — what is the goal, what does done look like?" rows={3}
+              className="w-full px-3 py-2.5 bg-bone border border-ink/15 rounded-lg text-sm focus:outline-none focus:border-copper resize-y mb-3" />
+            <div className="flex gap-2">
+              <button onClick={createProject} disabled={busy}
+                className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-black text-white disabled:opacity-40" style={{ background: GREEN }}>
+                {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />} Start project
+              </button>
+              <button onClick={() => setShowNew(false)} className="px-4 py-2 rounded-lg text-sm font-bold text-ink/50 hover:text-ink">Cancel</button>
+            </div>
+          </div>
+        )}
+
+        {loading ? (
+          <div className="py-16 text-center text-ink/50 flex items-center justify-center gap-2">
+            <Loader2 className="w-4 h-4 animate-spin" /> Loading the pipeline…
+          </div>
+        ) : projects.length === 0 && !showNew ? (
+          <div className="card-flat rounded-2xl border p-10 text-center" style={{ background: "#fff" }}>
+            <div style={{ fontSize: 40, marginBottom: 12 }}>🗂️</div>
+            <div className="font-heading font-bold text-lg text-ink">The pipeline is empty</div>
+            <p className="text-sm text-ink/55 max-w-md mx-auto mt-2">
+              The AI team is ready to run. Start a project and Jamil will coordinate personas through
+              intake → assign → execute → review → operate → deliver.
+            </p>
+            <button onClick={() => setShowNew(true)}
+              className="mt-5 inline-flex items-center gap-1.5 px-5 py-2.5 rounded-lg text-sm font-black text-white" style={{ background: GREEN }}>
+              <Plus className="w-4 h-4" /> Start the first project
+            </button>
+          </div>
+        ) : (
+          <div className="grid lg:grid-cols-5 gap-5">
+            {/* Project list */}
+            <div className="lg:col-span-2 space-y-2">
+              {projects.map((p) => (
+                <button key={p.id} onClick={() => openProject(p)}
+                  className={`w-full text-left card-flat rounded-xl p-4 border transition-all ${selected?.id === p.id ? "border-copper" : "hover:border-copper/40"}`}
+                  style={{ background: "#fff" }}>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="font-heading font-bold text-ink text-sm">{p.title}</span>
+                    <span className="text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded"
+                      style={{ background: `${PRIORITY_COLOR[p.priority] || COPPER}15`, color: PRIORITY_COLOR[p.priority] || COPPER }}>
+                      {p.priority}
+                    </span>
+                  </div>
+                  <div className="text-xs text-ink/50 mt-1 line-clamp-2">{p.brief}</div>
+                  <div className="flex items-center gap-2 mt-2 text-[10px] font-black uppercase tracking-widest text-ink/40">
+                    <span style={{ color: COPPER }}>{PIPE_STAGE_LABEL[p.current_stage] || p.current_stage}</span>
+                    <span>· {(p.deliverables || []).length} deliverables</span>
+                    <span className="ml-auto">{new Date(p.updated_at).toLocaleDateString()}</span>
+                  </div>
+                </button>
+              ))}
+            </div>
+
+            {/* Detail */}
+            <div className="lg:col-span-3 space-y-4">
+              {!selected ? (
+                <div className="card-flat rounded-2xl border p-8 text-center text-sm text-ink/45" style={{ background: "#fff" }}>
+                  Select a project to open the pipeline workspace.
+                </div>
+              ) : (
+                <>
+                  <div className="card-flat rounded-2xl border p-5" style={{ background: "#fff" }}>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="font-heading font-bold text-lg text-ink">{selected.title}</span>
+                      {detail && (
+                        <span className="text-[10px] font-black uppercase tracking-widest px-2 py-0.5 rounded text-white" style={{ background: GREEN }}>
+                          {PIPE_STAGE_LABEL[detail.current_stage] || detail.current_stage}
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-sm text-ink/60 mt-2">{selected.brief}</p>
+                    {detail?.stage_history?.length > 0 && (
+                      <div className="flex flex-wrap gap-1.5 mt-3">
+                        {detail.stage_history.map((s, i) => (
+                          <span key={i} className="text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full"
+                            style={{ background: "#f3ede2", color: COPPER }}>
+                            {PIPE_STAGE_LABEL[s.stage] || s.stage}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                    {stageIdx >= 0 && stageIdx < PIPE_STAGE_RANK.length - 1 && (
+                      <button onClick={advance} disabled={busy}
+                        className="mt-4 flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-black text-white disabled:opacity-40 transition-colors"
+                        style={{ background: COPPER }}>
+                        {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <ArrowRight className="w-4 h-4" />}
+                        Advance to {PIPE_STAGE_LABEL[PIPE_STAGE_RANK[stageIdx + 1]]}
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Deliverables */}
+                  <div className="card-flat rounded-2xl border p-5" style={{ background: "#fff" }}>
+                    <div className="font-heading font-bold text-ink mb-3">Deliverables</div>
+                    {(detail?.deliverables || []).length === 0 ? (
+                      <p className="text-sm text-ink/45 italic">Nothing delivered yet — personas produce here.</p>
+                    ) : (
+                      <div className="space-y-2">
+                        {detail.deliverables.map((d) => (
+                          <div key={d.id || d._id} className="rounded-lg border border-ink/8 bg-bone/60 p-3">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="text-xs font-bold text-ink">{d.title}</span>
+                              <span className="text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded" style={{ background: "rgba(181,101,29,0.1)", color: COPPER }}>
+                                {d.content_type}
+                              </span>
+                              <span className="text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded" style={{ background: "rgba(27,67,50,0.1)", color: GREEN }}>
+                                {d.persona}
+                              </span>
+                              <span className="text-[10px] text-ink/40">{d.approval_status}</span>
+                            </div>
+                            {d.content && <p className="text-xs text-ink/60 mt-1">{d.content}</p>}
+                            {d.file_refs?.length > 0 && (
+                              <div className="flex flex-wrap gap-1 mt-1">
+                                {d.file_refs.map((f, i) => <span key={i} className="text-[10px] font-mono text-copper">🔗 {f}</span>)}
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    <div className="grid sm:grid-cols-2 gap-2 mt-4">
+                      <input value={deliv.title} onChange={(e) => setDeliv({ ...deliv, title: e.target.value })}
+                        placeholder="Deliverable title" className="px-3 py-2 bg-bone border border-ink/15 rounded-lg text-sm focus:outline-none focus:border-copper" />
+                      <div className="flex gap-2">
+                        <select value={deliv.content_type} onChange={(e) => setDeliv({ ...deliv, content_type: e.target.value })}
+                          className="px-2 py-2 bg-bone border border-ink/15 rounded-lg text-sm focus:outline-none focus:border-copper">
+                          {["text", "audio", "image", "video", "code", "document", "mixed"].map((t) => <option key={t} value={t}>{t}</option>)}
+                        </select>
+                        <select value={deliv.persona} onChange={(e) => setDeliv({ ...deliv, persona: e.target.value })}
+                          className="px-2 py-2 bg-bone border border-ink/15 rounded-lg text-sm focus:outline-none focus:border-copper">
+                          {["Jamil", "Hybrid NAM", "Production", "Revenue", "Finance", "Creative Partner", "Owner"].map((t) => <option key={t} value={t}>{t}</option>)}
+                        </select>
+                      </div>
+                    </div>
+                    <textarea value={deliv.content} onChange={(e) => setDeliv({ ...deliv, content: e.target.value })}
+                      placeholder="Content or description — or paste a file URL / product link below" rows={2}
+                      className="mt-2 w-full px-3 py-2 bg-bone border border-ink/15 rounded-lg text-sm focus:outline-none focus:border-copper resize-y" />
+                    <textarea value={deliv.file_refs} onChange={(e) => setDeliv({ ...deliv, file_refs: e.target.value })}
+                      placeholder="File URLs / product links — one per line" rows={2}
+                      className="mt-2 w-full px-3 py-2 bg-bone border border-ink/15 rounded-lg text-sm focus:outline-none focus:border-copper resize-y" />
+                    <button onClick={submitDeliverable} disabled={busy}
+                      className="mt-2 flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-black text-white disabled:opacity-40" style={{ background: GREEN }}>
+                      {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />} Submit deliverable
+                    </button>
+                  </div>
+
+                  {/* Comments */}
+                  <div className="card-flat rounded-2xl border p-5" style={{ background: "#fff" }}>
+                    <div className="font-heading font-bold text-ink mb-3">Thread</div>
+                    {comments.length === 0 ? (
+                      <p className="text-sm text-ink/45 italic">No discussion yet.</p>
+                    ) : (
+                      <div className="space-y-2 max-h-48 overflow-y-auto">
+                        {comments.map((c, i) => (
+                          <div key={i} className="rounded-lg bg-bone/70 p-3 text-sm text-ink/75">
+                            {c.text}
+                            <div className="text-[10px] text-ink/35 mt-1">{c.persona || "Owner"} · {fmtDt(c.created_at)}</div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    <div className="flex gap-2 mt-3">
+                      <input value={comment} onChange={(e) => setComment(e.target.value)}
+                        onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); addComment(); } }}
+                        placeholder="Comment — as owner or a persona"
+                        className="flex-1 px-3 py-2 bg-bone border border-ink/15 rounded-lg text-sm focus:outline-none focus:border-copper" />
+                      <button onClick={addComment} className="px-4 py-2 rounded-lg text-sm font-black text-white" style={{ background: GREEN }}>Post</button>
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -230,7 +569,7 @@ export default function BusinessOffice() {
 
   // Hub views — More Ops (with Director Jamil inside) and the Arena live
   // inside the AI Business Office; the Control Desk hosts the exec tools.
-  if (tab === "ops" || tab === "nam" || tab === "arena" || tab === "control") {
+  if (tab === "ops" || tab === "nam" || tab === "projects" || tab === "arena" || tab === "control") {
     return (
       <AppShell>
         <div className="h-[calc(100vh-4rem)] flex flex-col" style={{ background: BONE }}>
@@ -238,6 +577,7 @@ export default function BusinessOffice() {
           <div className="flex-1 min-h-0 overflow-hidden">
             {tab === "ops" && <MoreOpsContent embedded />}
             {tab === "nam" && <HybridNamContent embedded />}
+            {tab === "projects" && <ExecProjectsPanel />}
             {tab === "arena" && <CompetitionArenaContent embedded />}
             {tab === "control" && <ExecControlDesk />}
           </div>

@@ -56,6 +56,7 @@ import ErrorBoundary from "./components/ErrorBoundary";
 import AppShell from "./components/AppShell";
 import Helper from "./pages/Helper";
 import HybridNam from "./pages/HybridNam";
+import Studio from "./pages/Studio";
 import Leaderboard from "./pages/Leaderboard";
 import Store from "./pages/Store";
 import SubscribePage from "./pages/SubscribePage";
@@ -366,6 +367,7 @@ function App() {
           {/* Creator slug → unified profile */}
           <Route path="/creator/:slug" element={<CreatorSlugRedirect />} />
           <Route path="/ghost-producer" element={<TierGate feature="ghost"><GhostProducer /></TierGate>} />
+          <Route path="/studio/music" element={<Protected><TierGate feature="ghost"><Studio /></TierGate></Protected>} />
           <Route path="/creator-lounge" element={<Protected><TierGate feature="lounge"><CreatorLounge /></TierGate></Protected>} />
           <Route path="/band" element={<Protected><TierGate feature="band"><BandOnPage /></TierGate></Protected>} />
           <Route path="/trash-pantheon" element={<TrashPantheon />} />

@@ -10,7 +10,7 @@ import {
   ShieldCheck, Shield, Building2, TrendingUp, ScrollText, Calendar,
   ShieldAlert, KeyRound, Crown, Compass, HelpCircle, Layers, HandHelping,
   Scale, Trophy, Network, ShoppingBag, Heart, Receipt, Video, DollarSign,
-  UserCircle, WifiOff, Music, Mic, Palette, FileText,
+  UserCircle, WifiOff, Music, Music4, Mic, Palette, FileText,
   Gamepad2, Star, Radio, Globe, ChevronLeft, ChevronRight, Share2,
   Map, BrainCircuit, CreditCard, BarChart3, Wrench, ExternalLink,
   Lock, Search, HeartPulse, Landmark, TicketPercent, Menu,
@@ -138,6 +138,7 @@ const CUSTOMER_TIERS = [
     features: "Studio · Courses · Ghost · Band · Sanctuary · Learning Path · Earnings",
     items: [
       { to: "/studio", label: "Creator Studio", icon: Music, testid: "nav-creator-studio" },
+      { to: "/studio/music", label: "Music Studio", icon: Music4, testid: "nav-music-studio" },
       { to: "/creator/courses", label: "Course Manager", icon: Video, testid: "nav-creator-courses" },
       { to: "/ghost-producer", label: "Ghost Producer", icon: Palette, testid: "nav-ghost-producer" },
       { to: "/band", label: "Band on a Page", icon: Music, testid: "nav-band" },
