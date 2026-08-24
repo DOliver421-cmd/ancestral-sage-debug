@@ -477,7 +477,9 @@ export default function CompetitionArena() {
   const { user } = useAuth();
   const isExec = user?.role === "executive_admin";
 
-  // Defense-in-depth: block non-exec users even if route guard fails
+  // Defense-in-depth: block non-exec users even if route guard fails.
+  // (When embedded in the AI Business Office hub, the office route itself is
+  // admin-gated, so this gate stays consistent either way.)
   if (!isExec) {
     return (
       <AppShell>
@@ -493,13 +495,13 @@ export default function CompetitionArena() {
       </AppShell>
     );
   }
-  return <ArenaWorkspace />;
+  return <CompetitionArenaContent />;
 }
 
 // Exec-only workspace. Kept as a separate component so every hook in it is
 // called unconditionally (React rules-of-hooks) — the wrapper above decides
 // who may render it, the hooks below never run conditionally.
-function ArenaWorkspace() {
+export function CompetitionArenaContent({ embedded = false }) {
   const [task, setTask] = useState("");
   const [loading, setLoading] = useState(false);
   const [results, setResults] = useState(null);
@@ -611,9 +613,8 @@ function ArenaWorkspace() {
     }
   };
 
-  return (
-    <AppShell>
-      <div style={{ background: BONE, minHeight: "100vh", padding: "32px 24px", fontFamily: "system-ui, sans-serif" }}>
+  const body = (
+    <div style={{ background: BONE, minHeight: embedded ? 0 : "100vh", height: embedded ? "100%" : undefined, padding: embedded ? 24 : "32px 24px", overflowY: embedded ? "auto" : undefined, fontFamily: "system-ui, sans-serif" }}>
         <style>{`
           @keyframes spin { to { transform: rotate(360deg); } }
         `}</style>
@@ -767,6 +768,7 @@ function ArenaWorkspace() {
           error={historyError}
         />
       </div>
-    </AppShell>
   );
+
+  return embedded ? body : <AppShell>{body}</AppShell>;
 }

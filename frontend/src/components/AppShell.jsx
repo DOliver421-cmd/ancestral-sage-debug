@@ -11,8 +11,8 @@ import {
   ShieldAlert, KeyRound, Crown, Compass, HelpCircle, Layers, HandHelping,
   Scale, Trophy, Network, ShoppingBag, Heart, Receipt, Video, DollarSign,
   UserCircle, WifiOff, Music, Mic, Palette, FileText,
-  Gamepad2, Star, Radio, Globe, Swords, ChevronLeft, ChevronRight, Share2,
-  Map, BrainCircuit, CreditCard, BarChart3, Wrench, Server, ExternalLink,
+  Gamepad2, Star, Radio, Globe, ChevronLeft, ChevronRight, Share2,
+  Map, BrainCircuit, CreditCard, BarChart3, Wrench, ExternalLink,
   Lock, Search, HeartPulse, Landmark, TicketPercent, Menu,
 } from "lucide-react";
 import { isWaiDoor, MORE_HOME } from "../lib/domain";
@@ -175,8 +175,6 @@ const STAFF_SECTIONS = [
       { to: "/admin", label: "Admin Overview", icon: Settings, testid: "nav-admin" },
       { to: "/admin/iam", label: "IAM Console", icon: ShieldCheck, testid: "nav-iam" },
       { to: "/business-office", label: "AI Business Office", icon: Landmark, testid: "nav-business-office" },
-      { to: "/admin/office", label: "Business Office", icon: Landmark, testid: "nav-exec-office" },
-      { to: "/more/ops", label: "M.O.R.E. Ops", icon: Server, testid: "nav-more-ops" },
       { to: "/admin/health", label: "System Health", icon: ShieldCheck, testid: "nav-health" },
       { to: "/admin/payments", label: "Payments", icon: Receipt, testid: "nav-admin-payments" },
       { to: "/admin/billing", label: "Billing", icon: CreditCard, testid: "nav-billing" },
@@ -199,7 +197,6 @@ const STAFF_SECTIONS = [
     items: [
       { to: "/executive-suite", label: "Executive Suite", icon: Crown, testid: "nav-executive-suite" },
       { to: "/admin/command", label: "Command Center", icon: Crown, testid: "nav-command-center" },
-      { to: "/arena", label: "The Arena", icon: Swords, testid: "nav-arena" },
     ],
   },
 ];

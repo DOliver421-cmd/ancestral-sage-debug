@@ -24,6 +24,8 @@ import { api } from "../lib/api";
 import { toast } from "sonner";
 import { roleAtLeast, ROLE_LABELS } from "../lib/roles";
 import SourceProtocolPanel from "../components/SourceProtocolPanel";
+import { MoreOpsContent } from "./MoreOps";
+import { CompetitionArenaContent } from "./CompetitionArena";
 import {
   Building2, TrendingUp, DollarSign, Receipt, Users, RefreshCw,
   ArrowRight, Plus, Wrench, Briefcase, Target, ShieldCheck, HeartHandshake, Sparkles, Lock,
@@ -47,6 +49,88 @@ const fmt = (cents) => {
   if (cents == null) return "—";
   return "$" + (cents / 100).toLocaleString("en-US", { maximumFractionDigits: 2 });
 };
+
+// ── AI Business Office hub — the virtual back office of everything M.O.R.E. ──
+// One office: the revenue engine, M.O.R.E. Ops (with Director Jamil inside),
+// the Arena, and the executive control desk. Embedded views share the office
+// shell so nothing is a dead link or a walled-off feature.
+const HUB_TABS = [
+  { id: "office",  label: "Office",  desc: "Revenue engine" },
+  { id: "ops",     label: "More Ops", desc: "Department AI + Director Jamil" },
+  { id: "arena",   label: "Arena",   desc: "Competition" },
+  { id: "control", label: "Control", desc: "Exec tools" },
+];
+
+function HubBar({ tab, setTab }) {
+  return (
+    <div style={{ background: "#0f2a1e", borderBottom: "1px solid rgba(232,165,30,0.25)", padding: "10px 24px" }}>
+      <div className="flex flex-wrap gap-2">
+        {HUB_TABS.map((t) => (
+          <button
+            key={t.id}
+            onClick={() => setTab(t.id)}
+            style={{
+              display: "flex", alignItems: "center", gap: 8, padding: "8px 14px", borderRadius: 10,
+              border: tab === t.id ? "1px solid rgba(232,165,30,0.5)" : "1px solid rgba(255,255,255,0.12)",
+              background: tab === t.id ? "rgba(232,165,30,0.14)" : "transparent",
+              color: tab === t.id ? "#E8A51E" : "rgba(255,255,255,0.65)",
+              fontSize: 13, fontWeight: 700, cursor: "pointer",
+            }}
+          >
+            {t.label}
+            <span style={{ fontSize: 10, fontWeight: 600, opacity: 0.6, textTransform: "uppercase", letterSpacing: "0.04em" }}>
+              {t.desc}
+            </span>
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// The executive control desk — every back-office control in one place. These
+// are real, working tools (IAM, Feature Control, audit, etc.), not dead links.
+function ExecControlDesk() {
+  const controls = [
+    { icon: "IAM",       title: "IAM Console",        desc: "Roles, permissions, and who can do what.",        to: "/admin/iam" },
+    { icon: "FCC",       title: "Feature Control",    desc: "Turn platform features and flags on or off.",      to: "/admin/features" },
+    { icon: "CTL",       title: "Site Control",       desc: "Platform lock, maintenance, and exec controls.",   to: "/admin/control" },
+    { icon: "AUD",       title: "Audit Log",          desc: "Every action, who did it, and when.",              to: "/admin/audit" },
+    { icon: "CMD",       title: "Command Center",     desc: "Executive command and oversight.",                to: "/admin/command" },
+    { icon: "OFF",       title: "Exec Business Office", desc: "Advanced office and distribution controls.",     to: "/admin/office" },
+    { icon: "BRG",       title: "AI Team Bridge",     desc: "Cross-team AI coordination and handoffs.",        to: "/admin/bridge" },
+    { icon: "ANA",       title: "Analytics",          desc: "Platform analytics and trends.",                  to: "/admin/analytics" },
+  ];
+  return (
+    <div className="h-full overflow-y-auto">
+      <div className="max-w-6xl mx-auto px-6 py-8">
+        <div className="overline text-copper mb-2">Executive Control</div>
+        <h2 className="font-heading text-2xl font-bold text-ink mb-2">The Control Desk</h2>
+        <p className="text-sm text-ink/55 max-w-2xl mb-8">
+          Every back-office control in one place — IAM, feature flags, audit, command, and
+          platform controls. Data is live; nothing here is a dead link.
+        </p>
+        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          {controls.map((c) => (
+            <Link key={c.title} to={c.to}
+              className="card-flat rounded-2xl p-6 border hover:border-copper transition-all group no-underline"
+              style={{ background: "#fff" }}>
+              <div className="flex items-center gap-3 mb-3">
+                <span className="text-[10px] font-black tracking-widest px-2 py-1 rounded"
+                  style={{ background: "#f5f0e8", color: COPPER }}>{c.icon}</span>
+                <div className="font-heading font-bold text-ink group-hover:text-copper transition-colors">{c.title}</div>
+              </div>
+              <p className="text-sm text-ink/55 leading-relaxed">{c.desc}</p>
+              <div className="mt-4 text-xs font-bold uppercase tracking-widest text-copper flex items-center gap-1">
+                Open <ArrowRight className="w-3.5 h-3.5" />
+              </div>
+            </Link>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export default function BusinessOffice() {
   const { user } = useAuth();
@@ -142,6 +226,23 @@ export default function BusinessOffice() {
     );
   }
 
+  // Hub views — More Ops (with Director Jamil inside) and the Arena live
+  // inside the AI Business Office; the Control Desk hosts the exec tools.
+  if (tab === "ops" || tab === "arena" || tab === "control") {
+    return (
+      <AppShell>
+        <div className="h-[calc(100vh-4rem)] flex flex-col" style={{ background: BONE }}>
+          <div className="flex-shrink-0"><HubBar tab={tab} setTab={setTab} /></div>
+          <div className="flex-1 min-h-0 overflow-hidden">
+            {tab === "ops" && <MoreOpsContent embedded />}
+            {tab === "arena" && <CompetitionArenaContent embedded />}
+            {tab === "control" && <ExecControlDesk />}
+          </div>
+        </div>
+      </AppShell>
+    );
+  }
+
   return (
     <AppShell>
       <div style={{ background: BONE, minHeight: "100vh" }}>
@@ -181,6 +282,8 @@ export default function BusinessOffice() {
             ))}
           </div>
         </div>
+
+        <div className="flex-shrink-0"><HubBar tab={tab} setTab={setTab} /></div>
 
         <div className="max-w-6xl mx-auto px-6 py-8 space-y-10">
           {/* ── 1. Mission Runway ────────────────────────────────────── */}
