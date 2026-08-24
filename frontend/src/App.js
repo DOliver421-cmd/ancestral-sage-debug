@@ -58,7 +58,6 @@ import Helper from "./pages/Helper";
 import HybridNam from "./pages/HybridNam";
 import Studio from "./pages/Studio";
 import Leaderboard from "./pages/Leaderboard";
-import Store from "./pages/Store";
 import SubscribePage from "./pages/SubscribePage";
 import DonatePage from "./pages/DonatePage";
 import PaymentSuccess from "./pages/PaymentSuccess";
@@ -392,7 +391,8 @@ function App() {
           {/* Payments */}
           {/* Store & subscribe — public browsing, gated checkout */}
           <Route path="/store" element={<MediaStore />} />
-          <Route path="/merch" element={<Store />} />
+          {/* Legacy merchandise URL stays inside the first-party marketplace. */}
+          <Route path="/merch" element={<Navigate to="/store" replace />} />
           <Route path="/subscribe" element={<SubscribePage />} />
           <Route path="/donate" element={<DonatePage />} />
           <Route path="/payment/success" element={<PaymentSuccess />} />
