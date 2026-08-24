@@ -29,19 +29,34 @@ api.interceptors.request.use((cfg) => {
   return cfg;
 });
 
+// A 401 only means "your session is dead" when it comes from an auth endpoint
+// (token validation) or explicitly names an invalid/expired/revoked token.
+// Many endpoints 401 for their own reasons (a resource, a role, a stale
+// cross-site token) — wiping the session on those logs the owner out while
+// simply navigating, which is exactly the bug we are defending against here.
+const AUTH_PATHS = ["/auth/me", "/auth/login", "/auth/register", "/auth/refresh", "/auth/cross-site-login", "/auth/cross-site-token"];
+
+function sessionRejected(status, url, detail) {
+  if (status !== 401) return false;
+  if (AUTH_PATHS.some((p) => url.includes(p))) return true;
+  const d = String(detail || "");
+  return /invalid.*token|expired.*token|revoked|session.*sign in again|session generation|missing bearer/i.test(d);
+}
+
 api.interceptors.response.use(
   (r) => r,
   (err) => {
     const status = err?.response?.status;
     const url = err?.config?.url || "";
-    if (status === 401 && !url.includes("/auth/login")) {
+    const detail = err?.response?.data?.detail;
+    if (sessionRejected(status, url, detail) && !url.includes("/auth/login")) {
       localStorage.removeItem("lce_token");
       localStorage.removeItem("lce_user");
       if (!window.location.pathname.startsWith("/login")) {
         toast.error("Session expired — please sign in again.");
         window.location.href = "/login";
       }
-    } else if (status === 403 && err?.response?.data?.detail?.includes("deactivated")) {
+    } else if (status === 403 && detail?.includes("deactivated")) {
       localStorage.removeItem("lce_token");
       localStorage.removeItem("lce_user");
       // Avoid redirect loop — only redirect if we're not already on an auth page

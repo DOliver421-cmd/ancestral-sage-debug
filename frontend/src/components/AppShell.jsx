@@ -175,6 +175,7 @@ const STAFF_SECTIONS = [
       { to: "/admin", label: "Admin Overview", icon: Settings, testid: "nav-admin" },
       { to: "/admin/iam", label: "IAM Console", icon: ShieldCheck, testid: "nav-iam" },
       { to: "/business-office", label: "AI Business Office", icon: Landmark, testid: "nav-business-office" },
+      { to: "/nam", label: "Hybrid NAM", icon: BrainCircuit, testid: "nav-hybrid-nam" },
       { to: "/admin/health", label: "System Health", icon: ShieldCheck, testid: "nav-health" },
       { to: "/admin/payments", label: "Payments", icon: Receipt, testid: "nav-admin-payments" },
       { to: "/admin/billing", label: "Billing", icon: CreditCard, testid: "nav-billing" },
@@ -238,6 +239,13 @@ export default function AppShell({ children }) {
       return next;
     });
   };
+
+  // Load the exec page-access gate map once. Without this, gatesLoaded stays
+  // false forever and every nav item renders null — section headers expand to
+  // empty lists ("dropdowns that dropdown nothing") and features look missing.
+  useEffect(() => {
+    loadGates().finally(() => setGatesLoaded(true));
+  }, []);
 
   useEffect(() => {
     const ctrl = new AbortController();

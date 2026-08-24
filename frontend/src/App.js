@@ -55,6 +55,7 @@ import PlaylistDashboard from "./pages/PlaylistDashboard";
 import ErrorBoundary from "./components/ErrorBoundary";
 import AppShell from "./components/AppShell";
 import Helper from "./pages/Helper";
+import HybridNam from "./pages/HybridNam";
 import Leaderboard from "./pages/Leaderboard";
 import Store from "./pages/Store";
 import SubscribePage from "./pages/SubscribePage";
@@ -431,7 +432,7 @@ function App() {
           <Route path="/welcome" element={<Landing />} />
 
           {/* ── CANONICAL ECOSYSTEM ROUTES (Step 8 — Route Migration) ── */}
-          <Route path="/nam" element={<Navigate to="/ai" replace />} />
+          <Route path="/nam" element={<Protected><HybridNam /></Protected>} />
           <Route path="/creator" element={<Navigate to="/studio" replace />} />
           <Route path="/publish" element={<Navigate to="/social/publish" replace />} />
           <Route path="/community/hub" element={<Navigate to="/community" replace />} />

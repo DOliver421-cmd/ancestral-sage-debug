@@ -26,6 +26,7 @@ import { roleAtLeast, ROLE_LABELS } from "../lib/roles";
 import SourceProtocolPanel from "../components/SourceProtocolPanel";
 import { MoreOpsContent } from "./MoreOps";
 import { CompetitionArenaContent } from "./CompetitionArena";
+import { HybridNamContent } from "./HybridNam";
 import {
   Building2, TrendingUp, DollarSign, Receipt, Users, RefreshCw,
   ArrowRight, Plus, Wrench, Briefcase, Target, ShieldCheck, HeartHandshake, Sparkles, Lock,
@@ -57,6 +58,7 @@ const fmt = (cents) => {
 const HUB_TABS = [
   { id: "office",  label: "Office",  desc: "Revenue engine" },
   { id: "ops",     label: "More Ops", desc: "Department AI + Director Jamil" },
+  { id: "nam",     label: "NAM",     desc: "Assistant Director" },
   { id: "arena",   label: "Arena",   desc: "Competition" },
   { id: "control", label: "Control", desc: "Exec tools" },
 ];
@@ -228,13 +230,14 @@ export default function BusinessOffice() {
 
   // Hub views — More Ops (with Director Jamil inside) and the Arena live
   // inside the AI Business Office; the Control Desk hosts the exec tools.
-  if (tab === "ops" || tab === "arena" || tab === "control") {
+  if (tab === "ops" || tab === "nam" || tab === "arena" || tab === "control") {
     return (
       <AppShell>
         <div className="h-[calc(100vh-4rem)] flex flex-col" style={{ background: BONE }}>
           <div className="flex-shrink-0"><HubBar tab={tab} setTab={setTab} /></div>
           <div className="flex-1 min-h-0 overflow-hidden">
             {tab === "ops" && <MoreOpsContent embedded />}
+            {tab === "nam" && <HybridNamContent embedded />}
             {tab === "arena" && <CompetitionArenaContent embedded />}
             {tab === "control" && <ExecControlDesk />}
           </div>
