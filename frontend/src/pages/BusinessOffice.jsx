@@ -113,10 +113,17 @@ function ExecProjectsPanel() {
   const [detail, setDetail] = useState(null);
   const [comments, setComments] = useState([]);
   const [showNew, setShowNew] = useState(false);
+  const [showDiscovery, setShowDiscovery] = useState(false);
+  const [discovery, setDiscovery] = useState(null);
+  const [scanning, setScanning] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [packetForm, setPacketForm] = useState(null);
   const [form, setForm] = useState({ title: "", brief: "", project_type: "general", priority: "normal" });
   const [deliv, setDeliv] = useState({ title: "", persona: "Jamil", content_type: "text", content: "", file_refs: "" });
   const [comment, setComment] = useState("");
+  const [run, setRun] = useState({ persona: "Jamil", instructions: "" });
+  const [showRun, setShowRun] = useState(false);
+  const [running, setRunning] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -141,7 +148,51 @@ function ExecProjectsPanel() {
       ]);
       setDetail(d);
       setComments(Array.isArray(c) ? c : []);
+      const pk = d?.packet;
+      setPacketForm(pk ? {
+        objective: pk.objective || "", owner: pk.owner || "", ai_team: (pk.ai_team || []).join(", "),
+        deliverables_summary: pk.deliverables_summary || "", constraints: pk.constraints || "",
+        authority: pk.authority || "approval_required", approval_points: (pk.approval_points || []).join(", "),
+        evidence: pk.evidence || "", outcome_report: pk.outcome_report || "", packet_status: pk.packet_status || "planning",
+      } : null);
     } catch {}
+  };
+
+  const scanDiscovery = async () => {
+    setScanning(true);
+    try {
+      const { data } = await api.get("/executive/discovery");
+      setDiscovery(data);
+    } catch (e) {
+      toast.error(e?.response?.data?.detail || "Scan failed.");
+    } finally {
+      setScanning(false);
+    }
+  };
+
+  const startFromProposal = (proposal) => {
+    setForm({ title: proposal.title, brief: proposal.brief, project_type: "general", priority: "normal" });
+    setShowNew(true);
+    setShowDiscovery(false);
+  };
+
+  const savePacket = async () => {
+    if (!selected || !packetForm) return;
+    setBusy(true);
+    try {
+      await api.put(`/executive/projects/${selected.id}/packet`, {
+        ...packetForm,
+        ai_team: packetForm.ai_team.split(",").map((s) => s.trim()).filter(Boolean),
+        approval_points: packetForm.approval_points.split(",").map((s) => s.trim()).filter(Boolean),
+      });
+      toast.success("Project packet saved — the operating agreement is set.");
+      await openProject(selected);
+      await load();
+    } catch (e) {
+      toast.error(e?.response?.data?.detail || "Could not save packet.");
+    } finally {
+      setBusy(false);
+    }
   };
 
   const createProject = async () => {
@@ -172,6 +223,26 @@ function ExecProjectsPanel() {
       toast.error(e?.response?.data?.detail || "Could not advance.");
     } finally {
       setBusy(false);
+    }
+  };
+
+  const runStage = async () => {
+    if (!selected || !run.persona.trim()) { toast.error("Pick the persona to run this stage."); return; }
+    setRunning(true);
+    try {
+      await api.post(`/executive/projects/${selected.id}/run-stage`, {
+        persona: run.persona,
+        instructions: run.instructions,
+      });
+      toast.success(`${run.persona} executed the stage — result posted as a pending deliverable.`);
+      setShowRun(false);
+      setRun({ persona: "Jamil", instructions: "" });
+      await openProject(selected);
+      await load();
+    } catch (e) {
+      toast.error(e?.response?.data?.detail || "Stage run failed.");
+    } finally {
+      setRunning(false);
     }
   };
 
@@ -223,12 +294,74 @@ function ExecProjectsPanel() {
               last produced — nothing is isolated. Give the team work to run.
             </p>
           </div>
-          <button onClick={() => setShowNew(true)}
-            className="flex items-center gap-1.5 px-4 py-2.5 rounded-lg text-sm font-black text-white transition-colors"
-            style={{ background: GREEN }}>
-            <Plus className="w-4 h-4" /> New Project
-          </button>
+          <div className="flex gap-2">
+            <button onClick={() => { setShowDiscovery((v) => !v); if (!discovery && !showDiscovery) scanDiscovery(); }}
+              className="flex items-center gap-1.5 px-4 py-2.5 rounded-lg text-sm font-black transition-colors"
+              style={{ background: GOLD, color: "#0a0a0a" }}>
+              <Sparkles className="w-4 h-4" /> {scanning ? "Scanning…" : "Discover"}
+            </button>
+            <button onClick={() => setShowNew(true)}
+              className="flex items-center gap-1.5 px-4 py-2.5 rounded-lg text-sm font-black text-white transition-colors"
+              style={{ background: GREEN }}>
+              <Plus className="w-4 h-4" /> New Project
+            </button>
+          </div>
         </div>
+
+        {showDiscovery && (
+          <div className="card-flat rounded-2xl border p-5 mb-6" style={{ background: "#fff", borderColor: "rgba(232,165,30,0.4)" }}>
+            <div className="font-heading font-bold text-ink mb-1">Turn what already exists into what comes next</div>
+            <p className="text-sm text-ink/55 mb-4 max-w-2xl">
+              The AI team catalogues existing material — published products, pipeline deliverables, audio — and
+              proposes the highest-value next projects. Nothing is generated without your approval.
+            </p>
+            {scanning ? (
+              <div className="py-6 text-center text-sm text-ink/45 flex items-center justify-center gap-2">
+                <Loader2 className="w-4 h-4 animate-spin" /> Cataloguing existing material…
+              </div>
+            ) : discovery ? (
+              <>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-5">
+                  {[
+                    { label: "Total assets", n: discovery.assets?.total },
+                    { label: "Audio products", n: discovery.assets?.audio_products },
+                    { label: "Published products", n: discovery.assets?.published_products },
+                    { label: "Pipeline deliverables", n: discovery.assets?.pipeline_deliverables },
+                  ].map((s) => (
+                    <div key={s.label} className="rounded-xl p-4 text-center" style={{ background: "#faf9f7" }}>
+                      <div className="font-heading text-2xl font-bold" style={{ color: GREEN }}>{s.n ?? 0}</div>
+                      <div className="text-[10px] font-black uppercase tracking-widest text-ink/40 mt-1">{s.label}</div>
+                    </div>
+                  ))}
+                </div>
+                {(discovery.proposals || []).length === 0 ? (
+                  <p className="text-sm text-ink/45 italic">No proposals yet — create material first, then scan again.</p>
+                ) : (
+                  <div className="grid md:grid-cols-2 gap-3">
+                    {discovery.proposals.map((pr) => (
+                      <div key={pr.title} className="rounded-xl border p-4" style={{ borderColor: "rgba(181,101,29,0.25)", background: "#fdfbf5" }}>
+                        <div className="flex items-center gap-2 flex-wrap mb-1">
+                          <span className="font-bold text-sm text-ink">{pr.title}</span>
+                          <span className="text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded"
+                            style={{ background: "rgba(27,67,50,0.1)", color: GREEN }}>
+                            {pr.authority}
+                          </span>
+                        </div>
+                        <p className="text-xs text-ink/60 mb-2">{pr.rationale}</p>
+                        <p className="text-[10px] text-ink/45 mb-3">AI team: {pr.suggested_team.join(", ")}</p>
+                        <button onClick={() => startFromProposal(pr)}
+                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-black text-white"
+                          style={{ background: COPPER }}>
+                          <Plus className="w-3 h-3" /> Start project from this
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </>
+            ) : null}
+          </div>
+        )}
 
         {showNew && (
           <div className="card-flat rounded-2xl border p-5 mb-6" style={{ background: "#fff" }}>
@@ -331,12 +464,150 @@ function ExecProjectsPanel() {
                         ))}
                       </div>
                     )}
-                    {stageIdx >= 0 && stageIdx < PIPE_STAGE_RANK.length - 1 && (
-                      <button onClick={advance} disabled={busy}
-                        className="mt-4 flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-black text-white disabled:opacity-40 transition-colors"
-                        style={{ background: COPPER }}>
-                        {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <ArrowRight className="w-4 h-4" />}
-                        Advance to {PIPE_STAGE_LABEL[PIPE_STAGE_RANK[stageIdx + 1]]}
+                    <div className="mt-4 flex flex-wrap items-center gap-2">
+                      <button onClick={() => setShowRun((v) => !v)} disabled={running}
+                        className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-black disabled:opacity-40 transition-colors"
+                        style={{ background: GREEN, color: "#fff" }}>
+                        {running ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+                        Run stage
+                      </button>
+                      {stageIdx >= 0 && stageIdx < PIPE_STAGE_RANK.length - 1 && (
+                        <button onClick={advance} disabled={busy}
+                          className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-black text-white disabled:opacity-40 transition-colors"
+                          style={{ background: COPPER }}>
+                          <ArrowRight className="w-4 h-4" />
+                          Advance to {PIPE_STAGE_LABEL[PIPE_STAGE_RANK[stageIdx + 1]]}
+                        </button>
+                      )}
+                    </div>
+                    {showRun && (
+                      <div className="mt-3 rounded-xl border p-4" style={{ borderColor: "rgba(27,67,50,0.3)", background: "#f8f6f0" }}>
+                        <div className="text-xs font-black uppercase tracking-widest mb-2" style={{ color: GREEN }}>
+                          AI executes this stage
+                        </div>
+                        <div className="flex flex-wrap gap-2 mb-2">
+                          <select value={run.persona} onChange={(e) => setRun({ ...run, persona: e.target.value })}
+                            className="px-3 py-2 bg-white border border-ink/15 rounded-lg text-sm focus:outline-none focus:border-copper">
+                            {["Jamil", "Hybrid NAM", "Production", "Creative Partner", "Marketing", "Review", "Source", "Operations", "Analytics", "Architect", "Ghost Producer"].map((p) => (
+                              <option key={p} value={p}>{p}</option>
+                            ))}
+                          </select>
+                          <input value={run.instructions} onChange={(e) => setRun({ ...run, instructions: e.target.value })}
+                            placeholder="Optional direction for this run (or let the persona read the brief)"
+                            className="flex-1 min-w-[220px] px-3 py-2 bg-white border border-ink/15 rounded-lg text-sm focus:outline-none focus:border-copper" />
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <button onClick={runStage} disabled={running}
+                            className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-black text-white disabled:opacity-40"
+                            style={{ background: GREEN }}>
+                            {running ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+                            {running ? "Executing…" : `Run with ${run.persona}`}
+                          </button>
+                          <span className="text-[10px] text-ink/45">
+                            Result lands as a pending deliverable — you approve, reject, or request revision.
+                          </span>
+                        </div>
+                      </div>
+                    )}
+                    {detail?.packet?.packet_status && (
+                      <div className="mt-3 flex items-center gap-2 flex-wrap text-[10px] font-black uppercase tracking-widest text-ink/40">
+                        <span>Packet:</span>
+                        <span style={{ color: GREEN }}>{detail.packet.packet_status}</span>
+                        <span>· Authority:</span>
+                        <span style={{ color: COPPER }}>{detail.packet.authority}</span>
+                        {(detail.packet.approval_points || []).length > 0 && (
+                          <span>· {detail.packet.approval_points.length} approval point{(detail.packet.approval_points || []).length === 1 ? "" : "s"}</span>
+                        )}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Project packet — the operating agreement */}
+                  <div className="card-flat rounded-2xl border p-5" style={{ background: "#fff", borderColor: "rgba(27,67,50,0.25)" }}>
+                    <div className="font-heading font-bold text-ink mb-1">Project Packet</div>
+                    <p className="text-xs text-ink/50 mb-4">
+                      The operating agreement: what the AI team may do, what needs your approval, and what only you decide.
+                    </p>
+                    {packetForm ? (
+                      <div className="grid sm:grid-cols-2 gap-3">
+                        <label className="block sm:col-span-2">
+                          <span className="text-xs font-bold text-ink/60">Objective</span>
+                          <input value={packetForm.objective} onChange={(e) => setPacketForm({ ...packetForm, objective: e.target.value })}
+                            placeholder="What are we trying to accomplish?"
+                            className="mt-1 w-full px-3 py-2 bg-bone border border-ink/15 rounded-lg text-sm focus:outline-none focus:border-copper" />
+                        </label>
+                        <label className="block">
+                          <span className="text-xs font-bold text-ink/60">Owner</span>
+                          <input value={packetForm.owner} onChange={(e) => setPacketForm({ ...packetForm, owner: e.target.value })}
+                            placeholder="You / designated human"
+                            className="mt-1 w-full px-3 py-2 bg-bone border border-ink/15 rounded-lg text-sm focus:outline-none focus:border-copper" />
+                        </label>
+                        <label className="block">
+                          <span className="text-xs font-bold text-ink/60">AI team (comma separated)</span>
+                          <input value={packetForm.ai_team} onChange={(e) => setPacketForm({ ...packetForm, ai_team: e.target.value })}
+                            placeholder="Jamil, Hybrid NAM, Production…"
+                            className="mt-1 w-full px-3 py-2 bg-bone border border-ink/15 rounded-lg text-sm focus:outline-none focus:border-copper" />
+                        </label>
+                        <label className="block">
+                          <span className="text-xs font-bold text-ink/60">Authority — what the AI can do without asking</span>
+                          <select value={packetForm.authority} onChange={(e) => setPacketForm({ ...packetForm, authority: e.target.value })}
+                            className="mt-1 w-full px-3 py-2 bg-bone border border-ink/15 rounded-lg text-sm focus:outline-none focus:border-copper">
+                            <option value="autonomous">Autonomous — completes without asking</option>
+                            <option value="approval_required">Approval required — prepares, you approve</option>
+                            <option value="human_only">Human-only — advises, cannot execute</option>
+                          </select>
+                        </label>
+                        <label className="block">
+                          <span className="text-xs font-bold text-ink/60">Packet status</span>
+                          <select value={packetForm.packet_status} onChange={(e) => setPacketForm({ ...packetForm, packet_status: e.target.value })}
+                            className="mt-1 w-full px-3 py-2 bg-bone border border-ink/15 rounded-lg text-sm focus:outline-none focus:border-copper">
+                            {["planning", "active", "review", "approved", "published", "complete"].map((s) => <option key={s} value={s}>{s}</option>)}
+                          </select>
+                        </label>
+                        <label className="block sm:col-span-2">
+                          <span className="text-xs font-bold text-ink/60">Approval points (comma separated) — what requires you</span>
+                          <input value={packetForm.approval_points} onChange={(e) => setPacketForm({ ...packetForm, approval_points: e.target.value })}
+                            placeholder="Release track, publish campaign, submit grant…"
+                            className="mt-1 w-full px-3 py-2 bg-bone border border-ink/15 rounded-lg text-sm focus:outline-none focus:border-copper" />
+                        </label>
+                        <label className="block sm:col-span-2">
+                          <span className="text-xs font-bold text-ink/60">Constraints (budget, timeline, platform rules, brand)</span>
+                          <textarea value={packetForm.constraints} onChange={(e) => setPacketForm({ ...packetForm, constraints: e.target.value })}
+                            rows={2} placeholder="What bounds the work?"
+                            className="mt-1 w-full px-3 py-2 bg-bone border border-ink/15 rounded-lg text-sm focus:outline-none focus:border-copper resize-y" />
+                        </label>
+                        <label className="block sm:col-span-2">
+                          <span className="text-xs font-bold text-ink/60">Evidence required</span>
+                          <input value={packetForm.evidence} onChange={(e) => setPacketForm({ ...packetForm, evidence: e.target.value })}
+                            placeholder="What research / support must back decisions?"
+                            className="mt-1 w-full px-3 py-2 bg-bone border border-ink/15 rounded-lg text-sm focus:outline-none focus:border-copper" />
+                        </label>
+                        <label className="block sm:col-span-2">
+                          <span className="text-xs font-bold text-ink/60">Deliverables summary</span>
+                          <textarea value={packetForm.deliverables_summary} onChange={(e) => setPacketForm({ ...packetForm, deliverables_summary: e.target.value })}
+                            rows={2} placeholder="What must exist when finished?"
+                            className="mt-1 w-full px-3 py-2 bg-bone border border-ink/15 rounded-lg text-sm focus:outline-none focus:border-copper resize-y" />
+                        </label>
+                        <label className="block sm:col-span-2">
+                          <span className="text-xs font-bold text-ink/60">Post-project report</span>
+                          <textarea value={packetForm.outcome_report} onChange={(e) => setPacketForm({ ...packetForm, outcome_report: e.target.value })}
+                            rows={2} placeholder="What happened? What worked? What didn't?"
+                            className="mt-1 w-full px-3 py-2 bg-bone border border-ink/15 rounded-lg text-sm focus:outline-none focus:border-copper resize-y" />
+                        </label>
+                        <div className="sm:col-span-2 flex gap-2">
+                          <button onClick={savePacket} disabled={busy}
+                            className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-black text-white disabled:opacity-40" style={{ background: GREEN }}>
+                            {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />} Save packet
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <button onClick={() => setPacketForm({
+                        objective: "", owner: "", ai_team: "", deliverables_summary: "", constraints: "",
+                        authority: "approval_required", approval_points: "", evidence: "", outcome_report: "", packet_status: "planning",
+                      })}
+                        className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-black text-white" style={{ background: GREEN }}>
+                        <Sparkles className="w-4 h-4" /> Define the packet
                       </button>
                     )}
                   </div>
