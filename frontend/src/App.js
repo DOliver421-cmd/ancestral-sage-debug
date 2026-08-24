@@ -120,6 +120,7 @@ import FeatureControlCenter from "./pages/FeatureControlCenter";
 import ExecBusinessOffice from "./pages/ExecBusinessOffice";
 import CreatorLounge from "./pages/CreatorLounge";
 import BandOnPage from "./pages/BandOnPage";
+import MyProjects from "./pages/MyProjects";
 import TrashPantheon from "./pages/TrashPantheon";
 import CreatorPayoutDashboard from "./pages/CreatorPayoutDashboard";
 import AccountControls from "./pages/AccountControls";
@@ -369,6 +370,7 @@ function App() {
           <Route path="/ghost-producer" element={<TierGate feature="ghost"><GhostProducer /></TierGate>} />
           <Route path="/studio/music" element={<Protected><TierGate feature="ghost"><Studio /></TierGate></Protected>} />
           <Route path="/creator-lounge" element={<Protected><TierGate feature="lounge"><CreatorLounge /></TierGate></Protected>} />
+          <Route path="/my-projects" element={<Protected><TierGate feature="projects"><MyProjects /></TierGate></Protected>} />
           <Route path="/band" element={<Protected><TierGate feature="band"><BandOnPage /></TierGate></Protected>} />
           <Route path="/trash-pantheon" element={<TrashPantheon />} />
           {/* Public pages */}

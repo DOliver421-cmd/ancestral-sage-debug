@@ -51,7 +51,13 @@ class User(BaseModel):
     full_name: str = ""
 
 def _require_rank(*roles):
-    """Dependency factory: user must have one of the listed roles."""
+    """Dependency factory: user must have one of the listed roles.
+
+    JWTs carry the user's uuid `id` field as `sub` (see server.make_token),
+    and every auth path on the platform looks users up by that field — so
+    this lookup uses {"id": sub}, NOT the Mongo ObjectId `_id`. An `_id`
+    lookup would 500 on every real token (ObjectId(uuid) raises).
+    """
     async def dep(request: Request, authorization: Optional[str] = Header(None)) -> User:
         if not authorization or not authorization.startswith("Bearer "):
             raise HTTPException(status_code=401, detail="Authentication required")
@@ -61,16 +67,18 @@ def _require_rank(*roles):
             payload = jwt.decode(token, request.app.state.jwt_secret, algorithms=["HS256"])
         except Exception:
             raise HTTPException(status_code=401, detail="Invalid token")
-        user = await request.app.state.db.users.find_one({"_id": ObjectId(payload.get("sub", ""))})
+        user = await request.app.state.db.users.find_one({"id": payload.get("sub", "")})
         if not user:
             raise HTTPException(status_code=401, detail="User not found")
+        if user.get("is_active") is False:
+            raise HTTPException(status_code=403, detail="Account deactivated")
         user_role = user.get("role", "student")
         ROLE_RANK = {"student": 1, "trial_pass": 2, "instructor": 3, "support_staff": 4,
                       "oversight": 5, "admin": 6, "executive_admin": 7}
         needed = min(ROLE_RANK.get(r, 0) for r in roles)
         if ROLE_RANK.get(user_role, 0) < needed:
             raise HTTPException(status_code=403, detail=f"Requires {roles}")
-        return User(id=str(user["_id"]), role=user_role, full_name=user.get("full_name", ""))
+        return User(id=str(user["id"]), role=user_role, full_name=user.get("full_name", ""))
     return dep
 
 
@@ -206,6 +214,17 @@ class StageRun(BaseModel):
     persona: str = ""              # empty → packet ai_team[0] or Jamil
     instructions: str = ""         # optional owner's direction for this run
     max_tokens: int = 2000
+
+class ArchiveAsset(BaseModel):
+    """One item in the personal archive — material that already exists and
+    deserves to become something next: album masters, manuscripts, photos,
+    documents, video. Discovery scans this archive and proposes projects.
+    """
+    title: str
+    kind: str = "other"     # audio, book, document, photo, video, other
+    notes: str = ""         # what it is, what state it's in, what's missing
+    file_ref: str = ""      # GridFS file ID or URL (optional)
+    tags: List[str] = []
 
 class DeliverableSubmit(BaseModel):
     stage: str
@@ -373,9 +392,78 @@ async def update_project_packet(
     return _serialize(doc)
 
 
+# ── PERSONAL ARCHIVE — turn what already exists into what comes next ─────────
+# The owner's archive of existing material (album masters, manuscripts,
+# photos, documents). Discovery scans this archive alongside the platform's
+# own products and proposes the highest-value next projects from it.
+
+@router.get("/archive")
+async def list_archive(
+    user: User = Depends(_require_rank("admin", "executive_admin")),
+    request: Request = None,
+):
+    """List every asset in the personal archive, newest first."""
+    db = request.app.state.db
+    docs = await db.exec_archive.find({}).sort("created_at", -1).limit(200).to_list(length=200)
+    out = []
+    for d in docs:
+        d["id"] = str(d.pop("_id"))
+        out.append(d)
+    return out
+
+
+@router.post("/archive")
+async def add_archive_asset(
+    body: ArchiveAsset,
+    user: User = Depends(_require_rank("admin", "executive_admin")),
+    request: Request = None,
+):
+    """Add an asset to the personal archive."""
+    db = request.app.state.db
+    now = _now()
+    doc = {
+        "title": body.title.strip(),
+        "kind": body.kind,
+        "notes": body.notes.strip(),
+        "file_ref": body.file_ref.strip(),
+        "tags": body.tags,
+        "created_by": user.id,
+        "created_at": now,
+        "updated_at": now,
+    }
+    result = await db.exec_archive.insert_one(doc)
+    doc["_id"] = result.inserted_id
+    doc["id"] = str(doc.pop("_id"))
+    try:
+        await db.audit_log.insert_one({
+            "action": "exec_archive_add",
+            "asset_title": doc["title"],
+            "user_id": user.id,
+            "timestamp": now,
+        })
+    except Exception:
+        pass
+    return doc
+
+
+@router.delete("/archive/{asset_id}")
+async def delete_archive_asset(
+    asset_id: str,
+    user: User = Depends(_require_rank("admin", "executive_admin")),
+    request: Request = None,
+):
+    """Remove an asset from the personal archive."""
+    db = request.app.state.db
+    result = await db.exec_archive.delete_one({"_id": _oid(asset_id)})
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Asset not found")
+    return {"status": "success", "deleted": asset_id}
+
+
 # ── PROJECT DISCOVERY — turn what already exists into what comes next ────────
-# Scans authorized existing material (published media products, pipeline
-# deliverables, sellable tracks) and proposes the highest-value next projects.
+# Scans authorized existing material (personal archive, published media
+# products, pipeline deliverables, sellable tracks) and proposes the
+# highest-value next projects.
 
 @router.get("/discovery")
 async def project_discovery(
@@ -383,7 +471,8 @@ async def project_discovery(
     request: Request = None,
 ):
     db = request.app.state.db
-    inventory = {"products": [], "deliverables": [], "tracks": []}
+    inventory = {"products": [], "deliverables": [], "tracks": [], "archive": []}
+    archive_docs = []
 
     try:
         products = await db.media_products.find(
@@ -410,11 +499,23 @@ async def project_discovery(
         inventory["tracks"] = tracks
     except Exception:
         pass
+    try:
+        archive_docs = await db.exec_archive.find({}).sort("created_at", -1).to_list(200)
+        inventory["archive"] = [
+            {"id": str(a.pop("_id")), "title": a.get("title", ""), "kind": a.get("kind", "other"),
+             "notes": a.get("notes", "")}
+            for a in archive_docs
+        ]
+    except Exception:
+        pass
 
     audio_count = len(inventory["tracks"])
     product_count = len(inventory["products"])
     deliverable_count = len(inventory["deliverables"])
-    total_assets = audio_count + product_count + deliverable_count
+    archive_total = len(archive_docs)
+    archive_audio = sum(1 for a in archive_docs if a.get("kind") == "audio")
+    archive_books = sum(1 for a in archive_docs if a.get("kind") == "book")
+    total_assets = audio_count + product_count + deliverable_count + archive_total
 
     proposals = []
     if audio_count >= 1:
@@ -444,6 +545,35 @@ async def project_discovery(
             "authority": "human_only",
             "brief": f"Review the {deliverable_count} pipeline deliverables, recommend approvals, and schedule release.",
         })
+    if archive_audio >= 1:
+        audio_titles = ", ".join(a.get("title", "") for a in archive_docs if a.get("kind") == "audio")[:180]
+        proposals.append({
+            "kind": "album_distribution",
+            "title": f"Album — Distribution Project ({archive_audio} archived audio asset{'s' if archive_audio != 1 else ''})",
+            "rationale": "Finished audio is sitting in the archive unreleased. Inventory the assets, fill the gaps, and build a release campaign.",
+            "suggested_team": ["Production", "Creative Partner", "Marketing"],
+            "authority": "approval_required",
+            "brief": f"Turn the archived audio ({audio_titles}) into a distribution project: asset inventory, metadata, artwork, promotional package, and store push.",
+        })
+    if archive_books >= 1:
+        book_titles = ", ".join(a.get("title", "") for a in archive_docs if a.get("kind") == "book")[:180]
+        proposals.append({
+            "kind": "book_publishing",
+            "title": f"Book — Publishing Project ({archive_books} archived book/doc asset{'s' if archive_books != 1 else ''})",
+            "rationale": "A manuscript deserves a full publishing path: edit, cover, interior, metadata, distribution, promotion.",
+            "suggested_team": ["Creative Partner", "Production", "Marketing"],
+            "authority": "approval_required",
+            "brief": f"Take the archived manuscript(s) ({book_titles}) through the publishing pipeline: edit, cover, interior, metadata, distribution plan.",
+        })
+    if archive_total >= 3:
+        proposals.append({
+            "kind": "archive_org",
+            "title": f"Archive — Organization & Discovery ({archive_total} assets)",
+            "rationale": "More material than projects yet. Catalog everything, group related assets, identify gaps, and propose the highest-value next projects.",
+            "suggested_team": ["Operations", "Analytics"],
+            "authority": "autonomous",
+            "brief": f"Catalog the {archive_total} archived assets, group them into projects, identify what is missing, and propose the highest-value next work.",
+        })
     if total_assets == 0:
         proposals.append({
             "kind": "start",
@@ -460,6 +590,9 @@ async def project_discovery(
             "audio_products": audio_count,
             "published_products": product_count,
             "pipeline_deliverables": deliverable_count,
+            "archive_assets": archive_total,
+            "archive_audio": archive_audio,
+            "archive_books": archive_books,
         },
         "inventory": inventory,
         "proposals": proposals,
@@ -899,3 +1032,5 @@ async def ensure_indexes(db):
     await db.exec_projects.create_index("updated_at")
     await db.exec_comments.create_index("project_id")
     await db.exec_comments.create_index("created_at")
+    await db.exec_archive.create_index("created_at")
+    await db.exec_archive.create_index("kind")

@@ -127,10 +127,11 @@ const CUSTOMER_TIERS = [
   },
   {
     tier: "member", label: "Member", price: "$9",
-    features: "Social Blast · Creator Lounge · Elder Council",
+    features: "Social Blast · My Projects · Creator Lounge · Elder Council",
     items: [
       { to: "/social/publish", label: "Social Blast", icon: Share2, testid: "nav-social-publish" },
       { to: "/creator-lounge", label: "Creator Lounge", icon: Mic, testid: "nav-creator-lounge" },
+      { to: "/my-projects", label: "My Projects", icon: Briefcase, testid: "nav-my-projects" },
     ],
   },
   {
