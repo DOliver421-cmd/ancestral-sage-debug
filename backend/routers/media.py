@@ -42,6 +42,7 @@ def _now() -> str:
 def _public_product(doc: dict) -> dict:
     clean = {k: v for k, v in doc.items() if k != "_id"}
     clean["product_type"] = clean.get("type", clean.get("product_type", "file"))
+    clean["seller_display_name"] = clean.get("owner_name") or clean.get("seller_display_name") or "M.O.R.E. creator"
     clean["file_id"] = (clean.get("file_url") or "").rsplit("/", 1)[-1] or None
     return clean
 
@@ -69,6 +70,18 @@ async def _dep_current_user(authorization: Optional[str] = Header(None)) -> User
     return await current_user(authorization)
 
 
+async def _optional_current_user(authorization: Optional[str] = Header(None)) -> Optional[User]:
+    """Allow anonymous catalog browsing while preserving authenticated operations."""
+    if not authorization:
+        return None
+    try:
+        return await current_user(authorization)
+    except HTTPException as exc:
+        if exc.status_code in (401, 403):
+            return None
+        raise
+
+
 def _require_rank(*roles):
     """Runtime equivalent of server.py's require_role() — used in Depends()
     because require_role is bound after this module loads (no import-time call)."""
@@ -84,7 +97,7 @@ def _require_rank(*roles):
 # ── MEDIA STORE (/media/*) ────────────────────────────────────────────────────
 
 @router.get("/media/products")
-async def list_media_products(user: User = Depends(_dep_current_user)):
+async def list_media_products(user: Optional[User] = Depends(_optional_current_user)):
     docs = await db.media_products.find({"published": True}, {"_id": 0}).sort("created_at", -1).limit(100).to_list(100)
     return [_public_product(d) for d in docs]
 
