@@ -12,10 +12,10 @@ export default function AdminTools() {
   const [checkouts, setCheckouts] = useState([]);
 
   const load = () => {
-    api.get("/admin/sites").then((r) => setSites(r.data)).catch(() => {});
-    api.get("/admin/inventory").then((r) => setInv(r.data)).catch(() => {});
-    api.get("/admin/users").then((r) => setUsers(r.data.filter((u) => u.role === "student"))).catch(() => {});
-    api.get("/admin/checkouts").then((r) => setCheckouts(r.data)).catch(() => {});
+    api.get("/admin/sites").then((r) => setSites(Array.isArray(r.data) ? r.data : [])).catch(() => {});
+    api.get("/admin/inventory").then((r) => setInv(Array.isArray(r.data) ? r.data : [])).catch(() => {});
+    api.get("/admin/users").then((r) => setUsers(Array.isArray(r.data) ? r.data.filter((u) => u.role === "student") : [])).catch(() => {});
+    api.get("/admin/checkouts").then((r) => setCheckouts(Array.isArray(r.data) ? r.data : [])).catch(() => {});
   };
   useEffect(() => { load(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, []);
 

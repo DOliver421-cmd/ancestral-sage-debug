@@ -146,7 +146,7 @@ export default function BandOnPage() {
     } catch(e) { toast.error(e?.response?.data?.detail || "Failed"); }
   }
 
-  const totalBookings = bookings.as_artist.length + bookings.as_requester.length;
+  const totalBookings = (bookings?.as_artist || []).length + (bookings?.as_requester || []).length;
 
   return (
     <AppShell>

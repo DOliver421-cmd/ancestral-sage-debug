@@ -523,7 +523,7 @@ function UserDatabase() {
       if (role)   params.set("role", role);
       if (active) params.set("active", active);
       const r = await api.get(`/admin/users?${params}`);
-      setUsers(r.data);
+      setUsers(Array.isArray(r.data) ? r.data : []);
     } catch (e) {
       setError(e?.response?.data?.detail || "Failed to load users");
     } finally { setLoading(false); }
@@ -815,8 +815,8 @@ export default function ExecSystem() {
       if (sysR.status === "fulfilled")   setSys(sysR.value.data);
       else                               setErr("System endpoint unavailable");
       if (statsR.status === "fulfilled") setStats(statsR.value.data);
-      if (actR.status === "fulfilled")   setActivity(actR.value.data || []);
-      if (cohR.status === "fulfilled")   setCohorts(cohR.value.data || []);
+      if (actR.status === "fulfilled")   setActivity(Array.isArray(actR.value.data) ? actR.value.data : []);
+      if (cohR.status === "fulfilled")   setCohorts(Array.isArray(cohR.value.data) ? cohR.value.data : []);
       if (flR.status === "fulfilled")    setFlags(flR.value.data?.platform_flags?.flags || {});
       setMore({
         posts: postsR.status === "fulfilled" ? (postsR.value.total ?? 0) : 0,

@@ -13,7 +13,7 @@ import {
   UserCircle, WifiOff, Music, Music4, Mic, Palette, FileText,
   Gamepad2, Star, Radio, Globe, ChevronLeft, ChevronRight, Share2,
   Map, BrainCircuit, CreditCard, BarChart3, Wrench, ExternalLink,
-  Lock, Search, HeartPulse, Landmark, TicketPercent, Menu,
+  Lock, Search, HeartPulse, Landmark, TicketPercent, Menu, Swords,
 } from "lucide-react";
 import { isWaiDoor, MORE_HOME } from "../lib/domain";
 import NotificationBell from "./NotificationBell";
@@ -201,6 +201,7 @@ const STAFF_SECTIONS = [
     items: [
       { to: "/executive-suite", label: "Executive Suite", icon: Crown, testid: "nav-executive-suite" },
       { to: "/admin/command", label: "Command Center", icon: Crown, testid: "nav-command-center" },
+      { to: "/arena", label: "The Arena", icon: Swords, testid: "nav-arena" },
     ],
   },
 ];

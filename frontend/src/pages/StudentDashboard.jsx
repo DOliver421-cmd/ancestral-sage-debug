@@ -161,7 +161,7 @@ export default function StudentDashboard() {
         </div>
 
         {/* XP / Gamification banner */}
-        {xp && (
+        {xp?.total_xp != null && (
           <div className="card-flat p-5 mb-10 flex items-center gap-6 bg-ink text-white" data-testid="xp-banner">
             <div className="flex items-center gap-3">
               <Zap className="w-8 h-8 text-signal" />

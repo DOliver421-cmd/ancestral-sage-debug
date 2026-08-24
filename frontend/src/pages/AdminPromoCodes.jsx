@@ -30,7 +30,7 @@ export default function AdminPromoCodes() {
 
   const load = useCallback(() => {
     api.get("/admin/promo-codes")
-      .then(({ data }) => setCodes(data))
+      .then(({ data }) => setCodes(Array.isArray(data) ? data : []))
       .catch(() => toast.error("Could not load promo codes."));
   }, []);
 
