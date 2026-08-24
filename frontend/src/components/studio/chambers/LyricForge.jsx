@@ -1,12 +1,12 @@
 import { useState, useEffect } from "react";
 import { toast } from "sonner";
-import { Wand2, Copy, Check, RefreshCw } from "lucide-react";
+import { Wand2, Copy, Check, RefreshCw, Save } from "lucide-react";
 
 const STYLES = ["Hip-Hop", "R&B", "Gospel", "Spoken Word", "Trap", "Neo-Soul", "Afrobeats", "Reggae", "Folk", "Pop"];
 const MOODS = ["Triumphant", "Reflective", "Angry", "Joyful", "Melancholic", "Spiritual", "Romantic", "Raw", "Peaceful"];
 const STRUCTURES = ["Verse", "Hook / Chorus", "Bridge", "Full Song (V/C/V/C/B/C)", "Freestyle Bars", "Intro / Outro"];
 
-export default function LyricForge({ tier = "base", sovereignDispatch, artifact }) {
+export default function LyricForge({ tier = "base", sovereignDispatch, artifact, activeProject, onSaveVersion }) {
   const [form, setForm] = useState({ topic: "", genre: "Hip-Hop", mood: "Triumphant", structure: "Verse", notes: "" });
   const [result, setResult] = useState("");
   const [loading, setLoading] = useState(false);
@@ -46,6 +46,13 @@ export default function LyricForge({ tier = "base", sovereignDispatch, artifact 
       toast.success("Lyrics copied.");
       setTimeout(() => setCopied(false), 2000);
     });
+  };
+
+  const saveVersion = () => {
+    if (!result) { toast.error("Generate lyrics first."); return; }
+    if (!activeProject) { toast.error("Open a project first (⊕ New Project) to save versions."); return; }
+    if (!onSaveVersion) { toast.error("Save is not connected."); return; }
+    onSaveVersion('lyrics', result, `${form.genre} · ${form.mood} · ${form.structure}`);
   };
 
   return (
@@ -116,7 +123,11 @@ export default function LyricForge({ tier = "base", sovereignDispatch, artifact 
         <div style={{ flex: 1, position: "relative" }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
             <label style={labelStyle}>Output</label>
-            <div style={{ display: "flex", gap: 8 }}>
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+              <button onClick={saveVersion} style={{ ...actionBtn, background: "rgba(34,197,94,0.12)", borderColor: "rgba(34,197,94,0.3)", color: "#22c55e" }} title="Save this version to the active project">
+                <Save style={{ width: 12, height: 12 }} />
+                <span style={{ fontSize: 11 }}>Save Version</span>
+              </button>
               <button onClick={generate} style={actionBtn} title="Regenerate">
                 <RefreshCw style={{ width: 12, height: 12 }} />
               </button>

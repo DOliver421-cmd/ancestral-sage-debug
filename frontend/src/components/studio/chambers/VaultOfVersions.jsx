@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { toast } from "sonner";
 
 function formatDate(ts) {
@@ -13,6 +13,20 @@ export default function VaultOfVersions({ projects = [] }) {
   // Local version history keyed by project id
   const [histories, setHistories] = useState({});
 
+  // Merge in versions saved from chambers (Lyric Forge "Save Version" writes
+  // to the same localStorage key so saved drafts appear here immediately).
+  useEffect(() => {
+    try {
+      const merged = {};
+      for (const p of projects) {
+        const key = `studio_versions:${p.id}`;
+        const list = JSON.parse(localStorage.getItem(key) || '[]');
+        if (Array.isArray(list) && list.length) merged[p.id] = list;
+      }
+      setHistories(h => ({ ...h, ...merged }));
+    } catch {}
+  }, [projects]);
+
   const sealVersion = useCallback(() => {
     if (!selectedProject) return;
     const version = {
@@ -21,6 +35,12 @@ export default function VaultOfVersions({ projects = [] }) {
       timestamp: Date.now(),
       versionNumber: (histories[selectedProject.id]?.length || 0) + 1,
     };
+    // Persist so versions survive reloads and show in both places.
+    try {
+      const key = `studio_versions:${selectedProject.id}`;
+      const existing = JSON.parse(localStorage.getItem(key) || '[]');
+      localStorage.setItem(key, JSON.stringify([...existing, version]));
+    } catch {}
     setHistories(h => ({
       ...h,
       [selectedProject.id]: [...(h[selectedProject.id] || []), version],

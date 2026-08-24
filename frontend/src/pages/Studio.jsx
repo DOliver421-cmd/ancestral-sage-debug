@@ -26,7 +26,7 @@ import { api } from "../lib/api";
 import { toast } from "sonner";
 import {
   Play, Square, Download, Save, Upload, Music2, SlidersHorizontal,
-  Sparkles, Lock, FileText,
+  Sparkles, Lock, FileText, Headphones,
 } from "lucide-react";
 
 const COPPER = "#C0572D";
@@ -382,7 +382,8 @@ export function StudioContent({ embedded = false }) {
   useEffect(() => () => stop(), [stop]);
 
   // ── Export WAV (offline render — same schedule, no audio card needed) ──────
-  const exportWav = useCallback(async (bars = 8) => {
+  // download=false returns the blob for preview playback without saving a file.
+  const exportWav = useCallback(async (bars = 8, download = true) => {
     setExporting(true);
     try {
       const AC = window.AudioContext || window.webkitAudioContext;
@@ -485,13 +486,15 @@ export function StudioContent({ embedded = false }) {
       const rendered = await off.startRendering();
       const wav = encodeWav(rendered, sr);
       const blob = new Blob([wav], { type: "audio/wav" });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `${(meta.title || "ghost-studio-track").replace(/[^\w-]+/g, "-").toLowerCase() || "track"}.wav`;
-      a.click();
-      setTimeout(() => URL.revokeObjectURL(url), 5000);
-      toast.success("WAV exported — you own it 100%.");
+      if (download) {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `${(meta.title || "ghost-studio-track").replace(/[^\w-]+/g, "-").toLowerCase() || "track"}.wav`;
+        a.click();
+        setTimeout(() => URL.revokeObjectURL(url), 5000);
+        toast.success("WAV exported — you own it 100%.");
+      }
       return blob;
     } catch (e) {
       toast.error("Export failed: " + (e?.message || e));
@@ -501,13 +504,42 @@ export function StudioContent({ embedded = false }) {
     }
   }, [kitId, patterns, keys, bank, muted, swing, stepDur, root, scale, meta.title]);
 
+  // Generate a playable 8-bar preview without publishing (design: hear it first)
+  const [previewUrl, setPreviewUrl] = useState(null);
+  const [previewDur, setPreviewDur] = useState(null);
+  const [previewing, setPreviewing] = useState(false);
+  const [previewErr, setPreviewErr] = useState("");
+
+  const generatePreview = useCallback(async () => {
+    setPreviewing(true);
+    setPreviewErr("");
+    try {
+      const blob = await exportWav(8, false);
+      if (!blob) { setPreviewErr("Preview render failed."); return; }
+      if (previewUrl) URL.revokeObjectURL(previewUrl);
+      const url = URL.createObjectURL(blob);
+      const audio = new Audio(url);
+      const dur = await new Promise((res) => {
+        audio.addEventListener("loadedmetadata", () => res(audio.duration || 30), { once: true });
+        setTimeout(() => res(30), 4000);
+      });
+      setPreviewUrl(url);
+      setPreviewDur(Math.round(dur));
+      toast.success("8-bar preview ready — hear it before you publish.");
+    } catch (e) {
+      setPreviewErr("Preview failed: " + (e?.message || e));
+    } finally {
+      setPreviewing(false);
+    }
+  }, [exportWav, previewUrl]);
+
   // Publish to the Media Store
   const publish = useCallback(async () => {
     if (!meta.title || !meta.title.trim()) { toast.error("Give the track a title first."); setTab("publish"); return; }
     if (!meta.samples_cleared) { toast.error("Confirm the sample-clearance statement to publish."); setTab("publish"); return; }
     setExporting(true);
     try {
-      const blob = await exportWav(8);
+      const blob = await exportWav(8, false);
       if (!blob) return;
       const audio = new Audio(URL.createObjectURL(blob));
       const dur = await new Promise((res) => {
@@ -853,8 +885,8 @@ export function StudioContent({ embedded = false }) {
                   <h2 className="font-heading font-bold text-ink">Publish to your store</h2>
                 </div>
                 <p className="text-xs text-ink/55 mb-4">
-                  8 bars will be rendered and uploaded to your Media Store as a sellable track with a 33-second preview.
-                  You can unpublish or change the price anytime from your creator tools.
+                  Generate an 8-bar preview to hear exactly what buyers get, then render &amp; publish to your
+                  Media Store as a sellable track. Unpublish or change the price anytime from your creator tools.
                 </p>
                 {projects.length > 0 && (
                   <label className="block mb-3">
@@ -873,11 +905,26 @@ export function StudioContent({ embedded = false }) {
                     </span>
                   </label>
                 )}
+                {previewErr && <p className="text-xs mb-3" style={{ color: "#B23A2E" }}>{previewErr}</p>}
+                {previewUrl && (
+                  <div className="mb-3 p-3 rounded-lg" style={{ border: "1px solid rgba(232,165,30,0.3)", background: "rgba(232,165,30,0.06)" }}>
+                    <div className="text-[11px] font-black mb-1.5" style={{ color: GOLD }}>
+                      8-BAR PREVIEW{previewDur ? ` · ~${previewDur}s` : ""}
+                    </div>
+                    <audio controls src={previewUrl} style={{ width: "100%", height: 32 }} />
+                  </div>
+                )}
+                <button onClick={generatePreview}
+                  disabled={previewing || exporting}
+                  className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-lg text-sm font-black disabled:opacity-40 transition-colors mb-2"
+                  style={{ background: "transparent", border: `1px solid ${GREEN}55`, color: GREEN }}>
+                  {previewing ? <><Save className="w-4 h-4 animate-pulse" /> Rendering preview…</> : <><Headphones className="w-4 h-4" /> Generate 8-Bar Preview</>}
+                </button>
                 <button onClick={publish}
-                  disabled={exporting}
+                  disabled={exporting || previewing}
                   className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-lg text-sm font-black disabled:opacity-40 transition-colors"
                   style={{ background: GOLD, color: "#0a0a0a" }}>
-                  {exporting ? <><Save className="w-4 h-4 animate-pulse" /> Rendering &amp; uploading…</> : <><Upload className="w-4 h-4" /> Publish Track</>}
+                  {exporting ? <><Save className="w-4 h-4 animate-pulse" /> Rendering &amp; publishing…</> : <><Upload className="w-4 h-4" /> Render &amp; Publish WAV</>}
                 </button>
               </div>
             </div>
