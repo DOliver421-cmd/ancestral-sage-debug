@@ -9,6 +9,7 @@ import {
   RefreshCw, Grid3X3, Users, Loader2, X,
 } from "lucide-react";
 import { toast } from "sonner";
+import PageBack from "../components/PageBack";
 
 const PERMISSION_KEYS = [
   "content_read",
@@ -203,6 +204,7 @@ export default function IAMConsole() {
       </header>
 
       <main className="max-w-7xl mx-auto px-6 py-8">
+        <PageBack to="/admin" label="Admin overview" />
         {tab === "users" ? (
           <>
             {/* Search / filter bar */}

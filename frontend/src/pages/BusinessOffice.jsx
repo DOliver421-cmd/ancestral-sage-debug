@@ -26,6 +26,7 @@ import { roleAtLeast, ROLE_LABELS } from "../lib/roles";
 import SourceProtocolPanel from "../components/SourceProtocolPanel";
 import { MoreOpsContent } from "./MoreOps";
 import { CompetitionArenaContent } from "./CompetitionArena";
+import PageBack from "../components/PageBack";
 import { HybridNamContent } from "./HybridNam";
 import {
   Building2, TrendingUp, DollarSign, Receipt, Users, RefreshCw,
@@ -324,6 +325,7 @@ function ExecProjectsPanel() {
   return (
     <div className="h-full overflow-y-auto">
       <div className="max-w-6xl mx-auto px-6 py-8">
+        <PageBack to="/admin" label="Admin overview" />
         <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
           <div>
             <div className="overline text-copper mb-1">AI Team Projects</div>
@@ -804,13 +806,14 @@ function ExecControlDesk() {
     { icon: "CTL",       title: "Site Control",       desc: "Platform lock, maintenance, and exec controls.",   to: "/admin/control" },
     { icon: "AUD",       title: "Audit Log",          desc: "Every action, who did it, and when.",              to: "/admin/audit" },
     { icon: "CMD",       title: "Command Center",     desc: "Executive command and oversight.",                to: "/admin/command" },
-    { icon: "OFF",       title: "Exec Business Office", desc: "Advanced office and distribution controls.",     to: "/admin/office" },
+    { icon: "OFF",       title: "Business Office",      desc: "Revenue, projects, AI team, and operating controls.", to: "/business-office" },
     { icon: "BRG",       title: "AI Team Bridge",     desc: "Cross-team AI coordination and handoffs.",        to: "/admin/bridge" },
     { icon: "ANA",       title: "Analytics",          desc: "Platform analytics and trends.",                  to: "/admin/analytics" },
   ];
   return (
     <div className="h-full overflow-y-auto">
       <div className="max-w-6xl mx-auto px-6 py-8">
+        <PageBack to="/admin/command" label="Command Center" />
         <div className="overline text-copper mb-2">Executive Control</div>
         <h2 className="font-heading text-2xl font-bold text-ink mb-2">The Control Desk</h2>
         <p className="text-sm text-ink/55 max-w-2xl mb-8">

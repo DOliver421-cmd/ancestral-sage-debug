@@ -4,6 +4,7 @@ import ReactMarkdown from "react-markdown";
 import AppShell from "../components/AppShell";
 import { api } from "../lib/api";
 import { toast } from "sonner";
+import PageBack from "../components/PageBack";
 
 // ===========================================================================
 // EXECUTIVE COMMAND CENTER — one integrated surface, shared data, no copy/paste
@@ -34,7 +35,7 @@ const TOOLS = [
   { name: "Sage Audit", desc: "Audit & integrity checks", path: "/admin/sage-audit" },
   { name: "Staff Meetings", desc: "Meeting records & agenda history", path: "/admin/staff-meetings" },
   { name: "Executive Site Report", desc: "Deep multi-category public-readiness report", path: "/admin/exec-report" },
-  { name: "Business Office", desc: "P&L, runway, divisions, truth test", path: "/admin/business-office" },
+  { name: "Business Office", desc: "P&L, runway, divisions, truth test", path: "/business-office" },
   { name: "Office Control", desc: "Exec control for the Business Office", path: "/admin/office-control" },
   { name: "Scholarship Committee", desc: "Applications, awards, pledges, funds", path: "/admin/scholarships" },
   { name: "Revenue Division", desc: "Revenue workspace and projections", path: "/revenue" },
@@ -209,6 +210,9 @@ export default function ExecutiveCommandCenter() {
   return (
     <AppShell>
       <div className="px-4 sm:px-6 lg:px-10 py-8 max-w-7xl" style={{ background: "linear-gradient(160deg,#06251c,#0a0a0f 70%)", minHeight: "100vh", color: "#e8e4f0" }}>
+        <div className="mb-5 [&_*]:!text-slate-800 [&_a]:!text-copper">
+          <PageBack to="/admin" label="Admin overview" />
+        </div>
         {/* HEADER */}
         <div className="flex flex-wrap items-start justify-between gap-4 mb-6">
           <div>
@@ -305,7 +309,7 @@ export default function ExecutiveCommandCenter() {
                   ["/admin/providers", "Provider Gateway"],
                   ["/admin/control", "Site Control"],
                   ["/admin/exec-control", "Breaker Panel"],
-                  ["/admin/business-office", "Business Office"],
+                  ["/business-office", "Business Office"],
                   ["/admin/exec-report", "Exec Report"],
                   ["/admin/scholarships", "Scholarships"],
                 ].map(([p, l]) => (
@@ -324,7 +328,7 @@ export default function ExecutiveCommandCenter() {
             <div className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm text-slate-900">
               <div className="flex items-center justify-between flex-wrap gap-2 mb-3">
                 <div className="text-xs font-bold uppercase tracking-widest text-slate-600">Business Office — live from the ledger</div>
-                <Link to="/admin/business-office" className="text-xs font-bold" style={{ color: "#8a5a00" }}>Open Business Office →</Link>
+                <Link to="/business-office" className="text-xs font-bold" style={{ color: "#8a5a00" }}>Open Business Office →</Link>
               </div>
               <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2">
                 {[
