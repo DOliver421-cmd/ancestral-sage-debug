@@ -57,7 +57,7 @@ function Chip({ ok, label, sub }) {
       <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: ok ? "#16a34a" : "#dc2626" }} />
       <div className="leading-tight">
         <div className="text-xs font-bold text-slate-800">{label}</div>
-        {sub && <div className="text-[10px] text-slate-500">{sub}</div>}
+        {sub && <div className="text-[10px] text-slate-700">{sub}</div>}
       </div>
     </div>
   );
@@ -84,6 +84,7 @@ export default function ExecutiveCommandCenter() {
   const [roleBusy, setRoleBusy] = useState(false);
   const [tierForm, setTierForm] = useState({ user_id: "", new_feature_tier: "free", reason: "" });
   const [tierBusy, setTierBusy] = useState(false);
+  const [loadErrors, setLoadErrors] = useState([]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -107,6 +108,10 @@ export default function ExecutiveCommandCenter() {
     if (mR.status === "fulfilled") setManuals(mR.value.data.manuals || []);
     if (fR.status === "fulfilled") setFlags(fR.value.data);
     if (uR.status === "fulfilled") setSiteUsers(uR.value.data?.users || uR.value.data || []);
+    const labels = ["system overview", "platform stats", "health", "business office", "agenda", "projects", "manuals", "site flags", "users"];
+    setLoadErrors([sR, stR, hR, aR, agR, pR, mR, fR, uR]
+      .map((result, index) => result.status === "rejected" ? labels[index] : null)
+      .filter(Boolean));
     setLoading(false);
   }, []);
 
@@ -209,7 +214,7 @@ export default function ExecutiveCommandCenter() {
           <div>
             <div className="text-xs font-bold uppercase tracking-widest mb-1" style={{ color: "var(--wai-gold-light)" }}>Sovereign Command · Integrated Exec Surface</div>
             <h1 className="font-heading text-3xl font-extrabold" style={{ color: "var(--wai-gold-light)" }}>Executive Command Center</h1>
-            <p className="text-sm mt-1" style={{ color: "rgba(241,240,251,0.7)" }}>
+            <p className="text-sm mt-1" style={{ color: "rgba(241,240,251,0.92)" }}>
               Every number below is the same number in every tab — no copy/paste between screens. One briefing, one click.
             </p>
           </div>
@@ -223,9 +228,16 @@ export default function ExecutiveCommandCenter() {
           </div>
         </div>
 
+        {loadErrors.length > 0 && (
+          <div className="mb-5 rounded-2xl px-4 py-3" style={{ background: "#fff7ed", border: "1px solid #fdba74", color: "#9a3412" }} role="status">
+            <div className="font-bold text-sm">Some live panels could not load.</div>
+            <div className="text-xs mt-1">{loadErrors.join(" · ")}. Existing controls remain available; refresh after the service recovers.</div>
+          </div>
+        )}
+
         {/* CONTEXT BAR — shared by every tab */}
         <div className="bg-white rounded-2xl p-4 border border-slate-100 shadow-sm mb-5 text-slate-900">
-          <div className="text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-2">Live context — shared across all tabs</div>
+          <div className="text-[10px] font-bold uppercase tracking-widest text-slate-700 mb-2">Live context — shared across all tabs</div>
           <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-2">
             {[
               ["Users", totalUsers],
@@ -238,7 +250,7 @@ export default function ExecutiveCommandCenter() {
               ["Agenda", agenda.length],
             ].map(([l, v]) => (
               <div key={l} className="rounded-xl px-3 py-2" style={{ background: "#faf9f7", border: "1px solid #f0eadf" }}>
-                <div className="text-[10px] font-bold uppercase tracking-wide text-slate-400">{l}</div>
+                <div className="text-[10px] font-bold uppercase tracking-wide text-slate-600">{l}</div>
                 <div className="font-mono font-bold text-slate-800" style={{ fontSize: 15 }}>{v ?? "—"}</div>
               </div>
             ))}
@@ -255,7 +267,7 @@ export default function ExecutiveCommandCenter() {
           ))}
         </div>
 
-        {loading && tab !== "reports" && <p className="text-sm text-slate-400">Loading shared context…</p>}
+        {loading && tab !== "reports" && <p className="text-sm text-slate-300">Loading shared context…</p>}
 
         {/* ── OVERVIEW ─────────────────────────────────────────────────── */}
         {tab === "overview" && !loading && (
@@ -281,7 +293,7 @@ export default function ExecutiveCommandCenter() {
                 ["Credentials", stats?.credentials_issued],
               ].map(([l, v]) => (
                 <div key={l} className="bg-white rounded-2xl p-4 border border-slate-100 shadow-sm text-slate-900">
-                  <div className="text-[10px] font-bold uppercase tracking-wide text-slate-400">{l}</div>
+                  <div className="text-[10px] font-bold uppercase tracking-wide text-slate-600">{l}</div>
                   <div className="font-mono font-bold text-2xl text-slate-800">{v ?? "—"}</div>
                 </div>
               ))}
@@ -323,9 +335,9 @@ export default function ExecutiveCommandCenter() {
                   ["Deals / Jobs", (aboCounts.deals ?? 0) + " / " + (aboCounts.jobs ?? 0), "counts"],
                 ].map(([l, v, s]) => (
                   <div key={l} className="rounded-xl px-3 py-3" style={{ background: "#faf9f7", border: "1px solid #f0eadf" }}>
-                    <div className="text-[10px] font-bold uppercase tracking-wide text-slate-400">{l}</div>
+                    <div className="text-[10px] font-bold uppercase tracking-wide text-slate-600">{l}</div>
                     <div className="font-mono font-bold text-slate-800" style={{ fontSize: 16 }}>{v}</div>
-                    {s && <div className="text-[10px] text-slate-400">{s}</div>}
+                    {s && <div className="text-[10px] text-slate-600">{s}</div>}
                   </div>
                 ))}
               </div>
@@ -335,7 +347,7 @@ export default function ExecutiveCommandCenter() {
               {/* AGENDA */}
               <div className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm text-slate-900">
                 <div className="text-xs font-bold uppercase tracking-widest text-slate-600 mb-3">Business Agenda · {agenda.length} pending</div>
-                {agenda.length === 0 && <p className="text-sm text-slate-400">No pending agenda items. Create a project to add one automatically.</p>}
+                {agenda.length === 0 && <p className="text-sm text-slate-600">No pending agenda items. Create a project to add one automatically.</p>}
                 <div className="space-y-2">
                   {agenda.slice(0, 6).map((a) => (
                     <div key={a.id} className="rounded-xl px-3 py-2 flex items-center justify-between gap-2" style={{ background: "#faf9f7" }}>
@@ -352,7 +364,7 @@ export default function ExecutiveCommandCenter() {
               {/* PROJECTS */}
               <div className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm text-slate-900">
                 <div className="text-xs font-bold uppercase tracking-widest text-slate-600 mb-3">Projects</div>
-                {projects.length === 0 && <p className="text-sm text-slate-400">No projects yet — projects auto-create agenda items.</p>}
+                {projects.length === 0 && <p className="text-sm text-slate-600">No projects yet — projects auto-create agenda items.</p>}
                 <div className="space-y-2">
                   {projects.map((p) => (
                     <div key={p.project_id} className="rounded-xl px-3 py-2 flex items-center justify-between gap-2" style={{ background: "#faf9f7" }}>
@@ -378,7 +390,7 @@ export default function ExecutiveCommandCenter() {
               <div className="overflow-x-auto">
                 <table className="w-full text-sm min-w-[560px]">
                   <thead>
-                    <tr className="text-left text-[10px] uppercase tracking-widest text-slate-400 border-b">
+                    <tr className="text-left text-[10px] uppercase tracking-widest text-slate-600 border-b">
                       <th className="py-2 pr-4">Provider</th><th className="py-2 pr-4">Tier</th><th className="py-2 pr-4">Cost</th><th className="py-2 pr-4">Status</th>
                     </tr>
                   </thead>
@@ -386,8 +398,8 @@ export default function ExecutiveCommandCenter() {
                     {(Object.entries(sys?.gateway?.providers || {}).filter(([k]) => k !== "kb_fallback")).map(([k, p]) => (
                       <tr key={k} className="border-b border-slate-50">
                         <td className="py-2 pr-4 font-bold text-slate-800">{k}</td>
-                        <td className="py-2 pr-4 text-slate-500">{String(p.tier)}</td>
-                        <td className="py-2 pr-4 text-slate-500">{p.cost}</td>
+                        <td className="py-2 pr-4 text-slate-700">{String(p.tier)}</td>
+                        <td className="py-2 pr-4 text-slate-700">{p.cost}</td>
                         <td className="py-2 pr-4">
                           <span className="text-[10px] font-bold px-2 py-0.5 rounded-full" style={{ background: p.available ? "#d1fae5" : "#fee2e2", color: p.available ? "#065f46" : "#b91c1c" }}>
                             {p.available ? "available" : "no key"}
@@ -406,9 +418,9 @@ export default function ExecutiveCommandCenter() {
                   ["BYOK", "Free for instructors+", "$3 below instructor"],
                 ].map(([l, v, s]) => (
                   <div key={l} className="rounded-xl px-3 py-2" style={{ background: "#faf9f7", border: "1px solid #f0eadf" }}>
-                    <div className="text-[10px] font-bold uppercase tracking-wide text-slate-400">{l}</div>
+                    <div className="text-[10px] font-bold uppercase tracking-wide text-slate-600">{l}</div>
                     <div className="font-mono font-bold text-slate-800 text-sm">{v}</div>
-                    {s && <div className="text-[10px] text-slate-400">{s}</div>}
+                    {s && <div className="text-[10px] text-slate-600">{s}</div>}
                   </div>
                 ))}
               </div>
@@ -425,7 +437,7 @@ export default function ExecutiveCommandCenter() {
                       {sys?.env?.gemini_key ? "Key set" : "No key yet"}
                     </span>
                   </div>
-                  <p className="text-xs text-slate-500 mt-2 leading-relaxed">
+                  <p className="text-xs text-slate-700 mt-2 leading-relaxed">
                     Already integrated as gateway Tier 2 (free, 1M context) and as a BYOK provider. Free tier now: ~5–15
                     requests/min (2.0 Flash 15 RPM / 1M TPM; 2.5 Flash 10 RPM / 250K TPM), Pro models excluded. Perfect as
                     a fallback — not as the only provider.
@@ -438,14 +450,14 @@ export default function ExecutiveCommandCenter() {
                       Current rate limits
                     </a>
                   </div>
-                  <p className="text-[11px] text-slate-400 mt-2">
+                  <p className="text-[11px] text-slate-600 mt-2">
                     Setup (2 minutes): log into AI Studio as <span className="font-mono">morehelpcenter@gmail.com</span> → create an
                     API key → paste it at <span className="font-mono">/admin/providers</span> (type: gemini). Done.
                   </p>
                 </div>
                 <div className="rounded-xl p-4" style={{ background: "#faf9f7", border: "1px solid #f0eadf" }}>
                   <div className="font-heading font-extrabold text-slate-800">Other Google free features — evaluated</div>
-                  <ul className="text-xs text-slate-500 mt-2 space-y-1.5 leading-relaxed">
+                  <ul className="text-xs text-slate-700 mt-2 space-y-1.5 leading-relaxed">
                     <li><strong className="text-slate-800">Free courses (worth it):</strong> Google AI Essentials, Google Cloud Skills Boost (~35 free credits/mo), grow.google — link them in a Free Learning lane for the community.</li>
                     <li><strong className="text-slate-800">Google Cloud free tier ($300/90 days):</strong> not needed now — the platform runs on a zero-cost stack; defer until there's a real need for GCP compute/storage.</li>
                     <li><strong className="text-slate-800">Workspace (Gmail/Drive/Calendar):</strong> the base account already provides daily ops — no integration required.</li>
@@ -476,7 +488,7 @@ export default function ExecutiveCommandCenter() {
             )}
             <div className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm text-slate-900">
               <div className="text-xs font-bold uppercase tracking-widest text-slate-600 mb-3">Platform Feature Flags</div>
-              <p className="text-sm text-slate-500 mb-4">Toggle platform-wide features. Dangerous flags require a reason.</p>
+              <p className="text-sm text-slate-700 mb-4">Toggle platform-wide features. Dangerous flags require a reason.</p>
               <div className="space-y-3">
                 {[
                   ["platform_locked", "🔒 Platform Lock", "Locks ALL non-exec access", true],
@@ -490,7 +502,7 @@ export default function ExecutiveCommandCenter() {
                     <div key={flag} className="flex items-center justify-between gap-4 rounded-xl px-4 py-3" style={{ background: enabled ? (danger ? "#fef2f2" : "#f0fdf4") : "#faf9f7", border: `1px solid ${enabled ? (danger ? "#fecaca" : "#bbf7d0") : "#f0eadf"}` }}>
                       <div>
                         <div className="text-sm font-bold text-slate-800">{label}</div>
-                        <div className="text-xs text-slate-500">{desc}</div>
+                        <div className="text-xs text-slate-700">{desc}</div>
                       </div>
                       <button onClick={() => toggleFlag(flag, enabled)} disabled={flagBusy[flag]}
                         className="text-xs font-bold px-4 py-2 rounded-lg transition-colors"
@@ -564,7 +576,7 @@ export default function ExecutiveCommandCenter() {
               </div>
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
-                  <thead><tr className="text-left text-[10px] uppercase tracking-widest text-slate-400 border-b">
+                  <thead><tr className="text-left text-[10px] uppercase tracking-widest text-slate-600 border-b">
                     <th className="py-2 pr-4">Name</th><th className="py-2 pr-4">Role</th><th className="py-2 pr-4">Email</th><th className="py-2 pr-4">Joined</th>
                   </tr></thead>
                   <tbody>
@@ -572,8 +584,8 @@ export default function ExecutiveCommandCenter() {
                       <tr key={u.id} className="border-b border-slate-50">
                         <td className="py-2 pr-4 font-bold text-slate-800 text-xs">{u.display_name || u.name || u.email}</td>
                         <td className="py-2 pr-4"><span className="text-[10px] font-bold px-2 py-0.5 rounded-full" style={{ background: "#e0e7ff", color: "#3730a3" }}>{u.role}</span></td>
-                        <td className="py-2 pr-4 text-slate-500 text-xs">{u.email}</td>
-                        <td className="py-2 pr-4 text-slate-400 text-xs">{u.created_at ? new Date(u.created_at).toLocaleDateString() : "—"}</td>
+                        <td className="py-2 pr-4 text-slate-700 text-xs">{u.email}</td>
+                        <td className="py-2 pr-4 text-slate-600 text-xs">{u.created_at ? new Date(u.created_at).toLocaleDateString() : "—"}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -597,7 +609,7 @@ export default function ExecutiveCommandCenter() {
                 ].map(([p, t, d]) => (
                   <Link key={p} to={p} className="rounded-xl p-4 hover:shadow-md transition-shadow" style={{ background: "#faf9f7", border: "1px solid #f0eadf", textDecoration: "none" }}>
                     <div className="font-heading font-extrabold text-slate-800 text-sm">{t}</div>
-                    <div className="text-[11px] text-slate-400 mt-1">{d}</div>
+                    <div className="text-[11px] text-slate-600 mt-1">{d}</div>
                     <div className="text-xs font-bold mt-2" style={{ color: "#8a5a00" }}>Open →</div>
                   </Link>
                 ))}
@@ -607,9 +619,9 @@ export default function ExecutiveCommandCenter() {
             <div className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm text-slate-900">
               <div className="flex items-center justify-between flex-wrap gap-2 mb-3">
                 <div className="text-xs font-bold uppercase tracking-widest text-slate-600">Operations manuals & handbooks</div>
-                <span className="text-[11px] text-slate-400">{manuals.length} documents served from the repo</span>
+                <span className="text-[11px] text-slate-600">{manuals.length} documents served from the repo</span>
               </div>
-              {manuals.length === 0 && <p className="text-sm text-slate-400">Manuals unavailable in this environment.</p>}
+              {manuals.length === 0 && <p className="text-sm text-slate-600">Manuals unavailable in this environment.</p>}
               <div className="space-y-2">
                 {manuals.map((m) => (
                   <details key={m.slug + m.group} className="rounded-xl" style={{ background: "#faf9f7", border: "1px solid #f0eadf" }}
@@ -636,11 +648,11 @@ export default function ExecutiveCommandCenter() {
               {filteredTools.map((t) => (
                 <Link key={t.name + t.path} to={t.path} className="rounded-2xl p-4 hover:shadow-md transition-shadow" style={{ background: "#fff", border: "1px solid #f0eadf", textDecoration: "none" }}>
                   <div className="font-heading font-extrabold text-slate-800 text-sm">{t.name}</div>
-                  <div className="text-[11px] text-slate-400 mt-1">{t.desc}</div>
+                  <div className="text-[11px] text-slate-600 mt-1">{t.desc}</div>
                   <div className="text-[11px] font-mono mt-2" style={{ color: "#8a5a00" }}>{t.path}</div>
                 </Link>
               ))}
-              {filteredTools.length === 0 && <p className="text-sm text-slate-400 col-span-full">No controls match “{controlQuery}”.</p>}
+              {filteredTools.length === 0 && <p className="text-sm text-slate-600 col-span-full">No controls match “{controlQuery}”.</p>}
             </div>
           </div>
         )}
