@@ -105,6 +105,26 @@ class ProjectUpdate(BaseModel):
     priority: Optional[str] = None
     status: Optional[str] = None   # active, paused, completed, archived
 
+class ProjectPacket(BaseModel):
+    """The standardized project packet — the operating agreement between the
+    owner and the AI team. Every substantial project carries one.
+
+    Authority levels (three kinds of AI work):
+      autonomous          — AI completes without asking
+      approval_required   — AI prepares everything, owner approves the result
+      human_only          — AI can prepare and advise but cannot execute
+    """
+    objective: str = ""
+    owner: str = ""
+    ai_team: List[str] = []
+    deliverables_summary: str = ""
+    constraints: str = ""
+    authority: str = "approval_required"
+    approval_points: List[str] = []
+    evidence: str = ""
+    outcome_report: str = ""
+    packet_status: str = "planning"  # planning | active | review | approved | published | complete
+
 class StageTransition(BaseModel):
     """Move a project to the next stage (or a specific stage)."""
     target_stage: Optional[str] = None  # None = advance to next
@@ -248,6 +268,127 @@ async def update_project(
         raise HTTPException(status_code=404, detail="Project not found")
     doc = await db.exec_projects.find_one({"_id": _oid(project_id)})
     return _serialize(doc)
+
+
+# ── PROJECT PACKET ──────────────────────────────────────────────────────────
+
+@router.put("/projects/{project_id}/packet")
+async def update_project_packet(
+    project_id: str,
+    body: ProjectPacket,
+    user: User = Depends(_require_rank("admin", "executive_admin")),
+    request: Request = None,
+):
+    """Set the standardized project packet (objective, authority, approval
+    points, constraints, evidence, outcome report, status). The packet is the
+    operating agreement between the owner and the AI team.
+    """
+    db = request.app.state.db
+    doc = await db.exec_projects.find_one({"_id": _oid(project_id)})
+    if not doc:
+        raise HTTPException(status_code=404, detail="Project not found")
+    packet = body.model_dump()
+    packet["updated_at"] = _now()
+    await db.exec_projects.update_one(
+        {"_id": _oid(project_id)},
+        {"$set": {"packet": packet, "updated_at": _now()}}
+    )
+    doc = await db.exec_projects.find_one({"_id": _oid(project_id)})
+    return _serialize(doc)
+
+
+# ── PROJECT DISCOVERY — turn what already exists into what comes next ────────
+# Scans authorized existing material (published media products, pipeline
+# deliverables, sellable tracks) and proposes the highest-value next projects.
+
+@router.get("/discovery")
+async def project_discovery(
+    user: User = Depends(_require_rank("admin", "executive_admin")),
+    request: Request = None,
+):
+    db = request.app.state.db
+    inventory = {"products": [], "deliverables": [], "tracks": []}
+
+    try:
+        products = await db.media_products.find(
+            {"published": True}, {"_id": 0, "id": 1, "title": 1, "type": 1, "owner_name": 1, "price_cents": 1}
+        ).sort("created_at", -1).to_list(200)
+        inventory["products"] = products
+    except Exception:
+        pass
+    try:
+        projects = await db.exec_projects.find(
+            {"status": {"$ne": "archived"}}, {"_id": 0, "title": 1, "deliverables": 1}
+        ).to_list(100)
+        for p in projects:
+            inventory["deliverables"].extend([
+                {"project": p.get("title", ""), "title": d.get("title", ""), "content_type": d.get("content_type", "")}
+                for d in (p.get("deliverables") or [])
+            ])
+    except Exception:
+        pass
+    try:
+        tracks = await db.media_products.find(
+            {"type": {"$in": ["audio", "track", "music"]}}, {"_id": 0, "id": 1, "title": 1, "owner_name": 1, "price_cents": 1}
+        ).to_list(200)
+        inventory["tracks"] = tracks
+    except Exception:
+        pass
+
+    audio_count = len(inventory["tracks"])
+    product_count = len(inventory["products"])
+    deliverable_count = len(inventory["deliverables"])
+    total_assets = audio_count + product_count + deliverable_count
+
+    proposals = []
+    if audio_count >= 1:
+        proposals.append({
+            "kind": "distribution",
+            "title": f"Catalog distribution — {audio_count} audio product{'s' if audio_count != 1 else ''}",
+            "rationale": "Existing finished audio is sitting unreleased or under-distributed. Package, promote, and push to the store.",
+            "suggested_team": ["Production", "Creative Partner", "Marketing"],
+            "authority": "approval_required",
+            "brief": f"Turn the existing catalog ({audio_count} audio products) into a release campaign: metadata, artwork, promotional package, and store push.",
+        })
+    if product_count >= 3:
+        proposals.append({
+            "kind": "catalog",
+            "title": f"Catalog organization — {product_count} published products",
+            "rationale": "A growing published catalog needs structure, consistent metadata, and a discovery path.",
+            "suggested_team": ["Operations", "Analytics"],
+            "authority": "autonomous",
+            "brief": f"Audit the {product_count} published products, normalize metadata, and propose a catalog structure.",
+        })
+    if deliverable_count >= 3:
+        proposals.append({
+            "kind": "deliverables",
+            "title": f"Pipeline harvest — {deliverable_count} completed deliverables",
+            "rationale": "Completed AI-team deliverables across projects deserve review, approval, and release.",
+            "suggested_team": ["Review", "Source"],
+            "authority": "human_only",
+            "brief": f"Review the {deliverable_count} pipeline deliverables, recommend approvals, and schedule release.",
+        })
+    if total_assets == 0:
+        proposals.append({
+            "kind": "start",
+            "title": "Start with a goal",
+            "rationale": "No existing material to catalogue yet. Give the AI team a goal and a brief.",
+            "suggested_team": ["Jamil", "Hybrid NAM"],
+            "authority": "approval_required",
+            "brief": "Describe the outcome you want and the AI team will build the work plan.",
+        })
+
+    return {
+        "assets": {
+            "total": total_assets,
+            "audio_products": audio_count,
+            "published_products": product_count,
+            "pipeline_deliverables": deliverable_count,
+        },
+        "inventory": inventory,
+        "proposals": proposals,
+        "scanned_at": _now(),
+    }
 
 
 # ── STAGE TRANSITIONS ───────────────────────────────────────────────────────
