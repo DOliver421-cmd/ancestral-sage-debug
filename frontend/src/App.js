@@ -299,7 +299,7 @@ function App() {
           <Route path="/privacy" element={<PrivacyPolicy />} />
           <Route path="/refund-policy" element={<RefundPolicy />} />
           <Route path="/courses" element={<Courses />} />
-          <Route path="/ascension-protocols" element={<AscensionProtocols />} />
+          <Route path="/ascension-protocols" element={<Protected><AscensionProtocols /></Protected>} />
           <Route path="/sponsor" element={<AdminPage><SponsorScholarship /></AdminPage>} />
           <Route path="/scholarships/apply" element={<Protected><ScholarshipApply /></Protected>} />
           <Route path="/admin/scholarships" element={<BoundedAdmin roles={["admin"]} label="Scholarship Committee" backTo="/admin"><AdminScholarships /></BoundedAdmin>} />
@@ -315,7 +315,7 @@ function App() {
           <Route path="/admin/associate" element={<BoundedAdmin roles={["admin"]} label="Admin Dashboard"><AdminDashboard /></BoundedAdmin>} />
           {/* Modules — public preview shows free intro modules; full catalog gated */}
           <Route path="/modules" element={<ModulesList />} />
-          <Route path="/modules/:slug" element={<ModuleView />} />
+          <Route path="/modules/:slug" element={<Protected><ModuleView /></Protected>} />
           <Route path="/lab" element={<Navigate to="/labs" replace />} />
           <Route path="/labs" element={<Protected><LabsHub /></Protected>} />
           <Route path="/labs/:slug" element={<Protected><LabDetail /></Protected>} />
@@ -445,7 +445,6 @@ function App() {
           <Route path="/dashboard/exec" element={<Navigate to="/admin/command" replace />} />
           <Route path="/admin/health-report" element={<Navigate to="/admin/health" replace />} />
           <Route path="/admin/tools" element={<Navigate to="/admin" replace />} />
-          <Route path="/store" element={<Protected><MediaStore /></Protected>} />
 
           <Route path="*" element={<Error404 />} />
         </Routes>

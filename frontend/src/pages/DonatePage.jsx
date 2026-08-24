@@ -33,6 +33,12 @@ export default function DonatePage() {
 
   return (
     <AppShell>
+      <div className="relative py-12 px-6"
+        style={{ backgroundImage: "linear-gradient(rgba(10,10,15,0.72), rgba(10,10,15,0.82)), url('https://images.pexels.com/photos/6893794/pexels-photo-6893794.jpeg?auto=compress&cs=tinysrgb&w=1600')", backgroundSize: "cover", backgroundPosition: "center" }}>
+        <div className="max-w-2xl mx-auto">
+          <div className="overline text-signal">Give</div>
+        </div>
+      </div>
     <div className="p-8 max-w-2xl mx-auto">
       <div className="flex items-center gap-3 mb-2">
         <Heart className="w-8 h-8 text-red-500" />

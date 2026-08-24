@@ -26,6 +26,7 @@ import {
   Upload, Image, FileText, Award, CheckCircle, Eye, EyeOff,
   Twitter, Instagram, Facebook, Linkedin, Youtube,
   DollarSign, Heart, TrendingUp, Receipt, Network, Star, Crown, Shield,
+  KeyRound, Loader2, Trash2,
 } from "lucide-react";
 import { useMic } from "../hooks/useMic";
 
@@ -451,6 +452,136 @@ function ServiceCard({ icon: Icon, title, desc, to, locked, requiredTier }) {
 }
 
 // ── Settings Tab ──────────────────────────────────────────────────────────────
+// ── BYOK — simple single-key AI connection (owner only) ───────────────────────
+function ByokKeyCard() {
+  const [status, setStatus] = useState(null);
+  const [provider, setProvider] = useState("");
+  const [keyInput, setKeyInput] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState(null);
+
+  const flash = (m) => { setMsg(m); setTimeout(() => setMsg(null), 6000); };
+
+  useEffect(() => {
+    api.get("/byok/status").then(({ data }) => {
+      setStatus(data);
+      const firstUnconfigured = (data.providers || []).find(p => !p.configured);
+      if (firstUnconfigured) setProvider(firstUnconfigured.key);
+    }).catch(() => {});
+  }, []);
+
+  async function saveAndTest(e) {
+    e.preventDefault();
+    const key = keyInput.trim();
+    if (!key) { flash("Paste your API key first."); return; }
+    if (!provider) { flash("Choose a provider."); return; }
+    setBusy(true);
+    try {
+      await api.post("/byok/key", { provider, key });
+      const { data } = await api.post(`/byok/key/${provider}/test`, { provider, key });
+      flash(`Key saved & verified (${data.latency_ms}ms). Your AI requests now route through your key.`);
+      setKeyInput("");
+      const { data: st } = await api.get("/byok/status");
+      setStatus(st);
+    } catch (err) {
+      flash(err?.response?.data?.detail || "Could not save that key.");
+    } finally { setBusy(false); }
+  }
+
+  async function removeKey(p) {
+    try {
+      await api.delete(`/byok/key/${p.key}`);
+      const { data: st } = await api.get("/byok/status");
+      setStatus(st);
+      flash(`${p.label} key removed.`);
+    } catch (err) {
+      flash(err?.response?.data?.detail || "Could not remove that key.");
+    }
+  }
+
+  return (
+    <div className="card-flat p-5 space-y-4">
+      <div className="flex items-center gap-2">
+        <KeyRound className="w-4 h-4 text-copper" />
+        <span className="font-heading font-bold text-sm">Your AI Key — BYOK</span>
+        {status?.enabled
+          ? <span className="ml-auto text-[10px] font-black uppercase tracking-widest text-green-600">● Active</span>
+          : <span className="ml-auto text-[10px] font-black uppercase tracking-widest text-copper">○ Not unlocked</span>}
+      </div>
+
+      {msg && <div className="text-xs bg-ink text-white rounded-lg px-3 py-2 leading-relaxed">{msg}</div>}
+
+      {!status?.enabled ? (
+        <div className="text-sm text-ink/60 space-y-3">
+          <p>
+            AI runs on <strong className="text-ink">your own key</strong> — the platform never pays for your generation.
+            Unlocking BYOK is a <strong className="text-ink">one-time ${status?.price_usd ?? 3}</strong> entitlement that
+            stays with your profile for life.
+          </p>
+          <p className="text-xs text-ink/40">Instructors and staff get BYOK free.</p>
+          <Link to="/byok" className="inline-block btn-copper text-xs">
+            Unlock BYOK — ${status?.price_usd ?? 3} →
+          </Link>
+        </div>
+      ) : (
+        <>
+          <form onSubmit={saveAndTest} className="space-y-3">
+            <div className="flex flex-wrap gap-2">
+              <select
+                value={provider}
+                onChange={(e) => setProvider(e.target.value)}
+                className="border border-ink/15 rounded-lg px-3 py-2 text-sm bg-white"
+                aria-label="AI provider"
+              >
+                {(status?.providers || []).map((p) => (
+                  <option key={p.key} value={p.key}>{p.label}</option>
+                ))}
+              </select>
+              <input
+                type="password"
+                value={keyInput}
+                onChange={(e) => setKeyInput(e.target.value)}
+                placeholder="Paste your free API key"
+                className="flex-1 min-w-[180px] border border-ink/15 rounded-lg px-3 py-2 text-sm"
+              />
+              <button type="submit" disabled={busy}
+                className="flex items-center gap-1.5 text-xs font-bold bg-copper text-bone px-4 py-2 rounded-lg disabled:opacity-50">
+                {busy ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Zap className="w-3.5 h-3.5" />}
+                Save & Test
+              </button>
+            </div>
+          </form>
+
+          {(status?.providers || []).filter(p => p.configured).map((p) => (
+            <div key={p.key} className="flex items-center justify-between text-xs border border-ink/10 rounded-lg px-3 py-2">
+              <span className="flex items-center gap-2">
+                <CheckCircle className="w-3.5 h-3.5 text-green-600" />
+                <strong>{p.label}</strong>
+                <span className="text-ink/40">{p.masked || "configured"}</span>
+              </span>
+              <button onClick={() => removeKey(p)} className="text-ink/30 hover:text-destructive" aria-label={`Remove ${p.label} key`}>
+                <Trash2 className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          ))}
+
+          <p className="text-xs text-ink/40">
+            Don't have a key?{" "}
+            {(status?.providers || []).map((p, i) => (
+              <span key={p.key}>
+                {i > 0 && " · "}
+                <a href={p.signup_url} target="_blank" rel="noreferrer" className="text-copper font-bold inline-flex items-center gap-1">
+                  {p.label} free key <ExternalLink className="w-3 h-3" />
+                </a>
+              </span>
+            ))}
+          </p>
+        </>
+      )}
+    </div>
+  );
+}
+
 function SettingsTab({ profile, onSaved }) {
   const EMPTY_SOCIAL   = { platform: "", handle: "", url: "", note: "" };
   const EMPTY_OFFERING = { icon: "✨", title: "", desc: "" };
@@ -966,6 +1097,7 @@ export default function UnifiedProfile() {
 
             <div className="space-y-5">
               <AIAssistantPanel user={user} status={null} />
+              <ByokKeyCard />
               {!isAdmin && (
                 <div className="rounded-2xl p-4 space-y-3"
                   style={{ background: "linear-gradient(135deg,#1B4332,#2D6A4F)", border: "1.5px solid #E8A51E" }}>
@@ -1141,6 +1273,9 @@ export default function UnifiedProfile() {
                       </div>
                     </div>
                   )}
+
+                  {/* Your AI Key — simple single-key BYOK interface */}
+                  {isOwner && <ByokKeyCard />}
 
                   {/* Tracks */}
                   {profile.tracks?.length > 0 && (

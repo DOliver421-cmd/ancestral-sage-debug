@@ -18,10 +18,13 @@ export default function ModuleView() {
   const { user } = useAuth();
 
   useEffect(() => {
-    fetch(`${BACKEND_URL}/api/modules/${slug}`)
-      .then((r) => r.ok ? r.json() : null)
-      .then((data) => { if (data) setMod(data); else setLoadFailed(true); })
+    // Module detail is registration-gated server-side (GET /modules/{slug} requires
+    // auth), so it MUST go through the axios instance that attaches the JWT — a raw
+    // fetch would 401 even for logged-in users and show a false "Module not found".
+    api.get(`/modules/${slug}`)
+      .then((r) => setMod(r.data))
       .catch(() => setLoadFailed(true));
+    // Public catalog (metadata only) — fine for anyone.
     fetch(`${BACKEND_URL}/api/modules`)
       .then((r) => r.ok ? r.json() : [])
       .then((data) => setAllModules(Array.isArray(data) ? data : []))

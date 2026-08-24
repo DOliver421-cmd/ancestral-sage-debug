@@ -16,6 +16,12 @@ export default function Plans() {
   return (
     <AppShell>
     <div className="min-h-screen bg-bone">
+      <div className="relative py-12 px-6"
+        style={{ backgroundImage: "linear-gradient(rgba(10,10,15,0.74), rgba(10,10,15,0.84)), url('https://images.pexels.com/photos/8044096/pexels-photo-8044096.jpeg?auto=compress&cs=tinysrgb&w=1600')", backgroundSize: "cover", backgroundPosition: "center" }}>
+        <div className="max-w-6xl mx-auto">
+          <div className="overline text-signal">Join the Mission</div>
+        </div>
+      </div>
       <div className="max-w-6xl mx-auto px-6 py-10">
         <BackButton to={user ? "/dashboard" : "/"} />
 
