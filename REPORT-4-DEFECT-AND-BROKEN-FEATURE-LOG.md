@@ -47,7 +47,7 @@
 - They open as bare pages. A visitor who lands there has no way to navigate the site. **Open.**
 
 **O5. The store was a window into someone else's website — FIXED August 24, 2026**
-- The store page now leads with the platform's **own catalog**: every product creators publish appears there with a working buy button through our own checkout (creators keep 70%). Verified by rendering the page with real catalog data — products, prices, and creator names all display, and the buy path is wired. The external storefront remains below, now honestly labeled "External." **Still open:** physical merchandise remains unavailable by design — an owner decision, not a defect.
+- The store page now leads with everything for sale, one click from checkout: the $3 trial, all four membership tiers (bought directly on the store page — no detour through another page), and the platform's **own creator catalog** with working buy buttons (creators keep 70%). Verified by rendering the page under three conditions — products present, catalog empty, catalog unreachable — no crashes, and the right message shows in each. The external storefront remains below, now honestly labeled "External." **Still open:** physical merchandise remains unavailable by design — an owner decision, not a defect.
 
 ## False claims and rubber-stamped "green lights" corrected by this audit
 
