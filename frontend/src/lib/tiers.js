@@ -40,6 +40,7 @@ export const TIER_FOR_FEATURE = {
   posts: "member",        // community
   publisher_ai: "member", // AI-assisted publishing (Social Blast)
   lounge: "member",       // creator lounge / community
+  projects: "member",     // "Have your M.O.R.E. team work on it"
   courses: "plus",        // course library
   tracks: "plus",         // learning tracks / adaptive path
   ghost: "plus",          // Ghost Producer

@@ -30,6 +30,7 @@ import { HybridNamContent } from "./HybridNam";
 import {
   Building2, TrendingUp, DollarSign, Receipt, Users, RefreshCw,
   ArrowRight, Plus, Wrench, Briefcase, Target, ShieldCheck, HeartHandshake, Sparkles, Lock, Loader2,
+  Archive, Trash2,
 } from "lucide-react";
 
 const GREEN = "#1B4332";
@@ -124,6 +125,10 @@ function ExecProjectsPanel() {
   const [run, setRun] = useState({ persona: "Jamil", instructions: "" });
   const [showRun, setShowRun] = useState(false);
   const [running, setRunning] = useState(false);
+  const [archive, setArchive] = useState([]);
+  const [archiveOpen, setArchiveOpen] = useState(false);
+  const [archBusy, setArchBusy] = useState(false);
+  const [archForm, setArchForm] = useState({ title: "", kind: "audio", notes: "", file_ref: "" });
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -226,6 +231,40 @@ function ExecProjectsPanel() {
     }
   };
 
+  const loadArchive = async () => {
+    try {
+      const { data } = await api.get("/executive/archive");
+      setArchive(Array.isArray(data) ? data : []);
+    } catch {
+      setArchive([]);
+    }
+  };
+
+  const addAsset = async () => {
+    if (!archForm.title.trim()) { toast.error("Asset title is required."); return; }
+    setArchBusy(true);
+    try {
+      await api.post("/executive/archive", archForm);
+      toast.success("Asset added to the archive — Discovery can now build from it.");
+      setArchForm({ title: "", kind: "audio", notes: "", file_ref: "" });
+      await loadArchive();
+    } catch (e) {
+      toast.error(e?.response?.data?.detail || "Could not add asset.");
+    } finally {
+      setArchBusy(false);
+    }
+  };
+
+  const deleteAsset = async (id) => {
+    try {
+      await api.delete(`/executive/archive/${id}`);
+      toast.success("Asset removed from the archive.");
+      await loadArchive();
+    } catch (e) {
+      toast.error(e?.response?.data?.detail || "Could not remove asset.");
+    }
+  };
+
   const runStage = async () => {
     if (!selected || !run.persona.trim()) { toast.error("Pick the persona to run this stage."); return; }
     setRunning(true);
@@ -295,6 +334,11 @@ function ExecProjectsPanel() {
             </p>
           </div>
           <div className="flex gap-2">
+            <button onClick={() => { setArchiveOpen((v) => !v); if (!archiveOpen && archive.length === 0) loadArchive(); }}
+              className="flex items-center gap-1.5 px-4 py-2.5 rounded-lg text-sm font-black transition-colors"
+              style={{ background: BONE, color: GREEN, border: "1px solid rgba(27,67,50,0.3)" }}>
+              <Archive className="w-4 h-4" /> Archive
+            </button>
             <button onClick={() => { setShowDiscovery((v) => !v); if (!discovery && !showDiscovery) scanDiscovery(); }}
               className="flex items-center gap-1.5 px-4 py-2.5 rounded-lg text-sm font-black transition-colors"
               style={{ background: GOLD, color: "#0a0a0a" }}>
@@ -308,12 +352,62 @@ function ExecProjectsPanel() {
           </div>
         </div>
 
+        {archiveOpen && (
+          <div className="card-flat rounded-2xl border p-5 mb-6" style={{ background: "#fff", borderColor: "rgba(27,67,50,0.3)" }}>
+            <div className="font-heading font-bold text-ink mb-1">Archive — your existing work</div>
+            <p className="text-sm text-ink/55 mb-4 max-w-2xl">
+              The album, the books, the poems, the photos — anything already made. The AI team catalogues
+              this material and turns it into projects: distribution, publishing, promotion. This is the
+              proof of concept — your work becomes the first project database.
+            </p>
+            <div className="grid sm:grid-cols-2 gap-3 mb-3">
+              <input value={archForm.title} onChange={(e) => setArchForm({ ...archForm, title: e.target.value })}
+                placeholder="Title — e.g. Album A, the book manuscript"
+                className="px-3 py-2.5 bg-bone border border-ink/15 rounded-lg text-sm focus:outline-none focus:border-copper" />
+              <div className="flex gap-2">
+                <select value={archForm.kind} onChange={(e) => setArchForm({ ...archForm, kind: e.target.value })}
+                  className="px-3 py-2.5 bg-bone border border-ink/15 rounded-lg text-sm focus:outline-none focus:border-copper">
+                  {["audio", "book", "document", "photo", "video", "other"].map((k) => <option key={k} value={k}>{k}</option>)}
+                </select>
+                <input value={archForm.file_ref} onChange={(e) => setArchForm({ ...archForm, file_ref: e.target.value })}
+                  placeholder="File ref / URL (optional)"
+                  className="flex-1 px-3 py-2.5 bg-bone border border-ink/15 rounded-lg text-sm focus:outline-none focus:border-copper" />
+              </div>
+            </div>
+            <textarea value={archForm.notes} onChange={(e) => setArchForm({ ...archForm, notes: e.target.value })}
+              placeholder="What is it? What state is it in? What's missing?" rows={2}
+              className="w-full px-3 py-2.5 bg-bone border border-ink/15 rounded-lg text-sm focus:outline-none focus:border-copper resize-y mb-3" />
+            <button onClick={addAsset} disabled={archBusy}
+              className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-black text-white disabled:opacity-40" style={{ background: GREEN }}>
+              {archBusy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />} Add to archive
+            </button>
+            <div className="mt-4">
+              {archive.length === 0 ? (
+                <p className="text-sm text-ink/45 italic">Nothing archived yet — add your first asset.</p>
+              ) : (
+                <div className="space-y-2">
+                  {archive.map((a) => (
+                    <div key={a.id} className="flex items-center gap-3 rounded-xl border px-3 py-2.5" style={{ borderColor: "rgba(181,101,29,0.2)", background: "#fdfbf5" }}>
+                      <span className="text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded" style={{ background: "rgba(27,67,50,0.1)", color: GREEN }}>{a.kind}</span>
+                      <span className="text-sm font-bold text-ink whitespace-nowrap">{a.title}</span>
+                      {a.notes && <span className="text-xs text-ink/55 truncate flex-1">{a.notes}</span>}
+                      <button onClick={() => deleteAsset(a.id)} title="Remove" className="text-ink/35 hover:text-red-600 transition-colors shrink-0">
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
         {showDiscovery && (
           <div className="card-flat rounded-2xl border p-5 mb-6" style={{ background: "#fff", borderColor: "rgba(232,165,30,0.4)" }}>
             <div className="font-heading font-bold text-ink mb-1">Turn what already exists into what comes next</div>
             <p className="text-sm text-ink/55 mb-4 max-w-2xl">
-              The AI team catalogues existing material — published products, pipeline deliverables, audio — and
-              proposes the highest-value next projects. Nothing is generated without your approval.
+              The AI team catalogues existing material — your archive, published products, pipeline deliverables,
+              audio — and proposes the highest-value next projects. Nothing is generated without your approval.
             </p>
             {scanning ? (
               <div className="py-6 text-center text-sm text-ink/45 flex items-center justify-center gap-2">
@@ -321,9 +415,10 @@ function ExecProjectsPanel() {
               </div>
             ) : discovery ? (
               <>
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-5">
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 mb-5">
                   {[
                     { label: "Total assets", n: discovery.assets?.total },
+                    { label: "Archive assets", n: discovery.assets?.archive_assets },
                     { label: "Audio products", n: discovery.assets?.audio_products },
                     { label: "Published products", n: discovery.assets?.published_products },
                     { label: "Pipeline deliverables", n: discovery.assets?.pipeline_deliverables },

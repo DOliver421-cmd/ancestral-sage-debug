@@ -618,6 +618,18 @@ def verify_pw(p: str, h: str) -> bool:
 
 import secrets as _secrets_mod  # noqa: E402
 
+# ---- Member Projects Routes ("Have your M.O.R.E. team work on it") ----
+# Registered at import time here (the main include block sits far below this
+# line; FastAPI collects routes regardless of order). Customer-facing:
+# any authenticated user whose tier covers `member` can ask the M.O.R.E.
+# team to work on a goal, review what it produces, and approve it.
+try:
+    from routers import member_projects as _mp_mod
+    app.include_router(_mp_mod.router)
+    logger.info("Member Projects routes registered at /api/my-projects")
+except Exception as _mp_err:
+    logger.warning("Member Projects routes failed to load: %s", _mp_err)
+
 
 def _gen_random_password() -> str:
     """Generate a 20-char cryptographically random password. Used when no
@@ -1299,6 +1311,14 @@ async def _on_startup_impl():
         await ensure_indexes()
     except Exception as _e:
         logger.warning("STARTUP: ensure_indexes failed (non-fatal): %s", _e)
+
+    # ── Member projects — indexes for the customer project workspace ──────
+    try:
+        from routers import member_projects as _mp_mod
+        await _mp_mod.ensure_indexes(db)
+        logger.info("STARTUP: member project indexes ensured")
+    except Exception as _mp_e:
+        logger.warning("STARTUP: member project indexes failed (non-fatal): %s", _mp_e)
 
     # ── Promo codes — seed the platform's default codes idempotently ──────
     try:
