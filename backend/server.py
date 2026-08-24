@@ -2458,6 +2458,10 @@ _community_mod.bind(db, current_user, audit, assert_role, xp_level)
 api_router.include_router(_community_mod.router)
 
 # --- Competition router (The Arena) ---
+from routers import provider_gateway as _provider_gateway_mod
+_provider_gateway_mod.bind(db, current_user, audit)
+api_router.include_router(_provider_gateway_mod.router)
+
 from routers import competition as _competition_mod
 _competition_mod.bind(db, current_user, audit, assert_role, xp_level)
 api_router.include_router(_competition_mod.router)
