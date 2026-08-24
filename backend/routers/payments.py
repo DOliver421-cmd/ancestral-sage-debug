@@ -129,7 +129,7 @@ _PRODUCT_TIER_MAP: dict[str, str] = {
     "sanctuary_mod":      "pro",
 }
 
-TIER_RANK = {"free": 0, "member": 1, "plus": 2, "pro": 3, "patron": 4, "executive": 5}
+TIER_RANK = {"free": 0, "member": 1, "plus": 2, "pro": 3, "patron": 4, "platinum": 5, "executive": 6}
 
 
 class CheckoutReq(BaseModel):

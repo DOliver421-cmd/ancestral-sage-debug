@@ -502,6 +502,8 @@ export default function CompetitionArena() {
 // called unconditionally (React rules-of-hooks) — the wrapper above decides
 // who may render it, the hooks below never run conditionally.
 export function CompetitionArenaContent({ embedded = false }) {
+  const { user } = useAuth();
+  const isExec = user?.role === "executive_admin";
   const [task, setTask] = useState("");
   const [loading, setLoading] = useState(false);
   const [results, setResults] = useState(null);

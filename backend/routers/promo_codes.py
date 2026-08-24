@@ -44,7 +44,7 @@ def bind(_db, _current_user, _audit):
 
 
 # ── Tier ladder (mirror of payments.py / tiers.js) ───────────────────────────
-TIER_RANK = {"free": 0, "member": 1, "plus": 2, "pro": 3, "patron": 4, "executive": 5}
+TIER_RANK = {"free": 0, "member": 1, "plus": 2, "pro": 3, "patron": 4, "platinum": 5, "executive": 6}
 TIER_LABEL = {"free": "Free", "member": "Member", "plus": "Plus", "pro": "Pro", "patron": "Patron", "executive": "Executive"}
 
 

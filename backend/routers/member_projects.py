@@ -45,7 +45,7 @@ router = APIRouter(prefix="/api/my-projects", tags=["member-projects"])
 # the tier check the same way TIER_EXEMPT_ROLES does elsewhere.
 _ROLE_RANK = {"student": 1, "trial_pass": 2, "instructor": 3, "support_staff": 4,
               "oversight": 5, "admin": 6, "executive_admin": 7}
-_TIER_RANK = {"free": 0, "member": 1, "plus": 2, "pro": 3, "patron": 4, "executive": 5}
+_TIER_RANK = {"free": 0, "member": 1, "plus": 2, "pro": 3, "patron": 4, "platinum": 5, "executive": 6}
 _TIER_EXEMPT_ROLES = ("admin", "executive_admin")
 MIN_MEMBER_TIER = "member"
 

@@ -1,7 +1,7 @@
 /**
  * tiers.js — THE single authority for what each membership level unlocks.
  *
- * Ladder:  free(0) → member(1) → plus(2) → pro(3) → patron(4) → executive(5)
+ * Ladder:  free(0) → member(1) → plus(2) → pro(3) → patron(4) → platinum(5) → executive(6)
  *
  * feature_tier is granted automatically by the payment webhook (backend
  * routers/payments.py) and can be overridden by admins via the Exec panel.
@@ -20,7 +20,8 @@ export const FEATURE_TIER_RANK = {
   plus: 2,
   pro: 3,
   patron: 4,
-  executive: 5,
+  platinum: 5,
+  executive: 6,
 };
 
 export const FEATURE_TIER_LABEL = {
@@ -29,6 +30,7 @@ export const FEATURE_TIER_LABEL = {
   plus: "Plus",
   pro: "Pro",
   patron: "Patron",
+  platinum: "Platinum",
   executive: "Executive",
 };
 

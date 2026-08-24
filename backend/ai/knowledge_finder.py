@@ -43,7 +43,7 @@ logger = logging.getLogger("lcewai.knowledge_finder")
 
 _DOCS_FILE = Path(__file__).parent / "kb_documents.json"
 
-TIER_RANK = {"free": 0, "member": 1, "plus": 2, "pro": 3, "patron": 4, "executive": 5}
+TIER_RANK = {"free": 0, "member": 1, "plus": 2, "pro": 3, "patron": 4, "platinum": 5, "executive": 6}
 STAFF_ROLES = ("instructor", "support_staff", "oversight", "admin", "executive_admin")
 
 _cache = {

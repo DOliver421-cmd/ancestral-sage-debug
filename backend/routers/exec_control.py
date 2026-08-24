@@ -560,7 +560,8 @@ _BUILTIN_TIERS = [
     {"tier_id": "plus",      "label": "Plus",      "rank": 2, "description": "Priority matching + expanded courses + studio",  "color": "#8b5cf6", "price_hint": "$15/mo"},
     {"tier_id": "pro",       "label": "Pro",       "rank": 3, "description": "Advanced courses, labs, full AI suite",          "color": "#b5651d", "price_hint": "$29/mo"},
     {"tier_id": "patron",    "label": "Patron",    "rank": 4, "description": "Founders circle + funds free access for others", "color": "#E8A51E", "price_hint": "$59/mo"},
-    {"tier_id": "executive", "label": "Executive", "rank": 5, "description": "Admin-granted — all features unlocked",          "color": "#ef4444", "price_hint": "Admin grant"},
+    {"tier_id": "platinum",  "label": "Platinum",  "rank": 5, "description": "Premium creator tier — top-tier studio access",   "color": "#9ca3af", "price_hint": "Admin grant"},
+    {"tier_id": "executive", "label": "Executive", "rank": 6, "description": "Admin-granted — all features unlocked",          "color": "#ef4444", "price_hint": "Admin grant"},
 ]
 
 @router.get("/exec/control/tiers")

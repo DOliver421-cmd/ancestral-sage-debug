@@ -182,7 +182,7 @@ def _path_in(path: str, prefixes) -> bool:
 # ── Feature tiers (canonical contract — mirrors frontend/src/lib/tiers.js, ────
 # ── routers/payments.py TIER_RANK and routers/exec_control.py _BUILTIN_TIERS) ─
 TIER_RANK: dict = {
-    "free": 0, "member": 1, "plus": 2, "pro": 3, "patron": 4, "executive": 5,
+    "free": 0, "member": 1, "plus": 2, "pro": 3, "patron": 4, "platinum": 5, "executive": 6,
 }
 
 # Minimum feature_tier required per feature.  Only features with a mapped API

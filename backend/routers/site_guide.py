@@ -56,7 +56,7 @@ def bind(_db, _current_user, _check_rate):
 from routers.roles import ROLE_RANK, Role
 
 # Same ladder as backend/routers/payments.py + frontend/src/lib/tiers.js.
-TIER_RANK = {"free": 0, "member": 1, "plus": 2, "pro": 3, "patron": 4, "executive": 5}
+TIER_RANK = {"free": 0, "member": 1, "plus": 2, "pro": 3, "patron": 4, "platinum": 5, "executive": 6}
 
 
 class User(BaseModel):
