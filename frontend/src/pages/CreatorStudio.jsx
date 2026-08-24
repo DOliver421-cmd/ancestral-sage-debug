@@ -15,6 +15,8 @@ import VisualAltar from "../components/studio/chambers/VisualAltar";
 import ScriptScriptorium from "../components/studio/chambers/ScriptScriptorium";
 import SoundLab from "../components/studio/chambers/SoundLab";
 import VaultOfVersions from "../components/studio/chambers/VaultOfVersions";
+import MarketplaceForge from "../components/studio/chambers/MarketplaceForge";
+import CollaborationChamber from "../components/studio/chambers/CollaborationChamber";
 import { Lock, Palette } from "lucide-react";
 import { toast } from "sonner";
 import { StudioContent } from "./Studio";
@@ -31,8 +33,8 @@ const CHAMBERS = [
   { id: 'ghost-producer',   name: 'Ghost Producer',         glyph: '🎚', color: '#22d3ee', glow: 'rgba(34,211,238,0.3)',   desc: 'Drum sequencer, live synth beats, WAV export, publish to store.', tier: 'mid' },
   { id: 'vault',            name: 'Vault of Versions',      glyph: '⌬',  color: '#f87171', glow: 'rgba(248,113,113,0.3)',  desc: 'Version history, asset library, idea archive.', tier: 'mid' },
   { id: 'publishing-gate',  name: 'Publishing Gate',        glyph: '⬡',  color: '#fbbf24', glow: 'rgba(251,191,36,0.3)',   desc: 'Metadata generator, social templates, release checklist.', tier: 'base' },
-  { id: 'marketplace',      name: 'Marketplace Forge',      glyph: '⊕',  color: '#fb923c', glow: 'rgba(251,146,60,0.3)',   desc: 'Merch builder, course creator, digital product drops.', tier: 'top', comingSoon: true },
-  { id: 'collaboration',    name: 'Collaboration Chamber',  glyph: '⊞',  color: '#a78bfa', glow: 'rgba(167,139,250,0.3)',  desc: 'Shared projects, guest creators, persona collaboration.', tier: 'top', comingSoon: true },
+  { id: 'marketplace',      name: 'Marketplace Forge',      glyph: '⊕',  color: '#fb923c', glow: 'rgba(251,146,60,0.3)',   desc: 'Forge sellable drops — ebooks, guides, beats, merch — straight to your store.', tier: 'top' },
+  { id: 'collaboration',    name: 'Collaboration Chamber',  glyph: '⊞',  color: '#a78bfa', glow: 'rgba(167,139,250,0.3)',  desc: 'Guest creators, roles, scope, and shareable invites for your project.', tier: 'top' },
 ];
 
 const TIER_RANK = { base: 0, mid: 1, top: 2 };
@@ -345,7 +347,6 @@ export default function CreatorStudio() {
   }, []);
 
   const openChamber = useCallback((chamber) => {
-    if (chamber.comingSoon) return;
     setActiveChamber(prev => {
       if (prev?.id === chamber.id) return null;
       studioSound.play('chamber_enter');
@@ -573,7 +574,7 @@ export default function CreatorStudio() {
           </div>
 
           {/* Active chamber workspace */}
-          {activeChamber && !activeChamber.comingSoon && (
+          {activeChamber && (
             <div style={{
               marginTop: 24,
               background: "rgba(0,0,0,0.4)",
