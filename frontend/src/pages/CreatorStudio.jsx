@@ -15,7 +15,7 @@ import VisualAltar from "../components/studio/chambers/VisualAltar";
 import ScriptScriptorium from "../components/studio/chambers/ScriptScriptorium";
 import SoundLab from "../components/studio/chambers/SoundLab";
 import VaultOfVersions from "../components/studio/chambers/VaultOfVersions";
-import { ArrowLeft, Lock, Palette } from "lucide-react";
+import { Lock, Palette } from "lucide-react";
 import { useEntitlements } from '../hooks/useEntitlements';
 import { FeatureGate } from '../components/FeatureGate';
 import PageBack from "../components/PageBack";
@@ -33,6 +33,7 @@ const CHAMBERS = [
 ];
 
 const TIER_RANK = { base: 0, mid: 1, top: 2 };
+const CANONICAL_TIER_RANK = { free: 0, member: 1, plus: 2, pro: 3, patron: 4, executive: 5 };
 const ROLE_RANK_MAP = { student: 1, trial_pass: 2, instructor: 3, support_staff: 4, oversight: 5, admin: 6, executive_admin: 7 };
 
 // Map chamber tiers to entitlement capabilities
@@ -264,8 +265,16 @@ export default function CreatorStudio() {
   const { user } = useAuth();
   const { theme, colors } = useStudioTheme();
 
-  const [entered, setEntered] = useState(false);
-  const [activeChamber, setActiveChamber] = useState(null);
+  // The suite opens directly into the usable workspace. The previous timed
+  // entry screen hid every control for several seconds and made the page look
+  // like a dead/locked route; the workspace remains available immediately.
+  const [entered, setEntered] = useState(true);
+  const [activeChamber, setActiveChamber] = useState(() => {
+    const params = new URLSearchParams(window.location.search);
+    const requested = params.get('chamber') || params.get('tab');
+    const chamberId = { produce: 'lyric-forge', publish: 'publishing-gate', write: 'lyric-forge' }[requested] || requested;
+    return CHAMBERS.find((chamber) => chamber.id === chamberId) || null;
+  });
   const [activeStage, setActiveStage] = useState(0);
   const [chamberHistory, setChamberHistory] = useState([]);
 
@@ -298,9 +307,13 @@ export default function CreatorStudio() {
   const [showRitualSave, setShowRitualSave] = useState(false);
 
   // Entitlements-based tier system
-  const { tier, hasTier } = useEntitlements();
-  const TIER_LEVELS = { free: 0, creator: 1, pro: 2, studio: 3, director: 4 };
-  const userTierRank = TIER_LEVELS[tier] ?? 0;
+  const { tier } = useEntitlements();
+  // Keep the Studio map aligned with the application's canonical tier ladder.
+  // feature_tier is the authoritative commercial entitlement; membership is
+  // retained as a compatibility fallback for older session payloads.
+  const studioTier = user?.feature_tier || user?.membership?.tier || tier;
+  const userTierRank = CANONICAL_TIER_RANK[studioTier] ?? 0;
+  const canUseStudio = user?.role === 'admin' || user?.role === 'executive_admin' || userTierRank >= CANONICAL_TIER_RANK.plus;
 
   // Save session on unmount
   useEffect(() => {
@@ -336,6 +349,18 @@ export default function CreatorStudio() {
     if (found) openChamber(found);
   }, [openChamber]);
 
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const requested = params.get('chamber') || params.get('tab');
+    const chamberId = { produce: 'lyric-forge', publish: 'publishing-gate', write: 'lyric-forge' }[requested] || requested;
+    if (!chamberId) return;
+    const found = CHAMBERS.find((candidate) => candidate.id === chamberId);
+    if (found) {
+      setEntered(true);
+      setActiveChamber(found);
+    }
+  }, []);
+
   const handleSave = useCallback(() => {
     studioSound.play('save_ritual');
     saveProjects(projects);
@@ -351,7 +376,8 @@ export default function CreatorStudio() {
 
   return (
     <>
-      {/* Entry screen */}
+      {/* Optional ceremonial entry screen: retained for existing callers, but
+          the studio itself is immediately usable on first load. */}
       {!entered && <EntryScreen onEnter={() => setEntered(true)} />}
 
       {/* Sovereign voice sidebar */}
@@ -383,14 +409,8 @@ export default function CreatorStudio() {
           background: "rgba(0,0,0,0.35)",
           position: "sticky", top: 0, zIndex: 20,
         }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
-            <Link to="/dashboard" style={{ color: "rgba(255,255,255,0.4)", textDecoration: "none", fontSize: 12, fontFamily: "monospace", letterSpacing: "0.05em" }}>
-              Home
-            </Link>
-            <div style={{ width: 1, height: 16, background: "rgba(255,255,255,0.1)" }} />
-            <Link to="/profile" style={{ color: "rgba(255,255,255,0.4)", textDecoration: "none", display: "flex", alignItems: "center", gap: 6, fontSize: 12, fontFamily: "monospace", letterSpacing: "0.05em" }}>
-              <ArrowLeft style={{ width: 14, height: 14 }} /> My Profile
-            </Link>
+          <div style={{ display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
+            <PageBack to="/dashboard" label="Dashboard" />
             <div style={{ width: 1, height: 16, background: "rgba(255,255,255,0.1)" }} />
             {[
               { label: "Social Blast", to: "/social/publish" },
@@ -463,7 +483,7 @@ export default function CreatorStudio() {
             </button>
 
             <div style={{ fontSize: 11, fontFamily: "monospace", color: "rgba(255,255,255,0.3)", background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", padding: "3px 10px", borderRadius: 20 }}>
-              {tier?.toUpperCase() || 'FREE'} TIER
+              {studioTier?.toUpperCase() || 'FREE'} TIER
             </div>
           </div>
         </div>
@@ -485,20 +505,15 @@ export default function CreatorStudio() {
               style={{ background: "none", border: "none", color: "rgba(255,255,255,0.25)", cursor: "pointer", fontSize: 14, marginLeft: 4 }}
             >×</button>
           </div>
-        )}
-
-        <div style={{ padding: "28px 28px 20px" }}>
-          <div style={{ marginBottom: 16 }}>
-            <PageBack to="/dashboard" label="Dashboard" />
-          </div>
+        )}          <div style={{ padding: "28px 28px 20px" }}>
           {/* Chamber map */}
           <div style={{ marginBottom: activeChamber ? 24 : 0 }}>
-            <div style={{ fontSize: 10, fontFamily: "monospace", letterSpacing: "0.2em", textTransform: "uppercase", color: `${colors.primary}80`, marginBottom: 14 }}>
+            <div style={{ fontSize: 10, fontFamily: "monospace", letterSpacing: "0.2em", textTransform: "uppercase", color: `${colors.primary}cc`, marginBottom: 14 }}>
               ◈ The Sacred Map — Select a Chamber
             </div>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))", gap: 12, maxWidth: 900 }}>
               {CHAMBERS.map(chamber => {
-                const locked = TIER_RANK[chamber.tier] > userTierRank && !hasTier('studio');
+                const locked = TIER_RANK[chamber.tier] > userTierRank && !canUseStudio;
                 return (
                   <ChamberCard
                     key={chamber.id}
