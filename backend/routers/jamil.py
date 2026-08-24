@@ -208,6 +208,26 @@ async def jamil_chat_server(
 
     return {"reply": reply}
 
+@router.get("/jamil/history")
+async def jamil_history(user: User = Depends(_dep_current_user), limit: int = 60):
+    """Jamil's conversation history for the current operator — so the chat
+    syncs across sessions/devices instead of living only in localStorage.
+
+    Admin/exec-only surface like the rest of /jamil/*; the FCC middleware
+    enforces the registry classification.
+    """
+    limit = max(1, min(int(limit), 200))
+    try:
+        records = await db.jamil_history.find(
+            {"user_id": str(getattr(user, "id", "") or getattr(user, "_id", ""))},
+            {"_id": 0, "message": 1, "files": 1, "reply": 1, "timestamp": 1},
+        ).sort("timestamp", -1).limit(limit).to_list(limit)
+        records.reverse()  # chronological order for the chat UI
+        return {"history": records}
+    except Exception:
+        return {"history": []}
+
+
 @router.post("/jamil/speak")
 async def jamil_speak_server(body: dict, user: User = Depends(_dep_current_user)):
     """Server-side TTS disabled. Returns text for browser TTS (free, zero cost)."""

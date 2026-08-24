@@ -90,7 +90,7 @@ function Thinking() {
   );
 }
 
-export default function Jamil() {
+export function JamilChat({ embedded = false }) {
   const { user } = useAuth();
   const [messages, setMessages] = useState(() => loadMessages());
   const [input, setInput] = useState("");
@@ -108,6 +108,24 @@ export default function Jamil() {
 
   useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages, loading]);
   useEffect(() => { saveMessages(messages); }, [messages]);
+
+  // Server-side sync — restore history from /jamil/history so conversations
+  // follow the operator across sessions/devices (backend persists jamil_history).
+  useEffect(() => {
+    api.get("/jamil/history?limit=60")
+      .then(({ data }) => {
+        const records = data.history || [];
+        if (!records.length) return;
+        const restored = records.flatMap(r => [
+          { role: "user", content: r.message || "", files: r.files || [], id: `h-${r.timestamp}-u` },
+          { role: "jamil", content: r.reply || "", id: `h-${r.timestamp}-a` },
+        ]).filter(m => m.content || m.files?.length);
+        if (!restored.length) return;
+        setMessages(prev => restored.length > prev.length ? restored : prev);
+      })
+      .catch(() => {});
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const addFiles = (newFiles) => {
     setFiles(prev => {
@@ -223,7 +241,11 @@ export default function Jamil() {
   const isEmpty = messages.length === 0 && !loading;
 
   return (
-    <div style={{ minHeight: "100vh", background: BONE, display: "flex", flexDirection: "column" }}>
+    <div style={{
+      height: embedded ? "100%" : "100vh",
+      minHeight: embedded ? 0 : "100vh",
+      background: BONE, display: "flex", flexDirection: "column",
+    }}>
 
       {/* Header */}
       <header style={{
@@ -360,4 +382,8 @@ export default function Jamil() {
       )}
     </div>
   );
+}
+
+export default function Jamil() {
+  return <JamilChat />;
 }

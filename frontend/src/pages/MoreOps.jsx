@@ -14,6 +14,7 @@ import {
 import PlatformDashboard from "../components/PlatformDashboard";
 import { v4 as uuidv4 } from "uuid";
 import { useMic } from "../hooks/useMic";
+import { JamilChat } from "./Jamil";
 
 const LS_SESSION_KEY  = "more_ops_session_id";
 const LS_MESSAGES_KEY = "more_ops_messages";
@@ -317,10 +318,11 @@ function UploadSellPanel({ user }) {
   );
 }
 
-export default function MoreOps() {
+export function MoreOpsContent({ embedded = false }) {
   const { user } = useAuth();
   const [sessionId] = useState(getStableSessionId);
   const [dept, setDept] = useState("");
+  const [view, setView] = useState("dept"); // "dept" | "jamil"
   const [input, setInput] = useState("");
   // Main tab state
   const [mainTab, setMainTab] = useState("chat"); // "chat" | "dashboard" | "upload"
@@ -546,9 +548,8 @@ export default function MoreOps() {
 
   const activeDept = DEPARTMENTS.find((d) => d.id === dept) || DEPARTMENTS[0];
 
-  return (
-    <AppShell>
-      <div className="flex h-[calc(100vh-4rem)] overflow-hidden">
+  const body = (
+    <div className={embedded ? "flex h-full overflow-hidden" : "flex h-[calc(100vh-4rem)] overflow-hidden"}>
         {/* Sidebar — department selector */}
         <aside className="w-64 flex-shrink-0 border-r border-ink/10 flex flex-col bg-bone overflow-y-auto">
           <div className="p-4 border-b border-ink/10">
@@ -557,13 +558,29 @@ export default function MoreOps() {
             <p className="text-xs text-ink/50 mt-1">13 specialized personas. One intelligence.</p>
           </div>
           <nav className="flex-1 p-3 space-y-1">
+            {/* Director Jamil — the Supervisor, inside M.O.R.E. Ops */}
+            <button
+              onClick={() => setView("jamil")}
+              className={`w-full text-left px-3 py-2.5 rounded-lg flex items-start gap-3 transition-colors ${
+                view === "jamil"
+                  ? "bg-copper/10 border border-copper/30"
+                  : "hover:bg-ink/5 border border-transparent"
+              }`}
+            >
+              <Crown className={`w-4 h-4 mt-0.5 flex-shrink-0 ${view === "jamil" ? "text-copper" : "text-ink/40"}`} />
+              <div>
+                <div className={`text-sm font-bold ${view === "jamil" ? "text-copper" : "text-ink"}`}>Director Jamil</div>
+                <div className="text-xs text-ink/40 leading-snug mt-0.5">The Supervisor — all domains, files, voice</div>
+              </div>
+            </button>
+            <div className="pt-3 pb-1 text-[10px] font-black uppercase tracking-widest text-ink/30">Departments</div>
             {DEPARTMENTS.map((d) => {
               const Icon = d.icon;
-              const active = dept === d.id;
+              const active = dept === d.id && view === "dept";
               return (
                 <button
                   key={d.id}
-                  onClick={() => setDept(d.id)}
+                  onClick={() => { setDept(d.id); setView("dept"); }}
                   className={`w-full text-left px-3 py-2.5 rounded-lg flex items-start gap-3 transition-colors ${
                     active
                       ? "bg-copper/10 border border-copper/30"
@@ -623,10 +640,16 @@ export default function MoreOps() {
                   <Upload className="w-3.5 h-3.5" /> Upload &amp; Sell
                 </button>
               </div>
-              {mainTab === "chat" && (
+              {mainTab === "chat" && view === "dept" && (
                 <div className="flex items-center gap-2">
                   <activeDept.icon className="w-4 h-4 text-copper" />
                   <span className="text-ink/60 text-sm hidden sm:block">{activeDept.label}</span>
+                </div>
+              )}
+              {mainTab === "chat" && view === "jamil" && (
+                <div className="flex items-center gap-2">
+                  <Crown className="w-4 h-4 text-copper" />
+                  <span className="text-ink/60 text-sm hidden sm:block">Director Jamil</span>
                 </div>
               )}
             </div>
@@ -677,8 +700,15 @@ export default function MoreOps() {
             </div>
           )}
 
+          {/* Director Jamil — embedded inside M.O.R.E. Ops */}
+          {mainTab === "chat" && view === "jamil" && (
+            <div className="flex-1 overflow-hidden">
+              <JamilChat embedded />
+            </div>
+          )}
+
           {/* Messages */}
-          {mainTab === "chat" && <div className="flex-1 overflow-y-auto px-6 py-6 space-y-5">
+          {mainTab === "chat" && view === "dept" && <div className="flex-1 overflow-y-auto px-6 py-6 space-y-5">
             {messages.length === 0 && (
               <div className="flex flex-col items-center justify-center h-full text-center space-y-3">
                 <Bot className="w-12 h-12 text-copper/50" />
@@ -746,7 +776,7 @@ export default function MoreOps() {
           />
 
           {/* Track player panel + input — chat tab only */}
-          {mainTab === "chat" && trackOpen && (
+          {mainTab === "chat" && view === "dept" && trackOpen && (
             <div className="flex-shrink-0 border-t border-violet-200 bg-violet-50 px-6 py-4 space-y-3">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-bold text-violet-700 uppercase tracking-widest flex items-center gap-1.5">
@@ -857,7 +887,7 @@ export default function MoreOps() {
           )}
 
           {/* Input — chat tab only */}
-          {mainTab === "chat" && <div className="flex-shrink-0 border-t border-ink/10 bg-white px-6 py-4">
+          {mainTab === "chat" && view === "dept" && <div className="flex-shrink-0 border-t border-ink/10 bg-white px-6 py-4">
             <div className="flex items-end gap-3">
               {/* Mic button */}
               <button
@@ -917,6 +947,11 @@ export default function MoreOps() {
           </div>}
         </div>
       </div>
-    </AppShell>
   );
+
+  return embedded ? body : <AppShell>{body}</AppShell>;
+}
+
+export default function MoreOps() {
+  return <MoreOpsContent />;
 }
