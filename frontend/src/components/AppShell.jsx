@@ -99,6 +99,7 @@ const CUSTOMER_TIERS = [
     tier: "free", label: "Free",
     items: [
       { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard, testid: "nav-dashboard" },
+      { to: "/studio", label: "Creator Studio", icon: Music, testid: "nav-creator-studio" },
       { to: "/ai", label: "AI Tutor", icon: Sparkles, testid: "nav-ai" },
       { to: "/helper", label: "Personal Helper", icon: HelpCircle, testid: "nav-helper" },
       { to: "/site-guide", label: "Site Guide", icon: Map, testid: "nav-site-guide" },
@@ -138,7 +139,6 @@ const CUSTOMER_TIERS = [
     tier: "plus", label: "Plus", price: "$15",
     features: "Studio · Courses · Ghost · Band · Sanctuary · Learning Path · Earnings",
     items: [
-      { to: "/studio", label: "Creator Studio", icon: Music, testid: "nav-creator-studio" },
       { to: "/studio/music", label: "Music Studio", icon: Music4, testid: "nav-music-studio" },
       { to: "/creator/courses", label: "Course Manager", icon: Video, testid: "nav-creator-courses" },
       { to: "/ghost-producer", label: "Ghost Producer", icon: Palette, testid: "nav-ghost-producer" },
@@ -412,7 +412,7 @@ export default function AppShell({ children }) {
                       key={section.tier}
                       label={section.label}
                       collapsed={collapsed}
-                      defaultOpen={section.tier === tier}
+                      defaultOpen={true}
                       badge={section.tier === tier ? "You" : null}
                     >
                       {section.items.map((item) => nl(item.to, item.label, item.icon, item.testid))}
