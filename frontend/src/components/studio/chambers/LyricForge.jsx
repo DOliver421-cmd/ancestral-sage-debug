@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { toast } from "sonner";
 import { Wand2, Copy, Check, RefreshCw } from "lucide-react";
 
@@ -6,15 +6,19 @@ const STYLES = ["Hip-Hop", "R&B", "Gospel", "Spoken Word", "Trap", "Neo-Soul", "
 const MOODS = ["Triumphant", "Reflective", "Angry", "Joyful", "Melancholic", "Spiritual", "Romantic", "Raw", "Peaceful"];
 const STRUCTURES = ["Verse", "Hook / Chorus", "Bridge", "Full Song (V/C/V/C/B/C)", "Freestyle Bars", "Intro / Outro"];
 
-export default function LyricForge({ tier = "base", sovereignDispatch, onResult }) {
+export default function LyricForge({ tier = "base", sovereignDispatch, artifact }) {
   const [form, setForm] = useState({ topic: "", genre: "Hip-Hop", mood: "Triumphant", structure: "Verse", notes: "" });
   const [result, setResult] = useState("");
   const [loading, setLoading] = useState(false);
   const [copied, setCopied] = useState(false);
 
-  // Sovereign delivers the AI output back here via onResult / artifact callback
-  // But also accept direct result prop for when Sovereign sends artifact
-  useState(() => { if (onResult) onResult(setResult); }, []);
+  // Sovereign delivers the generated lyrics back through CreatorStudio.
+  useEffect(() => {
+    if (artifact) {
+      setResult(artifact);
+      setLoading(false);
+    }
+  }, [artifact]);
 
   const generate = async () => {
     if (!form.topic.trim()) { toast.error("Give me a topic or concept to write about."); return; }

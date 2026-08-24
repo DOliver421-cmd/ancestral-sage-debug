@@ -263,7 +263,10 @@ function encodeWav(buffer, sampleRate) {
 // ── Studio ───────────────────────────────────────────────────────────────────
 export function StudioContent({ embedded = false }) {
   const { user } = useAuth();
-  const [tab, setTab] = useState("beat");
+  const [tab, setTab] = useState(() => {
+    const requested = new URLSearchParams(window.location.search).get("tab");
+    return ["beat", "keys", "publish"].includes(requested) ? requested : "beat";
+  });
 
   // Shared project state
   const [kitId, setKitId] = useState("southern-soul");
