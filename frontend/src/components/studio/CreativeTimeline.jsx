@@ -1,15 +1,16 @@
 import { studioSound } from "./SoundSystem";
 
-const STAGES = ['Idea', 'Draft', 'Version', 'Asset', 'Final', 'Publish', 'Monetize'];
+// The design's workflow: vision → forge → produce → design → write → publish.
+// Each stage jumps the creator straight into the chamber that does that work.
+const STAGES = ['Vision', 'Lyric Forge', 'Sound Lab', 'Visual Altar', 'Script', 'Publish'];
 
 const STAGE_CHAMBERS = {
   0: '/studio',
   1: 'lyric-forge',
-  2: 'vault',
+  2: 'sound-lab',
   3: 'visual-altar',
   4: 'script',
   5: 'publishing-gate',
-  6: 'marketplace',
 };
 
 export default function CreativeTimeline({ activeStage = 0, onStageClick, onChamberJump }) {
