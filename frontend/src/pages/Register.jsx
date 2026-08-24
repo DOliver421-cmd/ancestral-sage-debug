@@ -1,17 +1,32 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../lib/auth";
+import { api } from "../lib/api";
 import { WAI_LOGO, BRAND } from "../lib/brand";
 import { toast } from "sonner";
-import { ArrowRight, Heart, CheckCircle, ExternalLink } from "lucide-react";
+import { ArrowRight, Heart, CheckCircle, ExternalLink, TicketPercent } from "lucide-react";
 import { isWaiDoor, MORE_HOME } from "../lib/domain";
 
 export default function Register() {
   const waiDoor = isWaiDoor();
   const { register } = useAuth();
   const nav = useNavigate();
-  const [form, setForm] = useState({ full_name: "", email: "", password: "", associate: "Associate-Alpha", agreed_terms: false, over_13: false });
+  const [form, setForm] = useState({ full_name: "", email: "", password: "", associate: "Associate-Alpha", agreed_terms: false, over_13: false, promo_code: "" });
   const [loading, setLoading] = useState(false);
+  const [promoStatus, setPromoStatus] = useState(null);
+
+  // Optional promo preview — the backend is the source of truth at submit time.
+  const checkPromo = async () => {
+    const code = form.promo_code.trim();
+    if (!code) { setPromoStatus(null); return; }
+    try {
+      const { data } = await api.post("/promo/validate", { code });
+      setPromoStatus({ ok: data.valid, message: data.message });
+    } catch {
+      // Backend unreachable — real validation happens at submit; don't block typing.
+      setPromoStatus(null);
+    }
+  };
 
   const submit = async (e) => {
     e.preventDefault();
@@ -25,7 +40,12 @@ export default function Register() {
     setLoading(true);
     try {
       const u = await register(form);
-      toast.success(`Welcome, ${u.full_name}!`);
+      if (u?.feature_tier && u.feature_tier !== "free") {
+        const label = u.feature_tier.charAt(0).toUpperCase() + u.feature_tier.slice(1);
+        toast.success(`Welcome, ${u.full_name}! Your ${label} account is active.`);
+      } else {
+        toast.success(`Welcome, ${u.full_name}!`);
+      }
       // Straight to BYOK onboarding: every new account is immediately told about
       // the $3 one-time AI unlock and can attach a free provider key — no hunting.
       nav("/byok");
@@ -150,6 +170,28 @@ export default function Register() {
                 data-testid="input-password"
               />
               <p className="text-xs text-ink/50 mt-2">Use a strong password to protect your account</p>
+            </div>
+
+            {/* Promo code (optional) */}
+            <div>
+              <label className="block overline text-ink/60 mb-3">Promo Code <span className="normal-case font-normal text-ink/40">(optional)</span></label>
+              <div className="relative">
+                <TicketPercent className="w-4 h-4 text-copper/60 absolute left-3 top-1/2 -translate-y-1/2" />
+                <input
+                  type="text"
+                  value={form.promo_code}
+                  onChange={(e) => setForm({ ...form, promo_code: e.target.value })}
+                  onBlur={checkPromo}
+                  placeholder="Have a promo code?"
+                  className="w-full pl-9 pr-4 py-3 bg-white border border-ink/20 rounded focus:border-copper focus:outline-none focus:ring-2 focus:ring-copper/30 transition-all"
+                  data-testid="input-promo"
+                />
+              </div>
+              {promoStatus && (
+                <p className={`text-xs mt-2 font-medium ${promoStatus.ok ? "text-green-700" : "text-red-600"}`} data-testid="promo-status">
+                  {promoStatus.ok ? `✓ ${promoStatus.message}` : promoStatus.message}
+                </p>
+              )}
             </div>
 
             {/* Hidden: Associate field (keep for compatibility) */}

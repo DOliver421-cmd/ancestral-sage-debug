@@ -13,7 +13,7 @@ import {
   UserCircle, WifiOff, Music, Mic, Palette, FileText,
   Gamepad2, Star, Radio, Globe, Swords, ChevronLeft, ChevronRight, Share2,
   Map, BrainCircuit, CreditCard, BarChart3, Wrench, Server, ExternalLink,
-  Lock, Search, HeartPulse, Landmark,
+  Lock, Search, HeartPulse, Landmark, TicketPercent, Menu,
 } from "lucide-react";
 import { isWaiDoor, MORE_HOME } from "../lib/domain";
 import NotificationBell from "./NotificationBell";
@@ -181,6 +181,7 @@ const STAFF_SECTIONS = [
       { to: "/admin/payments", label: "Payments", icon: Receipt, testid: "nav-admin-payments" },
       { to: "/admin/billing", label: "Billing", icon: CreditCard, testid: "nav-billing" },
       { to: "/admin/prices", label: "Prices", icon: Star, testid: "nav-prices" },
+      { to: "/admin/promo-codes", label: "Promo Codes", icon: TicketPercent, testid: "nav-promo-codes" },
       { to: "/revenue", label: "Revenue", icon: BarChart3, testid: "nav-revenue" },
       { to: "/admin/analytics", label: "Analytics", icon: TrendingUp, testid: "nav-analytics" },
       { to: "/admin/audit", label: "Audit Log", icon: ScrollText, testid: "nav-audit" },
@@ -213,6 +214,11 @@ export default function AppShell({ children }) {
   const [collapsed, setCollapsed] = useState(() => {
     try { return localStorage.getItem("sidebar_collapsed") === "true"; } catch { return false; }
   });
+  // Mobile: the sidebar is an off-canvas drawer below the lg breakpoint.
+  const [mobileOpen, setMobileOpen] = useState(false);
+
+  // Close the drawer whenever the user navigates (each NavLink already scrolls to top).
+  useEffect(() => { setMobileOpen(false); }, [loc.pathname]);
 
   const waiDoor = isWaiDoor();
 
@@ -271,11 +277,15 @@ export default function AppShell({ children }) {
   return (
     <div className="flex min-h-screen bg-ink">
       {/* ── Sidebar ────────────────────────────────────────────────────── */}
+      {/* Mobile backdrop — closes the drawer when tapping outside it. */}
+      {mobileOpen && (
+        <div className="fixed inset-0 z-40 bg-black/60 lg:hidden" onClick={() => setMobileOpen(false)} data-testid="sidebar-backdrop" />
+      )}
       <aside
         data-testid="app-shell-sidebar"
-        className={`shrink-0 flex flex-col border-r border-white/10 bg-surface overflow-y-auto transition-all ${
-          collapsed ? "w-[54px]" : "w-[240px]"
-        }`}
+        className={`fixed lg:static inset-y-0 left-0 z-50 shrink-0 flex flex-col border-r border-white/10 bg-surface overflow-y-auto transition-transform lg:transition-none shadow-2xl lg:shadow-none w-[240px] ${
+          mobileOpen ? "translate-x-0" : "-translate-x-full"
+        } lg:translate-x-0 ${collapsed ? "lg:w-[54px]" : "lg:w-[240px]"}`}
       >
         {/* Header */}
         <div className={`shrink-0 flex items-center gap-2 py-4 border-b border-white/10 ${collapsed ? "justify-center px-1" : "px-4"}`}>
@@ -287,12 +297,12 @@ export default function AppShell({ children }) {
             </div>
           )}
           <button onClick={toggleCollapsed} data-testid="sidebar-toggle"
-            className={`ml-auto p-1 rounded text-white/30 hover:text-white/70 transition-colors ${collapsed ? "hidden" : ""}`}
+            className={`ml-auto hidden lg:flex p-1 rounded text-white/30 hover:text-white/70 transition-colors ${collapsed ? "hidden" : ""}`}
             title={collapsed ? "Expand sidebar" : "Collapse sidebar"}>
             <ChevronLeft className="w-4 h-4" />
           </button>
           {collapsed && (
-            <button onClick={toggleCollapsed} className="mt-2 p-1 rounded text-white/30 hover:text-white/70 transition-colors">
+            <button onClick={toggleCollapsed} className="mt-2 hidden lg:flex p-1 rounded text-white/30 hover:text-white/70 transition-colors">
               <ChevronRight className="w-4 h-4" />
             </button>
           )}
@@ -487,6 +497,27 @@ export default function AppShell({ children }) {
 
       {/* ── Main content ─────────────────────────────────────────────────── */}
       <div className="flex-1 min-w-0 flex flex-col">
+        {/* Mobile top bar — hamburger + brand (hidden on desktop where the
+            sidebar is always visible). */}
+        <div className="lg:hidden flex items-center gap-3 px-4 py-3 border-b border-white/10 bg-surface shrink-0">
+          <button onClick={() => setMobileOpen(true)} data-testid="mobile-menu-button"
+            className="p-2 -ml-1 rounded-lg text-white/70 hover:text-white hover:bg-white/10 transition-colors"
+            aria-label="Open menu">
+            <Menu className="w-5 h-5" />
+          </button>
+          <Link to="/" className="flex items-center gap-2 min-w-0">
+            <img src={WAI_LOGO} alt={BRAND.short} className="w-7 h-7 object-contain shrink-0" />
+            <div className="min-w-0 leading-none">
+              <div className="text-[10px] font-black uppercase tracking-[0.18em]" style={{ color: "#E8A51E" }}>{BRAND.short}</div>
+              <div className="text-[11px] font-bold truncate text-white/80">{BRAND.name}</div>
+            </div>
+          </Link>
+          {isAuthed && (
+            <Link to="/profile" className="ml-auto p-1.5 rounded-full text-white/60 hover:text-white" data-testid="mobile-profile" aria-label="My profile">
+              <UserCircle className="w-6 h-6" />
+            </Link>
+          )}
+        </div>
         {backendDown && (
           <div className="flex items-center gap-3 px-6 py-3 bg-destructive/10 border-b border-destructive/20" data-testid="backend-offline-banner">
             <WifiOff className="w-4 h-4 text-destructive shrink-0" />

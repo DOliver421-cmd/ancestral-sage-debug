@@ -66,7 +66,7 @@ export default function ModulesList() {
 
   return (
     <AppShell>
-      <div className="relative py-12 px-10"
+      <div className="relative py-10 sm:py-12 px-4 sm:px-10"
         style={{ backgroundImage: "linear-gradient(rgba(10,10,15,0.72), rgba(10,10,15,0.82)), url('https://images.pexels.com/photos/34211750/pexels-photo-34211750.jpeg?auto=compress&cs=tinysrgb&w=1600')", backgroundSize: "cover", backgroundPosition: "center" }}>
         <div className="max-w-6xl mx-auto">
           <div className="overline text-signal">Core Curriculum</div>
@@ -74,7 +74,7 @@ export default function ModulesList() {
           <p className="text-white/70 mt-2 max-w-2xl">Core electrical training, creator-published courses, compliance certifications, and open-access learning — all in one place.</p>
         </div>
       </div>
-      <div className="px-10 py-10 max-w-6xl">
+      <div className="px-4 sm:px-10 py-8 sm:py-10 max-w-6xl">
 
         {/* TABS */}
         <div className="flex gap-2 flex-wrap mt-6">
