@@ -215,13 +215,20 @@ export function useSeoManager() {
     const title = entry.title;
     const desc = entry.desc;
     const url = `${window.location.origin}${path}`;
+    // Door-branded share preview image — the logo card that social platforms
+    // display when a link is shared (WAI door vs. M.O.R.E. door).
+    const ogImage = waiDoor
+      ? "https://www.wai-institute.org/wai-og-1200x630.png"
+      : "https://www.morehelp.center/logo-og-1200x630.png";
 
     document.title = title;
     setMeta("name", "description", desc);
     setMeta("property", "og:title", title);
     setMeta("property", "og:description", desc);
+    setMeta("property", "og:image", ogImage);
     setMeta("property", "og:url", url);
     setMeta("name", "twitter:title", title);
     setMeta("name", "twitter:description", desc);
+    setMeta("name", "twitter:image", ogImage);
   }, [location.pathname, waiDoor]);
 }

@@ -40,6 +40,10 @@ export default function PublicNav() {
             style={{ color: "#f1e9c9", textDecoration: "none", fontSize: 12, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em" }}>
             WAI Institute
           </a>
+          <a href="https://www.facebook.com/groups/waiinstitute" target="_blank" rel="noopener noreferrer"
+            style={{ color: "#f1e9c9", textDecoration: "none", fontSize: 12, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em" }}>
+            Facebook Group
+          </a>
           {user ? (
             <Link
               to="/profile"

@@ -2,8 +2,12 @@ import { Link } from "react-router-dom";
 import { useAuth } from "../lib/auth";
 import { BRAND, WAI_LOGO } from "../lib/brand";
 import PublicNav from "../components/PublicNav";
+import SharePanel from "../components/SharePanel";
 import { PublicHelper } from "./Helper";
-import { Lock } from "lucide-react";
+import { Lock, Share2 } from "lucide-react";
+
+// The WAI Institute community group on Facebook — the mission's home on FB.
+export const FACEBOOK_GROUP_URL = "https://www.facebook.com/groups/waiinstitute";
 
 // The logo D. Oliver provided — kept as a direct public asset reference so it
 // is actually placed on the page instead of only the generated SVG mark.
@@ -105,6 +109,17 @@ export default function UnifiedGateway() {
                   style={{ color: "rgba(255,255,255,0.4)", fontSize: 14, fontWeight: 600, display: "flex", alignItems: "center", paddingTop: 14 }}>
                   Log in →
                 </Link>
+                <SharePanel
+                  compact
+                  url="/"
+                  title="M.O.R.E. Help Center — Creator economy. Cultural expression. Economic dignity."
+                  trigger={
+                    <span className="inline-flex items-center gap-2 font-bold text-sm px-8 py-4 rounded-xl border"
+                      style={{ borderColor: "rgba(255,255,255,0.25)", color: "rgba(255,255,255,0.85)", fontSize: 15 }}>
+                      <Share2 size={16} /> Share
+                    </span>
+                  }
+                />
               </>
             ) : (
               <>
@@ -395,6 +410,7 @@ export default function UnifiedGateway() {
             ))}
             {[
               ["WAI Institute", "https://www.wai-institute.org"],
+              ["Facebook Group", "https://www.facebook.com/groups/waiinstitute"],
               ["Donate", "/donate"],
               ["Privacy", "/privacy"],
               ["Terms", "/terms"],
