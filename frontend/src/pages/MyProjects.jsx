@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useState } from "react";
 import AppShell from "../components/AppShell";
+import { useAuth } from "../lib/auth";
 import { api } from "../lib/api";
 import { toast } from "sonner";
 import {
   Plus, Loader2, Send, Check, X, RotateCcw, MessageSquare, Sparkles,
-  Archive, ChevronDown, ChevronUp,
+  Archive, ChevronDown, ChevronUp, KeyRound,
 } from "lucide-react";
 
 const GREEN = "#1B4332";
@@ -75,6 +76,9 @@ function StageDots({ current }) {
 }
 
 export default function MyProjects() {
+  const { user } = useAuth();
+  const hasBYOK = !!user?.byok_enabled;
+
   const [projects, setProjects] = useState([]);
   const [summary, setSummary] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -408,6 +412,20 @@ export default function MyProjects() {
                           <div className="text-xs font-black uppercase tracking-widest mb-2" style={{ color: COPPER }}>
                             Hand the current stage to the team
                           </div>
+                          {!hasBYOK ? (
+                            <div className="rounded-lg p-4 text-center" style={{ background: "rgba(178,58,46,0.06)", border: "1px solid rgba(178,58,46,0.2)" }}>
+                              <KeyRound className="w-6 h-6 mx-auto mb-2" style={{ color: COPPER }} />
+                              <div className="font-heading font-bold text-ink text-sm">BYOK key required</div>
+                              <p className="text-xs text-ink/55 mt-1 max-w-sm mx-auto">
+                                AI runs use your own API key — the platform never funds customer AI.
+                                Activate a free key (Groq, Cerebras, or Gemini) for $3 and your calls route through your key.
+                              </p>
+                              <a href="/byok" className="inline-flex items-center gap-1.5 mt-3 px-4 py-2 rounded-lg text-xs font-black uppercase tracking-widest text-white" style={{ background: GREEN }}>
+                                <KeyRound className="w-3.5 h-3.5" /> Activate BYOK
+                              </a>
+                            </div>
+                          ) : (
+                          <>
                           <select
                             value={run.persona}
                             onChange={(e) => setRun({ ...run, persona: e.target.value })}
@@ -430,9 +448,11 @@ export default function MyProjects() {
                               {running ? "Working…" : "Run it"}
                             </button>
                             <span className="text-[10px] font-bold uppercase tracking-widest text-ink/40">
-                              {runsLeft} runs left today · result lands pending for your review
+                              {runsLeft} runs left today · your key · result pending your review
                             </span>
                           </div>
+                          </>
+                          )}
                         </div>
                       )}
                     </div>

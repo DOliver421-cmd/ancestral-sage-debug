@@ -8,7 +8,8 @@ import os
 import jwt as pyjwt
 import pytest
 from datetime import datetime, timedelta, timezone
-from unittest.mock import MagicMock, AsyncMock
+from unittest.mock import MagicMock, AsyncMock, patch
+from bson import ObjectId
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
@@ -116,11 +117,46 @@ async def test_daily_runs_left_counts_only_todays_auto_runs():
 
 
 @pytest.mark.asyncio
+async def test_run_stage_blocked_without_byok():
+    """Member without BYOK cannot run AI — gets 403, not platform tokens."""
+    db = MagicMock()
+    project_doc = {
+        "_id": ObjectId(),
+        "owner_id": "u-123",
+        "current_stage": "execute",
+        "status": "active",
+        "context": {"brief": "test"},
+        "deliverables": [],
+        "packet": {"ai_team": ["Production"]},
+    }
+    db.member_projects.find_one = AsyncMock(return_value=project_doc)
+    db.member_projects.find = MagicMock(return_value=MagicMock(to_list=AsyncMock(return_value=[]) ))
+    user = mp.MemberUser(id="u-123", role="student", tier="member", full_name="Test")
+    body = mp.StageRun(persona="Production", instructions="")
+    req = _fake_request(db=db)
+    # Mock byok.resolve_byok to return None (user has no BYOK key)
+    with patch("byok.resolve_byok", new_callable=AsyncMock, return_value=None):
+        with pytest.raises(Exception) as exc:
+            await mp.run_stage(
+                project_id=str(project_doc["_id"]),
+                body=body,
+                user=user,
+                request=req,
+            )
+        assert exc.value.status_code == 403
+        assert "BYOK" in exc.value.detail
+
+
+@pytest.mark.asyncio
 async def test_create_project_enforces_active_cap():
     db = MagicMock()
     db.member_projects.count_documents = AsyncMock(return_value=mp.MAX_ACTIVE_PROJECTS)
     user = mp.MemberUser(id="u-123", role="student", tier="member", full_name="Test")
-    body = mp.MemberProjectCreate(title="Launch my podcast", brief="A 10-episode launch plan for a community podcast.", category="launch")
+    body = mp.MemberProjectCreate(
+        title="Launch my podcast",
+        brief="A 10-episode launch plan for a community podcast.",
+        category="launch",
+    )
     req = _fake_request(db=db)
     with pytest.raises(Exception) as exc:
         await mp.create_project(body, user=user, request=req)

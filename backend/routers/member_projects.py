@@ -465,6 +465,26 @@ async def run_stage(
         for d in deliverables[-8:]
     )
 
+    # ── BYOK required — platform-funded AI is staff ONLY ────────────────────
+    # The gateway's policy guard (line ~596) returns a KB fallback for non-staff
+    # even when user_id IS passed, so this explicit check is a clear UX layer on
+    # top: the member sees a helpful message instead of a silent downgrade.
+    byok_key = None
+    try:
+        from byok import resolve_byok as _resolve_byok
+        byok_key = await _resolve_byok(user.id)
+    except Exception:
+        pass
+    if not byok_key:
+        raise HTTPException(
+            status_code=403,
+            detail=(
+                "AI runs require your own API key (BYOK). The platform never funds "
+                "customer AI — activate a free BYOK key (Groq, Cerebras, or Gemini "
+                "at /byok) and your calls route through your own key."
+            ),
+        )
+
     try:
         from ai.llm_gateway import call_llm
         result = await call_llm(
@@ -472,6 +492,7 @@ async def run_stage(
             messages=[{"role": "user", "content": _stage_prompt(doc, stage, ctx_lines, prior, body.instructions)}],
             max_tokens=body.max_tokens,
             persona_label="member_project",
+            user_id=user.id,
         )
     except Exception as e:
         raise HTTPException(status_code=503, detail=f"AI stage execution unavailable: {e}")
