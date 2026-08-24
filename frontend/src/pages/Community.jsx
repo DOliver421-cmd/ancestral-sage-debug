@@ -28,6 +28,12 @@ export default function Community() {
   return (
     <div className="min-h-screen bg-bone">
       <PublicNav />
+      <div className="relative py-12 px-6 border-b border-ink/10"
+        style={{ backgroundImage: "linear-gradient(rgba(10,10,15,0.72), rgba(10,10,15,0.82)), url('https://images.pexels.com/photos/5399008/pexels-photo-5399008.jpeg?auto=compress&cs=tinysrgb&w=1600')", backgroundSize: "cover", backgroundPosition: "center" }}>
+        <div className="max-w-5xl mx-auto">
+          <div className="overline" style={{ color: "var(--wai-purple)" }}>Mutual Aid</div>
+        </div>
+      </div>
       <div className="max-w-5xl mx-auto px-6 py-10">
         <BackButton to="/" />
         <div className="mt-6 text-center">

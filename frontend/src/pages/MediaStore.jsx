@@ -675,13 +675,14 @@ export default function MediaStore() {
     <AppShell>
       <div className="min-h-screen bg-[#f5f0e8]">
         {/* Header */}
-        <div className="bg-white border-b border-[#b5651d]/15 px-4 py-6">
+        <div className="relative px-4 py-10"
+          style={{ backgroundImage: "linear-gradient(rgba(10,10,15,0.76), rgba(10,10,15,0.86)), url('https://images.pexels.com/photos/5399008/pexels-photo-5399008.jpeg?auto=compress&cs=tinysrgb&w=1600')", backgroundSize: "cover", backgroundPosition: "center" }}>
           <div className="max-w-5xl mx-auto">
             <div className="flex items-center gap-3 mb-1">
-              <Music size={22} className="text-[#b5651d]" />
-              <h1 className="text-2xl font-bold text-[#1a1a1a]">Store</h1>
+              <Music size={22} className="text-[#E8A51E]" />
+              <h1 className="text-2xl font-bold text-white">Store</h1>
             </div>
-            <p className="text-[#1a1a1a]/50 text-sm">Music, albums, PDFs — directly from the creator</p>
+            <p className="text-white/70 text-sm">Music, albums, PDFs — directly from the creator</p>
           </div>
         </div>
 

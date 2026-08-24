@@ -26,8 +26,9 @@ export default function Register() {
     try {
       const u = await register(form);
       toast.success(`Welcome, ${u.full_name}!`);
-      // Land on the landing page after sign-up — they choose where to go from there.
-      nav("/");
+      // Straight to BYOK onboarding: every new account is immediately told about
+      // the $3 one-time AI unlock and can attach a free provider key — no hunting.
+      nav("/byok");
     } catch (err) {
       const status = err?.response?.status;
       if (status >= 500) {

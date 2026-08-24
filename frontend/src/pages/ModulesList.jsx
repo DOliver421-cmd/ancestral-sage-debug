@@ -66,11 +66,15 @@ export default function ModulesList() {
 
   return (
     <AppShell>
+      <div className="relative py-12 px-10"
+        style={{ backgroundImage: "linear-gradient(rgba(10,10,15,0.72), rgba(10,10,15,0.82)), url('https://images.pexels.com/photos/34211750/pexels-photo-34211750.jpeg?auto=compress&cs=tinysrgb&w=1600')", backgroundSize: "cover", backgroundPosition: "center" }}>
+        <div className="max-w-6xl mx-auto">
+          <div className="overline text-signal">Core Curriculum</div>
+          <h1 className="font-heading text-3xl sm:text-4xl font-black text-white mt-2">Learn. Build. Credential.</h1>
+          <p className="text-white/70 mt-2 max-w-2xl">Core electrical training, creator-published courses, compliance certifications, and open-access learning — all in one place.</p>
+        </div>
+      </div>
       <div className="px-10 py-10 max-w-6xl">
-        {/* HEADER */}
-        <div className="overline text-copper">Course Catalogue</div>
-        <h1 className="font-heading text-4xl font-bold mt-2">Learn. Build. Credential.</h1>
-        <p className="text-ink/60 mt-2 max-w-2xl">Core electrical training, creator-published courses, compliance certifications, and open-access learning — all in one place.</p>
 
         {/* TABS */}
         <div className="flex gap-2 flex-wrap mt-6">
@@ -96,16 +100,23 @@ export default function ModulesList() {
             <div className="mt-3 flex flex-wrap gap-5 text-sm">
               <a href={`${BACKEND_URL}/api/handbooks/instructor`} target="_blank" rel="noopener noreferrer" className="font-bold text-copper hover:underline">📘 Instructor Handbook →</a>
               <a href={`${BACKEND_URL}/api/handbooks/student`} target="_blank" rel="noopener noreferrer" className="font-bold text-copper hover:underline">📕 Student Handbook →</a>
-              <Link to="/ascension-protocols" className="font-bold text-copper hover:underline">🌱 Ascension Protocols (free) →</Link>
+              {user ? (
+                <Link to="/ascension-protocols" className="font-bold text-copper hover:underline">🌱 Ascension Protocols (free) →</Link>
+              ) : (
+                <Link to="/register" className="font-bold text-copper hover:underline">🌱 Ascension Protocols (free for members) →</Link>
+              )}
             </div>
 
         <div className="grid md:grid-cols-2 gap-5 mt-10">
           {modules.map((m) => {
             const p = bySlug[m.slug];
             const isFree = m.free;
-            const isLocked = !isFree && !user;
-            const badge = p?.status === "completed" ? "badge-signal" : p?.status === "in_progress" ? "badge-copper" : isFree ? "badge-signal" : "badge-outline";
-            const label = p?.status === "completed" ? "Completed" : p?.status === "in_progress" ? "In Progress" : isFree ? "FREE" : user ? "Not Started" : "Enroll to Unlock";
+            // Course CONTENT is never public — every module requires a registered
+            // account (GET /modules/{slug} is auth-gated). "FREE" means "included in
+            // the free tier once you're signed in", not "browseable logged out".
+            const isLocked = !user;
+            const badge = p?.status === "completed" ? "badge-signal" : p?.status === "in_progress" ? "badge-copper" : !user ? "badge-outline" : isFree ? "badge-signal" : "badge-outline";
+            const label = p?.status === "completed" ? "Completed" : p?.status === "in_progress" ? "In Progress" : !user ? "Sign up to access" : isFree ? "FREE" : "Not Started";
             return (
               <div key={m.slug} className="card-flat p-6 group relative" data-testid={`mod-card-${m.slug}`}>
                 {isLocked && (
@@ -135,9 +146,9 @@ export default function ModulesList() {
                     to={isLocked ? "/register" : `/modules/${m.slug}`}
                     className="text-sm font-bold text-copper hover:underline"
                   >
-                    {isLocked ? "Enroll to unlock →" : "Start module →"}
+                    {isLocked ? "Sign up to start →" : "Start module →"}
                   </Link>
-                  {isFree && (
+                  {isFree && user && (
                     <SharePanel compact url={`/modules/${m.slug}`} title={m.title} />
                   )}
                 </div>

@@ -43,7 +43,12 @@ export default function UnifiedGateway() {
 
       {/* ── HERO ─────────────────────────────────────────────────────────── */}
       <section className="relative overflow-hidden"
-        style={{ background: "linear-gradient(160deg, #0a0a0f 0%, #1a0a00 50%, #0d1a0a 100%)", minHeight: "80vh" }}>
+        style={{
+          minHeight: "80vh",
+          backgroundImage: "linear-gradient(160deg, rgba(10,10,15,0.88) 0%, rgba(26,10,0,0.82) 50%, rgba(13,26,10,0.9) 100%), url('https://images.pexels.com/photos/4031039/pexels-photo-4031039.jpeg?auto=compress&cs=tinysrgb&w=1600')",
+          backgroundSize: "cover",
+          backgroundPosition: "center",
+        }}>
 
         {/* Grain texture overlay */}
         <div className="absolute inset-0 opacity-20"
@@ -234,7 +239,7 @@ export default function UnifiedGateway() {
 
       {/* ── $3 TRIAL BANNER ──────────────────────────────────────────────── */}
       {!user && (
-        <section className="py-16 px-6" style={{ background: "#0a0a0f" }}>
+        <section className="py-16 px-6" style={{ backgroundImage: "linear-gradient(rgba(10,10,15,0.88), rgba(10,10,15,0.92)), url('https://images.pexels.com/photos/6893794/pexels-photo-6893794.jpeg?auto=compress&cs=tinysrgb&w=1600')", backgroundSize: "cover", backgroundPosition: "center" }}>
           <div className="max-w-4xl mx-auto text-center">
             <div style={{ fontSize: 48, marginBottom: 16 }}>⚡</div>
             <h2 style={{ fontFamily: "'Cabinet Grotesk',sans-serif", fontSize: "clamp(1.8rem,4vw,3rem)", fontWeight: 900, color: "#fff", marginBottom: 12 }}>
@@ -365,8 +370,9 @@ export default function UnifiedGateway() {
             </Link>
             <Link to="/donate"
               className="font-bold text-sm px-8 py-3 rounded-xl border"
-              style={{ borderColor: "rgba(232,165,30,0.3)", color: "#E8A51E" }}>
-              Support the Mission
+              style={{ borderColor: "rgba(232,165,30,0.3)", color: "#E8A51E" }}
+            >
+              Make a Donation to the Mission
             </Link>
           </div>
         </div>
