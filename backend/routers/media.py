@@ -98,6 +98,10 @@ def _require_rank(*roles):
 
 @router.get("/media/products")
 async def list_media_products(user: Optional[User] = Depends(_optional_current_user)):
+    if db is None:
+        # Database outage — return an honest empty catalog instead of a 500,
+        # matching the platform's db-outage resilience pattern.
+        return []
     docs = await db.media_products.find({"published": True}, {"_id": 0}).sort("created_at", -1).limit(100).to_list(100)
     return [_public_product(d) for d in docs]
 

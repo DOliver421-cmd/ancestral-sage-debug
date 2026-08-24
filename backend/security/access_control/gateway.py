@@ -70,6 +70,12 @@ def _route_has_auth_dep(dependant, _seen=None) -> bool:
         call = getattr(d, "call", None)
         q = (getattr(call, "__qualname__", "") or "") + (getattr(call, "__name__", "") or "")
         if any(m in q for m in _AUTH_MARKERS):
+            # Optional-auth dependencies (e.g. _optional_current_user) resolve a
+            # user only when credentials are supplied — the route is
+            # intentionally public (store catalog, public puzzle). Matching the
+            # bare "current_user" marker must not gate these.
+            if "optional_current_user" in q:
+                continue
             return True
         sub = getattr(d, "dependencies", None)
         if sub and id(sub) not in _seen:
