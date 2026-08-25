@@ -372,6 +372,7 @@ export default function AppShell({ children }) {
                 {nl("/creators", "Creators", Users, "nav-public-creators")}
                 {nl("/community", "Community", Radio, "nav-public-community")}
                 {nl("/store", "Store", ShoppingBag, "nav-public-store")}
+                {nl("/premium", "Premium Services", Crown, "nav-public-premium")}
                 {nl("/vonns-saga", "Vonn's Saga", BookOpen, "nav-public-vonns")}
                 {nl("/help-center", "Help", HelpCircle, "nav-public-help")}
                 {nl("/knowledge", "Knowledge Finder", Search, "nav-public-knowledge")}
@@ -397,6 +398,7 @@ export default function AppShell({ children }) {
                 )}
                 {nl("/profile", "My Profile", UserCircle, "nav-profile")}
                 {nl("/settings", "Settings", KeyRound, "nav-settings")}
+                {nl("/premium", "Premium Services", Crown, "nav-premium-customer")}
               </NavSection>
 
               {/* Tier sections: expanded for current tier, locked card for next, hidden above */}
@@ -445,6 +447,7 @@ export default function AppShell({ children }) {
                 {nl("/profile", "My Profile", UserCircle, "nav-profile")}
                 {nl("/settings", "Settings", KeyRound, "nav-settings")}
                 {nl("/vonns-saga", "Vonn's Saga", BookOpen, "nav-vonns-staff")}
+                {nl("/premium", "Premium Services", Crown, "nav-premium-staff")}
               </NavSection>
 
               {/* Staff nav sections by role */}

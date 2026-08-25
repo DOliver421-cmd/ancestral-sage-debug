@@ -66,6 +66,7 @@ import PaymentHistory from "./pages/PaymentHistory";
 import AdminPayments from "./pages/AdminPayments";
 import AvatarSetup from "./pages/AvatarSetup";
 import MediaStore from "./pages/MediaStore";
+import PremiumServices from "./pages/PremiumServices";
 import Palace from "./pages/Palace";
 import ElderCouncil from "./pages/ElderCouncil";
 import Plans from "./pages/Plans";
@@ -145,7 +146,6 @@ import BusinessOffice from "./pages/BusinessOffice";
 import ClassicTools from "./pages/ClassicTools";
 import LegacyTool from "./pages/LegacyTool";
 import AgentRegistryView from "./pages/aawab/AgentRegistryView";
-import CertificationChamber from "./pages/aawab/CertificationChamber";
 import AdminAawabDashboard from "./pages/aawab/AdminAawabDashboard";
 import CrossSiteLogin from "./pages/CrossSiteLogin";
 import { ROLE_RANK } from "./lib/roles";
@@ -284,8 +284,9 @@ function App() {
           {/* Exec Control — change every office number and text without code */}
           <Route path="/admin/office-control" element={<Navigate to="/admin/office" replace />} />
           {/* AAWAB — Agent Wellness & Certification Bureau */}
-          <Route path="/aawab" element={<BoundedAdmin roles={["admin"]} label="Agent Wellness" backTo="/admin"><AgentRegistryView /></BoundedAdmin>} />
-          <Route path="/aawab/chamber" element={<BoundedAdmin roles={["admin"]} label="Certification Chamber" backTo="/aawab"><CertificationChamber /></BoundedAdmin>} />
+          <Route path="/aawab" element={<BoundedAdmin roles={["support_staff"]} label="Agent Wellness" backTo="/admin"><AgentRegistryView /></BoundedAdmin>} />
+          {/* Legacy URL: keep bookmarks working without exposing a second AAWAB workflow. */}
+          <Route path="/aawab/chamber" element={<Navigate to="/aawab" replace />} />
           <Route path="/admin/aawab" element={<BoundedAdmin roles={["admin"]} label="AAWAB Admin" backTo="/admin"><AdminAawabDashboard /></BoundedAdmin>} />
           <Route path="/landing" element={<LandingMarketplace />} />
           {/* WAI Institute — accredited-track portal (also the redirect target for wai-institute.org) */}
@@ -391,6 +392,8 @@ function App() {
           {/* Payments */}
           {/* Store & subscribe — public browsing, gated checkout */}
           <Route path="/store" element={<MediaStore />} />
+          {/* WAI-Institute Premium Services — embedded bolt.host experience (public) */}
+          <Route path="/premium" element={<PremiumServices />} />
           {/* Legacy merchandise URL stays inside the first-party marketplace. */}
           <Route path="/merch" element={<Navigate to="/store" replace />} />
           <Route path="/subscribe" element={<SubscribePage />} />
