@@ -552,10 +552,16 @@ async def list_delegations(delegate_id: Optional[str] = None, principal_id: Opti
                            active_only: bool = False,
                            actor: dict = Depends(_dep_current_user)):
     query = {}
-    if delegate_id:
-        query["delegate_id"] = delegate_id
-    if principal_id:
-        query["principal_id"] = principal_id
+    if not _is_admin(actor):
+        # Non-admins only see their own grants: delegations they granted or
+        # delegations granted to their own human identity.
+        ident = await _ensure_human_identity(actor)
+        query["$or"] = [{"principal_id": actor.id}, {"delegate_id": ident["id"]}]
+    else:
+        if delegate_id:
+            query["delegate_id"] = delegate_id
+        if principal_id:
+            query["principal_id"] = principal_id
     if active_only:
         query["revoked_at"] = None
     rows = await db.iam_delegations.find(query).sort("created_at", -1).to_list(500)
