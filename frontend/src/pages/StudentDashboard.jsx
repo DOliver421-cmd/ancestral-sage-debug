@@ -7,7 +7,6 @@ import { ArrowRight, Award, BookOpen, Clock, Flame, Zap, AlertTriangle, RefreshC
 import PuzzleCard from "../components/PuzzleCard";
 import PartnershipProgress from "../components/PartnershipProgress";
 import TeamAvatar from "../components/TeamAvatar";
-import { tierLabel } from "../lib/tiers";
 
 const DAILY_VERSES = [
   { ref: "Proverbs 22:29", text: "Do you see someone skilled in their work? They will serve before kings." },
@@ -81,7 +80,7 @@ export default function StudentDashboard() {
         )}
         <div className="flex items-end justify-between mb-10">
           <div>
-            <div className="overline text-copper">{tierLabel(user?.feature_tier || user?.membership?.tier || "free")} Creator</div>
+            <div className="overline text-copper">Workforce Trainee</div>
             <h1 className="font-heading text-4xl font-bold mt-2">Welcome back, {user?.full_name?.split(" ")[0]}.</h1>
             <p className="text-ink/60 mt-2">Your tools, your associate, your progress — all in one shop.</p>
           </div>

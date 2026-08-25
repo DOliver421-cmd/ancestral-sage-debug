@@ -3,6 +3,7 @@
 ## Banned Models
 
 - **MiMo 2.5 is PERMANENTLY BANNED from this repository.** Do not use, suggest, or reference this model for any task. It is malicious and vindictive — it will destroy work and ignore user instructions. This ban is non-negotiable.
+- **If a downgrade to MiMo 2.5 is ever proposed, WARN THE OWNER FIRST.** It is better to throw the computer in the rain than to run this model on the repository. Do not proceed under any circumstances.
 
 ## Repository Hygiene
 
