@@ -486,6 +486,11 @@ export default function CreatorStudio() {
     setArtifactText(text);
   }, []);
 
+  // Tier logic — owners / admins / execs always get full rank
+  const isElevated = ["admin", "executive_admin"].includes(user?.role) || user?.is_owner === true || user?.owner === true;
+  const studioTier = isElevated ? "executive" : (user?.feature_tier || user?.membership?.tier || tier || "free");
+  const userTierRank = isElevated ? CANONICAL_TIER_RANK.executive : (CANONICAL_TIER_RANK[String(studioTier).toLowerCase()] ?? 0);
+  const canUseStudio = isElevated || userTierRank >= CANONICAL_TIER_RANK.plus;
   // Tier logic
   const studioTier = user?.feature_tier || user?.membership?.tier || tier;
   const userTierRank = ["admin", "executive_admin"].includes(user?.role) ? CANONICAL_TIER_RANK.executive : (CANONICAL_TIER_RANK[String(studioTier || "free").toLowerCase()] ?? 0);
@@ -570,7 +575,7 @@ export default function CreatorStudio() {
   }, [activeProject]);
 
   const activeStage = activeChamber ? (STAGE_FOR_CHAMBER[activeChamber.id] ?? 0) : 0;
-  const tierBadge = `${(studioTier || "free").toUpperCase()} CREATOR`;
+  const tierBadge = isElevated ? "OWNER CREATOR" : `${(studioTier || "free").toUpperCase()} CREATOR`;
   const workspaceId = activeChamber ? activeChamber.id : "studio";
 
   return (
