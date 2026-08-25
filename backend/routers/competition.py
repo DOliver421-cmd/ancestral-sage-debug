@@ -516,14 +516,15 @@ async def get_leaderboard(
     # Sort descending by cumulative average
     leaderboard.sort(key=lambda x: x["cumulative_average"], reverse=True)
 
-    # Assign roles only after all TOTAL_ROUNDS are done
-    max_rounds = max((p["rounds_completed"] for p in leaderboard), default=0)
-    if max_rounds >= TOTAL_ROUNDS:
+    # Assign roles only after every persona has completed every round. A
+    # single persona reaching the target must not make the whole competition
+    # appear complete.
+    all_personas_complete = bool(leaderboard) and all(
+        entry["rounds_completed"] >= TOTAL_ROUNDS for entry in leaderboard
+    )
+    if all_personas_complete:
         for i, entry in enumerate(leaderboard):
-            if i < 2:
-                entry["role"] = "lead"
-            else:
-                entry["role"] = "support"
+            entry["role"] = "lead" if i < 2 else "support"
     else:
         for entry in leaderboard:
             entry["role"] = "competitor"
@@ -531,7 +532,7 @@ async def get_leaderboard(
     return {
         "leaderboard": leaderboard,
         "total_rounds": TOTAL_ROUNDS,
-        "competition_complete": max_rounds >= TOTAL_ROUNDS,
+        "competition_complete": all_personas_complete,
     }
 
 
@@ -561,9 +562,14 @@ async def get_projects(
     for p in raw:
         project_id = p["_id"]
         current_round = p["latest_round"]
-        is_complete = current_round >= TOTAL_ROUNDS
+        entry_count = await db.competition_rounds.count_documents({
+            "project_id": project_id,
+            "round_number": current_round,
+        })
+        is_complete = current_round >= TOTAL_ROUNDS and entry_count == len(PERSONA_PROMPTS)
 
-        # Check if current round is scored
+        # A partial round remains active until all expected persona outputs are
+        # present. It must never be presented as a completed project.
         scored_count = await db.competition_rounds.count_documents({
             "project_id": project_id,
             "round_number": current_round,
@@ -577,7 +583,7 @@ async def get_projects(
             "latest_task": p["latest_task"],
             "latest_timestamp": p["latest_timestamp"].isoformat() if p["latest_timestamp"] else None,
             "status": "complete" if is_complete else ("scoring" if scored_count > 0 else "active"),
-            "round_scored": scored_count == 4,
+            "round_scored": entry_count == len(PERSONA_PROMPTS) and scored_count == len(PERSONA_PROMPTS),
         })
 
     return {"projects": projects}

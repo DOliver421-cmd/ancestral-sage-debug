@@ -50,7 +50,7 @@ _RANK_TO_ROLE: dict = {rank: role for role, rank in ROLE_HIERARCHY}
 # is intentionally public (webhooks, shared-secret endpoints, public widgets)
 # and must never be gated by the middleware.
 _AUTH_MARKERS = (
-    "current_user", "require_user", "_dep_current_user",
+    "current_user", "require_user", "_dep_current_user", "_user",
     "_require_rank", "require_role", "assert_role", "require_tier",
     "_require_executive", "authorize",
 )

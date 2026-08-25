@@ -127,12 +127,16 @@ async def load_fcc_config(db, feature_id: str):
     if reg is None:
         return None
     override = None
-    try:
-        override = await db.feature_configs.find_one(
-            {"feature_id": feature_id}, {"_id": 0}
-        )
-    except Exception:
-        return None
+    feature_configs = getattr(db, "feature_configs", None)
+    if feature_configs is not None:
+        try:
+            override = await feature_configs.find_one(
+                {"feature_id": feature_id}, {"_id": 0}
+            )
+        except Exception:
+            return None
+    # A collection that has never been created is equivalent to no override;
+    # the checked-in registry remains the effective policy.
     override = override or {}
     allowed_roles = override.get("allowed_roles")
     allowed_tiers = override.get("allowed_tiers")
@@ -184,6 +188,11 @@ def _path_in(path: str, prefixes) -> bool:
 TIER_RANK: dict = {
     "free": 0, "member": 1, "plus": 2, "pro": 3, "patron": 4, "platinum": 5, "executive": 6,
 }
+
+# Authorization-matrix writes are limited to tiers currently used as feature
+# thresholds. User entitlements may still carry `platinum`; it is not a valid
+# minimum threshold until a feature explicitly adopts it.
+AUTHZ_REQUIREMENT_TIERS = set(TIER_RANK) - {"platinum"}
 
 # Minimum feature_tier required per feature.  Only features with a mapped API
 # surface (FEATURE_API_PATHS) can be enforced here — every other key from the
@@ -269,7 +278,7 @@ async def load_feature_tier_requirements(db, *, fail_closed: bool = False):
         # closed if a request actually needs an unavailable custom tier.
         custom_ids = set()
     for key, tier in stored.items():
-        if key in req and (tier in TIER_RANK or tier in custom_ids):
+        if key in req and (tier in AUTHZ_REQUIREMENT_TIERS or tier in custom_ids):
             req[key] = tier
     return req
 

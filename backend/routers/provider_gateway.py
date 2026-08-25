@@ -64,6 +64,25 @@ async def _provider_id(provider_type):
 @router.get("/providers/quick-setup/status")
 async def quick_setup_status(user=Depends(_user)):
     _exec(user)
+    configured_env = {
+        "groq": bool(os.environ.get("GROQ_API_KEY", "").strip()),
+        "cerebras": bool(os.environ.get("CEREBRAS_API_KEY", "").strip()),
+        "gemini": bool(os.environ.get("GEMINI_API_KEY", "").strip()),
+        "mistral": bool(os.environ.get("MISTRAL_API_KEY", "").strip()),
+        "cohere": bool(os.environ.get("COHERE_API_KEY", "").strip()),
+        "together": bool(os.environ.get("TOGETHER_API_KEY", "").strip()),
+        "xai": bool(os.environ.get("XAI_API_KEY", os.environ.get("GROK_API_KEY", "")).strip()),
+    }
+    if db is None:
+        return {
+            provider_type: {
+                "configured": configured_env.get(provider_type, False),
+                "key_masked": None,
+                "source": "env" if configured_env.get(provider_type, False) else None,
+            }
+            for provider_type in PROVIDERS
+        }
+
     providers = {}
     async for p in db.api_providers.find({"provider_type": {"$in": list(PROVIDERS)}}):
         providers[p.get("provider_type")] = p.get("id")
@@ -75,9 +94,9 @@ async def quick_setup_status(user=Depends(_user)):
                     keys[provider_type] = k
     return {
         provider_type: {
-            "configured": provider_type in keys,
+            "configured": provider_type in keys or configured_env.get(provider_type, False),
             "key_masked": (keys[provider_type].get("key_masked") if provider_type in keys else None),
-            "source": "gateway",
+            "source": "gateway" if provider_type in keys else ("env" if configured_env.get(provider_type, False) else None),
         }
         for provider_type in PROVIDERS
     }
@@ -85,6 +104,8 @@ async def quick_setup_status(user=Depends(_user)):
 @router.post("/providers/quick-setup")
 async def quick_setup(body: QuickSetupRequest, user=Depends(_user)):
     _exec(user)
+    if db is None:
+        raise HTTPException(503, "Provider storage is unavailable. The key was not saved.")
     provider_type = body.provider_type.strip().lower()
     api_key = body.api_key.strip()
     if provider_type not in PROVIDERS:
@@ -110,4 +131,6 @@ async def quick_setup(body: QuickSetupRequest, user=Depends(_user)):
 @router.get("/providers/usage-log")
 async def usage_log(limit: int = 50, user=Depends(_user)):
     _exec(user)
+    if db is None:
+        raise HTTPException(503, "Provider usage storage is unavailable.")
     return await db.provider_usage.find({}).sort("created_at", -1).to_list(length=min(max(limit, 1), 200))
