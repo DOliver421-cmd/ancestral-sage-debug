@@ -291,7 +291,7 @@ async def upload_media_file(
 async def get_media_file(
     file_id: str,
     preview: bool = Query(True),
-    user: User = Depends(_dep_current_user),
+    user: Optional[User] = Depends(_optional_current_user),
 ):
     """Serve uploaded media with an entitlement-aware preview boundary.
 
@@ -317,8 +317,13 @@ async def get_media_file(
         {"file_url": {"$regex": f"/media/file/{file_id}$"}},
         {"_id": 0, "id": 1, "owner_id": 1, "price_cents": 1, "type": 1, "preview_seconds": 1},
     )
+    asset_kind = metadata.get("kind", "")
+    public_saga_asset = asset_kind in {"saga_image", "saga_video", "saga_track"}
+    if user is None and not public_saga_asset:
+        raise HTTPException(401, "Authentication required")
     full_access = bool(
-        product and (
+        public_saga_asset and asset_kind in {"saga_image", "saga_video"}
+        or product and user and (
             product.get("owner_id") == user.id
             or ROLE_RANK.get(user.role, 0) >= ROLE_RANK.get("admin", 6)
             or await db.media_purchases.find_one({"buyer_id": user.id, "product_id": product.get("id")})

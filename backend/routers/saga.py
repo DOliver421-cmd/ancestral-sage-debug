@@ -65,7 +65,7 @@ def _now() -> str:
 
 
 # ── Auth helpers (mirror routers/media.py) ───────────────────────────────────
-from routers.media import _dep_current_user, _require_rank  # noqa: E402
+from routers.media import _dep_current_user, _optional_current_user, _require_rank  # noqa: E402
 
 
 # ── GridFS helpers ───────────────────────────────────────────────────────────
@@ -159,7 +159,7 @@ async def upload_track(
 
 
 @router.get("/tracks")
-async def list_tracks(user=Depends(_dep_current_user)):
+async def list_tracks(user=Depends(_optional_current_user)):
     """List published saga tracks (for the story page players)."""
     docs = await db.media_products.find(
         {"published": True, "type": "track", "tags": "saga"},
@@ -214,7 +214,7 @@ async def upload_image(
 
 
 @router.get("/images")
-async def list_images(node_id: Optional[str] = None, user=Depends(_dep_current_user)):
+async def list_images(node_id: Optional[str] = None, user=Depends(_optional_current_user)):
     q = {"kind": "image"}
     if node_id:
         q["node_id"] = node_id
@@ -432,7 +432,7 @@ async def create_video(
 
 
 @router.get("/videos")
-async def list_videos(user=Depends(_dep_current_user)):
+async def list_videos(user=Depends(_optional_current_user)):
     docs = await db.saga_assets.find({"kind": "video"}, {"_id": 0}).sort("created_at", -1).to_list(100)
     return {"videos": docs}
 
@@ -477,7 +477,7 @@ async def create_concert(
 
 
 @router.get("/concerts")
-async def list_concerts(user=Depends(_dep_current_user)):
+async def list_concerts(user=Depends(_optional_current_user)):
     docs = await db.media_products.find(
         {"published": True, "tags": "vonn-live"}, {"_id": 0}
     ).sort("created_at", -1).to_list(20)

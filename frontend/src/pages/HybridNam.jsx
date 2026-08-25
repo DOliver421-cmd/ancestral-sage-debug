@@ -35,6 +35,13 @@ const fmtDate = (s) => {
   return isNaN(d) ? String(s) : d.toLocaleString();
 };
 
+const describeRequestError = (reason) => {
+  const status = reason?.response?.status;
+  const detail = reason?.response?.data?.detail;
+  const message = typeof detail === "string" ? detail : reason?.message;
+  return `${status ? `HTTP ${status}: ` : ""}${message || "request failed"}`;
+};
+
 // Must mirror the backend's require_admin set exactly (routers/nam.py) —
 // otherwise forms would render for roles the API rejects.
 const canWrite = (role) => ["executive_admin", "oversight", "support_staff"].includes(role);
@@ -119,6 +126,7 @@ export function HybridNamContent({ embedded = false }) {
   const [ledger, setLedger] = useState([]);
 
   const [busy, setBusy] = useState(false);
+  const [loadErrors, setLoadErrors] = useState([]);
 
   // Write-form state
   const [memForm, setMemForm] = useState({ memory_type: "semantic", content: "", importance: 0.5 });
@@ -130,17 +138,25 @@ export function HybridNamContent({ embedded = false }) {
 
   const loadAll = useCallback(async () => {
     setLoading(true);
-    const grab = (path, fb) => api.get(path).then((r) => r.data).catch(() => fb);
-    const [id, st, con, mem, ints, dr, ref, led] = await Promise.all([
-      grab("/nam/identity", null),
-      grab("/nam/state", null),
-      grab("/nam/constitution", null),
-      grab("/nam/memory", { memories: [], total: 0 }),
-      grab("/nam/intentions", { intentions: [], total: 0 }),
-      grab("/nam/dreams", { dreams: [], total: 0 }),
-      grab("/nam/reflections", { reflections: [], total: 0 }),
-      grab("/nam/leadership/ledger", { ledger: [], total: 0 }),
-    ]);
+    const endpoints = [
+      ["Identity", "/nam/identity", null],
+      ["State", "/nam/state", null],
+      ["Constitution", "/nam/constitution", null],
+      ["Memory", "/nam/memory", { memories: [], total: 0 }],
+      ["Intentions", "/nam/intentions", { intentions: [], total: 0 }],
+      ["Dreams", "/nam/dreams", { dreams: [], total: 0 }],
+      ["Reflections", "/nam/reflections", { reflections: [], total: 0 }],
+      ["Leadership ledger", "/nam/leadership/ledger", { ledger: [], total: 0 }],
+    ];
+    const results = await Promise.allSettled(endpoints.map(([, path]) => api.get(path).then((r) => r.data)));
+    const values = results.map((result, index) => {
+      if (result.status === "fulfilled") return result.value;
+      return endpoints[index][2];
+    });
+    setLoadErrors(results.flatMap((result, index) => (
+      result.status === "rejected" ? [`${endpoints[index][0]}: ${describeRequestError(result.reason)}`] : []
+    )));
+    const [id, st, con, mem, ints, dr, ref, led] = values;
     setIdentity(id);
     setState(st);
     setConstitution(con);
@@ -204,6 +220,18 @@ export function HybridNamContent({ embedded = false }) {
             <p className="text-white/75 text-sm mt-3 max-w-2xl">{identity.designation.primary_function}</p>
           )}
         </div>
+
+        {loadErrors.length > 0 && (
+          <div className="mb-6 rounded-xl border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-800" role="alert">
+            <div className="font-bold">NAM could not load these live functions:</div>
+            <ul className="mt-1 list-disc pl-5">
+              {loadErrors.map((message) => <li key={message}>{message}</li>)}
+            </ul>
+            <button onClick={loadAll} className="mt-3 inline-flex items-center gap-2 rounded-lg border border-red-300 px-3 py-1.5 text-xs font-bold hover:bg-red-100">
+              <RefreshCw className="w-3.5 h-3.5" /> Retry connection
+            </button>
+          </div>
+        )}
 
         {/* ── Tab bar ── */}
         <div className="flex gap-1 border-b border-ink/10 mb-6 overflow-x-auto">

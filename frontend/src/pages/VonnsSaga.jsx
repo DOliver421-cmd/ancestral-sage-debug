@@ -395,16 +395,34 @@ export default function VonnsSaga() {
   const [videos, setVideos] = useState([]);
   const [concerts, setConcerts] = useState([]);
   const [purchasedIds, setPurchasedIds] = useState([]);
+  const [assetErrors, setAssetErrors] = useState([]);
 
-  const loadSagaAssets = useCallback(() => {
-    api.get("/saga/images").then((r) => setSagaImages(r.data?.images || [])).catch(() => {});
-    api.get("/saga/tracks").then((r) => setTracks(r.data?.tracks || [])).catch(() => {});
-    api.get("/saga/videos").then((r) => setVideos(r.data?.videos || [])).catch(() => {});
-    api.get("/saga/concerts").then((r) => setConcerts(r.data?.concerts || [])).catch(() => {});
-    api.get("/media/purchases").then((r) => {
-      const ids = (r.data || []).map((p) => p.product_id);
-      setPurchasedIds(ids);
-    }).catch(() => {});
+  const loadSagaAssets = useCallback(async () => {
+    const requests = [
+      ["Scene artwork", api.get("/saga/images")],
+      ["Tracks", api.get("/saga/tracks")],
+      ["Videos", api.get("/saga/videos")],
+      ["Concerts", api.get("/saga/concerts")],
+    ];
+    if (getToken()) requests.push(["Purchases", api.get("/media/purchases")]);
+    const results = await Promise.allSettled(requests.map(([, request]) => request));
+    const errors = [];
+    results.forEach((result, index) => {
+      const label = requests[index][0];
+      if (result.status === "rejected") {
+        const status = result.reason?.response?.status;
+        const detail = result.reason?.response?.data?.detail;
+        errors.push(`${label}: ${status ? `HTTP ${status}: ` : ""}${detail || result.reason?.message || "request failed"}`);
+        return;
+      }
+      const data = result.value.data;
+      if (label === "Scene artwork") setSagaImages(data?.images || []);
+      if (label === "Tracks") setTracks(data?.tracks || []);
+      if (label === "Videos") setVideos(data?.videos || []);
+      if (label === "Concerts") setConcerts(data?.concerts || []);
+      if (label === "Purchases") setPurchasedIds((data || []).map((p) => p.product_id));
+    });
+    setAssetErrors(errors);
   }, []);
 
   useEffect(() => {
@@ -814,6 +832,18 @@ export default function VonnsSaga() {
             </div>
           )}
         </div>
+
+        {assetErrors.length > 0 && (
+          <div className="mb-7 rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-950" role="alert">
+            <div className="font-bold">Some live Saga features could not load:</div>
+            <ul className="mt-1 list-disc pl-5">
+              {assetErrors.map((message) => <li key={message}>{message}</li>)}
+            </ul>
+            <button type="button" onClick={loadSagaAssets} className="mt-3 inline-flex items-center gap-2 rounded-lg border border-amber-400 px-3 py-1.5 text-xs font-bold hover:bg-amber-100">
+              <RotateCcw className="w-3.5 h-3.5" /> Retry live features
+            </button>
+          </div>
+        )}
 
         {/* ── The funnel: music → video → concert ──────────────────── */}
         <ConcertSection concerts={concerts} user={user} purchasedIds={purchasedIds} onBuy={(id) => buyMedia(id, `/saga/concerts/${id}/checkout`)} />

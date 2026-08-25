@@ -27,7 +27,7 @@ function NavSection({ label, children, collapsed, defaultOpen = true, badge }) {
     <div className="mb-1">
       <button
         onClick={() => setOpen(o => !o)}
-        className="w-full flex items-center gap-2 px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-white/25 hover:text-white/45 transition-colors"
+        className="w-full flex items-center gap-2 px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-white/65 hover:text-white transition-colors"
       >
         <svg className={`w-2.5 h-2.5 transition-transform ${open ? "rotate-90" : ""}`} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M9 5l7 7-7 7" /></svg>
         <span>{label}</span>
@@ -51,7 +51,7 @@ function NavLink({ to, label, icon: Icon, testid, loc, collapsed }) {
       } ${
         active
           ? "bg-white/8 border-signal text-signal"
-          : "border-transparent text-white/65 hover:text-white hover:bg-white/5"
+          : "border-transparent text-white/75 hover:text-white hover:bg-white/5"
       }`}>
       <Icon className="w-4 h-4 shrink-0" />
       {!collapsed && label}
@@ -64,7 +64,7 @@ function TierCard({ tier, price, features, collapsed }) {
   if (collapsed) {
     return (
       <Link to="/plans"
-        className="flex items-center justify-center px-0 py-2 mx-2 mb-1 rounded-md text-white/25 hover:text-white/40 transition-colors"
+        className="flex items-center justify-center px-0 py-2 mx-2 mb-1 rounded-md text-white/60 hover:text-white transition-colors"
         title={`${tier} — ${features}`}>
         <Lock className="w-4 h-4" />
       </Link>
@@ -79,7 +79,7 @@ function TierCard({ tier, price, features, collapsed }) {
           <div className="text-[10px] font-black uppercase tracking-widest" style={{ color: "#E8A51E" }}>
             {tier} Tier
           </div>
-          <div className="text-[11px] text-white/40 mt-0.5">{features}</div>
+          <div className="text-[11px] text-white/65 mt-0.5">{features}</div>
         </div>
         <div className="flex items-center gap-1 text-[10px] font-black uppercase" style={{ color: "#E8A51E" }}>
           {price}/mo <span className="text-xs">→</span>
@@ -160,8 +160,6 @@ const STAFF_SECTIONS = [
       { to: "/instructor", label: "My Roster", icon: Users, testid: "nav-instructor" },
       { to: "/instructor/labs", label: "Lab Approvals", icon: ClipboardCheck, testid: "nav-lab-approvals" },
       { to: "/attendance", label: "Attendance", icon: Calendar, testid: "nav-attendance" },
-      { to: "/aawab", label: "Agent Registry", icon: HeartPulse, testid: "nav-aawab" },
-      { to: "/aawab/chamber", label: "Certification", icon: Award, testid: "nav-aawab-chamber" },
     ],
   },
   {
@@ -169,6 +167,7 @@ const STAFF_SECTIONS = [
     items: [
       { to: "/admin/audit", label: "Audit Log", icon: ScrollText, testid: "nav-support-audit" },
       { to: "/admin/moderation", label: "Moderation", icon: Shield, testid: "nav-support-moderation" },
+      { to: "/aawab", label: "Agent Wellness", icon: HeartPulse, testid: "nav-aawab" },
     ],
   },
   {
@@ -273,7 +272,7 @@ export default function AppShell({ children }) {
         title={collapsed ? label : undefined}
         className={`flex items-center gap-3 px-3 py-2 text-sm font-medium border-l-2 transition-all rounded-r-md ${
           collapsed ? "justify-center px-0" : ""
-        } border-transparent text-white/65 hover:text-white hover:bg-white/5`}>
+        } border-transparent text-white/75 hover:text-white hover:bg-white/5`}>
         <icon className="w-4 h-4 shrink-0" />
         {!collapsed && label}
         {!collapsed && <ExternalLink className="w-3 h-3 ml-auto opacity-40" />}
@@ -373,6 +372,7 @@ export default function AppShell({ children }) {
                 {nl("/creators", "Creators", Users, "nav-public-creators")}
                 {nl("/community", "Community", Radio, "nav-public-community")}
                 {nl("/store", "Store", ShoppingBag, "nav-public-store")}
+                {nl("/vonns-saga", "Vonn's Saga", BookOpen, "nav-public-vonns")}
                 {nl("/help-center", "Help", HelpCircle, "nav-public-help")}
                 {nl("/knowledge", "Knowledge Finder", Search, "nav-public-knowledge")}
               </NavSection>
@@ -444,6 +444,7 @@ export default function AppShell({ children }) {
                 {nl("/dashboard", "Dashboard", LayoutDashboard, "nav-dashboard")}
                 {nl("/profile", "My Profile", UserCircle, "nav-profile")}
                 {nl("/settings", "Settings", KeyRound, "nav-settings")}
+                {nl("/vonns-saga", "Vonn's Saga", BookOpen, "nav-vonns-staff")}
               </NavSection>
 
               {/* Staff nav sections by role */}
