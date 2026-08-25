@@ -491,6 +491,10 @@ export default function CreatorStudio() {
   const studioTier = isElevated ? "executive" : (user?.feature_tier || user?.membership?.tier || tier || "free");
   const userTierRank = isElevated ? CANONICAL_TIER_RANK.executive : (CANONICAL_TIER_RANK[String(studioTier).toLowerCase()] ?? 0);
   const canUseStudio = isElevated || userTierRank >= CANONICAL_TIER_RANK.plus;
+  // Tier logic
+  const studioTier = user?.feature_tier || user?.membership?.tier || tier;
+  const userTierRank = ["admin", "executive_admin"].includes(user?.role) ? CANONICAL_TIER_RANK.executive : (CANONICAL_TIER_RANK[String(studioTier || "free").toLowerCase()] ?? 0);
+  const canUseStudio = ["admin", "executive_admin"].includes(user?.role) || userTierRank >= CANONICAL_TIER_RANK.plus;
 
   const saveProjects = useCallback((updated) => {
     try { localStorage.setItem("studio_projects", JSON.stringify(updated)); } catch {}
