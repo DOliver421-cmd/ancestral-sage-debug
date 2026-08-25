@@ -488,8 +488,8 @@ export default function CreatorStudio() {
 
   // Tier logic
   const studioTier = user?.feature_tier || user?.membership?.tier || tier;
-  const userTierRank = CANONICAL_TIER_RANK[studioTier] ?? 0;
-  const canUseStudio = user?.role === "admin" || user?.role === "executive_admin" || userTierRank >= CANONICAL_TIER_RANK.plus;
+  const userTierRank = ["admin", "executive_admin"].includes(user?.role) ? CANONICAL_TIER_RANK.executive : (CANONICAL_TIER_RANK[String(studioTier || "free").toLowerCase()] ?? 0);
+  const canUseStudio = ["admin", "executive_admin"].includes(user?.role) || userTierRank >= CANONICAL_TIER_RANK.plus;
 
   const saveProjects = useCallback((updated) => {
     try { localStorage.setItem("studio_projects", JSON.stringify(updated)); } catch {}
@@ -593,10 +593,8 @@ export default function CreatorStudio() {
 
         {/* Nav links */}
         <div style={{ display: "flex", alignItems: "center", gap: 4, flex: 1 }}>
-          <NavPill to="/dashboard" label="Dashboard" />
-          <NavPill to="/social/publish" label="Social Blast" />
           <button
-            onClick={() => setGhostOpen(true)}
+            onClick={() => { setGhostOpen(false); setActiveChamber(null); }}
             style={{
               display: "flex", alignItems: "center", gap: 6, padding: "7px 14px", borderRadius: 999,
               border: "none", cursor: "pointer", fontSize: 12.5, fontWeight: 700, color: "#061018",
@@ -607,8 +605,6 @@ export default function CreatorStudio() {
           >
             Ghost Producer
           </button>
-          <NavPill to="/creator/earnings" label="Earnings" />
-          <NavPill to="/creator-lounge" label="Lounge" />
         </div>
 
         {/* Right actions */}
@@ -659,10 +655,10 @@ export default function CreatorStudio() {
           background: "#11151f", display: "flex", flexDirection: "column", alignItems: "center",
           padding: "14px 0", gap: 6,
         }}>
-          <RailIcon title="Dashboard" onClick={() => { window.location.href = "/dashboard"; }}><Home style={{ width: 17, height: 17 }} /></RailIcon>
+          <RailIcon title="Dashboard" onClick={() => { setGhostOpen(false); setActiveChamber(null); }}><Home style={{ width: 17, height: 17 }} /></RailIcon>
           <RailIcon title="Studio" onClick={() => { setGhostOpen(false); openChamber("lyric-forge"); }}><Music2 style={{ width: 17, height: 17 }} /></RailIcon>
           <RailIcon title="Version history" onClick={() => openChamber("vault")}><History style={{ width: 17, height: 17 }} /></RailIcon>
-          <RailIcon title="Earnings" onClick={() => { window.location.href = "/creator/earnings"; }}><BarChart3 style={{ width: 17, height: 17 }} /></RailIcon>
+          <RailIcon title="Earnings" onClick={() => openChamber("marketplace")}><BarChart3 style={{ width: 17, height: 17 }} /></RailIcon>
           <RailIcon title="Settings" onClick={() => setCustomizeOpen((v) => !v)}><Settings style={{ width: 17, height: 17 }} /></RailIcon>
           <RailIcon title="Profile" onClick={() => { window.location.href = "/avatar-setup"; }}><User style={{ width: 17, height: 17 }} /></RailIcon>
           <div style={{ flex: 1 }} />

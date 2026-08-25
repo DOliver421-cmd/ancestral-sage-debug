@@ -74,7 +74,7 @@ export function tierLabel(tier) {
 export function canAccess(user, feature) {
   if (!user) return false;
   const role = user.role || "student";
-  if (role === "admin" || role === "executive_admin") return true;
+  if (role === "admin" || role === "executive_admin" || user.is_owner === true || user.owner === true) return true;
 
   const required = TIER_FOR_FEATURE[feature];
   if (!required) return false;
