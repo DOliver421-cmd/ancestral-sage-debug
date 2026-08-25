@@ -387,16 +387,20 @@ async def audit(actor_id: Optional[str], action: str, target: Optional[str] = No
 
 
 async def notify(user_id: str, title: str, body: str, link: Optional[str] = None, kind: str = "info"):
-    await db.notifications.insert_one({
-        "id": str(uuid.uuid4()),
-        "user_id": user_id,
-        "title": title,
-        "body": body,
-        "link": link,
-        "kind": kind,
-        "read": False,
-        "created_at": datetime.now(timezone.utc).isoformat(),
-    })
+    try:
+        await db.notifications.insert_one({
+            "id": str(uuid.uuid4()),
+            "user_id": user_id,
+            "title": title,
+            "body": body,
+            "link": link,
+            "kind": kind,
+            "read": False,
+            "created_at": datetime.now(timezone.utc).isoformat(),
+        })
+    except Exception:
+        # A notification must never turn a successful operation into a 500.
+        logger.exception("notify failed")
 
 # Role hierarchy imported from roles.py (canonical source of truth).
 # 8-tier: public(0) < student(1) < trial_pass(2) < instructor(3) <
