@@ -26,7 +26,7 @@ import {
   Upload, Image, FileText, Award, CheckCircle, Eye, EyeOff,
   Twitter, Instagram, Facebook, Linkedin, Youtube,
   DollarSign, Heart, TrendingUp, Receipt, Network, Star, Crown, Shield,
-  KeyRound, Loader2, Trash2,
+  KeyRound, Loader2, Trash2, HelpCircle,
 } from "lucide-react";
 import { useMic } from "../hooks/useMic";
 
@@ -1044,9 +1044,10 @@ export default function UnifiedProfile() {
                   {[
                     { feature: "ai_chat",     label: "AI Tutor",        icon: Zap,       to: "/ai",                 desc: "Ask anything" },
                     { feature: "profile",     label: "Social Blast",    icon: Megaphone, to: "/social/publish",     desc: "Post to all platforms" },
-                    { feature: "profile",     label: "Curriculum",      icon: BookOpen,  to: "/modules",            desc: "Browse all courses" },
-                    { feature: "profile",     label: "Certificates",    icon: Award,     to: "/certificates",       desc: "Your earned certs" },
-                    { feature: "posts",       label: "Creator Lounge",  icon: Mic,       to: "/creator-lounge",     desc: "Community stage" },
+                    { feature: "profile",     label: "Curriculum",      icon: BookOpen,  to: "/modules",            desc: "Browse all courses" },                    { feature: "profile",      label: "Certificates",    icon: Award,       to: "/certificates",        desc: "Your earned certs" },
+                    { feature: "profile",      label: "Help Center",     icon: HelpCircle,  to: "/help-center",         desc: "Guides & support",      free: true },
+
+                    { feature: "posts",        label: "Creator Lounge",  icon: Mic,         to: "/creator-lounge",      desc: "Community stage" },
                     { feature: "ghost",       label: "Ghost Producer",  icon: Music,     to: "/ghost-producer",     desc: "AI production suite" },
                     { feature: "ghost",       label: "Creator Studio",  icon: Radio,     to: "/studio",             desc: "Build & publish" },
                     { feature: "band",        label: "Band on a Page",  icon: Globe,     to: "/band",               desc: "Your group page" },
@@ -1237,6 +1238,7 @@ export default function UnifiedProfile() {
                           { feature: "profile",      label: "Social Blast",    icon: Megaphone,   to: "/social/publish",      desc: "Post to all platforms",  free: true  },
                           { feature: "profile",      label: "Curriculum",      icon: BookOpen,    to: "/modules",             desc: "Browse all courses",     free: true  },
                           { feature: "profile",      label: "Certificates",    icon: Award,       to: "/certificates",        desc: "Your earned certs",      free: true  },
+                          { feature: "profile",      label: "Help Center",     icon: HelpCircle,  to: "/help-center",         desc: "Guides & support",        free: true  },
                           { feature: "posts",        label: "Creator Lounge",  icon: Mic,         to: "/creator-lounge",      desc: "Community stage",        free: false },
                           { feature: "ghost",        label: "Ghost Producer",  icon: Music,       to: "/ghost-producer",      desc: "AI production suite",    free: false },
                           { feature: "ghost",        label: "Creator Studio",  icon: Radio,       to: "/studio",              desc: "Build & publish",        free: false },

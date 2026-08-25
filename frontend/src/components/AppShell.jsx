@@ -372,9 +372,8 @@ export default function AppShell({ children }) {
                 {nl("/creators", "Creators", Users, "nav-public-creators")}
                 {nl("/community", "Community", Radio, "nav-public-community")}
                 {nl("/store", "Store", ShoppingBag, "nav-public-store")}
-                {nl("/premium", "Premium Services", Crown, "nav-public-premium")}
+                {nl("/premium", "WAI Institute Premium Services", Crown, "nav-public-premium")}
                 {nl("/vonns-saga", "Vonn's Saga", BookOpen, "nav-public-vonns")}
-                {nl("/help-center", "Help", HelpCircle, "nav-public-help")}
                 {nl("/knowledge", "Knowledge Finder", Search, "nav-public-knowledge")}
               </NavSection>
               <NavSection label="Access" collapsed={collapsed} defaultOpen={false}>
