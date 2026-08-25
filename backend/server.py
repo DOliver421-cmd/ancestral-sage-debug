@@ -914,6 +914,71 @@ async def seed_modules():
     logger.info("Seeded %d modules", len(MODULES))
 
 
+async def seed_starter_library():
+    """Seed the 4 starter-library ebooks as sellable media products.
+
+    Each product gets a description, $4.00 price, and published status.
+    The actual markdown files live in content/starter-library/ and are
+    available for download once the product record exists.
+    """
+    STARTER_BOOKS = [
+        {
+            "title": "The Small Start",
+            "description": "A Practical Guide to Turning One Good Idea Into Something Real. Written by the Morehelp.center Support Team, synthesized and authored by NAM Oshun. 16 chapters of practical guidance for creators, writers, artists, entrepreneurs, and anyone with too many ideas.",
+            "price_cents": 400,
+            "type": "ebook",
+            "tags": ["starter-library", "ebook", "creator-tools"],
+            "file_path": "content/starter-library/the-small-start.md",
+        },
+        {
+            "title": "From Creator to Product",
+            "description": "How to Turn Your Writing, Music, Knowledge, and Ideas Into Things People Can Use. Written by the Morehelp.center Support Team, synthesized and authored by NAM Oshun. Practical product-conversion exercises for writers, musicians, poets, educators, and artists.",
+            "price_cents": 400,
+            "type": "ebook",
+            "tags": ["starter-library", "ebook", "creator-economy"],
+            "file_path": "content/starter-library/from-creator-to-product.md",
+        },
+        {
+            "title": "AI Without the Intimidation",
+            "description": "A Human-First Guide to Using AI Without Losing Your Judgment. Written by the Morehelp.center Support Team, synthesized and authored by NAM Oshun. Practical introduction to AI for beginners, creators, educators, and community organizations.",
+            "price_cents": 400,
+            "type": "ebook",
+            "tags": ["starter-library", "ebook", "ai-literacy"],
+            "file_path": "content/starter-library/ai-without-the-intimidation.md",
+        },
+        {
+            "title": "The Community Funding Starter",
+            "description": "A Practical Guide to Turning a Good Community Idea Into a Fundable Plan. Written by the Morehelp.center Support Team, synthesized and authored by NAM Oshun. Worksheets, budget templates, and funding-readiness checklists for grassroots organizers.",
+            "price_cents": 400,
+            "type": "ebook",
+            "tags": ["starter-library", "ebook", "community-funding"],
+            "file_path": "content/starter-library/the-community-funding-starter.md",
+        },
+    ]
+    seeded = 0
+    for book in STARTER_BOOKS:
+        existing = await db.media_products.find_one({"title": book["title"]})
+        if existing:
+            continue
+        product = {
+            "id": str(uuid.uuid4())[:12],
+            "title": book["title"],
+            "description": book["description"],
+            "price_cents": book["price_cents"],
+            "type": book["type"],
+            "tags": book["tags"],
+            "file_path": book["file_path"],
+            "file_url": f"/api/media/file/{book['file_path'].replace('/', '_')}",
+            "published": True,
+            "owner_id": "platform",
+            "created_at": datetime.utcnow().isoformat(),
+        }
+        await db.media_products.insert_one(product)
+        seeded += 1
+    if seeded:
+        logger.info("Seeded %d starter-library ebooks into media_products", seeded)
+
+
 async def seed_users():
     # One-time migration: cohort → associate for any legacy users
     await db.users.update_many(
@@ -1340,6 +1405,11 @@ async def _on_startup_impl():
         await seed_modules()
     except Exception as _e:
         logger.warning("STARTUP: seed_modules failed (non-fatal): %s", _e)
+
+    try:
+        await seed_starter_library()
+    except Exception as _e:
+        logger.warning("STARTUP: seed_starter_library failed (non-fatal): %s", _e)
 
     try:
         await seed_users()

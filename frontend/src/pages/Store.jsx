@@ -43,7 +43,13 @@ export default function Store() {
       if (data?.url) { window.location.href = data.url; return; }
       showFail("Checkout could not start. Please try again in a moment.");
     } catch (e) {
-      showFail(e?.response?.data?.detail || `Could not start checkout for ${label}. Please try again.`);
+      const detail = e?.response?.data?.detail || "";
+      if (e?.response?.status === 501 || /not configured/i.test(detail)) {
+        setNotice("Payments are being set up. Membership checkout will be available soon. In the meantime, explore the free features or contact support.");
+        setNoticeIsError(false);
+      } else {
+        showFail(detail || `Could not start checkout for ${label}. Please try again.`);
+      }
     }
     setBuying(null);
   }
@@ -68,7 +74,13 @@ export default function Store() {
       if (data?.url) { window.location.href = data.url; return; }
       showFail("Checkout could not start. Please try again in a moment.");
     } catch (e) {
-      showFail(e?.response?.data?.detail || "Checkout could not start. Please try again.");
+      const detail = e?.response?.data?.detail || "";
+      if (e?.response?.status === 501 || /not configured/i.test(detail)) {
+        setNotice("Payments are being configured. Digital products will be available for purchase soon.");
+        setNoticeIsError(false);
+      } else {
+        showFail(detail || "Checkout could not start. Please try again.");
+      }
     }
     setBuying(null);
   }

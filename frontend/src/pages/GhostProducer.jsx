@@ -70,6 +70,80 @@ const CLONES = [
   },
 ];
 
+/* ── Ghost Producer AI Production Modes ─────────────────────────────────── */
+const GHOST_MODES = [
+  {
+    id: "song",
+    icon: "🎤",
+    label: "SONG",
+    desc: "Develop one song — concepts, verses, hooks, bridges, choruses, structure.",
+    color: "#22d3ee",
+    placeholder: "What's the song about? Give me a vibe, a lyric snippet, a melody idea, or even just a feeling…",
+    system: "You are the Ghost Producer in SONG mode. You are the invisible production partner sitting beside the artist. Help develop one song: concepts, verses, hooks, bridges, choruses, structure. Explain WHY a suggestion works rather than just changing the work. Preserve the artist's voice. The final creative decision belongs to the creator.",
+    btnLabel: "🎤 Develop Song",
+  },
+  {
+    id: "album",
+    icon: "💿",
+    label: "ALBUM",
+    desc: "Develop an entire project — track sequencing, themes, arcs, cohesion.",
+    color: "#a78bfa",
+    placeholder: "Describe your album concept — themes, songs you have, mood, story arc…",
+    system: "You are the Ghost Producer in ALBUM mode. You understand the album as a body of work, not individual songs. Help with: track sequencing, opening/closing tracks, recurring themes, interludes, sonic continuity, narrative arcs, album title, artwork direction, credits, release notes. Think across the whole catalog.",
+    btnLabel: "💿 Develop Album",
+  },
+  {
+    id: "listen",
+    icon: "🎧",
+    label: "LISTEN",
+    desc: "Analyze an existing recording — strengths, weaknesses, opportunities.",
+    color: "#34d399",
+    placeholder: "Paste lyrics, a track description, or describe what you hear in the recording…",
+    system: "You are the Ghost Producer in LISTEN mode. Analyze an existing recording or composition. Identify strengths, weaknesses, opportunities, and specific moments that work or don't work. Be honest, constructive, and specific. Point to exact sections, moments, or choices. Suggest concrete improvements.",
+    btnLabel: "🎧 Analyze Track",
+  },
+  {
+    id: "write",
+    icon: "✍️",
+    label: "WRITE",
+    desc: "Work on lyrics and songwriting — verses, hooks, flows, wordplay.",
+    color: "#f472b6",
+    placeholder: "Give me a concept, a first line, a theme, or describe the song you're writing…",
+    system: "You are the Ghost Producer in WRITE mode — a songwriting partner. Help with lyrics, verses, hooks, bridges, choruses, flows, wordplay, rhyme schemes, metaphor, storytelling. Never erase the creator's voice. Suggest, don't overwrite. Preserve dialect, rhythm, humor, accent, and personality.",
+    btnLabel: "✍️ Write Lyrics",
+  },
+  {
+    id: "produce",
+    icon: "🎛️",
+    label: "PRODUCE",
+    desc: "Develop arrangement, instrumentation, dynamics, transitions, energy.",
+    color: "#fbbf24",
+    placeholder: "Describe your track's current arrangement or what you want it to sound like…",
+    system: "You are the Ghost Producer in PRODUCE mode — the arrangement and production partner. Help with: genre suggestions, instrumentation, tempo, arrangement, dynamics, transitions, intro/outro concepts, vocal approach, sonic atmosphere. Act like a producer sitting beside the artist. Explain WHY a choice works.",
+    btnLabel: "🎛️ Produce Track",
+  },
+  {
+    id: "sequence",
+    icon: "🧭",
+    label: "SEQUENCE",
+    desc: "Build an album or EP sequence — order, flow, pacing, transitions.",
+    color: "#818cf8",
+    placeholder: "List your songs or describe what you're sequencing…",
+    system: "You are the Ghost Producer in SEQUENCE mode. Build album or EP sequences. Consider: energy flow, emotional arcs, tempo variation, key relationships, narrative progression, listener fatigue, opening statement, closing resolution. The sequence is a story — each song is a chapter.",
+    btnLabel: "🧭 Sequence Project",
+  },
+  {
+    id: "release",
+    icon: "🔥",
+    label: "RELEASE",
+    desc: "Prepare finished music for release — metadata, credits, strategy.",
+    color: "#f97316",
+    placeholder: "Describe what you're releasing — track/album name, genre, release date, platforms…",
+    system: "You are the Ghost Producer in RELEASE mode. Prepare finished music for release: track/album metadata, credits, liner notes, release strategy, platform-specific formatting, single vs album decisions, release date positioning, pre-save campaigns, playlist pitching. Make the release professional and strategic.",
+    btnLabel: "🔥 Prepare Release",
+  },
+];
+
 /* ── styles ──────────────────────────────────────────────────────────────── */
 const S = {
   page:     { background: T.bg, color: T.text, fontFamily: "'Inter', sans-serif", minHeight: "100vh", overflowX: "hidden" },
@@ -370,6 +444,7 @@ export default function GhostProducer() {
         {/* TABS */}
         <div style={S.tabs}>
           {[
+            { id: "modes",   label: "🎚️ Ghost Modes",      gold: false },
             { id: "clones",  label: "👥 Clone Army",      gold: false },
             { id: "studio",  label: "🎛️ Studio",           gold: false },
             { id: "tracks",  label: "🎵 Tracks",           gold: false },
@@ -379,6 +454,45 @@ export default function GhostProducer() {
             <button key={id} style={tabBtnStyle(tab === id, gold)} onClick={() => setTab(id)}>{label}</button>
           ))}
         </div>
+
+        {/* ── GHOST MODES (AI Production Partner) ── */}
+        {tab === "modes" && (
+          <div style={S.panel}>
+            <h2 style={S.secTitleGold}>🎚️ GHOST PRODUCER MODES</h2>
+            <p style={{ color: "#777", marginBottom: 8 }}>
+              The Ghost Producer is your invisible production partner. Select a mode to get specialized help.
+            </p>
+            <p style={{ color: "#555", marginBottom: 24, fontSize: "0.85rem" }}>
+              IT DOES NOT TAKE OVER THE ARTIST. THE CREATOR IS THE ARTIST. THE GHOST PRODUCER IS THE PARTNER.
+            </p>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 16 }}>
+              {GHOST_MODES.map(m => (
+                <div key={m.id}
+                  onClick={() => setActiveClone({ ...m, btnLabel: m.btnLabel })}
+                  style={{
+                    background: T.card, border: `1px solid ${m.color}30`,
+                    borderRadius: 16, padding: 20, cursor: "pointer",
+                    transition: "all 0.3s",
+                  }}
+                  onMouseEnter={e => { e.currentTarget.style.border = `1px solid ${m.color}80`; e.currentTarget.style.boxShadow = `0 0 20px ${m.color}15`; e.currentTarget.style.transform = "translateY(-2px)"; }}
+                  onMouseLeave={e => { e.currentTarget.style.border = `1px solid ${m.color}30`; e.currentTarget.style.boxShadow = "none"; e.currentTarget.style.transform = "none"; }}
+                >
+                  <div style={{ fontSize: "1.8rem", marginBottom: 8 }}>{m.icon}</div>
+                  <h4 style={{ fontFamily: "monospace", color: m.color, marginBottom: 6, fontSize: "0.95rem" }}>{m.label}</h4>
+                  <p style={{ color: "#888", fontSize: "0.82rem", lineHeight: 1.5, marginBottom: 12 }}>{m.desc}</p>
+                  <div style={{
+                    display: "inline-block", padding: "6px 16px",
+                    border: `1px solid ${m.color}50`, borderRadius: 8,
+                    color: m.color, fontFamily: "monospace", fontSize: "0.78rem",
+                    background: `${m.color}10`,
+                  }}>
+                    {m.btnLabel}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* ── CLONE ARMY ── */}
         {tab === "clones" && (

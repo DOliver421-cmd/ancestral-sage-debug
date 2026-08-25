@@ -376,3 +376,40 @@ async def get_media_file(
     if duration_seconds and limit_bytes:
         headers["X-Preview-Duration-Seconds"] = str(min(preview_seconds, duration_seconds))
     return StreamingResponse(iter_file(), media_type=serve_type, headers=headers)
+
+
+@router.get("/media/content/{file_path:path}")
+async def get_content_file(
+    file_path: str,
+    user: User = Depends(_dep_current_user),
+):
+    """Serve static content files (starter-library ebooks, etc.) from the content/ directory.
+
+    The file_path is relative to the project root (e.g. 'content/starter-library/the-small-start.md').
+    Only files under the content/ directory are served.
+    """
+    from fastapi.responses import FileResponse
+    # Security: only serve files under content/
+    if not file_path.startswith("content/") or ".." in file_path:
+        raise HTTPException(403, "Access denied")
+    # Resolve relative to the backend directory (where server.py lives)
+    base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    full_path = os.path.normpath(os.path.join(base_dir, file_path))
+    # Double-check: resolved path must still be under the project root
+    project_root = os.path.dirname(base_dir)
+    if not full_path.startswith(project_root):
+        raise HTTPException(403, "Access denied")
+    if not os.path.isfile(full_path):
+        raise HTTPException(404, "Content file not found")
+    # Check purchase entitlement
+    product = await db.media_products.find_one(
+        {"file_path": file_path}, {"_id": 0, "id": 1, "owner_id": 1, "price_cents": 1}
+    )
+    if product and product.get("price_cents", 0) > 0:
+        owner = product.get("owner_id", "")
+        is_owner = owner == user.id
+        is_admin = ROLE_RANK.get(user.role, 0) >= ROLE_RANK.get("admin", 6)
+        purchased = await db.media_purchases.find_one({"buyer_id": user.id, "product_id": product.get("id")})
+        if not is_owner and not is_admin and not purchased:
+            raise HTTPException(403, "Purchase required to download this content")
+    return FileResponse(full_path, media_type="text/markdown", filename=os.path.basename(full_path))
