@@ -150,6 +150,19 @@ import AdminAawabDashboard from "./pages/aawab/AdminAawabDashboard";
 import CrossSiteLogin from "./pages/CrossSiteLogin";
 import { ROLE_RANK } from "./lib/roles";
 
+const OWNER_EMAILS = new Set(["youpickeddoliver@gmail.com", "souppoetry@gmail.com"]);
+function isOwner(user) {
+  return !!user && (OWNER_EMAILS.has(String(user.email || "").toLowerCase()) || user.role === "executive_admin");
+}
+function MemberOnly({ children, title = "Members only" }) {
+  const { user, loading } = useAuth();
+  if (loading) return <div className="p-12 text-ink font-heading">Loading…</div>;
+  if (!user) return <Navigate to="/login" replace />;
+  const tier = String(user.feature_tier || user.membership?.tier || "free").toLowerCase();
+  if (isOwner(user) || ["member", "plus", "pro", "patron", "platinum", "executive"].includes(tier)) return children;
+  return <Navigate to="/subscribe?plan=member_monthly&returnTo=/ascension-protocols" replace />;
+}
+
 function Protected({ children, roles }) {
   const { user, loading } = useAuth();
   if (loading) return <div className="p-12 text-ink font-heading">Loading…</div>;
@@ -302,7 +315,7 @@ function App() {
           <Route path="/privacy" element={<PrivacyPolicy />} />
           <Route path="/refund-policy" element={<RefundPolicy />} />
           <Route path="/courses" element={<Courses />} />
-          <Route path="/ascension-protocols" element={<Protected><AscensionProtocols /></Protected>} />
+          <Route path="/ascension-protocols" element={<MemberOnly><AscensionProtocols /></MemberOnly>} />
           <Route path="/sponsor" element={<AdminPage><SponsorScholarship /></AdminPage>} />
           <Route path="/scholarships/apply" element={<Protected><ScholarshipApply /></Protected>} />
           <Route path="/admin/scholarships" element={<BoundedAdmin roles={["admin"]} label="Scholarship Committee" backTo="/admin"><AdminScholarships /></BoundedAdmin>} />
