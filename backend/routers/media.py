@@ -193,7 +193,20 @@ async def checkout_media_product(product_id: str, user: User = Depends(_dep_curr
                 provider = "gumroad"
                 url = gr_result["url"]
         if not provider:
-            raise HTTPException(500, "Payment processing failed. Payment providers are configured but the request could not be completed.")
+            _ls_key = os.environ.get("LEMON_SQUEEZY_API_KEY", "")
+            _ls_store = os.environ.get("LEMON_SQUEEZY_STORE_ID", "")
+            _gr_key = os.environ.get("GUMROAD_API_KEY", "")
+            if not ((_ls_key and _ls_store) or _gr_key):
+                raise HTTPException(
+                    501,
+                    "Payments are not configured. Add LEMON_SQUEEZY_API_KEY + LEMON_SQUEEZY_STORE_ID "
+                    "or GUMROAD_API_KEY in your environment.",
+                )
+            raise HTTPException(
+                500,
+                "Payment processing failed. The payment providers are configured but the request could "
+                "not be completed. Check your Lemon Squeezy or Gumroad API keys and try again.",
+            )
         # Record the pending sale so the payment webhook can grant access when
         # the order_created event arrives. Without this row the customer pays
         # but their download stays locked.
