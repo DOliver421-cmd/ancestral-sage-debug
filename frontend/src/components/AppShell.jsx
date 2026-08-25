@@ -397,7 +397,7 @@ export default function AppShell({ children }) {
                 )}
                 {nl("/profile", "My Profile", UserCircle, "nav-profile")}
                 {nl("/settings", "Settings", KeyRound, "nav-settings")}
-                {nl("/premium", "Premium Services", Crown, "nav-premium-customer")}
+                {nl("/premium", "WAI Institute Premium Services", Crown, "nav-premium-customer")}
               </NavSection>
 
               {/* Tier sections: expanded for current tier, locked card for next, hidden above */}
@@ -446,7 +446,7 @@ export default function AppShell({ children }) {
                 {nl("/profile", "My Profile", UserCircle, "nav-profile")}
                 {nl("/settings", "Settings", KeyRound, "nav-settings")}
                 {nl("/vonns-saga", "Vonn's Saga", BookOpen, "nav-vonns-staff")}
-                {nl("/premium", "Premium Services", Crown, "nav-premium-staff")}
+                {nl("/premium", "WAI Institute Premium Services", Crown, "nav-premium-staff")}
               </NavSection>
 
               {/* Staff nav sections by role */}
