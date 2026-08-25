@@ -392,12 +392,13 @@ async def get_content_file(
     # Security: only serve files under content/
     if not file_path.startswith("content/") or ".." in file_path:
         raise HTTPException(403, "Access denied")
-    # Resolve relative to the backend directory (where server.py lives)
-    base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    full_path = os.path.normpath(os.path.join(base_dir, file_path))
+    # Resolve content paths relative to the repository root. This router lives
+    # in backend/routers/, while the seeded manuscripts live in content/.
+    backend_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    project_root = os.path.dirname(backend_dir)
+    full_path = os.path.normpath(os.path.join(project_root, file_path))
     # Double-check: resolved path must still be under the project root
-    project_root = os.path.dirname(base_dir)
-    if not full_path.startswith(project_root):
+    if not full_path.startswith(project_root + os.sep):
         raise HTTPException(403, "Access denied")
     if not os.path.isfile(full_path):
         raise HTTPException(404, "Content file not found")
