@@ -919,7 +919,7 @@ async def seed_modules():
 
 
 async def seed_starter_library():
-    """Seed the 4 starter-library ebooks as sellable media products.
+    """Seed the 7 starter-library ebooks as sellable media products.
 
     Each product gets a description, $4.00 price, and published status.
     The actual markdown files live in content/starter-library/ and are
@@ -958,6 +958,30 @@ async def seed_starter_library():
             "tags": ["starter-library", "ebook", "community-funding"],
             "file_path": "content/starter-library/the-community-funding-starter.md",
         },
+        {
+            "title": "When AI Is Wrong",
+            "description": "A Practical Guide to Catching Confident Errors Before They Cost You. An honest Morehelp.center guide to AI failure modes, verification, privacy, and human responsibility. Written by the Morehelp.center Support Team, synthesized and authored by NAM Oshun.",
+            "price_cents": 400,
+            "type": "ebook",
+            "tags": ["starter-library", "ebook", "ai-limitations", "verification"],
+            "file_path": "content/starter-library/when-ai-is-wrong.md",
+        },
+        {
+            "title": "The Automation Trap",
+            "description": "When Convenience Starts Making the Decisions. A critical guide to automation dependence, hidden defaults, meaningful human review, and keeping creators in control. Written by the Morehelp.center Support Team, synthesized and authored by NAM Oshun.",
+            "price_cents": 400,
+            "type": "ebook",
+            "tags": ["starter-library", "ebook", "ai-limitations", "automation"],
+            "file_path": "content/starter-library/the-automation-trap.md",
+        },
+        {
+            "title": "The Human-Made Difference",
+            "description": "Voice, Culture, and Responsibility in an AI-Assisted World. A critical guide to authorship, cultural context, consent, iteration, and honest AI-assisted creation. Written by the Morehelp.center Support Team, synthesized and authored by NAM Oshun.",
+            "price_cents": 400,
+            "type": "ebook",
+            "tags": ["starter-library", "ebook", "ai-limitations", "human-authorship"],
+            "file_path": "content/starter-library/the-human-made-difference.md",
+        },
     ]
     seeded = 0
     for book in STARTER_BOOKS:
@@ -972,7 +996,7 @@ async def seed_starter_library():
             "type": book["type"],
             "tags": book["tags"],
             "file_path": book["file_path"],
-            "file_url": f"/api/media/file/{book['file_path'].replace('/', '_')}",
+            "file_url": f"/api/media/content/{book['file_path']}",
             "published": True,
             "owner_id": "platform",
             "created_at": datetime.utcnow().isoformat(),
