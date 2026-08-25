@@ -1898,12 +1898,28 @@ async def health():
             checks["db"] = {"status": "down", "source": _DB_SOURCE, "error": _db_err_str}
             issues.append("db_down")
 
-    # ── Anthropic AI API ──────────────────────────────────────────────────────
-    if ANTHROPIC_API_KEY:
-        checks["ai_api"] = {"status": "configured", "key_present": True}
-    else:
-        checks["ai_api"] = {"status": "unconfigured", "key_present": False}
-        issues.append("ai_api_key_missing")
+    # ── AI API — real gateway providers (Anthropic owner-banned) ─────────
+    try:
+        import ai.llm_gateway as _gw_mod
+        _gw_status = _gw_mod.gateway_status()
+        _active = _gw_status.get("active_free_providers", 0)
+        _providers = {k: bool(v.get("available")) for k, v in _gw_status.get("providers", {}).items()}
+        _budget = _gw_status.get("budget", {})
+        checks["ai_api"] = {
+            "status": "configured" if _active > 0 else "unconfigured",
+            "key_present": _active > 0,
+            "active_free_providers": _active,
+            "providers": _providers,
+            "budget_pct": _budget.get("budget_pct"),
+            "over_budget": bool(_budget.get("over_budget")),
+        }
+        if _active == 0:
+            issues.append("ai_providers_unconfigured")
+        if _budget.get("over_budget"):
+            issues.append("ai_over_budget")
+    except Exception as _aie:
+        checks["ai_api"] = {"status": "unknown", "error": str(_aie)[:120]}
+        issues.append("ai_api_check_failed")
 
     # ── Director 4.0 subsystems ───────────────────────────────────────────────
     try:
