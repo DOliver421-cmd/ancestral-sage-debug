@@ -252,6 +252,54 @@ export default function UnifiedGateway() {
         </div>
       </section>
 
+      {/* ── WAI INSTITUTE PREMIUM SERVICES — live embed + full-page link ── */}
+      <section className="relative overflow-hidden"
+        style={{ background: "linear-gradient(150deg, #1a110a 0%, #2a1a08 55%, #0d1a0a 100%)", borderBottom: "1px solid rgba(232,165,30,0.25)" }}>
+        <div className="relative max-w-6xl mx-auto px-4 sm:px-6 py-8 sm:py-12">
+          {/* Header row: copy + full-page link */}
+          <div className="flex flex-col lg:flex-row lg:items-center gap-4 sm:gap-5 mb-5 sm:mb-8">
+            <div className="flex-1">
+              <div className="overline" style={{ color: "#B5651D" }}>WAI Institute Premium Services</div>
+              <h2 style={{
+                fontFamily: "'Cabinet Grotesk', 'Plus Jakarta Sans', sans-serif",
+                fontSize: "clamp(1.35rem, 3.5vw, 2.4rem)", fontWeight: 900,
+                color: "#fff", lineHeight: 1.15, margin: "4px 0 6px",
+              }}>
+                Payment rails for <span style={{ color: "#E8A51E" }}>platforms &amp; creators.</span>
+              </h2>
+              <p style={{ color: "rgba(255,255,255,0.6)", maxWidth: 640, lineHeight: 1.6, fontSize: "0.95rem", margin: 0 }}>
+                We help other platforms and creators integrate payment systems through our ecosystem —
+                a Stripe-integrated store and SaaS for checkout, memberships, subscriptions, and payouts.
+              </p>
+            </div>
+            <a href="https://waiinstitutepremiumservices.bolt.host/" target="_blank" rel="noopener noreferrer"
+              className="inline-flex items-center gap-2 font-bold text-sm px-5 sm:px-6 py-2.5 sm:py-3 rounded-xl border shrink-0 self-start"
+              style={{ borderColor: "rgba(232,165,30,0.4)", color: "#E8A51E", background: "rgba(232,165,30,0.08)", fontSize: 14 }}>
+              Open full page →
+            </a>
+          </div>
+
+          {/* The live Premium Services site, embedded */}
+          <div className="rounded-2xl overflow-hidden" style={{ height: "min(85vh, 720px)", border: "1px solid rgba(181,101,29,0.35)", boxShadow: "0 30px 80px rgba(0,0,0,0.45)" }}>
+            <iframe
+              title="WAI Institute Premium Services"
+              src="https://waiinstitutepremiumservices.bolt.host/"
+              className="w-full h-full"
+              style={{ border: 0, display: "block" }}
+              loading="lazy"
+              referrerPolicy="no-referrer"
+            />
+          </div>
+          <div className="mt-5 text-center">
+            <Link to="/premium"
+              className="inline-flex items-center gap-2 font-bold text-sm px-6 py-3 rounded-xl"
+              style={{ background: "#B5651D", color: "#fff", fontSize: 14 }}>
+              Visit the Premium Services page →
+            </Link>
+          </div>
+        </div>
+      </section>
+
       {/* ── READY TO GO DEEPER? — the WAI pathway (M.O.R.E. funnels to the institution door) ── */}
       <section className="relative overflow-hidden py-24 px-6"
         style={{ background: "linear-gradient(150deg, #0b1a12 0%, #11261b 50%, #1b2f1d 100%)" }}>
@@ -463,7 +511,7 @@ export default function UnifiedGateway() {
               <Link key={l} to={h} className="hover:text-white transition-colors">{l}</Link>
             ))}
             {[
-              ["WAI Institute", "https://www.wai-institute.org"],
+              ["WAI Institute Premium Services", "/premium"],
               ["Facebook Group", "https://www.facebook.com/groups/waiinstitute"],
               ["Donate", "/donate"],
               ["Privacy", "/privacy"],

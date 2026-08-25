@@ -1,6 +1,6 @@
 import { Link } from "react-router-dom";
 import { useAuth } from "../lib/auth";
-import { BRAND, WAI_INSTITUTE_URL } from "../lib/brand";
+import { BRAND } from "../lib/brand";
 
 // Shared header for the public funnel pages (festival purple + gold). Keeps the
 // public page set cross-linked without cluttering the authenticated app sidebar.
@@ -36,10 +36,10 @@ export default function PublicNav() {
               {l.label}
             </Link>
           ))}
-          <a href={WAI_INSTITUTE_URL} target="_blank" rel="noopener noreferrer"
+          <Link to="/premium"
             style={{ color: "#f1e9c9", textDecoration: "none", fontSize: 12, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em" }}>
-            WAI Institute
-          </a>
+            Premium Services
+          </Link>
           <a href="https://www.facebook.com/groups/waiinstitute" target="_blank" rel="noopener noreferrer"
             style={{ color: "#f1e9c9", textDecoration: "none", fontSize: 12, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em" }}>
             Facebook Group
