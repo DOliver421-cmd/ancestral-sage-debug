@@ -6,10 +6,29 @@ import {
 } from "../lib/roles";
 import {
   Search, ShieldCheck, KeyRound, UserPlus, Ban, CircleCheck, Trash2,
-  RefreshCw, Grid3X3, Users, Loader2, X,
+  RefreshCw, Grid3X3, Users, Loader2, X, Fingerprint, ScrollText, Eye, HeartHandshake,
 } from "lucide-react";
 import { toast } from "sonner";
 import PageBack from "../components/PageBack";
+import IdentitiesTab from "./iam/IdentitiesTab";
+import WhoCanDoWhatTab from "./iam/WhoCanDoWhatTab";
+import DelegationsTab from "./iam/DelegationsTab";
+import ConsentTab from "./iam/ConsentTab";
+import ActionsTab from "./iam/ActionsTab";
+import WhoHasAccessTab from "./iam/WhoHasAccessTab";
+
+// ── Console tabs ────────────────────────────────────────────────────────────
+// "Who has authorized access to what?" — every screen answers that question.
+const TABS = [
+  { id: "users", label: "Users", icon: Users, min: "admin" },
+  { id: "identities", label: "Identities", icon: Fingerprint, min: "admin" },
+  { id: "who", label: "Who Can Do What", icon: ShieldCheck, min: "admin" },
+  { id: "delegations", label: "Delegations", icon: KeyRound, min: "admin" },
+  { id: "consent", label: "My Consent", icon: HeartHandshake, min: "admin" },
+  { id: "actions", label: "Action History", icon: ScrollText, min: "admin" },
+  { id: "access", label: "Who Has Access to Me", icon: Eye, min: "admin" },
+  { id: "matrix", label: "Privilege Matrix", icon: Grid3X3, min: "exec", exec: true },
+];
 
 const PERMISSION_KEYS = [
   "content_read",
@@ -184,28 +203,26 @@ export default function IAMConsole() {
               <h1 className="font-heading font-bold text-xl leading-tight">Identity & Access Management</h1>
             </div>
           </div>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => setTab("users")}
-              className={`px-4 py-2 text-sm font-bold rounded-sm border transition-colors ${tab === "users" ? "bg-ink text-white border-ink" : "bg-white border-ink/20 hover:border-ink"}`}
-            >
-              <Users className="w-4 h-4 inline mr-1.5" /> Users
-            </button>
-            {isExec && (
-              <button
-                onClick={() => setTab("matrix")}
-                className={`px-4 py-2 text-sm font-bold rounded-sm border transition-colors ${tab === "matrix" ? "bg-ink text-white border-ink" : "bg-white border-ink/20 hover:border-ink"}`}
-              >
-                <Grid3X3 className="w-4 h-4 inline mr-1.5" /> Privilege Matrix
-              </button>
-            )}
+          <div className="flex items-center gap-1.5 flex-wrap">
+            {TABS.filter((t) => (t.exec ? isExec : true)).map((t) => {
+              const Icon = t.icon;
+              return (
+                <button
+                  key={t.id}
+                  onClick={() => setTab(t.id)}
+                  className={`px-3 py-2 text-xs font-bold rounded-sm border transition-colors inline-flex items-center gap-1.5 ${tab === t.id ? "bg-ink text-white border-ink" : "bg-white border-ink/20 hover:border-ink"}`}
+                >
+                  <Icon className="w-3.5 h-3.5" /> {t.label}
+                </button>
+              );
+            })}
           </div>
         </div>
       </header>
 
       <main className="max-w-7xl mx-auto px-6 py-8">
         <PageBack to="/admin" label="Admin overview" />
-        {tab === "users" ? (
+        {tab === "users" && (
           <>
             {/* Search / filter bar */}
             <div className="flex items-center gap-3 mb-6 flex-wrap">
@@ -322,7 +339,8 @@ export default function IAMConsole() {
               Atomic enforcement: every change is followed by a secondary GET that re-reads the database before the row updates. Your own account cannot be modified here.
             </p>
           </>
-        ) : (
+        )}
+        {tab === "matrix" && (
           /* ── Privilege matrix ── */
           <div className="bg-white border border-ink/10 rounded-sm">
             <div className="px-5 py-4 border-b border-ink/10 flex items-center justify-between">
@@ -377,6 +395,12 @@ export default function IAMConsole() {
             )}
           </div>
         )}
+        {tab === "identities" && <IdentitiesTab />}
+        {tab === "who" && <WhoCanDoWhatTab />}
+        {tab === "delegations" && <DelegationsTab />}
+        {tab === "consent" && <ConsentTab />}
+        {tab === "actions" && <ActionsTab />}
+        {tab === "access" && <WhoHasAccessTab />}
       </main>
     </div>
   );
