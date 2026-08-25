@@ -272,7 +272,7 @@ export default function UnifiedGateway() {
                 a Stripe-integrated store and SaaS for checkout, memberships, subscriptions, and payouts.
               </p>
             </div>
-            <a href="https://waiinstitutepremiumservices.bolt.host/" target="_blank" rel="noopener noreferrer"
+            <a href="https://waiinstitutepremiumservices.bolt.host/services" target="_blank" rel="noopener noreferrer"
               className="inline-flex items-center gap-2 font-bold text-sm px-5 sm:px-6 py-2.5 sm:py-3 rounded-xl border shrink-0 self-start"
               style={{ borderColor: "rgba(232,165,30,0.4)", color: "#E8A51E", background: "rgba(232,165,30,0.08)", fontSize: 14 }}>
               Open full page →

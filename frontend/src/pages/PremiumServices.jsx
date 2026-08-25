@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 import { ExternalLink, ArrowUpRight } from "lucide-react";
 
-const PREMIUM_URL = "https://waiinstitutepremiumservices.bolt.host/";
+const PREMIUM_URL = "https://waiinstitutepremiumservices.bolt.host/services";
 
 /**
  * WAI Institute Premium Services — direct redirect subpage.
