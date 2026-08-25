@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { api } from "../lib/api";
 import { useAuth } from "../lib/auth";
 import AppShell from "../components/AppShell";
+import PageBack from "../components/PageBack";
 import { AlertTriangle, History, ChevronDown, ChevronUp } from "lucide-react";
 
 // ── Design tokens ─────────────────────────────────────────────────────────────
@@ -620,6 +621,8 @@ export function CompetitionArenaContent({ embedded = false }) {
         <style>{`
           @keyframes spin { to { transform: rotate(360deg); } }
         `}</style>
+
+        {!embedded && <div className="mb-4"><PageBack to="/admin/command" label="Command Center" /></div>}
 
         {/* Header */}
         <div style={{ marginBottom: 24 }}>

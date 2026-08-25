@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { api } from "../lib/api";
 import { toast } from "sonner";
+import PageBack from "../components/PageBack";
 import { CheckCircle, XCircle, ExternalLink, Key, RefreshCw, Activity, Loader2 } from "lucide-react";
 
 // ── 6 preset free providers ────────────────────────────────────────────────────
@@ -230,6 +231,7 @@ export default function ProviderGateway() {
   return (
     <div className="min-h-screen bg-bone">
       <div className="max-w-4xl mx-auto px-6 py-10">
+        <PageBack to="/admin/command" label="Command Center" />
 
         {/* Header */}
         <div className="mb-6">

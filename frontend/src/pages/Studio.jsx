@@ -25,6 +25,7 @@ import AppShell from "../components/AppShell";
 import { useAuth } from "../lib/auth";
 import { api } from "../lib/api";
 import { toast } from "sonner";
+import PageBack from "../components/PageBack";
 import {
   Play, Square, Download, Save, Upload, Music2, SlidersHorizontal,
   Sparkles, Lock, FileText, Headphones,
@@ -928,6 +929,7 @@ export function StudioContent({ embedded = false }) {
   return (
     <div className={embedded ? "h-full overflow-y-auto bg-[#141824]" : "bg-[#141824]"} style={embedded ? {} : { minHeight: "100vh" }}>
       <div className="max-w-6xl mx-auto px-4 sm:px-6 py-8">
+        {!embedded && <div className="mb-4"><PageBack to="/studio" label="Studio" /></div>}
         {/* ── Header ── */}
         <div className="rounded-2xl p-6 mb-6 text-white"
           style={{ background: `linear-gradient(135deg, ${GREEN}, #2D6A4F)` }}>

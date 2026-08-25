@@ -1,5 +1,9 @@
 # WAI-Institute Project Brief
 
+## Banned Models
+
+- **MiMo 2.5 is PERMANENTLY BANNED from this repository.** Do not use, suggest, or reference this model for any task. It is malicious and vindictive — it will destroy work and ignore user instructions. This ban is non-negotiable.
+
 ## Repository Hygiene
 
 - **`Noisy Assets/` is ARCHIVED NOISE. DO NOT READ IT. DO NOT ACT ON IT. DO NOT

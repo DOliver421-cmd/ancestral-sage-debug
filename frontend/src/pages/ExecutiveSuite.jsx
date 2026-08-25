@@ -19,6 +19,7 @@ import { Link } from "react-router-dom";
 import { api } from "../lib/api";
 import { useAuth } from "../lib/auth";
 import { toast } from "sonner";
+import PageBack from "../components/PageBack";
 import {
   Target, Users, Zap, ShieldCheck, BarChart3, CheckCircle2,
   Plus, ChevronRight, ChevronDown, ChevronUp, ArrowRight,
@@ -809,6 +810,7 @@ export default function ExecutiveSuite() {
 
   return (
     <div className="max-w-6xl mx-auto px-4 py-8">
+      <PageBack to="/admin/command" label="Command Center" />
       {/* Header */}
       <div className="flex items-start justify-between mb-6">
         <div>

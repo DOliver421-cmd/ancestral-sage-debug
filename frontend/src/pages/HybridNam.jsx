@@ -21,6 +21,7 @@ import {
   Crown, BrainCircuit, BookOpen, Target, Moon, RefreshCw, ShieldCheck,
   Sparkles, Plus, Loader2, HeartHandshake, Scale, Eye,
 } from "lucide-react";
+import PageBack from "../components/PageBack";
 
 const COPPER = "#C0572D";
 const GOLD = "#E8A51E";
@@ -175,6 +176,7 @@ export function HybridNamContent({ embedded = false }) {
   const body = (
     <div className={embedded ? "h-full overflow-y-auto bg-bone" : "bg-bone"} style={embedded ? {} : { minHeight: "100vh" }}>
       <div className="max-w-6xl mx-auto px-4 sm:px-6 py-8">
+        <PageBack to="/admin" label="Admin" />
         {/* ── Header ── */}
         <div className="rounded-2xl p-6 mb-6 text-white"
           style={{ background: `linear-gradient(135deg, ${GREEN}, #2D6A4F)` }}>

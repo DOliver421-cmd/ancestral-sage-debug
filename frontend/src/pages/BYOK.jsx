@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { api } from "../lib/api";
 import AppShell from "../components/AppShell";
+import PageBack from "../components/PageBack";
 import {
   KeyRound, ShieldCheck, ExternalLink, Trash2, Plug, CheckCircle2,
   CircleDollarSign, Loader2, RefreshCw, AlertTriangle,
@@ -137,6 +138,7 @@ export default function BYOK() {
   return (
     <AppShell>
       <div style={{ maxWidth: 880, margin: "0 auto", padding: "28px 20px" }}>
+        <PageBack to="/dashboard" label="Dashboard" />
         {/* Header */}
         <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 16, flexWrap: "wrap", marginBottom: 8 }}>
           <div>
