@@ -9,7 +9,6 @@ import {
   Library, Plus, Trash2, Eye, EyeOff, CheckCircle2, Loader2,
   Download, RefreshCw, Tag, ExternalLink,
 } from "lucide-react";
-import { FeatureGate } from '../components/FeatureGate';
 import SharePanel from "../components/SharePanel";
 import QRCodeButton from "../components/QRCodeButton";
 
@@ -746,8 +745,8 @@ export default function MediaStore() {
         <div className="max-w-5xl mx-auto px-4 py-8">
           {activeTab === "browse" && <BrowseTab user={user} />}
           {activeTab === "library" && <LibraryTab user={user} />}
-          {activeTab === "sell" && <FeatureGate feature="marketplace.sell"><SellTab user={user} /></FeatureGate>}
-          {activeTab === "storefront" && <FeatureGate feature="marketplace.storefront"><StorefrontTab /></FeatureGate>}
+          {activeTab === "sell" && <SellTab user={user} />}
+          {activeTab === "storefront" && <StorefrontTab />}
         </div>
       </div>
     </AppShell>
