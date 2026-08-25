@@ -820,7 +820,9 @@ async def call_llm(
 
 # ── Status report ─────────────────────────────────────────────────────────────
 def gateway_status() -> dict:
-    """Return current gateway health. Exposed via /api/admin/health."""
+    """Return current gateway health. This is synchronous because callers use it
+    during request pre-flight; persisted provider keys are loaded asynchronously
+    at startup and immediately after gateway writes."""
     _reset_hour_if_needed()
     return {
         "providers": {
@@ -851,5 +853,5 @@ def gateway_status() -> dict:
             GROQ_API_KEY, CEREBRAS_API_KEY, SAMBANOVA_API_KEY, GEMINI_API_KEY,
             XAI_API_KEY, COHERE_API_KEY, MISTRAL_API_KEY, TOGETHER_API_KEY,
             OPENROUTER_API_KEY, HUGGINGFACE_API_KEY,
-        ] if v),
+        ] if v) + (1 if _SHARED_BYOK_POOL else 0),
     }
