@@ -1,5 +1,5 @@
 /**
- * Studio — Ghost Producer Studio (v1).
+ * Studio — Ghost Producer Studio (v2).
  *
  * An in-browser music creation suite for southern soul, neo soul, gospel,
  * hip hop, jazz, blues, tribal, spiritual, meditation, and spoken word.
@@ -10,13 +10,14 @@
  *     licensing exposure anywhere in the kit system.
  *   • The creator keeps 100% ownership of everything made here. The platform
  *     takes a 30% service fee on sales (the 70/30 creator-first split,
- *     Mandate 2) and never claims copyright. That is stated in the Publish
- *     tab and enforced by the existing creator earnings pipeline server-side.
+ *     Mandate 2) and never claims copyright.
  *   • AI-disclosure is a first-class metadata field (required by modern
  *     platforms), and the publish flow records sample-clearance attestation.
  *
  * Engine: Web Audio API only — no audio libraries, no external requests.
  * Export: OfflineAudioContext render → 16-bit PCM WAV (open format).
+ *
+ * v2: 12 instruments, song arrangement with named sections, full-track export.
  */
 
 import { useRef, useState, useCallback, useEffect } from "react";
@@ -51,6 +52,70 @@ const SCALES = {
 const ROOTS = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
 const ROOT_MIDI = { C: 60, "C#": 61, D: 62, "D#": 63, E: 64, F: 65, "F#": 66, G: 67, "G#": 68, A: 69, "A#": 70, B: 71 };
 const midiToFreq = (m) => 440 * Math.pow(2, (m - 69) / 12);
+
+// ── 12 Instruments ──────────────────────────────────────────────────────────
+const DRUM_TRACKS = [
+  { id: "kick",    label: "Kick",    color: "#f472b6" },
+  { id: "snare",   label: "Snare",   color: "#22d3ee" },
+  { id: "hat",     label: "Hat",     color: "#67e8f9" },
+  { id: "perc",    label: "Perc",    color: "#a78bfa" },
+  { id: "clap",    label: "Clap",    color: "#fb923c" },
+  { id: "rim",     label: "Rim",     color: "#facc15" },
+  { id: "openHat", label: "Open Hat", color: "#34d399" },
+  { id: "shaker",  label: "Shaker",  color: "#f9a8d4" },
+  { id: "crash",   label: "Crash",   color: "#fbbf24" },
+  { id: "ride",    label: "Ride",    color: "#93c5fd" },
+  { id: "cowbell", label: "Cowbell", color: "#c084fc" },
+  { id: "tom",     label: "Tom",     color: "#f87171" },
+];
+
+// ── Song sections ────────────────────────────────────────────────────────────
+const SECTION_DEFS = [
+  { id: "intro",    label: "Intro",    icon: "🌅", defaultBars: 4 },
+  { id: "verse",    label: "Verse",    icon: "🎤", defaultBars: 8 },
+  { id: "chorus",   label: "Chorus",   icon: "🔥", defaultBars: 8 },
+  { id: "bridge",   label: "Bridge",   icon: "🌊", defaultBars: 4 },
+  { id: "outro",    label: "Outro",    icon: "🌙", defaultBars: 4 },
+];
+
+const DEFAULT_ARRANGEMENT = ["intro", "verse", "chorus", "verse", "chorus", "bridge", "chorus", "outro"];
+
+function makeEmptyPatterns(kits, drumTracks, steps) {
+  const init = {};
+  for (const k of Object.keys(kits)) {
+    init[k] = {};
+    for (const t of drumTracks) {
+      init[k][t.id] = [Array(steps).fill(false), Array(steps).fill(false)];
+    }
+  }
+  return init;
+}
+
+function makeEmptyKeys(kits, rows, steps) {
+  const init = {};
+  for (const k of Object.keys(kits)) {
+    init[k] = Array.from({ length: rows }, () => Array(steps).fill(false));
+  }
+  return init;
+}
+
+function makeDefaultDrumPatterns(kits) {
+  const init = {};
+  for (const k of Object.keys(kits)) {
+    init[k] = {};
+    // Original 4 tracks get the kit's built-in defaults
+    for (const tId of ["kick", "snare", "hat", "perc"]) {
+      init[k][tId] = [kits[k].drums[tId].slice(), kits[k].drums[tId].slice()];
+    }
+    // New tracks start empty
+    for (const t of DRUM_TRACKS) {
+      if (!init[k][t.id]) {
+        init[k][t.id] = [Array(STEPS).fill(false), Array(STEPS).fill(false)];
+      }
+    }
+  }
+  return init;
+}
 
 // ── Genre kits — feel + default drum patterns + scale ────────────────────────
 const KITS = {
@@ -128,14 +193,7 @@ const KITS = {
   },
 };
 
-const DRUM_TRACKS = [
-  { id: "kick", label: "Kick", color: "#f472b6" },
-  { id: "snare", label: "Snare", color: "#22d3ee" },
-  { id: "hat", label: "Hat", color: "#67e8f9" },
-  { id: "perc", label: "Perc", color: "#a78bfa" },
-];
-
-const KEY_ROWS = 5; // 5-pitch grid for the keys lane
+const KEY_ROWS = 5;
 
 // ── Sound synthesis (no samples — nothing to license) ────────────────────────
 function playKick(ctx, t, gain, swingShift) {
@@ -158,16 +216,10 @@ function playSnare(ctx, t, gain, swingShift) {
   const d = buf.getChannelData(0);
   for (let i = 0; i < d.length; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / d.length);
   noise.buffer = buf;
-  const bp = ctx.createBiquadFilter();
-  bp.type = "bandpass"; bp.frequency.value = 1800; bp.Q.value = 0.8;
-  const g = ctx.createGain();
-  g.gain.setValueAtTime(gain, t0);
-  g.gain.exponentialRampToValueAtTime(0.001, t0 + 0.2);
-  const tone = ctx.createOscillator();
-  tone.type = "triangle"; tone.frequency.setValueAtTime(190, t0);
-  const tg = ctx.createGain();
-  tg.gain.setValueAtTime(gain * 0.5, t0);
-  tg.gain.exponentialRampToValueAtTime(0.001, t0 + 0.12);
+  const bp = ctx.createBiquadFilter(); bp.type = "bandpass"; bp.frequency.value = 1800; bp.Q.value = 0.8;
+  const g = ctx.createGain(); g.gain.setValueAtTime(gain, t0); g.gain.exponentialRampToValueAtTime(0.001, t0 + 0.2);
+  const tone = ctx.createOscillator(); tone.type = "triangle"; tone.frequency.setValueAtTime(190, t0);
+  const tg = ctx.createGain(); tg.gain.setValueAtTime(gain * 0.5, t0); tg.gain.exponentialRampToValueAtTime(0.001, t0 + 0.12);
   noise.connect(bp).connect(g).connect(ctx.destination);
   tone.connect(tg).connect(ctx.destination);
   noise.start(t0); noise.stop(t0 + 0.24);
@@ -182,11 +234,8 @@ function playHat(ctx, t, gain, swingShift, open) {
   const d = buf.getChannelData(0);
   for (let i = 0; i < d.length; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / d.length);
   noise.buffer = buf;
-  const hp = ctx.createBiquadFilter();
-  hp.type = "highpass"; hp.frequency.value = 7000;
-  const g = ctx.createGain();
-  g.gain.setValueAtTime(gain, t0);
-  g.gain.exponentialRampToValueAtTime(0.001, t0 + dur);
+  const hp = ctx.createBiquadFilter(); hp.type = "highpass"; hp.frequency.value = 7000;
+  const g = ctx.createGain(); g.gain.setValueAtTime(gain, t0); g.gain.exponentialRampToValueAtTime(0.001, t0 + dur);
   noise.connect(hp).connect(g).connect(ctx.destination);
   noise.start(t0); noise.stop(t0 + dur + 0.01);
 }
@@ -198,20 +247,129 @@ function playPerc(ctx, t, gain, swingShift) {
   const d = buf.getChannelData(0);
   for (let i = 0; i < d.length; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / d.length);
   noise.buffer = buf;
-  const bp = ctx.createBiquadFilter();
-  bp.type = "bandpass"; bp.frequency.value = 900; bp.Q.value = 2;
-  const g = ctx.createGain();
-  g.gain.setValueAtTime(gain, t0);
-  g.gain.exponentialRampToValueAtTime(0.001, t0 + 0.12);
-  const tick = ctx.createOscillator();
-  tick.type = "sine"; tick.frequency.setValueAtTime(660, t0);
-  const tg = ctx.createGain();
-  tg.gain.setValueAtTime(gain * 0.6, t0);
-  tg.gain.exponentialRampToValueAtTime(0.001, t0 + 0.08);
+  const bp = ctx.createBiquadFilter(); bp.type = "bandpass"; bp.frequency.value = 900; bp.Q.value = 2;
+  const g = ctx.createGain(); g.gain.setValueAtTime(gain, t0); g.gain.exponentialRampToValueAtTime(0.001, t0 + 0.12);
+  const tick = ctx.createOscillator(); tick.type = "sine"; tick.frequency.setValueAtTime(660, t0);
+  const tg = ctx.createGain(); tg.gain.setValueAtTime(gain * 0.6, t0); tg.gain.exponentialRampToValueAtTime(0.001, t0 + 0.08);
   noise.connect(bp).connect(g).connect(ctx.destination);
   tick.connect(tg).connect(ctx.destination);
   noise.start(t0); noise.stop(t0 + 0.16);
   tick.start(t0); tick.stop(t0 + 0.1);
+}
+
+// ── New instrument synthesis ─────────────────────────────────────────────────
+function playClap(ctx, t, gain, swingShift) {
+  const t0 = t + swingShift;
+  for (let i = 0; i < 3; i++) {
+    const noise = ctx.createBufferSource();
+    const buf = ctx.createBuffer(1, ctx.sampleRate * 0.04, ctx.sampleRate);
+    const d = buf.getChannelData(0);
+    for (let j = 0; j < d.length; j++) d[j] = (Math.random() * 2 - 1) * (1 - j / d.length);
+    noise.buffer = buf;
+    const bp = ctx.createBiquadFilter(); bp.type = "bandpass"; bp.frequency.value = 2500; bp.Q.value = 1.2;
+    const g = ctx.createGain(); g.gain.setValueAtTime(gain * 0.8, t0 + i * 0.008); g.gain.exponentialRampToValueAtTime(0.001, t0 + i * 0.008 + 0.08);
+    noise.connect(bp).connect(g).connect(ctx.destination);
+    noise.start(t0 + i * 0.008); noise.stop(t0 + i * 0.008 + 0.09);
+  }
+  const env = ctx.createBufferSource();
+  const ebuf = ctx.createBuffer(1, ctx.sampleRate * 0.15, ctx.sampleRate);
+  const ed = ebuf.getChannelData(0);
+  for (let i = 0; i < ed.length; i++) ed[i] = (Math.random() * 2 - 1) * Math.exp(-i / (ctx.sampleRate * 0.04));
+  env.buffer = ebuf;
+  const bp2 = ctx.createBiquadFilter(); bp2.type = "bandpass"; bp2.frequency.value = 3500; bp2.Q.value = 0.7;
+  const g2 = ctx.createGain(); g2.gain.setValueAtTime(gain * 0.6, t0 + 0.02); g2.gain.exponentialRampToValueAtTime(0.001, t0 + 0.15);
+  env.connect(bp2).connect(g2).connect(ctx.destination);
+  env.start(t0 + 0.02); env.stop(t0 + 0.16);
+}
+
+function playRim(ctx, t, gain, swingShift) {
+  const t0 = t + swingShift;
+  const o = ctx.createOscillator(); o.type = "triangle";
+  o.frequency.setValueAtTime(800, t0);
+  o.frequency.exponentialRampToValueAtTime(400, t0 + 0.03);
+  const g = ctx.createGain(); g.gain.setValueAtTime(gain, t0); g.gain.exponentialRampToValueAtTime(0.001, t0 + 0.06);
+  o.connect(g).connect(ctx.destination);
+  o.start(t0); o.stop(t0 + 0.07);
+  const o2 = ctx.createOscillator(); o2.type = "sine";
+  o2.frequency.setValueAtTime(1200, t0);
+  const g2 = ctx.createGain(); g2.gain.setValueAtTime(gain * 0.3, t0); g2.gain.exponentialRampToValueAtTime(0.001, t0 + 0.02);
+  o2.connect(g2).connect(ctx.destination);
+  o2.start(t0); o2.stop(t0 + 0.03);
+}
+
+function playOpenHatFn(ctx, t, gain, swingShift) {
+  playHat(ctx, t, gain, swingShift, true);
+}
+
+function playShaker(ctx, t, gain, swingShift) {
+  const t0 = t + swingShift;
+  const noise = ctx.createBufferSource();
+  const buf = ctx.createBuffer(1, ctx.sampleRate * 0.08, ctx.sampleRate);
+  const d = buf.getChannelData(0);
+  for (let i = 0; i < d.length; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / d.length) * 0.6;
+  noise.buffer = buf;
+  const hp = ctx.createBiquadFilter(); hp.type = "highpass"; hp.frequency.value = 5000;
+  const bp = ctx.createBiquadFilter(); bp.type = "bandpass"; bp.frequency.value = 8000; bp.Q.value = 1.5;
+  const g = ctx.createGain(); g.gain.setValueAtTime(gain * 0.5, t0); g.gain.exponentialRampToValueAtTime(0.001, t0 + 0.07);
+  noise.connect(hp).connect(bp).connect(g).connect(ctx.destination);
+  noise.start(t0); noise.stop(t0 + 0.09);
+}
+
+function playCrash(ctx, t, gain, swingShift) {
+  const t0 = t + swingShift;
+  const noise = ctx.createBufferSource();
+  const buf = ctx.createBuffer(1, ctx.sampleRate * 0.6, ctx.sampleRate);
+  const d = buf.getChannelData(0);
+  for (let i = 0; i < d.length; i++) d[i] = (Math.random() * 2 - 1) * Math.exp(-i / (ctx.sampleRate * 0.18));
+  noise.buffer = buf;
+  const bp = ctx.createBiquadFilter(); bp.type = "highpass"; bp.frequency.value = 5000;
+  const g = ctx.createGain(); g.gain.setValueAtTime(gain * 0.7, t0); g.gain.exponentialRampToValueAtTime(0.001, t0 + 0.55);
+  noise.connect(bp).connect(g).connect(ctx.destination);
+  noise.start(t0); noise.stop(t0 + 0.6);
+}
+
+function playRide(ctx, t, gain, swingShift) {
+  const t0 = t + swingShift;
+  const noise = ctx.createBufferSource();
+  const buf = ctx.createBuffer(1, ctx.sampleRate * 0.35, ctx.sampleRate);
+  const d = buf.getChannelData(0);
+  for (let i = 0; i < d.length; i++) d[i] = (Math.random() * 2 - 1) * Math.exp(-i / (ctx.sampleRate * 0.12)) * 0.5;
+  noise.buffer = buf;
+  const hp = ctx.createBiquadFilter(); hp.type = "highpass"; hp.frequency.value = 6000;
+  const g = ctx.createGain(); g.gain.setValueAtTime(gain * 0.4, t0); g.gain.exponentialRampToValueAtTime(0.001, t0 + 0.3);
+  noise.connect(hp).connect(g).connect(ctx.destination);
+  noise.start(t0); noise.stop(t0 + 0.36);
+  const bell = ctx.createOscillator(); bell.type = "sine"; bell.frequency.setValueAtTime(8000, t0);
+  const bg = ctx.createGain(); bg.gain.setValueAtTime(gain * 0.15, t0); bg.gain.exponentialRampToValueAtTime(0.001, t0 + 0.2);
+  bell.connect(bg).connect(ctx.destination);
+  bell.start(t0); bell.stop(t0 + 0.22);
+}
+
+function playCowbell(ctx, t, gain, swingShift) {
+  const t0 = t + swingShift;
+  const o1 = ctx.createOscillator(); o1.type = "square"; o1.frequency.setValueAtTime(800, t0);
+  const o2 = ctx.createOscillator(); o2.type = "square"; o2.frequency.setValueAtTime(540, t0);
+  const g = ctx.createGain(); g.gain.setValueAtTime(gain * 0.3, t0); g.gain.exponentialRampToValueAtTime(0.001, t0 + 0.12);
+  const bp = ctx.createBiquadFilter(); bp.type = "bandpass"; bp.frequency.value = 800; bp.Q.value = 3;
+  o1.connect(bp); o2.connect(bp); bp.connect(g).connect(ctx.destination);
+  o1.start(t0); o1.stop(t0 + 0.13);
+  o2.start(t0); o2.stop(t0 + 0.13);
+}
+
+function playTom(ctx, t, gain, swingShift) {
+  const t0 = t + swingShift;
+  const o = ctx.createOscillator(); o.type = "sine";
+  o.frequency.setValueAtTime(200, t0);
+  o.frequency.exponentialRampToValueAtTime(80, t0 + 0.15);
+  const g = ctx.createGain(); g.gain.setValueAtTime(gain * 0.8, t0); g.gain.exponentialRampToValueAtTime(0.001, t0 + 0.25);
+  o.connect(g).connect(ctx.destination);
+  o.start(t0); o.stop(t0 + 0.26);
+  const o2 = ctx.createOscillator(); o2.type = "triangle";
+  o2.frequency.setValueAtTime(240, t0);
+  o2.frequency.exponentialRampToValueAtTime(90, t0 + 0.12);
+  const g2 = ctx.createGain(); g2.gain.setValueAtTime(gain * 0.4, t0); g2.gain.exponentialRampToValueAtTime(0.001, t0 + 0.18);
+  o2.connect(g2).connect(ctx.destination);
+  o2.start(t0); o2.stop(t0 + 0.19);
 }
 
 function playNote(ctx, t, freq, dur, gain, type) {
@@ -232,7 +390,97 @@ function drumAt(id, ctx, t, gain, swingShift) {
   if (id === "kick") playKick(ctx, t, gain, swingShift);
   else if (id === "snare") playSnare(ctx, t, gain, swingShift);
   else if (id === "hat") playHat(ctx, t, gain, swingShift, false);
-  else playPerc(ctx, t, gain, swingShift);
+  else if (id === "perc") playPerc(ctx, t, gain, swingShift);
+  else if (id === "clap") playClap(ctx, t, gain, swingShift);
+  else if (id === "rim") playRim(ctx, t, gain, swingShift);
+  else if (id === "openHat") playOpenHatFn(ctx, t, gain, swingShift);
+  else if (id === "shaker") playShaker(ctx, t, gain, swingShift);
+  else if (id === "crash") playCrash(ctx, t, gain, swingShift);
+  else if (id === "ride") playRide(ctx, t, gain, swingShift);
+  else if (id === "cowbell") playCowbell(ctx, t, gain, swingShift);
+  else if (id === "tom") playTom(ctx, t, gain, swingShift);
+}
+
+// ── Offline synth (mirrors drumAt for OfflineAudioContext) ───────────────────
+function offlineDrumAt(id, off, dest, t, gain, shift) {
+  if (id === "kick") {
+    const o = off.createOscillator(), g = off.createGain();
+    o.type = "sine";
+    o.frequency.setValueAtTime(150, t + shift); o.frequency.exponentialRampToValueAtTime(48, t + shift + 0.12);
+    g.gain.setValueAtTime(gain, t + shift); g.gain.exponentialRampToValueAtTime(0.001, t + shift + 0.28);
+    o.connect(g).connect(dest); o.start(t + shift); o.stop(t + shift + 0.3);
+  } else if (id === "snare") {
+    const buf = off.createBuffer(1, off.sampleRate * 0.22, off.sampleRate);
+    const d = buf.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / d.length);
+    const n = off.createBufferSource(); n.buffer = buf;
+    const bp = off.createBiquadFilter(); bp.type = "bandpass"; bp.frequency.value = 1800; bp.Q.value = 0.8;
+    const g = off.createGain(); g.gain.setValueAtTime(gain, t + shift); g.gain.exponentialRampToValueAtTime(0.001, t + shift + 0.2);
+    const tone = off.createOscillator(); tone.type = "triangle"; tone.frequency.setValueAtTime(190, t + shift);
+    const tg = off.createGain(); tg.gain.setValueAtTime(gain * 0.5, t + shift); tg.gain.exponentialRampToValueAtTime(0.001, t + shift + 0.12);
+    n.connect(bp).connect(g).connect(dest); tone.connect(tg).connect(dest);
+    n.start(t + shift); n.stop(t + shift + 0.24); tone.start(t + shift); tone.stop(t + shift + 0.14);
+  } else if (id === "hat" || id === "openHat") {
+    const isOpen = id === "openHat"; const dur = isOpen ? 0.25 : 0.06;
+    const buf = off.createBuffer(1, off.sampleRate * dur, off.sampleRate);
+    const d = buf.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / d.length);
+    const n = off.createBufferSource(); n.buffer = buf;
+    const hp = off.createBiquadFilter(); hp.type = "highpass"; hp.frequency.value = 7000;
+    const g = off.createGain(); g.gain.setValueAtTime(gain, t + shift); g.gain.exponentialRampToValueAtTime(0.001, t + shift + dur);
+    n.connect(hp).connect(g).connect(dest); n.start(t + shift); n.stop(t + shift + dur + 0.01);
+  } else if (id === "clap") {
+    for (let i = 0; i < 3; i++) {
+      const buf = off.createBuffer(1, off.sampleRate * 0.04, off.sampleRate);
+      const d = buf.getChannelData(0); for (let j = 0; j < d.length; j++) d[j] = (Math.random() * 2 - 1) * (1 - j / d.length);
+      const n = off.createBufferSource(); n.buffer = buf;
+      const bp = off.createBiquadFilter(); bp.type = "bandpass"; bp.frequency.value = 2500; bp.Q.value = 1.2;
+      const g = off.createGain(); g.gain.setValueAtTime(gain * 0.8, t + shift + i * 0.008); g.gain.exponentialRampToValueAtTime(0.001, t + shift + i * 0.008 + 0.08);
+      n.connect(bp).connect(g).connect(dest); n.start(t + shift + i * 0.008); n.stop(t + shift + i * 0.008 + 0.09);
+    }
+  } else if (id === "rim") {
+    const o = off.createOscillator(); o.type = "triangle"; o.frequency.setValueAtTime(800, t + shift); o.frequency.exponentialRampToValueAtTime(400, t + shift + 0.03);
+    const g = off.createGain(); g.gain.setValueAtTime(gain, t + shift); g.gain.exponentialRampToValueAtTime(0.001, t + shift + 0.06);
+    o.connect(g).connect(dest); o.start(t + shift); o.stop(t + shift + 0.07);
+  } else if (id === "shaker") {
+    const buf = off.createBuffer(1, off.sampleRate * 0.08, off.sampleRate);
+    const d = buf.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / d.length) * 0.6;
+    const n = off.createBufferSource(); n.buffer = buf;
+    const hp = off.createBiquadFilter(); hp.type = "highpass"; hp.frequency.value = 5000;
+    const g = off.createGain(); g.gain.setValueAtTime(gain * 0.5, t + shift); g.gain.exponentialRampToValueAtTime(0.001, t + shift + 0.07);
+    n.connect(hp).connect(g).connect(dest); n.start(t + shift); n.stop(t + shift + 0.09);
+  } else if (id === "crash") {
+    const buf = off.createBuffer(1, off.sampleRate * 0.6, off.sampleRate);
+    const d = buf.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = (Math.random() * 2 - 1) * Math.exp(-i / (off.sampleRate * 0.18));
+    const n = off.createBufferSource(); n.buffer = buf;
+    const bp = off.createBiquadFilter(); bp.type = "highpass"; bp.frequency.value = 5000;
+    const g = off.createGain(); g.gain.setValueAtTime(gain * 0.7, t + shift); g.gain.exponentialRampToValueAtTime(0.001, t + shift + 0.55);
+    n.connect(bp).connect(g).connect(dest); n.start(t + shift); n.stop(t + shift + 0.6);
+  } else if (id === "ride") {
+    const buf = off.createBuffer(1, off.sampleRate * 0.35, off.sampleRate);
+    const d = buf.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = (Math.random() * 2 - 1) * Math.exp(-i / (off.sampleRate * 0.12)) * 0.5;
+    const n = off.createBufferSource(); n.buffer = buf;
+    const hp = off.createBiquadFilter(); hp.type = "highpass"; hp.frequency.value = 6000;
+    const g = off.createGain(); g.gain.setValueAtTime(gain * 0.4, t + shift); g.gain.exponentialRampToValueAtTime(0.001, t + shift + 0.3);
+    n.connect(hp).connect(g).connect(dest); n.start(t + shift); n.stop(t + shift + 0.36);
+  } else if (id === "cowbell") {
+    const o1 = off.createOscillator(); o1.type = "square"; o1.frequency.setValueAtTime(800, t + shift);
+    const o2 = off.createOscillator(); o2.type = "square"; o2.frequency.setValueAtTime(540, t + shift);
+    const g = off.createGain(); g.gain.setValueAtTime(gain * 0.3, t + shift); g.gain.exponentialRampToValueAtTime(0.001, t + shift + 0.12);
+    const bp = off.createBiquadFilter(); bp.type = "bandpass"; bp.frequency.value = 800; bp.Q.value = 3;
+    o1.connect(bp); o2.connect(bp); bp.connect(g).connect(dest);
+    o1.start(t + shift); o1.stop(t + shift + 0.13); o2.start(t + shift); o2.stop(t + shift + 0.13);
+  } else if (id === "tom") {
+    const o = off.createOscillator(); o.type = "sine"; o.frequency.setValueAtTime(200, t + shift); o.frequency.exponentialRampToValueAtTime(80, t + shift + 0.15);
+    const g = off.createGain(); g.gain.setValueAtTime(gain * 0.8, t + shift); g.gain.exponentialRampToValueAtTime(0.001, t + shift + 0.25);
+    o.connect(g).connect(dest); o.start(t + shift); o.stop(t + shift + 0.26);
+  } else {
+    // fallback perc
+    const buf = off.createBuffer(1, off.sampleRate * 0.15, off.sampleRate);
+    const d = buf.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / d.length);
+    const n = off.createBufferSource(); n.buffer = buf;
+    const bp = off.createBiquadFilter(); bp.type = "bandpass"; bp.frequency.value = 900; bp.Q.value = 2;
+    const g = off.createGain(); g.gain.setValueAtTime(gain, t + shift); g.gain.exponentialRampToValueAtTime(0.001, t + shift + 0.12);
+    n.connect(bp).connect(g).connect(dest); n.start(t + shift); n.stop(t + shift + 0.16);
+  }
 }
 
 // ── WAV encoder (16-bit PCM, open format) ────────────────────────────────────
@@ -265,7 +513,7 @@ export function StudioContent({ embedded = false }) {
   const { user } = useAuth();
   const [tab, setTab] = useState(() => {
     const requested = new URLSearchParams(window.location.search).get("tab");
-    return ["beat", "keys", "publish"].includes(requested) ? requested : "beat";
+    return ["beat", "keys", "song", "publish"].includes(requested) ? requested : "beat";
   });
 
   // Shared project state
@@ -273,25 +521,45 @@ export function StudioContent({ embedded = false }) {
   const [bpm, setBpm] = useState(KITS["boom-bap"].bpm);
   const [swing, setSwing] = useState(KITS["boom-bap"].swing);
   const [root, setRoot] = useState("C");
-  const [patterns, setPatterns] = useState(() => {
-    // patterns[trackId][step] — A and B banks
-    const init = {};
-    for (const k of Object.keys(KITS)) {
-      init[k] = {};
-      for (const t of DRUM_TRACKS) init[k][t.id] = [KITS[k].drums[t.id].slice(), KITS[k].drums[t.id].slice()];
+
+  // Section-based patterns: sectionPatterns[sectionId][kitId][trackId][bank][step]
+  const [sectionPatterns, setSectionPatterns] = useState(() => {
+    const sp = {};
+    for (const sec of SECTION_DEFS) {
+      sp[sec.id] = makeDefaultDrumPatterns(KITS);
     }
-    return init;
+    return sp;
   });
-  const [bank, setBank] = useState(0); // 0 = A, 1 = B
-  const [keys, setKeys] = useState(() => {
-    // keys[kid][row][step]
-    const init = {};
-    for (const k of Object.keys(KITS)) {
-      init[k] = Array.from({ length: KEY_ROWS }, () => Array(STEPS).fill(false));
-    }
-    return init;
+
+  // Legacy patterns (kept for backwards compat, synced from active section)
+  const [patterns, setPatterns] = useState(() => makeDefaultDrumPatterns(KITS));
+  const [bank, setBank] = useState(0);
+  const [keys, setKeys] = useState(() => makeEmptyKeys(KITS, KEY_ROWS, STEPS));
+
+  // Section keys: sectionKeys[sectionId][kitId][row][step]
+  const [sectionKeys, setSectionKeys] = useState(() => {
+    const sk = {};
+    for (const sec of SECTION_DEFS) sk[sec.id] = makeEmptyKeys(KITS, KEY_ROWS, STEPS);
+    return sk;
   });
-  const [muted, setMuted] = useState({ kick: false, snare: false, hat: false, perc: false, keys: false });
+
+  // Arrangement state
+  const [activeSection, setActiveSection] = useState("intro");
+  const [arrangement, setArrangement] = useState([...DEFAULT_ARRANGEMENT]);
+  const [sectionBars, setSectionBars] = useState(() => {
+    const sb = {};
+    for (const sec of SECTION_DEFS) sb[sec.id] = sec.defaultBars;
+    return sb;
+  });
+  const [isPlayingSong, setIsPlayingSong] = useState(false);
+  const [arrangeMode, setArrangeMode] = useState(false);
+
+  const [muted, setMuted] = useState(() => {
+    const m = {};
+    for (const t of DRUM_TRACKS) m[t.id] = false;
+    m.keys = false;
+    return m;
+  });
   const [playing, setPlaying] = useState(false);
   const [step, setStep] = useState(-1);
   const [exporting, setExporting] = useState(false);
@@ -301,24 +569,24 @@ export function StudioContent({ embedded = false }) {
     try { return JSON.parse(localStorage.getItem("ghost_studio_meta") || "null") || {}; } catch { return {}; }
   });
 
-  // AI team projects (executive pipeline) — attach a published track as a deliverable.
   const [projects, setProjects] = useState([]);
   const [projectId, setProjectId] = useState("");
 
   useEffect(() => {
     api.get("/executive/projects")
       .then((r) => setProjects(r.data || []))
-      .catch(() => {}); // non-exec users simply don't see the attach control
+      .catch(() => {});
   }, []);
 
   const ctxRef = useRef(null);
   const timerRef = useRef(null);
   const nextTimeRef = useRef(0);
   const stepRef = useRef(0);
+  const songTimerRef = useRef(null);
 
   const kit = KITS[kitId];
   const scale = SCALES[kit.scale];
-  const stepDur = 60 / bpm / 4; // 16th note duration
+  const stepDur = 60 / bpm / 4;
 
   const ensureCtx = useCallback(() => {
     if (!ctxRef.current) {
@@ -335,18 +603,41 @@ export function StudioContent({ embedded = false }) {
     setSwing(KITS[id].swing);
   };
 
+  // ── Sync active section → working patterns ──
+  useEffect(() => {
+    setPatterns(sectionPatterns[activeSection]?.[kitId] || makeDefaultDrumPatterns(KITS));
+    setKeys(sectionKeys[activeSection]?.[kitId] || makeEmptyKeys(KITS, KEY_ROWS, STEPS));
+  }, [activeSection, kitId]);
+
+  const saveSection = useCallback((secId, pat, k) => {
+    setSectionPatterns((prev) => ({ ...prev, [secId]: { ...prev[secId], [k]: pat } }));
+  }, []);
+
+  const saveSectionKeys = useCallback((secId, k, kKeys) => {
+    setSectionKeys((prev) => ({ ...prev, [secId]: { ...prev[secId], [k]: kKeys } }));
+  }, []);
+
+  // Auto-save on change
+  useEffect(() => {
+    saveSection(activeSection, patterns, kitId);
+  }, [patterns, activeSection, kitId, saveSection]);
+
+  useEffect(() => {
+    saveSectionKeys(activeSection, kitId, keys);
+  }, [keys, activeSection, kitId, saveSectionKeys]);
+
   // ── Scheduler ──
-  const scheduleStep = useCallback((ctx, s, when) => {
+  const scheduleStep = useCallback((ctx, s, when, overridePat, overrideKeys) => {
     const sw = swing * stepDur;
-    const swingOn = s % 2 === 1;
-    const shift = swingOn ? sw : 0;
-    const pat = patterns[kitId];
+    const shift = (s % 2 === 1) ? sw : 0;
+    const pat = overridePat || patterns[kitId];
     DRUM_TRACKS.forEach((t) => {
       if (muted[t.id]) return;
-      if (pat[t.id][bank][s]) drumAt(t.id, ctx, when, 0.9, shift);
+      const stepOn = pat[t.id] ? pat[t.id][bank]?.[s] : false;
+      if (stepOn) drumAt(t.id, ctx, when, 0.9, shift);
     });
     if (!muted.keys) {
-      const kp = keys[kitId];
+      const kp = overrideKeys || keys[kitId];
       kp.forEach((row, r) => {
         if (!row[s]) return;
         const degree = Math.min(r, scale.offsets.length - 1);
@@ -358,7 +649,9 @@ export function StudioContent({ embedded = false }) {
 
   const stop = useCallback(() => {
     if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null; }
+    if (songTimerRef.current) { clearTimeout(songTimerRef.current); songTimerRef.current = null; }
     setPlaying(false);
+    setIsPlayingSong(false);
     setStep(-1);
   }, []);
 
@@ -379,109 +672,122 @@ export function StudioContent({ embedded = false }) {
     }, 25);
   }, [ensureCtx, stop, scheduleStep, stepDur]);
 
+  // ── Full song playback (arrangement) ──
+  const playSong = useCallback(() => {
+    const ctx = ensureCtx();
+    stop();
+    setIsPlayingSong(true);
+    setPlaying(true);
+    let globalStep = 0;
+    const totalSteps = arrangement.reduce((sum, secId) => sum + (sectionBars[secId] || 4) * STEPS, 0);
+    nextTimeRef.current = ctx.currentTime + 0.06;
+    timerRef.current = setInterval(() => {
+      const ahead = 0.15;
+      while (nextTimeRef.current < ctx.currentTime + ahead && globalStep < totalSteps) {
+        // Determine which section and local step
+        let stepsSoFar = 0;
+        let secId = arrangement[0];
+        let localStep = 0;
+        for (const s of arrangement) {
+          const secLen = (sectionBars[s] || 4) * STEPS;
+          if (globalStep < stepsSoFar + secLen) {
+            secId = s;
+            localStep = globalStep - stepsSoFar;
+            break;
+          }
+          stepsSoFar += secLen;
+        }
+        const pat = sectionPatterns[secId]?.[kitId];
+        const kKeys = sectionKeys[secId]?.[kitId];
+        const overridePat = pat || undefined;
+        const overrideKeys = kKeys || undefined;
+        const sInBar = localStep % STEPS;
+        const sw = swing * stepDur;
+        const shift = (sInBar % 2 === 1) ? sw : 0;
+        DRUM_TRACKS.forEach((t) => {
+          if (muted[t.id]) return;
+          const stepOn = overridePat?.[t.id]?.[bank]?.[sInBar];
+          if (stepOn) drumAt(t.id, ctx, nextTimeRef.current, 0.9, shift);
+        });
+        if (!muted.keys) {
+          const kp = overrideKeys || keys[kitId];
+          kp.forEach((row, r) => {
+            if (!row[sInBar]) return;
+            const degree = Math.min(r, scale.offsets.length - 1);
+            const note = ROOT_MIDI[root] + 12 + scale.offsets[degree];
+            playNote(ctx, nextTimeRef.current, midiToFreq(note), stepDur * 3.5, 0.16, "triangle");
+          });
+        }
+        setStep(sInBar);
+        nextTimeRef.current += stepDur;
+        globalStep++;
+      }
+      if (globalStep >= totalSteps) {
+        stop();
+      }
+    }, 25);
+  }, [ensureCtx, stop, arrangement, sectionBars, sectionPatterns, sectionKeys, kitId, bank, muted, swing, stepDur, root, scale, keys]);
+
   useEffect(() => () => stop(), [stop]);
 
-  // ── Export WAV (offline render — same schedule, no audio card needed) ──────
-  // download=false returns the blob for preview playback without saving a file.
-  const exportWav = useCallback(async (bars = 8, download = true) => {
+  // ── Export WAV (offline render) ────────────────────────────────────────────
+  const exportWav = useCallback(async (bars = 8, download = true, useArrangement = false) => {
     setExporting(true);
     try {
       const AC = window.AudioContext || window.webkitAudioContext;
       const sr = 44100;
-      const total = bars * STEPS * stepDur;
+      let totalBars = bars;
+      let totalSteps;
+      if (useArrangement && arrangement.length > 0) {
+        totalSteps = arrangement.reduce((sum, secId) => sum + (sectionBars[secId] || 4) * STEPS, 0);
+      } else {
+        totalSteps = bars * STEPS;
+      }
+      const total = totalSteps * stepDur;
       const off = new OfflineAudioContext(2, Math.ceil(sr * total), sr);
-      // Route synthesized sounds into the offline context destination.
       const origDest = off.destination;
-      // Rebind helpers to the offline context by wrapping in a local fn.
-      const schedOffline = (s, when) => {
-        const sw = swing * stepDur;
-        const shift = (s % 2 === 1) ? sw : 0;
-        const pat = patterns[kitId];
-        DRUM_TRACKS.forEach((t) => {
-          if (muted[t.id]) return;
-          if (pat[t.id][bank][s]) {
-            // Clone synth into offline ctx with explicit dest
-            if (t.id === "kick") {
-              const o = off.createOscillator(), g = off.createGain();
-              o.type = "sine";
-              o.frequency.setValueAtTime(150, when + shift);
-              o.frequency.exponentialRampToValueAtTime(48, when + shift + 0.12);
-              g.gain.setValueAtTime(0.9, when + shift);
-              g.gain.exponentialRampToValueAtTime(0.001, when + shift + 0.28);
-              o.connect(g).connect(origDest);
-              o.start(when + shift); o.stop(when + shift + 0.3);
-            } else if (t.id === "snare") {
-              const buf = off.createBuffer(1, sr * 0.22, sr);
-              const d = buf.getChannelData(0);
-              for (let i = 0; i < d.length; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / d.length);
-              const n = off.createBufferSource(); n.buffer = buf;
-              const bp = off.createBiquadFilter(); bp.type = "bandpass"; bp.frequency.value = 1800; bp.Q.value = 0.8;
-              const g = off.createGain();
-              g.gain.setValueAtTime(0.9, when + shift);
-              g.gain.exponentialRampToValueAtTime(0.001, when + shift + 0.2);
-              const tone = off.createOscillator(); tone.type = "triangle"; tone.frequency.setValueAtTime(190, when + shift);
-              const tg = off.createGain();
-              tg.gain.setValueAtTime(0.45, when + shift);
-              tg.gain.exponentialRampToValueAtTime(0.001, when + shift + 0.12);
-              n.connect(bp).connect(g).connect(origDest);
-              tone.connect(tg).connect(origDest);
-              n.start(when + shift); n.stop(when + shift + 0.24);
-              tone.start(when + shift); tone.stop(when + shift + 0.14);
-            } else if (t.id === "hat") {
-              const dur = 0.06;
-              const buf = off.createBuffer(1, sr * dur, sr);
-              const d = buf.getChannelData(0);
-              for (let i = 0; i < d.length; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / d.length);
-              const n = off.createBufferSource(); n.buffer = buf;
-              const hp = off.createBiquadFilter(); hp.type = "highpass"; hp.frequency.value = 7000;
-              const g = off.createGain();
-              g.gain.setValueAtTime(0.9, when + shift);
-              g.gain.exponentialRampToValueAtTime(0.001, when + shift + dur);
-              n.connect(hp).connect(g).connect(origDest);
-              n.start(when + shift); n.stop(when + shift + dur + 0.01);
-            } else {
-              const buf = off.createBuffer(1, sr * 0.15, sr);
-              const d = buf.getChannelData(0);
-              for (let i = 0; i < d.length; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / d.length);
-              const n = off.createBufferSource(); n.buffer = buf;
-              const bp = off.createBiquadFilter(); bp.type = "bandpass"; bp.frequency.value = 900; bp.Q.value = 2;
-              const g = off.createGain();
-              g.gain.setValueAtTime(0.9, when + shift);
-              g.gain.exponentialRampToValueAtTime(0.001, when + shift + 0.12);
-              const tick = off.createOscillator(); tick.type = "sine"; tick.frequency.setValueAtTime(660, when + shift);
-              const tg = off.createGain();
-              tg.gain.setValueAtTime(0.54, when + shift);
-              tg.gain.exponentialRampToValueAtTime(0.001, when + shift + 0.08);
-              n.connect(bp).connect(g).connect(origDest);
-              tick.connect(tg).connect(origDest);
-              n.start(when + shift); n.stop(when + shift + 0.16);
-              tick.start(when + shift); tick.stop(when + shift + 0.1);
+      let t = 0;
+      for (let stepIdx = 0; stepIdx < totalSteps; stepIdx++) {
+        // Determine section and local step
+        let secId = arrangement[0];
+        let localStep = stepIdx;
+        if (useArrangement && arrangement.length > 0) {
+          let stepsSoFar = 0;
+          for (const s of arrangement) {
+            const secLen = (sectionBars[s] || 4) * STEPS;
+            if (stepIdx < stepsSoFar + secLen) {
+              secId = s;
+              localStep = stepIdx - stepsSoFar;
+              break;
             }
+            stepsSoFar += secLen;
           }
+        }
+        const sw = swing * stepDur;
+        const shift = (localStep % 2 === 1) ? sw : 0;
+        const pat = useArrangement ? (sectionPatterns[secId]?.[kitId] || patterns[kitId]) : patterns[kitId];
+        DRUM_TRACKS.forEach((trk) => {
+          if (muted[trk.id]) return;
+          const stepOn = pat[trk.id]?.[bank]?.[localStep];
+          if (stepOn) offlineDrumAt(trk.id, off, origDest, t, 0.9, shift);
         });
         if (!muted.keys) {
-          const kp = keys[kitId];
+          const kp = useArrangement ? (sectionKeys[secId]?.[kitId] || keys[kitId]) : keys[kitId];
           kp.forEach((row, r) => {
-            if (!row[s]) return;
+            if (!row[localStep]) return;
             const degree = Math.min(r, scale.offsets.length - 1);
             const note = ROOT_MIDI[root] + 12 + scale.offsets[degree];
             const o = off.createOscillator(), g = off.createGain(), lp = off.createBiquadFilter();
             lp.type = "lowpass"; lp.frequency.value = Math.min(3200, midiToFreq(note) * 6); lp.Q.value = 0.7;
-            o.type = "triangle"; o.frequency.setValueAtTime(midiToFreq(note), when);
-            g.gain.setValueAtTime(0.0001, when);
-            g.gain.exponentialRampToValueAtTime(0.16, when + 0.012);
-            g.gain.exponentialRampToValueAtTime(0.001, when + stepDur * 3.5);
+            o.type = "triangle"; o.frequency.setValueAtTime(midiToFreq(note), t);
+            g.gain.setValueAtTime(0.0001, t);
+            g.gain.exponentialRampToValueAtTime(0.16, t + 0.012);
+            g.gain.exponentialRampToValueAtTime(0.001, t + stepDur * 3.5);
             o.connect(lp).connect(g).connect(origDest);
-            o.start(when); o.stop(when + stepDur * 3.5 + 0.02);
+            o.start(t); o.stop(t + stepDur * 3.5 + 0.02);
           });
         }
-      };
-      let t = 0;
-      for (let bar = 0; bar < bars; bar++) {
-        for (let s = 0; s < STEPS; s++) {
-          schedOffline(s, t);
-          t += stepDur;
-        }
+        t += stepDur;
       }
       const rendered = await off.startRendering();
       const wav = encodeWav(rendered, sr);
@@ -502,19 +808,19 @@ export function StudioContent({ embedded = false }) {
     } finally {
       setExporting(false);
     }
-  }, [kitId, patterns, keys, bank, muted, swing, stepDur, root, scale, meta.title]);
+  }, [kitId, patterns, keys, bank, muted, swing, stepDur, root, scale, meta.title, arrangement, sectionBars, sectionPatterns, sectionKeys]);
 
-  // Generate a playable 8-bar preview without publishing (design: hear it first)
+  // Preview
   const [previewUrl, setPreviewUrl] = useState(null);
   const [previewDur, setPreviewDur] = useState(null);
   const [previewing, setPreviewing] = useState(false);
   const [previewErr, setPreviewErr] = useState("");
 
   const generatePreview = useCallback(async () => {
-    setPreviewing(true);
-    setPreviewErr("");
+    setPreviewing(true); setPreviewErr("");
     try {
-      const blob = await exportWav(8, false);
+      const useArr = arrangement.length > 1;
+      const blob = await exportWav(useArr ? undefined : 8, false, useArr);
       if (!blob) { setPreviewErr("Preview render failed."); return; }
       if (previewUrl) URL.revokeObjectURL(previewUrl);
       const url = URL.createObjectURL(blob);
@@ -523,23 +829,20 @@ export function StudioContent({ embedded = false }) {
         audio.addEventListener("loadedmetadata", () => res(audio.duration || 30), { once: true });
         setTimeout(() => res(30), 4000);
       });
-      setPreviewUrl(url);
-      setPreviewDur(Math.round(dur));
-      toast.success("8-bar preview ready — hear it before you publish.");
-    } catch (e) {
-      setPreviewErr("Preview failed: " + (e?.message || e));
-    } finally {
-      setPreviewing(false);
-    }
-  }, [exportWav, previewUrl]);
+      setPreviewUrl(url); setPreviewDur(Math.round(dur));
+      toast.success("Preview ready — hear it before you publish.");
+    } catch (e) { setPreviewErr("Preview failed: " + (e?.message || e)); }
+    finally { setPreviewing(false); }
+  }, [exportWav, previewUrl, arrangement]);
 
-  // Publish to the Media Store
+  // Publish
   const publish = useCallback(async () => {
-    if (!meta.title || !meta.title.trim()) { toast.error("Give the track a title first."); setTab("publish"); return; }
-    if (!meta.samples_cleared) { toast.error("Confirm the sample-clearance statement to publish."); setTab("publish"); return; }
+    if (!meta.title?.trim()) { toast.error("Give the track a title first."); setTab("publish"); return; }
+    if (!meta.samples_cleared) { toast.error("Confirm the sample-clearance statement."); setTab("publish"); return; }
     setExporting(true);
     try {
-      const blob = await exportWav(8, false);
+      const useArr = arrangement.length > 1;
+      const blob = await exportWav(useArr ? undefined : 8, false, useArr);
       if (!blob) return;
       const audio = new Audio(URL.createObjectURL(blob));
       const dur = await new Promise((res) => {
@@ -561,7 +864,6 @@ export function StudioContent({ embedded = false }) {
         file_url: fileUrl,
         published: true,
       });
-      // Attach to an AI team project as a deliverable, if one is selected.
       if (projectId) {
         try {
           const proj = await api.get(`/executive/projects/${projectId}`).then((r) => r.data).catch(() => null);
@@ -574,17 +876,14 @@ export function StudioContent({ embedded = false }) {
             file_refs: [fileUrl],
             metadata: { bpm, root, kit: kitId, ai_disclosure: !!meta.ai_disclosure, product_id: product.data?.id },
           });
-          toast.success("Track attached to the AI team project as a deliverable.");
-        } catch { /* deliverable attach is best-effort */ }
+          toast.success("Track attached to the AI team project.");
+        } catch { /* best-effort */ }
       }
       toast.success("Published to your store — 70% of sales is yours.");
       setMeta((m) => ({ ...m, last_product_id: product.data?.id }));
-    } catch (e) {
-      toast.error("Publish failed: " + (e?.response?.data?.detail || e?.message || e));
-    } finally {
-      setExporting(false);
-    }
-  }, [meta, exportWav, kitId, kit, bpm, root, projectId]);
+    } catch (e) { toast.error("Publish failed: " + (e?.response?.data?.detail || e?.message || e)); }
+    finally { setExporting(false); }
+  }, [meta, exportWav, kitId, kit, bpm, root, projectId, arrangement]);
 
   useEffect(() => {
     try { localStorage.setItem("ghost_studio_meta", JSON.stringify(meta)); } catch {}
@@ -601,6 +900,25 @@ export function StudioContent({ embedded = false }) {
     setKeys((p) => {
       const next = JSON.parse(JSON.stringify(p));
       next[kitId][row][s] = !next[kitId][row][s];
+      return next;
+    });
+  };
+
+  // Arrangement helpers
+  const addSection = (secId) => setArrangement((a) => [...a, secId]);
+  const removeSection = (idx) => setArrangement((a) => a.filter((_, i) => i !== idx));
+  const moveSection = (from, to) => {
+    setArrangement((a) => {
+      const next = [...a];
+      const [item] = next.splice(from, 1);
+      next.splice(to, 0, item);
+      return next;
+    });
+  };
+  const duplicateSection = (idx) => {
+    setArrangement((a) => {
+      const next = [...a];
+      next.splice(idx + 1, 0, a[idx]);
       return next;
     });
   };
@@ -629,7 +947,7 @@ export function StudioContent({ embedded = false }) {
             </div>
           </div>
           <p className="text-white/70 text-sm mt-3 max-w-3xl">
-            Every sound here is synthesized live in your browser — no samples, no licensing debt.
+            12 instruments. Full song arrangement. Every sound synthesized live — no samples, no licensing debt.
             You keep 100% ownership of what you make.
           </p>
         </div>
@@ -637,8 +955,9 @@ export function StudioContent({ embedded = false }) {
         {/* ── Tabs ── */}
         <div className="flex gap-1 border-b border-white/10 mb-6 overflow-x-auto">
           {[
-            { id: "beat", label: "Beat", icon: Music2 },
+            { id: "beat", label: "Beat (12 Instruments)", icon: Music2 },
             { id: "keys", label: "Keys", icon: SlidersHorizontal },
+            { id: "song", label: "Song Arrangement", icon: Sparkles },
             { id: "publish", label: "Publish", icon: Upload },
           ].map((t) => {
             const Icon = t.icon;
@@ -651,10 +970,6 @@ export function StudioContent({ embedded = false }) {
               </button>
             );
           })}
-          <button onClick={() => window.location.href = "/ghost-producer"}
-            className="ml-auto flex items-center gap-1.5 px-4 py-2.5 text-sm font-bold text-slate-500 hover:text-cyan-300 transition-colors whitespace-nowrap">
-            <Sparkles className="w-4 h-4" /> Words &amp; Promotion
-          </button>
         </div>
 
         {/* ── Transport ── */}
@@ -691,7 +1006,7 @@ export function StudioContent({ embedded = false }) {
           </div>
         </div>
 
-        {/* ══ BEAT ══ */}
+        {/* ══ BEAT (12 Instruments) ══ */}
         {tab === "beat" && (
           <div className="card-flat rounded-2xl border overflow-hidden" style={{ background: "#1b2130" }}>
             {DRUM_TRACKS.map((t) => {
@@ -732,7 +1047,7 @@ export function StudioContent({ embedded = false }) {
                   Pattern {b === 0 ? "A" : "B"}
                 </button>
               ))}
-              <span className="ml-auto text-xs text-slate-500">16 steps · drums synthesized live</span>
+              <span className="ml-auto text-xs text-slate-500">12 instruments · 16 steps · {activeSection}</span>
             </div>
           </div>
         )}
@@ -786,8 +1101,154 @@ export function StudioContent({ embedded = false }) {
               </div>
               <p className="text-xs text-slate-500 mt-3">
                 Rows map to scale degrees — play the root/3rd/5th/7th/color of the selected scale in {root}.
-                Bass lives one octave down; pads ring longer.
+                Each song section has its own keys pattern.
               </p>
+            </div>
+          </div>
+        )}
+
+        {/* ══ SONG ARRANGEMENT ══ */}
+        {tab === "song" && (
+          <div className="space-y-5">
+            {/* Section selector */}
+            <div className="card-flat rounded-2xl border p-5" style={{ background: "#1b2130" }}>
+              <div className="flex flex-wrap items-center gap-3 mb-4">
+                <span className="text-sm font-bold text-slate-100">Editing Section:</span>
+                {SECTION_DEFS.map((sec) => (
+                  <button key={sec.id} onClick={() => setActiveSection(sec.id)}
+                    className={`px-4 py-2 rounded-lg text-sm font-bold transition-colors ${
+                      activeSection === sec.id
+                        ? "text-white"
+                        : "text-slate-400 bg-[#141824] border border-white/10 hover:text-slate-200"
+                    }`}
+                    style={activeSection === sec.id ? { background: GREEN, border: `1px solid ${GREEN}` } : {}}>
+                    {sec.icon} {sec.label}
+                  </button>
+                ))}
+              </div>
+              <div className="flex flex-wrap items-center gap-4">
+                <label className="flex items-center gap-2 text-sm">
+                  <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Bars in section</span>
+                  <input type="number" min="1" max="32" value={sectionBars[activeSection] || 4}
+                    onChange={(e) => setSectionBars((prev) => ({ ...prev, [activeSection]: Math.max(1, Math.min(32, Number(e.target.value))) }))}
+                    className="w-16 px-2 py-1 bg-[#141824] border border-white/15 rounded text-sm font-mono text-center focus:outline-none focus:border-cyan-400" />
+                </label>
+                <span className="text-xs text-slate-500">
+                  {activeSection}: {sectionBars[activeSection] || 4} bars × 16 steps = {(sectionBars[activeSection] || 4) * 16} steps
+                </span>
+              </div>
+              <p className="text-xs text-slate-500 mt-3">
+                Edit the beat and keys for this section. Each section is an independent pattern.
+                Then chain them in the arrangement below to build your full track.
+              </p>
+            </div>
+
+            {/* Arrangement timeline */}
+            <div className="card-flat rounded-2xl border p-5" style={{ background: "#1b2130", borderColor: "rgba(34,211,238,0.25)" }}>
+              <div className="flex flex-wrap items-center gap-3 mb-4">
+                <span className="text-sm font-bold text-slate-100">🎹 Song Arrangement</span>
+                <span className="text-xs text-slate-400">
+                  {arrangement.length} sections · {arrangement.reduce((sum, s) => sum + (sectionBars[s] || 4), 0)} bars total
+                </span>
+              </div>
+
+              {/* Add section buttons */}
+              <div className="flex flex-wrap gap-2 mb-4">
+                {SECTION_DEFS.map((sec) => (
+                  <button key={sec.id} onClick={() => addSection(sec.id)}
+                    className="px-3 py-1.5 rounded-lg text-xs font-bold transition-colors hover:opacity-80"
+                    style={{ background: "rgba(34,211,238,0.1)", border: "1px solid rgba(34,211,238,0.3)", color: GREEN }}>
+                    + {sec.icon} {sec.label}
+                  </button>
+                ))}
+              </div>
+
+              {/* Arrangement strip */}
+              <div className="flex gap-2 overflow-x-auto pb-2" style={{ minHeight: 60 }}>
+                {arrangement.length === 0 && (
+                  <div className="flex items-center justify-center w-full text-slate-500 text-sm">
+                    Click + buttons above to add sections to your song arrangement
+                  </div>
+                )}
+                {arrangement.map((secId, idx) => {
+                  const sec = SECTION_DEFS.find((s) => s.id === secId);
+                  const bars = sectionBars[secId] || 4;
+                  const colors = {
+                    intro: "#22d3ee", verse: "#a78bfa", chorus: "#f472b6",
+                    bridge: "#fbbf24", outro: "#34d399",
+                  };
+                  const color = colors[secId] || "#22d3ee";
+                  return (
+                    <div key={`${secId}-${idx}`}
+                      className="shrink-0 rounded-xl p-3 flex flex-col items-center gap-1 cursor-pointer transition-all hover:scale-105"
+                      style={{
+                        minWidth: Math.max(80, bars * 12),
+                        background: `${color}15`,
+                        border: `1px solid ${color}50`,
+                      }}
+                      onClick={() => setActiveSection(secId)}
+                      title={`Click to edit ${sec?.label} section`}>
+                      <div className="flex items-center gap-1">
+                        <button onClick={(e) => { e.stopPropagation(); if (idx > 0) moveSection(idx, idx - 1); }}
+                          className="text-[10px] text-slate-400 hover:text-white px-1">◀</button>
+                        <span className="text-sm font-bold" style={{ color }}>{sec?.icon} {sec?.label}</span>
+                        <button onClick={(e) => { e.stopPropagation(); if (idx < arrangement.length - 1) moveSection(idx, idx + 1); }}
+                          className="text-[10px] text-slate-400 hover:text-white px-1">▶</button>
+                      </div>
+                      <span className="text-[10px] text-slate-500">{bars} bars</span>
+                      <div className="flex gap-0.5 mt-1">
+                        {Array.from({ length: Math.min(bars, 16) }).map((_, i) => (
+                          <div key={i} className="w-1.5 h-1.5 rounded-full" style={{ background: color, opacity: 0.5 }} />
+                        ))}
+                      </div>
+                      <div className="flex gap-1 mt-1">
+                        <button onClick={(e) => { e.stopPropagation(); duplicateSection(idx); }}
+                          className="text-[10px] text-slate-500 hover:text-white" title="Duplicate">⧉</button>
+                        <button onClick={(e) => { e.stopPropagation(); removeSection(idx); }}
+                          className="text-[10px] text-red-400 hover:text-red-300" title="Remove">✕</button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Play song button */}
+              <div className="flex items-center gap-3 mt-4 pt-4 border-t border-white/10">
+                <button onClick={isPlayingSong ? stop : playSong}
+                  className="flex items-center gap-2 px-6 py-3 rounded-xl text-sm font-bold transition-colors"
+                  style={{ background: isPlayingSong ? "#B23A2E" : GREEN, color: "#fff" }}>
+                  {isPlayingSong ? <><Square className="w-4 h-4" /> Stop Song</> : <><Play className="w-4 h-4" /> Play Full Song</>}
+                </button>
+                <button onClick={() => exportWav(undefined, true, true)}
+                  disabled={exporting}
+                  className="flex items-center gap-2 px-6 py-3 rounded-xl text-sm font-bold transition-colors disabled:opacity-40"
+                  style={{ background: GOLD, color: "#0a0a0a" }}>
+                  <Download className="w-4 h-4" /> {exporting ? "Rendering…" : "Export Full Song WAV"}
+                </button>
+              </div>
+            </div>
+
+            {/* Quick arrangement templates */}
+            <div className="card-flat rounded-2xl border p-5" style={{ background: "#1b2130" }}>
+              <span className="text-sm font-bold text-slate-100 mb-3 block">Quick Templates</span>
+              <div className="flex flex-wrap gap-2">
+                <button onClick={() => setArrangement(["intro", "verse", "chorus", "outro"])}
+                  className="px-3 py-1.5 rounded-lg text-xs font-bold text-slate-400 bg-[#141824] border border-white/10 hover:text-white transition-colors">
+                  Simple (4 sections)
+                </button>
+                <button onClick={() => setArrangement(["intro", "verse", "chorus", "verse", "chorus", "outro"])}
+                  className="px-3 py-1.5 rounded-lg text-xs font-bold text-slate-400 bg-[#141824] border border-white/10 hover:text-white transition-colors">
+                  Pop (6 sections)
+                </button>
+                <button onClick={() => setArrangement([...DEFAULT_ARRANGEMENT])}
+                  className="px-3 py-1.5 rounded-lg text-xs font-bold text-slate-400 bg-[#141824] border border-white/10 hover:text-white transition-colors">
+                  Full (8 sections)
+                </button>
+                <button onClick={() => setArrangement(["intro", "verse", "chorus", "verse", "chorus", "bridge", "chorus", "verse", "chorus", "outro"])}
+                  className="px-3 py-1.5 rounded-lg text-xs font-bold text-slate-400 bg-[#141824] border border-white/10 hover:text-white transition-colors">
+                  Extended (10 sections)
+                </button>
+              </div>
             </div>
           </div>
         )}
@@ -876,6 +1337,7 @@ export function StudioContent({ embedded = false }) {
                   <p className="flex gap-2"><span style={{ color: GREEN }}>✓</span> The platform never claims your work — no transfers, no assignments.</p>
                   <p className="flex gap-2"><span style={{ color: GREEN }}>✓</span> When a track sells, the creator keeps <b>70%</b> and the platform retains a <b>30% service fee</b> (Mandate 2).</p>
                   <p className="flex gap-2"><span style={{ color: GREEN }}>✓</span> All sounds are synthesized — there are no third-party samples in the kits, so there's nothing to clear.</p>
+                  <p className="flex gap-2"><span style={{ color: GREEN }}>✓</span> Full song arrangement exported as one WAV — sections play in sequence.</p>
                 </div>
               </div>
 
@@ -885,8 +1347,9 @@ export function StudioContent({ embedded = false }) {
                   <h2 className="font-heading font-bold text-slate-100">Publish to your store</h2>
                 </div>
                 <p className="text-xs text-slate-400 mb-4">
-                  Generate an 8-bar preview to hear exactly what buyers get, then render &amp; publish to your
-                  Media Store as a sellable track. Unpublish or change the price anytime from your creator tools.
+                  {arrangement.length > 1
+                    ? "Your full arrangement will be rendered and published. Preview it first to hear exactly what buyers get."
+                    : "Generate a preview to hear what buyers get, then render & publish to your Media Store."}
                 </p>
                 {projects.length > 0 && (
                   <label className="block mb-3">
@@ -909,7 +1372,7 @@ export function StudioContent({ embedded = false }) {
                 {previewUrl && (
                   <div className="mb-3 p-3 rounded-lg" style={{ border: "1px solid rgba(34,211,238,0.3)", background: "rgba(34,211,238,0.06)" }}>
                     <div className="text-[11px] font-black mb-1.5" style={{ color: GOLD }}>
-                      8-BAR PREVIEW{previewDur ? ` · ~${previewDur}s` : ""}
+                      PREVIEW{previewDur ? ` · ~${previewDur}s` : ""}
                     </div>
                     <audio controls src={previewUrl} style={{ width: "100%", height: 32 }} />
                   </div>
@@ -918,7 +1381,7 @@ export function StudioContent({ embedded = false }) {
                   disabled={previewing || exporting}
                   className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-lg text-sm font-black disabled:opacity-40 transition-colors mb-2"
                   style={{ background: "transparent", border: `1px solid ${GREEN}55`, color: GREEN }}>
-                  {previewing ? <><Save className="w-4 h-4 animate-pulse" /> Rendering preview…</> : <><Headphones className="w-4 h-4" /> Generate 8-Bar Preview</>}
+                  {previewing ? <><Save className="w-4 h-4 animate-pulse" /> Rendering preview…</> : <><Headphones className="w-4 h-4" /> Generate Preview</>}
                 </button>
                 <button onClick={publish}
                   disabled={exporting || previewing}

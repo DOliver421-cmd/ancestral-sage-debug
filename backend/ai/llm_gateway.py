@@ -334,7 +334,7 @@ async def reload_shared_byok(db) -> int:
         from byok import BYOK_PROVIDERS, decrypt_key, _PROVIDER_PRIORITY
 
         support_ids = []
-        async for u in db.users.find({"role": "support_staff"}, {"_id": 0, "id": 1}):
+        async for u in db.users.find({"role": {"$in": ["support_staff", "admin", "executive_admin"]}}, {"_id": 0, "id": 1}):
             if u.get("id"):
                 support_ids.append(u["id"])
         if not support_ids:
