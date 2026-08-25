@@ -157,13 +157,19 @@ export default function SoundLab({ tier = 'base', sovereignDispatch, artifact })
           }}>
             Sonic Blueprint — {bpm} BPM • {key} • {activeMoods.join(', ') || 'Mixed'}
           </div>
-          <pre style={{
-            margin: 0, fontFamily: 'monospace', fontSize: 12,
-            color: '#34d399', lineHeight: 1.8,
-            whiteSpace: 'pre-wrap', wordBreak: 'break-word',
-          }}>
-            {blueprint}
-          </pre>
+          <textarea
+            value={blueprint}
+            onChange={(e) => setBlueprint(e.target.value)}
+            aria-label="Editable sonic blueprint draft"
+            style={{
+              width: '100%', minHeight: 220, boxSizing: 'border-box', resize: 'vertical',
+              margin: 0, fontFamily: 'monospace', fontSize: 12,
+              color: '#34d399', lineHeight: 1.8,
+              whiteSpace: 'pre-wrap', wordBreak: 'break-word',
+              background: 'rgba(0,0,0,0.28)', border: '1px solid rgba(52,211,153,0.2)',
+              padding: 12, outline: 'none',
+            }}
+          />
         </div>
       )}
 

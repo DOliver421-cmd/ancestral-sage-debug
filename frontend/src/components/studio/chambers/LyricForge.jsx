@@ -141,8 +141,8 @@ export default function LyricForge({ tier = "base", sovereignDispatch, artifact,
         <div style={{ flex: 1, position: "relative", display: "flex", flexDirection: "column" }}>
           <label style={{ ...labelStyle, marginBottom: 8 }}>Output</label>
           <textarea
-            readOnly
             value={result}
+            onChange={(e) => setResult(e.target.value)}
             style={{
               flex: 1, minHeight: 220, resize: "vertical",
               fontFamily: MONO, fontSize: 13.5, lineHeight: 1.9,
