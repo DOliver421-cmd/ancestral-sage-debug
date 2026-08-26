@@ -35,9 +35,8 @@ if not MONGO_URL or not DB_NAME:
 pwd_ctx = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 EXEC_SEATS = [
-    ("delon.oliver@lightningcityelectric.com", "Delon Oliver"),
-    ("youpickeddoliver@gmail.com",             "Delon Oliver"),
-    ("souppoetry@gmail.com",                   "NAM Oshun"),
+    ("youpickeddoliver@gmail.com", "Delon Oliver"),
+    ("souppoetry@gmail.com",       "NAM Oshun"),
 ]
 
 

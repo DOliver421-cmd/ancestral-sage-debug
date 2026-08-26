@@ -1,7 +1,7 @@
 import { Link } from "react-router-dom";
 import PublicNav from "../components/PublicNav";
 import BackButton from "../components/BackButton";
-import { BACKEND_URL } from "../lib/api";
+import { openAuthedUrl } from "../lib/api";
 import { BookOpen, MonitorSmartphone, FileBadge, Receipt, ChevronDown, ArrowRight, LifeBuoy } from "lucide-react";
 
 // Public M.O.R.E. Knowledge Base — handbooks, platform guides, and the
@@ -109,12 +109,10 @@ export default function KnowledgeBase() {
             {HANDBOOKS.map((h) => {
               const Icon = h.icon;
               return (
-                <a
+                <button
                   key={h.name}
-                  href={`${BACKEND_URL}/api/handbooks/${h.name}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="card-flat p-6 border border-ink/10 bg-white hover:border-copper transition-all group"
+                  onClick={() => openAuthedUrl(`/handbooks/${h.name}`)}
+                  className="card-flat p-6 border border-ink/10 bg-white hover:border-copper transition-all group text-left cursor-pointer w-full"
                 >
                   <Icon className="w-6 h-6 text-copper" />
                   <div className="font-heading font-bold text-ink mt-3 group-hover:text-copper transition-colors">{h.title}</div>
@@ -122,7 +120,7 @@ export default function KnowledgeBase() {
                   <div className="mt-4 text-sm font-bold uppercase tracking-widest text-copper flex items-center gap-1 group-hover:gap-2 transition-all">
                     Read <ArrowRight className="w-3.5 h-3.5" />
                   </div>
-                </a>
+                </button>
               );
             })}
           </div>

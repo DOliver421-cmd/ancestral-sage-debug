@@ -14,6 +14,11 @@ COPY frontend/ ./
 ARG REACT_APP_BACKEND_URL
 ENV REACT_APP_BACKEND_URL=$REACT_APP_BACKEND_URL
 
+# CRA fails the build on ESLint warnings when CI=true. CI=false keeps the
+# build deterministic across environments while still failing on real
+# errors (rules-of-hooks and other error-severity issues fail either way).
+ENV CI=false
+
 RUN npm run build
 
 # Stage 2: Python backend — includes the built frontend so SERVE_FRONTEND=1 works
@@ -22,9 +27,6 @@ FROM python:3.11-slim
 WORKDIR /app
 
 COPY backend/ /app/backend/
-COPY src/ /app/src/
-COPY app/ /app/app/
-COPY memory/ /app/memory/
 
 # Copy the built React app into the location server.py checks first
 COPY --from=frontend-builder /frontend/build /app/frontend/build
@@ -33,7 +35,7 @@ COPY --from=frontend-builder /frontend/build /app/frontend/build
 COPY docker-entrypoint.sh /app/docker-entrypoint.sh
 RUN chmod +x /app/docker-entrypoint.sh
 
-ENV PYTHONPATH=/app/backend:/app
+ENV PYTHONPATH=/app/backend
 
 # Serve the baked React SPA from the backend (single-service topology) so the
 # frontend's same-origin /api calls reach this server without CORS or a
@@ -46,6 +48,7 @@ RUN apt-get update && apt-get install -y \
     libpq-dev \
     curl \
     git \
+    ffmpeg \
     && rm -rf /var/lib/apt/lists/*
 RUN pip install --no-cache-dir -r /app/backend/requirements.txt
 

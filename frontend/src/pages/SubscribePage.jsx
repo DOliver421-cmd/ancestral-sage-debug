@@ -39,8 +39,8 @@ export default function SubscribePage() {
         e?.response?.status === 501 ||
         /not configured|payments are not configured/i.test(String(detail))
       ) {
-        toast.info("Checkout is being set up — redirected to our live storefront.");
-        window.location.href = "/merch";
+        toast.info("Payments are being configured. Membership will be available soon.");
+        setLoading(null);
         return;
       }
       toast.error(detail || "Could not start checkout.");

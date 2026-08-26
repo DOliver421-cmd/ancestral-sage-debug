@@ -22,7 +22,7 @@ import requests
 BASE = os.environ["REACT_APP_BACKEND_URL"].rstrip("/")
 API = f"{BASE}/api"
 
-EXEC = ("delon.oliver@lightningcityelectric.com", "Executive@LCE2026")
+EXEC = (os.environ.get("TEST_EXEC_EMAIL", "youpickeddoliver@gmail.com"), os.environ.get("TEST_EXEC_PW", ""))
 ADMIN = ("admin@lcewai.org", "Admin@LCE2026")
 INSTRUCTOR = ("instructor@lcewai.org", "Teach@LCE2026")
 STUDENT = ("student@lcewai.org", "Learn@LCE2026")

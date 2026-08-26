@@ -489,7 +489,7 @@ export default function More() {
       <div className="min-h-screen bg-slate-50">
 
         {/* ── HERO — full dark section, not a gradient trick ─────────────── */}
-        <div style={{ background: "linear-gradient(135deg,#0b1f3a 0%,#1e1b4b 60%,#0b203f 100%)" }}>
+        <div style={{ backgroundImage: "linear-gradient(135deg,rgba(11,31,58,0.9) 0%,rgba(30,27,75,0.88) 60%,rgba(11,32,63,0.93) 100%), url('https://images.pexels.com/photos/10375824/pexels-photo-10375824.jpeg?auto=compress&cs=tinysrgb&w=1600')", backgroundSize: "cover", backgroundPosition: "center" }}>
           <div className="max-w-6xl mx-auto px-5 pt-12 pb-14 text-white">
 
             {/* Eyebrow */}

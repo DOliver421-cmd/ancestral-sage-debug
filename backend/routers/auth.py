@@ -56,11 +56,11 @@ def bind(_db, _audit, _notify, _current_user, _can_modify,
 
 
 # ── Exec seat / env configuration (read directly, mirrors server.py) ─────────
-EXEC_ADMIN_EMAIL = os.environ.get("EXEC_ADMIN_EMAIL", "delon.oliver@lightningcityelectric.com")
+EXEC_ADMIN_EMAIL = os.environ.get("EXEC_ADMIN_EMAIL", "").strip()
 EXEC_DEFAULT_PASSWORD = os.environ.get("EXEC_DEFAULT_PASSWORD", "")
-BACKUP_EXEC_EMAIL = os.environ.get("BACKUP_EXEC_ADMIN_EMAIL", "youpickeddoliver@gmail.com")
+BACKUP_EXEC_EMAIL = os.environ.get("BACKUP_EXEC_ADMIN_EMAIL", "").strip()
 BACKUP_EXEC_DEFAULT_PASSWORD = os.environ.get("BACKUP_EXEC_DEFAULT_PASSWORD", "")
-NAM_EXEC_EMAIL = os.environ.get("NAM_EXEC_EMAIL", "souppoetry@gmail.com")
+NAM_EXEC_EMAIL = os.environ.get("NAM_EXEC_EMAIL", "").strip()
 NAM_EXEC_DEFAULT_PASSWORD = os.environ.get("NAM_EXEC_DEFAULT_PASSWORD", "")
 EXEC_RESET_SECRET = os.environ.get("EXEC_RESET_SECRET", "")
 RESEND_API_KEY = os.environ.get("RESEND_API_KEY", "")
@@ -89,6 +89,7 @@ class RegisterReq(BaseModel):
     password: str
     agreed_terms: bool = False
     over_13: bool = False
+    promo_code: Optional[str] = None
 
 
 class LoginReq(BaseModel):
@@ -124,6 +125,7 @@ class SelfEditMeReq(BaseModel):
     full_name: Optional[str] = None
     email: Optional[str] = None
     avatar_url: Optional[str] = None
+    social_handles: Optional[dict] = None
 
 
 class UserOut(BaseModel):
@@ -136,6 +138,7 @@ class UserOut(BaseModel):
     email: str
     full_name: str
     role: str = "student"
+    social_handles: Optional[dict] = None
     associate: Optional[str] = None
     is_active: bool = True
     must_change_password: bool = False
@@ -230,10 +233,14 @@ async def _apply_password_reset(target_id: str, new_password: str,
     rejected by `_load_reset_token`, so this helper assumes preconditions
     have already been validated."""
     now = datetime.now(timezone.utc)
-    await db.users.update_one({"id": target_id}, {"$set": {
-        "password_hash": hash_pw(new_password),
-        "must_change_password": False,
-    }})
+    await db.users.update_one({"id": target_id}, {
+        "$set": {
+            "password_hash": hash_pw(new_password),
+            "must_change_password": False,
+        },
+        "$inc": {"token_version": 1},  # credential rotation revokes all prior JWTs
+    })
+    await db.auth_sessions.delete_many({"user_id": target_id})
     await db.password_reset_tokens.update_one(
         {"token_hash": token_hash},
         {"$set": {"used_at": now, "used_ip": ip}},
@@ -249,7 +256,8 @@ async def _apply_password_reset(target_id: str, new_password: str,
 
 # ── Endpoints (extracted verbatim from server.py) ────────────────────────────
 @router.post("/auth/register", response_model=TokenResp)
-async def register(body: RegisterReq):
+async def register(body: RegisterReq, request: Request):
+
     # Anti-spam: max 5 registrations per email-prefix per minute (very generous,
     # but stops the trivial "for i in range(10000): register" attack).
     check_rate(f"register:{body.email}", max_calls=5, window_sec=60)
@@ -262,25 +270,73 @@ async def register(body: RegisterReq):
     if not body.over_13:
         raise HTTPException(400, "You must be at least 13 years old to create an account. If you are under 13, please ask a parent or guardian to contact us.")
 
+    # Optional promo code — a valid code grants its stated tier at signup.
+    # The reservation is atomic (find_one_and_update + $inc) so two people can't
+    # redeem the last use simultaneously. If the account is then rolled back,
+    # the reserved use is released.
+    _promo_grant = None
+    if body.promo_code:
+        from routers import promo_codes as _promo_mod
+        _promo_doc = await _promo_mod.reserve_promo(body.promo_code)
+        if not _promo_doc:
+            raise HTTPException(400, "That promo code is invalid, expired, or already fully redeemed.")
+        _promo_grant = _promo_mod.grant_fields_for(_promo_doc)
+
     # Public self-registration is always a student. Higher-privilege accounts
     # must be created by an admin (POST /api/admin/users). Exception: the very
     # FIRST account ever registered (empty users collection — e.g. immediately
-    # after a factory reset) becomes the executive_admin bootstrap owner, so a
-    # fresh instance can be stood up without manual DB access.
+    # after a factory reset) becomes the executive_admin bootstrap owner — but
+    # ONLY when an exec seat email is actually configured. With no seat email,
+    # the bootstrap grant is locked: a stranger registering on a fresh database
+    # must never be able to claim god-mode just by being first.
     existing_users = await db.users.count_documents({})
-    role = "executive_admin" if existing_users == 0 else "student"
+    _exec_seat_configured = bool(EXEC_ADMIN_EMAIL or BACKUP_EXEC_EMAIL or NAM_EXEC_EMAIL)
+    role = "executive_admin" if (existing_users == 0 and _exec_seat_configured) else "student"
     user = UserOut(email=body.email, full_name=body.full_name, role=role)
+    if _promo_grant:
+        user = user.model_copy(update={"feature_tier": _promo_grant["feature_tier"]})
     doc = user.model_dump()
     doc["created_at"] = doc["created_at"].isoformat()
     doc["password_hash"] = hash_pw(body.password)
+    doc["token_version"] = 0
     # Record consent timestamp for GDPR audit trail
     doc["terms_accepted_at"] = datetime.now(timezone.utc).isoformat()
     doc["over_13_confirmed"] = True
+    # Promo tier grant fields (feature_tier already set above via model_copy).
+    if _promo_grant:
+        doc.update({k: v for k, v in _promo_grant.items() if k != "feature_tier"})
     await db.users.insert_one(doc)
+    # Registration tokens are session-bound just like login tokens. If the
+    # session record cannot be created, do not issue an untracked token.
+    session_id = str(uuid.uuid4())
+    try:
+        await db.auth_sessions.insert_one({
+            "session_id": session_id,
+            "user_id": user.id,
+            "user_agent": request.headers.get("user-agent", "")[:200],
+            "ip": request.client.host if request.client else None,
+            "created_at": datetime.now(timezone.utc).isoformat(),
+            "last_seen": datetime.now(timezone.utc).isoformat(),
+        })
+    except Exception:
+        logger.exception("register: session recording failed")
+        # Do not leave an account that can neither authenticate nor be
+        # deterministically resumed after a session-store failure.
+        if _promo_grant:
+            from routers import promo_codes as _promo_mod
+            await _promo_mod.release_promo(body.promo_code)
+        await db.users.delete_one({"id": user.id})
+        raise HTTPException(503, "Unable to establish a secure session. Please try again.")
     await audit(user.id, "auth.register.success", meta={"consent_terms": True, "over_13": True})
+    if _promo_grant:
+        await audit(user.id, "promo.redeemed", target=body.promo_code.strip().upper(),
+                    meta={"tier": _promo_grant["feature_tier"]})
     # Send welcome email — fire-and-forget, never blocks registration
     asyncio.create_task(_send_welcome_email(user.email, user.full_name))
-    return TokenResp(access_token=make_token(user.id, user.role), user=user)
+    return TokenResp(
+        access_token=make_token(user.id, user.role, extra={"tv": 0, "session_id": session_id}),
+        user=user,
+    )
 
 
 @router.post("/auth/login", response_model=TokenResp)
@@ -358,8 +414,9 @@ async def login(body: LoginReq, request: Request):
             "last_seen": datetime.now(timezone.utc).isoformat(),
         })
     except Exception:
-        logger.warning("login: session recording failed (non-fatal)")
-    _extra = {"session_id": _session_id} if _session_id else None
+        logger.exception("login: session recording failed")
+        raise HTTPException(503, "Unable to establish a secure session. Please try again.")
+    _extra = {"tv": int(doc.get("token_version", 0)), "session_id": _session_id}
     return TokenResp(access_token=make_token(user.id, user.role, extra=_extra), user=user)
 
 
@@ -489,7 +546,8 @@ async def gdpr_reconsent(body: dict, user: UserOut = Depends(_dep_current_user))
 
 
 @router.post("/auth/change-password")
-async def change_password(body: ChangePasswordReq, user: UserOut = Depends(_dep_current_user)):
+async def change_password(body: ChangePasswordReq, request: Request,
+                          user: UserOut = Depends(_dep_current_user)):
     """Any authenticated user can change their own password.
     Returns a fresh token + updated user so the client can update its cache
     immediately without relying on a follow-up /auth/me call."""
@@ -498,10 +556,30 @@ async def change_password(body: ChangePasswordReq, user: UserOut = Depends(_dep_
     doc = await db.users.find_one({"id": user.id}, {"_id": 0})
     if not doc or not verify_pw(body.current_password, doc["password_hash"]):
         raise HTTPException(401, "Current password is incorrect")
-    await db.users.update_one({"id": user.id}, {"$set": {
-        "password_hash": hash_pw(body.new_password),
-        "must_change_password": False,
-    }})
+    await db.users.update_one({"id": user.id}, {
+        "$set": {
+            "password_hash": hash_pw(body.new_password),
+            "must_change_password": False,
+        },
+        "$inc": {"token_version": 1},  # credential rotation revokes ALL sessions (fresh token issued below)
+    })
+    # Password rotation revokes every prior session. Establish one fresh,
+    # tracked session for the response token so single-session logout remains
+    # meaningful after a password change.
+    await db.auth_sessions.delete_many({"user_id": user.id})
+    fresh_session_id = str(uuid.uuid4())
+    try:
+        await db.auth_sessions.insert_one({
+            "session_id": fresh_session_id,
+            "user_id": user.id,
+            "user_agent": request.headers.get("user-agent", "")[:200],
+            "ip": request.client.host if request.client else None,
+            "created_at": datetime.now(timezone.utc).isoformat(),
+            "last_seen": datetime.now(timezone.utc).isoformat(),
+        })
+    except Exception:
+        logger.exception("change-password: session recording failed")
+        raise HTTPException(503, "Password changed, but a secure session could not be created. Please sign in again.")
     await audit(user.id, "auth.password_changed")
     # Fetch fresh user doc (must_change_password now False) and issue new token
     fresh_doc = await db.users.find_one({"id": user.id}, {"_id": 0, "password_hash": 0})
@@ -510,7 +588,14 @@ async def change_password(body: ChangePasswordReq, user: UserOut = Depends(_dep_
     fresh_user = UserOut(**(fresh_doc or {}))
     return {
         "ok": True,
-        "access_token": make_token(fresh_user.id, fresh_user.role),
+        "access_token": make_token(
+            fresh_user.id,
+            fresh_user.role,
+            extra={
+                "tv": int(fresh_doc.get("token_version", 0)) if fresh_doc else 0,
+                "session_id": fresh_session_id,
+            },
+        ),
         "user": fresh_user.model_dump(),
     }
 
@@ -538,6 +623,17 @@ async def edit_self(body: SelfEditMeReq, user: UserOut = Depends(_dep_current_us
         if len(body.avatar_url) > 3 * 1024 * 1024:
             raise HTTPException(400, "Avatar image too large (max 3 MB)")
         update["avatar_url"] = body.avatar_url if body.avatar_url else None
+    if body.social_handles is not None:
+        if not isinstance(body.social_handles, dict):
+            raise HTTPException(400, "social_handles must be an object of platform → handle")
+        cleaned = {}
+        for k, v in body.social_handles.items():
+            if not isinstance(k, str):
+                continue
+            val = "" if v is None else str(v).strip()
+            if val:
+                cleaned[k[:50]] = val[:300]
+        update["social_handles"] = cleaned
     if update:
         await db.users.update_one({"id": user.id}, {"$set": update})
         audit_meta = {k: v for k, v in update.items() if k != "avatar_url"}
@@ -749,8 +845,29 @@ async def emergency_recovery(body: EmergencyRecoveryReq, request: Request):
         logger.error("Recovery password reset failed for %s: %s", body.email, exc)
         raise HTTPException(500, "Password reset failed — contact administrator")
 
+    # Recovery rotates credentials and invalidates every prior session. Issue
+    # one new tracked session using the incremented token generation.
+    await db.auth_sessions.delete_many({"user_id": user_doc["id"]})
+    recovery_session_id = str(uuid.uuid4())
+    try:
+        await db.auth_sessions.insert_one({
+            "session_id": recovery_session_id,
+            "user_id": user_doc["id"],
+            "user_agent": request.headers.get("user-agent", "")[:200],
+            "ip": request.client.host if request.client else None,
+            "created_at": datetime.now(timezone.utc).isoformat(),
+            "last_seen": datetime.now(timezone.utc).isoformat(),
+        })
+    except Exception:
+        logger.exception("emergency-recovery: session recording failed")
+        raise HTTPException(503, "Password reset succeeded, but a secure session could not be created. Please sign in again.")
+    user_doc["token_version"] = int(user_doc.get("token_version", 0)) + 1
     # Issue JWT token for immediate login
-    token = make_token(user_doc["id"], user_doc.get("role", "student"))
+    token = make_token(
+        user_doc["id"],
+        user_doc.get("role", "student"),
+        extra={"tv": int(user_doc.get("token_version", 0)), "session_id": recovery_session_id},
+    )
     await audit(user_doc["id"], "auth.emergency_recovery.completed",
                 target=user_doc["id"], meta={"ip": ip, "recovery_used": True})
 
@@ -785,9 +902,11 @@ async def exec_unlock(request: Request):
         raise HTTPException(403, "Invalid secret")
 
     _seats = [
-        (EXEC_ADMIN_EMAIL,  "Delon Oliver",  EXEC_DEFAULT_PASSWORD),
-        (BACKUP_EXEC_EMAIL, "Delon Oliver",  BACKUP_EXEC_DEFAULT_PASSWORD),
-        (NAM_EXEC_EMAIL,    "NAM Oshun",     NAM_EXEC_DEFAULT_PASSWORD),
+        _seat for _seat in [
+            (EXEC_ADMIN_EMAIL,  "Delon Oliver",  EXEC_DEFAULT_PASSWORD),
+            (BACKUP_EXEC_EMAIL, "Delon Oliver",  BACKUP_EXEC_DEFAULT_PASSWORD),
+            (NAM_EXEC_EMAIL,    "NAM Oshun",     NAM_EXEC_DEFAULT_PASSWORD),
+        ] if _seat[0]
     ]
     reset = []
     for _email, _name, _pw in _seats:
@@ -963,19 +1082,23 @@ async def cross_site_login(body: dict, request: Request):
     email = payload.get("email", "")
     user_id = payload.get("uid", "")
     full_name = payload.get("name", "Student")
-    role = normalize_role(payload.get("role", "student"))
-    
+
+    # Partner-token roles are NEVER trusted for authorization. A cross-site
+    # token only proves the bearer holds an account on the partner site; it
+    # does not prove staff/executive authority here. All cross-site sessions
+    # are created as least-privilege (student) and an existing local user's
+    # role is never raised by partner claims — role changes are admin-only.
+    role = "student"
+
     # Find or create the local user
     existing = await db.users.find_one({"email": email})
     if existing:
-        # Update role if the partner site has a higher privilege
-        from roles import role_rank
-        if role_rank(role) > role_rank(existing.get("role", "student")):
-            await db.users.update_one({"email": email}, {"$set": {"role": role}})
-            existing["role"] = role
+        # Never elevate: role is unchanged regardless of what the partner
+        # token claimed. (An existing privileged local user keeps their role;
+        # a local student stays a student.)
         user_doc = existing
     else:
-        # Auto-create the user on this site
+        # Auto-create the user on this site — always least-privilege.
         user_doc = {
             "id": user_id or str(uuid.uuid4()),
             "email": email,
@@ -989,10 +1112,31 @@ async def cross_site_login(body: dict, request: Request):
             "token_version": 0,
         }
         await db.users.insert_one(user_doc)
-        logger.info("Cross-site: auto-created user %s (%s)", email, role)
+        logger.info("Cross-site: auto-created user %s (least-privilege student)", email)
     
+    # Bind the local token to a tracked session just like password login.
+    cross_site_session_id = str(uuid.uuid4())
+    try:
+        now_iso = datetime.now(timezone.utc).isoformat()
+        await db.auth_sessions.insert_one({
+            "session_id": cross_site_session_id,
+            "user_id": user_doc["id"],
+            "user_agent": request.headers.get("user-agent", "")[:200],
+            "ip": request.client.host if request.client else None,
+            "created_at": now_iso,
+            "last_seen": now_iso,
+            "source": "partner_site",
+        })
+    except Exception:
+        logger.exception("cross-site-login: session recording failed")
+        raise HTTPException(503, "Unable to establish a secure session. Please try again.")
+
     # Issue a local JWT
-    token_raw = make_token(user_doc["id"], user_doc.get("role", "student"))
+    token_raw = make_token(
+        user_doc["id"],
+        user_doc.get("role", "student"),
+        extra={"tv": int(user_doc.get("token_version", 0)), "session_id": cross_site_session_id},
+    )
     
     # Audit the cross-site login
     await audit(user_doc["id"], "cross_site.login", meta={

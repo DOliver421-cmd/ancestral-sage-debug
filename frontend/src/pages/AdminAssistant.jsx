@@ -193,7 +193,7 @@ export default function AdminAssistant() {
     setBusy(true);
 
     try {
-      const { data } = await api.post("/api/assistant/chat", {
+      const { data } = await api.post("/assistant/chat", {
         message: msg,
         history,
         session_id: sessionId.current,

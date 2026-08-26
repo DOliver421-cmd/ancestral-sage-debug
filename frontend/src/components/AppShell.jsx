@@ -1,6 +1,8 @@
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { API } from "../lib/api";
 import { useAuth } from "../lib/auth";
+import { ROLE_RANK } from "../lib/roles";
+import { tierRank, tierLabel, TIER_FOR_FEATURE } from "../lib/tiers";
 import { WAI_LOGO, BRAND } from "../lib/brand";
 import {
   LayoutDashboard, BookOpen, Award, Users, Settings, Sparkles, LogOut,
@@ -8,53 +10,28 @@ import {
   ShieldCheck, Shield, Building2, TrendingUp, ScrollText, Calendar,
   ShieldAlert, KeyRound, Crown, Compass, HelpCircle, Layers, HandHelping,
   Scale, Trophy, Network, ShoppingBag, Heart, Receipt, Video, DollarSign,
-  UserCircle, WifiOff, Music, Mic, Palette, FileText,
-  Gamepad2, Star, Radio, Globe, Swords, ChevronLeft, ChevronRight, Share2,
-  Map, BrainCircuit, CreditCard, BarChart3, Wrench, Server, ExternalLink,
+  UserCircle, WifiOff, Music, Music4, Mic, Palette, FileText,
+  Gamepad2, Star, Radio, Globe, ChevronLeft, ChevronRight, Share2,
+  Map, BrainCircuit, CreditCard, BarChart3, Wrench, ExternalLink,
+  Lock, Search, HeartPulse, Landmark, TicketPercent, Menu, Swords,
 } from "lucide-react";
 import { isWaiDoor, MORE_HOME } from "../lib/domain";
 import NotificationBell from "./NotificationBell";
-import { Search, HeartPulse, Landmark, Archive, Activity } from "lucide-react";
 import { useEffect, useState } from "react";
 import { isPageEnabled, loadGates } from "../lib/accessGates";
 
 // ── Section header (collapsible) ──────────────────────────────────────────────
-function NavSection({ label, children, collapsed, defaultOpen = true }) {
+function NavSection({ label, children, collapsed, defaultOpen = true, badge }) {
   const [open, setOpen] = useState(defaultOpen);
-  if (collapsed) {
-    return (
-      <div className="mt-4">
-        <div className="mb-1 border-t border-white/10 mx-2" />
-        {children}
-      </div>
-    );
-  }
   return (
-    <div className="mt-4">
+    <div className="mb-1">
       <button
         onClick={() => setOpen(o => !o)}
-        className="w-full flex items-center justify-between px-3 mb-1 text-[10px] font-black uppercase tracking-widest text-white/30 hover:text-white/50 transition-colors"
-      >
-        <span>{label}</span>
-        <svg className={`w-3 h-3 transition-transform ${open ? "rotate-180" : ""}`} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M19 9l-7 7-7-7" /></svg>
-      </button>
-      {open && children}
-    </div>
-  );
-}
-
-// ── Collapsible sub-group within a section ───────────────────────────────────
-function NavSubGroup({ label, children, collapsed, defaultOpen = false }) {
-  const [open, setOpen] = useState(defaultOpen);
-  if (collapsed) return children;
-  return (
-    <div className="ml-2">
-      <button
-        onClick={() => setOpen(o => !o)}
-        className="w-full flex items-center gap-2 px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-white/25 hover:text-white/45 transition-colors"
+        className="w-full flex items-center gap-2 px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-white/65 hover:text-white transition-colors"
       >
         <svg className={`w-2.5 h-2.5 transition-transform ${open ? "rotate-90" : ""}`} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M9 5l7 7-7 7" /></svg>
         <span>{label}</span>
+        {badge && <span className="ml-auto text-[9px] px-1.5 py-0.5 rounded-full font-black" style={{ background: "rgba(232,165,30,0.15)", color: "#E8A51E" }}>{badge}</span>}
       </button>
       {open && <div className="ml-1">{children}</div>}
     </div>
@@ -74,7 +51,7 @@ function NavLink({ to, label, icon: Icon, testid, loc, collapsed }) {
       } ${
         active
           ? "bg-white/8 border-signal text-signal"
-          : "border-transparent text-white/65 hover:text-white hover:bg-white/5"
+          : "border-transparent text-white/75 hover:text-white hover:bg-white/5"
       }`}>
       <Icon className="w-4 h-4 shrink-0" />
       {!collapsed && label}
@@ -82,28 +59,181 @@ function NavLink({ to, label, icon: Icon, testid, loc, collapsed }) {
   );
 }
 
+// ── Locked-tier upgrade card ──────────────────────────────────────────────────
+function TierCard({ tier, price, features, collapsed }) {
+  if (collapsed) {
+    return (
+      <Link to="/plans"
+        className="flex items-center justify-center px-0 py-2 mx-2 mb-1 rounded-md text-white/60 hover:text-white transition-colors"
+        title={`${tier} — ${features}`}>
+        <Lock className="w-4 h-4" />
+      </Link>
+    );
+  }
+  return (
+    <Link to="/plans"
+      className="block mx-3 mb-2 rounded-xl px-3 py-3 border border-dashed border-white/12 hover:border-white/25 hover:bg-white/[0.03] transition-all"
+      data-testid={`nav-tier-locked-${tier.toLowerCase()}`}>
+      <div className="flex items-center justify-between gap-2">
+        <div>
+          <div className="text-[10px] font-black uppercase tracking-widest" style={{ color: "#E8A51E" }}>
+            {tier} Tier
+          </div>
+          <div className="text-[11px] text-white/65 mt-0.5">{features}</div>
+        </div>
+        <div className="flex items-center gap-1 text-[10px] font-black uppercase" style={{ color: "#E8A51E" }}>
+          {price}/mo <span className="text-xs">→</span>
+        </div>
+      </div>
+    </Link>
+  );
+}
+
+// ── Tier-first customer navigation data ───────────────────────────────────────
+// Each section is a tier. Items render only when the user has reached that tier.
+// Sections below the user's current tier are shown as locked upgrade cards.
+// Sections above the user's tier are not rendered at all (not even as locked —
+// only the immediately-next tier shows as an upgrade prompt).
+const CUSTOMER_TIERS = [
+  {
+    tier: "free", label: "Free",
+    items: [
+      { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard, testid: "nav-dashboard" },
+      { to: "/studio", label: "Creator Studio", icon: Music, testid: "nav-creator-studio" },
+      { to: "/ai", label: "AI Tutor", icon: Sparkles, testid: "nav-ai" },
+      { to: "/helper", label: "Personal Helper", icon: HelpCircle, testid: "nav-helper" },
+      { to: "/site-guide", label: "Site Guide", icon: Map, testid: "nav-site-guide" },
+      { to: "/byok", label: "My AI Keys", icon: BrainCircuit, testid: "nav-byok" },
+      { to: "/modules", label: "Modules", icon: BookOpen, testid: "nav-modules" },
+      { to: "/competencies", label: "Competencies", icon: Target, testid: "nav-competencies" },
+      { to: "/labs", label: "Workforce Labs", icon: FlaskConical, testid: "nav-labs" },
+      { to: "/lab-simulations", label: "Lab Simulations", icon: FlaskConical, testid: "nav-lab-sims" },
+      { to: "/compliance", label: "Compliance", icon: ShieldCheck, testid: "nav-compliance" },
+      { to: "/credentials", label: "Credentials", icon: BadgeCheck, testid: "nav-credentials" },
+      { to: "/certificates", label: "Certificates", icon: Award, testid: "nav-certs" },
+      { to: "/portfolio", label: "Portfolio", icon: Briefcase, testid: "nav-portfolio" },
+      { to: "/knowledge-base", label: "Knowledge Finder", icon: Search, testid: "nav-knowledge" },
+      { to: "/palace", label: "Members' Palace", icon: Crown, testid: "nav-palace" },
+      { to: "/elder-council", label: "Elder Council", icon: Layers, testid: "nav-elder-council" },
+      { to: "/leaderboard", label: "XP Leaderboard", icon: Trophy, testid: "nav-leaderboard" },
+      { to: "/more/chat", label: "Community Chat", icon: Radio, testid: "nav-more-chat" },
+      { to: "/more/litigation", label: "Legal Tools", icon: Scale, testid: "nav-litigation" },
+      { to: "/vonns-saga", label: "Vonn's Saga", icon: BookOpen, testid: "nav-vonns" },
+      { to: "/ascension-protocols", label: "Ascension Protocols", icon: Compass, testid: "nav-ascension" },
+      { to: "/playlist/dashboard", label: "Playlist Manager", icon: Radio, testid: "nav-playlist" },
+      { to: "/arcade", label: "Virtual Arcade", icon: Gamepad2, testid: "nav-arcade" },
+      { to: "/trash", label: "M.O.R.E. Pantheon", icon: Star, testid: "nav-trash" },
+      { to: "/payment/history", label: "Payment History", icon: Receipt, testid: "nav-payments" },
+    ],
+  },
+  {
+    tier: "member", label: "Member", price: "$9",
+    features: "Social Blast · My Projects · Creator Lounge · Elder Council",
+    items: [
+      { to: "/social/publish", label: "Social Blast", icon: Share2, testid: "nav-social-publish" },
+      { to: "/creator-lounge", label: "Creator Lounge", icon: Mic, testid: "nav-creator-lounge" },
+      { to: "/my-projects", label: "My Projects", icon: Briefcase, testid: "nav-my-projects" },
+    ],
+  },
+  {
+    tier: "plus", label: "Plus", price: "$15",
+    features: "Studio · Courses · Ghost · Band · Sanctuary · Learning Path · Earnings",
+    items: [
+      { to: "/studio/music", label: "Music Studio", icon: Music4, testid: "nav-music-studio" },
+      { to: "/creator/courses", label: "Course Manager", icon: Video, testid: "nav-creator-courses" },
+      { to: "/ghost-producer", label: "Ghost Producer", icon: Palette, testid: "nav-ghost-producer" },
+      { to: "/band", label: "Band on a Page", icon: Music, testid: "nav-band" },
+      { to: "/adaptive", label: "Learning Path", icon: Brain, testid: "nav-adaptive" },
+      { to: "/sanctuary", label: "Sanctuary", icon: ShieldCheck, testid: "nav-sanctuary" },
+      { to: "/creator/earnings", label: "My Earnings", icon: DollarSign, testid: "nav-creator-earnings" },
+      { to: "/creator/payouts", label: "Payout Dashboard", icon: Receipt, testid: "nav-creator-payouts" },
+    ],
+  },
+];
+
+// ── Staff-only navigation data ────────────────────────────────────────────────
+// Each section requires a minimum role rank. Customer roles never see staff nav.
+const STAFF_SECTIONS = [
+  {
+    minRole: "instructor", label: "Instructor",
+    items: [
+      { to: "/instructor", label: "My Roster", icon: Users, testid: "nav-instructor" },
+      { to: "/instructor/labs", label: "Lab Approvals", icon: ClipboardCheck, testid: "nav-lab-approvals" },
+      { to: "/attendance", label: "Attendance", icon: Calendar, testid: "nav-attendance" },
+    ],
+  },
+  {
+    minRole: "support_staff", label: "Site Support",
+    items: [
+      { to: "/admin/audit", label: "Audit Log", icon: ScrollText, testid: "nav-support-audit" },
+      { to: "/admin/moderation", label: "Moderation", icon: Shield, testid: "nav-support-moderation" },
+      { to: "/aawab", label: "Agent Wellness", icon: HeartPulse, testid: "nav-aawab" },
+    ],
+  },
+  {
+    minRole: "admin", label: "Director",
+    items: [
+      { to: "/admin", label: "Admin Overview", icon: Settings, testid: "nav-admin" },
+      { to: "/admin/iam", label: "IAM Console", icon: ShieldCheck, testid: "nav-iam" },
+      { to: "/business-office", label: "AI Business Office", icon: Landmark, testid: "nav-business-office" },
+      { to: "/studio", label: "Creator Studio", icon: Music, testid: "nav-admin-creator-studio" },
+      { to: "/nam", label: "Hybrid NAM", icon: BrainCircuit, testid: "nav-hybrid-nam" },
+      { to: "/admin/health", label: "System Health", icon: ShieldCheck, testid: "nav-health" },
+      { to: "/admin/payments", label: "Payments", icon: Receipt, testid: "nav-admin-payments" },
+      { to: "/admin/billing", label: "Billing", icon: CreditCard, testid: "nav-billing" },
+      { to: "/admin/prices", label: "Prices", icon: Star, testid: "nav-prices" },
+      { to: "/admin/promo-codes", label: "Promo Codes", icon: TicketPercent, testid: "nav-promo-codes" },
+      { to: "/revenue", label: "Revenue", icon: BarChart3, testid: "nav-revenue" },
+      { to: "/admin/analytics", label: "Analytics", icon: TrendingUp, testid: "nav-analytics" },
+      { to: "/admin/audit", label: "Audit Log", icon: ScrollText, testid: "nav-audit" },
+      { to: "/admin/moderation", label: "Moderation", icon: Shield, testid: "nav-moderation" },
+      { to: "/admin/sage-audit", label: "Sage Audit", icon: ScrollText, testid: "nav-sage-audit" },
+      { to: "/admin/features", label: "Feature Control", icon: Wrench, testid: "nav-features" },
+      { to: "/admin/tools", label: "Sites & Inventory", icon: Building2, testid: "nav-admin-tools" },
+      { to: "/admin/bridge", label: "AI Team Bridge", icon: Network, testid: "nav-bridge" },
+      { to: "/admin/providers", label: "Provider Gateway", icon: Network, testid: "nav-providers" },
+      { to: "/admin/exec-report", label: "Site Report", icon: ClipboardCheck, testid: "nav-exec-report" },
+    ],
+  },
+  {
+    minRole: "executive_admin", label: "Executive",
+    items: [
+      { to: "/executive-suite", label: "Executive Suite", icon: Crown, testid: "nav-executive-suite" },
+      { to: "/admin/command", label: "Command Center", icon: Crown, testid: "nav-command-center" },
+      { to: "/arena", label: "The Arena", icon: Swords, testid: "nav-arena" },
+    ],
+  },
+];
+
+// ── AppShell ──────────────────────────────────────────────────────────────────
 export default function AppShell({ children }) {
   const { user, logout } = useAuth();
   const loc = useLocation();
   const nav = useNavigate();
   const [backendDown, setBackendDown] = useState(false);
+  const [gatesLoaded, setGatesLoaded] = useState(false);
   const [collapsed, setCollapsed] = useState(() => {
     try { return localStorage.getItem("sidebar_collapsed") === "true"; } catch { return false; }
   });
+  // Mobile: the sidebar is an off-canvas drawer below the lg breakpoint.
+  const [mobileOpen, setMobileOpen] = useState(false);
 
-  // Domain-aware sidebar: on the wai-institute.org door, education stays in-app
-  // and every support/billing/creative item becomes an outbound link to MORE.
+  // Close the drawer whenever the user navigates (each NavLink already scrolls to top).
+  useEffect(() => { setMobileOpen(false); }, [loc.pathname]);
+
   const waiDoor = isWaiDoor();
 
-  // 8-tier role hierarchy (mirrors backend/roles.py)
-  const ROLE_RANK = { public: 0, student: 1, trial_pass: 2, instructor: 3, support_staff: 4, oversight: 5, admin: 6, executive_admin: 7 };
   const role = user?.role || "student";
   const rank = ROLE_RANK[role] ?? 0;
   const hasRank = (min) => rank >= (ROLE_RANK[min] ?? 0);
   const isAdmin  = hasRank("admin");
   const isExec   = hasRank("executive_admin");
-  const isInstructor = hasRank("instructor");
-  const isSupport = hasRank("support_staff");
+  const isStaff  = rank >= (ROLE_RANK["instructor"] ?? 0);
+
+  const isAuthed = !!user;
+  const tier = user?.feature_tier || "free";
+  const hasTier = (min) => tierRank(tier) >= tierRank(min);
+  const byokUnlocked = !!user?.byok_enabled;
 
   const toggleCollapsed = () => {
     setCollapsed(c => {
@@ -113,9 +243,14 @@ export default function AppShell({ children }) {
     });
   };
 
+  // Load the exec page-access gate map once. Without this, gatesLoaded stays
+  // false forever and every nav item renders null — section headers expand to
+  // empty lists ("dropdowns that dropdown nothing") and features look missing.
   useEffect(() => {
-    // Same resolution as lib/api.js — same-origin by default, so this stays in
-    // sync with every other API call (no stale hardcoded host).
+    loadGates().finally(() => setGatesLoaded(true));
+  }, []);
+
+  useEffect(() => {
     const ctrl = new AbortController();
     const timer = setTimeout(() => ctrl.abort(), 6000);
     fetch(`${API}/version`, { signal: ctrl.signal })
@@ -124,345 +259,64 @@ export default function AppShell({ children }) {
     return () => { clearTimeout(timer); ctrl.abort(); };
   }, []);
 
-  // Exec-controlled page access: a disabled page disappears from the sidebar.
   const nl = (to, label, icon, testid) => {
-    if (!isPageEnabled(to)) return null;
+    if (!gatesLoaded) return null;
+    if (!isPageEnabled(to, user)) return null;
     return <NavLink loc={loc} to={to} label={label} icon={icon} testid={testid} collapsed={collapsed} />;
   };
 
-  // Outbound link to the M.O.R.E. Help Center (used on the WAI door for
-  // support/billing/creative items that live on morehelp.center).
   const out = (to, label, icon, testid) => {
-    if (!isPageEnabled(to)) return null;
+    if (!isPageEnabled(to, user)) return null;
     return (
-      <a key={to} href={MORE_HOME + to} target="_blank" rel="noopener noreferrer"
-        data-testid={testid} title={collapsed ? label : undefined}
-        className={`flex items-center gap-3 px-3 py-2 text-sm font-medium border-l-2 border-transparent text-white/65 hover:text-white hover:bg-white/5 transition-all rounded-r-md ${collapsed ? "justify-center px-0" : ""}`}>
-        <Icon className="w-4 h-4 shrink-0" />
-        {!collapsed && (
-          <>
-            <span className="flex-1">{label}</span>
-            <ExternalLink className="w-3 h-3 opacity-50 shrink-0" />
-          </>
-        )}
+      <a href={`${MORE_HOME}${to}`} target="_blank" rel="noopener noreferrer" data-testid={testid}
+        title={collapsed ? label : undefined}
+        className={`flex items-center gap-3 px-3 py-2 text-sm font-medium border-l-2 transition-all rounded-r-md ${
+          collapsed ? "justify-center px-0" : ""
+        } border-transparent text-white/75 hover:text-white hover:bg-white/5`}>
+        <icon className="w-4 h-4 shrink-0" />
+        {!collapsed && label}
+        {!collapsed && <ExternalLink className="w-3 h-3 ml-auto opacity-40" />}
       </a>
     );
   };
 
-  useEffect(() => { loadGates(); }, []);
+  const makeNav = waiDoor ? out : nl;
 
   return (
-    <div className="min-h-screen flex bg-bone">
-      {/* ── Sidebar ─────────────────────────────────────────────────────── */}
+    <div className="flex min-h-screen bg-ink">
+      {/* ── Sidebar ────────────────────────────────────────────────────── */}
+      {/* Mobile backdrop — closes the drawer when tapping outside it. */}
+      {mobileOpen && (
+        <div className="fixed inset-0 z-40 bg-black/60 lg:hidden" onClick={() => setMobileOpen(false)} data-testid="sidebar-backdrop" />
+      )}
       <aside
-        className={`${collapsed ? "w-14" : "w-64"} shrink-0 bg-ink text-white flex flex-col overflow-y-auto transition-all duration-200`}
-        data-testid="sidebar"
+        data-testid="app-shell-sidebar"
+        className={`fixed lg:static inset-y-0 left-0 z-50 shrink-0 flex flex-col border-r border-white/10 bg-surface overflow-y-auto transition-transform lg:transition-none shadow-2xl lg:shadow-none w-[240px] ${
+          mobileOpen ? "translate-x-0" : "-translate-x-full"
+        } lg:translate-x-0 ${collapsed ? "lg:w-[54px]" : "lg:w-[240px]"}`}
       >
-
-        {/* Brand */}
-        <div className={`py-5 border-b border-white/10 flex items-center shrink-0 ${collapsed ? "justify-center px-2 flex-col gap-2" : "px-4 justify-between"}`}>
+        {/* Header */}
+        <div className={`shrink-0 flex items-center gap-2 py-4 border-b border-white/10 ${collapsed ? "justify-center px-1" : "px-4"}`}>
+          <img src={WAI_LOGO} alt={BRAND.short} className="w-9 h-9 object-contain" />
           {!collapsed && (
-            <Link to="/" className="flex items-center gap-3" data-testid="sidebar-brand">
-              <img src={WAI_LOGO} alt="M.O.R.E." className="w-9 h-9 object-contain" />
-              <div>
-                <div className="overline text-signal">{BRAND.short}</div>
-                <div className="font-heading font-bold text-sm leading-tight">{BRAND.name}</div>
-              </div>
-            </Link>
+            <div className="min-w-0">
+              <div className="text-[10px] font-black uppercase tracking-[0.18em] leading-none" style={{ color: "#E8A51E" }}>{BRAND.short}</div>
+              <div className="text-[11px] font-bold leading-tight truncate text-white/80">{BRAND.name}</div>
+            </div>
           )}
+          <button onClick={toggleCollapsed} data-testid="sidebar-toggle"
+            className={`ml-auto hidden lg:flex p-1 rounded text-white/30 hover:text-white/70 transition-colors ${collapsed ? "hidden" : ""}`}
+            title={collapsed ? "Expand sidebar" : "Collapse sidebar"}>
+            <ChevronLeft className="w-4 h-4" />
+          </button>
           {collapsed && (
-            <Link to="/" data-testid="sidebar-brand" title="Home">
-              <img src={WAI_LOGO} alt="M.O.R.E." className="w-8 h-8 object-contain" />
-            </Link>
-          )}
-          <div className={`flex items-center ${collapsed ? "flex-col gap-1" : "gap-1"}`}>
-            {!collapsed && <NotificationBell />}
-            <button
-              onClick={toggleCollapsed}
-              title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
-              className="p-1 rounded hover:bg-white/10 text-white/50 hover:text-white transition-colors"
-              data-testid="sidebar-toggle"
-            >
-              {collapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
+            <button onClick={toggleCollapsed} className="mt-2 hidden lg:flex p-1 rounded text-white/30 hover:text-white/70 transition-colors">
+              <ChevronRight className="w-4 h-4" />
             </button>
-          </div>
-          {collapsed && <NotificationBell />}
+          )}
         </div>
 
-        {/* Nav */}
-        <nav className={`flex-1 py-4 ${collapsed ? "px-1" : "px-2"}`}>
-
-          {/* Site search — opens the global command palette (Ctrl+K) */}
-          <button
-            onClick={() => window.dispatchEvent(new CustomEvent("open-site-search"))}
-            data-testid="nav-search"
-            title={collapsed ? "Search (Ctrl+K)" : undefined}
-            className={`flex items-center gap-3 px-3 py-2 text-sm font-medium border-l-2 border-transparent text-white/65 hover:text-white hover:bg-white/5 rounded-r-md transition-all ${collapsed ? "justify-center px-0" : ""}`}
-          >
-            <Search className="w-4 h-4 shrink-0" />
-            {!collapsed && <span className="flex-1 text-left">Search</span>}
-            {!collapsed && <kbd className="text-[10px] font-black text-white/30 border border-white/15 rounded px-1.5 py-0.5">⌘K</kbd>}
-          </button>
-
-          {/* ── CORE (everyone) ───────────────────────────────────────── */}
-          <NavSection label="Home" collapsed={collapsed}>
-            {nl("/",                "Home / Landing",  Globe,            "nav-home")}
-            {nl("/dashboard",       "Dashboard",       LayoutDashboard, "nav-dashboard")}
-            {waiDoor ? (
-              <>
-                {out("/profile",        "My Profile",      UserCircle,      "nav-profile")}
-                {out("/my-position",    "My Position",     Compass,         "nav-my-position")}
-                {out("/site-guide",     "Site Guide",      Map,             "nav-site-guide")}
-                {out("/settings",       "Settings",        KeyRound,        "nav-settings")}
-                {out("/byok",           "My AI (BYOK)",    BrainCircuit,    "nav-byok")}
-              </>
-            ) : (
-              <>
-                {nl("/profile",         "My Profile",      UserCircle,      "nav-profile")}
-                {nl("/my-position",     "My Position",     Compass,         "nav-my-position")}
-                {nl("/site-guide",      "Site Guide",      Map,             "nav-site-guide")}
-                {nl("/settings",        "Settings",        KeyRound,        "nav-settings")}
-                {nl("/byok",            "My AI (BYOK)",    BrainCircuit,    "nav-byok")}
-              </>
-            )}
-          </NavSection>
-
-          {hasRank("student") && (
-          <NavSection label="Learn" collapsed={collapsed}>
-            <NavSubGroup label="AI & Tutoring" collapsed={collapsed}>
-              {nl("/ai",              "AI Tutor",        Sparkles,        "nav-ai")}
-              {nl("/council",         "Council (Sage)",  Layers,          "nav-council")}
-            </NavSubGroup>
-            <NavSubGroup label="Curriculum" collapsed={collapsed} defaultOpen={true}>
-              {nl("/modules",         "Modules",         BookOpen,        "nav-modules")}
-              {nl("/adaptive",        "Learning Path",   Brain,           "nav-adaptive")}
-              {nl("/competencies",    "Competencies",    Target,          "nav-competencies")}
-            </NavSubGroup>
-            <NavSubGroup label="Labs & Practice" collapsed={collapsed}>
-              {nl("/labs",            "Workforce Labs",  FlaskConical,    "nav-labs")}
-              {nl("/lab-simulations", "Lab Simulations", FlaskConical,    "nav-lab-sims")}
-            </NavSubGroup>
-            <NavSubGroup label="Compliance" collapsed={collapsed}>
-              {nl("/compliance",      "Compliance",      ShieldCheck,     "nav-compliance")}
-            </NavSubGroup>
-          </NavSection>
-          )}
-
-          {hasRank("student") && (
-          <NavSection label="Credentials" collapsed={collapsed}>
-            {nl("/credentials",    "Credentials",      BadgeCheck,      "nav-credentials")}
-            {nl("/certificates",   "Certificates",     Award,           "nav-certs")}
-            {nl("/portfolio",      "Portfolio",        Briefcase,       "nav-portfolio")}
-          </NavSection>
-          )}
-
-          {hasRank("student") && (
-          <NavSection label="Community" collapsed={collapsed}>
-            {waiDoor ? (
-              <>
-                {out("/palace",        "Members' Palace",  Crown,           "nav-palace")}
-                {out("/elder-council", "Elder Council",    Layers,          "nav-elder-council")}
-                {out("/leaderboard",   "XP Leaderboard",   Trophy,          "nav-leaderboard")}
-                {out("/incidents",     "Report Incident",  ShieldAlert,     "nav-incidents")}
-              </>
-            ) : (
-              <>
-                {nl("/palace",         "Members' Palace",  Crown,           "nav-palace")}
-                {nl("/leaderboard",    "XP Leaderboard",   Trophy,          "nav-leaderboard")}
-                {nl("/incidents",      "Report Incident",  ShieldAlert,     "nav-incidents")}
-              </>
-            )}
-          </NavSection>
-          )}
-
-          {hasRank("student") && (
-          <NavSection label="M.O.R.E." collapsed={collapsed}>
-            {waiDoor ? (
-              <>
-                {out("/app/more",       "M.O.R.E. Hub",     HandHelping,     "nav-more")}
-                {out("/more/chat",      "Community Chat",   Radio,           "nav-more-chat")}
-                {out("/more/litigation","Legal Tools",      Scale,           "nav-litigation")}
-                {out("/app/helper",     "Personal Helper",  HelpCircle,      "nav-helper")}
-                {out("/knowledge-base", "Knowledge Base",   BookOpen,        "nav-kb")}
-              </>
-            ) : (
-              <>
-                {nl("/app/more",       "M.O.R.E. Hub",     HandHelping,     "nav-more")}
-                {nl("/more/chat",      "Community Chat",   Radio,           "nav-more-chat")}
-                {nl("/more/litigation","Legal Tools",      Scale,           "nav-litigation")}
-                {nl("/app/helper",     "Personal Helper",  HelpCircle,      "nav-helper")}
-                {nl("/knowledge-base", "Knowledge Base",   BookOpen,        "nav-kb")}
-              </>
-            )}
-          </NavSection>
-          )}
-
-          {/* ── CLASSIC TOOLS (admin+) */}
-          {hasRank("admin") && (
-          <NavSection label="Classic Tools" collapsed={collapsed}>
-            {waiDoor ? (
-              <>
-                {out("/classic-tools",  "All Originals",     Archive,         "nav-classic-tools")}
-                {out("/classic/creators-sanctuary", "Creator Studio (classic)", Music, "nav-classic-sanctuary")}
-                {out("/classic/djedi-oracle", "DJEDI Oracle", Star,         "nav-classic-djedi")}
-                {out("/classic/litigation-weapon", "Litigation Weapon", Scale, "nav-classic-litigation")}
-                {out("/classic/more-help-center", "Help Center (original)", HelpCircle, "nav-classic-more")}
-              </>
-            ) : (
-              <>
-                {nl("/classic-tools",  "All Originals",     Archive,         "nav-classic-tools")}
-                {nl("/classic/creators-sanctuary", "Creator Studio (classic)", Music, "nav-classic-sanctuary")}
-                {nl("/classic/djedi-oracle", "DJEDI Oracle", Star,         "nav-classic-djedi")}
-                {nl("/classic/litigation-weapon", "Litigation Weapon", Scale, "nav-classic-litigation")}
-                {nl("/classic/more-help-center", "Help Center (original)", HelpCircle, "nav-classic-more")}
-              </>
-            )}
-          </NavSection>
-          )}
-
-          {/* ── AGENT WELLNESS (oversight+) */}
-          {hasRank("oversight") && (
-          <NavSection label="Agent Wellness" collapsed={collapsed}>
-            {nl("/aawab",          "Agent Registry",  HeartPulse,      "nav-aawab")}
-            {nl("/aawab/chamber",  "Certification",   Award,           "nav-aawab-chamber")}
-          </NavSection>
-          )}
-
-          {/* ── BUSINESS OFFICE (oversight+) */}
-          {hasRank("oversight") && (
-          <NavSection label="Business Office" collapsed={collapsed}>
-            {nl("/business-office", "AI Business Office", Landmark,     "nav-business-office")}
-          </NavSection>
-          )}
-
-          {/* ── CREATORS (instructor+) */}
-          {hasRank("instructor") && (
-          <NavSection label="Creators" collapsed={collapsed}>
-            <NavSubGroup label="Content" collapsed={collapsed} defaultOpen={true}>
-              {nl("/social/publish",       "Social Blast",      Share2,     "nav-social-publish")}
-              {waiDoor ? out("/studio", "Creator Studio", Music, "nav-creator-studio") : nl("/studio", "Creator Studio", Music, "nav-creator-studio")}
-              {waiDoor ? out("/creator/courses", "Course Manager", Video, "nav-creator-courses") : nl("/creator/courses", "Course Manager", Video, "nav-creator-courses")}
-              {waiDoor ? out("/ghost-producer", "Ghost Producer", Palette, "nav-ghost-producer") : nl("/ghost-producer", "Ghost Producer", Palette, "nav-ghost-producer")}
-            </NavSubGroup>
-            <NavSubGroup label="Earnings" collapsed={collapsed}>
-              {waiDoor ? out("/creator/earnings", "My Earnings", DollarSign, "nav-creator-earnings") : nl("/creator/earnings", "My Earnings", DollarSign, "nav-creator-earnings")}
-              {waiDoor ? out("/creator/payouts", "Payout Dashboard", Receipt, "nav-creator-payouts") : nl("/creator/payouts", "Payout Dashboard", Receipt, "nav-creator-payouts")}
-            </NavSubGroup>
-            <NavSubGroup label="Media & Fun" collapsed={collapsed}>
-              {waiDoor ? out("/creator-lounge", "Creator Lounge", Mic, "nav-creator-lounge") : nl("/creator-lounge", "Creator Lounge", Mic, "nav-creator-lounge")}
-              {waiDoor ? out("/band", "Band on a Page", Music, "nav-band") : nl("/band", "Band on a Page", Music, "nav-band")}
-              {waiDoor ? out("/playlist/dashboard", "Playlist Manager", Radio, "nav-playlist") : nl("/playlist/dashboard", "Playlist Manager", Radio, "nav-playlist")}
-              {waiDoor ? out("/arcade", "Virtual Arcade", Gamepad2, "nav-arcade") : nl("/arcade", "Virtual Arcade", Gamepad2, "nav-arcade")}
-              {waiDoor ? out("/trash", "M.O.R.E. Pantheon", Star, "nav-trash") : nl("/trash", "M.O.R.E. Pantheon", Star, "nav-trash")}
-            </NavSubGroup>
-          </NavSection>
-          )}
-
-          {hasRank("student") && (
-          <NavSection label="Commerce" collapsed={collapsed}>
-            {waiDoor ? (
-              <>
-                {out("/merch",           "Store",            ShoppingBag,    "nav-store")}
-                {out("/store",           "Media Store",      Music,          "nav-media-store")}
-                {out("/plans",           "Plans & Pricing",  Star,           "nav-plans")}
-                {out("/subscribe",       "Membership",       HandHelping,    "nav-subscribe")}
-                {out("/donate",          "Donate",           Heart,          "nav-donate")}
-                {out("/payment/history", "Payment History",  Receipt,        "nav-payment-history")}
-                {out("/partnership",     "Partnerships",     Network,        "nav-partnership")}
-              </>
-            ) : (
-              <>
-                {nl("/store",           "Media Store",      Music,          "nav-media-store")}
-                {nl("/plans",           "Plans & Pricing",  Star,           "nav-plans")}
-                {nl("/subscribe",       "Membership",       HandHelping,    "nav-subscribe")}
-                {nl("/donate",          "Donate",           Heart,          "nav-donate")}
-                {nl("/payment/history", "Payment History",  Receipt,        "nav-payment-history")}
-                {nl("/partnership",     "Partnerships",     Network,        "nav-partnership")}
-              </>
-            )}
-          </NavSection>
-          )}
-
-          {/* ── INSTRUCTOR ────────────────────────────────────────────── */}
-          {isInstructor && (
-            <NavSection label="Instructor" collapsed={collapsed}>
-              {nl("/instructor",      "My Roster",       Users,          "nav-instructor")}
-              {nl("/instructor/labs", "Lab Approvals",   ClipboardCheck, "nav-lab-approvals")}
-              {nl("/attendance",      "Attendance",      Calendar,       "nav-attendance")}
-            </NavSection>
-          )}
-
-          {/* ── ADMIN ─────────────────────────────────────────────────── */}
-          {isAdmin && (
-            <NavSection label="Administration" collapsed={collapsed} defaultOpen={false}>
-              <NavSubGroup label="Overview" collapsed={collapsed} defaultOpen={true}>
-                {nl("/admin",           "Admin Overview",  Settings,       "nav-admin")}
-                {nl("/admin/tools",     "Sites & Inventory", Building2,   "nav-admin-tools")}
-                {nl("/admin/health",    "System Health",   ShieldCheck,    "nav-health")}
-              </NavSubGroup>
-              <NavSubGroup label="Finance" collapsed={collapsed}>
-                {nl("/admin/payments",  "Payments",        Receipt,        "nav-admin-payments")}
-                {nl("/admin/billing",   "Billing",         CreditCard,     "nav-billing")}
-                {nl("/admin/prices",    "Prices",          Star,           "nav-prices")}
-                {nl("/revenue",         "Revenue",         BarChart3,      "nav-revenue")}
-              </NavSubGroup>
-              <NavSubGroup label="Operations" collapsed={collapsed}>
-                {nl("/admin/analytics", "Analytics",       TrendingUp,     "nav-analytics")}
-                {nl("/admin/audit",     "Audit Log",       ScrollText,     "nav-audit")}
-                {nl("/admin/moderation","Moderation",      Shield,         "nav-moderation")}
-                {nl("/auditor",         "Auditor",         FileText,       "nav-auditor")}
-              </NavSubGroup>
-              <NavSubGroup label="AI & Tools" collapsed={collapsed}>
-                {nl("/more/admin",      "M.O.R.E. Admin",  Wrench,         "nav-more-admin")}
-                {nl("/more/ops",        "Dept. AI Ops",    Network,        "nav-more-ops")}
-                {nl("/assistant",       "Admin Assistant", Sparkles,       "nav-assistant")}
-                {nl("/admin/bridge",    "AI Team Bridge",  Network,        "nav-bridge")}
-                {nl("/admin/aawab",     "AAWAB Admin",     HeartPulse,     "nav-aawab-admin")}
-                {nl("/admin/office-control", "Office Control (no-code)", Settings, "nav-abo-control")}
-              </NavSubGroup>
-            </NavSection>
-          )}
-
-          {/* ── SITE SUPPORT (support the site and admin) ────────────── */}
-          {isSupport && (
-            <NavSection label="Site Support" collapsed={collapsed}>
-              {nl("/admin/audit",       "Audit Log",       ScrollText,     "nav-support-audit")}
-              {nl("/admin/moderation",  "Moderation",      Shield,         "nav-support-moderation")}
-            </NavSection>
-          )}
-
-          {/* ── EXECUTIVE ─────────────────────────────────────────────── */}
-          {isExec && (
-            <NavSection label="Executive" collapsed={collapsed} defaultOpen={false}>
-              <NavSubGroup label="Command" collapsed={collapsed} defaultOpen={true}>
-                {nl("/admin/system",       "Exec System",       Crown,          "nav-exec-system")}
-                {nl("/admin/control",      "Site Control",      Shield,         "nav-control-panel")}
-                {nl("/admin/exec-control", "Command Center", Layers,         "nav-exec-control")}
-                {nl("/admin/director",     "Director Dash",     Compass,        "nav-exec-director")}
-              </NavSubGroup>
-              <NavSubGroup label="Reports & Audit" collapsed={collapsed}>
-                {nl("/admin/sage-audit",   "Sage Audit",        ScrollText,     "nav-sage-audit")}
-                {nl("/admin/exec-report",  "Site Report",       ClipboardCheck, "nav-exec-report")}
-                {nl("/admin/health-report","Health Report",     Activity,        "nav-health-report")}
-                {nl("/admin/staff-meetings","Staff Meetings",   Users,          "nav-staff-meetings")}
-              </NavSubGroup>
-              <NavSubGroup label="Team & AI" collapsed={collapsed}>
-                {nl("/admin/providers",    "Provider Gateway",  Network,        "nav-providers")}
-                {nl("/team/ops",           "Team Ops",          Server,         "nav-team-ops")}
-                {nl("/supervisor",         "Supervisor Hub",    Radio,          "nav-supervisor")}
-                {nl("/jamil",              "Jamil",             Sparkles,       "nav-jamil")}
-              </NavSubGroup>
-              <NavSubGroup label="Projects" collapsed={collapsed}>
-                {nl("/projects",           "Projects",          ClipboardCheck, "nav-projects")}
-                {nl("/creative-partner",   "Creative Partner",  Palette,        "nav-creative-partner")}
-                {nl("/arena",              "The Arena",         Swords,         "nav-arena")}
-              </NavSubGroup>
-            </NavSection>
-          )}
-
-        </nav>
-
-        {/* M.O.R.E. Institute card — on the WAI door the sidebar already IS the institute, so this links out to the MORE hub instead. */}
+        {/* M.O.R.E. Institute card */}
         {!collapsed && (
           <div className="px-4 pb-2 shrink-0">
             {waiDoor ? (
@@ -473,9 +327,7 @@ export default function AppShell({ children }) {
                   <span style={{ fontSize: 16 }}>🏛️</span>
                   <span style={{ fontSize: 14, fontWeight: 900, color: "#E8A51E" }}>M.O.R.E. Hub</span>
                 </div>
-                <span style={{ fontSize: 11, opacity: 0.85, color: "#fff", paddingLeft: 26 }}>
-                  Support · Billing · Community
-                </span>
+                <span style={{ fontSize: 11, opacity: 0.85, color: "#fff", paddingLeft: 26 }}>Support · Billing · Community</span>
               </a>
             ) : (
             <Link to="/wai-institute" data-testid="nav-wai-institute"
@@ -485,9 +337,7 @@ export default function AppShell({ children }) {
                 <span style={{ fontSize: 16 }}>🏛️</span>
                 <span style={{ fontSize: 14, fontWeight: 900, color: "#E8A51E" }}>M.O.R.E. Institute</span>
               </div>
-              <span style={{ fontSize: 11, opacity: 0.85, color: "#fff", paddingLeft: 26 }}>
-                Administration · Classrooms · Credentials
-              </span>
+              <span style={{ fontSize: 11, opacity: 0.85, color: "#fff", paddingLeft: 26 }}>Administration · Classrooms · Credentials</span>
             </Link>
             )}
           </div>
@@ -510,32 +360,176 @@ export default function AppShell({ children }) {
           </div>
         )}
 
+        {/* ── Navigation ─────────────────────────────────────────────────── */}
+        <nav className="flex-1 py-3 px-1 overflow-y-auto">
+
+          {/* ─────────── NOT AUTHENTICATED ────────────── */}
+          {!isAuthed && (
+            <>
+              <NavSection label="Explore" collapsed={collapsed} defaultOpen={true}>
+                {nl("/", "Home", Globe, "nav-home")}
+                {nl("/courses", "Courses", BookOpen, "nav-public-courses")}
+                {nl("/creators", "Creators", Users, "nav-public-creators")}
+                {nl("/community", "Community", Radio, "nav-public-community")}
+                {nl("/store", "Store", ShoppingBag, "nav-public-store")}
+                {nl("/premium", "WAI Institute Premium Services", Crown, "nav-public-premium")}
+                {nl("/vonns-saga", "Vonn's Saga", BookOpen, "nav-public-vonns")}
+                {nl("/knowledge", "Knowledge Finder", Search, "nav-public-knowledge")}
+              </NavSection>
+              <NavSection label="Access" collapsed={collapsed} defaultOpen={false}>
+                {nl("/plans", "Plans & Upgrade", Star, "nav-plans-upgrade")}
+              </NavSection>
+            </>
+          )}
+
+          {/* ─────────── AUTHENTICATED: TIER-FIRST CUSTOMER NAV ──────────── */}
+          {isAuthed && !isStaff && (
+            <>
+              {/* Home */}
+              <NavSection label="Home" collapsed={collapsed} defaultOpen={true}>
+                {nl("/", "Home / Landing", Globe, "nav-home")}
+                {nl("/dashboard", "Dashboard", LayoutDashboard, "nav-dashboard")}
+                {isAuthed && !collapsed && (
+                  <div className="flex items-center gap-2 px-3 py-2">
+                    <UserCircle className="w-4 h-4 text-white/45 shrink-0" />
+                    <span className="text-sm text-white/65 truncate">{user?.full_name}</span>
+                  </div>
+                )}
+                {nl("/profile", "My Profile", UserCircle, "nav-profile")}
+                {nl("/settings", "Settings", KeyRound, "nav-settings")}
+                {nl("/premium", "WAI Institute Premium Services", Crown, "nav-premium-customer")}
+              </NavSection>
+
+              {/* Tier sections: expanded for current tier, locked card for next, hidden above */}
+              {CUSTOMER_TIERS.map((section, idx) => {
+                const sectionRank = tierRank(section.tier);
+                const userRank = tierRank(tier);
+                const isCurrentOrBelow = userRank >= sectionRank;
+                const isNextLocked = userRank < sectionRank && (idx === 0 || userRank >= tierRank(CUSTOMER_TIERS[idx - 1].tier));
+                if (!isCurrentOrBelow && !isNextLocked) return null;
+                if (isCurrentOrBelow) {
+                  return (
+                    <NavSection
+                      key={section.tier}
+                      label={section.label}
+                      collapsed={collapsed}
+                      defaultOpen={true}
+                      badge={section.tier === tier ? "You" : null}
+                    >
+                      {section.items.map((item) => nl(item.to, item.label, item.icon, item.testid))}
+                    </NavSection>
+                  );
+                }
+                return <TierCard key={section.tier} tier={section.label} price={section.price} features={section.features} collapsed={collapsed} />;
+              })}
+
+              {/* Upgrade prompt (when there IS a next locked tier) */}
+              {!collapsed && !hasTier("patron") && (
+                <div className="mt-2 mx-3 px-3 py-2 rounded-lg" style={{ background: "rgba(232,165,30,0.06)", border: "1px solid rgba(232,165,30,0.15)" }}>
+                  <Link to="/plans" className="text-[11px] font-bold uppercase tracking-widest hover:opacity-80 transition-opacity" style={{ color: "#E8A51E" }}>
+                    Upgrade your access →
+                  </Link>
+                </div>
+              )}
+
+
+            </>
+          )}
+
+          {/* ─────────── AUTHENTICATED STAFF ──────────────────────────────── */}
+          {isAuthed && isStaff && (
+            <>
+              {/* Customer quick-access: dashboard + profile */}
+              <NavSection label="Account" collapsed={collapsed} defaultOpen={true}>
+                {nl("/", "Home", Globe, "nav-home")}
+                {nl("/dashboard", "Dashboard", LayoutDashboard, "nav-dashboard")}
+                {nl("/profile", "My Profile", UserCircle, "nav-profile")}
+                {nl("/settings", "Settings", KeyRound, "nav-settings")}
+                {nl("/vonns-saga", "Vonn's Saga", BookOpen, "nav-vonns-staff")}
+                {nl("/premium", "WAI Institute Premium Services", Crown, "nav-premium-staff")}
+              </NavSection>
+
+              {/* Staff nav sections by role */}
+              {STAFF_SECTIONS.map((section) => {
+                if (rank < (ROLE_RANK[section.minRole] ?? 0)) return null;
+                return (
+                  <NavSection key={section.minRole} label={section.label} collapsed={collapsed} defaultOpen={false}>
+                    {section.items.map((item) => {
+                      // For items that appear in multiple staff sections (audit, moderation),
+                      // deduplicate by path
+                      return nl(item.to, item.label, item.icon, item.testid);
+                    })}
+                  </NavSection>
+                );
+              })}
+            </>
+          )}
+        </nav>
+
         {/* User footer */}
         <div className={`py-4 border-t border-white/10 shrink-0 ${collapsed ? "px-1" : "px-4"}`}>
-          {!collapsed && (
+          {!isAuthed && !collapsed && (
+            <>
+              <div className="text-xs text-white/50 uppercase tracking-widest">Visitor</div>
+              <div className="flex flex-col gap-2 mt-3">
+                <Link to="/login" data-testid="nav-sign-in"
+                  className="w-full text-center border border-white/25 py-2 text-xs uppercase tracking-widest font-bold hover:bg-white hover:text-ink transition-colors">
+                  Sign In
+                </Link>
+                <Link to="/register" data-testid="nav-register"
+                  className="w-full text-center bg-signal text-ink py-2 text-xs uppercase tracking-widest font-bold hover:opacity-90 transition-opacity">
+                  Create Account
+                </Link>
+              </div>
+            </>
+          )}
+          {isAuthed && !collapsed && (
             <>
               <div className="text-xs text-white/50 uppercase tracking-widest">Signed in as</div>
               <div className="font-heading text-white font-semibold mt-1 truncate flex items-center gap-2">
                 {user?.full_name}
                 {isExec && <span className="bg-signal text-ink text-[9px] font-black px-1.5 py-0.5" title="Executive Admin" data-testid="exec-badge">EXEC</span>}
-                {role === "admin" && <span className="bg-copper text-white text-[9px] font-black px-1.5 py-0.5">ADMIN</span>}
+                {isAdmin && <span className="bg-copper text-white text-[9px] font-black px-1.5 py-0.5">ADMIN</span>}
                 {role === "support_staff" && <span style={{ background: "#E8A51E", color: "#0a0a0a" }} className="text-[9px] font-black px-1.5 py-0.5" title="Site Support">SUPPORT</span>}
                 {role === "trial_pass" && <span style={{ background: "#E8A51E", color: "#0a0a0a" }} className="text-[9px] font-black px-1.5 py-0.5" title="Priority Member">PRIORITY</span>}
               </div>
               <div className="text-xs text-white/50 capitalize">{role.replace("_", " ")}{user?.associate ? ` · ${user.associate}` : ""}</div>
             </>
           )}
-          <button onClick={() => { logout(); nav("/"); }} data-testid="btn-logout"
-            title="Log Out"
-            className={`mt-3 w-full flex items-center justify-center gap-2 border border-white/20 py-2 text-xs uppercase tracking-widest font-bold hover:bg-white hover:text-ink transition-colors ${collapsed ? "px-0" : ""}`}>
-            <LogOut className="w-3.5 h-3.5" />
-            {!collapsed && "Log Out"}
-          </button>
+          {isAuthed && (
+            <button onClick={() => { logout(); nav("/"); }} data-testid="btn-logout"
+              title="Log Out"
+              className={`mt-3 w-full flex items-center justify-center gap-2 border border-white/20 py-2 text-xs uppercase tracking-widest font-bold hover:bg-white hover:text-ink transition-colors ${collapsed ? "px-0" : ""}`}>
+              <LogOut className="w-3.5 h-3.5" />
+              {!collapsed && "Log Out"}
+            </button>
+          )}
         </div>
       </aside>
 
       {/* ── Main content ─────────────────────────────────────────────────── */}
       <div className="flex-1 min-w-0 flex flex-col">
+        {/* Mobile top bar — hamburger + brand (hidden on desktop where the
+            sidebar is always visible). */}
+        <div className="lg:hidden flex items-center gap-3 px-4 py-3 border-b border-white/10 bg-surface shrink-0">
+          <button onClick={() => setMobileOpen(true)} data-testid="mobile-menu-button"
+            className="p-2 -ml-1 rounded-lg text-white/70 hover:text-white hover:bg-white/10 transition-colors"
+            aria-label="Open menu">
+            <Menu className="w-5 h-5" />
+          </button>
+          <Link to="/" className="flex items-center gap-2 min-w-0">
+            <img src={WAI_LOGO} alt={BRAND.short} className="w-7 h-7 object-contain shrink-0" />
+            <div className="min-w-0 leading-none">
+              <div className="text-[10px] font-black uppercase tracking-[0.18em]" style={{ color: "#E8A51E" }}>{BRAND.short}</div>
+              <div className="text-[11px] font-bold truncate text-white/80">{BRAND.name}</div>
+            </div>
+          </Link>
+          {isAuthed && (
+            <Link to="/profile" className="ml-auto p-1.5 rounded-full text-white/60 hover:text-white" data-testid="mobile-profile" aria-label="My profile">
+              <UserCircle className="w-6 h-6" />
+            </Link>
+          )}
+        </div>
         {backendDown && (
           <div className="flex items-center gap-3 px-6 py-3 bg-destructive/10 border-b border-destructive/20" data-testid="backend-offline-banner">
             <WifiOff className="w-4 h-4 text-destructive shrink-0" />

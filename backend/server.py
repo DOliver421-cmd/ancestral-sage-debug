@@ -84,6 +84,12 @@ from recovery import (
     ensure_recovery_codes_exist,
 )
 from security.field_authorization import FieldAuthorization
+from security.feature_control import (
+    check_request_config,
+    check_user_feature_access,
+    feature_for_path,
+    fcc_feature_for_path,
+)
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env', override=True)  # .env is source of truth (overrides empty/stale shell vars; no .env in Docker image so prod is unaffected)
@@ -125,7 +131,6 @@ MONGO_BACKUP_URL = os.environ.get("MONGO_BACKUP_URL", "")
 MONGO_BACKUP_DB  = os.environ.get("MONGO_BACKUP_DB", "")
 
 _backup_db = None
-_pipeline_manager = None
 _discount_manager = None
 
 # ── WAI engine singletons ───────────────────────────────────────────────────────
@@ -160,7 +165,18 @@ def _get_the9_engine():
 
 import secrets as _secrets
 
-JWT_SECRET = os.environ.get('JWT_SECRET') or _secrets.token_hex(32)
+_jwt_raw = os.environ.get('JWT_SECRET', '').strip()
+if not _jwt_raw:
+    import logging as _log
+    _log.getLogger('lcewai').critical(
+        'FATAL: JWT_SECRET is not set. Sessions will not work and auth will fail. '
+        'Set a persistent JWT_SECRET in your deploy environment (e.g. Railway Variables).'
+    )
+    JWT_SECRET = _secrets.token_hex(32)
+    JWT_SECRET_IS_EPHEMERAL = True
+else:
+    JWT_SECRET = _jwt_raw
+    JWT_SECRET_IS_EPHEMERAL = False
 JWT_ALGO = os.environ.get('JWT_ALGORITHM', 'HS256')
 JWT_EXPIRE_HOURS = int(os.environ.get('JWT_EXPIRE_HOURS', '168'))
 EMERGENT_LLM_KEY = os.environ.get('EMERGENT_LLM_KEY', '')
@@ -211,14 +227,58 @@ async def enforce_platform_flags(request: Request, call_next):
     )
     if not exempt and db is not None:
         try:
-            doc = await db.platform_flags.find_one({"_id": "flags"}, {"_id": 0, "flags.platform_locked": 1})
+            doc = await db.platform_flags.find_one({"_id": "flags"}, {"_id": 0})
             if doc and doc.get("flags", {}).get("platform_locked", {}).get("enabled"):
                 return JSONResponse(
                     status_code=503,
                     content={"detail": "Platform is currently locked by the executive team. Please check back shortly."},
                 )
+            # ── Per-user enforcement (feature overrides + feature_tier) ─────────
+            # Only runs on mapped feature surfaces and only when a valid session
+            # resolves; the route's own auth still produces the 401 for missing
+            # tokens.  An explicit per-user grant skips the platform checks.
+            if feature_for_path(path) or fcc_feature_for_path(path):
+                user = None
+                authz = request.headers.get("authorization")
+                if authz:
+                    try:
+                        user = await current_user(authz)
+                    except Exception:
+                        user = None  # let the route handler raise the 401/403
+                action, detail = await check_user_feature_access(db, user, path)
+                if action == "block":
+                    return JSONResponse(status_code=403, content={"detail": detail})
+                if action == "unavailable":
+                    return JSONResponse(
+                        status_code=503,
+                        content={"detail": detail},
+                        headers={"cache-control": "no-store"},
+                    )
+                if action == "allow":
+                    return await call_next(request)
+            # Enforce the exec panel's platform controls (feature flags + page
+            # access).  Safe default: only blocks when an executive explicitly
+            # disabled a mapped flag/page — absent config == allow.
+            decision = await check_request_config(db, path, doc)
+            if decision:
+                return JSONResponse(status_code=decision[0], content={"detail": decision[1]})
         except Exception:
-            pass
+            # A mapped feature cannot be authorized when its policy store is
+            # unavailable.  Fail closed for the sensitive surface; leave
+            # unrelated/public endpoints alone so a database outage does not
+            # turn the whole site into a maintenance page.
+            controlled = (
+                feature_for_path(path) is not None
+                or fcc_feature_for_path(path) is not None
+                or path.startswith("/api/ai/")
+            )
+            if controlled:
+                logger.exception("Feature authorization unavailable for %s", path)
+                return JSONResponse(
+                    status_code=503,
+                    content={"detail": "Feature authorization unavailable — request rejected."},
+                    headers={"cache-control": "no-store"},
+                )
     return await call_next(request)
 
 
@@ -327,25 +387,30 @@ async def audit(actor_id: Optional[str], action: str, target: Optional[str] = No
 
 
 async def notify(user_id: str, title: str, body: str, link: Optional[str] = None, kind: str = "info"):
-    await db.notifications.insert_one({
-        "id": str(uuid.uuid4()),
-        "user_id": user_id,
-        "title": title,
-        "body": body,
-        "link": link,
-        "kind": kind,
-        "read": False,
-        "created_at": datetime.now(timezone.utc).isoformat(),
-    })
+    try:
+        await db.notifications.insert_one({
+            "id": str(uuid.uuid4()),
+            "user_id": user_id,
+            "title": title,
+            "body": body,
+            "link": link,
+            "kind": kind,
+            "read": False,
+            "created_at": datetime.now(timezone.utc).isoformat(),
+        })
+    except Exception:
+        # A notification must never turn a successful operation into a 500.
+        logger.exception("notify failed")
 
 # Role hierarchy imported from roles.py (canonical source of truth).
 # 8-tier: public(0) < student(1) < trial_pass(2) < instructor(3) <
 #         support_staff(4) < oversight(5) < admin(6) < executive_admin(7)
 
-# The single hardcoded executive admin email. Auto-promoted to executive_admin
-# on every backend startup; if the account does not exist it is created with
-# the seed password EXEC_DEFAULT_PASSWORD (rotate immediately on first login).
-EXEC_ADMIN_EMAIL = os.environ.get("EXEC_ADMIN_EMAIL", "delon.oliver@lightningcityelectric.com")
+# Executive seat emails come from the environment ONLY — there are no
+# hardcoded fallbacks. A seat is created at startup only when its email is
+# explicitly configured; docker-entrypoint.sh refuses to boot when none are
+# set, so a fresh database can never silently fall to the first registrant.
+EXEC_ADMIN_EMAIL = os.environ.get("EXEC_ADMIN_EMAIL", "").strip()
 # Seed password for the executive admin.  Read from env var first; falls back
 # to the documented default (which is force-rotated on first login via
 # `must_change_password=True`, so the seed is safe by construction).  In
@@ -353,22 +418,35 @@ EXEC_ADMIN_EMAIL = os.environ.get("EXEC_ADMIN_EMAIL", "delon.oliver@lightningcit
 # value is operator-controlled.
 # No fallback passwords in source. If EXEC_DEFAULT_PASSWORD is not set in Railway,
 # a cryptographically random password is generated at startup and emailed to
-# PLATFORM_NOTIFY_EMAIL (morehelpcenter@gmail.com) automatically.
+# PLATFORM_NOTIFY_EMAIL (must be explicitly configured) automatically.
 EXEC_DEFAULT_PASSWORD = os.environ.get("EXEC_DEFAULT_PASSWORD", "")
 
-# Executive accounts — both seats always bootstrapped on startup.
-# Seat 1 (Delon Oliver):  youpickeddoliver@gmail.com
-# Seat 2 (NAM Oshun):     souppoetry@gmail.com
-BACKUP_EXEC_EMAIL = os.environ.get("BACKUP_EXEC_ADMIN_EMAIL", "youpickeddoliver@gmail.com")
+# Executive seats — bootstrapped at startup ONLY when the email is explicitly
+# configured (empty env var = seat skipped). No hardcoded addresses.
+BACKUP_EXEC_EMAIL = os.environ.get("BACKUP_EXEC_ADMIN_EMAIL", "").strip()
 BACKUP_EXEC_DEFAULT_PASSWORD = os.environ.get("BACKUP_EXEC_DEFAULT_PASSWORD", "")
 
-NAM_EXEC_EMAIL = os.environ.get("NAM_EXEC_EMAIL", "souppoetry@gmail.com")
+NAM_EXEC_EMAIL = os.environ.get("NAM_EXEC_EMAIL", "").strip()
 NAM_EXEC_DEFAULT_PASSWORD = os.environ.get("NAM_EXEC_DEFAULT_PASSWORD", "")
 
 # Platform notification email — receives auto-generated passwords and system alerts.
-# Defaults to the configured GMAIL_USER (morehelpcenter@gmail.com).
+# Env-only. Falls back to the configured GMAIL_USER if set, otherwise empty
+# (alerts are logged instead of emailed; no mail goes to an unconfigured inbox).
 PLATFORM_NOTIFY_EMAIL = os.environ.get("PLATFORM_NOTIFY_EMAIL",
-                                        os.environ.get("GMAIL_USER", "morehelpcenter@gmail.com"))
+                                        os.environ.get("GMAIL_USER", "")).strip()
+
+# Fail-closed guard: with no exec seat configured, a fresh database has no
+# owner and the first registrant becomes executive_admin (auth.py register).
+# docker-entrypoint.sh refuses to boot in this state; this log makes the
+# condition unmissable on any other boot path too.
+if not (EXEC_ADMIN_EMAIL or BACKUP_EXEC_EMAIL or NAM_EXEC_EMAIL):
+    import logging as _log
+    _log.getLogger("lcewai").critical(
+        "No executive admin email is configured (EXEC_ADMIN_EMAIL / "
+        "BACKUP_EXEC_ADMIN_EMAIL / NAM_EXEC_EMAIL all empty). On a fresh "
+        "database the first registered user would become executive_admin. "
+        "Set at least one seat email before going live."
+    )
 
 # RECOVERY: Set EXEC_FORCE_RESET=1 in Railway env vars, redeploy, log in with
 # the default passwords above, then immediately change password and remove the flag.
@@ -384,7 +462,7 @@ EXEC_RESET_SECRET = os.environ.get("EXEC_RESET_SECRET", "")
 # will be auto-demoted from executive_admin to admin on startup, so switching
 # the primary exec doesn't leave a dormant god-mode account behind.
 # NOTE: BACKUP_EXEC_EMAIL is intentionally excluded — it is a permanent second seat.
-LEGACY_EXEC_EMAILS = set()
+LEGACY_EXEC_EMAILS = {"delon.oliver@lightningcityelectric.com"}
 
 
 class User(BaseModel):
@@ -403,6 +481,9 @@ class User(BaseModel):
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     avatar_url: Optional[str] = None
     feature_tier: str = "free"
+    # $3 BYOK entitlement (flipped by POST /api/byok/activate).  Exposed on
+    # /auth/me so the frontend can show the BYOK-unlock state in navigation.
+    byok_enabled: bool = False
 
 
 class RegisterReq(BaseModel):
@@ -541,6 +622,18 @@ def verify_pw(p: str, h: str) -> bool:
 
 import secrets as _secrets_mod  # noqa: E402
 
+# ---- Member Projects Routes ("Have your M.O.R.E. team work on it") ----
+# Registered at import time here (the main include block sits far below this
+# line; FastAPI collects routes regardless of order). Customer-facing:
+# any authenticated user whose tier covers `member` can ask the M.O.R.E.
+# team to work on a goal, review what it produces, and approve it.
+try:
+    from routers import member_projects as _mp_mod
+    app.include_router(_mp_mod.router)
+    logger.info("Member Projects routes registered at /api/my-projects")
+except Exception as _mp_err:
+    logger.warning("Member Projects routes failed to load: %s", _mp_err)
+
 
 def _gen_random_password() -> str:
     """Generate a 20-char cryptographically random password. Used when no
@@ -555,7 +648,7 @@ import secrets  # noqa: E402
 
 RESET_TOKEN_TTL_MIN = int(os.environ.get("PASSWORD_RESET_TTL_MIN", "30"))
 RESEND_API_KEY = os.environ.get("RESEND_API_KEY", "")
-RESEND_FROM = os.environ.get("RESEND_FROM", "W.A.I. <poetgames@gmail.com>")
+RESEND_FROM = os.environ.get("RESEND_FROM", "")  # env-only — no hardcoded from-address
 # Gmail SMTP fallback — used when RESEND_API_KEY is not set.
 # In Railway: set GMAIL_USER and GMAIL_APP_PASSWORD (16-char Google App Password).
 GMAIL_USER     = os.environ.get("GMAIL_USER", "")
@@ -715,10 +808,23 @@ async def _send_welcome_email(to_email: str, full_name: str) -> bool:
 
 
 def make_token(user_id: str, role: str, extra: Optional[dict] = None) -> str:
+    """Issue a JWT carrying the user's current revocation generation.
+
+    ``token_version`` is stored on the user document and incremented whenever
+    credentials, role, tier, activation, or sessions change.  The claim is
+    deliberately short (``tv``) to preserve compatibility with existing
+    tokens; tokens created before this claim existed are treated as generation
+    zero and remain valid until their normal expiry.
+    """
     exp = datetime.now(timezone.utc) + timedelta(hours=JWT_EXPIRE_HOURS)
-    payload = {"sub": user_id, "role": role, "exp": exp}
-    if extra:
-        payload.update(extra)
+    extra = dict(extra or {})
+    raw_version = extra.get("tv", 0)
+    try:
+        token_version = int(raw_version)
+    except (TypeError, ValueError):
+        token_version = 0
+    payload = {"sub": user_id, "role": role, "exp": exp, "tv": token_version}
+    payload.update(extra)
     return jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALGO)
 
 
@@ -730,11 +836,43 @@ async def current_user(authorization: Optional[str] = Header(None)) -> User:
         payload = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGO])
     except jwt.PyJWTError:
         raise HTTPException(401, "Invalid or expired token")
-    user_doc = await db.users.find_one({"id": payload["sub"]}, {"_id": 0, "password_hash": 0})
+
+    user_id = payload.get("sub")
+    if not user_id:
+        raise HTTPException(401, "Invalid token subject")
+    user_doc = await db.users.find_one({"id": user_id}, {"_id": 0, "password_hash": 0})
     if not user_doc:
         raise HTTPException(401, "User not found")
     if user_doc.get("is_active") is False:
         raise HTTPException(403, "Account deactivated")
+
+    # Role/credential/session mutations increment this generation.  Comparing
+    # it here makes those existing mutations actually revoke already-issued
+    # JWTs instead of merely updating a field no request ever reads.
+    try:
+        token_version = int(payload.get("tv", 0))
+        current_version = int(user_doc.get("token_version", 0))
+    except (TypeError, ValueError):
+        raise HTTPException(401, "Invalid session generation")
+    if token_version != current_version:
+        raise HTTPException(401, "Session revoked — please sign in again")
+
+    # Login tokens are bound to an auth_sessions row when one was recorded.
+    # Deleting that row (single-device logout or force logout) therefore
+    # invalidates the token immediately, while legacy/sessionless tokens remain
+    # governed by token_version.
+    session_id = payload.get("session_id")
+    if session_id:
+        try:
+            session = await db.auth_sessions.find_one(
+                {"user_id": user_id, "session_id": session_id}, {"_id": 1}
+            )
+        except Exception:
+            logger.exception("Session verification failed for user %s", user_id)
+            raise HTTPException(503, "Session verification unavailable — request rejected")
+        if not session:
+            raise HTTPException(401, "Session revoked — please sign in again")
+
     return User(**user_doc)
 
 
@@ -773,11 +911,144 @@ async def seed_modules():
         existing = await db.modules.find_one({"slug": m["slug"]})
         doc = {**m, "quiz": quiz_for(m["slug"])}
         if existing:
+            # Backfill `id` for docs written by older seeders that predate the
+            # id stamp — a missing id 500s GET /api/modules (ModuleCatalog
+            # requires it), which previously rendered the /modules page empty.
+            if not existing.get("id"):
+                doc["id"] = str(uuid.uuid4())
             await db.modules.update_one({"slug": m["slug"]}, {"$set": doc})
         else:
             doc["id"] = str(uuid.uuid4())
             await db.modules.insert_one(doc)
     logger.info("Seeded %d modules", len(MODULES))
+
+
+async def seed_starter_library():
+    """Seed the 7 starter-library ebooks as sellable media products.
+
+    Each product gets a description, $4.00 price, and published status.
+    The actual markdown files live in content/starter-library/ and are
+    available for download once the product record exists.
+    """
+    STARTER_BOOKS = [
+        {
+            "title": "The Small Start",
+            "description": "A Practical Guide to Turning One Good Idea Into Something Real. Written by the Morehelp.center Support Team, synthesized and authored by NAM Oshun. 16 chapters of practical guidance for creators, writers, artists, entrepreneurs, and anyone with too many ideas.",
+            "price_cents": 400,
+            "type": "ebook",
+            "tags": ["starter-library", "ebook", "creator-tools"],
+            "file_path": "content/starter-library/the-small-start.md",
+            "cover_url": "https://images.pexels.com/photos/159711/books-book-pages-read-literature-159711.jpeg?auto=compress&cs=tinysrgb&w=900",
+        },
+        {
+            "title": "From Creator to Product",
+            "description": "How to Turn Your Writing, Music, Knowledge, and Ideas Into Things People Can Use. Written by the Morehelp.center Support Team, synthesized and authored by NAM Oshun. Practical product-conversion exercises for writers, musicians, poets, educators, and artists.",
+            "price_cents": 400,
+            "type": "ebook",
+            "tags": ["starter-library", "ebook", "creator-economy"],
+            "file_path": "content/starter-library/from-creator-to-product.md",
+            "cover_url": "https://images.pexels.com/photos/374016/pexels-photo-374016.jpeg?auto=compress&cs=tinysrgb&w=900",
+        },
+        {
+            "title": "AI Without the Intimidation",
+            "description": "A Human-First Guide to Using AI Without Losing Your Judgment. Written by the Morehelp.center Support Team, synthesized and authored by NAM Oshun. Practical introduction to AI for beginners, creators, educators, and community organizations.",
+            "price_cents": 400,
+            "type": "ebook",
+            "tags": ["starter-library", "ebook", "ai-literacy"],
+            "file_path": "content/starter-library/ai-without-the-intimidation.md",
+            "cover_url": "https://images.pexels.com/photos/3861969/pexels-photo-3861969.jpeg?auto=compress&cs=tinysrgb&w=900",
+        },
+        {
+            "title": "The Community Funding Starter",
+            "description": "A Practical Guide to Turning a Good Community Idea Into a Fundable Plan. Written by the Morehelp.center Support Team, synthesized and authored by NAM Oshun. Worksheets, budget templates, and funding-readiness checklists for grassroots organizers.",
+            "price_cents": 400,
+            "type": "ebook",
+            "tags": ["starter-library", "ebook", "community-funding"],
+            "file_path": "content/starter-library/the-community-funding-starter.md",
+            "cover_url": "https://images.pexels.com/photos/3184436/pexels-photo-3184436.jpeg?auto=compress&cs=tinysrgb&w=900",
+        },
+        {
+            "title": "When AI Is Wrong",
+            "description": "A Practical Guide to Catching Confident Errors Before They Cost You. An honest Morehelp.center guide to AI failure modes, verification, privacy, and human responsibility. Written by the Morehelp.center Support Team, synthesized and authored by NAM Oshun.",
+            "price_cents": 400,
+            "type": "ebook",
+            "tags": ["starter-library", "ebook", "ai-limitations", "verification"],
+            "file_path": "content/starter-library/when-ai-is-wrong.md",
+            "cover_url": "https://images.pexels.com/photos/5926382/pexels-photo-5926382.jpeg?auto=compress&cs=tinysrgb&w=900",
+        },
+        {
+            "title": "The Automation Trap",
+            "description": "When Convenience Starts Making the Decisions. A critical guide to automation dependence, hidden defaults, meaningful human review, and keeping creators in control. Written by the Morehelp.center Support Team, synthesized and authored by NAM Oshun.",
+            "price_cents": 400,
+            "type": "ebook",
+            "tags": ["starter-library", "ebook", "ai-limitations", "automation"],
+            "file_path": "content/starter-library/the-automation-trap.md",
+            "cover_url": "https://images.pexels.com/photos/3862130/pexels-photo-3862130.jpeg?auto=compress&cs=tinysrgb&w=900",
+        },
+        {
+            "title": "The Human-Made Difference",
+            "description": "Voice, Culture, and Responsibility in an AI-Assisted World. A critical guide to authorship, cultural context, consent, iteration, and honest AI-assisted creation. Written by the Morehelp.center Support Team, synthesized and authored by NAM Oshun.",
+            "price_cents": 400,
+            "type": "ebook",
+            "tags": ["starter-library", "ebook", "ai-limitations", "human-authorship"],
+            "file_path": "content/starter-library/the-human-made-difference.md",
+            "cover_url": "https://images.pexels.com/photos/3861960/pexels-photo-3861960.jpeg?auto=compress&cs=tinysrgb&w=900",
+        },
+        {
+            "title": "The Black Ownership Playbook",
+            "description": "A practical, Black-centered guide to turning community knowledge, creative work, and local relationships into owned assets, durable income, and shared power. AI-assisted draft prepared for human review and publication by the M.O.R.E. Help Center.",
+            "price_cents": 2900,
+            "type": "ebook",
+            "tags": ["ai-created", "ebook", "black-ownership", "economic-self-determination"],
+            "file_path": "content/starter-library/the-black-ownership-playbook.md",
+            "cover_url": "https://images.pexels.com/photos/3184465/pexels-photo-3184465.jpeg?auto=compress&cs=tinysrgb&w=900",
+            "ai_created": True,
+            "authorship_disclosure": "AI-assisted draft prepared for human review and publication by the M.O.R.E. Help Center.",
+        },
+        {
+            "title": "Conspiracy Brother: The Receipts Are on the Table",
+            "description": "Street-level media literacy for tracing systems to policies, paperwork, budgets, and people who benefit. AI-assisted draft prepared for human review and publication by the M.O.R.E. Help Center.",
+            "price_cents": 2900,
+            "type": "ebook",
+            "tags": ["ai-created", "ebook", "conspiracy-brother", "media-literacy", "black-centered"],
+            "file_path": "content/starter-library/conspiracy-brother-the-receipts-are-on-the-table.md",
+            "cover_url": "https://images.pexels.com/photos/3769138/pexels-photo-3769138.jpeg?auto=compress&cs=tinysrgb&w=900",
+            "ai_created": True,
+            "authorship_disclosure": "AI-assisted draft prepared for human review and publication by the M.O.R.E. Help Center.",
+        },
+    ]
+    seeded = 0
+    updated = 0
+    for book in STARTER_BOOKS:
+        existing = await db.media_products.find_one({"title": book["title"]})
+        if existing:
+            # Repair catalog metadata without overwriting prices or owner data.
+            if not existing.get("cover_url"):
+                await db.media_products.update_one(
+                    {"_id": existing["_id"]}, {"$set": {"cover_url": book["cover_url"]}}
+                )
+                updated += 1
+            continue
+        product = {
+            "id": str(uuid.uuid4())[:12],
+            "title": book["title"],
+            "description": book["description"],
+            "price_cents": book["price_cents"],
+            "type": book["type"],
+            "tags": book["tags"],
+            "file_path": book["file_path"],
+            "file_url": f"/api/media/content/{book['file_path']}",
+            "cover_url": book.get("cover_url", ""),
+            "ai_created": book.get("ai_created", False),
+            "authorship_disclosure": book.get("authorship_disclosure", ""),
+            "published": True,
+            "owner_id": "platform",
+            "created_at": datetime.utcnow().isoformat(),
+        }
+        await db.media_products.insert_one(product)
+        seeded += 1
+    if seeded or updated:
+        logger.info("Starter library catalog: seeded %d, repaired %d cover(s)", seeded, updated)
 
 
 async def seed_users():
@@ -830,9 +1101,11 @@ async def seed_users():
             )
 
     _exec_seats = [
-        (EXEC_ADMIN_EMAIL,  "Delon Oliver",  EXEC_DEFAULT_PASSWORD),
-        (BACKUP_EXEC_EMAIL, "Delon Oliver",  BACKUP_EXEC_DEFAULT_PASSWORD),
-        (NAM_EXEC_EMAIL,    "NAM Oshun",     NAM_EXEC_DEFAULT_PASSWORD),
+        _seat for _seat in [
+            (EXEC_ADMIN_EMAIL,  "Delon Oliver",  EXEC_DEFAULT_PASSWORD),
+            (BACKUP_EXEC_EMAIL, "Delon Oliver",  BACKUP_EXEC_DEFAULT_PASSWORD),
+            (NAM_EXEC_EMAIL,    "NAM Oshun",     NAM_EXEC_DEFAULT_PASSWORD),
+        ] if _seat[0]
     ]
     for _email, _name, _env_pw in _exec_seats:
         try:
@@ -867,6 +1140,24 @@ async def seed_users():
                 )
         except Exception as _e:
             logger.warning("STARTUP: exec seat bootstrap failed for %s: %s", _email, _e)
+
+    # Demote any account that previously used a fabricated/legacy exec email so
+    # a removed seat does not leave a dormant god-mode account behind.
+    for _legacy_email in LEGACY_EXEC_EMAILS:
+        try:
+            _legacy = await db.users.find_one({"email": _legacy_email})
+            if _legacy and _legacy.get("role") == "executive_admin":
+                await db.users.update_one(
+                    {"email": _legacy_email},
+                    {"$set": {"role": "admin", "is_active": False},
+                     "$unset": {"login_locked_until": "", "login_failed_attempts": ""}},
+                )
+                logger.warning(
+                    "STARTUP: demoted legacy/fabricated exec email %s to admin (inactive)",
+                    _legacy_email,
+                )
+        except Exception as _le:
+            logger.warning("STARTUP: legacy exec demotion failed for %s: %s", _legacy_email, _le)
 
     # ----- EMERGENCY EXEC FORCE RESET (if flag enabled) -----
     # Two modes:
@@ -908,9 +1199,11 @@ async def seed_users():
                 # email/log it — never hash an empty string as a real password.
                 logger.warning("EXEC_FORCE_RESET (Mode A): resetting all exec seats")
                 _reset_seats = [
-                    (EXEC_ADMIN_EMAIL,  "Delon Oliver",  EXEC_DEFAULT_PASSWORD),
-                    (BACKUP_EXEC_EMAIL, "Delon Oliver",  BACKUP_EXEC_DEFAULT_PASSWORD),
-                    (NAM_EXEC_EMAIL,    "NAM Oshun",     NAM_EXEC_DEFAULT_PASSWORD),
+                    _seat for _seat in [
+                        (EXEC_ADMIN_EMAIL,  "Delon Oliver",  EXEC_DEFAULT_PASSWORD),
+                        (BACKUP_EXEC_EMAIL, "Delon Oliver",  BACKUP_EXEC_DEFAULT_PASSWORD),
+                        (NAM_EXEC_EMAIL,    "NAM Oshun",     NAM_EXEC_DEFAULT_PASSWORD),
+                    ] if _seat[0]
                 ]
                 for _r_email, _r_name, _r_pw in _reset_seats:
                     _auto = False
@@ -1120,6 +1413,24 @@ async def _on_startup_impl():
     # Wire shared db reference for sub-routers (social, playlist, etc.)
     import deps as _deps
     _deps.set_db(db)
+
+    # ── Key vault — self-healing encryption secret for keys at rest ─────────
+    # env var → MongoDB-persisted (auto-generated on first boot) → ephemeral.
+    # Must run BEFORE provider-key/BYOK loading so decryption uses the same
+    # cipher that encrypted them.
+    try:
+        import keyvault as _keyvault
+        await _keyvault.init(db)
+        logger.info("STARTUP: Key vault ready (source=%s).", _keyvault.source())
+    except Exception as _kv_err:
+        logger.warning("STARTUP: Key vault init failed (non-fatal): %s", _kv_err)
+    # Wire NAM persistence (Hybrid NAM Leadership Intelligence)
+    try:
+        from ai.hybrid_nam import persistence as _nam_persistence
+        _nam_persistence.init_db(db)
+        logger.info("STARTUP: NAM persistence wired to MongoDB.")
+    except Exception as _nam_persist_err:
+        logger.warning("STARTUP: NAM persistence not wired (in-memory mode): %s", _nam_persist_err)
     if MONGO_BACKUP_URL:
         try:
             _backup_client = AsyncIOMotorClient(
@@ -1138,6 +1449,21 @@ async def _on_startup_impl():
     except Exception as _e:
         logger.warning("STARTUP: ensure_indexes failed (non-fatal): %s", _e)
 
+    # ── Member projects — indexes for the customer project workspace ──────
+    try:
+        from routers import member_projects as _mp_mod
+        await _mp_mod.ensure_indexes(db)
+        logger.info("STARTUP: member project indexes ensured")
+    except Exception as _mp_e:
+        logger.warning("STARTUP: member project indexes failed (non-fatal): %s", _mp_e)
+
+    # ── Promo codes — seed the platform's default codes idempotently ──────
+    try:
+        from routers import promo_codes as _promo_mod
+        await _promo_mod.seed_default_promos()
+    except Exception as _e:
+        logger.warning("STARTUP: promo code seeding failed (non-fatal): %s", _e)
+
     try:
         from partnership import points as _pp_idx
         await _pp_idx.ensure_indexes(db)
@@ -1151,6 +1477,11 @@ async def _on_startup_impl():
         await seed_modules()
     except Exception as _e:
         logger.warning("STARTUP: seed_modules failed (non-fatal): %s", _e)
+
+    try:
+        await seed_starter_library()
+    except Exception as _e:
+        logger.warning("STARTUP: seed_starter_library failed (non-fatal): %s", _e)
 
     try:
         await seed_users()
@@ -1221,17 +1552,7 @@ async def _on_startup_impl():
     except Exception as _wai_err:
         logger.warning("WAI autonomous pipeline startup failed (non-fatal): %s", _wai_err)
 
-    # ── PipelineManager (LLM intent routing) ─────────────────────────────────
-    global _pipeline_manager
-    try:
-        from src.agents.pipeline_manager import PipelineManager as _PipelineManager
-        _pipeline_manager = _PipelineManager(db=db, anthropic_api_key=ANTHROPIC_API_KEY)
-        _mode = "llm" if ANTHROPIC_API_KEY else "keyword_fallback"
-        logger.info("STARTUP: PipelineManager ready — analyzer=%s", _mode)
-    except Exception as _pm_err:
-        logger.warning("STARTUP: PipelineManager init failed (non-fatal): %s", _pm_err)
-
-    # ── Discount Management System initialization ─────────────────────────────
+        # ── Discount Management System initialization ─────────────────────────────
     try:
         from billing.discount_service import init_discount_service
         global _discount_manager
@@ -1266,6 +1587,16 @@ async def _on_startup_impl():
     except Exception as _pk_err:
         logger.warning("STARTUP: provider key reload failed (non-fatal): %s", _pk_err)
 
+    # ── Load payment-provider keys (Stripe/Lemon/Gumroad) from the encrypted
+    # vault, so a key pasted in the exec Provider Gateway takes effect now.
+    try:
+        from routers.payments import reload_payment_keys as _reload_pay
+        _np = await _reload_pay(db)
+        if _np:
+            logger.info("STARTUP: Loaded %d payment provider key(s) from DB.", _np)
+    except Exception as _pay_err:
+        logger.warning("STARTUP: payment key reload failed (non-fatal): %s", _pay_err)
+
     # ── Load shared site-support BYOK keys into the LLM gateway ──────────────
     # Site Support team members share their free BYOK key with the platform:
     # the gateway uses the pool as a free tier when every provider fails.
@@ -1289,7 +1620,8 @@ async def _on_startup_impl():
 
     # ── Team monitor — autonomous provider health loop ────────────────────────
     try:
-        from app.services.team_monitor import run_monitor_loop as _run_monitor
+        from ai.team_monitor import run_monitor_loop as _run_monitor, bind as _bind_monitor
+        _bind_monitor(db, notify)
         asyncio.create_task(_run_monitor())
         logger.info("STARTUP: Team monitor launched (interval=300s, threshold=3 failures)")
     except Exception as _tm_err:
@@ -1624,12 +1956,28 @@ async def health():
             checks["db"] = {"status": "down", "source": _DB_SOURCE, "error": _db_err_str}
             issues.append("db_down")
 
-    # ── Anthropic AI API ──────────────────────────────────────────────────────
-    if ANTHROPIC_API_KEY:
-        checks["ai_api"] = {"status": "configured", "key_present": True}
-    else:
-        checks["ai_api"] = {"status": "unconfigured", "key_present": False}
-        issues.append("ai_api_key_missing")
+    # ── AI API — real gateway providers (Anthropic owner-banned) ─────────
+    try:
+        import ai.llm_gateway as _gw_mod
+        _gw_status = _gw_mod.gateway_status()
+        _active = _gw_status.get("active_free_providers", 0)
+        _providers = {k: bool(v.get("available")) for k, v in _gw_status.get("providers", {}).items()}
+        _budget = _gw_status.get("budget", {})
+        checks["ai_api"] = {
+            "status": "configured" if _active > 0 else "unconfigured",
+            "key_present": _active > 0,
+            "active_free_providers": _active,
+            "providers": _providers,
+            "budget_pct": _budget.get("budget_pct"),
+            "over_budget": bool(_budget.get("over_budget")),
+        }
+        if _active == 0:
+            issues.append("ai_providers_unconfigured")
+        if _budget.get("over_budget"):
+            issues.append("ai_over_budget")
+    except Exception as _aie:
+        checks["ai_api"] = {"status": "unknown", "error": str(_aie)[:120]}
+        issues.append("ai_api_check_failed")
 
     # ── Director 4.0 subsystems ───────────────────────────────────────────────
     try:
@@ -1668,6 +2016,56 @@ async def health():
     # ── Rate limiter ──────────────────────────────────────────────────────────
     checks["rate_limiter"] = {"status": "up", "tracked_keys": len(_RATE)}
 
+    # ── Platform config facts (verified from real config, not aspirational) ───
+    # Payments: a key in env OR the encrypted vault counts as configured.
+    _pay_configured = bool(
+        os.environ.get("STRIPE_SECRET_KEY")
+        or os.environ.get("LEMON_SQUEEZY_API_KEY")
+        or os.environ.get("GUMROAD_API_KEY")
+    )
+    if not _pay_configured:
+        try:
+            _pay_doc = await db.api_keys.find_one(
+                {"provider": {"$in": ["stripe", "lemon_squeezy", "gumroad"]}}, {"_id": 0}
+            )
+            _pay_configured = bool(_pay_doc)
+        except Exception:
+            pass
+    checks["payments"] = {"status": "configured" if _pay_configured else "not_configured"}
+    checks["email"] = {
+        "status": "configured"
+        if (os.environ.get("RESEND_API_KEY") or os.environ.get("GMAIL_APP_PASSWORD"))
+        else "not_configured"
+    }
+    checks["email_configured"] = checks["email"]["status"] == "configured"
+    checks["docs_enabled"] = _DOCS_ENABLED
+    try:
+        checks["user_count"] = await db.users.count_documents({})
+    except Exception:
+        checks["user_count"] = None
+    try:
+        checks["ip_whitelist_count"] = await db.ip_whitelist.count_documents({})
+    except Exception:
+        checks["ip_whitelist_count"] = 0
+    try:
+        from roles import ROLE_RANK as _roles_rank
+        _rbac_tiers = len(_roles_rank)
+    except Exception:
+        _rbac_tiers = None
+    try:
+        from platform_services import build_cors_origins as _build_cors
+        _co = _build_cors(os.environ.get("CORS_ORIGINS", "*"), BACKUP_ORIGIN)
+    except Exception:
+        _co = ["*"]
+    checks["platform"] = {
+        "jwt_algo": JWT_ALGO,
+        "cors_origins": _co,
+        "rbac_tiers": _rbac_tiers,
+        "security_headers": [
+            "X-Content-Type-Options", "X-Frame-Options", "X-XSS-Protection",
+            "Referrer-Policy", "Permissions-Policy", "Strict-Transport-Security",
+        ],
+    }
     # ── Overall status ────────────────────────────────────────────────────────
     if not issues:
         overall = "operational"
@@ -1731,9 +2129,6 @@ from routers import exec as _exec_mod
 _exec_mod.bind(db, current_user, check_rate)
 api_router.include_router(_exec_mod.router)
 # Re-export pipeline models — /exec/pipeline/* endpoints stayed in server.py
-# because they depend on _pipeline_manager (initialized at startup).
-PipelineProcessRequest = _exec_mod.PipelineProcessRequest
-PipelineProcessBatchRequest = _exec_mod.PipelineProcessBatchRequest
 
 
 
@@ -1751,8 +2146,8 @@ api_router.include_router(_ai_mod.router)
 
 # --- Commerce + governance router (extracted to routers/commerce.py) ---
 from routers import commerce as _commerce_mod
-from routers.ops import run_escalation_check as _run_escalation_check
-_commerce_mod.bind(db, current_user, audit, _run_escalation_check, run_engagement_check, _discount_manager)
+from routers.ops import run_escalation_check
+_commerce_mod.bind(db, current_user, audit, run_escalation_check, run_engagement_check, _discount_manager)
 api_router.include_router(_commerce_mod.router)
 
 # --- Sovereign/puzzle/partnership router (extracted to routers/sovereign.py) ---
@@ -1784,6 +2179,16 @@ api_router.include_router(_creator_mod.router)
 from routers import exec_control as _exec_control_mod
 _exec_control_mod.bind(db, current_user, audit, notify)
 api_router.include_router(_exec_control_mod.router)
+
+# --- Feature Control Center (canonical feature registry + admin API) ---
+from routers import features as _features_mod
+_features_mod.bind(db, current_user)
+api_router.include_router(_features_mod.router)
+
+# --- IAM router (identities, delegations, consent, action audit) ---
+from routers import iam as _iam_mod
+_iam_mod.bind(db, current_user)
+api_router.include_router(_iam_mod.router)
 
 # --- Admin dashboard router (extracted to routers/admin.py) ---
 from routers import admin as _admin_mod
@@ -1855,51 +2260,6 @@ _abo_mod.bind(db, current_user, audit, check_rate)
 api_router.include_router(_abo_mod.router)
 
 
-
-# ── Pipeline: LLM intent routing ──────────────────────────────────────────────
-
-@api_router.post("/exec/pipeline/process")
-async def exec_pipeline_process(
-    body: PipelineProcessRequest,
-    user: User = Depends(require_role("admin")),
-):
-    """
-    Route a single social media post through the intent pipeline.
-
-    Analyzer:
-        - Claude Haiku when ANTHROPIC_API_KEY is set  (llm mode)
-        - Keyword fallback when key is absent          (offline mode)
-    """
-    if _pipeline_manager is None:
-        raise HTTPException(503, "PipelineManager not initialized — check server logs")
-
-    result = await _pipeline_manager.process(body.text.strip(), source=body.source.strip())
-    return result.to_dict()
-
-
-@api_router.post("/exec/pipeline/process-batch")
-async def exec_pipeline_process_batch(
-    body: PipelineProcessBatchRequest,
-    user: User = Depends(require_role("admin")),
-):
-    """
-    Route a batch of social media posts concurrently (max 50 per call).
-    Returns list of PipelineResult dicts in the same order as input.
-    Semaphore inside PipelineManager limits concurrent LLM calls to 5.
-    """
-    if _pipeline_manager is None:
-        raise HTTPException(503, "PipelineManager not initialized — check server logs")
-
-    texts  = body.texts
-    source = body.source.strip()
-
-    if len(texts) == 0:
-        raise HTTPException(400, "texts must be a non-empty list")
-    if len(texts) > 50:
-        raise HTTPException(400, "Maximum 50 texts per batch call")
-
-    results = await _pipeline_manager.process_batch(texts, source=source)
-    return [r.to_dict() for r in results]
 
 
 # ── Include revenue operations routers ────────────────────────────────────────
@@ -2255,6 +2615,11 @@ from routers import payments as _payments_mod
 _payments_mod.bind(db, audit, notify, current_user)
 api_router.include_router(_payments_mod.router)
 
+# --- Promo codes (tier grants at signup; admin CRUD) ---
+from routers import promo_codes as _promo_mod
+_promo_mod.bind(db, current_user, audit)
+api_router.include_router(_promo_mod.router)
+
 # --- Sponsor a Scholarship (routers/scholarships.py) ---
 from routers import scholarships as _scholarships_mod
 _scholarships_mod.bind(db, audit, notify, current_user, check_rate)
@@ -2264,6 +2629,26 @@ api_router.include_router(_scholarships_mod.router)
 from routers import exec_command as _exec_command_mod
 _exec_command_mod.bind(db, current_user)
 api_router.include_router(_exec_command_mod.router)
+
+# ---- Unified Access Control Gateway - centralized enforcement + exec dashboard ----
+# Single module (backend/security/access_control) bundling the 7-role RBAC
+# registry, the hard gatekeeper middleware, and the Tier-3 Executive dashboard.
+from security.access_control import AccessGateway, CONTROL_REGISTRY
+from security.access_control.audit import DenialAuditBuffer
+from security.access_control.dashboard import router as access_control_router, bind as bind_access_control
+
+# Encrypted, write-only denial audit buffer (compliance trail). Set
+# AUDIT_ENCRYPTION_KEY to a Fernet key (see security/access_control/audit.py)
+# to enable at-rest encryption; without it records are stored plaintext and
+# flagged as such at startup.
+denial_buffer = DenialAuditBuffer()
+denial_buffer.bind(db, encryption_key=os.environ.get("AUDIT_ENCRYPTION_KEY"))
+
+access_gateway = AccessGateway()
+access_gateway.bind(db, audit, current_user, denial_buffer=denial_buffer)
+bind_access_control(access_gateway)
+api_router.include_router(access_control_router)
+logger.info("Access Control Gateway + Executive dashboard registered (%d controls)", len(CONTROL_REGISTRY))
 # Re-export names other modules / later code in this file reference.
 PAYMENT_PRODUCTS = _payments_mod.PAYMENT_PRODUCTS
 PAYMENTS_ENABLED = _payments_mod.PAYMENTS_ENABLED
@@ -2300,6 +2685,10 @@ _community_mod.bind(db, current_user, audit, assert_role, xp_level)
 api_router.include_router(_community_mod.router)
 
 # --- Competition router (The Arena) ---
+from routers import provider_gateway as _provider_gateway_mod
+_provider_gateway_mod.bind(db, current_user, audit)
+api_router.include_router(_provider_gateway_mod.router)
+
 from routers import competition as _competition_mod
 _competition_mod.bind(db, current_user, audit, assert_role, xp_level)
 api_router.include_router(_competition_mod.router)
@@ -2348,6 +2737,19 @@ app.add_middleware(
     allow_headers=["Content-Type", "Authorization", "X-Requested-With", "Accept", "Accept-Language", "Cache-Control"],
 )
 
+# ── Security headers middleware ───────────────────────────────────────────
+@app.middleware("http")
+async def _security_headers(request: Request, call_next):
+    response = await call_next(request)
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["X-XSS-Protection"] = "1; mode=block"
+    response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+    response.headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()"
+    if request.url.scheme == "https":
+        response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
+    return response
+
 
 @app.on_event("shutdown")
 async def shutdown_db_client():
@@ -2362,6 +2764,50 @@ async def shutdown_db_client():
         pass
     client.close()
 
+
+# ---- Hard Access Control middleware: gate the ENTIRE registered control surface ----
+# Wraps after every route is registered so the gate sees the full surface.
+# Any request to a monitored control route runs the RBAC tier check BEFORE the
+# handler; insufficient clearance -> 403 + audit_log entry (action=access_denied).
+app = access_gateway.wrap(app)
+logger.info("Access Control middleware wrapping app - %d controls monitored", len(CONTROL_REGISTRY))
+
+# ---- NAM API Routes (Hybrid NAM Leadership Intelligence) ----
+try:
+    from routers.nam import router as nam_router
+    app.include_router(nam_router)
+    logger.info("Hybrid NAM API routes registered at /api/nam")
+except Exception as _nam_err:
+    logger.warning("Hybrid NAM routes failed to load: %s", _nam_err)
+
+# ---- Vonns Saga API Routes (tracks, images, videos) ----
+try:
+    from routers import saga as _saga_mod
+    _saga_mod.bind(db, current_user, audit)
+    app.include_router(_saga_mod.router)
+    logger.info("Vonns Saga API routes registered at /api/saga")
+except Exception as _saga_err:
+    logger.warning("Saga routes failed to load: %s", _saga_err)
+
+
+
+# ---- Executive Pipeline Routes (unified workflow suite) ----
+try:
+    from routers import executive_pipeline as _ep_mod
+    _ep_mod.bind(db, current_user, audit)
+    app.include_router(_ep_mod.router)
+    logger.info("Executive Pipeline routes registered at /api/executive")
+except Exception as _ep_err:
+    logger.warning("Executive Pipeline routes failed to load: %s", _ep_err)
+
+# ---- Executive Tools (web search, email, fetch, knowledge) ----
+try:
+    from routers import exec_tools as _et_mod
+    _et_mod.bind(db, current_user, audit)
+    app.include_router(_et_mod.router)
+    logger.info("Executive Tools routes registered at /api/exec/tools")
+except Exception as _et_err:
+    logger.warning("Executive Tools routes failed to load: %s", _et_err)
 
 if __name__ == "__main__":
     import uvicorn

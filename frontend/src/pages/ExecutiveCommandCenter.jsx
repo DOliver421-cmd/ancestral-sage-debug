@@ -4,6 +4,7 @@ import ReactMarkdown from "react-markdown";
 import AppShell from "../components/AppShell";
 import { api } from "../lib/api";
 import { toast } from "sonner";
+import PageBack from "../components/PageBack";
 
 // ===========================================================================
 // EXECUTIVE COMMAND CENTER — one integrated surface, shared data, no copy/paste
@@ -34,7 +35,7 @@ const TOOLS = [
   { name: "Sage Audit", desc: "Audit & integrity checks", path: "/admin/sage-audit" },
   { name: "Staff Meetings", desc: "Meeting records & agenda history", path: "/admin/staff-meetings" },
   { name: "Executive Site Report", desc: "Deep multi-category public-readiness report", path: "/admin/exec-report" },
-  { name: "Business Office", desc: "P&L, runway, divisions, truth test", path: "/admin/business-office" },
+  { name: "Business Office", desc: "P&L, runway, divisions, truth test", path: "/business-office" },
   { name: "Office Control", desc: "Exec control for the Business Office", path: "/admin/office-control" },
   { name: "Scholarship Committee", desc: "Applications, awards, pledges, funds", path: "/admin/scholarships" },
   { name: "Revenue Division", desc: "Revenue workspace and projections", path: "/revenue" },
@@ -56,8 +57,8 @@ function Chip({ ok, label, sub }) {
     <div className="flex items-center gap-2 rounded-xl px-3 py-2" style={{ background: "#faf9f7", border: "1px solid #eee7db" }}>
       <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: ok ? "#16a34a" : "#dc2626" }} />
       <div className="leading-tight">
-        <div className="text-xs font-bold text-ink">{label}</div>
-        {sub && <div className="text-[10px] text-ink/50">{sub}</div>}
+        <div className="text-xs font-bold text-slate-800">{label}</div>
+        {sub && <div className="text-[10px] text-slate-700">{sub}</div>}
       </div>
     </div>
   );
@@ -84,6 +85,7 @@ export default function ExecutiveCommandCenter() {
   const [roleBusy, setRoleBusy] = useState(false);
   const [tierForm, setTierForm] = useState({ user_id: "", new_feature_tier: "free", reason: "" });
   const [tierBusy, setTierBusy] = useState(false);
+  const [loadErrors, setLoadErrors] = useState([]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -107,6 +109,10 @@ export default function ExecutiveCommandCenter() {
     if (mR.status === "fulfilled") setManuals(mR.value.data.manuals || []);
     if (fR.status === "fulfilled") setFlags(fR.value.data);
     if (uR.status === "fulfilled") setSiteUsers(uR.value.data?.users || uR.value.data || []);
+    const labels = ["system overview", "platform stats", "health", "business office", "agenda", "projects", "manuals", "site flags", "users"];
+    setLoadErrors([sR, stR, hR, aR, agR, pR, mR, fR, uR]
+      .map((result, index) => result.status === "rejected" ? labels[index] : null)
+      .filter(Boolean));
     setLoading(false);
   }, []);
 
@@ -204,12 +210,15 @@ export default function ExecutiveCommandCenter() {
   return (
     <AppShell>
       <div className="px-4 sm:px-6 lg:px-10 py-8 max-w-7xl" style={{ background: "linear-gradient(160deg,#06251c,#0a0a0f 70%)", minHeight: "100vh", color: "#e8e4f0" }}>
+        <div className="mb-5 [&_*]:!text-slate-800 [&_a]:!text-copper">
+          <PageBack to="/admin" label="Admin overview" />
+        </div>
         {/* HEADER */}
         <div className="flex flex-wrap items-start justify-between gap-4 mb-6">
           <div>
             <div className="text-xs font-bold uppercase tracking-widest mb-1" style={{ color: "var(--wai-gold-light)" }}>Sovereign Command · Integrated Exec Surface</div>
             <h1 className="font-heading text-3xl font-extrabold" style={{ color: "var(--wai-gold-light)" }}>Executive Command Center</h1>
-            <p className="text-sm mt-1" style={{ color: "rgba(241,240,251,0.7)" }}>
+            <p className="text-sm mt-1" style={{ color: "rgba(241,240,251,0.92)" }}>
               Every number below is the same number in every tab — no copy/paste between screens. One briefing, one click.
             </p>
           </div>
@@ -223,9 +232,16 @@ export default function ExecutiveCommandCenter() {
           </div>
         </div>
 
+        {loadErrors.length > 0 && (
+          <div className="mb-5 rounded-2xl px-4 py-3" style={{ background: "#fff7ed", border: "1px solid #fdba74", color: "#9a3412" }} role="status">
+            <div className="font-bold text-sm">Some live panels could not load.</div>
+            <div className="text-xs mt-1">{loadErrors.join(" · ")}. Existing controls remain available; refresh after the service recovers.</div>
+          </div>
+        )}
+
         {/* CONTEXT BAR — shared by every tab */}
         <div className="bg-white rounded-2xl p-4 border border-slate-100 shadow-sm mb-5 text-slate-900">
-          <div className="text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-2">Live context — shared across all tabs</div>
+          <div className="text-[10px] font-bold uppercase tracking-widest text-slate-700 mb-2">Live context — shared across all tabs</div>
           <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-2">
             {[
               ["Users", totalUsers],
@@ -238,12 +254,44 @@ export default function ExecutiveCommandCenter() {
               ["Agenda", agenda.length],
             ].map(([l, v]) => (
               <div key={l} className="rounded-xl px-3 py-2" style={{ background: "#faf9f7", border: "1px solid #f0eadf" }}>
-                <div className="text-[10px] font-bold uppercase tracking-wide text-slate-400">{l}</div>
-                <div className="font-mono font-bold text-ink" style={{ fontSize: 15 }}>{v ?? "—"}</div>
+                <div className="text-[10px] font-bold uppercase tracking-wide text-slate-600">{l}</div>
+                <div className="font-mono font-bold text-slate-800" style={{ fontSize: 15 }}>{v ?? "—"}</div>
               </div>
             ))}
           </div>
         </div>
+
+        {/* ─── HONEST BUSINESS STATUS — the number the dashboard exists to answer ─── */}
+        {(() => {
+          const rev = abo?.runway?.month_revenue_cents ?? null;
+          const goal = abo?.runway?.monthly_goal_cents ?? null;
+          const rw = abo?.runway?.runway_months;
+          const status = abo?.runway?.status;
+          if (rev === null) {
+            // Business-office data did not load — say so plainly instead of
+            // pretending a funded operation.
+            return (
+              <div className="mb-5 rounded-2xl px-4 py-3" style={{ background: "#fff7ed", border: "1px solid #fdba74", color: "#9a3412" }} role="status">
+                <div className="font-bold text-sm">Business revenue data is not loading right now.</div>
+                <div className="text-xs mt-1">Until it returns, every revenue and runway figure above is a placeholder. Do not treat it as real.</div>
+              </div>
+            );
+          }
+          const red = rev <= 0 || rw != null && rw <= 0 || status === "critical";
+          const amber = !red && status === "watch";
+          if (!red && !amber) return null;
+          return (
+            <div className="mb-5 rounded-2xl px-4 py-3" role="status"
+              style={{ background: red ? "#fef2f2" : "#fff7ed", border: red ? "1px solid #fca5a5" : "1px solid #fdba74", color: red ? "#991b1b" : "#9a3412" }}>
+              <div className="font-bold text-sm">{red ? "⚠️ The platform is not making revenue right now." : "⚠️ Revenue is below the monthly goal."}</div>
+              <div className="text-xs mt-1">
+                {red
+                  ? `Month revenue $0 of $${(goal ?? 0) / 100} goal · ${rw != null ? rw + " months of runway" : "no runway"} · status ${status || "critical"}. The Executive dashboard is showing the real number, not a healthy one.`
+                  : `Month revenue ${fmtUsd(rev)} of ${fmtUsd(goal)} (${abo?.runway?.month_pct ?? 0}%) · runway ${rw != null ? rw + " mo" : "—"} · status ${status || "—"}.`}
+              </div>
+            </div>
+          );
+        })()}
 
         {/* TABS */}
         <div className="flex gap-2 flex-wrap mb-6">
@@ -255,7 +303,7 @@ export default function ExecutiveCommandCenter() {
           ))}
         </div>
 
-        {loading && tab !== "reports" && <p className="text-sm text-slate-400">Loading shared context…</p>}
+        {loading && tab !== "reports" && <p className="text-sm text-slate-300">Loading shared context…</p>}
 
         {/* ── OVERVIEW ─────────────────────────────────────────────────── */}
         {tab === "overview" && !loading && (
@@ -280,20 +328,20 @@ export default function ExecutiveCommandCenter() {
                 ["Completions", stats?.completions],
                 ["Credentials", stats?.credentials_issued],
               ].map(([l, v]) => (
-                <div key={l} className="bg-white rounded-2xl p-4 border border-slate-100 shadow-sm">
-                  <div className="text-[10px] font-bold uppercase tracking-wide text-slate-400">{l}</div>
-                  <div className="font-mono font-bold text-2xl text-ink">{v ?? "—"}</div>
+                <div key={l} className="bg-white rounded-2xl p-4 border border-slate-100 shadow-sm text-slate-900">
+                  <div className="text-[10px] font-bold uppercase tracking-wide text-slate-600">{l}</div>
+                  <div className="font-mono font-bold text-2xl text-slate-800">{v ?? "—"}</div>
                 </div>
               ))}
             </div>
-            <div className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm">
+            <div className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm text-slate-900">
               <div className="text-xs font-bold uppercase tracking-widest text-slate-600 mb-3">Quick actions</div>
               <div className="flex flex-wrap gap-2">
                 {[
                   ["/admin/providers", "Provider Gateway"],
                   ["/admin/control", "Site Control"],
                   ["/admin/exec-control", "Breaker Panel"],
-                  ["/admin/business-office", "Business Office"],
+                  ["/business-office", "Business Office"],
                   ["/admin/exec-report", "Exec Report"],
                   ["/admin/scholarships", "Scholarships"],
                 ].map(([p, l]) => (
@@ -312,7 +360,7 @@ export default function ExecutiveCommandCenter() {
             <div className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm text-slate-900">
               <div className="flex items-center justify-between flex-wrap gap-2 mb-3">
                 <div className="text-xs font-bold uppercase tracking-widest text-slate-600">Business Office — live from the ledger</div>
-                <Link to="/admin/business-office" className="text-xs font-bold" style={{ color: "#8a5a00" }}>Open Business Office →</Link>
+                <Link to="/business-office" className="text-xs font-bold" style={{ color: "#8a5a00" }}>Open Business Office →</Link>
               </div>
               <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2">
                 {[
@@ -323,9 +371,9 @@ export default function ExecutiveCommandCenter() {
                   ["Deals / Jobs", (aboCounts.deals ?? 0) + " / " + (aboCounts.jobs ?? 0), "counts"],
                 ].map(([l, v, s]) => (
                   <div key={l} className="rounded-xl px-3 py-3" style={{ background: "#faf9f7", border: "1px solid #f0eadf" }}>
-                    <div className="text-[10px] font-bold uppercase tracking-wide text-slate-400">{l}</div>
-                    <div className="font-mono font-bold text-ink" style={{ fontSize: 16 }}>{v}</div>
-                    {s && <div className="text-[10px] text-slate-400">{s}</div>}
+                    <div className="text-[10px] font-bold uppercase tracking-wide text-slate-600">{l}</div>
+                    <div className="font-mono font-bold text-slate-800" style={{ fontSize: 16 }}>{v}</div>
+                    {s && <div className="text-[10px] text-slate-600">{s}</div>}
                   </div>
                 ))}
               </div>
@@ -335,11 +383,11 @@ export default function ExecutiveCommandCenter() {
               {/* AGENDA */}
               <div className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm text-slate-900">
                 <div className="text-xs font-bold uppercase tracking-widest text-slate-600 mb-3">Business Agenda · {agenda.length} pending</div>
-                {agenda.length === 0 && <p className="text-sm text-slate-400">No pending agenda items. Create a project to add one automatically.</p>}
+                {agenda.length === 0 && <p className="text-sm text-slate-600">No pending agenda items. Create a project to add one automatically.</p>}
                 <div className="space-y-2">
                   {agenda.slice(0, 6).map((a) => (
                     <div key={a.id} className="rounded-xl px-3 py-2 flex items-center justify-between gap-2" style={{ background: "#faf9f7" }}>
-                      <div className="text-sm text-ink">{a.title}</div>
+                      <div className="text-sm text-slate-800">{a.title}</div>
                       <span className="text-[10px] font-bold px-2 py-0.5 rounded-full shrink-0" style={{ background: a.priority === "high" ? "#fee2e2" : "#fef3c7", color: a.priority === "high" ? "#b91c1c" : "#8a5a00" }}>
                         {a.priority || "normal"}
                       </span>
@@ -352,11 +400,11 @@ export default function ExecutiveCommandCenter() {
               {/* PROJECTS */}
               <div className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm text-slate-900">
                 <div className="text-xs font-bold uppercase tracking-widest text-slate-600 mb-3">Projects</div>
-                {projects.length === 0 && <p className="text-sm text-slate-400">No projects yet — projects auto-create agenda items.</p>}
+                {projects.length === 0 && <p className="text-sm text-slate-600">No projects yet — projects auto-create agenda items.</p>}
                 <div className="space-y-2">
                   {projects.map((p) => (
                     <div key={p.project_id} className="rounded-xl px-3 py-2 flex items-center justify-between gap-2" style={{ background: "#faf9f7" }}>
-                      <div className="text-sm text-ink truncate">{p.title}</div>
+                      <div className="text-sm text-slate-800 truncate">{p.title}</div>
                       <span className="text-[10px] font-bold px-2 py-0.5 rounded-full shrink-0" style={{ background: "#e0e7ff", color: "#3730a3" }}>{p.status || "active"}</span>
                     </div>
                   ))}
@@ -378,16 +426,16 @@ export default function ExecutiveCommandCenter() {
               <div className="overflow-x-auto">
                 <table className="w-full text-sm min-w-[560px]">
                   <thead>
-                    <tr className="text-left text-[10px] uppercase tracking-widest text-slate-400 border-b">
+                    <tr className="text-left text-[10px] uppercase tracking-widest text-slate-600 border-b">
                       <th className="py-2 pr-4">Provider</th><th className="py-2 pr-4">Tier</th><th className="py-2 pr-4">Cost</th><th className="py-2 pr-4">Status</th>
                     </tr>
                   </thead>
                   <tbody>
                     {(Object.entries(sys?.gateway?.providers || {}).filter(([k]) => k !== "kb_fallback")).map(([k, p]) => (
                       <tr key={k} className="border-b border-slate-50">
-                        <td className="py-2 pr-4 font-bold text-ink">{k}</td>
-                        <td className="py-2 pr-4 text-slate-500">{String(p.tier)}</td>
-                        <td className="py-2 pr-4 text-slate-500">{p.cost}</td>
+                        <td className="py-2 pr-4 font-bold text-slate-800">{k}</td>
+                        <td className="py-2 pr-4 text-slate-700">{String(p.tier)}</td>
+                        <td className="py-2 pr-4 text-slate-700">{p.cost}</td>
                         <td className="py-2 pr-4">
                           <span className="text-[10px] font-bold px-2 py-0.5 rounded-full" style={{ background: p.available ? "#d1fae5" : "#fee2e2", color: p.available ? "#065f46" : "#b91c1c" }}>
                             {p.available ? "available" : "no key"}
@@ -406,9 +454,9 @@ export default function ExecutiveCommandCenter() {
                   ["BYOK", "Free for instructors+", "$3 below instructor"],
                 ].map(([l, v, s]) => (
                   <div key={l} className="rounded-xl px-3 py-2" style={{ background: "#faf9f7", border: "1px solid #f0eadf" }}>
-                    <div className="text-[10px] font-bold uppercase tracking-wide text-slate-400">{l}</div>
-                    <div className="font-mono font-bold text-ink text-sm">{v}</div>
-                    {s && <div className="text-[10px] text-slate-400">{s}</div>}
+                    <div className="text-[10px] font-bold uppercase tracking-wide text-slate-600">{l}</div>
+                    <div className="font-mono font-bold text-slate-800 text-sm">{v}</div>
+                    {s && <div className="text-[10px] text-slate-600">{s}</div>}
                   </div>
                 ))}
               </div>
@@ -420,12 +468,12 @@ export default function ExecutiveCommandCenter() {
               <div className="grid md:grid-cols-2 gap-4">
                 <div className="rounded-xl p-4" style={{ background: "#faf9f7", border: "1px solid #f0eadf" }}>
                   <div className="flex items-center justify-between">
-                    <div className="font-heading font-extrabold text-ink">Gemini Developer API</div>
+                    <div className="font-heading font-extrabold text-slate-800">Gemini Developer API</div>
                     <span className="text-[10px] font-bold px-2 py-0.5 rounded-full" style={{ background: sys?.env?.gemini_key ? "#d1fae5" : "#fef3c7", color: sys?.env?.gemini_key ? "#065f46" : "#8a5a00" }}>
                       {sys?.env?.gemini_key ? "Key set" : "No key yet"}
                     </span>
                   </div>
-                  <p className="text-xs text-slate-500 mt-2 leading-relaxed">
+                  <p className="text-xs text-slate-700 mt-2 leading-relaxed">
                     Already integrated as gateway Tier 2 (free, 1M context) and as a BYOK provider. Free tier now: ~5–15
                     requests/min (2.0 Flash 15 RPM / 1M TPM; 2.5 Flash 10 RPM / 250K TPM), Pro models excluded. Perfect as
                     a fallback — not as the only provider.
@@ -438,18 +486,18 @@ export default function ExecutiveCommandCenter() {
                       Current rate limits
                     </a>
                   </div>
-                  <p className="text-[11px] text-slate-400 mt-2">
+                  <p className="text-[11px] text-slate-600 mt-2">
                     Setup (2 minutes): log into AI Studio as <span className="font-mono">morehelpcenter@gmail.com</span> → create an
                     API key → paste it at <span className="font-mono">/admin/providers</span> (type: gemini). Done.
                   </p>
                 </div>
                 <div className="rounded-xl p-4" style={{ background: "#faf9f7", border: "1px solid #f0eadf" }}>
-                  <div className="font-heading font-extrabold text-ink">Other Google free features — evaluated</div>
-                  <ul className="text-xs text-slate-500 mt-2 space-y-1.5 leading-relaxed">
-                    <li><strong className="text-ink">Free courses (worth it):</strong> Google AI Essentials, Google Cloud Skills Boost (~35 free credits/mo), grow.google — link them in a Free Learning lane for the community.</li>
-                    <li><strong className="text-ink">Google Cloud free tier ($300/90 days):</strong> not needed now — the platform runs on a zero-cost stack; defer until there's a real need for GCP compute/storage.</li>
-                    <li><strong className="text-ink">Workspace (Gmail/Drive/Calendar):</strong> the base account already provides daily ops — no integration required.</li>
-                    <li><strong className="text-ink">Verdict:</strong> integrate Gemini key (fallback AI) + free courses (mission education). Skip GCP cloud spend.</li>
+                  <div className="font-heading font-extrabold text-slate-800">Other Google free features — evaluated</div>
+                  <ul className="text-xs text-slate-700 mt-2 space-y-1.5 leading-relaxed">
+                    <li><strong className="text-slate-800">Free courses (worth it):</strong> Google AI Essentials, Google Cloud Skills Boost (~35 free credits/mo), grow.google — link them in a Free Learning lane for the community.</li>
+                    <li><strong className="text-slate-800">Google Cloud free tier ($300/90 days):</strong> not needed now — the platform runs on a zero-cost stack; defer until there's a real need for GCP compute/storage.</li>
+                    <li><strong className="text-slate-800">Workspace (Gmail/Drive/Calendar):</strong> the base account already provides daily ops — no integration required.</li>
+                    <li><strong className="text-slate-800">Verdict:</strong> integrate Gemini key (fallback AI) + free courses (mission education). Skip GCP cloud spend.</li>
                   </ul>
                 </div>
               </div>
@@ -462,7 +510,7 @@ export default function ExecutiveCommandCenter() {
           <div className="space-y-5">
             {flagReasonTarget && (
               <div className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm text-slate-900">
-                <div className="text-sm font-bold text-ink mb-2">Reason for enabling {flagReasonTarget.flag}:</div>
+                <div className="text-sm font-bold text-slate-800 mb-2">Reason for enabling {flagReasonTarget.flag}:</div>
                 <input value={flagReason} onChange={(e) => setFlagReason(e.target.value)}
                   className="w-full rounded-xl px-4 py-2 text-sm border border-slate-200 mb-3"
                   placeholder="Justify this change…" />
@@ -470,13 +518,13 @@ export default function ExecutiveCommandCenter() {
                   <button onClick={() => applyFlagDirect(flagReasonTarget.flag, flagReasonTarget.value, flagReason)}
                     className="text-xs font-bold px-4 py-2 rounded-lg bg-red-600 text-white">Confirm Enable</button>
                   <button onClick={() => { setFlagReasonTarget(null); setFlagReason(""); }}
-                    className="text-xs font-bold px-4 py-2 rounded-lg border border-slate-200 text-ink">Cancel</button>
+                    className="text-xs font-bold px-4 py-2 rounded-lg border border-slate-200 text-slate-800">Cancel</button>
                 </div>
               </div>
             )}
             <div className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm text-slate-900">
               <div className="text-xs font-bold uppercase tracking-widest text-slate-600 mb-3">Platform Feature Flags</div>
-              <p className="text-sm text-slate-500 mb-4">Toggle platform-wide features. Dangerous flags require a reason.</p>
+              <p className="text-sm text-slate-700 mb-4">Toggle platform-wide features. Dangerous flags require a reason.</p>
               <div className="space-y-3">
                 {[
                   ["platform_locked", "🔒 Platform Lock", "Locks ALL non-exec access", true],
@@ -489,8 +537,8 @@ export default function ExecutiveCommandCenter() {
                   return (
                     <div key={flag} className="flex items-center justify-between gap-4 rounded-xl px-4 py-3" style={{ background: enabled ? (danger ? "#fef2f2" : "#f0fdf4") : "#faf9f7", border: `1px solid ${enabled ? (danger ? "#fecaca" : "#bbf7d0") : "#f0eadf"}` }}>
                       <div>
-                        <div className="text-sm font-bold text-ink">{label}</div>
-                        <div className="text-xs text-slate-500">{desc}</div>
+                        <div className="text-sm font-bold text-slate-800">{label}</div>
+                        <div className="text-xs text-slate-700">{desc}</div>
                       </div>
                       <button onClick={() => toggleFlag(flag, enabled)} disabled={flagBusy[flag]}
                         className="text-xs font-bold px-4 py-2 rounded-lg transition-colors"
@@ -505,7 +553,7 @@ export default function ExecutiveCommandCenter() {
             {flags?.active_broadcast && (
               <div className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm text-slate-900">
                 <div className="text-xs font-bold uppercase tracking-widest text-slate-600 mb-2">Active Broadcast</div>
-                <div className="text-sm text-ink">{flags.active_broadcast.message}</div>
+                <div className="text-sm text-slate-800">{flags.active_broadcast.message}</div>
               </div>
             )}
           </div>
@@ -564,16 +612,16 @@ export default function ExecutiveCommandCenter() {
               </div>
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
-                  <thead><tr className="text-left text-[10px] uppercase tracking-widest text-slate-400 border-b">
+                  <thead><tr className="text-left text-[10px] uppercase tracking-widest text-slate-600 border-b">
                     <th className="py-2 pr-4">Name</th><th className="py-2 pr-4">Role</th><th className="py-2 pr-4">Email</th><th className="py-2 pr-4">Joined</th>
                   </tr></thead>
                   <tbody>
                     {siteUsers.slice(0, 15).map((u) => (
                       <tr key={u.id} className="border-b border-slate-50">
-                        <td className="py-2 pr-4 font-bold text-ink text-xs">{u.display_name || u.name || u.email}</td>
+                        <td className="py-2 pr-4 font-bold text-slate-800 text-xs">{u.display_name || u.name || u.email}</td>
                         <td className="py-2 pr-4"><span className="text-[10px] font-bold px-2 py-0.5 rounded-full" style={{ background: "#e0e7ff", color: "#3730a3" }}>{u.role}</span></td>
-                        <td className="py-2 pr-4 text-slate-500 text-xs">{u.email}</td>
-                        <td className="py-2 pr-4 text-slate-400 text-xs">{u.created_at ? new Date(u.created_at).toLocaleDateString() : "—"}</td>
+                        <td className="py-2 pr-4 text-slate-700 text-xs">{u.email}</td>
+                        <td className="py-2 pr-4 text-slate-600 text-xs">{u.created_at ? new Date(u.created_at).toLocaleDateString() : "—"}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -596,8 +644,8 @@ export default function ExecutiveCommandCenter() {
                   ["/revenue", "Revenue Division", "Revenue & projections"],
                 ].map(([p, t, d]) => (
                   <Link key={p} to={p} className="rounded-xl p-4 hover:shadow-md transition-shadow" style={{ background: "#faf9f7", border: "1px solid #f0eadf", textDecoration: "none" }}>
-                    <div className="font-heading font-extrabold text-ink text-sm">{t}</div>
-                    <div className="text-[11px] text-slate-400 mt-1">{d}</div>
+                    <div className="font-heading font-extrabold text-slate-800 text-sm">{t}</div>
+                    <div className="text-[11px] text-slate-600 mt-1">{d}</div>
                     <div className="text-xs font-bold mt-2" style={{ color: "#8a5a00" }}>Open →</div>
                   </Link>
                 ))}
@@ -607,14 +655,14 @@ export default function ExecutiveCommandCenter() {
             <div className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm text-slate-900">
               <div className="flex items-center justify-between flex-wrap gap-2 mb-3">
                 <div className="text-xs font-bold uppercase tracking-widest text-slate-600">Operations manuals & handbooks</div>
-                <span className="text-[11px] text-slate-400">{manuals.length} documents served from the repo</span>
+                <span className="text-[11px] text-slate-600">{manuals.length} documents served from the repo</span>
               </div>
-              {manuals.length === 0 && <p className="text-sm text-slate-400">Manuals unavailable in this environment.</p>}
+              {manuals.length === 0 && <p className="text-sm text-slate-600">Manuals unavailable in this environment.</p>}
               <div className="space-y-2">
                 {manuals.map((m) => (
                   <details key={m.slug + m.group} className="rounded-xl" style={{ background: "#faf9f7", border: "1px solid #f0eadf" }}
                     open={openManual === m.slug} onToggle={(e) => e.target.open && setOpenManual(m.slug)}>
-                    <summary className="cursor-pointer px-4 py-3 text-sm font-bold text-ink">
+                    <summary className="cursor-pointer px-4 py-3 text-sm font-bold text-slate-800">
                       {m.group === "handbook" ? "📖 " : "📘 "}{m.title}
                     </summary>
                     <div className="px-4 pb-4 text-sm leading-relaxed text-slate-700 max-h-[60vh] overflow-y-auto prose-headings:mt-3 prose-p:my-2">
@@ -635,12 +683,12 @@ export default function ExecutiveCommandCenter() {
             <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
               {filteredTools.map((t) => (
                 <Link key={t.name + t.path} to={t.path} className="rounded-2xl p-4 hover:shadow-md transition-shadow" style={{ background: "#fff", border: "1px solid #f0eadf", textDecoration: "none" }}>
-                  <div className="font-heading font-extrabold text-ink text-sm">{t.name}</div>
-                  <div className="text-[11px] text-slate-400 mt-1">{t.desc}</div>
+                  <div className="font-heading font-extrabold text-slate-800 text-sm">{t.name}</div>
+                  <div className="text-[11px] text-slate-600 mt-1">{t.desc}</div>
                   <div className="text-[11px] font-mono mt-2" style={{ color: "#8a5a00" }}>{t.path}</div>
                 </Link>
               ))}
-              {filteredTools.length === 0 && <p className="text-sm text-slate-400 col-span-full">No controls match “{controlQuery}”.</p>}
+              {filteredTools.length === 0 && <p className="text-sm text-slate-600 col-span-full">No controls match “{controlQuery}”.</p>}
             </div>
           </div>
         )}

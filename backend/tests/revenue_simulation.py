@@ -11,7 +11,7 @@ from datetime import datetime
 
 BASE_URL = os.environ.get("REACT_APP_BACKEND_URL", "http://localhost:8001").rstrip("/")
 API = f"{BASE_URL}/api"
-EXEC = ("delon.oliver@lightningcityelectric.com", "Executive@LCE2026")
+EXEC = (os.environ.get("TEST_EXEC_EMAIL", "youpickeddoliver@gmail.com"), os.environ.get("TEST_EXEC_PW", ""))
 
 SCENARIOS = [
     {

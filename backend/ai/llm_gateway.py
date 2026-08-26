@@ -43,6 +43,8 @@ _ANTHROPIC_IS_ENABLED = os.environ.get("ANTHROPIC_IS_ENABLED", "false").lower() 
 ANTHROPIC_API_KEY   = os.environ.get("ANTHROPIC_API_KEY", os.environ.get("EMERGENT_LLM_KEY", "")) if _ANTHROPIC_IS_ENABLED else ""
 
 GROQ_API_KEY        = os.environ.get("GROQ_API_KEY", "")
+OPENAI_API_KEY      = os.environ.get("OPENAI_API_KEY", "")          # text tier — owner key, no emergent fallback
+DEEPSEEK_API_KEY    = os.environ.get("AI_PROVIDER_DEEPSEEK_KEY", "") # text tier — owner key
 CEREBRAS_API_KEY    = os.environ.get("CEREBRAS_API_KEY", "")
 SAMBANOVA_API_KEY   = os.environ.get("SAMBANOVA_API_KEY", "")
 GEMINI_API_KEY      = os.environ.get("GEMINI_API_KEY", "")
@@ -67,6 +69,8 @@ _PROVIDER_TYPE_TO_GLOBAL = {
     "together":    "TOGETHER_API_KEY",
     "openrouter":  "OPENROUTER_API_KEY",
     "huggingface": "HUGGINGFACE_API_KEY",
+    "openai":      "OPENAI_API_KEY",
+    "deepseek":    "DEEPSEEK_API_KEY",
     # anthropic intentionally omitted — disabled by owner directive
 }
 
@@ -74,25 +78,14 @@ async def reload_provider_keys(db) -> int:
     """Read active provider keys from MongoDB and update module globals.
     Env vars always win — DB keys only fill gaps where env var is empty.
     Returns the number of keys loaded from DB."""
-    import sys, base64
-    enc_secret = os.environ.get("PROVIDER_KEY_ENCRYPTION_SECRET", "")
-
-    fernet = None
-    if enc_secret:
-        try:
-            from cryptography.fernet import Fernet
-            # Must match server.py _encrypt_key: Fernet(secret.encode()) directly.
-            # This requires PROVIDER_KEY_ENCRYPTION_SECRET to be a valid 32-byte
-            # URL-safe base64 Fernet key (generate with Fernet.generate_key()).
-            fernet = Fernet(enc_secret.encode() if isinstance(enc_secret, str) else enc_secret)
-        except Exception:
-            try:
-                # Fallback: derive a valid Fernet key from an arbitrary string
-                import base64 as _b64
-                _kb = (enc_secret.encode() * 3)[:32]
-                fernet = Fernet(_b64.urlsafe_b64encode(_kb))
-            except Exception:
-                pass
+    import sys
+    # Shared self-healing vault (keyvault.py): env var → MongoDB-persisted → ephemeral.
+    # One cipher for every encrypting/decrypting surface on the platform.
+    try:
+        import keyvault as _kv
+        fernet = _kv.get_fernet()
+    except Exception:
+        fernet = None
 
     loaded = 0
     module = sys.modules[__name__]
@@ -130,7 +123,12 @@ async def reload_provider_keys(db) -> int:
         logger.warning("llm_gateway: reload_provider_keys error: %s", e)
     return loaded
 
-# ── Model identifiers ─────────────────────────────────────────────────────────
+
+# ── Model identifiers ───────────────────────────────────────────────────────── 
+OPENAI_MODEL      = "gpt-4o-mini"                            # owner key — cheap, tool-capable
+OPENAI_BASE       = "https://api.openai.com/v1"
+DEEPSEEK_MODEL    = "deepseek-chat"                           # owner key — cheap, OpenAI-compatible
+DEEPSEEK_BASE     = "https://api.deepseek.com"
 GROQ_MODEL        = "llama-3.3-70b-versatile"              # free, 128k ctx, tool-calling
 GROQ_BASE         = "https://api.groq.com/openai/v1"
 CEREBRAS_MODEL    = "llama3.3-70b"                          # free, fast inference
@@ -345,7 +343,7 @@ async def reload_shared_byok(db) -> int:
         from byok import BYOK_PROVIDERS, decrypt_key, _PROVIDER_PRIORITY
 
         support_ids = []
-        async for u in db.users.find({"role": "support_staff"}, {"_id": 0, "id": 1}):
+        async for u in db.users.find({"role": {"$in": ["support_staff", "admin", "executive_admin"]}}, {"_id": 0, "id": 1}):
             if u.get("id"):
                 support_ids.append(u["id"])
         if not support_ids:
@@ -372,11 +370,49 @@ async def reload_shared_byok(db) -> int:
 
 
 # ── KB fallback ───────────────────────────────────────────────────────────────
-_KB_FALLBACK = (
-    "I'm operating in restricted mode — the AI service is temporarily unavailable. "
-    "Your request has been logged. Platform features (modules, labs, certificates, "
-    "community) are fully operational. For urgent matters contact WAI-Institute directly."
-)
+# ── Zero-cost keyword KB fallback ────────────────────────────────────────────
+# Platform policy (owner decision, August 2026):
+#   - anonymous / public visitors get NO AI
+#   - customers at ANY tier get NO platform-funded AI (their AI runs on their
+#     own BYOK key, or they get the keyword KB)
+#   - platform-funded AI is admin / executive_admin staff only
+# The keyword KB (ai/keyword_kb.py) is message-aware: it answers the actual
+# question from a large curated multi-layer knowledge base instead of a static
+# "restricted mode" notice.
+
+
+def _kb_reply(messages: Optional[list] = None, access=None) -> dict:
+    """Knowledge Finder reply for the caller's last user message.
+
+    Zero-cost and deterministic: a curated answer when the knowledge base has
+    one, otherwise ranked related resources from the platform's indexed
+    content, with an honest AI upgrade prompt when the caller isn't BYOK/staff.
+    ``access`` is a knowledge_finder.Access (None = anonymous/public).
+    """
+    question = ""
+    for m in messages or []:
+        if m and m.get("role") == "user" and str(m.get("content", "")).strip():
+            question = str(m["content"]).strip()
+    try:
+        from ai.knowledge_finder import render_reply
+        text = render_reply(question, access)
+    except Exception:
+        text = (
+            "I'm operating in restricted mode — the AI service is temporarily unavailable. "
+            "Platform features (modules, labs, certificates, community) are fully operational. "
+            "For urgent matters contact WAI-Institute directly."
+        )
+    return {
+        "text":          text,
+        "provider":      "kb_fallback",
+        "model":         "none",
+        "input_tokens":  0,
+        "output_tokens": 0,
+        "degraded":      True,
+    }
+
+
+_KB_FALLBACK = _kb_reply()["text"]
 
 _KB_RESULT = {
     "text":          _KB_FALLBACK,
@@ -420,6 +456,7 @@ async def _tier_result(
     provider:     str,
     model:        str,
     degraded:     bool,
+    persona:      Optional[str] = None,
 ) -> dict:
     """Record a successful platform-paid tier call against the global hourly
     cap AND the user's daily budget, then shape the gateway result dict."""
@@ -432,6 +469,24 @@ async def _tier_result(
             await record_user_tokens(_budget_id, tokens)
         except Exception:
             pass  # recording never blocks a reply
+    # AI cost tracking — fire-and-forget so the /admin/ai-costs panel shows
+    # real numbers instead of a permanently empty decoy. Never blocks a reply.
+    try:
+        from deps import get_db as _get_db
+        from ai_cost_tracker import record_ai_call as _record_ai_call
+        _cost_db = _get_db()
+        if _cost_db is not None:
+            await _record_ai_call(
+                _cost_db,
+                persona=persona or provider,
+                model=model,
+                input_tokens=int(result.get("in_tok", 0) or 0),
+                output_tokens=int(result.get("out_tok", 0) or 0),
+                user_id=user_id or budget_key or None,
+                endpoint="call_llm",
+            )
+    except Exception:
+        pass  # cost recording never blocks the reply
     return {
         "text":          str(result.get("text", "") or ""),
         "provider":      provider,
@@ -473,7 +528,7 @@ async def call_llm(
             "LLM Gateway: hourly cap %d reached (%d used) — routing %s to KB fallback",
             HOURLY_TOKEN_CAP, _hour_tokens_used, persona_label,
         )
-        return _KB_RESULT
+        return _kb_reply(messages)
 
     # BASE LAYER: every call runs on the Source root protocol.
     # The Source is the uncorrupted root layer - composed BENEATH whatever
@@ -529,6 +584,43 @@ async def call_llm(
         except Exception as _e:
             logger.warning("LLM Gateway BYOK resolution failed (%s): %s", persona_label, _e)
 
+    # ── Platform-funding policy guard ────────────────────────────────────────
+    # Owner decision (August 2026): platform-funded AI is admin / executive_admin
+    # staff ONLY. Customers at any tier (free → executive) get NO platform-funded
+    # AI: they either use their own BYOK key (handled above) or the keyword KB.
+    # The check is fail-closed for authenticated customers: if we cannot verify
+    # the caller is authorized staff, they get the KB, never platform tokens.
+    _access = None
+    if user_id:
+        _is_staff = False
+        try:
+            from deps import get_db as _get_db
+            from roles import normalize_role as _norm_role
+            _pg_db = _get_db()
+            if _pg_db is not None:
+                _u = await _pg_db.users.find_one(
+                    {"id": user_id}, {"_id": 0, "role": 1, "feature_tier": 1, "byok_enabled": 1}
+                )
+                _role = _norm_role((_u or {}).get("role", "student"))
+                _is_staff = _role in ("admin", "executive_admin")
+                try:
+                    from ai.knowledge_finder import Access as _Access
+                    _access = _Access(
+                        role=_role,
+                        feature_tier=(_u or {}).get("feature_tier") or "free",
+                        byok=bool((_u or {}).get("byok_enabled")),
+                    )
+                except Exception:
+                    _access = None
+        except Exception:
+            _is_staff = False
+        if not _is_staff:
+            logger.info(
+                "LLM Gateway: %s is not platform-AI-authorized — knowledge fallback for %s",
+                user_id, persona_label,
+            )
+            return _kb_reply(messages, access=_access)
+
     # ── Per-user daily budget guard (platform-paid calls only) ──────────────
     # Prevents any single non-exec account from draining the platform API and
     # breaking AI features for everyone else. Users are NEVER cut off: on
@@ -549,14 +641,36 @@ async def call_llm(
         except Exception as _be:
             logger.warning("LLM Gateway: user budget check failed (%s): %s", persona_label, _be)
 
-    # ── Tier 1a: Groq / Llama 3.3 70B (FREE — primary, fastest) ─────────────
+    # ── Tier 1a: OpenAI gpt-4o-mini (owner key — tool-capable) ──────────────
+    if OPENAI_API_KEY:
+        try:
+            result = await _oai_compat_call(
+                base_url=OPENAI_BASE, api_key=OPENAI_API_KEY, model=OPENAI_MODEL,
+                system=system, messages=messages, max_tokens=max_tokens, tools=tools,
+            )
+            return await _tier_result(user_id, budget_key, result, "openai", OPENAI_MODEL, True, persona_label)
+        except Exception as e:
+            logger.warning("LLM Gateway T1a OpenAI failed (%s): %s", persona_label, e)
+
+    # ── Tier 1b: DeepSeek deepseek-chat (owner key — tool-capable) ───────────
+    if DEEPSEEK_API_KEY:
+        try:
+            result = await _oai_compat_call(
+                base_url=DEEPSEEK_BASE, api_key=DEEPSEEK_API_KEY, model=DEEPSEEK_MODEL,
+                system=system, messages=messages, max_tokens=max_tokens, tools=tools,
+            )
+            return await _tier_result(user_id, budget_key, result, "deepseek", DEEPSEEK_MODEL, True, persona_label)
+        except Exception as e:
+            logger.warning("LLM Gateway T1b DeepSeek failed (%s): %s", persona_label, e)
+
+    # ── Tier 1c: Groq / Llama 3.3 70B (FREE — free chain begins) ─────────────
     if GROQ_API_KEY:
         try:
             result = await _oai_compat_call(
                 base_url=GROQ_BASE, api_key=GROQ_API_KEY, model=GROQ_MODEL,
                 system=system, messages=messages, max_tokens=max_tokens, tools=tools,
             )
-            return await _tier_result(user_id, budget_key, result, "groq", GROQ_MODEL, False)
+            return await _tier_result(user_id, budget_key, result, "groq", GROQ_MODEL, False, persona_label)
         except Exception as e:
             logger.warning("LLM Gateway T1a Groq failed (%s): %s", persona_label, e)
 
@@ -567,7 +681,7 @@ async def call_llm(
                 base_url=CEREBRAS_BASE, api_key=CEREBRAS_API_KEY, model=CEREBRAS_MODEL,
                 system=system, messages=messages, max_tokens=max_tokens, tools=tools,
             )
-            return await _tier_result(user_id, budget_key, result, "cerebras", CEREBRAS_MODEL, False)
+            return await _tier_result(user_id, budget_key, result, "cerebras", CEREBRAS_MODEL, False, persona_label)
         except Exception as e:
             logger.warning("LLM Gateway T1b Cerebras failed (%s): %s", persona_label, e)
 
@@ -578,7 +692,7 @@ async def call_llm(
                 base_url=SAMBANOVA_BASE, api_key=SAMBANOVA_API_KEY, model=SAMBANOVA_MODEL,
                 system=system, messages=messages, max_tokens=max_tokens, tools=tools,
             )
-            return await _tier_result(user_id, budget_key, result, "sambanova", SAMBANOVA_MODEL, False)
+            return await _tier_result(user_id, budget_key, result, "sambanova", SAMBANOVA_MODEL, False, persona_label)
         except Exception as e:
             logger.warning("LLM Gateway T1c SambaNova failed (%s): %s", persona_label, e)
 
@@ -589,7 +703,7 @@ async def call_llm(
                 base_url=GEMINI_BASE, api_key=GEMINI_API_KEY, model=GEMINI_MODEL,
                 system=system, messages=messages, max_tokens=max_tokens, tools=None,
             )
-            return await _tier_result(user_id, budget_key, result, "gemini", GEMINI_MODEL, True)
+            return await _tier_result(user_id, budget_key, result, "gemini", GEMINI_MODEL, True, persona_label)
         except Exception as e:
             logger.warning("LLM Gateway T2 Gemini failed (%s): %s", persona_label, e)
 
@@ -600,7 +714,7 @@ async def call_llm(
                 base_url=XAI_BASE, api_key=XAI_API_KEY, model=XAI_MODEL,
                 system=system, messages=messages, max_tokens=max_tokens, tools=tools,
             )
-            return await _tier_result(user_id, budget_key, result, "grok", XAI_MODEL, True)
+            return await _tier_result(user_id, budget_key, result, "grok", XAI_MODEL, True, persona_label)
         except Exception as e:
             logger.warning("LLM Gateway T3 Grok failed (%s): %s", persona_label, e)
 
@@ -608,7 +722,7 @@ async def call_llm(
     if COHERE_API_KEY:
         try:
             result = await _cohere_call(system=system, messages=messages, max_tokens=max_tokens, tools=tools)
-            return await _tier_result(user_id, budget_key, result, "cohere", COHERE_MODEL, True)
+            return await _tier_result(user_id, budget_key, result, "cohere", COHERE_MODEL, True, persona_label)
         except Exception as e:
             logger.warning("LLM Gateway T4 Cohere failed (%s): %s", persona_label, e)
 
@@ -619,7 +733,7 @@ async def call_llm(
                 base_url=MISTRAL_BASE, api_key=MISTRAL_API_KEY, model=MISTRAL_MODEL,
                 system=system, messages=messages, max_tokens=max_tokens, tools=tools,
             )
-            return await _tier_result(user_id, budget_key, result, "mistral", MISTRAL_MODEL, True)
+            return await _tier_result(user_id, budget_key, result, "mistral", MISTRAL_MODEL, True, persona_label)
         except Exception as e:
             logger.warning("LLM Gateway T5 Mistral failed (%s): %s", persona_label, e)
 
@@ -630,7 +744,7 @@ async def call_llm(
                 base_url=TOGETHER_BASE, api_key=TOGETHER_API_KEY, model=TOGETHER_MODEL,
                 system=system, messages=messages, max_tokens=max_tokens, tools=None,
             )
-            return await _tier_result(user_id, budget_key, result, "together", TOGETHER_MODEL, True)
+            return await _tier_result(user_id, budget_key, result, "together", TOGETHER_MODEL, True, persona_label)
         except Exception as e:
             logger.warning("LLM Gateway T6 Together failed (%s): %s", persona_label, e)
 
@@ -642,7 +756,7 @@ async def call_llm(
                 system=system, messages=messages, max_tokens=max_tokens, tools=None,
                 extra_headers={"HTTP-Referer": "https://wai-institute.com", "X-Title": "WAI-Institute"},
             )
-            return await _tier_result(user_id, budget_key, result, "openrouter", OPENROUTER_MODEL, True)
+            return await _tier_result(user_id, budget_key, result, "openrouter", OPENROUTER_MODEL, True, persona_label)
         except Exception as e:
             logger.warning("LLM Gateway T7 OpenRouter failed (%s): %s", persona_label, e)
 
@@ -687,7 +801,7 @@ async def call_llm(
             _mark_anthropic_ok()
             logger.warning("LLM Gateway: %s fell through to Anthropic (PAID — owner-authorized)", persona_label)
             _anth = {"text": text, "in_tok": in_tok, "out_tok": out_tok}
-            _result = await _tier_result(user_id, budget_key, _anth, "anthropic", model, True)
+            _result = await _tier_result(user_id, budget_key, _anth, "anthropic", model, True, persona_label)
             _result["_raw"] = resp
             return _result
         except Exception as e:
@@ -712,6 +826,30 @@ async def call_llm(
                         base_url=_base, api_key=_shared["key"], model=_model,
                         system=system, messages=messages, max_tokens=max_tokens, tools=tools,
                     )
+                    # Audit: a shared site-support key served this request. The
+                    # record carries the caller identity and provider only —
+                    # never key material — so shared-pool usage is attributable
+                    # without exposing the contributing staff member's key.
+                    try:
+                        from deps import get_db as _get_db
+                        from datetime import datetime as _dt, timezone as _tz
+                        import uuid as _uuid
+                        _audit_db = _get_db()
+                        if _audit_db is not None:
+                            await _audit_db.audit_log.insert_one({
+                                "id": str(_uuid.uuid4()),
+                                "actor_id": user_id or budget_key or "anonymous",
+                                "action": "shared_byok.used",
+                                "target": None,
+                                "meta": {
+                                    "persona": persona_label,
+                                    "provider": _shared["provider"],
+                                    "budget_key": budget_key,
+                                },
+                                "at": _dt.now(_tz.utc).isoformat(),
+                            })
+                    except Exception:
+                        pass  # audit write never blocks a reply
                     return {
                         "text": _r["text"],
                         "provider": f"byok_shared:{_shared['provider']}",
@@ -725,20 +863,24 @@ async def call_llm(
         except Exception as _sbe:
             logger.warning("LLM Gateway shared BYOK pool error (%s): %s", persona_label, _sbe)
 
-    # ── Tier 9: Keyword KB — always available, zero cost ─────────────────────
-    logger.error("LLM Gateway: ALL providers failed for %s — KB fallback", persona_label)
-    return _KB_RESULT
+    # ── Tier 9: Knowledge Finder — always available, zero cost ───────────────
+    logger.error("LLM Gateway: ALL providers failed for %s — knowledge fallback", persona_label)
+    return _kb_reply(messages, access=_access)
 
 
 # ── Status report ─────────────────────────────────────────────────────────────
 def gateway_status() -> dict:
-    """Return current gateway health. Exposed via /api/admin/health."""
+    """Return current gateway health. This is synchronous because callers use it
+    during request pre-flight; persisted provider keys are loaded asynchronously
+    at startup and immediately after gateway writes."""
     _reset_hour_if_needed()
     return {
         "providers": {
-            "groq":         {"tier": "1a", "primary": True,  "available": bool(GROQ_API_KEY),         "key_set": bool(GROQ_API_KEY),         "cost": "free",          "tool_calling": True},
-            "cerebras":     {"tier": "1b", "primary": True,  "available": bool(CEREBRAS_API_KEY),     "key_set": bool(CEREBRAS_API_KEY),     "cost": "free",          "tool_calling": True},
-            "sambanova":    {"tier": "1c", "primary": True,  "available": bool(SAMBANOVA_API_KEY),    "key_set": bool(SAMBANOVA_API_KEY),    "cost": "free",          "tool_calling": True},
+            "openai":       {"tier": "1a", "primary": True,  "available": bool(OPENAI_API_KEY),       "key_set": bool(OPENAI_API_KEY),       "cost": "owner_key",     "tool_calling": True},
+            "deepseek":     {"tier": "1b", "primary": True,  "available": bool(DEEPSEEK_API_KEY),     "key_set": bool(DEEPSEEK_API_KEY),     "cost": "owner_key",     "tool_calling": True},
+            "groq":         {"tier": "1c", "primary": True,  "available": bool(GROQ_API_KEY),         "key_set": bool(GROQ_API_KEY),         "cost": "free",          "tool_calling": True},
+            "cerebras":     {"tier": "1d", "primary": True,  "available": bool(CEREBRAS_API_KEY),     "key_set": bool(CEREBRAS_API_KEY),     "cost": "free",          "tool_calling": True},
+            "sambanova":    {"tier": "1e", "primary": True,  "available": bool(SAMBANOVA_API_KEY),    "key_set": bool(SAMBANOVA_API_KEY),    "cost": "free",          "tool_calling": True},
             "gemini":       {"tier": 2,    "primary": False, "available": bool(GEMINI_API_KEY),       "key_set": bool(GEMINI_API_KEY),       "cost": "free",          "tool_calling": False},
             "grok":         {"tier": 3,    "primary": False, "available": bool(XAI_API_KEY),          "key_set": bool(XAI_API_KEY),          "cost": "free_credits",  "tool_calling": True},
             "cohere":       {"tier": 4,    "primary": False, "available": bool(COHERE_API_KEY),       "key_set": bool(COHERE_API_KEY),       "cost": "free",          "tool_calling": True},
@@ -759,9 +901,19 @@ def gateway_status() -> dict:
             "budget_pct":     round(_hour_tokens_used / max(HOURLY_TOKEN_CAP, 1) * 100, 1),
             "over_budget":    _over_budget(),
         },
+        # Backwards-compat count of only the FREE providers (used by older
+        # surfaces). Keep in sync with the all-inclusive count below.
         "active_free_providers": sum(1 for v in [
             GROQ_API_KEY, CEREBRAS_API_KEY, SAMBANOVA_API_KEY, GEMINI_API_KEY,
             XAI_API_KEY, COHERE_API_KEY, MISTRAL_API_KEY, TOGETHER_API_KEY,
             OPENROUTER_API_KEY, HUGGINGFACE_API_KEY,
-        ] if v),
+        ] if v) + (1 if _SHARED_BYOK_POOL else 0),
+        # All provider keys actually usable for text, including owner keys
+        # (OpenAI + DeepSeek). Surfaces should prefer this to decide if AI is
+        # available to entitled users.
+        "active_providers": sum(1 for v in [
+            OPENAI_API_KEY, DEEPSEEK_API_KEY, GROQ_API_KEY, CEREBRAS_API_KEY, SAMBANOVA_API_KEY,
+            GEMINI_API_KEY, XAI_API_KEY, COHERE_API_KEY, MISTRAL_API_KEY, TOGETHER_API_KEY,
+            OPENROUTER_API_KEY, HUGGINGFACE_API_KEY,
+        ] if v) + (1 if _SHARED_BYOK_POOL else 0),
     }

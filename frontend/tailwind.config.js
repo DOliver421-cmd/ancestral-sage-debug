@@ -46,6 +46,7 @@ module.exports = {
         },
         // W.A.I. brand
         ink: "#2e1065",
+        surface: "#1b1630",
         bone: "#F7F7F5",
         copper: "#b8860b",
         signal: "#FFD100",

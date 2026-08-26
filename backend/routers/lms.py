@@ -113,6 +113,21 @@ class Module(BaseModel):
     diagram_url: Optional[str] = None
 
 
+class ModuleCatalog(BaseModel):
+    """Public catalog card — metadata only, never lesson content."""
+    model_config = ConfigDict(extra="ignore")
+    id: str
+    order: int
+    slug: str
+    title: str
+    summary: str
+    hours: int
+    free: Optional[bool] = False
+    tasks: List[str] = []
+    points: Optional[int] = None
+    leads_to: Optional[str] = None
+
+
 class ProgressEntry(BaseModel):
     model_config = ConfigDict(extra="ignore")
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
@@ -252,14 +267,33 @@ def grade_online_lab(simulator_type: str, answers: dict) -> dict:
     return {"score": 0, "correct": 0, "total": 1, "detail": "Unknown simulator"}
 
 
-@router.get("/modules", response_model=List[Module])
+@router.get("/modules", response_model=List[ModuleCatalog])
 async def list_modules():
+    # Public catalog view: visitors may SEE the course list, but full lesson
+    # content (objectives, safety, tools, quiz, scripture) is only served to
+    # registered users via GET /modules/{slug}.
+    #
+    # Defensive repair: docs written by older seeders can lack the required
+    # `id` field (seed_modules only stamped it on fresh inserts). One such doc
+    # used to 500 the entire endpoint, which the frontend silently swallowed
+    # into an empty page. Derive a stable id from the slug and skip any doc
+    # that still cannot be rendered, logging the reason instead of failing.
     docs = await db.modules.find({}, {"_id": 0}).sort("order", 1).to_list(100)
-    return [Module(**d) for d in docs]
+    catalog = []
+    for d in docs:
+        try:
+            if not d.get("id"):
+                d["id"] = d.get("slug") or str(uuid.uuid4())
+            catalog.append(ModuleCatalog(**d))
+        except Exception as e:
+            logger.warning("list_modules: skipping unrenderable module doc (slug=%s): %s", d.get("slug"), e)
+    return catalog
 
 
 @router.get("/modules/{slug}", response_model=Module)
-async def get_module(slug: str):
+async def get_module(slug: str, user: User = Depends(_dep_current_user)):
+    """Full module content — registered users only. Anonymous visitors see
+    the public catalog (GET /modules) but cannot open any course content."""
     doc = await db.modules.find_one({"slug": slug}, {"_id": 0})
     if not doc:
         raise HTTPException(404, "Module not found")

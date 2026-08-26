@@ -1,123 +1,108 @@
+/**
+ * ExecControlPanel — Owner's Governance Console
+ *
+ * Every executive control surface in one clean console:
+ *  1. Platform Prices   — CRUD every price the platform charges.
+ *  2. Feature Tiers     — Define commercial tiers + authz matrix (which tier
+ *                          unlocks which feature, server-enforced).
+ *  3. Feature Flags     — Platform-wide feature toggles.
+ *  4. User Controls     — Role, tier, AI access, lifecycle per user.
+ *  5. Page Access       — Toggle public/role-gated page visibility.
+ *
+ * Design: matches the AI Business Office — BONE canvas, GREEN/GOLD/COPPER
+ * accents, clean white cards, font-heading typography.
+ *
+ * Every toggle here is enforced server-side in security/feature_control.py
+ * and routers/exec_control.py — nothing is UI-only.
+ */
+
 import { useState, useEffect, useCallback } from "react";
 import AppShell from "../components/AppShell";
 import { api } from "../lib/api";
 import { toast } from "sonner";
 import {
-  Shield, Users, Cpu, DollarSign, Lock, Globe, Eye, EyeOff,
-  AlertTriangle, RefreshCw, ChevronDown, ChevronRight, CheckCircle,
-  Clock, Activity, Zap
+  DollarSign, Layers, Flag, Users, Globe,
+  Plus, Save, Trash2, Shield, ChevronDown,
+  RefreshCw, CheckCircle, XCircle, AlertTriangle,
+  Wrench, Eye, EyeOff, Search,
 } from "lucide-react";
 
-/* ────────────────── helpers ────────────────── */
+/* ── design tokens ───────────────────────────────────────────── */
+const GREEN  = "#1B4332";
+const GOLD   = "#E8A51E";
+const COPPER = "#C0572D";
+const BONE   = "#FDFBF5";
+
+/* ── helpers ─────────────────────────────────────────────────── */
+function fmt(cents) {
+  if (cents == null) return "—";
+  return "$" + (cents / 100).toLocaleString("en-US", { maximumFractionDigits: 2 });
+}
 function ago(iso) {
   if (!iso) return "—";
   const d = Date.now() - new Date(iso).getTime();
   if (d < 60000)    return "just now";
-  if (d < 3600000)  return `${Math.floor(d / 60000)}m ago`;
-  if (d < 86400000) return `${Math.floor(d / 3600000)}h ago`;
-  return `${Math.floor(d / 86400000)}d ago`;
+  if (d < 3600000)  return `${Math.floor(d / 60000)}m`;
+  if (d < 86400000) return `${Math.floor(d / 3600000)}h`;
+  return `${Math.floor(d / 86400000)}d`;
 }
 
-function Section({ icon: Icon, title, color = "#d4af37", children, defaultOpen = false }) {
-  const [open, setOpen] = useState(defaultOpen);
-  return (
-    <div style={{ border: "1px solid rgba(212,175,55,0.18)", borderRadius: 12, marginBottom: "1rem", overflow: "hidden" }}>
-      <button
-        onClick={() => setOpen(v => !v)}
-        style={{ width: "100%", display: "flex", alignItems: "center", gap: "0.6rem", padding: "0.85rem 1.1rem", background: "rgba(10,15,30,0.6)", border: "none", cursor: "pointer", textAlign: "left" }}
-      >
-        {Icon && <Icon size={16} color={color} />}
-        <span style={{ color, fontWeight: "bold", fontSize: "0.85rem", flex: 1, fontFamily: "Trebuchet MS, sans-serif", textTransform: "uppercase", letterSpacing: "0.08em" }}>{title}</span>
-        {open ? <ChevronDown size={14} color="#7a6e5a" /> : <ChevronRight size={14} color="#7a6e5a" />}
-      </button>
-      {open && <div style={{ padding: "1rem 1.1rem", background: "rgba(6,11,22,0.7)" }}>{children}</div>}
-    </div>
-  );
-}
+const TABS = [
+  { key: "prices",       label: "Prices",       icon: DollarSign },
+  { key: "tiers",        label: "Feature Tiers", icon: Layers },
+  { key: "flags",        label: "Feature Flags", icon: Flag },
+  { key: "users",        label: "User Controls", icon: Users },
+  { key: "pages",        label: "Page Access",   icon: Globe },
+];
 
-function Field({ label, children }) {
-  return (
-    <div style={{ marginBottom: "0.75rem" }}>
-      <div style={{ fontSize: "0.68rem", color: "#d4af37", textTransform: "uppercase", letterSpacing: "0.09em", marginBottom: "0.25rem" }}>{label}</div>
-      {children}
-    </div>
-  );
-}
+const ALL_ROLES = ["student", "instructor", "admin", "executive_admin"];
+const ALL_TIERS = ["free", "member", "plus", "pro", "patron", "executive"];
+const PERSONA_LIST = ["all", "jamil", "sage", "cipher", "oracle", "revenue_director", "ambassador", "architect"];
 
-function Input({ ...props }) {
-  return (
-    <input
-      {...props}
-      style={{ background: "#060b16", border: "1px solid rgba(212,175,55,0.25)", borderRadius: 7, color: "#e8dfc8", padding: "0.45rem 0.7rem", fontSize: "0.82rem", width: "100%", outline: "none", ...props.style }}
-    />
-  );
-}
-
-function Select({ children, ...props }) {
-  return (
-    <select
-      {...props}
-      style={{ background: "#060b16", border: "1px solid rgba(212,175,55,0.25)", borderRadius: 7, color: "#e8dfc8", padding: "0.45rem 0.7rem", fontSize: "0.82rem", width: "100%", outline: "none", ...props.style }}
-    >
-      {children}
-    </select>
-  );
-}
-
-function Btn({ children, danger, busy, ...props }) {
-  return (
-    <button
-      {...props}
-      disabled={busy || props.disabled}
-      style={{
-        background: danger ? "#dc2626" : "#d4af37",
-        color: danger ? "#fff" : "#1a1100",
-        border: "none", borderRadius: 7, padding: "0.45rem 1rem",
-        fontSize: "0.8rem", fontWeight: "bold", cursor: "pointer",
-        opacity: (busy || props.disabled) ? 0.5 : 1,
-        ...props.style
-      }}
-    >
-      {busy ? "…" : children}
-    </button>
-  );
-}
-
-function ReasonInput({ value, onChange }) {
-  return (
-    <Field label="Reason (required)">
-      <Input value={value} onChange={e => onChange(e.target.value)} placeholder="Justify this change…" />
-    </Field>
-  );
-}
-
-/* ────────────────── main component ────────────────── */
 export default function ExecControlPanel() {
-  const [state,   setState]   = useState(null);
-  const [audit,   setAudit]   = useState([]);
-  const [glass,   setGlass]   = useState([]);
+  const [tab, setTab] = useState("prices");
   const [loading, setLoading] = useState(true);
-  const [users,   setUsers]   = useState([]);
-  const [accessPages, setAccessPages] = useState([]);
-  const [accessBusy, setAccessBusy] = useState(null);
+  const [busy, setBusy] = useState(null);
 
+  // ── shared state ────────────────────────────────────────────
+  const [prices, setPrices] = useState([]);
+  const [tiers, setTiers] = useState([]);
+  const [authz, setAuthz] = useState(null);
+  const [flags, setFlags] = useState({});
+  const [users, setUsers] = useState([]);
+  const [pages, setPages] = useState([]);
+  const [userSearch, setUserSearch] = useState("");
+
+  // ── form state (prices) ─────────────────────────────────────
+  const [priceForm, setPriceForm] = useState({ key: "", label: "", amount_cents: "" });
+  const [priceEditId, setPriceEditId] = useState(null);
+
+  // ── form state (tiers) ──────────────────────────────────────
+  const [tierForm, setTierForm] = useState({ tier_id: "", label: "", rank: 0, description: "", color: "#b5651d", price_hint: "" });
+
+  // ── reason field (all audited actions) ──────────────────────
+  const [reason, setReason] = useState("");
+
+  // ── load everything ─────────────────────────────────────────
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const [sR, aR, gR, uR, xR] = await Promise.allSettled([
-        api.get("/exec/control/state"),
-        api.get("/exec/control/audit?limit=30"),
-        api.get("/exec/control/break-glass/active"),
+      const [pR, tR, mR, cR, uR, aR] = await Promise.allSettled([
+        api.get("/admin/prices"),
+        api.get("/exec/control/tiers"),
+        api.get("/exec/control/authz-matrix"),
+        api.get("/admin/control-panel"),
         api.get("/admin/users?limit=200"),
         api.get("/exec/control/access"),
       ]);
-      if (sR.status === "fulfilled") setState(sR.value.data);
-      if (aR.status === "fulfilled") setAudit(aR.value.data?.records || []);
-      if (gR.status === "fulfilled") setGlass(gR.value.data?.active_overrides || []);
+      if (pR.status === "fulfilled") setPrices(pR.value.data?.prices || []);
+      if (tR.status === "fulfilled") setTiers(tR.value.data?.tiers || []);
+      if (mR.status === "fulfilled") setAuthz(mR.value.data);
+      if (cR.status === "fulfilled") setFlags(cR.value.data?.platform_flags || {});
       if (uR.status === "fulfilled") setUsers(uR.value.data?.users || uR.value.data || []);
-      if (xR.status === "fulfilled") setAccessPages(xR.value.data?.pages || []);
-    } catch (e) {
-      toast.error("Failed to load exec state");
+      if (aR.status === "fulfilled") setPages(aR.value.data?.pages || []);
+    } catch {
+      // individual errors are non-fatal
     } finally {
       setLoading(false);
     }
@@ -125,524 +110,566 @@ export default function ExecControlPanel() {
 
   useEffect(() => { load(); }, [load]);
 
-  /* ── User Role ── */
-  const [roleForm, setRoleForm] = useState({ user_id: "", new_role: "student", reason: "" });
-  const [roleBusy, setRoleBusy] = useState(false);
-  async function applyRole() {
-    if (!roleForm.user_id || !roleForm.reason.trim()) return toast.error("Fill all fields");
-    setRoleBusy(true);
+  // ── audit reason helper ─────────────────────────────────────
+  async function act(label, fn) {
+    if (!reason.trim()) return toast.error("A reason is required — all exec actions are audited.");
+    setBusy(label);
     try {
-      await api.post("/exec/control/user/role", roleForm);
-      toast.success("Role updated");
-      setRoleForm(f => ({ ...f, reason: "" }));
-      load();
-    } catch(e) { toast.error(e?.response?.data?.detail || "Failed"); }
-    finally { setRoleBusy(false); }
-  }
-
-  /* ── User Tier ── */
-  const [tierForm, setTierForm] = useState({ user_id: "", new_feature_tier: "free", new_sage_tier: "", reason: "" });
-  const [tierBusy, setTierBusy] = useState(false);
-  async function applyTier() {
-    if (!tierForm.user_id || !tierForm.reason.trim()) return toast.error("Fill all fields");
-    setTierBusy(true);
-    try {
-      const body = { ...tierForm };
-      if (!body.new_sage_tier) delete body.new_sage_tier;
-      await api.post("/exec/control/user/tier", body);
-      toast.success("Tier updated");
-      setTierForm(f => ({ ...f, reason: "" }));
-      load();
-    } catch(e) { toast.error(e?.response?.data?.detail || "Failed"); }
-    finally { setTierBusy(false); }
-  }
-
-  /* ── Feature Flag ── */
-  const [flagForm, setFlagForm] = useState({ flag_name: "", enabled: true, scope: "platform", user_id: "", reason: "" });
-  const [flagBusy, setFlagBusy] = useState(false);
-  async function applyFlag() {
-    if (!flagForm.flag_name || !flagForm.reason.trim()) return toast.error("Fill all fields");
-    setFlagBusy(true);
-    try {
-      const body = { ...flagForm };
-      if (body.scope !== "user") delete body.user_id;
-      await api.post("/exec/control/feature-flag", body);
-      toast.success(`Flag ${flagForm.flag_name} ${flagForm.enabled ? "enabled" : "disabled"}`);
-      setFlagForm(f => ({ ...f, reason: "" }));
-      load();
-    } catch(e) { toast.error(e?.response?.data?.detail || "Failed"); }
-    finally { setFlagBusy(false); }
-  }
-
-  /* ── AI Access ── */
-  const [aiForm, setAiForm] = useState({ user_id: "", persona: "all", enabled: true, reason: "" });
-  const [aiBusy, setAiBusy] = useState(false);
-  async function applyAI() {
-    if (!aiForm.user_id || !aiForm.reason.trim()) return toast.error("Fill all fields");
-    setAiBusy(true);
-    try {
-      await api.post("/exec/control/ai-access", aiForm);
-      toast.success("AI access updated");
-      setAiForm(f => ({ ...f, reason: "" }));
-    } catch(e) { toast.error(e?.response?.data?.detail || "Failed"); }
-    finally { setAiBusy(false); }
-  }
-
-  /* ── Budget ── */
-  const [budgetForm, setBudgetForm] = useState({ budget_key: "llm_monthly_usd", limit: "", reason: "" });
-  const [budgetBusy, setBudgetBusy] = useState(false);
-  async function applyBudget() {
-    if (!budgetForm.limit || !budgetForm.reason.trim()) return toast.error("Fill all fields");
-    setBudgetBusy(true);
-    try {
-      await api.post("/exec/control/budget", { ...budgetForm, limit: parseFloat(budgetForm.limit) });
-      toast.success("Budget updated");
-      setBudgetForm(f => ({ ...f, reason: "" }));
-      load();
-    } catch(e) { toast.error(e?.response?.data?.detail || "Failed"); }
-    finally { setBudgetBusy(false); }
-  }
-
-  /* ── Visibility Flag ── */
-  const [visForm, setVisForm] = useState({ flag: "", enabled: true, reason: "" });
-  const [visBusy, setVisBusy] = useState(false);
-  async function applyVis() {
-    if (!visForm.flag || !visForm.reason.trim()) return toast.error("Fill all fields");
-    setVisBusy(true);
-    try {
-      await api.post("/exec/control/visibility", visForm);
-      toast.success("Visibility updated");
-      setVisForm(f => ({ ...f, reason: "" }));
-      load();
-    } catch(e) { toast.error(e?.response?.data?.detail || "Failed"); }
-    finally { setVisBusy(false); }
-  }
-
-  /* ── Page & Feature Access ── */
-  async function toggleAccess(page, currentEnabled) {
-    setAccessBusy(page.key);
-    try {
-      await api.post("/exec/control/access", {
-        page: page.key,
-        enabled: !currentEnabled,
-        reason: "Toggled from Sovereign Command",
-      });
-      toast.success(`${page.label} ${!currentEnabled ? "enabled" : "disabled"}`);
+      await fn();
+      toast.success(label + " — done.");
+      setReason("");
       load();
     } catch (e) {
-      toast.error(e?.response?.data?.detail || "Failed to update access");
+      toast.error(e?.response?.data?.detail || label + " failed.");
     } finally {
-      setAccessBusy(null);
+      setBusy(null);
     }
   }
 
-  /* ── Break Glass ── */
-  const [bgForm, setBgForm] = useState({ reason: "", scope: "sage_pipeline", target_uid: "", duration_minutes: 60 });
-  const [bgBusy, setBgBusy] = useState(false);
-  const [confirmBreakGlass, setConfirmBreakGlass] = useState(false);
-  const [revokeTarget, setRevokeTarget] = useState(null);
-  const [revokeReason, setRevokeReason] = useState("");
-
-  async function activateBreakGlass() {
-    if (bgForm.reason.length < 20) return toast.error("Reason must be at least 20 characters");
-    setConfirmBreakGlass(true);
+  /* ── Prices tab ─────────────────────────────────────────────── */
+  async function savePrice() {
+    await act("Price saved", async () => {
+      const body = {
+        key: priceForm.key.trim(),
+        description: priceForm.label.trim(),
+        value: parseFloat(priceForm.amount_cents) || 0,
+      };
+      if (priceEditId) {
+        await api.patch(`/admin/prices/${priceEditId}`, body);
+      } else {
+        await api.post("/admin/prices", body);
+      }
+      setPriceForm({ key: "", label: "", amount_cents: "" });
+      setPriceEditId(null);
+    });
   }
 
-  async function doActivateBreakGlass() {
-    setConfirmBreakGlass(false);
-    setBgBusy(true);
-    try {
-      const body = { ...bgForm };
-      if (!body.target_uid) delete body.target_uid;
-      const r = await api.post("/exec/control/break-glass/activate", body);
-
-      toast.success(`Override activated: ${r.data.override_id.slice(0, 8)}… expires in ${bgForm.duration_minutes}m`);
-      setBgForm(f => ({ ...f, reason: "" }));
-      load();
-    } catch(e) { toast.error(e?.response?.data?.detail || "Failed"); }
-    finally { setBgBusy(false); }
+  async function deletePrice(id) {
+    if (!window.confirm("Delete this price?")) return;
+    await act("Price deleted", () => api.delete(`/admin/prices/${id}`));
   }
 
-  async function revokeGlass(id) {
-    setRevokeTarget(id);
-    setRevokeReason("");
+  function editPrice(p) {
+    setPriceForm({ key: p.key, label: p.description || "", amount_cents: String(p.value) });
+    setPriceEditId(p.id);
+    setTab("prices");
   }
 
-  async function doRevokeGlass() {
-    const id = revokeTarget;
-    const reason = revokeReason;
-    setRevokeTarget(null);
-    setRevokeReason("");
-    if (!reason?.trim()) return;
-    try {
-      await api.post("/exec/control/break-glass/revoke", { override_id: id, reason });
-      toast.success("Override revoked");
-      load();
-    } catch(e) { toast.error(e?.response?.data?.detail || "Failed"); }
+  /* ── Tiers / Authz tab ─────────────────────────────────────── */
+  async function saveTier() {
+    await act("Tier saved", async () => {
+      await api.post("/exec/control/tiers", {
+        tier_id: tierForm.tier_id.trim(),
+        label: tierForm.label.trim(),
+        rank: Number(tierForm.rank),
+        description: tierForm.description.trim(),
+        color: tierForm.color,
+        price_hint: tierForm.price_hint.trim(),
+      });
+      setTierForm({ tier_id: "", label: "", rank: 0, description: "", color: "#b5651d", price_hint: "" });
+    });
   }
 
-  const ROW = { display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.75rem" };
-  const ROLES = ["student","student","trial_pass","instructor","instructor","instructor","instructor","oversight","oversight","support_staff","admin","executive_admin"];
+  async function deleteTier(id) {
+    if (!window.confirm("Delete this tier?")) return;
+    await act("Tier deleted", () => api.delete(`/exec/control/tiers/${id}`));
+  }
+
+  async function setAuthzFeature(featKey, minTier) {
+    await act(`AuthZ: ${featKey} → ${minTier}`, async () => {
+      const map = {};
+      (authz?.features || []).forEach(f => { map[f.key] = f.min_tier; });
+      map[featKey] = minTier;
+      await api.post("/exec/control/authz-matrix", { requirements: map });
+    });
+  }
+
+  /* ── Feature Flags tab ─────────────────────────────────────── */
+  async function toggleFlag(flagName, enabled) {
+    await act(`Flag ${flagName} ${enabled ? "enabled" : "disabled"}`, async () => {
+      await api.post("/exec/control/feature-flag", {
+        flag_name: flagName, enabled, scope: "platform", reason: reason,
+      });
+    });
+  }
+
+  async function togglePage(pageKey, enabled) {
+    await act(`Page ${pageKey} ${enabled ? "enabled" : "disabled"}`, async () => {
+      await api.post("/exec/control/access", {
+        page: pageKey, enabled, reason: reason,
+      });
+    });
+  }
+
+  /* ── User Controls tab ─────────────────────────────────────── */
+  const [selectedUser, setSelectedUser] = useState(null);
+
+  async function setUserRole(uid, role) {
+    await act(`User role → ${role}`, () =>
+      api.post("/exec/control/user/role", { user_id: uid, new_role: role, reason }));
+  }
+
+  async function setUserTier(uid, tier) {
+    await act(`User tier → ${tier}`, () =>
+      api.post("/exec/control/user/tier", { user_id: uid, new_feature_tier: tier, reason }));
+  }
+
+  async function setUserAI(uid, persona, enabled) {
+    await act(`AI access ${enabled ? "granted" : "revoked"}`, () =>
+      api.post("/exec/control/ai-access", { user_id: uid, persona, enabled, reason }));
+  }
+
+  async function toggleUserActive(uid, isActive) {
+    const label = isActive ? "Activate" : "Deactivate";
+    await act(label + " user", () =>
+      api.patch(`/admin/users/${uid}/active`, { is_active: !isActive }));
+  }
+
+  const filteredUsers = users.filter(u =>
+    !userSearch || u.email?.includes(userSearch) || u.full_name?.toLowerCase().includes(userSearch.toLowerCase())
+  );
+
+  /* ── render ────────────────────────────────────────────────── */
+  if (loading) {
+    return (
+      <AppShell>
+        <div className="p-12 text-ink font-heading">Loading executive controls…</div>
+      </AppShell>
+    );
+  }
+
+  const TabIcon = TABS.find(t => t.key === tab)?.icon || Wrench;
 
   return (
     <AppShell>
-      <div style={{ padding: "2rem 1.5rem", maxWidth: 900, margin: "0 auto", color: "#e8dfc8" }}>
-
-        {/* Header */}
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "1.75rem" }}>
-          <div>
-            <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "0.25rem" }}>
-              <Shield size={18} color="#d4af37" />
-              <span style={{ fontSize: "0.7rem", textTransform: "uppercase", letterSpacing: "0.12em", color: "#d4af37", fontFamily: "Trebuchet MS, sans-serif" }}>Executive Control Layer</span>
-            </div>
-            <h1 style={{ fontSize: "1.6rem", fontWeight: "bold", color: "#f0d060", fontFamily: "Trebuchet MS, sans-serif" }}>Sovereign Command</h1>
-            <p style={{ fontSize: "0.78rem", color: "#7a6e5a", marginTop: "0.2rem" }}>All actions are audited, persisted, and immediately effective.</p>
+      <div style={{ background: BONE, minHeight: "100vh" }}>
+        {/* ── Header ─────────────────────────────────────────── */}
+        <div style={{ background: `linear-gradient(135deg, ${GREEN}, #2D6A4F)`, padding: "32px 32px 0", color: "#fff" }}>
+          <div className="flex items-center gap-3 mb-2">
+            <Shield size={28} />
+            <h1 className="font-heading text-2xl font-bold tracking-tight">Executive Governance Console</h1>
+            <span className="text-[10px] font-black uppercase tracking-widest px-2 py-1 rounded" style={{ background: GOLD, color: "#0a0a0a" }}>
+              Owner Controls
+            </span>
           </div>
-          <button onClick={load} title="Refresh" style={{ background: "none", border: "1px solid rgba(212,175,55,0.25)", borderRadius: 8, padding: "0.5rem", cursor: "pointer", color: "#d4af37" }}>
-            <RefreshCw size={16} className={loading ? "animate-spin" : ""} />
-          </button>
-        </div>
-
-        {/* Active break-glass alert */}
-        {glass.length > 0 && (
-          <div style={{ background: "rgba(220,38,38,0.12)", border: "1px solid #dc2626", borderRadius: 10, padding: "0.85rem 1rem", marginBottom: "1.2rem", display: "flex", alignItems: "center", gap: "0.6rem" }}>
-            <AlertTriangle size={16} color="#ef4444" />
-            <span style={{ color: "#ef4444", fontSize: "0.82rem", fontWeight: "bold" }}>{glass.length} active break-glass override{glass.length > 1 ? "s" : ""}</span>
-          </div>
-        )}
-
-        {/* ── USER CONTROLS ── */}
-        <Section icon={Users} title="User Role" defaultOpen={true}>
-          <div style={ROW}>
-            <Field label="Select User">
-              <Select value={roleForm.user_id} onChange={e => setRoleForm(f => ({ ...f, user_id: e.target.value }))}>
-                <option value="">— choose —</option>
-                {users.map(u => <option key={u.id} value={u.id}>{u.email} ({u.role})</option>)}
-              </Select>
-            </Field>
-            <Field label="New Role">
-              <Select value={roleForm.new_role} onChange={e => setRoleForm(f => ({ ...f, new_role: e.target.value }))}>
-                {ROLES.map(r => <option key={r} value={r}>{r}</option>)}
-              </Select>
-            </Field>
-          </div>
-          <ReasonInput value={roleForm.reason} onChange={v => setRoleForm(f => ({ ...f, reason: v }))} />
-          <Btn onClick={applyRole} busy={roleBusy}>Apply Role Change</Btn>
-        </Section>
-
-        <Section icon={Zap} title="User Feature Tier">
-          <div style={ROW}>
-            <Field label="Select User">
-              <Select value={tierForm.user_id} onChange={e => setTierForm(f => ({ ...f, user_id: e.target.value }))}>
-                <option value="">— choose —</option>
-                {users.map(u => <option key={u.id} value={u.id}>{u.email}</option>)}
-              </Select>
-            </Field>
-            <Field label="Feature Tier">
-              <Select value={tierForm.new_feature_tier} onChange={e => setTierForm(f => ({ ...f, new_feature_tier: e.target.value }))}>
-                <option value="free">Free</option>
-                <option value="premium">Premium</option>
-                <option value="executive">Executive</option>
-              </Select>
-            </Field>
-          </div>
-          <div style={ROW}>
-            <Field label="Sage Tier (optional)">
-              <Select value={tierForm.new_sage_tier} onChange={e => setTierForm(f => ({ ...f, new_sage_tier: e.target.value }))}>
-                <option value="">— unchanged —</option>
-                <option value="basic">Basic</option>
-                <option value="advanced">Advanced</option>
-              </Select>
-            </Field>
-            <div />
-          </div>
-          <ReasonInput value={tierForm.reason} onChange={v => setTierForm(f => ({ ...f, reason: v }))} />
-          <Btn onClick={applyTier} busy={tierBusy}>Apply Tier Change</Btn>
-        </Section>
-
-        <Section icon={Cpu} title="AI Persona Access">
-          <div style={ROW}>
-            <Field label="Select User">
-              <Select value={aiForm.user_id} onChange={e => setAiForm(f => ({ ...f, user_id: e.target.value }))}>
-                <option value="">— choose —</option>
-                {users.map(u => <option key={u.id} value={u.id}>{u.email}</option>)}
-              </Select>
-            </Field>
-            <Field label="Persona">
-              <Select value={aiForm.persona} onChange={e => setAiForm(f => ({ ...f, persona: e.target.value }))}>
-                <option value="all">All Personas</option>
-                <option value="director">Director</option>
-                <option value="sage">Sage</option>
-                <option value="sovereign">Sovereign</option>
-                <option value="prt">P.R.T.</option>
-                <option value="cipher">Cipher</option>
-              </Select>
-            </Field>
-          </div>
-          <Field label="Access">
-            <Select value={aiForm.enabled ? "true" : "false"} onChange={e => setAiForm(f => ({ ...f, enabled: e.target.value === "true" }))}>
-              <option value="true">Grant Access</option>
-              <option value="false">Revoke Access</option>
-            </Select>
-          </Field>
-          <ReasonInput value={aiForm.reason} onChange={v => setAiForm(f => ({ ...f, reason: v }))} />
-          <Btn onClick={applyAI} busy={aiBusy}>Apply AI Access</Btn>
-        </Section>
-
-        {/* ── PLATFORM CONTROLS ── */}
-        <Section icon={Globe} title="Feature Flags">
-          <div style={ROW}>
-            <Field label="Flag Name">
-              <Input value={flagForm.flag_name} onChange={e => setFlagForm(f => ({ ...f, flag_name: e.target.value }))} placeholder="e.g. labs_disabled" />
-            </Field>
-            <Field label="Scope">
-              <Select value={flagForm.scope} onChange={e => setFlagForm(f => ({ ...f, scope: e.target.value }))}>
-                <option value="platform">Platform-wide</option>
-                <option value="user">Per User</option>
-              </Select>
-            </Field>
-          </div>
-          {flagForm.scope === "user" && (
-            <Field label="User">
-              <Select value={flagForm.user_id} onChange={e => setFlagForm(f => ({ ...f, user_id: e.target.value }))}>
-                <option value="">— choose —</option>
-                {users.map(u => <option key={u.id} value={u.id}>{u.email}</option>)}
-              </Select>
-            </Field>
-          )}
-          <Field label="State">
-            <Select value={flagForm.enabled ? "true" : "false"} onChange={e => setFlagForm(f => ({ ...f, enabled: e.target.value === "true" }))}>
-              <option value="true">Enable</option>
-              <option value="false">Disable</option>
-            </Select>
-          </Field>
-          <ReasonInput value={flagForm.reason} onChange={v => setFlagForm(f => ({ ...f, reason: v }))} />
-          <Btn onClick={applyFlag} busy={flagBusy}>Set Flag</Btn>
-        </Section>
-
-        <Section icon={DollarSign} title="Spending Budgets">
-          <div style={ROW}>
-            <Field label="Budget Key">
-              <Select value={budgetForm.budget_key} onChange={e => setBudgetForm(f => ({ ...f, budget_key: e.target.value }))}>
-                <option value="llm_monthly_usd">LLM ($/month)</option>
-                <option value="tts_monthly_chars">TTS (chars/month)</option>
-                <option value="stt_monthly_mins">STT (mins/month)</option>
-              </Select>
-            </Field>
-            <Field label="New Limit">
-              <Input type="number" min="0" value={budgetForm.limit} onChange={e => setBudgetForm(f => ({ ...f, limit: e.target.value }))} placeholder="0.00" />
-            </Field>
-          </div>
-          <ReasonInput value={budgetForm.reason} onChange={v => setBudgetForm(f => ({ ...f, reason: v }))} />
-          <Btn onClick={applyBudget} busy={budgetBusy}>Set Budget</Btn>
-
-          {/* Current budgets */}
-          {state?.budgets?.length > 0 && (
-            <div style={{ marginTop: "0.75rem", display: "flex", flexWrap: "wrap", gap: "0.5rem" }}>
-              {state.budgets.map(b => (
-                <div key={b.key} style={{ background: "rgba(212,175,55,0.08)", border: "1px solid rgba(212,175,55,0.2)", borderRadius: 6, padding: "0.3rem 0.65rem", fontSize: "0.72rem" }}>
-                  <span style={{ color: "#d4af37" }}>{b.key}</span>: {b.limit}
-                </div>
-              ))}
-            </div>
-          )}
-        </Section>
-
-        <Section icon={Eye} title="UI Visibility Flags">
-          <div style={ROW}>
-            <Field label="Flag Name">
-              <Select value={visForm.flag} onChange={e => setVisForm(f => ({ ...f, flag: e.target.value }))}>
-                <option value="">— choose —</option>
-                <option value="show_pricing">Show Pricing</option>
-                <option value="show_legal_tools">Show Legal Tools</option>
-                <option value="show_revenue_division">Show Revenue Division</option>
-                <option value="show_ghost_producer">Show Ghost Producer</option>
-                <option value="show_band_on_page">Show Band on Page</option>
-              </Select>
-            </Field>
-            <Field label="State">
-              <Select value={visForm.enabled ? "true" : "false"} onChange={e => setVisForm(f => ({ ...f, enabled: e.target.value === "true" }))}>
-                <option value="true">Show</option>
-                <option value="false">Hide</option>
-              </Select>
-            </Field>
-          </div>
-          <ReasonInput value={visForm.reason} onChange={v => setVisForm(f => ({ ...f, reason: v }))} />
-          <Btn onClick={applyVis} busy={visBusy}>Set Visibility</Btn>
-
-          {/* Current flags */}
-          {state?.visibility_flags?.length > 0 && (
-            <div style={{ marginTop: "0.75rem", display: "flex", flexWrap: "wrap", gap: "0.5rem" }}>
-              {state.visibility_flags.map(v => (
-                <div key={v.flag} style={{ background: v.enabled ? "rgba(109,189,138,0.12)" : "rgba(239,68,68,0.1)", border: `1px solid ${v.enabled ? "rgba(109,189,138,0.3)" : "rgba(239,68,68,0.3)"}`, borderRadius: 6, padding: "0.3rem 0.65rem", fontSize: "0.72rem" }}>
-                  {v.enabled ? <CheckCircle size={10} color="#6dbd8a" style={{ display: "inline", marginRight: 4 }} /> : <EyeOff size={10} color="#ef4444" style={{ display: "inline", marginRight: 4 }} />}
-                  {v.flag}
-                </div>
-              ))}
-            </div>
-          )}
-        </Section>
-
-        {/* ── PAGE & FEATURE ACCESS ── */}
-        <Section icon={Lock} title="Page & Feature Access" defaultOpen={true}>
-          <p style={{ fontSize: "0.78rem", color: "#7a6e5a", marginBottom: "0.75rem", lineHeight: 1.6 }}>
-            One board for the whole site. Flipping a page OFF hides it from every sidebar and
-            blocks the route immediately — exec-only pages stay exec-only, and any page can be
-            closed without touching code. Every change is audited.
-          </p>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(250px, 1fr))", gap: "0.5rem" }}>
-            {accessPages.map(p => (
-              <button
-                key={p.key}
-                onClick={() => toggleAccess(p, p.enabled)}
-                disabled={accessBusy === p.key}
-                title={`${p.label} — click to ${p.enabled ? "disable" : "enable"}`}
+          {/* ── Tabs ─────────────────────────────────────── */}
+          <div className="flex flex-wrap gap-1 mt-5 -mb-px">
+            {TABS.map(t => (
+              <button key={t.key} onClick={() => setTab(t.key)}
+                className="flex items-center gap-1.5 px-4 py-3 text-sm font-bold rounded-t-lg transition-colors"
                 style={{
-                  display: "flex", alignItems: "center", justifyContent: "space-between", gap: "0.5rem",
-                  padding: "0.5rem 0.7rem", borderRadius: 8, cursor: "pointer", textAlign: "left",
-                  border: p.enabled ? "1px solid rgba(109,189,138,0.3)" : "1px solid rgba(239,68,68,0.3)",
-                  background: p.enabled ? "rgba(109,189,138,0.08)" : "rgba(239,68,68,0.08)",
-                }}
-              >
-                <span style={{ fontSize: "0.78rem", color: "#e8dfc8" }}>
-                  <span style={{ display: "block", fontWeight: "bold" }}>{p.label}</span>
-                  <span style={{ fontSize: "0.65rem", color: "#7a6e5a" }}>{p.path}</span>
-                </span>
-                <span style={{ fontSize: "0.68rem", fontWeight: "bold", color: p.enabled ? "#6dbd8a" : "#ef4444", flexShrink: 0 }}>
-                  {accessBusy === p.key ? "…" : p.enabled ? "ON" : "OFF"}
-                </span>
+                  background: tab === t.key ? BONE : "transparent",
+                  color: tab === t.key ? GREEN : "rgba(255,255,255,0.8)",
+                  border: tab === t.key ? `1px solid ${BONE}` : "1px solid transparent",
+                  borderBottom: tab === t.key ? `1px solid ${BONE}` : "1px solid transparent",
+                }}>
+                <t.icon size={15} /> {t.label}
               </button>
             ))}
-            {accessPages.length === 0 && (
-              <p style={{ fontSize: "0.78rem", color: "#7a6e5a" }}>Loading registry…</p>
-            )}
           </div>
-        </Section>
+        </div>
 
-        {/* ── BREAK GLASS ── */}
-        <Section icon={AlertTriangle} title="Break-Glass Override" color="#ef4444">
-          <p style={{ fontSize: "0.78rem", color: "#7a6e5a", marginBottom: "0.75rem", lineHeight: 1.6 }}>
-            Time-bound executive override. Requires a 20-character minimum justification. Fully logged and visible in audit.
-          </p>
-          <div style={ROW}>
-            <Field label="Scope">
-              <Select value={bgForm.scope} onChange={e => setBgForm(f => ({ ...f, scope: e.target.value }))}>
-                <option value="sage_pipeline">Sage Pipeline</option>
-                <option value="user_tier">User Tier</option>
-                <option value="legal_access">Legal Access</option>
-                <option value="platform_lock">Platform Lock</option>
-                <option value="ai_pipeline">AI Pipeline</option>
-              </Select>
-            </Field>
-            <Field label="Duration (minutes)">
-              <Select value={bgForm.duration_minutes} onChange={e => setBgForm(f => ({ ...f, duration_minutes: parseInt(e.target.value) }))}>
-                <option value={15}>15 min</option>
-                <option value={30}>30 min</option>
-                <option value={60}>1 hour</option>
-                <option value={120}>2 hours</option>
-                <option value={480}>8 hours</option>
-              </Select>
-            </Field>
-          </div>
-          <Field label="Target User (optional)">
-            <Select value={bgForm.target_uid} onChange={e => setBgForm(f => ({ ...f, target_uid: e.target.value }))}>
-              <option value="">— platform-wide —</option>
-              {users.map(u => <option key={u.id} value={u.id}>{u.email}</option>)}
-            </Select>
-          </Field>
-          <Field label="Justification (min 20 chars)">
-            <textarea
-              value={bgForm.reason}
-              onChange={e => setBgForm(f => ({ ...f, reason: e.target.value }))}
-              rows={3}
-              placeholder="Explain why this override is necessary…"
-              style={{ background: "#060b16", border: "1px solid rgba(212,175,55,0.25)", borderRadius: 7, color: "#e8dfc8", padding: "0.45rem 0.7rem", fontSize: "0.82rem", width: "100%", outline: "none", resize: "vertical" }}
+        <div className="max-w-6xl mx-auto px-6 py-8 space-y-10">
+          {/* ── Reason bar (shared) ────────────────────────── */}
+          <div className="flex items-center gap-3 bg-white rounded-xl p-3 border border-slate-200 shadow-sm">
+            <span className="text-xs font-black uppercase tracking-widest text-slate-500 whitespace-nowrap">Audit Reason</span>
+            <input
+              value={reason}
+              onChange={e => setReason(e.target.value)}
+              placeholder="Required — every exec action is audited…"
+              className="flex-1 text-sm px-3 py-1.5 border-0 outline-none bg-transparent font-medium"
             />
-            <div style={{ fontSize: "0.65rem", color: bgForm.reason.length >= 20 ? "#6dbd8a" : "#7a6e5a", marginTop: "0.2rem" }}>{bgForm.reason.length}/20 chars minimum</div>
-          </Field>
-          <Btn onClick={activateBreakGlass} busy={bgBusy} danger>Activate Break-Glass</Btn>
+            <button onClick={load} className="flex items-center gap-1 text-xs font-bold px-3 py-1.5 rounded-lg bg-slate-100 text-slate-600 hover:bg-slate-200 transition-colors">
+              <RefreshCw size={13} /> Refresh
+            </button>
+          </div>
 
-          {/* Active overrides */}
-          {glass.length > 0 && (
-            <div style={{ marginTop: "0.85rem" }}>
-              <div style={{ fontSize: "0.68rem", color: "#d4af37", textTransform: "uppercase", letterSpacing: "0.09em", marginBottom: "0.4rem" }}>Active Overrides</div>
-              {glass.map(g => (
-                <div key={g.id} style={{ background: "rgba(220,38,38,0.1)", border: "1px solid rgba(239,68,68,0.3)", borderRadius: 8, padding: "0.6rem 0.8rem", marginBottom: "0.4rem", display: "flex", alignItems: "center", justifyContent: "space-between", gap: "0.5rem" }}>
-                  <div>
-                    <div style={{ fontSize: "0.78rem", color: "#ef4444", fontWeight: "bold" }}>{g.scope}</div>
-                    <div style={{ fontSize: "0.68rem", color: "#7a6e5a" }}>{g.reason?.slice(0, 60)}{g.reason?.length > 60 ? "…" : ""}</div>
-                  </div>
-                  <Btn onClick={() => revokeGlass(g.id)} danger style={{ padding: "0.3rem 0.6rem", fontSize: "0.72rem" }}>Revoke</Btn>
+          {/* ═══════════════ TAB: PRICES ═══════════════════════ */}
+          {tab === "prices" && (
+            <section>
+              {/* ── New / Edit price form ─────────────────── */}
+              <div className="bg-white rounded-2xl p-6 border border-slate-100 shadow-sm mb-6">
+                <h2 className="font-heading text-lg font-bold text-ink flex items-center gap-2 mb-4">
+                  <DollarSign size={18} style={{ color: GOLD }} />
+                  {priceEditId ? "Edit Price" : "Add Price"}
+                </h2>
+                <div className="grid sm:grid-cols-4 gap-3">
+                  <input value={priceForm.key} onChange={e => setPriceForm({...priceForm, key: e.target.value})}
+                    placeholder="Key (e.g., monthly_basic)" className="text-sm px-3 py-2 rounded-lg border border-slate-200 outline-none focus:border-amber-400" />
+                  <input value={priceForm.label} onChange={e => setPriceForm({...priceForm, label: e.target.value})}
+                    placeholder="Label (e.g., Basic Monthly)" className="text-sm px-3 py-2 rounded-lg border border-slate-200 outline-none focus:border-amber-400" />
+                  <input value={priceForm.amount_cents} onChange={e => setPriceForm({...priceForm, amount_cents: e.target.value})}
+                    placeholder="Price in cents (e.g., 999)" type="number" className="text-sm px-3 py-2 rounded-lg border border-slate-200 outline-none focus:border-amber-400" />
+                  <button onClick={savePrice} disabled={busy === "Price saved"}
+                    className="font-bold text-sm px-4 py-2 rounded-lg text-white flex items-center justify-center gap-1.5 transition-opacity"
+                    style={{ background: GREEN, opacity: busy === "Price saved" ? 0.6 : 1 }}>
+                    {priceEditId ? <Save size={15} /> : <Plus size={15} />}
+                    {priceEditId ? "Update" : "Create"}
+                  </button>
                 </div>
-              ))}
-            </div>
-          )}
-        </Section>
+                {priceEditId && (
+                  <button onClick={() => { setPriceEditId(null); setPriceForm({ key: "", label: "", amount_cents: "" }); }}
+                    className="text-xs text-slate-500 mt-3 underline">Cancel edit</button>
+                )}
+              </div>
 
-        {/* ── AUDIT LOG ── */}
-        <Section icon={Activity} title="Executive Audit Log">
-          {audit.length === 0
-            ? <div style={{ color: "#7a6e5a", fontSize: "0.8rem" }}>No actions recorded yet.</div>
-            : (
-              <div style={{ overflowX: "auto" }}>
-                <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.75rem" }}>
+              {/* ── Price table ──────────────────────────────── */}
+              <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
+                <table className="w-full text-sm">
                   <thead>
-                    <tr style={{ borderBottom: "1px solid rgba(212,175,55,0.15)" }}>
-                      {["Action","Target","Note","When"].map(h => (
-                        <th key={h} style={{ padding: "0.4rem 0.5rem", textAlign: "left", color: "#d4af37", fontWeight: "bold", textTransform: "uppercase", letterSpacing: "0.07em", fontSize: "0.65rem" }}>{h}</th>
-                      ))}
+                    <tr className="border-b-2 border-slate-100 bg-slate-50">
+                      <th className="text-left py-3 px-4 text-xs uppercase tracking-wider text-slate-600 font-bold">Key</th>
+                      <th className="text-left py-3 px-4 text-xs uppercase tracking-wider text-slate-600 font-bold">Label</th>
+                      <th className="text-right py-3 px-4 text-xs uppercase tracking-wider text-slate-600 font-bold">Price</th>
+                      <th className="text-right py-3 px-4 text-xs uppercase tracking-wider text-slate-600 font-bold">Last Modified</th>
+                      <th className="py-3 px-4" />
                     </tr>
                   </thead>
                   <tbody>
-                    {audit.map((row, i) => (
-                      <tr key={row.id || i} style={{ borderBottom: "1px solid rgba(212,175,55,0.07)" }}>
-                        <td style={{ padding: "0.4rem 0.5rem", color: "#d4af37", fontFamily: "monospace" }}>{row.action}</td>
-                        <td style={{ padding: "0.4rem 0.5rem", color: "#e8dfc8", maxWidth: 120, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{row.target_id || "—"}</td>
-                        <td style={{ padding: "0.4rem 0.5rem", color: "#7a6e5a", maxWidth: 200, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{row.note || "—"}</td>
-                        <td style={{ padding: "0.4rem 0.5rem", color: "#7a6e5a", whiteSpace: "nowrap" }}>{ago(row.created_at)}</td>
+                    {prices.length === 0 && (
+                      <tr><td colSpan={5} className="py-8 text-center text-slate-500">No prices configured yet.</td></tr>
+                    )}
+                    {prices.map(p => (
+                      <tr key={p.id} className="border-b border-slate-50 hover:bg-slate-50 transition-colors">
+                        <td className="py-3 px-4 font-mono font-bold text-slate-700">{p.key}</td>
+                        <td className="py-3 px-4 text-slate-600">{p.description || "—"}</td>
+                        <td className="py-3 px-4 text-right font-heading font-bold" style={{ color: GREEN }}>
+                          {p.value != null ? `$${(p.value).toFixed(2)}` : "—"}
+                        </td>
+                        <td className="py-3 px-4 text-right text-xs text-slate-500">{ago(p.last_modified_at)}</td>
+                        <td className="py-3 px-4 text-right">
+                          <button onClick={() => editPrice(p)} className="text-xs font-bold px-2 py-1 rounded text-slate-600 hover:bg-slate-200">Edit</button>
+                          <button onClick={() => deletePrice(p.id)} className="text-xs font-bold px-2 py-1 rounded text-red-600 hover:bg-red-50 ml-1">Delete</button>
+                        </td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
               </div>
-            )
-          }
-        </Section>
+            </section>
+          )}
 
+          {/* ═══════════════ TAB: FEATURE TIERS ══════════════════ */}
+          {tab === "tiers" && (
+            <>
+              {/* ── Tier definitions ──────────────────────────── */}
+              <section>
+                <h2 className="font-heading text-lg font-bold text-ink flex items-center gap-2 mb-4">
+                  <Layers size={18} style={{ color: GOLD }} /> Tier Definitions
+                </h2>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
+                  {tiers.map(t => (
+                    <div key={t.tier_id} className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm relative">
+                      <div className="flex items-center gap-2 mb-2">
+                        <div className="w-3 h-3 rounded-full" style={{ background: t.color }} />
+                        <span className="font-heading font-bold text-slate-800">{t.label}</span>
+                        <span className="text-[10px] font-mono text-slate-400 ml-auto">rank {t.rank}</span>
+                      </div>
+                      <div className="text-xs text-slate-600 mb-1">{t.description || "—"}</div>
+                      <div className="text-xs font-bold" style={{ color: GREEN }}>{t.price_hint || "—"}</div>
+                      <div className="text-[10px] font-mono text-slate-400">{t.tier_id}</div>
+                      {!["free","member","plus","pro","patron","executive"].includes(t.tier_id) && (
+                        <button onClick={() => deleteTier(t.tier_id)} className="absolute top-3 right-3 text-red-400 hover:text-red-600">
+                          <Trash2 size={14} />
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+
+                {/* ── Add custom tier ──────────────────────── */}
+                <div className="bg-white rounded-2xl p-6 border border-slate-100 shadow-sm mb-8">
+                  <h3 className="font-heading font-bold text-ink mb-3">Add Custom Tier</h3>
+                  <div className="grid sm:grid-cols-6 gap-3">
+                    <input value={tierForm.tier_id} onChange={e => setTierForm({...tierForm, tier_id: e.target.value})}
+                      placeholder="tier_id" className="text-sm px-3 py-2 rounded-lg border border-slate-200 outline-none focus:border-amber-400 col-span-1" />
+                    <input value={tierForm.label} onChange={e => setTierForm({...tierForm, label: e.target.value})}
+                      placeholder="Label" className="text-sm px-3 py-2 rounded-lg border border-slate-200 outline-none focus:border-amber-400 col-span-1" />
+                    <input value={tierForm.rank} onChange={e => setTierForm({...tierForm, rank: e.target.value})}
+                      placeholder="Rank" type="number" className="text-sm px-3 py-2 rounded-lg border border-slate-200 outline-none focus:border-amber-400" />
+                    <input value={tierForm.price_hint} onChange={e => setTierForm({...tierForm, price_hint: e.target.value})}
+                      placeholder="Price hint" className="text-sm px-3 py-2 rounded-lg border border-slate-200 outline-none focus:border-amber-400" />
+                    <input value={tierForm.color} onChange={e => setTierForm({...tierForm, color: e.target.value})}
+                      placeholder="#color" className="text-sm px-3 py-2 rounded-lg border border-slate-200 outline-none focus:border-amber-400" />
+                    <button onClick={saveTier} disabled={busy === "Tier saved"}
+                      className="font-bold text-sm px-3 py-2 rounded-lg text-white flex items-center justify-center gap-1"
+                      style={{ background: GREEN, opacity: busy === "Tier saved" ? 0.6 : 1 }}>
+                      <Plus size={15} /> Add
+                    </button>
+                  </div>
+                  <input value={tierForm.description} onChange={e => setTierForm({...tierForm, description: e.target.value})}
+                    placeholder="Description" className="text-sm px-3 py-2 rounded-lg border border-slate-200 outline-none focus:border-amber-400 w-full mt-3" />
+                </div>
+              </section>
+
+              {/* ── Authorization matrix ───────────────────── */}
+              <section>
+                <h2 className="font-heading text-lg font-bold text-ink flex items-center gap-2 mb-4">
+                  <Shield size={18} style={{ color: COPPER }} /> Authorization Matrix
+                </h2>
+                <p className="text-xs text-slate-600 mb-4">
+                  Minimum feature tier required per capability. Server-enforced — changing a value here immediately gates the API.
+                </p>
+                <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b-2 border-slate-100 bg-slate-50">
+                        <th className="text-left py-3 px-4 text-xs uppercase tracking-wider text-slate-600 font-bold">Feature</th>
+                        <th className="text-left py-3 px-4 text-xs uppercase tracking-wider text-slate-600 font-bold">API surface</th>
+                        {ALL_TIERS.map(tr => (
+                          <th key={tr} className="text-center py-3 px-3 text-[10px] uppercase tracking-wider text-slate-600 font-bold">{tr}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {(authz?.features || []).map(f => (
+                        <tr key={f.key} className="border-b border-slate-50 hover:bg-slate-50 transition-colors">
+                          <td className="py-2.5 px-4 font-bold text-slate-700">{f.label}</td>
+                          <td className="py-2.5 px-4 font-mono text-[10px] text-slate-500">{f.api}</td>
+                          {ALL_TIERS.map(tr => {
+                            const isSet = f.min_tier === tr;
+                            const rank = authz?.tier_ranks?.[tr] ?? (ALL_TIERS.indexOf(tr));
+                            const minRank = authz?.tier_ranks?.[f.min_tier] ?? 0;
+                            const isGrey = rank < minRank;
+                            return (
+                              <td key={tr} className="text-center py-2.5 px-1">
+                                <button onClick={() => setAuthzFeature(f.key, tr)}
+                                  className="w-7 h-7 rounded-full text-xs font-bold transition-all"
+                                  style={{
+                                    background: isSet ? GOLD : isGrey ? "#f1f5f9" : "#e2e8f0",
+                                    color: isSet ? "#0a0a0a" : "#94a3b8",
+                                    border: isSet ? `2px solid ${GOLD}` : "2px solid transparent",
+                                  }}
+                                  title={`Set ${f.label} → ${tr}`}>
+                                  {isSet ? "●" : "○"}
+                                </button>
+                              </td>
+                            );
+                          })}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </section>
+            </>
+          )}
+
+          {/* ═══════════════ TAB: FEATURE FLAGS ═══════════════════ */}
+          {tab === "flags" && (
+            <section>
+              <h2 className="font-heading text-lg font-bold text-ink flex items-center gap-2 mb-4">
+                <Flag size={18} style={{ color: GOLD }} /> Platform Feature Flags
+              </h2>
+              <p className="text-xs text-slate-600 mb-4">
+                Toggle platform-wide features. Disabling a flag blocks its API routes server-side via feature_control.py.
+              </p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                {Object.entries(flags).map(([key, val]) => {
+                  const enabled = val?.enabled !== false; // absent = allowed
+                  return (
+                    <div key={key} className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm flex items-center justify-between">
+                      <div>
+                        <div className="font-heading font-bold text-slate-800 text-sm">{key}</div>
+                        <div className="text-[10px] text-slate-500 mt-0.5">
+                          {enabled ? "Active" : "Disabled"} · updated {ago(val?.updated_at)}
+                        </div>
+                      </div>
+                      <button onClick={() => toggleFlag(key, !enabled)} disabled={busy}
+                        className="px-3 py-1.5 rounded-lg text-xs font-bold transition-all"
+                        style={{
+                          background: enabled ? "#dcfce7" : "#fee2e2",
+                          color: enabled ? GREEN : "#dc2626",
+                        }}>
+                        {enabled ? <Eye size={14} /> : <EyeOff size={14} />}
+                      </button>
+                    </div>
+                  );
+                })}
+                {Object.keys(flags).length === 0 && (
+                  <div className="col-span-full text-center text-slate-500 py-8">No platform flags registered yet.</div>
+                )}
+              </div>
+            </section>
+          )}
+
+          {/* ═══════════════ TAB: USER CONTROLS ═══════════════════ */}
+          {tab === "users" && (
+            <section>
+              <h2 className="font-heading text-lg font-bold text-ink flex items-center gap-2 mb-4">
+                <Users size={18} style={{ color: GOLD }} /> User Controls
+              </h2>
+              {/* ── Search ─────────────────────────────────── */}
+              <div className="bg-white rounded-2xl p-4 border border-slate-100 shadow-sm mb-4 flex items-center gap-3">
+                <Search size={16} className="text-slate-400" />
+                <input value={userSearch} onChange={e => setUserSearch(e.target.value)}
+                  placeholder="Search by email or name…" className="flex-1 text-sm outline-none" />
+              </div>
+
+              <div className="grid lg:grid-cols-3 gap-6">
+                {/* ── User list ──────────────────────────────── */}
+                <div className="lg:col-span-1 bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden" style={{ maxHeight: "70vh" }}>
+                  <div className="overflow-y-auto h-full">
+                    {filteredUsers.slice(0, 100).map(u => (
+                      <button key={u.id || u.email}
+                        onClick={() => setSelectedUser(u)}
+                        className="w-full text-left px-4 py-3 border-b border-slate-50 hover:bg-slate-50 transition-colors flex items-center justify-between"
+                        style={{ background: selectedUser?.id === u.id ? "#fef3c7" : "transparent" }}>
+                        <div>
+                          <div className="text-sm font-bold text-slate-800">{u.full_name || u.email}</div>
+                          <div className="text-[10px] font-mono text-slate-400">{u.email}</div>
+                        </div>
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-[9px] font-black uppercase px-1.5 py-0.5 rounded"
+                            style={{ background: u.role === "executive_admin" ? "#fee2e2" : "#e2e8f0", color: u.role === "executive_admin" ? "#dc2626" : "#475569" }}>
+                            {u.role}
+                          </span>
+                          {u.is_active === false && (
+                            <XCircle size={12} className="text-red-500" />
+                          )}
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* ── User detail + controls ──────────────────── */}
+                <div className="lg:col-span-2 space-y-6">
+                  {!selectedUser ? (
+                    <div className="bg-white rounded-2xl p-12 border border-slate-100 shadow-sm text-center text-slate-500">
+                      Select a user to manage their role, tier, and access.
+                    </div>
+                  ) : (
+                    <>
+                      {/* User info card */}
+                      <div className="bg-white rounded-2xl p-6 border border-slate-100 shadow-sm">
+                        <div className="flex items-center justify-between mb-4">
+                          <div>
+                            <h3 className="font-heading font-bold text-lg text-ink">
+                              {selectedUser.full_name}
+                            </h3>
+                            <div className="text-sm text-slate-500 font-mono">{selectedUser.email}</div>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <span className={`text-[10px] font-black uppercase px-2 py-1 rounded ${
+                              selectedUser.is_active !== false ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"
+                            }`}>
+                              {selectedUser.is_active !== false ? "Active" : "Deactivated"}
+                            </span>
+                            <button onClick={() => toggleUserActive(selectedUser.id, selectedUser.is_active !== false)}
+                              className="text-xs font-bold px-3 py-1.5 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-100">
+                              {selectedUser.is_active !== false ? "Deactivate" : "Activate"}
+                            </button>
+                          </div>
+                        </div>
+                        <div className="grid grid-cols-3 gap-3 text-xs">
+                          <div><span className="text-slate-400">Role:</span> <span className="font-bold">{selectedUser.role}</span></div>
+                          <div><span className="text-slate-400">Tier:</span> <span className="font-bold">{selectedUser.feature_tier || "free"}</span></div>
+                          <div><span className="text-slate-400">Joined:</span> <span className="font-bold">{ago(selectedUser.created_at)}</span></div>
+                        </div>
+                      </div>
+
+                      {/* Role */}
+                      <div className="bg-white rounded-2xl p-6 border border-slate-100 shadow-sm">
+                        <h4 className="font-heading font-bold text-sm text-ink mb-3">Change Role</h4>
+                        <div className="flex flex-wrap gap-2">
+                          {ALL_ROLES.map(r => (
+                            <button key={r} onClick={() => setUserRole(selectedUser.id, r)} disabled={busy}
+                              className="px-4 py-2 rounded-lg text-xs font-bold transition-all"
+                              style={{
+                                background: selectedUser.role === r ? GOLD : "#f1f5f9",
+                                color: selectedUser.role === r ? "#0a0a0a" : "#64748b",
+                              }}>
+                              {r.replace("_", " ")}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Feature Tier */}
+                      <div className="bg-white rounded-2xl p-6 border border-slate-100 shadow-sm">
+                        <h4 className="font-heading font-bold text-sm text-ink mb-3">Change Feature Tier</h4>
+                        <div className="flex flex-wrap gap-2">
+                          {tiers.map(t => (
+                            <button key={t.tier_id} onClick={() => setUserTier(selectedUser.id, t.tier_id)} disabled={busy}
+                              className="px-4 py-2 rounded-lg text-xs font-bold transition-all"
+                              style={{
+                                background: (selectedUser.feature_tier || "free") === t.tier_id ? t.color : "#f1f5f9",
+                                color: (selectedUser.feature_tier || "free") === t.tier_id ? "#fff" : "#64748b",
+                              }}>
+                              {t.label}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* AI Access */}
+                      <div className="bg-white rounded-2xl p-6 border border-slate-100 shadow-sm">
+                        <h4 className="font-heading font-bold text-sm text-ink mb-3">AI Access</h4>
+                        <div className="flex flex-wrap gap-2">
+                          {PERSONA_LIST.map(p => (
+                            <button key={p} onClick={() => setUserAI(selectedUser.id, p, true)} disabled={busy}
+                              className="px-3 py-1.5 rounded-lg text-xs font-bold bg-green-50 text-green-700 hover:bg-green-100 transition-colors">
+                              <CheckCircle size={12} className="inline mr-1" /> {p}
+                            </button>
+                          ))}
+                          <button onClick={() => setUserAI(selectedUser.id, "all", false)} disabled={busy}
+                            className="px-3 py-1.5 rounded-lg text-xs font-bold bg-red-50 text-red-600 hover:bg-red-100 transition-colors">
+                            <XCircle size={12} className="inline mr-1" /> Revoke all
+                          </button>
+                        </div>
+                      </div>
+                    </>
+                  )}
+                </div>
+              </div>
+            </section>
+          )}
+
+          {/* ═══════════════ TAB: PAGE ACCESS ════════════════════ */}
+          {tab === "pages" && (
+            <section>
+              <h2 className="font-heading text-lg font-bold text-ink flex items-center gap-2 mb-4">
+                <Globe size={18} style={{ color: GOLD }} /> Page Access
+              </h2>
+              <p className="text-xs text-slate-600 mb-4">
+                Toggle public visibility of pages and set allowed roles. Changes take effect server-side.
+              </p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                {pages.map(p => {
+                  const enabled = p.enabled !== false;
+                  return (
+                    <div key={p.key || p.page} className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm flex items-center justify-between">
+                      <div>
+                        <div className="font-heading font-bold text-slate-800 text-sm">{p.label || p.page}</div>
+                        <div className="text-[10px] font-mono text-slate-400">{p.path || p.key}</div>
+                        {p.allowed_roles?.length > 0 && (
+                          <div className="flex gap-1 mt-1.5">
+                            {p.allowed_roles.map(r => (
+                              <span key={r} className="text-[9px] px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 font-bold">{r}</span>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                      <button onClick={() => togglePage(p.key || p.page, !enabled)} disabled={busy}
+                        className="px-3 py-1.5 rounded-lg text-xs font-bold transition-all"
+                        style={{
+                          background: enabled ? "#dcfce7" : "#fee2e2",
+                          color: enabled ? GREEN : "#dc2626",
+                        }}>
+                        {enabled ? <Eye size={14} /> : <EyeOff size={14} />}
+                      </button>
+                    </div>
+                  );
+                })}
+                {pages.length === 0 && (
+                  <div className="col-span-full text-center text-slate-500 py-8">No page access records found.</div>
+                )}
+              </div>
+            </section>
+          )}
+        </div>
       </div>
-
-      {confirmBreakGlass && (
-        <div style={{ position:"fixed", inset:0, zIndex:1000, display:"flex", alignItems:"center", justifyContent:"center", background:"rgba(0,0,0,0.7)", padding:16 }}>
-          <div style={{ background:"#131620", border:"1px solid rgba(74,242,197,0.15)", borderRadius:12, padding:28, maxWidth:380, width:"100%" }}>
-            <div style={{ color:"#f0f4ff", fontWeight:700, fontSize:15, marginBottom:10 }}>Break Glass Override</div>
-            <div style={{ color:"rgba(200,210,230,0.45)", fontSize:12, marginBottom:20 }}>This activates an executive override and is fully audited. Proceed?</div>
-            <div style={{ display:"flex", justifyContent:"flex-end", gap:10 }}>
-              <button onClick={() => setConfirmBreakGlass(false)} style={{ border:"1px solid rgba(200,210,230,0.45)", background:"transparent", color:"rgba(200,210,230,0.45)", borderRadius:6, padding:"5px 14px", fontSize:11, fontWeight:700, cursor:"pointer" }}>Cancel</button>
-              <button onClick={doActivateBreakGlass} style={{ border:"1px solid #f87171", background:"transparent", color:"#f87171", borderRadius:6, padding:"5px 14px", fontSize:11, fontWeight:700, cursor:"pointer" }}>Activate</button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {revokeTarget && (
-        <div style={{ position:"fixed", inset:0, zIndex:1000, display:"flex", alignItems:"center", justifyContent:"center", background:"rgba(0,0,0,0.7)", padding:16 }}>
-          <div style={{ background:"#131620", border:"1px solid rgba(74,242,197,0.15)", borderRadius:12, padding:28, maxWidth:380, width:"100%" }}>
-            <div style={{ color:"#f0f4ff", fontWeight:700, fontSize:15, marginBottom:10 }}>Revoke Override</div>
-            <div style={{ color:"rgba(200,210,230,0.45)", fontSize:12, marginBottom:12 }}>Enter the reason for revoking this override:</div>
-            <input
-              value={revokeReason}
-              onChange={e => setRevokeReason(e.target.value)}
-              placeholder="Reason (required)"
-              style={{ background:"#0d0d14", border:"1px solid rgba(200,210,230,0.2)", borderRadius:6, color:"#f0f4ff", fontSize:12, padding:"8px 12px", width:"100%", boxSizing:"border-box", marginBottom:20 }}
-            />
-            <div style={{ display:"flex", justifyContent:"flex-end", gap:10 }}>
-              <button onClick={() => { setRevokeTarget(null); setRevokeReason(""); }} style={{ border:"1px solid rgba(200,210,230,0.45)", background:"transparent", color:"rgba(200,210,230,0.45)", borderRadius:6, padding:"5px 14px", fontSize:11, fontWeight:700, cursor:"pointer" }}>Cancel</button>
-              <button onClick={doRevokeGlass} disabled={!revokeReason.trim()} style={{ border:"1px solid #f87171", background:"transparent", color:"#f87171", borderRadius:6, padding:"5px 14px", fontSize:11, fontWeight:700, cursor:"pointer", opacity: revokeReason.trim() ? 1 : 0.4 }}>Revoke</button>
-            </div>
-          </div>
-        </div>
-      )}
-
     </AppShell>
   );
 }

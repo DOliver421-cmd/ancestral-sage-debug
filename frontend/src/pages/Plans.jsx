@@ -16,6 +16,12 @@ export default function Plans() {
   return (
     <AppShell>
     <div className="min-h-screen bg-bone">
+      <div className="relative py-12 px-6"
+        style={{ backgroundImage: "linear-gradient(rgba(10,10,15,0.74), rgba(10,10,15,0.84)), url('https://images.pexels.com/photos/8044096/pexels-photo-8044096.jpeg?auto=compress&cs=tinysrgb&w=1600')", backgroundSize: "cover", backgroundPosition: "center" }}>
+        <div className="max-w-6xl mx-auto">
+          <div className="overline text-signal">Join the Mission</div>
+        </div>
+      </div>
       <div className="max-w-6xl mx-auto px-6 py-10">
         <BackButton to={user ? "/dashboard" : "/"} />
 
@@ -39,9 +45,9 @@ export default function Plans() {
             </div>
           </div>
           <div className="flex-1 text-sm text-white/80 leading-relaxed">
-            Unlock everything through Pro — Creator Studio, Ghost Producer, the full AI suite, and every course —
-            for one low trial price. It reverts automatically when the trial ends; no recurring charge unless you
-            choose a plan after.
+            Unlock everything through Pro — Creator Studio, Ghost Producer, every course, and AI-ready tools —
+            for one low trial price. AI runs on your own key via the $3 BYOK unlock (the platform doesn't fund
+            customer AI). It reverts automatically when the trial ends; no recurring charge unless you choose a plan after.
           </div>
           <Link to="/subscribe?plan=sanctuary_trial"
             className="shrink-0 font-black text-sm px-6 py-3 rounded-xl whitespace-nowrap"

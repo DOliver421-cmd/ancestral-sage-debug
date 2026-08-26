@@ -23,7 +23,7 @@ class Settings(BaseSettings):
     # =====================================================================
     # JWT & AUTH
     # =====================================================================
-    JWT_SECRET: str = os.getenv("JWT_SECRET", "dev-secret-change-in-production")
+    JWT_SECRET: str = os.getenv("JWT_SECRET", "")
     JWT_ALGORITHM: str = "HS256"
     JWT_EXPIRATION_HOURS: int = 24
 
@@ -31,11 +31,12 @@ class Settings(BaseSettings):
     # EMAIL & NOTIFICATIONS
     # =====================================================================
     SENDGRID_API_KEY: Optional[str] = os.getenv("SENDGRID_API_KEY")
-    ADMIN_EMAIL: str = os.getenv("ADMIN_EMAIL", "oldthug957@gmail.com")
+    # Env-only — no hardcoded addresses. Alerts fall back to logging when unset.
+    ADMIN_EMAIL: str = os.getenv("ADMIN_EMAIL", "")
 
-    SUPPORT_EMAIL: str = os.getenv("SUPPORT_EMAIL", "souppoetry@gmail.com")
+    SUPPORT_EMAIL: str = os.getenv("SUPPORT_EMAIL", "")
 
-    NOREPLY_EMAIL: str = os.getenv("NOREPLY_EMAIL", "poetgames@gmail.com")
+    NOREPLY_EMAIL: str = os.getenv("NOREPLY_EMAIL", "")
 
     # =====================================================================
     # SLACK (for alerts, logging)
@@ -58,8 +59,8 @@ class Settings(BaseSettings):
     # =====================================================================
     # BUSINESS SETTINGS
     # =====================================================================
-    CREATOR_REVENUE_SHARE: float = 0.7  # Creator gets 70%
-    PLATFORM_COMMISSION: float = 0.3  # Platform takes 30%
+    CREATOR_REVENUE_SHARE: float = 0.9  # Creator gets 90%
+    PLATFORM_COMMISSION: float = 0.1  # Platform takes 10%
     CREATOR_PAYOUT_MINIMUM: float = 50.0  # Minimum $50 payout
     MONTHLY_PAYOUT_DAY: int = 1  # Pay creators on 1st of month
 
@@ -94,8 +95,8 @@ def validate_config():
     if settings.ENVIRONMENT == "production":
         if settings.DEBUG:
             errors.append("DEBUG cannot be True in production")
-        if settings.JWT_SECRET == "dev-secret-change-in-production":
-            errors.append("JWT_SECRET must be changed for production")
+        if not settings.JWT_SECRET or settings.JWT_SECRET == "dev-secret-change-in-production":
+            errors.append("JWT_SECRET must be set to a strong, unique value for production")
 
     if errors:
         raise ValueError("Configuration errors: " + "; ".join(errors))

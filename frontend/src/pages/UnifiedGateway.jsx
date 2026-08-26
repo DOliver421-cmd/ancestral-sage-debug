@@ -2,11 +2,41 @@ import { Link } from "react-router-dom";
 import { useAuth } from "../lib/auth";
 import { BRAND, WAI_LOGO } from "../lib/brand";
 import PublicNav from "../components/PublicNav";
+import SharePanel from "../components/SharePanel";
 import { PublicHelper } from "./Helper";
+import { Lock, Share2, ArrowRight } from "lucide-react";
+
+// The WAI Institute community group on Facebook — the mission's home on FB.
+export const FACEBOOK_GROUP_URL = "https://www.facebook.com/groups/waiinstitute";
 
 // The logo D. Oliver provided — kept as a direct public asset reference so it
 // is actually placed on the page instead of only the generated SVG mark.
 const FOUNDER_LOGO = "/WAI_Logo.jpg";
+
+// ── Tier badges — every paid feature is visibly not free ─────────────────────
+// Matches the membership colors used further down this page so the signals agree.
+const TIER_STYLE = {
+  free:   { label: "Free",   color: "#6b7280" },
+  member: { label: "Member", color: "#3b82f6" },
+  plus:   { label: "Plus",   color: "#8b5cf6" },
+  pro:    { label: "Pro",    color: "#b5651d" },
+  patron: { label: "Patron", color: "#E8A51E" },
+};
+
+function TierBadge({ tier }) {
+  const s = TIER_STYLE[tier] || TIER_STYLE.free;
+  const paid = tier !== "free";
+  return (
+    <span
+      className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider"
+      style={{ color: s.color, background: `${s.color}1a`, border: `1px solid ${s.color}40` }}
+      title={paid ? `Requires ${s.label} membership (or the $3 all-access trial)` : "Included free"}
+    >
+      {paid && <Lock className="w-2.5 h-2.5" />}
+      {s.label}
+    </span>
+  );
+}
 
 export default function UnifiedGateway() {
   const { user } = useAuth();
@@ -17,7 +47,12 @@ export default function UnifiedGateway() {
 
       {/* ── HERO ─────────────────────────────────────────────────────────── */}
       <section className="relative overflow-hidden"
-        style={{ background: "linear-gradient(160deg, #0a0a0f 0%, #1a0a00 50%, #0d1a0a 100%)", minHeight: "90vh" }}>
+        style={{
+          minHeight: "80vh",
+          backgroundImage: "linear-gradient(160deg, rgba(10,10,15,0.88) 0%, rgba(26,10,0,0.82) 50%, rgba(13,26,10,0.9) 100%), url('https://images.pexels.com/photos/4031039/pexels-photo-4031039.jpeg?auto=compress&cs=tinysrgb&w=1600')",
+          backgroundSize: "cover",
+          backgroundPosition: "center",
+        }}>
 
         {/* Grain texture overlay */}
         <div className="absolute inset-0 opacity-20"
@@ -74,6 +109,17 @@ export default function UnifiedGateway() {
                   style={{ color: "rgba(255,255,255,0.4)", fontSize: 14, fontWeight: 600, display: "flex", alignItems: "center", paddingTop: 14 }}>
                   Log in →
                 </Link>
+                <SharePanel
+                  compact
+                  url="/"
+                  title="M.O.R.E. Help Center — Creator economy. Cultural expression. Economic dignity."
+                  trigger={
+                    <span className="inline-flex items-center gap-2 font-bold text-sm px-8 py-4 rounded-xl border"
+                      style={{ borderColor: "rgba(255,255,255,0.25)", color: "rgba(255,255,255,0.85)", fontSize: 15 }}>
+                      <Share2 size={16} /> Share
+                    </span>
+                  }
+                />
               </>
             ) : (
               <>
@@ -184,17 +230,20 @@ export default function UnifiedGateway() {
 
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
             {[
-              { icon: "🎓", title: "Learn & Certify",       desc: "Curriculum, AI tutor, compliance courses, lab simulations, and verifiable credentials.",          to: "/modules" },
-              { icon: "🎨", title: "Create & Publish",      desc: "Ghost Producer AI, Creator Studio, Social Blast to 6 platforms, Band on a Page, Lyric Forge.",   to: "/studio" },
-              { icon: "💰", title: "Earn & Get Paid",       desc: "Sell courses, manage earnings, request payouts. 70% creator / 30% platform split.",               to: "/creator/earnings" },
-              { icon: "🤝", title: "Community & M.O.R.E.",  desc: "Members' Palace, Elder Council, legal tools, mutual aid matching, community chat.",               to: "/app/more" },
-              { icon: "🤖", title: "AI Tools Suite",        desc: "AI Tutor, Sovereign Chat, Ghost Publicist, Ghost Legal, Ghost Marketer — all on platform.",       to: "/ai" },
-              { icon: "🏛️", title: "M.O.R.E. Institute",    desc: "Accredited-track courses, workforce credentials, instructor-led labs, and placement support.",   to: "/wai-institute" },
-            ].map(({ icon, title, desc, to }) => (
+              { icon: "🎓", title: "Learn & Certify",       tier: "free", desc: "Curriculum, AI tutor, compliance courses, lab simulations, and verifiable credentials.",          to: "/modules" },
+              { icon: "🎨", title: "Create & Publish",      tier: "plus", desc: "Ghost Producer AI, Creator Studio, Social Blast to 6 platforms, Band on a Page, Lyric Forge.",   to: "/studio" },
+              { icon: "💰", title: "Earn & Get Paid",       tier: "plus", desc: "Sell courses, manage earnings, request payouts. 70% creator / 30% platform split.",               to: "/creator/earnings" },
+              { icon: "🤝", title: "Community & M.O.R.E.",  tier: "free", desc: "Members' Palace, Elder Council, legal tools, mutual aid matching, community chat.",               to: "/more" },
+              { icon: "🤖", title: "AI Tools Suite",        tier: "free", desc: "AI Tutor, Ghost Producer, and more — run on your own key via the $3 BYOK unlock. The platform doesn't fund customer AI.",       to: "/byok" },
+              { icon: "🏛️", title: "M.O.R.E. Institute",    tier: "free", desc: "Accredited-track courses, workforce credentials, instructor-led labs, and placement support.",   to: "/wai-institute" },
+            ].map(({ icon, title, desc, to, tier }) => (
               <Link key={title} to={to}
                 className="card-flat p-6 flex flex-col gap-3 hover:border-copper transition-all group no-underline">
                 <div style={{ fontSize: 32 }}>{icon}</div>
-                <div className="font-heading font-bold text-lg text-ink group-hover:text-copper transition-colors">{title}</div>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <div className="font-heading font-bold text-lg text-ink group-hover:text-copper transition-colors">{title}</div>
+                  <TierBadge tier={tier} />
+                </div>
                 <div className="text-ink/55 text-sm leading-relaxed flex-1">{desc}</div>
                 <div className="text-copper text-xs font-bold opacity-0 group-hover:opacity-100 transition-opacity">Explore →</div>
               </Link>
@@ -203,9 +252,105 @@ export default function UnifiedGateway() {
         </div>
       </section>
 
+      {/* ── WAI INSTITUTE PREMIUM SERVICES — live embed + full-page link ── */}
+      <section className="relative overflow-hidden"
+        style={{ background: "linear-gradient(150deg, #1a110a 0%, #2a1a08 55%, #0d1a0a 100%)", borderBottom: "1px solid rgba(232,165,30,0.25)" }}>
+        <div className="relative max-w-6xl mx-auto px-4 sm:px-6 py-8 sm:py-12">
+          {/* Header row: copy + full-page link */}
+          <div className="flex flex-col lg:flex-row lg:items-center gap-4 sm:gap-5 mb-5 sm:mb-8">
+            <div className="flex-1">
+              <div className="overline" style={{ color: "#B5651D" }}>WAI Institute Premium Services</div>
+              <h2 style={{
+                fontFamily: "'Cabinet Grotesk', 'Plus Jakarta Sans', sans-serif",
+                fontSize: "clamp(1.35rem, 3.5vw, 2.4rem)", fontWeight: 900,
+                color: "#fff", lineHeight: 1.15, margin: "4px 0 6px",
+              }}>
+                Payment rails for <span style={{ color: "#E8A51E" }}>platforms &amp; creators.</span>
+              </h2>
+              <p style={{ color: "rgba(255,255,255,0.6)", maxWidth: 640, lineHeight: 1.6, fontSize: "0.95rem", margin: 0 }}>
+                We help other platforms and creators integrate payment systems through our ecosystem —
+                a Stripe-integrated store and SaaS for checkout, memberships, subscriptions, and payouts.
+              </p>
+            </div>
+            <a href="https://waiinstitutepremiumservices.bolt.host/services" target="_blank" rel="noopener noreferrer"
+              className="inline-flex items-center gap-2 font-bold text-sm px-5 sm:px-6 py-2.5 sm:py-3 rounded-xl border shrink-0 self-start"
+              style={{ borderColor: "rgba(232,165,30,0.4)", color: "#E8A51E", background: "rgba(232,165,30,0.08)", fontSize: 14 }}>
+              Open full page →
+            </a>
+          </div>
+
+          {/* The live Premium Services site, embedded */}
+          <div className="rounded-2xl overflow-hidden" style={{ height: "min(85vh, 720px)", border: "1px solid rgba(181,101,29,0.35)", boxShadow: "0 30px 80px rgba(0,0,0,0.45)" }}>
+            <iframe
+              title="WAI Institute Premium Services"
+              src="https://waiinstitutepremiumservices.bolt.host/"
+              className="w-full h-full"
+              style={{ border: 0, display: "block" }}
+              loading="lazy"
+              referrerPolicy="no-referrer"
+            />
+          </div>
+          <div className="mt-5 text-center">
+            <Link to="/premium"
+              className="inline-flex items-center gap-2 font-bold text-sm px-6 py-3 rounded-xl"
+              style={{ background: "#B5651D", color: "#fff", fontSize: 14 }}>
+              Visit the Premium Services page →
+            </Link>
+          </div>
+        </div>
+      </section>
+
+      {/* ── READY TO GO DEEPER? — the WAI pathway (M.O.R.E. funnels to the institution door) ── */}
+      <section className="relative overflow-hidden py-24 px-6"
+        style={{ background: "linear-gradient(150deg, #0b1a12 0%, #11261b 50%, #1b2f1d 100%)" }}>
+        {/* Accent glows — WAI's green/copper identity, distinct from the amber M.O.R.E. hero */}
+        <div className="absolute top-0 left-1/4 w-96 h-96 rounded-full opacity-10 blur-3xl"
+          style={{ background: "#2D6A4F" }} />
+        <div className="absolute bottom-0 right-1/5 w-80 h-80 rounded-full opacity-10 blur-3xl"
+          style={{ background: "#B5651D" }} />
+
+        <div className="relative max-w-6xl mx-auto text-center">
+          <div className="overline mb-4" style={{ color: "#B5651D" }}>The WAI Institute · Electrical Education & Credentials</div>
+          <h2 style={{
+            fontFamily: "'Cabinet Grotesk', 'Plus Jakarta Sans', sans-serif",
+            fontSize: "clamp(1.9rem, 4.5vw, 3.2rem)", fontWeight: 900,
+            color: "#fff", lineHeight: 1.1, margin: "0 0 1.25rem",
+          }}>
+            Ready to go deeper?
+          </h2>
+          <p style={{ fontSize: "clamp(1rem, 2vw, 1.2rem)", color: "rgba(255,255,255,0.75)", maxWidth: 640, margin: "0 auto 0.5rem", lineHeight: 1.6 }}>
+            M.O.R.E. helps you <strong style={{ color: "#fff" }}>do</strong>. WAI Institute helps you become capable of doing more.
+          </p>
+          <p style={{ fontSize: "0.95rem", color: "rgba(255,255,255,0.55)", maxWidth: 600, margin: "0 auto 2.25rem", lineHeight: 1.6 }}>
+            Learn through structured education, develop verified skills, and build toward credentials through WAI Institute.
+          </p>
+          <Link to="/wai-institute"
+            className="inline-flex items-center gap-2 font-black text-sm px-8 py-4 rounded-xl"
+            style={{ background: "#B5651D", color: "#fff", fontSize: 15 }}>
+            Explore WAI Institute <ArrowRight size={16} />
+          </Link>
+
+          <div className="grid sm:grid-cols-3 gap-5 mt-16 text-left">
+            {[
+              { icon: "📘", title: "LEARN", desc: "Build real knowledge — structured electrical curriculum and AI Tutor guidance." },
+              { icon: "🛠️", title: "DEVELOP", desc: "Turn knowledge into capability — labs, simulations, and verified skill practice." },
+              { icon: "🎖️", title: "CREDENTIAL", desc: "Demonstrate what you know and can do — certificates and verified credentials." },
+            ].map(({ icon, title, desc }) => (
+              <div key={title}
+                className="rounded-2xl p-6 border"
+                style={{ borderColor: "rgba(255,255,255,0.12)", background: "rgba(255,255,255,0.04)" }}>
+                <div style={{ fontSize: 30, marginBottom: 10 }}>{icon}</div>
+                <div style={{ fontFamily: "'Cabinet Grotesk',sans-serif", fontWeight: 900, fontSize: "0.95rem", letterSpacing: "0.18em", color: "#E8A51E", marginBottom: 6 }}>{title}</div>
+                <div style={{ fontSize: "0.9rem", color: "rgba(255,255,255,0.6)", lineHeight: 1.6 }}>{desc}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
       {/* ── $3 TRIAL BANNER ──────────────────────────────────────────────── */}
       {!user && (
-        <section className="py-16 px-6" style={{ background: "#0a0a0f" }}>
+        <section className="py-16 px-6" style={{ backgroundImage: "linear-gradient(rgba(10,10,15,0.88), rgba(10,10,15,0.92)), url('https://images.pexels.com/photos/6893794/pexels-photo-6893794.jpeg?auto=compress&cs=tinysrgb&w=1600')", backgroundSize: "cover", backgroundPosition: "center" }}>
           <div className="max-w-4xl mx-auto text-center">
             <div style={{ fontSize: 48, marginBottom: 16 }}>⚡</div>
             <h2 style={{ fontFamily: "'Cabinet Grotesk',sans-serif", fontSize: "clamp(1.8rem,4vw,3rem)", fontWeight: 900, color: "#fff", marginBottom: 12 }}>
@@ -230,30 +375,49 @@ export default function UnifiedGateway() {
         </section>
       )}
 
-      {/* ── CREATOR PROFILES ─────────────────────────────────────────────── */}
+      {/* ── VOICE OF MOVEMENT — VONN ─────────────────────────────────────── */}
       <section className="py-24 px-6 bg-bone">
         <div className="max-w-6xl mx-auto">
-          <div className="overline text-copper mb-3">M.O.R.E. Creators — learn, help, and laugh</div>
-          <div className="flex items-end justify-between mb-6">
-            <h2 className="font-heading font-black text-4xl text-ink">The voices of<br />the movement</h2>
-            <Link to="/creators" className="text-copper font-bold text-sm hover:underline">
-              View all creators →
-            </Link>
+          <div className="overline text-copper mb-3">Hear the movement</div>
+          <h2 className="font-heading font-black text-4xl text-ink mb-8">
+            Voice of Movement = <span style={{ color: "#C96A35" }}>VONN</span>
+          </h2>
+          <div className="grid md:grid-cols-2 gap-6">
+            <div className="flex justify-center">
+              <iframe
+                title="My Ole Kentucky Roots by VONN"
+                className="w-full max-w-[350px]"
+                style={{ border: 0, height: 442 }}
+                src="https://bandcamp.com/EmbeddedPlayer/track=2837268270/size=large/bgcol=ffffff/linkcol=0687f5/tracklist=false/transparent=true/"
+                seamless
+              >
+                <a href="https://vonnsangs.bandcamp.com/track/my-ole-kentucky-roots">My Ole Kentucky Roots by VONN</a>
+              </iframe>
+            </div>
+            <div className="flex justify-center">
+              <iframe
+                title="AM I Dreaming by VONN"
+                className="w-full max-w-[350px]"
+                style={{ border: 0, height: 442 }}
+                src="https://bandcamp.com/EmbeddedPlayer/track=792480361/size=large/bgcol=ffffff/linkcol=0687f5/tracklist=false/transparent=true/"
+                seamless
+              >
+                <a href="https://vonnsangs.bandcamp.com/track/am-i-dreaming">AM I Dreaming by VONN</a>
+              </iframe>
+            </div>
           </div>
-          <div className="flex flex-wrap gap-2 mb-8">
-            {[
-              ["Enter the Creator Suite", "/studio"],
-              ["Social Blast", "/social/publish"],
-              ["Ghost Producer", "/ghost-producer"],
-              ["M.O.R.E. Pantheon — bad ideas welcome", "/trash"],
-            ].map(([label, href]) => (
-              <Link key={href} to={href}
-                className="text-xs font-bold px-4 py-2 rounded-full border border-ink/15 text-ink/70 hover:border-copper hover:text-copper transition-colors">
-                {label} →
-              </Link>
-            ))}
+          <div className="mt-10 text-center">
+            <a
+              href="https://namoshun.gumroad.com/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-block font-black text-sm px-8 py-3 rounded-xl"
+              style={{ background: "#E8A51E", color: "#0a0a0a" }}
+            >
+              NAM OSHUN's Gumroad Store →
+            </a>
+            <div className="mt-3 text-sm text-ink/50">namoshun.gumroad.com</div>
           </div>
-          <CreatorPreview />
         </div>
       </section>
 
@@ -266,12 +430,12 @@ export default function UnifiedGateway() {
 
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 mb-8">
             {[
-              { name: "Free",    price: "$0",   color: "#6b7280", features: ["Community access", "Browse courses", "Daily XP puzzle"] },
-              { name: "Member",  price: "$9",   color: "#3b82f6", features: ["Full M.O.R.E.", "AI Tutor", "Creator basics"] },
-              { name: "Plus",    price: "$15",  color: "#8b5cf6", features: ["Ghost Producer", "Creator Studio", "Course selling"] },
-              { name: "Pro",     price: "$29",  color: "#b5651d", features: ["Full AI suite", "Advanced labs", "Earnings dashboard"], highlight: true },
-              { name: "Patron",  price: "$59",  color: "#E8A51E", features: ["Founder's circle", "Fund free access", "Direct line"] },
-            ].map(({ name, price, color, features, highlight }) => (
+              { name: "Free",    price: "$0",   color: "#6b7280", to: "/register",                              cta: "Start Free",      features: ["Community access", "Browse courses", "Daily XP puzzle"] },
+              { name: "Member",  price: "$9",   color: "#3b82f6", to: "/subscribe?plan=member_monthly",       cta: "Choose Member — $9",  features: ["Full M.O.R.E.", "AI via your own key", "Creator basics"] },
+              { name: "Plus",    price: "$15",  color: "#8b5cf6", to: "/subscribe?plan=plus_monthly",         cta: "Choose Plus — $15",   features: ["Ghost Producer", "Creator Studio", "Course selling"] },
+              { name: "Pro",     price: "$29",  color: "#b5651d", to: "/subscribe?plan=pro_monthly",          cta: "Choose Pro — $29",    features: ["AI via your own key", "Advanced labs", "Earnings dashboard"], highlight: true },
+              { name: "Patron",  price: "$59",  color: "#E8A51E", to: "/subscribe?plan=patron_monthly",       cta: "Become a Patron — $59", features: ["Founder's circle", "Fund free access", "Direct line"] },
+            ].map(({ name, price, color, to, cta, features, highlight }) => (
               <div key={name}
                 className="card-flat p-5 flex flex-col"
                 style={highlight ? { borderColor: color, borderWidth: 2 } : {}}>
@@ -285,6 +449,11 @@ export default function UnifiedGateway() {
                     </li>
                   ))}
                 </ul>
+                <Link to={to}
+                  className="mt-4 w-full text-center text-xs font-black py-2.5 rounded-xl"
+                  style={{ background: color, color: color === "#E8A51E" ? "#0a0a0a" : "#fff" }}>
+                  {cta}
+                </Link>
               </div>
             ))}
           </div>
@@ -318,8 +487,9 @@ export default function UnifiedGateway() {
             </Link>
             <Link to="/donate"
               className="font-bold text-sm px-8 py-3 rounded-xl border"
-              style={{ borderColor: "rgba(232,165,30,0.3)", color: "#E8A51E" }}>
-              Support the Mission
+              style={{ borderColor: "rgba(232,165,30,0.3)", color: "#E8A51E" }}
+            >
+              Make a Donation to the Mission
             </Link>
           </div>
         </div>
@@ -337,9 +507,23 @@ export default function UnifiedGateway() {
               </div>
             </div>
             <div className="flex flex-wrap gap-6 text-xs">
-              {[["Plans", "/plans"], ["Creators", "/creators"], ["M.O.R.E. Institute", "/wai-institute"], ["Donate", "/donate"], ["Privacy", "/privacy"], ["Terms", "/terms"]].map(([l, h]) => (
+            {[["Plans", "/plans"], ["Creators", "/creators"], ["Courses", "/courses"], ["Community", "/community"], ["Helper", "/helper"], ["Store", "/store"]].map(([l, h]) => (
+              <Link key={l} to={h} className="hover:text-white transition-colors">{l}</Link>
+            ))}
+            {[
+              ["WAI Institute Premium Services", "/premium"],
+              ["Facebook Group", "https://www.facebook.com/groups/waiinstitute"],
+              ["Donate", "/donate"],
+              ["Privacy", "/privacy"],
+              ["Terms", "/terms"],
+              ["Refund Policy", "/refund-policy"],
+            ].map(([l, h]) => (
+              h.startsWith("http") ? (
+                <a key={l} href={h} target="_blank" rel="noopener noreferrer" className="hover:text-white transition-colors">{l}</a>
+              ) : (
                 <Link key={l} to={h} className="hover:text-white transition-colors">{l}</Link>
-              ))}
+              )
+            ))}
             </div>
           </div>
           <div className="flex flex-col sm:flex-row items-center justify-between gap-2 text-xs">
@@ -352,47 +536,3 @@ export default function UnifiedGateway() {
   );
 }
 
-// ── Live creator preview — pulls from DB ──────────────────────────────────────
-import { useEffect, useState } from "react";
-import { api } from "../lib/api";
-
-function CreatorPreview() {
-  const [creators, setCreators] = useState([]);
-
-  useEffect(() => {
-    api.get("/creator/profiles/public")
-      .then(r => setCreators((r.data.profiles || []).slice(0, 3)))
-      .catch(() => {});
-  }, []);
-
-  if (creators.length === 0) return (
-    <div className="grid sm:grid-cols-3 gap-4">
-      {[1,2,3].map(i => (
-        <div key={i} className="card-flat p-6 animate-pulse">
-          <div className="w-12 h-12 rounded-full bg-ink/10 mx-auto mb-3" />
-          <div className="h-4 bg-ink/10 rounded w-3/4 mx-auto mb-2" />
-          <div className="h-3 bg-ink/5 rounded w-1/2 mx-auto" />
-        </div>
-      ))}
-    </div>
-  );
-
-  return (
-    <div className="grid sm:grid-cols-3 gap-4">
-      {creators.map(c => (
-        <Link key={c.slug} to={`/u/${c.slug}`}
-          className="card-flat p-6 text-center hover:border-copper transition-colors group no-underline block">
-          <div style={{ fontSize: 44, marginBottom: 12 }}>{c.avatar || "🎨"}</div>
-          <div className="font-heading font-bold text-ink text-lg group-hover:text-copper transition-colors">
-            {c.display_name || c.name}
-          </div>
-          <div className="overline text-copper mt-1">{c.title || c.role}</div>
-          {c.bio && <div className="text-xs text-ink/50 mt-2 line-clamp-2">{c.bio}</div>}
-          <div className="text-xs font-bold text-copper mt-3 opacity-0 group-hover:opacity-100 transition-opacity">
-            View Profile →
-          </div>
-        </Link>
-      ))}
-    </div>
-  );
-}

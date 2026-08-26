@@ -141,23 +141,13 @@ Always sign off with: "— Admin Assistant, M.O.R.E. Help Center"
 async def supervisor_public_chat(body: AssistantChatReq, request: Request):
     """Public Supervisor chat — no auth required. Rate-limited by upstream proxy.
     Powers the SupervisorWidget for public visitors on morehelp.center.
-    Anonymous visitors are budgeted by IP so no single visitor can drain the API.
+
+    Owner policy (August 2026): anonymous and public visitors get NO AI. This
+    endpoint answers from the multi-layer keyword knowledge base only — it
+    never calls the LLM gateway, so it cannot consume platform-funded AI.
     """
-    from ai.llm_gateway import call_llm as _call_llm
-    ip = request.client.host if request.client else "unknown"
-    messages = [{"role": h["role"], "content": h["content"]} for h in (body.history or [])]
-    messages.append({"role": "user", "content": body.message})
-    try:
-        gw = await _call_llm(
-            system=SUPERVISOR_PUBLIC_SYSTEM,
-            messages=messages,
-            max_tokens=1024,
-            persona_label="supervisor",
-            budget_key=f"ip:{ip}",
-        )
-        return {"reply": gw["text"]}
-    except Exception:
-        return {"reply": "I'm here — having a brief connectivity issue. Try again in a moment, or reach us at support@morehelp.center."}
+    from ai.knowledge_finder import Access as _Access, render_reply as _render
+    return {"reply": _render(body.message, _Access())}
 
 
 # ── Social Blast ──────────────────────────────────────────────────────────────

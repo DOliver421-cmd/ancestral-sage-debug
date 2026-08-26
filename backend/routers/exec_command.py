@@ -113,6 +113,7 @@ async def exec_system_overview(user: BaseModel = Depends(_require_rank("executiv
         "lemon_squeezy": ls_ready,
         "gumroad": gr_ready,
         "active_free_providers": gateway.get("active_free_providers", 0),
+        "active_providers": gateway.get("active_providers", gateway.get("active_free_providers", 0)),
     }
 
     return {

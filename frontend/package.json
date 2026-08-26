@@ -40,6 +40,7 @@
     "input-otp": "^1.4.2",
     "lucide-react": "^0.507.0",
     "next-themes": "^0.4.6",
+    "qrcode": "^1.5.4",
     "react": "^18.3.1",
     "react-day-picker": "^9.4.0",
     "react-dom": "^18.3.1",
@@ -59,7 +60,8 @@
     "preview": "HOST=0.0.0.0 BROWSER=none DANGEROUSLY_DISABLE_HOST_CHECK=true craco start",
     "build": "craco build",
     "test": "craco test",
-    "test:routes": "node scripts/route-integrity.js"
+    "test:routes": "node scripts/route-integrity.js",
+    "test:nav": "node scripts/nav-integrity.js"
   },
   "browserslist": {
     "production": [

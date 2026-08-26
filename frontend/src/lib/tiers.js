@@ -1,7 +1,7 @@
 /**
  * tiers.js — THE single authority for what each membership level unlocks.
  *
- * Ladder:  free(0) → member(1) → plus(2) → pro(3) → patron(4) → executive(5)
+ * Ladder:  free(0) → member(1) → plus(2) → pro(3) → patron(4) → platinum(5) → executive(6)
  *
  * feature_tier is granted automatically by the payment webhook (backend
  * routers/payments.py) and can be overridden by admins via the Exec panel.
@@ -20,7 +20,8 @@ export const FEATURE_TIER_RANK = {
   plus: 2,
   pro: 3,
   patron: 4,
-  executive: 5,
+  platinum: 5,
+  executive: 6,
 };
 
 export const FEATURE_TIER_LABEL = {
@@ -29,6 +30,7 @@ export const FEATURE_TIER_LABEL = {
   plus: "Plus",
   pro: "Pro",
   patron: "Patron",
+  platinum: "Platinum",
   executive: "Executive",
 };
 
@@ -40,10 +42,11 @@ export const TIER_FOR_FEATURE = {
   posts: "member",        // community
   publisher_ai: "member", // AI-assisted publishing (Social Blast)
   lounge: "member",       // creator lounge / community
+  projects: "member",     // "Have your M.O.R.E. team work on it"
   courses: "plus",        // course library
   tracks: "plus",         // learning tracks / adaptive path
   ghost: "plus",          // Ghost Producer
-  studio: "plus",         // Creator Studio
+  studio: "free",         // Creator Studio (free access; premium chambers stay tiered)
   band: "plus",           // Band on a Page
   publisher: "plus",      // full publishing toolkit
   earnings: "plus",       // creator earnings

@@ -108,7 +108,7 @@ async def checkout_prehook(payload: CheckoutPreHookRequest):
     # Import the PAYMENT_PRODUCTS catalog from server.py
     # We reference it lazily to avoid a circular import at module load time
     try:
-        from backend.server import PAYMENT_PRODUCTS
+        from server import PAYMENT_PRODUCTS
     except Exception:
         # Fallback: inline the catalog if server.py can't be imported in this context
         PAYMENT_PRODUCTS = {}

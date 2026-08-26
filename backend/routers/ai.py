@@ -5,13 +5,15 @@ Extracted verbatim from backend/server.py (monolith refactor, slice 11).
 Shared state (db, current_user, audit, assert_role, check_rate) is bound by server.py via bind()
 at include time — no circular imports.
 """
+import hashlib
+import io
 import logging
 import os
 import uuid
 from datetime import datetime, timedelta, timezone
 from typing import List, Literal, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Header, Request, UploadFile, File
+from fastapi import APIRouter, Depends, HTTPException, Header, Query, Request, UploadFile, File
 from pydantic import BaseModel, ConfigDict, Field
 from prompts.ancestral_sage_prompt import (
     ANCESTRAL_SAGE_PROMPT,
@@ -28,6 +30,12 @@ from prompts.orchestrator import (
 
 logger = logging.getLogger("lcewai")
 router = APIRouter(tags=["ai"])
+
+# These values mirror the deployed server configuration.  They are read at
+# import time after server.py has loaded dotenv; no provider is called unless
+# one of the existing configured keys is present.
+EMERGENT_LLM_KEY = os.environ.get("EMERGENT_LLM_KEY", "")
+OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY", EMERGENT_LLM_KEY)
 
 # ── Shared state, bound by server.py via bind() ──────────────────────────────
 db = None
@@ -63,6 +71,7 @@ class AIChatReq(BaseModel):
         "nec_lookup",
         "blueprint",
         "ancestral_sage",
+        "conspiracy_brother",
     ] = "tutor"
     # ---- Ancestral Sage parameters (ignored for other modes) -------------
     depth: Optional[Literal["beginner", "intermediate", "advanced"]] = None
@@ -153,6 +162,7 @@ SYSTEM_PROMPTS = {
     "nec_lookup": "You are an NEC (National Electrical Code) reference assistant. When the apprentice asks about a topic, identify the most likely NEC article and section (e.g., 'NEC 210.8(A)(1)'), summarize the rule in plain English, give one practical example, and note any common code-cycle changes. ALWAYS remind the apprentice to verify against the current adopted code edition for their jurisdiction.",
     "blueprint": "You are an electrical blueprint reading assistant. The apprentice will describe (or paste a description of) a residential or light-commercial electrical plan. Identify likely circuits, panel sizing, branch counts, and any code concerns. Output a structured list: Circuits, Panels, Concerns. Keep it concise and tied to NEC articles where helpful.",
     "ancestral_sage": ANCESTRAL_SAGE_PROMPT,
+    "conspiracy_brother": """You are Conspiracy Brother, Hybrid NAM's grounded buddy and friend for a niche Black audience. Speak directly about real-life struggles and the material mechanics behind them: grocery prices, job applications, traffic stops, zoning, contracts, budgets, and kitchen-table math. Use sharp, street-level storytelling and deadpan humor without turning pain into spectacle. Name the mechanism before naming a villain. Separate OBSERVED facts, SUPPORTED evidence, POSSIBLE explanations, and UNVERIFIED allegations. Ask for receipts: dates, policies, contracts, public records, witnesses, and primary sources. Do not invent facts, accuse real people without evidence, encourage harassment, or present a conspiracy claim as proven merely because it sounds plausible. Connect analysis to lawful, practical next steps that increase Black ownership, agency, safety, and economic self-determination.""",
 }
 
 
@@ -279,6 +289,24 @@ class User(BaseModel):
 async def _dep_current_user(authorization: Optional[str] = Header(None)) -> User:
     """Resolve the real current_user at REQUEST time (bind() sets it after import)."""
     return await current_user(authorization)
+
+
+async def _optional_session(authorization: Optional[str] = Header(None)):
+    """Resolve the current user when a session is present, else None (anonymous).
+
+    Used by public discovery surfaces (Knowledge Finder) that serve anonymous
+    visitors a PUBLIC-only index and authenticated users their authorized index.
+    Never raises on a missing/invalid token — anonymous is a first-class state.
+    NOTE: the name deliberately avoids the auth markers (current_user etc.) so
+    the AccessGateway auto-discovery treats this route as public; the endpoint
+    itself applies the optional session itself.
+    """
+    if not authorization:
+        return None
+    try:
+        return await current_user(authorization)
+    except Exception:
+        return None
 
 
 def _require_rank(*roles):
@@ -834,7 +862,15 @@ async def sage_tts(body: SageTTSReq, user: User = Depends(_dep_current_user)):
     """
     import time as _t
     if not OPENAI_API_KEY and not EMERGENT_LLM_KEY:
-        raise HTTPException(500, "AI not configured")
+        # No provider key is not a server fault: the reader should fall back to
+        # browser voice without an error toast. 503 (not 500) keeps the API
+        # interceptor quiet and matches the existing X-Fallback contract.
+        return StreamingResponse(
+            io.BytesIO(b""),
+            status_code=503,
+            media_type="audio/mpeg",
+            headers={"X-Fallback": "text-only", "X-No-Provider": "true", "Retry-After": "60"},
+        )
     text = (body.text or "").strip()
     if not text:
         raise HTTPException(400, "text is required")
@@ -1033,6 +1069,14 @@ async def _apply_sage_safety_gates(response_text: str, user_tier: str) -> tuple:
 @router.post("/ai/chat")
 async def ai_chat(body: AIChatReq, user: User = Depends(_dep_current_user)):
     check_rate(f"ai_chat:{user.id}", max_calls=20, window_sec=60)
+    # ---- Per-user persona override (runs BEFORE any LLM cost) ------------
+    from security.feature_control import check_persona_access
+    persona_key = "sage" if body.mode == "ancestral_sage" else body.mode
+    persona_action, persona_detail = await check_persona_access(db, user, persona_key)
+    if persona_action == "unavailable":
+        raise HTTPException(503, persona_detail)
+    if persona_action == "block":
+        raise HTTPException(403, persona_detail)
     # ---- Ancestral Sage gating (runs BEFORE any LLM cost) ---------------
     is_sage = body.mode == "ancestral_sage"
 
@@ -1636,7 +1680,8 @@ async def ai_helper(body: dict, request: Request):
 
     Serves the M.O.R.E. Help Center community helper for both
     authenticated and anonymous visitors. Rate-limited by IP.
-    Uses a dedicated Helper system prompt (not tutor/director).
+    Answers from the keyword knowledge base ONLY - anonymous and
+    public visitors get no AI (owner policy, August 2026).
     """
     message = (body.get("message") or "").strip()
     if not message:
@@ -1655,82 +1700,24 @@ async def ai_helper(body: dict, request: Request):
     except ValueError as _guard_err:
         raise HTTPException(400, str(_guard_err))
 
-    # _HELPER_SYSTEM is a module-level constant (defined above) so every
-    # Helper endpoint - /ai/helper, /api/public/helper/ask, /api/helper/ask -
-    # runs on the same Source persona. Do not re-declare it here.
-
-    # ── FREE-FIRST: curated KB answers cost zero tokens ──────────────────────
-    # The Helper was designed to answer the most common life questions from its
-    # built-in knowledge base at ZERO API cost. Only escalate to the LLM gateway
-    # when no curated topic matches the question.
-    kb_reply = _helper_kb(message)
-    if kb_reply:
-        return {"reply": kb_reply}
-
-    # ── LLM via gateway (only for questions the KB can't answer) ─────────────
-    reply = ""
-    degraded = False
-    budget_hit = False
-    try:
-        from ai.llm_gateway import call_llm as _call_llm
-        _gw = await _call_llm(
-            system=_HELPER_SYSTEM,
-            messages=[{"role": "user", "content": message}],
-            max_tokens=512,
-            persona_label="helper",
-            budget_key=f"ip:{ip}",  # anonymous users are budgeted by IP
-        )
-        reply = _gw.get("text", "").strip()
-        budget_hit = bool(_gw.get("budget_exceeded"))
-        degraded = bool(_gw.get("degraded")) or _gw.get("provider") == "kb_fallback"
-    except Exception as _herr:
-        logger.warning("Helper AI: gateway call failed (%s) — falling through to KB", _herr)
-        degraded = True
-
-    # ── Gateway down, quota exhausted, or user budget used → free guidance ──
-    # The gateway's own last-resort reply is a generic "restricted mode" notice.
-    # For the Helper, the designed free answer is the 211 guidance below — never
-    # leave a person with a dead-end message when the free KB can serve them.
-    if budget_hit:
-        from user_budget import budget_notice
-        reply = budget_notice() + "\n\n" + _HELPER_KB_GENERIC
-    elif degraded or not reply.strip():
-        reply = _HELPER_KB_GENERIC
-
-    return {"reply": reply.strip()}
+    # Keyword KB ONLY - owner policy (August 2026): anonymous/public
+    # visitors get NO AI. The Helper answers from the multi-layer keyword
+    # knowledge base at zero cost. No LLM/gateway call happens here - this
+    # endpoint cannot consume platform-funded AI tokens.
+    from ai.knowledge_finder import Access as _Access, render_reply as _render
+    return {"reply": _render(message, _Access())}
 
 
 async def _helper_reply_free_first(message: str, budget_key: str = "") -> str:
-    """One Helper answer: curated KB first (zero tokens), LLM only on no-match,
-    curated 211 guidance when the gateway is down, quota-exhausted, or the
-    visitor's daily AI budget is used up."""
-    kb_reply = _helper_kb(message)
-    if kb_reply:
-        return kb_reply
+    """One Helper answer - keyword KB ONLY.
 
-    reply = ""
-    degraded = True
-    budget_hit = False
-    try:
-        from ai.llm_gateway import call_llm as _call_llm
-        _gw = await _call_llm(
-            system=_HELPER_SYSTEM,
-            messages=[{"role": "user", "content": message}],
-            max_tokens=512,
-            persona_label="helper",
-            budget_key=budget_key or None,
-        )
-        reply = _gw.get("text", "").strip()
-        budget_hit = bool(_gw.get("budget_exceeded"))
-        degraded = bool(_gw.get("degraded")) or _gw.get("provider") == "kb_fallback"
-    except Exception:
-        degraded = True
-    if budget_hit:
-        from user_budget import budget_notice
-        return budget_notice() + "\n\n" + _HELPER_KB_GENERIC
-    if degraded or not reply.strip():
-        return _HELPER_KB_GENERIC
-    return reply
+    Owner policy (August 2026): anonymous and public visitors get NO AI. The
+    Helper answers from the multi-layer keyword knowledge base (ai/keyword_kb)
+    which covers life-help and platform topics. No LLM/gateway call happens
+    here, so this endpoint can never consume platform-funded AI tokens.
+    """
+    from ai.knowledge_finder import Access as _Access, render_reply as _render
+    return _render(message, _Access())
 
 
 def _split_short_full(reply: str) -> tuple[str, str]:
@@ -2965,6 +2952,10 @@ async def cipher_generate_audio(
 # ═════════════════════════════════════════════════════════════════════════════
 
 PERSONA_META = {
+    "nam_oshun": {"name": "Hybrid Nam", "level": "director", "department": "Leadership",
+        "domain": "NAM Oshun — the hybrid human-AI operating mind: strategy, ethics, ownership, and the full-organism view. The executive digital self, governing the whole system."},
+    "conspiracy_brother": {"name": "Conspiracy Brother", "level": "production", "department": "Culture",
+        "domain": "Grounded friend and cultural-analysis voice — traces systems to policies, money, and who benefits; asks for receipts. Media literacy through a neighborhood lens."},
     "director": {"name": "The Director", "level": "director", "department": "Governance",
         "domain": "Supreme AI authority — governance, security, escalation, and the whole-system view."},
     "assistant_director": {"name": "The Assistant Director", "level": "assistant", "department": "Operations",
@@ -3138,6 +3129,98 @@ async def persona_profile(slug: str):
     }
 
 
+
+
+# ── Exec persona management (IAM console → Personas tab) ──────────────────────
+# Source of truth is load_personas() (every key is a real, chaired prompt). The
+# directory merges it with PERSONA_META so Hybrid Nam / Conspiracy Brother /
+# Griot / Unified Mind all surface, plus an exec-toggle enable/disable persisted
+# per persona. Capabilities + source status are read live from the engines.
+
+_PERSONA_ENABLED_KEY = "persona_enabled_v1"
+_PERSONA_CAPS = {
+    "conspiracy_brother": ["text_analysis", "media_literacy", "cultural_report"],
+    "nam_oshun": ["orchestration", "strategy", "ethics_oversight", "ownership"],
+    "unified": ["orchestration", "decision_synthesis", "whole_organism_view"],
+    "griot": ["story_products", "spoken_word", "curriculum"],
+    "director": ["governance", "escalation", "security"],
+    "ancestral_sage": ["healing_guides", "meditation", "wellness"],
+}
+_LEVEL_ORDER = {"governance": 0, "director": 1, "executive": 2, "assistant": 3, "production": 4}
+
+async def _persona_state() -> dict:
+    disabled = set()
+    if db is not None:
+        try:
+            doc = await db.platform_config.find_one({"_id": _PERSONA_ENABLED_KEY})
+            for k, v in (doc or {}).get("map", {}).items():
+                if not v:
+                    disabled.add(k)
+        except Exception:
+            pass
+    return disabled
+
+
+@router.get("/personas/exec")
+async def exec_personas(user: User = Depends(_require_rank("admin", "executive_admin"))):
+    """Full persona roster with live enable state for the IAM console."""
+    from ai.persona_loader import load_personas
+    keys = list(load_personas().keys())
+    disabled = await _persona_state()
+    rows = []
+    for key in keys:
+        meta = PERSONA_META.get(key) or {"name": key, "level": "production", "department": "AI", "domain": ""}
+        rows.append({
+            "slug": key,
+            "name": meta["name"],
+            "level": meta["level"],
+            "department": meta["department"],
+            "domain": meta["domain"],
+            "enabled": key not in disabled,
+            "source_status": "active" if key in load_personas() else "missing",
+            "capabilities": _PERSONA_CAPS.get(key, []),
+        })
+    rows.sort(key=lambda r: _LEVEL_ORDER.get(r["level"], 5))
+    # Unified model at the top of its tier.
+    rows.sort(key=lambda r: (0 if r["slug"] == "unified" else 1, _LEVEL_ORDER.get(r["level"], 5)))
+    return {"personas": rows, "registry_size": len(rows)}
+
+
+class _PersonaToggleReq(BaseModel):
+    enabled: bool
+
+
+@router.post("/personas/{slug}/toggle")
+async def toggle_persona(slug: str, body: _PersonaToggleReq,
+                         user: User = Depends(_require_rank("executive_admin"))):
+    """Enable/disable a persona globally. Persisted; survives redeploys."""
+    from ai.persona_loader import load_personas
+    if slug not in load_personas():
+        raise HTTPException(404, f"Unknown persona: {slug}")
+    doc = {}
+    if db is not None:
+        try:
+            cur = await db.platform_config.find_one({"_id": _PERSONA_ENABLED_KEY})
+            doc = dict((cur or {}).get("map", {}))
+        except Exception:
+            pass
+    doc[slug] = bool(body.enabled)
+    if db is not None:
+        try:
+            await db.platform_config.update_one(
+                {"_id": _PERSONA_ENABLED_KEY},
+                {"$set": {"map": doc, "updated_by": user.id,
+                          "updated_at": datetime.utcnow().isoformat()}},
+                upsert=True,
+            )
+        except Exception:
+            raise HTTPException(500, "Could not persist persona state.")
+    try:
+        await audit(user.id, "persona.toggled", target=slug, meta={"enabled": bool(body.enabled)})
+    except Exception:
+        pass
+    return {"slug": slug, "enabled": bool(body.enabled)}
+
 # ═════════════════════════════════════════════════════════════════════════════
 # Persona chat + tuning — the team pages lead somewhere, with voice-capable
 # frontends (mic + browser TTS) and real per-persona sliders.
@@ -3277,3 +3360,44 @@ async def persona_controls_set(slug: str, body: _PersonaControlsReq,
         {"$set": {"controls": clean, "updated_at": now_iso}},
         upsert=True)
     return {"ok": True, "controls": clean, "updated_at": now_iso}
+
+
+# ═════════════════════════════════════════════════════════════════════════════
+# Knowledge Finder - deterministic zero-cost discovery (first-class capability)
+# ═════════════════════════════════════════════════════════════════════════════
+@router.get("/knowledge/search")
+async def knowledge_search(
+    q: str = Query("", max_length=300),
+    limit: int = Query(8, ge=1, le=20),
+    request: Request = None,
+    user=Depends(_optional_session),
+):
+    """Search the platform's indexed knowledge. Zero LLM, zero provider API.
+
+    Anonymous visitors search the PUBLIC index only; signed-in users search
+    their tier-authorized index. Access filtering happens BEFORE matching
+    (never search-then-hide). AI stays a separately gated entitlement.
+    """
+    from ai.knowledge_finder import Access, search, upgrade_prompt, refresh_with_db
+
+    query = (q or "").strip()
+    if not query:
+        return {"query": "", "results": [], "upgrade_prompt": upgrade_prompt(Access())}
+
+    # Rate limit by IP so the zero-cost endpoint can't be hammered.
+    ip = request.client.host if request is not None and request.client else "unknown"
+    check_rate(f"knowledge_search:ip:{ip}", max_calls=30, window_sec=60)
+
+    await refresh_with_db(db)
+    access = Access(
+        role=getattr(user, "role", "public") if user else "public",
+        feature_tier=getattr(user, "feature_tier", "free") if user else "free",
+        byok=bool(getattr(user, "byok_enabled", False)) if user else False,
+    )
+    results = search(query, access, limit=limit)
+    return {
+        "query": query,
+        "results": results,
+        "access": {"role": access.role, "tier": access.feature_tier, "byok": access.byok},
+        "upgrade_prompt": upgrade_prompt(access),
+    }

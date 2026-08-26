@@ -1,6 +1,6 @@
 import { Link } from "react-router-dom";
-import { WAI_LOGO, BRAND } from "../lib/brand";
-import { BookOpen, Settings, Sparkles, Award, Users, LogIn, UserPlus, ArrowRight, HelpCircle } from "lucide-react";
+import { WAI_LOGO, BRAND, WAI_INSTITUTE_URL } from "../lib/brand";
+import { BookOpen, BookMarked, Settings, Sparkles, Award, Users, LogIn, UserPlus, ArrowRight, HelpCircle, Globe } from "lucide-react";
 
 const PORTALS = [
   {
@@ -39,6 +39,15 @@ const PORTALS = [
     color: "border-amber-500",
     accent: "text-amber-600",
   },
+  {
+    icon: BookMarked,
+    label: "Our Legacy, Our Future",
+    desc: "The flagship book + campaign — Building Thriving Black Communities with AI, a practical manual for community-aligned AI.",
+    to: "/our-legacy",
+    cta: "Get the Book — $89",
+    color: "border-signal",
+    accent: "text-signal",
+  },
 ];
 
 export default function WAIInstitute() {
@@ -55,6 +64,9 @@ export default function WAIInstitute() {
             </div>
           </Link>
           <div className="flex items-center gap-3">
+            <a href={WAI_INSTITUTE_URL} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-sm font-bold text-white/70 hover:text-white transition-colors">
+              <Globe className="w-4 h-4" /> WAIInstitute.org
+            </a>
             <a href="https://www.morehelp.center/help-center" target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-sm font-bold text-white/70 hover:text-white transition-colors">
               <HelpCircle className="w-4 h-4" /> Help & Support
             </a>
@@ -116,11 +128,15 @@ export default function WAIInstitute() {
         </div>
       </section>
 
-      {/* Support — everything outside the classroom lives on M.O.R.E. */}
+      {/* Support — the reverse funnel: after learning, practice and create on M.O.R.E. */}
       <section className="border-t border-ink/10 bg-bone py-12">
         <div className="max-w-6xl mx-auto px-6">
-          <div className="overline text-copper mb-3">Help, billing & the creative community</div>
-          <h2 className="font-heading text-2xl font-bold text-ink mb-6">Everything else lives at the M.O.R.E. Help Center</h2>
+          <div className="overline text-copper mb-3">The M.O.R.E. Help Center — your home base</div>
+          <h2 className="font-heading text-2xl font-bold text-ink mb-2">Put your knowledge to work</h2>
+          <p className="text-ink/60 max-w-2xl mb-6 leading-relaxed">
+            Continue your work, create, collaborate, get assistance, and access the broader
+            M.O.R.E. environment — the community behind everything you learned here.
+          </p>
           <div className="grid md:grid-cols-3 gap-4">
             {[
               { title: "Help & Support", desc: "Tickets, troubleshooting, LMS guides, and the knowledge base.", href: "https://www.morehelp.center/help-center", cta: "Get Help" },

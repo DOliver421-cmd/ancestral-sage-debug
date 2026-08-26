@@ -1,19 +1,23 @@
 import { useState, useEffect, useRef } from "react";
 import { useSearchParams, Link } from "react-router-dom";
+import { MEMBERSHIP_PLANS } from "../lib/plans";
 import AppShell from "../components/AppShell";
 import { api } from "../lib/api";
 import { useAuth } from "../lib/auth";
 import { toast } from "sonner";
 import {
-  Music, FileText, Package, PlayCircle, Upload, ShoppingBag,
+  Music, FileText, Package, PlayCircle, Upload, ShoppingBag, BookOpen,
   Library, Plus, Trash2, Eye, EyeOff, CheckCircle2, Loader2,
-  Download, RefreshCw, Tag,
+  Download, RefreshCw, Tag, ExternalLink,
 } from "lucide-react";
+import SharePanel from "../components/SharePanel";
+import QRCodeButton from "../components/QRCodeButton";
 
 const TYPE_LABELS = {
   track: "Track",
   album: "Album",
   pdf: "PDF",
+  ebook: "Book",
   bundle: "Bundle",
   other: "File",
   video: "Video",
@@ -23,6 +27,7 @@ const TYPE_COLORS = {
   track: "bg-amber-100 text-amber-800",
   album: "bg-emerald-100 text-emerald-800",
   pdf: "bg-blue-100 text-blue-800",
+  ebook: "bg-violet-100 text-violet-800",
   bundle: "bg-purple-100 text-purple-800",
   video: "bg-rose-100 text-rose-800",
   other: "bg-gray-100 text-gray-600",
@@ -42,6 +47,18 @@ function formatPrice(cents) {
   return `$${(cents / 100).toFixed(2)}`;
 }
 
+function readAudioDuration(file) {
+  return new Promise((resolve, reject) => {
+    if (!file?.type?.startsWith("audio/")) return resolve(null);
+    const url = URL.createObjectURL(file);
+    const audio = document.createElement("audio");
+    audio.preload = "metadata";
+    audio.onloadedmetadata = () => { URL.revokeObjectURL(url); resolve(audio.duration); };
+    audio.onerror = () => { URL.revokeObjectURL(url); reject(new Error("Could not read audio duration")); };
+    audio.src = url;
+  });
+}
+
 function formatBytes(bytes) {
   if (!bytes) return "";
   if (bytes < 1024) return `${bytes} B`;
@@ -49,12 +66,93 @@ function formatBytes(bytes) {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
+const COVER_PHOTOS = {
+  ebook: "https://images.pexels.com/photos/159711/books-book-pages-read-literature-159711.jpeg?auto=compress&cs=tinysrgb&w=900",
+  pdf: "https://images.pexels.com/photos/5905445/pexels-photo-5905445.jpeg?auto=compress&cs=tinysrgb&w=900",
+  track: "https://images.pexels.com/photos/1648535/pexels-photo-1648535.jpeg?auto=compress&cs=tinysrgb&w=900",
+  album: "https://images.pexels.com/photos/1671325/pexels-photo-1671325.jpeg?auto=compress&cs=tinysrgb&w=900",
+  video: "https://images.pexels.com/photos/7991579/pexels-photo-7991579.jpeg?auto=compress&cs=tinysrgb&w=900",
+  default: "https://images.pexels.com/photos/5905445/pexels-photo-5905445.jpeg?auto=compress&cs=tinysrgb&w=900",
+};
+
+function coverPhoto(product) {
+  return product?.cover_url || COVER_PHOTOS[product?.product_type] || COVER_PHOTOS.default;
+}
+
+function ProductCover({ product, compact = false }) {
+  const [src, setSrc] = useState(() => coverPhoto(product));
+  const [failed, setFailed] = useState(false);
+  return (
+    <div className={`relative overflow-hidden bg-[#1a1a1a] ${compact ? "w-14 h-14 rounded-lg" : "aspect-square"}`}>
+      {!failed ? (
+        <img
+          src={src}
+          alt={`${product?.title || "Product"} cover`}
+          className="w-full h-full object-cover"
+          onError={() => {
+            if (src !== COVER_PHOTOS.default) setSrc(COVER_PHOTOS.default);
+            else setFailed(true);
+          }}
+        />
+      ) : (
+        <div className="w-full h-full flex items-center justify-center bg-[#1a4332] text-[#E8A51E]">
+          <BookOpen size={compact ? 22 : 48} />
+        </div>
+      )}
+      {!compact && <div className="absolute inset-0 bg-gradient-to-t from-black/45 to-transparent" />}
+    </div>
+  );
+}
+
 // ── Browse Tab ────────────────────────────────────────────────────────────────
+function MembershipsSection({ user }) {
+  const paidPlans = MEMBERSHIP_PLANS.filter((plan) => plan.key !== "free");
+  const startCheckout = async (plan) => {
+    if (!user) {
+      window.location.href = `/login?returnTo=${encodeURIComponent("/store")}`;
+      return;
+    }
+    try {
+      const { data } = await api.post("/payments/checkout", { product_key: plan.key, quantity: 1 });
+      if (data?.url) window.location.href = data.url;
+      else toast.error("Checkout could not start.");
+    } catch (error) {
+      toast.error(error?.response?.data?.detail || "Membership checkout is unavailable right now.");
+    }
+  };
+
+  return (
+    <section className="mb-8" aria-labelledby="membership-heading">
+      <div className="flex items-end justify-between gap-3 mb-4">
+        <div>
+          <p className="text-xs font-black uppercase tracking-[0.2em] text-[#b5651d]">M.O.R.E. access</p>
+          <h2 id="membership-heading" className="font-heading text-2xl font-bold text-[#1a1a1a]">Memberships</h2>
+        </div>
+        <Link to="/plans" className="text-sm font-bold text-[#b5651d] hover:underline">Compare plans</Link>
+      </div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        {paidPlans.map((plan) => (
+          <div key={plan.key} className="bg-white rounded-xl border border-[#b5651d]/15 p-4 flex flex-col">
+            <div className="text-xs font-black uppercase tracking-widest text-[#1a1a1a]/45">{plan.name}</div>
+            <div className="mt-1"><span className="font-heading font-black text-2xl text-[#1a1a1a]">${plan.price}</span><span className="text-sm text-[#1a1a1a]/45">/mo</span></div>
+            <p className="text-sm text-[#1a1a1a]/60 mt-1 flex-1">{plan.tagline}</p>
+            <button type="button" onClick={() => startCheckout(plan)} className="mt-4 bg-[#1a4332] text-white px-3 py-2 rounded-lg text-sm font-bold hover:bg-[#245b45] transition-colors">
+              Join {plan.name}
+            </button>
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
 function BrowseTab({ user }) {
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState("all");
   const [checkingOut, setCheckingOut] = useState(null);
+  const [searchParams] = useSearchParams();
+  const highlightedProductId = searchParams.get("product");
 
   useEffect(() => {
     api.get("/media/products")
@@ -63,12 +161,19 @@ function BrowseTab({ user }) {
       .finally(() => setLoading(false));
   }, []);
 
+  useEffect(() => {
+    if (!highlightedProductId || !products.length) return;
+    const target = document.getElementById(`store-product-${highlightedProductId}`);
+    if (target) target.scrollIntoView({ behavior: "smooth", block: "center" });
+  }, [highlightedProductId, products]);
+
   async function handleBuy(product) {
     if (!user) { toast.error("Sign in to purchase"); return; }
     setCheckingOut(product.id);
     try {
       const r = await api.post(`/media/products/${product.id}/checkout`);
-      window.location.href = r.data.checkout_url;
+      if (r.data.url) window.location.href = r.data.url;
+      else throw new Error("Checkout URL was not returned");
     } catch (e) {
       toast.error(e?.response?.data?.detail || "Checkout failed");
       setCheckingOut(null);
@@ -78,7 +183,9 @@ function BrowseTab({ user }) {
   async function handleFreeDownload(product) {
     if (!user) { toast.error("Sign in to download"); return; }
     try {
-      const r = await api.get(`/media/products/${product.id}/download`, { responseType: "blob" });
+      const access = await api.get(`/media/products/${product.id}/download`);
+      const filePath = (access.data.file_url || "").replace(/^\/api/, "");
+      const r = await api.get(filePath, { responseType: "blob", params: { preview: false } });
       const url = URL.createObjectURL(r.data);
       const a = document.createElement("a");
       a.href = url;
@@ -90,7 +197,7 @@ function BrowseTab({ user }) {
     }
   }
 
-  const filters = ["all", "track", "album", "pdf", "bundle"];
+  const filters = ["all", "ebook", "track", "album", "pdf", "bundle"];
   const shown = filter === "all" ? products : products.filter(p => p.product_type === filter);
 
   if (loading) return (
@@ -101,6 +208,7 @@ function BrowseTab({ user }) {
 
   return (
     <div>
+      <MembershipsSection user={user} />
       {/* Filter chips */}
       <div className="flex gap-2 flex-wrap mb-6">
         {filters.map(f => (
@@ -128,25 +236,18 @@ function BrowseTab({ user }) {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
         {shown.map(product => (
           <div
+            id={`store-product-${product.id}`}
             key={product.id}
-            className="bg-white rounded-xl border border-[#b5651d]/15 shadow-sm hover:shadow-md transition-shadow overflow-hidden flex flex-col"
+            className={`bg-white rounded-xl border border-[#b5651d]/15 shadow-sm hover:shadow-md transition-shadow overflow-hidden flex flex-col ${highlightedProductId === product.id ? "ring-2 ring-[#b5651d] ring-offset-2" : ""}`}
           >
             {/* Cover */}
-            <div className="aspect-square relative overflow-hidden bg-gradient-to-br from-[#b5651d]/20 to-[#1a1a1a]/10">
-              {product.cover_url ? (
-                <img
-                  src={product.cover_url}
-                  alt={product.title}
-                  className="w-full h-full object-cover"
-                  onError={e => { e.target.style.display = "none"; }}
-                />
-              ) : (
-                <div className="w-full h-full flex items-center justify-center">
-                  <Music size={48} className="text-[#b5651d]/40" />
-                </div>
-              )}
+            <div className="relative overflow-hidden bg-gradient-to-br from-[#b5651d]/20 to-[#1a1a1a]/10">
+              <ProductCover product={product} />
               <div className="absolute top-2 left-2">
                 <TypeBadge type={product.product_type} />
+              </div>
+              <div className="absolute top-1.5 right-1.5 bg-white/90 backdrop-blur rounded-lg shadow-sm">
+                <SharePanel compact url={`/store?product=${product.id}`} title={product.title || "Digital product"} />
               </div>
             </div>
 
@@ -206,7 +307,9 @@ function LibraryTab({ user }) {
   async function handleDownload(purchase) {
     setDownloading(purchase.id);
     try {
-      const r = await api.get(`/media/products/${purchase.product_id}/download`, { responseType: "blob" });
+      const access = await api.get(`/media/products/${purchase.product_id}/download`);
+      const filePath = (access.data.file_url || "").replace(/^\/api/, "");
+      const r = await api.get(filePath, { responseType: "blob", params: { preview: false } });
       const url = URL.createObjectURL(r.data);
       const a = document.createElement("a");
       a.href = url;
@@ -248,12 +351,7 @@ function LibraryTab({ user }) {
         const prod = p.product;
         return (
           <div key={p.id} className="bg-white rounded-xl border border-[#b5651d]/15 p-4 flex items-center gap-4">
-            <div className="w-14 h-14 rounded-lg bg-gradient-to-br from-[#b5651d]/20 to-[#1a1a1a]/10 flex items-center justify-center flex-shrink-0">
-              {prod?.cover_url
-                ? <img src={prod.cover_url} alt="" className="w-full h-full object-cover rounded-lg" />
-                : <Music size={22} className="text-[#b5651d]/50" />
-              }
-            </div>
+            <ProductCover product={prod} compact />
             <div className="flex-1 min-w-0">
               <p className="font-semibold text-[#1a1a1a] truncate">{prod?.title || "Unknown product"}</p>
               <div className="flex items-center gap-2 mt-0.5">
@@ -313,8 +411,8 @@ function SellTab({ user }) {
   async function handleFileUpload(e) {
     const file = e.target.files[0];
     if (!file) return;
-    if (file.size > 500 * 1024 * 1024) {
-      toast.error("File too large (max 500 MB)");
+    if (file.size > 50 * 1024 * 1024) {
+      toast.error("File too large (max 50 MB)");
       return;
     }
     setUploading(true);
@@ -326,6 +424,8 @@ function SellTab({ user }) {
     fd.append("file_type", "other");
     fd.append("is_public", "false");
     try {
+      const duration = await readAudioDuration(file);
+      if (duration) fd.append("duration_seconds", String(duration));
       const r = await api.post("/media/upload", fd, {
         headers: { "Content-Type": "multipart/form-data" },
         onUploadProgress: (ev) => {
@@ -333,7 +433,7 @@ function SellTab({ user }) {
         },
       });
       setUploadedFile(r.data);
-      setForm(f => ({ ...f, title: r.data.title || file.name }));
+      setForm(f => ({ ...f, title: file.name }));
       toast.success("File uploaded!");
       setStep(2);
     } catch (err) {
@@ -352,8 +452,8 @@ function SellTab({ user }) {
         description: form.description,
         price_cents: Math.round(parseFloat(form.price || "0") * 100),
         cover_url: form.cover_url || null,
-        product_type: form.product_type,
-        file_id: uploadedFile?.id || null,
+        type: form.product_type,
+        file_url: uploadedFile?.file_url || "",
         published: publish,
       };
       await api.post("/media/products", payload);
@@ -423,7 +523,7 @@ function SellTab({ user }) {
         <div className="p-6">
           {step === 1 && (
             <div>
-              <p className="text-[#1a1a1a]/60 text-sm mb-4">Upload a track, album, PDF, or any file. Max 500 MB.</p>
+              <p className="text-[#1a1a1a]/60 text-sm mb-4">Upload a track, album, PDF, or any file. Max 50 MB. Audio previews are capped at 33 seconds until purchased.</p>
               {uploading ? (
                 <div className="space-y-3">
                   <div className="flex items-center gap-3">
@@ -448,7 +548,7 @@ function SellTab({ user }) {
               {uploadedFile && (
                 <div className="mt-3 flex items-center gap-2 text-emerald-700 text-sm">
                   <CheckCircle2 size={16} />
-                  <span>{uploadedFile.original_filename} ({formatBytes(uploadedFile.size_bytes)}) — uploaded</span>
+                  <span>{uploadedFile.filename || uploadedFile.original_filename} ({formatBytes(uploadedFile.size || uploadedFile.size_bytes)}) — uploaded</span>
                   <button onClick={() => setStep(2)} className="ml-auto text-[#b5651d] font-medium hover:underline">
                     Create listing →
                   </button>
@@ -462,7 +562,7 @@ function SellTab({ user }) {
               {uploadedFile && (
                 <div className="flex items-center gap-2 text-emerald-700 text-sm bg-emerald-50 rounded-lg px-3 py-2">
                   <CheckCircle2 size={15} />
-                  <span>{uploadedFile.original_filename} ({formatBytes(uploadedFile.size_bytes)})</span>
+                  <span>{uploadedFile.filename || uploadedFile.original_filename} ({formatBytes(uploadedFile.size || uploadedFile.size_bytes)})</span>
                 </div>
               )}
 
@@ -606,12 +706,18 @@ function SellTab({ user }) {
                       {prod.sales_count ?? 0}
                     </td>
                     <td className="px-4 py-3 text-right">
-                      <button
-                        onClick={() => handleDelete(prod)}
-                        className="text-[#1a1a1a]/30 hover:text-red-500 transition-colors"
-                      >
-                        <Trash2 size={14} />
-                      </button>
+                      <div className="flex items-center gap-2">
+                        {prod.published && (
+                          <QRCodeButton url={`/store?product=${prod.id}`} label={prod.title} />
+                        )}
+                        <button
+                          onClick={() => handleDelete(prod)}
+                          title="Delete product"
+                          className="text-[#1a1a1a]/30 hover:text-red-500 transition-colors"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -648,19 +754,21 @@ export default function MediaStore() {
     { id: "browse", label: "Browse", icon: ShoppingBag },
     { id: "library", label: "My Library", icon: Library },
     { id: "sell", label: "Sell", icon: Upload },
+    { id: "storefront", label: "Storefront", icon: ExternalLink },
   ];
 
   return (
     <AppShell>
       <div className="min-h-screen bg-[#f5f0e8]">
         {/* Header */}
-        <div className="bg-white border-b border-[#b5651d]/15 px-4 py-6">
+        <div className="relative px-4 py-10"
+          style={{ backgroundImage: "linear-gradient(rgba(10,10,15,0.76), rgba(10,10,15,0.86)), url('https://images.pexels.com/photos/5399008/pexels-photo-5399008.jpeg?auto=compress&cs=tinysrgb&w=1600')", backgroundSize: "cover", backgroundPosition: "center" }}>
           <div className="max-w-5xl mx-auto">
             <div className="flex items-center gap-3 mb-1">
-              <Music size={22} className="text-[#b5651d]" />
-              <h1 className="text-2xl font-bold text-[#1a1a1a]">Store</h1>
+              <Music size={22} className="text-[#E8A51E]" />
+              <h1 className="text-2xl font-bold text-white">Store</h1>
             </div>
-            <p className="text-[#1a1a1a]/50 text-sm">Music, albums, PDFs — directly from the creator</p>
+            <p className="text-white/70 text-sm">Music, albums, PDFs — directly from the creator</p>
           </div>
         </div>
 
@@ -705,8 +813,52 @@ export default function MediaStore() {
           {activeTab === "browse" && <BrowseTab user={user} />}
           {activeTab === "library" && <LibraryTab user={user} />}
           {activeTab === "sell" && <SellTab user={user} />}
+          {activeTab === "storefront" && <StorefrontTab />}
         </div>
       </div>
     </AppShell>
+  );
+}
+
+/* ── Storefront Tab (Gumroad embed) ──────────────────────────────────────── */
+const GUMROAD_PROFILE = "https://namoshun.gumroad.com/";
+
+function StorefrontTab() {
+  return (
+    <div className="space-y-6">
+      <div>
+        <h2 className="font-heading text-xl font-bold text-[#1a1a1a]">NAM Oshun&apos;s Storefront</h2>
+        <p className="text-sm text-[#1a1a1a]/60 mt-1">
+          Support the mission. Every purchase goes straight to the M.O.R.E. Help Center and the community.
+        </p>
+        <div className="flex flex-wrap gap-3 mt-3">
+          <Link to="/our-legacy" className="inline-flex items-center gap-2 bg-[#b5651d] text-white text-sm font-bold px-4 py-2 rounded-lg hover:bg-[#9a5418] transition-colors">
+            <BookOpen size={14} /> The Book — $89
+          </Link>
+          <Link to="/subscribe" className="inline-flex items-center gap-2 bg-[#1a1a1a] text-white text-sm font-bold px-4 py-2 rounded-lg hover:bg-[#1a1a1a]/80 transition-colors">
+            Memberships
+          </Link>
+          <Link to="/donate" className="inline-flex items-center gap-2 border-2 border-[#1a1a1a]/20 hover:border-[#1a1a1a] font-bold text-sm px-4 py-2 rounded-lg transition-colors text-[#1a1a1a]">
+            Make a Donation
+          </Link>
+        </div>
+      </div>
+      <div className="bg-white border border-[#1a1a1a]/10 rounded-2xl overflow-hidden shadow-sm">
+        <div className="flex items-center justify-between gap-3 px-5 py-3 border-b border-[#1a1a1a]/10">
+          <div className="text-sm font-bold text-[#1a1a1a] flex items-center gap-2">
+            NAM Oshun&apos;s Storefront
+            <span className="text-[10px] font-black uppercase tracking-widest bg-green-100 text-green-800 px-2 py-0.5 rounded-full">Live · Gumroad</span>
+          </div>
+          <a href={GUMROAD_PROFILE} target="_blank" rel="noreferrer"
+            className="inline-flex items-center gap-1.5 text-xs font-bold text-[#b5651d] hover:text-[#b5651d]/70 transition-colors">
+            Open in new tab <ExternalLink className="w-3.5 h-3.5" />
+          </a>
+        </div>
+        <iframe src={GUMROAD_PROFILE} title="NAM Oshun Gumroad storefront"
+          className="w-full h-[75vh] min-h-[600px] border-0" loading="lazy"
+          referrerPolicy="no-referrer-when-downgrade" allow="payment" />
+      </div>
+      <p className="text-xs text-[#1a1a1a]/40">Digital products and media are available now. Physical merchandise is not yet available.</p>
+    </div>
   );
 }

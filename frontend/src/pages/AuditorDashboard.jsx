@@ -3,8 +3,7 @@ import { api } from "../lib/api";
 import { useAuth } from "../lib/auth";
 import { Navigate } from "react-router-dom";
 import { toast } from "sonner";
-
-const ROLE_RANK = { student: 1, instructor: 2, admin: 3, executive_admin: 4 };
+import { ROLE_RANK } from "../lib/roles";
 
 const CATEGORIES = [
   { key: "revenue_restored",  label: "Revenue Restored",   color: "#16a34a" },
@@ -203,7 +202,7 @@ function EditStatusModal({ entry, onSave, onClose }) {
 // ── Main Dashboard ────────────────────────────────────────────────────────────
 export default function AuditorDashboard() {
   const { user } = useAuth();
-  const isAdmin = ROLE_RANK[user?.role] >= 3;
+  const isAdmin = ROLE_RANK[user?.role] >= ROLE_RANK["admin"];
 
   const [summary, setSummary]         = useState(null);
   const [entries, setEntries]         = useState([]);

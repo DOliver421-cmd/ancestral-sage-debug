@@ -15,6 +15,7 @@ const MODES = [
   { key: "nec_lookup", label: "NEC Lookup" },
   { key: "blueprint", label: "Blueprint Reader" },
   { key: "ancestral_sage", label: "Ancestral Sage", icon: Compass },
+  { key: "conspiracy_brother", label: "Conspiracy Brother" },
 ];
 
 const SAGE_DEPTH = ["beginner", "intermediate", "advanced"];
@@ -203,7 +204,7 @@ export default function AITutor() {
   return (
     <AppShell>
       <div className="px-10 py-10 max-w-4xl">
-        <div className="overline text-copper">Powered by Claude Sonnet 4.5</div>
+        <div className="overline text-copper">AI answers run on your own key (BYOK)</div>
         <h1 className="font-heading text-4xl font-bold mt-2 flex items-center gap-3"><Sparkles className="w-8 h-8 text-copper" /> AI Tutor</h1>
         <p className="text-ink/60 mt-2">Ask questions. Request explanations. Request scripture. Generate a practice quiz.</p>
 
@@ -213,22 +214,22 @@ export default function AITutor() {
           <div className="text-xs leading-relaxed">
             {restrictedHit ? (
               <>
-                <span className="font-bold text-amber-900">The site's free AI quota just ran out.</span>{" "}
+                <span className="font-bold text-amber-900">Live AI needs your own key.</span>{" "}
                 <span className="text-amber-900/80">
-                  This feature runs on API keys. Activate BYOK and attach a free key (Groq, Cerebras, or Gemini) to keep
-                  your AI working on your own key —{" "}
+                  The platform doesn't fund customer AI — live answers run on YOUR key. Activate BYOK and attach a free
+                  key (Groq, Cerebras, or Gemini) to use live AI —{" "}
                   {user && ["instructor", "admin", "executive_admin", "instructor"].includes(user.role)
                     ? <strong>free for instructors and above.</strong>
                     : <>a one-time <strong>$3</strong> fee (free for instructors and above).</>}
+                  Until then, AI surfaces answer from the free knowledge base.
                 </span>{" "}
                 <Link to="/byok" className="font-bold text-amber-900 underline hover:text-amber-700">Activate BYOK →</Link>
               </>
             ) : (
               <>
-                <span className="font-bold text-ink/70">AI features run on API keys.</span>{" "}
+                <span className="font-bold text-ink/70">AI runs on YOUR key — not the platform's.</span>{" "}
                 <span className="text-ink/50">
-                  When the site's free quota is exhausted, activate BYOK and attach a free key (Groq, Cerebras, or Gemini)
-                  to keep your AI working on your own key —{" "}
+                  Activate BYOK and attach a free key (Groq, Cerebras, or Gemini) to use live AI on your own key —{" "}
                   {user && ["instructor", "admin", "executive_admin", "instructor"].includes(user.role)
                     ? <strong className="text-ink/70">free for instructors and above.</strong>
                     : <>a one-time <strong className="text-ink/70">$3</strong> fee (free for instructors and above).</>}

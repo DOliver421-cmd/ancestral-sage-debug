@@ -10,6 +10,7 @@ export default function PublishingGate({ tier = "base", sovereignDispatch, artif
   const [tab, setTab] = useState("metadata");
   const [form, setForm] = useState({ title: "", artist: "", content_type: "Single", genre: "Hip-Hop", description: "", tags: "" });
   const [meta, setMeta] = useState(null);
+  const [metaDraft, setMetaDraft] = useState("");
   const [loading, setLoading] = useState(false);
   const [copied, setCopied] = useState({});
 
@@ -19,8 +20,11 @@ export default function PublishingGate({ tier = "base", sovereignDispatch, artif
       try {
         const parsed = JSON.parse(artifact.replace(/```json\n?|```/g, "").trim());
         setMeta(parsed);
+        setMetaDraft(JSON.stringify(parsed, null, 2));
       } catch {
+        const rawDraft = JSON.stringify({ raw: artifact }, null, 2);
         setMeta({ raw: artifact });
+        setMetaDraft(rawDraft);
       }
       setLoading(false);
     }
@@ -31,6 +35,7 @@ export default function PublishingGate({ tier = "base", sovereignDispatch, artif
     if (!sovereignDispatch?.current) { toast.error("Sovereign is not connected."); return; }
     setLoading(true);
     setMeta(null);
+    setMetaDraft("");
     await sovereignDispatch.current({
       action: "generate_metadata",
       context: { title: form.title, content_type: form.content_type, genre: form.genre, description: form.description },
@@ -117,19 +122,31 @@ export default function PublishingGate({ tier = "base", sovereignDispatch, artif
 
           {meta && (
             <div style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: 4 }}>
-              {Object.entries(meta).filter(([k]) => k !== "raw").map(([key, value]) => (
-                <div key={key} style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(184,134,11,0.2)", padding: "10px 12px", borderRadius: 4 }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 8 }}>
-                    <div style={{ flex: 1 }}>
-                      <div style={{ ...labelStyle, marginBottom: 4 }}>{key.replace(/_/g, " ")}</div>
-                      <div style={{ fontSize: 13, color: "rgba(255,255,255,0.85)", lineHeight: 1.6 }}>{Array.isArray(value) ? value.join(", ") : value}</div>
-                    </div>
-                    <button onClick={() => copyField(key, Array.isArray(value) ? value.join(", ") : value)} style={{ ...actionBtn, flexShrink: 0 }}>
-                      {copied[key] ? <Check style={{ width: 11, height: 11 }} /> : <Copy style={{ width: 11, height: 11 }} />}
-                    </button>
-                  </div>
-                </div>
-              ))}
+              <div style={{ ...labelStyle, color: "rgba(184,134,11,0.95)" }}>
+                Draft metadata — edit every field before publishing
+              </div>
+              <textarea
+                value={metaDraft}
+                onChange={(e) => {
+                  const nextDraft = e.target.value;
+                  setMetaDraft(nextDraft);
+                  try { setMeta(JSON.parse(nextDraft)); } catch { /* keep the human's in-progress draft */ }
+                }}
+                aria-label="Editable release metadata draft"
+                style={{
+                  width: "100%", minHeight: 260, boxSizing: "border-box", resize: "vertical",
+                  background: "rgba(255,255,255,0.03)", border: "1px solid rgba(184,134,11,0.3)",
+                  color: "rgba(255,255,255,0.9)", padding: 12, fontFamily: "monospace", fontSize: 12,
+                  lineHeight: 1.6, outline: "none",
+                }}
+              />
+              <button
+                onClick={() => copyField("metadata", metaDraft)}
+                style={{ ...actionBtn, alignSelf: "flex-start" }}
+              >
+                {copied.metadata ? <Check style={{ width: 11, height: 11 }} /> : <Copy style={{ width: 11, height: 11 }} />}
+                {copied.metadata ? "Copied" : "Copy Draft"}
+              </button>
             </div>
           )}
           <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>

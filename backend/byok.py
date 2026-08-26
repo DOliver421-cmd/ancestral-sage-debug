@@ -17,7 +17,9 @@ HTTP call path serves every provider.
 
 Key storage: `db.user_byok_keys` — encrypted at rest with the same Fernet secret
 the Provider Gateway uses (`PROVIDER_KEY_ENCRYPTION_SECRET`). Keys are NEVER
-returned to the frontend after save; only a masked suffix is shown.
+returned to the frontend after save; only a masked suffix is shown. If the
+encryption secret is not configured, saving a key is REFUSED — plaintext
+storage is never silently accepted.
 
 Entitlement: stored on the user document as `byok_enabled` + `byok_activated_at`.
 The `POST /api/byok/activate` endpoint flips the flag and is the integration
@@ -81,36 +83,26 @@ _PROVIDER_PRIORITY = ("groq", "cerebras", "gemini")
 
 # ── Encryption (same secret + scheme as the Provider Gateway) ────────────────
 
-_ENCRYPT_SECRET = os.environ.get("PROVIDER_KEY_ENCRYPTION_SECRET", "")
-_FERNET = None
+# ── Encryption (shared self-healing keyvault — see keyvault.py) ──────────────
 
 
 def _get_fernet():
-    """Return a cached Fernet instance, or False when encryption is unavailable."""
-    global _FERNET
-    if _FERNET is not None:
-        return _FERNET
-    _FERNET = False
-    if _ENCRYPT_SECRET:
-        try:
-            from cryptography.fernet import Fernet
-            # Prefer a valid Fernet key; derive one from an arbitrary string otherwise.
-            try:
-                _FERNET = Fernet(_ENCRYPT_SECRET.encode())
-            except Exception:
-                _kb = (_ENCRYPT_SECRET.encode() * 3)[:32]
-                _FERNET = Fernet(base64.urlsafe_b64encode(_kb))
-        except Exception as _e:
-            logger.warning("byok: Fernet init failed — keys will be stored plaintext: %s", _e)
-            _FERNET = False
-    return _FERNET
+    """Return the shared vault Fernet instance, or False when unavailable.
+
+    The vault resolves its secret automatically: PROVIDER_KEY_ENCRYPTION_SECRET
+    env var → MongoDB-persisted (auto-generated on first boot) → ephemeral.
+    A save is refused only in the truly-unavailable case — the feature never
+    silently stores plaintext and never needs a manual env var to work."""
+    import keyvault
+    f = keyvault.get_fernet()
+    return f if f is not None else False
 
 
 def encrypt_key(plaintext: str) -> str:
     fernet = _get_fernet()
     if fernet:
         return fernet.encrypt(plaintext.encode()).decode()
-    return plaintext  # no secret configured — stored plaintext (warned at save)
+    return plaintext  # no secret configured — callers must refuse to save
 
 
 def decrypt_key(ciphertext: str) -> str:
@@ -203,8 +195,16 @@ async def save_byok_key(db, user_id: str, provider: str, plaintext_key: str) -> 
     plaintext_key = (plaintext_key or "").strip()
     if not plaintext_key:
         raise ValueError("empty_key")
+    # Fail-safe: never store a user's API key in plaintext. If the encryption
+    # secret is not configured, refuse the save loudly instead of silently
+    # degrading — the user gets a clear error instead of an unencrypted key
+    # written to MongoDB.
     if not _get_fernet():
-        logger.warning("byok: storing key plaintext for user %s (PROVIDER_KEY_ENCRYPTION_SECRET unset)", user_id)
+        logger.error(
+            "byok: REFUSING to store key for user %s — PROVIDER_KEY_ENCRYPTION_SECRET is unset",
+            user_id,
+        )
+        raise ValueError("encryption_unavailable")
 
     now = datetime.now(timezone.utc).isoformat()
     doc = {

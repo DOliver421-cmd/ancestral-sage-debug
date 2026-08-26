@@ -202,9 +202,17 @@ export default function VisualAltar({ tier = 'base', sovereignDispatch, artifact
           <div style={{ fontSize: 9, fontFamily: 'monospace', letterSpacing: '0.2em', textTransform: 'uppercase', color: 'rgba(192,132,252,0.7)', marginBottom: 10 }}>
             Visual Direction
           </div>
-          <p style={{ margin: 0, fontSize: 14, color: 'rgba(255,255,255,0.88)', lineHeight: 1.7, fontStyle: 'italic' }}>
-            {direction}
-          </p>
+          <textarea
+            value={direction}
+            onChange={(e) => setDirection(e.target.value)}
+            aria-label="Editable visual direction draft"
+            style={{
+              width: '100%', minHeight: 150, boxSizing: 'border-box', resize: 'vertical',
+              margin: 0, fontSize: 14, color: 'rgba(255,255,255,0.88)', lineHeight: 1.7,
+              fontStyle: 'italic', background: 'rgba(0,0,0,0.2)',
+              border: '1px solid rgba(192,132,252,0.2)', padding: 12, outline: 'none',
+            }}
+          />
         </div>
       )}
 

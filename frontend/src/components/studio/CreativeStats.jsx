@@ -1,4 +1,3 @@
-import { useState, useEffect } from "react";
 import { studioSound } from "./SoundSystem";
 
 function formatDuration(ms) {
@@ -28,14 +27,41 @@ function calcStreak(sessions) {
   return streak;
 }
 
+// ── Progress ring (pure SVG — no chart lib, no cost) ────────────────────────
+function Ring({ value, max, sub, label, color }) {
+  const r = 26;
+  const c = 2 * Math.PI * r;
+  const pct = max > 0 ? Math.min(1, value / max) : 0;
+  return (
+    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 7 }}>
+      <div style={{ position: "relative", width: 64, height: 64 }}>
+        <svg width="64" height="64" style={{ transform: "rotate(-90deg)" }}>
+          <circle cx="32" cy="32" r={r} fill="none" stroke="rgba(255,255,255,0.08)" strokeWidth="6" />
+          <circle
+            cx="32" cy="32" r={r} fill="none"
+            stroke={color} strokeWidth="6" strokeLinecap="round"
+            strokeDasharray={c} strokeDashoffset={c * (1 - pct)}
+            style={{ filter: `drop-shadow(0 0 6px ${color})`, transition: "stroke-dashoffset 0.6s ease" }}
+          />
+        </svg>
+        <div style={{
+          position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center",
+          fontSize: 11, fontWeight: 900, color: "#fff", fontFamily: "monospace",
+        }}>
+          {sub}
+        </div>
+      </div>
+      <div style={{
+        fontSize: 8, fontFamily: "monospace", letterSpacing: "0.16em",
+        textTransform: "uppercase", color: "rgba(255,255,255,0.4)",
+      }}>
+        {label}
+      </div>
+    </div>
+  );
+}
+
 export default function CreativeStats({ projects = [], sessions = [] }) {
-  const [open, setOpen] = useState(false);
-
-  const toggle = () => {
-    if (!open) studioSound.play('summon');
-    setOpen(v => !v);
-  };
-
   const totalTime = sessions.reduce((acc, s) => {
     if (s.start && s.end) return acc + (s.end - s.start);
     return acc;
@@ -44,118 +70,98 @@ export default function CreativeStats({ projects = [], sessions = [] }) {
   const completed = projects.filter(p => p.status === 'completed').length;
   const drafts = projects.filter(p => !p.status || p.status === 'draft').length;
   const streak = calcStreak(sessions);
-
   const chambers = [...new Set(sessions.flatMap(s => s.chambers || []))];
+
+  // Rings: 10-project target, 4-hour session target
+  const projectTarget = 10;
+  const timeTargetMin = 240;
+  const timeSub = totalTime >= 3600000 ? formatDuration(totalTime) : `${Math.floor(totalTime / 60000)}m`;
 
   return (
     <div style={{
-      position: 'fixed', left: 0, top: 0, bottom: 0,
-      zIndex: 60, display: 'flex', alignItems: 'stretch',
-      transition: 'all 0.3s ease',
-      // Sits behind SovereignVoice (z: 50) but above main (z: 0)
-      // Actually let's make it not conflict — it will be inside main layout
+      width: 232,
+      background: "rgba(8,8,16,0.96)",
+      border: "1px solid rgba(255,215,0,0.15)",
+      borderRadius: 8,
+      padding: "16px 16px 14px",
+      display: "flex", flexDirection: "column", gap: 12,
+      boxShadow: "0 8px 30px rgba(0,0,0,0.5)",
     }}>
-      {/* Panel */}
+      {/* Header */}
       <div style={{
-        width: open ? 280 : 0,
-        overflow: 'hidden',
-        transition: 'width 0.3s ease',
-        background: 'rgba(6,6,14,0.97)',
-        borderRight: '1px solid rgba(255,215,0,0.15)',
-        display: 'flex', flexDirection: 'column',
+        fontFamily: "monospace", fontSize: 9, fontWeight: 900,
+        letterSpacing: "0.22em", textTransform: "uppercase",
+        color: "rgba(255,215,0,0.75)", display: "flex", alignItems: "center", gap: 8,
       }}>
-        <div style={{ padding: '24px 20px 20px', minWidth: 280 }}>
-          {/* Header */}
-          <div style={{
-            fontFamily: 'monospace', fontSize: 9,
-            letterSpacing: '0.25em', textTransform: 'uppercase',
-            color: 'rgba(184,134,11,0.6)', marginBottom: 20,
-          }}>
-            ◈ Creator Stats
-          </div>
-
-          {/* Stats */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-            <Stat label="Time Creating" value={formatDuration(totalTime)} icon="⏱" />
-            <Stat label="Completed Projects" value={completed} icon="✦" />
-            <Stat label="Active Drafts" value={drafts} icon="⌬" />
-            <Stat label="Creative Streak" value={`${streak} day${streak !== 1 ? 's' : ''}`} icon="🔥" />
-          </div>
-
-          {chambers.length > 0 && (
-            <div style={{ marginTop: 24 }}>
-              <div style={{
-                fontSize: 9, fontFamily: 'monospace', letterSpacing: '0.2em',
-                textTransform: 'uppercase', color: 'rgba(184,134,11,0.5)', marginBottom: 10,
-              }}>
-                Tools Used
-              </div>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-                {chambers.map(ch => (
-                  <div key={ch} style={{
-                    fontSize: 10, fontFamily: 'monospace',
-                    color: 'rgba(255,215,0,0.7)',
-                    border: '1px solid rgba(255,215,0,0.2)',
-                    padding: '3px 8px',
-                    background: 'rgba(255,215,0,0.04)',
-                  }}>
-                    {ch}
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Caption */}
-          <div style={{
-            marginTop: 28, paddingTop: 16,
-            borderTop: '1px solid rgba(255,215,0,0.1)',
-            fontFamily: 'Georgia, serif', fontStyle: 'italic',
-            fontSize: 12, color: 'rgba(255,255,255,0.35)',
-          }}>
-            "The stats don't lie."
-          </div>
-        </div>
+        <span style={{
+          width: 6, height: 6, borderRadius: "50%",
+          background: "#00ffcc", boxShadow: "0 0 8px #00ffcc",
+        }} />
+        Session Stats
       </div>
 
-      {/* Toggle tab */}
-      <button
-        onClick={toggle}
-        style={{
-          width: 20, alignSelf: 'center',
-          background: 'rgba(184,134,11,0.12)',
-          border: '1px solid rgba(184,134,11,0.25)',
-          borderLeft: 'none',
-          padding: '14px 0',
-          cursor: 'pointer',
-          color: 'rgba(184,134,11,0.7)',
-          borderRadius: '0 4px 4px 0',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          writingMode: 'vertical-rl',
-          fontSize: 14,
-        }}
-        title={open ? 'Collapse stats' : 'View creative stats'}
-      >
-        ≡
-      </button>
+      {/* Rings */}
+      <div style={{ display: "flex", justifyContent: "space-around", padding: "4px 0" }}>
+        <Ring
+          value={projects.length}
+          max={projectTarget}
+          sub={`${projects.length}/${projectTarget}`}
+          label="Projects"
+          color="#00ffcc"
+        />
+        <Ring
+          value={Math.min(timeTargetMin, Math.floor(totalTime / 60000))}
+          max={timeTargetMin}
+          sub={timeSub}
+          label="Time"
+          color="#ffd700"
+        />
+      </div>
+
+      {/* Divider */}
+      <div style={{ height: 1, background: "rgba(255,215,0,0.1)" }} />
+
+      {/* Detail rows */}
+      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+        <StatRow label="Completed" value={completed} icon="✦" />
+        <StatRow label="Active Drafts" value={drafts} icon="⌬" />
+        <StatRow label="Creative Streak" value={`${streak} day${streak !== 1 ? 's' : ''}`} icon="🔥" />
+      </div>
+
+      {chambers.length > 0 && (
+        <>
+          <div style={{ height: 1, background: "rgba(255,215,0,0.1)" }} />
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 5 }}>
+            {chambers.map(ch => (
+              <span key={ch} style={{
+                fontSize: 9, fontFamily: "monospace", color: "rgba(255,215,0,0.65)",
+                border: "1px solid rgba(255,215,0,0.2)", padding: "2px 7px",
+                background: "rgba(255,215,0,0.04)",
+              }}>
+                {ch}
+              </span>
+            ))}
+          </div>
+        </>
+      )}
     </div>
   );
 }
 
-function Stat({ label, value, icon }) {
+function StatRow({ label, value, icon }) {
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-      <div style={{ fontSize: 16, width: 20, textAlign: 'center' }}>{icon}</div>
+    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+      <div style={{ fontSize: 13, width: 18, textAlign: "center", opacity: 0.8 }}>{icon}</div>
       <div style={{ flex: 1 }}>
         <div style={{
-          fontSize: 9, fontFamily: 'monospace', letterSpacing: '0.15em',
-          textTransform: 'uppercase', color: 'rgba(255,255,255,0.35)', marginBottom: 2,
+          fontSize: 8, fontFamily: "monospace", letterSpacing: "0.15em",
+          textTransform: "uppercase", color: "rgba(255,255,255,0.35)",
         }}>
           {label}
         </div>
-        <div style={{ fontSize: 16, fontWeight: 900, color: '#ffd700', lineHeight: 1 }}>
-          {value}
-        </div>
+      </div>
+      <div style={{ fontSize: 13, fontWeight: 900, color: "#ffd700", fontFamily: "monospace" }}>
+        {value}
       </div>
     </div>
   );

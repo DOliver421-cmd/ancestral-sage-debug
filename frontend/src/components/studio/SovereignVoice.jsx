@@ -9,6 +9,16 @@ const GREETINGS = [
   "I've got everything prepped. Your call.",
 ];
 
+const CHAMBER_ROUTE_LABELS = {
+  "lyric-forge": "Lyric Forge",
+  "visual-altar": "Visual Altar",
+  "script": "Script Scriptorium",
+  "sound-lab": "Sound Lab",
+  "vault": "Vault of Versions",
+  "publishing-gate": "Publishing Gate",
+  "ghost-producer": "Ghost Producer",
+};
+
 const CHAMBER_NOTES = {
   "lyric-forge": "Lyric Forge is open. What are we writing — hook, verse, or bridge?",
   "visual-altar": "Boss, the Visual Altar is lit. Moodboard first, then we'll align the palette.",
@@ -37,6 +47,7 @@ export default function SovereignVoice({ activeChamber, onArtifact, dispatchRef 
   ]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
+  const [routingTo, setRoutingTo] = useState(null); // e.g. "Lyric Forge" while an action is dispatched
   const bottomRef = useRef(null);
 
   useEffect(() => {
@@ -57,6 +68,10 @@ export default function SovereignVoice({ activeChamber, onArtifact, dispatchRef 
     setLoading(true);
     // Auto-open when Sovereign has something to say
     setCollapsed(false);
+    // Show which tool Sovereign is dispatching to (design: "Routing to Lyric Forge...")
+    if (action !== "chat" && activeChamber) {
+      setRoutingTo(CHAMBER_ROUTE_LABELS[activeChamber] || activeChamber);
+    }
     try {
       const r = await api.post("/studio/sovereign", {
         chamber: activeChamber || "map",
@@ -73,6 +88,7 @@ export default function SovereignVoice({ activeChamber, onArtifact, dispatchRef 
       setMessages(m => [...m, { role: "sovereign", text: "Give me a moment — I'll be right back." }]);
     } finally {
       setLoading(false);
+      setRoutingTo(null);
     }
   }, [activeChamber, onArtifact]);
 
@@ -149,6 +165,29 @@ export default function SovereignVoice({ activeChamber, onArtifact, dispatchRef 
           <div ref={bottomRef} />
         </div>
 
+        {/* Routing status — shows which tool Sovereign is dispatching to */}
+        {loading && routingTo && (
+          <div style={{
+            padding: "6px 14px",
+            borderTop: "1px solid rgba(184,134,11,0.12)",
+            display: "flex", alignItems: "center", gap: 8,
+            background: "rgba(0,255,204,0.04)",
+          }}>
+            <span style={{
+              width: 7, height: 7, borderRadius: "50%", flexShrink: 0,
+              background: "#00ffcc", boxShadow: "0 0 8px #00ffcc",
+              animation: "svPulse 1s ease-in-out infinite",
+            }} />
+            <span style={{
+              fontSize: 9, fontFamily: "monospace", fontWeight: 700,
+              letterSpacing: "0.1em", textTransform: "uppercase",
+              color: "rgba(255,255,255,0.55)",
+            }}>
+              Routing to {routingTo}...
+            </span>
+          </div>
+        )}
+
         {/* Input */}
         <div style={{ padding: "10px 12px", borderTop: "1px solid rgba(184,134,11,0.15)", display: "flex", gap: 8 }}>
           <input
@@ -189,6 +228,10 @@ export default function SovereignVoice({ activeChamber, onArtifact, dispatchRef 
       >
         {collapsed ? <ChevronRight style={{ width: 12, height: 12 }} /> : <ChevronLeft style={{ width: 12, height: 12 }} />}
       </button>
+
+      <style>{`
+        @keyframes svPulse { 0%,100%{opacity:1} 50%{opacity:0.35} }
+      `}</style>
     </div>
   );
 }

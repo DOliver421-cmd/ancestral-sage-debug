@@ -1,6 +1,6 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import AppShell from "../components/AppShell";
-import { api, BACKEND_URL } from "../lib/api";
+import { api, BACKEND_URL, openAuthedUrl } from "../lib/api";
 import { useAuth } from "../lib/auth";
 import { Link } from "react-router-dom";
 import { Lock, Zap, BookOpen, ShoppingBag, CheckCircle, Loader2, Award, FlaskConical, ShieldCheck } from "lucide-react";
@@ -27,16 +27,28 @@ export default function ModulesList() {
   const [category, setCategory] = useState("");
   const [buying, setBuying] = useState(null);
   const [loadingCourses, setLoadingCourses] = useState(false);
+  const [catalogError, setCatalogError] = useState("");
+  const [catalogLoading, setCatalogLoading] = useState(true);
 
-  useEffect(() => {
+  const loadCatalog = useCallback(() => {
+    setCatalogLoading(true);
+    setCatalogError("");
     fetch(`${BACKEND_URL}/api/modules`)
-      .then((r) => r.ok ? r.json() : [])
+      .then((r) => {
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        return r.json();
+      })
       .then((data) => setModules(Array.isArray(data) ? data : []))
-      .catch(() => {});
+      .catch((e) => setCatalogError(e.message || "Could not load the curriculum."))
+      .finally(() => setCatalogLoading(false));
     if (user) {
       api.get("/progress/me").then((r) => setProgress(r.data)).catch(() => {});
     }
   }, [user]);
+
+  useEffect(() => {
+    loadCatalog();
+  }, [loadCatalog]);
 
   useEffect(() => {
     if (tab !== "community") return;
@@ -66,11 +78,15 @@ export default function ModulesList() {
 
   return (
     <AppShell>
-      <div className="px-10 py-10 max-w-6xl">
-        {/* HEADER */}
-        <div className="overline text-copper">Course Catalogue</div>
-        <h1 className="font-heading text-4xl font-bold mt-2">Learn. Build. Credential.</h1>
-        <p className="text-ink/60 mt-2 max-w-2xl">Core electrical training, creator-published courses, compliance certifications, and open-access learning — all in one place.</p>
+      <div className="relative py-10 sm:py-12 px-4 sm:px-10"
+        style={{ backgroundImage: "linear-gradient(rgba(10,10,15,0.72), rgba(10,10,15,0.82)), url('https://images.pexels.com/photos/34211750/pexels-photo-34211750.jpeg?auto=compress&cs=tinysrgb&w=1600')", backgroundSize: "cover", backgroundPosition: "center" }}>
+        <div className="max-w-6xl mx-auto">
+          <div className="overline text-signal">Core Curriculum</div>
+          <h1 className="font-heading text-3xl sm:text-4xl font-black text-white mt-2">Learn. Build. Credential.</h1>
+          <p className="text-white/70 mt-2 max-w-2xl">Core electrical training, creator-published courses, compliance certifications, and open-access learning — all in one place.</p>
+        </div>
+      </div>
+      <div className="px-4 sm:px-10 py-8 sm:py-10 max-w-6xl">
 
         {/* TABS */}
         <div className="flex gap-2 flex-wrap mt-6">
@@ -93,19 +109,44 @@ export default function ModulesList() {
         {/* CORE PROGRAM TAB */}
         {tab === "core" && (
           <>
+            {catalogError && (
+              <div className="mt-6 rounded-xl border border-red-200 bg-red-50 p-5 text-sm text-red-700 flex items-start justify-between gap-4">
+                <div>
+                  <div className="font-bold mb-1">The curriculum could not be loaded.</div>
+                  <div className="text-red-600/80">The server returned an error ({catalogError}). This is a site problem, not yours — try again, and if it persists the team has been told.</div>
+                </div>
+                <button onClick={loadCatalog} className="shrink-0 text-xs font-black bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg transition-colors">Retry</button>
+              </div>
+            )}
+            {catalogLoading && !catalogError && (
+              <div className="flex items-center justify-center py-24 text-ink/40"><Loader2 className="w-6 h-6 animate-spin mr-2" /> Loading curriculum…</div>
+            )}
+            {!catalogLoading && !catalogError && modules.length === 0 && (
+              <div className="text-center py-24">
+                <BookOpen className="w-10 h-10 text-ink/20 mx-auto mb-3" />
+                <p className="text-ink/40 text-sm">No curriculum modules published yet.</p>
+              </div>
+            )}
             <div className="mt-3 flex flex-wrap gap-5 text-sm">
-              <a href={`${BACKEND_URL}/api/handbooks/instructor`} target="_blank" rel="noopener noreferrer" className="font-bold text-copper hover:underline">📘 Instructor Handbook →</a>
-              <a href={`${BACKEND_URL}/api/handbooks/student`} target="_blank" rel="noopener noreferrer" className="font-bold text-copper hover:underline">📕 Student Handbook →</a>
-              <Link to="/ascension-protocols" className="font-bold text-copper hover:underline">🌱 Ascension Protocols (free) →</Link>
+              <button onClick={() => openAuthedUrl("/handbooks/instructor")} className="font-bold text-copper hover:underline cursor-pointer bg-transparent border-0 p-0">📘 Instructor Handbook →</button>
+              <button onClick={() => openAuthedUrl("/handbooks/student")} className="font-bold text-copper hover:underline cursor-pointer bg-transparent border-0 p-0">📕 Student Handbook →</button>
+              {user ? (
+                <Link to="/ascension-protocols" className="font-bold text-copper hover:underline">🌱 Ascension Protocols (free) →</Link>
+              ) : (
+                <Link to="/register" className="font-bold text-copper hover:underline">🌱 Ascension Protocols (free for members) →</Link>
+              )}
             </div>
 
         <div className="grid md:grid-cols-2 gap-5 mt-10">
           {modules.map((m) => {
             const p = bySlug[m.slug];
             const isFree = m.free;
-            const isLocked = !isFree && !user;
-            const badge = p?.status === "completed" ? "badge-signal" : p?.status === "in_progress" ? "badge-copper" : isFree ? "badge-signal" : "badge-outline";
-            const label = p?.status === "completed" ? "Completed" : p?.status === "in_progress" ? "In Progress" : isFree ? "FREE" : user ? "Not Started" : "Enroll to Unlock";
+            // Course CONTENT is never public — every module requires a registered
+            // account (GET /modules/{slug} is auth-gated). "FREE" means "included in
+            // the free tier once you're signed in", not "browseable logged out".
+            const isLocked = !user;
+            const badge = p?.status === "completed" ? "badge-signal" : p?.status === "in_progress" ? "badge-copper" : !user ? "badge-outline" : isFree ? "badge-signal" : "badge-outline";
+            const label = p?.status === "completed" ? "Completed" : p?.status === "in_progress" ? "In Progress" : !user ? "Sign up to access" : isFree ? "FREE" : "Not Started";
             return (
               <div key={m.slug} className="card-flat p-6 group relative" data-testid={`mod-card-${m.slug}`}>
                 {isLocked && (
@@ -135,9 +176,9 @@ export default function ModulesList() {
                     to={isLocked ? "/register" : `/modules/${m.slug}`}
                     className="text-sm font-bold text-copper hover:underline"
                   >
-                    {isLocked ? "Enroll to unlock →" : "Start module →"}
+                    {isLocked ? "Sign up to start →" : "Start module →"}
                   </Link>
-                  {isFree && (
+                  {isFree && user && (
                     <SharePanel compact url={`/modules/${m.slug}`} title={m.title} />
                   )}
                 </div>

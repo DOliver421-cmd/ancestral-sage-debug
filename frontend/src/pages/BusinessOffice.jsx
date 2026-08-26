@@ -22,10 +22,16 @@ import AppShell from "../components/AppShell";
 import { useAuth } from "../lib/auth";
 import { api } from "../lib/api";
 import { toast } from "sonner";
+import { roleAtLeast, ROLE_LABELS } from "../lib/roles";
 import SourceProtocolPanel from "../components/SourceProtocolPanel";
+import { MoreOpsContent } from "./MoreOps";
+import { CompetitionArenaContent } from "./CompetitionArena";
+import PageBack from "../components/PageBack";
+import { HybridNamContent } from "./HybridNam";
 import {
   Building2, TrendingUp, DollarSign, Receipt, Users, RefreshCw,
-  ArrowRight, Plus, Wrench, Briefcase, Target, ShieldCheck, HeartHandshake, Sparkles,
+  ArrowRight, Plus, Wrench, Briefcase, Target, ShieldCheck, HeartHandshake, Sparkles, Lock, Loader2,
+  Archive, Trash2,
 } from "lucide-react";
 
 const GREEN = "#1B4332";
@@ -46,6 +52,795 @@ const fmt = (cents) => {
   if (cents == null) return "—";
   return "$" + (cents / 100).toLocaleString("en-US", { maximumFractionDigits: 2 });
 };
+
+const fmtDt = (s) => {
+  if (!s) return "—";
+  const d = new Date(s);
+  return isNaN(d) ? String(s) : d.toLocaleString();
+};
+
+// ── AI Business Office hub — the virtual back office of everything M.O.R.E. ──
+// One office: the revenue engine, M.O.R.E. Ops (with Director Jamil inside),
+// the Arena, and the executive control desk. Embedded views share the office
+// shell so nothing is a dead link or a walled-off feature.
+const HUB_TABS = [
+  { id: "office",   label: "Office",   desc: "Revenue engine" },
+  { id: "ops",      label: "More Ops", desc: "Department AI + Director Jamil" },
+  { id: "nam",      label: "NAM",      desc: "Assistant Director" },
+  { id: "projects", label: "Projects", desc: "AI team pipeline" },
+  { id: "arena",    label: "Arena",    desc: "Competition" },
+  { id: "control",  label: "Control",  desc: "Exec tools" },
+];
+
+function HubBar({ tab, setTab }) {
+  return (
+    <div style={{ background: "#0f2a1e", borderBottom: "1px solid rgba(232,165,30,0.25)", padding: "10px 24px" }}>
+      <div className="flex flex-wrap gap-2">
+        {HUB_TABS.map((t) => (
+          <button
+            key={t.id}
+            onClick={() => setTab(t.id)}
+            style={{
+              display: "flex", alignItems: "center", gap: 8, padding: "8px 14px", borderRadius: 10,
+              border: tab === t.id ? "1px solid rgba(232,165,30,0.5)" : "1px solid rgba(255,255,255,0.12)",
+              background: tab === t.id ? "rgba(232,165,30,0.14)" : "transparent",
+              color: tab === t.id ? "#E8A51E" : "rgba(255,255,255,0.65)",
+              fontSize: 13, fontWeight: 700, cursor: "pointer",
+            }}
+          >
+            {t.label}
+            <span style={{ fontSize: 10, fontWeight: 600, opacity: 0.6, textTransform: "uppercase", letterSpacing: "0.04em" }}>
+              {t.desc}
+            </span>
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ── AI Team Projects — the executive pipeline, inside the office ─────────────
+// The AI team (Jamil coordinating personas) runs projects through the
+// executive pipeline: intake → assign → execute → review → operate → deliver.
+// This panel gives the office a live project workspace — create, advance,
+// deliver, discuss — without leaving the hub.
+const PIPE_STAGE_RANK = ["intake", "assign", "execute", "review", "operate", "deliver"];
+const PIPE_STAGE_LABEL = { intake: "Intake", assign: "Assign", execute: "Execute", review: "Review", operate: "Operate", deliver: "Deliver" };
+const PRIORITY_COLOR = { low: "#5B8C5A", normal: COPPER, high: "#B5651D", urgent: "#B23A2E" };
+
+function ExecProjectsPanel() {
+  const [projects, setProjects] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [selected, setSelected] = useState(null);
+  const [detail, setDetail] = useState(null);
+  const [comments, setComments] = useState([]);
+  const [showNew, setShowNew] = useState(false);
+  const [showDiscovery, setShowDiscovery] = useState(false);
+  const [discovery, setDiscovery] = useState(null);
+  const [scanning, setScanning] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [packetForm, setPacketForm] = useState(null);
+  const [form, setForm] = useState({ title: "", brief: "", project_type: "general", priority: "normal" });
+  const [deliv, setDeliv] = useState({ title: "", persona: "Jamil", content_type: "text", content: "", file_refs: "" });
+  const [comment, setComment] = useState("");
+  const [run, setRun] = useState({ persona: "Jamil", instructions: "" });
+  const [showRun, setShowRun] = useState(false);
+  const [running, setRunning] = useState(false);
+  const [archive, setArchive] = useState([]);
+  const [archiveOpen, setArchiveOpen] = useState(false);
+  const [archBusy, setArchBusy] = useState(false);
+  const [archForm, setArchForm] = useState({ title: "", kind: "audio", notes: "", file_ref: "" });
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      const { data } = await api.get("/executive/projects");
+      setProjects(data || []);
+    } catch {
+      setProjects([]);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { load(); }, [load]);
+
+  const openProject = async (p) => {
+    setSelected(p);
+    try {
+      const [d, c] = await Promise.all([
+        api.get(`/executive/projects/${p.id}`).then((r) => r.data).catch(() => null),
+        api.get(`/executive/projects/${p.id}/comments`).then((r) => r.data || []).catch(() => []),
+      ]);
+      setDetail(d);
+      setComments(Array.isArray(c) ? c : []);
+      const pk = d?.packet;
+      setPacketForm(pk ? {
+        objective: pk.objective || "", owner: pk.owner || "", ai_team: (pk.ai_team || []).join(", "),
+        deliverables_summary: pk.deliverables_summary || "", constraints: pk.constraints || "",
+        authority: pk.authority || "approval_required", approval_points: (pk.approval_points || []).join(", "),
+        evidence: pk.evidence || "", outcome_report: pk.outcome_report || "", packet_status: pk.packet_status || "planning",
+      } : null);
+    } catch {}
+  };
+
+  const scanDiscovery = async () => {
+    setScanning(true);
+    try {
+      const { data } = await api.get("/executive/discovery");
+      setDiscovery(data);
+    } catch (e) {
+      toast.error(e?.response?.data?.detail || "Scan failed.");
+    } finally {
+      setScanning(false);
+    }
+  };
+
+  const startFromProposal = (proposal) => {
+    setForm({ title: proposal.title, brief: proposal.brief, project_type: "general", priority: "normal" });
+    setShowNew(true);
+    setShowDiscovery(false);
+  };
+
+  const savePacket = async () => {
+    if (!selected || !packetForm) return;
+    setBusy(true);
+    try {
+      await api.put(`/executive/projects/${selected.id}/packet`, {
+        ...packetForm,
+        ai_team: packetForm.ai_team.split(",").map((s) => s.trim()).filter(Boolean),
+        approval_points: packetForm.approval_points.split(",").map((s) => s.trim()).filter(Boolean),
+      });
+      toast.success("Project packet saved — the operating agreement is set.");
+      await openProject(selected);
+      await load();
+    } catch (e) {
+      toast.error(e?.response?.data?.detail || "Could not save packet.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const createProject = async () => {
+    if (!form.title.trim() || !form.brief.trim()) { toast.error("Title and brief are required."); return; }
+    setBusy(true);
+    try {
+      await api.post("/executive/projects", form);
+      toast.success("Project created — the AI team starts at Intake.");
+      setShowNew(false);
+      setForm({ title: "", brief: "", project_type: "general", priority: "normal" });
+      await load();
+    } catch (e) {
+      toast.error(e?.response?.data?.detail || "Failed to create project.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const advance = async () => {
+    if (!selected) return;
+    setBusy(true);
+    try {
+      await api.post(`/executive/projects/${selected.id}/advance`, {});
+      toast.success("Advanced to the next stage — context flows forward.");
+      await openProject(selected);
+      await load();
+    } catch (e) {
+      toast.error(e?.response?.data?.detail || "Could not advance.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const loadArchive = async () => {
+    try {
+      const { data } = await api.get("/executive/archive");
+      setArchive(Array.isArray(data) ? data : []);
+    } catch {
+      setArchive([]);
+    }
+  };
+
+  const addAsset = async () => {
+    if (!archForm.title.trim()) { toast.error("Asset title is required."); return; }
+    setArchBusy(true);
+    try {
+      await api.post("/executive/archive", archForm);
+      toast.success("Asset added to the archive — Discovery can now build from it.");
+      setArchForm({ title: "", kind: "audio", notes: "", file_ref: "" });
+      await loadArchive();
+    } catch (e) {
+      toast.error(e?.response?.data?.detail || "Could not add asset.");
+    } finally {
+      setArchBusy(false);
+    }
+  };
+
+  const deleteAsset = async (id) => {
+    try {
+      await api.delete(`/executive/archive/${id}`);
+      toast.success("Asset removed from the archive.");
+      await loadArchive();
+    } catch (e) {
+      toast.error(e?.response?.data?.detail || "Could not remove asset.");
+    }
+  };
+
+  const runStage = async () => {
+    if (!selected || !run.persona.trim()) { toast.error("Pick the persona to run this stage."); return; }
+    setRunning(true);
+    try {
+      await api.post(`/executive/projects/${selected.id}/run-stage`, {
+        persona: run.persona,
+        instructions: run.instructions,
+      });
+      toast.success(`${run.persona} executed the stage — result posted as a pending deliverable.`);
+      setShowRun(false);
+      setRun({ persona: "Jamil", instructions: "" });
+      await openProject(selected);
+      await load();
+    } catch (e) {
+      toast.error(e?.response?.data?.detail || "Stage run failed.");
+    } finally {
+      setRunning(false);
+    }
+  };
+
+  const submitDeliverable = async () => {
+    if (!selected || !deliv.title.trim()) { toast.error("Deliverable title is required."); return; }
+    setBusy(true);
+    try {
+      await api.post(`/executive/projects/${selected.id}/deliverables`, {
+        stage: detail?.current_stage || "execute",
+        persona: deliv.persona || "Jamil",
+        title: deliv.title,
+        content_type: deliv.content_type,
+        content: deliv.content,
+        file_refs: deliv.file_refs.split("\n").map((s) => s.trim()).filter(Boolean),
+      });
+      toast.success("Deliverable submitted.");
+      setDeliv({ title: "", persona: "Jamil", content_type: "text", content: "", file_refs: "" });
+      await openProject(selected);
+    } catch (e) {
+      toast.error(e?.response?.data?.detail || "Could not submit deliverable.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const addComment = async () => {
+    if (!selected || !comment.trim()) return;
+    try {
+      await api.post(`/executive/projects/${selected.id}/comments`, { text: comment });
+      setComment("");
+      const c = await api.get(`/executive/projects/${selected.id}/comments`).then((r) => r.data || []).catch(() => []);
+      setComments(Array.isArray(c) ? c : []);
+    } catch (e) {
+      toast.error(e?.response?.data?.detail || "Comment failed.");
+    }
+  };
+
+  const stageIdx = detail ? PIPE_STAGE_RANK.indexOf(detail.current_stage) : -1;
+
+  return (
+    <div className="h-full overflow-y-auto">
+      <div className="max-w-6xl mx-auto px-6 py-8">
+        <PageBack to="/admin" label="Admin overview" />
+        <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
+          <div>
+            <div className="overline text-copper mb-1">AI Team Projects</div>
+            <h2 className="font-heading text-2xl font-bold text-ink">The Pipeline</h2>
+            <p className="text-sm text-ink/55 mt-1 max-w-2xl">
+              Jamil coordinates, personas execute, the Source reviews. Every stage sees what the
+              last produced — nothing is isolated. Give the team work to run.
+            </p>
+          </div>
+          <div className="flex gap-2">
+            <button onClick={() => { setArchiveOpen((v) => !v); if (!archiveOpen && archive.length === 0) loadArchive(); }}
+              className="flex items-center gap-1.5 px-4 py-2.5 rounded-lg text-sm font-black transition-colors"
+              style={{ background: BONE, color: GREEN, border: "1px solid rgba(27,67,50,0.3)" }}>
+              <Archive className="w-4 h-4" /> Archive
+            </button>
+            <button onClick={() => { setShowDiscovery((v) => !v); if (!discovery && !showDiscovery) scanDiscovery(); }}
+              className="flex items-center gap-1.5 px-4 py-2.5 rounded-lg text-sm font-black transition-colors"
+              style={{ background: GOLD, color: "#0a0a0a" }}>
+              <Sparkles className="w-4 h-4" /> {scanning ? "Scanning…" : "Discover"}
+            </button>
+            <button onClick={() => setShowNew(true)}
+              className="flex items-center gap-1.5 px-4 py-2.5 rounded-lg text-sm font-black text-white transition-colors"
+              style={{ background: GREEN }}>
+              <Plus className="w-4 h-4" /> New Project
+            </button>
+          </div>
+        </div>
+
+        {archiveOpen && (
+          <div className="card-flat rounded-2xl border p-5 mb-6" style={{ background: "#fff", borderColor: "rgba(27,67,50,0.3)" }}>
+            <div className="font-heading font-bold text-ink mb-1">Archive — your existing work</div>
+            <p className="text-sm text-ink/55 mb-4 max-w-2xl">
+              The album, the books, the poems, the photos — anything already made. The AI team catalogues
+              this material and turns it into projects: distribution, publishing, promotion. This is the
+              proof of concept — your work becomes the first project database.
+            </p>
+            <div className="grid sm:grid-cols-2 gap-3 mb-3">
+              <input value={archForm.title} onChange={(e) => setArchForm({ ...archForm, title: e.target.value })}
+                placeholder="Title — e.g. Album A, the book manuscript"
+                className="px-3 py-2.5 bg-bone border border-ink/15 rounded-lg text-sm focus:outline-none focus:border-copper" />
+              <div className="flex gap-2">
+                <select value={archForm.kind} onChange={(e) => setArchForm({ ...archForm, kind: e.target.value })}
+                  className="px-3 py-2.5 bg-bone border border-ink/15 rounded-lg text-sm focus:outline-none focus:border-copper">
+                  {["audio", "book", "document", "photo", "video", "other"].map((k) => <option key={k} value={k}>{k}</option>)}
+                </select>
+                <input value={archForm.file_ref} onChange={(e) => setArchForm({ ...archForm, file_ref: e.target.value })}
+                  placeholder="File ref / URL (optional)"
+                  className="flex-1 px-3 py-2.5 bg-bone border border-ink/15 rounded-lg text-sm focus:outline-none focus:border-copper" />
+              </div>
+            </div>
+            <textarea value={archForm.notes} onChange={(e) => setArchForm({ ...archForm, notes: e.target.value })}
+              placeholder="What is it? What state is it in? What's missing?" rows={2}
+              className="w-full px-3 py-2.5 bg-bone border border-ink/15 rounded-lg text-sm focus:outline-none focus:border-copper resize-y mb-3" />
+            <button onClick={addAsset} disabled={archBusy}
+              className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-black text-white disabled:opacity-40" style={{ background: GREEN }}>
+              {archBusy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />} Add to archive
+            </button>
+            <div className="mt-4">
+              {archive.length === 0 ? (
+                <p className="text-sm text-ink/45 italic">Nothing archived yet — add your first asset.</p>
+              ) : (
+                <div className="space-y-2">
+                  {archive.map((a) => (
+                    <div key={a.id} className="flex items-center gap-3 rounded-xl border px-3 py-2.5" style={{ borderColor: "rgba(181,101,29,0.2)", background: "#fdfbf5" }}>
+                      <span className="text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded" style={{ background: "rgba(27,67,50,0.1)", color: GREEN }}>{a.kind}</span>
+                      <span className="text-sm font-bold text-ink whitespace-nowrap">{a.title}</span>
+                      {a.notes && <span className="text-xs text-ink/55 truncate flex-1">{a.notes}</span>}
+                      <button onClick={() => deleteAsset(a.id)} title="Remove" className="text-ink/35 hover:text-red-600 transition-colors shrink-0">
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {showDiscovery && (
+          <div className="card-flat rounded-2xl border p-5 mb-6" style={{ background: "#fff", borderColor: "rgba(232,165,30,0.4)" }}>
+            <div className="font-heading font-bold text-ink mb-1">Turn what already exists into what comes next</div>
+            <p className="text-sm text-ink/55 mb-4 max-w-2xl">
+              The AI team catalogues existing material — your archive, published products, pipeline deliverables,
+              audio — and proposes the highest-value next projects. Nothing is generated without your approval.
+            </p>
+            {scanning ? (
+              <div className="py-6 text-center text-sm text-ink/45 flex items-center justify-center gap-2">
+                <Loader2 className="w-4 h-4 animate-spin" /> Cataloguing existing material…
+              </div>
+            ) : discovery ? (
+              <>
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 mb-5">
+                  {[
+                    { label: "Total assets", n: discovery.assets?.total },
+                    { label: "Archive assets", n: discovery.assets?.archive_assets },
+                    { label: "Audio products", n: discovery.assets?.audio_products },
+                    { label: "Published products", n: discovery.assets?.published_products },
+                    { label: "Pipeline deliverables", n: discovery.assets?.pipeline_deliverables },
+                  ].map((s) => (
+                    <div key={s.label} className="rounded-xl p-4 text-center" style={{ background: "#faf9f7" }}>
+                      <div className="font-heading text-2xl font-bold" style={{ color: GREEN }}>{s.n ?? 0}</div>
+                      <div className="text-[10px] font-black uppercase tracking-widest text-ink/40 mt-1">{s.label}</div>
+                    </div>
+                  ))}
+                </div>
+                {(discovery.proposals || []).length === 0 ? (
+                  <p className="text-sm text-ink/45 italic">No proposals yet — create material first, then scan again.</p>
+                ) : (
+                  <div className="grid md:grid-cols-2 gap-3">
+                    {discovery.proposals.map((pr) => (
+                      <div key={pr.title} className="rounded-xl border p-4" style={{ borderColor: "rgba(181,101,29,0.25)", background: "#fdfbf5" }}>
+                        <div className="flex items-center gap-2 flex-wrap mb-1">
+                          <span className="font-bold text-sm text-ink">{pr.title}</span>
+                          <span className="text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded"
+                            style={{ background: "rgba(27,67,50,0.1)", color: GREEN }}>
+                            {pr.authority}
+                          </span>
+                        </div>
+                        <p className="text-xs text-ink/60 mb-2">{pr.rationale}</p>
+                        <p className="text-[10px] text-ink/45 mb-3">AI team: {pr.suggested_team.join(", ")}</p>
+                        <button onClick={() => startFromProposal(pr)}
+                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-black text-white"
+                          style={{ background: COPPER }}>
+                          <Plus className="w-3 h-3" /> Start project from this
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </>
+            ) : null}
+          </div>
+        )}
+
+        {showNew && (
+          <div className="card-flat rounded-2xl border p-5 mb-6" style={{ background: "#fff" }}>
+            <div className="font-heading font-bold text-ink mb-4">Give the AI team work</div>
+            <div className="grid sm:grid-cols-2 gap-3 mb-3">
+              <input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })}
+                placeholder="Project title — e.g. Launch my youth program"
+                className="px-3 py-2.5 bg-bone border border-ink/15 rounded-lg text-sm focus:outline-none focus:border-copper" />
+              <div className="flex gap-2">
+                <select value={form.project_type} onChange={(e) => setForm({ ...form, project_type: e.target.value })}
+                  className="px-3 py-2.5 bg-bone border border-ink/15 rounded-lg text-sm focus:outline-none focus:border-copper">
+                  {["general", "release", "campaign", "content", "course"].map((t) => <option key={t} value={t}>{t}</option>)}
+                </select>
+                <select value={form.priority} onChange={(e) => setForm({ ...form, priority: e.target.value })}
+                  className="px-3 py-2.5 bg-bone border border-ink/15 rounded-lg text-sm focus:outline-none focus:border-copper">
+                  {["low", "normal", "high", "urgent"].map((t) => <option key={t} value={t}>{t}</option>)}
+                </select>
+              </div>
+            </div>
+            <textarea value={form.brief} onChange={(e) => setForm({ ...form, brief: e.target.value })}
+              placeholder="Brief — what is the goal, what does done look like?" rows={3}
+              className="w-full px-3 py-2.5 bg-bone border border-ink/15 rounded-lg text-sm focus:outline-none focus:border-copper resize-y mb-3" />
+            <div className="flex gap-2">
+              <button onClick={createProject} disabled={busy}
+                className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-black text-white disabled:opacity-40" style={{ background: GREEN }}>
+                {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />} Start project
+              </button>
+              <button onClick={() => setShowNew(false)} className="px-4 py-2 rounded-lg text-sm font-bold text-ink/50 hover:text-ink">Cancel</button>
+            </div>
+          </div>
+        )}
+
+        {loading ? (
+          <div className="py-16 text-center text-ink/50 flex items-center justify-center gap-2">
+            <Loader2 className="w-4 h-4 animate-spin" /> Loading the pipeline…
+          </div>
+        ) : projects.length === 0 && !showNew ? (
+          <div className="card-flat rounded-2xl border p-10 text-center" style={{ background: "#fff" }}>
+            <div style={{ fontSize: 40, marginBottom: 12 }}>🗂️</div>
+            <div className="font-heading font-bold text-lg text-ink">The pipeline is empty</div>
+            <p className="text-sm text-ink/55 max-w-md mx-auto mt-2">
+              The AI team is ready to run. Start a project and Jamil will coordinate personas through
+              intake → assign → execute → review → operate → deliver.
+            </p>
+            <button onClick={() => setShowNew(true)}
+              className="mt-5 inline-flex items-center gap-1.5 px-5 py-2.5 rounded-lg text-sm font-black text-white" style={{ background: GREEN }}>
+              <Plus className="w-4 h-4" /> Start the first project
+            </button>
+          </div>
+        ) : (
+          <div className="grid lg:grid-cols-5 gap-5">
+            {/* Project list */}
+            <div className="lg:col-span-2 space-y-2">
+              {projects.map((p) => (
+                <button key={p.id} onClick={() => openProject(p)}
+                  className={`w-full text-left card-flat rounded-xl p-4 border transition-all ${selected?.id === p.id ? "border-copper" : "hover:border-copper/40"}`}
+                  style={{ background: "#fff" }}>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="font-heading font-bold text-ink text-sm">{p.title}</span>
+                    <span className="text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded"
+                      style={{ background: `${PRIORITY_COLOR[p.priority] || COPPER}15`, color: PRIORITY_COLOR[p.priority] || COPPER }}>
+                      {p.priority}
+                    </span>
+                  </div>
+                  <div className="text-xs text-ink/50 mt-1 line-clamp-2">{p.brief}</div>
+                  <div className="flex items-center gap-2 mt-2 text-[10px] font-black uppercase tracking-widest text-ink/40">
+                    <span style={{ color: COPPER }}>{PIPE_STAGE_LABEL[p.current_stage] || p.current_stage}</span>
+                    <span>· {(p.deliverables || []).length} deliverables</span>
+                    <span className="ml-auto">{new Date(p.updated_at).toLocaleDateString()}</span>
+                  </div>
+                </button>
+              ))}
+            </div>
+
+            {/* Detail */}
+            <div className="lg:col-span-3 space-y-4">
+              {!selected ? (
+                <div className="card-flat rounded-2xl border p-8 text-center text-sm text-ink/45" style={{ background: "#fff" }}>
+                  Select a project to open the pipeline workspace.
+                </div>
+              ) : (
+                <>
+                  <div className="card-flat rounded-2xl border p-5" style={{ background: "#fff" }}>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="font-heading font-bold text-lg text-ink">{selected.title}</span>
+                      {detail && (
+                        <span className="text-[10px] font-black uppercase tracking-widest px-2 py-0.5 rounded text-white" style={{ background: GREEN }}>
+                          {PIPE_STAGE_LABEL[detail.current_stage] || detail.current_stage}
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-sm text-ink/60 mt-2">{selected.brief}</p>
+                    {detail?.stage_history?.length > 0 && (
+                      <div className="flex flex-wrap gap-1.5 mt-3">
+                        {detail.stage_history.map((s, i) => (
+                          <span key={i} className="text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full"
+                            style={{ background: "#f3ede2", color: COPPER }}>
+                            {PIPE_STAGE_LABEL[s.stage] || s.stage}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                    <div className="mt-4 flex flex-wrap items-center gap-2">
+                      <button onClick={() => setShowRun((v) => !v)} disabled={running}
+                        className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-black disabled:opacity-40 transition-colors"
+                        style={{ background: GREEN, color: "#fff" }}>
+                        {running ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+                        Run stage
+                      </button>
+                      {stageIdx >= 0 && stageIdx < PIPE_STAGE_RANK.length - 1 && (
+                        <button onClick={advance} disabled={busy}
+                          className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-black text-white disabled:opacity-40 transition-colors"
+                          style={{ background: COPPER }}>
+                          <ArrowRight className="w-4 h-4" />
+                          Advance to {PIPE_STAGE_LABEL[PIPE_STAGE_RANK[stageIdx + 1]]}
+                        </button>
+                      )}
+                    </div>
+                    {showRun && (
+                      <div className="mt-3 rounded-xl border p-4" style={{ borderColor: "rgba(27,67,50,0.3)", background: "#f8f6f0" }}>
+                        <div className="text-xs font-black uppercase tracking-widest mb-2" style={{ color: GREEN }}>
+                          AI executes this stage
+                        </div>
+                        <div className="flex flex-wrap gap-2 mb-2">
+                          <select value={run.persona} onChange={(e) => setRun({ ...run, persona: e.target.value })}
+                            className="px-3 py-2 bg-white border border-ink/15 rounded-lg text-sm focus:outline-none focus:border-copper">
+                            {["Jamil", "Hybrid NAM", "Production", "Creative Partner", "Marketing", "Review", "Source", "Operations", "Analytics", "Architect", "Ghost Producer"].map((p) => (
+                              <option key={p} value={p}>{p}</option>
+                            ))}
+                          </select>
+                          <input value={run.instructions} onChange={(e) => setRun({ ...run, instructions: e.target.value })}
+                            placeholder="Optional direction for this run (or let the persona read the brief)"
+                            className="flex-1 min-w-[220px] px-3 py-2 bg-white border border-ink/15 rounded-lg text-sm focus:outline-none focus:border-copper" />
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <button onClick={runStage} disabled={running}
+                            className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-black text-white disabled:opacity-40"
+                            style={{ background: GREEN }}>
+                            {running ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+                            {running ? "Executing…" : `Run with ${run.persona}`}
+                          </button>
+                          <span className="text-[10px] text-ink/45">
+                            Result lands as a pending deliverable — you approve, reject, or request revision.
+                          </span>
+                        </div>
+                      </div>
+                    )}
+                    {detail?.packet?.packet_status && (
+                      <div className="mt-3 flex items-center gap-2 flex-wrap text-[10px] font-black uppercase tracking-widest text-ink/40">
+                        <span>Packet:</span>
+                        <span style={{ color: GREEN }}>{detail.packet.packet_status}</span>
+                        <span>· Authority:</span>
+                        <span style={{ color: COPPER }}>{detail.packet.authority}</span>
+                        {(detail.packet.approval_points || []).length > 0 && (
+                          <span>· {detail.packet.approval_points.length} approval point{(detail.packet.approval_points || []).length === 1 ? "" : "s"}</span>
+                        )}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Project packet — the operating agreement */}
+                  <div className="card-flat rounded-2xl border p-5" style={{ background: "#fff", borderColor: "rgba(27,67,50,0.25)" }}>
+                    <div className="font-heading font-bold text-ink mb-1">Project Packet</div>
+                    <p className="text-xs text-ink/50 mb-4">
+                      The operating agreement: what the AI team may do, what needs your approval, and what only you decide.
+                    </p>
+                    {packetForm ? (
+                      <div className="grid sm:grid-cols-2 gap-3">
+                        <label className="block sm:col-span-2">
+                          <span className="text-xs font-bold text-ink/60">Objective</span>
+                          <input value={packetForm.objective} onChange={(e) => setPacketForm({ ...packetForm, objective: e.target.value })}
+                            placeholder="What are we trying to accomplish?"
+                            className="mt-1 w-full px-3 py-2 bg-bone border border-ink/15 rounded-lg text-sm focus:outline-none focus:border-copper" />
+                        </label>
+                        <label className="block">
+                          <span className="text-xs font-bold text-ink/60">Owner</span>
+                          <input value={packetForm.owner} onChange={(e) => setPacketForm({ ...packetForm, owner: e.target.value })}
+                            placeholder="You / designated human"
+                            className="mt-1 w-full px-3 py-2 bg-bone border border-ink/15 rounded-lg text-sm focus:outline-none focus:border-copper" />
+                        </label>
+                        <label className="block">
+                          <span className="text-xs font-bold text-ink/60">AI team (comma separated)</span>
+                          <input value={packetForm.ai_team} onChange={(e) => setPacketForm({ ...packetForm, ai_team: e.target.value })}
+                            placeholder="Jamil, Hybrid NAM, Production…"
+                            className="mt-1 w-full px-3 py-2 bg-bone border border-ink/15 rounded-lg text-sm focus:outline-none focus:border-copper" />
+                        </label>
+                        <label className="block">
+                          <span className="text-xs font-bold text-ink/60">Authority — what the AI can do without asking</span>
+                          <select value={packetForm.authority} onChange={(e) => setPacketForm({ ...packetForm, authority: e.target.value })}
+                            className="mt-1 w-full px-3 py-2 bg-bone border border-ink/15 rounded-lg text-sm focus:outline-none focus:border-copper">
+                            <option value="autonomous">Autonomous — completes without asking</option>
+                            <option value="approval_required">Approval required — prepares, you approve</option>
+                            <option value="human_only">Human-only — advises, cannot execute</option>
+                          </select>
+                        </label>
+                        <label className="block">
+                          <span className="text-xs font-bold text-ink/60">Packet status</span>
+                          <select value={packetForm.packet_status} onChange={(e) => setPacketForm({ ...packetForm, packet_status: e.target.value })}
+                            className="mt-1 w-full px-3 py-2 bg-bone border border-ink/15 rounded-lg text-sm focus:outline-none focus:border-copper">
+                            {["planning", "active", "review", "approved", "published", "complete"].map((s) => <option key={s} value={s}>{s}</option>)}
+                          </select>
+                        </label>
+                        <label className="block sm:col-span-2">
+                          <span className="text-xs font-bold text-ink/60">Approval points (comma separated) — what requires you</span>
+                          <input value={packetForm.approval_points} onChange={(e) => setPacketForm({ ...packetForm, approval_points: e.target.value })}
+                            placeholder="Release track, publish campaign, submit grant…"
+                            className="mt-1 w-full px-3 py-2 bg-bone border border-ink/15 rounded-lg text-sm focus:outline-none focus:border-copper" />
+                        </label>
+                        <label className="block sm:col-span-2">
+                          <span className="text-xs font-bold text-ink/60">Constraints (budget, timeline, platform rules, brand)</span>
+                          <textarea value={packetForm.constraints} onChange={(e) => setPacketForm({ ...packetForm, constraints: e.target.value })}
+                            rows={2} placeholder="What bounds the work?"
+                            className="mt-1 w-full px-3 py-2 bg-bone border border-ink/15 rounded-lg text-sm focus:outline-none focus:border-copper resize-y" />
+                        </label>
+                        <label className="block sm:col-span-2">
+                          <span className="text-xs font-bold text-ink/60">Evidence required</span>
+                          <input value={packetForm.evidence} onChange={(e) => setPacketForm({ ...packetForm, evidence: e.target.value })}
+                            placeholder="What research / support must back decisions?"
+                            className="mt-1 w-full px-3 py-2 bg-bone border border-ink/15 rounded-lg text-sm focus:outline-none focus:border-copper" />
+                        </label>
+                        <label className="block sm:col-span-2">
+                          <span className="text-xs font-bold text-ink/60">Deliverables summary</span>
+                          <textarea value={packetForm.deliverables_summary} onChange={(e) => setPacketForm({ ...packetForm, deliverables_summary: e.target.value })}
+                            rows={2} placeholder="What must exist when finished?"
+                            className="mt-1 w-full px-3 py-2 bg-bone border border-ink/15 rounded-lg text-sm focus:outline-none focus:border-copper resize-y" />
+                        </label>
+                        <label className="block sm:col-span-2">
+                          <span className="text-xs font-bold text-ink/60">Post-project report</span>
+                          <textarea value={packetForm.outcome_report} onChange={(e) => setPacketForm({ ...packetForm, outcome_report: e.target.value })}
+                            rows={2} placeholder="What happened? What worked? What didn't?"
+                            className="mt-1 w-full px-3 py-2 bg-bone border border-ink/15 rounded-lg text-sm focus:outline-none focus:border-copper resize-y" />
+                        </label>
+                        <div className="sm:col-span-2 flex gap-2">
+                          <button onClick={savePacket} disabled={busy}
+                            className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-black text-white disabled:opacity-40" style={{ background: GREEN }}>
+                            {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />} Save packet
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <button onClick={() => setPacketForm({
+                        objective: "", owner: "", ai_team: "", deliverables_summary: "", constraints: "",
+                        authority: "approval_required", approval_points: "", evidence: "", outcome_report: "", packet_status: "planning",
+                      })}
+                        className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-black text-white" style={{ background: GREEN }}>
+                        <Sparkles className="w-4 h-4" /> Define the packet
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Deliverables */}
+                  <div className="card-flat rounded-2xl border p-5" style={{ background: "#fff" }}>
+                    <div className="font-heading font-bold text-ink mb-3">Deliverables</div>
+                    {(detail?.deliverables || []).length === 0 ? (
+                      <p className="text-sm text-ink/45 italic">Nothing delivered yet — personas produce here.</p>
+                    ) : (
+                      <div className="space-y-2">
+                        {detail.deliverables.map((d) => (
+                          <div key={d.id || d._id} className="rounded-lg border border-ink/8 bg-bone/60 p-3">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="text-xs font-bold text-ink">{d.title}</span>
+                              <span className="text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded" style={{ background: "rgba(181,101,29,0.1)", color: COPPER }}>
+                                {d.content_type}
+                              </span>
+                              <span className="text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded" style={{ background: "rgba(27,67,50,0.1)", color: GREEN }}>
+                                {d.persona}
+                              </span>
+                              <span className="text-[10px] text-ink/40">{d.approval_status}</span>
+                            </div>
+                            {d.content && <p className="text-xs text-ink/60 mt-1">{d.content}</p>}
+                            {d.file_refs?.length > 0 && (
+                              <div className="flex flex-wrap gap-1 mt-1">
+                                {d.file_refs.map((f, i) => <span key={i} className="text-[10px] font-mono text-copper">🔗 {f}</span>)}
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    <div className="grid sm:grid-cols-2 gap-2 mt-4">
+                      <input value={deliv.title} onChange={(e) => setDeliv({ ...deliv, title: e.target.value })}
+                        placeholder="Deliverable title" className="px-3 py-2 bg-bone border border-ink/15 rounded-lg text-sm focus:outline-none focus:border-copper" />
+                      <div className="flex gap-2">
+                        <select value={deliv.content_type} onChange={(e) => setDeliv({ ...deliv, content_type: e.target.value })}
+                          className="px-2 py-2 bg-bone border border-ink/15 rounded-lg text-sm focus:outline-none focus:border-copper">
+                          {["text", "audio", "image", "video", "code", "document", "mixed"].map((t) => <option key={t} value={t}>{t}</option>)}
+                        </select>
+                        <select value={deliv.persona} onChange={(e) => setDeliv({ ...deliv, persona: e.target.value })}
+                          className="px-2 py-2 bg-bone border border-ink/15 rounded-lg text-sm focus:outline-none focus:border-copper">
+                          {["Jamil", "Hybrid NAM", "Production", "Revenue", "Finance", "Creative Partner", "Owner"].map((t) => <option key={t} value={t}>{t}</option>)}
+                        </select>
+                      </div>
+                    </div>
+                    <textarea value={deliv.content} onChange={(e) => setDeliv({ ...deliv, content: e.target.value })}
+                      placeholder="Content or description — or paste a file URL / product link below" rows={2}
+                      className="mt-2 w-full px-3 py-2 bg-bone border border-ink/15 rounded-lg text-sm focus:outline-none focus:border-copper resize-y" />
+                    <textarea value={deliv.file_refs} onChange={(e) => setDeliv({ ...deliv, file_refs: e.target.value })}
+                      placeholder="File URLs / product links — one per line" rows={2}
+                      className="mt-2 w-full px-3 py-2 bg-bone border border-ink/15 rounded-lg text-sm focus:outline-none focus:border-copper resize-y" />
+                    <button onClick={submitDeliverable} disabled={busy}
+                      className="mt-2 flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-black text-white disabled:opacity-40" style={{ background: GREEN }}>
+                      {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />} Submit deliverable
+                    </button>
+                  </div>
+
+                  {/* Comments */}
+                  <div className="card-flat rounded-2xl border p-5" style={{ background: "#fff" }}>
+                    <div className="font-heading font-bold text-ink mb-3">Thread</div>
+                    {comments.length === 0 ? (
+                      <p className="text-sm text-ink/45 italic">No discussion yet.</p>
+                    ) : (
+                      <div className="space-y-2 max-h-48 overflow-y-auto">
+                        {comments.map((c, i) => (
+                          <div key={i} className="rounded-lg bg-bone/70 p-3 text-sm text-ink/75">
+                            {c.text}
+                            <div className="text-[10px] text-ink/35 mt-1">{c.persona || "Owner"} · {fmtDt(c.created_at)}</div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    <div className="flex gap-2 mt-3">
+                      <input value={comment} onChange={(e) => setComment(e.target.value)}
+                        onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); addComment(); } }}
+                        placeholder="Comment — as owner or a persona"
+                        className="flex-1 px-3 py-2 bg-bone border border-ink/15 rounded-lg text-sm focus:outline-none focus:border-copper" />
+                      <button onClick={addComment} className="px-4 py-2 rounded-lg text-sm font-black text-white" style={{ background: GREEN }}>Post</button>
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// The executive control desk — every back-office control in one place. These
+// are real, working tools (IAM, Feature Control, audit, etc.), not dead links.
+function ExecControlDesk() {
+  const controls = [
+    { icon: "IAM",       title: "IAM Console",        desc: "Roles, permissions, and who can do what.",        to: "/admin/iam" },
+    { icon: "FCC",       title: "Feature Control",    desc: "Turn platform features and flags on or off.",      to: "/admin/features" },
+    { icon: "CTL",       title: "Site Control",       desc: "Platform lock, maintenance, and exec controls.",   to: "/admin/control" },
+    { icon: "AUD",       title: "Audit Log",          desc: "Every action, who did it, and when.",              to: "/admin/audit" },
+    { icon: "CMD",       title: "Command Center",     desc: "Executive command and oversight.",                to: "/admin/command" },
+    { icon: "OFF",       title: "Business Office",      desc: "Revenue, projects, AI team, and operating controls.", to: "/business-office" },
+    { icon: "BRG",       title: "AI Team Bridge",     desc: "Cross-team AI coordination and handoffs.",        to: "/admin/bridge" },
+    { icon: "ANA",       title: "Analytics",          desc: "Platform analytics and trends.",                  to: "/admin/analytics" },
+  ];
+  return (
+    <div className="h-full overflow-y-auto">
+      <div className="max-w-6xl mx-auto px-6 py-8">
+        <PageBack to="/admin/command" label="Command Center" />
+        <div className="overline text-copper mb-2">Executive Control</div>
+        <h2 className="font-heading text-2xl font-bold text-ink mb-2">The Control Desk</h2>
+        <p className="text-sm text-ink/55 max-w-2xl mb-8">
+          Every back-office control in one place — IAM, feature flags, audit, command, and
+          platform controls. Data is live; nothing here is a dead link.
+        </p>
+        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          {controls.map((c) => (
+            <Link key={c.title} to={c.to}
+              className="card-flat rounded-2xl p-6 border hover:border-copper transition-all group no-underline"
+              style={{ background: "#fff" }}>
+              <div className="flex items-center gap-3 mb-3">
+                <span className="text-[10px] font-black tracking-widest px-2 py-1 rounded"
+                  style={{ background: "#f5f0e8", color: COPPER }}>{c.icon}</span>
+                <div className="font-heading font-bold text-ink group-hover:text-copper transition-colors">{c.title}</div>
+              </div>
+              <p className="text-sm text-ink/55 leading-relaxed">{c.desc}</p>
+              <div className="mt-4 text-xs font-bold uppercase tracking-widest text-copper flex items-center gap-1">
+                Open <ArrowRight className="w-3.5 h-3.5" />
+              </div>
+            </Link>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export default function BusinessOffice() {
   const { user } = useAuth();
@@ -141,6 +936,25 @@ export default function BusinessOffice() {
     );
   }
 
+  // Hub views — More Ops (with Director Jamil inside) and the Arena live
+  // inside the AI Business Office; the Control Desk hosts the exec tools.
+  if (tab === "ops" || tab === "nam" || tab === "projects" || tab === "arena" || tab === "control") {
+    return (
+      <AppShell>
+        <div className="h-[calc(100vh-4rem)] flex flex-col" style={{ background: BONE }}>
+          <div className="flex-shrink-0"><HubBar tab={tab} setTab={setTab} /></div>
+          <div className="flex-1 min-h-0 overflow-hidden">
+            {tab === "ops" && <MoreOpsContent embedded />}
+            {tab === "nam" && <HybridNamContent embedded />}
+            {tab === "projects" && <ExecProjectsPanel />}
+            {tab === "arena" && <CompetitionArenaContent embedded />}
+            {tab === "control" && <ExecControlDesk />}
+          </div>
+        </div>
+      </AppShell>
+    );
+  }
+
   return (
     <AppShell>
       <div style={{ background: BONE, minHeight: "100vh" }}>
@@ -169,7 +983,7 @@ export default function BusinessOffice() {
             Nothing is auto-drained; every distribution happens only when the owner says so, only from net profit.
           </p>
           <div className="flex flex-wrap gap-2 mt-4">
-            {tools?.tools?.slice(0, 8).map((t) => (
+            {tools?.tools?.slice(0, 12).filter(t => !t.access || t.access === "student" || roleAtLeast(user?.role || "public", t.access)).map((t) => (
               <Link key={t.key} to={t.link}
                 className="flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-full border transition-colors"
                 style={{ borderColor: "rgba(255,255,255,0.35)", color: "#fff" }}
@@ -180,6 +994,8 @@ export default function BusinessOffice() {
             ))}
           </div>
         </div>
+
+        <div className="flex-shrink-0"><HubBar tab={tab} setTab={setTab} /></div>
 
         <div className="max-w-6xl mx-auto px-6 py-8 space-y-10">
           {/* ── 1. Mission Runway ────────────────────────────────────── */}
@@ -513,25 +1329,51 @@ export default function BusinessOffice() {
               </button>
             </div>
             <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4 mt-3">
-              {(tools?.tools || []).map((t) => (
-                <Link key={t.key} to={t.link}
-                  className="card-flat rounded-2xl p-5 border no-underline transition-all hover:-translate-y-0.5 hover:shadow-lg"
-                  style={{ background: "#fff", borderColor: "#eee7d8" }}>
-                  <div className="flex items-center gap-3">
-                    <span className="w-10 h-10 rounded-xl flex items-center justify-center text-xl"
-                      style={{ background: "linear-gradient(135deg,#1B4332,#2D6A4F)" }}>{t.icon}</span>
-                    <div>
-                      <div className="font-heading font-bold text-ink">{t.name}</div>
-                      <div className="text-[10px] font-black uppercase tracking-widest" style={{ color: COPPER }}>{t.access}</div>
+              {(tools?.tools || []).map((t) => {
+                const hasAccess = !t.access || t.access === "student" || roleAtLeast(user?.role || "public", t.access);
+                const accessLabel = ROLE_LABELS[t.access] || t.access;
+                if (!hasAccess) {
+                  return (
+                    <div key={t.key}
+                      className="card-flat rounded-2xl p-5 border opacity-60 cursor-not-allowed"
+                      style={{ background: "#f9f6f0", borderColor: "#eee7d8" }}>
+                      <div className="flex items-center gap-3">
+                        <span className="w-10 h-10 rounded-xl flex items-center justify-center text-xl"
+                          style={{ background: "#e8e2d4" }}>{t.icon}</span>
+                        <div>
+                          <div className="font-heading font-bold text-ink">{t.name}</div>
+                          <div className="text-[10px] font-black uppercase tracking-widest flex items-center gap-1" style={{ color: "#999" }}>
+                            <Lock className="w-3 h-3" /> {accessLabel} required
+                          </div>
+                        </div>
+                      </div>
+                      <p className="text-sm text-ink/50 mt-3 leading-snug">{t.what}</p>
+                      <div className="mt-3 pt-3 border-t border-ink/5">
+                        <span className="text-[11px] font-bold text-ink/40">{t.revenue}</span>
+                      </div>
                     </div>
-                  </div>
-                  <p className="text-sm text-ink/70 mt-3 leading-snug">{t.what}</p>
-                  <div className="mt-3 pt-3 border-t border-ink/5 flex items-center justify-between">
-                    <span className="text-[11px] font-bold text-ink/50">{t.revenue}</span>
-                    <span className="text-xs font-black" style={{ color: GREEN }}>Open →</span>
-                  </div>
-                </Link>
-              ))}
+                  );
+                }
+                return (
+                  <Link key={t.key} to={t.link}
+                    className="card-flat rounded-2xl p-5 border no-underline transition-all hover:-translate-y-0.5 hover:shadow-lg"
+                    style={{ background: "#fff", borderColor: "#eee7d8" }}>
+                    <div className="flex items-center gap-3">
+                      <span className="w-10 h-10 rounded-xl flex items-center justify-center text-xl"
+                        style={{ background: "linear-gradient(135deg,#1B4332,#2D6A4F)" }}>{t.icon}</span>
+                      <div>
+                        <div className="font-heading font-bold text-ink">{t.name}</div>
+                        <div className="text-[10px] font-black uppercase tracking-widest" style={{ color: COPPER }}>{accessLabel}</div>
+                      </div>
+                    </div>
+                    <p className="text-sm text-ink/70 mt-3 leading-snug">{t.what}</p>
+                    <div className="mt-3 pt-3 border-t border-ink/5 flex items-center justify-between">
+                      <span className="text-[11px] font-bold text-ink/50">{t.revenue}</span>
+                      <span className="text-xs font-black" style={{ color: GREEN }}>Open →</span>
+                    </div>
+                  </Link>
+                );
+              })}
             </div>
           </section>
 
@@ -555,13 +1397,14 @@ export default function BusinessOffice() {
                   </div>
                   <p className="text-xs text-ink/60 mt-1">{d.tagline}</p>
                   <div className="mt-3 text-xs space-y-1.5">
-                    <div><span className="font-black text-ink/70">AI does:</span> <span className="text-ink/60">{d.what_ai_does}</span></div>
-                    <div><span className="font-black text-ink/70">Human oversees:</span> <span className="text-ink/60">{d.human_oversight}</span></div>
-                    <div><span className="font-black text-ink/70">Revenue:</span> <span className="text-ink/60">{d.revenue}</span></div>
-                    {d.deals_revenue_cents > 0 && (
+                    <div><span className="font-black text-ink/70">AI does:</span> <span className="text-ink/60">{d.what_ai_does ?? d.ai_role ?? "—"}</span></div>
+                    <div><span className="font-black text-ink/70">Human oversees:</span> <span className="text-ink/60">{d.human_oversight ?? d.human_role ?? "—"}</span></div>
+                    <div><span className="font-black text-ink/70">Revenue:</span> <span className="text-ink/60">{d.revenue ?? d.revenue_desc ?? "—"}</span></div>
+                    {(d.deals_revenue_cents ?? 0) > 0 && (
                       <div><span className="font-black text-ink/70">Contracted:</span> <span style={{ color: GREEN }} className="font-bold">{fmt(d.deals_revenue_cents)}</span></div>
                     )}
                   </div>
+                  {Array.isArray(d.tools) && d.tools.length > 0 && (
                   <div className="flex flex-wrap gap-2 mt-3">
                     {d.tools.map((t) => (
                       <Link key={t.link} to={t.link}
@@ -571,6 +1414,7 @@ export default function BusinessOffice() {
                       </Link>
                     ))}
                   </div>
+                  )}
                 </div>
               ))}
             </div>

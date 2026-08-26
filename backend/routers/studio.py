@@ -249,12 +249,75 @@ async def studio_sound_blueprint(body: dict, user: User = Depends(_dep_current_u
         raise HTTPException(503, "Sound blueprint unavailable")
 
 
+_SOFT_ASSIST_LABEL = "AI assist unavailable. This is a creator-owned draft scaffold; fill, change, or discard it."
+
+
+def _sovereign_scaffold(action: str, ctx: dict) -> tuple[str, str]:
+    labels = {
+        "generate_lyrics": "lyrics",
+        "generate_metadata": "metadata",
+        "visual_direction": "visual_direction",
+        "polish_script": "polished_script",
+        "sonic_blueprint": "sonic_blueprint",
+    }
+    return labels.get(action, "creator_prompt"), _SOFT_ASSIST_LABEL
+
+
+def _sovereign_scaffold_text(action: str, ctx: dict) -> str:
+    """Create a useful deterministic worksheet without claiming authorship."""
+    topic = str(ctx.get("topic") or "your concept").strip()
+    genre = str(ctx.get("genre") or "your chosen style").strip()
+    mood = str(ctx.get("mood") or "the feeling you want").strip()
+    if action == "generate_lyrics":
+        return ("[CREATOR DRAFT - write your own words]\n"
+                f"Concept: {topic}\nStyle: {genre}\nMood: {mood}\n\n"
+                "TITLE: [your title]\n\nVERSE 1\n[opening image or truth]\n\n"
+                "CHORUS / HOOK\n[the line you want people to remember]\n\n"
+                "VERSE 2\n[new information or consequence]\n\n"
+                "BRIDGE\n[what must be said before the return]\n\n"
+                "FINAL CHORUS\n[keep, change, or intensify the hook]")
+    if action == "generate_metadata":
+        return ("[CREATOR METADATA DRAFT - verify every field]\n"
+                f"title: {ctx.get('title') or '[your title]'}\n"
+                f"artist: {ctx.get('artist') or '[artist / project name]'}\n"
+                f"genre: {genre}\nshort_description: [one sentence]\n"
+                "long_description: [what it is, who it serves, and why it matters]\n"
+                "tags: [accurate tags only]\nrelease_date: [confirm date]\n"
+                "credits: [list every human contributor]\n"
+                "rights_check: [confirm ownership and permissions]")
+    if action == "visual_direction":
+        return ("[CREATOR VISUAL WORKSHEET]\n"
+                f"Project: {topic}\nPalette: {ctx.get('colors') or '[choose colors]'}\n"
+                "Subject: [what must the viewer see?]\nFeeling: [what should the viewer feel?]\n"
+                "References: [what informs this?]\nDo not use: [misleading imagery]\n"
+                "Human decision: [what makes this unmistakably yours?]")
+    if action == "polish_script":
+        return ("[CREATOR EDITING DRAFT - original text preserved]\n\n"
+                f"{str(ctx.get('content') or '').strip()}\n\n"
+                "EDITING CHECKLIST\n[ ] Keep the core voice.\n[ ] Remove repetition only when it weakens the work.\n"
+                "[ ] Check names, facts, permissions, and context.\n[ ] Read aloud and make the final choices yourself.")
+    if action == "sonic_blueprint":
+        return ("[CREATOR PRODUCTION WORKSHEET]\n"
+                f"BPM: {ctx.get('bpm') or '[choose tempo]'}\nKey: {ctx.get('key') or '[choose key]'}\n"
+                f"Mood: {mood}\nDrums: [pattern, swing, and space]\nBass: [instrument and rhythm]\n"
+                "Harmony: [chords or tonal center]\nTexture: [sounds that support the story]\n"
+                "Arrangement: [intro -> verse -> hook -> bridge -> outro]\n"
+                "Human test: [what must remain distinctive?]")
+    return ("[CREATOR DECISION NOTE]\nAI assistance is unavailable.\n"
+            "What am I making? [ ]\nWhat decision is needed now? [ ]\n"
+            "What will I keep, change, or reject? [ ]\nWhat is the next version? [ ]")
+
+
 @router.post("/studio/sovereign")
 async def studio_sovereign(body: dict, user: User = Depends(_dep_current_user)):
     """
     Sovereign is the single AI interface in the Sanctuary.
     All chamber tools dispatch through here — Sovereign routes internally,
     calls sub-tools, and delivers results in his own voice.
+
+    AI-ASSISTED POLICY: AI output is always a DRAFT the creator edits.
+    When AI is unavailable, we never fake it and never dead-end —
+    we hand back a labeled structural scaffold the creator fills themselves.
     """
     from ai.llm_gateway import call_llm
     chamber = body.get("chamber", "map")
@@ -274,6 +337,8 @@ async def studio_sovereign(body: dict, user: User = Depends(_dep_current_user)):
                 "Return only the lyrics — no commentary."
             )
             r = await call_llm(system="You are Sovereign, a master lyricist and poet. Write authentic, culturally resonant lyrics.", messages=[{"role": "user", "content": prompt}], persona_label="LyricForge")
+            if not (r.get("text") or "").strip():
+                raise RuntimeError("empty lyric response")
             artifact = r.get("text", "")
             artifact_type = "lyrics"
             response = "Lyrics forged, Creator. Take what's useful — cut what isn't. The Forge is yours."
@@ -287,6 +352,8 @@ async def studio_sovereign(body: dict, user: User = Depends(_dep_current_user)):
                 "description, tags (array), upc_note, isrc_note, distributor_note, pitch."
             )
             r = await call_llm(system="You are Sovereign, a music metadata and distribution specialist. Return accurate structured metadata.", messages=[{"role": "user", "content": prompt}], persona_label="PublishingGate")
+            if not (r.get("text") or "").strip():
+                raise RuntimeError("empty metadata response")
             artifact = r.get("text", "{}")
             artifact_type = "metadata"
             response = "Metadata is locked in, Boss. Everything's structured for distribution — copy what you need."
@@ -299,6 +366,8 @@ async def studio_sovereign(body: dict, user: User = Depends(_dep_current_user)):
                 "Write a vivid 3-4 sentence visual direction — aesthetic, mood, and visual language."
             )
             r = await call_llm(system="You are Sovereign, a visual creative director. Describe aesthetic, mood, and visual language vividly.", messages=[{"role": "user", "content": prompt}], persona_label="VisualAltar")
+            if not (r.get("text") or "").strip():
+                raise RuntimeError("empty visual response")
             artifact = r.get("text", "")
             artifact_type = "visual_direction"
             response = "Vision sealed, Creator. Your visual altar now has a direction — build from it."
@@ -311,6 +380,8 @@ async def studio_sovereign(body: dict, user: User = Depends(_dep_current_user)):
                 f"{ctx.get('content', '')}"
             )
             r = await call_llm(system="You are Sovereign, a script editor. Polish for clarity, flow, and impact while preserving the creator voice.", messages=[{"role": "user", "content": prompt}], persona_label="ScriptScriptorium")
+            if not (r.get("text") or "").strip():
+                raise RuntimeError("empty polish response")
             artifact = r.get("text", "")
             artifact_type = "polished_script"
             response = "Script polished. I kept your voice and tightened the structure. Side-by-side is ready."
@@ -324,6 +395,8 @@ async def studio_sovereign(body: dict, user: User = Depends(_dep_current_user)):
                 "200 words max. Be specific and technical."
             )
             r = await call_llm(system="You are Sovereign, a music producer. Describe sonic blueprints with technical specificity.", messages=[{"role": "user", "content": prompt}], persona_label="SoundLab")
+            if not (r.get("text") or "").strip():
+                raise RuntimeError("empty blueprint response")
             artifact = r.get("text", "")
             artifact_type = "sonic_blueprint"
             response = "Blueprint built, Boss. Your sonic direction is locked in — the Sound Lab is ready."
@@ -344,10 +417,13 @@ async def studio_sovereign(body: dict, user: User = Depends(_dep_current_user)):
                 system=system,
                 persona_label="Sovereign",
             )
-            response = r.get("text", "I'm on it, Boss.")
+            if not (r.get("text") or "").strip():
+                raise RuntimeError("empty chat response")
+            response = r.get("text", "")
 
     except Exception:
-        response = "Give me a moment — I'll be right back."
+        artifact_type, response = _sovereign_scaffold(action, ctx)
+        artifact = _sovereign_scaffold_text(action, ctx)
 
     return {"response": response, "artifact": artifact, "artifact_type": artifact_type}
 

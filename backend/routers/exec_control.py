@@ -382,6 +382,10 @@ class _ExecFeatureFlagReq(BaseModel):
     user_id:   Optional[str] = None
     reason:    str  = Field(..., min_length=1, max_length=500)
 
+class _ExecAuthzMatrixReq(BaseModel):
+    requirements: dict[str, str] = Field(..., description="feature key -> minimum feature_tier")
+    reason:       str = Field(..., min_length=1, max_length=500)
+
 class _ExecAIAccessReq(BaseModel):
     user_id: str
     persona: str
@@ -456,6 +460,8 @@ class _BreakGlassRevokeReq(BaseModel):
     reason:      Optional[str] = None
 
 
+import hashlib as _hashlib
+
 async def _exec_audit(actor: User, action: str, target_id: Optional[str] = None,
                       before: Optional[dict] = None, after: Optional[dict] = None,
                       request: Optional[Request] = None, note: str = ""):
@@ -463,10 +469,29 @@ async def _exec_audit(actor: User, action: str, target_id: Optional[str] = None,
     if request:
         fwd = request.headers.get("x-forwarded-for", "")
         ip  = fwd.split(",")[0].strip() if fwd else (request.client.host if request.client else None)
+    now_iso = datetime.now(timezone.utc).isoformat()
+    record_id = str(uuid.uuid4())
+    # ── Tamper-evident hash chain ───────────────────────────────────────────
+    # Each record stores the hash of the previous record plus its own canonical
+    # fields, so altering any historical record breaks every hash after it.
+    # True WORM requires detached/immutable storage (S3 Object Lock / append-
+    # only log service) — that is a hosting decision, not code; this chain
+    # makes tampering detectable by verification.
+    prev_hash = ""
+    try:
+        last = await db.exec_audit_log.find_one(
+            {}, {"_id": 0, "hash": 1}
+        ).sort("created_at", -1)
+        prev_hash = (last or {}).get("hash") or ""
+    except Exception:
+        prev_hash = ""  # chain restarts — first record of a new chain
+    canon = "|".join([record_id, actor.id, action, target_id or "", now_iso, note or ""])
+    record_hash = _hashlib.sha256((prev_hash + "|" + canon).encode("utf-8")).hexdigest()
     await db.exec_audit_log.insert_one({
-        "id": str(uuid.uuid4()), "actor_id": actor.id, "actor_role": actor.role,
+        "id": record_id, "actor_id": actor.id, "actor_role": actor.role,
         "action": action, "target_id": target_id, "before": before, "after": after,
-        "note": note, "ip": ip, "created_at": datetime.now(timezone.utc).isoformat(),
+        "note": note, "ip": ip, "created_at": now_iso,
+        "prev_hash": prev_hash, "hash": record_hash,
     })
     await audit(actor.id, action, target=target_id, meta={"note": note})
 
@@ -483,7 +508,9 @@ async def ec_set_user_role(body: _ExecSetUserRoleReq, request: Request,
     if actor.id == body.user_id and ROLE_RANK.get(body.new_role, 0) < ROLE_RANK.get("admin", 3):
         raise HTTPException(400, "Cannot demote your own account below admin.")
     await db.users.update_one({"id": body.user_id},
-        {"$set": {"role": body.new_role, "updated_at": datetime.now(timezone.utc).isoformat()}})
+        {"$set": {"role": body.new_role, "updated_at": datetime.now(timezone.utc).isoformat()},
+         "$inc": {"token_version": 1}})  # force re-auth: role change revokes all JWTs
+    await db.auth_sessions.delete_many({"user_id": body.user_id})
     await _exec_audit(actor, "exec.user.role_changed", target_id=body.user_id,
         before={"role": old_role}, after={"role": body.new_role}, request=request, note=body.reason)
     if body.user_id != actor.id:
@@ -501,10 +528,17 @@ async def ec_set_user_tier(body: _ExecSetUserTierReq, request: Request,
         raise HTTPException(404, "User not found")
     old_ft = target.get("feature_tier", "free")
     old_st = target.get("sage_tier", "basic")
+    builtin_tiers = {t["tier_id"] for t in _BUILTIN_TIERS}
+    custom_tiers = await db.tier_definitions.find({}, {"_id": 0, "tier_id": 1}).to_list(100)
+    valid_tiers = builtin_tiers | {t.get("tier_id") for t in custom_tiers if t.get("tier_id")}
+    if body.new_feature_tier not in valid_tiers:
+        raise HTTPException(400, f"Unknown feature tier '{body.new_feature_tier}'. Create it in the tier registry first.")
     upd = {"feature_tier": body.new_feature_tier, "updated_at": datetime.now(timezone.utc).isoformat()}
     if body.new_sage_tier:
         upd["sage_tier"] = body.new_sage_tier
-    await db.users.update_one({"id": body.user_id}, {"$set": upd})
+    await db.users.update_one({"id": body.user_id},
+        {"$set": upd, "$inc": {"token_version": 1}})  # force re-auth: tier change revokes all JWTs
+    await db.auth_sessions.delete_many({"user_id": body.user_id})
     await _exec_audit(actor, "exec.user.tier_changed", target_id=body.user_id,
         before={"feature_tier": old_ft, "sage_tier": old_st}, after=upd,
         request=request, note=body.reason)
@@ -526,7 +560,8 @@ _BUILTIN_TIERS = [
     {"tier_id": "plus",      "label": "Plus",      "rank": 2, "description": "Priority matching + expanded courses + studio",  "color": "#8b5cf6", "price_hint": "$15/mo"},
     {"tier_id": "pro",       "label": "Pro",       "rank": 3, "description": "Advanced courses, labs, full AI suite",          "color": "#b5651d", "price_hint": "$29/mo"},
     {"tier_id": "patron",    "label": "Patron",    "rank": 4, "description": "Founders circle + funds free access for others", "color": "#E8A51E", "price_hint": "$59/mo"},
-    {"tier_id": "executive", "label": "Executive", "rank": 5, "description": "Admin-granted — all features unlocked",          "color": "#ef4444", "price_hint": "Admin grant"},
+    {"tier_id": "platinum",  "label": "Platinum",  "rank": 5, "description": "Premium creator tier — top-tier studio access",   "color": "#9ca3af", "price_hint": "Admin grant"},
+    {"tier_id": "executive", "label": "Executive", "rank": 6, "description": "Admin-granted — all features unlocked",          "color": "#ef4444", "price_hint": "Admin grant"},
 ]
 
 @router.get("/exec/control/tiers")
@@ -586,6 +621,71 @@ async def ec_feature_flag(body: _ExecFeatureFlagReq, request: Request,
             target_id=body.user_id, after={"flag": body.flag_name, "enabled": body.enabled},
             request=request, note=body.reason)
     return {"ok": True, "flag": body.flag_name, "enabled": body.enabled, "scope": body.scope}
+
+
+# ── Authorization Matrix (editable feature↔tier map) ─────────────────────────
+# The enforcement contract the server actually applies.  Defaults mirror
+# security/feature_control.py FEATURE_MIN_TIER; the DB matrix (db.authz_matrix)
+# overrides them per feature.  Executives edit this from the console — no code.
+AUTHZ_FEATURES = [
+    {"key": "profile", "label": "Profile & account", "api": "/api/auth/me", "detail": "Authenticated account surface"},
+    {"key": "ai_chat", "label": "AI suite", "api": "/api/ai/*", "detail": "Platform and per-persona revocation"},
+    {"key": "publisher_ai", "label": "AI Social Blast", "api": "/api/ai/social-blast", "detail": "Separate from general AI"},
+    {"key": "posts", "label": "M.O.R.E. posts and needs", "api": "/api/more/*", "detail": "Tier and platform flag enforced"},
+    {"key": "courses", "label": "Courses, labs, credentials", "api": "/api/modules · /api/labs · /api/credentials", "detail": "Instructors bypass course tier"},
+    {"key": "tracks", "label": "Learning tracks", "api": "/api/modules/tracks", "detail": "Reserved for tracked LMS routes"},
+    {"key": "lounge", "label": "Creator Lounge", "api": "/api/creator-lounge/*", "detail": "Collaboration projects"},
+    {"key": "studio", "label": "Creator Studio", "api": "/api/studio/*", "detail": "Creative production tools"},
+    {"key": "band", "label": "Band on a Page", "api": "/api/band/*", "detail": "Listings and bookings"},
+    {"key": "publisher", "label": "Publishing and playlist", "api": "/api/playlist/* · /api/portfolio/publish", "detail": "Publishing tools"},
+    {"key": "earnings", "label": "Creator earnings", "api": "/api/creator/earnings", "detail": "Financial visibility"},
+    {"key": "payouts", "label": "Creator payouts", "api": "/api/creator/payouts", "detail": "Payout and banking surfaces"},
+    {"key": "sovereign", "label": "Sovereign control", "api": "/api/sovereign/*", "detail": "Executive-tier platform control"},
+]
+AUTHZ_FEATURE_KEYS = {f["key"] for f in AUTHZ_FEATURES}
+
+
+@router.get("/exec/control/authz-matrix")
+async def ec_get_authz_matrix(actor: User = Depends(_require_rank("executive_admin"))):
+    from security.feature_control import (
+        FEATURE_MIN_TIER, TIER_RANK, load_feature_tier_requirements,
+    )
+    effective = await load_feature_tier_requirements(db)
+    features = [
+        {**f, "min_tier": effective.get(f["key"], FEATURE_MIN_TIER.get(f["key"], "free"))}
+        for f in AUTHZ_FEATURES
+    ]
+    return {
+        "features": features,
+        "tiers": [k for k, _ in sorted(TIER_RANK.items(), key=lambda kv: kv[1])],
+        "effective": effective,
+        "fetched_at": datetime.now(timezone.utc).isoformat(),
+    }
+
+
+@router.post("/exec/control/authz-matrix")
+async def ec_set_authz_matrix(body: _ExecAuthzMatrixReq, request: Request,
+                              actor: User = Depends(_require_rank("executive_admin"))):
+    from security.feature_control import TIER_RANK, load_feature_tier_requirements
+    unknown = set(body.requirements) - AUTHZ_FEATURE_KEYS
+    if unknown:
+        raise HTTPException(400, f"Unknown feature key(s): {sorted(unknown)}")
+    custom = await db.tier_definitions.find({}, {"_id": 0, "tier_id": 1}).to_list(100)
+    valid_tiers = set(TIER_RANK) | {t.get("tier_id") for t in custom if t.get("tier_id")}
+    bad_tiers = [t for t in body.requirements.values() if t not in valid_tiers]
+    if bad_tiers:
+        raise HTTPException(400, f"Unknown tier(s): {sorted(set(bad_tiers))} — valid: {sorted(valid_tiers)}")
+    now_iso = datetime.now(timezone.utc).isoformat()
+    await db.authz_matrix.update_one(
+        {"_id": "matrix"},
+        {"$set": {"requirements": dict(body.requirements), "updated_by": actor.id,
+                  "updated_at": now_iso}},
+        upsert=True,
+    )
+    await _exec_audit(actor, "exec.authz_matrix.updated", request=request,
+                      after={"requirements": dict(body.requirements)}, note=body.reason)
+    effective = await load_feature_tier_requirements(db)
+    return {"ok": True, "effective": effective, "updated_at": now_iso}
 
 
 @router.post("/exec/control/ai-access")
@@ -871,7 +971,8 @@ PAGE_ACCESS_REGISTRY = [
     {"key": "elder-council", "label": "Elder Council", "path": "/elder-council"},
     {"key": "jamil", "label": "Jamil", "path": "/jamil"},
     {"key": "portfolio", "label": "Portfolio", "path": "/portfolio"},
-    {"key": "arena", "label": "Arena (Exec)", "path": "/arena"},
+    {"key": "arena", "label": "Arena", "path": "/arena",
+     "default_allowed_roles": ["executive_admin"]},
     {"key": "admin", "label": "Administration", "path": "/admin"},
     {"key": "exec", "label": "Executive Suite", "path": "/admin/exec"},
     {"key": "team", "label": "Team Ops", "path": "/team"},
@@ -879,10 +980,13 @@ PAGE_ACCESS_REGISTRY = [
     {"key": "profile", "label": "Profile", "path": "/profile"},
 ]
 
-
 class _ExecAccessReq(BaseModel):
     page: str = Field(..., min_length=1, max_length=100)
     enabled: bool = True
+    # None preserves the page's existing handler/RBAC behavior. A list is an
+    # explicit role allow-list for the frontend page gate and is mirrored in
+    # the public gate map consumed by AccessGate.
+    allowed_roles: Optional[List[str]] = None
     reason: str = Field("", max_length=500)
 
 
@@ -900,6 +1004,7 @@ async def ec_access_list(actor: User = Depends(_require_rank("executive_admin"))
             "label": reg["label"],
             "path": reg["path"],
             "enabled": d.get("enabled", True),
+            "allowed_roles": d.get("allowed_roles"),
             "updated_by": d.get("updated_by"),
             "updated_at": d.get("updated_at"),
         })
@@ -911,20 +1016,271 @@ async def ec_access_set(body: _ExecAccessReq, request: Request,
                         actor: User = Depends(_require_rank("executive_admin"))):
     if not any(r["key"] == body.page for r in PAGE_ACCESS_REGISTRY):
         raise HTTPException(400, f"Unknown page key '{body.page}'")
+    if body.allowed_roles is not None:
+        valid_roles = set(ROLE_RANK) - {"public"}
+        unknown = set(body.allowed_roles) - valid_roles
+        if unknown:
+            raise HTTPException(400, f"Unknown role(s): {sorted(unknown)}")
+        protected_page_keys = {"admin", "exec", "supervisor", "auditor", "revenue", "team", "jamil", "arena"}
+        if body.page in protected_page_keys and "executive_admin" not in body.allowed_roles:
+            raise HTTPException(400, "Protected executive pages must remain available to executive_admin.")
     now_iso = datetime.now(timezone.utc).isoformat()
+    update = {"enabled": body.enabled, "updated_by": actor.id, "updated_at": now_iso}
+    if body.allowed_roles is not None:
+        update["allowed_roles"] = body.allowed_roles
     await db.page_access.update_one({"page": body.page},
-        {"$set": {"enabled": body.enabled, "updated_by": actor.id, "updated_at": now_iso}},
+        {"$set": update},
         upsert=True)
     await _exec_audit(actor, f"exec.page_access.{'enabled' if body.enabled else 'disabled'}",
         after={"page": body.page, "enabled": body.enabled},
         request=request, note=body.reason)
-    return {"ok": True, "page": body.page, "enabled": body.enabled}
+    return {"ok": True, "page": body.page, "enabled": body.enabled, "allowed_roles": body.allowed_roles}
 
 
 @router.get("/exec/control/access/public")
-async def ec_access_public(user: User = Depends(_dep_current_user)):
-    """Gate map for the frontend shell — {page_key: enabled}. Missing keys
-    default to enabled (a gate is only closed when exec explicitly closes it)."""
-    docs = await db.page_access.find({}, {"_id": 0, "page": 1, "enabled": 1}).to_list(500)
-    pages = {d["page"]: d.get("enabled", True) for d in docs}
+async def ec_access_public():
+    """Public gate map for the frontend shell.
+
+    This endpoint intentionally does not require a session: AccessGate wraps
+    public pages too, and making this read endpoint authenticated would turn a
+    harmless gate lookup into a login redirect for anonymous visitors.
+    """
+    role_overridden = set()  # FCC explicitly set allowed_roles for these keys
+    if db is None:
+        # No database connected — build the pure PAGE_ACCESS_REGISTRY view.
+        # The registry classification pass below still runs (it is registry
+        # data only), so nav metadata (tiers, public marking, internal role
+        # gates) survives a DB outage.
+        pages = {}
+        for reg in PAGE_ACCESS_REGISTRY:
+            pages[reg["key"]] = {
+                "enabled": True,
+                "allowed_roles": reg.get("default_allowed_roles"),
+            }
+    else:
+        docs = await db.page_access.find({}, {"_id": 0, "page": 1, "enabled": 1, "allowed_roles": 1}).to_list(500)
+        db_state = {d["page"]: d for d in docs}
+
+        # Build pages map: DB overrides take priority; otherwise fall back to
+        # the default_allowed_roles defined in PAGE_ACCESS_REGISTRY.  This
+        # ensures cost-bearing features are restricted by default without
+        # requiring execs to manually lock every page.
+        pages = {}
+        for reg in PAGE_ACCESS_REGISTRY:
+            key = reg["key"]
+            d = db_state.get(key, {})
+            pages[key] = {
+                "enabled": d.get("enabled", True),
+                # DB override wins; else use registry default; else None (all roles)
+                "allowed_roles": d.get("allowed_roles") or reg.get("default_allowed_roles"),
+            }
+
+        # -- FCC overrides (DB-dependent) - per-field wins over registry ------
+        # The FCC (routers/features.py) is the control plane. Explicit admin
+        # overrides in db.feature_configs win for enabled/allowed_roles/etc so
+        # the frontend gate map reflects FCC changes without a second write
+        # path. Only DB overrides are merged - registry defaults never gate
+        # the nav by themselves (no surprise lockouts).
+        try:
+            from routers.features import FEATURE_REGISTRY, normalize_tiers
+            fcc_docs = await db.feature_configs.find({}, {"_id": 0}).to_list(500)
+            for cfg in fcc_docs:
+                reg = next(
+                    (r for r in FEATURE_REGISTRY if r.get("feature_id") == cfg.get("feature_id")),
+                    None,
+                )
+                if not reg:
+                    continue
+                route = (reg.get("route") or "").strip("/")
+                key = route.split("/")[0] if route else None
+                if not key:
+                    continue
+                entry = pages.get(key, {"enabled": True, "allowed_roles": None})
+                if "enabled" in cfg:
+                    entry["enabled"] = cfg["enabled"]
+                if "allowed_roles" in cfg:
+                    role_overridden.add(key)
+                    entry["allowed_roles"] = cfg["allowed_roles"]
+                if "allowed_tiers" in cfg:
+                    tiers = normalize_tiers(cfg["allowed_tiers"])
+                    if tiers:
+                        entry["allowed_tiers"] = tiers
+                if "public_access" in cfg:
+                    entry["public_access"] = bool(cfg["public_access"])
+                if "navigation_visible" in cfg:
+                    entry["navigation_visible"] = bool(cfg["navigation_visible"])
+                pages[key] = entry
+        except Exception:
+            # A gate-map merge failure must never break the public gate map.
+            pass
+
+    # -- Registry classification pass - pure registry data, ALWAYS runs ------
+    # Tier-first metadata (allowed_tiers, public_access) and internal-only
+    # role gates derive from the Feature Registry alone, so the gate map stays
+    # correct even when the DB is unavailable (a DB blip must not strip nav
+    # metadata). setdefault keeps any FCC override that already won above.
+    try:
+        from routers.features import FEATURE_REGISTRY, normalize_tiers
+        for reg in FEATURE_REGISTRY:
+            route = (reg.get("route") or "").strip("/")
+            key = route.split("/")[0] if route else None
+            if not key:
+                continue
+            entry = pages.get(key, {"enabled": True, "allowed_roles": None})
+            # Internal-only features: registry default roles gate the page
+            # (Arena -> exec-only, Jamil/Orchestrator -> admin+).
+            if reg.get("internal_only"):
+                roles = reg.get("default_roles") or []
+                if roles and key not in role_overridden:
+                    entry["allowed_roles"] = roles
+            # Additive classification metadata for tier-first navigation.
+            # public_access and allowed_tiers never hide a page by themselves
+            # (no surprise lockouts) but let the frontend derive tier/public
+            # visibility from the same canonical registry data.
+            if "public_access" in reg:
+                entry.setdefault("public_access", bool(reg["public_access"]))
+            tiers = normalize_tiers(reg.get("default_tiers") or [])
+            entry.setdefault("allowed_tiers", tiers)  # empty = role-gated only
+            pages[key] = entry
+    except Exception:
+        # A gate-map merge failure must never break the public gate map.
+        pass
+
     return {"pages": pages}
+
+
+# ── Route Access Overview — every API route and its required role ───────────
+# The frontend calls GET /exec/control/route-access to populate the
+# "Route Access" tab in the executive console.  This builds a snapshot
+# from the live FastAPI app's route table + our PAGE_ACCESS_REGISTRY.
+
+ROUTE_ACCESS_REGISTRY = [
+    # (route_path, method, required_role, feature_area)
+    {"path": "/api/auth/me",              "method": "GET",    "role": "any",         "area": "auth",          "label": "Current user profile"},
+    {"path": "/api/auth/me",              "method": "PATCH",  "role": "any",         "area": "auth",          "label": "Edit own profile"},
+    {"path": "/api/admin/users",          "method": "GET",    "role": "admin",       "area": "users",         "label": "List/search all users"},
+    {"path": "/api/admin/users",          "method": "POST",   "role": "admin",       "area": "users",         "label": "Create new user"},
+    {"path": "/api/admin/users/{uid}",    "method": "PATCH",  "role": "admin",       "area": "users",         "label": "Edit user name/email"},
+    {"path": "/api/admin/users/{uid}/role","method": "PATCH",  "role": "admin",       "area": "users",         "label": "Change user role"},
+    {"path": "/api/admin/users/{uid}/active","method": "PATCH","role": "admin",       "area": "users",         "label": "Activate/deactivate"},
+    {"path": "/api/admin/users/{uid}/ban", "method": "POST",  "role": "exec",        "area": "users",         "label": "Ban user"},
+    {"path": "/api/admin/users/{uid}/reset-password","method":"POST","role": "exec",    "area": "users",         "label": "Reset password"},
+    {"path": "/api/admin/users/{uid}/sessions","method":"GET", "role": "exec",       "area": "users",         "label": "View user sessions"},
+    {"path": "/api/admin/users/{uid}/sessions","method":"DELETE","role": "exec",      "area": "users",         "label": "Revoke all sessions"},
+    {"path": "/api/admin/users/{uid}/audit","method":"GET",   "role": "exec",        "area": "users",         "label": "User audit history"},
+    {"path": "/api/admin/users/{uid}",    "method": "DELETE", "role": "exec",        "area": "users",         "label": "Delete user"},
+    {"path": "/api/exec/control/state",    "method": "GET",    "role": "exec",        "area": "executive",     "label": "Full platform state"},
+    {"path": "/api/exec/control/tiers",    "method": "GET",    "role": "admin",       "area": "tiers",         "label": "List feature tiers"},
+    {"path": "/api/exec/control/tiers",    "method": "POST",   "role": "exec",        "area": "tiers",         "label": "Create/update tier"},
+    {"path": "/api/exec/control/user/role","method": "POST",  "role": "exec",        "area": "users",         "label": "Set user role"},
+    {"path": "/api/exec/control/user/tier","method": "POST",  "role": "admin",       "area": "users",         "label": "Set user tier"},
+    {"path": "/api/exec/control/feature-flag","method":"POST", "role": "exec",       "area": "flags",         "label": "Toggle feature flag"},
+    {"path": "/api/exec/control/authz-matrix","method":"GET", "role": "exec",        "area": "authorization", "label": "View authz matrix"},
+    {"path": "/api/exec/control/authz-matrix","method":"POST","role": "exec",        "area": "authorization", "label": "Update authz matrix"},
+    {"path": "/api/exec/control/ai-access",  "method": "POST", "role": "exec",        "area": "ai",            "label": "Per-user AI access"},
+    {"path": "/api/exec/control/legal-access","method": "POST","role": "exec",        "area": "legal",         "label": "Per-user legal access"},
+    {"path": "/api/exec/control/price",      "method": "POST", "role": "exec",        "area": "billing",       "label": "Update pricing"},
+    {"path": "/api/exec/control/budget",     "method": "POST", "role": "exec",        "area": "budgets",       "label": "Update budget"},
+    {"path": "/api/exec/control/provider-ranking","method":"POST","role": "exec",     "area": "providers",     "label": "AI provider ranking"},
+    {"path": "/api/exec/control/ip-whitelist","method":"POST", "role": "exec",       "area": "security",      "label": "IP whitelist"},
+    {"path": "/api/exec/control/mfa",        "method": "POST", "role": "exec",        "area": "security",      "label": "MFA configuration"},
+    {"path": "/api/exec/control/failover",   "method": "POST", "role": "exec",        "area": "providers",     "label": "Failover config"},
+    {"path": "/api/exec/control/page-mode",  "method": "POST", "role": "exec",        "area": "pages",         "label": "Page mode"},
+    {"path": "/api/exec/control/visibility", "method": "POST", "role": "exec",        "area": "pages",         "label": "Visibility toggle"},
+    {"path": "/api/exec/control/access",     "method": "GET",  "role": "exec",        "area": "pages",         "label": "Page access board"},
+    {"path": "/api/exec/control/access",     "method": "POST", "role": "exec",        "area": "pages",         "label": "Set page access"},
+    {"path": "/api/exec/control/audit",      "method": "GET",  "role": "exec",        "area": "audit",         "label": "Audit log"},
+    {"path": "/api/exec/control/break-glass/activate","method":"POST","role": "exec", "area": "security",    "label": "Activate break glass"},
+    {"path": "/api/exec/control/break-glass/revoke",  "method":"POST","role": "exec", "area": "security",    "label": "Revoke break glass"},
+    {"path": "/api/exec/control/break-glass/active",  "method":"GET", "role": "exec",  "area": "security",    "label": "Active overrides"},
+    {"path": "/api/exec/control/sage-cap",   "method": "POST", "role": "admin",       "area": "ai",            "label": "Sage capability cap"},
+    {"path": "/api/admin/control-panel",     "method": "GET",  "role": "exec",        "area": "executive",     "label": "Control panel data"},
+    {"path": "/api/admin/ai-spend-budget",   "method": "POST", "role": "exec",        "area": "budgets",       "label": "AI spend budget"},
+    {"path": "/api/admin/control-panel/broadcast","method":"POST","role": "exec",    "area": "executive",     "label": "Site broadcast"},
+    {"path": "/api/media/products",          "method": "GET",  "role": "any",         "area": "media",         "label": "Media products"},
+    {"path": "/api/media/file/{id}",         "method": "GET",  "role": "any",         "area": "media",         "label": "Download/preview media"},
+    {"path": "/api/payments/checkout",       "method": "POST", "role": "any",         "area": "billing",       "label": "Payment checkout"},
+    {"path": "/api/modules",                 "method": "GET",  "role": "any",         "area": "courses",       "label": "Course modules"},
+    {"path": "/api/labs",                    "method": "GET",  "role": "any",         "area": "courses",       "label": "Lab simulations"},
+    {"path": "/api/credentials",             "method": "GET",  "role": "any",         "area": "courses",       "label": "Credentials"},
+    {"path": "/api/more/posts",              "method": "GET",  "role": "any",         "area": "community",     "label": "M.O.R.E. posts"},
+    {"path": "/api/more/post",               "method": "POST", "role": "member",      "area": "community",     "label": "Create post"},
+    {"path": "/api/search",                  "method": "GET",  "role": "any",         "area": "search",        "label": "Site search"},
+    {"path": "/api/ai/sage/chat",            "method": "POST", "role": "any",         "area": "ai",            "label": "AI Sage chat"},
+    {"path": "/api/ai/sage/tts",             "method": "POST", "role": "any",         "area": "ai",            "label": "AI Sage TTS"},
+    {"path": "/api/partnership/status",       "method": "GET",  "role": "any",         "area": "partnership",   "label": "Partnership status"},
+    {"path": "/api/progress/me",              "method": "GET",  "role": "any",         "area": "learning",      "label": "My progress"},
+    {"path": "/api/xp/me",                    "method": "GET",  "role": "any",         "area": "learning",      "label": "My XP"},
+]
+
+
+@router.get("/exec/control/route-access")
+async def ec_route_access(actor: User = Depends(_require_rank("executive_admin"))):
+    """Route access overview — every API route, its required role, and
+    its current enforcement status.  The executive console renders this
+    as a table so the exec can see at a glance which routes are locked
+    and which are open.
+    """
+    # Fetch current access overrides from DB
+    overrides = {}
+    try:
+        docs = await db.route_access_overrides.find({}, {"_id": 0}).to_list(500)
+        overrides = {d["path"]: d for d in docs}
+    except Exception:
+        pass
+    routes = []
+    for reg in ROUTE_ACCESS_REGISTRY:
+        ov = overrides.get(reg["path"], {})
+        routes.append({
+            **reg,
+            "enforced": ov.get("enforced", True),
+            "override_role": ov.get("override_role"),
+            "updated_by": ov.get("updated_by"),
+            "updated_at": ov.get("updated_at"),
+        })
+    # Group by area for the UI
+    areas = {}
+    for r in routes:
+        area = r["area"]
+        if area not in areas:
+            areas[area] = []
+        areas[area].append(r)
+    return {
+        "routes": routes,
+        "areas": areas,
+        "total": len(routes),
+        "fetched_at": datetime.now(timezone.utc).isoformat(),
+    }
+
+
+class _RouteAccessOverrideReq(BaseModel):
+    path: str = Field(..., min_length=1, max_length=200)
+    enforced: bool = True
+    override_role: Optional[str] = None  # None = use default from registry
+    reason: str = Field("", max_length=500)
+
+
+@router.post("/exec/control/route-access")
+async def ec_set_route_access(body: _RouteAccessOverrideReq, request: Request,
+                              actor: User = Depends(_require_rank("executive_admin"))):
+    """Override a route's access level.
+    Can mark a route as enforced/not-enforced, or override its required role.
+    executive_admin only.
+    """
+    if not any(r["path"] == body.path for r in ROUTE_ACCESS_REGISTRY):
+        raise HTTPException(400, f"Unknown route path '{body.path}'")
+    now_iso = datetime.now(timezone.utc).isoformat()
+    update = {
+        "path": body.path,
+        "enforced": body.enforced,
+        "override_role": body.override_role,
+        "updated_by": actor.id,
+        "updated_at": now_iso,
+    }
+    await db.route_access_overrides.update_one(
+        {"path": body.path}, {"$set": update}, upsert=True)
+    await _exec_audit(actor, "exec.route_access.updated", request=request,
+                      after={"path": body.path, "enforced": body.enforced,
+                             "override_role": body.override_role},
+                      note=body.reason)
+    return {"ok": True, "path": body.path, "enforced": body.enforced}

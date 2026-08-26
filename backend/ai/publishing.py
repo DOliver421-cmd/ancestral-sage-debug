@@ -31,7 +31,7 @@ logger = logging.getLogger("lcewai.publishing")
 LEMON_SQUEEZY_API_KEY = os.environ.get("LEMON_SQUEEZY_API_KEY", "")
 LEMON_SQUEEZY_STORE_ID = os.environ.get("LEMON_SQUEEZY_STORE_ID", "")
 GUMROAD_API_KEY = os.environ.get("GUMROAD_API_KEY", "")
-EXECUTIVE_EMAIL = os.environ.get("EXECUTIVE_EMAIL", "oldthug957@gmail.com")
+EXECUTIVE_EMAIL = os.environ.get("EXECUTIVE_EMAIL", "")
 
 
 # ── Lemon Squeezy ─────────────────────────────────────────────────────────────
@@ -43,6 +43,7 @@ async def _publish_lemon_squeezy(
     persona: str,
     is_subscription: bool = False,
     interval: str = "month",
+    checkout_email: str = "",
 ) -> dict | None:
     """
     Create a product + variant on Lemon Squeezy.
@@ -124,9 +125,7 @@ async def _publish_lemon_squeezy(
             if r2.status_code in (200, 201):
                 variant_id = r2.json().get("data", {}).get("id")
 
-            # Build product URL
-            # LemonSqueezy store URL format: https://{store}.lemonsqueezy.com/l/{slug}
-            # We may not have the store slug — fall back to dashboard URL
+            # Fetch the store to get its slug for the checkout URL.
             store_info = None
             try:
                 rs = await client.get(
@@ -137,11 +136,24 @@ async def _publish_lemon_squeezy(
                     store_info = rs.json().get("data", {}).get("attributes", {})
             except Exception: pass
 
-            if store_info and product_slug:
-                store_slug = store_info.get("slug", "")
-                url = f"https://{store_slug}.lemonsqueezy.com/l/{product_slug}"
-            else:
-                url = f"https://app.lemonsqueezy.com/products/{product_id}"
+            # Build the CHECKOUT URL — the only Lemon Squeezy URL a customer
+            # can complete a purchase from (docs.lemonsqueezy.com:
+            # https://[STORE].lemonsqueezy.com/checkout/buy/[VARIANT_ID]).
+            # Product pages (/l/{slug}) and dashboard URLs are NOT purchasable —
+            # returning those sent buyers to a dead end with no way to pay.
+            store_slug = (store_info or {}).get("slug", "")
+            if not variant_id or not store_slug:
+                logger.warning(
+                    "LemonSqueezy: cannot build checkout URL (variant_id=%s, store_slug=%s) — failing honestly so the caller reports an error instead of redirecting to a dead page",
+                    bool(variant_id), store_slug or "missing",
+                )
+                return None
+            url = f"https://{store_slug}.lemonsqueezy.com/checkout/buy/{variant_id}"
+            if checkout_email:
+                # Prefill the buyer's account email so the order webhook can
+                # match the purchase to the user and grant the tier reliably.
+                from urllib.parse import quote as _quote
+                url += f"?checkout[email]={_quote(checkout_email)}"
 
             logger.info("LemonSqueezy T1 OK: %s → %s (product %s)", name, url, product_id)
             return {"url": url, "product_id": product_id, "variant_id": variant_id}

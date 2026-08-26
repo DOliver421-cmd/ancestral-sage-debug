@@ -1,3 +1,5 @@
+import { ROLE_RANK, ROLES_ALL as PANEL_ROLES, ROLE_LABELS as PANEL_ROLE_LABELS } from "../lib/roles";
+
 /**
  * M.O.R.E. Help Center — unified entry point
  *
@@ -16,7 +18,7 @@ import {
   Activity, BadgeCheck, ShieldCheck, Sparkles, MapPin,
   Send, Eye, EyeOff, Crown, Search,
 } from "lucide-react";
-import { api, BACKEND_URL } from "../lib/api";
+import { api, BACKEND_URL, openAuthedUrl } from "../lib/api";
 import { useAuth } from "../lib/auth";
 
 // ── Legacy tokens (kept for ExecPanel internal use) ───────────────────────────
@@ -40,10 +42,9 @@ const SAND        = "#F5DEB3";   // card backgrounds
 const CARVED_BG   = "#FFF1DC";   // organic card fill
 
 // ── Role helpers ───────────────────────────────────────────────────────────────
-const ROLE_RANK = { student: 1, instructor: 2, admin: 3, executive_admin: 4 };
 function hasRank(user, min) { return (ROLE_RANK[user?.role] ?? 0) >= min; }
-const isExec    = (u) => hasRank(u, 3);
-const isSupExec = (u) => hasRank(u, 4);
+const isExec    = (u) => hasRank(u, ROLE_RANK["admin"]);
+const isSupExec = (u) => hasRank(u, ROLE_RANK["executive_admin"]);
 
 // ── Static content ─────────────────────────────────────────────────────────────
 const FEATURES = [
@@ -129,7 +130,7 @@ const MODE_DETAILS = {
 // ── Carved section header ──────────────────────────────────────────────────────
 function CarvedHeader({ label }) {
   return (
-    <div style={{ fontSize: 11, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.2em", color: COPPER, marginBottom: 6, fontFamily: "Georgia, serif", borderBottom: `2px solid ${TERRACOTTA}`, paddingBottom: 4, display: "inline-block" }}>
+    <div style={{ fontSize: 14, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.2em", color: COPPER, marginBottom: 6, fontFamily: "Georgia, serif", borderBottom: `2px solid ${TERRACOTTA}`, paddingBottom: 4, display: "inline-block" }}>
       ✦ {label}
     </div>
   );
@@ -150,14 +151,13 @@ function DecoyMode() {
       <a href={`mailto:${SUPPORT_EMAIL}`} style={{ background: AMBER, color: BARK, padding: "12px 28px", borderRadius: 4, fontWeight: 700, fontSize: 14, textDecoration: "none", display: "inline-block" }}>
         Email Support
       </a>
-      <p style={{ color: "rgba(255,255,255,0.3)", marginTop: 40, fontSize: 12 }}>M.O.R.E. Help Center — Michael Oliver Resource Exchange</p>
+      <p style={{ color: "rgba(255,255,255,0.8)", marginTop: 40, fontSize: 14 }}>M.O.R.E. Help Center — Michael Oliver Resource Exchange</p>
     </div>
   );
 }
 
 // ── Role constants for user DB inside panel ────────────────────────────────────
-const PANEL_ROLES      = ["student", "instructor", "admin", "executive_admin"];
-const PANEL_ROLE_LABELS= { student:"Student", instructor:"Instructor", admin:"Admin", executive_admin:"Exec Admin" };
+// Canonical 7-role RBAC from lib/roles.js (mirrors backend/roles.py).
 
 // ── Exec Supervisor Control Panel ──────────────────────────────────────────────
 function ExecPanel({ apiOnline, visibility, setVisibility, superExec }) {
@@ -604,13 +604,13 @@ function ExecPanel({ apiOnline, visibility, setVisibility, superExec }) {
           <div style={{ width: 36, height: 36, borderRadius: "50%", background: SIG, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 900, fontSize: 14, color: INK }}>S</div>
           <div>
             <div style={{ color: "white", fontWeight: 800, fontSize: 15 }}>Supervisor Panel</div>
-            <div style={{ color: "rgba(255,255,255,0.45)", fontSize: 11 }}>Executive Control — M.O.R.E. Help Center</div>
+            <div style={{ color: "rgba(255,255,255,0.85)", fontSize: 14 }}>Executive Control — M.O.R.E. Help Center</div>
           </div>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
           <div style={{ width: 8, height: 8, borderRadius: "50%", background: apiOnline ? "#22c55e" : "#dc2626" }} />
-          <span style={{ fontSize: 12, color: "rgba(255,255,255,0.6)" }}>{apiOnline ? "API online" : "API offline"}</span>
-          <Link to="/admin/system" style={{ background: SIG, color: INK, padding: "5px 12px", borderRadius: 6, fontSize: 11, fontWeight: 700, textDecoration: "none", marginLeft: 8 }}>
+          <span style={{ fontSize: 14, color: "rgba(255,255,255,0.6)" }}>{apiOnline ? "API online" : "API offline"}</span>
+          <Link to="/admin/system" style={{ background: SIG, color: INK, padding: "5px 12px", borderRadius: 6, fontSize: 14, fontWeight: 700, textDecoration: "none", marginLeft: 8 }}>
             Full Dashboard →
           </Link>
         </div>
@@ -619,14 +619,14 @@ function ExecPanel({ apiOnline, visibility, setVisibility, superExec }) {
       <div style={{ display: "flex", overflowX: "auto", borderBottom: "1px solid rgba(255,255,255,0.08)", padding: "0 16px" }}>
         {TABS.map(t => (
           <button key={t.key} onClick={() => setTab(t.key)}
-            style={{ padding: "10px 14px", border: "none", background: "none", color: tab === t.key ? SIG : "rgba(255,255,255,0.55)", fontWeight: tab === t.key ? 700 : 500, fontSize: 12, cursor: "pointer", borderBottom: tab === t.key ? `2px solid ${SIG}` : "2px solid transparent", whiteSpace: "nowrap" }}>
+            style={{ padding: "10px 14px", border: "none", background: "none", color: tab === t.key ? SIG : "rgba(255,255,255,0.55)", fontWeight: tab === t.key ? 700 : 500, fontSize: 14, cursor: "pointer", borderBottom: tab === t.key ? `2px solid ${SIG}` : "2px solid transparent", whiteSpace: "nowrap" }}>
             {t.label}
           </button>
         ))}
       </div>
 
       {notice && (
-        <div style={{ margin: "12px 20px 0", background: "rgba(255,255,255,0.1)", borderRadius: 8, padding: "8px 14px", fontSize: 12, color: SIG }}>{notice}</div>
+        <div style={{ margin: "12px 20px 0", background: "rgba(255,255,255,0.1)", borderRadius: 8, padding: "8px 14px", fontSize: 14, color: SIG }}>{notice}</div>
       )}
 
       <div style={{ padding: 20, minHeight: 220 }}>
@@ -636,13 +636,13 @@ function ExecPanel({ apiOnline, visibility, setVisibility, superExec }) {
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16, flexWrap: "wrap", gap: 8 }}>
               <span style={{ color: "white", fontWeight: 700, fontSize: 14 }}>Platform Health</span>
               <div style={{ display: "flex", gap: 6 }}>
-                <button onClick={loadHealth} disabled={loading} style={{ background: "rgba(255,255,255,0.1)", border: "none", color: "white", padding: "5px 12px", borderRadius: 6, fontSize: 11, cursor: "pointer" }}>
+                <button onClick={loadHealth} disabled={loading} style={{ background: "rgba(255,255,255,0.1)", border: "none", color: "white", padding: "5px 12px", borderRadius: 6, fontSize: 14, cursor: "pointer" }}>
                   {loading ? "…" : "Refresh"}
                 </button>
                 <button onClick={async () => {
                   try { await api.post("/admin/run-checks"); notify("Escalation & engagement checks complete"); }
                   catch (e) { notify(`Checks failed: ${e?.response?.data?.detail || e.message}`); }
-                }} style={{ background: "rgba(255,209,0,0.2)", border: "1px solid rgba(255,209,0,0.4)", color: SIG, padding: "5px 12px", borderRadius: 6, fontSize: 11, fontWeight: 700, cursor: "pointer" }}>
+                }} style={{ background: "rgba(255,209,0,0.2)", border: "1px solid rgba(255,209,0,0.4)", color: SIG, padding: "5px 12px", borderRadius: 6, fontSize: 14, fontWeight: 700, cursor: "pointer" }}>
                   Run Checks
                 </button>
               </div>
@@ -651,21 +651,21 @@ function ExecPanel({ apiOnline, visibility, setVisibility, superExec }) {
               <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(140px,1fr))", gap: 10, marginBottom: 20 }}>
                 {Object.entries(health).filter(([k]) => typeof health[k] !== "object").map(([k, v]) => (
                   <div key={k} style={{ background: "rgba(255,255,255,0.07)", borderRadius: 8, padding: "10px 14px" }}>
-                    <div style={{ color: "rgba(255,255,255,0.45)", fontSize: 10, textTransform: "uppercase", letterSpacing: 1 }}>{k}</div>
+                    <div style={{ color: "rgba(255,255,255,0.85)", fontSize: 13, textTransform: "uppercase", letterSpacing: 1 }}>{k}</div>
                     <div style={{ color: v === "up" || v === true ? "#22c55e" : v === "down" || v === false ? "#dc2626" : SIG, fontWeight: 700, fontSize: 13, marginTop: 4 }}>{String(v)}</div>
                   </div>
                 ))}
               </div>
             ) : (
-              <p style={{ color: "rgba(255,255,255,0.4)", fontSize: 13 }}>Click Refresh to run health check.</p>
+              <p style={{ color: "rgba(255,255,255,0.85)", fontSize: 13 }}>Click Refresh to run health check.</p>
             )}
             {sysStats && (
               <div style={{ background: "rgba(255,255,255,0.05)", borderRadius: 10, padding: "14px 18px", marginBottom: 14 }}>
-                <div style={{ color: SIG, fontWeight: 700, fontSize: 12, textTransform: "uppercase", letterSpacing: 1, marginBottom: 10 }}>Platform Stats</div>
+                <div style={{ color: SIG, fontWeight: 700, fontSize: 14, textTransform: "uppercase", letterSpacing: 1, marginBottom: 10 }}>Platform Stats</div>
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(130px,1fr))", gap: 8 }}>
                   {Object.entries(sysStats).filter(([,v]) => typeof v !== "object").map(([k, v]) => (
                     <div key={k} style={{ background: "rgba(255,255,255,0.06)", borderRadius: 6, padding: "6px 10px" }}>
-                      <div style={{ color: "rgba(255,255,255,0.4)", fontSize: 9, textTransform: "uppercase", letterSpacing: 1 }}>{k.replace(/_/g," ")}</div>
+                      <div style={{ color: "rgba(255,255,255,0.85)", fontSize: 14, textTransform: "uppercase", letterSpacing: 1 }}>{k.replace(/_/g," ")}</div>
                       <div style={{ color: "white", fontWeight: 700, fontSize: 13, marginTop: 2 }}>{String(v)}</div>
                     </div>
                   ))}
@@ -674,29 +674,29 @@ function ExecPanel({ apiOnline, visibility, setVisibility, superExec }) {
             )}
             {sysInfo && (
               <div style={{ background: "rgba(255,255,255,0.05)", borderRadius: 10, padding: "14px 18px" }}>
-                <div style={{ color: SIG, fontWeight: 700, fontSize: 12, textTransform: "uppercase", letterSpacing: 1, marginBottom: 10 }}>System Info (Exec)</div>
+                <div style={{ color: SIG, fontWeight: 700, fontSize: 14, textTransform: "uppercase", letterSpacing: 1, marginBottom: 10 }}>System Info (Exec)</div>
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(160px,1fr))", gap: 8, marginBottom: 10 }}>
                   <div style={{ background: "rgba(255,255,255,0.06)", borderRadius: 6, padding: "8px 12px" }}>
-                    <div style={{ color: "rgba(255,255,255,0.4)", fontSize: 10, textTransform: "uppercase" }}>Version</div>
-                    <div style={{ color: "white", fontSize: 12, fontWeight: 700, marginTop: 3, fontFamily: "monospace" }}>{sysInfo.version || "—"}</div>
+                    <div style={{ color: "rgba(255,255,255,0.85)", fontSize: 13, textTransform: "uppercase" }}>Version</div>
+                    <div style={{ color: "white", fontSize: 14, fontWeight: 700, marginTop: 3, fontFamily: "monospace" }}>{sysInfo.version || "—"}</div>
                   </div>
                   <div style={{ background: "rgba(255,255,255,0.06)", borderRadius: 6, padding: "8px 12px" }}>
-                    <div style={{ color: "rgba(255,255,255,0.4)", fontSize: 10, textTransform: "uppercase" }}>Audit Log Entries</div>
-                    <div style={{ color: "white", fontSize: 12, fontWeight: 700, marginTop: 3 }}>{sysInfo.audit_log_total?.toLocaleString() || "—"}</div>
+                    <div style={{ color: "rgba(255,255,255,0.85)", fontSize: 13, textTransform: "uppercase" }}>Audit Log Entries</div>
+                    <div style={{ color: "white", fontSize: 14, fontWeight: 700, marginTop: 3 }}>{sysInfo.audit_log_total?.toLocaleString() || "—"}</div>
                   </div>
                   {sysInfo.env && Object.entries(sysInfo.env).map(([k, v]) => (
                     <div key={k} style={{ background: "rgba(255,255,255,0.06)", borderRadius: 6, padding: "8px 12px" }}>
-                      <div style={{ color: "rgba(255,255,255,0.4)", fontSize: 10, textTransform: "uppercase" }}>{k.replace(/_/g, " ")}</div>
-                      <div style={{ color: "white", fontSize: 11, fontWeight: 600, marginTop: 3, fontFamily: "monospace", wordBreak: "break-all" }}>{String(v)}</div>
+                      <div style={{ color: "rgba(255,255,255,0.85)", fontSize: 13, textTransform: "uppercase" }}>{k.replace(/_/g, " ")}</div>
+                      <div style={{ color: "white", fontSize: 14, fontWeight: 600, marginTop: 3, fontFamily: "monospace", wordBreak: "break-all" }}>{String(v)}</div>
                     </div>
                   ))}
                 </div>
                 {sysInfo.role_counts && (
                   <div>
-                    <div style={{ color: "rgba(255,255,255,0.4)", fontSize: 10, textTransform: "uppercase", letterSpacing: 1, marginBottom: 6 }}>Role Distribution</div>
+                    <div style={{ color: "rgba(255,255,255,0.85)", fontSize: 13, textTransform: "uppercase", letterSpacing: 1, marginBottom: 6 }}>Role Distribution</div>
                     <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                       {Object.entries(sysInfo.role_counts).map(([role, count]) => (
-                        <div key={role} style={{ background: "rgba(255,255,255,0.08)", borderRadius: 5, padding: "4px 10px", fontSize: 11 }}>
+                        <div key={role} style={{ background: "rgba(255,255,255,0.08)", borderRadius: 5, padding: "4px 10px", fontSize: 14 }}>
                           <span style={{ color: "rgba(255,255,255,0.6)", textTransform: "capitalize" }}>{role.replace("_", " ")}</span>
                           <span style={{ color: SIG, fontWeight: 800, marginLeft: 6 }}>{count}</span>
                         </div>
@@ -708,40 +708,40 @@ function ExecPanel({ apiOnline, visibility, setVisibility, superExec }) {
             )}
             {sageStatus && (
               <div style={{ background: "rgba(255,255,255,0.05)", borderRadius: 10, padding: "14px 18px", marginTop: 14 }}>
-                <div style={{ color: SIG, fontWeight: 700, fontSize: 12, textTransform: "uppercase", letterSpacing: 1, marginBottom: 10 }}>Sage Integrity Status</div>
+                <div style={{ color: SIG, fontWeight: 700, fontSize: 14, textTransform: "uppercase", letterSpacing: 1, marginBottom: 10 }}>Sage Integrity Status</div>
                 <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 10 }}>
                   <div style={{ background: "rgba(255,255,255,0.06)", borderRadius: 6, padding: "6px 12px" }}>
-                    <div style={{ color: "rgba(255,255,255,0.4)", fontSize: 10, textTransform: "uppercase" }}>Prompt Hash</div>
-                    <div style={{ color: sageStatus.prompt_hash_status === "match" ? "#22c55e" : "#ef4444", fontWeight: 700, fontSize: 12, marginTop: 2, textTransform: "capitalize" }}>
+                    <div style={{ color: "rgba(255,255,255,0.85)", fontSize: 13, textTransform: "uppercase" }}>Prompt Hash</div>
+                    <div style={{ color: sageStatus.prompt_hash_status === "match" ? "#22c55e" : "#ef4444", fontWeight: 700, fontSize: 14, marginTop: 2, textTransform: "capitalize" }}>
                       {sageStatus.prompt_hash_status === "match" ? "✓ Match" : "✗ " + sageStatus.prompt_hash_status}
                     </div>
                   </div>
                   <div style={{ background: "rgba(255,255,255,0.06)", borderRadius: 6, padding: "6px 12px" }}>
-                    <div style={{ color: "rgba(255,255,255,0.4)", fontSize: 10, textTransform: "uppercase" }}>Fallback</div>
-                    <div style={{ color: sageStatus.fallback_active ? "#f87171" : "#22c55e", fontWeight: 700, fontSize: 12, marginTop: 2 }}>
+                    <div style={{ color: "rgba(255,255,255,0.85)", fontSize: 13, textTransform: "uppercase" }}>Fallback</div>
+                    <div style={{ color: sageStatus.fallback_active ? "#f87171" : "#22c55e", fontWeight: 700, fontSize: 14, marginTop: 2 }}>
                       {sageStatus.fallback_active ? "Active" : "Off"}
                     </div>
                   </div>
                   {sageStatus.modules && Object.entries(sageStatus.modules).map(([mod, status]) => (
                     <div key={mod} style={{ background: "rgba(255,255,255,0.06)", borderRadius: 6, padding: "6px 12px" }}>
-                      <div style={{ color: "rgba(255,255,255,0.4)", fontSize: 10, textTransform: "uppercase" }}>Module {mod}</div>
-                      <div style={{ color: status === "present" ? "#22c55e" : "#ef4444", fontWeight: 700, fontSize: 12, marginTop: 2, textTransform: "capitalize" }}>{status}</div>
+                      <div style={{ color: "rgba(255,255,255,0.85)", fontSize: 13, textTransform: "uppercase" }}>Module {mod}</div>
+                      <div style={{ color: status === "present" ? "#22c55e" : "#ef4444", fontWeight: 700, fontSize: 14, marginTop: 2, textTransform: "capitalize" }}>{status}</div>
                     </div>
                   ))}
                 </div>
                 {sageStatus.last_audit_id && (
-                  <div style={{ color: "rgba(255,255,255,0.35)", fontSize: 10, fontFamily: "monospace" }}>Last audit ID: {sageStatus.last_audit_id}</div>
+                  <div style={{ color: "rgba(255,255,255,0.8)", fontSize: 13, fontFamily: "monospace" }}>Last audit ID: {sageStatus.last_audit_id}</div>
                 )}
               </div>
             )}
             {ttsMetrics && (
               <div style={{ background: "rgba(255,255,255,0.05)", borderRadius: 10, padding: "14px 18px", marginTop: 14 }}>
-                <div style={{ color: SIG, fontWeight: 700, fontSize: 12, textTransform: "uppercase", letterSpacing: 1, marginBottom: 10 }}>TTS Metrics (5-min window)</div>
+                <div style={{ color: SIG, fontWeight: 700, fontSize: 14, textTransform: "uppercase", letterSpacing: 1, marginBottom: 10 }}>TTS Metrics (5-min window)</div>
                 <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                   {[["p95 latency", `${ttsMetrics.p95_latency_ms}ms`], ["cache hit", `${(ttsMetrics.cache_hit_ratio*100).toFixed(1)}%`], ["error rate", `${(ttsMetrics.error_rate*100).toFixed(1)}%`], ["samples", ttsMetrics.sample_count], ["breaker", ttsMetrics.breaker || "—"]].map(([label, val]) => (
                     <div key={label} style={{ background: "rgba(255,255,255,0.07)", borderRadius: 6, padding: "6px 12px" }}>
-                      <div style={{ color: "rgba(255,255,255,0.4)", fontSize: 9, textTransform: "uppercase" }}>{label}</div>
-                      <div style={{ color: "white", fontWeight: 700, fontSize: 12, marginTop: 2 }}>{String(val)}</div>
+                      <div style={{ color: "rgba(255,255,255,0.85)", fontSize: 14, textTransform: "uppercase" }}>{label}</div>
+                      <div style={{ color: "white", fontWeight: 700, fontSize: 14, marginTop: 2 }}>{String(val)}</div>
                     </div>
                   ))}
                 </div>
@@ -749,13 +749,13 @@ function ExecPanel({ apiOnline, visibility, setVisibility, superExec }) {
             )}
             {execDash && (
               <div style={{ background: "rgba(255,255,255,0.04)", borderRadius: 10, padding: "14px 18px", marginTop: 14 }}>
-                <div style={{ color: SIG, fontWeight: 700, fontSize: 12, textTransform: "uppercase", letterSpacing: 1, marginBottom: 10 }}>Executive Dashboard</div>
+                <div style={{ color: SIG, fontWeight: 700, fontSize: 14, textTransform: "uppercase", letterSpacing: 1, marginBottom: 10 }}>Executive Dashboard</div>
                 {execDash.platform_status && (
                   <div style={{ marginBottom: 12 }}>
-                    <div style={{ color: "rgba(255,255,255,0.4)", fontSize: 10, textTransform: "uppercase", letterSpacing: 1, marginBottom: 6 }}>Platform Integration Status</div>
+                    <div style={{ color: "rgba(255,255,255,0.85)", fontSize: 13, textTransform: "uppercase", letterSpacing: 1, marginBottom: 6 }}>Platform Integration Status</div>
                     <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
                       {Object.entries(execDash.platform_status).map(([k, v]) => (
-                        <div key={k} style={{ background: "rgba(255,255,255,0.07)", borderRadius: 5, padding: "3px 10px", fontSize: 10 }}>
+                        <div key={k} style={{ background: "rgba(255,255,255,0.07)", borderRadius: 5, padding: "3px 10px", fontSize: 13 }}>
                           <span style={{ color: "rgba(255,255,255,0.5)" }}>{k.replace(/_/g," ")}: </span>
                           <span style={{ color: v === true ? "#22c55e" : v === false ? "#ef4444" : "white", fontWeight: 700 }}>{String(v)}</span>
                         </div>
@@ -765,25 +765,25 @@ function ExecPanel({ apiOnline, visibility, setVisibility, superExec }) {
                 )}
                 {execDash.personas && (
                   <div style={{ marginBottom: 12 }}>
-                    <div style={{ color: "rgba(255,255,255,0.4)", fontSize: 10, textTransform: "uppercase", letterSpacing: 1, marginBottom: 6 }}>AI Personas</div>
+                    <div style={{ color: "rgba(255,255,255,0.85)", fontSize: 13, textTransform: "uppercase", letterSpacing: 1, marginBottom: 6 }}>AI Personas</div>
                     <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(160px,1fr))", gap: 6 }}>
                       {Object.entries(execDash.personas).map(([name, p]) => (
                         <div key={name} style={{ background: "rgba(255,255,255,0.06)", borderRadius: 6, padding: "8px 12px" }}>
-                          <div style={{ color: "white", fontWeight: 700, fontSize: 11, textTransform: "capitalize", marginBottom: 3 }}>{name}</div>
-                          <div style={{ color: p?.active ? "#22c55e" : "#94a3b8", fontSize: 10, marginBottom: 4 }}>{p?.active ? "● Active" : "○ Inactive"}</div>
-                          {p?.tools != null && <div style={{ color: "rgba(255,255,255,0.35)", fontSize: 9, marginBottom: 6 }}>{p.tools} tools · {p.voice_tier || "—"}</div>}
+                          <div style={{ color: "white", fontWeight: 700, fontSize: 14, textTransform: "capitalize", marginBottom: 3 }}>{name}</div>
+                          <div style={{ color: p?.active ? "#22c55e" : "#94a3b8", fontSize: 13, marginBottom: 4 }}>{p?.active ? "● Active" : "○ Inactive"}</div>
+                          {p?.tools != null && <div style={{ color: "rgba(255,255,255,0.8)", fontSize: 14, marginBottom: 6 }}>{p.tools} tools · {p.voice_tier || "—"}</div>}
                           <div style={{ display: "flex", gap: 4 }}>
                             {!p?.active && (
                               <button onClick={async () => {
                                 try { await api.post(`/exec/personas/${name}/activate`); notify(`${name} activated`); const r = await api.get("/exec/dashboard"); setExecDash(r.data); }
                                 catch (e) { notify(`Activate failed: ${e?.response?.data?.detail || e.message}`); }
-                              }} style={{ background: "rgba(34,197,94,0.2)", border: "none", color: "#4ade80", padding: "2px 8px", borderRadius: 3, fontSize: 9, fontWeight: 700, cursor: "pointer" }}>Activate</button>
+                              }} style={{ background: "rgba(34,197,94,0.2)", border: "none", color: "#4ade80", padding: "2px 8px", borderRadius: 3, fontSize: 14, fontWeight: 700, cursor: "pointer" }}>Activate</button>
                             )}
                             {p?.active && (
                               <button onClick={async () => {
                                 try { await api.post(`/exec/personas/${name}/deactivate`); notify(`${name} deactivated`); const r = await api.get("/exec/dashboard"); setExecDash(r.data); }
                                 catch (e) { notify(`Deactivate failed: ${e?.response?.data?.detail || e.message}`); }
-                              }} style={{ background: "rgba(220,38,38,0.2)", border: "none", color: "#f87171", padding: "2px 8px", borderRadius: 3, fontSize: 9, fontWeight: 700, cursor: "pointer" }}>Deactivate</button>
+                              }} style={{ background: "rgba(220,38,38,0.2)", border: "none", color: "#f87171", padding: "2px 8px", borderRadius: 3, fontSize: 14, fontWeight: 700, cursor: "pointer" }}>Deactivate</button>
                             )}
                           </div>
                         </div>
@@ -793,9 +793,9 @@ function ExecPanel({ apiOnline, visibility, setVisibility, superExec }) {
                 )}
                 {execDash.notifications?.length > 0 && (
                   <div>
-                    <div style={{ color: "rgba(255,255,255,0.4)", fontSize: 10, textTransform: "uppercase", letterSpacing: 1, marginBottom: 6 }}>Pending Exec Notifications ({execDash.notifications.length})</div>
+                    <div style={{ color: "rgba(255,255,255,0.85)", fontSize: 13, textTransform: "uppercase", letterSpacing: 1, marginBottom: 6 }}>Pending Exec Notifications ({execDash.notifications.length})</div>
                     {execDash.notifications.slice(0,3).map((n, i) => (
-                      <div key={i} style={{ background: "rgba(255,209,0,0.1)", borderRadius: 5, padding: "5px 10px", marginBottom: 4, fontSize: 11, color: SIG }}>{n.message || n.title || JSON.stringify(n)}</div>
+                      <div key={i} style={{ background: "rgba(255,209,0,0.1)", borderRadius: 5, padding: "5px 10px", marginBottom: 4, fontSize: 14, color: SIG }}>{n.message || n.title || JSON.stringify(n)}</div>
                     ))}
                   </div>
                 )}
@@ -811,15 +811,15 @@ function ExecPanel({ apiOnline, visibility, setVisibility, superExec }) {
             {/* Provider status grid */}
             {gwStatus ? (
               <div>
-                <div style={{ color: SIG, fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1, marginBottom: 8 }}>Provider Status</div>
+                <div style={{ color: SIG, fontSize: 14, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1, marginBottom: 8 }}>Provider Status</div>
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(160px,1fr))", gap: 10, marginBottom: 18 }}>
                   {Object.entries(gwStatus.providers || {}).map(([name, p]) => (
                     <div key={name} style={{ background: "rgba(255,255,255,0.07)", borderRadius: 8, padding: "10px 14px" }}>
                       <div style={{ color: "white", fontWeight: 700, fontSize: 13, textTransform: "capitalize" }}>{name}</div>
-                      <div style={{ color: p.available ? "#22c55e" : "#dc2626", fontSize: 11, marginTop: 3 }}>
+                      <div style={{ color: p.available ? "#22c55e" : "#dc2626", fontSize: 14, marginTop: 3 }}>
                         {p.available ? "✓ Active" : "✗ No key"}
                       </div>
-                      <div style={{ color: SIG, fontSize: 10, marginTop: 2 }}>Tier {p.tier} · {p.cost}</div>
+                      <div style={{ color: SIG, fontSize: 13, marginTop: 2 }}>Tier {p.tier} · {p.cost}</div>
                     </div>
                   ))}
                 </div>
@@ -827,8 +827,8 @@ function ExecPanel({ apiOnline, visibility, setVisibility, superExec }) {
                 {/* Budget controls */}
                 {gwStatus.budget && (
                   <div style={{ background: "rgba(255,255,255,0.06)", borderRadius: 8, padding: "12px 16px", marginBottom: 18 }}>
-                    <div style={{ color: SIG, fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1, marginBottom: 8 }}>Hourly Token Budget</div>
-                    <div style={{ fontSize: 12, color: "rgba(255,255,255,0.6)", marginBottom: 10 }}>
+                    <div style={{ color: SIG, fontSize: 14, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1, marginBottom: 8 }}>Hourly Token Budget</div>
+                    <div style={{ fontSize: 14, color: "rgba(255,255,255,0.6)", marginBottom: 10 }}>
                       Used: {gwStatus.budget.tokens_used?.toLocaleString()} / {gwStatus.budget.hourly_cap?.toLocaleString()} tokens ({gwStatus.budget.budget_pct}%)
                       {gwStatus.budget.over_budget && <span style={{ color: "#dc2626", marginLeft: 8, fontWeight: 700 }}>⚠ OVER BUDGET</span>}
                     </div>
@@ -838,14 +838,14 @@ function ExecPanel({ apiOnline, visibility, setVisibility, superExec }) {
                         value={budgetCap || gwStatus.budget.hourly_cap || ""}
                         onChange={e => setBudgetCap(e.target.value)}
                         placeholder="tokens/hour"
-                        style={{ background: "rgba(255,255,255,0.1)", border: "1px solid rgba(255,255,255,0.2)", borderRadius: 6, padding: "6px 10px", color: "white", fontSize: 12, width: 140, outline: "none" }}
+                        style={{ background: "rgba(255,255,255,0.1)", border: "1px solid rgba(255,255,255,0.2)", borderRadius: 6, padding: "6px 10px", color: "white", fontSize: 14, width: 140, outline: "none" }}
                       />
                       <button onClick={saveBudgetCap}
-                        style={{ background: SIG, border: "none", color: INK, padding: "6px 14px", borderRadius: 6, fontSize: 11, fontWeight: 800, cursor: "pointer" }}>
+                        style={{ background: SIG, border: "none", color: INK, padding: "6px 14px", borderRadius: 6, fontSize: 14, fontWeight: 800, cursor: "pointer" }}>
                         Set Cap
                       </button>
                       <button onClick={resetBudgetCounter}
-                        style={{ background: "rgba(220,38,38,0.25)", border: "none", color: "#f87171", padding: "6px 14px", borderRadius: 6, fontSize: 11, fontWeight: 800, cursor: "pointer" }}>
+                        style={{ background: "rgba(220,38,38,0.25)", border: "none", color: "#f87171", padding: "6px 14px", borderRadius: 6, fontSize: 14, fontWeight: 800, cursor: "pointer" }}>
                         Reset Counter
                       </button>
                     </div>
@@ -853,21 +853,21 @@ function ExecPanel({ apiOnline, visibility, setVisibility, superExec }) {
                 )}
               </div>
             ) : (
-              <p style={{ color: "rgba(255,255,255,0.4)", fontSize: 13 }}>Loading gateway status…</p>
+              <p style={{ color: "rgba(255,255,255,0.85)", fontSize: 13 }}>Loading gateway status…</p>
             )}
 
             {/* Provider ranking */}
             <div style={{ background: "rgba(255,255,255,0.06)", borderRadius: 8, padding: "12px 16px", marginBottom: 14 }}>
-              <div style={{ color: SIG, fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1, marginBottom: 6 }}>Provider Priority Order (Free-First)</div>
-              <div style={{ color: "rgba(255,255,255,0.4)", fontSize: 10, marginBottom: 10 }}>
+              <div style={{ color: SIG, fontSize: 14, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1, marginBottom: 6 }}>Provider Priority Order (Free-First)</div>
+              <div style={{ color: "rgba(255,255,255,0.85)", fontSize: 13, marginBottom: 10 }}>
                 Soft preference stored in DB. Use API Keys tab to push/revoke/disable providers to enforce hard routing.
               </div>
               {gwRanking?.ranking ? (
                 <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
                   {gwRanking.ranking.map((prov, i) => (
                     <div key={prov} style={{ display: "flex", alignItems: "center", gap: 8, background: "rgba(255,255,255,0.05)", borderRadius: 6, padding: "6px 10px" }}>
-                      <span style={{ color: SIG, fontWeight: 800, fontSize: 11, width: 20 }}>#{i + 1}</span>
-                      <span style={{ color: "white", fontSize: 12, flex: 1, textTransform: "capitalize" }}>{prov}</span>
+                      <span style={{ color: SIG, fontWeight: 800, fontSize: 14, width: 20 }}>#{i + 1}</span>
+                      <span style={{ color: "white", fontSize: 14, flex: 1, textTransform: "capitalize" }}>{prov}</span>
                       <button onClick={() => moveRanking(i, -1)} disabled={i === 0}
                         style={{ background: "none", border: "none", color: i === 0 ? "rgba(255,255,255,0.2)" : "rgba(255,255,255,0.6)", fontSize: 14, cursor: i === 0 ? "default" : "pointer", padding: "0 4px" }}>▲</button>
                       <button onClick={() => moveRanking(i, 1)} disabled={i === gwRanking.ranking.length - 1}
@@ -876,11 +876,11 @@ function ExecPanel({ apiOnline, visibility, setVisibility, superExec }) {
                   ))}
                 </div>
               ) : (
-                <p style={{ color: "rgba(255,255,255,0.4)", fontSize: 12 }}>Loading ranking…</p>
+                <p style={{ color: "rgba(255,255,255,0.85)", fontSize: 14 }}>Loading ranking…</p>
               )}
             </div>
 
-            <button onClick={loadGateway} style={{ background: "rgba(255,255,255,0.1)", border: "none", color: "white", padding: "5px 12px", borderRadius: 6, fontSize: 11, cursor: "pointer" }}>
+            <button onClick={loadGateway} style={{ background: "rgba(255,255,255,0.1)", border: "none", color: "white", padding: "5px 12px", borderRadius: 6, fontSize: 14, cursor: "pointer" }}>
               Refresh Status
             </button>
           </div>
@@ -902,8 +902,8 @@ function ExecPanel({ apiOnline, visibility, setVisibility, superExec }) {
                       <div style={{ color:"#166534", fontWeight:700, marginBottom:8 }}>✓ {newCreated.full_name} created as {PANEL_ROLE_LABELS[newCreated.role]}</div>
                       {newResetLink && (
                         <div style={{ background:"#fefce8", border:"1px solid #fde68a", borderRadius:8, padding:12, marginTop:8 }}>
-                          <div style={{ fontSize:11, fontWeight:700, color:"#92400e", marginBottom:4 }}>One-time login link:</div>
-                          <div style={{ fontSize:11, fontFamily:"monospace", wordBreak:"break-all", color:"#78350f" }}>{newResetLink}</div>
+                          <div style={{ fontSize:14, fontWeight:700, color:"#92400e", marginBottom:4 }}>One-time login link:</div>
+                          <div style={{ fontSize:14, fontFamily:"monospace", wordBreak:"break-all", color:"#78350f" }}>{newResetLink}</div>
                           <button onClick={() => navigator.clipboard?.writeText(newResetLink)} style={{ marginTop:6, fontSize:11, color:"#b45309", fontWeight:700, border:"none", background:"none", cursor:"pointer" }}>Copy link</button>
                         </div>
                       )}
@@ -1769,8 +1769,8 @@ export default function MoreHelpCenter() {
             </button>
             <Link to="/site-guide" style={{ fontSize: 10, fontWeight: 800, textTransform: "uppercase", letterSpacing: 2, color: "#fff", textDecoration: "none", background: FOREST, padding: "4px 11px", borderRadius: 4 }}>Site Guide</Link>
             {/* M.O.R.E. Institute — prominent entry point to administration + classrooms */}
-            <a href={`${BACKEND_URL}/api/handbooks/instructor`} target="_blank" rel="noopener noreferrer" style={{ fontSize: 10, fontWeight: 800, textTransform: "uppercase", letterSpacing: 2, color: "white", textDecoration: "none", background: TERRACOTTA, padding: "4px 11px", borderRadius: 4 }}>📘 Instructor Handbook</a>
-            <a href={`${BACKEND_URL}/api/handbooks/student`} target="_blank" rel="noopener noreferrer" style={{ fontSize: 10, fontWeight: 800, textTransform: "uppercase", letterSpacing: 2, color: "white", textDecoration: "none", background: TERRACOTTA, padding: "4px 11px", borderRadius: 4 }}>📕 Student Handbook</a>
+            <button onClick={() => openAuthedUrl("/handbooks/instructor")} style={{ fontSize: 10, fontWeight: 800, textTransform: "uppercase", letterSpacing: 2, color: "white", background: TERRACOTTA, padding: "4px 11px", borderRadius: 4, border: "none", cursor: "pointer" }}>📘 Instructor Handbook</button>
+            <button onClick={() => openAuthedUrl("/handbooks/student")} style={{ fontSize: 10, fontWeight: 800, textTransform: "uppercase", letterSpacing: 2, color: "white", background: TERRACOTTA, padding: "4px 11px", borderRadius: 4, border: "none", cursor: "pointer" }}>📕 Student Handbook</button>
             <Link to="/wai-institute" style={{ fontSize: 11, fontWeight: 900, textTransform: "uppercase", letterSpacing: 2, color: "#fff", textDecoration: "none", background: GROVE, padding: "6px 14px", borderRadius: 4, border: `1.5px solid ${AMBER}`, display: "flex", alignItems: "center", gap: 5 }}>
               🏛️ M.O.R.E. Institute
             </Link>

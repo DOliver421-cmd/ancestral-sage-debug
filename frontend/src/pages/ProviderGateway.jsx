@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { api } from "../lib/api";
 import { toast } from "sonner";
+import PageBack from "../components/PageBack";
 import { CheckCircle, XCircle, ExternalLink, Key, RefreshCw, Activity, Loader2 } from "lucide-react";
 
 // ── 6 preset free providers ────────────────────────────────────────────────────
@@ -81,6 +82,66 @@ const PRESETS = [
     signup:   "https://console.x.ai",
     signupLabel: "Get key at console.x.ai",
     color:    "#6366f1",
+  },
+  {
+    type:     "openai",
+    name:     "OpenAI",
+    model:    "GPT-4o Mini",
+    badge:    "Tier 1a · Owner key",
+    cost:     "Paid (owner)",
+    note:     "Primary paid tier. Cheap + tool-capable text model.",
+    signup:   "https://platform.openai.com/api-keys",
+    signupLabel: "Get key at platform.openai.com",
+    color:    "#10a37f",
+  },
+  {
+    type:     "deepseek",
+    name:     "DeepSeek",
+    model:    "DeepSeek Chat",
+    badge:    "Tier 1b · Owner key",
+    cost:     "Paid (owner)",
+    note:     "Second paid tier — cheap, OpenAI-compatible.",
+    signup:   "https://platform.deepseek.com/api_keys",
+    signupLabel: "Get key at platform.deepseek.com",
+    color:    "#4d6bfe",
+  },
+];
+
+// ── Payment providers (exec key-link UI) ─────────────────────────────────────
+const PAYMENTS = [
+  {
+    type: "stripe",
+    name: "Stripe",
+    fields: [
+      { key: "secret", placeholder: "sk_test_… / sk_live_…", label: "Secret key" },
+      { key: "pub", placeholder: "pk_test_… / pk_live_…", label: "Publishable key" },
+      { key: "webhook", placeholder: "whsec_…", label: "Webhook secret" },
+    ],
+    note: "Primary checkout provider. All three keys are required: secret, publishable, and the webhook secret (Stripe → Developers → Webhooks) so paid orders are recorded and unlocked.",
+    signup: "https://dashboard.stripe.com/apikeys",
+    signupLabel: "Get keys at dashboard.stripe.com",
+    color: "#635bff",
+  },
+  {
+    type: "lemon_squeezy",
+    name: "Lemon Squeezy",
+    fields: [
+      { key: "secret", placeholder: "API Key…", label: "Lemon Squeezy API key" },
+      { key: "pub", placeholder: "12345678", label: "Store ID" },
+    ],
+    note: "Digital products + subscriptions alternative. Fallback when Stripe is unset.",
+    signup: "https://app.lemonsqueezy.com/settings/api",
+    signupLabel: "Get keys at app.lemonsqueezy.com",
+    color: "#b45309",
+  },
+  {
+    type: "gumroad",
+    name: "Gumroad",
+    fields: [ { key: "secret", placeholder: "Gumroad token…", label: "API key/token" } ],
+    note: "One-time digital purchases. Last-resort fallback provider.",
+    signup: "https://app.gumroad.com/settings",
+    signupLabel: "Get token at app.gumroad.com",
+    color: "#fa5252",
   },
 ];
 
@@ -186,6 +247,94 @@ function ProviderCard({ preset, status, onSave, saving }) {
   );
 }
 
+function PaymentCard({ preset, status, onSave, saving }) {
+  const hasSecond = preset.fields.length > 1;
+  const [vals, setVals] = useState(() => {
+    const o = {};
+    (preset.fields || []).forEach(f => { o[f.key] = ""; });
+    return o;
+  });
+  const [showInput, setShowInput] = useState((status?.configured ? false : true));
+  const configured = status?.configured;
+
+  const ready = preset.fields.every(f => (vals[f.key] || "").trim());
+
+  const handleSave = async () => {
+    if (!ready) { toast.error("Fill in all required fields first"); return; }
+    const secret  = (vals.secret || "").trim();
+    const pub     = (vals.pub || "").trim();
+    const webhook = (vals.webhook || "").trim();
+    await onSave(preset.type, secret, pub, webhook);
+    const cleared = {};
+    (preset.fields || []).forEach(f => { cleared[f.key] = ""; });
+    setVals(cleared);
+    setShowInput(false);
+  };
+
+  return (
+    <div className={`bg-white rounded-2xl p-5 flex flex-col gap-3 border-2 transition-all ${
+      configured ? "border-green-200 shadow-sm" : "border-ink/8"
+    }`}>
+      <div className="flex items-start justify-between gap-2">
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: preset.color }} />
+            <span className="font-heading font-bold text-ink">{preset.name}</span>
+            <span className="text-xs text-ink/40">payments</span>
+          </div>
+        </div>
+        <StatusPill status={status} />
+      </div>
+
+      <p className="text-xs text-ink/55 leading-relaxed">{preset.note}</p>
+
+      {configured && !showInput && (
+        <div className="flex items-center justify-between bg-green-50 rounded-lg px-3 py-2">
+          <span className="text-xs text-green-700 font-mono">{status.key_masked}</span>
+          <button onClick={() => setShowInput(true)}
+            className="text-xs text-ink/40 hover:text-copper transition-colors ml-3">Replace</button>
+        </div>
+      )}
+
+      {(!configured || showInput) && (
+        <div className="space-y-2">
+          {!configured && (
+            <a href={preset.signup} target="_blank" rel="noopener noreferrer"
+              className="flex items-center gap-1.5 text-xs font-semibold text-copper hover:underline">
+              <ExternalLink className="w-3 h-3" /> {preset.signupLabel}
+            </a>
+          )}
+          {(preset.fields || []).map(f => (
+            <input
+              key={f.key}
+              value={vals[f.key] || ""}
+              onChange={e => setVals(s => ({ ...s, [f.key]: e.target.value }))}
+              placeholder={f.placeholder}
+              type="password"
+              className="flex-1 w-full text-xs border border-ink/20 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-copper/30 focus:border-copper font-mono bg-bone"
+            />
+          ))}
+          <div className="flex gap-2">
+            <button onClick={handleSave} disabled={saving || !ready}
+              className="flex items-center gap-1.5 bg-copper text-bone text-xs font-bold px-3 py-2 rounded-lg hover:bg-copper/90 disabled:opacity-40 disabled:cursor-not-allowed whitespace-nowrap">
+              {saving ? <Loader2 className="w-3 h-3 animate-spin" /> : <Key className="w-3 h-3" />}
+              {saving ? "Saving…" : (configured ? "Update keys" : "Activate payments")}
+            </button>
+          </div>
+          {showInput && !configured && (
+            <button onClick={() => {
+              const cleared = {};
+              (preset.fields || []).forEach(f => { cleared[f.key] = ""; });
+              setVals(cleared);
+            }}
+              className="text-xs text-ink/40 hover:text-ink/70 transition-colors">Clear</button>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function ProviderGateway() {
   const [status, setStatus]     = useState({});
   const [usageLog, setUsageLog] = useState([]);
@@ -225,11 +374,32 @@ export default function ProviderGateway() {
     }
   };
 
+  // Payment providers need an optional second credential (publishable / store id)
+  // and, for Stripe, a third (webhook secret).
+  const handlePaymentSave = async (providerType, secret, secondary, third) => {
+    setSaving(providerType);
+    try {
+      await api.post("/providers/quick-setup", {
+        provider_type: providerType,
+        api_key: secret,
+        secondary_key: secondary || "",
+        third_key: third || "",
+      });
+      toast.success(`${providerType} payment keys saved and active`);
+      await loadStatus();
+    } catch (e) {
+      toast.error(e?.response?.data?.detail || "Failed to save payment keys");
+    } finally {
+      setSaving(null);
+    }
+  };
+
   const configuredCount = Object.values(status).filter(s => s?.configured).length;
 
   return (
     <div className="min-h-screen bg-bone">
       <div className="max-w-4xl mx-auto px-6 py-10">
+        <PageBack to="/admin/command" label="Command Center" />
 
         {/* Header */}
         <div className="mb-6">
@@ -254,7 +424,7 @@ export default function ProviderGateway() {
 
         {/* Tabs */}
         <div className="flex gap-1 mb-6 border-b border-ink/10">
-          {[["setup", "API Keys"], ["usage", "Usage Log"]].map(([id, label]) => (
+          {[["setup", "AI Keys"], ["payments", "Payment Keys"], ["usage", "Usage Log"]].map(([id, label]) => (
             <button key={id} onClick={() => setTab(id)}
               className={`px-4 py-2 text-sm font-semibold border-b-2 transition ${tab === id ? "border-copper text-ink" : "border-transparent text-ink/50 hover:text-ink"}`}>
               {label}
@@ -265,7 +435,33 @@ export default function ProviderGateway() {
           </button>
         </div>
 
-        {/* Setup tab — 6 preset cards */}
+        {/* Payments tab — exec payment key-link UI */}
+        {tab === "payments" && (
+          <div>
+            <div className="rounded-xl border border-ink/10 bg-white px-4 py-3 text-xs leading-relaxed text-ink/60 mb-5">
+              <strong className="text-ink">Link your payout keys here.</strong> Paste the keys from each service
+              below and they're stored encrypted and used immediately — no redeploy needed. These are the keys that
+              make the store / membership / donations actually take money.
+            </div>
+            <div className="grid grid-cols-1 gap-4">
+              {PAYMENTS.map(preset => (
+                <PaymentCard
+                  key={preset.type}
+                  preset={preset}
+                  status={status[preset.type]}
+                  onSave={handlePaymentSave}
+                  saving={saving === preset.type}
+                />
+              ))}
+            </div>
+            <p className="text-xs text-ink/30 mt-6 leading-relaxed">
+              Keys are never returned after save — only the last four digits are shown. Stripe is tried first, then
+              Lemon Squeezy, then Gumroad, in that order.
+            </p>
+          </div>
+        )}
+
+        {/* Setup tab — AI provider cards */}
         {tab === "setup" && (
           <div>
             <p className="text-xs text-ink/50 mb-5 leading-relaxed">

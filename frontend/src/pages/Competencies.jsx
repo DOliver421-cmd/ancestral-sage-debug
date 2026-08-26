@@ -9,7 +9,7 @@ export default function Competencies() {
   useEffect(() => { api.get("/competencies").then((r) => setData(r.data)).catch(() => {}); }, []);
   if (!data) return <LoadingState label="Competencies" />;
 
-  const maxPoints = Math.max(100, ...Object.values(data.progress).map((p) => p.points));
+  const maxPoints = Math.max(100, ...Object.values(data.progress || {}).map((p) => p.points));
 
   return (
     <AppShell>
@@ -21,12 +21,12 @@ export default function Competencies() {
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-5 mt-8">
           <Stat label="Total Skill Points" value={data.total_points} />
           <Stat label="Labs Completed" value={data.total_labs} />
-          <Stat label="Badges Earned" value={Object.values(data.progress).filter((p) => p.points >= 100).length} />
-          <Stat label="Competency Areas" value={data.competencies.length} />
+          <Stat label="Badges Earned" value={Object.values(data.progress || {}).filter((p) => p.points >= 100).length} />
+          <Stat label="Competency Areas" value={(data.competencies || []).length} />
         </div>
 
         <div className="mt-10 space-y-4">
-          {data.competencies.map((c) => {
+          {(data.competencies || []).map((c) => {
             const p = data.progress[c.key] || { points: 0, labs: 0 };
             const pct = Math.min(100, (p.points / 100) * 100);
             const earned = p.points >= 100;

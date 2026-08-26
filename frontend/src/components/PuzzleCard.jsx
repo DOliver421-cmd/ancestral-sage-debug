@@ -59,6 +59,7 @@ export default function PuzzleCard({ onSolved }) {
   }
 
   const p = data.puzzle;
+  if (!p) return null;
   const choices = data.choices || [];
   const letters = ["A", "B", "C", "D", "E"];
 

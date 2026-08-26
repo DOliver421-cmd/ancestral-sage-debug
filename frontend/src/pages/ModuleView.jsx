@@ -18,10 +18,13 @@ export default function ModuleView() {
   const { user } = useAuth();
 
   useEffect(() => {
-    fetch(`${BACKEND_URL}/api/modules/${slug}`)
-      .then((r) => r.ok ? r.json() : null)
-      .then((data) => { if (data) setMod(data); else setLoadFailed(true); })
+    // Module detail is registration-gated server-side (GET /modules/{slug} requires
+    // auth), so it MUST go through the axios instance that attaches the JWT — a raw
+    // fetch would 401 even for logged-in users and show a false "Module not found".
+    api.get(`/modules/${slug}`)
+      .then((r) => setMod(r.data))
       .catch(() => setLoadFailed(true));
+    // Public catalog (metadata only) — fine for anyone.
     fetch(`${BACKEND_URL}/api/modules`)
       .then((r) => r.ok ? r.json() : [])
       .then((data) => setAllModules(Array.isArray(data) ? data : []))
@@ -56,7 +59,7 @@ export default function ModuleView() {
 
   if (loadFailed) return (
     <AppShell>
-      <div className="px-10 py-20 text-center max-w-lg mx-auto">
+      <div className="px-4 sm:px-10 py-20 text-center max-w-lg mx-auto">
         <BookOpen className="w-10 h-10 text-ink/20 mx-auto mb-4" />
         <h2 className="font-heading text-2xl font-bold mb-2">Module not found</h2>
         <p className="text-ink/60 mb-6">This module couldn't be loaded. It may have moved or there's a connection issue.</p>
@@ -70,7 +73,7 @@ export default function ModuleView() {
 
   return (
     <AppShell>
-      <div className="px-10 py-10 max-w-5xl">
+      <div className="px-4 sm:px-10 py-8 sm:py-10 max-w-5xl">
         <Link to="/modules" className="inline-flex items-center gap-2 text-sm font-bold uppercase tracking-widest text-ink/60 hover:text-copper" data-testid="back-modules">
           <ArrowLeft className="w-4 h-4" /> All Modules
         </Link>

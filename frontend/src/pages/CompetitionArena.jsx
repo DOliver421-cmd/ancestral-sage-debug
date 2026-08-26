@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { api } from "../lib/api";
 import { useAuth } from "../lib/auth";
 import AppShell from "../components/AppShell";
+import PageBack from "../components/PageBack";
 import { AlertTriangle, History, ChevronDown, ChevronUp } from "lucide-react";
 
 // ── Design tokens ─────────────────────────────────────────────────────────────
@@ -476,6 +477,34 @@ function ProjectHistory({ projects, expandedId, projectDetail, onToggle, detailL
 export default function CompetitionArena() {
   const { user } = useAuth();
   const isExec = user?.role === "executive_admin";
+
+  // Defense-in-depth: block non-exec users even if route guard fails.
+  // (When embedded in the AI Business Office hub, the office route itself is
+  // admin-gated, so this gate stays consistent either way.)
+  if (!isExec) {
+    return (
+      <AppShell>
+        <div style={{ padding: 48, textAlign: "center" }}>
+          <div style={{ fontSize: 48, marginBottom: 16 }}>🔒</div>
+          <h2 style={{ fontWeight: 900, color: INK, fontSize: 20, marginBottom: 8 }}>
+            Executive Access Only
+          </h2>
+          <p style={{ color: "#666", fontSize: 14 }}>
+            The Arena is an internal executive tool and is not accessible to general users.
+          </p>
+        </div>
+      </AppShell>
+    );
+  }
+  return <CompetitionArenaContent />;
+}
+
+// Exec-only workspace. Kept as a separate component so every hook in it is
+// called unconditionally (React rules-of-hooks) — the wrapper above decides
+// who may render it, the hooks below never run conditionally.
+export function CompetitionArenaContent({ embedded = false }) {
+  const { user } = useAuth();
+  const isExec = user?.role === "executive_admin";
   const [task, setTask] = useState("");
   const [loading, setLoading] = useState(false);
   const [results, setResults] = useState(null);
@@ -587,12 +616,13 @@ export default function CompetitionArena() {
     }
   };
 
-  return (
-    <AppShell>
-      <div style={{ background: BONE, minHeight: "100vh", padding: "32px 24px", fontFamily: "system-ui, sans-serif" }}>
+  const body = (
+    <div style={{ background: BONE, minHeight: embedded ? 0 : "100vh", height: embedded ? "100%" : undefined, padding: embedded ? 24 : "32px 24px", overflowY: embedded ? "auto" : undefined, fontFamily: "system-ui, sans-serif" }}>
         <style>{`
           @keyframes spin { to { transform: rotate(360deg); } }
         `}</style>
+
+        {!embedded && <div className="mb-4"><PageBack to="/admin/command" label="Command Center" /></div>}
 
         {/* Header */}
         <div style={{ marginBottom: 24 }}>
@@ -743,6 +773,7 @@ export default function CompetitionArena() {
           error={historyError}
         />
       </div>
-    </AppShell>
   );
+
+  return embedded ? body : <AppShell>{body}</AppShell>;
 }

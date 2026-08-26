@@ -33,14 +33,20 @@ export default function StudentDashboard() {
   const loadData = useCallback(() => {
     setLoadError(false);
     setLoading(true);
-    Promise.all([
-      api.get("/modules").then((r) => setModules(Array.isArray(r.data) ? r.data : [])),
-      api.get("/progress/me").then((r) => setProgress(Array.isArray(r.data) ? r.data : [])),
-      api.get("/certificates/me").then((r) => setCerts(Array.isArray(r.data) ? r.data : [])),
-      api.get("/xp/me").then((r) => setXp(r.data)).catch(() => {}),
-    ])
-      .catch(() => setLoadError(true))
-      .finally(() => setLoading(false));
+    // Each call is independent — one failing won't break the whole dashboard.
+    api.get("/modules")
+      .then((r) => setModules(Array.isArray(r.data) ? r.data : []))
+      .catch(() => {});
+    api.get("/progress/me")
+      .then((r) => setProgress(Array.isArray(r.data) ? r.data : []))
+      .catch(() => {});
+    api.get("/certificates/me")
+      .then((r) => setCerts(Array.isArray(r.data) ? r.data : []))
+      .catch(() => {});
+    api.get("/xp/me")
+      .then((r) => setXp(r.data))
+      .catch(() => {});
+    setLoading(false);
     refreshPartnership();
   }, [refreshPartnership]);
 
@@ -161,7 +167,7 @@ export default function StudentDashboard() {
         </div>
 
         {/* XP / Gamification banner */}
-        {xp && (
+        {xp?.total_xp != null && (
           <div className="card-flat p-5 mb-10 flex items-center gap-6 bg-ink text-white" data-testid="xp-banner">
             <div className="flex items-center gap-3">
               <Zap className="w-8 h-8 text-signal" />

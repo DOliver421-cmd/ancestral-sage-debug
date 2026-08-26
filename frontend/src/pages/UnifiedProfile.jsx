@@ -26,6 +26,7 @@ import {
   Upload, Image, FileText, Award, CheckCircle, Eye, EyeOff,
   Twitter, Instagram, Facebook, Linkedin, Youtube,
   DollarSign, Heart, TrendingUp, Receipt, Network, Star, Crown, Shield,
+  KeyRound, Loader2, Trash2, HelpCircle, Gamepad2, Share2,
 } from "lucide-react";
 import { useMic } from "../hooks/useMic";
 
@@ -451,6 +452,136 @@ function ServiceCard({ icon: Icon, title, desc, to, locked, requiredTier }) {
 }
 
 // ── Settings Tab ──────────────────────────────────────────────────────────────
+// ── BYOK — simple single-key AI connection (owner only) ───────────────────────
+function ByokKeyCard() {
+  const [status, setStatus] = useState(null);
+  const [provider, setProvider] = useState("");
+  const [keyInput, setKeyInput] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState(null);
+
+  const flash = (m) => { setMsg(m); setTimeout(() => setMsg(null), 6000); };
+
+  useEffect(() => {
+    api.get("/byok/status").then(({ data }) => {
+      setStatus(data);
+      const firstUnconfigured = (data.providers || []).find(p => !p.configured);
+      if (firstUnconfigured) setProvider(firstUnconfigured.key);
+    }).catch(() => {});
+  }, []);
+
+  async function saveAndTest(e) {
+    e.preventDefault();
+    const key = keyInput.trim();
+    if (!key) { flash("Paste your API key first."); return; }
+    if (!provider) { flash("Choose a provider."); return; }
+    setBusy(true);
+    try {
+      await api.post("/byok/key", { provider, key });
+      const { data } = await api.post(`/byok/key/${provider}/test`, { provider, key });
+      flash(`Key saved & verified (${data.latency_ms}ms). Your AI requests now route through your key.`);
+      setKeyInput("");
+      const { data: st } = await api.get("/byok/status");
+      setStatus(st);
+    } catch (err) {
+      flash(err?.response?.data?.detail || "Could not save that key.");
+    } finally { setBusy(false); }
+  }
+
+  async function removeKey(p) {
+    try {
+      await api.delete(`/byok/key/${p.key}`);
+      const { data: st } = await api.get("/byok/status");
+      setStatus(st);
+      flash(`${p.label} key removed.`);
+    } catch (err) {
+      flash(err?.response?.data?.detail || "Could not remove that key.");
+    }
+  }
+
+  return (
+    <div className="card-flat p-5 space-y-4">
+      <div className="flex items-center gap-2">
+        <KeyRound className="w-4 h-4 text-copper" />
+        <span className="font-heading font-bold text-sm">Your AI Key — BYOK</span>
+        {status?.enabled
+          ? <span className="ml-auto text-[10px] font-black uppercase tracking-widest text-green-600">● Active</span>
+          : <span className="ml-auto text-[10px] font-black uppercase tracking-widest text-copper">○ Not unlocked</span>}
+      </div>
+
+      {msg && <div className="text-xs bg-ink text-white rounded-lg px-3 py-2 leading-relaxed">{msg}</div>}
+
+      {!status?.enabled ? (
+        <div className="text-sm text-ink/60 space-y-3">
+          <p>
+            AI runs on <strong className="text-ink">your own key</strong> — the platform never pays for your generation.
+            Unlocking BYOK is a <strong className="text-ink">one-time ${status?.price_usd ?? 3}</strong> entitlement that
+            stays with your profile for life.
+          </p>
+          <p className="text-xs text-ink/40">Instructors and staff get BYOK free.</p>
+          <Link to="/byok" className="inline-block btn-copper text-xs">
+            Unlock BYOK — ${status?.price_usd ?? 3} →
+          </Link>
+        </div>
+      ) : (
+        <>
+          <form onSubmit={saveAndTest} className="space-y-3">
+            <div className="flex flex-wrap gap-2">
+              <select
+                value={provider}
+                onChange={(e) => setProvider(e.target.value)}
+                className="border border-ink/15 rounded-lg px-3 py-2 text-sm bg-white"
+                aria-label="AI provider"
+              >
+                {(status?.providers || []).map((p) => (
+                  <option key={p.key} value={p.key}>{p.label}</option>
+                ))}
+              </select>
+              <input
+                type="password"
+                value={keyInput}
+                onChange={(e) => setKeyInput(e.target.value)}
+                placeholder="Paste your free API key"
+                className="flex-1 min-w-[180px] border border-ink/15 rounded-lg px-3 py-2 text-sm"
+              />
+              <button type="submit" disabled={busy}
+                className="flex items-center gap-1.5 text-xs font-bold bg-copper text-bone px-4 py-2 rounded-lg disabled:opacity-50">
+                {busy ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Zap className="w-3.5 h-3.5" />}
+                Save & Test
+              </button>
+            </div>
+          </form>
+
+          {(status?.providers || []).filter(p => p.configured).map((p) => (
+            <div key={p.key} className="flex items-center justify-between text-xs border border-ink/10 rounded-lg px-3 py-2">
+              <span className="flex items-center gap-2">
+                <CheckCircle className="w-3.5 h-3.5 text-green-600" />
+                <strong>{p.label}</strong>
+                <span className="text-ink/40">{p.masked || "configured"}</span>
+              </span>
+              <button onClick={() => removeKey(p)} className="text-ink/30 hover:text-destructive" aria-label={`Remove ${p.label} key`}>
+                <Trash2 className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          ))}
+
+          <p className="text-xs text-ink/40">
+            Don't have a key?{" "}
+            {(status?.providers || []).map((p, i) => (
+              <span key={p.key}>
+                {i > 0 && " · "}
+                <a href={p.signup_url} target="_blank" rel="noreferrer" className="text-copper font-bold inline-flex items-center gap-1">
+                  {p.label} free key <ExternalLink className="w-3 h-3" />
+                </a>
+              </span>
+            ))}
+          </p>
+        </>
+      )}
+    </div>
+  );
+}
+
 function SettingsTab({ profile, onSaved }) {
   const EMPTY_SOCIAL   = { platform: "", handle: "", url: "", note: "" };
   const EMPTY_OFFERING = { icon: "✨", title: "", desc: "" };
@@ -697,16 +828,18 @@ function LearnTab({ user, status }) {
   const [enrolled, setEnrolled]   = useState([]);
   const [certs, setCerts]         = useState([]);
   const [creds, setCreds]         = useState([]);
+  const [xp, setXp]               = useState(null);
   const [loading, setLoading]     = useState(true);
 
   useEffect(() => {
     async function load() {
       setLoading(true);
       try {
-        const [meRes, certsRes, credsRes] = await Promise.allSettled([
+        const [meRes, certsRes, credsRes, xpRes] = await Promise.allSettled([
           api.get("/auth/me"),
-          api.get("/certificates"),
+          api.get("/certificates/me"),
           api.get("/credentials"),
+          api.get("/xp/me"),
         ]);
         if (meRes.status === "fulfilled") {
           setEnrolled(meRes.value.data?.enrolled_modules || meRes.value.data?.enrollments || []);
@@ -716,6 +849,9 @@ function LearnTab({ user, status }) {
         }
         if (credsRes.status === "fulfilled") {
           setCreds(credsRes.value.data?.credentials || credsRes.value.data || []);
+        }
+        if (xpRes.status === "fulfilled") {
+          setXp(xpRes.value.data);
         }
       } catch (_) {}
       finally { setLoading(false); }
@@ -731,6 +867,54 @@ function LearnTab({ user, status }) {
 
   return (
     <div className="space-y-6">
+      {/* Study hub quick links (Studio / Arcade / Social Blast) — kept so the
+          profile is the single destination without losing the dashboard's hub. */}
+      <div className="grid sm:grid-cols-3 gap-3">
+        <Link to="/studio" className="card-flat p-4 flex items-center gap-3 hover:shadow-sm transition-shadow">
+          <span className="w-9 h-9 rounded-lg bg-purple-100 text-purple-700 flex items-center justify-center font-black">⬡</span>
+          <div className="min-w-0">
+            <div className="text-sm font-bold text-ink">M.O.R.E. Creators</div>
+            <div className="text-xs text-ink/40">Lyric Forge · Publishing · AI tools</div>
+          </div>
+        </Link>
+        <Link to="/arcade" className="card-flat p-4 flex items-center gap-3 hover:shadow-sm transition-shadow">
+          <Gamepad2 className="w-5 h-5 text-amber-600 shrink-0" />
+          <div className="min-w-0">
+            <div className="text-sm font-bold text-ink">The Arcade</div>
+            <div className="text-xs text-ink/40">Free · mission-aligned games · earn XP</div>
+          </div>
+        </Link>
+        <Link to="/social/publish" className="card-flat p-4 flex items-center gap-3 hover:shadow-sm transition-shadow">
+          <Share2 className="w-5 h-5 text-green-600 shrink-0" />
+          <div className="min-w-0">
+            <div className="text-sm font-bold text-ink">Social Blast</div>
+            <div className="text-xs text-ink/40">One post · all platforms · AI-formatted</div>
+          </div>
+        </Link>
+      </div>
+
+      {/* XP / gamification (previously only on the dashboard) */}
+      {xp?.total_xp != null && (
+        <div className="card-flat p-5 flex items-center gap-6 bg-ink text-white">
+          <div className="flex items-center gap-3">
+            <Zap className="w-8 h-8 text-amber-400" />
+            <div>
+              <div className="overline text-amber-400">Experience Points</div>
+              <div className="font-heading text-2xl font-black">{xp.total_xp} XP</div>
+            </div>
+          </div>
+          <div className="h-12 w-px bg-white/20" />
+          <div>
+            <div className="overline text-amber-400">Level</div>
+            <div className="font-heading text-xl font-bold">{xp.level}</div>
+          </div>
+          <div className="text-right ml-auto">
+            <div className="overline text-amber-400">Cohort Rank</div>
+            <div className="font-heading text-xl font-bold">#{xp.rank_in_cohort}</div>
+          </div>
+        </div>
+      )}
+
       {/* Progress */}
       <div>
         <div className="flex items-center justify-between mb-3">
@@ -913,9 +1097,10 @@ export default function UnifiedProfile() {
                   {[
                     { feature: "ai_chat",     label: "AI Tutor",        icon: Zap,       to: "/ai",                 desc: "Ask anything" },
                     { feature: "profile",     label: "Social Blast",    icon: Megaphone, to: "/social/publish",     desc: "Post to all platforms" },
-                    { feature: "profile",     label: "Curriculum",      icon: BookOpen,  to: "/modules",            desc: "Browse all courses" },
-                    { feature: "profile",     label: "Certificates",    icon: Award,     to: "/certificates",       desc: "Your earned certs" },
-                    { feature: "posts",       label: "Creator Lounge",  icon: Mic,       to: "/creator-lounge",     desc: "Community stage" },
+                    { feature: "profile",     label: "Curriculum",      icon: BookOpen,  to: "/modules",            desc: "Browse all courses" },                    { feature: "profile",      label: "Certificates",    icon: Award,       to: "/certificates",        desc: "Your earned certs" },
+                    { feature: "profile",      label: "Help Center",     icon: HelpCircle,  to: "/help-center",         desc: "Guides & support",      free: true },
+
+                    { feature: "posts",        label: "Creator Lounge",  icon: Mic,         to: "/creator-lounge",      desc: "Community stage" },
                     { feature: "ghost",       label: "Ghost Producer",  icon: Music,     to: "/ghost-producer",     desc: "AI production suite" },
                     { feature: "ghost",       label: "Creator Studio",  icon: Radio,     to: "/studio",             desc: "Build & publish" },
                     { feature: "band",        label: "Band on a Page",  icon: Globe,     to: "/band",               desc: "Your group page" },
@@ -966,6 +1151,7 @@ export default function UnifiedProfile() {
 
             <div className="space-y-5">
               <AIAssistantPanel user={user} status={null} />
+              <ByokKeyCard />
               {!isAdmin && (
                 <div className="rounded-2xl p-4 space-y-3"
                   style={{ background: "linear-gradient(135deg,#1B4332,#2D6A4F)", border: "1.5px solid #E8A51E" }}>
@@ -1105,6 +1291,7 @@ export default function UnifiedProfile() {
                           { feature: "profile",      label: "Social Blast",    icon: Megaphone,   to: "/social/publish",      desc: "Post to all platforms",  free: true  },
                           { feature: "profile",      label: "Curriculum",      icon: BookOpen,    to: "/modules",             desc: "Browse all courses",     free: true  },
                           { feature: "profile",      label: "Certificates",    icon: Award,       to: "/certificates",        desc: "Your earned certs",      free: true  },
+                          { feature: "profile",      label: "Help Center",     icon: HelpCircle,  to: "/help-center",         desc: "Guides & support",        free: true  },
                           { feature: "posts",        label: "Creator Lounge",  icon: Mic,         to: "/creator-lounge",      desc: "Community stage",        free: false },
                           { feature: "ghost",        label: "Ghost Producer",  icon: Music,       to: "/ghost-producer",      desc: "AI production suite",    free: false },
                           { feature: "ghost",        label: "Creator Studio",  icon: Radio,       to: "/studio",              desc: "Build & publish",        free: false },
@@ -1141,6 +1328,9 @@ export default function UnifiedProfile() {
                       </div>
                     </div>
                   )}
+
+                  {/* Your AI Key — simple single-key BYOK interface */}
+                  {isOwner && <ByokKeyCard />}
 
                   {/* Tracks */}
                   {profile.tracks?.length > 0 && (
