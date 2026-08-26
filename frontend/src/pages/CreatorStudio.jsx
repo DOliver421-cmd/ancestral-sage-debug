@@ -609,6 +609,13 @@ export default function CreatorStudio() {
 
         {/* Right actions */}
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <Link to="/dashboard" style={{
+            display: "flex", alignItems: "center", gap: 6, padding: "8px 14px", borderRadius: 10,
+            background: "#1d2536", border: `1px solid ${BORDER}`, color: "#cbd5e1", fontWeight: 700,
+            fontSize: 12.5, textDecoration: "none",
+          }}>
+            ← Back to site
+          </Link>
           <button onClick={() => setShowNewProject(true)}
             style={{
               display: "flex", alignItems: "center", gap: 6, padding: "8px 16px", borderRadius: 10,
@@ -655,7 +662,7 @@ export default function CreatorStudio() {
           background: "#11151f", display: "flex", flexDirection: "column", alignItems: "center",
           padding: "14px 0", gap: 6,
         }}>
-          <RailIcon title="Dashboard" onClick={() => { setGhostOpen(false); setActiveChamber(null); }}><Home style={{ width: 17, height: 17 }} /></RailIcon>
+          <RailIcon title="Back to site dashboard" onClick={() => { window.location.href = "/dashboard"; }}><Home style={{ width: 17, height: 17 }} /></RailIcon>
           <RailIcon title="Studio" onClick={() => { setGhostOpen(false); openChamber("lyric-forge"); }}><Music2 style={{ width: 17, height: 17 }} /></RailIcon>
           <RailIcon title="Version history" onClick={() => openChamber("vault")}><History style={{ width: 17, height: 17 }} /></RailIcon>
           <RailIcon title="Earnings" onClick={() => openChamber("marketplace")}><BarChart3 style={{ width: 17, height: 17 }} /></RailIcon>

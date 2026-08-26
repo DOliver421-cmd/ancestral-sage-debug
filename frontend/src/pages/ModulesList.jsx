@@ -1,6 +1,6 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import AppShell from "../components/AppShell";
-import { api, BACKEND_URL } from "../lib/api";
+import { api, BACKEND_URL, openAuthedUrl } from "../lib/api";
 import { useAuth } from "../lib/auth";
 import { Link } from "react-router-dom";
 import { Lock, Zap, BookOpen, ShoppingBag, CheckCircle, Loader2, Award, FlaskConical, ShieldCheck } from "lucide-react";
@@ -27,16 +27,28 @@ export default function ModulesList() {
   const [category, setCategory] = useState("");
   const [buying, setBuying] = useState(null);
   const [loadingCourses, setLoadingCourses] = useState(false);
+  const [catalogError, setCatalogError] = useState("");
+  const [catalogLoading, setCatalogLoading] = useState(true);
 
-  useEffect(() => {
+  const loadCatalog = useCallback(() => {
+    setCatalogLoading(true);
+    setCatalogError("");
     fetch(`${BACKEND_URL}/api/modules`)
-      .then((r) => r.ok ? r.json() : [])
+      .then((r) => {
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        return r.json();
+      })
       .then((data) => setModules(Array.isArray(data) ? data : []))
-      .catch(() => {});
+      .catch((e) => setCatalogError(e.message || "Could not load the curriculum."))
+      .finally(() => setCatalogLoading(false));
     if (user) {
       api.get("/progress/me").then((r) => setProgress(r.data)).catch(() => {});
     }
   }, [user]);
+
+  useEffect(() => {
+    loadCatalog();
+  }, [loadCatalog]);
 
   useEffect(() => {
     if (tab !== "community") return;
@@ -97,9 +109,27 @@ export default function ModulesList() {
         {/* CORE PROGRAM TAB */}
         {tab === "core" && (
           <>
+            {catalogError && (
+              <div className="mt-6 rounded-xl border border-red-200 bg-red-50 p-5 text-sm text-red-700 flex items-start justify-between gap-4">
+                <div>
+                  <div className="font-bold mb-1">The curriculum could not be loaded.</div>
+                  <div className="text-red-600/80">The server returned an error ({catalogError}). This is a site problem, not yours — try again, and if it persists the team has been told.</div>
+                </div>
+                <button onClick={loadCatalog} className="shrink-0 text-xs font-black bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg transition-colors">Retry</button>
+              </div>
+            )}
+            {catalogLoading && !catalogError && (
+              <div className="flex items-center justify-center py-24 text-ink/40"><Loader2 className="w-6 h-6 animate-spin mr-2" /> Loading curriculum…</div>
+            )}
+            {!catalogLoading && !catalogError && modules.length === 0 && (
+              <div className="text-center py-24">
+                <BookOpen className="w-10 h-10 text-ink/20 mx-auto mb-3" />
+                <p className="text-ink/40 text-sm">No curriculum modules published yet.</p>
+              </div>
+            )}
             <div className="mt-3 flex flex-wrap gap-5 text-sm">
-              <a href={`${BACKEND_URL}/api/handbooks/instructor`} target="_blank" rel="noopener noreferrer" className="font-bold text-copper hover:underline">📘 Instructor Handbook →</a>
-              <a href={`${BACKEND_URL}/api/handbooks/student`} target="_blank" rel="noopener noreferrer" className="font-bold text-copper hover:underline">📕 Student Handbook →</a>
+              <button onClick={() => openAuthedUrl("/handbooks/instructor")} className="font-bold text-copper hover:underline cursor-pointer bg-transparent border-0 p-0">📘 Instructor Handbook →</button>
+              <button onClick={() => openAuthedUrl("/handbooks/student")} className="font-bold text-copper hover:underline cursor-pointer bg-transparent border-0 p-0">📕 Student Handbook →</button>
               {user ? (
                 <Link to="/ascension-protocols" className="font-bold text-copper hover:underline">🌱 Ascension Protocols (free) →</Link>
               ) : (

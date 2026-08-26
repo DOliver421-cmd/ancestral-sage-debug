@@ -18,7 +18,7 @@ import {
   Activity, BadgeCheck, ShieldCheck, Sparkles, MapPin,
   Send, Eye, EyeOff, Crown, Search,
 } from "lucide-react";
-import { api, BACKEND_URL } from "../lib/api";
+import { api, BACKEND_URL, openAuthedUrl } from "../lib/api";
 import { useAuth } from "../lib/auth";
 
 // ── Legacy tokens (kept for ExecPanel internal use) ───────────────────────────
@@ -1769,8 +1769,8 @@ export default function MoreHelpCenter() {
             </button>
             <Link to="/site-guide" style={{ fontSize: 10, fontWeight: 800, textTransform: "uppercase", letterSpacing: 2, color: "#fff", textDecoration: "none", background: FOREST, padding: "4px 11px", borderRadius: 4 }}>Site Guide</Link>
             {/* M.O.R.E. Institute — prominent entry point to administration + classrooms */}
-            <a href={`${BACKEND_URL}/api/handbooks/instructor`} target="_blank" rel="noopener noreferrer" style={{ fontSize: 10, fontWeight: 800, textTransform: "uppercase", letterSpacing: 2, color: "white", textDecoration: "none", background: TERRACOTTA, padding: "4px 11px", borderRadius: 4 }}>📘 Instructor Handbook</a>
-            <a href={`${BACKEND_URL}/api/handbooks/student`} target="_blank" rel="noopener noreferrer" style={{ fontSize: 10, fontWeight: 800, textTransform: "uppercase", letterSpacing: 2, color: "white", textDecoration: "none", background: TERRACOTTA, padding: "4px 11px", borderRadius: 4 }}>📕 Student Handbook</a>
+            <button onClick={() => openAuthedUrl("/handbooks/instructor")} style={{ fontSize: 10, fontWeight: 800, textTransform: "uppercase", letterSpacing: 2, color: "white", background: TERRACOTTA, padding: "4px 11px", borderRadius: 4, border: "none", cursor: "pointer" }}>📘 Instructor Handbook</button>
+            <button onClick={() => openAuthedUrl("/handbooks/student")} style={{ fontSize: 10, fontWeight: 800, textTransform: "uppercase", letterSpacing: 2, color: "white", background: TERRACOTTA, padding: "4px 11px", borderRadius: 4, border: "none", cursor: "pointer" }}>📕 Student Handbook</button>
             <Link to="/wai-institute" style={{ fontSize: 11, fontWeight: 900, textTransform: "uppercase", letterSpacing: 2, color: "#fff", textDecoration: "none", background: GROVE, padding: "6px 14px", borderRadius: 4, border: `1.5px solid ${AMBER}`, display: "flex", alignItems: "center", gap: 5 }}>
               🏛️ M.O.R.E. Institute
             </Link>

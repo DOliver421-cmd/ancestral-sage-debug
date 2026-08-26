@@ -456,6 +456,7 @@ async def _tier_result(
     provider:     str,
     model:        str,
     degraded:     bool,
+    persona:      Optional[str] = None,
 ) -> dict:
     """Record a successful platform-paid tier call against the global hourly
     cap AND the user's daily budget, then shape the gateway result dict."""
@@ -468,6 +469,24 @@ async def _tier_result(
             await record_user_tokens(_budget_id, tokens)
         except Exception:
             pass  # recording never blocks a reply
+    # AI cost tracking — fire-and-forget so the /admin/ai-costs panel shows
+    # real numbers instead of a permanently empty decoy. Never blocks a reply.
+    try:
+        from deps import get_db as _get_db
+        from ai_cost_tracker import record_ai_call as _record_ai_call
+        _cost_db = _get_db()
+        if _cost_db is not None:
+            await _record_ai_call(
+                _cost_db,
+                persona=persona or provider,
+                model=model,
+                input_tokens=int(result.get("in_tok", 0) or 0),
+                output_tokens=int(result.get("out_tok", 0) or 0),
+                user_id=user_id or budget_key or None,
+                endpoint="call_llm",
+            )
+    except Exception:
+        pass  # cost recording never blocks the reply
     return {
         "text":          str(result.get("text", "") or ""),
         "provider":      provider,
@@ -629,7 +648,7 @@ async def call_llm(
                 base_url=OPENAI_BASE, api_key=OPENAI_API_KEY, model=OPENAI_MODEL,
                 system=system, messages=messages, max_tokens=max_tokens, tools=tools,
             )
-            return await _tier_result(user_id, budget_key, result, "openai", OPENAI_MODEL, True)
+            return await _tier_result(user_id, budget_key, result, "openai", OPENAI_MODEL, True, persona_label)
         except Exception as e:
             logger.warning("LLM Gateway T1a OpenAI failed (%s): %s", persona_label, e)
 
@@ -640,7 +659,7 @@ async def call_llm(
                 base_url=DEEPSEEK_BASE, api_key=DEEPSEEK_API_KEY, model=DEEPSEEK_MODEL,
                 system=system, messages=messages, max_tokens=max_tokens, tools=tools,
             )
-            return await _tier_result(user_id, budget_key, result, "deepseek", DEEPSEEK_MODEL, True)
+            return await _tier_result(user_id, budget_key, result, "deepseek", DEEPSEEK_MODEL, True, persona_label)
         except Exception as e:
             logger.warning("LLM Gateway T1b DeepSeek failed (%s): %s", persona_label, e)
 
@@ -651,7 +670,7 @@ async def call_llm(
                 base_url=GROQ_BASE, api_key=GROQ_API_KEY, model=GROQ_MODEL,
                 system=system, messages=messages, max_tokens=max_tokens, tools=tools,
             )
-            return await _tier_result(user_id, budget_key, result, "groq", GROQ_MODEL, False)
+            return await _tier_result(user_id, budget_key, result, "groq", GROQ_MODEL, False, persona_label)
         except Exception as e:
             logger.warning("LLM Gateway T1a Groq failed (%s): %s", persona_label, e)
 
@@ -662,7 +681,7 @@ async def call_llm(
                 base_url=CEREBRAS_BASE, api_key=CEREBRAS_API_KEY, model=CEREBRAS_MODEL,
                 system=system, messages=messages, max_tokens=max_tokens, tools=tools,
             )
-            return await _tier_result(user_id, budget_key, result, "cerebras", CEREBRAS_MODEL, False)
+            return await _tier_result(user_id, budget_key, result, "cerebras", CEREBRAS_MODEL, False, persona_label)
         except Exception as e:
             logger.warning("LLM Gateway T1b Cerebras failed (%s): %s", persona_label, e)
 
@@ -673,7 +692,7 @@ async def call_llm(
                 base_url=SAMBANOVA_BASE, api_key=SAMBANOVA_API_KEY, model=SAMBANOVA_MODEL,
                 system=system, messages=messages, max_tokens=max_tokens, tools=tools,
             )
-            return await _tier_result(user_id, budget_key, result, "sambanova", SAMBANOVA_MODEL, False)
+            return await _tier_result(user_id, budget_key, result, "sambanova", SAMBANOVA_MODEL, False, persona_label)
         except Exception as e:
             logger.warning("LLM Gateway T1c SambaNova failed (%s): %s", persona_label, e)
 
@@ -684,7 +703,7 @@ async def call_llm(
                 base_url=GEMINI_BASE, api_key=GEMINI_API_KEY, model=GEMINI_MODEL,
                 system=system, messages=messages, max_tokens=max_tokens, tools=None,
             )
-            return await _tier_result(user_id, budget_key, result, "gemini", GEMINI_MODEL, True)
+            return await _tier_result(user_id, budget_key, result, "gemini", GEMINI_MODEL, True, persona_label)
         except Exception as e:
             logger.warning("LLM Gateway T2 Gemini failed (%s): %s", persona_label, e)
 
@@ -695,7 +714,7 @@ async def call_llm(
                 base_url=XAI_BASE, api_key=XAI_API_KEY, model=XAI_MODEL,
                 system=system, messages=messages, max_tokens=max_tokens, tools=tools,
             )
-            return await _tier_result(user_id, budget_key, result, "grok", XAI_MODEL, True)
+            return await _tier_result(user_id, budget_key, result, "grok", XAI_MODEL, True, persona_label)
         except Exception as e:
             logger.warning("LLM Gateway T3 Grok failed (%s): %s", persona_label, e)
 
@@ -703,7 +722,7 @@ async def call_llm(
     if COHERE_API_KEY:
         try:
             result = await _cohere_call(system=system, messages=messages, max_tokens=max_tokens, tools=tools)
-            return await _tier_result(user_id, budget_key, result, "cohere", COHERE_MODEL, True)
+            return await _tier_result(user_id, budget_key, result, "cohere", COHERE_MODEL, True, persona_label)
         except Exception as e:
             logger.warning("LLM Gateway T4 Cohere failed (%s): %s", persona_label, e)
 
@@ -714,7 +733,7 @@ async def call_llm(
                 base_url=MISTRAL_BASE, api_key=MISTRAL_API_KEY, model=MISTRAL_MODEL,
                 system=system, messages=messages, max_tokens=max_tokens, tools=tools,
             )
-            return await _tier_result(user_id, budget_key, result, "mistral", MISTRAL_MODEL, True)
+            return await _tier_result(user_id, budget_key, result, "mistral", MISTRAL_MODEL, True, persona_label)
         except Exception as e:
             logger.warning("LLM Gateway T5 Mistral failed (%s): %s", persona_label, e)
 
@@ -725,7 +744,7 @@ async def call_llm(
                 base_url=TOGETHER_BASE, api_key=TOGETHER_API_KEY, model=TOGETHER_MODEL,
                 system=system, messages=messages, max_tokens=max_tokens, tools=None,
             )
-            return await _tier_result(user_id, budget_key, result, "together", TOGETHER_MODEL, True)
+            return await _tier_result(user_id, budget_key, result, "together", TOGETHER_MODEL, True, persona_label)
         except Exception as e:
             logger.warning("LLM Gateway T6 Together failed (%s): %s", persona_label, e)
 
@@ -737,7 +756,7 @@ async def call_llm(
                 system=system, messages=messages, max_tokens=max_tokens, tools=None,
                 extra_headers={"HTTP-Referer": "https://wai-institute.com", "X-Title": "WAI-Institute"},
             )
-            return await _tier_result(user_id, budget_key, result, "openrouter", OPENROUTER_MODEL, True)
+            return await _tier_result(user_id, budget_key, result, "openrouter", OPENROUTER_MODEL, True, persona_label)
         except Exception as e:
             logger.warning("LLM Gateway T7 OpenRouter failed (%s): %s", persona_label, e)
 
@@ -782,7 +801,7 @@ async def call_llm(
             _mark_anthropic_ok()
             logger.warning("LLM Gateway: %s fell through to Anthropic (PAID — owner-authorized)", persona_label)
             _anth = {"text": text, "in_tok": in_tok, "out_tok": out_tok}
-            _result = await _tier_result(user_id, budget_key, _anth, "anthropic", model, True)
+            _result = await _tier_result(user_id, budget_key, _anth, "anthropic", model, True, persona_label)
             _result["_raw"] = resp
             return _result
         except Exception as e:

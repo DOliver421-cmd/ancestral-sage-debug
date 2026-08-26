@@ -207,7 +207,7 @@ FEATURE_MIN_TIER: dict = {
     "lounge": "member",
     "courses": "plus",
     "tracks": "plus",
-    "studio": "plus",
+    "studio": "free",
     "band": "plus",
     "publisher": "plus",
     "earnings": "plus",
