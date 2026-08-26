@@ -862,7 +862,15 @@ async def sage_tts(body: SageTTSReq, user: User = Depends(_dep_current_user)):
     """
     import time as _t
     if not OPENAI_API_KEY and not EMERGENT_LLM_KEY:
-        raise HTTPException(500, "AI not configured")
+        # No provider key is not a server fault: the reader should fall back to
+        # browser voice without an error toast. 503 (not 500) keeps the API
+        # interceptor quiet and matches the existing X-Fallback contract.
+        return StreamingResponse(
+            io.BytesIO(b""),
+            status_code=503,
+            media_type="audio/mpeg",
+            headers={"X-Fallback": "text-only", "X-No-Provider": "true", "Retry-After": "60"},
+        )
     text = (body.text or "").strip()
     if not text:
         raise HTTPException(400, "text is required")
