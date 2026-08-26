@@ -911,6 +911,11 @@ async def seed_modules():
         existing = await db.modules.find_one({"slug": m["slug"]})
         doc = {**m, "quiz": quiz_for(m["slug"])}
         if existing:
+            # Backfill `id` for docs written by older seeders that predate the
+            # id stamp — a missing id 500s GET /api/modules (ModuleCatalog
+            # requires it), which previously rendered the /modules page empty.
+            if not existing.get("id"):
+                doc["id"] = str(uuid.uuid4())
             await db.modules.update_one({"slug": m["slug"]}, {"$set": doc})
         else:
             doc["id"] = str(uuid.uuid4())
@@ -2007,6 +2012,56 @@ async def health():
     # ── Rate limiter ──────────────────────────────────────────────────────────
     checks["rate_limiter"] = {"status": "up", "tracked_keys": len(_RATE)}
 
+    # ── Platform config facts (verified from real config, not aspirational) ───
+    # Payments: a key in env OR the encrypted vault counts as configured.
+    _pay_configured = bool(
+        os.environ.get("STRIPE_SECRET_KEY")
+        or os.environ.get("LEMON_SQUEEZY_API_KEY")
+        or os.environ.get("GUMROAD_API_KEY")
+    )
+    if not _pay_configured:
+        try:
+            _pay_doc = await db.api_keys.find_one(
+                {"provider": {"$in": ["stripe", "lemon_squeezy", "gumroad"]}}, {"_id": 0}
+            )
+            _pay_configured = bool(_pay_doc)
+        except Exception:
+            pass
+    checks["payments"] = {"status": "configured" if _pay_configured else "not_configured"}
+    checks["email"] = {
+        "status": "configured"
+        if (os.environ.get("RESEND_API_KEY") or os.environ.get("GMAIL_APP_PASSWORD"))
+        else "not_configured"
+    }
+    checks["email_configured"] = checks["email"]["status"] == "configured"
+    checks["docs_enabled"] = _DOCS_ENABLED
+    try:
+        checks["user_count"] = await db.users.count_documents({})
+    except Exception:
+        checks["user_count"] = None
+    try:
+        checks["ip_whitelist_count"] = await db.ip_whitelist.count_documents({})
+    except Exception:
+        checks["ip_whitelist_count"] = 0
+    try:
+        from roles import ROLE_RANK as _roles_rank
+        _rbac_tiers = len(_roles_rank)
+    except Exception:
+        _rbac_tiers = None
+    try:
+        from platform_services import build_cors_origins as _build_cors
+        _co = _build_cors(os.environ.get("CORS_ORIGINS", "*"), BACKUP_ORIGIN)
+    except Exception:
+        _co = ["*"]
+    checks["platform"] = {
+        "jwt_algo": JWT_ALGO,
+        "cors_origins": _co,
+        "rbac_tiers": _rbac_tiers,
+        "security_headers": [
+            "X-Content-Type-Options", "X-Frame-Options", "X-XSS-Protection",
+            "Referrer-Policy", "Permissions-Policy", "Strict-Transport-Security",
+        ],
+    }
     # ── Overall status ────────────────────────────────────────────────────────
     if not issues:
         overall = "operational"

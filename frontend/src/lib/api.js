@@ -22,6 +22,31 @@ export const API = `${BACKEND_URL}/api`;
 
 export const api = axios.create({ baseURL: API });
 
+/**
+ * openAuthedUrl — fetch a backend URL with the session token and open it in a
+ * new tab as a blob. Used for the handbooks (GET /api/handbooks/{name} is
+ * auth-gated): a plain <a href> opens a tab with no Authorization header and
+ * gets a 401, which is exactly why the handbook links appeared broken.
+ */
+export async function openAuthedUrl(path) {
+  const t = localStorage.getItem("lce_token");
+  try {
+    const res = await fetch(`${API}${path}`, {
+      headers: t ? { Authorization: `Bearer ${t}` } : {},
+    });
+    if (!res.ok) {
+      toast.error(`Could not open the document (HTTP ${res.status}).`);
+      return;
+    }
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    window.open(url, "_blank", "noopener,noreferrer");
+    setTimeout(() => URL.revokeObjectURL(url), 60_000);
+  } catch {
+    toast.error("Could not open the document. Try again in a moment.");
+  }
+}
+
 // Attach JWT on every request
 api.interceptors.request.use((cfg) => {
   const t = localStorage.getItem("lce_token");

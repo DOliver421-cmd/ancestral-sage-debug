@@ -272,8 +272,22 @@ async def list_modules():
     # Public catalog view: visitors may SEE the course list, but full lesson
     # content (objectives, safety, tools, quiz, scripture) is only served to
     # registered users via GET /modules/{slug}.
+    #
+    # Defensive repair: docs written by older seeders can lack the required
+    # `id` field (seed_modules only stamped it on fresh inserts). One such doc
+    # used to 500 the entire endpoint, which the frontend silently swallowed
+    # into an empty page. Derive a stable id from the slug and skip any doc
+    # that still cannot be rendered, logging the reason instead of failing.
     docs = await db.modules.find({}, {"_id": 0}).sort("order", 1).to_list(100)
-    return [ModuleCatalog(**d) for d in docs]
+    catalog = []
+    for d in docs:
+        try:
+            if not d.get("id"):
+                d["id"] = d.get("slug") or str(uuid.uuid4())
+            catalog.append(ModuleCatalog(**d))
+        except Exception as e:
+            logger.warning("list_modules: skipping unrenderable module doc (slug=%s): %s", d.get("slug"), e)
+    return catalog
 
 
 @router.get("/modules/{slug}", response_model=Module)

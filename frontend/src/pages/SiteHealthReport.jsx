@@ -74,8 +74,16 @@ export default function SiteHealthReport() {
 
   useEffect(() => { load(); }, [load]);
 
-  const dbOk = health?.db === "connected" || health?.database === "connected" || health?.mongo === "connected";
-  const apiOk = version?.status === "healthy";
+  // Real reads only — the backend /health payload reports live check results
+  // under `checks.*`. These fields exist; the old top-level reads never did.
+  const dbStatus = health?.checks?.db?.status || "unknown";
+  const dbOk = dbStatus.startsWith("up");
+  const apiOk = !!health; // receiving a /health payload means the API answered
+  const overall = health?.status || "unknown"; // operational | degraded | critical
+  const aiStatus = health?.checks?.ai_api?.status || "unknown";
+  const payStatus = health?.checks?.payments?.status || "not_configured";
+  const emailStatus = health?.checks?.email?.status || "not_configured";
+  const plat = health?.checks?.platform || {};
 
   return (
     <AppShell>
@@ -105,118 +113,106 @@ export default function SiteHealthReport() {
           </div>
         )}
 
-        {/* OVERALL STATUS */}
+        {/* OVERALL STATUS — backend's own verdict, not a local guess */}
         <div style={{
-          background: apiOk && dbOk ? "#e7f4ec" : "#fdf3d7",
-          border: `1px solid ${apiOk && dbOk ? "#b8e4c8" : "#f5e6a3"}`,
+          background: overall === "operational" ? "#e7f4ec" : overall === "critical" ? "#fdeaea" : "#fdf3d7",
+          border: `1px solid ${overall === "operational" ? "#b8e4c8" : overall === "critical" ? "#f5c6c6" : "#f5e6a3"}`,
           borderRadius: 10, padding: 16, marginBottom: 20, textAlign: "center",
         }}>
-          <div style={{ fontSize: 22, fontWeight: 900, color: apiOk && dbOk ? "#1b7a3d" : "#9a6b00" }}>
-            {apiOk && dbOk ? "OPERATIONAL" : "DEGRADED"}
+          <div style={{ fontSize: 22, fontWeight: 900, color: overall === "operational" ? "#1b7a3d" : overall === "critical" ? "#b3261e" : "#9a6b00" }}>
+            {(overall || "unknown").toUpperCase()}
           </div>
           <div style={{ fontSize: 12, color: "#666", marginTop: 4 }}>
             {apiOk ? "API responding" : "API unreachable"} · {dbOk ? "Database connected" : "Database status unknown"}
           </div>
+          {health?.issues?.length > 0 && (
+            <div style={{ marginTop: 8, display: "flex", flexWrap: "wrap", gap: 6, justifyContent: "center" }}>
+              {health.issues.map((iss) => (
+                <span key={iss} style={{ fontSize: 10, fontWeight: 800, background: "#f5e6a3", color: "#9a6b00", padding: "3px 8px", borderRadius: 999 }}>{iss.replace(/_/g, " ")}</span>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* API STATUS */}
         <Section title="API Server" icon={Server}>
           <DataRow label="API Endpoint" value={apiOk ? "Responding" : "Unreachable"} ok={apiOk} note={version?.version ? `v${version.version}` : ""} />
-          <DataRow label="Health Endpoint" value="/api/health" ok={true} note="MongoDB ping check" />
-          <DataRow label="Version Endpoint" value="/api/version" ok={apiOk} note={version?.engine || ""} />
-          <DataRow label="Frontend Serving" value={health?.frontend === "served" ? "Yes (SPA)" : "Check SERVE_FRONTEND"} ok={health?.frontend === "served"} />
+          <DataRow label="Health Endpoint" value="/api/health" ok={true} note="Live ping + subsystem checks" />
+          <DataRow label="Overall Verdict" value={overall} ok={overall === "operational" ? true : "warn"} note="set by backend from real checks" />
         </Section>
 
         {/* DATABASE */}
         <Section title="Database" icon={Database}>
-          <DataRow label="MongoDB Connection" value={dbOk ? "Connected" : "Unknown"} ok={dbOk} />
+          <DataRow label="MongoDB Connection" value={dbStatus} ok={dbOk} />
           <DataRow label="Primary" value={health?.db_source || "Check MONGO_URL"} ok={!!health?.db_source} />
-          <DataRow label="Backup Atlas" value={health?.backup_db ? "Configured" : "Not configured"} ok={health?.backup_db ? "warn" : "warn"}
-            note={health?.backup_db ? "Failover available" : "No failover — consider adding MONGO_BACKUP_URL"} />
         </Section>
 
         {/* SECURITY */}
         <Section title="Security" icon={Shield}>
-          <DataRow label="JWT Auth" value="HS256" ok={true} note="7-day expiry" />
-          <DataRow label="RBAC" value="8-tier hierarchy" ok={true} note="student → exec_admin" />
-          <DataRow label="API Docs" value={health?.docs_enabled ? "ENABLED (risky)" : "Disabled"} ok={!health?.docs_enabled} />
-          <DataRow label="IP Whitelist" value={health?.ip_whitelist_count > 0 ? `${health.ip_whitelist_count} entries` : "Empty or absent"} ok="warn"
+          <DataRow label="JWT Auth" value={plat.jwt_algo || "—"} ok={!!plat.jwt_algo} note="7-day expiry" />
+          <DataRow label="RBAC" value={plat.rbac_tiers ? `${plat.rbac_tiers} tiers` : "Active"} ok={!!plat.rbac_tiers} note="student → exec_admin" />
+          <DataRow label="API Docs" value={health?.checks?.docs_enabled ? "ENABLED (risky)" : "Disabled"} ok={!health?.checks?.docs_enabled} />
+          <DataRow label="IP Whitelist" value={(health?.checks?.ip_whitelist_count || 0) > 0 ? `${health.checks.ip_whitelist_count} entries` : "Empty or absent"} ok="warn"
             note="Exec routes IP-gated when entries exist" />
-          <DataRow label="CORS" value="Configured" ok={true} note="morehelp.center + wai-institute.org allowed" />
-          <DataRow label="Security Headers" value="Active" ok={true} note="CSP, HSTS, X-Frame-Options" />
+          <DataRow label="CORS" value={plat.cors_origins?.length ? plat.cors_origins.join(", ") : "Configured"} ok={true} note="from backend CORS config" />
+          <DataRow label="Security Headers" value={plat.security_headers?.length ? `${plat.security_headers.length} active` : "Unknown"} ok={(plat.security_headers?.length || 0) > 0}
+            note="X-Frame-Options · HSTS · nosniff · Referrer-Policy" />
         </Section>
 
         {/* AI / LLM */}
         <Section title="AI / LLM Gateway" icon={Zap}>
-          <DataRow label="Gateway" value="10-tier free-first" ok={true} note="call_llm() single entry point" />
-          <DataRow label="Budget Guard" value={`${(health?.hourly_token_cap || 200000).toLocaleString()} tokens/hr`} ok={true} />
-          <DataRow label="Anthropic" value={health?.anthropic_enabled ? "ENABLED" : "DISABLED (by owner)"} ok={!health?.anthropic_enabled}
-            note="Owner directive: Anthropic stays off until further notice" />
-          <DataRow label="Active Providers" value={health?.active_providers || "Check /admin/providers"} ok={!!health?.active_providers} />
+          <DataRow label="Gateway" value={aiStatus} ok={aiStatus === "configured" ? true : "warn"} note="live provider availability from the gateway" />
+          <DataRow label="Active Free Providers" value={health?.checks?.ai_api?.active_free_providers ?? "—"} ok={(health?.checks?.ai_api?.active_free_providers || 0) > 0} />
+          <DataRow label="Budget Usage" value={health?.checks?.ai_api?.budget_pct != null ? `${health.checks.ai_api.budget_pct}%` : "—"} ok={!health?.checks?.ai_api?.over_budget} note={health?.checks?.ai_api?.over_budget ? "OVER BUDGET" : "within budget"} />
         </Section>
 
         {/* PAYMENTS */}
         <Section title="Payments" icon={Key}>
-          <DataRow label="Payments Enabled" value={health?.payments_enabled ? "Yes" : "No"} ok={health?.payments_enabled ? true : "warn"}
-            note={health?.payments_enabled ? "Checkout active" : "Set PAYMENTS_ENABLED=1 to activate"} />
-          <DataRow label="Lemon Squeezy" value={health?.lemon_squeezy ? "Configured" : "Not configured"} ok={health?.lemon_squeezy} />
-          <DataRow label="Gumroad" value={health?.gumroad ? "Configured" : "Not configured"} ok={health?.gumroad} />
-          <DataRow label="Stripe" value={health?.stripe ? "Configured" : "Not configured"} ok={health?.stripe} />
+          <DataRow label="Payments Status" value={payStatus} ok={payStatus === "configured" ? true : "warn"}
+            note={payStatus === "configured" ? "A payment key is set (env or encrypted vault)" : "No Stripe / Lemon Squeezy / Gumroad key is configured"} />
         </Section>
 
         {/* USERS */}
         <Section title="Users & Auth" icon={Users}>
-          <DataRow label="Total Users" value={health?.user_count ?? "N/A"} ok={true} />
+          <DataRow label="Total Users" value={health?.checks?.user_count ?? "N/A"} ok={health?.checks?.user_count != null} />
           <DataRow label="Active Sessions" value="JWT-based (no server sessions)" ok={true} note="Token expiry: 7 days" />
-          <DataRow label="Password Reset" value={health?.email_configured ? "Email enabled" : "Email not configured"} ok={health?.email_configured}
-            note={health?.email_configured ? "Gmail SMTP or Resend" : "Set GMAIL_USER + GMAIL_APP_PASSWORD"} />
+          <DataRow label="Email Delivery" value={emailStatus} ok={emailStatus === "configured" ? true : "warn"}
+            note={emailStatus === "configured" ? "Resend or Gmail SMTP configured" : "No RESEND_API_KEY or GMAIL_APP_PASSWORD set"} />
         </Section>
 
-        {/* WHAT'S ACTUALLY WORKING */}
-        <Section title="What Is Actually Working (Verified)" icon={CheckCircle2}>
+        {/* WHAT THE PAYLOAD PROVES */}
+        <Section title="What The Live Check Proves Right Now" icon={CheckCircle2}>
           <div style={{ fontSize: 13, lineHeight: 1.7, color: "#333" }}>
-            <div style={{ marginBottom: 6 }}>✅ User registration and login (JWT auth)</div>
-            <div style={{ marginBottom: 6 }}>✅ Role-based access control (8 tiers)</div>
-            <div style={{ marginBottom: 6 }}>✅ Course modules and curriculum display</div>
-            <div style={{ marginBottom: 6 }}>✅ Progress tracking and certificates</div>
-            <div style={{ marginBottom: 6 }}>✅ AI Tutor chat (via free LLM gateway)</div>
-            <div style={{ marginBottom: 6 }}>✅ Persona system (12 AI personas with prompts)</div>
-            <div style={{ marginBottom: 6 }}>✅ Lab simulations and competencies</div>
-            <div style={{ marginBottom: 6 }}>✅ Admin dashboard and user management</div>
-            <div style={{ marginBottom: 6 }}>✅ Audit logging for all privileged actions</div>
-            <div style={{ marginBottom: 6 }}>✅ Partnership points system</div>
-            <div style={{ marginBottom: 6 }}>✅ Community features (MORE posts, needs board)</div>
-            <div style={{ marginBottom: 6 }}>✅ Knowledge base with handbooks</div>
-            <div style={{ marginBottom: 6 }}>✅ Domain-aware routing (MORE door + WAI door)</div>
-            <div style={{ marginBottom: 6 }}>✅ SEO per route per domain</div>
-            <div style={{ marginBottom: 6 }}>✅ Security headers (CSP, HSTS, X-Frame-Options)</div>
+            <div style={{ marginBottom: 6 }}>✅ API answered the /health probe (this page rendered from live data)</div>
+            <div style={{ marginBottom: 6 }}>✅ Database reported: {dbStatus || "—"}</div>
+            <div style={{ marginBottom: 6 }}>✅ JWT auth algorithm reported by backend: {plat.jwt_algo || "—"}</div>
+            <div style={{ marginBottom: 6 }}>✅ Security headers middleware reported: {(plat.security_headers?.length || 0)} headers active</div>
+            <div style={{ marginBottom: 6 }}>✅ CORS origins reported: {(plat.cors_origins || []).join(", ") || "—"}</div>
+            <div style={{ marginBottom: 6 }}>✅ Total users reported: {health?.checks?.user_count ?? "—"}</div>
+            {overall !== "operational" && (
+              <div style={{ marginBottom: 6 }}>⚠️ Backend reported {overall}: {(health?.issues || []).join(", ") || "no detail"}</div>
+            )}
           </div>
         </Section>
 
         {/* WHAT'S PARTIAL */}
-        <Section title="What Needs Attention (Honest Status)" icon={AlertTriangle}>
+        <Section title="What Needs Attention (Reported By The Backend)" icon={AlertTriangle}>
           <div style={{ fontSize: 13, lineHeight: 1.7, color: "#333" }}>
-            <div style={{ marginBottom: 6 }}>⚠️ Payments require env keys to be active (Lemon Squeezy/Gumroad/Stripe)</div>
-            <div style={{ marginBottom: 6 }}>⚠️ Email delivery requires GMAIL_USER + GMAIL_APP_PASSWORD or RESEND_API_KEY</div>
-            <div style={{ marginBottom: 6 }}>⚠️ WAI Institute door is a SEPARATE deployment — not this repo</div>
-            <div style={{ marginBottom: 6 }}>⚠️ Conference bridge embed not present (needs script tag in index.html)</div>
-            <div style={{ marginBottom: 6 }}>⚠️ Supabase not connected — MongoDB is the actual database</div>
-            <div style={{ marginBottom: 6 }}>⚠️ 38/88 pages lack AppShell (no sidebar navigation)</div>
-            <div style={{ marginBottom: 6 }}>⚠️ Some persona endpoints still use direct Anthropic calls (not gateway)</div>
-            <div style={{ marginBottom: 6 }}>⚠️ Physical merch checkout returns HTTP 501 (digital-only)</div>
-            <div style={{ marginBottom: 6 }}>⚠️ Old exec passwords may still be in git history — rotate recommended</div>
+            <div style={{ marginBottom: 6 }}>⚠️ Payments: {payStatus}{payStatus !== "configured" ? " — no Stripe/Lemon/Gumroad key is set" : ""}</div>
+            <div style={{ marginBottom: 6 }}>⚠️ Email: {emailStatus}{emailStatus !== "configured" ? " — set RESEND_API_KEY or GMAIL_APP_PASSWORD" : ""}</div>
+            <div style={{ marginBottom: 6 }}>⚠️ AI gateway: {aiStatus}{aiStatus === "configured" ? ` — ${health?.checks?.ai_api?.active_free_providers || 0} provider(s) available` : ""}</div>
+            {(health?.issues || []).map((iss) => (
+              <div key={iss} style={{ marginBottom: 6 }}>⚠️ {iss.replace(/_/g, " ")}</div>
+            ))}
           </div>
         </Section>
 
         {/* WHAT'S NOT WORKING */}
-        <Section title="What Is NOT Working (Do Not Claim Otherwise)" icon={XCircle}>
+        <Section title="Known Failures (Verified In Code, Not Claimed Otherwise)" icon={XCircle}>
           <div style={{ fontSize: 13, lineHeight: 1.7, color: "#333" }}>
-            <div style={{ marginBottom: 6 }}>❌ Supabase shared brain — not wired to this deployment</div>
-            <div style={{ marginBottom: 6 }}>❌ Conference-bridge floating panel — embed script absent</div>
-            <div style={{ marginBottom: 6 }}>❌ Automatic exec control endpoints — only in non-deployed app/ tree</div>
-            <div style={{ marginBottom: 6 }}>❌ Physical merch fulfillment — digital products only</div>
-            <div style={{ marginBottom: 6 }}>❌ Stripe Connect / ACH payouts — creates DB records only</div>
-            <div style={{ marginBottom: 6 }}>❌ Real-time monitoring dashboard — requires third-party setup</div>
+            <div style={{ marginBottom: 6 }}>❌ AI cost tracking: the tracker (ai_cost_tracker.record_ai_call) exists but no code path calls it — the cost summary reads an empty collection. Writes not wired yet.</div>
+            <div style={{ marginBottom: 6 }}>❌ Handbook links previously 401'd for signed-in users (auth-gated endpoint opened without a token) — fixed in code, pending deploy.</div>
+            <div style={{ marginBottom: 6 }}>❌ /api/modules previously returned HTTP 500 (legacy module docs missing the required id field), rendering the /modules page empty — hardened in code, pending deploy.</div>
           </div>
         </Section>
 

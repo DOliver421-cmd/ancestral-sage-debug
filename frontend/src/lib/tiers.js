@@ -46,7 +46,7 @@ export const TIER_FOR_FEATURE = {
   courses: "plus",        // course library
   tracks: "plus",         // learning tracks / adaptive path
   ghost: "plus",          // Ghost Producer
-  studio: "plus",         // Creator Studio
+  studio: "free",         // Creator Studio (free access; premium chambers stay tiered)
   band: "plus",           // Band on a Page
   publisher: "plus",      // full publishing toolkit
   earnings: "plus",       // creator earnings
