@@ -261,6 +261,38 @@ export default function ExecutiveCommandCenter() {
           </div>
         </div>
 
+        {/* ─── HONEST BUSINESS STATUS — the number the dashboard exists to answer ─── */}
+        {(() => {
+          const rev = abo?.runway?.month_revenue_cents ?? null;
+          const goal = abo?.runway?.monthly_goal_cents ?? null;
+          const rw = abo?.runway?.runway_months;
+          const status = abo?.runway?.status;
+          if (rev === null) {
+            // Business-office data did not load — say so plainly instead of
+            // pretending a funded operation.
+            return (
+              <div className="mb-5 rounded-2xl px-4 py-3" style={{ background: "#fff7ed", border: "1px solid #fdba74", color: "#9a3412" }} role="status">
+                <div className="font-bold text-sm">Business revenue data is not loading right now.</div>
+                <div className="text-xs mt-1">Until it returns, every revenue and runway figure above is a placeholder. Do not treat it as real.</div>
+              </div>
+            );
+          }
+          const red = rev <= 0 || rw != null && rw <= 0 || status === "critical";
+          const amber = !red && status === "watch";
+          if (!red && !amber) return null;
+          return (
+            <div className="mb-5 rounded-2xl px-4 py-3" role="status"
+              style={{ background: red ? "#fef2f2" : "#fff7ed", border: red ? "1px solid #fca5a5" : "1px solid #fdba74", color: red ? "#991b1b" : "#9a3412" }}>
+              <div className="font-bold text-sm">{red ? "⚠️ The platform is not making revenue right now." : "⚠️ Revenue is below the monthly goal."}</div>
+              <div className="text-xs mt-1">
+                {red
+                  ? `Month revenue $0 of $${(goal ?? 0) / 100} goal · ${rw != null ? rw + " months of runway" : "no runway"} · status ${status || "critical"}. The Executive dashboard is showing the real number, not a healthy one.`
+                  : `Month revenue ${fmtUsd(rev)} of ${fmtUsd(goal)} (${abo?.runway?.month_pct ?? 0}%) · runway ${rw != null ? rw + " mo" : "—"} · status ${status || "—"}.`}
+              </div>
+            </div>
+          );
+        })()}
+
         {/* TABS */}
         <div className="flex gap-2 flex-wrap mb-6">
           {TABS.map((t) => (
