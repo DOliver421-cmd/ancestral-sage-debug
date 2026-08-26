@@ -1582,6 +1582,16 @@ async def _on_startup_impl():
     except Exception as _pk_err:
         logger.warning("STARTUP: provider key reload failed (non-fatal): %s", _pk_err)
 
+    # ── Load payment-provider keys (Stripe/Lemon/Gumroad) from the encrypted
+    # vault, so a key pasted in the exec Provider Gateway takes effect now.
+    try:
+        from routers.payments import reload_payment_keys as _reload_pay
+        _np = await _reload_pay(db)
+        if _np:
+            logger.info("STARTUP: Loaded %d payment provider key(s) from DB.", _np)
+    except Exception as _pay_err:
+        logger.warning("STARTUP: payment key reload failed (non-fatal): %s", _pay_err)
+
     # ── Load shared site-support BYOK keys into the LLM gateway ──────────────
     # Site Support team members share their free BYOK key with the platform:
     # the gateway uses the pool as a free tier when every provider fails.

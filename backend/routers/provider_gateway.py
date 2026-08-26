@@ -21,11 +21,23 @@ PROVIDERS = {
     "cohere": ("Cohere", "command-r-plus", "https://dashboard.cohere.com/api-keys"),
     "together": ("Together AI", "meta-llama/Llama-3.3-70B-Instruct-Turbo-Free", "https://api.together.xyz/settings/api-keys"),
     "xai": ("xAI / Grok", "grok-3-mini", "https://console.x.ai"),
+    "openai": ("OpenAI", "gpt-4o-mini", "https://platform.openai.com/api-keys"),
+    "deepseek": ("DeepSeek", "deepseek-chat", "https://platform.deepseek.com/api_keys"),
+    # ── Payment providers ─────────────────────────────────────────────────────
+    # Stored through the same encrypted vault so the owner can link payment
+    # keys from the exec Provider Gateway and have them take effect immediately.
+    "stripe": ("Stripe", "checkout", "https://dashboard.stripe.com/apikeys"),
+    "lemon_squeezy": ("Lemon Squeezy", "checkout", "https://app.lemonsqueezy.com/settings/api"),
+    "gumroad": ("Gumroad", "checkout", "https://app.gumroad.com/settings"),
 }
 
 class QuickSetupRequest(BaseModel):
     provider_type: str
     api_key: str
+    # Optional second credential for dual-key payment providers:
+    #   stripe         → publication key
+    #   lemon_squeezy  → store id
+    secondary_key: Optional[str] = ""
 
 async def _user(authorization: Optional[str] = Header(None)):
     return await current_user(authorization)
@@ -72,6 +84,11 @@ async def quick_setup_status(user=Depends(_user)):
         "cohere": bool(os.environ.get("COHERE_API_KEY", "").strip()),
         "together": bool(os.environ.get("TOGETHER_API_KEY", "").strip()),
         "xai": bool(os.environ.get("XAI_API_KEY", os.environ.get("GROK_API_KEY", "")).strip()),
+        "openai": bool(os.environ.get("OPENAI_API_KEY", "").strip()),
+        "deepseek": bool(os.environ.get("AI_PROVIDER_DEEPSEEK_KEY", "").strip()),
+        "stripe": bool(os.environ.get("STRIPE_SECRET_KEY", "").strip() and os.environ.get("STRIPE_PUBLISHABLE_KEY", "").strip()),
+        "lemon_squeezy": bool(os.environ.get("LEMON_SQUEEZY_API_KEY", "").strip() and os.environ.get("LEMON_SQUEEZY_STORE_ID", "").strip()),
+        "gumroad": bool(os.environ.get("GUMROAD_API_KEY", "").strip()),
     }
     if db is None:
         return {
@@ -108,23 +125,44 @@ async def quick_setup(body: QuickSetupRequest, user=Depends(_user)):
         raise HTTPException(503, "Provider storage is unavailable. The key was not saved.")
     provider_type = body.provider_type.strip().lower()
     api_key = body.api_key.strip()
+    secondary = (body.secondary_key or "").strip()
     if provider_type not in PROVIDERS:
         raise HTTPException(400, "Unsupported provider.")
     if not api_key:
         raise HTTPException(400, "API key cannot be empty.")
+    # Dual-key providers require both credentials.
+    if provider_type == "stripe" and not secondary:
+        raise HTTPException(400, "Stripe needs BOTH the secret key and the publishable key.")
+    if provider_type == "lemon_squeezy" and not secondary:
+        raise HTTPException(400, "Lemon Squeezy needs BOTH the API key and the store id.")
     fernet = _fernet()
     if fernet is None:
         raise HTTPException(503, "Provider key encryption is not configured on the server.")
     provider_id = await _provider_id(provider_type)
     now = datetime.now(timezone.utc).isoformat()
     encrypted = fernet.encrypt(api_key.encode()).decode()
+    upd: dict = {
+        "provider_id": provider_id,
+        "encrypted_key": encrypted,
+        "key_masked": _mask(api_key),
+        "status": "active",
+        "updated_at": now,
+    }
+    if secondary:
+        upd["second_encrypted_key"] = fernet.encrypt(secondary.encode()).decode()
+        upd["second_masked"] = _mask(secondary)
     await db.api_keys.update_one(
         {"provider_id": provider_id},
-        {"$set": {"provider_id": provider_id, "encrypted_key": encrypted, "key_masked": _mask(api_key), "status": "active", "updated_at": now}, "$setOnInsert": {"id": str(uuid.uuid4()), "created_at": now}},
+        {"$set": upd, "$setOnInsert": {"id": str(uuid.uuid4()), "created_at": now}},
         upsert=True,
     )
-    from ai.llm_gateway import reload_provider_keys
-    await reload_provider_keys(db)
+    if provider_type in ("groq", "cerebras", "gemini", "mistral", "cohere", "together", "xai", "openai", "deepseek"):
+        from ai.llm_gateway import reload_provider_keys
+        await reload_provider_keys(db)
+    else:
+        # Payment provider — reload so the newly pasted key takes effect now.
+        from routers.payments import reload_payment_keys
+        await reload_payment_keys(db)
     await audit(user.id, "provider_gateway.key_saved", meta={"provider": provider_type})
     return {"provider_type": provider_type, "configured": True, "key_masked": _mask(api_key)}
 
