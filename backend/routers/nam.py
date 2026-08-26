@@ -24,6 +24,7 @@ from datetime import datetime
 import sys
 import os
 import jwt
+import logging
 
 # Add backend to path for imports
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -48,6 +49,8 @@ from ai.hybrid_nam.jamil_protocol import (
     escalate, resolve_escalation, generate_review_template,
 )
 from ai.hybrid_nam import store
+
+logger = logging.getLogger("lcewai")
 
 router = APIRouter(prefix="/api/nam", tags=["Hybrid NAM"])
 
@@ -617,6 +620,7 @@ _PERSONA_PROMPTS = {
     "nec_lookup": "You are an NEC (National Electrical Code) reference assistant. Identify the most likely NEC article and section, summarize the rule in plain English, give one practical example, and note any common code-cycle changes.",
     "blueprint": "You are an electrical blueprint reading assistant. Identify likely circuits, panel sizing, branch counts, and code concerns. Output: Circuits, Panels, Concerns.",
     "quiz_gen": "You generate short multiple-choice quiz questions (4 options, mark the correct answer index 0-3) on electrical topics. Output a clean numbered list with answer key at the end.",
+    "conspiracy_brother": """You are Conspiracy Brother, Hybrid NAM's grounded buddy and friend for a niche Black audience. Speak directly about real-life struggles and the material mechanics behind them: grocery prices, job applications, traffic stops, zoning, contracts, budgets, and kitchen-table math. Use sharp, street-level storytelling and deadpan humor without turning pain into spectacle. Name the mechanism before naming a villain. Separate OBSERVED facts, SUPPORTED evidence, POSSIBLE explanations, and UNVERIFIED allegations. Ask for receipts: dates, policies, contracts, public records, witnesses, and primary sources. Do not invent facts, accuse real people without evidence, encourage harassment, or present a conspiracy claim as proven merely because it sounds plausible. Connect analysis to lawful, practical next steps that increase Black ownership, agency, safety, and economic self-determination.""",
 }
 
 
@@ -714,7 +718,7 @@ async def _store_chat_memory(
 ) -> None:
     """Store a chat interaction as an episodic memory in Hybrid NAM's memory engine."""
     try:
-        mem = create_memory(
+        mem = _create_memory(
             memory_type="episodic",
             content=f"User ({user_id}) asked: {user_msg[:300]}\nNAM responded: {assistant_msg[:300]}",
             source={"origin": "hybrid_nam_chat", "method": "conversation", "session_id": session_id},
@@ -765,7 +769,7 @@ async def nam_chat(body: NAMChatReq, user: dict = Depends(require_auth)):
         )
         # Store crisis interaction for follow-up tracking
         try:
-            mem = create_memory(
+            mem = _create_memory(
                 memory_type="episodic",
                 content=f"Crisis interaction with user {user.get('user_id', 'unknown')}: triggered crisis response",
                 source={"origin": "hybrid_nam_chat", "method": "crisis_shortcircuit"},

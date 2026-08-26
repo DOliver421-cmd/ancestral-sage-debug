@@ -425,10 +425,10 @@ function VideoCreator({ nodeId, onUpload }) {
       });
       
       toast.success("Video created — images will animate with Ken Burns effect");
+      onUpload?.();
       setImages([]);
       setSoundtrack(null);
       setTitle("");
-      onUpload?.();
     } catch (e) {
       toast.error("Video creation failed: " + (e?.message || "unknown error"));
     } finally {
@@ -612,7 +612,7 @@ function TrackList({ tracks, onDelete }) {
 }
 
 // ── Main Admin Panel ──────────────────────────────────────────────────────────
-export default function VonnsSagaAdmin({ nodeId }) {
+export default function VonnsSagaAdmin({ nodeId, onAssetsChanged }) {
   const { user } = useAuth();
   const [activeTab, setActiveTab] = useState("tracks");
   const [tracks, setTracks] = useState([]);
@@ -691,17 +691,17 @@ export default function VonnsSagaAdmin({ nodeId }) {
           {/* Tab content */}
           {activeTab === "tracks" && (
             <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-              <TrackUpload onUpload={loadTracks} />
+              <TrackUpload onUpload={() => { loadTracks(); onAssetsChanged?.(); }} />
               <TrackList tracks={tracks} onDelete={deleteTrack} />
             </div>
           )}
 
           {activeTab === "images" && (
-            <ImageUpload nodeId={nodeId} />
+            <ImageUpload nodeId={nodeId} onUpload={onAssetsChanged} />
           )}
 
           {activeTab === "videos" && (
-            <VideoCreator nodeId={nodeId} />
+            <VideoCreator nodeId={nodeId} onUpload={onAssetsChanged} />
           )}
         </div>
       )}

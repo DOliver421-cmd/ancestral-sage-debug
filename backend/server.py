@@ -933,6 +933,7 @@ async def seed_starter_library():
             "type": "ebook",
             "tags": ["starter-library", "ebook", "creator-tools"],
             "file_path": "content/starter-library/the-small-start.md",
+            "cover_url": "https://images.pexels.com/photos/159711/books-book-pages-read-literature-159711.jpeg?auto=compress&cs=tinysrgb&w=900",
         },
         {
             "title": "From Creator to Product",
@@ -941,6 +942,7 @@ async def seed_starter_library():
             "type": "ebook",
             "tags": ["starter-library", "ebook", "creator-economy"],
             "file_path": "content/starter-library/from-creator-to-product.md",
+            "cover_url": "https://images.pexels.com/photos/374016/pexels-photo-374016.jpeg?auto=compress&cs=tinysrgb&w=900",
         },
         {
             "title": "AI Without the Intimidation",
@@ -949,6 +951,7 @@ async def seed_starter_library():
             "type": "ebook",
             "tags": ["starter-library", "ebook", "ai-literacy"],
             "file_path": "content/starter-library/ai-without-the-intimidation.md",
+            "cover_url": "https://images.pexels.com/photos/3861969/pexels-photo-3861969.jpeg?auto=compress&cs=tinysrgb&w=900",
         },
         {
             "title": "The Community Funding Starter",
@@ -957,6 +960,7 @@ async def seed_starter_library():
             "type": "ebook",
             "tags": ["starter-library", "ebook", "community-funding"],
             "file_path": "content/starter-library/the-community-funding-starter.md",
+            "cover_url": "https://images.pexels.com/photos/3184436/pexels-photo-3184436.jpeg?auto=compress&cs=tinysrgb&w=900",
         },
         {
             "title": "When AI Is Wrong",
@@ -965,6 +969,7 @@ async def seed_starter_library():
             "type": "ebook",
             "tags": ["starter-library", "ebook", "ai-limitations", "verification"],
             "file_path": "content/starter-library/when-ai-is-wrong.md",
+            "cover_url": "https://images.pexels.com/photos/5926382/pexels-photo-5926382.jpeg?auto=compress&cs=tinysrgb&w=900",
         },
         {
             "title": "The Automation Trap",
@@ -973,6 +978,7 @@ async def seed_starter_library():
             "type": "ebook",
             "tags": ["starter-library", "ebook", "ai-limitations", "automation"],
             "file_path": "content/starter-library/the-automation-trap.md",
+            "cover_url": "https://images.pexels.com/photos/3862130/pexels-photo-3862130.jpeg?auto=compress&cs=tinysrgb&w=900",
         },
         {
             "title": "The Human-Made Difference",
@@ -981,12 +987,42 @@ async def seed_starter_library():
             "type": "ebook",
             "tags": ["starter-library", "ebook", "ai-limitations", "human-authorship"],
             "file_path": "content/starter-library/the-human-made-difference.md",
+            "cover_url": "https://images.pexels.com/photos/3861960/pexels-photo-3861960.jpeg?auto=compress&cs=tinysrgb&w=900",
+        },
+        {
+            "title": "The Black Ownership Playbook",
+            "description": "A practical, Black-centered guide to turning community knowledge, creative work, and local relationships into owned assets, durable income, and shared power. AI-assisted draft prepared for human review and publication by the M.O.R.E. Help Center.",
+            "price_cents": 2900,
+            "type": "ebook",
+            "tags": ["ai-created", "ebook", "black-ownership", "economic-self-determination"],
+            "file_path": "content/starter-library/the-black-ownership-playbook.md",
+            "cover_url": "https://images.pexels.com/photos/3184465/pexels-photo-3184465.jpeg?auto=compress&cs=tinysrgb&w=900",
+            "ai_created": True,
+            "authorship_disclosure": "AI-assisted draft prepared for human review and publication by the M.O.R.E. Help Center.",
+        },
+        {
+            "title": "Conspiracy Brother: The Receipts Are on the Table",
+            "description": "Street-level media literacy for tracing systems to policies, paperwork, budgets, and people who benefit. AI-assisted draft prepared for human review and publication by the M.O.R.E. Help Center.",
+            "price_cents": 2900,
+            "type": "ebook",
+            "tags": ["ai-created", "ebook", "conspiracy-brother", "media-literacy", "black-centered"],
+            "file_path": "content/starter-library/conspiracy-brother-the-receipts-are-on-the-table.md",
+            "cover_url": "https://images.pexels.com/photos/3769138/pexels-photo-3769138.jpeg?auto=compress&cs=tinysrgb&w=900",
+            "ai_created": True,
+            "authorship_disclosure": "AI-assisted draft prepared for human review and publication by the M.O.R.E. Help Center.",
         },
     ]
     seeded = 0
+    updated = 0
     for book in STARTER_BOOKS:
         existing = await db.media_products.find_one({"title": book["title"]})
         if existing:
+            # Repair catalog metadata without overwriting prices or owner data.
+            if not existing.get("cover_url"):
+                await db.media_products.update_one(
+                    {"_id": existing["_id"]}, {"$set": {"cover_url": book["cover_url"]}}
+                )
+                updated += 1
             continue
         product = {
             "id": str(uuid.uuid4())[:12],
@@ -997,14 +1033,17 @@ async def seed_starter_library():
             "tags": book["tags"],
             "file_path": book["file_path"],
             "file_url": f"/api/media/content/{book['file_path']}",
+            "cover_url": book.get("cover_url", ""),
+            "ai_created": book.get("ai_created", False),
+            "authorship_disclosure": book.get("authorship_disclosure", ""),
             "published": True,
             "owner_id": "platform",
             "created_at": datetime.utcnow().isoformat(),
         }
         await db.media_products.insert_one(product)
         seeded += 1
-    if seeded:
-        logger.info("Seeded %d starter-library ebooks into media_products", seeded)
+    if seeded or updated:
+        logger.info("Starter library catalog: seeded %d, repaired %d cover(s)", seeded, updated)
 
 
 async def seed_users():

@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { useSearchParams, Link } from "react-router-dom";
+import { MEMBERSHIP_PLANS } from "../lib/plans";
 import AppShell from "../components/AppShell";
 import { api } from "../lib/api";
 import { useAuth } from "../lib/auth";
@@ -16,6 +17,7 @@ const TYPE_LABELS = {
   track: "Track",
   album: "Album",
   pdf: "PDF",
+  ebook: "Book",
   bundle: "Bundle",
   other: "File",
   video: "Video",
@@ -25,6 +27,7 @@ const TYPE_COLORS = {
   track: "bg-amber-100 text-amber-800",
   album: "bg-emerald-100 text-emerald-800",
   pdf: "bg-blue-100 text-blue-800",
+  ebook: "bg-violet-100 text-violet-800",
   bundle: "bg-purple-100 text-purple-800",
   video: "bg-rose-100 text-rose-800",
   other: "bg-gray-100 text-gray-600",
@@ -63,7 +66,86 @@ function formatBytes(bytes) {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
+const COVER_PHOTOS = {
+  ebook: "https://images.pexels.com/photos/159711/books-book-pages-read-literature-159711.jpeg?auto=compress&cs=tinysrgb&w=900",
+  pdf: "https://images.pexels.com/photos/5905445/pexels-photo-5905445.jpeg?auto=compress&cs=tinysrgb&w=900",
+  track: "https://images.pexels.com/photos/1648535/pexels-photo-1648535.jpeg?auto=compress&cs=tinysrgb&w=900",
+  album: "https://images.pexels.com/photos/1671325/pexels-photo-1671325.jpeg?auto=compress&cs=tinysrgb&w=900",
+  video: "https://images.pexels.com/photos/7991579/pexels-photo-7991579.jpeg?auto=compress&cs=tinysrgb&w=900",
+  default: "https://images.pexels.com/photos/5905445/pexels-photo-5905445.jpeg?auto=compress&cs=tinysrgb&w=900",
+};
+
+function coverPhoto(product) {
+  return product?.cover_url || COVER_PHOTOS[product?.product_type] || COVER_PHOTOS.default;
+}
+
+function ProductCover({ product, compact = false }) {
+  const [src, setSrc] = useState(() => coverPhoto(product));
+  const [failed, setFailed] = useState(false);
+  return (
+    <div className={`relative overflow-hidden bg-[#1a1a1a] ${compact ? "w-14 h-14 rounded-lg" : "aspect-square"}`}>
+      {!failed ? (
+        <img
+          src={src}
+          alt={`${product?.title || "Product"} cover`}
+          className="w-full h-full object-cover"
+          onError={() => {
+            if (src !== COVER_PHOTOS.default) setSrc(COVER_PHOTOS.default);
+            else setFailed(true);
+          }}
+        />
+      ) : (
+        <div className="w-full h-full flex items-center justify-center bg-[#1a4332] text-[#E8A51E]">
+          <BookOpen size={compact ? 22 : 48} />
+        </div>
+      )}
+      {!compact && <div className="absolute inset-0 bg-gradient-to-t from-black/45 to-transparent" />}
+    </div>
+  );
+}
+
 // ── Browse Tab ────────────────────────────────────────────────────────────────
+function MembershipsSection({ user }) {
+  const paidPlans = MEMBERSHIP_PLANS.filter((plan) => plan.key !== "free");
+  const startCheckout = async (plan) => {
+    if (!user) {
+      window.location.href = `/login?returnTo=${encodeURIComponent("/store")}`;
+      return;
+    }
+    try {
+      const { data } = await api.post("/payments/checkout", { product_key: plan.key, quantity: 1 });
+      if (data?.url) window.location.href = data.url;
+      else toast.error("Checkout could not start.");
+    } catch (error) {
+      toast.error(error?.response?.data?.detail || "Membership checkout is unavailable right now.");
+    }
+  };
+
+  return (
+    <section className="mb-8" aria-labelledby="membership-heading">
+      <div className="flex items-end justify-between gap-3 mb-4">
+        <div>
+          <p className="text-xs font-black uppercase tracking-[0.2em] text-[#b5651d]">M.O.R.E. access</p>
+          <h2 id="membership-heading" className="font-heading text-2xl font-bold text-[#1a1a1a]">Memberships</h2>
+        </div>
+        <Link to="/plans" className="text-sm font-bold text-[#b5651d] hover:underline">Compare plans</Link>
+      </div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        {paidPlans.map((plan) => (
+          <div key={plan.key} className="bg-white rounded-xl border border-[#b5651d]/15 p-4 flex flex-col">
+            <div className="text-xs font-black uppercase tracking-widest text-[#1a1a1a]/45">{plan.name}</div>
+            <div className="mt-1"><span className="font-heading font-black text-2xl text-[#1a1a1a]">${plan.price}</span><span className="text-sm text-[#1a1a1a]/45">/mo</span></div>
+            <p className="text-sm text-[#1a1a1a]/60 mt-1 flex-1">{plan.tagline}</p>
+            <button type="button" onClick={() => startCheckout(plan)} className="mt-4 bg-[#1a4332] text-white px-3 py-2 rounded-lg text-sm font-bold hover:bg-[#245b45] transition-colors">
+              Join {plan.name}
+            </button>
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
 function BrowseTab({ user }) {
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -115,7 +197,7 @@ function BrowseTab({ user }) {
     }
   }
 
-  const filters = ["all", "track", "album", "pdf", "bundle"];
+  const filters = ["all", "ebook", "track", "album", "pdf", "bundle"];
   const shown = filter === "all" ? products : products.filter(p => p.product_type === filter);
 
   if (loading) return (
@@ -126,6 +208,7 @@ function BrowseTab({ user }) {
 
   return (
     <div>
+      <MembershipsSection user={user} />
       {/* Filter chips */}
       <div className="flex gap-2 flex-wrap mb-6">
         {filters.map(f => (
@@ -158,19 +241,8 @@ function BrowseTab({ user }) {
             className={`bg-white rounded-xl border border-[#b5651d]/15 shadow-sm hover:shadow-md transition-shadow overflow-hidden flex flex-col ${highlightedProductId === product.id ? "ring-2 ring-[#b5651d] ring-offset-2" : ""}`}
           >
             {/* Cover */}
-            <div className="aspect-square relative overflow-hidden bg-gradient-to-br from-[#b5651d]/20 to-[#1a1a1a]/10">
-              {product.cover_url ? (
-                <img
-                  src={product.cover_url}
-                  alt={product.title}
-                  className="w-full h-full object-cover"
-                  onError={e => { e.target.style.display = "none"; }}
-                />
-              ) : (
-                <div className="w-full h-full flex items-center justify-center">
-                  <Music size={48} className="text-[#b5651d]/40" />
-                </div>
-              )}
+            <div className="relative overflow-hidden bg-gradient-to-br from-[#b5651d]/20 to-[#1a1a1a]/10">
+              <ProductCover product={product} />
               <div className="absolute top-2 left-2">
                 <TypeBadge type={product.product_type} />
               </div>
@@ -279,12 +351,7 @@ function LibraryTab({ user }) {
         const prod = p.product;
         return (
           <div key={p.id} className="bg-white rounded-xl border border-[#b5651d]/15 p-4 flex items-center gap-4">
-            <div className="w-14 h-14 rounded-lg bg-gradient-to-br from-[#b5651d]/20 to-[#1a1a1a]/10 flex items-center justify-center flex-shrink-0">
-              {prod?.cover_url
-                ? <img src={prod.cover_url} alt="" className="w-full h-full object-cover rounded-lg" />
-                : <Music size={22} className="text-[#b5651d]/50" />
-              }
-            </div>
+            <ProductCover product={prod} compact />
             <div className="flex-1 min-w-0">
               <p className="font-semibold text-[#1a1a1a] truncate">{prod?.title || "Unknown product"}</p>
               <div className="flex items-center gap-2 mt-0.5">

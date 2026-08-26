@@ -55,3 +55,23 @@
 2. **"Payments are wired end-to-end."** The wiring existed; the destination was unusable. The claim was true in code and false for humans. Corrected today.
 3. **Earlier audit reports claimed broad "verified working" status** while the single most important flow — paying — was broken. Those reports were erased at the owner's instruction. This log exists so that gap can never hide again: **a flow is not working until a human can complete it.**
 4. **"The AI Business Office does not load"** was reported by the owner and initially treated as a mystery — it was one broken tab crashing the whole panel (C2). The owner was right; the first instinct to look elsewhere was wrong.
+
+## Defects found August 26, 2026 (this session)
+
+**O6. Every root-level static file was served as `index.html` — FOUND AND FIXED (working tree; not deployed)**
+- `/manifest.json`, `/sw.js`, `/clear-sw.js`, `favicon.svg`, `logo-512.png`, `robots.txt`, and the Open Graph images all returned `200 text/html` (confirmed against the live site).
+- Browser-visible consequences: "Manifest: Line 1 syntax error," "clear-sw.js MIME type is not executable," and the service worker never registering — so a stale SW from an older deploy stayed in control and threw the `chrome-extension` Cache.put error.
+- Fix: the SPA catch-all now serves a real file from the build directory when it exists, and only falls back to `index.html` for actual SPA routes (path traversal blocked).
+
+**O7. Vonn's Saga crashed when a scene had uploaded artwork — FOUND AND FIXED (working tree; not deployed)**
+- `media={node.media}` is `undefined` for story nodes without static media. Once live images exist for a scene, the render reached `media.audio` and the whole page hit the React error boundary.
+- Fix: optional chaining (`media?.audio`) at both the early-return guard and the render.
+
+**O8. CSP blocked the Premium Services iframe and three inline scripts — FOUND AND FIXED (working tree; not deployed)**
+- `frame-src` did not include the premium services host, so the landing-page iframe was refused by the browser (the iframe feature the owner asked for was silently dead).
+- `script-src 'self'` blocked the three inline scripts in `index.html` (boot branding, DataCloneError suppression, PostHog init).
+- Fix: scripts externalized to `/boot-branding.js`, `/error-suppress.js`, `/posthog-init.js`; PostHog's loader host added to `script-src`; the premium host added to `frame-src`.
+
+**O9. Store catalog gaps — FOUND AND FIXED (working tree; not deployed)**
+- Seeded ebooks had no cover URLs and the store did not display ebooks; the `/store` page did not show the membership ladder; purchased products did not join to their product record ("Unknown product" with no download).
+- Fix: covers + ebook labels, membership cards on `/store`, purchase→product join, two $29 AI-authored books with manuscript files and authorship disclosure.

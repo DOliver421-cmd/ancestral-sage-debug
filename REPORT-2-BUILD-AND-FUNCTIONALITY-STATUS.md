@@ -51,4 +51,18 @@
 2. **Silent AI downgrade:** when no AI keys are active, AI features answer from a built-in knowledge base without telling the user AI is off.
 3. **Payments recorded without a person attached:** incoming payment records don't always link to the buyer's account directly; upgrades rely on matching the buyer's email afterward. The buyer's email is now pre-filled at checkout to make that matching reliable — but it is still a match-by-email design.
 4. **The server runs without a database** in this workspace and serves empty-but-alive pages instead of saying "database down." A visitor could see a blank-looking site during a real database outage with no error message.
-5. **A status-page bug was found and is currently unfixed:** the executive health page labels a system with failures as "degraded" instead of "critical" in one case (the logic reads backwards). It was fixed earlier today and reverted at the owner's instruction along with the rest of the report changes; it needs to be re-applied.
+5. **A status-page bug was found and is currently unfixed:** the executive health page labels a system with failures as "degraded" instead of "critical" in one case (the logic reads backwards). It was fixed earlier today and reverted at the owner's instruction along with the rest of the report changes; it needs to be re-applied. *(Superseded: re-applied and verified — see Report 4, defect O2.)*
+
+## Addendum — August 26, 2026 (this session)
+
+This addendum updates the report in place rather than issuing a new file. Findings are split into **verified live** and **fixed in working tree, not deployed** — nothing below claims "works" when it has not shipped.
+
+| Finding | Evidence | Status |
+|---|---|---|
+| The SPA catch-all returned `index.html` for **every** root path — `/manifest.json`, `/sw.js`, `/clear-sw.js`, `favicon.svg`, `logo-512.png`, `robots.txt`, og images all arrived as `text/html` | Confirmed against the live site: all three returned `200 text/html` with the HTML doctype | **Fixed in working tree; not deployed.** This is the source of the browser's "Manifest: syntax error," the clear-sw MIME refusal, and a service worker that could never register — leaving a stale SW from an older deploy in control (the `chrome-extension` Cache.put error in the console) |
+| Vonn's Saga crashed on scene-image upload | The render dereferences `media.audio` while `media` is `undefined` for story nodes without static media; matches the live crash stack (`Cannot read properties of undefined (reading 'audio')`) | **Fixed in working tree; not deployed** (optional chaining at the guard and render) |
+| CSP blocked the Premium Services iframe and three inline scripts | Live response header: `script-src 'self'` and `frame-src` without the premium host | **Fixed in working tree; not deployed** — the three inline scripts moved to external files; PostHog's loader host added to `script-src`; the premium host added to `frame-src` |
+| Delegation-based IAM console | 18 `/api/iam/*` endpoints live and protected (401 unauthenticated); six screens present in the served bundle | **Live** |
+| Premium Services links use the direct `/services` URL | Confirmed in the served bundle (`bolt.host/services` ×2, landing iframe unchanged) | **Live** |
+| Store catalog: two $29 AI-authored books with covers, membership cards on `/store`, ebook covers/labels | Working tree only | **Not deployed** |
+| Saga media: GridFS URL normalization, immediate post-upload refresh, track playback fix, NAM memory persistence fix | Working tree only | **Not deployed** |

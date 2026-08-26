@@ -10,6 +10,21 @@ import VonnsSagaAdmin from "../components/VonnsSagaAdmin";
 
 const SAVE_KEY = "vonns_saga_v1";
 
+// GridFS URLs are API paths, while the Axios client is already rooted at /api.
+// Keep browser media URLs and Axios request paths separate so uploads never
+// become /api/api/media/file/... or fail to render after a successful upload.
+function browserMediaUrl(url) {
+  if (!url) return "";
+  if (/^https?:\/\//i.test(url)) return url;
+  return url.startsWith("/api/") ? url : `/api/${url.replace(/^\//, "")}`;
+}
+
+function apiMediaPath(url) {
+  if (!url) return "";
+  if (/^https?:\/\//i.test(url)) return url;
+  return url.replace(/^\/api(?=\/)/, "") || "/";
+}
+
 // ── Palette (Melantonia: deep purple + gold) ────────────────────────────────
 const C = {
   bg0: "#0d0721",
@@ -104,12 +119,16 @@ function PreviewAudio({ fileUrl, label }) {
     let alive = true;
     if (!fileUrl) return;
     setLoading(true);
-    api.get(fileUrl, { responseType: "blob" })
+    api.get(apiMediaPath(fileUrl), { responseType: "blob" })
       .then((r) => { if (alive) setSrc(URL.createObjectURL(r.data)); })
       .catch(() => { if (alive) setSrc(null); })
       .finally(() => { if (alive) setLoading(false); });
     return () => { alive = false; };
   }, [fileUrl]);
+
+  useEffect(() => () => {
+    if (src) URL.revokeObjectURL(src);
+  }, [src]);
   if (loading) {
     return <div className="text-[11px]" style={{ color: C.dim }}>Loading preview…</div>;
   }
@@ -190,7 +209,7 @@ function SagaVideos({ videos }) {
               )}
             </div>
             {v.status === "ready" && v.file_url && (
-              <video controls preload="none" className="w-full" src={v.file_url} style={{ maxHeight: 420, background: "#000" }} />
+              <video controls preload="none" className="w-full" src={browserMediaUrl(v.file_url)} style={{ maxHeight: 420, background: "#000" }} />
             )}
             {v.status === "render_failed" && v.error && (
               <div className="px-3 pb-3 text-[11px]" style={{ color: C.dim }}>{v.error}</div>
@@ -294,7 +313,7 @@ function SceneMedia({ media, liveImages }) {
   // Live images are the owner's real scene artwork (GridFS) uploaded via the
   // admin panel; they take precedence over any static story-node media.
   const images = (liveImages || []).map((im) => ({
-    src: im.file_url,
+    src: browserMediaUrl(im.file_url),
     caption: im.caption,
     alt: `Vonns Saga scene artwork — ${im.node_id}`,
   }));
@@ -317,12 +336,12 @@ function SceneMedia({ media, liveImages }) {
           )}
         </figure>
       ))}
-      {media.audio && (
+      {media?.audio && (
         <div className="rounded-xl p-3" style={{ background: C.panel, border: `1px solid ${C.panelLine}` }}>
           <div className="text-[10px] font-black uppercase tracking-[0.2em] mb-2" style={{ color: C.gold }}>
             {media.audio.label || "Resonance"}
           </div>
-          <audio controls preload="none" src={media.audio.src} className="w-full" aria-label={media.audio.label || "Scene music"} />
+          <audio controls preload="none" src={browserMediaUrl(media.audio.src)} className="w-full" aria-label={media.audio.label || "Scene music"} />
         </div>
       )}
     </div>
@@ -867,7 +886,7 @@ export default function VonnsSaga() {
           </div>
 
           {/* Admin panel — tracks, images, videos */}
-          <VonnsSagaAdmin nodeId={state.nodeId} />
+          <VonnsSagaAdmin nodeId={state.nodeId} onAssetsChanged={loadSagaAssets} />
         </footer>
       </main>
 

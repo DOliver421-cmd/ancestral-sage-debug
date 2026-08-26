@@ -46,6 +46,7 @@ VALID_PERSONAS = frozenset({
     "strategic_navigator",
     "confidentiality_sentinel",
     "elder_council",
+    "conspiracy_brother",
 })
 
 # Role-based defaults imported from roles.py (ROLE_PERSONA_DEFAULTS)

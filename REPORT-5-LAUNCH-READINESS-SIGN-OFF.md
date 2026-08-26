@@ -43,3 +43,17 @@ Blockers 1 and 2 — one real purchase and one real account, watched end to end 
 ---
 
 *Signed off on the evidence above. No green lights were given on faith, and none should be.*
+
+---
+
+## Addendum — August 26, 2026
+
+**Verdict unchanged: NO-GO.** The two absolute blockers from the August 24 sign-off are still outstanding: no real customer has completed a purchase end-to-end, and no real account has been created and used against the real database. Nothing shipped this session changes either one.
+
+What changed since the August 24 sign-off:
+
+- **Shipped and verified live:** the delegation-based IAM console (18 protected endpoints, six screens) and the Premium Services direct `/services` links.
+- **Fixed in the working tree, NOT deployed** (so none of these are live yet): the root-file serving bug (manifest/sw/clear-sw MIME errors), the Vonn's Saga crash on scene-image upload, the CSP blocking the Premium Services iframe and three inline scripts, store catalog additions (two $29 AI-authored books with covers, memberships on `/store`), Saga media playback/refresh fixes, and the Conspiracy Brother persona wiring.
+- Because the "fixed in working tree" items are not deployed, the live site today is exactly as broken as the defects in Report 4 describe until the next deploy ships.
+
+This report is updated in place on future findings — it will not be re-issued as a new numbered file, and no new REPORT-N files will be created.

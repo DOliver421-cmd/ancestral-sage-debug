@@ -10,7 +10,7 @@
 - **Read the community boards** — public posts and a public "needs" board are readable.
 - **See membership prices** — the plans page shows all five levels plus the $3 trial.
 - **Register an account** — sign-up and sign-in pages exist and are wired to the sign-in system.
-- **Listen to music** — two music players are embedded on the gateway page. *The owner reports these players are broken. The embed code is the standard, current format, so the break is most likely on the music platform's side (deleted or changed tracks) — this is unresolved and listed in the Defect Log.*
+- **Listen to music** — two music players are embedded on the gateway page. The earlier break was caused by our own security policy (the music host was missing from the embed allowlist); corrected August 24 and confirmed against the live server's response header (Defect O1 in Report 4).
 
 ## What a signed-in member can do
 
@@ -38,7 +38,7 @@
 - The sign-in system, courses, community, creator studio, arcade, and admin tools all load and respond.
 
 **Hollow or limited (be honest):**
-- **The store is not really "ours."** The store page shows an external storefront inside a window frame. Buying there happens on the external site, not on this one. Our own product catalog exists behind the scenes, but the store page does not display or sell it.
+- **The store (corrected August 24, see Report 4 O5 — this bullet previously understated it):** the store page now leads with the platform's own catalog — the $3 trial, the membership tiers, and creators' digital products sold through our own checkout — with the external storefront below it, honestly labeled "External." Physical merchandise is still refused by design (open decision, O3). *August 26 working tree, not deployed:* two $29 AI-authored books with covers and membership cards directly on `/store`.
 - **Physical merchandise cannot be bought** — the system deliberately refuses these orders.
 - **62 of 140 pages have no sidebar** — they open as bare pages without site navigation.
 - **Money features were broken until today** — clicking a plan sent buyers to a dead end (see Report 3 and Report 4 for the fix and its limits).

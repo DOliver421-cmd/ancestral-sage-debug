@@ -39,11 +39,26 @@ def _now() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
+_DEFAULT_COVER_URLS = {
+    "ebook": "https://images.pexels.com/photos/159711/books-book-pages-read-literature-159711.jpeg?auto=compress&cs=tinysrgb&w=900",
+    "pdf": "https://images.pexels.com/photos/5905445/pexels-photo-5905445.jpeg?auto=compress&cs=tinysrgb&w=900",
+    "track": "https://images.pexels.com/photos/1648535/pexels-photo-1648535.jpeg?auto=compress&cs=tinysrgb&w=900",
+    "album": "https://images.pexels.com/photos/1671325/pexels-photo-1671325.jpeg?auto=compress&cs=tinysrgb&w=900",
+    "video": "https://images.pexels.com/photos/7991579/pexels-photo-7991579.jpeg?auto=compress&cs=tinysrgb&w=900",
+    "bundle": "https://images.pexels.com/photos/5905445/pexels-photo-5905445.jpeg?auto=compress&cs=tinysrgb&w=900",
+}
+
+
 def _public_product(doc: dict) -> dict:
     clean = {k: v for k, v in doc.items() if k != "_id"}
     clean["product_type"] = clean.get("type", clean.get("product_type", "file"))
     clean["seller_display_name"] = clean.get("owner_name") or clean.get("seller_display_name") or "M.O.R.E. creator"
     clean["file_id"] = (clean.get("file_url") or "").rsplit("/", 1)[-1] or None
+    # Every public catalog item has a usable cover, including older records
+    # created before cover metadata was added to the product model.
+    clean["cover_url"] = clean.get("cover_url") or _DEFAULT_COVER_URLS.get(
+        clean["product_type"], _DEFAULT_COVER_URLS["pdf"]
+    )
     return clean
 
 
@@ -164,6 +179,11 @@ async def delete_media_product(product_id: str, user: User = Depends(_dep_curren
 @router.get("/media/purchases")
 async def my_media_purchases(user: User = Depends(_dep_current_user)):
     docs = await db.media_purchases.find({"buyer_id": user.id}, {"_id": 0}).sort("purchased_at", -1).limit(100).to_list(100)
+    # Attach the sanitized catalog record so the library can render the
+    # current title, cover, type, and download entitlement.
+    for purchase in docs:
+        product = await db.media_products.find_one({"id": purchase.get("product_id")}, {"_id": 0})
+        purchase["product"] = _public_product(product) if product else None
     return docs
 
 @router.post("/media/products/{product_id}/checkout")

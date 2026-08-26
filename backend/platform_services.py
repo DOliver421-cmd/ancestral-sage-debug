@@ -67,13 +67,21 @@ async def security_headers(request: Request, call_next):
     # the fonts (audit item) will let us remove these hosts later.
     _FONT_HOSTS = "https://fonts.gstatic.com https://cdn.fontshare.com"
     _STYLE_HOSTS = "https://fonts.googleapis.com https://api.fontshare.com"
+    # PostHog analytics loads its snippet loader from us-assets.i.posthog.com;
+    # the Premium Services iframe embeds the waiinstitutepremiumservices site.
+    _SCRIPT_HOSTS = "https://us-assets.i.posthog.com"
+    _FRAME_HOSTS = (
+        "https://namoshun.gumroad.com https://gumroad.com https://bandcamp.com "
+        "https://waiinstitutepremiumservices.bolt.host"
+    )
     response.headers["Content-Security-Policy"] = (
-        "default-src 'self'; script-src 'self'; "
+        "default-src 'self'; "
+        f"script-src 'self' {_SCRIPT_HOSTS}; "
         f"style-src 'self' 'unsafe-inline' {_STYLE_HOSTS}; "
         "img-src 'self' data: https:; "
         f"font-src 'self' data: {_FONT_HOSTS}; "
         "connect-src 'self' https:; "
-        "frame-src https://namoshun.gumroad.com https://gumroad.com https://bandcamp.com; "
+        f"frame-src {_FRAME_HOSTS}; "
         "frame-ancestors 'none'; base-uri 'self'; form-action 'self'"
     )
     # Referrer policy (limit referrer disclosure)
@@ -82,14 +90,14 @@ async def security_headers(request: Request, call_next):
     # Sovereign, Orchestrator, Helper). Camera and geolocation remain blocked.
     response.headers["Permissions-Policy"] = "geolocation=(), microphone=(self), camera=()"
     # CSP: media-src includes blob: for TTS audio (createObjectURL) and data: for inline assets
-    # CSP: media-src includes blob: for TTS audio (createObjectURL) and data: for inline assets
     response.headers["Content-Security-Policy"] = (
-        "default-src 'self'; script-src 'self'; "
+        "default-src 'self'; "
+        f"script-src 'self' {_SCRIPT_HOSTS}; "
         f"style-src 'self' 'unsafe-inline' {_STYLE_HOSTS}; "
         "img-src 'self' data: https:; "
         f"font-src 'self' data: {_FONT_HOSTS}; "
         "connect-src 'self' https:; "
-        "frame-src https://namoshun.gumroad.com https://gumroad.com https://bandcamp.com; "
+        f"frame-src {_FRAME_HOSTS}; "
         "frame-ancestors 'none'; base-uri 'self'; form-action 'self'; "
         "media-src 'self' blob:"
     )
@@ -118,6 +126,19 @@ def mount_frontend(app, build_paths) -> bool:
                     return JSONResponse(
                         {"detail": "API endpoint not found"}, status_code=404
                     )
+                # Serve real files at the site root (manifest.json, sw.js,
+                # clear-sw.js, favicon.svg, logo-*.png, robots.txt, og images).
+                # Previously every root path returned index.html, so the browser
+                # received text/html for /manifest.json and /sw.js — manifest
+                # syntax errors, SW MIME refusals, and a permanently unregisterable
+                # stale service worker. Only fall back to index.html for paths
+                # that are not actual files (true SPA routes).
+                if full_path:
+                    from pathlib import Path as _Path
+                    base = _bp.resolve()
+                    candidate = (_Path(str(_bp)) / full_path).resolve()
+                    if str(candidate).startswith(str(base) + "/") and candidate.is_file():
+                        return FileResponse(str(candidate))
                 return FileResponse(str(_bp / "index.html"))
 
             logger.info("STARTUP: Serving React frontend from %s", bp)

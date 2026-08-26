@@ -15,6 +15,7 @@ const MODES = [
   { key: "nec_lookup", label: "NEC Lookup" },
   { key: "blueprint", label: "Blueprint Reader" },
   { key: "ancestral_sage", label: "Ancestral Sage", icon: Compass },
+  { key: "conspiracy_brother", label: "Conspiracy Brother" },
 ];
 
 const SAGE_DEPTH = ["beginner", "intermediate", "advanced"];

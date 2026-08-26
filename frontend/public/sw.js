@@ -3,7 +3,7 @@
 // Stale service workers + cached index.html are how users stay stuck on old builds.
 // NOTE: every PRECACHE entry must be a real, existing route. There is no
 // /offline page — including it made `install` fail on a 404.
-const CACHE = "wai-v3";
+const CACHE = "wai-v4";
 const PRECACHE = ["/", "/login", "/help-center"];
 
 self.addEventListener("install", (event) => {
