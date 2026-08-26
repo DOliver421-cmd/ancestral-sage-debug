@@ -7,10 +7,17 @@ app, binds stubbed shared state, and drives real HTTP requests through the
 actual handler code.
 
 Covered findings:
-  1. Media file serving fails closed (authenticated + paid entitlement).
+  1. Media file serving fails closed (anonymous paid file => 403, non-purchaser
+     => 403, entitled owner => 200 with full-access header).
   2. Persona dispatch enforces activation state (deactivated => 403).
   3. Persona chat distinguishes REAL vs FALLBACK/FAILURE (does not masquerade).
-  4. Payments webhook is idempotent (repeat delivery is a no-op).
+  4. Payments webhook is idempotent (repeat delivery is a no-op) and rejects
+     bad signatures.
+
+NOTE: assertions track the MERGED implementations on main. Where main changed
+an endpoint (async current_user resolution, payments router prefix, anonymous
+paid files failing closed with 403 instead of 401), the tests assert the new
+behavior — the old expectations were superseded by the merge.
 
 These are unit tests: they do NOT start the server and do NOT touch a database.
 """
@@ -23,7 +30,7 @@ os.environ["LEMON_SQUEEZY_WEBHOOK_SECRET"] = "forensic-webhook-secret"
 
 import hmac
 import hashlib
-import urllib.parse
+import json
 
 import pytest
 from fastapi import FastAPI
@@ -34,57 +41,23 @@ import routers.payments
 import routers.ai
 
 
-# ── Fake database surface (only the methods the routers use) ───────────────
-class FakeDb:
-    def __init__(self, capabilities: dict):
-        self._cap = capabilities
-
-    async def media_products_find_file(self, file_ref):
-        return self._cap.get("media_products_by_file", [])
-
-    async def media_purchases_find_one(self, q):
-        return self._cap.get("media_purchase", None)
-
-    async def persona_activations_find_one(self, q, proj):
-        return self._cap.get("persona_activation", None)
-
-    async def payments_find_one(self, q, proj=None):
-        if q.get("provider_order_id") == "LS-ORD-DUP-123":
-            return {"id": "pay-existing", "provider_order_id": "LS-ORD-DUP-123"}
-        return None
-
-    # Payment webhook also calls these only when NOT idempotent-guarded.
-    async def payments_insert_one(self, doc):
-        return None
-
-    async def users_find_one(self, q, proj=None):
-        return None
-
-    async def users_update_one(self, q, u):
-        return None
-
-    async def audit_insert_one(self, *_):
-        return None
-
-    async def notifications_insert_one(self, *_):
-        return None
-
-    async def scholarship_pledges_find_one_and_update(self, *a, **k):
-        return None
-
-    async def chat_history_insert_one(self, *_):
-        return None
-
-
+# ── Fake database surface (mirrors the async collection APIs the routers use) ─
 class FakeCtx:
-    """Each method is realized as a FakeDb exposed via attribute, mirroring how
-    the routers read `db.media_products.find(...)` etc."""
+    """A per-collection fake. Attribute access on the db context returns this
+    same object; each method behaves like the Motor surface the routers call.
+    `.find(...)` is synchronous and returns self, and `.to_list(n)` is async —
+    matching `await db.<col>.find(...).to_list(n)` in the handlers.
+    """
 
     def __init__(self, capabilities: dict):
         self._cap = capabilities
 
     @property
     def persona_activations(self):
+        return self
+
+    @property
+    def persona_controls(self):
         return self
 
     @property
@@ -97,6 +70,10 @@ class FakeCtx:
 
     @property
     def payments(self):
+        return self
+
+    @property
+    def webhook_events(self):
         return self
 
     @property
@@ -115,31 +92,25 @@ class FakeCtx:
     def scholarship_pledges(self):
         return self
 
-    # find_one
+    def find(self, q=None, proj=None):
+        return self
+
+    async def to_list(self, n):
+        return list(self._cap.get("media_products_by_file") or [])
+
     async def find_one(self, q, proj=None):
-        if self._cap.get("kind") == "persona_activation":
-            return self._cap.get("persona_activation")
-        if self._cap.get("kind") == "media_purchases":
-            return self._cap.get("media_purchase")
-        if self._cap.get("kind") == "payments":
+        # Dispatch by query keys so one fake can serve every collection.
+        if "provider_order_id" in q:
             if q.get("provider_order_id") == "LS-ORD-DUP-123":
-                return {"id": "pay-existing"}
+                return {"id": "pay-existing", "provider_order_id": "LS-ORD-DUP-123"}
             return None
+        if "persona" in q:
+            return self._cap.get("persona_activation")
+        if "buyer_id" in q or "product_id" in q:
+            return self._cap.get("media_purchase")
+        if "file_url" in q:
+            return self._cap.get("media_product")
         return None
-
-    # and_ / query builders for to_list
-    def to_list(self, n):
-        from types import SimpleNamespace
-        return (self._cap.get("media_products_by_file") or [])
-
-    def __call__(self, *a, **k):
-        return self
-
-    async def find(self, q, proj=None):
-        return self
-
-    def to_list(self, n):
-        return self._cap.get("media_products_by_file") or []
 
     async def insert_one(self, doc):
         return None
@@ -165,14 +136,11 @@ def ai_app(monkeypatch):
     db = FakeCtx({"kind": "persona_activation", "persona_activation": {"status": "inactive"}})
     user = make_user(role="executive_admin")
 
-    def curr_user(authz=None):
+    async def fake_auth(authz=None):  # merged _dep_current_user awaits this
         return user
 
     def noop_rate(*a, **k):
         return None
-
-    def fake_auth(authz=None):  # _dep_current_user used by persona_chat
-        return user
 
     routers.ai.bind(db, fake_auth, None, None, noop_rate)
 
@@ -185,7 +153,11 @@ def ai_app(monkeypatch):
     monkeypatch.setattr(sp, "compose_system", lambda s, **k: s)
     monkeypatch.setattr(sp, "get_controls", lambda: {})
     monkeypatch.setattr(sp, "apply_controls", lambda s, c, **k: s)
-    monkeypatch.setattr(gw, "call_llm", lambda **k: {"text": "real answer", "provider": "groq"})
+
+    async def _llm(**k):  # persona_chat awaits the gateway result
+        return {"text": "real answer", "provider": "groq"}
+
+    monkeypatch.setattr(gw, "call_llm", _llm)
 
     app.include_router(routers.ai.router)
     return TestClient(app), db
@@ -217,82 +189,54 @@ def test_persona_chat_allows_active(ai_app, monkeypatch):
 
 
 # ── 2. MEDIA FILE FAILS CLOSED ──────────────────────────────────────────────
-@pytest.fixture
-def media_app():
-    app = FastAPI()
-    db = FakeCtx({})
-    owner = routers.media.User(
-        id="owner-1", email="owner@example.com", full_name="Owner", role="student"
-    )
-
-    routers.media.bind(db, lambda a: owner, None)
-
-    # Stub GridFS so 200-path does not need a real Mongo client.
-    import motor.motor_asyncio as mma
-
-    class FakeBucket:
-        async def open_download_stream(self, oid):
-            return StreamStub()
-
-    class StreamStub:
-        async def __aiter__(self):
-            yield b"file-bytes"
-
-        async def read(self, n):
-            return b""
-
-    monkeypatch_needed = True  # patched at use site via monkeypatch
-    app.include_router(routers.media.router)
-    return TestClient(app), db, owner, monkeypatch_needed
-
-
-class _BytesStream:
-    def __init__(self):
-        self._done = False
-
-    async def read(self, n=65536):
-        if self._done:
-            return b""
-        self._done = True
-        return b"payload"
-
-    def metadata(self):
-        return {"content_type": "application/pdf"}
-
-    @property
-    def filename(self):
-        return "f.pdf"
-
-
-def _fake_bucket_factory(bucket=None):
-    async def open_download_stream(oid):
-        return _BytesStream()
-    return open_download_stream
-
-
-def _make_owner_ctx():
-    return routers.media.User(
-        id="owner-1", email="owner@example.com", full_name="Owner", role="student"
-    )
-
-
 def _priced_product(owner_id, file_url):
     return {"id": "mp-1", "owner_id": owner_id, "price_cents": 1500,
             "published": True, "file_url": file_url}
 
 
-def test_media_file_paid_non_purchaser_403(monkeypatch):
+class _FakeBucket:
+    """GridFS stand-in: open_download_stream yields a stream whose `metadata`
+    is a plain dict (the merged endpoint reads stream.metadata.get(...))."""
+
+    def __init__(self, metadata=None, chunks=(b"payload",)):
+        self._metadata = metadata or {"content_type": "application/pdf", "filename": "f.pdf"}
+        self._chunks = list(chunks)
+
+    async def open_download_stream(self, oid):
+        return _StreamStub(self._metadata, self._chunks)
+
+
+class _StreamStub:
+    def __init__(self, metadata, chunks):
+        self.metadata = metadata
+        self._chunks = list(chunks)
+
+    async def read(self, n=65536):
+        return self._chunks.pop(0) if self._chunks else b""
+
+
+def _media_app(monkeypatch, current_user, products, purchase=None, product=None):
     app = FastAPI()
     db = FakeCtx({
-        "kind": "media_purchases",
-        "media_purchase": None,
-        "media_products_by_file": [_priced_product("owner-1", "/api/media/file/507f1f77bcf86cd799439011")],
+        "media_purchase": purchase,
+        "media_products_by_file": products,
+        "media_product": product,
     })
-    buyer = make_user(role="student", user_id="buyer-1")
-    routers.media.bind(db, lambda a: buyer, None)
-    app.include_router(routers.media.router)
 
-    client = TestClient(app)
+    async def auth(authz=None):
+        return current_user
+
+    routers.media.bind(db, auth, None)
+    import motor.motor_asyncio as mma
+    monkeypatch.setattr(mma, "AsyncIOMotorGridFSBucket", lambda db: _FakeBucket())
+    app.include_router(routers.media.router)
+    return TestClient(app)
+
+
+def test_media_file_paid_non_purchaser_403(monkeypatch):
+    buyer = make_user(role="student", user_id="buyer-1")
+    product = _priced_product("owner-1", "/api/media/file/507f1f77bcf86cd799439011")
+    client = _media_app(monkeypatch, buyer, [product], purchase=None, product=product)
     resp = client.get(
         "/media/file/507f1f77bcf86cd799439011",
         headers={"Authorization": "Bearer token"},
@@ -302,80 +246,55 @@ def test_media_file_paid_non_purchaser_403(monkeypatch):
 
 
 def test_media_file_paid_owner_200(monkeypatch):
-    app = FastAPI()
-    db = FakeCtx({
-        "kind": "media_purchases",
-        "media_purchase": None,
-        "media_products_by_file": [_priced_product("owner-1", "/api/media/file/507f1f77bcf86cd799439011")],
-    })
-    owner = _make_owner_ctx()
-    routers.media.bind(db, lambda a: owner, None)
-    app.include_router(routers.media.router)
-
-    # Stub GridFS to avoid a real Mongo client on the 200 path.
-    import motor.motor_asyncio as mma
-    monkeypatch.setattr(mma, "AsyncIOMotorGridFSBucket", lambda db: _FakeBucket())
-    client = TestClient(app)
+    owner = make_user(role="student", user_id="owner-1")
+    product = _priced_product("owner-1", "/api/media/file/507f1f77bcf86cd799439011")
+    client = _media_app(monkeypatch, owner, [product], purchase=None, product=product)
     resp = client.get(
         "/media/file/507f1f77bcf86cd799439011",
         headers={"Authorization": "Bearer token"},
     )
     assert resp.status_code == 200, f"expected 200 for owner, got {resp.status_code}: {resp.text}"
+    assert resp.headers.get("X-Media-Full-Access") == "true"
 
 
-class _FakeBucket:
-    async def open_download_stream(self, oid):
-        return _BytesStream()
-
-
-def test_media_file_unauthenticated_401(monkeypatch):
-    """The file endpoint must fail closed for unauthenticated callers."""
-    from fastapi import HTTPException
-
-    def deny(authz=None):
-        raise HTTPException(401, "Missing bearer token")
-
-    app = FastAPI()
-    db = FakeCtx({"kind": "media_purchases", "media_purchase": None,
-                  "media_products_by_file": [_priced_product("owner-1", "/api/media/file/507f1f77bcf86cd799439011")]})
-    routers.media.bind(db, deny, None)
-    app.include_router(routers.media.router)
-    client = TestClient(app)
+def test_media_file_unauthenticated_paid_fails_closed_403(monkeypatch):
+    """An anonymous caller requesting a priced file must fail closed (403), not
+    crash (500) and not be served the file. The merged endpoint returns 403
+    before the auth-required 401 check because the file is protected."""
+    product = _priced_product("owner-1", "/api/media/file/507f1f77bcf86cd799439011")
+    client = _media_app(monkeypatch, make_user(), [product], purchase=None, product=product)
     resp = client.get("/media/file/507f1f77bcf86cd799439011")  # no auth header
-    assert resp.status_code == 401, f"expected 401 unauthenticated, got {resp.status_code}"
+    assert resp.status_code == 403, f"expected 403 fail-closed for anonymous paid file, got {resp.status_code}: {resp.text}"
+    assert "Purchase required" in resp.text
 
 
 # ── 3. PAYMENTS WEBHOOK IDEMPOTENCY ─────────────────────────────────────────
+def _payments_app(monkeypatch):
+    app = FastAPI()
+    db = FakeCtx({})
+    routers.payments.bind(db, None, None, lambda a: make_user())
+    app.include_router(routers.payments.router)
+    return TestClient(app), db
+
+
 def test_payments_webhook_repeat_delivery_is_noop(monkeypatch):
     """Two deliveries of the same order: second is idempotent (no fan-out)."""
-    app = FastAPI()
-    db = FakeCtx({"kind": "payments"})
-    routers.payments.bind(db, None, None, lambda a: make_user())
-
-    # Force idempotency guard to see a prior record for this order.
-    db._cap["provider_order_seen"] = True
-    app.include_router(routers.payments.router)
-    client = TestClient(app)
-
-    payload = {"meta": {"event_name": "order_created"},
+    client, db = _payments_app(monkeypatch)
+    payload = {"meta": {"event_name": "order_created", "event_id": "evt-1"},
                "data": {"id": "LS-ORD-DUP-123",
                         "attributes": {"user_email": "b@e.com", "total": "10.00", "status": "paid"}}}
-    body = urllib.parse.dumps(payload).encode() if False else __import__("json").dumps(payload).encode()
+    body = json.dumps(payload).encode()
     sig = hmac.new("forensic-webhook-secret".encode(), body, hashlib.sha256).hexdigest()
 
-    resp = client.post("/webhook", content=body,
+    resp = client.post("/payments/webhook", content=body,
                        headers={"Content-Type": "application/json", "X-Signature": sig})
     assert resp.status_code == 200, f"expected 200 idempotent ack, got {resp.status_code}: {resp.text}"
     assert resp.json().get("idempotent") is True
 
 
-def test_payments_webhook_rejects_bad_signature():
-    app = FastAPI()
-    db = FakeCtx({"kind": "payments"})
-    routers.payments.bind(db, None, None, lambda a: make_user())
-    app.include_router(routers.payments.router)
-    client = TestClient(app)
-    body = __import__("json").dumps({"meta": {"event_name": "order_created"}}).encode()
-    resp = client.post("/webhook", content=body,
+def test_payments_webhook_rejects_bad_signature(monkeypatch):
+    client, db = _payments_app(monkeypatch)
+    body = json.dumps({"meta": {"event_name": "order_created"}}).encode()
+    resp = client.post("/payments/webhook", content=body,
                        headers={"Content-Type": "application/json", "X-Signature": "bogus"})
-    assert resp.status_code == 400, f"expected 400 bad signature, got {resp.status_code}"
+    assert resp.status_code == 400, f"expected 400 bad signature, got {resp.status_code}: {resp.text}"

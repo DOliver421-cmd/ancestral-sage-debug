@@ -19,6 +19,9 @@ Design goals (per the owner's mandate):
 Shared state (db, current_user, audit, assert_role, xp_level) is bound by
 server.py via bind() at include time — no circular imports.
 """
+import hashlib
+import hmac
+import json
 import logging
 import secrets
 import uuid
@@ -338,6 +341,7 @@ class DispatchResult(BaseModel):
     contributions: dict
     dispatch_body: str
     created_at: str
+    delivery: Optional[dict] = None
 
 
 # ── Routes ────────────────────────────────────────────────────────────────────
@@ -499,27 +503,73 @@ async def create_dispatch(
     }
 
     # ── Optional webhook delivery (only if configured, free) ────────────────
+    # Contract with the partner receiver:
+    #   POST <webhook_url>  Content-Type: application/json
+    #   X-Bridge-Signature: sha256=<hex HMAC-SHA256 of the raw JSON body bytes,
+    #                        keyed by the configured shared_secret>
+    #   Payload is stable per dispatch_id, so a retried delivery is idempotent:
+    #   the receiver stores one record per dispatch_id and acks repeats.
     webhook = (cfg.get("webhook_url") or "").strip()
+    delivery = {
+        "mode": "manual",
+        "delivery_id": None,
+        "attempts": 0,
+        "last_status": None,
+        "last_error": None,
+        "delivered_at": None,
+    }
     if webhook and cfg.get("dispatch_mode") == "webhook":
         dispatch_doc["channel"] = "webhook"
-        try:
-            import httpx
-            async with httpx.AsyncClient(timeout=20.0) as client:
-                resp = await client.post(webhook, json={
-                    "type": "wai.bridge.dispatch",
-                    "dispatch_id": dispatch_id,
-                    "kind": body.kind,
-                    "title": title,
-                    "task": task,
-                    "project_id": body.project_id,
-                    "from": "WAI-Institute AI Director",
-                    "body": dispatch_body,
-                    "sent_at": _now_iso(),
-                })
-                dispatch_doc["status"] = "sent" if resp.status_code < 400 else f"failed:{resp.status_code}"
-        except Exception as exc:  # noqa: BLE001
-            logger.warning("bridge: webhook delivery failed: %s", exc)
+        if not (webhook.startswith("https://") or webhook.startswith("http://")):
+            delivery["mode"] = "webhook"
+            delivery["last_error"] = "Webhook URL must start with http:// or https://"
             dispatch_doc["status"] = "failed"
+        else:
+            delivery["mode"] = "webhook"
+            import httpx
+            secret = (cfg.get("shared_secret") or "").strip()
+            payload = {
+                "type": "wai.bridge.dispatch",
+                "dispatch_id": dispatch_id,
+                "kind": body.kind,
+                "title": title,
+                "task": task,
+                "project_id": body.project_id,
+                "from": "WAI-Institute AI Director",
+                "body": dispatch_body,
+                "sent_at": _now_iso(),
+            }
+            body_bytes = json.dumps(payload, separators=(",", ":")).encode("utf-8")
+            headers = {"Content-Type": "application/json"}
+            if secret:
+                signature = hmac.new(secret.encode("utf-8"), body_bytes, hashlib.sha256).hexdigest()
+                headers["X-Bridge-Signature"] = f"sha256={signature}"
+            # Up to 3 attempts with short backoff so a transient outage does not
+            # silently drop an assignment (and never exceeds a few seconds).
+            attempt = 0
+            while attempt < 3:
+                attempt += 1
+                delivery["attempts"] = attempt
+                delivery["delivery_id"] = str(uuid.uuid4())
+                try:
+                    async with httpx.AsyncClient(timeout=20.0) as client:
+                        resp = await client.post(webhook, content=body_bytes, headers=headers)
+                    delivery["last_status"] = resp.status_code
+                    if resp.status_code < 400:
+                        delivery["delivered_at"] = _now_iso()
+                        dispatch_doc["status"] = "delivered"
+                        break
+                    delivery["last_error"] = f"Partner returned HTTP {resp.status_code}"
+                    if attempt < 3:
+                        await asyncio.sleep(attempt)  # 1s, 2s backoff
+                except Exception as exc:  # noqa: BLE001
+                    logger.warning("bridge: webhook attempt %s failed: %s", attempt, exc)
+                    delivery["last_error"] = f"{type(exc).__name__}: {exc}"
+                    if attempt < 3:
+                        await asyncio.sleep(attempt)
+            if dispatch_doc["status"] != "delivered":
+                dispatch_doc["status"] = "failed"
+    dispatch_doc["delivery"] = delivery
 
     await db.bridge_dispatch_log.insert_one(dispatch_doc)
     if audit:
@@ -529,7 +579,7 @@ async def create_dispatch(
             pass
 
     return {
-        "dispatch": DispatchResult(
+        "dispatch":        DispatchResult(
             dispatch_id=dispatch_id,
             kind=body.kind,
             title=title,
@@ -539,6 +589,7 @@ async def create_dispatch(
             contributions=contributions,
             dispatch_body=dispatch_body,
             created_at=dispatch_doc["created_at"],
+            delivery=delivery,
         ).model_dump(),
         "message": (
             "Dispatch sent via webhook." if dispatch_doc["channel"] == "webhook" and dispatch_doc["status"] == "sent"
@@ -577,14 +628,42 @@ async def receive_from_partner(
     if not cfg.get("enabled", True):
         raise HTTPException(403, "Bridge is disabled.")
 
+    # Idempotent receipt: retried deliveries carry the same dispatch_id, so a
+    # repeat must not create a duplicate inbound record. The unique sparse index
+    # on dispatch_id closes the race window; create_index is idempotent and
+    # failure is non-fatal (the pre-check below still dedupes sequential retries).
+    try:
+        await db.bridge_inbound.create_index("dispatch_id", unique=True, sparse=True)
+    except Exception:
+        pass
+    incoming_dispatch_id = str(body.get("dispatch_id") or "").strip()
+    if incoming_dispatch_id:
+        existing = await db.bridge_inbound.find_one(
+            {"dispatch_id": incoming_dispatch_id}, {"_id": 0, "message_id": 1}
+        )
+        if existing:
+            return {"status": "ok", "message_id": existing["message_id"], "duplicate": True}
+
     message_id = str(uuid.uuid4())
-    await db.bridge_inbound.insert_one({
+    inbound_doc = {
         "_id": message_id,
         "message_id": message_id,
+        "dispatch_id": incoming_dispatch_id or None,
         "from_team": str(body.get("from_team") or body.get("from") or cfg.get("partner_team_name", "Partner AI Team"))[:200],
         "subject": str(body.get("subject") or body.get("title") or "Update")[:300],
         "body": str(body.get("body") or body.get("message") or "")[:20000],
         "payload": body,
         "received_at": _now_iso(),
-    })
-    return {"status": "ok", "message_id": message_id}
+    }
+    try:
+        await db.bridge_inbound.insert_one(inbound_doc)
+    except Exception:
+        # Duplicate delivery raced past the check — return the existing record.
+        if incoming_dispatch_id:
+            existing = await db.bridge_inbound.find_one(
+                {"dispatch_id": incoming_dispatch_id}, {"_id": 0, "message_id": 1}
+            )
+            if existing:
+                return {"status": "ok", "message_id": existing["message_id"], "duplicate": True}
+        raise
+    return {"status": "ok", "message_id": message_id, "duplicate": False}
