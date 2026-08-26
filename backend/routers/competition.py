@@ -125,7 +125,7 @@ async def _ai_available() -> dict:
     try:
         from ai.llm_gateway import gateway_status
         status = gateway_status()
-        providers_active = int(status.get("active_free_providers", 0))
+        providers_active = int(status.get("active_providers", status.get("active_free_providers", 0)))
         over_budget = bool(status.get("budget", {}).get("over_budget", False))
     except Exception as e:  # noqa: BLE001
         logger.error("Arena gateway status check failed: %s", e)

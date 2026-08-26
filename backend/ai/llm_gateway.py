@@ -43,6 +43,8 @@ _ANTHROPIC_IS_ENABLED = os.environ.get("ANTHROPIC_IS_ENABLED", "false").lower() 
 ANTHROPIC_API_KEY   = os.environ.get("ANTHROPIC_API_KEY", os.environ.get("EMERGENT_LLM_KEY", "")) if _ANTHROPIC_IS_ENABLED else ""
 
 GROQ_API_KEY        = os.environ.get("GROQ_API_KEY", "")
+OPENAI_API_KEY      = os.environ.get("OPENAI_API_KEY", "")          # text tier — owner key, no emergent fallback
+DEEPSEEK_API_KEY    = os.environ.get("AI_PROVIDER_DEEPSEEK_KEY", "") # text tier — owner key
 CEREBRAS_API_KEY    = os.environ.get("CEREBRAS_API_KEY", "")
 SAMBANOVA_API_KEY   = os.environ.get("SAMBANOVA_API_KEY", "")
 GEMINI_API_KEY      = os.environ.get("GEMINI_API_KEY", "")
@@ -67,6 +69,8 @@ _PROVIDER_TYPE_TO_GLOBAL = {
     "together":    "TOGETHER_API_KEY",
     "openrouter":  "OPENROUTER_API_KEY",
     "huggingface": "HUGGINGFACE_API_KEY",
+    "openai":      "OPENAI_API_KEY",
+    "deepseek":    "DEEPSEEK_API_KEY",
     # anthropic intentionally omitted — disabled by owner directive
 }
 
@@ -119,7 +123,12 @@ async def reload_provider_keys(db) -> int:
         logger.warning("llm_gateway: reload_provider_keys error: %s", e)
     return loaded
 
-# ── Model identifiers ─────────────────────────────────────────────────────────
+
+# ── Model identifiers ───────────────────────────────────────────────────────── 
+OPENAI_MODEL      = "gpt-4o-mini"                            # owner key — cheap, tool-capable
+OPENAI_BASE       = "https://api.openai.com/v1"
+DEEPSEEK_MODEL    = "deepseek-chat"                           # owner key — cheap, OpenAI-compatible
+DEEPSEEK_BASE     = "https://api.deepseek.com"
 GROQ_MODEL        = "llama-3.3-70b-versatile"              # free, 128k ctx, tool-calling
 GROQ_BASE         = "https://api.groq.com/openai/v1"
 CEREBRAS_MODEL    = "llama3.3-70b"                          # free, fast inference
@@ -613,7 +622,29 @@ async def call_llm(
         except Exception as _be:
             logger.warning("LLM Gateway: user budget check failed (%s): %s", persona_label, _be)
 
-    # ── Tier 1a: Groq / Llama 3.3 70B (FREE — primary, fastest) ─────────────
+    # ── Tier 1a: OpenAI gpt-4o-mini (owner key — tool-capable) ──────────────
+    if OPENAI_API_KEY:
+        try:
+            result = await _oai_compat_call(
+                base_url=OPENAI_BASE, api_key=OPENAI_API_KEY, model=OPENAI_MODEL,
+                system=system, messages=messages, max_tokens=max_tokens, tools=tools,
+            )
+            return await _tier_result(user_id, budget_key, result, "openai", OPENAI_MODEL, True)
+        except Exception as e:
+            logger.warning("LLM Gateway T1a OpenAI failed (%s): %s", persona_label, e)
+
+    # ── Tier 1b: DeepSeek deepseek-chat (owner key — tool-capable) ───────────
+    if DEEPSEEK_API_KEY:
+        try:
+            result = await _oai_compat_call(
+                base_url=DEEPSEEK_BASE, api_key=DEEPSEEK_API_KEY, model=DEEPSEEK_MODEL,
+                system=system, messages=messages, max_tokens=max_tokens, tools=tools,
+            )
+            return await _tier_result(user_id, budget_key, result, "deepseek", DEEPSEEK_MODEL, True)
+        except Exception as e:
+            logger.warning("LLM Gateway T1b DeepSeek failed (%s): %s", persona_label, e)
+
+    # ── Tier 1c: Groq / Llama 3.3 70B (FREE — free chain begins) ─────────────
     if GROQ_API_KEY:
         try:
             result = await _oai_compat_call(
@@ -826,9 +857,11 @@ def gateway_status() -> dict:
     _reset_hour_if_needed()
     return {
         "providers": {
-            "groq":         {"tier": "1a", "primary": True,  "available": bool(GROQ_API_KEY),         "key_set": bool(GROQ_API_KEY),         "cost": "free",          "tool_calling": True},
-            "cerebras":     {"tier": "1b", "primary": True,  "available": bool(CEREBRAS_API_KEY),     "key_set": bool(CEREBRAS_API_KEY),     "cost": "free",          "tool_calling": True},
-            "sambanova":    {"tier": "1c", "primary": True,  "available": bool(SAMBANOVA_API_KEY),    "key_set": bool(SAMBANOVA_API_KEY),    "cost": "free",          "tool_calling": True},
+            "openai":       {"tier": "1a", "primary": True,  "available": bool(OPENAI_API_KEY),       "key_set": bool(OPENAI_API_KEY),       "cost": "owner_key",     "tool_calling": True},
+            "deepseek":     {"tier": "1b", "primary": True,  "available": bool(DEEPSEEK_API_KEY),     "key_set": bool(DEEPSEEK_API_KEY),     "cost": "owner_key",     "tool_calling": True},
+            "groq":         {"tier": "1c", "primary": True,  "available": bool(GROQ_API_KEY),         "key_set": bool(GROQ_API_KEY),         "cost": "free",          "tool_calling": True},
+            "cerebras":     {"tier": "1d", "primary": True,  "available": bool(CEREBRAS_API_KEY),     "key_set": bool(CEREBRAS_API_KEY),     "cost": "free",          "tool_calling": True},
+            "sambanova":    {"tier": "1e", "primary": True,  "available": bool(SAMBANOVA_API_KEY),    "key_set": bool(SAMBANOVA_API_KEY),    "cost": "free",          "tool_calling": True},
             "gemini":       {"tier": 2,    "primary": False, "available": bool(GEMINI_API_KEY),       "key_set": bool(GEMINI_API_KEY),       "cost": "free",          "tool_calling": False},
             "grok":         {"tier": 3,    "primary": False, "available": bool(XAI_API_KEY),          "key_set": bool(XAI_API_KEY),          "cost": "free_credits",  "tool_calling": True},
             "cohere":       {"tier": 4,    "primary": False, "available": bool(COHERE_API_KEY),       "key_set": bool(COHERE_API_KEY),       "cost": "free",          "tool_calling": True},
@@ -849,9 +882,19 @@ def gateway_status() -> dict:
             "budget_pct":     round(_hour_tokens_used / max(HOURLY_TOKEN_CAP, 1) * 100, 1),
             "over_budget":    _over_budget(),
         },
+        # Backwards-compat count of only the FREE providers (used by older
+        # surfaces). Keep in sync with the all-inclusive count below.
         "active_free_providers": sum(1 for v in [
             GROQ_API_KEY, CEREBRAS_API_KEY, SAMBANOVA_API_KEY, GEMINI_API_KEY,
             XAI_API_KEY, COHERE_API_KEY, MISTRAL_API_KEY, TOGETHER_API_KEY,
+            OPENROUTER_API_KEY, HUGGINGFACE_API_KEY,
+        ] if v) + (1 if _SHARED_BYOK_POOL else 0),
+        # All provider keys actually usable for text, including owner keys
+        # (OpenAI + DeepSeek). Surfaces should prefer this to decide if AI is
+        # available to entitled users.
+        "active_providers": sum(1 for v in [
+            OPENAI_API_KEY, DEEPSEEK_API_KEY, GROQ_API_KEY, CEREBRAS_API_KEY, SAMBANOVA_API_KEY,
+            GEMINI_API_KEY, XAI_API_KEY, COHERE_API_KEY, MISTRAL_API_KEY, TOGETHER_API_KEY,
             OPENROUTER_API_KEY, HUGGINGFACE_API_KEY,
         ] if v) + (1 if _SHARED_BYOK_POOL else 0),
     }

@@ -17,6 +17,10 @@ Design (per owner directive):
     single anonymous visitor can drain the platform either.
   - The cap is configurable via USER_DAILY_TOKEN_CAP (default 50,000
     tokens/day — roughly 15–50 free LLM answers per user per day).
+  - Budget scales UP with commercial feature tier (feature access is what
+    consumes API): free stays at the base cap; member +25%; plus +35%;
+    pro +45%; patron +50%. Tiers above / unknown fall back to base. This
+    is by explicit owner directive (more feature access = more API needed).
 
 Usage from the LLM gateway:
     from user_budget import check_user_budget, record_user_tokens
@@ -37,16 +41,39 @@ UNLIMITED_ROLE_RANK = 3  # instructor (3) and above
 # Daily token cap for budgeted roles (students / members / anonymous IPs).
 DEFAULT_DAILY_CAP = int(os.environ.get("USER_DAILY_TOKEN_CAP", "50000"))
 
+# Per-feature-tier cap multiplier (owner directive — more feature access means
+# more AI/API need). free stays at base so upgrading to a paid tier is the
+# lever that raises a user's daily AI budget. Unknown tiers default to free
+# (highest safety).
+TIER_CAP_MULTIPLIER = {
+    "free":     1.0,
+    "member":   1.25,   # +25%
+    "plus":     1.35,   # +35%
+    "pro":      1.45,   # +45%
+    "patron":   1.50,   # +50%
+}
+
 _COLLECTION = "user_token_budgets"
 
 
-def daily_cap_for(role: str):
-    """Daily token cap for a role; None means unlimited (trusted/exec tiers)."""
+def tier_cap_multiplier(feature_tier: str) -> float:
+    """Return the cap multiplier for a feature tier (defaults to free/base)."""
+    return TIER_CAP_MULTIPLIER.get((feature_tier or "free").strip().lower(), 1.0)
+
+
+def daily_cap_for(role: str, feature_tier: str = ""):
+    """Daily token cap for a role; None means unlimited (trusted/exec tiers).
+
+    1. No role / unknown -> base cap (safe default).
+    2. Role rank >= UNLIMITED_ROLE_RANK (instructor+) -> None (unlimited);
+       exec/admin always land here, so the bought tier is irrelevant for them.
+    3. Otherwise scale the base cap up by the user's commercial feature_tier.
+    """
     if not role:
         return DEFAULT_DAILY_CAP
     if role_rank(role) >= UNLIMITED_ROLE_RANK:
         return None
-    return DEFAULT_DAILY_CAP
+    return int(DEFAULT_DAILY_CAP * tier_cap_multiplier(feature_tier))
 
 
 def _day_key(now=None) -> str:
@@ -65,41 +92,50 @@ def budget_notice() -> str:
     )
 
 
-async def resolve_role(user_id: str) -> str:
-    """Look up a user's role for budget purposes. Empty string on any failure
-    (which then falls back to the default capped budget — safe by default)."""
+async def resolve_user_ctx(user_id: str) -> dict:
+    """Look up a user's role AND feature_tier for budget purposes.
+
+    Returns {"role": str, "feature_tier": str}. Empty strings on any failure
+    (which then falls back to the safe default capped budget)."""
     if not user_id or user_id.startswith("ip:"):
-        return ""
+        return {"role": "", "feature_tier": ""}
     try:
         from deps import get_db
 
         db = get_db()
-        doc = await db.users.find_one({"id": user_id}, {"_id": 0, "role": 1})
+        doc = await db.users.find_one({"id": user_id}, {"_id": 0, "role": 1, "feature_tier": 1})
         if not doc:
-            doc = await db.users.find_one({"_id": user_id}, {"_id": 0, "role": 1})
-        return (doc or {}).get("role", "")
+            doc = await db.users.find_one({"_id": user_id}, {"_id": 0, "role": 1, "feature_tier": 1})
+        doc = doc or {}
+        return {
+            "role": doc.get("role", ""),
+            "feature_tier": doc.get("feature_tier", "") or "",
+        }
     except Exception as e:
-        logger.warning("user_budget: role lookup failed for %s — %s", user_id, e)
-        return ""
+        logger.warning("user_budget: user ctx lookup failed for %s — %s", user_id, e)
+        return {"role": "", "feature_tier": ""}
 
 
-async def check_user_budget(user_id: str, role: str = "") -> dict:
+async def check_user_budget(user_id: str, role: str = "", feature_tier: str = "") -> dict:
     """Return the user's current daily budget state.
 
     Called BEFORE a platform-paid LLM call. Returns:
-        {"allowed": bool, "exceeded": bool, "used": int, "cap": int|None, "role": str}
+        {"allowed": bool, "exceeded": bool, "used": int, "cap": int|None,
+         "role": str, "feature_tier": str}
     exceeded=True → the caller must serve the free KB fallback + budget_notice()
     and must NOT call the LLM gateway.
     """
     if not user_id:
-        return {"allowed": True, "exceeded": False, "used": 0, "cap": None, "role": role}
+        return {"allowed": True, "exceeded": False, "used": 0, "cap": None, "role": role, "feature_tier": feature_tier}
 
-    if not role:
-        role = await resolve_role(user_id)
+    if not role or not feature_tier:
+        ctx = await resolve_user_ctx(user_id)
+        role = role or ctx["role"]
+        feature_tier = feature_tier or ctx["feature_tier"]
 
-    cap = daily_cap_for(role)
+    cap = daily_cap_for(role, feature_tier)
     if cap is None:
-        return {"allowed": True, "exceeded": False, "used": 0, "cap": None, "role": role}
+        return {"allowed": True, "exceeded": False, "used": 0, "cap": None, "role": role, "feature_tier": feature_tier}
 
     used = 0
     try:
@@ -119,10 +155,11 @@ async def check_user_budget(user_id: str, role: str = "") -> dict:
         "used": used,
         "cap": cap,
         "role": role,
+        "feature_tier": feature_tier,
     }
 
 
-async def record_user_tokens(user_id: str, tokens: int, role: str = "") -> None:
+async def record_user_tokens(user_id: str, tokens: int, role: str = "", feature_tier: str = "") -> None:
     """Add tokens to a user's daily platform-paid counter.
 
     Exempt roles and BYOK calls are never recorded (BYOK is handled by the
@@ -131,7 +168,11 @@ async def record_user_tokens(user_id: str, tokens: int, role: str = "") -> None:
     """
     if not user_id or tokens <= 0:
         return
-    if daily_cap_for(role or await resolve_role(user_id)) is None:
+    if not role or not feature_tier:
+        ctx = await resolve_user_ctx(user_id)
+        role = role or ctx["role"]
+        feature_tier = feature_tier or ctx["feature_tier"]
+    if daily_cap_for(role or "student", feature_tier) is None:
         return  # exempt role — nothing to track
     try:
         from deps import get_db
@@ -143,6 +184,7 @@ async def record_user_tokens(user_id: str, tokens: int, role: str = "") -> None:
                 "$inc": {"tokens": tokens},
                 "$setOnInsert": {
                     "role": role or "student",
+                    "feature_tier": feature_tier or "free",
                     "created_at": datetime.now(timezone.utc).isoformat(),
                 },
             },
