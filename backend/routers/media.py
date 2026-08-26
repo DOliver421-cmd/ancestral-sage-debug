@@ -440,23 +440,27 @@ async def get_media_file(
         ).to_list(20)
     except Exception:
         products = []
-    for p in products:
-        if not p.get("published"):
-            continue
-        if (p.get("price_cents") or 0) > 0:
-            protected = True
-            if p.get("owner_id") == user.id:
-                entitled = True
-            else:
-                purchaser = await db.media_purchases.find_one(
-                    {"buyer_id": user.id, "product_id": p.get("id")},
-                    {"_id": 0, "id": 1},
-                )
-                if purchaser:
+    try:
+        for p in products:
+            if not p.get("published"):
+                continue
+            if (p.get("price_cents") or 0) > 0:
+                protected = True
+                # user may be None for an unauthenticated (public-asset) request.
+                # Never dereference user.id then; an anonymous call to a paid file
+                # must resolve to the fail-closed 403 below, not a 500 crash.
+                if user is not None and p.get("owner_id") == user.id:
                     entitled = True
-        elif not protected and not entitled:
-            # A free product referencing this file grants authenticated access.
-            pass
+                elif user is not None:
+                    purchaser = await db.media_purchases.find_one(
+                        {"buyer_id": user.id, "product_id": p.get("id")},
+                        {"_id": 0, "id": 1},
+                    )
+                    if purchaser:
+                        entitled = True
+            elif user is not None and not protected and not entitled:
+                # A free product referencing this file grants authenticated access.
+                pass
 
     if protected and not entitled and not is_admin:
         raise HTTPException(403, "Purchase required to access this file.")
