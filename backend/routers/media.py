@@ -459,6 +459,15 @@ async def get_media_file(
         # Legacy uploads without measured preview metadata cannot be safely
         # time-bounded, so fail closed instead of returning the full track.
         raise HTTPException(503, "Preview metadata is unavailable for this audio asset.")
+    # A priced product's file is not a public asset. Buyers, the owner, and
+    # staff get the full stream; unentitled audio callers get the byte-limited
+    # preview; unentitled NON-audio callers get nothing. Previously a paid PDF
+    # streamed in full to any logged-in user — the file_url is exposed in the
+    # public catalog, so that was a paid-ebook leak, not just a download-form
+    # gap.
+    if not full_access and product and product.get("price_cents", 0) > 0:
+        if not content_type.startswith("audio/"):
+            raise HTTPException(403, "Purchase required to access this file")
     limit_bytes = None if full_access or not content_type.startswith("audio/") else preview_bytes
 
     async def iter_file():
