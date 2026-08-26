@@ -36,11 +36,21 @@ api.interceptors.request.use((cfg) => {
 // simply navigating, which is exactly the bug we are defending against here.
 const AUTH_PATHS = ["/auth/me", "/auth/login", "/auth/register", "/auth/refresh", "/auth/cross-site-login", "/auth/cross-site-token"];
 
+// Admin-scoped endpoints return 403 (not 401) for an authenticated user who
+// lacks the role — a 401 here can ONLY mean the token itself is dead (missing,
+// expired, or invalid). Without this, an expired session silently 401s every
+// panel in the admin/exec surfaces and the page looks like a complete failure
+// with no sign-in prompt.
+const ADMIN_SCOPE = ["/admin/", "/exec/", "/executive/", "/abo/", "/member-projects/"];
+
 function sessionRejected(status, url) {
-  // Only the canonical auth endpoints can invalidate the browser session.
-  // A protected feature may return 401 for its own policy or legacy auth
-  // adapter; treating that as a global logout traps the owner in a login loop.
-  return status === 401 && AUTH_PATHS.some((p) => url.includes(p));
+  // Canonical auth endpoints, plus admin-scoped endpoints where 401 is
+  // unambiguous. Everything else keeps the old behavior: a protected feature
+  // may 401 for its own policy or a legacy auth adapter, and treating that as
+  // a global logout would trap the owner in a login loop.
+  if (status !== 401) return false;
+  if (AUTH_PATHS.some((p) => url.includes(p))) return true;
+  return ADMIN_SCOPE.some((p) => url.includes(p));
 }
 
 api.interceptors.response.use(

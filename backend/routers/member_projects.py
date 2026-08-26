@@ -58,6 +58,20 @@ class MemberUser(BaseModel):
     is_staff: bool = False
 
 
+def _get_jwt_secret():
+    """Resolve the JWT secret from the canonical server module.
+
+    ``app.state.jwt_secret`` is never set at startup, so decoding with it
+    rejected every valid token with 401 — member-project flows could never
+    authenticate for anyone.
+    """
+    try:
+        from server import JWT_SECRET, JWT_ALGO
+        return JWT_SECRET, JWT_ALGO
+    except ImportError:
+        return os.environ.get("JWT_SECRET", ""), "HS256"
+
+
 def _require_member():
     """Dependency: any authenticated user whose tier covers `member`.
 
@@ -69,9 +83,12 @@ def _require_member():
         if not authorization or not authorization.startswith("Bearer "):
             raise HTTPException(status_code=401, detail="Authentication required")
         token = authorization.split(" ", 1)[1]
+        secret, algo = _get_jwt_secret()
+        if not secret:
+            raise HTTPException(status_code=500, detail="JWT secret not configured")
         try:
             import jwt
-            payload = jwt.decode(token, request.app.state.jwt_secret, algorithms=["HS256"])
+            payload = jwt.decode(token, secret, algorithms=[algo])
         except Exception:
             raise HTTPException(status_code=401, detail="Invalid token")
         user = await request.app.state.db.users.find_one({"id": payload.get("sub", "")})
