@@ -75,3 +75,27 @@
 **O9. Store catalog gaps — FOUND AND FIXED (working tree; not deployed)**
 - Seeded ebooks had no cover URLs and the store did not display ebooks; the `/store` page did not show the membership ladder; purchased products did not join to their product record ("Unknown product" with no download).
 - Fix: covers + ebook labels, membership cards on `/store`, purchase→product join, two $29 AI-authored books with manuscript files and authorship disclosure.
+
+## Status correction + new findings — August 26, 2026
+
+**Correction to O6–O9 above:** O6–O9 were originally footnoted "working tree; not deployed." They were **committed and pushed to `main` (commit `5ede974`)** and will go live on the next Railway deploy, together with the executive AUTH/db fixes below. The live site at the time of REPORT-4's writing was as broken as described; that was because the deployed image predated `5ede974`, not because the code was absent. After the next deploy they land together.
+
+**New: O10. Executive pipeline + member-project routers rejected every valid token — FOUND AND FIXED (deploying)**
+- Both routers decoded JWTs with `request.app.state.jwt_secret` and read `request.app.state.db` — **values never set by the production server** (only a unit test set them). Result: every valid token, including the owner's, got `401 Invalid token`; once auth was fixed the handler crashed on the missing DB handle. Proven live as 401 → 500 → 403 across two deploys.
+- Fix (commits `64c3106` + `ac4f003`): both routers now use the same secret + DB handle the rest of the app uses. An entitled exec/admin now passes where every token previously failed.
+
+**New: O11. Executive dashboard presented $0 revenue as a healthy operation — FOUND; truthful banner FIXED (deploying)**
+- `/admin/command` painted $0 revenue, 0 months runway, status "critical" without ever flagging the machine isn't making money. Querying `/api/abo/overview` confirmed the zeros are real — the lie was the framing.
+- Fix (commit `1797a26`): when revenue is $0 or runway ≤ 0 or status is critical, the page shows a red banner stating the real condition; when the revenue call fails to load it now says "do not treat these as real."
+
+**New: O12. Two of the five text-AI keys were invisible to the chat chain — FOUND AND FIXED (pushed `98c79cd`)**
+- `OPENAI_API_KEY` and `AI_PROVIDER_DEEPSEEK_KEY` are set in Railway but the LLM gateway's text chain had **no OpenAI or DeepSeek tier**, so a text query fell straight to the keyword KB no matter how healthy the other free tiers were. OpenAI only powered images/TTS/transcription; DeepSeek powered nothing.
+- Fix: added OpenAI (`gpt-4o-mini`) and DeepSeek (`deepseek-chat`) as text tiers 1a/1b, reading the owner keys only (no stale `EMERGENT_LLM_KEY` fallback), and made the Arena/exec health surfaces count them.
+
+**New: O13. Per-user AI budget was a flat 50k regardless of tier — FIXED (pushed `98c79cd`)**
+- Every capped tier got the same daily cap. Budget now scales by `feature_tier`: free 50k base; member 62.5k (+25%); plus 67.5k (+35%); pro 72.5k (+45%); patron 75k (+50%). Instructor+ and exec stay unlimited; hourly cap untouched. Verified 9/9 budget assertions pass.
+
+**Open (not fixed):**
+- Physical merchandise purchase (O3) remains an owner decision.
+- 62 sidebar-less pages (O4) remain.
+- One real purchase and one real account against the real DB remain the outstanding launch proofs (see REPORT 5).

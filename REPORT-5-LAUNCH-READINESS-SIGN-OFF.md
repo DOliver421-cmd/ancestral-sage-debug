@@ -57,3 +57,18 @@ What changed since the August 24 sign-off:
 - Because the "fixed in working tree" items are not deployed, the live site today is exactly as broken as the defects in Report 4 describe until the next deploy ships.
 
 This report is updated in place on future findings — it will not be re-issued as a new numbered file, and no new REPORT-N files will be created.
+
+---
+
+## Addendum 2 — August 26, 2026 (post-push)
+
+**Verdict: STILL NO-GO, but the outstanding code fixes are now on `main` and deploying.** The two absolute blockers remain the same and are human-proofs, not code fixes: **1) one real customer completes a purchase end-to-end, and 2) one real account is created and used against the real database.** Nothing shipped changes that — those two require a live human session, which this workspace cannot provide.
+
+What changed since Addendum 1:
+
+- **Now on `main`, pushed, deploying (commit `98c79cd`):**
+  - OpenAI (`OPENAI_API_KEY`) and DeepSeek (`AI_PROVIDER_DEEPSEEK_KEY`) wired into the text AI chain (previously invisible to it) — so a member with any of the owner keys can get live AI text instead of keyword-KB. Only owner keys used; the stale `EMERGENT_LLM_KEY` fallback is not referenced by the new path.
+  - Per-user daily AI budget now scales by feature tier: free 50k base; member +25%, plus +35%, pro +45%, patron +50%. Instructor+ and exec stay unlimited. `HOURLY_TOKEN_CAP` untouched. 9/9 budget assertions verified.
+  - Arena/exec health surfaces now count the owner text keys as "providers active".
+- **Already on `main` from earlier (all land with this deploy):** the root static-file serving fix, Vonn's Saga scene-image crash fix, CSP/iframe fix, store catalog ship (two $29 AI-authored books with covers), executive pipeline/member-project auth+DB fixes (`64c3106`,`ac4f003`), and the factual executive dashboard banner (`1797a26`). These are the O6–O13 items previously footnoted "working tree; not deployed" — that is now stale; they are committed and deploying.
+- **The launch gate is unchanged and cannot be signed off from code:** Blockers 1 and 2 (real purchase, real account) plus one non-technical person walking land→sign up→pick a plan→pay→see the upgraded account→use what they paid for with zero stuck points. When that passes on the deployed site, this becomes a **GO**.

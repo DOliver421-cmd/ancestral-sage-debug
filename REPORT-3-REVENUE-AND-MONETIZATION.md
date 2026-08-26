@@ -38,3 +38,7 @@ Today's fix sends buyers to the payment provider's real checkout page, with thei
 - The **critical broken link** (buyers reaching a real payment page) was found and fixed today.
 - What is still missing: **one real completed purchase** proving money actually moves and the account upgrade actually lands. Until that happens, the revenue model is correctly wired but unproven.
 - Creator payouts require a human to actually send money monthly — the system tracks it; it does not pay it.
+
+## August 26, 2026 — deploy-status correction
+
+Nothing here changes the "one real completed purchase" gate, which remains the single open proof for monetization. For accuracy: the store catalog ship (two $29 AI-authored books with covers, membership cards on `/store`) is now **committed to `main` and deploying** (commit `98c79cd`), not merely in the working tree. Also newly shipped in `98c79cd`: per-tier daily AI budgets scale free→patron (more feature access = more API allowance) and OpenAI/DeepSeek are wired as text tiers so members on those keys get live AI instead of keyword KB. The revenue-relevant consequence: a real purchase must still be watched end to end on the deployed site before "revenue works" can be signed off.

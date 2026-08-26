@@ -66,3 +66,13 @@ This addendum updates the report in place rather than issuing a new file. Findin
 | Premium Services links use the direct `/services` URL | Confirmed in the served bundle (`bolt.host/services` ×2, landing iframe unchanged) | **Live** |
 | Store catalog: two $29 AI-authored books with covers, membership cards on `/store`, ebook covers/labels | Working tree only | **Not deployed** |
 | Saga media: GridFS URL normalization, immediate post-upload refresh, track playback fix, NAM memory persistence fix | Working tree only | **Not deployed** |
+
+### Deploy-status correction — August 26, 2026 (post-push, `98c79cd`)
+
+The items above footnoted **"fixed in working tree; not deployed."** are now **committed and pushed to `main`** — the root-file serving fix, Saga crash fix, CSP fix, IAM console, Premium Services links, store catalog, and media fixes. They land together on the next Railway deploy. Two findings from earlier are corrected the same way: the executive pipeline/member-project auth+db fixes (`64c3106`, `ac4f003`) and the honest dashboard banner (`1797a26`) are on `main` and deploying.
+
+Newly shipped in `98c79cd` (also deploying):
+- **Text-AI provider wiring:** `OPENAI_API_KEY` (OpenAI `gpt-4o-mini`) and `AI_PROVIDER_DEEPSEEK_KEY` (DeepSeek `deepseek-chat`) are now text tiers 1a/1b. They were set in Railway but previously invisible to the chat chain, so text fell straight to keyword KB.
+- **Per-tier daily budget:** free 50k base; member +25%, plus +35%, pro +45%, patron +50%. Instructor+ and exec unlimited. Hourly cap untouched. 9/9 budget assertions verified.
+
+Both deploy with the next build. The live site's AI text path only reflects them once that deploy lands and a human confirms an entitled member gets a live answer (there is no prior live proof of that path).

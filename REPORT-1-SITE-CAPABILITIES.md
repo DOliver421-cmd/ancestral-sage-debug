@@ -38,7 +38,8 @@
 - The sign-in system, courses, community, creator studio, arcade, and admin tools all load and respond.
 
 **Hollow or limited (be honest):**
-- **The store (corrected August 24, see Report 4 O5 — this bullet previously understated it):** the store page now leads with the platform's own catalog — the $3 trial, the membership tiers, and creators' digital products sold through our own checkout — with the external storefront below it, honestly labeled "External." Physical merchandise is still refused by design (open decision, O3). *August 26 working tree, not deployed:* two $29 AI-authored books with covers and membership cards directly on `/store`.
+- **The store (corrected August 24, see Report 4 O5 — this bullet previously understated it):** the store page now leads with the platform's own catalog — the $3 trial, the membership tiers, and creators' digital products sold through our own checkout — with the external storefront below it, honestly labeled "External." Physical merchandise is still refused by design (open decision, O3). The two $29 AI-authored books with covers and membership cards directly on `/store` (previously footnoted *working tree, not deployed*) are now **committed and pushed to `main`** and deploy on the next build — see REPORT 2/5 addenda.
 - **Physical merchandise cannot be bought** — the system deliberately refuses these orders.
 - **62 of 140 pages have no sidebar** — they open as bare pages without site navigation.
 - **Money features were broken until today** — clicking a plan sent buyers to a dead end (see Report 3 and Report 4 for the fix and its limits).
+- **Text AI provider wiring (August 26):** OpenAI + DeepSeek are now text tiers (was: only images/TTS/transcription for OpenAI, nothing for DeepSeek). Per-tier daily AI budget scales free→patron. Both push in `98c79cd` and deploy next.

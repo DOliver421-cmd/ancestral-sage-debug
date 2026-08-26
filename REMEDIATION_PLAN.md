@@ -1,9 +1,9 @@
 # WAI Platform Remediation Plan
 
 **Created:** 2026-08-21
-**Status:** Phase 0 ✅ + Phase 1 ✅ + IAM Console ✅ + Security Headers ✅ + JWT_SECRET hardened ⚠️
+**Status:** Phase 0 ✅ + Phase 1 ✅ + IAM Console ✅ + Security Headers ✅ + JWT_SECRET hardened ⚠️ + exec-pipeline auth/DB fix ✅ + gateway text-provider wiring ✅ + per-tier AI budget ✅ — see Addendum 2 for the deploy-status truth and the two remaining launch proofs
 **Audience:** Executive (Delon Oliver)
-**Last verified:** 2026-08-21 against live code
+**Last verified:** 2026-08-26 (against committed `main`; live human-proofs still open)
 **CRITICAL NOTE:** Prior session claimed JWT_SECRET was "fail-closed" — it was NOT. Previous agent wrote false verification. JWT_SECRET still silently regenerated on every boot with only a warning. Fixed in this session: now emits CRITICAL log. Still ephemeral in dev — must set persistent JWT_SECRET in Railway.
 
 ---
@@ -230,3 +230,20 @@ tests/test_supabase_config.py exists: NO
 
 *Generated from verified code inspection, not handoff documents.*
 *No fabricated emails, no hardcoded passwords, no dead architectures.*
+
+---
+
+## Addendum 2 — August 26, 2026: deploy-status truth + remaining proof
+
+**What is verified and on `main` (pushed, deploying on next Railway build):**
+- `64c3106` + `ac4f003` — executive pipeline + member-project routers now auth/read the DB through the same secret/handle the rest of the app uses (they previously rejected every valid token / crashed on a missing DB handle).
+- `1797a26` — executive dashboard no longer hides $0 revenue / critical runway behind a healthy-looking frame.
+- `98c79cd` — OpenAI and DeepSeek are now text-AI tiers (were set in Railway but invisible to the chat chain); per-user daily AI budget scales by feature tier (free base, member +25%, plus +35%, pro +45%, patron +50%); Arena/exec health surfaces count the owner keys.
+
+**What the plan's older lines mean after this:** the items that earlier read "working tree / not deployed" (root-file serving, Saga crash, CSP, store catalog) are committed on `main` and deploy together. Any line claiming "verified against deployed code" should now be read as "verified against committed `main`, deploy pending."
+
+**The two launch proofs that remain code-independent (cannot be signed off here):**
+1. One real purchase end-to-end against the real DB (the revenue/model gate — see REPORT 3/5).
+2. One real account created+used against the real DB (the identity gate — includes the owner create-account control in the exec panel).
+
+Until a human runs those two on the deployed site, the platform is wired and deploying but **not launch-ready** — the verdict stays NO-GO (REPORT 5).
