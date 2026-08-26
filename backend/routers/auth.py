@@ -125,6 +125,7 @@ class SelfEditMeReq(BaseModel):
     full_name: Optional[str] = None
     email: Optional[str] = None
     avatar_url: Optional[str] = None
+    social_handles: Optional[dict] = None
 
 
 class UserOut(BaseModel):
@@ -137,6 +138,7 @@ class UserOut(BaseModel):
     email: str
     full_name: str
     role: str = "student"
+    social_handles: Optional[dict] = None
     associate: Optional[str] = None
     is_active: bool = True
     must_change_password: bool = False
@@ -621,6 +623,17 @@ async def edit_self(body: SelfEditMeReq, user: UserOut = Depends(_dep_current_us
         if len(body.avatar_url) > 3 * 1024 * 1024:
             raise HTTPException(400, "Avatar image too large (max 3 MB)")
         update["avatar_url"] = body.avatar_url if body.avatar_url else None
+    if body.social_handles is not None:
+        if not isinstance(body.social_handles, dict):
+            raise HTTPException(400, "social_handles must be an object of platform → handle")
+        cleaned = {}
+        for k, v in body.social_handles.items():
+            if not isinstance(k, str):
+                continue
+            val = "" if v is None else str(v).strip()
+            if val:
+                cleaned[k[:50]] = val[:300]
+        update["social_handles"] = cleaned
     if update:
         await db.users.update_one({"id": user.id}, {"$set": update})
         audit_meta = {k: v for k, v in update.items() if k != "avatar_url"}
