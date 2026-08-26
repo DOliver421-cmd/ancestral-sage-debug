@@ -837,7 +837,7 @@ function LearnTab({ user, status }) {
       try {
         const [meRes, certsRes, credsRes, xpRes] = await Promise.allSettled([
           api.get("/auth/me"),
-          api.get("/certificates"),
+          api.get("/certificates/me"),
           api.get("/credentials"),
           api.get("/xp/me"),
         ]);

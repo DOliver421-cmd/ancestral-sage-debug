@@ -115,8 +115,9 @@ const PAYMENTS = [
     fields: [
       { key: "secret", placeholder: "sk_test_… / sk_live_…", label: "Secret key" },
       { key: "pub", placeholder: "pk_test_… / pk_live_…", label: "Publishable key" },
+      { key: "webhook", placeholder: "whsec_…", label: "Webhook secret" },
     ],
-    note: "Primary checkout provider. You already have Stripe keys in Railway — this is the same account, pasted so purchases work now.",
+    note: "Primary checkout provider. All three keys are required: secret, publishable, and the webhook secret (Stripe → Developers → Webhooks) so paid orders are recorded and unlocked.",
     signup: "https://dashboard.stripe.com/apikeys",
     signupLabel: "Get keys at dashboard.stripe.com",
     color: "#635bff",
@@ -260,10 +261,13 @@ function PaymentCard({ preset, status, onSave, saving }) {
 
   const handleSave = async () => {
     if (!ready) { toast.error("Fill in all required fields first"); return; }
-    const secret = (vals.secret || "").trim();
-    const pub = (vals.pub || "").trim();
-    await onSave(preset.type, secret, pub);
-    setVals({ secret: "", pub: "" });
+    const secret  = (vals.secret || "").trim();
+    const pub     = (vals.pub || "").trim();
+    const webhook = (vals.webhook || "").trim();
+    await onSave(preset.type, secret, pub, webhook);
+    const cleared = {};
+    (preset.fields || []).forEach(f => { cleared[f.key] = ""; });
+    setVals(cleared);
     setShowInput(false);
   };
 
@@ -318,7 +322,11 @@ function PaymentCard({ preset, status, onSave, saving }) {
             </button>
           </div>
           {showInput && !configured && (
-            <button onClick={() => setVals({ secret: "", pub: "" })}
+            <button onClick={() => {
+              const cleared = {};
+              (preset.fields || []).forEach(f => { cleared[f.key] = ""; });
+              setVals(cleared);
+            }}
               className="text-xs text-ink/40 hover:text-ink/70 transition-colors">Clear</button>
           )}
         </div>
@@ -366,14 +374,16 @@ export default function ProviderGateway() {
     }
   };
 
-  // Payment providers need an optional second credential (publishable / store id).
-  const handlePaymentSave = async (providerType, secret, secondary) => {
+  // Payment providers need an optional second credential (publishable / store id)
+  // and, for Stripe, a third (webhook secret).
+  const handlePaymentSave = async (providerType, secret, secondary, third) => {
     setSaving(providerType);
     try {
       await api.post("/providers/quick-setup", {
         provider_type: providerType,
         api_key: secret,
         secondary_key: secondary || "",
+        third_key: third || "",
       });
       toast.success(`${providerType} payment keys saved and active`);
       await loadStatus();
