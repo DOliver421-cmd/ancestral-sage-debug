@@ -6,7 +6,7 @@ import {
 } from "../lib/roles";
 import {
   Search, ShieldCheck, KeyRound, UserPlus, Ban, CircleCheck, Trash2,
-  RefreshCw, Grid3X3, Users, Loader2, X, Fingerprint, ScrollText, Eye, HeartHandshake,
+  RefreshCw, Grid3X3, Users, Loader2, X, Fingerprint, ScrollText, Eye, HeartHandshake, Bot,
 } from "lucide-react";
 import { toast } from "sonner";
 import PageBack from "../components/PageBack";
@@ -16,6 +16,7 @@ import DelegationsTab from "./iam/DelegationsTab";
 import ConsentTab from "./iam/ConsentTab";
 import ActionsTab from "./iam/ActionsTab";
 import WhoHasAccessTab from "./iam/WhoHasAccessTab";
+import PersonasTab from "./iam/PersonasTab";
 
 // ── Console tabs ────────────────────────────────────────────────────────────
 // "Who has authorized access to what?" — every screen answers that question.
@@ -27,6 +28,7 @@ const TABS = [
   { id: "consent", label: "My Consent", icon: HeartHandshake, min: "admin" },
   { id: "actions", label: "Action History", icon: ScrollText, min: "admin" },
   { id: "access", label: "Who Has Access to Me", icon: Eye, min: "admin" },
+  { id: "personas", label: "Personas", icon: Bot, min: "exec", exec: true },
   { id: "matrix", label: "Privilege Matrix", icon: Grid3X3, min: "exec", exec: true },
 ];
 
@@ -401,6 +403,7 @@ export default function IAMConsole() {
         {tab === "consent" && <ConsentTab />}
         {tab === "actions" && <ActionsTab />}
         {tab === "access" && <WhoHasAccessTab />}
+        {tab === "personas" && <PersonasTab />}
       </main>
     </div>
   );

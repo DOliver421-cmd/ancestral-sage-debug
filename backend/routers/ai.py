@@ -2952,6 +2952,10 @@ async def cipher_generate_audio(
 # ═════════════════════════════════════════════════════════════════════════════
 
 PERSONA_META = {
+    "nam_oshun": {"name": "Hybrid Nam", "level": "director", "department": "Leadership",
+        "domain": "NAM Oshun — the hybrid human-AI operating mind: strategy, ethics, ownership, and the full-organism view. The executive digital self, governing the whole system."},
+    "conspiracy_brother": {"name": "Conspiracy Brother", "level": "production", "department": "Culture",
+        "domain": "Grounded friend and cultural-analysis voice — traces systems to policies, money, and who benefits; asks for receipts. Media literacy through a neighborhood lens."},
     "director": {"name": "The Director", "level": "director", "department": "Governance",
         "domain": "Supreme AI authority — governance, security, escalation, and the whole-system view."},
     "assistant_director": {"name": "The Assistant Director", "level": "assistant", "department": "Operations",
@@ -3124,6 +3128,98 @@ async def persona_profile(slug: str):
         "decision_tree": None,
     }
 
+
+
+
+# ── Exec persona management (IAM console → Personas tab) ──────────────────────
+# Source of truth is load_personas() (every key is a real, chaired prompt). The
+# directory merges it with PERSONA_META so Hybrid Nam / Conspiracy Brother /
+# Griot / Unified Mind all surface, plus an exec-toggle enable/disable persisted
+# per persona. Capabilities + source status are read live from the engines.
+
+_PERSONA_ENABLED_KEY = "persona_enabled_v1"
+_PERSONA_CAPS = {
+    "conspiracy_brother": ["text_analysis", "media_literacy", "cultural_report"],
+    "nam_oshun": ["orchestration", "strategy", "ethics_oversight", "ownership"],
+    "unified": ["orchestration", "decision_synthesis", "whole_organism_view"],
+    "griot": ["story_products", "spoken_word", "curriculum"],
+    "director": ["governance", "escalation", "security"],
+    "ancestral_sage": ["healing_guides", "meditation", "wellness"],
+}
+_LEVEL_ORDER = {"governance": 0, "director": 1, "executive": 2, "assistant": 3, "production": 4}
+
+async def _persona_state() -> dict:
+    disabled = set()
+    if db is not None:
+        try:
+            doc = await db.platform_config.find_one({"_id": _PERSONA_ENABLED_KEY})
+            for k, v in (doc or {}).get("map", {}).items():
+                if not v:
+                    disabled.add(k)
+        except Exception:
+            pass
+    return disabled
+
+
+@router.get("/personas/exec")
+async def exec_personas(user: User = Depends(_require_rank("admin", "executive_admin"))):
+    """Full persona roster with live enable state for the IAM console."""
+    from ai.persona_loader import load_personas
+    keys = list(load_personas().keys())
+    disabled = await _persona_state()
+    rows = []
+    for key in keys:
+        meta = PERSONA_META.get(key) or {"name": key, "level": "production", "department": "AI", "domain": ""}
+        rows.append({
+            "slug": key,
+            "name": meta["name"],
+            "level": meta["level"],
+            "department": meta["department"],
+            "domain": meta["domain"],
+            "enabled": key not in disabled,
+            "source_status": "active" if key in load_personas() else "missing",
+            "capabilities": _PERSONA_CAPS.get(key, []),
+        })
+    rows.sort(key=lambda r: _LEVEL_ORDER.get(r["level"], 5))
+    # Unified model at the top of its tier.
+    rows.sort(key=lambda r: (0 if r["slug"] == "unified" else 1, _LEVEL_ORDER.get(r["level"], 5)))
+    return {"personas": rows, "registry_size": len(rows)}
+
+
+class _PersonaToggleReq(BaseModel):
+    enabled: bool
+
+
+@router.post("/personas/{slug}/toggle")
+async def toggle_persona(slug: str, body: _PersonaToggleReq,
+                         user: User = Depends(_require_rank("executive_admin"))):
+    """Enable/disable a persona globally. Persisted; survives redeploys."""
+    from ai.persona_loader import load_personas
+    if slug not in load_personas():
+        raise HTTPException(404, f"Unknown persona: {slug}")
+    doc = {}
+    if db is not None:
+        try:
+            cur = await db.platform_config.find_one({"_id": _PERSONA_ENABLED_KEY})
+            doc = dict((cur or {}).get("map", {}))
+        except Exception:
+            pass
+    doc[slug] = bool(body.enabled)
+    if db is not None:
+        try:
+            await db.platform_config.update_one(
+                {"_id": _PERSONA_ENABLED_KEY},
+                {"$set": {"map": doc, "updated_by": user.id,
+                          "updated_at": datetime.utcnow().isoformat()}},
+                upsert=True,
+            )
+        except Exception:
+            raise HTTPException(500, "Could not persist persona state.")
+    try:
+        await audit(user.id, "persona.toggled", target=slug, meta={"enabled": bool(body.enabled)})
+    except Exception:
+        pass
+    return {"slug": slug, "enabled": bool(body.enabled)}
 
 # ═════════════════════════════════════════════════════════════════════════════
 # Persona chat + tuning — the team pages lead somewhere, with voice-capable
