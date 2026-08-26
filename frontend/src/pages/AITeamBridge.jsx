@@ -17,6 +17,18 @@ const KIND_OPTIONS = [
   { value: "ack", label: "Acknowledgment" },
 ];
 
+// Human-readable delivery statuses — the bridge records real delivery state
+// (delivered / failed / logged for hand-off), never a vague "ok".
+const STATUS_META = {
+  delivered: { label: "Delivered", bg: "#e7f4ec", color: "#1b7a3d" },
+  sent: { label: "Delivered", bg: "#e7f4ec", color: "#1b7a3d" },
+  failed: { label: "Failed", bg: "#fdeaea", color: "#b3261e" },
+  manual: { label: "Logged for hand-off", bg: "#f0f0f0", color: "#888" },
+  logged: { label: "Logged for hand-off", bg: "#f0f0f0", color: "#888" },
+  queued: { label: "Retrying…", bg: "#fdf6e3", color: "#9a6b00" },
+};
+const statusMeta = (s) => STATUS_META[s] || STATUS_META.manual;
+
 // ── Small UI helpers ─────────────────────────────────────────────────────────
 function Field({ label, children }) {
   return (
@@ -87,7 +99,8 @@ function Card({ title, icon: Icon, children }) {
 
 // ── Main page ────────────────────────────────────────────────────────────────
 export default function AITeamBridge() {
-  const [tab, setTab] = useState("config");
+  // Compose-first: the primary user is a busy exec staffer sending assignments.
+  const [tab, setTab] = useState("dispatch");
   const [config, setConfig] = useState(null);
   const [personas, setPersonas] = useState([]);
   const [log, setLog] = useState({ outbound: [], inbound: [] });
@@ -204,10 +217,10 @@ export default function AITeamBridge() {
         {/* Tabs */}
         <div style={{ display: "flex", gap: 8, margin: "20px 0", flexWrap: "wrap" }}>
           {[
-            { id: "config", label: "Configuration", icon: Settings2 },
+            { id: "dispatch", label: "Send Assignment", icon: Send },
+            { id: "config", label: "Settings", icon: Settings2 },
             { id: "personas", label: "AI Team Roster", icon: Users },
-            { id: "dispatch", label: "Dispatch", icon: Send },
-            { id: "log", label: "Coordination Log", icon: ScrollText },
+            { id: "log", label: "Activity", icon: ScrollText },
           ].map((t) => (
             <button key={t.id} onClick={() => switchTab(t.id)} style={{
               display: "inline-flex", alignItems: "center", gap: 8,
@@ -257,17 +270,17 @@ export default function AITeamBridge() {
                     onChange={(e) => setConfig({ ...config, webhook_url: e.target.value })} />
                 </div>
               </Field>
-              <Field label="Outbound delivery mode">
+              <Field label="How assignments leave this site">
                 <select style={inputStyle} value={config.dispatch_mode || "manual"}
                   onChange={(e) => setConfig({ ...config, dispatch_mode: e.target.value })}>
-                  <option value="manual">Manual (log + copy — free)</option>
-                  <option value="webhook">Webhook (POST to partner endpoint)</option>
+                  <option value="manual">Manual — save for hand-off (free)</option>
+                  <option value="webhook">Webhook — deliver to partner's site</option>
                 </select>
               </Field>
             </div>
 
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0 20px" }}>
-              <Field label="Shared secret (optional — protects the receive endpoint)">
+              <Field label="Shared secret (signs deliveries, protects inbound)">
                 <input style={inputStyle} placeholder="Leave blank to keep as-is"
                   value={config.shared_secret || ""}
                   onChange={(e) => setConfig({ ...config, shared_secret: e.target.value })} />
@@ -311,7 +324,13 @@ export default function AITeamBridge() {
 
         {/* ── DISPATCH ───────────────────────────────────────────────────── */}
         {tab === "dispatch" && (
-          <DispatchTab config={config} personas={personas} flash={flash} />
+          config === null ? (
+            <Card title="Send Assignment" icon={Send}>
+              <p style={{ color: "#999", fontSize: 13 }}>Loading bridge settings…</p>
+            </Card>
+          ) : (
+            <DispatchTab config={config} personas={personas} flash={flash} />
+          )
         )}
 
         {/* ── LOG ────────────────────────────────────────────────────────── */}
@@ -461,13 +480,21 @@ function DispatchTab({ config, personas, flash }) {
     }
   };
 
+  const webhookReady = config?.dispatch_mode === "webhook" && !!config?.webhook_url;
+
   return (
-    <Card title="Dispatch a Task or Project to the Partner AI Team" icon={Send}>
+    <Card title="Send an assignment to the WAI team" icon={Send}>
       <p style={{ margin: "0 0 16px", fontSize: 13, color: "#666" }}>
-        Addressed to <strong style={{ color: COPPER }}>{config?.partner_team_name || "the partner AI team"}</strong>.
-        The Director and NAM Oshun Scholar contribute coordination notes, then the dispatch is{" "}
-        {config?.dispatch_mode === "webhook" && config?.webhook_url ? "sent via webhook" : "produced and logged for manual hand-off"}.
+        Tell the team at <strong style={{ color: COPPER }}>{config?.partner_team_name || "wai-institute.org"}</strong> what
+        needs to happen. The Director and NAM Oshun Scholar add their coordination notes automatically, then the assignment is{" "}
+        {webhookReady ? "delivered to their site" : "saved for you to hand off"}.
       </p>
+      {!webhookReady && (
+        <div style={{ background: "#fdf6e3", border: "1.5px solid #e0b64a", borderRadius: 8, padding: "10px 14px", fontSize: 13, color: "#7a5c00", marginBottom: 16 }}>
+          <strong>Heads-up:</strong> no webhook delivery is configured yet — this assignment will be saved in your
+          Activity log for manual hand-off. Set one up in Settings when you're ready to deliver automatically.
+        </div>
+      )}
 
       <div style={{ display: "grid", gridTemplateColumns: "160px 1fr", gap: "0 12px" }}>
         <Field label="Kind">
@@ -481,12 +508,12 @@ function DispatchTab({ config, personas, flash }) {
         </Field>
       </div>
 
-      <Field label="Task / project brief">
+      <Field label="What needs to happen">
         <textarea rows={5} style={inputStyle} value={task} onChange={(e) => setTask(e.target.value)}
           placeholder="Describe the task or project for the partner AI team: objective, scope, constraints, and what coordination you need back." />
       </Field>
 
-      <Field label="Who contributes (defaults to all participating)">
+      <Field label="Who should weigh in (defaults to the whole team)">
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
           {(personas || []).map((p) => (
             <button key={p.key} onClick={() => togglePersona(p.key)}
@@ -511,20 +538,40 @@ function DispatchTab({ config, personas, flash }) {
 
       <div style={{ display: "flex", gap: 10, marginTop: 4 }}>
         <button style={btnPrimary} onClick={dispatch} disabled={dispatching}>
-          <Send size={15} /> {dispatching ? "Coordinating…" : "Draft & Dispatch"}
+          <Send size={15} /> {dispatching ? "Preparing…" : "Send Assignment"}
         </button>
       </div>
 
       {result && (
         <div style={{ marginTop: 20, background: BONE, borderRadius: 10, padding: 18 }}>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 8, marginBottom: 10 }}>
-            <div style={{ fontWeight: 800, color: INK, fontSize: 14 }}>
-              Dispatch {result.dispatch_id?.slice(0, 8)} — {result.status}
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 8, marginBottom: 4 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <span style={{ fontWeight: 800, color: INK, fontSize: 14 }}>Assignment</span>
+              <span style={{
+                fontSize: 11, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.06em",
+                padding: "3px 10px", borderRadius: 999,
+                background: statusMeta(result.status).bg,
+                color: statusMeta(result.status).color,
+              }}>
+                {statusMeta(result.status).label}
+              </span>
             </div>
-            <div style={{ fontSize: 11, color: "#888" }}>
-              Channel: {result.channel} · To: {result.recipient}
-            </div>
+            <div style={{ fontSize: 11, color: "#888" }}>To: {result.recipient}</div>
           </div>
+          {result.delivery && (
+            <div style={{ fontSize: 12, color: "#666", margin: "4px 0 10px", lineHeight: 1.6 }}>
+              {result.delivery.mode === "webhook" ? (
+                <>
+                  {result.delivery.attempts || 1} attempt{(result.delivery.attempts || 1) > 1 ? "s" : ""}
+                  {result.delivery.last_status ? ` · partner responded HTTP ${result.delivery.last_status}` : ""}
+                  {result.delivery.delivered_at ? ` · ${result.delivery.delivered_at}` : ""}
+                  {result.delivery.last_error && !result.delivery.delivered_at ? ` · ${result.delivery.last_error}` : ""}
+                </>
+              ) : (
+                "Not sent over the web — saved in your Activity log for manual hand-off."
+              )}
+            </div>
+          )}
           <pre style={{
             whiteSpace: "pre-wrap", fontFamily: "Georgia, serif", fontSize: 13, lineHeight: 1.7,
             color: INK, background: "#fff", border: "1px solid #e5ddd0", borderRadius: 8, padding: 14,
@@ -534,9 +581,9 @@ function DispatchTab({ config, personas, flash }) {
           </pre>
           <button style={{ ...btnGhost, marginTop: 12 }} onClick={() => {
             navigator.clipboard?.writeText(result.dispatch_body);
-            flash("Dispatch copied to clipboard.");
+            flash("Assignment copied to clipboard.");
           }}>
-            <Link2 size={14} /> Copy dispatch
+            <Link2 size={14} /> Copy assignment
           </button>
         </div>
       )}
@@ -548,8 +595,8 @@ function DispatchTab({ config, personas, flash }) {
 function LogTab({ log }) {
   return (
     <>
-      <Card title="Outbound Dispatches" icon={Send}>
-        {log.outbound.length === 0 && <p style={{ color: "#999", fontSize: 13 }}>No dispatches yet.</p>}
+      <Card title="Assignments Sent" icon={Send}>
+        {log.outbound.length === 0 && <p style={{ color: "#999", fontSize: 13 }}>No assignments sent yet. Use "Send Assignment" to create your first one.</p>}
         {log.outbound.map((d) => (
           <div key={d.dispatch_id} style={{ borderBottom: `1px solid ${BONE}`, padding: "12px 0" }}>
             <div style={{ display: "flex", justifyContent: "space-between", gap: 8, flexWrap: "wrap" }}>
@@ -557,15 +604,22 @@ function LogTab({ log }) {
               <span style={{
                 fontSize: 10, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.06em",
                 padding: "2px 8px", borderRadius: 999,
-                background: d.status === "sent" ? "#e7f4ec" : d.status === "failed" ? "#fdeaea" : "#f0f0f0",
-                color: d.status === "sent" ? "#1b7a3d" : d.status === "failed" ? "#b3261e" : "#888",
+                background: statusMeta(d.status).bg,
+                color: statusMeta(d.status).color,
               }}>
-                {d.status}
+                {statusMeta(d.status).label}
               </span>
             </div>
             <div style={{ fontSize: 11, color: "#999", marginTop: 2 }}>
               {d.kind} · {d.channel} · {d.created_at} · by {d.created_by || "—"}
             </div>
+            {d.delivery && d.delivery.mode === "webhook" && (
+              <div style={{ fontSize: 11, color: d.status === "failed" ? "#b3261e" : "#666", marginTop: 2 }}>
+                {d.delivery.attempts || 1} attempt{(d.delivery.attempts || 1) > 1 ? "s" : ""}
+                {d.delivery.last_status ? ` · HTTP ${d.delivery.last_status}` : ""}
+                {d.delivery.last_error ? ` · ${d.delivery.last_error}` : ""}
+              </div>
+            )}
             {d.task && <div style={{ fontSize: 13, color: "#555", marginTop: 6, lineHeight: 1.5 }}>{d.task.slice(0, 300)}</div>}
           </div>
         ))}
