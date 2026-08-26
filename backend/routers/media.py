@@ -8,6 +8,7 @@ import logging
 import os
 import re
 import uuid
+import asyncio
 from datetime import datetime, timedelta, timezone
 from typing import List, Literal, Optional
 
@@ -39,13 +40,83 @@ def _now() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
+async def _media_stripe_checkout(title: str, desc: str, amount_cents: int, product_id: str,
+                                 user) -> Optional[dict]:
+    """Tier 1 media-store checkout — hosted Stripe Checkout Session.
+
+    Returns {"url", "id"} or None when Stripe isn't configured / SDK missing /
+    the session can't be built. The caller falls back to Lemon Squeezy → Gumroad.
+    """
+    sk = os.environ.get("STRIPE_SECRET_KEY", "")
+    pub = os.environ.get("STRIPE_PUBLISHABLE_KEY", "")
+    if not (sk and pub):
+        return None
+    try:
+        import stripe
+        stripe.api_key = sk
+        front = (os.environ.get("FRONTEND_URL", "https://wai-institute.org") or "https://wai-institute.org").rstrip("/")
+        metadata = {"product_key": "media", "product_id": product_id, "product_title": title[:500]}
+        params: dict = {
+            "client_reference_id": str(getattr(user, "id", "") or getattr(user, "email", "") or "guest"),
+            "metadata": metadata,
+            "success_url": f"{front}/payment/success?session_id={{CHECKOUT_SESSION_ID}}",
+            "cancel_url": f"{front}/payment/cancel",
+            "mode": "payment",
+            "line_items": [{
+                "price_data": {
+                    "currency": "usd",
+                    "unit_amount": amount_cents,
+                    "product_data": {"name": title, "description": desc[:500]},
+                },
+                "quantity": 1,
+            }],
+        }
+        session = await asyncio.to_thread(stripe.checkout.Session.create, **params)
+        if not session or not session.get("url"):
+            return None
+        return {"url": session["url"], "id": session.get("id", "")}
+    except Exception:
+        logging.getLogger("lcewai").exception("Stripe media checkout failed for %s — falling back", product_id)
+        return None
+
+
+# Fallback covers are ON-BRAND and race-neutral by design: a self-hosted SVG
+# mark in the platform's warm copper/ink palette, not a stock photo of people.
+# This avoids both (a) misrepresenting the brand's Black-diasporic audience and
+# (b) hotlinking third-party stock that shows the wrong subjects. Creators who
+# want a real cover should upload their own via cover_url.
+def _BRAND_COVER_SVG(label: str) -> str:
+    """Return a data-URI SVG cover in the platform's copper/ink brand palette.
+
+    Race-neutral by design: geometric brand mark + product-type label, no
+    people. URL-encoded so it can live inline in the cover_url field with no
+    external image dependency.
+    """
+    import base64 as _b64
+    svg = (
+        '<svg xmlns="http://www.w3.org/2000/svg" width="900" height="1160" '
+        'viewBox="0 0 900 1160">'
+        '<rect width="900" height="1160" fill="#0f1526"/>'
+        '<rect x="40" y="40" width="820" height="1080" rx="28" fill="none" stroke="#b5501a" stroke-width="6"/>'
+        '<circle cx="450" cy="430" r="150" fill="none" stroke="#e8a51e" stroke-width="8" opacity="0.9"/>'
+        '<circle cx="450" cy="430" r="96" fill="#b5501a" opacity="0.25"/>'
+        '<path d="M450 360l0 140M390 410l120 0M410 365l80 130M490 365l-80 130" stroke="#f2ede3" stroke-width="16" stroke-linecap="round"/>'
+        f'<text x="450" y="760" text-anchor="middle" font-family="Georgia,serif" font-size="64" '
+        f'font-weight="bold" letter-spacing="6" fill="#f2ede3">{label}</text>'
+        '<text x="450" y="820" text-anchor="middle" font-family="Georgia,serif" font-size="22" '
+        'letter-spacing="4" fill="#b5501a">M.O.R.E. HELP CENTER</text>'
+        '</svg>'
+    )
+    return "data:image/svg+xml;base64," + _b64.b64encode(svg.encode()).decode()
+
+
 _DEFAULT_COVER_URLS = {
-    "ebook": "https://images.pexels.com/photos/159711/books-book-pages-read-literature-159711.jpeg?auto=compress&cs=tinysrgb&w=900",
-    "pdf": "https://images.pexels.com/photos/5905445/pexels-photo-5905445.jpeg?auto=compress&cs=tinysrgb&w=900",
-    "track": "https://images.pexels.com/photos/1648535/pexels-photo-1648535.jpeg?auto=compress&cs=tinysrgb&w=900",
-    "album": "https://images.pexels.com/photos/1671325/pexels-photo-1671325.jpeg?auto=compress&cs=tinysrgb&w=900",
-    "video": "https://images.pexels.com/photos/7991579/pexels-photo-7991579.jpeg?auto=compress&cs=tinysrgb&w=900",
-    "bundle": "https://images.pexels.com/photos/5905445/pexels-photo-5905445.jpeg?auto=compress&cs=tinysrgb&w=900",
+    "ebook":  _BRAND_COVER_SVG("BOOK"),   # inline data URI (see below)
+    "pdf":    _BRAND_COVER_SVG("GUIDE"),
+    "track":  _BRAND_COVER_SVG("TRACK"),
+    "album":  _BRAND_COVER_SVG("ALBUM"),
+    "video":  _BRAND_COVER_SVG("VIDEO"),
+    "bundle": _BRAND_COVER_SVG("KIT"),
 }
 
 
@@ -202,12 +273,19 @@ async def checkout_media_product(product_id: str, user: User = Depends(_dep_curr
         amount = doc["price_cents"]
         title = doc.get("title", "Media product")
         desc = doc.get("description", "")[:500]
-        ls_result = await _publish_lemon_squeezy(name=title, description=desc, price_cents=amount, persona="platform")
+        # Tier 1 — Stripe (hosted Checkout Session)
+        stripe_session = await _media_stripe_checkout(title, desc, amount, product_id, user)
         provider = None
-        if ls_result:
-            provider = "lemon_squeezy"
-            url = ls_result["url"]
-        else:
+        url = None
+        if stripe_session:
+            provider = "stripe"
+            url = stripe_session["url"]
+        if not provider:
+            ls_result = await _publish_lemon_squeezy(name=title, description=desc, price_cents=amount, persona="platform")
+            if ls_result:
+                provider = "lemon_squeezy"
+                url = ls_result["url"]
+        if not provider:
             gr_result = await _publish_gumroad(title, desc, amount)
             if gr_result:
                 provider = "gumroad"
@@ -216,16 +294,18 @@ async def checkout_media_product(product_id: str, user: User = Depends(_dep_curr
             _ls_key = os.environ.get("LEMON_SQUEEZY_API_KEY", "")
             _ls_store = os.environ.get("LEMON_SQUEEZY_STORE_ID", "")
             _gr_key = os.environ.get("GUMROAD_API_KEY", "")
-            if not ((_ls_key and _ls_store) or _gr_key):
+            _st_key = os.environ.get("STRIPE_SECRET_KEY", "")
+            _st_pub = os.environ.get("STRIPE_PUBLISHABLE_KEY", "")
+            if not ((_ls_key and _ls_store) or _gr_key or (_st_key and _st_pub)):
                 raise HTTPException(
                     501,
-                    "Payments are not configured. Add LEMON_SQUEEZY_API_KEY + LEMON_SQUEEZY_STORE_ID "
-                    "or GUMROAD_API_KEY in your environment.",
+                    "Payments are not configured. Add STRIPE_SECRET_KEY (or LEMON_SQUEEZY_API_KEY + "
+                    "LEMON_SQUEEZY_STORE_ID, or GUMROAD_API_KEY) in your environment.",
                 )
             raise HTTPException(
                 500,
                 "Payment processing failed. The payment providers are configured but the request could "
-                "not be completed. Check your Lemon Squeezy or Gumroad API keys and try again.",
+                "not be completed. Check your Stripe, Lemon Squeezy, or Gumroad API keys and try again.",
             )
         # Record the pending sale so the payment webhook can grant access when
         # the order_created event arrives. Without this row the customer pays

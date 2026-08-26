@@ -19,6 +19,7 @@ pyasn1_modules==0.4.2
 # AI — pinned to avoid pip backtracking (each new major version pulls conflicting transitive deps)
 groq==1.6.0
 openai==2.54.0
+stripe>=9.0.0,<16.0.0
 together==2.31.0
 cohere==7.0.9
 mistralai==1.5.2

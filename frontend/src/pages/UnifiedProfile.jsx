@@ -26,7 +26,7 @@ import {
   Upload, Image, FileText, Award, CheckCircle, Eye, EyeOff,
   Twitter, Instagram, Facebook, Linkedin, Youtube,
   DollarSign, Heart, TrendingUp, Receipt, Network, Star, Crown, Shield,
-  KeyRound, Loader2, Trash2, HelpCircle,
+  KeyRound, Loader2, Trash2, HelpCircle, Gamepad2, Share2,
 } from "lucide-react";
 import { useMic } from "../hooks/useMic";
 
@@ -828,16 +828,18 @@ function LearnTab({ user, status }) {
   const [enrolled, setEnrolled]   = useState([]);
   const [certs, setCerts]         = useState([]);
   const [creds, setCreds]         = useState([]);
+  const [xp, setXp]               = useState(null);
   const [loading, setLoading]     = useState(true);
 
   useEffect(() => {
     async function load() {
       setLoading(true);
       try {
-        const [meRes, certsRes, credsRes] = await Promise.allSettled([
+        const [meRes, certsRes, credsRes, xpRes] = await Promise.allSettled([
           api.get("/auth/me"),
           api.get("/certificates"),
           api.get("/credentials"),
+          api.get("/xp/me"),
         ]);
         if (meRes.status === "fulfilled") {
           setEnrolled(meRes.value.data?.enrolled_modules || meRes.value.data?.enrollments || []);
@@ -847,6 +849,9 @@ function LearnTab({ user, status }) {
         }
         if (credsRes.status === "fulfilled") {
           setCreds(credsRes.value.data?.credentials || credsRes.value.data || []);
+        }
+        if (xpRes.status === "fulfilled") {
+          setXp(xpRes.value.data);
         }
       } catch (_) {}
       finally { setLoading(false); }
@@ -862,6 +867,54 @@ function LearnTab({ user, status }) {
 
   return (
     <div className="space-y-6">
+      {/* Study hub quick links (Studio / Arcade / Social Blast) — kept so the
+          profile is the single destination without losing the dashboard's hub. */}
+      <div className="grid sm:grid-cols-3 gap-3">
+        <Link to="/studio" className="card-flat p-4 flex items-center gap-3 hover:shadow-sm transition-shadow">
+          <span className="w-9 h-9 rounded-lg bg-purple-100 text-purple-700 flex items-center justify-center font-black">⬡</span>
+          <div className="min-w-0">
+            <div className="text-sm font-bold text-ink">M.O.R.E. Creators</div>
+            <div className="text-xs text-ink/40">Lyric Forge · Publishing · AI tools</div>
+          </div>
+        </Link>
+        <Link to="/arcade" className="card-flat p-4 flex items-center gap-3 hover:shadow-sm transition-shadow">
+          <Gamepad2 className="w-5 h-5 text-amber-600 shrink-0" />
+          <div className="min-w-0">
+            <div className="text-sm font-bold text-ink">The Arcade</div>
+            <div className="text-xs text-ink/40">Free · mission-aligned games · earn XP</div>
+          </div>
+        </Link>
+        <Link to="/social/publish" className="card-flat p-4 flex items-center gap-3 hover:shadow-sm transition-shadow">
+          <Share2 className="w-5 h-5 text-green-600 shrink-0" />
+          <div className="min-w-0">
+            <div className="text-sm font-bold text-ink">Social Blast</div>
+            <div className="text-xs text-ink/40">One post · all platforms · AI-formatted</div>
+          </div>
+        </Link>
+      </div>
+
+      {/* XP / gamification (previously only on the dashboard) */}
+      {xp?.total_xp != null && (
+        <div className="card-flat p-5 flex items-center gap-6 bg-ink text-white">
+          <div className="flex items-center gap-3">
+            <Zap className="w-8 h-8 text-amber-400" />
+            <div>
+              <div className="overline text-amber-400">Experience Points</div>
+              <div className="font-heading text-2xl font-black">{xp.total_xp} XP</div>
+            </div>
+          </div>
+          <div className="h-12 w-px bg-white/20" />
+          <div>
+            <div className="overline text-amber-400">Level</div>
+            <div className="font-heading text-xl font-bold">{xp.level}</div>
+          </div>
+          <div className="text-right ml-auto">
+            <div className="overline text-amber-400">Cohort Rank</div>
+            <div className="font-heading text-xl font-bold">#{xp.rank_in_cohort}</div>
+          </div>
+        </div>
+      )}
+
       {/* Progress */}
       <div>
         <div className="flex items-center justify-between mb-3">

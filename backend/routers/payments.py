@@ -8,6 +8,7 @@ via bind() at include time, so this module has no circular imports.
 import os
 import uuid
 import logging
+import asyncio
 from datetime import datetime, timezone, timedelta
 from typing import Optional
 
@@ -33,22 +34,127 @@ def bind(_db, _audit, _notify, _current_user):
     db, audit, notify, current_user = _db, _audit, _notify, _current_user
 
 
-# ─── PAYMENTS (Lemon Squeezy → Gumroad — NO Stripe) ──────────────────────────
-# Stripe has been fully removed from this platform (owner decision).
-# Ecommerce runs through the free-tier publishing pipeline in ai/publishing.py:
-#   Tier 1 — Lemon Squeezy  (LEMON_SQUEEZY_API_KEY + LEMON_SQUEEZY_STORE_ID)
-#   Tier 2 — Gumroad        (GUMROAD_API_KEY)
-#   Tier 3 — MongoDB archive (always works)
-# No Stripe SDK, keys, or webhooks are required anywhere.
+# ─── PAYMENTS (Stripe → Lemon Squeezy → Gumroad) ─────────────────────────────
+# Ecommerce runs through the publishing pipeline in ai/publishing.py plus a
+# first-class Stripe tier (owner keys already provisioned in Railway):
+#   Tier 1 — Stripe        (STRIPE_SECRET_KEY [+ STRIPE_WEBHOOK_SECRET])
+#   Tier 2 — Lemon Squeezy  (LEMON_SQUEEZY_API_KEY + LEMON_SQUEEZY_STORE_ID)
+#   Tier 3 — Gumroad        (GUMROAD_API_KEY)
+#   Tier 4 — MongoDB archive (always works)
+# Contracts are fulfilled (tier grant / digital delivery) by the webhook that
+# matches the chosen provider.
 
+STRIPE_SECRET_KEY      = os.environ.get("STRIPE_SECRET_KEY", "")
+STRIPE_PUBLISHABLE_KEY = os.environ.get("STRIPE_PUBLISHABLE_KEY", "")
+STRIPE_WEBHOOK_SECRET  = os.environ.get("STRIPE_WEBHOOK_SECRET", "")
 LEMON_SQUEEZY_API_KEY = os.environ.get("LEMON_SQUEEZY_API_KEY", "")
 LEMON_SQUEEZY_STORE_ID = os.environ.get("LEMON_SQUEEZY_STORE_ID", "")
 GUMROAD_API_KEY = os.environ.get("GUMROAD_API_KEY", "")
 FRONTEND_URL = os.environ.get("FRONTEND_URL", "https://wai-institute.org")
 
+STRIPE_ENABLED = bool(STRIPE_SECRET_KEY and STRIPE_PUBLISHABLE_KEY)
 PAYMENTS_ENABLED = bool(
-    (LEMON_SQUEEZY_API_KEY and LEMON_SQUEEZY_STORE_ID) or GUMROAD_API_KEY
+    STRIPE_ENABLED
+    or ((LEMON_SQUEEZY_API_KEY and LEMON_SQUEEZY_STORE_ID) or GUMROAD_API_KEY)
 )
+
+
+def _stripe():
+    """Return a configured Stripe client (sync) or None if no secret is set."""
+    if not STRIPE_SECRET_KEY:
+        return None
+    try:
+        import stripe  # lazily imported — SDK is an optional runtime dependency
+        if getattr(stripe, "api_key", "") != STRIPE_SECRET_KEY:
+            stripe.api_key = STRIPE_SECRET_KEY
+        return stripe
+    except Exception:
+        logger.exception("Stripe SDK not installed — Stripe tier unavailable")
+        return None
+
+
+def _resolve_provider() -> str:
+    """Truthful active payment provider (first configured in chain order)."""
+    if STRIPE_ENABLED:
+        return "stripe"
+    if LEMON_SQUEEZY_API_KEY and LEMON_SQUEEZY_STORE_ID:
+        return "lemon_squeezy"
+    if GUMROAD_API_KEY:
+        return "gumroad"
+    return "disabled"
+
+
+async def reload_payment_keys(db=None) -> int:
+    """Load payment-provider keys from the encrypted vault (env wins).
+
+    Payment providers (Stripe, Lemon Squeezy, Gumroad) may be stored in the
+    same encrypted Provider Gateway vault used for AI keys. This runs at
+    startup and after every exec save so a pasted payment key takes effect
+    immediately without a redeploy. Returns the number of keys loaded from DB.
+    """
+    from ai.llm_gateway import reload_provider_keys as _ai_reload
+    # Env constants (the canonical source) keep winning over DB-typed values.
+    loaded = 0
+    try:
+        import keyvault as _kv
+        fernet = _kv.get_fernet()
+    except Exception:
+        fernet = None
+    global STRIPE_ENABLED, STRIPE_SECRET_KEY, STRIPE_PUBLISHABLE_KEY, STRIPE_WEBHOOK_SECRET
+    global LEMON_SQUEEZY_API_KEY, LEMON_SQUEEZY_STORE_ID, GUMROAD_API_KEY, PAYMENTS_ENABLED
+    if not db:
+        try:
+            from deps import get_db as _get_db
+            db = _get_db()
+        except Exception:
+            db = None
+    if db is not None and fernet is not None:
+        try:
+            providers = {}
+            async for p in db.api_providers.find({"provider_type": {"$in": ["stripe", "lemon_squeezy", "gumroad"]}}):
+                providers[p.get("provider_type")] = p.get("id")
+            if providers:
+                async for k in db.api_keys.find({"provider_id": {"$in": list(providers.values())}, "status": "active"}):
+                    ptype = next((t for t, pid in providers.items() if pid == k.get("provider_id")), None)
+                    if not ptype:
+                        continue
+                    try:
+                        key = fernet.decrypt(k["encrypted_key"].encode()).decode()
+                    except Exception:
+                        key = k.get("encrypted_key", "")
+                    def _decrypt(field):
+                        raw = k.get(field, "")
+                        if not raw:
+                            return ""
+                        try:
+                            return fernet.decrypt(raw.encode()).decode()
+                        except Exception:
+                            return raw
+                    if ptype == "stripe":
+                        if not os.environ.get("STRIPE_SECRET_KEY", "").strip():
+                            STRIPE_SECRET_KEY = key
+                        if not os.environ.get("STRIPE_PUBLISHABLE_KEY", "").strip():
+                            STRIPE_PUBLISHABLE_KEY = _decrypt("second_encrypted_key")
+                    elif ptype == "lemon_squeezy":
+                        if not os.environ.get("LEMON_SQUEEZY_API_KEY", "").strip():
+                            LEMON_SQUEEZY_API_KEY = key
+                        if not os.environ.get("LEMON_SQUEEZY_STORE_ID", "").strip():
+                            LEMON_SQUEEZY_STORE_ID = _decrypt("second_encrypted_key")
+                    elif ptype == "gumroad":
+                        if not os.environ.get("GUMROAD_API_KEY", "").strip():
+                            GUMROAD_API_KEY = key
+                    loaded += 1
+        except Exception as e:
+            logger.warning("reload_payment_keys error: %s", e)
+    # Recompute derived flags after any vault fill.
+    STRIPE_ENABLED = bool(STRIPE_SECRET_KEY and STRIPE_PUBLISHABLE_KEY)
+    PAYMENTS_ENABLED = bool(STRIPE_ENABLED or ((LEMON_SQUEEZY_API_KEY and LEMON_SQUEEZY_STORE_ID) or GUMROAD_API_KEY))
+    try:
+        # Also adopt any newly stored AI keys (openai/deepseek/etc.) in one pass.
+        loaded += await _ai_reload(db)
+    except Exception:
+        pass
+    return loaded
 
 # Product catalog — amounts in cents USD.
 # physical=True items are not sold online yet (no fulfillment provider wired up).
@@ -314,17 +420,67 @@ async def _grant_tier_by_email(user_email: str, product_key: str, *, reason: str
 
 @router.get("/products")
 async def list_payment_products():
-    provider = (
-        "lemon_squeezy" if (LEMON_SQUEEZY_API_KEY and LEMON_SQUEEZY_STORE_ID)
-        else "gumroad" if GUMROAD_API_KEY
-        else "disabled"
-    )
+    provider = _resolve_provider()
     return {
-        "publishable_key": "",
+        "publishable_key": STRIPE_PUBLISHABLE_KEY if provider == "stripe" else "",
         "products": PAYMENT_PRODUCTS,
         "payments_enabled": PAYMENTS_ENABLED,
         "provider": provider,
+        "stripe_publishable_key": STRIPE_PUBLISHABLE_KEY if provider == "stripe" else "",
     }
+
+
+async def _create_stripe_checkout(product_key: str, product: dict, amount_cents: int,
+                                  is_subscription: bool, user) -> Optional[dict]:
+    """Create a hosted Stripe Checkout Session.
+
+    Returns {"url", "id"} on success, or None if Stripe isn't configured / the
+    SDK is unavailable / Stripe can't build the session. The caller falls back
+    to the next provider in the chain (Lemon Squeezy → Gumroad).
+    """
+    stripe = _stripe()
+    if not stripe:
+        return None
+    try:
+        base_url = FRONTEND_URL.rstrip("/")
+        metadata = {"product_key": product_key}
+        # A deterministic ledger so the webhook can attribute the sale back to
+        # this platform user even when their email differs on Stripe.
+        client_ref = getattr(user, "id", "") or (getattr(user, "email", "") or "") or "guest"
+        params: dict = {
+            "client_reference_id": str(client_ref),
+            "metadata": metadata,
+            "success_url": f"{base_url}/payment/success?session_id={{CHECKOUT_SESSION_ID}}",
+            "cancel_url": f"{base_url}/payment/cancel",
+            "mode": "payment",
+        }
+        if is_subscription:
+            interval = product.get("interval", "month")
+            price = await asyncio.to_thread(
+                stripe.Price.create,
+                currency="usd",
+                unit_amount=amount_cents,
+                recurring={"interval": interval, "interval_count": 1},
+                product_data={"name": product["name"]},
+            )
+            params["mode"] = "subscription"
+            params["line_items"] = [{"price": price["id"], "quantity": 1}]
+        else:
+            params["line_items"] = [{
+                "price_data": {
+                    "currency": "usd",
+                    "unit_amount": amount_cents,
+                    "product_data": {"name": product["name"]},
+                },
+                "quantity": 1,
+            }]
+        session = await asyncio.to_thread(stripe.checkout.Session.create, **params)
+        if not session or not session.get("url"):
+            return None
+        return {"url": session["url"], "id": session.get("id", "")}
+    except Exception:
+        logger.exception("Stripe checkout failed for %s — falling back to next provider", product_key)
+        return None
 
 
 @router.post("/checkout")
@@ -350,7 +506,23 @@ async def create_checkout_session(req: CheckoutReq, user=Depends(_dep_current_us
     mode = product["mode"]
     is_subscription = mode == "subscription"
 
-    # Tier 1 — Lemon Squeezy (digital products + subscriptions)
+    # Tier 1 — Stripe (hosted Checkout Session — one-time + subscriptions)
+    stripe_session = await _create_stripe_checkout(
+        product_key=req.product_key,
+        product=product,
+        amount_cents=amount,
+        is_subscription=is_subscription,
+        user=user,
+    )
+    if stripe_session:
+        await audit(
+            user.id, "payment_checkout_created",
+            meta={"product": req.product_key, "provider": "stripe",
+                  "session_id": stripe_session.get("id")},
+        )
+        return {"url": stripe_session["url"], "session_id": stripe_session.get("id")}
+
+    # Tier 2 — Lemon Squeezy (digital products + subscriptions)
     ls_result = await _publish_lemon_squeezy(
         name=product["name"],
         description=product.get("description", ""),
@@ -366,7 +538,7 @@ async def create_checkout_session(req: CheckoutReq, user=Depends(_dep_current_us
                           "session_id": ls_result.get("product_id")})
         return {"url": ls_result["url"], "session_id": ls_result.get("product_id")}
 
-    # Tier 2 — Gumroad (one-time digital purchases only)
+    # Tier 3 — Gumroad (one-time digital purchases only)
     if not is_subscription:
         gr_result = await _publish_gumroad(product["name"], product.get("description", ""), amount)
         if gr_result:
@@ -378,14 +550,213 @@ async def create_checkout_session(req: CheckoutReq, user=Depends(_dep_current_us
     if not PAYMENTS_ENABLED:
         raise HTTPException(
             501,
-            "Payments are not configured. Add LEMON_SQUEEZY_API_KEY + LEMON_SQUEEZY_STORE_ID "
-            "or GUMROAD_API_KEY in your environment.",
+            "Payments are not configured. Add STRIPE_SECRET_KEY (or LEMON_SQUEEZY_API_KEY + "
+            "LEMON_SQUEEZY_STORE_ID, or GUMROAD_API_KEY) in your environment.",
         )
     raise HTTPException(
         500,
         "Payment processing failed. The payment providers are configured but the request could not be completed. "
-        "Check your Lemon Squeezy or Gumroad API keys and try again.",
+        "Check your Stripe, Lemon Squeezy, or Gumroad API keys and try again.",
     )
+
+
+@router.post("/stripe-webhook")
+async def stripe_webhook(request: Request):
+    """Stripe webhook — verify signature, then fulfill the paid contract.
+
+    Configure in Stripe → Developers → Webhooks with endpoint:
+        {FRONTEND_URL}/api/payments/stripe-webhook
+    Events to send: check.session.completed, customer.subscription.deleted,
+    invoice.paid (for live renewals). The checkout session carries
+    `metadata.product_key` (catalog key or "media") so fulfillment is
+    deterministic and idempotent.
+
+    Returns 202 to acknowledge even when the SDK/types are missing so Stripe
+    does not fire endless retries for cosmetic failures; contract-critical
+    errors still surface in the audit log.
+    """
+    import json
+    if not STRIPE_WEBHOOK_SECRET:
+        raise HTTPException(404, "Stripe webhook not configured (STRIPE_WEBHOOK_SECRET)")
+    payload = await request.body()
+    sig_header = request.headers.get("stripe-signature", "")
+    stripe = _stripe()
+    if not stripe:
+        raise HTTPException(404, "Stripe SDK unavailable")
+    try:
+        event = stripe.Webhook.construct_event(payload, sig_header, STRIPE_WEBHOOK_SECRET)
+    except Exception:
+        logger.exception("Stripe webhook signature verification failed")
+        raise HTTPException(400, "Invalid Stripe signature")
+
+    event_type = event.get("type", "")
+    event_id = str(event.get("id", ""))
+    # Idempotency — same as the Lemon Squeezy webhook; duplicate delivery is a no-op.
+    if event_id:
+        try:
+            await db.webhook_events.insert_one({
+                "_id": event_id,
+                "event_name": event_type,
+                "provider": "stripe",
+                "received_at": datetime.now(timezone.utc).isoformat(),
+            })
+        except Exception as _dup:
+            if getattr(_dup, "code", None) == 11000:
+                return {"received": True, "duplicate": True}
+            pass
+
+    data_obj = event.get("data", {}).get("object", {}) or {}
+
+    # ── One-time purchase / subscription activation ──────────────────────────
+    if event_type == "checkout.session.completed":
+        session = data_obj
+        session_meta = session.get("metadata") or {}
+        product_key = session_meta.get("product_key", "")
+        session_id = str(session.get("id", ""))
+        amount_cents = int(session.get("amount_total") or 0)
+        buyer_email = (session.get("customer_details") or {}).get("email") or ""
+        paid = session.get("payment_status") == "paid"
+        # raw = "subscription" if session['mode'] == 'subscription' else "payment"
+
+        client_ref = str(session.get("client_reference_id") or "")
+        # Prefer the deterministic buyer id in client_reference_id, else match email.
+        buyer_id = client_ref if (client_ref and client_ref not in ("guest", "")) else ""
+
+        # Media Store digital product — match the pending-sale row (buyer + title)
+        if product_key == "media":
+            title = session_meta.get("product_title") or ""
+            try:
+                await _fulfill_media_order(buyer_email=buyer_email, product_name=title,
+                                           order_id=session_id)
+            except Exception:
+                logger.exception("Stripe webhook: media fulfillment failed (%s)", session_id)
+            return {"received": True}
+
+        # Catalog product — record the order, grant tier / BYOK / scholarship.
+        await _record_stripe_order({
+            "session": session, "session_id": session_id,
+            "product_key": product_key, "amount_cents": amount_cents,
+            "buyer_email": buyer_email, "buyer_id": buyer_id,
+            "paid": paid, "mode": session.get("mode", "payment"),
+        })
+        return {"received": True}
+
+    # ── Subscriptions: renewal keeps the tier live (still under its product).
+    if event_type == "invoice.paid":
+        sub_id = str(data_obj.get("subscription") or "")
+        meta = {}  # invoice objects carry customer + a linked subscription, not our metadata
+        if sub_id:
+            # Re-grant is upgrade-only/idempotent; nothing else is needed since
+            # our metadata product_key isn't on the invoice. Tie by subscription.
+            try:
+                await db.payments.update_one(
+                    {"provider_order_id": sub_id, "provider": "stripe"},
+                    {"$set": {"status": "active",
+                              "last_invoice_paid_at": datetime.now(timezone.utc).isoformat()}},
+                    upsert=True,
+                )
+            except Exception:
+                logger.exception("Stripe webhook: invoice.paid update failed")
+        return {"received": True}
+
+    # ── Subscription cancelled / unpaid → revoke the tier it granted.
+    if event_type in ("customer.subscription.deleted", "invoice.payment_failed"):
+        sub_id = str(data_obj.get("id") or "")
+        user_id = str(data_obj.get("metadata", {}).get("user_id") or "")
+        if not user_id:
+            # Recover the user from the recorded order.
+            row = await db.payments.find_one(
+                {"provider_order_id": sub_id, "provider": "stripe"}, {"user_id": 1})
+            user_id = str((row or {}).get("user_id") or "")
+        if not user_id:
+            return {"received": True}
+        now = datetime.now(timezone.utc)
+        user_doc = await db.users.find_one(
+            {"id": user_id},
+            {"_id": 0, "feature_tier": 1, "feature_tier_product": 1,
+             "feature_tier_revert_to": 1},
+        )
+        if not user_doc:
+            return {"received": True}
+        revert_to = (user_doc.get("feature_tier_revert_to") or "free")
+        set_fields = {
+            "feature_tier": revert_to,
+            "feature_tier_source": "revoked",
+            "feature_tier_product": "",
+            "feature_tier_revoked_at": now.isoformat(),
+            "feature_tier_updated_at": now.isoformat(),
+        }
+        await db.users.update_one({"id": user_id}, {"$set": set_fields})
+        try:
+            await audit(user_id, "subscription.revoked",
+                        meta={"event": event_type, "product": user_doc.get("feature_tier_product")})
+        except Exception:
+            pass
+        try:
+            await notify(user_id, "Subscription Ended",
+                         "Your subscription has ended, so the features it unlocked were reverted. "
+                         "You can upgrade again anytime from the Plans page.",
+                         link="/plans", kind="warning")
+        except Exception:
+            pass
+        return {"received": True}
+
+    return {"received": True}
+
+
+async def _record_stripe_order(info: dict) -> None:
+    """Record a completed Stripe order and apply its contract (tier/BYOK)."""
+    user_id = info.get("buyer_id", "")
+    buyer_email = info.get("buyer_email", "")
+    product_key = info.get("product_key", "")
+    if not user_id and buyer_email:
+        rd = await db.users.find_one({"email": buyer_email.lower()}, {"_id": 0, "id": 1})
+        if rd:
+            user_id = str(rd.get("id") or "")
+    try:
+        await db.payments.insert_one({
+            "id": str(uuid.uuid4()),
+            "user_id": user_id or None,
+            "provider": "stripe",
+            "provider_order_id": info.get("session_id", ""),
+            "product_key": product_key,
+            "amount_cents": info.get("amount_cents", 0),
+            "currency": "usd",
+            "mode": info.get("mode", "payment"),
+            "status": "paid" if info.get("paid") else info.get("mode", "payment"),
+            "buyer_email": buyer_email,
+            "created_at": datetime.now(timezone.utc).isoformat(),
+        })
+    except Exception:
+        logger.exception("Stripe webhook: payment record failed")
+
+    if info.get("paid") and product_key:
+        # BYOK $3 unlock / tier grant / scholarship — reuse the shared helpers.
+        email = buyer_email or ""
+        if email and product_key == "byok":
+            rd = await db.users.find_one({"email": email.lower()}, {"_id": 0, "id": 1})
+            if rd:
+                await db.users.update_one(
+                    {"id": rd["id"]},
+                    {"$set": {"byok_enabled": True, "byok_paid": True,
+                              "byok_order_id": info.get("session_id", ""),
+                              "byok_activated_at": datetime.now(timezone.utc).isoformat()}},
+                )
+                try:
+                    await audit(rd["id"], "byok.paid", meta={"product": "byok", "order_id": info.get("session_id")})
+                except Exception:
+                    pass
+        if email and product_key == "scholarship":
+            rd = await db.users.find_one({"email": email.lower()}, {"_id": 0, "id": 1})
+            if rd:
+                await db.scholarship_pledges.update_one(
+                    {"user_id": rd["id"], "status": "pending"},
+                    {"$set": {"status": "paid", "paid_at": datetime.now(timezone.utc).isoformat(),
+                              "provider_order_id": info.get("session_id", ""),
+                              "paid_amount_cents": info.get("amount_cents") or None}},
+                    sort=[("created_at", -1)],
+                )
+        await _grant_tier_by_email(email, product_key, reason="payment")
 
 
 @router.post("/webhook")
