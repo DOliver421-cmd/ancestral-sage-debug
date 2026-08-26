@@ -1489,6 +1489,10 @@ async def ensure_indexes():
                                           partialFilterExpression={"expires_at": {"$exists": True}})
         await db.more_appeals.create_index("status")
         await db.more_appeals.create_index("user_id")
+        # Payments webhook idempotency — duplicate order deliveries must not
+        # re-process the same financial event. Sparse unique so pre-existing
+        # rows without a provider_order_id (if any) don't violate the index.
+        await db.payments.create_index("provider_order_id", unique=True, sparse=True)
         # Credential public verification codes
         await db.user_credentials.create_index("verification_code", unique=True,
                                                sparse=True)

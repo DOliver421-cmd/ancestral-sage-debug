@@ -247,6 +247,21 @@ async def payments_webhook(request: Request):
         currency = data.get("currency", "usd")
         status = data.get("status", "")
 
+        # ── Idempotency guard ─────────────────────────────────────────────────
+        # The same Lemon Squeezy order may be redelivered (provider retry or
+        # duplicate webhook). A repeated delivery of the same provider order
+        # MUST NOT create a second payment record, grant, notification, or
+        # fulfillment. Dedup on the unique provider_order_id and ack idempotently.
+        if order_id:
+            try:
+                _prior = await db.payments.find_one(
+                    {"provider_order_id": order_id}, {"_id": 0, "id": 1})
+            except Exception:
+                _prior = None
+            if _prior:
+                return {"received": True, "idempotent": True}
+
+
         try:
             await db.payments.insert_one({
                 "id": str(uuid.uuid4()),

@@ -201,14 +201,61 @@ async def upload_media_file(file: UploadFile = File(...), user: User = Depends(_
     return {"file_url": file_url, "filename": file.filename, "size": len(contents)}
 
 @router.get("/media/file/{file_id}")
-async def get_media_file(file_id: str):
+async def get_media_file(file_id: str, user: User = Depends(_dep_current_user)):
+    """Serve a GridFS file with fail-closed access control.
+
+    This is the actual bytes-serving endpoint (uploads store file_url as
+    /api/media/file/<gfs_id>). It must not be bypassable by calling the file
+    endpoint directly:
+      - Unauthenticated requests are rejected (401) by _dep_current_user.
+      - If the file is referenced by a priced, published media_product, only
+        the product owner, a purchaser holding a media_purchases row, or an
+        admin/exec may stream it. No such reference => 403.
+      - Files referenced only by free (price_cents == 0) products remain
+        readable by any authenticated user.
+    Admins/executives bypass the product gate for moderation/administration.
+    """
     from bson import ObjectId
     from motor.motor_asyncio import AsyncIOMotorGridFSBucket
     from fastapi.responses import StreamingResponse
+
     try:
         oid = ObjectId(file_id)
     except Exception:
         raise HTTPException(400, "Invalid file ID")
+
+    # ── Fail-closed entitlement check on the serving path ────────────────────
+    is_admin = (ROLE_RANK.get(user.role, 0) or 0) >= (ROLE_RANK.get("admin", 3) or 3)
+    protected = False
+    entitled = False
+    try:
+        products = await db.media_products.find(
+            {"file_url": {"$regex": re.escape(str(oid)) + r"$"}},
+            {"_id": 0, "id": 1, "owner_id": 1, "price_cents": 1, "published": 1},
+        ).to_list(20)
+    except Exception:
+        products = []
+    for p in products:
+        if not p.get("published"):
+            continue
+        if (p.get("price_cents") or 0) > 0:
+            protected = True
+            if p.get("owner_id") == user.id:
+                entitled = True
+            else:
+                purchaser = await db.media_purchases.find_one(
+                    {"buyer_id": user.id, "product_id": p.get("id")},
+                    {"_id": 0, "id": 1},
+                )
+                if purchaser:
+                    entitled = True
+        elif not protected and not entitled:
+            # A free product referencing this file grants authenticated access.
+            pass
+
+    if protected and not entitled and not is_admin:
+        raise HTTPException(403, "Purchase required to access this file.")
+
     bucket = AsyncIOMotorGridFSBucket(db)
     try:
         stream = await bucket.open_download_stream(oid)

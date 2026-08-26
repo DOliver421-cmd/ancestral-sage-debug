@@ -3175,6 +3175,16 @@ async def persona_chat(slug: str, body: _PersonaChatReq, user: User = Depends(_d
         raise HTTPException(404, "Persona not found")
     check_rate(f"persona_chat:{user.id}", max_calls=30, window_sec=60)
 
+    # Enforce persona activation state at the dispatch boundary.
+    try:
+        _activ = await db.persona_activations.find_one({"persona": slug}, {"_id": 0, "status": 1})
+        if _activ is not None and _activ.get("status") not in ("active", None, ""):
+            raise HTTPException(403, f"{PERSONA_META.get(slug, {}).get('name', slug)} is currently deactivated.")
+    except HTTPException:
+        raise
+    except Exception:
+        pass
+
     system = load_personas()[slug]
     from ai import source_protocol as _sp
     system = _sp.compose_system(system)
@@ -3188,6 +3198,13 @@ async def persona_chat(slug: str, body: _PersonaChatReq, user: User = Depends(_d
 
     reply = ""
     provider = None
+    # status distinguishes REAL execution from degraded outputs so a fallback
+    # is never presented as the persona answering in full:
+    #   "ok"      — a real LLM provider produced the reply
+    #   "kb"      — keyword knowledge-base fallback produced the reply (real but limited)
+    #   "fallback" — no AI connectivity; a canned persona-voiced message is emitted
+    #   "failure" — the provider call raised
+    _status = "ok"
     try:
         from ai.llm_gateway import call_llm as _call_llm
         _gw = await _call_llm(
@@ -3198,12 +3215,18 @@ async def persona_chat(slug: str, body: _PersonaChatReq, user: User = Depends(_d
         )
         provider = _gw.get("provider")
         reply = _gw.get("text", "") or ""
-    except Exception as e:
+        if provider == "kb_fallback":
+            _status = "kb"
+        elif not reply:
+            _status = "fallback"
+    except Exception:
         logger.exception("persona_chat AI error")
+        _status = "failure"
 
     if not reply:
         reply = (f"{PERSONA_META.get(slug, {}).get('name', slug)} is present — "
                  "but operating without AI connectivity right now. Try again shortly.")
+        _status = "fallback"
 
     try:
         await db.chat_history.insert_one({
@@ -3214,11 +3237,12 @@ async def persona_chat(slug: str, body: _PersonaChatReq, user: User = Depends(_d
             "user_msg": body.message,
             "assistant_msg": reply,
             "provider": provider,
+            "status": _status,
             "created_at": datetime.now(timezone.utc).isoformat(),
         })
     except Exception:
         pass
-    return {"reply": reply, "persona": slug, "provider": provider}
+    return {"reply": reply, "persona": slug, "provider": provider, "status": _status}
 
 
 @router.get("/personas/{slug}/controls")
