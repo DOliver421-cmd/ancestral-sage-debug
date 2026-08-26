@@ -159,18 +159,20 @@ async def reload_payment_keys(db=None) -> int:
     return loaded
 
 # Product catalog — amounts in cents USD.
-# physical=True items are not sold online yet (no fulfillment provider wired up).
+# Only every item here is fully fulfillable end-to-end. A membership purchase
+# grants its tier (or a credential/DYOK/donation/scholarship row) via the webhook.
+# Physical SKUs were removed: no delivery provider is wired, so selling them
+# would be a dead end. The Arena/Our-Legacy digital keys were removed: they had
+# no media product or deliverable behind them — the real creator catalog lives
+# in db.media_products (Store feed). If a product cannot be delivered, it is not
+# listed here — no sale without fulfillment.
 PAYMENT_PRODUCTS = {
-    "tshirt":       {"name": "M.O.R.E. Help Center T-Shirt",         "amount": 2500, "mode": "payment",      "description": "Official M.O.R.E. apprentice tee", "physical": True},
-    "workbook":     {"name": "M.O.R.E. Help Center Workbook",        "amount": 1500, "mode": "payment",      "description": "Printed apprentice study guide", "physical": True},
-    "kit":          {"name": "M.O.R.E. Help Center Apprentice Kit",  "amount": 4500, "mode": "payment",      "description": "T-Shirt + Workbook bundle", "physical": True},
     "more_monthly":   {"name": "M.O.R.E. Membership – Monthly",   "amount":  999, "mode": "subscription", "interval": "month", "description": "Monthly M.O.R.E. community access"},
     "more_annual":    {"name": "M.O.R.E. Membership – Annual",    "amount": 7999, "mode": "subscription", "interval": "year",  "description": "Annual M.O.R.E. membership (save 33%)"},
     "member_monthly": {"name": "M.O.R.E. Member – Monthly",            "amount":  900, "mode": "subscription", "interval": "month", "description": "M.O.R.E. Member tier — full community + AI Tutor"},
     "plus_monthly":   {"name": "M.O.R.E. Plus – Monthly",              "amount": 1500, "mode": "subscription", "interval": "month", "description": "M.O.R.E. Plus tier — priority matching + expanded courses"},
     "pro_monthly":    {"name": "M.O.R.E. Pro – Monthly",               "amount": 2900, "mode": "subscription", "interval": "month", "description": "M.O.R.E. Pro tier — advanced courses, labs, full AI suite"},
     "patron_monthly": {"name": "M.O.R.E. Patron – Monthly",            "amount": 5900, "mode": "subscription", "interval": "month", "description": "M.O.R.E. Patron — founders circle + funds free access for others"},
-    "credential":     {"name": "M.O.R.E. Credential Certificate",      "amount": 2500, "mode": "payment",      "description": "Physical credential certificate", "physical": True},
     "donation":       {"name": "Donation – M.O.R.E. Help Center",      "amount": None, "mode": "payment",      "description": "Support the M.O.R.E. Help Center mission"},
     # BYOK — $3 one-time unlock (below instructor tier). Grants byok_enabled,
     # not a membership tier; instructor tier and above activate free.
@@ -183,30 +185,19 @@ PAYMENT_PRODUCTS = {
     "sanctuary_paid":    {"name": "M.O.R.E. Creator's Sanctuary – Paid Creator",    "amount":  700, "mode": "subscription", "interval": "month", "description": "Member-level creator lane — $7/mo", "deprecated": True},
     "sanctuary_creator": {"name": "M.O.R.E. Creator's Sanctuary – Advanced Creator","amount": 1100, "mode": "subscription", "interval": "month", "description": "Plus-level creator lane — $11/mo", "deprecated": True},
     "sanctuary_mod":     {"name": "M.O.R.E. Creator's Sanctuary – Certified Mod",   "amount": 1500, "mode": "subscription", "interval": "month", "description": "Pro-level creator lane — $15/mo", "deprecated": True},
-    # The Arena — self-improvement digital products (no comparison, only personal bests)
-    "arena_workbook":    {"name": "The Arena Workbook: 21-Day Self-Challenge",       "amount": 2700, "mode": "payment",      "description": "Digital workbook + tracking sheets — outcompete your past self in 21 days"},
-    "arena_peer_guide":  {"name": "The Peer Guide: Group Accountability Workbook",    "amount": 4700, "mode": "payment",      "description": "Structured 12-week group challenges + facilitator scripts"},
-    "arena_license":     {"name": "The Arena License Kit (Coaches & Employers)",       "amount": 19700,"mode": "payment",      "description": "Editable slides, email templates, and facilitator guides for teams"},
-    "arena_album":       {"name": "Everyone Wins: Reflection Album",                   "amount": 999,  "mode": "payment",      "description": "Spoken word album — lyrics, liner notes, reflection guide"},
-    # Our Legacy, Our Future — the flagship book + campaign. One-time digital
-    # purchase (no tier grant — fulfillment/delivery runs through the payment
-    # provider's digital delivery). Refundable as site credit per the Refund
-    # Policy unless the failure was the platform's fault.
-    "book":              {"name": "Our Legacy, Our Future — Building Thriving Black Communities with AI", "amount": 8900, "mode": "payment", "description": "The flagship manual: 16 chapters + AI addendum + appendices on community-aligned AI across food, housing, education, economy, culture, worship, and governance. AI as partner, never replacement."},
 }
 
-# Legacy names (pre-rebrand) → product key, so webhook matching keeps working
-# for orders made under the old names. Current names match by exact string;
-# aliases are checked only when the exact match fails.
+# Legacy names (pre-rebrand) → product key, so the LS webhook keeps matching
+# orders made under the old names after the physical/arena removal. Current
+# names survive; deprecated-flag SKUs typed by a legacy alias are still
+# grantable if a legacy subscription somehow renews. Aliases that pointed at
+# REMOVED SKUs (tshirt/workbook/kit/credential/book/arena_*) are intentionally
+# absent — those products no longer exist and must not be sold.
 _LEGACY_PRODUCT_NAMES = {
-    "WAI Institute T-Shirt": "tshirt",
-    "WAI Apprentice Workbook": "workbook",
-    "WAI Apprentice Kit": "kit",
     "WAI Member – Monthly": "member_monthly",
     "WAI Plus – Monthly": "plus_monthly",
     "WAI Pro – Monthly": "pro_monthly",
     "WAI Patron – Monthly": "patron_monthly",
-    "WAI Credential Certificate": "credential",
     "Donation – WAI Institute": "donation",
     "Creators Sanctuary – 3-Day Trial": "sanctuary_trial",
     "Creators Sanctuary – Paid Creator": "sanctuary_paid",
@@ -517,6 +508,24 @@ async def create_checkout_session(req: CheckoutReq, user=Depends(_dep_current_us
         user=user,
     )
     if stripe_session:
+        # Pre-payment ledger so a dropped webhook is still reconcilable: the
+        # pending row carries the buyer + product, matching how the media
+        # checkout already records a pending sale before the provider round-trip.
+        try:
+            session_id = stripe_session.get("id") or ""
+            await db.payment_pending.insert_one({
+                "id": session_id or (str(uuid.uuid4())[:16]),
+                "user_id": user.id,
+                "buyer_email": (user.email or "").lower(),
+                "product_key": req.product_key,
+                "amount_cents": amount,
+                "provider": "stripe",
+                "provider_order": session_id or "",
+                "status": "pending",
+                "created_at": datetime.now(timezone.utc).isoformat(),
+            })
+        except Exception:
+            logger.exception("checkout: failed to record pending order for %s", req.product_key)
         await audit(
             user.id, "payment_checkout_created",
             meta={"product": req.product_key, "provider": "stripe",
@@ -633,6 +642,16 @@ async def stripe_webhook(request: Request):
             except Exception:
                 logger.exception("Stripe webhook: media fulfillment failed (%s)", session_id)
             return {"received": True}
+
+        # Mark the pre-payment pending row fulfilled (it unmatchable rows remain
+        # pending and are surfaced for human reconciliation). Idempotent by design.
+        try:
+            await db.payment_pending.update_one(
+                {"provider_order": session_id, "status": "pending"},
+                {"$set": {"status": "fulfilled", "fulfilled_at": datetime.now(timezone.utc).isoformat()}},
+            )
+        except Exception:
+            pass
 
         # Catalog product — record the order, grant tier / BYOK / scholarship.
         await _record_stripe_order({
