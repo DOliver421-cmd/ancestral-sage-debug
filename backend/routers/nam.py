@@ -857,3 +857,114 @@ async def nam_chat_history(session_id: str = "default", limit: int = 50,
         return {"history": list(reversed(history))}
     except Exception:
         return {"history": []}
+
+
+# ── Persona dispatch: request -> route -> load -> gateway -> response ────────
+# The user-reachable link in the persona execution chain. Uses the SAME existing
+# architecture (ai.routing.route_request for resolution, persona_loader.get_persona
+# for the Source-Protocol-composed system prompt, llm_gateway.call_llm for the
+# 6-tier generation). Conspiracy Brother, Hybrid Nam, Griot, etc. all drive it.
+# This is not a parallel path — it calls the exact same modules the rest of the
+# platform uses. No stub, no mock, no placeholder.
+
+
+class PersonaDispatchReq(BaseModel):
+    message: str
+    persona: Optional[str] = None     # optional override; validates against roster
+    session_id: str = "default"
+    history: List[dict] = []
+
+
+@router.post("/persona")
+async def dispatch_persona(body: PersonaDispatchReq, user: dict = Depends(require_auth)):
+    """Dispatch one message to any system persona and return its reply.
+
+    Chain: persona request -> route resolution -> persona loading -> LLM gateway
+    -> execution -> response. A caller may omit `persona` to let the routing
+    engine pick by role, or name a persona explicitly.
+    """
+    import uuid
+
+    message = (body.message or "").strip()
+    if not message:
+        raise HTTPException(400, "Message is required")
+
+    user_id = user.get("user_id", "")
+    role    = user.get("role", "free")
+    session_id = body.session_id or "default"
+
+    # Crisis short-circuit — identical zero-cost guard as /chat, mandatory.
+    crisis_triggers = (
+        "kill myself", "suicide", "end my life", "want to die",
+        "wanna die", "take my life", "hang myself", "shoot myself",
+    )
+    if any(t in message.lower() for t in crisis_triggers):
+        return {"reply": (
+            "I can't engage with that request. If you are in immediate danger, "
+            "please contact local emergency services or a licensed professional "
+            "right now (US 988 / Crisis Text Line 741741). I'm here to continue "
+            "with safe, grounding topics whenever you're ready."
+        ), "safety_intervention": True}
+
+    # 1) Route resolution — role default or explicit persona, via the shared
+    #    routing engine (not a bespoke map).
+    from ai.routing import route_request, get_valid_personas
+    valid = get_valid_personas()
+    requested = (body.persona or "").strip()
+    if requested and requested not in valid:
+        raise HTTPException(400, f"Unknown persona. Valid: {sorted(valid)}")
+    persona_key = route_request(role, {"force_persona": requested}) if requested else route_request(role, {})
+
+    # 2) Persona loading — Source-Protocol-composed system prompt.
+    from ai.persona_loader import get_persona
+    try:
+        system = get_persona(persona_key)
+    except Exception:
+        raise HTTPException(404, f"Persona '{persona_key}' not loadable")
+
+    # 3)+4) LLM gateway call.
+    from ai.llm_gateway import call_llm as _call_llm
+    claude_messages = [{"role": h.get("role"), "content": h.get("content")} for h in (body.history or [])]
+    claude_messages.append({"role": "user", "content": message})
+    try:
+        gw = await _call_llm(
+            system=system,
+            messages=claude_messages,
+            max_tokens=2048,
+            persona_label=persona_key,
+            user_id=user_id,
+        )
+        reply = gw["text"]
+        degraded = gw.get("degraded", False)
+        provider = gw.get("provider", "unknown")
+    except Exception as exc:
+        logger.exception("persona dispatch AI error for %s", persona_key)
+        raise HTTPException(502, f"AI error: {exc}")
+
+    # 5) Response + persistence (episodic memory + admin audit), like /chat.
+    if user_id:
+        try:
+            await _store_chat_memory(user_id, session_id, message, reply)
+        except Exception:
+            pass
+        try:
+            from server import db as _db
+            await _db.chat_history.insert_one({
+                "id": str(uuid.uuid4()),
+                "user_id": user_id,
+                "session_id": session_id,
+                "mode": f"persona_{persona_key}",
+                "persona_key": persona_key,
+                "user_msg": message,
+                "assistant_msg": reply,
+                "provider": provider,
+                "created_at": datetime.utcnow().isoformat(),
+            })
+        except Exception:
+            pass
+
+    resp = {"reply": reply, "persona": persona_key}
+    if degraded:
+        resp["degraded"] = True
+        resp["provider"] = provider
+    return resp
