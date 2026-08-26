@@ -751,3 +751,74 @@ async def abo_public_status():
         "month_pct": month_pct,
         "status": "covered" if month_pct >= 100 else "on_track" if month_pct >= 70 else "watch" if month_pct >= 30 else "critical",
     }
+
+
+# ── GET/POST /abo/source — THE SOURCE (root protocol) live status ───────────
+# The Source Protocol engine already lives in ai/source_protocol.py and is
+# composed into every AI prompt at the gateway. These endpoints expose it so
+# the Business Office panel reads and drives the real system, not a mock.
+
+@router.get("/abo/source")
+async def abo_source(user: User = Depends(_dep_current_user)):
+    """Live Source protocol status — every read re-audits and reports drift."""
+    try:
+        from ai.source_protocol import run_maintenance
+        return run_maintenance()
+    except Exception as e:
+        logger.warning("abo/source failed: %s", e)
+        raise HTTPException(500, f"Source protocol status unavailable: {e}")
+
+
+@router.get("/abo/source/controls")
+async def abo_source_controls(user: User = Depends(_dep_current_user)):
+    """Current Human Control sliders — any signed-in member may read."""
+    try:
+        from ai.source_protocol import (
+            get_controls, CONTROL_ORDER, CONTROL_DEFAULTS,
+            _CONTROL_LABELS, _CONTROL_HINTS,
+        )
+        return {
+            "controls": get_controls(),
+            "order": list(CONTROL_ORDER),
+            "labels": dict(_CONTROL_LABELS),
+            "hints": dict(_CONTROL_HINTS),
+            "defaults": dict(CONTROL_DEFAULTS),
+        }
+    except Exception as e:
+        logger.warning("abo/source/controls failed: %s", e)
+        raise HTTPException(500, f"Source controls unavailable: {e}")
+
+
+@router.post("/abo/source/controls")
+async def abo_source_controls_save(
+    body: dict,
+    user: User = Depends(_require_rank("executive_admin", "admin")),
+):
+    """Persist the executive's sliders — they compile into every AI prompt."""
+    controls = body.get("controls")
+    if not isinstance(controls, dict):
+        raise HTTPException(400, "controls must be an object of knob -> 0..100")
+    try:
+        from ai.source_protocol import set_controls
+        new = set_controls(controls)
+    except Exception as e:
+        logger.warning("abo/source/controls save failed: %s", e)
+        raise HTTPException(500, f"Could not apply controls: {e}")
+    now = datetime.now(timezone.utc).isoformat()
+    await db.source_controls.update_one(
+        {"_id": "master"},
+        {"$set": {"controls": new, "updated_by": user.id, "updated_at": now}},
+        upsert=True,
+    )
+    return {"controls": new, "updated_at": now}
+
+
+# ── POST /abo/goals — set the monthly revenue goal ──────────────────────────
+@router.post("/abo/goals")
+async def abo_set_goals(body: dict, user: User = Depends(_require_rank("executive_admin", "admin"))):
+    """Set the ABO monthly revenue goal (cents). Persisted in the config singleton."""
+    monthly = body.get("monthly_goal_cents")
+    if not isinstance(monthly, int) or monthly <= 0:
+        raise HTTPException(400, "monthly_goal_cents must be a positive integer")
+    await _save_config({"monthly_goal_cents": monthly}, user)
+    return {"ok": True, "monthly_goal_cents": monthly}

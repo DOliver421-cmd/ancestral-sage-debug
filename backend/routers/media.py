@@ -47,8 +47,14 @@ async def _media_stripe_checkout(title: str, desc: str, amount_cents: int, produ
     Returns {"url", "id"} or None when Stripe isn't configured / SDK missing /
     the session can't be built. The caller falls back to Lemon Squeezy → Gumroad.
     """
-    sk = os.environ.get("STRIPE_SECRET_KEY", "")
-    pub = os.environ.get("STRIPE_PUBLISHABLE_KEY", "")
+    # Read from the payments module state, NOT raw os.environ: the exec
+    # Provider Gateway reloads keys into routers.payments globals on save,
+    # so a key pasted in the panel must power media checkout too (the book
+    # buy path). Env-set keys flow into those globals at import time, so
+    # both sources work through the same read.
+    from routers import payments as _payments_mod
+    sk = _payments_mod.STRIPE_SECRET_KEY
+    pub = _payments_mod.STRIPE_PUBLISHABLE_KEY
     if not (sk and pub):
         return None
     try:

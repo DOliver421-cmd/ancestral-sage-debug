@@ -156,3 +156,193 @@ async def cl_request_collab(project_id: str, body: _CLCollab, user: User = Depen
 async def cl_my_projects(user: User = Depends(_dep_current_user)):
     cursor = db.cl_projects.find({"owner_id": user.id}, {"_id": 0}).sort("created_at", -1).limit(50)
     return {"projects": await cursor.to_list(50)}
+
+
+# ════════════════════════════════════════════════════════════════════════════
+# /my-projects — "Have your M.O.R.E. team work on it."
+# A member-owned project lifecycle: intake → assign → execute → review →
+# operate → deliver. The owner reviews every deliverable before it counts.
+# Storage: db.my_projects. Collection is separate from cl_projects (creator
+# lounge collabs) on purpose — different shape, different lifecycle.
+# ════════════════════════════════════════════════════════════════════════════
+
+_MY_PROJECT_STAGES = ["intake", "assign", "execute", "review", "operate", "deliver"]
+_MY_PROJECT_DAILY_RUN_LIMIT = 5
+
+
+def _my_project_doc(owner_id: str, body: dict) -> dict:
+    now = datetime.now(timezone.utc).isoformat()
+    return {
+        "id": str(uuid.uuid4()),
+        "owner_id": owner_id,
+        "title": (body.get("title") or "Untitled project").strip()[:160],
+        "brief": (body.get("brief") or "").strip()[:4000],
+        "desired_outcome": (body.get("desired_outcome") or "").strip()[:2000],
+        "category": (body.get("category") or "launch").strip()[:60],
+        "priority": (body.get("priority") or "normal").strip()[:20],
+        "current_stage": "intake",
+        "deliverables": [],
+        "comments": [],
+        "archived": False,
+        "created_at": now,
+        "updated_at": now,
+    }
+
+
+async def _my_project(project_id: str) -> Optional[dict]:
+    return await db.my_projects.find_one({"id": project_id}, {"_id": 0})
+
+
+async def _my_owned_project(project_id: str, user: User) -> dict:
+    proj = await _my_project(project_id)
+    if not proj:
+        raise HTTPException(404, "Project not found")
+    is_staff = getattr(user, "role", None) in ("admin", "executive_admin")
+    if proj.get("owner_id") != user.id and not is_staff:
+        raise HTTPException(403, "You don't own this project")
+    return proj
+
+
+async def _my_summary(user_id: str) -> dict:
+    all_docs = await db.my_projects.find({"owner_id": user_id}, {"_id": 0}).to_list(200)
+    active = [p for p in all_docs if not p.get("archived")]
+    pending = [p for p in all_docs if any(
+        d.get("approval_status") == "pending" for d in p.get("deliverables", [])
+    )]
+    # Runs today against the daily limit (best-effort, in-memory per request).
+    today = datetime.now(timezone.utc).isoformat()[:10]
+    runs_today = sum(
+        1 for p in all_docs
+        for d in p.get("deliverables", [])
+        if (d.get("submitted_at") or "").startswith(today)
+    )
+    return {
+        "active": len(active),
+        "pending_reviews": len(pending),
+        "daily_runs_left": max(0, _MY_PROJECT_DAILY_RUN_LIMIT - runs_today),
+        "daily_run_limit": _MY_PROJECT_DAILY_RUN_LIMIT,
+    }
+
+
+@router.get("/my-projects")
+async def my_projects_list(user: User = Depends(_dep_current_user)):
+    cursor = db.my_projects.find({"owner_id": user.id}, {"_id": 0}).sort("created_at", -1).limit(100)
+    projects = await cursor.to_list(100)
+    return {"projects": projects, "summary": await _my_summary(user.id)}
+
+
+@router.post("/my-projects")
+async def my_projects_create(body: dict, user: User = Depends(_dep_current_user)):
+    doc = _my_project_doc(user.id, body)
+    await db.my_projects.insert_one(doc)
+    return doc
+
+
+@router.get("/my-projects/{project_id}")
+async def my_projects_detail(project_id: str, user: User = Depends(_dep_current_user)):
+    return await _my_owned_project(project_id, user)
+
+
+@router.post("/my-projects/{project_id}/run-stage")
+async def my_projects_run_stage(project_id: str, body: dict, user: User = Depends(_dep_current_user)):
+    proj = await _my_owned_project(project_id, user)
+    if proj.get("archived"):
+        raise HTTPException(400, "Archived projects can't be run")
+    persona = (body.get("persona") or "Production").strip()[:60]
+    instructions = (body.get("instructions") or "").strip()[:4000]
+    stage = proj.get("current_stage", "intake")
+    now = datetime.now(timezone.utc).isoformat()
+    title = instructions.split("\n")[0][:80] if instructions else f"{persona} work item"
+    deliverable = {
+        "id": str(uuid.uuid4()),
+        "title": title or f"{persona} work item",
+        "content": "",
+        "stage": stage,
+        "persona": persona,
+        "instructions": instructions,
+        "approval_status": "pending",
+        "submitted_at": now,
+        "metadata": {"auto": True},
+    }
+    await db.my_projects.update_one(
+        {"id": project_id},
+        {"$push": {"deliverables": deliverable}, "$set": {"updated_at": now}},
+    )
+    await audit(user.id, "my_project.run_stage", target=project_id, meta={"stage": stage, "persona": persona})
+    return await _my_owned_project(project_id, user.id)
+
+
+@router.post("/my-projects/{project_id}/approve")
+async def my_projects_decide(project_id: str, body: dict, user: User = Depends(_dep_current_user)):
+    proj = await _my_owned_project(project_id, user)
+    action = body.get("action")
+    status_map = {"approve": "approved", "reject": "rejected", "request_revision": "revision_requested"}
+    if action not in status_map:
+        raise HTTPException(400, "action must be approve, reject, or request_revision")
+    new_status = status_map[action]
+    notes = (body.get("notes") or "").strip()[:2000]
+    now = datetime.now(timezone.utc).isoformat()
+    # Apply the decision to every pending deliverable (the UI decides per
+    # project, not per item).
+    pending = [d for d in proj.get("deliverables", []) if d.get("approval_status") == "pending"]
+    if not pending:
+        raise HTTPException(400, "Nothing is awaiting your review")
+    for d in pending:
+        await db.my_projects.update_one(
+            {"id": project_id, "deliverables.id": d["id"]},
+            {"$set": {
+                "deliverables.$.approval_status": new_status,
+                "deliverables.$.reviewed_at": now,
+                "deliverables.$.review_notes": notes,
+            }},
+        )
+    await db.my_projects.update_one({"id": project_id}, {"$set": {"updated_at": now}})
+    await audit(user.id, "my_project.review", target=project_id, meta={"action": action, "items": len(pending)})
+    return {"status": new_status, "reviewed": len(pending)}
+
+
+@router.post("/my-projects/{project_id}/advance")
+async def my_projects_advance(project_id: str, user: User = Depends(_dep_current_user)):
+    proj = await _my_owned_project(project_id, user)
+    if proj.get("archived"):
+        raise HTTPException(400, "Archived projects can't be advanced")
+    idx = _MY_PROJECT_STAGES.index(proj.get("current_stage")) if proj.get("current_stage") in _MY_PROJECT_STAGES else 0
+    next_stage = _MY_PROJECT_STAGES[min(idx + 1, len(_MY_PROJECT_STAGES) - 1)]
+    now = datetime.now(timezone.utc).isoformat()
+    await db.my_projects.update_one(
+        {"id": project_id},
+        {"$set": {"current_stage": next_stage, "updated_at": now}},
+    )
+    return {"ok": True, "current_stage": next_stage}
+
+
+@router.post("/my-projects/{project_id}/archive")
+async def my_projects_archive(project_id: str, user: User = Depends(_dep_current_user)):
+    await _my_owned_project(project_id, user)
+    now = datetime.now(timezone.utc).isoformat()
+    await db.my_projects.update_one(
+        {"id": project_id},
+        {"$set": {"archived": True, "updated_at": now}},
+    )
+    return {"ok": True, "archived": True}
+
+
+@router.post("/my-projects/{project_id}/comments")
+async def my_projects_comment(project_id: str, body: dict, user: User = Depends(_dep_current_user)):
+    proj = await _my_owned_project(project_id, user)
+    text = (body.get("text") or "").strip()[:2000]
+    if not text:
+        raise HTTPException(400, "text is required")
+    now = datetime.now(timezone.utc).isoformat()
+    comment = {
+        "id": str(uuid.uuid4()),
+        "text": text,
+        "user_id": user.id,
+        "user_name": getattr(user, "full_name", None) or user.email,
+        "created_at": now,
+    }
+    await db.my_projects.update_one(
+        {"id": project_id},
+        {"$push": {"comments": comment}, "$set": {"updated_at": now}},
+    )
+    return {"ok": True, "comment": comment}

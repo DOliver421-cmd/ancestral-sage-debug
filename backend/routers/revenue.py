@@ -337,3 +337,37 @@ async def revenue_resume_preview(user: User = Depends(_dep_current_user)):
         "portfolio_bio": (portfolio or {}).get("bio", ""),
         "portfolio_projects": (portfolio or {}).get("projects", []),
     }
+
+
+# ── Sovereign Workspaces — member groups for the Revenue Division ────────────
+# Collection: db.sovereign_workspaces. Admin/exec manage workspaces; members
+# are referenced by user id in member_ids.
+
+@router.get("/revenue/sovereign/workspaces")
+async def revenue_sovereign_workspaces(user: User = Depends(_require_rank("admin", "executive_admin"))):
+    """List Sovereign workspaces (admin/exec only)."""
+    cursor = db.sovereign_workspaces.find({}, {"_id": 0}).sort("created_at", -1).to_list(200)
+    return {"workspaces": await cursor}
+
+
+@router.post("/revenue/sovereign/workspace")
+async def revenue_sovereign_workspace_create(
+    body: dict,
+    user: User = Depends(_require_rank("admin", "executive_admin")),
+):
+    """Create a Sovereign workspace."""
+    name = (body.get("name") or "").strip()
+    if not name:
+        raise HTTPException(400, "name is required")
+    member_ids = body.get("member_ids")
+    if not isinstance(member_ids, list):
+        member_ids = []
+    doc = {
+        "workspace_id": str(uuid.uuid4()),
+        "name": name[:120],
+        "member_ids": [str(m) for m in member_ids][:200],
+        "owner_id": user.id,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    }
+    await db.sovereign_workspaces.insert_one(doc)
+    return {"ok": True, "workspace": doc}

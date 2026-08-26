@@ -135,6 +135,8 @@ async def reload_payment_keys(db=None) -> int:
                             STRIPE_SECRET_KEY = key
                         if not os.environ.get("STRIPE_PUBLISHABLE_KEY", "").strip():
                             STRIPE_PUBLISHABLE_KEY = _decrypt("second_encrypted_key")
+                        if not os.environ.get("STRIPE_WEBHOOK_SECRET", "").strip():
+                            STRIPE_WEBHOOK_SECRET = _decrypt("third_encrypted_key")
                     elif ptype == "lemon_squeezy":
                         if not os.environ.get("LEMON_SQUEEZY_API_KEY", "").strip():
                             LEMON_SQUEEZY_API_KEY = key

@@ -38,6 +38,10 @@ class QuickSetupRequest(BaseModel):
     #   stripe         → publication key
     #   lemon_squeezy  → store id
     secondary_key: Optional[str] = ""
+    # Optional third credential — stripe webhook secret (whsec_…).
+    # Without it the checkout works but the webhook 404s and buyers never
+    # get their order recorded, so the exec panel requires it for Stripe.
+    third_key: Optional[str] = ""
 
 async def _user(authorization: Optional[str] = Header(None)):
     return await current_user(authorization)
@@ -133,6 +137,8 @@ async def quick_setup(body: QuickSetupRequest, user=Depends(_user)):
     # Dual-key providers require both credentials.
     if provider_type == "stripe" and not secondary:
         raise HTTPException(400, "Stripe needs BOTH the secret key and the publishable key.")
+    if provider_type == "stripe" and not (body.third_key or "").strip():
+        raise HTTPException(400, "Stripe also needs the webhook secret (whsec_…) so paid orders can be recorded.")
     if provider_type == "lemon_squeezy" and not secondary:
         raise HTTPException(400, "Lemon Squeezy needs BOTH the API key and the store id.")
     fernet = _fernet()
@@ -151,6 +157,10 @@ async def quick_setup(body: QuickSetupRequest, user=Depends(_user)):
     if secondary:
         upd["second_encrypted_key"] = fernet.encrypt(secondary.encode()).decode()
         upd["second_masked"] = _mask(secondary)
+    third = (body.third_key or "").strip()
+    if third:
+        upd["third_encrypted_key"] = fernet.encrypt(third.encode()).decode()
+        upd["third_masked"] = _mask(third)
     await db.api_keys.update_one(
         {"provider_id": provider_id},
         {"$set": upd, "$setOnInsert": {"id": str(uuid.uuid4()), "created_at": now}},
