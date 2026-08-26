@@ -425,6 +425,46 @@ async def get_media_file(
         oid = ObjectId(file_id)
     except Exception:
         raise HTTPException(400, "Invalid file ID")
+
+    # ── Fail-closed entitlement check on the serving path ────────────────────
+    # user may be None (unauthenticated public saga asset request). Treat
+    # anonymous callers as non-admin and let the entitlement/preview logic
+    # include them later rather than crashing into a 500.
+    is_admin = user is not None and (ROLE_RANK.get(user.role, 0) or 0) >= (ROLE_RANK.get("admin", 3) or 3)
+    protected = False
+    entitled = False
+    try:
+        products = await db.media_products.find(
+            {"file_url": {"$regex": re.escape(str(oid)) + r"$"}},
+            {"_id": 0, "id": 1, "owner_id": 1, "price_cents": 1, "published": 1},
+        ).to_list(20)
+    except Exception:
+        products = []
+    try:
+        for p in products:
+            if not p.get("published"):
+                continue
+            if (p.get("price_cents") or 0) > 0:
+                protected = True
+                # user may be None for an unauthenticated (public-asset) request.
+                # Never dereference user.id then; an anonymous call to a paid file
+                # must resolve to the fail-closed 403 below, not a 500 crash.
+                if user is not None and p.get("owner_id") == user.id:
+                    entitled = True
+                elif user is not None:
+                    purchaser = await db.media_purchases.find_one(
+                        {"buyer_id": user.id, "product_id": p.get("id")},
+                        {"_id": 0, "id": 1},
+                    )
+                    if purchaser:
+                        entitled = True
+            elif user is not None and not protected and not entitled:
+                # A free product referencing this file grants authenticated access.
+                pass
+
+    if protected and not entitled and not is_admin:
+        raise HTTPException(403, "Purchase required to access this file.")
+
     bucket = AsyncIOMotorGridFSBucket(db)
     try:
         stream = await bucket.open_download_stream(oid)
