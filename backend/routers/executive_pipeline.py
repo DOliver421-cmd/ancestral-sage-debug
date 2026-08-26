@@ -27,6 +27,7 @@ from typing import Optional, List
 from fastapi import APIRouter, Depends, HTTPException, Header, Query, Request
 from pydantic import BaseModel, Field
 from bson import ObjectId
+from deps import get_db as _shared_db
 
 router = APIRouter(prefix="/api/executive", tags=["executive-pipeline"])
 
@@ -84,7 +85,7 @@ def _require_rank(*roles):
             payload = jwt.decode(token, secret, algorithms=[algo])
         except Exception:
             raise HTTPException(status_code=401, detail="Invalid token")
-        user = await request.app.state.db.users.find_one({"id": payload.get("sub", "")})
+        user = await _shared_db().users.find_one({"id": payload.get("sub", "")})
         if not user:
             raise HTTPException(status_code=401, detail="User not found")
         if user.get("is_active") is False:
@@ -295,7 +296,7 @@ async def list_projects(
     request: Request = None,
 ):
     """List all executive pipeline projects."""
-    db = request.app.state.db
+    db = _shared_db()
     q = {}
     if status:
         q["status"] = status
@@ -312,7 +313,7 @@ async def create_project(
     request: Request = None,
 ):
     """Create a new project in the pipeline. Starts at 'intake'."""
-    db = request.app.state.db
+    db = _shared_db()
     now = _now()
     doc = {
         "title": body.title,
@@ -355,7 +356,7 @@ async def get_project(
     request: Request = None,
 ):
     """Get full project with all stages, deliverables, and context."""
-    db = request.app.state.db
+    db = _shared_db()
     doc = await db.exec_projects.find_one({"_id": _oid(project_id)})
     if not doc:
         raise HTTPException(status_code=404, detail="Project not found")
@@ -370,7 +371,7 @@ async def update_project(
     request: Request = None,
 ):
     """Update project metadata (title, brief, priority, status)."""
-    db = request.app.state.db
+    db = _shared_db()
     updates = {k: v for k, v in body.model_dump(exclude_none=True).items()}
     if not updates:
         raise HTTPException(status_code=400, detail="Nothing to update")
@@ -395,7 +396,7 @@ async def update_project_packet(
     points, constraints, evidence, outcome report, status). The packet is the
     operating agreement between the owner and the AI team.
     """
-    db = request.app.state.db
+    db = _shared_db()
     doc = await db.exec_projects.find_one({"_id": _oid(project_id)})
     if not doc:
         raise HTTPException(status_code=404, detail="Project not found")
@@ -420,7 +421,7 @@ async def list_archive(
     request: Request = None,
 ):
     """List every asset in the personal archive, newest first."""
-    db = request.app.state.db
+    db = _shared_db()
     docs = await db.exec_archive.find({}).sort("created_at", -1).limit(200).to_list(length=200)
     out = []
     for d in docs:
@@ -436,7 +437,7 @@ async def add_archive_asset(
     request: Request = None,
 ):
     """Add an asset to the personal archive."""
-    db = request.app.state.db
+    db = _shared_db()
     now = _now()
     doc = {
         "title": body.title.strip(),
@@ -470,7 +471,7 @@ async def delete_archive_asset(
     request: Request = None,
 ):
     """Remove an asset from the personal archive."""
-    db = request.app.state.db
+    db = _shared_db()
     result = await db.exec_archive.delete_one({"_id": _oid(asset_id)})
     if result.deleted_count == 0:
         raise HTTPException(status_code=404, detail="Asset not found")
@@ -487,7 +488,7 @@ async def project_discovery(
     user: User = Depends(_require_rank("admin", "executive_admin")),
     request: Request = None,
 ):
-    db = request.app.state.db
+    db = _shared_db()
     inventory = {"products": [], "deliverables": [], "tracks": [], "archive": []}
     archive_docs = []
 
@@ -627,7 +628,7 @@ async def advance_stage(
     request: Request = None,
 ):
     """Advance project to the next stage (or specific target). Context flows forward."""
-    db = request.app.state.db
+    db = _shared_db()
     doc = await db.exec_projects.find_one({"_id": _oid(project_id)})
     if not doc:
         raise HTTPException(status_code=404, detail="Project not found")
@@ -707,7 +708,7 @@ async def run_stage(
     deliverable. On any gateway failure the stage is NOT executed and no fake
     output is stored.
     """
-    db = request.app.state.db
+    db = _shared_db()
     doc = await db.exec_projects.find_one({"_id": _oid(project_id)})
     if not doc:
         raise HTTPException(status_code=404, detail="Project not found")
@@ -800,7 +801,7 @@ async def submit_deliverable(
     request: Request = None,
 ):
     """Submit a deliverable for a project at a given stage."""
-    db = request.app.state.db
+    db = _shared_db()
     doc = await db.exec_projects.find_one({"_id": _oid(project_id)})
     if not doc:
         raise HTTPException(status_code=404, detail="Project not found")
@@ -837,7 +838,7 @@ async def approve_deliverable(
     request: Request = None,
 ):
     """Approve, reject, or request revision on the latest deliverable."""
-    db = request.app.state.db
+    db = _shared_db()
     doc = await db.exec_projects.find_one({"_id": _oid(project_id)})
     if not doc:
         raise HTTPException(status_code=404, detail="Project not found")
@@ -909,7 +910,7 @@ async def list_comments(
     request: Request = None,
 ):
     """List comments for a project."""
-    db = request.app.state.db
+    db = _shared_db()
     comments = await db.exec_comments.find(
         {"project_id": project_id}
     ).sort("created_at", 1).limit(200).to_list(length=200)
@@ -924,7 +925,7 @@ async def add_comment(
     request: Request = None,
 ):
     """Add a comment to a project."""
-    db = request.app.state.db
+    db = _shared_db()
     now = _now()
     doc = {
         "project_id": project_id,
@@ -950,7 +951,7 @@ async def pipeline_overview(
     Get the full pipeline state: all active projects grouped by stage.
     This is the data that powers the Executive Suite dashboard.
     """
-    db = request.app.state.db
+    db = _shared_db()
     docs = await db.exec_projects.find(
         {"status": {"$in": ["active", "paused"]}}
     ).sort("updated_at", -1).to_list(length=100)

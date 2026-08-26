@@ -35,6 +35,7 @@ from typing import Optional, List
 from fastapi import APIRouter, Depends, HTTPException, Header, Query, Request
 from pydantic import BaseModel
 from bson import ObjectId
+from deps import get_db as _shared_db
 
 router = APIRouter(prefix="/api/my-projects", tags=["member-projects"])
 
@@ -91,7 +92,7 @@ def _require_member():
             payload = jwt.decode(token, secret, algorithms=[algo])
         except Exception:
             raise HTTPException(status_code=401, detail="Invalid token")
-        user = await request.app.state.db.users.find_one({"id": payload.get("sub", "")})
+        user = await _shared_db().users.find_one({"id": payload.get("sub", "")})
         if not user:
             raise HTTPException(status_code=401, detail="User not found")
         if user.get("is_active") is False:
@@ -281,7 +282,7 @@ async def list_my_projects(
     request: Request = None,
 ):
     """List the member's projects, newest first, with summary counts."""
-    db = request.app.state.db
+    db = _shared_db()
     q = {"owner_id": user.id}
     if status:
         q["status"] = status
@@ -333,7 +334,7 @@ async def create_project(
     request: Request = None,
 ):
     """Create a member project. Starts at intake with an approval-required packet."""
-    db = request.app.state.db
+    db = _shared_db()
     title = body.title.strip()
     brief = body.brief.strip()
     if not title:
@@ -402,7 +403,7 @@ async def get_project(
     user: MemberUser = Depends(_require_member()),
     request: Request = None,
 ):
-    db = request.app.state.db
+    db = _shared_db()
     doc = await _owned_project(db, project_id, user)
     return _serialize(doc)
 
@@ -415,7 +416,7 @@ async def advance_stage(
     request: Request = None,
 ):
     """Move the project to the next stage (or a specific one). Context flows forward."""
-    db = request.app.state.db
+    db = _shared_db()
     doc = await _owned_project(db, project_id, user)
     current = doc["current_stage"]
     if body.target_stage:
@@ -452,7 +453,7 @@ async def run_stage(
     work, which lands as a PENDING deliverable the member reviews. Fail-closed:
     on any gateway error nothing is stored — no fabricated output ever lands.
     """
-    db = request.app.state.db
+    db = _shared_db()
     doc = await _owned_project(db, project_id, user)
     if doc.get("status") != "active":
         raise HTTPException(status_code=400, detail="Project is not active")
@@ -566,7 +567,7 @@ async def submit_deliverable(
 ):
     """Member records their own work as a deliverable (a Studio export, a file,
     notes) — the same lane the AI team's output lands in."""
-    db = request.app.state.db
+    db = _shared_db()
     doc = await _owned_project(db, project_id, user)
     now = _now()
     deliverable = {
@@ -599,7 +600,7 @@ async def approve_deliverable(
 ):
     """Approve, reject, or request revision on the latest pending deliverable.
     Approval is recorded and the member stays the decision-maker."""
-    db = request.app.state.db
+    db = _shared_db()
     doc = await _owned_project(db, project_id, user)
     deliverables = doc.get("deliverables", [])
     latest = next((d for d in reversed(deliverables) if d.get("approval_status") == "pending"), None)
@@ -647,7 +648,7 @@ async def add_comment(
     user: MemberUser = Depends(_require_member()),
     request: Request = None,
 ):
-    db = request.app.state.db
+    db = _shared_db()
     doc = await _owned_project(db, project_id, user)
     now = _now()
     comment = {
@@ -672,7 +673,7 @@ async def archive_project(
     request: Request = None,
 ):
     """Archive a project (frees an active-project slot)."""
-    db = request.app.state.db
+    db = _shared_db()
     doc = await _owned_project(db, project_id, user)
     await db.member_projects.update_one(
         {"_id": doc["_id"]},
@@ -692,7 +693,7 @@ async def admin_list_all(
     office KPIs will read in the next phase. Lightweight rows only."""
     if not user.is_staff or user.role not in ("admin", "executive_admin"):
         raise HTTPException(status_code=403, detail="Staff access required")
-    db = request.app.state.db
+    db = _shared_db()
     docs = await db.member_projects.find({}).sort("updated_at", -1).limit(300).to_list(length=300)
     rows = []
     for d in docs:
