@@ -163,12 +163,10 @@ function PlatformTracks({ tracks, purchasedIds, onBuy }) {
                 {!bought && (
                   <button
                     onClick={() => onBuy(t.id)}
-                    disabled={true}
-                    title="Online payments are coming soon — nothing can be charged yet"
-                    className="shrink-0 px-3 py-1.5 rounded-lg text-xs font-black disabled:cursor-not-allowed"
-                    style={{ background: C.gold, color: "#1a1033", opacity: 0.5 }}
+                    className="shrink-0 px-3 py-1.5 rounded-lg text-xs font-black"
+                    style={{ background: C.gold, color: "#1a1033" }}
                   >
-                    Coming Soon
+                    Buy — ${(t.price_cents / 100).toFixed(2)}
                   </button>
                 )}
               </div>
@@ -252,12 +250,10 @@ function ConcertSection({ concerts, user, purchasedIds, onBuy }) {
           ) : isMember ? (
             <button
               onClick={() => onBuy(concert.id)}
-              disabled={true}
-              title="Online payments are coming soon — nothing can be charged yet"
-              className="px-4 py-2 rounded-lg text-sm font-black disabled:cursor-not-allowed"
-              style={{ background: C.gold, color: "#1a1033", opacity: 0.5 }}
+              className="px-4 py-2 rounded-lg text-sm font-black"
+              style={{ background: C.gold, color: "#1a1033" }}
             >
-              Tickets — Coming Soon
+              Get your ticket — ${(concert.price_cents / 100).toFixed(2)}
             </button>
           ) : (
             <div className="text-xs" style={{ color: C.goldSoft }}>

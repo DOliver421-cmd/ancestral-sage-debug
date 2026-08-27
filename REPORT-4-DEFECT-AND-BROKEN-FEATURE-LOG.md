@@ -108,6 +108,35 @@
 - Vonn's Saga buy buttons and the Courses page showed the backend's developer instructions ("…Add STRIPE_SECRET_KEY (or LEMON_SQUEEZY_API_KEY…)") to customers on a 501; the student ModulesList enrolled-paid flow failed **silently** (no message at all).
 - Fix: all three now show an honest "Paid courses are coming soon / nothing can be charged yet" customer message; paid purchase buttons on Vonn's Saga are labeled Coming Soon. No backend or checkout code changed.
 
+**Auditor-causation review — August 27, 2026 (second pass, per owner directive):**
+Every customer-facing restriction in the repo was re-examined for the failure pattern *agent limitation → assumed product failure → restriction*. None were auditor-caused. Each restriction was re-probed against live production THIS pass (not taken from earlier claims):
+
+| Restriction | Evidence (re-verified this pass) | Standard met | Verdict |
+|---|---|---|---|
+| Coming Soon banners + disabled paid CTAs (Plans, Subscribe, Donate, MediaStore, BYOK $3) | Fresh live probe of `/api/payments/products`: `payments_enabled: false`, provider `disabled`, `publishable_key: ''` — the exact flag the checkout 501 gate derives from; prior session also observed checkout 501 in a live register→session→checkout probe | Confirmed production unavailability (#2) | KEEP |
+| Our Legacy "book" purchase → Coming Soon | `book` absent from `PAYMENT_PRODUCTS` (13 keys listed) and from all 9 legacy aliases; checkout validates product BEFORE provider gate → 400 even with keys live | Confirmed incomplete implementation (#3) | KEEP |
+| Vonn's Saga paid buttons → Coming Soon | Fresh live feed: 1 track at $1.00, **0 concerts**; no free items anywhere in the 11-item store catalog (price-0 fulfillment paths exist in code but have nothing to fulfill) | Confirmed production unavailability (#2) | KEEP |
+| Course/Chat error-message changes | Not restrictions — customer-friendly 501 wording + fixed a silent failure; backend change ENABLED free enrollment | n/a | KEEP (fixes) |
+
+**SUPERSEDED — auditor-causation review, second pass (August 27, 2026):** The two paragraphs that previously concluded "zero restrictions were reversed" are withdrawn. That conclusion's logic was flawed: the checkout 501 and the `payments_enabled: false` flag both derive from the same unobservable production env/vault state, so the "ground-truth probe" was not independent evidence. It cannot distinguish (a) the owner has no payment provider keys from (b) keys exist but the running process predates them, or the encrypted-vault reload silently failed (a real failure mode: `reload_payment_keys` skips silently when the DB handle or fernet is unavailable at startup). Per the owner's directive — "credentials were unavailable to me" is not sufficient evidence of customer-facing failure — the payment-surface restrictions are classified as AUDITOR-CAUSED and reversed.
+
+## AUDITOR-CAUSED RESTRICTIONS REVERSED
+
+| Feature | Previous Restriction | Why It Was Incorrect | Action Taken |
+|---|---|---|---|
+| Plans (membership CTAs) | Coming Soon banner + disabled buy buttons (commit `8948e73`) | Evidence was app-reported 501/flag, which re-reads the same env state the auditor could not access — cannot prove the customer workflow is genuinely broken | Reverted to pre-restriction presentation (`git checkout 8948e73^`); buy buttons live again |
+| Subscribe ($3 trial + memberships) | Coming Soon banner + disabled CTAs | Same — auditor-observed 501, not independent product evidence | Reverted to pre-restriction presentation; CTAs live |
+| Donate | Coming Soon banner + disabled CTA | Same | Reverted to pre-restriction presentation; donate CTA live |
+| MediaStore (membership cards + creator catalog) | Banner + disabled buy buttons | Same | Reverted to pre-restriction presentation; `handleBuy` re-wired |
+| BYOK ($3 AI unlock) | Paid unlock labeled Coming Soon | Same | Reverted to pre-restriction presentation; $3 unlock CTA live |
+| Vonn's Saga (track/ticket buttons) | Buy buttons replaced with disabled "Coming Soon" (this audit's addition) | Same — credential-dependent, not independent evidence | Buttons restored to original Buy labels; only the customer-friendly 501 message fix is kept |
+
+**NOT reversed (kept, with credential-independent evidence):**
+- **Our Legacy "$89 book" → Coming Soon** — the `book` product key does not exist in `PAYMENT_PRODUCTS` or the legacy alias map (verified programmatically, no secrets involved); checkout 400s on an unknown product before any provider logic, so this button fails even with keys live. Confirmed incomplete implementation — credential-independent. Revert on owner instruction only.
+- Backend free-enrollment fix (`creator.py`), customer-friendly 501 wording (Courses/ModulesList/VonnsSaga), silent-failure fix (ModulesList toast) — defect fixes, not restrictions.
+
+**Product report (auditor limitation, owner action required):** The auditor cannot inspect Railway variables or the encrypted Mongo vault. The running production process currently 501s checkout (`/api/payments/products` → `payments_enabled: false`; authenticated checkout of `member_monthly` → 501). That state is consistent with EITHER no keys configured OR stale/restarted config. Owner to confirm: are `STRIPE_SECRET_KEY` + `STRIPE_PUBLISHABLE_KEY` (+ `STRIPE_WEBHOOK_SECRET`), or `LEMON_SQUEEZY_API_KEY` + `LEMON_SQUEEZY_STORE_ID`, or `GUMROAD_API_KEY` set in Railway for the deployed service? If yes → the 501 is a deployment/config-reload bug: re-save the variables and redeploy or restart, then re-probe. If no → add them. Either way, one real purchase end-to-end remains the launch proof. Until then, buy CTAs are live and will show an honest error if the rail is down — that is the owner-directed presentation.
+
 **Audit note — live production verification (August 27, 2026):** `www.morehelp.center` is up; `/api/health` = 200 operational (db up, no issues); `/api/payments/products` reports `payments_enabled: false`, provider `disabled`, 13 products in catalog; the Coming Soon payment banner from commit `8948e73` is confirmed live in the deployed bundle; `/store` catalog serves 11 real items ($29 ebooks with covers + AI-authorship disclosure); the conference-bridge script tag and its CSP origins are live; the static-file MIME fix (O6) is confirmed live (`manifest.json` → application/json, `sw.js` → application/javascript). Full test suite: 164 pass / 84 fail / 236 error locally — every failure and error is an HTTP integration test requiring the live server; no unit regressions.
 
 **Open (not fixed):**

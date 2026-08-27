@@ -3,7 +3,6 @@ import AppShell from "../components/AppShell";
 import { api } from "../lib/api";
 import { Heart } from "lucide-react";
 import { toast } from "sonner";
-import PaymentsComingSoon from "../components/PaymentsComingSoon";
 
 const PRESET_AMOUNTS = [10, 25, 50, 100, 250];
 
@@ -49,8 +48,6 @@ export default function DonatePage() {
         Your donation directly funds workforce training scholarships, lab equipment, and the M.O.R.E. community
         platform. Every dollar keeps the path to a skilled trade open for the next generation.
       </p>
-
-      <PaymentsComingSoon context="donations can't be accepted online yet" />
 
       <div className="bg-white border border-ink/10 rounded-2xl p-6 shadow-sm space-y-6">
         <div>
@@ -98,13 +95,11 @@ export default function DonatePage() {
           </div>
           <button
             onClick={donate}
-            disabled={true}
-            title="Online payments are coming soon"
-            className="px-8 py-3 bg-ink text-white font-bold rounded-lg transition-colors disabled:opacity-50 flex items-center gap-2"
-            style={{ cursor: "not-allowed" }}
+            disabled={loading || !valid}
+            className="px-8 py-3 bg-ink text-white font-bold rounded-lg hover:bg-ink/80 transition-colors disabled:opacity-50 flex items-center gap-2"
           >
             <Heart className="w-4 h-4" />
-            Coming Soon — online giving
+            {loading ? "Redirecting…" : "Donate"}
           </button>
         </div>
       </div>
