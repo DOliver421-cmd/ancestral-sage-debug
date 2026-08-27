@@ -12,7 +12,6 @@ import {
 } from "lucide-react";
 import SharePanel from "../components/SharePanel";
 import QRCodeButton from "../components/QRCodeButton";
-import PaymentsComingSoon from "../components/PaymentsComingSoon";
 
 const TYPE_LABELS = {
   track: "Track",
@@ -131,15 +130,14 @@ function MembershipsSection({ user }) {
         </div>
         <Link to="/plans" className="text-sm font-bold text-[#b5651d] hover:underline">Compare plans</Link>
       </div>
-      <PaymentsComingSoon context="memberships can't be purchased online yet" />
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {paidPlans.map((plan) => (
           <div key={plan.key} className="bg-white rounded-xl border border-[#b5651d]/15 p-4 flex flex-col">
             <div className="text-xs font-black uppercase tracking-widest text-[#1a1a1a]/45">{plan.name}</div>
             <div className="mt-1"><span className="font-heading font-black text-2xl text-[#1a1a1a]">${plan.price}</span><span className="text-sm text-[#1a1a1a]/45">/mo</span></div>
             <p className="text-sm text-[#1a1a1a]/60 mt-1 flex-1">{plan.tagline}</p>
-            <button type="button" disabled title="Online payments are coming soon" className="mt-4 bg-[#1a4332] text-white px-3 py-2 rounded-lg text-sm font-bold transition-colors disabled:opacity-50" style={{ cursor: "not-allowed" }}>
-              Coming Soon — online checkout
+            <button type="button" onClick={() => startCheckout(plan)} className="mt-4 bg-[#1a4332] text-white px-3 py-2 rounded-lg text-sm font-bold hover:bg-[#245b45] transition-colors">
+              Join {plan.name}
             </button>
           </div>
         ))}
@@ -268,13 +266,11 @@ function BrowseTab({ user }) {
                 {product.price_cents > 0 ? (
                   <button
                     onClick={() => handleBuy(product)}
-                    disabled={true}
-                    title="Online payments are coming soon"
-                    className="flex items-center gap-1.5 bg-[#b5651d] text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors disabled:opacity-50"
-                    style={{ cursor: "not-allowed" }}
+                    disabled={checkingOut === product.id}
+                    className="flex items-center gap-1.5 bg-[#b5651d] text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-[#9a5418] transition-colors disabled:opacity-60"
                   >
-                    <ShoppingBag size={14} />
-                    Coming Soon
+                    {checkingOut === product.id ? <Loader2 size={14} className="animate-spin" /> : <ShoppingBag size={14} />}
+                    Buy
                   </button>
                 ) : (
                   <button
