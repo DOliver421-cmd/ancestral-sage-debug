@@ -7,6 +7,7 @@ import { isWaiDoor } from "./lib/domain";
 import { useSeoManager } from "./lib/seo";
 import { TierGate } from "./lib/tiers";
 import AccessGate from "./components/AccessGate";
+import TeamConferenceEmbed from "./components/TeamConferenceEmbed";
 import LandingMarketplace from "./pages/LandingMarketplace";
 import SupervisorLogin from "./pages/SupervisorLogin";
 import Login from "./pages/Login";
@@ -235,6 +236,8 @@ function App() {
 
         {/* Global widgets */}
         <CookieConsent />
+        {/* Team Conference — exec-admin only. Never rendered for public visitors (was previously a static script in index.html). */}
+        <TeamConferenceEmbed />
         {/* On the WAI door, support links OUT to the M.O.R.E. Help Center instead of opening the in-app widget. */}
         {!waiDoor && <HelpGuide />}
         <SiteSearchModal />
