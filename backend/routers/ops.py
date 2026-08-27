@@ -454,6 +454,7 @@ async def _oliver_moderate(content: str, user_id: str = "unknown", content_type:
             messages=[{"role": "user", "content": f"Content to moderate:\n\n{content}"}],
             max_tokens=512,
             persona_label="oliver_guardian",
+            user_id=user_id,
         )
         raw = _gw["text"].strip()
         # Strip markdown code fences if model adds them

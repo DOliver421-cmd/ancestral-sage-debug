@@ -1296,6 +1296,7 @@ async def ai_tool_chat(body: ToolChatReq, user: User = Depends(_dep_current_user
             messages=[{"role": "user", "content": body.message}],
             max_tokens=1024,
             persona_label=f"tool_{skill_key}",
+            user_id=user.id,
         )
         reply = gw["text"]
     except Exception as e:
