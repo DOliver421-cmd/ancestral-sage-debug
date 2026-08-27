@@ -226,8 +226,6 @@ async def creator_delete_course(course_id: str, user: User = Depends(_dep_curren
 @router.post("/creator/courses/{course_id}/checkout")
 async def creator_course_checkout(course_id: str, user: User = Depends(_dep_current_user)):
     """Initiate Lemon Squeezy -> Gumroad checkout for a published creator course."""
-    if not PAYMENTS_ENABLED:
-        raise HTTPException(501, "Payments are not configured yet — add Lemon Squeezy or Gumroad keys.")
     course = await db.creator_courses.find_one({"course_id": course_id}, {"_id": 0})
     if not course:
         raise HTTPException(404, "Course not found")
@@ -238,7 +236,9 @@ async def creator_course_checkout(course_id: str, user: User = Depends(_dep_curr
 
     amount = course["price_cents"]
     if amount == 0:
-        # Free course — enroll directly
+        # Free course — enroll directly. This is NOT a payment, so the
+        # PAYMENTS_ENABLED gate must not block it (free enrollment used to
+        # 501 whenever no payment provider was configured).
         await db.creator_courses.update_one({"course_id": course_id}, {"$inc": {"enrollment_count": 1}})
         await db.creator_enrollments.update_one(
 
@@ -247,6 +247,10 @@ async def creator_course_checkout(course_id: str, user: User = Depends(_dep_curr
             upsert=True,
         )
         return {"enrolled": True, "free": True}
+
+    # Only PAID courses require a configured payment provider.
+    if not PAYMENTS_ENABLED:
+        raise HTTPException(501, "Payments are not configured yet — add Lemon Squeezy or Gumroad keys.")
 
     from ai.publishing import _publish_lemon_squeezy, _publish_gumroad
 

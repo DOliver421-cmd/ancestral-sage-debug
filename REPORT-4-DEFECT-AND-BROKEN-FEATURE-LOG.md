@@ -95,7 +95,24 @@
 **New: O13. Per-user AI budget was a flat 50k regardless of tier — FIXED (pushed `98c79cd`)**
 - Every capped tier got the same daily cap. Budget now scales by `feature_tier`: free 50k base; member 62.5k (+25%); plus 67.5k (+35%); pro 72.5k (+45%); patron 75k (+50%). Instructor+ and exec stay unlimited; hourly cap untouched. Verified 9/9 budget assertions pass.
 
+**New: O14. Free course enrollment was blocked by the payments gate — FOUND AND FIXED (August 27, 2026 audit; pending deploy)**
+- `POST /creator/courses/{id}/checkout` raised `501 Payments are not configured` **before reading the course**, so even `price_cents == 0` free courses could not enroll whenever no payment provider was configured — which is the current production state.
+- Fix: gate moved below the free-enroll branch. Free enrollment is not a payment and no longer requires provider keys; paid courses still 501 without keys. Course 404/400 correctness preserved for all cases.
+- Proof: new unit tests `backend/tests/test_creator_checkout_unit.py` (5/5 pass: free enrolls with no provider; paid still gates; 404/400/own-course cases intact).
+
+**New: O15. The Our Legacy "Get the Book — $89" button could never complete a purchase — FOUND AND FIXED as Coming Soon (August 27, 2026 audit; pending deploy)**
+- It posts `product_key: "book"`, but that SKU was removed from `PAYMENT_PRODUCTS` (see the physical/arena removal note above the catalog). The checkout endpoint validates the product key BEFORE the payments gate, so the customer gets a raw `400 Unknown product` that never matches the page's 501 fallback (which redirects to `/merch`, itself now a redirect to the gated `/store`).
+- Fix (presentation-only): both buy buttons now read "Coming Soon — online checkout" with an explanatory note; handler, wiring, and fallback left intact for when a real book SKU exists.
+
+**New: O16. Customer-facing surfaces leaked backend error text — FOUND AND FIXED (August 27, 2026 audit; pending deploy)**
+- Vonn's Saga buy buttons and the Courses page showed the backend's developer instructions ("…Add STRIPE_SECRET_KEY (or LEMON_SQUEEZY_API_KEY…)") to customers on a 501; the student ModulesList enrolled-paid flow failed **silently** (no message at all).
+- Fix: all three now show an honest "Paid courses are coming soon / nothing can be charged yet" customer message; paid purchase buttons on Vonn's Saga are labeled Coming Soon. No backend or checkout code changed.
+
+**Audit note — live production verification (August 27, 2026):** `www.morehelp.center` is up; `/api/health` = 200 operational (db up, no issues); `/api/payments/products` reports `payments_enabled: false`, provider `disabled`, 13 products in catalog; the Coming Soon payment banner from commit `8948e73` is confirmed live in the deployed bundle; `/store` catalog serves 11 real items ($29 ebooks with covers + AI-authorship disclosure); the conference-bridge script tag and its CSP origins are live; the static-file MIME fix (O6) is confirmed live (`manifest.json` → application/json, `sw.js` → application/javascript). Full test suite: 164 pass / 84 fail / 236 error locally — every failure and error is an HTTP integration test requiring the live server; no unit regressions.
+
 **Open (not fixed):**
 - Physical merchandise purchase (O3) remains an owner decision.
 - 62 sidebar-less pages (O4) remain.
 - One real purchase and one real account against the real DB remain the outstanding launch proofs (see REPORT 5).
+- Payments remain OFF in production (`payments_enabled: false`) — switching revenue on requires the owner to supply provider keys (Stripe `STRIPE_SECRET_KEY` + `STRIPE_PUBLISHABLE_KEY` [+ `STRIPE_WEBHOOK_SECRET`], or Lemon Squeezy `LEMON_SQUEEZY_API_KEY` + `LEMON_SQUEEZY_STORE_ID`, or `GUMROAD_API_KEY`). All checkout code paths are wired and re-enable automatically once keys are present; the Coming Soon banners then become the only frontend cleanup (a revert, not a rebuild).
+- `frontend/src/pages/Store.jsx` is unrouted dead code (the `/store` route renders `MediaStore.jsx`). It still compiles and references the same endpoints; either route it or delete it — owner decision, no action taken in this audit.

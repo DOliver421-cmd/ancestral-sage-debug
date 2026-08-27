@@ -163,10 +163,12 @@ function PlatformTracks({ tracks, purchasedIds, onBuy }) {
                 {!bought && (
                   <button
                     onClick={() => onBuy(t.id)}
-                    className="shrink-0 px-3 py-1.5 rounded-lg text-xs font-black"
-                    style={{ background: C.gold, color: "#1a1033" }}
+                    disabled={true}
+                    title="Online payments are coming soon — nothing can be charged yet"
+                    className="shrink-0 px-3 py-1.5 rounded-lg text-xs font-black disabled:cursor-not-allowed"
+                    style={{ background: C.gold, color: "#1a1033", opacity: 0.5 }}
                   >
-                    Buy — ${(t.price_cents / 100).toFixed(2)}
+                    Coming Soon
                   </button>
                 )}
               </div>
@@ -250,10 +252,12 @@ function ConcertSection({ concerts, user, purchasedIds, onBuy }) {
           ) : isMember ? (
             <button
               onClick={() => onBuy(concert.id)}
-              className="px-4 py-2 rounded-lg text-sm font-black"
-              style={{ background: C.gold, color: "#1a1033" }}
+              disabled={true}
+              title="Online payments are coming soon — nothing can be charged yet"
+              className="px-4 py-2 rounded-lg text-sm font-black disabled:cursor-not-allowed"
+              style={{ background: C.gold, color: "#1a1033", opacity: 0.5 }}
             >
-              Get your ticket — ${(concert.price_cents / 100).toFixed(2)}
+              Tickets — Coming Soon
             </button>
           ) : (
             <div className="text-xs" style={{ color: C.goldSoft }}>
@@ -461,7 +465,14 @@ export default function VonnsSaga() {
         loadSagaAssets();
       }
     } catch (e) {
-      toast.error(e?.response?.data?.detail || "Could not start checkout.");
+      const detail = e?.response?.data?.detail || "";
+      // Customer-friendly honest status — never show the backend's env-var
+      // instructions ("Add STRIPE_SECRET_KEY (or LEMON_SQUEEZY…)") to buyers.
+      if (e?.response?.status === 501 || /not configured/i.test(String(detail))) {
+        toast.info("Online payments are coming soon — this can't be purchased yet, and nothing was charged.");
+      } else {
+        toast.error(detail || "Could not start checkout.");
+      }
     }
   }, [loadSagaAssets]);
 
