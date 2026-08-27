@@ -896,7 +896,7 @@ async def exec_staff_meeting(
             )
 
             from ai.llm_gateway import call_llm as _call_llm
-            _gw = await _call_llm(system=system_prompt, messages=[{"role": "user", "content": user_message}], max_tokens=1024, persona_label=persona_id)
+            _gw = await _call_llm(system=system_prompt, messages=[{"role": "user", "content": user_message}], max_tokens=1024, persona_label=persona_id, user_id=user.id)
             response = _gw["text"].strip()
             return persona_id, response
         except Exception as exc:
@@ -958,7 +958,7 @@ async def exec_staff_meeting(
                         )
                         try:
                             from ai.llm_gateway import call_llm as _call_llm
-                            _gw = await _call_llm(system=_the9_system, messages=[{"role": "user", "content": _the9_user}], max_tokens=2048, persona_label="the_9")
+                            _gw = await _call_llm(system=_the9_system, messages=[{"role": "user", "content": _the9_user}], max_tokens=2048, persona_label="the_9", user_id=user.id)
                             synthesis["synthesis_brief"] = _gw["text"].strip()
                         except Exception as _synth_err:
                             logger.warning("staff_meeting: The 9 LLM synthesis failed: %s", _synth_err)
