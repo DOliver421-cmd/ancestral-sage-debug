@@ -76,6 +76,9 @@ def test_security_headers_pin_csp_and_frame_ancestors():
     csp = headers["Content-Security-Policy"]
     # The Gumroad storefront iframe must stay framable (the fix that unblocked the store).
     assert "frame-src https://namoshun.gumroad.com https://gumroad.com" in csp
+    # The WAI ↔ MORE conference bridge embed must stay allowed: once in
+    # script-src (the embed script) and once in frame-src (the room iframe).
+    assert csp.count("https://wai-institute-production.up.railway.app") >= 2
     # The platform itself must not be framable elsewhere.
     assert "frame-ancestors 'none'" in csp
     # TTS audio (createObjectURL) stays allowed.
