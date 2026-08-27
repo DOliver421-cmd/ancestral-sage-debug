@@ -69,10 +69,18 @@ async def security_headers(request: Request, call_next):
     _STYLE_HOSTS = "https://fonts.googleapis.com https://api.fontshare.com"
     # PostHog analytics loads its snippet loader from us-assets.i.posthog.com;
     # the Premium Services iframe embeds the waiinstitutepremiumservices site.
-    _SCRIPT_HOSTS = "https://us-assets.i.posthog.com"
+    # The WAI ↔ MORE conference bridge embed loads its script cross-origin from
+    # the WAI Institute app; without this host the CSP blocks the Team
+    # Conference button on morehelp.center entirely (script never executes).
+    _SCRIPT_HOSTS = (
+        "https://us-assets.i.posthog.com "
+        "https://wai-institute-production.up.railway.app"
+    )
     _FRAME_HOSTS = (
         "https://namoshun.gumroad.com https://gumroad.com https://bandcamp.com "
-        "https://waiinstitutepremiumservices.bolt.host"
+        "https://waiinstitutepremiumservices.bolt.host "
+        # The bridge widget opens the shared conference room in an iframe.
+        "https://wai-institute-production.up.railway.app"
     )
     response.headers["Content-Security-Policy"] = (
         "default-src 'self'; "
