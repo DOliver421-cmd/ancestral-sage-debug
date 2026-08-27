@@ -4,6 +4,7 @@ import AppShell from "../components/AppShell";
 import BackButton from "../components/BackButton";
 import { MEMBERSHIP_PLANS } from "../lib/plans";
 import { Check, Zap } from "lucide-react";
+import PaymentsComingSoon from "../components/PaymentsComingSoon";
 
 /**
  * /plans — the five-level membership ladder (free/member/plus/pro/patron)
@@ -34,6 +35,10 @@ export default function Plans() {
           </p>
         </div>
 
+        <div className="max-w-4xl mx-auto mt-8">
+          <PaymentsComingSoon context="memberships can't be purchased online yet" />
+        </div>
+
         {/* ── $3 Trial Banner ── highest conversion CTA, shown first ── */}
         <div className="mt-8 rounded-2xl p-6 flex flex-col sm:flex-row items-center gap-5"
           style={{ background: "linear-gradient(135deg,#1B4332,#2D6A4F)", border: "2px solid #E8A51E" }}>
@@ -51,8 +56,10 @@ export default function Plans() {
           </div>
           <Link to="/subscribe?plan=sanctuary_trial"
             className="shrink-0 font-black text-sm px-6 py-3 rounded-xl whitespace-nowrap"
-            style={{ background: "#E8A51E", color: "#0a0a0a" }}>
-            Try Everything for $3 →
+            style={{ background: "#E8A51E", color: "#0a0a0a", opacity: 0.7 }}
+            title="Online payments are coming soon"
+          >
+            $3 Trial — Coming Soon →
           </Link>
         </div>
 
@@ -77,8 +84,9 @@ export default function Plans() {
                 to={p.to}
                 data-testid={`plan-${p.name.toLowerCase()}`}
                 className={`mt-5 text-center text-sm ${p.price === 0 ? "btn-primary" : "btn-copper"}`}
+                title={p.price === 0 ? undefined : "Online payments are coming soon"}
               >
-                {p.cta}
+                {p.price === 0 ? p.cta : `${p.cta} — Coming Soon`}
               </Link>
             </div>
           ))}

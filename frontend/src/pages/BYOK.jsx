@@ -195,19 +195,23 @@ export default function BYOK() {
                   </p>
                 )}
                 <p style={{ margin: "0 0 16px", color: "#888", fontSize: 13 }}>
-                  Payment is processed through the existing commerce layer. After activation, attach a free provider key below.
+                  {byokFree
+                    ? "After activation, attach a free provider key below."
+                    : "Online payments are coming soon — the $3 unlock can't be purchased yet. Instructors activate free. After activation, attach a free provider key below."}
                 </p>
                 <button
                   onClick={activate}
-                  disabled={isBusy("activate")}
+                  disabled={isBusy("activate") || !byokFree}
+                  title={byokFree ? undefined : "Online payments are coming soon"}
                   style={{
                     background: COPPER, color: "#fff", border: "none", borderRadius: 10, padding: "12px 22px",
-                    fontWeight: 800, fontSize: 14, cursor: isBusy("activate") ? "wait" : "pointer",
+                    fontWeight: 800, fontSize: 14, cursor: !byokFree ? "not-allowed" : isBusy("activate") ? "wait" : "pointer",
+                    opacity: !byokFree ? 0.55 : 1,
                     display: "inline-flex", alignItems: "center", gap: 8,
                   }}
                 >
                   {isBusy("activate") ? <Loader2 size={16} className="animate-spin" /> : <Plug size={16} />}
-                  {byokFree ? "Activate BYOK — Free" : `Activate BYOK — $${byokPrice}`}
+                  {byokFree ? "Activate BYOK — Free" : "Coming Soon — online checkout"}
                 </button>
               </Card>
             )}
