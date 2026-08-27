@@ -4,6 +4,7 @@ import { api, BACKEND_URL, openAuthedUrl } from "../lib/api";
 import { useAuth } from "../lib/auth";
 import { Link } from "react-router-dom";
 import { Lock, Zap, BookOpen, ShoppingBag, CheckCircle, Loader2, Award, FlaskConical, ShieldCheck } from "lucide-react";
+import { toast } from "sonner";
 import SharePanel from "../components/SharePanel";
 
 const COURSE_CATEGORIES = {
@@ -69,7 +70,15 @@ export default function ModulesList() {
       const { data } = await api.post(`/creator/courses/${course.course_id}/checkout`);
       if (data.enrolled) { setEnrolledIds(prev => new Set([...prev, course.course_id])); }
       else if (data.url) { window.location.href = data.url; }
-    } catch { /* toast handled elsewhere */ }
+    } catch (e) {
+      // Never fail silently — the customer clicked and deserves an answer.
+      const detail = e?.response?.data?.detail || "";
+      if (e?.response?.status === 501 || /not configured/i.test(String(detail))) {
+        toast.info("Paid courses are coming soon — free courses enroll instantly, and nothing can be charged yet.");
+      } else {
+        toast.error(detail || "Could not start enrollment. Please try again.");
+      }
+    }
     finally { setBuying(null); }
   }
 
