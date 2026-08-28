@@ -77,14 +77,14 @@ def _stripe():
 def _resolve_provider() -> str:
     """Truthful active payment provider (first configured in chain order).
 
-    Lemon Squeezy first — merchant of record per owner directive. Stripe is
-    the configured fallback, then Gumroad for one-time digital purchases."""
+    Lemon Squeezy first — merchant of record per owner directive. Gumroad is
+    the one-time fallback, Stripe last-resort (deferred per owner)."""
     if LEMON_SQUEEZY_API_KEY and LEMON_SQUEEZY_STORE_ID:
         return "lemon_squeezy"
-    if STRIPE_ENABLED:
-        return "stripe"
     if GUMROAD_API_KEY:
         return "gumroad"
+    if STRIPE_ENABLED:
+        return "stripe"
     return "disabled"
 
 
