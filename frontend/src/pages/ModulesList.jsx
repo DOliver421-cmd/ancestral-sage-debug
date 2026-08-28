@@ -167,7 +167,7 @@ export default function ModulesList() {
                   </div>
                 )}
                 <div className="flex items-start justify-between">
-                  <div className="font-heading text-xs font-black text-copper">{isFree ? "FREE INTRO" : `MODULE ${m.order.toString().padStart(2, "0")}`}</div>
+                  <div className="font-heading text-xs font-black text-copper">{isFree ? "FREE INTRO" : `MODULE ${String(m.order ?? "").padStart(2, "0")}`}</div>
                   <span className={`${badge} flex items-center gap-1`}>
                     {isFree && <Zap className="w-3 h-3" />}{label}
                   </span>
@@ -176,7 +176,7 @@ export default function ModulesList() {
                 <p className="text-sm text-ink/70 mt-3 leading-relaxed">{m.summary}</p>
                 <div className="mt-5 flex gap-4 text-xs overline text-ink/60">
                   <span>{m.hours}h</span>
-                  <span>{m.tasks.length} tasks</span>
+                  <span>{(m.tasks || []).length} tasks</span>
                   {m.points && <span className="text-amber-600">+{m.points} pts</span>}
                   {m.leads_to && <span className="text-copper">Leads into full program</span>}
                 </div>
