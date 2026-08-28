@@ -279,23 +279,26 @@ async def checkout_media_product(product_id: str, user: User = Depends(_dep_curr
         amount = doc["price_cents"]
         title = doc.get("title", "Media product")
         desc = doc.get("description", "")[:500]
-        # Tier 1 — Stripe (hosted Checkout Session)
-        stripe_session = await _media_stripe_checkout(title, desc, amount, product_id, user)
         provider = None
         url = None
-        if stripe_session:
-            provider = "stripe"
-            url = stripe_session["url"]
-        if not provider:
-            ls_result = await _publish_lemon_squeezy(name=title, description=desc, price_cents=amount, persona="platform")
-            if ls_result:
-                provider = "lemon_squeezy"
-                url = ls_result["url"]
+        # Tier 1 — Lemon Squeezy (PRIMARY — as decided by the owner; Stripe was
+        # deferred because it could not be configured correctly and is only a
+        # last-resort fallback, never the first choice).
+        ls_result = await _publish_lemon_squeezy(name=title, description=desc, price_cents=amount, persona="platform")
+        if ls_result:
+            provider = "lemon_squeezy"
+            url = ls_result["url"]
         if not provider:
             gr_result = await _publish_gumroad(title, desc, amount)
             if gr_result:
                 provider = "gumroad"
                 url = gr_result["url"]
+        # Tier 3 — Stripe (hosted Checkout Session — last-resort fallback)
+        if not provider:
+            stripe_session = await _media_stripe_checkout(title, desc, amount, product_id, user)
+            if stripe_session:
+                provider = "stripe"
+                url = stripe_session["url"]
         if not provider:
             _ls_key = os.environ.get("LEMON_SQUEEZY_API_KEY", "")
             _ls_store = os.environ.get("LEMON_SQUEEZY_STORE_ID", "")
