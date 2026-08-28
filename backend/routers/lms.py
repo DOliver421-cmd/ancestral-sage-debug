@@ -1144,6 +1144,7 @@ async def lab_ai_feedback(sub_id: str, user: User = Depends(_dep_current_user)):
             messages=[{"role": "user", "content": prompt}],
             max_tokens=400,
             persona_label="lab_feedback",
+            user_id=user.id,
         )
         feedback_text = _gw["text"]
     except Exception as _gw_err:

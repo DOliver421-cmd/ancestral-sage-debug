@@ -85,6 +85,7 @@ async def security_headers(request: Request, call_next):
     response.headers["Content-Security-Policy"] = (
         "default-src 'self'; "
         f"script-src 'self' {_SCRIPT_HOSTS}; "
+        "worker-src 'self' blob:; "
         f"style-src 'self' 'unsafe-inline' {_STYLE_HOSTS}; "
         "img-src 'self' data: https:; "
         f"font-src 'self' data: {_FONT_HOSTS}; "
@@ -101,6 +102,7 @@ async def security_headers(request: Request, call_next):
     response.headers["Content-Security-Policy"] = (
         "default-src 'self'; "
         f"script-src 'self' {_SCRIPT_HOSTS}; "
+        "worker-src 'self' blob:; "
         f"style-src 'self' 'unsafe-inline' {_STYLE_HOSTS}; "
         "img-src 'self' data: https:; "
         f"font-src 'self' data: {_FONT_HOSTS}; "

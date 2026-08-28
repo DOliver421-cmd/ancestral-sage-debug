@@ -435,6 +435,7 @@ _BUDGET_RESULT = {
     "output_tokens":  0,
     "degraded":       True,
     "budget_exceeded": True,
+    "byok_offer":     True,
 }
 
 try:
@@ -584,22 +585,14 @@ async def call_llm(
         except Exception as _e:
             logger.warning("LLM Gateway BYOK resolution failed (%s): %s", persona_label, _e)
 
-    # ── Platform-funding policy ──────────────────────────────────────────────
-    # Owner architecture (restated by the 2026-08-28 audit; matches
-    # user_budget.py's documented design):
-    #   - anonymous / public visitors get NO platform AI — public-facing
-    #     routers answer from the keyword KB without ever calling the gateway.
-    #   - authenticated members get platform AI WITHIN their per-user daily
-    #     tier-scaled budget (free 50k base; member +25%; plus +35%; pro +45%;
-    #     patron +50%) — enforced by check_user_budget() immediately below.
-    #   - BYOK users are routed through their OWN key above (zero platform cost).
-    #   - instructor-and-above roles are budget-exempt (trusted staff).
-    # The previous staff-only hard gate here returned the KB for every member
-    # below admin/executive_admin, which silently disabled every member-facing
-    # AI page (memberships sell an "AI Tutor"; the $3 BYOK unlock exists for
-    # this lane) and made the tier-budget cost controls unreachable. The daily
-    # budget + hourly cap below ARE the cost protection — fail-closed there.
+    # ── User context lookup (for budget, KB fallback, and access control) ────
+    # All authenticated users may use platform-funded AI within their daily
+    # budget.  Staff (admin/executive_admin) are budget-exempt (unlimited).
+    # Non-staff users are budget-capped by role and feature_tier.  When the
+    # daily cap is exhausted, the user gets the KB fallback + BYOK option.
     _access = None
+    _user_role = ""
+    _user_tier = ""
     if user_id:
         try:
             from deps import get_db as _get_db
@@ -609,18 +602,19 @@ async def call_llm(
                 _u = await _pg_db.users.find_one(
                     {"id": user_id}, {"_id": 0, "role": 1, "feature_tier": 1, "byok_enabled": 1}
                 )
-                _role = _norm_role((_u or {}).get("role", "student"))
+                _user_role = _norm_role((_u or {}).get("role", "student"))
+                _user_tier = (_u or {}).get("feature_tier") or "free"
                 try:
                     from ai.knowledge_finder import Access as _Access
                     _access = _Access(
-                        role=_role,
-                        feature_tier=(_u or {}).get("feature_tier") or "free",
+                        role=_user_role,
+                        feature_tier=_user_tier,
                         byok=bool((_u or {}).get("byok_enabled")),
                     )
                 except Exception:
                     _access = None
         except Exception:
-            _access = None
+            pass
 
     # ── Per-user daily budget guard (platform-paid calls only) ──────────────
     # Prevents any single non-exec account from draining the platform API and

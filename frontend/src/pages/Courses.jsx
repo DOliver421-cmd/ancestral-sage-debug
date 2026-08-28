@@ -72,7 +72,13 @@ export default function Courses() {
         window.location.href = data.url;
       }
     } catch (e) {
-      toast.error(e?.response?.data?.detail || "Could not start enrollment.");
+      const detail = e?.response?.data?.detail || "";
+      // Customer-friendly honest status — don't show backend env-var instructions.
+      if (e?.response?.status === 501 || /not configured/i.test(String(detail))) {
+        toast.info("Paid courses are coming soon — free courses enroll instantly, and nothing can be charged yet.");
+      } else {
+        toast.error(detail || "Could not start enrollment.");
+      }
     } finally {
       setBuying(null);
     }

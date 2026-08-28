@@ -88,7 +88,10 @@ def budget_notice() -> str:
         "I'm not cutting you off — I'll still help you right now from my free "
         "knowledge base below. Live AI answers will be available again after "
         "midnight, so please try again then. Your saved notes, courses, and "
-        "every other platform feature keep working normally."
+        "every other platform feature keep working normally. "
+        "Want unlimited AI right now? You can bring your own free API key from "
+        "Groq, Cerebras, or Google Gemini for just $3 one-time — visit My AI Keys "
+        "in your dashboard to activate it."
     )
 
 

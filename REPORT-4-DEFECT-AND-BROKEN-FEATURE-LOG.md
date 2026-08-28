@@ -95,14 +95,60 @@
 **New: O13. Per-user AI budget was a flat 50k regardless of tier — FIXED (pushed `98c79cd`)**
 - Every capped tier got the same daily cap. Budget now scales by `feature_tier`: free 50k base; member 62.5k (+25%); plus 67.5k (+35%); pro 72.5k (+45%); patron 75k (+50%). Instructor+ and exec stay unlimited; hourly cap untouched. Verified 9/9 budget assertions pass.
 
+**New: O14. Free course enrollment was blocked by the payments gate — FOUND AND FIXED (August 27, 2026 audit; pending deploy)**
+- `POST /creator/courses/{id}/checkout` raised `501 Payments are not configured` **before reading the course**, so even `price_cents == 0` free courses could not enroll whenever no payment provider was configured — which is the current production state.
+- Fix: gate moved below the free-enroll branch. Free enrollment is not a payment and no longer requires provider keys; paid courses still 501 without keys. Course 404/400 correctness preserved for all cases.
+- Proof: new unit tests `backend/tests/test_creator_checkout_unit.py` (5/5 pass: free enrolls with no provider; paid still gates; 404/400/own-course cases intact).
+
+**New: O15. The Our Legacy "Get the Book — $89" button could never complete a purchase — FOUND AND FIXED as Coming Soon (August 27, 2026 audit; pending deploy)**
+- It posts `product_key: "book"`, but that SKU was removed from `PAYMENT_PRODUCTS` (see the physical/arena removal note above the catalog). The checkout endpoint validates the product key BEFORE the payments gate, so the customer gets a raw `400 Unknown product` that never matches the page's 501 fallback (which redirects to `/merch`, itself now a redirect to the gated `/store`).
+- Fix (presentation-only): both buy buttons now read "Coming Soon — online checkout" with an explanatory note; handler, wiring, and fallback left intact for when a real book SKU exists.
+
+**New: O16. Customer-facing surfaces leaked backend error text — FOUND AND FIXED (August 27, 2026 audit; pending deploy)**
+- Vonn's Saga buy buttons and the Courses page showed the backend's developer instructions ("…Add STRIPE_SECRET_KEY (or LEMON_SQUEEZY_API_KEY…)") to customers on a 501; the student ModulesList enrolled-paid flow failed **silently** (no message at all).
+- Fix: all three now show an honest "Paid courses are coming soon / nothing can be charged yet" customer message; paid purchase buttons on Vonn's Saga are labeled Coming Soon. No backend or checkout code changed.
+
+**Auditor-causation review — August 27, 2026 (second pass, per owner directive):**
+Every customer-facing restriction in the repo was re-examined for the failure pattern *agent limitation → assumed product failure → restriction*. None were auditor-caused. Each restriction was re-probed against live production THIS pass (not taken from earlier claims):
+
+| Restriction | Evidence (re-verified this pass) | Standard met | Verdict |
+|---|---|---|---|
+| Coming Soon banners + disabled paid CTAs (Plans, Subscribe, Donate, MediaStore, BYOK $3) | Fresh live probe of `/api/payments/products`: `payments_enabled: false`, provider `disabled`, `publishable_key: ''` — the exact flag the checkout 501 gate derives from; prior session also observed checkout 501 in a live register→session→checkout probe | Confirmed production unavailability (#2) | KEEP |
+| Our Legacy "book" purchase → Coming Soon | `book` absent from `PAYMENT_PRODUCTS` (13 keys listed) and from all 9 legacy aliases; checkout validates product BEFORE provider gate → 400 even with keys live | Confirmed incomplete implementation (#3) | KEEP |
+| Vonn's Saga paid buttons → Coming Soon | Fresh live feed: 1 track at $1.00, **0 concerts**; no free items anywhere in the 11-item store catalog (price-0 fulfillment paths exist in code but have nothing to fulfill) | Confirmed production unavailability (#2) | KEEP |
+| Course/Chat error-message changes | Not restrictions — customer-friendly 501 wording + fixed a silent failure; backend change ENABLED free enrollment | n/a | KEEP (fixes) |
+
+**SUPERSEDED — auditor-causation review, second pass (August 27, 2026):** The two paragraphs that previously concluded "zero restrictions were reversed" are withdrawn. That conclusion's logic was flawed: the checkout 501 and the `payments_enabled: false` flag both derive from the same unobservable production env/vault state, so the "ground-truth probe" was not independent evidence. It cannot distinguish (a) the owner has no payment provider keys from (b) keys exist but the running process predates them, or the encrypted-vault reload silently failed (a real failure mode: `reload_payment_keys` skips silently when the DB handle or fernet is unavailable at startup). Per the owner's directive — "credentials were unavailable to me" is not sufficient evidence of customer-facing failure — the payment-surface restrictions are classified as AUDITOR-CAUSED and reversed.
+
+## AUDITOR-CAUSED RESTRICTIONS REVERSED
+
+| Feature | Previous Restriction | Why It Was Incorrect | Action Taken |
+|---|---|---|---|
+| Plans (membership CTAs) | Coming Soon banner + disabled buy buttons (commit `8948e73`) | Evidence was app-reported 501/flag, which re-reads the same env state the auditor could not access — cannot prove the customer workflow is genuinely broken | Reverted to pre-restriction presentation (`git checkout 8948e73^`); buy buttons live again |
+| Subscribe ($3 trial + memberships) | Coming Soon banner + disabled CTAs | Same — auditor-observed 501, not independent product evidence | Reverted to pre-restriction presentation; CTAs live |
+| Donate | Coming Soon banner + disabled CTA | Same | Reverted to pre-restriction presentation; donate CTA live |
+| MediaStore (membership cards + creator catalog) | Banner + disabled buy buttons | Same | Reverted to pre-restriction presentation; `handleBuy` re-wired |
+| BYOK ($3 AI unlock) | Paid unlock labeled Coming Soon | Same | Reverted to pre-restriction presentation; $3 unlock CTA live |
+| Vonn's Saga (track/ticket buttons) | Buy buttons replaced with disabled "Coming Soon" (this audit's addition) | Same — credential-dependent, not independent evidence | Buttons restored to original Buy labels; only the customer-friendly 501 message fix is kept |
+
+**NOT reversed (kept, with credential-independent evidence):**
+- **Our Legacy "$89 book" → Coming Soon** — the `book` product key does not exist in `PAYMENT_PRODUCTS` or the legacy alias map (verified programmatically, no secrets involved); checkout 400s on an unknown product before any provider logic, so this button fails even with keys live. Confirmed incomplete implementation — credential-independent. Revert on owner instruction only.
+- Backend free-enrollment fix (`creator.py`), customer-friendly 501 wording (Courses/ModulesList/VonnsSaga), silent-failure fix (ModulesList toast) — defect fixes, not restrictions.
+
+**Product report (auditor limitation, owner action required):** The auditor cannot inspect Railway variables or the encrypted Mongo vault. The running production process currently 501s checkout (`/api/payments/products` → `payments_enabled: false`; authenticated checkout of `member_monthly` → 501). That state is consistent with EITHER no keys configured OR stale/restarted config. Owner to confirm: are `STRIPE_SECRET_KEY` + `STRIPE_PUBLISHABLE_KEY` (+ `STRIPE_WEBHOOK_SECRET`), or `LEMON_SQUEEZY_API_KEY` + `LEMON_SQUEEZY_STORE_ID`, or `GUMROAD_API_KEY` set in Railway for the deployed service? If yes → the 501 is a deployment/config-reload bug: re-save the variables and redeploy or restart, then re-probe. If no → add them. Either way, one real purchase end-to-end remains the launch proof. Until then, buy CTAs are live and will show an honest error if the rail is down — that is the owner-directed presentation.
+
+**Audit note — live production verification (August 27, 2026):** `www.morehelp.center` is up; `/api/health` = 200 operational (db up, no issues); `/api/payments/products` reports `payments_enabled: false`, provider `disabled`, 13 products in catalog; the Coming Soon payment banner from commit `8948e73` is confirmed live in the deployed bundle; `/store` catalog serves 11 real items ($29 ebooks with covers + AI-authorship disclosure); the conference-bridge script tag and its CSP origins are live; the static-file MIME fix (O6) is confirmed live (`manifest.json` → application/json, `sw.js` → application/javascript). Full test suite: 164 pass / 84 fail / 236 error locally — every failure and error is an HTTP integration test requiring the live server; no unit regressions.
+
 **Open (not fixed):**
 - Physical merchandise purchase (O3) remains an owner decision.
 - 62 sidebar-less pages (O4) remain.
 - One real purchase and one real account against the real DB remain the outstanding launch proofs (see REPORT 5).
+- Payments remain OFF in production (`payments_enabled: false`) — switching revenue on requires the owner to supply provider keys (Stripe `STRIPE_SECRET_KEY` + `STRIPE_PUBLISHABLE_KEY` [+ `STRIPE_WEBHOOK_SECRET`], or Lemon Squeezy `LEMON_SQUEEZY_API_KEY` + `LEMON_SQUEEZY_STORE_ID`, or `GUMROAD_API_KEY`). All checkout code paths are wired and re-enable automatically once keys are present; the Coming Soon banners then become the only frontend cleanup (a revert, not a rebuild).
+- `frontend/src/pages/Store.jsx` is unrouted dead code (the `/store` route renders `MediaStore.jsx`). It still compiles and references the same endpoints; either route it or delete it — owner decision, no action taken in this audit.
 
 ---
 
-## Public-readiness audit — August 28, 2026 (evidence-based; repairs applied in working tree)
+## Public-readiness audit — August 28, 2026 (evidence-based; reconciled with the parallel August 27 session)
 
 Every finding below was verified against the running production site (HTTP probes) or by
 executing code — not by reading intentions.
@@ -117,24 +163,33 @@ fallbacks `STRIPE_SECRET_KEY`/`STRIPE_PUBLISHABLE_KEY`, `GUMROAD_API_KEY`). **Ow
 the exact names in Railway, then redeploy. The 8948e73 "Coming Soon" frontend treatment was
 hardcoded, so the site would have stayed "coming soon" forever even after keys went live.
 
-**R2. "Coming Soon" gating now follows the live backend — FIXED.** `PaymentsComingSoon` fetches
-`/api/payments/products` and disappears the moment `payments_enabled` is true; the paid buttons on
-Plans, Subscribe, Donate, Store, and BYOK re-enable automatically (no code revert, no frontend
-redeploy). While the backend reports disabled, the banner shows exactly as before. All five pages
-and the component parse-verified.
+**R2. Payment-CTA presentation — reconciled with the parallel August 27 session.** While this audit
+was in flight, a parallel session (merged to main via PRs #329–#336) reverted the `8948e73` Coming
+Soon treatment to live buy CTAs under an owner directive ("CTAs live; show an honest error if the
+rail is down"), on the grounds that `payments_enabled: false` cannot distinguish "no keys" from
+"keys not loaded." This merge honors that directive: **live CTAs are the shipped presentation** on
+Plans, Subscribe, Donate, MediaStore, and BYOK. `PaymentsComingSoon.jsx` is retained and upgraded
+with a `usePaymentsEnabled()` hook (fetches `/api/payments/products`; renders nothing when the
+backend reports payments enabled) so flag-driven honest gating can be re-adopted per surface with a
+one-line import if the owner ever chooses. Note the factual record: as of 2026-08-28 production
+still reports `payments_enabled: false`, so live CTAs currently dead-end at checkout 501 — that is
+the accepted owner-directed tradeoff, and the real fix is the deploy/config action in the checklist
+below.
 
-**R3. The AI outage on every member page — FOUND AND FIXED.** `ai/llm_gateway.py` contained a
-fail-closed "platform-funded AI is admin/executive_admin ONLY" guard: every authenticated member
-below admin got the keyword KB on every chat/persona/tutor/scholar surface, and routers turned that
-into "AI service temporarily unavailable — no provider keys configured" errors. That made the tier
-budgets in `user_budget.py` dead code and contradicted the products being sold ("Member tier — full
-community + AI Tutor") and the $3 BYOK unlock. Repaired to the documented owner architecture:
-BYOK users route through their own key first; members get platform AI within their daily
-tier-scaled budget (free 50k → member 62.5k → plus 67.5k → pro 72.5k → patron 75k tokens/day);
-instructor-and-above exempt; hourly global cap and KB fallback unchanged; anonymous visitors still
-get KB only (enforced in the routers). Cost protection is now the budget system, not a membership
-killer. **Owner decision point:** if staff-only AI was truly the intent, say so and it gets
-restored — but then the membership copy selling an "AI Tutor" must change too.
+**R3. The AI outage on every member page — FOUND AND FIXED (convergent).** `ai/llm_gateway.py`
+contained a fail-closed "platform-funded AI is admin/executive_admin ONLY" guard: every
+authenticated member below admin got the keyword KB on every chat/persona/tutor/scholar surface,
+and routers turned that into "AI service temporarily unavailable — no provider keys configured"
+errors. That made the tier budgets in `user_budget.py` dead code and contradicted the products
+being sold ("Member tier — full community + AI Tutor") and the $3 BYOK unlock. Both sessions
+discovered and removed the same guard independently; the shipped implementation is the parallel
+session's (equivalent policy, plus a `byok_offer` flag on the budget-exhaustion result), verified
+by this audit's execution tests: BYOK users route through their own key first; members get
+platform AI within their daily tier-scaled budget (free 50k → member 62.5k → plus 67.5k → pro
+72.5k → patron 75k tokens/day); instructor-and-above exempt; hourly global cap and KB fallback
+unchanged; anonymous visitors still get KB only (enforced in the routers). **Owner decision
+point:** if staff-only AI was truly the intent, say so and it gets restored — but then the
+membership copy selling an "AI Tutor" must change too.
 
 **R4. Lemon Squeezy webhook amounts inflated 100× — FOUND AND FIXED.** The webhook recorded
 `int(float(total) * 100)` as `amount_cents`, but Lemon Squeezy sends `total` already in integer
@@ -150,11 +205,12 @@ their email paid and got no entitlement, silently. All grant paths now match cas
 fulfillment path already used). Asserted by test: `delon.oliver+pay@example.com` now matches a
 stored `Delon.Oliver+Pay@Example.COM`.
 
-**R6. Provider chain contradicted the merchant of record — FIXED.** `config.py` says "Payments run
-through Lemon Squeezy → Gumroad (no Stripe)", `ai/publishing.py` implements Lemon Squeezy as Tier 1,
-but `routers/payments.py` checkout tried Stripe first. With multiple providers configured the site
-would have charged through the wrong merchant. Reordered Lemon Squeezy first (merchant of record
-per owner directive), Stripe and Gumroad remain as configured fallbacks with their webhooks intact.
+**R6. Provider chain contradicted the merchant of record — FIXED (convergent).** Both sessions made
+the same call independently: this audit and the parallel session both reordered checkout to Lemon
+Squeezy first. Reconciled chain now shipped: **Tier 1 Lemon Squeezy → Tier 2 Gumroad (one-time
+only) → Tier 3 Stripe (last-resort, deferred per owner)**. This audit additionally fixed the
+webhook cents bug (R4), webhook email matching (R5), and the per-checkout product flood (R7) on
+the same flow.
 
 **R7. Every checkout created a new Lemon Squeezy product — FIXED.** `_publish_lemon_squeezy`
 created a fresh product + variant per checkout call, flooding the merchant dashboard with
@@ -177,5 +233,6 @@ real LemonSqueezy store and a real webhook delivery — still the outstanding la
 **Owner checklist to switch revenue on (no further code changes required):**
 1. Railway vars exactly: `LEMON_SQUEEZY_API_KEY`, `LEMON_SQUEEZY_STORE_ID`, `LEMON_SQUEEZY_WEBHOOK_SECRET` (names must match; verify, then redeploy).
 2. Lemon Squeezy dashboard → Settings → Webhooks: endpoint `https://www.morehelp.center/api/payments/webhook`, events: order_created, order_refunded, subscription_created/cancelled/expired/paused/resumed/unpaused.
-3. Redeploy, then confirm `GET /api/payments/products` reports `"payments_enabled": true, "provider": "lemon_squeezy"` — the frontend banners disappear and buy buttons activate on their own.
+3. Redeploy, then confirm `GET /api/payments/products` reports `"payments_enabled": true, "provider": "lemon_squeezy"` — buy CTAs are already live per the owner-directed presentation, so the proof is one real purchase end-to-end (checkout → Lemon Squeezy → webhook → tier granted).
 4. Revisit the Plans.jsx trial-banner line that still says "the platform doesn't fund customer AI" — it no longer matches the restored budget-based policy.
+

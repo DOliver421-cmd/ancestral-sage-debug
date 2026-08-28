@@ -7,13 +7,6 @@ import { MEMBERSHIP_PLANS, TRIAL_PLAN, planByKey } from "../lib/plans";
 import { tierRank } from "../lib/tiers";
 import { CheckCircle, ExternalLink, ArrowLeft, Zap } from "lucide-react";
 import { toast } from "sonner";
-import PaymentsComingSoon, { usePaymentsEnabled } from "../components/PaymentsComingSoon";
-
-// Payment gating follows the LIVE backend: /api/payments/products reports
-// payments_enabled, and the buttons below re-enable the moment a provider
-// (Lemon Squeezy merchant-of-record keys) resolves in the deployed process.
-// While it is false the honest "coming soon" state shows. The subscribe()
-// flow below is preserved intact.
 
 function priceLabel(price) {
   return typeof price === "number" ? `$${price}` : price;
@@ -24,7 +17,6 @@ export default function SubscribePage() {
   const [searchParams] = useSearchParams();
   const [loading, setLoading] = useState(null);
   const [portalLoading, setPortalLoading] = useState(false);
-  const paymentsEnabled = usePaymentsEnabled();
 
   const planParam = searchParams.get("plan");
   const sanctuaryPlan = planParam && TRIAL_PLAN.key === planParam ? planByKey(planParam) : null;
@@ -88,7 +80,6 @@ export default function SubscribePage() {
               </div>
             )}
 
-            <PaymentsComingSoon dark context={`the ${plan.name} plan can't be purchased online yet`} />
             <div style={{ background: "#100e1a", border: "1.5px solid rgba(255,255,255,0.1)", borderRadius: 18, padding: 32 }}>
               <div style={{ fontSize: "0.65rem", fontFamily: "monospace", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.15em", color: "#6b6480", marginBottom: 8 }}>
                 M.O.R.E. Help Center — {plan.name}
@@ -108,29 +99,23 @@ export default function SubscribePage() {
               </ul>
               <button
                 onClick={() => subscribe(plan.key)}
-                disabled={!paymentsEnabled || !!loading}
-                title={paymentsEnabled ? undefined : "Online payments are coming soon"}
+                disabled={!!loading}
                 style={{
                   width: "100%", padding: "16px", border: "none", borderRadius: 12,
                   background: isTrial ? "#E8A51E" : "linear-gradient(135deg,#7c3aed,#6d28d9)",
                   color: isTrial ? "#0a0a0a" : "#fff",
                   fontSize: 15, fontWeight: 900, fontFamily: "monospace", letterSpacing: "0.06em",
-                  cursor: paymentsEnabled ? (loading ? "wait" : "pointer") : "not-allowed",
-                  opacity: paymentsEnabled ? 1 : 0.55,
+                  cursor: loading ? "default" : "pointer", opacity: loading ? 0.6 : 1,
                 }}
               >
-                {!paymentsEnabled
-                  ? "Coming Soon — online checkout"
-                  : loading === plan.key
-                    ? "Redirecting to checkout…"
-                    : isTrial
-                      ? "Start $3 Trial →"
-                      : `Subscribe — ${priceLabel(plan.price)}${plan.period}`}
+                {loading === plan.key
+                  ? "Redirecting to checkout…"
+                  : isTrial
+                    ? "Start $3 Trial →"
+                    : `Subscribe — ${priceLabel(plan.price)}${plan.period}`}
               </button>
               <p style={{ fontSize: 11, color: "#6b6480", textAlign: "center", marginTop: 14 }}>
-                {paymentsEnabled
-                  ? "Manage or cancel anytime from your account."
-                  : "This plan is real and fully built — checkout opens when payments go live."}
+                Manage or cancel anytime from your account.
               </p>
             </div>
           </div>
@@ -175,16 +160,11 @@ export default function SubscribePage() {
             </div>
             <button
               onClick={() => subscribe("sanctuary_trial")}
-              disabled={!paymentsEnabled}
-              title={paymentsEnabled ? undefined : "Online payments are coming soon"}
-              style={{ flexShrink: 0, background: "#E8A51E", color: "#0a0a0a", border: "none", borderRadius: 12, padding: "12px 24px", fontFamily: "monospace", fontWeight: 900, fontSize: 14, cursor: paymentsEnabled ? "pointer" : "not-allowed", opacity: paymentsEnabled ? 1 : 0.55 }}
+              disabled={!!loading}
+              style={{ flexShrink: 0, background: "#E8A51E", color: "#0a0a0a", border: "none", borderRadius: 12, padding: "12px 24px", fontFamily: "monospace", fontWeight: 900, fontSize: 14, cursor: "pointer" }}
             >
-              {paymentsEnabled ? "Start $3 Trial →" : "Coming Soon — online checkout"}
+              {loading === "sanctuary_trial" ? "Redirecting…" : "Try Everything for $3 →"}
             </button>
-          </div>
-
-          <div style={{ maxWidth: 760, margin: "0 auto 40px" }}>
-            <PaymentsComingSoon dark context="memberships can't be purchased online yet" />
           </div>
 
           {/* Active member banner */}
@@ -247,23 +227,16 @@ export default function SubscribePage() {
                   </ul>
                   <button
                     onClick={() => subscribe(plan.key)}
-                    disabled={!paymentsEnabled || loading === plan.key}
-                    title={paymentsEnabled ? undefined : "Online payments are coming soon"}
+                    disabled={!!loading || isCurrent}
                     style={{
                       width: "100%", padding: "11px", border: `1.5px solid ${plan.color}60`,
                       borderRadius: 10, background: plan.highlight ? `${plan.color}20` : "transparent",
                       color: plan.color, fontSize: 12, fontWeight: 900, fontFamily: "monospace",
-                      letterSpacing: "0.06em", cursor: paymentsEnabled ? "pointer" : "not-allowed",
-                      opacity: paymentsEnabled ? 1 : 0.55,
+                      letterSpacing: "0.06em", cursor: isCurrent ? "default" : "pointer",
+                      opacity: (loading && loading !== plan.key) || isCurrent ? 0.5 : 1,
                     }}
                   >
-                    {isCurrent
-                      ? "Current Plan"
-                      : paymentsEnabled
-                        ? loading === plan.key
-                          ? "Redirecting to checkout…"
-                          : `Subscribe — ${priceLabel(plan.price)}${plan.period}`
-                        : "Coming Soon — online checkout"}
+                    {isCurrent ? "Current Plan" : loading === plan.key ? "Redirecting…" : `Choose ${plan.name}`}
                   </button>
                 </div>
               );

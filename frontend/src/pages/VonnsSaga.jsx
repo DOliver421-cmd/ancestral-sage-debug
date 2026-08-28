@@ -461,7 +461,14 @@ export default function VonnsSaga() {
         loadSagaAssets();
       }
     } catch (e) {
-      toast.error(e?.response?.data?.detail || "Could not start checkout.");
+      const detail = e?.response?.data?.detail || "";
+      // Customer-friendly honest status — never show the backend's env-var
+      // instructions ("Add STRIPE_SECRET_KEY (or LEMON_SQUEEZY…)") to buyers.
+      if (e?.response?.status === 501 || /not configured/i.test(String(detail))) {
+        toast.info("Online payments are coming soon — this can't be purchased yet, and nothing was charged.");
+      } else {
+        toast.error(detail || "Could not start checkout.");
+      }
     }
   }, [loadSagaAssets]);
 

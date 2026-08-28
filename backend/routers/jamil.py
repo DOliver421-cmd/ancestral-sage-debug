@@ -176,13 +176,18 @@ async def jamil_chat_server(
     user_message = "\n\n".join(parts)
 
     # Route through the full 9-tier free gateway — Groq → Cerebras → SambaNova →
-    # Gemini → Grok → Cohere → Mistral → Together → OpenRouter → HuggingFace → KB
+    # Gemini → Grok → Cohere → Mistral → Together → OpenRouter → HuggingFace → KB.
+    # user_id MUST be passed: it is what lets the caller's own BYOK key serve the
+    # request (staff BYOK is free), and what the gateway uses to authorize
+    # platform-funded AI. Jamil previously omitted it, so the operator's own key
+    # was never tried and the call silently depended on the shared pool or KB.
     from ai.llm_gateway import call_llm as _gateway_call
     result = await _gateway_call(
         system=system,
         messages=[{"role": "user", "content": user_message}],
         max_tokens=4096,
         persona_label="jamil",
+        user_id=str(getattr(user, "id", "") or getattr(user, "_id", "")),
     )
     reply = result.get("text", "").strip()
 
@@ -192,8 +197,14 @@ async def jamil_chat_server(
                 status_code=503,
                 detail="No AI provider available. Add at least one free API key in Railway Variables: GROQ_API_KEY, CEREBRAS_API_KEY, SAMBANOVA_API_KEY, GEMINI_API_KEY, MISTRAL_API_KEY, or TOGETHER_API_KEY.",
             )
-        # KB fallback returned something — pass it through rather than 503
+        # KB fallback returned something — pass it through rather than 503, but
+        # say so: a canned answer must never be presented as a live AI reply.
         logger.warning("Jamil routed to KB fallback — all AI providers unavailable")
+        reply = (
+            "[Knowledge-base mode: no live AI provider is available right now, so "
+            "this answer is drawn from stored knowledge rather than a fresh model "
+            "response.]\n\n" + reply
+        )
 
     try:
         await db.jamil_history.insert_one({

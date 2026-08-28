@@ -524,7 +524,11 @@ async def create_checkout_session(req: CheckoutReq, user=Depends(_dep_current_us
     mode = product["mode"]
     is_subscription = mode == "subscription"
 
-    # Tier 1 — Lemon Squeezy (merchant of record — digital products + subscriptions)
+    # Tier 1 — Lemon Squeezy (PRIMARY — merchant of record per owner directive;
+    # digital products + subscriptions, then one-time digital). This is the
+    # business-primary processor as decided by the owner. Stripe was deferred
+    # (could not be configured correctly) and is only a LAST-RESORT fallback
+    # below, never the first choice.
     ls_result = await _publish_lemon_squeezy(
         name=product["name"],
         description=product.get("description", ""),
@@ -540,7 +544,16 @@ async def create_checkout_session(req: CheckoutReq, user=Depends(_dep_current_us
                           "session_id": ls_result.get("product_id")})
         return {"url": ls_result["url"], "session_id": ls_result.get("product_id")}
 
-    # Tier 2 — Stripe (configured fallback — hosted Checkout Session)
+    # Tier 2 — Gumroad (one-time digital purchases only)
+    if not is_subscription:
+        gr_result = await _publish_gumroad(product["name"], product.get("description", ""), amount)
+        if gr_result:
+            await audit(user.id, "payment_checkout_created",
+                        meta={"product": req.product_key, "provider": "gumroad",
+                              "session_id": gr_result.get("product_id")})
+            return {"url": gr_result["url"], "session_id": gr_result.get("product_id")}
+
+    # Tier 3 — Stripe (LAST-RESORT fallback — one-time + subscriptions)
     stripe_session = await _create_stripe_checkout(
         product_key=req.product_key,
         product=product,
@@ -574,14 +587,6 @@ async def create_checkout_session(req: CheckoutReq, user=Depends(_dep_current_us
         )
         return {"url": stripe_session["url"], "session_id": stripe_session.get("id")}
 
-    # Tier 3 — Gumroad (one-time digital purchases only)
-    if not is_subscription:
-        gr_result = await _publish_gumroad(product["name"], product.get("description", ""), amount)
-        if gr_result:
-            await audit(user.id, "payment_checkout_created",
-                        meta={"product": req.product_key, "provider": "gumroad",
-                              "session_id": gr_result.get("product_id")})
-            return {"url": gr_result["url"], "session_id": gr_result.get("product_id")}
 
     if not PAYMENTS_ENABLED:
         raise HTTPException(

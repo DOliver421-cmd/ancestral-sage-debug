@@ -1296,6 +1296,7 @@ async def ai_tool_chat(body: ToolChatReq, user: User = Depends(_dep_current_user
             messages=[{"role": "user", "content": body.message}],
             max_tokens=1024,
             persona_label=f"tool_{skill_key}",
+            user_id=user.id,
         )
         reply = gw["text"]
     except Exception as e:
@@ -1501,7 +1502,7 @@ async def ai_scholar(body: ScholarTaskReq, user: User = Depends(_dep_current_use
 
     try:
         from ai.llm_gateway import call_llm as _call_llm
-        _gw = await _call_llm(system=system, messages=claude_messages, max_tokens=4096, persona_label="scholar")
+        _gw = await _call_llm(system=system, messages=claude_messages, max_tokens=4096, persona_label="scholar", user_id=user.id)
         reply = _gw["text"]
     except Exception as e:
         logger.exception("Scholar AI error")
@@ -1902,6 +1903,7 @@ async def ai_director(body: dict, user: User = Depends(_dep_current_user)):
             messages      = [{"role": "user", "content": message}],
             max_tokens    = 2048,
             persona_label = "director",
+            user_id=user.id,
         )
         # kb_fallback means all LLM providers are unconfigured — treat as no reply
         # so the Director-voice static fallback fires instead of the generic KB message.
@@ -2270,7 +2272,7 @@ async def ai_revenue_director(body: dict, user: User = Depends(_dep_current_user
     _tools_called: list[str] = []
     try:
         from ai.llm_gateway import call_llm as _call_llm
-        _gw = await _call_llm(system=system, messages=[{"role": "user", "content": message}], max_tokens=2048, persona_label="revenue_director")
+        _gw = await _call_llm(system=system, messages=[{"role": "user", "content": message}], max_tokens=2048, persona_label="revenue_director", user_id=user.id)
         reply = _gw["text"]
     except Exception:
         reply = "THE REVENUE DIRECTOR is temporarily offline. Financial archives remain active. Retry in a moment."
@@ -2336,7 +2338,7 @@ async def sage_create(body: dict, user: User = Depends(_dep_current_user)):
     _tools_called: list[str] = []
     try:
         from ai.llm_gateway import call_llm as _call_llm
-        _gw = await _call_llm(system=system, messages=[{"role": "user", "content": message}], max_tokens=2048, persona_label="ancestral_sage")
+        _gw = await _call_llm(system=system, messages=[{"role": "user", "content": message}], max_tokens=2048, persona_label="ancestral_sage", user_id=user.id)
         reply = _gw["text"]
     except Exception:
         reply = "The Ancestral Sage is temporarily offline. Wisdom archives remain intact. Retry in a moment."
@@ -2405,7 +2407,7 @@ async def ai_ambassador(body: dict, user: User = Depends(_dep_current_user)):
     _gw: dict = {}
     try:
         from ai.llm_gateway import call_llm as _call_llm
-        _gw = await _call_llm(system=system, messages=[{"role": "user", "content": message}], max_tokens=2048, persona_label="ambassador")
+        _gw = await _call_llm(system=system, messages=[{"role": "user", "content": message}], max_tokens=2048, persona_label="ambassador", user_id=user.id)
         reply = _gw["text"]
     except Exception:
         reply = "THE AMBASSADOR is temporarily offline. Campaign pipeline intelligence remains archived. Retry in a moment."
@@ -2475,7 +2477,7 @@ async def ai_architect(body: dict, user: User = Depends(_dep_current_user)):
     _gw: dict = {}
     try:
         from ai.llm_gateway import call_llm as _call_llm
-        _gw = await _call_llm(system=system, messages=[{"role": "user", "content": message}], max_tokens=2048, persona_label="architect")
+        _gw = await _call_llm(system=system, messages=[{"role": "user", "content": message}], max_tokens=2048, persona_label="architect", user_id=user.id)
         reply = _gw["text"]
     except Exception:
         reply = "THE ARCHITECT is temporarily offline. Visual intelligence archives remain active. Retry in a moment."
@@ -2544,6 +2546,7 @@ async def ai_griot(body: dict, user: User = Depends(_dep_current_user)):
             messages=[{"role": "user", "content": message}],
             max_tokens=2048,
             persona_label="griot",
+            user_id=user.id,
         )
         reply = _gw["text"]
     except Exception:
@@ -2611,7 +2614,7 @@ async def ai_cipher(body: dict, user: User = Depends(_dep_current_user)):
     _gw: dict = {}
     try:
         from ai.llm_gateway import call_llm as _call_llm
-        _gw = await _call_llm(system=system, messages=[{"role": "user", "content": message}], max_tokens=2048, persona_label="cipher")
+        _gw = await _call_llm(system=system, messages=[{"role": "user", "content": message}], max_tokens=2048, persona_label="cipher", user_id=user.id)
         reply = _gw["text"]
     except Exception:
         reply = "THE CIPHER is temporarily operating without AI connectivity. Revenue streams remain active. Retry in a moment."
@@ -2674,7 +2677,7 @@ async def ai_oracle(body: dict, user: User = Depends(_dep_current_user)):
     _gw: dict = {}
     try:
         from ai.llm_gateway import call_llm as _call_llm
-        _gw = await _call_llm(system=system, messages=[{"role": "user", "content": message}], max_tokens=2048, persona_label="oracle")
+        _gw = await _call_llm(system=system, messages=[{"role": "user", "content": message}], max_tokens=2048, persona_label="oracle", user_id=user.id)
         reply = _gw["text"]
     except Exception:
         reply = "THE ORACLE is temporarily operating without AI connectivity. Cultural intelligence archives remain active. Retry in a moment."
@@ -3295,6 +3298,7 @@ async def persona_chat(slug: str, body: _PersonaChatReq, user: User = Depends(_d
             messages=[{"role": "user", "content": body.message}],
             max_tokens=1024,
             persona_label=f"persona:{slug}",
+            user_id=user.id,
         )
         provider = _gw.get("provider")
         reply = _gw.get("text", "") or ""

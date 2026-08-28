@@ -911,7 +911,7 @@ export default function DirectorWidget() {
     if (!reply) {
       usedTier = 3;
       try {
-        const r = await api.post("/api/assistant/chat", { message: userMsg, session_id: "director_session", history: [] });
+        const r = await api.post("/assistant/chat", { message: userMsg, session_id: "director_session", history: [] });
         reply = r.data.reply;
         degraded = false;
       } catch (_e) { /* fall through */ }

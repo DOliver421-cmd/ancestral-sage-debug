@@ -64,18 +64,27 @@ export default function OurLegacy() {
   const { user } = useAuth();
   const [buying, setBuying] = useState(false);
 
+  // REALITY (2026-08-27 audit): the in-app "book" SKU was removed from
+  // PAYMENT_PRODUCTS, so this checkout can never complete — it 400s
+  // ("Unknown product") even with payments configured. Per the honest-status
+  // pass, the buy buttons below are presented as Coming Soon. The handler and
+  // the 501→/merch fallback stay wired and intact: if a book SKU is ever added
+  // to PAYMENT_PRODUCTS, re-enabling the buttons is a frontend-only revert.
+  const BOOK_CHECKOUT_DISABLED = true;
+
   async function buyBook() {
     if (!user) { toast.error("Sign in to purchase"); return; }
+    if (BOOK_CHECKOUT_DISABLED) { toast.info("Online payments are coming soon — the book can't be purchased in-app yet."); return; }
     setBuying(true);
     try {
       const { data } = await api.post("/payments/checkout", { product_key: "book", quantity: 1 });
       window.location.href = data.url;
     } catch (e) {
       const detail = e?.response?.data?.detail || "";
-      // Payments not configured yet (no Lemon Squeezy / Gumroad API keys):
-      // don't leave the visitor at a dead 501 — route them to the live storefront.
-      if (e?.response?.status === 501 || /not configured|payments are not configured/i.test(String(detail))) {
-        toast.info("Checkout is being set up — redirected to our live storefront.");
+      // Payments not configured OR the SKU is not in the catalog — either way,
+      // don't leave the visitor at a raw error; route them to the store.
+      if (e?.response?.status === 501 || /not configured|unknown product/i.test(String(detail))) {
+        toast.info("Checkout is being set up — taking you to the store.");
         window.location.href = "/merch";
         return;
       }
@@ -122,11 +131,12 @@ export default function OurLegacy() {
           <div className="flex flex-wrap items-center justify-center gap-4 mt-10">
             <button
               onClick={buyBook}
-              disabled={buying}
-              className="inline-flex items-center gap-2 px-7 py-3.5 bg-signal text-ink font-bold hover:bg-signal/80 transition-colors disabled:opacity-60"
+              disabled={BOOK_CHECKOUT_DISABLED || buying}
+              title={BOOK_CHECKOUT_DISABLED ? "Online payments are coming soon" : undefined}
+              className="inline-flex items-center gap-2 px-7 py-3.5 bg-signal text-ink font-bold hover:bg-signal/80 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
             >
               <BookOpen className="w-4 h-4" />
-              {buying ? "Opening checkout…" : `Get the Book — $${BOOK_PRICE}`}
+              {BOOK_CHECKOUT_DISABLED ? "Coming Soon — online checkout" : buying ? "Opening checkout…" : `Get the Book — $${BOOK_PRICE}`}
             </button>
             <a
               href="#pillars"
@@ -238,16 +248,19 @@ export default function OurLegacy() {
               </ul>
               <button
                 onClick={buyBook}
-                disabled={buying}
-                className="w-full btn-copper inline-flex items-center justify-center gap-2 font-bold disabled:opacity-60"
+                disabled={BOOK_CHECKOUT_DISABLED || buying}
+                title={BOOK_CHECKOUT_DISABLED ? "Online payments are coming soon" : undefined}
+                className="w-full btn-copper inline-flex items-center justify-center gap-2 font-bold disabled:opacity-60 disabled:cursor-not-allowed"
               >
                 <BookOpen className="w-4 h-4" />
-                {buying ? "Opening checkout…" : `Buy the Book — $${BOOK_PRICE}`}
+                {BOOK_CHECKOUT_DISABLED ? "Coming Soon — online checkout" : buying ? "Opening checkout…" : `Buy the Book — $${BOOK_PRICE}`}
               </button>
               <p className="text-xs text-ink/50 mt-4 text-center leading-relaxed">
-                {user
-                  ? "Secure checkout through Lemon Squeezy. The book lands in your library after purchase."
-                  : "Sign in to purchase — checkout is protected by your account."}{" "}
+                {BOOK_CHECKOUT_DISABLED
+                  ? "Online payments are coming soon. The book isn't purchasable in-app yet — nothing will be charged."
+                  : user
+                    ? "Secure checkout through Lemon Squeezy. The book lands in your library after purchase."
+                    : "Sign in to purchase — checkout is protected by your account."}{" "}
                 Refunds are issued as site credit unless the failure was the platform's fault.
               </p>
             </div>
