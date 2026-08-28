@@ -614,17 +614,30 @@ async def list_bridge_log(
 async def receive_from_partner(
     body: dict,
     x_bridge_secret: Optional[str] = Header(None, alias="X-Bridge-Secret"),
+    x_bridge_signature: Optional[str] = Header(None, alias="X-Bridge-Signature"),
 ):
     """Inbound webhook — the partner AI team posts messages/updates here.
 
-    If a shared_secret is configured on the bridge, the caller must present it in
-    the X-Bridge-Secret header. This is the receiving half of direct communication.
+    Authentication accepts EITHER:
+      - X-Bridge-Secret: <plain shared secret> (simple comparison)
+      - X-Bridge-Signature: sha256=<hex HMAC-SHA256 of raw body> (signed)
     """
     cfg = await _get_config()
     secret = (cfg.get("shared_secret") or "").strip()
     if secret:
-        if not x_bridge_secret or not secrets.compare_digest(x_bridge_secret, secret):
-            raise HTTPException(401, "Invalid or missing bridge secret.")
+        authenticated = False
+        # Method 1: plain secret comparison
+        if x_bridge_secret and secrets.compare_digest(x_bridge_secret, secret):
+            authenticated = True
+        # Method 2: HMAC-SHA256 signature verification
+        if not authenticated and x_bridge_signature and x_bridge_signature.startswith("sha256="):
+            import json as _json
+            raw_body = _json.dumps(body, separators=(",", ":")).encode("utf-8")
+            expected = hmac.new(secret.encode("utf-8"), raw_body, hashlib.sha256).hexdigest()
+            if secrets.compare_digest(x_bridge_signature[7:], expected):
+                authenticated = True
+        if not authenticated:
+            raise HTTPException(401, "Invalid or missing bridge authentication.")
     if not cfg.get("enabled", True):
         raise HTTPException(403, "Bridge is disabled.")
 

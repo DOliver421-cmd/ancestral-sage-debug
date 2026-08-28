@@ -38,6 +38,9 @@ export default function TeamConferenceEmbed() {
     for (const [k, v] of Object.entries(EMBED_ATTRS)) {
       script.setAttribute(k, v);
     }
+    script.onerror = () => {
+      console.warn("[TeamConference] WAI embed script failed to load — conference unavailable");
+    };
     script.defer = true;
     document.body.appendChild(script);
     injectedRef.current = true;
