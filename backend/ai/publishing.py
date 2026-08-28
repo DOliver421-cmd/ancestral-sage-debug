@@ -61,6 +61,78 @@ async def _publish_lemon_squeezy(
     try:
         import httpx
         async with httpx.AsyncClient(timeout=20) as client:
+            # Step 0: reuse an existing published product + matching variant
+            # before creating anything. Creating a fresh product on EVERY
+            # checkout flooded the Lemon Squeezy dashboard with duplicates
+            # (one per visitor click) and made merchant-of-record accounting
+            # messy. Matching is by exact name + price + billing shape.
+            try:
+                rl = await client.get(
+                    "https://api.lemonsqueezy.com/v1/products",
+                    headers=headers,
+                    params={
+                        "filter[store_id]": str(LEMON_SQUEEZY_STORE_ID),
+                        "include": "variants",
+                        "page[size]": "100",
+                    },
+                )
+                if rl.status_code == 200:
+                    _payload = rl.json()
+                    _included = _payload.get("included") or []
+                    _variants_by_product: dict[str, list[dict]] = {}
+                    for _inc in _included:
+                        if _inc.get("type") != "variants":
+                            continue
+                        _pid = (_inc.get("relationships") or {}).get("product", {}).get("data", {}).get("id", "")
+                        if _pid:
+                            _variants_by_product.setdefault(_pid, []).append(_inc)
+                    for _prod in (_payload.get("data") or []):
+                        _attrs = _prod.get("attributes") or {}
+                        if str(_attrs.get("name", "")).strip().lower() != str(name).strip().lower():
+                            continue
+                        if _attrs.get("status", "published") not in ("published", None, ""):
+                            continue
+                        for _var in _variants_by_product.get(str(_prod.get("id", "")), []):
+                            _va = _var.get("attributes") or {}
+                            if int(_va.get("price", -1) or -1) != int(price_cents):
+                                continue
+                            _v_sub = bool(_va.get("is_subscription", False))
+                            if _v_sub != bool(is_subscription):
+                                continue
+                            if is_subscription and str(_va.get("interval", "")) != str(interval):
+                                continue
+                            _existing_variant_id = str(_var.get("id", ""))
+                            if not _existing_variant_id:
+                                continue
+                            # Reuse — need the store slug for the checkout URL.
+                            _slug = ""
+                            try:
+                                rs0 = await client.get(
+                                    f"https://api.lemonsqueezy.com/v1/stores/{LEMON_SQUEEZY_STORE_ID}",
+                                    headers=headers,
+                                )
+                                if rs0.status_code == 200:
+                                    _slug = rs0.json().get("data", {}).get("attributes", {}).get("slug", "")
+                            except Exception:
+                                pass
+                            if not _slug:
+                                break  # fall through to create path below
+                            _url = f"https://{_slug}.lemonsqueezy.com/checkout/buy/{_existing_variant_id}"
+                            if checkout_email:
+                                from urllib.parse import quote as _q0
+                                _url += f"?checkout[email]={_q0(checkout_email)}"
+                            logger.info(
+                                "LemonSqueezy T1 REUSE: %s → %s (product %s, variant %s)",
+                                name, _url, _prod.get("id"), _existing_variant_id,
+                            )
+                            return {
+                                "url": _url,
+                                "product_id": str(_prod.get("id", "")),
+                                "variant_id": _existing_variant_id,
+                            }
+            except Exception as _reuse_err:
+                logger.warning("LemonSqueezy reuse lookup failed (creating fresh): %s", _reuse_err)
+
             # Step 1: Create product
             product_payload = {
                 "data": {

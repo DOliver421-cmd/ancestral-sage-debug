@@ -145,3 +145,94 @@ Every customer-facing restriction in the repo was re-examined for the failure pa
 - One real purchase and one real account against the real DB remain the outstanding launch proofs (see REPORT 5).
 - Payments remain OFF in production (`payments_enabled: false`) — switching revenue on requires the owner to supply provider keys (Stripe `STRIPE_SECRET_KEY` + `STRIPE_PUBLISHABLE_KEY` [+ `STRIPE_WEBHOOK_SECRET`], or Lemon Squeezy `LEMON_SQUEEZY_API_KEY` + `LEMON_SQUEEZY_STORE_ID`, or `GUMROAD_API_KEY`). All checkout code paths are wired and re-enable automatically once keys are present; the Coming Soon banners then become the only frontend cleanup (a revert, not a rebuild).
 - `frontend/src/pages/Store.jsx` is unrouted dead code (the `/store` route renders `MediaStore.jsx`). It still compiles and references the same endpoints; either route it or delete it — owner decision, no action taken in this audit.
+
+---
+
+## Public-readiness audit — August 28, 2026 (evidence-based; reconciled with the parallel August 27 session)
+
+Every finding below was verified against the running production site (HTTP probes) or by
+executing code — not by reading intentions.
+
+**R1. Production payments are OFF — confirmed against the live site.** `GET /api/payments/products`
+on www.morehelp.center returned `payments_enabled: false, provider: disabled` on 2026-08-28, and
+`GET /api/version` confirms the deployed build is alive. The owner states all provider keys are
+active in Railway; the deployed process sees none of them. That means either the last deploy
+predates the keys, or a Railway variable name does not exactly match what the code reads
+(`LEMON_SQUEEZY_API_KEY`, `LEMON_SQUEEZY_STORE_ID`; webhook secret `LEMON_SQUEEZY_WEBHOOK_SECRET`;
+fallbacks `STRIPE_SECRET_KEY`/`STRIPE_PUBLISHABLE_KEY`, `GUMROAD_API_KEY`). **Owner action:** verify
+the exact names in Railway, then redeploy. The 8948e73 "Coming Soon" frontend treatment was
+hardcoded, so the site would have stayed "coming soon" forever even after keys went live.
+
+**R2. Payment-CTA presentation — reconciled with the parallel August 27 session.** While this audit
+was in flight, a parallel session (merged to main via PRs #329–#336) reverted the `8948e73` Coming
+Soon treatment to live buy CTAs under an owner directive ("CTAs live; show an honest error if the
+rail is down"), on the grounds that `payments_enabled: false` cannot distinguish "no keys" from
+"keys not loaded." This merge honors that directive: **live CTAs are the shipped presentation** on
+Plans, Subscribe, Donate, MediaStore, and BYOK. `PaymentsComingSoon.jsx` is retained and upgraded
+with a `usePaymentsEnabled()` hook (fetches `/api/payments/products`; renders nothing when the
+backend reports payments enabled) so flag-driven honest gating can be re-adopted per surface with a
+one-line import if the owner ever chooses. Note the factual record: as of 2026-08-28 production
+still reports `payments_enabled: false`, so live CTAs currently dead-end at checkout 501 — that is
+the accepted owner-directed tradeoff, and the real fix is the deploy/config action in the checklist
+below.
+
+**R3. The AI outage on every member page — FOUND AND FIXED (convergent).** `ai/llm_gateway.py`
+contained a fail-closed "platform-funded AI is admin/executive_admin ONLY" guard: every
+authenticated member below admin got the keyword KB on every chat/persona/tutor/scholar surface,
+and routers turned that into "AI service temporarily unavailable — no provider keys configured"
+errors. That made the tier budgets in `user_budget.py` dead code and contradicted the products
+being sold ("Member tier — full community + AI Tutor") and the $3 BYOK unlock. Both sessions
+discovered and removed the same guard independently; the shipped implementation is the parallel
+session's (equivalent policy, plus a `byok_offer` flag on the budget-exhaustion result), verified
+by this audit's execution tests: BYOK users route through their own key first; members get
+platform AI within their daily tier-scaled budget (free 50k → member 62.5k → plus 67.5k → pro
+72.5k → patron 75k tokens/day); instructor-and-above exempt; hourly global cap and KB fallback
+unchanged; anonymous visitors still get KB only (enforced in the routers). **Owner decision
+point:** if staff-only AI was truly the intent, say so and it gets restored — but then the
+membership copy selling an "AI Tutor" must change too.
+
+**R4. Lemon Squeezy webhook amounts inflated 100× — FOUND AND FIXED.** The webhook recorded
+`int(float(total) * 100)` as `amount_cents`, but Lemon Squeezy sends `total` already in integer
+cents: a $9.99 order was recorded as $999.00 in `payments` and scholarship funds `raised_cents`
+was credited 100×. Revenue reporting was structurally wrong. Now records cents as cents (asserted
+by test).
+
+**R5. Paid members could silently receive nothing — FOUND AND FIXED.** Registration stores emails
+exactly as typed; Lemon Squeezy lowercases buyer emails; the tier-grant/cancel/refund/BYOK/scholarship
+webhook paths looked users up by exact match. Any member who registered with one capital letter in
+their email paid and got no entitlement, silently. All grant paths now match case-insensitively
+(regex-escaped, so emails containing `+`/`.` cannot widen the match — same approach the media
+fulfillment path already used). Asserted by test: `delon.oliver+pay@example.com` now matches a
+stored `Delon.Oliver+Pay@Example.COM`.
+
+**R6. Provider chain contradicted the merchant of record — FIXED (convergent).** Both sessions made
+the same call independently: this audit and the parallel session both reordered checkout to Lemon
+Squeezy first. Reconciled chain now shipped: **Tier 1 Lemon Squeezy → Tier 2 Gumroad (one-time
+only) → Tier 3 Stripe (last-resort, deferred per owner)**. This audit additionally fixed the
+webhook cents bug (R4), webhook email matching (R5), and the per-checkout product flood (R7) on
+the same flow.
+
+**R7. Every checkout created a new Lemon Squeezy product — FIXED.** `_publish_lemon_squeezy`
+created a fresh product + variant per checkout call, flooding the merchant dashboard with
+duplicates (one per visitor click) and making MoR accounting messy. It now looks up an existing
+published product with a matching variant (name + price + billing shape) and reuses it; creation
+only happens when no match exists, and any lookup failure falls back to the old create path.
+
+**R8. Wrong-domain redirect default — FIXED.** `FRONTEND_URL` defaulted to `https://wai-institute.org`
+in this morehelp.center repo; a missing Railway var would send checkout success/cancel back to the
+other site. Default is now `https://www.morehelp.center` (explicit env still wins).
+
+**Verification evidence (this session):** identical pytest failure sets before/after the repairs
+(320 pre-existing failures require a live server/DB — sandbox has neither; 159 pass in both),
+`test_bridge_delivery` 6/6 and KB-fallback suites 12/12 pass, targeted execution tests pass for the
+cents fix, case-insensitive email matching, tier budgets (50k/62.5k/75k, instructor+ exempt,
+role ≠ tier), gateway guard removal, and LS product reuse; all five edited pages + component
+parse-verified. **Not yet verified (needs the environment above):** a real purchase against the
+real LemonSqueezy store and a real webhook delivery — still the outstanding launch proofs.
+
+**Owner checklist to switch revenue on (no further code changes required):**
+1. Railway vars exactly: `LEMON_SQUEEZY_API_KEY`, `LEMON_SQUEEZY_STORE_ID`, `LEMON_SQUEEZY_WEBHOOK_SECRET` (names must match; verify, then redeploy).
+2. Lemon Squeezy dashboard → Settings → Webhooks: endpoint `https://www.morehelp.center/api/payments/webhook`, events: order_created, order_refunded, subscription_created/cancelled/expired/paused/resumed/unpaused.
+3. Redeploy, then confirm `GET /api/payments/products` reports `"payments_enabled": true, "provider": "lemon_squeezy"` — buy CTAs are already live per the owner-directed presentation, so the proof is one real purchase end-to-end (checkout → Lemon Squeezy → webhook → tier granted).
+4. Revisit the Plans.jsx trial-banner line that still says "the platform doesn't fund customer AI" — it no longer matches the restored budget-based policy.
+
