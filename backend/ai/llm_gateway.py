@@ -435,6 +435,7 @@ _BUDGET_RESULT = {
     "output_tokens":  0,
     "degraded":       True,
     "budget_exceeded": True,
+    "byok_offer":     True,
 }
 
 try:
@@ -584,15 +585,15 @@ async def call_llm(
         except Exception as _e:
             logger.warning("LLM Gateway BYOK resolution failed (%s): %s", persona_label, _e)
 
-    # ── Platform-funding policy guard ────────────────────────────────────────
-    # Owner decision (August 2026): platform-funded AI is admin / executive_admin
-    # staff ONLY. Customers at any tier (free → executive) get NO platform-funded
-    # AI: they either use their own BYOK key (handled above) or the keyword KB.
-    # The check is fail-closed for authenticated customers: if we cannot verify
-    # the caller is authorized staff, they get the KB, never platform tokens.
+    # ── User context lookup (for budget, KB fallback, and access control) ────
+    # All authenticated users may use platform-funded AI within their daily
+    # budget.  Staff (admin/executive_admin) are budget-exempt (unlimited).
+    # Non-staff users are budget-capped by role and feature_tier.  When the
+    # daily cap is exhausted, the user gets the KB fallback + BYOK option.
     _access = None
+    _user_role = ""
+    _user_tier = ""
     if user_id:
-        _is_staff = False
         try:
             from deps import get_db as _get_db
             from roles import normalize_role as _norm_role
@@ -601,25 +602,19 @@ async def call_llm(
                 _u = await _pg_db.users.find_one(
                     {"id": user_id}, {"_id": 0, "role": 1, "feature_tier": 1, "byok_enabled": 1}
                 )
-                _role = _norm_role((_u or {}).get("role", "student"))
-                _is_staff = _role in ("admin", "executive_admin")
+                _user_role = _norm_role((_u or {}).get("role", "student"))
+                _user_tier = (_u or {}).get("feature_tier") or "free"
                 try:
                     from ai.knowledge_finder import Access as _Access
                     _access = _Access(
-                        role=_role,
-                        feature_tier=(_u or {}).get("feature_tier") or "free",
+                        role=_user_role,
+                        feature_tier=_user_tier,
                         byok=bool((_u or {}).get("byok_enabled")),
                     )
                 except Exception:
                     _access = None
         except Exception:
-            _is_staff = False
-        if not _is_staff:
-            logger.info(
-                "LLM Gateway: %s is not platform-AI-authorized — knowledge fallback for %s",
-                user_id, persona_label,
-            )
-            return _kb_reply(messages, access=_access)
+            pass
 
     # ── Per-user daily budget guard (platform-paid calls only) ──────────────
     # Prevents any single non-exec account from draining the platform API and
