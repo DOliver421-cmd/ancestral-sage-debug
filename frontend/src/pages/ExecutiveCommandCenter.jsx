@@ -209,16 +209,16 @@ export default function ExecutiveCommandCenter() {
 
   return (
     <AppShell>
-      <div className="px-4 sm:px-6 lg:px-10 py-8 max-w-7xl" style={{ background: "linear-gradient(160deg,#06251c,#0a0a0f 70%)", minHeight: "100vh", color: "#e8e4f0" }}>
+      <div className="px-4 sm:px-6 lg:px-10 py-8 max-w-7xl bg-white text-slate-900" style={{ minHeight: "100vh" }}>
         <div className="mb-5 [&_*]:!text-slate-800 [&_a]:!text-copper">
           <PageBack to="/admin" label="Admin overview" />
         </div>
         {/* HEADER */}
         <div className="flex flex-wrap items-start justify-between gap-4 mb-6">
           <div>
-            <div className="text-xs font-bold uppercase tracking-widest mb-1" style={{ color: "var(--wai-gold-light)" }}>Sovereign Command · Integrated Exec Surface</div>
-            <h1 className="font-heading text-3xl font-extrabold" style={{ color: "var(--wai-gold-light)" }}>Executive Command Center</h1>
-            <p className="text-sm mt-1" style={{ color: "rgba(241,240,251,0.92)" }}>
+            <div className="text-xs font-bold uppercase tracking-widest mb-1 text-amber-700">Sovereign Command · Integrated Exec Surface</div>
+            <h1 className="font-heading text-3xl font-extrabold text-slate-950">Executive Command Center</h1>
+            <p className="text-sm mt-1 text-slate-700">
               Every number below is the same number in every tab — no copy/paste between screens. One briefing, one click.
             </p>
           </div>
@@ -226,7 +226,7 @@ export default function ExecutiveCommandCenter() {
             <button onClick={copyBriefing} className="font-bold text-sm px-5 py-2.5 rounded-xl" style={{ background: "var(--wai-gold)", color: "#1a1100" }}>
               📋 Copy briefing
             </button>
-            <button onClick={load} disabled={loading} className="font-bold text-sm px-4 py-2.5 rounded-xl" style={{ background: "#1f2937", color: "#fff" }}>
+            <button onClick={load} disabled={loading} className="font-bold text-sm px-4 py-2.5 rounded-xl bg-slate-900 text-white">
               {loading ? "Loading…" : "⟳ Refresh"}
             </button>
           </div>
@@ -297,13 +297,13 @@ export default function ExecutiveCommandCenter() {
         <div className="flex gap-2 flex-wrap mb-6">
           {TABS.map((t) => (
             <button key={t.key} onClick={() => setTab(t.key)}
-              className={`text-xs font-bold px-4 py-2 rounded-full border transition-colors ${tab === t.key ? "bg-white text-slate-900 border-white" : "border-slate-600 text-slate-300 hover:border-slate-400"}`}>
+              className={`text-xs font-bold px-4 py-2 rounded-full border transition-colors ${tab === t.key ? "bg-slate-900 text-white border-slate-900" : "border-slate-300 text-slate-700 hover:border-slate-500"}`}>
               {t.label}
             </button>
           ))}
         </div>
 
-        {loading && tab !== "reports" && <p className="text-sm text-slate-300">Loading shared context…</p>}
+        {loading && tab !== "reports" && <p className="text-sm text-slate-700">Loading shared context…</p>}
 
         {/* ── OVERVIEW ─────────────────────────────────────────────────── */}
         {tab === "overview" && !loading && (

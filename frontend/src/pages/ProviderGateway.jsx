@@ -304,15 +304,16 @@ function PaymentCard({ preset, status, onSave, saving }) {
               <ExternalLink className="w-3 h-3" /> {preset.signupLabel}
             </a>
           )}
-          {(preset.fields || []).map(f => (
-            <input
-              key={f.key}
+          {(preset.fields || []).map(f => (              <label key={f.key} className="block">
+              <span className="block text-[11px] font-bold text-ink/70 mb-1">{f.label}</span>
+              <input
               value={vals[f.key] || ""}
               onChange={e => setVals(s => ({ ...s, [f.key]: e.target.value }))}
               placeholder={f.placeholder}
               type="password"
-              className="flex-1 w-full text-xs border border-ink/20 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-copper/30 focus:border-copper font-mono bg-bone"
+              className="flex-1 w-full text-xs border border-ink/20 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-copper/30 focus:border-copper font-mono bg-bone text-ink"
             />
+            </label>
           ))}
           <div className="flex gap-2">
             <button onClick={handleSave} disabled={saving || !ready}
@@ -407,8 +408,8 @@ export default function ProviderGateway() {
           <p className="text-ink/60 mt-1 text-sm">
             Add free API keys to power the platform's shared account pool. Each provider is a fallback — the gateway tries them in order.
           </p>
-          <div className="mt-3 rounded-xl border border-ink/10 bg-white px-4 py-3 text-xs leading-relaxed text-ink/60">
-            <strong className="text-ink">This is the platform-wide key store</strong> — keys entered here feed the
+          <div className="mt-3 rounded-xl border border-ink/10 bg-white px-4 py-3 text-xs leading-relaxed text-ink/60">              <strong className="text-ink">This is the platform-wide key store</strong> — keys entered here feed the
+
             institution's shared pool (admin, executive, and site-level AI). It is <em>not</em> a per-user setting.
             Individual members and students bring their <em>own</em> keys at{" "}
             <a href="/byok" className="font-bold text-copper hover:underline">/byok</a> — a $3 one-time unlock
@@ -453,10 +454,9 @@ export default function ProviderGateway() {
                   saving={saving === preset.type}
                 />
               ))}
-            </div>
-            <p className="text-xs text-ink/30 mt-6 leading-relaxed">
-              Keys are never returned after save — only the last four digits are shown. Stripe is tried first, then
-              Lemon Squeezy, then Gumroad, in that order.
+            </div>              <p className="text-xs text-ink/60 mt-6 leading-relaxed">
+              Keys are never returned after save — only the last four digits are shown. Checkout uses Lemon Squeezy
+              first (merchant of record), then Gumroad, with Stripe as the final fallback.
             </p>
           </div>
         )}
