@@ -86,7 +86,7 @@ export default function StudentDashboard() {
           </div>
           {nextModule && (
             <Link to={`/modules/${nextModule.slug}`} className="btn-primary inline-flex items-center gap-2" data-testid="btn-continue">
-              Continue {nextModule.order.toString().padStart(2, "0")} <ArrowRight className="w-4 h-4" />
+              Continue {String(nextModule.order ?? "").padStart(2, "0")} <ArrowRight className="w-4 h-4" />
             </Link>
           )}
         </div>
@@ -225,11 +225,11 @@ export default function StudentDashboard() {
                 <Link key={m.slug} to={`/modules/${m.slug}`} className="card-flat p-5 flex items-center justify-between group" data-testid={`module-${m.slug}`}>
                   <div className="flex items-center gap-5">
                     <div className="w-12 h-12 bg-ink text-signal font-heading font-black text-xl flex items-center justify-center">
-                      {m.order.toString().padStart(2, "0")}
+                      {String(m.order ?? "").padStart(2, "0")}
                     </div>
                     <div>
                       <div className="font-heading font-bold text-ink group-hover:text-copper transition-colors">{m.title}</div>
-                      <div className="text-xs text-ink/60 mt-1">{m.hours}h • {m.competencies.length} competencies</div>
+                      <div className="text-xs text-ink/60 mt-1">{m.hours ?? 0}h • {(m.competencies || []).length} competencies</div>
                     </div>
                   </div>
                   <span className={badge}>{state}</span>
@@ -264,7 +264,7 @@ export default function StudentDashboard() {
               {nextModule ? (
                 <>
                   <div className="font-heading font-bold mt-2">{nextModule.title}</div>
-                  <div className="text-sm text-ink/60 mt-1">{nextModule.hours} hours • {nextModule.tasks.length} tasks</div>
+                  <div className="text-sm text-ink/60 mt-1">{nextModule.hours ?? 0} hours • {(nextModule.tasks || []).length} tasks</div>
                   <Link to={`/modules/${nextModule.slug}`} className="btn-copper mt-4 inline-block text-xs" data-testid="btn-start-next">Open Module</Link>
                 </>
               ) : <div className="text-sm text-ink/60 mt-2">All modules complete. Claim your capstone certificate.</div>}

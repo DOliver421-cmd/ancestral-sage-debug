@@ -80,7 +80,7 @@ export default function ModuleView() {
 
         <div className="mt-6 flex items-start justify-between gap-8">
           <div>
-            <div className="overline text-copper">Module {mod.order.toString().padStart(2, "0")} · {mod.hours} hours</div>
+            <div className="overline text-copper">Module {String(mod.order ?? "").padStart(2, "0")} · {mod.hours ?? 0} hours</div>
             <h1 className="font-heading text-4xl lg:text-5xl font-bold mt-3 leading-tight">{mod.title}</h1>
             <p className="text-ink/70 mt-4 max-w-3xl leading-relaxed">{mod.summary}</p>
           </div>

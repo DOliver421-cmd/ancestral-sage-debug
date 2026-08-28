@@ -260,7 +260,7 @@ export function HybridNamContent({ embedded = false }) {
                 <Card title="Designation & Authority" icon={Crown}>
                   <Field label="Name" value={identity?.designation?.name || "Hybrid NAM"} />
                   <Field label="Tier" value={identity?.designation?.tier || "Assistant Director"} />
-                  <Field label="Is human" value={identity?.authority?.is_human ? "No — AI leadership intelligence" : "No — AI leadership intelligence"} />
+                  <Field label="Is human" value={identity?.authority?.is_human ? "Yes" : "No — AI leadership intelligence"} />
                   <Field label="Clone of founder" value={identity?.authority?.is_clone_of_founder ? "Yes" : "No"} />
                   <Field label="Legal authority" value={identity?.authority?.is_legal_authority ? "Yes" : "No"} />
                   <Field label="Operational director" value={identity?.authority?.is_operational_director ? "Yes" : "No"} />

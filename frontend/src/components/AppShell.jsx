@@ -375,6 +375,7 @@ export default function AppShell({ children }) {
                 {nl("/premium", "WAI Institute Premium Services", Crown, "nav-public-premium")}
                 {nl("/vonns-saga", "Vonn's Saga", BookOpen, "nav-public-vonns")}
                 {nl("/knowledge", "Knowledge Finder", Search, "nav-public-knowledge")}
+                {nl("/personas", "AI Team", BrainCircuit, "nav-public-personas")}
               </NavSection>
               <NavSection label="Access" collapsed={collapsed} defaultOpen={false}>
                 {nl("/plans", "Plans & Upgrade", Star, "nav-plans-upgrade")}
@@ -397,6 +398,7 @@ export default function AppShell({ children }) {
                 )}
                 {nl("/profile", "My Profile", UserCircle, "nav-profile")}
                 {nl("/settings", "Settings", KeyRound, "nav-settings")}
+                {nl("/personas", "AI Team", BrainCircuit, "nav-personas")}
                 {nl("/premium", "WAI Institute Premium Services", Crown, "nav-premium-customer")}
               </NavSection>
 
@@ -445,6 +447,7 @@ export default function AppShell({ children }) {
                 {nl("/dashboard", "Dashboard", LayoutDashboard, "nav-dashboard")}
                 {nl("/profile", "My Profile", UserCircle, "nav-profile")}
                 {nl("/settings", "Settings", KeyRound, "nav-settings")}
+                {nl("/personas", "AI Team", BrainCircuit, "nav-personas-staff")}
                 {nl("/vonns-saga", "Vonn's Saga", BookOpen, "nav-vonns-staff")}
                 {nl("/premium", "WAI Institute Premium Services", Crown, "nav-premium-staff")}
               </NavSection>

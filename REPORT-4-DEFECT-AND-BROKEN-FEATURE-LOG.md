@@ -171,6 +171,25 @@ Fix: added `https://www.youtube.com` + `https://www.youtube-nocookie.com` to `_F
 
 Owner explicitly instructed these are NOT to be treated as cosmetic page requests.
 
+**Follow-up fixes same day (all code-verified; pending deploy):**
+
+**O18. Student dashboard crashed on live module data — FOUND AND FIXED (code; pending deploy).**
+Probed live `GET /api/modules`: all 12 modules returned WITHOUT a `competencies` field, and
+`StudentDashboard.jsx` rendered `m.competencies.length` → the whole dashboard threw and blanked
+("does not load"). Fixed with defensive guards (`(m.competencies || []).length`, `String(m.order ?? "")`,
+`(m.tasks || []).length`) in StudentDashboard + the same landmines in ModulesList and ModuleView.
+Frontend builds clean.
+
+**O19. Persona directory unreachable from navigation — FOUND AND FIXED (code; pending deploy).**
+Verified `GET /api/personas` is public, `/personas` routes are ungated, and all 20 personas have
+`PERSONA_META` — but zero nav entries existed anywhere in AppShell. Added "AI Team" links
+(`/personas`) for anonymous, customer, and staff nav. Frontend builds clean.
+
+**O20. Jamil-in-Business-Office integration VERIFIED PRESENT in the deployed bundle** — the
+"More Ops → Director Jamil" view rendering full `<JamilChat embedded />` exists in live
+`main.ddb43fc8.js` and in `frontend/src/pages/MoreOps.jsx`. Not missing; awaiting a logged-in
+session to confirm rendering for the owner's account.
+
 ---
 
 ## Public-readiness audit — August 28, 2026 (evidence-based; reconciled with the parallel August 27 session)
