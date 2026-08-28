@@ -454,8 +454,8 @@ export default function PlatformDashboard() {
   const [health,      setHealth]      = useState(null);
 
   useEffect(() => {
-    api.get("/api/health").then(r => setHealth(r.data)).catch(() => {});
-    api.get("/api/team/actions").then(r => setAiActions(r.data)).catch(() => {});
+    api.get("/health").then(r => setHealth(r.data)).catch(() => {});
+    api.get("/team/actions").then(r => setAiActions(r.data)).catch(() => {});
   }, []);
 
   useEffect(() => { saveProjects(projects); }, [projects]);
