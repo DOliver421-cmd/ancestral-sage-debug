@@ -7,6 +7,7 @@ at include time — no circular imports.
 """
 import logging
 import os
+import re
 import uuid
 from datetime import datetime, timedelta, timezone
 from typing import List, Literal, Optional
