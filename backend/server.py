@@ -2092,6 +2092,52 @@ async def version():
 
 
 
+# ── Platform Liveness (conference-bridge heartbeat sink) ──────────────────────
+@api_router.post("/platform_liveness")
+async def platform_liveness_heartbeat(body: dict):
+    """Accept heartbeat pings from conference-bridge embed scripts."""
+    try:
+        platform = (body.get("platform") or "unknown").strip()
+        site_url = (body.get("site_url") or "").strip()
+        status = (body.get("status") or "online").strip()
+        detail = body.get("detail") or {}
+        doc = {
+            "platform": platform,
+            "site_url": site_url,
+            "status": status,
+            "detail": detail,
+            "checked_at": datetime.now(timezone.utc).isoformat(),
+        }
+        if db is not None:
+            await db.platform_liveness.insert_one(doc)
+        return {"ok": True}
+    except Exception as e:
+        logger.warning("platform_liveness heartbeat failed: %s", e)
+        return {"ok": False, "detail": str(e)[:120]}
+
+
+@api_router.get("/platform_liveness")
+async def platform_liveness_status():
+    """Return the latest heartbeat from each connected platform."""
+    try:
+        if db is None:
+            return {"platforms": {}}
+        cursor = db.platform_liveness.find(
+            {}, {"_id": 0}
+        ).sort("checked_at", -1).limit(60)
+        rows = await cursor.to_list(length=60)
+        platforms = {}
+        for r in rows:
+            p = r.get("platform", "unknown")
+            if p not in platforms:
+                platforms[p] = r
+        return {"platforms": platforms}
+    except Exception as e:
+        logger.warning("platform_liveness read failed: %s", e)
+        return {"platforms": {}}
+
+
+
 # --- Users + RBAC router (extracted to routers/users.py) ---
 from routers import users as _users_mod
 _users_mod.bind(db, audit, notify, current_user, can_modify, hash_pw)
