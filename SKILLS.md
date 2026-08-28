@@ -1,6 +1,12 @@
 # Repository Skills
 
-Operational skills for making changes in this repository. These are execution skills, not suggestions: inspect the actual implementation, make the smallest correct change, and verify the user path.
+# Status and evidence rule
+
+This file is an operating standard, not proof that any capability exists. These skills describe work to perform; they do not claim that the repository, APIs, providers, Supabase, deployment, or production site are operational.
+
+A skill may be reported as **verified** only after execution produces evidence. Source inspection, route presence, imports, mocks, simulations, configuration presence, and passing isolated unit tests are not operational proof. If execution is unavailable, report `UNVERIFIED` or `ENVIRONMENT BLOCKED`; if execution fails, report `BROKEN`.
+
+Operational skills for making changes in this repository. Each skill must inspect the actual implementation, reproduce the actual behavior where possible, make the smallest correct change, and verify the complete user path. Do not convert an intended architecture or documentation claim into a status claim.
 
 ## 1. Extensive API Engineering Skill
 
@@ -8,6 +14,8 @@ Operational skills for making changes in this repository. These are execution sk
 Build, repair, and verify production API behavior across the existing Python/FastAPI backend, MongoDB persistence, React client, authentication, RBAC, AI providers, payments, webhooks, media, courses, and administrative workflows.
 
 ### API inventory procedure
+
+**Reality requirement:** An inventory is not an audit result. Every important endpoint must be executed with a real request or explicitly marked `UNVERIFIED`/`ENVIRONMENT BLOCKED`. A route decorator or matching path alone proves only that code exists.
 
 1. Search the frontend for every API call, including `fetch`, the shared API client, upload helpers, polling, websocket/event clients, and hard-coded URLs.
 2. Search the backend for every route decorator, router prefix, router registration, dependency, schema, and error handler.
@@ -140,6 +148,8 @@ Do not change existing prices or invent a payment system. Verify duplicate webho
 
 ### API testing ladder
 
+The first five levels are progressively stronger evidence; none may be mislabeled as production verification. A mock proves only the mocked branch. A simulation proves only the simulation. A live API check must include the actual request, response, status, and relevant logs.
+
 1. Static route and contract inspection.
 2. Python syntax/import checks.
 3. Focused unit tests with mocked dependencies.
@@ -154,7 +164,7 @@ If infrastructure, credentials, or a running database is unavailable, report tha
 ## 2. Working-in-Code Implementation and Debugging Skill
 
 ### Mission
-Turn a defect or request into a real, maintainable code change while preserving existing behavior and unrelated user work.
+Turn a demonstrated defect or explicit request into a real, maintainable code change while preserving existing behavior and unrelated user work. Do not claim that writing code fixed the live problem until the affected path has executed successfully.
 
 ### Before editing
 
@@ -236,6 +246,8 @@ Do not label all failures “API unavailable.” Identify the first failing boun
 
 ### Completion checklist
 
+Before calling a defect fixed, prove all applicable stages: reproduce → patch → compile → focused test → integration test → actual API request → frontend interaction → rendered result → deployed verification. If any required stage cannot run, state exactly which stage is unverified; do not substitute a plan, mock, or simulation.
+
 - Root cause identified from code or execution evidence.
 - Change is limited to relevant files.
 - Existing callers remain compatible or were updated.
@@ -252,6 +264,8 @@ Do not label all failures “API unavailable.” Identify the first failing boun
 Audit the actual production capability of the repository from discovery through usable result, with priority on API reliability, AI access, commerce, payment handoff, entitlement, and fulfillment.
 
 ### Audit principles
+
+**Non-negotiable reality standard:** A deep audit is an evidence-producing execution exercise, not a document generated from code search. Begin with the running customer-facing site and its network behavior, then trace into source. If the site cannot be reached, say so and stop the operational claim; do not simulate success.
 
 - Audit implementation, not documentation alone.
 - Follow real callers and real storage paths.
@@ -395,6 +409,8 @@ Check ownership and entitlement at every protected read and write.
 
 ### Phase G — Execution and evidence
 
+This phase is mandatory. Do not issue a final audit result without attempting live execution of the critical user paths. Use the browser or an equivalent real HTTP client, capture exact requests/responses/statuses, and inspect application logs. Source-only findings may identify suspected defects, but they cannot establish that a feature works.
+
 Use the strongest available evidence in this order:
 
 1. focused automated test;
@@ -435,6 +451,8 @@ location
 
 ### Audit stop conditions
 
+An audit must stop and be labeled **UNVERIFIED / ENVIRONMENT BLOCKED** when the required running server, database, authentication session, provider credential, browser path, or deployment access is unavailable. It must be labeled **BROKEN** when an actual user-path check fails. Never downgrade these states to “working,” “resolved,” or “likely fixed.”
+
 Do not claim “working,” “resolved,” or “complete” when:
 
 - only source inspection was performed;
@@ -462,9 +480,11 @@ Use `UNVERIFIED`, `ENVIRONMENT BLOCKED`, or `BROKEN` precisely.
 ## 4. Supabase Specialist Skill
 
 ### Mission
-Safely integrate, repair, and audit Supabase only where the repository actually uses it. Treat Supabase as a concrete service boundary—Postgres database, Auth, Storage, Realtime, Edge Functions, or client SDK—not as a generic replacement for the existing FastAPI/MongoDB architecture.
+Safely integrate, repair, and audit Supabase only where the repository actually uses it. Supabase must not be presented as operational merely because it is listed as a dependency; its actual runtime role must be established by execution. Treat Supabase as a concrete service boundary—Postgres database, Auth, Storage, Realtime, Edge Functions, or client SDK—not as a generic replacement for the existing FastAPI/MongoDB architecture.
 
 ### First rule: verify actual usage
+
+Supabase is not considered active because `supabase` appears in requirements or documentation. Execute a safe authenticated or public operation against the configured project before claiming usage is verified. If credentials or project access are unavailable, mark the integration `UNVERIFIED`.
 
 Before changing Supabase code:
 
@@ -600,6 +620,8 @@ Do not expose private bucket objects through permanent public URLs.
 - frontend fallback that incorrectly displays success.
 
 ### Supabase completion gate
+
+The completion gate requires executed evidence from the real Supabase project and, where applicable, the real frontend. SQL files, SDK imports, mocked clients, and local type checks are insufficient. Never claim RLS, migrations, storage, realtime, auth, or Edge Functions work without exercising the relevant operation.
 
 A Supabase task is complete only when:
 
@@ -807,6 +829,64 @@ Keep runtime behavior reproducible and changes safe across development, deployme
 - Review the exact diff for secrets, debug flags, destructive scripts, unrelated files, and generated artifacts.
 - Verify the deployed artifact and critical endpoints after release.
 - Preserve a rollback path and do not claim deployment success from a local build alone.
+
+## 12. Reality-Based Reporting Skill
+
+### Mission
+Prevent aspirational architecture, simulated audits, and unexecuted code changes from being reported as working product.
+
+### Evidence vocabulary
+
+Use these terms precisely:
+
+- **Source-confirmed:** implementation was found in the checked-out source.
+- **Locally compiled:** syntax/type/import checks passed.
+- **Unit-tested:** isolated test passed, usually with mocks or fixtures.
+- **Integration-tested:** multiple real application components executed together.
+- **Browser-verified:** the actual frontend interaction completed and rendered the result.
+- **Production-verified:** the deployed site/API completed the critical path.
+- **UNVERIFIED:** the expected behavior was not executed.
+- **ENVIRONMENT BLOCKED:** execution was prevented by unavailable server, database, credentials, session, provider, browser, or deployment access.
+- **BROKEN:** an executed check failed or source inspection proves the path cannot work.
+
+Do not use “verified,” “working,” “resolved,” or “complete” as shorthand for source-confirmed or unit-tested.
+
+### Required report shape
+
+Every substantive result must separate:
+
+```text
+What the code contains
+What was actually executed
+What response/rendered result occurred
+What failed
+What remains unverified
+```
+
+### No simulated completion
+
+- A generated report is not a repaired feature.
+- A planned endpoint is not an endpoint.
+- A passing mock is not a provider response.
+- A configured key is not a valid credential.
+- A successful health check is not proof that the customer workflow works.
+- An HTTP 200 carrying fallback/error content is not necessarily success.
+- A local change is not a deployed change.
+- A deployment is not a working deployment until the deployed user path is exercised.
+
+### Mandatory honesty gate
+
+Before finalizing, ask:
+
+1. What exact user action was executed?
+2. What exact request reached the backend?
+3. What exact response/status came back?
+4. What did the user see?
+5. Which dependency actually handled it?
+6. What evidence proves that conclusion?
+7. What could not be tested?
+
+If these questions cannot be answered, report the task as unverified rather than complete.
 
 ## Existing System Anchors
 
