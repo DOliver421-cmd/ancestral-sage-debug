@@ -148,6 +148,31 @@ Every customer-facing restriction in the repo was re-examined for the failure pa
 
 ---
 
+## Owner-reported failures — August 28, 2026 (see TASK_LIST.md for the full tracked list)
+
+Delon Oliver reported seven live-site failures plus persona-access concerns. Full evidence per
+item lives in `TASK_LIST.md` (created this session so the list cannot be lost again). Summary:
+
+**O17. Ascension Protocols video embeds blocked — FOUND AND FIXED (working tree; not deployed).**
+The page embeds YouTube players on-site (iframe), but CSP `frame-src` in `backend/platform_services.py`
+never allowed `youtube.com`. Confirmed live in production headers on 2026-08-28: `frame-src` had
+gumroad/bandcamp/premium-services/railway but no youtube — the browser silently refused every embed.
+Fix: added `https://www.youtube.com` + `https://www.youtube-nocookie.com` to `_FRAME_HOSTS`
+(7/7 unit tests pass). Same defect class as O8, never extended to the video host.
+
+**Remaining owner-reported items — status: UNVERIFIED / NEEDS LIVE ACCOUNT (not code defects proven):**
+- `/admin/command` (exec panels never verified live with a working exec login; banner fix 1797a26 committed).
+- `/nam` (full console wired to `/api/nam/*`; live 401 is the auth gate, not a crash — needs a logged-in check).
+- `/settings` (5 tabs wired to real `/auth/*` endpoints; live check + owner consolidation decision needed).
+- `/dashboard` (defensive page, cannot blank on one failing API; needs live console/network evidence of the failure).
+- `/jamil` (API live: POST `/api/jamil/chat` returns auth-gated error, not 404; standalone chat page; owner wants it embedded in the AI Business Office — feature build).
+- `/social/publish` (compose → AI-format → copy/share is real; **platform OAuth connect/publish does NOT exist** — owner is correct, it is genuinely missing; significant build).
+- Personas (`GET /api/personas` is public and `/personas` routes exist with no role gate, but there is no nav entry for regular users and personas without `PERSONA_META` are dropped — discoverability/completeness gap).
+
+Owner explicitly instructed these are NOT to be treated as cosmetic page requests.
+
+---
+
 ## Public-readiness audit — August 28, 2026 (evidence-based; reconciled with the parallel August 27 session)
 
 Every finding below was verified against the running production site (HTTP probes) or by

@@ -80,7 +80,10 @@ async def security_headers(request: Request, call_next):
         "https://namoshun.gumroad.com https://gumroad.com https://bandcamp.com "
         "https://waiinstitutepremiumservices.bolt.host "
         # The bridge widget opens the shared conference room in an iframe.
-        "https://wai-institute-production.up.railway.app"
+        "https://wai-institute-production.up.railway.app "
+        # Ascension Protocols embeds YouTube players (privacy-enhanced domain
+        # included) so lessons play on-site instead of redirecting away.
+        "https://www.youtube.com https://www.youtube-nocookie.com"
     )
     response.headers["Content-Security-Policy"] = (
         "default-src 'self'; "
