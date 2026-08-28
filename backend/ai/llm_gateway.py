@@ -584,15 +584,23 @@ async def call_llm(
         except Exception as _e:
             logger.warning("LLM Gateway BYOK resolution failed (%s): %s", persona_label, _e)
 
-    # ── Platform-funding policy guard ────────────────────────────────────────
-    # Owner decision (August 2026): platform-funded AI is admin / executive_admin
-    # staff ONLY. Customers at any tier (free → executive) get NO platform-funded
-    # AI: they either use their own BYOK key (handled above) or the keyword KB.
-    # The check is fail-closed for authenticated customers: if we cannot verify
-    # the caller is authorized staff, they get the KB, never platform tokens.
+    # ── Platform-funding policy ──────────────────────────────────────────────
+    # Owner architecture (restated by the 2026-08-28 audit; matches
+    # user_budget.py's documented design):
+    #   - anonymous / public visitors get NO platform AI — public-facing
+    #     routers answer from the keyword KB without ever calling the gateway.
+    #   - authenticated members get platform AI WITHIN their per-user daily
+    #     tier-scaled budget (free 50k base; member +25%; plus +35%; pro +45%;
+    #     patron +50%) — enforced by check_user_budget() immediately below.
+    #   - BYOK users are routed through their OWN key above (zero platform cost).
+    #   - instructor-and-above roles are budget-exempt (trusted staff).
+    # The previous staff-only hard gate here returned the KB for every member
+    # below admin/executive_admin, which silently disabled every member-facing
+    # AI page (memberships sell an "AI Tutor"; the $3 BYOK unlock exists for
+    # this lane) and made the tier-budget cost controls unreachable. The daily
+    # budget + hourly cap below ARE the cost protection — fail-closed there.
     _access = None
     if user_id:
-        _is_staff = False
         try:
             from deps import get_db as _get_db
             from roles import normalize_role as _norm_role
@@ -602,7 +610,6 @@ async def call_llm(
                     {"id": user_id}, {"_id": 0, "role": 1, "feature_tier": 1, "byok_enabled": 1}
                 )
                 _role = _norm_role((_u or {}).get("role", "student"))
-                _is_staff = _role in ("admin", "executive_admin")
                 try:
                     from ai.knowledge_finder import Access as _Access
                     _access = _Access(
@@ -613,13 +620,7 @@ async def call_llm(
                 except Exception:
                     _access = None
         except Exception:
-            _is_staff = False
-        if not _is_staff:
-            logger.info(
-                "LLM Gateway: %s is not platform-AI-authorized — knowledge fallback for %s",
-                user_id, persona_label,
-            )
-            return _kb_reply(messages, access=_access)
+            _access = None
 
     # ── Per-user daily budget guard (platform-paid calls only) ──────────────
     # Prevents any single non-exec account from draining the platform API and

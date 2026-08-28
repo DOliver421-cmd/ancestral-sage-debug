@@ -12,7 +12,7 @@ import {
 } from "lucide-react";
 import SharePanel from "../components/SharePanel";
 import QRCodeButton from "../components/QRCodeButton";
-import PaymentsComingSoon from "../components/PaymentsComingSoon";
+import PaymentsComingSoon, { usePaymentsEnabled } from "../components/PaymentsComingSoon";
 
 const TYPE_LABELS = {
   track: "Track",
@@ -107,6 +107,7 @@ function ProductCover({ product, compact = false }) {
 
 // ── Browse Tab ────────────────────────────────────────────────────────────────
 function MembershipsSection({ user }) {
+  const paymentsEnabled = usePaymentsEnabled();
   const paidPlans = MEMBERSHIP_PLANS.filter((plan) => plan.key !== "free");
   const startCheckout = async (plan) => {
     if (!user) {
@@ -138,8 +139,8 @@ function MembershipsSection({ user }) {
             <div className="text-xs font-black uppercase tracking-widest text-[#1a1a1a]/45">{plan.name}</div>
             <div className="mt-1"><span className="font-heading font-black text-2xl text-[#1a1a1a]">${plan.price}</span><span className="text-sm text-[#1a1a1a]/45">/mo</span></div>
             <p className="text-sm text-[#1a1a1a]/60 mt-1 flex-1">{plan.tagline}</p>
-            <button type="button" disabled title="Online payments are coming soon" className="mt-4 bg-[#1a4332] text-white px-3 py-2 rounded-lg text-sm font-bold transition-colors disabled:opacity-50" style={{ cursor: "not-allowed" }}>
-              Coming Soon — online checkout
+            <button type="button" onClick={() => startCheckout(plan)} disabled={!paymentsEnabled} title={paymentsEnabled ? undefined : "Online payments are coming soon"} className="mt-4 bg-[#1a4332] text-white px-3 py-2 rounded-lg text-sm font-bold hover:bg-[#245b45] transition-colors disabled:opacity-50" style={paymentsEnabled ? undefined : { cursor: "not-allowed" }}>
+              {paymentsEnabled ? `Join ${plan.name}` : "Coming Soon — online checkout"}
             </button>
           </div>
         ))}
@@ -149,6 +150,7 @@ function MembershipsSection({ user }) {
 }
 
 function BrowseTab({ user }) {
+  const paymentsEnabled = usePaymentsEnabled();
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState("all");
@@ -268,13 +270,13 @@ function BrowseTab({ user }) {
                 {product.price_cents > 0 ? (
                   <button
                     onClick={() => handleBuy(product)}
-                    disabled={true}
-                    title="Online payments are coming soon"
-                    className="flex items-center gap-1.5 bg-[#b5651d] text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors disabled:opacity-50"
-                    style={{ cursor: "not-allowed" }}
+                    disabled={!paymentsEnabled || checkingOut === product.id}
+                    title={paymentsEnabled ? undefined : "Online payments are coming soon"}
+                    className="flex items-center gap-1.5 bg-[#b5651d] text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-[#9a5418] transition-colors disabled:opacity-60"
+                    style={paymentsEnabled ? undefined : { cursor: "not-allowed" }}
                   >
-                    <ShoppingBag size={14} />
-                    Coming Soon
+                    {checkingOut === product.id ? <Loader2 size={14} className="animate-spin" /> : <ShoppingBag size={14} />}
+                    {paymentsEnabled ? "Buy" : "Coming Soon"}
                   </button>
                 ) : (
                   <button

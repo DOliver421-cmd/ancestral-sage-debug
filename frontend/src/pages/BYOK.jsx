@@ -6,6 +6,7 @@ import {
   KeyRound, ShieldCheck, ExternalLink, Trash2, Plug, CheckCircle2,
   CircleDollarSign, Loader2, RefreshCw, AlertTriangle,
 } from "lucide-react";
+import { usePaymentsEnabled } from "../components/PaymentsComingSoon";
 
 // ── Design tokens ─────────────────────────────────────────────────────────────
 const COPPER = "#b5651d";
@@ -44,6 +45,7 @@ export default function BYOK() {
   const [busyProvider, setBusyProvider] = useState(null);
   const [keyInputs, setKeyInputs] = useState({});
   const [adminStats, setAdminStats] = useState(null);
+  const paymentsEnabled = usePaymentsEnabled();
 
   // Instructor tier and above get BYOK free; everyone below pays $3 one-time.
   const byokPrice = status?.price_usd ?? 3;
@@ -197,21 +199,23 @@ export default function BYOK() {
                 <p style={{ margin: "0 0 16px", color: "#888", fontSize: 13 }}>
                   {byokFree
                     ? "After activation, attach a free provider key below."
-                    : "Online payments are coming soon — the $3 unlock can't be purchased yet. Instructors activate free. After activation, attach a free provider key below."}
+                    : paymentsEnabled
+                      ? "Activation is a one-time charge — after paying, attach a free provider key below."
+                      : "Online payments are coming soon — the $3 unlock can't be purchased yet. Instructors activate free. After activation, attach a free provider key below."}
                 </p>
                 <button
                   onClick={activate}
-                  disabled={isBusy("activate") || !byokFree}
-                  title={byokFree ? undefined : "Online payments are coming soon"}
+                  disabled={isBusy("activate") || (!byokFree && !paymentsEnabled)}
+                  title={!byokFree && !paymentsEnabled ? "Online payments are coming soon" : undefined}
                   style={{
                     background: COPPER, color: "#fff", border: "none", borderRadius: 10, padding: "12px 22px",
-                    fontWeight: 800, fontSize: 14, cursor: !byokFree ? "not-allowed" : isBusy("activate") ? "wait" : "pointer",
-                    opacity: !byokFree ? 0.55 : 1,
+                    fontWeight: 800, fontSize: 14, cursor: !byokFree && !paymentsEnabled ? "not-allowed" : isBusy("activate") ? "wait" : "pointer",
+                    opacity: !byokFree && !paymentsEnabled ? 0.55 : 1,
                     display: "inline-flex", alignItems: "center", gap: 8,
                   }}
                 >
                   {isBusy("activate") ? <Loader2 size={16} className="animate-spin" /> : <Plug size={16} />}
-                  {byokFree ? "Activate BYOK — Free" : "Coming Soon — online checkout"}
+                  {byokFree ? "Activate BYOK — Free" : paymentsEnabled ? `Activate BYOK — $${byokPrice}` : "Coming Soon — online checkout"}
                 </button>
               </Card>
             )}

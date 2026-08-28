@@ -4,7 +4,7 @@ import AppShell from "../components/AppShell";
 import BackButton from "../components/BackButton";
 import { MEMBERSHIP_PLANS } from "../lib/plans";
 import { Check, Zap } from "lucide-react";
-import PaymentsComingSoon from "../components/PaymentsComingSoon";
+import PaymentsComingSoon, { usePaymentsEnabled } from "../components/PaymentsComingSoon";
 
 /**
  * /plans — the five-level membership ladder (free/member/plus/pro/patron)
@@ -14,6 +14,7 @@ import PaymentsComingSoon from "../components/PaymentsComingSoon";
  */
 export default function Plans() {
   const { user } = useAuth();
+  const paymentsEnabled = usePaymentsEnabled();
   return (
     <AppShell>
     <div className="min-h-screen bg-bone">
@@ -56,10 +57,10 @@ export default function Plans() {
           </div>
           <Link to="/subscribe?plan=sanctuary_trial"
             className="shrink-0 font-black text-sm px-6 py-3 rounded-xl whitespace-nowrap"
-            style={{ background: "#E8A51E", color: "#0a0a0a", opacity: 0.7 }}
-            title="Online payments are coming soon"
+            style={{ background: "#E8A51E", color: "#0a0a0a", opacity: paymentsEnabled ? 1 : 0.7 }}
+            title={paymentsEnabled ? undefined : "Online payments are coming soon"}
           >
-            $3 Trial — Coming Soon →
+            {paymentsEnabled ? "Try Everything for $3 →" : "$3 Trial — Coming Soon →"}
           </Link>
         </div>
 
@@ -84,9 +85,9 @@ export default function Plans() {
                 to={p.to}
                 data-testid={`plan-${p.name.toLowerCase()}`}
                 className={`mt-5 text-center text-sm ${p.price === 0 ? "btn-primary" : "btn-copper"}`}
-                title={p.price === 0 ? undefined : "Online payments are coming soon"}
+                title={p.price === 0 || paymentsEnabled ? undefined : "Online payments are coming soon"}
               >
-                {p.price === 0 ? p.cta : `${p.cta} — Coming Soon`}
+                {p.price === 0 || paymentsEnabled ? p.cta : `${p.cta} — Coming Soon`}
               </Link>
             </div>
           ))}

@@ -3,7 +3,7 @@ import AppShell from "../components/AppShell";
 import { api } from "../lib/api";
 import { Heart } from "lucide-react";
 import { toast } from "sonner";
-import PaymentsComingSoon from "../components/PaymentsComingSoon";
+import PaymentsComingSoon, { usePaymentsEnabled } from "../components/PaymentsComingSoon";
 
 const PRESET_AMOUNTS = [10, 25, 50, 100, 250];
 
@@ -11,6 +11,7 @@ export default function DonatePage() {
   const [selected, setSelected] = useState(25);
   const [custom, setCustom] = useState("");
   const [loading, setLoading] = useState(false);
+  const paymentsEnabled = usePaymentsEnabled();
 
   const effectiveAmount = custom ? parseFloat(custom) : selected;
   const amountCents = Math.round(effectiveAmount * 100);
@@ -98,13 +99,13 @@ export default function DonatePage() {
           </div>
           <button
             onClick={donate}
-            disabled={true}
-            title="Online payments are coming soon"
-            className="px-8 py-3 bg-ink text-white font-bold rounded-lg transition-colors disabled:opacity-50 flex items-center gap-2"
-            style={{ cursor: "not-allowed" }}
+            disabled={!paymentsEnabled || loading || !valid}
+            title={paymentsEnabled ? undefined : "Online payments are coming soon"}
+            className="px-8 py-3 bg-ink text-white font-bold rounded-lg hover:bg-ink/80 transition-colors disabled:opacity-50 flex items-center gap-2"
+            style={paymentsEnabled ? undefined : { cursor: "not-allowed" }}
           >
             <Heart className="w-4 h-4" />
-            Coming Soon — online giving
+            {paymentsEnabled ? (loading ? "Redirecting…" : "Donate") : "Coming Soon — online giving"}
           </button>
         </div>
       </div>

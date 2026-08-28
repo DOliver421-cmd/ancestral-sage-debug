@@ -34,11 +34,12 @@ def bind(_db, _audit, _notify, _current_user):
     db, audit, notify, current_user = _db, _audit, _notify, _current_user
 
 
-# ─── PAYMENTS (Stripe → Lemon Squeezy → Gumroad) ─────────────────────────────
-# Ecommerce runs through the publishing pipeline in ai/publishing.py plus a
-# first-class Stripe tier (owner keys already provisioned in Railway):
-#   Tier 1 — Stripe        (STRIPE_SECRET_KEY [+ STRIPE_WEBHOOK_SECRET])
-#   Tier 2 — Lemon Squeezy  (LEMON_SQUEEZY_API_KEY + LEMON_SQUEEZY_STORE_ID)
+# ─── PAYMENTS (Lemon Squeezy → Stripe → Gumroad) ────────────────────────────
+# Ecommerce runs through the publishing pipeline in ai/publishing.py.
+# Provider chain order — Lemon Squeezy is the merchant of record (owner
+# directive, restated 2026-08-28); Stripe remains as a configured fallback:
+#   Tier 1 — Lemon Squeezy  (LEMON_SQUEEZY_API_KEY + LEMON_SQUEEZY_STORE_ID)
+#   Tier 2 — Stripe         (STRIPE_SECRET_KEY [+ STRIPE_WEBHOOK_SECRET])
 #   Tier 3 — Gumroad        (GUMROAD_API_KEY)
 #   Tier 4 — MongoDB archive (always works)
 # Contracts are fulfilled (tier grant / digital delivery) by the webhook that
@@ -50,7 +51,7 @@ STRIPE_WEBHOOK_SECRET  = os.environ.get("STRIPE_WEBHOOK_SECRET", "")
 LEMON_SQUEEZY_API_KEY = os.environ.get("LEMON_SQUEEZY_API_KEY", "")
 LEMON_SQUEEZY_STORE_ID = os.environ.get("LEMON_SQUEEZY_STORE_ID", "")
 GUMROAD_API_KEY = os.environ.get("GUMROAD_API_KEY", "")
-FRONTEND_URL = os.environ.get("FRONTEND_URL", "https://wai-institute.org")
+FRONTEND_URL = os.environ.get("FRONTEND_URL", "https://www.morehelp.center")
 
 STRIPE_ENABLED = bool(STRIPE_SECRET_KEY and STRIPE_PUBLISHABLE_KEY)
 PAYMENTS_ENABLED = bool(
@@ -74,11 +75,14 @@ def _stripe():
 
 
 def _resolve_provider() -> str:
-    """Truthful active payment provider (first configured in chain order)."""
-    if STRIPE_ENABLED:
-        return "stripe"
+    """Truthful active payment provider (first configured in chain order).
+
+    Lemon Squeezy first — merchant of record per owner directive. Stripe is
+    the configured fallback, then Gumroad for one-time digital purchases."""
     if LEMON_SQUEEZY_API_KEY and LEMON_SQUEEZY_STORE_ID:
         return "lemon_squeezy"
+    if STRIPE_ENABLED:
+        return "stripe"
     if GUMROAD_API_KEY:
         return "gumroad"
     return "disabled"
@@ -360,8 +364,8 @@ async def _grant_tier_by_email(user_email: str, product_key: str, *, reason: str
     """
     if not (user_email and product_key and product_key in _PRODUCT_TIER_MAP):
         return
-    user_doc = await db.users.find_one(
-        {"email": user_email},
+    user_doc = await _find_user_by_email(
+        user_email,
         {"_id": 0, "id": 1, "feature_tier": 1, "feature_tier_expires_at": 1},
     )
     if not user_doc:
@@ -409,6 +413,27 @@ async def _grant_tier_by_email(user_email: str, product_key: str, *, reason: str
                          link="/profile", kind="success")
         except Exception:
             pass
+
+
+def _email_rx(email: str) -> str:
+    """Case-insensitive exact-match regex source for buyer emails.
+
+    Lemon Squeezy lowercases buyer emails; this site stores the email exactly
+    as typed at registration (auth.py does not normalize case). An exact-match
+    lookup therefore silently fails for any member who registered with a
+    capital letter — they pay and no entitlement is granted. Escaped so emails
+    containing '+' or '.' cannot widen the match."""
+    import re as _re
+    return "^" + _re.escape((email or "").strip()) + "$"
+
+
+async def _find_user_by_email(email: str, projection: dict) -> Optional[dict]:
+    """Find a user by buyer email, case-insensitively (webhook-safe)."""
+    if not email:
+        return None
+    return await db.users.find_one(
+        {"email": {"$regex": _email_rx(email), "$options": "i"}}, projection
+    )
 
 
 @router.get("/products")
@@ -499,7 +524,23 @@ async def create_checkout_session(req: CheckoutReq, user=Depends(_dep_current_us
     mode = product["mode"]
     is_subscription = mode == "subscription"
 
-    # Tier 1 — Stripe (hosted Checkout Session — one-time + subscriptions)
+    # Tier 1 — Lemon Squeezy (merchant of record — digital products + subscriptions)
+    ls_result = await _publish_lemon_squeezy(
+        name=product["name"],
+        description=product.get("description", ""),
+        price_cents=amount,
+        persona="platform",
+        is_subscription=is_subscription,
+        interval=product.get("interval", "month"),
+        checkout_email=user.email,
+    )
+    if ls_result:
+        await audit(user.id, "payment_checkout_created",
+                    meta={"product": req.product_key, "provider": "lemon_squeezy",
+                          "session_id": ls_result.get("product_id")})
+        return {"url": ls_result["url"], "session_id": ls_result.get("product_id")}
+
+    # Tier 2 — Stripe (configured fallback — hosted Checkout Session)
     stripe_session = await _create_stripe_checkout(
         product_key=req.product_key,
         product=product,
@@ -532,22 +573,6 @@ async def create_checkout_session(req: CheckoutReq, user=Depends(_dep_current_us
                   "session_id": stripe_session.get("id")},
         )
         return {"url": stripe_session["url"], "session_id": stripe_session.get("id")}
-
-    # Tier 2 — Lemon Squeezy (digital products + subscriptions)
-    ls_result = await _publish_lemon_squeezy(
-        name=product["name"],
-        description=product.get("description", ""),
-        price_cents=amount,
-        persona="platform",
-        is_subscription=is_subscription,
-        interval=product.get("interval", "month"),
-        checkout_email=user.email,
-    )
-    if ls_result:
-        await audit(user.id, "payment_checkout_created",
-                    meta={"product": req.product_key, "provider": "lemon_squeezy",
-                          "session_id": ls_result.get("product_id")})
-        return {"url": ls_result["url"], "session_id": ls_result.get("product_id")}
 
     # Tier 3 — Gumroad (one-time digital purchases only)
     if not is_subscription:
@@ -730,8 +755,8 @@ async def _record_stripe_order(info: dict) -> None:
     user_id = info.get("buyer_id", "")
     buyer_email = info.get("buyer_email", "")
     product_key = info.get("product_key", "")
-    if not user_id and buyer_email:
-        rd = await db.users.find_one({"email": buyer_email.lower()}, {"_id": 0, "id": 1})
+    if user_id and buyer_email:
+        rd = await _find_user_by_email(buyer_email, {"_id": 0, "id": 1})
         if rd:
             user_id = str(rd.get("id") or "")
     try:
@@ -755,7 +780,7 @@ async def _record_stripe_order(info: dict) -> None:
         # BYOK $3 unlock / tier grant / scholarship — reuse the shared helpers.
         email = buyer_email or ""
         if email and product_key == "byok":
-            rd = await db.users.find_one({"email": email.lower()}, {"_id": 0, "id": 1})
+            rd = await _find_user_by_email(email, {"_id": 0, "id": 1})
             if rd:
                 await db.users.update_one(
                     {"id": rd["id"]},
@@ -768,7 +793,7 @@ async def _record_stripe_order(info: dict) -> None:
                 except Exception:
                     pass
         if email and product_key == "scholarship":
-            rd = await db.users.find_one({"email": email.lower()}, {"_id": 0, "id": 1})
+            rd = await _find_user_by_email(email, {"_id": 0, "id": 1})
             if rd:
                 await db.scholarship_pledges.update_one(
                     {"user_id": rd["id"], "status": "pending"},
@@ -865,7 +890,10 @@ async def payments_webhook(request: Request):
                 "provider": "lemon_squeezy",
                 "provider_order_id": order_id,
                 "product_key": "lemon_squeezy_order",
-                "amount_cents": int(float(total) * 100) if total else 0,
+                # Lemon Squeezy sends `total` already in integer cents (e.g. 999
+                # = $9.99). Multiplying by 100 here inflated every recorded
+                # order and scholarship fund total 100× in revenue reporting.
+                "amount_cents": int(total) if total else 0,
                 "currency": currency,
                 "mode": "order",
                 "status": "paid" if status == "paid" else status,
@@ -884,9 +912,7 @@ async def payments_webhook(request: Request):
         # A paid BYOK product grants byok_enabled directly (not a membership
         # tier — instructor tier and above activate BYOK free without payment).
         if user_email and product_key == "byok":
-            user_doc = await db.users.find_one(
-                {"email": user_email}, {"id": 1, "byok_enabled": 1}
-            )
+            user_doc = await _find_user_by_email(user_email, {"id": 1, "byok_enabled": 1})
             if user_doc:
                 await db.users.update_one(
                     {"id": user_doc["id"]},
@@ -924,9 +950,10 @@ async def payments_webhook(request: Request):
         # The committee then matches the pledge to an approved application
         # (milestone-based release, so funds follow real progress).
         if user_email and product_key == "scholarship":
-            user_doc = await db.users.find_one({"email": user_email}, {"id": 1})
+            user_doc = await _find_user_by_email(user_email, {"id": 1})
             if user_doc:
-                paid_amount = int(float(total) * 100) if total else 0
+                # `total` arrives in integer cents from Lemon Squeezy.
+                paid_amount = int(total) if total else 0
                 pledge = await db.scholarship_pledges.find_one_and_update(
                     {"user_id": user_doc["id"], "status": "pending"},
                     {"$set": {"status": "paid", "paid_at": datetime.now(timezone.utc).isoformat(),
@@ -963,8 +990,8 @@ async def payments_webhook(request: Request):
         product_key = _match_product_key(data.get("product_name", ""))
         if not (user_email and product_key and product_key in _PRODUCT_TIER_MAP):
             return {"received": True}
-        user_doc = await db.users.find_one(
-            {"email": user_email},
+        user_doc = await _find_user_by_email(
+            user_email,
             {"_id": 0, "id": 1, "feature_tier": 1, "feature_tier_product": 1,
              "feature_tier_revert_to": 1},
         )
@@ -1010,8 +1037,8 @@ async def payments_webhook(request: Request):
         product_key = _match_product_key((data.get("first_order_item") or {}).get("product_name", ""))
         if not user_email:
             return {"received": True}
-        user_doc = await db.users.find_one(
-            {"email": user_email},
+        user_doc = await _find_user_by_email(
+            user_email,
             {"_id": 0, "id": 1, "byok_enabled": 1, "feature_tier": 1,
              "feature_tier_product": 1, "feature_tier_revert_to": 1},
         )
@@ -1070,7 +1097,7 @@ async def payments_webhook(request: Request):
         product_key = _match_product_key(data.get("product_name", ""))
         sub_id = str((event.get("data") or {}).get("id", ""))
         if user_email and product_key:
-            user_doc = await db.users.find_one({"email": user_email}, {"_id": 0, "id": 1})
+            user_doc = await _find_user_by_email(user_email, {"_id": 0, "id": 1})
             if user_doc:
                 try:
                     await db.payments.update_one(
