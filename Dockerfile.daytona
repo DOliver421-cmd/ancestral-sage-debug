@@ -1,0 +1,42 @@
+# Dockerfile.daytona — single-image sandbox for M.O.R.E. Help Center.
+#
+# Bakes the full stack (Mongo + FastAPI backend + built React SPA) into one
+# image so a Daytona sandbox serves the SPA and /api same-origin on :8080
+# (the exact production topology). mongod forks; uvicorn runs in the
+# foreground so the sandbox stays alive.
+FROM ubuntu:22.04
+
+ENV DEBIAN_FRONTEND=noninteractive
+ENV PYTHONUNBUFFERED=1
+ENV CI=false
+ENV SERVE_FRONTEND=1
+ENV PORT=8080
+ENV MONGO_URL=mongodb://localhost:27017/wai
+ENV JWT_SECRET=daytona-dev-secret-change-me
+ENV ENABLE_API_DOCS=1
+
+RUN apt-get update && apt-get install -y \
+    curl git build-essential ffmpeg gnupg ca-certificates software-properties-common python3-pip \
+    && curl -fsSL https://deb.nodesource.com/setup_18.x | bash - \
+    && apt-get install -y nodejs \
+    && curl -fsSL https://pgp.mongodb.com/server-7.0.asc \
+       | gpg -o /usr/share/keyrings/mongodb-server-7.0.gpg --dearmor \
+    && echo "deb [ signed-by=/usr/share/keyrings/mongodb-server-7.0.gpg ] \
+       https://repo.mongodb.org/apt/ubuntu jammy/mongodb-org/7.0 multiverse" \
+       > /etc/apt/sources.list.d/mongodb-org-7.0.list \
+    && apt-get update && apt-get install -y mongodb-org \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+COPY . /app
+
+RUN python3 -m pip install --no-cache-dir -r /app/backend/requirements.txt
+RUN cd /app/frontend && npm ci --legacy-peer-deps && npm run build
+
+RUN mkdir -p /data/db
+
+EXPOSE 8080
+
+CMD ["/bin/sh", "-c", "mongod --dbpath /data/db --bind_ip 127.0.0.1 --fork --logpath /var/log/mongod.log \
+    && cd /app/backend \
+    && exec uvicorn server:app --host 0.0.0.0 --port 8080"]

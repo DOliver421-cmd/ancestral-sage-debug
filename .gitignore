@@ -120,3 +120,6 @@ scripts/ops/
 
 # Archived noise — ignored by agents, not part of the codebase
 Noisy Assets/
+
+# Daytona CLI binary (downloaded per-session, not repo code)
+.daytona-bin/
