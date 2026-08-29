@@ -32,6 +32,7 @@ export const ROUTES = {
   helperApp: "/app/helper",
   aiTutor: "/ai",
   council: "/council",
+  orchestrator: "/orchestrator",
   modules: "/modules",
   labs: "/labs",
   compliance: "/compliance",

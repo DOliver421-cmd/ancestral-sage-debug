@@ -217,9 +217,9 @@ async def get_creator_split(user_id: str) -> dict:
 
 def _next_tier_info(current_tier: str) -> dict:
     tiers = {
-        "base": {"label": "Certified Creator (91%)", "action": "Complete Creator Certification", "link": "/certification"},
+        "base": {"label": "Certified Creator (91%)", "action": "Complete Creator Certification", "link": "/credentials"},
         "certified": {"label": "Active Instructor (93%)", "action": "Publish a course and get your first student", "link": "/creator/courses"},
-        "active_instructor": {"label": "Certified Instructor (95%)", "action": "Get Creator Certified and maintain 4.0+ rating", "link": "/certification"},
+        "active_instructor": {"label": "Certified Instructor (95%)", "action": "Get Creator Certified and maintain 4.0+ rating", "link": "/credentials"},
         "certified_instructor": {"label": "You're at the top! 95%", "action": "Keep creating and teaching.", "link": "/studio"},
     }
     return tiers.get(current_tier, tiers["base"])

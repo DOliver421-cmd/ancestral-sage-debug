@@ -360,6 +360,9 @@ function App() {
           <Route path="/admin/moderation" element={<BoundedAdmin roles={["support_staff", "admin"]} label="Moderation Analytics"><ModerationAnalytics /></BoundedAdmin>} />
           <Route path="/revenue" element={<BoundedAdmin roles={["admin", "executive_admin"]} label="Revenue Division"><RevenueDivision /></BoundedAdmin>} />
           <Route path="/council" element={<Protected><OrchestratorChat /></Protected>} />
+          {/* /orchestrator — AI Business Office nav link (abo.py) targets this; it is
+              the same Orchestrator console as /council, admin-gated to match the ABO tool. */}
+          <Route path="/orchestrator" element={<BoundedAdmin roles={["admin"]} label="Orchestrator" backTo="/business-office"><OrchestratorChat /></BoundedAdmin>} />
           {/* Leaderboard — public read-only */}
           <Route path="/leaderboard" element={<Leaderboard />} />
           {/* Creator Studio — publish & manage courses */}
