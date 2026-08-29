@@ -2288,10 +2288,6 @@ from routers import media as _media_mod
 _media_mod.bind(db, current_user, audit)
 api_router.include_router(_media_mod.router)
 
-# --- Missing Kameron router (extracted to routers/missing.py) ---
-from routers import missing as _missing_mod
-_missing_mod.bind(db, current_user)
-api_router.include_router(_missing_mod.router)
 # --- Site Guide + site-wide search router (routers/site_guide.py) ---
 from routers import site_guide as _site_guide_mod
 _site_guide_mod.bind(db, current_user, check_rate)
