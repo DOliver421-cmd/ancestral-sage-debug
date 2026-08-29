@@ -94,6 +94,10 @@ class AdminActiveReq(BaseModel):
     is_active: bool
 
 
+class AdminTierReq(BaseModel):
+    feature_tier: str = Field(..., min_length=1, max_length=64)
+
+
 class AdminResetPasswordReq(BaseModel):
     new_password: str = Field(..., min_length=8, max_length=128)
 
@@ -197,7 +201,7 @@ async def admin_create_user(body: AdminCreateUserReq, user: User = Depends(_requ
         raise HTTPException(403, "Only executive_admin can create another executive_admin.")
     if await db.users.find_one({"email": body.email}):
         raise HTTPException(400, "Email already registered")
-    builtin_tiers = {"free", "member", "plus", "pro", "patron", "executive"}
+    builtin_tiers = {"free", "member", "plus", "pro", "patron", "platinum", "executive"}
     custom_tiers = await db.tier_definitions.find({}, {"_id": 0, "tier_id": 1}).to_list(100)
     valid_tiers = builtin_tiers | {t.get("tier_id") for t in custom_tiers if t.get("tier_id")}
     if body.feature_tier not in valid_tiers:
@@ -242,6 +246,33 @@ async def admin_change_role(uid: str, body: AdminRoleReq, user: User = Depends(_
     return {"ok": True, "id": uid, "role": body.role,
             "verified": {"role": verified.get("role") if verified else None,
                         "is_active": verified.get("is_active") if verified else None,
+                        "token_version": verified.get("token_version") if verified else None}}
+
+
+@router.patch("/admin/users/{uid}/tier")
+async def admin_set_tier(uid: str, body: AdminTierReq, user: User = Depends(_require_rank("admin"))):
+    """Admin-only: set a user's membership feature_tier.
+    Validates against builtin tiers + custom tier_definitions collection."""
+    if uid == user.id:
+        raise HTTPException(400, "Refusing to change your own tier — ask a higher-privileged admin.")
+    target = await db.users.find_one({"id": uid}, {"_id": 0})
+    if not target:
+        raise HTTPException(404, "User not found")
+    if not can_modify(user, target.get("role", "")):
+        raise HTTPException(403, "You don't have permission to modify this user.")
+    builtin_tiers = {"free", "member", "plus", "pro", "patron", "platinum", "executive"}
+    custom_tiers = await db.tier_definitions.find({}, {"_id": 0, "tier_id": 1}).to_list(100)
+    valid_tiers = builtin_tiers | {t.get("tier_id") for t in custom_tiers if t.get("tier_id")}
+    if body.feature_tier not in valid_tiers:
+        raise HTTPException(400, f"Unknown feature tier '{body.feature_tier}'. Valid: {sorted(valid_tiers)}")
+    await db.users.update_one({"id": uid},
+        {"$set": {"feature_tier": body.feature_tier}, "$inc": {"token_version": 1}})
+    await db.auth_sessions.delete_many({"user_id": uid})
+    verified = await db.users.find_one({"id": uid}, {"_id": 0, "feature_tier": 1, "token_version": 1})
+    await audit(user.id, "admin.user.tier_changed", target=uid,
+                meta={"from": target.get("feature_tier"), "to": body.feature_tier})
+    return {"ok": True, "id": uid, "feature_tier": body.feature_tier,
+            "verified": {"feature_tier": verified.get("feature_tier") if verified else None,
                         "token_version": verified.get("token_version") if verified else None}}
 
 

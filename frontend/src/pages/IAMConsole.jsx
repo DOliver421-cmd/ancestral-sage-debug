@@ -4,6 +4,7 @@ import { useAuth } from "../lib/auth";
 import {
   ROLES_ALL, ROLE_LABELS, ROLE_COLORS, ROLE_RANK, roleAtLeast, canModifyRole,
 } from "../lib/roles";
+import { FEATURE_TIER_LABEL, FEATURE_TIER_RANK } from "../lib/tiers";
 import {
   Search, ShieldCheck, KeyRound, UserPlus, Ban, CircleCheck, Trash2,
   RefreshCw, Grid3X3, Users, Loader2, X, Fingerprint, ScrollText, Eye, HeartHandshake, Bot,
@@ -137,6 +138,9 @@ export default function IAMConsole() {
 
   const changeRole = (u, role) =>
     runMutation("Role updated", () => api.patch(`/admin/users/${u.id}/role`, { role }), u.id);
+
+  const changeTier = (u, tier) =>
+    runMutation("Tier updated", () => api.patch(`/admin/users/${u.id}/tier`, { feature_tier: tier }), u.id);
 
   const toggleActive = (u) =>
     runMutation(
@@ -302,8 +306,19 @@ export default function IAMConsole() {
                             {ROLES_ALL.filter((r) => canModifyRole(me?.role, r)).map((r) => (
                               <option key={r} value={r}>{ROLE_LABELS[r]}</option>
                             ))}
-                          </select>
-                          <button
+                           </select>
+                           <select
+                             value={u.feature_tier || "free"}
+                             disabled={!canTouch || busyId === u.id}
+                             onChange={(e) => changeTier(u, e.target.value)}
+                             className="py-1.5 px-2 border border-ink/15 rounded-sm text-xs bg-white focus:outline-none disabled:opacity-40"
+                             title="Set membership tier"
+                           >
+                             {Object.keys(FEATURE_TIER_RANK).map((t) => (
+                               <option key={t} value={t}>{FEATURE_TIER_LABEL[t] || t}</option>
+                             ))}
+                           </select>
+                           <button
                             onClick={() => resetPassword(u)}
                             disabled={!canTouch || busyId === u.id}
                             className="p-1.5 border border-ink/15 rounded-sm hover:border-copper disabled:opacity-40"

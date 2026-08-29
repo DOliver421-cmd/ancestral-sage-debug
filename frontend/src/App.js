@@ -265,7 +265,7 @@ function App() {
           <Route path="/avatar-setup" element={<Protected><AvatarSetup /></Protected>} />
           {/* Themed member spaces */}
           <Route path="/palace" element={<Protected><Palace /></Protected>} />
-          <Route path="/elder-council" element={<BoundedAdmin roles={["admin"]} label="Elder Council" backTo="/dashboard"><ElderCouncil /></BoundedAdmin>} />
+          <Route path="/elder-council" element={<BoundedAdmin roles={["instructor", "admin", "executive_admin"]} label="Elder Council" backTo="/dashboard"><ElderCouncil /></BoundedAdmin>} />
           <Route path="/plans" element={<Plans />} />
           {/* Public funnel pages */}
           <Route path="/help-center" element={<HelpCenter />} />
@@ -453,14 +453,6 @@ function App() {
           <Route path="/sanctuary" element={<Navigate to="/helper" replace />} />
           <Route path="/music" element={<Navigate to="/band" replace />} />
           <Route path="/games" element={<Navigate to="/arcade" replace />} />
-
-          {/* ── LEGACY REDIRECTS (Step 8 — remaining from prior merges) ── */}
-          <Route path="/admin/exec-control" element={<Navigate to="/admin/office" replace />} />
-          <Route path="/admin/system" element={<Navigate to="/admin/command" replace />} />
-          <Route path="/admin/director" element={<Navigate to="/admin/command" replace />} />
-          <Route path="/dashboard/exec" element={<Navigate to="/admin/command" replace />} />
-          <Route path="/admin/health-report" element={<Navigate to="/admin/health" replace />} />
-          <Route path="/admin/tools" element={<Navigate to="/admin" replace />} />
 
           <Route path="*" element={<Error404 />} />
         </Routes>
