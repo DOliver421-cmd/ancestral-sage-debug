@@ -183,7 +183,9 @@ PAYMENT_PRODUCTS = {
     "byok":           {"name": "BYOK – Bring Your Own Key",            "amount":  300, "mode": "payment",      "description": "One-time $3 unlock — attach a free Groq, Cerebras, or Gemini key so your AI runs on your own key"},
     # Sponsor a Scholarship — milestone-based giving. Amount is set by the
     # sponsor (like donation); a paid order matches the sponsor's pledge.
-    "scholarship":    {"name": "Sponsor a Scholarship — M.O.R.E. Help Center", "amount": None, "mode": "payment", "description": "Sponsor a scholar — Full, Partial, or Collective. Milestone-based release, fully transparent."},
+    "scholarship":    {"name": "Sponsor a Scholarship — M.O.R.E. Help Center",      "amount": None, "mode": "payment", "description": "Sponsor a scholar — Full, Partial, or Collective. Milestone-based release, fully transparent."},
+    # Our Legacy book — one-time digital purchase
+    "book":           {"name": "Our Legacy · Our Future — The Book",                "amount": 8900, "mode": "payment", "description": "One-time digital purchase of the Our Legacy book"},
     # Creator's Sanctuary tiers (creator lane — see _PRODUCT_TIER_MAP)
     "sanctuary_trial":   {"name": "M.O.R.E. Creator's Sanctuary – 3-Day Trial",     "amount":  300, "mode": "payment",      "description": "All-access 3 days & 33 minutes trial — everything through Pro"},
     "sanctuary_paid":    {"name": "M.O.R.E. Creator's Sanctuary – Paid Creator",    "amount":  700, "mode": "subscription", "interval": "month", "description": "Member-level creator lane — $7/mo", "deprecated": True},

@@ -64,13 +64,8 @@ export default function OurLegacy() {
   const { user } = useAuth();
   const [buying, setBuying] = useState(false);
 
-  // REALITY (2026-08-27 audit): the in-app "book" SKU was removed from
-  // PAYMENT_PRODUCTS, so this checkout can never complete — it 400s
-  // ("Unknown product") even with payments configured. Per the honest-status
-  // pass, the buy buttons below are presented as Coming Soon. The handler and
-  // the 501→/merch fallback stay wired and intact: if a book SKU is ever added
-  // to PAYMENT_PRODUCTS, re-enabling the buttons is a frontend-only revert.
-  const BOOK_CHECKOUT_DISABLED = true;
+  // Book checkout is live — product "book" is registered in PAYMENT_PRODUCTS.
+  const BOOK_CHECKOUT_DISABLED = false;
 
   async function buyBook() {
     if (!user) { toast.error("Sign in to purchase"); return; }

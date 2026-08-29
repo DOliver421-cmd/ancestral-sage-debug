@@ -100,11 +100,19 @@ export function JamilChat({ embedded = false }) {
   const [playing, setPlaying] = useState(false);
   const [error, setError] = useState("");
   const [confirmClear, setConfirmClear] = useState(false);
+  const [status, setStatus] = useState(null);
+  const [statusError, setStatusError] = useState("");
   const bottomRef = useRef(null);
   const inputRef = useRef(null);
   const fileRef = useRef(null);
   const mediaRef = useRef(null);
   const chunksRef = useRef([]);
+
+  useEffect(() => {
+    api.get("/jamil/status")
+      .then(({ data }) => setStatus(data))
+      .catch((e) => setStatusError(e?.response?.data?.detail || "Could not reach Jamil API"))
+  }, []);
 
   useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages, loading]);
   useEffect(() => { saveMessages(messages); }, [messages]);
@@ -250,13 +258,23 @@ export function JamilChat({ embedded = false }) {
       {/* Header */}
       <header style={{
         padding: "24px 32px 18px", borderBottom: `1px solid rgba(181,101,29,0.15)`,
-        background: BONE, display: "flex", alignItems: "flex-end", justifyContent: "space-between", flexShrink: 0,
+        background: BONE, display: "flex", alignItems: "flex-end", justifyContent: "space-between", flexShrink: 0, flexWrap: "wrap", gap: 12,
       }}>
         <div>
           <h1 style={{ margin: 0, fontSize: 40, fontWeight: 900, color: COPPER, letterSpacing: "-0.02em", lineHeight: 1 }}>Jamil</h1>
           <p style={{ margin: "5px 0 0", fontSize: 13, color: INK, opacity: 0.6, letterSpacing: "0.04em", textTransform: "uppercase", fontWeight: 600 }}>
             Supervisor · All domains · Files · Voice
           </p>
+          {statusError && (
+            <p style={{ margin: "6px 0 0", fontSize: 12, color: "#b3261e", fontWeight: 600 }}>{statusError}</p>
+          )}
+          {status && !statusError && (
+            <p style={{ margin: "6px 0 0", fontSize: 12, color: status.status === "active" ? "#1b7a3d" : "#9a6b00", fontWeight: 600 }}>
+              {status.status === "active"
+                ? `Jamil is active · ${status.provider_count} AI provider${status.provider_count !== 1 ? "s" : ""} available`
+                : `Jamil is degraded · ${status.provider_count} AI provider${status.provider_count !== 1 ? "s" : ""} available · KB fallback active`}
+            </p>
+          )}
         </div>
         {messages.length > 0 && (
           <button onClick={clearHistory} style={{
