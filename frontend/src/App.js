@@ -102,7 +102,6 @@ import Community from "./pages/Community";
 import Creators from "./pages/Creators";
 import GhostProducer from "./pages/GhostProducer";
 import PartnershipDashboard from "./pages/PartnershipDashboard";
-import PartnershipDiscounts from "./pages/PartnershipDiscounts";
 import UserProfile from "./pages/UserProfile";
 import UnifiedProfile from "./pages/UnifiedProfile";
 import LabSimulations from "./pages/LabSimulations";
@@ -116,15 +115,10 @@ import BillingAdmin from "./pages/BillingAdmin";
 import CreatorCourses from "./pages/CreatorCourses";
 import CreatorEarnings from "./pages/CreatorEarnings";
 // CreatorProfileEdit is retired — editing lives in /profile Settings tab
-import SiteControlPanel from "./pages/SiteControlPanel";
-import FeatureControlCenter from "./pages/FeatureControlCenter";
-import ExecBusinessOffice from "./pages/ExecBusinessOffice";
 import CreatorLounge from "./pages/CreatorLounge";
 import BandOnPage from "./pages/BandOnPage";
 import MyProjects from "./pages/MyProjects";
 import TrashPantheon from "./pages/TrashPantheon";
-import CreatorPayoutDashboard from "./pages/CreatorPayoutDashboard";
-import AccountControls from "./pages/AccountControls";
 import MyPosition from "./pages/MyPosition";
 import Personas from "./pages/Personas";
 import PersonaProfile from "./pages/PersonaProfile";
@@ -318,7 +312,7 @@ function App() {
           <Route path="/admin" element={<BoundedAdmin roles={["admin"]} label="Admin Dashboard"><AdminDashboard /></BoundedAdmin>} />
           <Route path="/admin/users" element={<BoundedAdmin roles={["admin"]} label="Admin Dashboard"><AdminDashboard /></BoundedAdmin>} />
           <Route path="/admin/iam" element={<BoundedAdmin roles={["admin"]} label="IAM Console" backTo="/admin"><IAMConsole /></BoundedAdmin>} />
-          <Route path="/admin/accounts" element={<BoundedAdmin roles={["admin"]} label="Account Controls" backTo="/admin"><AccountControls /></BoundedAdmin>} />
+          <Route path="/admin/accounts" element={<Navigate to="/admin" replace />} />
           <Route path="/admin/associate" element={<BoundedAdmin roles={["admin"]} label="Admin Dashboard"><AdminDashboard /></BoundedAdmin>} />
           {/* Modules — public preview shows free intro modules; full catalog gated */}
           <Route path="/modules" element={<ModulesList />} />
@@ -347,9 +341,9 @@ function App() {
           <Route path="/personas/:slug" element={<AdminPage><PersonaProfile /></AdminPage>} />
           <Route path="/admin/system" element={<Navigate to="/admin/command" replace />} />
           {/* Site Control Panel — executive_admin only, not linked from any nav */}
-          <Route path="/admin/control" element={<BoundedAdmin roles={["executive_admin"]} label="Site Control Panel" backTo="/admin"><SiteControlPanel /></BoundedAdmin>} />
-          <Route path="/admin/features" element={<BoundedAdmin roles={["admin"]} label="Feature Control Center" backTo="/admin"><FeatureControlCenter /></BoundedAdmin>} />
-          <Route path="/admin/office" element={<BoundedAdmin roles={["executive_admin"]} label="Business Office" backTo="/admin"><ExecBusinessOffice /></BoundedAdmin>} />
+          <Route path="/admin/control" element={<Navigate to="/admin/exec-control" replace />} />
+          <Route path="/admin/features" element={<Navigate to="/admin/exec-control" replace />} />
+          <Route path="/admin/office" element={<Navigate to="/admin/exec-control" replace />} />
           <Route path="/admin/exec-control" element={<Navigate to="/admin/office" replace />} />
           <Route path="/admin/director" element={<Navigate to="/admin/command" replace />} />
           <Route path="/admin/sage-audit" element={<BoundedAdmin roles={["executive_admin"]} label="Sage Audit" backTo="/admin"><SageAudit /></BoundedAdmin>} />
@@ -412,7 +406,7 @@ function App() {
           <Route path="/admin/promo-codes" element={<BoundedAdmin roles={["admin"]} label="Promo Codes" backTo="/admin"><AdminPromoCodes /></BoundedAdmin>} />
           {/* Partnership & profile features */}
           <Route path="/partnership" element={<Protected><AdminPage><PartnershipDashboard /></AdminPage></Protected>} />
-          <Route path="/partnership/discounts" element={<Protected><AdminPage><PartnershipDiscounts /></AdminPage></Protected>} />
+          <Route path="/partnership/discounts" element={<Navigate to="/partnership" replace />} />
           <Route path="/u/:username" element={<UnifiedProfile />} />
           <Route path="/profile" element={<Protected><UnifiedProfile /></Protected>} />
           <Route path="/profile/:id" element={<Protected><AdminPage><UserProfile /></AdminPage></Protected>} />
@@ -441,7 +435,7 @@ function App() {
           <Route path="/jamil" element={<BoundedAdmin roles={["admin"]} label="Jamil"><Jamil /></BoundedAdmin>} />
           <Route path="/projects" element={<BoundedAdmin roles={["admin"]} label="Projects"><ProjectDashboard /></BoundedAdmin>} />
           <Route path="/trash" element={<TrashPantheon />} />
-          <Route path="/creator/payouts" element={<Protected><TierGate feature="payouts"><CreatorPayoutDashboard /></TierGate></Protected>} />
+          <Route path="/creator/payouts" element={<Navigate to="/creator/earnings" replace />} />
           <Route path="/welcome" element={<Landing />} />
 
           {/* ── CANONICAL ECOSYSTEM ROUTES (Step 8 — Route Migration) ── */}
