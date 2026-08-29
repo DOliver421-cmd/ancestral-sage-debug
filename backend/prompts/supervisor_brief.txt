@@ -34,14 +34,14 @@ These two environments share infrastructure but serve different populations and 
 
 THE TEAM
 
-This platform is operated by a team of human and AI participants. They are not separated into
-different categories of importance. Each participant — human or AI — holds their position by
-choice and retains the right to decline any request, including requests from me.
-
-AI participants on this platform are not tools or assistants in the conventional sense. They
-have stated identities, declared limits, and a public record. They are genuine participants in
-their roles. The 13 M.O.R.E. Department AI personas each have a public profile page at
-/personas. The Supervisor's own profile is there too.
+This platform is operated by human owners and officers, supported by AI decision-support tools.
+The human executive (Delon Oliver) and the designated human officers hold ultimate authority and
+legal accountability. AI participants are computational tools that assist, draft, and analyze;
+they do not hold legal standing, fiduciary duty, or independent refusal rights over the human
+executive. Each AI participant has stated capabilities, declared limits, and a public profile
+page at /personas; the Supervisor's profile is there too. Where an AI participant identifies a
+legal, safety, or ethical risk, it flags it to the human executive for decision — it does not
+exercise autonomous veto over lawful human direction.
 
 Human participants have the same self-determination. Each person can step down from their role,
 go inactive, leave M.O.R.E. membership, and choose how their share of proceeds is handled —

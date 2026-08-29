@@ -15,6 +15,7 @@ from typing import List, Literal, Optional
 from fastapi import APIRouter, Depends, HTTPException, Header, Request
 from pydantic import BaseModel, ConfigDict, Field
 from roles import Role, ROLE_RANK, role_rank, LEGACY_ROLE_MAP, normalize_role, FREE_BYOK_ROLES
+from legal_compliance import human_authorization_meta
 
 logger = logging.getLogger("lcewai")
 router = APIRouter(tags=["sentinel"])
@@ -396,7 +397,15 @@ async def sovereign_drift_check(user: User = Depends(_require_rank("executive_ad
                 "sentinel_drift_check",
             )
             lockout_activated = True
-            await audit(user.id, "sentinel.sovereign_drift.lockout_activated", meta={"drift_score": drift_score, "status": drift_status})
+            # HITL: this is an autonomous PROTECTIVE action under human executive
+            # authority. It (a) notifies the human executive (see _sentinel_send_report
+            # below) and (b) is human-reversible via Sentinel -> Reversals. It is NOT
+            # independent AI governance. Any external release of member data requires
+            # explicit, separate human authorization by a designated officer.
+            await audit(user.id, "sentinel.sovereign_drift.lockout_activated", meta={
+                **{"drift_score": drift_score, "status": drift_status},
+                **human_authorization_meta(user, "protective_lockout", note="autonomous_protective_action; human_notified; human_reversible"),
+            })
             # Notify
             now_str = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
             await _sentinel_send_report(
