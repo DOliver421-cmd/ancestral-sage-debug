@@ -122,7 +122,6 @@ import ExecBusinessOffice from "./pages/ExecBusinessOffice";
 import CreatorLounge from "./pages/CreatorLounge";
 import BandOnPage from "./pages/BandOnPage";
 import MyProjects from "./pages/MyProjects";
-import TrashPantheon from "./pages/TrashPantheon";
 import CreatorPayoutDashboard from "./pages/CreatorPayoutDashboard";
 import AccountControls from "./pages/AccountControls";
 import MyPosition from "./pages/MyPosition";
@@ -439,7 +438,6 @@ function App() {
           <Route path="/admin/bridge" element={<BoundedAdmin roles={["admin"]} label="AI Team Bridge" backTo="/admin"><AITeamBridge /></BoundedAdmin>} />
           <Route path="/jamil" element={<BoundedAdmin roles={["admin"]} label="Jamil"><Jamil /></BoundedAdmin>} />
           <Route path="/projects" element={<BoundedAdmin roles={["admin"]} label="Projects"><ProjectDashboard /></BoundedAdmin>} />
-          <Route path="/trash" element={<TrashPantheon />} />
           <Route path="/creator/payouts" element={<Protected><TierGate feature="payouts"><CreatorPayoutDashboard /></TierGate></Protected>} />
           <Route path="/welcome" element={<Landing />} />
 
