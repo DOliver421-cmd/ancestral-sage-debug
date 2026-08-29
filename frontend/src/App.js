@@ -115,7 +115,6 @@ import BillingAdmin from "./pages/BillingAdmin";
 import CreatorCourses from "./pages/CreatorCourses";
 import CreatorEarnings from "./pages/CreatorEarnings";
 // CreatorProfileEdit is retired — editing lives in /profile Settings tab
-import ExecBusinessOffice from "./pages/ExecBusinessOffice";
 import CreatorLounge from "./pages/CreatorLounge";
 import BandOnPage from "./pages/BandOnPage";
 import MyProjects from "./pages/MyProjects";
