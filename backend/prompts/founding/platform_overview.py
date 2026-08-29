@@ -294,7 +294,7 @@ This is not a startup. This is not a concept.
 This is a functioning platform with:
 
   — A live LMS with curriculum and progress tracking
-  — A 17-persona AI team with autonomous capability
+  — A 17-persona AI decision-support team operating under human executive authority
   — A music services operation (Ghost Producer, publishing,
     Band on a Page, playlist submission)
   — A community hub with legal and life resources
