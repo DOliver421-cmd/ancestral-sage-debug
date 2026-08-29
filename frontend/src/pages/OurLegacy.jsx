@@ -64,20 +64,14 @@ export default function OurLegacy() {
   const { user } = useAuth();
   const [buying, setBuying] = useState(false);
 
-  // Book checkout is live — product "book" is registered in PAYMENT_PRODUCTS.
-  const BOOK_CHECKOUT_DISABLED = false;
-
   async function buyBook() {
     if (!user) { toast.error("Sign in to purchase"); return; }
-    if (BOOK_CHECKOUT_DISABLED) { toast.info("Online payments are coming soon — the book can't be purchased in-app yet."); return; }
     setBuying(true);
     try {
       const { data } = await api.post("/payments/checkout", { product_key: "book", quantity: 1 });
       window.location.href = data.url;
     } catch (e) {
       const detail = e?.response?.data?.detail || "";
-      // Payments not configured OR the SKU is not in the catalog — either way,
-      // don't leave the visitor at a raw error; route them to the store.
       if (e?.response?.status === 501 || /not configured|unknown product/i.test(String(detail))) {
         toast.info("Checkout is being set up — taking you to the store.");
         window.location.href = "/merch";
@@ -126,12 +120,11 @@ export default function OurLegacy() {
           <div className="flex flex-wrap items-center justify-center gap-4 mt-10">
             <button
               onClick={buyBook}
-              disabled={BOOK_CHECKOUT_DISABLED || buying}
-              title={BOOK_CHECKOUT_DISABLED ? "Online payments are coming soon" : undefined}
+              disabled={buying}
               className="inline-flex items-center gap-2 px-7 py-3.5 bg-signal text-ink font-bold hover:bg-signal/80 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
             >
               <BookOpen className="w-4 h-4" />
-              {BOOK_CHECKOUT_DISABLED ? "Coming Soon — online checkout" : buying ? "Opening checkout…" : `Get the Book — $${BOOK_PRICE}`}
+              {buying ? "Opening checkout…" : `Get the Book — $${BOOK_PRICE}`}
             </button>
             <a
               href="#pillars"
@@ -243,19 +236,16 @@ export default function OurLegacy() {
               </ul>
               <button
                 onClick={buyBook}
-                disabled={BOOK_CHECKOUT_DISABLED || buying}
-                title={BOOK_CHECKOUT_DISABLED ? "Online payments are coming soon" : undefined}
+                disabled={buying}
                 className="w-full btn-copper inline-flex items-center justify-center gap-2 font-bold disabled:opacity-60 disabled:cursor-not-allowed"
               >
                 <BookOpen className="w-4 h-4" />
-                {BOOK_CHECKOUT_DISABLED ? "Coming Soon — online checkout" : buying ? "Opening checkout…" : `Buy the Book — $${BOOK_PRICE}`}
+                {buying ? "Opening checkout…" : `Buy the Book — $${BOOK_PRICE}`}
               </button>
               <p className="text-xs text-ink/50 mt-4 text-center leading-relaxed">
-                {BOOK_CHECKOUT_DISABLED
-                  ? "Online payments are coming soon. The book isn't purchasable in-app yet — nothing will be charged."
-                  : user
-                    ? "Secure checkout through Lemon Squeezy. The book lands in your library after purchase."
-                    : "Sign in to purchase — checkout is protected by your account."}{" "}
+                {user
+                  ? "Secure checkout through Lemon Squeezy. The book lands in your library after purchase."
+                  : "Sign in to purchase — checkout is protected by your account."}{" "}
                 Refunds are issued as site credit unless the failure was the platform's fault.
               </p>
             </div>
