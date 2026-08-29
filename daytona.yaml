@@ -1,22 +1,28 @@
-# daytona.yaml — M.O.R.E. Help Center (morehelp.center) full-stack workspace
+# daytona.yaml — M.O.R.E. Help Center (morehelp.center)
 #
 # Daytona API server (your account): https://app.daytona.io/api
-# Usage:
-#   daytona login            # authenticate with your Daytona API key
-#   daytona create           # run from this repo root — brings up the full stack
 #
-# Modes:
-#   • Preview / Verify (default, runs on create): builds the SPA, starts Mongo +
-#     backend, and the backend serves the SPA + /api same-origin on :8080 (the
-#     exact production topology). The final command self-verifies the audit
-#     fixes (route-integrity + backend tests).
-#   • Dev (hot reload):  bash scripts/daytona-dev.sh   → CRA dev server on :3000
-#     + backend API on :8080, both with live reload.
-#   • CI: the on-create "verify" step doubles as the CI gate; run
-#     bash scripts/daytona-verify.sh any time to re-check.
+# NOTE: The current Daytona Sandboxes CLI (v0.190+) builds from a DOCKERFILE,
+# not from the `commands` block below. The working integration is:
 #
-# The repo is auto-detected from the git remote when you run `daytona create`
-# inside this directory, so no `gitProvider` block is needed.
+#   daytona login --api-key "$DAYTONA_API_KEY"
+#   daytona create -f Dockerfile.daytona -c . --name morehelp-center \
+#       --env SERVE_FRONTEND=1 --env PORT=8080 \
+#       --env MONGO_URL=mongodb://localhost:27017/wai \
+#       --env JWT_SECRET=daytona-dev-secret-change-me --env ENABLE_API_DOCS=1 \
+#       --public --target us
+#
+# Daytona runs its own worker as the container's main process, so the app does
+# NOT auto-start from the Dockerfile CMD. After `create`, start the stack:
+#   daytona exec morehelp-center -- sh -c "mkdir -p /data/db; mongod --dbpath /data/db --bind_ip 127.0.0.1 --fork --logpath /var/log/mongod.log; cd /app/backend; setsid env SERVE_FRONTEND=1 PORT=8080 MONGO_URL=mongodb://localhost:27017/wai nohup uvicorn server:app --host 0.0.0.0 --port 8080 >/var/log/backend.log 2>&1 </dev/null &"
+#
+# Modes (run inside the sandbox via `daytona exec`):
+#   • Preview / Verify: backend serves SPA + /api same-origin on :8080.
+#   • Dev (hot reload):  bash scripts/daytona-dev.sh   → CRA dev server :3000 + API :8080.
+#   • CI:                bash scripts/daytona-verify.sh  → route-integrity + backend tests.
+#
+# This `commands` block is retained for Daytona's legacy "workspace" model and
+# documents the same intent; it is not used by `daytona create` in sandbox mode.
 
 name: morehelp-center
 

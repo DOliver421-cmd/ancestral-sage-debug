@@ -24,7 +24,7 @@ echo "✅ route-integrity passed"
 
 echo "==> [2/2] Backend tests"
 cd backend
-python -m pytest -q
+python3 -m pytest -q
 # pytest may need a live Mongo for some suites; treat a missing DB as a
 # non-fatal warning rather than failing the whole workspace bring-up.
 if [ $? -ne 0 ]; then
