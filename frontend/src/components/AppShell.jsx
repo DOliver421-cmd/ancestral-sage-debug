@@ -128,7 +128,7 @@ const CUSTOMER_TIERS = [
   },
   {
     tier: "member", label: "Member", price: "$9",
-    features: "Social Blast · My Projects · Creator Lounge · Elder Council",
+    features: "Social Blast · My Projects · Creator Lounge",
     items: [
       { to: "/social/publish", label: "Social Blast", icon: Share2, testid: "nav-social-publish" },
       { to: "/creator-lounge", label: "Creator Lounge", icon: Mic, testid: "nav-creator-lounge" },
@@ -189,7 +189,6 @@ const STAFF_SECTIONS = [
       { to: "/admin/moderation", label: "Moderation", icon: Shield, testid: "nav-moderation" },
       { to: "/admin/sage-audit", label: "Sage Audit", icon: ScrollText, testid: "nav-sage-audit" },
       { to: "/admin/features", label: "Feature Control", icon: Wrench, testid: "nav-features" },
-      { to: "/admin/tools", label: "Sites & Inventory", icon: Building2, testid: "nav-admin-tools" },
       { to: "/admin/bridge", label: "AI Team Bridge", icon: Network, testid: "nav-bridge" },
       { to: "/admin/providers", label: "Provider Gateway", icon: Network, testid: "nav-providers" },
       { to: "/admin/exec-report", label: "Site Report", icon: ClipboardCheck, testid: "nav-exec-report" },
