@@ -378,7 +378,6 @@ function App() {
           <Route path="/creator-lounge" element={<Protected><TierGate feature="lounge"><CreatorLounge /></TierGate></Protected>} />
           <Route path="/my-projects" element={<Protected><TierGate feature="projects"><MyProjects /></TierGate></Protected>} />
           <Route path="/band" element={<Protected><TierGate feature="band"><BandOnPage /></TierGate></Protected>} />
-          <Route path="/trash-pantheon" element={<TrashPantheon />} />
           {/* Public pages */}
           <Route path="/internships" element={<Internships />} />
           {/* Social publisher — authenticated */}
