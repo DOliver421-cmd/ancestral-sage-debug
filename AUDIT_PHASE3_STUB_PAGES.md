@@ -12,9 +12,10 @@
 |----------------|-------|
 | **INTENTIONAL** — static content by design | 13 |
 | **HAS_API** — my script missed existing API calls | 19 |
-| **REMOVE** — abandoned/irrelevant to platform | 2 |
+| **REMOVE** — abandoned/irrelevant to platform | 1 |
 | **EXTERNAL** — redirects off-site | 1 |
 | **TRUE_STUB** — mock display, no workflow connection | 1 |
+| **OWNER_OVERRIDE** — kept despite audit recommendation | 1 |
 
 **Bottom line:** Most "stub" pages are actually connected to the backend. The real problems are 2 abandoned pages and 1 mock page that should be removed.
 
@@ -82,11 +83,10 @@ These pages serve a legitimate purpose without backend API calls. They are publi
 | Page | Route | Reason | Action |
 |------|-------|--------|--------|
 | `MissingKameron.jsx` | `/missing-kameron` (or similar) | Resolved missing person case. Static "found safe" page. No workflow connection. | **REMOVE** — case is closed |
-| `TrashPantheon.jsx` | `/trash-pantheon`, `/trash` | Mock/humor page with no platform workflow. "Trash" feed of bad ideas. | **REMOVE** — mock display, no purpose |
 
 **Note:** `MissingKameron.jsx` is not routed in `App.js` but exists as a file. It may have been accessible via a direct URL in the past. Removing it eliminates dead code.
 
-`TrashPantheon.jsx` IS routed at `/trash-pantheon` and `/trash` in `App.js`. It has no backend connection and serves no platform purpose. It should be removed from both the file system and the route table.
+**Owner override:** `TrashPantheon.jsx` stays despite being a mock/humor page. Owner decision supersedes recommendation.
 
 ---
 
@@ -137,7 +137,9 @@ After re-checking all pages that my initial audit flagged as "missing backend," 
 | # | Issue | Fix | File |
 |---|-------|-----|------|
 | 1 | `MissingKameron.jsx` — resolved case, dead code | Remove file and route | `frontend/src/pages/MissingKameron.jsx`, `frontend/src/App.js` |
-| 2 | `TrashPantheon.jsx` — mock page, no workflow | Remove file and routes | `frontend/src/pages/TrashPantheon.jsx`, `frontend/src/App.js` |
+| 2 | `TrashPantheon.jsx` — owner override | Restore file and routes | `frontend/src/pages/TrashPantheon.jsx`, `frontend/src/App.js` |
+
+**Bottom line:** MissingKameron removed. TrashPantheon restored per owner decision. Audit recommendation overridden.
 
 ---
 
