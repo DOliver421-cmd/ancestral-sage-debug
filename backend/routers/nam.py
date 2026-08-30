@@ -547,7 +547,8 @@ async def operational_mission(
 ) -> dict:
     """1. MISSION: Interpret and protect the institutional purpose."""
     result = interpret_mission(action, MISSION_PRINCIPLES)
-    await store.create("nam_governance", {"function": "mission_interpretation", "result": result})
+    doc = dict(result); doc["function"] = "mission_interpretation"
+    await store.create("nam_governance", doc)
     return result
 
 
@@ -558,7 +559,8 @@ async def operational_strategy(
 ) -> dict:
     """2. STRATEGY: Determine where the institution goes."""
     result = strategic_planning(context)
-    await store.create("nam_strategy", {"context": context, "result": result})
+    doc = dict(result); doc["function"] = "strategy"
+    await store.create("nam_strategy", doc)
     return result
 
 
@@ -572,7 +574,8 @@ async def operational_memory(
 ) -> dict:
     """3. MEMORY: Preserve institutional continuity."""
     result = continuity_record(item_type, title, content, people, status)
-    await store.create("nam_memory", result)
+    doc = dict(result); doc["function"] = "memory"
+    await store.create("nam_memory", doc)
     return result
 
 
@@ -583,7 +586,8 @@ async def operational_governance(
 ) -> dict:
     """4. GOVERNANCE: Apply constitutional principles."""
     result = governance_check(action, MISSION_PRINCIPLES)
-    await store.create("nam_governance", {"function": "constitutional_check", "result": result})
+    doc = dict(result); doc["function"] = "constitutional_check"
+    await store.create("nam_governance", doc)
     return result
 
 
@@ -595,7 +599,8 @@ async def operational_challenge(
 ) -> dict:
     """5. CHALLENGE: Question leadership when warranted."""
     result = challenge_leadership(claim, evidence, conflict_with)
-    await store.create("nam_governance", {"function": "leadership_challenge", "result": result})
+    doc = dict(result); doc["function"] = "leadership_challenge"
+    await store.create("nam_governance", doc)
     return result
 
 
@@ -607,7 +612,8 @@ async def operational_ecosystem(
 ) -> dict:
     """6. ECOSYSTEM: Coordinate the various AI/services."""
     result = ecosystem_coordination(services, proposed_action)
-    await store.create("nam_ecosystem", {"services": services, "result": result})
+    doc = dict(result); doc["function"] = "ecosystem"; doc["services"] = services
+    await store.create("nam_ecosystem", doc)
     return result
 
 
@@ -620,7 +626,8 @@ async def operational_power(
 ) -> dict:
     """7. POWER: Analyze authority, ownership, and benefit."""
     result = power_benefit_analysis(actor, beneficiary, decision)
-    await store.create("nam_governance", {"function": "power_benefit", "result": result})
+    doc = dict(result); doc["function"] = "power_benefit"
+    await store.create("nam_governance", doc)
     return result
 
 
@@ -638,7 +645,8 @@ async def operational_economics(
     result = value_flow_analysis(
         project, creators, owners, distributors, revenue_recipients, risk_bearers
     )
-    await store.create("nam_economics", {"project": project, "result": result})
+    doc = dict(result); doc["function"] = "value_flow"; doc["project"] = project
+    await store.create("nam_economics", doc)
     return result
 
 
@@ -649,7 +657,8 @@ async def operational_risk(
 ) -> dict:
     """9. RISK: Detect threats and dependencies."""
     result = institutional_risk_scan(signals)
-    await store.create("nam_risk", {"signals": signals, "result": result})
+    doc = dict(result); doc["function"] = "risk"; doc["signals"] = signals
+    await store.create("nam_risk", doc)
     return result
 
 
@@ -669,7 +678,9 @@ async def operational_accountability(
     result = accountability_check(
         objective, owner, deadline, metric, result, variance, explanation, corrective_action
     )
-    await store.create("nam_accountability", {"check": result})
+    doc = dict(result); doc["function"] = "accountability"
+    doc["status"] = "completed" if result is not None else "pending"
+    await store.create("nam_accountability", doc)
     return result
 
 
@@ -687,7 +698,8 @@ async def operational_crisis(
     result = crisis_assessment(
         what_happened, what_we_know, what_we_dont_know, what_is_at_risk, immediate_steps, requires_human
     )
-    await store.create("nam_crisis", {"assessment": result})
+    doc = dict(result); doc["function"] = "crisis"
+    await store.create("nam_crisis", doc)
     return result
 
 
@@ -704,7 +716,8 @@ async def operational_succession(
     result = succession_record(
         capability, current_holder, knowledge_artifact_ids, next_holder, status
     )
-    await store.create("nam_succession", result)
+    doc = dict(result); doc["function"] = "succession"
+    await store.create("nam_succession", doc)
     return result
 
 
@@ -721,7 +734,8 @@ async def operational_conflict(
     result = conflict_mediation(
         parties, positions, interests, evidence, constitutional_principles
     )
-    await store.create("nam_conflict", {"mediation": result})
+    doc = dict(result); doc["function"] = "conflict_mediation"
+    await store.create("nam_conflict", doc)
     return result
 
 

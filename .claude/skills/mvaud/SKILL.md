@@ -1,13 +1,21 @@
 ---
 name: mvaud
-description: "Describe when and why an agent should use this skill."
+description: "Minimum-viable / milestone audit"
 ---
 
 # mvaud
 
-Explain the goal, the workflow, and any constraints that matter.
+Confirm a milestone delivers its promised minimum and nothing regresses.
 
 ## Steps
 
-1. ...
-2. ...
+1. List the milestone's acceptance criteria.
+2. Execute each criterion in the running system.
+3. Check for regressions in adjacent features.
+4. Report milestone as met / not-met with the failing criteria.
+
+## Constraints
+
+- Verify by execution where possible; never report working on source inspection alone.
+- Cite file:line evidence for every finding.
+- Report DONE/PASS only when the live behavior matches the intended purpose.
