@@ -32,7 +32,7 @@ def init_db(db_handle):
 
 def _col(name: str):
     """Return a motor collection, or None if MongoDB is disabled."""
-    return _db[name] if _db else None
+    return _db[name] if _db is not None else None
 
 
 # ── Generic helpers ──────────────────────────────────────────────────────────

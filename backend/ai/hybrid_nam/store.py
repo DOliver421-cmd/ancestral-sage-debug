@@ -63,10 +63,13 @@ async def find_many(collection: str, query: Optional[dict] = None, limit: int = 
 
 
 async def update_one(collection: str, query: dict, update: dict, upsert: bool = False) -> bool:
-    if _is_mongo():
-        return await p.update_one(collection, query, update, upsert=upsert)
-    else:
+    try:
+        if _is_mongo():
+            return await p.update_one(collection, query, update, upsert=upsert)
         return await p.fallback_update_one(collection, query, update)
+    except Exception:
+        logger.exception("NAM store.update_one(%s) failed — returning False", collection)
+        return False
 
 
 async def count(collection: str, query: Optional[dict] = None) -> int:
