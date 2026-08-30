@@ -9,12 +9,13 @@ server.py via bind() at include time — no circular imports.
 """
 import logging
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Literal, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Header
 from pydantic import BaseModel, ConfigDict, Field
 from roles import Role, ROLE_RANK, role_rank, LEGACY_ROLE_MAP, normalize_role, FREE_BYOK_ROLES
+from prompts.more_department_system import get_more_department_system, compute_more_department_hash
 
 logger = logging.getLogger("lcewai")
 router = APIRouter(tags=["community"])
