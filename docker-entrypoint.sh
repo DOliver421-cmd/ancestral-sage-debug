@@ -19,10 +19,13 @@ if [ -z "${EXEC_ADMIN_EMAIL}" ] && [ -z "${BACKUP_EXEC_ADMIN_EMAIL}" ] && [ -z "
   echo "WARNING: Booting anyway. First-registration executive bootstrap is LOCKED until a seat email is set."
 fi
 
-BACKEND_URL="${BACKEND_URL:-http://localhost:8080}"
-BACKEND_URL="${BACKEND_URL%/}"
-BACKEND_HOST=$(echo "$BACKEND_URL" | sed 's|^https\?://||' | cut -d'/' -f1)
-export BACKEND_URL
-export BACKEND_HOST
+if [ -n "${BACKEND_URL}" ]; then
+  BACKEND_URL="${BACKEND_URL%/}"
+  BACKEND_HOST=$(echo "$BACKEND_URL" | sed 's|^https\?://||' | cut -d'/' -f1)
+  export BACKEND_URL
+  export BACKEND_HOST
+else
+  unset BACKEND_HOST
+fi
 TARGET_PORT=${PORT:-8080}
 exec uvicorn backend.server:app --host 0.0.0.0 --port "$TARGET_PORT"
