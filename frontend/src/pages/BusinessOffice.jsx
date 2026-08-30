@@ -330,7 +330,7 @@ function ExecProjectsPanel() {
           <div>
             <div className="overline text-copper mb-1">AI Team Projects</div>
             <h2 className="font-heading text-2xl font-bold text-ink">The Pipeline</h2>
-            <p className="text-sm text-ink/55 mt-1 max-w-2xl">
+            <p className="text-sm text-opaque-muted mt-1 max-w-2xl">
               Jamil coordinates, personas execute, the Source reviews. Every stage sees what the
               last produced — nothing is isolated. Give the team work to run.
             </p>
@@ -357,26 +357,30 @@ function ExecProjectsPanel() {
         {archiveOpen && (
           <div className="card-flat rounded-2xl border p-5 mb-6" style={{ background: "#fff", borderColor: "rgba(27,67,50,0.3)" }}>
             <div className="font-heading font-bold text-ink mb-1">Archive — your existing work</div>
-            <p className="text-sm text-ink/55 mb-4 max-w-2xl">
+            <p className="text-sm text-opaque-muted mb-4 max-w-2xl">
               The album, the books, the poems, the photos — anything already made. The AI team catalogues
               this material and turns it into projects: distribution, publishing, promotion. This is the
               proof of concept — your work becomes the first project database.
             </p>
             <div className="grid sm:grid-cols-2 gap-3 mb-3">
               <input value={archForm.title} onChange={(e) => setArchForm({ ...archForm, title: e.target.value })}
+                aria-label="Asset title"
                 placeholder="Title — e.g. Album A, the book manuscript"
                 className="px-3 py-2.5 bg-bone border border-ink/15 rounded-lg text-sm focus:outline-none focus:border-copper" />
               <div className="flex gap-2">
                 <select value={archForm.kind} onChange={(e) => setArchForm({ ...archForm, kind: e.target.value })}
+                  aria-label="Asset type"
                   className="px-3 py-2.5 bg-bone border border-ink/15 rounded-lg text-sm focus:outline-none focus:border-copper">
                   {["audio", "book", "document", "photo", "video", "other"].map((k) => <option key={k} value={k}>{k}</option>)}
                 </select>
                 <input value={archForm.file_ref} onChange={(e) => setArchForm({ ...archForm, file_ref: e.target.value })}
+                  aria-label="File reference or URL"
                   placeholder="File ref / URL (optional)"
                   className="flex-1 px-3 py-2.5 bg-bone border border-ink/15 rounded-lg text-sm focus:outline-none focus:border-copper" />
               </div>
             </div>
             <textarea value={archForm.notes} onChange={(e) => setArchForm({ ...archForm, notes: e.target.value })}
+              aria-label="Asset notes"
               placeholder="What is it? What state is it in? What's missing?" rows={2}
               className="w-full px-3 py-2.5 bg-bone border border-ink/15 rounded-lg text-sm focus:outline-none focus:border-copper resize-y mb-3" />
             <button onClick={addAsset} disabled={archBusy}
@@ -392,7 +396,7 @@ function ExecProjectsPanel() {
                     <div key={a.id} className="flex items-center gap-3 rounded-xl border px-3 py-2.5" style={{ borderColor: "rgba(181,101,29,0.2)", background: "#fdfbf5" }}>
                       <span className="text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded" style={{ background: "rgba(27,67,50,0.1)", color: GREEN }}>{a.kind}</span>
                       <span className="text-sm font-bold text-ink whitespace-nowrap">{a.title}</span>
-                      {a.notes && <span className="text-xs text-ink/55 truncate flex-1">{a.notes}</span>}
+                      {a.notes && <span className="text-xs text-opaque-muted truncate flex-1">{a.notes}</span>}
                       <button onClick={() => deleteAsset(a.id)} title="Remove" className="text-ink/35 hover:text-red-600 transition-colors shrink-0">
                         <Trash2 className="w-4 h-4" />
                       </button>
@@ -407,7 +411,7 @@ function ExecProjectsPanel() {
         {showDiscovery && (
           <div className="card-flat rounded-2xl border p-5 mb-6" style={{ background: "#fff", borderColor: "rgba(232,165,30,0.4)" }}>
             <div className="font-heading font-bold text-ink mb-1">Turn what already exists into what comes next</div>
-            <p className="text-sm text-ink/55 mb-4 max-w-2xl">
+            <p className="text-sm text-opaque-muted mb-4 max-w-2xl">
               The AI team catalogues existing material — your archive, published products, pipeline deliverables,
               audio — and proposes the highest-value next projects. Nothing is generated without your approval.
             </p>
@@ -427,7 +431,7 @@ function ExecProjectsPanel() {
                   ].map((s) => (
                     <div key={s.label} className="rounded-xl p-4 text-center" style={{ background: "#faf9f7" }}>
                       <div className="font-heading text-2xl font-bold" style={{ color: GREEN }}>{s.n ?? 0}</div>
-                      <div className="text-[10px] font-black uppercase tracking-widest text-ink/40 mt-1">{s.label}</div>
+                      <div className="text-[10px] font-black uppercase tracking-widest text-opaque-faint mt-1">{s.label}</div>
                     </div>
                   ))}
                 </div>
@@ -465,20 +469,24 @@ function ExecProjectsPanel() {
             <div className="font-heading font-bold text-ink mb-4">Give the AI team work</div>
             <div className="grid sm:grid-cols-2 gap-3 mb-3">
               <input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })}
+                aria-label="Project title"
                 placeholder="Project title — e.g. Launch my youth program"
                 className="px-3 py-2.5 bg-bone border border-ink/15 rounded-lg text-sm focus:outline-none focus:border-copper" />
               <div className="flex gap-2">
                 <select value={form.project_type} onChange={(e) => setForm({ ...form, project_type: e.target.value })}
+                  aria-label="Project type"
                   className="px-3 py-2.5 bg-bone border border-ink/15 rounded-lg text-sm focus:outline-none focus:border-copper">
                   {["general", "release", "campaign", "content", "course"].map((t) => <option key={t} value={t}>{t}</option>)}
                 </select>
                 <select value={form.priority} onChange={(e) => setForm({ ...form, priority: e.target.value })}
+                  aria-label="Priority level"
                   className="px-3 py-2.5 bg-bone border border-ink/15 rounded-lg text-sm focus:outline-none focus:border-copper">
                   {["low", "normal", "high", "urgent"].map((t) => <option key={t} value={t}>{t}</option>)}
                 </select>
               </div>
             </div>
             <textarea value={form.brief} onChange={(e) => setForm({ ...form, brief: e.target.value })}
+              aria-label="Project brief"
               placeholder="Brief — what is the goal, what does done look like?" rows={3}
               className="w-full px-3 py-2.5 bg-bone border border-ink/15 rounded-lg text-sm focus:outline-none focus:border-copper resize-y mb-3" />
             <div className="flex gap-2">
@@ -499,7 +507,7 @@ function ExecProjectsPanel() {
           <div className="card-flat rounded-2xl border p-10 text-center" style={{ background: "#fff" }}>
             <div style={{ fontSize: 40, marginBottom: 12 }}>🗂️</div>
             <div className="font-heading font-bold text-lg text-ink">The pipeline is empty</div>
-            <p className="text-sm text-ink/55 max-w-md mx-auto mt-2">
+            <p className="text-sm text-opaque-muted max-w-md mx-auto mt-2">
               The AI team is ready to run. Start a project and Jamil will coordinate personas through
               intake → assign → execute → review → operate → deliver.
             </p>
@@ -524,7 +532,7 @@ function ExecProjectsPanel() {
                     </span>
                   </div>
                   <div className="text-xs text-ink/50 mt-1 line-clamp-2">{p.brief}</div>
-                  <div className="flex items-center gap-2 mt-2 text-[10px] font-black uppercase tracking-widest text-ink/40">
+                  <div className="flex items-center gap-2 mt-2 text-[10px] font-black uppercase tracking-widest text-opaque-faint">
                     <span style={{ color: COPPER }}>{PIPE_STAGE_LABEL[p.current_stage] || p.current_stage}</span>
                     <span>· {(p.deliverables || []).length} deliverables</span>
                     <span className="ml-auto">{new Date(p.updated_at).toLocaleDateString()}</span>
@@ -607,7 +615,7 @@ function ExecProjectsPanel() {
                       </div>
                     )}
                     {detail?.packet?.packet_status && (
-                      <div className="mt-3 flex items-center gap-2 flex-wrap text-[10px] font-black uppercase tracking-widest text-ink/40">
+                      <div className="mt-3 flex items-center gap-2 flex-wrap text-[10px] font-black uppercase tracking-widest text-opaque-faint">
                         <span>Packet:</span>
                         <span style={{ color: GREEN }}>{detail.packet.packet_status}</span>
                         <span>· Authority:</span>
@@ -726,7 +734,7 @@ function ExecProjectsPanel() {
                               <span className="text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded" style={{ background: "rgba(27,67,50,0.1)", color: GREEN }}>
                                 {d.persona}
                               </span>
-                              <span className="text-[10px] text-ink/40">{d.approval_status}</span>
+                              <span className="text-[10px] text-opaque-faint">{d.approval_status}</span>
                             </div>
                             {d.content && <p className="text-xs text-ink/60 mt-1">{d.content}</p>}
                             {d.file_refs?.length > 0 && (
@@ -816,7 +824,7 @@ function ExecControlDesk() {
         <PageBack to="/admin/command" label="Command Center" />
         <div className="overline text-copper mb-2">Executive Control</div>
         <h2 className="font-heading text-2xl font-bold text-ink mb-2">The Control Desk</h2>
-        <p className="text-sm text-ink/55 max-w-2xl mb-8">
+        <p className="text-sm text-opaque-muted max-w-2xl mb-8">
           Every back-office control in one place — IAM, feature flags, audit, command, and
           platform controls. Data is live; nothing here is a dead link.
         </p>
@@ -830,7 +838,7 @@ function ExecControlDesk() {
                   style={{ background: "#f5f0e8", color: COPPER }}>{c.icon}</span>
                 <div className="font-heading font-bold text-ink group-hover:text-copper transition-colors">{c.title}</div>
               </div>
-              <p className="text-sm text-ink/55 leading-relaxed">{c.desc}</p>
+              <p className="text-sm text-opaque-muted leading-relaxed">{c.desc}</p>
               <div className="mt-4 text-xs font-bold uppercase tracking-widest text-copper flex items-center gap-1">
                 Open <ArrowRight className="w-3.5 h-3.5" />
               </div>
@@ -1005,19 +1013,19 @@ export default function BusinessOffice() {
             </h2>
             <div className="grid md:grid-cols-3 gap-4 mt-3">
               <div className="card-flat rounded-2xl p-6 border" style={{ background: "#fff" }}>
-                <div className="text-xs font-black uppercase tracking-widest text-ink/40">Monthly operating goal</div>
+                <div className="text-xs font-black uppercase tracking-widest text-opaque-faint">Monthly operating goal</div>
                 <div className="font-heading text-3xl font-bold text-ink mt-2">{fmt(runway?.monthly_goal_cents)}</div>
                 <div className="text-xs text-ink/50 mt-1">{runway?.goal_note || "What the office must raise each month."}</div>
               </div>
               <div className="card-flat rounded-2xl p-6 border" style={{ background: "#fff" }}>
-                <div className="text-xs font-black uppercase tracking-widest text-ink/40">Raised this month</div>
+                <div className="text-xs font-black uppercase tracking-widest text-opaque-faint">Raised this month</div>
                 <div className="font-heading text-3xl font-bold mt-2" style={{ color: GREEN }}>{fmt(runway?.month_revenue_cents)}</div>
                 <div className="text-xs text-ink/50 mt-1">from real paid orders in the payments ledger.</div>
               </div>
               <div className="card-flat rounded-2xl p-6 border" style={{ background: "#fff" }}>
-                <div className="text-xs font-black uppercase tracking-widest text-ink/40">Runway (total cash ÷ goal)</div>
+                <div className="text-xs font-black uppercase tracking-widest text-opaque-faint">Runway (total cash ÷ goal)</div>
                 <div className="font-heading text-3xl font-bold text-ink mt-2">
-                  {runway?.runway_months} <span className="text-base font-semibold text-ink/40">mo</span>
+                  {runway?.runway_months} <span className="text-base font-semibold text-opaque-faint">mo</span>
                 </div>
                 <div className="text-xs font-bold mt-1" style={{ color: status.color }}>{status.label}</div>
               </div>
@@ -1052,7 +1060,7 @@ export default function BusinessOffice() {
               <div key={kpi.label} className="card-flat rounded-2xl p-5 border text-center" style={{ background: "#fff" }}>
                 <kpi.icon className="w-5 h-5 mx-auto" style={{ color: COPPER }} />
                 <div className="font-heading text-xl font-bold text-ink mt-2">{kpi.value}</div>
-                <div className="text-[11px] font-bold uppercase tracking-widest text-ink/40 mt-1">{kpi.label}</div>
+                <div className="text-[11px] font-bold uppercase tracking-widest text-opaque-faint mt-1">{kpi.label}</div>
               </div>
             ))}
           </section>
@@ -1068,27 +1076,27 @@ export default function BusinessOffice() {
             </p>
             <div className="grid md:grid-cols-5 gap-4 mt-3">
               <div className="card-flat rounded-2xl p-5 border" style={{ background: "#fff" }}>
-                <div className="text-[10px] font-black uppercase tracking-widest text-ink/40">1 · Gross revenue (month)</div>
+                <div className="text-[10px] font-black uppercase tracking-widest text-opaque-faint">1 · Gross revenue (month)</div>
                 <div className="font-heading text-2xl font-bold text-ink mt-2">{fmt(overview?.pnl?.gross_cents)}</div>
                 <div className="text-[11px] text-ink/50 mt-1">Real paid orders, this month.</div>
               </div>
               <div className="card-flat rounded-2xl p-5 border" style={{ background: "#fff" }}>
-                <div className="text-[10px] font-black uppercase tracking-widest text-ink/40">2 · Infrastructure costs</div>
+                <div className="text-[10px] font-black uppercase tracking-widest text-opaque-faint">2 · Infrastructure costs</div>
                 <div className="font-heading text-2xl font-bold text-ink mt-2">−{fmt(overview?.pnl?.infra_cents)}</div>
                 <div className="text-[11px] text-ink/50 mt-1">Hosting, API tokens, database — covered first.</div>
               </div>
               <div className="card-flat rounded-2xl p-5 border" style={{ background: "#fff" }}>
-                <div className="text-[10px] font-black uppercase tracking-widest text-ink/40">3 · Net profit</div>
+                <div className="text-[10px] font-black uppercase tracking-widest text-opaque-faint">3 · Net profit</div>
                 <div className="font-heading text-2xl font-bold mt-2" style={{ color: GREEN }}>{fmt(overview?.pnl?.net_profit_cents)}</div>
                 <div className="text-[11px] text-ink/50 mt-1">Belongs to the owner / business entity.</div>
               </div>
               <div className="card-flat rounded-2xl p-5 border" style={{ background: "#fff" }}>
-                <div className="text-[10px] font-black uppercase tracking-widest text-ink/40">4 · Owner retained ({overview?.pnl?.owner_draw_pct}%)</div>
+                <div className="text-[10px] font-black uppercase tracking-widest text-opaque-faint">4 · Owner retained ({overview?.pnl?.owner_draw_pct}%)</div>
                 <div className="font-heading text-2xl font-bold mt-2" style={{ color: GOLD }}>{fmt(overview?.pnl?.owner_retained_cents)}</div>
                 <div className="text-[11px] text-ink/50 mt-1">Until the owner is whole, there is no profit unless the owner says there is.</div>
               </div>
               <div className="card-flat rounded-2xl p-5 border" style={{ background: "#fff" }}>
-                <div className="text-[10px] font-black uppercase tracking-widest text-ink/40">5 · Performance pool</div>
+                <div className="text-[10px] font-black uppercase tracking-widest text-opaque-faint">5 · Performance pool</div>
                 <div className="font-heading text-2xl font-bold mt-2" style={{ color: COPPER }}>{fmt(overview?.pnl?.distributable_cents)}</div>
                 <div className="text-[11px] text-ink/50 mt-1">
                   {overview?.pnl?.fully_payable
@@ -1097,7 +1105,7 @@ export default function BusinessOffice() {
                 </div>
               </div>
             </div>
-            <p className="text-[10px] text-ink/40 mt-2">
+            <p className="text-[10px] text-opaque-faint mt-2">
               {overview?.pnl?.waterfall_note} Infrastructure costs are editable from the Exec Control page — no code.
             </p>
           </section>
@@ -1145,14 +1153,14 @@ export default function BusinessOffice() {
               list from <b>pending</b> → <b>on_agenda</b> → <b>discussed</b> → <b>resolved</b>.
             </p>
             {agenda.length === 0 ? (
-              <p className="text-sm text-ink/40 text-center py-6">
+              <p className="text-sm text-opaque-faint text-center py-6">
                 The agenda is empty — create a project at /projects and it appears here automatically.
               </p>
             ) : (
               <div className="mt-3 rounded-2xl border overflow-hidden" style={{ background: "#fff" }}>
                 <table className="w-full text-sm">
                   <thead>
-                    <tr className="text-left text-[10px] font-black uppercase tracking-widest text-ink/40 border-b" style={{ background: "#f8f3e8" }}>
+                    <tr className="text-left text-[10px] font-black uppercase tracking-widest text-opaque-faint border-b" style={{ background: "#f8f3e8" }}>
                       <th className="px-4 py-2.5">Item</th>
                       <th className="px-4 py-2.5">Owner</th>
                       <th className="px-4 py-2.5">Priority</th>
@@ -1171,7 +1179,7 @@ export default function BusinessOffice() {
                         <tr key={item.item_id} className="border-b border-ink/5">
                           <td className="px-4 py-2.5">
                             <div className="font-bold text-ink text-xs">{item.title}</div>
-                            <div className="text-[10px] text-ink/40">
+                            <div className="text-[10px] text-opaque-faint">
                               {item.source === "project" && item.project_id ? (
                                 <Link to={`/projects`} className="hover:text-copper">#{item.project_id}</Link>
                               ) : item.source}
@@ -1205,7 +1213,7 @@ export default function BusinessOffice() {
                               </select>
                             )}
                             {(!isAdmin || item.status === "resolved" || item.status === "dropped") && (
-                              <span className="text-[10px] text-ink/40">{item.updated_by ? `by ${item.updated_by}` : ""}</span>
+                              <span className="text-[10px] text-opaque-faint">{item.updated_by ? `by ${item.updated_by}` : ""}</span>
                             )}
                           </td>
                         </tr>
@@ -1241,11 +1249,11 @@ export default function BusinessOffice() {
               red-team) — <b>zero API tokens</b>. <b className="text-green-700">Verified</b> matches the ledger,
               <b className="text-red-600"> mismatch</b> means the display is wrong, <b className="text-ink/60">target</b> is an
               owner-set goal, <b className="text-amber-600">copy</b> is aspirational marketing (price ranges, taglines) —
-              realized only when deals close — and <b className="text-ink/40">empty</b> is an honest zero.
+              realized only when deals close — and <b className="text-opaque-faint">empty</b> is an honest zero.
             </p>
 
             {!audit && !auditLoading && (
-              <p className="text-sm text-ink/40 text-center py-8">
+              <p className="text-sm text-opaque-faint text-center py-8">
                 Press “Run Truth Test” to audit every claim in the office against the real data.
               </p>
             )}
@@ -1279,7 +1287,7 @@ export default function BusinessOffice() {
                 <div className="max-h-[420px] overflow-y-auto overflow-x-auto">
                   <table className="w-full text-sm min-w-[640px]">
                     <thead className="sticky top-0" style={{ background: "#fff" }}>
-                      <tr className="text-left text-[10px] font-black uppercase tracking-widest text-ink/40 border-b">
+                      <tr className="text-left text-[10px] font-black uppercase tracking-widest text-opaque-faint border-b">
                         <th className="px-4 py-2.5">Claim</th>
                         <th className="px-4 py-2.5">Office shows</th>
                         <th className="px-4 py-2.5">Verdict</th>
@@ -1298,7 +1306,7 @@ export default function BusinessOffice() {
                           <tr key={c.key} className="border-b border-ink/5 align-top">
                             <td className="px-4 py-2.5">
                               <div className="font-bold text-ink text-xs">{c.label}</div>
-                              <div className="text-[10px] text-ink/40 uppercase tracking-wider">{c.section}</div>
+                              <div className="text-[10px] text-opaque-faint uppercase tracking-wider">{c.section}</div>
                             </td>
                             <td className="px-4 py-2.5 text-xs text-ink/70 whitespace-nowrap">{c.claim}</td>
                             <td className="px-4 py-2.5">
@@ -1349,7 +1357,7 @@ export default function BusinessOffice() {
                       </div>
                       <p className="text-sm text-ink/50 mt-3 leading-snug">{t.what}</p>
                       <div className="mt-3 pt-3 border-t border-ink/5">
-                        <span className="text-[11px] font-bold text-ink/40">{t.revenue}</span>
+                        <span className="text-[11px] font-bold text-opaque-faint">{t.revenue}</span>
                       </div>
                     </div>
                   );
@@ -1481,7 +1489,7 @@ export default function BusinessOffice() {
             <div className="card-flat rounded-2xl border mt-3 overflow-hidden" style={{ background: "#fff" }}>
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="text-left text-[10px] font-black uppercase tracking-widest text-ink/40 border-b"
+                  <tr className="text-left text-[10px] font-black uppercase tracking-widest text-opaque-faint border-b"
                     style={{ background: "#f8f3e8" }}>
                     <th className="px-4 py-3">Job</th>
                     <th className="px-4 py-3">Worker</th>
@@ -1544,7 +1552,7 @@ export default function BusinessOffice() {
                 <span>Net profit available: <span style={{ color: GREEN }}>{fmt(jobs?.net_profit_available_cents)}</span></span>
                 <span>Total hours: <span style={{ color: GREEN }}>{jobs?.total_hours}</span></span>
               </div>
-              <div className="px-4 py-2 text-[10px] text-ink/40" style={{ background: "#fbf8f0" }}>
+              <div className="px-4 py-2 text-[10px] text-opaque-faint" style={{ background: "#fbf8f0" }}>
                 {jobs?.pay_note}
               </div>
             </div>
@@ -1616,7 +1624,7 @@ function DealForm({ divisions, onCreated }) {
           <Plus className="w-4 h-4" /> {busy ? "Sending…" : "Open deal"}
         </button>
       </div>
-      <p className="text-[10px] text-ink/40 mt-2">
+      <p className="text-[10px] text-opaque-faint mt-2">
         You're signed in as {user?.full_name}. The office records you as the point of contact.
       </p>
     </form>
@@ -1654,7 +1662,7 @@ function DealsList({ deals, isAdmin, onChanged }) {
       <div className="card-flat rounded-2xl p-5 border flex flex-col items-center justify-center text-center" style={{ background: "#fff" }}>
         <Briefcase className="w-8 h-8" style={{ color: "#ddd3bf" }} />
         <p className="text-sm font-bold text-ink/60 mt-3">No deals yet</p>
-        <p className="text-xs text-ink/40 mt-1">Open one on the left — it lands here as a Lead for the office to work.</p>
+        <p className="text-xs text-opaque-faint mt-1">Open one on the left — it lands here as a Lead for the office to work.</p>
       </div>
     );
   }
@@ -1677,7 +1685,7 @@ function DealsList({ deals, isAdmin, onChanged }) {
             <p className="text-xs text-ink/70 mt-2 leading-snug">{d.description}</p>
             {d.proposal && (
               <div className="mt-3 rounded-lg p-3" style={{ background: "#f8f3e8" }}>
-                <div className="text-[10px] font-black uppercase tracking-widest text-ink/40 mb-1">
+                <div className="text-[10px] font-black uppercase tracking-widest text-opaque-faint mb-1">
                   AI-drafted proposal · {d.proposal_provider || "gateway"}
                 </div>
                 <pre className="text-[11px] text-ink/70 whitespace-pre-wrap font-sans leading-relaxed max-h-40 overflow-y-auto">{d.proposal}</pre>
@@ -1777,7 +1785,7 @@ function JobForm({ divisions, onCreated }) {
     <form onSubmit={submit} className="card-flat rounded-2xl p-4 border mt-3 flex flex-wrap items-end gap-2"
       style={{ background: "#fff", borderStyle: "dashed" }}>
       <div className="flex-1 min-w-[180px]">
-        <label className="text-[10px] font-black uppercase tracking-widest text-ink/40">New job — people or AI</label>
+        <label className="text-[10px] font-black uppercase tracking-widest text-opaque-faint">New job — people or AI</label>
         <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Job title"
           className="w-full mt-1 px-3 py-2 rounded-lg border text-sm" style={{ borderColor: "#ddd3bf" }} />
       </div>
@@ -1814,7 +1822,7 @@ function JobForm({ divisions, onCreated }) {
             placeholder="Milestone $" className="w-28 px-3 py-2 rounded-lg border text-sm" style={{ borderColor: COPPER }} />
         </>
       )}
-      <p className="w-full text-[10px] text-ink/40">
+      <p className="w-full text-[10px] text-opaque-faint">
         {workerType === "human"
           ? "Performance-linked: payable only when net profit covers it, at the owner's direction."
           : "AI work creates value that builds the business — revenue covers infra, then profit goes to the owner."}
@@ -1878,7 +1886,7 @@ function AdminDesk({ data, onChanged }) {
               ))}
             </ul>
           ) : (
-            <p className="text-xs text-ink/40 mt-2">No paid orders recorded yet — the ledger fills in as checkout flows.</p>
+            <p className="text-xs text-opaque-faint mt-2">No paid orders recorded yet — the ledger fills in as checkout flows.</p>
           )}
         </div>
         <div className="card-flat rounded-2xl p-5 border" style={{ background: "#fff" }}>
@@ -1891,7 +1899,7 @@ function AdminDesk({ data, onChanged }) {
               </li>
             ))}
             {!(data?.revenue?.recent_orders || []).length && (
-              <li className="text-xs text-ink/40">No orders yet.</li>
+              <li className="text-xs text-opaque-faint">No orders yet.</li>
             )}
           </ul>
         </div>
@@ -1983,7 +1991,7 @@ function ExchangeBoard({ data, isAdmin, onChanged }) {
           </div>
         ))}
         {!(data?.contracts || []).length && (
-          <p className="text-xs text-ink/40 text-center py-4">No contracts yet — post the first agent task.</p>
+          <p className="text-xs text-opaque-faint text-center py-4">No contracts yet — post the first agent task.</p>
         )}
       </div>
     </div>
@@ -2095,7 +2103,7 @@ function RedteamPanel({ data, isAdmin, onChanged }) {
           </div>
         ))}
         {!(data?.engagements || []).length && (
-          <p className="text-xs text-ink/40 text-center py-4">No engagements yet — run the first scan.</p>
+          <p className="text-xs text-opaque-faint text-center py-4">No engagements yet — run the first scan.</p>
         )}
       </div>
     </div>
