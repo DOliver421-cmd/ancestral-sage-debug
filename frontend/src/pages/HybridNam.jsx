@@ -21,6 +21,7 @@ import {
   Crown, BrainCircuit, BookOpen, Target, Moon, RefreshCw, ShieldCheck,
   Sparkles, Plus, Loader2, HeartHandshake, Scale, Eye,
   Compass, Network, Zap, DollarSign, AlertTriangle, Key, Gavel, MessageSquare, Shield,
+  Flag,
 } from "lucide-react";
 import PageBack from "../components/PageBack";
 
@@ -103,19 +104,21 @@ function TextArea({ label, value, onChange, placeholder, rows = 3 }) {
 // ── Tabs ─────────────────────────────────────────────────────────────────────
 const TABS = [
   { id: "overview",     label: "Overview",     icon: BrainCircuit },
+  { id: "mission",      label: "Mission",      icon: Flag },
   { id: "memory",       label: "Memory",       icon: BookOpen },
   { id: "intentions",   label: "Intentions",   icon: Target },
   { id: "dreams",       label: "Dreams",       icon: Moon },
   { id: "reflections",  label: "Reflections",  icon: RefreshCw },
   { id: "leadership",   label: "Leadership",   icon: Scale },
   { id: "strategy",     label: "Strategy",     icon: Compass },
+  { id: "power",        label: "Power",        icon: Crown },
   { id: "risk",         label: "Risk",         icon: AlertTriangle },
   { id: "accountability",label: "Accountability",icon: Key },
   { id: "crisis",       label: "Crisis",       icon: Zap },
   { id: "succession",   label: "Succession",   icon: Gavel },
   { id: "economics",    label: "Economics",    icon: DollarSign },
   { id: "ecosystem",    label: "Ecosystem",    icon: Network },
-{ id: "governance",   label: "Governance",   icon: Shield },
+  { id: "governance",   label: "Governance",   icon: Shield },
   { id: "challenge",    label: "Challenge",    icon: MessageSquare },
 ];
 
@@ -136,6 +139,8 @@ export function HybridNamContent({ embedded = false }) {
   const [ledger, setLedger] = useState([]);
 
   const [strategies, setStrategies] = useState([]);
+  const [missions, setMissions] = useState([]);
+  const [powers, setPowers] = useState([]);
   const [risks, setRisks] = useState([]);
   const [accountabilities, setAccountabilities] = useState([]);
   const [crises, setCrises] = useState([]);
@@ -157,6 +162,8 @@ export function HybridNamContent({ embedded = false }) {
   const [leadResult, setLeadResult] = useState(null);
 
   const [stratForm, setStratForm] = useState({ horizon: "90d", objective: "", key_results: "", constraints: "", resources: "" });
+  const [missionForm, setMissionForm] = useState({ action: "", actor: "", purpose: "", beneficiary: "" });
+  const [powerForm, setPowerForm] = useState({ actor: "", beneficiary: "", decision: "" });
   const [riskForm, setRiskForm] = useState({ category: "operational", description: "", likelihood: 0.5, impact: 0.5, mitigation: "" });
   const [accForm, setAccForm] = useState({ objective: "", owner: "Hybrid NAM", deadline: "", success_criteria: "" });
   const [crisisForm, setCrisisForm] = useState({ situation: "", affected_systems: "", severity: "high", immediate_actions: "" });
@@ -177,8 +184,10 @@ const loadAll = useCallback(async () => {
        ["Dreams", "/nam/dreams", { dreams: [], total: 0 }],
        ["Reflections", "/nam/reflections", { reflections: [], total: 0 }],
        ["Leadership ledger", "/nam/leadership/ledger", { ledger: [], total: 0 }],
-       ["Strategies", "/nam/operational/strategy", { strategies: [], total: 0 }],
-       ["Risks", "/nam/operational/risk", { risks: [], total: 0 }],
+        ["Strategies", "/nam/operational/strategy", { strategies: [], total: 0 }],
+        ["Missions", "/nam/operational/mission", { missions: [], total: 0 }],
+        ["Powers", "/nam/operational/power", { powers: [], total: 0 }],
+        ["Risks", "/nam/operational/risk", { risks: [], total: 0 }],
        ["Accountabilities", "/nam/operational/accountability", { accountabilities: [], total: 0 }],
        ["Crises", "/nam/operational/crisis", { crises: [], total: 0 }],
        ["Successions", "/nam/operational/succession", { successions: [], total: 0 }],
@@ -195,17 +204,19 @@ const loadAll = useCallback(async () => {
      setLoadErrors(results.flatMap((result, index) => (
        result.status === "rejected" ? [`${endpoints[index][0]}: ${describeRequestError(result.reason)}`] : []
      )));
-     const [id, st, con, mem, ints, dr, ref, led, strat, risk, acc, cris, succ, econ, eco, gov, chal] = values;
-     setIdentity(id);
-     setState(st);
-     setConstitution(con);
-     setMemories(mem?.memories || []);
-     setIntentions(ints?.intentions || []);
-     setDreams(dr?.dreams || []);
-     setReflections(ref?.reflections || []);
-     setLedger(led?.ledger || []);
-     setStrategies(strat?.strategies || []);
-     setRisks(risk?.risks || []);
+      const [id, st, con, mem, ints, dr, ref, led, strat, mission, power, risk, acc, cris, succ, econ, eco, gov, chal] = values;
+      setIdentity(id);
+      setState(st);
+      setConstitution(con);
+      setMemories(mem?.memories || []);
+      setIntentions(ints?.intentions || []);
+      setDreams(dr?.dreams || []);
+      setReflections(ref?.reflections || []);
+      setLedger(led?.ledger || []);
+      setStrategies(strat?.strategies || []);
+      setMissions(mission?.missions || []);
+      setPowers(power?.powers || []);
+      setRisks(risk?.risks || []);
      setAccountabilities(acc?.accountabilities || []);
      setCrises(cris?.crises || []);
      setSuccessions(succ?.successions || []);
@@ -237,11 +248,19 @@ const post = async (path, body, onOk) => {
      }
    };
 
-   const submitStrategy = () => {
-     if (!stratForm.objective.trim()) return toast.error("Objective is required.");
-     post("/nam/operational/strategy", stratForm, () => setStratForm({ horizon: "90d", objective: "", key_results: "", constraints: "", resources: "" }));
-   };
-   const submitRisk = () => {
+    const submitStrategy = () => {
+      if (!stratForm.objective.trim()) return toast.error("Objective is required.");
+      post("/nam/operational/strategy", stratForm, () => setStratForm({ horizon: "90d", objective: "", key_results: "", constraints: "", resources: "" }));
+    };
+    const submitMission = () => {
+      if (!missionForm.action.trim()) return toast.error("Action is required.");
+      post("/nam/operational/mission", missionForm, () => setMissionForm({ action: "", actor: "", purpose: "", beneficiary: "" }));
+    };
+    const submitPower = () => {
+      if (!powerForm.decision.trim()) return toast.error("Decision is required.");
+      post("/nam/operational/power", powerForm, () => setPowerForm({ actor: "", beneficiary: "", decision: "" }));
+    };
+    const submitRisk = () => {
      if (!riskForm.description.trim()) return toast.error("Description is required.");
      post("/nam/operational/risk", riskForm, () => setRiskForm({ category: "operational", description: "", likelihood: 0.5, impact: 0.5, mitigation: "" }));
    };
@@ -278,16 +297,17 @@ const post = async (path, body, onOk) => {
     <div className={embedded ? "h-full overflow-y-auto bg-bone" : "bg-bone"} style={embedded ? {} : { minHeight: "100vh" }}>
       <div className="max-w-6xl mx-auto px-4 sm:px-6 py-8">
         <PageBack to="/admin" label="Admin" />
-        {/* ── Header ── */}
-        <div className="rounded-2xl p-6 mb-6 text-white"
-          style={{ background: `linear-gradient(135deg, ${GREEN}, #2D6A4F)` }}>
-          <div className="flex items-center gap-3 flex-wrap">
-            <span className="text-3xl">🌑</span>
-            <div>
-              <div className="text-[10px] font-black uppercase tracking-widest" style={{ color: GOLD }}>Assistant Director · The Source remains untouched</div>
-              <h1 className="font-heading text-2xl font-bold tracking-tight">Hybrid NAM</h1>
-            </div>
-            <div className="ml-auto flex items-center gap-2">
+         {/* ── Header ── */}
+         <div className="rounded-2xl p-0 mb-6 text-white overflow-hidden"
+           style={{ background: `linear-gradient(135deg, ${GREEN}, #2D6A4F)` }}>
+           <div className="flex items-center gap-4 flex-wrap">
+             <img src="/images/nam-header-illustration.svg" alt="" className="w-32 h-20 object-cover shrink-0" />
+             <div className="py-4">
+               <div className="text-[10px] font-black uppercase tracking-widest" style={{ color: GOLD }}>Assistant Director · Pro-Black Institutional Intelligence</div>
+               <h1 className="font-heading text-2xl font-bold tracking-tight">Hybrid NAM</h1>
+               <p className="text-white/75 text-xs mt-1 max-w-xl">Advancement, institutional dignity, and structural capability for the people and mission we serve. The Source remains untouched.</p>
+             </div>
+             <div className="ml-auto flex items-center gap-2">
               {identity?.authority?.is_operational_director && (
                 <span className="text-[10px] font-black uppercase tracking-widest px-2 py-1 rounded"
                   style={{ background: "rgba(232,165,30,0.18)", color: GOLD }}>
@@ -387,8 +407,54 @@ const post = async (path, body, onOk) => {
                   </Card>
                 </div>
               </div>
-            )}
-
+             )}
+           {/* ══ MISSION ══ */}
+           {tab === "mission" && (
+             <div className="grid md:grid-cols-3 gap-5">
+               <div className="md:col-span-2">
+                 <ListBlock items={missions} empty="No mission interpretations recorded yet."
+                   render={(m) => (
+                     <>
+                       <div className="flex items-center gap-2 mb-1 flex-wrap">
+                         <span className="text-[10px] font-black uppercase tracking-widest px-2 py-0.5 rounded" style={{ background: "rgba(232,165,30,0.1)", color: "#b45309" }}>
+                           {m.action || "Mission"}
+                         </span>
+                         <span className="ml-auto text-[10px] text-ink/35">{fmtDate(m.created_at)}</span>
+                       </div>
+                       <p className="text-sm text-ink/80">{m.action}</p>
+                       <p className="text-xs text-ink/50 mt-1">Actor: {m.actor} · Purpose: {m.purpose} · Beneficiary: {m.beneficiary}</p>
+                     </>
+                   )} />
+               </div>
+               {admin && (
+                 <div>
+                   <Card title="Interpret Mission" icon={Flag}>
+                     <div className="space-y-3">
+                       <TextArea label="Action" value={missionForm.action} onChange={(v) => setMissionForm({ ...missionForm, action: v })} placeholder="What action is being evaluated?" rows={2} />
+                       <div className="grid grid-cols-2 gap-2">
+                         <label className="block">
+                           <span className="text-xs font-bold text-ink/60">Actor</span>
+                           <input value={missionForm.actor} onChange={(e) => setMissionForm({ ...missionForm, actor: e.target.value })}
+                             className="mt-1 w-full px-3 py-2 bg-white border border-ink/15 rounded-lg text-sm focus:outline-none focus:border-copper" />
+                         </label>
+                         <label className="block">
+                           <span className="text-xs font-bold text-ink/60">Beneficiary</span>
+                           <input value={missionForm.beneficiary} onChange={(e) => setMissionForm({ ...missionForm, beneficiary: e.target.value })}
+                             className="mt-1 w-full px-3 py-2 bg-white border border-ink/15 rounded-lg text-sm focus:outline-none focus:border-copper" />
+                         </label>
+                       </div>
+                       <TextArea label="Purpose" value={missionForm.purpose} onChange={(v) => setMissionForm({ ...missionForm, purpose: v })} placeholder="Why does this matter to the mission?" rows={2} />
+                       <button onClick={submitMission}
+                         disabled={busy}
+                         className="w-full flex items-center justify-center gap-2 btn-copper px-4 py-2.5 rounded-lg text-sm font-bold disabled:opacity-40">
+                         {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Flag className="w-4 h-4" />} Save Mission
+                       </button>
+                     </div>
+                   </Card>
+                 </div>
+               )}
+             </div>
+           )}
             {/* ══ MEMORY ══ */}
             {tab === "memory" && (
               <div className="grid md:grid-cols-3 gap-5">
@@ -679,8 +745,56 @@ const post = async (path, body, onOk) => {
                  </div>
                )}
              </div>
-           )}
-           {/* ══ RISK ══ */}
+            )}
+            {/* ══ POWER ══ */}
+            {tab === "power" && (
+              <div className="grid md:grid-cols-3 gap-5">
+                <div className="md:col-span-2">
+                  <ListBlock items={powers} empty="No power analyses recorded yet."
+                    render={(p) => (
+                      <>
+                        <div className="flex items-center gap-2 mb-1 flex-wrap">
+                          <span className="text-[10px] font-black uppercase tracking-widest px-2 py-0.5 rounded" style={{ background: "rgba(232,165,30,0.1)", color: "#b45309" }}>
+                            {p.decision || "Power Analysis"}
+                          </span>
+                          <span className="ml-auto text-[10px] text-ink/35">{fmtDate(p.created_at)}</span>
+                        </div>
+                        <p className="text-sm text-ink/80">Actor: {p.actor} · Beneficiary: {p.beneficiary}</p>
+                        {p.decision && (
+                          <p className="text-xs text-ink/50 mt-1">Decision: {p.decision}</p>
+                        )}
+                      </>
+                    )} />
+                </div>
+                {admin && (
+                  <div>
+                    <Card title="Analyze Power" icon={Crown}>
+                      <div className="space-y-3">
+                        <div className="grid grid-cols-2 gap-2">
+                          <label className="block">
+                            <span className="text-xs font-bold text-ink/60">Actor</span>
+                            <input value={powerForm.actor} onChange={(e) => setPowerForm({ ...powerForm, actor: e.target.value })}
+                              className="mt-1 w-full px-3 py-2 bg-white border border-ink/15 rounded-lg text-sm focus:outline-none focus:border-copper" />
+                          </label>
+                          <label className="block">
+                            <span className="text-xs font-bold text-ink/60">Beneficiary</span>
+                            <input value={powerForm.beneficiary} onChange={(e) => setPowerForm({ ...powerForm, beneficiary: e.target.value })}
+                              className="mt-1 w-full px-3 py-2 bg-white border border-ink/15 rounded-lg text-sm focus:outline-none focus:border-copper" />
+                          </label>
+                        </div>
+                        <TextArea label="Decision" value={powerForm.decision} onChange={(v) => setPowerForm({ ...powerForm, decision: v })} placeholder="What decision is being analyzed?" rows={2} />
+                        <button onClick={submitPower}
+                          disabled={busy}
+                          className="w-full flex items-center justify-center gap-2 btn-copper px-4 py-2.5 rounded-lg text-sm font-bold disabled:opacity-40">
+                          {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Crown className="w-4 h-4" />} Save Power
+                        </button>
+                      </div>
+                    </Card>
+                  </div>
+                )}
+              </div>
+            )}
+            {/* ══ RISK ══ */}
            {tab === "risk" && (
              <div className="grid md:grid-cols-3 gap-5">
                <div className="md:col-span-2">

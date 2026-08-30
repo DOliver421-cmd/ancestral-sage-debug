@@ -805,6 +805,22 @@ async def get_operational_challenge(user: dict = Depends(require_auth)):
     return {"challenges": challenges, "total": len(challenges)}
 
 
+@router.get("/operational/mission")
+async def get_operational_mission(user: dict = Depends(require_auth)):
+    """Read stored mission interpretations."""
+    rows = await store.find_many("nam_governance", limit=100)
+    missions = [r for r in rows if r.get("function") == "mission_interpretation"]
+    return {"missions": missions, "total": len(missions)}
+
+
+@router.get("/operational/power")
+async def get_operational_power(user: dict = Depends(require_auth)):
+    """Read stored power analyses."""
+    rows = await store.find_many("nam_governance", limit=100)
+    powers = [r for r in rows if r.get("function") == "power_benefit"]
+    return {"powers": powers, "total": len(powers)}
+
+
 # ── Development Endpoints ─────────────────────────────────────────────────────
 
 @router.get("/development")
