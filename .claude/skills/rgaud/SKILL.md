@@ -1,13 +1,21 @@
 ---
 name: rgaud
-description: "Describe when and why an agent should use this skill."
+description: "Regression audit"
 ---
 
 # rgaud
 
-Explain the goal, the workflow, and any constraints that matter.
+Confirm a change didn't break existing behavior.
 
 ## Steps
 
-1. ...
-2. ...
+1. Capture the pre-change baseline (tests or behavior).
+2. Apply the change and re-run the baseline path.
+3. Diff observed vs expected.
+4. Report regressions with the triggering change.
+
+## Constraints
+
+- Verify by execution where possible; never report working on source inspection alone.
+- Cite file:line evidence for every finding.
+- Report DONE/PASS only when the live behavior matches the intended purpose.
