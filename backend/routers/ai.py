@@ -36,6 +36,8 @@ router = APIRouter(tags=["ai"])
 # one of the existing configured keys is present.
 EMERGENT_LLM_KEY = os.environ.get("EMERGENT_LLM_KEY", "")
 OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY", EMERGENT_LLM_KEY)
+GUMROAD_API_KEY = os.environ.get("GUMROAD_API_KEY", "")
+LEMON_SQUEEZY_API_KEY = os.environ.get("LEMON_SQUEEZY_API_KEY", "")
 
 # ── Shared state, bound by server.py via bind() ──────────────────────────────
 db = None
