@@ -22,6 +22,9 @@ COLLECTIONS = [
     "nam_identity", "nam_soul_kernel", "nam_memory", "nam_knowledge",
     "nam_dreams", "nam_reflections", "nam_ledger", "nam_escalations",
     "nam_intentions", "nam_events",
+    "nam_strategy", "nam_risk", "nam_accountability", "nam_conflict",
+    "nam_economics", "nam_crisis", "nam_succession", "nam_governance",
+    "nam_evidence", "nam_ecosystem",
 ]
 
 

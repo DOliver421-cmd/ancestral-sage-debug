@@ -108,6 +108,16 @@ _FALLBACK: dict[str, list[dict]] = {
     "nam_intentions": [],
     "nam_events": [],
     "nam_soul_kernel": [],
+    "nam_strategy": [],
+    "nam_risk": [],
+    "nam_accountability": [],
+    "nam_conflict": [],
+    "nam_economics": [],
+    "nam_crisis": [],
+    "nam_succession": [],
+    "nam_governance": [],
+    "nam_evidence": [],
+    "nam_ecosystem": [],
 }
 
 
