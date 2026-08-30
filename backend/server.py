@@ -2219,6 +2219,11 @@ from routers import features as _features_mod
 _features_mod.bind(db, current_user)
 api_router.include_router(_features_mod.router)
 
+# --- Persona Management (CRUD for AI personas) ---
+from routers import personas as _personas_mod
+_personas_mod.bind(db, current_user, audit)
+api_router.include_router(_personas_mod.router)
+
 # --- IAM router (identities, delegations, consent, action audit) ---
 from routers import iam as _iam_mod
 _iam_mod.bind(db, current_user)

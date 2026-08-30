@@ -188,6 +188,7 @@ const STAFF_SECTIONS = [
       { to: "/admin/audit", label: "Audit Log", icon: ScrollText, testid: "nav-audit" },
       { to: "/admin/moderation", label: "Moderation", icon: Shield, testid: "nav-moderation" },
       { to: "/admin/sage-audit", label: "Sage Audit", icon: ScrollText, testid: "nav-sage-audit" },
+      { to: "/admin/personas", label: "Persona Management", icon: Users, testid: "nav-persona-management" },
       { to: "/admin/features", label: "Feature Control", icon: Wrench, testid: "nav-features" },
       { to: "/admin/bridge", label: "AI Team Bridge", icon: Network, testid: "nav-bridge" },
       { to: "/admin/providers", label: "Provider Gateway", icon: Network, testid: "nav-providers" },
