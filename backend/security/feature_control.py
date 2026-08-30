@@ -108,7 +108,8 @@ FCC_FEATURE_API_PATHS: dict = {
     "nam.orchestrator": ["/api/ai/orchestrator"],
     "nam.helper": ["/api/ai/helper"],
     "nam.council": ["/api/ai/sage"],
-    "nam.chat": ["/api/ai/chat", "/api/nam"],
+    "nam.chat": ["/api/ai/chat"],
+    "nam.hybrid": ["/api/nam"],
     "nam.site_guide": ["/api/site-guide"],
 }
 
