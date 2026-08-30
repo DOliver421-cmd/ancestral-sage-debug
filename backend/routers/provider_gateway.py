@@ -29,6 +29,10 @@ PROVIDERS = {
     "stripe": ("Stripe", "checkout", "https://dashboard.stripe.com/apikeys"),
     "lemon_squeezy": ("Lemon Squeezy", "checkout", "https://app.lemonsqueezy.com/settings/api"),
     "gumroad": ("Gumroad", "checkout", "https://app.gumroad.com/settings"),
+    # ── AI providers previously served by billing.py quick-setup (merged here) ──
+    "sambanova": ("SambaNova", "Llama-3.3-70B", "https://sambanova.ai"),
+    "openrouter": ("OpenRouter", "free models", "https://openrouter.ai"),
+    "huggingface": ("HuggingFace", "inference", "https://huggingface.co"),
 }
 
 class QuickSetupRequest(BaseModel):
