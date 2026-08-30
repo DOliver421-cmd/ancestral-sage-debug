@@ -107,7 +107,9 @@ mongo_url = os.environ.get("MONGO_URL")
 db_name = os.environ.get("DB_NAME", "ancestral_sage")
 
 if not mongo_url:
-    print("⚠️ WARNING: MONGO_URL not set — database disabled")
+    print("⚠️  MONGO_URL is not set — database disabled.")
+    print("   Set MONGO_URL in your environment to enable the database.")
+    print("   Example: export MONGO_URL='mongodb://localhost:27017/ancestral_sage'")
     client = None
     db = None
     _DB_SOURCE = "disabled"
@@ -2853,5 +2855,5 @@ except Exception as _et_err:
 
 if __name__ == "__main__":
     import uvicorn
-    port = int(os.environ.get("PORT", 8000))
+    port = int(os.environ.get("PORT", 8001))
     uvicorn.run("server:app", host="0.0.0.0", port=port)
