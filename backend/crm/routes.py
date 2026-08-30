@@ -155,7 +155,7 @@ async def update_lead(
     status: Optional[str] = None,
     owner_id: Optional[str] = None,
     score: Optional[int] = None,
-    request: Request = None,
+    request: Request,
 ):
     """
     Update a lead
