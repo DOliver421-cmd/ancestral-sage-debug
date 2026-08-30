@@ -43,12 +43,27 @@ from ai.hybrid_nam.memory_engine import (
 )
 from ai.hybrid_nam.dream_engine import assemble_dream_inputs, generate_dream
 from ai.hybrid_nam.reflection_engine import create_reflection, generate_constitutional_tension
-from ai.hybrid_nam.leadership_engine import evaluate_action, create_ledger_entry
+from ai.hybrid_nam.leadership_engine import evaluate_action, create_ledger_entry, MISSION_PRINCIPLES
 from ai.hybrid_nam.jamil_protocol import (
     create_review_request, process_review, classify_autonomy,
     escalate, resolve_escalation, generate_review_template,
 )
 from ai.hybrid_nam import store
+from ai.hybrid_nam.operational_engine import (
+    interpret_mission,
+    strategic_planning,
+    continuity_record,
+    governance_check,
+    challenge_leadership,
+    ecosystem_coordination,
+    power_benefit_analysis,
+    value_flow_analysis,
+    institutional_risk_scan,
+    accountability_check,
+    crisis_assessment,
+    succession_record,
+    conflict_mediation,
+)
 
 logger = logging.getLogger("lcewai")
 
@@ -508,7 +523,6 @@ async def get_autonomy_level(action_type: str, user: dict = Depends(require_auth
 @router.get("/mission/alignment")
 async def get_mission_alignment(user: dict = Depends(require_auth)):
     """Get NAM's mission alignment criteria."""
-    from ai.hybrid_nam.leadership_engine import MISSION_PRINCIPLES
     return {"principles": MISSION_PRINCIPLES}
 
 
@@ -522,6 +536,193 @@ async def evaluate_mission_alignment(body: ActionReview, user: dict = Depends(re
         "beneficiary": body.beneficiary,
     }
     return evaluate_action(action)
+
+
+# ── Operational Functions ─────────────────────────────────────────────────────
+
+@router.post("/operational/mission")
+async def operational_mission(
+    action: dict,
+    user: dict = Depends(require_auth),
+) -> dict:
+    """1. MISSION: Interpret and protect the institutional purpose."""
+    result = interpret_mission(action, MISSION_PRINCIPLES)
+    await store.create("nam_governance", {"function": "mission_interpretation", "result": result})
+    return result
+
+
+@router.post("/operational/strategy")
+async def operational_strategy(
+    context: dict,
+    user: dict = Depends(require_auth),
+) -> dict:
+    """2. STRATEGY: Determine where the institution goes."""
+    result = strategic_planning(context)
+    await store.create("nam_strategy", {"context": context, "result": result})
+    return result
+
+
+@router.post("/operational/memory")
+async def operational_memory(
+    item_type: str,
+    title: str,
+    content: str,
+    people: list[str] = None,
+    status: str = "active",
+) -> dict:
+    """3. MEMORY: Preserve institutional continuity."""
+    result = continuity_record(item_type, title, content, people, status)
+    await store.create("nam_memory", result)
+    return result
+
+
+@router.post("/operational/governance")
+async def operational_governance(
+    action: dict,
+    user: dict = Depends(require_admin),
+) -> dict:
+    """4. GOVERNANCE: Apply constitutional principles."""
+    result = governance_check(action, MISSION_PRINCIPLES)
+    await store.create("nam_governance", {"function": "constitutional_check", "result": result})
+    return result
+
+
+@router.post("/operational/challenge")
+async def operational_challenge(
+    claim: str,
+    evidence: str,
+    conflict_with: str = "",
+) -> dict:
+    """5. CHALLENGE: Question leadership when warranted."""
+    result = challenge_leadership(claim, evidence, conflict_with)
+    await store.create("nam_governance", {"function": "leadership_challenge", "result": result})
+    return result
+
+
+@router.post("/operational/ecosystem")
+async def operational_ecosystem(
+    services: list[dict],
+    proposed_action: str,
+    user: dict = Depends(require_auth),
+) -> dict:
+    """6. ECOSYSTEM: Coordinate the various AI/services."""
+    result = ecosystem_coordination(services, proposed_action)
+    await store.create("nam_ecosystem", {"services": services, "result": result})
+    return result
+
+
+@router.post("/operational/power")
+async def operational_power(
+    actor: str,
+    beneficiary: str,
+    decision: str,
+    user: dict = Depends(require_auth),
+) -> dict:
+    """7. POWER: Analyze authority, ownership, and benefit."""
+    result = power_benefit_analysis(actor, beneficiary, decision)
+    await store.create("nam_governance", {"function": "power_benefit", "result": result})
+    return result
+
+
+@router.post("/operational/economics")
+async def operational_economics(
+    project: str,
+    creators: list[str] = None,
+    owners: list[str] = None,
+    distributors: list[str] = None,
+    revenue_recipients: list[str] = None,
+    risk_bearers: list[str] = None,
+    user: dict = Depends(require_auth),
+) -> dict:
+    """8. ECONOMICS: Track value creation and value capture."""
+    result = value_flow_analysis(
+        project, creators, owners, distributors, revenue_recipients, risk_bearers
+    )
+    await store.create("nam_economics", {"project": project, "result": result})
+    return result
+
+
+@router.post("/operational/risk")
+async def operational_risk(
+    signals: list[dict],
+    user: dict = Depends(require_auth),
+) -> dict:
+    """9. RISK: Detect threats and dependencies."""
+    result = institutional_risk_scan(signals)
+    await store.create("nam_risk", {"signals": signals, "result": result})
+    return result
+
+
+@router.post("/operational/accountability")
+async def operational_accountability(
+    objective: str,
+    owner: str,
+    deadline: str,
+    metric: str,
+    result: str = None,
+    variance: str = None,
+    explanation: str = None,
+    corrective_action: str = None,
+    user: dict = Depends(require_auth),
+) -> dict:
+    """10. ACCOUNTABILITY: Compare promises against results."""
+    result = accountability_check(
+        objective, owner, deadline, metric, result, variance, explanation, corrective_action
+    )
+    await store.create("nam_accountability", {"check": result})
+    return result
+
+
+@router.post("/operational/crisis")
+async def operational_crisis(
+    what_happened: str,
+    what_we_know: list[str] = None,
+    what_we_dont_know: list[str] = None,
+    what_is_at_risk: list[str] = None,
+    immediate_steps: list[str] = None,
+    requires_human: list[str] = None,
+    user: dict = Depends(require_auth),
+) -> dict:
+    """11. CRISIS: Structured intelligence during disruption."""
+    result = crisis_assessment(
+        what_happened, what_we_know, what_we_dont_know, what_is_at_risk, immediate_steps, requires_human
+    )
+    await store.create("nam_crisis", {"assessment": result})
+    return result
+
+
+@router.post("/operational/succession")
+async def operational_succession(
+    capability: str,
+    current_holder: str,
+    knowledge_artifact_ids: list[str] = None,
+    next_holder: str = None,
+    status: str = "identified",
+    user: dict = Depends(require_auth),
+) -> dict:
+    """12. SUCCESSION: Preserve institutional capability beyond individuals."""
+    result = succession_record(
+        capability, current_holder, knowledge_artifact_ids, next_holder, status
+    )
+    await store.create("nam_succession", result)
+    return result
+
+
+@router.post("/operational/conflict")
+async def operational_conflict(
+    parties: list[str],
+    positions: dict,
+    interests: dict,
+    evidence: dict,
+    constitutional_principles: list[str],
+    user: dict = Depends(require_auth),
+) -> dict:
+    """Conflict mediation engine."""
+    result = conflict_mediation(
+        parties, positions, interests, evidence, constitutional_principles
+    )
+    await store.create("nam_conflict", {"mediation": result})
+    return result
 
 
 # ── Development Endpoints ─────────────────────────────────────────────────────

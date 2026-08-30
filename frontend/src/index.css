@@ -11,6 +11,10 @@ html {
   overflow-x: clip;
 }
 
+/* Opaque text color classes for WCAG 2.1 compliance */
+.text-opaque-muted { color: #4a4238; }
+.text-opaque-faint { color: #5e4b8d; }
+
 body {
   overflow-x: clip;
 }
@@ -52,6 +56,10 @@ img, video, canvas, svg, iframe {
 * {
   border-color: hsl(var(--border));
 }
+
+/* Opaque text color classes for WCAG 2.1 compliance */
+.text-opaque-muted { color: #4a4238; }
+.text-opaque-faint { color: #5e4b8d; }
 
 body {
   margin: 0;
