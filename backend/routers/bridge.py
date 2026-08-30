@@ -285,8 +285,8 @@ def _persona_system_prompt(entry: dict) -> str:
     if key == "curriculum_analyst":
         return _curriculum_analyst_prompt()
     try:
-        from ai.persona_loader import get_persona
-        return get_persona(key)
+        from ai.persona_loader import get_persona_sync
+        return get_persona_sync(key)
     except (ImportError, KeyError):
         pass
     name = entry.get("display_name") or key.replace("_", " ").title()

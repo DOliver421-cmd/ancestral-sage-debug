@@ -918,7 +918,7 @@ async def dispatch_persona(body: PersonaDispatchReq, user: dict = Depends(requir
     # 2) Persona loading — Source-Protocol-composed system prompt.
     from ai.persona_loader import get_persona
     try:
-        system = get_persona(persona_key)
+        system = await get_persona(persona_key)
     except Exception:
         raise HTTPException(404, f"Persona '{persona_key}' not loadable")
 

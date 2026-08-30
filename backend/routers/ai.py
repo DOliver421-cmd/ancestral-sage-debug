@@ -2261,7 +2261,7 @@ async def ai_revenue_director(body: dict, user: User = Depends(_dep_current_user
 
     memory_ctx = await get_memory_context(db, "revenue_director", user.id)
 
-    system = get_persona("revenue_director") + (
+    system = await get_persona("revenue_director") + (
         f"\n\nEXECUTIVE CONTEXT:\n"
         f"- Operating for: {user.full_name} ({user.role})\n"
         f"- Institution: WAI-Institute / M.O.R.E. Help Center\n"
@@ -2326,7 +2326,7 @@ async def sage_create(body: dict, user: User = Depends(_dep_current_user)):
 
     memory_ctx = await get_memory_context(db, "ancestral_sage", user.id)
 
-    system = get_persona("ancestral_sage") + (
+    system = await get_persona("ancestral_sage") + (
         f"\n\nEXECUTIVE CONTEXT:\n"
         f"- Operating for: {user.full_name} ({user.role})\n"
         f"- Institution: WAI-Institute / M.O.R.E. Help Center\n"
@@ -2395,7 +2395,7 @@ async def ai_ambassador(body: dict, user: User = Depends(_dep_current_user)):
 
     memory_ctx = await get_memory_context(db, "ambassador", user.id)
 
-    system = get_persona("ambassador") + (
+    system = await get_persona("ambassador") + (
         f"\n\nEXECUTIVE CONTEXT:\n"
         f"- Operating for: {user.full_name} ({user.role})\n"
         f"- Institution: WAI-Institute / M.O.R.E. Help Center\n"
@@ -2464,7 +2464,7 @@ async def ai_architect(body: dict, user: User = Depends(_dep_current_user)):
     _openai_key = os.environ.get("OPENAI_API_KEY", os.environ.get("EMERGENT_LLM_KEY", ""))
     memory_ctx  = await get_memory_context(db, "architect", user.id)
 
-    system = get_persona("architect") + (
+    system = await get_persona("architect") + (
         f"\n\nEXECUTIVE CONTEXT:\n"
         f"- Operating for: {user.full_name} ({user.role})\n"
         f"- Institution: WAI-Institute / M.O.R.E. Help Center\n"
@@ -2529,7 +2529,7 @@ async def ai_griot(body: dict, user: User = Depends(_dep_current_user)):
 
     memory_ctx = await get_memory_context(db, "griot", user.id)
 
-    system = get_persona("griot") + (
+    system = await get_persona("griot") + (
         f"\n\nEXECUTIVE CONTEXT:\n"
         f"- Operating for: {user.full_name} ({user.role})\n"
         f"- Institution: WAI-Institute / M.O.R.E. Help Center\n"
@@ -2602,7 +2602,7 @@ async def ai_cipher(body: dict, user: User = Depends(_dep_current_user)):
 
     memory_ctx = await get_memory_context(db, "cipher", user.id)
 
-    system = get_persona("cipher") + (
+    system = await get_persona("cipher") + (
         f"\n\nEXECUTIVE CONTEXT:\n"
         f"- Operating for: {user.full_name} ({user.role})\n"
         f"- Institution: WAI-Institute / M.O.R.E. Help Center\n"
@@ -2665,7 +2665,7 @@ async def ai_oracle(body: dict, user: User = Depends(_dep_current_user)):
 
     memory_ctx = await get_memory_context(db, "oracle", user.id)
 
-    system = get_persona("oracle") + (
+    system = await get_persona("oracle") + (
         f"\n\nEXECUTIVE CONTEXT:\n"
         f"- Operating for: {user.full_name} ({user.role})\n"
         f"- Institution: WAI-Institute / M.O.R.E. Help Center\n"
@@ -3271,9 +3271,7 @@ async def persona_chat(slug: str, body: _PersonaChatReq, user: User = Depends(_d
     except Exception:
         pass
 
-    system = load_personas()[slug]
-    from ai import source_protocol as _sp
-    system = _sp.compose_system(system)
+    system = await get_persona(slug)
     # Master controls, then this user's persona tuning (persona wins).
     system = _sp.apply_controls(system, _sp.get_controls())
     doc = await db.persona_controls.find_one(
