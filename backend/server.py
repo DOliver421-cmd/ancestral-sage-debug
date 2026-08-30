@@ -264,9 +264,23 @@ async def enforce_platform_flags(request: Request, call_next):
             decision = await check_request_config(db, path, doc)
             if decision:
                 return JSONResponse(status_code=decision[0], content={"detail": decision[1]})
-        except Exception as _fe:
-            logger.warning("Feature authorization error for %s: %s", path, _fe)
-            return await call_next(request)
+        except Exception:
+            # Fail closed: if the policy store is unavailable, sensitive
+            # surfaces (mapped features, FCC features, /api/ai/) must be
+            # rejected.  Unrelated/public endpoints pass through so a DB outage
+            # does not turn the whole site into a maintenance page.
+            controlled = (
+                feature_for_path(path) is not None
+                or fcc_feature_for_path(path) is not None
+                or path.startswith("/api/ai/")
+            )
+            if controlled:
+                logger.exception("Feature authorization unavailable for %s", path)
+                return JSONResponse(
+                    status_code=503,
+                    content={"detail": "Feature authorization unavailable — request rejected."},
+                    headers={"cache-control": "no-store"},
+                )
     return await call_next(request)
 
 
