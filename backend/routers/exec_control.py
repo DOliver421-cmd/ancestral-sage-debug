@@ -978,6 +978,15 @@ PAGE_ACCESS_REGISTRY = [
     {"key": "team", "label": "Team Ops", "path": "/team"},
     {"key": "settings", "label": "Settings", "path": "/settings"},
     {"key": "profile", "label": "Profile", "path": "/profile"},
+    {"key": "account-controls", "label": "Account Controls", "path": "/admin/accounts"},
+    {"key": "site-control", "label": "Site Control Panel", "path": "/admin/control"},
+    {"key": "feature-control", "label": "Feature Control Center", "path": "/admin/features"},
+    {"key": "exec-business-office", "label": "Business Office", "path": "/admin/office"},
+    {"key": "exec-control", "label": "Sovereign Command", "path": "/admin/exec-control"},
+    {"key": "director", "label": "Director Dashboard", "path": "/admin/director"},
+    {"key": "creator-payouts", "label": "Creator Payouts", "path": "/creator/payouts"},
+    {"key": "partnership-discounts", "label": "Partnership Discounts", "path": "/partnership/discounts"},
+    {"key": "missing-kameron", "label": "Missing Kameron", "path": "/missing-kameron"},
 ]
 
 class _ExecAccessReq(BaseModel):

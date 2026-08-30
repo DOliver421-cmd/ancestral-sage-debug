@@ -82,6 +82,14 @@ FEATURE_API_PATHS: dict = {
 # PAGE_ACCESS_REGISTRY entries in routers/exec_control.py.
 PAGE_API_PATHS: dict = {
     "ai": ["/api/ai/"],
+    "account-controls": ["/api/admin/users"],
+    "site-control": ["/api/admin/control-panel", "/api/admin/platform/flags"],
+    "feature-control": ["/api/features"],
+    "exec-business-office": ["/api/admin/users", "/api/exec/control/audit"],
+    "exec-control": ["/api/features/", "/api/admin/"],
+    "director": ["/api/admin/stats", "/api/incidents", "/api/admin/users", "/api/admin/recent-activity", "/api/admin/platform/flags"],
+    "creator-payouts": ["/api/creator/payouts", "/api/creator/payout-summary", "/api/creator/bank-account"],
+    "partnership-discounts": ["/api/partnership/status"],
 }
 
 # FCC feature_id -> API path prefixes it governs.  Every prefix is verified

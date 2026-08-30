@@ -24,19 +24,22 @@ const PATH_POLICIES = [
   // Longest paths must be checked first so nested controls do not inherit the
   // wrong page key (for example /more/litigation must not become "more").
   ["/more/litigation", "legal-tools"],
-  ["/admin/exec-control", "exec"],
+  ["/admin/exec-control", "exec-control"],
   ["/admin/system", "exec"],
-  ["/admin/control", "exec"],
-  ["/admin/office", "exec"],
-  ["/admin/director", "exec"],
+  ["/admin/control", "site-control"],
+  ["/admin/office", "exec-business-office"],
+  ["/admin/director", "director"],
   ["/admin/sage-audit", "exec"],
   ["/admin/staff-meetings", "exec"],
   ["/admin/exec-report", "exec"],
+  ["/admin/accounts", "account-controls"],
   ["/admin", "admin"],
   ["/app/helper", "helper"],
   ["/app/more", "more"],
-  ["/partnership/discounts", "partnership"],
+  ["/partnership/discounts", "partnership-discounts"],
   ["/partnership", "partnership"],
+  ["/creator/payouts", "creator-payouts"],
+  ["/missing-kameron", "missing-kameron"],
 ];
 
 export function pathKey(pathname) {
