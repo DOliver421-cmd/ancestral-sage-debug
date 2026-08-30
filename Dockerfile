@@ -35,7 +35,7 @@ COPY --from=frontend-builder /frontend/build /app/frontend/build
 COPY docker-entrypoint.sh /app/docker-entrypoint.sh
 RUN chmod +x /app/docker-entrypoint.sh
 
-ENV PYTHONPATH=/app/backend
+ENV PYTHONPATH=/app:/app/backend
 
 # Serve the baked React SPA from the backend (single-service topology) so the
 # frontend's same-origin /api calls reach this server without CORS or a
