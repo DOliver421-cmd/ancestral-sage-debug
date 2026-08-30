@@ -725,6 +725,72 @@ async def operational_conflict(
     return result
 
 
+# ── Operational GET endpoints (read stored operational data) ───────────────────
+
+@router.get("/operational/strategy")
+async def get_operational_strategy(user: dict = Depends(require_auth)):
+    """Read stored strategies."""
+    rows = await store.find_many("nam_strategy", limit=100)
+    return {"strategies": rows, "total": len(rows)}
+
+
+@router.get("/operational/risk")
+async def get_operational_risk(user: dict = Depends(require_auth)):
+    """Read stored institutional risks."""
+    rows = await store.find_many("nam_risk", limit=100)
+    return {"risks": rows, "total": len(rows)}
+
+
+@router.get("/operational/accountability")
+async def get_operational_accountability(user: dict = Depends(require_auth)):
+    """Read stored accountability records."""
+    rows = await store.find_many("nam_accountability", limit=100)
+    return {"accountabilities": rows, "total": len(rows)}
+
+
+@router.get("/operational/crisis")
+async def get_operational_crisis(user: dict = Depends(require_auth)):
+    """Read stored crisis assessments."""
+    rows = await store.find_many("nam_crisis", limit=100)
+    return {"crises": rows, "total": len(rows)}
+
+
+@router.get("/operational/succession")
+async def get_operational_succession(user: dict = Depends(require_auth)):
+    """Read stored succession records."""
+    rows = await store.find_many("nam_succession", limit=100)
+    return {"successions": rows, "total": len(rows)}
+
+
+@router.get("/operational/economics")
+async def get_operational_economics(user: dict = Depends(require_auth)):
+    """Read stored economics records."""
+    rows = await store.find_many("nam_economics", limit=100)
+    return {"economics": rows, "total": len(rows)}
+
+
+@router.get("/operational/ecosystem")
+async def get_operational_ecosystem(user: dict = Depends(require_auth)):
+    """Read stored ecosystem coordination records."""
+    rows = await store.find_many("nam_ecosystem", limit=100)
+    return {"ecosystems": rows, "total": len(rows)}
+
+
+@router.get("/operational/governance")
+async def get_operational_governance(user: dict = Depends(require_auth)):
+    """Read stored governance checks."""
+    rows = await store.find_many("nam_governance", limit=100)
+    return {"governanceChecks": rows, "total": len(rows)}
+
+
+@router.get("/operational/challenge")
+async def get_operational_challenge(user: dict = Depends(require_auth)):
+    """Read stored leadership challenges."""
+    rows = await store.find_many("nam_governance", limit=100)
+    challenges = [r for r in rows if r.get("function") == "leadership_challenge"]
+    return {"challenges": challenges, "total": len(challenges)}
+
+
 # ── Development Endpoints ─────────────────────────────────────────────────────
 
 @router.get("/development")
