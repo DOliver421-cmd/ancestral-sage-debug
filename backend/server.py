@@ -1415,6 +1415,7 @@ async def _on_startup_impl():
     # Wire shared db reference for sub-routers (social, playlist, etc.)
     import deps as _deps
     _deps.set_db(db)
+    app.state.db = db
 
     # ── Key vault — self-healing encryption secret for keys at rest ─────────
     # env var → MongoDB-persisted (auto-generated on first boot) → ephemeral.
