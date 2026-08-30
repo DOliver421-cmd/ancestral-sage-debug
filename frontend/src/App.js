@@ -122,6 +122,7 @@ import TrashPantheon from "./pages/TrashPantheon";
 import MyPosition from "./pages/MyPosition";
 import Personas from "./pages/Personas";
 import PersonaProfile from "./pages/PersonaProfile";
+import PersonaManagementConsole from "./pages/PersonaManagementConsole";
 import AdminAssistant from "./pages/AdminAssistant";
 import CreativePartnerHub from "./pages/CreativePartnerHub";
 import SentinelResearch from "./pages/SentinelResearch";
@@ -347,8 +348,9 @@ function App() {
           <Route path="/incidents" element={<Protected><Incidents /></Protected>} />
           <Route path="/settings" element={<Protected><Settings /></Protected>} />
           <Route path="/my-position" element={<Protected><MyPosition /></Protected>} />
-          <Route path="/personas" element={<AdminPage><Personas /></AdminPage>} />
-          <Route path="/personas/:slug" element={<AdminPage><PersonaProfile /></AdminPage>} />
+           <Route path="/personas" element={<AdminPage><Personas /></AdminPage>} />
+           <Route path="/personas/:slug" element={<AdminPage><PersonaProfile /></AdminPage>} />
+           <Route path="/admin/personas" element={<BoundedAdmin roles={["admin", "executive_admin"]} label="Persona Management" backTo="/admin"><PersonaManagementConsole /></BoundedAdmin>} />
           <Route path="/admin/system" element={<Navigate to="/admin/command" replace />} />
           {/* Site Control Panel — executive_admin only, not linked from any nav */}
           <Route path="/admin/control" element={<BoundedAdmin roles={["executive_admin"]} label="Site Control Panel" backTo="/admin"><SiteControlPanel /></BoundedAdmin>} />

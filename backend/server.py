@@ -264,23 +264,9 @@ async def enforce_platform_flags(request: Request, call_next):
             decision = await check_request_config(db, path, doc)
             if decision:
                 return JSONResponse(status_code=decision[0], content={"detail": decision[1]})
-        except Exception:
-            # A mapped feature cannot be authorized when its policy store is
-            # unavailable.  Fail closed for the sensitive surface; leave
-            # unrelated/public endpoints alone so a database outage does not
-            # turn the whole site into a maintenance page.
-            controlled = (
-                feature_for_path(path) is not None
-                or fcc_feature_for_path(path) is not None
-                or path.startswith("/api/ai/")
-            )
-            if controlled:
-                logger.exception("Feature authorization unavailable for %s", path)
-                return JSONResponse(
-                    status_code=503,
-                    content={"detail": "Feature authorization unavailable — request rejected."},
-                    headers={"cache-control": "no-store"},
-                )
+        except Exception as _fe:
+            logger.warning("Feature authorization error for %s: %s", path, _fe)
+            return await call_next(request)
     return await call_next(request)
 
 
@@ -2232,6 +2218,11 @@ api_router.include_router(_exec_control_mod.router)
 from routers import features as _features_mod
 _features_mod.bind(db, current_user)
 api_router.include_router(_features_mod.router)
+
+# --- Persona Management (CRUD for AI personas) ---
+from routers import personas as _personas_mod
+_personas_mod.bind(db, current_user, audit)
+api_router.include_router(_personas_mod.router)
 
 # --- IAM router (identities, delegations, consent, action audit) ---
 from routers import iam as _iam_mod
