@@ -880,7 +880,7 @@ async def exec_staff_meeting(
             # Build system prompt — use persona_loader if available, else construct from domain role
             try:
                 from ai.persona_loader import get_persona
-                system_prompt = get_persona(persona_id)
+                system_prompt = await get_persona(persona_id)
             except (ImportError, KeyError):
                 system_prompt = (
                     f"You are {persona_id.replace('_', ' ').title()}, a member of the WAI-Institute council. "

@@ -1169,10 +1169,36 @@ def load_personas() -> dict:
     return {k: _source_protocol.compose_system(v) for k, v in _PERSONA_MAP.items()}
 
 
-def get_persona(key: str) -> str:
+async def get_persona(key: str) -> str:
     """
     Return the prompt string for a specific persona key.
+    Checks the database for an override first; falls back to the hardcoded prompt.
     Raises KeyError if the key is not found.
+    """
+    if key not in _PERSONA_MAP:
+        raise KeyError(
+            f"Unknown persona '{key}'. "
+            f"Valid keys: {sorted(_PERSONA_MAP.keys())}"
+        )
+    from ai import source_protocol as _source_protocol
+    try:
+        from deps import get_db as _get_db
+        _db = _get_db()
+        if _db is not None:
+            _override = await _db.ai_personas.find_one(
+                {"persona_id": key, "active": True}, {"_id": 0, "system_prompt": 1}
+            )
+            if _override and _override.get("system_prompt"):
+                return _source_protocol.compose_system(_override["system_prompt"])
+    except Exception:
+        pass
+    return _source_protocol.compose_system(_PERSONA_MAP[key])
+
+
+def get_persona_sync(key: str) -> str:
+    """
+    Synchronous version of get_persona — returns the hardcoded prompt only,
+    no database lookup. Use this in sync contexts.
     """
     if key not in _PERSONA_MAP:
         raise KeyError(
