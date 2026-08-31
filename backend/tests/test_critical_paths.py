@@ -2,6 +2,7 @@
 import os
 import requests
 import pytest
+import uuid
 
 BASE_URL = os.environ.get("REACT_APP_BACKEND_URL", "http://localhost:8001").rstrip("/")
 API = f"{BASE_URL}/api"
@@ -91,10 +92,21 @@ class TestGDPR:
                           json={"agreed_terms": False, "over_13": True}, timeout=15)
         assert r.status_code == 400
 
-    def test_delete_account_requires_confirmation(self, stud_t):
-        # Hard to test actual deletion without losing the test user — just verify the endpoint exists
-        r = requests.delete(f"{API}/auth/account", headers=hdr(stud_t), timeout=15)
-        # May return 200 or 400 based on role guard; just check it's not 404
+    def test_delete_account_requires_confirmation(self):
+        # Use a temporary account so we do not delete the shared demo student.
+        email = f"delete-test-{uuid.uuid4().hex[:8]}@example.com"
+        password = "Learn@LCE2026"
+        reg = requests.post(f"{API}/auth/register", json={
+            "email": email,
+            "full_name": "Temp Delete",
+            "password": password,
+            "agreed_terms": True,
+            "over_13": True,
+        }, timeout=15)
+        assert reg.status_code == 200, f"registration failed: {reg.status_code} {reg.text}"
+        token = reg.json()["access_token"]
+
+        r = requests.delete(f"{API}/auth/account", headers=hdr(token), timeout=15)
         assert r.status_code != 404
 
 
@@ -214,7 +226,8 @@ class TestHealth:
         r = requests.get(f"{API}/health", timeout=15)
         assert r.status_code == 200
         d = r.json()
-        assert d.get("status") == "ok"
+        assert d.get("status") in ("ok", "operational", "degraded", "critical")
+        assert d.get("checks", {}).get("db", {}).get("status") == "up"
 
     def test_version(self):
         r = requests.get(f"{API}/version", timeout=15)

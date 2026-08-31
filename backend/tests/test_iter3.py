@@ -186,6 +186,25 @@ class TestAdminTools:
             sslug = it.get("site_slug") or it.get("site")
             assert sslug == "main-campus" or sslug is None or it.get("site_slug") == "main-campus"
 
+    def test_create_inventory_admin(self, s, admin_t):
+        sku = f"TEST-{uuid.uuid4().hex[:8].upper()}"
+        r = s.post(f"{API}/admin/inventory",
+                   json={
+                       "sku": sku,
+                       "name": "Test Inventory Item",
+                       "category": "test",
+                       "site_slug": "main-campus",
+                       "quantity_total": 2,
+                   },
+                   headers=hdr(admin_t))
+        assert r.status_code in (200, 201), r.text
+        item = r.json()
+        assert item["sku"] == sku
+        assert item["quantity_available"] == 2
+
+        items = s.get(f"{API}/admin/inventory", headers=hdr(admin_t)).json()
+        assert any(i.get("sku") == sku for i in items)
+
     def test_checkout_flow(self, s, admin_t, instr_t, stud_t):
         # Find inventory item with quantity available
         items = s.get(f"{API}/admin/inventory", headers=hdr(admin_t)).json()

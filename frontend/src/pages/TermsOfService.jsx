@@ -36,7 +36,7 @@ export default function TermsOfService() {
         <p>We may update these terms. Continued use after changes constitutes acceptance. We will notify registered users of material changes.</p>
 
         <h2>8. Contact</h2>
-        <p>Questions? Visit our <Link to="/help-center" className="text-copper hover:underline">Help Center</Link>.</p>
+        <p>Questions? Visit our <Link to="/more-help-center" className="text-copper hover:underline">MORE Help Center</Link>.</p>
       </div>
     </div>
   );

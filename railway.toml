@@ -1,3 +1,5 @@
+# Live deployment entrypoint for the full app (backend + SPA).
+# Use this root railway.toml for production releases.
 [build]
 dockerfilePath = "Dockerfile"
 

@@ -34,6 +34,7 @@ import asyncio
 import io
 import logging
 import os
+import time
 import uuid
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -89,23 +90,42 @@ load_dotenv(ROOT_DIR / '.env', override=True)  # .env is source of truth (overri
 # Backup:   MONGO_BACKUP_URL   (MongoDB Atlas free tier recommended)
 # The health endpoint at /api/health pings backup when primary is down.
 # All other code uses `db` (the primary connection) — there is no automatic
-# DB connection failover in business logic.
-mongo_url        = os.environ['MONGO_URL']
-MONGO_BACKUP_URL = os.environ.get('MONGO_BACKUP_URL', '')   # Atlas URI (optional)
-MONGO_BACKUP_DB  = os.environ.get('MONGO_BACKUP_DB', '')    # Atlas DB name (optional)
-client = AsyncIOMotorClient(
-    mongo_url,
-    serverSelectionTimeoutMS=5000,   # fail fast — don't hang 30s per op
-    connectTimeoutMS=5000,
-    socketTimeoutMS=10000,
-)
-db = client[os.environ['DB_NAME']]
-_DB_SOURCE = "primary"   # informational; updated in on_startup
-_backup_db = None        # set in on_startup if MONGO_BACKUP_URL is configured
-_pipeline_manager = None # set in on_startup once DB + API key are both available
-_discount_manager = None # set in on_startup() for discount management
+# ── DB connection failover in business logic ──
 
-# ── WAI engine singletons ─────────────────────────────────────────────────────
+import os
+
+mongo_url = os.environ.get("MONGO_URL")
+db_name = os.environ.get("DB_NAME", "ancestral_sage")
+
+if not mongo_url:
+    print("⚠️ WARNING: MONGO_URL not set — database disabled")
+    client = None
+    db = None
+    _DB_SOURCE = "disabled"
+else:
+    from motor.motor_asyncio import AsyncIOMotorClient
+
+    client = AsyncIOMotorClient(
+        mongo_url,
+        serverSelectionTimeoutMS=5000,
+        connectTimeoutMS=5000,
+        socketTimeoutMS=10000,
+    )
+
+    db = client[db_name]
+    _DB_SOURCE = "primary"
+
+
+# ── Backup / optional configs ──
+
+MONGO_BACKUP_URL = os.environ.get("MONGO_BACKUP_URL", "")
+MONGO_BACKUP_DB  = os.environ.get("MONGO_BACKUP_DB", "")
+
+_backup_db = None
+_pipeline_manager = None
+_discount_manager = None
+
+# ── WAI engine singletons ───────────────────────────────────────────────────────
 # Lazy-initialized on first use, then reused across all requests.
 # Avoids creating new PRTEnforcementEngine/The9FusionEngine objects per request.
 _prt_engine  = None   # type: ignore[assignment]  PRTEnforcementEngine
@@ -149,15 +169,17 @@ OPENAI_API_KEY = os.environ.get('OPENAI_API_KEY', EMERGENT_LLM_KEY)
 SERVE_FRONTEND  = os.environ.get('SERVE_FRONTEND', '0') == '1'
 BACKUP_ORIGIN   = os.environ.get('BACKUP_ORIGIN', '').strip()
 GUMROAD_API_KEY = os.environ.get('GUMROAD_API_KEY', '')
+KEEP_TEST_DEMOS = os.environ.get('KEEP_TEST_DEMOS', '0') == '1'
 
 pwd_ctx = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 # API docs: disabled by default in production. Set ENABLE_API_DOCS=1 to enable.
 # Never enable in production — exposes full endpoint surface to the public internet.
 _DOCS_ENABLED = os.environ.get("ENABLE_API_DOCS", "0") == "1"
+APP_VERSION = "4.0.1"
 app = FastAPI(
     title="W.A.I. Training Platform",
-    version="3.0.0",
+    version=APP_VERSION,
     description="W.A.I. — Workforce Apprentice Institute API. Hands-on electrical apprenticeship training, labs, credentials, and portfolio.",
     redirect_slashes=False,
     docs_url="/api/docs" if _DOCS_ENABLED else None,
@@ -208,18 +230,23 @@ async def log_requests_pii_safe(request: Request, call_next):
 api_router = APIRouter(prefix="/api")
 logger = logging.getLogger("lcewai")
 logging.basicConfig(level=logging.INFO)
-APP_VERSION = "4.0.1"
+STARTUP_COMPLETE = False
+
+if not ANTHROPIC_API_KEY:
+    logger.warning("STARTUP: ANTHROPIC_API_KEY is not set; M.O.R.E. moderation and Department AI will be limited.")
 
 # Simple in-memory rate limit (per IP, per route) — replace with redis in true HA prod
 from collections import defaultdict as _dd
 _RATE = _dd(list)
+_RATE_LOCK = asyncio.Lock()  # C-1: serialise concurrent read/evaluate/append
 
-def check_rate(key: str, max_calls: int, window_sec: int):
-    now = datetime.now(timezone.utc).timestamp()
-    _RATE[key] = [t for t in _RATE[key] if now - t < window_sec]
-    if len(_RATE[key]) >= max_calls:
-        raise HTTPException(429, "Too many requests, slow down")
-    _RATE[key].append(now)
+async def check_rate(key: str, max_calls: int, window_sec: int):
+    async with _RATE_LOCK:
+        now = datetime.now(timezone.utc).timestamp()
+        _RATE[key] = [t for t in _RATE[key] if now - t < window_sec]
+        if len(_RATE[key]) >= max_calls:
+            raise HTTPException(429, "Too many requests, slow down")
+        _RATE[key].append(now)
 
 
 # PII-safe field names — values for these keys are redacted in audit logs
@@ -410,7 +437,7 @@ class QuizQ(BaseModel):
 class Module(BaseModel):
     model_config = ConfigDict(extra="ignore")
     id: str
-    order: int
+    order: float
     slug: str
     title: str
     summary: str
@@ -420,7 +447,7 @@ class Module(BaseModel):
     scripture: dict
     tasks: List[str]
     competencies: List[str]
-    hours: int
+    hours: float
     quiz: List[QuizQ] = []
 
 
@@ -687,6 +714,13 @@ async def current_user(authorization: Optional[str] = Header(None)) -> User:
         raise HTTPException(401, "User not found")
     if user_doc.get("is_active") is False:
         raise HTTPException(403, "Account deactivated")
+    # C-2: Enforce token revocation via token_version.
+    # revoke_all_sessions() increments token_version in the DB; any JWT issued
+    # before that increment carries the old tv value and is rejected here.
+    db_tv = user_doc.get("token_version", 0)
+    jwt_tv = payload.get("tv", 0)
+    if jwt_tv != db_tv:
+        raise HTTPException(401, "Token revoked — please sign in again")
     return User(**user_doc)
 
 
@@ -753,10 +787,67 @@ async def seed_users():
         new_val = u["associate"].replace("Cohort-", "Associate-", 1)
         await db.users.update_one({"id": u["id"]}, {"$set": {"associate": new_val}})
     # Demo accounts removed — platform is live. Delete any that still exist in DB.
-    _demo_emails = ["admin@lcewai.org", "instructor@lcewai.org", "student@lcewai.org"]
-    result = await db.users.delete_many({"email": {"$in": _demo_emails}})
-    if result.deleted_count:
-        logger.info("Removed %d demo account(s) from live database", result.deleted_count)
+    _demo_specs = [
+        {
+            "email": "admin@lcewai.org",
+            "full_name": "Admin",
+            "role": "admin",
+            "password": "Admin@LCE2026",
+        },
+        {
+            "email": "instructor@lcewai.org",
+            "full_name": "Instructor",
+            "role": "instructor",
+            "password": "Teach@LCE2026",
+        },
+        {
+            "email": "student@lcewai.org",
+            "full_name": "Student",
+            "role": "student",
+            "password": "Learn@LCE2026",
+        },
+    ]
+    if KEEP_TEST_DEMOS:
+        logger.info("KEEP_TEST_DEMOS enabled: preserving demo accounts %s", [s["email"] for s in _demo_specs])
+        for spec in _demo_specs:
+            existing = await db.users.find_one({"email": spec["email"]})
+            if existing:
+                updates: dict = {}
+                if existing.get("role") != spec["role"]:
+                    updates["role"] = spec["role"]
+                if existing.get("is_active") is False:
+                    updates["is_active"] = True
+                if updates:
+                    await db.users.update_one(
+                        {"email": spec["email"]},
+                        {
+                            "$set": updates,
+                            "$unset": {"login_locked_until": "", "login_failed_attempts": ""},
+                        },
+                    )
+                    logger.info("KEEP_TEST_DEMOS: healed demo account %s", spec["email"])
+                else:
+                    # Ensure locked accounts can log back in during test workflows.
+                    await db.users.update_one(
+                        {"email": spec["email"]},
+                        {"$unset": {"login_locked_until": "", "login_failed_attempts": ""}},
+                    )
+            else:
+                await db.users.insert_one({
+                    "id": str(uuid.uuid4()),
+                    "email": spec["email"],
+                    "full_name": spec["full_name"],
+                    "role": spec["role"],
+                    "password_hash": hash_pw(spec["password"]),
+                    "is_active": True,
+                    "must_change_password": False,
+                    "created_at": datetime.now(timezone.utc).isoformat(),
+                })
+                logger.info("KEEP_TEST_DEMOS: seeded demo account %s", spec["email"])
+    else:
+        result = await db.users.delete_many({"email": {"$in": [s["email"] for s in _demo_specs]}})
+        if result.deleted_count:
+            logger.info("Removed %d demo account(s) from live database", result.deleted_count)
 
     # ----- Bootstrap executive accounts (create if missing, never overwrite existing) -----
     _exec_seats = [
@@ -1001,6 +1092,37 @@ async def backfill_verification_codes():
         logger.info("Backfilled verification_code on %d credentials", count)
 
 
+# C-3/C-4: track background tasks so shutdown can cancel them.
+_bg_tasks: list[asyncio.Task] = []
+STARTUP_ERROR: Optional[str] = None  # surfaced by /api/health
+
+
+def _supervised_task(coro, *, name: str) -> asyncio.Task:
+    """C-4: wrap a coroutine in an outer shell that logs task death as ERROR.
+
+    The inner coroutine is responsible for its own while-True loop and inner
+    error handling.  If it raises an unhandled exception that escapes the loop
+    entirely, this wrapper catches it, logs it at ERROR level (visible in
+    Railway logs), and re-raises so the task is marked as failed rather than
+    silently disappearing.
+    """
+    async def _shell():
+        try:
+            await coro
+        except asyncio.CancelledError:
+            logger.info("Supervised task '%s' cancelled cleanly.", name)
+            raise
+        except Exception as _exc:
+            logger.error(
+                "SUPERVISED TASK DIED — '%s' raised %s: %s",
+                name, type(_exc).__name__, _exc, exc_info=True,
+            )
+            raise
+    task = asyncio.create_task(_shell(), name=name)
+    _bg_tasks.append(task)
+    return task
+
+
 @app.on_event("startup")
 async def on_startup():
     # Return immediately so uvicorn begins serving and Railway's /api/version
@@ -1012,7 +1134,30 @@ async def on_startup():
     # window and producing the 502 fallback + restart loop seen in production.
     # Running it as a background task decouples container health from DB state;
     # /api/version and /api/health do not depend on any of it.
-    asyncio.create_task(_on_startup_impl())
+    # C-3: add done-callback so a crash in _on_startup_impl is visible in logs.
+    task = asyncio.create_task(_on_startup_impl())
+    _bg_tasks.append(task)
+    def _startup_done(t: asyncio.Task):
+        if t.cancelled():
+            return
+        exc = t.exception()
+        if exc:
+            logger.error(
+                "STARTUP TASK FAILED — initialization did not complete: %s",
+                exc, exc_info=exc,
+            )
+    task.add_done_callback(_startup_done)
+
+
+@app.on_event("shutdown")
+async def on_shutdown():
+    """C-4: cancel all supervised background tasks on container stop."""
+    for task in _bg_tasks:
+        if not task.done():
+            task.cancel()
+    if _bg_tasks:
+        await asyncio.gather(*_bg_tasks, return_exceptions=True)
+    logger.info("SHUTDOWN: all background tasks cancelled.")
 
 
 async def _on_startup_impl():
@@ -1023,7 +1168,7 @@ async def _on_startup_impl():
     # the backup client is ready and the health endpoint will use it when the
     # primary is down.  The backup client is exposed as _backup_db for the
     # health check and for manual failover via the Director.
-    global _DB_SOURCE, _backup_db
+    global _DB_SOURCE, _backup_db, STARTUP_COMPLETE
     _DB_SOURCE = "primary"
     _backup_db = None
     if MONGO_BACKUP_URL:
@@ -1153,7 +1298,7 @@ async def _on_startup_impl():
                 del _RATE[k]
             if stale:
                 logger.debug("Rate limiter: pruned %d stale keys.", len(stale))
-    asyncio.create_task(_rate_limiter_cleanup())
+    _supervised_task(_rate_limiter_cleanup(), name="rate_limiter_cleanup")  # C-4
 
     # ── Serve built React frontend (home/backup server only) ─────────────────
     if SERVE_FRONTEND:
@@ -1218,7 +1363,7 @@ async def _on_startup_impl():
     if not os.environ.get("WATCHDOG_DISABLE"):
         try:
             from failover_watchdog import run_watchdog
-            asyncio.create_task(run_watchdog(panel_db=db))
+            _supervised_task(run_watchdog(panel_db=db), name="failover_watchdog")  # C-4
             logger.info("STARTUP: Failover watchdog launched (interval=%s, threshold=%s)",
                         os.environ.get("WATCHDOG_CHECK_INTERVAL", "60"),
                         os.environ.get("WATCHDOG_FAILURE_THRESHOLD", "3"))
@@ -1243,7 +1388,7 @@ async def _on_startup_impl():
                     logger.info("GDPR purge: hard-deleted %d expired accounts.", len(_expired))
             except Exception as _g_err:
                 logger.warning("GDPR purge cycle failed: %s", _g_err)
-    asyncio.create_task(_gdpr_purge_loop())
+    _supervised_task(_gdpr_purge_loop(), name="gdpr_purge_loop")  # C-4
     logger.info("STARTUP: GDPR purge cron launched (24h interval)")
 
     # ── Memory consolidation cron (daily) ─────────────────────────────────────
@@ -1256,9 +1401,10 @@ async def _on_startup_impl():
                 logger.info("Memory consolidation cycle complete.")
             except Exception as _m_err:
                 logger.warning("Memory consolidation failed: %s", _m_err)
-    asyncio.create_task(_memory_consolidation_loop())
+    _supervised_task(_memory_consolidation_loop(), name="memory_consolidation_loop")  # C-4
     logger.info("STARTUP: Memory consolidation cron launched (24h interval)")
 
+    STARTUP_COMPLETE = True
     logger.info(
         "STARTUP COMPLETE — Version: %s | DB: %s | Frontend: %s",
         APP_VERSION, _DB_SOURCE, "served" if SERVE_FRONTEND else "railway-nginx"
@@ -1473,6 +1619,7 @@ async def health():
     return {
         "status":    overall,
         "version":   APP_VERSION,
+        "startup_complete": STARTUP_COMPLETE,
         "db_source": _DB_SOURCE,
         "issues":    issues,
         "checks":    checks,
@@ -1490,7 +1637,7 @@ async def version():
 async def register(body: RegisterReq):
     # Anti-spam: max 5 registrations per email-prefix per minute (very generous,
     # but stops the trivial "for i in range(10000): register" attack).
-    check_rate(f"register:{body.email}", max_calls=5, window_sec=60)
+    await check_rate(f"register:{body.email}", max_calls=5, window_sec=60)
     if await db.users.find_one({"email": body.email}):
         raise HTTPException(400, "Email already registered")
 
@@ -1511,13 +1658,14 @@ async def register(body: RegisterReq):
     doc["over_13_confirmed"] = True
     await db.users.insert_one(doc)
     await audit(user.id, "auth.register.success", meta={"consent_terms": True, "over_13": True})
-    return TokenResp(access_token=make_token(user.id, user.role), user=user)
+    # C-2: new accounts always start at token_version 0
+    return TokenResp(access_token=make_token(user.id, user.role, extra={"tv": 0}), user=user)
 
 
 @api_router.post("/auth/login", response_model=TokenResp)
 async def login(body: LoginReq, request: Request):
     # Hard rate cap: 5 attempts per minute per email (in-memory, first line of defense).
-    check_rate(f"login:{body.email}", max_calls=5, window_sec=60)
+    await check_rate(f"login:{body.email}", max_calls=5, window_sec=60)
     doc = await db.users.find_one({"email": body.email}, {"_id": 0})
 
     # DB-backed lockout: survives restarts, enforced on every login attempt.
@@ -1590,7 +1738,12 @@ async def login(body: LoginReq, request: Request):
         })
     except Exception:
         logger.warning("login: session recording failed (non-fatal)")
-    _extra = {"session_id": _session_id} if _session_id else None
+    # C-2: embed token_version in JWT so current_user() can detect revocation.
+    # doc still holds the raw DB document at this point (password_hash already popped above).
+    _tv = doc.get("token_version", 0)
+    _extra = {"tv": _tv}
+    if _session_id:
+        _extra["session_id"] = _session_id
     return TokenResp(access_token=make_token(user.id, user.role, extra=_extra), user=user)
 
 
@@ -1840,19 +1993,53 @@ async def admin_set_active(uid: str, body: AdminActiveReq, user: User = Depends(
         raise HTTPException(404, "User not found")
     if not can_modify(user, target.get("role", "")):
         raise HTTPException(403, "You don't have permission to modify this user.")
-    # Last-active-admin guard (admin OR executive_admin counts as "admin-class")
-    if target.get("role") in ("admin", "executive_admin") and not body.is_active:
+
+    # C-8: near-atomic last-admin guard.
+    # Use find_one_and_update to flip is_active, then immediately verify the
+    # admin count.  If the update leaves zero active admins, roll back at once.
+    # This collapses the read-then-decide race window to near zero: both
+    # concurrent requests will flip the flag, but the first post-update count
+    # check will see 1 and the second will see 0, triggering an immediate
+    # rollback and 400.  A tiny window remains, but it cannot leave the system
+    # permanently locked because the rollback fires on the same request that
+    # detects the count.
+    if not body.is_active and target.get("role") in ("admin", "executive_admin"):
+        # Attempt the deactivation.
+        updated = await db.users.find_one_and_update(
+            {"id": uid, "is_active": {"$ne": False}},  # only if currently active
+            {"$set": {"is_active": False}},
+            return_document=True,
+        )
+        if not updated:
+            # Already inactive — nothing to do.
+            return {"ok": True, "id": uid, "is_active": False}
+        # Verify admin class count post-update.
         active_admin_class = await db.users.count_documents({
             "role": {"$in": ["admin", "executive_admin"]},
             "is_active": {"$ne": False},
         })
-        if active_admin_class <= 1:
+        if active_admin_class < 1:
+            # Rollback immediately.
+            try:
+                await db.users.update_one({"id": uid}, {"$set": {"is_active": True}})
+            except Exception as _rb_err:
+                logger.error("C-8 rollback FAILED for uid=%s: %s", uid, _rb_err)
+                raise HTTPException(500, "Guard rollback failed — contact support immediately.")
             raise HTTPException(400, "Cannot deactivate the last active admin-class user.")
-    # Last-executive guard
-    if target.get("role") == "executive_admin" and not body.is_active:
-        active_execs = await db.users.count_documents({"role": "executive_admin", "is_active": {"$ne": False}})
-        if active_execs <= 1:
-            raise HTTPException(400, "Cannot deactivate the last active executive_admin.")
+        # Last-executive sub-check.
+        if target.get("role") == "executive_admin":
+            active_execs = await db.users.count_documents({"role": "executive_admin", "is_active": {"$ne": False}})
+            if active_execs < 1:
+                try:
+                    await db.users.update_one({"id": uid}, {"$set": {"is_active": True}})
+                except Exception as _rb_err:
+                    logger.error("C-8 exec rollback FAILED for uid=%s: %s", uid, _rb_err)
+                    raise HTTPException(500, "Guard rollback failed — contact support immediately.")
+                raise HTTPException(400, "Cannot deactivate the last active executive_admin.")
+        await audit(user.id, "admin.user.active_changed", target=uid, meta={"is_active": False})
+        return {"ok": True, "id": uid, "is_active": False}
+
+    # Reactivation or non-admin deactivation — no guard needed.
     await db.users.update_one({"id": uid}, {"$set": {"is_active": body.is_active}})
     await audit(user.id, "admin.user.active_changed", target=uid,
                 meta={"is_active": body.is_active})
@@ -1929,13 +2116,38 @@ async def gdpr_delete_account(user: User = Depends(current_user)):
             "password_hash": "[deleted]",
         }}
     )
-    # Remove user from active collections
-    for coll in ["progress", "lab_submissions", "portfolio", "ai_consents"]:
+    # C-7: Remove user data from all collections that hold user-linked records.
+    # Errors are collected and reported rather than silently swallowed.
+    _gdpr_collections = [
+        "progress", "lab_submissions", "portfolio", "ai_consents",
+        "auth_sessions", "notifications", "chat_history", "certificates",
+        "tts_usage", "password_reset_tokens",
+    ]
+    _gdpr_errors: list[str] = []
+    for _coll in _gdpr_collections:
         try:
-            await db[coll].delete_many({"user_id": user.id})
-        except Exception:
-            pass
-    await audit(user.id, "gdpr.account_deleted", meta={"grace_period_days": 30})
+            await db[_coll].delete_many({"user_id": user.id})
+        except Exception as _e:
+            _gdpr_errors.append(f"{_coll}: {_e}")
+            logger.error("GDPR deletion failed for collection %s (user %s): %s", _coll, user.id, _e)
+    # Anonymise audit_log and incidents references in-place (preserve audit trail, remove PII).
+    for _ref_coll in ("audit_log", "incidents"):
+        try:
+            await db[_ref_coll].update_many(
+                {"$or": [{"actor_id": user.id}, {"user_id": user.id}]},
+                {"$set": {"actor_id": "[deleted]", "user_id": "[deleted]"}},
+            )
+        except Exception as _e:
+            _gdpr_errors.append(f"{_ref_coll}(anonymise): {_e}")
+            logger.error("GDPR anonymise failed for %s (user %s): %s", _ref_coll, user.id, _e)
+    await audit(user.id, "gdpr.account_deleted", meta={"grace_period_days": 30, "deletion_errors": _gdpr_errors})
+    if _gdpr_errors:
+        return {
+            "ok": False,
+            "partial": True,
+            "message": "Account anonymised but some data collections could not be fully cleared. Support has been notified.",
+            "errors": _gdpr_errors,
+        }
     return {"ok": True, "message": "Account scheduled for deletion. You have a 30-day grace period to contact support if this was a mistake."}
 
 
@@ -2088,8 +2300,8 @@ async def forgot_password(body: ForgotPasswordReq, request: Request):
       * returns `email_sent: bool` so the UI can show the right copy
     """
     ip = (request.client.host if request.client else "anon")
-    check_rate(f"forgot:ip:{ip}", max_calls=30, window_sec=300)
-    check_rate(f"forgot:email:{body.email}", max_calls=5, window_sec=600)
+    await check_rate(f"forgot:ip:{ip}", max_calls=30, window_sec=300)
+    await check_rate(f"forgot:email:{body.email}", max_calls=5, window_sec=600)
 
     user_doc = await db.users.find_one({"email": body.email}, {"_id": 0})
     email_sent = False
@@ -2217,7 +2429,7 @@ async def reset_password_endpoint(body: ResetPasswordReq, request: Request):
     """
     _validate_reset_request(body.token, body.new_password)
     ip = (request.client.host if request.client else "anon")
-    check_rate(f"reset:ip:{ip}", max_calls=60, window_sec=300)
+    await check_rate(f"reset:ip:{ip}", max_calls=60, window_sec=300)
 
     token_hash = _hash_token(body.token)
     rec = await _load_reset_token(token_hash)
@@ -2305,8 +2517,8 @@ async def emergency_recovery(body: EmergencyRecoveryReq, request: Request):
     Each code can only be used once.
     """
     ip = (request.client.host if request.client else "emergency-recovery")
-    check_rate(f"recovery:ip:{ip}", max_calls=10, window_sec=300)
-    check_rate(f"recovery:email:{body.email}", max_calls=3, window_sec=600)
+    await check_rate(f"recovery:ip:{ip}", max_calls=10, window_sec=300)
+    await check_rate(f"recovery:email:{body.email}", max_calls=3, window_sec=600)
 
     # Verify the user exists and is an executive
     user_doc = await db.users.find_one({"email": body.email}, {"_id": 0})
@@ -2792,62 +3004,74 @@ _tts_breaker_opened_at: float = 0.0
 # Rolling buffer of recent TTS attempts: (ts, latency_ms, cache_hit, error)
 _tts_metrics: list[tuple[float, float, bool, bool]] = []
 _TTS_SESSION_USAGE: dict[str, int] = {}  # session_id -> chars served
+_TTS_LOCK = asyncio.Lock()  # C-6: serialise all TTS shared-state mutations
 
 
-def _tts_breaker_state() -> str:
+async def _tts_breaker_state() -> str:
     """Returns 'closed' | 'open' | 'half-open' for the TTS provider."""
     import time as _t
-    now = _t.time()
-    # Drain old failures.
-    cutoff = now - TTS_BREAKER_WINDOW_S
-    _tts_failures[:] = [t for t in _tts_failures if t >= cutoff]
-    if _tts_breaker_opened_at:
-        if now - _tts_breaker_opened_at >= TTS_BREAKER_COOLDOWN_S:
-            return "half-open"
-        return "open"
-    return "closed"
+    async with _TTS_LOCK:
+        now = _t.time()
+        # Drain old failures.
+        cutoff = now - TTS_BREAKER_WINDOW_S
+        _tts_failures[:] = [t for t in _tts_failures if t >= cutoff]
+        if _tts_breaker_opened_at:
+            if now - _tts_breaker_opened_at >= TTS_BREAKER_COOLDOWN_S:
+                return "half-open"
+            return "open"
+        return "closed"
 
 
-def _tts_record_success() -> None:
+async def _tts_record_success() -> None:
     global _tts_breaker_opened_at
-    _tts_breaker_opened_at = 0.0
-    _tts_failures.clear()
+    async with _TTS_LOCK:
+        _tts_breaker_opened_at = 0.0
+        _tts_failures.clear()
 
 
-def _tts_record_failure() -> None:
+async def _tts_record_failure() -> None:
     import time as _t
     global _tts_breaker_opened_at
-    _tts_failures.append(_t.time())
-    if len(_tts_failures) >= TTS_BREAKER_FAIL_THRESHOLD:
-        _tts_breaker_opened_at = _t.time()
+    async with _TTS_LOCK:
+        _tts_failures.append(_t.time())
+        if len(_tts_failures) >= TTS_BREAKER_FAIL_THRESHOLD:
+            _tts_breaker_opened_at = _t.time()
 
 
-def _tts_record_metric(latency_ms: float, cache_hit: bool, error: bool) -> None:
+async def _tts_record_metric(latency_ms: float, cache_hit: bool, error: bool) -> None:
     import time as _t
-    now = _t.time()
-    _tts_metrics.append((now, latency_ms, cache_hit, error))
-    cutoff = now - TTS_METRICS_WINDOW_S
-    while _tts_metrics and _tts_metrics[0][0] < cutoff:
-        _tts_metrics.pop(0)
+    async with _TTS_LOCK:
+        now = _t.time()
+        _tts_metrics.append((now, latency_ms, cache_hit, error))
+        cutoff = now - TTS_METRICS_WINDOW_S
+        while _tts_metrics and _tts_metrics[0][0] < cutoff:
+            _tts_metrics.pop(0)
 
 
 async def _tts_check_cost_cap(user_id: str, session_id: str, chars: int) -> tuple[bool, str, dict]:
     """Returns (ok, reason, telemetry). Increments counters when ok=True."""
-    # Session cap (in-memory, per-process — safe per-pod).
+    # C-6: session cap check+increment is atomic under _TTS_LOCK so concurrent
+    # requests to the same session cannot both pass the cap check and together
+    # exceed the quota.
     sess_key = f"{user_id}:{session_id}"
-    sess_used = _TTS_SESSION_USAGE.get(sess_key, 0)
-    if sess_used + chars > TTS_SESSION_CHAR_CAP:
-        return False, "session", {"session_used": sess_used, "session_cap": TTS_SESSION_CHAR_CAP}
+    async with _TTS_LOCK:
+        sess_used = _TTS_SESSION_USAGE.get(sess_key, 0)
+        if sess_used + chars > TTS_SESSION_CHAR_CAP:
+            return False, "session", {"session_used": sess_used, "session_cap": TTS_SESSION_CHAR_CAP}
+        # Reserve immediately so a concurrent request cannot double-spend.
+        _TTS_SESSION_USAGE[sess_key] = sess_used + chars
 
-    # Daily user cap (durable).
+    # Daily user cap (durable — MongoDB $inc is atomic, so no extra lock needed here).
     today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
     doc = await db.tts_usage.find_one({"user_id": user_id, "day": today}, {"_id": 0, "chars": 1})
     used = (doc or {}).get("chars", 0)
     if used + chars > TTS_USER_DAILY_CHAR_CAP:
+        # Roll back the in-memory reservation we made above.
+        async with _TTS_LOCK:
+            _TTS_SESSION_USAGE[sess_key] = sess_used
         return False, "daily", {"daily_used": used, "daily_cap": TTS_USER_DAILY_CHAR_CAP}
 
-    # Increment.
-    _TTS_SESSION_USAGE[sess_key] = sess_used + chars
+    # Persist increment to durable storage.
     new_total = used + chars
     await db.tts_usage.update_one(
         {"user_id": user_id, "day": today},
@@ -3184,7 +3408,7 @@ async def sage_tts(body: SageTTSReq, user: User = Depends(current_user)):
         )
 
     # 2. Circuit breaker — fail fast when open.
-    breaker = _tts_breaker_state()
+    breaker = await _tts_breaker_state()  # C-6
     if breaker == "open":
         return StreamingResponse(
             io.BytesIO(b""),
@@ -3199,7 +3423,7 @@ async def sage_tts(body: SageTTSReq, user: User = Depends(current_user)):
     if cached and cached.get("audio_b64"):
         import base64
         audio = base64.b64decode(cached["audio_b64"])
-        _tts_record_metric(0.0, cache_hit=True, error=False)
+        await _tts_record_metric(0.0, cache_hit=True, error=False)  # C-6
         return StreamingResponse(
             io.BytesIO(audio),
             media_type="audio/mpeg",
@@ -3217,20 +3441,20 @@ async def sage_tts(body: SageTTSReq, user: User = Depends(current_user)):
         tts = OpenAITextToSpeech(api_key=os.environ.get('OPENAI_API_KEY', EMERGENT_LLM_KEY))
         resp = await tts.audio.speech.create(model="tts-1", voice=voice, input=text, speed=speed)
         audio_bytes = resp.content
-        _tts_record_success()
+        await _tts_record_success()  # C-6
     except Exception:
-        _tts_record_failure()
-        _tts_record_metric((_t.time() - t0) * 1000, cache_hit=False, error=True)
+        await _tts_record_failure()  # C-6
+        await _tts_record_metric((_t.time() - t0) * 1000, cache_hit=False, error=True)  # C-6
         logger.exception("Sage TTS provider error")
         return StreamingResponse(
             io.BytesIO(b""),
             status_code=503,
             media_type="audio/mpeg",
-            headers={"X-Fallback": "text-only", "X-Breaker": _tts_breaker_state()},
+            headers={"X-Fallback": "text-only", "X-Breaker": await _tts_breaker_state()},  # C-6
         )
 
     latency_ms = (_t.time() - t0) * 1000
-    _tts_record_metric(latency_ms, cache_hit=False, error=False)
+    await _tts_record_metric(latency_ms, cache_hit=False, error=False)  # C-6
 
     # 5. Persist to cache (best-effort).
     try:
@@ -3277,7 +3501,7 @@ async def admin_sage_metrics(user: User = Depends(require_role("executive_admin"
             "error_rate": 0.0,
             "sample_count": 0,
             "window_seconds": TTS_METRICS_WINDOW_S,
-            "breaker": _tts_breaker_state(),
+            "breaker": await _tts_breaker_state(),  # C-6
             "session_char_cap": TTS_SESSION_CHAR_CAP,
             "user_daily_char_cap": TTS_USER_DAILY_CHAR_CAP,
         }
@@ -3295,7 +3519,7 @@ async def admin_sage_metrics(user: User = Depends(require_role("executive_admin"
         "error_rate": round(errors / n, 3),
         "sample_count": n,
         "window_seconds": TTS_METRICS_WINDOW_S,
-        "breaker": _tts_breaker_state(),
+        "breaker": await _tts_breaker_state(),  # C-6
         "breaker_recent_failures": len(_tts_failures),
         "session_char_cap": TTS_SESSION_CHAR_CAP,
         "user_daily_char_cap": TTS_USER_DAILY_CHAR_CAP,
@@ -3545,7 +3769,7 @@ async def ai_orchestrator(body: OrchestratorReq, user: User = Depends(current_us
         raise HTTPException(500, f"AI library unavailable: {e}")
 
     # Director 4.0 — AI tamper / prompt injection scan
-    check_rate(f"ai_orchestrator:{user.id}", max_calls=30, window_sec=60)
+    await check_rate(f"ai_orchestrator:{user.id}", max_calls=30, window_sec=60)
     try:
         from ai.prompt_guard import prompt_guard
         prompt_guard.assert_message_safe(body.message, user.role, "/ai/orchestrator", user.id)
@@ -3706,7 +3930,7 @@ async def ai_scholar(body: ScholarTaskReq, user: User = Depends(current_user)):
     """Savant Scholar — dedicated curriculum and training intelligence service.
     Accepts task packages from The Director or direct requests from any authenticated user.
     """
-    check_rate(f"ai_scholar:{user.id}", max_calls=30, window_sec=60)
+    await check_rate(f"ai_scholar:{user.id}", max_calls=30, window_sec=60)
     try:
         import anthropic as _anthropic_module
     except Exception as e:
@@ -3780,7 +4004,7 @@ async def ai_helper(body: dict, request: Request):
 
     # Rate limit by IP — 15 calls per minute per visitor
     ip = request.client.host if request.client else "unknown"
-    check_rate(f"ai_helper:ip:{ip}", max_calls=15, window_sec=60)
+    await check_rate(f"ai_helper:ip:{ip}", max_calls=15, window_sec=60)
 
     # Prompt injection guard — public endpoint, enforce strictly
     try:
@@ -4028,7 +4252,7 @@ async def ai_director(body: dict, user: User = Depends(current_user)):
         raise HTTPException(400, "Message is required")
 
     # Director 4.0 — AI tamper / prompt injection scan
-    check_rate(f"ai_director:{user.id}", max_calls=20, window_sec=60)
+    await check_rate(f"ai_director:{user.id}", max_calls=20, window_sec=60)
     try:
         prompt_guard.assert_message_safe(message, user.role, "/ai/director", user.id)
     except ValueError as _guard_err:
@@ -4099,10 +4323,15 @@ async def ai_director(body: dict, user: User = Depends(current_user)):
                 break
 
             _msgs.append({"role": "assistant", "content": _msg.content})
-            tool_results = await asyncio.gather(*[
-                dispatch_tool(b.name, b.input, db=db)
-                for b in tool_use_blocks
-            ])
+            # C-5: return_exceptions=True — one failing tool does not abort the whole batch.
+            _raw_results = await asyncio.gather(
+                *[dispatch_tool(b.name, b.input, db=db) for b in tool_use_blocks],
+                return_exceptions=True,
+            )
+            tool_results = [
+                f"[tool error: {type(r).__name__}: {r}]" if isinstance(r, Exception) else r
+                for r in _raw_results
+            ]
             result_content = [
                 {
                     "type":        "tool_result",
@@ -4202,7 +4431,7 @@ async def director_greeting(user: User = Depends(current_user)):
             "role": "student", "is_active": {"$ne": False},
             "last_login": {"$lt": d7},
         }),
-        db.lab_submissions.count_documents({"status": "submitted"}),
+        db.lab_submissions.count_documents({"status": "pending"}),
         db.more_flags.count_documents({"status": "pending"}),
     )
 
@@ -4334,7 +4563,7 @@ async def director_tts(body: dict, user: User = Depends(current_user)):
     if len(text) > 5000:
         text = text[:5000]
     force_tier = (body.get("force_tier") or "").lower().strip()
-    check_rate(f"ai_director_tts:{user.id}", max_calls=20, window_sec=60)
+    await check_rate(f"ai_director_tts:{user.id}", max_calls=20, window_sec=60)
     try:
         result = await persona_speak("director", text, force_tier=force_tier, db=db)
     except Exception as _e:
@@ -4371,7 +4600,7 @@ async def revenue_director_tts(body: dict, user: User = Depends(current_user)):
     if len(text) > 5000:
         text = text[:5000]
     force_tier = (body.get("force_tier") or "").lower().strip()
-    check_rate(f"ai_rd_tts:{user.id}", max_calls=20, window_sec=60)
+    await check_rate(f"ai_rd_tts:{user.id}", max_calls=20, window_sec=60)
     try:
         result = await persona_speak("revenue_director", text, force_tier=force_tier, db=db)
     except Exception as _e:
@@ -4407,7 +4636,7 @@ async def sage_elevenlabs_tts(body: dict, user: User = Depends(current_user)):
     if len(text) > 4000:
         text = text[:4000]
     force_tier = (body.get("force_tier") or "").lower().strip()
-    check_rate(f"ai_sage_el_tts:{user.id}", max_calls=20, window_sec=60)
+    await check_rate(f"ai_sage_el_tts:{user.id}", max_calls=20, window_sec=60)
     try:
         result = await persona_speak("ancestral_sage", text, force_tier=force_tier, db=db)
     except Exception as _e:
@@ -4457,7 +4686,7 @@ async def ai_revenue_director(body: dict, user: User = Depends(current_user)):
     if not message:
         raise HTTPException(400, "Message is required")
 
-    check_rate(f"ai_rd:{user.id}", max_calls=15, window_sec=60)
+    await check_rate(f"ai_rd:{user.id}", max_calls=15, window_sec=60)
     try:
         prompt_guard.assert_message_safe(message, user.role, "/ai/revenue-director", user.id)
     except ValueError as _e:
@@ -4502,7 +4731,15 @@ async def ai_revenue_director(body: dict, user: User = Depends(current_user)):
                 break
             _tools_called.extend(b.name for b in tool_use_blocks)
             _msgs.append({"role": "assistant", "content": _msg.content})
-            tool_results = await asyncio.gather(*[dispatch_rd_tool(b.name, b.input, db=db) for b in tool_use_blocks])
+            # C-5: return_exceptions=True — one failing RD tool does not abort the batch.
+            _raw_rd = await asyncio.gather(
+                *[dispatch_rd_tool(b.name, b.input, db=db) for b in tool_use_blocks],
+                return_exceptions=True,
+            )
+            tool_results = [
+                f"[tool error: {type(r).__name__}: {r}]" if isinstance(r, Exception) else r
+                for r in _raw_rd
+            ]
             _msgs.append({"role": "user", "content": [{"type": "tool_result", "tool_use_id": b.id, "content": r} for b, r in zip(tool_use_blocks, tool_results)]})
         else:
             _reply = _reply or "[REVENUE DIRECTOR tool loop reached limit — partial analysis above]"
@@ -4561,7 +4798,7 @@ async def sage_create(body: dict, user: User = Depends(current_user)):
     if not message:
         raise HTTPException(400, "Message is required")
 
-    check_rate(f"ai_sage_create:{user.id}", max_calls=15, window_sec=60)
+    await check_rate(f"ai_sage_create:{user.id}", max_calls=15, window_sec=60)
     try:
         prompt_guard.assert_message_safe(message, user.role, "/ai/sage/create", user.id)
     except ValueError as _e:
@@ -4606,7 +4843,15 @@ async def sage_create(body: dict, user: User = Depends(current_user)):
                 break
             _tools_called.extend(b.name for b in tool_use_blocks)
             _msgs.append({"role": "assistant", "content": _msg.content})
-            tool_results = await asyncio.gather(*[dispatch_sage_tool(b.name, b.input, db=db) for b in tool_use_blocks])
+            # C-5: return_exceptions=True — one failing Sage tool does not abort the batch.
+            _raw_sage = await asyncio.gather(
+                *[dispatch_sage_tool(b.name, b.input, db=db) for b in tool_use_blocks],
+                return_exceptions=True,
+            )
+            tool_results = [
+                f"[tool error: {type(r).__name__}: {r}]" if isinstance(r, Exception) else r
+                for r in _raw_sage
+            ]
             _msgs.append({"role": "user", "content": [{"type": "tool_result", "tool_use_id": b.id, "content": r} for b, r in zip(tool_use_blocks, tool_results)]})
         else:
             _reply = _reply or "[SAGE tool loop reached limit — partial content above]"
@@ -5907,11 +6152,11 @@ async def report_incident(body: IncidentReq, user: User = Depends(current_user))
 async def list_incidents(status: Optional[str] = None, user: User = Depends(require_role("instructor", "admin"))):
     q = {"status": status} if status else {}
     docs = await db.incidents.find(q, {"_id": 0}).sort("created_at", -1).to_list(500)
-    user_ids = list({d["reported_by"] for d in docs} | {u for d in docs for u in d.get("involved_user_ids", [])})
+    user_ids = list({d.get("reported_by") for d in docs if d.get("reported_by")} | {u for d in docs for u in d.get("involved_user_ids", [])})
     users = await db.users.find({"id": {"$in": user_ids}}, {"_id": 0, "password_hash": 0}).to_list(1000)
     umap = {u["id"]: u for u in users}
     for d in docs:
-        d["reporter"] = umap.get(d["reported_by"])
+        d["reporter"] = umap.get(d.get("reported_by"))
         d["involved"] = [umap.get(uid) for uid in d.get("involved_user_ids", []) if umap.get(uid)]
     return docs
 
@@ -6529,10 +6774,35 @@ async def more_admin_review_queue(user=Depends(current_user), skip: int = 0, lim
         needs_cursor.to_list(limit),
         appeals_cursor.to_list(limit),
     )
+
+    def _preview(value: Optional[str], fallback: str = "") -> str:
+        text = (value or fallback or "").strip()
+        return text[:240] + ("..." if len(text) > 240 else "")
+
+    shaped_posts = [
+        {**p, "content_type": "post", "preview": _preview(p.get("content"))}
+        for p in posts
+    ]
+    shaped_needs = [
+        {
+            **n,
+            "content_type": "need",
+            "preview": _preview(n.get("description"), n.get("title", "")),
+        }
+        for n in needs
+    ]
+    shaped_appeals = [
+        {
+            **a,
+            "content_type": "appeal",
+            "preview": _preview(a.get("appeal_text") or a.get("reason") or a.get("message")),
+        }
+        for a in appeals
+    ]
     return {
-        "posts": posts, "posts_total": posts_total,
-        "needs": needs, "needs_total": needs_total,
-        "appeals": appeals, "appeals_total": appeals_total,
+        "posts": shaped_posts, "posts_total": posts_total,
+        "needs": shaped_needs, "needs_total": needs_total,
+        "appeals": shaped_appeals, "appeals_total": appeals_total,
     }
 
 
@@ -7023,6 +7293,9 @@ async def more_department_chat(body: MoreDeptChatReq, user: User = Depends(curre
     """
     if ROLE_RANK.get(user.role, 0) < ROLE_RANK.get("admin", 3):
         raise HTTPException(403, "Department AI requires admin access")
+
+    if not ANTHROPIC_API_KEY:
+        raise HTTPException(502, "Department AI is not configured. Set ANTHROPIC_API_KEY in Railway and redeploy.")
 
     try:
         import anthropic as _anthropic_module
@@ -7520,7 +7793,7 @@ async def ai_ambassador(body: dict, user: User = Depends(current_user)):
     if not message:
         raise HTTPException(400, "Message is required")
 
-    check_rate(f"ai_ambassador:{user.id}", max_calls=10, window_sec=60)
+    await check_rate(f"ai_ambassador:{user.id}", max_calls=10, window_sec=60)
     try:
         prompt_guard.assert_message_safe(message, user.role, "/ai/ambassador", user.id)
     except ValueError as _e:
@@ -7637,7 +7910,7 @@ async def ai_architect(body: dict, user: User = Depends(current_user)):
     if not message:
         raise HTTPException(400, "Message is required")
 
-    check_rate(f"ai_architect:{user.id}", max_calls=10, window_sec=60)
+    await check_rate(f"ai_architect:{user.id}", max_calls=10, window_sec=60)
     try:
         prompt_guard.assert_message_safe(message, user.role, "/ai/architect", user.id)
     except ValueError as _e:
@@ -7751,7 +8024,7 @@ async def ai_cipher(body: dict, user: User = Depends(current_user)):
     if not message:
         raise HTTPException(400, "Message is required")
 
-    check_rate(f"ai_cipher:{user.id}", max_calls=15, window_sec=60)
+    await check_rate(f"ai_cipher:{user.id}", max_calls=15, window_sec=60)
     try:
         prompt_guard.assert_message_safe(message, user.role, "/ai/cipher", user.id)
     except ValueError as _e:
@@ -7862,7 +8135,7 @@ async def ai_oracle(body: dict, user: User = Depends(current_user)):
     if not message:
         raise HTTPException(400, "Message is required")
 
-    check_rate(f"ai_oracle:{user.id}", max_calls=15, window_sec=60)
+    await check_rate(f"ai_oracle:{user.id}", max_calls=15, window_sec=60)
     try:
         prompt_guard.assert_message_safe(message, user.role, "/ai/oracle", user.id)
     except ValueError as _e:
@@ -8082,7 +8355,7 @@ async def cipher_tts(body: dict, user: User = Depends(current_user)):
     if force_tier not in ("", "elevenlabs", "openai", "text"):
         force_tier = ""
 
-    check_rate(f"ai_cipher_tts:{user.id}", max_calls=20, window_sec=60)
+    await check_rate(f"ai_cipher_tts:{user.id}", max_calls=20, window_sec=60)
 
     try:
         result = await cipher_speak(text=text, force_tier=force_tier, db=db)
@@ -8171,7 +8444,7 @@ async def scout_run(user: User = Depends(require_role("executive_admin"))):
     Executive only.
     """
     from wai_institute.pipelines.cultural_scout import CulturalScout
-    check_rate(f"exec_scout:{user.id}", max_calls=3, window_sec=300)
+    await check_rate(f"exec_scout:{user.id}", max_calls=3, window_sec=300)
     scout = CulturalScout(db)
     result = await scout.run_full_scan(max_leads_per_source=20)
     return result
@@ -8266,7 +8539,7 @@ async def scout_match_all(user: User = Depends(require_role("executive_admin")))
     """
     from wai_institute.pipelines.cultural_scout import CulturalScout
     from wai_institute.pipelines.contextual_matcher import ContextualMatcher
-    check_rate(f"exec_match:{user.id}", max_calls=3, window_sec=60)
+    await check_rate(f"exec_match:{user.id}", max_calls=3, window_sec=60)
 
     scout   = CulturalScout(db)
     matcher = ContextualMatcher(db)
@@ -8308,7 +8581,7 @@ async def cipher_generate_audio(
     Executive only.
     """
     from wai_institute.pipelines.audio_pipeline import AudioPipeline
-    check_rate(f"audio_gen:{user.id}", max_calls=10, window_sec=60)
+    await check_rate(f"audio_gen:{user.id}", max_calls=10, window_sec=60)
 
     text = (body.get("text") or "").strip()
     if not text:
@@ -8383,7 +8656,7 @@ async def merch_create(
     Executive only.
     """
     from wai_institute.pipelines.merch_pipeline import MerchPipeline
-    check_rate(f"merch_create:{user.id}", max_calls=5, window_sec=60)
+    await check_rate(f"merch_create:{user.id}", max_calls=5, window_sec=60)
 
     text = (body.get("text") or "").strip()
     if not text:
@@ -8537,7 +8810,7 @@ async def craft_outreach_response(
     """
     from wai_institute.pipelines.contextual_matcher import ContextualMatcher
     from wai_institute.pipelines.conversational_engine import ConversationalEngine
-    check_rate(f"craft_response:{user.id}", max_calls=10, window_sec=60)
+    await check_rate(f"craft_response:{user.id}", max_calls=10, window_sec=60)
 
     source_id = (body.get("source_id") or "").strip()
     if not source_id:

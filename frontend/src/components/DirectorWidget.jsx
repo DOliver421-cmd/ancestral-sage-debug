@@ -26,6 +26,11 @@ const SpeechRecognitionImpl =
     : null;
 
 const QUICK_ACTIONS = {
+  guest: [
+    { label: "Discover Support", msg: "Help me find the most useful public resources on the MORE Help Center." },
+    { label: "Community Help", msg: "What community support services are available right now?" },
+    { label: "Supervisor Access", msg: "How can I sign in as a supervisor or access executive controls?" },
+  ],
   student: [
     { label: "My Progress", msg: "Show me a summary of my learning progress and what I should focus on next." },
     { label: "Help Me Study", msg: "I need help studying. What resources are available to me?" },
@@ -56,6 +61,7 @@ const ROLE_TABS = {
   instructor:      ["chat", "students"],
   admin:           ["chat", "monitor", "more", "notes"],
   executive_admin: ["chat", "monitor", "more", "notes"],
+  guest:           ["chat"],
 };
 
 const TAB_META = {
@@ -734,7 +740,7 @@ export default function DirectorWidget() {
 
   const bottomRef  = useRef(null);
   const isMonitor  = user?.role === "admin" || user?.role === "executive_admin";
-  const roleTabs   = ROLE_TABS[user?.role] || ["chat"];
+  const roleTabs   = ROLE_TABS[user?.role || "guest"] || ["chat"];
 
   // Reset tab if role changes and current tab is not available
   useEffect(() => {
@@ -744,7 +750,13 @@ export default function DirectorWidget() {
   // ── Greeting ──────────────────────────────────────────────────────────────
 
   useEffect(() => {
-    if (!user) { setOpen(false); setMsgs([]); setPulse(null); return; }
+    if (!user) {
+    setPersona("assistant_director");
+    setMsgs([{ role: "assistant", text: "Welcome to the MORE Help Center. I am the Assistant Director — ask me about public help resources, community support, and supervisor access." }]);
+    setOpen(true);
+    setPulse(null);
+    return;
+  }
     const isExec = user.role === "admin" || user.role === "executive_admin";
     setPersona(isExec ? "director" : "assistant_director");
     const fallback = isExec
@@ -915,7 +927,7 @@ export default function DirectorWidget() {
 
   // ── Render ────────────────────────────────────────────────────────────────
 
-  const quickActions  = QUICK_ACTIONS[user?.role] || QUICK_ACTIONS.student;
+  const quickActions  = QUICK_ACTIONS[user?.role || "guest"] || QUICK_ACTIONS.guest;
   const style         = PERSONA_STYLES[persona];
   const healthColor   = pulse ? HEALTH_COLORS[pulse.health] : style.color;
 

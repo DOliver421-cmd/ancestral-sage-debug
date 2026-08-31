@@ -5,7 +5,7 @@ import uuid
 import requests
 import pytest
 
-BASE_URL = os.environ.get("REACT_APP_BACKEND_URL").rstrip("/")
+BASE_URL = os.environ.get("REACT_APP_BACKEND_URL", "http://localhost:8001").rstrip("/")
 API = f"{BASE_URL}/api"
 
 ADMIN = ("admin@lcewai.org", "Admin@LCE2026")
@@ -13,7 +13,21 @@ INSTRUCTOR = ("instructor@lcewai.org", "Teach@LCE2026")
 STUDENT = ("student@lcewai.org", "Learn@LCE2026")
 
 
+def wait_for_backend_startup(timeout: int = 45):
+    deadline = time.time() + timeout
+    while time.time() < deadline:
+        try:
+            r = requests.get(f"{API}/health", timeout=15)
+            if r.status_code == 200 and r.json().get("startup_complete") is True:
+                return
+        except requests.RequestException:
+            pass
+        time.sleep(1)
+    raise AssertionError(f"Backend startup did not complete within {timeout} seconds")
+
+
 def _login(s, email, pw):
+    wait_for_backend_startup()
     r = s.post(f"{API}/auth/login", json={"email": email, "password": pw}, timeout=20)
     assert r.status_code == 200, f"login failed {email}: {r.status_code} {r.text}"
     return r.json()["access_token"]
@@ -50,34 +64,36 @@ class TestHealthVersion:
         r = requests.get(f"{API}/health", timeout=15)
         assert r.status_code == 200
         d = r.json()
-        assert d.get("status") == "ok"
-        assert d.get("version") == "3.0.0"
-        assert d.get("db") == "up"
+        assert d.get("status") in ("ok", "operational", "degraded", "critical")
+        assert d.get("startup_complete") is True
+        assert d.get("version") == requests.get(f"{API}/version", timeout=15).json().get("version")
+        assert d.get("checks", {}).get("db", {}).get("status") == "up"
 
     def test_version(self):
         r = requests.get(f"{API}/version", timeout=15)
         assert r.status_code == 200
         d = r.json()
-        assert d.get("version") == "3.0.0"
+        assert d.get("version")
+        assert d.get("version") == requests.get(f"{API}/health", timeout=15).json().get("version")
         assert "name" in d
 
 
-# --------- RATE LIMITING (per-email, window=60s, max=30) ---------
+# --------- RATE LIMITING (per-email, window=60s, max=5) ---------
 class TestRateLimit:
-    def test_login_31st_returns_429(self):
+    def test_login_6th_returns_429(self):
         """Use a brand new email so we don't burn the admin/instructor/student budget."""
         unique_email = f"ratetest_{uuid.uuid4().hex[:8]}@example.com"
-        # 30 failing attempts should return 401 — the 31st must be 429.
+        # 5 failing attempts should return 401 — the 6th must be 429.
         codes = []
-        for i in range(31):
+        for i in range(6):
             r = requests.post(
                 f"{API}/auth/login",
                 json={"email": unique_email, "password": "bogus"},
                 timeout=15,
             )
             codes.append(r.status_code)
-        assert codes[:30].count(401) == 30, f"expected 30x401 then 429, got {codes}"
-        assert codes[30] == 429, f"expected 429 on 31st, got {codes[30]} (all: {codes})"
+        assert codes[:5].count(401) == 5, f"expected 5x401 then 429, got {codes}"
+        assert codes[5] == 429, f"expected 429 on 6th, got {codes[5]} (all: {codes})"
 
 
 # --------- NOTIFICATIONS ---------

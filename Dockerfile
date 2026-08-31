@@ -1,11 +1,23 @@
-﻿FROM python:3.11-slim
+﻿FROM node:18-alpine as frontend-builder
+
+WORKDIR /app/frontend
+
+COPY frontend/package.json frontend/package-lock.json ./
+RUN npm ci
+
+COPY frontend/ ./
+RUN npm run build
+
+FROM python:3.11-slim
 
 WORKDIR /app
 
 COPY backend/ /app/backend/
 COPY src/ /app/src/
+COPY --from=frontend-builder /app/frontend/build /app/frontend/build
 
 ENV PYTHONPATH=/app/backend:/app
+ENV SERVE_FRONTEND=1
 
 WORKDIR /app/backend
 

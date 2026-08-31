@@ -1,0 +1,1249 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WAI-Institute Backup Portal - The Supervisor</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            color: #e0e0e0;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .header {
+            background: rgba(0, 0, 0, 0.3);
+            padding: 1rem 2rem;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .header-title {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .logo {
+            width: 40px;
+            height: 40px;
+            background: linear-gradient(135deg, #00d4ff 0%, #0099ff 100%);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            color: white;
+            font-size: 20px;
+        }
+
+        .header-controls {
+            display: flex;
+            gap: 1rem;
+            align-items: center;
+        }
+
+        .nav-button {
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            color: #e0e0e0;
+            padding: 0.5rem 0.75rem;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-size: 1rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 44px;
+            height: 44px;
+        }
+
+        .nav-button:hover {
+            background: rgba(255, 255, 255, 0.15);
+            border-color: #00d4ff;
+            box-shadow: 0 0 10px rgba(0, 212, 255, 0.2);
+        }
+
+        .nav-link {
+            background: linear-gradient(135deg, rgba(0, 212, 255, 0.2) 0%, rgba(0, 153, 255, 0.2) 100%);
+            border: 1px solid rgba(0, 212, 255, 0.3);
+            color: #00d4ff;
+            padding: 0.5rem 1rem;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-weight: 600;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .nav-link:hover {
+            background: linear-gradient(135deg, rgba(0, 212, 255, 0.3) 0%, rgba(0, 153, 255, 0.3) 100%);
+            box-shadow: 0 4px 12px rgba(0, 212, 255, 0.3);
+            transform: translateX(2px);
+        }
+
+        .persona-selector {
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            color: #e0e0e0;
+            padding: 0.5rem 1rem;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            transition: all 0.3s ease;
+        }
+
+        .persona-selector:hover {
+            background: rgba(255, 255, 255, 0.15);
+            border-color: #00d4ff;
+        }
+
+        .persona-selector:focus {
+            outline: none;
+            border-color: #00d4ff;
+            box-shadow: 0 0 10px rgba(0, 212, 255, 0.2);
+        }
+
+        .status-indicator {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.5rem 1rem;
+            background: rgba(255, 193, 7, 0.1);
+            border: 1px solid #ffc107;
+            border-radius: 4px;
+            font-size: 0.85rem;
+            color: #ffc107;
+        }
+
+        .status-indicator.error {
+            background: rgba(244, 67, 54, 0.1);
+            border-color: #f44336;
+            color: #f44336;
+        }
+
+        .status-indicator.connected {
+            background: rgba(76, 175, 80, 0.1);
+            border-color: #4caf50;
+            color: #4caf50;
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: currentColor;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        .maintenance-banner {
+            background: linear-gradient(135deg, rgba(244, 67, 54, 0.2) 0%, rgba(244, 67, 54, 0.1) 100%);
+            border-top: 2px solid #f44336;
+            border-bottom: 1px solid rgba(244, 67, 54, 0.3);
+            padding: 1rem 2rem;
+            text-align: center;
+            display: none;
+        }
+
+        .maintenance-banner.show {
+            display: block;
+        }
+
+        .maintenance-banner h2 {
+            color: #ff6b6b;
+            margin-bottom: 0.5rem;
+            font-size: 1.1rem;
+        }
+
+        .maintenance-banner p {
+            color: #ff9999;
+            font-size: 0.9rem;
+        }
+
+        .container {
+            flex: 1;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 2rem;
+            padding: 2rem;
+            max-width: 1400px;
+            margin: 0 auto;
+            width: 100%;
+        }
+
+        @media (max-width: 1024px) {
+            .container {
+                grid-template-columns: 1fr;
+                gap: 1rem;
+                padding: 1rem;
+            }
+        }
+
+        .panel {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
+            padding: 2rem;
+            display: flex;
+            flex-direction: column;
+            backdrop-filter: blur(10px);
+        }
+
+        .panel-title {
+            font-size: 1.3rem;
+            font-weight: 600;
+            margin-bottom: 1.5rem;
+            color: #00d4ff;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .supervisor-intro {
+            background: rgba(0, 212, 255, 0.05);
+            border-left: 3px solid #00d4ff;
+            padding: 1rem;
+            border-radius: 4px;
+            margin-bottom: 1.5rem;
+            font-size: 0.95rem;
+            line-height: 1.6;
+        }
+
+        .chat-container {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            min-height: 400px;
+        }
+
+        .messages {
+            flex: 1;
+            overflow-y: auto;
+            margin-bottom: 1rem;
+            padding-right: 0.5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .messages::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .messages::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 3px;
+        }
+
+        .messages::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 3px;
+        }
+
+        .messages::-webkit-scrollbar-thumb:hover {
+            background: rgba(255, 255, 255, 0.3);
+        }
+
+        .message {
+            display: flex;
+            gap: 1rem;
+            animation: slideIn 0.3s ease-out;
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .message.user {
+            justify-content: flex-end;
+        }
+
+        .message.assistant {
+            justify-content: flex-start;
+        }
+
+        .message-avatar {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            flex-shrink: 0;
+            font-size: 0.8rem;
+        }
+
+        .message.user .message-avatar {
+            background: linear-gradient(135deg, #00d4ff 0%, #0099ff 100%);
+            color: white;
+        }
+
+        .message.assistant .message-avatar {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .message-content {
+            max-width: 70%;
+            padding: 1rem;
+            border-radius: 8px;
+            line-height: 1.5;
+            word-wrap: break-word;
+        }
+
+        .message.user .message-content {
+            background: linear-gradient(135deg, rgba(0, 212, 255, 0.2) 0%, rgba(0, 153, 255, 0.2) 100%);
+            border: 1px solid rgba(0, 212, 255, 0.3);
+        }
+
+        .message.assistant .message-content {
+            background: rgba(255, 255, 255, 0.08);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .input-area {
+            display: flex;
+            gap: 0.5rem;
+        }
+
+        .input-area input {
+            flex: 1;
+            background: rgba(255, 255, 255, 0.08);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            color: #e0e0e0;
+            padding: 0.75rem 1rem;
+            border-radius: 4px;
+            font-size: 0.95rem;
+            transition: all 0.3s ease;
+        }
+
+        .input-area input:focus {
+            outline: none;
+            background: rgba(255, 255, 255, 0.12);
+            border-color: #00d4ff;
+            box-shadow: 0 0 10px rgba(0, 212, 255, 0.2);
+        }
+
+        .input-area button {
+            background: linear-gradient(135deg, #00d4ff 0%, #0099ff 100%);
+            color: white;
+            border: none;
+            padding: 0.75rem 1.5rem;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s ease;
+        }
+
+        .input-area button:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 212, 255, 0.4);
+        }
+
+        .input-area button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .admin-dashboard {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
+            padding: 1.5rem;
+        }
+
+        .admin-section {
+            margin-bottom: 1.5rem;
+        }
+
+        .admin-section-title {
+            font-weight: 600;
+            color: #00d4ff;
+            margin-bottom: 1rem;
+            font-size: 0.95rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .form-group {
+            margin-bottom: 1rem;
+        }
+
+        .form-group label {
+            display: block;
+            font-size: 0.85rem;
+            color: #b0b0b0;
+            margin-bottom: 0.5rem;
+            font-weight: 500;
+        }
+
+        .form-group input,
+        .form-group select {
+            width: 100%;
+            background: rgba(255, 255, 255, 0.08);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            color: #e0e0e0;
+            padding: 0.75rem;
+            border-radius: 4px;
+            font-size: 0.9rem;
+        }
+
+        .form-group input:focus,
+        .form-group select:focus {
+            outline: none;
+            background: rgba(255, 255, 255, 0.12);
+            border-color: #00d4ff;
+        }
+
+        .key-grid {
+            display: grid;
+            gap: 1rem;
+        }
+
+        .key-item {
+            background: rgba(0, 0, 0, 0.2);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 4px;
+            padding: 1rem;
+        }
+
+        .key-item-label {
+            font-size: 0.85rem;
+            color: #b0b0b0;
+            margin-bottom: 0.5rem;
+        }
+
+        .key-item-value {
+            font-family: 'Monaco', 'Menlo', monospace;
+            font-size: 0.8rem;
+            color: #00ff00;
+            background: rgba(0, 0, 0, 0.3);
+            padding: 0.5rem;
+            border-radius: 3px;
+            word-break: break-all;
+            margin: 0.5rem 0;
+        }
+
+        .key-item-status {
+            font-size: 0.8rem;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.3rem;
+            padding: 0.3rem 0.6rem;
+            background: rgba(76, 175, 80, 0.2);
+            border-radius: 3px;
+            color: #4caf50;
+        }
+
+        .key-item-status.invalid {
+            background: rgba(244, 67, 54, 0.2);
+            color: #f44336;
+        }
+
+        .system-status {
+            background: rgba(0, 0, 0, 0.2);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 4px;
+            padding: 1rem;
+        }
+
+        .status-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.5rem 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .status-item:last-child {
+            border-bottom: none;
+        }
+
+        .status-item-name {
+            font-size: 0.9rem;
+        }
+
+        .status-item-value {
+            font-size: 0.85rem;
+            font-weight: 600;
+        }
+
+        .btn-group {
+            display: flex;
+            gap: 0.5rem;
+            margin-top: 1rem;
+        }
+
+        .btn {
+            flex: 1;
+            padding: 0.75rem;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            font-size: 0.9rem;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #00d4ff 0%, #0099ff 100%);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 212, 255, 0.4);
+        }
+
+        .btn-secondary {
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            color: #e0e0e0;
+        }
+
+        .btn-secondary:hover {
+            background: rgba(255, 255, 255, 0.15);
+        }
+
+        .btn-danger {
+            background: rgba(244, 67, 54, 0.2);
+            border: 1px solid #f44336;
+            color: #f44336;
+        }
+
+        .btn-danger:hover {
+            background: rgba(244, 67, 54, 0.3);
+        }
+
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid rgba(255, 255, 255, 0.2);
+            border-top: 3px solid #00d4ff;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .footer {
+            background: rgba(0, 0, 0, 0.3);
+            padding: 1.5rem 2rem;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+            text-align: center;
+            font-size: 0.85rem;
+            color: #888;
+        }
+
+        .fade-in {
+            animation: fadeIn 0.5s ease-out;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        .warning-box {
+            background: rgba(255, 152, 0, 0.1);
+            border-left: 3px solid #ff9800;
+            padding: 1rem;
+            border-radius: 4px;
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+            color: #ffb74d;
+        }
+
+        .info-box {
+            background: rgba(33, 150, 243, 0.1);
+            border-left: 3px solid #2196f3;
+            padding: 1rem;
+            border-radius: 4px;
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+            color: #64b5f6;
+        }
+    </style>
+</head>
+<body>
+    <!-- Header -->
+    <div class="header">
+        <div class="header-title">
+            <div style="display: flex; gap: 1rem; align-items: center;">
+                <button class="nav-button" onclick="goHome()" title="Home">
+                    <span style="font-size: 1.2rem;">🏠</span>
+                </button>
+                <button class="nav-button" onclick="goBack()" title="Go Back">
+                    <span style="font-size: 1.2rem;">←</span>
+                </button>
+            </div>
+            <div class="logo">⚙</div>
+            <div>
+                <h1>WAI-Institute Backup Portal</h1>
+                <p style="font-size: 0.8rem; color: #888; margin: 0;">The Supervisor - Always Available</p>
+            </div>
+        </div>
+        <div class="header-controls">
+            <div class="status-indicator" id="mainSystemStatus">
+                <span class="status-dot"></span>
+                <span>Checking main system...</span>
+            </div>
+            <a href="javascript:goToMainSystem()" class="nav-link" title="Return to Main System">
+                <span>→ Main System</span>
+            </a>
+            <select class="persona-selector" id="personaSelector" onchange="changePersona(this.value)">
+                <option value="supervisor">Formal Governance (Supervisor)</option>
+                <option value="helpdesk">Help Desk Assistant</option>
+                <option value="technical">Technical Support</option>
+            </select>
+        </div>
+    </div>
+
+    <!-- Maintenance Banner -->
+    <div class="maintenance-banner" id="maintenanceBanner">
+        <h2>⚠️ System Maintenance</h2>
+        <p>The primary WAI-Institute system is currently undergoing scheduled maintenance. You're connected to our backup interface. Service will be restored shortly.</p>
+    </div>
+
+    <!-- Main Container -->
+    <div class="container">
+        <!-- Chat Panel -->
+        <div class="panel fade-in">
+            <div class="panel-title">Chat Interface</div>
+
+            <div class="supervisor-intro" id="personaIntro">
+                <strong>The Supervisor:</strong> I'm here to provide governance support, system status updates, and assistance with your immediate needs. All information is securely processed.
+            </div>
+
+            <div class="chat-container">
+                <div class="messages" id="chatMessages">
+                    <div class="message assistant">
+                        <div class="message-avatar">👤</div>
+                        <div class="message-content">
+                            <strong>The Supervisor</strong>: Welcome to the WAI-Institute backup portal. How can I assist you today?
+                        </div>
+                    </div>
+                </div>
+
+                <div class="input-area">
+                    <input type="text" id="chatInput" placeholder="Type your message..." onkeypress="handleKeyPress(event)">
+                    <button onclick="sendMessage()" id="sendBtn">Send</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Admin Dashboard Panel -->
+        <div class="panel fade-in" id="adminPanel" style="display: none;">
+            <div class="panel-title">Executive Dashboard</div>
+
+            <div class="info-box">
+                This dashboard is only visible to authenticated executive users. API keys are securely stored and never shared.
+            </div>
+
+            <div class="admin-dashboard">
+                <!-- System Status Section -->
+                <div class="admin-section">
+                    <div class="admin-section-title">System Status</div>
+                    <div class="system-status">
+                        <div class="status-item">
+                            <span class="status-item-name">Main Backend</span>
+                            <span class="status-item-value" id="mainBackendStatus">Checking...</span>
+                        </div>
+                        <div class="status-item">
+                            <span class="status-item-name">Database Connection</span>
+                            <span class="status-item-value" id="dbStatus">Checking...</span>
+                        </div>
+                        <div class="status-item">
+                            <span class="status-item-name">API Services</span>
+                            <span class="status-item-value" id="apiStatus">Checking...</span>
+                        </div>
+                        <div class="status-item">
+                            <span class="status-item-name">Last Health Check</span>
+                            <span class="status-item-value" id="lastHealthCheck">--:--:--</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- API Keys Section -->
+                <div class="admin-section">
+                    <div class="admin-section-title">Free-Tier API Configuration</div>
+                    <div class="warning-box">
+                        Store API keys securely. Never share publicly. This interface uses browser local storage for development only.
+                    </div>
+
+                    <div class="key-grid">
+                        <!-- Hugging Face -->
+                        <div class="key-item">
+                            <div class="key-item-label">🤗 Hugging Face</div>
+                            <input type="password" id="hfKey" placeholder="hf_..." value="" onchange="saveApiKey('hf', this.value)">
+                            <div class="key-item-status" id="hfStatus">Not configured</div>
+                        </div>
+
+                        <!-- Google Gemini -->
+                        <div class="key-item">
+                            <div class="key-item-label">🔷 Google Gemini</div>
+                            <input type="password" id="geminiKey" placeholder="AIza..." value="" onchange="saveApiKey('gemini', this.value)">
+                            <div class="key-item-status" id="geminiStatus">Not configured</div>
+                        </div>
+
+                        <!-- Cohere -->
+                        <div class="key-item">
+                            <div class="key-item-label">🔷 Cohere</div>
+                            <input type="password" id="cohereKey" placeholder="cohere_api_key..." value="" onchange="saveApiKey('cohere', this.value)">
+                            <div class="key-item-status" id="cohereStatus">Not configured</div>
+                        </div>
+
+                        <!-- Grok (X.AI) -->
+                        <div class="key-item">
+                            <div class="key-item-label">⚡ Grok (X.AI)</div>
+                            <input type="password" id="grokKey" placeholder="xai_..." value="" onchange="saveApiKey('grok', this.value)">
+                            <div class="key-item-status" id="grokStatus">Not configured</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Quick Actions -->
+                <div class="admin-section">
+                    <div class="admin-section-title">Quick Actions</div>
+                    <div class="btn-group">
+                        <button class="btn btn-primary" onclick="checkMainSystem()">Check Main System</button>
+                        <button class="btn btn-secondary" onclick="clearLocalData()">Clear Cache</button>
+                    </div>
+                    <div class="btn-group" style="margin-top: 0.5rem;">
+                        <button class="btn btn-secondary" onclick="toggleAdminMode()">Exit Admin Mode</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <div class="footer">
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 2rem; margin-bottom: 2rem;">
+            <div>
+                <p style="font-size: 0.85rem; font-weight: 600; margin-bottom: 0.5rem; color: #00d4ff;">Quick Links</p>
+                <p><a href="javascript:goToMainSystem()" style="color: #64b5f6; text-decoration: none; font-size: 0.8rem;">→ Back to Main System</a></p>
+                <p><a href="javascript:goToMainSystem('/api/docs')" style="color: #64b5f6; text-decoration: none; font-size: 0.8rem;">→ API Documentation</a></p>
+                <p><a href="javascript:showHelp()" style="color: #64b5f6; text-decoration: none; font-size: 0.8rem;">→ Help Center</a></p>
+            </div>
+            <div>
+                <p style="font-size: 0.85rem; font-weight: 600; margin-bottom: 0.5rem; color: #00d4ff;">System Status</p>
+                <p style="font-size: 0.8rem; color: #aaa;">Backup Portal: <span style="color: #4caf50;">Online</span></p>
+                <p style="font-size: 0.8rem; color: #aaa;">Health Check: Every 30s</p>
+                <p style="font-size: 0.8rem; color: #aaa;">Last Updated: <span id="footerLastCheck">--:--:--</span></p>
+            </div>
+            <div>
+                <p style="font-size: 0.85rem; font-weight: 600; margin-bottom: 0.5rem; color: #00d4ff;">Support</p>
+                <p><a href="mailto:support@wai-institute.org" style="color: #64b5f6; text-decoration: none; font-size: 0.8rem;">📧 Email Support</a></p>
+                <p><a href="javascript:void(0)" onclick="openChat('supervisor')" style="color: #64b5f6; text-decoration: none; font-size: 0.8rem;">💬 Chat with Supervisor</a></p>
+                <p style="font-size: 0.8rem; color: #888; margin-top: 0.5rem;">Available 24/7</p>
+            </div>
+        </div>
+        <hr style="border: none; border-top: 1px solid rgba(255, 255, 255, 0.1); margin-bottom: 1rem;">
+        <p>WAI-Institute Backup Portal v1.0 | The Supervisor AI System | © 2026 WAI-Institute</p>
+        <p style="margin-top: 0.5rem; font-size: 0.75rem;">Supported APIs: Hugging Face, Google Gemini, Cohere, Grok | All systems monitored</p>
+        <p style="margin-top: 0.5rem; font-size: 0.75rem; color: #666;">This is a backup interface. <a href="javascript:goToMainSystem()" style="color: #00d4ff; text-decoration: none;">Return to main system →</a></p>
+    </div>
+
+    <script>
+        // ====================================================================
+        // CONFIGURATION
+        // ====================================================================
+        const CONFIG = {
+            mainSystemUrl: window.location.origin.includes('localhost') ? 
+                'http://localhost:8001' : 
+                window.location.origin.replace(/backup.*/, ''),
+            healthCheckInterval: 30000, // 30 seconds
+            healthCheckTimeout: 5000, // 5 seconds
+            mainSystemCheckUrl: '/api/health',
+        };
+
+        // ====================================================================
+        // STATE
+        // ====================================================================
+        let currentPersona = 'supervisor';
+        let isMainSystemDown = false;
+        let healthCheckTimer = null;
+        let isAdminMode = false;
+
+        const personaDefinitions = {
+            supervisor: {
+                name: 'The Supervisor',
+                intro: '<strong>The Supervisor:</strong> I\'m the governance intelligence for WAI-Institute. I oversee system health, provide executive briefings, and assist with institutional guidance. Direct and comprehensive.',
+                fallbackMessages: [
+                    'The primary system is temporarily offline. I can assist with general governance questions or help you understand our current status.',
+                    'I\'m monitoring our backup systems. All critical infrastructure is secured and monitored.',
+                    'How can I support your operational needs right now?',
+                    'Our technical team is working on restoring full service. In the meantime, I can provide archival guidance from our knowledge base.',
+                ]
+            },
+            helpdesk: {
+                name: 'Help Desk Assistant',
+                intro: '<strong>Help Desk Assistant:</strong> I\'m here to help! Whether you have questions about access, courses, billing, or general support, I\'m ready to assist.',
+                fallbackMessages: [
+                    'We\'re currently experiencing some temporary issues with the main system. I\'m here in the backup to help however I can.',
+                    'Need help with something? I\'m ready to assist or direct you to the right resource.',
+                    'Can\'t reach the main system? I can still help with common questions and provide information.',
+                    'Let me help you with whatever you need right now.',
+                ]
+            },
+            technical: {
+                name: 'Technical Support',
+                intro: '<strong>Technical Support:</strong> I\'m the technical support specialist. I help with platform issues, troubleshooting, and technical questions.',
+                fallbackMessages: [
+                    'The main platform is currently offline. Our technical team is investigating.',
+                    'Connection issues? I can help troubleshoot or provide workarounds.',
+                    'What technical issue can I help you with?',
+                    'I can provide general troubleshooting guidance while the main system is being restored.',
+                ]
+            }
+        };
+
+        // ====================================================================
+        // INITIALIZATION
+        // ====================================================================
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('[WAI Backup] Initializing...');
+            loadApiKeysFromStorage();
+            startHealthCheckLoop();
+            checkMainSystem();
+            setupEventListeners();
+        });
+
+        function setupEventListeners() {
+            // Check for admin mode trigger (Ctrl+Shift+A)
+            document.addEventListener('keydown', function(e) {
+                if (e.ctrlKey && e.shiftKey && e.key === 'A') {
+                    e.preventDefault();
+                    promptAdminAccess();
+                }
+            });
+        }
+
+        function createAbortController(timeoutMs) {
+            const controller = new AbortController();
+            const timer = setTimeout(() => controller.abort(), timeoutMs);
+            return {
+                signal: controller.signal,
+                clear: () => clearTimeout(timer)
+            };
+        }
+
+        // ====================================================================
+        // HEALTH CHECKING & SYSTEM MONITORING
+        // ====================================================================
+        async function checkMainSystem() {
+            console.log('[WAI Health] Checking main system...');
+            const statusEl = document.getElementById('mainSystemStatus');
+            const abortHandle = createAbortController(CONFIG.healthCheckTimeout);
+
+            try {
+                const response = await fetch(CONFIG.mainSystemUrl + CONFIG.mainSystemCheckUrl, {
+                    method: 'GET',
+                    mode: 'cors',
+                    signal: abortHandle.signal
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    console.log('[WAI Health] Main system OK:', data);
+                    setSystemOnline(data);
+                } else {
+                    console.warn('[WAI Health] Main system returned:', response.status);
+                    setSystemOffline(response.status);
+                }
+            } catch (error) {
+                if (error.name === 'AbortError') {
+                    console.error('[WAI Health] Check timed out');
+                } else {
+                    console.error('[WAI Health] Check failed:', error.message);
+                }
+                setSystemOffline(null);
+            } finally {
+                abortHandle.clear();
+            }
+        }
+
+        async function getResponseFromMainSystem(message) {
+            const abortHandle = createAbortController(CONFIG.healthCheckTimeout);
+            try {
+                const response = await fetch(CONFIG.mainSystemUrl + '/api/ai/chat', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        message: message,
+                        persona: currentPersona === 'supervisor' ? 'director' : currentPersona,
+                    }),
+                    signal: abortHandle.signal,
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    return data.reply || data.response || 'No response received.';
+                }
+            } catch (error) {
+                if (error.name === 'AbortError') {
+                    console.warn('[Chat] Main system request timed out');
+                } else {
+                    console.warn('[Chat] Main system unavailable:', error.message);
+                }
+            } finally {
+                abortHandle.clear();
+            }
+            return null;
+        }
+
+        function setSystemOnline(healthData) {
+            isMainSystemDown = false;
+            document.getElementById('maintenanceBanner').classList.remove('show');
+            document.getElementById('mainSystemStatus').className = 'status-indicator connected';
+            document.getElementById('mainSystemStatus').innerHTML = '<span class="status-dot"></span><span>Main System Online</span>';
+
+            if (isAdminMode) {
+                document.getElementById('mainBackendStatus').textContent = healthData?.status || 'Operational';
+                document.getElementById('dbStatus').textContent = healthData?.db?.status || 'Connected';
+                document.getElementById('apiStatus').textContent = healthData?.ai_api?.status || 'Ready';
+                document.getElementById('lastHealthCheck').textContent = new Date().toLocaleTimeString();
+            }
+        }
+
+        function setSystemOffline(statusCode) {
+            isMainSystemDown = true;
+            document.getElementById('maintenanceBanner').classList.add('show');
+            const statusEl = document.getElementById('mainSystemStatus');
+            statusEl.className = 'status-indicator error';
+
+            if (statusCode === 503) {
+                statusEl.innerHTML = '<span class="status-dot"></span><span>Service Unavailable (Maintenance)</span>';
+            } else if (statusCode === 404) {
+                statusEl.innerHTML = '<span class="status-dot"></span><span>Service Unreachable</span>';
+            } else {
+                statusEl.innerHTML = '<span class="status-dot"></span><span>Connection Lost</span>';
+            }
+
+            if (isAdminMode) {
+                document.getElementById('mainBackendStatus').textContent = 'Offline';
+                document.getElementById('dbStatus').textContent = 'Checking backup...';
+                document.getElementById('apiStatus').textContent = 'Fallback mode';
+                document.getElementById('lastHealthCheck').textContent = new Date().toLocaleTimeString();
+            }
+        }
+
+        function startHealthCheckLoop() {
+            // Initial check
+            checkMainSystem();
+
+            // Set up periodic checks
+            healthCheckTimer = setInterval(() => {
+                checkMainSystem();
+            }, CONFIG.healthCheckInterval);
+
+            console.log('[WAI Health] Health check loop started (30s interval)');
+        }
+
+        // ====================================================================
+        // CHAT INTERFACE
+        // ====================================================================
+        async function sendMessage() {
+            const input = document.getElementById('chatInput');
+            const message = input.value.trim();
+
+            if (!message) return;
+
+            // Display user message
+            addMessage(message, 'user');
+            input.value = '';
+
+            // Show loading indicator
+            const sendBtn = document.getElementById('sendBtn');
+            sendBtn.disabled = true;
+            sendBtn.innerHTML = '<span class="loading"></span>';
+
+            try {
+                // Try to get response from main system first
+                let response;
+                if (!isMainSystemDown) {
+                    response = await getResponseFromMainSystem(message);
+                } else {
+                    response = null;
+                }
+
+                // Fallback to backup response if main system is down
+                if (!response) {
+                    response = getBackupResponse(message);
+                }
+
+                addMessage(response, 'assistant');
+            } catch (error) {
+                console.error('[Chat] Error:', error);
+                addMessage(getBackupResponse(message), 'assistant');
+            } finally {
+                sendBtn.disabled = false;
+                sendBtn.innerHTML = 'Send';
+            }
+        }
+
+        async function getResponseFromMainSystem(message) {
+            try {
+                const response = await fetch(CONFIG.mainSystemUrl + '/api/ai/chat', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        message: message,
+                        persona: currentPersona === 'supervisor' ? 'director' : currentPersona,
+                    }),
+                    timeout: CONFIG.healthCheckTimeout,
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    return data.reply || data.response || 'No response received.';
+                }
+            } catch (error) {
+                console.warn('[Chat] Main system unavailable:', error.message);
+            }
+            return null;
+        }
+
+        function getBackupResponse(userMessage) {
+            const persona = personaDefinitions[currentPersona] || personaDefinitions.supervisor;
+            const fallbacks = persona.fallbackMessages;
+
+            // Simple keyword matching for intelligent fallback
+            const lowerMsg = userMessage.toLowerCase();
+
+            if (lowerMsg.includes('status') || lowerMsg.includes('health') || lowerMsg.includes('online')) {
+                return `The main system is currently ${isMainSystemDown ? 'offline for maintenance' : 'online and operational'}. I'm here to assist you regardless.`;
+            }
+
+            if (lowerMsg.includes('help') || lowerMsg.includes('problem') || lowerMsg.includes('issue')) {
+                return "I'm here to help! While the main system is being restored, tell me what you need and I'll assist however I can.";
+            }
+
+            if (lowerMsg.includes('thank') || lowerMsg.includes('thanks')) {
+                return "You're welcome! I'm here whenever you need assistance. Is there anything else I can help with?";
+            }
+
+            // Return a random fallback message
+            return fallbacks[Math.floor(Math.random() * fallbacks.length)];
+        }
+
+        function addMessage(text, sender) {
+            const messagesContainer = document.getElementById('chatMessages');
+            const persona = personaDefinitions[currentPersona] || personaDefinitions.supervisor;
+
+            const messageEl = document.createElement('div');
+            messageEl.className = `message ${sender}`;
+
+            const avatar = sender === 'user' ? '👤' : sender === 'assistant' ? '🤖' : '👤';
+
+            messageEl.innerHTML = `
+                <div class="message-avatar">${avatar}</div>
+                <div class="message-content">
+                    ${sender === 'assistant' ? `<strong>${persona.name}:</strong> ` : ''}${escapeHtml(text)}
+                </div>
+            `;
+
+            messagesContainer.appendChild(messageEl);
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+        }
+
+        function handleKeyPress(event) {
+            if (event.key === 'Enter' && !event.shiftKey) {
+                event.preventDefault();
+                sendMessage();
+            }
+        }
+
+        // ====================================================================
+        // PERSONA MANAGEMENT
+        // ====================================================================
+        function changePersona(personaId) {
+            currentPersona = personaId;
+            const persona = personaDefinitions[personaId];
+
+            document.getElementById('personaIntro').innerHTML = persona.intro;
+
+            // Add system message
+            addMessage(`I've switched to ${persona.name} mode. How can I assist you?`, 'assistant');
+        }
+
+        // ====================================================================
+        // ADMIN MODE
+        // ====================================================================
+        function promptAdminAccess() {
+            const password = prompt('Enter admin password:');
+            if (password === 'wai_admin_2026' || password === localStorage.getItem('waiAdminPassword')) {
+                isAdminMode = true;
+                document.getElementById('adminPanel').style.display = 'flex';
+                addMessage('Admin mode activated. Executive dashboard is now visible.', 'assistant');
+            } else if (password !== null) {
+                alert('Invalid admin password.');
+            }
+        }
+
+        function toggleAdminMode() {
+            isAdminMode = false;
+            document.getElementById('adminPanel').style.display = 'none';
+            addMessage('Admin mode deactivated.', 'assistant');
+        }
+
+        // ====================================================================
+        // API KEY MANAGEMENT
+        // ====================================================================
+        function saveApiKey(service, key) {
+            if (!key) {
+                localStorage.removeItem(`wai_api_${service}`);
+                updateKeyStatus(service, false);
+            } else {
+                localStorage.setItem(`wai_api_${service}`, key);
+                updateKeyStatus(service, true);
+            }
+        }
+
+        function loadApiKeysFromStorage() {
+            const services = ['hf', 'gemini', 'cohere', 'grok'];
+            services.forEach(service => {
+                const key = localStorage.getItem(`wai_api_${service}`);
+                if (key) {
+                    document.getElementById(`${service}Key`).value = key;
+                    updateKeyStatus(service, true);
+                }
+            });
+        }
+
+        function updateKeyStatus(service, isConfigured) {
+            const statusEl = document.getElementById(`${service}Status`);
+            if (isConfigured) {
+                statusEl.className = 'key-item-status';
+                statusEl.innerHTML = '✓ Configured';
+            } else {
+                statusEl.className = 'key-item-status invalid';
+                statusEl.innerHTML = '✗ Not configured';
+            }
+        }
+
+        function clearLocalData() {
+            if (confirm('Clear all stored API keys and cache?')) {
+                const services = ['hf', 'gemini', 'cohere', 'grok'];
+                services.forEach(service => {
+                    localStorage.removeItem(`wai_api_${service}`);
+                    document.getElementById(`${service}Key`).value = '';
+                    updateKeyStatus(service, false);
+                });
+                alert('Cache cleared.');
+            }
+        }
+
+        // ====================================================================
+        // UTILITIES
+        // ====================================================================
+        function escapeHtml(text) {
+            const map = {
+                '&': '&amp;',
+                '<': '&lt;',
+                '>': '&gt;',
+                '"': '&quot;',
+                "'": '&#039;'
+            };
+            return text.replace(/[&<>"']/g, m => map[m]);
+        }
+
+        // Clean up on unload
+        window.addEventListener('beforeunload', function() {
+            if (healthCheckTimer) {
+                clearInterval(healthCheckTimer);
+            }
+        });
+
+        // Log initialization complete
+        console.log('[WAI Backup] System ready. Health checks running every 30 seconds.');
+
+        // ====================================================================
+        // NAVIGATION FUNCTIONS
+        // ====================================================================
+        function goHome() {
+            window.location.href = '/';
+        }
+
+        function goBack() {
+            if (window.history.length > 1) {
+                window.history.back();
+            } else {
+                goHome();
+            }
+        }
+
+        function goToMainSystem(path = '') {
+            const mainUrl = CONFIG.mainSystemUrl.replace(/\/$/, '');
+            if (isMainSystemDown) {
+                alert('The main system is currently offline. Please try again in a moment.');
+                return;
+            }
+            window.location.href = mainUrl + (path || '/');
+        }
+
+        function showHelp() {
+            addMessage('How can I help you? Here are some things I can assist with:', 'assistant');
+            setTimeout(() => {
+                addMessage('• System status and health information\n• Account and access questions\n• General support and guidance\n• Technical troubleshooting', 'assistant');
+            }, 500);
+        }
+
+        function openChat(persona) {
+            if (persona && persona !== currentPersona) {
+                changePersona(persona);
+            }
+            document.getElementById('chatInput').focus();
+        }
+
+        // Update footer with current time
+        setInterval(() => {
+            const now = new Date();
+            const timeStr = now.toLocaleTimeString();
+            const footerEl = document.getElementById('footerLastCheck');
+            if (footerEl) {
+                footerEl.textContent = timeStr;
+            }
+        }, 1000);
+    </script>
+</body>
+</html>

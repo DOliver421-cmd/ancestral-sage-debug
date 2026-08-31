@@ -3,6 +3,8 @@
 
   "username": "wai-dev",
 
+"plugin": ["@daytona/opencode"],
+
   "instructions": ["AGENTS.md"],
 
   "permission": {

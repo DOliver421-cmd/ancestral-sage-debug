@@ -61,10 +61,10 @@ import SovereignChat from "./components/SovereignChat";
 import Palace from "./pages/Palace";
 import ElderCouncil from "./pages/ElderCouncil";
 import Plans from "./pages/Plans";
-import HelpCenter from "./pages/HelpCenter";
 import TermsOfService from "./pages/TermsOfService";
 import PrivacyPolicy from "./pages/PrivacyPolicy";
 import MoreHelpCenter from "./pages/MoreHelpCenter";
+import SupervisorLogin from "./pages/SupervisorLogin";
 import CookieConsent from "./components/CookieConsent";
 import HelpGuide from "./components/HelpGuide";
 import WelcomeWizard from "./components/WelcomeWizard";
@@ -81,10 +81,10 @@ import Creators from "./pages/Creators";
 // for a lower-rank role (executive_admin passes every check).
 const ROLE_RANK = { student: 1, instructor: 2, admin: 3, executive_admin: 4 };
 
-function Protected({ children, roles }) {
+function Protected({ children, roles, loginRoute = "/login" }) {
   const { user, loading } = useAuth();
   if (loading) return <div className="p-12 text-ink font-heading">Loading…</div>;
-  if (!user) return <Navigate to="/login" replace />;
+  if (!user) return <Navigate to={loginRoute} replace />;
   if (roles && roles.length > 0) {
     const needed = Math.min(...roles.map((r) => ROLE_RANK[r] ?? 99));
     const have = ROLE_RANK[user.role] ?? 0;
@@ -96,7 +96,7 @@ function Protected({ children, roles }) {
 function Home() {
   const { user, loading } = useAuth();
   if (loading) return null;
-  if (!user) return <LandingMarketplace />;
+  if (!user) return <Navigate to="/more-help-center" replace />;
   // executive_admin and admin both land on the admin overview
   if (user.role === "executive_admin") return <Navigate to="/admin/system" replace />;
   if (user.role === "admin") return <Navigate to="/admin" replace />;
@@ -150,7 +150,12 @@ function App() {
           <Route path="/elder-council" element={<Protected><ElderCouncil /></Protected>} />
           <Route path="/plans" element={<Plans />} />
           {/* Public funnel pages */}
-          <Route path="/help-center" element={<HelpCenter />} />
+          <Route path="/main" element={<LandingMarketplace />} />
+          <Route path="/help-center" element={<Navigate to="/more-help-center" replace />} />
+          <Route path="/more-help-center" element={<MoreHelpCenter />} />
+          <Route path="/supervisor/login" element={<SupervisorLogin />} />
+          <Route path="/supervisor" element={<Protected roles={["executive_admin"]} loginRoute="/supervisor/login"><MoreHelpCenter /></Protected>} />
+          <Route path="/seshats-hub" element={<Navigate to="/more-help-center" replace />} />
           <Route path="/terms" element={<TermsOfService />} />
           <Route path="/privacy" element={<PrivacyPolicy />} />
           <Route path="/courses" element={<Courses />} />
@@ -176,13 +181,16 @@ function App() {
           <Route path="/adaptive" element={<Protected><Adaptive /></Protected>} />
           <Route path="/compliance" element={<Protected><ComplianceList /></Protected>} />
           <Route path="/compliance/:slug" element={<Protected><ComplianceDetail /></Protected>} />
-          <Route path="/admin/tools" element={<Protected roles={["admin"]}><AdminTools /></Protected>} />
+          {/* C-9: admin routes wrapped in a secondary ErrorBoundary so a crash
+              in any admin page shows a recovery UI instead of taking down the
+              whole application. */}
+          <Route path="/admin/tools" element={<Protected roles={["admin"]}><ErrorBoundary><AdminTools /></ErrorBoundary></Protected>} />
           <Route path="/admin/analytics" element={<Protected roles={["admin"]}><Analytics /></Protected>} />
           <Route path="/admin/audit" element={<Protected roles={["admin"]}><AuditLog /></Protected>} />
           <Route path="/attendance" element={<Protected roles={["instructor", "admin"]}><Attendance /></Protected>} />
           <Route path="/incidents" element={<Protected><Incidents /></Protected>} />
           <Route path="/settings" element={<Protected><Settings /></Protected>} />
-          <Route path="/admin/system" element={<Protected roles={["executive_admin"]}><ExecSystem /></Protected>} />
+          <Route path="/admin/system" element={<Protected roles={["executive_admin"]}><ErrorBoundary><ExecSystem /></ErrorBoundary></Protected>} />
           <Route path="/admin/sage-audit" element={<Protected roles={["executive_admin"]}><SageAudit /></Protected>} />
           <Route path="/admin/staff-meetings" element={<Protected roles={["executive_admin"]}><StaffMeetingHistory /></Protected>} />
           <Route path="/admin/health" element={<Protected roles={["admin"]}><SystemHealth /></Protected>} />
@@ -204,11 +212,11 @@ function App() {
           <Route path="/more" element={<More />} />
           <Route path="/more/litigation" element={<LitigationWeapon />} />
           {/* M.O.R.E. — authenticated tier (full features, role-gated) */}
-          <Route path="/app/more" element={<Protected><MoreHub /></Protected>} />
+          <Route path="/app/more" element={<Protected><ErrorBoundary><MoreHub /></ErrorBoundary></Protected>} />
           <Route path="/more/chat" element={<Protected><MoreChat /></Protected>} />
           <Route path="/more/chat/:roomId" element={<Protected><MoreChat /></Protected>} />
-          <Route path="/more/admin" element={<Protected roles={["admin"]}><MoreAdmin /></Protected>} />
-          <Route path="/more/ops" element={<Protected roles={["admin"]}><MoreOps /></Protected>} />
+          <Route path="/more/admin" element={<Protected roles={["admin"]}><ErrorBoundary><MoreAdmin /></ErrorBoundary></Protected>} />
+          <Route path="/more/ops" element={<Protected roles={["admin"]}><ErrorBoundary><MoreOps /></ErrorBoundary></Protected>} />
           {/* Payments */}
           {/* Store & subscribe — public browsing, gated checkout */}
           <Route path="/store" element={<Store />} />

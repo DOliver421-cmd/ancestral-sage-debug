@@ -158,7 +158,7 @@ export default function Login() {
           {/* Footer Link */}
           <div className="mt-8 text-center">
             <p className="text-xs text-ink/50">
-              Need help? <Link to="/help-center" className="text-copper hover:text-copper/80 font-medium">Help Center</Link>
+              Need help? <Link to="/more-help-center" className="text-copper hover:text-copper/80 font-medium">MORE Help Center</Link>
             </p>
           </div>
         </div>
