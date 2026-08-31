@@ -2971,13 +2971,15 @@ app.include_router(api_router)
 # --- Register Headless Mode AI Dispatcher Router ---
 from ai.controller import router as ai_dispatcher_router
 app.include_router(ai_dispatcher_router)
-# CORS: when origins is wildcard ("*") browsers reject credentials, so we
-# turn off allow_credentials in that case (auth uses Bearer token in Authorization
-# header anyway). If a specific origin list is supplied, credentials are allowed.
-# Origin policy (first-party auto-append + BACKUP_ORIGIN) lives in platform_services.py.
+# CORS: restricted by default. The old default was "*" (allow all origins),
+# which — combined with Bearer-token auth in the Authorization header — allowed
+# any site to replay authenticated requests from a victim's browser. Now
+# defaults to the two first-party production domains; AUTO_CORS_ORIGINS are
+# still auto-appended (localhost for dev, backup tunnel, etc.). Set
+# CORS_ORIGINS explicitly in Railway only if you need to add origins.
 _cors_origins = platform_services.build_cors_origins(
-    os.environ.get('CORS_ORIGINS', '*'), BACKUP_ORIGIN)
-_allow_creds = _cors_origins != ['*']
+    os.environ.get('CORS_ORIGINS', 'https://www.morehelp.center,https://wai-institute.org'), BACKUP_ORIGIN)
+_allow_creds = True  # safe — origins are now an explicit list, not wildcard
 app.add_middleware(
     CORSMiddleware,
     allow_credentials=_allow_creds,
