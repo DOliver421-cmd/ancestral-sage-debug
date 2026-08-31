@@ -381,6 +381,9 @@ class _ExecFeatureFlagReq(BaseModel):
     scope:     Literal["platform", "user"] = "platform"
     user_id:   Optional[str] = None
     reason:    str  = Field(..., min_length=1, max_length=500)
+    # Optional metadata for structured flags (e.g. launch_mode allowlist).
+    # Only written for platform-scoped flags; ignored otherwise.
+    allowlist: Optional[List[str]] = None
 
 class _ExecAuthzMatrixReq(BaseModel):
     requirements: dict[str, str] = Field(..., description="feature key -> minimum feature_tier")
@@ -605,13 +608,21 @@ async def ec_feature_flag(body: _ExecFeatureFlagReq, request: Request,
                           actor: User = Depends(_require_rank("executive_admin"))):
     now_iso = datetime.now(timezone.utc).isoformat()
     if body.scope == "platform":
+        update = {
+            f"flags.{body.flag_name}.enabled": body.enabled,
+            f"flags.{body.flag_name}.updated_by": actor.id,
+            f"flags.{body.flag_name}.updated_at": now_iso,
+            "updated_at": now_iso,
+        }
+        if body.allowlist is not None:
+            update[f"flags.{body.flag_name}.allowlist"] = body.allowlist
         await db.platform_flags.update_one({"_id": "flags"},
-            {"$set": {f"flags.{body.flag_name}.enabled": body.enabled,
-                      f"flags.{body.flag_name}.updated_by": actor.id,
-                      f"flags.{body.flag_name}.updated_at": now_iso,
-                      "updated_at": now_iso}}, upsert=True)
+            {"$set": update}, upsert=True)
+        audit_after = {"flag": body.flag_name, "enabled": body.enabled}
+        if body.allowlist is not None:
+            audit_after["allowlist"] = body.allowlist
         await _exec_audit(actor, f"exec.platform_flag.{'enabled' if body.enabled else 'disabled'}",
-            after={"flag": body.flag_name, "enabled": body.enabled}, request=request, note=body.reason)
+            after=audit_after, request=request, note=body.reason)
     else:
         if not body.user_id:
             raise HTTPException(400, "user_id required for user-scoped flag")
@@ -1106,7 +1117,13 @@ async def ec_access_public():
                     continue
                 entry = pages.get(key, {"enabled": True, "allowed_roles": None})
                 if "enabled" in cfg:
-                    entry["enabled"] = cfg["enabled"]
+                    # AND semantics: disabled in EITHER store means disabled.
+                    # The page_access toggle (System A) and the FCC toggle
+                    # (System B) are independent gates — both must agree to
+                    # enable. The previous override semantics let an FCC
+                    # "enabled: true" re-activate a page that page_access had
+                    # explicitly disabled, violating the most-restrictive rule.
+                    entry["enabled"] = entry["enabled"] and cfg["enabled"]
                 if "allowed_roles" in cfg:
                     role_overridden.add(key)
                     entry["allowed_roles"] = cfg["allowed_roles"]
@@ -1154,6 +1171,33 @@ async def ec_access_public():
     except Exception:
         # A gate-map merge failure must never break the public gate map.
         pass
+
+    # -- Launch mode: one switch that inverts the default to "hidden" ---------
+    # When db.platform_flags.flags.launch_mode.enabled is true, every page
+    # defaults to disabled unless it appears in launch_mode.allowlist. This is
+    # the "show only what I have blessed" switch — fail-closed on the server,
+    # reversible in one write. No frontend change needed: AccessGate already
+    # honors enabled: false.
+    #
+    # Config shape in db.platform_flags:
+    #   {"flags": {"launch_mode": {"enabled": true,
+    #                              "allowlist": ["dashboard", "ai", ...],
+    #                              "updated_by": "<actor_id>",
+    #                              "updated_at": "<iso>"}}}
+    if db is not None:
+        try:
+            flags_doc = await db.platform_flags.find_one(
+                {"_id": "flags"}, {"_id": 0, "flags": 1}
+            )
+            flags = (flags_doc or {}).get("flags", {})
+            launch = flags.get("launch_mode", {})
+            if isinstance(launch, dict) and launch.get("enabled"):
+                allowlist = set(launch.get("allowlist", []))
+                for key in list(pages.keys()):
+                    if key not in allowlist:
+                        pages[key]["enabled"] = False
+        except Exception:
+            pass
 
     return {"pages": pages}
 
