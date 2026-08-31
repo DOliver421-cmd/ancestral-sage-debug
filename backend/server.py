@@ -2805,11 +2805,11 @@ async def shutdown_db_client():
 
 
 # ---- Hard Access Control middleware: gate the ENTIRE registered control surface ----
-# Wraps after every route is registered so the gate sees the full surface.
-# Any request to a monitored control route runs the RBAC tier check BEFORE the
-# handler; insufficient clearance -> 403 + audit_log entry (action=access_denied).
-app = access_gateway.wrap(app)
-logger.info("Access Control middleware wrapping app - %d controls monitored", len(CONTROL_REGISTRY))
+# NOTE: wrap() was previously here (line ~2811) but four routers registered AFTER
+# it — NAM, Saga, Executive Pipeline, Executive Tools — so they were absent from
+# both snapshots (_public_route_patterns and _handler_requirements). Those are the
+# highest-authority routers; leaving them un-gated was a security gap.
+# Moved BELOW all include_router calls to capture the full surface.
 
 # ---- NAM API Routes (Hybrid NAM Leadership Intelligence) ----
 try:
@@ -2847,6 +2847,14 @@ try:
     logger.info("Executive Tools routes registered at /api/exec/tools")
 except Exception as _et_err:
     logger.warning("Executive Tools routes failed to load: %s", _et_err)
+
+# ---- Hard Access Control middleware — applied AFTER all routers registered ----
+# Must run after every include_router call so the gateway sees the full route
+# surface in both _public_route_patterns and _handler_requirements. Previously
+# this was at line ~2811, before NAM/Saga/ExecutivePipeline/ExecutiveTools
+# were included — those four routers had no gated authz.
+app = access_gateway.wrap(app)
+logger.info("Access Control middleware wrapping app - %d controls monitored", len(CONTROL_REGISTRY))
 
 if __name__ == "__main__":
     import uvicorn
