@@ -316,6 +316,12 @@ _GATE_EXEMPT = {
 _GATE_EXEMPT_PREFIXES = (
     "/api/auth/", "/api/payments/stripe-webhook", "/api/payments/webhook",
     "/api/payments/gumroad-webhook", "/api/docs", "/api/openapi.json", "/api/redoc",
+    # AI and NAM are the core product — never gate the API behind a toggle.
+    # The nav visibility (frontend AccessGate) already hides the UI when
+    # disabled; adding backend enforcement here would make AI completely
+    # inaccessible when the FCC page toggle is off, which breaks all AI
+    # users instead of just the nav. See REMEDIATION_PLAN Part 1.4.
+    "/api/ai/", "/api/nam/",
 )
 
 
