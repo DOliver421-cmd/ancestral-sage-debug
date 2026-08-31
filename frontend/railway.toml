@@ -2,5 +2,5 @@
 # Do NOT use this file for the live production site.
 # The live site should use the root railway.toml in the repository root.
 [deploy]
-healthcheckPath = "/"
+healthcheckPath = "/api/ready"
 healthcheckTimeout = 100

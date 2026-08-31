@@ -4,7 +4,11 @@
 dockerfilePath = "Dockerfile"
 
 [deploy]
-healthcheckPath = "/api/version"
+# /api/ready is a real readiness probe: it returns 503 (JSON) until the
+# database answers AND the background startup finishes. /api/version returns
+# 200 the moment the process binds (even with a dead DB), so using it here let
+# a broken/starting container take traffic and 503 every request.
+healthcheckPath = "/api/ready"
 healthcheckTimeout = 60
 restartPolicyType = "ON_FAILURE"
 restartPolicyMaxRetries = 10

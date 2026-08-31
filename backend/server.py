@@ -1138,7 +1138,9 @@ async def on_startup():
     task = asyncio.create_task(_on_startup_impl())
     _bg_tasks.append(task)
     def _startup_done(t: asyncio.Task):
+        global _startup_impl_done
         if t.cancelled():
+            _startup_impl_done = True
             return
         exc = t.exception()
         if exc:
@@ -1146,6 +1148,9 @@ async def on_startup():
                 "STARTUP TASK FAILED — initialization did not complete: %s",
                 exc, exc_info=exc,
             )
+        # Readiness is gated on this regardless of success/failure: once the
+        # background init settles we stop returning 503-on-startup from /api/ready.
+        _startup_impl_done = True
     task.add_done_callback(_startup_done)
 
 
@@ -1300,36 +1305,13 @@ async def _on_startup_impl():
                 logger.debug("Rate limiter: pruned %d stale keys.", len(stale))
     _supervised_task(_rate_limiter_cleanup(), name="rate_limiter_cleanup")  # C-4
 
-    # ── Serve built React frontend (home/backup server only) ─────────────────
-    if SERVE_FRONTEND:
-        _build_paths = [
-            ROOT_DIR.parent / "frontend" / "build",
-            ROOT_DIR.parent / "frontend" / "dist",
-            Path("/app/frontend/build"),
-            Path("/app/frontend/dist"),
-        ]
-        _served = False
-        for _bp in _build_paths:
-            if _bp.exists() and (_bp / "index.html").exists():
-                from fastapi.staticfiles import StaticFiles
-                from fastapi.responses import FileResponse
-
-                # Serve static assets
-                app.mount("/static", StaticFiles(directory=str(_bp / "static")), name="static")
-
-                # SPA catch-all — must come AFTER api_router is included
-                @app.get("/{full_path:path}", include_in_schema=False)
-                async def _spa_catchall(full_path: str):
-                    return FileResponse(str(_bp / "index.html"))
-
-                logger.info("STARTUP: Serving React frontend from %s", _bp)
-                _served = True
-                break
-        if not _served:
-            logger.warning(
-                "STARTUP: SERVE_FRONTEND=1 but no built frontend found. "
-                "Run 'npm run build' in the frontend directory first."
-            )
+    # Note: when SERVE_FRONTEND=1 the SPA/static routes are registered at
+    # import time (setup_frontend_serving, near the bottom of this module) so
+    # the catch-all and /static mount exist from the moment uvicorn binds. They
+    # used to be added HERE, inside this fire-and-forget background task, which
+    # meant every asset request returned 503 (no route matched) until a slow or
+    # DB-blocked startup finished. setup_frontend_serving() reads the same build
+    # dirs and logs whether the React app will be served.
 
     # ── Director 4.0 — prompt integrity baseline ──────────────────────────────
     # Any drift detected on subsequent calls indicates unauthorized modification.
@@ -10150,6 +10132,131 @@ else:
     logger.warning("Emergency UI not found at %s — gateway disabled", _EMERGENCY_UI_PATH)
 
 app.include_router(api_router)
+
+# ── Readiness probe (gates on DB + startup) ──────────────────────────────────────────────────
+# Railway's healthcheck previously pinged /api/version, which returns 200 the
+# instant the process binds — even with a dead database or mid-startup. So a
+# broken or still-initializing container was declared healthy, took traffic, and
+# 503'd every request (the exact outage pattern reported against this site on
+# 2026-08-31). This probe is available at import time, BEFORE the background
+# startup task finishes, and returns 503 (JSON) until the database actually
+# answers and startup is complete.
+#
+# We deliberately do NOT change /api/health's always-200 behavior: supervisors,
+# UptimeRobot and the frontends depend on it returning 200 and reading the
+# `status` field in the body. Health != readiness — only the readiness probe
+# should gate routing.
+@api_router.get("/ready", include_in_schema=False)
+async def ready():
+    db_ok = False
+    db_detail = ""
+    try:
+        await client.admin.command("ping")
+        db_ok = True
+    except Exception as _re:
+        db_detail = str(_re)[:120]
+
+    if not db_ok:
+        return JSONResponse(status_code=503, content={
+            "ready": False,
+            "reason": "db_down",
+            "detail": db_detail,
+            "startup_complete": _startup_impl_done,
+        })
+    if not _startup_impl_done:
+        return JSONResponse(status_code=503, content={
+            "ready": False,
+            "reason": "startup_incomplete",
+            "startup_complete": False,
+        })
+    return {"ready": True, "startup_complete": True}
+
+
+# Flag set once _on_startup_impl() finishes (or fails), so the readiness probe
+# returns 503 before the background startup task has completed — and also if it
+# crashes. See on_startup() near the top of the module.
+_startup_impl_done = False
+
+
+def setup_frontend_serving():
+    """Mount the built React SPA's static + root public assets and the SPA
+    catch-all at module import time.
+
+    These used to be registered inside the fire-and-forget startup task, so they
+    were absent — and every asset request 503'd — until a slow or DB-blocked
+    startup finished. Now they run synchronously at import, so as soon as uvicorn
+    binds, /static/* and the root-level public assets are served with correct
+    MIME types, and the catch-all returns index.html only for real SPA client
+    routes.
+    """
+    if not SERVE_FRONTEND:
+        return
+    _bp = None
+    for _candidate in (
+        ROOT_DIR.parent / "frontend" / "build",
+        ROOT_DIR.parent / "frontend" / "dist",
+        Path("/app/frontend/build"),
+        Path("/app/frontend/dist"),
+    ):
+        if _candidate.exists() and (_candidate / "index.html").exists():
+            _bp = _candidate
+            break
+    if _bp is None:
+        logger.warning(
+            "FRONTEND: SERVE_FRONTEND=1 but no built frontend found. "
+            "Run 'npm run build' in the frontend directory first."
+        )
+        return
+
+    from fastapi.staticfiles import StaticFiles
+    from fastapi.responses import FileResponse
+
+    _build_dir = str(_bp)
+
+    # Hashed build bundles (/static/js/main.<hash>.js, /static/css/main.<hash>.css)
+    app.mount("/static", StaticFiles(directory=_build_dir + "/static"), name="static")
+
+    # Root-level public assets (boot-branding.js, error-suppress.js, clear-sw.js,
+    # posthog-init.js, manifest.json, sw.js, favicons, ...). These MUST be served
+    # as real files with correct MIME types. The old code let the catch-all
+    # return index.html for all of them, which broke manifest.json and sw.js and
+    # sent HTML (or the edge's JSON 503 body) to <script src='/....js'> tags.
+    @app.get("/({path})", include_in_schema=False)
+    async def _serve_root_public(path: str):
+        _base = Path(_build_dir).resolve()
+        _candidate = (Path(_build_dir) / path).resolve()
+        if not (str(_candidate).startswith(str(_base) + os.sep) or _candidate == _base):
+            return JSONResponse(status_code=404, content={"detail": "Not Found"})
+        if _candidate.is_file():
+            return FileResponse(str(_candidate))
+        return JSONResponse(status_code=404, content={"detail": "Not Found"})
+
+    # SPA catch-all — must come AFTER api_router is included and after the
+    # /static mount and root-asset route above (registration order).
+    @app.get("/{full_path:path}", include_in_schema=False)
+    async def _spa_catchall(full_path: str):
+        # Serve real files that live under the build root (e.g. /robots.txt,
+        # /sitemap.xml) before falling back to index.html for client routes.
+        _base = Path(_build_dir).resolve()
+        _candidate = (Path(_build_dir) / full_path).resolve()
+        if not (str(_candidate).startswith(str(_base) + os.sep) or _candidate == _base):
+            return JSONResponse(status_code=404, content={"detail": "Not Found"})
+        if full_path and _candidate.is_file():
+            return FileResponse(str(_candidate))
+        return FileResponse(str(Path(_build_dir) / "index.html"))
+
+    logger.info(
+        "FRONTEND: Serving React build from %s (static + root assets registered at import)", _bp
+    )
+
+
+setup_frontend_serving()
+
+# register any routes that were added to api_router after the first
+# include_router(api_router) call above (specifically the /api/ready
+# readiness probe). route-level dedup in FastAPI skips exact duplicates.
+app.include_router(api_router)
+
 # CORS: when origins is wildcard ("*") browsers reject credentials, so we
 # turn off allow_credentials in that case (auth uses Bearer token in Authorization
 # header anyway). If a specific origin list is supplied, credentials are allowed.
