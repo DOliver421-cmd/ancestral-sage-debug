@@ -83,26 +83,32 @@ const PRESETS = [
     signupLabel: "Get key at console.x.ai",
     color:    "#6366f1",
   },
+  // Free-tier, no card required (owner confirmed 2026-08-31). These two run
+  // LAST in the gateway chain — after every other free provider and the shared
+  // BYOK pool — immediately before the static knowledge-base fallback. A real
+  // model answer beats canned KB text, and a free-tier key costs nothing.
+  // Previously mislabelled "Tier 1a / Tier 1b — Primary paid tier", from when
+  // they were wrongly attempted FIRST. See LAST_RESORT_AI_ENABLED.
   {
     type:     "openai",
     name:     "OpenAI",
     model:    "GPT-4o Mini",
-    badge:    "Tier 1a · Owner key",
-    cost:     "Paid (owner)",
-    note:     "Primary paid tier. Cheap + tool-capable text model.",
+    badge:    "Last resort · before KB",
+    cost:     "Free tier",
+    note:     "Free-tier key, no card needed. Tried last, just before the static knowledge-base fallback.",
     signup:   "https://platform.openai.com/api-keys",
-    signupLabel: "Get key at platform.openai.com",
+    signupLabel: "Get free key at platform.openai.com",
     color:    "#10a37f",
   },
   {
     type:     "deepseek",
     name:     "DeepSeek",
     model:    "DeepSeek Chat",
-    badge:    "Tier 1b · Owner key",
-    cost:     "Paid (owner)",
-    note:     "Second paid tier — cheap, OpenAI-compatible.",
+    badge:    "Last resort · before KB",
+    cost:     "Free tier",
+    note:     "Free-tier key, no card needed. Final model attempt before the knowledge-base fallback.",
     signup:   "https://platform.deepseek.com/api_keys",
-    signupLabel: "Get key at platform.deepseek.com",
+    signupLabel: "Get free key at platform.deepseek.com",
     color:    "#4d6bfe",
   },
 ];
@@ -481,7 +487,11 @@ export default function ProviderGateway() {
             </div>
             <p className="text-xs text-ink/30 mt-8 leading-relaxed">
               Keys are encrypted at rest. They are never returned in any API response.
-              The gateway tries Groq first, then Cerebras, Gemini, Mistral, Cohere, Together in order.
+              Order the gateway actually uses: Groq → Cerebras → SambaNova → Gemini → xAI →
+              Cohere → Mistral → Together → OpenRouter → HuggingFace → shared support keys →
+              OpenAI → DeepSeek → knowledge base. The first one that answers wins, so a single
+              key is enough. OpenAI and DeepSeek sit last, just before the knowledge-base
+              fallback.
             </p>
           </div>
         )}

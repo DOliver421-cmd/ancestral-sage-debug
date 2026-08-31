@@ -238,8 +238,219 @@ async def enforce_platform_flags(request: Request, call_next):
     return await call_next(request)
 
 
+# ── Feature Gate Enforcement Middleware ─────────────────────────────────────────
+# Backend counterpart to the frontend AccessGate. Enforces the toggle state
+# from Step 1.1 (AND merge of db.page_access + db.feature_configs) on the API
+# layer, so hiding a page in nav does not leave its API open.
+# Caches the gate map for 30 seconds to avoid a DB round-trip per request.
+_GATE_CACHE: dict = {}
+_GATE_CACHE_TS: float = 0
+_GATE_CACHE_TTL = 30
+
+# Page key derived from request path. Mirrors the frontend pathKey logic in
+# src/lib/accessGates.js but is a simplified prefix match against the
+# known PAGE_ACCESS_REGISTRY paths.
+_GATE_PATH_MAP = [
+    ("/more/litigation", "legal-tools"),
+    ("/admin/exec-control", "exec-control"),
+    ("/admin/system", "exec"),
+    ("/admin/control", "site-control"),
+    ("/admin/office", "exec-business-office"),
+    ("/admin/director", "director"),
+    ("/admin/sage-audit", "exec"),
+    ("/admin/staff-meetings", "exec"),
+    ("/admin/accounts", "account-controls"),
+    ("/admin", "admin"),
+    ("/app/helper", "helper"),
+    ("/app/more", "more"),
+    ("/partnership/discounts", "partnership-discounts"),
+    ("/partnership", "partnership"),
+    ("/creator/payouts", "creator-payouts"),
+    ("/creator", "creator"),
+    ("/missing-kameron", "missing-kameron"),
+    ("/ai", "ai"),
+    ("/nam", "nam"),
+    ("/palace", "palace"),
+    ("/studio", "studio"),
+    ("/ghost-producer", "ghost-producer"),
+    ("/band", "band"),
+    ("/playlist", "playlist"),
+    ("/arcade", "arcade"),
+    ("/store", "store"),
+    ("/merch", "merch"),
+    ("/aawab", "aawab"),
+    ("/more", "more"),
+    ("/legal-tools", "legal-tools"),
+    ("/classic-tools", "classic-tools"),
+    ("/business-office", "business-office"),
+    ("/partnership", "partnership"),
+    ("/community", "community"),
+    ("/creators", "creators"),
+    ("/courses", "courses"),
+    ("/modules", "modules"),
+    ("/labs", "labs"),
+    ("/compliance", "compliance"),
+    ("/credentials", "credentials"),
+    ("/certificates", "certificates"),
+    ("/leaderboard", "leaderboard"),
+    ("/projects", "projects"),
+    ("/byok", "byok"),
+    ("/social", "social"),
+    ("/revenue", "revenue"),
+    ("/auditor", "auditor"),
+    ("/supervisor", "supervisor"),
+    ("/council", "council"),
+    ("/elder-council", "elder-council"),
+    ("/jamil", "jamil"),
+    ("/portfolio", "portfolio"),
+    ("/arena", "arena"),
+    ("/settings", "settings"),
+    ("/profile", "profile"),
+    ("/helper", "helper"),
+]
+
+# Paths that are always exempt from feature gating (public by design).
+_GATE_EXEMPT = {
+    "/api/health", "/api/version", "/api/health/ready", "/",
+}
+_GATE_EXEMPT_PREFIXES = (
+    "/api/auth/", "/api/payments/stripe-webhook", "/api/payments/webhook",
+    "/api/payments/gumroad-webhook", "/api/docs", "/api/openapi.json", "/api/redoc",
+)
+
+
+def _derive_page_key(path: str) -> str:
+    """Map a request path to a page key (mirrors frontend pathKey)."""
+    if path.startswith("/api"):
+        path = path[4:]
+    for prefix, key in _GATE_PATH_MAP:
+        if path == prefix or path.startswith(prefix + "/"):
+            return key
+    segs = path.strip("/").split("/")
+    return segs[0] if segs and segs[0] else "home"
+
+
+async def _load_gate_cache() -> dict:
+    """Read the merged gate map from DB (AND of page_access + feature_configs).
+
+    Returns {} when DB is unavailable — middleware treats unknown as allowed
+    (fail-open on DB outage, matching the fail-open-on-startup design).
+    """
+    global _GATE_CACHE, _GATE_CACHE_TS
+    now = time.time()
+    if _GATE_CACHE and (now - _GATE_CACHE_TS) < _GATE_CACHE_TTL:
+        return _GATE_CACHE
+    try:
+        from routers.features import get_feature_config_async, FEATURE_REGISTRY, normalize_tiers
+        from routers.exec_control import PAGE_ACCESS_REGISTRY
+
+        pages: dict = {}
+
+        # System A: db.page_access (page toggles)
+        if db is not None:
+            try:
+                docs = await db.page_access.find(
+                    {}, {"_id": 0, "page": 1, "enabled": 1, "allowed_roles": 1}
+                ).to_list(500)
+                db_state = {d["page"]: d for d in docs}
+            except Exception:
+                db_state = {}
+        else:
+            db_state = {}
+
+        for reg in PAGE_ACCESS_REGISTRY:
+            key = reg["key"]
+            d = db_state.get(key, {})
+            pages[key] = {
+                "enabled": d.get("enabled", True),
+                "allowed_roles": d.get("allowed_roles") or reg.get("default_allowed_roles"),
+            }
+
+        # System B: db.feature_configs — AND semantics
+        if db is not None:
+            try:
+                from routers.features import get_feature_config_async
+                fcc_docs = await db.feature_configs.find({}, {"_id": 0}).to_list(500)
+                for cfg in fcc_docs:
+                    reg = next(
+                        (r for r in FEATURE_REGISTRY if r.get("feature_id") == cfg.get("feature_id")),
+                        None,
+                    )
+                    if not reg:
+                        continue
+                    route = (reg.get("route") or "").strip("/")
+                    key = route.split("/")[0] if route else None
+                    if not key:
+                        continue
+                    entry = pages.get(key, {"enabled": True, "allowed_roles": None})
+                    if "enabled" in cfg:
+                        # AND: disabled in EITHER store means disabled
+                        entry["enabled"] = entry.get("enabled", True) and cfg["enabled"]
+                    if "allowed_roles" in cfg:
+                        entry["allowed_roles"] = cfg["allowed_roles"]
+                    pages[key] = entry
+            except Exception:
+                pass
+
+        # Launch mode: hide everything except allowlist
+        try:
+            flags_doc = await db.platform_flags.find_one({"_id": "flags"}, {"_id": 0, "flags": 1})
+            flags = (flags_doc or {}).get("flags", {})
+            launch = flags.get("launch_mode", {})
+            if isinstance(launch, dict) and launch.get("enabled"):
+                allowlist = set(launch.get("allowlist", []))
+                for key in list(pages.keys()):
+                    if key not in allowlist:
+                        pages[key]["enabled"] = False
+        except Exception:
+            pass
+
+        _GATE_CACHE = pages
+        _GATE_CACHE_TS = now
+    except Exception:
+        pass
+    return _GATE_CACHE
+
+
 @app.middleware("http")
-async def enforce_ip_whitelist(request: Request, call_next):
+async def enforce_feature_gates(request: Request, call_next):
+    """Block API requests to pages that exec has disabled via the toggle system.
+
+    Backend enforcement of the Step 1.1 gate map (AND of page_access +
+    feature_configs). Without this, hiding a nav item does not stop the API —
+    the exact gap the frontend-only toggle leaves open.
+    """
+    path = request.url.path
+
+    # Skip public/exempt paths
+    if path in _GATE_EXEMPT or any(path.startswith(p) for p in _GATE_EXEMPT_PREFIXES):
+        return await call_next(request)
+
+    # Only gate API paths
+    if not path.startswith("/api"):
+        return await call_next(request)
+
+    # On DB outage, fail-open (gate map is empty — everything is allowed)
+    if db is None:
+        return await call_next(request)
+
+    try:
+        gates = await _load_gate_cache()
+        if not gates:
+            return await call_next(request)
+
+        page_key = _derive_page_key(path)
+        entry = gates.get(page_key)
+        if entry and entry.get("enabled") is False:
+            return JSONResponse(
+                status_code=403,
+                content={"detail": f"Page '{page_key}' is disabled by the executive team.",
+                         "error": "FEATURE_DISABLED"},
+            )
+    except Exception:
+        pass
+
+    return await call_next(request)
     """Enforce IP whitelist for executive-gated paths.
     If ip_whitelist collection has entries for role="executive_admin", then
     only requests from those CIDRs/IPs may reach /api/admin/system, /api/admin/access,
@@ -2053,6 +2264,34 @@ async def version():
     return {"version": APP_VERSION, "name": "W.A.I. Training Platform"}
 
 
+@api_router.get("/health/ready")
+async def health_ready():
+    """Railway readiness probe.
+
+    Returns 200 only when the primary database is reachable.
+    Returns 503 when DB is down so Railway does not route traffic
+    to a container that cannot persist or enforce anything.
+
+    This is intentionally separate from /api/health, which is documented
+    as returning 200 always (for UptimeRobot monitoring that checks
+    the `status` field in the JSON body).
+    """
+    if client is None:
+        return JSONResponse(
+            status_code=503,
+            content={"status": "not ready", "db": "disabled",
+                     "error": "MONGO_URL not set"},
+        )
+    try:
+        await client.admin.command("ping")
+        return {"status": "ready", "db": "up"}
+    except Exception as _dbe:
+        return JSONResponse(
+            status_code=503,
+            content={"status": "not ready", "db": "down",
+                     "error": str(_dbe)[:200]},
+        )
+
 
 
 # ── Platform Liveness (conference-bridge heartbeat sink) ──────────────────────
@@ -2732,13 +2971,15 @@ app.include_router(api_router)
 # --- Register Headless Mode AI Dispatcher Router ---
 from ai.controller import router as ai_dispatcher_router
 app.include_router(ai_dispatcher_router)
-# CORS: when origins is wildcard ("*") browsers reject credentials, so we
-# turn off allow_credentials in that case (auth uses Bearer token in Authorization
-# header anyway). If a specific origin list is supplied, credentials are allowed.
-# Origin policy (first-party auto-append + BACKUP_ORIGIN) lives in platform_services.py.
+# CORS: restricted by default. The old default was "*" (allow all origins),
+# which — combined with Bearer-token auth in the Authorization header — allowed
+# any site to replay authenticated requests from a victim's browser. Now
+# defaults to the two first-party production domains; AUTO_CORS_ORIGINS are
+# still auto-appended (localhost for dev, backup tunnel, etc.). Set
+# CORS_ORIGINS explicitly in Railway only if you need to add origins.
 _cors_origins = platform_services.build_cors_origins(
-    os.environ.get('CORS_ORIGINS', '*'), BACKUP_ORIGIN)
-_allow_creds = _cors_origins != ['*']
+    os.environ.get('CORS_ORIGINS', 'https://www.morehelp.center,https://wai-institute.org'), BACKUP_ORIGIN)
+_allow_creds = True  # safe — origins are now an explicit list, not wildcard
 app.add_middleware(
     CORSMiddleware,
     allow_credentials=_allow_creds,
@@ -2777,11 +3018,11 @@ async def shutdown_db_client():
 
 
 # ---- Hard Access Control middleware: gate the ENTIRE registered control surface ----
-# Wraps after every route is registered so the gate sees the full surface.
-# Any request to a monitored control route runs the RBAC tier check BEFORE the
-# handler; insufficient clearance -> 403 + audit_log entry (action=access_denied).
-app = access_gateway.wrap(app)
-logger.info("Access Control middleware wrapping app - %d controls monitored", len(CONTROL_REGISTRY))
+# NOTE: wrap() was previously here (line ~2811) but four routers registered AFTER
+# it — NAM, Saga, Executive Pipeline, Executive Tools — so they were absent from
+# both snapshots (_public_route_patterns and _handler_requirements). Those are the
+# highest-authority routers; leaving them un-gated was a security gap.
+# Moved BELOW all include_router calls to capture the full surface.
 
 # ---- NAM API Routes (Hybrid NAM Leadership Intelligence) ----
 try:
@@ -2819,6 +3060,14 @@ try:
     logger.info("Executive Tools routes registered at /api/exec/tools")
 except Exception as _et_err:
     logger.warning("Executive Tools routes failed to load: %s", _et_err)
+
+# ---- Hard Access Control middleware — applied AFTER all routers registered ----
+# Must run after every include_router call so the gateway sees the full route
+# surface in both _public_route_patterns and _handler_requirements. Previously
+# this was at line ~2811, before NAM/Saga/ExecutivePipeline/ExecutiveTools
+# were included — those four routers had no gated authz.
+app = access_gateway.wrap(app)
+logger.info("Access Control middleware wrapping app - %d controls monitored", len(CONTROL_REGISTRY))
 
 if __name__ == "__main__":
     import uvicorn

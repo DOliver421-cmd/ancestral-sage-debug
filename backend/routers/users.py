@@ -383,8 +383,14 @@ async def admin_unban_user(uid: str, user: User = Depends(_require_rank("executi
 
 
 @router.delete("/admin/users/{uid}")
-async def admin_delete_user(uid: str, user: User = Depends(_require_rank("admin"))):
-    """Admin-only: delete a user. Refuses self-delete and last-admin/exec delete."""
+async def admin_delete_user(uid: str, user: User = Depends(_require_rank("executive_admin"))):
+    """Admin-only: delete a user. Refuses self-delete and last-admin/exec delete.
+
+    NOTE: This route is SHADOWED by admin_delete_user at line ~856 (requires
+    executive_admin + cascading purge). The higher gate on the shadowed handler
+    ensures that even if route ordering changes, the weaker auth level never
+    becomes active. See REMEDIATION_PLAN.md Part 4 (duplicate routes).
+    """
     if uid == user.id:
         raise HTTPException(400, "Refusing to delete yourself.")
     target = await db.users.find_one({"id": uid}, {"_id": 0, "password_hash": 0})

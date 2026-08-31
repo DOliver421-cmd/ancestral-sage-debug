@@ -104,8 +104,20 @@ async def start_revenue_operations(db: AsyncIOMotorDatabase) -> None:
         logger.info("Revenue job scheduler disabled (set JOBS_ENABLED=true to enable)")
         return
     try:
+        # Inject the live DB handle into the jobs module's db_manager.
+        # Do NOT call db_manager.connect() or init_database() — those use
+        # MONGODB_URI/wai_institute (config.py:17-21), a second, empty database
+        # unrelated to the live app's MONGO_URL/ancestral_sage (server.py:107).
+        # Without this assignment, every job guards itself with
+        # `if not db_manager.db: return` — they all silently no-op while
+        # logging "Revenue job scheduler started."
+        from jobs import db_manager
+        db_manager.db = db
         await job_scheduler.start()
-        logger.info("✅ Revenue operations job scheduler started")
+        logger.info(
+            "✅ Revenue job scheduler started (db=%s, collections=%d)",
+            db.name, len(db.list_collection_names()) if db else 0,
+        )
     except Exception as e:
         logger.warning(f"Job scheduler startup failed (non-fatal): {e}")
 

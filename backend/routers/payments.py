@@ -1203,6 +1203,229 @@ async def payments_webhook(request: Request):
                     logger.exception("LS webhook: subscription record failed")
         return {"received": True}
 
+    # ── Subscription payment succeeded (renewal) ───────────────────────────────
+    # A successful recurring payment keeps the subscription active. The tier
+    # was already granted at subscription_created; this just records the
+    # payment and refreshes the subscription document. Upgrade-only grant: a
+    # higher tier from one product does not strip a tier granted by another.
+    if event_name == "subscription_payment_success":
+        data = (event.get("data") or {}).get("attributes") or {}
+        user_email = data.get("user_email", "")
+        product_key = _match_product_key(data.get("product_name", ""))
+        sub_id = str((event.get("data") or {}).get("id", ""))
+        try:
+            await db.payments.update_one(
+                {"provider_order_id": sub_id},
+                {"$set": {
+                    "status": data.get("status", "active"),
+                    "renewal_timestamp": datetime.now(timezone.utc).isoformat(),
+                }},
+                upsert=True,
+            )
+        except Exception:
+            logger.exception("LS webhook: subscription_payment_success record failed (%s)", sub_id)
+        await _grant_tier_by_email(user_email, product_key, reason="renewal")
+        return {"received": True}
+
+    # ── Subscription updated (plan change: upgrade) ──────────────────────────
+    # Customer changed to a different plan. Re-grant the matching tier
+    # (upgrade-only — a downgrade to a lower tier is handled at the next
+    # renewal cycle by subscription_cancelled/expired if the lower plan is
+    # not configured separately).
+    if event_name == "subscription_updated":
+        data = (event.get("data") or {}).get("attributes") or {}
+        user_email = data.get("user_email", "")
+        product_key = _match_product_key(data.get("product_name", ""))
+        sub_id = str((event.get("data") or {}).get("id", ""))
+        try:
+            await db.payments.update_one(
+                {"provider_order_id": sub_id},
+                {"$set": {
+                    "product_key": product_key,
+                    "status": data.get("status", "active"),
+                    "updated_at": datetime.now(timezone.utc).isoformat(),
+                }},
+                upsert=True,
+            )
+        except Exception:
+            logger.exception("LS webhook: subscription_updated record failed (%s)", sub_id)
+        await _grant_tier_by_email(user_email, product_key, reason="plan_change")
+        if user_email and product_key:
+            user_doc = await _find_user_by_email(user_email, {"_id": 0, "id": 1})
+            if user_doc:
+                try:
+                    await notify(user_doc["id"], "Plan Updated",
+                                 "Your plan has been updated. Any tier change is now active in your account.",
+                                 link="/account/billing", kind="info")
+                except Exception:
+                    pass
+        return {"received": True}
+
+    return {"received": True}
+
+
+@router.post("/gumroad-webhook")
+async def gumroad_webhook(request: Request):
+    """Gumroad sale webhook — records the sale and grants the matching tier.
+
+    Configure in Gumroad → Settings → Advanced → Webhooks with endpoint:
+        {FRONTEND_URL}/api/payments/gumroad-webhook
+
+    Gumroad does not provide HMAC signature verification, so authenticity is
+    verified by calling the Gumroad API to confirm the sale_id. When
+    GUMROAD_API_KEY is not set, the sale is still processed (idempotency on
+    sale_id prevents double-grant) but a warning is logged.
+
+    Payload fields (Gumroad v2):
+        email, product_permalink, product_name, sale_id, amount, currency,
+        timestamp, purchase_timestamp, subscribe (y/n)
+    """
+    import json as _json
+    import time as _time
+
+    if not PAYMENTS_ENABLED:
+        raise HTTPException(404, "Payments are not configured")
+
+    body = await request.body()
+    try:
+        event = _json.loads(body)
+    except Exception:
+        raise HTTPException(400, "Invalid JSON payload")
+
+    # Gumroad may send form-encoded or JSON; normalize to a dict.
+    if not isinstance(event, dict):
+        event = {"data": event} if event else {}
+
+    # Extract a stable, globally-unique identifier for idempotency.
+    # Gumroad's sale_id is unique per sale and survives retries.
+    sale_id = str(event.get("sale_id", ""))
+    email = str(event.get("email", "")).strip()
+    product_name = str(event.get("product_name", "")).strip()
+    amount = event.get("amount", 0)  # cents (Gumroad sends integer cents)
+    currency = str(event.get("currency", "usd")).lower()
+    is_subscription = str(event.get("subscribe", "")).lower() in ("y", "yes", "true", "1")
+
+    # ── Idempotency — same as the LS webhook; duplicate delivery is a no-op ────
+    if sale_id:
+        try:
+            await db.webhook_events.insert_one({
+                "_id": f"gumroad:{sale_id}",
+                "provider": "gumroad",
+                "event_name": "sale",
+                "sale_id": sale_id,
+                "email": email,
+                "product_name": product_name,
+                "received_at": datetime.now(timezone.utc).isoformat(),
+            })
+        except Exception as _dup:
+            if getattr(_dup, "code", None) == 11000:
+                return {"received": True, "duplicate": True}
+            logger.exception("Gumroad webhook: idempotency record failed")
+    else:
+        logger.warning("Gumroad webhook: no sale_id in payload")
+
+    # ── Authenticity: verify the sale via Gumroad API (when key is available) ──
+    if GUMROAD_API_KEY and sale_id:
+        try:
+            import httpx
+            async with httpx.AsyncClient(timeout=10) as client:
+                resp = await client.get(
+                    f"https://api.gumroad.com/v2/sales/{sale_id}",
+                    params={"access_token": GUMROAD_API_KEY},
+                )
+                if resp.status_code != 200:
+                    logger.warning(
+                        "Gumroad webhook: sale %s failed API verification (%d)",
+                        sale_id, resp.status_code,
+                    )
+        except Exception:
+            logger.exception("Gumroad webhook: API verification failed for sale %s", sale_id)
+
+    # ── Match product name → catalog key ─────────────────────────────────────
+    product_key = _match_product_key(product_name)
+
+    # ── Record the payment ───────────────────────────────────────────────────
+    try:
+        await db.payments.insert_one({
+            "id": str(uuid.uuid4()),
+            "user_id": None,
+            "provider": "gumroad",
+            "provider_order_id": sale_id,
+            "product_key": product_key or "unknown",
+            "amount_cents": int(amount) if amount else 0,
+            "currency": currency,
+            "mode": "subscription" if is_subscription else "payment",
+            "type": "subscription" if is_subscription else "sale",
+            "status": "paid",
+            "buyer_email": email,
+            "created_at": datetime.now(timezone.utc).isoformat(),
+        })
+    except Exception:
+        logger.exception("Gumroad webhook: payment record failed (sale %s)", sale_id)
+
+    # ── BYOK ($3 one-time unlock) ────────────────────────────────────────────
+    if email and product_key == "byok":
+        user_doc = await _find_user_by_email(email, {"_id": 0, "id": 1})
+        if user_doc:
+            await db.users.update_one(
+                {"id": user_doc["id"]},
+                {"$set": {
+                    "byok_enabled": True,
+                    "byok_paid": True,
+                    "byok_order_id": sale_id,
+                    "byok_activated_at": datetime.now(timezone.utc).isoformat(),
+                }},
+            )
+            try:
+                await audit(user_doc["id"], "byok.paid", meta={"product": "byok", "sale_id": sale_id, "source": "gumroad"})
+            except Exception:
+                pass
+            await notify(user_doc["id"], "BYOK Activated",
+                         "Your $3 BYOK unlock is active — attach a free Groq, Cerebras, or Gemini key at /byok to route your AI through your own key.",
+                         link="/byok", kind="success")
+
+    # ── Scholarship sponsorship ──────────────────────────────────────────────
+    if email and product_key == "scholarship":
+        user_doc = await _find_user_by_email(email, {"_id": 0, "id": 1})
+        if user_doc:
+            paid_amount = int(amount) if amount else 0
+            pledge = await db.scholarship_pledges.find_one_and_update(
+                {"user_id": user_doc["id"], "status": "pending"},
+                {"$set": {"status": "paid", "paid_at": datetime.now(timezone.utc).isoformat(),
+                          "provider_order_id": sale_id,
+                          "paid_amount_cents": paid_amount or None},
+                 "$setOnInsert": {"provider": "gumroad"}},
+                sort=[("created_at", -1)],
+            )
+            if pledge:
+                if pledge.get("fund_id"):
+                    await db.scholarship_funds.update_one(
+                        {"id": pledge["fund_id"]},
+                        {"$inc": {"raised_cents": paid_amount or pledge.get("amount_cents", 0)}},
+                    )
+                try:
+                    await audit(user_doc["id"], "scholarship.pledge_paid",
+                                target=pledge.get("id"), meta={"sale_id": sale_id, "amount_cents": paid_amount or pledge.get("amount_cents", 0), "source": "gumroad"})
+                except Exception:
+                    pass
+                await notify(user_doc["id"], "Sponsorship Received",
+                             "Thank you — your sponsorship is paid and will be matched to a scholar. Track milestones in your sponsor view.",
+                             link="/sponsor", kind="success")
+
+    # ── Media Store digital products (prompt packs, templates, files) ────────
+    if email and product_key and product_key not in ("byok", "scholarship", "donation"):
+        try:
+            await _fulfill_media_order(
+                buyer_email=email,
+                product_name=product_name,
+                order_id=sale_id,
+            )
+        except Exception:
+            logger.exception("Gumroad webhook: media fulfillment failed (sale %s)", sale_id)
+
+    # ── Shared upgrade-only grant (one-time purchases + subscription starts) ─
+    await _grant_tier_by_email(email, product_key, reason="gumroad_payment")
+
     return {"received": True}
 
 

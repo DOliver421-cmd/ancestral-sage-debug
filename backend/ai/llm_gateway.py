@@ -152,6 +152,32 @@ OPENROUTER_BASE   = "https://openrouter.ai/api/v1"
 # Lower to 50000 during pre-revenue period if desired.
 HOURLY_TOKEN_CAP  = int(os.environ.get("HOURLY_TOKEN_CAP", "200000"))
 
+# ── Last-resort tier switch (DEFAULT ON) ─────────────────────────────────────
+# Controls the OpenAI / DeepSeek attempts that now run LAST in call_llm(),
+# after every other free provider and the shared BYOK pool, immediately before
+# the static knowledge-base fallback.
+#
+# Owner confirmed 2026-08-31 that both keys are FREE-TIER accounts with no card
+# attached. They therefore cost nothing, and a real model answer is strictly
+# better for the user than _kb_reply() canned text — so they stay in the chain,
+# just at the bottom of it.
+#
+# History worth keeping: these two blocks were originally FIRST in call_llm(),
+# ahead of every free provider, even though the module header promised
+# "free-first by design". The stale log line "T1a Groq failed" inside the Groq
+# block is the fingerprint of that reordering — the labels were never updated.
+# Because a free-tier key with no remaining allowance simply errors, every
+# request paid two failing network round-trips before reaching Groq. That
+# latency, plus a chain that could bottom out in canned KB text, is why the
+# assistant read as broken rather than merely slow.
+#
+# Set LAST_RESORT_AI_ENABLED=0 to skip this tier — do that if either account is
+# ever upgraded to a funded paid plan, or to shave the two failed round-trips
+# once the free allowances are known to be exhausted.
+LAST_RESORT_AI_ENABLED = os.environ.get(
+    "LAST_RESORT_AI_ENABLED", "1"
+).strip().lower() in ("1", "true", "yes")
+
 # ── In-process state ──────────────────────────────────────────────────────────
 _hour_window_start:  float = time.time()
 _hour_tokens_used:   int   = 0
@@ -326,11 +352,37 @@ async def _cohere_call(
     return {"text": text, "in_tok": in_tok, "out_tok": out_tok}
 
 
-# ── Shared site-support BYOK pool ────────────────────────────────────────────
-# Site Support team members run the platform for free and share their BYOK key
-# with the platform: when every free provider fails, the gateway can serve the
-# request on a shared site-support key before falling to the static KB. The
-# pool is loaded at startup and refreshed after every BYOK key save/remove.
+# ── Shared site-support BYOK pool — DISABLED BY DEFAULT ──────────────────────
+# Owner directive 2026-08-31: do not run this without a toggle and explicit
+# consent. Disabled here rather than merely left unbuilt, because the mechanism
+# was already fully wired and would have activated silently the moment any
+# support_staff user saved a BYOK key.
+#
+# What it did: reload_shared_byok() collected EVERY active key in
+# db.user_byok_keys belonging to any support_staff / admin / executive_admin
+# user and served platform traffic on it. There is no share_with_platform flag
+# anywhere in byok.py — no opt-in, no prompt, no way for the contributor to
+# decline. The role is described as staff who "share" their key; the code simply
+# took it.
+#
+# Three reasons this stays off until it is redesigned:
+#   1. CONSENT — the contributor is never asked and cannot opt out.
+#   2. CONCENTRATION — `if p in by_provider: continue` keeps only the FIRST key
+#      found per provider, so one volunteer absorbs all overflow traffic for
+#      that provider rather than the load being spread.
+#   3. PROVIDER TERMS — free tiers are generally licensed to the account holder.
+#      Serving other users' requests on a volunteer's personal free key may
+#      breach the provider's terms, and the penalty would land on THEIR account,
+#      not the platform's.
+#
+# To re-enable safely, all three must be addressed: add an explicit
+# `share_with_platform` boolean on the BYOK document (default false), surface it
+# in the BYOK UI in plain language, and rotate across contributors instead of
+# taking the first. Only then set SHARED_BYOK_ENABLED=1.
+SHARED_BYOK_ENABLED = os.environ.get(
+    "SHARED_BYOK_ENABLED", "0"
+).strip().lower() in ("1", "true", "yes")
+
 _SHARED_BYOK_POOL: list = []
 
 
@@ -339,6 +391,12 @@ async def reload_shared_byok(db) -> int:
     Returns the number of providers in the pool (0 when empty)."""
     global _SHARED_BYOK_POOL
     _SHARED_BYOK_POOL = []
+    if not SHARED_BYOK_ENABLED:
+        # Disabled by owner directive — no consent mechanism exists. See the
+        # SHARED_BYOK_ENABLED comment above. Returning 0 leaves the pool empty,
+        # so call_llm() skips the shared tier and falls through as if no
+        # support-staff key were present.
+        return 0
     try:
         from byok import BYOK_PROVIDERS, decrypt_key, _PROVIDER_PRIORITY
 
@@ -636,28 +694,6 @@ async def call_llm(
         except Exception as _be:
             logger.warning("LLM Gateway: user budget check failed (%s): %s", persona_label, _be)
 
-    # ── Tier 1a: OpenAI gpt-4o-mini (owner key — tool-capable) ──────────────
-    if OPENAI_API_KEY:
-        try:
-            result = await _oai_compat_call(
-                base_url=OPENAI_BASE, api_key=OPENAI_API_KEY, model=OPENAI_MODEL,
-                system=system, messages=messages, max_tokens=max_tokens, tools=tools,
-            )
-            return await _tier_result(user_id, budget_key, result, "openai", OPENAI_MODEL, True, persona_label)
-        except Exception as e:
-            logger.warning("LLM Gateway T1a OpenAI failed (%s): %s", persona_label, e)
-
-    # ── Tier 1b: DeepSeek deepseek-chat (owner key — tool-capable) ───────────
-    if DEEPSEEK_API_KEY:
-        try:
-            result = await _oai_compat_call(
-                base_url=DEEPSEEK_BASE, api_key=DEEPSEEK_API_KEY, model=DEEPSEEK_MODEL,
-                system=system, messages=messages, max_tokens=max_tokens, tools=tools,
-            )
-            return await _tier_result(user_id, budget_key, result, "deepseek", DEEPSEEK_MODEL, True, persona_label)
-        except Exception as e:
-            logger.warning("LLM Gateway T1b DeepSeek failed (%s): %s", persona_label, e)
-
     # ── Tier 1c: Groq / Llama 3.3 70B (FREE — free chain begins) ─────────────
     if GROQ_API_KEY:
         try:
@@ -857,6 +893,39 @@ async def call_llm(
                     logger.warning("LLM Gateway shared BYOK %s failed (%s): %s", _shared["provider"], persona_label, _se)
         except Exception as _sbe:
             logger.warning("LLM Gateway shared BYOK pool error (%s): %s", persona_label, _sbe)
+
+    # ── Last resort before the static KB: OpenAI / DeepSeek free-tier keys ───
+    # Owner confirmed 2026-08-31 these two keys are FREE-TIER accounts with no
+    # card attached, so they cost nothing and are strictly better than serving
+    # _kb_reply() canned text. They run LAST, after every other free provider
+    # and the shared BYOK pool.
+    #
+    # They were previously FIRST in this function, ahead of every free provider,
+    # despite the module header promising "free-first by design". That cost two
+    # failing network round-trips on every request whenever the keys had no
+    # allowance left — the reason the assistant read as broken rather than slow.
+    #
+    # If either account is ever upgraded to a funded paid plan, set
+    # LAST_RESORT_AI_ENABLED=0 to skip this tier entirely.
+    if LAST_RESORT_AI_ENABLED and OPENAI_API_KEY:
+        try:
+            result = await _oai_compat_call(
+                base_url=OPENAI_BASE, api_key=OPENAI_API_KEY, model=OPENAI_MODEL,
+                system=system, messages=messages, max_tokens=max_tokens, tools=tools,
+            )
+            return await _tier_result(user_id, budget_key, result, "openai", OPENAI_MODEL, False, persona_label)
+        except Exception as e:
+            logger.warning("LLM Gateway last-resort OpenAI failed (%s): %s", persona_label, e)
+
+    if LAST_RESORT_AI_ENABLED and DEEPSEEK_API_KEY:
+        try:
+            result = await _oai_compat_call(
+                base_url=DEEPSEEK_BASE, api_key=DEEPSEEK_API_KEY, model=DEEPSEEK_MODEL,
+                system=system, messages=messages, max_tokens=max_tokens, tools=tools,
+            )
+            return await _tier_result(user_id, budget_key, result, "deepseek", DEEPSEEK_MODEL, False, persona_label)
+        except Exception as e:
+            logger.warning("LLM Gateway last-resort DeepSeek failed (%s): %s", persona_label, e)
 
     # ── Tier 9: Knowledge Finder — always available, zero cost ───────────────
     logger.error("LLM Gateway: ALL providers failed for %s — knowledge fallback", persona_label)
