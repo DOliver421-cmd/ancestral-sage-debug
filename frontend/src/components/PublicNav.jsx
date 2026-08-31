@@ -5,12 +5,7 @@ import { BRAND } from "../lib/brand";
 // Shared header for the public funnel pages (festival purple + gold). Keeps the
 // public page set cross-linked without cluttering the authenticated app sidebar.
 const LINKS = [
-<<<<<<< HEAD
-  { to: "/more-help-center", label: "MORE Help Center" },
-  { to: "/supervisor/login", label: "Supervisor Login" },
-=======
   { to: "/helper", label: "My Helper" },
->>>>>>> b5e17a90a093ef2f7a081efc8d479b5b9f58558e
   { to: "/courses", label: "Courses" },
   { to: "/community", label: "Community" },
   { to: "/creators", label: "Creators" },

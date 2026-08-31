@@ -71,25 +71,18 @@ import PremiumServices from "./pages/PremiumServices";
 import Palace from "./pages/Palace";
 import ElderCouncil from "./pages/ElderCouncil";
 import Plans from "./pages/Plans";
-<<<<<<< HEAD
-=======
 import HelpCenter from "./pages/HelpCenter";
 import KnowledgeBase from "./pages/KnowledgeBase";
 import KnowledgeFinder from "./pages/KnowledgeFinder";
 import SeshatsHub from "./pages/SeshatsHub";
 import SeshatsHubPublic from "./pages/SeshatsHubPublic";
->>>>>>> b5e17a90a093ef2f7a081efc8d479b5b9f58558e
 import TermsOfService from "./pages/TermsOfService";
 import PrivacyPolicy from "./pages/PrivacyPolicy";
 import RefundPolicy from "./pages/RefundPolicy";
 import MoreHelpCenter from "./pages/MoreHelpCenter";
-<<<<<<< HEAD
-import SupervisorLogin from "./pages/SupervisorLogin";
-=======
 import WAIInstitute from "./pages/WAIInstitute";
 import OurLegacy from "./pages/OurLegacy";
 import VonnsSaga from "./pages/VonnsSaga";
->>>>>>> b5e17a90a093ef2f7a081efc8d479b5b9f58558e
 import CookieConsent from "./components/CookieConsent";
 import HelpGuide from "./components/HelpGuide";
 import WelcomeWizard from "./components/WelcomeWizard";
@@ -279,14 +272,6 @@ function App() {
           <Route path="/elder-council" element={<BoundedAdmin roles={["instructor", "admin", "executive_admin"]} label="Elder Council" backTo="/dashboard"><ElderCouncil /></BoundedAdmin>} />
           <Route path="/plans" element={<Plans />} />
           {/* Public funnel pages */}
-<<<<<<< HEAD
-          <Route path="/main" element={<LandingMarketplace />} />
-          <Route path="/help-center" element={<Navigate to="/more-help-center" replace />} />
-          <Route path="/more-help-center" element={<MoreHelpCenter />} />
-          <Route path="/supervisor/login" element={<SupervisorLogin />} />
-          <Route path="/supervisor" element={<Protected roles={["executive_admin"]} loginRoute="/supervisor/login"><MoreHelpCenter /></Protected>} />
-          <Route path="/seshats-hub" element={<Navigate to="/more-help-center" replace />} />
-=======
           <Route path="/help-center" element={<HelpCenter />} />
           {/* Knowledge Base — handbooks + top support articles (Phase C) */}
           <Route path="/knowledge-base" element={<KnowledgeBase />} />
@@ -321,7 +306,6 @@ function App() {
           <Route path="/supervisor-login" element={<SupervisorLogin />} />
           <Route path="/supervisor" element={<SupervisorProtected><SeshatsHub /></SupervisorProtected>} />
           <Route path="/auth/cross-site" element={<CrossSiteLogin />} />
->>>>>>> b5e17a90a093ef2f7a081efc8d479b5b9f58558e
           <Route path="/terms" element={<TermsOfService />} />
           <Route path="/privacy" element={<PrivacyPolicy />} />
           <Route path="/refund-policy" element={<RefundPolicy />} />
@@ -357,23 +341,6 @@ function App() {
           <Route path="/adaptive" element={<Protected><TierGate feature="tracks"><Adaptive /></TierGate></Protected>} />
           <Route path="/compliance" element={<Protected><ComplianceList /></Protected>} />
           <Route path="/compliance/:slug" element={<Protected><ComplianceDetail /></Protected>} />
-<<<<<<< HEAD
-          {/* C-9: admin routes wrapped in a secondary ErrorBoundary so a crash
-              in any admin page shows a recovery UI instead of taking down the
-              whole application. */}
-          <Route path="/admin/tools" element={<Protected roles={["admin"]}><ErrorBoundary><AdminTools /></ErrorBoundary></Protected>} />
-          <Route path="/admin/analytics" element={<Protected roles={["admin"]}><Analytics /></Protected>} />
-          <Route path="/admin/audit" element={<Protected roles={["admin"]}><AuditLog /></Protected>} />
-          <Route path="/attendance" element={<Protected roles={["instructor", "admin"]}><Attendance /></Protected>} />
-          <Route path="/incidents" element={<Protected><Incidents /></Protected>} />
-          <Route path="/settings" element={<Protected><Settings /></Protected>} />
-          <Route path="/admin/system" element={<Protected roles={["executive_admin"]}><ErrorBoundary><ExecSystem /></ErrorBoundary></Protected>} />
-          <Route path="/admin/sage-audit" element={<Protected roles={["executive_admin"]}><SageAudit /></Protected>} />
-          <Route path="/admin/staff-meetings" element={<Protected roles={["executive_admin"]}><StaffMeetingHistory /></Protected>} />
-          <Route path="/admin/health" element={<Protected roles={["admin"]}><SystemHealth /></Protected>} />
-          <Route path="/admin/moderation" element={<Protected roles={["admin"]}><ModerationAnalytics /></Protected>} />
-          <Route path="/revenue" element={<Protected roles={["admin", "executive_admin"]}><RevenueDivision /></Protected>} />
-=======
           <Route path="/admin/tools" element={<Navigate to="/admin" replace />} />
           <Route path="/admin/analytics" element={<BoundedAdmin roles={["admin"]} label="Analytics"><Analytics /></BoundedAdmin>} />
           <Route path="/admin/audit" element={<BoundedAdmin roles={["support_staff", "admin"]} label="Audit Log"><AuditLog /></BoundedAdmin>} />
@@ -398,7 +365,6 @@ function App() {
           <Route path="/admin/health" element={<BoundedAdmin roles={["admin"]} label="System Health"><SystemHealth /></BoundedAdmin>} />
           <Route path="/admin/moderation" element={<BoundedAdmin roles={["support_staff", "admin"]} label="Moderation Analytics"><ModerationAnalytics /></BoundedAdmin>} />
           <Route path="/revenue" element={<BoundedAdmin roles={["admin", "executive_admin"]} label="Revenue Division"><RevenueDivision /></BoundedAdmin>} />
->>>>>>> b5e17a90a093ef2f7a081efc8d479b5b9f58558e
           <Route path="/council" element={<Protected><OrchestratorChat /></Protected>} />
           {/* /orchestrator — AI Business Office nav link (abo.py) targets this; it is
               the same Orchestrator console as /council, admin-gated to match the ABO tool. */}

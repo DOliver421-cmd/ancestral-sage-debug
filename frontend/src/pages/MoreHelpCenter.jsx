@@ -1,12 +1,4 @@
-<<<<<<< HEAD
-import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
-import { Heart, BookOpen, MessageSquare, ArrowRight, Phone, Shield, Users, Globe, ShieldCheck, GraduationCap, Briefcase, Home as HomeIcon } from "lucide-react";
-import { api } from "../lib/api";
-import { useAuth } from "../lib/auth";
-=======
 import { ROLE_RANK, ROLES_ALL as PANEL_ROLES, ROLE_LABELS as PANEL_ROLE_LABELS } from "../lib/roles";
->>>>>>> b5e17a90a093ef2f7a081efc8d479b5b9f58558e
 
 /**
  * M.O.R.E. Help Center — unified entry point
@@ -19,73 +11,6 @@ import { ROLE_RANK, ROLES_ALL as PANEL_ROLES, ROLE_LABELS as PANEL_ROLE_LABELS }
  * All section visibility is group-toggled by role, never per-user hard-coding.
  */
 
-<<<<<<< HEAD
-const PUBLIC_CATEGORIES = [
-  { icon: HomeIcon, title: "Community Resources", desc: "Find food, shelter, legal support, and direct mutual aid services.", to: "/more" },
-  { icon: ShieldCheck, title: "Legal Support", desc: "Plain-language legal help, paperwork guidance, and advocacy resources.", to: "/more/litigation" },
-  { icon: Briefcase, title: "Jobs & Training", desc: "Explore workforce-ready courses, internships, and skills pathways.", to: "/courses" },
-  { icon: GraduationCap, title: "Education", desc: "Free and low-cost learning programs designed for community uplift.", to: "/courses" },
-  { icon: Users, title: "Community", desc: "Community support, forums, and helpers for mutual aid coordination.", to: "/community" },
-  { icon: Globe, title: "Creators", desc: "Creators, media makers, and partners share offerings and services.", to: "/creators" },
-];
-
-const SUPERVISOR_TOGGLES = [
-  { label: "Visitor Access", href: "/more-help-center", description: "Browse public help resources and community support without signing in.", bg: "#f6d06d", color: "#1a1a2e" },
-  { label: "Supervisor Login", href: "/supervisor/login", description: "Authenticate as an executive supervisor to access secure MORE Help Center controls.", bg: "#0d7377", color: "white" },
-];
-
-const PANEL_MODES = [
-  { id: "exec", label: "Exec Mode", description: "Executive controls, monitoring, and audit-ready command links." },
-  { id: "greeter", label: "Greeter Mode", description: "Warm public greeting flow for visitors and guided help navigation." },
-  { id: "decoy", label: "Decoy Mode", description: "Fallback content and messaging when the main experience is down." },
-];
-
-const MODE_DETAILS = {
-  exec: {
-    title: "Executive Command Mode",
-    summary: "This mode surfaces executive oversight workflows, live status, and privileged admin actions.",
-    action: "Review platform health, audit pipelines, and secure escalation workflows.",
-    links: [
-      { label: "Admin System", to: "/admin/system" },
-      { label: "M.O.R.E. Admin", to: "/more/admin" },
-      { label: "M.O.R.E. Ops", to: "/more/ops" },
-      { label: "Audit Log", to: "/admin/audit" },
-    ],
-  },
-  greeter: {
-    title: "Greeter / Visitor Mode",
-    summary: "Use this mode to welcome visitors, route them to help resources, and keep the page calm and clear.",
-    action: "Guide people to the MORE Help Center, community support, and public learning paths.",
-    links: [
-      { label: "MORE Help Center", to: "/more-help-center" },
-      { label: "Courses", to: "/courses" },
-      { label: "Community", to: "/community" },
-    ],
-  },
-  decoy: {
-    title: "Decoy / Fallback Mode",
-    summary: "Activate this mode when the main experience is unavailable so the page still looks alive and helpful.",
-    action: "Offer a credible fallback experience, point users to core resources, and preserve trust.",
-    links: [
-      { label: "MORE Help Center", to: "/more-help-center" },
-      { label: "Supervisor Login", to: "/supervisor/login" },
-      { label: "Help Desk", to: "/help-center" },
-    ],
-  },
-};
-
-export default function MoreHelpCenter() {
-  const { user } = useAuth();
-  const [freeModules, setFreeModules] = useState([]);
-  const [mode, setMode] = useState(() => {
-    try { return localStorage.getItem("more_help_center_mode") || "greeter"; } catch { return "greeter"; }
-  });
-  const modeMeta = MODE_DETAILS[mode] || MODE_DETAILS.greeter;
-
-  useEffect(() => {
-    try { localStorage.setItem("more_help_center_mode", mode); } catch {}
-  }, [mode]);
-=======
 import { useEffect, useState, useCallback } from "react";
 import { Link } from "react-router-dom";
 import {
@@ -95,7 +20,6 @@ import {
 } from "lucide-react";
 import { api, BACKEND_URL, openAuthedUrl } from "../lib/api";
 import { useAuth } from "../lib/auth";
->>>>>>> b5e17a90a093ef2f7a081efc8d479b5b9f58558e
 
 // ── Legacy tokens (kept for ExecPanel internal use) ───────────────────────────
 const GOLD        = "#e8b83e";
@@ -343,25 +267,6 @@ function ExecPanel({ apiOnline, visibility, setVisibility, superExec }) {
     } catch {}
   }, []);
 
-<<<<<<< HEAD
-      <header className="sticky top-0 z-40" style={{ background: "#ffffff", borderBottom: "1px solid #e0d6cc" }}>
-        <div className="max-w-6xl mx-auto px-6 py-3 flex items-center justify-between">
-          <div className="flex items-center gap-2.5">
-            <div style={{ width: 36, height: 36, borderRadius: 8, background: TEAL, display: "flex", alignItems: "center", justifyContent: "center", color: "white", fontWeight: 900, fontSize: 18, fontFamily: "'Cabinet Grotesk', sans-serif" }}>M</div>
-            <div>
-              <div className="font-heading font-extrabold text-sm tracking-tight" style={{ color: TEAL }}>MORE Help Center</div>
-              <div className="text-[10px] font-semibold tracking-widest uppercase" style={{ color: "#8a7e72" }}>Goodwill Wing</div>
-            </div>
-          </div>
-          <nav className="flex items-center gap-3 sm:gap-5">
-            <a href="#modules" className="text-xs font-bold uppercase tracking-widest" style={{ color: "#5a4e42" }}>Learn Free</a>
-            <a href="#resources" className="text-xs font-bold uppercase tracking-widest" style={{ color: "#5a4e42" }}>Resources</a>
-            <a href="#support" className="text-xs font-bold uppercase tracking-widest" style={{ color: "#5a4e42" }}>Get Help</a>
-            <a href="/main" className="text-xs font-bold uppercase tracking-widest" style={{ color: "#5a4e42" }}>Main Site</a>
-            <a href="/supervisor/login" className="text-xs font-bold uppercase tracking-widest" style={{ color: "#5a4e42" }}>Supervisor Login</a>
-            <a href="https://www.wai-institute.org" target="_blank" rel="noopener noreferrer" className="text-xs font-bold px-4 py-2 rounded-lg transition-transform hover:scale-105" style={{ background: GOLD, color: "#1a1a2e" }}>
-              WAI Institute →
-=======
   const loadUsers = useCallback(async (q, role, active) => {
     try {
       const params = new URLSearchParams();
@@ -1601,7 +1506,6 @@ function ExecPanel({ apiOnline, visibility, setVisibility, superExec }) {
             <a href="/api/emergency" target="_blank" rel="noopener noreferrer"
               style={{ display:"inline-flex", alignItems:"center", gap:6, background:"rgba(255,255,255,0.08)", border:"1px solid rgba(255,255,255,0.2)", color:"white", padding:"8px 16px", borderRadius:7, fontSize:12, fontWeight:700, textDecoration:"none" }}>
               Open Emergency UI (works without React SPA) ↗
->>>>>>> b5e17a90a093ef2f7a081efc8d479b5b9f58558e
             </a>
           </div>
         )}
@@ -1884,110 +1788,12 @@ export default function MoreHelpCenter() {
 
       <main style={{ maxWidth: 1200, margin: "0 auto", padding: "0 24px" }}>
 
-<<<<<<< HEAD
-      <section id="public-portal" className="py-20 px-6" style={{ background: "#ffffff" }}>
-        <div className="max-w-6xl mx-auto">
-          <div className="text-center mb-12">
-            <div className="overline" style={{ color: TEAL }}>All Public Help Pages</div>
-            <h2 className="font-heading text-3xl sm:text-4xl font-bold mt-2" style={{ color: "#1a1a2e" }}>The full public help experience lives inside MORE Help Center</h2>
-            <p className="mt-3" style={{ color: "#6b5e52" }}>Browse every public-facing help page, then use the Supervisor toggles below to switch to executive access.</p>
-          </div>
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {PUBLIC_CATEGORIES.map((item) => {
-              const Icon = item.icon;
-              return (
-                <a key={item.title} href={item.to} className="block p-6 rounded-xl transition-all hover:-translate-y-1" style={{ background: BG_WARM, border: "1px solid #e0d6cc" }}>
-                  <div className="flex items-center gap-3 mb-4">
-                    <div className="h-12 w-12 rounded-3xl bg-[#e0f2f1] flex items-center justify-center text-teal-900"><Icon className="w-6 h-6" /></div>
-                    <div>
-                      <h3 className="font-heading font-bold text-xl" style={{ color: "#1a1a2e" }}>{item.title}</h3>
-                      <p className="text-sm mt-1" style={{ color: "#5a4e42" }}>{item.desc}</p>
-                    </div>
-                  </div>
-                  <div className="text-xs font-bold uppercase tracking-[0.2em]" style={{ color: TEAL }}>Open</div>
-                </a>
-              );
-            })}
-          </div>
-        </div>
-      </section>
-
-      <section id="supervisor-controls" className="py-20 px-6" style={{ background: BG_WARM }}>
-        <div className="max-w-6xl mx-auto">
-          <div className="text-center mb-12">
-            <div className="overline" style={{ color: TEAL }}>Supervisor Controls</div>
-            <h2 className="font-heading text-3xl sm:text-4xl font-bold mt-2" style={{ color: "#1a1a2e" }}>Choose your permission level</h2>
-            <p className="mt-3" style={{ color: "#6b5e52" }}>Public users can browse help resources. Supervisors may sign in and access secure executive controls inside the same MORE Help Center.</p>
-          </div>
-          <div className="grid gap-6 sm:grid-cols-3">
-            {SUPERVISOR_TOGGLES.map((item) => (
-              <a key={item.label} href={item.href} className="rounded-[28px] p-6 shadow-[0_20px_45px_rgba(97,64,35,0.08)] transition hover:-translate-y-1" style={{ background: item.bg, color: item.color }}>
-                <div className="text-xs uppercase tracking-[0.4em] font-bold mb-3">{item.label}</div>
-                <div className="text-sm leading-7">{item.description}</div>
-              </a>
-            ))}
-          </div>
-
-          {user?.role === "executive_admin" && (
-            <div className="mt-16 rounded-[32px] border border-[#e7dac5] bg-white p-6 shadow-[0_20px_60px_rgba(97,60,20,0.08)]">
-              <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-                <div>
-                  <div className="overline" style={{ color: "#8d5a33" }}>Executive mode</div>
-                  <h2 className="font-heading text-3xl font-black text-[#2b1f15] mt-2">Supervisor mode controls</h2>
-                  <p className="mt-3 max-w-2xl text-[#5c4c41]">
-                    As an executive supervisor, you can switch between the centralized MORE Help Center’s display modes for public greeting, executive oversight, or fallback support.
-                  </p>
-                </div>
-                <div className="flex flex-wrap gap-3">
-                  {PANEL_MODES.map((item) => (
-                    <button
-                      key={item.id}
-                      type="button"
-                      onClick={() => setMode(item.id)}
-                      className={`rounded-full px-5 py-3 text-sm font-bold uppercase tracking-[0.18em] transition ${mode === item.id ? "bg-[#8d5a33] text-white" : "bg-[#f3e8d7] text-[#4f3c28] hover:bg-[#e7d4b2]"}`}
-                    >
-                      {item.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              <div className="mt-8 rounded-[28px] border border-[#d3b588] bg-[#fbf5ec] p-8">
-                <div className="text-sm uppercase tracking-[0.35em] font-bold text-[#8d5a33]">{modeMeta.title}</div>
-                <p className="mt-4 text-lg text-[#3d3229]">{modeMeta.summary}</p>
-                <p className="mt-4 text-sm text-[#5c4c41]">{modeMeta.action}</p>
-                <div className="mt-6 grid gap-3 sm:grid-cols-3">
-                  {modeMeta.links.map((link) => (
-                    <Link
-                      key={link.to}
-                      to={link.to}
-                      className="rounded-3xl border border-[#d3b588] bg-[#fff5e0] px-4 py-4 text-sm font-semibold text-[#2f281f] transition hover:-translate-y-0.5"
-                    >
-                      {link.label}
-                    </Link>
-                  ))}
-                </div>
-              </div>
-            </div>
-          )}
-        </div>
-      </section>
-
-      {freeModules.length > 0 && (
-        <section id="modules" className="py-20 px-6" style={{ background: "#ffffff" }}>
-          <div className="max-w-6xl mx-auto">
-            <div className="text-center mb-12">
-              <div className="overline" style={{ color: TEAL }}>Free Curriculum</div>
-              <h2 className="font-heading text-3xl sm:text-4xl font-bold mt-2" style={{ color: "#1a1a2e" }}>Start Here — No Account Needed</h2>
-              <p className="mt-3" style={{ color: "#6b5e52" }}>Complete these free modules and earn Partnership Points toward the full program.</p>
-=======
         {/* ── Hero ── */}
         <section style={{ borderRadius: 16, overflow: "hidden", marginTop: 32, marginBottom: 28, background: `linear-gradient(165deg, ${BARK} 0%, ${TERRACOTTA} 35%, ${AMBER} 70%, ${COPPER} 100%)`, padding: "56px 40px", textAlign: "center", position: "relative" }}>
           <div style={{ position: "absolute", inset: 0, opacity: 0.07, backgroundImage: "radial-gradient(circle at 20px 20px, #f5e6c8 1.5px, transparent 0)", backgroundSize: "40px 40px" }} />
           <div style={{ position: "relative", zIndex: 1 }}>
             <div style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "6px 16px", borderRadius: 4, background: "rgba(0,0,0,0.25)", color: AMBER, fontSize: 11, fontWeight: 800, textTransform: "uppercase", letterSpacing: 3, marginBottom: 24 }}>
               <Heart style={{ width: 12, height: 12 }} /> 100% Free · Community-Powered
->>>>>>> b5e17a90a093ef2f7a081efc8d479b5b9f58558e
             </div>
             <h1 style={{ color: "white", fontSize: "clamp(32px, 6vw, 56px)", fontWeight: 900, lineHeight: 1.1, marginBottom: 16, fontFamily: "Georgia, serif" }}>
               Help is here.<br /><span style={{ color: AMBER }}>Free, always.</span>
@@ -2098,18 +1904,6 @@ export default function MoreHelpCenter() {
               </a>
             ))}
           </div>
-<<<<<<< HEAD
-          <h2 className="mt-6 text-3xl font-black text-[#1a1a2e]">MORE Help Center is the unified public hub</h2>
-          <p className="mt-4 max-w-3xl mx-auto text-sm leading-7 text-[#5a4e42]">
-            This is the single centralized help landing experience. Supervisors sign in for executive oversight inside the same MORE Help Center page.
-          </p>
-          <a href="/supervisor/login" className="mt-8 inline-flex items-center justify-center gap-2 rounded-full bg-[#0d7377] px-8 py-4 text-sm font-bold uppercase tracking-[0.15em] text-white transition hover:bg-[#095b5e]">
-            Supervisor Login <ArrowRight className="w-4 h-4" />
-          </a>
-        </div>
-      </section>
-=======
->>>>>>> b5e17a90a093ef2f7a081efc8d479b5b9f58558e
 
           {/* Exec-only: mode switcher + mode description card */}
           {superExec && (
@@ -2160,25 +1954,6 @@ export default function MoreHelpCenter() {
             <CarvedHeader label="How the plaza works" />
             <h2 style={{ fontSize: 28, fontWeight: 900, color: BARK, fontFamily: "Georgia, serif", marginTop: 8 }}>Your path through the center</h2>
           </div>
-<<<<<<< HEAD
-          <h2 className="font-heading text-2xl sm:text-3xl font-bold text-white">
-            MORE Help Center is the centralized help hub for everyone
-          </h2>
-          <p className="mt-4 text-base" style={{ color: "#a0d4d6" }}>
-            Free resources for everyone. When you're ready for certification, advanced training, and credentials — the full program is one click away.
-          </p>
-          <a href="https://www.wai-institute.org" target="_blank" rel="noopener noreferrer" className="mt-8 inline-flex items-center gap-2 px-8 py-3 font-bold text-sm uppercase tracking-widest rounded-lg transition-all hover:scale-105" style={{ background: GOLD, color: "#1a1a2e" }}>
-            Visit WAI Institute <ArrowRight className="w-4 h-4" />
-          </a>
-        </div>
-      </section>
-
-      <footer className="py-8 px-6" style={{ background: "#0d2b2d", color: "#7ab8bb" }}>
-        <div className="max-w-6xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4 text-xs">
-          <div className="flex items-center gap-2">
-            <Heart className="w-3.5 h-3.5" />
-            <span>MORE Help Center — Goodwill Wing of WAI Institute</span>
-=======
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(220px,1fr))", gap: 16 }}>
             {WAYPOINTS.map(pt => {
               const Icon = pt.icon;
@@ -2418,7 +2193,6 @@ export default function MoreHelpCenter() {
             <p style={{ color: "#c8e6c9", fontSize: 15, maxWidth: 520, margin: "0 auto", lineHeight: 1.7 }}>
               Where disputes are heard, rights are protected, and community law is made plain.
             </p>
->>>>>>> b5e17a90a093ef2f7a081efc8d479b5b9f58558e
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(220px,1fr))", gap: 16, marginBottom: 28 }}>
             {[

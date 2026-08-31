@@ -186,12 +186,8 @@ function NewNeedModal({ onClose, onSuccess }) {
 
 // ── Admin Panel ───────────────────────────────────────────────────────────────
 function AdminPanel({ hasFeature }) {
-<<<<<<< HEAD
-  const [flags,setFlags]=useState([]); const [flagTotal,setFlagTotal]=useState(0); const [queueTotal,setQueueTotal]=useState(0); const [appealTotal,setAppealTotal]=useState(0); const [purging,setPurging]=useState(false); const [loading,setLoading]=useState(false);
-=======
   const [flags,setFlags]=useState([]); const [flagTotal,setFlagTotal]=useState(0); const [purging,setPurging]=useState(false); const [loading,setLoading]=useState(false);
   const [confirmPurge,setConfirmPurge]=useState(false);
->>>>>>> b5e17a90a093ef2f7a081efc8d479b5b9f58558e
   const loadFlags=useCallback(async()=>{
     if(!hasFeature("flag_view"))return; setLoading(true);
     try{
