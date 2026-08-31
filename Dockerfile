@@ -6,7 +6,7 @@ WORKDIR /frontend
 COPY frontend/package*.json ./
 RUN npm ci --legacy-peer-deps
 
-ARG CACHE_BUST=20260830
+ARG CACHE_BUST=20260831
 COPY frontend/ ./
 
 # REACT_APP_BACKEND_URL is baked in at build time.
