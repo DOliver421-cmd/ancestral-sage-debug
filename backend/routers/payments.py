@@ -1053,7 +1053,18 @@ async def payments_webhook(request: Request):
         product_key = _match_product_key(data.get("product_name", ""))
         sub_id = str((event.get("data") or {}).get("id", ""))
         now = datetime.now(timezone.utc)
-        user_doc = await _find_user_by_email(user_email, {"_id": 0, "id": 1}) if user_email else None
+        # Guarded: the event id is recorded in db.webhook_events BEFORE this
+        # branch runs, so an uncaught exception here would 500, Lemon Squeezy
+        # would retry, and the retry would be answered as a duplicate no-op —
+        # permanently losing the dunning notice. Degrade instead of crashing.
+        user_doc = None
+        if user_email:
+            try:
+                user_doc = await _find_user_by_email(user_email, {"_id": 0, "id": 1})
+            except Exception:
+                logger.exception(
+                    "LS webhook: user lookup failed for payment-failure (sub=%s)", sub_id
+                )
         # Record the failure so the exec/billing surfaces can see at-risk revenue
         # even when the buyer email does not match a local account.
         try:
