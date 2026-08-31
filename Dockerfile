@@ -19,6 +19,13 @@ ENV REACT_APP_BACKEND_URL=$REACT_APP_BACKEND_URL
 # errors (rules-of-hooks and other error-severity issues fail either way).
 ENV CI=false
 
+# Hardening for Railway builds (Node 18 / OpenSSL 3 / limited build RAM):
+#  - --openssl-legacy-provider: Node 17+ OpenSSL 3 breaks webpack's MD4
+#    hashing -> "digital envelope routines::unsupported" build crash.
+#  - --max-old-space-size: CRA/craco builds can exceed Railway's default
+#    build RAM and get silently OOM-killed mid-build.
+ENV NODE_OPTIONS=--openssl-legacy-provider --max-old-space-size=2048
+
 RUN npm run build
 
 # Stage 2: Python backend — includes the built frontend so SERVE_FRONTEND=1 works
