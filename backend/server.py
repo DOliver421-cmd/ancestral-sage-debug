@@ -238,42 +238,6 @@ async def enforce_platform_flags(request: Request, call_next):
     return await call_next(request)
 
 
-@app.exception_handler(AttributeError)
-async def handle_db_unavailable(request: Request, exc: AttributeError):
-    """Return a clean 503 when database operations fail because db is None."""
-    message = str(exc)
-    if "NoneType" in message and "object has no attribute" in message:
-        return JSONResponse(
-            status_code=503,
-            content={"detail": "Database temporarily unavailable. Please try again shortly."},
-        )
-    raise exc
-            # Enforce the exec panel's platform controls (feature flags + page
-            # access).  Safe default: only blocks when an executive explicitly
-            # disabled a mapped flag/page — absent config == allow.
-            decision = await check_request_config(db, path, doc)
-            if decision:
-                return JSONResponse(status_code=decision[0], content={"detail": decision[1]})
-        except Exception:
-            # Fail closed: if the policy store is unavailable, sensitive
-            # surfaces (mapped features, FCC features, /api/ai/) must be
-            # rejected.  Unrelated/public endpoints pass through so a DB outage
-            # does not turn the whole site into a maintenance page.
-            controlled = (
-                feature_for_path(path) is not None
-                or fcc_feature_for_path(path) is not None
-                or path.startswith("/api/ai/")
-            )
-            if controlled:
-                logger.exception("Feature authorization unavailable for %s", path)
-                return JSONResponse(
-                    status_code=503,
-                    content={"detail": "Feature authorization unavailable — request rejected."},
-                    headers={"cache-control": "no-store"},
-                )
-    return await call_next(request)
-
-
 @app.middleware("http")
 async def enforce_ip_whitelist(request: Request, call_next):
     """Enforce IP whitelist for executive-gated paths.
