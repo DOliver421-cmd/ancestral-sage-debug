@@ -238,8 +238,219 @@ async def enforce_platform_flags(request: Request, call_next):
     return await call_next(request)
 
 
+# ── Feature Gate Enforcement Middleware ─────────────────────────────────────────
+# Backend counterpart to the frontend AccessGate. Enforces the toggle state
+# from Step 1.1 (AND merge of db.page_access + db.feature_configs) on the API
+# layer, so hiding a page in nav does not leave its API open.
+# Caches the gate map for 30 seconds to avoid a DB round-trip per request.
+_GATE_CACHE: dict = {}
+_GATE_CACHE_TS: float = 0
+_GATE_CACHE_TTL = 30
+
+# Page key derived from request path. Mirrors the frontend pathKey logic in
+# src/lib/accessGates.js but is a simplified prefix match against the
+# known PAGE_ACCESS_REGISTRY paths.
+_GATE_PATH_MAP = [
+    ("/more/litigation", "legal-tools"),
+    ("/admin/exec-control", "exec-control"),
+    ("/admin/system", "exec"),
+    ("/admin/control", "site-control"),
+    ("/admin/office", "exec-business-office"),
+    ("/admin/director", "director"),
+    ("/admin/sage-audit", "exec"),
+    ("/admin/staff-meetings", "exec"),
+    ("/admin/accounts", "account-controls"),
+    ("/admin", "admin"),
+    ("/app/helper", "helper"),
+    ("/app/more", "more"),
+    ("/partnership/discounts", "partnership-discounts"),
+    ("/partnership", "partnership"),
+    ("/creator/payouts", "creator-payouts"),
+    ("/creator", "creator"),
+    ("/missing-kameron", "missing-kameron"),
+    ("/ai", "ai"),
+    ("/nam", "nam"),
+    ("/palace", "palace"),
+    ("/studio", "studio"),
+    ("/ghost-producer", "ghost-producer"),
+    ("/band", "band"),
+    ("/playlist", "playlist"),
+    ("/arcade", "arcade"),
+    ("/store", "store"),
+    ("/merch", "merch"),
+    ("/aawab", "aawab"),
+    ("/more", "more"),
+    ("/legal-tools", "legal-tools"),
+    ("/classic-tools", "classic-tools"),
+    ("/business-office", "business-office"),
+    ("/partnership", "partnership"),
+    ("/community", "community"),
+    ("/creators", "creators"),
+    ("/courses", "courses"),
+    ("/modules", "modules"),
+    ("/labs", "labs"),
+    ("/compliance", "compliance"),
+    ("/credentials", "credentials"),
+    ("/certificates", "certificates"),
+    ("/leaderboard", "leaderboard"),
+    ("/projects", "projects"),
+    ("/byok", "byok"),
+    ("/social", "social"),
+    ("/revenue", "revenue"),
+    ("/auditor", "auditor"),
+    ("/supervisor", "supervisor"),
+    ("/council", "council"),
+    ("/elder-council", "elder-council"),
+    ("/jamil", "jamil"),
+    ("/portfolio", "portfolio"),
+    ("/arena", "arena"),
+    ("/settings", "settings"),
+    ("/profile", "profile"),
+    ("/helper", "helper"),
+]
+
+# Paths that are always exempt from feature gating (public by design).
+_GATE_EXEMPT = {
+    "/api/health", "/api/version", "/api/health/ready", "/",
+}
+_GATE_EXEMPT_PREFIXES = (
+    "/api/auth/", "/api/payments/stripe-webhook", "/api/payments/webhook",
+    "/api/payments/gumroad-webhook", "/api/docs", "/api/openapi.json", "/api/redoc",
+)
+
+
+def _derive_page_key(path: str) -> str:
+    """Map a request path to a page key (mirrors frontend pathKey)."""
+    if path.startswith("/api"):
+        path = path[4:]
+    for prefix, key in _GATE_PATH_MAP:
+        if path == prefix or path.startswith(prefix + "/"):
+            return key
+    segs = path.strip("/").split("/")
+    return segs[0] if segs and segs[0] else "home"
+
+
+async def _load_gate_cache() -> dict:
+    """Read the merged gate map from DB (AND of page_access + feature_configs).
+
+    Returns {} when DB is unavailable — middleware treats unknown as allowed
+    (fail-open on DB outage, matching the fail-open-on-startup design).
+    """
+    global _GATE_CACHE, _GATE_CACHE_TS
+    now = time.time()
+    if _GATE_CACHE and (now - _GATE_CACHE_TS) < _GATE_CACHE_TTL:
+        return _GATE_CACHE
+    try:
+        from routers.features import get_feature_config_async, FEATURE_REGISTRY, normalize_tiers
+        from routers.exec_control import PAGE_ACCESS_REGISTRY
+
+        pages: dict = {}
+
+        # System A: db.page_access (page toggles)
+        if db is not None:
+            try:
+                docs = await db.page_access.find(
+                    {}, {"_id": 0, "page": 1, "enabled": 1, "allowed_roles": 1}
+                ).to_list(500)
+                db_state = {d["page"]: d for d in docs}
+            except Exception:
+                db_state = {}
+        else:
+            db_state = {}
+
+        for reg in PAGE_ACCESS_REGISTRY:
+            key = reg["key"]
+            d = db_state.get(key, {})
+            pages[key] = {
+                "enabled": d.get("enabled", True),
+                "allowed_roles": d.get("allowed_roles") or reg.get("default_allowed_roles"),
+            }
+
+        # System B: db.feature_configs — AND semantics
+        if db is not None:
+            try:
+                from routers.features import get_feature_config_async
+                fcc_docs = await db.feature_configs.find({}, {"_id": 0}).to_list(500)
+                for cfg in fcc_docs:
+                    reg = next(
+                        (r for r in FEATURE_REGISTRY if r.get("feature_id") == cfg.get("feature_id")),
+                        None,
+                    )
+                    if not reg:
+                        continue
+                    route = (reg.get("route") or "").strip("/")
+                    key = route.split("/")[0] if route else None
+                    if not key:
+                        continue
+                    entry = pages.get(key, {"enabled": True, "allowed_roles": None})
+                    if "enabled" in cfg:
+                        # AND: disabled in EITHER store means disabled
+                        entry["enabled"] = entry.get("enabled", True) and cfg["enabled"]
+                    if "allowed_roles" in cfg:
+                        entry["allowed_roles"] = cfg["allowed_roles"]
+                    pages[key] = entry
+            except Exception:
+                pass
+
+        # Launch mode: hide everything except allowlist
+        try:
+            flags_doc = await db.platform_flags.find_one({"_id": "flags"}, {"_id": 0, "flags": 1})
+            flags = (flags_doc or {}).get("flags", {})
+            launch = flags.get("launch_mode", {})
+            if isinstance(launch, dict) and launch.get("enabled"):
+                allowlist = set(launch.get("allowlist", []))
+                for key in list(pages.keys()):
+                    if key not in allowlist:
+                        pages[key]["enabled"] = False
+        except Exception:
+            pass
+
+        _GATE_CACHE = pages
+        _GATE_CACHE_TS = now
+    except Exception:
+        pass
+    return _GATE_CACHE
+
+
 @app.middleware("http")
-async def enforce_ip_whitelist(request: Request, call_next):
+async def enforce_feature_gates(request: Request, call_next):
+    """Block API requests to pages that exec has disabled via the toggle system.
+
+    Backend enforcement of the Step 1.1 gate map (AND of page_access +
+    feature_configs). Without this, hiding a nav item does not stop the API —
+    the exact gap the frontend-only toggle leaves open.
+    """
+    path = request.url.path
+
+    # Skip public/exempt paths
+    if path in _GATE_EXEMPT or any(path.startswith(p) for p in _GATE_EXEMPT_PREFIXES):
+        return await call_next(request)
+
+    # Only gate API paths
+    if not path.startswith("/api"):
+        return await call_next(request)
+
+    # On DB outage, fail-open (gate map is empty — everything is allowed)
+    if db is None:
+        return await call_next(request)
+
+    try:
+        gates = await _load_gate_cache()
+        if not gates:
+            return await call_next(request)
+
+        page_key = _derive_page_key(path)
+        entry = gates.get(page_key)
+        if entry and entry.get("enabled") is False:
+            return JSONResponse(
+                status_code=403,
+                content={"detail": f"Page '{page_key}' is disabled by the executive team.",
+                         "error": "FEATURE_DISABLED"},
+            )
+    except Exception:
+        pass
+
+    return await call_next(request)
     """Enforce IP whitelist for executive-gated paths.
     If ip_whitelist collection has entries for role="executive_admin", then
     only requests from those CIDRs/IPs may reach /api/admin/system, /api/admin/access,
