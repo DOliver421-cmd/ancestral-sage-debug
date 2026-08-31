@@ -14,9 +14,19 @@ import { isNavItemVisible } from "./navAccess";
 
 let gates = {};      // { pageKey: { enabled, allowed_roles, allowed_tiers, public_access, navigation_visible } }
 let loading = null;  // shared in-flight promise
+let gatesFailed = false;  // true when the gate fetch threw
+let launchMode = false;   // mirrors backend db.platform_flags.flags.launch_mode.enabled
 
 export function getGates() {
   return gates;
+}
+
+export function isGatesFailed() {
+  return gatesFailed;
+}
+
+export function isLaunchMode() {
+  return launchMode;
 }
 
 /** Map a pathname to its gate key (matches the exec PAGE_ACCESS_REGISTRY). */
@@ -71,10 +81,12 @@ export function loadGates() {
     .get("/exec/control/access/public")
     .then((r) => {
       gates = r.data?.pages || {};
+      launchMode = r.data?.launch_mode === true;
+      gatesFailed = false;
       return gates;
     })
     .catch(() => {
-      gates = {};
+      gatesFailed = true;
       return gates;
     })
     .finally(() => {

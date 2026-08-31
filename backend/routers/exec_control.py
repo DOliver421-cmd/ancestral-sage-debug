@@ -1185,6 +1185,7 @@ async def ec_access_public():
     #                              "updated_by": "<actor_id>",
     #                              "updated_at": "<iso>"}}}
     if db is not None:
+        _launch_mode_active = False
         try:
             flags_doc = await db.platform_flags.find_one(
                 {"_id": "flags"}, {"_id": 0, "flags": 1}
@@ -1192,14 +1193,17 @@ async def ec_access_public():
             flags = (flags_doc or {}).get("flags", {})
             launch = flags.get("launch_mode", {})
             if isinstance(launch, dict) and launch.get("enabled"):
+                _launch_mode_active = True
                 allowlist = set(launch.get("allowlist", []))
                 for key in list(pages.keys()):
                     if key not in allowlist:
                         pages[key]["enabled"] = False
         except Exception:
             pass
+    else:
+        _launch_mode_active = False
 
-    return {"pages": pages}
+    return {"pages": pages, "launch_mode": _launch_mode_active}
 
 
 # ── Route Access Overview — every API route and its required role ───────────
