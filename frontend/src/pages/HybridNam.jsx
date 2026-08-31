@@ -10,7 +10,7 @@
  * No mock data. No simulated AI behavior.
  */
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import AppShell from "../components/AppShell";
 import { useAuth } from "../lib/auth";
 import { api } from "../lib/api";
@@ -73,16 +73,6 @@ const PILLAR_DESCRIPTIONS = {
   crisis: "Provide structured intelligence during disruption",
   succession: "Preserve institutional capacity beyond individuals",
 };
-
-function Field({ label, value }) {
-  if (value == null || value === "") return null;
-  return (
-    <div>
-      <div className="text-[10px] font-black uppercase tracking-widest text-ink/40 mb-0.5">{label}</div>
-      <div className="text-sm text-ink/80">{value}</div>
-    </div>
-  );
-}
 
 function RecordCard({ record, pillarId }) {
   const getRecordMeta = (rec) => {
@@ -506,7 +496,6 @@ export function HybridNamContent({ embedded = false }) {
     if (!target) return;
 
     let payload = { ...formValues };
-    let requiresArrayNormalization = false;
     if (activePillar === "memory") {
       payload = { ...payload, participants: [] };
     }
