@@ -121,9 +121,15 @@ def _doc_to_out(doc: dict) -> PersonaOut:
 
 # ── Endpoints ────────────────────────────────────────────────────────────────
 
-@router.get("/personas")
+@router.get("/admin/personas")
 async def list_personas(user: User = Depends(_require_admin())):
-    """Fetch all system personas. Admin/exec only."""
+    """Fetch all system personas. Admin/exec only.
+
+    Path is /admin/personas (not /personas) to avoid shadowing the public
+    persona roster at GET /personas defined in routers/ai.py. The two
+    endpoints serve different audiences — this returns full configs
+    (system_prompt, priority, active), the other returns public metadata only.
+    """
     docs = await db.ai_personas.find({}, {"_id": 0}).sort("priority", 1).to_list(length=500)
     return [_doc_to_out(d).model_dump() for d in docs]
 

@@ -1273,6 +1273,13 @@ async def ec_route_access(actor: User = Depends(_require_rank("executive_admin")
     its current enforcement status.  The executive console renders this
     as a table so the exec can see at a glance which routes are locked
     and which are open.
+
+    NOTE: This endpoint is SHADOWED by security/access_control/dashboard.py's
+    route_access_overview, which is included first and returns the live
+    gateway matrix instead. Both require executive_admin (no authz hazard),
+    but only the dashboard.py version responds at this path. The override
+    feature below (route_access_overrides) is currently unreachable via this
+    endpoint. See REMEDIATION_PLAN.md Part 4 (duplicate routes).
     """
     # Fetch current access overrides from DB
     overrides = {}
