@@ -2053,6 +2053,34 @@ async def version():
     return {"version": APP_VERSION, "name": "W.A.I. Training Platform"}
 
 
+@api_router.get("/health/ready")
+async def health_ready():
+    """Railway readiness probe.
+
+    Returns 200 only when the primary database is reachable.
+    Returns 503 when DB is down so Railway does not route traffic
+    to a container that cannot persist or enforce anything.
+
+    This is intentionally separate from /api/health, which is documented
+    as returning 200 always (for UptimeRobot monitoring that checks
+    the `status` field in the JSON body).
+    """
+    if client is None:
+        return JSONResponse(
+            status_code=503,
+            content={"status": "not ready", "db": "disabled",
+                     "error": "MONGO_URL not set"},
+        )
+    try:
+        await client.admin.command("ping")
+        return {"status": "ready", "db": "up"}
+    except Exception as _dbe:
+        return JSONResponse(
+            status_code=503,
+            content={"status": "not ready", "db": "down",
+                     "error": str(_dbe)[:200]},
+        )
+
 
 
 # ── Platform Liveness (conference-bridge heartbeat sink) ──────────────────────
