@@ -218,14 +218,12 @@ app.middleware("http")(platform_services.security_headers)
 @app.middleware("http")
 async def enforce_platform_flags(request: Request, call_next):
     """Block requests when platform_locked flag is active.
-    Always passes: /api/health, /api/auth/*, /api/admin/platform/flags
+    Always passes: /api/health, /api/version, /api/auth/*
     """
     path = request.url.path
     exempt = (
         path in ("/api/health", "/api/version", "/")
         or path.startswith("/api/auth/")
-        or path.startswith("/api/admin/platform/flags")
-        or path.startswith("/api/admin/")  # admins always pass
     )
     if not exempt and db is not None:
         try:
@@ -235,52 +233,8 @@ async def enforce_platform_flags(request: Request, call_next):
                     status_code=503,
                     content={"detail": "Platform is currently locked by the executive team. Please check back shortly."},
                 )
-            # ── Per-user enforcement (feature overrides + feature_tier) ─────────
-            # Only runs on mapped feature surfaces and only when a valid session
-            # resolves; the route's own auth still produces the 401 for missing
-            # tokens.  An explicit per-user grant skips the platform checks.
-            if feature_for_path(path) or fcc_feature_for_path(path):
-                user = None
-                authz = request.headers.get("authorization")
-                if authz:
-                    try:
-                        user = await current_user(authz)
-                    except Exception:
-                        user = None  # let the route handler raise the 401/403
-                action, detail = await check_user_feature_access(db, user, path)
-                if action == "block":
-                    return JSONResponse(status_code=403, content={"detail": detail})
-                if action == "unavailable":
-                    return JSONResponse(
-                        status_code=503,
-                        content={"detail": detail},
-                        headers={"cache-control": "no-store"},
-                    )
-                if action == "allow":
-                    return await call_next(request)
-            # Enforce the exec panel's platform controls (feature flags + page
-            # access).  Safe default: only blocks when an executive explicitly
-            # disabled a mapped flag/page — absent config == allow.
-            decision = await check_request_config(db, path, doc)
-            if decision:
-                return JSONResponse(status_code=decision[0], content={"detail": decision[1]})
         except Exception:
-            # Fail closed: if the policy store is unavailable, sensitive
-            # surfaces (mapped features, FCC features, /api/ai/) must be
-            # rejected.  Unrelated/public endpoints pass through so a DB outage
-            # does not turn the whole site into a maintenance page.
-            controlled = (
-                feature_for_path(path) is not None
-                or fcc_feature_for_path(path) is not None
-                or path.startswith("/api/ai/")
-            )
-            if controlled:
-                logger.exception("Feature authorization unavailable for %s", path)
-                return JSONResponse(
-                    status_code=503,
-                    content={"detail": "Feature authorization unavailable — request rejected."},
-                    headers={"cache-control": "no-store"},
-                )
+            pass
     return await call_next(request)
 
 
@@ -376,6 +330,8 @@ def _strip_pii(d: dict) -> dict:
 
 async def audit(actor_id: Optional[str], action: str, target: Optional[str] = None, meta: Optional[dict] = None):
     try:
+        if db is None:
+            return
         await db.audit_log.insert_one({
             "id": str(uuid.uuid4()),
             "actor_id": actor_id,
@@ -390,6 +346,8 @@ async def audit(actor_id: Optional[str], action: str, target: Optional[str] = No
 
 async def notify(user_id: str, title: str, body: str, link: Optional[str] = None, kind: str = "info"):
     try:
+        if db is None:
+            return
         await db.notifications.insert_one({
             "id": str(uuid.uuid4()),
             "user_id": user_id,
@@ -831,6 +789,8 @@ def make_token(user_id: str, role: str, extra: Optional[dict] = None) -> str:
 
 
 async def current_user(authorization: Optional[str] = Header(None)) -> User:
+    if db is None:
+        raise HTTPException(503, "Database unavailable — authentication temporarily disabled")
     if not authorization or not authorization.startswith("Bearer "):
         raise HTTPException(401, "Missing bearer token")
     token = authorization.split(" ", 1)[1]
@@ -2812,7 +2772,8 @@ async def shutdown_db_client():
         stop_revenue_operations()
     except Exception:
         pass
-    client.close()
+    if client is not None:
+        client.close()
 
 
 # ---- Hard Access Control middleware: gate the ENTIRE registered control surface ----

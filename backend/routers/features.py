@@ -1032,12 +1032,10 @@ async def get_feature_config_async(feature_id: str) -> Optional[dict]:
 
 # ── API Endpoints ────────────────────────────────────────────────────────────
 
+@router.get("/")
 @router.get("")
-async def list_features(actor=Depends(current_user)):
-    """List all features with current config (admin only)."""
-    if not actor or actor.get("role") not in ("admin", "executive_admin"):
-        raise HTTPException(403, "Admin access required")
-
+async def list_features():
+    """List all features with current config."""
     configs = []
     for reg in FEATURE_REGISTRY:
         config = await get_feature_config_async(reg["feature_id"])
