@@ -223,6 +223,14 @@ export default function AppShell({ children }) {
 
   const waiDoor = isWaiDoor();
 
+  // Admin/exec control routes require a WHITE background with BLACK text.
+  // Hard owner mandate: the previous dark-on-dark (bg-ink + text-ink) scheme
+  // rendered control labels completely invisible to human operators.
+  const ADMIN_PREFIXES = ["/admin", "/business-office", "/orchestrator", "/auditor",
+    "/s-research", "/arena", "/executive-suite", "/projects", "/jamil", "/sponsor",
+    "/team/ops", "/billing-admin"];
+  const isAdminRoute = ADMIN_PREFIXES.some(p => loc.pathname.startsWith(p));
+
   const role = user?.role || "student";
   const rank = ROLE_RANK[role] ?? 0;
   const hasRank = (min) => rank >= (ROLE_RANK[min] ?? 0);
@@ -283,7 +291,7 @@ export default function AppShell({ children }) {
   const makeNav = waiDoor ? out : nl;
 
   return (
-    <div className="flex min-h-screen bg-ink">
+    <div className={`flex min-h-screen ${isAdminRoute ? "bg-white" : "bg-ink"}`}>
       {/* ── Sidebar ────────────────────────────────────────────────────── */}
       {/* Mobile backdrop — closes the drawer when tapping outside it. */}
       {mobileOpen && (
@@ -539,7 +547,7 @@ export default function AppShell({ children }) {
             <span className="text-sm font-semibold text-destructive">Backend offline — data cannot load. Check Railway service status.</span>
           </div>
         )}
-        <main className="flex-1 min-w-0">{children}</main>
+        <main className={`flex-1 min-w-0 ${isAdminRoute ? "text-black bg-white" : ""}`}>{children}</main>
       </div>
     </div>
   );
