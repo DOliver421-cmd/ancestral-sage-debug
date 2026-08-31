@@ -3,10 +3,14 @@ WAI Institute CRM Routes
 Sales pipeline management endpoints
 """
 
-from fastapi import APIRouter, Depends, HTTPException, Request, Query
+import sys
+
+from fastapi import APIRouter, Depends, Header, HTTPException, Request, Query
 from typing import List, Optional
 from datetime import datetime
 from bson import ObjectId
+
+from roles import role_rank
 
 from .models import (
     Lead, LeadCreate, LeadStatus, LeadSource,
@@ -16,25 +20,88 @@ from .models import (
 )
 
 router = APIRouter(prefix="/crm", tags=["crm"])
+# NOTE: the router-level dependency that gates EVERY CRM route is attached below,
+# immediately after _require_crm_access is defined. It is applied at the router
+# level on purpose: 9 of these 11 endpoints previously carried no auth dependency
+# at all, and the AccessGateway middleware was verified to let unauthenticated
+# requests through to the handler (it only enforces routes present in its
+# startup snapshot with a handler-derived requirement). Per-endpoint dependencies
+# are too easy to omit; this cannot be forgotten when a route is added.
 
 
 # ============================================================================
 # LEAD ENDPOINTS
 # ============================================================================
 
-def _get_current_user(request: Request):
-    """Extract current user from request state"""
-    user = getattr(request.state, "user", None)
-    if not user:
-        raise HTTPException(status_code=401, detail="Authentication required")
-    return user
+# ── Authentication / authorization ───────────────────────────────────────────
+# This router is included via revenue_operations_integration.get_revenue_routers()
+# and therefore never receives a bind() call, so it cannot use the bind()-injected
+# globals other routers rely on. It also must NOT use deps.dep_current_user:
+# deps.bind() is never called anywhere in this application, so the canonical
+# dependency raises 503 unconditionally.
+#
+# Resolving server.current_user lazily at REQUEST time is deliberate: it reuses
+# the app's single JWT/auth implementation instead of duplicating token decoding
+# here (duplicated auth is the drift that produced the divergent _require_rank
+# copies across the other routers). A module-level import would be circular,
+# because server imports this module during startup.
+#
+# CRM data is the sales pipeline: lead contact details, budget ranges, and revenue
+# forecasts. Access is oversight+ (rank 5), matching the documented
+# "admin/steward only" intent — 'steward' is a legacy alias for 'oversight'
+# (roles.LEGACY_ROLE_MAP).
+CRM_MIN_ROLE = "oversight"
+
+
+async def _current_user_dep(authorization: Optional[str] = Header(None)):
+    """Resolve the current user through the app's canonical auth, at request time."""
+    srv = sys.modules.get("server")
+    resolver = getattr(srv, "current_user", None) if srv else None
+    if resolver is None:
+        # Startup has not finished wiring auth yet. Fail CLOSED.
+        raise HTTPException(status_code=503, detail="Service starting up")
+    return await resolver(authorization)
+
+
+def _require_crm_access(min_role: str = CRM_MIN_ROLE):
+    """Authorize the caller against the CRM minimum rank. Fails closed."""
+
+    async def dep(user=Depends(_current_user_dep)):
+        role = getattr(user, "role", None) or (
+            user.get("role") if isinstance(user, dict) else None
+        )
+        if role_rank(role or "") < role_rank(min_role):
+            raise HTTPException(
+                status_code=403,
+                detail="Insufficient permissions to access CRM data.",
+            )
+        return user
+
+    return dep
+
+
+def _crm_db(request: Request):
+    """Return the live database, or 503 if startup has not wired it yet.
+
+    app.state.db is set inside server._on_startup_impl, which runs as a
+    background task — requests are served before it completes, so this must be
+    checked rather than assumed (an AttributeError here would surface as a 500).
+    """
+    database = getattr(request.app.state, "db", None)
+    if database is None:
+        raise HTTPException(status_code=503, detail="Database not ready")
+    return database
+
+
+# Gate every route in this router. Fail-closed by construction.
+router.dependencies.append(Depends(_require_crm_access()))
 
 
 @router.post("/leads", response_model=Lead)
 async def create_lead(
     lead_create: LeadCreate,
     request: Request,
-    current_user: dict = Depends(_get_current_user)
+    current_user: dict = Depends(_current_user_dep)
 ):
     """
     Create a new sales lead
@@ -62,7 +129,7 @@ async def create_lead(
     if current_user.get("role") not in allowed_roles:
         raise HTTPException(status_code=403, detail="CRM access requires admin or steward role")
 
-    leads = request.app.state.db.leads
+    leads = _crm_db(request).leads
 
     lead_doc = {
         "company_name": lead_create.company_name,
@@ -88,7 +155,7 @@ async def create_lead(
 @router.get("/leads", response_model=List[Lead])
 async def list_leads(
     request: Request,
-    current_user: dict = Depends(_get_current_user),
+    current_user: dict = Depends(_current_user_dep),
     status: Optional[str] = Query(None),
     source: Optional[str] = Query(None),
     owner_id: Optional[str] = Query(None),
@@ -114,7 +181,7 @@ async def list_leads(
     if current_user.get("role") not in allowed_roles:
         raise HTTPException(status_code=403, detail="CRM access requires admin or steward role")
 
-    leads = request.app.state.db.leads
+    leads = _crm_db(request).leads
 
     filter_query = {}
 
@@ -139,7 +206,7 @@ async def list_leads(
 @router.get("/leads/{lead_id}", response_model=Lead)
 async def get_lead(lead_id: str, request: Request):
     """Get a specific lead"""
-    leads = request.app.state.db.leads
+    leads = _crm_db(request).leads
 
     lead_doc = await leads.find_one({"_id": ObjectId(lead_id)})
 
@@ -152,10 +219,10 @@ async def get_lead(lead_id: str, request: Request):
 @router.put("/leads/{lead_id}", response_model=Lead)
 async def update_lead(
     lead_id: str,
+    request: Request,
     status: Optional[str] = None,
     owner_id: Optional[str] = None,
     score: Optional[int] = None,
-    request: Request,
 ):
     """
     Update a lead
@@ -165,7 +232,7 @@ async def update_lead(
     - owner_id: Assign to sales rep
     - score: Update lead score (0-100)
     """
-    leads = request.app.state.db.leads
+    leads = _crm_db(request).leads
 
     update_data = {"updated_at": datetime.utcnow()}
 
@@ -211,8 +278,8 @@ async def create_opportunity(
         "notes": "Initial interest, scheduling demo"
     }
     """
-    opportunities = request.app.state.db.opportunities
-    leads = request.app.state.db.leads
+    opportunities = _crm_db(request).opportunities
+    leads = _crm_db(request).leads
 
     # Verify lead exists
     lead = await leads.find_one({"_id": ObjectId(opportunity_create.lead_id)})
@@ -263,7 +330,7 @@ async def list_opportunities(
     - probability_min: Minimum probability (0-100)
     - limit: Number to return (default 50)
     """
-    opportunities = request.app.state.db.opportunities
+    opportunities = _crm_db(request).opportunities
 
     filter_query = {"probability": {"$gte": probability_min}}
 
@@ -287,7 +354,7 @@ async def update_opportunity(
     request: Request
 ):
     """Update an opportunity"""
-    opportunities = request.app.state.db.opportunities
+    opportunities = _crm_db(request).opportunities
 
     update_data = {"updated_at": datetime.utcnow()}
 
@@ -317,8 +384,8 @@ async def update_opportunity(
 @router.post("/opportunities/{opportunity_id}/close-won", response_model=Opportunity)
 async def close_opportunity_won(opportunity_id: str, request: Request):
     """Close opportunity as won (move to customer)"""
-    opportunities = request.app.state.db.opportunities
-    leads = request.app.state.db.leads
+    opportunities = _crm_db(request).opportunities
+    leads = _crm_db(request).leads
 
     opp_doc = await opportunities.find_one({"_id": ObjectId(opportunity_id)})
     if not opp_doc:
@@ -355,7 +422,7 @@ async def close_opportunity_won(opportunity_id: str, request: Request):
 @router.get("/metrics/pipeline")
 async def get_pipeline_metrics(request: Request):
     """Get sales pipeline metrics"""
-    opportunities = request.app.state.db.opportunities
+    opportunities = _crm_db(request).opportunities
 
     pipeline = [
         {
@@ -388,7 +455,7 @@ async def get_sales_forecast(request: Request, months: int = Query(3, le=12)):
 
     Returns revenue expected to close in each month
     """
-    opportunities = request.app.state.db.opportunities
+    opportunities = _crm_db(request).opportunities
 
     closed_won = await opportunities.find({
         "stage": "closed_won"
@@ -416,8 +483,8 @@ async def get_sales_forecast(request: Request, months: int = Query(3, le=12)):
 @router.get("/metrics/summary")
 async def get_sales_summary(request: Request):
     """Get complete sales metrics summary"""
-    opportunities = request.app.state.db.opportunities
-    leads = request.app.state.db.leads
+    opportunities = _crm_db(request).opportunities
+    leads = _crm_db(request).leads
 
     total_leads = await leads.count_documents({})
     total_opportunities = await opportunities.count_documents({})

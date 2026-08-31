@@ -361,13 +361,12 @@ try:
             latency_ms = round((_time.monotonic() - start) * 1000)
             return {"ok": False, "latency_ms": latency_ms, "error": str(e)}
 
-    @router.get("/providers/usage-log")
-    async def provider_usage_log(user: User = Depends(_require_rank("executive_admin"))):
-        docs = await db.ai_usage_log.find({}, {"_id": 0}).sort("created_at", -1).limit(500).to_list(500)
-        for d in docs:
-            if hasattr(d.get("created_at"), "isoformat"):
-                d["created_at"] = d["created_at"].isoformat()
-        return docs
+    # NOTE: GET /providers/usage-log was defined here and again below as
+    # provider_usage_log_v2. Both were removed — the path is now owned solely by
+    # routers/provider_gateway.py:usage_log. This copy read the correct
+    # collection (ai_usage_log) but ignored the caller's `limit`, and because it
+    # registered first it silently shadowed the other two definitions of the
+    # same path. See routers/provider_gateway.py for the surviving handler.
 
     logger.info("Provider gateway routes registered")
 
@@ -396,17 +395,11 @@ try:
             "Set PROVIDER_KEY_ENCRYPTION_SECRET (or connect MongoDB so the vault can self-configure).",
         )
 
-    @router.get("/providers/usage-log")
-    async def provider_usage_log_v2(
-        provider_id: Optional[str] = None,
-        limit: int = 100,
-        user: User = Depends(_require_rank("executive_admin")),
-    ):
-        filt = {}
-        if provider_id:
-            filt["provider_id"] = provider_id
-        logs = await db.api_key_usage_log.find(filt, {"_id": 0}).sort("created_at", -1).limit(min(limit, 500)).to_list(500)
-        return {"logs": logs, "total": len(logs)}
+    # NOTE: a second GET /providers/usage-log (provider_usage_log_v2) was defined
+    # here. Removed: it read db.api_key_usage_log, a collection NOTHING in this
+    # repository writes to, so it could only ever return an empty list — and it
+    # was unreachable anyway, shadowed by the earlier registration of the same
+    # path. The path is now owned solely by routers/provider_gateway.py.
 
 except Exception as _pgw_err:
     logger.warning("Provider gateway routes skipped: %s", _pgw_err)

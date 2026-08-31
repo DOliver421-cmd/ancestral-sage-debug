@@ -182,7 +182,30 @@ async def quick_setup(body: QuickSetupRequest, user=Depends(_user)):
 
 @router.get("/providers/usage-log")
 async def usage_log(limit: int = 50, user=Depends(_user)):
+    """Provider usage log for the exec Provider Gateway "Usage" tab.
+
+    Reads db.ai_usage_log — the collection that is actually written, in seven
+    places in routers/ai.py. This handler previously read db.provider_usage,
+    which NO code in this repository ever writes to, so it could only ever
+    return an empty list.
+
+    That defect was masked: this path was registered three times
+    (routers/billing.py twice, plus here) and FastAPI serves the
+    first-registered handler, which was routers/billing.py's copy reading
+    ai_usage_log. The duplicates have been removed and this is now the single
+    owner, so the collection had to be corrected here or the tab would have gone
+    permanently blank. Verify by execution after changing this.
+
+    `limit` is honored (the removed billing.py handler ignored it and always
+    returned up to 500 records, so the frontend's ?limit=50 had no effect).
+    """
     _exec(user)
     if db is None:
         raise HTTPException(503, "Provider usage storage is unavailable.")
-    return await db.provider_usage.find({}).sort("created_at", -1).to_list(length=min(max(limit, 1), 200))
+    capped = min(max(limit, 1), 200)
+    docs = await db.ai_usage_log.find({}, {"_id": 0}).sort("created_at", -1).to_list(length=capped)
+    # created_at may be a datetime or an ISO string depending on the writer.
+    for d in docs:
+        if hasattr(d.get("created_at"), "isoformat"):
+            d["created_at"] = d["created_at"].isoformat()
+    return docs
