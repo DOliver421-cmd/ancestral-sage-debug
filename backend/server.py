@@ -428,6 +428,11 @@ async def enforce_feature_gates(request: Request, call_next):
     """
     path = request.url.path
 
+    # Opt-in: enforcement is disabled by default. Set GATE_ENFORCEMENT_ENABLED=1
+    # when you want the middleware to block access to disabled pages at the API layer.
+    if not os.environ.get("GATE_ENFORCEMENT_ENABLED"):
+        return await call_next(request)
+
     # Skip public/exempt paths
     if path in _GATE_EXEMPT or any(path.startswith(p) for p in _GATE_EXEMPT_PREFIXES):
         return await call_next(request)
@@ -457,6 +462,11 @@ async def enforce_feature_gates(request: Request, call_next):
         pass
 
     return await call_next(request)
+
+
+# ── IP Whitelist middleware ─────────────────────────────────────────────────────────
+@app.middleware("http")
+async def enforce_ip_whitelist(request: Request, call_next):
     """Enforce IP whitelist for executive-gated paths.
     If ip_whitelist collection has entries for role="executive_admin", then
     only requests from those CIDRs/IPs may reach /api/admin/system, /api/admin/access,
