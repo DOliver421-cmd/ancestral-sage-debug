@@ -152,6 +152,31 @@ OPENROUTER_BASE   = "https://openrouter.ai/api/v1"
 # Lower to 50000 during pre-revenue period if desired.
 HOURLY_TOKEN_CAP  = int(os.environ.get("HOURLY_TOKEN_CAP", "200000"))
 
+# ── Paid-provider master switch (DEFAULT OFF) ────────────────────────────────
+# Owner directive 2026-08-31: "no paid models in this setup."
+#
+# This module's header has always claimed "free-first by design — no paid API
+# without D. Oliver consent", but the call chain in call_llm() did the opposite:
+# OpenAI (gpt-4o-mini) was attempted FIRST and DeepSeek SECOND, ahead of every
+# free provider. The stale log line "T1a Groq failed" inside the Groq block is
+# the fingerprint of that reordering — the labels were never updated.
+#
+# Two real consequences, both fixed by defaulting this OFF:
+#   1. COST — every request billed OpenAI for work free Groq/Cerebras could do.
+#   2. USABILITY — when the paid keys have no credit, each request burned two
+#      failing network round-trips (OpenAI, then DeepSeek) before reaching the
+#      first free provider, and if the whole chain ran out the caller received
+#      _kb_reply() — a canned non-AI response. That is why the assistant felt
+#      broken rather than merely slow.
+#
+# Leave unset/0 to run entirely on free providers. Set PAID_AI_ENABLED=1 only
+# with deliberate intent and funded keys.
+#
+# FOLLOW-UP (not done here): if this is ever enabled, the paid blocks still sit
+# ahead of the free chain and would again be tried first. They should be moved
+# to run AFTER the free providers so paid is a genuine last resort.
+PAID_AI_ENABLED = os.environ.get("PAID_AI_ENABLED", "0").strip().lower() in ("1", "true", "yes")
+
 # ── In-process state ──────────────────────────────────────────────────────────
 _hour_window_start:  float = time.time()
 _hour_tokens_used:   int   = 0
@@ -636,8 +661,8 @@ async def call_llm(
         except Exception as _be:
             logger.warning("LLM Gateway: user budget check failed (%s): %s", persona_label, _be)
 
-    # ── Tier 1a: OpenAI gpt-4o-mini (owner key — tool-capable) ──────────────
-    if OPENAI_API_KEY:
+    # ── OpenAI gpt-4o-mini (PAID — skipped unless PAID_AI_ENABLED=1) ────────
+    if PAID_AI_ENABLED and OPENAI_API_KEY:
         try:
             result = await _oai_compat_call(
                 base_url=OPENAI_BASE, api_key=OPENAI_API_KEY, model=OPENAI_MODEL,
@@ -647,8 +672,8 @@ async def call_llm(
         except Exception as e:
             logger.warning("LLM Gateway T1a OpenAI failed (%s): %s", persona_label, e)
 
-    # ── Tier 1b: DeepSeek deepseek-chat (owner key — tool-capable) ───────────
-    if DEEPSEEK_API_KEY:
+    # ── DeepSeek deepseek-chat (PAID — skipped unless PAID_AI_ENABLED=1) ────
+    if PAID_AI_ENABLED and DEEPSEEK_API_KEY:
         try:
             result = await _oai_compat_call(
                 base_url=DEEPSEEK_BASE, api_key=DEEPSEEK_API_KEY, model=DEEPSEEK_MODEL,
