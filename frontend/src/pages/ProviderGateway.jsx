@@ -83,28 +83,12 @@ const PRESETS = [
     signupLabel: "Get key at console.x.ai",
     color:    "#6366f1",
   },
-  {
-    type:     "openai",
-    name:     "OpenAI",
-    model:    "GPT-4o Mini",
-    badge:    "Tier 1a · Owner key",
-    cost:     "Paid (owner)",
-    note:     "Primary paid tier. Cheap + tool-capable text model.",
-    signup:   "https://platform.openai.com/api-keys",
-    signupLabel: "Get key at platform.openai.com",
-    color:    "#10a37f",
-  },
-  {
-    type:     "deepseek",
-    name:     "DeepSeek",
-    model:    "DeepSeek Chat",
-    badge:    "Tier 1b · Owner key",
-    cost:     "Paid (owner)",
-    note:     "Second paid tier — cheap, OpenAI-compatible.",
-    signup:   "https://platform.deepseek.com/api_keys",
-    signupLabel: "Get key at platform.deepseek.com",
-    color:    "#4d6bfe",
-  },
+  // OpenAI and DeepSeek cards removed 2026-08-31 — owner directive: "no paid
+  // models in this setup." backend/ai/llm_gateway.py now gates both behind
+  // PAID_AI_ENABLED (default OFF), so pasting a key here would have had no
+  // effect on the call chain while still inviting a paid signup. The cards also
+  // still advertised "Tier 1a / Tier 1b — Primary paid tier", which was stale:
+  // the gateway begins at Groq. Re-add only alongside PAID_AI_ENABLED=1.
 ];
 
 // ── Payment providers (exec key-link UI) ─────────────────────────────────────
