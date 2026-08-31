@@ -352,11 +352,37 @@ async def _cohere_call(
     return {"text": text, "in_tok": in_tok, "out_tok": out_tok}
 
 
-# ── Shared site-support BYOK pool ────────────────────────────────────────────
-# Site Support team members run the platform for free and share their BYOK key
-# with the platform: when every free provider fails, the gateway can serve the
-# request on a shared site-support key before falling to the static KB. The
-# pool is loaded at startup and refreshed after every BYOK key save/remove.
+# ── Shared site-support BYOK pool — DISABLED BY DEFAULT ──────────────────────
+# Owner directive 2026-08-31: do not run this without a toggle and explicit
+# consent. Disabled here rather than merely left unbuilt, because the mechanism
+# was already fully wired and would have activated silently the moment any
+# support_staff user saved a BYOK key.
+#
+# What it did: reload_shared_byok() collected EVERY active key in
+# db.user_byok_keys belonging to any support_staff / admin / executive_admin
+# user and served platform traffic on it. There is no share_with_platform flag
+# anywhere in byok.py — no opt-in, no prompt, no way for the contributor to
+# decline. The role is described as staff who "share" their key; the code simply
+# took it.
+#
+# Three reasons this stays off until it is redesigned:
+#   1. CONSENT — the contributor is never asked and cannot opt out.
+#   2. CONCENTRATION — `if p in by_provider: continue` keeps only the FIRST key
+#      found per provider, so one volunteer absorbs all overflow traffic for
+#      that provider rather than the load being spread.
+#   3. PROVIDER TERMS — free tiers are generally licensed to the account holder.
+#      Serving other users' requests on a volunteer's personal free key may
+#      breach the provider's terms, and the penalty would land on THEIR account,
+#      not the platform's.
+#
+# To re-enable safely, all three must be addressed: add an explicit
+# `share_with_platform` boolean on the BYOK document (default false), surface it
+# in the BYOK UI in plain language, and rotate across contributors instead of
+# taking the first. Only then set SHARED_BYOK_ENABLED=1.
+SHARED_BYOK_ENABLED = os.environ.get(
+    "SHARED_BYOK_ENABLED", "0"
+).strip().lower() in ("1", "true", "yes")
+
 _SHARED_BYOK_POOL: list = []
 
 
@@ -365,6 +391,12 @@ async def reload_shared_byok(db) -> int:
     Returns the number of providers in the pool (0 when empty)."""
     global _SHARED_BYOK_POOL
     _SHARED_BYOK_POOL = []
+    if not SHARED_BYOK_ENABLED:
+        # Disabled by owner directive — no consent mechanism exists. See the
+        # SHARED_BYOK_ENABLED comment above. Returning 0 leaves the pool empty,
+        # so call_llm() skips the shared tier and falls through as if no
+        # support-staff key were present.
+        return 0
     try:
         from byok import BYOK_PROVIDERS, decrypt_key, _PROVIDER_PRIORITY
 
