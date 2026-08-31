@@ -15,7 +15,7 @@ COPY package*.json ./
 
 RUN npm ci --legacy-peer-deps
 
-ARG CACHE_BUST=20260816
+ARG CACHE_BUST=20260831
 COPY . .
 
 # Build-time URL for any code that reads REACT_APP_BACKEND_URL directly.
