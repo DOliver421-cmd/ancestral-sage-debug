@@ -29,8 +29,8 @@ export default function LandingMarketplace() {
           <Link to="/" className="flex items-center gap-3">
             <span className="text-2xl">🏛️</span>
             <div>
-              <div className="overline leading-none text-amber-300">W.A.I.</div>
-              <div className="font-heading font-bold text-sm leading-tight text-white">Institute</div>
+              <div className="overline leading-none text-amber-300">M.O.R.E.</div>
+              <div className="font-heading font-bold text-sm leading-tight text-white">Help Center</div>
             </div>
           </Link>
           <nav className="flex items-center gap-4">
@@ -71,7 +71,7 @@ export default function LandingMarketplace() {
             </h1>
             <p className="text-xl leading-relaxed mb-8 max-w-2xl mx-auto" style={{ color: "rgba(241,240,251,0.82)" }}>
               Our communities have always built from within — teaching each other, trading skills, showing up when systems don't.
-              W.A.I. Institute exists to support what we already do. Keep your knowledge. Keep your earnings. Keep your power.
+              M.O.R.E. Help Center exists to support what we already do. Keep your knowledge. Keep your earnings. Keep your power.
             </p>
             <div className="flex flex-wrap justify-center gap-4 mb-20">
               <Link to="/more" className="inline-flex items-center gap-2 text-lg font-bold px-6 py-3 rounded transition-transform hover:scale-105" style={{ background: "var(--wai-gold)", color: "#1a0b2e" }}>
@@ -104,7 +104,7 @@ export default function LandingMarketplace() {
       <section className="py-20 bg-white">
         <div className="max-w-7xl mx-auto px-6">
           <div className="text-center mb-12">
-            <h2 className="font-heading text-4xl font-extrabold mb-4">Explore W.A.I.</h2>
+            <h2 className="font-heading text-4xl font-extrabold mb-4">Explore M.O.R.E.</h2>
             <p className="text-ink/60 max-w-xl mx-auto">Everything starts here. Each section has a back button to return to this page.</p>
           </div>
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
@@ -203,7 +203,7 @@ export default function LandingMarketplace() {
         <div className="max-w-7xl mx-auto px-6">
           <div className="grid md:grid-cols-4 gap-8 mb-12">
             <div>
-              <span className="font-bold text-white block mb-2">W.A.I. Institute</span>
+              <span className="font-bold text-white block mb-2">M.O.R.E. Help Center</span>
               <p className="text-sm">Building community. Supporting creators. Changing lives.</p>
             </div>
             <div>
@@ -233,7 +233,7 @@ export default function LandingMarketplace() {
             </div>
           </div>
           <div className="border-t border-white/10 pt-8 text-sm text-center">
-            <p>&copy; 2026 WAI Institute. Built by community, for community.</p>
+            <p>&copy; 2026 Michael Oliver Resource Exchange. Built by community, for community.</p>
           </div>
         </div>
       </footer>

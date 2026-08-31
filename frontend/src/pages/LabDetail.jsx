@@ -14,14 +14,14 @@ export default function LabDetail() {
   const [photoUrl, setPhotoUrl] = useState("");
   const [notes, setNotes] = useState("");
 
-  const load = useCallback(() => api.get(`/labs/${slug}`).then((r) => { setLab(r.data); if (r.data.my_submission?.track === "inperson") { setPhotoUrl(r.data.my_submission.photo_url || ""); setNotes(r.data.my_submission.notes || ""); } }), [slug]);
+  const load = useCallback(() => api.get(`/labs/${slug}`).then((r) => { setLab(r.data); if (r.data.my_submission?.track === "inperson") { setPhotoUrl(r.data.my_submission.photo_url || ""); setNotes(r.data.my_submission.notes || ""); } }).catch(() => {}), [slug]);
   useEffect(() => { load(); }, [load]);
 
   const submitOnline = async (answers) => {
     try {
       const r = await api.post(`/labs/${slug}/submit`, { lab_slug: slug, answers });
       setResult(r.data);
-      toast[r.data.status === "passed" ? "success" : "warning"](`${r.data.score.toFixed(0)}% — ${r.data.status.toUpperCase()}`);
+      toast[r.data.status === "passed" ? "success" : "warning"](`${(r.data.score ?? 0).toFixed(0)}% — ${(r.data.status ?? "").toUpperCase()}`);
       load();
     } catch { toast.error("Submission failed"); }
   };
@@ -132,13 +132,13 @@ export default function LabDetail() {
               {SimComp ? <SimComp onSubmit={submitOnline} initial={sub?.answers} /> : <div className="text-ink/60">Simulator not available.</div>}
               {result && (
                 <div className={`mt-5 p-4 border ${result.status === "passed" ? "border-signal bg-signal/20" : "border-destructive bg-destructive/5"}`}>
-                  <div className="font-heading text-xl font-bold">{result.score.toFixed(0)}% · {result.status.toUpperCase()}</div>
+                  <div className="font-heading text-xl font-bold">{(result.score ?? 0).toFixed(0)}% · {(result.status ?? "").toUpperCase()}</div>
                   {result.detail && <div className="text-sm mt-1 font-mono">{result.detail}</div>}
                 </div>
               )}
               {sub?.auto_score != null && !result && (
                 <div className="mt-5 p-4 border border-ink/20 bg-bone">
-                  <div className="font-heading font-bold">Previous score: {sub.auto_score.toFixed(0)}%</div>
+                  <div className="font-heading font-bold">Previous score: {(sub.auto_score ?? 0).toFixed(0)}%</div>
                 </div>
               )}
             </div>

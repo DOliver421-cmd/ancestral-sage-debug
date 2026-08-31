@@ -390,7 +390,7 @@ function RequestPayout() {
 
 - **GDPR:** Users can request/delete data. Logs kept per legal retention.
 - **SOC 2:** Audit trails for all access. Encryption at rest.
-- **Financial:** Stripe PCI compliance. No raw card data stored.
+- **Financial:** Payments run through Lemon Squeezy / Gumroad (PCI-compliant processors). No raw card data stored.
 - **Accessibility:** RBAC transparent to users. Clear "why access denied" messages.
 
 ---

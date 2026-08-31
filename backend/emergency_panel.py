@@ -30,7 +30,7 @@ logger = logging.getLogger("emergency_panel")
 BREAKER_ID = Literal[
     "primary_api", "backup_api", "emergency_ui",
     "database_primary", "database_backup",
-    "ai_services", "email_service", "stripe_payments", "scheduler_jobs",
+    "ai_services", "email_service", "payments", "scheduler_jobs",
 ]
 BREAKER_STATUS = Literal["on", "off", "standby", "tripped", "fault"]
 
@@ -42,7 +42,7 @@ DEFAULT_BREAKERS = {
     "database_backup":  {"label": "MongoDB Atlas (Backup)",      "status": "standby",  "type": "database", "order": 4},
     "ai_services":      {"label": "AI Services (Anthropic/OAI)", "status": "on",       "type": "service",  "order": 5},
     "email_service":    {"label": "Email (Resend/Gmail)",        "status": "on",       "type": "service",  "order": 6},
-    "stripe_payments":  {"label": "Stripe Payments",             "status": "on",       "type": "service",  "order": 7},
+    "payments":         {"label": "Payments (Lemon Squeezy/Gumroad)", "status": "on",    "type": "service",  "order": 7},
     "scheduler_jobs":   {"label": "Scheduled Jobs",              "status": "off",      "type": "service",  "order": 8},
 }
 

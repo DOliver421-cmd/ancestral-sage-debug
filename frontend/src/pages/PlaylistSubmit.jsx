@@ -81,7 +81,7 @@ export default function PlaylistSubmit() {
   useEffect(() => {
     (async () => {
       try {
-        const { data } = await api.get(`/api/playlist/gateways/${slug}`);
+        const { data } = await api.get(`/playlist/gateways/${slug}`);
         const open = (data.gateways || []);
         setGateways(open);
         if (open.length === 0) setPhase("closed");
@@ -99,7 +99,7 @@ export default function PlaylistSubmit() {
     e.preventDefault();
     setSubmitting(true);
     try {
-      const { data } = await api.post("/api/playlist/submit", {
+      const { data } = await api.post("/playlist/submit", {
         gateway_id: selectedGateway._id,
         ...form,
       });
@@ -119,7 +119,7 @@ export default function PlaylistSubmit() {
       return;
     }
     try {
-      const { data } = await api.post("/api/playlist/complete-step", {
+      const { data } = await api.post("/playlist/complete-step", {
         submission_id: submissionId,
         step: stepId,
         share_url: stepId === "share" ? shareUrl : "",
@@ -143,7 +143,7 @@ export default function PlaylistSubmit() {
       <header className="border-b border-ink/10 bg-bone sticky top-0 z-40">
         <div className="max-w-3xl mx-auto px-6 py-4 flex items-center justify-between">
           <Link to="/" className="flex items-center gap-2">
-            <img src={WAI_LOGO} alt="W.A.I." className="w-9 h-9 object-contain" style={{ mixBlendMode: "multiply" }} />
+            <img src={WAI_LOGO} alt="M.O.R.E." className="w-9 h-9 object-contain" />
             <span className="font-heading font-bold text-sm hidden sm:block">{BRAND.name}</span>
           </Link>
           <div className="flex items-center gap-3">

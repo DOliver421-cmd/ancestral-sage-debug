@@ -80,8 +80,11 @@ export function AuthProvider({ children }) {
       setUser(r.data);
       saveUser(r.data);
       return r.data;
-    } catch {
-      return null;
+    } catch (err) {
+      // A temporary outage must never turn into a logout. The interceptor is
+      // the single authority for invalid/revoked sessions.
+      if (err?.response?.status === 401 || err?.response?.status === 403) return null;
+      return user;
     }
   };
 

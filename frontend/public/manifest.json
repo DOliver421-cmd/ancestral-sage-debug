@@ -1,16 +1,16 @@
 {
-  "short_name": "W.A.I.",
-  "name": "Workforce Apprentice Institute",
-  "description": "Electrical trades training, community resources, and AI-powered learning platform.",
+  "short_name": "M.O.R.E.",
+  "name": "M.O.R.E. Help Center",
+  "description": "M.O.R.E. Help Center — the social-service virtual help center of the Michael Oliver Resource Exchange. Skills, support, and community care.",
   "start_url": ".",
   "display": "standalone",
-  "background_color": "#faf6f0",
-  "theme_color": "#c17817",
+  "background_color": "#1B4332",
+  "theme_color": "#E8A51E",
   "orientation": "any",
   "icons": [
     { "src": "/logo-192.png", "sizes": "192x192", "type": "image/png" },
     { "src": "/logo-512.png", "sizes": "512x512", "type": "image/png" }
   ],
-  "categories": ["education", "community"],
+  "categories": ["education", "social", "community"],
   "lang": "en-US"
 }

@@ -13,7 +13,7 @@ export function Error404() {
       <div className="max-w-2xl w-full">
         <div className="text-center">
           <div className="mb-8">
-            <img src={WAI_LOGO} alt="W.A.I." className="w-16 h-16 mx-auto mb-4 opacity-60" />
+            <img src={WAI_LOGO} alt="M.O.R.E." className="w-16 h-16 mx-auto mb-4 opacity-60" />
             <h1 className="text-6xl font-bold text-ink mb-2">404</h1>
             <p className="text-xl text-copper font-bold">This path isn't mapped yet.</p>
           </div>
@@ -53,7 +53,7 @@ export function Error500() {
       <div className="max-w-2xl w-full">
         <div className="text-center">
           <div className="mb-8">
-            <img src={WAI_LOGO} alt="W.A.I." className="w-16 h-16 mx-auto mb-4 opacity-60" />
+            <img src={WAI_LOGO} alt="M.O.R.E." className="w-16 h-16 mx-auto mb-4 opacity-60" />
             <h1 className="text-6xl font-bold text-ink mb-2">500</h1>
             <p className="text-xl text-copper font-bold">Something broke on our end.</p>
           </div>
@@ -94,7 +94,7 @@ export function Error503() {
       <div className="max-w-2xl w-full">
         <div className="text-center">
           <div className="mb-8">
-            <img src={WAI_LOGO} alt="W.A.I." className="w-16 h-16 mx-auto mb-4 opacity-60" />
+            <img src={WAI_LOGO} alt="M.O.R.E." className="w-16 h-16 mx-auto mb-4 opacity-60" />
             <h1 className="text-6xl font-bold text-ink mb-2">503</h1>
             <p className="text-xl text-copper font-bold">We're temporarily closed.</p>
           </div>
@@ -135,7 +135,7 @@ export function ErrorFallback({ error, resetErrorBoundary }) {
       <div className="max-w-2xl w-full">
         <div className="text-center">
           <div className="mb-8">
-            <img src={WAI_LOGO} alt="W.A.I." className="w-16 h-16 mx-auto mb-4 opacity-60" />
+            <img src={WAI_LOGO} alt="M.O.R.E." className="w-16 h-16 mx-auto mb-4 opacity-60" />
             <h1 className="text-6xl font-bold text-ink mb-2">⚠️</h1>
             <p className="text-xl text-copper font-bold">Something unexpected happened.</p>
           </div>

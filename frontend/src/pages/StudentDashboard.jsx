@@ -3,10 +3,10 @@ import AppShell from "../components/AppShell";
 import { api } from "../lib/api";
 import { Link } from "react-router-dom";
 import { useAuth } from "../lib/auth";
-import { ArrowRight, Award, BookOpen, Clock, Flame, Zap } from "lucide-react";
+import { ArrowRight, Award, BookOpen, Clock, Flame, Zap, AlertTriangle, RefreshCw, Gamepad2, Share2 } from "lucide-react";
 import PuzzleCard from "../components/PuzzleCard";
 import PartnershipProgress from "../components/PartnershipProgress";
-import SovereignAvatar from "../components/SovereignAvatar";
+import TeamAvatar from "../components/TeamAvatar";
 
 const DAILY_VERSES = [
   { ref: "Proverbs 22:29", text: "Do you see someone skilled in their work? They will serve before kings." },
@@ -23,29 +23,61 @@ export default function StudentDashboard() {
   const [certs, setCerts] = useState([]);
   const [xp, setXp] = useState(null);
   const [partnership, setPartnership] = useState(null);
+  const [loadError, setLoadError] = useState(false);
+  const [loading, setLoading] = useState(true);
 
   const refreshPartnership = useCallback(() => {
     api.get("/partnership/status").then((r) => setPartnership(r.data)).catch(() => {});
   }, []);
 
-  useEffect(() => {
-    api.get("/modules").then((r) => setModules(r.data));
-    api.get("/progress/me").then((r) => setProgress(r.data));
-    api.get("/certificates/me").then((r) => setCerts(r.data));
-    api.get("/xp/me").then((r) => setXp(r.data)).catch(() => {});
+  const loadData = useCallback(() => {
+    setLoadError(false);
+    setLoading(true);
+    // Each call is independent — one failing won't break the whole dashboard.
+    api.get("/modules")
+      .then((r) => setModules(Array.isArray(r.data) ? r.data : []))
+      .catch(() => {});
+    api.get("/progress/me")
+      .then((r) => setProgress(Array.isArray(r.data) ? r.data : []))
+      .catch(() => {});
+    api.get("/certificates/me")
+      .then((r) => setCerts(Array.isArray(r.data) ? r.data : []))
+      .catch(() => {});
+    api.get("/xp/me")
+      .then((r) => setXp(r.data))
+      .catch(() => {});
+    setLoading(false);
     refreshPartnership();
   }, [refreshPartnership]);
+
+  useEffect(() => { loadData(); }, [loadData]);
 
   const verse = DAILY_VERSES[new Date().getDate() % DAILY_VERSES.length];
   const completed = progress.filter((p) => p.status === "completed").length;
   const hours = progress.filter((p) => p.status === "completed").reduce((a, p) => a + (p.hours_logged || 0), 0);
   const pct = modules.length ? Math.round((completed / modules.length) * 100) : 0;
   const progressBySlug = Object.fromEntries(progress.map((p) => [p.module_slug, p]));
-  const nextModule = modules.find((m) => progressBySlug[m.slug]?.status !== "completed");
+  // Guard: only show next module button when slug is valid
+  const nextModule = modules.find((m) => m?.slug && progressBySlug[m.slug]?.status !== "completed");
 
   return (
     <AppShell>
       <div className="px-10 py-10 max-w-6xl">
+        {loadError && (
+          <div className="mb-8 flex items-center gap-4 p-4 rounded-xl border border-destructive/30 bg-destructive/5 text-destructive">
+            <AlertTriangle className="w-5 h-5 flex-shrink-0" />
+            <div className="flex-1 text-sm font-medium">Couldn't load your dashboard data. Check your connection.</div>
+            <button onClick={loadData} className="flex items-center gap-2 text-sm font-bold underline">
+              <RefreshCw className="w-4 h-4" /> Retry
+            </button>
+          </div>
+        )}
+        {loading && !loadError && modules.length === 0 && (
+          <div className="flex items-center gap-3 text-ink/40 py-12">
+            <RefreshCw className="w-5 h-5 animate-spin" />
+            <span className="text-sm">Loading your dashboard…</span>
+          </div>
+        )}
         <div className="flex items-end justify-between mb-10">
           <div>
             <div className="overline text-copper">Workforce Trainee</div>
@@ -54,9 +86,76 @@ export default function StudentDashboard() {
           </div>
           {nextModule && (
             <Link to={`/modules/${nextModule.slug}`} className="btn-primary inline-flex items-center gap-2" data-testid="btn-continue">
-              Continue {nextModule.order.toString().padStart(2, "0")} <ArrowRight className="w-4 h-4" />
+              Continue {String(nextModule.order ?? "").padStart(2, "0")} <ArrowRight className="w-4 h-4" />
             </Link>
           )}
+        </div>
+
+        {/* Studio + Arcade + Social Blast buttons */}
+        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
+        <Link
+          to="/studio"
+          data-testid="btn-studio"
+          className="flex items-center gap-4 px-6 py-4 no-underline transition-all hover:opacity-90"
+          style={{
+            background: "linear-gradient(135deg, #0d0818, #180d30)",
+            border: "2px solid rgba(168,85,247,0.6)",
+            boxShadow: "0 0 20px rgba(168,85,247,0.25), inset 0 0 30px rgba(168,85,247,0.05)",
+          }}
+        >
+          <span style={{ fontSize: 24, filter: "drop-shadow(0 0 8px rgba(168,85,247,0.8))" }}>⬡</span>
+          <div>
+            <div style={{ fontFamily: "monospace", fontSize: "1rem", fontWeight: 900, color: "#c084fc", letterSpacing: "0.08em", textShadow: "0 0 10px rgba(192,132,252,0.5)", lineHeight: 1.2 }}>
+              M.O.R.E. CREATORS
+            </div>
+            <div style={{ fontFamily: "monospace", fontSize: "0.65rem", color: "rgba(168,85,247,0.7)" }}>
+              LYRIC FORGE · PUBLISHING · AI TOOLS
+            </div>
+          </div>
+          <div style={{ marginLeft: "auto", fontFamily: "monospace", fontSize: "0.65rem", color: "rgba(192,132,252,0.5)" }}>ENTER ▶</div>
+        </Link>
+        <Link
+          to="/arcade"
+          data-testid="btn-arcade"
+          className="flex items-center gap-4 px-6 py-4 no-underline transition-all hover:opacity-90"
+          style={{
+            background: "linear-gradient(135deg, #0a0a0f, #1a0800)",
+            border: "2px solid #b8860b",
+            boxShadow: "0 0 20px rgba(184,134,11,0.35), inset 0 0 30px rgba(184,134,11,0.05)",
+          }}
+        >
+          <Gamepad2 style={{ color: "#ffd700", width: 28, height: 28, flexShrink: 0, filter: "drop-shadow(0 0 6px rgba(255,215,0,0.6))" }} />
+          <div>
+            <div style={{ fontFamily: "monospace", fontSize: "1rem", fontWeight: 900, color: "#ffd700", letterSpacing: "0.1em", textShadow: "0 0 10px rgba(255,215,0,0.5)", lineHeight: 1.2 }}>
+              ▶ THE ARCADE
+            </div>
+            <div style={{ fontFamily: "monospace", fontSize: "0.65rem", color: "rgba(184,134,11,0.8)" }}>
+              FREE · MISSION-ALIGNED GAMES · EARN XP
+            </div>
+          </div>
+          <div style={{ marginLeft: "auto", fontFamily: "monospace", fontSize: "0.65rem", color: "rgba(255,215,0,0.5)" }}>INSERT COIN ▶</div>
+        </Link>
+        <Link
+          to="/social/publish"
+          data-testid="btn-social-publish"
+          className="flex items-center gap-4 px-6 py-4 no-underline transition-all hover:opacity-90"
+          style={{
+            background: "linear-gradient(135deg, #0a1628, #0f2d1a)",
+            border: "2px solid rgba(0,200,100,0.5)",
+            boxShadow: "0 0 20px rgba(0,200,100,0.2), inset 0 0 30px rgba(0,200,100,0.04)",
+          }}
+        >
+          <Share2 style={{ color: "#4ade80", width: 26, height: 26, flexShrink: 0, filter: "drop-shadow(0 0 6px rgba(74,222,128,0.7))" }} />
+          <div>
+            <div style={{ fontFamily: "monospace", fontSize: "1rem", fontWeight: 900, color: "#4ade80", letterSpacing: "0.08em", textShadow: "0 0 10px rgba(74,222,128,0.5)", lineHeight: 1.2 }}>
+              SOCIAL BLAST
+            </div>
+            <div style={{ fontFamily: "monospace", fontSize: "0.65rem", color: "rgba(74,222,128,0.65)" }}>
+              ONE POST · ALL PLATFORMS · AI-FORMATTED
+            </div>
+          </div>
+          <div style={{ marginLeft: "auto", fontFamily: "monospace", fontSize: "0.65rem", color: "rgba(74,222,128,0.4)" }}>BLAST ▶</div>
+        </Link>
         </div>
 
         {/* Stats */}
@@ -68,7 +167,7 @@ export default function StudentDashboard() {
         </div>
 
         {/* XP / Gamification banner */}
-        {xp && (
+        {xp?.total_xp != null && (
           <div className="card-flat p-5 mb-10 flex items-center gap-6 bg-ink text-white" data-testid="xp-banner">
             <div className="flex items-center gap-3">
               <Zap className="w-8 h-8 text-signal" />
@@ -126,11 +225,11 @@ export default function StudentDashboard() {
                 <Link key={m.slug} to={`/modules/${m.slug}`} className="card-flat p-5 flex items-center justify-between group" data-testid={`module-${m.slug}`}>
                   <div className="flex items-center gap-5">
                     <div className="w-12 h-12 bg-ink text-signal font-heading font-black text-xl flex items-center justify-center">
-                      {m.order.toString().padStart(2, "0")}
+                      {String(m.order ?? "").padStart(2, "0")}
                     </div>
                     <div>
                       <div className="font-heading font-bold text-ink group-hover:text-copper transition-colors">{m.title}</div>
-                      <div className="text-xs text-ink/60 mt-1">{m.hours}h • {m.competencies.length} competencies</div>
+                      <div className="text-xs text-ink/60 mt-1">{m.hours ?? 0}h • {(m.competencies || []).length} competencies</div>
                     </div>
                   </div>
                   <span className={badge}>{state}</span>
@@ -141,7 +240,7 @@ export default function StudentDashboard() {
 
           <aside className="space-y-6">
             <div className="card-flat p-6 flex items-center gap-4" data-testid="guide-card">
-              <SovereignAvatar size={56} name={user?.full_name || "Guide"} />
+              <TeamAvatar size={56} name={user?.full_name || "Guide"} />
               <div>
                 <div className="overline text-copper">Your Guide</div>
                 <div className="font-heading font-bold leading-tight">AI Tutor</div>
@@ -165,7 +264,7 @@ export default function StudentDashboard() {
               {nextModule ? (
                 <>
                   <div className="font-heading font-bold mt-2">{nextModule.title}</div>
-                  <div className="text-sm text-ink/60 mt-1">{nextModule.hours} hours • {nextModule.tasks.length} tasks</div>
+                  <div className="text-sm text-ink/60 mt-1">{nextModule.hours ?? 0} hours • {(nextModule.tasks || []).length} tasks</div>
                   <Link to={`/modules/${nextModule.slug}`} className="btn-copper mt-4 inline-block text-xs" data-testid="btn-start-next">Open Module</Link>
                 </>
               ) : <div className="text-sm text-ink/60 mt-2">All modules complete. Claim your capstone certificate.</div>}

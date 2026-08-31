@@ -1,0 +1,54 @@
+# daytona.yaml — M.O.R.E. Help Center (morehelp.center)
+#
+# Daytona API server (your account): https://app.daytona.io/api
+#
+# NOTE: The current Daytona Sandboxes CLI (v0.190+) builds from a DOCKERFILE,
+# not from the `commands` block below. The working integration is:
+#
+#   daytona login --api-key "$DAYTONA_API_KEY"
+#   daytona create -f Dockerfile.daytona -c . --name morehelp-center \
+#       --env SERVE_FRONTEND=1 --env PORT=8080 \
+#       --env MONGO_URL=mongodb://localhost:27017/wai \
+#       --env JWT_SECRET=daytona-dev-secret-change-me --env ENABLE_API_DOCS=1 \
+#       --public --target us
+#
+# Daytona runs its own worker as the container's main process, so the app does
+# NOT auto-start from the Dockerfile CMD. After `create`, start the stack:
+#   daytona exec morehelp-center -- sh -c "mkdir -p /data/db; mongod --dbpath /data/db --bind_ip 127.0.0.1 --fork --logpath /var/log/mongod.log; cd /app/backend; setsid env SERVE_FRONTEND=1 PORT=8080 MONGO_URL=mongodb://localhost:27017/wai nohup uvicorn server:app --host 0.0.0.0 --port 8080 >/var/log/backend.log 2>&1 </dev/null &"
+#
+# Modes (run inside the sandbox via `daytona exec`):
+#   • Preview / Verify: backend serves SPA + /api same-origin on :8080.
+#   • Dev (hot reload):  bash scripts/daytona-dev.sh   → CRA dev server :3000 + API :8080.
+#   • CI:                bash scripts/daytona-verify.sh  → route-integrity + backend tests.
+#
+# This `commands` block is retained for Daytona's legacy "workspace" model and
+# documents the same intent; it is not used by `daytona create` in sandbox mode.
+
+name: morehelp-center
+
+# Self-contained Ubuntu image; everything else is installed in `commands` so the
+# workspace works regardless of prebuilt registry images. Daytona injects its
+# agent at create time.
+image: ubuntu:22.04
+
+env:
+  MONGO_URL: mongodb://localhost:27017/wai
+  JWT_SECRET: daytona-dev-secret-change-me
+  SERVE_FRONTEND: "1"
+  PORT: "8080"
+  ENABLE_API_DOCS: "1"
+
+forwardPorts:
+  - 8080   # backend + SPA (production-like same-origin topology)
+  - 3000   # CRA dev server (dev mode only)
+  - 27017  # Mongo (optional, for direct inspection)
+
+commands:
+  - "apt-get update && apt-get install -y curl git build-essential ffmpeg gnupg ca-certificates"
+  - "curl -fsSL https://deb.nodesource.com/setup_18.x | bash - && apt-get install -y nodejs"
+  - "curl -fsSL https://pgp.mongodb.com/server-7.0.asc | gpg -o /usr/share/keyrings/mongodb-server-7.0.gpg --dearmor && echo \"deb [ signed-by=/usr/share/keyrings/mongodb-server-7.0.gpg ] https://repo.mongodb.org/apt/ubuntu jammy/mongodb-org/7.0 multiverse\" > /etc/apt/sources.list.d/mongodb-org-7.0.list && apt-get update && apt-get install -y mongodb-org"
+  - "pip install --no-cache-dir -r backend/requirements.txt"
+  - "cd frontend && npm ci --legacy-peer-deps && npm run build"
+  - "mkdir -p /data/db && (mongod --dbpath /data/db --bind_ip 127.0.0.1 --fork --logpath /var/log/mongod.log || true)"
+  - "cd backend && SERVE_FRONTEND=1 PORT=8080 MONGO_URL=mongodb://localhost:27017/wai nohup uvicorn server:app --host 0.0.0.0 --port 8080 > /var/log/backend.log 2>&1 & disown"
+  - "bash scripts/daytona-verify.sh"

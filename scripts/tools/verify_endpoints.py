@@ -1,9 +1,10 @@
 """
-verify_endpoints.py — live endpoint verification for the new Sovereign / puzzle /
-partnership routes, run against the REAL FastAPI app via TestClient.
+verify_endpoints.py — endpoint verification for the new Sovereign / puzzle /
+partnership routes, run against the FastAPI app via TestClient.
 
-No real services: Claude is mocked (zero API spend), MongoDB is an in-memory fake,
+No paid AI provider is imported or called: MongoDB is an in-memory fake,
 auth is exercised both ways (real 401, role-gated 403, and authorized 200).
+This verifies route/auth behavior only; it is not production verification.
 
 Run:  cd backend && python verify_endpoints.py
 """
@@ -12,35 +13,13 @@ import sys
 import types
 from pathlib import Path
 
-BACKEND = str(Path(__file__).resolve().parent)
+BACKEND = str(Path(__file__).resolve().parents[2] / "backend")
 os.environ.setdefault("MONGO_URL", "mongodb://localhost:27017")
 os.environ.setdefault("DB_NAME", "testdb")
 os.environ.setdefault("JWT_SECRET", "testsecret")
-os.environ.setdefault("ANTHROPIC_API_KEY", "sk-test")
 ROOT = str(Path(BACKEND).parent)          # repo root — matches PYTHONPATH ".../app"
 sys.path.insert(0, ROOT)
 sys.path.insert(0, BACKEND)               # backend takes precedence (".../app/backend")
-
-# ── Mock Claude BEFORE importing server (endpoints lazy-import `anthropic`) ──
-import anthropic  # noqa: E402
-
-
-class _Msg:
-    def __init__(self, text):
-        self.content = [types.SimpleNamespace(text=text)]
-
-
-class _FakeMessages:
-    async def create(self, **kwargs):
-        return _Msg("[Sovereign mock reply — Claude not actually called]")
-
-
-class _FakeAnthropic:
-    def __init__(self, *a, **k):
-        self.messages = _FakeMessages()
-
-
-anthropic.AsyncAnthropic = _FakeAnthropic
 
 from verify_new_engines import DB           # in-memory async Mongo fake  # noqa: E402
 from puzzles import engine as E             # noqa: E402
@@ -94,7 +73,7 @@ server.app.dependency_overrides[server.current_user] = _student
 r = client.post(f"{API}/sovereign/chat", json={"message": "hi"})
 check("sovereign chat student -> 403 (exec-only)", r.status_code == 403)
 
-# 6. Sovereign chat — exec -> 200 with mocked reply
+# 6. Sovereign chat — exec -> 200 route response (AI provider is not invoked by this harness)
 server.app.dependency_overrides[server.current_user] = _exec
 r = client.post(f"{API}/sovereign/chat", json={"message": "Find me an HBCU residency."})
 check("sovereign chat exec -> 200", r.status_code == 200)

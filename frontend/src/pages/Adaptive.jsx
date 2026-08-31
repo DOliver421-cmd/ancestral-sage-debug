@@ -10,10 +10,10 @@ const LEVEL_ICON = { hot: Flame, warm: Sun, cold: Snowflake };
 
 export default function Adaptive() {
   const [data, setData] = useState(null);
-  useEffect(() => { api.get("/adaptive/me").then((r) => setData(r.data)); }, []);
+  useEffect(() => { api.get("/adaptive/me").then((r) => setData(r.data)).catch(() => {}); }, []);
   if (!data) return <LoadingState label="Personalized Path" />;
 
-  const heatmapEntries = Object.entries(data.heatmap);
+  const heatmapEntries = Object.entries(data.heatmap || {});
 
   return (
     <AppShell>
@@ -43,11 +43,11 @@ export default function Adaptive() {
         {/* Recommendations */}
         <div className="mt-10">
           <h2 className="font-heading text-2xl font-bold mb-4">Recommended Next Moves</h2>
-          {data.recommendations.length === 0 ? (
+          {(data.recommendations || []).length === 0 ? (
             <div className="card-flat p-8 text-center text-ink/60 text-sm">You're up to date — keep going on your current track.</div>
           ) : (
             <div className="space-y-3">
-              {data.recommendations.map((r, i) => (
+              {(data.recommendations || []).map((r, i) => (
                 <Link key={i} to={r.type === "module_review" ? `/modules/${r.slug}` : `/labs/${r.slug}`}
                   className="card-flat p-5 flex items-center justify-between group" data-testid={`rec-${r.slug || i}`}>
                   <div>
@@ -79,11 +79,11 @@ export default function Adaptive() {
         )}
 
         {/* Locked labs */}
-        {data.locked_labs.length > 0 && (
+        {(data.locked_labs || []).length > 0 && (
           <div className="mt-10">
             <h2 className="font-heading text-2xl font-bold mb-4">Locked — Prerequisites Required</h2>
             <div className="space-y-2">
-              {data.locked_labs.map((l) => (
+              {(data.locked_labs || []).map((l) => (
                 <div key={l.slug} className="card-flat p-4 flex items-center gap-4 opacity-70" data-testid={`locked-${l.slug}`}>
                   <Lock className="w-5 h-5 text-ink/50" />
                   <div className="flex-1">

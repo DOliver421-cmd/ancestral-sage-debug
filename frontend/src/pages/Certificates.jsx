@@ -5,7 +5,7 @@ import { Award, Download } from "lucide-react";
 
 export default function Certificates() {
   const [certs, setCerts] = useState([]);
-  useEffect(() => { api.get("/certificates/me").then((r) => setCerts(r.data)); }, []);
+  useEffect(() => { api.get("/certificates/me").then((r) => setCerts(r.data)).catch(() => {}); }, []);
   const token = getToken();
 
   return (
@@ -29,7 +29,7 @@ export default function Certificates() {
                   <div className="absolute inset-0 grid-paper opacity-20" />
                   <div className="relative text-center">
                     <Award className="w-12 h-12 text-signal mx-auto" strokeWidth={1.5} />
-                    <div className="overline text-signal mt-3">LCE-WAI · Certified</div>
+                    <div className="overline text-signal mt-3">M.O.R.E. · Certified</div>
                   </div>
                   {c.module_slug === "program" && <span className="absolute top-3 left-3 badge-signal">Capstone</span>}
                 </div>

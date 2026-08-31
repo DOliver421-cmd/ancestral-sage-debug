@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import AppShell from "../components/AppShell";
 import { api } from "../lib/api";
 import { Receipt, ExternalLink } from "lucide-react";
 import { toast } from "sonner";
@@ -33,6 +34,7 @@ export default function PaymentHistory() {
   }
 
   return (
+    <AppShell>
     <div className="p-8 max-w-4xl mx-auto">
       <div className="flex items-center justify-between mb-8">
         <div className="flex items-center gap-3">
@@ -101,5 +103,6 @@ export default function PaymentHistory() {
         </div>
       )}
     </div>
+    </AppShell>
   );
 }

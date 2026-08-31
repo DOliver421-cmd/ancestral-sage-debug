@@ -5,7 +5,6 @@ Called from server.py on_startup/on_shutdown.
 """
 
 import logging
-import os
 from fastapi import FastAPI
 from motor.motor_asyncio import AsyncIOMotorDatabase
 from jobs import job_scheduler
@@ -25,16 +24,16 @@ async def init_revenue_operations(db: AsyncIOMotorDatabase) -> dict:
     try:
         # ── Billing Collections ──────────────────────────────────────────────────
         await db.subscriptions.create_index([("user_id", 1), ("status", 1)])
-        await db.subscriptions.create_index("stripe_subscription_id", unique=True, sparse=True)
+        await db.subscriptions.create_index("provider_subscription_id", unique=True, sparse=True)
         await db.subscriptions.create_index([("created_at", -1)])
 
         await db.invoices.create_index([("user_id", 1), ("status", 1)])
-        await db.invoices.create_index("stripe_invoice_id", unique=True, sparse=True)
+        await db.invoices.create_index("provider_invoice_id", unique=True, sparse=True)
         await db.invoices.create_index([("created_at", -1)])
         await db.invoices.create_index("due_date")
 
         await db.payment_methods.create_index([("user_id", 1)])
-        await db.payment_methods.create_index("stripe_payment_method_id", unique=True)
+        await db.payment_methods.create_index("provider_payment_method_id", unique=True)
         await db.payment_methods.create_index([("created_at", -1)])
 
         # ── Usage & Creator Finance ──────────────────────────────────────────────
@@ -105,8 +104,20 @@ async def start_revenue_operations(db: AsyncIOMotorDatabase) -> None:
         logger.info("Revenue job scheduler disabled (set JOBS_ENABLED=true to enable)")
         return
     try:
+        # Inject the live DB handle into the jobs module's db_manager.
+        # Do NOT call db_manager.connect() or init_database() — those use
+        # MONGODB_URI/wai_institute (config.py:17-21), a second, empty database
+        # unrelated to the live app's MONGO_URL/ancestral_sage (server.py:107).
+        # Without this assignment, every job guards itself with
+        # `if not db_manager.db: return` — they all silently no-op while
+        # logging "Revenue job scheduler started."
+        from jobs import db_manager
+        db_manager.db = db
         await job_scheduler.start()
-        logger.info("✅ Revenue operations job scheduler started")
+        logger.info(
+            "✅ Revenue job scheduler started (db=%s, collections=%d)",
+            db.name, len(db.list_collection_names()) if db else 0,
+        )
     except Exception as e:
         logger.warning(f"Job scheduler startup failed (non-fatal): {e}")
 
@@ -130,13 +141,9 @@ def stop_revenue_operations() -> None:
 def init_revenue_services(app: FastAPI, db: AsyncIOMotorDatabase) -> None:
     """Initialize revenue operations services and attach to app.state"""
     try:
-        from billing.stripe_service import StripeService, CreatorPayoutService
         from billing.financial_reporting import FinancialReportingService
 
-        stripe_key = os.environ.get("STRIPE_API_KEY", "")
-
-        app.state.stripe_service = StripeService(db, stripe_key)
-        app.state.creator_payout_service = CreatorPayoutService(db, stripe_key)
+        # Payments run through Lemon Squeezy → Gumroad; no Stripe services exist.
         app.state.financial_service = FinancialReportingService(db)
 
         logger.info("✅ Revenue services initialized")

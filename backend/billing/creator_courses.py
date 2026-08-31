@@ -1,7 +1,7 @@
 """
 Creator Course System
 Allow creators to build, price, and sell their own courses at tiered, affordable rates.
-Revenue sharing: Creator gets 70%, WAI gets 30%
+Revenue sharing: Creator gets 90%, WAI gets 10%
 """
 
 import logging
@@ -149,7 +149,7 @@ class CreatorEarnings(BaseModel):
     total_wai_earnings: float = 0.0  # WAI's 30%
     monthly_revenue: float = 0.0
     monthly_earnings: float = 0.0
-    payout_method: str = "stripe_connect"  # or "bank_transfer"
+    payout_method: str = "lemon_squeezy"  # or "bank_transfer"
     next_payout_date: Optional[datetime] = None
     last_payout_date: Optional[datetime] = None
     last_payout_amount: float = 0.0
@@ -271,7 +271,7 @@ async def create_course(
                 "total_wai_earnings": 0.0,
                 "monthly_revenue": 0.0,
                 "monthly_earnings": 0.0,
-                "payout_method": "stripe_connect",
+                "payout_method": "lemon_squeezy",
                 "next_payout_date": None,
                 "last_payout_date": None,
                 "last_payout_amount": 0.0,

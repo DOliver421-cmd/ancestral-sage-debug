@@ -9,6 +9,7 @@ import {
   Image as ImageIcon, FileCode, Music,
 } from "lucide-react";
 import { toast } from "sonner";
+import { useMic } from "../hooks/useMic";
 
 // ── Role metadata ────────────────────────────────────────────────────────────
 const ROLE_META = {
@@ -103,11 +104,6 @@ function formatInline(text) {
   );
 }
 
-// ── Speech recognition ───────────────────────────────────────────────────────
-const SpeechRecognitionImpl =
-  typeof window !== "undefined"
-    ? window.SpeechRecognition || window.webkitSpeechRecognition
-    : null;
 
 // ── Main component ───────────────────────────────────────────────────────────
 export default function OrchestratorChat() {
@@ -131,68 +127,49 @@ export default function OrchestratorChat() {
   const [threatHint, setThreatHint] = useState("");
   const [protocol, setProtocol] = useState("");
 
-  // Audio
+  // Audio — native browser TTS (free, no keys)
   const [audioOn, setAudioOn] = useState(false);
   const [audioPlaying, setAudioPlaying] = useState(false);
-  const [recording, setRecording] = useState(false);
-  const recogRef = useRef(null);
-  const audioElRef = useRef(null);
-  const audioAbortRef = useRef(null);
   const endRef = useRef(null);
 
   useEffect(() => { endRef.current?.scrollIntoView({ behavior: "smooth" }); }, [msgs]);
 
-  // ── TTS ──────────────────────────────────────────────────────────────────
+  // ── TTS — native browser speech synthesis (free, no keys) ──────────────────
   const stopAudio = useCallback(() => {
-    if (audioElRef.current) { audioElRef.current.pause(); audioElRef.current.src = ""; }
-    if (audioAbortRef.current) audioAbortRef.current.abort();
+    if ("speechSynthesis" in window) window.speechSynthesis.cancel();
     setAudioPlaying(false);
   }, []);
 
-  const playTTS = useCallback(async (text) => {
+  const playTTS = useCallback((text) => {
     if (!audioOn || !text) return;
+    if (!("speechSynthesis" in window)) {
+      toast.error("Voice playback unavailable.");
+      return;
+    }
     try {
       stopAudio();
-      const ctrl = new AbortController();
-      audioAbortRef.current = ctrl;
-      const r = await api.post(
-        "/ai/sage/tts",
-        { text: text.slice(0, 2000), voice: "sage", speed: 1.0, session_id: sessionId },
-        { responseType: "arraybuffer", signal: ctrl.signal }
-      );
-      const blob = new Blob([r.data], { type: "audio/mpeg" });
-      const url = URL.createObjectURL(blob);
-      if (audioElRef.current) {
-        audioElRef.current.src = url;
-        setAudioPlaying(true);
-        audioElRef.current.play().catch(() => {});
-        audioElRef.current.onended = () => setAudioPlaying(false);
-      }
+      const utt = new SpeechSynthesisUtterance(String(text).slice(0, 500));
+      utt.rate = 0.95;
+      utt.onstart = () => setAudioPlaying(true);
+      utt.onend = () => setAudioPlaying(false);
+      utt.onerror = () => setAudioPlaying(false);
+      window.speechSynthesis.speak(utt);
+      setAudioPlaying(true);
     } catch (e) {
-      if (e?.code !== "ERR_CANCELED") {
-        toast.error("Voice playback unavailable.");
-      }
+      toast.error("Voice playback unavailable.");
       setAudioPlaying(false);
     }
-  }, [audioOn, sessionId, stopAudio]);
+  }, [audioOn, stopAudio]);
 
   // ── STT ──────────────────────────────────────────────────────────────────
-  const startRecording = useCallback(() => {
-    if (!SpeechRecognitionImpl) { toast.error("Speech input not supported in this browser."); return; }
-    const r = new SpeechRecognitionImpl();
-    r.continuous = false;
-    r.interimResults = false;
-    r.lang = "en-US";
-    r.onresult = (e) => setInput((prev) => prev + e.results[0][0].transcript);
-    r.onerror = () => setRecording(false);
-    r.onend = () => setRecording(false);
-    recogRef.current = r;
-    r.start();
-    setRecording(true);
-  }, []);
+  const { listening: recording, toggle: startRecording } = useMic({
+    onResult: (txt) => setInput((prev) => prev + txt),
+    onError:  (msg) => toast.error(msg),
+  });
 
   const stopRecording = useCallback(() => {
     recogRef.current?.stop();
+    recogRef.current = null;
     setRecording(false);
   }, []);
 
@@ -287,7 +264,6 @@ export default function OrchestratorChat() {
 
   return (
     <AppShell>
-      <audio ref={audioElRef} style={{ display: "none" }} />
       <div className="flex flex-col h-screen max-h-screen">
 
         {/* ─── Header ─── */}
@@ -296,7 +272,7 @@ export default function OrchestratorChat() {
             <div>
               <div className="overline text-copper flex items-center gap-2">
                 <MetaIcon className={`w-4 h-4 ${meta.color}`} />
-                WAI-Institute Council
+                M.O.R.E. Help Center Council
               </div>
               <h1 className="font-heading text-2xl font-bold text-ink mt-1 flex items-center gap-2">
                 <Layers className="w-6 h-6 text-signal" />

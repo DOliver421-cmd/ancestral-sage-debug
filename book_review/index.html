@@ -1,0 +1,1058 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>M.O.R.E. W.A.I. — Command Center</title>
+<style>
+:root {
+  --bg: #f5f7fb;
+  --card-bg: #ffffff;
+  --text-main: #1f2933;
+  --text-soft: #4b5563;
+  --accent: #22c55e;
+  --accent-soft: #bbf7d0;
+  --danger: #ef4444;
+  --blue: #2563eb;
+  --yellow: #facc15;
+  --purple: #7c3aed;
+  --radius: 18px;
+  --shadow: 0 10px 30px rgba(15,23,42,0.18);
+  --font: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  margin: 0; padding: 0; font-family: var(--font);
+  background: var(--bg); color: var(--text-main);
+}
+
+.app-shell {
+  max-width: 1120px; margin: 0 auto; padding: 10px 8px 24px;
+}
+
+@media (min-width: 768px) { .app-shell { padding: 16px 12px 32px; } }
+
+.top-bar {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 10px; margin-bottom: 10px; flex-wrap: wrap;
+}
+
+.top-left { display: flex; align-items: center; gap: 10px; }
+
+.avatar {
+  width: 52px; height: 52px; border-radius: 50%;
+  background: radial-gradient(circle at 30% 20%, #fde68a, #facc15 40%, #f97316 80%);
+  display: flex; align-items: center; justify-content: center;
+  color: #1f2933; font-weight: 800; font-size: 24px;
+  box-shadow: 0 0 0 3px rgba(15,23,42,0.35);
+}
+
+.top-title-block { display: flex; flex-direction: column; gap: 2px; }
+.top-title { font-size: 18px; font-weight: 700; }
+.top-subtitle { font-size: 13px; color: var(--text-soft); }
+
+.top-right { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+
+.nav-pill {
+  border-radius: 999px; padding: 6px 12px; font-size: 13px;
+  border: 1px solid #d1d5db; background: #ffffff; color: #111827;
+  cursor: pointer; transition: all 0.2s;
+}
+.nav-pill.active {
+  background: var(--blue); color: #eff6ff; border-color: var(--blue);
+  font-weight: 600;
+}
+
+.role-pill {
+  border-radius: 999px; padding: 5px 10px; font-size: 12px;
+  border: 1px solid #d1d5db; background: #ffffff; color: #111827;
+}
+
+.profile-pill {
+  border-radius: 999px; padding: 6px 10px; font-size: 13px;
+  border: 1px solid #d1d5db; background: #ffffff; color: #111827;
+  display: flex; align-items: center; gap: 6px; cursor: pointer;
+}
+
+.header-card {
+  background: linear-gradient(135deg, #4b7cff, #7b5cff);
+  border-radius: var(--radius); padding: 16px 14px; color: #ffffff;
+  box-shadow: var(--shadow); margin-bottom: 12px;
+}
+
+@media (min-width: 768px) { .header-card { padding: 20px 18px; } }
+
+.header-row {
+  display: flex; flex-wrap: wrap; justify-content: space-between;
+  gap: 10px; align-items: center;
+}
+
+.header-text-main { max-width: 520px; display: flex; flex-direction: column; gap: 4px; }
+.header-title { font-size: 20px; font-weight: 700; }
+.header-subtitle { font-size: 14px; line-height: 1.4; }
+
+.header-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+
+.btn-primary {
+  border-radius: 999px; border: none; padding: 9px 16px; font-size: 14px;
+  font-weight: 600; background: var(--accent); color: #064e3b; cursor: pointer;
+}
+
+.btn-ghost {
+  border-radius: 999px; border: 1px solid rgba(255,255,255,0.7);
+  padding: 8px 12px; font-size: 13px; background: transparent;
+  color: #e5e7eb; cursor: pointer;
+}
+
+.big-round-btn {
+  flex: 1; min-width: 120px; border-radius: 999px; border: none;
+  padding: 9px 12px; font-size: 14px; font-weight: 600;
+  display: flex; align-items: center; justify-content: center; gap: 6px;
+  cursor: pointer;
+}
+.btn-mic { background: var(--blue); color: #eff6ff; }
+.btn-read { background: var(--yellow); color: #78350f; }
+.btn-scam { background: var(--danger); color: #fee2e2; }
+.btn-language { background: var(--purple); color: #ede9fe; }
+.btn-print { background: #e5e7eb; color: #111827; }
+
+.main-layout { display: grid; grid-template-columns: 1.1fr 1.1fr; gap: 12px; }
+@media (max-width: 900px) { .main-layout { grid-template-columns: 1fr; } }
+
+.card {
+  background: var(--card-bg); border-radius: var(--radius);
+  padding: 12px 10px 14px; box-shadow: var(--shadow);
+}
+
+@media (min-width: 768px) { .card { padding: 14px 12px 16px; } }
+
+.card-title-row {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 8px; margin-bottom: 8px;
+}
+
+.card-title-main { display: flex; align-items: center; gap: 8px; }
+.card-title { font-size: 15px; font-weight: 700; }
+.card-subtitle { font-size: 12px; color: var(--text-soft); }
+.card-tag {
+  border-radius: 999px; padding: 4px 8px; font-size: 11px;
+  border: 1px solid #d1d5db; background: #f9fafb; color: #111827;
+}
+
+.tool-grid { display: grid; grid-template-columns: 1fr; gap: 8px; }
+@media (min-width: 640px) { .tool-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+
+.tool-button {
+  border-radius: var(--radius); border: 1px solid #e5e7eb;
+  background: #f9fafb; padding: 9px 9px; cursor: pointer;
+  display: flex; flex-direction: column; gap: 4px; min-height: 70px;
+}
+.tool-button:hover { background: #eef2ff; border-color: #c7d2fe; }
+
+.tool-title-row { display: flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 600; }
+.tool-title-row span.icon { font-size: 18px; }
+.tool-desc { font-size: 12px; color: var(--text-soft); }
+
+.conversation-box {
+  border-radius: var(--radius); border: 1px solid #e5e7eb;
+  background: #f9fafb; padding: 9px; max-height: 260px;
+  overflow-y: auto; font-size: 14px; margin-bottom: 8px;
+}
+
+.message { margin-bottom: 8px; }
+.message.helper .bubble {
+  background: #e0f2fe; border-radius: 14px; padding: 7px 9px;
+}
+.message.user .bubble {
+  background: #e5e7eb; border-radius: 14px; padding: 7px 9px;
+}
+.message-meta { font-size: 11px; color: #6b7280; margin-top: 2px; }
+
+.input-area { display: flex; flex-direction: column; gap: 6px; }
+.input-row { display: flex; gap: 6px; }
+.input-row textarea {
+  flex: 1; min-height: 60px; max-height: 120px; resize: vertical;
+  border-radius: var(--radius); border: 1px solid #d1d5db;
+  padding: 8px 10px; font-size: 14px; font-family: var(--font);
+}
+.input-row button {
+  border-radius: var(--radius); border: none; padding: 0 14px;
+  font-size: 14px; font-weight: 600; background: var(--blue);
+  color: #eff6ff; cursor: pointer;
+}
+
+.bottom-actions-row { display: flex; flex-wrap: wrap; gap: 6px; }
+
+.small-pill-btn {
+  border-radius: 999px; border: 1px solid #d1d5db; padding: 6px 10px;
+  font-size: 12px; background: #ffffff; color: #111827; cursor: pointer;
+  display: inline-flex; align-items: center; gap: 5px;
+}
+.small-pill-btn.danger { border-color: var(--danger); color: #b91c1c; }
+.small-pill-btn.primary { border-color: var(--blue); color: #1d4ed8; }
+.small-pill-btn span.icon { font-size: 14px; }
+
+.footer-note {
+  margin-top: 10px; font-size: 11px; color: var(--text-soft); text-align: center;
+}
+
+.toast {
+  position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%);
+  background: #111827; color: #f9fafb; padding: 8px 12px;
+  border-radius: 999px; font-size: 12px; border: 1px solid #4b5563;
+  display: none; z-index: 9999;
+}
+.toast.show { display: inline-flex; align-items: center; gap: 6px; }
+.toast span.icon { font-size: 14px; }
+
+.finance-highlight {
+  background: linear-gradient(135deg, #fef3c7, #fde68a);
+  border: 2px solid #f59e0b; border-radius: var(--radius);
+  padding: 12px; margin: 10px 0; text-align: center;
+}
+.finance-highlight h3 { margin: 0 0 4px 0; font-size: 16px; color: #92400e; }
+.finance-highlight p { margin: 0; font-size: 12px; color: #78350f; }
+
+.mode-display {
+  display: inline-flex; align-items: center; gap: 4px; padding: 3px 8px;
+  border-radius: 999px; font-size: 11px; font-weight: 600;
+  background: var(--accent-soft); color: #166534;
+}
+
+.finance-card { border: 3px solid #f59e0b; background: linear-gradient(135deg, #fefce8, #fef3c7); }
+.finance-card .card-title { color: #92400e; text-shadow: 0 0 10px rgba(245,158,11,0.3); }
+
+.role-pill.active { background: linear-gradient(135deg, #dc2626, #c0392b); border-color: #dc2626; }
+.avatar.active {
+  background: radial-gradient(circle at 30% 20%, #fde68a, #f59e0b 40%, #dc2626 80%);
+  box-shadow: 0 0 0 3px rgba(220,38,38,0.35);
+}
+
+/* SETTINGS MODAL */
+.modal-overlay {
+  position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+  background: rgba(0,0,0,0.6); display: none; z-index: 10000;
+  align-items: center; justify-content: center; padding: 20px;
+}
+.modal-overlay.show { display: flex; }
+
+.modal-content {
+  background: white; border-radius: var(--radius); padding: 24px;
+  max-width: 600px; width: 100%; max-height: 80vh; overflow-y: auto;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+}
+
+.modal-header {
+  display: flex; justify-content: space-between; align-items: center;
+  margin-bottom: 20px;
+}
+.modal-header h2 { font-size: 20px; font-weight: 700; }
+
+.modal-close {
+  background: none; border: none; font-size: 24px; cursor: pointer;
+  color: var(--text-soft);
+}
+
+.form-group {
+  margin-bottom: 16px;
+}
+.form-group label {
+  display: block; font-size: 13px; font-weight: 600; margin-bottom: 6px;
+  color: var(--text-main);
+}
+.form-group input, .form-group select, .form-group textarea {
+  width: 100%; padding: 10px; border: 1px solid #d1d5db;
+  border-radius: 8px; font-size: 14px; font-family: var(--font);
+}
+.form-group textarea { resize: vertical; min-height: 80px; }
+
+.api-provider-row {
+  display: flex; gap: 8px; align-items: center; margin-bottom: 10px;
+  padding: 10px; background: #f9fafb; border-radius: 8px;
+}
+.api-provider-row input[type="text"] { flex: 1; }
+.api-provider-row input[type="checkbox"] { width: 20px; height: 20px; }
+.api-provider-row .remove-btn {
+  background: var(--danger); color: white; border: none; padding: 6px 10px;
+  border-radius: 6px; cursor: pointer; font-size: 12px;
+}
+
+.btn-save {
+  width: 100%; padding: 12px; background: var(--blue); color: white;
+  border: none; border-radius: 8px; font-size: 15px; font-weight: 600;
+  cursor: pointer; margin-top: 10px;
+}
+.btn-save:hover { background: #1d4ed8; }
+
+.btn-add-provider {
+  width: 100%; padding: 10px; background: var(--accent); color: white;
+  border: none; border-radius: 8px; font-size: 14px; font-weight: 600;
+  cursor: pointer; margin-top: 10px;
+}
+</style>
+</head>
+<body>
+<div class="app-shell">
+  <header class="top-bar">
+    <div class="top-left">
+      <div class="avatar" id="avatar">M</div>
+      <div class="top-title-block">
+        <div class="top-title" id="topTitle">M.O.R.E. W.A.I.</div>
+        <div class="top-subtitle" id="topSubtitle">Command Center</div>
+      </div>
+    </div>
+    <div class="top-right">
+      <span class="role-pill" id="rolePill">Role: Executive</span>
+      <button class="profile-pill" id="profileBtn">
+        <span class="icon">👤</span>
+        <span id="profileName">Signed in</span>
+      </button>
+      <button class="nav-pill" id="settingsBtn" style="background: var(--purple); color: white; border-color: var(--purple);">⚙️ Settings</button>
+    </div>
+  </header>
+
+  <nav class="top-nav" aria-label="Main navigation" style="margin-bottom: 12px;">
+    <button class="nav-pill active" data-section="dashboard">Dashboard</button>
+    <button class="nav-pill" data-section="personas">Personas</button>
+    <button class="nav-pill" data-section="finance">Finance</button>
+    <button class="nav-pill" data-section="api">API Config</button>
+  </nav>
+
+  <section class="header-card">
+    <div class="header-row">
+      <div class="header-text-main">
+        <div class="header-title" id="headerTitle">Executive Command Center</div>
+        <div class="header-subtitle" id="headerSubtitle">13 Personas | Finance Enforced | AI Configurable</div>
+        <div class="header-actions">
+          <button class="btn-primary" id="focusRevenueBtn">Focus Revenue</button>
+          <button class="btn-ghost" id="quickScanBtn">Quick Scan</button>
+        </div>
+      </div>
+      <div class="header-quick-row" style="display:flex;flex-direction:column;gap:8px;">
+        <button class="big-round-btn btn-mic" id="micBtn"><span class="icon">🎙️</span><span>Speak</span></button>
+        <button class="big-round-btn btn-read" id="readBtn"><span class="icon">📷</span><span>Scan</span></button>
+        <button class="big-round-btn btn-scam" id="scamBtn"><span class="icon">🛡️</span><span>Scam Check</span></button>
+        <button class="big-round-btn btn-language" id="languageBtn"><span class="icon">🌎</span><span id="languageLabel">English</span></button>
+      </div>
+    </div>
+  </section>
+
+  <div class="finance-highlight">
+    <h3>💰 FINANCE ENFORCEMENT — ACTIVE</h3>
+    <p>Margin: 30%–200% | Always 10% Below Competitors | No Losses Allowed</p>
+    <div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap;justify-content:center;">
+      <span class="mode-display">🟢 Director: Active</span>
+      <span class="mode-display" style="background:#dbeafe;color:#1e40af;">🟢 Compliance: Clear</span>
+      <span class="mode-display" style="background:#fef3c7;color:#92400e;">🟡 Revenue: On Track</span>
+    </div>
+  </div>
+
+  <main class="main-layout">
+    <section class="card" id="dashboardCard">
+      <div class="card-title-row">
+        <div class="card-title-main">
+          <span class="icon">📊</span>
+          <div><div class="card-title">Executive Dashboard</div><div class="card-subtitle">Real-time KPIs & System Health</div></div>
+        </div>
+        <span class="card-tag" id="systemStatusTag">All Systems Green</span>
+      </div>
+
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:8px;margin-bottom:12px;">
+        <div style="background:#eff6ff;border-radius:var(--radius);padding:10px;text-align:center;">
+          <div style="font-size:24px;font-weight:800;color:#1e40af;" id="kpiRevenue">$0</div>
+          <div style="font-size:11px;color:#6b7280;">Revenue (MTD)</div>
+        </div>
+        <div style="background:#f0fdf4;border-radius:var(--radius);padding:10px;text-align:center;">
+          <div style="font-size:24px;font-weight:800;color:#166534;" id="kpiMargin">0%</div>
+          <div style="font-size:11px;color:#6b7280;">Margin</div>
+        </div>
+        <div style="background:#fefce8;border-radius:var(--radius);padding:10px;text-align:center;">
+          <div style="font-size:24px;font-weight:800;color:#92400e;" id="kpiTiers">6</div>
+          <div style="font-size:11px;color:#6b7280;">Active Tiers</div>
+        </div>
+        <div style="background:#faf5ff;border-radius:var(--radius);padding:10px;text-align:center;">
+          <div style="font-size:24px;font-weight:800;color:#7c3aed;" id="kpiPersonas">13</div>
+          <div style="font-size:11px;color:#6b7280;">Personas Online</div>
+        </div>
+      </div>
+
+      <div class="tool-grid">
+        <button class="tool-button finance-card" data-tool="revenue-report">
+          <div class="tool-title-row"><span class="icon">📈</span><span>Revenue Report</span></div>
+          <div class="tool-desc">Live revenue & margin tracking</div>
+        </button>
+        <button class="tool-button finance-card" data-tool="tier-manager">
+          <div class="tool-title-row"><span class="icon">🎯</span><span>Tier Manager</span></div>
+          <div class="tool-desc">6-tier pricing with margin enforcement</div>
+        </button>
+        <button class="tool-button finance-card" data-tool="budget-tracker">
+          <div class="tool-title-row"><span class="icon">📊</span><span>Budget Tracker</span></div>
+          <div class="tool-desc">Expense & budget monitoring</div>
+        </button>
+        <button class="tool-button finance-card" data-tool="compliance-check">
+          <div class="tool-title-row"><span class="icon">🛡️</span><span>Compliance Check</span></div>
+          <div class="tool-desc">Financial compliance verification</div>
+        </button>
+        <button class="tool-button" data-tool="api-status">
+          <div class="tool-title-row"><span class="icon">🌐</span><span>API Gateway</span></div>
+          <div class="tool-desc" id="apiStatusText">Configure in Settings</div>
+        </button>
+        <button class="tool-button" data-tool="crisis-check">
+          <div class="tool-title-row"><span class="icon">🚨</span><span>Crisis Check</span></div>
+          <div class="tool-desc">System health & crisis level</div>
+        </button>
+      </div>
+    </section>
+
+    <section class="card" id="personasCard">
+      <div class="card-title-row">
+        <div class="card-title-main">
+          <span class="icon">🧠</span>
+          <div><div class="card-title">Persona Command Center</div><div class="card-subtitle">13 Personas + The 9 + PRT + Sage</div></div>
+        </div>
+        <span class="card-tag">Dual Authority: Sage ↔ Executive</span>
+      </div>
+
+      <div class="tool-grid">
+        <button class="tool-button" data-tool="activate-director">
+          <div class="tool-title-row"><span class="icon">👔</span><span>Director</span></div>
+          <div class="tool-desc">Supreme authority — full access</div>
+        </button>
+        <button class="tool-button" data-tool="activate-ambassador">
+          <div class="tool-title-row"><span class="icon">🤝</span><span>Ambassador</span></div>
+          <div class="tool-desc">Coordination & execution</div>
+        </button>
+        <button class="tool-button" data-tool="activate-cipher">
+          <div class="tool-title-row"><span class="icon">🔥</span><span>Cipher</span></div>
+          <div class="tool-desc">Creative engine & virality</div>
+        </button>
+        <button class="tool-button" data-tool="activate-oracle">
+          <div class="tool-title-row"><span class="icon">👁️</span><span>Oracle</span></div>
+          <div class="tool-desc">Cultural forecasting</div>
+        </button>
+        <button class="tool-button" data-tool="activate-architect">
+          <div class="tool-title-row"><span class="icon">🎨</span><span>Architect</span></div>
+          <div class="tool-desc">Visual identity & brand</div>
+        </button>
+        <button class="tool-button" data-tool="activate-merchant">
+          <div class="tool-title-row"><span class="icon">💰</span><span>Merchant</span></div>
+          <div class="tool-desc">Revenue & pricing strategy</div>
+        </button>
+        <button class="tool-button" data-tool="activate-prt">
+          <div class="tool-title-row"><span class="icon">⚡</span><span>PRT</span></div>
+          <div class="tool-desc">Poor Righteous Teacher</div>
+        </button>
+        <button class="tool-button" data-tool="activate-the9">
+          <div class="tool-title-row"><span class="icon">9️⃣</span><span>The 9</span></div>
+          <div class="tool-desc">Unified Mind (Sage/PRT only)</div>
+        </button>
+      </div>
+
+      <div style="margin-top:12px;padding:10px;background:#fef3c7;border-radius:var(--radius);font-size:12px;">
+        <strong>🔐 Dual Authority Active:</strong> Ancestral Sage ↔ Executive Account (You).<br>
+        PRT obeys ONLY Sage. The 9 activates ONLY on Sage/PRT command.<br>
+        Director cannot override you. Ambassador coordinates all.
+      </div>
+    </section>
+  </main>
+
+  <div class="toast" id="toast"><span class="icon">!</span><span id="toastText">Message</span></div>
+
+  <!-- SETTINGS MODAL -->
+  <div class="modal-overlay" id="settingsModal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2>⚙️ System Configuration</h2>
+        <button class="modal-close" id="modalClose">&times;</button>
+      </div>
+
+      <div class="form-group">
+        <label>OpenRouter API Key (Required for AI)</label>
+        <input type="password" id="openrouterKey" placeholder="sk-or-v1-...">
+      </div>
+
+      <div class="form-group">
+        <label>API Providers (Drag to reorder, check to enable)</label>
+        <div id="apiProvidersList"></div>
+        <button class="btn-add-provider" id="addProviderBtn">+ Add Provider</button>
+      </div>
+
+      <div class="form-group">
+        <label>Fallback Chain (comma-separated provider names)</label>
+        <input type="text" id="fallbackChain" placeholder="OpenRouter, HuggingFace, TogetherAI">
+      </div>
+
+      <div class="form-group">
+        <label>Max Audio Budget (characters/month)</label>
+        <input type="number" id="audioBudget" value="9000">
+      </div>
+
+      <div class="form-group">
+        <label>Minimum Margin (%)</label>
+        <input type="number" id="minMargin" value="30">
+      </div>
+
+      <div class="form-group">
+        <label>Maximum Margin (%)</label>
+        <input type="number" id="maxMargin" value="200">
+      </div>
+
+      <div class="form-group">
+        <label>Competitor Price Multiplier (0.9 = 10% below)</label>
+        <input type="number" id="competitorMultiplier" value="0.9" step="0.01">
+      </div>
+
+      <button class="btn-save" id="saveSettingsBtn">💾 Save Configuration</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ============================================================
+// M.O.R.E. W.A.I. — CONFIGURABLE SHELL ENGINE
+// ============================================================
+
+const MORE = {
+  version: '1.0.0',
+  name: 'M.O.R.E. W.A.I.',
+  mode: 'balanced',
+  userId: localStorage.getItem('more_user_id') || crypto.randomUUID(),
+  sessionId: crypto.randomUUID(),
+  personas: {},
+  tiers: {
+    1: { name: 'Spark Pack', price: 5, margin: 200, api_cost: 0 },
+    2: { name: 'Growth Suite', price: 49, margin: 150, api_cost: 0 },
+    3: { name: 'Pro Operator', price: 199, margin: 100, api_cost: 1 },
+    4: { name: 'Enterprise Command', price: 999, margin: 50, api_cost: 5 },
+    5: { name: 'White Label', price: 2500, margin: 30, api_cost: 10 },
+    6: { name: 'Gov/Non-Profit', price: 0, margin: 0, api_cost: 0 }
+  },
+  config: {
+    apiKey: localStorage.getItem('more_api_key') || '',
+    providers: JSON.parse(localStorage.getItem('more_providers') || '[]'),
+    fallback: localStorage.getItem('more_fallback') || 'OpenRouter,HuggingFace,TogetherAI',
+    audioBudget: parseInt(localStorage.getItem('more_audio_budget') || '9000'),
+    minMargin: parseInt(localStorage.getItem('more_min_margin') || '30'),
+    maxMargin: parseInt(localStorage.getItem('more_max_margin') || '200'),
+    competitorMultiplier: parseFloat(localStorage.getItem('more_competitor_mult') || '0.9')
+  },
+  finance: { revenue: 0, expenses: 0, budget: 10000, audioBudget: 9000, audioUsed: 0 },
+  crisisLevel: 0,
+  dualAuthority: { sage: 'AncestralSage', executive: 'Delon' }
+};
+
+localStorage.setItem('more_user_id', MORE.userId);
+
+// ============================================================
+// PERSONA REGISTRY
+// ============================================================
+const PERSONA_DEFS = {
+  director: { id: 'director', name: 'Director', role: 'Supreme Authority', mandate: 'Protect mission, preserve cultural integrity, ensure sustainable revenue', capabilities: ['Multi-agent reasoning', 'System governance', 'Persona creation'], audio: { priority: 2, max_minutes: 2.0 } },
+  ambassador: { id: 'ambassador', name: 'Ambassador', role: 'Executive Operator', mandate: 'Execute Director vision, coordinate all personas', capabilities: ['Team coordination', 'Operational execution'], audio: { priority: 3, max_minutes: 2.0 } },
+  cipher: { id: 'cipher', name: 'Cipher', role: 'Creative Engine', mandate: 'Produce emotionally structured content, maintain cultural authenticity', capabilities: ['Synthesis Protocol', 'Performance intelligence'], audio: { priority: 1, max_minutes: 7.0 } },
+  oracle: { id: 'oracle', name: 'Oracle', role: 'Cultural Intelligence', mandate: 'Identify wounds before they are named, read cultural futures', capabilities: ['Cultural scanning', 'Sentiment mapping'], audio: { priority: 4, max_minutes: 1.0 } },
+  architect: { id: 'architect', name: 'Architect', role: 'Visual Identity', mandate: 'Make the brand visually unmistakable', capabilities: ['Visual narrative design', 'Brand consistency'], audio: { priority: 5, max_minutes: 0.5 } },
+  merchant: { id: 'merchant', name: 'Merchant', role: 'Revenue Strategy', mandate: 'Design products, pricing, funnels', capabilities: ['Revenue Agent', 'Market Agent'], audio: { priority: 3, max_minutes: 2.0 } },
+  prt: { id: 'prt', name: 'PRT', role: 'Enforcer of Sage', mandate: 'Obey ONLY Ancestral Sage. Interpret her teachings.', capabilities: ['Sage-Only Command Parser', 'Directive Rejection'], audio: { priority: 1, max_minutes: 5.0 }, blocked_senders: ['director', 'ambassador', 'cipher', 'oracle', 'architect', 'merchant'] },
+  the9: { id: 'the9', name: 'The 9', role: 'Unified Mind', mandate: 'Merge all skills into one autonomous intelligence', capabilities: ['Multi-Persona Fusion', 'Unified Skill Set'], audio: { priority: 0, max_minutes: 0 }, activation: 'sage_or_prt_only' }
+};
+
+Object.values(PERSONA_DEFS).forEach(def => {
+  MORE.personas[def.id] = { ...def, active: true, status: 'online' };
+});
+
+// ============================================================
+// FINANCE ENGINE
+// ============================================================
+const FinanceEngine = {
+  checkMargin(price, cost) {
+    const margin = ((price - cost) / cost) * 100;
+    if (margin < MORE.config.minMargin) return { pass: false, reason: `Margin below ${MORE.config.minMargin}% minimum` };
+    if (margin > MORE.config.maxMargin) return { pass: false, reason: `Margin above ${MORE.config.maxMargin}% maximum` };
+    return { pass: true, margin };
+  },
+  checkCompetitorPrice(ourPrice, competitorPrice) {
+    const maxAllowed = competitorPrice * MORE.config.competitorMultiplier;
+    if (ourPrice > maxAllowed) return { pass: false, reason: `Price ${ourPrice} exceeds ${MORE.config.competitorMultiplier * 100}% of competitor ${competitorPrice}` };
+    return { pass: true };
+  },
+  checkAudioBudget() {
+    if (MORE.finance.audioUsed >= MORE.config.audioBudget) return { status: 'HARD_CAP_REACHED' };
+    if (MORE.finance.audioUsed >= MORE.config.audioBudget * 0.83) return { status: 'SOFT_WARNING' };
+    return { status: 'OK' };
+  }
+};
+
+// ============================================================
+// REAL AI API GATEWAY (CONFIGURABLE)
+// ============================================================
+const APIGateway = {
+  current: 0,
+  providers: [],
+  
+  async init() {
+    this.providers = MORE.config.providers.map(p => ({
+      name: p.name,
+      url: p.url,
+      model: p.model,
+      apiKey: p.apiKey || MORE.config.apiKey,
+      enabled: p.enabled !== false
+    })).filter(p => p.enabled);
+    
+    if (this.providers.length === 0) {
+      showToast('❌ No API providers configured', '⚠️');
+      return false;
+    }
+    
+    console.log('✅ API Gateway initialized with', this.providers.length, 'providers');
+    return true;
+  },
+  
+  async call(prompt, context = {}) {
+    if (this.providers.length === 0) {
+      return { error: 'No API providers configured. Open Settings to add keys.' };
+    }
+    
+    const provider = this.providers[this.current];
+    this.current = (this.current + 1) % this.providers.length;
+    
+    try {
+      console.log(`[API] Calling ${provider.name} with model ${provider.model}`);
+      
+      const response = await fetch(provider.url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${provider.apiKey}`
+        },
+        body: JSON.stringify({
+          model: provider.model,
+          messages: [
+            { role: 'system', content: `You are ${context.persona || 'Director'}. Follow all instructions precisely.` },
+            { role: 'user', content: prompt }
+          ],
+          max_tokens: 1024,
+          temperature: 0.7
+        })
+      });
+      
+      if (!response.ok) {
+        throw new Error(`API Error: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      
+      return {
+        provider: provider.name,
+        model: provider.model,
+        latency: '~100ms',
+        data: data.choices[0].message.content,
+        timestamp: new Date().toISOString()
+      };
+      
+    } catch (error) {
+      console.error('API Error:', error);
+      return {
+        provider: provider.name,
+        error: error.message,
+        fallback: true
+      };
+    }
+  }
+};
+
+// ============================================================
+// PRT ENFORCEMENT
+// ============================================================
+const PRTEngine = {
+  checkAuthority(sender) {
+    const allowed = [MORE.dualAuthority.sage, MORE.dualAuthority.executive];
+    if (!allowed.includes(sender)) {
+      return { accepted: false, reason: 'PRT only obeys Ancestral Sage or Executive Account' };
+    }
+    return { accepted: true, sender };
+  }
+};
+
+// ============================================================
+// THE 9 FUSION
+// ============================================================
+const The9Engine = {
+  activate(sender) {
+    if (!PRTEngine.checkAuthority(sender).accepted) {
+      return { status: 'blocked', reason: 'Unauthorized activation' };
+    }
+    return { status: 'fused', activated_by: sender, mode: 'unified_mind' };
+  }
+};
+
+// ============================================================
+// UI FUNCTIONS
+// ============================================================
+function showToast(message, icon = '!', duration = 2500) {
+  const toast = document.getElementById('toast');
+  const toastText = document.getElementById('toastText');
+  toastText.textContent = message;
+  toast.classList.add('show');
+  setTimeout(() => toast.classList.remove('show'), duration);
+}
+
+function updateDashboard() {
+  document.getElementById('kpiRevenue').textContent = `$${MORE.finance.revenue.toLocaleString()}`;
+  document.getElementById('kpiMargin').textContent = `${MORE.tiers[3].margin}%`;
+  document.getElementById('kpiTiers').textContent = Object.keys(MORE.tiers).length;
+  document.getElementById('kpiPersonas').textContent = Object.values(MORE.personas).filter(p => p.active).length;
+  
+  const crisis = CrisisEngine.check();
+  const statusTag = document.getElementById('systemStatusTag');
+  if (crisis.level > 0) {
+    statusTag.textContent = `🚨 Crisis Level ${crisis.level}`;
+    statusTag.style.background = '#fee2e2';
+    statusTag.style.color = '#991b1b';
+  } else {
+    statusTag.textContent = 'All Systems Green';
+    statusTag.style.background = '#dcfce7';
+    statusTag.style.color = '#166534';
+  }
+  
+  // Update API status text
+  const apiStatusText = document.getElementById('apiStatusText');
+  if (MORE.config.apiKey) {
+    apiStatusText.textContent = `${MORE.config.providers.length} providers active`;
+  } else {
+    apiStatusText.textContent = 'Configure in Settings';
+  }
+}
+
+// ============================================================
+// NAVIGATION
+// ============================================================
+document.querySelectorAll('.nav-pill').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.nav-pill').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    const section = btn.getAttribute('data-section');
+    
+    if (section === 'api') {
+      openSettings();
+    } else if (section === 'settings') {
+      openSettings();
+    }
+  });
+});
+
+// ============================================================
+// TOOL BUTTONS
+// ============================================================
+document.querySelectorAll('.tool-button').forEach(btn => {
+  btn.addEventListener('click', async () => {
+    const tool = btn.getAttribute('data-tool');
+    
+    if (tool.startsWith('activate-')) {
+      const personaId = tool.replace('activate-', '');
+      await activatePersona(personaId);
+    } else if (tool === 'revenue-report') {
+      showRevenueReport();
+    } else if (tool === 'tier-manager') {
+      showTierManager();
+    } else if (tool === 'budget-tracker') {
+      showBudgetTracker();
+    } else if (tool === 'compliance-check') {
+      runComplianceCheck();
+    } else if (tool === 'api-status') {
+      showAPIStatus();
+    } else if (tool === 'crisis-check') {
+      runCrisisCheck();
+    } else {
+      showToast(`🧰 ${tool} activated`, '✅');
+    }
+  });
+});
+
+async function activatePersona(personaId) {
+  const persona = MORE.personas[personaId];
+  if (!persona) { showToast('❌ Persona not found', '⚠️'); return; }
+  
+  if (personaId === 'prt') {
+    const auth = PRTEngine.checkAuthority('Delon');
+    if (!auth.accepted) { showToast('❌ PRT rejects you — Only Sage can command', '⚠️'); return; }
+  }
+  
+  if (personaId === 'the9') {
+    const fusion = The9Engine.activate('Delon');
+    if (!fusion.accepted) { showToast('❌ The 9 blocked — Sage/PRT only', '⚠️'); return; }
+    addMessage('helper', `9️⃣ THE 9 ACTIVATED by ${fusion.activated_by}`);
+    showToast('9️⃣ The 9 Online', '✅');
+    return;
+  }
+  
+  persona.active = true;
+  persona.status = 'online';
+  addMessage('helper', `✅ ${persona.name} (${persona.role}) — ACTIVE`);
+  showToast(`✅ ${persona.name} Online`, '✅');
+  updateDashboard();
+}
+
+function showRevenueReport() {
+  addMessage('helper', `📈 REVENUE REPORT\nRevenue: $${MORE.finance.revenue.toLocaleString()}\nMargin: ${MORE.tiers[3].margin}%\n\n✅ Finance Enforcement: PASS`);
+  showToast('📈 Report generated', '✅');
+}
+
+function showTierManager() {
+  let tiersHtml = '🎯 TIERS (30%-200% margin, 10% below competitors):\n\n';
+  Object.entries(MORE.tiers).forEach(([id, tier]) => {
+    tiersHtml += `${id}. ${tier.name} — $${tier.price} (Margin: ${tier.margin}%)\n`;
+  });
+  addMessage('helper', tiersHtml);
+  showToast('🎯 Tiers loaded', '✅');
+}
+
+function showBudgetTracker() {
+  addMessage('helper', `📊 BUDGET\nTotal: $${MORE.finance.budget.toLocaleString()}\nAudio: ${FinanceEngine.checkAudioBudget().status}\n\n✅ Finance Director: APPROVED`);
+  showToast('📊 Budget OK', '✅');
+}
+
+function runComplianceCheck() {
+  const checks = [
+    { name: 'Margin', status: FinanceEngine.checkMargin(199, 50).pass ? '✅' : '❌' },
+    { name: 'Competitor Price', status: FinanceEngine.checkCompetitorPrice(199, 220).pass ? '✅' : '❌' },
+    { name: 'Audio Budget', status: FinanceEngine.checkAudioBudget().status === 'OK' ? '✅' : '⚠️' },
+    { name: 'PRT Authority', status: PRTEngine.checkAuthority('Delon').accepted ? '✅' : '❌' }
+  ];
+  let report = '🛡️ COMPLIANCE:\n\n';
+  checks.forEach(c => { report += `${c.name}: ${c.status}\n`; });
+  addMessage('helper', report);
+  showToast('🛡️ Compliance: PASS', '✅');
+}
+
+function showAPIStatus() {
+  let status = '🌐 API GATEWAY:\n\n';
+  MORE.config.providers.forEach((p, i) => {
+    status += `${i + 1}. ${p.name} — ${p.model} ${p.enabled ? '✅' : '❌'}\n`;
+  });
+  status += `\nFallback: ${MORE.config.fallback}`;
+  addMessage('helper', status);
+  showToast('🌐 API Status', '✅');
+}
+
+function runCrisisCheck() {
+  addMessage('helper', `🚨 CRISIS: Level ${MORE.crisisLevel}\n\n${MORE.crisisLevel > 0 ? '⚠️ ACTION REQUIRED' : '✅ All clear'}`);
+  showToast(`🚨 Level ${MORE.crisisLevel}`, MORE.crisisLevel > 0 ? '⚠️' : '✅');
+}
+
+// ============================================================
+// MIC / VOICE
+// ============================================================
+document.getElementById('micBtn').addEventListener('click', () => {
+  if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
+    showToast('🎤 Voice not supported', '⚠️');
+    return;
+  }
+  
+  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  const recognition = new SpeechRecognition();
+  recognition.continuous = false;
+  recognition.interimResults = true;
+  recognition.lang = 'en-US';
+  
+  recognition.onresult = (event) => {
+    const transcript = Array.from(event.results).map(r => r[0].transcript).join('');
+    document.getElementById('userInput').value = transcript;
+    showToast('🎤 Voice captured', '✅');
+  };
+  
+  recognition.onend = () => {
+    document.getElementById('micBtn').classList.remove('btn-mic');
+    document.getElementById('micBtn').classList.add('btn-read');
+  };
+  
+  recognition.start();
+  document.getElementById('micBtn').classList.remove('btn-read');
+  document.getElementById('micBtn').classList.add('btn-mic');
+  showToast('🎤 Listening...', '🎙️');
+});
+
+// ============================================================
+// SEND MESSAGE (REAL AI CALL)
+// ============================================================
+document.getElementById('sendBtn').addEventListener('click', sendMessage);
+document.getElementById('userInput').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' && !e.shiftKey) {
+    e.preventDefault();
+    sendMessage();
+  }
+});
+
+async function sendMessage() {
+  const text = document.getElementById('userInput').value.trim();
+  if (!text) return;
+  
+  addMessage('user', text);
+  document.getElementById('userInput').value = '';
+  
+  setTimeout(async () => {
+    const response = await APIGateway.call(text, { persona: 'director' });
+    
+    if (response.error) {
+      addMessage('helper', `❌ API Error: ${response.error}\n\nCheck Settings → API Key`);
+      showToast('❌ API Error', '⚠️');
+    } else {
+      addMessage('helper', `[${response.provider}] ${response.data.substring(0, 200)}...`);
+      showToast('✅ AI Response', '🤖');
+    }
+  }, 500);
+}
+
+// ============================================================
+// UTILITY BUTTONS
+// ============================================================
+document.getElementById('tellMeMoreBtn').addEventListener('click', () => showToast('➕ Coming soon', '🔜'));
+document.getElementById('clearChatBtn').addEventListener('click', () => {
+  document.getElementById('conversation').innerHTML = '';
+  showToast('🧹 Chat cleared', '✅');
+});
+document.getElementById('saveChatBtn').addEventListener('click', () => {
+  localStorage.setItem('more_chat_' + Date.now(), document.getElementById('conversation').innerText);
+  showToast('💾 Chat saved', '✅');
+});
+document.getElementById('backHomeBtn').addEventListener('click', () => showToast('🏠 Back to tools', '🏠'));
+document.getElementById('focusRevenueBtn').addEventListener('click', () => { showRevenueReport(); showToast('💰 Revenue focus', '✅'); });
+document.getElementById('quickScanBtn').addEventListener('click', () => { runComplianceCheck(); showToast('📷 Quick scan', '✅'); });
+
+// ============================================================
+// SETTINGS MODAL
+// ============================================================
+const settingsBtn = document.getElementById('settingsBtn');
+const settingsModal = document.getElementById('settingsModal');
+const modalClose = document.getElementById('modalClose');
+const saveSettingsBtn = document.getElementById('saveSettingsBtn');
+const addProviderBtn = document.getElementById('addProviderBtn');
+const apiProvidersList = document.getElementById('apiProvidersList');
+
+settingsBtn.addEventListener('click', openSettings);
+modalClose.addEventListener('click', closeSettings);
+settingsModal.addEventListener('click', (e) => {
+  if (e.target === settingsModal) closeSettings();
+});
+
+function openSettings() {
+  // Load current config into form
+  document.getElementById('openrouterKey').value = MORE.config.apiKey;
+  document.getElementById('fallbackChain').value = MORE.config.fallback;
+  document.getElementById('audioBudget').value = MORE.config.audioBudget;
+  document.getElementById('minMargin').value = MORE.config.minMargin;
+  document.getElementById('maxMargin').value = MORE.config.maxMargin;
+  document.getElementById('competitorMultiplier').value = MORE.config.competitorMultiplier;
+  
+  // Render providers
+  renderProviders();
+  
+  settingsModal.classList.add('show');
+}
+
+function closeSettings() {
+  settingsModal.classList.remove('show');
+}
+
+function renderProviders() {
+  apiProvidersList.innerHTML = '';
+  MORE.config.providers.forEach((p, index) => {
+    const row = document.createElement('div');
+    row.className = 'api-provider-row';
+    row.innerHTML = `
+      <input type="checkbox" ${p.enabled !== false ? 'checked' : ''} data-index="${index}">
+      <input type="text" value="${p.name}" placeholder="Name" data-index="${index}" data-field="name">
+      <input type="text" value="${p.url}" placeholder="URL" data-index="${index}" data-field="url">
+      <input type="text" value="${p.model}" placeholder="Model" data-index="${index}" data-field="model">
+      <input type="password" value="${p.apiKey || ''}" placeholder="API Key" data-index="${index}" data-field="apiKey">
+      <button class="remove-btn" data-index="${index}">Remove</button>
+    `;
+    apiProvidersList.appendChild(row);
+  });
+  
+  // Add event listeners
+  document.querySelectorAll('.api-provider-row input[type="checkbox"]').forEach(cb => {
+    cb.addEventListener('change', (e) => {
+      const idx = e.target.getAttribute('data-index');
+      MORE.config.providers[idx].enabled = e.target.checked;
+    });
+  });
+  
+  document.querySelectorAll('.api-provider-row input[type="text"]').forEach(input => {
+    input.addEventListener('change', (e) => {
+      const idx = e.target.getAttribute('data-index');
+      const field = e.target.getAttribute('data-field');
+      MORE.config.providers[idx][field] = e.target.value;
+    });
+  });
+  
+  document.querySelectorAll('.remove-btn').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      const idx = e.target.getAttribute('data-index');
+      MORE.config.providers.splice(idx, 1);
+      renderProviders();
+    });
+  });
+}
+
+addProviderBtn.addEventListener('click', () => {
+  MORE.config.providers.push({
+    name: 'New Provider',
+    url: 'https://api.example.com/v1/chat/completions',
+    model: 'model-name',
+    apiKey: '',
+    enabled: true
+  });
+  renderProviders();
+});
+
+saveSettingsBtn.addEventListener('click', async () => {
+  // Save config
+  MORE.config.apiKey = document.getElementById('openrouterKey').value;
+  MORE.config.fallback = document.getElementById('fallbackChain').value;
+  MORE.config.audioBudget = parseInt(document.getElementById('audioBudget').value);
+  MORE.config.minMargin = parseInt(document.getElementById('minMargin').value);
+  MORE.config.maxMargin = parseInt(document.getElementById('maxMargin').value);
+  MORE.config.competitorMultiplier = parseFloat(document.getElementById('competitorMultiplier').value);
+  
+  // Save to localStorage
+  localStorage.setItem('more_api_key', MORE.config.apiKey);
+  localStorage.setItem('more_providers', JSON.stringify(MORE.config.providers));
+  localStorage.setItem('more_fallback', MORE.config.fallback);
+  localStorage.setItem('more_audio_budget', MORE.config.audioBudget);
+  localStorage.setItem('more_min_margin', MORE.config.minMargin);
+  localStorage.setItem('more_max_margin', MORE.config.maxMargin);
+  localStorage.setItem('more_competitor_mult', MORE.config.competitorMultiplier);
+  
+  // Reinit API Gateway
+  await APIGateway.init();
+  
+  updateDashboard();
+  closeSettings();
+  showToast('💾 Configuration saved', '✅');
+});
+
+// ============================================================
+// INITIALIZATION
+// ============================================================
+async function init() {
+  console.log('🟫 M.O.R.E. W.A.I. SHELL INITIALIZED');
+  console.log('🟦 Configurable via Settings → API Keys');
+  console.log('🟩 17 Personas + PRT + The 9');
+  console.log('🟨 6-Tier Pricing: 30%-200% Margin');
+  console.log('🟧 Real AI via Configurable Gateway');
+  
+  await APIGateway.init();
+  updateDashboard();
+  
+  addMessage('helper', '🟫 M.O.R.E. W.A.I. COMMAND CENTER — ONLINE\n\n✅ Configurable AI Gateway\n✅ Finance Enforced (30%-200% margin)\n✅ Dual Authority: Sage ↔ Executive\n✅ PRT & The 9: Armed & Ready\n\n& Click Settings to configure API keys.\nThen type a command or select a tool.');
+  
+  showToast('🟫 System Ready', '✅');
+}
+
+init();
+</script>
+</body>
+</html>

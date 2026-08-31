@@ -35,6 +35,7 @@ dist
 .env.*
 .env*
 *.env
+!.env.example
 *env*.txt
 *env*.text
 backend/serverpytext.txt
@@ -62,6 +63,7 @@ __pycache__/
 *pyc*
 venv/
 .venv/
+.venv-audit/
 
 # Development tools
 chainlit.md
@@ -100,6 +102,11 @@ WAI_Handoff.txt
 *.jpeg
 *.gif
 *.ico
+# Allow required PWA icons, favicon, self-hosted brand logo, and OG share images
+!frontend/public/logo-*.png
+!frontend/public/favicon.ico
+!frontend/public/WAI_Logo.jpg
+!frontend/public/wai-og-1200x630.png
 *.woff
 *.woff2
 *.ttf
@@ -111,3 +118,9 @@ WAI_Handoff.txt
 
 # Operational scripts (may contain local paths / credentials)
 scripts/ops/
+
+# Archived noise — ignored by agents, not part of the codebase
+Noisy Assets/
+
+# Daytona CLI binary (downloaded per-session, not repo code)
+.daytona-bin/

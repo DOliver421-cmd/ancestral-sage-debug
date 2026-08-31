@@ -1,4 +1,5 @@
 import { useState } from "react";
+import AppShell from "../components/AppShell";
 import { api } from "../lib/api";
 import { Heart } from "lucide-react";
 import { toast } from "sonner";
@@ -31,10 +32,17 @@ export default function DonatePage() {
   }
 
   return (
+    <AppShell>
+      <div className="relative py-12 px-6"
+        style={{ backgroundImage: "linear-gradient(rgba(10,10,15,0.72), rgba(10,10,15,0.82)), url('https://images.pexels.com/photos/6893794/pexels-photo-6893794.jpeg?auto=compress&cs=tinysrgb&w=1600')", backgroundSize: "cover", backgroundPosition: "center" }}>
+        <div className="max-w-2xl mx-auto">
+          <div className="overline text-signal">Give</div>
+        </div>
+      </div>
     <div className="p-8 max-w-2xl mx-auto">
       <div className="flex items-center gap-3 mb-2">
         <Heart className="w-8 h-8 text-red-500" />
-        <h1 className="font-heading text-3xl font-bold text-ink">Support the WAI Mission</h1>
+        <h1 className="font-heading text-3xl font-bold text-ink">Support the M.O.R.E. Mission</h1>
       </div>
       <p className="text-ink/60 mb-8">
         Your donation directly funds workforce training scholarships, lab equipment, and the M.O.R.E. community
@@ -97,8 +105,9 @@ export default function DonatePage() {
       </div>
 
       <p className="text-xs text-ink/40 text-center mt-4">
-        Payments are processed securely by Stripe. WAI Institute / LCE is a registered organization.
+        M.O.R.E. Help Center is a registered organization.
       </p>
     </div>
+    </AppShell>
   );
 }

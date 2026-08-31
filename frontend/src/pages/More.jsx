@@ -9,6 +9,7 @@ import {
   X, Zap, ChevronRight, HelpCircle, RefreshCw,
 } from "lucide-react";
 import { toast } from "sonner";
+import FlagModal from "../components/FlagModal";
 
 // ── Category config ───────────────────────────────────────────────────────────
 const CAT = {
@@ -421,6 +422,7 @@ export default function More() {
   const [showNeed, setShowNeed] = useState(false);
   const [authGate, setAuthGate] = useState(null);
   const [catFilter, setCatFilter] = useState("all");
+  const [flagTarget, setFlagTarget] = useState(null);
 
   const fetchPublic = useCallback(async (url) => {
     const r = await fetch(`${BACKEND_URL}/api${url}`);
@@ -447,11 +449,7 @@ export default function More() {
   const requireAuth = (action, fn) => { if (!user) { setAuthGate(action); return; } fn(); };
 
   const handleFlag = (targetId, targetType) => {
-    requireAuth("Flagging content", async () => {
-      const reason = window.prompt("Why are you flagging this?") ?? "No reason";
-      try { await api.post("/more/flag", { target_id: targetId, target_type: targetType, reason }); toast.success("Flagged — thank you."); }
-      catch { toast.error("Could not submit flag"); }
-    });
+    requireAuth("Flagging content", () => setFlagTarget({ targetId, targetType }));
   };
 
   const filteredPosts = catFilter === "all" ? posts : posts.filter(p => p.category === catFilter);
@@ -462,13 +460,13 @@ export default function More() {
       <header className="sticky top-0 z-30 bg-white/95 backdrop-blur border-b border-ink/10 shadow-sm">
         <div className="max-w-6xl mx-auto px-5 py-3 flex items-center justify-between gap-4">
           <Link to="/" className="flex items-center gap-2.5">
-            <img src={WAI_LOGO} alt="W.A.I." className="w-8 h-8 object-contain" style={{ mixBlendMode: "multiply" }} />
+            <img src={WAI_LOGO} alt="M.O.R.E." className="w-8 h-8 object-contain" />
             <span className="font-heading font-bold text-sm hidden sm:block">{BRAND.short}</span>
           </Link>
           <div className="flex items-center gap-2 font-heading font-extrabold text-base">
             <HandHelping className="w-5 h-5 text-amber-500" />
             <span>M.O.R.E.</span>
-            <span className="hidden sm:inline text-ink/40 font-normal text-sm">Michael Oliver Resource Exchange</span>
+            <span className="hidden sm:inline text-ink/40 font-normal text-sm">Help Center</span>
           </div>
           <nav className="flex items-center gap-2">
             <Link to="/helper" className="hidden sm:flex items-center gap-1.5 text-sm font-semibold text-ink/60 hover:text-amber-600 transition-colors px-3 py-1.5 rounded-lg hover:bg-amber-50">
@@ -491,7 +489,7 @@ export default function More() {
       <div className="min-h-screen bg-slate-50">
 
         {/* ── HERO — full dark section, not a gradient trick ─────────────── */}
-        <div style={{ background: "linear-gradient(135deg,#0b1f3a 0%,#1e1b4b 60%,#0b203f 100%)" }}>
+        <div style={{ backgroundImage: "linear-gradient(135deg,rgba(11,31,58,0.9) 0%,rgba(30,27,75,0.88) 60%,rgba(11,32,63,0.93) 100%), url('https://images.pexels.com/photos/10375824/pexels-photo-10375824.jpeg?auto=compress&cs=tinysrgb&w=1600')", backgroundSize: "cover", backgroundPosition: "center" }}>
           <div className="max-w-6xl mx-auto px-5 pt-12 pb-14 text-white">
 
             {/* Eyebrow */}
@@ -809,6 +807,7 @@ export default function More() {
       {authGate && <AuthGate action={authGate} onClose={() => setAuthGate(null)} />}
       {showPost && <NewPostModal onClose={() => setShowPost(false)} onSuccess={() => { if (tab === "posts") loadPosts(); }} />}
       {showNeed && <NewNeedModal onClose={() => setShowNeed(false)} onSuccess={() => { if (tab === "needs") loadNeeds(); }} />}
+      {flagTarget && <FlagModal targetId={flagTarget.targetId} targetType={flagTarget.targetType} onClose={() => setFlagTarget(null)} />}
     </>
   );
 }

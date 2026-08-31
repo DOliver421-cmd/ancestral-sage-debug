@@ -1,87 +1,105 @@
 import { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { useAuth } from "../lib/auth";
-import { toast } from "sonner";
+
+const INK    = "#2e1065";
+const SIGNAL = "#FFD100";
+const BONE   = "#F7F7F5";
 
 export default function SupervisorLogin() {
-  const navigate = useNavigate();
-  const { login, logout } = useAuth();
-  const [email, setEmail] = useState("");
+  const { login, user } = useAuth();
+  const nav = useNavigate();
+  const [email,    setEmail]    = useState("");
   const [password, setPassword] = useState("");
-  const [loading, setLoading] = useState(false);
+  const [loading,  setLoading]  = useState(false);
+  const [error,    setError]    = useState("");
 
-  const submit = async (event) => {
-    event.preventDefault();
+  // Already logged in as exec — go straight to supervisor
+  if (user && user.role === "executive_admin") {
+    nav("/supervisor", { replace: true });
+    return null;
+  }
+
+  const submit = async (e) => {
+    e.preventDefault();
+    setError("");
     setLoading(true);
     try {
-      const user = await login(email.trim(), password);
-      if (!user || user.role !== "executive_admin") {
-        toast.error("Supervisor login requires an executive admin account.");
-        await logout();
+      const u = await login(email, password);
+      if (u.role !== "executive_admin") {
+        setError("Access denied. Supervisor access requires executive authorization.");
         setLoading(false);
         return;
       }
-      toast.success("Supervisor session active. Redirecting to supervisor hub...");
-      navigate("/supervisor", { replace: true });
-    } catch (error) {
-      toast.error("Unable to sign in. Please check supervisor credentials and try again.");
+      if (u.must_change_password) {
+        nav("/settings?force=1");
+        return;
+      }
+      nav("/supervisor", { replace: true });
+    } catch (err) {
+      setError(err?.response?.data?.detail || "Authentication failed.");
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <main className="min-h-screen bg-slate-950 text-slate-100 px-4 py-12 sm:px-6 lg:px-8">
-      <div className="mx-auto max-w-xl rounded-3xl border border-slate-800 bg-slate-900/95 p-10 shadow-2xl shadow-slate-950/40">
-        <div className="mb-8 text-center">
-          <p className="text-sm uppercase tracking-[0.4em] text-cyan-300">Supervisor Access</p>
-          <h1 className="mt-4 text-3xl font-bold text-white">Executive / Supervisor Login</h1>
-          <p className="mt-3 text-sm text-slate-400">
-            Use the supervisor sign in flow to access secure executive controls and the centralized MORE Help Center experience.
-          </p>
-        </div>
+    <div style={{ minHeight: "100vh", background: "#0b1225", display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
+      <div style={{ background: "#fff", borderRadius: 14, padding: "40px 36px", width: "100%", maxWidth: 380, boxShadow: "0 8px 40px rgba(0,0,0,0.5)" }}>
 
-        <form onSubmit={submit} className="space-y-6">
-          <label className="block">
-            <span className="text-sm font-semibold text-slate-200">Email</span>
-            <input
-              type="email"
-              value={email}
-              onChange={(event) => setEmail(event.target.value)}
-              required
-              className="mt-2 w-full rounded-2xl border border-slate-700 bg-slate-950/70 px-4 py-3 text-sm text-white outline-none transition focus:border-cyan-400 focus:ring-2 focus:ring-cyan-500/20"
-            />
-          </label>
+        {/* Logo */}
+        <div style={{ width: 56, height: 56, background: INK, borderRadius: "50%", margin: "0 auto 16px", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22, fontWeight: 800, color: SIGNAL }}>S</div>
 
-          <label className="block">
-            <span className="text-sm font-semibold text-slate-200">Password</span>
-            <input
-              type="password"
-              value={password}
-              onChange={(event) => setPassword(event.target.value)}
-              required
-              className="mt-2 w-full rounded-2xl border border-slate-700 bg-slate-950/70 px-4 py-3 text-sm text-white outline-none transition focus:border-cyan-400 focus:ring-2 focus:ring-cyan-500/20"
-            />
+        <h2 style={{ textAlign: "center", fontSize: 22, fontWeight: 800, color: INK, marginBottom: 4 }}>Supervisor Access</h2>
+        <p style={{ textAlign: "center", fontSize: 13, color: "#6b7280", marginBottom: 28 }}>M.O.R.E. Help Center · Executive Portal</p>
+
+        {error && (
+          <div style={{ background: "#fee2e2", border: "1px solid #fca5a5", borderRadius: 8, padding: "10px 14px", marginBottom: 16, fontSize: 13, color: "#991b1b", textAlign: "center" }}>
+            {error}
+          </div>
+        )}
+
+        <form onSubmit={submit}>
+          <label style={{ display: "block", fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1, color: "#6b7280", marginBottom: 6 }}>
+            Executive Email
           </label>
+          <input
+            type="email"
+            required
+            value={email}
+            onChange={e => setEmail(e.target.value)}
+            placeholder="executive@morehelp.center"
+            style={{ width: "100%", padding: "11px 14px", border: "1.5px solid #e5e7eb", borderRadius: 7, fontSize: 14, outline: "none", marginBottom: 14, color: "#1a1a2e", boxSizing: "border-box" }}
+          />
+
+          <label style={{ display: "block", fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1, color: "#6b7280", marginBottom: 6 }}>
+            Password
+          </label>
+          <input
+            type="password"
+            required
+            value={password}
+            onChange={e => setPassword(e.target.value)}
+            placeholder="••••••••"
+            style={{ width: "100%", padding: "11px 14px", border: "1.5px solid #e5e7eb", borderRadius: 7, fontSize: 14, outline: "none", marginBottom: 20, color: "#1a1a2e", boxSizing: "border-box" }}
+          />
 
           <button
             type="submit"
             disabled={loading}
-            className="w-full rounded-2xl bg-cyan-500 px-4 py-3 text-sm font-bold uppercase tracking-[0.2em] text-slate-950 transition hover:bg-cyan-400 disabled:cursor-not-allowed disabled:opacity-60"
+            style={{ width: "100%", padding: 12, background: loading ? "#6b7280" : INK, color: "#fff", border: "none", borderRadius: 7, fontSize: 14, fontWeight: 700, cursor: loading ? "not-allowed" : "pointer" }}
           >
-            {loading ? "Signing in…" : "Supervisor sign in"}
+            {loading ? "Authenticating…" : "Enter Supervisor Panel"}
           </button>
         </form>
 
-        <div className="mt-8 space-y-3 text-center text-sm text-slate-400">
-          <p>
-            If you are not a supervisor, please use the standard platform login.
-          </p>
-          <Link to="/login" className="font-semibold text-cyan-300 hover:text-cyan-200">
-            Back to main sign in
-          </Link>
-        </div>
+        <p style={{ textAlign: "center", fontSize: 11, color: "#9ca3af", marginTop: 20 }}>
+          Restricted access · Authorized personnel only
+        </p>
+        <p style={{ textAlign: "center", fontSize: 12, marginTop: 8 }}>
+          <Link to="/login" style={{ color: INK, textDecoration: "underline" }}>← Main Platform Login</Link>
+        </p>
       </div>
-    </main>
+    </div>
   );
 }

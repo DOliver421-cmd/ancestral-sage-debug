@@ -1,8 +1,10 @@
 // v2.1 - expanded cultural focus
 import { useEffect, useRef, useState, useCallback } from "react";
+import { Link } from "react-router-dom";
 import AppShell from "../components/AppShell";
-import { api, API } from "../lib/api";
-import { Sparkles, Send, Compass, ShieldAlert, Lock, Mic, MicOff, Volume2, VolumeX, Loader2, Square, Download } from "lucide-react";
+import { useAuth } from "../lib/auth";
+import { api } from "../lib/api";
+import { Sparkles, Send, Compass, ShieldAlert, Lock, Mic, MicOff, Volume2, VolumeX, Loader2, Square, Download, KeyRound } from "lucide-react";
 import { toast } from "sonner";
 
 const MODES = [
@@ -13,6 +15,7 @@ const MODES = [
   { key: "nec_lookup", label: "NEC Lookup" },
   { key: "blueprint", label: "Blueprint Reader" },
   { key: "ancestral_sage", label: "Ancestral Sage", icon: Compass },
+  { key: "conspiracy_brother", label: "Conspiracy Brother" },
 ];
 
 const SAGE_DEPTH = ["beginner", "intermediate", "advanced"];
@@ -33,16 +36,16 @@ function needsConsent(intensity, safety) {
   return intensity === "deep" || safety === "exploratory" || safety === "extreme";
 }
 
-const SpeechRecognitionImpl = typeof window !== "undefined"
-  ? (window.SpeechRecognition || window.webkitSpeechRecognition)
-  : null;
+import { useMic } from "../hooks/useMic";
 
 export default function AITutor() {
+  const { user } = useAuth();
   const [mode, setMode] = useState("tutor");
   const [msgs, setMsgs] = useState([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [sessionId] = useState(() => `${Date.now()}`);
+  const [restrictedHit, setRestrictedHit] = useState(false);
   const endRef = useRef(null);
 
   const [depth, setDepth] = useState("beginner");
@@ -57,10 +60,6 @@ export default function AITutor() {
   const [audioSpeed, setAudioSpeed] = useState(1.0);
   const [audioVolume, setAudioVolume] = useState(1.0);
   const [audioPlaying, setAudioPlaying] = useState(false);
-  const [recording, setRecording] = useState(false);
-  const recogRef = useRef(null);
-  const audioElRef = useRef(null);
-  const audioAbortRef = useRef(null);
 
   const [restricted, setRestricted] = useState(false);
   const [resolvedMode, setResolvedMode] = useState(null);
@@ -82,61 +81,37 @@ export default function AITutor() {
   }, [intensity, safety]);
 
   const cancelAudio = useCallback(() => {
-    audioAbortRef.current?.abort();
-    if (audioElRef.current) {
-      audioElRef.current.pause();
-      audioElRef.current = null;
-    }
+    if ("speechSynthesis" in window) window.speechSynthesis.cancel();
     setAudioPlaying(false);
   }, []);
 
-  const speak = useCallback(async (text) => {
+  const speakViaBrowser = useCallback((text) => {
+    if (!text) return;
+    if (!("speechSynthesis" in window)) {
+      toast.error("Couldn't play audio. Text remains visible.");
+      return;
+    }
+    try {
+      window.speechSynthesis.cancel();
+      const utt = new SpeechSynthesisUtterance(text.slice(0, 500));
+      utt.rate = audioSpeed;
+      utt.volume = audioVolume;
+      utt.onstart = () => setAudioPlaying(true);
+      utt.onend = () => { setAudioPlaying(false); };
+      utt.onerror = () => { setAudioPlaying(false); };
+      window.speechSynthesis.speak(utt);
+    } catch (err) {
+      toast.error("Couldn't play audio. Text remains visible.");
+    }
+  }, [audioSpeed, audioVolume]);
+
+  const speak = useCallback((text) => {
     if (!audioOn || !text) return;
     cancelAudio();
-    const controller = new AbortController();
-    audioAbortRef.current = controller;
-    try {
-      const token = localStorage.getItem("lce_token");
-      const r = await fetch(`${API}/ai/sage/tts`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
-        body: JSON.stringify({
-          text,
-          voice: mode === "ancestral_sage" ? "sage" :
-            mode === "tutor" ? "nova" :
-            mode === "scripture" ? "fable" :
-            mode === "electrician" ? "echo" : "alloy",
-          speed: audioSpeed,
-          session_id: sessionId
-        }),
-        signal: controller.signal,
-      });
-      if (r.status === 429) {
-        toast.error("Voice budget for today is reached. Text remains visible.");
-        return;
-      }
-      if (r.status === 503) {
-        toast.error("Voice provider is temporarily unavailable. Falling back to text only.");
-        return;
-      }
-      if (!r.ok) throw new Error(`TTS ${r.status}`);
-      const blob = await r.blob();
-      const url = URL.createObjectURL(blob);
-      const audio = new Audio(url);
-      audio.volume = audioVolume;
-      audio.preload = "auto";
-      audioElRef.current = audio;
-      audio.onended = () => { URL.revokeObjectURL(url); setAudioPlaying(false); };
-      audio.onpause = () => setAudioPlaying(false);
-      audio.onplay = () => setAudioPlaying(true);
-      audio.oncanplaythrough = () => audio.play();
-      audio.load();
-    } catch (e) {
-      if (e?.name !== "AbortError") {
-        toast.error("Couldn't play audio. Text remains visible.");
-      }
-    }
-  }, [audioOn, audioSpeed, audioVolume, sessionId, mode, cancelAudio]);
+    // Native browser TTS — free, no keys, works everywhere. Replaces the old
+    // paid per-persona voice system (/ai/sage/tts → OpenAI/ElevenLabs).
+    speakViaBrowser(text);
+  }, [audioOn, cancelAudio, speakViaBrowser]);
 
   const downloadTranscript = useCallback(() => {
     const lines = msgs.map((m) => `[${m.role}] ${m.text}`).join("\n\n");
@@ -193,6 +168,8 @@ export default function AITutor() {
       const r = await api.post("/ai/chat", payload);
       const reply = r.data.reply;
       setMsgs((m) => [...m, { role: "assistant", text: reply }]);
+      // The gateway's quota-exhaustion notice means the site's free keys ran out.
+      if (/restricted mode/i.test(reply)) setRestrictedHit(true);
       if (mode === "ancestral_sage" && audioOn) speak(reply);
     } catch (e) {
       const detail = e?.response?.data?.detail;
@@ -205,61 +182,20 @@ export default function AITutor() {
       } else {
         toast.error("AI unavailable. Check configuration or try again.");
         setMsgs((m) => [...m, { role: "assistant", text: "Sorry — I couldn't reach the tutor service. Try again in a moment." }]);
+        setRestrictedHit(true);
       }
     } finally { setLoading(false); }
   }, [input, loading, mode, intensity, safety, consentLogId, sessionId, depth, culture, divMode, audioOn, speak]);
 
-  const toggleMic = useCallback(() => {
-    if (!SpeechRecognitionImpl) {
-      toast.error("Voice input is not supported in this browser. Use Chrome, Edge, or Safari.");
-      return;
-    }
-    if (recording) {
-      recogRef.current?.stop();
-      setRecording(false);
-      return;
-    }
-    const startRec = () => {
-      const rec = new SpeechRecognitionImpl();
-      rec.lang = "en-US";
-      rec.continuous = true;
-      rec.interimResults = true;
-      rec.maxAlternatives = 1;
-      let silenceTimer = null;
-      rec.onresult = (ev) => {
-        let txt = "";
-        for (let i = ev.resultIndex; i < ev.results.length; i++) {
-          if (ev.results[i].isFinal) txt += ev.results[i][0].transcript;
-        }
-        if (txt.trim()) {
-          setInput((cur) => (cur ? `${cur} ${txt.trim()}` : txt.trim()));
-          clearTimeout(silenceTimer);
-          silenceTimer = setTimeout(() => {
-            rec.stop();
-            setRecording(false);
-            setTimeout(() => document.querySelector("[data-testid=btn-send]")?.click(), 100);
-          }, 2000);
-        }
-      };
-      rec.onerror = (ev) => {
-        if (ev.error === "no-speech") { rec.stop(); return; }
-        toast.error(`Mic error: ${ev.error || "unknown"}`);
-        setRecording(false);
-      };
-      rec.onend = () => {
-        setRecording(false);
-      };
-      recogRef.current = rec;
-      try {
-        rec.start();
-        setRecording(true);
-        toast.info("Listening… click mic again to stop.");
-      } catch {
-        toast.error("Couldn't start microphone.");
-      }
-    };
-    startRec();
-  }, [recording]);
+  const { listening: recording, toggle: toggleMic } = useMic({
+    continuous: true,
+    silenceMs:  2000,
+    onResult:   (txt) => {
+      setInput((cur) => cur ? `${cur} ${txt}` : txt);
+      setTimeout(() => document.querySelector("[data-testid=btn-send]")?.click(), 100);
+    },
+    onError: (msg) => toast.error(msg),
+  });
 
   const sageActive = mode === "ancestral_sage";
   const consentRequired = sageActive && needsConsent(intensity, safety);
@@ -268,9 +204,41 @@ export default function AITutor() {
   return (
     <AppShell>
       <div className="px-10 py-10 max-w-4xl">
-        <div className="overline text-copper">Powered by Claude Sonnet 4.5</div>
+        <div className="overline text-copper">AI answers run on your own key (BYOK)</div>
         <h1 className="font-heading text-4xl font-bold mt-2 flex items-center gap-3"><Sparkles className="w-8 h-8 text-copper" /> AI Tutor</h1>
         <p className="text-ink/60 mt-2">Ask questions. Request explanations. Request scripture. Generate a practice quiz.</p>
+
+        {/* AI runs on API keys — tell users up front, point them to BYOK */}
+        <div className={"mt-4 rounded-xl border flex items-start gap-3 px-4 py-3 " + (restrictedHit ? "bg-amber-50 border-amber-300" : "bg-white border-ink/10")}>
+          <KeyRound className={"w-4 h-4 shrink-0 mt-0.5 " + (restrictedHit ? "text-amber-600" : "text-copper")} />
+          <div className="text-xs leading-relaxed">
+            {restrictedHit ? (
+              <>
+                <span className="font-bold text-amber-900">Live AI needs your own key.</span>{" "}
+                <span className="text-amber-900/80">
+                  The platform doesn't fund customer AI — live answers run on YOUR key. Activate BYOK and attach a free
+                  key (Groq, Cerebras, or Gemini) to use live AI —{" "}
+                  {user && ["instructor", "admin", "executive_admin", "instructor"].includes(user.role)
+                    ? <strong>free for instructors and above.</strong>
+                    : <>a one-time <strong>$3</strong> fee (free for instructors and above).</>}
+                  Until then, AI surfaces answer from the free knowledge base.
+                </span>{" "}
+                <Link to="/byok" className="font-bold text-amber-900 underline hover:text-amber-700">Activate BYOK →</Link>
+              </>
+            ) : (
+              <>
+                <span className="font-bold text-ink/70">AI runs on YOUR key — not the platform's.</span>{" "}
+                <span className="text-ink/50">
+                  Activate BYOK and attach a free key (Groq, Cerebras, or Gemini) to use live AI on your own key —{" "}
+                  {user && ["instructor", "admin", "executive_admin", "instructor"].includes(user.role)
+                    ? <strong className="text-ink/70">free for instructors and above.</strong>
+                    : <>a one-time <strong className="text-ink/70">$3</strong> fee (free for instructors and above).</>}
+                </span>{" "}
+                <Link to="/byok" className="font-bold text-copper underline hover:text-ink">Bring your own key →</Link>
+              </>
+            )}
+          </div>
+        </div>
 
         <div className="flex gap-2 mt-6 flex-wrap" data-testid="mode-switcher">
           {MODES.map((m) => {
@@ -570,7 +538,7 @@ function ConsentModal({ intensity, safety, onClose, onGranted }) {
   const [d1, setD1] = useState(false);
   const [d2, setD2] = useState(false);
   const [d3, setD3] = useState(false);
-  const [contentType, setContentType] = useState("personalization");
+  const [contentType, setContentType] = useState("general");
   const [requestReview, setRequestReview] = useState(false);
   const [storeAudio, setStoreAudio] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -718,7 +686,22 @@ function ConsentModal({ intensity, safety, onClose, onGranted }) {
           to halt a practice and receive grounding/aftercare. Consent expires after 2 hours.
         </div>
 
-        <div className="flex gap-3 mt-6 justify-end">
+        {/* Checklist — shows exactly what's still needed */}
+        <div className="mt-4 space-y-1 text-xs">
+          <div className={`flex items-center gap-2 ${yesOk ? "text-emerald-600" : "text-ink/40"}`}>
+            <span>{yesOk ? "✓" : "○"}</span> Typed YES
+          </div>
+          <div className={`flex items-center gap-2 ${compOk ? "text-emerald-600" : "text-ink/40"}`}>
+            <span>{compOk ? "✓" : "○"}</span> Typed the comprehension phrase exactly
+          </div>
+          {contentType !== "general" && (
+            <div className={`flex items-center gap-2 ${disclaimersOk ? "text-emerald-600" : "text-ink/40"}`}>
+              <span>{disclaimersOk ? "✓" : "○"}</span> All 3 disclaimers checked
+            </div>
+          )}
+        </div>
+
+        <div className="flex gap-3 mt-4 justify-end">
           <button
             onClick={onClose}
             className="btn-secondary"

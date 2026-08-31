@@ -37,7 +37,7 @@ GMAIL_USER          = os.environ.get("GMAIL_USER", "")
 GMAIL_APP_PASSWORD  = os.environ.get("GMAIL_APP_PASSWORD", "")
 OUTLOOK_USER        = os.environ.get("OUTLOOK_USER", "")
 OUTLOOK_APP_PASSWORD= os.environ.get("OUTLOOK_APP_PASSWORD", "")
-EXEC_EMAIL          = os.environ.get("EXEC_ADMIN_EMAIL", "delon.oliver@lightningcityelectric.com")
+EXEC_EMAIL          = os.environ.get("EXEC_ADMIN_EMAIL", "").strip()
 
 _UA = ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
        "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36")
@@ -719,10 +719,7 @@ async def tool_create_incident(
     if severity.upper() in ("HIGH", "CRITICAL"):
         try:
             import os as _os
-            exec_email = (
-                _os.environ.get("EXECUTIVE_EMAIL")
-                or "oldthug957@gmail.com"  # fallback to known exec address
-            )
+            exec_email = _os.environ.get("EXECUTIVE_EMAIL", "").strip()
             email_body = (
                 f"INCIDENT ALERT — WAI-Institute Director System\n"
                 f"{'=' * 50}\n"
@@ -738,13 +735,16 @@ async def tool_create_incident(
                 f"This alert was dispatched automatically by THE DIRECTOR.\n"
                 f"Log into the WAI-Institute dashboard to review and respond."
             )
-            await tool_send_email(
-                to=exec_email,
-                subject=f"[{severity.upper()}] Incident {incident_id}: {title}",
-                body=email_body,
-                db=db,
-            )
-            email_tag = " | Executive alert dispatched"
+            if exec_email:
+                await tool_send_email(
+                    to=exec_email,
+                    subject=f"[{severity.upper()}] Incident {incident_id}: {title}",
+                    body=email_body,
+                    db=db,
+                )
+                email_tag = " | Executive alert dispatched"
+            else:
+                email_tag = " | Executive alert NOT emailed (EXECUTIVE_EMAIL unset)"
         except Exception as _e3:
             email_tag = f" | Alert email failed: {_e3}"
 

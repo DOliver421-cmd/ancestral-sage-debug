@@ -8,7 +8,7 @@ export default function Analytics() {
   const [data, setData] = useState(null);
   const [benchmark, setBenchmark] = useState(null);
   useEffect(() => {
-    api.get("/analytics/program").then((r) => setData(r.data));
+    api.get("/analytics/program").then((r) => setData(r.data)).catch(() => {});
     api.get("/analytics/benchmark").then((r) => setBenchmark(r.data)).catch(() => {});
   }, []);
   if (!data) return <LoadingState label="Program Analytics" />;
@@ -18,9 +18,9 @@ export default function Analytics() {
     const lines = [];
     lines.push(["section", "key", "value"]);
     Object.entries(t).forEach(([k, v]) => lines.push(["totals", k, v]));
-    data.by_associate.forEach((a) => lines.push(["by_associate", a.associate, `${a.students} students / ${a.completions} completions`]));
-    data.weakest_competencies.forEach((w) => lines.push(["weakest_competencies", w.name, w.points]));
-    data.module_completion_rates.forEach((m) => lines.push(["module_completion_rates", m.title, `${m.completions} (${m.rate}%)`]));
+    (data.by_associate || []).forEach((a) => lines.push(["by_associate", a.associate, `${a.students} students / ${a.completions} completions`]));
+    (data.weakest_competencies || []).forEach((w) => lines.push(["weakest_competencies", w.name, w.points]));
+    (data.module_completion_rates || []).forEach((m) => lines.push(["module_completion_rates", m.title, `${m.completions} (${m.rate}%)`]));
     const csv = lines.map((r) => r.map((c) => `"${(c ?? "").toString().replace(/"/g, '""')}"`).join(",")).join("\n");
     const blob = new Blob([csv], { type: "text/csv" });
     const a = document.createElement("a");
@@ -60,7 +60,7 @@ export default function Analytics() {
             <table className="w-full mt-4 text-sm">
               <thead className="bg-bone"><tr><Th>Associate</Th><Th>Students</Th><Th>Completions</Th></tr></thead>
               <tbody>
-                {data.by_associate.map((a) => (
+                {(data.by_associate || []).map((a) => (
                   <tr key={a.associate} className="border-b border-ink/10"><Td>{a.associate}</Td><Td>{a.students}</Td><Td className="font-mono font-bold">{a.completions}</Td></tr>
                 ))}
               </tbody>
@@ -106,7 +106,7 @@ export default function Analytics() {
                 <tr><Th>Associate Group</Th><Th>Students</Th><Th>Avg Modules</Th><Th>Completion %</Th><Th>vs Platform</Th></tr>
               </thead>
               <tbody>
-                {benchmark.by_cohort.map((c) => {
+                {(benchmark.by_cohort || []).map((c) => {
                   const delta = c.completion_pct - benchmark.platform.completion_pct;
                   return (
                     <tr key={c.associate} className="border-b border-ink/10 hover:bg-bone">

@@ -4,13 +4,40 @@ import AppShell from "../components/AppShell";
 import { api } from "../lib/api";
 import { useAuth } from "../lib/auth";
 import { toast } from "sonner";
-import { KeyRound, ShieldCheck, AlertTriangle, User as UserIcon, Save, Mail, Trash2, Download, Monitor, XCircle } from "lucide-react";
+import { KeyRound, ShieldCheck, AlertTriangle, User as UserIcon, Save, Mail, Trash2, Download, Monitor, XCircle, X, ExternalLink, Share2 } from "lucide-react";
+import { Link } from "react-router-dom";
 
 export default function Settings() {
   const { user, refresh } = useAuth();
   const [params] = useSearchParams();
   const forced = params.get("force") === "1" || user?.must_change_password;
   const [tab, setTab] = useState(forced ? "password" : "profile");
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+
+  // ---- Social accounts tab state ----------------------------------------
+  const [social, setSocial] = useState({ twitter: "", instagram: "", facebook: "", tiktok: "", threads: "", linkedin: "" });
+  const [socialBusy, setSocialBusy] = useState(false);
+  const [socialDirty, setSocialDirty] = useState(false);
+
+  useEffect(() => {
+    if (user?.social_handles) {
+      setSocial({ twitter: "", instagram: "", facebook: "", tiktok: "", threads: "", linkedin: "", ...user.social_handles });
+      setSocialDirty(false);
+    }
+  }, [user]);
+
+  const saveSocial = async (e) => {
+    e.preventDefault();
+    setSocialBusy(true);
+    try {
+      await api.patch("/auth/me", { social_handles: social });
+      toast.success("Social accounts saved");
+      setSocialDirty(false);
+      if (refresh) await refresh();
+    } catch (err) {
+      toast.error(err?.response?.data?.detail || "Save failed");
+    } finally { setSocialBusy(false); }
+  };
 
   // ---- Profile tab state -------------------------------------------------
   const [profile, setProfile] = useState({ full_name: "", email: "" });
@@ -127,6 +154,9 @@ export default function Settings() {
           <TabBtn id="sessions" active={tab === "sessions"} onClick={() => setTab("sessions")} icon={Monitor}>
             Sessions
           </TabBtn>
+          <TabBtn id="social" active={tab === "social"} onClick={() => setTab("social")} icon={Share2}>
+            Social
+          </TabBtn>
         </div>
 
         {/* PROFILE */}
@@ -136,7 +166,10 @@ export default function Settings() {
               <UserIcon className="w-5 h-5 text-copper" /> Profile
             </h3>
             <p className="text-xs text-ink/50 mt-1">
-              Edit your display name and email. Role and associate are managed by an administrator.
+              Edit your display name and email.{" "}
+              <Link to="/my-position" className="text-copper hover:underline inline-flex items-center gap-1">
+                Manage your position and role <ExternalLink className="w-3 h-3" />
+              </Link>
             </p>
             <div className="space-y-4 mt-5">
               <Field
@@ -211,6 +244,45 @@ export default function Settings() {
           <SessionManager />
         )}
 
+        {/* SOCIAL ACCOUNTS */}
+        {tab === "social" && (
+          <form onSubmit={saveSocial} className="card-flat p-6 mt-6">
+            <h3 className="font-heading text-xl font-bold flex items-center gap-2">
+              <Share2 className="w-5 h-5 text-copper" /> Social Accounts
+            </h3>
+            <p className="text-xs text-ink/50 mt-1 mb-5">
+              Your handles are stored in your profile — used by the Social Publisher to pre-fill links. No platform passwords stored here.
+            </p>
+            <div className="space-y-4">
+              {[
+                { id: "twitter",   label: "Twitter / X",  placeholder: "@yourhandle" },
+                { id: "instagram", label: "Instagram",     placeholder: "@yourhandle" },
+                { id: "facebook",  label: "Facebook",      placeholder: "Page name or URL" },
+                { id: "tiktok",    label: "TikTok",        placeholder: "@yourhandle" },
+                { id: "threads",   label: "Threads",       placeholder: "@yourhandle" },
+                { id: "linkedin",  label: "LinkedIn",      placeholder: "linkedin.com/in/yourname" },
+              ].map(({ id, label, placeholder }) => (
+                <div key={id}>
+                  <label className="block text-xs font-bold uppercase tracking-wider text-ink/60 mb-1.5">{label}</label>
+                  <input
+                    value={social[id] || ""}
+                    onChange={e => { setSocial(s => ({ ...s, [id]: e.target.value })); setSocialDirty(true); }}
+                    placeholder={placeholder}
+                    className="w-full px-3 py-2.5 border border-ink/20 rounded-lg text-sm bg-white focus:outline-none focus:border-copper transition-colors"
+                  />
+                </div>
+              ))}
+            </div>
+            <button
+              type="submit"
+              disabled={socialBusy || !socialDirty}
+              className="btn-primary mt-6 inline-flex items-center gap-2"
+            >
+              <Save className="w-4 h-4" /> {socialBusy ? "Saving…" : "Save Social Accounts"}
+            </button>
+          </form>
+        )}
+
         {/* PRIVACY / GDPR */}
         {tab === "privacy" && (
           <div className="card-flat p-6 mt-6 space-y-6">
@@ -255,9 +327,35 @@ export default function Settings() {
               <button
                 type="button"
                 className="px-4 py-2 text-sm font-bold border-2 border-destructive text-destructive rounded hover:bg-destructive/10 transition-colors inline-flex items-center gap-2"
+                onClick={() => setShowDeleteModal(true)}
+              >
+                <Trash2 className="w-4 h-4" /> Delete My Account
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+      {showDeleteModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100">
+              <div className="flex items-center gap-2">
+                <Trash2 className="w-4 h-4 text-red-600" />
+                <h2 className="font-heading font-bold text-lg text-slate-900">Delete Your Account</h2>
+              </div>
+              <button onClick={() => setShowDeleteModal(false)} className="text-slate-400 hover:text-slate-600"><X className="w-5 h-5" /></button>
+            </div>
+            <div className="px-6 py-5 space-y-3">
+              <div className="bg-red-50 border border-red-200 rounded-lg px-4 py-3 text-sm text-red-800">
+                <strong>This cannot be undone.</strong> Your account will be immediately anonymized and permanently deleted after 30 days (GDPR Article 17). You can contact support within that period to cancel.
+              </div>
+              <p className="text-sm text-slate-600">All progress, submissions, and personal data will be lost.</p>
+            </div>
+            <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-slate-100">
+              <button onClick={() => setShowDeleteModal(false)} className="text-sm px-4 py-2 rounded-lg text-slate-600 hover:bg-slate-50">Cancel</button>
+              <button
+                className="flex items-center gap-2 text-sm px-5 py-2 rounded-lg bg-red-600 text-white font-bold hover:bg-red-700"
                 onClick={async () => {
-                  if (!window.confirm("Are you sure? This will immediately anonymize your account and schedule it for permanent deletion after 30 days. You can contact support within that period to cancel the deletion.")) return;
-                  if (!window.confirm("Final confirmation: Delete your account? All progress, submissions, and personal data will be lost.")) return;
                   try {
                     await api.delete("/auth/account");
                     toast.success("Account scheduled for deletion. You will be signed out.");
@@ -266,15 +364,16 @@ export default function Settings() {
                   } catch (err) {
                     const detail = err?.response?.data?.detail;
                     toast.error(typeof detail === "string" ? detail : "Account deletion failed.");
+                    setShowDeleteModal(false);
                   }
                 }}
               >
-                <Trash2 className="w-4 h-4" /> Delete My Account
+                <Trash2 className="w-4 h-4" /> Permanently Delete Account
               </button>
             </div>
           </div>
-        )}
-      </div>
+        </div>
+      )}
     </AppShell>
   );
 }
@@ -326,6 +425,7 @@ function ReadOnly({ label, value, testid }) {
 function SessionManager() {
   const [sessions, setSessions] = useState([]);
   const [busy, setBusy] = useState(false);
+  const [confirmRevokeAll, setConfirmRevokeAll] = useState(false);
 
   const load = async () => {
     setBusy(true);
@@ -342,14 +442,13 @@ function SessionManager() {
   useEffect(() => { load(); }, []);
 
   const revokeAll = async () => {
-    if (!window.confirm("Log out all other devices? You will need to sign in again on those devices.")) return;
     try {
       await api.delete("/auth/sessions");
       toast.success("Other sessions revoked.");
       setSessions([]);
     } catch {
       toast.error("Failed to revoke sessions.");
-    }
+    } finally { setConfirmRevokeAll(false); }
   };
 
   const revokeOne = async (sid) => {
@@ -398,12 +497,25 @@ function SessionManager() {
             ))}
           </div>
           <button
-            onClick={revokeAll}
+            onClick={() => setConfirmRevokeAll(true)}
             className="mt-4 px-4 py-2 text-sm border border-destructive text-destructive rounded-lg hover:bg-destructive/10 transition-colors"
           >
             Log out all other devices
           </button>
         </>
+      )}
+
+      {confirmRevokeAll && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6">
+            <h2 className="font-heading font-bold text-lg text-slate-900 mb-2">Log Out All Other Devices?</h2>
+            <p className="text-sm text-slate-600 mb-6">You will need to sign in again on those devices.</p>
+            <div className="flex justify-end gap-3">
+              <button onClick={() => setConfirmRevokeAll(false)} className="text-sm px-4 py-2 rounded-lg text-slate-600 hover:bg-slate-50">Cancel</button>
+              <button onClick={revokeAll} className="text-sm px-4 py-2 rounded-lg bg-red-600 text-white font-bold hover:bg-red-700">Log Out All</button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

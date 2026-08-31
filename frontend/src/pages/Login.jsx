@@ -1,13 +1,17 @@
 import { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "../lib/auth";
 import { WAI_LOGO, BRAND } from "../lib/brand";
 import { toast } from "sonner";
-import { ArrowRight, Heart } from "lucide-react";
+import { ArrowRight, Heart, ExternalLink } from "lucide-react";
+import { isWaiDoor, MORE_HOME } from "../lib/domain";
 
 export default function Login() {
+  const waiDoor = isWaiDoor();
   const { login } = useAuth();
   const nav = useNavigate();
+  const [params] = useSearchParams();
+  const returnTo = params.get("returnTo");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -23,10 +27,9 @@ export default function Login() {
         nav("/settings?force=1");
         return;
       }
-      nav(u.role === "executive_admin" ? "/admin/system"
-        : u.role === "admin" ? "/admin"
-        : u.role === "instructor" ? "/instructor"
-        : "/dashboard");
+      // Honor a returnTo destination (e.g. persona pages), otherwise land on
+      // the landing page — they choose where to go from there.
+      nav(returnTo && returnTo.startsWith("/") ? returnTo : "/");
     } catch (err) {
       toast.error(err?.response?.data?.detail || "Login failed");
     } finally { setLoading(false); }
@@ -39,7 +42,7 @@ export default function Login() {
         <div className="absolute inset-0 grid-paper opacity-10 pointer-events-none" />
         <div className="relative">
           <Link to="/" className="flex items-center gap-3 inline-block" data-testid="login-brand">
-            <img src={WAI_LOGO} alt="W.A.I." className="w-12 h-12 object-contain bg-white p-1 rounded" />
+            <img src={WAI_LOGO} alt="M.O.R.E." className="w-12 h-12 object-contain bg-white p-1 rounded" />
             <div>
               <div className="overline text-copper leading-none">{BRAND.short}</div>
               <div className="font-heading font-bold text-sm">{BRAND.name}</div>
@@ -70,7 +73,7 @@ export default function Login() {
           {/* Mobile Header */}
           <div className="lg:hidden mb-8 text-center">
             <Link to="/" className="inline-flex items-center gap-3 mb-6" data-testid="login-brand-mobile">
-              <img src={WAI_LOGO} alt="W.A.I." className="w-10 h-10 object-contain" style={{ mixBlendMode: "multiply" }} />
+              <img src={WAI_LOGO} alt="M.O.R.E." className="w-10 h-10 object-contain" />
               <div>
                 <div className="overline text-copper leading-none text-xs">{BRAND.short}</div>
                 <div className="font-heading font-bold text-sm">{BRAND.name}</div>
@@ -113,11 +116,22 @@ export default function Login() {
               />
             </div>
 
-            {/* Forgot Password */}
+            {/* Forgot Password — account recovery is self-service on the M.O.R.E. door */}
             <div className="text-right">
-              <Link to="/forgot-password" className="text-sm text-copper hover:text-copper/80 font-medium">
-                Forgot password?
-              </Link>
+              {waiDoor ? (
+                <a
+                  href={`${MORE_HOME}/forgot-password`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1 text-sm text-copper hover:text-copper/80 font-medium"
+                >
+                  Forgot password? <ExternalLink className="w-3 h-3" />
+                </a>
+              ) : (
+                <Link to="/forgot-password" className="text-sm text-copper hover:text-copper/80 font-medium">
+                  Forgot password?
+                </Link>
+              )}
             </div>
 
             {/* Submit */}
@@ -144,21 +158,33 @@ export default function Login() {
               </div>
             </div>
 
-            {/* Sign Up */}
+            {/* Sign Up — account creation is for everyone; creator is a tier you
+                select inside the community, not the registration path itself. */}
             <Link
               to="/register"
               className="w-full py-3 px-4 border-2 border-copper text-copper font-bold uppercase tracking-widest hover:bg-copper hover:text-white transition-colors rounded flex items-center justify-center gap-2"
               data-testid="btn-register"
             >
               <Heart className="w-4 h-4" />
-              Join as Creator
+              Create Account
             </Link>
           </form>
 
-          {/* Footer Link */}
+          {/* Footer Link — support lives on the M.O.R.E. Help Center */}
           <div className="mt-8 text-center">
             <p className="text-xs text-ink/50">
+<<<<<<< HEAD
               Need help? <Link to="/more-help-center" className="text-copper hover:text-copper/80 font-medium">MORE Help Center</Link>
+=======
+              Need help?{" "}
+              {waiDoor ? (
+                <a href={`${MORE_HOME}/help-center`} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-copper hover:text-copper/80 font-medium">
+                  Help Center <ExternalLink className="w-3 h-3" />
+                </a>
+              ) : (
+                <Link to="/help-center" className="text-copper hover:text-copper/80 font-medium">Help Center</Link>
+              )}
+>>>>>>> b5e17a90a093ef2f7a081efc8d479b5b9f58558e
             </p>
           </div>
         </div>

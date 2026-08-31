@@ -149,8 +149,11 @@ class TestPersonaRegistry:
         from wai_institute.core.persona_registry import get_registry
         reg = get_registry()
         assert "personas" in reg
-        assert len(reg["personas"]) == 7
-        for name in ["director", "cipher", "oracle", "ambassador", "architect", "revenue_director", "ancestral_sage"]:
+        # Registry ships 9 core personas: Director, Revenue Director, Ancestral
+        # Sage, Ambassador, Cipher, Oracle, Architect, Poor Righteous Teacher, The 9.
+        assert len(reg["personas"]) == 9
+        for name in ["director", "cipher", "oracle", "ambassador", "architect",
+                     "revenue_director", "ancestral_sage", "poor_righteous_teacher", "the_9"]:
             assert name in reg["personas"]
 
     def test_get_persona_config_returns_correct_tier(self):

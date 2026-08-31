@@ -1,6 +1,6 @@
 {
   "name": "frontend",
-  "version": "0.2.0",
+  "version": "0.2.2",
   "private": true,
   "dependencies": {
     "@hookform/resolvers": "^3.9.0",
@@ -40,14 +40,15 @@
     "input-otp": "^1.4.2",
     "lucide-react": "^0.507.0",
     "next-themes": "^0.4.6",
+    "qrcode": "^1.5.4",
     "react": "^18.3.1",
     "react-day-picker": "^9.4.0",
     "react-dom": "^18.3.1",
     "react-hook-form": "^7.56.2",
+    "react-markdown": "^10.1.0",
     "react-resizable-panels": "^3.0.1",
     "react-router-dom": "^7.5.1",
     "react-scripts": "5.0.1",
-    "recharts": "2.15.0",
     "sonner": "^2.0.3",
     "tailwind-merge": "^3.2.0",
     "tailwindcss-animate": "^1.0.7",
@@ -56,8 +57,11 @@
   },
   "scripts": {
     "start": "craco start",
+    "preview": "HOST=0.0.0.0 BROWSER=none DANGEROUSLY_DISABLE_HOST_CHECK=true craco start",
     "build": "craco build",
-    "test": "craco test"
+    "test": "craco test",
+    "test:routes": "node scripts/route-integrity.js",
+    "test:nav": "node scripts/nav-integrity.js"
   },
   "browserslist": {
     "production": [
@@ -74,7 +78,6 @@
   "devDependencies": {
     "@babel/plugin-proposal-private-property-in-object": "^7.21.11",
     "@craco/craco": "^7.1.0",
-    "@emergentbase/visual-edits": "https://assets.emergent.sh/npm/emergentbase-visual-edits-1.0.8.tgz",
     "@eslint/js": "9.23.0",
     "ajv": "^8.0.0",
     "autoprefixer": "^10.4.20",

@@ -82,7 +82,7 @@ class CourseLicense(BaseModel):
     contractor_id: str
     business_name: str
     tier: ContractorTier
-    stripe_subscription_id: Optional[str] = None
+    provider_subscription_id: Optional[str] = None
     max_seats: int
     used_seats: int = 0
     language: str = "en"  # Default language (en, es, pt, fr)

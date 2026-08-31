@@ -22,7 +22,7 @@ from .creator_courses import (
     CreatorCourse,
 )
 
-router = APIRouter(prefix="/api/creator-courses", tags=["creator-courses"])
+router = APIRouter(prefix="/creator-courses", tags=["creator-courses"])
 
 
 class CourseCreateRequest(BaseModel):
@@ -81,7 +81,7 @@ async def create_new_course(
     """
     # Verify user has creator role
     user_role = current_user.get("role", "")
-    creator_roles = ["creator", "mentor", "steward", "elder", "admin", "executive_admin"]
+    creator_roles = ["instructor", "instructor", "oversight", "oversight", "admin", "executive_admin"]
     if user_role not in creator_roles:
         raise HTTPException(status_code=403, detail="Must be creator to create courses")
 
@@ -227,7 +227,7 @@ async def get_creator_stats(
     # Verify ownership (creator can only view their own, admins can view anyone's)
     is_own = creator_id == current_user["id"]
     if not is_own:
-        if current_user.get("role") not in ["admin", "steward", "elder", "executive_admin"]:
+        if current_user.get("role") not in ["admin", "oversight", "oversight", "executive_admin"]:
             raise HTTPException(status_code=403, detail="You cannot view other creators' financials")
 
     db = request.app.state.db
@@ -238,13 +238,13 @@ async def get_creator_stats(
     # Filter sensitive financial data based on role
     # Creators see their own full dashboard, admins see all, other roles see minimal data
     viewer_role = current_user.get("role", "student")
-    target_role = "creator"
+    target_role = "instructor"
 
     # For financial endpoints, check if sensitive fields should be visible
     sensitive_fields = {"total_revenue", "total_earnings", "monthly_revenue",
                        "monthly_earnings", "creator_earnings", "revenue", "last_payout_date", "next_payout_date"}
 
-    if not is_own and viewer_role not in ["admin", "steward", "elder", "executive_admin"]:
+    if not is_own and viewer_role not in ["admin", "oversight", "oversight", "executive_admin"]:
         # Non-owners/non-admins should not see financial data
         if "earnings" in result:
             result["earnings"] = {}

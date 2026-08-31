@@ -1,25 +1,54 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../lib/auth";
+import { api } from "../lib/api";
 import { WAI_LOGO, BRAND } from "../lib/brand";
 import { toast } from "sonner";
-import { ArrowRight, Heart, CheckCircle } from "lucide-react";
+import { ArrowRight, Heart, CheckCircle, ExternalLink, TicketPercent } from "lucide-react";
+import { isWaiDoor, MORE_HOME } from "../lib/domain";
 
 export default function Register() {
+  const waiDoor = isWaiDoor();
   const { register } = useAuth();
   const nav = useNavigate();
-  const [form, setForm] = useState({ full_name: "", email: "", password: "", associate: "Associate-Alpha", agreed_terms: false, over_13: false });
+  const [form, setForm] = useState({ full_name: "", email: "", password: "", associate: "Associate-Alpha", agreed_terms: false, over_13: false, promo_code: "" });
   const [loading, setLoading] = useState(false);
+  const [promoStatus, setPromoStatus] = useState(null);
+
+  // Optional promo preview — the backend is the source of truth at submit time.
+  const checkPromo = async () => {
+    const code = form.promo_code.trim();
+    if (!code) { setPromoStatus(null); return; }
+    try {
+      const { data } = await api.post("/promo/validate", { code });
+      setPromoStatus({ ok: data.valid, message: data.message });
+    } catch {
+      // Backend unreachable — real validation happens at submit; don't block typing.
+      setPromoStatus(null);
+    }
+  };
 
   const submit = async (e) => {
     e.preventDefault();
-    if (!form.agreed_terms) { toast.error("You must agree to the Terms of Service and Privacy Policy."); setLoading(false); return; }
-    if (!form.over_13) { toast.error("You must be at least 13 years old to create an account."); setLoading(false); return; }
+    // Validate step-by-step so the button never silently does nothing:
+    // every click produces specific, actionable feedback.
+    if (!form.full_name.trim()) { toast.error("Please enter your full name."); return; }
+    if (!form.email.trim()) { toast.error("Please enter your email address."); return; }
+    if (form.password.length < 8) { toast.error("Password must be at least 8 characters."); return; }
+    if (!form.agreed_terms) { toast.error("You must agree to the Terms of Service and Privacy Policy."); return; }
+    if (!form.over_13) { toast.error("You must be at least 13 years old to create an account."); return; }
     setLoading(true);
     try {
       const u = await register(form);
-      toast.success(`Welcome, ${u.full_name}!`);
-      nav("/dashboard");
+      if (u?.feature_tier && u.feature_tier !== "free") {
+        const label = u.feature_tier.charAt(0).toUpperCase() + u.feature_tier.slice(1);
+        toast.success(`Welcome, ${u.full_name}! Your ${label} account is active.`);
+      } else {
+        toast.success(`Welcome, ${u.full_name}!`);
+      }
+      // Straight to BYOK onboarding: every new account is immediately told about
+      // the $3 one-time AI unlock and can attach a free provider key — no hunting.
+      nav("/byok");
     } catch (err) {
       const status = err?.response?.status;
       if (status >= 500) {
@@ -39,7 +68,7 @@ export default function Register() {
       <header className="border-b border-ink/10 bg-bone">
         <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
           <Link to="/" className="flex items-center gap-3">
-            <img src={WAI_LOGO} alt="W.A.I." className="w-10 h-10 object-contain" style={{ mixBlendMode: "multiply" }} />
+            <img src={WAI_LOGO} alt="M.O.R.E." className="w-10 h-10 object-contain" />
             <div>
               <div className="overline text-copper leading-none text-xs">{BRAND.short}</div>
               <div className="font-heading font-bold text-sm">{BRAND.name}</div>
@@ -58,10 +87,11 @@ export default function Register() {
       <section className="bg-gradient-to-b from-copper/10 to-bone border-b border-copper/20 py-16">
         <div className="max-w-3xl mx-auto px-6 text-center">
           <h1 className="font-heading text-5xl font-bold mb-4">
-            Join the Community
+            Create your free account
           </h1>
           <p className="text-xl text-ink/60 mb-8">
-            Creator. Learner. Healer. Artist. Community member. Whatever brings you here — this is for you.
+            Learner. Healer. Artist. Community member. Whatever brings you here — this is for you.
+            (Creator is a tier you unlock inside the community — everyone starts here.)
           </p>
           <div className="grid md:grid-cols-3 gap-4 max-w-2xl mx-auto">
             <div className="flex items-start gap-3">
@@ -142,6 +172,28 @@ export default function Register() {
               <p className="text-xs text-ink/50 mt-2">Use a strong password to protect your account</p>
             </div>
 
+            {/* Promo code (optional) */}
+            <div>
+              <label className="block overline text-ink/60 mb-3">Promo Code <span className="normal-case font-normal text-ink/40">(optional)</span></label>
+              <div className="relative">
+                <TicketPercent className="w-4 h-4 text-copper/60 absolute left-3 top-1/2 -translate-y-1/2" />
+                <input
+                  type="text"
+                  value={form.promo_code}
+                  onChange={(e) => setForm({ ...form, promo_code: e.target.value })}
+                  onBlur={checkPromo}
+                  placeholder="Have a promo code?"
+                  className="w-full pl-9 pr-4 py-3 bg-white border border-ink/20 rounded focus:border-copper focus:outline-none focus:ring-2 focus:ring-copper/30 transition-all"
+                  data-testid="input-promo"
+                />
+              </div>
+              {promoStatus && (
+                <p className={`text-xs mt-2 font-medium ${promoStatus.ok ? "text-green-700" : "text-red-600"}`} data-testid="promo-status">
+                  {promoStatus.ok ? `✓ ${promoStatus.message}` : promoStatus.message}
+                </p>
+              )}
+            </div>
+
             {/* Hidden: Associate field (keep for compatibility) */}
             <input
               type="hidden"
@@ -187,7 +239,7 @@ export default function Register() {
             >
               {loading ? "Creating account…" : (
                 <>
-                  Join Us <ArrowRight className="w-4 h-4" />
+                  Create Account <ArrowRight className="w-4 h-4" />
                 </>
               )}
             </button>
@@ -212,9 +264,20 @@ export default function Register() {
             </Link>
           </form>
 
-          {/* Support */}
+          {/* Support — help lives on the M.O.R.E. Help Center */}
           <div className="mt-8 text-center text-xs text-ink/50">
+<<<<<<< HEAD
             Questions? <Link to="/more-help-center" className="text-copper hover:text-copper/80 font-medium">MORE Help Center</Link>
+=======
+            Questions?{" "}
+            {waiDoor ? (
+              <a href={`${MORE_HOME}/help-center`} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-copper hover:text-copper/80 font-medium">
+                Help Center <ExternalLink className="w-3 h-3" />
+              </a>
+            ) : (
+              <Link to="/help-center" className="text-copper hover:text-copper/80 font-medium">Help Center</Link>
+            )}
+>>>>>>> b5e17a90a093ef2f7a081efc8d479b5b9f58558e
           </div>
         </div>
       </section>

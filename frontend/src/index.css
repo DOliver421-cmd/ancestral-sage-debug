@@ -1,5 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap');
-@import url('https://api.fontshare.com/v2/css?f[]=cabinet-grotesk@800,500,700,400,900&display=swap');
+/* Fonts loaded via <link> tags in index.html for faster rendering */
 
 @tailwind base;
 @tailwind components;
@@ -7,6 +6,28 @@
 
 html {
   scroll-behavior: smooth;
+  /* Mobile-first: never allow a stray fixed-width element to create a
+     horizontal scrollbar. clip (not hidden) so sticky/fixed still work. */
+  overflow-x: clip;
+}
+
+/* Opaque text color classes for WCAG 2.1 compliance */
+.text-opaque-muted { color: #4a4238; }
+.text-opaque-faint { color: #5e4b8d; }
+
+body {
+  overflow-x: clip;
+}
+
+img, video, canvas, svg, iframe {
+  max-width: 100%;
+}
+
+/* Tap targets and text should never shrink to un-tappable sizes on phones. */
+@media (max-width: 640px) {
+  input, select, textarea, button, a {
+    font-size: 16px; /* prevents iOS auto-zoom on focus */
+  }
 }
 
 :root {
@@ -36,6 +57,10 @@ html {
   border-color: hsl(var(--border));
 }
 
+/* Opaque text color classes for WCAG 2.1 compliance */
+.text-opaque-muted { color: #4a4238; }
+.text-opaque-faint { color: #5e4b8d; }
+
 body {
   margin: 0;
   font-family: 'IBM Plex Sans', sans-serif;
@@ -45,7 +70,7 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
-h1, h2, h3, h4, h5, h6 { font-family: 'Cabinet Grotesk', sans-serif; }
+h1, h2, h3, h4, h5, h6 { font-family: 'Cabinet Grotesk', 'Plus Jakarta Sans', sans-serif; }
 code, pre { font-family: 'IBM Plex Mono', monospace; }
 
 .overline {

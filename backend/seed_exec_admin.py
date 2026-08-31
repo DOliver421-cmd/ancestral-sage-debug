@@ -26,8 +26,20 @@ from passlib.context import CryptContext
 
 load_dotenv("/app/backend/.env")
 
-EXEC_EMAIL = "delon.oliver@lightningcityelectric.com"
-SEED_PW = "Executive@LCE2026"
+EXEC_EMAIL = os.environ.get("EXEC_SEED_EMAIL", "").strip()
+SEED_PW = os.environ.get("EXEC_SEED_PASSWORD", "").strip()
+
+if not SEED_PW:
+    raise SystemExit(
+        "ERROR: EXEC_SEED_PASSWORD must be set in the environment. "
+        "Refusing to create an executive account with no password."
+    )
+
+if not EXEC_EMAIL:
+    raise SystemExit(
+        "ERROR: EXEC_SEED_EMAIL must be set in the environment. "
+        "Refusing to create an executive account with an unconfigured email."
+    )
 
 pwd_ctx = CryptContext(schemes=["bcrypt"], deprecated="auto")
 

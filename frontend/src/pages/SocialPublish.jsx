@@ -1,229 +1,306 @@
-import { useState, useEffect } from "react";
+/**
+ * Social Blast — write once, AI adapts for every platform.
+ * Dark atmospheric design matching the M.O.R.E. Creator Suite aesthetic.
+ */
+
+import { useState } from "react";
 import { useAuth } from "../lib/auth";
 import { api } from "../lib/api";
 import { toast } from "sonner";
-import { Instagram, Facebook, ExternalLink, CheckCircle, XCircle, Loader, Send, Link as LinkIcon } from "lucide-react";
+import AppShell from "../components/AppShell";
+import CreatorContextBar from "../components/CreatorContextBar";
+import { Copy, ExternalLink, Sparkles, Loader, CheckCircle, Settings, Zap } from "lucide-react";
+import { FeatureGate } from '../components/FeatureGate';
+import { Link } from "react-router-dom";
+
+/* ── design tokens ── */
+const T = {
+  bg:      "#08060f",
+  card:    "#100e1a",
+  border:  "rgba(74,222,128,0.2)",
+  green:   "#4ade80",
+  greenDim:"#22c55e",
+  gold:    "#d4af37",
+  purple:  "#a855f7",
+  text:    "#e0d8f0",
+  muted:   "#6b6480",
+  input:   "#060410",
+};
 
 const PLATFORMS = [
-  {
-    id: "facebook",
-    label: "Facebook Page",
-    icon: Facebook,
-    color: "bg-blue-600",
-    textColor: "text-blue-600",
-    borderColor: "border-blue-200",
-    bgColor: "bg-blue-50",
-    oauthNote: "Requires FB_APP_ID + FB_APP_SECRET in Railway environment.",
-  },
-  {
-    id: "instagram",
-    label: "Instagram",
-    icon: Instagram,
-    color: "bg-gradient-to-br from-purple-500 to-pink-500",
-    textColor: "text-pink-600",
-    borderColor: "border-pink-200",
-    bgColor: "bg-pink-50",
-    oauthNote: "Uses same Meta credentials as Facebook. Image required for posts.",
-  },
-  {
-    id: "twitter",
-    label: "Twitter / X",
-    icon: ExternalLink,
-    color: "bg-black",
-    textColor: "text-black",
-    borderColor: "border-ink/20",
-    bgColor: "bg-ink/5",
-    oauthNote: "Requires TWITTER_API_KEY + TWITTER_API_SECRET in Railway environment.",
-  },
-  {
-    id: "tiktok",
-    label: "TikTok",
-    icon: ExternalLink,
-    color: "bg-gradient-to-br from-black to-pink-900",
-    textColor: "text-pink-800",
-    borderColor: "border-pink-300",
-    bgColor: "bg-pink-50",
-    oauthNote: "Requires TIKTOK_CLIENT_KEY + TIKTOK_CLIENT_SECRET. Video posts only.",
-  },
+  { id: "twitter",   label: "𝕏 Twitter",  limit: 280,   color: "#e2e8f0", neon: "#94a3b8", emoji: "𝕏", hint: "Short, punchy. Hook first. Under 280 chars.", shareUrl: (t) => `https://twitter.com/intent/tweet?text=${encodeURIComponent(t)}` },
+  { id: "instagram", label: "Instagram",  limit: 2200,  color: "#f0abfc", neon: "#c084fc", emoji: "📸", hint: "Story-style. End with hashtags.", shareUrl: null },
+  { id: "facebook",  label: "Facebook",   limit: 63206, color: "#93c5fd", neon: "#60a5fa", emoji: "👥", hint: "Conversational, longer OK. Include a link.", shareUrl: (t, l) => l ? `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(l)}&quote=${encodeURIComponent(t)}` : `https://www.facebook.com/sharer/sharer.php?quote=${encodeURIComponent(t)}` },
+  { id: "tiktok",    label: "TikTok",     limit: 2200,  color: "#fca5a5", neon: "#f87171", emoji: "🎵", hint: "Hook in first 3 words. Energetic. Trending.", shareUrl: null },
+  { id: "threads",   label: "Threads",    limit: 500,   color: "#d1d5db", neon: "#9ca3af", emoji: "🧵", hint: "Conversational. Under 500 chars. Hot take.", shareUrl: (t) => `https://www.threads.net/intent/post?text=${encodeURIComponent(t)}` },
+  { id: "linkedin",  label: "LinkedIn",   limit: 3000,  color: "#7dd3fc", neon: "#38bdf8", emoji: "💼", hint: "Professional insight. Value-first. Can go long.", shareUrl: (t, l) => l ? `https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(l)}&summary=${encodeURIComponent(t)}` : `https://www.linkedin.com/feed/?shareActive=true&text=${encodeURIComponent(t)}` },
 ];
+
+function PlatformCard({ platform, result, linkUrl, copied, onCopy }) {
+  const shareUrl = platform.shareUrl?.(result, linkUrl) ?? null;
+  const overLimit = result.length > platform.limit;
+
+  return (
+    <div style={{
+      background: T.card,
+      border: `1px solid ${platform.neon}30`,
+      borderRadius: 14,
+      overflow: "hidden",
+      boxShadow: `0 0 16px ${platform.neon}08`,
+    }}>
+      <div style={{
+        padding: "10px 16px",
+        display: "flex", alignItems: "center", justifyContent: "space-between",
+        borderBottom: `1px solid ${platform.neon}20`,
+        background: `linear-gradient(135deg, ${platform.neon}08, transparent)`,
+      }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <span style={{ fontSize: 16 }}>{platform.emoji}</span>
+          <span style={{ fontWeight: 700, fontSize: 12, color: platform.neon, fontFamily: "monospace", letterSpacing: "0.05em" }}>{platform.label}</span>
+        </div>
+        <span style={{ fontSize: 10, fontWeight: 700, color: overLimit ? "#f87171" : T.muted, fontFamily: "monospace" }}>
+          {result.length}{platform.limit < 63206 ? `/${platform.limit}` : ""}
+        </span>
+      </div>
+
+      <div style={{ padding: "14px 16px" }}>
+        <pre style={{
+          whiteSpace: "pre-wrap", wordBreak: "break-word",
+          fontSize: "0.82rem", lineHeight: 1.7, color: T.text,
+          margin: 0, fontFamily: "inherit", minHeight: 60,
+          maxHeight: 160, overflowY: "auto",
+        }}>
+          {result}
+        </pre>
+        {overLimit && (
+          <p style={{ color: "#f87171", fontSize: 11, marginTop: 8, fontWeight: 600 }}>
+            Over {platform.label} limit — trim before posting.
+          </p>
+        )}
+      </div>
+
+      <div style={{ padding: "10px 16px", borderTop: `1px solid ${platform.neon}15`, display: "flex", gap: 8 }}>
+        <button
+          onClick={() => onCopy(platform.id, result)}
+          style={{
+            flex: 1, display: "flex", alignItems: "center", justifyContent: "center",
+            gap: 6, padding: "8px", border: `1px solid ${platform.neon}40`,
+            borderRadius: 8, background: "transparent", color: platform.neon,
+            fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "monospace",
+          }}
+        >
+          {copied === platform.id ? <><CheckCircle size={12} /> Copied!</> : <><Copy size={12} /> Copy</>}
+        </button>
+        {shareUrl && (
+          <a href={shareUrl} target="_blank" rel="noopener noreferrer"
+            style={{
+              flex: 1, display: "flex", alignItems: "center", justifyContent: "center",
+              gap: 6, padding: "8px", background: `${platform.neon}20`,
+              border: `1px solid ${platform.neon}50`,
+              color: platform.neon, borderRadius: 8, fontSize: 12, fontWeight: 600,
+              textDecoration: "none", fontFamily: "monospace",
+            }}
+          >
+            <ExternalLink size={12} /> Open
+          </a>
+        )}
+      </div>
+    </div>
+  );
+}
 
 export default function SocialPublish() {
   const { user } = useAuth();
-  const [connected, setConnected] = useState({});
-  const [selected, setSelected] = useState([]);
-  const [content, setContent] = useState("");
-  const [imageUrl, setImageUrl] = useState("");
-  const [linkUrl, setLinkUrl] = useState("");
-  const [publishing, setPublishing] = useState(false);
-  const [results, setResults] = useState(null);
-  const [loadingAccounts, setLoadingAccounts] = useState(true);
+  const [content, setContent]   = useState("");
+  const [linkUrl, setLinkUrl]   = useState("");
+  const [selected, setSelected] = useState(["twitter", "instagram", "facebook"]);
+  const [results, setResults]   = useState(null);
+  const [loading, setLoading]   = useState(false);
+  const [copied, setCopied]     = useState(null);
 
-  useEffect(() => {
-    (async () => {
-      try {
-        const { data } = await api.get("/api/social/connected-accounts");
-        setConnected(data.connected || {});
-      } catch {
-        // not critical
-      } finally {
-        setLoadingAccounts(false);
-      }
-    })();
-  }, []);
+  function togglePlatform(id) {
+    setSelected(prev => prev.includes(id) ? prev.filter(p => p !== id) : [...prev, id]);
+  }
 
-  const togglePlatform = (id) => {
-    if (!connected[id]) return; // can't select unconnected
-    setSelected((prev) =>
-      prev.includes(id) ? prev.filter((p) => p !== id) : [...prev, id]
-    );
-  };
-
-  const publish = async () => {
-    if (!content.trim()) { toast.error("Write something first"); return; }
+  async function generate() {
+    if (!content.trim()) { toast.error("Write your base post first"); return; }
     if (selected.length === 0) { toast.error("Select at least one platform"); return; }
-    setPublishing(true);
+    setLoading(true);
     setResults(null);
-    try {
-      const { data } = await api.post("/api/social/publish", {
-        content,
-        platforms: selected,
-        image_url: imageUrl || null,
-        link_url: linkUrl || null,
-      });
-      setResults(data);
-      if (data.status === "success") toast.success("Posted to all platforms!");
-      else if (data.status === "partial") toast.warning("Posted to some platforms — check results below.");
-      else toast.error("All platforms failed — see results below.");
-    } catch (err) {
-      toast.error(err?.response?.data?.detail || "Publish failed");
-    } finally {
-      setPublishing(false);
-    }
-  };
 
-  const charCount = content.length;
-  const twitterSelected = selected.includes("twitter");
-  const overLimit = twitterSelected && charCount > 280;
+    try {
+      const res = await api.post("/ai/social-blast", {
+        content: content.trim(),
+        link_url: linkUrl,
+        platforms: selected,
+      });
+
+      const parsed = res.data?.results;
+      if (!parsed || typeof parsed !== "object") throw new Error("Unexpected response from server");
+      setResults(parsed);
+      toast.success("Posts formatted for all platforms!");
+    } catch (e) {
+      toast.error("Format failed — " + (e?.message || "try again"));
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  function copyText(platformId, text) {
+    navigator.clipboard?.writeText(text);
+    setCopied(platformId);
+    setTimeout(() => setCopied(null), 2000);
+    toast.success("Copied!");
+  }
 
   return (
-    <div className="max-w-2xl mx-auto px-6 py-10">
-      <div className="mb-8">
-        <div className="text-copper text-xs uppercase tracking-widest font-bold mb-1">One post. All platforms.</div>
-        <h1 className="font-heading text-3xl font-extrabold mb-2">Social Publisher</h1>
-        <p className="text-ink/60 text-sm">Write once, publish to all your connected social media accounts simultaneously.</p>
-      </div>
+    <AppShell>
+      <CreatorContextBar current="blast" />
+      <FeatureGate feature="publish.create">
+      <div style={{ background: T.bg, minHeight: "100vh", color: T.text }}>
+        <div style={{ maxWidth: 860, margin: "0 auto", padding: "40px 24px 80px" }}>
 
-      {/* Platform selector */}
-      <div className="mb-6">
-        <h2 className="font-bold text-sm mb-3 text-ink/70 uppercase tracking-wider">Your Platforms</h2>
-        {loadingAccounts ? (
-          <div className="flex items-center gap-2 text-ink/40 text-sm py-4"><Loader className="w-4 h-4 animate-spin" /> Loading connected accounts…</div>
-        ) : (
-          <div className="grid grid-cols-2 gap-3">
-            {PLATFORMS.map(({ id, label, icon: Icon, color, textColor, borderColor, bgColor, oauthNote }) => {
-              const isConnected = !!connected[id];
-              const isSelected = selected.includes(id);
-              return (
-                <button
-                  key={id}
-                  onClick={() => isConnected ? togglePlatform(id) : toast.info(`Connect ${label} first — ${oauthNote}`)}
-                  className={`flex items-center gap-3 p-4 rounded-xl border-2 transition-all text-left ${
-                    isSelected
-                      ? `${borderColor} ${bgColor}`
-                      : isConnected
-                      ? "border-ink/10 bg-white hover:border-ink/30"
-                      : "border-dashed border-ink/15 bg-white/50 opacity-60"
-                  }`}
-                >
-                  <div className={`w-9 h-9 rounded-lg ${color} flex items-center justify-center shrink-0`}>
-                    <Icon className="w-4 h-4 text-white" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className={`font-bold text-sm ${isSelected ? textColor : "text-ink"}`}>{label}</div>
-                    {isConnected ? (
-                      <div className="text-xs text-ink/50">{connected[id]?.account_name || "Connected"}</div>
-                    ) : (
-                      <div className="text-xs text-ink/40">Not connected</div>
-                    )}
-                  </div>
-                  {isSelected && <CheckCircle className={`w-4 h-4 shrink-0 ${textColor}`} />}
-                </button>
-              );
-            })}
+          {/* Hero header */}
+          <div style={{ marginBottom: 36, position: "relative" }}>
+            <div style={{ fontSize: "0.65rem", fontFamily: "monospace", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.15em", color: T.greenDim, marginBottom: 8 }}>
+              ◈ CREATOR FEATURE
+            </div>
+            <h1 style={{ fontFamily: "monospace", fontSize: "clamp(1.6rem,4vw,2.8rem)", fontWeight: 900, color: T.green, textShadow: `0 0 30px rgba(74,222,128,0.4)`, margin: 0, lineHeight: 1.1, marginBottom: 8 }}>
+              SOCIAL BLAST
+            </h1>
+            <p style={{ color: T.muted, fontSize: 14, margin: 0, maxWidth: 560, lineHeight: 1.6 }}>
+              Write once — AI adapts your post for every platform. Copy the text or click to open each platform directly. One voice, everywhere you need to be.
+            </p>
           </div>
-        )}
-        <p className="text-xs text-ink/40 mt-3">
-          To connect a platform, go to <strong>Settings → Social Accounts</strong>. Platform credentials must be configured by your admin in Railway.
-        </p>
-      </div>
 
-      {/* Content editor */}
-      <div className="mb-4">
-        <div className="flex items-center justify-between mb-2">
-          <label className="font-bold text-sm text-ink/70 uppercase tracking-wider">Your Post</label>
-          <span className={`text-xs font-bold ${overLimit ? "text-red-500" : "text-ink/40"}`}>{charCount}{twitterSelected ? "/280" : ""}</span>
-        </div>
-        <textarea
-          value={content}
-          onChange={(e) => setContent(e.target.value)}
-          placeholder="What's happening in the community?"
-          className={`w-full px-4 py-3 border-2 rounded-xl text-sm bg-white focus:outline-none focus:border-copper transition-colors h-32 resize-none ${overLimit ? "border-red-300" : "border-ink/20"}`}
-        />
-      </div>
-
-      {/* Optional fields */}
-      <div className="grid grid-cols-2 gap-3 mb-6">
-        <div>
-          <label className="block text-xs font-bold text-ink/60 mb-1.5 uppercase tracking-wider">Image URL (optional)</label>
-          <input
-            value={imageUrl}
-            onChange={(e) => setImageUrl(e.target.value)}
-            placeholder="https://..."
-            className="w-full px-3 py-2 border border-ink/20 rounded-lg text-xs bg-white focus:outline-none focus:border-copper"
-          />
-          <p className="text-xs text-ink/35 mt-1">Required for Instagram.</p>
-        </div>
-        <div>
-          <label className="block text-xs font-bold text-ink/60 mb-1.5 uppercase tracking-wider">Link URL (optional)</label>
-          <input
-            value={linkUrl}
-            onChange={(e) => setLinkUrl(e.target.value)}
-            placeholder="https://..."
-            className="w-full px-3 py-2 border border-ink/20 rounded-lg text-xs bg-white focus:outline-none focus:border-copper"
-          />
-          <p className="text-xs text-ink/35 mt-1">Attached to Facebook post.</p>
-        </div>
-      </div>
-
-      {/* Publish button */}
-      <button
-        onClick={publish}
-        disabled={publishing || selected.length === 0 || !content.trim() || overLimit}
-        className="w-full py-3 px-4 bg-ink text-white font-bold rounded-xl flex items-center justify-center gap-2 hover:bg-ink/80 disabled:opacity-40 transition-colors"
-      >
-        {publishing ? <><Loader className="w-4 h-4 animate-spin" /> Publishing…</> : <><Send className="w-4 h-4" /> Publish to {selected.length || "0"} Platform{selected.length !== 1 ? "s" : ""}</>}
-      </button>
-
-      {/* Results */}
-      {results && (
-        <div className="mt-6 space-y-2">
-          <h3 className="font-bold text-sm text-ink/70 uppercase tracking-wider mb-3">Results</h3>
-          {Object.entries(results.published || {}).map(([platform, result]) => (
-            <div key={platform} className="flex items-center gap-3 p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-sm">
-              <CheckCircle className="w-4 h-4 text-emerald-600 shrink-0" />
-              <span className="font-bold capitalize">{platform}</span>
-              <span className="text-ink/60">{result.post_id ? `Post ID: ${result.post_id}` : result.note || "Posted"}</span>
+          {/* Platform selector */}
+          <div style={{ marginBottom: 28, padding: "20px 22px", background: T.card, border: `1px solid ${T.border}`, borderRadius: 14 }}>
+            <div style={{ fontSize: "0.65rem", fontFamily: "monospace", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.12em", color: T.gold, marginBottom: 14 }}>
+              SELECT PLATFORMS
             </div>
-          ))}
-          {Object.entries(results.errors || {}).map(([platform, error]) => (
-            <div key={platform} className="flex items-center gap-3 p-3 bg-red-50 border border-red-200 rounded-xl text-sm">
-              <XCircle className="w-4 h-4 text-red-500 shrink-0" />
-              <span className="font-bold capitalize">{platform}</span>
-              <span className="text-ink/60">{error}</span>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+              {PLATFORMS.map(p => {
+                const on = selected.includes(p.id);
+                return (
+                  <button key={p.id}
+                    onClick={() => togglePlatform(p.id)}
+                    style={{
+                      padding: "7px 16px", borderRadius: 99, fontSize: 12, fontWeight: 700, cursor: "pointer",
+                      border: `1.5px solid ${on ? p.neon : "rgba(255,255,255,0.1)"}`,
+                      background: on ? `${p.neon}15` : "transparent",
+                      color: on ? p.neon : T.muted,
+                      fontFamily: "monospace", letterSpacing: "0.04em",
+                      transition: "all 0.15s",
+                      boxShadow: on ? `0 0 10px ${p.neon}20` : "none",
+                    }}
+                  >
+                    {p.emoji} {p.label}
+                  </button>
+                );
+              })}
             </div>
-          ))}
+          </div>
+
+          {/* Compose area */}
+          <div style={{ padding: "22px", background: T.card, border: `1px solid ${T.border}`, borderRadius: 14, marginBottom: 20 }}>
+            <div style={{ fontSize: "0.65rem", fontFamily: "monospace", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.12em", color: T.gold, marginBottom: 10 }}>
+              YOUR POST
+            </div>
+            <textarea
+              value={content}
+              onChange={e => setContent(e.target.value)}
+              placeholder="Write your message here — the AI will adapt the tone, format, and length for each platform…"
+              rows={5}
+              style={{
+                width: "100%", padding: "14px 16px",
+                background: T.input, border: `1px solid rgba(74,222,128,0.2)`,
+                borderRadius: 10, fontSize: 14, lineHeight: 1.7,
+                color: T.text, resize: "vertical", outline: "none",
+                boxSizing: "border-box", fontFamily: "inherit",
+                transition: "border-color 0.15s",
+              }}
+              onFocus={e => e.target.style.borderColor = T.green}
+              onBlur={e => e.target.style.borderColor = "rgba(74,222,128,0.2)"}
+            />
+            <div style={{ marginTop: 14 }}>
+              <div style={{ fontSize: "0.65rem", fontFamily: "monospace", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.12em", color: T.muted, marginBottom: 8 }}>
+                LINK (OPTIONAL)
+              </div>
+              <input
+                value={linkUrl}
+                onChange={e => setLinkUrl(e.target.value)}
+                placeholder="https://your-link.com"
+                style={{
+                  width: "100%", padding: "10px 14px",
+                  background: T.input, border: `1px solid rgba(74,222,128,0.15)`,
+                  borderRadius: 8, fontSize: 13, color: T.text,
+                  outline: "none", boxSizing: "border-box", fontFamily: "inherit",
+                }}
+              />
+            </div>
+          </div>
+
+          {/* Blast button */}
+          <button
+            onClick={generate}
+            disabled={loading || !content.trim() || selected.length === 0}
+            style={{
+              width: "100%", padding: "16px",
+              background: loading ? "rgba(74,222,128,0.15)" : "linear-gradient(135deg, #16a34a, #15803d)",
+              color: T.green, border: `1.5px solid ${T.green}`,
+              borderRadius: 12, fontSize: 15, fontWeight: 900,
+              cursor: loading ? "default" : "pointer",
+              display: "flex", alignItems: "center", justifyContent: "center", gap: 10,
+              marginBottom: 32, fontFamily: "monospace", letterSpacing: "0.08em",
+              boxShadow: loading ? "none" : `0 0 24px rgba(74,222,128,0.25)`,
+              opacity: (!content.trim() || selected.length === 0) ? 0.5 : 1,
+              transition: "all 0.2s",
+            }}
+          >
+            {loading
+              ? <><Loader size={16} style={{ animation: "spin 1s linear infinite" }} /> FORMATTING FOR {selected.length} PLATFORMS…</>
+              : <><Zap size={16} /> BLAST TO {selected.length} PLATFORM{selected.length !== 1 ? "S" : ""}</>}
+          </button>
+
+          {/* Results */}
+          {results && (
+            <div>
+              <div style={{ fontSize: "0.65rem", fontFamily: "monospace", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.12em", color: T.gold, marginBottom: 16 }}>
+                ✦ FORMATTED POSTS — COPY OR CLICK TO OPEN
+              </div>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(340px, 1fr))", gap: 14 }}>
+                {PLATFORMS.filter(p => selected.includes(p.id) && results[p.id]).map(p => (
+                  <PlatformCard
+                    key={p.id}
+                    platform={p}
+                    result={results[p.id]}
+                    linkUrl={linkUrl}
+                    copied={copied}
+                    onCopy={copyText}
+                  />
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Footer note */}
+          <div style={{
+            marginTop: 40, padding: "16px 20px",
+            background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)",
+            borderRadius: 12, fontSize: 13, color: T.muted,
+            display: "flex", alignItems: "flex-start", gap: 10,
+          }}>
+            <Settings size={14} style={{ marginTop: 2, flexShrink: 0, color: T.greenDim }} />
+            <div>
+              Want to post directly without copying?{" "}
+              <Link to="/settings" style={{ color: T.green, fontWeight: 600 }}>Connect your accounts in Settings → Social</Link>
+              {" "}to enable one-click direct posting.
+            </div>
+          </div>
+
         </div>
-      )}
-    </div>
+      </div>
+      </FeatureGate>
+    </AppShell>
   );
 }

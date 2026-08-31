@@ -145,19 +145,19 @@ class DoItEngine:
                 "Students cannot prove they can pay. Revenue is theoretical."
             ),
             severity=GapSeverity.CRITICAL,
-            system_areas=["billing", "stripe", "frontend"],
+            system_areas=["billing", "payments", "frontend"],
             status=GapStatus.IDENTIFIED,
             finder_notes=(
-                "Stripe test mode is configured but never tested with real student flow. "
-                "No subscriber data in production database. No invoice generated. "
-                "No payout processed."
+                "Payment pipeline (Lemon Squeezy → Gumroad) is configured but never tested "
+                "with real student flow. No subscriber data in production database. "
+                "No invoice generated. No payout processed."
             ),
             fix_proposal=(
                 "1. Create test student account\n"
-                "2. Add test payment method\n"
+                "2. Configure Lemon Squeezy store + API key\n"
                 "3. Subscribe to BASIC tier ($9.99/mo)\n"
                 "4. Verify invoice created in MongoDB\n"
-                "5. Verify Stripe charge succeeded\n"
+                "5. Verify checkout order recorded via webhook\n"
                 "6. Verify creator payout tracked\n"
                 "7. Cancel subscription and test refund\n"
                 "8. Document entire flow + create runbook"
@@ -416,13 +416,13 @@ class DoItEngine:
             system_areas=["auth", "ux", "documentation"],
             status=GapStatus.IDENTIFIED,
             finder_notes=(
-                "3 accounts: delon.oliver@lce, youpickeddoliver@gmail, souppoetry@gmail\n"
+                "3 accounts: delon.oliver@lce + exec seat emails from env vars\n"
                 "2 different passwords in HANDOFF\n"
                 "EXEC_FORCE_RESET is emergency-only\n"
                 "Recovery codes exist but Delon might not know"
             ),
             fix_proposal=(
-                "1. Create unified Delon identity (oldthug957@gmail.com)\n"
+                "1. Create unified Delon identity (EXEC_ADMIN_EMAIL env var)\n"
                 "2. Migrate all 3 old accounts → new identity\n"
                 "3. Document recovery procedure in DELON_QUICK_START.md\n"
                 "4. Print recovery codes for offline backup\n"
@@ -457,7 +457,7 @@ class DoItEngine:
             fix_proposal=(
                 "Create REVENUE_FORECAST.md with:\n"
                 "1. Current revenue (subscriptions by tier)\n"
-                "2. Creator course revenue (70% creator, 30% platform)\n"
+                "2. Creator course revenue (90% creator, 10% platform)\n"
                 "3. Corporate training ($5K/cohort, 4/year)\n"
                 "4. Certification exam fees ($49/attempt)\n"
                 "5. Premium support ($99/mo)\n"

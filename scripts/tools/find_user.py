@@ -23,7 +23,6 @@ SEEDED = {
     "admin@lcewai.org",
     "instructor@lcewai.org",
     "student@lcewai.org",
-    "delon.oliver@lightningcityelectric.com",
     "youpickeddoliver@gmail.com",
 }
 

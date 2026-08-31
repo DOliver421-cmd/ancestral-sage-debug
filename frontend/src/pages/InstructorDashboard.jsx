@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 import AppShell from "../components/AppShell";
 import { api } from "../lib/api";
-import { Users, Clock, Award } from "lucide-react";
+import { Users, Clock, Award, Gamepad2 } from "lucide-react";
+import { Link } from "react-router-dom";
 
 export default function InstructorDashboard() {
   const [roster, setRoster] = useState([]);
@@ -16,6 +17,19 @@ export default function InstructorDashboard() {
         <div className="overline text-copper">Instructor</div>
         <h1 className="font-heading text-4xl font-bold mt-2">Class Roster</h1>
         <p className="text-ink/60 mt-2">Watch the associate. Unlock modules. Sign off skill demonstrations.</p>
+
+        <Link
+          to="/arcade"
+          className="flex items-center gap-4 mt-6 mb-2 px-6 py-4 no-underline transition-all hover:opacity-90"
+          style={{ background: "linear-gradient(135deg, #0a0a0f, #1a0800)", border: "2px solid #b8860b", boxShadow: "0 0 20px rgba(184,134,11,0.35)" }}
+        >
+          <Gamepad2 style={{ color: "#ffd700", width: 24, height: 24, flexShrink: 0, filter: "drop-shadow(0 0 6px rgba(255,215,0,0.6))" }} />
+          <div>
+            <div style={{ fontFamily: "monospace", fontSize: "1rem", fontWeight: 900, color: "#ffd700", letterSpacing: "0.1em", textShadow: "0 0 10px rgba(255,215,0,0.5)" }}>▶ THE ARCADE</div>
+            <div style={{ fontFamily: "monospace", fontSize: "0.65rem", color: "rgba(184,134,11,0.8)" }}>FREE · MISSION-ALIGNED GAMES · EARN XP</div>
+          </div>
+          <div style={{ marginLeft: "auto", fontFamily: "monospace", fontSize: "0.65rem", color: "rgba(255,215,0,0.5)" }}>INSERT COIN ▶</div>
+        </Link>
 
         <div className="grid grid-cols-3 gap-5 mt-8">
           <Stat icon={Users} label="Trainees" value={roster.length} testid="stat-apprentices" />

@@ -1,327 +1,11 @@
 import { Link, useParams } from "react-router-dom";
-import { Heart, Instagram, ExternalLink, ShoppingBag, Music, BookOpen, Users, ArrowRight, Shield, Mic, Star } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Heart, Instagram, ExternalLink, ShoppingBag, Music, BookOpen, Users, ArrowRight, Shield, Mic, Star, Pencil } from "lucide-react";
 import { WAI_LOGO, BRAND } from "../lib/brand";
 import BugReportModal from "../components/BugReportModal";
-
-// ── Creator registry (proof of concept — one creator hardcoded, architecture is slug-based) ──
-const CREATORS = {
-  "nam-oshun": {
-    slug: "nam-oshun",
-    displayName: "NAM Oshun",
-    legalName: "Delon Oliver",
-    title: "Poet · Spoken Word Artist · Community Organizer",
-    tagline: "Words that heal. Community that holds.",
-    bio: `NAM Oshun is a poet, spoken word artist, and community builder whose work lives at the intersection of healing, Black identity, and mutual aid. Drawing from Yoruba spiritual tradition — Oshun as the orisha of rivers, love, and abundance — NAM's art is a practice of pouring into the community and watching it flow back.
-
-From open mics to community workshops, from the page to the stage, NAM writes and performs to remind people: your story is not a burden. It is the bridge.`,
-    pronouns: "he/him",
-    location: "Florida, USA",
-    avatar: "🌊",
-    bannerColor: "from-amber-900 via-amber-800 to-ink",
-    accentColor: "amber",
-
-    // Social links — artist-facing only
-    socials: [
-      {
-        platform: "Instagram",
-        handle: "@namoshun",
-        url: "https://www.instagram.com/namoshun",
-        icon: "instagram",
-        color: "bg-gradient-to-br from-purple-500 to-pink-500",
-      },
-      {
-        platform: "Poets Got To Eat Too",
-        handle: "Facebook Page",
-        url: "https://www.facebook.com/",
-        icon: "facebook-page",
-        color: "bg-blue-600",
-        note: "Poetry community & event announcements",
-      },
-      {
-        platform: "S.O.U.P. Society Of Unified Poets",
-        handle: "Facebook Page",
-        url: "https://www.facebook.com/",
-        icon: "facebook-page",
-        color: "bg-blue-700",
-        note: "Spoken word collective · Open to all poets",
-      },
-    ],
-
-    // What they offer in M.O.R.E. skill exchange
-    moreOfferings: [
-      { icon: "✍️", title: "Writing Workshops", desc: "Healing through poetry. Free to M.O.R.E. community members by request." },
-      { icon: "🎤", title: "Open Mic Coaching", desc: "Stage presence, breath work, delivery — in person or virtual." },
-      { icon: "🌱", title: "Community Organizing", desc: "Strategy, space-holding, facilitation for community-based orgs." },
-    ],
-
-    // Store / merch / products
-    commerce: [
-      { label: "Digital Chapbook", desc: "First collection — 'Rivers Remember'", url: null, placeholder: true },
-      { label: "Live Workshop Booking", desc: "Book NAM for your school, event, or organization", url: null, placeholder: true },
-      { label: "WAI-Institute Courses", desc: "Community development and healing arts curriculum", url: "/store", placeholder: false },
-    ],
-
-    // WAI-Institute creator status
-    waiStatus: {
-      tier: "BASIC",
-      role: "Community Creator",
-      since: "2026",
-      bio: "Founding member of the M.O.R.E. Help Center. Co-architect of the Oliver Guardian community protection system.",
-    },
-
-    // Peer connection — rendered as a community link section
-    _peerNote: "NAM Oshun and Royal Black Falcon have been brothers in this work since the beginning. Two poets. One mission: remind the community of what it already knows.",
-    _peerSlug: "royal-black-falcon",
-    _peerName: "Royal Black Falcon",
-    _peerAvatar: "🦅",
-    _peerTitle: "Poet · Spoken Word Artist · Cultural Warrior",
-
-    // Ecosystem (non-artist — not shown on page but documented for handoff)
-    _ecosystemNotes: `
-NAM's broader network feeds users INTO WAI-Institute. These are NOT artist pages and should NOT appear on this profile,
-but they are community pipelines:
-- NAM TECH → tech arm of the ecosystem; drives student referrals
-- Happy Mouth Mobile Kitchen → community food & wellness → M.O.R.E. skill exchange
-- Wurk.Gang. Network → employment/labor → M.O.R.E. job board
-- The Khmetic Mindset → Afrocentric philosophy community → cultural pipeline
-- A-105 Radio → Black media → WAI-Institute outreach channel
-- Black.Art.After.Dark → Black arts collective → creator pipeline for WAI marketplace
-- Tha U Music Enterprise → music/creative industry → creator pipeline
-- Black Pride WW3® → community solidarity → M.O.R.E. users
-- K.O.S.M.O.S. → community org → M.O.R.E. partner org
-- NEW BLACK PANTHER PARTY KENTUCKY CHAPTER → community org → M.O.R.E. community
-Reconfiguration strategy: Each of these groups gets a ONE-LINE bio posted in their Facebook descriptions
-pointing to wai-institute.org and the M.O.R.E. Hub. They become feeder communities.
-    `,
-  },
-
-  // ── Royal Black Falcon — Kamau Baruti ───────────────────────────────────────
-  "royal-black-falcon": {
-    slug: "royal-black-falcon",
-    displayName: "Royal Black Falcon",
-    legalName: "Kamau Baruti",
-    title: "Poet · Spoken Word Artist · Cultural Warrior",
-    tagline: "The falcon sees from height, dives with intention, and lands exactly where it means to.",
-    bio: `Kamau Baruti carries two names that say everything.
-
-Kamau — Kikuyu for the quiet warrior. Not quiet because he has nothing to say. Quiet because he has learned that a warrior chooses when to move. Baruti — gunpowder. Not the explosion. The force that makes things fly.
-
-The Royal Black Falcon is what happens when those two truths take the stage. A spoken word artist whose work lives at the razor edge between poetry and prophecy — sharply political when the moment demands it, achingly personal when the truth requires vulnerability. The falcon does not circle aimlessly. It soars to see clearly, then descends with precision.
-
-Performing across stages, schools, living rooms, and sacred spaces, Kamau writes and delivers poetry that reminds people: Blackness has always been regal, sophisticated, and sovereign — not in spite of struggle, but rooted in something older than the struggle ever was.
-
-He is a griot in the tradition that doesn't need to announce itself. The ancestors already know his name.`,
-    pronouns: "he/him",
-    location: "USA",
-    avatar: "🦅",
-    bannerColor: "from-blue-950 via-indigo-900 to-slate-900",
-    accentColor: "indigo",
-
-    socials: [
-      {
-        platform: "Instagram",
-        handle: "@royalblackfalcon",
-        url: "https://www.instagram.com/royalblackfalcon",
-        icon: "instagram",
-        color: "bg-gradient-to-br from-indigo-600 to-blue-700",
-        note: "Poetry drops, stage moments, and movement",
-      },
-      {
-        platform: "Facebook",
-        handle: "Royal Black Falcon",
-        url: "https://www.facebook.com/",
-        icon: "facebook-page",
-        color: "bg-blue-800",
-        note: "Events, community, and spoken word announcements",
-      },
-      {
-        platform: "WAI-Institute",
-        handle: "Community Poet",
-        url: "/register",
-        icon: "wai",
-        color: "bg-gradient-to-br from-amber-600 to-amber-700",
-        note: "Invited to the platform by NAM Oshun · M.O.R.E. community voice",
-      },
-    ],
-
-    moreOfferings: [
-      {
-        icon: "🦅",
-        title: "Youth Poetry Workshops",
-        desc: "Teaching young people — especially Black youth — to find their voice and trust it. Schools, rec centers, community orgs. Free through M.O.R.E.",
-      },
-      {
-        icon: "✊🏿",
-        title: "Cultural History Through Verse",
-        desc: "Spoken word sessions tracing Black history, African origins, and the radical power of naming yourself. For organizations, classrooms, and communities.",
-      },
-      {
-        icon: "🎤",
-        title: "Stage Presence Coaching",
-        desc: "For poets who are ready to step in front of the room. Breath, stillness, delivery, timing. The craft behind the thunder.",
-      },
-    ],
-
-    commerce: [
-      {
-        label: "Poetry Collection",
-        desc: "Royal Black Falcon — debut chapbook. The words that built the name.",
-        url: null,
-        placeholder: true,
-      },
-      {
-        label: "Book a Performance",
-        desc: "Bring Kamau to your event, school, church, or community gathering. He shows up fully.",
-        url: null,
-        placeholder: true,
-      },
-      {
-        label: "Join WAI-Institute",
-        desc: "The platform where creators like Kamau teach, build, and connect with community.",
-        url: "/register",
-        placeholder: false,
-      },
-    ],
-
-    waiStatus: {
-      tier: "BASIC",
-      role: "Community Poet",
-      since: "2026",
-      bio: "Invited to WAI-Institute by Executive Director NAM Oshun. Recognized as a founding voice of the M.O.R.E. poetry community.",
-    },
-
-    // Connection to NAM Oshun
-    _peerNote: "Royal Black Falcon and NAM Oshun have been brothers in this work since the beginning. Two poets. One mission: remind the community of what it already knows.",
-    _peerSlug: "nam-oshun",
-    _peerName: "NAM Oshun",
-    _peerAvatar: "🌊",
-    _peerTitle: "Poet · Community Organizer · M.O.R.E. Founding Member",
-  },
-
-  // ── Nova Highborn — Ebony Oliver ─────────────────────────────────────────────
-  "nova-highborn": {
-    slug: "nova-highborn",
-    displayName: "Nova Highborn",
-    legalName: "Ebony Oliver",
-    title: "Visual Artist · Poet · Artist Mentor · Digital Creator",
-    tagline: "Something new is rising. That something is me.",
-    bio: `Nova Highborn is what happens when a girl who was taught she was ordinary decides she never was.
-
-Ebony Oliver came up watching the elders — her uncle NAM Oshun pouring words into audiences that needed them, her family building and creating and organizing when no one came to help. She learned early: you make your own door.
-
-As Nova Highborn, she brings that inheritance into a new generation's language. Visual art that speaks before it's explained. Poetry that arrives like light through a crack. Digital content that makes her community feel seen on screens that have historically looked past them.
-
-Nova is not emerging. She is already here. She is just letting you catch up.`,
-    pronouns: "she/her",
-    location: "Florida, USA",
-    avatar: "✨",
-    bannerColor: "from-emerald-900 via-teal-800 to-ink",
-    accentColor: "emerald",
-
-    socials: [
-      {
-        platform: "Instagram",
-        handle: "@novahighborn",
-        url: "https://www.instagram.com/",
-        icon: "instagram",
-        color: "bg-gradient-to-br from-emerald-500 to-teal-600",
-        note: "Art drops, poetry, and what's on her mind",
-      },
-      {
-        platform: "WAI-Institute",
-        handle: "Community Creator",
-        url: "/register",
-        icon: "wai",
-        color: "bg-gradient-to-br from-amber-500 to-amber-600",
-        note: "Connect in the M.O.R.E. community",
-      },
-    ],
-
-    playlistCuration: {
-      enabled: true,
-      headline: "Get Your Song on Nova's Playlist",
-      desc: "Nova Highborn curates Spotify playlists for independent Black artists. Free gateway placements available — complete 5 simple steps and your song gets reviewed.",
-      submitPath: "/playlist/nova-highborn/submit",
-      dashboardPath: "/playlist/dashboard",
-    },
-
-    moreOfferings: [
-      {
-        icon: "🎨",
-        title: "Visual Art for Community Orgs",
-        desc: "Flyers, graphics, social media assets, event visuals — made by the community, for the community. Free through M.O.R.E. by request.",
-      },
-      {
-        icon: "📱",
-        title: "Content Creation Coaching",
-        desc: "Teaching community members and small businesses how to show up powerfully on social media without selling their soul to algorithms.",
-      },
-      {
-        icon: "✍️",
-        title: "Youth Creative Workshops",
-        desc: "Poetry and visual art for young people who don't see themselves reflected in mainstream art education. Especially for young Black girls.",
-      },
-      {
-        icon: "🎯",
-        title: "Artist Mentorship",
-        desc: "1-on-1 mentoring for independent artists: vocal development, performance presence, branding, social media strategy, and navigating the music industry without losing yourself. All virtual.",
-      },
-    ],
-
-    commerce: [
-      {
-        label: "Original Artwork",
-        desc: "Prints, digital pieces, and commissioned work — visual art rooted in Black beauty and community.",
-        url: null,
-        placeholder: true,
-      },
-      {
-        label: "Poetry Chapbook",
-        desc: "'Something Is Rising' — debut collection. Words from a young woman who decided to take up space.",
-        url: null,
-        placeholder: true,
-      },
-      {
-        label: "Artist Mentoring Sessions",
-        desc: "Book a 1-on-1 session with Nova. Career strategy, branding, performance coaching — virtual, on your schedule.",
-        url: null,
-        placeholder: true,
-      },
-      {
-        label: "Join WAI-Institute",
-        desc: "Connect with Nova and other creators building on their own terms.",
-        url: "/register",
-        placeholder: false,
-      },
-    ],
-
-    waiStatus: {
-      tier: "BASIC",
-      role: "Staff · Artist Mentor",
-      since: "2026",
-      bio: "WAI-Institute staff. Artist Mentor. Curator. Visual artist and poet building her own legacy inside the ecosystem her family helped create.",
-    },
-
-    _peerNote: "NAM Oshun watched Nova grow into her voice — and then watched her surpass the student stage entirely. She doesn't need to inherit the legacy. She's building her own.",
-    _peerSlug: "nam-oshun",
-    _peerName: "NAM Oshun",
-    _peerAvatar: "🌊",
-    _peerTitle: "Poet · Community Organizer · M.O.R.E. Founding Member",
-  },
-};
-
-const PLACEHOLDER_CREATOR = {
-  displayName: "Creator Profile",
-  title: "WAI-Institute Community Creator",
-  tagline: "Coming soon.",
-  bio: "This creator profile is not yet published.",
-  avatar: "🌟",
-  bannerColor: "from-ink via-ink/90 to-ink",
-  socials: [],
-  moreOfferings: [],
-  commerce: [],
-  waiStatus: null,
-};
+import TrackPlayer from "../components/TrackPlayer";
+import SharePanel from "../components/SharePanel";
+import { api } from "../lib/api";
 
 // ── Icon helper ─────────────────────────────────────────────────────────────
 function SocialIcon({ type, className }) {
@@ -343,11 +27,48 @@ function SocialIcon({ type, className }) {
   return <ExternalLink className={className} />;
 }
 
+// Normalize a DB profile doc to match the shape the render tree expects
+function dbToCreator(p) {
+  return {
+    slug: p.slug,
+    displayName: p.display_name,
+    title: p.title || "",
+    tagline: p.tagline || "",
+    bio: p.bio || "",
+    pronouns: p.pronouns || "",
+    location: p.location || "",
+    avatar: p.avatar || "✨",
+    bannerColor: "from-amber-900 via-amber-800 to-ink",
+    accentColor: "amber",
+    socials: (p.socials || []).map(s => ({ platform: s.platform, handle: s.handle, url: s.url, note: s.note })),
+    moreOfferings: (p.more_offerings || []).map(o => ({ icon: o.icon, title: o.title, desc: o.desc })),
+    commerce: (p.commerce || []).map(c => ({ label: c.label, desc: c.desc, url: c.url, placeholder: false })),
+    waiStatus: { tier: "CREATOR", role: "Creator", since: new Date(p.created_at || Date.now()).getFullYear().toString(), bio: "" },
+    _dbUserId: p.user_id,
+  };
+}
+
 export default function CreatorProfile() {
   const { slug } = useParams();
-  const creator = CREATORS[slug] || PLACEHOLDER_CREATOR;
+  const [dbProfile, setDbProfile] = useState(undefined); // undefined = loading, null = not found
 
-  if (!CREATORS[slug]) {
+  useEffect(() => {
+    api.get(`/creator/profile/${slug}`)
+      .then(r => setDbProfile(r.data.profile))
+      .catch(() => setDbProfile(null));
+  }, [slug]);
+
+  if (dbProfile === undefined) {
+    return (
+      <div className="min-h-screen bg-bone flex items-center justify-center">
+        <div className="text-ink/40 text-sm">Loading profile…</div>
+      </div>
+    );
+  }
+
+  const creator = dbProfile ? dbToCreator(dbProfile) : null;
+
+  if (!creator) {
     return (
       <div className="min-h-screen bg-bone flex flex-col items-center justify-center gap-6 text-ink">
         <div className="text-6xl">🌊</div>
@@ -360,6 +81,9 @@ export default function CreatorProfile() {
     );
   }
 
+  // is_owner is set by the backend based on the JWT — never trust user_id from the response
+  const isOwner = dbProfile && dbProfile.is_owner === true;
+
   return (
     <div className="min-h-screen bg-bone text-ink">
 
@@ -367,10 +91,18 @@ export default function CreatorProfile() {
       <header className="border-b border-ink/10 bg-bone sticky top-0 z-40">
         <div className="max-w-5xl mx-auto px-6 py-3 flex items-center justify-between">
           <Link to="/" className="flex items-center gap-2">
-            <img src={WAI_LOGO} alt="W.A.I." className="w-9 h-9 object-contain" style={{ mixBlendMode: "multiply" }} />
+            <img src={WAI_LOGO} alt="M.O.R.E." className="w-9 h-9 object-contain" />
             <span className="font-heading font-bold text-sm hidden sm:block">{BRAND.name}</span>
           </Link>
           <div className="flex items-center gap-3">
+            {isOwner && (
+              <Link
+                to={`/creator/profile/edit`}
+                className="flex items-center gap-1.5 text-xs font-bold text-copper border border-copper/40 hover:border-copper px-3 py-1.5 rounded-full transition-colors"
+              >
+                <Pencil className="w-3 h-3" /> Edit Profile
+              </Link>
+            )}
             <Link to="/more" className="flex items-center gap-1.5 text-xs font-bold text-amber-700 hover:text-amber-600 border border-amber-300 hover:border-amber-500 px-3 py-1.5 rounded-full transition-colors">
               <Heart className="w-3 h-3" /> M.O.R.E. Hub
             </Link>
@@ -403,7 +135,7 @@ export default function CreatorProfile() {
             {/* WAI badge */}
             {creator.waiStatus && (
               <div className="shrink-0 bg-white/10 border border-white/20 rounded-2xl px-5 py-4 text-right">
-                <div className="text-white/50 text-xs uppercase tracking-widest mb-1">WAI-Institute</div>
+                <div className="text-white/50 text-xs uppercase tracking-widest mb-1">M.O.R.E.</div>
                 <div className="text-white font-bold text-sm">{creator.waiStatus.role}</div>
                 <div className="text-amber-300 text-xs font-bold mt-0.5">{creator.waiStatus.tier} Member</div>
               </div>
@@ -456,13 +188,24 @@ export default function CreatorProfile() {
                   <img src={WAI_LOGO} alt="WAI" className="w-6 h-6 object-contain" style={{ mixBlendMode: "multiply" }} />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <div className="font-bold text-sm text-amber-800">WAI-Institute Profile</div>
+                  <div className="font-bold text-sm text-amber-800">M.O.R.E. Profile</div>
                   <div className="text-amber-700/60 text-xs">Join to connect & collaborate</div>
                 </div>
                 <ArrowRight className="w-3.5 h-3.5 text-amber-400 group-hover:text-amber-600 transition-colors shrink-0" />
               </Link>
             </div>
           </div>
+        </div>
+
+        {/* Share this profile */}
+        <div className="bg-amber-50 border border-amber-200 rounded-2xl p-6">
+          <h2 className="font-heading font-extrabold text-xl mb-1">Share This Profile</h2>
+          <p className="text-ink/50 text-sm mb-4">Copy a link, share to social, or embed anywhere.</p>
+          <SharePanel
+            url={`/creators/${creator.slug}`}
+            title={`${creator.displayName} — M.O.R.E. Creator`}
+            embed
+          />
         </div>
 
         {/* M.O.R.E. Skill Offerings */}
@@ -497,6 +240,26 @@ export default function CreatorProfile() {
                 All skill exchange requests go through the M.O.R.E. Help Center and are protected by Oliver Guardian.
                 No money changes hands — this is community exchange.
               </p>
+            </div>
+          </div>
+        )}
+
+        {/* Music tracks — shown when creator has tracks with at least one URL */}
+        {creator.tracks?.filter(t => t.original_url || t.ai_url).length > 0 && (
+          <div>
+            <div className="flex items-center gap-3 mb-6">
+              <div className="w-8 h-8 rounded-full bg-violet-100 border border-violet-300 flex items-center justify-center">
+                <Music className="w-4 h-4 text-violet-600" />
+              </div>
+              <div>
+                <h2 className="font-heading font-extrabold text-2xl leading-none">Music</h2>
+                <p className="text-ink/50 text-sm">Original voice recordings + AI-assisted versions — toggle between them</p>
+              </div>
+            </div>
+            <div className="grid sm:grid-cols-2 gap-4">
+              {creator.tracks.filter(t => t.original_url || t.ai_url).map(track => (
+                <TrackPlayer key={track.id} track={track} accentColor={creator.accentColor} />
+              ))}
             </div>
           </div>
         )}
@@ -546,20 +309,12 @@ export default function CreatorProfile() {
 
           <div className="grid md:grid-cols-3 gap-4">
             {creator.commerce.map((item) => (
-              <div key={item.label} className={`bg-white rounded-2xl border-2 p-6 flex flex-col ${item.placeholder ? "border-ink/10 opacity-75" : "border-ink/10 hover:border-amber-300 transition-colors"}`}>
-                <div className="flex items-start justify-between mb-3">
-                  <h3 className="font-heading font-bold text-base">{item.label}</h3>
-                  {item.placeholder && (
-                    <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-ink/5 text-ink/40 border border-ink/10 whitespace-nowrap ml-2">Coming Soon</span>
-                  )}
-                </div>
+              <div key={item.label} className="bg-white rounded-2xl border-2 border-ink/10 hover:border-amber-300 transition-colors p-6 flex flex-col">
+                <h3 className="font-heading font-bold text-base mb-3">{item.label}</h3>
                 <p className="text-ink/60 text-sm leading-relaxed flex-1 mb-4">{item.desc}</p>
-                {item.placeholder ? (
-                  <div className="text-xs text-ink/30 italic">Available soon</div>
-                ) : (
-                  <Link to={item.url} className="inline-flex items-center gap-1.5 text-sm font-bold text-ink hover:text-amber-700 transition-colors">
-                    View <ArrowRight className="w-3.5 h-3.5" />
-                  </Link>
+                <Link to={item.url} className="inline-flex items-center gap-1.5 text-sm font-bold text-ink hover:text-amber-700 transition-colors">
+                  View <ArrowRight className="w-3.5 h-3.5" />
+                </Link>
                 )}
               </div>
             ))}
@@ -608,7 +363,7 @@ export default function CreatorProfile() {
                 Your artist profile<br />lives here too.
               </h2>
               <p className="text-white/70 text-sm leading-relaxed mb-6">
-                Every creator, poet, musician, organizer, and healer in the WAI-Institute community can have a public-facing profile like this one — linking your store, your social media, your M.O.R.E. offerings, all in one place. No algorithm. No extraction. Your page, your terms.
+                Every creator, poet, musician, organizer, and healer in the M.O.R.E. community can have a public-facing profile like this one — linking your store, your social media, your M.O.R.E. offerings, all in one place. No algorithm. No extraction. Your page, your terms.
               </p>
               <Link to="/register" className="inline-flex items-center gap-2 bg-amber-500 hover:bg-amber-400 text-ink font-bold px-6 py-3 rounded-xl transition-all hover:scale-105">
                 Claim Your Profile <ArrowRight className="w-4 h-4" />

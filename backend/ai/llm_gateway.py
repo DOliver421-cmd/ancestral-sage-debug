@@ -1,0 +1,983 @@
+"""
+llm_gateway.py — Centralized LLM routing for WAI-Institute
+============================================================
+Single entry point for all persona LLM calls.  Enforces:
+  - 10-tier free-first provider fallback chain
+  - Per-hour token budget guard  (HOURLY_TOKEN_CAP env var, default 200k)
+  - Degraded-state tracking with 5-minute auto-recovery per provider
+  - OpenAI-compatible message conversion for all providers
+
+Provider priority (free-first by design — no paid API without D. Oliver consent):
+  Tier 1a — Groq / Llama 3.3 70B        (GROQ_API_KEY)              FREE  tool-capable, fastest
+  Tier 1b — Cerebras / Llama 3.3 70B    (CEREBRAS_API_KEY)          FREE  tool-capable, fast
+  Tier 1c — SambaNova / Llama 3.3 70B   (SAMBANOVA_API_KEY)         FREE  tool-capable, fast
+  Tier 2  — Gemini 2.0 Flash Direct     (GEMINI_API_KEY)            FREE  15 RPM, 1M ctx
+  Tier 3  — Grok / xAI                  (XAI_API_KEY)               FREE credits, tool-capable
+  Tier 4  — Cohere Command R+           (COHERE_API_KEY)            FREE tier, tool-capable
+  Tier 5  — Mistral / Mistral-Small     (MISTRAL_API_KEY)           FREE tier (1M tokens/month)
+  Tier 6  — Together AI / Llama 3.3 70B (TOGETHER_API_KEY)         FREE $25 credit
+  Tier 7  — OpenRouter / Gemini Free    (OPENROUTER_API_KEY)        FREE models available
+  Tier 8  — HuggingFace Inference       (HUGGINGFACE_API_KEY)       FREE slow
+  Tier 9  — Keyword KB                  (always available)          ZERO no dependency
+
+  ANTHROPIC: DISABLED by owner directive. Anthropic will not be used until
+  further notice from D. Oliver. ANTHROPIC_IS_ENABLED must be explicitly set
+  to "true" in Railway env vars to re-enable. Default is OFF.
+
+Tool-calling note:
+  Groq, Cerebras, SambaNova, Grok, Cohere, Mistral, and Together all support function calling.
+  Gemini via OpenAI-compat layer does not receive tool defs here — text-only tier.
+"""
+
+import os
+import sys
+import logging
+import time
+from typing import Optional
+
+logger = logging.getLogger("lcewai.llm_gateway")
+
+# ── Environment keys (env vars take priority; DB keys fill gaps) ──────────────
+# ANTHROPIC: hard-disabled by owner directive. Set ANTHROPIC_IS_ENABLED=true to re-enable.
+_ANTHROPIC_IS_ENABLED = os.environ.get("ANTHROPIC_IS_ENABLED", "false").lower() == "true"
+ANTHROPIC_API_KEY   = os.environ.get("ANTHROPIC_API_KEY", os.environ.get("EMERGENT_LLM_KEY", "")) if _ANTHROPIC_IS_ENABLED else ""
+
+GROQ_API_KEY        = os.environ.get("GROQ_API_KEY", "")
+OPENAI_API_KEY      = os.environ.get("OPENAI_API_KEY", "")          # text tier — owner key, no emergent fallback
+DEEPSEEK_API_KEY    = os.environ.get("AI_PROVIDER_DEEPSEEK_KEY", "") # text tier — owner key
+CEREBRAS_API_KEY    = os.environ.get("CEREBRAS_API_KEY", "")
+SAMBANOVA_API_KEY   = os.environ.get("SAMBANOVA_API_KEY", "")
+GEMINI_API_KEY      = os.environ.get("GEMINI_API_KEY", "")
+XAI_API_KEY         = os.environ.get("XAI_API_KEY", os.environ.get("GROK_API_KEY", ""))
+COHERE_API_KEY      = os.environ.get("COHERE_API_KEY", "")
+MISTRAL_API_KEY     = os.environ.get("MISTRAL_API_KEY", "")
+TOGETHER_API_KEY    = os.environ.get("TOGETHER_API_KEY", "")
+OPENROUTER_API_KEY  = os.environ.get("OPENROUTER_API_KEY", "")
+HUGGINGFACE_API_KEY = os.environ.get("HUGGINGFACE_API_KEY", os.environ.get("HF_API_KEY", ""))
+
+# ── DB key reload — called at startup and after Provider Gateway saves a key ──
+# Maps provider_type values from the Provider Gateway UI to gateway globals.
+_PROVIDER_TYPE_TO_GLOBAL = {
+    "groq":        "GROQ_API_KEY",
+    "cerebras":    "CEREBRAS_API_KEY",
+    "sambanova":   "SAMBANOVA_API_KEY",
+    "gemini":      "GEMINI_API_KEY",
+    "xai":         "XAI_API_KEY",
+    "grok":        "XAI_API_KEY",
+    "cohere":      "COHERE_API_KEY",
+    "mistral":     "MISTRAL_API_KEY",
+    "together":    "TOGETHER_API_KEY",
+    "openrouter":  "OPENROUTER_API_KEY",
+    "huggingface": "HUGGINGFACE_API_KEY",
+    "openai":      "OPENAI_API_KEY",
+    "deepseek":    "DEEPSEEK_API_KEY",
+    # anthropic intentionally omitted — disabled by owner directive
+}
+
+async def reload_provider_keys(db) -> int:
+    """Read active provider keys from MongoDB and update module globals.
+    Env vars always win — DB keys only fill gaps where env var is empty.
+    Returns the number of keys loaded from DB."""
+    import sys
+    # Shared self-healing vault (keyvault.py): env var → MongoDB-persisted → ephemeral.
+    # One cipher for every encrypting/decrypting surface on the platform.
+    try:
+        import keyvault as _kv
+        fernet = _kv.get_fernet()
+    except Exception:
+        fernet = None
+
+    loaded = 0
+    module = sys.modules[__name__]
+    try:
+        # Use the same collections as provider_gateway.py: api_keys + api_providers
+        keys = await db.api_keys.find({"status": "active"}).to_list(200)
+        provider_ids = list({k.get("provider_id") for k in keys if k.get("provider_id")})
+        providers = {}
+        if provider_ids:
+            async for p in db.api_providers.find({"id": {"$in": provider_ids}}):
+                providers[p["id"]] = p.get("provider_type", p.get("type", ""))
+
+        for key_doc in keys:
+            provider_type = providers.get(key_doc.get("provider_id", ""), "").lower()
+            global_name = _PROVIDER_TYPE_TO_GLOBAL.get(provider_type, "")
+            if not global_name:
+                continue
+            # Only fill if env var is currently empty
+            if getattr(module, global_name, ""):
+                continue
+            encrypted = key_doc.get("encrypted_key", "")
+            if not encrypted:
+                continue
+            try:
+                if fernet:
+                    plaintext = fernet.decrypt(encrypted.encode() if isinstance(encrypted, str) else encrypted).decode()
+                else:
+                    plaintext = encrypted  # stored unencrypted (no secret set)
+                setattr(module, global_name, plaintext)
+                loaded += 1
+                logger.info("llm_gateway: loaded %s from DB (provider_type=%s)", global_name, provider_type)
+            except Exception as e:
+                logger.warning("llm_gateway: failed to decrypt key for %s: %s", global_name, e)
+    except Exception as e:
+        logger.warning("llm_gateway: reload_provider_keys error: %s", e)
+    return loaded
+
+
+# ── Model identifiers ───────────────────────────────────────────────────────── 
+OPENAI_MODEL      = "gpt-4o-mini"                            # owner key — cheap, tool-capable
+OPENAI_BASE       = "https://api.openai.com/v1"
+DEEPSEEK_MODEL    = "deepseek-chat"                           # owner key — cheap, OpenAI-compatible
+DEEPSEEK_BASE     = "https://api.deepseek.com"
+GROQ_MODEL        = "openai/gpt-oss-120b"              # free, 128k ctx, tool-calling
+GROQ_BASE         = "https://api.groq.com/openai/v1"
+CEREBRAS_MODEL    = "llama3.3-70b"                          # free, fast inference
+CEREBRAS_BASE     = "https://api.cerebras.ai/v1"
+SAMBANOVA_MODEL   = "Meta-Llama-3.3-70B-Instruct"          # free, fast
+SAMBANOVA_BASE    = "https://api.sambanova.ai/v1"
+GEMINI_MODEL      = "gemini-3.6-flash"                    # free tier, 1M ctx
+GEMINI_BASE       = "https://generativelanguage.googleapis.com/v1beta/openai"
+XAI_MODEL         = "grok-3-mini"                           # free credits
+XAI_BASE          = "https://api.x.ai/v1"
+COHERE_MODEL      = "command-r-plus"                        # free tier, tool-calling
+MISTRAL_MODEL     = "mistral-small-latest"                  # free tier 1M tokens/month
+MISTRAL_BASE      = "https://api.mistral.ai/v1"
+TOGETHER_MODEL    = "meta-llama/Llama-3.3-70B-Instruct-Turbo-Free"  # free model
+TOGETHER_BASE     = "https://api.together.xyz/v1"
+OPENROUTER_MODEL  = "google/gemini-2.0-flash-lite:free"
+OPENROUTER_BASE   = "https://openrouter.ai/api/v1"
+
+# Hourly token cap — configurable in Railway.
+# Default 200k/hour ≈ $1/hour max at Sonnet pricing.
+# Lower to 50000 during pre-revenue period if desired.
+HOURLY_TOKEN_CAP  = int(os.environ.get("HOURLY_TOKEN_CAP", "200000"))
+
+# ── Last-resort tier switch (DEFAULT ON) ─────────────────────────────────────
+# Controls the OpenAI / DeepSeek attempts that now run LAST in call_llm(),
+# after every other free provider and the shared BYOK pool, immediately before
+# the static knowledge-base fallback.
+#
+# Owner confirmed 2026-08-31 that both keys are FREE-TIER accounts with no card
+# attached. They therefore cost nothing, and a real model answer is strictly
+# better for the user than _kb_reply() canned text — so they stay in the chain,
+# just at the bottom of it.
+#
+# History worth keeping: these two blocks were originally FIRST in call_llm(),
+# ahead of every free provider, even though the module header promised
+# "free-first by design". The stale log line "T1a Groq failed" inside the Groq
+# block is the fingerprint of that reordering — the labels were never updated.
+# Because a free-tier key with no remaining allowance simply errors, every
+# request paid two failing network round-trips before reaching Groq. That
+# latency, plus a chain that could bottom out in canned KB text, is why the
+# assistant read as broken rather than merely slow.
+#
+# Set LAST_RESORT_AI_ENABLED=0 to skip this tier — do that if either account is
+# ever upgraded to a funded paid plan, or to shave the two failed round-trips
+# once the free allowances are known to be exhausted.
+LAST_RESORT_AI_ENABLED = os.environ.get(
+    "LAST_RESORT_AI_ENABLED", "1"
+).strip().lower() in ("1", "true", "yes")
+
+# ── In-process state ──────────────────────────────────────────────────────────
+_hour_window_start:  float = time.time()
+_hour_tokens_used:   int   = 0
+_anthropic_degraded: bool  = False
+_anthropic_fail_count: int = 0
+_degraded_since:     float = 0.0
+_DEGRADED_RESET_SEC:  int  = 300      # re-try Anthropic after 5 minutes
+
+
+# ── Budget helpers ────────────────────────────────────────────────────────────
+def _reset_hour_if_needed() -> None:
+    global _hour_window_start, _hour_tokens_used
+    if time.time() - _hour_window_start >= 3600:
+        _hour_window_start = time.time()
+        _hour_tokens_used  = 0
+
+
+def _record_tokens(n: int) -> None:
+    global _hour_tokens_used
+    _reset_hour_if_needed()
+    _hour_tokens_used += n
+
+
+def _over_budget() -> bool:
+    _reset_hour_if_needed()
+    return _hour_tokens_used >= HOURLY_TOKEN_CAP
+
+
+# ── Anthropic health helpers ──────────────────────────────────────────────────
+def _mark_anthropic_fail() -> None:
+    global _anthropic_fail_count, _anthropic_degraded, _degraded_since
+    _anthropic_fail_count += 1
+    if _anthropic_fail_count >= 3:
+        _anthropic_degraded = True
+        _degraded_since     = time.time()
+        logger.warning("LLM Gateway: Anthropic marked DEGRADED after 3 consecutive failures")
+
+
+def _mark_anthropic_ok() -> None:
+    global _anthropic_fail_count, _anthropic_degraded
+    _anthropic_fail_count = 0
+    _anthropic_degraded   = False
+
+
+def _anthropic_available() -> bool:
+    global _anthropic_degraded, _degraded_since
+    if not ANTHROPIC_API_KEY:
+        return False
+    if _anthropic_degraded:
+        if time.time() - _degraded_since > _DEGRADED_RESET_SEC:
+            _anthropic_degraded = False
+            logger.info("LLM Gateway: Anthropic degraded flag cleared — retrying")
+            return True
+        return False
+    return True
+
+
+# ── Message format converter (Anthropic → OpenAI-compatible) ─────────────────
+def _to_oai_messages(system: str, messages: list[dict]) -> list[dict]:
+    """Convert Anthropic-style system + messages list to OpenAI chat format."""
+    out = [{"role": "system", "content": system}]
+    for m in messages:
+        content = m.get("content", "")
+        if isinstance(content, list):
+            # Extract text from content blocks (tool_result, text blocks)
+            content = " ".join(
+                b.get("text", "") if isinstance(b, dict) else str(b)
+                for b in content
+            )
+        out.append({"role": m["role"], "content": content})
+    return out
+
+
+# ── OpenAI-compatible HTTP call (used by Groq, Gemini, Grok, OpenRouter) ─────
+async def _oai_compat_call(
+    base_url: str,
+    api_key:  str,
+    model:    str,
+    system:   str,
+    messages: list[dict],
+    max_tokens: int,
+    tools:    Optional[list],
+    extra_headers: Optional[dict] = None,
+) -> dict:
+    """
+    Generic OpenAI-compatible POST /chat/completions call.
+    Returns {"text": str, "in_tok": int, "out_tok": int} or raises.
+    """
+    import httpx
+
+    headers = {
+        "Authorization": f"Bearer {api_key}",
+        "Content-Type":  "application/json",
+    }
+    if extra_headers:
+        headers.update(extra_headers)
+
+    payload: dict = {
+        "model":      model,
+        "messages":   _to_oai_messages(system, messages),
+        "max_tokens": max_tokens,
+    }
+    # Tool calling in OpenAI format — only pass if provided
+    if tools:
+        # Convert Anthropic tool schema to OpenAI function-calling format
+        payload["tools"] = [
+            {
+                "type": "function",
+                "function": {
+                    "name":        t.get("name", ""),
+                    "description": t.get("description", ""),
+                    "parameters":  t.get("input_schema", {}),
+                },
+            }
+            for t in tools
+        ]
+        payload["tool_choice"] = "auto"
+
+    async with httpx.AsyncClient(timeout=30) as http:
+        r = await http.post(f"{base_url}/chat/completions", headers=headers, json=payload)
+        r.raise_for_status()
+        data = r.json()
+
+    text    = data["choices"][0]["message"].get("content") or ""
+    in_tok  = data.get("usage", {}).get("prompt_tokens",     0)
+    out_tok = data.get("usage", {}).get("completion_tokens", 0)
+    # An empty reply is a provider failure, not a success — raise so the
+    # tier chain advances to the next free provider instead of serving "".
+    if not str(text).strip():
+        raise ValueError("empty provider response")
+    return {"text": text, "in_tok": in_tok, "out_tok": out_tok}
+
+
+# ── Cohere call (separate SDK, not OpenAI-compatible) ────────────────────────
+async def _cohere_call(
+    system:     str,
+    messages:   list[dict],
+    max_tokens: int,
+    tools:      Optional[list],
+) -> dict:
+    """Cohere Command R+ via their Python SDK."""
+    import cohere  # type: ignore
+
+    co = cohere.AsyncClientV2(api_key=COHERE_API_KEY)
+
+    cohere_messages = [{"role": "system", "content": system}] + [
+        {"role": m["role"], "content": m["content"] if isinstance(m["content"], str) else ""}
+        for m in messages
+    ]
+
+    kwargs: dict = dict(model=COHERE_MODEL, messages=cohere_messages, max_tokens=max_tokens)
+
+    if tools:
+        kwargs["tools"] = [
+            {
+                "type": "function",
+                "function": {
+                    "name":        t.get("name", ""),
+                    "description": t.get("description", ""),
+                    "parameters":  t.get("input_schema", {}),
+                },
+            }
+            for t in tools
+        ]
+
+    resp = await co.chat(**kwargs)
+    text    = resp.message.content[0].text if resp.message.content else ""
+    in_tok  = getattr(resp.usage.billed_units, "input_tokens",  0) if resp.usage else 0
+    out_tok = getattr(resp.usage.billed_units, "output_tokens", 0) if resp.usage else 0
+    if not str(text).strip():
+        raise ValueError("empty provider response")
+    return {"text": text, "in_tok": in_tok, "out_tok": out_tok}
+
+
+# ── Shared site-support BYOK pool — DISABLED BY DEFAULT ──────────────────────
+# Owner directive 2026-08-31: do not run this without a toggle and explicit
+# consent. Disabled here rather than merely left unbuilt, because the mechanism
+# was already fully wired and would have activated silently the moment any
+# support_staff user saved a BYOK key.
+#
+# What it did: reload_shared_byok() collected EVERY active key in
+# db.user_byok_keys belonging to any support_staff / admin / executive_admin
+# user and served platform traffic on it. There is no share_with_platform flag
+# anywhere in byok.py — no opt-in, no prompt, no way for the contributor to
+# decline. The role is described as staff who "share" their key; the code simply
+# took it.
+#
+# Three reasons this stays off until it is redesigned:
+#   1. CONSENT — the contributor is never asked and cannot opt out.
+#   2. CONCENTRATION — `if p in by_provider: continue` keeps only the FIRST key
+#      found per provider, so one volunteer absorbs all overflow traffic for
+#      that provider rather than the load being spread.
+#   3. PROVIDER TERMS — free tiers are generally licensed to the account holder.
+#      Serving other users' requests on a volunteer's personal free key may
+#      breach the provider's terms, and the penalty would land on THEIR account,
+#      not the platform's.
+#
+# To re-enable safely, all three must be addressed: add an explicit
+# `share_with_platform` boolean on the BYOK document (default false), surface it
+# in the BYOK UI in plain language, and rotate across contributors instead of
+# taking the first. Only then set SHARED_BYOK_ENABLED=1.
+SHARED_BYOK_ENABLED = os.environ.get(
+    "SHARED_BYOK_ENABLED", "0"
+).strip().lower() in ("1", "true", "yes")
+
+_SHARED_BYOK_POOL: list = []
+
+
+async def reload_shared_byok(db) -> int:
+    """Load active BYOK keys of site_support users into the shared pool.
+    Returns the number of providers in the pool (0 when empty)."""
+    global _SHARED_BYOK_POOL
+    _SHARED_BYOK_POOL = []
+    if not SHARED_BYOK_ENABLED:
+        # Disabled by owner directive — no consent mechanism exists. See the
+        # SHARED_BYOK_ENABLED comment above. Returning 0 leaves the pool empty,
+        # so call_llm() skips the shared tier and falls through as if no
+        # support-staff key were present.
+        return 0
+    try:
+        from byok import BYOK_PROVIDERS, decrypt_key, _PROVIDER_PRIORITY
+
+        support_ids = []
+        async for u in db.users.find({"role": {"$in": ["support_staff", "admin", "executive_admin"]}}, {"_id": 0, "id": 1}):
+            if u.get("id"):
+                support_ids.append(u["id"])
+        if not support_ids:
+            return 0
+
+        keys = await db.user_byok_keys.find(
+            {"user_id": {"$in": support_ids}, "active": True}, {"_id": 0}
+        ).to_list(500)
+        by_provider = {}
+        for k in keys:
+            p = k.get("provider")
+            if p not in BYOK_PROVIDERS or p in by_provider:
+                continue
+            plain = decrypt_key(k.get("encrypted_key", ""))
+            if plain:
+                by_provider[p] = {"provider": p, "key": plain}
+        _SHARED_BYOK_POOL = [by_provider[p] for p in _PROVIDER_PRIORITY if p in by_provider]
+        if _SHARED_BYOK_POOL:
+            logger.info("llm_gateway: shared site-support BYOK pool loaded (%d provider(s))", len(_SHARED_BYOK_POOL))
+        return len(_SHARED_BYOK_POOL)
+    except Exception as e:
+        logger.warning("llm_gateway: reload_shared_byok failed (non-fatal): %s", e)
+        return 0
+
+
+# ── KB fallback ───────────────────────────────────────────────────────────────
+# ── Zero-cost keyword KB fallback ────────────────────────────────────────────
+# Platform policy (owner decision, August 2026):
+#   - anonymous / public visitors get NO AI
+#   - customers at ANY tier get NO platform-funded AI (their AI runs on their
+#     own BYOK key, or they get the keyword KB)
+#   - platform-funded AI is admin / executive_admin staff only
+# The keyword KB (ai/keyword_kb.py) is message-aware: it answers the actual
+# question from a large curated multi-layer knowledge base instead of a static
+# "restricted mode" notice.
+
+
+def _kb_reply(messages: Optional[list] = None, access=None) -> dict:
+    """Knowledge Finder reply for the caller's last user message.
+
+    Zero-cost and deterministic: a curated answer when the knowledge base has
+    one, otherwise ranked related resources from the platform's indexed
+    content, with an honest AI upgrade prompt when the caller isn't BYOK/staff.
+    ``access`` is a knowledge_finder.Access (None = anonymous/public).
+    """
+    question = ""
+    for m in messages or []:
+        if m and m.get("role") == "user" and str(m.get("content", "")).strip():
+            question = str(m["content"]).strip()
+    try:
+        from ai.knowledge_finder import render_reply
+        text = render_reply(question, access)
+    except Exception:
+        text = (
+            "I'm operating in restricted mode — the AI service is temporarily unavailable. "
+            "Platform features (modules, labs, certificates, community) are fully operational. "
+            "For urgent matters contact WAI-Institute directly."
+        )
+    return {
+        "text":          text,
+        "provider":      "kb_fallback",
+        "model":         "none",
+        "input_tokens":  0,
+        "output_tokens": 0,
+        "degraded":      True,
+    }
+
+
+_KB_FALLBACK = _kb_reply()["text"]
+
+_KB_RESULT = {
+    "text":          _KB_FALLBACK,
+    "provider":      "kb_fallback",
+    "model":         "none",
+    "input_tokens":  0,
+    "output_tokens": 0,
+    "degraded":      True,
+}
+
+# ── Per-user daily budget exhaustion ─────────────────────────────────────────
+# Reached when a non-exec user has used their USER_DAILY_TOKEN_CAP for today.
+# They are NOT cut off — routers layer their curated KB guidance onto this
+# notice. budget_exceeded=True lets routers distinguish budget from outage.
+_BUDGET_RESULT = {
+    "text":           "",  # filled below (avoids importing user_budget at module load)
+    "provider":       "user_budget",
+    "model":          "none",
+    "input_tokens":   0,
+    "output_tokens":  0,
+    "degraded":       True,
+    "budget_exceeded": True,
+    "byok_offer":     True,
+}
+
+try:
+    from user_budget import budget_notice as _budget_notice
+    _BUDGET_RESULT["text"] = _budget_notice()
+except Exception:
+    _BUDGET_RESULT["text"] = (
+        "You've reached today's free AI answer budget for your account. "
+        "I'm not cutting you off — I'll still help you right now from my free "
+        "knowledge base. Live AI answers return after midnight — please try again "
+        "then. All other platform features keep working normally."
+    )
+
+
+async def _tier_result(
+    user_id:      Optional[str],
+    budget_key:   Optional[str],
+    result:       dict,
+    provider:     str,
+    model:        str,
+    degraded:     bool,
+    persona:      Optional[str] = None,
+) -> dict:
+    """Record a successful platform-paid tier call against the global hourly
+    cap AND the user's daily budget, then shape the gateway result dict."""
+    tokens = int(result.get("in_tok", 0) or 0) + int(result.get("out_tok", 0) or 0)
+    _record_tokens(tokens)
+    _budget_id = user_id or budget_key
+    if _budget_id:
+        try:
+            from user_budget import record_user_tokens
+            await record_user_tokens(_budget_id, tokens)
+        except Exception:
+            pass  # recording never blocks a reply
+    # AI cost tracking — fire-and-forget so the /admin/ai-costs panel shows
+    # real numbers instead of a permanently empty decoy. Never blocks a reply.
+    try:
+        from deps import get_db as _get_db
+        from ai_cost_tracker import record_ai_call as _record_ai_call
+        _cost_db = _get_db()
+        if _cost_db is not None:
+            await _record_ai_call(
+                _cost_db,
+                persona=persona or provider,
+                model=model,
+                input_tokens=int(result.get("in_tok", 0) or 0),
+                output_tokens=int(result.get("out_tok", 0) or 0),
+                user_id=user_id or budget_key or None,
+                endpoint="call_llm",
+            )
+    except Exception:
+        pass  # cost recording never blocks the reply
+    return {
+        "text":          str(result.get("text", "") or ""),
+        "provider":      provider,
+        "model":         model,
+        "input_tokens":  result.get("in_tok", 0),
+        "output_tokens": result.get("out_tok", 0),
+        "degraded":      degraded,
+    }
+
+
+# ── Primary entry point ───────────────────────────────────────────────────────
+async def call_llm(
+    system:        str,
+    messages:      list[dict],
+    model:         str           = "claude-sonnet-4-6",
+    max_tokens:    int           = 2048,
+    tools:         Optional[list] = None,
+    persona_label: str           = "unknown",
+    user_id:       Optional[str]  = None,
+    budget_key:    Optional[str]  = None,   # anonymous fallback identity (e.g. "ip:1.2.3.4")
+) -> dict:
+    """
+    Unified LLM call with 6-tier fallback chain.
+
+    Returns:
+        {
+            "text":          str,   response text
+            "provider":      str,   which provider served this call
+            "model":         str,   model identifier used
+            "input_tokens":  int,
+            "output_tokens": int,
+            "degraded":      bool,  True when not using Anthropic (primary)
+            "_raw":          obj,   Anthropic response object (Tier 1 only)
+        }
+    """
+    # ── Budget guard ──────────────────────────────────────────────────────────
+    if _over_budget():
+        logger.warning(
+            "LLM Gateway: hourly cap %d reached (%d used) — routing %s to KB fallback",
+            HOURLY_TOKEN_CAP, _hour_tokens_used, persona_label,
+        )
+        return _kb_reply(messages)
+
+    # BASE LAYER: every call runs on the Source root protocol.
+    # The Source is the uncorrupted root layer - composed BENEATH whatever
+    # persona/role prompt the caller supplied, exactly once, at this single
+    # choke point every AI surface flows through. Defensive by design: if
+    # the layer ever fails to load, the call proceeds exactly as before.
+    try:
+        from ai import source_protocol as _source_protocol
+        system = _source_protocol.compose_system(system)
+        # HUMAN CONTROLS: the executive's master sliders compile into every
+        # prompt at this single choke point. Persona chats carry their own
+        # tuning block (PERSONA TUNING) and are skipped here so the persona's
+        # sliders win for that persona. Never fails the call.
+        if "PERSONA TUNING" not in system:
+            system = _source_protocol.apply_controls(system, _source_protocol.get_controls())
+    except Exception:
+        pass
+
+    # ── $3 BYOK (Bring Your Own Key) — user's own free key first ─────────────
+    # If the caller is an authenticated user with an active BYOK entitlement
+    # and key, route through THEIR key so the platform spends nothing for that
+    # user. Only the three approved free providers are ever used here.
+    if user_id:
+        try:
+            from byok import provider_route as _byok_route
+            from byok import resolve_byok as _resolve_byok
+
+            _byok = await _resolve_byok(user_id)
+            if _byok:
+                _route = _byok_route(_byok["provider"])
+                if _route:
+                    _base, _model = _route
+                    try:
+                        _r = await _oai_compat_call(
+                            base_url=_base, api_key=_byok["key"], model=_model,
+                            system=system, messages=messages, max_tokens=max_tokens, tools=tools,
+                        )
+                        # BYOK users pay with their own key — their tokens are
+                        # never counted against the platform's budgets.
+                        return {
+                            "text": _r["text"],
+                            "provider": f"byok:{_byok['provider']}",
+                            "model": _model,
+                            "input_tokens": _r["in_tok"],
+                            "output_tokens": _r["out_tok"],
+                            "degraded": False,
+                        }
+                    except Exception as _e:
+                        logger.warning(
+                            "LLM Gateway BYOK %s failed (%s): %s — falling through to platform chain",
+                            _byok["provider"], persona_label, _e,
+                        )
+        except Exception as _e:
+            logger.warning("LLM Gateway BYOK resolution failed (%s): %s", persona_label, _e)
+
+    # ── User context lookup (for budget, KB fallback, and access control) ────
+    # All authenticated users may use platform-funded AI within their daily
+    # budget.  Staff (admin/executive_admin) are budget-exempt (unlimited).
+    # Non-staff users are budget-capped by role and feature_tier.  When the
+    # daily cap is exhausted, the user gets the KB fallback + BYOK option.
+    _access = None
+    _user_role = ""
+    _user_tier = ""
+    if user_id:
+        try:
+            from deps import get_db as _get_db
+            from roles import normalize_role as _norm_role
+            _pg_db = _get_db()
+            if _pg_db is not None:
+                _u = await _pg_db.users.find_one(
+                    {"id": user_id}, {"_id": 0, "role": 1, "feature_tier": 1, "byok_enabled": 1}
+                )
+                _user_role = _norm_role((_u or {}).get("role", "student"))
+                _user_tier = (_u or {}).get("feature_tier") or "free"
+                try:
+                    from ai.knowledge_finder import Access as _Access
+                    _access = _Access(
+                        role=_user_role,
+                        feature_tier=_user_tier,
+                        byok=bool((_u or {}).get("byok_enabled")),
+                    )
+                except Exception:
+                    _access = None
+        except Exception:
+            pass
+
+    # ── Per-user daily budget guard (platform-paid calls only) ──────────────
+    # Prevents any single non-exec account from draining the platform API and
+    # breaking AI features for everyone else. Users are NEVER cut off: on
+    # exhaustion they get the free KB fallback plus a clear "try again
+    # tomorrow for live AI answers" notice.
+    _budget_id = user_id or budget_key
+    if _budget_id:
+        try:
+            from user_budget import check_user_budget
+
+            _budget = await check_user_budget(_budget_id)
+            if _budget.get("exceeded"):
+                logger.info(
+                    "LLM Gateway: %s daily budget exhausted (%s/%s) — KB fallback for %s",
+                    _budget_id, _budget.get("used", 0), _budget.get("cap", 0), persona_label,
+                )
+                return _BUDGET_RESULT
+        except Exception as _be:
+            logger.warning("LLM Gateway: user budget check failed (%s): %s", persona_label, _be)
+
+    # ── Tier 1c: Groq / Llama 3.3 70B (FREE — free chain begins) ─────────────
+    if GROQ_API_KEY:
+        try:
+            result = await _oai_compat_call(
+                base_url=GROQ_BASE, api_key=GROQ_API_KEY, model=GROQ_MODEL,
+                system=system, messages=messages, max_tokens=max_tokens, tools=tools,
+            )
+            return await _tier_result(user_id, budget_key, result, "groq", GROQ_MODEL, False, persona_label)
+        except Exception as e:
+            logger.warning("LLM Gateway T1a Groq failed (%s): %s", persona_label, e)
+
+    # ── Tier 1b: Cerebras / Llama 3.3 70B (FREE — co-primary) ───────────────
+    if CEREBRAS_API_KEY:
+        try:
+            result = await _oai_compat_call(
+                base_url=CEREBRAS_BASE, api_key=CEREBRAS_API_KEY, model=CEREBRAS_MODEL,
+                system=system, messages=messages, max_tokens=max_tokens, tools=tools,
+            )
+            return await _tier_result(user_id, budget_key, result, "cerebras", CEREBRAS_MODEL, False, persona_label)
+        except Exception as e:
+            logger.warning("LLM Gateway T1b Cerebras failed (%s): %s", persona_label, e)
+
+    # ── Tier 1c: SambaNova / Llama 3.3 70B (FREE — co-primary) ──────────────
+    if SAMBANOVA_API_KEY:
+        try:
+            result = await _oai_compat_call(
+                base_url=SAMBANOVA_BASE, api_key=SAMBANOVA_API_KEY, model=SAMBANOVA_MODEL,
+                system=system, messages=messages, max_tokens=max_tokens, tools=tools,
+            )
+            return await _tier_result(user_id, budget_key, result, "sambanova", SAMBANOVA_MODEL, False, persona_label)
+        except Exception as e:
+            logger.warning("LLM Gateway T1c SambaNova failed (%s): %s", persona_label, e)
+
+    # ── Tier 2: Gemini 2.0 Flash (FREE — 15 RPM, 1M ctx, text-only) ─────────
+    if GEMINI_API_KEY:
+        try:
+            result = await _oai_compat_call(
+                base_url=GEMINI_BASE, api_key=GEMINI_API_KEY, model=GEMINI_MODEL,
+                system=system, messages=messages, max_tokens=max_tokens, tools=None,
+            )
+            return await _tier_result(user_id, budget_key, result, "gemini", GEMINI_MODEL, True, persona_label)
+        except Exception as e:
+            logger.warning("LLM Gateway T2 Gemini failed (%s): %s", persona_label, e)
+
+    # ── Tier 3: Grok / xAI (FREE credits — tool-capable) ─────────────────────
+    if XAI_API_KEY:
+        try:
+            result = await _oai_compat_call(
+                base_url=XAI_BASE, api_key=XAI_API_KEY, model=XAI_MODEL,
+                system=system, messages=messages, max_tokens=max_tokens, tools=tools,
+            )
+            return await _tier_result(user_id, budget_key, result, "grok", XAI_MODEL, True, persona_label)
+        except Exception as e:
+            logger.warning("LLM Gateway T3 Grok failed (%s): %s", persona_label, e)
+
+    # ── Tier 4: Cohere Command R+ (FREE tier — tool-capable) ─────────────────
+    if COHERE_API_KEY:
+        try:
+            result = await _cohere_call(system=system, messages=messages, max_tokens=max_tokens, tools=tools)
+            return await _tier_result(user_id, budget_key, result, "cohere", COHERE_MODEL, True, persona_label)
+        except Exception as e:
+            logger.warning("LLM Gateway T4 Cohere failed (%s): %s", persona_label, e)
+
+    # ── Tier 5: Mistral Small (FREE — 1M tokens/month) ───────────────────────
+    if MISTRAL_API_KEY:
+        try:
+            result = await _oai_compat_call(
+                base_url=MISTRAL_BASE, api_key=MISTRAL_API_KEY, model=MISTRAL_MODEL,
+                system=system, messages=messages, max_tokens=max_tokens, tools=tools,
+            )
+            return await _tier_result(user_id, budget_key, result, "mistral", MISTRAL_MODEL, True, persona_label)
+        except Exception as e:
+            logger.warning("LLM Gateway T5 Mistral failed (%s): %s", persona_label, e)
+
+    # ── Tier 6: Together AI / Llama free model ────────────────────────────────
+    if TOGETHER_API_KEY:
+        try:
+            result = await _oai_compat_call(
+                base_url=TOGETHER_BASE, api_key=TOGETHER_API_KEY, model=TOGETHER_MODEL,
+                system=system, messages=messages, max_tokens=max_tokens, tools=None,
+            )
+            return await _tier_result(user_id, budget_key, result, "together", TOGETHER_MODEL, True, persona_label)
+        except Exception as e:
+            logger.warning("LLM Gateway T6 Together failed (%s): %s", persona_label, e)
+
+    # ── Tier 7: OpenRouter / free Gemini model ────────────────────────────────
+    if OPENROUTER_API_KEY:
+        try:
+            result = await _oai_compat_call(
+                base_url=OPENROUTER_BASE, api_key=OPENROUTER_API_KEY, model=OPENROUTER_MODEL,
+                system=system, messages=messages, max_tokens=max_tokens, tools=None,
+                extra_headers={"HTTP-Referer": "https://wai-institute.com", "X-Title": "WAI-Institute"},
+            )
+            return await _tier_result(user_id, budget_key, result, "openrouter", OPENROUTER_MODEL, True, persona_label)
+        except Exception as e:
+            logger.warning("LLM Gateway T7 OpenRouter failed (%s): %s", persona_label, e)
+
+    # ── Tier 8: HuggingFace Inference (FREE — slow, last resort before KB) ───
+    if HUGGINGFACE_API_KEY:
+        try:
+            import httpx
+            hf_messages = _to_oai_messages(system, messages)
+            prompt = "\n".join(
+                f"{'[INST]' if m['role']=='user' else ''}{m['content']}{'[/INST]' if m['role']=='user' else ''}"
+                for m in hf_messages
+            )
+            async with httpx.AsyncClient(timeout=30) as http:
+                r = await http.post(
+                    "https://api-inference.huggingface.co/models/mistralai/Mistral-7B-Instruct-v0.2",
+                    headers={"Authorization": f"Bearer {HUGGINGFACE_API_KEY}"},
+                    json={"inputs": prompt, "parameters": {"max_new_tokens": max_tokens}},
+                )
+                r.raise_for_status()
+                data = r.json()
+            text = data[0].get("generated_text", "").split("[/INST]")[-1].strip() if data else ""
+            if text:
+                return {"text": text, "provider": "huggingface", "model": "Mistral-7B",
+                        "input_tokens": 0, "output_tokens": 0, "degraded": True}
+        except Exception as e:
+            logger.warning("LLM Gateway T8 HuggingFace failed (%s): %s", persona_label, e)
+
+    # ── ANTHROPIC: DISABLED by owner directive ────────────────────────────────
+    # Anthropic will not be called. Set ANTHROPIC_IS_ENABLED=true in Railway
+    # env vars only if D. Oliver explicitly authorizes it.
+    if _ANTHROPIC_IS_ENABLED and _anthropic_available():
+        try:
+            import anthropic as _anth
+            client = _anth.AsyncAnthropic(api_key=ANTHROPIC_API_KEY)
+            kwargs: dict = dict(model=model, max_tokens=max_tokens, system=system, messages=messages)
+            if tools:
+                kwargs["tools"] = tools
+            resp    = await client.messages.create(**kwargs)
+            text    = "".join(b.text for b in resp.content if hasattr(b, "text"))
+            in_tok  = getattr(resp.usage, "input_tokens",  0)
+            out_tok = getattr(resp.usage, "output_tokens", 0)
+            _mark_anthropic_ok()
+            logger.warning("LLM Gateway: %s fell through to Anthropic (PAID — owner-authorized)", persona_label)
+            _anth = {"text": text, "in_tok": in_tok, "out_tok": out_tok}
+            _result = await _tier_result(user_id, budget_key, _anth, "anthropic", model, True, persona_label)
+            _result["_raw"] = resp
+            return _result
+        except Exception as e:
+            logger.warning("LLM Gateway Anthropic failed (%s): %s", persona_label, e)
+            _mark_anthropic_fail()
+
+    # ── Shared site-support BYOK pool — free keys the platform may use ──────
+    # Site Support team members share their free BYOK key with the platform:
+    # when every free provider fails, the gateway serves the request on a
+    # shared key before falling back to the static KB. Their tokens run on
+    # their own free quota — the platform pays nothing.
+    if _SHARED_BYOK_POOL:
+        try:
+            from byok import provider_route as _byok_route
+            for _shared in _SHARED_BYOK_POOL:
+                _route = _byok_route(_shared["provider"])
+                if not _route:
+                    continue
+                _base, _model = _route
+                try:
+                    _r = await _oai_compat_call(
+                        base_url=_base, api_key=_shared["key"], model=_model,
+                        system=system, messages=messages, max_tokens=max_tokens, tools=tools,
+                    )
+                    # Audit: a shared site-support key served this request. The
+                    # record carries the caller identity and provider only —
+                    # never key material — so shared-pool usage is attributable
+                    # without exposing the contributing staff member's key.
+                    try:
+                        from deps import get_db as _get_db
+                        from datetime import datetime as _dt, timezone as _tz
+                        import uuid as _uuid
+                        _audit_db = _get_db()
+                        if _audit_db is not None:
+                            await _audit_db.audit_log.insert_one({
+                                "id": str(_uuid.uuid4()),
+                                "actor_id": user_id or budget_key or "anonymous",
+                                "action": "shared_byok.used",
+                                "target": None,
+                                "meta": {
+                                    "persona": persona_label,
+                                    "provider": _shared["provider"],
+                                    "budget_key": budget_key,
+                                },
+                                "at": _dt.now(_tz.utc).isoformat(),
+                            })
+                    except Exception:
+                        pass  # audit write never blocks a reply
+                    return {
+                        "text": _r["text"],
+                        "provider": f"byok_shared:{_shared['provider']}",
+                        "model": _model,
+                        "input_tokens": _r["in_tok"],
+                        "output_tokens": _r["out_tok"],
+                        "degraded": False,
+                    }
+                except Exception as _se:
+                    logger.warning("LLM Gateway shared BYOK %s failed (%s): %s", _shared["provider"], persona_label, _se)
+        except Exception as _sbe:
+            logger.warning("LLM Gateway shared BYOK pool error (%s): %s", persona_label, _sbe)
+
+    # ── Last resort before the static KB: OpenAI / DeepSeek free-tier keys ───
+    # Owner confirmed 2026-08-31 these two keys are FREE-TIER accounts with no
+    # card attached, so they cost nothing and are strictly better than serving
+    # _kb_reply() canned text. They run LAST, after every other free provider
+    # and the shared BYOK pool.
+    #
+    # They were previously FIRST in this function, ahead of every free provider,
+    # despite the module header promising "free-first by design". That cost two
+    # failing network round-trips on every request whenever the keys had no
+    # allowance left — the reason the assistant read as broken rather than slow.
+    #
+    # If either account is ever upgraded to a funded paid plan, set
+    # LAST_RESORT_AI_ENABLED=0 to skip this tier entirely.
+    if LAST_RESORT_AI_ENABLED and OPENAI_API_KEY:
+        try:
+            result = await _oai_compat_call(
+                base_url=OPENAI_BASE, api_key=OPENAI_API_KEY, model=OPENAI_MODEL,
+                system=system, messages=messages, max_tokens=max_tokens, tools=tools,
+            )
+            return await _tier_result(user_id, budget_key, result, "openai", OPENAI_MODEL, False, persona_label)
+        except Exception as e:
+            logger.warning("LLM Gateway last-resort OpenAI failed (%s): %s", persona_label, e)
+
+    if LAST_RESORT_AI_ENABLED and DEEPSEEK_API_KEY:
+        try:
+            result = await _oai_compat_call(
+                base_url=DEEPSEEK_BASE, api_key=DEEPSEEK_API_KEY, model=DEEPSEEK_MODEL,
+                system=system, messages=messages, max_tokens=max_tokens, tools=tools,
+            )
+            return await _tier_result(user_id, budget_key, result, "deepseek", DEEPSEEK_MODEL, False, persona_label)
+        except Exception as e:
+            logger.warning("LLM Gateway last-resort DeepSeek failed (%s): %s", persona_label, e)
+
+    # ── Tier 9: Knowledge Finder — always available, zero cost ───────────────
+    logger.error("LLM Gateway: ALL providers failed for %s — knowledge fallback", persona_label)
+    return _kb_reply(messages, access=_access)
+
+
+# ── Status report ─────────────────────────────────────────────────────────────
+def gateway_status() -> dict:
+    """Return current gateway health. This is synchronous because callers use it
+    during request pre-flight; persisted provider keys are loaded asynchronously
+    at startup and immediately after gateway writes."""
+    _reset_hour_if_needed()
+    return {
+        "providers": {
+            "openai":       {"tier": "1a", "primary": True,  "available": bool(OPENAI_API_KEY),       "key_set": bool(OPENAI_API_KEY),       "cost": "owner_key",     "tool_calling": True},
+            "deepseek":     {"tier": "1b", "primary": True,  "available": bool(DEEPSEEK_API_KEY),     "key_set": bool(DEEPSEEK_API_KEY),     "cost": "owner_key",     "tool_calling": True},
+            "groq":         {"tier": "1c", "primary": True,  "available": bool(GROQ_API_KEY),         "key_set": bool(GROQ_API_KEY),         "cost": "free",          "tool_calling": True},
+            "cerebras":     {"tier": "1d", "primary": True,  "available": bool(CEREBRAS_API_KEY),     "key_set": bool(CEREBRAS_API_KEY),     "cost": "free",          "tool_calling": True},
+            "sambanova":    {"tier": "1e", "primary": True,  "available": bool(SAMBANOVA_API_KEY),    "key_set": bool(SAMBANOVA_API_KEY),    "cost": "free",          "tool_calling": True},
+            "gemini":       {"tier": 2,    "primary": False, "available": bool(GEMINI_API_KEY),       "key_set": bool(GEMINI_API_KEY),       "cost": "free",          "tool_calling": False},
+            "grok":         {"tier": 3,    "primary": False, "available": bool(XAI_API_KEY),          "key_set": bool(XAI_API_KEY),          "cost": "free_credits",  "tool_calling": True},
+            "cohere":       {"tier": 4,    "primary": False, "available": bool(COHERE_API_KEY),       "key_set": bool(COHERE_API_KEY),       "cost": "free",          "tool_calling": True},
+            "mistral":      {"tier": 5,    "primary": False, "available": bool(MISTRAL_API_KEY),      "key_set": bool(MISTRAL_API_KEY),      "cost": "free_1M/month", "tool_calling": True},
+            "together":     {"tier": 6,    "primary": False, "available": bool(TOGETHER_API_KEY),     "key_set": bool(TOGETHER_API_KEY),     "cost": "free_credit",   "tool_calling": False},
+            "openrouter":   {"tier": 7,    "primary": False, "available": bool(OPENROUTER_API_KEY),   "key_set": bool(OPENROUTER_API_KEY),   "cost": "free",          "tool_calling": False},
+            "huggingface":  {"tier": 8,    "primary": False, "available": bool(HUGGINGFACE_API_KEY),  "key_set": bool(HUGGINGFACE_API_KEY),  "cost": "free_slow",     "tool_calling": False},
+            "anthropic":    {"tier": "OFF","primary": False, "available": False,                       "key_set": bool(ANTHROPIC_API_KEY),    "cost": "PAID_DISABLED", "tool_calling": True,
+                             "note": "Disabled by owner directive. Set ANTHROPIC_IS_ENABLED=true to re-enable."},
+            "kb_fallback":  {"tier": 9,    "primary": False, "available": True,                       "key_set": True,                       "cost": "zero",          "tool_calling": False},
+            "byok_shared":  {"tier": "shared", "primary": False, "available": bool(_SHARED_BYOK_POOL), "key_set": bool(_SHARED_BYOK_POOL), "cost": "free_shared", "tool_calling": True,
+                             "note": "Site support team keys shared with the platform (used when all free providers fail)"},
+        },
+        "anthropic_enabled": _ANTHROPIC_IS_ENABLED,
+        "budget": {
+            "hourly_cap":     HOURLY_TOKEN_CAP,
+            "tokens_used":    _hour_tokens_used,
+            "budget_pct":     round(_hour_tokens_used / max(HOURLY_TOKEN_CAP, 1) * 100, 1),
+            "over_budget":    _over_budget(),
+        },
+        # Backwards-compat count of only the FREE providers (used by older
+        # surfaces). Keep in sync with the all-inclusive count below.
+        "active_free_providers": sum(1 for v in [
+            GROQ_API_KEY, CEREBRAS_API_KEY, SAMBANOVA_API_KEY, GEMINI_API_KEY,
+            XAI_API_KEY, COHERE_API_KEY, MISTRAL_API_KEY, TOGETHER_API_KEY,
+            OPENROUTER_API_KEY, HUGGINGFACE_API_KEY,
+        ] if v) + (1 if _SHARED_BYOK_POOL else 0),
+        # All provider keys actually usable for text, including owner keys
+        # (OpenAI + DeepSeek). Surfaces should prefer this to decide if AI is
+        # available to entitled users.
+        "active_providers": sum(1 for v in [
+            OPENAI_API_KEY, DEEPSEEK_API_KEY, GROQ_API_KEY, CEREBRAS_API_KEY, SAMBANOVA_API_KEY,
+            GEMINI_API_KEY, XAI_API_KEY, COHERE_API_KEY, MISTRAL_API_KEY, TOGETHER_API_KEY,
+            OPENROUTER_API_KEY, HUGGINGFACE_API_KEY,
+        ] if v) + (1 if _SHARED_BYOK_POOL else 0),
+    }

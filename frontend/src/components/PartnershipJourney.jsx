@@ -10,10 +10,10 @@ export default function PartnershipJourney({
   currentLevel = 3,
   currentPoints = 650,
   milestones = [
-    { date: "Jan 15", type: "join", title: "Joined WAI", description: "Started your partnership journey" },
+    { date: "Jan 15", type: "join", title: "Joined M.O.R.E.", description: "Started your partnership journey" },
     { date: "Feb 2", type: "publish", title: "Published First Course", description: "Went from Seed to Rooted" },
     { date: "Mar 20", type: "students", title: "First 100 Students", description: "Your work is reaching people" },
-    { date: "Apr 15", type: "mentor", title: "Became Mentor", description: "Started guiding other creators" },
+    { date: "Apr 15", type: "instructor", title: "Became Mentor", description: "Started guiding other creators" },
     { date: "May 1", type: "levelup", title: "Reached Builder Level", description: "Your governance voice unlocked" },
   ],
 }) {

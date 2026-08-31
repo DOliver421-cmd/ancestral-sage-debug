@@ -59,15 +59,15 @@ class PaymentMethodBase(BaseModel):
 
 
 class PaymentMethodCreate(PaymentMethodBase):
-    """Create payment method (with token from Stripe)"""
-    stripe_payment_method_id: str
+    """Create payment method (with provider token — Lemon Squeezy / Gumroad)"""
+    provider_payment_method_id: str
 
 
 class PaymentMethod(PaymentMethodBase):
     """Payment method response"""
     id: str = Field(default_factory=lambda: str(ObjectId()))
     user_id: str
-    stripe_payment_method_id: str
+    provider_payment_method_id: str
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
     class Config:
@@ -98,7 +98,7 @@ class Subscription(SubscriptionBase):
     """Subscription with full details"""
     id: str = Field(default_factory=lambda: str(ObjectId()))
     user_id: str
-    stripe_subscription_id: Optional[str] = None
+    provider_subscription_id: Optional[str] = None
     billing_period_start: datetime
     billing_period_end: datetime
     created_at: datetime = Field(default_factory=datetime.utcnow)
@@ -133,7 +133,7 @@ class InvoiceCreate(InvoiceBase):
 class Invoice(InvoiceBase):
     """Invoice with full details"""
     id: str = Field(default_factory=lambda: str(ObjectId()))
-    stripe_invoice_id: Optional[str] = None
+    provider_invoice_id: Optional[str] = None
     amount_paid: float = 0.0
     issued_date: datetime
     due_date: datetime
@@ -171,7 +171,7 @@ class CreatorPayout(BaseModel):
     """Record of payment sent to creator"""
     id: str = Field(default_factory=lambda: str(ObjectId()))
     creator_id: str
-    stripe_payout_id: str
+    provider_payout_id: str
     amount_requested: float
     amount_paid: float
     status: str  # 'pending', 'paid', 'failed'
@@ -215,19 +215,19 @@ class BillingDatabase:
     async def initialize(self):
         """Create indexes for performance"""
 
-        # Subscriptions: Fast lookup by user_id, stripe_subscription_id
+        # Subscriptions: Fast lookup by user_id, provider_subscription_id
         await self.subscriptions.create_index("user_id")
-        await self.subscriptions.create_index("stripe_subscription_id", unique=True, sparse=True)
+        await self.subscriptions.create_index("provider_subscription_id", unique=True, sparse=True)
         await self.subscriptions.create_index([("status", 1), ("billing_period_end", 1)])
 
         # Invoices: Fast lookup by subscription, status
         await self.invoices.create_index("subscription_id")
-        await self.invoices.create_index("stripe_invoice_id", unique=True, sparse=True)
+        await self.invoices.create_index("provider_invoice_id", unique=True, sparse=True)
         await self.invoices.create_index([("status", 1), ("due_date", 1)])
 
         # Payment methods: Fast lookup by user_id
         await self.payment_methods.create_index("user_id")
-        await self.payment_methods.create_index("stripe_payment_method_id", unique=True)
+        await self.payment_methods.create_index("provider_payment_method_id", unique=True)
 
         # Usage events: Fast time-based lookup for billing period
         await self.usage_events.create_index([("user_id", 1), ("billing_period_id", 1)])

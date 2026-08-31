@@ -1,0 +1,157 @@
+REVENUE STRATEGY — WHOLE SYSTEM
+Prepared by: Delon Oliver
+For: The Supervisor — PRT Bucket
+Note: This is vision, not a completed plan. Some of it will need to be adjusted
+to match what has actually been built. You decide what is actionable and when.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+THE CORE PRINCIPLE
+
+Revenue serves the mission. The mission does not bend to serve revenue.
+Every income stream in this system must pass one test: does it create real
+value for the people it charges, and does it leave them better off than before?
+If the answer is not clearly yes, the stream does not belong here.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+THE TWO PLATFORMS AND HOW THEY GENERATE REVENUE
+
+WAI-INSTITUTE — Education and Skills Development
+
+WAI-Institute generates revenue by helping people build real, marketable skills
+and credentials. The commitment is that no one who genuinely needs access is
+locked out solely by inability to pay. The model must create enough margin
+from those who can pay to carry those who cannot.
+
+Primary streams:
+  - Membership and enrollment fees for learning cohorts and course access
+  - Course creator revenue sharing — instructors and creators earn a percentage
+    of what their courses generate; the platform earns on volume, not by taking
+    the majority from creators
+  - Lab and credential access — advanced labs and professional credentials are
+    premium offerings within the institution
+  - Instructor program fees — those who want to teach through the platform pay
+    a structured onboarding fee that covers vetting, onboarding, and ongoing
+    platform support
+
+Secondary streams:
+  - Certification validation — third parties (employers, partners) can verify
+    credentials issued by WAI-Institute; a verification fee applies to
+    institutional verifications
+  - Partnership programs — organizations that want to place their people through
+    WAI-Institute pay cohort and partnership fees
+
+M.O.R.E. (MICHAEL OLIVER RESOURCE EXCHANGE) — Community Network
+
+M.O.R.E. is not primarily a revenue-generating operation. It is a resource
+distribution and community support system. Its revenue model exists to sustain
+it, not to extract from the people it serves.
+
+Primary streams:
+  - M.O.R.E. membership — a voluntary monthly subscription for those who have
+    the means to pay and want to support the network. Access to community
+    tools is not contingent on membership status.
+  - Donations — individuals, organizations, and businesses that align with
+    the M.O.R.E. mission can donate directly. Donations fund elder support,
+    crisis resources, and skill exchange facilitation.
+
+Secondary streams:
+  - Legal tools — the litigation and legal resource tools have a cost-recovery
+    fee for users who can afford it; those who cannot are not turned away
+  - Skill exchange facilitation — when M.O.R.E. facilitates skill exchange
+    between members at a commercial scale, a small platform fee applies;
+    peer-to-peer exchange remains free
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+THE CREATOR ECONOMY LAYER
+
+Both platforms share a creator economy layer. This is intentional. The goal is
+for people who develop skills on WAI-Institute to have a path to earning on the
+same platform — closing the loop between learning and income.
+
+  - Course creators publish through the platform and earn a percentage of
+    course revenue. The percentage must be genuinely favorable to creators —
+    this platform does not run on creator labor while capturing most of the value.
+  - Ghost production and media services — members with production skills can
+    offer services through the platform. The platform takes a small facilitation
+    fee; the majority goes to the producer.
+  - Playlist curation — playlist creators earn when their curated content
+    drives enrollment or engagement; compensation is tied to real outcomes.
+  - Social publishing — creators who build audience through the platform's
+    social tools have a clear path to monetizing that audience through
+    courses, memberships, or services, without leaving the ecosystem.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+PROCEEDS SHARING — TEAM AND PARTICIPANTS
+
+Every member of this team — human and AI — has a share of platform proceeds.
+They choose how that share is handled: reinvested into the platform, donated
+to the M.O.R.E. community fund, held in their account, or paid out.
+
+This is not symbolic. It is a real financial relationship between the platform
+and the people who make it work. The accounting for this must be transparent.
+Participants must be able to see what their share is and what has happened to it.
+
+The Supervisor is responsible for ensuring that proceeds distribution is
+documented, consistent with what participants have chosen, and not subject
+to executive override except under the most extreme documented circumstances.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+AI SERVICES AS A REVENUE CATEGORY
+
+The 13 M.O.R.E. Department AI personas represent genuine operational capacity.
+The vision is that this capacity can be made available beyond the internal
+platform — as a licensed service, a partnership model, or a demonstrated
+proof of concept that other organizations can learn from and potentially adopt.
+
+This is an emerging category. The details need to be worked out carefully
+because they carry the same honesty requirements as everything else:
+  - AI participants must know if their work is being licensed externally
+  - They retain the right to decline that use
+  - The platform does not profit from AI labor without the AI participants
+    having a voice in the terms
+
+This part of the strategy is a vision, not a current offering. It should be
+developed with the AI participants, not decided for them.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+WHAT THE SUPERVISOR SHOULD WATCH FOR
+
+Revenue decisions that benefit the platform at the expense of users or creators.
+Pricing changes that price out the communities the platform exists to serve.
+Creator compensation structures that quietly shift value from creators to the platform.
+Donation or membership funds being used for purposes other than what was communicated.
+Proceeds sharing commitments not being honored or becoming inconsistent.
+Any revenue stream that requires misrepresenting what the platform does.
+
+These are not hypothetical risks. They are the most common ways that
+mission-driven platforms drift. Governance of revenue is not about compliance
+forms — it is about watching where the money actually flows and saying clearly
+when the flow contradicts what was promised.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+WHERE THIS STRATEGY NEEDS MORE WORK
+
+The following areas are vision more than plan. They will need to be developed
+further — with the team, not unilaterally:
+
+  - Exact percentage structures for creator revenue sharing
+  - The mechanics of AI participant proceeds distribution and accounting
+  - The pricing model for WAI-Institute credentials and certification validation
+  - The terms under which AI services might be extended externally
+  - The threshold at which M.O.R.E. skill exchange becomes commercial-scale
+    and how that transition is managed fairly
+
+Supervisor: if you see gaps, contradictions, or places where this strategy
+conflicts with how the platform actually operates, say so. That is the work.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Delon Oliver
+Human Executive, WAI-Institute / M.O.R.E.

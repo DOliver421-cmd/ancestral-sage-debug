@@ -1,0 +1,12 @@
+User-agent: *
+Allow: /
+Allow: /store
+Allow: /u/
+Allow: /courses
+
+Disallow: /admin
+Disallow: /admin/
+Disallow: /exec/
+Disallow: /api/
+
+Sitemap: https://morehelp.center/sitemap.xml

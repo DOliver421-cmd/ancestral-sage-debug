@@ -25,7 +25,7 @@ from datetime import datetime, timezone
 logger = logging.getLogger("lcewai.revenue_director")
 
 GUMROAD_API_KEY = os.environ.get("GUMROAD_API_KEY", "")
-EXECUTIVE_EMAIL = os.environ.get("EXECUTIVE_EMAIL", "oldthug957@gmail.com")
+EXECUTIVE_EMAIL = os.environ.get("EXECUTIVE_EMAIL", "")
 
 # ── Preloaded Revenue Stream Catalog ─────────────────────────────────────────
 
@@ -408,7 +408,7 @@ async def rd_identify_opportunity(focus: str = "all", priority: str = "all", db=
         },
         {
             "id":          "membership_tier",
-            "title":       "WAI Member Intelligence Subscription",
+            "title":       "M.O.R.E. Member Intelligence Subscription",
             "category":    "strategic",
             "price_range": "$19.99-$49.99/month",
             "potential_revenue_impact": "$2000-10000/mo at 100-200 paying members",

@@ -1,0 +1,13 @@
+{
+  "type": "service_account",
+  "project_id": "wai-institute-core",
+  "private_key_id": "ec92c3df5511e3eee41baa0d3503fe18849d2c70",
+  "private_key": "-----BEGIN PRIVATE KEY-----\nMIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQC28pTj8JlNMW/d\nJKraDvBmdV6eyBWBC4okpCE29Vb/hq7VvQZeWamuc1CwKnTocoV4icLu5yONoDiT\nyyju7Ch/zCbV3R0r/bVLHYsyH6E3ABwzK8LdQ4imZFnHXEjUitBsA64OjcBIoL1f\n4JDBmNzeAjmhx3NyfH+faNN/luhwV5BHs/Dez3oHFNo1au2T8N9gOBox1WRakHNd\nJvbZz68ldiB4EEKio2fPAegnRPUjAUlsG8c5/PR8dhNFO/0FLjtlG6vIkAM0us5i\nU6pyk1WowvsAJ9wKrSCd0zJaXKEVUURXNVws/9NvCK2XQR8u3BUFB/mte9gTyjYw\npgMyaQzDAgMBAAECggEAM4gI4Fu5EsFGHShi56ElnfaZfGgnhn3Vn5SLtotMwhUR\n0iq4TIM9BGJ+6+BJpd/8MIO9YMXCgfYLebXUBdiHX9gFaGAsA2QnWM0tlCTMqE1j\npBZDgUewig3iLAGWkie3pXUz5e2Pp+V+8i6zF5UTQYWm7ibcIfdni2Nfj6TWPC4z\n/z1bKF1KtpW9vGRavMF0EcVidRBgGnlU80SB4cjXKcJ7MyKh08znyWLpS3WspRG5\nOYDdVOkCKh1MeWxIpXH1klL44uubX/l2a5l5gf2K39gc1gNn6m1z0spu4hZInXKJ\nQI4yjUH+YyGk1rRA5iaHtAFskIevyysz4Chy8pp6QQKBgQDfYrQLEtf2LnjIwe4y\nmsllkrq4GFEXW30NNGtxfuet77nB8YEFJ+k/SPHRWjcfBgVFbEovKcjP/EJOmQL2\n6jWWo6p+CXtrK2od4i6ELozhijDO5Cq13HVtJF47ZoArHznVzBaRPLhWgA5Zoglb\nVx4JfyqFlxS441sXhdrAXnqP+wKBgQDRqHYvRbhYlIpB50hEP9JtRuVxtWhFhhKv\nmEPaeMR9bfX9mEjx1prvBg2cdDQN/X/WzQiVCxFf+mm0tvlCNlaDvwyexUlQtMPs\n8xVE8uJGObXi6cizt8R0u6iHnU9N6i1ON13D2IesWIoN8sMPFX1lL1BwAtFmfFUs\nJ9Jfr6Iz2QKBgQDSDSURWJm8QryOwlSyPvxrx4pN+4ec+Alhtk3lvhgqZUX9yZKx\nf3MDcBr66eL1CBtCyW4EZT0P3buX3qd7+IWFbcaul0n3Xy58hSeKYZ9VoTT+Bmzm\n7zN3+n+lSV/xrH4cvLjnvvnzVJypygUUX5m+AlbAoWz54cfRGau1weFrqwKBgAVf\n3Ce6Ec+zfxfRZfjZ6fsDJj6T9+hQV4pIzPR8xAyzFOs7TCNm7PHTpeWs1OjG5tAK\n0X2AmyFquer4Bcu8uNsHursXM5nuCFe6o4Dw+Pvz3sXCWHLC8zZK2TcgwTeuGRs4\nMB8lHdU9L8zLvFRWqLA/VkCI0fVempBXNP1e8zmBAoGASZoliOm+qCRdnDXKTw4g\nP9dZvj6Ws/MvCxrfvdzQmQ5Rj2CDTXMS1IwfLw/9VKvru9F+/OsdGncHiOftVUIb\nBHF5d0IkQX0c6IuHzvdlRz19pnzAYTo/n5fQVK6NDsiwhJ3pqJZkKV4xee4I3boZ\nHel8dpCGHIWxisbldgKg03E=\n-----END PRIVATE KEY-----\n",
+  "client_email": "orion-sentinel@wai-institute-core.iam.gserviceaccount.com",
+  "client_id": "117665860675897115726",
+  "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+  "token_uri": "https://oauth2.googleapis.com/token",
+  "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
+  "client_x509_cert_url": "https://www.googleapis.com/robot/v1/metadata/x509/orion-sentinel%40wai-institute-core.iam.gserviceaccount.com",
+  "universe_domain": "googleapis.com"
+}

@@ -157,9 +157,23 @@ class TestContextualMatcher:
         from wai_institute.pipelines.contextual_matcher import ContextualMatcher
         db = make_mock_db()
 
-        # Simulate catalog with one matching product
-        mock_cursor = MagicMock()
-        mock_cursor.__aiter__ = MagicMock(return_value=iter([
+        # Simulate catalog with one matching product. The matcher chains
+        # .find(...).limit(...), so the fake cursor must return itself from
+        # limit() and be a real async iterator (MagicMock's __aiter__ is
+        # resolved at class level and silently yields nothing).
+        class _FakeCursor:
+            def __init__(self, docs):
+                self._docs = list(docs)
+            def limit(self, n):
+                return self
+            def __aiter__(self):
+                return self
+            async def __anext__(self):
+                if not self._docs:
+                    raise StopAsyncIteration
+                return self._docs.pop(0)
+
+        mock_cursor = _FakeCursor([
             {
                 "name": "Healing Through Words",
                 "description": "A healing poetry collection for grief and loss",
@@ -168,7 +182,7 @@ class TestContextualMatcher:
                 "status": "published",
                 "platform_url": "https://wai.lemonsqueezy.com/l/healing",
             }
-        ]))
+        ])
         db.wai_product_pipeline.find = MagicMock(return_value=mock_cursor)
 
         m = ContextualMatcher(db)

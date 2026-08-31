@@ -1,8 +1,18 @@
-export const WAI_LOGO = "https://storage.googleapis.com/wai-institute/WAI%20Logo.jpg";
+// M.O.R.E. Help Center — the social-service virtual help center of the
+// Michael Oliver Resource Exchange (the community-services arm of WAI).
+export const MORE_LOGO = "/MORE_Logo.svg";
+
+// Backwards-compatible alias kept while the legacy WAI mark is retired.
+export const WAI_LOGO = MORE_LOGO;
+
+export const WAI_INSTITUTE_URL = "https://www.wai-institute.org";
+
 export const BRAND = {
-  short: "W.A.I.",
-  name: "Workforce And Arts Institute",
-  full: "W.A.I. — Workforce And Arts Institute",
-  tagline: "Social support and education for invisible communities",
-  mission: "Creator economy. Cultural expression. Economic dignity.",
+  short: "M.O.R.E.",
+  name: "M.O.R.E. Help Center",
+  legal: "NAM Oshun Edutainment LLC",
+  full: "M.O.R.E. Help Center — a division of NAM Oshun Edutainment LLC",
+  tagline: "A social-service virtual help center — skills, support, and solidarity.",
+  mission: "Help people. Lift people. Love people.",
+  presentedBy: "Presented by WAI Institute",
 };

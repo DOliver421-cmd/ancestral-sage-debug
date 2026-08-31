@@ -1,0 +1,345 @@
+"""byok.py — $3 Bring Your Own Key (BYOK) for WAI-Institute.
+
+Every user profile can activate a $3 BYOK entitlement and attach their own API
+key from one of three FREE providers. When the LLM gateway routes that user's
+AI requests, it uses the user's key FIRST — so the platform pays nothing for
+that user's generation.
+
+The three providers are deliberately the ones with a genuine free tier that
+require NO credit card / billing method to sign up:
+
+  - Groq      (https://console.groq.com)     — fast free tier
+  - Cerebras  (https://cloud.cerebras.ai)    — free tier, fast inference
+  - Gemini    (https://aistudio.google.com)  — free tier, 15 RPM, 1M context
+
+All three expose an OpenAI-compatible /chat/completions endpoint, so a single
+HTTP call path serves every provider.
+
+Key storage: `db.user_byok_keys` — encrypted at rest with the same Fernet secret
+the Provider Gateway uses (`PROVIDER_KEY_ENCRYPTION_SECRET`). Keys are NEVER
+returned to the frontend after save; only a masked suffix is shown. If the
+encryption secret is not configured, saving a key is REFUSED — plaintext
+storage is never silently accepted.
+
+Entitlement: stored on the user document as `byok_enabled` + `byok_activated_at`.
+The `POST /api/byok/activate` endpoint flips the flag and is the integration
+point for the payment processor (see docs/ADMIN-MANUAL.md §7).
+"""
+
+import base64
+import logging
+import os
+from datetime import datetime, timezone
+from typing import Optional
+from roles import FREE_BYOK_ROLES, role_rank, normalize_role
+
+logger = logging.getLogger("lcewai.byok")
+
+# Configurable; defaults to the owner's $3 price point.
+BYOK_PRICE_USD = int(os.environ.get("BYOK_PRICE_USD", "3"))
+
+# BYOK is a $3 one-time fee for member/student roles. Staff and partner roles
+# get BYOK free — including the Site Support team, whose keys are ALSO shared
+# Role hierarchy imported from roles.py
+# Roles whose BYOK is free — imported from FREE_BYOK_ROLES in roles.py
+
+
+def byok_price_for(role: Optional[str]) -> int:
+    """$3 for member/student roles; free (0) for staff, partner, and support roles."""
+    canonical = normalize_role(role) if role else role
+    if canonical in FREE_BYOK_ROLES:
+        return 0
+    return BYOK_PRICE_USD
+
+# ── Approved providers (free tier, no credit card required) ──────────────────
+
+BYOK_PROVIDERS = {
+    "groq": {
+        "label": "Groq",
+        "base_url": "https://api.groq.com/openai/v1",
+        "model": "llama-3.3-70b-versatile",
+        "signup_url": "https://console.groq.com",
+        "free_tier": "Fast free tier — no credit card required",
+    },
+    "cerebras": {
+        "label": "Cerebras",
+        "base_url": "https://api.cerebras.ai/v1",
+        "model": "llama3.3-70b",
+        "signup_url": "https://cloud.cerebras.ai",
+        "free_tier": "Free tier — no credit card required",
+    },
+    "gemini": {
+        "label": "Google Gemini",
+        "base_url": "https://generativelanguage.googleapis.com/v1beta/openai",
+        "model": "gemini-2.0-flash",
+        "signup_url": "https://aistudio.google.com",
+        "free_tier": "Free tier (15 RPM, 1M context) — no credit card required",
+    },
+}
+
+# Priority order when a user has more than one key configured.
+_PROVIDER_PRIORITY = ("groq", "cerebras", "gemini")
+
+
+# ── Encryption (same secret + scheme as the Provider Gateway) ────────────────
+
+# ── Encryption (shared self-healing keyvault — see keyvault.py) ──────────────
+
+
+def _get_fernet():
+    """Return the shared vault Fernet instance, or False when unavailable.
+
+    The vault resolves its secret automatically: PROVIDER_KEY_ENCRYPTION_SECRET
+    env var → MongoDB-persisted (auto-generated on first boot) → ephemeral.
+    A save is refused only in the truly-unavailable case — the feature never
+    silently stores plaintext and never needs a manual env var to work."""
+    import keyvault
+    f = keyvault.get_fernet()
+    return f if f is not None else False
+
+
+def encrypt_key(plaintext: str) -> str:
+    fernet = _get_fernet()
+    if fernet:
+        return fernet.encrypt(plaintext.encode()).decode()
+    return plaintext  # no secret configured — callers must refuse to save
+
+
+def decrypt_key(ciphertext: str) -> str:
+    fernet = _get_fernet()
+    if fernet:
+        try:
+            return fernet.decrypt(ciphertext.encode()).decode()
+        except Exception:
+            return ciphertext  # already plaintext or decryption failed
+    return ciphertext
+
+
+def mask_key(key: str) -> str:
+    if not key:
+        return ""
+    return f"••••{key[-4:]}" if len(key) >= 4 else "••••"
+
+
+def provider_route(provider: str):
+    """Return (base_url, model) for a provider, or None if unknown."""
+    spec = BYOK_PROVIDERS.get(provider)
+    if not spec:
+        return None
+    return spec["base_url"], spec["model"]
+
+
+# ── Entitlement + key store helpers ──────────────────────────────────────────
+
+async def activate_byok(db, user_id: str, role: Optional[str] = None) -> dict:
+    """Flip the $3 BYOK entitlement on for a user.
+
+    Member/student roles pay BYOK_PRICE_USD. Staff, partner, and support roles
+    (instructor, creative_partner, site_support, admin, executive_admin) get
+    BYOK free — the entitlement is granted at price 0. Site support keys are
+    additionally shared with the platform's free pool (see
+    ai.llm_gateway.reload_shared_byok).
+
+    NOTE: this is the post-payment hook. Production should call it only after a
+    successful Stripe/Lemon Squeezy checkout (see docs/ADMIN-MANUAL.md §7).
+    """
+    price = byok_price_for(role)
+    now = datetime.now(timezone.utc).isoformat()
+    await db.users.update_one(
+        {"id": user_id},
+        {"$set": {"byok_enabled": True, "byok_activated_at": now}},
+    )
+    return {"enabled": True, "price_usd": price, "free_for_role": price == 0, "activated_at": now}
+
+
+async def get_byok_status(db, user_id: str, role: Optional[str] = None) -> dict:
+    """Entitlement + per-provider key status for the current user (no raw keys)."""
+    user_doc = await db.users.find_one(
+        {"id": user_id}, {"_id": 0, "byok_enabled": 1, "byok_activated_at": 1}
+    )
+    price = byok_price_for(role)
+    key_docs = await db.user_byok_keys.find(
+        {"user_id": user_id}, {"_id": 0, "encrypted_key": 0}
+    ).sort("created_at", -1).to_list(length=10)
+    configured = {k["provider"]: k for k in key_docs if k.get("provider") in BYOK_PROVIDERS}
+
+    providers = []
+    for p, spec in BYOK_PROVIDERS.items():
+        doc = configured.get(p) or {}
+        providers.append({
+            "key": p,
+            "label": spec["label"],
+            "signup_url": spec["signup_url"],
+            "free_tier": spec["free_tier"],
+            "model": spec["model"],
+            "configured": p in configured,
+            "masked": doc.get("key_masked"),
+            "active": doc.get("active", True),
+            "last_used_at": doc.get("last_used_at"),
+            "usage_count": doc.get("usage_count", 0),
+        })
+
+    return {
+        "price_usd": price,
+        "free_for_role": price == 0,
+        "enabled": bool(user_doc.get("byok_enabled")) if user_doc else False,
+        "activated_at": (user_doc or {}).get("byok_activated_at"),
+        "providers": providers,
+    }
+
+
+async def save_byok_key(db, user_id: str, provider: str, plaintext_key: str) -> dict:
+    """Encrypt and store a user's BYOK key for the given provider."""
+    if provider not in BYOK_PROVIDERS:
+        raise ValueError("unknown_byok_provider")
+    plaintext_key = (plaintext_key or "").strip()
+    if not plaintext_key:
+        raise ValueError("empty_key")
+    # Fail-safe: never store a user's API key in plaintext. If the encryption
+    # secret is not configured, refuse the save loudly instead of silently
+    # degrading — the user gets a clear error instead of an unencrypted key
+    # written to MongoDB.
+    if not _get_fernet():
+        logger.error(
+            "byok: REFUSING to store key for user %s — PROVIDER_KEY_ENCRYPTION_SECRET is unset",
+            user_id,
+        )
+        raise ValueError("encryption_unavailable")
+
+    now = datetime.now(timezone.utc).isoformat()
+    doc = {
+        "user_id": user_id,
+        "provider": provider,
+        "encrypted_key": encrypt_key(plaintext_key),
+        "key_masked": mask_key(plaintext_key),
+        "active": True,
+        "updated_at": now,
+        "last_used_at": None,
+        "usage_count": 0,
+    }
+    await db.user_byok_keys.update_one(
+        {"user_id": user_id, "provider": provider},
+        {"$set": doc, "$setOnInsert": {"created_at": now}},
+        upsert=True,
+    )
+    return {"provider": provider, "masked": mask_key(plaintext_key)}
+
+
+async def remove_byok_key(db, user_id: str, provider: str) -> bool:
+    if provider not in BYOK_PROVIDERS:
+        raise ValueError("unknown_byok_provider")
+    result = await db.user_byok_keys.delete_one({"user_id": user_id, "provider": provider})
+    return result.deleted_count > 0
+
+
+async def test_byok_key(provider: str, plaintext_key: str) -> dict:
+    """Make a minimal 1-token call to verify a key works. Never stores the key."""
+    route = provider_route(provider)
+    if not route:
+        return {"ok": False, "error": f"Unknown provider: {provider}"}
+    base_url, model = route
+    import time
+
+    import httpx
+
+    t0 = time.perf_counter()
+    try:
+        async with httpx.AsyncClient(timeout=15) as http:
+            r = await http.post(
+                f"{base_url}/chat/completions",
+                headers={
+                    "Authorization": f"Bearer {plaintext_key}",
+                    "Content-Type": "application/json",
+                },
+                json={
+                    "model": model,
+                    "messages": [{"role": "user", "content": "Ping"}],
+                    "max_tokens": 1,
+                },
+            )
+        data = {}
+        try:
+            data = r.json()
+        except Exception:
+            pass
+        if r.status_code >= 400:
+            err = data.get("error")
+            if isinstance(err, dict):
+                err = err.get("message") or err.get("type") or str(err)
+            return {"ok": False, "status_code": r.status_code, "error": str(err or r.text)[:300]}
+        latency_ms = int((time.perf_counter() - t0) * 1000)
+        return {"ok": True, "latency_ms": latency_ms, "model": model}
+    except Exception as exc:
+        return {"ok": False, "error": str(exc)[:300]}
+
+
+async def list_shared_byok_keys(db) -> list:
+    """Active BYOK keys of site_support users, decrypted, in provider order.
+
+    These keys form the platform's shared free pool: the LLM gateway may use
+    them for platform features when every free provider fails (site support
+    runs the platform for free). Returns a list of {"provider", "key"} dicts.
+    """
+    try:
+        support_ids = []
+        async for u in db.users.find({"role": "support_staff"}, {"_id": 0, "id": 1}):
+            if u.get("id"):
+                support_ids.append(u["id"])
+        if not support_ids:
+            return []
+        keys = await db.user_byok_keys.find(
+            {"user_id": {"$in": support_ids}, "active": True}, {"_id": 0}
+        ).to_list(500)
+        by_provider = {}
+        for k in keys:
+            p = k.get("provider")
+            if p not in BYOK_PROVIDERS or p in by_provider:
+                continue
+            plain = decrypt_key(k.get("encrypted_key", ""))
+            if plain:
+                by_provider[p] = {"provider": p, "key": plain}
+        return [by_provider[p] for p in _PROVIDER_PRIORITY if p in by_provider]
+    except Exception:
+        return []
+
+
+async def resolve_byok(user_id: Optional[str]) -> Optional[dict]:
+    """Resolve a user's active BYOK key for the LLM gateway.
+
+    Returns {"provider": str, "key": str} only when the user has BOTH the $3
+    entitlement enabled AND at least one active key. Returns None otherwise.
+    """
+    if not user_id:
+        return None
+    try:
+        from deps import get_db
+
+        db = get_db()
+    except Exception:
+        return None
+    if db is None:
+        return None
+
+    try:
+        user_doc = await db.users.find_one({"id": user_id}, {"_id": 0, "byok_enabled": 1})
+    except Exception:
+        return None
+    if not user_doc or not user_doc.get("byok_enabled"):
+        return None
+
+    try:
+        key_docs = await db.user_byok_keys.find(
+            {"user_id": user_id, "active": True}, {"_id": 0}
+        ).to_list(length=10)
+    except Exception:
+        return None
+
+    by_provider = {k["provider"]: k for k in key_docs if k.get("provider") in BYOK_PROVIDERS}
+    for p in _PROVIDER_PRIORITY:
+        doc = by_provider.get(p)
+        if not doc:
+            continue
+        plaintext = decrypt_key(doc.get("encrypted_key", ""))
+        if plaintext:
+            return {"provider": p, "key": plaintext}
+    return None

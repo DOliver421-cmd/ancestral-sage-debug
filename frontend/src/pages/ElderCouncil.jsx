@@ -1,4 +1,5 @@
 import { Link } from "react-router-dom";
+import AppShell from "../components/AppShell";
 import BackButton from "../components/BackButton";
 import { MessageSquare, ArrowRight } from "lucide-react";
 
@@ -12,6 +13,7 @@ const PILLARS = [
 
 export default function ElderCouncil() {
   return (
+    <AppShell>
     <div style={{ minHeight: "100vh", color: "#f3ead6", background: "linear-gradient(160deg, #1a2440, #0a0a0f 75%)" }}>
       <div
         style={{
@@ -67,5 +69,6 @@ export default function ElderCouncil() {
         </div>
       </div>
     </div>
+    </AppShell>
   );
 }

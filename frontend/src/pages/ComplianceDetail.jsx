@@ -12,7 +12,7 @@ export default function ComplianceDetail() {
   const [answers, setAnswers] = useState({});
   const [result, setResult] = useState(null);
 
-  useEffect(() => { api.get(`/compliance/${slug}`).then((r) => setMod(r.data)); }, [slug]);
+  useEffect(() => { api.get(`/compliance/${slug}`).then((r) => setMod(r.data)).catch(() => {}); }, [slug]);
 
   const submitQuiz = async () => {
     const ordered = mod.quiz.map((_, i) => answers[i] ?? -1);
@@ -20,8 +20,8 @@ export default function ComplianceDetail() {
     try {
       const r = await api.post(`/compliance/${slug}/quiz`, { answers: ordered });
       setResult(r.data);
-      if (r.data.status === "completed") toast.success(`Passed at ${r.data.score.toFixed(0)}% — credential issued.`);
-      else toast.warning(`${r.data.score.toFixed(0)}% — ${r.data.pass_pct}% required.`);
+      if (r.data.status === "completed") toast.success(`Passed at ${(r.data.score ?? 0).toFixed(0)}% — credential issued.`);
+      else toast.warning(`${(r.data.score ?? 0).toFixed(0)}% — ${r.data.pass_pct ?? 0}% required.`);
     } catch { toast.error("Submission failed"); }
   };
 

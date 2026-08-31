@@ -2,21 +2,43 @@ import { useEffect, useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import AppShell from "../components/AppShell";
 import { LoadingState } from "../components/LoadingState";
-import { api } from "../lib/api";
+import { api, BACKEND_URL } from "../lib/api";
+import { useAuth } from "../lib/auth";
 import { toast } from "sonner";
-import { BookOpen, ShieldAlert, Wrench, CheckSquare, FileImage, Sparkles, ArrowLeft } from "lucide-react";
+import { BookOpen, ShieldAlert, Wrench, CheckSquare, FileImage, Sparkles, ArrowLeft, ArrowRight, Award, LayoutList } from "lucide-react";
 
 export default function ModuleView() {
   const { slug } = useParams();
   const [mod, setMod] = useState(null);
+  const [allModules, setAllModules] = useState([]);
   const [progress, setProgress] = useState(null);
   const [answers, setAnswers] = useState({});
   const [result, setResult] = useState(null);
+  const [loadFailed, setLoadFailed] = useState(false);
+  const { user } = useAuth();
 
   useEffect(() => {
-    api.get(`/modules/${slug}`).then((r) => setMod(r.data));
-    api.post("/progress/start", { module_slug: slug }).then((r) => setProgress(r.data)).catch(() => {});
-  }, [slug]);
+    // Module detail is registration-gated server-side (GET /modules/{slug} requires
+    // auth), so it MUST go through the axios instance that attaches the JWT — a raw
+    // fetch would 401 even for logged-in users and show a false "Module not found".
+    api.get(`/modules/${slug}`)
+      .then((r) => setMod(r.data))
+      .catch(() => setLoadFailed(true));
+    // Public catalog (metadata only) — fine for anyone.
+    fetch(`${BACKEND_URL}/api/modules`)
+      .then((r) => r.ok ? r.json() : [])
+      .then((data) => setAllModules(Array.isArray(data) ? data : []))
+      .catch(() => {});
+    if (user) {
+      api.post("/progress/start", { module_slug: slug }).then((r) => setProgress(r.data)).catch(() => {});
+    }
+  }, [slug, user]);
+
+  // Next module in sequence (by order, skipping current)
+  const nextModule = allModules
+    .filter((m) => m.slug !== slug)
+    .sort((a, b) => a.order - b.order)
+    .find((m) => (mod?.order ?? 0) < m.order) || null;
 
   const submitQuiz = async () => {
     if (!mod) return;
@@ -35,18 +57,30 @@ export default function ModuleView() {
     }
   };
 
+  if (loadFailed) return (
+    <AppShell>
+      <div className="px-4 sm:px-10 py-20 text-center max-w-lg mx-auto">
+        <BookOpen className="w-10 h-10 text-ink/20 mx-auto mb-4" />
+        <h2 className="font-heading text-2xl font-bold mb-2">Module not found</h2>
+        <p className="text-ink/60 mb-6">This module couldn't be loaded. It may have moved or there's a connection issue.</p>
+        <Link to="/modules" className="btn-copper inline-flex items-center gap-2">
+          <LayoutList className="w-4 h-4" /> Back to Curriculum
+        </Link>
+      </div>
+    </AppShell>
+  );
   if (!mod) return <LoadingState label="Module" />;
 
   return (
     <AppShell>
-      <div className="px-10 py-10 max-w-5xl">
+      <div className="px-4 sm:px-10 py-8 sm:py-10 max-w-5xl">
         <Link to="/modules" className="inline-flex items-center gap-2 text-sm font-bold uppercase tracking-widest text-ink/60 hover:text-copper" data-testid="back-modules">
           <ArrowLeft className="w-4 h-4" /> All Modules
         </Link>
 
         <div className="mt-6 flex items-start justify-between gap-8">
           <div>
-            <div className="overline text-copper">Module {mod.order.toString().padStart(2, "0")} · {mod.hours} hours</div>
+            <div className="overline text-copper">Module {String(mod.order ?? "").padStart(2, "0")} · {mod.hours ?? 0} hours</div>
             <h1 className="font-heading text-4xl lg:text-5xl font-bold mt-3 leading-tight">{mod.title}</h1>
             <p className="text-ink/70 mt-4 max-w-3xl leading-relaxed">{mod.summary}</p>
           </div>
@@ -62,19 +96,31 @@ export default function ModuleView() {
           <div className="overline text-signal/80 mt-3">{mod.scripture.ref}</div>
         </div>
 
-        {/* Video/image placeholders */}
-        <div className="grid md:grid-cols-2 gap-4 mt-8">
-          <div className="card-flat aspect-video flex flex-col items-center justify-center bg-ink/5" data-testid="video-placeholder">
-            <FileImage className="w-10 h-10 text-ink/30" />
-            <div className="overline text-ink/50 mt-3">Lesson Video</div>
-            <div className="text-xs text-ink/40 mt-1">Instructor upload pending</div>
+        {/* Video and diagram — render only when backend provides URLs */}
+        {(mod.video_url || mod.diagram_url) && (
+          <div className="grid md:grid-cols-2 gap-4 mt-8">
+            {mod.video_url ? (
+              <div className="card-flat aspect-video overflow-hidden" data-testid="video-player">
+                <iframe
+                  src={mod.video_url}
+                  title={`${mod.title} — lesson video`}
+                  className="w-full h-full"
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                  allowFullScreen
+                />
+              </div>
+            ) : null}
+            {mod.diagram_url ? (
+              <div className="card-flat aspect-video overflow-hidden flex items-center justify-center bg-ink/5" data-testid="diagram-viewer">
+                <img
+                  src={mod.diagram_url}
+                  alt={`${mod.title} — wiring diagram`}
+                  className="max-w-full max-h-full object-contain"
+                />
+              </div>
+            ) : null}
           </div>
-          <div className="card-flat aspect-video flex flex-col items-center justify-center bg-ink/5" data-testid="diagram-placeholder">
-            <FileImage className="w-10 h-10 text-ink/30" />
-            <div className="overline text-ink/50 mt-3">Wiring Diagram</div>
-            <div className="text-xs text-ink/40 mt-1">Reference drawing</div>
-          </div>
-        </div>
+        )}
 
         {/* Content sections */}
         <Section icon={BookOpen} title="Learning Objectives" testid="section-objectives">
@@ -124,9 +170,32 @@ export default function ModuleView() {
                 </div>
               </div>
             ))}
-            <button onClick={submitQuiz} className="btn-primary" data-testid="btn-submit-quiz">Submit Quiz</button>
+            {user
+              ? <button onClick={submitQuiz} className="btn-primary" data-testid="btn-submit-quiz">Submit Quiz</button>
+              : <Link to="/register" className="btn-primary" data-testid="btn-submit-quiz">Sign up to take quiz</Link>}
             {result?.status === "completed" && (
-              <Link to="/certificates" className="btn-copper ml-3 inline-block" data-testid="btn-view-cert">View Certificate</Link>
+              <div className="mt-6 p-5 rounded-xl border border-signal/30 bg-signal/5 space-y-3" data-testid="completion-panel">
+                <div className="flex items-center gap-2 font-heading font-bold text-signal">
+                  <Award className="w-5 h-5" /> Module Complete — {result.score?.toFixed(0)}%
+                </div>
+                <div className="flex flex-wrap gap-3">
+                  <Link to="/certificates" className="btn-copper inline-flex items-center gap-2" data-testid="btn-view-cert">
+                    <Award className="w-4 h-4" /> View Certificate
+                  </Link>
+                  {nextModule ? (
+                    <Link to={`/modules/${nextModule.slug}`} className="btn-primary inline-flex items-center gap-2" data-testid="btn-next-module">
+                      Next: {nextModule.title} <ArrowRight className="w-4 h-4" />
+                    </Link>
+                  ) : (
+                    <Link to="/dashboard" className="btn-primary inline-flex items-center gap-2">
+                      Back to Dashboard <ArrowRight className="w-4 h-4" />
+                    </Link>
+                  )}
+                  <Link to="/modules" className="inline-flex items-center gap-2 text-sm font-bold text-ink/60 hover:text-copper px-3 py-2">
+                    <LayoutList className="w-4 h-4" /> All Modules
+                  </Link>
+                </div>
+              </div>
             )}
           </div>
         </div>

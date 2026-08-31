@@ -1,0 +1,22 @@
+# Derives BACKEND_HOST from BACKEND_URL so the nginx template can set the
+# Host header correctly when proxying /api to the backend service.
+#
+# IMPORTANT — this must be a `.envsh` file, not `.sh`. The nginx image's
+# entrypoint SOURCES `*.envsh` files into its own shell, but EXECUTES `*.sh`
+# files as child processes — an `export` inside a `.sh` dies with that child
+# and never reaches 20-envsubst-on-templates.sh. With the variable undefined,
+# envsubst leaves ${BACKEND_HOST} literal in the config and nginx refuses to
+# start ("unknown BACKEND_HOST variable") — the container never becomes
+# healthy. This file runs before 20-envsubst (sorted order: 15- < 20-).
+#
+# BACKEND_HOST is only derived when not explicitly provided. Override it
+# explicitly when the backend's public hostname differs from its URL host.
+
+if [ -z "${BACKEND_HOST:-}" ]; then
+  # Mirror the Dockerfile default so the fallback stays consistent (an IP
+  # literal — never a hostname, so nginx can't die on startup DNS resolution).
+  BACKEND_HOST="$(printf '%s' "${BACKEND_URL:-http://127.0.0.1:9}" | sed -E 's#^[a-zA-Z][a-zA-Z0-9+.-]*://##; s#[:/].*$##')"
+  # Safety net: never let the template render an empty Host header.
+  [ -n "$BACKEND_HOST" ] || BACKEND_HOST="127.0.0.1"
+  export BACKEND_HOST
+fi

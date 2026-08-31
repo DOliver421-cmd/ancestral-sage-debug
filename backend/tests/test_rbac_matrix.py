@@ -20,7 +20,7 @@ BASE = os.environ["REACT_APP_BACKEND_URL"].rstrip("/")
 API = f"{BASE}/api"
 
 SEED = {
-    "executive_admin": ("delon.oliver@lightningcityelectric.com", "Executive@LCE2026"),
+    "executive_admin": (os.environ.get("TEST_EXEC_EMAIL", "youpickeddoliver@gmail.com"), os.environ.get("TEST_EXEC_PW", "")),
     "admin": ("admin@lcewai.org", "Admin@LCE2026"),
     "instructor": ("instructor@lcewai.org", "Teach@LCE2026"),
     "student": ("student@lcewai.org", "Learn@LCE2026"),

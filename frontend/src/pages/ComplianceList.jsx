@@ -6,7 +6,7 @@ import { ShieldCheck, Clock } from "lucide-react";
 
 export default function ComplianceList() {
   const [mods, setMods] = useState([]);
-  useEffect(() => { api.get("/compliance").then((r) => setMods(r.data)); }, []);
+  useEffect(() => { api.get("/compliance").then((r) => setMods(r.data)).catch(() => {}); }, []);
   return (
     <AppShell>
       <div className="px-10 py-10 max-w-6xl">
