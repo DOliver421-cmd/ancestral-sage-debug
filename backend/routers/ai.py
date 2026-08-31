@@ -3224,6 +3224,19 @@ async def toggle_persona(slug: str, body: _PersonaToggleReq,
         pass
     return {"slug": slug, "enabled": bool(body.enabled)}
 
+
+@router.get("/ai/personas/exec")
+async def exec_personas_alias(user: User = Depends(_require_rank("admin", "executive_admin"))):
+    """Alias for /personas/exec for frontend compatibility."""
+    return await exec_personas(user)
+
+
+@router.post("/ai/personas/{slug}/toggle")
+async def toggle_persona_alias(slug: str, body: _PersonaToggleReq,
+                               user: User = Depends(_require_rank("executive_admin"))):
+    """Alias for /personas/{slug}/toggle for frontend compatibility."""
+    return await toggle_persona(slug, body, user)
+
 # ═════════════════════════════════════════════════════════════════════════════
 # Persona chat + tuning — the team pages lead somewhere, with voice-capable
 # frontends (mic + browser TTS) and real per-persona sliders.
