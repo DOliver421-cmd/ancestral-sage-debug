@@ -152,30 +152,31 @@ OPENROUTER_BASE   = "https://openrouter.ai/api/v1"
 # Lower to 50000 during pre-revenue period if desired.
 HOURLY_TOKEN_CAP  = int(os.environ.get("HOURLY_TOKEN_CAP", "200000"))
 
-# ── Paid-provider master switch (DEFAULT OFF) ────────────────────────────────
-# Owner directive 2026-08-31: "no paid models in this setup."
+# ── Last-resort tier switch (DEFAULT ON) ─────────────────────────────────────
+# Controls the OpenAI / DeepSeek attempts that now run LAST in call_llm(),
+# after every other free provider and the shared BYOK pool, immediately before
+# the static knowledge-base fallback.
 #
-# This module's header has always claimed "free-first by design — no paid API
-# without D. Oliver consent", but the call chain in call_llm() did the opposite:
-# OpenAI (gpt-4o-mini) was attempted FIRST and DeepSeek SECOND, ahead of every
-# free provider. The stale log line "T1a Groq failed" inside the Groq block is
-# the fingerprint of that reordering — the labels were never updated.
+# Owner confirmed 2026-08-31 that both keys are FREE-TIER accounts with no card
+# attached. They therefore cost nothing, and a real model answer is strictly
+# better for the user than _kb_reply() canned text — so they stay in the chain,
+# just at the bottom of it.
 #
-# Two real consequences, both fixed by defaulting this OFF:
-#   1. COST — every request billed OpenAI for work free Groq/Cerebras could do.
-#   2. USABILITY — when the paid keys have no credit, each request burned two
-#      failing network round-trips (OpenAI, then DeepSeek) before reaching the
-#      first free provider, and if the whole chain ran out the caller received
-#      _kb_reply() — a canned non-AI response. That is why the assistant felt
-#      broken rather than merely slow.
+# History worth keeping: these two blocks were originally FIRST in call_llm(),
+# ahead of every free provider, even though the module header promised
+# "free-first by design". The stale log line "T1a Groq failed" inside the Groq
+# block is the fingerprint of that reordering — the labels were never updated.
+# Because a free-tier key with no remaining allowance simply errors, every
+# request paid two failing network round-trips before reaching Groq. That
+# latency, plus a chain that could bottom out in canned KB text, is why the
+# assistant read as broken rather than merely slow.
 #
-# Leave unset/0 to run entirely on free providers. Set PAID_AI_ENABLED=1 only
-# with deliberate intent and funded keys.
-#
-# FOLLOW-UP (not done here): if this is ever enabled, the paid blocks still sit
-# ahead of the free chain and would again be tried first. They should be moved
-# to run AFTER the free providers so paid is a genuine last resort.
-PAID_AI_ENABLED = os.environ.get("PAID_AI_ENABLED", "0").strip().lower() in ("1", "true", "yes")
+# Set LAST_RESORT_AI_ENABLED=0 to skip this tier — do that if either account is
+# ever upgraded to a funded paid plan, or to shave the two failed round-trips
+# once the free allowances are known to be exhausted.
+LAST_RESORT_AI_ENABLED = os.environ.get(
+    "LAST_RESORT_AI_ENABLED", "1"
+).strip().lower() in ("1", "true", "yes")
 
 # ── In-process state ──────────────────────────────────────────────────────────
 _hour_window_start:  float = time.time()
@@ -661,28 +662,6 @@ async def call_llm(
         except Exception as _be:
             logger.warning("LLM Gateway: user budget check failed (%s): %s", persona_label, _be)
 
-    # ── OpenAI gpt-4o-mini (PAID — skipped unless PAID_AI_ENABLED=1) ────────
-    if PAID_AI_ENABLED and OPENAI_API_KEY:
-        try:
-            result = await _oai_compat_call(
-                base_url=OPENAI_BASE, api_key=OPENAI_API_KEY, model=OPENAI_MODEL,
-                system=system, messages=messages, max_tokens=max_tokens, tools=tools,
-            )
-            return await _tier_result(user_id, budget_key, result, "openai", OPENAI_MODEL, True, persona_label)
-        except Exception as e:
-            logger.warning("LLM Gateway T1a OpenAI failed (%s): %s", persona_label, e)
-
-    # ── DeepSeek deepseek-chat (PAID — skipped unless PAID_AI_ENABLED=1) ────
-    if PAID_AI_ENABLED and DEEPSEEK_API_KEY:
-        try:
-            result = await _oai_compat_call(
-                base_url=DEEPSEEK_BASE, api_key=DEEPSEEK_API_KEY, model=DEEPSEEK_MODEL,
-                system=system, messages=messages, max_tokens=max_tokens, tools=tools,
-            )
-            return await _tier_result(user_id, budget_key, result, "deepseek", DEEPSEEK_MODEL, True, persona_label)
-        except Exception as e:
-            logger.warning("LLM Gateway T1b DeepSeek failed (%s): %s", persona_label, e)
-
     # ── Tier 1c: Groq / Llama 3.3 70B (FREE — free chain begins) ─────────────
     if GROQ_API_KEY:
         try:
@@ -882,6 +861,39 @@ async def call_llm(
                     logger.warning("LLM Gateway shared BYOK %s failed (%s): %s", _shared["provider"], persona_label, _se)
         except Exception as _sbe:
             logger.warning("LLM Gateway shared BYOK pool error (%s): %s", persona_label, _sbe)
+
+    # ── Last resort before the static KB: OpenAI / DeepSeek free-tier keys ───
+    # Owner confirmed 2026-08-31 these two keys are FREE-TIER accounts with no
+    # card attached, so they cost nothing and are strictly better than serving
+    # _kb_reply() canned text. They run LAST, after every other free provider
+    # and the shared BYOK pool.
+    #
+    # They were previously FIRST in this function, ahead of every free provider,
+    # despite the module header promising "free-first by design". That cost two
+    # failing network round-trips on every request whenever the keys had no
+    # allowance left — the reason the assistant read as broken rather than slow.
+    #
+    # If either account is ever upgraded to a funded paid plan, set
+    # LAST_RESORT_AI_ENABLED=0 to skip this tier entirely.
+    if LAST_RESORT_AI_ENABLED and OPENAI_API_KEY:
+        try:
+            result = await _oai_compat_call(
+                base_url=OPENAI_BASE, api_key=OPENAI_API_KEY, model=OPENAI_MODEL,
+                system=system, messages=messages, max_tokens=max_tokens, tools=tools,
+            )
+            return await _tier_result(user_id, budget_key, result, "openai", OPENAI_MODEL, False, persona_label)
+        except Exception as e:
+            logger.warning("LLM Gateway last-resort OpenAI failed (%s): %s", persona_label, e)
+
+    if LAST_RESORT_AI_ENABLED and DEEPSEEK_API_KEY:
+        try:
+            result = await _oai_compat_call(
+                base_url=DEEPSEEK_BASE, api_key=DEEPSEEK_API_KEY, model=DEEPSEEK_MODEL,
+                system=system, messages=messages, max_tokens=max_tokens, tools=tools,
+            )
+            return await _tier_result(user_id, budget_key, result, "deepseek", DEEPSEEK_MODEL, False, persona_label)
+        except Exception as e:
+            logger.warning("LLM Gateway last-resort DeepSeek failed (%s): %s", persona_label, e)
 
     # ── Tier 9: Knowledge Finder — always available, zero cost ───────────────
     logger.error("LLM Gateway: ALL providers failed for %s — knowledge fallback", persona_label)
