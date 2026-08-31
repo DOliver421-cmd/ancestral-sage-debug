@@ -181,13 +181,16 @@ function App() {
           <Route path="/adaptive" element={<Protected><Adaptive /></Protected>} />
           <Route path="/compliance" element={<Protected><ComplianceList /></Protected>} />
           <Route path="/compliance/:slug" element={<Protected><ComplianceDetail /></Protected>} />
-          <Route path="/admin/tools" element={<Protected roles={["admin"]}><AdminTools /></Protected>} />
+          {/* C-9: admin routes wrapped in a secondary ErrorBoundary so a crash
+              in any admin page shows a recovery UI instead of taking down the
+              whole application. */}
+          <Route path="/admin/tools" element={<Protected roles={["admin"]}><ErrorBoundary><AdminTools /></ErrorBoundary></Protected>} />
           <Route path="/admin/analytics" element={<Protected roles={["admin"]}><Analytics /></Protected>} />
           <Route path="/admin/audit" element={<Protected roles={["admin"]}><AuditLog /></Protected>} />
           <Route path="/attendance" element={<Protected roles={["instructor", "admin"]}><Attendance /></Protected>} />
           <Route path="/incidents" element={<Protected><Incidents /></Protected>} />
           <Route path="/settings" element={<Protected><Settings /></Protected>} />
-          <Route path="/admin/system" element={<Protected roles={["executive_admin"]}><ExecSystem /></Protected>} />
+          <Route path="/admin/system" element={<Protected roles={["executive_admin"]}><ErrorBoundary><ExecSystem /></ErrorBoundary></Protected>} />
           <Route path="/admin/sage-audit" element={<Protected roles={["executive_admin"]}><SageAudit /></Protected>} />
           <Route path="/admin/staff-meetings" element={<Protected roles={["executive_admin"]}><StaffMeetingHistory /></Protected>} />
           <Route path="/admin/health" element={<Protected roles={["admin"]}><SystemHealth /></Protected>} />
@@ -209,11 +212,11 @@ function App() {
           <Route path="/more" element={<More />} />
           <Route path="/more/litigation" element={<LitigationWeapon />} />
           {/* M.O.R.E. — authenticated tier (full features, role-gated) */}
-          <Route path="/app/more" element={<Protected><MoreHub /></Protected>} />
+          <Route path="/app/more" element={<Protected><ErrorBoundary><MoreHub /></ErrorBoundary></Protected>} />
           <Route path="/more/chat" element={<Protected><MoreChat /></Protected>} />
           <Route path="/more/chat/:roomId" element={<Protected><MoreChat /></Protected>} />
-          <Route path="/more/admin" element={<Protected roles={["admin"]}><MoreAdmin /></Protected>} />
-          <Route path="/more/ops" element={<Protected roles={["admin"]}><MoreOps /></Protected>} />
+          <Route path="/more/admin" element={<Protected roles={["admin"]}><ErrorBoundary><MoreAdmin /></ErrorBoundary></Protected>} />
+          <Route path="/more/ops" element={<Protected roles={["admin"]}><ErrorBoundary><MoreOps /></ErrorBoundary></Protected>} />
           {/* Payments */}
           {/* Store & subscribe — public browsing, gated checkout */}
           <Route path="/store" element={<Store />} />

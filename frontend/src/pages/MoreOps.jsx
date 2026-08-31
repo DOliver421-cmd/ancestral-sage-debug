@@ -100,7 +100,10 @@ export default function MoreOps() {
     const text = input.trim();
     if (!text || busy) return;
 
-    const userMsg = { role: "user", content: text };
+    // C-9: track message by stable id so rollback removes the right message
+    // even when multiple sends are queued rapidly.
+    const msgId = Date.now().toString(36) + Math.random().toString(36).slice(2);
+    const userMsg = { role: "user", content: text, _id: msgId };
     setMessages((prev) => [...prev, userMsg]);
     setInput("");
     setBusy(true);
@@ -135,9 +138,14 @@ export default function MoreOps() {
       ]);
     } catch (err) {
       const detail = err?.response?.data?.detail;
-      toast.error(typeof detail === "string" ? detail : "Department AI unavailable");
-      // Remove optimistically added user message on failure
-      setMessages((prev) => prev.slice(0, -1));
+      const status = err?.response?.status;
+      let message = typeof detail === "string" ? detail : "Department AI unavailable";
+      if (status === 401) message = "Your session expired. Sign in again to use Department AI.";
+      if (status === 403) message = "Department AI requires admin access.";
+      if (status === 502) message = "Department AI is down or missing ANTHROPIC_API_KEY in Railway.";
+      toast.error(message);
+      // C-9: remove the specific failed message by its id, not by position.
+      setMessages((prev) => prev.filter((m) => m._id !== msgId));
       setInput(text);
     } finally {
       setBusy(false);

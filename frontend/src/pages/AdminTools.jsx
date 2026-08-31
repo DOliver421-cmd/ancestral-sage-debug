@@ -12,10 +12,18 @@ export default function AdminTools() {
   const [checkouts, setCheckouts] = useState([]);
 
   const load = () => {
-    api.get("/admin/sites").then((r) => setSites(r.data));
-    api.get("/admin/inventory").then((r) => setInv(r.data));
-    api.get("/admin/users").then((r) => setUsers(r.data.filter((u) => u.role === "student")));
-    api.get("/admin/checkouts").then((r) => setCheckouts(r.data));
+    api.get("/admin/sites")
+      .then((r) => setSites(Array.isArray(r.data) ? r.data : []))
+      .catch(() => toast.error("Could not load sites"));
+    api.get("/admin/inventory")
+      .then((r) => setInv(Array.isArray(r.data) ? r.data : []))
+      .catch(() => toast.error("Could not load inventory"));
+    api.get("/admin/users")
+      .then((r) => setUsers(Array.isArray(r.data) ? r.data.filter((u) => u.role === "student") : []))
+      .catch(() => toast.error("Could not load users"));
+    api.get("/admin/checkouts")
+      .then((r) => setCheckouts(Array.isArray(r.data) ? r.data : []))
+      .catch(() => toast.error("Could not load checkouts"));
   };
   useEffect(() => { load(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, []);
 
@@ -82,34 +90,76 @@ function SitesPanel({ sites, onChange }) {
 
 function InventoryPanel({ inv, sites, onChange }) {
   const [filter, setFilter] = useState("");
+  const [form, setForm] = useState({ sku: "", name: "", category: "", site_slug: "", quantity_total: 1 });
+  const [saving, setSaving] = useState(false);
   const filtered = filter ? inv.filter((i) => i.site_slug === filter) : inv;
+  const create = async () => {
+    if (!form.sku || !form.name || !form.category || !form.site_slug) {
+      toast.error("SKU, name, category, and site are required");
+      return;
+    }
+    setSaving(true);
+    try {
+      await api.post("/admin/inventory", { ...form, quantity_total: parseInt(form.quantity_total) || 1 });
+      toast.success("Inventory item created");
+      setForm({ sku: "", name: "", category: "", site_slug: "", quantity_total: 1 });
+      onChange();
+    } catch (e) {
+      toast.error(e?.response?.data?.detail || "Inventory create failed");
+    } finally {
+      setSaving(false);
+    }
+  };
   return (
-    <div className="mt-6 card-flat p-6" data-testid="inventory-table">
-      <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
-        <h3 className="font-heading text-xl font-bold">Inventory ({filtered.length})</h3>
-        <select value={filter} onChange={(e) => setFilter(e.target.value)}
-          className="px-3 py-2 border border-ink/20 text-sm" data-testid="inv-filter-site">
-          <option value="">All sites</option>
-          {sites.map((s) => <option key={s.slug} value={s.slug}>{s.name}</option>)}
-        </select>
+    <div className="mt-6 space-y-6">
+      <div className="card-flat p-6">
+        <h3 className="font-heading text-xl font-bold mb-4 flex items-center gap-2"><Plus className="w-5 h-5 text-copper" /> New Inventory Item</h3>
+        <div className="grid sm:grid-cols-2 lg:grid-cols-5 gap-3">
+          <Input label="SKU" value={form.sku} onChange={(v) => setForm({ ...form, sku: v })} testid="inv-sku" />
+          <Input label="Name" value={form.name} onChange={(v) => setForm({ ...form, name: v })} testid="inv-name" />
+          <Input label="Category" value={form.category} onChange={(v) => setForm({ ...form, category: v })} testid="inv-category" />
+          <label className="block">
+            <span className="overline text-ink/60">Site</span>
+            <select value={form.site_slug} onChange={(e) => setForm({ ...form, site_slug: e.target.value })}
+              className="w-full mt-1 px-3 py-2 bg-white border border-ink/20 focus:border-ink focus:outline-none focus:ring-2 focus:ring-signal text-sm"
+              data-testid="inv-site">
+              <option value="">Select site</option>
+              {sites.map((s) => <option key={s.slug} value={s.slug}>{s.name}</option>)}
+            </select>
+          </label>
+          <Input label="Total Qty" type="number" value={form.quantity_total} onChange={(v) => setForm({ ...form, quantity_total: v })} testid="inv-quantity-total" />
+        </div>
+        <button onClick={create} disabled={saving} className="btn-primary mt-4 disabled:opacity-50" data-testid="btn-create-inventory">
+          {saving ? "Creating..." : "Create Item"}
+        </button>
       </div>
-      <div className="overflow-x-auto">
-        <table className="w-full text-sm">
-          <thead className="bg-ink text-white">
-            <tr><Th>SKU</Th><Th>Name</Th><Th>Category</Th><Th>Site</Th><Th>Avail / Total</Th></tr>
-          </thead>
-          <tbody>
-            {filtered.map((i) => (
-              <tr key={i.id} className="border-b border-ink/10 hover:bg-bone" data-testid={`inv-${i.sku}`}>
-                <Td><span className="font-mono text-xs">{i.sku}</span></Td>
-                <Td><span className="font-heading font-bold">{i.name}</span></Td>
-                <Td><span className="badge-outline">{i.category}</span></Td>
-                <Td>{i.site_slug}</Td>
-                <Td><span className={`font-mono ${i.quantity_available === 0 ? "text-destructive" : "text-ink"}`}>{i.quantity_available} / {i.quantity_total}</span></Td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+      <div className="card-flat p-6" data-testid="inventory-table">
+        <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
+          <h3 className="font-heading text-xl font-bold">Inventory ({filtered.length})</h3>
+          <select value={filter} onChange={(e) => setFilter(e.target.value)}
+            className="px-3 py-2 border border-ink/20 text-sm" data-testid="inv-filter-site">
+            <option value="">All sites</option>
+            {sites.map((s) => <option key={s.slug} value={s.slug}>{s.name}</option>)}
+          </select>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead className="bg-ink text-white">
+              <tr><Th>SKU</Th><Th>Name</Th><Th>Category</Th><Th>Site</Th><Th>Avail / Total</Th></tr>
+            </thead>
+            <tbody>
+              {filtered.map((i) => (
+                <tr key={i.id} className="border-b border-ink/10 hover:bg-bone" data-testid={`inv-${i.sku}`}>
+                  <Td><span className="font-mono text-xs">{i.sku}</span></Td>
+                  <Td><span className="font-heading font-bold">{i.name}</span></Td>
+                  <Td><span className="badge-outline">{i.category}</span></Td>
+                  <Td>{i.site_slug}</Td>
+                  <Td><span className={`font-mono ${i.quantity_available === 0 ? "text-destructive" : "text-ink"}`}>{i.quantity_available} / {i.quantity_total}</span></Td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   );

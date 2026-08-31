@@ -334,6 +334,7 @@ async def rd_audit_revenue(period: str = "30d", stream_filter: str = "", db=None
 
     results["active_count"]   = len(results["streams"])
     results["audit_complete"] = True
+    results["truth_label"] = "DATABASE INVENTORY - not earned revenue"
     results["recommendations"] = [
         "Add GUMROAD_API_KEY to Railway to enable autonomous Gumroad publishing.",
         "Expand digital product catalog — Cipher and Oracle have capacity for more products.",
@@ -361,19 +362,20 @@ async def rd_revenue_forecast(horizon: str = "30d", include_scenarios: bool = Tr
 
     forecast = {
         "horizon":       horizon,
-        "data_quality":  "limited — improve with GUMROAD_API_KEY + transaction data",
+        "truth_label":   "PROJECTION - not actual earnings",
+        "data_quality":  "limited - based on product inventory only; improve with payment/Stripe/Gumroad transaction data",
         "active_products": product_count,
         "projection": {
-            "base_monthly_revenue": f"${base_monthly:.2f}",
-            "horizon_total":        f"${base_monthly * days / 30:.2f}",
+            "estimated_base_monthly_revenue": f"${base_monthly:.2f}",
+            "estimated_horizon_total":        f"${base_monthly * days / 30:.2f}",
         },
     }
 
     if include_scenarios:
         forecast["scenarios"] = {
-            "conservative": f"${base_monthly * 0.5 * days / 30:.2f} — slow adoption, no new products",
-            "base":         f"${base_monthly * days / 30:.2f} — current trajectory",
-            "optimistic":   f"${base_monthly * 3.0 * days / 30:.2f} — active publishing, Gumroad live, DALL-E assets",
+            "conservative": f"${base_monthly * 0.5 * days / 30:.2f} - projected only; slow adoption, no new products",
+            "base":         f"${base_monthly * days / 30:.2f} - projected only; current inventory-based trajectory",
+            "optimistic":   f"${base_monthly * 3.0 * days / 30:.2f} - projected only; requires active publishing and live sales channels",
         }
 
     forecast["growth_levers"] = [
@@ -392,7 +394,7 @@ async def rd_identify_opportunity(focus: str = "all", priority: str = "all", db=
             "id":          "gumroad_activation",
             "title":       "Activate Gumroad Publishing",
             "category":    "quick_win",
-            "revenue_impact": "$500-2000/mo immediately",
+            "potential_revenue_impact": "$500-2000/mo if sales channel is activated and buyers convert",
             "action":      "Add GUMROAD_API_KEY to Railway — unlocks autonomous publishing for all 5 personas",
             "effort":      "5 minutes",
         },
@@ -401,7 +403,7 @@ async def rd_identify_opportunity(focus: str = "all", priority: str = "all", db=
             "title":       "Ambassador Full Campaign Packages",
             "category":    "high_value",
             "price_range": "$199-$349 per campaign",
-            "revenue_impact": "$1000-5000/mo at 5-15 campaigns",
+            "potential_revenue_impact": "$1000-5000/mo at 5-15 paid campaigns",
             "action":      "Activate Ambassador pipeline for external clients — not just WAI internal",
         },
         {
@@ -409,7 +411,7 @@ async def rd_identify_opportunity(focus: str = "all", priority: str = "all", db=
             "title":       "WAI Member Intelligence Subscription",
             "category":    "strategic",
             "price_range": "$19.99-$49.99/month",
-            "revenue_impact": "$2000-10000/mo at 100-200 members",
+            "potential_revenue_impact": "$2000-10000/mo at 100-200 paying members",
             "action":      "Bundle Oracle cultural intelligence reports + Cipher content access as member benefit",
         },
         {
@@ -417,7 +419,7 @@ async def rd_identify_opportunity(focus: str = "all", priority: str = "all", db=
             "title":       "Architect Brand Identity Kits",
             "category":    "high_value",
             "price_range": "$299 per kit",
-            "revenue_impact": "$897-2990/mo at 3-10 kits/month",
+            "potential_revenue_impact": "$897-2990/mo at 3-10 paid kits/month",
             "action":      "Activate DALL-E 3 via OPENAI_API_KEY — Architect can generate and sell brand kits autonomously",
         },
         {
@@ -425,7 +427,7 @@ async def rd_identify_opportunity(focus: str = "all", priority: str = "all", db=
             "title":       "Technology & Workforce Development Grants",
             "category":    "strategic",
             "price_range": "$25,000-$250,000",
-            "revenue_impact": "Non-dilutive capital — extend runway significantly",
+            "potential_revenue_impact": "Non-dilutive capital if awarded - not earned or committed",
             "action":      "USDA, NSF, SBA, JPMorgan Chase Foundation, Lumina Foundation target list available",
         },
         {
@@ -433,7 +435,7 @@ async def rd_identify_opportunity(focus: str = "all", priority: str = "all", db=
             "title":       "AI Infrastructure Consulting",
             "category":    "quick_win",
             "price_range": "$2,500-$15,000 per engagement",
-            "revenue_impact": "$5,000-30,000/mo at 2-4 engagements",
+            "potential_revenue_impact": "$5,000-30,000/mo at 2-4 paid engagements",
             "action":      "WAI-Institute has rare expertise in culturally-grounded AI — market externally",
         },
     ]
@@ -604,6 +606,7 @@ async def rd_revenue_dashboard(db=None) -> str:
     """Full revenue dashboard summary."""
     dashboard = {
         "generated_at": datetime.now(timezone.utc).isoformat(),
+        "truth_label": "CAPABILITY DASHBOARD - not actual revenue",
         "persona_network": {
             "cipher":      {"status": "active", "tool": "digital_products", "streams": 6},
             "oracle":      {"status": "active", "tool": "intelligence_reports", "streams": 6},
@@ -611,7 +614,7 @@ async def rd_revenue_dashboard(db=None) -> str:
             "architect":   {"status": "active", "tool": "design_products", "streams": 6},
             "revenue_director": {"status": "active", "tool": "financial_reports", "streams": 6},
         },
-        "total_streams":          30,
+        "total_capability_streams": 30,
         "gumroad_status":         "ACTIVE" if GUMROAD_API_KEY else "INACTIVE — add GUMROAD_API_KEY to Railway",
         "dalle_status":           "ACTIVE" if os.environ.get("OPENAI_API_KEY", os.environ.get("EMERGENT_LLM_KEY", "")) else "INACTIVE — add OPENAI_API_KEY",
         "elevenlabs_status":      "ACTIVE" if os.environ.get("ELEVENLABS_API_KEY", "") else "INACTIVE — add ELEVENLABS_API_KEY",

@@ -47,7 +47,8 @@ function ActionTile({ icon: Icon, label, sub, color, onClick, to }) {
 function PostCard({ post, onFlag }) {
   const cfg = CAT[post.category] || CAT.community;
   const Icon = cfg.icon;
-  const daysLeft = Math.max(0, Math.ceil((new Date(post.expires_at) - Date.now()) / 86400000));
+  const _exp = post.expires_at ? new Date(post.expires_at) : null;
+  const daysLeft = _exp && !isNaN(_exp) ? Math.max(0, Math.ceil((_exp - Date.now()) / 86400000)) : null;
   return (
     <div className="bg-white rounded-2xl shadow-sm border-2 border-transparent hover:border-amber-300 hover:shadow-md transition-all overflow-hidden group">
       <div className={`h-1.5 ${cfg.bg}`} />
@@ -56,7 +57,9 @@ function PostCard({ post, onFlag }) {
           <span className={`inline-flex items-center gap-1.5 text-xs font-bold px-3 py-1 rounded-full border ${cfg.pill}`}>
             <Icon className="w-3 h-3" />{cfg.label}
           </span>
-          <span className="text-xs text-ink/30 flex items-center gap-1"><Clock className="w-3 h-3" />{daysLeft}d</span>
+          {daysLeft !== null && (
+            <span className="text-xs text-ink/30 flex items-center gap-1"><Clock className="w-3 h-3" />{daysLeft}d</span>
+          )}
         </div>
         <p className="text-sm text-ink/85 leading-relaxed whitespace-pre-wrap font-medium">{post.content}</p>
         <div className="flex items-center justify-between mt-4 pt-3 border-t border-ink/5">
@@ -182,10 +185,15 @@ function NewNeedModal({ onClose, onSuccess }) {
 
 // ── Admin Panel ───────────────────────────────────────────────────────────────
 function AdminPanel({ hasFeature }) {
-  const [flags,setFlags]=useState([]); const [flagTotal,setFlagTotal]=useState(0); const [purging,setPurging]=useState(false); const [loading,setLoading]=useState(false);
+  const [flags,setFlags]=useState([]); const [flagTotal,setFlagTotal]=useState(0); const [queueTotal,setQueueTotal]=useState(0); const [appealTotal,setAppealTotal]=useState(0); const [purging,setPurging]=useState(false); const [loading,setLoading]=useState(false);
   const loadFlags=useCallback(async()=>{
     if(!hasFeature("flag_view"))return; setLoading(true);
-    try{const r=await api.get("/more/admin/flags");setFlags(r.data.flags||[]);setFlagTotal(r.data.total||0);}
+    try{
+      const [flagsR,queueR]=await Promise.all([api.get("/more/admin/flags"),api.get("/more/admin/queue")]);
+      setFlags(flagsR.data.flags||[]);setFlagTotal(flagsR.data.total||0);
+      setQueueTotal((queueR.data.posts_total||0)+(queueR.data.needs_total||0));
+      setAppealTotal(queueR.data.appeals_total||0);
+    }
     catch{toast.error("Could not load flags");}finally{setLoading(false);}
   },[hasFeature]);
   useEffect(()=>{loadFlags();},[loadFlags]);
@@ -205,6 +213,16 @@ function AdminPanel({ hasFeature }) {
         </div>
       </div>
       <div className="p-6">
+        {!loading&&(
+          <div className="grid grid-cols-3 gap-2 mb-4">
+            {[["Review",queueTotal],["Flags",flagTotal],["Appeals",appealTotal]].map(([label,value])=>(
+              <Link key={label} to="/more/admin" className="rounded-xl bg-white/5 p-3 hover:bg-white/10 transition-colors">
+                <div className="text-lg font-heading font-black text-white">{value}</div>
+                <div className="text-[10px] uppercase tracking-widest text-white/40">{label}</div>
+              </Link>
+            ))}
+          </div>
+        )}
         {loading?<div className="flex justify-center py-6"><Loader2 className="w-5 h-5 animate-spin text-amber-400"/></div>:
           flagTotal===0?<p className="text-sm text-white/30 text-center py-4">No pending flags — community is clean.</p>:(
             <div className="space-y-2">
@@ -266,7 +284,7 @@ export default function MoreHub() {
     catch { toast.error("Could not submit flag"); }
   };
 
-  const filteredPosts = catFilter === "all" ? posts : posts.filter(p => p.category === catFilter);
+  const filteredPosts = catFilter === "all" ? (posts || []) : (posts || []).filter(p => p.category === catFilter);
 
   const QUICK_ACTIONS = [
     hasFeature("post")        && { icon:PlusCircle,   label:"Share",          sub:"Post a skill or story",     color:"#f59e0b", onClick:()=>setShowPost(true) },
