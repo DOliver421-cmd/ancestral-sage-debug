@@ -134,7 +134,7 @@ export default function FeatureControlCenter() {
         <div style={{ padding: 48, textAlign: "center" }}>
           <div style={{ fontSize: 48, marginBottom: 16 }}>🔒</div>
           <h2 style={{ fontWeight: 900, fontSize: 20, marginBottom: 8 }}>Admin Access Required</h2>
-          <p style={{ color: "#666", fontSize: 14 }}>The Feature Control Center is only accessible to administrators.</p>
+          <p style={{ color: "#000", fontSize: 14 }}>The Feature Control Center is only accessible to administrators.</p>
         </div>
       </AppShell>
     );
@@ -150,13 +150,13 @@ export default function FeatureControlCenter() {
 
   return (
     <AppShell>
-      <div style={{ maxWidth: 1200, margin: "0 auto", padding: "24px 32px" }}>
+      <div style={{ maxWidth: 1200, margin: "0 auto", padding: "24px 32px", backgroundColor: "#fff", color: "#000" }}>
         {/* Header */}
         <div style={{ marginBottom: 32 }}>
           <h1 style={{ fontSize: 28, fontWeight: 900, marginBottom: 4 }}>
             Feature Control Center
           </h1>
-          <p style={{ color: "#666", fontSize: 14 }}>
+          <p style={{ color: "#000", fontSize: 14 }}>
             Configure access for every platform feature. One feature = one control record.
           </p>
           <div style={{ marginTop: 12, padding: "12px 16px", background: "#fef3c7", border: "1px solid #f59e0b", borderRadius: 8, fontSize: 13, lineHeight: 1.5 }}>
@@ -218,7 +218,7 @@ export default function FeatureControlCenter() {
 
         {/* Content */}
         {loading ? (
-          <div style={{ padding: 48, textAlign: "center", color: "#999" }}>Loading features...</div>
+          <div style={{ padding: 48, textAlign: "center", color: "#000" }}>Loading features...</div>
         ) : error ? (
           <div style={{ padding: 48, textAlign: "center", color: "#dc2626" }}>{error}</div>
         ) : view === "cards" ? (
@@ -267,7 +267,7 @@ function StatCard({ label, value, color }) {
       display: "flex", flexDirection: "column", minWidth: 140,
     }}>
       <span style={{ fontSize: 24, fontWeight: 900, color }}>{value}</span>
-      <span style={{ fontSize: 11, color: "#999", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em" }}>{label}</span>
+      <span style={{ fontSize: 11, color: "#000", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em" }}>{label}</span>
     </div>
   );
 }
@@ -302,7 +302,7 @@ function FeatureCard({ feature, saving, onToggle, onRoleToggle, onTierToggle }) 
         }} />
         <div style={{ flex: 1 }}>
           <div style={{ fontWeight: 800, fontSize: 15 }}>{feature.name}</div>
-          <div style={{ fontSize: 12, color: "#999" }}>{feature.description}</div>
+          <div style={{ fontSize: 12, color: "#000" }}>{feature.description}</div>
         </div>
         {feature.internal_only && (
           <span style={{
@@ -343,7 +343,7 @@ function FeatureCard({ feature, saving, onToggle, onRoleToggle, onTierToggle }) 
 
       {/* Collapsed Summary */}
       {!expanded && (
-        <div style={{ padding: "8px 20px", display: "flex", gap: 12, fontSize: 11, color: "#999" }}>
+        <div style={{ padding: "8px 20px", display: "flex", gap: 12, fontSize: 11, color: "#000" }}>
           <span>Route: {feature.route}</span>
           <span>·</span>
           <span>{feature.allowed_roles?.length || 0} roles</span>
@@ -366,14 +366,14 @@ function FeatureCard({ feature, saving, onToggle, onRoleToggle, onTierToggle }) 
       {expanded && (
         <div style={{ padding: "16px 20px" }}>
           {/* Route + API */}
-          <div style={{ fontSize: 12, color: "#666", marginBottom: 16 }}>
+          <div style={{ fontSize: 12, color: "#000", marginBottom: 16 }}>
             <div><strong>Route:</strong> {feature.route}</div>
             <div><strong>API:</strong> {(feature.api_endpoints || []).join(", ") || "—"}</div>
           </div>
 
           {/* Roles */}
           <div style={{ marginBottom: 16 }}>
-            <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", color: "#999", marginBottom: 8 }}>
+            <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", color: "#000", marginBottom: 8 }}>
               Allowed Roles
             </div>
             <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
@@ -395,7 +395,7 @@ function FeatureCard({ feature, saving, onToggle, onRoleToggle, onTierToggle }) 
 
           {/* Tiers */}
           <div style={{ marginBottom: 16 }}>
-            <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", color: "#999", marginBottom: 8 }}>
+            <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", color: "#000", marginBottom: 8 }}>
               Allowed Tiers
             </div>
             <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
@@ -417,7 +417,7 @@ function FeatureCard({ feature, saving, onToggle, onRoleToggle, onTierToggle }) 
 
           {/* Classification */}
           <div style={{ marginBottom: 16 }}>
-            <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", color: "#999", marginBottom: 8 }}>
+            <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", color: "#000", marginBottom: 8 }}>
               Classification
             </div>
             <div style={{ display: "flex", gap: 16, flexWrap: "wrap" }}>

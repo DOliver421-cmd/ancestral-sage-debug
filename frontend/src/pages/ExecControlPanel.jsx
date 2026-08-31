@@ -233,7 +233,7 @@ export default function ExecControlPanel() {
   if (loading) {
     return (
       <AppShell>
-        <div className="p-12 text-ink font-heading">Loading executive controls…</div>
+        <div className="p-12 text-black font-heading">Loading executive controls…</div>
       </AppShell>
     );
   }
@@ -289,7 +289,7 @@ export default function ExecControlPanel() {
             <section>
               {/* ── New / Edit price form ─────────────────── */}
               <div className="bg-white rounded-2xl p-6 border border-slate-100 shadow-sm mb-6">
-                <h2 className="font-heading text-lg font-bold text-ink flex items-center gap-2 mb-4">
+                <h2 className="font-heading text-lg font-bold text-black flex items-center gap-2 mb-4">
                   <DollarSign size={18} style={{ color: GOLD }} />
                   {priceEditId ? "Edit Price" : "Add Price"}
                 </h2>
@@ -354,7 +354,7 @@ export default function ExecControlPanel() {
             <>
               {/* ── Tier definitions ──────────────────────────── */}
               <section>
-                <h2 className="font-heading text-lg font-bold text-ink flex items-center gap-2 mb-4">
+                <h2 className="font-heading text-lg font-bold text-black flex items-center gap-2 mb-4">
                   <Layers size={18} style={{ color: GOLD }} /> Tier Definitions
                 </h2>
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
@@ -379,7 +379,7 @@ export default function ExecControlPanel() {
 
                 {/* ── Add custom tier ──────────────────────── */}
                 <div className="bg-white rounded-2xl p-6 border border-slate-100 shadow-sm mb-8">
-                  <h3 className="font-heading font-bold text-ink mb-3">Add Custom Tier</h3>
+                  <h3 className="font-heading font-bold text-black mb-3">Add Custom Tier</h3>
                   <div className="grid sm:grid-cols-6 gap-3">
                     <input value={tierForm.tier_id} onChange={e => setTierForm({...tierForm, tier_id: e.target.value})}
                       placeholder="tier_id" className="text-sm px-3 py-2 rounded-lg border border-slate-200 outline-none focus:border-amber-400 col-span-1" />
@@ -404,7 +404,7 @@ export default function ExecControlPanel() {
 
               {/* ── Authorization matrix ───────────────────── */}
               <section>
-                <h2 className="font-heading text-lg font-bold text-ink flex items-center gap-2 mb-4">
+                <h2 className="font-heading text-lg font-bold text-black flex items-center gap-2 mb-4">
                   <Shield size={18} style={{ color: COPPER }} /> Authorization Matrix
                 </h2>
                 <p className="text-xs text-slate-600 mb-4">
@@ -458,7 +458,7 @@ export default function ExecControlPanel() {
           {/* ═══════════════ TAB: FEATURE FLAGS ═══════════════════ */}
           {tab === "flags" && (
             <section>
-              <h2 className="font-heading text-lg font-bold text-ink flex items-center gap-2 mb-4">
+              <h2 className="font-heading text-lg font-bold text-black flex items-center gap-2 mb-4">
                 <Flag size={18} style={{ color: GOLD }} /> Platform Feature Flags
               </h2>
               <p className="text-xs text-slate-600 mb-4">
@@ -496,7 +496,7 @@ export default function ExecControlPanel() {
           {/* ═══════════════ TAB: USER CONTROLS ═══════════════════ */}
           {tab === "users" && (
             <section>
-              <h2 className="font-heading text-lg font-bold text-ink flex items-center gap-2 mb-4">
+              <h2 className="font-heading text-lg font-bold text-black flex items-center gap-2 mb-4">
                 <Users size={18} style={{ color: GOLD }} /> User Controls
               </h2>
               {/* ── Search ─────────────────────────────────── */}
@@ -545,7 +545,7 @@ export default function ExecControlPanel() {
                       <div className="bg-white rounded-2xl p-6 border border-slate-100 shadow-sm">
                         <div className="flex items-center justify-between mb-4">
                           <div>
-                            <h3 className="font-heading font-bold text-lg text-ink">
+                            <h3 className="font-heading font-bold text-lg text-black">
                               {selectedUser.full_name}
                             </h3>
                             <div className="text-sm text-slate-500 font-mono">{selectedUser.email}</div>
@@ -571,7 +571,7 @@ export default function ExecControlPanel() {
 
                       {/* Role */}
                       <div className="bg-white rounded-2xl p-6 border border-slate-100 shadow-sm">
-                        <h4 className="font-heading font-bold text-sm text-ink mb-3">Change Role</h4>
+                        <h4 className="font-heading font-bold text-sm text-black mb-3">Change Role</h4>
                         <div className="flex flex-wrap gap-2">
                           {ALL_ROLES.map(r => (
                             <button key={r} onClick={() => setUserRole(selectedUser.id, r)} disabled={busy}
@@ -588,7 +588,7 @@ export default function ExecControlPanel() {
 
                       {/* Feature Tier */}
                       <div className="bg-white rounded-2xl p-6 border border-slate-100 shadow-sm">
-                        <h4 className="font-heading font-bold text-sm text-ink mb-3">Change Feature Tier</h4>
+                        <h4 className="font-heading font-bold text-sm text-black mb-3">Change Feature Tier</h4>
                         <div className="flex flex-wrap gap-2">
                           {tiers.map(t => (
                             <button key={t.tier_id} onClick={() => setUserTier(selectedUser.id, t.tier_id)} disabled={busy}
@@ -605,7 +605,7 @@ export default function ExecControlPanel() {
 
                       {/* AI Access */}
                       <div className="bg-white rounded-2xl p-6 border border-slate-100 shadow-sm">
-                        <h4 className="font-heading font-bold text-sm text-ink mb-3">AI Access</h4>
+                        <h4 className="font-heading font-bold text-sm text-black mb-3">AI Access</h4>
                         <div className="flex flex-wrap gap-2">
                           {PERSONA_LIST.map(p => (
                             <button key={p} onClick={() => setUserAI(selectedUser.id, p, true)} disabled={busy}
@@ -629,7 +629,7 @@ export default function ExecControlPanel() {
           {/* ═══════════════ TAB: PAGE ACCESS ════════════════════ */}
           {tab === "pages" && (
             <section>
-              <h2 className="font-heading text-lg font-bold text-ink flex items-center gap-2 mb-4">
+              <h2 className="font-heading text-lg font-bold text-black flex items-center gap-2 mb-4">
                 <Globe size={18} style={{ color: GOLD }} /> Page Access
               </h2>
               <p className="text-xs text-slate-600 mb-4">
