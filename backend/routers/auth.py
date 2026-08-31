@@ -285,13 +285,34 @@ async def register(body: RegisterReq, request: Request):
     # Public self-registration is always a student. Higher-privilege accounts
     # must be created by an admin (POST /api/admin/users). Exception: the very
     # FIRST account ever registered (empty users collection — e.g. immediately
-    # after a factory reset) becomes the executive_admin bootstrap owner — but
-    # ONLY when an exec seat email is actually configured. With no seat email,
-    # the bootstrap grant is locked: a stranger registering on a fresh database
-    # must never be able to claim god-mode just by being first.
+    # after a factory reset) may bootstrap the executive_admin owner — but ONLY
+    # when the registering address IS one of the configured exec seat emails.
+    #
+    # SECURITY FIX (2026-08-31): this previously required only that *some* seat
+    # email was configured (`bool(EXEC_ADMIN_EMAIL or ...)`), without checking
+    # that the registrant was that person. Configuring EXEC_ADMIN_EMAIL therefore
+    # ARMED the grant for whoever registered first, with any address — the exact
+    # opposite of the intent in this comment. It was masked only because no seat
+    # email was set, which kept the branch permanently unreachable.
+    #
+    # This is not a theoretical window. Exec seats are seeded inside
+    # server._on_startup_impl (server.py:1065), which runs as a fire-and-forget
+    # asyncio task, so the API accepts registrations BEFORE the seed rows exist.
+    # During that window `existing_users` is genuinely 0 on a fresh database.
+    # Matching the email closes the escalation regardless of the race.
     existing_users = await db.users.count_documents({})
-    _exec_seat_configured = bool(EXEC_ADMIN_EMAIL or BACKUP_EXEC_EMAIL or NAM_EXEC_EMAIL)
-    role = "executive_admin" if (existing_users == 0 and _exec_seat_configured) else "student"
+    _seat_emails = {
+        _e.strip().lower()
+        for _e in (EXEC_ADMIN_EMAIL, BACKUP_EXEC_EMAIL, NAM_EXEC_EMAIL)
+        if _e and _e.strip()
+    }
+    _is_exec_seat = (body.email or "").strip().lower() in _seat_emails
+    role = "executive_admin" if (existing_users == 0 and _is_exec_seat) else "student"
+    if existing_users == 0 and not _is_exec_seat:
+        logger.warning(
+            "Bootstrap exec grant DENIED — first registration did not match a "
+            "configured exec seat email. Account created as student."
+        )
     user = UserOut(email=body.email, full_name=body.full_name, role=role)
     if _promo_grant:
         user = user.model_copy(update={"feature_tier": _promo_grant["feature_tier"]})
