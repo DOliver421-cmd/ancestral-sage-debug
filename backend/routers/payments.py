@@ -1033,6 +1033,71 @@ async def payments_webhook(request: Request):
             pass
         return {"received": True}
 
+    # ── Dunning: a renewal payment failed ────────────────────────────────────
+    # Deliberately does NOT revoke. Lemon Squeezy retries a failed renewal over
+    # several days; revoking on the first decline would punish a customer for a
+    # transient bank rejection. Termination is already handled correctly by the
+    # subscription_cancelled/expired/paused branch above, which fires when LS
+    # exhausts its dunning retries.
+    #
+    # What was actually missing is the NOTIFICATION. Without it the customer is
+    # never told their card failed, cannot fix it, and silently loses access days
+    # later when the subscription expires — avoidable involuntary churn.
+    #
+    # Before this branch existed the event fell through to the terminal
+    # `return {"received": True}`, which answers 200 so Lemon Squeezy marks it
+    # delivered and never retries. The event looked handled and was discarded.
+    if event_name == "subscription_payment_failed":
+        data = (event.get("data") or {}).get("attributes") or {}
+        user_email = data.get("user_email", "")
+        product_key = _match_product_key(data.get("product_name", ""))
+        sub_id = str((event.get("data") or {}).get("id", ""))
+        now = datetime.now(timezone.utc)
+        user_doc = await _find_user_by_email(user_email, {"_id": 0, "id": 1}) if user_email else None
+        # Record the failure so the exec/billing surfaces can see at-risk revenue
+        # even when the buyer email does not match a local account.
+        try:
+            await db.payment_failures.update_one(
+                {"provider": "lemon_squeezy", "provider_order_id": sub_id},
+                {"$set": {
+                    "provider": "lemon_squeezy",
+                    "provider_order_id": sub_id,
+                    "buyer_email": user_email,
+                    "product_key": product_key,
+                    "user_id": (user_doc or {}).get("id", ""),
+                    "status": data.get("status", ""),
+                    "last_failed_at": now.isoformat(),
+                },
+                 "$inc": {"failure_count": 1},
+                 "$setOnInsert": {"first_failed_at": now.isoformat()}},
+                upsert=True,
+            )
+        except Exception:
+            logger.exception("LS webhook: payment-failure record failed (%s)", sub_id)
+        if user_doc:
+            try:
+                await notify(
+                    user_doc["id"],
+                    "Payment failed — update your card",
+                    "We could not process your subscription renewal. Please update your "
+                    "payment method to keep your access. We will retry automatically for "
+                    "a few days before the subscription ends.",
+                    link="/plans", kind="warning",
+                )
+            except Exception:
+                logger.exception("LS webhook: dunning notify failed (%s)", user_doc.get("id"))
+            try:
+                await audit(user_doc["id"], "subscription.payment_failed",
+                            meta={"product": product_key, "event": event_name})
+            except Exception:
+                pass
+        else:
+            logger.warning(
+                "LS webhook: subscription_payment_failed for unmatched email (sub=%s) — "
+                "recorded for manual reconciliation", sub_id,
+            )
+        return {"received": True}
+
     # ── Refunds — a refunded order revokes what it granted. Refunds are
     # issued as site credit unless the platform caused the failure (see the
     # Refund Policy page), so the paid capability goes away when the order is
