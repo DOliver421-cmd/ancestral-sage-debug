@@ -78,8 +78,8 @@ export default function ExecSystem() {
         api.get("/admin/stats"),
         api.get("/admin/recent-activity?limit=12"),
         api.get("/admin/cohorts"),
-        fetch(`${window.location.origin}/api/more/posts?limit=1`).then(r => r.json()),
-        fetch(`${window.location.origin}/api/more/needs?limit=1`).then(r => r.json()),
+        api.get("/more/posts?limit=1"),
+        api.get("/more/needs?limit=1"),
       ]);
       if (sysR.status === "fulfilled")   setSys(sysR.value.data);
       else                               setErr("System endpoint unavailable");
@@ -87,8 +87,8 @@ export default function ExecSystem() {
       if (actR.status === "fulfilled")   setActivity(actR.value.data || []);
       if (cohR.status === "fulfilled")   setCohorts(cohR.value.data || []);
       setMore({
-        posts: postsR.status === "fulfilled" ? (postsR.value.total ?? 0) : 0,
-        needs: needsR.status === "fulfilled" ? (needsR.value.total ?? 0) : 0,
+        posts: postsR.status === "fulfilled" ? (postsR.value.data.total ?? 0) : 0,
+        needs: needsR.status === "fulfilled" ? (needsR.value.data.total ?? 0) : 0,
       });
       setLastSync(new Date());
     } catch (e) {
@@ -272,6 +272,7 @@ export default function ExecSystem() {
                 <QuickAction icon={Shield}       label="Sage Audit"          to="/admin/sage-audit"  color="#7c3aed" />
                 <QuickAction icon={Activity}     label="Analytics"           to="/admin/analytics"   color="#0891b2" />
                 <QuickAction icon={Scale}        label="M.O.R.E. Admin"      to="/more/admin"        color="#059669" />
+                <QuickAction icon={Cog}          label="Admin Tools"         to="/admin/tools"       color="#b5501a" />
                 <QuickAction icon={MessageSquare} label="Council of Elders"  to="/council"           color="#1d4ed8" />
                 <QuickAction icon={Crown}        label="Set Sovereign Face"  to="/avatar-setup"      color="#059669" />
                 <QuickAction icon={Cog}          label="Admin Dashboard"     to="/admin"             color="#64748b" />
