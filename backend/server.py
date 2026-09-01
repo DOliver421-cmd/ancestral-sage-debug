@@ -1165,6 +1165,15 @@ async def on_shutdown():
     logger.info("SHUTDOWN: all background tasks cancelled.")
 
 
+def _bind_shared_runtime_dependencies():
+    """Make the live database and canonical request dependencies available to routers."""
+    import deps
+
+    app.state.db = db
+    deps.bind(current_user, audit, check_rate)
+    deps.set_db(db)
+
+
 async def _on_startup_impl():
     # ── MongoDB dual-connection setup ─────────────────────────────────────────
     # Motor connects lazily — we don't ping at startup (asyncio.wait_for +
@@ -1176,6 +1185,7 @@ async def _on_startup_impl():
     global _DB_SOURCE, _backup_db, STARTUP_COMPLETE
     _DB_SOURCE = "primary"
     _backup_db = None
+    _bind_shared_runtime_dependencies()
     if MONGO_BACKUP_URL:
         try:
             _backup_client = AsyncIOMotorClient(
