@@ -199,25 +199,42 @@ except Exception as _ai_router_err:
 from importlib import import_module
 
 _ADDITIONAL_API_ROUTER_MODULES = (
-    "aawab",
-    "abo",
-    "auditor",
-    "band",
-    "bridge",
-    "competition",
-    "creator",
-    "creator_lounge",
-    "features",
-    "iam",
-    "provider_gateway",
-    "scholarships",
-    "sentinel",
-    "supervisor",
+    ("aawab", "/api"),
+    ("abo", "/api"),
+    ("auditor", "/api"),
+    ("band", "/api"),
+    ("billing", "/api"),
+    ("bridge", "/api"),
+    ("byok", "/api"),
+    ("chat", "/api"),
+    ("competition", "/api"),
+    ("creator", "/api"),
+    ("creator_lounge", "/api"),
+    ("exec_control", "/api"),
+    ("exec_tools", ""),
+    ("executive_pipeline", ""),
+    ("features", "/api"),
+    ("handbooks", "/api"),
+    ("iam", "/api"),
+    ("jamil", "/api"),
+    ("media", "/api"),
+    ("missing", "/api"),
+    ("nam", ""),
+    ("position", "/api"),
+    ("projects", "/api"),
+    ("promo_codes", "/api"),
+    ("provider_gateway", "/api"),
+    ("revenue_exec", "/api"),
+    ("saga", ""),
+    ("scholarships", "/api"),
+    ("sentinel", "/api"),
+    ("site_guide", "/api"),
+    ("supervisor", "/api"),
 )
 
-for _router_module_name in _ADDITIONAL_API_ROUTER_MODULES:
+for _router_module_name, _router_mount_prefix in _ADDITIONAL_API_ROUTER_MODULES:
     _router_module = import_module(f"routers.{_router_module_name}")
-    app.include_router(_router_module.router, prefix="/api")
+    app.include_router(_router_module.router, prefix=_router_mount_prefix)
 
 # Security headers middleware
 @app.middleware("http")
