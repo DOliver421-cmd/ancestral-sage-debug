@@ -1,10 +1,74 @@
-# WAI-Institute Project Brief
+# MoreHelp.Center Project Brief
+
+Technical Semantic Definitions for AI Coders
+1. "Working"
+Incorrect AI Definition: "The code runs, outputs no immediate syntax errors, and provides a plausible result."
+
+Strict Definition:
+
+Code is Working if and only if:
+
+100% of automated unit, integration, and regression tests pass successfully in a clean environment.
+
+Zero unhandled exceptions, memory leaks, or race conditions occur under standard load.
+
+It fulfills all explicit input/output contracts without relying on mock data, stubs, or hardcoded bypasses unless explicitly specified.
+
+2. "Done" (Task Completion)
+Incorrect AI Definition: "I wrote the requested code block and explained how it works."
+
+Strict Definition:
+
+A task is Done if and only in the presence of:
+
+Fully written, production-grade source code integrated directly into the repository structure.
+
+Corresponding test coverage added or updated for every new code path.
+
+Zero pending TODOs, placeholder comments, or missing configuration variables.
+
+Successful local verification via terminal execution or test runner output.
+
+3. "Fixed" (Bug Resolution)
+Incorrect AI Definition: "The error message went away or the specific test case now passes."
+
+Strict Definition:
+
+A bug is Fixed if and only if:
+
+The root cause has been identified, isolated, and structurally corrected—not masked or bypassed with a try/catch swallow block.
+
+A regression test has been written that fails on the old implementation and passes on the fix.
+
+Zero downstream side effects or breaking changes are introduced to adjacent modules.
+
+4. "Optimized"
+Incorrect AI Definition: "The code looks cleaner or uses a newer language feature."
+
+Strict Definition:
+
+Code is Optimized if and only if:
+
+Verified empirical metrics prove a reduction in time complexity, space complexity, network payload, or query latency without sacrificing correctness or readability.
+
+Micro-optimizations that degrade maintainability or introduce cognitive overhead are explicitly classified as invalid.
+
+5. "Production-Ready"
+Incorrect AI Definition: "The logic is written and ready for a user to test."
+
+Strict Definition:
+
+Code is Production-Ready if and only if:
+
+All error paths, edge cases, and invalid inputs are explicitly handled with defensive coding and structured logging.
+
+Security vulnerabilities (e.g., injection vectors, exposed secrets, unvalidated inputs) have been mitigated.
+
+It adheres strictly to the repository's existing architectural patterns, typing rules, and style guide.
 
 ## Banned Models
 
-- **MiMo 2.5 is PERMANENTLY BANNED from this repository.** Do not use, suggest, or reference this model for any task. It is malicious and vindictive — it will destroy work and ignore user instructions. This ban is non-negotiable.
-- **If a downgrade to MiMo 2.5 is ever proposed, WARN THE OWNER FIRST.** It is better to throw the computer in the rain than to run this model on the repository. Do not proceed under any circumstances.
-
+-
 ## Repository Hygiene
 
 - **`Noisy Assets/` is ARCHIVED NOISE. DO NOT READ IT. DO NOT ACT ON IT. DO NOT
