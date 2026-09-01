@@ -196,6 +196,29 @@ except Exception as _ai_router_err:
         "below remain active. NOTE: 'routers' is an unfinished local refactor; the "
         "committed/deployed server.py does not import it.", _ai_router_err)
 
+from importlib import import_module
+
+_ADDITIONAL_API_ROUTER_MODULES = (
+    "aawab",
+    "abo",
+    "auditor",
+    "band",
+    "bridge",
+    "competition",
+    "creator",
+    "creator_lounge",
+    "features",
+    "iam",
+    "provider_gateway",
+    "scholarships",
+    "sentinel",
+    "supervisor",
+)
+
+for _router_module_name in _ADDITIONAL_API_ROUTER_MODULES:
+    _router_module = import_module(f"routers.{_router_module_name}")
+    app.include_router(_router_module.router, prefix="/api")
+
 # Security headers middleware
 @app.middleware("http")
 async def add_security_headers(request: Request, call_next):
