@@ -7503,32 +7503,10 @@ async def create_checkout_session(req: CheckoutReq, user=Depends(current_user)):
 
 @api_router.post("/payments/webhook")
 async def stripe_webhook(request: Request):
-    if not STRIPE_WEBHOOK_SECRET:
-        raise HTTPException(503, "Webhook not configured")
+    from routers import payments as payment_routes
 
-    payload = await request.body()
-    sig = request.headers.get("stripe-signature", "")
-
-    try:
-        event = _stripe.Webhook.construct_event(payload, sig, STRIPE_WEBHOOK_SECRET)
-    except _stripe.error.SignatureVerificationError:
-        raise HTTPException(400, "Invalid webhook signature")
-
-    etype = event["type"]
-    obj   = event["data"]["object"]
-
-    if etype == "checkout.session.completed":
-        await _stripe_checkout_done(obj)
-    elif etype in ("customer.subscription.created", "customer.subscription.updated"):
-        await _stripe_sub_upsert(obj)
-    elif etype == "customer.subscription.deleted":
-        await _stripe_sub_deleted(obj)
-    elif etype == "invoice.payment_succeeded":
-        await _stripe_invoice_paid(obj)
-    elif etype == "invoice.payment_failed":
-        await _stripe_invoice_failed(obj)
-
-    return {"received": True}
+    payment_routes.bind(db, audit, notify, current_user)
+    return await payment_routes.payments_webhook(request)
 
 
 async def _stripe_checkout_done(session):
