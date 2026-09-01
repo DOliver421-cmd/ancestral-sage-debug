@@ -126,11 +126,11 @@ ancestral-sage-debug/
 - **Tier 1:** NAM Oshun / Delon Oliver (human)
 - **Tier 2:** Director,  Ancestral Sage
 - **Tier 3:** Assistant Director / Hybrid NAM
-- **Tier 4:** Revenue Director, Cipher, Oracle, Ambassador, Architect, Savant Scholar, Apprentice, Product Designer, Risk Officer, Strategic Navigator, WAI Success Engine, Confidentiality Sentinel, Poor Righteous Teacher
-- **Tier 5:** Elder Council
+- **Tier 4:** Elder Council, Revenue Director, Confidentiality Sentinel 
+- **Tier 5:** Poor Righteous Teacher, Cipher, Oracle, Ambassador, Architect, Savant Scholar, Apprentice, Product Designer, Risk Officer, Strategic Navigator, WAI Success Engine
 - **Fusion:** The 9 (unified mind)
 
-Each T4 persona has VERIFIED ACTIVE CAPABILITIES (tool access) and produces sellable digital products ($9.99-$349.00). Revenue projection: $16K-$71K/yr at slow-to-moderate demand.
+Each T5 persona has VERIFIED ACTIVE CAPABILITIES (tool access) and produces sellable digital products ($9.99-$349.00). Revenue projection: $16K-$71K/yr at slow-to-moderate demand.
 
 ## Safety Rules
 - `rm`, `rm -rf`, `git reset --hard`, `git push --force` are DENIED
