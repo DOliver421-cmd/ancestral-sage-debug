@@ -9989,13 +9989,15 @@ try:
         """Talk to The Sovereign — executive-only, Director-supervised, memory-aware."""
         system = await _build_sovereign_prompt(db, user.id)
         try:
-            import anthropic as _anthropic_module
-            _client = _anthropic_module.AsyncAnthropic(api_key=ANTHROPIC_API_KEY)
-            _msg = await _client.messages.create(
-                model="claude-sonnet-4-6", max_tokens=2048,
-                system=system, messages=[{"role": "user", "content": body.message}],
+            from ai.llm_gateway import call_llm as _call_llm
+            _result = await _call_llm(
+                system=system,
+                messages=[{"role": "user", "content": body.message}],
+                max_tokens=2048,
+                persona_label="sovereign",
+                user_id=user.id,
             )
-            reply = _msg.content[0].text
+            reply = _result["text"]
         except Exception as e:
             logger.exception("Sovereign AI error")
             raise HTTPException(502, f"Sovereign AI error: {e}")
@@ -10131,8 +10133,6 @@ if _EMERGENCY_UI_PATH.exists():
 else:
     logger.warning("Emergency UI not found at %s — gateway disabled", _EMERGENCY_UI_PATH)
 
-app.include_router(api_router)
-
 # ── Readiness probe (gates on DB + startup) ──────────────────────────────────────────────────
 # Railway's healthcheck previously pinged /api/version, which returns 200 the
 # instant the process binds — even with a dead database or mid-startup. So a
@@ -10170,6 +10170,9 @@ async def ready():
             "startup_complete": False,
         })
     return {"ready": True, "startup_complete": True}
+
+
+app.include_router(api_router)
 
 
 # Flag set once _on_startup_impl() finishes (or fails), so the readiness probe
@@ -10251,11 +10254,6 @@ def setup_frontend_serving():
 
 
 setup_frontend_serving()
-
-# register any routes that were added to api_router after the first
-# include_router(api_router) call above (specifically the /api/ready
-# readiness probe). route-level dedup in FastAPI skips exact duplicates.
-app.include_router(api_router)
 
 # CORS: when origins is wildcard ("*") browsers reject credentials, so we
 # turn off allow_credentials in that case (auth uses Bearer token in Authorization

@@ -3092,7 +3092,7 @@ _PERSONA_DECISION_TREES = {
         "Strategic priority": {"Institutional": "Direct action + notify executive", "Operational": "Route to Assistant Director", "Revenue": "Route to Revenue Director"},
     },
     "assistant_director": {
-        "Receive request": {"Student issue?": {"YES": "Guide + track progress", "NO": "Instructor issue? {"YES": "Support + escalate if needed", "NO": "Escalate to Director"}}},
+        "Receive request": {"Student issue?": {"YES": "Guide + track progress", "NO": {"Instructor issue?": {"YES": "Support + escalate if needed", "NO": "Escalate to Director"}}}},
     },
     "ancestral_sage": {
         "Receive request": {"Crisis?": {"YES": "WITNESS → GROUND → ESCALATE", "NO": "HEALING PROTOCOL: Welcome → Witness → Ground → Reflect → Heal → Guide → Bless"}},
@@ -3101,7 +3101,7 @@ _PERSONA_DECISION_TREES = {
         "Receive request": {"Financial?": {"YES": "AUDIT → IDENTIFY → POSITION → PRICE → PACKAGE → LAUNCH → TRACK", "NO": "Route to appropriate persona"}},
     },
     "unified": {
-        "Receive request": {"Governance?": {"YES": "Director protocol", "NO": "Healing? {"YES": "Sage protocol", "NO": "Revenue? {"YES": "Revenue protocol", "NO": "Route to best-fit persona"}}}}},
+        "Receive request": {"Governance?": {"YES": "Director protocol", "NO": {"Healing?": {"YES": "Sage protocol", "NO": {"Revenue?": {"YES": "Revenue protocol", "NO": "Route to best-fit persona"}}}}}},
     },
 }
 
