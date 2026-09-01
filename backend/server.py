@@ -7630,20 +7630,10 @@ async def _stripe_invoice_failed(invoice):
 
 @api_router.get("/payments/portal")
 async def customer_portal(user=Depends(current_user)):
-    if not STRIPE_SECRET_KEY:
-        raise HTTPException(503, "Payment system not configured")
+    from routers import payments as payment_routes
 
-    user_doc = await db.users.find_one({"id": user.id}, {"stripe_customer_id": 1})
-    customer_id = (user_doc or {}).get("stripe_customer_id")
-
-    if not customer_id:
-        raise HTTPException(404, "No billing account found. Complete a purchase first.")
-
-    portal = _stripe.billing_portal.Session.create(
-        customer=customer_id,
-        return_url=f"{FRONTEND_URL}/dashboard",
-    )
-    return {"url": portal.url}
+    payment_routes.bind(db, audit, notify, current_user)
+    return await payment_routes.customer_portal(user)
 
 
 @api_router.get("/payments/history")
