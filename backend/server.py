@@ -232,10 +232,6 @@ _ADDITIONAL_API_ROUTER_MODULES = (
     ("supervisor", "/api"),
 )
 
-for _router_module_name, _router_mount_prefix in _ADDITIONAL_API_ROUTER_MODULES:
-    _router_module = import_module(f"routers.{_router_module_name}")
-    app.include_router(_router_module.router, prefix=_router_mount_prefix)
-
 # Security headers middleware
 @app.middleware("http")
 async def add_security_headers(request: Request, call_next):
@@ -10223,6 +10219,10 @@ async def ready():
 
 
 app.include_router(api_router)
+
+for _router_module_name, _router_mount_prefix in _ADDITIONAL_API_ROUTER_MODULES:
+    _router_module = import_module(f"routers.{_router_module_name}")
+    app.include_router(_router_module.router, prefix=_router_mount_prefix)
 
 
 # Flag set once _on_startup_impl() finishes (or fails), so the readiness probe
