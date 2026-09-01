@@ -63,6 +63,16 @@ async def _dep_current_user(authorization: Optional[str] = Header(None)) -> User
     return await current_user(authorization)
 
 
+async def _dep_current_user_optional(authorization: Optional[str] = Header(None)) -> Optional[User]:
+    """Resolve current_user if token present, else return None (anonymous access)."""
+    if not authorization or not authorization.startswith("Bearer "):
+        return None
+    try:
+        return await current_user(authorization)
+    except HTTPException:
+        return None
+
+
 def _require_rank(*roles):
     """Runtime equivalent of server.py's require_role() — used in Depends()
     because require_role is bound after this module loads (no import-time call)."""
@@ -123,16 +133,19 @@ async def log_cookie_consent(body: dict, request: Request):
 class HelpGuideRequest(BaseModel):
     path: str = Field(..., min_length=1, max_length=500)
     query: Optional[str] = Field(default=None, max_length=500)
+    anon: bool = False
 
 
 @router.post("/help/guide")
-async def help_guide(body: HelpGuideRequest, user: User = Depends(_dep_current_user)):
+async def help_guide(body: HelpGuideRequest, user: Optional[User] = Depends(_dep_current_user_optional)):
     """
     Context-sensitive help for any route in the platform.
     Returns role-aware guidance, tips, related links, and common tasks.
+    Works for both authenticated and anonymous visitors.
     """
     from help_guide import get_help_for
-    return get_help_for(role=user.role, path=body.path, query=body.query)
+    role = "public" if body.anon or not user else user.role
+    return get_help_for(role=role, path=body.path, query=body.query)
 
 
 # ── BUG REPORT ENDPOINT (48-hour testing campaign) ──────────────────────────────

@@ -3083,7 +3083,26 @@ _PERSONA_WILL_NOT = {
     "architect": ["Produce assets that fight the message",
                   "Skip brand consistency for speed"],
     "griot": ["Mislead creators about their royalties",
-              "Put the machine before the music"],
+               "Put the machine before the music"],
+}
+
+_PERSONA_DECISION_TREES = {
+    "director": {
+        "Receive request": {"Is it a threat?": {"YES": "Escalate to crisis protocol", "NO": "Assess strategic priority"}},
+        "Strategic priority": {"Institutional": "Direct action + notify executive", "Operational": "Route to Assistant Director", "Revenue": "Route to Revenue Director"},
+    },
+    "assistant_director": {
+        "Receive request": {"Student issue?": {"YES": "Guide + track progress", "NO": "Instructor issue? {"YES": "Support + escalate if needed", "NO": "Escalate to Director"}}},
+    },
+    "ancestral_sage": {
+        "Receive request": {"Crisis?": {"YES": "WITNESS → GROUND → ESCALATE", "NO": "HEALING PROTOCOL: Welcome → Witness → Ground → Reflect → Heal → Guide → Bless"}},
+    },
+    "revenue_director": {
+        "Receive request": {"Financial?": {"YES": "AUDIT → IDENTIFY → POSITION → PRICE → PACKAGE → LAUNCH → TRACK", "NO": "Route to appropriate persona"}},
+    },
+    "unified": {
+        "Receive request": {"Governance?": {"YES": "Director protocol", "NO": "Healing? {"YES": "Sage protocol", "NO": "Revenue? {"YES": "Revenue protocol", "NO": "Route to best-fit persona"}}}}},
+    },
 }
 
 
@@ -3112,13 +3131,42 @@ async def personas_directory():
 
 @router.get("/personas/{slug}")
 async def persona_profile(slug: str):
-    """Public profile for a single persona."""
+    """Public profile for a single persona — includes real decision record."""
     from ai.persona_loader import load_personas
     if slug not in load_personas():
         raise HTTPException(404, "Persona not found")
     meta = PERSONA_META.get(slug)
     if not meta:
         raise HTTPException(404, "Persona not found")
+
+    declines = []
+    decision_tree = None
+    if db is not None:
+        try:
+            async for row in db.chat_history.find(
+                {"mode": f"persona:{slug}", "status": {"$in": ["fallback", "failure"]}},
+                {"_id": 0, "user_msg": 1, "status": 1, "created_at": 1},
+            ).sort("created_at", -1).limit(10):
+                declines.append({
+                    "at": row.get("created_at"),
+                    "reason": "AI connectivity issue — operating in fallback mode" if row.get("status") == "fallback" else "Provider error",
+                    "context": (row.get("user_msg") or "")[:120],
+                })
+        except Exception:
+            pass
+        try:
+            async for audit in db.audit_log.find(
+                {"action": {"$regex": f"persona.*{slug}", "$options": "i"}},
+                {"_id": 0, "action": 1, "actor_id": 1, "created_at": 1},
+            ).sort("created_at", -1).limit(10):
+                declines.append({
+                    "at": audit.get("created_at"),
+                    "reason": audit.get("action", "system action"),
+                    "context": f"by {audit.get('actor_id', 'system')}",
+                })
+        except Exception:
+            pass
+
     return {
         "slug": slug,
         "name": meta["name"],
@@ -3127,8 +3175,8 @@ async def persona_profile(slug: str):
         "domain": meta["domain"],
         "statement": _PERSONA_STATEMENTS.get(slug, meta["domain"]),
         "will_not": _PERSONA_WILL_NOT.get(slug, []),
-        "record": {"declines": []},
-        "decision_tree": None,
+        "record": {"declines": declines[:10]},
+        "decision_tree": _PERSONA_DECISION_TREES.get(slug),
     }
 
 
