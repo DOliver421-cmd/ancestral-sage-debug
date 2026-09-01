@@ -192,9 +192,10 @@ app = FastAPI(
     openapi_url="/api/openapi.json" if _DOCS_ENABLED else None,
 )
 
+_ai_router_module = None
 try:
-    from routers import ai
-    app.include_router(ai.router, prefix="/api/ai")
+    from routers import ai as _ai_router_module
+    app.include_router(_ai_router_module.router, prefix="/api/ai")
 except Exception as _ai_router_err:
     logging.getLogger("server").warning(
         "Optional 'routers.ai' package not present (%s) — the inline /api/ai handlers "
@@ -10256,6 +10257,9 @@ def _bind_router_dependencies(router_module):
     values = [available[parameter.name] for parameter in inspect.signature(bind).parameters.values()]
     bind(*values)
 
+
+if _ai_router_module is not None:
+    _bind_router_dependencies(_ai_router_module)
 
 for _router_module_name, _router_mount_prefix in _ADDITIONAL_API_ROUTER_MODULES:
     _router_module = import_module(f"routers.{_router_module_name}")
