@@ -55,6 +55,11 @@ from prompts.ancestral_sage_prompt import (
 )
 from prompts.orchestrator import get_orchestrator_system, compute_orchestrator_hash, get_scholar_system, compute_scholar_hash
 from prompts.more_department_system import get_more_department_system, compute_more_department_hash
+try:
+    ai.bind(db, current_user, audit, assert_role, check_rate)
+except NameError:
+    pass
+
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import landscape, letter
 from reportlab.lib.units import inch
