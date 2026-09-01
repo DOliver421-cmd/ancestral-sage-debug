@@ -10220,8 +10220,41 @@ async def ready():
 
 app.include_router(api_router)
 
+
+def _bind_router_dependencies(router_module):
+    """Bind shared server dependencies to modular routers before mounting them."""
+    import inspect
+
+    bind = getattr(router_module, "bind", None)
+    if bind is None:
+        return
+    available = {
+        "db": db,
+        "_db": db,
+        "current_user": current_user,
+        "_current_user": current_user,
+        "audit": audit,
+        "_audit": audit,
+        "notify": notify,
+        "_notify": notify,
+        "check_rate": check_rate,
+        "_check_rate": check_rate,
+        "assert_role": assert_role,
+        "_assert_role": assert_role,
+        "xp_level": xp_level,
+        "_xp_level": xp_level,
+        "jwt_secret": JWT_SECRET,
+        "_jwt_secret": JWT_SECRET,
+        "jwt_algo": JWT_ALGO,
+        "_jwt_algo": JWT_ALGO,
+    }
+    values = [available[parameter.name] for parameter in inspect.signature(bind).parameters.values()]
+    bind(*values)
+
+
 for _router_module_name, _router_mount_prefix in _ADDITIONAL_API_ROUTER_MODULES:
     _router_module = import_module(f"routers.{_router_module_name}")
+    _bind_router_dependencies(_router_module)
     app.include_router(_router_module.router, prefix=_router_mount_prefix)
 
 
