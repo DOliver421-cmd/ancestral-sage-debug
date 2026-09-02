@@ -229,6 +229,18 @@ TIER_EXEMPT_ROLES = ("admin", "executive_admin")
 # Instructors get course/track access regardless of tier (they teach).
 FEATURE_INSTRUCTOR_BYPASS = {"courses", "tracks"}
 
+# BUSINESS_ACCESS_POLICY §7A (owner decision, August 2026): platform-funded AI
+# is reserved for admin / executive_admin staff ONLY.  Every other caller is
+# limited to their own BYOK key or the keyword knowledge base.  The gateway
+# (ai/llm_gateway.py) enforces this before any provider invocation; these
+# constants are the single source of the role list.
+STAFF_AI_ROLES = ("admin", "executive_admin")
+
+
+def is_staff_ai_role(role: str) -> bool:
+    """True when *role* qualifies for platform-funded AI (fail-closed default)."""
+    return role in STAFF_AI_ROLES
+
 TIER_LABELS: dict = {
     "free": "Free", "member": "Member", "plus": "Plus",
     "pro": "Pro", "patron": "Patron", "executive": "Executive",
@@ -350,6 +362,18 @@ async def check_user_feature_access(db, user, path: str):
             return ("unavailable", "Feature authorization unavailable — request rejected.")
         if config.get("enabled") is False:
             return ("block", "This feature is currently disabled.")
+        # customer_access_allowed=False (Feature Control Center classification)
+        # means customers must never reach the surface: only staff (rank >= admin)
+        # may proceed, regardless of any role list an admin configures.
+        if config.get("customer_access_allowed") is False:
+            try:
+                _staff_rank = role_rank("admin")
+                _caller_rank = role_rank(user.role)
+            except Exception:
+                _staff_rank = 6
+                _caller_rank = role_rank(user.role)
+            if _caller_rank < _staff_rank:
+                return ("block", "This feature is restricted to authorized staff.")
         allowed_roles = config.get("allowed_roles") or []
         if config.get("internal_only"):
             if allowed_roles and not any(

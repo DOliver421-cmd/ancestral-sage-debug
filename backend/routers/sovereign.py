@@ -182,7 +182,7 @@ try:
         reply = ""
         try:
             from ai.llm_gateway import call_llm as _call_llm
-            _gw = await _call_llm(system=system, messages=[{"role": "user", "content": body.message}], max_tokens=2048, persona_label="sovereign")
+            _gw = await _call_llm(system=system, messages=[{"role": "user", "content": body.message}], max_tokens=2048, persona_label="sovereign", user_id=user.id)
             if _gw.get("provider") != "kb_fallback":
                 reply = _gw.get("text", "")
         except Exception as e:
