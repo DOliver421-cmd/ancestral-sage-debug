@@ -748,6 +748,54 @@ async def call_llm(
         if _result is not None:
             return _result
 
+    # ── Tier 1b: Cerebras / Llama 3.3 70B (FREE — co-primary) ───────────────
+    if CEREBRAS_API_KEY:
+        try:
+            result = await _oai_compat_call(
+                base_url=CEREBRAS_BASE, api_key=CEREBRAS_API_KEY, model=CEREBRAS_MODEL,
+                system=system, messages=messages, max_tokens=max_tokens, tools=tools,
+            )
+            return await _tier_result(user_id, budget_key, result, "cerebras", CEREBRAS_MODEL, False, persona_label)
+        except Exception as e:
+            logger.warning("LLM Gateway T1b Cerebras failed (%s): %s", persona_label, e)
+
+    # ── Tier 1c: SambaNova / Llama 3.3 70B (FREE — co-primary) ──────────────
+    if SAMBANOVA_API_KEY:
+        try:
+            result = await _oai_compat_call(
+                base_url=SAMBANOVA_BASE, api_key=SAMBANOVA_API_KEY, model=SAMBANOVA_MODEL,
+                system=system, messages=messages, max_tokens=max_tokens, tools=tools,
+            )
+            return await _tier_result(user_id, budget_key, result, "sambanova", SAMBANOVA_MODEL, False, persona_label)
+        except Exception as e:
+            logger.warning("LLM Gateway T1c SambaNova failed (%s): %s", persona_label, e)
+
+    async def _rotated_oai(provider: str, base: str, provider_model: str, provider_tools, degraded: bool):
+        pool = _PROVIDER_KEY_POOLS[provider]
+        lease = await pool.acquire()
+        if not lease:
+            return None
+        try:
+            result = await _oai_compat_call(
+                base_url=base, api_key=lease.key, model=provider_model,
+                system=system, messages=messages, max_tokens=max_tokens, tools=provider_tools,
+            )
+            return await _tier_result(user_id, budget_key, result, provider, provider_model, degraded, persona_label)
+        except Exception as exc:
+            status = getattr(getattr(exc, "response", None), "status_code", None)
+            if status == 429:
+                await pool.mark_rate_limited(lease)
+            else:
+                await pool.mark_failed(lease, KEY_FAILURE_COOLDOWN_SEC)
+            logger.warning("LLM Gateway %s failed (%s, status=%s): %s", provider, persona_label, status, exc)
+            return None
+
+    for _provider in ("groq", "cerebras", "sambanova", "gemini"):
+        _base, _model, _tools, _degraded = _provider_calls[_provider]
+        _result = await _rotated_oai(_provider, _base, _model, _tools, _degraded)
+        if _result is not None:
+            return _result
+
     # ── Tier 3: Grok / xAI (FREE credits — tool-capable) ─────────────────────
     if XAI_API_KEY:
         try:
