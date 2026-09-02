@@ -748,39 +748,6 @@ async def call_llm(
         if _result is not None:
             return _result
 
-    # ── Tier 1b: Cerebras / Llama 3.3 70B (FREE — co-primary) ───────────────
-    if CEREBRAS_API_KEY:
-        try:
-            result = await _oai_compat_call(
-                base_url=CEREBRAS_BASE, api_key=CEREBRAS_API_KEY, model=CEREBRAS_MODEL,
-                system=system, messages=messages, max_tokens=max_tokens, tools=tools,
-            )
-            return await _tier_result(user_id, budget_key, result, "cerebras", CEREBRAS_MODEL, False, persona_label)
-        except Exception as e:
-            logger.warning("LLM Gateway T1b Cerebras failed (%s): %s", persona_label, e)
-
-    # ── Tier 1c: SambaNova / Llama 3.3 70B (FREE — co-primary) ──────────────
-    if SAMBANOVA_API_KEY:
-        try:
-            result = await _oai_compat_call(
-                base_url=SAMBANOVA_BASE, api_key=SAMBANOVA_API_KEY, model=SAMBANOVA_MODEL,
-                system=system, messages=messages, max_tokens=max_tokens, tools=tools,
-            )
-            return await _tier_result(user_id, budget_key, result, "sambanova", SAMBANOVA_MODEL, False, persona_label)
-        except Exception as e:
-            logger.warning("LLM Gateway T1c SambaNova failed (%s): %s", persona_label, e)
-
-    # ── Tier 2: Gemini 2.0 Flash (FREE — 15 RPM, 1M ctx, text-only) ─────────
-    if GEMINI_API_KEY:
-        try:
-            result = await _oai_compat_call(
-                base_url=GEMINI_BASE, api_key=GEMINI_API_KEY, model=GEMINI_MODEL,
-                system=system, messages=messages, max_tokens=max_tokens, tools=None,
-            )
-            return await _tier_result(user_id, budget_key, result, "gemini", GEMINI_MODEL, True, persona_label)
-        except Exception as e:
-            logger.warning("LLM Gateway T2 Gemini failed (%s): %s", persona_label, e)
-
     # ── Tier 3: Grok / xAI (FREE credits — tool-capable) ─────────────────────
     if XAI_API_KEY:
         try:
