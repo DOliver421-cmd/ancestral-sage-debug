@@ -787,31 +787,16 @@ async def call_llm(
         except Exception as e:
             logger.warning("LLM Gateway T1c SambaNova failed (%s): %s", persona_label, e)
 
-    async def _rotated_oai(provider: str, base: str, provider_model: str, provider_tools, degraded: bool):
-        pool = _PROVIDER_KEY_POOLS[provider]
-        lease = await pool.acquire()
-        if not lease:
-            return None
+    # ── Tier 2: Gemini 2.0 Flash (FREE — 15 RPM, 1M ctx, text-only) ─────────
+    if GEMINI_API_KEY:
         try:
             result = await _oai_compat_call(
-                base_url=base, api_key=lease.key, model=provider_model,
-                system=system, messages=messages, max_tokens=max_tokens, tools=provider_tools,
+                base_url=GEMINI_BASE, api_key=GEMINI_API_KEY, model=GEMINI_MODEL,
+                system=system, messages=messages, max_tokens=max_tokens, tools=None,
             )
-            return await _tier_result(user_id, budget_key, result, provider, provider_model, degraded, persona_label)
-        except Exception as exc:
-            status = getattr(getattr(exc, "response", None), "status_code", None)
-            if status == 429:
-                await pool.mark_rate_limited(lease)
-            else:
-                await pool.mark_failed(lease, KEY_FAILURE_COOLDOWN_SEC)
-            logger.warning("LLM Gateway %s failed (%s, status=%s): %s", provider, persona_label, status, exc)
-            return None
-
-    for _provider in ("groq", "cerebras", "sambanova", "gemini"):
-        _base, _model, _tools, _degraded = _provider_calls[_provider]
-        _result = await _rotated_oai(_provider, _base, _model, _tools, _degraded)
-        if _result is not None:
-            return _result
+            return await _tier_result(user_id, budget_key, result, "gemini", GEMINI_MODEL, True, persona_label)
+        except Exception as e:
+            logger.warning("LLM Gateway T2 Gemini failed (%s): %s", persona_label, e)
 
     # ── Tier 3: Grok / xAI (FREE credits — tool-capable) ─────────────────────
     if XAI_API_KEY:
