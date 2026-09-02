@@ -634,6 +634,15 @@ async def stripe_webhook(request: Request):
 
     event_type = event.get("type", "")
     event_id = str(event.get("id", ""))
+
+    # ── Rollback guard (system_rollback): never drop a paid entitlement ───
+    # If a system rollback is in progress, the webhook is persisted to the
+    # deferred queue and answered with 503 so the provider retries delivery
+    # once the rollback window closes.  No entitlement is lost.
+    from routers.system_rollback import payment_webhook_maybe_defer
+    if await payment_webhook_maybe_defer(db, 'stripe', payload, dict(request.headers)):
+        from fastapi.responses import JSONResponse as _DeferJSON
+        return _DeferJSON(status_code=503, content={"detail": "Payment webhook deferred: system rollback in progress (provider retry will complete delivery)."})
     # Idempotency — same as the Lemon Squeezy webhook; duplicate delivery is a no-op.
     if event_id:
         try:
@@ -842,6 +851,15 @@ async def payments_webhook(request: Request):
         raise HTTPException(400, "Invalid JSON payload")
 
     event_name = (event.get("meta") or {}).get("event_name", "")
+
+    # ── Rollback guard (system_rollback): never drop a paid entitlement ───
+    # If a system rollback is in progress, the webhook is persisted to the
+    # deferred queue and answered with 503 so the provider retries delivery
+    # once the rollback window closes.  No entitlement is lost.
+    from routers.system_rollback import payment_webhook_maybe_defer
+    if await payment_webhook_maybe_defer(db, 'lemon_squeezy', payload, dict(request.headers)):
+        from fastapi.responses import JSONResponse as _DeferJSON
+        return _DeferJSON(status_code=503, content={"detail": "Payment webhook deferred: system rollback in progress (provider retry will complete delivery)."})
 
     # ── Idempotency — process each Lemon Squeezy event exactly once ──────────
     # Lemon Squeezy retries failed deliveries, so the same event can arrive
@@ -1304,6 +1322,15 @@ async def gumroad_webhook(request: Request):
     amount = event.get("amount", 0)  # cents (Gumroad sends integer cents)
     currency = str(event.get("currency", "usd")).lower()
     is_subscription = str(event.get("subscribe", "")).lower() in ("y", "yes", "true", "1")
+
+    # ── Rollback guard (system_rollback): never drop a paid entitlement ───
+    # If a system rollback is in progress, the webhook is persisted to the
+    # deferred queue and answered with 503 so the provider retries delivery
+    # once the rollback window closes.  No entitlement is lost.
+    from routers.system_rollback import payment_webhook_maybe_defer
+    if await payment_webhook_maybe_defer(db, 'gumroad', body, dict(request.headers)):
+        from fastapi.responses import JSONResponse as _DeferJSON
+        return _DeferJSON(status_code=503, content={"detail": "Payment webhook deferred: system rollback in progress (provider retry will complete delivery)."})
 
     # ── Idempotency — same as the LS webhook; duplicate delivery is a no-op ────
     if sale_id:

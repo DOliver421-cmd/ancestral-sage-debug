@@ -201,7 +201,7 @@ export default function FeatureControlCenter() {
         {/* View Toggle + Filters */}
         <div style={{ display: "flex", gap: 12, marginBottom: 24, alignItems: "center", flexWrap: "wrap" }}>
           <div style={{ display: "flex", gap: 4, background: "#f3f4f6", borderRadius: 8, padding: 3 }}>
-            {["cards", "tier-matrix", "role-matrix"].map(v => (
+            {["cards", "tier-matrix", "role-matrix", "rollback"].map(v => (
               <button key={v} onClick={() => setView(v)}
                 style={{
                   padding: "6px 14px", borderRadius: 6, border: "none", cursor: "pointer", fontSize: 12, fontWeight: 700,
@@ -209,7 +209,7 @@ export default function FeatureControlCenter() {
                   color: view === v ? "#1a1a1a" : "#666",
                   boxShadow: view === v ? "0 1px 3px rgba(0,0,0,0.1)" : "none",
                 }}>
-                {v === "cards" ? "Feature Cards" : v === "tier-matrix" ? "Tier Matrix" : "Role Matrix"}
+                {v === "cards" ? "Feature Cards" : v === "tier-matrix" ? "Tier Matrix" : v === "role-matrix" ? "Role Matrix" : "System Rollback"}
               </button>
             ))}
           </div>
@@ -275,6 +275,8 @@ export default function FeatureControlCenter() {
               handleRoleToggle(featureId, col);
             }}
           />
+        ) : view === "rollback" ? (
+          <RollbackPanel />
         ) : null}
       </div>
   );
@@ -566,6 +568,124 @@ function MatrixView({ matrix, columns, columnType, onToggle }) {
           ))}
         </tbody>
       </table>
+    </div>
+  );
+}
+
+
+function RollbackPanel() {
+  const [health, setHealth] = useState(null);
+  const [points, setPoints] = useState([]);
+  const [queue, setQueue] = useState([]);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState(null);
+
+  const load = useCallback(async () => {
+    try {
+      const [h, p, q] = await Promise.all([
+        api.get("/admin/system/health"),
+        api.get("/admin/system/restore-points"),
+        api.get("/admin/system/webhook-queue"),
+      ]);
+      setHealth(h.data);
+      setPoints(p.data.restore_points || []);
+      setQueue(q.data.deferred || []);
+      setError(null);
+    } catch (err) {
+      setError(err?.response?.data?.detail || err?.message || "Failed to load rollback state");
+    }
+  }, []);
+
+  useEffect(() => { load(); }, [load]);
+
+  const createPoint = async () => {
+    setBusy(true);
+    try {
+      const r = await api.post("/admin/system/restore-points");
+      toast.success(`Restore point created (${r.data.restore_point.id.slice(0, 8)}) — visual capture ${r.data.screenshot_dispatch?.dispatched ? "dispatched" : "will run on the next scheduled capture"}.`);
+      await load();
+    } catch (err) {
+      toast.error(err?.response?.data?.detail || "Could not create restore point");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const doRollback = async (id) => {
+    if (!window.confirm("ROLLBACK: this restores the configuration snapshot (features/flags/matrices) and redeploys the prior image. Creator earnings, payments, BYOK keys and user data are NEVER touched. Continue?")) return;
+    setBusy(true);
+    try {
+      const r = await api.post("/admin/system/rollback", { restore_point_id: id, confirm: true });
+      toast.success(`Rollback executed — redeploying ${r.data.deployment_id}; collections restored: ${Object.keys(r.data.config_collections_restored || {}).join(", ")}`);
+      await load();
+    } catch (err) {
+      toast.error(err?.response?.data?.detail || "Rollback failed");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+      {error && <div style={{ padding: 16, background: "#fef2f2", color: "#b91c1c", borderRadius: 8, fontSize: 13 }}>{error}</div>}
+
+      <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+        <StatCard label="Webhook Secret" value={health?.webhook_secret_configured ? "Configured" : "Missing"} color={health?.webhook_secret_configured ? "#047857" : "#dc2626"} />
+        <StatCard label="Railway Token" value={health?.railway_token_configured ? "Configured" : "Missing"} color={health?.railway_token_configured ? "#047857" : "#dc2626"} />
+        <StatCard label="Deployment ID" value={health?.current_deployment_id ? health.current_deployment_id.slice(0, 10) + "…" : "Unknown"} color="#1d4ed8" />
+        <StatCard label="Restore Points" value={points.length} color="#6d28d9" />
+        <StatCard label="Rollback Lock" value={health?.rollback_lock_active ? "ACTIVE" : "Idle"} color={health?.rollback_lock_active ? "#b45309" : "#047857"} />
+      </div>
+
+      <div>
+        <button
+          onClick={createPoint}
+          disabled={busy}
+          style={{ padding: "10px 18px", background: "#1a1a1a", color: "#fff", border: "none", borderRadius: 8, cursor: "pointer", fontWeight: 700, fontSize: 13 }}
+        >
+          {busy ? "Working…" : "Create restore point (config snapshot + screenshot capture)"}
+        </button>
+      </div>
+
+      <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+        {points.map(p => (
+          <div key={p.id} style={{ background: "#fff", border: "1px solid #e5e7eb", borderRadius: 10, padding: 14, display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+            <div>
+              <div style={{ fontWeight: 800, fontSize: 14, color: "#1a1a1a" }}>{new Date(p.created_at).toLocaleString()} <span style={{ color: "#666", fontWeight: 500 }}>— {p.trigger}</span></div>
+              <div style={{ fontSize: 12, color: "#444", marginTop: 4 }}>
+                deployment {p.railway_deployment_id ? p.railway_deployment_id.slice(0, 12) : "unknown"} · git {p.git_commit_sha.slice(0, 8)} · {p.config_collections?.length || 0} config collections · {p.has_screenshot ? "screenshot attached ✓" : "no screenshot yet"}
+              </div>
+            </div>
+            <button
+              onClick={() => doRollback(p.id)}
+              disabled={busy}
+              style={{ padding: "8px 14px", background: "#dc2626", color: "#fff", border: "none", borderRadius: 6, cursor: "pointer", fontWeight: 700, fontSize: 12 }}
+            >
+              Rollback to this point
+            </button>
+          </div>
+        ))}
+        {points.length === 0 && (
+          <div style={{ padding: 24, border: "1px dashed #d1d5db", borderRadius: 10, color: "#6b7280", fontSize: 13 }}>
+            No restore points yet — create the first one to arm the safety net.
+          </div>
+        )}
+      </div>
+
+      <div>
+        <h3 style={{ fontSize: 13, fontWeight: 800, color: "#1a1a1a", textTransform: "uppercase", letterSpacing: "0.05em" }}>Deferred payment webhooks during rollback windows</h3>
+        {queue.length === 0 ? (
+          <div style={{ padding: 12, color: "#6b7280", fontSize: 13 }}>None deferred — the queue is empty.</div>
+        ) : (
+          <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 8 }}>
+            {queue.map((w, i) => (
+              <div key={i} style={{ fontSize: 12, color: "#444", background: "#f9fafb", border: "1px solid #e5e7eb", borderRadius: 8, padding: "8px 12px" }}>
+                {w.provider} · {w.status} · {w.received_at} · payload {w.payload_b64 ? `${Math.round(w.payload_b64.length * 0.75 / 1024)}KB retained` : "n/a"}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 }

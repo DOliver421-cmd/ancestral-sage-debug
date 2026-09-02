@@ -236,6 +236,7 @@ _ADDITIONAL_API_ROUTER_MODULES = (
     ("sentinel", "/api"),
     ("site_guide", "/api"),
     ("supervisor", "/api"),
+    ("system_rollback", "/api"),
 )
 
 # ── Feature Control Center enforcement (read side) ──────────────────────────
@@ -1477,6 +1478,8 @@ async def ensure_indexes():
         # Audit logs: retain for 1 year (365 days) for compliance
         await db.audit_log.create_index([("at", -1)])
         await db.feature_configs.create_index([("feature_id", 1)], unique=True)
+        await db.system_restore_points.create_index([("created_at", -1)])
+        await db.deferred_webhooks.create_index([("received_at", -1)])
         await db.audit_log.create_index("at", expireAfterSeconds=365 * 24 * 3600)
         # Notifications: auto-delete after 30 days
         await db.notifications.create_index([("user_id", 1), ("created_at", -1)])
