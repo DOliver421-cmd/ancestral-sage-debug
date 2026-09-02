@@ -422,8 +422,24 @@ def _actor_name(user) -> str:
         return str(user.get("id") or user.get("email") or "unknown")
     return str(getattr(user, "id", None) or getattr(user, "email", None) or "unknown")
 
+
+
+async def _resolve_user(request: Request):
+    """Resolve the current user manually (works regardless of bind timing).
+
+    server.current_user is an async dependency taking ``authorization``;
+    calling it by hand avoids the Depends-at-import-time pitfall (the module
+    global is None until server.py binds it) and keeps full control of the
+    HTTP status codes.
+    """
+    cu = globals().get("current_user")
+    if cu is None:
+        raise HTTPException(503, "Authentication dependency not bound")
+    return await cu(authorization=request.headers.get("authorization") or "")
+
 @router.get("/admin/system/health")
-async def admin_health(user: dict = Depends(lambda: current_user)):
+async def admin_health(request: Request):
+    user = await _resolve_user(request)
     assert_role(user, "admin", "executive_admin")
     return {
         "engine": "dual-trigger visual rollback",
@@ -439,7 +455,8 @@ async def admin_health(user: dict = Depends(lambda: current_user)):
 
 
 @router.get("/admin/system/restore-points")
-async def list_restore_points(user: dict = Depends(lambda: current_user)):
+async def list_restore_points(request: Request):
+    user = await _resolve_user(request)
     assert_role(user, "admin", "executive_admin")
     docs = await db.system_restore_points.find({}, sort=[("created_at", -1)]).to_list(50)
     return {
@@ -460,7 +477,8 @@ async def list_restore_points(user: dict = Depends(lambda: current_user)):
 
 
 @router.get("/admin/system/restore-points/{restore_point_id}")
-async def get_restore_point(restore_point_id: str, user: dict = Depends(lambda: current_user)):
+async def get_restore_point(restore_point_id: str, request: Request):
+    user = await _resolve_user(request)
     assert_role(user, "admin", "executive_admin")
     doc = await db.system_restore_points.find_one({"id": restore_point_id})
     if not doc:
@@ -469,7 +487,8 @@ async def get_restore_point(restore_point_id: str, user: dict = Depends(lambda: 
 
 
 @router.post("/admin/system/restore-points")
-async def create_restore_point_route(user: dict = Depends(lambda: current_user)):
+async def create_restore_point_route(request: Request):
+    user = await _resolve_user(request)
     assert_role(user, "admin", "executive_admin")
     actor = _actor_name(user)
     rp = await create_restore_point(actor=actor, trigger="admin")
@@ -484,7 +503,8 @@ async def create_restore_point_route(user: dict = Depends(lambda: current_user))
 
 
 @router.post("/admin/system/rollback")
-async def admin_rollback(body: RollbackReq, user: dict = Depends(lambda: current_user)):
+async def admin_rollback(body: RollbackReq, request: Request):
+    user = await _resolve_user(request)
     assert_role(user, "admin", "executive_admin")
     if not body.confirm:
         raise HTTPException(400, "Rollback requires confirm=true — this operation restores configuration and redeploys a prior image.")
@@ -498,7 +518,8 @@ async def admin_rollback(body: RollbackReq, user: dict = Depends(lambda: current
 
 
 @router.get("/admin/system/webhook-queue")
-async def webhook_queue(user: dict = Depends(lambda: current_user)):
+async def webhook_queue(request: Request):
+    user = await _resolve_user(request)
     assert_role(user, "admin", "executive_admin")
     docs = await db.deferred_webhooks.find({}, sort=[("received_at", -1)]).to_list(100)
     return {
