@@ -3129,6 +3129,73 @@ async def personas_directory():
     return {"personas": personas}
 
 
+# ROUTE ORDER: these exec routes are declared BEFORE the /personas/{slug}
+# catch-all at line ~3132. FastAPI matches in declaration order; when they
+# sat below the catch-all, /api/ai/personas/exec resolved as slug="exec"
+# -> 404 "Persona not found" and the IAM console's Personas tab rendered
+# empty (owner-reported 2026-09-02).
+
+@router.get("/personas/exec")
+async def exec_personas(user: User = Depends(_require_rank("admin", "executive_admin"))):
+    """Full persona roster with live enable state for the IAM console."""
+    from ai.persona_loader import load_personas, get_persona
+    keys = list(load_personas().keys())
+    disabled = await _persona_state()
+    rows = []
+    for key in keys:
+        meta = PERSONA_META.get(key) or {"name": key, "level": "production", "department": "AI", "domain": ""}
+        rows.append({
+            "slug": key,
+            "name": meta["name"],
+            "level": meta["level"],
+            "department": meta["department"],
+            "domain": meta["domain"],
+            "enabled": key not in disabled,
+            "source_status": "active" if key in load_personas() else "missing",
+            "capabilities": _PERSONA_CAPS.get(key, []),
+        })
+    rows.sort(key=lambda r: _LEVEL_ORDER.get(r["level"], 5))
+    # Unified model at the top of its tier.
+    rows.sort(key=lambda r: (0 if r["slug"] == "unified" else 1, _LEVEL_ORDER.get(r["level"], 5)))
+    return {"personas": rows, "registry_size": len(rows)}
+
+
+class _PersonaToggleReq(BaseModel):
+    enabled: bool
+
+
+@router.post("/personas/{slug}/toggle")
+async def toggle_persona(slug: str, body: _PersonaToggleReq,
+                         user: User = Depends(_require_rank("executive_admin"))):
+    """Enable/disable a persona globally. Persisted; survives redeploys."""
+    from ai.persona_loader import load_personas, get_persona
+    if slug not in load_personas():
+        raise HTTPException(404, f"Unknown persona: {slug}")
+    doc = {}
+    if db is not None:
+        try:
+            cur = await db.platform_config.find_one({"_id": _PERSONA_ENABLED_KEY})
+            doc = dict((cur or {}).get("map", {}))
+        except Exception:
+            pass
+    doc[slug] = bool(body.enabled)
+    if db is not None:
+        try:
+            await db.platform_config.update_one(
+                {"_id": _PERSONA_ENABLED_KEY},
+                {"$set": {"map": doc, "updated_by": user.id,
+                          "updated_at": datetime.utcnow().isoformat()}},
+                upsert=True,
+            )
+        except Exception:
+            raise HTTPException(500, "Could not persist persona state.")
+    try:
+        await audit(user.id, "persona.toggled", target=slug, meta={"enabled": bool(body.enabled)})
+    except Exception:
+        pass
+    return {"slug": slug, "enabled": bool(body.enabled)}
+
+
 @router.get("/personas/{slug}")
 async def persona_profile(slug: str):
     """Public profile for a single persona — includes real decision record."""
@@ -3211,79 +3278,6 @@ async def _persona_state() -> dict:
             pass
     return disabled
 
-
-@router.get("/personas/exec")
-async def exec_personas(user: User = Depends(_require_rank("admin", "executive_admin"))):
-    """Full persona roster with live enable state for the IAM console."""
-    from ai.persona_loader import load_personas, get_persona
-    keys = list(load_personas().keys())
-    disabled = await _persona_state()
-    rows = []
-    for key in keys:
-        meta = PERSONA_META.get(key) or {"name": key, "level": "production", "department": "AI", "domain": ""}
-        rows.append({
-            "slug": key,
-            "name": meta["name"],
-            "level": meta["level"],
-            "department": meta["department"],
-            "domain": meta["domain"],
-            "enabled": key not in disabled,
-            "source_status": "active" if key in load_personas() else "missing",
-            "capabilities": _PERSONA_CAPS.get(key, []),
-        })
-    rows.sort(key=lambda r: _LEVEL_ORDER.get(r["level"], 5))
-    # Unified model at the top of its tier.
-    rows.sort(key=lambda r: (0 if r["slug"] == "unified" else 1, _LEVEL_ORDER.get(r["level"], 5)))
-    return {"personas": rows, "registry_size": len(rows)}
-
-
-class _PersonaToggleReq(BaseModel):
-    enabled: bool
-
-
-@router.post("/personas/{slug}/toggle")
-async def toggle_persona(slug: str, body: _PersonaToggleReq,
-                         user: User = Depends(_require_rank("executive_admin"))):
-    """Enable/disable a persona globally. Persisted; survives redeploys."""
-    from ai.persona_loader import load_personas, get_persona
-    if slug not in load_personas():
-        raise HTTPException(404, f"Unknown persona: {slug}")
-    doc = {}
-    if db is not None:
-        try:
-            cur = await db.platform_config.find_one({"_id": _PERSONA_ENABLED_KEY})
-            doc = dict((cur or {}).get("map", {}))
-        except Exception:
-            pass
-    doc[slug] = bool(body.enabled)
-    if db is not None:
-        try:
-            await db.platform_config.update_one(
-                {"_id": _PERSONA_ENABLED_KEY},
-                {"$set": {"map": doc, "updated_by": user.id,
-                          "updated_at": datetime.utcnow().isoformat()}},
-                upsert=True,
-            )
-        except Exception:
-            raise HTTPException(500, "Could not persist persona state.")
-    try:
-        await audit(user.id, "persona.toggled", target=slug, meta={"enabled": bool(body.enabled)})
-    except Exception:
-        pass
-    return {"slug": slug, "enabled": bool(body.enabled)}
-
-
-@router.get("/ai/personas/exec")
-async def exec_personas_alias(user: User = Depends(_require_rank("admin", "executive_admin"))):
-    """Alias for /personas/exec for frontend compatibility."""
-    return await exec_personas(user)
-
-
-@router.post("/ai/personas/{slug}/toggle")
-async def toggle_persona_alias(slug: str, body: _PersonaToggleReq,
-                               user: User = Depends(_require_rank("executive_admin"))):
-    """Alias for /personas/{slug}/toggle for frontend compatibility."""
-    return await toggle_persona(slug, body, user)
 
 # ═════════════════════════════════════════════════════════════════════════════
 # Persona chat + tuning — the team pages lead somewhere, with voice-capable

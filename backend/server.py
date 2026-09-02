@@ -1234,6 +1234,17 @@ def _bind_shared_runtime_dependencies():
     deps.bind(current_user, audit, check_rate)
     deps.set_db(db)
 
+    # Hybrid NAM storage: hand the live DB handle to ai/hybrid_nam/persistence.
+    # Without this the NAM router silently falls back to an in-memory dict and
+    # every /nam commit (mission, strategy, memory, governance, …) disappears
+    # on the next restart/deploy — reported by the owner on 2026-09-02.
+    try:
+        from ai.hybrid_nam import persistence as _nam_persistence
+
+        _nam_persistence.init_db(db)
+    except Exception:
+        logger.exception("Failed to bind Hybrid NAM persistence to the live DB")
+
 
 async def _on_startup_impl():
     # ── MongoDB dual-connection setup ─────────────────────────────────────────

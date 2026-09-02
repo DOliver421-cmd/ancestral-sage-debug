@@ -571,6 +571,7 @@ async def operational_memory(
     content: str,
     people: list[str] = None,
     status: str = "active",
+    user: dict = Depends(require_auth),
 ) -> dict:
     """3. MEMORY: Preserve institutional continuity."""
     result = continuity_record(item_type, title, content, people, status)
@@ -596,6 +597,7 @@ async def operational_challenge(
     claim: str,
     evidence: str,
     conflict_with: str = "",
+    user: dict = Depends(require_admin),
 ) -> dict:
     """5. CHALLENGE: Question leadership when warranted."""
     result = challenge_leadership(claim, evidence, conflict_with)

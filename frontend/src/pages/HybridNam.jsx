@@ -22,6 +22,7 @@ import {
   Flag, Menu, X,
 } from "lucide-react";
 import PageBack from "../components/PageBack";
+import NamChatPanel from "../components/NamChatPanel";
 
 const COPPER = "#C0572D";
 const GOLD = "#E8A51E";
@@ -532,26 +533,26 @@ export function HybridNamContent({ embedded = false }) {
   };
 
   const body = (
-    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col">
+    <div className="min-h-screen bg-white text-ink flex flex-col">
       {/* Executive Header */}
-      <header className="shrink-0 border-b border-slate-800 bg-slate-950/95 backdrop-blur">
+      <header className="shrink-0 border-b border-ink/10 bg-white">
         <div className="flex items-center justify-between px-4 sm:px-6 py-3">
           <div className="flex items-center gap-3">
-            <button onClick={() => setSidebarOpen(!sidebarOpen)} className="lg:hidden p-2 -ml-2 rounded-lg border border-slate-700 text-slate-300 hover:text-white hover:border-slate-500" aria-label="Toggle navigation">
+            <button onClick={() => setSidebarOpen(!sidebarOpen)} className="lg:hidden p-2 -ml-2 rounded-lg border border-ink/20 text-ink/70 hover:text-ink hover:border-ink/40" aria-label="Toggle navigation">
               {sidebarOpen ? <X className="w-4 h-4" /> : <Menu className="w-4 h-4" />}
             </button>
             <div>
-              <div className="text-[10px] font-black uppercase tracking-widest text-emerald-400">Assistant Director — Pro-Black Institutional Intelligence</div>
-              <h1 className="font-heading text-lg sm:text-xl font-bold tracking-tight text-white">HYBRID NAM</h1>
+              <div className="text-[10px] font-black uppercase tracking-widest text-ink/60">Assistant Director — Pro-Black Institutional Intelligence</div>
+              <h1 className="font-heading text-lg sm:text-xl font-bold tracking-tight text-ink">HYBRID NAM</h1>
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <span className="hidden sm:inline-flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest px-2 py-1 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+            <span className="hidden sm:inline-flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest px-2 py-1 rounded bg-emerald-100 text-emerald-800 border border-emerald-300">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-600 animate-pulse" />
               Active Command
             </span>
             <button onClick={handleRefresh} disabled={loading}
-              className="flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-lg border border-slate-700 text-slate-300 hover:text-white hover:border-slate-500 disabled:opacity-40 transition-colors">
+              className="flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-lg border border-ink/20 text-ink/70 hover:text-ink hover:border-ink/40 disabled:opacity-40 transition-colors">
               <RefreshCw className={`w-3.5 h-3.5 ${loading ? "animate-spin" : ""}`} /> Refresh
             </button>
           </div>
@@ -560,13 +561,13 @@ export function HybridNamContent({ embedded = false }) {
 
       {/* Error Banner */}
       {error && (
-        <div className="shrink-0 border-b border-red-900/50 bg-red-950/30 px-4 sm:px-6 py-2.5" role="alert">
+        <div className="shrink-0 border-b border-red-200 bg-red-50 px-4 sm:px-6 py-2.5" role="alert">
           <div className="flex items-start justify-between gap-3">
             <div>
-              <div className="text-xs font-bold text-red-400">NAM could not load live data</div>
-              <div className="text-xs text-red-300/80 mt-0.5">{error}</div>
+              <div className="text-xs font-bold text-red-700">NAM could not load live data</div>
+              <div className="text-xs text-red-700/80 mt-0.5">{error}</div>
             </div>
-            <button onClick={handleRefresh} className="text-xs font-bold px-2 py-1 rounded border border-red-800 text-red-300 hover:bg-red-900/30">
+            <button onClick={handleRefresh} className="text-xs font-bold px-2 py-1 rounded border border-red-300 text-red-700 hover:bg-red-100">
               Retry
             </button>
           </div>
@@ -582,12 +583,12 @@ export function HybridNamContent({ embedded = false }) {
 
         {/* Left Sidebar — Institutional Pillars */}
         <aside className={`
-          fixed inset-y-0 left-0 z-30 w-64 bg-slate-950 border-r border-slate-800 transform transition-transform duration-200 lg:static lg:translate-x-0 lg:block
+          fixed inset-y-0 left-0 z-30 w-64 bg-white border-r border-ink/10 transform transition-transform duration-200 lg:static lg:translate-x-0 lg:block
           ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}
         `}>
           <div className="h-full flex flex-col">
-            <div className="px-4 py-3 border-b border-slate-800">
-              <div className="text-[10px] font-black uppercase tracking-widest text-slate-500">Institutional Pillars</div>
+            <div className="px-4 py-3 border-b border-ink/10">
+              <div className="text-[10px] font-black uppercase tracking-widest text-ink/50">Institutional Pillars</div>
             </div>
             <nav className="flex-1 overflow-y-auto py-2" aria-label="Institutional pillars">
               <ul className="space-y-0.5 px-2">
@@ -600,14 +601,14 @@ export function HybridNamContent({ embedded = false }) {
                         onClick={() => handlePillarChange(p.id)}
                         className={`
                           w-full text-left flex items-start gap-2.5 px-3 py-2 rounded-lg transition-colors
-                          ${isActive ? "bg-emerald-500/10 text-emerald-300 border border-emerald-500/20" : "text-slate-400 hover:text-slate-200 hover:bg-slate-900 border border-transparent"}
+                          ${isActive ? "bg-bone text-ink border border-ink/20" : "text-ink/60 hover:text-ink hover:bg-bone border border-transparent"}
                         `}
                         aria-current={isActive ? "page" : undefined}
                       >
-                        <Icon className={`w-4 h-4 mt-0.5 shrink-0 ${isActive ? "text-emerald-400" : "text-slate-500"}`} />
+                        <Icon className={`w-4 h-4 mt-0.5 shrink-0 ${isActive ? "text-ink" : "text-ink/40"}`} />
                         <div className="min-w-0">
-                          <div className={`text-xs font-bold truncate ${isActive ? "text-emerald-300" : "text-slate-300"}`}>{p.label}</div>
-                          <div className="text-[10px] text-slate-500 leading-tight mt-0.5 line-clamp-2">{p.description}</div>
+                          <div className={`text-xs font-bold truncate ${isActive ? "text-ink" : "text-ink/80"}`}>{p.label}</div>
+                          <div className="text-[10px] text-ink/50 leading-tight mt-0.5 line-clamp-2">{p.description}</div>
                         </div>
                       </button>
                     </li>
@@ -623,20 +624,20 @@ export function HybridNamContent({ embedded = false }) {
           <div className="p-4 sm:p-6 max-w-4xl">
             <div className="mb-4">
               <div className="flex items-center gap-2 mb-1">
-                <pillar.icon className="w-4 h-4 text-emerald-400" />
-                <h2 className="text-sm font-black uppercase tracking-widest text-emerald-400">{pillar.label} Stream</h2>
+                <pillar.icon className="w-4 h-4 text-ink/70" />
+                <h2 className="text-sm font-black uppercase tracking-widest text-ink">{pillar.label} Stream</h2>
               </div>
-              <p className="text-xs text-slate-500">{PILLAR_DESCRIPTIONS[activePillar]}</p>
+              <p className="text-xs text-ink/50">{PILLAR_DESCRIPTIONS[activePillar]}</p>
             </div>
 
             {loading ? (
-              <div className="py-16 text-center text-slate-500 flex items-center justify-center gap-2">
+              <div className="py-16 text-center text-ink/50 flex items-center justify-center gap-2">
                 <Loader2 className="w-4 h-4 animate-spin" /> Reading NAM state…
               </div>
             ) : records.length === 0 ? (
-              <div className="py-12 text-center text-slate-500 border border-dashed border-slate-800 rounded-xl">
+              <div className="py-12 text-center text-ink/50 border border-dashed border-ink/20 rounded-xl">
                 <div className="text-xs font-bold uppercase tracking-widest mb-1">No Records</div>
-                <div className="text-xs text-slate-600">{getEmptyState()}</div>
+                <div className="text-xs text-ink/40">{getEmptyState()}</div>
               </div>
             ) : (
               <div className="space-y-2">
@@ -645,14 +646,18 @@ export function HybridNamContent({ embedded = false }) {
                 ))}
               </div>
             )}
+
+            <div className="mt-8">
+              <NamChatPanel />
+            </div>
           </div>
         </main>
 
         {/* Right — Record Entry */}
         {admin && (
-          <aside className="hidden lg:block w-80 shrink-0 border-l border-slate-800 overflow-y-auto">
+          <aside className="hidden lg:block w-80 shrink-0 border-l border-ink/10 overflow-y-auto">
             <div className="p-4">
-              <div className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-3">Record Entry</div>
+              <div className="text-[10px] font-black uppercase tracking-widest text-ink/50 mb-3">Record Entry</div>
               <form onSubmit={handleSubmit} className="space-y-3">
                 {getFormFields()}
                 <button type="submit" disabled={submitting}
