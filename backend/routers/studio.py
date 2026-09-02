@@ -99,6 +99,7 @@ Rules:
             messages=[{"role": "user", "content": prompt}],
             system="You are a master lyricist and poet. You write authentic, culturally resonant lyrics across all genres. You understand flow, rhyme scheme, metaphor, and the emotional truth of Black American music and storytelling.",
             persona_label="Lyric Forge",
+            user_id=user.id,
         )
         return {"lyrics": result.get("text", ""), "provider": result.get("provider", "free")}
     except Exception as e:
@@ -139,6 +140,7 @@ Return ONLY a JSON object with these exact keys (no markdown, no extra text):
             messages=[{"role": "user", "content": prompt}],
             system="You are a music metadata specialist and digital distribution expert. You produce accurate, platform-optimized metadata for independent artists.",
             persona_label="Publishing Gate",
+            user_id=user.id,
         )
         text = result.get("text", "{}").strip()
         # Strip markdown code fences if present
@@ -195,6 +197,7 @@ async def studio_altar(body: dict, user: User = Depends(_dep_current_user)):
             messages=[{"role": "user", "content": prompt}],
             system="You are a world-class visual creative director. Give vivid, specific visual direction.",
             persona_label="VisualDirector",
+            user_id=user.id,
         )
         return {"direction": result.get("text", "A bold, cinematic visual identity awaits.")}
     except Exception:
@@ -219,6 +222,7 @@ async def studio_script(body: dict, user: User = Depends(_dep_current_user)):
             messages=[{"role": "user", "content": prompt}],
             system="You are a professional script editor and literary polisher. Return only the improved text.",
             persona_label="ScriptEditor",
+            user_id=user.id,
         )
         return {"polished": result.get("text", content)}
     except Exception:
@@ -243,6 +247,7 @@ async def studio_sound_blueprint(body: dict, user: User = Depends(_dep_current_u
             messages=[{"role": "user", "content": prompt}],
             system="You are a seasoned music producer with deep knowledge of beats, sound design, and arrangement.",
             persona_label="SoundProducer",
+            user_id=user.id,
         )
         return {"blueprint": result.get("text", "Sonic blueprint unavailable — try again.")}
     except Exception:
@@ -336,7 +341,7 @@ async def studio_sovereign(body: dict, user: User = Depends(_dep_current_user)):
                 f"Topic: {ctx.get('topic', '')}. Notes: {ctx.get('notes', '')}. "
                 "Return only the lyrics — no commentary."
             )
-            r = await call_llm(system="You are Sovereign, a master lyricist and poet. Write authentic, culturally resonant lyrics.", messages=[{"role": "user", "content": prompt}], persona_label="LyricForge")
+            r = await call_llm(system="You are Sovereign, a master lyricist and poet. Write authentic, culturally resonant lyrics.", messages=[{"role": "user", "content": prompt}], persona_label="LyricForge", user_id=user.id)
             if not (r.get("text") or "").strip():
                 raise RuntimeError("empty lyric response")
             artifact = r.get("text", "")
@@ -351,7 +356,7 @@ async def studio_sovereign(body: dict, user: User = Depends(_dep_current_user)):
                 "Return a JSON object with keys: title, artist_note, genre, release_date_suggestion, "
                 "description, tags (array), upc_note, isrc_note, distributor_note, pitch."
             )
-            r = await call_llm(system="You are Sovereign, a music metadata and distribution specialist. Return accurate structured metadata.", messages=[{"role": "user", "content": prompt}], persona_label="PublishingGate")
+            r = await call_llm(system="You are Sovereign, a music metadata and distribution specialist. Return accurate structured metadata.", messages=[{"role": "user", "content": prompt}], persona_label="PublishingGate", user_id=user.id)
             if not (r.get("text") or "").strip():
                 raise RuntimeError("empty metadata response")
             artifact = r.get("text", "{}")
@@ -365,7 +370,7 @@ async def studio_sovereign(body: dict, user: User = Depends(_dep_current_user)):
                 f"Notes: {ctx.get('notes', '')}. "
                 "Write a vivid 3-4 sentence visual direction — aesthetic, mood, and visual language."
             )
-            r = await call_llm(system="You are Sovereign, a visual creative director. Describe aesthetic, mood, and visual language vividly.", messages=[{"role": "user", "content": prompt}], persona_label="VisualAltar")
+            r = await call_llm(system="You are Sovereign, a visual creative director. Describe aesthetic, mood, and visual language vividly.", messages=[{"role": "user", "content": prompt}], persona_label="VisualAltar", user_id=user.id)
             if not (r.get("text") or "").strip():
                 raise RuntimeError("empty visual response")
             artifact = r.get("text", "")
@@ -379,7 +384,7 @@ async def studio_sovereign(body: dict, user: User = Depends(_dep_current_user)):
                 " Return ONLY the polished version.\n\n"
                 f"{ctx.get('content', '')}"
             )
-            r = await call_llm(system="You are Sovereign, a script editor. Polish for clarity, flow, and impact while preserving the creator voice.", messages=[{"role": "user", "content": prompt}], persona_label="ScriptScriptorium")
+            r = await call_llm(system="You are Sovereign, a script editor. Polish for clarity, flow, and impact while preserving the creator voice.", messages=[{"role": "user", "content": prompt}], persona_label="ScriptScriptorium", user_id=user.id)
             if not (r.get("text") or "").strip():
                 raise RuntimeError("empty polish response")
             artifact = r.get("text", "")
@@ -394,7 +399,7 @@ async def studio_sovereign(body: dict, user: User = Depends(_dep_current_user)):
                 "Describe: drums pattern, bass style, melody approach, texture/atmosphere, sample ideas. "
                 "200 words max. Be specific and technical."
             )
-            r = await call_llm(system="You are Sovereign, a music producer. Describe sonic blueprints with technical specificity.", messages=[{"role": "user", "content": prompt}], persona_label="SoundLab")
+            r = await call_llm(system="You are Sovereign, a music producer. Describe sonic blueprints with technical specificity.", messages=[{"role": "user", "content": prompt}], persona_label="SoundLab", user_id=user.id)
             if not (r.get("text") or "").strip():
                 raise RuntimeError("empty blueprint response")
             artifact = r.get("text", "")
@@ -416,6 +421,7 @@ async def studio_sovereign(body: dict, user: User = Depends(_dep_current_user)):
                 messages=[{"role": "user", "content": f"Context: {ctx}\n\nCreator: {msg}"}],
                 system=system,
                 persona_label="Sovereign",
+                user_id=user.id,
             )
             if not (r.get("text") or "").strip():
                 raise RuntimeError("empty chat response")

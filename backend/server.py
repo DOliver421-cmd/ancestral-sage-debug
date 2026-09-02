@@ -238,6 +238,24 @@ _ADDITIONAL_API_ROUTER_MODULES = (
     ("supervisor", "/api"),
 )
 
+# ── Feature Control Center enforcement (read side) ──────────────────────────
+# The FCC admin API writes db.feature_configs; exec consoles write
+# db.platform_flags / db.page_access / db.user_feature_overrides /
+# db.authz_matrix.  This middleware turns those records into real server-side
+# rules on every /api request (enabled, internal_only, customer_access,
+# roles, tiers, per-user overrides, flags, page gates).  Registered BEFORE the
+# logging/header middlewares so it runs innermost: rejected requests still
+# pass back through the request logger defined below.  Lazy providers keep
+# this safe from module-load ordering (User, db, JWT_* resolve at request
+# time, after the whole module has loaded).
+from security.fcc_middleware import make_fcc_middleware as _make_fcc_middleware
+app.middleware("http")(_make_fcc_middleware(
+    get_db=lambda: db,
+    get_jwt_secret=lambda: JWT_SECRET,
+    get_jwt_algo=lambda: JWT_ALGO,
+    get_user_cls=lambda: User,
+))
+
 # Security headers middleware
 @app.middleware("http")
 async def add_security_headers(request: Request, call_next):
@@ -1458,6 +1476,7 @@ async def ensure_indexes():
         await db.compliance_progress.create_index([("user_id", 1), ("module_slug", 1)], unique=True)
         # Audit logs: retain for 1 year (365 days) for compliance
         await db.audit_log.create_index([("at", -1)])
+        await db.feature_configs.create_index([("feature_id", 1)], unique=True)
         await db.audit_log.create_index("at", expireAfterSeconds=365 * 24 * 3600)
         # Notifications: auto-delete after 30 days
         await db.notifications.create_index([("user_id", 1), ("created_at", -1)])

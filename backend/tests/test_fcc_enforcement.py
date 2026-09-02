@@ -82,7 +82,7 @@ def test_fcc_path_mapping():
     assert fcc_feature_for_path("/api/ai/helper") == "nam.helper"
     assert fcc_feature_for_path("/api/ai/sage/integrity") == "nam.council"
     assert fcc_feature_for_path("/api/ai/chat") == "nam.chat"
-    assert fcc_feature_for_path("/api/nam/memory") == "nam.chat"
+    assert fcc_feature_for_path("/api/nam/memory") == "nam.hybrid"  # Hybrid NAM owns memory (registry: identity, memory, intentions)
     assert fcc_feature_for_path("/api/site-guide") == "nam.site_guide"
     # Unmapped surfaces stay outside the FCC enforcement.
     assert fcc_feature_for_path("/api/auth/me") is None

@@ -449,6 +449,7 @@ async def creator_request_payout(body: PayoutRequestReq, user: User = Depends(_d
 
 
 @router.post("/creator/bank-account", status_code=201)
+async def creator_save_bank_account_legacy(body: dict, user: User = Depends(_dep_current_user)):
 async def creator_save_bank_account_legacy(body: SaveBankAccountReq, user: User = Depends(_dep_current_user)):
     """Legacy compatibility route; records only a masked payout destination."""
     raise HTTPException(410, "Bank credentials are no longer collected. Use /creator/payout-profile with your preferred payout method.")

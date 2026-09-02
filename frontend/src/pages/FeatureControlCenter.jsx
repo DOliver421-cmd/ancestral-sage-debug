@@ -75,18 +75,29 @@ export default function FeatureControlCenter() {
     }
   }, [isAdmin, view, fetchFeatures, fetchTierMatrix, fetchRoleMatrix]);
 
+  // The server is the source of truth.  After any successful write, re-read
+  // everything from the API and only then update the UI — the page must never
+  // trust a local guess over a server confirmation (and the matrix views must
+  // not keep stale cells after a toggle).
+  const refreshFromServer = useCallback(async () => {
+    await fetchFeatures();
+    if (view === "tier-matrix") await fetchTierMatrix();
+    if (view === "role-matrix") await fetchRoleMatrix();
+  }, [view, fetchFeatures, fetchTierMatrix, fetchRoleMatrix]);
+
   const handleToggle = async (featureId, field, value) => {
     setSaving(featureId);
     try {
-      await api.put(`/features/${featureId}`, { [field]: value });
-      setFeatures(prev => prev.map(f =>
-        f.feature_id === featureId ? { ...f, [field]: value } : f
-      ));
+      const r = await api.put(`/features/${featureId}`, { [field]: value });
+      if (!r?.data?.saved) {
+        throw new Error("Server did not confirm the write.");
+      }
+      await refreshFromServer();
       setLastSaved(featureId);
-      toast.success("Feature configuration saved");
+      toast.success("Saved to the database — the change is now enforced.");
     } catch (err) {
       console.error("Failed to update:", err);
-      toast.error(err?.response?.data?.detail || "Could not save feature configuration");
+      toast.error(err?.response?.data?.detail || "Could not save feature configuration — the change was NOT applied.");
     } finally {
       setSaving(null);
     }
@@ -101,15 +112,16 @@ export default function FeatureControlCenter() {
       : [...current, role];
     setSaving(featureId);
     try {
-      await api.put(`/features/${featureId}`, { allowed_roles: updated });
-      setFeatures(prev => prev.map(f =>
-        f.feature_id === featureId ? { ...f, allowed_roles: updated } : f
-      ));
+      const r = await api.put(`/features/${featureId}`, { allowed_roles: updated });
+      if (!r?.data?.saved) {
+        throw new Error("Server did not confirm the write.");
+      }
+      await refreshFromServer();
       setLastSaved(featureId);
-      toast.success("Role access saved");
+      toast.success("Role access saved to the database — now enforced.");
     } catch (err) {
       console.error("Failed to update:", err);
-      toast.error(err?.response?.data?.detail || "Could not save role access");
+      toast.error(err?.response?.data?.detail || "Could not save role access — the change was NOT applied.");
     } finally {
       setSaving(null);
     }
@@ -124,15 +136,16 @@ export default function FeatureControlCenter() {
       : [...current, tier];
     setSaving(featureId);
     try {
-      await api.put(`/features/${featureId}`, { allowed_tiers: updated });
-      setFeatures(prev => prev.map(f =>
-        f.feature_id === featureId ? { ...f, allowed_tiers: updated } : f
-      ));
+      const r = await api.put(`/features/${featureId}`, { allowed_tiers: updated });
+      if (!r?.data?.saved) {
+        throw new Error("Server did not confirm the write.");
+      }
+      await refreshFromServer();
       setLastSaved(featureId);
-      toast.success("Tier access saved");
+      toast.success("Tier access saved to the database — now enforced.");
     } catch (err) {
       console.error("Failed to update:", err);
-      toast.error(err?.response?.data?.detail || "Could not save tier access");
+      toast.error(err?.response?.data?.detail || "Could not save tier access — the change was NOT applied.");
     } finally {
       setSaving(null);
     }

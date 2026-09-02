@@ -657,17 +657,17 @@ async def call_llm(
                         }
                     except Exception as _e:
                         logger.warning(
-                            "LLM Gateway BYOK %s failed (%s): %s — falling through to platform chain",
+                            "LLM Gateway BYOK %s failed (%s): %s — falling through (staff: platform chain, non-staff: KB)",
                             _byok["provider"], persona_label, _e,
                         )
         except Exception as _e:
             logger.warning("LLM Gateway BYOK resolution failed (%s): %s", persona_label, _e)
 
     # ── User context lookup (for budget, KB fallback, and access control) ────
-    # All authenticated users may use platform-funded AI within their daily
-    # budget.  Staff (admin/executive_admin) are budget-exempt (unlimited).
-    # Non-staff users are budget-capped by role and feature_tier.  When the
-    # daily cap is exhausted, the user gets the KB fallback + BYOK option.
+    # Platform AI spend is governed by BUSINESS_ACCESS_POLICY §7A (owner
+    # decision, August 2026): platform-funded AI is reserved for
+    # admin / executive_admin staff ONLY.  The role is resolved here so the
+    # spend gate below can fail closed BEFORE any provider invocation.
     _access = None
     _user_role = ""
     _user_tier = ""
@@ -693,6 +693,23 @@ async def call_llm(
                     _access = None
         except Exception:
             pass
+
+    # ── §7A platform-funding gate (owner policy, August 2026) ────────────────
+    # BUSINESS_ACCESS_POLICY.md §7A: "Platform-funded AI is reserved for
+    # admin / executive_admin staff ONLY.  Customers never receive
+    # platform-funded AI at any tier."  The BYOK branch above already let a
+    # customer spend THEIR OWN key; anything that reaches this point without a
+    # staff role must NEVER spend a platform token — it degrades to the
+    # zero-cost keyword knowledge base (with an honest BYOK upgrade prompt).
+    # A caller whose staff status cannot be verified is treated as non-staff
+    # (fail-closed): _user_role stays "" for anonymous / unverifiable callers.
+    _STAFF_AI_ROLES = ("admin", "executive_admin")
+    if _user_role not in _STAFF_AI_ROLES:
+        logger.info(
+            "LLM Gateway §7A: %s (%s) not platform-funded — KB fallback for %s",
+            _user_role or "anonymous", _user_tier or "-", persona_label,
+        )
+        return _kb_reply(messages, access=_access)
 
     # ── Per-user daily budget guard (platform-paid calls only) ──────────────
     # Prevents any single non-exec account from draining the platform API and
