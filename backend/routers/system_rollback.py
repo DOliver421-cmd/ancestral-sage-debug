@@ -218,7 +218,17 @@ async def clear_rollback_lock(_db):
 
 
 async def is_rollback_locked(_db) -> bool:
-    lock = await _db.system_state.find_one({"key": ROLLBACK_LOCK_KEY})
+    """True while a rollback lock is active (with TTL expiry).
+
+    Fail-open-with-log: if the lock state cannot be READ, the webhook is
+    processed normally.  A lock-read problem must never cost a paid
+    entitlement — deferral is an extra safety layer, payments flow first.
+    """
+    try:
+        lock = await _db.system_state.find_one({"key": ROLLBACK_LOCK_KEY})
+    except Exception as exc:
+        logger.warning("system_rollback: lock state unreadable, treating as unlocked: %s", exc)
+        return False
     if not lock or not lock.get("active"):
         return False
     expires = lock.get("expires_at") or 0
@@ -242,14 +252,25 @@ async def payment_webhook_maybe_defer(_db, provider: str, payload: bytes, header
         for k, v in (headers or {}).items()
         if k.lower() not in ("authorization", "cookie", "x-more-signature")
     }
-    await _db.deferred_webhooks.insert_one({
-        "provider": provider,
-        "payload_b64": base64.b64encode(payload).decode("ascii"),
-        "headers": safe_headers,
-        "status": "deferred_by_rollback",
-        "received_at": datetime.now(timezone.utc).isoformat(),
-        "attempt": 1,
-    })
+    try:
+        await _db.deferred_webhooks.insert_one(
+            {
+                "provider": provider,
+                "payload_b64": base64.b64encode(payload).decode("ascii"),
+                "headers": safe_headers,
+                "status": "deferred_by_rollback",
+                "received_at": datetime.now(timezone.utc).isoformat(),
+                "attempt": 1,
+            }
+        )
+    except Exception as exc:
+        # Deferral persistence failed — process the webhook normally rather
+        # than drop a paid entitlement (providers also retry on 5xx).
+        logger.error(
+            "system_rollback: deferral write failed (%s); processing webhook normally",
+            exc,
+        )
+        return False
     logger.warning("system_rollback: deferred %s webhook during rollback window", provider)
     return True
 

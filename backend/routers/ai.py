@@ -3109,7 +3109,7 @@ _PERSONA_DECISION_TREES = {
 @router.get("/personas")
 async def personas_directory():
     """Public roster of the AI team — the unified model included."""
-    from ai.persona_loader import load_personas
+    from ai.persona_loader import load_personas, get_persona
     keys = list(load_personas().keys())
     personas = []
     for key in keys:
@@ -3132,7 +3132,7 @@ async def personas_directory():
 @router.get("/personas/{slug}")
 async def persona_profile(slug: str):
     """Public profile for a single persona — includes real decision record."""
-    from ai.persona_loader import load_personas
+    from ai.persona_loader import load_personas, get_persona
     if slug not in load_personas():
         raise HTTPException(404, "Persona not found")
     meta = PERSONA_META.get(slug)
@@ -3215,7 +3215,7 @@ async def _persona_state() -> dict:
 @router.get("/personas/exec")
 async def exec_personas(user: User = Depends(_require_rank("admin", "executive_admin"))):
     """Full persona roster with live enable state for the IAM console."""
-    from ai.persona_loader import load_personas
+    from ai.persona_loader import load_personas, get_persona
     keys = list(load_personas().keys())
     disabled = await _persona_state()
     rows = []
@@ -3245,7 +3245,7 @@ class _PersonaToggleReq(BaseModel):
 async def toggle_persona(slug: str, body: _PersonaToggleReq,
                          user: User = Depends(_require_rank("executive_admin"))):
     """Enable/disable a persona globally. Persisted; survives redeploys."""
-    from ai.persona_loader import load_personas
+    from ai.persona_loader import load_personas, get_persona
     if slug not in load_personas():
         raise HTTPException(404, f"Unknown persona: {slug}")
     doc = {}
@@ -3317,7 +3317,8 @@ async def persona_chat(slug: str, body: _PersonaChatReq, user: User = Depends(_d
     the browser reads aloud. Applies the Source root layer, the master human
     controls, and the user's own per-persona slider tuning.
     """
-    from ai.persona_loader import load_personas
+    from ai.persona_loader import load_personas, get_persona
+    import ai.source_protocol as _sp
     if slug not in load_personas():
         raise HTTPException(404, "Persona not found")
     check_rate(f"persona_chat:{user.id}", max_calls=30, window_sec=60)
@@ -3394,7 +3395,7 @@ async def persona_chat(slug: str, body: _PersonaChatReq, user: User = Depends(_d
 @router.get("/personas/{slug}/controls")
 async def persona_controls_get(slug: str, user: User = Depends(_dep_current_user)):
     """This member's per-persona slider settings (their own tuning)."""
-    from ai.persona_loader import load_personas
+    from ai.persona_loader import load_personas, get_persona
     if slug not in load_personas():
         raise HTTPException(404, "Persona not found")
     doc = await db.persona_controls.find_one(
@@ -3411,7 +3412,7 @@ async def persona_controls_get(slug: str, user: User = Depends(_dep_current_user
 async def persona_controls_set(slug: str, body: _PersonaControlsReq,
                                user: User = Depends(_dep_current_user)):
     """Save this member's per-persona sliders — takes effect on their next chat."""
-    from ai.persona_loader import load_personas
+    from ai.persona_loader import load_personas, get_persona
     if slug not in load_personas():
         raise HTTPException(404, "Persona not found")
     clean = await _clamp_controls(body.controls)
