@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { api } from "../lib/api";
 import { useAuth } from "../lib/auth";
-import AppShell from "../components/AppShell";
+import { toast } from "sonner";
 
 // Real platform roles (mirror src/lib/roles.js): public is rank 0 (unauthenticated),
 // never a stored role.
@@ -33,6 +33,7 @@ export default function FeatureControlCenter() {
   const [view, setView] = useState("cards"); // "cards" | "tier-matrix" | "role-matrix"
   const [tierMatrix, setTierMatrix] = useState(null);
   const [roleMatrix, setRoleMatrix] = useState(null);
+  const [lastSaved, setLastSaved] = useState(null);
 
   const isAdmin = user?.role === "executive_admin" || user?.role === "admin";
 
@@ -81,8 +82,11 @@ export default function FeatureControlCenter() {
       setFeatures(prev => prev.map(f =>
         f.feature_id === featureId ? { ...f, [field]: value } : f
       ));
+      setLastSaved(featureId);
+      toast.success("Feature configuration saved");
     } catch (err) {
       console.error("Failed to update:", err);
+      toast.error(err?.response?.data?.detail || "Could not save feature configuration");
     } finally {
       setSaving(null);
     }
@@ -101,8 +105,11 @@ export default function FeatureControlCenter() {
       setFeatures(prev => prev.map(f =>
         f.feature_id === featureId ? { ...f, allowed_roles: updated } : f
       ));
+      setLastSaved(featureId);
+      toast.success("Role access saved");
     } catch (err) {
       console.error("Failed to update:", err);
+      toast.error(err?.response?.data?.detail || "Could not save role access");
     } finally {
       setSaving(null);
     }
@@ -121,8 +128,11 @@ export default function FeatureControlCenter() {
       setFeatures(prev => prev.map(f =>
         f.feature_id === featureId ? { ...f, allowed_tiers: updated } : f
       ));
+      setLastSaved(featureId);
+      toast.success("Tier access saved");
     } catch (err) {
       console.error("Failed to update:", err);
+      toast.error(err?.response?.data?.detail || "Could not save tier access");
     } finally {
       setSaving(null);
     }
@@ -130,13 +140,11 @@ export default function FeatureControlCenter() {
 
   if (!isAdmin) {
     return (
-      <AppShell>
-        <div style={{ padding: 48, textAlign: "center" }}>
-          <div style={{ fontSize: 48, marginBottom: 16 }}>🔒</div>
-          <h2 style={{ fontWeight: 900, fontSize: 20, marginBottom: 8 }}>Admin Access Required</h2>
-          <p style={{ color: "#000", fontSize: 14 }}>The Feature Control Center is only accessible to administrators.</p>
-        </div>
-      </AppShell>
+      <div style={{ padding: 48, textAlign: "center" }}>
+        <div style={{ fontSize: 48, marginBottom: 16 }}>🔒</div>
+        <h2 style={{ fontWeight: 900, fontSize: 20, marginBottom: 8 }}>Admin Access Required</h2>
+        <p style={{ color: "#000", fontSize: 14 }}>The Feature Control Center is only accessible to administrators.</p>
+      </div>
     );
   }
 
@@ -149,7 +157,6 @@ export default function FeatureControlCenter() {
   const categories = [...new Set(features.map(f => f.category))];
 
   return (
-    <AppShell>
       <div style={{ maxWidth: 1200, margin: "0 auto", padding: "24px 32px", backgroundColor: "#fff", color: "#000" }}>
         {/* Header */}
         <div style={{ marginBottom: 32 }}>
@@ -158,6 +165,7 @@ export default function FeatureControlCenter() {
           </h1>
           <p style={{ color: "#000", fontSize: 14 }}>
             Configure access for every platform feature. One feature = one control record.
+            {lastSaved && <span style={{ marginLeft: 12, color: "#047857", fontWeight: 700 }}>● Changes saved</span>}
           </p>
           <div style={{ marginTop: 12, padding: "12px 16px", background: "#fef3c7", border: "1px solid #f59e0b", borderRadius: 8, fontSize: 13, lineHeight: 1.5 }}>
             <strong>AI funding policy (owner decision):</strong> platform-funded AI is for{" "}
@@ -256,7 +264,6 @@ export default function FeatureControlCenter() {
           />
         ) : null}
       </div>
-    </AppShell>
   );
 }
 
