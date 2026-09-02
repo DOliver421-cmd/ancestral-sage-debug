@@ -1,53 +1,15 @@
 <!doctype html>
 <html lang="en">
-    <head>
-        <meta charset="utf-8" />
-        <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-        <meta name="theme-color" content="#1B4332" />
-        <meta name="description" content="M.O.R.E. Help Center — the social-service virtual help center of the Michael Oliver Resource Exchange. Skills, support, and community resources — free for everyone." />
-
-        <!-- Open Graph — controls how links look when shared on social media -->
-        <meta property="og:type"        content="website" />
-        <meta property="og:site_name"   content="M.O.R.E. Help Center" />
-        <meta property="og:title"       content="M.O.R.E. Help Center — Social Service Virtual Help Center" />
-        <meta property="og:description" content="The social-service virtual help center of the Michael Oliver Resource Exchange. Skills, support, and solidarity — free mutual aid, learning, and community care." />
-        <meta property="og:image"       content="https://www.morehelp.center/logo-og-1200x630.png" />
-        <meta property="og:url"         content="https://morehelp.center" />
-
-        <!-- Twitter card -->
-        <meta name="twitter:card"        content="summary_large_image" />
-        <meta name="twitter:title"       content="M.O.R.E. Help Center — Social Service Virtual Help Center" />
-        <meta name="twitter:description" content="Social service help center of the Michael Oliver Resource Exchange. Skills, support, and solidarity — free for the community." />
-        <meta name="twitter:image"       content="https://www.morehelp.center/logo-og-1200x630.png" />
-
-        <!-- Domain-aware boot branding (see docs/morehelp-migration-blueprint.md): the SPA
-             rewrites title/meta per route at runtime (src/lib/seo.js); this tiny script
-             handles the initial paint so wai-institute.org never flashes M.O.R.E. branding
-             before React mounts, and non-JS crawlers get the correct door's default.
-             External file (not inline) so the site's CSP script-src 'self' permits it. -->
-        <script src="/boot-branding.js"></script>
-        <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
-        <link rel="manifest" href="/manifest.json" />
-        <link rel="apple-touch-icon" href="/logo-512.png" />
-        <meta name="mobile-web-app-capable" content="yes" />
-        <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-        <meta name="apple-mobile-web-app-title" content="M.O.R.E." />
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-        <link rel="preconnect" href="https://api.fontshare.com" crossorigin />
-        <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500&family=Plus+Jakarta+Sans:wght@400;500;700;800;900&display=swap" rel="stylesheet" />
-        <link href="https://api.fontshare.com/v2/css?f[]=cabinet-grotesk@800,500,700,400,900&display=swap" rel="stylesheet" />
-        <title>M.O.R.E. Help Center — Michael Oliver Resource Exchange</title>
-        <script src="/error-suppress.js"></script>
-        <script src="/clear-sw.js"></script>
-    </head>
-    <body>
-        <noscript>You need to enable JavaScript to run this app.</noscript>
-        <div id="root"></div>
-        <script src="/posthog-init.js"></script>
-        <!-- Team Conference embed removed from the public document (2026-08-27):
-             it is an exec-admin feature and is injected role-gated by
-             src/components/TeamConferenceEmbed.jsx instead of loading for every
-             visitor. The WAI origin stays in the backend CSP for that injection. -->
-    </body>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#35136f" />
+    <meta name="description" content="M.O.R.E. Help Center — practical support, skills, and community resources." />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://api.fontshare.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
+    <link href="https://api.fontshare.com/v2/css?f[]=cabinet-grotesk@500,700,800,900&display=swap" rel="stylesheet" />
+    <title>M.O.R.E. Help Center</title>
+  </head>
+  <body><noscript>Please enable JavaScript to use the M.O.R.E. Help Center.</noscript><div id="root"></div></body>
 </html>
