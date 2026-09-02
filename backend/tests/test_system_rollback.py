@@ -181,6 +181,14 @@ async def fake_notify(user_id, title, body, link=None, kind="info"):
     NOTIFY_LOG.append({"user_id": user_id, "title": title})
 
 
+
+
+async def fake_current_user(authorization=None):
+    if not authorization or not str(authorization).startswith("Bearer "):
+        raise HTTPException(401, "Missing bearer token")
+    role = str(authorization).split(" ", 1)[1]
+    return FakeUser(role)
+
 def fake_assert_role(user, *roles):
     if getattr(user, "role", None) not in roles:
         raise HTTPException(403, "Insufficient privileges")
@@ -189,7 +197,7 @@ def fake_assert_role(user, *roles):
 def _setup(db, *fakes):
     sr.bind(
         db,
-        _current_user=None,
+        _current_user=fake_current_user,
         _assert_role=fake_assert_role,
         _audit=fake_audit,
         _notify=fake_notify,
@@ -291,9 +299,9 @@ def test_admin_gating():
     db = FakeDB()
     _setup(db)
     with pytest.raises(HTTPException) as exc:
-        _run(sr.admin_health(user=FakeUser("student")))
+        _run(sr.admin_health(fake_request(b"", {"authorization": "Bearer student"})))
     assert exc.value.status_code == 403
-    healthy = _run(sr.admin_health(user=FakeUser("executive_admin")))
+    healthy = _run(sr.admin_health(fake_request(b"", {"authorization": "Bearer executive_admin"})))
     assert healthy["engine"] == "dual-trigger visual rollback"
     assert healthy["webhook_secret_configured"] is True
     assert healthy["current_deployment_id"] == "dep-live-001"
@@ -321,7 +329,7 @@ def test_rollback_flow_calls_redeploy_and_preserves_ledgers():
     try:
         outcome = _run(sr.admin_rollback(
             sr.RollbackReq(restore_point_id=rp_id, confirm=True),
-            user=FakeUser("admin"),
+            fake_request(b"", {"authorization": "Bearer admin"}),
         ))
     finally:
         sr._railway_redeploy_impl = None
@@ -342,7 +350,7 @@ def test_rollback_requires_confirm():
     with pytest.raises(HTTPException) as exc:
         _run(sr.admin_rollback(
             sr.RollbackReq(restore_point_id=rp["restore_point"]["id"], confirm=False),
-            user=FakeUser("admin"),
+            fake_request(b"", {"authorization": "Bearer admin"}),
         ))
     assert exc.value.status_code == 400
 
@@ -356,7 +364,7 @@ def test_rollback_missing_railway_token_is_honest():
     with pytest.raises(HTTPException) as exc:
         _run(sr.admin_rollback(
             sr.RollbackReq(restore_point_id=rp["restore_point"]["id"], confirm=True),
-            user=FakeUser("admin"),
+            fake_request(b"", {"authorization": "Bearer admin"}),
         ))
     assert exc.value.status_code == 503
     assert "RAILWAY_TOKEN" in exc.value.detail
@@ -484,15 +492,15 @@ def test_list_restore_points_and_queue():
     db = FakeDB()
     _setup(db)
     _run(sr.create_restore_point(actor="admin", trigger="manual"))
-    listing = _run(sr.list_restore_points(user=FakeUser("admin")))
+    listing = _run(sr.list_restore_points(fake_request(b"", {"authorization": "Bearer admin"})))
     assert len(listing["restore_points"]) == 1
     assert listing["restore_points"][0]["has_screenshot"] is False
     assert listing["restore_points"][0]["railway_deployment_id"] == "dep-live-001"
 
-    q = _run(sr.webhook_queue(user=FakeUser("executive_admin")))
+    q = _run(sr.webhook_queue(fake_request(b"", {"authorization": "Bearer executive_admin"})))
     assert q["deferred"] == []
     with pytest.raises(HTTPException):
-        _run(sr.webhook_queue(user=FakeUser("member")))
+        _run(sr.webhook_queue(fake_request(b"", {"authorization": "Bearer member"})))
 
 
 if __name__ == "__main__":
