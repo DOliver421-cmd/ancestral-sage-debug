@@ -1,29 +1,184 @@
+/* Fonts loaded via <link> tags in index.html for faster rendering */
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-:root { --ink:#21152f; --purple:#35136f; --gold:#c28d16; --cream:#f5f2ea; --line:#d8d1c5; --muted:#655e69; }
-* { box-sizing:border-box; }
-html { scroll-behavior:smooth; }
-body { margin:0; background:var(--cream); color:var(--ink); font-family:'IBM Plex Sans',sans-serif; }
-h1,h2,h3,p { margin:0; } h1,h2,h3 { font-family:'Cabinet Grotesk','Plus Jakarta Sans',sans-serif; }
-a { color:inherit; text-decoration:none; }
-.site-shell { overflow:hidden; }
-.topbar { align-items:center; display:flex; justify-content:space-between; max-width:1280px; margin:auto; padding:26px 6vw; }
-.brand { align-items:center; display:flex; gap:11px; letter-spacing:.04em; }
-.brand-mark { align-items:center; background:var(--gold); color:var(--purple); display:flex; font-family:'Cabinet Grotesk',sans-serif; font-size:24px; font-weight:900; height:39px; justify-content:center; transform:rotate(-8deg); width:39px; }
-.brand strong,.brand small { display:block; line-height:1; } .brand strong { font-size:18px; } .brand small { font-size:9px; letter-spacing:.25em; margin-top:5px; }
-.nav-links { display:flex; gap:34px; font-size:13px; font-weight:600; } .nav-links a:hover,.text-link:hover,.arrow-link:hover { color:var(--gold); }
-.nav-cta,.btn-primary,.btn-copper { font-size:12px; font-weight:700; letter-spacing:.08em; text-transform:uppercase; }
-.nav-cta { border-bottom:1px solid var(--ink); padding-bottom:6px; } .nav-cta span,.btn-primary span,.btn-copper span { font-size:18px; margin-left:12px; }
-.hero { display:flex; min-height:650px; padding:90px 10vw 110px; position:relative; } .grid-paper { background-image:linear-gradient(#ded9d0 1px,transparent 1px),linear-gradient(90deg,#ded9d0 1px,transparent 1px); background-size:42px 42px; }
-.hero:before { background:var(--cream); content:''; inset:0 0 0 50%; position:absolute; } .hero-copy,.hero-art { position:relative; width:50%; z-index:1; } .hero-copy { padding-top:35px; } .overline,.section-tag { font-size:10px; font-weight:700; letter-spacing:.18em; text-transform:uppercase; } .signal-dot { background:var(--gold); border-radius:100%; display:inline-block; height:8px; margin-right:9px; width:8px; }
-h1 { font-size:clamp(54px,7vw,96px); letter-spacing:-.06em; line-height:.9; margin:30px 0; } h1 em,h2 em { color:var(--gold); font-style:normal; } .hero-lede { color:var(--muted); font-size:18px; line-height:1.55; max-width:420px; }
-.hero-actions { align-items:center; display:flex; gap:27px; margin-top:38px; } .btn-primary,.btn-copper { display:inline-block; padding:16px 21px; } .btn-primary { background:var(--purple); color:white; } .btn-primary:hover { box-shadow:5px 5px 0 var(--gold); transform:translate(-2px,-2px); } .btn-copper { background:var(--gold); color:var(--purple); } .btn-copper:hover { box-shadow:5px 5px 0 var(--purple); transform:translate(-2px,-2px); } .text-link,.arrow-link { font-size:13px; font-weight:700; } .text-link span,.arrow-link span { color:var(--gold); font-size:20px; margin-left:8px; }
-.hero-art { min-height:420px; } .art-sun { background:var(--gold); border-radius:50%; height:240px; left:35%; position:absolute; top:15%; width:240px; } .art-ring { border:1px solid var(--purple); border-radius:50%; position:absolute; transform:rotate(-22deg); } .ring-one { height:390px; left:20%; top:-5%; width:330px; } .ring-two { border-color:var(--gold); height:310px; left:26%; top:7%; width:370px; } .art-card { background:var(--purple); color:white; padding:17px; position:absolute; width:145px; } .art-card span { color:#f3d36b; display:block; font-size:9px; letter-spacing:.15em; margin-bottom:18px; } .art-card strong { font-family:'Cabinet Grotesk',sans-serif; font-size:17px; line-height:1; } .card-one { left:5%; top:22%; transform:rotate(-8deg); } .card-two { bottom:8%; right:4%; transform:rotate(7deg); } .art-label { bottom:28%; color:var(--purple); font-family:'Cabinet Grotesk',sans-serif; font-size:49px; font-weight:900; left:42%; line-height:.72; position:absolute; transform:rotate(-12deg); } .art-label small { color:var(--ink); font-family:'IBM Plex Mono'; font-size:10px; letter-spacing:.2em; margin-left:22px; } .art-line { border-top:2px solid var(--purple); position:absolute; width:80px; } .line-one { left:4%; top:15%; transform:rotate(35deg); } .line-two { right:0; top:45%; transform:rotate(-30deg); }
-.ticker { align-items:center; background:var(--purple); color:white; display:flex; gap:30px; justify-content:center; overflow:hidden; padding:17px; text-transform:uppercase; white-space:nowrap; } .ticker span { font-size:11px; font-weight:700; letter-spacing:.2em; } .ticker b { color:var(--gold); }
-.intro,.card-section,.final-cta { max-width:1100px; margin:auto; padding:120px 6vw; } .intro { display:grid; gap:50px; grid-template-columns:1fr 1.5fr 1fr; } .section-tag { color:var(--gold); } h2 { font-size:clamp(42px,5vw,66px); letter-spacing:-.06em; line-height:.9; } h2 span { color:var(--purple); } .intro-text p,.section-heading>p { color:var(--muted); font-size:16px; line-height:1.6; } .intro-text p { margin-bottom:25px; }
-.card-section { max-width:1280px; } .section-heading { align-items:end; display:flex; justify-content:space-between; margin-bottom:46px; } .section-heading>p { max-width:280px; } .support-grid { display:grid; gap:15px; grid-template-columns:repeat(3,1fr); } .support-card { background:#fffdf8; border:1px solid var(--line); min-height:280px; padding:27px; position:relative; transition:.2s; } .support-card:hover { border-color:var(--purple); box-shadow:7px 7px 0 var(--purple); transform:translate(-3px,-3px); } .card-number { color:var(--gold); font-family:'IBM Plex Mono'; font-size:12px; } .support-card h3 { font-size:28px; line-height:1; margin:55px 0 15px; } .support-card p { color:var(--muted); font-size:14px; line-height:1.5; max-width:220px; } .card-arrow { bottom:25px; color:var(--purple); font-size:25px; position:absolute; right:27px; }
-.quote-section { background:var(--purple); color:white; padding:100px 6vw; text-align:center; } .quote-mark { color:var(--gold); font-family:Georgia,serif; font-size:100px; height:55px; } blockquote { font-family:'Cabinet Grotesk',sans-serif; font-size:clamp(32px,4vw,58px); letter-spacing:-.04em; line-height:1; } blockquote em { color:#e0bb41; font-style:normal; } .quote-section p { color:#cabbdc; font-size:12px; margin-top:25px; }
-.final-cta { align-items:end; display:flex; justify-content:space-between; } footer { border-top:1px solid var(--line); display:flex; font-family:'IBM Plex Mono'; font-size:10px; justify-content:space-between; letter-spacing:.04em; margin:auto; max-width:1100px; padding:27px 6vw; }
-@media(max-width:760px) { .topbar { padding:20px 6vw; } .nav-links { display:none; } .nav-cta { font-size:10px; } .hero { display:block; min-height:850px; padding:70px 8vw; } .hero:before { display:none; } .hero-copy,.hero-art { width:100%; } .hero-art { margin-top:45px; min-height:340px; } .art-sun { height:190px; left:25%; width:190px; } .ring-one { left:8%; } .ring-two { left:14%; } .intro { display:block; } .intro>div { margin-bottom:35px; } .section-heading,.final-cta { align-items:start; display:block; } .section-heading>p { margin-top:25px; } .support-grid { grid-template-columns:1fr; } .final-cta .btn-copper { margin-top:35px; } footer { display:block; line-height:2; } }
+html {
+  scroll-behavior: smooth;
+  /* Mobile-first: never allow a stray fixed-width element to create a
+     horizontal scrollbar. clip (not hidden) so sticky/fixed still work. */
+  overflow-x: clip;
+}
+
+/* Opaque text color classes for WCAG 2.1 compliance */
+.text-opaque-muted { color: #4a4238; }
+.text-opaque-faint { color: #5e4b8d; }
+
+body {
+  overflow-x: clip;
+}
+
+img, video, canvas, svg, iframe {
+  max-width: 100%;
+}
+
+/* Tap targets and text should never shrink to un-tappable sizes on phones. */
+@media (max-width: 640px) {
+  input, select, textarea, button, a {
+    font-size: 16px; /* prevents iOS auto-zoom on focus */
+  }
+}
+
+:root {
+  --background: 60 11% 97%;
+  --foreground: 220 40% 8%;
+  --card: 0 0% 100%;
+  --card-foreground: 220 40% 8%;
+  --popover: 0 0% 100%;
+  --popover-foreground: 220 40% 8%;
+  --primary: 263 76% 23%;
+  --primary-foreground: 0 0% 100%;
+  --secondary: 43 89% 38%;
+  --secondary-foreground: 263 80% 12%;
+  --muted: 220 14% 90%;
+  --muted-foreground: 220 10% 35%;
+  --accent: 51 100% 50%;
+  --accent-foreground: 220 40% 8%;
+  --destructive: 0 73% 51%;
+  --destructive-foreground: 0 0% 100%;
+  --border: 220 13% 82%;
+  --input: 220 13% 82%;
+  --ring: 263 76% 23%;
+  --radius: 0.25rem;
+}
+
+* {
+  border-color: hsl(var(--border));
+}
+
+/* Opaque text color classes for WCAG 2.1 compliance */
+.text-opaque-muted { color: #4a4238; }
+.text-opaque-faint { color: #5e4b8d; }
+
+body {
+  margin: 0;
+  font-family: 'IBM Plex Sans', sans-serif;
+  background: hsl(var(--background));
+  color: hsl(var(--foreground));
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+h1, h2, h3, h4, h5, h6 { font-family: 'Cabinet Grotesk', 'Plus Jakarta Sans', sans-serif; }
+code, pre { font-family: 'IBM Plex Mono', monospace; }
+
+.overline {
+  font-size: 0.75rem;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  font-weight: 700;
+}
+
+/* grid paper texture for hero */
+.grid-paper {
+  background-image:
+    linear-gradient(hsl(var(--border) / 0.5) 1px, transparent 1px),
+    linear-gradient(90deg, hsl(var(--border) / 0.5) 1px, transparent 1px);
+  background-size: 32px 32px;
+}
+
+.hard-shadow {
+  box-shadow: 6px 6px 0 0 hsl(var(--primary));
+}
+
+.hard-shadow-copper {
+  box-shadow: 6px 6px 0 0 #b8860b;
+}
+
+.card-flat {
+  background: hsl(var(--card));
+  border: 1px solid hsl(var(--border));
+  transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+}
+.card-flat:hover {
+  transform: translateY(-2px);
+  border-color: hsl(var(--primary));
+}
+
+.btn-primary {
+  background: #2e1065;
+  color: white;
+  padding: 0.75rem 1.5rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  border: 1px solid #2e1065;
+  transition: all 0.15s ease;
+}
+.btn-primary:hover { background: #3d1a75; box-shadow: 4px 4px 0 #b8860b; transform: translate(-2px, -2px); }
+
+.btn-copper {
+  background: #b8860b;
+  color: #1a0b2e;
+  padding: 0.75rem 1.5rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  border: 1px solid #b8860b;
+  transition: all 0.15s ease;
+}
+.btn-copper:hover { background: #9a7209; box-shadow: 4px 4px 0 #2e1065; transform: translate(-2px, -2px); }
+
+.btn-ghost {
+  background: transparent;
+  color: #2e1065;
+  padding: 0.75rem 1.5rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  border: 1px solid #2e1065;
+  transition: all 0.15s ease;
+}
+.btn-ghost:hover { background: #2e1065; color: white; }
+
+.badge-signal { background: #FFD100; color: #2e1065; padding: 0.2rem 0.55rem; font-weight: 700; font-size: 0.7rem; letter-spacing: 0.1em; text-transform: uppercase; }
+.badge-copper { background: #b8860b; color: #1a0b2e; padding: 0.2rem 0.55rem; font-weight: 700; font-size: 0.7rem; letter-spacing: 0.1em; text-transform: uppercase; }
+.badge-ink { background: #2e1065; color: white; padding: 0.2rem 0.55rem; font-weight: 700; font-size: 0.7rem; letter-spacing: 0.1em; text-transform: uppercase; }
+.badge-outline { background: transparent; color: #2e1065; padding: 0.2rem 0.55rem; font-weight: 700; font-size: 0.7rem; letter-spacing: 0.1em; text-transform: uppercase; border: 1px solid #2e1065; }
+
+input, textarea, select {
+  font-family: 'IBM Plex Sans', sans-serif;
+}
+
+::selection { background: #FFD100; color: #2e1065; }
+
+/* ── W.A.I. integrated design tokens (Sovereign / themed spaces) ──────────────
+   Additive only — these do NOT alter the existing blueprint front-door theme
+   above. Used by the exec/Sovereign dashboard, Members' Palace (Zamunda) and
+   Elder Council (Egyptian) spaces. */
+:root {
+  --wai-dark: #0a0a0f;
+  --wai-navy: #0d1b2a;
+  --wai-purple: #2e1065;
+  --wai-gold: #d4af37;
+  --wai-gold-light: #f0d060;
+  --wai-emerald: #064e3b;
+  --wai-blue: #0ea5e9;
+  --wai-amber: #f59e0b;
+  --wai-text: #f1f0fb;
+  --wai-muted: #94a3b8;
+  --wai-border: rgba(212,175,55,0.2);
+  --zam-gold: #c9a84c;
+  --egypt-sand: #c8a96e;
+}
+
+/* Sovereign "busy" pulse — the avatar's always-working amber dot. */
+@keyframes wai-busy-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(245,158,11,0.55); }
+  50% { box-shadow: 0 0 0 6px rgba(245,158,11,0); }
+}
+.wai-busy-dot {
+  width: 10px; height: 10px; border-radius: 9999px;
+  background: var(--wai-amber); animation: wai-busy-pulse 1.8s infinite;
+}
