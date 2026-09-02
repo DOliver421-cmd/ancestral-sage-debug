@@ -93,9 +93,12 @@ try:
 
     class _SiteCreditBody(BaseModel):
         user_id: str
-        platform_cost_cents: int
-        reason: str
+        platform_cost_cents: int = Field(..., ge=1)
+        reason: str = Field(..., min_length=5, max_length=2000)
         user_received_value: bool = False
+        complaint_id: Optional[str] = Field(default=None, max_length=100)
+        evidence_reference: Optional[str] = Field(default=None, max_length=500)
+        initial_merit_established: bool = False
 
     class _CashRefundBody(BaseModel):
         user_id: str
@@ -129,37 +132,69 @@ try:
 
     @router.post("/billing/refunds/site-credits")
     async def billing_site_credit_refund(body: _SiteCreditBody, user: User = Depends(_require_rank("admin"))):
-        # If no value delivered: refund = cost + 10%. If value received: refund = cost only.
-        amount = body.platform_cost_cents if body.user_received_value else round(body.platform_cost_cents * 1.10)
+        """Issue the respectful initial remedy after reasonable merit is established.
+
+        This is deliberately a site-credit remedy, not a cash refund and not a
+        final fault judgment. The unique user-level key makes the initial 20%
+        remedy one-time-ever and prevents duplicate credits on retries.
+        """
+        if not body.initial_merit_established:
+            raise HTTPException(422, "Initial complaint merit must be established before issuing the courtesy credit.")
+        if not body.evidence_reference:
+            raise HTTPException(422, "A verifiable evidence reference is required.")
+        amount = round(body.platform_cost_cents * 0.20)
+        if amount < 1:
+            raise HTTPException(422, "The eligible transaction is too small for a credit remedy.")
+        prior = await db.wai_refunds.find_one({"user_id": body.user_id, "kind": "initial_merit_remedy"})
+        if prior:
+            return {"ok": True, "duplicate": True, "user_id": body.user_id,
+                    "amount_cents": prior.get("amount_cents", 0),
+                    "promo_code": prior.get("friend_promo_code"),
+                    "status": prior.get("status", "investigation_open")}
+        reference = str(uuid.uuid4())
+        promo_code = f"FRIEND2MO-{uuid.uuid4().hex[:8].upper()}"
+        now = datetime.now(timezone.utc)
+        refund = {
+            "id": reference, "type": "site_credit", "kind": "initial_merit_remedy",
+            "user_id": body.user_id, "amount_cents": amount,
+            "platform_cost_cents": body.platform_cost_cents,
+            "percentage": 20, "reason": body.reason,
+            "complaint_id": body.complaint_id,
+            "evidence_reference": body.evidence_reference,
+            "initial_merit_established": True,
+            "status": "investigation_open", "remedy_status": "issued",
+            "friend_promo_code": promo_code, "actor_id": user.id,
+            "created_at": now, "policy_version": "credit-remedy-v1",
+        }
+        await db.wai_refunds.insert_one(refund)
         await db.wai_credits.update_one(
             {"user_id": body.user_id},
             {"$inc": {"balance_cents": amount},
-             "$push": {"ledger": {"ts": datetime.utcnow(), "amount_cents": amount,
-                                  "reason": f"Site credit refund: {body.reason}", "actor_id": user.id}}},
+             "$push": {"ledger": {"ts": now, "amount_cents": amount,
+                                  "reason": f"20% initial complaint remedy: {body.reason}",
+                                  "reference": reference, "actor_id": user.id}}},
             upsert=True,
         )
-        await db.wai_refunds.insert_one({
-            "type": "site_credit", "user_id": body.user_id, "amount_cents": amount,
-            "platform_cost_cents": body.platform_cost_cents, "reason": body.reason,
-            "user_received_value": body.user_received_value, "actor_id": user.id,
-            "created_at": datetime.utcnow(),
+        await db.promo_codes.insert_one({
+            "code": promo_code, "granted_tier": "member", "label": "Friend welcome remedy",
+            "description": "One discounted two-month membership for a friend invited by a supported member.",
+            "discount_percent": 20, "duration_days": 60, "max_uses": 1, "uses_count": 0,
+            "active": True, "created_by": user.id, "remedy_reference": reference,
+            "created_at": now.isoformat(),
         })
-        await audit(db, user.id, "billing_site_credit_refund", {"user_id": body.user_id, "amount_cents": amount})
-        return {"ok": True, "user_id": body.user_id, "amount_cents": amount}
+        await audit(db, user.id, "billing_initial_merit_remedy_issued",
+                    {"user_id": body.user_id, "amount_cents": amount,
+                     "reference": reference, "complaint_id": body.complaint_id,
+                     "evidence_reference": body.evidence_reference,
+                     "friend_promo_code": promo_code})
+        return {"ok": True, "duplicate": False, "user_id": body.user_id,
+                "amount_cents": amount, "promo_code": promo_code,
+                "status": "investigation_open",
+                "message": "Your 20% site-credit remedy and friend offer were issued respectfully while the investigation remains open."}
 
     @router.post("/billing/refunds/cash")
     async def billing_cash_refund(body: _CashRefundBody, user: User = Depends(_require_rank("executive_admin"))):
-        conditions = body.conditions or {}
-        required = ["is_extreme_violation", "user_not_at_fault", "is_legal", "no_harm_to_wai", "supervisor_approved"]
-        if not all(conditions.get(k) for k in required):
-            raise HTTPException(400, "All 5 conditions must be confirmed for a cash refund.")
-        await db.wai_refunds.insert_one({
-            "type": "cash", "user_id": body.user_id, "amount_cents": body.amount_cents,
-            "reason": body.reason, "conditions": conditions, "actor_id": user.id,
-            "status": "pending_processing", "created_at": datetime.utcnow(),
-        })
-        await audit(db, user.id, "billing_cash_refund_submitted", {"user_id": body.user_id, "amount_cents": body.amount_cents})
-        return {"ok": True, "status": "pending_processing", "message": "Cash refund submitted for processing."}
+        raise HTTPException(410, "Cash refunds are not available. Eligible remedies are issued as site credits only.")
 
     @router.get("/billing/sage-sessions")
     async def billing_sage_sessions(user: User = Depends(_require_rank("admin"))):
