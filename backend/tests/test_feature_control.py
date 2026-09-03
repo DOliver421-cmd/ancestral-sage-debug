@@ -93,10 +93,14 @@ def test_disabled_platform_flag_blocks_mapped_paths_only():
 
 
 def test_each_mapped_flag_only_blocks_its_own_paths():
+    # The catalog LISTING is its own free-tier feature (curriculum) so the
+    # /modules page stays a working central directory; the `courses` flag
+    # governs content surfaces (module detail, progress, labs, credentials).
     cases = {
         "ai_chat": ["/api/ai/chat", "/api/ai/history"],
         "posts": ["/api/more/post", "/api/more/posts", "/api/more/need"],
-        "courses": ["/api/modules", "/api/progress", "/api/labs", "/api/credentials"],
+        "curriculum": ["/api/modules"],
+        "courses": ["/api/modules/electrical-safety", "/api/progress", "/api/labs", "/api/credentials"],
     }
     for flag, paths in cases.items():
         flags = {"flags": {flag: {"enabled": False}}}

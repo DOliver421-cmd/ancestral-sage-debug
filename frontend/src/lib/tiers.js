@@ -43,7 +43,8 @@ export const TIER_FOR_FEATURE = {
   publisher_ai: "member", // AI-assisted publishing (Social Blast)
   lounge: "member",       // creator lounge / community
   projects: "member",     // "Have your M.O.R.E. team work on it"
-  courses: "plus",        // course library
+  curriculum: "free",    // catalog directory — always visible
+  courses: "plus",        // course library (content)
   tracks: "plus",         // learning tracks / adaptive path
   ghost: "plus",          // Ghost Producer
   studio: "free",         // Creator Studio (free access; premium chambers stay tiered)

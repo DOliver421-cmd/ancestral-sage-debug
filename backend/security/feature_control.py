@@ -70,9 +70,12 @@ FEATURE_API_PATHS: dict = {
     "payouts": ["/api/creator/payouts", "/api/creator/payout-summary", "/api/creator/bank-account"],
     "publisher": ["/api/playlist/", "/api/portfolio/publish"],
     "tracks": ["/api/modules/tracks", "/api/progress/tracks"],
-    # The broad modules/progress prefixes intentionally remain courses so the
-    # existing contract continues to govern the live LMS endpoints.
-    "courses": ["/api/modules", "/api/progress", "/api/labs", "/api/credentials"],
+    # Content surfaces (module detail, progress, labs, credentials) remain the
+    # `courses` contract (tier-gated). The bare catalog LISTING is a separate
+    # free surface (`curriculum`) so the /modules page is a working central
+    # directory for everyone and never hides what exists behind a paywall.
+    "courses": ["/api/modules/", "/api/progress", "/api/labs", "/api/credentials"],
+    "curriculum": ["/api/modules"],
     "posts": ["/api/more/"],
     "ai_chat": ["/api/ai/"],
     "profile": ["/api/auth/me"],
@@ -211,6 +214,7 @@ AUTHZ_REQUIREMENT_TIERS = set(TIER_RANK) - {"platinum"}
 FEATURE_MIN_TIER: dict = {
     "profile": "free",
     "ai_chat": "free",
+    "curriculum": "free",  # catalog directory — never hidden
     "posts": "member",
     "publisher_ai": "member",
     "lounge": "member",

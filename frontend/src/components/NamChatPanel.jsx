@@ -18,6 +18,7 @@ export default function NamChatPanel() {
   const [sending, setSending] = useState(false);
   const [loadingHistory, setLoadingHistory] = useState(true);
   const [degraded, setDegraded] = useState(false);
+  const [provider, setProvider] = useState("");
   const listRef = useRef(null);
 
   useEffect(() => {
@@ -66,6 +67,7 @@ export default function NamChatPanel() {
         history: messages.slice(-8).map((m) => ({ role: m.role, content: m.content })),
       });
       setDegraded(Boolean(data?.degraded));
+      setProvider(data?.provider || "");
       setMessages((m) => [...m, { role: "assistant", content: data?.reply || "(empty reply)" }]);
     } catch (err) {
       const detail = err?.response?.data?.detail;
@@ -82,7 +84,7 @@ export default function NamChatPanel() {
         <h2 className="text-sm font-bold text-ink">Talk to Hybrid NAM</h2>
         {degraded && (
           <span className="ml-auto text-[10px] font-bold uppercase tracking-widest text-amber-700 bg-amber-100 border border-amber-300 rounded px-2 py-0.5">
-            KB fallback mode
+            {provider === "kb_fallback" ? "Knowledge Base mode — no live AI key" : `Degraded (${provider || "fallback"})`}
           </span>
         )}
       </header>
@@ -95,8 +97,9 @@ export default function NamChatPanel() {
         ) : messages.length === 0 ? (
           <div className="h-full flex items-center justify-center text-center">
             <p className="text-sm text-ink/50 max-w-xs">
-              Ask Hybrid NAM anything about the institution. Answers come from the live AI
-              gateway with NAM's knowledge and memory — not canned text.
+              Ask Hybrid NAM anything about the institution. When a live AI provider is
+              funded — or you bring your own key — answers come from the provider model.
+              Otherwise answers come from the knowledge base and are clearly labeled.
             </p>
           </div>
         ) : (
@@ -113,6 +116,12 @@ export default function NamChatPanel() {
               </div>
             </div>
           ))
+        )}
+        {degraded && (
+          <div className="shrink-0 border-t border-amber-200 bg-amber-50 px-4 py-2 text-xs text-amber-800 flex items-center gap-2 flex-wrap">
+            <span>Live AI needs a provider key. Bring your own key for provider-powered answers:</span>
+            <a href="/byok" className="font-bold text-amber-900 underline">BYOK setup →</a>
+          </div>
         )}
         {sending && (
           <div className="flex justify-start">
