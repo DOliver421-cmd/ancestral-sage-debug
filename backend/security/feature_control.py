@@ -409,14 +409,19 @@ async def check_user_feature_access(db, user, path: str):
         if feature in FEATURE_INSTRUCTOR_BYPASS and user.role == "instructor":
             return ("pass", None)
         custom_tiers = []
-        if user.feature_tier not in TIER_RANK or required not in TIER_RANK:
+        # Defensive getattr: the user object here is whatever model the app
+        # passes in (server.User or router-local mirrors). If a mirror drops
+        # feature_tier, treat as "free" rather than raising — an AttributeError
+        # in this gate would 500 every authenticated request on a mapped path.
+        user_tier_attr = getattr(user, "feature_tier", None) or "free"
+        if user_tier_attr not in TIER_RANK or required not in TIER_RANK:
             try:
                 custom_tiers = await db.tier_definitions.find(
                     {}, {"_id": 0, "tier_id": 1, "rank": 1}
                 ).to_list(100)
             except Exception:
                 return ("unavailable", "Feature authorization unavailable — request rejected.")
-        user_rank = _tier_rank_of(user.feature_tier, custom_tiers)
+        user_rank = _tier_rank_of(user_tier_attr, custom_tiers)
         required_rank = TIER_RANK.get(required)
         if required_rank is None:
             required_rank = _tier_rank_of(required, custom_tiers)

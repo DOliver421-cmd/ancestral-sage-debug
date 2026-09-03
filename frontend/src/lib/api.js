@@ -103,7 +103,7 @@ api.interceptors.response.use(
       }
     } else if (status === 429) {
       toast.error("Too many requests — please slow down and try again shortly.");
-    } else if (status >= 500) {
+    } else if (status >= 500 && !err?.config?.skipGenericErrorToast) {
       toast.error("Server error — please try again in a moment.");
     }
     return Promise.reject(err);

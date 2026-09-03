@@ -55,13 +55,13 @@ export default function VaultOfVersions({ projects = [] }) {
   };
 
   return (
-    <div style={{ fontFamily: 'inherit', color: 'rgba(255,255,255,0.9)', display: 'flex', flexDirection: 'column', gap: 20 }}>
+    <div style={{ fontFamily: 'inherit', color: 'rgba(28,25,23,0.9)', display: 'flex', flexDirection: 'column', gap: 20 }}>
 
       {projects.length === 0 ? (
         <div style={{
           textAlign: 'center', padding: '60px 24px',
-          border: '1px dashed rgba(248,113,113,0.2)',
-          color: 'rgba(255,255,255,0.3)',
+          border: '1px dashed rgba(220,38,38,0.2)',
+          color: 'rgba(28,25,23,0.3)',
         }}>
           <div style={{ fontSize: 40, marginBottom: 12, opacity: 0.3 }}>⌬</div>
           <div style={{ fontFamily: 'Georgia, serif', fontSize: 16, marginBottom: 8 }}>No projects sealed yet</div>
@@ -71,7 +71,7 @@ export default function VaultOfVersions({ projects = [] }) {
         </div>
       ) : (
         <>
-          <div style={{ fontSize: 9, fontFamily: 'monospace', letterSpacing: '0.2em', textTransform: 'uppercase', color: 'rgba(248,113,113,0.7)' }}>
+          <div style={{ fontSize: 9, fontFamily: 'monospace', letterSpacing: '0.2em', textTransform: 'uppercase', color: 'rgba(220,38,38,0.7)' }}>
             {projects.length} Project{projects.length !== 1 ? 's' : ''} in the Vault
           </div>
 
@@ -83,8 +83,8 @@ export default function VaultOfVersions({ projects = [] }) {
               <div
                 key={project.id}
                 style={{
-                  border: `1px solid ${isSelected ? 'rgba(248,113,113,0.4)' : 'rgba(255,255,255,0.08)'}`,
-                  background: isSelected ? 'rgba(248,113,113,0.05)' : 'rgba(255,255,255,0.02)',
+                  border: `1px solid ${isSelected ? 'rgba(220,38,38,0.4)' : 'rgba(28,25,23,0.08)'}`,
+                  background: isSelected ? 'rgba(220,38,38,0.05)' : 'rgba(28,25,23,0.02)',
                   transition: 'all 0.2s ease',
                 }}
               >
@@ -98,37 +98,37 @@ export default function VaultOfVersions({ projects = [] }) {
                 >
                   <div style={{
                     fontSize: 28,
-                    filter: isSelected ? 'drop-shadow(0 0 10px rgba(248,113,113,0.7))' : 'none',
+                    filter: isSelected ? 'drop-shadow(0 0 10px rgba(220,38,38,0.7))' : 'none',
                     transition: 'filter 0.2s ease',
                   }}>
                     {project.glyph || '⌬'}
                   </div>
                   <div style={{ flex: 1 }}>
-                    <div style={{ fontSize: 14, fontWeight: 900, color: isSelected ? '#f87171' : 'rgba(255,255,255,0.85)' }}>
+                    <div style={{ fontSize: 14, fontWeight: 900, color: isSelected ? '#dc2626' : 'rgba(28,25,23,0.85)' }}>
                       {project.name}
                     </div>
-                    <div style={{ fontSize: 11, fontFamily: 'monospace', color: 'rgba(255,255,255,0.3)', marginTop: 3 }}>
+                    <div style={{ fontSize: 11, fontFamily: 'monospace', color: 'rgba(28,25,23,0.3)', marginTop: 3 }}>
                       Created {formatDate(project.id)} · v{history.length || 1}
                     </div>
                   </div>
-                  <div style={{ fontSize: 10, fontFamily: 'monospace', color: 'rgba(248,113,113,0.5)' }}>
+                  <div style={{ fontSize: 10, fontFamily: 'monospace', color: 'rgba(220,38,38,0.5)' }}>
                     {isSelected ? '▲' : '▼'}
                   </div>
                 </div>
 
                 {/* Expanded */}
                 {isSelected && (
-                  <div style={{ padding: '0 18px 18px', borderTop: '1px solid rgba(248,113,113,0.15)' }}>
+                  <div style={{ padding: '0 18px 18px', borderTop: '1px solid rgba(220,38,38,0.15)' }}>
                     <div style={{ paddingTop: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
-                      <div style={{ fontSize: 9, fontFamily: 'monospace', letterSpacing: '0.15em', textTransform: 'uppercase', color: 'rgba(248,113,113,0.6)' }}>
+                      <div style={{ fontSize: 9, fontFamily: 'monospace', letterSpacing: '0.15em', textTransform: 'uppercase', color: 'rgba(220,38,38,0.6)' }}>
                         Version History
                       </div>
                       <button
                         onClick={() => setVersionModal(true)}
                         style={{
-                          background: 'rgba(248,113,113,0.12)',
-                          border: '1px solid rgba(248,113,113,0.3)',
-                          color: '#f87171', padding: '6px 14px',
+                          background: 'rgba(220,38,38,0.12)',
+                          border: '1px solid rgba(220,38,38,0.3)',
+                          color: '#dc2626', padding: '6px 14px',
                           fontFamily: 'monospace', fontSize: 11,
                           fontWeight: 700, letterSpacing: '0.08em',
                           cursor: 'pointer',
@@ -139,7 +139,7 @@ export default function VaultOfVersions({ projects = [] }) {
                     </div>
 
                     {history.length === 0 ? (
-                      <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.25)', fontStyle: 'italic', padding: '8px 0' }}>
+                      <div style={{ fontSize: 12, color: 'rgba(28,25,23,0.25)', fontStyle: 'italic', padding: '8px 0' }}>
                         No versions sealed yet. Seal your first version.
                       </div>
                     ) : (
@@ -150,19 +150,19 @@ export default function VaultOfVersions({ projects = [] }) {
                             style={{
                               display: 'flex', alignItems: 'center', gap: 12,
                               padding: '10px 12px',
-                              background: 'rgba(0,0,0,0.3)',
-                              border: '1px solid rgba(255,255,255,0.06)',
+                              background: 'rgba(28,25,23,0.04)',
+                              border: '1px solid rgba(28,25,23,0.06)',
                             }}
                           >
                             <div style={{
                               fontFamily: 'monospace', fontSize: 11, fontWeight: 900,
-                              color: '#f87171', minWidth: 24,
+                              color: '#dc2626', minWidth: 24,
                             }}>
                               v{v.versionNumber}
                             </div>
                             <div style={{ flex: 1 }}>
-                              <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.75)' }}>{v.note}</div>
-                              <div style={{ fontSize: 10, fontFamily: 'monospace', color: 'rgba(255,255,255,0.25)', marginTop: 2 }}>
+                              <div style={{ fontSize: 12, color: 'rgba(28,25,23,0.75)' }}>{v.note}</div>
+                              <div style={{ fontSize: 10, fontFamily: 'monospace', color: 'rgba(28,25,23,0.25)', marginTop: 2 }}>
                                 {formatDate(v.timestamp)}
                               </div>
                             </div>
@@ -170,8 +170,8 @@ export default function VaultOfVersions({ projects = [] }) {
                               onClick={() => restoreVersion(v)}
                               style={{
                                 background: 'none',
-                                border: '1px solid rgba(255,255,255,0.1)',
-                                color: 'rgba(255,255,255,0.35)',
+                                border: '1px solid rgba(28,25,23,0.1)',
+                                color: 'rgba(28,25,23,0.35)',
                                 padding: '4px 10px', fontFamily: 'monospace',
                                 fontSize: 10, cursor: 'pointer',
                                 letterSpacing: '0.05em',
@@ -203,12 +203,12 @@ export default function VaultOfVersions({ projects = [] }) {
         >
           <div style={{
             width: 400, maxWidth: '90vw',
-            background: '#0d0d1a',
-            border: '1px solid rgba(248,113,113,0.35)',
+            background: '#ffffff',
+            border: '1px solid rgba(220,38,38,0.35)',
             padding: '28px 24px',
-            boxShadow: '0 0 40px rgba(248,113,113,0.15)',
+            boxShadow: '0 0 40px rgba(220,38,38,0.15)',
           }}>
-            <div style={{ fontFamily: 'monospace', fontSize: 11, letterSpacing: '0.15em', textTransform: 'uppercase', color: 'rgba(248,113,113,0.7)', marginBottom: 16 }}>
+            <div style={{ fontFamily: 'monospace', fontSize: 11, letterSpacing: '0.15em', textTransform: 'uppercase', color: 'rgba(220,38,38,0.7)', marginBottom: 16 }}>
               Seal New Version — {selectedProject?.name}
             </div>
             <textarea
@@ -219,10 +219,10 @@ export default function VaultOfVersions({ projects = [] }) {
               autoFocus
               style={{
                 width: '100%', boxSizing: 'border-box',
-                background: 'rgba(255,255,255,0.03)',
-                border: '1px solid rgba(248,113,113,0.25)',
+                background: 'rgba(28,25,23,0.03)',
+                border: '1px solid rgba(220,38,38,0.25)',
                 padding: '10px 12px',
-                color: 'rgba(255,255,255,0.9)',
+                color: 'rgba(28,25,23,0.9)',
                 fontSize: 13, fontFamily: 'inherit',
                 outline: 'none', resize: 'none', marginBottom: 16,
               }}
@@ -232,8 +232,8 @@ export default function VaultOfVersions({ projects = [] }) {
                 onClick={() => setVersionModal(false)}
                 style={{
                   flex: 1, background: 'transparent',
-                  border: '1px solid rgba(255,255,255,0.1)',
-                  color: 'rgba(255,255,255,0.4)',
+                  border: '1px solid rgba(28,25,23,0.1)',
+                  color: 'rgba(28,25,23,0.4)',
                   padding: '10px', cursor: 'pointer',
                   fontFamily: 'monospace', fontSize: 11, letterSpacing: '0.08em',
                 }}
@@ -244,7 +244,7 @@ export default function VaultOfVersions({ projects = [] }) {
                 onClick={sealVersion}
                 style={{
                   flex: 2,
-                  background: 'linear-gradient(135deg, #991b1b, #f87171)',
+                  background: 'linear-gradient(135deg, #991b1b, #dc2626)',
                   border: 'none', color: '#fff',
                   fontFamily: 'monospace', fontWeight: 900,
                   fontSize: 11, letterSpacing: '0.12em', textTransform: 'uppercase',

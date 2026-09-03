@@ -2,6 +2,27 @@
 
 Generated 2026-09-02 from live-mounted route resolution of the deployed backend (571 unique paths, 647 route-method entries).
 
+## Update — 2026-09-03
+
+Newly WIRED (were implemented but never mounted in `server.py`, so they were
+404/SPA-shadowed or dead in production):
+
+| Module | Mounted as | Notes |
+|---|---|---|
+| `routers/studio.py` | `/api` prefix → `/api/studio/*`, `/api/arcade/*`, `/api/compliance/*` | Sovereign AI + chamber generators (Lyric Forge, Sound Lab, Visual Altar, Script, Publishing Gate), arcade scores/leaderboard, compliance quizzes |
+| `routers/member_projects.py` | in-file prefix `/api/my-projects` | list/create/deliverables/approve/archive/advance — previously only exercised by route-level suites, not mounted |
+
+Verified (this sandbox, DB-disabled): module import OK with the new mounts;
+ASGI requests — `GET /api/arcade/games` 200, `GET /api/my-projects` 401 (auth
+enforced), `POST /api/studio/sovereign` 503 (registered; requires live DB).
+`server.py` binder now also resolves `_award_xp` / `_award_credentials` for
+`studio.bind`. Frontend: Ghost Producer / Studio publish flow re-pointed from
+the non-member `/executive/projects*` to `/api/my-projects*`; `/studio`,
+`/studio/music`, all chambers, and Supervisor Login converted to the
+white-background/black-text theme (see PUBLIC_READINESS_REPORT.md 2026-09-03
+update). Live re-verification of the newly mounted rows belongs in the next
+post-deploy probe pass.
+
 ## Classification standard
 - **PASS** = runtime-verified: live HTTP 200 against the production backend, OR a passing route-level/contract test suite exercised the handler including its auth/authorization matrix.
 - **FAIL** = broken. None remain — every defect found in this pass was fixed and re-verified before generation.

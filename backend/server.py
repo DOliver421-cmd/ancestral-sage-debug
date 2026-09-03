@@ -207,6 +207,8 @@ from importlib import import_module
 _ADDITIONAL_API_ROUTER_MODULES = (
     ("aawab", "/api"),
     ("abo", "/api"),
+    ("member_projects", ""),
+    ("studio", "/api"),
     ("auditor", "/api"),
     ("band", "/api"),
     ("billing", "/api"),
@@ -405,6 +407,23 @@ class User(BaseModel):
     # picks their own on first login.
     must_change_password: bool = False
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    # ── Fields persisted on user documents by register/login/admin flows. ──
+    # These MUST be declared: current_user() rebuilds User(**user_doc) on every
+    # authenticated request, and request-path code (FCC tier matrix,
+    # site-guide gate, profile responses) reads them as attributes. An
+    # undeclared field is silently dropped by extra="ignore" and any direct
+    # attribute read then raises AttributeError → HTTP 500 for that user.
+    # (Root cause of the live authed-request 500s found 2026-09-02.)
+    avatar_url: Optional[str] = None
+    social_handles: Optional[dict] = None
+    feature_tier: str = "free"
+    sage_tier: Optional[str] = None
+    last_login: Optional[str] = None
+    # C-2 token revocation counter; carried so round-trips keep their value.
+    token_version: int = 0
+    # GDPR consent record (ISO strings as stored by register).
+    terms_accepted_at: Optional[str] = None
+    over_13_confirmed: Optional[bool] = None
 
 
 class RegisterReq(BaseModel):
@@ -10250,6 +10269,10 @@ def _bind_router_dependencies(router_module):
         "_assert_role": assert_role,
         "xp_level": xp_level,
         "_xp_level": xp_level,
+        "award_xp": award_xp,
+        "_award_xp": award_xp,
+        "award_credentials": award_credentials,
+        "_award_credentials": award_credentials,
         "jwt_secret": JWT_SECRET,
         "_jwt_secret": JWT_SECRET,
         "jwt_algo": JWT_ALGO,

@@ -6,9 +6,9 @@ import SharePanel from "../../SharePanel";
 
 const ROLES = ["Lyricist", "Producer", "Visual Artist", "Editor", "Mix Engineer", "Voice / Spoken Word", "Other"];
 const STATUSES = [
-  { id: "invited", label: "Invited", color: "rgba(251,191,36,0.85)" },
-  { id: "active",  label: "Active",  color: "rgba(34,211,238,0.9)" },
-  { id: "done",    label: "Done",    color: "rgba(34,197,94,0.9)" },
+  { id: "invited", label: "Invited", color: "rgba(217,119,6,0.85)" },
+  { id: "active",  label: "Active",  color: "rgba(14,116,144,0.9)" },
+  { id: "done",    label: "Done",    color: "rgba(21,128,61,0.9)" },
 ];
 
 const keyFor = (projectId, kind) => `studio_collab_${kind}:${projectId}`;
@@ -92,7 +92,7 @@ export default function CollaborationChamber({ activeProject }) {
 
   if (!activeProject) {
     return (
-      <div style={{ textAlign: "center", padding: "60px 24px", border: "1px dashed rgba(167,139,250,0.25)", color: "rgba(255,255,255,0.35)" }}>
+      <div style={{ textAlign: "center", padding: "60px 24px", border: "1px dashed rgba(109,40,217,0.25)", color: "rgba(28,25,23,0.35)" }}>
         <div style={{ fontSize: 40, marginBottom: 12, opacity: 0.4 }}>⊞</div>
         <div style={{ fontFamily: "Georgia, serif", fontSize: 16, marginBottom: 8 }}>No project selected</div>
         <div style={{ fontSize: 12, fontFamily: "monospace" }}>
@@ -103,15 +103,15 @@ export default function CollaborationChamber({ activeProject }) {
   }
 
   return (
-    <div style={{ fontFamily: "inherit", color: "rgba(255,255,255,0.9)", display: "flex", flexDirection: "column", gap: 22 }}>
+    <div style={{ fontFamily: "inherit", color: "rgba(28,25,23,0.9)", display: "flex", flexDirection: "column", gap: 22 }}>
       {/* Active project header */}
-      <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 14px", border: "1px solid rgba(167,139,250,0.25)", background: "rgba(167,139,250,0.05)" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 14px", border: "1px solid rgba(109,40,217,0.25)", background: "rgba(109,40,217,0.05)" }}>
         <div style={{ fontSize: 26 }}>{activeProject.glyph || "⊞"}</div>
         <div>
-          <div style={{ fontSize: 9, fontFamily: "monospace", letterSpacing: "0.18em", textTransform: "uppercase", color: "rgba(167,139,250,0.7)" }}>
+          <div style={{ fontSize: 9, fontFamily: "monospace", letterSpacing: "0.18em", textTransform: "uppercase", color: "rgba(109,40,217,0.7)" }}>
             Collaborating on
           </div>
-          <div style={{ fontSize: 15, fontWeight: 900, color: "#c4b5fd" }}>{activeProject.name}</div>
+          <div style={{ fontSize: 15, fontWeight: 900, color: "#6d28d9" }}>{activeProject.name}</div>
         </div>
       </div>
 
@@ -130,7 +130,7 @@ export default function CollaborationChamber({ activeProject }) {
       </div>
       <button
         onClick={addGuest}
-        style={{ alignSelf: "flex-start", background: "rgba(167,139,250,0.15)", border: "1px solid rgba(167,139,250,0.4)", color: "#c4b5fd", padding: "8px 18px", fontFamily: "monospace", fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", cursor: "pointer", display: "flex", alignItems: "center", gap: 7 }}
+        style={{ alignSelf: "flex-start", background: "rgba(109,40,217,0.15)", border: "1px solid rgba(109,40,217,0.4)", color: "#6d28d9", padding: "8px 18px", fontFamily: "monospace", fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", cursor: "pointer", display: "flex", alignItems: "center", gap: 7 }}
       >
         <UserPlus style={{ width: 12, height: 12 }} /> Add Guest Creator
       </button>
@@ -140,17 +140,17 @@ export default function CollaborationChamber({ activeProject }) {
         <label style={labelStyle}>Scope — what does the team own?</label>
         <div style={{ display: "flex", gap: 8 }}>
           <textarea style={{ ...inputStyle, height: 56, resize: "none", flex: 1 }} value={scope} onChange={e => setScope(e.target.value)} placeholder="e.g. Maya writes the hook and the bridge; Dev handles the beat arrangement and mix." maxLength={400} />
-          <button onClick={saveScope} style={{ background: "rgba(167,139,250,0.12)", border: "1px solid rgba(167,139,250,0.3)", color: "#c4b5fd", padding: "0 14px", fontFamily: "monospace", fontSize: 10, fontWeight: 700, cursor: "pointer" }}>SAVE</button>
+          <button onClick={saveScope} style={{ background: "rgba(109,40,217,0.12)", border: "1px solid rgba(109,40,217,0.3)", color: "#6d28d9", padding: "0 14px", fontFamily: "monospace", fontSize: 10, fontWeight: 700, cursor: "pointer" }}>SAVE</button>
         </div>
       </div>
 
       {/* Roster */}
       <div>
-        <div style={{ fontSize: 9, fontFamily: "monospace", letterSpacing: "0.2em", textTransform: "uppercase", color: "rgba(167,139,250,0.7)", marginBottom: 10, display: "flex", alignItems: "center", gap: 8 }}>
+        <div style={{ fontSize: 9, fontFamily: "monospace", letterSpacing: "0.2em", textTransform: "uppercase", color: "rgba(109,40,217,0.7)", marginBottom: 10, display: "flex", alignItems: "center", gap: 8 }}>
           <Users style={{ width: 12, height: 12 }} /> Guest Creators ({roster.length})
         </div>
         {roster.length === 0 ? (
-          <div style={{ fontSize: 12, color: "rgba(255,255,255,0.3)", fontStyle: "italic", padding: "12px 0" }}>
+          <div style={{ fontSize: 12, color: "rgba(28,25,23,0.3)", fontStyle: "italic", padding: "12px 0" }}>
             No guests yet. Add the people working on this project.
           </div>
         ) : (
@@ -158,19 +158,19 @@ export default function CollaborationChamber({ activeProject }) {
             {roster.map(g => {
               const st = STATUSES.find(s => s.id === g.status) || STATUSES[0];
               return (
-                <div key={g.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", background: "rgba(0,0,0,0.3)", border: "1px solid rgba(255,255,255,0.07)" }}>
+                <div key={g.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", background: "rgba(28,25,23,0.04)", border: "1px solid rgba(28,25,23,0.07)" }}>
                   <div style={{ flex: 1 }}>
                     <div style={{ fontSize: 13, fontWeight: 900 }}>{g.name}</div>
-                    <div style={{ fontSize: 10, fontFamily: "monospace", color: "rgba(167,139,250,0.6)", marginTop: 2 }}>{g.role}</div>
+                    <div style={{ fontSize: 10, fontFamily: "monospace", color: "rgba(109,40,217,0.6)", marginTop: 2 }}>{g.role}</div>
                   </div>
                   <select
                     value={g.status}
                     onChange={e => setStatus(g.id, e.target.value)}
-                    style={{ background: "rgba(255,255,255,0.04)", border: `1px solid ${st.color}`, color: st.color, padding: "4px 8px", fontSize: 10, fontFamily: "monospace", fontWeight: 700, outline: "none", borderRadius: 4, cursor: "pointer" }}
+                    style={{ background: "rgba(28,25,23,0.04)", border: `1px solid ${st.color}`, color: st.color, padding: "4px 8px", fontSize: 10, fontFamily: "monospace", fontWeight: 700, outline: "none", borderRadius: 4, cursor: "pointer" }}
                   >
-                    {STATUSES.map(s => <option key={s.id} value={s.id} style={{ color: "#0a0a0f" }}>{s.label}</option>)}
+                    {STATUSES.map(s => <option key={s.id} value={s.id} style={{ color: "#1c1917" }}>{s.label}</option>)}
                   </select>
-                  <button onClick={() => removeGuest(g.id)} title="Remove guest" style={{ background: "none", border: "none", color: "rgba(255,255,255,0.3)", cursor: "pointer", display: "flex", padding: 4 }}>
+                  <button onClick={() => removeGuest(g.id)} title="Remove guest" style={{ background: "none", border: "none", color: "rgba(28,25,23,0.3)", cursor: "pointer", display: "flex", padding: 4 }}>
                     <Trash2 style={{ width: 13, height: 13 }} />
                   </button>
                 </div>
@@ -181,12 +181,12 @@ export default function CollaborationChamber({ activeProject }) {
       </div>
 
       {/* Invite + share */}
-      <div style={{ borderTop: "1px solid rgba(255,255,255,0.07)", paddingTop: 16 }}>
+      <div style={{ borderTop: "1px solid rgba(28,25,23,0.07)", paddingTop: 16 }}>
         <div style={labelStyle}>Invite message — copy &amp; send</div>
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
           <button
             onClick={copyInvite}
-            style={{ background: copiedInvite ? "rgba(34,197,94,0.2)" : "rgba(167,139,250,0.12)", border: `1px solid ${copiedInvite ? "rgba(34,197,94,0.4)" : "rgba(167,139,250,0.35)"}`, color: copiedInvite ? "#22c55e" : "#c4b5fd", padding: "8px 16px", fontFamily: "monospace", fontSize: 11, fontWeight: 700, cursor: "pointer", display: "flex", alignItems: "center", gap: 7 }}
+            style={{ background: copiedInvite ? "rgba(21,128,61,0.2)" : "rgba(109,40,217,0.12)", border: `1px solid ${copiedInvite ? "rgba(21,128,61,0.4)" : "rgba(109,40,217,0.35)"}`, color: copiedInvite ? "#15803d" : "#6d28d9", padding: "8px 16px", fontFamily: "monospace", fontSize: 11, fontWeight: 700, cursor: "pointer", display: "flex", alignItems: "center", gap: 7 }}
           >
             {copiedInvite ? <Check style={{ width: 12, height: 12 }} /> : <Copy style={{ width: 12, height: 12 }} />}
             {copiedInvite ? "Copied" : "Copy Invite"}
@@ -204,5 +204,5 @@ export default function CollaborationChamber({ activeProject }) {
   );
 }
 
-const labelStyle = { display: "block", fontSize: 10, fontFamily: "monospace", letterSpacing: "0.1em", textTransform: "uppercase", color: "rgba(167,139,250,0.8)", marginBottom: 6 };
-const inputStyle = { width: "100%", background: "rgba(255,255,255,0.04)", border: "1px solid rgba(167,139,250,0.25)", padding: "9px 12px", color: "rgba(255,255,255,0.9)", fontSize: 13, fontFamily: "inherit", outline: "none", borderRadius: 4, boxSizing: "border-box" };
+const labelStyle = { display: "block", fontSize: 10, fontFamily: "monospace", letterSpacing: "0.1em", textTransform: "uppercase", color: "rgba(109,40,217,0.8)", marginBottom: 6 };
+const inputStyle = { width: "100%", background: "rgba(28,25,23,0.04)", border: "1px solid rgba(109,40,217,0.25)", padding: "9px 12px", color: "rgba(28,25,23,0.9)", fontSize: 13, fontFamily: "inherit", outline: "none", borderRadius: 4, boxSizing: "border-box" };

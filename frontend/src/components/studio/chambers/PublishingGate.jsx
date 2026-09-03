@@ -52,9 +52,9 @@ export default function PublishingGate({ tier = "base", sovereignDispatch, artif
   };
 
   return (
-    <div style={{ fontFamily: "inherit", color: "rgba(255,255,255,0.9)", display: "flex", flexDirection: "column", gap: 0 }}>
+    <div style={{ fontFamily: "inherit", color: "rgba(28,25,23,0.9)", display: "flex", flexDirection: "column", gap: 0 }}>
       {/* Tab bar */}
-      <div style={{ display: "flex", gap: 0, borderBottom: "1px solid rgba(184,134,11,0.2)", marginBottom: 20 }}>
+      <div style={{ display: "flex", gap: 0, borderBottom: "1px solid rgba(146,64,14,0.2)", marginBottom: 20 }}>
         {[["metadata", "Metadata Generator"], ["social", "Social Templates"], ["checklist", "Release Checklist"]].map(([key, label]) => (
           <button
             key={key}
@@ -63,8 +63,8 @@ export default function PublishingGate({ tier = "base", sovereignDispatch, artif
               padding: "9px 16px", border: "none", cursor: "pointer", fontFamily: "monospace",
               fontSize: 11, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase",
               background: "transparent",
-              color: tab === key ? "#ffd700" : "rgba(255,255,255,0.4)",
-              borderBottom: tab === key ? "2px solid #ffd700" : "2px solid transparent",
+              color: tab === key ? "#a16207" : "rgba(28,25,23,0.4)",
+              borderBottom: tab === key ? "2px solid #a16207" : "2px solid transparent",
               marginBottom: -1,
             }}
           >
@@ -114,7 +114,7 @@ export default function PublishingGate({ tier = "base", sovereignDispatch, artif
           </div>
           <button
             onClick={generate} disabled={loading}
-            style={{ background: loading ? "rgba(184,134,11,0.3)" : "linear-gradient(135deg, #b8860b, #d4a017)", border: "none", color: "#0a0a0f", fontWeight: 900, fontSize: 13, padding: "11px 22px", cursor: loading ? "default" : "pointer", letterSpacing: "0.08em", textTransform: "uppercase", fontFamily: "monospace", display: "flex", alignItems: "center", gap: 8, alignSelf: "flex-start", boxShadow: loading ? "none" : "0 4px 0 #7a5c0a" }}
+            style={{ background: loading ? "rgba(146,64,14,0.3)" : "linear-gradient(135deg, #92400e, #b45309)", border: "none", color: "#ffffff", fontWeight: 900, fontSize: 13, padding: "11px 22px", cursor: loading ? "default" : "pointer", letterSpacing: "0.08em", textTransform: "uppercase", fontFamily: "monospace", display: "flex", alignItems: "center", gap: 8, alignSelf: "flex-start", boxShadow: loading ? "none" : "0 4px 0 #7a5c0a" }}
           >
             {loading ? <RefreshCw style={{ width: 13, height: 13, animation: "spin 1s linear infinite" }} /> : <Wand2 style={{ width: 13, height: 13 }} />}
             {loading ? "Generating..." : "Generate Metadata"}
@@ -122,7 +122,7 @@ export default function PublishingGate({ tier = "base", sovereignDispatch, artif
 
           {meta && (
             <div style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: 4 }}>
-              <div style={{ ...labelStyle, color: "rgba(184,134,11,0.95)" }}>
+              <div style={{ ...labelStyle, color: "rgba(146,64,14,0.95)" }}>
                 Draft metadata — edit every field before publishing
               </div>
               <textarea
@@ -135,8 +135,8 @@ export default function PublishingGate({ tier = "base", sovereignDispatch, artif
                 aria-label="Editable release metadata draft"
                 style={{
                   width: "100%", minHeight: 260, boxSizing: "border-box", resize: "vertical",
-                  background: "rgba(255,255,255,0.03)", border: "1px solid rgba(184,134,11,0.3)",
-                  color: "rgba(255,255,255,0.9)", padding: 12, fontFamily: "monospace", fontSize: 12,
+                  background: "rgba(28,25,23,0.03)", border: "1px solid rgba(146,64,14,0.3)",
+                  color: "rgba(28,25,23,0.9)", padding: 12, fontFamily: "monospace", fontSize: 12,
                   lineHeight: 1.6, outline: "none",
                 }}
               />
@@ -157,27 +157,27 @@ export default function PublishingGate({ tier = "base", sovereignDispatch, artif
       {tab === "social" && (
         <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
           {!form.title.trim() ? (
-            <div style={{ color: "rgba(255,255,255,0.4)", fontSize: 13, padding: "20px 0" }}>
+            <div style={{ color: "rgba(28,25,23,0.4)", fontSize: 13, padding: "20px 0" }}>
               Fill in the title and details in the Metadata tab first, then come back here.
             </div>
           ) : (
             <>
-              <div style={{ color: "rgba(255,255,255,0.5)", fontSize: 12, marginBottom: 4 }}>
+              <div style={{ color: "rgba(28,25,23,0.5)", fontSize: 12, marginBottom: 4 }}>
                 Ready-made captions for each platform. Click to copy.
               </div>
               {buildSocialTemplates(form).map(({ platform, icon, color, text }) => (
-                <div key={platform} style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 6, overflow: "hidden" }}>
-                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "8px 12px", borderBottom: "1px solid rgba(255,255,255,0.06)", background: `${color}15` }}>
+                <div key={platform} style={{ background: "rgba(28,25,23,0.03)", border: "1px solid rgba(28,25,23,0.08)", borderRadius: 6, overflow: "hidden" }}>
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "8px 12px", borderBottom: "1px solid rgba(28,25,23,0.06)", background: `${color}15` }}>
                     <span style={{ fontSize: 12, fontWeight: 900, color, fontFamily: "monospace" }}>{icon} {platform}</span>
                     <button onClick={() => copyField(platform, text)} style={{ ...actionBtn, color, borderColor: `${color}50`, background: `${color}15` }}>
                       {copied[platform] ? <Check style={{ width: 11, height: 11 }} /> : <Copy style={{ width: 11, height: 11 }} />}
                       <span style={{ fontSize: 10 }}>{copied[platform] ? "Copied" : "Copy"}</span>
                     </button>
                   </div>
-                  <div style={{ padding: "10px 12px", fontSize: 12, color: "rgba(255,255,255,0.75)", lineHeight: 1.7, whiteSpace: "pre-wrap" }}>{text}</div>
+                  <div style={{ padding: "10px 12px", fontSize: 12, color: "rgba(28,25,23,0.75)", lineHeight: 1.7, whiteSpace: "pre-wrap" }}>{text}</div>
                 </div>
               ))}
-              <div style={{ marginTop: 8, paddingTop: 12, borderTop: "1px solid rgba(255,255,255,0.06)" }}>
+              <div style={{ marginTop: 8, paddingTop: 12, borderTop: "1px solid rgba(28,25,23,0.06)" }}>
                 <div style={{ ...labelStyle, marginBottom: 8 }}>Or share the direct link</div>
                 <SharePanel url={`/courses`} title={form.title} description={form.description} />
               </div>
@@ -204,7 +204,7 @@ function buildSocialTemplates(form) {
       text: `🎵 "${title}"${artist} is OUT NOW 🔥\n\n${form.description || `New ${type} dropping. This one is different.`}\n\nLink in bio 👆\n\n#WAIInstitute #NewMusic #BlackCreators #IndependentArtist`,
     },
     {
-      platform: "X / Twitter", icon: "𝕏", color: "#ffffff",
+      platform: "X / Twitter", icon: "𝕏", color: "#0f1419",
       text: `"${title}"${artist} is live 🔥\n\n${form.description ? form.description.slice(0, 100) + (form.description.length > 100 ? "..." : "") : `New ${type}. No skips.`}\n\n#WAIInstitute #NewMusic`,
     },
     {
@@ -233,23 +233,23 @@ function ReleaseChecklist({ type }) {
   const [checked, setChecked] = useState({});
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-      <div style={{ color: "rgba(255,255,255,0.5)", fontSize: 12, marginBottom: 4 }}>{type} release checklist</div>
+      <div style={{ color: "rgba(28,25,23,0.5)", fontSize: 12, marginBottom: 4 }}>{type} release checklist</div>
       {items.map((item, i) => (
-        <label key={i} style={{ display: "flex", alignItems: "flex-start", gap: 10, cursor: "pointer", padding: "8px 10px", background: checked[i] ? "rgba(34,197,94,0.07)" : "rgba(255,255,255,0.02)", border: `1px solid ${checked[i] ? "rgba(34,197,94,0.25)" : "rgba(255,255,255,0.07)"}`, borderRadius: 4, transition: "all 0.15s" }}>
-          <input type="checkbox" checked={!!checked[i]} onChange={() => setChecked(c => ({ ...c, [i]: !c[i] }))} style={{ accentColor: "#22c55e", marginTop: 2 }} />
-          <span style={{ fontSize: 13, color: checked[i] ? "rgba(34,197,94,0.8)" : "rgba(255,255,255,0.8)", textDecoration: checked[i] ? "line-through" : "none" }}>
+        <label key={i} style={{ display: "flex", alignItems: "flex-start", gap: 10, cursor: "pointer", padding: "8px 10px", background: checked[i] ? "rgba(21,128,61,0.07)" : "rgba(28,25,23,0.02)", border: `1px solid ${checked[i] ? "rgba(21,128,61,0.25)" : "rgba(28,25,23,0.07)"}`, borderRadius: 4, transition: "all 0.15s" }}>
+          <input type="checkbox" checked={!!checked[i]} onChange={() => setChecked(c => ({ ...c, [i]: !c[i] }))} style={{ accentColor: "#15803d", marginTop: 2 }} />
+          <span style={{ fontSize: 13, color: checked[i] ? "rgba(21,128,61,0.8)" : "rgba(28,25,23,0.8)", textDecoration: checked[i] ? "line-through" : "none" }}>
             {item.replace("✅ ", "")}
           </span>
         </label>
       ))}
-      <div style={{ marginTop: 8, fontSize: 12, color: "rgba(255,215,0,0.6)", fontFamily: "monospace" }}>
+      <div style={{ marginTop: 8, fontSize: 12, color: "rgba(161,98,7,0.6)", fontFamily: "monospace" }}>
         {Object.values(checked).filter(Boolean).length}/{items.length} complete
       </div>
     </div>
   );
 }
 
-const labelStyle = { display: "block", fontSize: 10, fontFamily: "monospace", letterSpacing: "0.1em", textTransform: "uppercase", color: "rgba(184,134,11,0.8)", marginBottom: 6 };
-const inputStyle = { width: "100%", background: "rgba(255,255,255,0.04)", border: "1px solid rgba(184,134,11,0.25)", padding: "9px 12px", color: "rgba(255,255,255,0.9)", fontSize: 13, fontFamily: "inherit", outline: "none", borderRadius: 4, boxSizing: "border-box" };
+const labelStyle = { display: "block", fontSize: 10, fontFamily: "monospace", letterSpacing: "0.1em", textTransform: "uppercase", color: "rgba(146,64,14,0.8)", marginBottom: 6 };
+const inputStyle = { width: "100%", background: "rgba(28,25,23,0.04)", border: "1px solid rgba(146,64,14,0.25)", padding: "9px 12px", color: "rgba(28,25,23,0.9)", fontSize: 13, fontFamily: "inherit", outline: "none", borderRadius: 4, boxSizing: "border-box" };
 const selectStyle = { ...inputStyle, cursor: "pointer" };
-const actionBtn = { background: "rgba(184,134,11,0.15)", border: "1px solid rgba(184,134,11,0.3)", color: "#b8860b", padding: "5px 8px", cursor: "pointer", borderRadius: 4, display: "flex", alignItems: "center", gap: 4, fontSize: 11, fontWeight: 700 };
+const actionBtn = { background: "rgba(146,64,14,0.15)", border: "1px solid rgba(146,64,14,0.3)", color: "#92400e", padding: "5px 8px", cursor: "pointer", borderRadius: 4, display: "flex", alignItems: "center", gap: 4, fontSize: 11, fontWeight: 700 };

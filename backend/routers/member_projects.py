@@ -31,6 +31,7 @@ Collection:
 
 from datetime import datetime, timezone
 from typing import Optional, List
+import os
 
 from fastapi import APIRouter, Depends, HTTPException, Header, Query, Request
 from pydantic import BaseModel

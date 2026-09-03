@@ -31,11 +31,11 @@ import {
   Sparkles, Lock, FileText, Headphones,
 } from "lucide-react";
 
-const COPPER = "#22d3ee";
-const GOLD = "#22d3ee";
-const GREEN = "#0e7490";
-const INK = "#e2e8f0";
-const BONE = "#141824";
+const COPPER = "#0e7490";
+const GOLD = "#E8A51E";
+const GREEN = "#1B4332";
+const INK = "#1c1917";
+const BONE = "#ffffff";
 
 const STEPS = 16;
 
@@ -56,18 +56,18 @@ const midiToFreq = (m) => 440 * Math.pow(2, (m - 69) / 12);
 
 // ── 12 Instruments ──────────────────────────────────────────────────────────
 const DRUM_TRACKS = [
-  { id: "kick",    label: "Kick",    color: "#f472b6" },
-  { id: "snare",   label: "Snare",   color: "#22d3ee" },
-  { id: "hat",     label: "Hat",     color: "#67e8f9" },
-  { id: "perc",    label: "Perc",    color: "#a78bfa" },
-  { id: "clap",    label: "Clap",    color: "#fb923c" },
-  { id: "rim",     label: "Rim",     color: "#facc15" },
-  { id: "openHat", label: "Open Hat", color: "#34d399" },
-  { id: "shaker",  label: "Shaker",  color: "#f9a8d4" },
-  { id: "crash",   label: "Crash",   color: "#fbbf24" },
-  { id: "ride",    label: "Ride",    color: "#93c5fd" },
-  { id: "cowbell", label: "Cowbell", color: "#c084fc" },
-  { id: "tom",     label: "Tom",     color: "#f87171" },
+  { id: "kick",    label: "Kick",    color: "#db2777" },
+  { id: "snare",   label: "Snare",   color: "#0e7490" },
+  { id: "hat",     label: "Hat",     color: "#0e7490" },
+  { id: "perc",    label: "Perc",    color: "#6d28d9" },
+  { id: "clap",    label: "Clap",    color: "#c2410c" },
+  { id: "rim",     label: "Rim",     color: "#ca8a04" },
+  { id: "openHat", label: "Open Hat", color: "#059669" },
+  { id: "shaker",  label: "Shaker",  color: "#be185d" },
+  { id: "crash",   label: "Crash",   color: "#d97706" },
+  { id: "ride",    label: "Ride",    color: "#2563eb" },
+  { id: "cowbell", label: "Cowbell", color: "#7c3aed" },
+  { id: "tom",     label: "Tom",     color: "#dc2626" },
 ];
 
 // ── Song sections ────────────────────────────────────────────────────────────
@@ -574,8 +574,8 @@ export function StudioContent({ embedded = false }) {
   const [projectId, setProjectId] = useState("");
 
   useEffect(() => {
-    api.get("/executive/projects")
-      .then((r) => setProjects(r.data || []))
+    api.get("/my-projects")
+      .then((r) => setProjects(r.data?.projects || []))
       .catch(() => {});
   }, []);
 
@@ -867,8 +867,8 @@ export function StudioContent({ embedded = false }) {
       });
       if (projectId) {
         try {
-          const proj = await api.get(`/executive/projects/${projectId}`).then((r) => r.data).catch(() => null);
-          await api.post(`/executive/projects/${projectId}/deliverables`, {
+          const proj = await api.get(`/my-projects/${projectId}`).then((r) => r.data?.project || r.data).catch(() => null);
+          await api.post(`/my-projects/${projectId}/deliverables`, {
             stage: proj?.current_stage || "execute",
             persona: "Ghost Producer Studio",
             title: `${meta.title} (published track)`,
@@ -927,7 +927,7 @@ export function StudioContent({ embedded = false }) {
   const title = meta.title || "Untitled";
 
   return (
-    <div className={embedded ? "h-full overflow-y-auto bg-[#141824]" : "bg-[#141824]"} style={embedded ? {} : { minHeight: "100vh" }}>
+    <div className={embedded ? "h-full overflow-y-auto bg-[#ffffff]" : "bg-[#ffffff]"} style={embedded ? {} : { minHeight: "100vh" }}>
       <div className="max-w-6xl mx-auto px-4 sm:px-6 py-8">
         {!embedded && <div className="mb-4"><PageBack to="/studio" label="Studio" /></div>}
         {/* ── Header ── */}
@@ -955,7 +955,7 @@ export function StudioContent({ embedded = false }) {
         </div>
 
         {/* ── Tabs ── */}
-        <div className="flex gap-1 border-b border-white/10 mb-6 overflow-x-auto">
+        <div className="flex gap-1 border-b border-stone-300 mb-6 overflow-x-auto">
           {[
             { id: "beat", label: "Beat (12 Instruments)", icon: Music2 },
             { id: "keys", label: "Keys", icon: SlidersHorizontal },
@@ -966,7 +966,7 @@ export function StudioContent({ embedded = false }) {
             return (
               <button key={t.id} onClick={() => setTab(t.id)}
                 className={`flex items-center gap-1.5 px-4 py-2.5 text-sm font-bold border-b-2 whitespace-nowrap transition-colors ${
-                  tab === t.id ? "border-cyan-400 text-cyan-400" : "border-transparent text-slate-500 hover:text-slate-200"
+                  tab === t.id ? "border-cyan-700 text-cyan-700" : "border-transparent text-stone-500 hover:text-stone-800"
                 }`}>
                 <Icon className="w-4 h-4" /> {t.label}
               </button>
@@ -975,31 +975,31 @@ export function StudioContent({ embedded = false }) {
         </div>
 
         {/* ── Transport ── */}
-        <div className="flex flex-wrap items-center gap-3 mb-6 card-flat rounded-2xl p-4 border" style={{ background: "#1b2130" }}>
+        <div className="flex flex-wrap items-center gap-3 mb-6 card-flat rounded-2xl p-4 border" style={{ background: "#ffffff" }}>
           <button onClick={playing ? stop : play}
             className="w-11 h-11 rounded-full flex items-center justify-center text-white transition-transform active:scale-95"
             style={{ background: playing ? "#B23A2E" : GREEN }}>
             {playing ? <Square className="w-4 h-4 fill-white" /> : <Play className="w-4 h-4 fill-white ml-0.5" />}
           </button>
           <label className="flex items-center gap-2 text-sm">
-            <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">BPM</span>
+            <span className="text-xs font-bold text-stone-600 uppercase tracking-widest">BPM</span>
             <input type="range" min="50" max="160" value={bpm}
               onChange={(e) => setBpm(Number(e.target.value))}
-              className="w-28 accent-[#22d3ee]" />
+              className="w-28 accent-[#0e7490]" />
             <span className="font-mono text-sm w-8">{bpm}</span>
           </label>
           <label className="flex items-center gap-2 text-sm">
-            <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Swing</span>
+            <span className="text-xs font-bold text-stone-600 uppercase tracking-widest">Swing</span>
             <input type="range" min="0" max="0.35" step="0.01" value={swing}
               onChange={(e) => setSwing(Number(e.target.value))}
-              className="w-24 accent-[#22d3ee]" />
+              className="w-24 accent-[#0e7490]" />
             <span className="font-mono text-sm w-8">{(swing * 100).toFixed(0)}%</span>
           </label>
           <div className="flex items-center gap-1 ml-auto flex-wrap">
             {Object.entries(KITS).map(([id, k]) => (
               <button key={id} onClick={() => selectKit(id)}
                 className={`text-[10px] font-black uppercase tracking-wider px-3 py-1.5 rounded-full border transition-colors ${
-                  kitId === id ? "text-white" : "text-slate-400 hover:text-slate-100"
+                  kitId === id ? "text-white" : "text-stone-600 hover:text-stone-900"
                 }`}
                 style={kitId === id ? { background: GREEN, borderColor: GREEN } : { borderColor: "rgba(28,25,23,0.15)" }}>
                 {k.label}
@@ -1010,19 +1010,19 @@ export function StudioContent({ embedded = false }) {
 
         {/* ══ BEAT (12 Instruments) ══ */}
         {tab === "beat" && (
-          <div className="card-flat rounded-2xl border overflow-hidden" style={{ background: "#1b2130" }}>
+          <div className="card-flat rounded-2xl border overflow-hidden" style={{ background: "#ffffff" }}>
             {DRUM_TRACKS.map((t) => {
               const pat = patterns[kitId][t.id][bank];
               return (
-                <div key={t.id} className="flex items-stretch border-b border-white/5 last:border-0">
-                  <div className="w-28 shrink-0 flex items-center gap-2 px-4 py-2 border-r border-white/5">
+                <div key={t.id} className="flex items-stretch border-b border-stone-200 last:border-0">
+                  <div className="w-28 shrink-0 flex items-center gap-2 px-4 py-2 border-r border-stone-200">
                     <button onClick={() => setMuted((m) => ({ ...m, [t.id]: !m[t.id] }))}
                       title={muted[t.id] ? "Unmute" : "Mute"}
-                      className={`w-7 h-7 rounded flex items-center justify-center text-[9px] font-black transition-colors ${muted[t.id] ? "bg-ink/10 text-slate-500" : "text-white"}`}
+                      className={`w-7 h-7 rounded flex items-center justify-center text-[9px] font-black transition-colors ${muted[t.id] ? "bg-ink/10 text-stone-500" : "text-white"}`}
                       style={!muted[t.id] ? { background: t.color } : {}}>
                       {muted[t.id] ? "OFF" : "ON"}
                     </button>
-                    <span className="text-sm font-bold text-slate-100">{t.label}</span>
+                    <span className="text-sm font-bold text-stone-900">{t.label}</span>
                   </div>
                   <div className="flex-1 grid gap-1 p-2" style={{ gridTemplateColumns: `repeat(${STEPS}, 1fr)` }}>
                     {pat.map((on, s) => (
@@ -1030,7 +1030,7 @@ export function StudioContent({ embedded = false }) {
                         className={`rounded-md transition-all ${step === s && playing ? "ring-2 ring-copper" : ""}`}
                         style={{
                           aspectRatio: "1",
-                          background: on ? t.color : "#f3ede2",
+                          background: on ? t.color : "#e7e0d2",
                           opacity: on ? 1 : 0.6,
                         }} />
                     ))}
@@ -1039,17 +1039,17 @@ export function StudioContent({ embedded = false }) {
               );
             })}
             {/* Bank switcher */}
-            <div className="flex items-center gap-2 px-4 py-3 bg-[#141824]">
+            <div className="flex items-center gap-2 px-4 py-3 bg-[#f1eee8]">
               {[0, 1].map((b) => (
                 <button key={b} onClick={() => setBank(b)}
                   className={`px-4 py-1.5 rounded-lg text-xs font-black uppercase tracking-widest transition-colors ${
-                    bank === b ? "text-white" : "text-slate-500 bg-[#1b2130] border border-white/10"
+                    bank === b ? "text-white" : "text-stone-500 bg-[#ffffff] border border-stone-300"
                   }`}
                   style={bank === b ? { background: COPPER } : {}}>
                   Pattern {b === 0 ? "A" : "B"}
                 </button>
               ))}
-              <span className="ml-auto text-xs text-slate-500">12 instruments · 16 steps · {activeSection}</span>
+              <span className="ml-auto text-xs text-stone-500">12 instruments · 16 steps · {activeSection}</span>
             </div>
           </div>
         )}
@@ -1057,19 +1057,19 @@ export function StudioContent({ embedded = false }) {
         {/* ══ KEYS ══ */}
         {tab === "keys" && (
           <div className="space-y-5">
-            <div className="card-flat rounded-2xl border p-5" style={{ background: "#1b2130" }}>
+            <div className="card-flat rounded-2xl border p-5" style={{ background: "#ffffff" }}>
               <div className="flex flex-wrap items-center gap-3 mb-4">
-                <span className="text-sm font-bold text-slate-100">Scale lane</span>
-                <span className="text-xs text-slate-400">{scale.label}</span>
+                <span className="text-sm font-bold text-stone-900">Scale lane</span>
+                <span className="text-xs text-stone-600">{scale.label}</span>
                 <label className="flex items-center gap-2 ml-auto text-sm">
-                  <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Key</span>
+                  <span className="text-xs font-bold text-stone-600 uppercase tracking-widest">Key</span>
                   <select value={root} onChange={(e) => setRoot(e.target.value)}
-                    className="px-3 py-1.5 bg-[#1b2130] border border-white/15 rounded-lg text-sm focus:outline-none focus:border-cyan-400">
+                    className="px-3 py-1.5 bg-[#ffffff] border border-stone-400 rounded-lg text-sm focus:outline-none focus:border-cyan-700">
                     {ROOTS.map((r) => <option key={r} value={r}>{r}</option>)}
                   </select>
                 </label>
                 <button onClick={() => setMuted((m) => ({ ...m, keys: !m.keys }))}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-black uppercase tracking-widest ${muted.keys ? "bg-ink/10 text-slate-500" : "text-white"}`}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-black uppercase tracking-widest ${muted.keys ? "bg-ink/10 text-stone-500" : "text-white"}`}
                   style={!muted.keys ? { background: GREEN } : {}}>
                   {muted.keys ? "Keys OFF" : "Keys ON"}
                 </button>
@@ -1079,7 +1079,7 @@ export function StudioContent({ embedded = false }) {
                   {Array.from({ length: KEY_ROWS }).map((_, r) => {
                     const degree = Math.min(r, scale.offsets.length - 1);
                     return (
-                      <div key={r} className="text-xs font-mono text-slate-400 px-2">
+                      <div key={r} className="text-xs font-mono text-stone-600 px-2">
                         {scale.offsets[degree]} ({r === 0 ? "root" : r === 1 ? "3rd" : r === 2 ? "5th" : r === 3 ? "7th" : "color"})
                       </div>
                     );
@@ -1093,7 +1093,7 @@ export function StudioContent({ embedded = false }) {
                           className={`flex-1 rounded-md transition-all ${step === s && playing ? "ring-2 ring-copper" : ""}`}
                           style={{
                             height: 28,
-                            background: on ? "#2D6A4F" : "#f3ede2",
+                            background: on ? "#2D6A4F" : "#e7e0d2",
                             opacity: on ? 1 : 0.6,
                           }} />
                       ))}
@@ -1101,7 +1101,7 @@ export function StudioContent({ embedded = false }) {
                   ))}
                 </div>
               </div>
-              <p className="text-xs text-slate-500 mt-3">
+              <p className="text-xs text-stone-500 mt-3">
                 Rows map to scale degrees — play the root/3rd/5th/7th/color of the selected scale in {root}.
                 Each song section has its own keys pattern.
               </p>
@@ -1113,15 +1113,15 @@ export function StudioContent({ embedded = false }) {
         {tab === "song" && (
           <div className="space-y-5">
             {/* Section selector */}
-            <div className="card-flat rounded-2xl border p-5" style={{ background: "#1b2130" }}>
+            <div className="card-flat rounded-2xl border p-5" style={{ background: "#ffffff" }}>
               <div className="flex flex-wrap items-center gap-3 mb-4">
-                <span className="text-sm font-bold text-slate-100">Editing Section:</span>
+                <span className="text-sm font-bold text-stone-900">Editing Section:</span>
                 {SECTION_DEFS.map((sec) => (
                   <button key={sec.id} onClick={() => setActiveSection(sec.id)}
                     className={`px-4 py-2 rounded-lg text-sm font-bold transition-colors ${
                       activeSection === sec.id
                         ? "text-white"
-                        : "text-slate-400 bg-[#141824] border border-white/10 hover:text-slate-200"
+                        : "text-stone-600 bg-[#f1eee8] border border-stone-300 hover:text-stone-900"
                     }`}
                     style={activeSection === sec.id ? { background: GREEN, border: `1px solid ${GREEN}` } : {}}>
                     {sec.icon} {sec.label}
@@ -1130,26 +1130,26 @@ export function StudioContent({ embedded = false }) {
               </div>
               <div className="flex flex-wrap items-center gap-4">
                 <label className="flex items-center gap-2 text-sm">
-                  <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Bars in section</span>
+                  <span className="text-xs font-bold text-stone-600 uppercase tracking-widest">Bars in section</span>
                   <input type="number" min="1" max="32" value={sectionBars[activeSection] || 4}
                     onChange={(e) => setSectionBars((prev) => ({ ...prev, [activeSection]: Math.max(1, Math.min(32, Number(e.target.value))) }))}
-                    className="w-16 px-2 py-1 bg-[#141824] border border-white/15 rounded text-sm font-mono text-center focus:outline-none focus:border-cyan-400" />
+                    className="w-16 px-2 py-1 bg-[#ffffff] border border-stone-400 rounded text-sm font-mono text-center focus:outline-none focus:border-cyan-700" />
                 </label>
-                <span className="text-xs text-slate-500">
+                <span className="text-xs text-stone-500">
                   {activeSection}: {sectionBars[activeSection] || 4} bars × 16 steps = {(sectionBars[activeSection] || 4) * 16} steps
                 </span>
               </div>
-              <p className="text-xs text-slate-500 mt-3">
+              <p className="text-xs text-stone-500 mt-3">
                 Edit the beat and keys for this section. Each section is an independent pattern.
                 Then chain them in the arrangement below to build your full track.
               </p>
             </div>
 
             {/* Arrangement timeline */}
-            <div className="card-flat rounded-2xl border p-5" style={{ background: "#1b2130", borderColor: "rgba(34,211,238,0.25)" }}>
+            <div className="card-flat rounded-2xl border p-5" style={{ background: "#ffffff", borderColor: "rgba(14,116,144,0.25)" }}>
               <div className="flex flex-wrap items-center gap-3 mb-4">
-                <span className="text-sm font-bold text-slate-100">🎹 Song Arrangement</span>
-                <span className="text-xs text-slate-400">
+                <span className="text-sm font-bold text-stone-900">🎹 Song Arrangement</span>
+                <span className="text-xs text-stone-600">
                   {arrangement.length} sections · {arrangement.reduce((sum, s) => sum + (sectionBars[s] || 4), 0)} bars total
                 </span>
               </div>
@@ -1159,7 +1159,7 @@ export function StudioContent({ embedded = false }) {
                 {SECTION_DEFS.map((sec) => (
                   <button key={sec.id} onClick={() => addSection(sec.id)}
                     className="px-3 py-1.5 rounded-lg text-xs font-bold transition-colors hover:opacity-80"
-                    style={{ background: "rgba(34,211,238,0.1)", border: "1px solid rgba(34,211,238,0.3)", color: GREEN }}>
+                    style={{ background: "rgba(14,116,144,0.1)", border: "1px solid rgba(14,116,144,0.3)", color: GREEN }}>
                     + {sec.icon} {sec.label}
                   </button>
                 ))}
@@ -1168,7 +1168,7 @@ export function StudioContent({ embedded = false }) {
               {/* Arrangement strip */}
               <div className="flex gap-2 overflow-x-auto pb-2" style={{ minHeight: 60 }}>
                 {arrangement.length === 0 && (
-                  <div className="flex items-center justify-center w-full text-slate-500 text-sm">
+                  <div className="flex items-center justify-center w-full text-stone-500 text-sm">
                     Click + buttons above to add sections to your song arrangement
                   </div>
                 )}
@@ -1176,10 +1176,10 @@ export function StudioContent({ embedded = false }) {
                   const sec = SECTION_DEFS.find((s) => s.id === secId);
                   const bars = sectionBars[secId] || 4;
                   const colors = {
-                    intro: "#22d3ee", verse: "#a78bfa", chorus: "#f472b6",
-                    bridge: "#fbbf24", outro: "#34d399",
+                    intro: "#0e7490", verse: "#6d28d9", chorus: "#db2777",
+                    bridge: "#d97706", outro: "#059669",
                   };
-                  const color = colors[secId] || "#22d3ee";
+                  const color = colors[secId] || "#0e7490";
                   return (
                     <div key={`${secId}-${idx}`}
                       className="shrink-0 rounded-xl p-3 flex flex-col items-center gap-1 cursor-pointer transition-all hover:scale-105"
@@ -1192,12 +1192,12 @@ export function StudioContent({ embedded = false }) {
                       title={`Click to edit ${sec?.label} section`}>
                       <div className="flex items-center gap-1">
                         <button onClick={(e) => { e.stopPropagation(); if (idx > 0) moveSection(idx, idx - 1); }}
-                          className="text-[10px] text-slate-400 hover:text-white px-1">◀</button>
+                          className="text-[10px] text-stone-600 hover:text-stone-900 px-1">◀</button>
                         <span className="text-sm font-bold" style={{ color }}>{sec?.icon} {sec?.label}</span>
                         <button onClick={(e) => { e.stopPropagation(); if (idx < arrangement.length - 1) moveSection(idx, idx + 1); }}
-                          className="text-[10px] text-slate-400 hover:text-white px-1">▶</button>
+                          className="text-[10px] text-stone-600 hover:text-stone-900 px-1">▶</button>
                       </div>
-                      <span className="text-[10px] text-slate-500">{bars} bars</span>
+                      <span className="text-[10px] text-stone-500">{bars} bars</span>
                       <div className="flex gap-0.5 mt-1">
                         {Array.from({ length: Math.min(bars, 16) }).map((_, i) => (
                           <div key={i} className="w-1.5 h-1.5 rounded-full" style={{ background: color, opacity: 0.5 }} />
@@ -1205,9 +1205,9 @@ export function StudioContent({ embedded = false }) {
                       </div>
                       <div className="flex gap-1 mt-1">
                         <button onClick={(e) => { e.stopPropagation(); duplicateSection(idx); }}
-                          className="text-[10px] text-slate-500 hover:text-white" title="Duplicate">⧉</button>
+                          className="text-[10px] text-stone-500 hover:text-stone-900" title="Duplicate">⧉</button>
                         <button onClick={(e) => { e.stopPropagation(); removeSection(idx); }}
-                          className="text-[10px] text-red-400 hover:text-red-300" title="Remove">✕</button>
+                          className="text-[10px] text-red-600 hover:text-red-700" title="Remove">✕</button>
                       </div>
                     </div>
                   );
@@ -1215,7 +1215,7 @@ export function StudioContent({ embedded = false }) {
               </div>
 
               {/* Play song button */}
-              <div className="flex items-center gap-3 mt-4 pt-4 border-t border-white/10">
+              <div className="flex items-center gap-3 mt-4 pt-4 border-t border-stone-300">
                 <button onClick={isPlayingSong ? stop : playSong}
                   className="flex items-center gap-2 px-6 py-3 rounded-xl text-sm font-bold transition-colors"
                   style={{ background: isPlayingSong ? "#B23A2E" : GREEN, color: "#fff" }}>
@@ -1231,23 +1231,23 @@ export function StudioContent({ embedded = false }) {
             </div>
 
             {/* Quick arrangement templates */}
-            <div className="card-flat rounded-2xl border p-5" style={{ background: "#1b2130" }}>
-              <span className="text-sm font-bold text-slate-100 mb-3 block">Quick Templates</span>
+            <div className="card-flat rounded-2xl border p-5" style={{ background: "#ffffff" }}>
+              <span className="text-sm font-bold text-stone-900 mb-3 block">Quick Templates</span>
               <div className="flex flex-wrap gap-2">
                 <button onClick={() => setArrangement(["intro", "verse", "chorus", "outro"])}
-                  className="px-3 py-1.5 rounded-lg text-xs font-bold text-slate-400 bg-[#141824] border border-white/10 hover:text-white transition-colors">
+                  className="px-3 py-1.5 rounded-lg text-xs font-bold text-stone-600 bg-[#f1eee8] border border-stone-300 hover:text-stone-900 transition-colors">
                   Simple (4 sections)
                 </button>
                 <button onClick={() => setArrangement(["intro", "verse", "chorus", "verse", "chorus", "outro"])}
-                  className="px-3 py-1.5 rounded-lg text-xs font-bold text-slate-400 bg-[#141824] border border-white/10 hover:text-white transition-colors">
+                  className="px-3 py-1.5 rounded-lg text-xs font-bold text-stone-600 bg-[#f1eee8] border border-stone-300 hover:text-stone-900 transition-colors">
                   Pop (6 sections)
                 </button>
                 <button onClick={() => setArrangement([...DEFAULT_ARRANGEMENT])}
-                  className="px-3 py-1.5 rounded-lg text-xs font-bold text-slate-400 bg-[#141824] border border-white/10 hover:text-white transition-colors">
+                  className="px-3 py-1.5 rounded-lg text-xs font-bold text-stone-600 bg-[#f1eee8] border border-stone-300 hover:text-stone-900 transition-colors">
                   Full (8 sections)
                 </button>
                 <button onClick={() => setArrangement(["intro", "verse", "chorus", "verse", "chorus", "bridge", "chorus", "verse", "chorus", "outro"])}
-                  className="px-3 py-1.5 rounded-lg text-xs font-bold text-slate-400 bg-[#141824] border border-white/10 hover:text-white transition-colors">
+                  className="px-3 py-1.5 rounded-lg text-xs font-bold text-stone-600 bg-[#f1eee8] border border-stone-300 hover:text-stone-900 transition-colors">
                   Extended (10 sections)
                 </button>
               </div>
@@ -1258,70 +1258,70 @@ export function StudioContent({ embedded = false }) {
         {/* ══ PUBLISH ══ */}
         {tab === "publish" && (
           <div className="grid lg:grid-cols-2 gap-5">
-            <div className="card-flat rounded-2xl border p-5 space-y-4" style={{ background: "#1b2130" }}>
+            <div className="card-flat rounded-2xl border p-5 space-y-4" style={{ background: "#ffffff" }}>
               <div className="flex items-center gap-2">
                 <FileText className="w-4 h-4" style={{ color: COPPER }} />
-                <h2 className="font-heading font-bold text-slate-100">Track Metadata</h2>
+                <h2 className="font-heading font-bold text-stone-900">Track Metadata</h2>
               </div>
               <label className="block">
-                <span className="text-xs font-bold text-slate-300">Title *</span>
+                <span className="text-xs font-bold text-stone-700">Title *</span>
                 <input value={meta.title || ""} onChange={(e) => setMeta({ ...meta, title: e.target.value })}
                   placeholder="My first Ghost Producer track"
-                  className="mt-1 w-full px-3 py-2 bg-[#1b2130] border border-white/15 rounded-lg text-sm focus:outline-none focus:border-cyan-400" />
+                  className="mt-1 w-full px-3 py-2 bg-[#ffffff] border border-stone-400 rounded-lg text-sm focus:outline-none focus:border-cyan-700" />
               </label>
               <div className="grid grid-cols-2 gap-3">
                 <label className="block">
-                  <span className="text-xs font-bold text-slate-300">Artist</span>
+                  <span className="text-xs font-bold text-stone-700">Artist</span>
                   <input value={meta.artist || user?.full_name || ""} onChange={(e) => setMeta({ ...meta, artist: e.target.value })}
-                    className="mt-1 w-full px-3 py-2 bg-[#1b2130] border border-white/15 rounded-lg text-sm focus:outline-none focus:border-cyan-400" />
+                    className="mt-1 w-full px-3 py-2 bg-[#ffffff] border border-stone-400 rounded-lg text-sm focus:outline-none focus:border-cyan-700" />
                 </label>
                 <label className="block">
-                  <span className="text-xs font-bold text-slate-300">Genre</span>
+                  <span className="text-xs font-bold text-stone-700">Genre</span>
                   <input value={meta.genre || kit.label} onChange={(e) => setMeta({ ...meta, genre: e.target.value })}
-                    className="mt-1 w-full px-3 py-2 bg-[#1b2130] border border-white/15 rounded-lg text-sm focus:outline-none focus:border-cyan-400" />
+                    className="mt-1 w-full px-3 py-2 bg-[#ffffff] border border-stone-400 rounded-lg text-sm focus:outline-none focus:border-cyan-700" />
                 </label>
               </div>
               <div className="grid grid-cols-3 gap-3">
                 <div>
-                  <div className="text-xs font-bold text-slate-300">BPM</div>
-                  <div className="mt-1 font-mono text-sm text-slate-100">{bpm}</div>
+                  <div className="text-xs font-bold text-stone-700">BPM</div>
+                  <div className="mt-1 font-mono text-sm text-stone-900">{bpm}</div>
                 </div>
                 <div>
-                  <div className="text-xs font-bold text-slate-300">Key</div>
-                  <div className="mt-1 font-mono text-sm text-slate-100">{root}</div>
+                  <div className="text-xs font-bold text-stone-700">Key</div>
+                  <div className="mt-1 font-mono text-sm text-stone-900">{root}</div>
                 </div>
                 <label className="block">
-                  <span className="text-xs font-bold text-slate-300">Price ($)</span>
+                  <span className="text-xs font-bold text-stone-700">Price ($)</span>
                   <input type="number" min="0" step="0.5" value={(meta.price_cents || 100) / 100}
                     onChange={(e) => setMeta({ ...meta, price_cents: Math.round(Number(e.target.value) * 100) })}
-                    className="mt-1 w-full px-3 py-2 bg-[#1b2130] border border-white/15 rounded-lg text-sm focus:outline-none focus:border-cyan-400" />
+                    className="mt-1 w-full px-3 py-2 bg-[#ffffff] border border-stone-400 rounded-lg text-sm focus:outline-none focus:border-cyan-700" />
                 </label>
               </div>
               <label className="block">
-                <span className="text-xs font-bold text-slate-300">Description</span>
+                <span className="text-xs font-bold text-stone-700">Description</span>
                 <textarea value={meta.description || ""} onChange={(e) => setMeta({ ...meta, description: e.target.value })}
                   rows={2} placeholder="What is this track? What inspired it?"
-                  className="mt-1 w-full px-3 py-2 bg-[#1b2130] border border-white/15 rounded-lg text-sm focus:outline-none focus:border-cyan-400 resize-y" />
+                  className="mt-1 w-full px-3 py-2 bg-[#ffffff] border border-stone-400 rounded-lg text-sm focus:outline-none focus:border-cyan-700 resize-y" />
               </label>
               <label className="block">
-                <span className="text-xs font-bold text-slate-300">Credits</span>
+                <span className="text-xs font-bold text-stone-700">Credits</span>
                 <input value={meta.credits || ""} onChange={(e) => setMeta({ ...meta, credits: e.target.value })}
                   placeholder="Who made this? (defaults to you)"
-                  className="mt-1 w-full px-3 py-2 bg-[#1b2130] border border-white/15 rounded-lg text-sm focus:outline-none focus:border-cyan-400" />
+                  className="mt-1 w-full px-3 py-2 bg-[#ffffff] border border-stone-400 rounded-lg text-sm focus:outline-none focus:border-cyan-700" />
               </label>
               <div className="space-y-2 pt-1">
                 <label className="flex items-start gap-2 text-sm cursor-pointer">
                   <input type="checkbox" checked={!!meta.ai_disclosure} onChange={(e) => setMeta({ ...meta, ai_disclosure: e.target.checked })}
-                    className="mt-0.5 accent-[#22d3ee]" />
-                  <span className="text-slate-200">
+                    className="mt-0.5 accent-[#0e7490]" />
+                  <span className="text-stone-800">
                     <b>AI-assisted disclosure</b> — label this track as AI-assisted where platforms require it
-                    <span className="block text-xs text-slate-500">Required by YouTube/Spotify/Apple policies for AI-generated content.</span>
+                    <span className="block text-xs text-stone-500">Required by YouTube/Spotify/Apple policies for AI-generated content.</span>
                   </span>
                 </label>
                 <label className="flex items-start gap-2 text-sm cursor-pointer">
                   <input type="checkbox" checked={!!meta.samples_cleared} onChange={(e) => setMeta({ ...meta, samples_cleared: e.target.checked })}
-                    className="mt-0.5 accent-[#22d3ee]" />
-                  <span className="text-slate-200">
+                    className="mt-0.5 accent-[#0e7490]" />
+                  <span className="text-stone-800">
                     <b>Sample clearance statement</b> — I confirm every sound in this track is either synthesized by this studio or mine to use
                   </span>
                 </label>
@@ -1329,12 +1329,12 @@ export function StudioContent({ embedded = false }) {
             </div>
 
             <div className="space-y-5">
-              <div className="rounded-2xl border p-5" style={{ background: "#1b2130", borderColor: "rgba(34,211,238,0.3)" }}>
+              <div className="rounded-2xl border p-5" style={{ background: "#ffffff", borderColor: "rgba(14,116,144,0.3)" }}>
                 <div className="flex items-center gap-2 mb-3">
                   <Lock className="w-4 h-4" style={{ color: GREEN }} />
-                  <h2 className="font-heading font-bold text-slate-100">Ownership — yours, not ours</h2>
+                  <h2 className="font-heading font-bold text-stone-900">Ownership — yours, not ours</h2>
                 </div>
-                <div className="space-y-2 text-sm text-slate-200">
+                <div className="space-y-2 text-sm text-stone-800">
                   <p className="flex gap-2"><span style={{ color: GREEN }}>✓</span> You keep <b>100% ownership</b> of the copyright in everything made here.</p>
                   <p className="flex gap-2"><span style={{ color: GREEN }}>✓</span> The platform never claims your work — no transfers, no assignments.</p>
                   <p className="flex gap-2"><span style={{ color: GREEN }}>✓</span> When a track sells, the creator keeps <b>70%</b> and the platform retains a <b>30% service fee</b> (Mandate 2).</p>
@@ -1343,21 +1343,21 @@ export function StudioContent({ embedded = false }) {
                 </div>
               </div>
 
-              <div className="rounded-2xl border p-5" style={{ background: "rgba(34,211,238,0.05)", borderColor: "rgba(34,211,238,0.3)" }}>
+              <div className="rounded-2xl border p-5" style={{ background: "rgba(14,116,144,0.05)", borderColor: "rgba(14,116,144,0.3)" }}>
                 <div className="flex items-center gap-2 mb-3">
                   <Upload className="w-4 h-4" style={{ color: GOLD }} />
-                  <h2 className="font-heading font-bold text-slate-100">Publish to your store</h2>
+                  <h2 className="font-heading font-bold text-stone-900">Publish to your store</h2>
                 </div>
-                <p className="text-xs text-slate-400 mb-4">
+                <p className="text-xs text-stone-600 mb-4">
                   {arrangement.length > 1
                     ? "Your full arrangement will be rendered and published. Preview it first to hear exactly what buyers get."
                     : "Generate a preview to hear what buyers get, then render & publish to your Media Store."}
                 </p>
                 {projects.length > 0 && (
                   <label className="block mb-3">
-                    <span className="text-xs font-bold text-slate-300">Attach to AI team project (optional)</span>
+                    <span className="text-xs font-bold text-stone-700">Attach to AI team project (optional)</span>
                     <select value={projectId} onChange={(e) => setProjectId(e.target.value)}
-                      className="mt-1 w-full px-3 py-2 bg-[#1b2130] border border-white/15 rounded-lg text-sm focus:outline-none focus:border-cyan-400">
+                      className="mt-1 w-full px-3 py-2 bg-[#ffffff] border border-stone-400 rounded-lg text-sm focus:outline-none focus:border-cyan-700">
                       <option value="">— No project —</option>
                       {projects.map((p) => (
                         <option key={p.id} value={p.id}>
@@ -1365,14 +1365,14 @@ export function StudioContent({ embedded = false }) {
                         </option>
                       ))}
                     </select>
-                    <span className="block text-[11px] text-slate-500 mt-1">
+                    <span className="block text-[11px] text-stone-500 mt-1">
                       The published track becomes a deliverable the AI team can review and carry forward.
                     </span>
                   </label>
                 )}
                 {previewErr && <p className="text-xs mb-3" style={{ color: "#B23A2E" }}>{previewErr}</p>}
                 {previewUrl && (
-                  <div className="mb-3 p-3 rounded-lg" style={{ border: "1px solid rgba(34,211,238,0.3)", background: "rgba(34,211,238,0.06)" }}>
+                  <div className="mb-3 p-3 rounded-lg" style={{ border: "1px solid rgba(14,116,144,0.3)", background: "rgba(14,116,144,0.06)" }}>
                     <div className="text-[11px] font-black mb-1.5" style={{ color: GOLD }}>
                       PREVIEW{previewDur ? ` · ~${previewDur}s` : ""}
                     </div>
