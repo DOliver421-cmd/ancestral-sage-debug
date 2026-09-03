@@ -10287,6 +10287,26 @@ async def ready():
     return {"ready": True, "startup_complete": True}
 
 
+# ── Cross-site SSO endpoints ────────────────────────────────────────────────
+# routers/auth.py holds the canonical cross-site handlers, but the full auth
+# router is intentionally NOT mounted (server.py keeps the inline auth
+# endpoints above to avoid duplicate registrations). Register only the two
+# cross-site routes so the frontend /auth/cross-site flow reaches a real API.
+try:
+    from routers import auth as _auth_router
+    _auth_router.bind(
+        db, audit, notify, current_user, None,
+        check_rate, None, None, make_token,
+        None, None, None, None,
+    )
+    api_router.add_api_route(
+        "/auth/cross-site-token", _auth_router.generate_cross_site_token, methods=["GET"])
+    api_router.add_api_route(
+        "/auth/cross-site-login", _auth_router.cross_site_login, methods=["POST"])
+except Exception as _csse:
+    logger.warning("cross-site SSO routes not registered: %s", _csse)
+
+
 app.include_router(api_router)
 
 
