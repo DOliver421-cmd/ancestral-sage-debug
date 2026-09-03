@@ -28,6 +28,7 @@ cd frontend && npm start
 | `PUBLIC_READINESS_REPORT.md` | Full site public-readiness status with live evidence. |
 | `API_OPERATIONAL_LEDGER.md` | Per-endpoint API status ledger (PASS / FAIL / BLOCKED). |
 | `BUSINESS_ACCESS_POLICY.md` | Access/FCC policy: roles, tiers, AI funding, enforcement. |
+| `MOREHELP_SYSTEM_MANUAL.md` | User-facing system description & manual: roles, tiers, every feature, access/control by role and tier, AI personas. |
 | `EXECUTIVE_FEATURE_TOGGLE_PROTOCOL.md` | Executive runtime toggles (flags, page access, FCC config). |
 | `RECOVERY_RUNBOOK.md` | Owner account / BYOK / env-secret recovery. |
 | `ROUTING_CAPACITY_REPORT.md` | AI provider key routing + cooldown configuration. |
