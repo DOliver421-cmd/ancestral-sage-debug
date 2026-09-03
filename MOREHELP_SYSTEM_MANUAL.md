@@ -388,3 +388,151 @@ target):
 and `frontend/src/lib/plans.js` (user-facing ladder and pricing), and the
 persona surfaces in `backend/routers/ai.py`, `backend/routers/nam.py`, and
 `backend/ai/persona_loader.py`.
+
+---
+
+## 10. Technical appendix — precise API/AI access, budget framework, and BYOK
+
+*This appendix is the exact specification as implemented on `main`
+(2026-09-03), read from the source files listed in each section. Where a
+documented policy and the code differ, the code is quoted here.*
+
+### 10.1 The Ethical AI Mandate: Bring Your Own Key (BYOK)
+
+*Owner-approved public statement (included verbatim):*
+
+> The Ethical AI Mandate: Bring Your Own Key (BYOK)
+>
+> This platform operates on a sovereignty principle: we do not profit from
+> your data, and we do not subsidize unlimited compute costs, which often
+> leads to centralized control.
+>
+> To ensure grassroots resilience, we require that you fund your own AI chat
+> usage. This keeps the system decentralized and ensures your intent remains
+> your own.
+>
+> If you do not have a key, please use the platform's built-in knowledge
+> base. Alternatively, you may utilize a free quota provided by the following
+> sovereign partners. Paste your personal key below to activate unlimited
+> access for this persona stack.
+>
+> **Groq (Free Tier) | Cerebras (Free Tier) | Google Gemini (Free Tier)**
+>
+> [ Input Field ]
+
+*Precision note for the public copy above:* "unlimited access" means
+*unlimited relative to the platform budget* — the three partner free tiers
+are themselves rate-limited (for example Gemini: 15 requests/minute, 1M
+token context). A BYOK user's real ceiling is their own provider key's free
+quota, not a platform limit and not literally unlimited. The phrase is
+retained verbatim per owner approval; support should describe the actual
+quota when asked.
+
+### 10.2 Public API / AI access (from `backend/routers/ai.py`, `routers/chat.py`, `ai/llm_gateway.py`)
+
+**Authenticated AI chat surfaces** (`POST /api/ai/chat`, `/api/ai/tool-chat`,
+Sage, NAM, etc.) require a valid session. Per-user rate limit:
+**20 calls/minute** (`check_rate("ai_chat:{user.id}", max_calls=20,
+window_sec=60)`). Before any LLM spend the router runs the FCC persona gate
+(`check_persona_access` → 403/503), then Sage consent and exec safety caps.
+
+**Public/anonymous AI endpoints** — all answer from the keyword knowledge
+base only; none of them contains an LLM call path:
+
+| Endpoint | In-code rate limit | Guard rails |
+|---|---|---|
+| `POST /api/ai/helper` | 15/min per IP | 4,000-char cap; prompt-guard scan |
+| `POST /api/public/helper/ask` | 15/min per IP | 4,000-char cap; prompt guard |
+| `POST /api/helper/ask` | 15/min per IP | 4,000-char cap; prompt guard |
+| `POST /api/supervisor/public-chat` | none in code ("rate-limited by upstream proxy") | none in code |
+
+The KB itself (`ai/keyword_kb.py` + `ai/knowledge_finder.py`) matches in
+four layers — exact intent → token-overlap → category fallback → warm
+generic fallback — sourced from built-in critical entries (crisis/988),
+`ai/kb_entries.json` (hot-reloaded), and optional MongoDB `kb_entries`.
+
+**Funding gate inside `call_llm`** (single choke point, in execution order):
+
+1. Global hourly budget check → KB if over (`provider: "kb_fallback"`).
+2. **BYOK branch first** for any authenticated user with entitlement + key.
+3. Role lookup; then the owner-policy staff gate: only `admin` /
+   `executive_admin` may spend platform tokens. Customers at **any** tier,
+   anonymous callers, and unverifiable callers → knowledge-base reply.
+4. Staff only — provider chain: Groq → Cerebras → SambaNova → Gemini → Grok
+   → Cohere → Mistral → Together → OpenRouter → HuggingFace → shared
+   support-staff BYOK pool → last-resort OpenAI/DeepSeek (owner free-tier
+   keys, `LAST_RESORT_AI_ENABLED=1`) → knowledge base.
+
+Anthropic is **hard-disabled** in the gateway and stays off unless
+`ANTHROPIC_IS_ENABLED=true` is set deliberately (owner directive; the file
+header says paid providers require explicit consent).
+
+### 10.3 Budget framework (from `ai/llm_gateway.py`, `user_budget.py`)
+
+| Layer | Parameter | Default | Notes |
+|---|---|---|---|
+| Global hourly platform cap | `HOURLY_TOKEN_CAP` | **200,000 tokens/hour** | In-process counter; over cap → KB for everyone; recorded via `ai_cost_tracker` → `/admin/ai-costs` |
+| Per-user daily cap | `USER_DAILY_TOKEN_CAP` | **50,000 tokens/day** | For budgeted roles only; never cuts a user off — KB + honest "resumes at midnight" notice (`provider: "user_budget"`) |
+| Tier multiplier (daily cap) | — | free ×1.0 · member ×1.25 · plus ×1.35 · pro ×1.45 · patron ×1.50 | Unknown tier = free (safest) |
+| Exempt roles | — | rank ≥ 3 (instructor, support_staff, oversight, admin, executive_admin) | Unlimited; nothing recorded |
+| Anonymous | — | IP budget key (`ip:...`) | KB-only anyway under §7A |
+
+**Precision finding:** the per-user daily cap is currently *structurally
+dormant* for gateway traffic. The §7A staff gate runs before the daily check,
+so only admin/executive calls reach it — and both are exempt (rank ≥ 3 →
+unlimited). The multiplier ladder becomes live only if a non-staff caller is
+ever granted platform-funded spend. Operative budget today: the **hourly
+global cap**; customer spend is bounded by their own BYOK provider quota.
+BYOK calls are **never counted** against either platform budget.
+Per-feature AI quotas remain CONFIGURATION REQUIRED (executive decision) —
+no per-feature limits exist yet.
+
+### 10.4 BYOK function and contract (from `byok.py`, `routers/byok.py`)
+
+**Purpose:** the user funds their own AI calls so the platform spends nothing
+for them. BYOK is an *access mechanism, not a permission system*: FCC
+authorization (role/tier/internal) is decided first; BYOK only decides who
+pays. It never grants access to internal/proprietary features.
+
+**Entitlement — $3 one-time unlock** (`BYOK_PRICE_USD`, env-configurable,
+default 3):
+
+- Free by role: `instructor`, `support_staff`, `oversight`, `admin`,
+  `executive_admin` (`FREE_BYOK_ROLES`).
+- Everyone else: **$3**, requires proof of payment (`byok_paid`) —
+  `POST /api/byok/activate` returns **402** without it;
+  `POST /api/byok/checkout` returns **501** when payments are unconfigured
+  (deliberately locked — no silent free grant).
+- Stored as `byok_enabled` + `byok_activated_at` on the user document.
+
+**Approved providers (all free tier, no credit card, OpenAI-compatible):**
+
+| Provider | Model | Free tier |
+|---|---|---|
+| Groq | `llama-3.3-70b-versatile` | Fast free tier |
+| Cerebras | `llama3.3-70b` | Free tier, fast inference |
+| Google Gemini | `gemini-2.0-flash` | 15 RPM, 1M context |
+
+Resolution priority: groq → cerebras → gemini.
+
+**Key handling:** stored in `db.user_byok_keys`, Fernet-encrypted via the
+shared vault (`PROVIDER_KEY_ENCRYPTION_SECRET`; env → MongoDB-persisted →
+ephemeral). Save is **refused (503)** if encryption is unavailable — plaintext
+is never silently stored. Keys are never returned to the frontend; only a
+masked suffix (`••••abcd`) is shown. `POST /api/byok/key/{provider}/test`
+makes a real 1-token verification call and never stores the key.
+
+**Gateway behavior:** with entitlement + key, the user's request routes to
+their key first (`provider: "byok:{name}"`); tokens never hit platform
+budgets. If their key call fails: staff fall to the platform chain, non-staff
+to the knowledge base — never platform tokens.
+
+**Support-staff shared pool:** a `support_staff` key is also shared with the
+platform (`_SHARED_BYOK_POOL`), used only when all free providers fail;
+every use is audited (`shared_byok.used`, identity + provider, never key
+material).
+
+**Endpoints:** `GET /api/byok/status` · `POST /api/byok/activate` ·
+`POST /api/byok/checkout` · `POST /api/byok/key` ·
+`POST /api/byok/key/{provider}/test` · `DELETE /api/byok/key/{provider}` ·
+`GET /api/byok/admin` (admin+).
