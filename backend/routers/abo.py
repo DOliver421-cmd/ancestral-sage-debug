@@ -201,8 +201,8 @@ async def _save_config(updates: dict, user: User):
     await db.abo_config.update_one({"_id": "singleton"}, {"$set": updates}, upsert=True)
     try:
         await audit(user.id, "abo.config_updated", meta={**{"keys": list(updates.keys())}, **human_authorization_meta(user, "config_change")})
-    except Exception:
-        pass
+    except Exception as _audit_err:
+        logger.exception("audit write failed (action left unlogged): %s", _audit_err)
 
 
 # ── Revenue helpers ──────────────────────────────────────────────────────────
@@ -377,8 +377,8 @@ async def create_deal(body: DealReq, user: User = Depends(_dep_current_user)):
     await db.abo_deals.insert_one(deal)
     try:
         await audit(user.id, "abo.deal_created", meta={**{"deal_id": deal["id"], "org": body.org_name}, **human_authorization_meta(user, "financial_ledger")})
-    except Exception:
-        pass
+    except Exception as _audit_err:
+        logger.exception("audit write failed (action left unlogged): %s", _audit_err)
     deal.pop("_id", None)
     return deal
 
@@ -407,8 +407,8 @@ async def update_deal(deal_id: str, body: DealUpdate, user: User = Depends(_requ
     await db.abo_deals.update_one({"id": deal_id}, {"$set": updates})
     try:
         await audit(user.id, "abo.deal_updated", meta={**{"deal_id": deal_id, "updates": list(updates.keys())}, **human_authorization_meta(user, "financial_ledger")})
-    except Exception:
-        pass
+    except Exception as _audit_err:
+        logger.exception("audit write failed (action left unlogged): %s", _audit_err)
     return {"ok": True}
 
 
@@ -453,8 +453,8 @@ async def propose_deal(deal_id: str, user: User = Depends(_require_rank("admin",
     )
     try:
         await audit(user.id, "abo.deal_proposed", meta={**{"deal_id": deal_id}, **human_authorization_meta(user, "financial_ledger", note="ai_draft_for_human_review")})
-    except Exception:
-        pass
+    except Exception as _audit_err:
+        logger.exception("audit write failed (action left unlogged): %s", _audit_err)
     return {"ok": True, "provider": provider}
 
 
@@ -520,8 +520,8 @@ async def create_job(body: JobReq, user: User = Depends(_require_rank("admin", "
     await db.abo_jobs.insert_one(job)
     try:
         await audit(user.id, "abo.job_created", meta={**{"job_id": job["id"], "title": body.title}, **human_authorization_meta(user, "financial_ledger")})
-    except Exception:
-        pass
+    except Exception as _audit_err:
+        logger.exception("audit write failed (action left unlogged): %s", _audit_err)
     job.pop("_id", None)
     return job
 
@@ -563,8 +563,8 @@ async def create_exchange_contract(body: ExchangeReq, user: User = Depends(_requ
     await db.abo_exchange_contracts.insert_one(contract)
     try:
         await audit(user.id, "abo.exchange_created", meta={**{"contract_id": contract["id"]}, **human_authorization_meta(user, "institutional_filing")})
-    except Exception:
-        pass
+    except Exception as _audit_err:
+        logger.exception("audit write failed (action left unlogged): %s", _audit_err)
     contract.pop("_id", None)
     return contract
 
@@ -600,8 +600,8 @@ async def create_redteam_engagement(body: RedteamReq, user: User = Depends(_requ
     await db.abo_redteam_engagements.insert_one(engagement)
     try:
         await audit(user.id, "abo.redteam_created", meta={**{"engagement_id": engagement["id"]}, **human_authorization_meta(user, "binding_action", note="engagement_created")})
-    except Exception:
-        pass
+    except Exception as _audit_err:
+        logger.exception("audit write failed (action left unlogged): %s", _audit_err)
     engagement.pop("_id", None)
     return engagement
 
@@ -628,8 +628,8 @@ async def update_agenda(item_id: str, body: AgendaUpdate, user: User = Depends(_
         raise HTTPException(404, "Agenda item not found")
     try:
         await audit(user.id, "abo.agenda_updated", meta={**{"item_id": item_id, "status": body.status}, **human_authorization_meta(user, "binding_action")})
-    except Exception:
-        pass
+    except Exception as _audit_err:
+        logger.exception("audit write failed (action left unlogged): %s", _audit_err)
     return {"ok": True}
 
 

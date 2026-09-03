@@ -1,33 +1,6 @@
 {
-  "total": 1030,
+  "total": 723,
   "routes": [
-    {
-      "method": "DELETE",
-      "path": "/admin/prices/{price_id}",
-      "module": "server.inline",
-      "auth": [
-        "dep"
-      ],
-      "name": "delete_price"
-    },
-    {
-      "method": "DELETE",
-      "path": "/admin/promo-codes/{code}",
-      "module": "server.inline",
-      "auth": [
-        "dep"
-      ],
-      "name": "delete_promo_code"
-    },
-    {
-      "method": "DELETE",
-      "path": "/ai/memory/policy/{persona}/{order_id}",
-      "module": "server.inline",
-      "auth": [
-        "dep"
-      ],
-      "name": "delete_memory_policy"
-    },
     {
       "method": "DELETE",
       "path": "/api/admin/prices/{price_id}",
@@ -54,6 +27,15 @@
         "dep"
       ],
       "name": "admin_delete_user"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/ai/ai/memory/policy/{persona}/{order_id}",
+      "module": "server.inline",
+      "auth": [
+        "dep"
+      ],
+      "name": "delete_memory_policy"
     },
     {
       "method": "DELETE",
@@ -219,106 +201,7 @@
     },
     {
       "method": "DELETE",
-      "path": "/api/sovereign/memory",
-      "module": "server.inline",
-      "auth": [
-        "dep"
-      ],
-      "name": "sovereign_memory_clear"
-    },
-    {
-      "method": "DELETE",
-      "path": "/byok/key/{provider}",
-      "module": "server.inline",
-      "auth": [
-        "_dep_current_user"
-      ],
-      "name": "byok_remove_key"
-    },
-    {
-      "method": "DELETE",
-      "path": "/creator-lounge/projects/{project_id}",
-      "module": "server.inline",
-      "auth": [
-        "_dep_current_user"
-      ],
-      "name": "cl_delete_project"
-    },
-    {
-      "method": "DELETE",
-      "path": "/creator/courses/{course_id}",
-      "module": "server.inline",
-      "auth": [
-        "_dep_current_user"
-      ],
-      "name": "creator_delete_course"
-    },
-    {
-      "method": "DELETE",
-      "path": "/exec/control/tiers/{tier_id}",
-      "module": "server.inline",
-      "auth": [
-        "dep"
-      ],
-      "name": "ec_delete_tier"
-    },
-    {
-      "method": "DELETE",
-      "path": "/iam/resources/{resource_id}",
-      "module": "server.inline",
-      "auth": [
-        "_dep_current_user"
-      ],
-      "name": "delete_resource"
-    },
-    {
-      "method": "DELETE",
-      "path": "/media/products/{product_id}",
-      "module": "server.inline",
-      "auth": [
-        "_dep_current_user"
-      ],
-      "name": "delete_media_product"
-    },
-    {
-      "method": "DELETE",
-      "path": "/projects/{project_id}",
-      "module": "server.inline",
-      "auth": [
-        "_dep_current_user"
-      ],
-      "name": "delete_project"
-    },
-    {
-      "method": "DELETE",
-      "path": "/providers/keys/{key_id}",
-      "module": "server.inline",
-      "auth": [
-        "dep"
-      ],
-      "name": "provider_keys_delete"
-    },
-    {
-      "method": "DELETE",
-      "path": "/sentinel/protocols/{protocol_id}",
-      "module": "server.inline",
-      "auth": [
-        "dep"
-      ],
-      "name": "delete_protocol"
-    },
-    {
-      "method": "DELETE",
-      "path": "/sentinel/research/{note_id}",
-      "module": "server.inline",
-      "auth": [
-        "dep"
-      ],
-      "name": "delete_research_note"
-    },
-    {
-      "method": "DELETE",
-      "path": "/social/disconnect/{platform}",
+      "path": "/api/social/disconnect/{platform}",
       "module": "server.inline",
       "auth": [
         "dep_current_user"
@@ -326,339 +209,13 @@
       "name": "disconnect_account"
     },
     {
-      "method": "GET",
-      "path": "/aawab/admin/overview",
+      "method": "DELETE",
+      "path": "/api/sovereign/memory",
       "module": "server.inline",
       "auth": [
         "dep"
       ],
-      "name": "aawab_admin_overview"
-    },
-    {
-      "method": "GET",
-      "path": "/aawab/agents",
-      "module": "server.inline",
-      "auth": [
-        "dep"
-      ],
-      "name": "aawab_list_agents"
-    },
-    {
-      "method": "GET",
-      "path": "/aawab/agents/{agent_id}",
-      "module": "server.inline",
-      "auth": [
-        "dep"
-      ],
-      "name": "aawab_get_agent"
-    },
-    {
-      "method": "GET",
-      "path": "/aawab/badge/{badge_id}/verify",
-      "module": "server.inline",
-      "auth": [],
-      "name": "aawab_badge_verify"
-    },
-    {
-      "method": "GET",
-      "path": "/aawab/registry",
-      "module": "server.inline",
-      "auth": [],
-      "name": "aawab_registry"
-    },
-    {
-      "method": "GET",
-      "path": "/abo/admin/overview",
-      "module": "server.inline",
-      "auth": [
-        "dep"
-      ],
-      "name": "abo_admin_overview"
-    },
-    {
-      "method": "GET",
-      "path": "/abo/agenda",
-      "module": "server.inline",
-      "auth": [
-        "_dep_current_user"
-      ],
-      "name": "abo_agenda"
-    },
-    {
-      "method": "GET",
-      "path": "/abo/config",
-      "module": "server.inline",
-      "auth": [
-        "dep"
-      ],
-      "name": "abo_config"
-    },
-    {
-      "method": "GET",
-      "path": "/abo/deals",
-      "module": "server.inline",
-      "auth": [
-        "_dep_current_user"
-      ],
-      "name": "abo_deals"
-    },
-    {
-      "method": "GET",
-      "path": "/abo/exchange",
-      "module": "server.inline",
-      "auth": [
-        "_dep_current_user"
-      ],
-      "name": "abo_exchange"
-    },
-    {
-      "method": "GET",
-      "path": "/abo/jobs",
-      "module": "server.inline",
-      "auth": [
-        "_dep_current_user"
-      ],
-      "name": "abo_jobs"
-    },
-    {
-      "method": "GET",
-      "path": "/abo/overview",
-      "module": "server.inline",
-      "auth": [
-        "_dep_current_user"
-      ],
-      "name": "abo_overview"
-    },
-    {
-      "method": "GET",
-      "path": "/abo/public-status",
-      "module": "server.inline",
-      "auth": [],
-      "name": "abo_public_status"
-    },
-    {
-      "method": "GET",
-      "path": "/abo/redteam",
-      "module": "server.inline",
-      "auth": [
-        "_dep_current_user"
-      ],
-      "name": "abo_redteam"
-    },
-    {
-      "method": "GET",
-      "path": "/abo/source",
-      "module": "server.inline",
-      "auth": [
-        "_dep_current_user"
-      ],
-      "name": "abo_source"
-    },
-    {
-      "method": "GET",
-      "path": "/abo/source/controls",
-      "module": "server.inline",
-      "auth": [
-        "_dep_current_user"
-      ],
-      "name": "abo_source_controls"
-    },
-    {
-      "method": "GET",
-      "path": "/abo/tools",
-      "module": "server.inline",
-      "auth": [
-        "_dep_current_user"
-      ],
-      "name": "abo_tools"
-    },
-    {
-      "method": "GET",
-      "path": "/abo/verify",
-      "module": "server.inline",
-      "auth": [
-        "dep"
-      ],
-      "name": "abo_verify"
-    },
-    {
-      "method": "GET",
-      "path": "/admin/control-panel",
-      "module": "server.inline",
-      "auth": [
-        "dep"
-      ],
-      "name": "control_panel_data"
-    },
-    {
-      "method": "GET",
-      "path": "/admin/prices",
-      "module": "server.inline",
-      "auth": [
-        "dep"
-      ],
-      "name": "list_prices"
-    },
-    {
-      "method": "GET",
-      "path": "/admin/promo-codes",
-      "module": "server.inline",
-      "auth": [
-        "dep"
-      ],
-      "name": "list_promo_codes"
-    },
-    {
-      "method": "GET",
-      "path": "/admin/sage/audit",
-      "module": "server.inline",
-      "auth": [
-        "dep"
-      ],
-      "name": "admin_sage_audit"
-    },
-    {
-      "method": "GET",
-      "path": "/admin/sage/cap",
-      "module": "server.inline",
-      "auth": [
-        "dep"
-      ],
-      "name": "admin_get_sage_cap"
-    },
-    {
-      "method": "GET",
-      "path": "/admin/sage/metrics",
-      "module": "server.inline",
-      "auth": [
-        "dep"
-      ],
-      "name": "admin_sage_metrics"
-    },
-    {
-      "method": "GET",
-      "path": "/admin/sage/status",
-      "module": "server.inline",
-      "auth": [
-        "dep"
-      ],
-      "name": "admin_sage_status"
-    },
-    {
-      "method": "GET",
-      "path": "/admin/system/health",
-      "module": "server.inline",
-      "auth": [],
-      "name": "admin_health"
-    },
-    {
-      "method": "GET",
-      "path": "/admin/system/restore-points",
-      "module": "server.inline",
-      "auth": [],
-      "name": "list_restore_points"
-    },
-    {
-      "method": "GET",
-      "path": "/admin/system/restore-points/{restore_point_id}",
-      "module": "server.inline",
-      "auth": [],
-      "name": "get_restore_point"
-    },
-    {
-      "method": "GET",
-      "path": "/admin/system/webhook-queue",
-      "module": "server.inline",
-      "auth": [],
-      "name": "webhook_queue"
-    },
-    {
-      "method": "GET",
-      "path": "/ai/consent/health",
-      "module": "server.inline",
-      "auth": [],
-      "name": "ai_consent_health"
-    },
-    {
-      "method": "GET",
-      "path": "/ai/director/greeting",
-      "module": "server.inline",
-      "auth": [
-        "_dep_current_user"
-      ],
-      "name": "director_greeting"
-    },
-    {
-      "method": "GET",
-      "path": "/ai/director/pulse",
-      "module": "server.inline",
-      "auth": [
-        "dep"
-      ],
-      "name": "director_pulse"
-    },
-    {
-      "method": "GET",
-      "path": "/ai/history/{session_id}",
-      "module": "server.inline",
-      "auth": [
-        "_dep_current_user"
-      ],
-      "name": "ai_history"
-    },
-    {
-      "method": "GET",
-      "path": "/ai/memory",
-      "module": "server.inline",
-      "auth": [
-        "dep"
-      ],
-      "name": "get_all_memory"
-    },
-    {
-      "method": "GET",
-      "path": "/ai/memory/{persona}",
-      "module": "server.inline",
-      "auth": [
-        "_dep_current_user"
-      ],
-      "name": "get_persona_memory"
-    },
-    {
-      "method": "GET",
-      "path": "/ai/orchestrator/integrity",
-      "module": "server.inline",
-      "auth": [
-        "_dep_current_user"
-      ],
-      "name": "orchestrator_integrity"
-    },
-    {
-      "method": "GET",
-      "path": "/ai/provider-test",
-      "module": "server.inline",
-      "auth": [
-        "dep"
-      ],
-      "name": "ai_provider_test"
-    },
-    {
-      "method": "GET",
-      "path": "/ai/sage/integrity",
-      "module": "server.inline",
-      "auth": [
-        "_dep_current_user"
-      ],
-      "name": "sage_integrity"
-    },
-    {
-      "method": "GET",
-      "path": "/ai/scholar/integrity",
-      "module": "server.inline",
-      "auth": [
-        "_dep_current_user"
-      ],
-      "name": "scholar_integrity"
+      "name": "sovereign_memory_clear"
     },
     {
       "method": "GET",
@@ -1033,6 +590,121 @@
     },
     {
       "method": "GET",
+      "path": "/api/ai/admin/sage/audit",
+      "module": "server.inline",
+      "auth": [
+        "dep"
+      ],
+      "name": "admin_sage_audit"
+    },
+    {
+      "method": "GET",
+      "path": "/api/ai/admin/sage/cap",
+      "module": "server.inline",
+      "auth": [
+        "dep"
+      ],
+      "name": "admin_get_sage_cap"
+    },
+    {
+      "method": "GET",
+      "path": "/api/ai/admin/sage/metrics",
+      "module": "server.inline",
+      "auth": [
+        "dep"
+      ],
+      "name": "admin_sage_metrics"
+    },
+    {
+      "method": "GET",
+      "path": "/api/ai/admin/sage/status",
+      "module": "server.inline",
+      "auth": [
+        "dep"
+      ],
+      "name": "admin_sage_status"
+    },
+    {
+      "method": "GET",
+      "path": "/api/ai/ai/consent/health",
+      "module": "server.inline",
+      "auth": [],
+      "name": "ai_consent_health"
+    },
+    {
+      "method": "GET",
+      "path": "/api/ai/ai/director/greeting",
+      "module": "server.inline",
+      "auth": [
+        "_dep_current_user"
+      ],
+      "name": "director_greeting"
+    },
+    {
+      "method": "GET",
+      "path": "/api/ai/ai/director/pulse",
+      "module": "server.inline",
+      "auth": [
+        "dep"
+      ],
+      "name": "director_pulse"
+    },
+    {
+      "method": "GET",
+      "path": "/api/ai/ai/history/{session_id}",
+      "module": "server.inline",
+      "auth": [
+        "_dep_current_user"
+      ],
+      "name": "ai_history"
+    },
+    {
+      "method": "GET",
+      "path": "/api/ai/ai/memory",
+      "module": "server.inline",
+      "auth": [
+        "dep"
+      ],
+      "name": "get_all_memory"
+    },
+    {
+      "method": "GET",
+      "path": "/api/ai/ai/memory/{persona}",
+      "module": "server.inline",
+      "auth": [
+        "_dep_current_user"
+      ],
+      "name": "get_persona_memory"
+    },
+    {
+      "method": "GET",
+      "path": "/api/ai/ai/orchestrator/integrity",
+      "module": "server.inline",
+      "auth": [
+        "_dep_current_user"
+      ],
+      "name": "orchestrator_integrity"
+    },
+    {
+      "method": "GET",
+      "path": "/api/ai/ai/sage/integrity",
+      "module": "server.inline",
+      "auth": [
+        "_dep_current_user"
+      ],
+      "name": "sage_integrity"
+    },
+    {
+      "method": "GET",
+      "path": "/api/ai/ai/scholar/integrity",
+      "module": "server.inline",
+      "auth": [
+        "_dep_current_user"
+      ],
+      "name": "scholar_integrity"
+    },
+    {
+      "method": "GET",
       "path": "/api/ai/consent/health",
       "module": "server.inline",
       "auth": [],
@@ -1067,6 +739,15 @@
     },
     {
       "method": "GET",
+      "path": "/api/ai/knowledge/search",
+      "module": "server.inline",
+      "auth": [
+        "_optional_session"
+      ],
+      "name": "knowledge_search"
+    },
+    {
+      "method": "GET",
       "path": "/api/ai/memory",
       "module": "server.inline",
       "auth": [
@@ -1091,6 +772,38 @@
         "current_user"
       ],
       "name": "orchestrator_integrity"
+    },
+    {
+      "method": "GET",
+      "path": "/api/ai/personas",
+      "module": "server.inline",
+      "auth": [],
+      "name": "personas_directory"
+    },
+    {
+      "method": "GET",
+      "path": "/api/ai/personas/exec",
+      "module": "server.inline",
+      "auth": [
+        "dep"
+      ],
+      "name": "exec_personas"
+    },
+    {
+      "method": "GET",
+      "path": "/api/ai/personas/{slug}",
+      "module": "server.inline",
+      "auth": [],
+      "name": "persona_profile"
+    },
+    {
+      "method": "GET",
+      "path": "/api/ai/personas/{slug}/controls",
+      "module": "server.inline",
+      "auth": [
+        "_dep_current_user"
+      ],
+      "name": "persona_controls_get"
     },
     {
       "method": "GET",
@@ -1236,6 +949,15 @@
     },
     {
       "method": "GET",
+      "path": "/api/auth/cross-site-token",
+      "module": "server.inline",
+      "auth": [
+        "_dep_current_user"
+      ],
+      "name": "generate_cross_site_token"
+    },
+    {
+      "method": "GET",
       "path": "/api/auth/me",
       "module": "server.inline",
       "auth": [
@@ -1279,12 +1001,109 @@
     },
     {
       "method": "GET",
+      "path": "/api/billing/creator/balance",
+      "module": "server.inline",
+      "auth": [
+        "get_current_user"
+      ],
+      "name": "get_creator_balance"
+    },
+    {
+      "method": "GET",
+      "path": "/api/billing/creator/payouts",
+      "module": "server.inline",
+      "auth": [
+        "get_current_user"
+      ],
+      "name": "get_creator_payouts"
+    },
+    {
+      "method": "GET",
       "path": "/api/billing/credits/balance",
       "module": "routers.billing",
       "auth": [
         "dep"
       ],
       "name": "billing_credits_balance"
+    },
+    {
+      "method": "GET",
+      "path": "/api/billing/invoices",
+      "module": "server.inline",
+      "auth": [
+        "get_current_user"
+      ],
+      "name": "get_invoices"
+    },
+    {
+      "method": "GET",
+      "path": "/api/billing/reporting/cohort-analysis",
+      "module": "server.inline",
+      "auth": [
+        "get_financial_service",
+        "get_current_user"
+      ],
+      "name": "get_retention_cohorts"
+    },
+    {
+      "method": "GET",
+      "path": "/api/billing/reporting/forecast",
+      "module": "server.inline",
+      "auth": [
+        "get_financial_service",
+        "get_current_user"
+      ],
+      "name": "get_cash_flow_forecast"
+    },
+    {
+      "method": "GET",
+      "path": "/api/billing/reporting/ltv-cac",
+      "module": "server.inline",
+      "auth": [
+        "get_financial_service",
+        "get_current_user"
+      ],
+      "name": "get_ltv_metrics"
+    },
+    {
+      "method": "GET",
+      "path": "/api/billing/reporting/mrr",
+      "module": "server.inline",
+      "auth": [
+        "get_financial_service",
+        "get_current_user"
+      ],
+      "name": "get_monthly_recurring_revenue"
+    },
+    {
+      "method": "GET",
+      "path": "/api/billing/reporting/nrr",
+      "module": "server.inline",
+      "auth": [
+        "get_financial_service",
+        "get_current_user"
+      ],
+      "name": "get_net_revenue_retention"
+    },
+    {
+      "method": "GET",
+      "path": "/api/billing/reporting/revenue/{year}/{month}",
+      "module": "server.inline",
+      "auth": [
+        "get_financial_service",
+        "get_current_user"
+      ],
+      "name": "get_revenue_summary"
+    },
+    {
+      "method": "GET",
+      "path": "/api/billing/reporting/summary",
+      "module": "server.inline",
+      "auth": [
+        "get_financial_service",
+        "get_current_user"
+      ],
+      "name": "get_financial_dashboard"
     },
     {
       "method": "GET",
@@ -1428,12 +1247,126 @@
     },
     {
       "method": "GET",
+      "path": "/api/courses/analytics/contractor-market",
+      "module": "server.inline",
+      "auth": [],
+      "name": "contractor_market_analytics"
+    },
+    {
+      "method": "GET",
+      "path": "/api/courses/dashboard/{contractor_id}",
+      "module": "server.inline",
+      "auth": [],
+      "name": "get_dashboard"
+    },
+    {
+      "method": "GET",
+      "path": "/api/courses/labs",
+      "module": "server.inline",
+      "auth": [],
+      "name": "list_labs"
+    },
+    {
+      "method": "GET",
+      "path": "/api/courses/labs/{lab_slug}",
+      "module": "server.inline",
+      "auth": [],
+      "name": "get_lab_details"
+    },
+    {
+      "method": "GET",
+      "path": "/api/courses/languages",
+      "module": "server.inline",
+      "auth": [],
+      "name": "list_languages"
+    },
+    {
+      "method": "GET",
+      "path": "/api/courses/leads",
+      "module": "server.inline",
+      "auth": [],
+      "name": "list_contractor_leads"
+    },
+    {
+      "method": "GET",
+      "path": "/api/courses/license/{contractor_id}",
+      "module": "server.inline",
+      "auth": [],
+      "name": "get_license"
+    },
+    {
+      "method": "GET",
+      "path": "/api/courses/tiers",
+      "module": "server.inline",
+      "auth": [],
+      "name": "list_contractor_tiers"
+    },
+    {
+      "method": "GET",
+      "path": "/api/courses/ui/{key}",
+      "module": "server.inline",
+      "auth": [],
+      "name": "get_ui_text"
+    },
+    {
+      "method": "GET",
       "path": "/api/creative-partner/contributions",
       "module": "routers.chat",
       "auth": [
         "_dep_current_user"
       ],
       "name": "list_contributions"
+    },
+    {
+      "method": "GET",
+      "path": "/api/creator-courses/categories",
+      "module": "server.inline",
+      "auth": [],
+      "name": "get_categories"
+    },
+    {
+      "method": "GET",
+      "path": "/api/creator-courses/course/{course_id}",
+      "module": "server.inline",
+      "auth": [],
+      "name": "get_course"
+    },
+    {
+      "method": "GET",
+      "path": "/api/creator-courses/dashboard/{creator_id}",
+      "module": "server.inline",
+      "auth": [
+        "get_current_user_from_request"
+      ],
+      "name": "get_creator_stats"
+    },
+    {
+      "method": "GET",
+      "path": "/api/creator-courses/marketplace",
+      "module": "server.inline",
+      "auth": [],
+      "name": "get_courses"
+    },
+    {
+      "method": "GET",
+      "path": "/api/creator-courses/pricing",
+      "module": "server.inline",
+      "auth": [],
+      "name": "get_pricing"
+    },
+    {
+      "method": "GET",
+      "path": "/api/creator-courses/pricing/{course_type}",
+      "module": "server.inline",
+      "auth": [],
+      "name": "get_course_pricing"
+    },
+    {
+      "method": "GET",
+      "path": "/api/creator-courses/trending",
+      "module": "server.inline",
+      "auth": [],
+      "name": "get_trending_courses"
     },
     {
       "method": "GET",
@@ -1604,6 +1537,61 @@
       "module": "server.inline",
       "auth": [],
       "name": "credential_manifest"
+    },
+    {
+      "method": "GET",
+      "path": "/api/crm/leads",
+      "module": "server.inline",
+      "auth": [
+        "dep",
+        "dep_current_user"
+      ],
+      "name": "list_leads"
+    },
+    {
+      "method": "GET",
+      "path": "/api/crm/leads/{lead_id}",
+      "module": "server.inline",
+      "auth": [
+        "dep"
+      ],
+      "name": "get_lead"
+    },
+    {
+      "method": "GET",
+      "path": "/api/crm/metrics/forecast",
+      "module": "server.inline",
+      "auth": [
+        "dep"
+      ],
+      "name": "get_sales_forecast"
+    },
+    {
+      "method": "GET",
+      "path": "/api/crm/metrics/pipeline",
+      "module": "server.inline",
+      "auth": [
+        "dep"
+      ],
+      "name": "get_pipeline_metrics"
+    },
+    {
+      "method": "GET",
+      "path": "/api/crm/metrics/summary",
+      "module": "server.inline",
+      "auth": [
+        "dep"
+      ],
+      "name": "get_sales_summary"
+    },
+    {
+      "method": "GET",
+      "path": "/api/crm/opportunities",
+      "module": "server.inline",
+      "auth": [
+        "dep"
+      ],
+      "name": "list_opportunities"
     },
     {
       "method": "GET",
@@ -2662,6 +2650,22 @@
     },
     {
       "method": "GET",
+      "path": "/api/playlist/dashboard",
+      "module": "server.inline",
+      "auth": [
+        "dep_current_user"
+      ],
+      "name": "get_dashboard"
+    },
+    {
+      "method": "GET",
+      "path": "/api/playlist/gateways/{curator_slug}",
+      "module": "server.inline",
+      "auth": [],
+      "name": "get_active_gateways"
+    },
+    {
+      "method": "GET",
       "path": "/api/portfolio/export.pdf",
       "module": "server.inline",
       "auth": [],
@@ -3020,6 +3024,15 @@
     },
     {
       "method": "GET",
+      "path": "/api/social/connected-accounts",
+      "module": "server.inline",
+      "auth": [
+        "dep_current_user"
+      ],
+      "name": "get_connected_accounts"
+    },
+    {
+      "method": "GET",
       "path": "/api/sovereign/memory",
       "module": "server.inline",
       "auth": [
@@ -3148,1369 +3161,6 @@
         "current_user"
       ],
       "name": "my_xp"
-    },
-    {
-      "method": "GET",
-      "path": "/arcade/games",
-      "module": "server.inline",
-      "auth": [],
-      "name": "arcade_games"
-    },
-    {
-      "method": "GET",
-      "path": "/arcade/leaderboard",
-      "module": "server.inline",
-      "auth": [
-        "_dep_current_user"
-      ],
-      "name": "arcade_leaderboard"
-    },
-    {
-      "method": "GET",
-      "path": "/arcade/my-scores",
-      "module": "server.inline",
-      "auth": [
-        "_dep_current_user"
-      ],
-      "name": "arcade_my_scores"
-    },
-    {
-      "method": "GET",
-      "path": "/auditor/debt",
-      "module": "server.inline",
-      "auth": [
-        "dep"
-      ],
-      "name": "auditor_debt"
-    },
-    {
-      "method": "GET",
-      "path": "/auditor/ledger",
-      "module": "server.inline",
-      "auth": [
-        "dep"
-      ],
-      "name": "auditor_ledger_list"
-    },
-    {
-      "method": "GET",
-      "path": "/auditor/report",
-      "module": "server.inline",
-      "auth": [
-        "dep"
-      ],
-      "name": "auditor_report"
-    },
-    {
-      "method": "GET",
-      "path": "/auditor/risks",
-      "module": "server.inline",
-      "auth": [
-        "dep"
-      ],
-      "name": "auditor_risks"
-    },
-    {
-      "method": "GET",
-      "path": "/auditor/summary",
-      "module": "server.inline",
-      "auth": [
-        "dep"
-      ],
-      "name": "auditor_summary"
-    },
-    {
-      "method": "GET",
-      "path": "/band/bookings",
-      "module": "server.inline",
-      "auth": [
-        "_dep_current_user"
-      ],
-      "name": "band_my_bookings"
-    },
-    {
-      "method": "GET",
-      "path": "/band/listings",
-      "module": "server.inline",
-      "auth": [],
-      "name": "band_list"
-    },
-    {
-      "method": "GET",
-      "path": "/band/my-listing",
-      "module": "server.inline",
-      "auth": [
-        "_dep_current_user"
-      ],
-      "name": "band_my_listing"
-    },
-    {
-      "method": "GET",
-      "path": "/billing/creator/balance",
-      "module": "server.inline",
-      "auth": [
-        "get_current_user"
-      ],
-      "name": "get_creator_balance"
-    },
-    {
-      "method": "GET",
-      "path": "/billing/creator/payouts",
-      "module": "server.inline",
-      "auth": [
-        "get_current_user"
-      ],
-      "name": "get_creator_payouts"
-    },
-    {
-      "method": "GET",
-      "path": "/billing/credits/balance",
-      "module": "server.inline",
-      "auth": [
-        "dep"
-      ],
-      "name": "billing_credits_balance"
-    },
-    {
-      "method": "GET",
-      "path": "/billing/invoices",
-      "module": "server.inline",
-      "auth": [
-        "get_current_user"
-      ],
-      "name": "get_invoices"
-    },
-    {
-      "method": "GET",
-      "path": "/billing/reporting/cohort-analysis",
-      "module": "server.inline",
-      "auth": [
-        "get_financial_service",
-        "get_current_user"
-      ],
-      "name": "get_retention_cohorts"
-    },
-    {
-      "method": "GET",
-      "path": "/billing/reporting/forecast",
-      "module": "server.inline",
-      "auth": [
-        "get_financial_service",
-        "get_current_user"
-      ],
-      "name": "get_cash_flow_forecast"
-    },
-    {
-      "method": "GET",
-      "path": "/billing/reporting/ltv-cac",
-      "module": "server.inline",
-      "auth": [
-        "get_financial_service",
-        "get_current_user"
-      ],
-      "name": "get_ltv_metrics"
-    },
-    {
-      "method": "GET",
-      "path": "/billing/reporting/mrr",
-      "module": "server.inline",
-      "auth": [
-        "get_financial_service",
-        "get_current_user"
-      ],
-      "name": "get_monthly_recurring_revenue"
-    },
-    {
-      "method": "GET",
-      "path": "/billing/reporting/nrr",
-      "module": "server.inline",
-      "auth": [
-        "get_financial_service",
-        "get_current_user"
-      ],
-      "name": "get_net_revenue_retention"
-    },
-    {
-      "method": "GET",
-      "path": "/billing/reporting/revenue/{year}/{month}",
-      "module": "server.inline",
-      "auth": [
-        "get_financial_service",
-        "get_current_user"
-      ],
-      "name": "get_revenue_summary"
-    },
-    {
-      "method": "GET",
-      "path": "/billing/reporting/summary",
-      "module": "server.inline",
-      "auth": [
-        "get_financial_service",
-        "get_current_user"
-      ],
-      "name": "get_financial_dashboard"
-    },
-    {
-      "method": "GET",
-      "path": "/billing/sage-sessions",
-      "module": "server.inline",
-      "auth": [
-        "dep"
-      ],
-      "name": "billing_sage_sessions"
-    },
-    {
-      "method": "GET",
-      "path": "/bridge/config",
-      "module": "server.inline",
-      "auth": [
-        "dep"
-      ],
-      "name": "get_bridge_config"
-    },
-    {
-      "method": "GET",
-      "path": "/bridge/log",
-      "module": "server.inline",
-      "auth": [
-        "dep"
-      ],
-      "name": "list_bridge_log"
-    },
-    {
-      "method": "GET",
-      "path": "/bridge/personas",
-      "module": "server.inline",
-      "auth": [
-        "dep"
-      ],
-      "name": "list_bridge_personas"
-    },
-    {
-      "method": "GET",
-      "path": "/byok/admin",
-      "module": "server.inline",
-      "auth": [
-        "dep"
-      ],
-      "name": "byok_admin"
-    },
-    {
-      "method": "GET",
-      "path": "/byok/status",
-      "module": "server.inline",
-      "auth": [
-        "_dep_current_user"
-      ],
-      "name": "byok_status"
-    },
-    {
-      "method": "GET",
-      "path": "/competition/leaderboard",
-      "module": "server.inline",
-      "auth": [
-        "dep"
-      ],
-      "name": "get_leaderboard"
-    },
-    {
-      "method": "GET",
-      "path": "/competition/ping",
-      "module": "server.inline",
-      "auth": [],
-      "name": "competition_ping"
-    },
-    {
-      "method": "GET",
-      "path": "/competition/projects",
-      "module": "server.inline",
-      "auth": [
-        "dep"
-      ],
-      "name": "get_projects"
-    },
-    {
-      "method": "GET",
-      "path": "/competition/projects/{project_id}",
-      "module": "server.inline",
-      "auth": [
-        "dep"
-      ],
-      "name": "get_project"
-    },
-    {
-      "method": "GET",
-      "path": "/competition/status",
-      "module": "server.inline",
-      "auth": [
-        "dep"
-      ],
-      "name": "get_status"
-    },
-    {
-      "method": "GET",
-      "path": "/compliance",
-      "module": "server.inline",
-      "auth": [
-        "_dep_current_user"
-      ],
-      "name": "list_compliance"
-    },
-    {
-      "method": "GET",
-      "path": "/compliance/{slug}",
-      "module": "server.inline",
-      "auth": [
-        "_dep_current_user"
-      ],
-      "name": "get_compliance"
-    },
-    {
-      "method": "GET",
-      "path": "/courses/analytics/contractor-market",
-      "module": "server.inline",
-      "auth": [],
-      "name": "contractor_market_analytics"
-    },
-    {
-      "method": "GET",
-      "path": "/courses/dashboard/{contractor_id}",
-      "module": "server.inline",
-      "auth": [],
-      "name": "get_dashboard"
-    },
-    {
-      "method": "GET",
-      "path": "/courses/labs",
-      "module": "server.inline",
-      "auth": [],
-      "name": "list_labs"
-    },
-    {
-      "method": "GET",
-      "path": "/courses/labs/{lab_slug}",
-      "module": "server.inline",
-      "auth": [],
-      "name": "get_lab_details"
-    },
-    {
-      "method": "GET",
-      "path": "/courses/languages",
-      "module": "server.inline",
-      "auth": [],
-      "name": "list_languages"
-    },
-    {
-      "method": "GET",
-      "path": "/courses/leads",
-      "module": "server.inline",
-      "auth": [],
-      "name": "list_contractor_leads"
-    },
-    {
-      "method": "GET",
-      "path": "/courses/license/{contractor_id}",
-      "module": "server.inline",
-      "auth": [],
-      "name": "get_license"
-    },
-    {
-      "method": "GET",
-      "path": "/courses/tiers",
-      "module": "server.inline",
-      "auth": [],
-      "name": "list_contractor_tiers"
-    },
-    {
-      "method": "GET",
-      "path": "/courses/ui/{key}",
-      "module": "server.inline",
-      "auth": [],
-      "name": "get_ui_text"
-    },
-    {
-      "method": "GET",
-      "path": "/creative-partner/contributions",
-      "module": "server.inline",
-      "auth": [
-        "_dep_current_user"
-      ],
-      "name": "list_contributions"
-    },
-    {
-      "method": "GET",
-      "path": "/creator-courses/categories",
-      "module": "server.inline",
-      "auth": [],
-      "name": "get_categories"
-    },
-    {
-      "method": "GET",
-      "path": "/creator-courses/course/{course_id}",
-      "module": "server.inline",
-      "auth": [],
-      "name": "get_course"
-    },
-    {
-      "method": "GET",
-      "path": "/creator-courses/dashboard/{creator_id}",
-      "module": "server.inline",
-      "auth": [
-        "get_current_user_from_request"
-      ],
-      "name": "get_creator_stats"
-    },
-    {
-      "method": "GET",
-      "path": "/creator-courses/marketplace",
-      "module": "server.inline",
-      "auth": [],
-      "name": "get_courses"
-    },
-    {
-      "method": "GET",
-      "path": "/creator-courses/pricing",
-      "module": "server.inline",
-      "auth": [],
-      "name": "get_pricing"
-    },
-    {
-      "method": "GET",
-      "path": "/creator-courses/pricing/{course_type}",
-      "module": "server.inline",
-      "auth": [],
-      "name": "get_course_pricing"
-    },
-    {
-      "method": "GET",
-      "path": "/creator-courses/trending",
-      "module": "server.inline",
-      "auth": [],
-      "name": "get_trending_courses"
-    },
-    {
-      "method": "GET",
-      "path": "/creator-lounge/my-projects",
-      "module": "server.inline",
-      "auth": [
-        "_dep_current_user"
-      ],
-      "name": "cl_my_projects"
-    },
-    {
-      "method": "GET",
-      "path": "/creator-lounge/projects",
-      "module": "server.inline",
-      "auth": [
-        "_dep_current_user"
-      ],
-      "name": "cl_list_projects"
-    },
-    {
-      "method": "GET",
-      "path": "/creator/bank-account",
-      "module": "server.inline",
-      "auth": [
-        "_dep_current_user"
-      ],
-      "name": "creator_get_bank_account"
-    },
-    {
-      "method": "GET",
-      "path": "/creator/courses",
-      "module": "server.inline",
-      "auth": [
-        "_dep_current_user"
-      ],
-      "name": "creator_list_my_courses"
-    },
-    {
-      "method": "GET",
-      "path": "/creator/courses/published",
-      "module": "server.inline",
-      "auth": [],
-      "name": "creator_published_catalog"
-    },
-    {
-      "method": "GET",
-      "path": "/creator/courses/{course_id}",
-      "module": "server.inline",
-      "auth": [
-        "_dep_current_user"
-      ],
-      "name": "creator_get_course"
-    },
-    {
-      "method": "GET",
-      "path": "/creator/earnings",
-      "module": "server.inline",
-      "auth": [
-        "_dep_current_user"
-      ],
-      "name": "creator_earnings_summary"
-    },
-    {
-      "method": "GET",
-      "path": "/creator/enrollments/me",
-      "module": "server.inline",
-      "auth": [
-        "_dep_current_user"
-      ],
-      "name": "creator_enrollments_me"
-    },
-    {
-      "method": "GET",
-      "path": "/creator/payout-profile",
-      "module": "server.inline",
-      "auth": [
-        "_dep_current_user"
-      ],
-      "name": "creator_get_payout_profile"
-    },
-    {
-      "method": "GET",
-      "path": "/creator/payout-summary",
-      "module": "server.inline",
-      "auth": [
-        "_dep_current_user"
-      ],
-      "name": "payout_summary"
-    },
-    {
-      "method": "GET",
-      "path": "/creator/payouts",
-      "module": "server.inline",
-      "auth": [
-        "_dep_current_user"
-      ],
-      "name": "creator_payout_history"
-    },
-    {
-      "method": "GET",
-      "path": "/creator/profile/me",
-      "module": "server.inline",
-      "auth": [
-        "_dep_current_user"
-      ],
-      "name": "get_my_creator_profile"
-    },
-    {
-      "method": "GET",
-      "path": "/creator/profile/{slug}",
-      "module": "server.inline",
-      "auth": [],
-      "name": "get_creator_profile_by_slug"
-    },
-    {
-      "method": "GET",
-      "path": "/creator/profiles/public",
-      "module": "server.inline",
-      "auth": [],
-      "name": "list_public_creator_profiles"
-    },
-    {
-      "method": "GET",
-      "path": "/creator/split",
-      "module": "server.inline",
-      "auth": [
-        "_dep_current_user"
-      ],
-      "name": "get_my_split"
-    },
-    {
-      "method": "GET",
-      "path": "/crm/leads",
-      "module": "server.inline",
-      "auth": [
-        "dep",
-        "dep_current_user"
-      ],
-      "name": "list_leads"
-    },
-    {
-      "method": "GET",
-      "path": "/crm/leads/{lead_id}",
-      "module": "server.inline",
-      "auth": [
-        "dep"
-      ],
-      "name": "get_lead"
-    },
-    {
-      "method": "GET",
-      "path": "/crm/metrics/forecast",
-      "module": "server.inline",
-      "auth": [
-        "dep"
-      ],
-      "name": "get_sales_forecast"
-    },
-    {
-      "method": "GET",
-      "path": "/crm/metrics/pipeline",
-      "module": "server.inline",
-      "auth": [
-        "dep"
-      ],
-      "name": "get_pipeline_metrics"
-    },
-    {
-      "method": "GET",
-      "path": "/crm/metrics/summary",
-      "module": "server.inline",
-      "auth": [
-        "dep"
-      ],
-      "name": "get_sales_summary"
-    },
-    {
-      "method": "GET",
-      "path": "/crm/opportunities",
-      "module": "server.inline",
-      "auth": [
-        "dep"
-      ],
-      "name": "list_opportunities"
-    },
-    {
-      "method": "GET",
-      "path": "/exec/control/access",
-      "module": "server.inline",
-      "auth": [
-        "dep"
-      ],
-      "name": "ec_access_list"
-    },
-    {
-      "method": "GET",
-      "path": "/exec/control/access/public",
-      "module": "server.inline",
-      "auth": [],
-      "name": "ec_access_public"
-    },
-    {
-      "method": "GET",
-      "path": "/exec/control/audit",
-      "module": "server.inline",
-      "auth": [
-        "dep"
-      ],
-      "name": "ec_audit_log"
-    },
-    {
-      "method": "GET",
-      "path": "/exec/control/authz-matrix",
-      "module": "server.inline",
-      "auth": [
-        "dep"
-      ],
-      "name": "ec_get_authz_matrix"
-    },
-    {
-      "method": "GET",
-      "path": "/exec/control/break-glass/active",
-      "module": "server.inline",
-      "auth": [
-        "dep"
-      ],
-      "name": "ec_break_glass_active"
-    },
-    {
-      "method": "GET",
-      "path": "/exec/control/break-glass/history",
-      "module": "server.inline",
-      "auth": [
-        "dep"
-      ],
-      "name": "ec_break_glass_history"
-    },
-    {
-      "method": "GET",
-      "path": "/exec/control/route-access",
-      "module": "server.inline",
-      "auth": [
-        "dep"
-      ],
-      "name": "ec_route_access"
-    },
-    {
-      "method": "GET",
-      "path": "/exec/control/state",
-      "module": "server.inline",
-      "auth": [
-        "dep"
-      ],
-      "name": "ec_get_state"
-    },
-    {
-      "method": "GET",
-      "path": "/exec/control/tiers",
-      "module": "server.inline",
-      "auth": [
-        "dep"
-      ],
-      "name": "ec_list_tiers"
-    },
-    {
-      "method": "GET",
-      "path": "/features",
-      "module": "server.inline",
-      "auth": [],
-      "name": "list_features"
-    },
-    {
-      "method": "GET",
-      "path": "/features/",
-      "module": "server.inline",
-      "auth": [],
-      "name": "list_features"
-    },
-    {
-      "method": "GET",
-      "path": "/features/gate-map",
-      "module": "server.inline",
-      "auth": [],
-      "name": "feature_gate_map"
-    },
-    {
-      "method": "GET",
-      "path": "/features/matrix/role",
-      "module": "server.inline",
-      "auth": [
-        "Any"
-      ],
-      "name": "role_matrix"
-    },
-    {
-      "method": "GET",
-      "path": "/features/matrix/tier",
-      "module": "server.inline",
-      "auth": [
-        "Any"
-      ],
-      "name": "tier_matrix"
-    },
-    {
-      "method": "GET",
-      "path": "/handbooks",
-      "module": "server.inline",
-      "auth": [],
-      "name": "handbooks_index"
-    },
-    {
-      "method": "GET",
-      "path": "/handbooks/{name}",
-      "module": "server.inline",
-      "auth": [],
-      "name": "get_handbook"
-    },
-    {
-      "method": "GET",
-      "path": "/handbooks/{name}/raw",
-      "module": "server.inline",
-      "auth": [],
-      "name": "get_handbook_raw"
-    },
-    {
-      "method": "GET",
-      "path": "/iam/actions",
-      "module": "server.inline",
-      "auth": [
-        "_dep_current_user"
-      ],
-      "name": "list_actions"
-    },
-    {
-      "method": "GET",
-      "path": "/iam/authority-chain",
-      "module": "server.inline",
-      "auth": [
-        "_dep_current_user"
-      ],
-      "name": "authority_chain"
-    },
-    {
-      "method": "GET",
-      "path": "/iam/consent",
-      "module": "server.inline",
-      "auth": [
-        "_dep_current_user"
-      ],
-      "name": "my_consent"
-    },
-    {
-      "method": "GET",
-      "path": "/iam/delegations",
-      "module": "server.inline",
-      "auth": [
-        "_dep_current_user"
-      ],
-      "name": "list_delegations"
-    },
-    {
-      "method": "GET",
-      "path": "/iam/identities",
-      "module": "server.inline",
-      "auth": [
-        "_dep_current_user"
-      ],
-      "name": "list_identities"
-    },
-    {
-      "method": "GET",
-      "path": "/iam/identities/{identity_id}",
-      "module": "server.inline",
-      "auth": [
-        "_dep_current_user"
-      ],
-      "name": "get_identity"
-    },
-    {
-      "method": "GET",
-      "path": "/iam/resources",
-      "module": "server.inline",
-      "auth": [
-        "_dep_current_user"
-      ],
-      "name": "list_resources"
-    },
-    {
-      "method": "GET",
-      "path": "/iam/who-can-do-what",
-      "module": "server.inline",
-      "auth": [
-        "_dep_current_user"
-      ],
-      "name": "who_can_do_what"
-    },
-    {
-      "method": "GET",
-      "path": "/iam/who-has-access-to-me",
-      "module": "server.inline",
-      "auth": [
-        "_dep_current_user"
-      ],
-      "name": "who_has_access_to_me"
-    },
-    {
-      "method": "GET",
-      "path": "/jamil/history",
-      "module": "server.inline",
-      "auth": [
-        "_dep_current_user"
-      ],
-      "name": "jamil_history"
-    },
-    {
-      "method": "GET",
-      "path": "/jamil/knowledge",
-      "module": "server.inline",
-      "auth": [
-        "dep"
-      ],
-      "name": "jamil_knowledge_list"
-    },
-    {
-      "method": "GET",
-      "path": "/jamil/ping",
-      "module": "server.inline",
-      "auth": [],
-      "name": "jamil_ping"
-    },
-    {
-      "method": "GET",
-      "path": "/jamil/status",
-      "module": "server.inline",
-      "auth": [],
-      "name": "jamil_status_server"
-    },
-    {
-      "method": "GET",
-      "path": "/knowledge/search",
-      "module": "server.inline",
-      "auth": [
-        "_optional_session"
-      ],
-      "name": "knowledge_search"
-    },
-    {
-      "method": "GET",
-      "path": "/me/position",
-      "module": "server.inline",
-      "auth": [
-        "_dep_current_user"
-      ],
-      "name": "get_my_position"
-    },
-    {
-      "method": "GET",
-      "path": "/me/position/history",
-      "module": "server.inline",
-      "auth": [
-        "_dep_current_user"
-      ],
-      "name": "get_position_history"
-    },
-    {
-      "method": "GET",
-      "path": "/me/proceeds-preference",
-      "module": "server.inline",
-      "auth": [
-        "_dep_current_user"
-      ],
-      "name": "get_proceeds_preference"
-    },
-    {
-      "method": "GET",
-      "path": "/media/content/{file_path:path}",
-      "module": "server.inline",
-      "auth": [
-        "_dep_current_user"
-      ],
-      "name": "get_content_file"
-    },
-    {
-      "method": "GET",
-      "path": "/media/file/{file_id}",
-      "module": "server.inline",
-      "auth": [
-        "_optional_current_user"
-      ],
-      "name": "get_media_file"
-    },
-    {
-      "method": "GET",
-      "path": "/media/products",
-      "module": "server.inline",
-      "auth": [
-        "_optional_current_user"
-      ],
-      "name": "list_media_products"
-    },
-    {
-      "method": "GET",
-      "path": "/media/products/mine",
-      "module": "server.inline",
-      "auth": [
-        "_dep_current_user"
-      ],
-      "name": "my_media_products"
-    },
-    {
-      "method": "GET",
-      "path": "/media/products/{product_id}/download",
-      "module": "server.inline",
-      "auth": [
-        "_dep_current_user"
-      ],
-      "name": "download_media_product"
-    },
-    {
-      "method": "GET",
-      "path": "/media/purchases",
-      "module": "server.inline",
-      "auth": [
-        "_dep_current_user"
-      ],
-      "name": "my_media_purchases"
-    },
-    {
-      "method": "GET",
-      "path": "/missing/file/{file_id}",
-      "module": "server.inline",
-      "auth": [],
-      "name": "get_missing_file"
-    },
-    {
-      "method": "GET",
-      "path": "/missing/photos/{case_id}",
-      "module": "server.inline",
-      "auth": [],
-      "name": "get_missing_photos"
-    },
-    {
-      "method": "GET",
-      "path": "/my-projects",
-      "module": "server.inline",
-      "auth": [
-        "_dep_current_user"
-      ],
-      "name": "my_projects_list"
-    },
-    {
-      "method": "GET",
-      "path": "/my-projects/{project_id}",
-      "module": "server.inline",
-      "auth": [
-        "_dep_current_user"
-      ],
-      "name": "my_projects_detail"
-    },
-    {
-      "method": "GET",
-      "path": "/personas",
-      "module": "server.inline",
-      "auth": [],
-      "name": "personas_directory"
-    },
-    {
-      "method": "GET",
-      "path": "/personas/exec",
-      "module": "server.inline",
-      "auth": [
-        "dep"
-      ],
-      "name": "exec_personas"
-    },
-    {
-      "method": "GET",
-      "path": "/personas/{slug}",
-      "module": "server.inline",
-      "auth": [],
-      "name": "persona_profile"
-    },
-    {
-      "method": "GET",
-      "path": "/personas/{slug}/controls",
-      "module": "server.inline",
-      "auth": [
-        "_dep_current_user"
-      ],
-      "name": "persona_controls_get"
-    },
-    {
-      "method": "GET",
-      "path": "/playlist/dashboard",
-      "module": "server.inline",
-      "auth": [
-        "dep_current_user"
-      ],
-      "name": "get_dashboard"
-    },
-    {
-      "method": "GET",
-      "path": "/playlist/gateways/{curator_slug}",
-      "module": "server.inline",
-      "auth": [],
-      "name": "get_active_gateways"
-    },
-    {
-      "method": "GET",
-      "path": "/prices/public",
-      "module": "server.inline",
-      "auth": [],
-      "name": "public_prices"
-    },
-    {
-      "method": "GET",
-      "path": "/projects",
-      "module": "server.inline",
-      "auth": [
-        "_dep_current_user"
-      ],
-      "name": "list_projects"
-    },
-    {
-      "method": "GET",
-      "path": "/projects/{project_id}",
-      "module": "server.inline",
-      "auth": [
-        "_dep_current_user"
-      ],
-      "name": "get_project"
-    },
-    {
-      "method": "GET",
-      "path": "/providers",
-      "module": "server.inline",
-      "auth": [
-        "dep"
-      ],
-      "name": "providers_list"
-    },
-    {
-      "method": "GET",
-      "path": "/providers/keys",
-      "module": "server.inline",
-      "auth": [
-        "dep"
-      ],
-      "name": "provider_keys_list"
-    },
-    {
-      "method": "GET",
-      "path": "/providers/quick-setup/status",
-      "module": "server.inline",
-      "auth": [
-        "_user"
-      ],
-      "name": "quick_setup_status"
-    },
-    {
-      "method": "GET",
-      "path": "/providers/usage-log",
-      "module": "server.inline",
-      "auth": [
-        "_user"
-      ],
-      "name": "usage_log"
-    },
-    {
-      "method": "GET",
-      "path": "/revenue/exec-overview",
-      "module": "server.inline",
-      "auth": [
-        "dep"
-      ],
-      "name": "revenue_exec_overview"
-    },
-    {
-      "method": "GET",
-      "path": "/scholarships/admin/applications",
-      "module": "server.inline",
-      "auth": [
-        "_dep_current_user"
-      ],
-      "name": "admin_applications"
-    },
-    {
-      "method": "GET",
-      "path": "/scholarships/admin/awards",
-      "module": "server.inline",
-      "auth": [
-        "_dep_current_user"
-      ],
-      "name": "admin_awards"
-    },
-    {
-      "method": "GET",
-      "path": "/scholarships/admin/pledges",
-      "module": "server.inline",
-      "auth": [
-        "_dep_current_user"
-      ],
-      "name": "admin_pledges"
-    },
-    {
-      "method": "GET",
-      "path": "/scholarships/applications/me",
-      "module": "server.inline",
-      "auth": [
-        "_dep_current_user"
-      ],
-      "name": "my_applications"
-    },
-    {
-      "method": "GET",
-      "path": "/scholarships/funds",
-      "module": "server.inline",
-      "auth": [],
-      "name": "list_funds"
-    },
-    {
-      "method": "GET",
-      "path": "/scholarships/sponsor/mine",
-      "module": "server.inline",
-      "auth": [
-        "_dep_current_user"
-      ],
-      "name": "my_pledges"
-    },
-    {
-      "method": "GET",
-      "path": "/search",
-      "module": "server.inline",
-      "auth": [],
-      "name": "site_search"
-    },
-    {
-      "method": "GET",
-      "path": "/sentinel/protocols",
-      "module": "server.inline",
-      "auth": [
-        "dep"
-      ],
-      "name": "list_protocols"
-    },
-    {
-      "method": "GET",
-      "path": "/sentinel/research",
-      "module": "server.inline",
-      "auth": [
-        "dep"
-      ],
-      "name": "list_research_notes"
-    },
-    {
-      "method": "GET",
-      "path": "/sentinel/reversals",
-      "module": "server.inline",
-      "auth": [
-        "dep"
-      ],
-      "name": "list_reversals"
-    },
-    {
-      "method": "GET",
-      "path": "/sentinel/sovereign-drift",
-      "module": "server.inline",
-      "auth": [
-        "dep"
-      ],
-      "name": "sovereign_drift_check"
-    },
-    {
-      "method": "GET",
-      "path": "/sentinel/status",
-      "module": "server.inline",
-      "auth": [
-        "dep"
-      ],
-      "name": "sentinel_status"
-    },
-    {
-      "method": "GET",
-      "path": "/site-guide/status",
-      "module": "server.inline",
-      "auth": [
-        "_dep_current_user"
-      ],
-      "name": "site_guide_status"
-    },
-    {
-      "method": "GET",
-      "path": "/social/connected-accounts",
-      "module": "server.inline",
-      "auth": [
-        "dep_current_user"
-      ],
-      "name": "get_connected_accounts"
-    },
-    {
-      "method": "GET",
-      "path": "/supervisor/backup/free-matrix",
-      "module": "server.inline",
-      "auth": [
-        "dep"
-      ],
-      "name": "supervisor_backup_matrix"
-    },
-    {
-      "method": "GET",
-      "path": "/supervisor/backup/status",
-      "module": "server.inline",
-      "auth": [
-        "dep"
-      ],
-      "name": "supervisor_backup_status"
-    },
-    {
-      "method": "GET",
-      "path": "/supervisor/dashboard",
-      "module": "server.inline",
-      "auth": [
-        "dep"
-      ],
-      "name": "supervisor_dashboard"
-    },
-    {
-      "method": "GET",
-      "path": "/supervisor/escalations",
-      "module": "server.inline",
-      "auth": [
-        "dep"
-      ],
-      "name": "supervisor_escalations"
-    },
-    {
-      "method": "GET",
-      "path": "/supervisor/greeter/config",
-      "module": "server.inline",
-      "auth": [
-        "dep"
-      ],
-      "name": "supervisor_greeter_config"
-    },
-    {
-      "method": "GET",
-      "path": "/supervisor/sage/sessions",
-      "module": "server.inline",
-      "auth": [
-        "dep"
-      ],
-      "name": "supervisor_sage_sessions"
-    },
-    {
-      "method": "GET",
-      "path": "/supervisor/system/continuity-check",
-      "module": "server.inline",
-      "auth": [
-        "dep"
-      ],
-      "name": "supervisor_continuity_check"
-    },
-    {
-      "method": "GET",
-      "path": "/supervisor/visitor-flow",
-      "module": "server.inline",
-      "auth": [
-        "dep"
-      ],
-      "name": "supervisor_visitor_flow"
-    },
-    {
-      "method": "GET",
-      "path": "/team/actions",
-      "module": "server.inline",
-      "auth": [
-        "dep"
-      ],
-      "name": "team_actions_list"
-    },
-    {
-      "method": "GET",
-      "path": "/team/monitor/status",
-      "module": "server.inline",
-      "auth": [
-        "dep"
-      ],
-      "name": "team_monitor_status"
-    },
-    {
-      "method": "PATCH",
-      "path": "/abo/agenda/{item_id}",
-      "module": "server.inline",
-      "auth": [
-        "dep"
-      ],
-      "name": "update_agenda"
-    },
-    {
-      "method": "PATCH",
-      "path": "/abo/deals/{deal_id}",
-      "module": "server.inline",
-      "auth": [
-        "dep"
-      ],
-      "name": "update_deal"
-    },
-    {
-      "method": "PATCH",
-      "path": "/admin/prices/{price_id}",
-      "module": "server.inline",
-      "auth": [
-        "dep"
-      ],
-      "name": "update_price"
-    },
-    {
-      "method": "PATCH",
-      "path": "/admin/promo-codes/{code}",
-      "module": "server.inline",
-      "auth": [
-        "dep"
-      ],
-      "name": "update_promo_code"
     },
     {
       "method": "PATCH",
@@ -4658,6 +3308,15 @@
     },
     {
       "method": "PATCH",
+      "path": "/api/playlist/gateway/{gateway_id}/status",
+      "module": "server.inline",
+      "auth": [
+        "dep_current_user"
+      ],
+      "name": "set_gateway_status"
+    },
+    {
+      "method": "PATCH",
       "path": "/api/projects/{project_id}",
       "module": "routers.projects",
       "auth": [
@@ -4727,531 +3386,6 @@
         "dep"
       ],
       "name": "supervisor_update_visitor_flow"
-    },
-    {
-      "method": "PATCH",
-      "path": "/auditor/ledger/{entry_id}",
-      "module": "server.inline",
-      "auth": [
-        "dep"
-      ],
-      "name": "auditor_update_entry"
-    },
-    {
-      "method": "PATCH",
-      "path": "/band/bookings/{booking_id}/status",
-      "module": "server.inline",
-      "auth": [
-        "_dep_current_user"
-      ],
-      "name": "band_update_booking"
-    },
-    {
-      "method": "PATCH",
-      "path": "/creator-lounge/projects/{project_id}",
-      "module": "server.inline",
-      "auth": [
-        "_dep_current_user"
-      ],
-      "name": "cl_update_project"
-    },
-    {
-      "method": "PATCH",
-      "path": "/creator/courses/{course_id}",
-      "module": "server.inline",
-      "auth": [
-        "_dep_current_user"
-      ],
-      "name": "creator_update_course"
-    },
-    {
-      "method": "PATCH",
-      "path": "/iam/identities/{identity_id}",
-      "module": "server.inline",
-      "auth": [
-        "_dep_current_user"
-      ],
-      "name": "update_identity"
-    },
-    {
-      "method": "PATCH",
-      "path": "/media/products/{product_id}",
-      "module": "server.inline",
-      "auth": [
-        "_dep_current_user"
-      ],
-      "name": "update_media_product"
-    },
-    {
-      "method": "PATCH",
-      "path": "/playlist/gateway/{gateway_id}/status",
-      "module": "server.inline",
-      "auth": [
-        "dep_current_user"
-      ],
-      "name": "set_gateway_status"
-    },
-    {
-      "method": "PATCH",
-      "path": "/projects/{project_id}",
-      "module": "server.inline",
-      "auth": [
-        "_dep_current_user"
-      ],
-      "name": "update_project"
-    },
-    {
-      "method": "PATCH",
-      "path": "/projects/{project_id}/milestone/{milestone_id}",
-      "module": "server.inline",
-      "auth": [
-        "_dep_current_user"
-      ],
-      "name": "update_milestone"
-    },
-    {
-      "method": "PATCH",
-      "path": "/providers/{provider_id}/status",
-      "module": "server.inline",
-      "auth": [
-        "dep"
-      ],
-      "name": "providers_set_status"
-    },
-    {
-      "method": "PATCH",
-      "path": "/scholarships/admin/applications/{app_id}",
-      "module": "server.inline",
-      "auth": [
-        "_dep_current_user"
-      ],
-      "name": "review_application"
-    },
-    {
-      "method": "PATCH",
-      "path": "/scholarships/admin/awards/{award_id}/milestones/{milestone_id}",
-      "module": "server.inline",
-      "auth": [
-        "_dep_current_user"
-      ],
-      "name": "verify_milestone"
-    },
-    {
-      "method": "PATCH",
-      "path": "/sentinel/protocols/{protocol_id}",
-      "module": "server.inline",
-      "auth": [
-        "dep"
-      ],
-      "name": "update_protocol"
-    },
-    {
-      "method": "PATCH",
-      "path": "/supervisor/greeter/config",
-      "module": "server.inline",
-      "auth": [
-        "dep"
-      ],
-      "name": "supervisor_update_greeter"
-    },
-    {
-      "method": "PATCH",
-      "path": "/supervisor/visitor-flow",
-      "module": "server.inline",
-      "auth": [
-        "dep"
-      ],
-      "name": "supervisor_update_visitor_flow"
-    },
-    {
-      "method": "POST",
-      "path": "/aawab/admin/agents/{agent_id}/override",
-      "module": "server.inline",
-      "auth": [
-        "dep"
-      ],
-      "name": "aawab_admin_override"
-    },
-    {
-      "method": "POST",
-      "path": "/aawab/admin/agents/{agent_id}/revoke",
-      "module": "server.inline",
-      "auth": [
-        "dep"
-      ],
-      "name": "aawab_admin_revoke"
-    },
-    {
-      "method": "POST",
-      "path": "/aawab/agents/{agent_id}/certify",
-      "module": "server.inline",
-      "auth": [
-        "dep"
-      ],
-      "name": "aawab_certify"
-    },
-    {
-      "method": "POST",
-      "path": "/aawab/agents/{agent_id}/diagnose",
-      "module": "server.inline",
-      "auth": [
-        "dep"
-      ],
-      "name": "aawab_diagnose"
-    },
-    {
-      "method": "POST",
-      "path": "/aawab/agents/{agent_id}/treat",
-      "module": "server.inline",
-      "auth": [
-        "dep"
-      ],
-      "name": "aawab_treat"
-    },
-    {
-      "method": "POST",
-      "path": "/aawab/register",
-      "module": "server.inline",
-      "auth": [
-        "dep"
-      ],
-      "name": "aawab_register"
-    },
-    {
-      "method": "POST",
-      "path": "/abo/deals",
-      "module": "server.inline",
-      "auth": [
-        "_dep_current_user"
-      ],
-      "name": "create_deal"
-    },
-    {
-      "method": "POST",
-      "path": "/abo/deals/{deal_id}/propose",
-      "module": "server.inline",
-      "auth": [
-        "dep"
-      ],
-      "name": "propose_deal"
-    },
-    {
-      "method": "POST",
-      "path": "/abo/exchange/contracts",
-      "module": "server.inline",
-      "auth": [
-        "dep"
-      ],
-      "name": "create_exchange_contract"
-    },
-    {
-      "method": "POST",
-      "path": "/abo/goals",
-      "module": "server.inline",
-      "auth": [
-        "dep"
-      ],
-      "name": "abo_set_goals"
-    },
-    {
-      "method": "POST",
-      "path": "/abo/jobs",
-      "module": "server.inline",
-      "auth": [
-        "dep"
-      ],
-      "name": "create_job"
-    },
-    {
-      "method": "POST",
-      "path": "/abo/redteam/engagements",
-      "module": "server.inline",
-      "auth": [
-        "dep"
-      ],
-      "name": "create_redteam_engagement"
-    },
-    {
-      "method": "POST",
-      "path": "/abo/source/controls",
-      "module": "server.inline",
-      "auth": [
-        "dep"
-      ],
-      "name": "abo_source_controls_save"
-    },
-    {
-      "method": "POST",
-      "path": "/admin/ai-spend-budget",
-      "module": "server.inline",
-      "auth": [
-        "dep"
-      ],
-      "name": "admin_set_ai_spend_budget"
-    },
-    {
-      "method": "POST",
-      "path": "/admin/control-panel/broadcast",
-      "module": "server.inline",
-      "auth": [
-        "dep"
-      ],
-      "name": "control_panel_set_broadcast"
-    },
-    {
-      "method": "POST",
-      "path": "/admin/creator-payouts/process",
-      "module": "server.inline",
-      "auth": [
-        "dep"
-      ],
-      "name": "admin_process_creator_payouts"
-    },
-    {
-      "method": "POST",
-      "path": "/admin/prices",
-      "module": "server.inline",
-      "auth": [
-        "dep"
-      ],
-      "name": "create_price"
-    },
-    {
-      "method": "POST",
-      "path": "/admin/promo-codes",
-      "module": "server.inline",
-      "auth": [
-        "dep"
-      ],
-      "name": "create_promo_code"
-    },
-    {
-      "method": "POST",
-      "path": "/admin/system/restore-points",
-      "module": "server.inline",
-      "auth": [],
-      "name": "create_restore_point_route"
-    },
-    {
-      "method": "POST",
-      "path": "/admin/system/rollback",
-      "module": "server.inline",
-      "auth": [],
-      "name": "admin_rollback"
-    },
-    {
-      "method": "POST",
-      "path": "/ai/ambassador",
-      "module": "server.inline",
-      "auth": [
-        "_dep_current_user"
-      ],
-      "name": "ai_ambassador"
-    },
-    {
-      "method": "POST",
-      "path": "/ai/architect",
-      "module": "server.inline",
-      "auth": [
-        "_dep_current_user"
-      ],
-      "name": "ai_architect"
-    },
-    {
-      "method": "POST",
-      "path": "/ai/chat",
-      "module": "server.inline",
-      "auth": [
-        "_dep_current_user"
-      ],
-      "name": "ai_chat"
-    },
-    {
-      "method": "POST",
-      "path": "/ai/cipher",
-      "module": "server.inline",
-      "auth": [
-        "_dep_current_user"
-      ],
-      "name": "ai_cipher"
-    },
-    {
-      "method": "POST",
-      "path": "/ai/cipher/generate-audio",
-      "module": "server.inline",
-      "auth": [
-        "dep"
-      ],
-      "name": "cipher_generate_audio"
-    },
-    {
-      "method": "POST",
-      "path": "/ai/cipher/tts",
-      "module": "server.inline",
-      "auth": [
-        "dep"
-      ],
-      "name": "cipher_tts"
-    },
-    {
-      "method": "POST",
-      "path": "/ai/consent",
-      "module": "server.inline",
-      "auth": [
-        "_dep_current_user"
-      ],
-      "name": "ai_consent"
-    },
-    {
-      "method": "POST",
-      "path": "/ai/director",
-      "module": "server.inline",
-      "auth": [
-        "_dep_current_user"
-      ],
-      "name": "ai_director"
-    },
-    {
-      "method": "POST",
-      "path": "/ai/director/tts",
-      "module": "server.inline",
-      "auth": [
-        "dep"
-      ],
-      "name": "director_tts"
-    },
-    {
-      "method": "POST",
-      "path": "/ai/director/upload",
-      "module": "server.inline",
-      "auth": [
-        "_dep_current_user"
-      ],
-      "name": "director_upload_file"
-    },
-    {
-      "method": "POST",
-      "path": "/ai/griot",
-      "module": "server.inline",
-      "auth": [
-        "_dep_current_user"
-      ],
-      "name": "ai_griot"
-    },
-    {
-      "method": "POST",
-      "path": "/ai/helper",
-      "module": "server.inline",
-      "auth": [],
-      "name": "ai_helper"
-    },
-    {
-      "method": "POST",
-      "path": "/ai/memory/policy",
-      "module": "server.inline",
-      "auth": [
-        "dep"
-      ],
-      "name": "set_memory_policy"
-    },
-    {
-      "method": "POST",
-      "path": "/ai/oracle",
-      "module": "server.inline",
-      "auth": [
-        "_dep_current_user"
-      ],
-      "name": "ai_oracle"
-    },
-    {
-      "method": "POST",
-      "path": "/ai/orchestrator",
-      "module": "server.inline",
-      "auth": [
-        "_dep_current_user"
-      ],
-      "name": "ai_orchestrator"
-    },
-    {
-      "method": "POST",
-      "path": "/ai/revenue-director",
-      "module": "server.inline",
-      "auth": [
-        "_dep_current_user"
-      ],
-      "name": "ai_revenue_director"
-    },
-    {
-      "method": "POST",
-      "path": "/ai/revenue-director/tts",
-      "module": "server.inline",
-      "auth": [
-        "dep"
-      ],
-      "name": "revenue_director_tts"
-    },
-    {
-      "method": "POST",
-      "path": "/ai/sage/create",
-      "module": "server.inline",
-      "auth": [
-        "_dep_current_user"
-      ],
-      "name": "sage_create"
-    },
-    {
-      "method": "POST",
-      "path": "/ai/sage/elevenlabs/tts",
-      "module": "server.inline",
-      "auth": [
-        "dep"
-      ],
-      "name": "sage_elevenlabs_tts"
-    },
-    {
-      "method": "POST",
-      "path": "/ai/sage/resolve_mode",
-      "module": "server.inline",
-      "auth": [
-        "_dep_current_user"
-      ],
-      "name": "resolve_mode"
-    },
-    {
-      "method": "POST",
-      "path": "/ai/sage/tts",
-      "module": "server.inline",
-      "auth": [
-        "_dep_current_user"
-      ],
-      "name": "sage_tts"
-    },
-    {
-      "method": "POST",
-      "path": "/ai/scholar",
-      "module": "server.inline",
-      "auth": [
-        "_dep_current_user"
-      ],
-      "name": "ai_scholar"
-    },
-    {
-      "method": "POST",
-      "path": "/ai/social-blast",
-      "module": "server.inline",
-      "auth": [
-        "_dep_current_user"
-      ],
-      "name": "ai_social_blast"
-    },
-    {
-      "method": "POST",
-      "path": "/ai/tool-chat",
-      "module": "server.inline",
-      "auth": [
-        "_dep_current_user"
-      ],
-      "name": "ai_tool_chat"
     },
     {
       "method": "POST",
@@ -5521,6 +3655,211 @@
     },
     {
       "method": "POST",
+      "path": "/api/ai/ai/ambassador",
+      "module": "server.inline",
+      "auth": [
+        "_dep_current_user"
+      ],
+      "name": "ai_ambassador"
+    },
+    {
+      "method": "POST",
+      "path": "/api/ai/ai/architect",
+      "module": "server.inline",
+      "auth": [
+        "_dep_current_user"
+      ],
+      "name": "ai_architect"
+    },
+    {
+      "method": "POST",
+      "path": "/api/ai/ai/chat",
+      "module": "server.inline",
+      "auth": [
+        "_dep_current_user"
+      ],
+      "name": "ai_chat"
+    },
+    {
+      "method": "POST",
+      "path": "/api/ai/ai/cipher",
+      "module": "server.inline",
+      "auth": [
+        "_dep_current_user"
+      ],
+      "name": "ai_cipher"
+    },
+    {
+      "method": "POST",
+      "path": "/api/ai/ai/cipher/generate-audio",
+      "module": "server.inline",
+      "auth": [
+        "dep"
+      ],
+      "name": "cipher_generate_audio"
+    },
+    {
+      "method": "POST",
+      "path": "/api/ai/ai/cipher/tts",
+      "module": "server.inline",
+      "auth": [
+        "dep"
+      ],
+      "name": "cipher_tts"
+    },
+    {
+      "method": "POST",
+      "path": "/api/ai/ai/consent",
+      "module": "server.inline",
+      "auth": [
+        "_dep_current_user"
+      ],
+      "name": "ai_consent"
+    },
+    {
+      "method": "POST",
+      "path": "/api/ai/ai/director",
+      "module": "server.inline",
+      "auth": [
+        "_dep_current_user"
+      ],
+      "name": "ai_director"
+    },
+    {
+      "method": "POST",
+      "path": "/api/ai/ai/director/tts",
+      "module": "server.inline",
+      "auth": [
+        "dep"
+      ],
+      "name": "director_tts"
+    },
+    {
+      "method": "POST",
+      "path": "/api/ai/ai/director/upload",
+      "module": "server.inline",
+      "auth": [
+        "_dep_current_user"
+      ],
+      "name": "director_upload_file"
+    },
+    {
+      "method": "POST",
+      "path": "/api/ai/ai/griot",
+      "module": "server.inline",
+      "auth": [
+        "_dep_current_user"
+      ],
+      "name": "ai_griot"
+    },
+    {
+      "method": "POST",
+      "path": "/api/ai/ai/helper",
+      "module": "server.inline",
+      "auth": [],
+      "name": "ai_helper"
+    },
+    {
+      "method": "POST",
+      "path": "/api/ai/ai/memory/policy",
+      "module": "server.inline",
+      "auth": [
+        "dep"
+      ],
+      "name": "set_memory_policy"
+    },
+    {
+      "method": "POST",
+      "path": "/api/ai/ai/oracle",
+      "module": "server.inline",
+      "auth": [
+        "_dep_current_user"
+      ],
+      "name": "ai_oracle"
+    },
+    {
+      "method": "POST",
+      "path": "/api/ai/ai/orchestrator",
+      "module": "server.inline",
+      "auth": [
+        "_dep_current_user"
+      ],
+      "name": "ai_orchestrator"
+    },
+    {
+      "method": "POST",
+      "path": "/api/ai/ai/revenue-director",
+      "module": "server.inline",
+      "auth": [
+        "_dep_current_user"
+      ],
+      "name": "ai_revenue_director"
+    },
+    {
+      "method": "POST",
+      "path": "/api/ai/ai/revenue-director/tts",
+      "module": "server.inline",
+      "auth": [
+        "dep"
+      ],
+      "name": "revenue_director_tts"
+    },
+    {
+      "method": "POST",
+      "path": "/api/ai/ai/sage/create",
+      "module": "server.inline",
+      "auth": [
+        "_dep_current_user"
+      ],
+      "name": "sage_create"
+    },
+    {
+      "method": "POST",
+      "path": "/api/ai/ai/sage/elevenlabs/tts",
+      "module": "server.inline",
+      "auth": [
+        "dep"
+      ],
+      "name": "sage_elevenlabs_tts"
+    },
+    {
+      "method": "POST",
+      "path": "/api/ai/ai/sage/resolve_mode",
+      "module": "server.inline",
+      "auth": [
+        "_dep_current_user"
+      ],
+      "name": "resolve_mode"
+    },
+    {
+      "method": "POST",
+      "path": "/api/ai/ai/sage/tts",
+      "module": "server.inline",
+      "auth": [
+        "_dep_current_user"
+      ],
+      "name": "sage_tts"
+    },
+    {
+      "method": "POST",
+      "path": "/api/ai/ai/scholar",
+      "module": "server.inline",
+      "auth": [
+        "_dep_current_user"
+      ],
+      "name": "ai_scholar"
+    },
+    {
+      "method": "POST",
+      "path": "/api/ai/ai/tool-chat",
+      "module": "server.inline",
+      "auth": [
+        "_dep_current_user"
+      ],
+      "name": "ai_tool_chat"
+    },
+    {
+      "method": "POST",
       "path": "/api/ai/ambassador",
       "module": "server.inline",
       "auth": [
@@ -5618,6 +3957,13 @@
     },
     {
       "method": "POST",
+      "path": "/api/ai/helper/ask",
+      "module": "server.inline",
+      "auth": [],
+      "name": "helper_ask"
+    },
+    {
+      "method": "POST",
       "path": "/api/ai/memory/policy",
       "module": "server.inline",
       "auth": [
@@ -5642,6 +3988,40 @@
         "current_user"
       ],
       "name": "ai_orchestrator"
+    },
+    {
+      "method": "POST",
+      "path": "/api/ai/personas/{slug}/chat",
+      "module": "server.inline",
+      "auth": [
+        "_dep_current_user"
+      ],
+      "name": "persona_chat"
+    },
+    {
+      "method": "POST",
+      "path": "/api/ai/personas/{slug}/controls",
+      "module": "server.inline",
+      "auth": [
+        "_dep_current_user"
+      ],
+      "name": "persona_controls_set"
+    },
+    {
+      "method": "POST",
+      "path": "/api/ai/personas/{slug}/toggle",
+      "module": "server.inline",
+      "auth": [
+        "dep"
+      ],
+      "name": "toggle_persona"
+    },
+    {
+      "method": "POST",
+      "path": "/api/ai/public/helper/ask",
+      "module": "server.inline",
+      "auth": [],
+      "name": "public_helper_ask"
     },
     {
       "method": "POST",
@@ -5766,6 +4146,13 @@
         "current_user"
       ],
       "name": "change_password"
+    },
+    {
+      "method": "POST",
+      "path": "/api/auth/cross-site-login",
+      "module": "server.inline",
+      "auth": [],
+      "name": "cross_site_login"
     },
     {
       "method": "POST",
@@ -5983,6 +4370,41 @@
     },
     {
       "method": "POST",
+      "path": "/api/courses/completion",
+      "module": "server.inline",
+      "auth": [],
+      "name": "record_completion"
+    },
+    {
+      "method": "POST",
+      "path": "/api/courses/estimate-arv",
+      "module": "server.inline",
+      "auth": [],
+      "name": "estimate_arv"
+    },
+    {
+      "method": "POST",
+      "path": "/api/courses/leads/import",
+      "module": "server.inline",
+      "auth": [],
+      "name": "import_contractor_lead"
+    },
+    {
+      "method": "POST",
+      "path": "/api/courses/license/create",
+      "module": "server.inline",
+      "auth": [],
+      "name": "create_license"
+    },
+    {
+      "method": "POST",
+      "path": "/api/courses/license/{contractor_id}/add-member",
+      "module": "server.inline",
+      "auth": [],
+      "name": "add_member"
+    },
+    {
+      "method": "POST",
       "path": "/api/creative-partner/chat",
       "module": "routers.chat",
       "auth": [
@@ -5998,6 +4420,56 @@
         "_dep_current_user"
       ],
       "name": "submit_contribution"
+    },
+    {
+      "method": "POST",
+      "path": "/api/creator-courses/complete",
+      "module": "server.inline",
+      "auth": [],
+      "name": "complete_course"
+    },
+    {
+      "method": "POST",
+      "path": "/api/creator-courses/course/{course_id}/lesson",
+      "module": "server.inline",
+      "auth": [
+        "get_current_user_from_request"
+      ],
+      "name": "add_new_lesson"
+    },
+    {
+      "method": "POST",
+      "path": "/api/creator-courses/course/{course_id}/publish",
+      "module": "server.inline",
+      "auth": [
+        "get_current_user_from_request"
+      ],
+      "name": "publish_new_course"
+    },
+    {
+      "method": "POST",
+      "path": "/api/creator-courses/create",
+      "module": "server.inline",
+      "auth": [
+        "get_current_user_from_request"
+      ],
+      "name": "create_new_course"
+    },
+    {
+      "method": "POST",
+      "path": "/api/creator-courses/enroll",
+      "module": "server.inline",
+      "auth": [
+        "get_current_user_from_request"
+      ],
+      "name": "enroll_in_course"
+    },
+    {
+      "method": "POST",
+      "path": "/api/creator-courses/review/{course_id}",
+      "module": "server.inline",
+      "auth": [],
+      "name": "submit_review"
     },
     {
       "method": "POST",
@@ -6061,6 +4533,34 @@
         "_dep_current_user"
       ],
       "name": "creator_request_payout"
+    },
+    {
+      "method": "POST",
+      "path": "/api/crm/leads",
+      "module": "server.inline",
+      "auth": [
+        "dep",
+        "dep_current_user"
+      ],
+      "name": "create_lead"
+    },
+    {
+      "method": "POST",
+      "path": "/api/crm/opportunities",
+      "module": "server.inline",
+      "auth": [
+        "dep"
+      ],
+      "name": "create_opportunity"
+    },
+    {
+      "method": "POST",
+      "path": "/api/crm/opportunities/{opportunity_id}/close-won",
+      "module": "server.inline",
+      "auth": [
+        "dep"
+      ],
+      "name": "close_opportunity_won"
     },
     {
       "method": "POST",
@@ -7190,6 +5690,47 @@
     },
     {
       "method": "POST",
+      "path": "/api/playlist/approve",
+      "module": "server.inline",
+      "auth": [
+        "dep_current_user"
+      ],
+      "name": "approve_submission"
+    },
+    {
+      "method": "POST",
+      "path": "/api/playlist/complete-step",
+      "module": "server.inline",
+      "auth": [],
+      "name": "complete_step"
+    },
+    {
+      "method": "POST",
+      "path": "/api/playlist/gateway/create",
+      "module": "server.inline",
+      "auth": [
+        "dep_current_user"
+      ],
+      "name": "create_gateway"
+    },
+    {
+      "method": "POST",
+      "path": "/api/playlist/reject",
+      "module": "server.inline",
+      "auth": [
+        "dep_current_user"
+      ],
+      "name": "reject_submission"
+    },
+    {
+      "method": "POST",
+      "path": "/api/playlist/submit",
+      "module": "server.inline",
+      "auth": [],
+      "name": "submit_song"
+    },
+    {
+      "method": "POST",
       "path": "/api/portfolio/publish",
       "module": "server.inline",
       "auth": [
@@ -7463,6 +6004,24 @@
     },
     {
       "method": "POST",
+      "path": "/api/social/connect",
+      "module": "server.inline",
+      "auth": [
+        "dep_current_user"
+      ],
+      "name": "connect_account"
+    },
+    {
+      "method": "POST",
+      "path": "/api/social/publish",
+      "module": "server.inline",
+      "auth": [
+        "dep_current_user"
+      ],
+      "name": "publish_to_platforms"
+    },
+    {
+      "method": "POST",
       "path": "/api/sovereign/chat",
       "module": "server.inline",
       "auth": [
@@ -7641,1234 +6200,6 @@
       "name": "ingest_visual_state"
     },
     {
-      "method": "POST",
-      "path": "/arcade/chat",
-      "module": "server.inline",
-      "auth": [],
-      "name": "arcade_chat"
-    },
-    {
-      "method": "POST",
-      "path": "/arcade/scores",
-      "module": "server.inline",
-      "auth": [
-        "_dep_current_user"
-      ],
-      "name": "arcade_submit_score"
-    },
-    {
-      "method": "POST",
-      "path": "/assistant/chat",
-      "module": "server.inline",
-      "auth": [
-        "_dep_current_user"
-      ],
-      "name": "admin_assistant_chat"
-    },
-    {
-      "method": "POST",
-      "path": "/auditor/ledger",
-      "module": "server.inline",
-      "auth": [
-        "dep"
-      ],
-      "name": "auditor_add_entry"
-    },
-    {
-      "method": "POST",
-      "path": "/band/book",
-      "module": "server.inline",
-      "auth": [
-        "_dep_current_user"
-      ],
-      "name": "band_request_booking"
-    },
-    {
-      "method": "POST",
-      "path": "/band/listings",
-      "module": "server.inline",
-      "auth": [
-        "_dep_current_user"
-      ],
-      "name": "band_create_listing"
-    },
-    {
-      "method": "POST",
-      "path": "/billing/credits/grant",
-      "module": "server.inline",
-      "auth": [
-        "dep"
-      ],
-      "name": "billing_credits_grant"
-    },
-    {
-      "method": "POST",
-      "path": "/billing/refunds/cash",
-      "module": "server.inline",
-      "auth": [
-        "dep"
-      ],
-      "name": "billing_cash_refund"
-    },
-    {
-      "method": "POST",
-      "path": "/billing/refunds/site-credits",
-      "module": "server.inline",
-      "auth": [
-        "dep"
-      ],
-      "name": "billing_site_credit_refund"
-    },
-    {
-      "method": "POST",
-      "path": "/billing/sage-sessions/{session_id}/resolve",
-      "module": "server.inline",
-      "auth": [
-        "dep"
-      ],
-      "name": "billing_resolve_sage_session"
-    },
-    {
-      "method": "POST",
-      "path": "/bridge/dispatch",
-      "module": "server.inline",
-      "auth": [
-        "dep"
-      ],
-      "name": "create_dispatch"
-    },
-    {
-      "method": "POST",
-      "path": "/bridge/receive",
-      "module": "server.inline",
-      "auth": [],
-      "name": "receive_from_partner"
-    },
-    {
-      "method": "POST",
-      "path": "/byok/activate",
-      "module": "server.inline",
-      "auth": [
-        "_dep_current_user"
-      ],
-      "name": "byok_activate"
-    },
-    {
-      "method": "POST",
-      "path": "/byok/checkout",
-      "module": "server.inline",
-      "auth": [
-        "_dep_current_user"
-      ],
-      "name": "byok_checkout"
-    },
-    {
-      "method": "POST",
-      "path": "/byok/key",
-      "module": "server.inline",
-      "auth": [
-        "_dep_current_user"
-      ],
-      "name": "byok_save_key"
-    },
-    {
-      "method": "POST",
-      "path": "/byok/key/{provider}/test",
-      "module": "server.inline",
-      "auth": [
-        "_dep_current_user"
-      ],
-      "name": "byok_test_key"
-    },
-    {
-      "method": "POST",
-      "path": "/competition/score",
-      "module": "server.inline",
-      "auth": [
-        "dep"
-      ],
-      "name": "submit_user_scores"
-    },
-    {
-      "method": "POST",
-      "path": "/competition/task",
-      "module": "server.inline",
-      "auth": [
-        "dep"
-      ],
-      "name": "assign_task"
-    },
-    {
-      "method": "POST",
-      "path": "/compliance/{slug}/quiz",
-      "module": "server.inline",
-      "auth": [
-        "_dep_current_user"
-      ],
-      "name": "submit_compliance_quiz"
-    },
-    {
-      "method": "POST",
-      "path": "/courses/completion",
-      "module": "server.inline",
-      "auth": [],
-      "name": "record_completion"
-    },
-    {
-      "method": "POST",
-      "path": "/courses/estimate-arv",
-      "module": "server.inline",
-      "auth": [],
-      "name": "estimate_arv"
-    },
-    {
-      "method": "POST",
-      "path": "/courses/leads/import",
-      "module": "server.inline",
-      "auth": [],
-      "name": "import_contractor_lead"
-    },
-    {
-      "method": "POST",
-      "path": "/courses/license/create",
-      "module": "server.inline",
-      "auth": [],
-      "name": "create_license"
-    },
-    {
-      "method": "POST",
-      "path": "/courses/license/{contractor_id}/add-member",
-      "module": "server.inline",
-      "auth": [],
-      "name": "add_member"
-    },
-    {
-      "method": "POST",
-      "path": "/creative-partner/chat",
-      "module": "server.inline",
-      "auth": [
-        "_dep_current_user"
-      ],
-      "name": "creative_partner_chat"
-    },
-    {
-      "method": "POST",
-      "path": "/creative-partner/contribution",
-      "module": "server.inline",
-      "auth": [
-        "_dep_current_user"
-      ],
-      "name": "submit_contribution"
-    },
-    {
-      "method": "POST",
-      "path": "/creator-courses/complete",
-      "module": "server.inline",
-      "auth": [],
-      "name": "complete_course"
-    },
-    {
-      "method": "POST",
-      "path": "/creator-courses/course/{course_id}/lesson",
-      "module": "server.inline",
-      "auth": [
-        "get_current_user_from_request"
-      ],
-      "name": "add_new_lesson"
-    },
-    {
-      "method": "POST",
-      "path": "/creator-courses/course/{course_id}/publish",
-      "module": "server.inline",
-      "auth": [
-        "get_current_user_from_request"
-      ],
-      "name": "publish_new_course"
-    },
-    {
-      "method": "POST",
-      "path": "/creator-courses/create",
-      "module": "server.inline",
-      "auth": [
-        "get_current_user_from_request"
-      ],
-      "name": "create_new_course"
-    },
-    {
-      "method": "POST",
-      "path": "/creator-courses/enroll",
-      "module": "server.inline",
-      "auth": [
-        "get_current_user_from_request"
-      ],
-      "name": "enroll_in_course"
-    },
-    {
-      "method": "POST",
-      "path": "/creator-courses/review/{course_id}",
-      "module": "server.inline",
-      "auth": [],
-      "name": "submit_review"
-    },
-    {
-      "method": "POST",
-      "path": "/creator-lounge/projects",
-      "module": "server.inline",
-      "auth": [
-        "_dep_current_user"
-      ],
-      "name": "cl_create_project"
-    },
-    {
-      "method": "POST",
-      "path": "/creator-lounge/projects/{project_id}/collab",
-      "module": "server.inline",
-      "auth": [
-        "_dep_current_user"
-      ],
-      "name": "cl_request_collab"
-    },
-    {
-      "method": "POST",
-      "path": "/creator/bank-account",
-      "module": "server.inline",
-      "auth": [
-        "_dep_current_user"
-      ],
-      "name": "creator_save_bank_account_legacy"
-    },
-    {
-      "method": "POST",
-      "path": "/creator/courses",
-      "module": "server.inline",
-      "auth": [
-        "_dep_current_user"
-      ],
-      "name": "creator_create_course"
-    },
-    {
-      "method": "POST",
-      "path": "/creator/courses/{course_id}/checkout",
-      "module": "server.inline",
-      "auth": [
-        "_dep_current_user"
-      ],
-      "name": "creator_course_checkout"
-    },
-    {
-      "method": "POST",
-      "path": "/creator/payout-profile",
-      "module": "server.inline",
-      "auth": [
-        "_dep_current_user"
-      ],
-      "name": "creator_save_payout_profile"
-    },
-    {
-      "method": "POST",
-      "path": "/creator/payout-request",
-      "module": "server.inline",
-      "auth": [
-        "_dep_current_user"
-      ],
-      "name": "creator_request_payout"
-    },
-    {
-      "method": "POST",
-      "path": "/crm/leads",
-      "module": "server.inline",
-      "auth": [
-        "dep",
-        "dep_current_user"
-      ],
-      "name": "create_lead"
-    },
-    {
-      "method": "POST",
-      "path": "/crm/opportunities",
-      "module": "server.inline",
-      "auth": [
-        "dep"
-      ],
-      "name": "create_opportunity"
-    },
-    {
-      "method": "POST",
-      "path": "/crm/opportunities/{opportunity_id}/close-won",
-      "module": "server.inline",
-      "auth": [
-        "dep"
-      ],
-      "name": "close_opportunity_won"
-    },
-    {
-      "method": "POST",
-      "path": "/exec/control/access",
-      "module": "server.inline",
-      "auth": [
-        "dep"
-      ],
-      "name": "ec_access_set"
-    },
-    {
-      "method": "POST",
-      "path": "/exec/control/ai-access",
-      "module": "server.inline",
-      "auth": [
-        "dep"
-      ],
-      "name": "ec_ai_access"
-    },
-    {
-      "method": "POST",
-      "path": "/exec/control/authz-matrix",
-      "module": "server.inline",
-      "auth": [
-        "dep"
-      ],
-      "name": "ec_set_authz_matrix"
-    },
-    {
-      "method": "POST",
-      "path": "/exec/control/break-glass/activate",
-      "module": "server.inline",
-      "auth": [
-        "dep"
-      ],
-      "name": "ec_break_glass_activate"
-    },
-    {
-      "method": "POST",
-      "path": "/exec/control/break-glass/revoke",
-      "module": "server.inline",
-      "auth": [
-        "dep"
-      ],
-      "name": "ec_break_glass_revoke"
-    },
-    {
-      "method": "POST",
-      "path": "/exec/control/budget",
-      "module": "server.inline",
-      "auth": [
-        "dep"
-      ],
-      "name": "ec_set_budget"
-    },
-    {
-      "method": "POST",
-      "path": "/exec/control/failover",
-      "module": "server.inline",
-      "auth": [
-        "dep"
-      ],
-      "name": "ec_failover"
-    },
-    {
-      "method": "POST",
-      "path": "/exec/control/feature-flag",
-      "module": "server.inline",
-      "auth": [
-        "dep"
-      ],
-      "name": "ec_feature_flag"
-    },
-    {
-      "method": "POST",
-      "path": "/exec/control/ip-whitelist",
-      "module": "server.inline",
-      "auth": [
-        "dep"
-      ],
-      "name": "ec_ip_whitelist"
-    },
-    {
-      "method": "POST",
-      "path": "/exec/control/legal-access",
-      "module": "server.inline",
-      "auth": [
-        "dep"
-      ],
-      "name": "ec_legal_access"
-    },
-    {
-      "method": "POST",
-      "path": "/exec/control/mfa",
-      "module": "server.inline",
-      "auth": [
-        "dep"
-      ],
-      "name": "ec_mfa_config"
-    },
-    {
-      "method": "POST",
-      "path": "/exec/control/page-mode",
-      "module": "server.inline",
-      "auth": [
-        "dep"
-      ],
-      "name": "ec_page_mode"
-    },
-    {
-      "method": "POST",
-      "path": "/exec/control/price",
-      "module": "server.inline",
-      "auth": [
-        "dep"
-      ],
-      "name": "ec_set_price"
-    },
-    {
-      "method": "POST",
-      "path": "/exec/control/provider-ranking",
-      "module": "server.inline",
-      "auth": [
-        "dep"
-      ],
-      "name": "ec_provider_ranking"
-    },
-    {
-      "method": "POST",
-      "path": "/exec/control/route-access",
-      "module": "server.inline",
-      "auth": [
-        "dep"
-      ],
-      "name": "ec_set_route_access"
-    },
-    {
-      "method": "POST",
-      "path": "/exec/control/sage-cap",
-      "module": "server.inline",
-      "auth": [
-        "dep"
-      ],
-      "name": "ec_sage_cap"
-    },
-    {
-      "method": "POST",
-      "path": "/exec/control/tiers",
-      "module": "server.inline",
-      "auth": [
-        "dep"
-      ],
-      "name": "ec_upsert_tier"
-    },
-    {
-      "method": "POST",
-      "path": "/exec/control/user/role",
-      "module": "server.inline",
-      "auth": [
-        "dep"
-      ],
-      "name": "ec_set_user_role"
-    },
-    {
-      "method": "POST",
-      "path": "/exec/control/user/tier",
-      "module": "server.inline",
-      "auth": [
-        "dep"
-      ],
-      "name": "ec_set_user_tier"
-    },
-    {
-      "method": "POST",
-      "path": "/exec/control/visibility",
-      "module": "server.inline",
-      "auth": [
-        "dep"
-      ],
-      "name": "ec_visibility"
-    },
-    {
-      "method": "POST",
-      "path": "/helper/ask",
-      "module": "server.inline",
-      "auth": [],
-      "name": "helper_ask"
-    },
-    {
-      "method": "POST",
-      "path": "/iam/actions",
-      "module": "server.inline",
-      "auth": [
-        "_dep_optional_user"
-      ],
-      "name": "record_action"
-    },
-    {
-      "method": "POST",
-      "path": "/iam/actions/check",
-      "module": "server.inline",
-      "auth": [
-        "_dep_optional_user"
-      ],
-      "name": "check_action"
-    },
-    {
-      "method": "POST",
-      "path": "/iam/delegations",
-      "module": "server.inline",
-      "auth": [
-        "_dep_current_user"
-      ],
-      "name": "create_delegation"
-    },
-    {
-      "method": "POST",
-      "path": "/iam/delegations/{delegation_id}/revoke",
-      "module": "server.inline",
-      "auth": [
-        "_dep_current_user"
-      ],
-      "name": "revoke_delegation"
-    },
-    {
-      "method": "POST",
-      "path": "/iam/identities",
-      "module": "server.inline",
-      "auth": [
-        "_dep_current_user"
-      ],
-      "name": "create_identity"
-    },
-    {
-      "method": "POST",
-      "path": "/iam/identities/{identity_id}/rotate-token",
-      "module": "server.inline",
-      "auth": [
-        "_dep_current_user"
-      ],
-      "name": "rotate_token"
-    },
-    {
-      "method": "POST",
-      "path": "/iam/resources",
-      "module": "server.inline",
-      "auth": [
-        "_dep_current_user"
-      ],
-      "name": "create_resource"
-    },
-    {
-      "method": "POST",
-      "path": "/jamil/chat",
-      "module": "server.inline",
-      "auth": [
-        "_dep_current_user"
-      ],
-      "name": "jamil_chat_server"
-    },
-    {
-      "method": "POST",
-      "path": "/jamil/digest",
-      "module": "server.inline",
-      "auth": [
-        "dep"
-      ],
-      "name": "jamil_digest_trigger"
-    },
-    {
-      "method": "POST",
-      "path": "/jamil/speak",
-      "module": "server.inline",
-      "auth": [
-        "_dep_current_user"
-      ],
-      "name": "jamil_speak_server"
-    },
-    {
-      "method": "POST",
-      "path": "/jamil/transcribe",
-      "module": "server.inline",
-      "auth": [
-        "_dep_current_user"
-      ],
-      "name": "jamil_transcribe_server"
-    },
-    {
-      "method": "POST",
-      "path": "/me/cancel-exit",
-      "module": "server.inline",
-      "auth": [
-        "_dep_current_user"
-      ],
-      "name": "cancel_exit"
-    },
-    {
-      "method": "POST",
-      "path": "/me/emergency-exit",
-      "module": "server.inline",
-      "auth": [
-        "_dep_current_user"
-      ],
-      "name": "emergency_exit"
-    },
-    {
-      "method": "POST",
-      "path": "/me/leave-more",
-      "module": "server.inline",
-      "auth": [
-        "_dep_current_user"
-      ],
-      "name": "leave_more"
-    },
-    {
-      "method": "POST",
-      "path": "/me/proceeds-preference",
-      "module": "server.inline",
-      "auth": [
-        "_dep_current_user"
-      ],
-      "name": "set_proceeds_preference"
-    },
-    {
-      "method": "POST",
-      "path": "/me/request-exit",
-      "module": "server.inline",
-      "auth": [
-        "_dep_current_user"
-      ],
-      "name": "request_exit"
-    },
-    {
-      "method": "POST",
-      "path": "/me/step-down",
-      "module": "server.inline",
-      "auth": [
-        "_dep_current_user"
-      ],
-      "name": "step_down"
-    },
-    {
-      "method": "POST",
-      "path": "/media/products",
-      "module": "server.inline",
-      "auth": [
-        "_dep_current_user"
-      ],
-      "name": "create_media_product"
-    },
-    {
-      "method": "POST",
-      "path": "/media/products/{product_id}/checkout",
-      "module": "server.inline",
-      "auth": [
-        "_dep_current_user"
-      ],
-      "name": "checkout_media_product"
-    },
-    {
-      "method": "POST",
-      "path": "/media/upload",
-      "module": "server.inline",
-      "auth": [
-        "_dep_current_user"
-      ],
-      "name": "upload_media_file"
-    },
-    {
-      "method": "POST",
-      "path": "/missing/photo",
-      "module": "server.inline",
-      "auth": [],
-      "name": "upload_missing_photo"
-    },
-    {
-      "method": "POST",
-      "path": "/missing/tip",
-      "module": "server.inline",
-      "auth": [],
-      "name": "submit_missing_tip"
-    },
-    {
-      "method": "POST",
-      "path": "/my-projects",
-      "module": "server.inline",
-      "auth": [
-        "_dep_current_user"
-      ],
-      "name": "my_projects_create"
-    },
-    {
-      "method": "POST",
-      "path": "/my-projects/{project_id}/advance",
-      "module": "server.inline",
-      "auth": [
-        "_dep_current_user"
-      ],
-      "name": "my_projects_advance"
-    },
-    {
-      "method": "POST",
-      "path": "/my-projects/{project_id}/approve",
-      "module": "server.inline",
-      "auth": [
-        "_dep_current_user"
-      ],
-      "name": "my_projects_decide"
-    },
-    {
-      "method": "POST",
-      "path": "/my-projects/{project_id}/archive",
-      "module": "server.inline",
-      "auth": [
-        "_dep_current_user"
-      ],
-      "name": "my_projects_archive"
-    },
-    {
-      "method": "POST",
-      "path": "/my-projects/{project_id}/comments",
-      "module": "server.inline",
-      "auth": [
-        "_dep_current_user"
-      ],
-      "name": "my_projects_comment"
-    },
-    {
-      "method": "POST",
-      "path": "/my-projects/{project_id}/run-stage",
-      "module": "server.inline",
-      "auth": [
-        "_dep_current_user"
-      ],
-      "name": "my_projects_run_stage"
-    },
-    {
-      "method": "POST",
-      "path": "/personas/{slug}/chat",
-      "module": "server.inline",
-      "auth": [
-        "_dep_current_user"
-      ],
-      "name": "persona_chat"
-    },
-    {
-      "method": "POST",
-      "path": "/personas/{slug}/controls",
-      "module": "server.inline",
-      "auth": [
-        "_dep_current_user"
-      ],
-      "name": "persona_controls_set"
-    },
-    {
-      "method": "POST",
-      "path": "/personas/{slug}/toggle",
-      "module": "server.inline",
-      "auth": [
-        "dep"
-      ],
-      "name": "toggle_persona"
-    },
-    {
-      "method": "POST",
-      "path": "/playlist/approve",
-      "module": "server.inline",
-      "auth": [
-        "dep_current_user"
-      ],
-      "name": "approve_submission"
-    },
-    {
-      "method": "POST",
-      "path": "/playlist/complete-step",
-      "module": "server.inline",
-      "auth": [],
-      "name": "complete_step"
-    },
-    {
-      "method": "POST",
-      "path": "/playlist/gateway/create",
-      "module": "server.inline",
-      "auth": [
-        "dep_current_user"
-      ],
-      "name": "create_gateway"
-    },
-    {
-      "method": "POST",
-      "path": "/playlist/reject",
-      "module": "server.inline",
-      "auth": [
-        "dep_current_user"
-      ],
-      "name": "reject_submission"
-    },
-    {
-      "method": "POST",
-      "path": "/playlist/submit",
-      "module": "server.inline",
-      "auth": [],
-      "name": "submit_song"
-    },
-    {
-      "method": "POST",
-      "path": "/projects",
-      "module": "server.inline",
-      "auth": [
-        "_dep_current_user"
-      ],
-      "name": "create_project"
-    },
-    {
-      "method": "POST",
-      "path": "/projects/{project_id}/milestone",
-      "module": "server.inline",
-      "auth": [
-        "_dep_current_user"
-      ],
-      "name": "add_milestone"
-    },
-    {
-      "method": "POST",
-      "path": "/promo/validate",
-      "module": "server.inline",
-      "auth": [],
-      "name": "validate_promo"
-    },
-    {
-      "method": "POST",
-      "path": "/providers",
-      "module": "server.inline",
-      "auth": [
-        "dep"
-      ],
-      "name": "providers_create"
-    },
-    {
-      "method": "POST",
-      "path": "/providers/keys",
-      "module": "server.inline",
-      "auth": [
-        "dep"
-      ],
-      "name": "provider_keys_create"
-    },
-    {
-      "method": "POST",
-      "path": "/providers/keys/{key_id}/test",
-      "module": "server.inline",
-      "auth": [
-        "dep"
-      ],
-      "name": "provider_keys_test"
-    },
-    {
-      "method": "POST",
-      "path": "/providers/quick-setup",
-      "module": "server.inline",
-      "auth": [
-        "_user"
-      ],
-      "name": "quick_setup"
-    },
-    {
-      "method": "POST",
-      "path": "/public/helper/ask",
-      "module": "server.inline",
-      "auth": [],
-      "name": "public_helper_ask"
-    },
-    {
-      "method": "POST",
-      "path": "/scholarships/admin/funds",
-      "module": "server.inline",
-      "auth": [
-        "_dep_current_user"
-      ],
-      "name": "create_fund"
-    },
-    {
-      "method": "POST",
-      "path": "/scholarships/apply",
-      "module": "server.inline",
-      "auth": [
-        "_dep_current_user"
-      ],
-      "name": "apply_for_scholarship"
-    },
-    {
-      "method": "POST",
-      "path": "/scholarships/pledge",
-      "module": "server.inline",
-      "auth": [
-        "_dep_current_user"
-      ],
-      "name": "create_pledge"
-    },
-    {
-      "method": "POST",
-      "path": "/sentinel/ai-brief",
-      "module": "server.inline",
-      "auth": [
-        "dep"
-      ],
-      "name": "sentinel_ai_brief"
-    },
-    {
-      "method": "POST",
-      "path": "/sentinel/protocols",
-      "module": "server.inline",
-      "auth": [
-        "dep"
-      ],
-      "name": "create_protocol"
-    },
-    {
-      "method": "POST",
-      "path": "/sentinel/protocols/unlock",
-      "module": "server.inline",
-      "auth": [
-        "dep"
-      ],
-      "name": "unlock_protocol"
-    },
-    {
-      "method": "POST",
-      "path": "/sentinel/research",
-      "module": "server.inline",
-      "auth": [
-        "dep"
-      ],
-      "name": "create_research_note"
-    },
-    {
-      "method": "POST",
-      "path": "/sentinel/respond",
-      "module": "server.inline",
-      "auth": [
-        "dep"
-      ],
-      "name": "sentinel_respond"
-    },
-    {
-      "method": "POST",
-      "path": "/sentinel/reverse/{action_id}",
-      "module": "server.inline",
-      "auth": [
-        "dep"
-      ],
-      "name": "reverse_action"
-    },
-    {
-      "method": "POST",
-      "path": "/site-guide/chat",
-      "module": "server.inline",
-      "auth": [
-        "_dep_current_user"
-      ],
-      "name": "site_guide_chat"
-    },
-    {
-      "method": "POST",
-      "path": "/social/connect",
-      "module": "server.inline",
-      "auth": [
-        "dep_current_user"
-      ],
-      "name": "connect_account"
-    },
-    {
-      "method": "POST",
-      "path": "/social/publish",
-      "module": "server.inline",
-      "auth": [
-        "dep_current_user"
-      ],
-      "name": "publish_to_platforms"
-    },
-    {
-      "method": "POST",
-      "path": "/studio/altar",
-      "module": "server.inline",
-      "auth": [
-        "_dep_current_user"
-      ],
-      "name": "studio_altar"
-    },
-    {
-      "method": "POST",
-      "path": "/studio/cheer",
-      "module": "server.inline",
-      "auth": [],
-      "name": "studio_cheer"
-    },
-    {
-      "method": "POST",
-      "path": "/studio/lyric",
-      "module": "server.inline",
-      "auth": [
-        "_dep_current_user"
-      ],
-      "name": "studio_lyric"
-    },
-    {
-      "method": "POST",
-      "path": "/studio/metadata",
-      "module": "server.inline",
-      "auth": [
-        "_dep_current_user"
-      ],
-      "name": "studio_metadata"
-    },
-    {
-      "method": "POST",
-      "path": "/studio/script",
-      "module": "server.inline",
-      "auth": [
-        "_dep_current_user"
-      ],
-      "name": "studio_script"
-    },
-    {
-      "method": "POST",
-      "path": "/studio/sound",
-      "module": "server.inline",
-      "auth": [
-        "_dep_current_user"
-      ],
-      "name": "studio_sound_blueprint"
-    },
-    {
-      "method": "POST",
-      "path": "/studio/sovereign",
-      "module": "server.inline",
-      "auth": [
-        "_dep_current_user"
-      ],
-      "name": "studio_sovereign"
-    },
-    {
-      "method": "POST",
-      "path": "/supervisor-integrity-alert",
-      "module": "server.inline",
-      "auth": [],
-      "name": "supervisor_integrity_alert"
-    },
-    {
-      "method": "POST",
-      "path": "/supervisor/backup/emergency-broadcast",
-      "module": "server.inline",
-      "auth": [
-        "dep"
-      ],
-      "name": "supervisor_emergency_broadcast"
-    },
-    {
-      "method": "POST",
-      "path": "/supervisor/backup/reset-gateway",
-      "module": "server.inline",
-      "auth": [
-        "dep"
-      ],
-      "name": "supervisor_reset_gateway"
-    },
-    {
-      "method": "POST",
-      "path": "/supervisor/backup/switch-provider",
-      "module": "server.inline",
-      "auth": [
-        "dep"
-      ],
-      "name": "supervisor_switch_provider"
-    },
-    {
-      "method": "POST",
-      "path": "/supervisor/content/{content_type}/{content_id}/approve",
-      "module": "server.inline",
-      "auth": [
-        "dep"
-      ],
-      "name": "supervisor_approve_content"
-    },
-    {
-      "method": "POST",
-      "path": "/supervisor/content/{content_type}/{content_id}/reject",
-      "module": "server.inline",
-      "auth": [
-        "dep"
-      ],
-      "name": "supervisor_reject_content"
-    },
-    {
-      "method": "POST",
-      "path": "/supervisor/escalations",
-      "module": "server.inline",
-      "auth": [
-        "dep"
-      ],
-      "name": "supervisor_create_escalation"
-    },
-    {
-      "method": "POST",
-      "path": "/supervisor/escalations/{esc_id}/resolve",
-      "module": "server.inline",
-      "auth": [
-        "dep"
-      ],
-      "name": "supervisor_resolve_escalation"
-    },
-    {
-      "method": "POST",
-      "path": "/supervisor/public-chat",
-      "module": "server.inline",
-      "auth": [],
-      "name": "supervisor_public_chat"
-    },
-    {
-      "method": "POST",
-      "path": "/supervisor/sage/sessions/{session_id}/flag",
-      "module": "server.inline",
-      "auth": [
-        "dep"
-      ],
-      "name": "supervisor_flag_sage_session"
-    },
-    {
-      "method": "POST",
-      "path": "/v1/system/emergency-revert",
-      "module": "server.inline",
-      "auth": [],
-      "name": "emergency_revert"
-    },
-    {
-      "method": "POST",
-      "path": "/v1/system/visual-state",
-      "module": "server.inline",
-      "auth": [],
-      "name": "ingest_visual_state"
-    },
-    {
-      "method": "PUT",
-      "path": "/abo/config",
-      "module": "server.inline",
-      "auth": [
-        "dep"
-      ],
-      "name": "update_abo_config"
-    },
-    {
-      "method": "PUT",
-      "path": "/admin/sage/cap/global",
-      "module": "server.inline",
-      "auth": [
-        "dep"
-      ],
-      "name": "admin_set_sage_cap_global"
-    },
-    {
-      "method": "PUT",
-      "path": "/admin/sage/cap/user/{uid}",
-      "module": "server.inline",
-      "auth": [
-        "dep"
-      ],
-      "name": "admin_set_sage_cap_user"
-    },
-    {
       "method": "PUT",
       "path": "/api/abo/config",
       "module": "routers.abo",
@@ -8889,6 +6220,24 @@
     {
       "method": "PUT",
       "path": "/api/admin/sage/cap/user/{uid}",
+      "module": "server.inline",
+      "auth": [
+        "dep"
+      ],
+      "name": "admin_set_sage_cap_user"
+    },
+    {
+      "method": "PUT",
+      "path": "/api/ai/admin/sage/cap/global",
+      "module": "server.inline",
+      "auth": [
+        "dep"
+      ],
+      "name": "admin_set_sage_cap_global"
+    },
+    {
+      "method": "PUT",
+      "path": "/api/ai/admin/sage/cap/user/{uid}",
       "module": "server.inline",
       "auth": [
         "dep"
@@ -8924,6 +6273,24 @@
     },
     {
       "method": "PUT",
+      "path": "/api/crm/leads/{lead_id}",
+      "module": "server.inline",
+      "auth": [
+        "dep"
+      ],
+      "name": "update_lead"
+    },
+    {
+      "method": "PUT",
+      "path": "/api/crm/opportunities/{opportunity_id}",
+      "module": "server.inline",
+      "auth": [
+        "dep"
+      ],
+      "name": "update_opportunity"
+    },
+    {
+      "method": "PUT",
       "path": "/api/executive/projects/{project_id}/packet",
       "module": "routers.executive_pipeline",
       "auth": [
@@ -8935,60 +6302,6 @@
       "method": "PUT",
       "path": "/api/features/{feature_id}",
       "module": "routers.features",
-      "auth": [
-        "Any"
-      ],
-      "name": "update_feature"
-    },
-    {
-      "method": "PUT",
-      "path": "/bridge/config",
-      "module": "server.inline",
-      "auth": [
-        "dep"
-      ],
-      "name": "update_bridge_config"
-    },
-    {
-      "method": "PUT",
-      "path": "/bridge/personas/{persona_key}",
-      "module": "server.inline",
-      "auth": [
-        "dep"
-      ],
-      "name": "update_bridge_persona"
-    },
-    {
-      "method": "PUT",
-      "path": "/creator/profile",
-      "module": "server.inline",
-      "auth": [
-        "_dep_current_user"
-      ],
-      "name": "upsert_creator_profile"
-    },
-    {
-      "method": "PUT",
-      "path": "/crm/leads/{lead_id}",
-      "module": "server.inline",
-      "auth": [
-        "dep"
-      ],
-      "name": "update_lead"
-    },
-    {
-      "method": "PUT",
-      "path": "/crm/opportunities/{opportunity_id}",
-      "module": "server.inline",
-      "auth": [
-        "dep"
-      ],
-      "name": "update_opportunity"
-    },
-    {
-      "method": "PUT",
-      "path": "/features/{feature_id}",
-      "module": "server.inline",
       "auth": [
         "Any"
       ],

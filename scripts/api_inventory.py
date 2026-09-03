@@ -48,6 +48,14 @@ def add_router(mod, module_name, prefix):
         routes.append({"method": "*", "path": f"(no router attr in {module_name})", "module": module_name, "auth": [], "error": "no router"})
         return
     for route in router.routes:
+        # Newer FastAPI wraps included routers in _IncludedRouter objects that
+        # carry no .path of their own — recurse into the wrapped router.
+        inc = getattr(route, "include_context", None)
+        if inc is not None:
+            add_router(type("Mod", (), {"router": inc.included_router}), module_name, prefix + (getattr(inc, "prefix", "") or ""))
+            continue
+        if not hasattr(route, "path"):
+            continue
         for m in sorted(getattr(route, "methods", ["*"]) or ["*"]):
             full = (prefix + route.path) or "/"
             key = (m, full)
@@ -74,15 +82,22 @@ for name, prefix in mounts:
 
 # Also capture the inline app routes (server.py's own handlers + ai_router).
 def _add_app_route(route, prefix=""):
+    # Newer FastAPI: included routers appear as _IncludedRouter wrappers whose
+    # include_context carries the prefix applied at include time.
+    inc = getattr(route, "include_context", None)
+    if inc is not None:
+        sub = getattr(inc, "included_router", None)
+        if sub is not None:
+            for r in getattr(sub, "routes", []) or []:
+                _add_app_route(r, prefix + (getattr(inc, "prefix", "") or ""))
+        return
+    # Mounts / nested routers: carry the mount path into the child prefix.
     sub = getattr(route, "routes", None)
     if sub:
         for r in sub:
-            _add_app_route(r, prefix)
+            _add_app_route(r, prefix + (getattr(route, "path", "") or ""))
         return
-    orig = getattr(route, "original_router", None)
-    if orig is not None:
-        for r in getattr(orig, "routes", []) or []:
-            _add_app_route(r, prefix)
+    if not hasattr(route, "path"):
         return
     if not hasattr(route, "path"):
         return

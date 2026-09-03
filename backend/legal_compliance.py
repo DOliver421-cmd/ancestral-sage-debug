@@ -73,4 +73,6 @@ def is_human_officer(user, roles) -> bool:
     # Reject non-human / synthetic actors if such a marker ever exists.
     if getattr(user, "is_ai", False) or getattr(user, "actor_type", "human") == "ai":
         return False
-    return (getattr(user, "role", None) in (roles or set())) or bool(getattr(user, "role", None))
+    # The allow-list is authoritative: an authenticated user with ANY role must
+    # still be listed. Previously `or bool(role)` let any non-empty role pass.
+    return getattr(user, "role", None) in (roles or set())

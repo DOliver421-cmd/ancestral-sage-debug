@@ -105,14 +105,25 @@ def encrypt_key(plaintext: str) -> str:
     return plaintext  # no secret configured — callers must refuse to save
 
 
-def decrypt_key(ciphertext: str) -> str:
+def decrypt_key(ciphertext: str) -> Optional[str]:
+    """Decrypt a stored key. Returns None when the value cannot be verified.
+
+    Fail-closed: a ciphertext that does not decrypt (or a legacy plaintext row)
+    is NEVER handed to a provider as a bearer token — it is skipped and logged.
+    """
+    if not ciphertext:
+        return None
     fernet = _get_fernet()
-    if fernet:
-        try:
-            return fernet.decrypt(ciphertext.encode()).decode()
-        except Exception:
-            return ciphertext  # already plaintext or decryption failed
-    return ciphertext
+    if not fernet:
+        logger.error("byok: cannot decrypt stored key — encryption vault unavailable")
+        return None
+    try:
+        return fernet.decrypt(ciphertext.encode()).decode()
+    except Exception:
+        logger.warning(
+            "byok: stored key failed to decrypt — skipping (legacy plaintext or corrupt row)"
+        )
+        return None
 
 
 def mask_key(key: str) -> str:
