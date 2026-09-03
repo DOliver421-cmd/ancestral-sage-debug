@@ -1,8 +1,38 @@
 # MoreHelp Center — Full Site Public Readiness Report
 
-**Date:** 2026-09-02
+**Date:** 2026-09-02 (updated 2026-09-03)
 **Live target:** https://charming-analysis-morehelpcenter.up.railway.app (Railway, auto-deploys from `main`)
 **Repo:** `DOliver421-cmd/ancestral-sage-debug`
+
+## Update — 2026-09-03 (owner-driven theme + API wiring pass)
+
+- **Studio light theme (owner requirement: white background, black text):**
+  `CreatorStudio.jsx` (`/studio`) and `Studio.jsx` (`/studio/music`, also the
+  embedded Ghost Producer) converted from dark-navy `#141824` + cyan to white
+  surfaces with ink (`#1c1917`) text and deep-teal/gold accents. All nine
+  chambers (`components/studio/chambers/*`) and the creative timeline were
+  converted with them. Dark color swatches that are *data* (palette values)
+  were preserved; chrome was remapped. `SupervisorLogin` (executive portal)
+  converted to a light background as well. Frontend build passes
+  (`CI=false npm run build`).
+- **API wiring gap fixed:** `routers/studio.py` (studio/arcade/compliance
+  surface — Sovereign AI, Lyric Forge, Sound Lab, etc.) and
+  `routers/member_projects.py` (`/api/my-projects`) were implemented but
+  **never mounted** in `server.py`, so those endpoints were dead or shadowed in
+  production. Both are now included in `_ADDITIONAL_API_ROUTER_MODULES` (studio
+  at `/api`, member_projects at `/api/my-projects`) and the router binder now
+  supplies `_award_xp`/`_award_credentials`. Verified by full module import and
+  ASGI requests: `POST /api/studio/sovereign` 503 (DB-disabled sandbox —
+  registered, previously 405), `GET /api/my-projects` 401 (auth enforced),
+  `GET /api/arcade/games` 200. member_projects/auth regression suites pass
+  (13/13 together).
+- **Ghost Producer publish flow bound to a real endpoint:** the Studio page
+  fetched/pushed `/executive/projects*` (executive-only surface). It now uses
+  the member projects lane `/api/my-projects` (list + deliverables POST), which
+  matches the page's “attach to AI team project” feature.
+- **Open items unchanged:** the human proofs in §5 (real register → pay →
+  entitlement against production) still require the owner; delivery of this
+  pass is via the Freebuff Changes panel, then Railway auto-deploy.
 
 ## How this report is labelled
 

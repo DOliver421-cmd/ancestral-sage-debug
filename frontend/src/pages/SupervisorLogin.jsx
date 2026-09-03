@@ -44,8 +44,8 @@ export default function SupervisorLogin() {
   };
 
   return (
-    <div style={{ minHeight: "100vh", background: "#0b1225", display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
-      <div style={{ background: "#fff", borderRadius: 14, padding: "40px 36px", width: "100%", maxWidth: 380, boxShadow: "0 8px 40px rgba(0,0,0,0.5)" }}>
+    <div style={{ minHeight: "100vh", background: "linear-gradient(160deg, #f7f6f2, #e8e4d8)", display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
+      <div style={{ background: "#fff", borderRadius: 14, padding: "40px 36px", width: "100%", maxWidth: 380, border: "1px solid #e5e0d4", boxShadow: "0 8px 40px rgba(28,25,23,0.10)" }}>
 
         {/* Logo */}
         <div style={{ width: 56, height: 56, background: INK, borderRadius: "50%", margin: "0 auto 16px", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22, fontWeight: 800, color: SIGNAL }}>S</div>

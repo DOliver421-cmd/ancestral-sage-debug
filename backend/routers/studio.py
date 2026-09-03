@@ -254,18 +254,17 @@ async def studio_sound_blueprint(body: dict, user: User = Depends(_dep_current_u
         raise HTTPException(503, "Sound blueprint unavailable")
 
 
-_SOFT_ASSIST_LABEL = "AI assist unavailable. This is a creator-owned draft scaffold; fill, change, or discard it."
-
-
-def _sovereign_scaffold(action: str, ctx: dict) -> tuple[str, str]:
-    labels = {
-        "generate_lyrics": "lyrics",
-        "generate_metadata": "metadata",
-        "visual_direction": "visual_direction",
-        "polish_script": "polished_script",
-        "sonic_blueprint": "sonic_blueprint",
-    }
-    return labels.get(action, "creator_prompt"), _SOFT_ASSIST_LABEL
+def _require_provider_result(result: dict) -> str:
+    """Accept only a real provider response for the Sovereign AI surface."""
+    if not isinstance(result, dict):
+        raise RuntimeError("invalid provider response")
+    provider = str(result.get("provider") or "")
+    if provider in {"kb_fallback", "user_budget"}:
+        raise RuntimeError(f"no live AI provider result ({provider})")
+    text = str(result.get("text") or "").strip()
+    if not text:
+        raise RuntimeError("empty provider response")
+    return text
 
 
 def _sovereign_scaffold_text(action: str, ctx: dict) -> str:
@@ -321,8 +320,8 @@ async def studio_sovereign(body: dict, user: User = Depends(_dep_current_user)):
     calls sub-tools, and delivers results in his own voice.
 
     AI-ASSISTED POLICY: AI output is always a DRAFT the creator edits.
-    When AI is unavailable, we never fake it and never dead-end —
-    we hand back a labeled structural scaffold the creator fills themselves.
+    When no live provider result is available, this endpoint returns a
+    structured 503 so the caller cannot mistake a worksheet or KB answer for AI work.
     """
     from ai.llm_gateway import call_llm
     chamber = body.get("chamber", "map")
@@ -342,9 +341,7 @@ async def studio_sovereign(body: dict, user: User = Depends(_dep_current_user)):
                 "Return only the lyrics — no commentary."
             )
             r = await call_llm(system="You are Sovereign, a master lyricist and poet. Write authentic, culturally resonant lyrics.", messages=[{"role": "user", "content": prompt}], persona_label="LyricForge", user_id=user.id)
-            if not (r.get("text") or "").strip():
-                raise RuntimeError("empty lyric response")
-            artifact = r.get("text", "")
+            artifact = _require_provider_result(r)
             artifact_type = "lyrics"
             response = "Lyrics forged, Creator. Take what's useful — cut what isn't. The Forge is yours."
 
@@ -357,9 +354,7 @@ async def studio_sovereign(body: dict, user: User = Depends(_dep_current_user)):
                 "description, tags (array), upc_note, isrc_note, distributor_note, pitch."
             )
             r = await call_llm(system="You are Sovereign, a music metadata and distribution specialist. Return accurate structured metadata.", messages=[{"role": "user", "content": prompt}], persona_label="PublishingGate", user_id=user.id)
-            if not (r.get("text") or "").strip():
-                raise RuntimeError("empty metadata response")
-            artifact = r.get("text", "{}")
+            artifact = _require_provider_result(r)
             artifact_type = "metadata"
             response = "Metadata is locked in, Boss. Everything's structured for distribution — copy what you need."
 
@@ -371,9 +366,7 @@ async def studio_sovereign(body: dict, user: User = Depends(_dep_current_user)):
                 "Write a vivid 3-4 sentence visual direction — aesthetic, mood, and visual language."
             )
             r = await call_llm(system="You are Sovereign, a visual creative director. Describe aesthetic, mood, and visual language vividly.", messages=[{"role": "user", "content": prompt}], persona_label="VisualAltar", user_id=user.id)
-            if not (r.get("text") or "").strip():
-                raise RuntimeError("empty visual response")
-            artifact = r.get("text", "")
+            artifact = _require_provider_result(r)
             artifact_type = "visual_direction"
             response = "Vision sealed, Creator. Your visual altar now has a direction — build from it."
 
@@ -385,9 +378,7 @@ async def studio_sovereign(body: dict, user: User = Depends(_dep_current_user)):
                 f"{ctx.get('content', '')}"
             )
             r = await call_llm(system="You are Sovereign, a script editor. Polish for clarity, flow, and impact while preserving the creator voice.", messages=[{"role": "user", "content": prompt}], persona_label="ScriptScriptorium", user_id=user.id)
-            if not (r.get("text") or "").strip():
-                raise RuntimeError("empty polish response")
-            artifact = r.get("text", "")
+            artifact = _require_provider_result(r)
             artifact_type = "polished_script"
             response = "Script polished. I kept your voice and tightened the structure. Side-by-side is ready."
 
@@ -400,9 +391,7 @@ async def studio_sovereign(body: dict, user: User = Depends(_dep_current_user)):
                 "200 words max. Be specific and technical."
             )
             r = await call_llm(system="You are Sovereign, a music producer. Describe sonic blueprints with technical specificity.", messages=[{"role": "user", "content": prompt}], persona_label="SoundLab", user_id=user.id)
-            if not (r.get("text") or "").strip():
-                raise RuntimeError("empty blueprint response")
-            artifact = r.get("text", "")
+            artifact = _require_provider_result(r)
             artifact_type = "sonic_blueprint"
             response = "Blueprint built, Boss. Your sonic direction is locked in — the Sound Lab is ready."
 
@@ -423,13 +412,18 @@ async def studio_sovereign(body: dict, user: User = Depends(_dep_current_user)):
                 persona_label="Sovereign",
                 user_id=user.id,
             )
-            if not (r.get("text") or "").strip():
-                raise RuntimeError("empty chat response")
-            response = r.get("text", "")
+            response = _require_provider_result(r)
 
-    except Exception:
-        artifact_type, response = _sovereign_scaffold(action, ctx)
-        artifact = _sovereign_scaffold_text(action, ctx)
+    except Exception as e:
+        logger.warning("Sovereign provider unavailable (%s): %s", action, e)
+        raise HTTPException(
+            status_code=503,
+            detail={
+                "code": "AI_PROVIDER_UNAVAILABLE",
+                "message": "Sovereign AI is unavailable because no live AI provider returned a result.",
+                "retryable": True,
+            },
+        ) from e
 
     return {"response": response, "artifact": artifact, "artifact_type": artifact_type}
 

@@ -11,7 +11,7 @@ const STAGE_CHAMBERS = {
   5: "publishing-gate",
 };
 
-const CYAN = "#22d3ee";
+const CYAN = "#0e7490";
 
 export default function CreativeTimeline({ activeStage = 0, onStageClick, onChamberJump }) {
   const handleClick = (index) => {
@@ -24,8 +24,8 @@ export default function CreativeTimeline({ activeStage = 0, onStageClick, onCham
     <div style={{
       position: "fixed", bottom: 0, left: 0, right: 0,
       height: 56, zIndex: 80,
-      background: "#11151f",
-      borderTop: "1px solid rgba(255,255,255,0.07)",
+      background: "#faf9f7",
+      borderTop: "1px solid rgba(28,25,23,0.07)",
       display: "flex", alignItems: "center",
       padding: "0 16px",
       overflowX: "auto",
@@ -33,7 +33,7 @@ export default function CreativeTimeline({ activeStage = 0, onStageClick, onCham
       {/* Connecting line */}
       <div style={{
         position: "absolute", left: 0, right: 0, top: "50%",
-        height: 1, background: "rgba(34,211,238,0.15)",
+        height: 1, background: "rgba(14,116,144,0.15)",
         transform: "translateY(-50%)",
         pointerEvents: "none",
       }} />
@@ -58,8 +58,8 @@ export default function CreativeTimeline({ activeStage = 0, onStageClick, onCham
             <div style={{
               width: isActive ? 10 : 7, height: isActive ? 10 : 7,
               borderRadius: "50%",
-              background: isActive ? CYAN : isPast ? "rgba(34,211,238,0.5)" : "rgba(255,255,255,0.2)",
-              boxShadow: isActive ? `0 0 12px ${CYAN}, 0 0 24px rgba(34,211,238,0.5)` : "none",
+              background: isActive ? CYAN : isPast ? "rgba(14,116,144,0.5)" : "rgba(28,25,23,0.2)",
+              boxShadow: isActive ? `0 0 12px ${CYAN}, 0 0 24px rgba(14,116,144,0.5)` : "none",
               transition: "all 0.2s ease",
               flexShrink: 0,
             }} />
@@ -68,8 +68,8 @@ export default function CreativeTimeline({ activeStage = 0, onStageClick, onCham
             <div style={{
               fontSize: 9.5, fontFamily: "'SF Mono', 'Cascadia Code', Consolas, monospace",
               letterSpacing: "0.12em", textTransform: "uppercase",
-              color: isActive ? CYAN : isPast ? "rgba(34,211,238,0.6)" : "rgba(255,255,255,0.5)",
-              textShadow: isActive ? `0 0 10px rgba(34,211,238,0.6)` : "none",
+              color: isActive ? CYAN : isPast ? "rgba(14,116,144,0.6)" : "rgba(28,25,23,0.5)",
+              textShadow: isActive ? `0 0 10px rgba(14,116,144,0.6)` : "none",
               whiteSpace: "nowrap",
               fontWeight: isActive ? 900 : 500,
             }}>

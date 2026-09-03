@@ -32,7 +32,7 @@ export default function SoundLab({ tier = 'base', sovereignDispatch, artifact })
   }, [bpm, key, activeMoods, reference, sovereignDispatch]);
 
   return (
-    <div style={{ fontFamily: 'inherit', color: 'rgba(255,255,255,0.9)', display: 'flex', flexDirection: 'column', gap: 22 }}>
+    <div style={{ fontFamily: 'inherit', color: 'rgba(28,25,23,0.9)', display: 'flex', flexDirection: 'column', gap: 22 }}>
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
         {/* BPM */}
@@ -44,17 +44,17 @@ export default function SoundLab({ tier = 'base', sovereignDispatch, artifact })
               min={60} max={180}
               value={bpm}
               onChange={e => setBpm(Number(e.target.value))}
-              style={{ flex: 1, accentColor: '#34d399' }}
+              style={{ flex: 1, accentColor: '#047857' }}
             />
             <div style={{
               minWidth: 44, textAlign: 'center',
               fontFamily: 'monospace', fontSize: 18, fontWeight: 900,
-              color: '#34d399',
+              color: '#047857',
             }}>
               {bpm}
             </div>
           </div>
-          <div style={{ fontSize: 9, fontFamily: 'monospace', color: 'rgba(255,255,255,0.25)', marginTop: 4 }}>
+          <div style={{ fontSize: 9, fontFamily: 'monospace', color: 'rgba(28,25,23,0.25)', marginTop: 4 }}>
             {bpm < 80 ? 'Slow / Ambient' : bpm < 100 ? 'Lo-fi / Chill' : bpm < 120 ? 'Mid-tempo' : bpm < 140 ? 'Energetic' : 'Fast / Hype'}
           </div>
         </div>
@@ -69,13 +69,13 @@ export default function SoundLab({ tier = 'base', sovereignDispatch, artifact })
                 onClick={() => setKey(k)}
                 style={{
                   width: 34, height: 34,
-                  background: key === k ? 'rgba(52,211,153,0.2)' : 'rgba(255,255,255,0.03)',
-                  border: `1px solid ${key === k ? '#34d399' : 'rgba(255,255,255,0.1)'}`,
-                  color: key === k ? '#34d399' : 'rgba(255,255,255,0.55)',
+                  background: key === k ? 'rgba(4,120,87,0.2)' : 'rgba(28,25,23,0.03)',
+                  border: `1px solid ${key === k ? '#047857' : 'rgba(28,25,23,0.1)'}`,
+                  color: key === k ? '#047857' : 'rgba(28,25,23,0.55)',
                   fontFamily: 'monospace', fontSize: key.includes('#') ? 10 : 12,
                   fontWeight: key === k ? 900 : 400,
                   cursor: 'pointer',
-                  boxShadow: key === k ? '0 0 8px rgba(52,211,153,0.3)' : 'none',
+                  boxShadow: key === k ? '0 0 8px rgba(4,120,87,0.3)' : 'none',
                   transition: 'all 0.15s ease',
                 }}
               >
@@ -97,16 +97,16 @@ export default function SoundLab({ tier = 'base', sovereignDispatch, artifact })
                 key={mood}
                 onClick={() => toggleMood(mood)}
                 style={{
-                  background: active ? 'rgba(52,211,153,0.15)' : 'rgba(255,255,255,0.03)',
-                  border: `1px solid ${active ? '#34d399' : 'rgba(255,255,255,0.1)'}`,
-                  color: active ? '#34d399' : 'rgba(255,255,255,0.5)',
+                  background: active ? 'rgba(4,120,87,0.15)' : 'rgba(28,25,23,0.03)',
+                  border: `1px solid ${active ? '#047857' : 'rgba(28,25,23,0.1)'}`,
+                  color: active ? '#047857' : 'rgba(28,25,23,0.5)',
                   padding: '6px 14px',
                   fontFamily: 'monospace', fontSize: 11,
                   fontWeight: active ? 900 : 400,
                   cursor: 'pointer',
                   letterSpacing: '0.05em',
                   transition: 'all 0.15s ease',
-                  boxShadow: active ? '0 0 8px rgba(52,211,153,0.25)' : 'none',
+                  boxShadow: active ? '0 0 8px rgba(4,120,87,0.25)' : 'none',
                 }}
               >
                 {mood}
@@ -131,8 +131,8 @@ export default function SoundLab({ tier = 'base', sovereignDispatch, artifact })
         onClick={generate}
         disabled={loading}
         style={{
-          background: loading ? 'rgba(52,211,153,0.15)' : 'linear-gradient(135deg, #065f46, #34d399)',
-          border: 'none', color: loading ? '#34d399' : '#050508',
+          background: loading ? 'rgba(4,120,87,0.15)' : 'linear-gradient(135deg, #065f46, #047857)',
+          border: 'none', color: loading ? '#047857' : '#ffffff',
           fontFamily: 'monospace', fontWeight: 900,
           fontSize: 13, letterSpacing: '0.1em', textTransform: 'uppercase',
           padding: '12px 28px', cursor: loading ? 'default' : 'pointer',
@@ -146,14 +146,14 @@ export default function SoundLab({ tier = 'base', sovereignDispatch, artifact })
 
       {blueprint && (
         <div style={{
-          background: 'rgba(0,0,0,0.5)',
-          border: '1px solid rgba(52,211,153,0.35)',
+          background: 'rgba(28,25,23,0.04)',
+          border: '1px solid rgba(4,120,87,0.35)',
           padding: '20px 20px',
-          boxShadow: '0 0 30px rgba(52,211,153,0.1)',
+          boxShadow: '0 0 30px rgba(4,120,87,0.1)',
         }}>
           <div style={{
             fontSize: 9, fontFamily: 'monospace', letterSpacing: '0.2em',
-            textTransform: 'uppercase', color: 'rgba(52,211,153,0.7)', marginBottom: 12,
+            textTransform: 'uppercase', color: 'rgba(4,120,87,0.7)', marginBottom: 12,
           }}>
             Sonic Blueprint — {bpm} BPM • {key} • {activeMoods.join(', ') || 'Mixed'}
           </div>
@@ -164,9 +164,9 @@ export default function SoundLab({ tier = 'base', sovereignDispatch, artifact })
             style={{
               width: '100%', minHeight: 220, boxSizing: 'border-box', resize: 'vertical',
               margin: 0, fontFamily: 'monospace', fontSize: 12,
-              color: '#34d399', lineHeight: 1.8,
+              color: '#047857', lineHeight: 1.8,
               whiteSpace: 'pre-wrap', wordBreak: 'break-word',
-              background: 'rgba(0,0,0,0.28)', border: '1px solid rgba(52,211,153,0.2)',
+              background: 'rgba(28,25,23,0.04)', border: '1px solid rgba(4,120,87,0.2)',
               padding: 12, outline: 'none',
             }}
           />
@@ -180,12 +180,12 @@ export default function SoundLab({ tier = 'base', sovereignDispatch, artifact })
 
 const labelStyle = {
   display: 'block', fontSize: 9, fontFamily: 'monospace', letterSpacing: '0.15em',
-  textTransform: 'uppercase', color: 'rgba(184,134,11,0.7)', marginBottom: 8,
+  textTransform: 'uppercase', color: 'rgba(146,64,14,0.7)', marginBottom: 8,
 };
 const inputStyle = {
   width: '100%', boxSizing: 'border-box',
-  background: 'rgba(255,255,255,0.03)',
-  border: '1px solid rgba(52,211,153,0.2)',
-  padding: '9px 12px', color: 'rgba(255,255,255,0.9)',
+  background: 'rgba(28,25,23,0.03)',
+  border: '1px solid rgba(4,120,87,0.2)',
+  padding: '9px 12px', color: 'rgba(28,25,23,0.9)',
   fontSize: 13, fontFamily: 'inherit', outline: 'none',
 };

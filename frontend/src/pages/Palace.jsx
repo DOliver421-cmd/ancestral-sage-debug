@@ -39,9 +39,9 @@ export default function Palace() {
     <div
       style={{
         minHeight: "100vh",
-        color: "var(--wai-text)",
+        color: "#1c1917",
         background:
-          "radial-gradient(1200px 600px at 50% -10%, rgba(201,168,76,0.18), transparent), linear-gradient(160deg, #06251c, #0a0a0f 70%)",
+          "radial-gradient(1200px 600px at 50% -10%, rgba(201,168,76,0.16), transparent), #faf7ef",
       }}
     >
       <div
@@ -54,42 +54,42 @@ export default function Palace() {
         }}
       />
       <div style={{ position: "relative", maxWidth: 1100, margin: "0 auto", padding: "2.5rem 1.5rem" }}>
-        <BackButton to="/dashboard" label="Leave the Palace" style={{ color: "var(--zam-gold)" }} />
+        <BackButton to="/dashboard" label="Leave the Palace" style={{ color: "#8a6d1f" }} />
 
         <div className="flex items-center gap-4" style={{ marginTop: 24 }}>
           <TeamAvatar size={64} name={user?.full_name || "Member"} />
           <div>
-            <div style={{ color: "var(--zam-gold)", letterSpacing: "0.2em", fontWeight: 700, fontSize: 12, textTransform: "uppercase" }}>
+            <div style={{ color: "#8a6d1f", letterSpacing: "0.2em", fontWeight: 700, fontSize: 12, textTransform: "uppercase" }}>
               Members' Palace
             </div>
-            <h1 className="font-heading" style={{ fontSize: "2.25rem", fontWeight: 800, color: "var(--wai-gold-light)" }}>
+            <h1 className="font-heading" style={{ fontSize: "2.25rem", fontWeight: 800, color: "#1c1917" }}>
               Welcome, {user?.full_name?.split(" ")[0] || "Partner"}.
             </h1>
-            <p style={{ color: "var(--wai-muted)", marginTop: 4 }}>You are a partner here, not a guest. Walk the halls.</p>
+            <p style={{ color: "#78716c", marginTop: 4 }}>You are a partner here, not a guest. Walk the halls.</p>
           </div>
         </div>
 
-        <div style={{ marginTop: 28, padding: 24, borderRadius: 18, border: "1px solid var(--wai-border)", background: "rgba(212,175,55,0.06)" }}>
+        <div style={{ marginTop: 28, padding: 24, borderRadius: 18, border: "1px solid #e7dfc9", background: "rgba(212,175,55,0.08)" }}>
           <div className="flex items-center justify-between flex-wrap gap-3">
             <div>
-              <div style={{ color: "var(--zam-gold)", fontSize: 12, letterSpacing: "0.15em", textTransform: "uppercase", fontWeight: 700 }}>
+              <div style={{ color: "#8a6d1f", fontSize: 12, letterSpacing: "0.15em", textTransform: "uppercase", fontWeight: 700 }}>
                 Your Standing
               </div>
-              <div className="font-heading" style={{ fontSize: "1.6rem", fontWeight: 800, color: "var(--wai-gold-light)" }}>
+              <div className="font-heading" style={{ fontSize: "1.6rem", fontWeight: 800, color: "#1c1917" }}>
                 {status?.tier || "Seed I"}
               </div>
             </div>
             <div style={{ textAlign: "right" }}>
               <div className="font-heading" style={{ fontSize: "1.6rem", fontWeight: 800 }}>{pts}</div>
-              <div style={{ color: "var(--wai-muted)", fontSize: 12, textTransform: "uppercase" }}>points</div>
+              <div style={{ color: "#78716c", fontSize: 12, textTransform: "uppercase" }}>points</div>
             </div>
           </div>
-          <div style={{ height: 10, background: "rgba(255,255,255,0.08)", borderRadius: 999, marginTop: 14, overflow: "hidden" }}>
+          <div style={{ height: 10, background: "rgba(28,25,23,0.10)", borderRadius: 999, marginTop: 14, overflow: "hidden" }}>
             <div style={{ height: "100%", width: `${pct}%`, background: "linear-gradient(90deg, var(--zam-gold), var(--wai-gold-light))", transition: "width .5s" }} />
           </div>
-          <div style={{ color: "var(--wai-muted)", fontSize: 12, marginTop: 8 }}>
+          <div style={{ color: "#78716c", fontSize: 12, marginTop: 8 }}>
             {next ? `${toNext} points to ${next}` : "You have reached the summit."}
-            {status?.membership_unlocked && <span style={{ color: "var(--zam-gold)", fontWeight: 700 }}> · Free membership unlocked</span>}
+            {status?.membership_unlocked && <span style={{ color: "#8a6d1f", fontWeight: 700 }}> · Free membership unlocked</span>}
           </div>
         </div>
 
@@ -99,22 +99,22 @@ export default function Palace() {
             return (
               <Link key={h.to} to={h.to} style={{ textDecoration: "none", color: "inherit" }}>
                 <div
-                  style={{ padding: 20, borderRadius: 16, border: "1px solid var(--wai-border)", background: "rgba(255,255,255,0.02)", transition: "all .2s", height: "100%" }}
+                  style={{ padding: 20, borderRadius: 16, border: "1px solid #e7dfc9", background: "#ffffff", transition: "all .2s", height: "100%" }}
                   onMouseEnter={(e) => {
-                    e.currentTarget.style.borderColor = "var(--zam-gold)";
-                    e.currentTarget.style.background = "rgba(212,175,55,0.07)";
+                    e.currentTarget.style.borderColor = "#c9a227";
+                    e.currentTarget.style.background = "rgba(212,175,55,0.10)";
                   }}
                   onMouseLeave={(e) => {
-                    e.currentTarget.style.borderColor = "var(--wai-border)";
-                    e.currentTarget.style.background = "rgba(255,255,255,0.02)";
+                    e.currentTarget.style.borderColor = "#e7dfc9";
+                    e.currentTarget.style.background = "#ffffff";
                   }}
                 >
-                  <Icon style={{ color: "var(--zam-gold)" }} className="w-6 h-6" />
-                  <div className="font-heading" style={{ fontWeight: 800, fontSize: "1.1rem", marginTop: 10, color: "var(--wai-gold-light)" }}>
+                  <Icon style={{ color: "#a16207" }} className="w-6 h-6" />
+                  <div className="font-heading" style={{ fontWeight: 800, fontSize: "1.1rem", marginTop: 10, color: "#1c1917" }}>
                     {h.label}
                   </div>
-                  <div style={{ color: "var(--wai-muted)", fontSize: 13, marginTop: 4 }}>{h.desc}</div>
-                  <div style={{ color: "var(--zam-gold)", fontSize: 12, fontWeight: 700, marginTop: 12, display: "flex", alignItems: "center", gap: 6 }}>
+                  <div style={{ color: "#78716c", fontSize: 13, marginTop: 4 }}>{h.desc}</div>
+                  <div style={{ color: "#8a6d1f", fontSize: 12, fontWeight: 700, marginTop: 12, display: "flex", alignItems: "center", gap: 6 }}>
                     Enter <ArrowRight className="w-3.5 h-3.5" />
                   </div>
                 </div>

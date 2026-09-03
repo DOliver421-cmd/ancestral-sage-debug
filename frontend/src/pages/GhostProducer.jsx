@@ -3,17 +3,17 @@ import { Link } from "react-router-dom";
 import { api } from "../lib/api";
 import { useAuth } from "../lib/auth";
 
-/* ── design tokens ──────────────────────────────────────────────────────── */
+/* ── design tokens (light theme — white bg, dark ink text, neon accents deepened for contrast) ── */
 const T = {
-  ghost:    "#00ffcc",
-  ghostDim: "#00aa88",
-  bg:       "#0a0a0f",
-  card:     "#12121a",
-  text:     "#e0e0e0",
-  accent:   "#ff0066",
-  gold:     "#d4af37",
-  goldDim:  "#8b7020",
-  warn:     "#ffaa00",
+  ghost:    "#0f766e",
+  ghostDim: "#115e59",
+  bg:       "#ffffff",
+  card:     "#ffffff",
+  text:     "#111827",
+  accent:   "#be185d",
+  gold:     "#a16207",
+  goldDim:  "#854d0e",
+  warn:     "#c2410c",
 };
 
 const TRACKS = [
@@ -43,7 +43,7 @@ const CLONES = [
     icon: "📢",
     label: "Ghost Publicist",
     desc: "Social media algorithms, streaming platforms, press releases. Makes you unavoidable.",
-    color: "#a855f7",
+    color: "#7e22ce",
     placeholder: "Describe your release, project, or what you want to promote…",
     system: "You are the Ghost Publicist — a ruthless music/content publicist who knows every platform algorithm. Generate press releases, social media post packages (Twitter/X, Instagram, TikTok, LinkedIn), pitch emails to blogs/playlists, and streaming platform bio copy. Make the artist sound legendary.",
     btnLabel: "📣 Generate Press Kit",
@@ -77,7 +77,7 @@ const GHOST_MODES = [
     icon: "🎤",
     label: "SONG",
     desc: "Develop one song — concepts, verses, hooks, bridges, choruses, structure.",
-    color: "#22d3ee",
+    color: "#0e7490",
     placeholder: "What's the song about? Give me a vibe, a lyric snippet, a melody idea, or even just a feeling…",
     system: "You are the Ghost Producer in SONG mode. You are the invisible production partner sitting beside the artist. Help develop one song: concepts, verses, hooks, bridges, choruses, structure. Explain WHY a suggestion works rather than just changing the work. Preserve the artist's voice. The final creative decision belongs to the creator.",
     btnLabel: "🎤 Develop Song",
@@ -87,7 +87,7 @@ const GHOST_MODES = [
     icon: "💿",
     label: "ALBUM",
     desc: "Develop an entire project — track sequencing, themes, arcs, cohesion.",
-    color: "#a78bfa",
+    color: "#6d28d9",
     placeholder: "Describe your album concept — themes, songs you have, mood, story arc…",
     system: "You are the Ghost Producer in ALBUM mode. You understand the album as a body of work, not individual songs. Help with: track sequencing, opening/closing tracks, recurring themes, interludes, sonic continuity, narrative arcs, album title, artwork direction, credits, release notes. Think across the whole catalog.",
     btnLabel: "💿 Develop Album",
@@ -97,7 +97,7 @@ const GHOST_MODES = [
     icon: "🎧",
     label: "LISTEN",
     desc: "Analyze an existing recording — strengths, weaknesses, opportunities.",
-    color: "#34d399",
+    color: "#047857",
     placeholder: "Paste lyrics, a track description, or describe what you hear in the recording…",
     system: "You are the Ghost Producer in LISTEN mode. Analyze an existing recording or composition. Identify strengths, weaknesses, opportunities, and specific moments that work or don't work. Be honest, constructive, and specific. Point to exact sections, moments, or choices. Suggest concrete improvements.",
     btnLabel: "🎧 Analyze Track",
@@ -107,7 +107,7 @@ const GHOST_MODES = [
     icon: "✍️",
     label: "WRITE",
     desc: "Work on lyrics and songwriting — verses, hooks, flows, wordplay.",
-    color: "#f472b6",
+    color: "#be185d",
     placeholder: "Give me a concept, a first line, a theme, or describe the song you're writing…",
     system: "You are the Ghost Producer in WRITE mode — a songwriting partner. Help with lyrics, verses, hooks, bridges, choruses, flows, wordplay, rhyme schemes, metaphor, storytelling. Never erase the creator's voice. Suggest, don't overwrite. Preserve dialect, rhythm, humor, accent, and personality.",
     btnLabel: "✍️ Write Lyrics",
@@ -117,7 +117,7 @@ const GHOST_MODES = [
     icon: "🎛️",
     label: "PRODUCE",
     desc: "Develop arrangement, instrumentation, dynamics, transitions, energy.",
-    color: "#fbbf24",
+    color: "#b45309",
     placeholder: "Describe your track's current arrangement or what you want it to sound like…",
     system: "You are the Ghost Producer in PRODUCE mode — the arrangement and production partner. Help with: genre suggestions, instrumentation, tempo, arrangement, dynamics, transitions, intro/outro concepts, vocal approach, sonic atmosphere. Act like a producer sitting beside the artist. Explain WHY a choice works.",
     btnLabel: "🎛️ Produce Track",
@@ -127,7 +127,7 @@ const GHOST_MODES = [
     icon: "🧭",
     label: "SEQUENCE",
     desc: "Build an album or EP sequence — order, flow, pacing, transitions.",
-    color: "#818cf8",
+    color: "#4338ca",
     placeholder: "List your songs or describe what you're sequencing…",
     system: "You are the Ghost Producer in SEQUENCE mode. Build album or EP sequences. Consider: energy flow, emotional arcs, tempo variation, key relationships, narrative progression, listener fatigue, opening statement, closing resolution. The sequence is a story — each song is a chapter.",
     btnLabel: "🧭 Sequence Project",
@@ -137,7 +137,7 @@ const GHOST_MODES = [
     icon: "🔥",
     label: "RELEASE",
     desc: "Prepare finished music for release — metadata, credits, strategy.",
-    color: "#f97316",
+    color: "#c2410c",
     placeholder: "Describe what you're releasing — track/album name, genre, release date, platforms…",
     system: "You are the Ghost Producer in RELEASE mode. Prepare finished music for release: track/album metadata, credits, liner notes, release strategy, platform-specific formatting, single vs album decisions, release date positioning, pre-save campaigns, playlist pitching. Make the release professional and strategic.",
     btnLabel: "🔥 Prepare Release",
@@ -148,29 +148,29 @@ const GHOST_MODES = [
 const S = {
   page:     { background: T.bg, color: T.text, fontFamily: "'Inter', sans-serif", minHeight: "100vh", overflowX: "hidden" },
   hero:     { textAlign: "center", padding: "50px 20px 30px", position: "relative", zIndex: 1 },
-  h1:       { fontFamily: "monospace", fontSize: "clamp(1.8rem,5vw,4rem)", color: T.ghost, textShadow: `0 0 40px rgba(0,255,204,0.4)`, lineHeight: 1.1, marginBottom: 5 },
-  h2gold:   { fontFamily: "monospace", fontSize: "clamp(1rem,3vw,1.6rem)", color: T.gold, textShadow: `0 0 30px rgba(212,175,55,0.3)`, marginBottom: 10 },
-  byline:   { fontSize: "1rem", color: "#888", marginTop: 8, letterSpacing: 3, textTransform: "uppercase" },
-  tag:      { display: "inline-block", marginTop: 18, padding: "8px 24px", border: `1px solid ${T.ghostDim}`, borderRadius: 50, color: T.ghost, fontFamily: "monospace", fontSize: "0.85rem", background: "rgba(0,255,204,0.05)" },
-  tagGold:  { display: "inline-block", marginTop: 10, marginLeft: 8, padding: "8px 24px", border: `1px solid ${T.goldDim}`, borderRadius: 50, color: T.gold, fontFamily: "monospace", fontSize: "0.85rem", background: "rgba(212,175,55,0.05)" },
+  h1:       { fontFamily: "monospace", fontSize: "clamp(1.8rem,5vw,4rem)", color: T.ghost, textShadow: `0 0 40px rgba(15,118,110,0.18)`, lineHeight: 1.1, marginBottom: 5 },
+  h2gold:   { fontFamily: "monospace", fontSize: "clamp(1rem,3vw,1.6rem)", color: T.gold, textShadow: `0 0 30px rgba(161,98,7,0.12)`, marginBottom: 10 },
+  byline:   { fontSize: "1rem", color: "#6b7280", marginTop: 8, letterSpacing: 3, textTransform: "uppercase" },
+  tag:      { display: "inline-block", marginTop: 18, padding: "8px 24px", border: `1px solid ${T.ghostDim}`, borderRadius: 50, color: T.ghost, fontFamily: "monospace", fontSize: "0.85rem", background: "rgba(15,118,110,0.06)" },
+  tagGold:  { display: "inline-block", marginTop: 10, marginLeft: 8, padding: "8px 24px", border: `1px solid ${T.goldDim}`, borderRadius: 50, color: T.gold, fontFamily: "monospace", fontSize: "0.85rem", background: "rgba(161,98,7,0.06)" },
   tabs:     { display: "flex", justifyContent: "center", gap: 8, padding: "16px", flexWrap: "wrap", position: "relative", zIndex: 1 },
   panel:    { maxWidth: 900, margin: "0 auto", padding: "20px 30px 80px", position: "relative", zIndex: 1 },
-  secTitle: { fontFamily: "monospace", fontSize: "1.4rem", color: T.ghost, marginBottom: 20, paddingBottom: 10, borderBottom: "1px solid #222" },
+  secTitle: { fontFamily: "monospace", fontSize: "1.4rem", color: T.ghost, marginBottom: 20, paddingBottom: 10, borderBottom: "1px solid #e5e7eb" },
   secTitleGold: { fontFamily: "monospace", fontSize: "1.4rem", color: T.gold, marginBottom: 20, paddingBottom: 10, borderBottom: `1px solid ${T.goldDim}` },
-  card:     { background: T.card, border: "1px solid #1e1e2e", borderRadius: 16, padding: 20, marginBottom: 16 },
+  card:     { background: T.card, border: "1px solid #e5e7eb", borderRadius: 16, padding: 20, marginBottom: 16 },
   cardGold: { background: T.card, border: `1px solid ${T.goldDim}`, borderRadius: 16, padding: 20, marginBottom: 16 },
-  footer:   { textAlign: "center", padding: "40px 20px", color: "#444", fontSize: "0.8rem", position: "relative", zIndex: 1 },
+  footer:   { textAlign: "center", padding: "40px 20px", color: "#9ca3af", fontSize: "0.8rem", position: "relative", zIndex: 1 },
 };
 
 function tabBtnStyle(active, gold = false) {
   return {
     padding: "12px 24px",
-    border: active ? `1px solid ${gold ? T.gold : T.ghost}` : "1px solid #333",
-    background: active ? (gold ? "rgba(212,175,55,0.1)" : "rgba(0,255,204,0.1)") : T.card,
-    color: active ? (gold ? T.gold : T.ghost) : "#aaa",
+    border: active ? `1px solid ${gold ? T.gold : T.ghost}` : "1px solid #d1d5db",
+    background: active ? (gold ? "rgba(161,98,7,0.10)" : "rgba(15,118,110,0.10)") : T.card,
+    color: active ? (gold ? T.gold : T.ghost) : "#6b7280",
     borderRadius: 12, cursor: "pointer",
     fontFamily: "monospace", fontSize: "0.82rem",
-    boxShadow: active ? `0 0 20px ${gold ? "rgba(212,175,55,0.15)" : "rgba(0,255,204,0.15)"}` : "none",
+    boxShadow: active ? `0 0 20px ${gold ? "rgba(161,98,7,0.10)" : "rgba(15,118,110,0.10)"}` : "none",
     transition: "all 0.3s",
   };
 }
@@ -180,7 +180,7 @@ function vizBtnStyle(active = false, gold = false) {
     padding: "12px 28px",
     border: `1px solid ${gold ? T.goldDim : T.ghostDim}`,
     background: active ? (gold ? T.gold : T.ghost) : "transparent",
-    color: active ? "#000" : (gold ? T.gold : T.ghost),
+    color: active ? "#fff" : (gold ? T.gold : T.ghost),
     borderRadius: 10, cursor: "pointer",
     fontFamily: "monospace", fontSize: "0.85rem",
     transition: "all 0.3s",
@@ -216,24 +216,24 @@ function ClonePanel({ clone, onClose }) {
   return (
     <div style={{
       position: "fixed", inset: 0, zIndex: 2000,
-      background: "rgba(0,0,0,0.85)",
+      background: "rgba(0,0,0,0.55)",
       display: "flex", alignItems: "center", justifyContent: "center",
       padding: 20,
     }} onClick={e => e.target === e.currentTarget && onClose()}>
       <div style={{
-        background: "#0e0e16", border: `1px solid ${clone.color}40`,
+        background: "#ffffff", border: `1px solid ${clone.color}40`,
         borderRadius: 20, padding: 32, maxWidth: 640, width: "100%",
         maxHeight: "90vh", overflowY: "auto",
-        boxShadow: `0 0 60px ${clone.color}20`,
+        boxShadow: `0 24px 60px ${clone.color}25`,
       }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20 }}>
           <div>
             <div style={{ fontFamily: "monospace", fontSize: "1.2rem", color: clone.color, fontWeight: 700 }}>
               {clone.icon} {clone.label}
             </div>
-            <div style={{ fontSize: "0.85rem", color: "#666", marginTop: 4 }}>{clone.desc}</div>
+            <div style={{ fontSize: "0.85rem", color: "#6b7280", marginTop: 4 }}>{clone.desc}</div>
           </div>
-          <button onClick={onClose} style={{ background: "none", border: "none", color: "#666", fontSize: 24, cursor: "pointer" }}>×</button>
+          <button onClick={onClose} style={{ background: "none", border: "none", color: "#9ca3af", fontSize: 24, cursor: "pointer" }}>×</button>
         </div>
 
         <textarea
@@ -242,7 +242,7 @@ function ClonePanel({ clone, onClose }) {
           rows={6}
           placeholder={clone.placeholder}
           style={{
-            width: "100%", background: "#060608", border: `1px solid ${clone.color}30`,
+            width: "100%", background: "#ffffff", border: `1px solid ${clone.color}40`,
             borderRadius: 10, padding: "12px 14px", color: T.text,
             fontFamily: "monospace", fontSize: "0.85rem", resize: "vertical",
             boxSizing: "border-box", marginBottom: 12, outline: "none",
@@ -253,8 +253,8 @@ function ClonePanel({ clone, onClose }) {
           onClick={run}
           disabled={loading || !input.trim()}
           style={{
-            width: "100%", padding: "14px", background: loading ? "#222" : clone.color,
-            color: loading ? "#666" : "#000", border: "none", borderRadius: 10,
+            width: "100%", padding: "14px", background: loading ? "#e5e7eb" : clone.color,
+            color: loading ? "#6b7280" : "#fff", border: "none", borderRadius: 10,
             fontFamily: "monospace", fontWeight: 700, fontSize: "0.95rem", cursor: loading ? "default" : "pointer",
             marginBottom: 20, transition: "all 0.3s",
           }}
@@ -264,13 +264,13 @@ function ClonePanel({ clone, onClose }) {
 
         {output && (
           <div style={{
-            background: "#060608", border: `1px solid ${clone.color}20`,
+            background: "#f9fafb", border: `1px solid ${clone.color}30`,
             borderRadius: 10, padding: 20,
           }}>
             <div style={{ fontFamily: "monospace", fontSize: "0.75rem", color: clone.color, marginBottom: 12, opacity: 0.7 }}>
               ✦ {clone.label.toUpperCase()} OUTPUT
             </div>
-            <pre style={{ whiteSpace: "pre-wrap", wordBreak: "break-word", color: "#ccc", fontSize: "0.9rem", lineHeight: 1.7, margin: 0, fontFamily: "inherit" }}>
+            <pre style={{ whiteSpace: "pre-wrap", wordBreak: "break-word", color: "#374151", fontSize: "0.9rem", lineHeight: 1.7, margin: 0, fontFamily: "inherit" }}>
               {output}
             </pre>
             <button
@@ -412,18 +412,18 @@ export default function GhostProducer() {
   return (
     <>
       {/* Context bar */}
-      <div style={{ position: "sticky", top: 0, zIndex: 50, background: "#0d0818", borderBottom: "1px solid rgba(255,255,255,0.08)", padding: "0 24px", height: 40, display: "flex", alignItems: "center", gap: 16 }}>
-        <Link to="/profile" style={{ color: "#ff0066", textDecoration: "none", fontSize: 12, fontFamily: "monospace", fontWeight: 700, display: "flex", alignItems: "center", gap: 6 }}>
+      <div style={{ position: "sticky", top: 0, zIndex: 50, background: "#ffffff", borderBottom: "1px solid rgba(0,0,0,0.08)", padding: "0 24px", height: 40, display: "flex", alignItems: "center", gap: 16 }}>
+        <Link to="/profile" style={{ color: "#be185d", textDecoration: "none", fontSize: 12, fontFamily: "monospace", fontWeight: 700, display: "flex", alignItems: "center", gap: 6 }}>
           ← My Profile
         </Link>
-        <div style={{ width: 1, height: 16, background: "rgba(255,255,255,0.1)" }} />
+        <div style={{ width: 1, height: 16, background: "rgba(0,0,0,0.1)" }} />
         {[
           { label: "Social Blast", to: "/social/publish" },
           { label: "Studio", to: "/studio" },
           { label: "Earnings", to: "/creator/earnings" },
           { label: "Lounge", to: "/creator-lounge" },
         ].map(f => (
-          <Link key={f.to} to={f.to} style={{ color: "rgba(255,255,255,0.3)", textDecoration: "none", fontSize: 11, fontFamily: "monospace", letterSpacing: "0.06em" }}>
+          <Link key={f.to} to={f.to} style={{ color: "rgba(0,0,0,0.5)", textDecoration: "none", fontSize: 11, fontFamily: "monospace", letterSpacing: "0.06em" }}>
             {f.label}
           </Link>
         ))}
@@ -434,7 +434,7 @@ export default function GhostProducer() {
       <div style={S.page}>
         {/* HERO */}
         <div style={S.hero}>
-          <h1 style={S.h1}>THE <span style={{ color: T.accent, textShadow: "0 0 40px rgba(255,0,102,0.4)" }}>GHOST</span> PRODUCER</h1>
+          <h1 style={S.h1}>THE <span style={{ color: T.accent, textShadow: "0 0 40px rgba(190,24,93,0.15)" }}>GHOST</span> PRODUCER</h1>
           <h2 style={S.h2gold}>× PUBLISHER PRIME v14</h2>
           <div style={S.byline}>NAM Oshun &amp; M.O.R.E. × 14th Evolution</div>
           <div style={S.tag}>🎧 AI-POWERED PRODUCTION SUITE</div>
@@ -459,10 +459,10 @@ export default function GhostProducer() {
         {tab === "modes" && (
           <div style={S.panel}>
             <h2 style={S.secTitleGold}>🎚️ GHOST PRODUCER MODES</h2>
-            <p style={{ color: "#777", marginBottom: 8 }}>
+            <p style={{ color: "#6b7280", marginBottom: 8 }}>
               The Ghost Producer is your invisible production partner. Select a mode to get specialized help.
             </p>
-            <p style={{ color: "#555", marginBottom: 24, fontSize: "0.85rem" }}>
+            <p style={{ color: "#4b5563", marginBottom: 24, fontSize: "0.85rem" }}>
               IT DOES NOT TAKE OVER THE ARTIST. THE CREATOR IS THE ARTIST. THE GHOST PRODUCER IS THE PARTNER.
             </p>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 16 }}>
@@ -479,7 +479,7 @@ export default function GhostProducer() {
                 >
                   <div style={{ fontSize: "1.8rem", marginBottom: 8 }}>{m.icon}</div>
                   <h4 style={{ fontFamily: "monospace", color: m.color, marginBottom: 6, fontSize: "0.95rem" }}>{m.label}</h4>
-                  <p style={{ color: "#888", fontSize: "0.82rem", lineHeight: 1.5, marginBottom: 12 }}>{m.desc}</p>
+                  <p style={{ color: "#6b7280", fontSize: "0.82rem", lineHeight: 1.5, marginBottom: 12 }}>{m.desc}</p>
                   <div style={{
                     display: "inline-block", padding: "6px 16px",
                     border: `1px solid ${m.color}50`, borderRadius: 8,
@@ -498,7 +498,7 @@ export default function GhostProducer() {
         {tab === "clones" && (
           <div style={S.panel}>
             <h2 style={S.secTitleGold}>👥 CLONE ARMY — 4 AI PERSONAS</h2>
-            <p style={{ color: "#777", marginBottom: 24 }}>
+            <p style={{ color: "#6b7280", marginBottom: 24 }}>
               Click any clone to activate it. Each one is a specialized AI that will do the work for you.
             </p>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 20 }}>
@@ -516,7 +516,7 @@ export default function GhostProducer() {
                 >
                   <div style={{ fontSize: "2.5rem", marginBottom: 12 }}>{c.icon}</div>
                   <h4 style={{ fontFamily: "monospace", color: c.color, marginBottom: 8, fontSize: "1rem" }}>{c.label}</h4>
-                  <p style={{ color: "#888", fontSize: "0.85rem", lineHeight: 1.6, marginBottom: 16 }}>{c.desc}</p>
+                  <p style={{ color: "#6b7280", fontSize: "0.85rem", lineHeight: 1.6, marginBottom: 16 }}>{c.desc}</p>
                   <div style={{
                     display: "inline-block", padding: "8px 20px",
                     border: `1px solid ${c.color}50`, borderRadius: 8,
@@ -535,9 +535,9 @@ export default function GhostProducer() {
         {tab === "studio" && (
           <div style={S.panel}>
             <h2 style={S.secTitle}>🎛️ THE GHOST STUDIO</h2>
-            <p style={{ color: "#777", marginBottom: 24 }}>Interactive visualizer. Click play and adjust the controls.</p>
-            <div style={{ background: T.card, border: "1px solid #1e1e2e", borderRadius: 16, padding: 30, textAlign: "center" }}>
-              <canvas ref={canvasRef} style={{ width: "100%", maxWidth: 600, height: 200, borderRadius: 12, background: "#000", display: "block", margin: "0 auto" }} />
+            <p style={{ color: "#6b7280", marginBottom: 24 }}>Interactive visualizer. Click play and adjust the controls.</p>
+            <div style={{ background: T.card, border: "1px solid #e5e7eb", borderRadius: 16, padding: 30, textAlign: "center" }}>
+              <canvas ref={canvasRef} style={{ width: "100%", maxWidth: 600, height: 200, borderRadius: 12, background: "#0a0a12", display: "block", margin: "0 auto" }} />
               <div style={{ marginTop: 20, display: "flex", justifyContent: "center", gap: 12, flexWrap: "wrap" }}>
                 <button style={vizBtnStyle(isPlaying)} onClick={togglePlay}>{isPlaying ? "⏸ PAUSE" : "▶ PLAY"}</button>
                 {[{id:"ghost",label:"👻 GHOST"},{id:"human",label:"🧍 HUMAN"},{id:"chaos",label:"🌀 CHAOS"},{id:"prime",label:"✦ PRIME",gold:true}].map(({id,label,gold}) => (
@@ -574,10 +574,10 @@ export default function GhostProducer() {
         {tab === "tracks" && (
           <div style={S.panel}>
             <h2 style={S.secTitle}>🎵 TRACK BREAKDOWN</h2>
-            <p style={{ color: "#777", marginBottom: 24 }}>Click any track to set the visualizer mode.</p>
+            <p style={{ color: "#6b7280", marginBottom: 24 }}>Click any track to set the visualizer mode.</p>
             {TRACKS.map(t => (
               <div key={t.name} onClick={() => { handleTrack(t); setTab("studio"); }}
-                style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "16px 20px", background: activeTrack === t.name ? "rgba(0,255,204,0.08)" : T.card, border: `1px solid ${activeTrack === t.name ? T.ghost : "#1e1e2e"}`, borderRadius: 12, marginBottom: 8, cursor: "pointer", transition: "all 0.3s" }}
+                style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "16px 20px", background: activeTrack === t.name ? "rgba(15,118,110,0.08)" : T.card, border: `1px solid ${activeTrack === t.name ? T.ghost : "#e5e7eb"}`, borderRadius: 12, marginBottom: 8, cursor: "pointer", transition: "all 0.3s" }}
               >
                 <span style={{ fontWeight: 600 }}>{t.icon} {t.name}</span>
                 <span style={{ fontFamily: "monospace", color: T.ghost, fontSize: "0.85rem" }}>{t.bpm}</span>
@@ -590,15 +590,15 @@ export default function GhostProducer() {
         {tab === "tts" && (
           <div style={S.panel}>
             <h2 style={S.secTitle}>🔊 M.O.R.E. VOICE ENGINE</h2>
-            <p style={{ color: "#777", marginBottom: 24 }}>Convert any text to audio using the M.O.R.E. voice engine.</p>
+            <p style={{ color: "#6b7280", marginBottom: 24 }}>Convert any text to audio using the M.O.R.E. voice engine.</p>
             <div style={S.cardGold}>
               <textarea value={ttsText} onChange={e => setTtsText(e.target.value)} rows={5}
                 placeholder="Type something for the ghost to speak…"
-                style={{ width: "100%", background: "#0a0a0f", border: "1px solid #333", borderRadius: 8, padding: "12px 14px", color: T.text, fontFamily: "monospace", fontSize: "0.85rem", resize: "vertical", boxSizing: "border-box", marginBottom: 16, outline: "none" }}
+                style={{ width: "100%", background: "#ffffff", border: "1px solid #d1d5db", borderRadius: 8, padding: "12px 14px", color: T.text, fontFamily: "monospace", fontSize: "0.85rem", resize: "vertical", boxSizing: "border-box", marginBottom: 16, outline: "none" }}
               />
               <div style={{ display: "flex", gap: 12, alignItems: "center", marginBottom: 16, flexWrap: "wrap" }}>
                 <select value={ttsVoice} onChange={e => setTtsVoice(e.target.value)}
-                  style={{ background: "#1a1a2a", border: "1px solid #333", borderRadius: 8, padding: "8px 12px", color: T.gold, fontFamily: "monospace", fontSize: "0.85rem" }}>
+                  style={{ background: "#ffffff", border: "1px solid #d1d5db", borderRadius: 8, padding: "8px 12px", color: T.gold, fontFamily: "monospace", fontSize: "0.85rem" }}>
                   <option value="">Default voice</option>
                   {browserVoices.map(v => (
                     <option key={v.name} value={v.name}>{v.name}</option>
@@ -623,17 +623,17 @@ export default function GhostProducer() {
             <h2 style={S.secTitleGold}>👻 ABOUT THE GHOST × PRIME</h2>
             <div style={S.card}>
               <h3 style={{ color: T.accent, fontFamily: "monospace", marginBottom: 8 }}>🎭 NAM Oshun</h3>
-              <p style={{ color: "#999", lineHeight: 1.7 }}>The soul. The voice. The human heartbeat behind the machine. NAM Oshun brings warmth, emotion, and that "I can't explain why this makes me cry" energy.</p>
+              <p style={{ color: "#6b7280", lineHeight: 1.7 }}>The soul. The voice. The human heartbeat behind the machine. NAM Oshun brings warmth, emotion, and that "I can't explain why this makes me cry" energy.</p>
             </div>
             <div style={S.cardGold}>
               <h3 style={{ color: T.gold, fontFamily: "monospace", marginBottom: 8 }}>🤖 M.O.R.E.</h3>
-              <p style={{ color: "#999", lineHeight: 1.7 }}>The brain. The algorithm. The entity that lives in the wires. M.O.R.E. Help Center is where artificial intelligence meets musical intuition.</p>
+              <p style={{ color: "#6b7280", lineHeight: 1.7 }}>The brain. The algorithm. The entity that lives in the wires. M.O.R.E. Help Center is where artificial intelligence meets musical intuition.</p>
             </div>
-            <div style={{ textAlign: "center", marginTop: 40, padding: 30, background: T.card, borderRadius: 16 }}>
+            <div style={{ textAlign: "center", marginTop: 40, padding: 30, background: T.card, border: "1px solid #e5e7eb", borderRadius: 16 }}>
               <p style={{ fontFamily: "monospace", color: T.ghost, fontSize: "1.2rem" }}>
                 "We don't make music.<br />We summon it.<br />And we publish it before anyone else can."
               </p>
-              <p style={{ color: "#555", marginTop: 10, fontSize: "0.85rem" }}>— NAM Oshun, M.O.R.E. &amp; Publisher Prime</p>
+              <p style={{ color: "#6b7280", marginTop: 10, fontSize: "0.85rem" }}>— NAM Oshun, M.O.R.E. &amp; Publisher Prime</p>
             </div>
           </div>
         )}

@@ -6,8 +6,8 @@ const STYLES = ["Neo-Soul", "Hip-Hop", "R&B", "Gospel", "Spoken Word", "Trap", "
 const MOODS = ["Uplifting", "Triumphant", "Reflective", "Angry", "Joyful", "Melancholic", "Spiritual", "Romantic", "Raw", "Peaceful"];
 const STRUCTURES = ["Verse", "Hook / Chorus", "Bridge", "Full Song (V/C/V/C/B/C)", "Freestyle Bars", "Intro / Outro"];
 
-const CYAN = "#22d3ee";
-const CYAN_SOFT = "rgba(34,211,238,0.12)";
+const CYAN = "#0e7490";
+const CYAN_SOFT = "rgba(14,116,144,0.10)";
 
 export default function LyricForge({ tier = "base", sovereignDispatch, artifact, activeProject, onSaveVersion }) {
   const [form, setForm] = useState({
@@ -64,7 +64,7 @@ export default function LyricForge({ tier = "base", sovereignDispatch, artifact,
   };
 
   return (
-    <div style={{ color: "rgba(255,255,255,0.92)", height: "100%", display: "flex", flexDirection: "column", gap: 16 }}>
+    <div style={{ color: "rgba(28,25,23,0.92)", height: "100%", display: "flex", flexDirection: "column", gap: 16 }}>
       {/* Filter row — Genre / Mood / Structure / Topic */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 10 }}>
         <div>
@@ -116,9 +116,9 @@ export default function LyricForge({ tier = "base", sovereignDispatch, artifact,
           disabled={loading}
           style={{
             display: "flex", alignItems: "center", gap: 7, padding: "8px 16px", borderRadius: 9,
-            background: CYAN, border: "none", color: "#061018", fontWeight: 800, fontSize: 12.5,
+            background: CYAN, border: "none", color: "#ffffff", fontWeight: 800, fontSize: 12.5,
             cursor: loading ? "default" : "pointer", opacity: loading ? 0.7 : 1,
-            boxShadow: "0 2px 12px rgba(34,211,238,0.3)",
+            boxShadow: "0 2px 12px rgba(14,116,144,0.3)",
           }}
         >
           {loading ? <RefreshCw style={{ width: 14, height: 14, animation: "csSpin 1s linear infinite" }} /> : <Wand2 style={{ width: 14, height: 14 }} />}
@@ -127,11 +127,11 @@ export default function LyricForge({ tier = "base", sovereignDispatch, artifact,
         <button onClick={generate} style={actionBtn} title="Regenerate" disabled={loading}>
           <RefreshCw style={{ width: 13, height: 13 }} /> Regenerate
         </button>
-        <button onClick={copy} style={{ ...actionBtn, background: copied ? "rgba(52,211,153,0.14)" : "rgba(255,255,255,0.05)" }}>
+        <button onClick={copy} style={{ ...actionBtn, background: copied ? "rgba(4,120,87,0.14)" : "rgba(28,25,23,0.05)" }}>
           {copied ? <Check style={{ width: 13, height: 13 }} /> : <Copy style={{ width: 13, height: 13 }} />}
           {copied ? "Copied" : "Copy"}
         </button>
-        <button onClick={saveVersion} style={{ ...actionBtn, color: "#34d399", borderColor: "rgba(52,211,153,0.3)", background: "rgba(52,211,153,0.1)" }} title="Save this version to the active project">
+        <button onClick={saveVersion} style={{ ...actionBtn, color: "#047857", borderColor: "rgba(4,120,87,0.3)", background: "rgba(4,120,87,0.1)" }} title="Save this version to the active project">
           <Save style={{ width: 13, height: 13 }} /> Save Version
         </button>
       </div>
@@ -146,8 +146,8 @@ export default function LyricForge({ tier = "base", sovereignDispatch, artifact,
             style={{
               flex: 1, minHeight: 220, resize: "vertical",
               fontFamily: MONO, fontSize: 13.5, lineHeight: 1.9,
-              color: "#a5f3fc", background: "#12161f",
-              border: "1px solid rgba(34,211,238,0.25)",
+              color: "#1c1917", background: "#ffffff",
+              border: "1px solid rgba(14,116,144,0.25)",
               padding: 14, outline: "none", borderRadius: 10, boxSizing: "border-box", width: "100%",
             }}
           />
@@ -162,7 +162,7 @@ export default function LyricForge({ tier = "base", sovereignDispatch, artifact,
 }
 
 const MONO = "'SF Mono', 'Cascadia Code', Consolas, monospace";
-const labelStyle = { display: "block", fontSize: 9.5, fontFamily: MONO, letterSpacing: "0.14em", textTransform: "uppercase", color: "rgba(255,255,255,0.5)", marginBottom: 6 };
-const inputStyle = { width: "100%", background: "#12161f", border: "1px solid rgba(255,255,255,0.09)", padding: "9px 12px", color: "rgba(255,255,255,0.92)", fontSize: 13, fontFamily: "inherit", outline: "none", borderRadius: 8, boxSizing: "border-box" };
+const labelStyle = { display: "block", fontSize: 9.5, fontFamily: MONO, letterSpacing: "0.14em", textTransform: "uppercase", color: "rgba(28,25,23,0.5)", marginBottom: 6 };
+const inputStyle = { width: "100%", background: "#ffffff", border: "1px solid rgba(28,25,23,0.09)", padding: "9px 12px", color: "rgba(28,25,23,0.92)", fontSize: 13, fontFamily: "inherit", outline: "none", borderRadius: 8, boxSizing: "border-box" };
 const selectStyle = { ...inputStyle, cursor: "pointer" };
-const actionBtn = { background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.12)", color: "#cbd5e1", padding: "8px 12px", cursor: "pointer", borderRadius: 8, display: "flex", alignItems: "center", gap: 6, fontSize: 12, fontWeight: 700 };
+const actionBtn = { background: "rgba(28,25,23,0.05)", border: "1px solid rgba(28,25,23,0.12)", color: "#44403c", padding: "8px 12px", cursor: "pointer", borderRadius: 8, display: "flex", alignItems: "center", gap: 6, fontSize: 12, fontWeight: 700 };

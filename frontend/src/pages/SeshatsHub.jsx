@@ -62,18 +62,18 @@ import { api } from "../lib/api";
 import { useAuth } from "../lib/auth";
 import { ROLES_ALL as ALL_ROLES } from "../lib/roles";
 
-// ── Palette (African marketplace, supervisor dark theme) ──────────────────────
-const BG     = "#0d0f1a";
-const PANEL  = "#131620";
-const BORDER = "rgba(74,242,197,0.15)";
-const SIG    = "#4af2c5";
-const WARN   = "#f59e0b";
-const ERR    = "#f87171";
-const OK     = "#4ade80";
-const MUTED  = "rgba(200,210,230,0.45)";
-const WHITE  = "#f0f4ff";
+// ── Palette (owner requirement: white surfaces and dark, readable text) ───────
+const BG     = "#ffffff";
+const PANEL  = "#ffffff";
+const BORDER = "rgba(15,118,110,0.18)";
+const SIG    = "#0f766e";
+const WARN   = "#b45309";
+const ERR    = "#b91c1c";
+const OK     = "#047857";
+const MUTED  = "#6b7280";
+const WHITE  = "#111827";
 const BARK   = "#8d5a33";
-const AMBER  = "#f6d06d";
+const AMBER  = "#a16207";
 
 const TABS = [
   { key: "overview",    label: "Overview" },
@@ -92,9 +92,9 @@ const PROVIDERS  = ["groq","cerebras","gemini","xai","cohere","openrouter","hugg
 const PERM_KEYS  = ["content_read","content_create","content_edit_own","content_delete_own","user_warn","user_mute","user_ban","api_access","billing_view","export_data"];
 
 // ── Shared styles ─────────────────────────────────────────────────────────────
-const card  = { background: PANEL, border: `1px solid ${BORDER}`, borderRadius: 10, padding: "14px 18px", marginBottom: 14 };
+const card  = { background: PANEL, border: `1px solid ${BORDER}`, borderRadius: 10, padding: "14px 18px", marginBottom: 14, color: WHITE };
 const label = { fontSize: 10, textTransform: "uppercase", letterSpacing: "0.1em", color: MUTED, marginBottom: 6, display: "block" };
-const inp   = { background: "rgba(255,255,255,0.05)", border: `1px solid ${BORDER}`, borderRadius: 6, padding: "7px 12px", fontSize: 12, color: WHITE, outline: "none", width: "100%" };
+const inp   = { background: "#ffffff", border: `1px solid ${BORDER}`, borderRadius: 6, padding: "7px 12px", fontSize: 12, color: WHITE, outline: "none", width: "100%" };
 const btn   = (color = SIG) => ({ border: `1px solid ${color}`, background: "transparent", color, borderRadius: 6, padding: "5px 14px", fontSize: 11, fontWeight: 700, cursor: "pointer" });
 const chip  = (on) => ({ fontSize: 10, padding: "3px 10px", borderRadius: 999, cursor: "pointer", border: `1px solid ${on ? SIG : BORDER}`, color: on ? SIG : MUTED, background: "transparent" });
 const section_head = { color: SIG, fontWeight: 700, fontSize: 11, textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 12 };
@@ -113,7 +113,7 @@ function InfoGrid({ items }) {
   return (
     <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(130px,1fr))", gap:8 }}>
       {items.map(([k,v,color]) => (
-        <div key={k} style={{ background:"rgba(255,255,255,0.04)", borderRadius:6, padding:"7px 12px" }}>
+        <div key={k} style={{ background:"rgba(15,118,110,0.04)", borderRadius:6, padding:"7px 12px" }}>
           <div style={{ color:MUTED, fontSize:9, textTransform:"uppercase", letterSpacing:1 }}>{k}</div>
           <div style={{ color:color||WHITE, fontWeight:700, fontSize:13, marginTop:3 }}>{String(v ?? "—")}</div>
         </div>
@@ -599,20 +599,20 @@ function SageTab({ notify }) {
         <div style={card}>
           <SectionLabel>Sage Integrity</SectionLabel>
           <div style={{ display:"flex", gap:8, flexWrap:"wrap" }}>
-            <div style={{ background:"rgba(255,255,255,0.04)", borderRadius:6, padding:"6px 12px" }}>
+            <div style={{ background:"rgba(15,118,110,0.04)", borderRadius:6, padding:"6px 12px" }}>
               <div style={{ color:MUTED, fontSize:9, textTransform:"uppercase" }}>Prompt Hash</div>
               <div style={{ color: status.prompt_hash_status==="match" ? OK : ERR, fontWeight:700, fontSize:12, marginTop:2 }}>
                 {status.prompt_hash_status==="match" ? "✓ Match" : "✗ " + status.prompt_hash_status}
               </div>
             </div>
-            <div style={{ background:"rgba(255,255,255,0.04)", borderRadius:6, padding:"6px 12px" }}>
+            <div style={{ background:"rgba(15,118,110,0.04)", borderRadius:6, padding:"6px 12px" }}>
               <div style={{ color:MUTED, fontSize:9, textTransform:"uppercase" }}>Fallback</div>
               <div style={{ color: status.fallback_active ? ERR : OK, fontWeight:700, fontSize:12, marginTop:2 }}>
                 {status.fallback_active ? "Active" : "Off"}
               </div>
             </div>
             {status.modules && Object.entries(status.modules).map(([mod, st]) => (
-              <div key={mod} style={{ background:"rgba(255,255,255,0.04)", borderRadius:6, padding:"6px 12px" }}>
+              <div key={mod} style={{ background:"rgba(15,118,110,0.04)", borderRadius:6, padding:"6px 12px" }}>
                 <div style={{ color:MUTED, fontSize:9, textTransform:"uppercase" }}>Module {mod}</div>
                 <div style={{ color: st==="present" ? OK : ERR, fontWeight:700, fontSize:12, marginTop:2 }}>{st}</div>
               </div>
@@ -804,7 +804,7 @@ function BackupTab({ notify }) {
           ) : (
             <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(140px,1fr))", gap:8 }}>
               {Object.entries(matrix).filter(([k]) => k !== "error" && k !== "note").map(([k,v]) => (
-                <div key={k} style={{ background:"rgba(255,255,255,0.04)", borderRadius:6, padding:"7px 12px" }}>
+                <div key={k} style={{ background:"rgba(15,118,110,0.04)", borderRadius:6, padding:"7px 12px" }}>
                   <div style={{ color:MUTED, fontSize:9, textTransform:"uppercase" }}>{k.replace(/_/g," ")}</div>
                   <div style={{ color: v === true || v === "ok" ? OK : v === false ? ERR : WHITE, fontWeight:700, fontSize:12, marginTop:2 }}>
                     {typeof v === "object" ? JSON.stringify(v).slice(0,40) : String(v)}
@@ -903,7 +903,7 @@ function BackupTab({ notify }) {
           <div style={{ background:PANEL, border:`1px solid ${BORDER}`, borderRadius:12, padding:28, maxWidth:360, width:"100%" }}>
             <div style={{ color:ERR, fontWeight:700, fontSize:15, marginBottom:10 }}>Send Emergency Broadcast?</div>
             <div style={{ color:MUTED, fontSize:12, marginBottom:8 }}>Send to: <strong style={{ color:WHITE }}>{broadcast.target}</strong></div>
-            <div style={{ color:WHITE, fontSize:12, background:"rgba(255,255,255,0.05)", borderRadius:6, padding:"8px 12px", marginBottom:20 }}>
+            <div style={{ color:WHITE, fontSize:12, background:"rgba(15,118,110,0.05)", borderRadius:6, padding:"8px 12px", marginBottom:20 }}>
               {broadcast.title && <div style={{ fontWeight:700, marginBottom:4 }}>{broadcast.title}</div>}
               <div>{broadcast.message}</div>
             </div>
