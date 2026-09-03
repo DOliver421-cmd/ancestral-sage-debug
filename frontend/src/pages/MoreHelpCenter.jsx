@@ -1690,9 +1690,9 @@ export default function MoreHelpCenter() {
   });
 
   useEffect(() => {
-    // Always try wai-institute.org as the authoritative backend, regardless of
-    // which domain the page is served from (morehelp.center shares the same backend).
-    const healthUrl = "https://www.wai-institute.org/api/health";
+    // Health must come from this app's own backend (the same origin that serves
+    // the SPA and /api/modules), never from another application's domain.
+    const healthUrl = `${BACKEND_URL}/api/health`;
     const _hcCtrl = new AbortController();
     const _hcTimer = setTimeout(() => _hcCtrl.abort(), 5000);
     fetch(healthUrl, { signal: _hcCtrl.signal })
