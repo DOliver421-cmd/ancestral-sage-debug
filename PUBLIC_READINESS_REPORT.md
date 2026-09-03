@@ -34,6 +34,42 @@
   entitlement against production) still require the owner; delivery of this
   pass is via the Freebuff Changes panel, then Railway auto-deploy.
 
+## Update 2 — 2026-09-03 live re-verification (post-deploy)
+
+The merged builds (#384–#386) are now live on the Railway target. Every newly
+mounted route answers with real JSON; the previously shadowed exec and studio
+routes are reachable and guarded.
+
+| Probe (live, 2026-09-03) | Result |
+|---|---|
+| `GET /api/ready` | 200 JSON — DB up, startup complete |
+| `GET /api/health` | 200 JSON — `status: degraded`, sole issue `ai_api_key_missing`; db/checks up |
+| `GET /api/modules` | 200 JSON — public curriculum catalog (registered: `GET /api/modules`, `GET /api/modules/{slug}`) |
+| `GET /api/arcade/games` | 200 JSON |
+| `GET /api/ai/personas` | 200 JSON |
+| `GET /api/payments/products` | 200 JSON — products listed; `publishable_key` empty until payment env key set |
+| `POST /api/ai/chat` | 401 JSON — chat is POST-only, auth-guarded |
+| `POST /api/studio/sovereign` | 401 JSON (guard live); authed + no provider key → structured 503 fail-closed |
+| `GET /api/ai/personas/exec` | 401 JSON — exec route no longer shadowed by the personas catch-all |
+| `GET/PATCH /api/admin/rbac/matrix` | 401 JSON — exec-only matrix now mounted |
+| `GET /api/my-projects`, `POST /api/nam/chat` | 401 JSON (guard live) |
+| `GET /api/auth/me`, `GET /api/admin/system/health` | 401 JSON (guard live) |
+| Invalid-token probes on guarded routes | 401 `Invalid or expired token` — tokens are validated, not presence-checked |
+
+**Corrections to the 09-02 snapshot below:** `/api/community/boards` and
+`/api/membership/plans` are NOT registered API routes in this build (absent from
+`scripts/api_inventory.py` — 1,030 route-method entries: GET 481 / POST 453 /
+PATCH 43 / DELETE 36 / PUT 17) and the frontend never calls them; their "200
+JSON" rows were stale. `/api/ai/chat` is POST-only, so the "GET 200" row was
+the wrong method. Requests to non-API paths under `/api/` fall through to the
+SPA (200 HTML) by design — route existence must be judged from the inventory,
+not from a 200 that is really the SPA.
+
+**Still open (env):** platform AI is fail-closed by design until an AI provider
+key is set in the deployment secret store (`/api/health`: `ai_api_key_missing`);
+checkout stays BLOCKED until payment provider keys are set (`publishable_key`
+empty).
+
 ## How this report is labelled
 
 - **VERIFIED LIVE** = executed against the live target today (HTTP + JSON inspected).
@@ -67,22 +103,20 @@ Code-level readiness is a prerequisite, not a substitute, for that proof.
 |---|---|---|
 | `GET /api/ready` | **200 JSON** | Startup complete **and database answers** (returns 503 until both are true) |
 | `GET /api/health` | **200 JSON** | Health endpoint reporting |
-| `GET /` (SPA) | **200**, `<title>M.O.R.E. Help Center — Michael Oliver Resource Exchange</title>` | Frontend served by backend |
-
-### Public API matrix (unauthenticated)
-
+| `GET /` (SPA) | **200**, `<title>M.O.R.E. Help Center — Michael Oliver Resource Exchange</title>` | Frontend served by backend |### Public API matrix (superseded by Update 2 — rows corrected 2026-09-03)
 | Endpoint | Result |
 |---|---|
-| `GET /api/ai/personas` | 200 JSON |
-| `GET /api/ai/chat` | 200 JSON (keyword-KB path — see §3 AI) |
-| `GET /api/community/boards` | 200 JSON |
-| `GET /api/courses` | 200 JSON |
-| `GET /api/membership/plans` | 200 JSON |
-| `GET /api/payments/products` | 200 JSON |
+| `GET /api/ai/personas` | 200 JSON (re-verified) |
+| `POST /api/ai/chat` | 401 JSON (re-verified — chat is POST-only) |
+| `GET /api/community/boards` | **NOT REGISTERED** (was wrongly listed 200 JSON) |
+| `GET /api/modules` | 200 JSON (public curriculum catalog — the learning catalog endpoint) |
+| `GET /api/membership/plans` | **NOT REGISTERED** (was wrongly listed 200 JSON) |
+| `GET /api/payments/products` | 200 JSON (re-verified) |
 | `GET /api/auth/me` | **401** — auth enforcement live |
 | `GET /api/admin/system/health` | **401** — admin enforcement live |
 
-No 5xx, no timeouts, no SPA-HTML fallback on any probed API path.
+No 5xx and no timeouts on registered API routes; non-API paths under `/api/`
+fall through to the SPA by design (see Update 2).
 
 ### Ledger totals (09-02, full route resolution)
 
