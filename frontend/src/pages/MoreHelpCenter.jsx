@@ -1,12 +1,9 @@
-<<<<<<< HEAD
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { Heart, BookOpen, MessageSquare, ArrowRight, Phone, Shield, Users, Globe, ShieldCheck, GraduationCap, Briefcase, Home as HomeIcon } from "lucide-react";
 import { api } from "../lib/api";
 import { useAuth } from "../lib/auth";
-=======
 import { ROLE_RANK, ROLES_ALL as PANEL_ROLES, ROLE_LABELS as PANEL_ROLE_LABELS } from "../lib/roles";
->>>>>>> b5e17a90a093ef2f7a081efc8d479b5b9f58558e
 
 /**
  * M.O.R.E. Help Center — unified entry point
@@ -19,7 +16,6 @@ import { ROLE_RANK, ROLES_ALL as PANEL_ROLES, ROLE_LABELS as PANEL_ROLE_LABELS }
  * All section visibility is group-toggled by role, never per-user hard-coding.
  */
 
-<<<<<<< HEAD
 const PUBLIC_CATEGORIES = [
   { icon: HomeIcon, title: "Community Resources", desc: "Find food, shelter, legal support, and direct mutual aid services.", to: "/more" },
   { icon: ShieldCheck, title: "Legal Support", desc: "Plain-language legal help, paperwork guidance, and advocacy resources.", to: "/more/litigation" },
@@ -85,17 +81,6 @@ export default function MoreHelpCenter() {
   useEffect(() => {
     try { localStorage.setItem("more_help_center_mode", mode); } catch {}
   }, [mode]);
-=======
-import { useEffect, useState, useCallback } from "react";
-import { Link } from "react-router-dom";
-import {
-  Heart, BookOpen, MessageSquare, ArrowRight, Phone, Shield, Users, Globe,
-  Activity, BadgeCheck, ShieldCheck, Sparkles, MapPin,
-  Send, Eye, EyeOff, Crown, Search,
-} from "lucide-react";
-import { api, BACKEND_URL, openAuthedUrl } from "../lib/api";
-import { useAuth } from "../lib/auth";
->>>>>>> b5e17a90a093ef2f7a081efc8d479b5b9f58558e
 
 // ── Legacy tokens (kept for ExecPanel internal use) ───────────────────────────
 const GOLD        = "#e8b83e";
@@ -343,7 +328,6 @@ function ExecPanel({ apiOnline, visibility, setVisibility, superExec }) {
     } catch {}
   }, []);
 
-<<<<<<< HEAD
       <header className="sticky top-0 z-40" style={{ background: "#ffffff", borderBottom: "1px solid #e0d6cc" }}>
         <div className="max-w-6xl mx-auto px-6 py-3 flex items-center justify-between">
           <div className="flex items-center gap-2.5">
@@ -361,7 +345,6 @@ function ExecPanel({ apiOnline, visibility, setVisibility, superExec }) {
             <a href="/supervisor/login" className="text-xs font-bold uppercase tracking-widest" style={{ color: "#5a4e42" }}>Supervisor Login</a>
             <a href="https://www.wai-institute.org" target="_blank" rel="noopener noreferrer" className="text-xs font-bold px-4 py-2 rounded-lg transition-transform hover:scale-105" style={{ background: GOLD, color: "#1a1a2e" }}>
               WAI Institute →
-=======
   const loadUsers = useCallback(async (q, role, active) => {
     try {
       const params = new URLSearchParams();
@@ -1601,7 +1584,6 @@ function ExecPanel({ apiOnline, visibility, setVisibility, superExec }) {
             <a href="/api/emergency" target="_blank" rel="noopener noreferrer"
               style={{ display:"inline-flex", alignItems:"center", gap:6, background:"rgba(255,255,255,0.08)", border:"1px solid rgba(255,255,255,0.2)", color:"white", padding:"8px 16px", borderRadius:7, fontSize:12, fontWeight:700, textDecoration:"none" }}>
               Open Emergency UI (works without React SPA) ↗
->>>>>>> b5e17a90a093ef2f7a081efc8d479b5b9f58558e
             </a>
           </div>
         )}
@@ -1884,7 +1866,6 @@ export default function MoreHelpCenter() {
 
       <main style={{ maxWidth: 1200, margin: "0 auto", padding: "0 24px" }}>
 
-<<<<<<< HEAD
       <section id="public-portal" className="py-20 px-6" style={{ background: "#ffffff" }}>
         <div className="max-w-6xl mx-auto">
           <div className="text-center mb-12">
@@ -1980,14 +1961,12 @@ export default function MoreHelpCenter() {
               <div className="overline" style={{ color: TEAL }}>Free Curriculum</div>
               <h2 className="font-heading text-3xl sm:text-4xl font-bold mt-2" style={{ color: "#1a1a2e" }}>Start Here — No Account Needed</h2>
               <p className="mt-3" style={{ color: "#6b5e52" }}>Complete these free modules and earn Partnership Points toward the full program.</p>
-=======
         {/* ── Hero ── */}
         <section style={{ borderRadius: 16, overflow: "hidden", marginTop: 32, marginBottom: 28, background: `linear-gradient(165deg, ${BARK} 0%, ${TERRACOTTA} 35%, ${AMBER} 70%, ${COPPER} 100%)`, padding: "56px 40px", textAlign: "center", position: "relative" }}>
           <div style={{ position: "absolute", inset: 0, opacity: 0.07, backgroundImage: "radial-gradient(circle at 20px 20px, #f5e6c8 1.5px, transparent 0)", backgroundSize: "40px 40px" }} />
           <div style={{ position: "relative", zIndex: 1 }}>
             <div style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "6px 16px", borderRadius: 4, background: "rgba(0,0,0,0.25)", color: AMBER, fontSize: 11, fontWeight: 800, textTransform: "uppercase", letterSpacing: 3, marginBottom: 24 }}>
               <Heart style={{ width: 12, height: 12 }} /> 100% Free · Community-Powered
->>>>>>> b5e17a90a093ef2f7a081efc8d479b5b9f58558e
             </div>
             <h1 style={{ color: "white", fontSize: "clamp(32px, 6vw, 56px)", fontWeight: 900, lineHeight: 1.1, marginBottom: 16, fontFamily: "Georgia, serif" }}>
               Help is here.<br /><span style={{ color: AMBER }}>Free, always.</span>
@@ -2098,7 +2077,6 @@ export default function MoreHelpCenter() {
               </a>
             ))}
           </div>
-<<<<<<< HEAD
           <h2 className="mt-6 text-3xl font-black text-[#1a1a2e]">MORE Help Center is the unified public hub</h2>
           <p className="mt-4 max-w-3xl mx-auto text-sm leading-7 text-[#5a4e42]">
             This is the single centralized help landing experience. Supervisors sign in for executive oversight inside the same MORE Help Center page.
@@ -2108,8 +2086,6 @@ export default function MoreHelpCenter() {
           </a>
         </div>
       </section>
-=======
->>>>>>> b5e17a90a093ef2f7a081efc8d479b5b9f58558e
 
           {/* Exec-only: mode switcher + mode description card */}
           {superExec && (
@@ -2160,7 +2136,6 @@ export default function MoreHelpCenter() {
             <CarvedHeader label="How the plaza works" />
             <h2 style={{ fontSize: 28, fontWeight: 900, color: BARK, fontFamily: "Georgia, serif", marginTop: 8 }}>Your path through the center</h2>
           </div>
-<<<<<<< HEAD
           <h2 className="font-heading text-2xl sm:text-3xl font-bold text-white">
             MORE Help Center is the centralized help hub for everyone
           </h2>
@@ -2178,7 +2153,6 @@ export default function MoreHelpCenter() {
           <div className="flex items-center gap-2">
             <Heart className="w-3.5 h-3.5" />
             <span>MORE Help Center — Goodwill Wing of WAI Institute</span>
-=======
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(220px,1fr))", gap: 16 }}>
             {WAYPOINTS.map(pt => {
               const Icon = pt.icon;
@@ -2418,7 +2392,6 @@ export default function MoreHelpCenter() {
             <p style={{ color: "#c8e6c9", fontSize: 15, maxWidth: 520, margin: "0 auto", lineHeight: 1.7 }}>
               Where disputes are heard, rights are protected, and community law is made plain.
             </p>
->>>>>>> b5e17a90a093ef2f7a081efc8d479b5b9f58558e
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(220px,1fr))", gap: 16, marginBottom: 28 }}>
             {[

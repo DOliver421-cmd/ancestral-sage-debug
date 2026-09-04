@@ -28,10 +28,8 @@ export default function Helper({ requireAuth = false }) {
   return requireAuth ? <AuthHelper user={user} /> : <PublicHelper />;
 }
 
-// ===========================================================================
-// KNOWLEDGE BASE
-// ===========================================================================
-const KB = {
+// ====================================================================// KNOWLEDGE BASE
+// ====================================================================const KB = {
   mail: {
     keywords: ["mail","letter","notice","envelope","received","document","paper","sent me"],
     response: (q) => {
@@ -254,11 +252,9 @@ function useMobileKeyboardFix(onViewportChange) {
   }, [onViewportChange]);
 }
 
-// ===========================================================================
-// PUBLIC HELPER - colorful, full-featured
+// ====================================================================// PUBLIC HELPER - colorful, full-featured
 // (embedded=true renders inside a bounded container, e.g. the landing page)
-// ===========================================================================
-export function PublicHelper({ embedded = false }) {
+// ====================================================================export function PublicHelper({ embedded = false }) {
   const [searchParams] = useSearchParams();
   const [msgs, setMsgs] = useState([]);
   const [input, setInput] = useState("");
@@ -494,10 +490,8 @@ export function PublicHelper({ embedded = false }) {
   );
 }
 
-// ===========================================================================
-// AUTH HELPER - two-panel desktop: persistent sidebar + tabbed right panel
-// ===========================================================================
-function AuthHelper({ user }) {
+// ====================================================================// AUTH HELPER - two-panel desktop: persistent sidebar + tabbed right panel
+// ====================================================================function AuthHelper({ user }) {
   const [tab, setTab] = useState("home");
   const [msgs, setMsgs] = useState([]);
   const [input, setInput] = useState("");
@@ -832,3 +826,4 @@ function AuthHelper({ user }) {
     </div>
   );
 }
+

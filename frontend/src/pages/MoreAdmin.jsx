@@ -68,11 +68,8 @@ export default function MoreAdmin() {
   const [flagTotal, setFlagTotal] = useState(0);
   const [loading, setLoading] = useState(false);
   const [purging, setPurging] = useState(false);
-<<<<<<< HEAD
   const [actingId, setActingId] = useState(null);
-=======
   const [confirmPurge, setConfirmPurge] = useState(false);
->>>>>>> b5e17a90a093ef2f7a081efc8d479b5b9f58558e
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -162,15 +159,12 @@ export default function MoreAdmin() {
             <button onClick={load} className="btn-ghost text-sm flex items-center gap-2">
               <RefreshCw className="w-4 h-4" /> Refresh
             </button>
-<<<<<<< HEAD
             <button onClick={purge} disabled={purging} className="btn-primary text-sm flex items-center gap-2 disabled:opacity-50">
-=======
             <button
               onClick={() => setConfirmPurge(true)}
               disabled={purging}
               className="btn-primary text-sm flex items-center gap-2 disabled:opacity-50"
             >
->>>>>>> b5e17a90a093ef2f7a081efc8d479b5b9f58558e
               {purging ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
               Run Purge
             </button>
@@ -266,3 +260,4 @@ export default function MoreAdmin() {
     </AppShell>
   );
 }
+
