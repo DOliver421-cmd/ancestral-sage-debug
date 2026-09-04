@@ -2,8 +2,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import PublicNav from "../components/PublicNav";
 import BackButton from "../components/BackButton";
 
-// ===========================================================================
-// VIDEO PRESENTATION BUILDER — 100% client-side, zero cost, zero upload
+// ====================================================================// VIDEO PRESENTATION BUILDER — 100% client-side, zero cost, zero upload
 // ---------------------------------------------------------------------------
 // Canvas-based Ken Burns presentation recorder. Everything runs in the user's
 // browser: images never leave the device, narration is recorded live from the
@@ -16,8 +15,7 @@ import BackButton from "../components/BackButton";
 //   • Recording captures the animated visuals + LIVE MIC narration.
 //   • Export is WebM; add professional audio later with any editor if needed.
 // This keeps the tool free and private — nothing is rendered on a server.
-// ===========================================================================
-
+// ====================================================================
 const MOTIONS = [
   { key: "zoom", label: "Cinematic Zoom-In" },
   { key: "pan", label: "Pan Right" },
@@ -401,3 +399,4 @@ export default function VideoPresenter() {
     </div>
   );
 }
+

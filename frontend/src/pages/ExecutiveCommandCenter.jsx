@@ -6,16 +6,14 @@ import { api } from "../lib/api";
 import { toast } from "sonner";
 import PageBack from "../components/PageBack";
 
-// ===========================================================================
-// EXECUTIVE COMMAND CENTER — one integrated surface, shared data, no copy/paste
+// ====================================================================// EXECUTIVE COMMAND CENTER — one integrated surface, shared data, no copy/paste
 // ---------------------------------------------------------------------------
 // Everything the executive needs in one place. All tabs read from the same
 // loaded context (users, stats, business office, agenda, gateway, manuals) so
 // a number seen in the context bar is the SAME number in every tab. The
 // "Copy briefing" button compiles the whole picture into one formatted block —
 // no more copying between screens to build a report.
-// ===========================================================================
-
+// ====================================================================
 const TABS = [
   { key: "overview", label: "🏛️ Overview" },
   { key: "business", label: "💼 Business" },
@@ -696,3 +694,4 @@ export default function ExecutiveCommandCenter() {
     </AppShell>
   );
 }
+
