@@ -1000,13 +1000,21 @@ async def get_feature_config_async(feature_id: str) -> Optional[dict]:
     if base is None:
         return None
     if db is None:
+        # Pre-startup callers get registry defaults; once the server has a
+        # database handle this function must never hide a store failure.
         return base
     try:
         override = await db.feature_configs.find_one(
             {"feature_id": feature_id}, {"_id": 0}
         )
     except Exception:
-        return base
+        # Never silently serve stale defaults when the control store is
+        # reachable but failing — a missing override and an unreadable store
+        # must not look identical to the admin surface.
+        raise HTTPException(
+            503,
+            f"Feature control store unavailable — could not read configuration for {feature_id}.",
+        )
     if not override:
         return base
     return {
@@ -1132,11 +1140,62 @@ async def update_feature(feature_id: str, body: dict, request, actor=Depends(cur
     update_fields["updated_by"] = actor.get("id", "unknown")
     update_fields["updated_at"] = datetime.now(timezone.utc).isoformat()
 
-    if db is not None:
-        await db.feature_configs.update_one(
+    # The Feature Control Center is a DATABASE-BACKED controller: a "saved"
+    # confirmation is a lie unless the record was actually written.  No
+    # database handle, failed write, or read-back mismatch may ever report
+    # success to the UI.
+    if db is None:
+        raise HTTPException(
+            503,
+            "Feature control store unavailable — configuration was NOT saved. The admin surface is running without a database binding.",
+        )
+
+    try:
+        result = await db.feature_configs.update_one(
             {"feature_id": feature_id},
             {"$set": update_fields},
             upsert=True,
         )
+    except Exception as exc:
+        raise HTTPException(
+            503,
+            f"Feature control store write failed — configuration was NOT saved ({type(exc).__name__}).",
+        )
+    if not getattr(result, "acknowledged", False):
+        raise HTTPException(
+            503,
+            "Feature control store write was not acknowledged — configuration was NOT saved.",
+        )
 
-    return {"ok": True, "feature_id": feature_id, "updated": list(update_fields.keys())}
+    # Every configuration change is audited: actor, feature, fields, and the
+    # stored values.  A failed audit write is logged loudly but never fails
+    # the already-persisted configuration change.
+    try:
+        from server import audit as _audit
+
+        await _audit(
+            actor.get("id"),
+            "feature_config.updated",
+            target=feature_id,
+            meta={"fields": update_fields},
+        )
+    except Exception as _exc:
+        import logging
+        logging.getLogger("lcewai.features").warning(
+            "features: audit write failed for %s: %s", feature_id, _exc
+        )
+
+    # Return the stored configuration (post-normalization) so the admin UI can
+    # render the server's truth — never a client-side guess.
+    stored = await get_feature_config_async(feature_id)
+    return {
+        "ok": True,
+        "saved": True,
+        "feature_id": feature_id,
+        "updated": list(update_fields.keys()),
+        "stored": {k: stored.get(k) for k in (
+            "enabled", "allowed_roles", "allowed_tiers", "platform_ai",
+            "byok_allowed", "navigation_visible", "internal_only",
+            "customer_access_allowed", "cost_bearing", "public_access",
+        )} if stored else None,
+    }

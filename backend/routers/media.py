@@ -392,6 +392,7 @@ async def upload_media_file(
     bucket = AsyncIOMotorGridFSBucket(db)
     metadata = {
         "uploader": user.id,
+        "filename": file.filename or "upload",
         "content_type": file.content_type or "application/octet-stream",
         "duration_seconds": duration_seconds,
         "preview_seconds": preview_seconds,

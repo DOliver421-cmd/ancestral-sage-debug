@@ -42,36 +42,21 @@ export default function UnifiedGateway() {
   const { user } = useAuth();
 
   return (
-    <div className="min-h-screen bg-bone font-body">
+    <div className="min-h-screen font-body" style={{ background: "#fff", color: "#111111" }}>
       <PublicNav />
 
       {/* ── HERO ─────────────────────────────────────────────────────────── */}
-      <section className="relative overflow-hidden"
-        style={{
-          minHeight: "80vh",
-          backgroundImage: "linear-gradient(160deg, rgba(10,10,15,0.88) 0%, rgba(26,10,0,0.82) 50%, rgba(13,26,10,0.9) 100%), url('https://images.pexels.com/photos/4031039/pexels-photo-4031039.jpeg?auto=compress&cs=tinysrgb&w=1600')",
-          backgroundSize: "cover",
-          backgroundPosition: "center",
-        }}>
+      <section className="relative overflow-hidden border-b border-[#e3ddd2]"
+        style={{ minHeight: "80vh", background: "#fff" }}>
+        <div className="relative max-w-6xl mx-auto px-6 pt-20 pb-16 grid lg:grid-cols-[minmax(0,1.1fr)_minmax(320px,0.9fr)] gap-12 xl:gap-20 items-center">
 
-        {/* Grain texture overlay */}
-        <div className="absolute inset-0 opacity-20"
-          style={{ backgroundImage: "url(\"data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.4'/%3E%3C/svg%3E\")" }} />
-
-        {/* Accent glow */}
-        <div className="absolute top-0 left-1/3 w-96 h-96 rounded-full opacity-10 blur-3xl"
-          style={{ background: "#E8A51E" }} />
-        <div className="absolute bottom-0 right-1/4 w-80 h-80 rounded-full opacity-8 blur-3xl"
-          style={{ background: "#2D6A4F" }} />
-
-        <div className="relative max-w-6xl mx-auto px-6 pt-24 pb-20 flex flex-col items-start">
-
+          <div className="min-w-0">
           <div className="inline-flex items-center gap-2 mb-6 px-3 py-1.5 rounded-full border"
-            style={{ borderColor: "rgba(232,165,30,0.3)", background: "rgba(232,165,30,0.08)" }}>
+            style={{ borderColor: "rgba(154,101,0,0.35)", background: "#fff8e7" }}>
             <img src={FOUNDER_LOGO} alt="M.O.R.E."
               style={{ width: 26, height: 26, borderRadius: "50%", objectFit: "cover", border: "1px solid rgba(232,165,30,0.4)" }} />
             <span className="w-1.5 h-1.5 rounded-full bg-signal animate-pulse" />
-            <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.2em", textTransform: "uppercase", color: "#E8A51E" }}>
+            <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.2em", textTransform: "uppercase", color: "#7a4d00" }}>
               M.O.R.E. Help Center
             </span>
           </div>
@@ -80,14 +65,14 @@ export default function UnifiedGateway() {
             fontFamily: "'Cabinet Grotesk', 'Plus Jakarta Sans', sans-serif",
             fontSize: "clamp(2.8rem, 7vw, 5.5rem)",
             fontWeight: 900, lineHeight: 1.05,
-            color: "#fff", marginBottom: "1.5rem", maxWidth: 800,
+            color: "#111111", marginBottom: "1.5rem", maxWidth: 800,
           }}>
             Creator economy.<br />
-            <span style={{ color: "#E8A51E" }}>Cultural expression.</span><br />
+            <span style={{ color: "#8a5a00" }}>Cultural expression.</span><br />
             Economic dignity.
           </h1>
 
-          <p style={{ fontSize: "clamp(1rem, 2.2vw, 1.25rem)", color: "rgba(255,255,255,0.6)", maxWidth: 560, lineHeight: 1.7, marginBottom: "2.5rem" }}>
+          <p style={{ fontSize: "clamp(1rem, 2.2vw, 1.25rem)", color: "#3f3a34", maxWidth: 560, lineHeight: 1.7, marginBottom: "2.5rem" }}>
             A platform built for invisible communities — artists, poets, builders, and
             workers who deserve real tools, real ownership, and real support.
           </p>
@@ -97,16 +82,16 @@ export default function UnifiedGateway() {
               <>
                 <Link to="/register"
                   className="font-black text-sm px-8 py-4 rounded-xl"
-                  style={{ background: "#E8A51E", color: "#0a0a0a", fontSize: 15 }}>
+                  style={{ background: "#b8860b", color: "#111111", fontSize: 15 }}>
                   Join Free →
                 </Link>
                 <Link to="/subscribe?plan=sanctuary_trial"
                   className="font-bold text-sm px-8 py-4 rounded-xl border"
-                  style={{ borderColor: "rgba(232,165,30,0.4)", color: "#E8A51E", background: "rgba(232,165,30,0.08)", fontSize: 15 }}>
+                  style={{ borderColor: "rgba(154,101,0,0.45)", color: "#7a4d00", background: "#fff8e7", fontSize: 15 }}>
                   Try Everything — $3 for 3 Days
                 </Link>
                 <Link to="/login"
-                  style={{ color: "rgba(255,255,255,0.4)", fontSize: 14, fontWeight: 600, display: "flex", alignItems: "center", paddingTop: 14 }}>
+                  style={{ color: "#4a4238", fontSize: 14, fontWeight: 600, display: "flex", alignItems: "center", paddingTop: 14 }}>
                   Log in →
                 </Link>
                 <SharePanel
@@ -115,7 +100,7 @@ export default function UnifiedGateway() {
                   title="M.O.R.E. Help Center — Creator economy. Cultural expression. Economic dignity."
                   trigger={
                     <span className="inline-flex items-center gap-2 font-bold text-sm px-8 py-4 rounded-xl border"
-                      style={{ borderColor: "rgba(255,255,255,0.25)", color: "rgba(255,255,255,0.85)", fontSize: 15 }}>
+                      style={{ borderColor: "#c9c0b2", color: "#2b2722", fontSize: 15 }}>
                       <Share2 size={16} /> Share
                     </span>
                   }
@@ -125,12 +110,12 @@ export default function UnifiedGateway() {
               <>
                 <Link to="/profile"
                   className="font-black text-sm px-8 py-4 rounded-xl"
-                  style={{ background: "#E8A51E", color: "#0a0a0a", fontSize: 15 }}>
+                  style={{ background: "#b8860b", color: "#111111", fontSize: 15 }}>
                   My Profile →
                 </Link>
                 <Link to="/dashboard"
                   className="font-bold text-sm px-8 py-4 rounded-xl border"
-                  style={{ borderColor: "rgba(255,255,255,0.15)", color: "rgba(255,255,255,0.8)", fontSize: 15 }}>
+                  style={{ borderColor: "#c9c0b2", color: "#2b2722", fontSize: 15 }}>
                   Dashboard
                 </Link>
               </>
@@ -139,7 +124,7 @@ export default function UnifiedGateway() {
 
           {/* Stats row */}
           <div className="flex flex-wrap gap-8 mt-16 pt-8 border-t w-full"
-            style={{ borderColor: "rgba(255,255,255,0.08)" }}>
+            style={{ borderColor: "#e3ddd2" }}>
             {[
               { n: "5",       label: "Membership tiers"         },
               { n: "$3",      label: "All-access trial"         },
@@ -147,47 +132,63 @@ export default function UnifiedGateway() {
               { n: "100%",    label: "Creator-owned content"    },
             ].map(({ n, label }) => (
               <div key={label}>
-                <div style={{ fontFamily: "'Cabinet Grotesk',sans-serif", fontSize: "2rem", fontWeight: 900, color: "#E8A51E", lineHeight: 1 }}>{n}</div>
-                <div style={{ fontSize: 12, color: "rgba(255,255,255,0.4)", marginTop: 4, textTransform: "uppercase", letterSpacing: "0.1em" }}>{label}</div>
+                <div style={{ fontFamily: "'Cabinet Grotesk',sans-serif", fontSize: "2rem", fontWeight: 900, color: "#8a5a00", lineHeight: 1 }}>{n}</div>
+                <div style={{ fontSize: 12, color: "#4a4238", marginTop: 4, textTransform: "uppercase", letterSpacing: "0.1em" }}>{label}</div>
               </div>
             ))}
           </div>
+          </div>
+
+          <figure className="w-full max-w-md mx-auto lg:justify-self-end">
+            <div className="overflow-hidden rounded-[2rem] border border-[#d9d0c4] bg-[#f6f2eb] shadow-[12px_12px_0_#e8dcc7]">
+              <img
+                src="https://images.pexels.com/photos/3856027/pexels-photo-3856027.jpeg?auto=compress&cs=tinysrgb&w=1200"
+                alt="A diverse group gathered for community learning and collaboration"
+                className="block aspect-[4/5] w-full object-cover"
+                loading="eager"
+                referrerPolicy="no-referrer"
+              />
+            </div>
+            <figcaption className="mt-4 text-center text-xs leading-relaxed text-[#5a5045]">
+              Community learning and collaboration · free stock photo from Pexels
+            </figcaption>
+          </figure>
         </div>
       </section>
 
       {/* ── MY HELPER — THE WORKING MODULE, BELOW M.O.R.E. HELP CENTER ───── */}
       <section className="relative overflow-hidden"
-        style={{ background: "linear-gradient(160deg, #14120a 0%, #241a08 55%, #0d1a0a 100%)", borderBottom: "1px solid rgba(232,165,30,0.25)" }}>
+        style={{ background: "#fff", borderBottom: "1px solid #e3ddd2" }}>
         <div className="relative max-w-6xl mx-auto px-4 sm:px-6 py-8 sm:py-12">
           {/* Header row: founder logo + copy + full-page link */}
           <div className="flex flex-col lg:flex-row lg:items-center gap-4 sm:gap-5 mb-5 sm:mb-8">
             <img src={FOUNDER_LOGO} alt="M.O.R.E. Logo"
               className="w-12 h-12 sm:w-16 sm:h-16 rounded-2xl object-cover shrink-0"
-              style={{ border: "2px solid rgba(232,165,30,0.35)", boxShadow: "0 8px 24px rgba(0,0,0,0.35)" }} />
+              style={{ border: "2px solid rgba(154,101,0,0.35)", boxShadow: "0 8px 24px rgba(76,55,20,0.12)" }} />
             <div className="flex-1">
-              <div className="overline" style={{ color: "#E8A51E" }}>My Helper — built for our elders</div>
+              <div className="overline" style={{ color: "#7a4d00" }}>My Helper — built for our elders</div>
               <h2 style={{
                 fontFamily: "'Cabinet Grotesk', 'Plus Jakarta Sans', sans-serif",
                 fontSize: "clamp(1.35rem, 3.5vw, 2.4rem)", fontWeight: 900,
-                color: "#fff", lineHeight: 1.15, margin: "4px 0 6px",
+                color: "#111111", lineHeight: 1.15, margin: "4px 0 6px",
               }}>
-                I am here to be your <span style={{ color: "#E8A51E" }}>HELPER.</span>
+                I am here to be your <span style={{ color: "#8a5a00" }}>HELPER.</span>
               </h2>
-              <p style={{ color: "rgba(255,255,255,0.6)", maxWidth: 640, lineHeight: 1.6, fontSize: "0.95rem", margin: 0 }}>
+              <p style={{ color: "#4a4238", maxWidth: 640, lineHeight: 1.6, fontSize: "0.95rem", margin: 0 }}>
                 Read mail, understand bills, explain legal papers, check for scams, and remember
                 appointments — in plain, simple words, in your own language. Free, no login required.
-                Named in honor of <strong style={{ color: "#fff" }}>Michael Oliver</strong> — the M.O.R.E. in M.O.R.E. Help Center.
+                Named in honor of <strong style={{ color: "#111111" }}>Michael Oliver</strong> — the M.O.R.E. in M.O.R.E. Help Center.
               </p>
             </div>
             <Link to="/helper"
               className="inline-flex items-center gap-2 font-bold text-sm px-5 sm:px-6 py-2.5 sm:py-3 rounded-xl border shrink-0 self-start"
-              style={{ borderColor: "rgba(232,165,30,0.4)", color: "#E8A51E", background: "rgba(232,165,30,0.08)", fontSize: 14 }}>
+              style={{ borderColor: "rgba(154,101,0,0.45)", color: "#7a4d00", background: "#fff8e7", fontSize: 14 }}>
               Open full page →
             </Link>
           </div>
 
           {/* The actual working helper — all functions, live right on the landing page */}
-          <div className="rounded-2xl overflow-hidden" style={{ height: "min(88dvh, 760px)", boxShadow: "0 30px 80px rgba(0,0,0,0.45)" }}>
+          <div className="rounded-2xl overflow-hidden" style={{ height: "min(88dvh, 760px)", boxShadow: "0 16px 40px rgba(76,55,20,0.12)" }}>
             <PublicHelper embedded />
           </div>
 
@@ -195,7 +196,7 @@ export default function UnifiedGateway() {
             <div className="mt-5 flex flex-wrap justify-center gap-3">
               <Link to="/app/helper"
                 className="inline-flex items-center gap-2 font-bold text-sm px-6 py-3 rounded-xl"
-                style={{ background: "#E8A51E", color: "#0a0a0a", fontSize: 14 }}>
+                style={{ background: "#b8860b", color: "#111111", fontSize: 14 }}>
                 Open My Personal Helper
               </Link>
             </div>
@@ -203,12 +204,12 @@ export default function UnifiedGateway() {
             <div className="mt-5 flex flex-wrap justify-center gap-3">
               <Link to="/helper"
                 className="inline-flex items-center gap-2 font-bold text-sm px-6 py-3 rounded-xl"
-                style={{ background: "#E8A51E", color: "#0a0a0a", fontSize: 14 }}>
+                style={{ background: "#b8860b", color: "#111111", fontSize: 14 }}>
                 Try My Helper on its own page — Free
               </Link>
               <Link to="/register"
                 className="inline-flex items-center gap-2 font-bold text-sm px-6 py-3 rounded-xl border"
-                style={{ borderColor: "rgba(255,255,255,0.25)", color: "rgba(255,255,255,0.85)", fontSize: 14 }}>
+                style={{ borderColor: "#c9c0b2", color: "#2b2722", fontSize: 14 }}>
                 Join free for saved notes
               </Link>
             </div>
@@ -217,7 +218,7 @@ export default function UnifiedGateway() {
       </section>
 
       {/* ── WHAT IT IS ───────────────────────────────────────────────────── */}
-      <section className="py-24 px-6" style={{ background: "#faf9f7" }}>
+      <section className="py-24 px-6" style={{ background: "#fff" }}>
         <div className="max-w-6xl mx-auto">
           <div className="overline text-copper mb-3 text-center">The Platform</div>
           <h2 className="font-heading font-black text-4xl text-ink text-center mb-4">
@@ -254,27 +255,27 @@ export default function UnifiedGateway() {
 
       {/* ── WAI INSTITUTE PREMIUM SERVICES — live embed + full-page link ── */}
       <section className="relative overflow-hidden"
-        style={{ background: "linear-gradient(150deg, #1a110a 0%, #2a1a08 55%, #0d1a0a 100%)", borderBottom: "1px solid rgba(232,165,30,0.25)" }}>
+        style={{ background: "#fff", borderBottom: "1px solid #e3ddd2" }}>
         <div className="relative max-w-6xl mx-auto px-4 sm:px-6 py-8 sm:py-12">
           {/* Header row: copy + full-page link */}
           <div className="flex flex-col lg:flex-row lg:items-center gap-4 sm:gap-5 mb-5 sm:mb-8">
             <div className="flex-1">
-              <div className="overline" style={{ color: "#B5651D" }}>WAI Institute Premium Services</div>
+              <div className="overline" style={{ color: "#8a5a00" }}>WAI Institute Premium Services</div>
               <h2 style={{
                 fontFamily: "'Cabinet Grotesk', 'Plus Jakarta Sans', sans-serif",
                 fontSize: "clamp(1.35rem, 3.5vw, 2.4rem)", fontWeight: 900,
-                color: "#fff", lineHeight: 1.15, margin: "4px 0 6px",
+                color: "#111111", lineHeight: 1.15, margin: "4px 0 6px",
               }}>
-                Payment rails for <span style={{ color: "#E8A51E" }}>platforms &amp; creators.</span>
+                Payment rails for <span style={{ color: "#8a5a00" }}>platforms &amp; creators.</span>
               </h2>
-              <p style={{ color: "rgba(255,255,255,0.6)", maxWidth: 640, lineHeight: 1.6, fontSize: "0.95rem", margin: 0 }}>
+              <p style={{ color: "#4a4238", maxWidth: 640, lineHeight: 1.6, fontSize: "0.95rem", margin: 0 }}>
                 We help other platforms and creators integrate payment systems through our ecosystem —
                 a Stripe-integrated store and SaaS for checkout, memberships, subscriptions, and payouts.
               </p>
             </div>
             <a href="https://waiinstitutepremiumservices.bolt.host/services" target="_blank" rel="noopener noreferrer"
               className="inline-flex items-center gap-2 font-bold text-sm px-5 sm:px-6 py-2.5 sm:py-3 rounded-xl border shrink-0 self-start"
-              style={{ borderColor: "rgba(232,165,30,0.4)", color: "#E8A51E", background: "rgba(232,165,30,0.08)", fontSize: 14 }}>
+              style={{ borderColor: "rgba(154,101,0,0.45)", color: "#7a4d00", background: "#fff8e7", fontSize: 14 }}>
               Open full page →
             </a>
           </div>
@@ -293,7 +294,7 @@ export default function UnifiedGateway() {
           <div className="mt-5 text-center">
             <Link to="/premium"
               className="inline-flex items-center gap-2 font-bold text-sm px-6 py-3 rounded-xl"
-              style={{ background: "#B5651D", color: "#fff", fontSize: 14 }}>
+              style={{ background: "#8a5a00", color: "#fff", fontSize: 14 }}>
               Visit the Premium Services page →
             </Link>
           </div>
@@ -302,31 +303,25 @@ export default function UnifiedGateway() {
 
       {/* ── READY TO GO DEEPER? — the WAI pathway (M.O.R.E. funnels to the institution door) ── */}
       <section className="relative overflow-hidden py-24 px-6"
-        style={{ background: "linear-gradient(150deg, #0b1a12 0%, #11261b 50%, #1b2f1d 100%)" }}>
-        {/* Accent glows — WAI's green/copper identity, distinct from the amber M.O.R.E. hero */}
-        <div className="absolute top-0 left-1/4 w-96 h-96 rounded-full opacity-10 blur-3xl"
-          style={{ background: "#2D6A4F" }} />
-        <div className="absolute bottom-0 right-1/5 w-80 h-80 rounded-full opacity-10 blur-3xl"
-          style={{ background: "#B5651D" }} />
-
+        style={{ background: "#fff", borderBottom: "1px solid #e3ddd2" }}>
         <div className="relative max-w-6xl mx-auto text-center">
-          <div className="overline mb-4" style={{ color: "#B5651D" }}>The WAI Institute · Electrical Education & Credentials</div>
+          <div className="overline mb-4" style={{ color: "#8a5a00" }}>The WAI Institute · Electrical Education & Credentials</div>
           <h2 style={{
             fontFamily: "'Cabinet Grotesk', 'Plus Jakarta Sans', sans-serif",
             fontSize: "clamp(1.9rem, 4.5vw, 3.2rem)", fontWeight: 900,
-            color: "#fff", lineHeight: 1.1, margin: "0 0 1.25rem",
+            color: "#111111", lineHeight: 1.1, margin: "0 0 1.25rem",
           }}>
             Ready to go deeper?
           </h2>
-          <p style={{ fontSize: "clamp(1rem, 2vw, 1.2rem)", color: "rgba(255,255,255,0.75)", maxWidth: 640, margin: "0 auto 0.5rem", lineHeight: 1.6 }}>
-            M.O.R.E. helps you <strong style={{ color: "#fff" }}>do</strong>. WAI Institute helps you become capable of doing more.
+          <p style={{ fontSize: "clamp(1rem, 2vw, 1.2rem)", color: "#3f3a34", maxWidth: 640, margin: "0 auto 0.5rem", lineHeight: 1.6 }}>
+            M.O.R.E. helps you <strong style={{ color: "#111111" }}>do</strong>. WAI Institute helps you become capable of doing more.
           </p>
-          <p style={{ fontSize: "0.95rem", color: "rgba(255,255,255,0.55)", maxWidth: 600, margin: "0 auto 2.25rem", lineHeight: 1.6 }}>
+          <p style={{ fontSize: "0.95rem", color: "#5a5045", maxWidth: 600, margin: "0 auto 2.25rem", lineHeight: 1.6 }}>
             Learn through structured education, develop verified skills, and build toward credentials through WAI Institute.
           </p>
           <Link to="/wai-institute"
             className="inline-flex items-center gap-2 font-black text-sm px-8 py-4 rounded-xl"
-            style={{ background: "#B5651D", color: "#fff", fontSize: 15 }}>
+            style={{ background: "#8a5a00", color: "#fff", fontSize: 15 }}>
             Explore WAI Institute <ArrowRight size={16} />
           </Link>
 
@@ -338,10 +333,10 @@ export default function UnifiedGateway() {
             ].map(({ icon, title, desc }) => (
               <div key={title}
                 className="rounded-2xl p-6 border"
-                style={{ borderColor: "rgba(255,255,255,0.12)", background: "rgba(255,255,255,0.04)" }}>
+                style={{ borderColor: "#d9d0c4", background: "#fffdf8" }}>
                 <div style={{ fontSize: 30, marginBottom: 10 }}>{icon}</div>
-                <div style={{ fontFamily: "'Cabinet Grotesk',sans-serif", fontWeight: 900, fontSize: "0.95rem", letterSpacing: "0.18em", color: "#E8A51E", marginBottom: 6 }}>{title}</div>
-                <div style={{ fontSize: "0.9rem", color: "rgba(255,255,255,0.6)", lineHeight: 1.6 }}>{desc}</div>
+                <div style={{ fontFamily: "'Cabinet Grotesk',sans-serif", fontWeight: 900, fontSize: "0.95rem", letterSpacing: "0.18em", color: "#8a5a00", marginBottom: 6 }}>{title}</div>
+                <div style={{ fontSize: "0.9rem", color: "#4a4238", lineHeight: 1.6 }}>{desc}</div>
               </div>
             ))}
           </div>
@@ -350,24 +345,24 @@ export default function UnifiedGateway() {
 
       {/* ── $3 TRIAL BANNER ──────────────────────────────────────────────── */}
       {!user && (
-        <section className="py-16 px-6" style={{ backgroundImage: "linear-gradient(rgba(10,10,15,0.88), rgba(10,10,15,0.92)), url('https://images.pexels.com/photos/6893794/pexels-photo-6893794.jpeg?auto=compress&cs=tinysrgb&w=1600')", backgroundSize: "cover", backgroundPosition: "center" }}>
+        <section className="py-16 px-6 border-y border-[#e3ddd2]" style={{ background: "#fff" }}>
           <div className="max-w-4xl mx-auto text-center">
             <div style={{ fontSize: 48, marginBottom: 16 }}>⚡</div>
-            <h2 style={{ fontFamily: "'Cabinet Grotesk',sans-serif", fontSize: "clamp(1.8rem,4vw,3rem)", fontWeight: 900, color: "#fff", marginBottom: 12 }}>
+            <h2 style={{ fontFamily: "'Cabinet Grotesk',sans-serif", fontSize: "clamp(1.8rem,4vw,3rem)", fontWeight: 900, color: "#111111", marginBottom: 12 }}>
               Try the whole platform for{" "}
-              <span style={{ color: "#E8A51E" }}>$3</span>
+              <span style={{ color: "#8a5a00" }}>$3</span>
             </h2>
-            <p style={{ color: "rgba(255,255,255,0.55)", fontSize: "1.1rem", marginBottom: 32, lineHeight: 1.7 }}>
+            <p style={{ color: "#4a4238", fontSize: "1.1rem", marginBottom: 32, lineHeight: 1.7 }}>
               3 days · 33 minutes · 33 seconds of full Pro access.<br />
               Every tool. Every course. Every AI feature. No recurring charge unless you choose a plan.
             </p>
             <Link to="/subscribe?plan=sanctuary_trial"
               className="inline-block font-black text-base px-10 py-4 rounded-xl"
-              style={{ background: "#E8A51E", color: "#0a0a0a" }}>
+              style={{ background: "#b8860b", color: "#111111" }}>
               Start My $3 Trial →
             </Link>
             <div className="mt-4">
-              <Link to="/plans" style={{ color: "rgba(255,255,255,0.3)", fontSize: 13, textDecoration: "none" }}>
+              <Link to="/plans" style={{ color: "#5a5045", fontSize: 13, textDecoration: "none" }}>
                 See all membership plans
               </Link>
             </div>
@@ -376,7 +371,7 @@ export default function UnifiedGateway() {
       )}
 
       {/* ── VOICE OF MOVEMENT — VONN ─────────────────────────────────────── */}
-      <section className="py-24 px-6 bg-bone">
+      <section className="py-24 px-6" style={{ background: "#fff" }}>
         <div className="max-w-6xl mx-auto">
           <div className="overline text-copper mb-3">Hear the movement</div>
           <h2 className="font-heading font-black text-4xl text-ink mb-8">
@@ -412,7 +407,7 @@ export default function UnifiedGateway() {
               target="_blank"
               rel="noopener noreferrer"
               className="inline-block font-black text-sm px-8 py-3 rounded-xl"
-              style={{ background: "#E8A51E", color: "#0a0a0a" }}
+              style={{ background: "#b8860b", color: "#111111" }}
             >
               NAM OSHUN's Gumroad Store →
             </a>
@@ -422,7 +417,7 @@ export default function UnifiedGateway() {
       </section>
 
       {/* ── MEMBERSHIP TIERS ─────────────────────────────────────────────── */}
-      <section className="py-24 px-6" style={{ background: "#faf9f7" }}>
+      <section className="py-24 px-6" style={{ background: "#fff" }}>
         <div className="max-w-6xl mx-auto">
           <div className="overline text-copper mb-3 text-center">Membership</div>
           <h2 className="font-heading font-black text-4xl text-ink text-center mb-4">Start free.<br />Grow on your terms.</h2>
@@ -467,14 +462,14 @@ export default function UnifiedGateway() {
       </section>
 
       {/* ── MISSION STATEMENT ────────────────────────────────────────────── */}
-      <section className="py-24 px-6"
-        style={{ background: "linear-gradient(135deg, #1B4332 0%, #0a0a0f 60%)" }}>
+      <section className="py-24 px-6 border-t border-[#e3ddd2]"
+        style={{ background: "#fff" }}>
         <div className="max-w-4xl mx-auto text-center">
           <img src={WAI_LOGO} alt="M.O.R.E." className="w-16 h-16 object-contain mx-auto mb-8" />
-          <h2 style={{ fontFamily: "'Cabinet Grotesk',sans-serif", fontSize: "clamp(1.6rem,4vw,2.8rem)", fontWeight: 900, color: "#fff", lineHeight: 1.2, marginBottom: 20 }}>
+          <h2 style={{ fontFamily: "'Cabinet Grotesk',sans-serif", fontSize: "clamp(1.6rem,4vw,2.8rem)", fontWeight: 900, color: "#111111", lineHeight: 1.2, marginBottom: 20 }}>
             "{BRAND.tagline}"
           </h2>
-          <p style={{ color: "rgba(255,255,255,0.55)", fontSize: "1.05rem", lineHeight: 1.8, maxWidth: 560, margin: "0 auto 40px" }}>
+          <p style={{ color: "#4a4238", fontSize: "1.05rem", lineHeight: 1.8, maxWidth: 560, margin: "0 auto 40px" }}>
             M.O.R.E. Help Center was built because the tools of the creator economy were never
             designed for us. We changed that. Every feature, every tier, every dollar
             — built to serve communities that were meant to be invisible.
@@ -482,12 +477,12 @@ export default function UnifiedGateway() {
           <div className="flex flex-wrap gap-4 justify-center">
             <Link to="/register"
               className="font-black text-sm px-8 py-3 rounded-xl"
-              style={{ background: "#E8A51E", color: "#0a0a0a" }}>
+              style={{ background: "#b8860b", color: "#111111" }}>
               Join the Movement
             </Link>
             <Link to="/donate"
               className="font-bold text-sm px-8 py-3 rounded-xl border"
-              style={{ borderColor: "rgba(232,165,30,0.3)", color: "#E8A51E" }}
+              style={{ borderColor: "rgba(154,101,0,0.45)", color: "#7a4d00" }}
             >
               Make a Donation to the Mission
             </Link>
@@ -496,19 +491,19 @@ export default function UnifiedGateway() {
       </section>
 
       {/* ── FOOTER ───────────────────────────────────────────────────────── */}
-      <footer className="py-12 px-6 bg-ink text-white/40">
+      <footer className="py-12 px-6 border-t border-[#e3ddd2]" style={{ background: "#fff", color: "#4a4238" }}>
         <div className="max-w-6xl mx-auto">
-          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6 mb-8 pb-8 border-b border-white/8">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6 mb-8 pb-8 border-b border-[#e3ddd2]">
             <div className="flex items-center gap-3">
               <img src={WAI_LOGO} alt="M.O.R.E." className="w-8 h-8 object-contain" />
               <div>
-                <div className="text-xs font-black uppercase tracking-widest text-signal">{BRAND.short}</div>
-                <div className="font-heading font-bold text-sm text-white">{BRAND.name}</div>
+                <div className="text-xs font-black uppercase tracking-widest text-copper">{BRAND.short}</div>
+                <div className="font-heading font-bold text-sm text-ink">{BRAND.name}</div>
               </div>
             </div>
             <div className="flex flex-wrap gap-6 text-xs">
             {[["Plans", "/plans"], ["Creators", "/creators"], ["Courses", "/courses"], ["Community", "/community"], ["Helper", "/helper"], ["Store", "/store"]].map(([l, h]) => (
-              <Link key={l} to={h} className="hover:text-white transition-colors">{l}</Link>
+              <Link key={l} to={h} className="hover:text-copper transition-colors">{l}</Link>
             ))}
             {[
               ["WAI Institute Premium Services", "/premium"],
@@ -519,16 +514,16 @@ export default function UnifiedGateway() {
               ["Refund Policy", "/refund-policy"],
             ].map(([l, h]) => (
               h.startsWith("http") ? (
-                <a key={l} href={h} target="_blank" rel="noopener noreferrer" className="hover:text-white transition-colors">{l}</a>
+                <a key={l} href={h} target="_blank" rel="noopener noreferrer" className="hover:text-copper transition-colors">{l}</a>
               ) : (
-                <Link key={l} to={h} className="hover:text-white transition-colors">{l}</Link>
+                <Link key={l} to={h} className="hover:text-copper transition-colors">{l}</Link>
               )
             ))}
             </div>
           </div>
           <div className="flex flex-col sm:flex-row items-center justify-between gap-2 text-xs">
             <p>© {new Date().getFullYear()} {BRAND.legal}. All rights reserved.</p>
-            <p style={{ color: "rgba(255,255,255,0.25)" }}>{BRAND.mission}</p>
+            <p style={{ color: "#5a5045" }}>{BRAND.mission}</p>
           </div>
         </div>
       </footer>

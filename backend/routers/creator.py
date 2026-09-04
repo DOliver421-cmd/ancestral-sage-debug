@@ -290,11 +290,32 @@ async def creator_enrollments_me(user: User = Depends(_dep_current_user)):
 # Platform retains 30%; creator keeps 70%. Payouts accumulate monthly.
 # "Pending" = earned but not yet disbursed. "paid" = payout sent.
 
-class SaveBankAccountReq(BaseModel):
+PAYOUT_TERMS_VERSION = "2026-09-02"
+PAYOUT_MINIMUM_CENTS = 100
+PAYOUT_METHODS = ("bank_transfer", "paypal", "cash_app", "venmo", "check", "other")
+
+
+class SavePayoutProfileReq(BaseModel):
+    payout_method: Literal["bank_transfer", "paypal", "cash_app", "venmo", "check", "other"]
+    destination_label: str = Field(..., min_length=2, max_length=120)
+    destination_last4: str = Field(..., min_length=2, max_length=8, pattern=r"^[A-Za-z0-9* -]+$")
     account_holder_name: str = Field(..., min_length=2, max_length=200)
-    routing_number: str = Field(..., min_length=9, max_length=9, pattern=r"^\d{9}$")
-    account_number: str = Field(..., min_length=4, max_length=17, pattern=r"^\d+$")
-    account_type: Literal["checking", "savings"] = "checking"
+    terms_version: str = Field(..., min_length=1, max_length=40)
+    terms_accepted: bool
+
+
+class PayoutRequestReq(BaseModel):
+    amount_cents: int = Field(..., ge=PAYOUT_MINIMUM_CENTS)
+    terms_version: str = Field(..., min_length=1, max_length=40)
+    terms_accepted: bool
+
+
+def _payout_terms_error(body) -> Optional[str]:
+    if not body.terms_accepted:
+        return "You must accept the current payout terms before continuing."
+    if body.terms_version != PAYOUT_TERMS_VERSION:
+        return "The payout terms have changed. Review and accept the current terms."
+    return None
 
 
 @router.get("/creator/earnings")
@@ -330,9 +351,14 @@ async def creator_earnings_summary(user: User = Depends(_dep_current_user)):
         "total_pending_cents": total_pending,
         "total_paid_cents": total_paid,
         "months": months,
-        "bank_account_on_file": bank is not None,
-        "bank_account_holder": (bank or {}).get("account_holder_name"),
-        "bank_account_type": (bank or {}).get("account_type"),
+        "payout_profile_on_file": bank is not None,
+        "payout_method": (bank or {}).get("payout_method"),
+        "payout_destination": (bank or {}).get("destination_label"),
+        "payout_destination_last4": (bank or {}).get("destination_last4"),
+        "payout_terms_version": (bank or {}).get("terms_version"),
+        "payout_terms_accepted_at": (bank or {}).get("terms_accepted_at"),
+        "payout_minimum_cents": PAYOUT_MINIMUM_CENTS,
+        "payout_terms_current_version": PAYOUT_TERMS_VERSION,
     }
 
 
@@ -346,25 +372,86 @@ async def creator_payout_history(user: User = Depends(_dep_current_user)):
     return {"payouts": payouts}
 
 
-@router.post("/creator/bank-account", status_code=201)
-async def creator_save_bank_account(body: SaveBankAccountReq, user: User = Depends(_dep_current_user)):
-    """Save or update creator bank account for payouts.
-    Account number stored masked (last 4 digits only after save)."""
-    masked = "****" + body.account_number[-4:]
-    await db.creator_bank_accounts.update_one(
+@router.post("/creator/payout-profile", status_code=201)
+async def creator_save_payout_profile(body: SavePayoutProfileReq, user: User = Depends(_dep_current_user)):
+    """Save a creator's consented payout preference without collecting credentials.
+
+    The platform records a human-readable destination label and last-four
+    identifier only. It does not act as a payment processor or store bank
+    routing/account credentials.
+    """
+    error = _payout_terms_error(body)
+    if error:
+        raise HTTPException(400, error)
+    now = datetime.now(timezone.utc).isoformat()
+    await db.creator_payout_profiles.update_one(
         {"creator_id": user.id},
         {"$set": {
             "creator_id": user.id,
-            "account_holder_name": body.account_holder_name,
-            "routing_number": body.routing_number,  # stored for payout processing
-            "account_number_masked": masked,
-            "account_type": body.account_type,
-            "updated_at": datetime.now(timezone.utc).isoformat(),
-        }, "$setOnInsert": {"created_at": datetime.now(timezone.utc).isoformat()}},
+            "payout_method": body.payout_method,
+            "destination_label": body.destination_label.strip(),
+            "destination_last4": body.destination_last4.strip(),
+            "account_holder_name": body.account_holder_name.strip(),
+            "terms_version": body.terms_version,
+            "terms_accepted_at": now,
+            "updated_at": now,
+        }, "$setOnInsert": {"created_at": now}},
         upsert=True,
     )
-    await audit(user.id, "creator.bank_account.saved", meta={"masked": masked})
-    return {"saved": True, "account_number_masked": masked}
+    await audit(user.id, "creator.payout_profile.consented", meta={
+        "method": body.payout_method, "destination_last4": body.destination_last4,
+        "terms_version": body.terms_version,
+    })
+    return {"saved": True, "payout_method": body.payout_method,
+            "destination_label": body.destination_label, "destination_last4": body.destination_last4,
+            "terms_version": body.terms_version, "terms_accepted_at": now}
+
+
+@router.get("/creator/payout-profile")
+async def creator_get_payout_profile(user: User = Depends(_dep_current_user)):
+    profile = await db.creator_payout_profiles.find_one({"creator_id": user.id}, {"_id": 0})
+    return {"payout_profile": profile, "terms_version": PAYOUT_TERMS_VERSION,
+            "payout_methods": PAYOUT_METHODS, "minimum_cents": PAYOUT_MINIMUM_CENTS}
+
+
+@router.post("/creator/payout-request", status_code=201)
+async def creator_request_payout(body: PayoutRequestReq, user: User = Depends(_dep_current_user)):
+    """Request a reviewed payout; never claims that funds were transferred."""
+    error = _payout_terms_error(body)
+    if error:
+        raise HTTPException(400, error)
+    profile = await db.creator_payout_profiles.find_one({"creator_id": user.id})
+    if not profile:
+        raise HTTPException(400, "Save your payout preference and accept the current terms first.")
+    if body.amount_cents < PAYOUT_MINIMUM_CENTS:
+        raise HTTPException(400, "Payout is below the minimum amount.")
+    open_request = await db.creator_payout_requests.find_one({"creator_id": user.id, "status": {"$in": ["requested", "approved", "processing"]}})
+    if open_request:
+        raise HTTPException(409, "You already have an open payout request.")
+    payable = await db.creator_earnings.aggregate([
+        {"$match": {"creator_id": user.id, "payout_status": "pending"}},
+        {"$group": {"_id": None, "total": {"$sum": "$creator_share_cents"}}},
+    ]).to_list(length=1)
+    available = int((payable[0] if payable else {}).get("total", 0))
+    if body.amount_cents > available:
+        raise HTTPException(400, "Requested amount exceeds your payable balance.")
+    now = datetime.now(timezone.utc).isoformat()
+    request_id = str(uuid.uuid4())
+    await db.creator_payout_requests.insert_one({
+        "request_id": request_id, "creator_id": user.id, "amount_cents": body.amount_cents,
+        "status": "requested", "payout_method": profile["payout_method"],
+        "destination_last4": profile["destination_last4"], "terms_version": body.terms_version,
+        "terms_accepted_at": profile.get("terms_accepted_at"), "created_at": now,
+    })
+    await audit(user.id, "creator.payout.requested", meta={"request_id": request_id, "amount_cents": body.amount_cents})
+    return {"requested": True, "request_id": request_id, "status": "requested",
+            "message": "Your request is recorded for review. No transfer has been made."}
+
+
+@router.post("/creator/bank-account", status_code=201)
+async def creator_save_bank_account_legacy(body: dict, user: User = Depends(_dep_current_user)):
+    """Legacy compatibility route; records only a masked payout destination."""
+    raise HTTPException(410, "Bank credentials are no longer collected. Use /creator/payout-profile with your preferred payout method.")
 
 
 @router.get("/creator/bank-account")

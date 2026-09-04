@@ -128,6 +128,8 @@ class KnowledgeObject:
         self.provenance: Dict = kwargs.get("provenance", {})
         self.relationships: List[Dict] = kwargs.get("relationships", [])
         self.tags: List[str] = kwargs.get("tags", [])
+        self.domains: List[str] = kwargs.get("domains", [])
+        self.keywords: List[str] = kwargs.get("keywords", [])
         self.evidence: List[Dict] = kwargs.get("evidence", [])
     
     def to_dict(self) -> Dict:
@@ -147,6 +149,8 @@ class KnowledgeObject:
             "provenance": self.provenance,
             "relationships": self.relationships,
             "tags": self.tags,
+            "domains": self.domains,
+            "keywords": self.keywords,
             "evidence": self.evidence,
         }
     
@@ -194,6 +198,12 @@ class KnowledgeForge:
                 "evidence_count": 1,
             },
             tags=source_info.get("tags", []),
+            # Retrieval fields: knowledge_graph.retrieve() scores items by
+            # domain overlap and keyword hits. Dropping them at ingestion
+            # (the historical behavior) made every API-ingested item
+            # invisible to domain-scoped search — carry them through.
+            domains=source_info.get("domains", []),
+            keywords=source_info.get("keywords", []),
         )
         
         self.knowledge_base.append(knowledge)

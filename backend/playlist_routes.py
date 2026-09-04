@@ -178,16 +178,16 @@ async def complete_step(data: StepRequest):
 async def create_gateway(
     data: GatewayCreateRequest,
 
-    current_user: dict = Depends(require_user),
+    current_user = Depends(require_user),
 ):
     """Authenticated — curator creates a new gateway slot."""
     db = get_db()
-    curator_slug = data.curator_slug or current_user.get("creator_slug", str(current_user["_id"]))
+    curator_slug = data.curator_slug or current_user.id
 
     doc = {
         "curator_slug": curator_slug,
-        "curator_id": str(current_user["_id"]),
-        "curator_name": current_user.get("full_name", ""),
+        "curator_id": current_user.id,
+        "curator_name": current_user.full_name,
         "playlist_name": data.playlist_name,
         "playlist_spotify_url": data.playlist_spotify_url,
         "playlist_spotify_id": data.playlist_spotify_id,
@@ -208,11 +208,11 @@ async def create_gateway(
 @router.get("/dashboard")
 async def get_dashboard(
 
-    current_user: dict = Depends(require_user),
+    current_user = Depends(require_user),
 ):
     """Authenticated — curator's full dashboard with all gateways and submissions."""
     db = get_db()
-    curator_id = str(current_user["_id"])
+    curator_id = current_user.id
 
     gateways = await db.playlist_gateways.find(
         {"curator_id": curator_id}
@@ -238,7 +238,7 @@ async def get_dashboard(
 
     return {
         "status": "success",
-        "curator_name": current_user.get("full_name", ""),
+        "curator_name": current_user.full_name,
         "gateways": gateway_data,
         "total_submissions": total_submissions,
         "total_approved": total_approved,
@@ -250,7 +250,7 @@ async def get_dashboard(
 async def approve_submission(
     data: ReviewRequest,
 
-    current_user: dict = Depends(require_user),
+    current_user = Depends(require_user),
 ):
     """Authenticated — curator approves an artist's submission."""
     db = get_db()
@@ -261,7 +261,7 @@ async def approve_submission(
 
     if not sub:
         raise HTTPException(status_code=404, detail="Submission not found")
-    if sub["curator_id"] != str(current_user["_id"]):
+    if sub["curator_id"] != current_user.id:
         raise HTTPException(status_code=403, detail="Not your submission")
 
     await db.playlist_submissions.update_one(
@@ -298,7 +298,7 @@ async def approve_submission(
 async def reject_submission(
     data: ReviewRequest,
 
-    current_user: dict = Depends(require_user),
+    current_user = Depends(require_user),
 ):
     """Authenticated — curator rejects a submission."""
     db = get_db()
@@ -309,7 +309,7 @@ async def reject_submission(
 
     if not sub:
         raise HTTPException(status_code=404, detail="Submission not found")
-    if sub["curator_id"] != str(current_user["_id"]):
+    if sub["curator_id"] != current_user.id:
         raise HTTPException(status_code=403, detail="Not your submission")
 
     await db.playlist_submissions.update_one(
@@ -323,13 +323,13 @@ async def reject_submission(
 async def set_gateway_status(
     gateway_id: str,
 
-    current_user: dict = Depends(require_user),
+    current_user = Depends(require_user),
 ):
     """Authenticated — toggle gateway open/closed."""
     db = get_db()
     gateway = await db.playlist_gateways.find_one({
         "_id": ObjectId(gateway_id),
-        "curator_id": str(current_user["_id"]),
+        "curator_id": current_user.id,
     })
     if not gateway:
         raise HTTPException(status_code=404, detail="Gateway not found")

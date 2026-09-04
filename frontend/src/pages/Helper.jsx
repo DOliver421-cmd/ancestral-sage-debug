@@ -493,8 +493,10 @@ export function PublicHelper({ embedded = false }) {
   );
 }
 
-// ====================================================================// AUTH HELPER - two-panel desktop: persistent sidebar + tabbed right panel
-// ====================================================================function AuthHelper({ user }) {
+// ====================================================================
+// AUTH HELPER - two-panel desktop: persistent sidebar + tabbed right panel
+// ====================================================================
+function AuthHelper({ user }) {
   const [tab, setTab] = useState("home");
   const [msgs, setMsgs] = useState([]);
   const [input, setInput] = useState("");

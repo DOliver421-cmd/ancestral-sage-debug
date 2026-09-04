@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import AppShell from "../components/AppShell";
 import { LoadingState } from "../components/LoadingState";
-import { api, BACKEND_URL } from "../lib/api";
+import { api } from "../lib/api";
 import { useAuth } from "../lib/auth";
 import { toast } from "sonner";
 import { BookOpen, ShieldAlert, Wrench, CheckSquare, FileImage, Sparkles, ArrowLeft, ArrowRight, Award, LayoutList } from "lucide-react";
@@ -24,10 +24,10 @@ export default function ModuleView() {
     api.get(`/modules/${slug}`)
       .then((r) => setMod(r.data))
       .catch(() => setLoadFailed(true));
-    // Public catalog (metadata only) — fine for anyone.
-    fetch(`${BACKEND_URL}/api/modules`)
-      .then((r) => r.ok ? r.json() : [])
-      .then((data) => setAllModules(Array.isArray(data) ? data : []))
+    // Public catalog (metadata only) — fine for anyone; the axios client
+    // attaches the JWT when present and the server serves the listing to all.
+    api.get("/modules")
+      .then((r) => setAllModules(Array.isArray(r.data) ? r.data : []))
       .catch(() => {});
     if (user) {
       api.post("/progress/start", { module_slug: slug }).then((r) => setProgress(r.data)).catch(() => {});

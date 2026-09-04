@@ -6,12 +6,19 @@ Extracted verbatim from backend/server.py (monolith refactor, slice 5).
 Shared state (db, current_user, award_xp, award_credentials) is bound by
 server.py via bind() at include time — no circular imports.
 """
+import asyncio
 import logging
+import os
+import shutil
+import subprocess
+import tempfile
 import uuid
 from datetime import datetime, timedelta, timezone
+from pathlib import Path
 from typing import Literal, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Header
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, ConfigDict, Field
 from roles import Role, ROLE_RANK, role_rank, LEGACY_ROLE_MAP, normalize_role, FREE_BYOK_ROLES
 
@@ -20,16 +27,17 @@ router = APIRouter(tags=["studio", "arcade", "compliance"])
 
 # ── Shared state, bound by server.py via bind() ──────────────────────────────
 db = None
-current_user = award_xp = award_credentials = None
+current_user = award_xp = award_credentials = audit = None
 
 
-def bind(_db, _current_user, _award_xp, _award_credentials):
+def bind(_db, _current_user, _award_xp, _award_credentials, _audit=None):
     """Called by server.py at include time to inject shared dependencies."""
-    global db, current_user, award_xp, award_credentials
+    global db, current_user, award_xp, award_credentials, audit
     db = _db
     current_user = _current_user
     award_xp = _award_xp
     award_credentials = _award_credentials
+    audit = _audit
 
 
 # Mirrors server.py's role hierarchy (not used by these routes, kept for parity).
@@ -53,6 +61,284 @@ class User(BaseModel):
 async def _dep_current_user(authorization: Optional[str] = Header(None)) -> User:
     """Resolve the real current_user at REQUEST time (bind() sets it after import)."""
     return await current_user(authorization)
+
+
+# ═════════════════════════════════════════════════════════════════════════════
+# Short-form video studio
+# ═════════════════════════════════════════════════════════════════════════════
+
+# Defined before the video routes so FastAPI can capture the dependency while
+# the module is imported. The typed compatibility helper below remains for the
+# legacy studio routes.
+async def _dep_current_user(authorization: Optional[str] = Header(None)):
+    return await current_user(authorization)
+
+
+VIDEO_TIERS = {"pro", "patron", "platinum", "executive"}
+VIDEO_STAFF_ROLES = {"instructor", "support_staff", "oversight", "admin", "executive_admin"}
+VIDEO_RATIOS = {"9:16": (1080, 1920), "1:1": (1080, 1080), "16:9": (1920, 1080)}
+
+
+def _video_access(user: User):
+    if user.role not in VIDEO_STAFF_ROLES and str(getattr(user, "feature_tier", "free")) not in VIDEO_TIERS:
+        raise HTTPException(403, "Pro membership or staff access is required for the Video Studio.")
+
+
+def _clean_video_doc(doc: dict) -> dict:
+    clean = {k: v for k, v in doc.items() if k != "_id"}
+    return clean
+
+
+async def _with_video_scenes(doc: dict) -> dict:
+    scenes = await db.video_scenes.find(
+        {"project_id": doc["id"], "user_id": doc["user_id"]},
+        {"_id": 0},
+    ).sort("scene_order", 1).to_list(100)
+    result = _clean_video_doc(doc)
+    result["scenes"] = scenes
+    return result
+
+
+class VideoProjectBody(BaseModel):
+    title: str = Field(..., min_length=1, max_length=200)
+    idea: str = Field(default="", max_length=5000)
+    description: str = Field(default="", max_length=5000)
+    intended_audience: str = Field(default="", max_length=500)
+    desired_length: int = Field(default=30, ge=1, le=180)
+    purpose: str = Field(default="", max_length=500)
+    call_to_action: str = Field(default="", max_length=1000)
+    aspect_ratio: Literal["9:16", "1:1", "16:9"] = "9:16"
+
+
+class VideoProjectUpdate(BaseModel):
+    title: Optional[str] = Field(default=None, min_length=1, max_length=200)
+    idea: Optional[str] = Field(default=None, max_length=5000)
+    description: Optional[str] = Field(default=None, max_length=5000)
+    intended_audience: Optional[str] = Field(default=None, max_length=500)
+    desired_length: Optional[int] = Field(default=None, ge=1, le=180)
+    purpose: Optional[str] = Field(default=None, max_length=500)
+    call_to_action: Optional[str] = Field(default=None, max_length=1000)
+    aspect_ratio: Optional[Literal["9:16", "1:1", "16:9"]] = None
+
+
+class VideoSceneBody(BaseModel):
+    media_url: Optional[str] = Field(default=None, max_length=2000)
+    text: str = Field(default="", max_length=5000)
+    duration: int = Field(default=5, ge=1, le=60)
+    position: int = Field(default=0, ge=0, le=8)
+
+
+@router.get("/video/projects")
+async def list_video_projects(user: User = Depends(_dep_current_user)):
+    _video_access(user)
+    docs = await db.video_projects.find({"user_id": user.id}, {"_id": 0}).sort("updated_at", -1).to_list(100)
+    return [await _with_video_scenes(d) for d in docs]
+
+
+@router.post("/video/projects")
+async def create_video_project(body: VideoProjectBody, user: User = Depends(_dep_current_user)):
+    _video_access(user)
+    now = datetime.now(timezone.utc).isoformat()
+    doc = {"id": "vp_" + uuid.uuid4().hex, "user_id": user.id, **body.model_dump(),
+           "status": "Draft", "scenes": [], "final_video_url": None, "thumbnail_url": None,
+           "created_at": now, "updated_at": now}
+    await db.video_projects.insert_one(doc)
+    if audit:
+        await audit(user.id, "video_project_created", target=doc["id"], meta={"title": doc["title"]})
+    return _clean_video_doc(doc)
+
+
+async def _owned_video_project(project_id: str, user: User) -> dict:
+    _video_access(user)
+    doc = await db.video_projects.find_one({"id": project_id, "user_id": user.id}, {"_id": 0})
+    if not doc:
+        raise HTTPException(404, "Video project not found")
+    return doc
+
+
+@router.get("/video/projects/{project_id}")
+async def get_video_project(project_id: str, user: User = Depends(_dep_current_user)):
+    return await _with_video_scenes(await _owned_video_project(project_id, user))
+
+
+@router.patch("/video/projects/{project_id}")
+async def update_video_project(project_id: str, body: VideoProjectUpdate, user: User = Depends(_dep_current_user)):
+    doc = await _owned_video_project(project_id, user)
+    updates = {k: v for k, v in body.model_dump(exclude_none=True).items() if v is not None}
+    if not updates:
+        return _clean_video_doc(doc)
+    updates["updated_at"] = datetime.now(timezone.utc).isoformat()
+    await db.video_projects.update_one({"id": project_id, "user_id": user.id}, {"$set": updates})
+    doc.update(updates)
+    return _clean_video_doc(doc)
+
+
+@router.delete("/video/projects/{project_id}")
+async def delete_video_project(project_id: str, user: User = Depends(_dep_current_user)):
+    await _owned_video_project(project_id, user)
+    await db.video_projects.delete_one({"id": project_id, "user_id": user.id})
+    await db.video_scenes.delete_many({"project_id": project_id, "user_id": user.id})
+    return {"deleted": True}
+
+
+@router.post("/video/projects/{project_id}/scenes")
+async def add_video_scene(project_id: str, body: VideoSceneBody, user: User = Depends(_dep_current_user)):
+    project = await _owned_video_project(project_id, user)
+    if body.media_url and not body.media_url.startswith("/api/media/file/"):
+        raise HTTPException(400, "Media must be an uploaded MoreHelp media file")
+    scene = {"id": "vs_" + uuid.uuid4().hex, "project_id": project_id, "user_id": user.id,
+             "scene_order": body.position, "duration": body.duration, "visual_url": body.media_url,
+             "script_text": body.text, "created_at": datetime.now(timezone.utc).isoformat()}
+    await db.video_scenes.insert_one(scene)
+    await db.video_projects.update_one({"id": project_id, "user_id": user.id}, {"$set": {"updated_at": datetime.now(timezone.utc).isoformat(), "status": "Ready to Preview"}})
+    return _clean_video_doc(scene)
+
+
+@router.patch("/video/projects/{project_id}/scenes/{scene_id}")
+async def update_video_scene(project_id: str, scene_id: str, body: VideoSceneBody, user: User = Depends(_dep_current_user)):
+    await _owned_video_project(project_id, user)
+    if body.media_url and not body.media_url.startswith("/api/media/file/"):
+        raise HTTPException(400, "Media must be an uploaded MoreHelp media file")
+    scene = await db.video_scenes.find_one({"id": scene_id, "project_id": project_id, "user_id": user.id}, {"_id": 0})
+    if not scene:
+        raise HTTPException(404, "Scene not found")
+    updates = {"duration": body.duration, "script_text": body.text, "visual_url": body.media_url, "scene_order": body.position}
+    await db.video_scenes.update_one({"id": scene_id, "project_id": project_id}, {"$set": updates})
+    scene.update(updates)
+    return _clean_video_doc(scene)
+
+
+@router.post("/video/projects/{project_id}/scenes/{scene_id}/duplicate")
+async def duplicate_video_scene(project_id: str, scene_id: str, user: User = Depends(_dep_current_user)):
+    await _owned_video_project(project_id, user)
+    source = await db.video_scenes.find_one(
+        {"id": scene_id, "project_id": project_id, "user_id": user.id},
+        {"_id": 0},
+    )
+    if not source:
+        raise HTTPException(404, "Scene not found")
+    now = datetime.now(timezone.utc).isoformat()
+    scene = {**source, "id": "vs_" + uuid.uuid4().hex, "scene_order": source.get("scene_order", 0) + 1, "created_at": now}
+    await db.video_scenes.insert_one(scene)
+    await db.video_projects.update_one(
+        {"id": project_id, "user_id": user.id},
+        {"$set": {"updated_at": now, "status": "Ready to Preview"}},
+    )
+    return _clean_video_doc(scene)
+
+
+@router.delete("/video/projects/{project_id}/scenes/{scene_id}")
+async def delete_video_scene(project_id: str, scene_id: str, user: User = Depends(_dep_current_user)):
+    await _owned_video_project(project_id, user)
+    result = await db.video_scenes.delete_one({"id": scene_id, "project_id": project_id, "user_id": user.id})
+    if not result.deleted_count:
+        raise HTTPException(404, "Scene not found")
+    return {"deleted": True}
+
+
+async def _download_render_asset(url: str, workdir: str, index: int, user_id: str) -> tuple[str, bool]:
+    """Resolve an owned MoreHelp upload without making an unauthenticated HTTP hop."""
+    prefix = "/api/media/file/"
+    if not url.startswith(prefix):
+        raise HTTPException(400, "Use an uploaded MoreHelp media file for each scene")
+    from bson import ObjectId
+    from motor.motor_asyncio import AsyncIOMotorGridFSBucket
+
+    try:
+        file_id = ObjectId(url[len(prefix):].split("?", 1)[0])
+        stream = await AsyncIOMotorGridFSBucket(db).open_download_stream(file_id)
+        metadata = stream.metadata or {}
+        if metadata.get("uploader") != user_id and metadata.get("user_id") != user_id:
+            raise HTTPException(403, "You can only render media you uploaded")
+        contents = await stream.read()
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise HTTPException(404, "Scene media could not be found") from exc
+
+    suffix = Path(str(metadata.get("filename") or "")).suffix.lower() or ".bin"
+    target = os.path.join(workdir, f"asset_{index}{suffix}")
+    Path(target).write_bytes(contents)
+    return target, str(metadata.get("content_type") or "").startswith("video/")
+
+
+@router.post("/video/projects/{project_id}/render")
+async def render_video_project(project_id: str, user: User = Depends(_dep_current_user)):
+    project = await _owned_video_project(project_id, user)
+    scenes = await db.video_scenes.find({"project_id": project_id, "user_id": user.id}, {"_id": 0}).sort("scene_order", 1).to_list(100)
+    if not scenes:
+        raise HTTPException(400, "Add at least one scene before making your video.")
+    if any(not s.get("visual_url") for s in scenes):
+        missing = next(i + 1 for i, s in enumerate(scenes) if not s.get("visual_url"))
+        raise HTTPException(400, f"Scene {missing} needs a picture or video before your video can be made.")
+    if not shutil.which("ffmpeg"):
+        raise HTTPException(503, "Video making is unavailable because the renderer is not installed.")
+
+    job_id = "vr_" + uuid.uuid4().hex
+    now = datetime.now(timezone.utc).isoformat()
+    await db.video_render_jobs.insert_one({"id": job_id, "project_id": project_id, "user_id": user.id, "status": "Processing", "progress": 5, "created_at": now})
+    await db.video_projects.update_one({"id": project_id}, {"$set": {"status": "Making Your Video...", "render_job_id": job_id, "updated_at": now}})
+    width, height = VIDEO_RATIOS[project.get("aspect_ratio", "9:16")]
+    try:
+        with tempfile.TemporaryDirectory(prefix="morehelp-video-") as workdir:
+            inputs = []
+            for index, scene in enumerate(scenes):
+                path, is_video = await _download_render_asset(scene["visual_url"], workdir, index, user.id)
+                output = os.path.join(workdir, f"scene_{index}.mp4")
+                duration = str(scene.get("duration", 5))
+                input_args = ["-i", path] if is_video else ["-loop", "1", "-i", path]
+                command = ["ffmpeg", "-y", *input_args, "-t", duration, "-vf", f"scale={width}:{height}:force_original_aspect_ratio=decrease,pad={width}:{height}:(ow-iw)/2:(oh-ih)/2,format=yuv420p", "-r", "30", "-an", output]
+                await asyncio.to_thread(subprocess.run, command, check=True, capture_output=True, timeout=90)
+                inputs.append(output)
+                await db.video_render_jobs.update_one(
+                    {"id": job_id},
+                    {"$set": {"progress": min(90, 10 + (index + 1) * 80 // len(scenes))}},
+                )
+            concat = os.path.join(workdir, "concat.txt")
+            Path(concat).write_text("".join(f"file '{p}'\\n" for p in inputs))
+            final = os.path.join(workdir, "final.mp4")
+            await asyncio.to_thread(subprocess.run, ["ffmpeg", "-y", "-f", "concat", "-safe", "0", "-i", concat, "-c", "copy", final], check=True, capture_output=True, timeout=120)
+            from motor.motor_asyncio import AsyncIOMotorGridFSBucket
+            with open(final, "rb") as stream:
+                file_id = await AsyncIOMotorGridFSBucket(db).upload_from_stream(f"{project_id}.mp4", stream, metadata={"kind": "video_render", "project_id": project_id, "user_id": user.id, "content_type": "video/mp4"})
+        output_url = f"/api/studio/video/files/{file_id}"
+        await db.video_render_jobs.update_one({"id": job_id}, {"$set": {"status": "Completed", "progress": 100, "output_url": output_url, "completed_at": datetime.now(timezone.utc).isoformat()}})
+        await db.video_projects.update_one({"id": project_id}, {"$set": {"status": "Video Ready", "final_video_url": output_url, "updated_at": datetime.now(timezone.utc).isoformat()}})
+        return {"job_id": job_id, "status": "Video Ready", "progress": 100, "output_url": output_url}
+    except Exception as exc:
+        logger.exception("video render failed for %s", project_id)
+        await db.video_render_jobs.update_one({"id": job_id}, {"$set": {"status": "Failed", "error_message": "The video could not be made. Check each scene's media and try again."}})
+        await db.video_projects.update_one({"id": project_id}, {"$set": {"status": "Needs Attention", "updated_at": datetime.now(timezone.utc).isoformat()}})
+        if isinstance(exc, HTTPException):
+            raise
+        raise HTTPException(500, "The video could not be made. Check each scene's media and try again.") from exc
+
+
+@router.get("/video/projects/{project_id}/render-jobs/{job_id}")
+async def get_video_render_job(project_id: str, job_id: str, user: User = Depends(_dep_current_user)):
+    await _owned_video_project(project_id, user)
+    job = await db.video_render_jobs.find_one(
+        {"id": job_id, "project_id": project_id, "user_id": user.id},
+        {"_id": 0},
+    )
+    if not job:
+        raise HTTPException(404, "Render job not found")
+    return _clean_video_doc(job)
+
+
+@router.get("/video/files/{file_id}")
+async def download_video_file(file_id: str, user: User = Depends(_dep_current_user)):
+    _video_access(user)
+    from bson import ObjectId
+    from motor.motor_asyncio import AsyncIOMotorGridFSBucket
+    try:
+        stream = await AsyncIOMotorGridFSBucket(db).open_download_stream(ObjectId(file_id))
+    except Exception:
+        raise HTTPException(404, "Rendered video not found")
+    owner = (stream.metadata or {}).get("user_id")
+    if owner != user.id and user.role not in VIDEO_STAFF_ROLES:
+        raise HTTPException(403, "Access denied")
+    return StreamingResponse(stream, media_type="video/mp4", headers={"Content-Disposition": f'attachment; filename="{file_id}.mp4"'})
 
 
 # ═════════════════════════════════════════════════════════════════════════════
@@ -99,6 +385,7 @@ Rules:
             messages=[{"role": "user", "content": prompt}],
             system="You are a master lyricist and poet. You write authentic, culturally resonant lyrics across all genres. You understand flow, rhyme scheme, metaphor, and the emotional truth of Black American music and storytelling.",
             persona_label="Lyric Forge",
+            user_id=user.id,
         )
         return {"lyrics": result.get("text", ""), "provider": result.get("provider", "free")}
     except Exception as e:
@@ -139,6 +426,7 @@ Return ONLY a JSON object with these exact keys (no markdown, no extra text):
             messages=[{"role": "user", "content": prompt}],
             system="You are a music metadata specialist and digital distribution expert. You produce accurate, platform-optimized metadata for independent artists.",
             persona_label="Publishing Gate",
+            user_id=user.id,
         )
         text = result.get("text", "{}").strip()
         # Strip markdown code fences if present
@@ -195,6 +483,7 @@ async def studio_altar(body: dict, user: User = Depends(_dep_current_user)):
             messages=[{"role": "user", "content": prompt}],
             system="You are a world-class visual creative director. Give vivid, specific visual direction.",
             persona_label="VisualDirector",
+            user_id=user.id,
         )
         return {"direction": result.get("text", "A bold, cinematic visual identity awaits.")}
     except Exception:
@@ -219,6 +508,7 @@ async def studio_script(body: dict, user: User = Depends(_dep_current_user)):
             messages=[{"role": "user", "content": prompt}],
             system="You are a professional script editor and literary polisher. Return only the improved text.",
             persona_label="ScriptEditor",
+            user_id=user.id,
         )
         return {"polished": result.get("text", content)}
     except Exception:
@@ -243,24 +533,24 @@ async def studio_sound_blueprint(body: dict, user: User = Depends(_dep_current_u
             messages=[{"role": "user", "content": prompt}],
             system="You are a seasoned music producer with deep knowledge of beats, sound design, and arrangement.",
             persona_label="SoundProducer",
+            user_id=user.id,
         )
         return {"blueprint": result.get("text", "Sonic blueprint unavailable — try again.")}
     except Exception:
         raise HTTPException(503, "Sound blueprint unavailable")
 
 
-_SOFT_ASSIST_LABEL = "AI assist unavailable. This is a creator-owned draft scaffold; fill, change, or discard it."
-
-
-def _sovereign_scaffold(action: str, ctx: dict) -> tuple[str, str]:
-    labels = {
-        "generate_lyrics": "lyrics",
-        "generate_metadata": "metadata",
-        "visual_direction": "visual_direction",
-        "polish_script": "polished_script",
-        "sonic_blueprint": "sonic_blueprint",
-    }
-    return labels.get(action, "creator_prompt"), _SOFT_ASSIST_LABEL
+def _require_provider_result(result: dict) -> str:
+    """Accept only a real provider response for the Sovereign AI surface."""
+    if not isinstance(result, dict):
+        raise RuntimeError("invalid provider response")
+    provider = str(result.get("provider") or "")
+    if provider in {"kb_fallback", "user_budget"}:
+        raise RuntimeError(f"no live AI provider result ({provider})")
+    text = str(result.get("text") or "").strip()
+    if not text:
+        raise RuntimeError("empty provider response")
+    return text
 
 
 def _sovereign_scaffold_text(action: str, ctx: dict) -> str:
@@ -316,8 +606,8 @@ async def studio_sovereign(body: dict, user: User = Depends(_dep_current_user)):
     calls sub-tools, and delivers results in his own voice.
 
     AI-ASSISTED POLICY: AI output is always a DRAFT the creator edits.
-    When AI is unavailable, we never fake it and never dead-end —
-    we hand back a labeled structural scaffold the creator fills themselves.
+    When no live provider result is available, this endpoint returns a
+    structured 503 so the caller cannot mistake a worksheet or KB answer for AI work.
     """
     from ai.llm_gateway import call_llm
     chamber = body.get("chamber", "map")
@@ -336,10 +626,8 @@ async def studio_sovereign(body: dict, user: User = Depends(_dep_current_user)):
                 f"Topic: {ctx.get('topic', '')}. Notes: {ctx.get('notes', '')}. "
                 "Return only the lyrics — no commentary."
             )
-            r = await call_llm(system="You are Sovereign, a master lyricist and poet. Write authentic, culturally resonant lyrics.", messages=[{"role": "user", "content": prompt}], persona_label="LyricForge")
-            if not (r.get("text") or "").strip():
-                raise RuntimeError("empty lyric response")
-            artifact = r.get("text", "")
+            r = await call_llm(system="You are Sovereign, a master lyricist and poet. Write authentic, culturally resonant lyrics.", messages=[{"role": "user", "content": prompt}], persona_label="LyricForge", user_id=user.id)
+            artifact = _require_provider_result(r)
             artifact_type = "lyrics"
             response = "Lyrics forged, Creator. Take what's useful — cut what isn't. The Forge is yours."
 
@@ -351,10 +639,8 @@ async def studio_sovereign(body: dict, user: User = Depends(_dep_current_user)):
                 "Return a JSON object with keys: title, artist_note, genre, release_date_suggestion, "
                 "description, tags (array), upc_note, isrc_note, distributor_note, pitch."
             )
-            r = await call_llm(system="You are Sovereign, a music metadata and distribution specialist. Return accurate structured metadata.", messages=[{"role": "user", "content": prompt}], persona_label="PublishingGate")
-            if not (r.get("text") or "").strip():
-                raise RuntimeError("empty metadata response")
-            artifact = r.get("text", "{}")
+            r = await call_llm(system="You are Sovereign, a music metadata and distribution specialist. Return accurate structured metadata.", messages=[{"role": "user", "content": prompt}], persona_label="PublishingGate", user_id=user.id)
+            artifact = _require_provider_result(r)
             artifact_type = "metadata"
             response = "Metadata is locked in, Boss. Everything's structured for distribution — copy what you need."
 
@@ -365,10 +651,8 @@ async def studio_sovereign(body: dict, user: User = Depends(_dep_current_user)):
                 f"Notes: {ctx.get('notes', '')}. "
                 "Write a vivid 3-4 sentence visual direction — aesthetic, mood, and visual language."
             )
-            r = await call_llm(system="You are Sovereign, a visual creative director. Describe aesthetic, mood, and visual language vividly.", messages=[{"role": "user", "content": prompt}], persona_label="VisualAltar")
-            if not (r.get("text") or "").strip():
-                raise RuntimeError("empty visual response")
-            artifact = r.get("text", "")
+            r = await call_llm(system="You are Sovereign, a visual creative director. Describe aesthetic, mood, and visual language vividly.", messages=[{"role": "user", "content": prompt}], persona_label="VisualAltar", user_id=user.id)
+            artifact = _require_provider_result(r)
             artifact_type = "visual_direction"
             response = "Vision sealed, Creator. Your visual altar now has a direction — build from it."
 
@@ -379,10 +663,8 @@ async def studio_sovereign(body: dict, user: User = Depends(_dep_current_user)):
                 " Return ONLY the polished version.\n\n"
                 f"{ctx.get('content', '')}"
             )
-            r = await call_llm(system="You are Sovereign, a script editor. Polish for clarity, flow, and impact while preserving the creator voice.", messages=[{"role": "user", "content": prompt}], persona_label="ScriptScriptorium")
-            if not (r.get("text") or "").strip():
-                raise RuntimeError("empty polish response")
-            artifact = r.get("text", "")
+            r = await call_llm(system="You are Sovereign, a script editor. Polish for clarity, flow, and impact while preserving the creator voice.", messages=[{"role": "user", "content": prompt}], persona_label="ScriptScriptorium", user_id=user.id)
+            artifact = _require_provider_result(r)
             artifact_type = "polished_script"
             response = "Script polished. I kept your voice and tightened the structure. Side-by-side is ready."
 
@@ -394,10 +676,8 @@ async def studio_sovereign(body: dict, user: User = Depends(_dep_current_user)):
                 "Describe: drums pattern, bass style, melody approach, texture/atmosphere, sample ideas. "
                 "200 words max. Be specific and technical."
             )
-            r = await call_llm(system="You are Sovereign, a music producer. Describe sonic blueprints with technical specificity.", messages=[{"role": "user", "content": prompt}], persona_label="SoundLab")
-            if not (r.get("text") or "").strip():
-                raise RuntimeError("empty blueprint response")
-            artifact = r.get("text", "")
+            r = await call_llm(system="You are Sovereign, a music producer. Describe sonic blueprints with technical specificity.", messages=[{"role": "user", "content": prompt}], persona_label="SoundLab", user_id=user.id)
+            artifact = _require_provider_result(r)
             artifact_type = "sonic_blueprint"
             response = "Blueprint built, Boss. Your sonic direction is locked in — the Sound Lab is ready."
 
@@ -416,14 +696,20 @@ async def studio_sovereign(body: dict, user: User = Depends(_dep_current_user)):
                 messages=[{"role": "user", "content": f"Context: {ctx}\n\nCreator: {msg}"}],
                 system=system,
                 persona_label="Sovereign",
+                user_id=user.id,
             )
-            if not (r.get("text") or "").strip():
-                raise RuntimeError("empty chat response")
-            response = r.get("text", "")
+            response = _require_provider_result(r)
 
-    except Exception:
-        artifact_type, response = _sovereign_scaffold(action, ctx)
-        artifact = _sovereign_scaffold_text(action, ctx)
+    except Exception as e:
+        logger.warning("Sovereign provider unavailable (%s): %s", action, e)
+        raise HTTPException(
+            status_code=503,
+            detail={
+                "code": "AI_PROVIDER_UNAVAILABLE",
+                "message": "Sovereign AI is unavailable because no live AI provider returned a result.",
+                "retryable": True,
+            },
+        ) from e
 
     return {"response": response, "artifact": artifact, "artifact_type": artifact_type}
 

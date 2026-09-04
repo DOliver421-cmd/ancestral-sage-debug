@@ -128,6 +128,14 @@ class DB:
     def __getitem__(self, name):
         return self.c.setdefault(name, Coll())
 
+    def __getattr__(self, name):
+        # Motor databases expose collections through attribute access.  The
+        # endpoint harness uses the same contract so middleware policy reads
+        # are exercised instead of failing because the fake has no attributes.
+        if name.startswith("_"):
+            raise AttributeError(name)
+        return self[name]
+
 
 async def main():
     db = DB()

@@ -58,9 +58,12 @@ def test_persona_prompts_non_empty():
 
 
 def test_get_persona_raises_on_unknown():
-    from ai.persona_loader import get_persona
+    # get_persona() is async (DB-override aware); its synchronous twin
+    # get_persona_sync() preserves the sync contract and raises KeyError
+    # for unknown personas.
+    from ai.persona_loader import get_persona_sync
     try:
-        get_persona("hallucinated_persona")
+        get_persona_sync("hallucinated_persona")
         assert False, "Should have raised KeyError"
     except KeyError:
         pass
@@ -85,7 +88,9 @@ def test_routing_defaults():
     assert route_request("instructor", {}) == "assistant_director"
     assert route_request("admin", {}) == "director"
     assert route_request("executive_admin", {}) == "director"
-    assert route_request("unknown_role", {}) == "director"  # safe fallback
+    # Unknown roles are normalized to 'student' (least-privilege), so they
+    # route to assistant_director — never to the executive Director persona.
+    assert route_request("unknown_role", {}) == "assistant_director"
     print("  ✓ Role-based routing defaults are correct")
 
 

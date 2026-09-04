@@ -1,0 +1,6644 @@
+{
+  "total": 760,
+  "routes": [
+    {
+      "method": "DELETE",
+      "path": "/api/admin/access/ipwhitelist/{entry_id}",
+      "module": "server.inline",
+      "auth": [
+        "dep"
+      ],
+      "name": "remove_ip_whitelist"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/admin/prices/{price_id}",
+      "module": "routers.auditor",
+      "auth": [
+        "dep"
+      ],
+      "name": "delete_price"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/admin/promo-codes/{code}",
+      "module": "routers.promo_codes",
+      "auth": [
+        "dep"
+      ],
+      "name": "delete_promo_code"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/admin/users/{uid}",
+      "module": "server.inline",
+      "auth": [
+        "dep"
+      ],
+      "name": "admin_delete_user"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/admin/users/{uid}/elevated-role",
+      "module": "server.inline",
+      "auth": [
+        "dep"
+      ],
+      "name": "revoke_elevated_role"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/admin/users/{uid}/sessions",
+      "module": "server.inline",
+      "auth": [
+        "dep"
+      ],
+      "name": "exec_force_logout"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/ai/ai/memory/policy/{persona}/{order_id}",
+      "module": "server.inline",
+      "auth": [
+        "dep"
+      ],
+      "name": "delete_memory_policy"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/ai/memory/policy/{persona}/{order_id}",
+      "module": "server.inline",
+      "auth": [
+        "dep"
+      ],
+      "name": "delete_memory_policy"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/auth/account",
+      "module": "server.inline",
+      "auth": [
+        "current_user"
+      ],
+      "name": "gdpr_delete_account"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/auth/sessions",
+      "module": "server.inline",
+      "auth": [
+        "current_user"
+      ],
+      "name": "revoke_all_sessions"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/auth/sessions/{session_id}",
+      "module": "server.inline",
+      "auth": [
+        "current_user"
+      ],
+      "name": "revoke_session"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/byok/key/{provider}",
+      "module": "routers.byok",
+      "auth": [
+        "_dep_current_user"
+      ],
+      "name": "byok_remove_key"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/creator-lounge/projects/{project_id}",
+      "module": "routers.creator_lounge",
+      "auth": [
+        "_dep_current_user"
+      ],
+      "name": "cl_delete_project"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/creator/courses/{course_id}",
+      "module": "routers.creator",
+      "auth": [
+        "_dep_current_user"
+      ],
+      "name": "creator_delete_course"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/exec/control/tiers/{tier_id}",
+      "module": "routers.exec_control",
+      "auth": [
+        "dep"
+      ],
+      "name": "ec_delete_tier"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/executive/archive/{asset_id}",
+      "module": "routers.executive_pipeline",
+      "auth": [
+        "dep"
+      ],
+      "name": "delete_archive_asset"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/iam/resources/{resource_id}",
+      "module": "routers.iam",
+      "auth": [
+        "_dep_current_user"
+      ],
+      "name": "delete_resource"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/media/products/{product_id}",
+      "module": "routers.media",
+      "auth": [
+        "_dep_current_user"
+      ],
+      "name": "delete_media_product"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/personas/{persona_id}",
+      "module": "server.inline",
+      "auth": [
+        "dep"
+      ],
+      "name": "delete_persona"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/projects/{project_id}",
+      "module": "routers.projects",
+      "auth": [
+        "_dep_current_user"
+      ],
+      "name": "delete_project"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/providers/keys/{key_id}",
+      "module": "routers.billing",
+      "auth": [
+        "dep"
+      ],
+      "name": "provider_keys_delete"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/revenue/api-keys/{key_hash}",
+      "module": "server.inline",
+      "auth": [
+        "current_user"
+      ],
+      "name": "revenue_revoke_key"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/saga/images/{image_id}",
+      "module": "routers.saga",
+      "auth": [
+        "dep"
+      ],
+      "name": "delete_image"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/saga/tracks/{track_id}",
+      "module": "routers.saga",
+      "auth": [
+        "dep"
+      ],
+      "name": "delete_track"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/sentinel/protocols/{protocol_id}",
+      "module": "routers.sentinel",
+      "auth": [
+        "dep"
+      ],
+      "name": "delete_protocol"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/sentinel/research/{note_id}",
+      "module": "routers.sentinel",
+      "auth": [
+        "dep"
+      ],
+      "name": "delete_research_note"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/social/disconnect/{platform}",
+      "module": "server.inline",
+      "auth": [
+        "dep_current_user"
+      ],
+      "name": "disconnect_account"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/sovereign/memory",
+      "module": "server.inline",
+      "auth": [
+        "dep"
+      ],
+      "name": "sovereign_memory_clear"
+    },
+    {
+      "method": "GET",
+      "path": "/api/",
+      "module": "server.inline",
+      "auth": [],
+      "name": "root"
+    },
+    {
+      "method": "GET",
+      "path": "/api/aawab/admin/overview",
+      "module": "routers.aawab",
+      "auth": [
+        "dep"
+      ],
+      "name": "aawab_admin_overview"
+    },
+    {
+      "method": "GET",
+      "path": "/api/aawab/agents",
+      "module": "routers.aawab",
+      "auth": [
+        "dep"
+      ],
+      "name": "aawab_list_agents"
+    },
+    {
+      "method": "GET",
+      "path": "/api/aawab/agents/{agent_id}",
+      "module": "routers.aawab",
+      "auth": [
+        "dep"
+      ],
+      "name": "aawab_get_agent"
+    },
+    {
+      "method": "GET",
+      "path": "/api/aawab/badge/{badge_id}/verify",
+      "module": "routers.aawab",
+      "auth": [],
+      "name": "aawab_badge_verify"
+    },
+    {
+      "method": "GET",
+      "path": "/api/aawab/registry",
+      "module": "routers.aawab",
+      "auth": [],
+      "name": "aawab_registry"
+    },
+    {
+      "method": "GET",
+      "path": "/api/abo/admin/overview",
+      "module": "routers.abo",
+      "auth": [
+        "dep"
+      ],
+      "name": "abo_admin_overview"
+    },
+    {
+      "method": "GET",
+      "path": "/api/abo/agenda",
+      "module": "routers.abo",
+      "auth": [
+        "_dep_current_user"
+      ],
+      "name": "abo_agenda"
+    },
+    {
+      "method": "GET",
+      "path": "/api/abo/config",
+      "module": "routers.abo",
+      "auth": [
+        "dep"
+      ],
+      "name": "abo_config"
+    },
+    {
+      "method": "GET",
+      "path": "/api/abo/deals",
+      "module": "routers.abo",
+      "auth": [
+        "_dep_current_user"
+      ],
+      "name": "abo_deals"
+    },
+    {
+      "method": "GET",
+      "path": "/api/abo/exchange",
+      "module": "routers.abo",
+      "auth": [
+        "_dep_current_user"
+      ],
+      "name": "abo_exchange"
+    },
+    {
+      "method": "GET",
+      "path": "/api/abo/jobs",
+      "module": "routers.abo",
+      "auth": [
+        "_dep_current_user"
+      ],
+      "name": "abo_jobs"
+    },
+    {
+      "method": "GET",
+      "path": "/api/abo/overview",
+      "module": "routers.abo",
+      "auth": [
+        "_dep_current_user"
+      ],
+      "name": "abo_overview"
+    },
+    {
+      "method": "GET",
+      "path": "/api/abo/public-status",
+      "module": "routers.abo",
+      "auth": [],
+      "name": "abo_public_status"
+    },
+    {
+      "method": "GET",
+      "path": "/api/abo/redteam",
+      "module": "routers.abo",
+      "auth": [
+        "_dep_current_user"
+      ],
+      "name": "abo_redteam"
+    },
+    {
+      "method": "GET",
+      "path": "/api/abo/source",
+      "module": "routers.abo",
+      "auth": [
+        "_dep_current_user"
+      ],
+      "name": "abo_source"
+    },
+    {
+      "method": "GET",
+      "path": "/api/abo/source/controls",
+      "module": "routers.abo",
+      "auth": [
+        "_dep_current_user"
+      ],
+      "name": "abo_source_controls"
+    },
+    {
+      "method": "GET",
+      "path": "/api/abo/tools",
+      "module": "routers.abo",
+      "auth": [
+        "_dep_current_user"
+      ],
+      "name": "abo_tools"
+    },
+    {
+      "method": "GET",
+      "path": "/api/abo/verify",
+      "module": "routers.abo",
+      "auth": [
+        "dep"
+      ],
+      "name": "abo_verify"
+    },
+    {
+      "method": "GET",
+      "path": "/api/adaptive/me",
+      "module": "server.inline",
+      "auth": [
+        "current_user"
+      ],
+      "name": "adaptive_recommendations"
+    },
+    {
+      "method": "GET",
+      "path": "/api/admin/access/ipwhitelist",
+      "module": "server.inline",
+      "auth": [
+        "dep"
+      ],
+      "name": "get_ip_whitelist"
+    },
+    {
+      "method": "GET",
+      "path": "/api/admin/ai-costs",
+      "module": "server.inline",
+      "auth": [
+        "dep"
+      ],
+      "name": "get_ai_costs"
+    },
+    {
+      "method": "GET",
+      "path": "/api/admin/audit",
+      "module": "server.inline",
+      "auth": [
+        "dep"
+      ],
+      "name": "view_audit"
+    },
+    {
+      "method": "GET",
+      "path": "/api/admin/checkouts",
+      "module": "server.inline",
+      "auth": [
+        "dep"
+      ],
+      "name": "list_checkouts"
+    },
+    {
+      "method": "GET",
+      "path": "/api/admin/cohorts",
+      "module": "server.inline",
+      "auth": [
+        "dep"
+      ],
+      "name": "cohort_summary"
+    },
+    {
+      "method": "GET",
+      "path": "/api/admin/control-panel",
+      "module": "routers.exec_control",
+      "auth": [
+        "dep"
+      ],
+      "name": "control_panel_data"
+    },
+    {
+      "method": "GET",
+      "path": "/api/admin/discounts",
+      "module": "server.inline",
+      "auth": [
+        "dep"
+      ],
+      "name": "get_active_discount"
+    },
+    {
+      "method": "GET",
+      "path": "/api/admin/gateway/ranking",
+      "module": "routers.gateway_admin",
+      "auth": [
+        "dep"
+      ],
+      "name": "gateway_ranking"
+    },
+    {
+      "method": "GET",
+      "path": "/api/admin/gateway/status",
+      "module": "routers.gateway_admin",
+      "auth": [
+        "dep"
+      ],
+      "name": "gateway_status"
+    },
+    {
+      "method": "GET",
+      "path": "/api/admin/inventory",
+      "module": "server.inline",
+      "auth": [
+        "dep"
+      ],
+      "name": "list_inventory"
+    },
+    {
+      "method": "GET",
+      "path": "/api/admin/mfa/config",
+      "module": "server.inline",
+      "auth": [
+        "dep"
+      ],
+      "name": "get_mfa_config"
+    },
+    {
+      "method": "GET",
+      "path": "/api/admin/payments",
+      "module": "server.inline",
+      "auth": [
+        "dep"
+      ],
+      "name": "admin_payment_list"
+    },
+    {
+      "method": "GET",
+      "path": "/api/admin/personas",
+      "module": "server.inline",
+      "auth": [
+        "dep"
+      ],
+      "name": "list_personas"
+    },
+    {
+      "method": "GET",
+      "path": "/api/admin/platform/flags",
+      "module": "server.inline",
+      "auth": [
+        "dep"
+      ],
+      "name": "get_platform_flags"
+    },
+    {
+      "method": "GET",
+      "path": "/api/admin/prices",
+      "module": "routers.auditor",
+      "auth": [
+        "dep"
+      ],
+      "name": "list_prices"
+    },
+    {
+      "method": "GET",
+      "path": "/api/admin/promo-codes",
+      "module": "routers.promo_codes",
+      "auth": [
+        "dep"
+      ],
+      "name": "list_promo_codes"
+    },
+    {
+      "method": "GET",
+      "path": "/api/admin/rbac/matrix",
+      "module": "server.inline",
+      "auth": [
+        "dep"
+      ],
+      "name": "get_rbac_matrix"
+    },
+    {
+      "method": "GET",
+      "path": "/api/admin/recent-activity",
+      "module": "server.inline",
+      "auth": [
+        "dep"
+      ],
+      "name": "recent_activity"
+    },
+    {
+      "method": "GET",
+      "path": "/api/admin/sage/audit",
+      "module": "server.inline",
+      "auth": [
+        "dep"
+      ],
+      "name": "admin_sage_audit"
+    },
+    {
+      "method": "GET",
+      "path": "/api/admin/sage/cap",
+      "module": "server.inline",
+      "auth": [
+        "dep"
+      ],
+      "name": "admin_get_sage_cap"
+    },
+    {
+      "method": "GET",
+      "path": "/api/admin/sage/metrics",
+      "module": "server.inline",
+      "auth": [
+        "dep"
+      ],
+      "name": "admin_sage_metrics"
+    },
+    {
+      "method": "GET",
+      "path": "/api/admin/sage/status",
+      "module": "server.inline",
+      "auth": [
+        "dep"
+      ],
+      "name": "admin_sage_status"
+    },
+    {
+      "method": "GET",
+      "path": "/api/admin/sites",
+      "module": "server.inline",
+      "auth": [
+        "dep"
+      ],
+      "name": "list_sites"
+    },
+    {
+      "method": "GET",
+      "path": "/api/admin/stats",
+      "module": "server.inline",
+      "auth": [
+        "dep"
+      ],
+      "name": "stats"
+    },
+    {
+      "method": "GET",
+      "path": "/api/admin/system/health",
+      "module": "routers.system_rollback",
+      "auth": [],
+      "name": "admin_health"
+    },
+    {
+      "method": "GET",
+      "path": "/api/admin/system/restore-points",
+      "module": "routers.system_rollback",
+      "auth": [],
+      "name": "list_restore_points"
+    },
+    {
+      "method": "GET",
+      "path": "/api/admin/system/restore-points/{restore_point_id}",
+      "module": "routers.system_rollback",
+      "auth": [],
+      "name": "get_restore_point"
+    },
+    {
+      "method": "GET",
+      "path": "/api/admin/system/webhook-queue",
+      "module": "routers.system_rollback",
+      "auth": [],
+      "name": "webhook_queue"
+    },
+    {
+      "method": "GET",
+      "path": "/api/admin/users",
+      "module": "server.inline",
+      "auth": [
+        "dep"
+      ],
+      "name": "all_users"
+    },
+    {
+      "method": "GET",
+      "path": "/api/admin/users/{uid}",
+      "module": "server.inline",
+      "auth": [
+        "dep"
+      ],
+      "name": "admin_get_user"
+    },
+    {
+      "method": "GET",
+      "path": "/api/admin/users/{uid}/audit",
+      "module": "server.inline",
+      "auth": [
+        "dep"
+      ],
+      "name": "exec_user_audit"
+    },
+    {
+      "method": "GET",
+      "path": "/api/admin/users/{uid}/elevated-role",
+      "module": "server.inline",
+      "auth": [
+        "dep"
+      ],
+      "name": "get_elevated_role"
+    },
+    {
+      "method": "GET",
+      "path": "/api/admin/users/{uid}/sessions",
+      "module": "server.inline",
+      "auth": [
+        "dep"
+      ],
+      "name": "exec_list_user_sessions"
+    },
+    {
+      "method": "GET",
+      "path": "/api/ai/admin/sage/audit",
+      "module": "server.inline",
+      "auth": [
+        "dep"
+      ],
+      "name": "admin_sage_audit"
+    },
+    {
+      "method": "GET",
+      "path": "/api/ai/admin/sage/cap",
+      "module": "server.inline",
+      "auth": [
+        "dep"
+      ],
+      "name": "admin_get_sage_cap"
+    },
+    {
+      "method": "GET",
+      "path": "/api/ai/admin/sage/metrics",
+      "module": "server.inline",
+      "auth": [
+        "dep"
+      ],
+      "name": "admin_sage_metrics"
+    },
+    {
+      "method": "GET",
+      "path": "/api/ai/admin/sage/status",
+      "module": "server.inline",
+      "auth": [
+        "dep"
+      ],
+      "name": "admin_sage_status"
+    },
+    {
+      "method": "GET",
+      "path": "/api/ai/ai/consent/health",
+      "module": "server.inline",
+      "auth": [],
+      "name": "ai_consent_health"
+    },
+    {
+      "method": "GET",
+      "path": "/api/ai/ai/director/greeting",
+      "module": "server.inline",
+      "auth": [
+        "_dep_current_user"
+      ],
+      "name": "director_greeting"
+    },
+    {
+      "method": "GET",
+      "path": "/api/ai/ai/director/pulse",
+      "module": "server.inline",
+      "auth": [
+        "dep"
+      ],
+      "name": "director_pulse"
+    },
+    {
+      "method": "GET",
+      "path": "/api/ai/ai/history/{session_id}",
+      "module": "server.inline",
+      "auth": [
+        "_dep_current_user"
+      ],
+      "name": "ai_history"
+    },
+    {
+      "method": "GET",
+      "path": "/api/ai/ai/memory",
+      "module": "server.inline",
+      "auth": [
+        "dep"
+      ],
+      "name": "get_all_memory"
+    },
+    {
+      "method": "GET",
+      "path": "/api/ai/ai/memory/{persona}",
+      "module": "server.inline",
+      "auth": [
+        "_dep_current_user"
+      ],
+      "name": "get_persona_memory"
+    },
+    {
+      "method": "GET",
+      "path": "/api/ai/ai/orchestrator/integrity",
+      "module": "server.inline",
+      "auth": [
+        "_dep_current_user"
+      ],
+      "name": "orchestrator_integrity"
+    },
+    {
+      "method": "GET",
+      "path": "/api/ai/ai/sage/integrity",
+      "module": "server.inline",
+      "auth": [
+        "_dep_current_user"
+      ],
+      "name": "sage_integrity"
+    },
+    {
+      "method": "GET",
+      "path": "/api/ai/ai/scholar/integrity",
+      "module": "server.inline",
+      "auth": [
+        "_dep_current_user"
+      ],
+      "name": "scholar_integrity"
+    },
+    {
+      "method": "GET",
+      "path": "/api/ai/consent/health",
+      "module": "server.inline",
+      "auth": [],
+      "name": "ai_consent_health"
+    },
+    {
+      "method": "GET",
+      "path": "/api/ai/director/greeting",
+      "module": "server.inline",
+      "auth": [
+        "current_user"
+      ],
+      "name": "director_greeting"
+    },
+    {
+      "method": "GET",
+      "path": "/api/ai/director/pulse",
+      "module": "server.inline",
+      "auth": [
+        "dep"
+      ],
+      "name": "director_pulse"
+    },
+    {
+      "method": "GET",
+      "path": "/api/ai/history/{session_id}",
+      "module": "server.inline",
+      "auth": [
+        "current_user"
+      ],
+      "name": "ai_history"
+    },
+    {
+      "method": "GET",
+      "path": "/api/ai/knowledge/search",
+      "module": "server.inline",
+      "auth": [
+        "_optional_session"
+      ],
+      "name": "knowledge_search"
+    },
+    {
+      "method": "GET",
+      "path": "/api/ai/memory",
+      "module": "server.inline",
+      "auth": [
+        "dep"
+      ],
+      "name": "get_all_memory"
+    },
+    {
+      "method": "GET",
+      "path": "/api/ai/memory/{persona}",
+      "module": "server.inline",
+      "auth": [
+        "current_user"
+      ],
+      "name": "get_persona_memory"
+    },
+    {
+      "method": "GET",
+      "path": "/api/ai/orchestrator/integrity",
+      "module": "server.inline",
+      "auth": [
+        "current_user"
+      ],
+      "name": "orchestrator_integrity"
+    },
+    {
+      "method": "GET",
+      "path": "/api/ai/personas",
+      "module": "server.inline",
+      "auth": [],
+      "name": "personas_directory"
+    },
+    {
+      "method": "GET",
+      "path": "/api/ai/personas/exec",
+      "module": "server.inline",
+      "auth": [
+        "dep"
+      ],
+      "name": "exec_personas"
+    },
+    {
+      "method": "GET",
+      "path": "/api/ai/personas/{slug}",
+      "module": "server.inline",
+      "auth": [],
+      "name": "persona_profile"
+    },
+    {
+      "method": "GET",
+      "path": "/api/ai/personas/{slug}/controls",
+      "module": "server.inline",
+      "auth": [
+        "_dep_current_user"
+      ],
+      "name": "persona_controls_get"
+    },
+    {
+      "method": "GET",
+      "path": "/api/ai/provider-test",
+      "module": "routers.revenue_exec",
+      "auth": [
+        "dep"
+      ],
+      "name": "ai_provider_test"
+    },
+    {
+      "method": "GET",
+      "path": "/api/ai/sage/integrity",
+      "module": "server.inline",
+      "auth": [
+        "current_user"
+      ],
+      "name": "sage_integrity"
+    },
+    {
+      "method": "GET",
+      "path": "/api/ai/scholar/integrity",
+      "module": "server.inline",
+      "auth": [
+        "current_user"
+      ],
+      "name": "scholar_integrity"
+    },
+    {
+      "method": "GET",
+      "path": "/api/analytics/benchmark",
+      "module": "server.inline",
+      "auth": [
+        "current_user"
+      ],
+      "name": "cohort_benchmark"
+    },
+    {
+      "method": "GET",
+      "path": "/api/analytics/program",
+      "module": "server.inline",
+      "auth": [
+        "dep"
+      ],
+      "name": "program_analytics"
+    },
+    {
+      "method": "GET",
+      "path": "/api/arcade/games",
+      "module": "routers.studio",
+      "auth": [],
+      "name": "arcade_games"
+    },
+    {
+      "method": "GET",
+      "path": "/api/arcade/leaderboard",
+      "module": "routers.studio",
+      "auth": [
+        "_dep_current_user"
+      ],
+      "name": "arcade_leaderboard"
+    },
+    {
+      "method": "GET",
+      "path": "/api/arcade/my-scores",
+      "module": "routers.studio",
+      "auth": [
+        "_dep_current_user"
+      ],
+      "name": "arcade_my_scores"
+    },
+    {
+      "method": "GET",
+      "path": "/api/attendance/me",
+      "module": "server.inline",
+      "auth": [
+        "current_user"
+      ],
+      "name": "my_attendance"
+    },
+    {
+      "method": "GET",
+      "path": "/api/attendance/roster",
+      "module": "server.inline",
+      "auth": [
+        "dep"
+      ],
+      "name": "attendance_roster"
+    },
+    {
+      "method": "GET",
+      "path": "/api/auditor/debt",
+      "module": "routers.auditor",
+      "auth": [
+        "dep"
+      ],
+      "name": "auditor_debt"
+    },
+    {
+      "method": "GET",
+      "path": "/api/auditor/ledger",
+      "module": "routers.auditor",
+      "auth": [
+        "dep"
+      ],
+      "name": "auditor_ledger_list"
+    },
+    {
+      "method": "GET",
+      "path": "/api/auditor/report",
+      "module": "routers.auditor",
+      "auth": [
+        "dep"
+      ],
+      "name": "auditor_report"
+    },
+    {
+      "method": "GET",
+      "path": "/api/auditor/risks",
+      "module": "routers.auditor",
+      "auth": [
+        "dep"
+      ],
+      "name": "auditor_risks"
+    },
+    {
+      "method": "GET",
+      "path": "/api/auditor/summary",
+      "module": "routers.auditor",
+      "auth": [
+        "dep"
+      ],
+      "name": "auditor_summary"
+    },
+    {
+      "method": "GET",
+      "path": "/api/auth/account/export",
+      "module": "server.inline",
+      "auth": [
+        "current_user"
+      ],
+      "name": "gdpr_export_data"
+    },
+    {
+      "method": "GET",
+      "path": "/api/auth/cross-site-token",
+      "module": "server.inline",
+      "auth": [
+        "_dep_current_user"
+      ],
+      "name": "generate_cross_site_token"
+    },
+    {
+      "method": "GET",
+      "path": "/api/auth/me",
+      "module": "server.inline",
+      "auth": [
+        "current_user"
+      ],
+      "name": "me"
+    },
+    {
+      "method": "GET",
+      "path": "/api/auth/sessions",
+      "module": "server.inline",
+      "auth": [
+        "current_user"
+      ],
+      "name": "list_sessions"
+    },
+    {
+      "method": "GET",
+      "path": "/api/band/bookings",
+      "module": "routers.band",
+      "auth": [
+        "_dep_current_user"
+      ],
+      "name": "band_my_bookings"
+    },
+    {
+      "method": "GET",
+      "path": "/api/band/listings",
+      "module": "routers.band",
+      "auth": [],
+      "name": "band_list"
+    },
+    {
+      "method": "GET",
+      "path": "/api/band/my-listing",
+      "module": "routers.band",
+      "auth": [
+        "_dep_current_user"
+      ],
+      "name": "band_my_listing"
+    },
+    {
+      "method": "GET",
+      "path": "/api/billing/creator/balance",
+      "module": "server.inline",
+      "auth": [
+        "get_current_user"
+      ],
+      "name": "get_creator_balance"
+    },
+    {
+      "method": "GET",
+      "path": "/api/billing/creator/payouts",
+      "module": "server.inline",
+      "auth": [
+        "get_current_user"
+      ],
+      "name": "get_creator_payouts"
+    },
+    {
+      "method": "GET",
+      "path": "/api/billing/credits/balance",
+      "module": "routers.billing",
+      "auth": [
+        "dep"
+      ],
+      "name": "billing_credits_balance"
+    },
+    {
+      "method": "GET",
+      "path": "/api/billing/invoices",
+      "module": "server.inline",
+      "auth": [
+        "get_current_user"
+      ],
+      "name": "get_invoices"
+    },
+    {
+      "method": "GET",
+      "path": "/api/billing/reporting/cohort-analysis",
+      "module": "server.inline",
+      "auth": [
+        "get_financial_service",
+        "get_current_user"
+      ],
+      "name": "get_retention_cohorts"
+    },
+    {
+      "method": "GET",
+      "path": "/api/billing/reporting/forecast",
+      "module": "server.inline",
+      "auth": [
+        "get_financial_service",
+        "get_current_user"
+      ],
+      "name": "get_cash_flow_forecast"
+    },
+    {
+      "method": "GET",
+      "path": "/api/billing/reporting/ltv-cac",
+      "module": "server.inline",
+      "auth": [
+        "get_financial_service",
+        "get_current_user"
+      ],
+      "name": "get_ltv_metrics"
+    },
+    {
+      "method": "GET",
+      "path": "/api/billing/reporting/mrr",
+      "module": "server.inline",
+      "auth": [
+        "get_financial_service",
+        "get_current_user"
+      ],
+      "name": "get_monthly_recurring_revenue"
+    },
+    {
+      "method": "GET",
+      "path": "/api/billing/reporting/nrr",
+      "module": "server.inline",
+      "auth": [
+        "get_financial_service",
+        "get_current_user"
+      ],
+      "name": "get_net_revenue_retention"
+    },
+    {
+      "method": "GET",
+      "path": "/api/billing/reporting/revenue/{year}/{month}",
+      "module": "server.inline",
+      "auth": [
+        "get_financial_service",
+        "get_current_user"
+      ],
+      "name": "get_revenue_summary"
+    },
+    {
+      "method": "GET",
+      "path": "/api/billing/reporting/summary",
+      "module": "server.inline",
+      "auth": [
+        "get_financial_service",
+        "get_current_user"
+      ],
+      "name": "get_financial_dashboard"
+    },
+    {
+      "method": "GET",
+      "path": "/api/billing/sage-sessions",
+      "module": "routers.billing",
+      "auth": [
+        "dep"
+      ],
+      "name": "billing_sage_sessions"
+    },
+    {
+      "method": "GET",
+      "path": "/api/bridge/config",
+      "module": "routers.bridge",
+      "auth": [
+        "dep"
+      ],
+      "name": "get_bridge_config"
+    },
+    {
+      "method": "GET",
+      "path": "/api/bridge/log",
+      "module": "routers.bridge",
+      "auth": [
+        "dep"
+      ],
+      "name": "list_bridge_log"
+    },
+    {
+      "method": "GET",
+      "path": "/api/bridge/personas",
+      "module": "routers.bridge",
+      "auth": [
+        "dep"
+      ],
+      "name": "list_bridge_personas"
+    },
+    {
+      "method": "GET",
+      "path": "/api/byok/admin",
+      "module": "routers.byok",
+      "auth": [
+        "dep"
+      ],
+      "name": "byok_admin"
+    },
+    {
+      "method": "GET",
+      "path": "/api/byok/status",
+      "module": "routers.byok",
+      "auth": [
+        "_dep_current_user"
+      ],
+      "name": "byok_status"
+    },
+    {
+      "method": "GET",
+      "path": "/api/certificates/me",
+      "module": "server.inline",
+      "auth": [
+        "current_user"
+      ],
+      "name": "my_certificates"
+    },
+    {
+      "method": "GET",
+      "path": "/api/certificates/{slug}.pdf",
+      "module": "server.inline",
+      "auth": [],
+      "name": "cert_pdf"
+    },
+    {
+      "method": "GET",
+      "path": "/api/competencies",
+      "module": "server.inline",
+      "auth": [
+        "current_user"
+      ],
+      "name": "list_competencies"
+    },
+    {
+      "method": "GET",
+      "path": "/api/competition/leaderboard",
+      "module": "routers.competition",
+      "auth": [
+        "dep"
+      ],
+      "name": "get_leaderboard"
+    },
+    {
+      "method": "GET",
+      "path": "/api/competition/ping",
+      "module": "routers.competition",
+      "auth": [],
+      "name": "competition_ping"
+    },
+    {
+      "method": "GET",
+      "path": "/api/competition/projects",
+      "module": "routers.competition",
+      "auth": [
+        "dep"
+      ],
+      "name": "get_projects"
+    },
+    {
+      "method": "GET",
+      "path": "/api/competition/projects/{project_id}",
+      "module": "routers.competition",
+      "auth": [
+        "dep"
+      ],
+      "name": "get_project"
+    },
+    {
+      "method": "GET",
+      "path": "/api/competition/status",
+      "module": "routers.competition",
+      "auth": [
+        "dep"
+      ],
+      "name": "get_status"
+    },
+    {
+      "method": "GET",
+      "path": "/api/compliance",
+      "module": "routers.studio",
+      "auth": [
+        "_dep_current_user"
+      ],
+      "name": "list_compliance"
+    },
+    {
+      "method": "GET",
+      "path": "/api/compliance/{slug}",
+      "module": "routers.studio",
+      "auth": [
+        "_dep_current_user"
+      ],
+      "name": "get_compliance"
+    },
+    {
+      "method": "GET",
+      "path": "/api/courses/analytics/contractor-market",
+      "module": "server.inline",
+      "auth": [],
+      "name": "contractor_market_analytics"
+    },
+    {
+      "method": "GET",
+      "path": "/api/courses/dashboard/{contractor_id}",
+      "module": "server.inline",
+      "auth": [],
+      "name": "get_dashboard"
+    },
+    {
+      "method": "GET",
+      "path": "/api/courses/labs",
+      "module": "server.inline",
+      "auth": [],
+      "name": "list_labs"
+    },
+    {
+      "method": "GET",
+      "path": "/api/courses/labs/{lab_slug}",
+      "module": "server.inline",
+      "auth": [],
+      "name": "get_lab_details"
+    },
+    {
+      "method": "GET",
+      "path": "/api/courses/languages",
+      "module": "server.inline",
+      "auth": [],
+      "name": "list_languages"
+    },
+    {
+      "method": "GET",
+      "path": "/api/courses/leads",
+      "module": "server.inline",
+      "auth": [],
+      "name": "list_contractor_leads"
+    },
+    {
+      "method": "GET",
+      "path": "/api/courses/license/{contractor_id}",
+      "module": "server.inline",
+      "auth": [],
+      "name": "get_license"
+    },
+    {
+      "method": "GET",
+      "path": "/api/courses/tiers",
+      "module": "server.inline",
+      "auth": [],
+      "name": "list_contractor_tiers"
+    },
+    {
+      "method": "GET",
+      "path": "/api/courses/ui/{key}",
+      "module": "server.inline",
+      "auth": [],
+      "name": "get_ui_text"
+    },
+    {
+      "method": "GET",
+      "path": "/api/creative-partner/contributions",
+      "module": "routers.chat",
+      "auth": [
+        "_dep_current_user"
+      ],
+      "name": "list_contributions"
+    },
+    {
+      "method": "GET",
+      "path": "/api/creator-courses/categories",
+      "module": "server.inline",
+      "auth": [],
+      "name": "get_categories"
+    },
+    {
+      "method": "GET",
+      "path": "/api/creator-courses/course/{course_id}",
+      "module": "server.inline",
+      "auth": [],
+      "name": "get_course"
+    },
+    {
+      "method": "GET",
+      "path": "/api/creator-courses/dashboard/{creator_id}",
+      "module": "server.inline",
+      "auth": [
+        "get_current_user_from_request"
+      ],
+      "name": "get_creator_stats"
+    },
+    {
+      "method": "GET",
+      "path": "/api/creator-courses/marketplace",
+      "module": "server.inline",
+      "auth": [],
+      "name": "get_courses"
+    },
+    {
+      "method": "GET",
+      "path": "/api/creator-courses/pricing",
+      "module": "server.inline",
+      "auth": [],
+      "name": "get_pricing"
+    },
+    {
+      "method": "GET",
+      "path": "/api/creator-courses/pricing/{course_type}",
+      "module": "server.inline",
+      "auth": [],
+      "name": "get_course_pricing"
+    },
+    {
+      "method": "GET",
+      "path": "/api/creator-courses/trending",
+      "module": "server.inline",
+      "auth": [],
+      "name": "get_trending_courses"
+    },
+    {
+      "method": "GET",
+      "path": "/api/creator-lounge/my-projects",
+      "module": "routers.creator_lounge",
+      "auth": [
+        "_dep_current_user"
+      ],
+      "name": "cl_my_projects"
+    },
+    {
+      "method": "GET",
+      "path": "/api/creator-lounge/projects",
+      "module": "routers.creator_lounge",
+      "auth": [
+        "_dep_current_user"
+      ],
+      "name": "cl_list_projects"
+    },
+    {
+      "method": "GET",
+      "path": "/api/creator/bank-account",
+      "module": "routers.creator",
+      "auth": [
+        "_dep_current_user"
+      ],
+      "name": "creator_get_bank_account"
+    },
+    {
+      "method": "GET",
+      "path": "/api/creator/courses",
+      "module": "routers.creator",
+      "auth": [
+        "_dep_current_user"
+      ],
+      "name": "creator_list_my_courses"
+    },
+    {
+      "method": "GET",
+      "path": "/api/creator/courses/published",
+      "module": "routers.creator",
+      "auth": [],
+      "name": "creator_published_catalog"
+    },
+    {
+      "method": "GET",
+      "path": "/api/creator/courses/{course_id}",
+      "module": "routers.creator",
+      "auth": [
+        "_dep_current_user"
+      ],
+      "name": "creator_get_course"
+    },
+    {
+      "method": "GET",
+      "path": "/api/creator/earnings",
+      "module": "routers.creator",
+      "auth": [
+        "_dep_current_user"
+      ],
+      "name": "creator_earnings_summary"
+    },
+    {
+      "method": "GET",
+      "path": "/api/creator/enrollments/me",
+      "module": "routers.creator",
+      "auth": [
+        "_dep_current_user"
+      ],
+      "name": "creator_enrollments_me"
+    },
+    {
+      "method": "GET",
+      "path": "/api/creator/payout-profile",
+      "module": "routers.creator",
+      "auth": [
+        "_dep_current_user"
+      ],
+      "name": "creator_get_payout_profile"
+    },
+    {
+      "method": "GET",
+      "path": "/api/creator/payout-summary",
+      "module": "routers.revenue_exec",
+      "auth": [
+        "_dep_current_user"
+      ],
+      "name": "payout_summary"
+    },
+    {
+      "method": "GET",
+      "path": "/api/creator/payouts",
+      "module": "routers.creator",
+      "auth": [
+        "_dep_current_user"
+      ],
+      "name": "creator_payout_history"
+    },
+    {
+      "method": "GET",
+      "path": "/api/creator/profile/me",
+      "module": "routers.creator",
+      "auth": [
+        "_dep_current_user"
+      ],
+      "name": "get_my_creator_profile"
+    },
+    {
+      "method": "GET",
+      "path": "/api/creator/profile/{slug}",
+      "module": "routers.creator",
+      "auth": [],
+      "name": "get_creator_profile_by_slug"
+    },
+    {
+      "method": "GET",
+      "path": "/api/creator/profiles/public",
+      "module": "routers.creator",
+      "auth": [],
+      "name": "list_public_creator_profiles"
+    },
+    {
+      "method": "GET",
+      "path": "/api/creator/split",
+      "module": "routers.revenue_exec",
+      "auth": [
+        "_dep_current_user"
+      ],
+      "name": "get_my_split"
+    },
+    {
+      "method": "GET",
+      "path": "/api/credentials",
+      "module": "server.inline",
+      "auth": [
+        "current_user"
+      ],
+      "name": "list_credentials"
+    },
+    {
+      "method": "GET",
+      "path": "/api/credentials/assertion/{assertion_id}.json",
+      "module": "server.inline",
+      "auth": [],
+      "name": "credential_assertion"
+    },
+    {
+      "method": "GET",
+      "path": "/api/credentials/me",
+      "module": "server.inline",
+      "auth": [
+        "current_user"
+      ],
+      "name": "my_credentials"
+    },
+    {
+      "method": "GET",
+      "path": "/api/credentials/transcript.pdf",
+      "module": "server.inline",
+      "auth": [
+        "current_user"
+      ],
+      "name": "download_transcript"
+    },
+    {
+      "method": "GET",
+      "path": "/api/credentials/{key}/manifest.json",
+      "module": "server.inline",
+      "auth": [],
+      "name": "credential_manifest"
+    },
+    {
+      "method": "GET",
+      "path": "/api/crm/leads",
+      "module": "server.inline",
+      "auth": [
+        "dep",
+        "dep_current_user"
+      ],
+      "name": "list_leads"
+    },
+    {
+      "method": "GET",
+      "path": "/api/crm/leads/{lead_id}",
+      "module": "server.inline",
+      "auth": [
+        "dep"
+      ],
+      "name": "get_lead"
+    },
+    {
+      "method": "GET",
+      "path": "/api/crm/metrics/forecast",
+      "module": "server.inline",
+      "auth": [
+        "dep"
+      ],
+      "name": "get_sales_forecast"
+    },
+    {
+      "method": "GET",
+      "path": "/api/crm/metrics/pipeline",
+      "module": "server.inline",
+      "auth": [
+        "dep"
+      ],
+      "name": "get_pipeline_metrics"
+    },
+    {
+      "method": "GET",
+      "path": "/api/crm/metrics/summary",
+      "module": "server.inline",
+      "auth": [
+        "dep"
+      ],
+      "name": "get_sales_summary"
+    },
+    {
+      "method": "GET",
+      "path": "/api/crm/opportunities",
+      "module": "server.inline",
+      "auth": [
+        "dep"
+      ],
+      "name": "list_opportunities"
+    },
+    {
+      "method": "GET",
+      "path": "/api/emergency",
+      "module": "server.inline",
+      "auth": [],
+      "name": "emergency_ui"
+    },
+    {
+      "method": "GET",
+      "path": "/api/emergency/",
+      "module": "server.inline",
+      "auth": [],
+      "name": "emergency_ui"
+    },
+    {
+      "method": "GET",
+      "path": "/api/exec/analytics",
+      "module": "server.inline",
+      "auth": [
+        "dep"
+      ],
+      "name": "pipeline_analytics"
+    },
+    {
+      "method": "GET",
+      "path": "/api/exec/audio",
+      "module": "server.inline",
+      "auth": [
+        "dep"
+      ],
+      "name": "list_audio_assets"
+    },
+    {
+      "method": "GET",
+      "path": "/api/exec/audio/{asset_id}",
+      "module": "server.inline",
+      "auth": [
+        "current_user"
+      ],
+      "name": "serve_audio"
+    },
+    {
+      "method": "GET",
+      "path": "/api/exec/control/access",
+      "module": "routers.exec_control",
+      "auth": [
+        "dep"
+      ],
+      "name": "ec_access_list"
+    },
+    {
+      "method": "GET",
+      "path": "/api/exec/control/access/public",
+      "module": "routers.exec_control",
+      "auth": [],
+      "name": "ec_access_public"
+    },
+    {
+      "method": "GET",
+      "path": "/api/exec/control/audit",
+      "module": "routers.exec_control",
+      "auth": [
+        "dep"
+      ],
+      "name": "ec_audit_log"
+    },
+    {
+      "method": "GET",
+      "path": "/api/exec/control/authz-matrix",
+      "module": "routers.exec_control",
+      "auth": [
+        "dep"
+      ],
+      "name": "ec_get_authz_matrix"
+    },
+    {
+      "method": "GET",
+      "path": "/api/exec/control/break-glass/active",
+      "module": "routers.exec_control",
+      "auth": [
+        "dep"
+      ],
+      "name": "ec_break_glass_active"
+    },
+    {
+      "method": "GET",
+      "path": "/api/exec/control/break-glass/history",
+      "module": "routers.exec_control",
+      "auth": [
+        "dep"
+      ],
+      "name": "ec_break_glass_history"
+    },
+    {
+      "method": "GET",
+      "path": "/api/exec/control/route-access",
+      "module": "routers.exec_control",
+      "auth": [
+        "dep"
+      ],
+      "name": "ec_route_access"
+    },
+    {
+      "method": "GET",
+      "path": "/api/exec/control/state",
+      "module": "routers.exec_control",
+      "auth": [
+        "dep"
+      ],
+      "name": "ec_get_state"
+    },
+    {
+      "method": "GET",
+      "path": "/api/exec/control/tiers",
+      "module": "routers.exec_control",
+      "auth": [
+        "dep"
+      ],
+      "name": "ec_list_tiers"
+    },
+    {
+      "method": "GET",
+      "path": "/api/exec/dashboard",
+      "module": "server.inline",
+      "auth": [
+        "dep"
+      ],
+      "name": "exec_dashboard"
+    },
+    {
+      "method": "GET",
+      "path": "/api/exec/free-backup-matrix",
+      "module": "server.inline",
+      "auth": [
+        "dep"
+      ],
+      "name": "exec_free_backup_matrix"
+    },
+    {
+      "method": "GET",
+      "path": "/api/exec/merch",
+      "module": "server.inline",
+      "auth": [
+        "dep"
+      ],
+      "name": "list_merch"
+    },
+    {
+      "method": "GET",
+      "path": "/api/exec/panel",
+      "module": "server.inline",
+      "auth": [
+        "dep"
+      ],
+      "name": "exec_panel_get"
+    },
+    {
+      "method": "GET",
+      "path": "/api/exec/panel/health",
+      "module": "server.inline",
+      "auth": [
+        "dep"
+      ],
+      "name": "exec_panel_health"
+    },
+    {
+      "method": "GET",
+      "path": "/api/exec/personas",
+      "module": "server.inline",
+      "auth": [
+        "dep"
+      ],
+      "name": "list_personas"
+    },
+    {
+      "method": "GET",
+      "path": "/api/exec/products",
+      "module": "server.inline",
+      "auth": [
+        "dep"
+      ],
+      "name": "exec_list_products"
+    },
+    {
+      "method": "GET",
+      "path": "/api/exec/scout/leads",
+      "module": "server.inline",
+      "auth": [
+        "dep"
+      ],
+      "name": "scout_leads"
+    },
+    {
+      "method": "GET",
+      "path": "/api/exec/scout/status",
+      "module": "server.inline",
+      "auth": [
+        "dep"
+      ],
+      "name": "scout_status"
+    },
+    {
+      "method": "GET",
+      "path": "/api/exec/staff-meetings",
+      "module": "server.inline",
+      "auth": [
+        "dep"
+      ],
+      "name": "list_staff_meetings"
+    },
+    {
+      "method": "GET",
+      "path": "/api/exec/system",
+      "module": "server.inline",
+      "auth": [
+        "dep"
+      ],
+      "name": "exec_system_info"
+    },
+    {
+      "method": "GET",
+      "path": "/api/exec/tools/incident-register",
+      "module": "routers.exec_tools",
+      "auth": [
+        "dep"
+      ],
+      "name": "incident_register"
+    },
+    {
+      "method": "GET",
+      "path": "/api/exec/tools/system-health",
+      "module": "routers.exec_tools",
+      "auth": [
+        "dep"
+      ],
+      "name": "system_health"
+    },
+    {
+      "method": "GET",
+      "path": "/api/executive/archive",
+      "module": "routers.executive_pipeline",
+      "auth": [
+        "dep"
+      ],
+      "name": "list_archive"
+    },
+    {
+      "method": "GET",
+      "path": "/api/executive/discovery",
+      "module": "routers.executive_pipeline",
+      "auth": [
+        "dep"
+      ],
+      "name": "project_discovery"
+    },
+    {
+      "method": "GET",
+      "path": "/api/executive/pipeline",
+      "module": "routers.executive_pipeline",
+      "auth": [
+        "dep"
+      ],
+      "name": "pipeline_overview"
+    },
+    {
+      "method": "GET",
+      "path": "/api/executive/projects",
+      "module": "routers.executive_pipeline",
+      "auth": [
+        "dep"
+      ],
+      "name": "list_projects"
+    },
+    {
+      "method": "GET",
+      "path": "/api/executive/projects/{project_id}",
+      "module": "routers.executive_pipeline",
+      "auth": [
+        "dep"
+      ],
+      "name": "get_project"
+    },
+    {
+      "method": "GET",
+      "path": "/api/executive/projects/{project_id}/comments",
+      "module": "routers.executive_pipeline",
+      "auth": [
+        "dep"
+      ],
+      "name": "list_comments"
+    },
+    {
+      "method": "GET",
+      "path": "/api/executive/tools",
+      "module": "routers.executive_pipeline",
+      "auth": [
+        "dep"
+      ],
+      "name": "available_tools"
+    },
+    {
+      "method": "GET",
+      "path": "/api/features",
+      "module": "routers.features",
+      "auth": [],
+      "name": "list_features"
+    },
+    {
+      "method": "GET",
+      "path": "/api/features/",
+      "module": "routers.features",
+      "auth": [],
+      "name": "list_features"
+    },
+    {
+      "method": "GET",
+      "path": "/api/features/gate-map",
+      "module": "routers.features",
+      "auth": [],
+      "name": "feature_gate_map"
+    },
+    {
+      "method": "GET",
+      "path": "/api/features/matrix/role",
+      "module": "routers.features",
+      "auth": [
+        "Any"
+      ],
+      "name": "role_matrix"
+    },
+    {
+      "method": "GET",
+      "path": "/api/features/matrix/tier",
+      "module": "routers.features",
+      "auth": [
+        "Any"
+      ],
+      "name": "tier_matrix"
+    },
+    {
+      "method": "GET",
+      "path": "/api/handbooks",
+      "module": "routers.handbooks",
+      "auth": [],
+      "name": "handbooks_index"
+    },
+    {
+      "method": "GET",
+      "path": "/api/handbooks/{name}",
+      "module": "routers.handbooks",
+      "auth": [],
+      "name": "get_handbook"
+    },
+    {
+      "method": "GET",
+      "path": "/api/handbooks/{name}/raw",
+      "module": "routers.handbooks",
+      "auth": [],
+      "name": "get_handbook_raw"
+    },
+    {
+      "method": "GET",
+      "path": "/api/health",
+      "module": "server.inline",
+      "auth": [],
+      "name": "health"
+    },
+    {
+      "method": "GET",
+      "path": "/api/iam/actions",
+      "module": "routers.iam",
+      "auth": [
+        "_dep_current_user"
+      ],
+      "name": "list_actions"
+    },
+    {
+      "method": "GET",
+      "path": "/api/iam/authority-chain",
+      "module": "routers.iam",
+      "auth": [
+        "_dep_current_user"
+      ],
+      "name": "authority_chain"
+    },
+    {
+      "method": "GET",
+      "path": "/api/iam/consent",
+      "module": "routers.iam",
+      "auth": [
+        "_dep_current_user"
+      ],
+      "name": "my_consent"
+    },
+    {
+      "method": "GET",
+      "path": "/api/iam/delegations",
+      "module": "routers.iam",
+      "auth": [
+        "_dep_current_user"
+      ],
+      "name": "list_delegations"
+    },
+    {
+      "method": "GET",
+      "path": "/api/iam/identities",
+      "module": "routers.iam",
+      "auth": [
+        "_dep_current_user"
+      ],
+      "name": "list_identities"
+    },
+    {
+      "method": "GET",
+      "path": "/api/iam/identities/{identity_id}",
+      "module": "routers.iam",
+      "auth": [
+        "_dep_current_user"
+      ],
+      "name": "get_identity"
+    },
+    {
+      "method": "GET",
+      "path": "/api/iam/resources",
+      "module": "routers.iam",
+      "auth": [
+        "_dep_current_user"
+      ],
+      "name": "list_resources"
+    },
+    {
+      "method": "GET",
+      "path": "/api/iam/who-can-do-what",
+      "module": "routers.iam",
+      "auth": [
+        "_dep_current_user"
+      ],
+      "name": "who_can_do_what"
+    },
+    {
+      "method": "GET",
+      "path": "/api/iam/who-has-access-to-me",
+      "module": "routers.iam",
+      "auth": [
+        "_dep_current_user"
+      ],
+      "name": "who_has_access_to_me"
+    },
+    {
+      "method": "GET",
+      "path": "/api/incidents",
+      "module": "server.inline",
+      "auth": [
+        "dep"
+      ],
+      "name": "list_incidents"
+    },
+    {
+      "method": "GET",
+      "path": "/api/instructor/lab-report",
+      "module": "server.inline",
+      "auth": [
+        "dep"
+      ],
+      "name": "lab_report"
+    },
+    {
+      "method": "GET",
+      "path": "/api/instructor/submissions",
+      "module": "server.inline",
+      "auth": [
+        "dep"
+      ],
+      "name": "pending_submissions"
+    },
+    {
+      "method": "GET",
+      "path": "/api/jamil/history",
+      "module": "routers.jamil",
+      "auth": [
+        "_dep_current_user"
+      ],
+      "name": "jamil_history"
+    },
+    {
+      "method": "GET",
+      "path": "/api/jamil/knowledge",
+      "module": "routers.jamil",
+      "auth": [
+        "dep"
+      ],
+      "name": "jamil_knowledge_list"
+    },
+    {
+      "method": "GET",
+      "path": "/api/jamil/ping",
+      "module": "routers.jamil",
+      "auth": [],
+      "name": "jamil_ping"
+    },
+    {
+      "method": "GET",
+      "path": "/api/jamil/status",
+      "module": "routers.jamil",
+      "auth": [],
+      "name": "jamil_status_server"
+    },
+    {
+      "method": "GET",
+      "path": "/api/labs",
+      "module": "server.inline",
+      "auth": [
+        "current_user"
+      ],
+      "name": "list_labs"
+    },
+    {
+      "method": "GET",
+      "path": "/api/labs/submissions/me",
+      "module": "server.inline",
+      "auth": [
+        "current_user"
+      ],
+      "name": "my_lab_submissions"
+    },
+    {
+      "method": "GET",
+      "path": "/api/labs/{slug}",
+      "module": "server.inline",
+      "auth": [
+        "current_user"
+      ],
+      "name": "get_lab"
+    },
+    {
+      "method": "GET",
+      "path": "/api/me/position",
+      "module": "routers.position",
+      "auth": [
+        "_dep_current_user"
+      ],
+      "name": "get_my_position"
+    },
+    {
+      "method": "GET",
+      "path": "/api/me/position/history",
+      "module": "routers.position",
+      "auth": [
+        "_dep_current_user"
+      ],
+      "name": "get_position_history"
+    },
+    {
+      "method": "GET",
+      "path": "/api/me/proceeds-preference",
+      "module": "routers.position",
+      "auth": [
+        "_dep_current_user"
+      ],
+      "name": "get_proceeds_preference"
+    },
+    {
+      "method": "GET",
+      "path": "/api/media/content/{file_path:path}",
+      "module": "routers.media",
+      "auth": [
+        "_dep_current_user"
+      ],
+      "name": "get_content_file"
+    },
+    {
+      "method": "GET",
+      "path": "/api/media/file/{file_id}",
+      "module": "routers.media",
+      "auth": [
+        "_optional_current_user"
+      ],
+      "name": "get_media_file"
+    },
+    {
+      "method": "GET",
+      "path": "/api/media/products",
+      "module": "routers.media",
+      "auth": [
+        "_optional_current_user"
+      ],
+      "name": "list_media_products"
+    },
+    {
+      "method": "GET",
+      "path": "/api/media/products/mine",
+      "module": "routers.media",
+      "auth": [
+        "_dep_current_user"
+      ],
+      "name": "my_media_products"
+    },
+    {
+      "method": "GET",
+      "path": "/api/media/products/{product_id}/download",
+      "module": "routers.media",
+      "auth": [
+        "_dep_current_user"
+      ],
+      "name": "download_media_product"
+    },
+    {
+      "method": "GET",
+      "path": "/api/media/purchases",
+      "module": "routers.media",
+      "auth": [
+        "_dep_current_user"
+      ],
+      "name": "my_media_purchases"
+    },
+    {
+      "method": "GET",
+      "path": "/api/missing/file/{file_id}",
+      "module": "routers.missing",
+      "auth": [],
+      "name": "get_missing_file"
+    },
+    {
+      "method": "GET",
+      "path": "/api/missing/photos/{case_id}",
+      "module": "routers.missing",
+      "auth": [],
+      "name": "get_missing_photos"
+    },
+    {
+      "method": "GET",
+      "path": "/api/modules",
+      "module": "server.inline",
+      "auth": [
+        "optional_current_user"
+      ],
+      "name": "list_modules"
+    },
+    {
+      "method": "GET",
+      "path": "/api/modules/{slug}",
+      "module": "server.inline",
+      "auth": [
+        "current_user"
+      ],
+      "name": "get_module"
+    },
+    {
+      "method": "GET",
+      "path": "/api/more/admin/flags",
+      "module": "server.inline",
+      "auth": [
+        "current_user"
+      ],
+      "name": "more_admin_flags"
+    },
+    {
+      "method": "GET",
+      "path": "/api/more/admin/moderation-log",
+      "module": "server.inline",
+      "auth": [
+        "current_user"
+      ],
+      "name": "more_moderation_log"
+    },
+    {
+      "method": "GET",
+      "path": "/api/more/admin/moderation-stats",
+      "module": "server.inline",
+      "auth": [
+        "current_user"
+      ],
+      "name": "more_moderation_stats"
+    },
+    {
+      "method": "GET",
+      "path": "/api/more/admin/queue",
+      "module": "server.inline",
+      "auth": [
+        "current_user"
+      ],
+      "name": "more_admin_review_queue"
+    },
+    {
+      "method": "GET",
+      "path": "/api/more/chat/{session_id}",
+      "module": "server.inline",
+      "auth": [
+        "current_user"
+      ],
+      "name": "more_chat_get"
+    },
+    {
+      "method": "GET",
+      "path": "/api/more/department/integrity",
+      "module": "server.inline",
+      "auth": [
+        "current_user"
+      ],
+      "name": "more_department_integrity"
+    },
+    {
+      "method": "GET",
+      "path": "/api/more/needs",
+      "module": "server.inline",
+      "auth": [],
+      "name": "more_list_needs"
+    },
+    {
+      "method": "GET",
+      "path": "/api/more/posts",
+      "module": "server.inline",
+      "auth": [],
+      "name": "more_list_posts"
+    },
+    {
+      "method": "GET",
+      "path": "/api/my-projects",
+      "module": "routers.member_projects",
+      "auth": [
+        "dep"
+      ],
+      "name": "list_my_projects"
+    },
+    {
+      "method": "GET",
+      "path": "/api/my-projects/admin/all",
+      "module": "routers.member_projects",
+      "auth": [
+        "dep"
+      ],
+      "name": "admin_list_all"
+    },
+    {
+      "method": "GET",
+      "path": "/api/my-projects/{project_id}",
+      "module": "routers.member_projects",
+      "auth": [
+        "dep"
+      ],
+      "name": "get_project"
+    },
+    {
+      "method": "GET",
+      "path": "/api/nam/autobiography",
+      "module": "routers.nam",
+      "auth": [
+        "require_auth"
+      ],
+      "name": "get_autobiography"
+    },
+    {
+      "method": "GET",
+      "path": "/api/nam/chat/history",
+      "module": "routers.nam",
+      "auth": [
+        "require_auth"
+      ],
+      "name": "nam_chat_history"
+    },
+    {
+      "method": "GET",
+      "path": "/api/nam/constitution",
+      "module": "routers.nam",
+      "auth": [
+        "require_auth"
+      ],
+      "name": "get_constitution"
+    },
+    {
+      "method": "GET",
+      "path": "/api/nam/development",
+      "module": "routers.nam",
+      "auth": [
+        "require_auth"
+      ],
+      "name": "get_development"
+    },
+    {
+      "method": "GET",
+      "path": "/api/nam/dreams",
+      "module": "routers.nam",
+      "auth": [
+        "require_auth"
+      ],
+      "name": "get_dreams"
+    },
+    {
+      "method": "GET",
+      "path": "/api/nam/escalations",
+      "module": "routers.nam",
+      "auth": [
+        "require_auth"
+      ],
+      "name": "get_escalations"
+    },
+    {
+      "method": "GET",
+      "path": "/api/nam/identity",
+      "module": "routers.nam",
+      "auth": [
+        "require_auth"
+      ],
+      "name": "get_identity"
+    },
+    {
+      "method": "GET",
+      "path": "/api/nam/intentions",
+      "module": "routers.nam",
+      "auth": [
+        "require_auth"
+      ],
+      "name": "get_intentions"
+    },
+    {
+      "method": "GET",
+      "path": "/api/nam/intentions/drift",
+      "module": "routers.nam",
+      "auth": [
+        "require_auth"
+      ],
+      "name": "check_drift"
+    },
+    {
+      "method": "GET",
+      "path": "/api/nam/jamil/autonomy/{action_type}",
+      "module": "routers.nam",
+      "auth": [
+        "require_auth"
+      ],
+      "name": "get_autonomy_level"
+    },
+    {
+      "method": "GET",
+      "path": "/api/nam/jamil/protocol",
+      "module": "routers.nam",
+      "auth": [
+        "require_auth"
+      ],
+      "name": "get_jamil_protocol"
+    },
+    {
+      "method": "GET",
+      "path": "/api/nam/knowledge/search",
+      "module": "routers.nam",
+      "auth": [
+        "require_auth"
+      ],
+      "name": "search_knowledge"
+    },
+    {
+      "method": "GET",
+      "path": "/api/nam/knowledge/{knowledge_id}",
+      "module": "routers.nam",
+      "auth": [
+        "require_auth"
+      ],
+      "name": "get_knowledge"
+    },
+    {
+      "method": "GET",
+      "path": "/api/nam/leadership/ledger",
+      "module": "routers.nam",
+      "auth": [
+        "require_auth"
+      ],
+      "name": "get_ledger"
+    },
+    {
+      "method": "GET",
+      "path": "/api/nam/memory",
+      "module": "routers.nam",
+      "auth": [
+        "require_auth"
+      ],
+      "name": "get_memories"
+    },
+    {
+      "method": "GET",
+      "path": "/api/nam/mission/alignment",
+      "module": "routers.nam",
+      "auth": [
+        "require_auth"
+      ],
+      "name": "get_mission_alignment"
+    },
+    {
+      "method": "GET",
+      "path": "/api/nam/operational/accountability",
+      "module": "routers.nam",
+      "auth": [
+        "require_auth"
+      ],
+      "name": "get_operational_accountability"
+    },
+    {
+      "method": "GET",
+      "path": "/api/nam/operational/challenge",
+      "module": "routers.nam",
+      "auth": [
+        "require_auth"
+      ],
+      "name": "get_operational_challenge"
+    },
+    {
+      "method": "GET",
+      "path": "/api/nam/operational/crisis",
+      "module": "routers.nam",
+      "auth": [
+        "require_auth"
+      ],
+      "name": "get_operational_crisis"
+    },
+    {
+      "method": "GET",
+      "path": "/api/nam/operational/economics",
+      "module": "routers.nam",
+      "auth": [
+        "require_auth"
+      ],
+      "name": "get_operational_economics"
+    },
+    {
+      "method": "GET",
+      "path": "/api/nam/operational/ecosystem",
+      "module": "routers.nam",
+      "auth": [
+        "require_auth"
+      ],
+      "name": "get_operational_ecosystem"
+    },
+    {
+      "method": "GET",
+      "path": "/api/nam/operational/governance",
+      "module": "routers.nam",
+      "auth": [
+        "require_auth"
+      ],
+      "name": "get_operational_governance"
+    },
+    {
+      "method": "GET",
+      "path": "/api/nam/operational/mission",
+      "module": "routers.nam",
+      "auth": [
+        "require_auth"
+      ],
+      "name": "get_operational_mission"
+    },
+    {
+      "method": "GET",
+      "path": "/api/nam/operational/power",
+      "module": "routers.nam",
+      "auth": [
+        "require_auth"
+      ],
+      "name": "get_operational_power"
+    },
+    {
+      "method": "GET",
+      "path": "/api/nam/operational/risk",
+      "module": "routers.nam",
+      "auth": [
+        "require_auth"
+      ],
+      "name": "get_operational_risk"
+    },
+    {
+      "method": "GET",
+      "path": "/api/nam/operational/strategy",
+      "module": "routers.nam",
+      "auth": [
+        "require_auth"
+      ],
+      "name": "get_operational_strategy"
+    },
+    {
+      "method": "GET",
+      "path": "/api/nam/operational/succession",
+      "module": "routers.nam",
+      "auth": [
+        "require_auth"
+      ],
+      "name": "get_operational_succession"
+    },
+    {
+      "method": "GET",
+      "path": "/api/nam/reflections",
+      "module": "routers.nam",
+      "auth": [
+        "require_auth"
+      ],
+      "name": "get_reflections"
+    },
+    {
+      "method": "GET",
+      "path": "/api/nam/reflections/tensions",
+      "module": "routers.nam",
+      "auth": [
+        "require_auth"
+      ],
+      "name": "check_constitutional_tensions"
+    },
+    {
+      "method": "GET",
+      "path": "/api/nam/state",
+      "module": "routers.nam",
+      "auth": [
+        "require_auth"
+      ],
+      "name": "get_state"
+    },
+    {
+      "method": "GET",
+      "path": "/api/notifications/me",
+      "module": "server.inline",
+      "auth": [
+        "current_user"
+      ],
+      "name": "my_notifications"
+    },
+    {
+      "method": "GET",
+      "path": "/api/partnership/status",
+      "module": "server.inline",
+      "auth": [
+        "current_user"
+      ],
+      "name": "partnership_status"
+    },
+    {
+      "method": "GET",
+      "path": "/api/payments/history",
+      "module": "server.inline",
+      "auth": [
+        "current_user"
+      ],
+      "name": "payment_history"
+    },
+    {
+      "method": "GET",
+      "path": "/api/payments/portal",
+      "module": "server.inline",
+      "auth": [
+        "current_user"
+      ],
+      "name": "customer_portal"
+    },
+    {
+      "method": "GET",
+      "path": "/api/payments/products",
+      "module": "server.inline",
+      "auth": [],
+      "name": "list_payment_products"
+    },
+    {
+      "method": "GET",
+      "path": "/api/personas/stack",
+      "module": "server.inline",
+      "auth": [
+        "dep"
+      ],
+      "name": "get_active_persona_stack"
+    },
+    {
+      "method": "GET",
+      "path": "/api/playlist/dashboard",
+      "module": "server.inline",
+      "auth": [
+        "dep_current_user"
+      ],
+      "name": "get_dashboard"
+    },
+    {
+      "method": "GET",
+      "path": "/api/playlist/gateways/{curator_slug}",
+      "module": "server.inline",
+      "auth": [],
+      "name": "get_active_gateways"
+    },
+    {
+      "method": "GET",
+      "path": "/api/portfolio/export.pdf",
+      "module": "server.inline",
+      "auth": [],
+      "name": "portfolio_pdf"
+    },
+    {
+      "method": "GET",
+      "path": "/api/portfolio/me",
+      "module": "server.inline",
+      "auth": [
+        "current_user"
+      ],
+      "name": "my_portfolio"
+    },
+    {
+      "method": "GET",
+      "path": "/api/portfolio/public/{slug}",
+      "module": "server.inline",
+      "auth": [],
+      "name": "public_portfolio"
+    },
+    {
+      "method": "GET",
+      "path": "/api/prices/public",
+      "module": "routers.auditor",
+      "auth": [],
+      "name": "public_prices"
+    },
+    {
+      "method": "GET",
+      "path": "/api/pricing",
+      "module": "server.inline",
+      "auth": [],
+      "name": "get_pricing"
+    },
+    {
+      "method": "GET",
+      "path": "/api/progress/me",
+      "module": "server.inline",
+      "auth": [
+        "current_user"
+      ],
+      "name": "my_progress"
+    },
+    {
+      "method": "GET",
+      "path": "/api/projects",
+      "module": "routers.projects",
+      "auth": [
+        "_dep_current_user"
+      ],
+      "name": "list_projects"
+    },
+    {
+      "method": "GET",
+      "path": "/api/projects/{project_id}",
+      "module": "routers.projects",
+      "auth": [
+        "_dep_current_user"
+      ],
+      "name": "get_project"
+    },
+    {
+      "method": "GET",
+      "path": "/api/providers",
+      "module": "routers.billing",
+      "auth": [
+        "dep"
+      ],
+      "name": "providers_list"
+    },
+    {
+      "method": "GET",
+      "path": "/api/providers/keys",
+      "module": "routers.billing",
+      "auth": [
+        "dep"
+      ],
+      "name": "provider_keys_list"
+    },
+    {
+      "method": "GET",
+      "path": "/api/providers/quick-setup/status",
+      "module": "routers.provider_gateway",
+      "auth": [
+        "_user"
+      ],
+      "name": "quick_setup_status"
+    },
+    {
+      "method": "GET",
+      "path": "/api/providers/usage-log",
+      "module": "routers.provider_gateway",
+      "auth": [
+        "_user"
+      ],
+      "name": "usage_log"
+    },
+    {
+      "method": "GET",
+      "path": "/api/puzzles/next",
+      "module": "server.inline",
+      "auth": [],
+      "name": "puzzles_next"
+    },
+    {
+      "method": "GET",
+      "path": "/api/ready",
+      "module": "server.inline",
+      "auth": [],
+      "name": "ready"
+    },
+    {
+      "method": "GET",
+      "path": "/api/revenue/api-keys",
+      "module": "server.inline",
+      "auth": [
+        "current_user"
+      ],
+      "name": "revenue_list_keys"
+    },
+    {
+      "method": "GET",
+      "path": "/api/revenue/api-keys/stats",
+      "module": "server.inline",
+      "auth": [
+        "current_user"
+      ],
+      "name": "revenue_key_stats"
+    },
+    {
+      "method": "GET",
+      "path": "/api/revenue/api-keys/tiers",
+      "module": "server.inline",
+      "auth": [],
+      "name": "revenue_list_tiers"
+    },
+    {
+      "method": "GET",
+      "path": "/api/revenue/courses/my-licenses",
+      "module": "server.inline",
+      "auth": [
+        "current_user"
+      ],
+      "name": "revenue_my_licenses"
+    },
+    {
+      "method": "GET",
+      "path": "/api/revenue/courses/public",
+      "module": "server.inline",
+      "auth": [],
+      "name": "revenue_public_courses"
+    },
+    {
+      "method": "GET",
+      "path": "/api/revenue/employer/compliance",
+      "module": "server.inline",
+      "auth": [
+        "dep"
+      ],
+      "name": "revenue_employer_compliance"
+    },
+    {
+      "method": "GET",
+      "path": "/api/revenue/employer/verify-batch",
+      "module": "server.inline",
+      "auth": [
+        "dep"
+      ],
+      "name": "revenue_employer_batch_verify"
+    },
+    {
+      "method": "GET",
+      "path": "/api/revenue/exec-overview",
+      "module": "routers.revenue_exec",
+      "auth": [
+        "dep"
+      ],
+      "name": "revenue_exec_overview"
+    },
+    {
+      "method": "GET",
+      "path": "/api/revenue/resume/preview",
+      "module": "server.inline",
+      "auth": [
+        "current_user"
+      ],
+      "name": "revenue_resume_preview"
+    },
+    {
+      "method": "GET",
+      "path": "/api/revenue/sovereign/workspaces",
+      "module": "server.inline",
+      "auth": [
+        "dep"
+      ],
+      "name": "revenue_list_workspaces"
+    },
+    {
+      "method": "GET",
+      "path": "/api/roster",
+      "module": "server.inline",
+      "auth": [
+        "dep"
+      ],
+      "name": "roster"
+    },
+    {
+      "method": "GET",
+      "path": "/api/saga/concerts",
+      "module": "routers.saga",
+      "auth": [
+        "_optional_current_user"
+      ],
+      "name": "list_concerts"
+    },
+    {
+      "method": "GET",
+      "path": "/api/saga/images",
+      "module": "routers.saga",
+      "auth": [
+        "_optional_current_user"
+      ],
+      "name": "list_images"
+    },
+    {
+      "method": "GET",
+      "path": "/api/saga/tracks",
+      "module": "routers.saga",
+      "auth": [
+        "_optional_current_user"
+      ],
+      "name": "list_tracks"
+    },
+    {
+      "method": "GET",
+      "path": "/api/saga/videos",
+      "module": "routers.saga",
+      "auth": [
+        "_optional_current_user"
+      ],
+      "name": "list_videos"
+    },
+    {
+      "method": "GET",
+      "path": "/api/scholarships/admin/applications",
+      "module": "routers.scholarships",
+      "auth": [
+        "_dep_current_user"
+      ],
+      "name": "admin_applications"
+    },
+    {
+      "method": "GET",
+      "path": "/api/scholarships/admin/awards",
+      "module": "routers.scholarships",
+      "auth": [
+        "_dep_current_user"
+      ],
+      "name": "admin_awards"
+    },
+    {
+      "method": "GET",
+      "path": "/api/scholarships/admin/pledges",
+      "module": "routers.scholarships",
+      "auth": [
+        "_dep_current_user"
+      ],
+      "name": "admin_pledges"
+    },
+    {
+      "method": "GET",
+      "path": "/api/scholarships/applications/me",
+      "module": "routers.scholarships",
+      "auth": [
+        "_dep_current_user"
+      ],
+      "name": "my_applications"
+    },
+    {
+      "method": "GET",
+      "path": "/api/scholarships/funds",
+      "module": "routers.scholarships",
+      "auth": [],
+      "name": "list_funds"
+    },
+    {
+      "method": "GET",
+      "path": "/api/scholarships/sponsor/mine",
+      "module": "routers.scholarships",
+      "auth": [
+        "_dep_current_user"
+      ],
+      "name": "my_pledges"
+    },
+    {
+      "method": "GET",
+      "path": "/api/search",
+      "module": "routers.site_guide",
+      "auth": [],
+      "name": "site_search"
+    },
+    {
+      "method": "GET",
+      "path": "/api/sentinel/protocols",
+      "module": "routers.sentinel",
+      "auth": [
+        "dep"
+      ],
+      "name": "list_protocols"
+    },
+    {
+      "method": "GET",
+      "path": "/api/sentinel/research",
+      "module": "routers.sentinel",
+      "auth": [
+        "dep"
+      ],
+      "name": "list_research_notes"
+    },
+    {
+      "method": "GET",
+      "path": "/api/sentinel/reversals",
+      "module": "routers.sentinel",
+      "auth": [
+        "dep"
+      ],
+      "name": "list_reversals"
+    },
+    {
+      "method": "GET",
+      "path": "/api/sentinel/sovereign-drift",
+      "module": "routers.sentinel",
+      "auth": [
+        "dep"
+      ],
+      "name": "sovereign_drift_check"
+    },
+    {
+      "method": "GET",
+      "path": "/api/sentinel/status",
+      "module": "routers.sentinel",
+      "auth": [
+        "dep"
+      ],
+      "name": "sentinel_status"
+    },
+    {
+      "method": "GET",
+      "path": "/api/site-guide/status",
+      "module": "routers.site_guide",
+      "auth": [
+        "_dep_current_user"
+      ],
+      "name": "site_guide_status"
+    },
+    {
+      "method": "GET",
+      "path": "/api/social/connected-accounts",
+      "module": "server.inline",
+      "auth": [
+        "dep_current_user"
+      ],
+      "name": "get_connected_accounts"
+    },
+    {
+      "method": "GET",
+      "path": "/api/sovereign/memory",
+      "module": "server.inline",
+      "auth": [
+        "dep"
+      ],
+      "name": "sovereign_memory_list"
+    },
+    {
+      "method": "GET",
+      "path": "/api/supervisor/backup/free-matrix",
+      "module": "routers.supervisor",
+      "auth": [
+        "dep"
+      ],
+      "name": "supervisor_backup_matrix"
+    },
+    {
+      "method": "GET",
+      "path": "/api/supervisor/backup/status",
+      "module": "routers.supervisor",
+      "auth": [
+        "dep"
+      ],
+      "name": "supervisor_backup_status"
+    },
+    {
+      "method": "GET",
+      "path": "/api/supervisor/dashboard",
+      "module": "routers.supervisor",
+      "auth": [
+        "dep"
+      ],
+      "name": "supervisor_dashboard"
+    },
+    {
+      "method": "GET",
+      "path": "/api/supervisor/escalations",
+      "module": "routers.supervisor",
+      "auth": [
+        "dep"
+      ],
+      "name": "supervisor_escalations"
+    },
+    {
+      "method": "GET",
+      "path": "/api/supervisor/greeter/config",
+      "module": "routers.supervisor",
+      "auth": [
+        "dep"
+      ],
+      "name": "supervisor_greeter_config"
+    },
+    {
+      "method": "GET",
+      "path": "/api/supervisor/sage/sessions",
+      "module": "routers.supervisor",
+      "auth": [
+        "dep"
+      ],
+      "name": "supervisor_sage_sessions"
+    },
+    {
+      "method": "GET",
+      "path": "/api/supervisor/system/continuity-check",
+      "module": "routers.supervisor",
+      "auth": [
+        "dep"
+      ],
+      "name": "supervisor_continuity_check"
+    },
+    {
+      "method": "GET",
+      "path": "/api/supervisor/visitor-flow",
+      "module": "routers.supervisor",
+      "auth": [
+        "dep"
+      ],
+      "name": "supervisor_visitor_flow"
+    },
+    {
+      "method": "GET",
+      "path": "/api/team/actions",
+      "module": "routers.billing",
+      "auth": [
+        "dep"
+      ],
+      "name": "team_actions_list"
+    },
+    {
+      "method": "GET",
+      "path": "/api/team/monitor/status",
+      "module": "routers.billing",
+      "auth": [
+        "dep"
+      ],
+      "name": "team_monitor_status"
+    },
+    {
+      "method": "GET",
+      "path": "/api/verify/{code}",
+      "module": "server.inline",
+      "auth": [],
+      "name": "verify_credential"
+    },
+    {
+      "method": "GET",
+      "path": "/api/version",
+      "module": "server.inline",
+      "auth": [],
+      "name": "version"
+    },
+    {
+      "method": "GET",
+      "path": "/api/xp/leaderboard",
+      "module": "server.inline",
+      "auth": [
+        "current_user"
+      ],
+      "name": "xp_leaderboard"
+    },
+    {
+      "method": "GET",
+      "path": "/api/xp/me",
+      "module": "server.inline",
+      "auth": [
+        "current_user"
+      ],
+      "name": "my_xp"
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/abo/agenda/{item_id}",
+      "module": "routers.abo",
+      "auth": [
+        "dep"
+      ],
+      "name": "update_agenda"
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/abo/deals/{deal_id}",
+      "module": "routers.abo",
+      "auth": [
+        "dep"
+      ],
+      "name": "update_deal"
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/admin/gateway/budget",
+      "module": "routers.gateway_admin",
+      "auth": [
+        "dep"
+      ],
+      "name": "gateway_set_budget"
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/admin/gateway/ranking",
+      "module": "routers.gateway_admin",
+      "auth": [
+        "dep"
+      ],
+      "name": "gateway_set_ranking"
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/admin/mfa/config",
+      "module": "server.inline",
+      "auth": [
+        "dep"
+      ],
+      "name": "set_mfa_config"
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/admin/prices/{price_id}",
+      "module": "routers.auditor",
+      "auth": [
+        "dep"
+      ],
+      "name": "update_price"
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/admin/promo-codes/{code}",
+      "module": "routers.promo_codes",
+      "auth": [
+        "dep"
+      ],
+      "name": "update_promo_code"
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/admin/rbac/matrix",
+      "module": "server.inline",
+      "auth": [
+        "dep"
+      ],
+      "name": "set_rbac_matrix"
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/admin/users/{uid}",
+      "module": "server.inline",
+      "auth": [
+        "dep"
+      ],
+      "name": "admin_edit_user"
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/admin/users/{uid}/active",
+      "module": "server.inline",
+      "auth": [
+        "dep"
+      ],
+      "name": "admin_set_active"
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/admin/users/{uid}/role",
+      "module": "server.inline",
+      "auth": [
+        "dep"
+      ],
+      "name": "admin_change_role"
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/admin/users/{uid}/sage-tier",
+      "module": "server.inline",
+      "auth": [
+        "dep"
+      ],
+      "name": "set_user_sage_tier"
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/admin/users/{uid}/tier",
+      "module": "server.inline",
+      "auth": [
+        "dep"
+      ],
+      "name": "admin_set_tier"
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/auditor/ledger/{entry_id}",
+      "module": "routers.auditor",
+      "auth": [
+        "dep"
+      ],
+      "name": "auditor_update_entry"
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/auth/me",
+      "module": "server.inline",
+      "auth": [
+        "current_user"
+      ],
+      "name": "edit_self"
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/band/bookings/{booking_id}/status",
+      "module": "routers.band",
+      "auth": [
+        "_dep_current_user"
+      ],
+      "name": "band_update_booking"
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/creator-lounge/projects/{project_id}",
+      "module": "routers.creator_lounge",
+      "auth": [
+        "_dep_current_user"
+      ],
+      "name": "cl_update_project"
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/creator/courses/{course_id}",
+      "module": "routers.creator",
+      "auth": [
+        "_dep_current_user"
+      ],
+      "name": "creator_update_course"
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/executive/projects/{project_id}",
+      "module": "routers.executive_pipeline",
+      "auth": [
+        "dep"
+      ],
+      "name": "update_project"
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/iam/identities/{identity_id}",
+      "module": "routers.iam",
+      "auth": [
+        "_dep_current_user"
+      ],
+      "name": "update_identity"
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/media/products/{product_id}",
+      "module": "routers.media",
+      "auth": [
+        "_dep_current_user"
+      ],
+      "name": "update_media_product"
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/playlist/gateway/{gateway_id}/status",
+      "module": "server.inline",
+      "auth": [
+        "dep_current_user"
+      ],
+      "name": "set_gateway_status"
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/projects/{project_id}",
+      "module": "routers.projects",
+      "auth": [
+        "_dep_current_user"
+      ],
+      "name": "update_project"
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/projects/{project_id}/milestone/{milestone_id}",
+      "module": "routers.projects",
+      "auth": [
+        "_dep_current_user"
+      ],
+      "name": "update_milestone"
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/providers/{provider_id}/status",
+      "module": "routers.billing",
+      "auth": [
+        "dep"
+      ],
+      "name": "providers_set_status"
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/scholarships/admin/applications/{app_id}",
+      "module": "routers.scholarships",
+      "auth": [
+        "_dep_current_user"
+      ],
+      "name": "review_application"
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/scholarships/admin/awards/{award_id}/milestones/{milestone_id}",
+      "module": "routers.scholarships",
+      "auth": [
+        "_dep_current_user"
+      ],
+      "name": "verify_milestone"
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/sentinel/protocols/{protocol_id}",
+      "module": "routers.sentinel",
+      "auth": [
+        "dep"
+      ],
+      "name": "update_protocol"
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/supervisor/greeter/config",
+      "module": "routers.supervisor",
+      "auth": [
+        "dep"
+      ],
+      "name": "supervisor_update_greeter"
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/supervisor/visitor-flow",
+      "module": "routers.supervisor",
+      "auth": [
+        "dep"
+      ],
+      "name": "supervisor_update_visitor_flow"
+    },
+    {
+      "method": "POST",
+      "path": "/api/aawab/admin/agents/{agent_id}/override",
+      "module": "routers.aawab",
+      "auth": [
+        "dep"
+      ],
+      "name": "aawab_admin_override"
+    },
+    {
+      "method": "POST",
+      "path": "/api/aawab/admin/agents/{agent_id}/revoke",
+      "module": "routers.aawab",
+      "auth": [
+        "dep"
+      ],
+      "name": "aawab_admin_revoke"
+    },
+    {
+      "method": "POST",
+      "path": "/api/aawab/agents/{agent_id}/certify",
+      "module": "routers.aawab",
+      "auth": [
+        "dep"
+      ],
+      "name": "aawab_certify"
+    },
+    {
+      "method": "POST",
+      "path": "/api/aawab/agents/{agent_id}/diagnose",
+      "module": "routers.aawab",
+      "auth": [
+        "dep"
+      ],
+      "name": "aawab_diagnose"
+    },
+    {
+      "method": "POST",
+      "path": "/api/aawab/agents/{agent_id}/treat",
+      "module": "routers.aawab",
+      "auth": [
+        "dep"
+      ],
+      "name": "aawab_treat"
+    },
+    {
+      "method": "POST",
+      "path": "/api/aawab/register",
+      "module": "routers.aawab",
+      "auth": [
+        "dep"
+      ],
+      "name": "aawab_register"
+    },
+    {
+      "method": "POST",
+      "path": "/api/abo/deals",
+      "module": "routers.abo",
+      "auth": [
+        "_dep_current_user"
+      ],
+      "name": "create_deal"
+    },
+    {
+      "method": "POST",
+      "path": "/api/abo/deals/{deal_id}/propose",
+      "module": "routers.abo",
+      "auth": [
+        "dep"
+      ],
+      "name": "propose_deal"
+    },
+    {
+      "method": "POST",
+      "path": "/api/abo/exchange/contracts",
+      "module": "routers.abo",
+      "auth": [
+        "dep"
+      ],
+      "name": "create_exchange_contract"
+    },
+    {
+      "method": "POST",
+      "path": "/api/abo/exchange/contracts/{contract_id}/complete",
+      "module": "routers.abo",
+      "auth": [
+        "dep"
+      ],
+      "name": "complete_exchange_contract"
+    },
+    {
+      "method": "POST",
+      "path": "/api/abo/goals",
+      "module": "routers.abo",
+      "auth": [
+        "dep"
+      ],
+      "name": "abo_set_goals"
+    },
+    {
+      "method": "POST",
+      "path": "/api/abo/jobs",
+      "module": "routers.abo",
+      "auth": [
+        "dep"
+      ],
+      "name": "create_job"
+    },
+    {
+      "method": "POST",
+      "path": "/api/abo/redteam/engagements",
+      "module": "routers.abo",
+      "auth": [
+        "dep"
+      ],
+      "name": "create_redteam_engagement"
+    },
+    {
+      "method": "POST",
+      "path": "/api/abo/redteam/engagements/{engagement_id}/approve",
+      "module": "routers.abo",
+      "auth": [
+        "dep"
+      ],
+      "name": "approve_redteam_engagement"
+    },
+    {
+      "method": "POST",
+      "path": "/api/abo/redteam/engagements/{engagement_id}/close",
+      "module": "routers.abo",
+      "auth": [
+        "dep"
+      ],
+      "name": "close_redteam_engagement"
+    },
+    {
+      "method": "POST",
+      "path": "/api/abo/source/controls",
+      "module": "routers.abo",
+      "auth": [
+        "dep"
+      ],
+      "name": "abo_source_controls_save"
+    },
+    {
+      "method": "POST",
+      "path": "/api/admin/access/ipwhitelist",
+      "module": "server.inline",
+      "auth": [
+        "dep"
+      ],
+      "name": "add_ip_whitelist"
+    },
+    {
+      "method": "POST",
+      "path": "/api/admin/ai-spend-budget",
+      "module": "routers.exec_control",
+      "auth": [
+        "dep"
+      ],
+      "name": "admin_set_ai_spend_budget"
+    },
+    {
+      "method": "POST",
+      "path": "/api/admin/associate",
+      "module": "server.inline",
+      "auth": [
+        "dep"
+      ],
+      "name": "assign_associate"
+    },
+    {
+      "method": "POST",
+      "path": "/api/admin/broadcast",
+      "module": "server.inline",
+      "auth": [
+        "dep"
+      ],
+      "name": "control_panel_set_broadcast"
+    },
+    {
+      "method": "POST",
+      "path": "/api/admin/checkout",
+      "module": "server.inline",
+      "auth": [
+        "dep"
+      ],
+      "name": "checkout_tool"
+    },
+    {
+      "method": "POST",
+      "path": "/api/admin/checkout/{checkout_id}/return",
+      "module": "server.inline",
+      "auth": [
+        "dep"
+      ],
+      "name": "return_tool"
+    },
+    {
+      "method": "POST",
+      "path": "/api/admin/control-panel/broadcast",
+      "module": "routers.exec_control",
+      "auth": [
+        "dep"
+      ],
+      "name": "control_panel_set_broadcast"
+    },
+    {
+      "method": "POST",
+      "path": "/api/admin/creator-payouts/process",
+      "module": "routers.creator",
+      "auth": [
+        "dep"
+      ],
+      "name": "admin_process_creator_payouts"
+    },
+    {
+      "method": "POST",
+      "path": "/api/admin/discounts",
+      "module": "server.inline",
+      "auth": [
+        "dep"
+      ],
+      "name": "set_discount"
+    },
+    {
+      "method": "POST",
+      "path": "/api/admin/gateway/reset-budget",
+      "module": "routers.gateway_admin",
+      "auth": [
+        "dep"
+      ],
+      "name": "gateway_reset_budget"
+    },
+    {
+      "method": "POST",
+      "path": "/api/admin/inventory",
+      "module": "server.inline",
+      "auth": [
+        "dep"
+      ],
+      "name": "add_inventory"
+    },
+    {
+      "method": "POST",
+      "path": "/api/admin/platform/flags/{flag}",
+      "module": "server.inline",
+      "auth": [
+        "dep"
+      ],
+      "name": "set_platform_flag"
+    },
+    {
+      "method": "POST",
+      "path": "/api/admin/prices",
+      "module": "routers.auditor",
+      "auth": [
+        "dep"
+      ],
+      "name": "create_price"
+    },
+    {
+      "method": "POST",
+      "path": "/api/admin/promo-codes",
+      "module": "routers.promo_codes",
+      "auth": [
+        "dep"
+      ],
+      "name": "create_promo_code"
+    },
+    {
+      "method": "POST",
+      "path": "/api/admin/run-checks",
+      "module": "server.inline",
+      "auth": [
+        "dep"
+      ],
+      "name": "admin_run_checks"
+    },
+    {
+      "method": "POST",
+      "path": "/api/admin/sites",
+      "module": "server.inline",
+      "auth": [
+        "dep"
+      ],
+      "name": "create_site"
+    },
+    {
+      "method": "POST",
+      "path": "/api/admin/system/restore-points",
+      "module": "routers.system_rollback",
+      "auth": [],
+      "name": "create_restore_point_route"
+    },
+    {
+      "method": "POST",
+      "path": "/api/admin/system/rollback",
+      "module": "routers.system_rollback",
+      "auth": [],
+      "name": "admin_rollback"
+    },
+    {
+      "method": "POST",
+      "path": "/api/admin/users",
+      "module": "server.inline",
+      "auth": [
+        "dep"
+      ],
+      "name": "admin_create_user"
+    },
+    {
+      "method": "POST",
+      "path": "/api/admin/users/bulk",
+      "module": "server.inline",
+      "auth": [
+        "dep"
+      ],
+      "name": "exec_bulk_action"
+    },
+    {
+      "method": "POST",
+      "path": "/api/admin/users/{uid}/ban",
+      "module": "server.inline",
+      "auth": [
+        "dep"
+      ],
+      "name": "admin_ban_user"
+    },
+    {
+      "method": "POST",
+      "path": "/api/admin/users/{uid}/elevated-role",
+      "module": "server.inline",
+      "auth": [
+        "dep"
+      ],
+      "name": "grant_elevated_role"
+    },
+    {
+      "method": "POST",
+      "path": "/api/admin/users/{uid}/erasure",
+      "module": "server.inline",
+      "auth": [
+        "dep"
+      ],
+      "name": "admin_user_erasure"
+    },
+    {
+      "method": "POST",
+      "path": "/api/admin/users/{uid}/password",
+      "module": "server.inline",
+      "auth": [
+        "dep"
+      ],
+      "name": "admin_reset_password"
+    },
+    {
+      "method": "POST",
+      "path": "/api/admin/users/{uid}/reset-link",
+      "module": "server.inline",
+      "auth": [
+        "dep"
+      ],
+      "name": "admin_create_reset_link"
+    },
+    {
+      "method": "POST",
+      "path": "/api/admin/users/{uid}/reset-password",
+      "module": "server.inline",
+      "auth": [
+        "dep"
+      ],
+      "name": "admin_reset_password"
+    },
+    {
+      "method": "POST",
+      "path": "/api/admin/users/{uid}/unban",
+      "module": "server.inline",
+      "auth": [
+        "dep"
+      ],
+      "name": "admin_unban_user"
+    },
+    {
+      "method": "POST",
+      "path": "/api/ai/ai/ambassador",
+      "module": "server.inline",
+      "auth": [
+        "_dep_current_user"
+      ],
+      "name": "ai_ambassador"
+    },
+    {
+      "method": "POST",
+      "path": "/api/ai/ai/architect",
+      "module": "server.inline",
+      "auth": [
+        "_dep_current_user"
+      ],
+      "name": "ai_architect"
+    },
+    {
+      "method": "POST",
+      "path": "/api/ai/ai/chat",
+      "module": "server.inline",
+      "auth": [
+        "_dep_current_user"
+      ],
+      "name": "ai_chat"
+    },
+    {
+      "method": "POST",
+      "path": "/api/ai/ai/cipher",
+      "module": "server.inline",
+      "auth": [
+        "_dep_current_user"
+      ],
+      "name": "ai_cipher"
+    },
+    {
+      "method": "POST",
+      "path": "/api/ai/ai/cipher/generate-audio",
+      "module": "server.inline",
+      "auth": [
+        "dep"
+      ],
+      "name": "cipher_generate_audio"
+    },
+    {
+      "method": "POST",
+      "path": "/api/ai/ai/cipher/tts",
+      "module": "server.inline",
+      "auth": [
+        "dep"
+      ],
+      "name": "cipher_tts"
+    },
+    {
+      "method": "POST",
+      "path": "/api/ai/ai/consent",
+      "module": "server.inline",
+      "auth": [
+        "_dep_current_user"
+      ],
+      "name": "ai_consent"
+    },
+    {
+      "method": "POST",
+      "path": "/api/ai/ai/director",
+      "module": "server.inline",
+      "auth": [
+        "_dep_current_user"
+      ],
+      "name": "ai_director"
+    },
+    {
+      "method": "POST",
+      "path": "/api/ai/ai/director/tts",
+      "module": "server.inline",
+      "auth": [
+        "dep"
+      ],
+      "name": "director_tts"
+    },
+    {
+      "method": "POST",
+      "path": "/api/ai/ai/director/upload",
+      "module": "server.inline",
+      "auth": [
+        "_dep_current_user"
+      ],
+      "name": "director_upload_file"
+    },
+    {
+      "method": "POST",
+      "path": "/api/ai/ai/griot",
+      "module": "server.inline",
+      "auth": [
+        "_dep_current_user"
+      ],
+      "name": "ai_griot"
+    },
+    {
+      "method": "POST",
+      "path": "/api/ai/ai/helper",
+      "module": "server.inline",
+      "auth": [],
+      "name": "ai_helper"
+    },
+    {
+      "method": "POST",
+      "path": "/api/ai/ai/memory/policy",
+      "module": "server.inline",
+      "auth": [
+        "dep"
+      ],
+      "name": "set_memory_policy"
+    },
+    {
+      "method": "POST",
+      "path": "/api/ai/ai/oracle",
+      "module": "server.inline",
+      "auth": [
+        "_dep_current_user"
+      ],
+      "name": "ai_oracle"
+    },
+    {
+      "method": "POST",
+      "path": "/api/ai/ai/orchestrator",
+      "module": "server.inline",
+      "auth": [
+        "_dep_current_user"
+      ],
+      "name": "ai_orchestrator"
+    },
+    {
+      "method": "POST",
+      "path": "/api/ai/ai/revenue-director",
+      "module": "server.inline",
+      "auth": [
+        "_dep_current_user"
+      ],
+      "name": "ai_revenue_director"
+    },
+    {
+      "method": "POST",
+      "path": "/api/ai/ai/revenue-director/tts",
+      "module": "server.inline",
+      "auth": [
+        "dep"
+      ],
+      "name": "revenue_director_tts"
+    },
+    {
+      "method": "POST",
+      "path": "/api/ai/ai/sage/create",
+      "module": "server.inline",
+      "auth": [
+        "_dep_current_user"
+      ],
+      "name": "sage_create"
+    },
+    {
+      "method": "POST",
+      "path": "/api/ai/ai/sage/elevenlabs/tts",
+      "module": "server.inline",
+      "auth": [
+        "dep"
+      ],
+      "name": "sage_elevenlabs_tts"
+    },
+    {
+      "method": "POST",
+      "path": "/api/ai/ai/sage/resolve_mode",
+      "module": "server.inline",
+      "auth": [
+        "_dep_current_user"
+      ],
+      "name": "resolve_mode"
+    },
+    {
+      "method": "POST",
+      "path": "/api/ai/ai/sage/tts",
+      "module": "server.inline",
+      "auth": [
+        "_dep_current_user"
+      ],
+      "name": "sage_tts"
+    },
+    {
+      "method": "POST",
+      "path": "/api/ai/ai/scholar",
+      "module": "server.inline",
+      "auth": [
+        "_dep_current_user"
+      ],
+      "name": "ai_scholar"
+    },
+    {
+      "method": "POST",
+      "path": "/api/ai/ai/tool-chat",
+      "module": "server.inline",
+      "auth": [
+        "_dep_current_user"
+      ],
+      "name": "ai_tool_chat"
+    },
+    {
+      "method": "POST",
+      "path": "/api/ai/ambassador",
+      "module": "server.inline",
+      "auth": [
+        "current_user"
+      ],
+      "name": "ai_ambassador"
+    },
+    {
+      "method": "POST",
+      "path": "/api/ai/architect",
+      "module": "server.inline",
+      "auth": [
+        "current_user"
+      ],
+      "name": "ai_architect"
+    },
+    {
+      "method": "POST",
+      "path": "/api/ai/chat",
+      "module": "server.inline",
+      "auth": [
+        "current_user"
+      ],
+      "name": "ai_chat"
+    },
+    {
+      "method": "POST",
+      "path": "/api/ai/cipher",
+      "module": "server.inline",
+      "auth": [
+        "current_user"
+      ],
+      "name": "ai_cipher"
+    },
+    {
+      "method": "POST",
+      "path": "/api/ai/cipher/generate-audio",
+      "module": "server.inline",
+      "auth": [
+        "dep"
+      ],
+      "name": "cipher_generate_audio"
+    },
+    {
+      "method": "POST",
+      "path": "/api/ai/cipher/tts",
+      "module": "server.inline",
+      "auth": [
+        "current_user"
+      ],
+      "name": "cipher_tts"
+    },
+    {
+      "method": "POST",
+      "path": "/api/ai/consent",
+      "module": "server.inline",
+      "auth": [
+        "current_user"
+      ],
+      "name": "ai_consent"
+    },
+    {
+      "method": "POST",
+      "path": "/api/ai/director",
+      "module": "server.inline",
+      "auth": [
+        "current_user"
+      ],
+      "name": "ai_director"
+    },
+    {
+      "method": "POST",
+      "path": "/api/ai/director/tts",
+      "module": "server.inline",
+      "auth": [
+        "current_user"
+      ],
+      "name": "director_tts"
+    },
+    {
+      "method": "POST",
+      "path": "/api/ai/director/upload",
+      "module": "server.inline",
+      "auth": [
+        "current_user"
+      ],
+      "name": "director_upload_file"
+    },
+    {
+      "method": "POST",
+      "path": "/api/ai/helper",
+      "module": "server.inline",
+      "auth": [],
+      "name": "ai_helper"
+    },
+    {
+      "method": "POST",
+      "path": "/api/ai/helper/ask",
+      "module": "server.inline",
+      "auth": [],
+      "name": "helper_ask"
+    },
+    {
+      "method": "POST",
+      "path": "/api/ai/memory/policy",
+      "module": "server.inline",
+      "auth": [
+        "dep"
+      ],
+      "name": "set_memory_policy"
+    },
+    {
+      "method": "POST",
+      "path": "/api/ai/oracle",
+      "module": "server.inline",
+      "auth": [
+        "current_user"
+      ],
+      "name": "ai_oracle"
+    },
+    {
+      "method": "POST",
+      "path": "/api/ai/orchestrator",
+      "module": "server.inline",
+      "auth": [
+        "current_user"
+      ],
+      "name": "ai_orchestrator"
+    },
+    {
+      "method": "POST",
+      "path": "/api/ai/personas/{slug}/chat",
+      "module": "server.inline",
+      "auth": [
+        "_dep_current_user"
+      ],
+      "name": "persona_chat"
+    },
+    {
+      "method": "POST",
+      "path": "/api/ai/personas/{slug}/controls",
+      "module": "server.inline",
+      "auth": [
+        "_dep_current_user"
+      ],
+      "name": "persona_controls_set"
+    },
+    {
+      "method": "POST",
+      "path": "/api/ai/personas/{slug}/toggle",
+      "module": "server.inline",
+      "auth": [
+        "dep"
+      ],
+      "name": "toggle_persona"
+    },
+    {
+      "method": "POST",
+      "path": "/api/ai/public/helper/ask",
+      "module": "server.inline",
+      "auth": [],
+      "name": "public_helper_ask"
+    },
+    {
+      "method": "POST",
+      "path": "/api/ai/revenue-director",
+      "module": "server.inline",
+      "auth": [
+        "current_user"
+      ],
+      "name": "ai_revenue_director"
+    },
+    {
+      "method": "POST",
+      "path": "/api/ai/revenue-director/tts",
+      "module": "server.inline",
+      "auth": [
+        "current_user"
+      ],
+      "name": "revenue_director_tts"
+    },
+    {
+      "method": "POST",
+      "path": "/api/ai/sage/create",
+      "module": "server.inline",
+      "auth": [
+        "current_user"
+      ],
+      "name": "sage_create"
+    },
+    {
+      "method": "POST",
+      "path": "/api/ai/sage/elevenlabs/tts",
+      "module": "server.inline",
+      "auth": [
+        "current_user"
+      ],
+      "name": "sage_elevenlabs_tts"
+    },
+    {
+      "method": "POST",
+      "path": "/api/ai/sage/resolve_mode",
+      "module": "server.inline",
+      "auth": [
+        "current_user"
+      ],
+      "name": "resolve_mode"
+    },
+    {
+      "method": "POST",
+      "path": "/api/ai/sage/tts",
+      "module": "server.inline",
+      "auth": [
+        "current_user"
+      ],
+      "name": "sage_tts"
+    },
+    {
+      "method": "POST",
+      "path": "/api/ai/scholar",
+      "module": "server.inline",
+      "auth": [
+        "current_user"
+      ],
+      "name": "ai_scholar"
+    },
+    {
+      "method": "POST",
+      "path": "/api/ai/social-blast",
+      "module": "routers.chat",
+      "auth": [
+        "_dep_current_user"
+      ],
+      "name": "ai_social_blast"
+    },
+    {
+      "method": "POST",
+      "path": "/api/arcade/chat",
+      "module": "routers.studio",
+      "auth": [],
+      "name": "arcade_chat"
+    },
+    {
+      "method": "POST",
+      "path": "/api/arcade/scores",
+      "module": "routers.studio",
+      "auth": [
+        "_dep_current_user"
+      ],
+      "name": "arcade_submit_score"
+    },
+    {
+      "method": "POST",
+      "path": "/api/assistant/chat",
+      "module": "routers.chat",
+      "auth": [
+        "_dep_current_user"
+      ],
+      "name": "admin_assistant_chat"
+    },
+    {
+      "method": "POST",
+      "path": "/api/attendance",
+      "module": "server.inline",
+      "auth": [
+        "dep"
+      ],
+      "name": "record_attendance"
+    },
+    {
+      "method": "POST",
+      "path": "/api/auditor/ledger",
+      "module": "routers.auditor",
+      "auth": [
+        "dep"
+      ],
+      "name": "auditor_add_entry"
+    },
+    {
+      "method": "POST",
+      "path": "/api/auth/change-password",
+      "module": "server.inline",
+      "auth": [
+        "current_user"
+      ],
+      "name": "change_password"
+    },
+    {
+      "method": "POST",
+      "path": "/api/auth/cross-site-login",
+      "module": "server.inline",
+      "auth": [],
+      "name": "cross_site_login"
+    },
+    {
+      "method": "POST",
+      "path": "/api/auth/emergency-recovery",
+      "module": "server.inline",
+      "auth": [],
+      "name": "emergency_recovery"
+    },
+    {
+      "method": "POST",
+      "path": "/api/auth/exec-unlock",
+      "module": "server.inline",
+      "auth": [],
+      "name": "exec_unlock"
+    },
+    {
+      "method": "POST",
+      "path": "/api/auth/forgot-password",
+      "module": "server.inline",
+      "auth": [],
+      "name": "forgot_password"
+    },
+    {
+      "method": "POST",
+      "path": "/api/auth/login",
+      "module": "server.inline",
+      "auth": [],
+      "name": "login"
+    },
+    {
+      "method": "POST",
+      "path": "/api/auth/reconsent",
+      "module": "server.inline",
+      "auth": [
+        "current_user"
+      ],
+      "name": "gdpr_reconsent"
+    },
+    {
+      "method": "POST",
+      "path": "/api/auth/recovery-codes-generate",
+      "module": "server.inline",
+      "auth": [
+        "dep"
+      ],
+      "name": "generate_recovery_codes_endpoint"
+    },
+    {
+      "method": "POST",
+      "path": "/api/auth/recovery-status",
+      "module": "server.inline",
+      "auth": [],
+      "name": "recovery_code_status"
+    },
+    {
+      "method": "POST",
+      "path": "/api/auth/register",
+      "module": "server.inline",
+      "auth": [],
+      "name": "register"
+    },
+    {
+      "method": "POST",
+      "path": "/api/auth/reset-password",
+      "module": "server.inline",
+      "auth": [],
+      "name": "reset_password_endpoint"
+    },
+    {
+      "method": "POST",
+      "path": "/api/band/book",
+      "module": "routers.band",
+      "auth": [
+        "_dep_current_user"
+      ],
+      "name": "band_request_booking"
+    },
+    {
+      "method": "POST",
+      "path": "/api/band/listings",
+      "module": "routers.band",
+      "auth": [
+        "_dep_current_user"
+      ],
+      "name": "band_create_listing"
+    },
+    {
+      "method": "POST",
+      "path": "/api/billing/credits/grant",
+      "module": "routers.billing",
+      "auth": [
+        "dep"
+      ],
+      "name": "billing_credits_grant"
+    },
+    {
+      "method": "POST",
+      "path": "/api/billing/refunds/cash",
+      "module": "routers.billing",
+      "auth": [
+        "dep"
+      ],
+      "name": "billing_cash_refund"
+    },
+    {
+      "method": "POST",
+      "path": "/api/billing/refunds/site-credits",
+      "module": "routers.billing",
+      "auth": [
+        "dep"
+      ],
+      "name": "billing_site_credit_refund"
+    },
+    {
+      "method": "POST",
+      "path": "/api/billing/sage-sessions/{session_id}/resolve",
+      "module": "routers.billing",
+      "auth": [
+        "dep"
+      ],
+      "name": "billing_resolve_sage_session"
+    },
+    {
+      "method": "POST",
+      "path": "/api/bridge/dispatch",
+      "module": "routers.bridge",
+      "auth": [
+        "dep"
+      ],
+      "name": "create_dispatch"
+    },
+    {
+      "method": "POST",
+      "path": "/api/bridge/receive",
+      "module": "routers.bridge",
+      "auth": [],
+      "name": "receive_from_partner"
+    },
+    {
+      "method": "POST",
+      "path": "/api/bug-report",
+      "module": "server.inline",
+      "auth": [],
+      "name": "submit_bug_report"
+    },
+    {
+      "method": "POST",
+      "path": "/api/byok/activate",
+      "module": "routers.byok",
+      "auth": [
+        "_dep_current_user"
+      ],
+      "name": "byok_activate"
+    },
+    {
+      "method": "POST",
+      "path": "/api/byok/checkout",
+      "module": "routers.byok",
+      "auth": [
+        "_dep_current_user"
+      ],
+      "name": "byok_checkout"
+    },
+    {
+      "method": "POST",
+      "path": "/api/byok/key",
+      "module": "routers.byok",
+      "auth": [
+        "_dep_current_user"
+      ],
+      "name": "byok_save_key"
+    },
+    {
+      "method": "POST",
+      "path": "/api/byok/key/{provider}/test",
+      "module": "routers.byok",
+      "auth": [
+        "_dep_current_user"
+      ],
+      "name": "byok_test_key"
+    },
+    {
+      "method": "POST",
+      "path": "/api/competition/score",
+      "module": "routers.competition",
+      "auth": [
+        "dep"
+      ],
+      "name": "submit_user_scores"
+    },
+    {
+      "method": "POST",
+      "path": "/api/competition/task",
+      "module": "routers.competition",
+      "auth": [
+        "dep"
+      ],
+      "name": "assign_task"
+    },
+    {
+      "method": "POST",
+      "path": "/api/compliance/{slug}/quiz",
+      "module": "routers.studio",
+      "auth": [
+        "_dep_current_user"
+      ],
+      "name": "submit_compliance_quiz"
+    },
+    {
+      "method": "POST",
+      "path": "/api/consent/cookie",
+      "module": "server.inline",
+      "auth": [],
+      "name": "log_cookie_consent"
+    },
+    {
+      "method": "POST",
+      "path": "/api/courses/completion",
+      "module": "server.inline",
+      "auth": [],
+      "name": "record_completion"
+    },
+    {
+      "method": "POST",
+      "path": "/api/courses/estimate-arv",
+      "module": "server.inline",
+      "auth": [],
+      "name": "estimate_arv"
+    },
+    {
+      "method": "POST",
+      "path": "/api/courses/leads/import",
+      "module": "server.inline",
+      "auth": [],
+      "name": "import_contractor_lead"
+    },
+    {
+      "method": "POST",
+      "path": "/api/courses/license/create",
+      "module": "server.inline",
+      "auth": [],
+      "name": "create_license"
+    },
+    {
+      "method": "POST",
+      "path": "/api/courses/license/{contractor_id}/add-member",
+      "module": "server.inline",
+      "auth": [],
+      "name": "add_member"
+    },
+    {
+      "method": "POST",
+      "path": "/api/creative-partner/chat",
+      "module": "routers.chat",
+      "auth": [
+        "_dep_current_user"
+      ],
+      "name": "creative_partner_chat"
+    },
+    {
+      "method": "POST",
+      "path": "/api/creative-partner/contribution",
+      "module": "routers.chat",
+      "auth": [
+        "_dep_current_user"
+      ],
+      "name": "submit_contribution"
+    },
+    {
+      "method": "POST",
+      "path": "/api/creator-courses/complete",
+      "module": "server.inline",
+      "auth": [],
+      "name": "complete_course"
+    },
+    {
+      "method": "POST",
+      "path": "/api/creator-courses/course/{course_id}/lesson",
+      "module": "server.inline",
+      "auth": [
+        "get_current_user_from_request"
+      ],
+      "name": "add_new_lesson"
+    },
+    {
+      "method": "POST",
+      "path": "/api/creator-courses/course/{course_id}/publish",
+      "module": "server.inline",
+      "auth": [
+        "get_current_user_from_request"
+      ],
+      "name": "publish_new_course"
+    },
+    {
+      "method": "POST",
+      "path": "/api/creator-courses/create",
+      "module": "server.inline",
+      "auth": [
+        "get_current_user_from_request"
+      ],
+      "name": "create_new_course"
+    },
+    {
+      "method": "POST",
+      "path": "/api/creator-courses/enroll",
+      "module": "server.inline",
+      "auth": [
+        "get_current_user_from_request"
+      ],
+      "name": "enroll_in_course"
+    },
+    {
+      "method": "POST",
+      "path": "/api/creator-courses/review/{course_id}",
+      "module": "server.inline",
+      "auth": [],
+      "name": "submit_review"
+    },
+    {
+      "method": "POST",
+      "path": "/api/creator-lounge/projects",
+      "module": "routers.creator_lounge",
+      "auth": [
+        "_dep_current_user"
+      ],
+      "name": "cl_create_project"
+    },
+    {
+      "method": "POST",
+      "path": "/api/creator-lounge/projects/{project_id}/collab",
+      "module": "routers.creator_lounge",
+      "auth": [
+        "_dep_current_user"
+      ],
+      "name": "cl_request_collab"
+    },
+    {
+      "method": "POST",
+      "path": "/api/creator/bank-account",
+      "module": "routers.creator",
+      "auth": [
+        "_dep_current_user"
+      ],
+      "name": "creator_save_bank_account_legacy"
+    },
+    {
+      "method": "POST",
+      "path": "/api/creator/courses",
+      "module": "routers.creator",
+      "auth": [
+        "_dep_current_user"
+      ],
+      "name": "creator_create_course"
+    },
+    {
+      "method": "POST",
+      "path": "/api/creator/courses/{course_id}/checkout",
+      "module": "routers.creator",
+      "auth": [
+        "_dep_current_user"
+      ],
+      "name": "creator_course_checkout"
+    },
+    {
+      "method": "POST",
+      "path": "/api/creator/payout-profile",
+      "module": "routers.creator",
+      "auth": [
+        "_dep_current_user"
+      ],
+      "name": "creator_save_payout_profile"
+    },
+    {
+      "method": "POST",
+      "path": "/api/creator/payout-request",
+      "module": "routers.creator",
+      "auth": [
+        "_dep_current_user"
+      ],
+      "name": "creator_request_payout"
+    },
+    {
+      "method": "POST",
+      "path": "/api/crm/leads",
+      "module": "server.inline",
+      "auth": [
+        "dep",
+        "dep_current_user"
+      ],
+      "name": "create_lead"
+    },
+    {
+      "method": "POST",
+      "path": "/api/crm/opportunities",
+      "module": "server.inline",
+      "auth": [
+        "dep"
+      ],
+      "name": "create_opportunity"
+    },
+    {
+      "method": "POST",
+      "path": "/api/crm/opportunities/{opportunity_id}/close-won",
+      "module": "server.inline",
+      "auth": [
+        "dep"
+      ],
+      "name": "close_opportunity_won"
+    },
+    {
+      "method": "POST",
+      "path": "/api/exec/checkout/conversion",
+      "module": "server.inline",
+      "auth": [
+        "dep"
+      ],
+      "name": "record_checkout_conversion"
+    },
+    {
+      "method": "POST",
+      "path": "/api/exec/control/access",
+      "module": "routers.exec_control",
+      "auth": [
+        "dep"
+      ],
+      "name": "ec_access_set"
+    },
+    {
+      "method": "POST",
+      "path": "/api/exec/control/ai-access",
+      "module": "routers.exec_control",
+      "auth": [
+        "dep"
+      ],
+      "name": "ec_ai_access"
+    },
+    {
+      "method": "POST",
+      "path": "/api/exec/control/authz-matrix",
+      "module": "routers.exec_control",
+      "auth": [
+        "dep"
+      ],
+      "name": "ec_set_authz_matrix"
+    },
+    {
+      "method": "POST",
+      "path": "/api/exec/control/break-glass/activate",
+      "module": "routers.exec_control",
+      "auth": [
+        "dep"
+      ],
+      "name": "ec_break_glass_activate"
+    },
+    {
+      "method": "POST",
+      "path": "/api/exec/control/break-glass/revoke",
+      "module": "routers.exec_control",
+      "auth": [
+        "dep"
+      ],
+      "name": "ec_break_glass_revoke"
+    },
+    {
+      "method": "POST",
+      "path": "/api/exec/control/budget",
+      "module": "routers.exec_control",
+      "auth": [
+        "dep"
+      ],
+      "name": "ec_set_budget"
+    },
+    {
+      "method": "POST",
+      "path": "/api/exec/control/failover",
+      "module": "routers.exec_control",
+      "auth": [
+        "dep"
+      ],
+      "name": "ec_failover"
+    },
+    {
+      "method": "POST",
+      "path": "/api/exec/control/feature-flag",
+      "module": "routers.exec_control",
+      "auth": [
+        "dep"
+      ],
+      "name": "ec_feature_flag"
+    },
+    {
+      "method": "POST",
+      "path": "/api/exec/control/ip-whitelist",
+      "module": "routers.exec_control",
+      "auth": [
+        "dep"
+      ],
+      "name": "ec_ip_whitelist"
+    },
+    {
+      "method": "POST",
+      "path": "/api/exec/control/legal-access",
+      "module": "routers.exec_control",
+      "auth": [
+        "dep"
+      ],
+      "name": "ec_legal_access"
+    },
+    {
+      "method": "POST",
+      "path": "/api/exec/control/mfa",
+      "module": "routers.exec_control",
+      "auth": [
+        "dep"
+      ],
+      "name": "ec_mfa_config"
+    },
+    {
+      "method": "POST",
+      "path": "/api/exec/control/page-mode",
+      "module": "routers.exec_control",
+      "auth": [
+        "dep"
+      ],
+      "name": "ec_page_mode"
+    },
+    {
+      "method": "POST",
+      "path": "/api/exec/control/price",
+      "module": "routers.exec_control",
+      "auth": [
+        "dep"
+      ],
+      "name": "ec_set_price"
+    },
+    {
+      "method": "POST",
+      "path": "/api/exec/control/provider-ranking",
+      "module": "routers.exec_control",
+      "auth": [
+        "dep"
+      ],
+      "name": "ec_provider_ranking"
+    },
+    {
+      "method": "POST",
+      "path": "/api/exec/control/route-access",
+      "module": "routers.exec_control",
+      "auth": [
+        "dep"
+      ],
+      "name": "ec_set_route_access"
+    },
+    {
+      "method": "POST",
+      "path": "/api/exec/control/sage-cap",
+      "module": "routers.exec_control",
+      "auth": [
+        "dep"
+      ],
+      "name": "ec_sage_cap"
+    },
+    {
+      "method": "POST",
+      "path": "/api/exec/control/tiers",
+      "module": "routers.exec_control",
+      "auth": [
+        "dep"
+      ],
+      "name": "ec_upsert_tier"
+    },
+    {
+      "method": "POST",
+      "path": "/api/exec/control/user/role",
+      "module": "routers.exec_control",
+      "auth": [
+        "dep"
+      ],
+      "name": "ec_set_user_role"
+    },
+    {
+      "method": "POST",
+      "path": "/api/exec/control/user/tier",
+      "module": "routers.exec_control",
+      "auth": [
+        "dep"
+      ],
+      "name": "ec_set_user_tier"
+    },
+    {
+      "method": "POST",
+      "path": "/api/exec/control/visibility",
+      "module": "routers.exec_control",
+      "auth": [
+        "dep"
+      ],
+      "name": "ec_visibility"
+    },
+    {
+      "method": "POST",
+      "path": "/api/exec/failover",
+      "module": "server.inline",
+      "auth": [
+        "dep"
+      ],
+      "name": "exec_failover"
+    },
+    {
+      "method": "POST",
+      "path": "/api/exec/merch/create",
+      "module": "server.inline",
+      "auth": [
+        "dep"
+      ],
+      "name": "merch_create"
+    },
+    {
+      "method": "POST",
+      "path": "/api/exec/panel/heartbeat",
+      "module": "server.inline",
+      "auth": [],
+      "name": "exec_panel_heartbeat"
+    },
+    {
+      "method": "POST",
+      "path": "/api/exec/panel/reset",
+      "module": "server.inline",
+      "auth": [
+        "dep"
+      ],
+      "name": "exec_panel_reset"
+    },
+    {
+      "method": "POST",
+      "path": "/api/exec/panel/toggle",
+      "module": "server.inline",
+      "auth": [
+        "dep"
+      ],
+      "name": "exec_panel_toggle"
+    },
+    {
+      "method": "POST",
+      "path": "/api/exec/personas/{name}/activate",
+      "module": "server.inline",
+      "auth": [
+        "dep"
+      ],
+      "name": "activate_persona"
+    },
+    {
+      "method": "POST",
+      "path": "/api/exec/personas/{name}/deactivate",
+      "module": "server.inline",
+      "auth": [
+        "dep"
+      ],
+      "name": "deactivate_persona"
+    },
+    {
+      "method": "POST",
+      "path": "/api/exec/personas/{name}/evolve",
+      "module": "server.inline",
+      "auth": [
+        "dep"
+      ],
+      "name": "evolve_persona"
+    },
+    {
+      "method": "POST",
+      "path": "/api/exec/pipeline/process",
+      "module": "server.inline",
+      "auth": [
+        "dep"
+      ],
+      "name": "exec_pipeline_process"
+    },
+    {
+      "method": "POST",
+      "path": "/api/exec/pipeline/process-batch",
+      "module": "server.inline",
+      "auth": [
+        "dep"
+      ],
+      "name": "exec_pipeline_process_batch"
+    },
+    {
+      "method": "POST",
+      "path": "/api/exec/products/create",
+      "module": "server.inline",
+      "auth": [
+        "dep"
+      ],
+      "name": "exec_create_product"
+    },
+    {
+      "method": "POST",
+      "path": "/api/exec/products/publish-all",
+      "module": "server.inline",
+      "auth": [
+        "dep"
+      ],
+      "name": "exec_publish_all"
+    },
+    {
+      "method": "POST",
+      "path": "/api/exec/scout/craft-response",
+      "module": "server.inline",
+      "auth": [
+        "dep"
+      ],
+      "name": "craft_outreach_response"
+    },
+    {
+      "method": "POST",
+      "path": "/api/exec/scout/match-all",
+      "module": "server.inline",
+      "auth": [
+        "dep"
+      ],
+      "name": "scout_match_all"
+    },
+    {
+      "method": "POST",
+      "path": "/api/exec/scout/run",
+      "module": "server.inline",
+      "auth": [
+        "dep"
+      ],
+      "name": "scout_run"
+    },
+    {
+      "method": "POST",
+      "path": "/api/exec/staff-meeting",
+      "module": "server.inline",
+      "auth": [
+        "dep"
+      ],
+      "name": "exec_staff_meeting"
+    },
+    {
+      "method": "POST",
+      "path": "/api/exec/tools/fetch-url",
+      "module": "routers.exec_tools",
+      "auth": [
+        "dep"
+      ],
+      "name": "fetch_url"
+    },
+    {
+      "method": "POST",
+      "path": "/api/exec/tools/knowledge-ingest",
+      "module": "routers.exec_tools",
+      "auth": [
+        "dep"
+      ],
+      "name": "knowledge_ingest"
+    },
+    {
+      "method": "POST",
+      "path": "/api/exec/tools/knowledge-search",
+      "module": "routers.exec_tools",
+      "auth": [
+        "dep"
+      ],
+      "name": "knowledge_search"
+    },
+    {
+      "method": "POST",
+      "path": "/api/exec/tools/send-email",
+      "module": "routers.exec_tools",
+      "auth": [
+        "dep"
+      ],
+      "name": "send_email"
+    },
+    {
+      "method": "POST",
+      "path": "/api/exec/tools/web-search",
+      "module": "routers.exec_tools",
+      "auth": [
+        "dep"
+      ],
+      "name": "web_search"
+    },
+    {
+      "method": "POST",
+      "path": "/api/executive/archive",
+      "module": "routers.executive_pipeline",
+      "auth": [
+        "dep"
+      ],
+      "name": "add_archive_asset"
+    },
+    {
+      "method": "POST",
+      "path": "/api/executive/projects",
+      "module": "routers.executive_pipeline",
+      "auth": [
+        "dep"
+      ],
+      "name": "create_project"
+    },
+    {
+      "method": "POST",
+      "path": "/api/executive/projects/{project_id}/advance",
+      "module": "routers.executive_pipeline",
+      "auth": [
+        "dep"
+      ],
+      "name": "advance_stage"
+    },
+    {
+      "method": "POST",
+      "path": "/api/executive/projects/{project_id}/approve",
+      "module": "routers.executive_pipeline",
+      "auth": [
+        "dep"
+      ],
+      "name": "approve_deliverable"
+    },
+    {
+      "method": "POST",
+      "path": "/api/executive/projects/{project_id}/comments",
+      "module": "routers.executive_pipeline",
+      "auth": [
+        "dep"
+      ],
+      "name": "add_comment"
+    },
+    {
+      "method": "POST",
+      "path": "/api/executive/projects/{project_id}/deliverables",
+      "module": "routers.executive_pipeline",
+      "auth": [
+        "dep"
+      ],
+      "name": "submit_deliverable"
+    },
+    {
+      "method": "POST",
+      "path": "/api/executive/projects/{project_id}/run-stage",
+      "module": "routers.executive_pipeline",
+      "auth": [
+        "dep"
+      ],
+      "name": "run_stage"
+    },
+    {
+      "method": "POST",
+      "path": "/api/help/guide",
+      "module": "server.inline",
+      "auth": [
+        "current_user"
+      ],
+      "name": "help_guide"
+    },
+    {
+      "method": "POST",
+      "path": "/api/iam/actions",
+      "module": "routers.iam",
+      "auth": [
+        "_dep_optional_user"
+      ],
+      "name": "record_action"
+    },
+    {
+      "method": "POST",
+      "path": "/api/iam/actions/check",
+      "module": "routers.iam",
+      "auth": [
+        "_dep_optional_user"
+      ],
+      "name": "check_action"
+    },
+    {
+      "method": "POST",
+      "path": "/api/iam/delegations",
+      "module": "routers.iam",
+      "auth": [
+        "_dep_current_user"
+      ],
+      "name": "create_delegation"
+    },
+    {
+      "method": "POST",
+      "path": "/api/iam/delegations/{delegation_id}/revoke",
+      "module": "routers.iam",
+      "auth": [
+        "_dep_current_user"
+      ],
+      "name": "revoke_delegation"
+    },
+    {
+      "method": "POST",
+      "path": "/api/iam/identities",
+      "module": "routers.iam",
+      "auth": [
+        "_dep_current_user"
+      ],
+      "name": "create_identity"
+    },
+    {
+      "method": "POST",
+      "path": "/api/iam/identities/{identity_id}/rotate-token",
+      "module": "routers.iam",
+      "auth": [
+        "_dep_current_user"
+      ],
+      "name": "rotate_token"
+    },
+    {
+      "method": "POST",
+      "path": "/api/iam/resources",
+      "module": "routers.iam",
+      "auth": [
+        "_dep_current_user"
+      ],
+      "name": "create_resource"
+    },
+    {
+      "method": "POST",
+      "path": "/api/incidents",
+      "module": "server.inline",
+      "auth": [
+        "current_user"
+      ],
+      "name": "report_incident"
+    },
+    {
+      "method": "POST",
+      "path": "/api/incidents/{iid}/resolve",
+      "module": "server.inline",
+      "auth": [
+        "dep"
+      ],
+      "name": "resolve_incident"
+    },
+    {
+      "method": "POST",
+      "path": "/api/instructor/submissions/{sub_id}/review",
+      "module": "server.inline",
+      "auth": [
+        "dep"
+      ],
+      "name": "review_submission"
+    },
+    {
+      "method": "POST",
+      "path": "/api/jamil/chat",
+      "module": "routers.jamil",
+      "auth": [
+        "_dep_current_user"
+      ],
+      "name": "jamil_chat_server"
+    },
+    {
+      "method": "POST",
+      "path": "/api/jamil/digest",
+      "module": "routers.jamil",
+      "auth": [
+        "dep"
+      ],
+      "name": "jamil_digest_trigger"
+    },
+    {
+      "method": "POST",
+      "path": "/api/jamil/speak",
+      "module": "routers.jamil",
+      "auth": [
+        "_dep_current_user"
+      ],
+      "name": "jamil_speak_server"
+    },
+    {
+      "method": "POST",
+      "path": "/api/jamil/transcribe",
+      "module": "routers.jamil",
+      "auth": [
+        "_dep_current_user"
+      ],
+      "name": "jamil_transcribe_server"
+    },
+    {
+      "method": "POST",
+      "path": "/api/labs/submissions/{sub_id}/ai-feedback",
+      "module": "server.inline",
+      "auth": [
+        "current_user"
+      ],
+      "name": "lab_ai_feedback"
+    },
+    {
+      "method": "POST",
+      "path": "/api/labs/{slug}/submit",
+      "module": "server.inline",
+      "auth": [
+        "current_user"
+      ],
+      "name": "submit_lab"
+    },
+    {
+      "method": "POST",
+      "path": "/api/me/cancel-exit",
+      "module": "routers.position",
+      "auth": [
+        "_dep_current_user"
+      ],
+      "name": "cancel_exit"
+    },
+    {
+      "method": "POST",
+      "path": "/api/me/emergency-exit",
+      "module": "routers.position",
+      "auth": [
+        "_dep_current_user"
+      ],
+      "name": "emergency_exit"
+    },
+    {
+      "method": "POST",
+      "path": "/api/me/leave-more",
+      "module": "routers.position",
+      "auth": [
+        "_dep_current_user"
+      ],
+      "name": "leave_more"
+    },
+    {
+      "method": "POST",
+      "path": "/api/me/proceeds-preference",
+      "module": "routers.position",
+      "auth": [
+        "_dep_current_user"
+      ],
+      "name": "set_proceeds_preference"
+    },
+    {
+      "method": "POST",
+      "path": "/api/me/request-exit",
+      "module": "routers.position",
+      "auth": [
+        "_dep_current_user"
+      ],
+      "name": "request_exit"
+    },
+    {
+      "method": "POST",
+      "path": "/api/me/step-down",
+      "module": "routers.position",
+      "auth": [
+        "_dep_current_user"
+      ],
+      "name": "step_down"
+    },
+    {
+      "method": "POST",
+      "path": "/api/media/products",
+      "module": "routers.media",
+      "auth": [
+        "_dep_current_user"
+      ],
+      "name": "create_media_product"
+    },
+    {
+      "method": "POST",
+      "path": "/api/media/products/{product_id}/checkout",
+      "module": "routers.media",
+      "auth": [
+        "_dep_current_user"
+      ],
+      "name": "checkout_media_product"
+    },
+    {
+      "method": "POST",
+      "path": "/api/media/upload",
+      "module": "routers.media",
+      "auth": [
+        "_dep_current_user"
+      ],
+      "name": "upload_media_file"
+    },
+    {
+      "method": "POST",
+      "path": "/api/missing/photo",
+      "module": "routers.missing",
+      "auth": [],
+      "name": "upload_missing_photo"
+    },
+    {
+      "method": "POST",
+      "path": "/api/missing/tip",
+      "module": "routers.missing",
+      "auth": [],
+      "name": "submit_missing_tip"
+    },
+    {
+      "method": "POST",
+      "path": "/api/more/admin/queue/{content_type}/{content_id}/approve",
+      "module": "server.inline",
+      "auth": [
+        "current_user"
+      ],
+      "name": "more_admin_approve"
+    },
+    {
+      "method": "POST",
+      "path": "/api/more/admin/queue/{content_type}/{content_id}/reject",
+      "module": "server.inline",
+      "auth": [
+        "current_user"
+      ],
+      "name": "more_admin_reject"
+    },
+    {
+      "method": "POST",
+      "path": "/api/more/appeal",
+      "module": "server.inline",
+      "auth": [
+        "current_user"
+      ],
+      "name": "more_appeal_decision"
+    },
+    {
+      "method": "POST",
+      "path": "/api/more/chat/send",
+      "module": "server.inline",
+      "auth": [
+        "current_user"
+      ],
+      "name": "more_chat_send"
+    },
+    {
+      "method": "POST",
+      "path": "/api/more/department/chat",
+      "module": "server.inline",
+      "auth": [
+        "current_user"
+      ],
+      "name": "more_department_chat"
+    },
+    {
+      "method": "POST",
+      "path": "/api/more/flag",
+      "module": "server.inline",
+      "auth": [
+        "current_user"
+      ],
+      "name": "more_flag_content"
+    },
+    {
+      "method": "POST",
+      "path": "/api/more/need",
+      "module": "server.inline",
+      "auth": [
+        "current_user"
+      ],
+      "name": "more_create_need"
+    },
+    {
+      "method": "POST",
+      "path": "/api/more/post",
+      "module": "server.inline",
+      "auth": [
+        "current_user"
+      ],
+      "name": "more_create_post"
+    },
+    {
+      "method": "POST",
+      "path": "/api/more/purge",
+      "module": "server.inline",
+      "auth": [
+        "current_user"
+      ],
+      "name": "more_manual_purge"
+    },
+    {
+      "method": "POST",
+      "path": "/api/my-projects",
+      "module": "routers.member_projects",
+      "auth": [
+        "dep"
+      ],
+      "name": "create_project"
+    },
+    {
+      "method": "POST",
+      "path": "/api/my-projects/{project_id}/advance",
+      "module": "routers.member_projects",
+      "auth": [
+        "dep"
+      ],
+      "name": "advance_stage"
+    },
+    {
+      "method": "POST",
+      "path": "/api/my-projects/{project_id}/approve",
+      "module": "routers.member_projects",
+      "auth": [
+        "dep"
+      ],
+      "name": "approve_deliverable"
+    },
+    {
+      "method": "POST",
+      "path": "/api/my-projects/{project_id}/archive",
+      "module": "routers.member_projects",
+      "auth": [
+        "dep"
+      ],
+      "name": "archive_project"
+    },
+    {
+      "method": "POST",
+      "path": "/api/my-projects/{project_id}/comments",
+      "module": "routers.member_projects",
+      "auth": [
+        "dep"
+      ],
+      "name": "add_comment"
+    },
+    {
+      "method": "POST",
+      "path": "/api/my-projects/{project_id}/deliverables",
+      "module": "routers.member_projects",
+      "auth": [
+        "dep"
+      ],
+      "name": "submit_deliverable"
+    },
+    {
+      "method": "POST",
+      "path": "/api/my-projects/{project_id}/run-stage",
+      "module": "routers.member_projects",
+      "auth": [
+        "dep"
+      ],
+      "name": "run_stage"
+    },
+    {
+      "method": "POST",
+      "path": "/api/nam/chat",
+      "module": "routers.nam",
+      "auth": [
+        "require_auth"
+      ],
+      "name": "nam_chat"
+    },
+    {
+      "method": "POST",
+      "path": "/api/nam/development/evaluate",
+      "module": "routers.nam",
+      "auth": [
+        "require_admin"
+      ],
+      "name": "evaluate_development"
+    },
+    {
+      "method": "POST",
+      "path": "/api/nam/dream",
+      "module": "routers.nam",
+      "auth": [
+        "require_admin"
+      ],
+      "name": "generate_new_dream"
+    },
+    {
+      "method": "POST",
+      "path": "/api/nam/escalate",
+      "module": "routers.nam",
+      "auth": [
+        "require_auth"
+      ],
+      "name": "create_escalation"
+    },
+    {
+      "method": "POST",
+      "path": "/api/nam/escalations/{escalation_id}/resolve",
+      "module": "routers.nam",
+      "auth": [
+        "require_admin"
+      ],
+      "name": "resolve_esc"
+    },
+    {
+      "method": "POST",
+      "path": "/api/nam/intentions",
+      "module": "routers.nam",
+      "auth": [
+        "require_admin"
+      ],
+      "name": "create_new_intention"
+    },
+    {
+      "method": "POST",
+      "path": "/api/nam/jamil/review",
+      "module": "routers.nam",
+      "auth": [
+        "require_auth"
+      ],
+      "name": "jamil_request_review"
+    },
+    {
+      "method": "POST",
+      "path": "/api/nam/knowledge/import",
+      "module": "routers.nam",
+      "auth": [
+        "require_admin"
+      ],
+      "name": "import_knowledge"
+    },
+    {
+      "method": "POST",
+      "path": "/api/nam/knowledge/ingest",
+      "module": "routers.nam",
+      "auth": [
+        "require_admin"
+      ],
+      "name": "ingest_knowledge"
+    },
+    {
+      "method": "POST",
+      "path": "/api/nam/knowledge/{knowledge_id}/approve",
+      "module": "routers.nam",
+      "auth": [
+        "require_admin"
+      ],
+      "name": "approve_knowledge"
+    },
+    {
+      "method": "POST",
+      "path": "/api/nam/leadership/evaluate",
+      "module": "routers.nam",
+      "auth": [
+        "require_admin"
+      ],
+      "name": "evaluate_and_log"
+    },
+    {
+      "method": "POST",
+      "path": "/api/nam/leadership/review",
+      "module": "routers.nam",
+      "auth": [
+        "require_auth"
+      ],
+      "name": "review_action"
+    },
+    {
+      "method": "POST",
+      "path": "/api/nam/memory",
+      "module": "routers.nam",
+      "auth": [
+        "require_admin"
+      ],
+      "name": "create_new_memory"
+    },
+    {
+      "method": "POST",
+      "path": "/api/nam/mission/evaluate",
+      "module": "routers.nam",
+      "auth": [
+        "require_auth"
+      ],
+      "name": "evaluate_mission_alignment"
+    },
+    {
+      "method": "POST",
+      "path": "/api/nam/operational/accountability",
+      "module": "routers.nam",
+      "auth": [
+        "require_auth"
+      ],
+      "name": "operational_accountability"
+    },
+    {
+      "method": "POST",
+      "path": "/api/nam/operational/challenge",
+      "module": "routers.nam",
+      "auth": [
+        "require_admin"
+      ],
+      "name": "operational_challenge"
+    },
+    {
+      "method": "POST",
+      "path": "/api/nam/operational/conflict",
+      "module": "routers.nam",
+      "auth": [
+        "require_auth"
+      ],
+      "name": "operational_conflict"
+    },
+    {
+      "method": "POST",
+      "path": "/api/nam/operational/crisis",
+      "module": "routers.nam",
+      "auth": [
+        "require_auth"
+      ],
+      "name": "operational_crisis"
+    },
+    {
+      "method": "POST",
+      "path": "/api/nam/operational/economics",
+      "module": "routers.nam",
+      "auth": [
+        "require_auth"
+      ],
+      "name": "operational_economics"
+    },
+    {
+      "method": "POST",
+      "path": "/api/nam/operational/ecosystem",
+      "module": "routers.nam",
+      "auth": [
+        "require_auth"
+      ],
+      "name": "operational_ecosystem"
+    },
+    {
+      "method": "POST",
+      "path": "/api/nam/operational/governance",
+      "module": "routers.nam",
+      "auth": [
+        "require_admin"
+      ],
+      "name": "operational_governance"
+    },
+    {
+      "method": "POST",
+      "path": "/api/nam/operational/memory",
+      "module": "routers.nam",
+      "auth": [
+        "require_auth"
+      ],
+      "name": "operational_memory"
+    },
+    {
+      "method": "POST",
+      "path": "/api/nam/operational/mission",
+      "module": "routers.nam",
+      "auth": [
+        "require_auth"
+      ],
+      "name": "operational_mission"
+    },
+    {
+      "method": "POST",
+      "path": "/api/nam/operational/power",
+      "module": "routers.nam",
+      "auth": [
+        "require_auth"
+      ],
+      "name": "operational_power"
+    },
+    {
+      "method": "POST",
+      "path": "/api/nam/operational/risk",
+      "module": "routers.nam",
+      "auth": [
+        "require_auth"
+      ],
+      "name": "operational_risk"
+    },
+    {
+      "method": "POST",
+      "path": "/api/nam/operational/strategy",
+      "module": "routers.nam",
+      "auth": [
+        "require_auth"
+      ],
+      "name": "operational_strategy"
+    },
+    {
+      "method": "POST",
+      "path": "/api/nam/operational/succession",
+      "module": "routers.nam",
+      "auth": [
+        "require_auth"
+      ],
+      "name": "operational_succession"
+    },
+    {
+      "method": "POST",
+      "path": "/api/nam/persona",
+      "module": "routers.nam",
+      "auth": [
+        "require_auth"
+      ],
+      "name": "dispatch_persona"
+    },
+    {
+      "method": "POST",
+      "path": "/api/nam/reflect",
+      "module": "routers.nam",
+      "auth": [
+        "require_admin"
+      ],
+      "name": "create_new_reflection"
+    },
+    {
+      "method": "POST",
+      "path": "/api/notifications/read-all",
+      "module": "server.inline",
+      "auth": [
+        "current_user"
+      ],
+      "name": "mark_all_read"
+    },
+    {
+      "method": "POST",
+      "path": "/api/notifications/{nid}/read",
+      "module": "server.inline",
+      "auth": [
+        "current_user"
+      ],
+      "name": "mark_read"
+    },
+    {
+      "method": "POST",
+      "path": "/api/payments/checkout",
+      "module": "server.inline",
+      "auth": [
+        "current_user"
+      ],
+      "name": "create_checkout_session"
+    },
+    {
+      "method": "POST",
+      "path": "/api/payments/webhook",
+      "module": "server.inline",
+      "auth": [],
+      "name": "stripe_webhook"
+    },
+    {
+      "method": "POST",
+      "path": "/api/personas",
+      "module": "server.inline",
+      "auth": [
+        "dep"
+      ],
+      "name": "create_persona"
+    },
+    {
+      "method": "POST",
+      "path": "/api/playlist/approve",
+      "module": "server.inline",
+      "auth": [
+        "dep_current_user"
+      ],
+      "name": "approve_submission"
+    },
+    {
+      "method": "POST",
+      "path": "/api/playlist/complete-step",
+      "module": "server.inline",
+      "auth": [],
+      "name": "complete_step"
+    },
+    {
+      "method": "POST",
+      "path": "/api/playlist/gateway/create",
+      "module": "server.inline",
+      "auth": [
+        "dep_current_user"
+      ],
+      "name": "create_gateway"
+    },
+    {
+      "method": "POST",
+      "path": "/api/playlist/reject",
+      "module": "server.inline",
+      "auth": [
+        "dep_current_user"
+      ],
+      "name": "reject_submission"
+    },
+    {
+      "method": "POST",
+      "path": "/api/playlist/submit",
+      "module": "server.inline",
+      "auth": [],
+      "name": "submit_song"
+    },
+    {
+      "method": "POST",
+      "path": "/api/portfolio/publish",
+      "module": "server.inline",
+      "auth": [
+        "current_user"
+      ],
+      "name": "publish_portfolio"
+    },
+    {
+      "method": "POST",
+      "path": "/api/progress/quiz",
+      "module": "server.inline",
+      "auth": [
+        "current_user"
+      ],
+      "name": "submit_quiz"
+    },
+    {
+      "method": "POST",
+      "path": "/api/progress/start",
+      "module": "server.inline",
+      "auth": [
+        "current_user"
+      ],
+      "name": "start_module"
+    },
+    {
+      "method": "POST",
+      "path": "/api/projects",
+      "module": "routers.projects",
+      "auth": [
+        "_dep_current_user"
+      ],
+      "name": "create_project"
+    },
+    {
+      "method": "POST",
+      "path": "/api/projects/{project_id}/milestone",
+      "module": "routers.projects",
+      "auth": [
+        "_dep_current_user"
+      ],
+      "name": "add_milestone"
+    },
+    {
+      "method": "POST",
+      "path": "/api/promo/validate",
+      "module": "routers.promo_codes",
+      "auth": [],
+      "name": "validate_promo"
+    },
+    {
+      "method": "POST",
+      "path": "/api/providers",
+      "module": "routers.billing",
+      "auth": [
+        "dep"
+      ],
+      "name": "providers_create"
+    },
+    {
+      "method": "POST",
+      "path": "/api/providers/keys",
+      "module": "routers.billing",
+      "auth": [
+        "dep"
+      ],
+      "name": "provider_keys_create"
+    },
+    {
+      "method": "POST",
+      "path": "/api/providers/keys/{key_id}/test",
+      "module": "routers.billing",
+      "auth": [
+        "dep"
+      ],
+      "name": "provider_keys_test"
+    },
+    {
+      "method": "POST",
+      "path": "/api/providers/quick-setup",
+      "module": "routers.provider_gateway",
+      "auth": [
+        "_user"
+      ],
+      "name": "quick_setup"
+    },
+    {
+      "method": "POST",
+      "path": "/api/puzzles/answer",
+      "module": "server.inline",
+      "auth": [],
+      "name": "puzzles_answer"
+    },
+    {
+      "method": "POST",
+      "path": "/api/revenue/api-keys",
+      "module": "server.inline",
+      "auth": [
+        "current_user"
+      ],
+      "name": "revenue_create_key"
+    },
+    {
+      "method": "POST",
+      "path": "/api/revenue/courses/license",
+      "module": "server.inline",
+      "auth": [
+        "current_user"
+      ],
+      "name": "revenue_license_course"
+    },
+    {
+      "method": "POST",
+      "path": "/api/revenue/sovereign/workspace",
+      "module": "server.inline",
+      "auth": [
+        "dep"
+      ],
+      "name": "revenue_create_workspace"
+    },
+    {
+      "method": "POST",
+      "path": "/api/revenue/sovereign/workspace/{ws_id}/chat",
+      "module": "server.inline",
+      "auth": [
+        "current_user"
+      ],
+      "name": "revenue_workspace_chat"
+    },
+    {
+      "method": "POST",
+      "path": "/api/revenue/verify-credential",
+      "module": "server.inline",
+      "auth": [],
+      "name": "revenue_verify_credential"
+    },
+    {
+      "method": "POST",
+      "path": "/api/saga/concerts",
+      "module": "routers.saga",
+      "auth": [
+        "dep"
+      ],
+      "name": "create_concert"
+    },
+    {
+      "method": "POST",
+      "path": "/api/saga/concerts/{concert_id}/checkout",
+      "module": "routers.saga",
+      "auth": [
+        "_dep_current_user"
+      ],
+      "name": "checkout_concert"
+    },
+    {
+      "method": "POST",
+      "path": "/api/saga/images",
+      "module": "routers.saga",
+      "auth": [
+        "dep"
+      ],
+      "name": "upload_image"
+    },
+    {
+      "method": "POST",
+      "path": "/api/saga/tracks",
+      "module": "routers.saga",
+      "auth": [
+        "dep"
+      ],
+      "name": "upload_track"
+    },
+    {
+      "method": "POST",
+      "path": "/api/saga/videos",
+      "module": "routers.saga",
+      "auth": [
+        "dep"
+      ],
+      "name": "create_video"
+    },
+    {
+      "method": "POST",
+      "path": "/api/scholarships/admin/funds",
+      "module": "routers.scholarships",
+      "auth": [
+        "_dep_current_user"
+      ],
+      "name": "create_fund"
+    },
+    {
+      "method": "POST",
+      "path": "/api/scholarships/apply",
+      "module": "routers.scholarships",
+      "auth": [
+        "_dep_current_user"
+      ],
+      "name": "apply_for_scholarship"
+    },
+    {
+      "method": "POST",
+      "path": "/api/scholarships/pledge",
+      "module": "routers.scholarships",
+      "auth": [
+        "_dep_current_user"
+      ],
+      "name": "create_pledge"
+    },
+    {
+      "method": "POST",
+      "path": "/api/sentinel/ai-brief",
+      "module": "routers.sentinel",
+      "auth": [
+        "dep"
+      ],
+      "name": "sentinel_ai_brief"
+    },
+    {
+      "method": "POST",
+      "path": "/api/sentinel/protocols",
+      "module": "routers.sentinel",
+      "auth": [
+        "dep"
+      ],
+      "name": "create_protocol"
+    },
+    {
+      "method": "POST",
+      "path": "/api/sentinel/protocols/unlock",
+      "module": "routers.sentinel",
+      "auth": [
+        "dep"
+      ],
+      "name": "unlock_protocol"
+    },
+    {
+      "method": "POST",
+      "path": "/api/sentinel/research",
+      "module": "routers.sentinel",
+      "auth": [
+        "dep"
+      ],
+      "name": "create_research_note"
+    },
+    {
+      "method": "POST",
+      "path": "/api/sentinel/respond",
+      "module": "routers.sentinel",
+      "auth": [
+        "dep"
+      ],
+      "name": "sentinel_respond"
+    },
+    {
+      "method": "POST",
+      "path": "/api/sentinel/reverse/{action_id}",
+      "module": "routers.sentinel",
+      "auth": [
+        "dep"
+      ],
+      "name": "reverse_action"
+    },
+    {
+      "method": "POST",
+      "path": "/api/site-guide/chat",
+      "module": "routers.site_guide",
+      "auth": [
+        "_dep_current_user"
+      ],
+      "name": "site_guide_chat"
+    },
+    {
+      "method": "POST",
+      "path": "/api/social/connect",
+      "module": "server.inline",
+      "auth": [
+        "dep_current_user"
+      ],
+      "name": "connect_account"
+    },
+    {
+      "method": "POST",
+      "path": "/api/social/publish",
+      "module": "server.inline",
+      "auth": [
+        "dep_current_user"
+      ],
+      "name": "publish_to_platforms"
+    },
+    {
+      "method": "POST",
+      "path": "/api/sovereign/chat",
+      "module": "server.inline",
+      "auth": [
+        "dep"
+      ],
+      "name": "sovereign_chat"
+    },
+    {
+      "method": "POST",
+      "path": "/api/sovereign/memory",
+      "module": "server.inline",
+      "auth": [
+        "dep"
+      ],
+      "name": "sovereign_memory_add"
+    },
+    {
+      "method": "POST",
+      "path": "/api/studio/altar",
+      "module": "routers.studio",
+      "auth": [
+        "_dep_current_user"
+      ],
+      "name": "studio_altar"
+    },
+    {
+      "method": "POST",
+      "path": "/api/studio/cheer",
+      "module": "routers.studio",
+      "auth": [],
+      "name": "studio_cheer"
+    },
+    {
+      "method": "POST",
+      "path": "/api/studio/lyric",
+      "module": "routers.studio",
+      "auth": [
+        "_dep_current_user"
+      ],
+      "name": "studio_lyric"
+    },
+    {
+      "method": "POST",
+      "path": "/api/studio/metadata",
+      "module": "routers.studio",
+      "auth": [
+        "_dep_current_user"
+      ],
+      "name": "studio_metadata"
+    },
+    {
+      "method": "POST",
+      "path": "/api/studio/script",
+      "module": "routers.studio",
+      "auth": [
+        "_dep_current_user"
+      ],
+      "name": "studio_script"
+    },
+    {
+      "method": "POST",
+      "path": "/api/studio/sound",
+      "module": "routers.studio",
+      "auth": [
+        "_dep_current_user"
+      ],
+      "name": "studio_sound_blueprint"
+    },
+    {
+      "method": "POST",
+      "path": "/api/studio/sovereign",
+      "module": "routers.studio",
+      "auth": [
+        "_dep_current_user"
+      ],
+      "name": "studio_sovereign"
+    },
+    {
+      "method": "POST",
+      "path": "/api/supervisor-integrity-alert",
+      "module": "routers.supervisor",
+      "auth": [],
+      "name": "supervisor_integrity_alert"
+    },
+    {
+      "method": "POST",
+      "path": "/api/supervisor/backup/emergency-broadcast",
+      "module": "routers.supervisor",
+      "auth": [
+        "dep"
+      ],
+      "name": "supervisor_emergency_broadcast"
+    },
+    {
+      "method": "POST",
+      "path": "/api/supervisor/backup/reset-gateway",
+      "module": "routers.supervisor",
+      "auth": [
+        "dep"
+      ],
+      "name": "supervisor_reset_gateway"
+    },
+    {
+      "method": "POST",
+      "path": "/api/supervisor/backup/switch-provider",
+      "module": "routers.supervisor",
+      "auth": [
+        "dep"
+      ],
+      "name": "supervisor_switch_provider"
+    },
+    {
+      "method": "POST",
+      "path": "/api/supervisor/content/{content_type}/{content_id}/approve",
+      "module": "routers.supervisor",
+      "auth": [
+        "dep"
+      ],
+      "name": "supervisor_approve_content"
+    },
+    {
+      "method": "POST",
+      "path": "/api/supervisor/content/{content_type}/{content_id}/reject",
+      "module": "routers.supervisor",
+      "auth": [
+        "dep"
+      ],
+      "name": "supervisor_reject_content"
+    },
+    {
+      "method": "POST",
+      "path": "/api/supervisor/escalations",
+      "module": "routers.supervisor",
+      "auth": [
+        "dep"
+      ],
+      "name": "supervisor_create_escalation"
+    },
+    {
+      "method": "POST",
+      "path": "/api/supervisor/escalations/{esc_id}/resolve",
+      "module": "routers.supervisor",
+      "auth": [
+        "dep"
+      ],
+      "name": "supervisor_resolve_escalation"
+    },
+    {
+      "method": "POST",
+      "path": "/api/supervisor/public-chat",
+      "module": "routers.chat",
+      "auth": [],
+      "name": "supervisor_public_chat"
+    },
+    {
+      "method": "POST",
+      "path": "/api/supervisor/sage/sessions/{session_id}/flag",
+      "module": "routers.supervisor",
+      "auth": [
+        "dep"
+      ],
+      "name": "supervisor_flag_sage_session"
+    },
+    {
+      "method": "POST",
+      "path": "/api/users/accept-terms",
+      "module": "server.inline",
+      "auth": [
+        "_dep_current_user"
+      ],
+      "name": "users_accept_terms"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/system/emergency-revert",
+      "module": "routers.system_rollback",
+      "auth": [],
+      "name": "emergency_revert"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/system/visual-state",
+      "module": "routers.system_rollback",
+      "auth": [],
+      "name": "ingest_visual_state"
+    },
+    {
+      "method": "PUT",
+      "path": "/api/abo/config",
+      "module": "routers.abo",
+      "auth": [
+        "dep"
+      ],
+      "name": "update_abo_config"
+    },
+    {
+      "method": "PUT",
+      "path": "/api/admin/sage/cap/global",
+      "module": "server.inline",
+      "auth": [
+        "dep"
+      ],
+      "name": "admin_set_sage_cap_global"
+    },
+    {
+      "method": "PUT",
+      "path": "/api/admin/sage/cap/user/{uid}",
+      "module": "server.inline",
+      "auth": [
+        "dep"
+      ],
+      "name": "admin_set_sage_cap_user"
+    },
+    {
+      "method": "PUT",
+      "path": "/api/ai/admin/sage/cap/global",
+      "module": "server.inline",
+      "auth": [
+        "dep"
+      ],
+      "name": "admin_set_sage_cap_global"
+    },
+    {
+      "method": "PUT",
+      "path": "/api/ai/admin/sage/cap/user/{uid}",
+      "module": "server.inline",
+      "auth": [
+        "dep"
+      ],
+      "name": "admin_set_sage_cap_user"
+    },
+    {
+      "method": "PUT",
+      "path": "/api/bridge/config",
+      "module": "routers.bridge",
+      "auth": [
+        "dep"
+      ],
+      "name": "update_bridge_config"
+    },
+    {
+      "method": "PUT",
+      "path": "/api/bridge/personas/{persona_key}",
+      "module": "routers.bridge",
+      "auth": [
+        "dep"
+      ],
+      "name": "update_bridge_persona"
+    },
+    {
+      "method": "PUT",
+      "path": "/api/creator/profile",
+      "module": "routers.creator",
+      "auth": [
+        "_dep_current_user"
+      ],
+      "name": "upsert_creator_profile"
+    },
+    {
+      "method": "PUT",
+      "path": "/api/crm/leads/{lead_id}",
+      "module": "server.inline",
+      "auth": [
+        "dep"
+      ],
+      "name": "update_lead"
+    },
+    {
+      "method": "PUT",
+      "path": "/api/crm/opportunities/{opportunity_id}",
+      "module": "server.inline",
+      "auth": [
+        "dep"
+      ],
+      "name": "update_opportunity"
+    },
+    {
+      "method": "PUT",
+      "path": "/api/executive/projects/{project_id}/packet",
+      "module": "routers.executive_pipeline",
+      "auth": [
+        "dep"
+      ],
+      "name": "update_project_packet"
+    },
+    {
+      "method": "PUT",
+      "path": "/api/features/{feature_id}",
+      "module": "routers.features",
+      "auth": [
+        "Any"
+      ],
+      "name": "update_feature"
+    },
+    {
+      "method": "PUT",
+      "path": "/api/personas/{persona_id}",
+      "module": "server.inline",
+      "auth": [
+        "dep"
+      ],
+      "name": "update_persona"
+    },
+    {
+      "method": "PUT",
+      "path": "/api/personas/{persona_id}/priority",
+      "module": "server.inline",
+      "auth": [
+        "dep"
+      ],
+      "name": "update_priority"
+    }
+  ]
+}

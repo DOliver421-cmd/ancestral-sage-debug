@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { api } from "../lib/api";
 import { useAuth } from "../lib/auth";
-import AppShell from "../components/AppShell";
+import { toast } from "sonner";
 
 // Real platform roles (mirror src/lib/roles.js): public is rank 0 (unauthenticated),
 // never a stored role.
@@ -33,6 +33,7 @@ export default function FeatureControlCenter() {
   const [view, setView] = useState("cards"); // "cards" | "tier-matrix" | "role-matrix"
   const [tierMatrix, setTierMatrix] = useState(null);
   const [roleMatrix, setRoleMatrix] = useState(null);
+  const [lastSaved, setLastSaved] = useState(null);
 
   const isAdmin = user?.role === "executive_admin" || user?.role === "admin";
 
@@ -74,15 +75,29 @@ export default function FeatureControlCenter() {
     }
   }, [isAdmin, view, fetchFeatures, fetchTierMatrix, fetchRoleMatrix]);
 
+  // The server is the source of truth.  After any successful write, re-read
+  // everything from the API and only then update the UI — the page must never
+  // trust a local guess over a server confirmation (and the matrix views must
+  // not keep stale cells after a toggle).
+  const refreshFromServer = useCallback(async () => {
+    await fetchFeatures();
+    if (view === "tier-matrix") await fetchTierMatrix();
+    if (view === "role-matrix") await fetchRoleMatrix();
+  }, [view, fetchFeatures, fetchTierMatrix, fetchRoleMatrix]);
+
   const handleToggle = async (featureId, field, value) => {
     setSaving(featureId);
     try {
-      await api.put(`/features/${featureId}`, { [field]: value });
-      setFeatures(prev => prev.map(f =>
-        f.feature_id === featureId ? { ...f, [field]: value } : f
-      ));
+      const r = await api.put(`/features/${featureId}`, { [field]: value });
+      if (!r?.data?.saved) {
+        throw new Error("Server did not confirm the write.");
+      }
+      await refreshFromServer();
+      setLastSaved(featureId);
+      toast.success("Saved to the database — the change is now enforced.");
     } catch (err) {
       console.error("Failed to update:", err);
+      toast.error(err?.response?.data?.detail || "Could not save feature configuration — the change was NOT applied.");
     } finally {
       setSaving(null);
     }
@@ -97,12 +112,16 @@ export default function FeatureControlCenter() {
       : [...current, role];
     setSaving(featureId);
     try {
-      await api.put(`/features/${featureId}`, { allowed_roles: updated });
-      setFeatures(prev => prev.map(f =>
-        f.feature_id === featureId ? { ...f, allowed_roles: updated } : f
-      ));
+      const r = await api.put(`/features/${featureId}`, { allowed_roles: updated });
+      if (!r?.data?.saved) {
+        throw new Error("Server did not confirm the write.");
+      }
+      await refreshFromServer();
+      setLastSaved(featureId);
+      toast.success("Role access saved to the database — now enforced.");
     } catch (err) {
       console.error("Failed to update:", err);
+      toast.error(err?.response?.data?.detail || "Could not save role access — the change was NOT applied.");
     } finally {
       setSaving(null);
     }
@@ -117,12 +136,16 @@ export default function FeatureControlCenter() {
       : [...current, tier];
     setSaving(featureId);
     try {
-      await api.put(`/features/${featureId}`, { allowed_tiers: updated });
-      setFeatures(prev => prev.map(f =>
-        f.feature_id === featureId ? { ...f, allowed_tiers: updated } : f
-      ));
+      const r = await api.put(`/features/${featureId}`, { allowed_tiers: updated });
+      if (!r?.data?.saved) {
+        throw new Error("Server did not confirm the write.");
+      }
+      await refreshFromServer();
+      setLastSaved(featureId);
+      toast.success("Tier access saved to the database — now enforced.");
     } catch (err) {
       console.error("Failed to update:", err);
+      toast.error(err?.response?.data?.detail || "Could not save tier access — the change was NOT applied.");
     } finally {
       setSaving(null);
     }
@@ -130,13 +153,11 @@ export default function FeatureControlCenter() {
 
   if (!isAdmin) {
     return (
-      <AppShell>
-        <div style={{ padding: 48, textAlign: "center" }}>
-          <div style={{ fontSize: 48, marginBottom: 16 }}>🔒</div>
-          <h2 style={{ fontWeight: 900, fontSize: 20, marginBottom: 8 }}>Admin Access Required</h2>
-          <p style={{ color: "#000", fontSize: 14 }}>The Feature Control Center is only accessible to administrators.</p>
-        </div>
-      </AppShell>
+      <div style={{ padding: 48, textAlign: "center" }}>
+        <div style={{ fontSize: 48, marginBottom: 16 }}>🔒</div>
+        <h2 style={{ fontWeight: 900, fontSize: 20, marginBottom: 8 }}>Admin Access Required</h2>
+        <p style={{ color: "#000", fontSize: 14 }}>The Feature Control Center is only accessible to administrators.</p>
+      </div>
     );
   }
 
@@ -149,7 +170,6 @@ export default function FeatureControlCenter() {
   const categories = [...new Set(features.map(f => f.category))];
 
   return (
-    <AppShell>
       <div style={{ maxWidth: 1200, margin: "0 auto", padding: "24px 32px", backgroundColor: "#fff", color: "#000" }}>
         {/* Header */}
         <div style={{ marginBottom: 32 }}>
@@ -158,6 +178,7 @@ export default function FeatureControlCenter() {
           </h1>
           <p style={{ color: "#000", fontSize: 14 }}>
             Configure access for every platform feature. One feature = one control record.
+            {lastSaved && <span style={{ marginLeft: 12, color: "#047857", fontWeight: 700 }}>● Changes saved</span>}
           </p>
           <div style={{ marginTop: 12, padding: "12px 16px", background: "#fef3c7", border: "1px solid #f59e0b", borderRadius: 8, fontSize: 13, lineHeight: 1.5 }}>
             <strong>AI funding policy (owner decision):</strong> platform-funded AI is for{" "}
@@ -180,7 +201,7 @@ export default function FeatureControlCenter() {
         {/* View Toggle + Filters */}
         <div style={{ display: "flex", gap: 12, marginBottom: 24, alignItems: "center", flexWrap: "wrap" }}>
           <div style={{ display: "flex", gap: 4, background: "#f3f4f6", borderRadius: 8, padding: 3 }}>
-            {["cards", "tier-matrix", "role-matrix"].map(v => (
+            {["cards", "tier-matrix", "role-matrix", "rollback"].map(v => (
               <button key={v} onClick={() => setView(v)}
                 style={{
                   padding: "6px 14px", borderRadius: 6, border: "none", cursor: "pointer", fontSize: 12, fontWeight: 700,
@@ -188,7 +209,7 @@ export default function FeatureControlCenter() {
                   color: view === v ? "#1a1a1a" : "#666",
                   boxShadow: view === v ? "0 1px 3px rgba(0,0,0,0.1)" : "none",
                 }}>
-                {v === "cards" ? "Feature Cards" : v === "tier-matrix" ? "Tier Matrix" : "Role Matrix"}
+                {v === "cards" ? "Feature Cards" : v === "tier-matrix" ? "Tier Matrix" : v === "role-matrix" ? "Role Matrix" : "System Rollback"}
               </button>
             ))}
           </div>
@@ -254,9 +275,10 @@ export default function FeatureControlCenter() {
               handleRoleToggle(featureId, col);
             }}
           />
+        ) : view === "rollback" ? (
+          <RollbackPanel />
         ) : null}
       </div>
-    </AppShell>
   );
 }
 
@@ -546,6 +568,124 @@ function MatrixView({ matrix, columns, columnType, onToggle }) {
           ))}
         </tbody>
       </table>
+    </div>
+  );
+}
+
+
+function RollbackPanel() {
+  const [health, setHealth] = useState(null);
+  const [points, setPoints] = useState([]);
+  const [queue, setQueue] = useState([]);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState(null);
+
+  const load = useCallback(async () => {
+    try {
+      const [h, p, q] = await Promise.all([
+        api.get("/admin/system/health"),
+        api.get("/admin/system/restore-points"),
+        api.get("/admin/system/webhook-queue"),
+      ]);
+      setHealth(h.data);
+      setPoints(p.data.restore_points || []);
+      setQueue(q.data.deferred || []);
+      setError(null);
+    } catch (err) {
+      setError(err?.response?.data?.detail || err?.message || "Failed to load rollback state");
+    }
+  }, []);
+
+  useEffect(() => { load(); }, [load]);
+
+  const createPoint = async () => {
+    setBusy(true);
+    try {
+      const r = await api.post("/admin/system/restore-points");
+      toast.success(`Restore point created (${r.data.restore_point.id.slice(0, 8)}) — visual capture ${r.data.screenshot_dispatch?.dispatched ? "dispatched" : "will run on the next scheduled capture"}.`);
+      await load();
+    } catch (err) {
+      toast.error(err?.response?.data?.detail || "Could not create restore point");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const doRollback = async (id) => {
+    if (!window.confirm("ROLLBACK: this restores the configuration snapshot (features/flags/matrices) and redeploys the prior image. Creator earnings, payments, BYOK keys and user data are NEVER touched. Continue?")) return;
+    setBusy(true);
+    try {
+      const r = await api.post("/admin/system/rollback", { restore_point_id: id, confirm: true });
+      toast.success(`Rollback executed — redeploying ${r.data.deployment_id}; collections restored: ${Object.keys(r.data.config_collections_restored || {}).join(", ")}`);
+      await load();
+    } catch (err) {
+      toast.error(err?.response?.data?.detail || "Rollback failed");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+      {error && <div style={{ padding: 16, background: "#fef2f2", color: "#b91c1c", borderRadius: 8, fontSize: 13 }}>{error}</div>}
+
+      <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+        <StatCard label="Webhook Secret" value={health?.webhook_secret_configured ? "Configured" : "Missing"} color={health?.webhook_secret_configured ? "#047857" : "#dc2626"} />
+        <StatCard label="Railway Token" value={health?.railway_token_configured ? "Configured" : "Missing"} color={health?.railway_token_configured ? "#047857" : "#dc2626"} />
+        <StatCard label="Deployment ID" value={health?.current_deployment_id ? health.current_deployment_id.slice(0, 10) + "…" : "Unknown"} color="#1d4ed8" />
+        <StatCard label="Restore Points" value={points.length} color="#6d28d9" />
+        <StatCard label="Rollback Lock" value={health?.rollback_lock_active ? "ACTIVE" : "Idle"} color={health?.rollback_lock_active ? "#b45309" : "#047857"} />
+      </div>
+
+      <div>
+        <button
+          onClick={createPoint}
+          disabled={busy}
+          style={{ padding: "10px 18px", background: "#1a1a1a", color: "#fff", border: "none", borderRadius: 8, cursor: "pointer", fontWeight: 700, fontSize: 13 }}
+        >
+          {busy ? "Working…" : "Create restore point (config snapshot + screenshot capture)"}
+        </button>
+      </div>
+
+      <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+        {points.map(p => (
+          <div key={p.id} style={{ background: "#fff", border: "1px solid #e5e7eb", borderRadius: 10, padding: 14, display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+            <div>
+              <div style={{ fontWeight: 800, fontSize: 14, color: "#1a1a1a" }}>{new Date(p.created_at).toLocaleString()} <span style={{ color: "#666", fontWeight: 500 }}>— {p.trigger}</span></div>
+              <div style={{ fontSize: 12, color: "#444", marginTop: 4 }}>
+                deployment {p.railway_deployment_id ? p.railway_deployment_id.slice(0, 12) : "unknown"} · git {p.git_commit_sha.slice(0, 8)} · {p.config_collections?.length || 0} config collections · {p.has_screenshot ? "screenshot attached ✓" : "no screenshot yet"}
+              </div>
+            </div>
+            <button
+              onClick={() => doRollback(p.id)}
+              disabled={busy}
+              style={{ padding: "8px 14px", background: "#dc2626", color: "#fff", border: "none", borderRadius: 6, cursor: "pointer", fontWeight: 700, fontSize: 12 }}
+            >
+              Rollback to this point
+            </button>
+          </div>
+        ))}
+        {points.length === 0 && (
+          <div style={{ padding: 24, border: "1px dashed #d1d5db", borderRadius: 10, color: "#6b7280", fontSize: 13 }}>
+            No restore points yet — create the first one to arm the safety net.
+          </div>
+        )}
+      </div>
+
+      <div>
+        <h3 style={{ fontSize: 13, fontWeight: 800, color: "#1a1a1a", textTransform: "uppercase", letterSpacing: "0.05em" }}>Deferred payment webhooks during rollback windows</h3>
+        {queue.length === 0 ? (
+          <div style={{ padding: 12, color: "#6b7280", fontSize: 13 }}>None deferred — the queue is empty.</div>
+        ) : (
+          <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 8 }}>
+            {queue.map((w, i) => (
+              <div key={i} style={{ fontSize: 12, color: "#444", background: "#f9fafb", border: "1px solid #e5e7eb", borderRadius: 8, padding: "8px 12px" }}>
+                {w.provider} · {w.status} · {w.received_at} · payload {w.payload_b64 ? `${Math.round(w.payload_b64.length * 0.75 / 1024)}KB retained` : "n/a"}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 }

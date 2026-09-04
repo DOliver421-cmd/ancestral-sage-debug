@@ -1,0 +1,41 @@
+name: capture-visual-state
+
+on:
+  schedule:
+    # Every 6 hours on the free tier before GitHub Actions billing thresholds
+    - cron: "0 */6 * * *"
+  repository_dispatch:
+    types: [capture-visual-state]
+  workflow_dispatch:
+
+jobs:
+  capture:
+    runs-on: ubuntu-latest
+    if: github.repository == 'DOliver421-cmd/ancestral-sage-debug'
+    steps:
+      - name: Checkout repo (for the capture script)
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install Puppeteer (free runner, bundled Chromium)
+        run: |
+          mkdir -p /tmp/visual-capture
+          cd /tmp/visual-capture
+          npm init -y >/dev/null 2>&1
+          npm install puppeteer --no-audit --no-fund --loglevel=error
+
+      - name: Capture landing/login/dashboard screenshots and submit
+        env:
+          MORE_PUBLIC_URL: ${{ secrets.MORE_PUBLIC_URL }}
+          MORE_BACKEND_URL: ${{ secrets.MORE_BACKEND_URL }}
+          MORE_ROLLBACK_WEBHOOK_SECRET: ${{ secrets.MORE_ROLLBACK_WEBHOOK_SECRET }}
+          MORE_SHOT_EMAIL: ${{ secrets.MORE_SHOT_EMAIL }}
+          MORE_SHOT_PASSWORD: ${{ secrets.MORE_SHOT_PASSWORD }}
+        run: |
+          cp ${{ github.workspace }}/scripts/visual-capture.mjs /tmp/visual-capture/
+          cd /tmp/visual-capture
+          node visual-capture.mjs

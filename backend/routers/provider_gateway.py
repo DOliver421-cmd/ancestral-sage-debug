@@ -180,6 +180,52 @@ async def quick_setup(body: QuickSetupRequest, user=Depends(_user)):
     await audit(user.id, "provider_gateway.key_saved", meta={"provider": provider_type})
     return {"provider_type": provider_type, "configured": True, "key_masked": _mask(api_key)}
 
+@router.patch("/providers/keys/by-provider/{provider_type}/status")
+async def provider_key_status(provider_type: str, body: dict, user=Depends(_user)):
+    """Enable or disable the encrypted quick-setup key for one provider."""
+    _exec(user)
+    provider_type = provider_type.strip().lower()
+    if provider_type not in PROVIDERS:
+        raise HTTPException(404, "Unsupported provider.")
+    status = body.get("status")
+    if status not in ("active", "inactive"):
+        raise HTTPException(400, "status must be active or inactive")
+    provider = await db.api_providers.find_one({"provider_type": provider_type}, {"id": 1})
+    if not provider:
+        raise HTTPException(404, "Provider key not found")
+    result = await db.api_keys.update_one(
+        {"provider_id": provider.get("id")},
+        {"$set": {"status": status, "updated_at": datetime.now(timezone.utc).isoformat()}},
+    )
+    if result.matched_count == 0:
+        raise HTTPException(404, "Provider key not found")
+    if provider_type in ("groq", "cerebras", "gemini", "mistral", "cohere", "together", "xai", "openai", "deepseek", "sambanova", "openrouter", "huggingface"):
+        from ai.llm_gateway import reload_provider_keys
+        await reload_provider_keys(db)
+    await audit(user.id, "provider_gateway.key_status_changed", meta={"provider": provider_type, "status": status})
+    return {"provider_type": provider_type, "status": status}
+
+
+@router.delete("/providers/keys/by-provider/{provider_type}")
+async def provider_key_revoke(provider_type: str, user=Depends(_user)):
+    """Permanently remove the encrypted quick-setup key for one provider."""
+    _exec(user)
+    provider_type = provider_type.strip().lower()
+    if provider_type not in PROVIDERS:
+        raise HTTPException(404, "Unsupported provider.")
+    provider = await db.api_providers.find_one({"provider_type": provider_type}, {"id": 1})
+    if not provider:
+        raise HTTPException(404, "Provider key not found")
+    result = await db.api_keys.delete_one({"provider_id": provider.get("id")})
+    if result.deleted_count == 0:
+        raise HTTPException(404, "Provider key not found")
+    if provider_type in ("groq", "cerebras", "gemini", "mistral", "cohere", "together", "xai", "openai", "deepseek", "sambanova", "openrouter", "huggingface"):
+        from ai.llm_gateway import reload_provider_keys
+        await reload_provider_keys(db)
+    await audit(user.id, "provider_gateway.key_revoked", meta={"provider": provider_type})
+    return {"provider_type": provider_type, "revoked": True}
+
+
 @router.get("/providers/usage-log")
 async def usage_log(limit: int = 50, user=Depends(_user)):
     """Provider usage log for the exec Provider Gateway "Usage" tab.

@@ -82,7 +82,7 @@ These are platform operations/IP, not products:
 
 Enforcement: FCC middleware denies 403 unless the user's role rank ≥ lowest allowed
 rank. Frontend nav is hidden for unauthorized users via the gate map (registry defaults
-for internal-only features) — see ACCESS_CONTROL_ARCHITECTURE.md.
+for internal-only features) — gate-map wiring is described in EXECUTIVE_FEATURE_TOGGLE_PROTOCOL.md.
 
 ## 6. COST-BEARING (platform-funded resources are never free by default)
 
@@ -186,8 +186,9 @@ never existed; the Council/Sage page at `/council` is the canonical persona home
 ## 12. CONFIGURATION REQUIRED (not invented here)
 
 - Per-feature AI quotas/budgets — global caps exist; per-feature limits are
-  CONFIGURATION REQUIRED (see FEATURE_CONTROL_CENTER_SPEC.md).
+  CONFIGURATION REQUIRED (executive decision; FCC fields are enforced by
+  `backend/security/feature_control.py`).
 - `learn.adaptive` API (`/api/adaptive/me`) has no feature gate — rule-based endpoint;
-  requires an executive decision to map or reclassify (see FEATURE_ACCESS_MATRIX.md).
+  requires an executive decision to map or reclassify.
 - Production env (`MONGO_URL`, `JWT_SECRET`, provider keys,
   `PROVIDER_KEY_ENCRYPTION_SECRET`, `AUDIT_ENCRYPTION_KEY`) — external, Railway.

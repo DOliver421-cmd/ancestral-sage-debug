@@ -14,10 +14,9 @@ export default function HelpGuide() {
   const panelRef = useRef(null);
 
   const fetchHelp = useCallback(async (path, q) => {
-    if (!user) return;
     setBusy(true);
     try {
-      const r = await api.post("/help/guide", { path, query: q || null });
+      const r = await api.post("/help/guide", { path, query: q || null, anon: !user });
       setHelp(r.data);
     } catch {
       setHelp(null);
@@ -52,22 +51,22 @@ export default function HelpGuide() {
 
   return (
     <>
-      {/* Floating toggle button */}
+      {/* Floating help button — compact pill with label, bottom-left to avoid blocking content */}
       <button
         data-help-toggle
         onClick={() => setOpen(!open)}
-        className="fixed bottom-6 right-6 z-50 w-14 h-14 bg-copper text-white rounded-full shadow-2xl flex items-center justify-center hover:bg-copper/90 transition-all hover:scale-110 focus:outline-none focus:ring-4 focus:ring-copper/30"
-        aria-label="Help guide"
-        title="Help guide (?)"
+        className="fixed bottom-4 left-4 z-50 flex items-center gap-2 px-4 py-2 bg-ink text-white rounded-full shadow-lg hover:bg-ink/90 transition-all text-sm font-semibold"
+        aria-label="Get help with this page"
       >
-        {open ? <X className="w-6 h-6" /> : <HelpCircle className="w-6 h-6" />}
+        {open ? <X className="w-4 h-4" /> : <HelpCircle className="w-4 h-4" />}
+        <span>{open ? "Close" : "Help"}</span>
       </button>
 
       {/* Help panel */}
       {open && (
         <div
           ref={panelRef}
-          className="fixed bottom-24 right-6 z-50 w-80 sm:w-96 max-h-[70vh] bg-white rounded-2xl shadow-2xl border border-ink/10 flex flex-col overflow-hidden animate-fade-in"
+          className="fixed bottom-16 left-4 z-50 w-80 sm:w-96 max-h-[70vh] bg-white rounded-2xl shadow-2xl border border-ink/10 flex flex-col overflow-hidden animate-fade-in"
         >
           {/* Header */}
           <div className="bg-ink text-white px-5 py-4">
@@ -162,7 +161,7 @@ export default function HelpGuide() {
 
             {!busy && !help && (
               <div className="text-center py-8 text-sm text-ink/50">
-                <p>Sign in to get personalized help for this page.</p>
+                <p>{user ? "No specific help for this page yet." : "Sign in for personalized help, or visit the Help Center."}</p>
               </div>
             )}
           </div>
@@ -179,10 +178,6 @@ export default function HelpGuide() {
         </div>
       )}
 
-      {/* Keyboard shortcut hint */}
-      {!open && (
-        <div className="fixed bottom-6 right-6 z-40 pointer-events-none translate-y-16 opacity-0" />
-      )}
     </>
   );
 }

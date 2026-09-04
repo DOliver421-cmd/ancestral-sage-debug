@@ -35,7 +35,7 @@ export default function VisualAltar({ tier = 'base', sovereignDispatch, artifact
   }, [descriptions, colors, notes, sovereignDispatch]);
 
   return (
-    <div style={{ fontFamily: 'inherit', color: 'rgba(255,255,255,0.9)', display: 'flex', flexDirection: 'column', gap: 24 }}>
+    <div style={{ fontFamily: 'inherit', color: 'rgba(28,25,23,0.9)', display: 'flex', flexDirection: 'column', gap: 24 }}>
 
       {/* Upload zone */}
       <div
@@ -43,8 +43,8 @@ export default function VisualAltar({ tier = 'base', sovereignDispatch, artifact
         onDragLeave={() => setDragOver(false)}
         onDrop={e => { e.preventDefault(); setDragOver(false); toast.info('Connect your cloud storage to upload assets.'); }}
         style={{
-          border: `2px dashed ${dragOver ? 'rgba(192,132,252,0.6)' : 'rgba(255,255,255,0.1)'}`,
-          background: dragOver ? 'rgba(192,132,252,0.05)' : 'rgba(255,255,255,0.02)',
+          border: `2px dashed ${dragOver ? 'rgba(124,58,237,0.6)' : 'rgba(28,25,23,0.1)'}`,
+          background: dragOver ? 'rgba(124,58,237,0.05)' : 'rgba(28,25,23,0.02)',
           padding: '32px 24px',
           textAlign: 'center',
           transition: 'all 0.2s ease',
@@ -52,10 +52,10 @@ export default function VisualAltar({ tier = 'base', sovereignDispatch, artifact
         }}
       >
         <div style={{ fontSize: 32, marginBottom: 10, opacity: 0.4 }}>◉</div>
-        <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.5)', marginBottom: 6 }}>
+        <div style={{ fontSize: 13, color: 'rgba(28,25,23,0.5)', marginBottom: 6 }}>
           Drag & drop visual assets here
         </div>
-        <div style={{ fontSize: 11, fontFamily: 'monospace', color: 'rgba(192,132,252,0.6)' }}>
+        <div style={{ fontSize: 11, fontFamily: 'monospace', color: 'rgba(124,58,237,0.6)' }}>
           Connect your Dropbox / Google Drive to upload assets
         </div>
       </div>
@@ -68,10 +68,10 @@ export default function VisualAltar({ tier = 'base', sovereignDispatch, artifact
             <div key={i} style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
               <div style={{
                 flex: 1,
-                background: 'rgba(192,132,252,0.04)',
-                border: '1px solid rgba(192,132,252,0.2)',
+                background: 'rgba(124,58,237,0.04)',
+                border: '1px solid rgba(124,58,237,0.2)',
                 padding: '10px 12px',
-                color: 'rgba(255,255,255,0.85)',
+                color: 'rgba(28,25,23,0.85)',
                 fontSize: 13,
                 minHeight: 56,
                 display: 'flex', alignItems: 'center',
@@ -89,7 +89,7 @@ export default function VisualAltar({ tier = 'base', sovereignDispatch, artifact
               {descriptions.length > 1 && (
                 <button
                   onClick={() => removeDesc(i)}
-                  style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.25)', cursor: 'pointer', fontSize: 18, padding: '8px 4px' }}
+                  style={{ background: 'none', border: 'none', color: 'rgba(28,25,23,0.25)', cursor: 'pointer', fontSize: 18, padding: '8px 4px' }}
                 >×</button>
               )}
             </div>
@@ -98,9 +98,9 @@ export default function VisualAltar({ tier = 'base', sovereignDispatch, artifact
         <button
           onClick={addDescription}
           style={{
-            marginTop: 8, background: 'rgba(192,132,252,0.08)',
-            border: '1px dashed rgba(192,132,252,0.3)',
-            color: 'rgba(192,132,252,0.7)',
+            marginTop: 8, background: 'rgba(124,58,237,0.08)',
+            border: '1px dashed rgba(124,58,237,0.3)',
+            color: 'rgba(124,58,237,0.7)',
             padding: '7px 16px', cursor: 'pointer',
             fontFamily: 'monospace', fontSize: 11, letterSpacing: '0.1em',
           }}
@@ -118,7 +118,7 @@ export default function VisualAltar({ tier = 'base', sovereignDispatch, artifact
               <div style={{
                 width: 48, height: 48,
                 background: c,
-                border: '1px solid rgba(255,255,255,0.2)',
+                border: '1px solid rgba(28,25,23,0.2)',
                 cursor: 'pointer',
                 boxShadow: `0 0 10px ${c}60`,
                 position: 'relative',
@@ -133,7 +133,7 @@ export default function VisualAltar({ tier = 'base', sovereignDispatch, artifact
                   }}
                 />
               </div>
-              <div style={{ fontSize: 9, fontFamily: 'monospace', color: 'rgba(255,255,255,0.35)' }}>
+              <div style={{ fontSize: 9, fontFamily: 'monospace', color: 'rgba(28,25,23,0.35)' }}>
                 {c.toUpperCase()}
               </div>
             </div>
@@ -148,7 +148,7 @@ export default function VisualAltar({ tier = 'base', sovereignDispatch, artifact
                 setColors(prev => { const next = [...prev]; next[Math.min(empty >= 0 ? empty : 4, 4)] = pc; return next; });
               }}
               style={{
-                width: 20, height: 20, background: pc, border: '1px solid rgba(255,255,255,0.15)',
+                width: 20, height: 20, background: pc, border: '1px solid rgba(28,25,23,0.15)',
                 cursor: 'pointer', flexShrink: 0,
               }}
               title={`Use ${pc}`}
@@ -167,9 +167,9 @@ export default function VisualAltar({ tier = 'base', sovereignDispatch, artifact
           rows={3}
           style={{
             width: '100%', boxSizing: 'border-box',
-            background: 'rgba(255,255,255,0.03)',
-            border: '1px solid rgba(192,132,252,0.2)',
-            padding: '10px 12px', color: 'rgba(255,255,255,0.85)',
+            background: 'rgba(28,25,23,0.03)',
+            border: '1px solid rgba(124,58,237,0.2)',
+            padding: '10px 12px', color: 'rgba(28,25,23,0.85)',
             fontSize: 13, fontFamily: 'inherit', outline: 'none', resize: 'vertical',
           }}
         />
@@ -179,7 +179,7 @@ export default function VisualAltar({ tier = 'base', sovereignDispatch, artifact
         onClick={blessVision}
         disabled={loading}
         style={{
-          background: loading ? 'rgba(192,132,252,0.2)' : 'linear-gradient(135deg, #7c3aed, #c084fc)',
+          background: loading ? 'rgba(124,58,237,0.2)' : 'linear-gradient(135deg, #6d28d9, #7c3aed)',
           border: 'none', color: '#fff',
           fontFamily: 'monospace', fontWeight: 900,
           fontSize: 13, letterSpacing: '0.1em', textTransform: 'uppercase',
@@ -194,12 +194,12 @@ export default function VisualAltar({ tier = 'base', sovereignDispatch, artifact
 
       {direction && (
         <div style={{
-          background: 'rgba(192,132,252,0.06)',
-          border: '1px solid rgba(192,132,252,0.3)',
+          background: 'rgba(124,58,237,0.06)',
+          border: '1px solid rgba(124,58,237,0.3)',
           padding: '20px 20px',
-          boxShadow: '0 0 30px rgba(192,132,252,0.1)',
+          boxShadow: '0 0 30px rgba(124,58,237,0.1)',
         }}>
-          <div style={{ fontSize: 9, fontFamily: 'monospace', letterSpacing: '0.2em', textTransform: 'uppercase', color: 'rgba(192,132,252,0.7)', marginBottom: 10 }}>
+          <div style={{ fontSize: 9, fontFamily: 'monospace', letterSpacing: '0.2em', textTransform: 'uppercase', color: 'rgba(124,58,237,0.7)', marginBottom: 10 }}>
             Visual Direction
           </div>
           <textarea
@@ -208,9 +208,9 @@ export default function VisualAltar({ tier = 'base', sovereignDispatch, artifact
             aria-label="Editable visual direction draft"
             style={{
               width: '100%', minHeight: 150, boxSizing: 'border-box', resize: 'vertical',
-              margin: 0, fontSize: 14, color: 'rgba(255,255,255,0.88)', lineHeight: 1.7,
-              fontStyle: 'italic', background: 'rgba(0,0,0,0.2)',
-              border: '1px solid rgba(192,132,252,0.2)', padding: 12, outline: 'none',
+              margin: 0, fontSize: 14, color: 'rgba(28,25,23,0.88)', lineHeight: 1.7,
+              fontStyle: 'italic', background: 'rgba(28,25,23,0.04)',
+              border: '1px solid rgba(124,58,237,0.2)', padding: 12, outline: 'none',
             }}
           />
         </div>
@@ -223,5 +223,5 @@ export default function VisualAltar({ tier = 'base', sovereignDispatch, artifact
 
 const sectionLabel = {
   fontSize: 9, fontFamily: 'monospace', letterSpacing: '0.2em',
-  textTransform: 'uppercase', color: 'rgba(184,134,11,0.7)', marginBottom: 10, display: 'block',
+  textTransform: 'uppercase', color: 'rgba(146,64,14,0.7)', marginBottom: 10, display: 'block',
 };

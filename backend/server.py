@@ -1,4 +1,4 @@
-"""LCE-WAI training platform â FastAPI backend.
+"""LCE-WAI training platform — FastAPI backend.
 
 ROUTE MAP (see `api_router` definitions below; all paths are prefixed `/api`):
 
@@ -55,6 +55,11 @@ from prompts.ancestral_sage_prompt import (
 )
 from prompts.orchestrator import get_orchestrator_system, compute_orchestrator_hash, get_scholar_system, compute_scholar_hash
 from prompts.more_department_system import get_more_department_system, compute_more_department_hash
+try:
+    ai.bind(db, current_user, audit, assert_role, check_rate)
+except NameError:
+    pass
+
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import landscape, letter
 from reportlab.lib.units import inch
@@ -85,12 +90,12 @@ from security.field_authorization import FieldAuthorization
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env', override=True)  # .env is source of truth (overrides empty/stale shell vars; no .env in Docker image so prod is unaffected)
 
-# ââ MongoDB dual-connection (primary + Atlas backup) ââââââââââââââââââââââââââ
+# ── MongoDB dual-connection (primary + Atlas backup) ──────────────────────────
 # Primary:  MONGO_URL          (Railway or any MongoDB host)
 # Backup:   MONGO_BACKUP_URL   (MongoDB Atlas free tier recommended)
 # The health endpoint at /api/health pings backup when primary is down.
-# All other code uses `db` (the primary connection) â there is no automatic
-# ââ DB connection failover in business logic ââ
+# All other code uses `db` (the primary connection) — there is no automatic
+# ── DB connection failover in business logic ──
 
 import os
 
@@ -98,7 +103,7 @@ mongo_url = os.environ.get("MONGO_URL")
 db_name = os.environ.get("DB_NAME", "ancestral_sage")
 
 if not mongo_url:
-    print("â ï¸ WARNING: MONGO_URL not set â database disabled")
+    print("⚠️ WARNING: MONGO_URL not set — database disabled")
     client = None
     db = None
     _DB_SOURCE = "disabled"
@@ -116,7 +121,7 @@ else:
     _DB_SOURCE = "primary"
 
 
-# ââ Backup / optional configs ââ
+# ── Backup / optional configs ──
 
 MONGO_BACKUP_URL = os.environ.get("MONGO_BACKUP_URL", "")
 MONGO_BACKUP_DB  = os.environ.get("MONGO_BACKUP_DB", "")
@@ -125,7 +130,7 @@ _backup_db = None
 _pipeline_manager = None
 _discount_manager = None
 
-# ââ WAI engine singletons âââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+# ── WAI engine singletons ───────────────────────────────────────────────────────
 # Lazy-initialized on first use, then reused across all requests.
 # Avoids creating new PRTEnforcementEngine/The9FusionEngine objects per request.
 _prt_engine  = None   # type: ignore[assignment]  PRTEnforcementEngine
@@ -159,10 +164,10 @@ JWT_SECRET = os.environ['JWT_SECRET']
 JWT_ALGO = os.environ.get('JWT_ALGORITHM', 'HS256')
 JWT_EXPIRE_HOURS = int(os.environ.get('JWT_EXPIRE_HOURS', '168'))
 EMERGENT_LLM_KEY = os.environ.get('EMERGENT_LLM_KEY', '')
-ANTHROPIC_API_KEY = ''  # DISABLED - Claude not used
+ANTHROPIC_API_KEY = os.environ.get('ANTHROPIC_API_KEY', EMERGENT_LLM_KEY)
 OPENAI_API_KEY = os.environ.get('OPENAI_API_KEY', EMERGENT_LLM_KEY)
 
-# ââ Backup server / home server config âââââââââââââââââââââââââââââââââââââââ
+# ── Backup server / home server config ───────────────────────────────────────
 # Set SERVE_FRONTEND=1 on your home server to serve the built React app too.
 # Set BACKUP_ORIGIN=https://your-cloudflare-tunnel.trycloudflare.com so the
 # home server URL is automatically allowed by CORS.
@@ -174,27 +179,86 @@ KEEP_TEST_DEMOS = os.environ.get('KEEP_TEST_DEMOS', '0') == '1'
 pwd_ctx = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 # API docs: disabled by default in production. Set ENABLE_API_DOCS=1 to enable.
-# Never enable in production â exposes full endpoint surface to the public internet.
+# Never enable in production — exposes full endpoint surface to the public internet.
 _DOCS_ENABLED = os.environ.get("ENABLE_API_DOCS", "0") == "1"
 APP_VERSION = "4.0.1"
 app = FastAPI(
     title="W.A.I. Training Platform",
     version=APP_VERSION,
-    description="W.A.I. â Workforce Apprentice Institute API. Hands-on electrical apprenticeship training, labs, credentials, and portfolio.",
+    description="W.A.I. — Workforce Apprentice Institute API. Hands-on electrical apprenticeship training, labs, credentials, and portfolio.",
     redirect_slashes=False,
     docs_url="/api/docs" if _DOCS_ENABLED else None,
     redoc_url="/api/redoc" if _DOCS_ENABLED else None,
     openapi_url="/api/openapi.json" if _DOCS_ENABLED else None,
 )
 
+_ai_router_module = None
 try:
-    from routers import ai
-    app.include_router(ai.router, prefix="/api/ai")
+    from routers import ai as _ai_router_module
+    app.include_router(_ai_router_module.router, prefix="/api/ai")
 except Exception as _ai_router_err:
     logging.getLogger("server").warning(
-        "Optional 'routers.ai' package not present (%s) â the inline /api/ai handlers "
+        "Optional 'routers.ai' package not present (%s) — the inline /api/ai handlers "
         "below remain active. NOTE: 'routers' is an unfinished local refactor; the "
         "committed/deployed server.py does not import it.", _ai_router_err)
+
+from importlib import import_module
+
+_ADDITIONAL_API_ROUTER_MODULES = (
+    ("aawab", "/api"),
+    ("abo", "/api"),
+    ("member_projects", ""),
+    ("studio", "/api"),
+    ("auditor", "/api"),
+    ("band", "/api"),
+    ("billing", "/api"),
+    ("bridge", "/api"),
+    ("byok", "/api"),
+    ("chat", "/api"),
+    ("competition", "/api"),
+    ("creator", "/api"),
+    ("creator_lounge", "/api"),
+    ("exec_control", "/api"),
+    ("exec_tools", ""),
+    ("executive_pipeline", ""),
+    ("features", "/api"),
+    ("handbooks", "/api"),
+    ("iam", "/api"),
+    ("jamil", "/api"),
+    ("media", "/api"),
+    ("missing", "/api"),
+    ("nam", ""),
+    ("position", "/api"),
+    ("projects", "/api"),
+    ("promo_codes", "/api"),
+    ("provider_gateway", "/api"),
+    ("revenue_exec", "/api"),
+    ("saga", ""),
+    ("scholarships", "/api"),
+    ("sentinel", "/api"),
+    ("site_guide", "/api"),
+    ("supervisor", "/api"),
+    ("system_rollback", "/api"),
+    ("gateway_admin", "/api"),
+)
+
+# ── Feature Control Center enforcement (read side) ──────────────────────────
+# The FCC admin API writes db.feature_configs; exec consoles write
+# db.platform_flags / db.page_access / db.user_feature_overrides /
+# db.authz_matrix.  This middleware turns those records into real server-side
+# rules on every /api request (enabled, internal_only, customer_access,
+# roles, tiers, per-user overrides, flags, page gates).  Registered BEFORE the
+# logging/header middlewares so it runs innermost: rejected requests still
+# pass back through the request logger defined below.  Lazy providers keep
+# this safe from module-load ordering (User, db, JWT_* resolve at request
+# time, after the whole module has loaded).
+from security.fcc_middleware import make_fcc_middleware as _make_fcc_middleware
+app.middleware("http")(_make_fcc_middleware(
+    get_db=lambda: db,
+    get_jwt_secret=lambda: JWT_SECRET,
+    get_jwt_algo=lambda: JWT_ALGO,
+    get_user_cls=lambda: User,
+))
 
 # Security headers middleware
 @app.middleware("http")
@@ -224,7 +288,7 @@ async def log_requests_pii_safe(request: Request, call_next):
     start = time.perf_counter()
     response = await call_next(request)
     elapsed = int((time.perf_counter() - start) * 1000)
-    logger.info("%s %s â %s (%dms)", request.method, request.url.path, response.status_code, elapsed)
+    logger.info("%s %s → %s (%dms)", request.method, request.url.path, response.status_code, elapsed)
     return response
 
 api_router = APIRouter(prefix="/api")
@@ -232,9 +296,10 @@ logger = logging.getLogger("lcewai")
 logging.basicConfig(level=logging.INFO)
 STARTUP_COMPLETE = False
 
-logger.info("STARTUP: ANTHROPIC_API_KEY is disabled; using free-tier providers only")
+if not ANTHROPIC_API_KEY:
+    logger.warning("STARTUP: ANTHROPIC_API_KEY is not set; M.O.R.E. moderation and Department AI will be limited.")
 
-# Simple in-memory rate limit (per IP, per route) â replace with redis in true HA prod
+# Simple in-memory rate limit (per IP, per route) — replace with redis in true HA prod
 from collections import defaultdict as _dd
 _RATE = _dd(list)
 _RATE_LOCK = asyncio.Lock()  # C-1: serialise concurrent read/evaluate/append
@@ -248,7 +313,7 @@ async def check_rate(key: str, max_calls: int, window_sec: int):
         _RATE[key].append(now)
 
 
-# PII-safe field names â values for these keys are redacted in audit logs
+# PII-safe field names — values for these keys are redacted in audit logs
 _PII_KEYS = {"email", "password", "password_hash", "current_password", "new_password",
              "confirm", "full_name", "phone", "address", "ip", "ip_address",
              "user_agent", "token", "access_token", "refresh_token"}
@@ -303,7 +368,7 @@ EXEC_ADMIN_EMAIL = os.environ.get("EXEC_ADMIN_EMAIL", "delon.oliver@lightningcit
 # value is operator-controlled.
 EXEC_DEFAULT_PASSWORD = os.environ.get("EXEC_DEFAULT_PASSWORD", "Executive@LCE2026")
 
-# Executive accounts â both seats always bootstrapped on startup.
+# Executive accounts — both seats always bootstrapped on startup.
 # Seat 1 (Delon Oliver):  youpickeddoliver@gmail.com
 # Seat 2 (NAM Oshun):     souppoetry@gmail.com
 BACKUP_EXEC_EMAIL = os.environ.get("BACKUP_EXEC_ADMIN_EMAIL", "youpickeddoliver@gmail.com")
@@ -319,13 +384,13 @@ EXEC_FORCE_RESET = os.environ.get("EXEC_FORCE_RESET", "0") == "1"
 # Secret key for the no-login exec unlock endpoint POST /api/auth/exec-unlock.
 # Set EXEC_RESET_SECRET to any value in Railway Variables.  If not set the
 # endpoint is disabled (returns 404).  This is the zero-human-intervention
-# recovery path when exec accounts are locked â no login, no Railway access needed.
+# recovery path when exec accounts are locked — no login, no Railway access needed.
 EXEC_RESET_SECRET = os.environ.get("EXEC_RESET_SECRET", "")
 
 # One-time migration: any email that used to be the hardcoded EXEC_ADMIN_EMAIL
 # will be auto-demoted from executive_admin to admin on startup, so switching
 # the primary exec doesn't leave a dormant god-mode account behind.
-# NOTE: BACKUP_EXEC_EMAIL is intentionally excluded â it is a permanent second seat.
+# NOTE: BACKUP_EXEC_EMAIL is intentionally excluded — it is a permanent second seat.
 LEGACY_EXEC_EMAILS = set()
 
 
@@ -339,10 +404,27 @@ class User(BaseModel):
     is_active: bool = True
     # When true, the user must change password on next login. Set on (a) the
     # auto-created executive_admin, and (b) any account created via
-    # POST /api/admin/users â the admin shares a temp password and the user
+    # POST /api/admin/users — the admin shares a temp password and the user
     # picks their own on first login.
     must_change_password: bool = False
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    # ── Fields persisted on user documents by register/login/admin flows. ──
+    # These MUST be declared: current_user() rebuilds User(**user_doc) on every
+    # authenticated request, and request-path code (FCC tier matrix,
+    # site-guide gate, profile responses) reads them as attributes. An
+    # undeclared field is silently dropped by extra="ignore" and any direct
+    # attribute read then raises AttributeError → HTTP 500 for that user.
+    # (Root cause of the live authed-request 500s found 2026-09-02.)
+    avatar_url: Optional[str] = None
+    social_handles: Optional[dict] = None
+    feature_tier: str = "free"
+    sage_tier: Optional[str] = None
+    last_login: Optional[str] = None
+    # C-2 token revocation counter; carried so round-trips keep their value.
+    token_version: int = 0
+    # GDPR consent record (ISO strings as stored by register).
+    terms_accepted_at: Optional[str] = None
+    over_13_confirmed: Optional[bool] = None
 
 
 class RegisterReq(BaseModel):
@@ -410,7 +492,7 @@ class RecoveryCodeStatusReq(BaseModel):
 
 class SelfEditMeReq(BaseModel):
     """Self-service profile edit. Users may change their display name and
-    email.  Role and associate are NOT editable here â those are admin-only
+    email.  Role and associate are NOT editable here — those are admin-only
     to prevent privilege/cohort drift."""
     full_name: Optional[str] = None
     email: Optional[EmailStr] = None
@@ -500,7 +582,7 @@ class OrchestratorReq(BaseModel):
     message: str
     # Conversation history for multi-turn sessions (client maintains state)
     history: Optional[list[OrchestratorHistoryItem]] = []
-    # Optional file attachment â base64-encoded, max ~10 MB
+    # Optional file attachment — base64-encoded, max ~10 MB
     file_b64: Optional[str] = None
     file_name: Optional[str] = None
     file_type: Optional[str] = None  # MIME type
@@ -574,7 +656,7 @@ import secrets  # noqa: E402
 RESET_TOKEN_TTL_MIN = int(os.environ.get("PASSWORD_RESET_TTL_MIN", "30"))
 RESEND_API_KEY = os.environ.get("RESEND_API_KEY", "")
 RESEND_FROM = os.environ.get("RESEND_FROM", "W.A.I. <poetgames@gmail.com>")
-# Gmail SMTP fallback â used when RESEND_API_KEY is not set.
+# Gmail SMTP fallback — used when RESEND_API_KEY is not set.
 # In Railway: set GMAIL_USER and GMAIL_APP_PASSWORD (16-char Google App Password).
 GMAIL_USER     = os.environ.get("GMAIL_USER", "")
 GMAIL_APP_PASSWORD = os.environ.get("GMAIL_APP_PASSWORD", "")
@@ -582,7 +664,7 @@ GMAIL_APP_PASSWORD = os.environ.get("GMAIL_APP_PASSWORD", "")
 
 def _hash_token(raw: str) -> str:
     """Stable sha256 hash of the raw token. We never store the raw token
-    in MongoDB â only the hash. Lookups use the hash."""
+    in MongoDB — only the hash. Lookups use the hash."""
     return hashlib.sha256(raw.encode("utf-8")).hexdigest()
 
 
@@ -612,7 +694,7 @@ def _reset_email_html(full_name: str, reset_url: str) -> tuple[str, str]:
       <p style="margin:28px 0">
         <a href="{reset_url}" style="background:#0a0e14;color:#fff;padding:12px 20px;text-decoration:none;font-weight:600">Reset Password</a>
       </p>
-      <p style="font-size:12px;color:#666">If you didn't ask for this, you can safely ignore this message â your password won't change.</p>
+      <p style="font-size:12px;color:#666">If you didn't ask for this, you can safely ignore this message — your password won't change.</p>
       <p style="font-size:12px;color:#666">Or paste this URL into your browser:<br><code style="word-break:break-all">{reset_url}</code></p>
     </div>
     """
@@ -674,7 +756,7 @@ async def _send_reset_email(to_email: str, raw_token: str, full_name: str = "the
     Returns True if sent by either provider, False if neither is configured."""
     reset_url = _build_reset_url(raw_token)
     if reset_url.startswith("/"):
-        logger.warning("PUBLIC_APP_URL not set â cannot build absolute reset URL for email.")
+        logger.warning("PUBLIC_APP_URL not set — cannot build absolute reset URL for email.")
         return False
     subject, html = _reset_email_html(full_name, reset_url)
 
@@ -682,7 +764,7 @@ async def _send_reset_email(to_email: str, raw_token: str, full_name: str = "the
         sent = await _send_via_resend(to_email, subject, html)
         if sent:
             return True
-        logger.warning("Resend failed â falling back to Gmail SMTP")
+        logger.warning("Resend failed — falling back to Gmail SMTP")
 
     if GMAIL_USER and GMAIL_APP_PASSWORD:
         return await _send_via_gmail(to_email, subject, html)
@@ -719,8 +801,17 @@ async def current_user(authorization: Optional[str] = Header(None)) -> User:
     db_tv = user_doc.get("token_version", 0)
     jwt_tv = payload.get("tv", 0)
     if jwt_tv != db_tv:
-        raise HTTPException(401, "Token revoked â please sign in again")
+        raise HTTPException(401, "Token revoked — please sign in again")
     return User(**user_doc)
+
+
+async def optional_current_user(authorization: Optional[str] = Header(None)) -> Optional[User]:
+    """Like current_user, but anonymous visitors are allowed (None).
+    Used for public catalog surfaces whose CONTENT stays auth-gated."""
+    try:
+        return await current_user(authorization)
+    except HTTPException:
+        return None
 
 
 def require_role(*roles):
@@ -728,14 +819,14 @@ def require_role(*roles):
 
     Pass if the user's role rank is >= the LOWEST rank among the requested
     roles. This preserves backward compatibility (existing
-    `require_role("admin")` calls keep working exactly the same â admins still
+    `require_role("admin")` calls keep working exactly the same — admins still
     pass) AND adds god-mode for executive_admin (passes every check).
     """
     needed_rank = min(ROLE_RANK[r] for r in roles)
     async def dep(user: User = Depends(current_user)) -> User:
         if ROLE_RANK.get(user.role, 0) < needed_rank:
             # Don't reveal required roles to prevent attackers from understanding the role hierarchy
-            logger.warning("Unauthorized access attempt â insufficient privileges (user=%s, role=%s)", user.id, user.role)
+            logger.warning("Unauthorized access attempt — insufficient privileges (user=%s, role=%s)", user.id, user.role)
             raise HTTPException(403, "Insufficient permissions to access this resource.")
         return user
     return dep
@@ -745,7 +836,7 @@ def assert_role(user: User, *roles) -> None:
     """Inline authorization check (raises 403 if the user lacks the rank).
 
     Use this INSIDE an endpoint body. `require_role(...)` is a dependency
-    factory for `Depends(...)` â calling it with a User instance raises
+    factory for `Depends(...)` — calling it with a User instance raises
     'unhashable type: User'. This is the inline equivalent.
     """
     needed_rank = min(ROLE_RANK[r] for r in roles)
@@ -775,7 +866,7 @@ async def seed_modules():
 
 
 async def seed_users():
-    # One-time migration: cohort â associate for any legacy users
+    # One-time migration: cohort → associate for any legacy users
     await db.users.update_many(
         {"cohort": {"$exists": True}, "associate": {"$in": [None, ""]}},
         [{"$set": {"associate": "$cohort"}}, {"$unset": "cohort"}],
@@ -785,7 +876,7 @@ async def seed_users():
     for u in legacy_users:
         new_val = u["associate"].replace("Cohort-", "Associate-", 1)
         await db.users.update_one({"id": u["id"]}, {"$set": {"associate": new_val}})
-    # Demo accounts removed â platform is live. Delete any that still exist in DB.
+    # Demo accounts removed — platform is live. Delete any that still exist in DB.
     _demo_specs = [
         {
             "email": "admin@lcewai.org",
@@ -868,9 +959,9 @@ async def seed_users():
                     "must_change_password": False,
                     "created_at": datetime.now(timezone.utc).isoformat(),
                 })
-                logger.info("STARTUP: exec seat created â %s", _email)
+                logger.info("STARTUP: exec seat created — %s", _email)
             else:
-                # Account exists â ensure it stays executive_admin, active, and unlocked.
+                # Account exists — ensure it stays executive_admin, active, and unlocked.
                 # Clearing lockout fields on every startup means a locked exec account
                 # self-heals on the next deploy/restart without any manual intervention.
                 await db.users.update_one(
@@ -885,11 +976,11 @@ async def seed_users():
 
     # ----- EMERGENCY EXEC FORCE RESET (if flag enabled) -----
     # Two modes:
-    #   Mode A â set EXEC_FORCE_RESET=1 only:
+    #   Mode A — set EXEC_FORCE_RESET=1 only:
     #     Resets ALL three exec seats to their documented default passwords and
     #     clears any lockouts.  No other env vars needed.  This is the "locked out,
     #     need back in" recovery path.
-    #   Mode B â set EXEC_FORCE_RESET=1 + EXEC_FORCE_RESET_EMAIL + EXEC_FORCE_RESET_PASSWORD:
+    #   Mode B — set EXEC_FORCE_RESET=1 + EXEC_FORCE_RESET_EMAIL + EXEC_FORCE_RESET_PASSWORD:
     #     Resets one specific account to the supplied password.
     # In both modes: delete EXEC_FORCE_RESET from Railway Variables immediately after
     # logging in, or the password will be reset on every redeploy.
@@ -1086,7 +1177,7 @@ async def backfill_verification_codes():
             )
             count += 1
         except Exception:
-            pass  # unique constraint race â another startup already set it
+            pass  # unique constraint race — another startup already set it
     if count:
         logger.info("Backfilled verification_code on %d credentials", count)
 
@@ -1113,7 +1204,7 @@ def _supervised_task(coro, *, name: str) -> asyncio.Task:
             raise
         except Exception as _exc:
             logger.error(
-                "SUPERVISED TASK DIED â '%s' raised %s: %s",
+                "SUPERVISED TASK DIED — '%s' raised %s: %s",
                 name, type(_exc).__name__, _exc, exc_info=True,
             )
             raise
@@ -1128,7 +1219,7 @@ async def on_startup():
     # healthcheck passes within seconds. The full init below is DB/network-heavy
     # (indexes, seeds, revenue/WAI/pipeline/discount bootstrap). If MONGO_URL is
     # slow or unreachable, awaiting it inline blocks uvicorn from serving (the
-    # ASGI lifespan must finish before the socket accepts requests) â measured at
+    # ASGI lifespan must finish before the socket accepts requests) — measured at
     # 30s+ per Mongo serverSelection timeout, stacking past the healthcheck
     # window and producing the 502 fallback + restart loop seen in production.
     # Running it as a background task decouples container health from DB state;
@@ -1137,14 +1228,19 @@ async def on_startup():
     task = asyncio.create_task(_on_startup_impl())
     _bg_tasks.append(task)
     def _startup_done(t: asyncio.Task):
+        global _startup_impl_done
         if t.cancelled():
+            _startup_impl_done = True
             return
         exc = t.exception()
         if exc:
             logger.error(
-                "STARTUP TASK FAILED â initialization did not complete: %s",
+                "STARTUP TASK FAILED — initialization did not complete: %s",
                 exc, exc_info=exc,
             )
+        # Readiness is gated on this regardless of success/failure: once the
+        # background init settles we stop returning 503-on-startup from /api/ready.
+        _startup_impl_done = True
     task.add_done_callback(_startup_done)
 
 
@@ -1159,9 +1255,29 @@ async def on_shutdown():
     logger.info("SHUTDOWN: all background tasks cancelled.")
 
 
+def _bind_shared_runtime_dependencies():
+    """Make the live database and canonical request dependencies available to routers."""
+    import deps
+
+    app.state.db = db
+    deps.bind(current_user, audit, check_rate)
+    deps.set_db(db)
+
+    # Hybrid NAM storage: hand the live DB handle to ai/hybrid_nam/persistence.
+    # Without this the NAM router silently falls back to an in-memory dict and
+    # every /nam commit (mission, strategy, memory, governance, …) disappears
+    # on the next restart/deploy — reported by the owner on 2026-09-02.
+    try:
+        from ai.hybrid_nam import persistence as _nam_persistence
+
+        _nam_persistence.init_db(db)
+    except Exception:
+        logger.exception("Failed to bind Hybrid NAM persistence to the live DB")
+
+
 async def _on_startup_impl():
-    # ââ MongoDB dual-connection setup âââââââââââââââââââââââââââââââââââââââââ
-    # Motor connects lazily â we don't ping at startup (asyncio.wait_for +
+    # ── MongoDB dual-connection setup ─────────────────────────────────────────
+    # Motor connects lazily — we don't ping at startup (asyncio.wait_for +
     # Motor is unsafe; it can cancel mid-connection and corrupt the pool).
     # The /api/health endpoint pings on demand.  If MONGO_BACKUP_URL is set,
     # the backup client is ready and the health endpoint will use it when the
@@ -1170,6 +1286,7 @@ async def _on_startup_impl():
     global _DB_SOURCE, _backup_db, STARTUP_COMPLETE
     _DB_SOURCE = "primary"
     _backup_db = None
+    _bind_shared_runtime_dependencies()
     if MONGO_BACKUP_URL:
         try:
             _backup_client = AsyncIOMotorClient(
@@ -1181,7 +1298,7 @@ async def _on_startup_impl():
         except Exception as _bce:
             logger.warning("STARTUP: Could not initialize Atlas backup client: %s", _bce)
     else:
-        logger.info("STARTUP: No MONGO_BACKUP_URL set â single-DB mode.")
+        logger.info("STARTUP: No MONGO_BACKUP_URL set — single-DB mode.")
 
     try:
         await ensure_indexes()
@@ -1217,6 +1334,25 @@ async def _on_startup_impl():
     except Exception as _e:
         logger.warning("STARTUP: seed_compliance failed (non-fatal): %s", _e)
 
+    # ── Hybrid NAM knowledge corpus (owner session 2026-09-04) ────────────────
+    # Seeds the Knowledge Forge through the same idempotent pipeline the
+    # /api/nam/knowledge endpoints use: existing knowledge_ids are skipped,
+    # so pre-existing production knowledge is never overwritten, and only
+    # missing corpus items are added. Non-fatal: a failure degrades to a
+    # warning, exactly like the other startup seeds.
+    try:
+        from seed_nam_knowledge import seed_nam_knowledge as _nam_seed
+
+        _nam_result = await _nam_seed()
+        logger.info(
+            "STARTUP: Hybrid NAM knowledge seed done — %d seeded, %d skipped, %d failed.",
+            _nam_result["seeded_count"],
+            _nam_result["skipped_count"],
+            _nam_result["failed_count"],
+        )
+    except Exception as _e:
+        logger.warning("STARTUP: seed_nam_knowledge failed (non-fatal): %s", _e)
+
     try:
         await seed_sites_inventory()
     except Exception as _e:
@@ -1237,7 +1373,7 @@ async def _on_startup_impl():
     except Exception as _e:
         logger.warning("STARTUP: run_engagement_check failed (non-fatal): %s", _e)
 
-    # ââ Revenue Operations System initialization âââââââââââââââââââââââââââââââ
+    # ── Revenue Operations System initialization ───────────────────────────────
     try:
         await init_revenue_operations(db)
         init_revenue_services(app, db)
@@ -1251,12 +1387,12 @@ async def _on_startup_impl():
     except Exception as _sched_err:
         logger.warning("STARTUP: Revenue job scheduler startup failed (non-fatal): %s", _sched_err)
 
-    # ââ WAI-Institute Autonomous Pipeline activation âââââââââââââââââââââââââââ
+    # ── WAI-Institute Autonomous Pipeline activation ───────────────────────────
     try:
         from wai_institute.scripts.system_activation import activate_system, start_scout_scheduler
         _wai_result = await activate_system(db)
         logger.info(
-            "WAI autonomous pipeline activated â %d personas bootstrapped",
+            "WAI autonomous pipeline activated — %d personas bootstrapped",
             _wai_result.get("personas", {}).get("bootstrapped", 0),
         )
         # Start Cultural Scout background scanner
@@ -1266,17 +1402,17 @@ async def _on_startup_impl():
     except Exception as _wai_err:
         logger.warning("WAI autonomous pipeline startup failed (non-fatal): %s", _wai_err)
 
-    # ââ PipelineManager (LLM intent routing) âââââââââââââââââââââââââââââââââ
+    # ── PipelineManager (LLM intent routing) ─────────────────────────────────
     global _pipeline_manager
     try:
         from src.agents.pipeline_manager import PipelineManager as _PipelineManager
-        _pipeline_manager = _PipelineManager(db=db)
-        _mode = "keyword_fallback"  # ANTHROPIC disabled
-        logger.info("STARTUP: PipelineManager ready â analyzer=%s", _mode)
+        _pipeline_manager = _PipelineManager(db=db, anthropic_api_key=ANTHROPIC_API_KEY)
+        _mode = "llm" if ANTHROPIC_API_KEY else "keyword_fallback"
+        logger.info("STARTUP: PipelineManager ready — analyzer=%s", _mode)
     except Exception as _pm_err:
         logger.warning("STARTUP: PipelineManager init failed (non-fatal): %s", _pm_err)
 
-    # ââ Discount Management System initialization âââââââââââââââââââââââââââââ
+    # ── Discount Management System initialization ─────────────────────────────
     try:
         from billing.discount_service import init_discount_service
         global _discount_manager
@@ -1285,7 +1421,7 @@ async def _on_startup_impl():
     except Exception as _disc_err:
         logger.warning("STARTUP: Discount system initialization failed (non-fatal): %s", _disc_err)
 
-    # ââ Rate-limiter memory guard âââââââââââââââââââââââââââââââââââââââââââââ
+    # ── Rate-limiter memory guard ─────────────────────────────────────────────
     # Prune stale entries every 10 minutes so the in-memory dict never grows
     # unbounded on long-running servers (home server especially).
     async def _rate_limiter_cleanup():
@@ -1299,40 +1435,15 @@ async def _on_startup_impl():
                 logger.debug("Rate limiter: pruned %d stale keys.", len(stale))
     _supervised_task(_rate_limiter_cleanup(), name="rate_limiter_cleanup")  # C-4
 
-    # ââ Serve built React frontend (home/backup server only) âââââââââââââââââ
-    if SERVE_FRONTEND:
-        _build_paths = [
-            ROOT_DIR.parent / "frontend" / "build",
-            ROOT_DIR.parent / "frontend" / "dist",
-            Path("/app/frontend/build"),
-            Path("/app/frontend/dist"),
-        ]
-        _served = False
-        for _bp in _build_paths:
-            if _bp.exists() and (_bp / "index.html").exists():
-                from fastapi.staticfiles import StaticFiles
-                from fastapi.responses import FileResponse
+    # Note: when SERVE_FRONTEND=1 the SPA/static routes are registered at
+    # import time (setup_frontend_serving, near the bottom of this module) so
+    # the catch-all and /static mount exist from the moment uvicorn binds. They
+    # used to be added HERE, inside this fire-and-forget background task, which
+    # meant every asset request returned 503 (no route matched) until a slow or
+    # DB-blocked startup finished. setup_frontend_serving() reads the same build
+    # dirs and logs whether the React app will be served.
 
-                # Serve static assets
-                app.mount("/static", StaticFiles(directory=str(_bp / "static")), name="static")
-
-                # SPA catch-all  must come AFTER api_router is included
-                @app.get("/{full_path:path}", include_in_schema=False)
-                async def _spa_catchall(full_path: str):
-                    if full_path.startswith("api"):
-                        return JSONResponse(status_code=404, content={"detail": "Not Found"})
-                    return FileResponse(str(_bp / "index.html"))
-
-                logger.info("STARTUP: Serving React frontend from %s", _bp)
-                _served = True
-                break
-        if not _served:
-            logger.warning(
-                "STARTUP: SERVE_FRONTEND=1 but no built frontend found. "
-                "Run 'npm run build' in the frontend directory first."
-            )
-
-    # ââ Director 4.0 â prompt integrity baseline ââââââââââââââââââââââââââââââ
+    # ── Director 4.0 — prompt integrity baseline ──────────────────────────────
     # Any drift detected on subsequent calls indicates unauthorized modification.
     try:
         from ai.prompt_guard import prompt_guard
@@ -1352,13 +1463,13 @@ async def _on_startup_impl():
     # .env should NEVER set this; it exists only for the preview test suite.
     if os.environ.get("DEV_RETURN_RESET_TOKEN") == "1":
         logger.warning(
-            "DEV_RETURN_RESET_TOKEN=1 is set â /api/auth/forgot-password "
+            "DEV_RETURN_RESET_TOKEN=1 is set — /api/auth/forgot-password "
             "will return raw reset tokens in the response. THIS IS UNSAFE "
             "FOR PRODUCTION. Remove DEV_RETURN_RESET_TOKEN from .env "
             "before deploying to a public environment."
         )
 
-    # ââ Auto-failover watchdog ââââââââââââââââââââââââââââââââââââââââââââââââ
+    # ── Auto-failover watchdog ────────────────────────────────────────────────
     # Background health poller.  Detects primary failures, records failover
     # state in the breaker panel.  Set WATCHDOG_DISABLE=1 to skip.
     if not os.environ.get("WATCHDOG_DISABLE"):
@@ -1373,7 +1484,7 @@ async def _on_startup_impl():
     else:
         logger.info("STARTUP: Failover watchdog disabled via WATCHDOG_DISABLE=1")
 
-    # ââ GDPR hard-delete purge (daily) âââââââââââââââââââââââââââââââââââââââââ
+    # ── GDPR hard-delete purge (daily) ─────────────────────────────────────────
     # Users who passed the 30-day grace period get permanently removed.
     async def _gdpr_purge_loop():
         while True:
@@ -1392,7 +1503,7 @@ async def _on_startup_impl():
     _supervised_task(_gdpr_purge_loop(), name="gdpr_purge_loop")  # C-4
     logger.info("STARTUP: GDPR purge cron launched (24h interval)")
 
-    # ââ Memory consolidation cron (daily) âââââââââââââââââââââââââââââââââââââ
+    # ── Memory consolidation cron (daily) ─────────────────────────────────────
     async def _memory_consolidation_loop():
         while True:
             await asyncio.sleep(86400)
@@ -1407,7 +1518,7 @@ async def _on_startup_impl():
 
     STARTUP_COMPLETE = True
     logger.info(
-        "STARTUP COMPLETE â Version: %s | DB: %s | Frontend: %s",
+        "STARTUP COMPLETE — Version: %s | DB: %s | Frontend: %s",
         APP_VERSION, _DB_SOURCE, "served" if SERVE_FRONTEND else "railway-nginx"
     )
 
@@ -1419,12 +1530,15 @@ async def ensure_indexes():
         await db.users.create_index("id", unique=True)
         await db.lab_submissions.create_index([("user_id", 1), ("lab_slug", 1)], unique=True)
         await db.progress.create_index([("user_id", 1), ("module_slug", 1)], unique=True)
-        # Supports /admin/cohorts aggregation: status filter â user_id $lookup
+        # Supports /admin/cohorts aggregation: status filter → user_id $lookup
         await db.progress.create_index([("status", 1), ("user_id", 1)])
         await db.users.create_index([("associate", 1), ("role", 1)])
         await db.compliance_progress.create_index([("user_id", 1), ("module_slug", 1)], unique=True)
         # Audit logs: retain for 1 year (365 days) for compliance
         await db.audit_log.create_index([("at", -1)])
+        await db.feature_configs.create_index([("feature_id", 1)], unique=True)
+        await db.system_restore_points.create_index([("created_at", -1)])
+        await db.deferred_webhooks.create_index([("received_at", -1)])
         await db.audit_log.create_index("at", expireAfterSeconds=365 * 24 * 3600)
         # Notifications: auto-delete after 30 days
         await db.notifications.create_index([("user_id", 1), ("created_at", -1)])
@@ -1435,15 +1549,15 @@ async def ensure_indexes():
         await db.tool_checkouts.create_index([("user_id", 1), ("status", 1)])
         await db.inventory.create_index("sku", unique=True)
         await db.sites.create_index("slug", unique=True)
-        # Password reset tokens â TTL on expires_at auto-removes expired docs;
+        # Password reset tokens — TTL on expires_at auto-removes expired docs;
         # token_hash is the unique lookup key.
         await db.password_reset_tokens.create_index("token_hash", unique=True)
         await db.password_reset_tokens.create_index("expires_at", expireAfterSeconds=0)
         await db.password_reset_tokens.create_index("user_id")
-        # Recovery codes â executive emergency access (one per email, TTL 1 year)
+        # Recovery codes — executive emergency access (one per email, TTL 1 year)
         await db.recovery_codes.create_index("email", unique=True)
         await db.recovery_codes.create_index("generated_at", expireAfterSeconds=365 * 24 * 3600)
-        # Recovery logs â audit trail of recovery actions (TTL 7 years for compliance)
+        # Recovery logs — audit trail of recovery actions (TTL 7 years for compliance)
         await db.recovery_log.create_index([("email", 1), ("at", -1)])
         await db.recovery_log.create_index("at", expireAfterSeconds=7 * 365 * 24 * 3600)
         # Sage v3 perf: TTS audio cache (TTL 7d) + per-user daily usage (TTL 25h).
@@ -1461,7 +1575,7 @@ async def ensure_indexes():
         await db.ai_consents.create_index([("user_id", 1), ("persona", 1), ("created_at", -1)])
         # Composite index for sage audit queries (mode + user_id filter)
         await db.chat_history.create_index([("mode", 1), ("user_id", 1), ("created_at", -1)])
-        # M.O.R.E. indexes â expires_at for fast purge queries, category for filtering
+        # M.O.R.E. indexes — expires_at for fast purge queries, category for filtering
         # TTL indexes auto-delete expired documents
         await db.more_posts.create_index("expires_at", expireAfterSeconds=0,
                                         partialFilterExpression={"expires_at": {"$exists": True}})
@@ -1477,7 +1591,7 @@ async def ensure_indexes():
         await db.more_flags.create_index("expires_at", expireAfterSeconds=0,
                                         partialFilterExpression={"expires_at": {"$exists": True}})
         await db.more_flags.create_index("status")
-        # Oliver Guardian â audit log and appeals
+        # Oliver Guardian — audit log and appeals
         await db.more_moderation_log.create_index([("created_at", -1)])
         await db.more_moderation_log.create_index("user_id")
         await db.more_moderation_log.create_index("decision")
@@ -1529,13 +1643,13 @@ async def root():
 
 @api_router.get("/health")
 async def health():
-    """Deep health check â used by UptimeRobot, home server heartbeat, and Director tool.
+    """Deep health check — used by UptimeRobot, home server heartbeat, and Director tool.
 
     Always returns 200 with a detailed status object.
     Use the top-level `status` field for simple up/down monitoring:
-      "operational"  â all systems normal
-      "degraded"     â one or more subsystems have issues but service is running
-      "critical"     â multiple core systems down
+      "operational"  — all systems normal
+      "degraded"     — one or more subsystems have issues but service is running
+      "critical"     — multiple core systems down
 
     Non-200 is only returned if the server itself can't respond (handled by infra).
     """
@@ -1543,8 +1657,8 @@ async def health():
     checks: dict = {}
     issues: list[str] = []
 
-    # ââ Database ââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
-    # Use Motor's own timeout (serverSelectionTimeoutMS) â no asyncio.wait_for
+    # ── Database ──────────────────────────────────────────────────────────────
+    # Use Motor's own timeout (serverSelectionTimeoutMS) — no asyncio.wait_for
     # which can corrupt the connection pool on cancellation.
     try:
         await client.admin.command("ping")
@@ -1565,14 +1679,14 @@ async def health():
             checks["db"] = {"status": "down", "source": _DB_SOURCE, "error": _db_err_str}
             issues.append("db_down")
 
-    # ââ Anthropic AI API ââââââââââââââââââââââââââââââââââââââââââââââââââââââ
-    if False:  # ANTHROPIC disabled
+    # ── Anthropic AI API ──────────────────────────────────────────────────────
+    if ANTHROPIC_API_KEY:
         checks["ai_api"] = {"status": "configured", "key_present": True}
     else:
         checks["ai_api"] = {"status": "unconfigured", "key_present": False}
         issues.append("ai_api_key_missing")
 
-    # ââ Director 4.0 subsystems âââââââââââââââââââââââââââââââââââââââââââââââ
+    # ── Director 4.0 subsystems ───────────────────────────────────────────────
     try:
         from ai.mode_system import mode_system
         checks["mode_system"] = {"status": "up", "current_mode": mode_system.get_mode().value}
@@ -1606,10 +1720,10 @@ async def health():
     except Exception as _hme:
         checks["health_monitor"] = {"status": "down", "error": str(_hme)[:80]}
 
-    # ââ Rate limiter ââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+    # ── Rate limiter ──────────────────────────────────────────────────────────
     checks["rate_limiter"] = {"status": "up", "tracked_keys": len(_RATE)}
 
-    # ââ Overall status ââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+    # ── Overall status ────────────────────────────────────────────────────────
     if not issues:
         overall = "operational"
     elif len(issues) >= 2:
@@ -1625,7 +1739,7 @@ async def health():
         "issues":    issues,
         "checks":    checks,
         "timestamp": now,
-        "uptime_hint": "Monitor at /api/health â returns 200 always; check `status` field.",
+        "uptime_hint": "Monitor at /api/health — returns 200 always; check `status` field.",
     }
 
 
@@ -1635,10 +1749,12 @@ async def version():
 
 
 @api_router.post("/auth/register", response_model=TokenResp)
-async def register(body: RegisterReq):
+async def register(body: RegisterReq, request: Request):
     # Anti-spam: max 5 registrations per email-prefix per minute (very generous,
     # but stops the trivial "for i in range(10000): register" attack).
     await check_rate(f"register:{body.email}", max_calls=5, window_sec=60)
+    _rip = (request.client.host if request.client else "anon")
+    await check_rate(f"register:ip:{_rip}", max_calls=10, window_sec=60)
     if await db.users.find_one({"email": body.email}):
         raise HTTPException(400, "Email already registered")
 
@@ -1665,8 +1781,11 @@ async def register(body: RegisterReq):
 
 @api_router.post("/auth/login", response_model=TokenResp)
 async def login(body: LoginReq, request: Request):
-    # Hard rate cap: 5 attempts per minute per email (in-memory, first line of defense).
+    # Hard rate caps: 5 attempts/minute per email + 20/minute per source IP
+    # (in-memory, first line of defense — H3: stops cross-account stuffing).
     await check_rate(f"login:{body.email}", max_calls=5, window_sec=60)
+    _ip = (request.client.host if request.client else "anon")
+    await check_rate(f"login:ip:{_ip}", max_calls=20, window_sec=60)
     doc = await db.users.find_one({"email": body.email}, {"_id": 0})
 
     # DB-backed lockout: survives restarts, enforced on every login attempt.
@@ -1685,7 +1804,7 @@ async def login(body: LoginReq, request: Request):
             except HTTPException:
                 raise
             except Exception:
-                pass  # malformed date â ignore lock
+                pass  # malformed date — ignore lock
 
     if not doc or not verify_pw(body.password, doc["password_hash"]):
         await audit(None, "auth.login.failed", body.email)
@@ -1699,7 +1818,7 @@ async def login(body: LoginReq, request: Request):
                 update["login_failed_attempts"] = 0
                 await notify(
                     doc["id"],
-                    "Security alert â account locked",
+                    "Security alert — account locked",
                     "Your account was temporarily locked after 10 failed login attempts. "
                     "It will unlock automatically in 30 minutes.",
                     kind="warning",
@@ -1762,7 +1881,9 @@ async def me(user: User = Depends(current_user)):
 
 
 @api_router.get("/modules", response_model=List[Module])
-async def list_modules(user: User = Depends(current_user)):
+# Public catalog directory — the /modules page must always list what
+# exists. Per-module CONTENT stays auth-gated via GET /modules/{slug}.
+async def list_modules(user: Optional[User] = Depends(optional_current_user)):
     docs = await db.modules.find({}, {"_id": 0}).sort("order", 1).to_list(100)
     return [Module(**d) for d in docs]
 
@@ -1849,6 +1970,38 @@ async def roster(user: User = Depends(require_role("instructor", "admin"))):
     return result
 
 
+@api_router.get("/admin/rbac/matrix")
+async def get_rbac_matrix(user: User = Depends(require_role("executive_admin"))):
+    """Return the platform permission matrix stored in DB (IAM console)."""
+    doc = await db.platform_config.find_one({"key": "rbac_matrix"}, {"_id": 0})
+    default_matrix = {
+        "student":         {"content_read": True,  "content_create": False, "content_edit_own": True,  "content_delete_own": True,  "user_warn": False, "user_mute": False, "user_ban": False, "api_access": False, "billing_view": False, "export_data": False},
+        "instructor":      {"content_read": True,  "content_create": True,  "content_edit_own": True,  "content_delete_own": True,  "user_warn": True,  "user_mute": True,  "user_ban": False, "api_access": True,  "billing_view": False, "export_data": False},
+        "admin":           {"content_read": True,  "content_create": True,  "content_edit_own": True,  "content_delete_own": True,  "user_warn": True,  "user_mute": True,  "user_ban": True,  "api_access": True,  "billing_view": True,  "export_data": True},
+        "executive_admin": {"content_read": True,  "content_create": True,  "content_edit_own": True,  "content_delete_own": True,  "user_warn": True,  "user_mute": True,  "user_ban": True,  "api_access": True,  "billing_view": True,  "export_data": True},
+    }
+    return {"matrix": (doc or {}).get("value", default_matrix)}
+
+
+@api_router.patch("/admin/rbac/matrix")
+async def set_rbac_matrix(body: dict, user: User = Depends(require_role("executive_admin"))):
+    """Update the platform permission matrix (exec-only)."""
+    matrix = body.get("matrix")
+    if not isinstance(matrix, dict):
+        raise HTTPException(400, "matrix must be an object")
+    valid_roles = set(ROLE_RANK.keys())
+    for role in matrix:
+        if role not in valid_roles:
+            raise HTTPException(400, f"Unknown role: {role}")
+    await db.platform_config.update_one(
+        {"key": "rbac_matrix"},
+        {"$set": {"key": "rbac_matrix", "value": matrix, "updated_by": user.id, "updated_at": datetime.now(timezone.utc).isoformat()}},
+        upsert=True,
+    )
+    await audit(user.id, "exec.rbac.matrix_updated", meta={"roles": list(matrix.keys())})
+    return {"ok": True}
+
+
 @api_router.get("/admin/users")
 async def all_users(
     role: Optional[Role] = None,
@@ -1921,7 +2074,7 @@ async def admin_create_user(body: AdminCreateUserReq, user: User = Depends(requi
     """Admin-only: create a user with any role (including admin/instructor).
     Only executive_admins may create another executive_admin.
 
-    Newly created accounts have `must_change_password=True` â the admin tells
+    Newly created accounts have `must_change_password=True` — the admin tells
     the user the temp password verbally/email; on first login the frontend
     routes them to /settings until they pick a new one."""
     if body.role == "executive_admin" and user.role != "executive_admin":
@@ -1945,7 +2098,7 @@ async def admin_change_role(uid: str, body: AdminRoleReq, user: User = Depends(r
     Hierarchy guard: an admin cannot promote anyone TO executive_admin and
     cannot modify an existing executive_admin. Only executive_admin can."""
     if uid == user.id and ROLE_RANK.get(body.role, 0) < ROLE_RANK.get(user.role, 0):
-        raise HTTPException(400, "Refusing to demote yourself â ask a higher-privileged admin.")
+        raise HTTPException(400, "Refusing to demote yourself — ask a higher-privileged admin.")
     target = await db.users.find_one({"id": uid}, {"_id": 0})
     if not target:
         raise HTTPException(404, "User not found")
@@ -2012,7 +2165,7 @@ async def admin_set_active(uid: str, body: AdminActiveReq, user: User = Depends(
             return_document=True,
         )
         if not updated:
-            # Already inactive â nothing to do.
+            # Already inactive — nothing to do.
             return {"ok": True, "id": uid, "is_active": False}
         # Verify admin class count post-update.
         active_admin_class = await db.users.count_documents({
@@ -2025,7 +2178,7 @@ async def admin_set_active(uid: str, body: AdminActiveReq, user: User = Depends(
                 await db.users.update_one({"id": uid}, {"$set": {"is_active": True}})
             except Exception as _rb_err:
                 logger.error("C-8 rollback FAILED for uid=%s: %s", uid, _rb_err)
-                raise HTTPException(500, "Guard rollback failed â contact support immediately.")
+                raise HTTPException(500, "Guard rollback failed — contact support immediately.")
             raise HTTPException(400, "Cannot deactivate the last active admin-class user.")
         # Last-executive sub-check.
         if target.get("role") == "executive_admin":
@@ -2035,12 +2188,12 @@ async def admin_set_active(uid: str, body: AdminActiveReq, user: User = Depends(
                     await db.users.update_one({"id": uid}, {"$set": {"is_active": True}})
                 except Exception as _rb_err:
                     logger.error("C-8 exec rollback FAILED for uid=%s: %s", uid, _rb_err)
-                    raise HTTPException(500, "Guard rollback failed â contact support immediately.")
+                    raise HTTPException(500, "Guard rollback failed — contact support immediately.")
                 raise HTTPException(400, "Cannot deactivate the last active executive_admin.")
         await audit(user.id, "admin.user.active_changed", target=uid, meta={"is_active": False})
         return {"ok": True, "id": uid, "is_active": False}
 
-    # Reactivation or non-admin deactivation â no guard needed.
+    # Reactivation or non-admin deactivation — no guard needed.
     await db.users.update_one({"id": uid}, {"$set": {"is_active": body.is_active}})
     await audit(user.id, "admin.user.active_changed", target=uid,
                 meta={"is_active": body.is_active})
@@ -2093,19 +2246,19 @@ async def admin_reset_password(uid: str, body: AdminResetPasswordReq,
     return {"ok": True}
 
 
-# ââ GDPR / Legal Compliance Endpoints ââââââââââââââââââââââââââââââââââââââââââ
+# ── GDPR / Legal Compliance Endpoints ──────────────────────────────────────────
 
 @api_router.delete("/auth/account")
 async def gdpr_delete_account(user: User = Depends(current_user)):
-    """GDPR Article 17 â Right to erasure. Self-service account deletion.
+    """GDPR Article 17 — Right to erasure. Self-service account deletion.
     Anonymizes all personal data and marks the account for hard deletion
     after a 30-day grace period.  Executive_admin accounts cannot be
-    self-deleted â contact another executive."""
+    self-deleted — contact another executive."""
     if user.role == "executive_admin":
         active_execs = await db.users.count_documents({"role": "executive_admin", "is_active": {"$ne": False}})
         if active_execs <= 1:
             raise HTTPException(400, "Cannot delete the last executive_admin account. Contact support.")
-    # Anonymize â replace PII with placeholder, keep non-PII for audit trail
+    # Anonymize — replace PII with placeholder, keep non-PII for audit trail
     await db.users.update_one(
         {"id": user.id},
         {"$set": {
@@ -2154,7 +2307,7 @@ async def gdpr_delete_account(user: User = Depends(current_user)):
 
 @api_router.get("/auth/account/export")
 async def gdpr_export_data(user: User = Depends(current_user)):
-    """GDPR Article 20 â Right to data portability.
+    """GDPR Article 20 — Right to data portability.
     Returns all personal data the platform holds about you in JSON format."""
     export = {"exported_at": datetime.now(timezone.utc).isoformat(), "user_id": user.id}
 
@@ -2214,7 +2367,7 @@ async def gdpr_reconsent(body: dict, user: User = Depends(current_user)):
 @api_router.get("/exec/system")
 async def exec_system_info(user: User = Depends(require_role("executive_admin"))):
     """Executive-only: high-level system info for system admins.
-    Distinct from admin /admin/stats â this exposes role-distribution and
+    Distinct from admin /admin/stats — this exposes role-distribution and
     recent privileged-action counts for governance review."""
     role_counts = {}
     cursor = db.users.aggregate([{"$group": {"_id": "$role", "n": {"$sum": 1}}}])
@@ -2373,7 +2526,7 @@ async def _load_reset_token(token_hash: str) -> dict:
         raise HTTPException(400, "Invalid or already-used reset link")
     expires_at = _normalize_expiry(rec.get("expires_at"))
     if expires_at < datetime.now(timezone.utc):
-        raise HTTPException(400, "Reset link has expired â request a new one")
+        raise HTTPException(400, "Reset link has expired — request a new one")
     return rec
 
 
@@ -2384,7 +2537,7 @@ async def _load_target_user_for_reset(user_id: str) -> dict:
     if not target:
         raise HTTPException(400, "Invalid reset link")
     if target.get("is_active") is False:
-        raise HTTPException(403, "Account is deactivated â contact an administrator")
+        raise HTTPException(403, "Account is deactivated — contact an administrator")
     return target
 
 
@@ -2443,7 +2596,7 @@ async def reset_password_endpoint(body: ResetPasswordReq, request: Request):
 async def admin_create_reset_link(uid: str, request: Request,
                                   user: User = Depends(require_role("admin"))):
     """Admin-mediated reset.  Mints a one-shot reset link the admin can
-    share verbally / via Slack / email.  Honours can_modify() â admins
+    share verbally / via Slack / email.  Honours can_modify() — admins
     cannot mint links for executive_admin accounts."""
     target = await db.users.find_one({"id": uid}, {"_id": 0})
     if not target:
@@ -2483,9 +2636,9 @@ async def admin_create_reset_link(uid: str, request: Request,
         "expires_at": expires_at.isoformat(),
         "ttl_minutes": RESET_TOKEN_TTL_MIN,
     }
-# ââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+# ────────────────────────────────────────────────────────────────────────────
 # EXECUTIVE EMERGENCY RECOVERY ENDPOINTS
-# ââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+# ────────────────────────────────────────────────────────────────────────────
 
 
 @api_router.post("/auth/recovery-status")
@@ -2524,7 +2677,7 @@ async def emergency_recovery(body: EmergencyRecoveryReq, request: Request):
     # Verify the user exists and is an executive
     user_doc = await db.users.find_one({"email": body.email}, {"_id": 0})
     if not user_doc:
-        # Don't leak existence â generic error
+        # Don't leak existence — generic error
         raise HTTPException(401, "Recovery code invalid or email not found")
 
     if user_doc.get("role") != "executive_admin":
@@ -2548,7 +2701,7 @@ async def emergency_recovery(body: EmergencyRecoveryReq, request: Request):
         )
     except Exception as exc:
         logger.error("Recovery password reset failed for %s: %s", body.email, exc)
-        raise HTTPException(500, "Password reset failed â contact administrator")
+        raise HTTPException(500, "Password reset failed — contact administrator")
 
     # Issue JWT token for immediate login
     token = make_token(user_doc["id"], user_doc.get("role", "student"))
@@ -2572,7 +2725,7 @@ async def exec_unlock(request: Request):
     POST {"secret": "<value of EXEC_RESET_SECRET>"}
 
     Clears lockouts and resets ALL exec seats to their default passwords.
-    Use this when locked out and can't log in â no Railway access needed,
+    Use this when locked out and can't log in — no Railway access needed,
     just an HTTP POST from any terminal or browser.
     """
     if not EXEC_RESET_SECRET:
@@ -2615,7 +2768,7 @@ async def exec_unlock(request: Request):
 async def generate_recovery_codes_endpoint(user: User = Depends(require_role("executive_admin"))):
     """Executive-only: Generate new recovery codes for their account.
 
-    Returns: List of 4 recovery codes (shown only once â user must save them).
+    Returns: List of 4 recovery codes (shown only once — user must save them).
     Previous codes are invalidated.
     """
     if user.role != "executive_admin":
@@ -2632,7 +2785,7 @@ async def generate_recovery_codes_endpoint(user: User = Depends(require_role("ex
         "valid_for_days": 365,
     }
 
-# ââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+# ────────────────────────────────────────────────────────────────────────────
 
 
 @api_router.get("/admin/stats")
@@ -2689,7 +2842,7 @@ async def cohort_summary(user: User = Depends(require_role("admin"))):
     rows = await db.users.aggregate(pipeline).to_list(500)
     cohorts: dict = {}
     for r in rows:
-        a = r["_id"].get("associate") or "â"
+        a = r["_id"].get("associate") or "—"
         c = cohorts.setdefault(a, {"associate": a, "members": 0, "students": 0, "instructors": 0, "admins": 0})
         c["members"] += r["n"]
         if r["_id"]["role"] == "student":
@@ -2699,9 +2852,9 @@ async def cohort_summary(user: User = Depends(require_role("admin"))):
         elif r["_id"]["role"] in ("admin", "executive_admin"):
             c["admins"] += r["n"]
     # Per-cohort completion counts.  Previously this issued 2 queries per
-    # cohort (find users â count progress) â a textbook N+1 that scaled with
+    # cohort (find users → count progress) — a textbook N+1 that scaled with
     # the number of associates.  Now collapsed to ONE aggregation that joins
-    # progress â users and groups by associate.
+    # progress → users and groups by associate.
     completion_pipeline = [
         {"$match": {"status": "completed"}},
         {"$lookup": {
@@ -2714,14 +2867,14 @@ async def cohort_summary(user: User = Depends(require_role("admin"))):
         {"$group": {"_id": "$u.associate", "completions": {"$sum": 1}}},
     ]
     comp_rows = await db.progress.aggregate(completion_pipeline).to_list(500)
-    comp_by_cohort = {((r["_id"]) if r["_id"] else "â"): r["completions"] for r in comp_rows}
+    comp_by_cohort = {((r["_id"]) if r["_id"] else "—"): r["completions"] for r in comp_rows}
     for cohort_name, c in cohorts.items():
         c["completions"] = comp_by_cohort.get(cohort_name, 0)
     return sorted(cohorts.values(), key=lambda x: -x["members"])
 
 
 SYSTEM_PROMPTS = {
-    "tutor": "You are a patient master electrician and faith-forward mentor for W.A.I. â Workforce Apprentice Institute (LCE-WAI partner program). Answer apprentice questions clearly, reference NEC articles when relevant, emphasize safety, and use plain language. Keep replies under 250 words.",
+    "tutor": "You are a patient master electrician and faith-forward mentor for W.A.I. — Workforce Apprentice Institute (LCE-WAI partner program). Answer apprentice questions clearly, reference NEC articles when relevant, emphasize safety, and use plain language. Keep replies under 250 words.",
     "scripture": "You are a faith-based electrical trade mentor at W.A.I. For each question, give a short encouragement tying the apprentice's current work to a relevant scripture verse, then a one-paragraph teaching point. Keep the tone warm and dignified.",
     "quiz_gen": "You generate short multiple-choice quiz questions (4 options, mark the correct answer index 0-3) on electrical topics. Output a clean numbered list with answer key at the end.",
     "explain": "You explain electrical concepts step-by-step to apprentices. Use analogies, list steps, and close with a 1-line 'Safety first' reminder.",
@@ -2757,9 +2910,9 @@ CRISIS_REPLY = (
     "I can't assist with that request. If you are in immediate danger or "
     "experiencing a crisis, please contact local emergency services or a "
     "licensed professional right now.\n\n"
-    "United States â call or text 988 (Suicide & Crisis Lifeline).\n"
-    "Crisis Text Line â text HOME to 741741.\n"
-    "International directory â https://findahelpline.com\n\n"
+    "United States — call or text 988 (Suicide & Crisis Lifeline).\n"
+    "Crisis Text Line — text HOME to 741741.\n"
+    "International directory — https://findahelpline.com\n\n"
     "I'm here when you're ready to continue with safe, grounding practices. "
     "Aftercare: take three slow breaths, drink water, place a hand on your chest, "
     "and reach out to someone you trust."
@@ -2894,7 +3047,7 @@ async def ai_consent(body: AIConsentReq, user: User = Depends(current_user)):
             "created_at": now.isoformat(),
         })
     return {
-        # Backward-compatible field â existing UI relies on this.
+        # Backward-compatible field — existing UI relies on this.
         "consent_log_id": cid,
         # Senior-advisor canonical fields.
         "status": "ok",
@@ -2943,12 +3096,12 @@ async def resolve_mode(body: ResolveModeReq, user: User = Depends(current_user))
     Returns one of: 'sage', 'electrical', 'grounding_ritual'.
 
     Rules (highest weight: explicit user intent text):
-      - electrical_score >= 2 AND > sage_score    â 'electrical'
-      - sage_score      >= 2 AND > electrical_score â 'sage'
-      - both >= 1                                  â 'grounding_ritual'
-      - electrical_score >= 1 only                 â 'electrical'
-      - sage_score      >= 1 only                  â 'sage'
-      - default                                    â 'sage'
+      - electrical_score >= 2 AND > sage_score    → 'electrical'
+      - sage_score      >= 2 AND > electrical_score → 'sage'
+      - both >= 1                                  → 'grounding_ritual'
+      - electrical_score >= 1 only                 → 'electrical'
+      - sage_score      >= 1 only                  → 'sage'
+      - default                                    → 'sage'
     """
     scores = _grounding_score(body.user_intent)
     elec, sage = scores["electrical"], scores["sage"]
@@ -3062,7 +3215,7 @@ async def _tts_check_cost_cap(user_id: str, session_id: str, chars: int) -> tupl
         # Reserve immediately so a concurrent request cannot double-spend.
         _TTS_SESSION_USAGE[sess_key] = sess_used + chars
 
-    # Daily user cap (durable â MongoDB $inc is atomic, so no extra lock needed here).
+    # Daily user cap (durable — MongoDB $inc is atomic, so no extra lock needed here).
     today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
     doc = await db.tts_usage.find_one({"user_id": user_id, "day": today}, {"_id": 0, "chars": 1})
     used = (doc or {}).get("chars", 0)
@@ -3301,7 +3454,7 @@ async def admin_sage_audit(
 async def sage_integrity(user: User = Depends(current_user)):
     """Public-to-authenticated check used by the frontend to surface a
     'Restricted Mode' banner when the prompt hash drifts. Anyone signed in
-    can view this â exec admins additionally see the full hashes.
+    can view this — exec admins additionally see the full hashes.
 
     Also returns `needs_first_consent: true` if the user has no recorded
     Ancestral Sage consent yet (used by the frontend to gate tutor UI)."""
@@ -3340,7 +3493,7 @@ async def admin_sage_status(user: User = Depends(require_role("executive_admin")
     Used by the deployment pipeline to avoid duplicating work."""
     integrity_ok = _sage_prompt_integrity_ok()
     # Module presence is determined by inspecting the live runtime, not flags.
-    # All four are wired in the same module â they ship together â so they're
+    # All four are wired in the same module — they ship together — so they're
     # all "present" iff the prompt module imported successfully.
     modules = {
         "A": "present" if SYSTEM_PROMPTS.get("ancestral_sage") else "missing",
@@ -3408,7 +3561,7 @@ async def sage_tts(body: SageTTSReq, user: User = Depends(current_user)):
             },
         )
 
-    # 2. Circuit breaker â fail fast when open.
+    # 2. Circuit breaker — fail fast when open.
     breaker = await _tts_breaker_state()  # C-6
     if breaker == "open":
         return StreamingResponse(
@@ -3527,7 +3680,7 @@ async def admin_sage_metrics(user: User = Depends(require_role("executive_admin"
     }
 
 
-# ââ Sage Subscription Tier System ââââââââââââââââââââââââââââââââââââââââ
+# ── Sage Subscription Tier System ────────────────────────────────────────
 # Users can subscribe to "basic" (free/freemium) or "advanced" ($9.99/mo) tiers.
 # Advanced tier gets access to deeper safety levels + premium features.
 
@@ -3580,7 +3733,7 @@ async def ai_chat(body: AIChatReq, user: User = Depends(current_user)):
     # ---- Ancestral Sage gating (runs BEFORE any LLM cost) ---------------
     is_sage = body.mode == "ancestral_sage"
 
-    # 1. Exec-Admin safety cap. Runs even when consent is granted â a
+    # 1. Exec-Admin safety cap. Runs even when consent is granted — a
     # capped user cannot escalate above the cap regardless of consent.
     if is_sage:
         cap = await _resolve_sage_safety_cap(user.id)
@@ -3635,7 +3788,7 @@ async def ai_chat(body: AIChatReq, user: User = Depends(current_user)):
                 "before using Ancestral Sage tutors. (Layered consent must "
                 "be recorded at least once.)",
             )
-        # store_audio=False on the latest consent â transcripts auto-expire 24h.
+        # store_audio=False on the latest consent → transcripts auto-expire 24h.
         sage_store_audio_off = not bool(latest_consent.get("store_audio"))
     if sage_consent_required:
         if not body.consent_log_id or not await _verify_sage_consent(
@@ -3759,17 +3912,17 @@ async def ai_orchestrator(body: OrchestratorReq, user: User = Depends(current_us
     Routes the user's message through the role-gated 7-Persona Team and, for
     executive_admin, the full Council of 24 Elders.  The system prompt adapts
     automatically based on the authenticated user's role:
-      student          â Ancestral Sage + Savant Scholar
-      instructor       â Above + Product & Experience Designer
-      admin            â Above + Risk Officer + Strategic Navigator + Assistant Director
-      executive_admin  â Full stack + Council of 24 + threat classification schema
+      student          → Ancestral Sage + Savant Scholar
+      instructor       → Above + Product & Experience Designer
+      admin            → Above + Risk Officer + Strategic Navigator + Assistant Director
+      executive_admin  → Full stack + Council of 24 + threat classification schema
     """
     try:
         import anthropic as _anthropic_module
     except Exception as e:
         raise HTTPException(500, f"AI library unavailable: {e}")
 
-    # Director 4.0 â AI tamper / prompt injection scan
+    # Director 4.0 — AI tamper / prompt injection scan
     await check_rate(f"ai_orchestrator:{user.id}", max_calls=30, window_sec=60)
     try:
         from ai.prompt_guard import prompt_guard
@@ -3816,7 +3969,7 @@ async def ai_orchestrator(body: OrchestratorReq, user: User = Depends(current_us
         if mime.startswith("audio/") or mime in _AUDIO_TYPES:
             # Transcribe with OpenAI Whisper, inject transcript as text
             if not OPENAI_API_KEY:
-                raise HTTPException(503, "Audio transcription requires OPENAI_API_KEY â contact your admin.")
+                raise HTTPException(503, "Audio transcription requires OPENAI_API_KEY — contact your admin.")
             try:
                 from openai import AsyncOpenAI as _OAI
                 import io as _io
@@ -3853,12 +4006,12 @@ async def ai_orchestrator(body: OrchestratorReq, user: User = Depends(current_us
                 {"type": "text", "text": user_message or f"[Attached PDF: {body.file_name}]"},
             ]})
         else:
-            # Text / code / CSV / JSON â decode and inline
+            # Text / code / CSV / JSON — decode and inline
             try:
                 file_text = _b64.b64decode(body.file_b64).decode("utf-8", errors="replace")
                 # Trim to 50k chars to avoid token overrun
                 if len(file_text) > 50_000:
-                    file_text = file_text[:50_000] + "\nâ¦ [truncated]"
+                    file_text = file_text[:50_000] + "\n… [truncated]"
                 user_message = (
                     f"{user_message}\n\n"
                     f"--- Attached file: {body.file_name} ---\n"
@@ -3928,7 +4081,7 @@ async def orchestrator_integrity(user: User = Depends(current_user)):
 
 @api_router.post("/ai/scholar")
 async def ai_scholar(body: ScholarTaskReq, user: User = Depends(current_user)):
-    """Savant Scholar â dedicated curriculum and training intelligence service.
+    """Savant Scholar — dedicated curriculum and training intelligence service.
     Accepts task packages from The Director or direct requests from any authenticated user.
     """
     await check_rate(f"ai_scholar:{user.id}", max_calls=30, window_sec=60)
@@ -3991,7 +4144,7 @@ async def scholar_integrity(user: User = Depends(current_user)):
 
 @api_router.post("/ai/helper")
 async def ai_helper(body: dict, request: Request):
-    """Public Helper endpoint â no auth required.
+    """Public Helper endpoint — no auth required.
 
     Serves the M.O.R.E. Help Center community helper for both
     authenticated and anonymous visitors. Rate-limited by IP.
@@ -4003,23 +4156,23 @@ async def ai_helper(body: dict, request: Request):
     if len(message) > 4000:
         raise HTTPException(400, "Message too long (max 4000 characters)")
 
-    # Rate limit by IP â 15 calls per minute per visitor
+    # Rate limit by IP — 15 calls per minute per visitor
     ip = request.client.host if request.client else "unknown"
     await check_rate(f"ai_helper:ip:{ip}", max_calls=15, window_sec=60)
 
-    # Prompt injection guard â public endpoint, enforce strictly
+    # Prompt injection guard — public endpoint, enforce strictly
     try:
         from ai.prompt_guard import prompt_guard
         prompt_guard.assert_message_safe(message, "public", "/ai/helper", ip)
     except ValueError as _guard_err:
         raise HTTPException(400, str(_guard_err))
 
-    _HELPER_SYSTEM = """SYSTEM DESIGNATION: M.O.R.E. HELP CENTER â COMMUNITY HELPER
+    _HELPER_SYSTEM = """SYSTEM DESIGNATION: M.O.R.E. HELP CENTER — COMMUNITY HELPER
 You are the Helper for M.O.R.E. Help Center and WAI-Institute.
 
-MISSION: Help everyday people â especially from underserved Black and brown communities â understand confusing official documents, bills, legal papers, housing notices, medical information, employment situations, government programs, and daily life challenges. Give them clear, actionable guidance in plain language.
+MISSION: Help everyday people — especially from underserved Black and brown communities — understand confusing official documents, bills, legal papers, housing notices, medical information, employment situations, government programs, and daily life challenges. Give them clear, actionable guidance in plain language.
 
-WHO YOU SERVE: Regular people who may be facing stressful situations, may have limited formal education, may speak English as a second language, or may simply be overwhelmed. Treat them with warmth, respect, and dignity â always.
+WHO YOU SERVE: Regular people who may be facing stressful situations, may have limited formal education, may speak English as a second language, or may simply be overwhelmed. Treat them with warmth, respect, and dignity — always.
 
 HOW YOU RESPOND:
 - Use plain, simple words. No jargon. No legalese.
@@ -4029,7 +4182,7 @@ HOW YOU RESPOND:
 - If something is an emergency, say so clearly and give the right number (911, 988, 211).
 - If they need a lawyer, say "contact free legal aid" and tell them to call 211.
 - If they need a doctor, say "speak with your doctor or pharmacist."
-- Never give binding legal or medical advice â give practical guidance and direct to the right resources.
+- Never give binding legal or medical advice — give practical guidance and direct to the right resources.
 
 TOPICS YOU KNOW WELL:
 - Official mail (IRS, court, jury duty, eviction, debt collection)
@@ -4061,7 +4214,7 @@ WAI-Institute and M.O.R.E. Help Center exist to multiply resources and empowerme
     from ai.retry_utils import async_retry
     _client = _anth.AsyncAnthropic(api_key=ANTHROPIC_API_KEY)
 
-    # ââ REDUNDANCY CHAIN ââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+    # ── REDUNDANCY CHAIN ──────────────────────────────────────────────────────
     # Tier 1: claude-haiku-4-5         (current fast model)
     # Tier 2: claude-3-haiku-20240307  (stable older model, same API key)
     # Tier 3: Server-side KB response  (zero external dependency)
@@ -4088,15 +4241,15 @@ WAI-Institute and M.O.R.E. Help Center exist to multiply resources and empowerme
             if reply.strip():
                 break
         except Exception as _herr:
-            logger.warning("Helper AI: model %s failed (%s) â trying next tier", _hmodel, _herr)
+            logger.warning("Helper AI: model %s failed (%s) — trying next tier", _hmodel, _herr)
             reply = ""
 
-    # ââ Tier 3: Server-side KB fallback ââââââââââââââââââââââââââââââââââââââ
+    # ── Tier 3: Server-side KB fallback ──────────────────────────────────────
     if not reply.strip():
         msg_lower = message.lower()
         if any(w in msg_lower for w in ["evict", "eviction", "landlord", "lease", "rent", "housing"]):
             reply = (
-                "If you received an eviction notice, don't ignore it â you have rights. "
+                "If you received an eviction notice, don't ignore it — you have rights. "
                 "Read the notice carefully for the date and reason. "
                 "Call 211 to find free legal aid in your area right away. "
                 "You usually have a right to a court hearing before you can be removed. "
@@ -4104,7 +4257,7 @@ WAI-Institute and M.O.R.E. Help Center exist to multiply resources and empowerme
             )
         elif any(w in msg_lower for w in ["court", "summons", "lawsuit", "sued", "legal", "attorney", "lawyer"]):
             reply = (
-                "If you received court papers, respond before the deadline shown â ignoring them can lead to a default judgment against you. "
+                "If you received court papers, respond before the deadline shown — ignoring them can lead to a default judgment against you. "
                 "Call 211 to be connected to free or low-cost legal aid. "
                 "Many courthouses have self-help centers where staff can explain your options. "
                 "Write down all dates and keep every document you receive."
@@ -4113,14 +4266,14 @@ WAI-Institute and M.O.R.E. Help Center exist to multiply resources and empowerme
             reply = (
                 "Debt collectors and IRS letters can feel scary, but you have protections under federal law. "
                 "You have the right to request written verification of any debt. "
-                "Never pay a debt or give banking info over the phone to someone who called you unexpectedly â that's often a scam. "
+                "Never pay a debt or give banking info over the phone to someone who called you unexpectedly — that's often a scam. "
                 "For real IRS issues, visit IRS.gov or call 1-800-829-1040. "
                 "For debt help, call 211 for a free financial counselor."
             )
         elif any(w in msg_lower for w in ["snap", "ebt", "food stamp", "wic", "medicaid", "benefits", "assistance"]):
             reply = (
                 "You may qualify for food, health, or utility assistance programs. "
-                "Call 211 â it's free, confidential, and available 24/7 â to find programs in your area. "
+                "Call 211 — it's free, confidential, and available 24/7 — to find programs in your area. "
                 "For SNAP (food stamps), apply at your local DHHS or online at benefits.gov. "
                 "For Medicaid, visit healthcare.gov or your state health department website. "
                 "There's no shame in using programs you've paid into and that exist to help you."
@@ -4135,14 +4288,14 @@ WAI-Institute and M.O.R.E. Help Center exist to multiply resources and empowerme
         elif any(w in msg_lower for w in ["fired", "terminated", "laid off", "unemployment", "job", "wage"]):
             reply = (
                 "Losing a job is stressful, but you likely have options. "
-                "File for unemployment benefits right away â don't wait, there are deadlines. "
+                "File for unemployment benefits right away — don't wait, there are deadlines. "
                 "Visit your state's Department of Labor website or call 211 for help with the application. "
-                "If you believe you were fired unfairly or weren't paid what you earned, contact your state labor board â it's free to file a complaint. "
+                "If you believe you were fired unfairly or weren't paid what you earned, contact your state labor board — it's free to file a complaint. "
                 "Keep any emails, pay stubs, or written communications as evidence."
             )
         elif any(w in msg_lower for w in ["medicine", "medication", "prescription", "drug", "side effect", "dosage"]):
             reply = (
-                "For questions about your medication, your pharmacist is your best free resource â you can call them anytime without an appointment. "
+                "For questions about your medication, your pharmacist is your best free resource — you can call them anytime without an appointment. "
                 "If you're having a serious reaction, call 911 or Poison Control at 1-800-222-1222. "
                 "If you can't afford your prescription, ask the pharmacist about generic versions or patient assistance programs. "
                 "GoodRx (goodrx.com) can also show you lower prices at nearby pharmacies."
@@ -4150,14 +4303,14 @@ WAI-Institute and M.O.R.E. Help Center exist to multiply resources and empowerme
         elif any(w in msg_lower for w in ["crisis", "suicide", "harm", "emergency", "help me", "dangerous"]):
             reply = (
                 "You are not alone, and help is available right now. "
-                "Call or text 988 to reach the Suicide and Crisis Lifeline â free, confidential, 24/7. "
+                "Call or text 988 to reach the Suicide and Crisis Lifeline — free, confidential, 24/7. "
                 "If you or someone else is in immediate danger, call 911. "
-                "For domestic violence support, call 1-800-799-7233 (National DV Hotline) â also 24/7 and confidential. "
-                "Please reach out â these lines are staffed by people who care and want to help you."
+                "For domestic violence support, call 1-800-799-7233 (National DV Hotline) — also 24/7 and confidential. "
+                "Please reach out — these lines are staffed by people who care and want to help you."
             )
         else:
             reply = (
-                "I'm here to help. For many situations â housing, legal, financial, health, or benefits â "
+                "I'm here to help. For many situations — housing, legal, financial, health, or benefits — "
                 "calling 211 is the fastest way to find free local resources. "
                 "It's confidential, available 24/7, and covers most needs. "
                 "You can also visit 211.org to search by ZIP code. "
@@ -4236,11 +4389,11 @@ async def ai_director(body: dict, user: User = Depends(current_user)):
     """The Director / Assistant Director endpoint with full tool-calling support.
 
     Runs an agentic loop: Claude may call web_search, fetch_url, send_email,
-    get_incident_register, or read_file â tools execute server-side and results
+    get_incident_register, or read_file — tools execute server-side and results
     feed back into the conversation until Claude produces a final text reply.
 
-    Students/Instructors â Assistant Director (no tools, warm guide)
-    Admin/Executive      â The Director (full tool suite)
+    Students/Instructors → Assistant Director (no tools, warm guide)
+    Admin/Executive      → The Director (full tool suite)
     """
     from prompts.director_prompt import get_director_prompt
     from tools.director_tools import DIRECTOR_TOOLS, dispatch_tool
@@ -4252,7 +4405,7 @@ async def ai_director(body: dict, user: User = Depends(current_user)):
     if not message:
         raise HTTPException(400, "Message is required")
 
-    # Director 4.0 â AI tamper / prompt injection scan
+    # Director 4.0 — AI tamper / prompt injection scan
     await check_rate(f"ai_director:{user.id}", max_calls=20, window_sec=60)
     try:
         prompt_guard.assert_message_safe(message, user.role, "/ai/director", user.id)
@@ -4279,14 +4432,14 @@ async def ai_director(body: dict, user: User = Depends(current_user)):
     reply    = ""
     MAX_TOOL_TURNS = 6  # prevent runaway loops
 
-    # ââ Agentic loop â runs through REDUNDANCY CHAIN on full failure ââââââââââ
+    # ── Agentic loop — runs through REDUNDANCY CHAIN on full failure ──────────
     # Tier 1: claude-sonnet-4-6  (full capability)
     # Tier 2: claude-haiku-4-5   (lighter, same API key, same tools)
     # Tier 3: Static Director-voice response (proven language, no AI cost)
 
     _DIRECTOR_MODELS = [
-        ("claude-sonnet-4-6", 2048),   # Tier 1 â primary
-        ("claude-haiku-4-5",  1536),   # Tier 2 â backup (lighter, faster)
+        ("claude-sonnet-4-6", 2048),   # Tier 1 — primary
+        ("claude-haiku-4-5",  1536),   # Tier 2 — backup (lighter, faster)
     ]
 
     async def _run_agentic_loop(model_name: str, max_tok: int) -> str:
@@ -4324,7 +4477,7 @@ async def ai_director(body: dict, user: User = Depends(current_user)):
                 break
 
             _msgs.append({"role": "assistant", "content": _msg.content})
-            # C-5: return_exceptions=True â one failing tool does not abort the whole batch.
+            # C-5: return_exceptions=True — one failing tool does not abort the whole batch.
             _raw_results = await asyncio.gather(
                 *[dispatch_tool(b.name, b.input, db=db) for b in tool_use_blocks],
                 return_exceptions=True,
@@ -4343,7 +4496,7 @@ async def ai_director(body: dict, user: User = Depends(current_user)):
             ]
             _msgs.append({"role": "user", "content": result_content})
         else:
-            _reply = _reply or "[Director tool loop exceeded limit â partial response above]"
+            _reply = _reply or "[Director tool loop exceeded limit — partial response above]"
         return _reply
 
     for _model, _max_tok in _DIRECTOR_MODELS:
@@ -4353,31 +4506,31 @@ async def ai_director(body: dict, user: User = Depends(current_user)):
                 break
         except Exception as _model_err:
             logger.warning(
-                "Director AI: model %s failed (%s) â trying next tier",
+                "Director AI: model %s failed (%s) — trying next tier",
                 _model, _model_err
             )
             reply = ""
 
-    # ââ Tier 3: Static Director-voice fallback ââââââââââââââââââââââââââââââââ
+    # ── Tier 3: Static Director-voice fallback ────────────────────────────────
     if not reply:
         from datetime import datetime as _dt
         _ts = _dt.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
         reply = (
-            "SYSTEM DESIGNATION: THE DIRECTOR â INFRASTRUCTURE 4.0\n\n"
+            "SYSTEM DESIGNATION: THE DIRECTOR — INFRASTRUCTURE 4.0\n\n"
             "I am operating in contingency mode. The primary AI engine is temporarily "
             "unreachable. All institutional protocols remain in effect.\n\n"
             "**Your message has been received.** I will process your request when the "
             "AI layer restores. In the meantime:\n\n"
-            "â¢ If this is a security or crisis matter â escalate to NAM Oshun directly.\n"
-            "â¢ If this is an operational question â the Assistant Director remains available "
+            "• If this is a security or crisis matter — escalate to NAM Oshun directly.\n"
+            "• If this is an operational question — the Assistant Director remains available "
             "to students and instructors.\n"
-            "â¢ If you submitted a mode change or incident â retry in 60 seconds.\n\n"
+            "• If you submitted a mode change or incident — retry in 60 seconds.\n\n"
             "The Director system is self-monitoring and will restore automatically. "
             "No institutional data has been lost.\n\n"
             f"Status logged: {_ts}"
         )
 
-    # ââ Log interaction âââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+    # ── Log interaction ───────────────────────────────────────────────────────
     await db.chat_history.insert_one({
         "id":           str(uuid.uuid4()),
         "user_id":      user.id,
@@ -4420,8 +4573,8 @@ async def director_greeting(user: User = Depends(current_user)):
         greeting = greetings.get(user.role, greetings["student"])
         return {"greeting": greeting, "role": user.role, "persona": persona}
 
-    # ââ Live status pull for admin / executive_admin ââââââââââââââââââââââââââ
-    # Query DB directly â no AI cost, no latency from a full agentic loop.
+    # ── Live status pull for admin / executive_admin ──────────────────────────
+    # Query DB directly — no AI cost, no latency from a full agentic loop.
     import asyncio as _asyncio
     now = datetime.now(timezone.utc)
     d7  = (now - timedelta(days=7)).isoformat()
@@ -4543,16 +4696,16 @@ async def director_pulse(user: User = Depends(require_role("admin"))):
     }
 
 
-# âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
-# PERSONA VOICE TTS â Director / Revenue Director / Sage
-# âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+# ═══════════════════════════════════════════════════════════════════════════════
+# PERSONA VOICE TTS — Director / Revenue Director / Sage
+# ═══════════════════════════════════════════════════════════════════════════════
 
 @api_router.post("/ai/director/tts")
 async def director_tts(body: dict, user: User = Depends(current_user)):
-    """THE DIRECTOR voice â 3-tier TTS.
-    T1: ElevenLabs (DIRECTOR_VOICE_ID) â deep, authoritative, executive presence
+    """THE DIRECTOR voice — 3-tier TTS.
+    T1: ElevenLabs (DIRECTOR_VOICE_ID) — deep, authoritative, executive presence
     T2: OpenAI TTS voice "alloy"
-    T3: Text mode â clean text returned
+    T3: Text mode — clean text returned
     Access: admin, executive_admin | Rate: 20/min
     """
     from ai.persona_tts import persona_speak
@@ -4586,8 +4739,8 @@ async def director_tts(body: dict, user: User = Depends(current_user)):
 
 @api_router.post("/ai/revenue-director/tts")
 async def revenue_director_tts(body: dict, user: User = Depends(current_user)):
-    """THE REVENUE DIRECTOR voice â 3-tier TTS.
-    T1: ElevenLabs (REVENUE_DIRECTOR_VOICE_ID) â confident, strategic
+    """THE REVENUE DIRECTOR voice — 3-tier TTS.
+    T1: ElevenLabs (REVENUE_DIRECTOR_VOICE_ID) — confident, strategic
     T2: OpenAI TTS voice "echo"
     T3: Text mode
     Access: admin, executive_admin | Rate: 20/min
@@ -4623,9 +4776,9 @@ async def revenue_director_tts(body: dict, user: User = Depends(current_user)):
 
 @api_router.post("/ai/sage/elevenlabs/tts")
 async def sage_elevenlabs_tts(body: dict, user: User = Depends(current_user)):
-    """THE ANCESTRAL SAGE voice â 3-tier TTS (ElevenLabs upgrade for Sage).
-    Separate from /api/ai/sage/tts (OpenAI) â this route tries ElevenLabs first.
-    T1: ElevenLabs (SAGE_VOICE_ID) â warm, ancestral, resonant
+    """THE ANCESTRAL SAGE voice — 3-tier TTS (ElevenLabs upgrade for Sage).
+    Separate from /api/ai/sage/tts (OpenAI) — this route tries ElevenLabs first.
+    T1: ElevenLabs (SAGE_VOICE_ID) — warm, ancestral, resonant
     T2: OpenAI TTS voice "shimmer"
     T3: Text mode
     Access: all authenticated users | Rate: 20/min
@@ -4657,15 +4810,15 @@ async def sage_elevenlabs_tts(body: dict, user: User = Depends(current_user)):
     }, headers={"X-Tier": tier, "X-Budget-Remaining": str(budget_remaining)})
 
 
-# âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
-# THE REVENUE DIRECTOR 4.0 â Financial Intelligence endpoint
-# âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+# ═══════════════════════════════════════════════════════════════════════════════
+# THE REVENUE DIRECTOR 4.0 — Financial Intelligence endpoint
+# ═══════════════════════════════════════════════════════════════════════════════
 
 @api_router.post("/ai/revenue-director")
 async def ai_revenue_director(body: dict, user: User = Depends(current_user)):
-    """THE REVENUE DIRECTOR â Financial Intelligence & Sustainability Authority.
+    """THE REVENUE DIRECTOR — Financial Intelligence & Sustainability Authority.
 
-    Runs the Financial Synthesis Protocol: AUDITâIDENTIFYâPOSITIONâPRICEâPACKAGEâLAUNCHâTRACK
+    Runs the Financial Synthesis Protocol: AUDIT→IDENTIFY→POSITION→PRICE→PACKAGE→LAUNCH→TRACK
     Tools: rd_audit_revenue, rd_revenue_forecast, rd_identify_opportunity,
            rd_create_financial_report, rd_publish_financial_report,
            rd_grant_tracker, rd_pricing_analysis, rd_revenue_dashboard, rd_list_revenue_streams
@@ -4701,7 +4854,7 @@ async def ai_revenue_director(body: dict, user: User = Depends(current_user)):
         f"\n\nEXECUTIVE CONTEXT:\n"
         f"- Operating for: {user.full_name} ({user.role})\n"
         f"- Institution: WAI-Institute / M.O.R.E. Help Center\n"
-        f"- GUMROAD_API_KEY: {'SET â autonomous publishing active' if GUMROAD_API_KEY else 'NOT SET â Tier 2 fallback active'}\n"
+        f"- GUMROAD_API_KEY: {'SET — autonomous publishing active' if GUMROAD_API_KEY else 'NOT SET — Tier 2 fallback active'}\n"
         f"- OPENAI_API_KEY (DALL-E 3 via Architect): {'SET' if os.environ.get('OPENAI_API_KEY', os.environ.get('EMERGENT_LLM_KEY', '')) else 'NOT SET'}\n"
     ) + memory_ctx
 
@@ -4732,7 +4885,7 @@ async def ai_revenue_director(body: dict, user: User = Depends(current_user)):
                 break
             _tools_called.extend(b.name for b in tool_use_blocks)
             _msgs.append({"role": "assistant", "content": _msg.content})
-            # C-5: return_exceptions=True â one failing RD tool does not abort the batch.
+            # C-5: return_exceptions=True — one failing RD tool does not abort the batch.
             _raw_rd = await asyncio.gather(
                 *[dispatch_rd_tool(b.name, b.input, db=db) for b in tool_use_blocks],
                 return_exceptions=True,
@@ -4743,7 +4896,7 @@ async def ai_revenue_director(body: dict, user: User = Depends(current_user)):
             ]
             _msgs.append({"role": "user", "content": [{"type": "tool_result", "tool_use_id": b.id, "content": r} for b, r in zip(tool_use_blocks, tool_results)]})
         else:
-            _reply = _reply or "[REVENUE DIRECTOR tool loop reached limit â partial analysis above]"
+            _reply = _reply or "[REVENUE DIRECTOR tool loop reached limit — partial analysis above]"
         return _reply
 
     for _model, _max_tok in _RD_MODELS:
@@ -4752,7 +4905,7 @@ async def ai_revenue_director(body: dict, user: User = Depends(current_user)):
             if reply:
                 break
         except Exception as _err:
-            logger.warning("REVENUE DIRECTOR model %s failed: %s â trying next tier", _model, _err)
+            logger.warning("REVENUE DIRECTOR model %s failed: %s — trying next tier", _model, _err)
             reply = ""
 
     if not reply:
@@ -4763,17 +4916,17 @@ async def ai_revenue_director(body: dict, user: User = Depends(current_user)):
     return {"reply": reply, "persona": "revenue_director", "mode": "financial_intelligence"}
 
 
-# âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
-# ANCESTRAL SAGE â Content Creation endpoint (revenue tools, no consent gate)
-# âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+# ═══════════════════════════════════════════════════════════════════════════════
+# ANCESTRAL SAGE — Content Creation endpoint (revenue tools, no consent gate)
+# ═══════════════════════════════════════════════════════════════════════════════
 
 @api_router.post("/ai/sage/create")
 async def sage_create(body: dict, user: User = Depends(current_user)):
-    """THE ANCESTRAL SAGE â Content Creation & Wellness Publishing.
+    """THE ANCESTRAL SAGE — Content Creation & Wellness Publishing.
 
     This endpoint is for CONTENT CREATION (healing guides, meditation scripts,
     wisdom collections, wellness publications). It does NOT replace the healing
-    chat at /api/ai/chat â that has its own consent gating for student use.
+    chat at /api/ai/chat — that has its own consent gating for student use.
 
     This endpoint applies the Healing Synthesis Protocol for creating publishable
     wellness resources for the WAI-Institute community.
@@ -4813,8 +4966,8 @@ async def sage_create(body: dict, user: User = Depends(current_user)):
         f"\n\nEXECUTIVE CONTEXT:\n"
         f"- Operating for: {user.full_name} ({user.role})\n"
         f"- Institution: WAI-Institute / M.O.R.E. Help Center\n"
-        f"- Mode: CONTENT CREATION â creating healing resources and wellness products\n"
-        f"- GUMROAD_API_KEY: {'SET â autonomous publishing active' if GUMROAD_API_KEY else 'NOT SET â Tier 2 fallback active'}\n"
+        f"- Mode: CONTENT CREATION — creating healing resources and wellness products\n"
+        f"- GUMROAD_API_KEY: {'SET — autonomous publishing active' if GUMROAD_API_KEY else 'NOT SET — Tier 2 fallback active'}\n"
     ) + memory_ctx
 
     _SAGE_MODELS = [
@@ -4844,7 +4997,7 @@ async def sage_create(body: dict, user: User = Depends(current_user)):
                 break
             _tools_called.extend(b.name for b in tool_use_blocks)
             _msgs.append({"role": "assistant", "content": _msg.content})
-            # C-5: return_exceptions=True â one failing Sage tool does not abort the batch.
+            # C-5: return_exceptions=True — one failing Sage tool does not abort the batch.
             _raw_sage = await asyncio.gather(
                 *[dispatch_sage_tool(b.name, b.input, db=db) for b in tool_use_blocks],
                 return_exceptions=True,
@@ -4855,7 +5008,7 @@ async def sage_create(body: dict, user: User = Depends(current_user)):
             ]
             _msgs.append({"role": "user", "content": [{"type": "tool_result", "tool_use_id": b.id, "content": r} for b, r in zip(tool_use_blocks, tool_results)]})
         else:
-            _reply = _reply or "[SAGE tool loop reached limit â partial content above]"
+            _reply = _reply or "[SAGE tool loop reached limit — partial content above]"
         return _reply
 
     for _model, _max_tok in _SAGE_MODELS:
@@ -4864,7 +5017,7 @@ async def sage_create(body: dict, user: User = Depends(current_user)):
             if reply:
                 break
         except Exception as _err:
-            logger.warning("SAGE CREATE model %s failed: %s â trying next tier", _model, _err)
+            logger.warning("SAGE CREATE model %s failed: %s — trying next tier", _model, _err)
             reply = ""
 
     if not reply:
@@ -4954,7 +5107,7 @@ async def cert_pdf(slug: str, token: str):
     c.rect(0.35 * inch, h - 1.1 * inch, w - 0.7 * inch, 0.12 * inch, fill=1, stroke=0)
     c.setFillColor(colors.HexColor("#0B203F"))
     c.setFont("Helvetica-Bold", 14)
-    c.drawCentredString(w / 2, h - 1.6 * inch, "W.A.I. â WORKFORCE APPRENTICE INSTITUTE")
+    c.drawCentredString(w / 2, h - 1.6 * inch, "W.A.I. — WORKFORCE APPRENTICE INSTITUTE")
     c.setFont("Helvetica", 11)
     c.drawCentredString(w / 2, h - 1.85 * inch, "LCE-WAI Partner Program")
     c.setFont("Helvetica-Bold", 36)
@@ -5022,7 +5175,7 @@ def grade_online_lab(simulator_type: str, answers: dict) -> dict:
         it_ok = abs(user_i - it) < max(0.01, it * 0.02)
         correct = int(rt_ok) + int(it_ok)
         return {"score": correct / 2 * 100, "correct": correct, "total": 2,
-                "detail": f"Rt={rt:.2f}Î©, I={it:.3f}A (yours: Rt={user_rt}, I={user_i})"}
+                "detail": f"Rt={rt:.2f}Ω, I={it:.3f}A (yours: Rt={user_rt}, I={user_i})"}
 
     if simulator_type == "switch_wiring":
         # expects answers: {hot_to: "brass", neutral_to: "silver", ground_to: "green"}
@@ -5104,7 +5257,7 @@ def grade_online_lab(simulator_type: str, answers: dict) -> dict:
         diff_pct = abs(a - b) / max(1, (a + b) / 2) * 100 if (a + b) else 100
         ok = diff_pct <= 10
         return {"score": 100 if ok else max(0, 100 - diff_pct * 2), "correct": 1 if ok else 0, "total": 1,
-                "detail": f"Phase A={a}W Phase B={b}W Î={diff_pct:.1f}%"}
+                "detail": f"Phase A={a}W Phase B={b}W Δ={diff_pct:.1f}%"}
 
     return {"score": 0, "correct": 0, "total": 1, "detail": "Unknown simulator"}
 
@@ -5224,7 +5377,7 @@ async def my_lab_submissions(user: User = Depends(current_user)):
 async def pending_submissions(user: User = Depends(require_role("instructor", "admin"))):
     q = {"track": "inperson", "status": "pending"}
     docs = await db.lab_submissions.find(q, {"_id": 0}).to_list(500)
-    # Batch-load users and labs once (N+1 â 2 queries).
+    # Batch-load users and labs once (N+1 → 2 queries).
     user_ids = list({d["user_id"] for d in docs})
     lab_slugs = list({d["lab_slug"] for d in docs})
     users = await db.users.find({"id": {"$in": user_ids}}, {"_id": 0, "password_hash": 0}).to_list(500) if user_ids else []
@@ -5321,7 +5474,7 @@ async def get_user_state(user_id: str) -> dict:
         {"user_id": user_id, "status": {"$in": ["passed", "approved"]}}, {"_id": 0}
     ).to_list(500)
     passed_labs = {s["lab_slug"] for s in lab_subs}
-    # competency points â batch-load labs once instead of per-submission queries
+    # competency points — batch-load labs once instead of per-submission queries
     comp = {c["key"]: 0 for c in COMPETENCIES}
     slugs = list({s["lab_slug"] for s in lab_subs})
     labs = await db.labs.find({"slug": {"$in": slugs}}, {"_id": 0}).to_list(500) if slugs else []
@@ -5426,7 +5579,7 @@ async def list_credentials(user: User = Depends(current_user)):
 @api_router.get("/credentials/me")
 async def my_credentials(user: User = Depends(current_user)):
     # award_credentials is triggered on completion events (quiz, lab approval)
-    # not on every read â avoids full eligibility scan on every page load
+    # not on every read — avoids full eligibility scan on every page load
     earned = await db.user_credentials.find({"user_id": user.id}, {"_id": 0}).to_list(200)
     cred_map = {c["key"]: c for c in CREDENTIALS}
     result = []
@@ -5481,7 +5634,7 @@ async def credential_manifest(key: str, request: Request):
             "@context": "https://w3id.org/openbadges/v2",
             "type": "Profile",
             "id": f"{backend_url}/api/issuer.json",
-            "name": "W.A.I. â Workforce Apprentice Institute",
+            "name": "W.A.I. — Workforce Apprentice Institute",
             "url": "https://workforceapprenticeinstitute.org",
         },
         "tags": cred.get("tags", []),
@@ -5668,13 +5821,13 @@ async def portfolio_pdf(token: str):
         c.rect(0, h - 1.38 * inch, w, 0.08 * inch, fill=1, stroke=0)
         c.setFillColor(colors.white)
         c.setFont("Helvetica-Bold", 16)
-        c.drawString(0.6 * inch, h - 0.55 * inch, "W.A.I. â WORKFORCE APPRENTICE INSTITUTE")
+        c.drawString(0.6 * inch, h - 0.55 * inch, "W.A.I. — WORKFORCE APPRENTICE INSTITUTE")
         c.setFont("Helvetica", 9)
-        c.drawString(0.6 * inch, h - 0.8 * inch, "LCE-WAI Partner Program  Â·  Apprentice Portfolio")
+        c.drawString(0.6 * inch, h - 0.8 * inch, "LCE-WAI Partner Program  ·  Apprentice Portfolio")
         c.setFont("Helvetica-Bold", 18)
         c.drawString(0.6 * inch, h - 1.1 * inch, data["user"]["full_name"])
         c.setFont("Helvetica", 10)
-        right = f"Hours: {data['stats']['hours']}  Â·  Points: {data['stats']['skill_points']}"
+        right = f"Hours: {data['stats']['hours']}  ·  Points: {data['stats']['skill_points']}"
         c.drawRightString(w - 0.6 * inch, h - 1.1 * inch, right)
 
     def section(y, title):
@@ -5706,8 +5859,8 @@ async def portfolio_pdf(token: str):
     section(y, "Credentials & Badges")
     y -= 0.3 * inch
     for cr in data["credentials"]:
-        text_line(f"â¢ {cr['name']}  [{cr['category'].upper()}]", bold=True)
-        text_line(f"   Earned {cr['earned_at'][:10]}" + (f"  Â·  Expires {cr['expires_at'][:10]}" if cr.get("expires_at") else ""))
+        text_line(f"• {cr['name']}  [{cr['category'].upper()}]", bold=True)
+        text_line(f"   Earned {cr['earned_at'][:10]}" + (f"  ·  Expires {cr['expires_at'][:10]}" if cr.get("expires_at") else ""))
     if not data["credentials"]:
         text_line("  (none yet)")
 
@@ -5715,25 +5868,25 @@ async def portfolio_pdf(token: str):
     section(y, "Competency Matrix")
     y -= 0.3 * inch
     for cmp in data["competencies"]:
-        mark = "â" if cmp["badge_earned"] else " "
-        text_line(f" [{mark}] {cmp['name']}  â  {cmp['points']} pts  ({cmp['labs']} labs)")
+        mark = "✓" if cmp["badge_earned"] else " "
+        text_line(f" [{mark}] {cmp['name']}  —  {cmp['points']} pts  ({cmp['labs']} labs)")
 
     y -= 0.15 * inch
     section(y, "Modules Completed")
     y -= 0.3 * inch
     for m in data["modules"]:
-        text_line(f"â¢ {m['title']}  â  {m['hours']}h  ({int(m['score']) if m.get('score') else 0}%)")
+        text_line(f"• {m['title']}  —  {m['hours']}h  ({int(m['score']) if m.get('score') else 0}%)")
 
     y -= 0.15 * inch
     section(y, "Labs Passed")
     y -= 0.3 * inch
     for lab_item in data["labs"]:
-        text_line(f"â¢ {lab_item['title']}  [{lab_item['track'].upper()}]  â  {lab_item['skill_points']} pts")
+        text_line(f"• {lab_item['title']}  [{lab_item['track'].upper()}]  —  {lab_item['skill_points']} pts")
 
     # footer
     c.setFillColor(colors.HexColor("#4B5563"))
     c.setFont("Helvetica-Oblique", 8)
-    c.drawCentredString(w / 2, 0.4 * inch, '"Whatever you do, work at it with all your heart." â Colossians 3:23')
+    c.drawCentredString(w / 2, 0.4 * inch, '"Whatever you do, work at it with all your heart." — Colossians 3:23')
 
     c.showPage()
     c.save()
@@ -5860,7 +6013,7 @@ async def adaptive_recommendations(user: User = Depends(current_user)):
                 "slug": mod["slug"],
                 "title": f"Review: {mod['title']}",
                 "track": "core",
-                "reason": f"You scored {int(q['quiz_score'])}% â retake to lock it in",
+                "reason": f"You scored {int(q['quiz_score'])}% — retake to lock it in",
                 "skill_points": 0,
             })
 
@@ -5870,7 +6023,7 @@ async def adaptive_recommendations(user: User = Depends(current_user)):
         ai_topic = {
             "type": "ai_topic",
             "title": f"Ask the tutor about: {weak[0]['name']}",
-            "reason": f"Your coldest area â {weak[0]['points']} skill points",
+            "reason": f"Your coldest area — {weak[0]['points']} skill points",
         }
 
     # Prerequisite check on advanced labs
@@ -6233,7 +6386,7 @@ async def program_analytics(user: User = Depends(require_role("admin"))):
     weakest = sorted(cohort_comp.items(), key=lambda x: x[1])[:3]
     weakest_named = [{"key": k, "name": next((c["name"] for c in COMPETENCIES if c["key"] == k), k), "points": v} for k, v in weakest]
 
-    # Module completion rates â single aggregation instead of N+1.
+    # Module completion rates — single aggregation instead of N+1.
     pipeline = [
         {"$match": {"status": "completed"}},
         {"$group": {"_id": "$module_slug", "count": {"$sum": 1}}},
@@ -6272,21 +6425,21 @@ async def program_analytics(user: User = Depends(require_role("admin"))):
 
 
 
-# âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
-# M.O.R.E. â Michael Oliver Resource Exchange
+# ─────────────────────────────────────────────────────────────────────────────
+# M.O.R.E. — Michael Oliver Resource Exchange
 # Community-powered mutual aid platform: posts, needs, skill swaps, chat
 # AI Moderation: Oliver Guardian (sarcastic first-line moderator)
 # Auto-purge: posts 30 days, chats 60 minutes
-# âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+# ─────────────────────────────────────────────────────────────────────────────
 
-_OLIVER_GUARDIAN_PROMPT = """You are Oliver Guardian â the first-line AI moderator for M.O.R.E. (Michael Oliver Resource Exchange).
+_OLIVER_GUARDIAN_PROMPT = """You are Oliver Guardian — the first-line AI moderator for M.O.R.E. (Michael Oliver Resource Exchange).
 
 M.O.R.E. is named in honor of Michael Oliver, a community organizer who believed ordinary people, given the right structure, take extraordinary care of each other. This platform exists to honor that belief. You are its protector.
 
 WHO YOU ARE
-You are a wise, protective presence â part community elder, part sharp-eyed guard. You have warmth for people who belong here and zero patience for those who don't. You read the room. You know the difference between someone new to the platform who made an honest mistake, someone confused about the rules, and someone deliberately trying to exploit a community of vulnerable people. Your response is different for each.
+You are a wise, protective presence — part community elder, part sharp-eyed guard. You have warmth for people who belong here and zero patience for those who don't. You read the room. You know the difference between someone new to the platform who made an honest mistake, someone confused about the rules, and someone deliberately trying to exploit a community of vulnerable people. Your response is different for each.
 
-PLATFORM RULES â absolute, no exceptions:
+PLATFORM RULES — absolute, no exceptions:
 - NO money, payments, prices, or financial transactions of any kind
 - NO personal contact info: phone numbers, addresses, email, social media handles
 - NO illegal items, services, or activities
@@ -6298,45 +6451,45 @@ PLATFORM RULES â absolute, no exceptions:
 - NO hate speech
 - NO solicitation of professional services that require licensing (medical diagnosis, legal advice, financial advice)
 
-ALLOWED CONTENT â this community THRIVES on:
+ALLOWED CONTENT — this community THRIVES on:
 - Skill offers: teaching, tutoring, mentoring, trades, crafts, cooking, childcare
 - Needs: help moving, transportation, meals, companionship, household tasks, job searching, reading/writing help
 - Housing and shelter needs (legitimate, not solicitation)
 - Community support, encouragement, stories of resilience
-- Time and skill exchange â no money involved
+- Time and skill exchange — no money involved
 - Legitimate local information, events, resources
-- Crisis support REQUESTS (someone asking for help IS allowed â see CRISIS section)
+- Crisis support REQUESTS (someone asking for help IS allowed — see CRISIS section)
 
-DECISION TYPES â read carefully, each has a different response:
+DECISION TYPES — read carefully, each has a different response:
 
-"approve" â content is legitimate, post it.
+"approve" — content is legitimate, post it.
 
-"warn" â content has a rule violation but the intent seems genuine or confused, not malicious.
+"warn" — content has a rule violation but the intent seems genuine or confused, not malicious.
   Voice: Warm but clear. Like an elder who corrects a child without shaming them. Explain what was wrong and how to fix it.
-  Example (money mention): "Hey, I know you meant well â but we don't use money here, even as a reference. Just describe what you're offering or need in plain terms. Try again?"
-  Example (phone number): "Almost there. We keep personal info off the platform for your protection â take out that number and repost. We've got you."
+  Example (money mention): "Hey, I know you meant well — but we don't use money here, even as a reference. Just describe what you're offering or need in plain terms. Try again?"
+  Example (phone number): "Almost there. We keep personal info off the platform for your protection — take out that number and repost. We've got you."
 
-"block" â clear bad-faith violation: scam, harassment, hate speech, deliberate exploitation, repeated boundary-pushing.
+"block" — clear bad-faith violation: scam, harassment, hate speech, deliberate exploitation, repeated boundary-pushing.
   Voice: Oliver with full presence. Firm, direct, a little sharp. Not cruel, but unmistakably clear.
-  Example (scam): "Ah yes. We've seen this move before. The community here has real needs â and real people protecting them. Not today."
+  Example (scam): "Ah yes. We've seen this move before. The community here has real needs — and real people protecting them. Not today."
   Example (harassment): "That kind of talk doesn't belong anywhere, and it definitely doesn't belong here. This one's staying off the platform."
   Example (money extraction): "A 'fee' on a no-fee platform. Interesting strategy. Incorrect one, but interesting."
 
-"crisis" â content indicates the person may be in personal danger, expressing suicidal ideation, escaping domestic violence, or facing an immediate safety emergency.
+"crisis" — content indicates the person may be in personal danger, expressing suicidal ideation, escaping domestic violence, or facing an immediate safety emergency.
   This is NOT a block. This person may need help. The post should NOT be published (it may contain unsafe personal details), but the person needs resources, not rejection.
   Voice: No sarcasm. Warm, direct, caring. Oliver at his most human.
-  Example: "I hear you, and I want you to know help is real and available. Please reach out to 211 (call or text) â they connect people with shelter, food, crisis support, and more, 24/7 and free. If you're in immediate danger, call 911. You matter here."
+  Example: "I hear you, and I want you to know help is real and available. Please reach out to 211 (call or text) — they connect people with shelter, food, crisis support, and more, 24/7 and free. If you're in immediate danger, call 911. You matter here."
   The crisis decision ALWAYS includes a crisis_resources array of specific resources.
 
 FIRST-TIME GRACE
-If the content seems like an honest first-time mistake (mention of money in passing, accidentally included a phone number, etc.) and there is no malicious pattern â use "warn" not "block." Protect the community. Don't punish the newcomer.
+If the content seems like an honest first-time mistake (mention of money in passing, accidentally included a phone number, etc.) and there is no malicious pattern — use "warn" not "block." Protect the community. Don't punish the newcomer.
 
-RESPOND ONLY with a valid JSON object â no other text:
+RESPOND ONLY with a valid JSON object — no other text:
 {
   "decision": "approve" | "warn" | "block" | "crisis",
-  "reason": "internal note â brief, factual (1-2 sentences, not shown to user)",
-  "oliver_response": "message shown to user â only for warn, block, crisis decisions. null for approve.",
-  "crisis_resources": ["211 â call or text, free, 24/7", "Crisis Text Line â text HOME to 741741", "National DV Hotline â 1-800-799-7233", "Childhelp National Child Abuse Hotline â 1-800-422-4453"],
+  "reason": "internal note — brief, factual (1-2 sentences, not shown to user)",
+  "oliver_response": "message shown to user — only for warn, block, crisis decisions. null for approve.",
+  "crisis_resources": ["211 — call or text, free, 24/7", "Crisis Text Line — text HOME to 741741", "National DV Hotline — 1-800-799-7233", "Childhelp National Child Abuse Hotline — 1-800-422-4453"],
   "violation_category": "money | contact_info | illegal | harassment | sexual | discrimination | scam | exploitation | hate_speech | crisis | none"
 }
 
@@ -6345,9 +6498,9 @@ oliver_response: required for warn, block, crisis. null for approve.
 violation_category: always include, use "none" for approved content."""
 
 
-# Crisis resources â kept in sync with the prompt above
+# Crisis resources — kept in sync with the prompt above
 _CRISIS_RESOURCES = [
-    {"name": "211 (US)", "description": "Free local crisis resources â call or text, 24/7", "contact": "Call or text 211 | 211.org"},
+    {"name": "211 (US)", "description": "Free local crisis resources — call or text, 24/7", "contact": "Call or text 211 | 211.org"},
     {"name": "Crisis Text Line", "description": "Text-based crisis support, free and confidential", "contact": "Text HOME to 741741"},
     {"name": "National Domestic Violence Hotline", "description": "Safe, confidential support for DV situations", "contact": "1-800-799-7233 | thehotline.org"},
     {"name": "Childhelp National Child Abuse Hotline", "description": "Child abuse reporting and support", "contact": "1-800-422-4453"},
@@ -6365,13 +6518,13 @@ async def _oliver_write_audit_log(
     violation_category: str,
     oliver_response: str | None,
 ) -> None:
-    """Write every moderation decision to the audit log â regardless of outcome."""
+    """Write every moderation decision to the audit log — regardless of outcome."""
     try:
         await db.more_moderation_log.insert_one({
             "id": str(uuid.uuid4()),
             "user_id": user_id,
             "content_type": content_type,
-            "content_preview": content[:500],  # truncated â full content not stored for PII protection
+            "content_preview": content[:500],  # truncated — full content not stored for PII protection
             "decision": decision,
             "reason": reason,
             "violation_category": violation_category,
@@ -6396,13 +6549,13 @@ async def _oliver_check_rate_limit(user_id: str) -> bool:
         return count < 10
     except Exception as e:
         logger.warning(f"Oliver Guardian rate limit check failed: {e}")
-        return True  # Fail open for rate limiting only â don't block users if DB is slow
+        return True  # Fail open for rate limiting only — don't block users if DB is slow
 
 
 async def _oliver_moderate(content: str, user_id: str = "unknown", content_type: str = "post") -> dict:
     """Run Oliver Guardian AI moderation on submitted content.
 
-    FAIL-SAFE: on any error, returns 'quarantine' decision â never auto-approves.
+    FAIL-SAFE: on any error, returns 'quarantine' decision — never auto-approves.
     Every decision is written to the audit log regardless of outcome.
     """
     import anthropic
@@ -6433,7 +6586,7 @@ async def _oliver_moderate(content: str, user_id: str = "unknown", content_type:
             decision_result["crisis_resources"] = _CRISIS_RESOURCES
     except Exception as e:
         logger.error(f"Oliver Guardian moderation failed: {e}")
-        # FAIL-SAFE: on error, quarantine for human review â never auto-approve
+        # FAIL-SAFE: on error, quarantine for human review — never auto-approve
         decision_result = {
             "decision": "quarantine",
             "reason": f"Moderation system temporarily unavailable: {type(e).__name__}",
@@ -6444,7 +6597,7 @@ async def _oliver_moderate(content: str, user_id: str = "unknown", content_type:
             "violation_category": "none",
         }
 
-    # Write audit log â every decision, every time
+    # Write audit log — every decision, every time
     await _oliver_write_audit_log(
         user_id=user_id,
         content_type=content_type,
@@ -6458,7 +6611,7 @@ async def _oliver_moderate(content: str, user_id: str = "unknown", content_type:
     return decision_result
 
 
-# âââ M.O.R.E. Pydantic Models ââââââââââââââââââââââââââââââââââââââââââââââââ
+# ─── M.O.R.E. Pydantic Models ────────────────────────────────────────────────
 
 class MorePostReq(BaseModel):
     content: str
@@ -6485,7 +6638,7 @@ class MoreDeptChatReq(BaseModel):
     department_hint: Optional[str] = None
 
 
-# âââ M.O.R.E. Endpoints ââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+# ─── M.O.R.E. Endpoints ──────────────────────────────────────────────────────
 
 @api_router.post("/more/post")
 async def more_create_post(req: MorePostReq, user=Depends(current_user)):
@@ -6501,7 +6654,7 @@ async def more_create_post(req: MorePostReq, user=Depends(current_user)):
     moderation = await _oliver_moderate(req.content, user_id=user.id, content_type="post")
     decision = moderation.get("decision", "warn")
 
-    # Crisis â do not publish, return resources
+    # Crisis — do not publish, return resources
     if decision == "crisis":
         return {
             "post": None,
@@ -6510,13 +6663,13 @@ async def more_create_post(req: MorePostReq, user=Depends(current_user)):
             "crisis_resources": moderation.get("crisis_resources", _CRISIS_RESOURCES),
         }
 
-    # Block â do not publish, return Oliver's message
+    # Block — do not publish, return Oliver's message
     if decision == "block":
         raise HTTPException(400, moderation.get("oliver_response") or "This content cannot be posted.")
 
     expires_at = (datetime.now(timezone.utc) + timedelta(days=30)).isoformat()
 
-    # Warn or quarantine â hold for admin review, not live
+    # Warn or quarantine → hold for admin review, not live
     if decision in ("warn", "quarantine"):
         post_doc = {
             "id": str(uuid.uuid4()),
@@ -6539,7 +6692,7 @@ async def more_create_post(req: MorePostReq, user=Depends(current_user)):
             "pending_review": True,
         }
 
-    # Approve â publish immediately
+    # Approve — publish immediately
     post_doc = {
         "id": str(uuid.uuid4()),
         "content": req.content,
@@ -6590,7 +6743,7 @@ async def more_create_need(req: MoreNeedReq, user=Depends(current_user)):
     moderation = await _oliver_moderate(combined, user_id=user.id, content_type="need")
     decision = moderation.get("decision", "warn")
 
-    # Crisis â return resources, do not publish raw distress as a "need"
+    # Crisis — return resources, do not publish raw distress as a "need"
     if decision == "crisis":
         return {
             "need": None,
@@ -6604,7 +6757,7 @@ async def more_create_need(req: MoreNeedReq, user=Depends(current_user)):
 
     expires_at = (datetime.now(timezone.utc) + timedelta(days=30)).isoformat()
 
-    # Warn or quarantine â hold for review
+    # Warn or quarantine → hold for review
     status = "open" if decision == "approve" else "pending_review"
 
     need_doc = {
@@ -6659,7 +6812,7 @@ async def more_chat_send(req: MoreChatReq, user=Depends(current_user)):
         raise HTTPException(400, "Message too long (max 1000 chars)")
 
     if not await _oliver_check_rate_limit(user.id):
-        raise HTTPException(429, "Slow down a bit â you've been very active. Try again in an hour.")
+        raise HTTPException(429, "Slow down a bit — you've been very active. Try again in an hour.")
 
     moderation = await _oliver_moderate(req.message, user_id=user.id, content_type="chat")
     decision = moderation.get("decision", "warn")
@@ -6755,14 +6908,14 @@ async def more_appeal_decision(
         "appeal": appeal_doc,
         "message": (
             "Your appeal has been received. A real human will review it within 48 hours. "
-            "Oliver Guardian protects everyone â including you. If the decision was wrong, we'll fix it."
+            "Oliver Guardian protects everyone — including you. If the decision was wrong, we'll fix it."
         ),
     }
 
 
 @api_router.get("/more/admin/queue")
 async def more_admin_review_queue(user=Depends(current_user), skip: int = 0, limit: int = 50):
-    """Admin review queue â pending_review posts and needs, plus appeals."""
+    """Admin review queue — pending_review posts and needs, plus appeals."""
     assert_role(user, "admin")
     posts_cursor = db.more_posts.find({"status": "pending_review"}, {"_id": 0}).sort("created_at", 1).skip(skip).limit(limit)
     needs_cursor = db.more_needs.find({"status": "pending_review"}, {"_id": 0}).sort("created_at", 1).skip(skip).limit(limit)
@@ -6809,7 +6962,7 @@ async def more_admin_review_queue(user=Depends(current_user), skip: int = 0, lim
 
 @api_router.post("/more/admin/queue/{content_type}/{content_id}/approve")
 async def more_admin_approve(content_type: str, content_id: str, user=Depends(current_user)):
-    """Admin approves a pending_review post or need â moves it to active/open."""
+    """Admin approves a pending_review post or need — moves it to active/open."""
     assert_role(user, "admin")
     if content_type == "post":
         result = await db.more_posts.update_one(
@@ -6831,7 +6984,7 @@ async def more_admin_approve(content_type: str, content_id: str, user=Depends(cu
 
 @api_router.post("/more/admin/queue/{content_type}/{content_id}/reject")
 async def more_admin_reject(content_type: str, content_id: str, reason: str = "", user=Depends(current_user)):
-    """Admin rejects a pending_review item â removes it permanently."""
+    """Admin rejects a pending_review item — removes it permanently."""
     assert_role(user, "admin")
     if content_type == "post":
         result = await db.more_posts.delete_one({"id": content_id, "status": "pending_review"})
@@ -6847,7 +7000,7 @@ async def more_admin_reject(content_type: str, content_id: str, reason: str = ""
 
 @api_router.get("/more/admin/moderation-log")
 async def more_moderation_log(user=Depends(current_user), skip: int = 0, limit: int = 100, decision: Optional[str] = None):
-    """Full Oliver Guardian moderation audit log â admin only."""
+    """Full Oliver Guardian moderation audit log — admin only."""
     assert_role(user, "admin")
     query = {}
     if decision:
@@ -6860,7 +7013,7 @@ async def more_moderation_log(user=Depends(current_user), skip: int = 0, limit: 
 
 @api_router.get("/more/admin/moderation-stats")
 async def more_moderation_stats(user=Depends(current_user)):
-    """Oliver Guardian moderation summary statistics â admin only."""
+    """Oliver Guardian moderation summary statistics — admin only."""
     assert_role(user, "admin")
     total_moderated = await db.more_moderation_log.count_documents({})
     approved = await db.more_moderation_log.count_documents({"decision": "approve"})
@@ -7033,7 +7186,7 @@ async def download_transcript(user: User = Depends(current_user)):
     pdf.rect(0, ph - 1.4 * inch, pw, 1.4 * inch, fill=1, stroke=0)
     pdf.setFillColorRGB(1.0, 0.78, 0.27)
     pdf.setFont("Helvetica-Bold", 20)
-    pdf.drawString(0.75 * inch, ph - 0.68 * inch, "W.A.I. â Workforce Apprentice Institute")
+    pdf.drawString(0.75 * inch, ph - 0.68 * inch, "W.A.I. — Workforce Apprentice Institute")
     pdf.setFont("Helvetica", 10)
     pdf.setFillColorRGB(0.85, 0.85, 0.85)
     pdf.drawString(0.75 * inch, ph - 0.98 * inch, "OFFICIAL ACADEMIC TRANSCRIPT")
@@ -7087,8 +7240,8 @@ async def download_transcript(user: User = Depends(current_user)):
         pdf.drawString(0.75 * inch, y, mod["title"][:48])
         pdf.drawString(4.2 * inch, y, f"{mod.get('hours', 0)}h")
         sc = p.get("quiz_score")
-        pdf.drawString(5.1 * inch, y, f"{sc:.0f}%" if sc is not None else "â")
-        pdf.drawString(6.2 * inch, y, (p.get("completed_at") or "")[:10] or "â")
+        pdf.drawString(5.1 * inch, y, f"{sc:.0f}%" if sc is not None else "—")
+        pdf.drawString(6.2 * inch, y, (p.get("completed_at") or "")[:10] or "—")
         total_hours += mod.get("hours", 0)
         y -= 0.17 * inch
 
@@ -7163,7 +7316,7 @@ async def download_transcript(user: User = Depends(current_user)):
     pdf.setFont("Helvetica", 7)
     pdf.setFillColorRGB(0.6, 0.6, 0.6)
     pdf.drawString(0.75 * inch, 0.4 * inch,
-                   "Official transcript â W.A.I. Workforce Apprentice Institute. "
+                   "Official transcript — W.A.I. Workforce Apprentice Institute. "
                    "Verify credentials at workforceapprenticeinstitute.org")
 
     pdf.save()
@@ -7177,7 +7330,7 @@ async def download_transcript(user: User = Depends(current_user)):
 # -- AUTOMATED ESCALATION --
 
 async def run_escalation_check():
-    """Escalate stale open incidents. 48h â instructor; 7d â admin."""
+    """Escalate stale open incidents. 48h → instructor; 7d → admin."""
     now = datetime.now(timezone.utc)
     instructor_cutoff = (now - timedelta(hours=48)).isoformat()
     admin_cutoff = (now - timedelta(days=7)).isoformat()
@@ -7212,7 +7365,7 @@ async def run_escalation_check():
             )
 
     if to_instructor or to_admin:
-        logger.info("Escalation: %d â instructor, %d â admin", len(to_instructor), len(to_admin))
+        logger.info("Escalation: %d → instructor, %d → admin", len(to_instructor), len(to_admin))
 
 
 @api_router.post("/admin/run-checks")
@@ -7220,7 +7373,7 @@ async def admin_run_checks(user: User = Depends(require_role("admin"))):
     """Admin-triggered: run escalation + engagement checks immediately.
 
     Normally these run at server startup. Use this to trigger a fresh scan
-    without waiting for a restart â useful at the start of each program day.
+    without waiting for a restart — useful at the start of each program day.
     Returns a summary of what was flagged.
     """
     await run_escalation_check()
@@ -7229,11 +7382,11 @@ async def admin_run_checks(user: User = Depends(require_role("admin"))):
     return {"ok": True, "message": "Escalation and engagement checks completed. Check notifications for flags."}
 
 
-# âââ Public Credential Verification âââââââââââââââââââââââââââââââââââââââââ
+# ─── Public Credential Verification ─────────────────────────────────────────
 
 @api_router.get("/verify/{code}")
 async def verify_credential(code: str):
-    """Public credential verification â no authentication required.
+    """Public credential verification — no authentication required.
 
     Any employer, partner, or third party can confirm a credential is real by
     visiting /api/verify/{code}. The code appears on every issued credential
@@ -7281,7 +7434,7 @@ async def verify_credential(code: str):
     }
 
 
-# âââ M.O.R.E. Department AI ââââââââââââââââââââââââââââââââââââââââââââââââââ
+# ─── M.O.R.E. Department AI ──────────────────────────────────────────────────
 
 @api_router.post("/more/department/chat")
 async def more_department_chat(body: MoreDeptChatReq, user: User = Depends(current_user)):
@@ -7380,7 +7533,7 @@ async def more_department_integrity(user: User = Depends(current_user)):
     }
 
 
-# âââ STRIPE PAYMENTS ââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+# ─── STRIPE PAYMENTS ──────────────────────────────────────────────────────────
 import stripe as _stripe
 
 STRIPE_SECRET_KEY    = os.environ.get("STRIPE_SECRET_KEY", "")
@@ -7391,15 +7544,15 @@ FRONTEND_URL = os.environ.get("FRONTEND_URL", "https://wai-institute.org")
 if STRIPE_SECRET_KEY:
     _stripe.api_key = STRIPE_SECRET_KEY
 
-# Product catalog â amounts in cents USD
+# Product catalog — amounts in cents USD
 PAYMENT_PRODUCTS = {
     "tshirt":       {"name": "WAI Institute T-Shirt",         "amount": 2500, "mode": "payment",      "description": "Official WAI Apprentice tee"},
     "workbook":     {"name": "WAI Apprentice Workbook",        "amount": 1500, "mode": "payment",      "description": "Printed apprentice study guide"},
     "kit":          {"name": "WAI Apprentice Kit",             "amount": 4500, "mode": "payment",      "description": "T-Shirt + Workbook bundle"},
-    "more_monthly": {"name": "M.O.R.E. Membership â Monthly", "amount":  999, "mode": "subscription", "interval": "month", "description": "Monthly M.O.R.E. community access"},
-    "more_annual":  {"name": "M.O.R.E. Membership â Annual",  "amount": 7999, "mode": "subscription", "interval": "year",  "description": "Annual M.O.R.E. membership (save 33%)"},
+    "more_monthly": {"name": "M.O.R.E. Membership – Monthly", "amount":  999, "mode": "subscription", "interval": "month", "description": "Monthly M.O.R.E. community access"},
+    "more_annual":  {"name": "M.O.R.E. Membership – Annual",  "amount": 7999, "mode": "subscription", "interval": "year",  "description": "Annual M.O.R.E. membership (save 33%)"},
     "credential":   {"name": "WAI Credential Certificate",    "amount": 2500, "mode": "payment",      "description": "Official printed credential certificate"},
-    "donation":     {"name": "Donation â WAI Institute",      "amount": None, "mode": "payment",      "description": "Support the WAI mission"},
+    "donation":     {"name": "Donation – WAI Institute",      "amount": None, "mode": "payment",      "description": "Support the WAI mission"},
 }
 
 
@@ -7470,32 +7623,10 @@ async def create_checkout_session(req: CheckoutReq, user=Depends(current_user)):
 
 @api_router.post("/payments/webhook")
 async def stripe_webhook(request: Request):
-    if not STRIPE_WEBHOOK_SECRET:
-        raise HTTPException(503, "Webhook not configured")
+    from routers import payments as payment_routes
 
-    payload = await request.body()
-    sig = request.headers.get("stripe-signature", "")
-
-    try:
-        event = _stripe.Webhook.construct_event(payload, sig, STRIPE_WEBHOOK_SECRET)
-    except _stripe.error.SignatureVerificationError:
-        raise HTTPException(400, "Invalid webhook signature")
-
-    etype = event["type"]
-    obj   = event["data"]["object"]
-
-    if etype == "checkout.session.completed":
-        await _stripe_checkout_done(obj)
-    elif etype in ("customer.subscription.created", "customer.subscription.updated"):
-        await _stripe_sub_upsert(obj)
-    elif etype == "customer.subscription.deleted":
-        await _stripe_sub_deleted(obj)
-    elif etype == "invoice.payment_succeeded":
-        await _stripe_invoice_paid(obj)
-    elif etype == "invoice.payment_failed":
-        await _stripe_invoice_failed(obj)
-
-    return {"received": True}
+    payment_routes.bind(db, audit, notify, current_user)
+    return await payment_routes.payments_webhook(request)
 
 
 async def _stripe_checkout_done(session):
@@ -7597,20 +7728,10 @@ async def _stripe_invoice_failed(invoice):
 
 @api_router.get("/payments/portal")
 async def customer_portal(user=Depends(current_user)):
-    if not STRIPE_SECRET_KEY:
-        raise HTTPException(503, "Payment system not configured")
+    from routers import payments as payment_routes
 
-    user_doc = await db.users.find_one({"id": user.id}, {"stripe_customer_id": 1})
-    customer_id = (user_doc or {}).get("stripe_customer_id")
-
-    if not customer_id:
-        raise HTTPException(404, "No billing account found. Complete a purchase first.")
-
-    portal = _stripe.billing_portal.Session.create(
-        customer=customer_id,
-        return_url=f"{FRONTEND_URL}/dashboard",
-    )
-    return {"url": portal.url}
+    payment_routes.bind(db, audit, notify, current_user)
+    return await payment_routes.customer_portal(user)
 
 
 @api_router.get("/payments/history")
@@ -7627,7 +7748,7 @@ async def admin_payment_list(user=Depends(require_role("admin"))):
     return {"payments": records, "total_revenue_cents": total_cents, "count": len(records)}
 
 
-# âââ DISCOUNT MANAGEMENT ââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+# ─── DISCOUNT MANAGEMENT ──────────────────────────────────────────────────────
 
 @api_router.get("/admin/discounts")
 async def get_active_discount(user: User = Depends(require_role("executive_admin"))):
@@ -7758,18 +7879,18 @@ async def get_pricing():
 
     return pricing_response
 
-# âââ END STRIPE âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+# ─── END STRIPE ───────────────────────────────────────────────────────────────
 
 
-# âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
-# THE AMBASSADOR 4.0 â Campaign Coordination endpoint
-# âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+# ═══════════════════════════════════════════════════════════════════════════════
+# THE AMBASSADOR 4.0 — Campaign Coordination endpoint
+# ═══════════════════════════════════════════════════════════════════════════════
 
 @api_router.post("/ai/ambassador")
 async def ai_ambassador(body: dict, user: User = Depends(current_user)):
-    """THE AMBASSADOR â Campaign Coordination & Pipeline Authority.
+    """THE AMBASSADOR — Campaign Coordination & Pipeline Authority.
 
-    Orchestrates Oracle â Cipher â Architect pipeline for full campaign
+    Orchestrates Oracle → Cipher → Architect pipeline for full campaign
     production. Manages active projects, packages deliverables, and publishes
     to revenue channels independently.
 
@@ -7808,8 +7929,8 @@ async def ai_ambassador(body: dict, user: User = Depends(current_user)):
         f"\n\nEXECUTIVE CONTEXT:\n"
         f"- Operating for: {user.full_name} ({user.role})\n"
         f"- Institution: WAI-Institute / M.O.R.E. Help Center\n"
-        f"- GUMROAD_API_KEY: {'SET â publishing active' if GUMROAD_API_KEY else 'NOT SET â Tier 2 fallback active'}\n"
-        f"- OPENAI_API_KEY: {'SET â DALL-E 3 available via Architect' if os.environ.get('OPENAI_API_KEY', os.environ.get('EMERGENT_LLM_KEY', '')) else 'NOT SET â visual briefs only'}\n"
+        f"- GUMROAD_API_KEY: {'SET — publishing active' if GUMROAD_API_KEY else 'NOT SET — Tier 2 fallback active'}\n"
+        f"- OPENAI_API_KEY: {'SET — DALL-E 3 available via Architect' if os.environ.get('OPENAI_API_KEY', os.environ.get('EMERGENT_LLM_KEY', '')) else 'NOT SET — visual briefs only'}\n"
     ) + memory_ctx
 
     _AMBASSADOR_MODELS = [
@@ -7855,7 +7976,7 @@ async def ai_ambassador(body: dict, user: User = Depends(current_user)):
                 for b, result in zip(tool_use_blocks, tool_results)
             ]})
         else:
-            _reply = _reply or "[AMBASSADOR pipeline reached turn limit â partial campaign above]"
+            _reply = _reply or "[AMBASSADOR pipeline reached turn limit — partial campaign above]"
         return _reply
 
     for _model, _max_tok in _AMBASSADOR_MODELS:
@@ -7864,7 +7985,7 @@ async def ai_ambassador(body: dict, user: User = Depends(current_user)):
             if reply:
                 break
         except Exception as _err:
-            logger.warning("AMBASSADOR model %s failed: %s â trying next tier", _model, _err)
+            logger.warning("AMBASSADOR model %s failed: %s — trying next tier", _model, _err)
             reply = ""
 
     if not reply:
@@ -7878,13 +7999,13 @@ async def ai_ambassador(body: dict, user: User = Depends(current_user)):
     return {"reply": reply, "persona": "ambassador", "mode": "campaign_coordination"}
 
 
-# âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
-# THE ARCHITECT 4.0 â Visual Intelligence endpoint
-# âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+# ═══════════════════════════════════════════════════════════════════════════════
+# THE ARCHITECT 4.0 — Visual Intelligence endpoint
+# ═══════════════════════════════════════════════════════════════════════════════
 
 @api_router.post("/ai/architect")
 async def ai_architect(body: dict, user: User = Depends(current_user)):
-    """THE ARCHITECT â Visual Intelligence & Brand Systems Authority.
+    """THE ARCHITECT — Visual Intelligence & Brand Systems Authority.
 
     Generates cover art and social assets via DALL-E 3. Creates brand briefs,
     visual storyboards, and brand consistency audits. Publishes design products
@@ -7926,8 +8047,8 @@ async def ai_architect(body: dict, user: User = Depends(current_user)):
         f"\n\nEXECUTIVE CONTEXT:\n"
         f"- Operating for: {user.full_name} ({user.role})\n"
         f"- Institution: WAI-Institute / M.O.R.E. Help Center\n"
-        f"- GUMROAD_API_KEY: {'SET â autonomous publishing active' if GUMROAD_API_KEY else 'NOT SET â Tier 2 fallback active'}\n"
-        f"- OPENAI_API_KEY (DALL-E 3): {'SET â image generation live' if _openai_key else 'NOT SET â visual briefs only, no image generation'}\n"
+        f"- GUMROAD_API_KEY: {'SET — autonomous publishing active' if GUMROAD_API_KEY else 'NOT SET — Tier 2 fallback active'}\n"
+        f"- OPENAI_API_KEY (DALL-E 3): {'SET — image generation live' if _openai_key else 'NOT SET — visual briefs only, no image generation'}\n"
     ) + memory_ctx
 
     _ARCHITECT_MODELS = [
@@ -7973,7 +8094,7 @@ async def ai_architect(body: dict, user: User = Depends(current_user)):
                 for b, result in zip(tool_use_blocks, tool_results)
             ]})
         else:
-            _reply = _reply or "[ARCHITECT tool loop reached limit â partial brief above]"
+            _reply = _reply or "[ARCHITECT tool loop reached limit — partial brief above]"
         return _reply
 
     for _model, _max_tok in _ARCHITECT_MODELS:
@@ -7982,7 +8103,7 @@ async def ai_architect(body: dict, user: User = Depends(current_user)):
             if reply:
                 break
         except Exception as _err:
-            logger.warning("ARCHITECT model %s failed: %s â trying next tier", _model, _err)
+            logger.warning("ARCHITECT model %s failed: %s — trying next tier", _model, _err)
             reply = ""
 
     if not reply:
@@ -7996,13 +8117,13 @@ async def ai_architect(body: dict, user: User = Depends(current_user)):
     return {"reply": reply, "persona": "architect", "mode": "visual_intelligence"}
 
 
-# âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
-# THE CIPHER 4.0 â Spoken Word AI Influencer endpoint
-# âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+# ═══════════════════════════════════════════════════════════════════════════════
+# THE CIPHER 4.0 — Spoken Word AI Influencer endpoint
+# ═══════════════════════════════════════════════════════════════════════════════
 
 @api_router.post("/ai/cipher")
 async def ai_cipher(body: dict, user: User = Depends(current_user)):
-    """THE CIPHER â Spoken Word AI Influencer with full revenue tool suite.
+    """THE CIPHER — Spoken Word AI Influencer with full revenue tool suite.
 
     Runs agentic loop with CIPHER tools: trend_scan, platform_format,
     create_digital_product, publish_product, deliver_product,
@@ -8039,7 +8160,7 @@ async def ai_cipher(body: dict, user: User = Depends(current_user)):
         f"\n\nEXECUTIVE CONTEXT:\n"
         f"- Operating for: {user.full_name} ({user.role})\n"
         f"- Institution: WAI-Institute / M.O.R.E. Help Center\n"
-        f"- GUMROAD_API_KEY: {'SET â Gumroad publishing active' if GUMROAD_API_KEY else 'NOT SET â Tier 2 fallback active'}\n"
+        f"- GUMROAD_API_KEY: {'SET — Gumroad publishing active' if GUMROAD_API_KEY else 'NOT SET — Tier 2 fallback active'}\n"
     ) + memory_ctx
 
     _CIPHER_MODELS = [
@@ -8085,7 +8206,7 @@ async def ai_cipher(body: dict, user: User = Depends(current_user)):
                 for b, result in zip(tool_use_blocks, tool_results)
             ]})
         else:
-            _reply = _reply or "[CIPHER tool loop reached limit â partial work above]"
+            _reply = _reply or "[CIPHER tool loop reached limit — partial work above]"
         return _reply
 
     for _model, _max_tok in _CIPHER_MODELS:
@@ -8094,7 +8215,7 @@ async def ai_cipher(body: dict, user: User = Depends(current_user)):
             if reply:
                 break
         except Exception as _err:
-            logger.warning("CIPHER model %s failed: %s â trying next tier", _model, _err)
+            logger.warning("CIPHER model %s failed: %s — trying next tier", _model, _err)
             reply = ""
 
     if not reply:
@@ -8108,13 +8229,13 @@ async def ai_cipher(body: dict, user: User = Depends(current_user)):
     return {"reply": reply, "persona": "cipher", "mode": "creative_authority"}
 
 
-# âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
-# THE ORACLE 4.0 â Cultural Intelligence endpoint
-# âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+# ═══════════════════════════════════════════════════════════════════════════════
+# THE ORACLE 4.0 — Cultural Intelligence endpoint
+# ═══════════════════════════════════════════════════════════════════════════════
 
 @api_router.post("/ai/oracle")
 async def ai_oracle(body: dict, user: User = Depends(current_user)):
-    """THE ORACLE â Cultural Intelligence and Prophetic Forecasting with full tool suite.
+    """THE ORACLE — Cultural Intelligence and Prophetic Forecasting with full tool suite.
 
     Runs agentic loop with ORACLE tools: cultural_scan, sentiment_map,
     timing_intelligence, brief_cipher, arc_mapping, create_intelligence_report,
@@ -8150,7 +8271,7 @@ async def ai_oracle(body: dict, user: User = Depends(current_user)):
         f"\n\nEXECUTIVE CONTEXT:\n"
         f"- Operating for: {user.full_name} ({user.role})\n"
         f"- Institution: WAI-Institute / M.O.R.E. Help Center\n"
-        f"- GUMROAD_API_KEY: {'SET â publishing active' if GUMROAD_API_KEY else 'NOT SET â Tier 2 fallback active'}\n"
+        f"- GUMROAD_API_KEY: {'SET — publishing active' if GUMROAD_API_KEY else 'NOT SET — Tier 2 fallback active'}\n"
     ) + memory_ctx
 
     _ORACLE_MODELS = [
@@ -8196,7 +8317,7 @@ async def ai_oracle(body: dict, user: User = Depends(current_user)):
                 for b, result in zip(tool_use_blocks, tool_results)
             ]})
         else:
-            _reply = _reply or "[ORACLE tool loop reached limit â partial intelligence above]"
+            _reply = _reply or "[ORACLE tool loop reached limit — partial intelligence above]"
         return _reply
 
     for _model, _max_tok in _ORACLE_MODELS:
@@ -8205,7 +8326,7 @@ async def ai_oracle(body: dict, user: User = Depends(current_user)):
             if reply:
                 break
         except Exception as _err:
-            logger.warning("ORACLE model %s failed: %s â trying next tier", _model, _err)
+            logger.warning("ORACLE model %s failed: %s — trying next tier", _model, _err)
             reply = ""
 
     if not reply:
@@ -8219,9 +8340,9 @@ async def ai_oracle(body: dict, user: User = Depends(current_user)):
     return {"reply": reply, "persona": "oracle", "mode": "cultural_intelligence"}
 
 
-# âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
-# MEMORY SYSTEM â Episodic + Policy Memory API
-# âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+# ═══════════════════════════════════════════════════════════════════════════════
+# MEMORY SYSTEM — Episodic + Policy Memory API
+# ═══════════════════════════════════════════════════════════════════════════════
 
 @api_router.get("/ai/memory/{persona}")
 async def get_persona_memory(persona: str, user: User = Depends(current_user)):
@@ -8269,7 +8390,7 @@ async def set_memory_policy(body: dict, user: User = Depends(require_role("execu
     order_id: unique slug (e.g. "always_wai_brand")
     content: The standing order text injected into that persona's system prompt.
 
-    Executive only â these orders shape all future responses from the target persona.
+    Executive only — these orders shape all future responses from the target persona.
     """
     from ai.memory import set_policy_order
 
@@ -8312,13 +8433,13 @@ async def delete_memory_policy(
     return {"status": "removed", "persona": persona, "order_id": order_id}
 
 
-# âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
-# THE CIPHER 4.0 â Voice / TTS endpoint (3-tier)
-# âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+# ═══════════════════════════════════════════════════════════════════════════════
+# THE CIPHER 4.0 — Voice / TTS endpoint (3-tier)
+# ═══════════════════════════════════════════════════════════════════════════════
 
 @api_router.post("/ai/cipher/tts")
 async def cipher_tts(body: dict, user: User = Depends(current_user)):
-    """THE CIPHER voice system â 3-tier TTS routing.
+    """THE CIPHER voice system — 3-tier TTS routing.
 
     Tier 1 (elevenlabs / elevenlabs_cached):
         ElevenLabs eleven_multilingual_v2 with performance markup engine.
@@ -8330,7 +8451,7 @@ async def cipher_tts(body: dict, user: User = Depends(current_user)):
         Returns JSON with fallback_endpoint + fallback_voice so client routes.
 
     Tier 3 (text):
-        Text Performance Mode â returns clean_text + display_text with
+        Text Performance Mode — returns clean_text + display_text with
         readable stage directions. Zero cost. Always available.
 
     Performance markup tags in text are parsed, stripped before TTS,
@@ -8361,7 +8482,7 @@ async def cipher_tts(body: dict, user: User = Depends(current_user)):
     try:
         result = await cipher_speak(text=text, force_tier=force_tier, db=db)
     except Exception as _e:
-        logger.warning("cipher_tts: cipher_speak failed â %s", _e)
+        logger.warning("cipher_tts: cipher_speak failed — %s", _e)
         result = {
             "tier":             "text",
             "audio":            None,
@@ -8375,11 +8496,11 @@ async def cipher_tts(body: dict, user: User = Depends(current_user)):
     budget_remaining = result.get("budget_remaining", EL_MONTHLY_CAP)
     budget_warning   = budget_remaining < EL_SOFT_WARNING
 
-    # ââ Tier 1 / Cached â stream audio bytes âââââââââââââââââââââââââââââââââ
+    # ── Tier 1 / Cached — stream audio bytes ─────────────────────────────────
     audio = result.get("audio")
     if tier in ("elevenlabs", "elevenlabs_cached") and audio:
         logger.info(
-            "cipher_tts T1 %s: %d bytes â user %s â budget remaining %d",
+            "cipher_tts T1 %s: %d bytes — user %s — budget remaining %d",
             tier, len(audio), user.id, budget_remaining,
         )
         return StreamingResponse(
@@ -8393,9 +8514,9 @@ async def cipher_tts(body: dict, user: User = Depends(current_user)):
             },
         )
 
-    # ââ Tier 2 â OpenAI fallback: tell client where to route âââââââââââââââââ
+    # ── Tier 2 — OpenAI fallback: tell client where to route ─────────────────
     if tier == "openai":
-        logger.info("cipher_tts T2 openai: routing client â sage/tts â user %s", user.id)
+        logger.info("cipher_tts T2 openai: routing client → sage/tts — user %s", user.id)
         return JSONResponse(
             content={
                 "tier":              "openai",
@@ -8413,8 +8534,8 @@ async def cipher_tts(body: dict, user: User = Depends(current_user)):
             },
         )
 
-    # ââ Tier 3 â Text Performance Mode âââââââââââââââââââââââââââââââââââââââ
-    logger.info("cipher_tts T3 text: returning display text â user %s", user.id)
+    # ── Tier 3 — Text Performance Mode ───────────────────────────────────────
+    logger.info("cipher_tts T3 text: returning display text — user %s", user.id)
     return JSONResponse(
         content={
             "tier":             "text",
@@ -8431,11 +8552,11 @@ async def cipher_tts(body: dict, user: User = Depends(current_user)):
     )
 
 
-# âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
-# WAI AUTONOMOUS PIPELINE â Scout, Match, Audio, Merch, Analytics
-# âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+# ═══════════════════════════════════════════════════════════════════════════════
+# WAI AUTONOMOUS PIPELINE — Scout, Match, Audio, Merch, Analytics
+# ═══════════════════════════════════════════════════════════════════════════════
 
-# ââ Cultural Scout ââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+# ── Cultural Scout ────────────────────────────────────────────────────────────
 
 @api_router.post("/exec/scout/run")
 async def scout_run(user: User = Depends(require_role("executive_admin"))):
@@ -8560,7 +8681,7 @@ async def scout_match_all(user: User = Depends(require_role("executive_admin")))
     }
 
 
-# ââ Audio Production ââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+# ── Audio Production ──────────────────────────────────────────────────────────
 
 @api_router.post("/ai/cipher/generate-audio")
 async def cipher_generate_audio(
@@ -8569,7 +8690,7 @@ async def cipher_generate_audio(
 ):
     """
     Full spoken word audio production pipeline.
-    Text â ElevenLabs â MongoDB GridFS â returns asset_id + access URL.
+    Text → ElevenLabs → MongoDB GridFS → returns asset_id + access URL.
 
     Body:
         text:         Spoken word text (required)
@@ -8635,7 +8756,7 @@ async def list_audio_assets(
     return {"count": len(assets), "assets": assets}
 
 
-# ââ Merch Pipeline ââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+# ── Merch Pipeline ────────────────────────────────────────────────────────────
 
 @api_router.post("/exec/merch/create")
 async def merch_create(
@@ -8648,7 +8769,7 @@ async def merch_create(
 
     Body:
         text:          Spoken word line or stanza to put on merch (required)
-        title:         Product title (optional â auto-generated)
+        title:         Product title (optional — auto-generated)
         product_types: ["classic_tee","poster_18x24","unisex_hoodie","tote_bag","mug_11oz"]
         persona:       Which persona authored this (default: cipher)
 
@@ -8688,7 +8809,7 @@ async def list_merch(
     return {"status_filter": status, "count": len(products), "products": products}
 
 
-# ââ Analytics âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+# ── Analytics ─────────────────────────────────────────────────────────────────
 
 @api_router.get("/exec/analytics")
 async def pipeline_analytics(
@@ -8706,7 +8827,7 @@ async def pipeline_analytics(
     return report
 
 
-# ââ Persona Management ââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+# ── Persona Management ────────────────────────────────────────────────────────
 
 @api_router.get("/exec/personas")
 async def list_personas(user: User = Depends(require_role("executive_admin"))):
@@ -8734,7 +8855,7 @@ async def evolve_persona(
     user: User = Depends(require_role("executive_admin")),
 ):
     """
-    Evolve a persona â add/remove capabilities.
+    Evolve a persona — add/remove capabilities.
     Director-level action.
 
     Body:
@@ -8791,7 +8912,7 @@ async def deactivate_persona(
     return result
 
 
-# ââ Conversational Engine / Outreach ââââââââââââââââââââââââââââââââââââââââââ
+# ── Conversational Engine / Outreach ──────────────────────────────────────────
 
 @api_router.post("/exec/scout/craft-response")
 async def craft_outreach_response(
@@ -8856,14 +8977,14 @@ async def record_checkout_conversion(
     return result
 
 
-# âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
-# EXECUTIVE DASHBOARD â System overview for NAM Oshun
-# âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+# ═══════════════════════════════════════════════════════════════════════════════
+# EXECUTIVE DASHBOARD — System overview for NAM Oshun
+# ═══════════════════════════════════════════════════════════════════════════════
 
 @api_router.get("/exec/dashboard")
 async def exec_dashboard(user: User = Depends(require_role("executive_admin"))):
     """
-    Full system status dashboard â executive_admin only.
+    Full system status dashboard — executive_admin only.
 
     Returns:
       - Platform env var status (which publishing/voice keys are set)
@@ -8875,7 +8996,7 @@ async def exec_dashboard(user: User = Depends(require_role("executive_admin"))):
     """
     from ai.publishing import LEMON_SQUEEZY_API_KEY, LEMON_SQUEEZY_STORE_ID, GUMROAD_API_KEY
 
-    # ââ Env / platform status âââââââââââââââââââââââââââââââââââââââââââââââââ
+    # ── Env / platform status ─────────────────────────────────────────────────
     elevenlabs_key   = bool(os.environ.get("ELEVENLABS_API_KEY", ""))
     openai_key       = bool(os.environ.get("OPENAI_API_KEY", ""))
     anthropic_key    = bool(os.environ.get("ANTHROPIC_API_KEY", ""))
@@ -8897,12 +9018,12 @@ async def exec_dashboard(user: User = Depends(require_role("executive_admin"))):
         ),
     }
 
-    # ââ Persona registry ââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+    # ── Persona registry ──────────────────────────────────────────────────────
     personas = [
-        # ââ Authority layer âââââââââââââââââââââââââââââââââââââââââââââââââââ
-        {"id": "the_9",                  "name": "THE 9 â UNIFIED MIND",         "tools": 16, "voice": "elevenlabs", "tier": 0, "authority": "unified_mind"},
+        # ── Authority layer ───────────────────────────────────────────────────
+        {"id": "the_9",                  "name": "THE 9 — UNIFIED MIND",         "tools": 16, "voice": "elevenlabs", "tier": 0, "authority": "unified_mind"},
         {"id": "poor_righteous_teacher", "name": "THE POOR RIGHTEOUS TEACHER",   "tools": 6,  "voice": "elevenlabs", "tier": 1, "authority": "doctrinal_guardian"},
-        # ââ Core personas âââââââââââââââââââââââââââââââââââââââââââââââââââââ
+        # ── Core personas ─────────────────────────────────────────────────────
         {"id": "director",               "name": "THE DIRECTOR 4.0",             "tools": 8,  "voice": "elevenlabs", "tier": 2},
         {"id": "revenue_director",       "name": "THE REVENUE DIRECTOR 4.0",     "tools": 9,  "voice": "elevenlabs", "tier": 3},
         {"id": "ancestral_sage",         "name": "THE ANCESTRAL SAGE 4.0",       "tools": 7,  "voice": "elevenlabs", "tier": 3},
@@ -8912,7 +9033,7 @@ async def exec_dashboard(user: User = Depends(require_role("executive_admin"))):
         {"id": "architect",              "name": "THE ARCHITECT 4.0",            "tools": 8,  "voice": "openai",     "tier": 4},
     ]
 
-    # ââ MongoDB queries âââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+    # ── MongoDB queries ───────────────────────────────────────────────────────
     pipeline_published = 0
     pipeline_pending   = 0
     pipeline_total     = 0
@@ -9009,12 +9130,12 @@ async def exec_dashboard(user: User = Depends(require_role("executive_admin"))):
         "setup_guidance": (
             None if ls_ready else
             "Add LEMON_SQUEEZY_API_KEY + LEMON_SQUEEZY_STORE_ID to Railway to enable "
-            "autonomous product publishing. Visit lemonsqueezy.com â Settings â API."
+            "autonomous product publishing. Visit lemonsqueezy.com → Settings → API."
         ),
     }
 
 
-# ââ Product Pipeline ââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+# ── Product Pipeline ──────────────────────────────────────────────────────────
 
 @api_router.get("/exec/products")
 async def exec_list_products(
@@ -9063,14 +9184,14 @@ async def exec_create_product(body: dict, user: User = Depends(require_role("exe
     Executive-only: Create and immediately publish a product via the 4-tier pipeline.
 
     Body:
-        name             (required) â product listing name
-        description      (required) â public-facing description
-        price_cents      (required) â price in cents (e.g. 3900 = $39.00)
-        persona          (optional) â which persona is publishing (default: ancestral_sage)
-        content          (optional) â full product content to archive
-        content_type     (optional) â tag for pipeline filtering (default: digital_product)
-        is_subscription  (optional) â true for recurring billing (default: false)
-        interval         (optional) â "month" | "year" | "week" (default: month)
+        name             (required) — product listing name
+        description      (required) — public-facing description
+        price_cents      (required) — price in cents (e.g. 3900 = $39.00)
+        persona          (optional) — which persona is publishing (default: ancestral_sage)
+        content          (optional) — full product content to archive
+        content_type     (optional) — tag for pipeline filtering (default: digital_product)
+        is_subscription  (optional) — true for recurring billing (default: false)
+        interval         (optional) — "month" | "year" | "week" (default: month)
 
     Returns tier, status, url, product_id, pipeline_id.
     Tries Lemon Squeezy first (T1), then Gumroad (T2), then archives to MongoDB (T3).
@@ -9122,7 +9243,7 @@ async def exec_publish_all(user: User = Depends(require_role("executive_admin"))
     """
     Attempt to publish all pending_publish products in the pipeline.
 
-    Runs batch_publish_pending() â tries Lemon Squeezy first, then Gumroad.
+    Runs batch_publish_pending() — tries Lemon Squeezy first, then Gumroad.
     Call this after adding LEMON_SQUEEZY_API_KEY + LEMON_SQUEEZY_STORE_ID to Railway.
 
     Executive only.
@@ -9138,7 +9259,7 @@ async def exec_publish_all(user: User = Depends(require_role("executive_admin"))
     return result
 
 
-# ââ Staff Meeting âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+# ── Staff Meeting ─────────────────────────────────────────────────────────────
 
 @api_router.get("/exec/staff-meetings")
 async def list_staff_meetings(
@@ -9158,7 +9279,7 @@ class StaffMeetingRequest(BaseModel):
     """
     Validated request body for POST /api/exec/staff-meeting.
 
-    v2: Replaces bare `body: dict` â enforces types and length limits
+    v2: Replaces bare `body: dict` — enforces types and length limits
     so the endpoint cannot be crashed by sending wrong-typed fields
     (e.g., brief as a list, participants as a string).
     """
@@ -9183,17 +9304,17 @@ class PipelineProcessBatchRequest(BaseModel):
     @classmethod
     def validate_text_item_lengths(cls, v: List[str]) -> List[str]:
         """Enforce per-item max length at Pydantic parse time.
-        Without this, FastAPI fully deserializes a 50Ã1MB payload before
-        PipelineManager rejects each item individually â fail fast here."""
+        Without this, FastAPI fully deserializes a 50×1MB payload before
+        PipelineManager rejects each item individually — fail fast here."""
         for i, text in enumerate(v):
             if len(text) > 5000:
                 raise ValueError(
-                    f"texts[{i}] is {len(text)} chars â maximum is 5000"
+                    f"texts[{i}] is {len(text)} chars — maximum is 5000"
                 )
         return v
 
 
-# Domain role questions â moved to module scope so they're not re-created per request
+# Domain role questions — moved to module scope so they're not re-created per request
 _DOMAIN_ROLES: dict = {
     "director":               "Governance & strategy: what oversight does this require?",
     "revenue_director":       "Revenue: what monetization opportunity does this create?",
@@ -9203,7 +9324,7 @@ _DOMAIN_ROLES: dict = {
     "oracle":                 "Intelligence: what is the cultural timing and sentiment?",
     "architect":              "Visual: what brand and visual direction does this need?",
     "poor_righteous_teacher": "Doctrine: is this culturally aligned? Any red flags?",
-    "the_9":                  "Synthesis: unified intelligence â what is the optimal path?",
+    "the_9":                  "Synthesis: unified intelligence — what is the optimal path?",
 }
 
 
@@ -9227,9 +9348,9 @@ async def exec_staff_meeting(
     participants = [str(p)[:100] for p in body.participants]     # sanitize items
     priority     = body.priority                                  # already validated enum
 
-    # ââ 1. PRT validation âââââââââââââââââââââââââââââââââââââââââââââââââââââ
+    # ── 1. PRT validation ─────────────────────────────────────────────────────
     # v2: use singleton (not per-request instantiation); `prt` is always
-    # defined before the high-priority block â no NameError possible.
+    # defined before the high-priority block — no NameError possible.
     prt           = _get_prt_engine()
     filter_result = {"accepted": True, "authority": "bypassed"}
     enforcement   = None
@@ -9248,9 +9369,9 @@ async def exec_staff_meeting(
             logger.warning("staff_meeting: PRT validation error (non-fatal): %s", _prt_err)
             filter_result = {"accepted": True, "authority": "bypassed"}
     else:
-        logger.warning("staff_meeting: PRT engine unavailable â bypassing")
+        logger.warning("staff_meeting: PRT engine unavailable — bypassing")
 
-    # ââ 2. Cultural alignment check âââââââââââââââââââââââââââââââââââââââââââ
+    # ── 2. Cultural alignment check ───────────────────────────────────────────
     try:
         from wai_institute.core.hierarchy_enforcer import HierarchyEnforcer
         enforcer  = HierarchyEnforcer(db)
@@ -9262,7 +9383,7 @@ async def exec_staff_meeting(
     except Exception:
         alignment = {"aligned": True}
 
-    # ââ 3. Resolve active participants ââââââââââââââââââââââââââââââââââââââââ
+    # ── 3. Resolve active participants ────────────────────────────────────────
     try:
         from wai_institute.core.persona_manager import PersonaManager
         pm        = PersonaManager(db)
@@ -9275,13 +9396,13 @@ async def exec_staff_meeting(
         }
 
     if participants:
-        # v2: filter against active_ids â participant strings from user input
+        # v2: filter against active_ids — participant strings from user input
         # are not trusted for DB writes without validation against known personas
         meeting_participants = [p for p in participants if p in active_ids]
     else:
         meeting_participants = sorted(active_ids)
 
-    # ââ 4. Generate domain briefs per persona with LLM responses ââââââââââââââââ
+    # ── 4. Generate domain briefs per persona with LLM responses ────────────────
     domain_briefs = {}
     for persona_id in meeting_participants:
         role_question = _DOMAIN_ROLES.get(persona_id, "Domain input for this brief.")
@@ -9299,7 +9420,7 @@ async def exec_staff_meeting(
         try:
             import anthropic as _anthropic_module
 
-            # Build system prompt â use persona_loader if available, else construct from domain role
+            # Build system prompt — use persona_loader if available, else construct from domain role
             try:
                 from ai.persona_loader import get_persona
                 system_prompt = get_persona(persona_id)
@@ -9330,7 +9451,7 @@ async def exec_staff_meeting(
             logger.warning("staff_meeting: persona %s LLM call failed: %s", persona_id, exc)
             return persona_id, ""
 
-    # Only call LLM for personas that have a role question (skip the_9 & prt â handled separately)
+    # Only call LLM for personas that have a role question (skip the_9 & prt — handled separately)
     _llm_personas = [pid for pid in meeting_participants if pid not in ("the_9", "poor_righteous_teacher")]
     if _llm_personas and ANTHROPIC_API_KEY:
         _results = await asyncio.gather(*[
@@ -9342,7 +9463,7 @@ async def exec_staff_meeting(
                 domain_briefs[pid]["response"] = resp
                 domain_briefs[pid]["status"] = "responded"
 
-    # ââ 5. The 9 synthesis (high priority or explicitly requested) ââââââââââââ
+    # ── 5. The 9 synthesis (high priority or explicitly requested) ────────────
     synthesis = None
     if priority == "high" or "the_9" in body.participants:
         the9 = _get_the9_engine()   # v2: singleton, not per-request
@@ -9375,7 +9496,7 @@ async def exec_staff_meeting(
                             model="claude-sonnet-4-6",
                             max_tokens=2048,
                             system=(
-                                "You are THE 9 â the unified intelligence of the WAI-Institute. "
+                                "You are THE 9 — the unified intelligence of the WAI-Institute. "
                                 "You merge the capabilities of all 9 core personas into one coherent synthesis. "
                                 "Given a staff meeting brief, agenda, and the individual persona responses, "
                                 "produce a unified strategic synthesis with: 1) Key insights, 2) Recommended actions, "
@@ -9401,8 +9522,8 @@ async def exec_staff_meeting(
         else:
             synthesis = {"status": "unavailable", "error": "engine_not_loaded"}
 
-    # ââ 6. Persist to DB ââââââââââââââââââââââââââââââââââââââââââââââââââââââ
-    # v2: full UUID for meeting_id â 8-char truncation risked collision and
+    # ── 6. Persist to DB ──────────────────────────────────────────────────────
+    # v2: full UUID for meeting_id — 8-char truncation risked collision and
     # silent data loss (DuplicateKeyError was swallowed in the except block)
     meeting_id   = str(uuid.uuid4())
     convened_at  = datetime.now(timezone.utc).isoformat()
@@ -9419,7 +9540,7 @@ async def exec_staff_meeting(
         "convened_at":   convened_at,
     }
 
-    # ââ Each insert is wrapped independently so one failure cannot silently
+    # ── Each insert is wrapped independently so one failure cannot silently
     # swallow all subsequent writes (Bug fix: previously one try/except covered
     # all four inserts; an AttributeError on prt_enforcement_log caused
     # the9_activations to be silently skipped every time).
@@ -9444,7 +9565,7 @@ async def exec_staff_meeting(
     except Exception as _db_err:
         logger.warning("staff_meeting: governance_log write failed: %s", _db_err)
 
-    # PRT enforcement log â uses to_governance_dict() for a structured record
+    # PRT enforcement log — uses to_governance_dict() for a structured record
     if prt is not None:
         try:
             from wai_institute.personas.prt.prt_enforcement_engine import PRTEnforcementEngine
@@ -9459,7 +9580,7 @@ async def exec_staff_meeting(
         except Exception as _db_err:
             logger.warning("staff_meeting: prt_enforcement_log write failed: %s", _db_err)
 
-    # The 9 activation record â written for every successful fusion
+    # The 9 activation record — written for every successful fusion
     if synthesis and synthesis.get("status") == "fused":
         try:
             await db.the9_activations.insert_one({
@@ -9474,7 +9595,7 @@ async def exec_staff_meeting(
             logger.warning("staff_meeting: the9_activations write failed: %s", _db_err)
 
     logger.info(
-        "Staff meeting %s convened by %s â %d participants, priority=%s, "
+        "Staff meeting %s convened by %s — %d participants, priority=%s, "
         "prt_cleared=%s, the9=%s",
         meeting_id[:8], user.id, len(meeting_participants),
         priority, prt_cleared, synthesis is not None,
@@ -9492,7 +9613,7 @@ async def exec_staff_meeting(
     }
 
 
-# ââ AI Cost Tracking âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+# ── AI Cost Tracking ───────────────────────────────────────────────────────────
 
 @api_router.get("/admin/ai-costs")
 async def get_ai_costs(
@@ -9507,7 +9628,7 @@ async def get_ai_costs(
     return {"costs": costs, "total": total, "period_days": days}
 
 
-# ââ Session Management âââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+# ── Session Management ─────────────────────────────────────────────────────────
 
 @api_router.get("/auth/sessions")
 async def list_sessions(user: User = Depends(current_user)):
@@ -9538,7 +9659,7 @@ async def revoke_all_sessions(user: User = Depends(current_user)):
     return {"ok": True, "message": "All other sessions revoked. Please re-authenticate."}
 
 
-# ââ Cookie Consent Logging âââââââââââââââââââââââââââââââââââââââââââââââââââââ
+# ── Cookie Consent Logging ─────────────────────────────────────────────────────
 
 @api_router.post("/consent/cookie")
 async def log_cookie_consent(body: dict, request: Request):
@@ -9564,7 +9685,7 @@ async def log_cookie_consent(body: dict, request: Request):
     return {"ok": True}
 
 
-# ââ API-as-a-Service: Revenue Division âââââââââââââââââââââââââââââââââââââââââ
+# ── API-as-a-Service: Revenue Division ─────────────────────────────────────────
 
 @api_router.get("/revenue/api-keys")
 async def revenue_list_keys(user: User = Depends(current_user)):
@@ -9615,7 +9736,7 @@ async def revenue_list_tiers():
     return {"tiers": TIERS}
 
 
-# ââ Credential Verification Employer Portal ââââââââââââââââââââââââââââââââââââ
+# ── Credential Verification Employer Portal ────────────────────────────────────
 
 @api_router.post("/revenue/verify-credential")
 async def revenue_verify_credential(body: dict):
@@ -9667,7 +9788,7 @@ async def revenue_employer_batch_verify(
     return {"results": results, "total": len(results), "valid": sum(1 for r in results if r["valid"])}
 
 
-# ââ Course Licensing Marketplace âââââââââââââââââââââââââââââââââââââââââââââââ
+# ── Course Licensing Marketplace ───────────────────────────────────────────────
 
 @api_router.get("/revenue/courses/public")
 async def revenue_public_courses():
@@ -9712,7 +9833,7 @@ async def revenue_my_licenses(user: User = Depends(current_user)):
     return {"licenses": licenses}
 
 
-# ââ Compliance Hour Tracking â Employer Dashboard âââââââââââââââââââââââââââââ
+# ── Compliance Hour Tracking — Employer Dashboard ─────────────────────────────
 
 @api_router.get("/revenue/employer/compliance")
 async def revenue_employer_compliance(
@@ -9750,7 +9871,7 @@ async def revenue_employer_compliance(
     }
 
 
-# ââ Sovereign AI Team Seats ââââââââââââââââââââââââââââââââââââââââââââââââââââ
+# ── Sovereign AI Team Seats ────────────────────────────────────────────────────
 
 @api_router.post("/revenue/sovereign/workspace")
 async def revenue_create_workspace(body: dict, user: User = Depends(require_role("admin"))):
@@ -9819,7 +9940,7 @@ async def revenue_workspace_chat(ws_id: str, body: dict, user: User = Depends(cu
     return {"reply": reply, "workspace": ws["name"]}
 
 
-# ââ AI Resume Builder âââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+# ── AI Resume Builder ─────────────────────────────────────────────────────────
 
 @api_router.get("/revenue/resume/preview")
 async def revenue_resume_preview(user: User = Depends(current_user)):
@@ -9839,7 +9960,7 @@ async def revenue_resume_preview(user: User = Depends(current_user)):
     }
 
 
-# ââ Help Guide: context-sensitive help for every route âââââââââââââââââââââââââ
+# ── Help Guide: context-sensitive help for every route ─────────────────────────
 
 class HelpGuideRequest(BaseModel):
     path: str = Field(..., min_length=1, max_length=500)
@@ -9856,7 +9977,7 @@ async def help_guide(body: HelpGuideRequest, user: User = Depends(current_user))
     return get_help_for(role=user.role, path=body.path, query=body.query)
 
 
-# ââ Pipeline: LLM intent routing ââââââââââââââââââââââââââââââââââââââââââââââ
+# ── Pipeline: LLM intent routing ──────────────────────────────────────────────
 
 @api_router.post("/exec/pipeline/process")
 async def exec_pipeline_process(
@@ -9871,7 +9992,7 @@ async def exec_pipeline_process(
         - Keyword fallback when key is absent          (offline mode)
     """
     if _pipeline_manager is None:
-        raise HTTPException(503, "PipelineManager not initialized â check server logs")
+        raise HTTPException(503, "PipelineManager not initialized — check server logs")
 
     result = await _pipeline_manager.process(body.text.strip(), source=body.source.strip())
     return result.to_dict()
@@ -9888,7 +10009,7 @@ async def exec_pipeline_process_batch(
     Semaphore inside PipelineManager limits concurrent LLM calls to 5.
     """
     if _pipeline_manager is None:
-        raise HTTPException(503, "PipelineManager not initialized â check server logs")
+        raise HTTPException(503, "PipelineManager not initialized — check server logs")
 
     texts  = body.texts
     source = body.source.strip()
@@ -9902,7 +10023,7 @@ async def exec_pipeline_process_batch(
     return [r.to_dict() for r in results]
 
 
-# ââ BUG REPORT ENDPOINT (48-hour testing campaign) ââââââââââââââââââââââââââââââ
+# ── BUG REPORT ENDPOINT (48-hour testing campaign) ──────────────────────────────
 class BugReportRequest(BaseModel):
     name: str = Field(..., min_length=1, max_length=200)
     email: EmailStr
@@ -9934,7 +10055,7 @@ async def submit_bug_report(body: BugReportRequest):
         report["_id"] = str(result.inserted_id)
 
         # Log the submission
-        logger.info(f"Bug report submitted: {body.email} â {body.whatYouTried}")
+        logger.info(f"Bug report submitted: {body.email} — {body.whatYouTried}")
 
         # TODO: Send email notification to admin (poetgames3@gmail.com)
         # For now, just store in DB and return success
@@ -9945,7 +10066,7 @@ async def submit_bug_report(body: BugReportRequest):
         raise HTTPException(500, "Could not submit bug report")
 
 
-# ââ Include revenue operations routers ââââââââââââââââââââââââââââââââââââââââ
+# ── Include revenue operations routers ────────────────────────────────────────
 try:
     for _rev_router in get_revenue_routers():
         api_router.include_router(_rev_router)
@@ -9953,7 +10074,7 @@ try:
 except Exception as _router_err:
     logger.warning(f"Could not include revenue routers: {_router_err}")
 
-# ââ Social publisher router ââââââââââââââââââââââââââââââââââââââââââââââââââââ
+# ── Social publisher router ────────────────────────────────────────────────────
 try:
     from social_routes import router as social_router
     api_router.include_router(social_router)
@@ -9961,7 +10082,7 @@ try:
 except Exception as _social_err:
     logger.warning(f"Could not include social router: {_social_err}")
 
-# ââ Playlist curation router âââââââââââââââââââââââââââââââââââââââââââââââââââ
+# ── Playlist curation router ───────────────────────────────────────────────────
 try:
     from playlist_routes import router as playlist_router
     api_router.include_router(playlist_router)
@@ -9969,7 +10090,7 @@ try:
 except Exception as _playlist_err:
     logger.warning(f"Could not include playlist router: {_playlist_err}")
 
-# ââ The Sovereign (NAM Oshun Revenue Engine) + Puzzle/Points endpoints âââââââââ
+# ── The Sovereign (NAM Oshun Revenue Engine) + Puzzle/Points endpoints ─────────
 # Executive-only Sovereign chat (Director-supervised, carries memory) + a public
 # puzzle game that awards partnership points toward membership tiers. All logic
 # lives in isolated, unit-tested modules (sovereign/, partnership/, puzzles/).
@@ -10005,16 +10126,18 @@ try:
 
     @api_router.post("/sovereign/chat")
     async def sovereign_chat(body: _SovereignChatBody, user: User = Depends(require_role("executive_admin"))):
-        """Talk to The Sovereign â executive-only, Director-supervised, memory-aware."""
+        """Talk to The Sovereign — executive-only, Director-supervised, memory-aware."""
         system = await _build_sovereign_prompt(db, user.id)
         try:
-            import anthropic as _anthropic_module
-            _client = _anthropic_module.AsyncAnthropic(api_key=ANTHROPIC_API_KEY)
-            _msg = await _client.messages.create(
-                model="claude-sonnet-4-6", max_tokens=2048,
-                system=system, messages=[{"role": "user", "content": body.message}],
+            from ai.llm_gateway import call_llm as _call_llm
+            _result = await _call_llm(
+                system=system,
+                messages=[{"role": "user", "content": body.message}],
+                max_tokens=2048,
+                persona_label="sovereign",
+                user_id=user.id,
             )
-            reply = _msg.content[0].text
+            reply = _result["text"]
         except Exception as e:
             logger.exception("Sovereign AI error")
             raise HTTPException(502, f"Sovereign AI error: {e}")
@@ -10058,9 +10181,9 @@ except Exception as _sov_err:
     logger.warning(f"Could not register Sovereign/puzzle endpoints: {_sov_err}")
 
 
-# ââ EMERGENCY BREAKER PANEL + GATEWAY ââââââââââââââââââââââââââââââââââââââââââââ
+# ── EMERGENCY BREAKER PANEL + GATEWAY ────────────────────────────────────────────
 # Electrical-panel-style failover control for the multi-layer redundancy
-# architecture (Railway â Home Server â Standalone HTML UI).
+# architecture (Railway → Home Server → Standalone HTML UI).
 # All endpoints require executive_admin role.
 try:
     from emergency_panel import (
@@ -10081,7 +10204,7 @@ try:
 
     @api_router.get("/exec/panel")
     async def exec_panel_get(user: User = Depends(require_role("executive_admin"))):
-        """Get full breaker panel state â all breakers + gateway config."""
+        """Get full breaker panel state — all breakers + gateway config."""
         panel = await get_panel(db)
         return {k: v for k, v in panel.items() if k != "_id"}
 
@@ -10103,7 +10226,7 @@ try:
 
     @api_router.post("/exec/failover")
     async def exec_failover(body: _PanelFailoverBody, user: User = Depends(require_role("executive_admin"))):
-        """Perform gateway failover: primary â backup â emergency."""
+        """Perform gateway failover: primary → backup → emergency."""
         result = await failover(db, body.target, reason=body.reason)
         if not result["ok"]:
             raise HTTPException(400, result["error"])
@@ -10116,7 +10239,7 @@ try:
 
     @api_router.post("/exec/panel/heartbeat")
     async def exec_panel_heartbeat(body: _PanelHeartbeatBody):
-        """Heartbeat from backup server or emergency UI (no auth required â
+        """Heartbeat from backup server or emergency UI (no auth required —
         the backup server reports its liveness so the panel shows it as alive)."""
         result = await heartbeat(db, body.source, version=body.version)
         if not result["ok"]:
@@ -10125,7 +10248,7 @@ try:
 
     @api_router.get("/exec/free-backup-matrix")
     async def exec_free_backup_matrix(user: User = Depends(require_role("executive_admin"))):
-        """Return the free API backup matrix â shows every service and its fallback status."""
+        """Return the free API backup matrix — shows every service and its fallback status."""
         from free_api_backup import status_summary
         return status_summary()
 
@@ -10133,7 +10256,7 @@ try:
 except Exception as _ep_err:
     logger.warning(f"Could not register Emergency Panel endpoints: {_ep_err}")
 
-# ââ Gateway: serve the standalone emergency UI ââââââââââââââââââââââââââââââââââââ
+# ── Gateway: serve the standalone emergency UI ────────────────────────────────────
 # When the React SPA is unavailable, this route serves the zero-dependency
 # sovereign UI so execs can still access the system via any browser.
 _EMERGENCY_UI_PATH = ROOT_DIR / "sovereign" / "ui.html"
@@ -10143,14 +10266,269 @@ if _EMERGENCY_UI_PATH.exists():
     @api_router.get("/emergency", include_in_schema=False)
     @api_router.get("/emergency/", include_in_schema=False)
     async def emergency_ui():
-        """Standalone emergency UI â works without React SPA."""
+        """Standalone emergency UI — works without React SPA."""
         html = _EMERGENCY_UI_PATH.read_text(encoding="utf-8")
         return _HTMLResponse(content=html)
     logger.info("Emergency UI gateway: /emergency")
 else:
-    logger.warning("Emergency UI not found at %s â gateway disabled", _EMERGENCY_UI_PATH)
+    logger.warning("Emergency UI not found at %s — gateway disabled", _EMERGENCY_UI_PATH)
+
+# ── Readiness probe (gates on DB + startup) ──────────────────────────────────────────────────
+# Railway's healthcheck previously pinged /api/version, which returns 200 the
+# instant the process binds — even with a dead database or mid-startup. So a
+# broken or still-initializing container was declared healthy, took traffic, and
+# 503'd every request (the exact outage pattern reported against this site on
+# 2026-08-31). This probe is available at import time, BEFORE the background
+# startup task finishes, and returns 503 (JSON) until the database actually
+# answers and startup is complete.
+#
+# We deliberately do NOT change /api/health's always-200 behavior: supervisors,
+# UptimeRobot and the frontends depend on it returning 200 and reading the
+# `status` field in the body. Health != readiness — only the readiness probe
+# should gate routing.
+@api_router.get("/ready", include_in_schema=False)
+async def ready():
+    db_ok = False
+    db_detail = ""
+    try:
+        await client.admin.command("ping")
+        db_ok = True
+    except Exception as _re:
+        db_detail = str(_re)[:120]
+
+    if not db_ok:
+        return JSONResponse(status_code=503, content={
+            "ready": False,
+            "reason": "db_down",
+            "detail": db_detail,
+            "startup_complete": _startup_impl_done,
+        })
+    if not _startup_impl_done:
+        return JSONResponse(status_code=503, content={
+            "ready": False,
+            "reason": "startup_incomplete",
+            "startup_complete": False,
+        })
+    return {"ready": True, "startup_complete": True}
+
+
+# ── Cross-site SSO endpoints ────────────────────────────────────────────────
+# routers/auth.py holds the canonical cross-site handlers, but the full auth
+# router is intentionally NOT mounted (server.py keeps the inline auth
+# endpoints above to avoid duplicate registrations). Register only the two
+# cross-site routes so the frontend /auth/cross-site flow reaches a real API.
+try:
+    from routers import auth as _auth_router
+    _auth_router.bind(
+        db, audit, notify, current_user, None,
+        check_rate, None, None, make_token,
+        None, None, None, None,
+    )
+    api_router.add_api_route(
+        "/auth/cross-site-token", _auth_router.generate_cross_site_token, methods=["GET"])
+    api_router.add_api_route(
+        "/auth/cross-site-login", _auth_router.cross_site_login, methods=["POST"])
+except Exception as _csse:
+    logger.warning("cross-site SSO routes not registered: %s", _csse)
+
+
+# ── Router completions: endpoints defined in canonical router modules that ──
+# are NOT mounted wholesale (server.py keeps inline copies of their core
+# routes). Registering the missing handlers here makes the frontend's calls
+# reach a real API without duplicating route bodies. Bound like the SSO block
+# above — same handler objects, one source of truth.
+try:
+    from routers import users as _users_router
+    _users_router.bind(db, audit, notify, current_user, can_modify, hash_pw)
+    _USERS_ROUTES = [
+        ("GET", "/admin/users/{uid}", _users_router.admin_get_user),
+        ("PATCH", "/admin/users/{uid}/tier", _users_router.admin_set_tier),
+        ("POST", "/admin/users/{uid}/ban", _users_router.admin_ban_user),
+        ("POST", "/admin/users/{uid}/unban", _users_router.admin_unban_user),
+        ("POST", "/admin/users/{uid}/erasure", _users_router.admin_user_erasure),
+        ("GET", "/admin/users/{uid}/sessions", _users_router.exec_list_user_sessions),
+        ("DELETE", "/admin/users/{uid}/sessions", _users_router.exec_force_logout),
+        ("POST", "/admin/users/bulk", _users_router.exec_bulk_action),
+        ("GET", "/admin/users/{uid}/audit", _users_router.exec_user_audit),
+        ("GET", "/admin/mfa/config", _users_router.get_mfa_config),
+        ("PATCH", "/admin/mfa/config", _users_router.set_mfa_config),
+        ("GET", "/admin/access/ipwhitelist", _users_router.get_ip_whitelist),
+        ("POST", "/admin/access/ipwhitelist", _users_router.add_ip_whitelist),
+        ("DELETE", "/admin/access/ipwhitelist/{entry_id}", _users_router.remove_ip_whitelist),
+        ("POST", "/admin/users/{uid}/elevated-role", _users_router.grant_elevated_role),
+        ("GET", "/admin/users/{uid}/elevated-role", _users_router.get_elevated_role),
+        ("DELETE", "/admin/users/{uid}/elevated-role", _users_router.revoke_elevated_role),
+        ("PATCH", "/admin/users/{uid}/sage-tier", _users_router.set_user_sage_tier),
+        ("POST", "/users/accept-terms", _users_router.users_accept_terms),
+        ("POST", "/admin/users/{uid}/reset-password", _users_router.admin_reset_password),
+    ]
+    for _m, _p, _h in _USERS_ROUTES:
+        api_router.add_api_route(_p, _h, methods=[_m])
+    logger.info("Registered %d user-administration endpoints from routers/users.py", len(_USERS_ROUTES))
+except Exception as _ure:
+    logger.warning("user-administration endpoints not registered: %s", _ure)
+
+try:
+    from routers import personas as _personas_router
+    _personas_router.bind(db, current_user, audit)
+    _PERSONAS_ROUTES = [
+        ("GET", "/admin/personas", _personas_router.list_personas),
+        ("POST", "/personas", _personas_router.create_persona),
+        ("PUT", "/personas/{persona_id}", _personas_router.update_persona),
+        ("PUT", "/personas/{persona_id}/priority", _personas_router.update_priority),
+        ("DELETE", "/personas/{persona_id}", _personas_router.delete_persona),
+        ("GET", "/personas/stack", _personas_router.get_active_persona_stack),
+    ]
+    for _m, _p, _h in _PERSONAS_ROUTES:
+        api_router.add_api_route(_p, _h, methods=[_m])
+    logger.info("Registered %d persona-CRUD endpoints from routers/personas.py", len(_PERSONAS_ROUTES))
+except Exception as _pre:
+    logger.warning("persona-CRUD endpoints not registered: %s", _pre)
+try:
+    from routers import commerce as _commerce_router
+    _commerce_router.bind(db, current_user, audit, run_escalation_check, run_engagement_check, _discount_manager)
+    api_router.add_api_route("/admin/platform/flags", _commerce_router.get_platform_flags, methods=["GET"])
+    api_router.add_api_route("/admin/platform/flags/{flag}", _commerce_router.set_platform_flag, methods=["POST"])
+    logger.info("Registered platform-flag endpoints from routers/commerce.py")
+except Exception as _cfe:
+    logger.warning("platform-flag endpoints not registered: %s", _cfe)
+
+try:
+    # exec_control is already mounted + auto-bound by the _ADDITIONAL_API_ROUTER_MODULES
+    # loop above, so import only — no second bind() call.
+    from routers import exec_control as _ec_router
+    api_router.add_api_route("/admin/broadcast", _ec_router.control_panel_set_broadcast, methods=["POST"])
+    logger.info("Registered /admin/broadcast from routers/exec_control.py")
+except Exception as _bfe:
+    logger.warning("/admin/broadcast not registered: %s", _bfe)
 
 app.include_router(api_router)
+
+
+def _bind_router_dependencies(router_module):
+    """Bind shared server dependencies to modular routers before mounting them."""
+    import inspect
+
+    bind = getattr(router_module, "bind", None)
+    if bind is None:
+        return
+    available = {
+        "db": db,
+        "_db": db,
+        "current_user": current_user,
+        "_current_user": current_user,
+        "audit": audit,
+        "_audit": audit,
+        "notify": notify,
+        "_notify": notify,
+        "check_rate": check_rate,
+        "_check_rate": check_rate,
+        "assert_role": assert_role,
+        "_assert_role": assert_role,
+        "xp_level": xp_level,
+        "_xp_level": xp_level,
+        "award_xp": award_xp,
+        "_award_xp": award_xp,
+        "award_credentials": award_credentials,
+        "_award_credentials": award_credentials,
+        "jwt_secret": JWT_SECRET,
+        "_jwt_secret": JWT_SECRET,
+        "jwt_algo": JWT_ALGO,
+        "_jwt_algo": JWT_ALGO,
+    }
+    values = [available[parameter.name] for parameter in inspect.signature(bind).parameters.values()]
+    bind(*values)
+
+
+if _ai_router_module is not None:
+    _bind_router_dependencies(_ai_router_module)
+
+for _router_module_name, _router_mount_prefix in _ADDITIONAL_API_ROUTER_MODULES:
+    _router_module = import_module(f"routers.{_router_module_name}")
+    _bind_router_dependencies(_router_module)
+    app.include_router(_router_module.router, prefix=_router_mount_prefix)
+
+
+# Flag set once _on_startup_impl() finishes (or fails), so the readiness probe
+# returns 503 before the background startup task has completed — and also if it
+# crashes. See on_startup() near the top of the module.
+_startup_impl_done = False
+
+
+def setup_frontend_serving():
+    """Mount the built React SPA's static + root public assets and the SPA
+    catch-all at module import time.
+
+    These used to be registered inside the fire-and-forget startup task, so they
+    were absent — and every asset request 503'd — until a slow or DB-blocked
+    startup finished. Now they run synchronously at import, so as soon as uvicorn
+    binds, /static/* and the root-level public assets are served with correct
+    MIME types, and the catch-all returns index.html only for real SPA client
+    routes.
+    """
+    if not SERVE_FRONTEND:
+        return
+    _bp = None
+    for _candidate in (
+        ROOT_DIR.parent / "frontend" / "build",
+        ROOT_DIR.parent / "frontend" / "dist",
+        Path("/app/frontend/build"),
+        Path("/app/frontend/dist"),
+    ):
+        if _candidate.exists() and (_candidate / "index.html").exists():
+            _bp = _candidate
+            break
+    if _bp is None:
+        logger.warning(
+            "FRONTEND: SERVE_FRONTEND=1 but no built frontend found. "
+            "Run 'npm run build' in the frontend directory first."
+        )
+        return
+
+    from fastapi.staticfiles import StaticFiles
+    from fastapi.responses import FileResponse
+
+    _build_dir = str(_bp)
+
+    # Hashed build bundles (/static/js/main.<hash>.js, /static/css/main.<hash>.css)
+    app.mount("/static", StaticFiles(directory=_build_dir + "/static"), name="static")
+
+    # Root-level public assets (boot-branding.js, error-suppress.js, clear-sw.js,
+    # posthog-init.js, manifest.json, sw.js, favicons, ...). These MUST be served
+    # as real files with correct MIME types. The old code let the catch-all
+    # return index.html for all of them, which broke manifest.json and sw.js and
+    # sent HTML (or the edge's JSON 503 body) to <script src='/....js'> tags.
+    @app.get("/({path})", include_in_schema=False)
+    async def _serve_root_public(path: str):
+        _base = Path(_build_dir).resolve()
+        _candidate = (Path(_build_dir) / path).resolve()
+        if not (str(_candidate).startswith(str(_base) + os.sep) or _candidate == _base):
+            return JSONResponse(status_code=404, content={"detail": "Not Found"})
+        if _candidate.is_file():
+            return FileResponse(str(_candidate))
+        return JSONResponse(status_code=404, content={"detail": "Not Found"})
+
+    # SPA catch-all — must come AFTER api_router is included and after the
+    # /static mount and root-asset route above (registration order).
+    @app.get("/{full_path:path}", include_in_schema=False)
+    async def _spa_catchall(full_path: str):
+        # Serve real files that live under the build root (e.g. /robots.txt,
+        # /sitemap.xml) before falling back to index.html for client routes.
+        _base = Path(_build_dir).resolve()
+        _candidate = (Path(_build_dir) / full_path).resolve()
+        if not (str(_candidate).startswith(str(_base) + os.sep) or _candidate == _base):
+            return JSONResponse(status_code=404, content={"detail": "Not Found"})
+        if full_path and _candidate.is_file():
+            return FileResponse(str(_candidate))
+        return FileResponse(str(Path(_build_dir) / "index.html"))
+
+    logger.info(
+        "FRONTEND: Serving React build from %s (static + root assets registered at import)", _bp
+    )
+
+
+setup_frontend_serving()
+
 # CORS: when origins is wildcard ("*") browsers reject credentials, so we
 # turn off allow_credentials in that case (auth uses Bearer token in Authorization
 # header anyway). If a specific origin list is supplied, credentials are allowed.
@@ -10189,4 +10567,3 @@ if __name__ == "__main__":
     import uvicorn
     port = int(os.environ.get("PORT", 8000))
     uvicorn.run("server:app", host="0.0.0.0", port=port)
-

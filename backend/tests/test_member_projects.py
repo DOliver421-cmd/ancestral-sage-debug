@@ -17,6 +17,30 @@ from routers import member_projects as mp  # noqa: E402
 
 SECRET = "test-secret"
 
+# The router resolves the JWT secret from the canonical server module
+# (server.JWT_SECRET, read from the environment at import).  Force the
+# environment to match the signing literal BEFORE server.py is first
+# imported by the dependency under test, so the suite exercises the real
+# production contract instead of a private app.state secret.
+os.environ["JWT_SECRET"] = SECRET
+
+
+@pytest.fixture(autouse=True)
+def _restore_shared_db():
+    """Isolate the deps-injected shared db across tests."""
+    import deps
+
+    before = deps.get_db()
+    yield
+    deps.set_db(before)
+
+
+def _bind_shared_db(db):
+    """Point the router's canonical shared-db source at a test fake."""
+    import deps
+
+    deps.set_db(db)
+
 
 def _fake_request(db=None, user_doc=None):
     """Minimal Request stand-in exposing app.state.db + jwt_secret."""
@@ -56,6 +80,7 @@ async def test_require_member_rejects_missing_token():
 async def test_require_member_rejects_free_tier():
     dep = mp._require_member()
     req = _fake_request(user_doc=_user_doc(tier="free"))
+    _bind_shared_db(req.app.state.db)
     with pytest.raises(Exception) as exc:
         await dep(req, authorization=f"Bearer {_token(tier='free')}")
     assert exc.value.status_code == 403
@@ -66,6 +91,7 @@ async def test_require_member_rejects_free_tier():
 async def test_require_member_allows_member_tier():
     dep = mp._require_member()
     req = _fake_request(user_doc=_user_doc(tier="member"))
+    _bind_shared_db(req.app.state.db)
     user = await dep(req, authorization=f"Bearer {_token(tier='member')}")
     assert user.id == "u-123"
     assert user.tier == "member"
@@ -75,6 +101,7 @@ async def test_require_member_allows_member_tier():
 async def test_require_member_allows_staff_regardless_of_tier():
     dep = mp._require_member()
     req = _fake_request(user_doc=_user_doc(role="admin", tier="free"))
+    _bind_shared_db(req.app.state.db)
     user = await dep(req, authorization=f"Bearer {_token(role='admin', tier='free')}")
     assert user.id == "u-123"
     assert user.is_staff is True
@@ -84,6 +111,7 @@ async def test_require_member_allows_staff_regardless_of_tier():
 async def test_require_member_rejects_deactivated_account():
     dep = mp._require_member()
     req = _fake_request(user_doc=_user_doc(is_active=False))
+    _bind_shared_db(req.app.state.db)
     with pytest.raises(Exception) as exc:
         await dep(req, authorization=f"Bearer {_token()}")
     assert exc.value.status_code == 403
@@ -134,6 +162,7 @@ async def test_run_stage_blocked_without_byok():
     user = mp.MemberUser(id="u-123", role="student", tier="member", full_name="Test")
     body = mp.StageRun(persona="Production", instructions="")
     req = _fake_request(db=db)
+    _bind_shared_db(db)
     # Mock byok.resolve_byok to return None (user has no BYOK key)
     with patch("byok.resolve_byok", new_callable=AsyncMock, return_value=None):
         with pytest.raises(Exception) as exc:
@@ -158,6 +187,7 @@ async def test_create_project_enforces_active_cap():
         category="launch",
     )
     req = _fake_request(db=db)
+    _bind_shared_db(db)
     with pytest.raises(Exception) as exc:
         await mp.create_project(body, user=user, request=req)
     assert exc.value.status_code == 403

@@ -38,11 +38,11 @@ class ConnectAccountRequest(BaseModel):
 @router.get("/connected-accounts")
 async def get_connected_accounts(
 
-    current_user: dict = Depends(require_user),
+    current_user = Depends(require_user),
 ):
     """Return the user's connected social media platforms."""
     db = get_db()
-    user = await db.users.find_one({"_id": current_user["_id"]})
+    user = await db.users.find_one({"id": current_user.id})
     accounts = (user or {}).get("social_accounts", {})
 
     return {
@@ -64,7 +64,7 @@ async def get_connected_accounts(
 async def connect_account(
     data: ConnectAccountRequest,
 
-    current_user: dict = Depends(require_user),
+    current_user = Depends(require_user),
 ):
     """
     Store OAuth token for a social media platform.
@@ -77,7 +77,7 @@ async def connect_account(
 
     db = get_db()
     await db.users.update_one(
-        {"_id": current_user["_id"]},
+        {"id": current_user.id},
         {
             "$set": {
                 f"social_accounts.{data.platform}": {
@@ -96,12 +96,12 @@ async def connect_account(
 async def disconnect_account(
     platform: str,
 
-    current_user: dict = Depends(require_user),
+    current_user = Depends(require_user),
 ):
     """Remove a connected social media account."""
     db = get_db()
     await db.users.update_one(
-        {"_id": current_user["_id"]},
+        {"id": current_user.id},
         {"$unset": {f"social_accounts.{platform}": ""}}
     )
     return {"status": "success", "platform": platform}
@@ -111,7 +111,7 @@ async def disconnect_account(
 async def publish_to_platforms(
     data: PublishRequest,
 
-    current_user: dict = Depends(require_user),
+    current_user = Depends(require_user),
 ):
     """
     Publish content to all requested platforms simultaneously.
@@ -123,7 +123,7 @@ async def publish_to_platforms(
       TikTok:               TIKTOK_CLIENT_KEY, TIKTOK_CLIENT_SECRET
     """
     db = get_db()
-    user_doc = await db.users.find_one({"_id": current_user["_id"]})
+    user_doc = await db.users.find_one({"id": current_user.id})
     social_accounts = (user_doc or {}).get("social_accounts", {})
 
     results = {}
@@ -150,7 +150,7 @@ async def publish_to_platforms(
     # Log the publish event
     try:
         await db.social_publish_log.insert_one({
-            "user_id": str(current_user["_id"]),
+            "user_id": current_user.id,
             "platforms_requested": data.platforms,
             "platforms_success": list(results.keys()),
             "platforms_failed": list(errors.keys()),

@@ -32,6 +32,8 @@ import logging
 import time
 from typing import Optional
 
+from ai.key_pool import KeyPool, parse_key_list
+
 logger = logging.getLogger("lcewai.llm_gateway")
 
 # ── Environment keys (env vars take priority; DB keys fill gaps) ──────────────
@@ -144,6 +146,24 @@ OPENROUTER_BASE   = "https://openrouter.ai/api/v1"
 # Default 200k/hour ≈ $1/hour max at Sonnet pricing.
 # Lower to 50000 during pre-revenue period if desired.
 HOURLY_TOKEN_CAP  = int(os.environ.get("HOURLY_TOKEN_CAP", "200000"))
+KEY_COOLDOWN_SEC   = float(os.environ.get("PROVIDER_KEY_COOLDOWN_SEC", "30"))
+KEY_FAILURE_COOLDOWN_SEC = float(os.environ.get("PROVIDER_KEY_FAILURE_COOLDOWN_SEC", "5"))
+
+# Multiple keys may be supplied as comma/newline-separated values or numbered
+# variables (for example GROQ_KEY_1, GROQ_KEY_2). The legacy singular variable
+# remains supported. Pools are process-local; multi-replica global fairness
+# requires a shared limiter and is intentionally not implied here.
+_PROVIDER_KEY_POOLS = {
+    "groq": KeyPool(parse_key_list(os.environ.get("GROQ_API_KEYS"), GROQ_API_KEY,
+                                   os.environ.get("GROQ_KEY_1"), os.environ.get("GROQ_KEY_2"),
+                                   os.environ.get("GROQ_KEY_3")), KEY_COOLDOWN_SEC),
+    "cerebras": KeyPool(parse_key_list(os.environ.get("CEREBRAS_API_KEYS"), CEREBRAS_API_KEY,
+                                        os.environ.get("CEREBRAS_KEY_1"), os.environ.get("CEREBRAS_KEY_2")), KEY_COOLDOWN_SEC),
+    "sambanova": KeyPool(parse_key_list(os.environ.get("SAMBANOVA_API_KEYS"), SAMBANOVA_API_KEY,
+                                         os.environ.get("SAMBANOVA_KEY_1"), os.environ.get("SAMBANOVA_KEY_2")), KEY_COOLDOWN_SEC),
+    "gemini": KeyPool(parse_key_list(os.environ.get("GEMINI_API_KEYS"), GEMINI_API_KEY,
+                                      os.environ.get("GEMINI_KEY_1"), os.environ.get("GEMINI_KEY_2")), KEY_COOLDOWN_SEC),
+}
 
 # ── Last-resort tier switch (DEFAULT ON) ─────────────────────────────────────
 # Controls the OpenAI / DeepSeek attempts that now run LAST in call_llm(),
@@ -599,17 +619,17 @@ async def call_llm(
                         }
                     except Exception as _e:
                         logger.warning(
-                            "LLM Gateway BYOK %s failed (%s): %s — falling through to platform chain",
+                            "LLM Gateway BYOK %s failed (%s): %s — falling through (staff: platform chain, non-staff: KB)",
                             _byok["provider"], persona_label, _e,
                         )
         except Exception as _e:
             logger.warning("LLM Gateway BYOK resolution failed (%s): %s", persona_label, _e)
 
     # ── User context lookup (for budget, KB fallback, and access control) ────
-    # All authenticated users may use platform-funded AI within their daily
-    # budget.  Staff (admin/executive_admin) are budget-exempt (unlimited).
-    # Non-staff users are budget-capped by role and feature_tier.  When the
-    # daily cap is exhausted, the user gets the KB fallback + BYOK option.
+    # Platform AI spend is governed by BUSINESS_ACCESS_POLICY §7A (owner
+    # decision, August 2026): platform-funded AI is reserved for
+    # admin / executive_admin staff ONLY.  The role is resolved here so the
+    # spend gate below can fail closed BEFORE any provider invocation.
     _access = None
     _user_role = ""
     _user_tier = ""
@@ -636,6 +656,23 @@ async def call_llm(
         except Exception:
             pass
 
+    # ── §7A platform-funding gate (owner policy, August 2026) ────────────────
+    # BUSINESS_ACCESS_POLICY.md §7A: "Platform-funded AI is reserved for
+    # admin / executive_admin staff ONLY.  Customers never receive
+    # platform-funded AI at any tier."  The BYOK branch above already let a
+    # customer spend THEIR OWN key; anything that reaches this point without a
+    # staff role must NEVER spend a platform token — it degrades to the
+    # zero-cost keyword knowledge base (with an honest BYOK upgrade prompt).
+    # A caller whose staff status cannot be verified is treated as non-staff
+    # (fail-closed): _user_role stays "" for anonymous / unverifiable callers.
+    _STAFF_AI_ROLES = ("admin", "executive_admin")
+    if _user_role not in _STAFF_AI_ROLES:
+        logger.info(
+            "LLM Gateway §7A: %s (%s) not platform-funded — KB fallback for %s",
+            _user_role or "anonymous", _user_tier or "-", persona_label,
+        )
+        return _kb_reply(messages, access=_access)
+
     # ── Per-user daily budget guard (platform-paid calls only) ──────────────
     # Prevents any single non-exec account from draining the platform API and
     # breaking AI features for everyone else. Users are NEVER cut off: on
@@ -657,15 +694,38 @@ async def call_llm(
             logger.warning("LLM Gateway: user budget check failed (%s): %s", persona_label, _be)
 
     # ── Tier 1c: Groq / Llama 3.3 70B (FREE — free chain begins) ─────────────
-    if GROQ_API_KEY:
+    _provider_calls = {
+        "groq": (GROQ_BASE, GROQ_MODEL, tools, False),
+        "cerebras": (CEREBRAS_BASE, CEREBRAS_MODEL, tools, False),
+        "sambanova": (SAMBANOVA_BASE, SAMBANOVA_MODEL, tools, False),
+        "gemini": (GEMINI_BASE, GEMINI_MODEL, None, True),
+    }
+
+    async def _rotated_oai(provider: str, base: str, provider_model: str, provider_tools, degraded: bool):
+        pool = _PROVIDER_KEY_POOLS[provider]
+        lease = await pool.acquire()
+        if not lease:
+            return None
         try:
             result = await _oai_compat_call(
-                base_url=GROQ_BASE, api_key=GROQ_API_KEY, model=GROQ_MODEL,
-                system=system, messages=messages, max_tokens=max_tokens, tools=tools,
+                base_url=base, api_key=lease.key, model=provider_model,
+                system=system, messages=messages, max_tokens=max_tokens, tools=provider_tools,
             )
-            return await _tier_result(user_id, budget_key, result, "groq", GROQ_MODEL, False, persona_label)
-        except Exception as e:
-            logger.warning("LLM Gateway T1a Groq failed (%s): %s", persona_label, e)
+            return await _tier_result(user_id, budget_key, result, provider, provider_model, degraded, persona_label)
+        except Exception as exc:
+            status = getattr(getattr(exc, "response", None), "status_code", None)
+            if status == 429:
+                await pool.mark_rate_limited(lease)
+            else:
+                await pool.mark_failed(lease, KEY_FAILURE_COOLDOWN_SEC)
+            logger.warning("LLM Gateway %s failed (%s, status=%s): %s", provider, persona_label, status, exc)
+            return None
+
+    for _provider in ("groq", "cerebras", "sambanova", "gemini"):
+        _base, _model, _tools, _degraded = _provider_calls[_provider]
+        _result = await _rotated_oai(_provider, _base, _model, _tools, _degraded)
+        if _result is not None:
+            return _result
 
     # ── Tier 1b: Cerebras / Llama 3.3 70B (FREE — co-primary) ───────────────
     if CEREBRAS_API_KEY:

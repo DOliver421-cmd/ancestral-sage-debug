@@ -1,0 +1,829 @@
+0 verbose cli C:\Program Files\nodejs\node.exe C:\Program Files\nodejs\node_modules\npm\bin\npm-cli.js
+1 info using npm@11.13.0
+2 info using node@v24.16.0
+3 silly config load:file:C:\Program Files\nodejs\node_modules\npm\npmrc
+4 silly config load:file:C:\Users\doliv\ancestral-sage-debug\frontend\.npmrc
+5 silly config load:file:C:\Users\doliv\.npmrc
+6 silly config load:file:C:\Users\doliv\AppData\Roaming\npm\etc\npmrc
+7 verbose title npm ci
+8 verbose argv "ci"
+9 verbose logfile logs-max:10 dir:C:\Users\doliv\ancestral-sage-debug\.npm-cache\_logs\2026-06-15T13_18_22_080Z-
+10 verbose logfile C:\Users\doliv\ancestral-sage-debug\.npm-cache\_logs\2026-06-15T13_18_22_080Z-debug-0.log
+11 silly logfile done cleaning log files
+12 silly packumentCache heap:2348810240 maxSize:587202560 maxEntrySize:293601280
+13 silly packumentCache heap:2348810240 maxSize:587202560 maxEntrySize:293601280
+14 silly idealTree buildDeps
+15 silly fetch manifest eslint@^6.0.0 || ^7.0.0 || ^8.0.0
+16 silly packumentCache full:https://registry.npmjs.org/eslint cache-miss
+17 http fetch GET 200 https://registry.npmjs.org/npm 1995ms
+18 http fetch GET 200 https://registry.npmjs.org/eslint 291ms (cache miss)
+19 silly packumentCache full:https://registry.npmjs.org/eslint set size:undefined disposed:false
+20 warn ERESOLVE overriding peer dependency {
+20 warn ERESOLVE   code: 'ERESOLVE',
+20 warn ERESOLVE   edge: {
+20 warn ERESOLVE     type: 'peer',
+20 warn ERESOLVE     name: 'eslint',
+20 warn ERESOLVE     spec: '^6.0.0 || ^7.0.0 || ^8.0.0',
+20 warn ERESOLVE     error: 'INVALID',
+20 warn ERESOLVE     from: {
+20 warn ERESOLVE       name: '@typescript-eslint/eslint-plugin',
+20 warn ERESOLVE       version: '5.62.0',
+20 warn ERESOLVE       location: 'node_modules/@typescript-eslint/eslint-plugin',
+20 warn ERESOLVE       isWorkspace: false,
+20 warn ERESOLVE       dependents: [Array]
+20 warn ERESOLVE     }
+20 warn ERESOLVE   },
+20 warn ERESOLVE   dep: {
+20 warn ERESOLVE     name: 'eslint',
+20 warn ERESOLVE     version: '8.57.1',
+20 warn ERESOLVE     whileInstalling: {
+20 warn ERESOLVE       name: '@typescript-eslint/eslint-plugin',
+20 warn ERESOLVE       version: '5.62.0',
+20 warn ERESOLVE       path: 'C:\\Users\\doliv\\ancestral-sage-debug\\frontend\\node_modules\\@typescript-eslint\\eslint-plugin'
+20 warn ERESOLVE     },
+20 warn ERESOLVE     location: 'node_modules/eslint',
+20 warn ERESOLVE     isWorkspace: false,
+20 warn ERESOLVE     dependents: [ [Object] ]
+20 warn ERESOLVE   },
+20 warn ERESOLVE   force: false,
+20 warn ERESOLVE   isMine: false,
+20 warn ERESOLVE   strictPeerDeps: false,
+20 warn ERESOLVE   current: {
+20 warn ERESOLVE     name: 'eslint',
+20 warn ERESOLVE     version: '9.23.0',
+20 warn ERESOLVE     location: 'node_modules/eslint',
+20 warn ERESOLVE     isWorkspace: false,
+20 warn ERESOLVE     dependents: [
+20 warn ERESOLVE       [Object], [Object],
+20 warn ERESOLVE       [Object], [Object],
+20 warn ERESOLVE       [Object], [Object],
+20 warn ERESOLVE       [Object], [Object],
+20 warn ERESOLVE       [Object]
+20 warn ERESOLVE     ]
+20 warn ERESOLVE   },
+20 warn ERESOLVE   peerConflict: {
+20 warn ERESOLVE     current: {
+20 warn ERESOLVE       name: 'eslint',
+20 warn ERESOLVE       version: '9.23.0',
+20 warn ERESOLVE       location: 'node_modules/eslint',
+20 warn ERESOLVE       isWorkspace: false,
+20 warn ERESOLVE       dependents: [Array]
+20 warn ERESOLVE     },
+20 warn ERESOLVE     peer: {
+20 warn ERESOLVE       name: 'eslint',
+20 warn ERESOLVE       version: '8.57.1',
+20 warn ERESOLVE       whileInstalling: [Object],
+20 warn ERESOLVE       location: 'node_modules/eslint',
+20 warn ERESOLVE       isWorkspace: false,
+20 warn ERESOLVE       dependents: [Array]
+20 warn ERESOLVE     }
+20 warn ERESOLVE   }
+20 warn ERESOLVE }
+21 warn ERESOLVE overriding peer dependency {
+21 warn ERESOLVE   code: 'ERESOLVE',
+21 warn ERESOLVE   edge: {
+21 warn ERESOLVE     type: 'peer',
+21 warn ERESOLVE     name: 'eslint',
+21 warn ERESOLVE     spec: '^6.0.0 || ^7.0.0 || ^8.0.0',
+21 warn ERESOLVE     error: 'INVALID',
+21 warn ERESOLVE     from: {
+21 warn ERESOLVE       name: '@typescript-eslint/experimental-utils',
+21 warn ERESOLVE       version: '5.62.0',
+21 warn ERESOLVE       location: 'node_modules/@typescript-eslint/experimental-utils',
+21 warn ERESOLVE       isWorkspace: false,
+21 warn ERESOLVE       dependents: [Array]
+21 warn ERESOLVE     }
+21 warn ERESOLVE   },
+21 warn ERESOLVE   dep: {
+21 warn ERESOLVE     name: 'eslint',
+21 warn ERESOLVE     version: '8.57.1',
+21 warn ERESOLVE     whileInstalling: {
+21 warn ERESOLVE       name: '@typescript-eslint/experimental-utils',
+21 warn ERESOLVE       version: '5.62.0',
+21 warn ERESOLVE       path: 'C:\\Users\\doliv\\ancestral-sage-debug\\frontend\\node_modules\\@typescript-eslint\\experimental-utils'
+21 warn ERESOLVE     },
+21 warn ERESOLVE     location: 'node_modules/eslint',
+21 warn ERESOLVE     isWorkspace: false,
+21 warn ERESOLVE     dependents: [ [Object] ]
+21 warn ERESOLVE   },
+21 warn ERESOLVE   force: false,
+21 warn ERESOLVE   isMine: false,
+21 warn ERESOLVE   strictPeerDeps: false,
+21 warn ERESOLVE   current: {
+21 warn ERESOLVE     name: 'eslint',
+21 warn ERESOLVE     version: '9.23.0',
+21 warn ERESOLVE     location: 'node_modules/eslint',
+21 warn ERESOLVE     isWorkspace: false,
+21 warn ERESOLVE     dependents: [
+21 warn ERESOLVE       [Object], [Object],
+21 warn ERESOLVE       [Object], [Object],
+21 warn ERESOLVE       [Object], [Object],
+21 warn ERESOLVE       [Object], [Object],
+21 warn ERESOLVE       [Object]
+21 warn ERESOLVE     ]
+21 warn ERESOLVE   },
+21 warn ERESOLVE   peerConflict: {
+21 warn ERESOLVE     current: {
+21 warn ERESOLVE       name: 'eslint',
+21 warn ERESOLVE       version: '9.23.0',
+21 warn ERESOLVE       location: 'node_modules/eslint',
+21 warn ERESOLVE       isWorkspace: false,
+21 warn ERESOLVE       dependents: [Array]
+21 warn ERESOLVE     },
+21 warn ERESOLVE     peer: {
+21 warn ERESOLVE       name: 'eslint',
+21 warn ERESOLVE       version: '8.57.1',
+21 warn ERESOLVE       whileInstalling: [Object],
+21 warn ERESOLVE       location: 'node_modules/eslint',
+21 warn ERESOLVE       isWorkspace: false,
+21 warn ERESOLVE       dependents: [Array]
+21 warn ERESOLVE     }
+21 warn ERESOLVE   }
+21 warn ERESOLVE }
+22 warn ERESOLVE overriding peer dependency {
+22 warn ERESOLVE   code: 'ERESOLVE',
+22 warn ERESOLVE   edge: {
+22 warn ERESOLVE     type: 'peer',
+22 warn ERESOLVE     name: 'eslint',
+22 warn ERESOLVE     spec: '^6.0.0 || ^7.0.0 || ^8.0.0',
+22 warn ERESOLVE     error: 'INVALID',
+22 warn ERESOLVE     from: {
+22 warn ERESOLVE       name: '@typescript-eslint/parser',
+22 warn ERESOLVE       version: '5.62.0',
+22 warn ERESOLVE       location: 'node_modules/@typescript-eslint/parser',
+22 warn ERESOLVE       isWorkspace: false,
+22 warn ERESOLVE       dependents: [Array]
+22 warn ERESOLVE     }
+22 warn ERESOLVE   },
+22 warn ERESOLVE   dep: {
+22 warn ERESOLVE     name: 'eslint',
+22 warn ERESOLVE     version: '8.57.1',
+22 warn ERESOLVE     whileInstalling: {
+22 warn ERESOLVE       name: '@typescript-eslint/parser',
+22 warn ERESOLVE       version: '5.62.0',
+22 warn ERESOLVE       path: 'C:\\Users\\doliv\\ancestral-sage-debug\\frontend\\node_modules\\@typescript-eslint\\parser'
+22 warn ERESOLVE     },
+22 warn ERESOLVE     location: 'node_modules/eslint',
+22 warn ERESOLVE     isWorkspace: false,
+22 warn ERESOLVE     dependents: [ [Object] ]
+22 warn ERESOLVE   },
+22 warn ERESOLVE   force: false,
+22 warn ERESOLVE   isMine: false,
+22 warn ERESOLVE   strictPeerDeps: false,
+22 warn ERESOLVE   current: {
+22 warn ERESOLVE     name: 'eslint',
+22 warn ERESOLVE     version: '9.23.0',
+22 warn ERESOLVE     location: 'node_modules/eslint',
+22 warn ERESOLVE     isWorkspace: false,
+22 warn ERESOLVE     dependents: [
+22 warn ERESOLVE       [Object], [Object],
+22 warn ERESOLVE       [Object], [Object],
+22 warn ERESOLVE       [Object], [Object],
+22 warn ERESOLVE       [Object], [Object],
+22 warn ERESOLVE       [Object]
+22 warn ERESOLVE     ]
+22 warn ERESOLVE   },
+22 warn ERESOLVE   peerConflict: {
+22 warn ERESOLVE     current: {
+22 warn ERESOLVE       name: 'eslint',
+22 warn ERESOLVE       version: '9.23.0',
+22 warn ERESOLVE       location: 'node_modules/eslint',
+22 warn ERESOLVE       isWorkspace: false,
+22 warn ERESOLVE       dependents: [Array]
+22 warn ERESOLVE     },
+22 warn ERESOLVE     peer: {
+22 warn ERESOLVE       name: 'eslint',
+22 warn ERESOLVE       version: '8.57.1',
+22 warn ERESOLVE       whileInstalling: [Object],
+22 warn ERESOLVE       location: 'node_modules/eslint',
+22 warn ERESOLVE       isWorkspace: false,
+22 warn ERESOLVE       dependents: [Array]
+22 warn ERESOLVE     }
+22 warn ERESOLVE   }
+22 warn ERESOLVE }
+23 warn ERESOLVE overriding peer dependency {
+23 warn ERESOLVE   code: 'ERESOLVE',
+23 warn ERESOLVE   edge: {
+23 warn ERESOLVE     type: 'peer',
+23 warn ERESOLVE     name: 'eslint',
+23 warn ERESOLVE     spec: '^6.0.0 || ^7.0.0 || ^8.0.0',
+23 warn ERESOLVE     error: 'INVALID',
+23 warn ERESOLVE     from: {
+23 warn ERESOLVE       name: '@typescript-eslint/utils',
+23 warn ERESOLVE       version: '5.62.0',
+23 warn ERESOLVE       location: 'node_modules/@typescript-eslint/utils',
+23 warn ERESOLVE       isWorkspace: false,
+23 warn ERESOLVE       dependents: [Array]
+23 warn ERESOLVE     }
+23 warn ERESOLVE   },
+23 warn ERESOLVE   dep: {
+23 warn ERESOLVE     name: 'eslint',
+23 warn ERESOLVE     version: '8.57.1',
+23 warn ERESOLVE     whileInstalling: {
+23 warn ERESOLVE       name: '@typescript-eslint/utils',
+23 warn ERESOLVE       version: '5.62.0',
+23 warn ERESOLVE       path: 'C:\\Users\\doliv\\ancestral-sage-debug\\frontend\\node_modules\\@typescript-eslint\\utils'
+23 warn ERESOLVE     },
+23 warn ERESOLVE     location: 'node_modules/eslint',
+23 warn ERESOLVE     isWorkspace: false,
+23 warn ERESOLVE     dependents: [ [Object] ]
+23 warn ERESOLVE   },
+23 warn ERESOLVE   force: false,
+23 warn ERESOLVE   isMine: false,
+23 warn ERESOLVE   strictPeerDeps: false,
+23 warn ERESOLVE   current: {
+23 warn ERESOLVE     name: 'eslint',
+23 warn ERESOLVE     version: '9.23.0',
+23 warn ERESOLVE     location: 'node_modules/eslint',
+23 warn ERESOLVE     isWorkspace: false,
+23 warn ERESOLVE     dependents: [
+23 warn ERESOLVE       [Object], [Object],
+23 warn ERESOLVE       [Object], [Object],
+23 warn ERESOLVE       [Object], [Object],
+23 warn ERESOLVE       [Object], [Object],
+23 warn ERESOLVE       [Object]
+23 warn ERESOLVE     ]
+23 warn ERESOLVE   },
+23 warn ERESOLVE   peerConflict: {
+23 warn ERESOLVE     current: {
+23 warn ERESOLVE       name: 'eslint',
+23 warn ERESOLVE       version: '9.23.0',
+23 warn ERESOLVE       location: 'node_modules/eslint',
+23 warn ERESOLVE       isWorkspace: false,
+23 warn ERESOLVE       dependents: [Array]
+23 warn ERESOLVE     },
+23 warn ERESOLVE     peer: {
+23 warn ERESOLVE       name: 'eslint',
+23 warn ERESOLVE       version: '8.57.1',
+23 warn ERESOLVE       whileInstalling: [Object],
+23 warn ERESOLVE       location: 'node_modules/eslint',
+23 warn ERESOLVE       isWorkspace: false,
+23 warn ERESOLVE       dependents: [Array]
+23 warn ERESOLVE     }
+23 warn ERESOLVE   }
+23 warn ERESOLVE }
+24 silly fetch manifest ajv@^8.8.2
+25 silly packumentCache full:https://registry.npmjs.org/ajv cache-miss
+26 http fetch GET 200 https://registry.npmjs.org/ajv 95ms (cache miss)
+27 silly packumentCache full:https://registry.npmjs.org/ajv set size:undefined disposed:false
+28 silly placeDep ROOT ajv@8.20.0 REPLACE for: ajv-keywords@5.1.0 want: ^8.8.2
+29 silly fetch manifest typescript@>=3
+30 silly packumentCache full:https://registry.npmjs.org/typescript cache-miss
+31 http fetch GET 200 https://registry.npmjs.org/typescript 337ms (cache miss)
+32 silly packumentCache full:https://registry.npmjs.org/typescript set size:undefined disposed:false
+33 silly placeDep ROOT typescript@6.0.3 OK for: cosmiconfig-typescript-loader@1.0.9 want: >=3
+34 silly fetch manifest eslint@^8.0.0
+35 silly packumentCache full:https://registry.npmjs.org/eslint cache-miss
+36 http cache https://registry.npmjs.org/eslint 20ms (cache hit)
+37 silly packumentCache full:https://registry.npmjs.org/eslint set size:2011545 disposed:false
+38 warn ERESOLVE overriding peer dependency {
+38 warn ERESOLVE   code: 'ERESOLVE',
+38 warn ERESOLVE   edge: {
+38 warn ERESOLVE     type: 'peer',
+38 warn ERESOLVE     name: 'eslint',
+38 warn ERESOLVE     spec: '^8.0.0',
+38 warn ERESOLVE     error: 'INVALID',
+38 warn ERESOLVE     from: {
+38 warn ERESOLVE       name: 'eslint-config-react-app',
+38 warn ERESOLVE       version: '7.0.1',
+38 warn ERESOLVE       location: 'node_modules/eslint-config-react-app',
+38 warn ERESOLVE       isWorkspace: false,
+38 warn ERESOLVE       dependents: [Array]
+38 warn ERESOLVE     }
+38 warn ERESOLVE   },
+38 warn ERESOLVE   dep: {
+38 warn ERESOLVE     name: 'eslint',
+38 warn ERESOLVE     version: '8.57.1',
+38 warn ERESOLVE     whileInstalling: {
+38 warn ERESOLVE       name: 'eslint-config-react-app',
+38 warn ERESOLVE       version: '7.0.1',
+38 warn ERESOLVE       path: 'C:\\Users\\doliv\\ancestral-sage-debug\\frontend\\node_modules\\eslint-config-react-app'
+38 warn ERESOLVE     },
+38 warn ERESOLVE     location: 'node_modules/eslint',
+38 warn ERESOLVE     isWorkspace: false,
+38 warn ERESOLVE     dependents: [ [Object] ]
+38 warn ERESOLVE   },
+38 warn ERESOLVE   force: false,
+38 warn ERESOLVE   isMine: false,
+38 warn ERESOLVE   strictPeerDeps: false,
+38 warn ERESOLVE   current: {
+38 warn ERESOLVE     name: 'eslint',
+38 warn ERESOLVE     version: '9.23.0',
+38 warn ERESOLVE     location: 'node_modules/eslint',
+38 warn ERESOLVE     isWorkspace: false,
+38 warn ERESOLVE     dependents: [
+38 warn ERESOLVE       [Object], [Object],
+38 warn ERESOLVE       [Object], [Object],
+38 warn ERESOLVE       [Object], [Object],
+38 warn ERESOLVE       [Object], [Object],
+38 warn ERESOLVE       [Object]
+38 warn ERESOLVE     ]
+38 warn ERESOLVE   },
+38 warn ERESOLVE   peerConflict: {
+38 warn ERESOLVE     current: {
+38 warn ERESOLVE       name: 'eslint',
+38 warn ERESOLVE       version: '9.23.0',
+38 warn ERESOLVE       location: 'node_modules/eslint',
+38 warn ERESOLVE       isWorkspace: false,
+38 warn ERESOLVE       dependents: [Array]
+38 warn ERESOLVE     },
+38 warn ERESOLVE     peer: {
+38 warn ERESOLVE       name: 'eslint',
+38 warn ERESOLVE       version: '8.57.1',
+38 warn ERESOLVE       whileInstalling: [Object],
+38 warn ERESOLVE       location: 'node_modules/eslint',
+38 warn ERESOLVE       isWorkspace: false,
+38 warn ERESOLVE       dependents: [Array]
+38 warn ERESOLVE     }
+38 warn ERESOLVE   }
+38 warn ERESOLVE }
+39 silly fetch manifest eslint@^8.1.0
+40 silly packumentCache full:https://registry.npmjs.org/eslint cache-miss
+41 http cache https://registry.npmjs.org/eslint 28ms (cache hit)
+42 silly packumentCache full:https://registry.npmjs.org/eslint set size:2011545 disposed:false
+43 warn ERESOLVE overriding peer dependency {
+43 warn ERESOLVE   code: 'ERESOLVE',
+43 warn ERESOLVE   edge: {
+43 warn ERESOLVE     type: 'peer',
+43 warn ERESOLVE     name: 'eslint',
+43 warn ERESOLVE     spec: '^8.1.0',
+43 warn ERESOLVE     error: 'INVALID',
+43 warn ERESOLVE     from: {
+43 warn ERESOLVE       name: 'eslint-plugin-flowtype',
+43 warn ERESOLVE       version: '8.0.3',
+43 warn ERESOLVE       location: 'node_modules/eslint-plugin-flowtype',
+43 warn ERESOLVE       isWorkspace: false,
+43 warn ERESOLVE       dependents: [Array]
+43 warn ERESOLVE     }
+43 warn ERESOLVE   },
+43 warn ERESOLVE   dep: {
+43 warn ERESOLVE     name: 'eslint',
+43 warn ERESOLVE     version: '8.57.1',
+43 warn ERESOLVE     whileInstalling: {
+43 warn ERESOLVE       name: 'eslint-plugin-flowtype',
+43 warn ERESOLVE       version: '8.0.3',
+43 warn ERESOLVE       path: 'C:\\Users\\doliv\\ancestral-sage-debug\\frontend\\node_modules\\eslint-plugin-flowtype'
+43 warn ERESOLVE     },
+43 warn ERESOLVE     location: 'node_modules/eslint',
+43 warn ERESOLVE     isWorkspace: false,
+43 warn ERESOLVE     dependents: [ [Object] ]
+43 warn ERESOLVE   },
+43 warn ERESOLVE   force: false,
+43 warn ERESOLVE   isMine: false,
+43 warn ERESOLVE   strictPeerDeps: false,
+43 warn ERESOLVE   current: {
+43 warn ERESOLVE     name: 'eslint',
+43 warn ERESOLVE     version: '9.23.0',
+43 warn ERESOLVE     location: 'node_modules/eslint',
+43 warn ERESOLVE     isWorkspace: false,
+43 warn ERESOLVE     dependents: [
+43 warn ERESOLVE       [Object], [Object],
+43 warn ERESOLVE       [Object], [Object],
+43 warn ERESOLVE       [Object], [Object],
+43 warn ERESOLVE       [Object], [Object],
+43 warn ERESOLVE       [Object]
+43 warn ERESOLVE     ]
+43 warn ERESOLVE   },
+43 warn ERESOLVE   peerConflict: {
+43 warn ERESOLVE     current: {
+43 warn ERESOLVE       name: 'eslint',
+43 warn ERESOLVE       version: '9.23.0',
+43 warn ERESOLVE       location: 'node_modules/eslint',
+43 warn ERESOLVE       isWorkspace: false,
+43 warn ERESOLVE       dependents: [Array]
+43 warn ERESOLVE     },
+43 warn ERESOLVE     peer: {
+43 warn ERESOLVE       name: 'eslint',
+43 warn ERESOLVE       version: '8.57.1',
+43 warn ERESOLVE       whileInstalling: [Object],
+43 warn ERESOLVE       location: 'node_modules/eslint',
+43 warn ERESOLVE       isWorkspace: false,
+43 warn ERESOLVE       dependents: [Array]
+43 warn ERESOLVE     }
+43 warn ERESOLVE   }
+43 warn ERESOLVE }
+44 warn ERESOLVE overriding peer dependency {
+44 warn ERESOLVE   code: 'ERESOLVE',
+44 warn ERESOLVE   edge: {
+44 warn ERESOLVE     type: 'peer',
+44 warn ERESOLVE     name: 'eslint',
+44 warn ERESOLVE     spec: '^6.0.0 || ^7.0.0 || ^8.0.0',
+44 warn ERESOLVE     error: 'INVALID',
+44 warn ERESOLVE     from: {
+44 warn ERESOLVE       name: 'eslint-plugin-jest',
+44 warn ERESOLVE       version: '25.7.0',
+44 warn ERESOLVE       location: 'node_modules/eslint-plugin-jest',
+44 warn ERESOLVE       isWorkspace: false,
+44 warn ERESOLVE       dependents: [Array]
+44 warn ERESOLVE     }
+44 warn ERESOLVE   },
+44 warn ERESOLVE   dep: {
+44 warn ERESOLVE     name: 'eslint',
+44 warn ERESOLVE     version: '8.57.1',
+44 warn ERESOLVE     whileInstalling: {
+44 warn ERESOLVE       name: 'eslint-plugin-jest',
+44 warn ERESOLVE       version: '25.7.0',
+44 warn ERESOLVE       path: 'C:\\Users\\doliv\\ancestral-sage-debug\\frontend\\node_modules\\eslint-plugin-jest'
+44 warn ERESOLVE     },
+44 warn ERESOLVE     location: 'node_modules/eslint',
+44 warn ERESOLVE     isWorkspace: false,
+44 warn ERESOLVE     dependents: [ [Object] ]
+44 warn ERESOLVE   },
+44 warn ERESOLVE   force: false,
+44 warn ERESOLVE   isMine: false,
+44 warn ERESOLVE   strictPeerDeps: false,
+44 warn ERESOLVE   current: {
+44 warn ERESOLVE     name: 'eslint',
+44 warn ERESOLVE     version: '9.23.0',
+44 warn ERESOLVE     location: 'node_modules/eslint',
+44 warn ERESOLVE     isWorkspace: false,
+44 warn ERESOLVE     dependents: [
+44 warn ERESOLVE       [Object], [Object],
+44 warn ERESOLVE       [Object], [Object],
+44 warn ERESOLVE       [Object], [Object],
+44 warn ERESOLVE       [Object], [Object],
+44 warn ERESOLVE       [Object]
+44 warn ERESOLVE     ]
+44 warn ERESOLVE   },
+44 warn ERESOLVE   peerConflict: {
+44 warn ERESOLVE     current: {
+44 warn ERESOLVE       name: 'eslint',
+44 warn ERESOLVE       version: '9.23.0',
+44 warn ERESOLVE       location: 'node_modules/eslint',
+44 warn ERESOLVE       isWorkspace: false,
+44 warn ERESOLVE       dependents: [Array]
+44 warn ERESOLVE     },
+44 warn ERESOLVE     peer: {
+44 warn ERESOLVE       name: 'eslint',
+44 warn ERESOLVE       version: '8.57.1',
+44 warn ERESOLVE       whileInstalling: [Object],
+44 warn ERESOLVE       location: 'node_modules/eslint',
+44 warn ERESOLVE       isWorkspace: false,
+44 warn ERESOLVE       dependents: [Array]
+44 warn ERESOLVE     }
+44 warn ERESOLVE   }
+44 warn ERESOLVE }
+45 silly fetch manifest eslint@^7.5.0 || ^8.0.0
+46 silly packumentCache full:https://registry.npmjs.org/eslint cache-miss
+47 http cache https://registry.npmjs.org/eslint 13ms (cache hit)
+48 silly packumentCache full:https://registry.npmjs.org/eslint set size:2011545 disposed:false
+49 warn ERESOLVE overriding peer dependency {
+49 warn ERESOLVE   code: 'ERESOLVE',
+49 warn ERESOLVE   edge: {
+49 warn ERESOLVE     type: 'peer',
+49 warn ERESOLVE     name: 'eslint',
+49 warn ERESOLVE     spec: '^7.5.0 || ^8.0.0',
+49 warn ERESOLVE     error: 'INVALID',
+49 warn ERESOLVE     from: {
+49 warn ERESOLVE       name: 'eslint-plugin-testing-library',
+49 warn ERESOLVE       version: '5.11.1',
+49 warn ERESOLVE       location: 'node_modules/eslint-plugin-testing-library',
+49 warn ERESOLVE       isWorkspace: false,
+49 warn ERESOLVE       dependents: [Array]
+49 warn ERESOLVE     }
+49 warn ERESOLVE   },
+49 warn ERESOLVE   dep: {
+49 warn ERESOLVE     name: 'eslint',
+49 warn ERESOLVE     version: '8.57.1',
+49 warn ERESOLVE     whileInstalling: {
+49 warn ERESOLVE       name: 'eslint-plugin-testing-library',
+49 warn ERESOLVE       version: '5.11.1',
+49 warn ERESOLVE       path: 'C:\\Users\\doliv\\ancestral-sage-debug\\frontend\\node_modules\\eslint-plugin-testing-library'
+49 warn ERESOLVE     },
+49 warn ERESOLVE     location: 'node_modules/eslint',
+49 warn ERESOLVE     isWorkspace: false,
+49 warn ERESOLVE     dependents: [ [Object] ]
+49 warn ERESOLVE   },
+49 warn ERESOLVE   force: false,
+49 warn ERESOLVE   isMine: false,
+49 warn ERESOLVE   strictPeerDeps: false,
+49 warn ERESOLVE   current: {
+49 warn ERESOLVE     name: 'eslint',
+49 warn ERESOLVE     version: '9.23.0',
+49 warn ERESOLVE     location: 'node_modules/eslint',
+49 warn ERESOLVE     isWorkspace: false,
+49 warn ERESOLVE     dependents: [
+49 warn ERESOLVE       [Object], [Object],
+49 warn ERESOLVE       [Object], [Object],
+49 warn ERESOLVE       [Object], [Object],
+49 warn ERESOLVE       [Object], [Object],
+49 warn ERESOLVE       [Object]
+49 warn ERESOLVE     ]
+49 warn ERESOLVE   },
+49 warn ERESOLVE   peerConflict: {
+49 warn ERESOLVE     current: {
+49 warn ERESOLVE       name: 'eslint',
+49 warn ERESOLVE       version: '9.23.0',
+49 warn ERESOLVE       location: 'node_modules/eslint',
+49 warn ERESOLVE       isWorkspace: false,
+49 warn ERESOLVE       dependents: [Array]
+49 warn ERESOLVE     },
+49 warn ERESOLVE     peer: {
+49 warn ERESOLVE       name: 'eslint',
+49 warn ERESOLVE       version: '8.57.1',
+49 warn ERESOLVE       whileInstalling: [Object],
+49 warn ERESOLVE       location: 'node_modules/eslint',
+49 warn ERESOLVE       isWorkspace: false,
+49 warn ERESOLVE       dependents: [Array]
+49 warn ERESOLVE     }
+49 warn ERESOLVE   }
+49 warn ERESOLVE }
+50 silly fetch manifest eslint@^7.0.0 || ^8.0.0
+51 silly packumentCache full:https://registry.npmjs.org/eslint cache-miss
+52 http cache https://registry.npmjs.org/eslint 26ms (cache hit)
+53 silly packumentCache full:https://registry.npmjs.org/eslint set size:2011545 disposed:false
+54 warn ERESOLVE overriding peer dependency {
+54 warn ERESOLVE   code: 'ERESOLVE',
+54 warn ERESOLVE   edge: {
+54 warn ERESOLVE     type: 'peer',
+54 warn ERESOLVE     name: 'eslint',
+54 warn ERESOLVE     spec: '^7.0.0 || ^8.0.0',
+54 warn ERESOLVE     error: 'INVALID',
+54 warn ERESOLVE     from: {
+54 warn ERESOLVE       name: 'eslint-webpack-plugin',
+54 warn ERESOLVE       version: '3.2.0',
+54 warn ERESOLVE       location: 'node_modules/eslint-webpack-plugin',
+54 warn ERESOLVE       isWorkspace: false,
+54 warn ERESOLVE       dependents: [Array]
+54 warn ERESOLVE     }
+54 warn ERESOLVE   },
+54 warn ERESOLVE   dep: {
+54 warn ERESOLVE     name: 'eslint',
+54 warn ERESOLVE     version: '8.57.1',
+54 warn ERESOLVE     whileInstalling: {
+54 warn ERESOLVE       name: 'eslint-webpack-plugin',
+54 warn ERESOLVE       version: '3.2.0',
+54 warn ERESOLVE       path: 'C:\\Users\\doliv\\ancestral-sage-debug\\frontend\\node_modules\\eslint-webpack-plugin'
+54 warn ERESOLVE     },
+54 warn ERESOLVE     location: 'node_modules/eslint',
+54 warn ERESOLVE     isWorkspace: false,
+54 warn ERESOLVE     dependents: [ [Object] ]
+54 warn ERESOLVE   },
+54 warn ERESOLVE   force: false,
+54 warn ERESOLVE   isMine: false,
+54 warn ERESOLVE   strictPeerDeps: false,
+54 warn ERESOLVE   current: {
+54 warn ERESOLVE     name: 'eslint',
+54 warn ERESOLVE     version: '9.23.0',
+54 warn ERESOLVE     location: 'node_modules/eslint',
+54 warn ERESOLVE     isWorkspace: false,
+54 warn ERESOLVE     dependents: [
+54 warn ERESOLVE       [Object], [Object],
+54 warn ERESOLVE       [Object], [Object],
+54 warn ERESOLVE       [Object], [Object],
+54 warn ERESOLVE       [Object], [Object],
+54 warn ERESOLVE       [Object]
+54 warn ERESOLVE     ]
+54 warn ERESOLVE   },
+54 warn ERESOLVE   peerConflict: {
+54 warn ERESOLVE     current: {
+54 warn ERESOLVE       name: 'eslint',
+54 warn ERESOLVE       version: '9.23.0',
+54 warn ERESOLVE       location: 'node_modules/eslint',
+54 warn ERESOLVE       isWorkspace: false,
+54 warn ERESOLVE       dependents: [Array]
+54 warn ERESOLVE     },
+54 warn ERESOLVE     peer: {
+54 warn ERESOLVE       name: 'eslint',
+54 warn ERESOLVE       version: '8.57.1',
+54 warn ERESOLVE       whileInstalling: [Object],
+54 warn ERESOLVE       location: 'node_modules/eslint',
+54 warn ERESOLVE       isWorkspace: false,
+54 warn ERESOLVE       dependents: [Array]
+54 warn ERESOLVE     }
+54 warn ERESOLVE   }
+54 warn ERESOLVE }
+55 silly fetch manifest eslint@^3.0.0 || ^4.0.0 || ^5.0.0 || ^6.0.0 || ^7.0.0 || ^8.0.0-0
+56 silly packumentCache full:https://registry.npmjs.org/eslint cache-miss
+57 http cache https://registry.npmjs.org/eslint 21ms (cache hit)
+58 silly packumentCache full:https://registry.npmjs.org/eslint set size:2011545 disposed:false
+59 warn ERESOLVE overriding peer dependency {
+59 warn ERESOLVE   code: 'ERESOLVE',
+59 warn ERESOLVE   edge: {
+59 warn ERESOLVE     type: 'peer',
+59 warn ERESOLVE     name: 'eslint',
+59 warn ERESOLVE     spec: '^3.0.0 || ^4.0.0 || ^5.0.0 || ^6.0.0 || ^7.0.0 || ^8.0.0-0',
+59 warn ERESOLVE     error: 'INVALID',
+59 warn ERESOLVE     from: {
+59 warn ERESOLVE       name: 'eslint-plugin-react-hooks',
+59 warn ERESOLVE       version: '4.6.2',
+59 warn ERESOLVE       location: 'node_modules/eslint-config-react-app/node_modules/eslint-plugin-react-hooks',
+59 warn ERESOLVE       isWorkspace: false,
+59 warn ERESOLVE       dependents: [Array]
+59 warn ERESOLVE     }
+59 warn ERESOLVE   },
+59 warn ERESOLVE   dep: {
+59 warn ERESOLVE     name: 'eslint',
+59 warn ERESOLVE     version: '8.57.1',
+59 warn ERESOLVE     whileInstalling: {
+59 warn ERESOLVE       name: 'eslint-plugin-react-hooks',
+59 warn ERESOLVE       version: '4.6.2',
+59 warn ERESOLVE       path: 'C:\\Users\\doliv\\ancestral-sage-debug\\frontend\\node_modules\\eslint-config-react-app\\node_modules\\eslint-plugin-react-hooks'
+59 warn ERESOLVE     },
+59 warn ERESOLVE     location: 'node_modules/eslint',
+59 warn ERESOLVE     isWorkspace: false,
+59 warn ERESOLVE     dependents: [ [Object] ]
+59 warn ERESOLVE   },
+59 warn ERESOLVE   force: false,
+59 warn ERESOLVE   isMine: false,
+59 warn ERESOLVE   strictPeerDeps: false,
+59 warn ERESOLVE   current: {
+59 warn ERESOLVE     name: 'eslint',
+59 warn ERESOLVE     version: '9.23.0',
+59 warn ERESOLVE     location: 'node_modules/eslint',
+59 warn ERESOLVE     isWorkspace: false,
+59 warn ERESOLVE     dependents: [
+59 warn ERESOLVE       [Object], [Object],
+59 warn ERESOLVE       [Object], [Object],
+59 warn ERESOLVE       [Object], [Object],
+59 warn ERESOLVE       [Object], [Object],
+59 warn ERESOLVE       [Object]
+59 warn ERESOLVE     ]
+59 warn ERESOLVE   },
+59 warn ERESOLVE   peerConflict: {
+59 warn ERESOLVE     current: {
+59 warn ERESOLVE       name: 'eslint',
+59 warn ERESOLVE       version: '9.23.0',
+59 warn ERESOLVE       location: 'node_modules/eslint',
+59 warn ERESOLVE       isWorkspace: false,
+59 warn ERESOLVE       dependents: [Array]
+59 warn ERESOLVE     },
+59 warn ERESOLVE     peer: {
+59 warn ERESOLVE       name: 'eslint',
+59 warn ERESOLVE       version: '8.57.1',
+59 warn ERESOLVE       whileInstalling: [Object],
+59 warn ERESOLVE       location: 'node_modules/eslint',
+59 warn ERESOLVE       isWorkspace: false,
+59 warn ERESOLVE       dependents: [Array]
+59 warn ERESOLVE     }
+59 warn ERESOLVE   }
+59 warn ERESOLVE }
+60 verbose stack Error: 
+60 verbose stack `npm ci` can only install packages when your package.json and package-lock.json or npm-shrinkwrap.json are in sync. Please update your lock file with `npm install` before continuing.
+60 verbose stack
+60 verbose stack Invalid: lock file's ajv@8.0.0 does not satisfy ajv@8.20.0
+60 verbose stack Missing: typescript@6.0.3 from lock file
+60 verbose stack
+60 verbose stack Clean install a project
+60 verbose stack
+60 verbose stack Usage:
+60 verbose stack npm ci
+60 verbose stack
+60 verbose stack Options:
+60 verbose stack [--install-strategy <hoisted|nested|shallow|linked>] [--legacy-bundling]
+60 verbose stack [--global-style] [--omit <dev|optional|peer> [--omit <dev|optional|peer> ...]]
+60 verbose stack [--include <prod|dev|optional|peer> [--include <prod|dev|optional|peer> ...]]
+60 verbose stack [--strict-peer-deps] [--foreground-scripts] [--ignore-scripts]
+60 verbose stack [--allow-git <all|none|root>] [--no-audit] [--no-bin-links] [--no-fund]
+60 verbose stack [--dry-run]
+60 verbose stack [-w|--workspace <workspace-name> [-w|--workspace <workspace-name> ...]]
+60 verbose stack [--workspaces] [--include-workspace-root] [--install-links]
+60 verbose stack
+60 verbose stack   --install-strategy
+60 verbose stack     Sets the strategy for installing packages in node_modules.
+60 verbose stack
+60 verbose stack   --legacy-bundling
+60 verbose stack     Instead of hoisting package installs in `node_modules`, install packages
+60 verbose stack
+60 verbose stack   --global-style
+60 verbose stack     Only install direct dependencies in the top level `node_modules`,
+60 verbose stack
+60 verbose stack   --omit
+60 verbose stack     Dependency types to omit from the installation tree on disk.
+60 verbose stack
+60 verbose stack   --include
+60 verbose stack     Option that allows for defining which types of dependencies to install.
+60 verbose stack
+60 verbose stack   --strict-peer-deps
+60 verbose stack     If set to `true`, and `--legacy-peer-deps` is not set, then _any_
+60 verbose stack
+60 verbose stack   --foreground-scripts
+60 verbose stack     Run all build scripts (ie, `preinstall`, `install`, and
+60 verbose stack
+60 verbose stack   --ignore-scripts
+60 verbose stack     If true, npm does not run scripts specified in package.json files.
+60 verbose stack
+60 verbose stack   --allow-git
+60 verbose stack     Limits the ability for npm to fetch dependencies from git references.
+60 verbose stack
+60 verbose stack   --audit
+60 verbose stack     When "true" submit audit reports alongside the current npm command to the
+60 verbose stack
+60 verbose stack   --bin-links
+60 verbose stack     Tells npm to create symlinks (or `.cmd` shims on Windows) for package
+60 verbose stack
+60 verbose stack   --fund
+60 verbose stack     When "true" displays the message at the end of each `npm install`
+60 verbose stack
+60 verbose stack   --dry-run
+60 verbose stack     Indicates that you don't want npm to make any changes and that it should
+60 verbose stack
+60 verbose stack   -w|--workspace
+60 verbose stack     Enable running a command in the context of the configured workspaces of the
+60 verbose stack
+60 verbose stack   --workspaces
+60 verbose stack     Set to true to run the command in the context of **all** configured
+60 verbose stack
+60 verbose stack   --include-workspace-root
+60 verbose stack     Include the workspace root when workspaces are enabled for a command.
+60 verbose stack
+60 verbose stack   --install-links
+60 verbose stack     When set file: protocol dependencies will be packed and installed as
+60 verbose stack
+60 verbose stack
+60 verbose stack aliases: clean-install, ic, install-clean, isntall-clean
+60 verbose stack
+60 verbose stack Run "npm help ci" for more info
+60 verbose stack     at CI.usageError (C:\Program Files\nodejs\node_modules\npm\lib\base-cmd.js:177:26)
+60 verbose stack     at CI.exec (C:\Program Files\nodejs\node_modules\npm\lib\commands\ci.js:73:18)
+60 verbose stack     at async Npm.exec (C:\Program Files\nodejs\node_modules\npm\lib\npm.js:193:9)
+60 verbose stack     at async module.exports (C:\Program Files\nodejs\node_modules\npm\lib\cli\entry.js:67:5)
+61 error code EUSAGE
+62 error
+62 error `npm ci` can only install packages when your package.json and package-lock.json or npm-shrinkwrap.json are in sync. Please update your lock file with `npm install` before continuing.
+62 error
+62 error Invalid: lock file's ajv@8.0.0 does not satisfy ajv@8.20.0
+62 error Missing: typescript@6.0.3 from lock file
+62 error
+62 error Clean install a project
+62 error
+62 error Usage:
+62 error npm ci
+62 error
+62 error Options:
+62 error [--install-strategy <hoisted|nested|shallow|linked>] [--legacy-bundling]
+62 error [--global-style] [--omit <dev|optional|peer> [--omit <dev|optional|peer> ...]]
+62 error [--include <prod|dev|optional|peer> [--include <prod|dev|optional|peer> ...]]
+62 error [--strict-peer-deps] [--foreground-scripts] [--ignore-scripts]
+62 error [--allow-git <all|none|root>] [--no-audit] [--no-bin-links] [--no-fund]
+62 error [--dry-run]
+62 error [-w|--workspace <workspace-name> [-w|--workspace <workspace-name> ...]]
+62 error [--workspaces] [--include-workspace-root] [--install-links]
+62 error
+62 error   --install-strategy
+62 error     Sets the strategy for installing packages in node_modules.
+62 error
+62 error   --legacy-bundling
+62 error     Instead of hoisting package installs in `node_modules`, install packages
+62 error
+62 error   --global-style
+62 error     Only install direct dependencies in the top level `node_modules`,
+62 error
+62 error   --omit
+62 error     Dependency types to omit from the installation tree on disk.
+62 error
+62 error   --include
+62 error     Option that allows for defining which types of dependencies to install.
+62 error
+62 error   --strict-peer-deps
+62 error     If set to `true`, and `--legacy-peer-deps` is not set, then _any_
+62 error
+62 error   --foreground-scripts
+62 error     Run all build scripts (ie, `preinstall`, `install`, and
+62 error
+62 error   --ignore-scripts
+62 error     If true, npm does not run scripts specified in package.json files.
+62 error
+62 error   --allow-git
+62 error     Limits the ability for npm to fetch dependencies from git references.
+62 error
+62 error   --audit
+62 error     When "true" submit audit reports alongside the current npm command to the
+62 error
+62 error   --bin-links
+62 error     Tells npm to create symlinks (or `.cmd` shims on Windows) for package
+62 error
+62 error   --fund
+62 error     When "true" displays the message at the end of each `npm install`
+62 error
+62 error   --dry-run
+62 error     Indicates that you don't want npm to make any changes and that it should
+62 error
+62 error   -w|--workspace
+62 error     Enable running a command in the context of the configured workspaces of the
+62 error
+62 error   --workspaces
+62 error     Set to true to run the command in the context of **all** configured
+62 error
+62 error   --include-workspace-root
+62 error     Include the workspace root when workspaces are enabled for a command.
+62 error
+62 error   --install-links
+62 error     When set file: protocol dependencies will be packed and installed as
+62 error
+62 error
+62 error aliases: clean-install, ic, install-clean, isntall-clean
+62 error
+62 error Run "npm help ci" for more info
+63 verbose cwd C:\Users\doliv\ancestral-sage-debug\frontend
+64 verbose os Windows_NT 10.0.26200
+65 verbose node v24.16.0
+66 verbose npm  v11.13.0
+67 notice
+67 notice New minor version of npm available! 11.13.0 -> 11.17.0
+67 notice Changelog: https://github.com/npm/cli/releases/tag/v11.17.0
+67 notice To update run: npm install -g npm@11.17.0
+67 notice  { force: true, Symbol(proc-log.meta): true }
+68 verbose exit 1
+69 verbose code 1
+70 error A complete log of this run can be found in: C:\Users\doliv\ancestral-sage-debug\.npm-cache\_logs\2026-06-15T13_18_22_080Z-debug-0.log

@@ -201,8 +201,8 @@ async def _save_config(updates: dict, user: User):
     await db.abo_config.update_one({"_id": "singleton"}, {"$set": updates}, upsert=True)
     try:
         await audit(user.id, "abo.config_updated", meta={**{"keys": list(updates.keys())}, **human_authorization_meta(user, "config_change")})
-    except Exception:
-        pass
+    except Exception as _audit_err:
+        logger.exception("audit write failed (action left unlogged): %s", _audit_err)
 
 
 # ── Revenue helpers ──────────────────────────────────────────────────────────
@@ -377,8 +377,8 @@ async def create_deal(body: DealReq, user: User = Depends(_dep_current_user)):
     await db.abo_deals.insert_one(deal)
     try:
         await audit(user.id, "abo.deal_created", meta={**{"deal_id": deal["id"], "org": body.org_name}, **human_authorization_meta(user, "financial_ledger")})
-    except Exception:
-        pass
+    except Exception as _audit_err:
+        logger.exception("audit write failed (action left unlogged): %s", _audit_err)
     deal.pop("_id", None)
     return deal
 
@@ -407,8 +407,8 @@ async def update_deal(deal_id: str, body: DealUpdate, user: User = Depends(_requ
     await db.abo_deals.update_one({"id": deal_id}, {"$set": updates})
     try:
         await audit(user.id, "abo.deal_updated", meta={**{"deal_id": deal_id, "updates": list(updates.keys())}, **human_authorization_meta(user, "financial_ledger")})
-    except Exception:
-        pass
+    except Exception as _audit_err:
+        logger.exception("audit write failed (action left unlogged): %s", _audit_err)
     return {"ok": True}
 
 
@@ -453,8 +453,8 @@ async def propose_deal(deal_id: str, user: User = Depends(_require_rank("admin",
     )
     try:
         await audit(user.id, "abo.deal_proposed", meta={**{"deal_id": deal_id}, **human_authorization_meta(user, "financial_ledger", note="ai_draft_for_human_review")})
-    except Exception:
-        pass
+    except Exception as _audit_err:
+        logger.exception("audit write failed (action left unlogged): %s", _audit_err)
     return {"ok": True, "provider": provider}
 
 
@@ -520,8 +520,8 @@ async def create_job(body: JobReq, user: User = Depends(_require_rank("admin", "
     await db.abo_jobs.insert_one(job)
     try:
         await audit(user.id, "abo.job_created", meta={**{"job_id": job["id"], "title": body.title}, **human_authorization_meta(user, "financial_ledger")})
-    except Exception:
-        pass
+    except Exception as _audit_err:
+        logger.exception("audit write failed (action left unlogged): %s", _audit_err)
     job.pop("_id", None)
     return job
 
@@ -563,8 +563,8 @@ async def create_exchange_contract(body: ExchangeReq, user: User = Depends(_requ
     await db.abo_exchange_contracts.insert_one(contract)
     try:
         await audit(user.id, "abo.exchange_created", meta={**{"contract_id": contract["id"]}, **human_authorization_meta(user, "institutional_filing")})
-    except Exception:
-        pass
+    except Exception as _audit_err:
+        logger.exception("audit write failed (action left unlogged): %s", _audit_err)
     contract.pop("_id", None)
     return contract
 
@@ -600,8 +600,8 @@ async def create_redteam_engagement(body: RedteamReq, user: User = Depends(_requ
     await db.abo_redteam_engagements.insert_one(engagement)
     try:
         await audit(user.id, "abo.redteam_created", meta={**{"engagement_id": engagement["id"]}, **human_authorization_meta(user, "binding_action", note="engagement_created")})
-    except Exception:
-        pass
+    except Exception as _audit_err:
+        logger.exception("audit write failed (action left unlogged): %s", _audit_err)
     engagement.pop("_id", None)
     return engagement
 
@@ -628,8 +628,8 @@ async def update_agenda(item_id: str, body: AgendaUpdate, user: User = Depends(_
         raise HTTPException(404, "Agenda item not found")
     try:
         await audit(user.id, "abo.agenda_updated", meta={**{"item_id": item_id, "status": body.status}, **human_authorization_meta(user, "binding_action")})
-    except Exception:
-        pass
+    except Exception as _audit_err:
+        logger.exception("audit write failed (action left unlogged): %s", _audit_err)
     return {"ok": True}
 
 
@@ -823,3 +823,66 @@ async def abo_set_goals(body: dict, user: User = Depends(_require_rank("executiv
         raise HTTPException(400, "monthly_goal_cents must be a positive integer")
     await _save_config({"monthly_goal_cents": monthly}, user)
     return {"ok": True, "monthly_goal_cents": monthly}
+
+
+# ── Lifecycle actions the Business Office UI calls (contract complete; ───────
+# ── red-team engagement approve/close). These complete the ABO workflows. ────
+@router.post("/abo/exchange/contracts/{contract_id}/complete")
+async def complete_exchange_contract(contract_id: str, user: User = Depends(_require_rank("admin", "executive_admin"))):
+    contract = await db.abo_exchange_contracts.find_one({"id": contract_id})
+    if not contract:
+        raise HTTPException(404, "Contract not found")
+    if contract.get("status") == "completed":
+        return {"ok": True, "contract_id": contract_id, "status": "completed"}
+    now = _now()
+    await db.abo_exchange_contracts.update_one(
+        {"id": contract_id},
+        {"$set": {"status": "completed", "completed_by": user.id, "completed_at": now, "updated_at": now}},
+    )
+    try:
+        await audit(user.id, "abo.exchange_completed",
+                    meta={**{"contract_id": contract_id,
+                            "value_cents": contract.get("value_cents", 0)},
+                          **human_authorization_meta(user, "binding_action", note="contract_completed")})
+    except Exception as _audit_err:
+        logger.exception("audit write failed (action left unlogged): %s", _audit_err)
+    return {"ok": True, "contract_id": contract_id, "status": "completed"}
+
+
+@router.post("/abo/redteam/engagements/{engagement_id}/approve")
+async def approve_redteam_engagement(engagement_id: str, user: User = Depends(_require_rank("admin", "executive_admin"))):
+    eng = await db.abo_redteam_engagements.find_one({"id": engagement_id})
+    if not eng:
+        raise HTTPException(404, "Engagement not found")
+    now = _now()
+    await db.abo_redteam_engagements.update_one(
+        {"id": engagement_id},
+        {"$set": {"human_approved": True, "status": "approved",
+                  "approved_by": user.id, "approved_at": now, "updated_at": now}},
+    )
+    try:
+        await audit(user.id, "abo.redteam_approved",
+                    meta={**{"engagement_id": engagement_id, "title": eng.get("title", "")},
+                          **human_authorization_meta(user, "binding_action", note="redteam_approved")})
+    except Exception as _audit_err:
+        logger.exception("audit write failed (action left unlogged): %s", _audit_err)
+    return {"ok": True, "engagement_id": engagement_id, "status": "approved"}
+
+
+@router.post("/abo/redteam/engagements/{engagement_id}/close")
+async def close_redteam_engagement(engagement_id: str, user: User = Depends(_require_rank("admin", "executive_admin"))):
+    eng = await db.abo_redteam_engagements.find_one({"id": engagement_id})
+    if not eng:
+        raise HTTPException(404, "Engagement not found")
+    now = _now()
+    await db.abo_redteam_engagements.update_one(
+        {"id": engagement_id},
+        {"$set": {"status": "closed", "closed_by": user.id, "closed_at": now, "updated_at": now}},
+    )
+    try:
+        await audit(user.id, "abo.redteam_closed",
+                    meta={**{"engagement_id": engagement_id, "title": eng.get("title", "")},
+                          **human_authorization_meta(user, "binding_action", note="redteam_closed")})
+    except Exception as _audit_err:
+        logger.exception("audit write failed (action left unlogged): %s", _audit_err)
+    return {"ok": True, "engagement_id": engagement_id, "status": "closed"}

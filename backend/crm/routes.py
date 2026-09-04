@@ -3,13 +3,12 @@ WAI Institute CRM Routes
 Sales pipeline management endpoints
 """
 
-import sys
-
-from fastapi import APIRouter, Depends, Header, HTTPException, Request, Query
+from fastapi import APIRouter, Depends, HTTPException, Request, Query
 from typing import List, Optional
 from datetime import datetime
 from bson import ObjectId
 
+from deps import dep_current_user
 from roles import role_rank
 
 from .models import (
@@ -34,17 +33,8 @@ router = APIRouter(prefix="/crm", tags=["crm"])
 # ============================================================================
 
 # ── Authentication / authorization ───────────────────────────────────────────
-# This router is included via revenue_operations_integration.get_revenue_routers()
-# and therefore never receives a bind() call, so it cannot use the bind()-injected
-# globals other routers rely on. It also must NOT use deps.dep_current_user:
-# deps.bind() is never called anywhere in this application, so the canonical
-# dependency raises 503 unconditionally.
-#
-# Resolving server.current_user lazily at REQUEST time is deliberate: it reuses
-# the app's single JWT/auth implementation instead of duplicating token decoding
-# here (duplicated auth is the drift that produced the divergent _require_rank
-# copies across the other routers). A module-level import would be circular,
-# because server imports this module during startup.
+# This router uses the canonical dependency from deps.py. server.py binds that
+# dependency during startup, avoiding a duplicate JWT implementation here.
 #
 # CRM data is the sales pipeline: lead contact details, budget ranges, and revenue
 # forecasts. Access is oversight+ (rank 5), matching the documented
@@ -53,14 +43,7 @@ router = APIRouter(prefix="/crm", tags=["crm"])
 CRM_MIN_ROLE = "oversight"
 
 
-async def _current_user_dep(authorization: Optional[str] = Header(None)):
-    """Resolve the current user through the app's canonical auth, at request time."""
-    srv = sys.modules.get("server")
-    resolver = getattr(srv, "current_user", None) if srv else None
-    if resolver is None:
-        # Startup has not finished wiring auth yet. Fail CLOSED.
-        raise HTTPException(status_code=503, detail="Service starting up")
-    return await resolver(authorization)
+_current_user_dep = dep_current_user
 
 
 def _require_crm_access(min_role: str = CRM_MIN_ROLE):

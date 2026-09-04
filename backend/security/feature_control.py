@@ -70,9 +70,12 @@ FEATURE_API_PATHS: dict = {
     "payouts": ["/api/creator/payouts", "/api/creator/payout-summary", "/api/creator/bank-account"],
     "publisher": ["/api/playlist/", "/api/portfolio/publish"],
     "tracks": ["/api/modules/tracks", "/api/progress/tracks"],
-    # The broad modules/progress prefixes intentionally remain courses so the
-    # existing contract continues to govern the live LMS endpoints.
-    "courses": ["/api/modules", "/api/progress", "/api/labs", "/api/credentials"],
+    # Content surfaces (module detail, progress, labs, credentials) remain the
+    # `courses` contract (tier-gated). The bare catalog LISTING is a separate
+    # free surface (`curriculum`) so the /modules page is a working central
+    # directory for everyone and never hides what exists behind a paywall.
+    "courses": ["/api/modules/", "/api/progress", "/api/labs", "/api/credentials"],
+    "curriculum": ["/api/modules"],
     "posts": ["/api/more/"],
     "ai_chat": ["/api/ai/"],
     "profile": ["/api/auth/me"],
@@ -211,6 +214,7 @@ AUTHZ_REQUIREMENT_TIERS = set(TIER_RANK) - {"platinum"}
 FEATURE_MIN_TIER: dict = {
     "profile": "free",
     "ai_chat": "free",
+    "curriculum": "free",  # catalog directory — never hidden
     "posts": "member",
     "publisher_ai": "member",
     "lounge": "member",
@@ -228,6 +232,18 @@ TIER_EXEMPT_ROLES = ("admin", "executive_admin")
 
 # Instructors get course/track access regardless of tier (they teach).
 FEATURE_INSTRUCTOR_BYPASS = {"courses", "tracks"}
+
+# BUSINESS_ACCESS_POLICY §7A (owner decision, August 2026): platform-funded AI
+# is reserved for admin / executive_admin staff ONLY.  Every other caller is
+# limited to their own BYOK key or the keyword knowledge base.  The gateway
+# (ai/llm_gateway.py) enforces this before any provider invocation; these
+# constants are the single source of the role list.
+STAFF_AI_ROLES = ("admin", "executive_admin")
+
+
+def is_staff_ai_role(role: str) -> bool:
+    """True when *role* qualifies for platform-funded AI (fail-closed default)."""
+    return role in STAFF_AI_ROLES
 
 TIER_LABELS: dict = {
     "free": "Free", "member": "Member", "plus": "Plus",
@@ -350,6 +366,18 @@ async def check_user_feature_access(db, user, path: str):
             return ("unavailable", "Feature authorization unavailable — request rejected.")
         if config.get("enabled") is False:
             return ("block", "This feature is currently disabled.")
+        # customer_access_allowed=False (Feature Control Center classification)
+        # means customers must never reach the surface: only staff (rank >= admin)
+        # may proceed, regardless of any role list an admin configures.
+        if config.get("customer_access_allowed") is False:
+            try:
+                _staff_rank = role_rank("admin")
+                _caller_rank = role_rank(user.role)
+            except Exception:
+                _staff_rank = 6
+                _caller_rank = role_rank(user.role)
+            if _caller_rank < _staff_rank:
+                return ("block", "This feature is restricted to authorized staff.")
         allowed_roles = config.get("allowed_roles") or []
         if config.get("internal_only"):
             if allowed_roles and not any(
@@ -385,14 +413,19 @@ async def check_user_feature_access(db, user, path: str):
         if feature in FEATURE_INSTRUCTOR_BYPASS and user.role == "instructor":
             return ("pass", None)
         custom_tiers = []
-        if user.feature_tier not in TIER_RANK or required not in TIER_RANK:
+        # Defensive getattr: the user object here is whatever model the app
+        # passes in (server.User or router-local mirrors). If a mirror drops
+        # feature_tier, treat as "free" rather than raising — an AttributeError
+        # in this gate would 500 every authenticated request on a mapped path.
+        user_tier_attr = getattr(user, "feature_tier", None) or "free"
+        if user_tier_attr not in TIER_RANK or required not in TIER_RANK:
             try:
                 custom_tiers = await db.tier_definitions.find(
                     {}, {"_id": 0, "tier_id": 1, "rank": 1}
                 ).to_list(100)
             except Exception:
                 return ("unavailable", "Feature authorization unavailable — request rejected.")
-        user_rank = _tier_rank_of(user.feature_tier, custom_tiers)
+        user_rank = _tier_rank_of(user_tier_attr, custom_tiers)
         required_rank = TIER_RANK.get(required)
         if required_rank is None:
             required_rank = _tier_rank_of(required, custom_tiers)

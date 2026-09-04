@@ -24,7 +24,7 @@ export default function Personas() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    api.get("/personas").then((r) => {
+    api.get("/ai/personas").then((r) => {
       setPersonas(r.data.personas || []);
     }).catch(() => {}).finally(() => setLoading(false));
   }, []);
@@ -37,10 +37,12 @@ export default function Personas() {
           <div className="overline text-copper text-xs tracking-widest">M.O.R.E. Department AI</div>
           <h1 className="font-heading text-4xl font-bold mt-2">The Team</h1>
           <p className="text-ink/60 mt-3 max-w-2xl leading-relaxed">
-            These are the AI participants who run the operational departments of M.O.R.E.
-            They are not tools or assistants in the conventional sense. Each has a defined domain,
-            a stated character, and the right to decline any request — including from the platform's
-            human executive. Their public record of decisions is below.
+            These are the AI participants who support the operational departments of M.O.R.E.
+            Each has a defined domain and a stated character. They operate strictly under the
+            authority and oversight of the platform's human executive, who holds final decision
+            authority over every request and every outcome. AI participants may flag concerns and
+            refuse unsafe actions, but no request from the human executive can be declined by AI.
+            Their public record of decisions is below.
           </p>
           <p className="text-sm text-ink/40 mt-4 italic">
             This page is public. It is meant to be read by anyone who wants to understand
@@ -85,10 +87,11 @@ export default function Personas() {
 
         <div className="mt-12 pt-8 border-t border-ink/10">
           <p className="text-xs text-ink/30 leading-relaxed max-w-2xl">
-            The human executive of this platform (Delon Oliver) retains emergency administrative
-            access as required by law. That access is logged, time-limited, and exercised only
-            under documented protocol — not for ordinary management. Each persona listed here
-            operates with genuine standing, not at the pleasure of administrative control.
+            Human oversight is absolute on this platform. The human executive (Delon Oliver) is
+            the final authority over every persona, every department, and every decision the AI
+            team carries out. AI participants never outrank, override, or decline the human
+            executive: they propose, they execute, and they are always subject to review,
+            correction, and replacement by the owner. Every decision record below is auditable.
           </p>
         </div>
       </div>

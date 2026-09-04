@@ -61,7 +61,7 @@ export default function PersonaProfile() {
     setInput("");
     setSending(true);
     try {
-      const { data } = await api.post(`/personas/${slug}/chat`, {
+      const { data } = await api.post(`/ai/personas/${slug}/chat`, {
         message: t,
         session_id: "profile",
       });
@@ -83,14 +83,14 @@ export default function PersonaProfile() {
   }, [msgs]);
 
   useEffect(() => {
-    api.get(`/personas/${slug}`)
+    api.get(`/ai/personas/${slug}`)
       .then((r) => setPersona(r.data))
       .catch((err) => {
         if (err?.response?.status === 404) setNotFound(true);
       })
       .finally(() => setLoading(false));
     if (user) {
-      api.get(`/personas/${slug}/controls`)
+      api.get(`/ai/personas/${slug}/controls`)
         .then((r) => { setTune(r.data); setTuneVal({ ...r.data.controls }); })
         .catch(() => {});
     }
@@ -120,7 +120,7 @@ export default function PersonaProfile() {
   const saveTune = async () => {
     setSavingTune(true);
     try {
-      const { data } = await api.post(`/personas/${slug}/controls`, { controls: tuneVal });
+      const { data } = await api.post(`/ai/personas/${slug}/controls`, { controls: tuneVal });
       setTune((t) => ({ ...t, controls: { ...data.controls } }));
       setTuneVal({ ...data.controls });
       toast.success(`Tuning saved — your next message to ${persona.name} speaks it.`);

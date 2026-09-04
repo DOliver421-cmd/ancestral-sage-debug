@@ -1,10 +1,11 @@
 /**
  * CreatorStudio — the M.O.R.E. Creator Studio.
  *
- * Direct adaptation of the reference design: dark navy (#141824) + cyan,
- * top nav, left icon rail, three columns (Session Stats / Sovereign AI +
- * Chamber Map / Studio Workspace), a floating Ghost Producer window, and the
- * creative timeline along the bottom.
+ * Creator Studio UI: white background, black text, deep-teal accents (owner
+ * accessibility requirement — same light theme as /nam). Layout: top nav,
+ * left icon rail, three columns (Session Stats / Sovereign AI + Chamber Map /
+ * Studio Workspace), a floating Ghost Producer window, and the creative
+ * timeline along the bottom.
  *
  * Every surface is real: chambers call the Sovereign AI endpoint, the Lyric
  * Forge generates and saves versions, the Ghost Producer synthesizes and
@@ -34,15 +35,16 @@ import { StudioContent } from "./Studio";
 import { useEntitlements } from "../hooks/useEntitlements";
 import { api } from "../lib/api";
 
-// ── Design tokens (reference: dark navy + cyan) ─────────────────────────────
-const CYAN = "#22d3ee";
-const CYAN_SOFT = "rgba(34,211,238,0.12)";
-const BG = "#141824";
-const PANEL = "#1a2130";
-const PANEL2 = "#1d2536";
-const BORDER = "rgba(255,255,255,0.07)";
-const MUTED = "rgba(255,255,255,0.52)";
-const FADED = "rgba(255,255,255,0.28)";
+// ── Design tokens (white bg / black text — owner accessibility requirement) ─
+const CYAN = "#0e7490";
+const CYAN_SOFT = "rgba(14,116,144,0.10)";
+const BG = "#ffffff";
+const PANEL = "#ffffff";
+const PANEL2 = "#faf9f7";
+const BORDER = "rgba(28,25,23,0.12)";
+const MUTED = "rgba(28,25,23,0.55)";
+const FADED = "rgba(28,25,23,0.45)";
+const INK = "#1c1917";
 const MONO = "'SF Mono', 'Cascadia Code', Consolas, monospace";
 const SANS = "system-ui, -apple-system, 'Segoe UI', sans-serif";
 
@@ -57,7 +59,9 @@ const CHAMBERS = [
   { id: "publishing-gate",  name: "Publishing Gate",       glyph: "⬡",  desc: "Metadata generator, social templates, release checklist.",     tier: "base" },
   { id: "marketplace",      name: "Marketplace Forge",     glyph: "⊕",  desc: "Forge sellable drops — ebooks, guides, beats, merch — straight to your store.", tier: "top" },
   { id: "collaboration",    name: "Collaboration Chamber", glyph: "⊞",  desc: "Guest creators, roles, scope, and shareable invites for your project.", tier: "top" },
+  { id: "video-studio",      name: "Video Studio",          glyph: "▶",  desc: "Build, save, preview, and render a real short-form video.",       tier: "base" },
 ];
+
 
 const TIER_RANK = { base: 0, mid: 1, top: 2 };
 const CANONICAL_TIER_RANK = { free: 0, member: 1, plus: 2, pro: 3, patron: 4, platinum: 5, executive: 6 };
@@ -72,6 +76,7 @@ const CHAMBER_ROUTE_LABELS = {
   "ghost-producer": "Ghost Producer",
   "marketplace": "Marketplace Forge",
   "collaboration": "Collaboration Chamber",
+  "video-studio": "Video Studio",
 };
 
 // Stage index for the timeline: VISION(0) → LYRIC FORGE(1) → SOUND LAB(2) →
@@ -83,6 +88,196 @@ const STAGE_FOR_CHAMBER = {
   "script": 4,
   "publishing-gate": 5,
 };
+
+function VideoStudioPanel({ user }) {
+  const [projects, setProjects] = useState([]);
+  const [project, setProject] = useState(null);
+  const [title, setTitle] = useState("My short video");
+  const [idea, setIdea] = useState("");
+  const [sceneText, setSceneText] = useState("");
+  const [mediaUrl, setMediaUrl] = useState("");
+  const [duration, setDuration] = useState(5);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const [videoPreviewUrl, setVideoPreviewUrl] = useState("");
+
+  useEffect(() => {
+    let objectUrl = "";
+    if (!project?.final_video_url) {
+      setVideoPreviewUrl("");
+      return undefined;
+    }
+    api.get(project.final_video_url, { responseType: "blob", skipGenericErrorToast: true })
+      .then((response) => {
+        objectUrl = URL.createObjectURL(response.data);
+        setVideoPreviewUrl(objectUrl);
+      })
+      .catch(() => setError("The finished video is ready, but could not be previewed. Use Download MP4 to try again."));
+    return () => { if (objectUrl) URL.revokeObjectURL(objectUrl); };
+  }, [project?.final_video_url]);
+
+  const uploadMedia = async (event) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    setBusy(true); setError("");
+    try {
+      const form = new FormData();
+      form.append("file", file);
+      if (file.type.startsWith("audio/")) form.append("duration_seconds", "1");
+      const response = await api.post("/media/upload", form);
+      setMediaUrl(response.data.file_url);
+    } catch (err) {
+      setError(err?.response?.data?.detail || "Could not upload that file.");
+    } finally { setBusy(false); event.target.value = ""; }
+  };
+
+  const loadProjects = useCallback(async () => {
+    try {
+      const response = await api.get("/video/projects");
+      setProjects(response.data || []);
+    } catch (err) {
+      setError(err?.response?.data?.detail || "Could not load your video projects.");
+    }
+  }, []);
+
+  useEffect(() => { loadProjects(); }, [loadProjects]);
+
+  const createProject = async () => {
+    if (!title.trim()) return setError("Give your video a name first.");
+    setBusy(true); setError("");
+    try {
+      const response = await api.post("/video/projects", { title: title.trim(), idea });
+      setProject(response.data);
+      setProjects((items) => [response.data, ...items]);
+    } catch (err) {
+      setError(err?.response?.data?.detail || "Could not create the video project.");
+    } finally { setBusy(false); }
+  };
+
+  const openProject = async (id) => {
+    setBusy(true); setError("");
+    try {
+      const response = await api.get(`/video/projects/${id}`);
+      setProject(response.data);
+      setTitle(response.data.title || "My short video");
+      setIdea(response.data.idea || "");
+    } catch (err) {
+      setError(err?.response?.data?.detail || "Could not open that project.");
+    } finally { setBusy(false); }
+  };
+
+  const updateScene = async (scene) => {
+    setBusy(true); setError("");
+    try {
+      const response = await api.patch(`/video/projects/${project.id}/scenes/${scene.id}`, {
+        media_url: scene.visual_url, text: scene.script_text || "", duration: scene.duration, position: scene.scene_order,
+      });
+      setProject((current) => ({ ...current, scenes: (current.scenes || []).map((item) => item.id === scene.id ? response.data : item) }));
+    } catch (err) {
+      setError(err?.response?.data?.detail || "Could not update that scene.");
+    } finally { setBusy(false); }
+  };
+
+  const duplicateScene = async (scene) => {
+    setBusy(true); setError("");
+    try {
+      const response = await api.post(`/video/projects/${project.id}/scenes/${scene.id}/duplicate`);
+      setProject((current) => ({ ...current, scenes: [...(current.scenes || []), response.data] }));
+    } catch (err) {
+      setError(err?.response?.data?.detail || "Could not duplicate that scene.");
+    } finally { setBusy(false); }
+  };
+
+  const deleteScene = async (scene) => {
+    setBusy(true); setError("");
+    try {
+      await api.delete(`/video/projects/${project.id}/scenes/${scene.id}`);
+      setProject((current) => ({ ...current, scenes: (current.scenes || []).filter((item) => item.id !== scene.id) }));
+    } catch (err) {
+      setError(err?.response?.data?.detail || "Could not delete that scene.");
+    } finally { setBusy(false); }
+  };
+
+  const addScene = async () => {
+    if (!project) return setError("Create or open a project first.");
+    if (!mediaUrl.trim()) return setError("Add a MoreHelp media URL for this scene.");
+    setBusy(true); setError("");
+    try {
+      const response = await api.post(`/video/projects/${project.id}/scenes`, {
+        media_url: mediaUrl.trim(), text: sceneText, duration,
+        position: project.scenes?.length || 0,
+      });
+      const next = { ...project, scenes: [...(project.scenes || []), response.data], status: "Ready to Preview" };
+      setProject(next); setMediaUrl(""); setSceneText("");
+    } catch (err) {
+      setError(err?.response?.data?.detail || "Could not add that scene.");
+    } finally { setBusy(false); }
+  };
+
+  const saveProject = async () => {
+    if (!project) return;
+    setBusy(true); setError("");
+    try {
+      const response = await api.patch(`/video/projects/${project.id}`, { title: title.trim(), idea });
+      setProject((current) => ({ ...current, ...response.data }));
+      toast.success("Project saved.");
+    } catch (err) {
+      setError(err?.response?.data?.detail || "Could not save the project.");
+    } finally { setBusy(false); }
+  };
+
+  const makeVideo = async () => {
+    if (!project) return setError("Create or open a project first.");
+    setBusy(true); setError("");
+    try {
+      const response = await api.post(`/video/projects/${project.id}/render`);
+      setProject((current) => ({ ...current, ...response.data, final_video_url: response.data.output_url }));
+      toast.success("Your video is ready to download.");
+    } catch (err) {
+      setError(err?.response?.data?.detail || "The video could not be made. Check each scene's media.");
+    } finally { setBusy(false); }
+  };
+
+  return (
+    <div style={{ background: PANEL, border: `1px solid ${BORDER}`, borderRadius: 14, padding: 18 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, marginBottom: 14 }}>
+        <div><PanelHeader label="Video Studio" /><div style={{ color: MUTED, fontSize: 12, marginTop: 5 }}>Make a real short video from your MoreHelp media.</div></div>
+        <span style={{ fontFamily: MONO, fontSize: 10, color: CYAN }}>{project?.status || "NEW PROJECT"}</span>
+      </div>
+      {!project ? (
+        <div style={{ display: "grid", gap: 10 }}>
+          <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Video name" aria-label="Video name" style={videoInputStyle} />
+          <textarea value={idea} onChange={(e) => setIdea(e.target.value)} placeholder="What is this video about?" aria-label="Video idea" rows={3} style={videoInputStyle} />
+          <button onClick={createProject} disabled={busy} style={videoButtonStyle}>{busy ? "Creating…" : "Create video project"}</button>
+          {projects.length > 0 && <label style={{ color: MUTED, fontSize: 12 }}>Open a saved project
+            <select onChange={(e) => e.target.value && openProject(e.target.value)} defaultValue="" style={{ ...videoInputStyle, marginTop: 5 }}><option value="">Choose one…</option>{projects.map((item) => <option key={item.id} value={item.id}>{item.title} · {item.status}</option>)}</select>
+          </label>}
+        </div>
+      ) : (
+        <div style={{ display: "grid", gap: 12 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "minmax(0,1fr) 90px", gap: 8 }}>
+            <input value={mediaUrl} onChange={(e) => setMediaUrl(e.target.value)} placeholder="Uploaded media URL" aria-label="Scene media URL" style={videoInputStyle} />
+            <input type="number" min="1" max="60" value={duration} onChange={(e) => setDuration(Number(e.target.value))} aria-label="Scene duration in seconds" style={videoInputStyle} />
+          </div>
+          <label style={{ color: MUTED, fontSize: 12 }}>Or upload a picture or video
+            <input type="file" accept="image/*,video/*" onChange={uploadMedia} aria-label="Upload scene media" style={{ display: "block", marginTop: 6, width: "100%" }} />
+          </label>
+          <textarea value={sceneText} onChange={(e) => setSceneText(e.target.value)} placeholder="Words shown for this scene" aria-label="Scene words" rows={2} style={videoInputStyle} />
+          <button onClick={addScene} disabled={busy} style={videoButtonStyle}>{busy ? "Saving…" : "Add scene"}</button>
+          <div style={{ color: MUTED, fontSize: 12 }}>{(project.scenes || []).length} scene(s). Add a picture or video to each scene, then make your MP4.</div>
+          {(project.scenes || []).map((scene, index) => <div key={scene.id} style={{ display: "grid", gridTemplateColumns: "28px minmax(0,1fr) auto", gap: 8, alignItems: "center", padding: 10, border: `1px solid ${BORDER}`, borderRadius: 8 }}><strong>{index + 1}</strong><input value={scene.script_text || ""} onChange={(event) => setProject((current) => ({ ...current, scenes: current.scenes.map((item) => item.id === scene.id ? { ...item, script_text: event.target.value } : item) }))} onBlur={() => updateScene({ ...scene, script_text: project.scenes.find((item) => item.id === scene.id)?.script_text || "" })} aria-label={`Scene ${index + 1} words`} style={videoInputStyle} /><div style={{ display: "flex", gap: 5, alignItems: "center" }}><span style={{ color: MUTED }}>{scene.duration}s</span><button onClick={() => duplicateScene(scene)} disabled={busy} title="Duplicate scene" style={miniVideoButtonStyle}>+</button><button onClick={() => deleteScene(scene)} disabled={busy} title="Delete scene" style={miniVideoButtonStyle}>×</button></div></div>)}
+          {project.final_video_url && <div style={{ display: "grid", gap: 8 }}>{videoPreviewUrl && <video controls src={videoPreviewUrl} style={{ width: "100%", maxHeight: 420, background: "#111" }} />}<button onClick={async () => { try { const response = await api.get(project.final_video_url, { responseType: "blob" }); const url = URL.createObjectURL(response.data); const anchor = document.createElement("a"); anchor.href = url; anchor.download = `${project.title || "morehelp-video"}.mp4`; anchor.click(); setTimeout(() => URL.revokeObjectURL(url), 60000); } catch { setError("The finished video could not be downloaded."); } }} style={{ ...videoButtonStyle, background: "transparent", border: `1px solid ${CYAN}`, color: CYAN }}>Download MP4</button></div>}
+          <div style={{ display: "flex", gap: 8 }}><button onClick={saveProject} disabled={busy} style={{ ...videoButtonStyle, flex: 1, background: "transparent", border: `1px solid ${CYAN}`, color: CYAN }}>Save project</button><button onClick={makeVideo} disabled={busy || !(project.scenes || []).length} style={{ ...videoButtonStyle, flex: 1, background: "#047857" }}>{busy ? "Making your video…" : "Make my video"}</button></div>
+        </div>
+      )}
+      {error && <div role="alert" style={{ marginTop: 12, color: "#9a3412", background: "#fff7ed", border: "1px solid #fdba74", borderRadius: 8, padding: 10, fontSize: 12 }}>{error}</div>}
+    </div>
+  );
+}
+
+const videoInputStyle = { width: "100%", boxSizing: "border-box", border: `1px solid ${BORDER}`, borderRadius: 8, padding: "10px 12px", color: INK, background: "#fff", fontFamily: SANS, fontSize: 12 };
+const videoButtonStyle = { border: "none", borderRadius: 8, padding: "11px 14px", background: CYAN, color: "#fff", fontWeight: 800, cursor: "pointer" };
+const miniVideoButtonStyle = { border: `1px solid ${BORDER}`, borderRadius: 6, padding: "2px 7px", background: "#fff", color: INK, fontWeight: 800, cursor: "pointer" };
 
 function fmtDuration(ms) {
   if (!ms || ms <= 0) return "0h 0m";
@@ -99,7 +294,7 @@ function Ring({ value, max, sub, label, color = CYAN }) {
     <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 8 }}>
       <div style={{ position: "relative", width: 72, height: 72 }}>
         <svg width="72" height="72" style={{ transform: "rotate(-90deg)" }}>
-          <circle cx="36" cy="36" r={r} fill="none" stroke="rgba(255,255,255,0.08)" strokeWidth="5" />
+          <circle cx="36" cy="36" r={r} fill="none" stroke="rgba(28,25,23,0.10)" strokeWidth="5" />
           <circle
             cx="36" cy="36" r={r} fill="none"
             stroke={color} strokeWidth="5" strokeLinecap="round"
@@ -109,7 +304,7 @@ function Ring({ value, max, sub, label, color = CYAN }) {
         </svg>
         <div style={{
           position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center",
-          fontSize: 12, fontWeight: 800, color: "#fff", fontFamily: MONO,
+          fontSize: 12, fontWeight: 800, color: INK, fontFamily: MONO,
         }}>
           {sub}
         </div>
@@ -142,7 +337,7 @@ function SessionStatsPanel({ projects, sessions }) {
         <PanelHeader label="Session Stats" />
         <div style={{ display: "flex", justifyContent: "space-around", padding: "10px 0 2px" }}>
           <Ring value={projects.length} max={projectTarget} sub={`${projects.length}/${projectTarget}`} label="Projects" />
-          <Ring value={Math.min(timeTargetMin, minutes)} max={timeTargetMin} sub={fmtDuration(totalTime)} label="Time" color="#67e8f9" />
+          <Ring value={Math.min(timeTargetMin, minutes)} max={timeTargetMin} sub={fmtDuration(totalTime)} label="Time" color="#0e7490" />
         </div>
       </div>
 
@@ -154,14 +349,14 @@ function SessionStatsPanel({ projects, sessions }) {
       }}>
         <div style={{
           position: "absolute", inset: 0,
-          background: "radial-gradient(circle at 50% 60%, rgba(34,211,238,0.16) 0%, transparent 60%)",
+          background: "radial-gradient(circle at 50% 60%, rgba(14,116,144,0.16) 0%, transparent 60%)",
         }} />
         <div style={{
           width: 88, height: 88, borderRadius: "50%", position: "relative",
           background:
-            "radial-gradient(circle at 32% 28%, rgba(255,255,255,0.9) 0%, rgba(34,211,238,0.55) 22%, rgba(34,211,238,0.28) 45%, rgba(14,116,144,0.5) 70%, rgba(6,40,54,0.9) 100%)",
+            "radial-gradient(circle at 32% 28%, rgba(255,255,255,0.9) 0%, rgba(14,116,144,0.55) 22%, rgba(14,116,144,0.28) 45%, rgba(14,116,144,0.5) 70%, rgba(6,40,54,0.9) 100%)",
           boxShadow:
-            "0 0 30px rgba(34,211,238,0.45), 0 0 70px rgba(34,211,238,0.22), inset -10px -14px 30px rgba(0,0,0,0.45)",
+            "0 0 30px rgba(14,116,144,0.45), 0 0 70px rgba(14,116,144,0.22), inset -10px -14px 30px rgba(0,0,0,0.45)",
         }}>
           <div style={{
             position: "absolute", top: 14, left: 20, width: 16, height: 10, borderRadius: "50%",
@@ -178,9 +373,11 @@ function SovereignPanel({ activeChamber, onArtifact, dispatchRef }) {
   const [input, setInput] = useState("Write an upbeat verse for a Neo-Soul track about city lights.");
   const [busy, setBusy] = useState(false);
   const [routingLabel, setRoutingLabel] = useState(null);
+  const [providerError, setProviderError] = useState(null);
 
   const callSovereign = useCallback(async ({ action = "chat", context = {}, message = "", silent = false } = {}) => {
     setBusy(true);
+    setProviderError(null);
     setRoutingLabel(CHAMBER_ROUTE_LABELS[activeChamber] || activeChamber || "the Studio");
     try {
       const r = await api.post("/studio/sovereign", {
@@ -188,15 +385,20 @@ function SovereignPanel({ activeChamber, onArtifact, dispatchRef }) {
         action,
         context,
         message: message || "",
-      });
+      }, { skipGenericErrorToast: true });
       const { response, artifact, artifact_type } = r.data;
       if (artifact && artifact_type && onArtifact) {
         onArtifact(artifact_type, artifact);
       }
       if (!silent) toast.success(response || "Done.");
       return r.data;
-    } catch {
-      if (!silent) toast.error("Sovereign is unavailable right now — the Studio is still fully usable.");
+    } catch (err) {
+      if (onArtifact) onArtifact(null, null);
+      const detail = err?.response?.data?.detail;
+      const messageText = typeof detail === "object" ? detail?.message : detail;
+      const failure = messageText || "Sovereign AI is unavailable because no live AI provider returned a result.";
+      setProviderError(failure);
+      if (!silent) toast.error(failure);
       return null;
     } finally {
       setBusy(false);
@@ -234,15 +436,15 @@ function SovereignPanel({ activeChamber, onArtifact, dispatchRef }) {
         <div style={{
           width: 44, height: 44, borderRadius: "50%",
           background:
-            "radial-gradient(circle at 32% 28%, rgba(255,255,255,0.95) 0%, rgba(34,211,238,0.6) 25%, rgba(34,211,238,0.25) 48%, rgba(8,80,102,0.55) 72%, rgba(4,32,44,0.95) 100%)",
-          boxShadow: "0 0 22px rgba(34,211,238,0.5), inset -6px -8px 16px rgba(0,0,0,0.4)",
+            "radial-gradient(circle at 32% 28%, rgba(255,255,255,0.95) 0%, rgba(14,116,144,0.6) 25%, rgba(14,116,144,0.25) 48%, rgba(8,80,102,0.55) 72%, rgba(4,32,44,0.95) 100%)",
+          boxShadow: "0 0 22px rgba(14,116,144,0.5), inset -6px -8px 16px rgba(0,0,0,0.4)",
         }} />
       </div>
 
       {/* Prompt input */}
       <div style={{
         display: "flex", alignItems: "center", gap: 8,
-        background: "#12161f", border: `1px solid ${BORDER}`, borderRadius: 10,
+        background: "#ffffff", border: `1px solid ${BORDER}`, borderRadius: 10,
         padding: "4px 4px 4px 12px",
       }}>
         <input
@@ -252,12 +454,12 @@ function SovereignPanel({ activeChamber, onArtifact, dispatchRef }) {
           placeholder="Tell Sovereign what to build…"
           style={{
             flex: 1, background: "transparent", border: "none", outline: "none",
-            color: "#fff", fontSize: 12, fontFamily: SANS, padding: "8px 0",
+            color: INK, fontSize: 12, fontFamily: SANS, padding: "8px 0",
           }}
         />
         <button onClick={submit} disabled={busy}
           style={{
-            background: CYAN, color: "#061018", border: "none", borderRadius: 8,
+            background: CYAN, color: "#ffffff", border: "none", borderRadius: 8,
             padding: "7px 10px", cursor: busy ? "default" : "pointer", opacity: busy ? 0.7 : 1,
             display: "flex", alignItems: "center", justifyContent: "center",
           }}>
@@ -279,6 +481,18 @@ function SovereignPanel({ activeChamber, onArtifact, dispatchRef }) {
           Sovereign routes every ask to the right chamber.
         </div>
       )}
+      {providerError && (
+        <div role="alert" style={{
+          marginTop: 12, padding: "10px 12px", borderRadius: 8,
+          background: "#fff7ed", border: "1px solid #fdba74", color: "#9a3412",
+          fontSize: 11.5, lineHeight: 1.45,
+        }}>
+          <strong style={{ display: "block", fontFamily: MONO, fontSize: 9.5, letterSpacing: "0.08em", marginBottom: 3 }}>
+            AI_PROVIDER_UNAVAILABLE
+          </strong>
+          {providerError}
+        </div>
+      )}
     </div>
   );
 }
@@ -289,6 +503,7 @@ const MAP_CARDS = [
   { id: "script", name: "Script Scriptorium", tier: "base", badge: "UNLOCKED", desc: "Book builder, script generator, story engine." },
   { id: "marketplace", name: "Marketplace Forge", tier: "top", badge: "UNLOCKED", desc: "Forge sellable drops straight to your store." },
   { id: "collaboration", name: "Collaboration Chamber", tier: "top", badge: "UNLOCKED", desc: "Guest creators, roles, and shareable invites." },
+  { id: "video-studio", name: "Video Studio", tier: "base", badge: "UNLOCKED", desc: "Make a real downloadable short-form video." },
 ];
 
 function ChamberMap({ activeId, onOpen, canUseStudio, userTierRank }) {
@@ -299,26 +514,26 @@ function ChamberMap({ activeId, onOpen, canUseStudio, userTierRank }) {
         {MAP_CARDS.map((card) => {
           const isActive = activeId === card.id;
           const isLyric = card.id === "lyric-forge";
-          const locked = TIER_RANK[card.tier] > userTierRank && !canUseStudio;
+          const locked = card.id === "video-studio" ? !canUseStudio : TIER_RANK[card.tier] > userTierRank && !canUseStudio;
           const badge = isActive ? "ACTIVE" : locked ? "LOCKED" : "UNLOCKED";
           const badgeColor =
             badge === "ACTIVE" ? CYAN
-            : badge === "LOCKED" ? "#f59e0b"
-            : "#34d399";
+            : badge === "LOCKED" ? "#b45309"
+            : "#047857";
           const badgeBg =
             badge === "ACTIVE" ? CYAN_SOFT
-            : badge === "LOCKED" ? "rgba(245,158,11,0.1)"
-            : "rgba(52,211,153,0.1)";
+            : badge === "LOCKED" ? "rgba(180,83,9,0.1)"
+            : "rgba(4,120,87,0.1)";
           return (
             <button
               key={card.id}
               onClick={() => onOpen(card.id)}
               style={{
                 textAlign: "left", cursor: locked ? "not-allowed" : "pointer",
-                background: isActive ? "rgba(34,211,238,0.08)" : "#12161f",
-                border: `1px solid ${isActive ? "rgba(34,211,238,0.55)" : BORDER}`,
+                background: isActive ? "rgba(14,116,144,0.08)" : "#ffffff",
+                border: `1px solid ${isActive ? "rgba(14,116,144,0.55)" : BORDER}`,
                 borderRadius: 12, padding: "12px 12px 10px",
-                boxShadow: isActive ? "0 0 18px rgba(34,211,238,0.15)" : "none",
+                boxShadow: isActive ? "0 0 18px rgba(14,116,144,0.15)" : "none",
                 transition: "border-color 0.15s ease, background 0.15s ease",
                 fontFamily: SANS, opacity: locked ? 0.75 : 1,
               }}
@@ -327,19 +542,19 @@ function ChamberMap({ activeId, onOpen, canUseStudio, userTierRank }) {
                 {isLyric ? (
                   <span style={{
                     width: 26, height: 26, borderRadius: "50%", flexShrink: 0,
-                    background: "radial-gradient(circle at 32% 28%, rgba(255,255,255,0.95) 0%, rgba(34,211,238,0.65) 28%, rgba(34,211,238,0.3) 55%, rgba(8,80,102,0.6) 100%)",
-                    boxShadow: "0 0 10px rgba(34,211,238,0.5)",
+                    background: "radial-gradient(circle at 32% 28%, rgba(255,255,255,0.95) 0%, rgba(14,116,144,0.65) 28%, rgba(14,116,144,0.3) 55%, rgba(8,80,102,0.6) 100%)",
+                    boxShadow: "0 0 10px rgba(14,116,144,0.5)",
                   }} />
                 ) : (
                   <span style={{
                     width: 26, height: 26, borderRadius: 8, flexShrink: 0,
-                    background: "rgba(255,255,255,0.06)", border: `1px solid ${BORDER}`,
+                    background: "rgba(28,25,23,0.06)", border: `1px solid ${BORDER}`,
                     display: "flex", alignItems: "center", justifyContent: "center", color: FADED,
                   }}>
                     <Lock style={{ width: 12, height: 12 }} />
                   </span>
                 )}
-                <span style={{ fontWeight: 800, fontSize: 12.5, color: "#fff", letterSpacing: "0.01em" }}>{card.name}</span>
+                <span style={{ fontWeight: 800, fontSize: 12.5, color: INK, letterSpacing: "0.01em" }}>{card.name}</span>
               </div>
 
               <div style={{ display: "flex", flexWrap: "wrap", gap: 4, alignItems: "center" }}>
@@ -400,19 +615,19 @@ function NewProjectModal({ onCreated, onClose }) {
         borderRadius: 16, padding: 24, boxShadow: "0 24px 80px rgba(0,0,0,0.5)",
       }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 18 }}>
-          <div style={{ fontSize: 15, fontWeight: 800, color: "#fff" }}>New Project</div>
+          <div style={{ fontSize: 15, fontWeight: 800, color: INK }}>New Project</div>
           <button type="button" onClick={onClose} style={{ background: "none", border: "none", color: FADED, cursor: "pointer", fontSize: 18, lineHeight: 1 }}>×</button>
         </div>
         <label style={{ display: "block", marginBottom: 14 }}>
           <span style={{ fontSize: 10, fontFamily: MONO, letterSpacing: "0.12em", textTransform: "uppercase", color: MUTED, display: "block", marginBottom: 6 }}>Project name</span>
           <input autoFocus value={name} onChange={(e) => setName(e.target.value)}
             placeholder="e.g. Urban Sunset EP"
-            style={{ width: "100%", boxSizing: "border-box", background: "#12161f", border: `1px solid ${BORDER}`, borderRadius: 8, padding: "10px 12px", color: "#fff", fontSize: 13, outline: "none" }} />
+            style={{ width: "100%", boxSizing: "border-box", background: "#ffffff", border: `1px solid ${BORDER}`, borderRadius: 8, padding: "10px 12px", color: INK, fontSize: 13, outline: "none" }} />
         </label>
         <label style={{ display: "block", marginBottom: 20 }}>
           <span style={{ fontSize: 10, fontFamily: MONO, letterSpacing: "0.12em", textTransform: "uppercase", color: MUTED, display: "block", marginBottom: 6 }}>Kind</span>
           <select value={kind} onChange={(e) => setKind(e.target.value)}
-            style={{ width: "100%", background: "#12161f", border: `1px solid ${BORDER}`, borderRadius: 8, padding: "10px 12px", color: "#fff", fontSize: 13, outline: "none" }}>
+            style={{ width: "100%", background: "#ffffff", border: `1px solid ${BORDER}`, borderRadius: 8, padding: "10px 12px", color: INK, fontSize: 13, outline: "none" }}>
             <option value="music">♪ Music</option>
             <option value="visual">◉ Visual</option>
             <option value="writing">✦ Writing</option>
@@ -420,8 +635,8 @@ function NewProjectModal({ onCreated, onClose }) {
           </select>
         </label>
         <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
-          <button type="button" onClick={onClose} style={{ background: "rgba(255,255,255,0.06)", border: `1px solid ${BORDER}`, color: MUTED, borderRadius: 8, padding: "9px 16px", cursor: "pointer", fontSize: 12.5 }}>Cancel</button>
-          <button type="submit" style={{ background: CYAN, border: "none", color: "#061018", borderRadius: 8, padding: "9px 18px", cursor: "pointer", fontSize: 12.5, fontWeight: 800 }}>Create Project</button>
+          <button type="button" onClick={onClose} style={{ background: "rgba(28,25,23,0.06)", border: `1px solid ${BORDER}`, color: MUTED, borderRadius: 8, padding: "9px 16px", cursor: "pointer", fontSize: 12.5 }}>Cancel</button>
+          <button type="submit" style={{ background: CYAN, border: "none", color: "#ffffff", borderRadius: 8, padding: "9px 18px", cursor: "pointer", fontSize: 12.5, fontWeight: 800 }}>Create Project</button>
         </div>
       </form>
     </div>
@@ -445,7 +660,7 @@ function CustomizeMenu({ open, onClose, onSave }) {
           style={{
             display: "flex", alignItems: "center", gap: 10, width: "100%", textAlign: "left",
             background: "transparent", border: "none", borderBottom: i === 0 ? `1px solid ${BORDER}` : "none",
-            color: "#e2e8f0", padding: "11px 14px", cursor: "pointer", fontSize: 11, fontWeight: 800,
+            color: "#44403c", padding: "11px 14px", cursor: "pointer", fontSize: 11, fontWeight: 800,
             fontFamily: MONO, letterSpacing: "0.1em",
           }}>
           {row.icon} {row.label}
@@ -489,7 +704,7 @@ export default function CreatorStudio() {
   // Tier logic
   const studioTier = user?.feature_tier || user?.membership?.tier || tier;
   const userTierRank = CANONICAL_TIER_RANK[studioTier] ?? 0;
-  const canUseStudio = user?.role === "admin" || user?.role === "executive_admin" || userTierRank >= CANONICAL_TIER_RANK.plus;
+  const canUseStudio = ["instructor", "support_staff", "oversight", "admin", "executive_admin"].includes(user?.role) || userTierRank >= CANONICAL_TIER_RANK.pro;
 
   const saveProjects = useCallback((updated) => {
     try { localStorage.setItem("studio_projects", JSON.stringify(updated)); } catch {}
@@ -499,7 +714,7 @@ export default function CreatorStudio() {
   const openChamber = useCallback((id) => {
     const found = CHAMBERS.find((c) => c.id === id);
     if (!found) return;
-    const locked = TIER_RANK[found.tier] > userTierRank && !canUseStudio;
+    const locked = found.id === "video-studio" ? !canUseStudio : TIER_RANK[found.tier] > userTierRank && !canUseStudio;
     if (locked) { toast.error(`${found.name} unlocks with Top Tier.`); return; }
     setActiveChamber((prev) => (prev?.id === id ? null : found));
   }, [userTierRank, canUseStudio]);
@@ -574,21 +789,21 @@ export default function CreatorStudio() {
   const workspaceId = activeChamber ? activeChamber.id : "studio";
 
   return (
-    <div style={{ minHeight: "100vh", background: BG, color: "#fff", fontFamily: SANS }}>
+    <div style={{ minHeight: "100vh", background: BG, color: INK, fontFamily: SANS }}>
       {/* ── Top navigation ── */}
       <div style={{
         height: 58, display: "flex", alignItems: "center", gap: 18,
         padding: "0 22px", borderBottom: `1px solid ${BORDER}`,
-        background: "rgba(20,24,36,0.9)", position: "sticky", top: 0, zIndex: 90,
+        background: "rgba(255,255,255,0.96)", position: "sticky", top: 0, zIndex: 90,
       }}>
         {/* Logo */}
         <Link to="/studio" style={{ display: "flex", alignItems: "center", gap: 10, textDecoration: "none" }}>
           <span style={{
             width: 26, height: 26, borderRadius: "50%",
-            background: "radial-gradient(circle at 32% 28%, rgba(255,255,255,0.95) 0%, rgba(34,211,238,0.6) 25%, rgba(34,211,238,0.25) 50%, rgba(8,80,102,0.6) 100%)",
-            boxShadow: "0 0 14px rgba(34,211,238,0.55)",
+            background: "radial-gradient(circle at 32% 28%, rgba(255,255,255,0.95) 0%, rgba(14,116,144,0.6) 25%, rgba(14,116,144,0.25) 50%, rgba(8,80,102,0.6) 100%)",
+            boxShadow: "0 0 14px rgba(14,116,144,0.55)",
           }} />
-          <span style={{ fontSize: 17, fontWeight: 900, letterSpacing: "0.06em", color: "#fff" }}>M.O.R.E.</span>
+          <span style={{ fontSize: 17, fontWeight: 900, letterSpacing: "0.06em", color: INK }}>M.O.R.E.</span>
         </Link>
 
         {/* Nav links */}
@@ -597,10 +812,10 @@ export default function CreatorStudio() {
             onClick={() => { setGhostOpen(false); setActiveChamber(null); }}
             style={{
               display: "flex", alignItems: "center", gap: 6, padding: "7px 14px", borderRadius: 999,
-              border: "none", cursor: "pointer", fontSize: 12.5, fontWeight: 700, color: "#061018",
-              background: ghostOpen ? CYAN : CYAN_SOFT, color: ghostOpen ? "#061018" : CYAN,
+              border: "none", cursor: "pointer", fontSize: 12.5, fontWeight: 700, color: "#ffffff",
+              background: ghostOpen ? CYAN : CYAN_SOFT, color: ghostOpen ? "#ffffff" : CYAN,
               border: `1px solid ${ghostOpen ? CYAN : "transparent"}`,
-              boxShadow: ghostOpen ? "0 0 16px rgba(34,211,238,0.4)" : "none",
+              boxShadow: ghostOpen ? "0 0 16px rgba(14,116,144,0.4)" : "none",
             }}
           >
             Ghost Producer
@@ -611,7 +826,7 @@ export default function CreatorStudio() {
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
           <Link to="/dashboard" style={{
             display: "flex", alignItems: "center", gap: 6, padding: "8px 14px", borderRadius: 10,
-            background: "#1d2536", border: `1px solid ${BORDER}`, color: "#cbd5e1", fontWeight: 700,
+            background: "#f5f4f1", border: `1px solid ${BORDER}`, color: "#44403c", fontWeight: 700,
             fontSize: 12.5, textDecoration: "none",
           }}>
             ← Back to site
@@ -619,8 +834,8 @@ export default function CreatorStudio() {
           <button onClick={() => setShowNewProject(true)}
             style={{
               display: "flex", alignItems: "center", gap: 6, padding: "8px 16px", borderRadius: 10,
-              background: CYAN, border: "none", color: "#061018", fontWeight: 800, fontSize: 12.5,
-              cursor: "pointer", boxShadow: "0 2px 12px rgba(34,211,238,0.35)",
+              background: CYAN, border: "none", color: "#ffffff", fontWeight: 800, fontSize: 12.5,
+              cursor: "pointer", boxShadow: "0 2px 12px rgba(14,116,144,0.35)",
             }}>
             <Plus style={{ width: 14, height: 14 }} /> New Project
           </button>
@@ -629,7 +844,7 @@ export default function CreatorStudio() {
             <button onClick={() => setCustomizeOpen((v) => !v)}
               style={{
                 display: "flex", alignItems: "center", gap: 7, padding: "8px 14px", borderRadius: 10,
-                background: "#1d2536", border: `1px solid ${BORDER}`, color: "#cbd5e1", cursor: "pointer",
+                background: "#f5f4f1", border: `1px solid ${BORDER}`, color: "#44403c", cursor: "pointer",
                 fontSize: 12.5, fontWeight: 700,
               }}>
               <Pencil style={{ width: 13, height: 13 }} /> Customize
@@ -641,14 +856,14 @@ export default function CreatorStudio() {
           {/* Tier badge */}
           <div style={{
             display: "flex", alignItems: "center", gap: 8, padding: "6px 12px 6px 8px", borderRadius: 999,
-            background: "#1d2536", border: `1px solid ${BORDER}`,
+            background: "#f5f4f1", border: `1px solid ${BORDER}`,
           }}>
             <span style={{
               width: 18, height: 18, borderRadius: "50%",
-              background: "radial-gradient(circle at 32% 28%, rgba(255,255,255,0.95) 0%, rgba(34,211,238,0.6) 25%, rgba(34,211,238,0.25) 52%, rgba(8,80,102,0.6) 100%)",
-              boxShadow: "0 0 8px rgba(34,211,238,0.5)",
+              background: "radial-gradient(circle at 32% 28%, rgba(255,255,255,0.95) 0%, rgba(14,116,144,0.6) 25%, rgba(14,116,144,0.25) 52%, rgba(8,80,102,0.6) 100%)",
+              boxShadow: "0 0 8px rgba(14,116,144,0.5)",
             }} />
-            <span style={{ fontSize: 10.5, fontWeight: 800, fontFamily: MONO, letterSpacing: "0.1em", color: "#e2e8f0" }}>
+            <span style={{ fontSize: 10.5, fontWeight: 800, fontFamily: MONO, letterSpacing: "0.1em", color: "#44403c" }}>
               {tierBadge}
             </span>
           </div>
@@ -659,7 +874,7 @@ export default function CreatorStudio() {
         {/* ── Left icon rail ── */}
         <div style={{
           width: 58, flexShrink: 0, borderRight: `1px solid ${BORDER}`,
-          background: "#11151f", display: "flex", flexDirection: "column", alignItems: "center",
+          background: "#f5f4f1", display: "flex", flexDirection: "column", alignItems: "center",
           padding: "14px 0", gap: 6,
         }}>
           <RailIcon title="Back to site dashboard" onClick={() => { window.location.href = "/dashboard"; }}><Home style={{ width: 17, height: 17 }} /></RailIcon>
@@ -692,15 +907,15 @@ export default function CreatorStudio() {
               display: "flex", alignItems: "center", gap: 12,
               background: PANEL, border: `1px solid ${BORDER}`, borderRadius: 12, padding: "9px 14px",
             }}>
-              <span style={{ fontFamily: MONO, fontSize: 12.5, color: "#fff", letterSpacing: "0.02em" }}>
+              <span style={{ fontFamily: MONO, fontSize: 12.5, color: INK, letterSpacing: "0.02em" }}>
                 /studio{activeChamber ? `/${activeChamber.id}` : ""}
               </span>
               <select
                 value={activeChamber ? activeChamber.id : ""}
                 onChange={(e) => { const v = e.target.value; setGhostOpen(false); v ? openChamber(v) : setActiveChamber(null); }}
                 style={{
-                  marginLeft: "auto", background: "#12161f", border: `1px solid ${BORDER}`, borderRadius: 8,
-                  color: "#cbd5e1", fontSize: 12, padding: "6px 8px", outline: "none", cursor: "pointer",
+                  marginLeft: "auto", background: "#ffffff", border: `1px solid ${BORDER}`, borderRadius: 8,
+                  color: "#44403c", fontSize: 12, padding: "6px 8px", outline: "none", cursor: "pointer",
                 }}
               >
                 <option value="">Top Nav — all chambers</option>
@@ -718,20 +933,20 @@ export default function CreatorStudio() {
             {/* Active chamber editor */}
             <div style={{
               flex: 1, minHeight: 480, display: "flex", flexDirection: "column",
-              background: PANEL, border: `1px solid ${activeChamber ? `rgba(34,211,238,0.28)` : BORDER}`,
+              background: PANEL, border: `1px solid ${activeChamber ? `rgba(14,116,144,0.28)` : BORDER}`,
               borderRadius: 14, overflow: "hidden",
             }}>
               {/* Editor header */}
               <div style={{
                 display: "flex", alignItems: "center", gap: 10,
                 padding: "12px 16px", borderBottom: `1px solid ${BORDER}`,
-                background: "rgba(34,211,238,0.04)",
+                background: "rgba(14,116,144,0.04)",
               }}>
-                <span style={{ fontSize: 15, filter: "drop-shadow(0 0 6px rgba(34,211,238,0.6))" }}>
+                <span style={{ fontSize: 15, filter: "drop-shadow(0 0 6px rgba(14,116,144,0.6))" }}>
                   {activeChamber ? activeChamber.glyph : "⬡"}
                 </span>
                 <div>
-                  <div style={{ fontSize: 14, fontWeight: 800, color: "#fff", letterSpacing: "0.02em" }}>
+                  <div style={{ fontSize: 14, fontWeight: 800, color: INK, letterSpacing: "0.02em" }}>
                     {(activeChamber ? activeChamber.name : "Studio Workspace").toUpperCase()}
                   </div>
                   <div style={{ fontSize: 10.5, color: MUTED, marginTop: 1 }}>
@@ -796,6 +1011,7 @@ export default function CreatorStudio() {
                     {activeChamber.id === "ghost-producer" && <StudioContent embedded />}
                     {activeChamber.id === "marketplace" && <MarketplaceForge />}
                     {activeChamber.id === "collaboration" && <CollaborationChamber activeProject={activeProject} />}
+                    {activeChamber.id === "video-studio" && <VideoStudioPanel user={user} />}
                   </>
                 )}
               </div>
@@ -826,23 +1042,23 @@ export default function CreatorStudio() {
             {/* Modal top bar */}
             <div style={{
               display: "flex", alignItems: "center", gap: 14, padding: "12px 18px",
-              borderBottom: `1px solid ${BORDER}`, background: "#11151f",
+              borderBottom: `1px solid ${BORDER}`, background: "#f5f4f1",
             }}>
-              <span style={{ fontFamily: MONO, fontSize: 13, fontWeight: 700, color: "#fff" }}>
+              <span style={{ fontFamily: MONO, fontSize: 13, fontWeight: 700, color: INK }}>
                 /ghostProducer Studio
               </span>
               <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 8 }}>
                 <button onClick={() => setShowNewProject(true)}
                   style={{
                     display: "flex", alignItems: "center", gap: 6, padding: "6px 12px", borderRadius: 8,
-                    background: CYAN, border: "none", color: "#061018", fontWeight: 800, fontSize: 11.5, cursor: "pointer",
+                    background: CYAN, border: "none", color: "#ffffff", fontWeight: 800, fontSize: 11.5, cursor: "pointer",
                   }}>
                   <Plus style={{ width: 12, height: 12 }} /> New Project
                 </button>
                 <button onClick={() => setCustomizeOpen((v) => !v)}
                   style={{
                     display: "flex", alignItems: "center", gap: 6, padding: "6px 12px", borderRadius: 8,
-                    background: "#1d2536", border: `1px solid ${BORDER}`, color: "#cbd5e1", fontSize: 11.5, fontWeight: 700, cursor: "pointer",
+                    background: "#f5f4f1", border: `1px solid ${BORDER}`, color: "#44403c", fontSize: 11.5, fontWeight: 700, cursor: "pointer",
                   }}>
                   <Pencil style={{ width: 12, height: 12 }} /> Customize
                 </button>
