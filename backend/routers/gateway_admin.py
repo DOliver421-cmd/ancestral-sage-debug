@@ -154,7 +154,8 @@ async def gateway_set_ranking(body: RankingReq, user: User = Depends(_require_ra
     )
     try:
         await audit(user.id, "gateway.ranking.updated",
-                    before={"ranking": (old or {}).get("ranking")}, after={"ranking": body.ranking})
+                    meta={"before": {"ranking": (old or {}).get("ranking")},
+                          "after": {"ranking": body.ranking}})
     except Exception as _ae:  # noqa: BLE001
         logger.exception("audit write failed: %s", _ae)
     return {"ok": True, "ranking": body.ranking, "updated_at": now}
@@ -181,7 +182,8 @@ async def gateway_set_budget(body: BudgetReq, user: User = Depends(_require_rank
     )
     try:
         await audit(user.id, "gateway.budget.updated",
-                    before={"limit": old_cap}, after={"limit": body.hourly_cap})
+                    meta={"before": {"limit": old_cap},
+                          "after": {"limit": body.hourly_cap}})
     except Exception as _ae:  # noqa: BLE001
         logger.exception("audit write failed: %s", _ae)
     return {"ok": True, "hourly_cap": body.hourly_cap, "applied": "runtime", "persisted": True}
@@ -195,7 +197,9 @@ async def gateway_reset_budget(user: User = Depends(_require_rank("executive_adm
     g._hour_tokens_used = 0
     g._hour_window_start = time.time()
     try:
-        await audit(user.id, "gateway.budget.reset", before={"tokens_used": before}, after={"tokens_used": 0})
+        await audit(user.id, "gateway.budget.reset",
+                    meta={"before": {"tokens_used": before},
+                          "after": {"tokens_used": 0}})
     except Exception as _ae:  # noqa: BLE001
         logger.exception("audit write failed: %s", _ae)
     return {"ok": True, "reset_from": before}

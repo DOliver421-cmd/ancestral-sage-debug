@@ -510,7 +510,8 @@ function ExecPanel({ apiOnline, visibility, setVisibility, superExec }) {
   const pushApiKey = async (envKey, value) => {
     if (!value) return;
     try {
-      await api.post("/admin/gateway/keys", { var_name: envKey, value });
+      const providerType = envKey.replace("_API_KEY", "").toLowerCase();
+      await api.post("/providers/quick-setup", { provider_type: providerType, api_key: value });
       notify(`${envKey} pushed to gateway`);
       await loadGateway();
     } catch (e) { notify(`Failed to push ${envKey}: ${e?.response?.data?.detail || e.message}`); }
@@ -529,7 +530,8 @@ function ExecPanel({ apiOnline, visibility, setVisibility, superExec }) {
     const envKey = confirmRevokeKey;
     setConfirmRevokeKey(null);
     try {
-      await api.delete(`/admin/gateway/keys/${envKey}`);
+      const providerType = envKey.replace("_API_KEY", "").toLowerCase();
+      await api.delete(`/providers/keys/by-provider/${providerType}`);
       notify(`${envKey} revoked from gateway`);
       await loadGateway();
     } catch (e) { notify(`Revoke failed: ${e?.response?.data?.detail || e.message}`); }
@@ -537,7 +539,8 @@ function ExecPanel({ apiOnline, visibility, setVisibility, superExec }) {
 
   const toggleApiKey = async (envKey, enable) => {
     try {
-      await api.patch(`/admin/gateway/keys/${envKey}/toggle`, { enabled: enable });
+      const providerType = envKey.replace("_API_KEY", "").toLowerCase();
+      await api.patch(`/providers/keys/by-provider/${providerType}/status`, { status: enable ? "active" : "inactive" });
       setKeyEnabled(s => ({ ...s, [envKey]: enable }));
       notify(`${envKey} ${enable ? "enabled" : "disabled"}`);
       await loadGateway();
