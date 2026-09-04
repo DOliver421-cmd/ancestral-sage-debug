@@ -42,7 +42,7 @@ MATRIX = {
                 "note": "Helper.jsx KB + server-side keyword fallback — zero API calls",
             },
         ],
-        "current": "anthropic",
+        "current": "deepseek",
     },
     # ── Text-to-Speech ─────────────────────────────────────────────────────────
     "tts": {

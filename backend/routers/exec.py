@@ -477,7 +477,6 @@ async def exec_dashboard(user: User = Depends(_require_rank("executive_admin")))
 
     # ── Env / platform status ─────────────────────────────────────────────────
     openai_key       = bool(os.environ.get("OPENAI_API_KEY", ""))
-    anthropic_key    = bool(os.environ.get("ANTHROPIC_API_KEY", ""))
     groq_key         = bool(os.environ.get("GROQ_API_KEY", ""))
     cerebras_key     = bool(os.environ.get("CEREBRAS_API_KEY", ""))
     gemini_key       = bool(os.environ.get("GEMINI_API_KEY", ""))
@@ -485,7 +484,6 @@ async def exec_dashboard(user: User = Depends(_require_rank("executive_admin")))
     gumroad_ready    = bool(GUMROAD_API_KEY)
 
     platform_status = {
-        "anthropic_api":         anthropic_key,
         "openai":                openai_key,
         "groq":                  groq_key,
         "cerebras":              cerebras_key,
@@ -905,7 +903,7 @@ async def exec_staff_meeting(
 
     # Only call LLM for personas that have a role question (skip the_9 & prt — handled separately)
     _llm_personas = [pid for pid in meeting_participants if pid not in ("the_9", "poor_righteous_teacher")]
-    if _llm_personas and ANTHROPIC_API_KEY:
+    if _llm_personas and DEEPSEEK_API_KEY:
         _results = await asyncio.gather(*[
             _call_persona(pid, domain_briefs[pid]["question"])
             for pid in _llm_personas
@@ -1165,7 +1163,6 @@ async def exec_site_report(user: User = Depends(_require_rank("executive_admin")
         ("COHERE_API_KEY", "Cohere"),
         ("OPENROUTER_API_KEY", "OpenRouter"),
         ("HUGGINGFACE_API_KEY", "HuggingFace"),
-        ("ANTHROPIC_API_KEY", "Anthropic (paid last-resort)"),
     ]
     configured_llm = [label for key, label in gateway_keys if os.environ.get(key)]
     add("integrations", "Integrations", "LLM gateway providers",

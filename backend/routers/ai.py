@@ -1307,7 +1307,7 @@ async def ai_tool_chat(body: ToolChatReq, user: User = Depends(_dep_current_user
         "endpoint": "/ai/tool-chat",
         "skill": skill_key,
         "model": gw.get("model", "unknown"),
-        "provider": gw.get("provider", "anthropic"),
+        "provider": gw.get("provider", "deepseek"),
         "cost_usd": gw.get("cost_usd", 0.0),
         "created_at": datetime.now(timezone.utc),
     })

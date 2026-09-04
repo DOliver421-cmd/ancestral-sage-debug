@@ -72,6 +72,8 @@ export default function TermsOfService() {
           <p>Content you post publicly (community posts, comments, profiles, and public portfolios) may be visible to other users and to the public where the feature is public. You are responsible for the content you post and must not post content that is unlawful, infringing, or harmful. We may remove content and suspend accounts that violate these terms. We provide reporting tools for inappropriate content.</p>
           <p className="text-xs text-ink/50">[DRAFT — REVIEW: add — moderation process description, DMCA/copyright notice procedure, and repeat-infringer policy.]</p>
 
+        <h2>8. Contact</h2>
+        <p>Questions? Visit our <Link to="/more-help-center" className="text-copper hover:underline">MORE Help Center</Link>.</p>
           <h2>5. Termination</h2>
           <p>We may suspend accounts that violate these terms. You may delete your account at any time via Account Settings.</p>
 
@@ -137,3 +139,4 @@ export default function TermsOfService() {
     </div>
   );
 }
+

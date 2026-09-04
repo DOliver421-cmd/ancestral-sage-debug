@@ -186,7 +186,7 @@ function NewNeedModal({ onClose, onSuccess }) {
 
 // ── Admin Panel ───────────────────────────────────────────────────────────────
 function AdminPanel({ hasFeature }) {
-  const [flags,setFlags]=useState([]); const [flagTotal,setFlagTotal]=useState(0); const [purging,setPurging]=useState(false); const [loading,setLoading]=useState(false);
+  const [flags,setFlags]=useState([]); const [flagTotal,setFlagTotal]=useState(0); const [queueTotal,setQueueTotal]=useState(0); const [appealTotal,setAppealTotal]=useState(0); const [purging,setPurging]=useState(false); const [loading,setLoading]=useState(false);
   const [confirmPurge,setConfirmPurge]=useState(false);
   const loadFlags=useCallback(async()=>{
     if(!hasFeature("flag_view"))return; setLoading(true);
@@ -436,3 +436,4 @@ export default function MoreHub() {
     </AppShell>
   );
 }
+

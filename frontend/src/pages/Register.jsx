@@ -266,6 +266,7 @@ export default function Register() {
 
           {/* Support — help lives on the M.O.R.E. Help Center */}
           <div className="mt-8 text-center text-xs text-ink/50">
+            Questions? <Link to="/more-help-center" className="text-copper hover:text-copper/80 font-medium">MORE Help Center</Link>
             Questions?{" "}
             {waiDoor ? (
               <a href={`${MORE_HOME}/help-center`} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-copper hover:text-copper/80 font-medium">
@@ -310,3 +311,4 @@ export default function Register() {
     </div>
   );
 }
+

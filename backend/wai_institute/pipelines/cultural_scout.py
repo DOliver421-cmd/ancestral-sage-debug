@@ -36,7 +36,6 @@ logger = logging.getLogger("lcewai.cultural_scout")
 
 YOUTUBE_API_KEY     = os.environ.get("YOUTUBE_API_KEY", "")
 TWITTER_BEARER      = os.environ.get("TWITTER_BEARER_TOKEN", "")
-ANTHROPIC_API_KEY   = os.environ.get("ANTHROPIC_API_KEY", "")
 
 # Reddit subreddits to scan
 REDDIT_SUBREDDITS = [

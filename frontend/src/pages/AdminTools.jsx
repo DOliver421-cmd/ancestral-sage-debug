@@ -12,6 +12,18 @@ export default function AdminTools() {
   const [checkouts, setCheckouts] = useState([]);
 
   const load = () => {
+    api.get("/admin/sites")
+      .then((r) => setSites(Array.isArray(r.data) ? r.data : []))
+      .catch(() => toast.error("Could not load sites"));
+    api.get("/admin/inventory")
+      .then((r) => setInv(Array.isArray(r.data) ? r.data : []))
+      .catch(() => toast.error("Could not load inventory"));
+    api.get("/admin/users")
+      .then((r) => setUsers(Array.isArray(r.data) ? r.data.filter((u) => u.role === "student") : []))
+      .catch(() => toast.error("Could not load users"));
+    api.get("/admin/checkouts")
+      .then((r) => setCheckouts(Array.isArray(r.data) ? r.data : []))
+      .catch(() => toast.error("Could not load checkouts"));
     api.get("/admin/sites").then((r) => setSites(Array.isArray(r.data) ? r.data : [])).catch(() => {});
     api.get("/admin/inventory").then((r) => setInv(Array.isArray(r.data) ? r.data : [])).catch(() => {});
     api.get("/admin/users").then((r) => setUsers(Array.isArray(r.data) ? r.data.filter((u) => u.role === "student") : [])).catch(() => {});
@@ -231,3 +243,4 @@ function Input({ label, value, onChange, type = "text", testid }) {
 }
 const Th = ({ children }) => <th className="text-left px-3 py-2 overline text-xs">{children}</th>;
 const Td = ({ children }) => <td className="px-3 py-2">{children}</td>;
+

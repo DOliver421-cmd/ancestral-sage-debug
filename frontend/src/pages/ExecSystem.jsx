@@ -808,6 +808,8 @@ export default function ExecSystem() {
         api.get("/admin/stats"),
         api.get("/admin/recent-activity?limit=12"),
         api.get("/admin/cohorts"),
+        api.get("/more/posts?limit=1"),
+        api.get("/more/needs?limit=1"),
         fetch(`${BACKEND_URL}/api/more/posts?limit=1`).then(r => r.json()),
         fetch(`${BACKEND_URL}/api/more/needs?limit=1`).then(r => r.json()),
         api.get("/exec/control/state"),
@@ -1043,6 +1045,29 @@ export default function ExecSystem() {
                 </div>
               ))}
             </div>
+            <Link to="/admin/audit" className="flex items-center gap-1 text-xs font-bold text-amber-600 hover:underline mt-4">
+              Full audit log <ExternalLink className="w-3 h-3" />
+            </Link>
+          </div>
+
+          {/* Quick actions + associate summary */}
+          <div className="space-y-4">
+            <div className="bg-white rounded-2xl p-6 border border-slate-100 shadow-sm">
+              <h2 className="font-heading font-extrabold text-lg text-slate-900 mb-4 flex items-center gap-2">
+                <Zap className="w-5 h-5 text-amber-500" /> Quick Actions
+              </h2>
+              <div className="space-y-2">
+                <QuickAction icon={UserCog}      label="Manage Users"        to="/admin/users"       color="#0b1f3a" />
+                <QuickAction icon={Eye}          label="Audit Log"           to="/admin/audit"       color="#b5501a" />
+                <QuickAction icon={Shield}       label="Sage Audit"          to="/admin/sage-audit"  color="#7c3aed" />
+                <QuickAction icon={Activity}     label="Analytics"           to="/admin/analytics"   color="#0891b2" />
+                <QuickAction icon={Scale}        label="M.O.R.E. Admin"      to="/more/admin"        color="#059669" />
+                <QuickAction icon={Cog}          label="Admin Tools"         to="/admin/tools"       color="#b5501a" />
+                <QuickAction icon={MessageSquare} label="Council of Elders"  to="/council"           color="#1d4ed8" />
+                <QuickAction icon={Crown}        label="Set Sovereign Face"  to="/avatar-setup"      color="#059669" />
+                <QuickAction icon={Cog}          label="Admin Dashboard"     to="/admin"             color="#64748b" />
+              </div>
+            </div>
           </div>
         </div>
 
@@ -1115,3 +1140,4 @@ export default function ExecSystem() {
     </AppShell>
   );
 }
+

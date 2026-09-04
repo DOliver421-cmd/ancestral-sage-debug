@@ -249,8 +249,9 @@ export default function MoreAdmin() {
             <h2 className="font-heading font-bold text-lg text-slate-900 mb-2">Run Manual Purge</h2>
             <p className="text-sm text-slate-600 mb-6">This deletes all expired content now. This cannot be undone.</p>
             <div className="flex justify-end gap-3">
-              <button onClick={() => setConfirmPurge(false)} className="text-sm px-4 py-2 rounded-lg text-slate-600 hover:bg-slate-50">Cancel</button>
-              <button onClick={doPurge} className="text-sm px-4 py-2 rounded-lg bg-red-600 text-white font-bold hover:bg-red-700">Run Purge</button>
+              <button onClick={doPurge} disabled={purging} className="text-sm px-4 py-2 rounded-lg bg-red-600 text-white font-bold hover:bg-red-700 disabled:opacity-50">
+                {purging ? "Purging..." : "Run Purge"}
+              </button>
             </div>
           </div>
         </div>
@@ -258,3 +259,4 @@ export default function MoreAdmin() {
     </AppShell>
   );
 }
+

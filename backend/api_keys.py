@@ -12,10 +12,10 @@ from typing import Optional
 logger = logging.getLogger("lcewai.api_keys")
 
 TIERS = {
-    "free":    {"requests_per_hour": 100,   "max_tokens_per_call": 1024,  "models": ["claude-haiku-4-5"]},
-    "starter": {"requests_per_hour": 1000,  "max_tokens_per_call": 4096,  "models": ["claude-haiku-4-5"]},
-    "pro":     {"requests_per_hour": 10000, "max_tokens_per_call": 8192,  "models": ["claude-haiku-4-5", "claude-sonnet-4-6"]},
-    "enterprise": {"requests_per_hour": 100000, "max_tokens_per_call": 16384, "models": ["claude-haiku-4-5", "claude-sonnet-4-6", "claude-opus-4-5"]},
+    "free":    {"requests_per_hour": 100,   "max_tokens_per_call": 1024,  "models": ["deepseek-chat", "groq-llama"]},
+    "starter": {"requests_per_hour": 1000,  "max_tokens_per_call": 4096,  "models": ["deepseek-chat", "groq-llama"]},
+    "pro":     {"requests_per_hour": 10000, "max_tokens_per_call": 8192,  "models": ["deepseek-chat", "groq-llama", "cerebras-llama"]},
+    "enterprise": {"requests_per_hour": 100000, "max_tokens_per_call": 16384, "models": ["deepseek-chat", "groq-llama", "cerebras-llama"]},
 }
 
 

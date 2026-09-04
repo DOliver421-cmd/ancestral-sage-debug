@@ -20,9 +20,6 @@ Provider priority (free-first by design — no paid API without D. Oliver consen
   Tier 8  — HuggingFace Inference       (HUGGINGFACE_API_KEY)       FREE slow
   Tier 9  — Keyword KB                  (always available)          ZERO no dependency
 
-  ANTHROPIC: DISABLED by owner directive. Anthropic will not be used until
-  further notice from D. Oliver. ANTHROPIC_IS_ENABLED must be explicitly set
-  to "true" in Railway env vars to re-enable. Default is OFF.
 
 Tool-calling note:
   Groq, Cerebras, SambaNova, Grok, Cohere, Mistral, and Together all support function calling.
@@ -40,9 +37,6 @@ from ai.key_pool import KeyPool, parse_key_list
 logger = logging.getLogger("lcewai.llm_gateway")
 
 # ── Environment keys (env vars take priority; DB keys fill gaps) ──────────────
-# ANTHROPIC: hard-disabled by owner directive. Set ANTHROPIC_IS_ENABLED=true to re-enable.
-_ANTHROPIC_IS_ENABLED = os.environ.get("ANTHROPIC_IS_ENABLED", "false").lower() == "true"
-ANTHROPIC_API_KEY   = os.environ.get("ANTHROPIC_API_KEY", os.environ.get("EMERGENT_LLM_KEY", "")) if _ANTHROPIC_IS_ENABLED else ""
 
 GROQ_API_KEY        = os.environ.get("GROQ_API_KEY", "")
 OPENAI_API_KEY      = os.environ.get("OPENAI_API_KEY", "")          # text tier — owner key, no emergent fallback
@@ -73,7 +67,6 @@ _PROVIDER_TYPE_TO_GLOBAL = {
     "huggingface": "HUGGINGFACE_API_KEY",
     "openai":      "OPENAI_API_KEY",
     "deepseek":    "DEEPSEEK_API_KEY",
-    # anthropic intentionally omitted — disabled by owner directive
 }
 
 async def reload_provider_keys(db) -> int:
@@ -201,10 +194,7 @@ LAST_RESORT_AI_ENABLED = os.environ.get(
 # ── In-process state ──────────────────────────────────────────────────────────
 _hour_window_start:  float = time.time()
 _hour_tokens_used:   int   = 0
-_anthropic_degraded: bool  = False
-_anthropic_fail_count: int = 0
 _degraded_since:     float = 0.0
-_DEGRADED_RESET_SEC:  int  = 300      # re-try Anthropic after 5 minutes
 
 
 # ── Budget helpers ────────────────────────────────────────────────────────────
@@ -225,34 +215,6 @@ def _over_budget() -> bool:
     _reset_hour_if_needed()
     return _hour_tokens_used >= HOURLY_TOKEN_CAP
 
-
-# ── Anthropic health helpers ──────────────────────────────────────────────────
-def _mark_anthropic_fail() -> None:
-    global _anthropic_fail_count, _anthropic_degraded, _degraded_since
-    _anthropic_fail_count += 1
-    if _anthropic_fail_count >= 3:
-        _anthropic_degraded = True
-        _degraded_since     = time.time()
-        logger.warning("LLM Gateway: Anthropic marked DEGRADED after 3 consecutive failures")
-
-
-def _mark_anthropic_ok() -> None:
-    global _anthropic_fail_count, _anthropic_degraded
-    _anthropic_fail_count = 0
-    _anthropic_degraded   = False
-
-
-def _anthropic_available() -> bool:
-    global _anthropic_degraded, _degraded_since
-    if not ANTHROPIC_API_KEY:
-        return False
-    if _anthropic_degraded:
-        if time.time() - _degraded_since > _DEGRADED_RESET_SEC:
-            _anthropic_degraded = False
-            logger.info("LLM Gateway: Anthropic degraded flag cleared — retrying")
-            return True
-        return False
-    return True
 
 
 # ── Message format converter (Anthropic → OpenAI-compatible) ─────────────────
@@ -580,7 +542,7 @@ async def _tier_result(
 async def call_llm(
     system:        str,
     messages:      list[dict],
-    model:         str           = "claude-sonnet-4-6",
+    model:         str           = "deepseek-chat",
     max_tokens:    int           = 2048,
     tools:         Optional[list] = None,
     persona_label: str           = "unknown",
@@ -875,30 +837,6 @@ async def call_llm(
         except Exception as e:
             logger.warning("LLM Gateway T8 HuggingFace failed (%s): %s", persona_label, e)
 
-    # ── ANTHROPIC: DISABLED by owner directive ────────────────────────────────
-    # Anthropic will not be called. Set ANTHROPIC_IS_ENABLED=true in Railway
-    # env vars only if D. Oliver explicitly authorizes it.
-    if _ANTHROPIC_IS_ENABLED and _anthropic_available():
-        try:
-            import anthropic as _anth
-            client = _anth.AsyncAnthropic(api_key=ANTHROPIC_API_KEY)
-            kwargs: dict = dict(model=model, max_tokens=max_tokens, system=system, messages=messages)
-            if tools:
-                kwargs["tools"] = tools
-            resp    = await client.messages.create(**kwargs)
-            text    = "".join(b.text for b in resp.content if hasattr(b, "text"))
-            in_tok  = getattr(resp.usage, "input_tokens",  0)
-            out_tok = getattr(resp.usage, "output_tokens", 0)
-            _mark_anthropic_ok()
-            logger.warning("LLM Gateway: %s fell through to Anthropic (PAID — owner-authorized)", persona_label)
-            _anth = {"text": text, "in_tok": in_tok, "out_tok": out_tok}
-            _result = await _tier_result(user_id, budget_key, _anth, "anthropic", model, True, persona_label)
-            _result["_raw"] = resp
-            return _result
-        except Exception as e:
-            logger.warning("LLM Gateway Anthropic failed (%s): %s", persona_label, e)
-            _mark_anthropic_fail()
-
     # ── Shared site-support BYOK pool — free keys the platform may use ──────
     # Site Support team members share their free BYOK key with the platform:
     # when every free provider fails, the gateway serves the request on a
@@ -1012,13 +950,10 @@ def gateway_status() -> dict:
             "together":     {"tier": 6,    "primary": False, "available": bool(TOGETHER_API_KEY),     "key_set": bool(TOGETHER_API_KEY),     "cost": "free_credit",   "tool_calling": False},
             "openrouter":   {"tier": 7,    "primary": False, "available": bool(OPENROUTER_API_KEY),   "key_set": bool(OPENROUTER_API_KEY),   "cost": "free",          "tool_calling": False},
             "huggingface":  {"tier": 8,    "primary": False, "available": bool(HUGGINGFACE_API_KEY),  "key_set": bool(HUGGINGFACE_API_KEY),  "cost": "free_slow",     "tool_calling": False},
-            "anthropic":    {"tier": "OFF","primary": False, "available": False,                       "key_set": bool(ANTHROPIC_API_KEY),    "cost": "PAID_DISABLED", "tool_calling": True,
-                             "note": "Disabled by owner directive. Set ANTHROPIC_IS_ENABLED=true to re-enable."},
             "kb_fallback":  {"tier": 9,    "primary": False, "available": True,                       "key_set": True,                       "cost": "zero",          "tool_calling": False},
             "byok_shared":  {"tier": "shared", "primary": False, "available": bool(_SHARED_BYOK_POOL), "key_set": bool(_SHARED_BYOK_POOL), "cost": "free_shared", "tool_calling": True,
                              "note": "Site support team keys shared with the platform (used when all free providers fail)"},
         },
-        "anthropic_enabled": _ANTHROPIC_IS_ENABLED,
         "budget": {
             "hourly_cap":     HOURLY_TOKEN_CAP,
             "tokens_used":    _hour_tokens_used,

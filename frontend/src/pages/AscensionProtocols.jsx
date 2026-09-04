@@ -2,8 +2,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { Link } from "react-router-dom";
 import PublicNav from "../components/PublicNav";
 
-// ===========================================================================
-// THE ASCENSION PROTOCOLS — A Course in Ancestral and Cosmic Remembrance
+// ====================================================================// THE ASCENSION PROTOCOLS — A Course in Ancestral and Cosmic Remembrance
 // ---------------------------------------------------------------------------
 // REWRITTEN: Sequential module flow, play/stop audio controls, embedded
 // culturally specific video players, all 4 phases restored.
@@ -11,8 +10,7 @@ import PublicNav from "../components/PublicNav";
 // The Kemetic/pan-African frame is structural, not decorative.
 // Videos are from Black/African American and diaspora educators.
 // YouTube embeds keep users ON-SITE — no outbound redirects.
-// ===========================================================================
-
+// ====================================================================
 // ── Audio Engine (play + stop) ───────────────────────────────────────────────
 
 function useAudioPlayer() {
@@ -1048,3 +1046,4 @@ export default function AscensionProtocols() {
     </div>
   );
 }
+
