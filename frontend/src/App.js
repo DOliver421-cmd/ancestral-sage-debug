@@ -80,7 +80,6 @@ import TermsOfService from "./pages/TermsOfService";
 import PrivacyPolicy from "./pages/PrivacyPolicy";
 import RefundPolicy from "./pages/RefundPolicy";
 import MoreHelpCenter from "./pages/MoreHelpCenter";
-import SupervisorLogin from "./pages/SupervisorLogin";
 import WAIInstitute from "./pages/WAIInstitute";
 import OurLegacy from "./pages/OurLegacy";
 import VonnsSaga from "./pages/VonnsSaga";
