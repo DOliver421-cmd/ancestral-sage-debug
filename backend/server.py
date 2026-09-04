@@ -1334,6 +1334,30 @@ async def _on_startup_impl():
     except Exception as _e:
         logger.warning("STARTUP: seed_compliance failed (non-fatal): %s", _e)
 
+    # ── Hybrid NAM knowledge corpus (owner session 2026-09-04) ────────────────
+    # Seeds the Knowledge Forge only when nam_knowledge is empty, so existing
+    # production knowledge is never touched. Idempotent and non-fatal: a
+    # failure degrades to a warning, exactly like the other startup seeds.
+    try:
+        from seed_nam_knowledge import seed_nam_knowledge as _nam_seed
+        from ai.hybrid_nam import store as _nam_store
+
+        _nam_count = await _nam_store.count("nam_knowledge")
+        if _nam_count == 0:
+            _nam_result = await _nam_seed()
+            logger.info(
+                "STARTUP: Hybrid NAM knowledge seeded (%d items, %d failed).",
+                _nam_result["seeded_count"],
+                _nam_result["failed_count"],
+            )
+        else:
+            logger.info(
+                "STARTUP: Hybrid NAM knowledge already present (%d items) — seed skipped.",
+                _nam_count,
+            )
+    except Exception as _e:
+        logger.warning("STARTUP: seed_nam_knowledge failed (non-fatal): %s", _e)
+
     try:
         await seed_sites_inventory()
     except Exception as _e:
