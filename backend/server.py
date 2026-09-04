@@ -1729,10 +1729,12 @@ async def version():
 
 
 @api_router.post("/auth/register", response_model=TokenResp)
-async def register(body: RegisterReq):
+async def register(body: RegisterReq, request: Request):
     # Anti-spam: max 5 registrations per email-prefix per minute (very generous,
     # but stops the trivial "for i in range(10000): register" attack).
     await check_rate(f"register:{body.email}", max_calls=5, window_sec=60)
+    _rip = (request.client.host if request.client else "anon")
+    await check_rate(f"register:ip:{_rip}", max_calls=10, window_sec=60)
     if await db.users.find_one({"email": body.email}):
         raise HTTPException(400, "Email already registered")
 
@@ -1759,8 +1761,11 @@ async def register(body: RegisterReq):
 
 @api_router.post("/auth/login", response_model=TokenResp)
 async def login(body: LoginReq, request: Request):
-    # Hard rate cap: 5 attempts per minute per email (in-memory, first line of defense).
+    # Hard rate caps: 5 attempts/minute per email + 20/minute per source IP
+    # (in-memory, first line of defense — H3: stops cross-account stuffing).
     await check_rate(f"login:{body.email}", max_calls=5, window_sec=60)
+    _ip = (request.client.host if request.client else "anon")
+    await check_rate(f"login:ip:{_ip}", max_calls=20, window_sec=60)
     doc = await db.users.find_one({"email": body.email}, {"_id": 0})
 
     # DB-backed lockout: survives restarts, enforced on every login attempt.
@@ -10306,6 +10311,76 @@ try:
 except Exception as _csse:
     logger.warning("cross-site SSO routes not registered: %s", _csse)
 
+
+# ── Router completions: endpoints defined in canonical router modules that ──
+# are NOT mounted wholesale (server.py keeps inline copies of their core
+# routes). Registering the missing handlers here makes the frontend's calls
+# reach a real API without duplicating route bodies. Bound like the SSO block
+# above — same handler objects, one source of truth.
+try:
+    from routers import users as _users_router
+    _users_router.bind(db, audit, notify, current_user, can_modify, hash_pw)
+    _USERS_ROUTES = [
+        ("GET", "/admin/users/{uid}", _users_router.admin_get_user),
+        ("PATCH", "/admin/users/{uid}/tier", _users_router.admin_set_tier),
+        ("POST", "/admin/users/{uid}/ban", _users_router.admin_ban_user),
+        ("POST", "/admin/users/{uid}/unban", _users_router.admin_unban_user),
+        ("POST", "/admin/users/{uid}/erasure", _users_router.admin_user_erasure),
+        ("GET", "/admin/users/{uid}/sessions", _users_router.exec_list_user_sessions),
+        ("DELETE", "/admin/users/{uid}/sessions", _users_router.exec_force_logout),
+        ("POST", "/admin/users/bulk", _users_router.exec_bulk_action),
+        ("GET", "/admin/users/{uid}/audit", _users_router.exec_user_audit),
+        ("GET", "/admin/mfa/config", _users_router.get_mfa_config),
+        ("PATCH", "/admin/mfa/config", _users_router.set_mfa_config),
+        ("GET", "/admin/access/ipwhitelist", _users_router.get_ip_whitelist),
+        ("POST", "/admin/access/ipwhitelist", _users_router.add_ip_whitelist),
+        ("DELETE", "/admin/access/ipwhitelist/{entry_id}", _users_router.remove_ip_whitelist),
+        ("POST", "/admin/users/{uid}/elevated-role", _users_router.grant_elevated_role),
+        ("GET", "/admin/users/{uid}/elevated-role", _users_router.get_elevated_role),
+        ("DELETE", "/admin/users/{uid}/elevated-role", _users_router.revoke_elevated_role),
+        ("PATCH", "/admin/users/{uid}/sage-tier", _users_router.set_user_sage_tier),
+        ("POST", "/users/accept-terms", _users_router.users_accept_terms),
+        ("POST", "/admin/users/{uid}/reset-password", _users_router.admin_reset_password),
+    ]
+    for _m, _p, _h in _USERS_ROUTES:
+        api_router.add_api_route(_p, _h, methods=[_m])
+    logger.info("Registered %d user-administration endpoints from routers/users.py", len(_USERS_ROUTES))
+except Exception as _ure:
+    logger.warning("user-administration endpoints not registered: %s", _ure)
+
+try:
+    from routers import personas as _personas_router
+    _personas_router.bind(db, current_user, audit)
+    _PERSONAS_ROUTES = [
+        ("GET", "/admin/personas", _personas_router.list_personas),
+        ("POST", "/personas", _personas_router.create_persona),
+        ("PUT", "/personas/{persona_id}", _personas_router.update_persona),
+        ("PUT", "/personas/{persona_id}/priority", _personas_router.update_priority),
+        ("DELETE", "/personas/{persona_id}", _personas_router.delete_persona),
+        ("GET", "/personas/stack", _personas_router.get_active_persona_stack),
+    ]
+    for _m, _p, _h in _PERSONAS_ROUTES:
+        api_router.add_api_route(_p, _h, methods=[_m])
+    logger.info("Registered %d persona-CRUD endpoints from routers/personas.py", len(_PERSONAS_ROUTES))
+except Exception as _pre:
+    logger.warning("persona-CRUD endpoints not registered: %s", _pre)
+try:
+    from routers import commerce as _commerce_router
+    _commerce_router.bind(db, current_user, audit, run_escalation_check, run_engagement_check, _discount_manager)
+    api_router.add_api_route("/admin/platform/flags", _commerce_router.get_platform_flags, methods=["GET"])
+    api_router.add_api_route("/admin/platform/flags/{flag}", _commerce_router.set_platform_flag, methods=["POST"])
+    logger.info("Registered platform-flag endpoints from routers/commerce.py")
+except Exception as _cfe:
+    logger.warning("platform-flag endpoints not registered: %s", _cfe)
+
+try:
+    # exec_control is already mounted + auto-bound by the _ADDITIONAL_API_ROUTER_MODULES
+    # loop above, so import only — no second bind() call.
+    from routers import exec_control as _ec_router
+    api_router.add_api_route("/admin/broadcast", _ec_router.control_panel_set_broadcast, methods=["POST"])
+    logger.info("Registered /admin/broadcast from routers/exec_control.py")
+except Exception as _bfe:
+    logger.warning("/admin/broadcast not registered: %s", _bfe)
 
 app.include_router(api_router)
 

@@ -38,7 +38,7 @@ export default function KnowledgeFinder() {
     setBusy(true);
     setError("");
     try {
-      const { data } = await api.get(`/knowledge/search?q=${encodeURIComponent(q)}`);
+      const { data } = await api.get(`/ai/knowledge/search?q=${encodeURIComponent(q)}`);
       setResults(data.results || []);
       setUpgrade(data.upgrade_prompt || null);
       setSearched(true);

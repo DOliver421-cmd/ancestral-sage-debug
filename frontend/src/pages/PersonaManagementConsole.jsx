@@ -38,7 +38,7 @@ export default function PersonaManagementConsole() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const { data } = await api.get("/personas");
+      const { data } = await api.get("/admin/personas");
       setList(data || []);
     } catch {
       toast.error("Could not load personas.");
