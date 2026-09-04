@@ -51,26 +51,37 @@ REQUIRED = {
     ("POST", "/api/admin/platform/flags/{flag}"),
     # exec_control.py — site-wide broadcast alias
     ("POST", "/api/admin/broadcast"),
+    # gateway_admin.py — LLM gateway runtime controls (MoreHelp console)
+    ("GET", "/api/admin/gateway/status"),
+    ("GET", "/api/admin/gateway/ranking"),
+    ("PATCH", "/api/admin/gateway/ranking"),
+    ("PATCH", "/api/admin/gateway/budget"),
+    ("POST", "/api/admin/gateway/reset-budget"),
 }
 
 
-def _collect(routes, acc):
+def _collect(routes, acc, prefix=""):
     for r in routes:
         sub = getattr(r, "routes", None)
         inc = getattr(r, "include_context", None)
         if inc is not None:
             wrapped = getattr(inc, "included_router", None)
             if wrapped is not None:
-                _collect(getattr(wrapped, "routes", []) or [], acc)
+                _collect(
+                    getattr(wrapped, "routes", []) or [],
+                    acc,
+                    prefix + (getattr(inc, "prefix", "") or ""),
+                )
             continue
         if sub:
-            _collect(sub, acc)
+            _collect(sub, acc, prefix + (getattr(r, "path", "") or ""))
             continue
         path = getattr(r, "path", None)
         if not path:
             continue
+        full = prefix + path
         for m in getattr(r, "methods", []) or []:
-            acc.add((m, path))
+            acc.add((m, full))
 
 
 @pytest.fixture(scope="module")
@@ -81,6 +92,12 @@ def registered():
         pytest.skip(f"server import unavailable in this env: {exc}")
     acc = set()
     _collect(server.api_router.routes, acc)
+    # Routers mounted straight onto the app (gateway_admin etc.) live under
+    # include_context wrappers — walk the whole app, not just api_router.
+    try:
+        _collect(server.app.routes, acc)
+    except Exception:  # app shape varies by FastAPI version
+        pass
     return acc
 
 

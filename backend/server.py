@@ -239,6 +239,7 @@ _ADDITIONAL_API_ROUTER_MODULES = (
     ("site_guide", "/api"),
     ("supervisor", "/api"),
     ("system_rollback", "/api"),
+    ("gateway_admin", "/api"),
 )
 
 # ── Feature Control Center enforcement (read side) ──────────────────────────

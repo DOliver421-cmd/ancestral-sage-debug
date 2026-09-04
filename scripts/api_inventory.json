@@ -1,5 +1,5 @@
 {
-  "total": 755,
+  "total": 760,
   "routes": [
     {
       "method": "DELETE",
@@ -487,6 +487,24 @@
         "dep"
       ],
       "name": "get_active_discount"
+    },
+    {
+      "method": "GET",
+      "path": "/api/admin/gateway/ranking",
+      "module": "routers.gateway_admin",
+      "auth": [
+        "dep"
+      ],
+      "name": "gateway_ranking"
+    },
+    {
+      "method": "GET",
+      "path": "/api/admin/gateway/status",
+      "module": "routers.gateway_admin",
+      "auth": [
+        "dep"
+      ],
+      "name": "gateway_status"
     },
     {
       "method": "GET",
@@ -3299,6 +3317,24 @@
     },
     {
       "method": "PATCH",
+      "path": "/api/admin/gateway/budget",
+      "module": "routers.gateway_admin",
+      "auth": [
+        "dep"
+      ],
+      "name": "gateway_set_budget"
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/admin/gateway/ranking",
+      "module": "routers.gateway_admin",
+      "auth": [
+        "dep"
+      ],
+      "name": "gateway_set_ranking"
+    },
+    {
+      "method": "PATCH",
       "path": "/api/admin/mfa/config",
       "module": "server.inline",
       "auth": [
@@ -3755,6 +3791,15 @@
         "dep"
       ],
       "name": "set_discount"
+    },
+    {
+      "method": "POST",
+      "path": "/api/admin/gateway/reset-budget",
+      "module": "routers.gateway_admin",
+      "auth": [
+        "dep"
+      ],
+      "name": "gateway_reset_budget"
     },
     {
       "method": "POST",
