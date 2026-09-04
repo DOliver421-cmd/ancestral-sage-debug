@@ -1317,9 +1317,11 @@ async def _on_startup_impl():
                 # Serve static assets
                 app.mount("/static", StaticFiles(directory=str(_bp / "static")), name="static")
 
-                # SPA catch-all â€” must come AFTER api_router is included
+                # SPA catch-all — must come AFTER api_router is included
                 @app.get("/{full_path:path}", include_in_schema=False)
                 async def _spa_catchall(full_path: str):
+                    if full_path.startswith("api"):
+                        return JSONResponse(status_code=404, content={"detail": "Not Found"})
                     return FileResponse(str(_bp / "index.html"))
 
                 logger.info("STARTUP: Serving React frontend from %s", _bp)
@@ -10188,3 +10190,4 @@ if __name__ == "__main__":
     import uvicorn
     port = int(os.environ.get("PORT", 8000))
     uvicorn.run("server:app", host="0.0.0.0", port=port)
+
