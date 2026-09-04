@@ -344,7 +344,8 @@ function ExecPanel({ apiOnline, visibility, setVisibility, superExec }) {
             <a href="/main" className="text-xs font-bold uppercase tracking-widest" style={{ color: "#5a4e42" }}>Main Site</a>
             <a href="/supervisor/login" className="text-xs font-bold uppercase tracking-widest" style={{ color: "#5a4e42" }}>Supervisor Login</a>
             <a href="https://www.wai-institute.org" target="_blank" rel="noopener noreferrer" className="text-xs font-bold px-4 py-2 rounded-lg transition-transform hover:scale-105" style={{ background: GOLD, color: "#1a1a2e" }}>
-              WAI Institute → </a>
+              WAI Institute →
+            </a>
   const loadUsers = useCallback(async (q, role, active) => {
     try {
       const params = new URLSearchParams();

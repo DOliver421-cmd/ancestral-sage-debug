@@ -254,9 +254,10 @@ function useMobileKeyboardFix(onViewportChange) {
   }, [onViewportChange]);
 }
 
-// ====================================================================// PUBLIC HELPER - colorful, full-featured
-// (embedded=true renders inside a bounded container, e.g. the landing page)
-// ====================================================================export function PublicHelper({ embedded = false }) {
+// ===========================================================================
+// PUBLIC HELPER - colorful, full-featured
+// ===========================================================================
+export function PublicHelper({ embedded = false }) {
   const [searchParams] = useSearchParams();
   const [msgs, setMsgs] = useState([]);
   const [input, setInput] = useState("");

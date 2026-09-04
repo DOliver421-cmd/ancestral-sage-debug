@@ -345,15 +345,10 @@ try:
         start = _time.monotonic()
         try:
             async with _httpx.AsyncClient(timeout=10) as client:
-                if ptype == "anthropic":
-                    r = await client.post("https://api.anthropic.com/v1/messages",
-                        headers={"x-api-key": plaintext, "anthropic-version": "2023-06-01", "content-type": "application/json"},
-                        json={"model": "claude-haiku-4-5-20251001", "max_tokens": 1, "messages": [{"role": "user", "content": "ping"}]})
-                else:
-                    base = (provider or {}).get("base_url") or "https://api.openai.com/v1"
-                    r = await client.post(f"{base}/chat/completions",
-                        headers={"Authorization": f"Bearer {plaintext}", "content-type": "application/json"},
-                        json={"model": "gpt-4o-mini", "max_tokens": 1, "messages": [{"role": "user", "content": "ping"}]})
+                base = (provider or {}).get("base_url") or "https://api.openai.com/v1"
+                r = await client.post(f"{base}/chat/completions",
+                    headers={"Authorization": f"Bearer {plaintext}", "content-type": "application/json"},
+                    json={"model": "gpt-4o-mini", "max_tokens": 1, "messages": [{"role": "user", "content": "ping"}]})
             latency_ms = round((_time.monotonic() - start) * 1000)
             ok = r.status_code < 500
             return {"ok": ok, "latency_ms": latency_ms, "status_code": r.status_code}

@@ -19,11 +19,9 @@ import uuid
 import logging
 from datetime import datetime, timezone
 
-import anthropic as _anthropic_module
 
 logger = logging.getLogger("lcewai.ambassador")
 
-ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY", "")
 GUMROAD_API_KEY   = os.environ.get("GUMROAD_API_KEY", "")
 EXECUTIVE_EMAIL   = os.environ.get("EXECUTIVE_EMAIL", "")
 
@@ -330,10 +328,8 @@ async def _quick_persona_call(persona_prompt: str, user_message: str, max_tokens
     Used for Ambassador→Oracle and Ambassador→Cipher coordination.
     No tool loop — one-shot synthesis response.
     """
-    if not ANTHROPIC_API_KEY:
         return "[AI coordination unavailable — no API key configured]"
     try:
-        client = _anthropic_module.AsyncAnthropic(api_key=ANTHROPIC_API_KEY)
         msg = await client.messages.create(
             model="claude-haiku-4-5",
             max_tokens=max_tokens,

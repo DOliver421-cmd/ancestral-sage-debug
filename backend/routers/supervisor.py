@@ -298,7 +298,7 @@ async def supervisor_backup_status(user: User = Depends(_require_rank("executive
 async def supervisor_switch_provider(body: dict, user: User = Depends(_require_rank("executive_admin"))):
     """Supervisor manually promotes a provider to top of ranking (backup system override)."""
     provider = body.get("provider", "").strip()
-    _DEFAULT = ["groq","cerebras","gemini","xai","cohere","openrouter","huggingface","anthropic"]
+    _DEFAULT = ["groq","cerebras","gemini","xai","cohere","openrouter","huggingface"]
     if provider not in _DEFAULT:
         raise HTTPException(400, f"Unknown provider: {provider}. Valid: {_DEFAULT}")
     doc = await db.platform_config.find_one({"key": "gateway_provider_ranking"}, {"_id": 0})

@@ -24,7 +24,6 @@ from datetime import datetime, timezone
 
 logger = logging.getLogger("lcewai.conversational_engine")
 
-ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY", "")
 
 # Response tone templates per intent type
 RESPONSE_TONE = {
@@ -147,7 +146,6 @@ class ConversationalEngine:
         Use Cipher persona to write an empathetic, authentic recommendation.
         Falls back to template response if API unavailable.
         """
-        if not ANTHROPIC_API_KEY:
             return self._template_response(product, theme, intent)
 
         tone = RESPONSE_TONE.get(intent, RESPONSE_TONE["none"])
@@ -177,8 +175,6 @@ Rules:
 - Write in plain text, no markdown"""
 
         try:
-            import anthropic
-            client = anthropic.AsyncAnthropic(api_key=ANTHROPIC_API_KEY)
             msg = await client.messages.create(
                 model="claude-haiku-4-5",
                 max_tokens=300,
