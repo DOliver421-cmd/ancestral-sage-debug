@@ -68,7 +68,6 @@ export default function MoreAdmin() {
   const [flagTotal, setFlagTotal] = useState(0);
   const [loading, setLoading] = useState(false);
   const [purging, setPurging] = useState(false);
-  const [actingId, setActingId] = useState(null);
   const [confirmPurge, setConfirmPurge] = useState(false);
 
   const load = useCallback(async () => {
@@ -159,7 +158,6 @@ export default function MoreAdmin() {
             <button onClick={load} className="btn-ghost text-sm flex items-center gap-2">
               <RefreshCw className="w-4 h-4" /> Refresh
             </button>
-            <button onClick={purge} disabled={purging} className="btn-primary text-sm flex items-center gap-2 disabled:opacity-50">
             <button
               onClick={() => setConfirmPurge(true)}
               disabled={purging}
@@ -251,7 +249,7 @@ export default function MoreAdmin() {
             <h2 className="font-heading font-bold text-lg text-slate-900 mb-2">Run Manual Purge</h2>
             <p className="text-sm text-slate-600 mb-6">This deletes all expired content now. This cannot be undone.</p>
             <div className="flex justify-end gap-3">
-              <button onClick={() => setConfirmPurge(false)} className="text-sm px-4 py-2 rounded-lg text-slate-600 hover:bg-slate-50">Cancel</button>
+            <button onClick={() => setConfirmPurge(true)} disabled={purging} className="btn-primary text-sm flex items-center gap-2 disabled:opacity-50">
               <button onClick={doPurge} className="text-sm px-4 py-2 rounded-lg bg-red-600 text-white font-bold hover:bg-red-700">Run Purge</button>
             </div>
           </div>

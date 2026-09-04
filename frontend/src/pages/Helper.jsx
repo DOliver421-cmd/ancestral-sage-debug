@@ -28,8 +28,10 @@ export default function Helper({ requireAuth = false }) {
   return requireAuth ? <AuthHelper user={user} /> : <PublicHelper />;
 }
 
-// ====================================================================// KNOWLEDGE BASE
-// ====================================================================const KB = {
+// ====================================================================
+// KNOWLEDGE BASE
+// ====================================================================
+const KB = {
   mail: {
     keywords: ["mail","letter","notice","envelope","received","document","paper","sent me"],
     response: (q) => {
@@ -826,4 +828,5 @@ function useMobileKeyboardFix(onViewportChange) {
     </div>
   );
 }
+
 
