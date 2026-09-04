@@ -24,7 +24,7 @@ export default function Personas() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    api.get("/personas").then((r) => {
+    api.get("/ai/personas").then((r) => {
       setPersonas(r.data.personas || []);
     }).catch(() => {}).finally(() => setLoading(false));
   }, []);

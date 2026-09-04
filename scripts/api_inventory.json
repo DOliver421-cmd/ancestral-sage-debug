@@ -1,6 +1,15 @@
 {
-  "total": 723,
+  "total": 755,
   "routes": [
+    {
+      "method": "DELETE",
+      "path": "/api/admin/access/ipwhitelist/{entry_id}",
+      "module": "server.inline",
+      "auth": [
+        "dep"
+      ],
+      "name": "remove_ip_whitelist"
+    },
     {
       "method": "DELETE",
       "path": "/api/admin/prices/{price_id}",
@@ -27,6 +36,24 @@
         "dep"
       ],
       "name": "admin_delete_user"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/admin/users/{uid}/elevated-role",
+      "module": "server.inline",
+      "auth": [
+        "dep"
+      ],
+      "name": "revoke_elevated_role"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/admin/users/{uid}/sessions",
+      "module": "server.inline",
+      "auth": [
+        "dep"
+      ],
+      "name": "exec_force_logout"
     },
     {
       "method": "DELETE",
@@ -135,6 +162,15 @@
         "_dep_current_user"
       ],
       "name": "delete_media_product"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/personas/{persona_id}",
+      "module": "server.inline",
+      "auth": [
+        "dep"
+      ],
+      "name": "delete_persona"
     },
     {
       "method": "DELETE",
@@ -391,6 +427,15 @@
     },
     {
       "method": "GET",
+      "path": "/api/admin/access/ipwhitelist",
+      "module": "server.inline",
+      "auth": [
+        "dep"
+      ],
+      "name": "get_ip_whitelist"
+    },
+    {
+      "method": "GET",
       "path": "/api/admin/ai-costs",
       "module": "server.inline",
       "auth": [
@@ -454,12 +499,39 @@
     },
     {
       "method": "GET",
+      "path": "/api/admin/mfa/config",
+      "module": "server.inline",
+      "auth": [
+        "dep"
+      ],
+      "name": "get_mfa_config"
+    },
+    {
+      "method": "GET",
       "path": "/api/admin/payments",
       "module": "server.inline",
       "auth": [
         "dep"
       ],
       "name": "admin_payment_list"
+    },
+    {
+      "method": "GET",
+      "path": "/api/admin/personas",
+      "module": "server.inline",
+      "auth": [
+        "dep"
+      ],
+      "name": "list_personas"
+    },
+    {
+      "method": "GET",
+      "path": "/api/admin/platform/flags",
+      "module": "server.inline",
+      "auth": [
+        "dep"
+      ],
+      "name": "get_platform_flags"
     },
     {
       "method": "GET",
@@ -587,6 +659,42 @@
         "dep"
       ],
       "name": "all_users"
+    },
+    {
+      "method": "GET",
+      "path": "/api/admin/users/{uid}",
+      "module": "server.inline",
+      "auth": [
+        "dep"
+      ],
+      "name": "admin_get_user"
+    },
+    {
+      "method": "GET",
+      "path": "/api/admin/users/{uid}/audit",
+      "module": "server.inline",
+      "auth": [
+        "dep"
+      ],
+      "name": "exec_user_audit"
+    },
+    {
+      "method": "GET",
+      "path": "/api/admin/users/{uid}/elevated-role",
+      "module": "server.inline",
+      "auth": [
+        "dep"
+      ],
+      "name": "get_elevated_role"
+    },
+    {
+      "method": "GET",
+      "path": "/api/admin/users/{uid}/sessions",
+      "module": "server.inline",
+      "auth": [
+        "dep"
+      ],
+      "name": "exec_list_user_sessions"
     },
     {
       "method": "GET",
@@ -2650,6 +2758,15 @@
     },
     {
       "method": "GET",
+      "path": "/api/personas/stack",
+      "module": "server.inline",
+      "auth": [
+        "dep"
+      ],
+      "name": "get_active_persona_stack"
+    },
+    {
+      "method": "GET",
       "path": "/api/playlist/dashboard",
       "module": "server.inline",
       "auth": [
@@ -3182,6 +3299,15 @@
     },
     {
       "method": "PATCH",
+      "path": "/api/admin/mfa/config",
+      "module": "server.inline",
+      "auth": [
+        "dep"
+      ],
+      "name": "set_mfa_config"
+    },
+    {
+      "method": "PATCH",
       "path": "/api/admin/prices/{price_id}",
       "module": "routers.auditor",
       "auth": [
@@ -3233,6 +3359,24 @@
         "dep"
       ],
       "name": "admin_change_role"
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/admin/users/{uid}/sage-tier",
+      "module": "server.inline",
+      "auth": [
+        "dep"
+      ],
+      "name": "set_user_sage_tier"
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/admin/users/{uid}/tier",
+      "module": "server.inline",
+      "auth": [
+        "dep"
+      ],
+      "name": "admin_set_tier"
     },
     {
       "method": "PATCH",
@@ -3470,6 +3614,15 @@
     },
     {
       "method": "POST",
+      "path": "/api/abo/exchange/contracts/{contract_id}/complete",
+      "module": "routers.abo",
+      "auth": [
+        "dep"
+      ],
+      "name": "complete_exchange_contract"
+    },
+    {
+      "method": "POST",
       "path": "/api/abo/goals",
       "module": "routers.abo",
       "auth": [
@@ -3497,12 +3650,39 @@
     },
     {
       "method": "POST",
+      "path": "/api/abo/redteam/engagements/{engagement_id}/approve",
+      "module": "routers.abo",
+      "auth": [
+        "dep"
+      ],
+      "name": "approve_redteam_engagement"
+    },
+    {
+      "method": "POST",
+      "path": "/api/abo/redteam/engagements/{engagement_id}/close",
+      "module": "routers.abo",
+      "auth": [
+        "dep"
+      ],
+      "name": "close_redteam_engagement"
+    },
+    {
+      "method": "POST",
       "path": "/api/abo/source/controls",
       "module": "routers.abo",
       "auth": [
         "dep"
       ],
       "name": "abo_source_controls_save"
+    },
+    {
+      "method": "POST",
+      "path": "/api/admin/access/ipwhitelist",
+      "module": "server.inline",
+      "auth": [
+        "dep"
+      ],
+      "name": "add_ip_whitelist"
     },
     {
       "method": "POST",
@@ -3521,6 +3701,15 @@
         "dep"
       ],
       "name": "assign_associate"
+    },
+    {
+      "method": "POST",
+      "path": "/api/admin/broadcast",
+      "module": "server.inline",
+      "auth": [
+        "dep"
+      ],
+      "name": "control_panel_set_broadcast"
     },
     {
       "method": "POST",
@@ -3575,6 +3764,15 @@
         "dep"
       ],
       "name": "add_inventory"
+    },
+    {
+      "method": "POST",
+      "path": "/api/admin/platform/flags/{flag}",
+      "module": "server.inline",
+      "auth": [
+        "dep"
+      ],
+      "name": "set_platform_flag"
     },
     {
       "method": "POST",
@@ -3637,6 +3835,42 @@
     },
     {
       "method": "POST",
+      "path": "/api/admin/users/bulk",
+      "module": "server.inline",
+      "auth": [
+        "dep"
+      ],
+      "name": "exec_bulk_action"
+    },
+    {
+      "method": "POST",
+      "path": "/api/admin/users/{uid}/ban",
+      "module": "server.inline",
+      "auth": [
+        "dep"
+      ],
+      "name": "admin_ban_user"
+    },
+    {
+      "method": "POST",
+      "path": "/api/admin/users/{uid}/elevated-role",
+      "module": "server.inline",
+      "auth": [
+        "dep"
+      ],
+      "name": "grant_elevated_role"
+    },
+    {
+      "method": "POST",
+      "path": "/api/admin/users/{uid}/erasure",
+      "module": "server.inline",
+      "auth": [
+        "dep"
+      ],
+      "name": "admin_user_erasure"
+    },
+    {
+      "method": "POST",
       "path": "/api/admin/users/{uid}/password",
       "module": "server.inline",
       "auth": [
@@ -3652,6 +3886,24 @@
         "dep"
       ],
       "name": "admin_create_reset_link"
+    },
+    {
+      "method": "POST",
+      "path": "/api/admin/users/{uid}/reset-password",
+      "module": "server.inline",
+      "auth": [
+        "dep"
+      ],
+      "name": "admin_reset_password"
+    },
+    {
+      "method": "POST",
+      "path": "/api/admin/users/{uid}/unban",
+      "module": "server.inline",
+      "auth": [
+        "dep"
+      ],
+      "name": "admin_unban_user"
     },
     {
       "method": "POST",
@@ -5690,6 +5942,15 @@
     },
     {
       "method": "POST",
+      "path": "/api/personas",
+      "module": "server.inline",
+      "auth": [
+        "dep"
+      ],
+      "name": "create_persona"
+    },
+    {
+      "method": "POST",
       "path": "/api/playlist/approve",
       "module": "server.inline",
       "auth": [
@@ -6187,6 +6448,15 @@
     },
     {
       "method": "POST",
+      "path": "/api/users/accept-terms",
+      "module": "server.inline",
+      "auth": [
+        "_dep_current_user"
+      ],
+      "name": "users_accept_terms"
+    },
+    {
+      "method": "POST",
       "path": "/api/v1/system/emergency-revert",
       "module": "routers.system_rollback",
       "auth": [],
@@ -6306,6 +6576,24 @@
         "Any"
       ],
       "name": "update_feature"
+    },
+    {
+      "method": "PUT",
+      "path": "/api/personas/{persona_id}",
+      "module": "server.inline",
+      "auth": [
+        "dep"
+      ],
+      "name": "update_persona"
+    },
+    {
+      "method": "PUT",
+      "path": "/api/personas/{persona_id}/priority",
+      "module": "server.inline",
+      "auth": [
+        "dep"
+      ],
+      "name": "update_priority"
     }
   ]
 }
